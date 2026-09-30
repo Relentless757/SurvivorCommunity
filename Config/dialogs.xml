@@ -22,6 +22,7 @@
 		<response_entry id="scFollow" />
 		<response_entry id="scGoHome" />
 		<response_entry id="scRun" />
+		<response_entry id="scRunHeadHome" />
 		<response_entry id="scLeave" />
 	</insertAfter>
 
@@ -93,6 +94,7 @@
 		<response id="scFollow" text="scFollow">
 			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
 			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_following" operator="not" />
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_onrun" operator="not" />
 			<action type="ScFollow, SurvivorCommunity" />
 		</response>
 		<response id="scGoHome" text="scGoHome">
@@ -102,6 +104,12 @@
 		</response>
 		<response id="scRun" text="scRun" nextstatementid="scRunPick">
 			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_onrun" operator="not" />
+		</response>
+		<!-- a runner met out in the world: turn round -->
+		<response id="scRunHeadHome" text="scRunHeadHome">
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_onrun" value="1" />
+			<action type="ScRecall, SurvivorCommunity" />
 		</response>
 		<statement id="scRunPick" text="scRunPick_text">
 			<response_entry id="scRunFood" />

@@ -94,6 +94,21 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// A physical runner is never written into a chunk: the registry snapshot is its only persistent copy (the
+        /// way vanilla keeps vehicles and drones out of chunk saves). Chunk saves run on the save thread too - this
+        /// reads one immutable set and nothing else.
+        /// </summary>
+        [HarmonyPatch(typeof(EntityAliveSDX), nameof(EntityAliveSDX.IsSavedToFile), new Type[0])]
+        public static class Patch_IsSavedToFile
+        {
+            [HarmonyPostfix]
+            public static void Postfix(EntityAliveSDX __instance, ref bool __result)
+            {
+                if (__result && __instance != null && ScRunners.IsRunnerBody(__instance)) __result = false;
+            }
+        }
+
         [HarmonyPatch(typeof(EntityAliveSDX), nameof(EntityAliveSDX.PostInit), new Type[0])]
         public static class Patch_PostInit
         {
@@ -117,6 +132,15 @@ namespace SurvivorCommunity
                     if (ScRegistry.Doomed.Contains(__instance.entityId)) { __instance.SendOnMission(true); return; }
                     // an outpost stand-in never comes back from a save: a fresh one spawns while the player is there
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScGarrison.StandInOutpostCvar)) { ScGarrison.Orphans.Add(__instance.entityId); return; }
+                    // an offline physical runner exists only as its snapshot: this is an old chunk copy (hidden now,
+                    // removed next tick - never Doomed, the id comes back with the real runner) or a stranger who
+                    // inherited the id (untouched: no spawner/Persist stamp for them)
+                    Member rm = ScRegistry.GetMember(__instance.entityId);
+                    if (rm != null && ScRunners.IsPhysical(rm) && rm.Offline && __instance.entityId != ScRunners.RecreatingId)
+                    {
+                        if (ScRunners.IsStaleCopy(rm, __instance)) { __instance.SendOnMission(true); ScRunners.StaleIds.Add(__instance.entityId); }
+                        return;
+                    }
                     if (ScRegistry.GetMember(__instance.entityId) == null && ScRegistry.GetProspect(__instance.entityId) == null) return;
                     __instance.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
                     // only an ABSENT Persist is raised here: Persist=0 is the signature of a SCore dismiss that

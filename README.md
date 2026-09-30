@@ -152,6 +152,37 @@ NPCs but cannot manage a community (v2).
   stockpile but is not counted as a guard for ammo, a cook, a medic or a gardener while away.
 - **Console:** `sc run <id|name> <food|meds|ammo|mats|fuel>`; `sc day` resolves runs at the rollover.
 
+### Physical runs (`PhysicalRuns`, on by default)
+
+The runner no longer vanishes. They **walk out of the base** to a real POI that has what they were sent for, and
+walk back.
+- **Destination.** The POI is `RunMinDist`-`RunMaxDist` (150-700) m from home. The first choice is a site the
+  radio scouted for that resource. Next, a POI whose type produces it, primary producers and nearer sites first.
+  Last resort: any scavenging site. Never an outpost, and never a POI where another runner, radio contact or
+  favour already is.
+- **The trip.** They walk to the site at `RunWalkMps`, spend `RunSiteHours` (6) game hours searching its ground
+  floor, then walk home.
+- **In the world while you are near.** Within your view distance they are a real NPC you can follow, escort, talk
+  to (*Head home now.*) or watch fight. Further out, the mod captures the NPC into a snapshot kept in the
+  registry: the same data the game uses to park vehicles and drones (name, health, buffs, bag, weapon, pack). It
+  removes the NPC and walks them on along the route on the game clock. When you come near where they are by then,
+  the same NPC (same entity id) is rebuilt there, out of your line of sight.
+- **Only one copy, ever.** A runner is never saved in a chunk; the registry is their only copy. A chunk unload
+  (teleport, bed respawn) captures them first. Quitting takes every runner out of the world before the save. Any
+  old copy a chunk still holds is removed on load.
+- **Risk.** The run's dice are rolled only while the runner is out of your sight. Escort them and real zombies
+  decide instead.
+- **The haul** counts the moment they reach the edge of the base, then they walk in to their post.
+- **Distress calls** are rolled when they reach the site: they themself are pinned there (no stand-in), and the
+  zombies go for them. Help them and they come home with the rescue bonus. Leave them for `RunDistressHours`
+  and it ends the way bad runs do. Walking away mid-fight resets the fight.
+- **Recall** (the Follow button in the window, or *Head home now.* in their dialog) turns them round. A search cut
+  short brings a share of the find.
+- **Fallback.** With no POI in range, `PhysicalRuns=false`, or on a dedicated server, the old hidden run above is
+  used. Runs saved before this version finish the old way too.
+- **Console:** `sc runners` lists each runner: leg, in world or not, position, distance, snapshot size, measured
+  walking speed. `sc run <name> skip|offline|recall|home` drives a run for testing.
+
 ## Linked storage
 
 - **One container for every box in the base.** The land claim block's radial gets **Linked storage**

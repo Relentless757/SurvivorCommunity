@@ -771,3 +771,21 @@ scMissingRestored,UI,Tooltip,,,,{0} is back at the base.
 scMissingNotMissing,UI,Tooltip,,,,They are here already.
 scMissingNotYet,UI,Tooltip,,,,Give it a moment - they may still be on their way in.
 scMissingNoClass,UI,Tooltip,,,,That kind of survivor no longer exists in this game.
+scRunDeparts,UI,Tooltip,,,,{0} sets off on foot for {1} ({2} m) to look for {3} - back around day {4}.
+scWinRunOut,UI,Menu,,,,"Walking to {1} for {0} - {2} m out, back around day {3}"
+scWinRunSite,UI,Menu,,,,"Searching {1} for {0} - {2} m out, back around day {3}"
+scWinRunPinned,UI,Menu,,,,Pinned down at {1} ({2} m out) - they radioed for help
+scWinRunHome,UI,Menu,,,,On the way home from {1} with {0} - {2} m out
+scWinRunBack,UI,Menu,,,,Back at the edge of the base with {0} - walking in
+scStRunOut,UI,Menu,,,,Run: heading to {0}
+scStRunSite,UI,Menu,,,,Run: searching {0}
+scStRunPinned,UI,Menu,,,,Run: PINNED at {0}
+scStRunHome,UI,Menu,,,,Run: on the way home
+scStRunBack,UI,Menu,,,,Run: at the gate
+scRunRecalled,UI,Tooltip,,,,{0} turns for home.
+scRunPinned,UI,Tooltip,,,,"They are pinned down - go and help them, or wait it out."
+scRunHeadingHome,UI,Tooltip,,,,They are already on the way home.
+scRunNotOut,UI,Tooltip,,,,They are not out on a run.
+scDailyRunLate,UI,Tooltip,,,,- {0} finally made it back to the gate
+scRunHeadHome,UI,Menu,,,,Head home now.
+scRunBackEmpty,UI,Tooltip,,,,{0} turned back before reaching {1} and is home empty-handed.

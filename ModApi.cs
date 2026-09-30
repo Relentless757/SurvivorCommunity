@@ -46,6 +46,7 @@ namespace SurvivorCommunity
                 ScScouting.Reset();
                 ScOutpostRisk.Reset();
                 ScMissing.Reset();
+                ScRunners.Reset();
                 ScScan.Reset();
                 ScPortraits.Reset();
                 ScLooks.Reset();
@@ -58,7 +59,11 @@ namespace SurvivorCommunity
                     catch (Exception e) { ScLog.Once("gamestartdone", e); }
                 });
                 ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) => ScTicker.OnGameUpdate());
-                ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) => { ScPortraits.Reset(); ScHomeLink.Reset(); ScRegistry.FlushAndReset(); });
+                ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) =>
+                {
+                    ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
+                    ScPortraits.Reset(); ScHomeLink.Reset(); ScRegistry.FlushAndReset();
+                });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });
                 ModEvents.EntityKilled.RegisterHandler((ref ModEvents.SEntityKilledData _d) =>
                 {
@@ -141,6 +146,7 @@ namespace SurvivorCommunity
             Add(t, "PersistentPlayerList::Write(string)", AccessTools.Method(typeof(PersistentPlayerList), "Write", new[] { typeof(string) }));
             Add(t, "EntityAliveSDX::SetDead", AccessTools.Method(typeof(EntityAliveSDX), "SetDead", new Type[0]));
             Add(t, "EntityAliveSDX::PostInit", AccessTools.Method(typeof(EntityAliveSDX), "PostInit", new Type[0]));
+            Add(t, "EntityAliveSDX::IsSavedToFile", AccessTools.DeclaredMethod(typeof(EntityAliveSDX), "IsSavedToFile", new Type[0]));
             Add(t, "EntityNPCBandit::PostInit", AccessTools.Method(typeof(EntityNPCBandit), "PostInit", new Type[0]));
             Add(t, "SleeperEventData::Update", AccessTools.Method(typeof(SleeperEventData), "Update", new Type[0]));
             // Patches_QuestTitle.cs - per-POI favour quest title + marker

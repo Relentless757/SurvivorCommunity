@@ -72,7 +72,11 @@ namespace SurvivorCommunity
         public static EntityAliveSDX FindNpc(int id)
         {
             World w = World;
-            return w != null ? w.GetEntity(id) as EntityAliveSDX : null;
+            if (w == null) return null;
+            // an offline physical runner has no entity: whatever holds the id is a stale copy or a stranger
+            Member m = ScRegistry.GetMember(id);
+            if (m != null && ScRunners.IsPhysical(m) && m.Offline) return null;
+            return w.GetEntity(id) as EntityAliveSDX;
         }
 
         // ---- recruiting ----
@@ -423,6 +427,8 @@ namespace SurvivorCommunity
             try
             {
                 ScGarrison.RemoveStandIn(m);          // a posted member leaving takes their stand-in with them
+                if (m.Status == MemberStatus.OnRun && m.RunDistress) ScRadio.EndDistress(World, LocalPlayer, m);   // no orphaned rescue quest
+                m.Snap = null;
                 EntityAliveSDX npc = FindNpc(m.Id);
                 EntityPlayerLocal player = LocalPlayer;
                 if (npc != null) CleanupStale(npc);
@@ -434,6 +440,7 @@ namespace SurvivorCommunity
                     Tell(player, string.Format(Localization.Get(reasonKey ?? "scLeft"), m.Name), "ui_denied");
                 }
                 ScRegistry.Members.Remove(m.Id);
+                ScRunners.RebuildRunnerSet();
                 ScLog.Out(m.Name + " left the community (" + (reasonKey ?? "dismissed") + ")");
                 ScRegistry.SaveAtomic();
             }
@@ -514,7 +521,13 @@ namespace SurvivorCommunity
         {
             if (m == null) return;
             if (m.Status == MemberStatus.Garrison) ScGarrison.RemoveStandIn(m);
+            if (m.Status == MemberStatus.OnRun)
+            {
+                if (m.RunDistress) ScRadio.EndDistress(World, player, m);     // the rescue quest fails with them
+                m.Snap = null;
+            }
             ScRegistry.Members.Remove(m.Id);
+            ScRunners.RebuildRunnerSet();
             Community c = ScRegistry.Community;
             c.Deaths.Insert(0, new KeyValuePair<int, string>(Today, m.Name));
             while (c.Deaths.Count > 5) c.Deaths.RemoveAt(c.Deaths.Count - 1);
@@ -548,6 +561,8 @@ namespace SurvivorCommunity
             bool with = m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation;
             if (with) npc.Buffs.SetCustomVar("sc_following", 1f);
             else if (npc.Buffs.HasCustomVar("sc_following")) npc.Buffs.RemoveCustomVar("sc_following");
+            if (ScRunners.IsPhysical(m)) npc.Buffs.SetCustomVar(ScRunners.OnRunCvar, 1f);
+            else if (npc.Buffs.HasCustomVar(ScRunners.OnRunCvar)) npc.Buffs.RemoveCustomVar(ScRunners.OnRunCvar);
         }
 
         public static void ClearCvars(EntityAliveSDX npc)
@@ -556,6 +571,7 @@ namespace SurvivorCommunity
             npc.Buffs.RemoveCustomVar("sc_member");
             npc.Buffs.RemoveCustomVar("sc_owner");
             npc.Buffs.RemoveCustomVar("sc_following");
+            npc.Buffs.RemoveCustomVar(ScRunners.OnRunCvar);
         }
 
         /// <summary>Adds the resident AI package at runtime (the list is rebuilt from the class on every load).</summary>

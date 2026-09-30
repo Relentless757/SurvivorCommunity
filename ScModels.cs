@@ -11,10 +11,21 @@ namespace SurvivorCommunity
         Following,
         /// <summary>Following until the player brings them inside the home zone, then stationed.</summary>
         PendingStation,
-        /// <summary>Hidden on a supply run; resolved at the day rollover.</summary>
+        /// <summary>On a supply run. RunLeg None: hidden at home, resolved at the day rollover (legacy). Otherwise a
+        /// physical run: walking to a POI and back (ScRunners), in the world near the player, a snapshot further out.</summary>
         OnRun,
         /// <summary>Posted to an outpost (ScGarrison): hidden and parked at home like a runner, OutpostId says where.</summary>
         Garrison
+    }
+
+    /// <summary>Where a physical runner is in the trip (None = the legacy hidden-at-home run).</summary>
+    public enum RunLeg
+    {
+        None = 0,
+        Outbound = 1,
+        AtSite = 2,
+        Inbound = 3,
+        Back = 4
     }
 
     public enum Skill
@@ -107,6 +118,24 @@ namespace SurvivorCommunity
         public Look Look;
         /// <summary>The outpost a Garrison member holds (-1 otherwise).</summary>
         public int OutpostId = -1;
+        /// <summary>Physical supply run (ScRunners). Saved only while OnRun with a leg other than None.</summary>
+        public RunLeg RunLeg = RunLeg.None;
+        /// <summary>The destination POI (its boundingBoxPosition key) and its name.</summary>
+        public Vector3i RunDest;
+        public string RunDestName = "";
+        /// <summary>Where they reached the site: the virtual position while there, the distress spot.</summary>
+        public Vector3i RunSite;
+        /// <summary>The current leg: a straight line from/to, timed in world ticks at RunWalkMps.</summary>
+        public Vector3i LegFrom, LegTo;
+        public ulong LegStart, LegEnd;
+        /// <summary>No entity may represent the runner: the snapshot is the runner.</summary>
+        public bool Offline;
+        /// <summary>"1:&lt;bytes&gt;:&lt;base64url&gt;" - the runner's EntityCreationData.</summary>
+        public string Snap;
+        /// <summary>What they found at the site, deposited at the gate.</summary>
+        public int RunCarry;
+        /// <summary>The run's dice are still to be rolled (only ever while offline).</summary>
+        public bool RollPending;
 
         public SkillState Skill(Skill s) { return Skills[(int)s]; }
 

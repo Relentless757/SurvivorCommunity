@@ -403,6 +403,7 @@ namespace SurvivorCommunity
                     markersRestored = true;
                     foreach (var ct in ScRegistry.Contacts) AddMarker(ct, player);
                 }
+                DespawnLater(w);
                 TickContacts(w, player);
                 TickDistress(w, player);
             }
@@ -507,6 +508,25 @@ namespace SurvivorCommunity
             try
             {
                 if (m == null || m.Status != MemberStatus.OnRun) return false;
+                if (ScRunners.IsPhysical(m))
+                {
+                    // a physical runner calls from the site they are searching - only once they are there
+                    if (m.RunLeg != RunLeg.AtSite) return false;
+                    PrefabInstance dpi = ScSecurity.PoiByKey(m.RunDest);
+                    m.RunDistress = true;
+                    m.RunSafe = false;
+                    m.EventSpawned = false;
+                    m.StandInId = -1;
+                    m.EventZombies.Clear();
+                    m.RunPoi = m.RunDest;
+                    m.RunPoiName = m.RunDestName;
+                    m.RunSpawn = m.RunSite;
+                    string perr = null;
+                    if (dpi != null) ScQuests.StartRescue(player, m, dpi, out perr);
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite))), "ui_denied");
+                    ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunSite + " (on a physical run)" + (perr != null ? " (quest: " + perr + ")" : ""));
+                    return true;
+                }
                 // sometimes the runner holes up at one of our outposts, where the defenses are
                 PrefabInstance pi = null;
                 var held = new List<Outpost>();
@@ -544,8 +564,10 @@ namespace SurvivorCommunity
             foreach (var m in ScRegistry.Members.Values)
             {
                 if (m.Status != MemberStatus.OnRun || !m.RunDistress || m.RunSafe) continue;
+                bool physical = ScRunners.IsPhysical(m);
                 if (!m.EventSpawned)
                 {
+                    if (physical && (m.Offline || ScCommunity.FindNpc(m.Id) == null)) continue;   // they come back into the world first
                     Vector3 centre = new Vector3(m.RunSpawn.x + 0.5f, m.RunSpawn.y, m.RunSpawn.z + 0.5f);
                     float d = Vector3.Distance(new Vector3(player.position.x, 0f, player.position.z), new Vector3(centre.x, 0f, centre.z));
                     if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(m.RunSpawn)) SpawnEvent(w, player, m);
@@ -556,7 +578,7 @@ namespace SurvivorCommunity
                 {
                     Vector3 c2 = new Vector3(m.RunSpawn.x + 0.5f, m.RunSpawn.y, m.RunSpawn.z + 0.5f);
                     float d2 = Vector3.Distance(new Vector3(player.position.x, 0f, player.position.z), new Vector3(c2.x, 0f, c2.z));
-                    if (d2 > ScConfig.RescueTriggerRange * 2f || !ScZone.IsLoaded(m.RunSpawn)) continue;
+                    if (d2 > ScConfig.RescueTriggerRange * (physical ? 1f : 2f) || !ScZone.IsLoaded(m.RunSpawn)) continue;
                 }
                 bool anyAlive = false;
                 for (int i = 0; i < m.EventZombies.Count; i++)
@@ -588,14 +610,20 @@ namespace SurvivorCommunity
             {
                 GameRandom rnd = w.GetGameRandom();
                 int cid = EntityClass.FromString(m.Class);
-                Vector3 centre = SpotNear(w, m.RunSpawn, 5);
+                // a physical runner is there in person: the zombies come for them, and there is no stand-in
+                EntityAliveSDX runner = ScRunners.IsPhysical(m) ? ScCommunity.FindNpc(m.Id) : null;
+                if (ScRunners.IsPhysical(m) && runner == null) return;
+                Vector3 centre = runner != null ? runner.position : SpotNear(w, m.RunSpawn, 5);
                 EntityAliveSDX standIn = null;
-                try
+                if (runner == null)
                 {
-                    if (m.Look != null) ScLooks.Pending = m.Look.Clone();      // the stand-in IS the survivor
-                    if (ScCommunity.ClassExists(cid)) standIn = EntityFactory.CreateEntity(cid, centre) as EntityAliveSDX;
+                    try
+                    {
+                        if (m.Look != null) ScLooks.Pending = m.Look.Clone();      // the stand-in IS the survivor
+                        if (ScCommunity.ClassExists(cid)) standIn = EntityFactory.CreateEntity(cid, centre) as EntityAliveSDX;
+                    }
+                    finally { ScLooks.Pending = null; }
                 }
-                finally { ScLooks.Pending = null; }
                 if (standIn != null)
                 {
                     w.SpawnEntityInWorld(standIn);
@@ -617,13 +645,14 @@ namespace SurvivorCommunity
                     if (!ScCommunity.ClassExists(zc)) continue;
                     float ang = rnd.RandomFloat * Mathf.PI * 2f;
                     int dist = rnd.RandomRange(7, 14);
-                    Vector3i at = new Vector3i(Mathf.RoundToInt(centre.x + Mathf.Cos(ang) * dist), m.RunSpawn.y, Mathf.RoundToInt(centre.z + Mathf.Sin(ang) * dist));
+                    Vector3i at = new Vector3i(Mathf.RoundToInt(centre.x + Mathf.Cos(ang) * dist), runner != null ? Mathf.FloorToInt(centre.y) : m.RunSpawn.y, Mathf.RoundToInt(centre.z + Mathf.Sin(ang) * dist));
                     Vector3 pos = SpotNear(w, at, 3);
                     EntityAlive z = EntityFactory.CreateEntity(zc, pos) as EntityAlive;
                     if (z == null) continue;
                     w.SpawnEntityInWorld(z);
                     z.SetSpawnerSource(EnumSpawnerSource.Dynamic);
-                    if (standIn != null) z.SetAttackTarget(standIn, 1200);
+                    if (runner != null) z.SetAttackTarget(runner, 1200);
+                    else if (standIn != null) z.SetAttackTarget(standIn, 1200);
                     m.EventZombies.Add(z.entityId);
                 }
                 m.EventSpawned = true;
@@ -640,6 +669,7 @@ namespace SurvivorCommunity
         private static void Rescued(World w, EntityPlayerLocal player, Member m)
         {
             m.RunSafe = true;
+            m.EventSpawned = false;                  // the event is over (a live event keeps a physical runner in the world)
             ScLeadership.Count(ScLeadership.RescueEvent);
             m.EventZombies.Clear();
             RemoveStandIn(w, m);
@@ -647,7 +677,51 @@ namespace SurvivorCommunity
             ScCommunity.Tell(player, string.Format(Localization.Get("scRescued"), m.Name), "");
             ScLog.Out(m.Name + " rescued at " + m.RunPoiName + " - the run comes home safe");
             ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
+            if (ScRunners.IsPhysical(m) && m.RunLeg == RunLeg.AtSite)
+            {
+                EntityAliveSDX r = ScCommunity.FindNpc(m.Id);
+                ScRunners.LeaveSite(player, m, r != null ? r.position : ScRunners.C(m.RunSite), w.worldTime, true, 1f);
+                ScRunners.S(m.Id).HasWaypoint = false;
+            }
             ScRegistry.SaveAtomic();
+        }
+
+        private static readonly List<int> despawnLater = new List<int>();
+
+        /// <summary>
+        /// A physical runner left the world mid-event: the event resets (walking away is never a rescue) and spawns
+        /// afresh when the player comes back. now=false from inside an unload callback, where removing other
+        /// entities is unsafe: they go on the next tick.
+        /// </summary>
+        public static void OnRunnerOffline(World w, Member m, bool now = true)
+        {
+            try
+            {
+                if (m == null || !m.EventSpawned) return;
+                for (int i = 0; i < m.EventZombies.Count; i++)
+                {
+                    if (!now) { despawnLater.Add(m.EventZombies[i]); continue; }
+                    Entity z = w != null ? w.GetEntity(m.EventZombies[i]) : null;
+                    if (z != null && !z.IsDead()) w.RemoveEntity(z.entityId, EnumRemoveEntityReason.Despawned);
+                }
+                m.EventZombies.Clear();
+                m.EventSpawned = false;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("radio-runner-offline", e);
+            }
+        }
+
+        private static void DespawnLater(World w)
+        {
+            if (despawnLater.Count == 0) return;
+            for (int i = 0; i < despawnLater.Count; i++)
+            {
+                Entity z = w.GetEntity(despawnLater[i]);
+                if (z != null && !z.IsDead()) w.RemoveEntity(z.entityId, EnumRemoveEntityReason.Despawned);
+            }
+            despawnLater.Clear();
         }
 
         public static void RemoveStandIn(World w, Member m)

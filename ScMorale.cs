@@ -181,7 +181,11 @@ namespace SurvivorCommunity
             if (c.LowMoraleDays >= ScConfig.LowMoraleDays)
             {
                 Member worst = null;
-                foreach (var m in ScRegistry.Members.Values) if (worst == null || m.Mood < worst.Mood) worst = m;
+                foreach (var m in ScRegistry.Members.Values)
+                {
+                    if (ScRunners.IsPhysical(m)) continue;            // out on a run: they cannot pack up and leave from there
+                    if (worst == null || m.Mood < worst.Mood) worst = m;
+                }
                 if (worst != null)
                 {
                     c.ThreatMemberId = worst.Id;

@@ -95,6 +95,42 @@
 			     the yield, or - RunDeathShare of the time - never comes back). At most MaxRunners are out at once. -->
 			<property name="RunDays" value="1" />
 			<property name="MaxRunners" value="3" />
+			<!-- physical runs (PhysicalRuns): the runner WALKS to a real POI RunMinDist..RunMaxDist m from home that has the
+			     resource (a scouted site first, then a POI type that produces it), searches it for RunSiteHours game hours and
+			     walks home at RunWalkMps. Near you they are a real NPC; beyond your view distance (in chunk rings: back in the
+			     world at ring D-RunOnlineRingMargin, captured at ring D-RunOfflineRingMargin and out of sight, always at D+1)
+			     they are carried by the registry as a snapshot of the NPC and walked on along the route, and come back as the
+			     same NPC when you get near. The run's dice (RunRisk*) are only rolled while they are out of your sight - escort
+			     them and real zombies decide instead. The haul counts when they reach the edge of the base. A distress call is
+			     now rolled on arrival at the site, with the runner themself pinned there for RunDistressHours. RunDays only
+			     applies to the old hidden runs (PhysicalRuns false, no POI in range, or runs saved before this version). -->
+			<property name="PhysicalRuns" value="true" />
+			<property name="RunWalkMps" value="1.5" />
+			<property name="RunMinDist" value="150" />
+			<property name="RunMaxDist" value="700" />
+			<property name="RunSiteHours" value="6" />
+			<property name="RunDistressHours" value="12" />
+			<property name="RunDeadlineGraceDays" value="2" />
+			<property name="RunWaypointSpacing" value="25" />
+			<property name="RunArriveRadius" value="2.5" />
+			<property name="RunPartialArrive" value="6" />
+			<property name="RunArriveSite" value="6" />
+			<property name="RunGridSize" value="64" />
+			<property name="RunGridFarFromPlayer" value="25" />
+			<property name="RunOnlineRingMargin" value="2" />
+			<property name="RunOfflineRingMargin" value="0" />
+			<property name="RunOnlineDwellSeconds" value="10" />
+			<property name="RunOfflineDwellSeconds" value="5" />
+			<property name="RunFrozenSeconds" value="3" />
+			<property name="RunNoPopInRange" value="50" />
+			<property name="RunPopInMaxWait" value="20" />
+			<property name="RunGateDistance" value="56" />
+			<property name="RunStuckRepathSeconds" value="5" />
+			<property name="RunStuckSkipSeconds" value="15" />
+			<property name="RunSkipMinPlayerDist" value="40" />
+			<property name="RunSnapRefreshSeconds" value="60" />
+			<property name="RunSnapMaxBytes" value="60000" />
+			<property name="RunMaterializePerTick" value="1" />
 			<property name="RunYieldPerWitsStar" value="0.15" />
 			<property name="RunSpecialistPerStar" value="0.15" />
 			<property name="RunRiskPerCombatStar" value="0.02" />

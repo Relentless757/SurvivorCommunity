@@ -838,6 +838,15 @@ namespace SurvivorCommunity
                 Refresh();
                 return;
             }
+            if (ScRunners.IsPhysical(m))
+            {
+                // out on a physical run: turn round now
+                string rerr;
+                if (ScRunners.Recall(m, p, out rerr)) message = string.Format(Localization.Get("scRunRecalled"), m.Name);
+                else { message = Localization.Get(rerr ?? "scInternal"); p.PlayOneShot("ui_denied"); }
+                Refresh();
+                return;
+            }
             if (m.Status == MemberStatus.Garrison)
             {
                 Outpost po = ScGarrison.PostOf(m);
@@ -1105,12 +1114,15 @@ namespace SurvivorCommunity
                     return true;
                 case "followlabel":
                     _value = ScMissing.IsMissing(sel) ? Localization.Get("scWinCallBack")
+                           : ScRunners.IsPhysical(sel) ? Localization.Get("scWinRecall")
                            : sel != null && sel.Status == MemberStatus.Garrison ? Localization.Get("scWinRecall")
                            : sel != null && (sel.Status == MemberStatus.Following || sel.Status == MemberStatus.PendingStation)
                         ? Localization.Get("scWinHome") : Localization.Get("scWinFollow");
                     return true;
                 case "followcolor":
-                    _value = sel != null && sel.Status == MemberStatus.OnRun ? "70,70,70,255" : "50,80,120,255";
+                    _value = sel != null && sel.Status == MemberStatus.OnRun
+                             && !(ScRunners.IsPhysical(sel) && (sel.RunLeg == RunLeg.Outbound || (sel.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(sel))))
+                        ? "70,70,70,255" : "50,80,120,255";
                     return true;
                 case "homevisible":
                     _value = (sel != null && (sel.Status == MemberStatus.Following || sel.Status == MemberStatus.PendingStation)).ToString();
@@ -1291,7 +1303,7 @@ namespace SurvivorCommunity
             {
                 case MemberStatus.Following: s = Localization.Get("scStFollowing"); break;
                 case MemberStatus.PendingStation: s = Localization.Get("scStHeadingHome"); break;
-                case MemberStatus.OnRun: s = string.Format(Localization.Get(brief ? "scStOnRunShort" : "scStOnRun"), m.RunEndDay); break;
+                case MemberStatus.OnRun: s = ScRuns.ShortStatus(m, brief); break;
                 case MemberStatus.Garrison: s = ScGarrison.StatusText(m, brief); break;
                 case MemberStatus.Resident when ScMissing.IsMissing(m): s = Localization.Get("scStMissing"); break;
                 default: s = Localization.Get("scStAtBase"); break;

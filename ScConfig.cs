@@ -87,6 +87,35 @@ namespace SurvivorCommunity
         public static float DeathDecayPerDay = 3f;
         public static int LowMoraleThreshold = 25;
         public static int HighMoraleThreshold = 75;
+        // ---- physical supply runs (ScRunners) ----
+        /// <summary>Runners walk to a real POI and back; off (or on a dedicated server) runs are the hidden-at-home kind.</summary>
+        public static bool PhysicalRuns = true;
+        public static float RunWalkMps = 1.5f;
+        public static int RunMinDist = 150;
+        public static int RunMaxDist = 700;
+        public static float RunSiteHours = 6f;
+        public static float RunDistressHours = 12f;
+        public static int RunDeadlineGraceDays = 2;
+        public static float RunWaypointSpacing = 25f;
+        public static float RunArriveRadius = 2.5f;
+        public static float RunPartialArrive = 6f;
+        public static float RunArriveSite = 6f;
+        public static int RunGridSize = 64;
+        public static float RunGridFarFromPlayer = 25f;
+        public static int RunOnlineRingMargin = 2;
+        public static int RunOfflineRingMargin = 0;
+        public static float RunOnlineDwellSeconds = 10f;
+        public static float RunOfflineDwellSeconds = 5f;
+        public static float RunFrozenSeconds = 3f;
+        public static float RunNoPopInRange = 50f;
+        public static float RunPopInMaxWait = 20f;
+        public static float RunGateDistance = 56f;
+        public static float RunStuckRepathSeconds = 5f;
+        public static float RunStuckSkipSeconds = 15f;
+        public static float RunSkipMinPlayerDist = 40f;
+        public static float RunSnapRefreshSeconds = 60f;
+        public static int RunSnapMaxBytes = 60000;
+        public static int RunMaterializePerTick = 1;
         // ---- supply runs ----
         public static int RunDays = 1;
         public static int MaxRunners = 3;
@@ -275,6 +304,7 @@ namespace SurvivorCommunity
             MissingDaysToPurge = 30;
             RunRiskBase = 0.15f;
             RunYieldBase = 2;
+            PhysicalRuns = true; RunWalkMps = 1.5f; RunMinDist = 150; RunMaxDist = 700; RunSiteHours = 6f; RunDistressHours = 12f; RunDeadlineGraceDays = 2; RunWaypointSpacing = 25f; RunArriveRadius = 2.5f; RunPartialArrive = 6f; RunArriveSite = 6f; RunGridSize = 64; RunGridFarFromPlayer = 25f; RunOnlineRingMargin = 2; RunOfflineRingMargin = 0; RunOnlineDwellSeconds = 10f; RunOfflineDwellSeconds = 5f; RunFrozenSeconds = 3f; RunNoPopInRange = 50f; RunPopInMaxWait = 20f; RunGateDistance = 56f; RunStuckRepathSeconds = 5f; RunStuckSkipSeconds = 15f; RunSkipMinPlayerDist = 40f; RunSnapRefreshSeconds = 60f; RunSnapMaxBytes = 60000; RunMaterializePerTick = 1;
             SuppliesFavours.Clear();
             PoiFavourRange = 300;
             TraitsPerRecruit = 2;
@@ -393,6 +423,36 @@ namespace SurvivorCommunity
                 ParseInt(p, "LowMoraleThreshold", ref LowMoraleThreshold, 0, 100);
                 ParseInt(p, "HighMoraleThreshold", ref HighMoraleThreshold, 0, 100);
                 ParseInt(p, "RunDays", ref RunDays, 1, 30);
+                {
+                    string bv;
+                    if (p.Values.TryGetValue("PhysicalRuns", out bv) && !string.IsNullOrEmpty(bv)) PhysicalRuns = StringParsers.ParseBool(bv);
+                }
+                ParseFloat(p, "RunWalkMps", ref RunWalkMps, 0.3f, 6.0f);
+                ParseInt(p, "RunMinDist", ref RunMinDist, 20, 5000);
+                ParseInt(p, "RunMaxDist", ref RunMaxDist, 50, 8000);
+                ParseFloat(p, "RunSiteHours", ref RunSiteHours, 0.25f, 48.0f);
+                ParseFloat(p, "RunDistressHours", ref RunDistressHours, 1.0f, 72.0f);
+                ParseInt(p, "RunDeadlineGraceDays", ref RunDeadlineGraceDays, 1, 30);
+                ParseFloat(p, "RunWaypointSpacing", ref RunWaypointSpacing, 8.0f, 40.0f);
+                ParseFloat(p, "RunArriveRadius", ref RunArriveRadius, 1.0f, 8.0f);
+                ParseFloat(p, "RunPartialArrive", ref RunPartialArrive, 2.0f, 20.0f);
+                ParseFloat(p, "RunArriveSite", ref RunArriveSite, 2.0f, 30.0f);
+                ParseInt(p, "RunGridSize", ref RunGridSize, 32, 128);
+                ParseFloat(p, "RunGridFarFromPlayer", ref RunGridFarFromPlayer, 0.0f, 200.0f);
+                ParseInt(p, "RunOnlineRingMargin", ref RunOnlineRingMargin, 1, 4);
+                ParseInt(p, "RunOfflineRingMargin", ref RunOfflineRingMargin, 0, 3);
+                ParseFloat(p, "RunOnlineDwellSeconds", ref RunOnlineDwellSeconds, 0.0f, 120.0f);
+                ParseFloat(p, "RunOfflineDwellSeconds", ref RunOfflineDwellSeconds, 0.0f, 120.0f);
+                ParseFloat(p, "RunFrozenSeconds", ref RunFrozenSeconds, 1.0f, 60.0f);
+                ParseFloat(p, "RunNoPopInRange", ref RunNoPopInRange, 0.0f, 120.0f);
+                ParseFloat(p, "RunPopInMaxWait", ref RunPopInMaxWait, 0.0f, 300.0f);
+                ParseFloat(p, "RunGateDistance", ref RunGateDistance, 40.0f, 120.0f);
+                ParseFloat(p, "RunStuckRepathSeconds", ref RunStuckRepathSeconds, 1.0f, 60.0f);
+                ParseFloat(p, "RunStuckSkipSeconds", ref RunStuckSkipSeconds, 3.0f, 300.0f);
+                ParseFloat(p, "RunSkipMinPlayerDist", ref RunSkipMinPlayerDist, 0.0f, 200.0f);
+                ParseFloat(p, "RunSnapRefreshSeconds", ref RunSnapRefreshSeconds, 10.0f, 600.0f);
+                ParseInt(p, "RunSnapMaxBytes", ref RunSnapMaxBytes, 4000, 60000);
+                ParseInt(p, "RunMaterializePerTick", ref RunMaterializePerTick, 1, 8);
                 ParseInt(p, "MaxRunners", ref MaxRunners, 0, 64);
                 ParseFloat(p, "RunYieldPerWitsStar", ref RunYieldPerWitsStar, 0f, 2f);
                 ParseFloat(p, "RunSpecialistPerStar", ref RunSpecialistPerStar, 0f, 2f);

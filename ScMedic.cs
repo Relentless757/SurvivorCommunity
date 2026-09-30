@@ -61,6 +61,9 @@ namespace SurvivorCommunity
         }
         private static readonly Dictionary<int, Use> uses = new Dictionary<int, Use>();
 
+        /// <summary>A medical use is in progress (ScRunners skips its periodic snapshot - a Write(false) would finish the use).</summary>
+        public static bool IsUsing(int id) { return uses.ContainsKey(id); }
+
         public static void Reset()
         {
             nextCheck.Clear();

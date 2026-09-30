@@ -249,6 +249,20 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>A runner came back under a new entity id: their rescue quest follows them.</summary>
+        public static void RekeyRescue(EntityPlayer player, int oldId, int newId)
+        {
+            try
+            {
+                Quest q = player != null ? FindRescue(player, oldId) : null;
+                if (q != null) q.DataVariables[MemberVar] = newId.ToString();
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-rekeyrescue", e);
+            }
+        }
+
         public static void CloseRescue(EntityPlayer player, Member m, bool completed)
         {
             try

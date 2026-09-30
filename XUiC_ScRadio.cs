@@ -233,7 +233,8 @@ namespace SurvivorCommunity
             {
                 if (m.Status != MemberStatus.OnRun || !m.RunDistress) continue;
                 if (sb.Length > 0) sb.Append('\n');
-                sb.Append(string.Format(Localization.Get(m.RunSafe ? "scRadioDistressSafe" : "scRadioDistressLine"), m.Name, m.RunPoiName, m.RunEndDay));
+                int until = ScRunners.IsPhysical(m) ? GameUtils.WorldTimeToDays(m.LegEnd) : m.RunEndDay;   // a pinned runner holds out until the leg ends
+                sb.Append(string.Format(Localization.Get(m.RunSafe ? "scRadioDistressSafe" : "scRadioDistressLine"), m.Name, m.RunPoiName, until));
             }
             return sb.Length > 0 ? sb.ToString() : Localization.Get("scRadioNoDistress");
         }

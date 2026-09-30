@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res>, distress <id|name>, spawn [hostile] [male|female] [weapon] [Set] (sc weapons lists them), weapons, look <id|name>, gear <id|name> <Set|none>, anim <id|name>, portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [Set] (sc weapons lists them), weapons, look <id|name>, gear <id|name> <Set|none>, anim <id|name>, portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -30,6 +30,7 @@ namespace SurvivorCommunity
                     case "injure": Injure(_params); break;
                     case "scan": Scan(); break;
                     case "run": Run(_params); break;
+                    case "runners": RunnersCmd(); break;
                     case "distress": Distress(_params); break;
                     case "spawn": Spawn(_params); break;
                     case "weapons": Output("[SC] weapons: " + string.Join(", ", ScLooks.WeaponTokens().ToArray())); break;
@@ -111,13 +112,14 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             foreach (var m in ScRegistry.Members.Values)
             {
-                EntityAliveSDX npc = w != null ? w.GetEntity(m.Id) as EntityAliveSDX : null;
-                string live = npc == null ? "unloaded" : ("at " + npc.GetBlockPosition() + " order " + EntityUtilities.GetCurrentOrder(m.Id)
+                EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+                string live = npc == null ? (ScRunners.IsPhysical(m) && m.Offline ? "virtual at " + World.worldToBlockPos(ScRunners.Where(m)) : "unloaded") : ("at " + npc.GetBlockPosition() + " order " + EntityUtilities.GetCurrentOrder(m.Id)
                     + " leader " + (EntityUtilities.GetLeaderOrOwner(m.Id) != null ? "yes" : "no") + " spawner " + npc.GetSpawnerSource()
                     + " pkgs [" + string.Join(",", npc.AIPackages.ToArray()) + "] sc_member=" + npc.Buffs.GetCustomVar("sc_member")
                     + " persist=" + npc.Buffs.HasCustomVar("Persist"));
                 Output("[SC] " + m.Id + " " + m.Name + " (" + m.Class + ") " + m.Status + " post " + m.Post + " mood " + m.Mood
-                       + (m.Injured ? " INJURED" : "") + (m.Ranged ? " ranged" : " melee") + " missing " + m.MissingDays + " - " + live);
+                       + (m.Injured ? " INJURED" : "") + (m.Ranged ? " ranged" : " melee") + " missing " + m.MissingDays
+                       + (ScRunners.IsPhysical(m) ? " run " + m.RunLeg + (m.Offline ? " offline" : " online") : "") + " - " + live);
                 Output("[SC]    skills " + string.Join(" ", new[] {
                     "cardio " + m.Skill(Skill.Cardio).Level + "(" + m.Skill(Skill.Cardio).Xp + "xp)", "wits " + m.Skill(Skill.Wits).Level + "(" + m.Skill(Skill.Wits).Xp + "xp)",
                     "fighting " + m.Skill(Skill.Fighting).Level + "(" + m.Skill(Skill.Fighting).Xp + "xp)", "shooting " + m.Skill(Skill.Shooting).Level + "(" + m.Skill(Skill.Shooting).Xp + "xp)" })
@@ -344,7 +346,7 @@ namespace SurvivorCommunity
             if (p[2].Equals("spec", StringComparison.OrdinalIgnoreCase)) ScSkills.AddSpecialtyXp(m, n);
             else if (ScNames.TrySkill(p[2], out s)) ScSkills.AddXp(m, s, n);
             else { Output("[SC] unknown skill '" + p[2] + "'"); return; }
-            EntityAlive npc = ScCommunity.World != null ? ScCommunity.World.GetEntity(m.Id) as EntityAlive : null;
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);      // never whatever holds an offline runner's id
             if (npc != null) ScSkills.StampCvars(m, npc);
             ScRegistry.SaveAtomic();
             Output("[SC] " + m.Name + ": cardio " + m.Stars(Skill.Cardio) + " wits " + m.Stars(Skill.Wits) + " fighting " + m.Stars(Skill.Fighting)
@@ -362,15 +364,76 @@ namespace SurvivorCommunity
             Output("[SC] " + m.Name + " injured = " + m.Injured);
         }
 
+        private static void RunnersCmd()
+        {
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            int n = 0;
+            foreach (var m in ScRegistry.Members.Values)
+            {
+                if (m.Status != MemberStatus.OnRun) continue;
+                n++;
+                if (ScRunners.IsPhysical(m)) Output("[SC] " + ScRunners.Describe(m, player));
+                else Output("[SC] " + m.Name + " [" + m.Id + "] hidden (legacy) run for " + m.RunKind + ", resolves on day " + m.RunEndDay);
+            }
+            Output("[SC] " + n + " runner(s) out; physical runs " + (ScConfig.PhysicalRuns ? "on" : "OFF") + ", walk " + ScConfig.RunWalkMps + " m/s, "
+                   + ScConfig.RunMinDist + "-" + ScConfig.RunMaxDist + " m, " + ScConfig.RunSiteHours + " h at the site");
+        }
+
+        /// <summary>sc run &lt;member&gt; recall | home | skip | offline - drive a physical run (tests).</summary>
+        private static void RunControl(Member m, string sub)
+        {
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            World w = ScCommunity.World;
+            if (!ScRunners.IsPhysical(m) || w == null) { Output("[SC] " + m.Name + " is not on a physical run"); return; }
+            EntityAliveSDX npc = m.Offline ? null : w.GetEntity(m.Id) as EntityAliveSDX;
+            switch (sub)
+            {
+                case "recall":
+                {
+                    string err;
+                    bool ok = ScRunners.Recall(m, player, out err);
+                    Output("[SC] " + (ok ? m.Name + " turns for home carrying " + m.RunCarry : "refused: " + Localization.Get(err ?? "scInternal")));
+                    break;
+                }
+                case "home":
+                    if (npc != null && !ScRunners.GoOffline(w, m, npc, "console home", false)) { Output("[SC] could not take " + m.Name + " offline"); break; }
+                    ScRunners.ForceHome(m, player);
+                    Output("[SC] " + (ScRegistry.GetMember(m.Id) == m ? m.Name + " is at the gate (" + m.RunLeg + ")" : m.Name + " did not make it (the run's dice)"));
+                    break;
+                case "offline":
+                    if (npc == null) { Output("[SC] " + m.Name + " is already offline"); break; }
+                    Output("[SC] " + (ScRunners.GoOffline(w, m, npc, "console", false) ? m.Name + " went offline" : "could not capture " + m.Name));
+                    break;
+                case "skip":
+                    if (npc != null && !ScRunners.GoOffline(w, m, npc, "console skip", false)) { Output("[SC] could not take " + m.Name + " offline"); break; }
+                    if (m.RunLeg == RunLeg.Back) { Output("[SC] " + m.Name + " waits at the gate - they walk in once you are home"); break; }
+                    m.LegEnd = w.worldTime;                   // the next tick moves them on to the next leg
+                    ScRegistry.SaveAtomic();
+                    Output("[SC] " + m.Name + ": " + m.RunLeg + " ends now");
+                    break;
+            }
+        }
+
         private static void Run(List<string> p)
         {
+            if (p.Count >= 3)
+            {
+                string rsub = p[2].ToLowerInvariant();
+                if (rsub == "recall" || rsub == "home" || rsub == "skip" || rsub == "offline")
+                {
+                    Member rm = FindMember(p[1]);
+                    if (rm == null) { Output("[SC] no member '" + p[1] + "'"); return; }
+                    RunControl(rm, rsub);
+                    return;
+                }
+            }
             Resource r;
             if (p.Count < 3 || !ScNames.TryResource(p[2], out r)) { Output("[SC] run <id|name> <food|meds|ammo|mats|fuel>"); return; }
             Member m = FindMember(p[1]);
             if (m == null) { Output("[SC] no member '" + p[1] + "'"); return; }
             string err;
             bool ok = ScRuns.Send(m, ScCommunity.FindNpc(m.Id), r, ScCommunity.LocalPlayer, out err);
-            Output("[SC] " + (ok ? m.Name + " sent for " + r + ", back on day " + m.RunEndDay + " (expected " + ScRuns.Yield(m, r) + ")" : "refused: " + err));
+            Output("[SC] " + (ok ? m.Name + " sent for " + r + (ScRunners.IsPhysical(m) ? " on foot to " + m.RunDestName + " " + m.RunDest : "") + ", back around day " + m.RunEndDay + " (expected " + ScRuns.Yield(m, r) + ")" : "refused: " + err));
         }
 
         /// <summary>sc portrait &lt;id|name|all&gt; re-shoots; sc portrait frame [fov dist yaw eyelift aimlift] shows or tunes the framing.</summary>
@@ -815,7 +878,10 @@ namespace SurvivorCommunity
             if (m.Status != MemberStatus.OnRun) { Output("[SC] " + m.Name + " is not on a supply run - send them first"); return; }
             if (m.RunDistress) { Output("[SC] " + m.Name + " already called for help from " + m.RunPoiName); return; }
             World w = ScCommunity.World;
+            if (ScRunners.IsPhysical(m) && m.RunLeg != RunLeg.AtSite) { Output("[SC] " + m.Name + " is on a physical run and calls for help only at the site (" + m.RunLeg + " now; sc run " + m.Name + " skip)"); return; }
             bool ok = ScRadio.ForceDistress(m, ScCommunity.LocalPlayer, w != null ? w.GetGameRandom() : null);
+            if (ok && ScRunners.IsPhysical(m) && w != null) ScRunners.BeginLeg(m, RunLeg.AtSite, ScRunners.C(m.RunSite), ScRunners.C(m.RunSite), w.worldTime);   // held for RunDistressHours
+            if (ok) ScRegistry.SaveAtomic();
             Output("[SC] " + (ok ? m.Name + " radios for help from " + m.RunPoiName + " " + m.RunPoi : "no POI in range or no radio online (radios seen: " + ScRadio.Radios.Count + ", online " + ScRadio.Online() + ")"));
         }
 

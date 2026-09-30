@@ -97,6 +97,7 @@ namespace SurvivorCommunity
                 if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
                 World w = ScCommunity.World;
                 if (m == null || w == null) { error = "scInternal"; return false; }
+                if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }      // a runner out of range has no body by design
                 if (w.GetEntity(m.Id) is EntityAliveSDX) { error = "scMissingNotMissing"; return false; }
                 if (!force && !IsMissing(m)) { error = "scMissingNotYet"; return false; }
                 if (!ScZone.IsLoaded(m.Post)) { error = "scNotLoaded"; return false; }

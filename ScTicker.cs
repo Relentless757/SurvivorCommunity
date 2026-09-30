@@ -58,6 +58,7 @@ namespace SurvivorCommunity
                 }
 
                 Relink(w, player);
+                ScRunners.Tick(w, player);            // physical supply runs: walk, capture out of range, re-create near the player
                 TrackProspects(w);
                 ScQuests.SyncCompleted(player);
                 ScQuests.TickMarkers(player);
@@ -135,6 +136,17 @@ namespace SurvivorCommunity
                     continue;   // unloaded (or gone) - the daily tick tracks MissingDays
                 }
                 if (npc.IsDead()) continue;   // SetDead postfix handles it
+                if (ScRunners.IsPhysical(m) && m.Offline)
+                {
+                    // the snapshot IS this runner: an entity under the id is an old chunk copy (hidden, then removed by
+                    // ScRunners) or a stranger who inherited the id (left alone - the runner returns under a new id)
+                    if (ScRunners.IsStaleCopy(m, npc))
+                    {
+                        if (!npc.Buffs.HasCustomVar("onMission")) npc.SendOnMission(true);
+                        ScRunners.StaleIds.Add(m.Id);
+                    }
+                    continue;
+                }
 
                 // Entity ids are stable in a session and restored from the world save, but a crash between a
                 // join and the next world save rewinds the id counter: the class AND the birth time must match.
@@ -220,6 +232,11 @@ namespace SurvivorCommunity
                             ScRegistry.SaveAtomic();
                         }
                         break;
+                    case MemberStatus.OnRun when ScRunners.IsPhysical(m):
+                        // a physical runner is out in the world, walking: never hidden, always on the travel order
+                        if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) npc.SendOnMission(false);
+                        if (!ScRunners.HasTravelOrder(npc)) ScRunners.ApplyTravelOrder(npc);
+                        break;
                     case MemberStatus.OnRun:
                     case MemberStatus.Garrison:
                         // hidden NPCs come back visible from a chunk load; keep them hidden (and parked) until the run
@@ -257,6 +274,7 @@ namespace SurvivorCommunity
                 var gone = new List<int>();
                 foreach (var m in ScRegistry.Members.Values)
                 {
+                    if (ScRunners.IsPhysical(m)) continue;     // a runner out of range has no entity by design
                     bool loaded = w != null && w.GetEntity(m.Id) is EntityAliveSDX;
                     if (!loaded) m.MissingDays++;
                     if (m.MissingDays > ScConfig.MissingDaysToPurge && ScZone.HomeLoaded) gone.Add(m.Id);

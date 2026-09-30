@@ -32,6 +32,16 @@
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="ScFarFromPost, SurvivorCommunity" distance="25" />
 			</action>
+			<!-- A physical supply runner (ScRunners) holds the Task order (8), which nothing else in SCore or XNPCCore
+			     uses: every resident action above stands down, the pack's combat still fires (it only gates on NotHasOrder
+			     Stay), and this walks them along their route one waypoint at a time. 4.5 beats the chase (4) and idling,
+			     and loses to in-range attacks (5-6), so a runner fights what reaches them and then walks on. -->
+			<action name="ScTravel" weight="4.5" entity_filter="IsSelf">
+				<task class="TravelSC, SurvivorCommunity" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Task" />
+				<consideration class="ScTravelling, SurvivorCommunity" />
+			</action>
 			<!-- Following is handled here rather than by the pack, whose three actions fight each other around
 			     2.5 m: LeaderFollowSlow (weight 2) pulls the NPC in, TooCloseInside/Outside (weight 3) push it
 			     back out, and with nothing winning cleanly the NPC orbits the player. These two outrank all of

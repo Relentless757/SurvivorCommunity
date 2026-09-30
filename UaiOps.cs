@@ -186,4 +186,104 @@ namespace UAI
             return Vector3.Distance(_context.Self.position, post) <= distance ? 1f : 0f;
         }
     }
+
+    /// <summary>1 while the entity is a physical runner that is in the world (Outbound / AtSite / Inbound / Back).</summary>
+    public class UAIConsiderationScTravelling : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            Member m = ScRegistry.GetMember(_context.Self.entityId);
+            return ScRunners.IsPhysical(m) && !m.Offline ? 1f : 0f;
+        }
+    }
+
+    /// <summary>
+    /// Walks a physical supply runner along its leg, one waypoint (RunWaypointSpacing) at a time: a single path
+    /// to a POI hundreds of metres away cannot exist, the A* grid only covers the player's surroundings plus the
+    /// location lines the runner keeps alive around itself. At the site it wanders the POI's ground floor; pinned
+    /// by a distress call it holds its spot. Shared singleton: all state is keyed by entityId (ScRunners.Session).
+    /// </summary>
+    public class UAITaskTravelSC : UAITaskBase
+    {
+        private readonly Dictionary<int, float> pauseUntil = new Dictionary<int, float>();
+        private readonly Dictionary<int, int> repaths = new Dictionary<int, int>();
+
+        public override void Start(Context _context)
+        {
+            base.Start(_context);
+            EntityAlive self = _context.Self;
+            Member m = ScRegistry.GetMember(self.entityId);
+            if (!ScRunners.IsPhysical(m) || m.Offline) { Stop(_context); return; }
+            if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = false;
+            PathTo(self, m, !ScRunners.S(self.entityId).HasWaypoint);
+        }
+
+        private void PathTo(EntityAlive self, Member m, bool newWaypoint)
+        {
+            ScRunners.Session s = ScRunners.S(self.entityId);
+            World w = self.world;
+            if (newWaypoint || !s.HasWaypoint)
+            {
+                Vector3 goal = ScRunners.LegGoal(m);
+                if (m.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(m)) goal = ScRunners.SiteWanderGoal(w, self, m);
+                Vector3 wp;
+                if (!ScRunners.NextWaypoint(w, self.position, s.Sidestep, goal, out wp)) { s.HasWaypoint = false; return; }   // the watchdog sidesteps, skips or hands off
+                s.Waypoint = wp;
+                s.HasWaypoint = true;
+                s.WaypointSince = Time.unscaledTime;
+            }
+            EntityPlayer p = w.GetClosestPlayer(self, -1f, false);
+            if (AstarManager.Instance != null && (p == null || ScRunners.XZ(p.position, self.position) > ScConfig.RunGridFarFromPlayer))
+                AstarManager.Instance.AddLocationLine(self.position, s.Waypoint, ScConfig.RunGridSize);
+            self.FindPath(s.Waypoint, self.GetMoveSpeed(), false, null);                   // walking pace
+        }
+
+        public override void Update(Context _context)
+        {
+            EntityAlive self = _context.Self;
+            Member m = ScRegistry.GetMember(self.entityId);
+            if (!ScRunners.IsPhysical(m) || m.Offline) { Stop(_context); return; }
+            ScRunners.Session s = ScRunners.S(self.entityId);
+            // XNPCCore's MoveToFindTarget (weight 5) turns a ranged NPC toward any noise the escorting player makes and
+            // keeps doing it for a minute: a runner only reacts to fresh noise, or it flip-flops with this task
+            if (self.HasInvestigatePosition) self.ClearInvestigatePosition();
+            self.noisePlayer = null;
+            self.noisePlayerVolume = 0f;
+            float pu;
+            if (pauseUntil.TryGetValue(self.entityId, out pu) && Time.time < pu) return;      // looking around at the site
+            if (!s.HasWaypoint) { PathTo(self, m, true); return; }
+
+            Vector3 d = s.Waypoint - self.position;
+            d.y = 0f;
+            if (d.magnitude <= ScConfig.RunArriveRadius)
+            {
+                if (ScRunners.Pinned(m)) { self.getNavigator().clearPath(); if (self.moveHelper != null) self.moveHelper.Stop(); return; }   // hold the spot; attacks still win
+                if (m.RunLeg == RunLeg.AtSite) pauseUntil[self.entityId] = Time.time + 4f + (self.rand != null ? self.rand.RandomFloat * 8f : 4f);
+                repaths[self.entityId] = 0;
+                s.HasWaypoint = false;
+                return;
+            }
+            if (self.getNavigator().noPathAndNotPlanningOne())
+            {
+                // SCore's human Stop patch clears the path on every stall: re-path, then accept where a partial path ended
+                int n;
+                repaths.TryGetValue(self.entityId, out n);
+                repaths[self.entityId] = ++n;
+                if (d.magnitude <= ScConfig.RunPartialArrive || n > 4) { repaths[self.entityId] = 0; s.HasWaypoint = false; PathTo(self, m, true); }
+                else PathTo(self, m, false);
+                return;
+            }
+            self.SetLookPosition(s.Waypoint);
+        }
+
+        public override void Stop(Context _context)
+        {
+            EntityAlive self = _context.Self;
+            pauseUntil.Remove(self.entityId);
+            repaths.Remove(self.entityId);
+            if (self.getNavigator() != null) self.getNavigator().clearPath();
+            if (self.moveHelper != null) { self.moveHelper.Stop(); self.moveHelper.CanBreakBlocks = true; }
+            base.Stop(_context);
+        }
+    }
 }

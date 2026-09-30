@@ -126,6 +126,7 @@ namespace SurvivorCommunity
                 }
                 loaded = true;
                 foreach (var m in Members.Values) m.MissingDays = Math.Max(m.MissingDays, 0);
+                ScRunners.OnRegistryLoaded();          // a runner left in the world by a crash resumes from its snapshot
                 ScOutposts.OnRegistryChanged();
                 ScLog.Out("registry loaded: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s), " + Outposts.Count + " outpost(s), morale "
                           + Community.Morale + (Community.HasHome ? ", home " + Community.Home : ", no home yet")
@@ -459,6 +460,24 @@ namespace SurvivorCommunity
                 case "look": { Look l = m.Look ?? new Look(); if (l.Decode(val)) m.Look = l; break; }
                 case "gear": { if (m.Look == null) m.Look = new Look(); m.Look.DecodeGear(val); break; }
                 case "outpost": m.OutpostId = I(val); break;
+                case "leg": { RunLeg l; if (Enum.TryParse(val, true, out l)) m.RunLeg = l; break; }
+                case "dest": { Vector3i v; if (TryVec(val, out v)) m.RunDest = v; break; }
+                case "destname": m.RunDestName = val; break;
+                case "site": { Vector3i v; if (TryVec(val, out v)) m.RunSite = v; break; }
+                case "legfrom": { Vector3i v; if (TryVec(val, out v)) m.LegFrom = v; break; }
+                case "legto": { Vector3i v; if (TryVec(val, out v)) m.LegTo = v; break; }
+                case "legt":
+                {
+                    string[] kv = val.Split(':');
+                    ulong a, b;
+                    if (kv.Length == 2 && ulong.TryParse(kv[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out a)
+                        && ulong.TryParse(kv[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out b)) { m.LegStart = a; m.LegEnd = b; }
+                    break;
+                }
+                case "offline": m.Offline = val == "1"; break;
+                case "carry": m.RunCarry = Math.Max(0, I(val)); break;
+                case "rollpending": m.RollPending = val == "1"; break;
+                case "snap": m.Snap = val; break;
             }
         }
 
@@ -603,7 +622,6 @@ namespace SurvivorCommunity
                     sb.AppendLine("injured=" + (m.Injured ? 1 : 0));
                     sb.AppendLine("ranged=" + (m.Ranged ? 1 : 0));
                     sb.AppendLine("missing=" + m.MissingDays);
-                    sb.AppendLine("pendingunhide=" + (m.PendingUnhide ? 1 : 0));
                     var sk = new StringBuilder();
                     for (int i = 0; i < Member.SkillCount; i++) { if (i > 0) sk.Append(','); sk.Append(ScNames.SkillKeys[i]).Append(':').Append(m.Skills[i].Level).Append(':').Append(m.Skills[i].Xp); }
                     sb.AppendLine("skills=" + sk);
@@ -611,6 +629,20 @@ namespace SurvivorCommunity
                     if (m.Traits.Count > 0) sb.AppendLine("traits=" + string.Join(",", m.Traits.ToArray()));
                     if (m.Status == MemberStatus.OnRun) sb.AppendLine("run=" + ScNames.Key(m.RunKind) + ":" + m.RunEndDay);
                     if (m.Status == MemberStatus.Garrison) sb.AppendLine("outpost=" + m.OutpostId);
+                    if (m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.None)
+                    {
+                        sb.AppendLine("leg=" + m.RunLeg);
+                        sb.AppendLine("dest=" + Vec(m.RunDest));
+                        sb.AppendLine("destname=" + Clean(m.RunDestName));
+                        sb.AppendLine("site=" + Vec(m.RunSite));
+                        sb.AppendLine("legfrom=" + Vec(m.LegFrom));
+                        sb.AppendLine("legto=" + Vec(m.LegTo));
+                        sb.AppendLine("legt=" + m.LegStart.ToString(CultureInfo.InvariantCulture) + ":" + m.LegEnd.ToString(CultureInfo.InvariantCulture));
+                        sb.AppendLine("offline=" + (m.Offline ? 1 : 0));
+                        sb.AppendLine("carry=" + m.RunCarry);
+                        sb.AppendLine("rollpending=" + (m.RollPending ? 1 : 0));
+                        if (!string.IsNullOrEmpty(m.Snap)) sb.AppendLine("snap=" + m.Snap);   // base64url: never Clean()ed (it has no '=' or ';')
+                    }
                     if (m.Status == MemberStatus.OnRun && m.RunDistress)
                     {
                         sb.AppendLine("distresspoi=" + Vec(m.RunPoi));
@@ -736,6 +768,7 @@ namespace SurvivorCommunity
                 Doomed.Clear();
                     saveDir = null;
                     ScOutposts.OnRegistryChanged();
+                    ScRunners.Reset();
                 });
             }
         }

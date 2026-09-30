@@ -294,6 +294,25 @@ public class DialogActionScGoHome : BaseDialogAction
     }
 }
 
+/// <summary>Member order, to a runner met out in the world: head home now (ScRunners.Recall).</summary>
+public class DialogActionScRecall : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try
+        {
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
+            if (lp == null || npc == null || m == null) return;
+            string error;
+            if (ScRunners.Recall(m, lp, out error)) ScCommunity.Tell(player, string.Format(Localization.Get("scRunRecalled"), m.Name), "");
+            else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+        }
+        catch (Exception e) { ScLog.Once("act-recall", e); }
+    }
+}
+
 /// <summary>Member order: a supply run for the resource named in the action's value (food|meds|ammo|mats|fuel).</summary>
 public class DialogActionScRun : BaseDialogAction
 {

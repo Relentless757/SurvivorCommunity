@@ -25,6 +25,43 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## 2026-09-30 build (sc_stage9): physical supply runs
+
+Runners now walk to a real POI and back instead of vanishing. `sc runners` shows each runner's leg, online/offline
+state, position, distance, snapshot size, measured walking speed and how long the last re-create took. Test
+controls: `sc run <name> skip` (end the current leg now), `sc run <name> offline`, `sc run <name> recall`,
+`sc run <name> home`.
+
+- [ ] **Sending.** Send a resident for food. The tooltip names the destination POI, its distance and an ETA day. The
+      runner walks out of the base on foot (no vanish), toward the POI.
+- [ ] **Escort.** Follow them. They walk waypoint to waypoint, fight zombies that reach them, then carry on. At the
+      POI they wander its ground floor, pausing now and then, for about 6 game hours, then head home.
+- [ ] **Out of range.** Stay home and watch them leave. Past about 96 m (view distance 7) they are captured out of
+      sight. The log says "went offline … snapshot N bytes". `sc runners` shows them moving along the route.
+- [ ] **Meeting them on the road.** Drive toward their route. They reappear on the road as the same survivor
+      (name, look, health, weapon), with no pop-in right in front of you. The log says "is back in the world …
+      built in N ms". **Note the ms** (this is the one-time cost of building the NPC).
+- [ ] **Coming home.** At the edge of the base the haul is added ("is back with N bundles"). They walk in and are a
+      resident at their post again.
+- [ ] **Quit mid-walk.** Quit while a runner is in view far from home, then reload. There is exactly one of them,
+      carried on from where they were, and no duplicate at the base.
+- [ ] **Crash mid-walk.** Kill the game process while a runner is walking in view, then reload. They resume from the
+      last snapshot (up to 60 s old). There is no duplicate.
+- [ ] **Bed respawn / teleport.** Die (or teleport) while a runner is in view. The log says "captured as their chunk
+      unloaded". They carry on offline.
+- [ ] **Distress with the real runner.** `sc run <name> skip` until they are AtSite, then `sc distress <name>` (radio
+      on). The rescue quest points at their POI. Go there: zombies spawn around the runner themself and go for them.
+      No stand-in. Kill them all: rescued, bonus haul, and they walk home.
+- [ ] **Runner dies in the field.** Let the zombies kill them. They leave a real body there, the quest fails, and the
+      death is in the ledger.
+- [ ] **Walking away from a distress fight.** The event resets (zombies removed). It spawns again when you return.
+- [ ] **Recall.** Pick a runner in the Community window. The Follow button reads **Recall**: they turn for home. A
+      runner met on the road has **Head home now.** in their dialog, and no Follow or Run entries.
+- [ ] **A run saved before this version** (hidden at home) still resolves at the rollover as before.
+- [ ] **No POI in range** (or `PhysicalRuns` false in Config/blocks.xml): the old hidden run is used.
+- [ ] **Walking speed.** Compare the measured m/s in `sc runners` with `RunWalkMps` (1.5), and tune it if they differ
+      a lot.
+
 ## 2026-09-29 build (sc_stage8)
 
 - [ ] **Missing members can be called back.** A resident whose body is gone from the world (Gina in TestSurvivor3)
