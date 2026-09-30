@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<append xpath="/buffs">
+		<!-- The skill effects. The mod writes the member's derived bonuses into the NPC's cvars (sc_dmgmelee,
+		     sc_dmgranged, sc_speed, sc_hp - fractions, 0 at one star) and re-stamps them every second; the
+		     passive effects read them by reference. XNPCCore hand weapons carry the melee / ranged item tags.
+		     HealthMax is the stat's own max passive (Stat.Tick re-reads it), not the SCore MaxModifier. -->
+		<buff name="buffSCSkills" name_key="buffSCSkillsName" description_key="buffSCSkillsDesc" icon="ui_game_symbol_perk" remove_on_death="true">
+			<stack_type value="ignore"/>
+			<effect_group>
+				<passive_effect name="EntityDamage" operation="perc_add" value="@sc_dmgmelee" tags="melee"/>
+				<passive_effect name="EntityDamage" operation="perc_add" value="@sc_dmgranged" tags="ranged"/>
+				<passive_effect name="RunSpeed" operation="perc_add" value="@sc_speed"/>
+				<passive_effect name="WalkSpeed" operation="perc_add" value="@sc_speed"/>
+				<passive_effect name="HealthMax" operation="perc_add" value="@sc_hp"/>
+			</effect_group>
+		</buff>
+
+		<!-- The player's morale icon (ScMorale.SyncHud adds it while the community has members and keeps the
+		     sc_morale cvar it displays up to date; gone on leaving the game). -->
+		<buff name="buffSCMorale" name_key="buffSCMoraleName" description_key="buffSCMoraleDesc" icon="ui_game_symbol_allies" icon_color="120,220,120">
+			<stack_type value="ignore"/>
+			<duration value="0"/>
+			<!-- the key is a string.Format pattern ("Morale {0}"); the value is the cvar the popout reads every frame -->
+			<display_value_key value="scMoraleHud"/>
+			<display_value value="sc_morale"/>
+			<display_value_format value="RoundedToInt"/>
+			<effect_group>
+				<triggered_effect trigger="onSelfLeaveGame" action="RemoveBuff" buff="buffSCMorale"/>
+				<triggered_effect trigger="onSelfEnteredGame" action="RemoveBuff" buff="buffSCMorale"/>
+			</effect_group>
+		</buff>
+
+		<!-- Status buffs: mirrored from the registry every second (community out of food / member injured). -->
+		<buff name="buffSCHungry" name_key="buffSCHungryName" description_key="buffSCHungryDesc" icon="ui_game_symbol_hunger" icon_color="255,160,60" remove_on_death="true">
+			<stack_type value="ignore"/>
+			<effect_group>
+				<passive_effect name="RunSpeed" operation="perc_add" value="-0.1"/>
+				<passive_effect name="EntityDamage" operation="perc_add" value="-0.1"/>
+			</effect_group>
+		</buff>
+		<buff name="buffSCInjured" name_key="buffSCInjuredName" description_key="buffSCInjuredDesc" icon="ui_game_symbol_brokenbone" icon_color="255,80,80" remove_on_death="true">
+			<stack_type value="ignore"/>
+			<effect_group>
+				<passive_effect name="RunSpeed" operation="perc_add" value="-0.15"/>
+				<passive_effect name="EntityDamage" operation="perc_add" value="-0.2"/>
+			</effect_group>
+		</buff>
+
+		<!-- Trait carriers: one per trait in the ConfigSurvivorCommunity table (name traitSC_<Name>). They show
+		     the trait on the NPC; the numbers (food use, morale, XP, run yield, timid) live in the mod's config
+		     and are applied by code - except Timid, whose $Timid cvar drives XNPCCore's Flee action. -->
+		<buff name="traitSC_EatsLikeABird" name_key="scTraitEatsLikeABird" description_key="scTraitEatsLikeABirdDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_BottomlessStomach" name_key="scTraitBottomlessStomach" description_key="scTraitBottomlessStomachDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Optimist" name_key="scTraitOptimist" description_key="scTraitOptimistDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Pessimist" name_key="scTraitPessimist" description_key="scTraitPessimistDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Loner" name_key="scTraitLoner" description_key="scTraitLonerDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_PeoplePerson" name_key="scTraitPeoplePerson" description_key="scTraitPeoplePersonDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Veteran" name_key="scTraitVeteran" description_key="scTraitVeteranDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Sharpshooter" name_key="scTraitSharpshooter" description_key="scTraitSharpshooterDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_MarathonRunner" name_key="scTraitMarathonRunner" description_key="scTraitMarathonRunnerDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_QuickStudy" name_key="scTraitQuickStudy" description_key="scTraitQuickStudyDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Cowardly" name_key="scTraitCowardly" description_key="scTraitCowardlyDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Hardy" name_key="scTraitHardy" description_key="scTraitHardyDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_MedicTraining" name_key="scTraitMedicTraining" description_key="scTraitMedicTrainingDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Homesteader" name_key="scTraitHomesteader" description_key="scTraitHomesteaderDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Tinkerer" name_key="scTraitTinkerer" description_key="scTraitTinkererDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Hoarder" name_key="scTraitHoarder" description_key="scTraitHoarderDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Cheerful" name_key="scTraitCheerful" description_key="scTraitCheerfulDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+		<buff name="traitSC_Insomniac" name_key="scTraitInsomniac" description_key="scTraitInsomniacDesc" icon="ui_game_symbol_perk" remove_on_death="true"><stack_type value="ignore"/></buff>
+	</append>
+</configs>

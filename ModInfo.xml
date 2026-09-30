@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xml>
+	<Name value="SurvivorCommunity" />
+	<DisplayName value="Survivor Community" />
+	<Version value="0.1.0" />
+	<Description value="Recruit NPCs into a community that lives in your land claim: skills, traits, morale, resources and a packing station. Requires 0-SCore and 0-XNPCCore. Harmony mod (EAC off)." />
+	<Author value="Elisk" />
+	<Website value="" />
+</xml>

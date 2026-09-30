@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!--
+	  The recruit favour "secure this POI". DELIBERATELY no RallyPoint objective: ObjectiveRallyPoint is the
+	  only vanilla path to QuestEventManager.QuestLockPOI -> World.ResetPOIS, which restores the POI's blocks
+	  from the prefab and respawns every sleeper. ClearSleepers alone gives the sleeper-volume map markers and
+	  the tracker line. Phase 2 is "return to the survivor": vanilla InteractWithNPC completes on the
+	  NPC-interacted event when the player opens the dialog of the quest giver (Quest.QuestGiverID = the
+	  survivor; return_to_quest_giver defaults to true). completiontype AutoComplete: the quest completes on
+	  that talk, no turn-in window; add_to_tier_complete false: no trader tier progression. A player who
+	  clears the POI without the quest is never blocked - the favour itself is judged by the mod.
+
+	  Do NOT add a Goto / RandomPOIGoto objective: the mod pre-seeds DataVariables["POIName"] and those
+	  objectives do an unguarded DataVariables.Add("POIName", ...).
+	-->
+	<append xpath="/quests">
+		<quest id="quest_scSecurePoi">
+			<property name="name_key" value="scQuestSecureName"/>
+			<property name="subtitle_key" value="scQuestSecureSubtitle"/>
+			<property name="description_key" value="scQuestSecureDesc"/>
+			<property name="icon" value="ui_game_symbol_zombie"/>
+			<property name="category_key" value="quest"/>
+			<property name="offer_key" value="scQuestSecureOffer"/>
+			<property name="repeatable" value="true"/>
+			<property name="shareable" value="false"/>
+			<property name="completiontype" value="AutoComplete"/>
+			<property name="completion_key" value="scQuestSecureCompletion"/>
+			<property name="add_to_tier_complete" value="false"/>
+			<property name="allow_remove" value="true"/>
+
+			<objective type="ClearSleepers">
+				<property name="phase" value="1"/>
+				<property name="nav_object" value="sleeper_volume"/>
+			</objective>
+			<objective type="ScTalkToSurvivor, SurvivorCommunity">
+				<property name="phase" value="2"/>
+			</objective>
+		</quest>
+
+		<!-- The radio rescue: a survivor on a supply run is pinned at a POI. The objective never completes on its
+		     own - the mod closes the quest when the zombies it spawned around the survivor are all down (Completed)
+		     or when the run ends unanswered / the survivor falls (removed). No location objective on purpose (see
+		     above); the marker is the mod's own. -->
+		<quest id="quest_scRescue">
+			<property name="name_key" value="scQuestRescueName"/>
+			<property name="subtitle_key" value="scQuestRescueSubtitle"/>
+			<property name="description_key" value="scQuestRescueDesc"/>
+			<property name="icon" value="ui_game_symbol_zombie"/>
+			<property name="category_key" value="quest"/>
+			<property name="offer_key" value="scQuestRescueOffer"/>
+			<property name="repeatable" value="true"/>
+			<property name="shareable" value="false"/>
+			<property name="completiontype" value="AutoComplete"/>
+			<property name="completion_key" value="scQuestRescueCompletion"/>
+			<property name="add_to_tier_complete" value="false"/>
+			<property name="allow_remove" value="true"/>
+			<objective type="ScRescue, SurvivorCommunity">
+				<property name="phase" value="1"/>
+			</objective>
+		</quest>
+	</append>
+</configs>

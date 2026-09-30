@@ -1,0 +1,146 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Builds IN PLACE: the DLL lands next to ModInfo.xml, which is where the game loads it from.
+       Build from this directory with: dotnet build -c Release (plus the no-dependencies flag).
+       Files are listed explicitly (EnableDefaultCompileItems=false): a new .cs file that is not
+       added below is silently NOT compiled; always ilspy the deployed DLL after a build. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>SurvivorCommunity</AssemblyName>
+    <RootNamespace>SurvivorCommunity</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <OutputPath>.</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblySearchPaths>$(AssemblySearchPaths);{RawFileName}</AssemblySearchPaths>
+    <DebugType>none</DebugType>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Deterministic>true</Deterministic>
+    <NoStdLib>true</NoStdLib>
+    <GameDir Condition="'$(GameDir)'=='' AND Exists('$(MSBuildProjectDirectory)\..\..\7DaysToDie_Data\Managed\Assembly-CSharp.dll')">$(MSBuildProjectDirectory)\..\..</GameDir>
+    <GameDir Condition="'$(GameDir)'==''">F:\SteamLibrary\steamapps\common\7 Days To Die</GameDir>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ModApi.cs" />
+    <Compile Include="ScLog.cs" />
+    <Compile Include="ScConfig.cs" />
+    <Compile Include="ScModels.cs" />
+    <Compile Include="ScRegistry.cs" />
+    <Compile Include="ScZone.cs" />
+    <Compile Include="ScCommunity.cs" />
+    <Compile Include="ScTicker.cs" />
+    <Compile Include="ScTraits.cs" />
+    <Compile Include="ScSkills.cs" />
+    <Compile Include="ScCategories.cs" />
+    <Compile Include="ScSecurity.cs" />
+    <Compile Include="ScQuests.cs" />
+    <Compile Include="Patches_Persistence.cs" />
+    <Compile Include="Patches_Npc.cs" />
+    <Compile Include="Patches_Quest.cs" />
+    <Compile Include="Patches_QuestTitle.cs" />
+    <Compile Include="DialogOps.cs" />
+    <Compile Include="UaiOps.cs" />
+    <Compile Include="TEFeatureSCCommunity.cs" />
+    <Compile Include="TEFeatureSCPacking.cs" />
+    <Compile Include="ScStockpile.cs" />
+    <Compile Include="ScScan.cs" />
+    <Compile Include="Objectives.cs" />
+    <Compile Include="ScMorale.cs" />
+    <Compile Include="ScRuns.cs" />
+    <Compile Include="ScStorage.cs" />
+    <Compile Include="ScLinkedContainer.cs" />
+    <Compile Include="XUiC_ScLinkedStrip.cs" />
+    <Compile Include="ScRadio.cs" />
+    <Compile Include="BlockScRadio.cs" />
+    <Compile Include="XUiC_ScRadio.cs" />
+    <Compile Include="Patches_Radio.cs" />
+    <Compile Include="ScLooks.cs" />
+    <Compile Include="Patches_Sdcs.cs" />
+    <Compile Include="ScMedic.cs" />
+    <Compile Include="ScPortraits.cs" />
+    <Compile Include="ScLeadership.cs" />
+    <Compile Include="ScPoiTypes.cs" />
+    <Compile Include="ScOutposts.cs" />
+    <Compile Include="Patches_Outposts.cs" />
+    <Compile Include="ScHomeLink.cs" />
+    <Compile Include="ScGarrison.cs" />
+    <Compile Include="ScScouting.cs" />
+    <Compile Include="ScOutpostPerks.cs" />
+    <Compile Include="ScOutpostRisk.cs" />
+    <Compile Include="ScMissing.cs" />
+    <Compile Include="XUiC_ScCommunity.cs" />
+    <Compile Include="Patches_Menu.cs" />
+    <Compile Include="XUiC_ScPackingStrip.cs" />
+    <Compile Include="ConsoleCmdSc.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="mscorlib">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\mscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\System.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Core">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\System.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="netstandard">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\netstandard.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="LogLibrary">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\LogLibrary.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- portraits: PNG encode/decode, and the SDCS rig's IK constraint -->
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.Animation.Rigging">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\Unity.Animation.Rigging.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(GameDir)\Mods\0_TFP_Harmony\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- The NPC framework: EntityAliveSDX, EntityUtilities, SphereCache, IEntityOrderReceiverSDX,
+         the dialog/UAI base classes SCore adds. Hard dependency (ModApi checks it at runtime too). -->
+    <Reference Include="SCore">
+      <HintPath>$(GameDir)\Mods\0-SCore\SCore.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

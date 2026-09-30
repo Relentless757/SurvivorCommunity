@@ -1,0 +1,7 @@
+obj/
+bin/
+__pycache__/
+*.bak
+*.bak*
+*.tmp
+ModInfo.xml.off

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!-- Map marker for a survivor heard over the radio (ScRadio contacts): owner-only, map only. -->
+	<append xpath="/nav_object_classes">
+		<nav_object_class name="sc_radio_contact">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_talk"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="120,200,255,255"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<!-- Outposts (ScOutposts): owner-only, map only, one class per type so the icon says what it sends home. -->
+		<nav_object_class name="sc_outpost_food">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_fork"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="140,220,120,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_outpost_meds">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_medical"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="240,110,110,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_outpost_ammo">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_shape_ammo"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="230,190,90,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_outpost_mats">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_brick"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="200,160,120,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_outpost_fuel">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_gas"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="120,180,240,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_outpost_scavenge">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_backpack"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="200,200,200,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<!-- Radio scouting (ScScouting): sites the chatter mentioned, owner-only, map only, pale until claimed. -->
+		<nav_object_class name="sc_scout_food">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_fork"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="230,230,170,200"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_scout_meds">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_medical"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="230,230,170,200"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_scout_ammo">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_shape_ammo"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="230,230,170,200"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_scout_mats">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_brick"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="230,230,170,200"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_scout_fuel">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_gas"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="230,230,170,200"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<!-- An outpost under attack (ScOutpostRisk): owner-only, on the map and the compass, pulsing red. -->
+		<nav_object_class name="sc_outpost_attack">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_skull"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="240,70,60,255"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+			<compass_settings>
+				<property name="sprite_name" value="ui_game_symbol_skull"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="240,70,60,255"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</compass_settings>
+		</nav_object_class>
+	</append>
+</configs>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!--
+	  Resident behaviour, added to a member's AIPackages at RUNTIME by the mod (the list is rebuilt from the
+	  entity class on every load, so it is re-added by the ticker). XNPCCore's utilityai.xml removes and
+	  rebuilds /utility_ai/ai_packages, so this mod must load after it (folder name sorts after "0-").
+
+	  A resident holds the Guard order (CurrentOrder 9): NPCModCore's Guard action walks them back to their
+	  post and the combat packages (which only gate on NotHasOrder Stay) still fight anything that comes
+	  close. These two actions add a daytime roam around the post and a quiet night.
+	-->
+	<append xpath="/utility_ai/ai_packages">
+		<ai_package name="SCResident">
+			<!-- ScRoamReady stays true while the roam runs and false for "cooldown" real seconds after it
+			     stops; the AI re-scores every 0.2 s, so a cooldown consumed during scoring would end every
+			     roam after one decision window. -->
+			<action name="ScRoam" weight="2.5" entity_filter="IsSelf">
+				<task class="WanderHomeSC, SurvivorCommunity" radius="12" cooldown="45" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="EnemyNotNear, SCore" distance="30" />
+				<consideration class="ScIsDaytime, SurvivorCommunity" />
+				<consideration class="ScRoamReady, SurvivorCommunity" />
+			</action>
+			<!-- The leash. The pack's combat actions (weight 4-6) only stand down under a Stay order, so a
+			     resident on Guard chases a zombie as far as it runs - playtest logs showed one 92 m from home.
+			     This outscores the chase (but not point-blank self defence at weight 6) once they are further
+			     from their post than ScConfig-independent "distance", walking them home with SCore's Guard task. -->
+			<action name="ScReturn" weight="5.5" entity_filter="IsSelf">
+				<task class="Guard, SCore" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="ScFarFromPost, SurvivorCommunity" distance="25" />
+			</action>
+			<!-- Following is handled here rather than by the pack, whose three actions fight each other around
+			     2.5 m: LeaderFollowSlow (weight 2) pulls the NPC in, TooCloseInside/Outside (weight 3) push it
+			     back out, and with nothing winning cleanly the NPC orbits the player. These two outrank all of
+			     them, so a member walks in until 3 m and then simply stands, and the follow task is given
+			     explicit distances instead of SCore's defaults. Combat (weight 4-6) still takes precedence. -->
+			<action name="ScFollowLeader" weight="4" entity_filter="IsLeader">
+				<task class="FollowSDX, SCore" stop_distance="3" max_distance="25" teleport_time="5" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Follow" />
+				<consideration class="TargetDistance" min="3" max="30" curve="threshold" />
+			</action>
+			<action name="ScHoldWithLeader" weight="4.2" entity_filter="IsLeader">
+				<task class="IdleSDX, SCore" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Follow" />
+				<consideration class="EnemyNotNear, SCore" distance="20" />
+				<consideration class="TargetDistance" flip_x="true" min="0" max="3" curve="threshold" />
+			</action>
+			<!-- only once they are back at the post: until then NPCModCore's Guard (weight 2) walks them home -->
+			<action name="ScNightIdle" weight="3" entity_filter="IsSelf">
+				<task class="IdleSDX, SCore" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="EnemyNotNear, SCore" distance="30" />
+				<consideration class="ScIsNight, SurvivorCommunity" />
+				<consideration class="ScNearPost, SurvivorCommunity" distance="4" />
+			</action>
+		</ai_package>
+	</append>
+</configs>

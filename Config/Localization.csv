@@ -1,0 +1,773 @@
+Key,File,Type,UsedInMainMenu,NoTranslate,KeepLoaded,english
+blockcommand_TEFeatureSCCommunity:community,UI,Radial blockcommand,,,,Community
+blockcommand_TEFeatureSCCommunity:sethome,UI,Radial blockcommand,,,,Set as community home
+xuiScCommunity,UI,Menu,,,,Community
+scJoinPoi,Dialog,Response,,,,I could use someone like you in my community.
+scJoinSupplies,Dialog,Response,,,,I could use someone like you in my community.
+scFavourPoi_text,Dialog,Statement,,,,"Maybe. There's a place near here crawling with them - clear it out and I'll know you can keep people safe. Say the word and I'll mark it on your map."
+scFavourSupplies_text,Dialog,Statement,,,,"Maybe. I'm not walking into a place that can't feed me. Bring me some supplies first and I'll come."
+scStartPoi,Dialog,Response,,,,Mark it. I'll take care of it.
+scPoiDone,Dialog,Response,,,,That place is clear now. Come join my community.
+scGiveSupplies,Dialog,Response,,,,Here are the supplies you asked for. Come join my community.
+scCommunity,Dialog,Response,,,,Let's talk about the community.
+scFavourPoiText,UI,Tooltip,,,,"Favour: secure {0}."
+scFavourSuppliesText,UI,Tooltip,,,,"Favour: bring {0} {1} items."
+scFavourAlreadyDone,UI,Tooltip,,,,(already done)
+scFavourNotEnough,UI,Tooltip,,,,You are not carrying enough of what they asked for.
+scFavourNotDone,UI,Tooltip,,,,They are still waiting for their favour.
+scFavourPoiDone,UI,Tooltip,,,,"{0} is clear - go back to {1} and they will join your community."
+scHostOnly,UI,Tooltip,,,,The community is managed by the host in this version.
+scNotHireable,UI,Tooltip,,,,They are not interested in joining.
+scAlreadyMember,UI,Tooltip,,,,They are already part of your community.
+scAlreadyHired,UI,Tooltip,,,,They already have a leader.
+scRosterFull,UI,Tooltip,,,,Your community is full.
+scNeedHome,UI,Tooltip,,,,Place a land claim block first - that is where your community lives.
+scInternal,UI,Tooltip,,,,Something went wrong - see the log.
+scJoined,UI,Tooltip,,,,"{0} joined your community and is settling in."
+scJoinedFollow,UI,Tooltip,,,,"{0} joined your community and will follow you home."
+scStationed,UI,Tooltip,,,,"{0} is home and settling in."
+scNotLoaded,UI,Tooltip,,,,They are too far away right now.
+scOnRun,UI,Tooltip,,,,They are away on a supply run.
+scFollowersFull,UI,Tooltip,,,,You already have as many followers as you can lead.
+scRefuseMood,UI,Tooltip,,,,"They refuse - morale is too low."
+scBringThemHome,UI,Tooltip,,,,"Bring them to your base first, or stand inside it to call them home."
+scLeft,UI,Tooltip,,,,"{0} has left your community."
+scLeftMorale,UI,Tooltip,,,,"{0} has had enough and left your community."
+scDied,UI,Tooltip,,,,"{0} of your community has died."
+scNoWindow,UI,Tooltip,,,,The community window is not available (UI not loaded).
+scHomeSet,UI,Tooltip,,,,This land claim is now your community's home.
+scQuestUnavailable,UI,Tooltip,,,,The secure quest is not available (quests.xml did not load).
+scQuestAlready,UI,Tooltip,,,,You already have that quest.
+scQuestFailed,UI,Tooltip,,,,Could not start the quest - see the log.
+scQuestSecureName,UI,Quest,,,,Secure the area
+scQuestSecureNameFmt,UI,Quest,,,,"Secure {0}"
+scQuestSecureSubtitle,UI,Quest,,,,Community favour
+scQuestSecureDesc,UI,Quest,,,,"Clear every sleeper in the marked building, then return to the survivor who asked - they wait where you left them and will join your community."
+scQuestSecureOffer,UI,Quest,,,,Clear this building and they will join you.
+scQuestSecureCompletion,UI,Quest,,,,The area is secure and the survivor will join your community.
+scResFood,UI,Resource,,,,food
+scResMeds,UI,Resource,,,,medical
+scResAmmo,UI,Resource,,,,ammo
+scResMaterials,UI,Resource,,,,building material
+scResFuel,UI,Resource,,,,fuel
+scSkillCardio,UI,Skill,,,,Cardio
+scSkillWits,UI,Skill,,,,Wits
+scSkillFighting,UI,Skill,,,,Fighting
+scSkillShooting,UI,Skill,,,,Shooting
+scSpecNone,UI,Skill,,,,None
+scSpecMedicine,UI,Skill,,,,Medicine
+scSpecCooking,UI,Skill,,,,Cooking
+scSpecMechanics,UI,Skill,,,,Mechanics
+scSpecGardening,UI,Skill,,,,Gardening
+scSpecChemistry,UI,Skill,,,,Chemistry
+scSpecCraftsmanship,UI,Skill,,,,Craftsmanship
+scTraitEatsLikeABird,UI,Trait,,,,Eats Like a Bird
+scTraitBottomlessStomach,UI,Trait,,,,Bottomless Stomach
+scTraitOptimist,UI,Trait,,,,Optimist
+scTraitPessimist,UI,Trait,,,,Pessimist
+scTraitLoner,UI,Trait,,,,Loner
+scTraitPeoplePerson,UI,Trait,,,,People Person
+scTraitVeteran,UI,Trait,,,,Veteran
+scTraitSharpshooter,UI,Trait,,,,Sharpshooter
+scTraitMarathonRunner,UI,Trait,,,,Marathon Runner
+scTraitQuickStudy,UI,Trait,,,,Quick Study
+scTraitCowardly,UI,Trait,,,,Cowardly
+scTraitHardy,UI,Trait,,,,Hardy
+scTraitMedicTraining,UI,Trait,,,,Medic Training
+scTraitHomesteader,UI,Trait,,,,Homesteader
+scTraitTinkerer,UI,Trait,,,,Tinkerer
+scTraitHoarder,UI,Trait,,,,Hoarder
+scTraitCheerful,UI,Trait,,,,Cheerful
+scTraitInsomniac,UI,Trait,,,,Insomniac
+scPackingStation,Block,Block,,,,Packing Station
+scPackingStationDesc,Block,Block,,,,"Drop food, medical supplies, ammo, building materials or fuel in the box and pack them into bundles for your community. Deposit bundles into the stockpile here; withdraw them to carry."
+scBundleFood,Item,Item,,,,Food Bundle
+scBundleFoodDesc,Item,Item,,,,A day's food for a couple of survivors. Deposit it at a packing station.
+scBundleMeds,Item,Item,,,,Medical Bundle
+scBundleMedsDesc,Item,Item,,,,Enough medical supplies to treat one injury. Deposit it at a packing station.
+scBundleAmmo,Item,Item,,,,Ammo Bundle
+scBundleAmmoDesc,Item,Item,,,,Ammunition for the survivors guarding your base. Deposit it at a packing station.
+scBundleMaterials,Item,Item,,,,Materials Bundle
+scBundleMaterialsDesc,Item,Item,,,,Building materials for the community. Deposit it at a packing station.
+scBundleFuel,Item,Item,,,,Fuel Bundle
+scBundleFuelDesc,Item,Item,,,,Fuel for the community. Deposit it at a packing station.
+scPackFood,UI,Packing,,,,Pack food
+scPackMeds,UI,Packing,,,,Pack medical
+scPackAmmo,UI,Packing,,,,Pack ammo
+scPackMaterials,UI,Packing,,,,Pack materials
+scPackFuel,UI,Packing,,,,Pack fuel
+scTakeFood,UI,Packing,,,,Take food
+scTakeMeds,UI,Packing,,,,Take medical
+scTakeAmmo,UI,Packing,,,,Take ammo
+scTakeMaterials,UI,Packing,,,,Take materials
+scTakeFuel,UI,Packing,,,,Take fuel
+scDeposit,UI,Packing,,,,Deposit bundles
+scStockText,UI,Packing,,,,"Stockpile - food {0}, medical {1}, ammo {2}, materials {3}, fuel {4}"
+scPacked,UI,Packing,,,,"Packed {0} {1} bundle(s)."
+scPackShort,UI,Packing,,,,"Not enough {0} in the box for a bundle ({1} of {2} points)."
+scDeposited,UI,Packing,,,,"{0} bundle(s) added to the stockpile."
+scNoBundles,UI,Packing,,,,There are no bundles in the box.
+scWithdrawn,UI,Packing,,,,"One {0} bundle taken from the stockpile."
+scStockEmpty,UI,Packing,,,,"The stockpile has no {0} bundles."
+scBoxFull,UI,Packing,,,,The box is full.
+scDaily,UI,Tooltip,,,,"Community ({0} survivors): {1}"
+scDailyUse,UI,Tooltip,,,,"used {0} food, {1} medical, {2} ammo"
+scDailyHungry,UI,Tooltip,,,,"- NOT ENOUGH FOOD, your survivors went hungry"
+scDailyInjured,UI,Tooltip,,,,"- {0} injured with no medical supplies"
+scDailyNoAmmo,UI,Tooltip,,,,"- the guards are out of ammo"
+buffSCSkillsName,Buff,Buff,,,,Survivor skills
+buffSCSkillsDesc,Buff,Buff,,,,"Fighting and Shooting raise this survivor's melee and ranged damage; Cardio raises speed and health."
+buffSCHungryName,Buff,Buff,,,,Hungry
+buffSCHungryDesc,Buff,Buff,,,,"The community is out of food. Slower and weaker until the stockpile has food bundles again."
+buffSCInjuredName,Buff,Buff,,,,Injured
+buffSCInjuredDesc,Buff,Buff,,,,"Hurt. Slower and weaker until a medical bundle is spent on them at the day rollover."
+scTraitEatsLikeABirdDesc,Buff,Buff,,,,Uses a quarter less food.
+scTraitBottomlessStomachDesc,Buff,Buff,,,,Uses half again as much food.
+scTraitOptimistDesc,Buff,Buff,,,,Lifts community morale and their own mood.
+scTraitPessimistDesc,Buff,Buff,,,,Drags community morale and their own mood down.
+scTraitLonerDesc,Buff,Buff,,,,Prefers solitude; mood is a little lower.
+scTraitPeoplePersonDesc,Buff,Buff,,,,Good company; lifts community morale.
+scTraitVeteranDesc,Buff,Buff,,,,Started with two extra Fighting stars.
+scTraitSharpshooterDesc,Buff,Buff,,,,Started with two extra Shooting stars.
+scTraitMarathonRunnerDesc,Buff,Buff,,,,Started with two extra Cardio stars.
+scTraitQuickStudyDesc,Buff,Buff,,,,Earns skill experience half again as fast.
+scTraitCowardlyDesc,Buff,Buff,,,,Runs from enemies instead of fighting.
+scTraitHardyDesc,Buff,Buff,,,,Keeps a good mood in hard times.
+scTraitMedicTrainingDesc,Buff,Buff,,,,Trained in medicine.
+scTraitHomesteaderDesc,Buff,Buff,,,,Knows gardening.
+scTraitTinkererDesc,Buff,Buff,,,,Knows mechanics; brings back more from supply runs.
+scTraitHoarderDesc,Buff,Buff,,,,Brings back more from supply runs but is never quite content.
+scTraitCheerfulDesc,Buff,Buff,,,,Lifts morale and mood.
+scTraitInsomniacDesc,Buff,Buff,,,,Sleeps badly; mood is a little lower.
+scDailyHarvest,UI,Tooltip,,,,"- the garden gave {0} food"
+scObjectiveReturn,UI,Quest,,,,"Return to {0}"
+scObjectiveReturnWho,UI,Quest,,,,the survivor
+scWinTitle,UI,Menu,,,,"Community - morale {0} ({1})"
+scWinSubtitle,UI,Menu,,,,"{0} of {1} survivors - facilities {3}, crops {4}"
+scWinStock,UI,Menu,,,,"Stockpile: food {0}, medical {1}, ammo {2}, materials {3}, fuel {4}"
+scWinListHeader,UI,Menu,,,,"Survivors ({0})"
+scWinPage,UI,Menu,,,,"Page {0} of {1}"
+scWinPrev,UI,Menu,,,,Previous
+scWinNext,UI,Menu,,,,Next
+scWinNoMembers,UI,Menu,,,,Nobody has joined yet. Talk to the survivors you meet.
+scWinNoSelection,UI,Menu,,,,Select a survivor
+scWinSelectHint,UI,Menu,,,,"Click a survivor on the left to see their skills, traits and mood, and to give them orders."
+scWinFollow,UI,Menu,,,,Follow me
+scWinHome,UI,Menu,,,,Go home
+scWinLeave,UI,Menu,,,,Ask to leave
+scWinLeaveConfirm,UI,Menu,,,,Press again to confirm
+scWinLeaveConfirmHint,UI,Menu,,,,"They will leave the community for good. Press the button again within five seconds to confirm."
+scWinNowFollowing,UI,Menu,,,,"{0} is following you."
+scWinLedger,UI,Menu,,,,Recent days
+scWinMood,UI,Menu,,,,"Mood {0} ({1})"
+scWinSpec,UI,Menu,,,,"Specialty: {0} {1} / 7"
+scWinTraits,UI,Menu,,,,"Traits: {0}"
+scWinInjured,UI,Menu,,,,Injured
+scWinHungry,UI,Menu,,,,Hungry
+scWinThreat,UI,Menu,,,,Threatening to leave
+scStatusResident,UI,Menu,,,,at home
+scStatusFollowing,UI,Menu,,,,following you
+scStatusPending,UI,Menu,,,,following you home
+scStatusOnRun,UI,Menu,,,,on a supply run
+scMoodHappy,UI,Menu,,,,happy
+scMoodContent,UI,Menu,,,,content
+scMoodUneasy,UI,Menu,,,,uneasy
+scMoodMiserable,UI,Menu,,,,miserable
+scMoraleLine,UI,Menu,,,,"Morale {0} / 100"
+scMoraleFood,UI,Menu,,,,Food
+scMoraleFoodDays,UI,Menu,,,," ({0} days left)"
+scMoraleMeds,UI,Menu,,,,Medicine
+scMoraleBeds,UI,Menu,,,,Beds
+scMoraleFacilities,UI,Menu,,,,Facilities
+scMoraleSupplies,UI,Menu,,,,"Ammo, materials, fuel"
+scMoraleTraits,UI,Menu,,,,Traits
+scMoraleDeaths,UI,Menu,,,,Recent deaths
+scMoraleHud,UI,Buff,,,,"Morale {0}"
+buffSCMoraleName,Buff,Buff,,,,Community morale
+buffSCMoraleDesc,Buff,Buff,,,,"How your survivors feel: days of food, medicine, beds, facilities, recent deaths. Below 25 for two days someone threatens to leave; above 75 they learn faster."
+scDailyMorale,UI,Tooltip,,,,"- morale {0}"
+scDailyThreat,UI,Tooltip,,,,"- {0} threatens to leave"
+scDailyLeft,UI,Tooltip,,,,"- {0} has left"
+scDailyStays,UI,Tooltip,,,,"- {0} is staying after all"
+scDailyHigh,UI,Tooltip,,,,"- spirits are high, everyone learns faster"
+scThreatens,UI,Tooltip,,,,"{0} has had enough. Sort out food, beds and medicine by tomorrow or they leave."
+scThreatCalmed,UI,Tooltip,,,,"{0} has decided to stay."
+scFollow,Dialog,Response,,,,Come with me.
+scGoHome,Dialog,Response,,,,Go back home.
+scLeave,Dialog,Response,,,,It is time for you to leave the community.
+scLeaveConfirm_text,Dialog,Statement,,,,"You're sure? If I go, I won't be back."
+scLeaveYes,Dialog,Response,,,,Yes. Goodbye.
+scRunNotHome,UI,Tooltip,,,,They have to be at home to be sent out.
+scRunInjured,UI,Tooltip,,,,They are injured and cannot go.
+scRunTooMany,UI,Tooltip,,,,Too many survivors are already out.
+scRunSent,UI,Tooltip,,,,"{0} has left to look for {1}. Back on day {2}."
+scRunBack,UI,Tooltip,,,,"{0} is back with {1} {2} bundle(s)."
+scRunHurt,UI,Tooltip,,,,"{0} came back injured with {1} {2} bundle(s)."
+scRunDied,UI,Tooltip,,,,"{0} never came back from the supply run."
+scDailyRunBack,UI,Tooltip,,,,"- {0} brought {1} {2}"
+scDailyRunHurt,UI,Tooltip,,,,"- {0} came back hurt with {1} {2}"
+scDailyRunDied,UI,Tooltip,,,,"- {0} did not come back"
+scWinOnRun,UI,Menu,,,,"Out looking for {0}, back on day {1}"
+scWinRunHeader,UI,Menu,,,,"Send on a supply run ({0} of {1} out):"
+scRunFood,UI,Menu,,,,Food
+scRunMeds,UI,Menu,,,,Medical
+scRunAmmo,UI,Menu,,,,Ammo
+scRunMaterials,UI,Menu,,,,Materials
+scRunFuel,UI,Menu,,,,Fuel
+scRun,Dialog,Response,,,,I need you to go find supplies.
+scRunPick_text,Dialog,Statement,,,,"What should I look for? I'll be back tomorrow."
+blockcommand_TEFeatureSCCommunity:storage,UI,Radial blockcommand,,,,Linked storage
+scWinStorage,UI,Menu,,,,Linked storage
+scStorageTitle,UI,Menu,,,,Linked storage
+scStorageHeader,UI,Menu,,,,"{0} boxes in the base - {1} stacks - {2} free slots"
+scStorageHeaderCells,UI,Menu,,,,"{0} boxes in the base - {1} stacks - {2} free cells"
+scStorageUnloaded,UI,Menu,,,,"({0} chunk(s) of the zone not loaded)"
+scStorageRefresh,UI,Menu,,,,Refresh
+scStorageFull,UI,Menu,,,,No box has room for that.
+scStorageMore,UI,Menu,,,,"{0} stack(s) more than the grid can show"
+scRadioStation,Block,Block,,,,Radio Station
+scRadioStationDesc,Block,Block,,,,"A powered ham radio for the community. Request an air drop (the sandbox air drop frequency is its cooldown in days; with this mod drops only come when asked), call for survivors in need of a home, and hear from your own survivors when a supply run goes wrong."
+scRadioUse,UI,Tooltip,,,,Use the radio
+scRadioTitle,UI,Menu,,,,Radio Station
+scRadioStatus,UI,Menu,,,,"{0} - {1} of {2} contacts out there"
+scRadioOnline,UI,Menu,,,,Powered
+scRadioOffline,UI,Menu,,,,No power
+scRadioNoPower,UI,Tooltip,,,,The radio has no power.
+scRadioDrop,UI,Menu,,,,Request an air drop
+scRadioDropDesc,UI,Menu,,,,"Calls in a supply plane. One request every {0} day(s) - the sandbox air drop frequency."
+scRadioDropsOff,UI,Tooltip,,,,Air drops are turned off in this game's settings.
+scRadioDropWait,UI,Tooltip,,,,"Next air drop in {0} h"
+scRadioDropBusy,UI,Tooltip,,,,A plane is already on its way.
+scRadioDropSent,UI,Tooltip,,,,"Air drop requested - watch the sky."
+scRadioCall,UI,Menu,,,,Call for survivors
+scRadioCallDesc,UI,Menu,,,,"Finds a survivor looking for a home somewhere {0}-{1} m out and marks them on the map. They wait {2} days. One call every {3} days."
+scRadioCallWait,UI,Tooltip,,,,"Try again in {0} day(s)"
+scRadioContactsFull,UI,Tooltip,,,,Go and meet the survivors you already found first.
+scRadioNobody,UI,Tooltip,,,,Nobody answered - no survivor packs are installed.
+scRadioNoPoi,UI,Tooltip,,,,Nobody answered from anywhere in range.
+scRadioCalled,UI,Tooltip,,,,Someone answered.
+scRadioSurvivor,UI,Menu,,,,a survivor
+scRadioContact,UI,Tooltip,,,,"{0} answered from {1}, about {2} m away. Marked on your map."
+scRadioMarker,UI,Map,,,,"Radio contact: {0} at {1}"
+scRadioFound,UI,Tooltip,,,,"{0} is here at {1}. Talk to them."
+scRadioFaded,UI,Tooltip,,,,"{0} at {1} stopped answering the radio."
+scRadioContactsHeader,UI,Menu,,,,Survivors heard on the radio
+scRadioContactLine,UI,Menu,,,,"{0} at {1} - waits {2} more day(s)"
+scRadioNoContacts,UI,Menu,,,,Nobody at the moment.
+scRadioDistressHeader,UI,Menu,,,,Supply runs calling for help
+scRadioDistressLine,UI,Menu,,,,"{0} is pinned down at {1} - help them before day {2}"
+scRadioDistressSafe,UI,Menu,,,,"{0} is safe and heading home"
+scRadioNoDistress,UI,Menu,,,,No one in trouble.
+scRadioDistress,UI,Tooltip,,,,"{0} radios for help from {1}, about {2} m away!"
+scRescueEvent,UI,Tooltip,,,,"{0} is here - {1} of them closing in!"
+scRescued,UI,Tooltip,,,,"{0} is safe and will be home with the haul."
+scRescueDied,UI,Tooltip,,,,"{0} died out there waiting for help."
+scQuestRescueName,UI,Quest,,,,Rescue a survivor
+scQuestRescueNameFmt,UI,Quest,,,,"Help {0}"
+scQuestRescueSubtitle,UI,Quest,,,,Radio distress call
+scQuestRescueDesc,UI,Quest,,,,"One of your survivors is pinned down on a supply run. Get to the marked building and deal with what has them cornered."
+scQuestRescueOffer,UI,Quest,,,,A survivor of yours needs help.
+scQuestRescueCompletion,UI,Quest,,,,They are safe and heading home with the haul.
+scObjectiveRescue,UI,Quest,,,,"Defend {0} at {1}"
+scSurvivorMaleEmptyHand,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleEmptyHand,entityclasses,Entity,,,,Survivor
+scSurvivorMaleClub,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleClub,entityclasses,Entity,,,,Survivor
+scSurvivorMaleKnife,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleKnife,entityclasses,Entity,,,,Survivor
+scSurvivorMaleBat,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleBat,entityclasses,Entity,,,,Survivor
+scSurvivorMaleAxe,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleAxe,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSpear,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSpear,entityclasses,Entity,,,,Survivor
+scSurvivorMaleMachete,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleMachete,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipePistol,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipePistol,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipeRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipeRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipeShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipeShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipeMG,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipeMG,entityclasses,Entity,,,,Survivor
+scSurvivorMaleLBow,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleLBow,entityclasses,Entity,,,,Survivor
+scSurvivorMaleXBow,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleXBow,entityclasses,Entity,,,,Survivor
+scSurvivorMalePistol,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePistol,entityclasses,Entity,,,,Survivor
+scSurvivorMaleDPistol,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleDPistol,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSMG,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSMG,entityclasses,Entity,,,,Survivor
+scSurvivorMaleRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMaleTRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleTRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMaleHRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleHRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMalePShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorMaleAShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleAShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorMaleM60,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleM60,entityclasses,Entity,,,,Survivor
+scSurvivorMaleRocketL,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleRocketL,entityclasses,Entity,,,,Survivor
+scSurvivorMaleBoneKnife,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleBoneKnife,entityclasses,Entity,,,,Survivor
+scSurvivorMaleLeatherKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleLeatherKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorMaleIronKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleIronKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipeBaton,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipeBaton,entityclasses,Entity,,,,Survivor
+scSurvivorMaleStunBaton,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleStunBaton,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelClub,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelClub,entityclasses,Entity,,,,Survivor
+scSurvivorMaleStoneSledge,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleStoneSledge,entityclasses,Entity,,,,Survivor
+scSurvivorMaleIronSledge,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleIronSledge,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelSledge,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelSledge,entityclasses,Entity,,,,Survivor
+scSurvivorMaleStoneSpear,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleStoneSpear,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelSpear,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelSpear,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelAxe,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelAxe,entityclasses,Entity,,,,Survivor
+scSurvivorMaleMagnum,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleMagnum,entityclasses,Entity,,,,Survivor
+scSurvivorMaleDoubleBarrel,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleDoubleBarrel,entityclasses,Entity,,,,Survivor
+scSurvivorMaleLeverAction,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleLeverAction,entityclasses,Entity,,,,Survivor
+scSurvivorMalePrimitiveBow,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePrimitiveBow,entityclasses,Entity,,,,Survivor
+scSurvivorMaleCompoundBow,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleCompoundBow,entityclasses,Entity,,,,Survivor
+scSurvivorMaleCompoundCrossbow,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleCompoundCrossbow,entityclasses,Entity,,,,Survivor
+scRaiderMaleEmptyHand,entityclasses,Entity,,,,Raider
+scRaiderFemaleEmptyHand,entityclasses,Entity,,,,Raider
+scRaiderMaleClub,entityclasses,Entity,,,,Raider
+scRaiderFemaleClub,entityclasses,Entity,,,,Raider
+scRaiderMaleKnife,entityclasses,Entity,,,,Raider
+scRaiderFemaleKnife,entityclasses,Entity,,,,Raider
+scRaiderMaleBat,entityclasses,Entity,,,,Raider
+scRaiderFemaleBat,entityclasses,Entity,,,,Raider
+scRaiderMaleAxe,entityclasses,Entity,,,,Raider
+scRaiderFemaleAxe,entityclasses,Entity,,,,Raider
+scRaiderMaleSpear,entityclasses,Entity,,,,Raider
+scRaiderFemaleSpear,entityclasses,Entity,,,,Raider
+scRaiderMaleMachete,entityclasses,Entity,,,,Raider
+scRaiderFemaleMachete,entityclasses,Entity,,,,Raider
+scRaiderMalePipePistol,entityclasses,Entity,,,,Raider
+scRaiderFemalePipePistol,entityclasses,Entity,,,,Raider
+scRaiderMalePipeRifle,entityclasses,Entity,,,,Raider
+scRaiderFemalePipeRifle,entityclasses,Entity,,,,Raider
+scRaiderMalePipeShotgun,entityclasses,Entity,,,,Raider
+scRaiderFemalePipeShotgun,entityclasses,Entity,,,,Raider
+scRaiderMalePipeMG,entityclasses,Entity,,,,Raider
+scRaiderFemalePipeMG,entityclasses,Entity,,,,Raider
+scRaiderMaleLBow,entityclasses,Entity,,,,Raider
+scRaiderFemaleLBow,entityclasses,Entity,,,,Raider
+scRaiderMaleXBow,entityclasses,Entity,,,,Raider
+scRaiderFemaleXBow,entityclasses,Entity,,,,Raider
+scRaiderMalePistol,entityclasses,Entity,,,,Raider
+scRaiderFemalePistol,entityclasses,Entity,,,,Raider
+scRaiderMaleDPistol,entityclasses,Entity,,,,Raider
+scRaiderFemaleDPistol,entityclasses,Entity,,,,Raider
+scRaiderMaleSMG,entityclasses,Entity,,,,Raider
+scRaiderFemaleSMG,entityclasses,Entity,,,,Raider
+scRaiderMaleRifle,entityclasses,Entity,,,,Raider
+scRaiderFemaleRifle,entityclasses,Entity,,,,Raider
+scRaiderMaleTRifle,entityclasses,Entity,,,,Raider
+scRaiderFemaleTRifle,entityclasses,Entity,,,,Raider
+scRaiderMaleHRifle,entityclasses,Entity,,,,Raider
+scRaiderFemaleHRifle,entityclasses,Entity,,,,Raider
+scRaiderMaleSRifle,entityclasses,Entity,,,,Raider
+scRaiderFemaleSRifle,entityclasses,Entity,,,,Raider
+scRaiderMalePShotgun,entityclasses,Entity,,,,Raider
+scRaiderFemalePShotgun,entityclasses,Entity,,,,Raider
+scRaiderMaleAShotgun,entityclasses,Entity,,,,Raider
+scRaiderFemaleAShotgun,entityclasses,Entity,,,,Raider
+scRaiderMaleM60,entityclasses,Entity,,,,Raider
+scRaiderFemaleM60,entityclasses,Entity,,,,Raider
+scRaiderMaleRocketL,entityclasses,Entity,,,,Raider
+scRaiderFemaleRocketL,entityclasses,Entity,,,,Raider
+scRaiderMaleBoneKnife,entityclasses,Entity,,,,Raider
+scRaiderFemaleBoneKnife,entityclasses,Entity,,,,Raider
+scRaiderMaleLeatherKnuckles,entityclasses,Entity,,,,Raider
+scRaiderFemaleLeatherKnuckles,entityclasses,Entity,,,,Raider
+scRaiderMaleIronKnuckles,entityclasses,Entity,,,,Raider
+scRaiderFemaleIronKnuckles,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelKnuckles,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelKnuckles,entityclasses,Entity,,,,Raider
+scRaiderMalePipeBaton,entityclasses,Entity,,,,Raider
+scRaiderFemalePipeBaton,entityclasses,Entity,,,,Raider
+scRaiderMaleStunBaton,entityclasses,Entity,,,,Raider
+scRaiderFemaleStunBaton,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelClub,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelClub,entityclasses,Entity,,,,Raider
+scRaiderMaleStoneSledge,entityclasses,Entity,,,,Raider
+scRaiderFemaleStoneSledge,entityclasses,Entity,,,,Raider
+scRaiderMaleIronSledge,entityclasses,Entity,,,,Raider
+scRaiderFemaleIronSledge,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelSledge,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelSledge,entityclasses,Entity,,,,Raider
+scRaiderMaleStoneSpear,entityclasses,Entity,,,,Raider
+scRaiderFemaleStoneSpear,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelSpear,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelSpear,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelAxe,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelAxe,entityclasses,Entity,,,,Raider
+scRaiderMaleMagnum,entityclasses,Entity,,,,Raider
+scRaiderFemaleMagnum,entityclasses,Entity,,,,Raider
+scRaiderMaleDoubleBarrel,entityclasses,Entity,,,,Raider
+scRaiderFemaleDoubleBarrel,entityclasses,Entity,,,,Raider
+scRaiderMaleLeverAction,entityclasses,Entity,,,,Raider
+scRaiderFemaleLeverAction,entityclasses,Entity,,,,Raider
+scRaiderMalePrimitiveBow,entityclasses,Entity,,,,Raider
+scRaiderFemalePrimitiveBow,entityclasses,Entity,,,,Raider
+scRaiderMaleCompoundBow,entityclasses,Entity,,,,Raider
+scRaiderFemaleCompoundBow,entityclasses,Entity,,,,Raider
+scRaiderMaleCompoundCrossbow,entityclasses,Entity,,,,Raider
+scRaiderFemaleCompoundCrossbow,entityclasses,Entity,,,,Raider
+meleeNPCSCBoneKnife,items,Item,,,,"Bone Knife"
+meleeNPCSCLeatherKnuckles,items,Item,,,,"Knuckle Wraps"
+meleeNPCSCIronKnuckles,items,Item,,,,"Iron Knuckles"
+meleeNPCSCSteelKnuckles,items,Item,,,,"Steel Knuckles"
+meleeNPCSCPipeBaton,items,Item,,,,"Pipe Baton"
+meleeNPCSCStunBaton,items,Item,,,,"Stun Baton"
+meleeNPCSCSteelClub,items,Item,,,,"Steel Club"
+meleeNPCSCStoneSledge,items,Item,,,,"Stone Sledgehammer"
+meleeNPCSCIronSledge,items,Item,,,,"Iron Sledgehammer"
+meleeNPCSCSteelSledge,items,Item,,,,"Steel Sledgehammer"
+meleeNPCSCStoneSpear,items,Item,,,,"Stone Spear"
+meleeNPCSCSteelSpear,items,Item,,,,"Steel Spear"
+meleeNPCSCSteelAxe,items,Item,,,,"Steel Axe"
+gunNPCSCMagnum,items,Item,,,,".44 Magnum"
+gunNPCSCDoubleBarrel,items,Item,,,,"Double Barrel Shotgun"
+gunNPCSCLeverAction,items,Item,,,,"Lever Action Rifle"
+gunNPCSCPrimitiveBow,items,Item,,,,"Primitive Bow"
+gunNPCSCCompoundBow,items,Item,,,,"Compound Bow"
+gunNPCSCCompoundCrossbow,items,Item,,,,"Compound Crossbow"
+scBedsShort,UI,Menu,,,,"Beds {0} for {1} survivors - {2} short ({3} morale)"
+scBedsSpare,UI,Menu,,,,"Beds {0} for {1} survivors - {2} spare (+{3} morale)"
+scBedsExact,UI,Menu,,,,"Beds {0} for {1} survivors (+{2} morale)"
+scBedsNoMembers,UI,Menu,,,,"Beds {0}"
+scBedsPartial,UI,Menu,,,,"part of the claim has not been loaded yet"
+scBedsTip,UI,Menu,,,,"Every bedroll, bed and bunk bed inside the land claim counts, recounted as you build. One per survivor: +10 morale when everyone has a bed, -5 for each one missing (at most -15)."
+scMoraleBedsDetail,UI,Menu,,,,"({0} beds for {1} survivors)"
+scStorageViewFull,UI,Menu,,,,"Linked storage is showing all the stacks it can - press Refresh, or put it straight into a box."
+scRoleNone,UI,Menu,,,,"Survivor"
+scRoleMedicine,UI,Menu,,,,"Medic"
+scRoleCooking,UI,Menu,,,,"Cook"
+scRoleMechanics,UI,Menu,,,,"Mechanic"
+scRoleGardening,UI,Menu,,,,"Gardener"
+scRoleChemistry,UI,Menu,,,,"Chemist"
+scRoleCraftsmanship,UI,Menu,,,,"Craftsman"
+scStAtBase,UI,Menu,,,,"At base"
+scStFollowing,UI,Menu,,,,"Following"
+scStHeadingHome,UI,Menu,,,,"Heading home"
+scStOnRun,UI,Menu,,,,"Supply run - back day {0}"
+scStOnRunShort,UI,Menu,,,,"Supply run - day {0}"
+scStInjured,UI,Menu,,,,"Injured"
+scFilterAll,UI,Menu,,,,"All members"
+scFilterAtBase,UI,Menu,,,,"At base"
+scFilterFollowing,UI,Menu,,,,"Following"
+scFilterOnRun,UI,Menu,,,,"On a run"
+scFilterInjured,UI,Menu,,,,"Injured"
+scWinShowing,UI,Menu,,,,"Showing {0} of {1}"
+scWinNoMatches,UI,Menu,,,,"No one matches"
+scWinFoodNone,UI,Menu,,,,"No food left"
+scWinFoodUnderDay,UI,Menu,,,,"Less than a day left"
+scWinFoodOneDay,UI,Menu,,,,"1 day remaining"
+scWinFoodDays,UI,Menu,,,,"{0} days remaining"
+scWinRunSend,UI,Menu,,,,"Send on supply run"
+scWinRunCancel,UI,Menu,,,,"Cancel"
+scBandThriving,UI,Menu,,,,"Thriving"
+scBandSteady,UI,Menu,,,,"Steady"
+scBandUneasy,UI,Menu,,,,"Uneasy"
+scBandBreaking,UI,Menu,,,,"Breaking"
+scMoraleBedsCount,UI,Menu,,,,"Beds: {0} / {1}"
+scBedsCallOne,UI,Menu,,,,"1 more bed needed"
+scBedsCallMany,UI,Menu,,,,"{0} more beds needed"
+scBedsCallHint,UI,Menu,,,,"Build more beds to improve morale."
+scUiTitle,UI,Menu,,,,"Community"
+scUiOpenStorage,UI,Menu,,,,"Open storage"
+scUiMembers,UI,Menu,,,,"Members"
+scUiHealth,UI,Menu,,,,"Health"
+scUiMood,UI,Menu,,,,"Personal morale"
+scUiSkills,UI,Menu,,,,"Skills"
+scUiTraits,UI,Menu,,,,"Traits"
+scUiOrders,UI,Menu,,,,"Orders"
+scUiMorale,UI,Menu,,,,"Community morale"
+scUiAffecting,UI,Menu,,,,"What is affecting morale"
+scUiHelping,UI,Menu,,,,"Helping"
+scUiHurting,UI,Menu,,,,"Hurting"
+scUiBack,UI,Menu,,,,"Back"
+scUiHint,UI,Menu,,,,"Select a member to manage their orders."
+scUiMotto,UI,Menu,,,,"Survive  ·  Rebuild  ·  Belong"
+scMoraleLeadership,UI,Menu,,,,Leadership
+blockcommand_TEFeatureSCCommunity:establish,UI,Radial blockcommand,,,,Establish outpost
+blockcommand_TEFeatureSCCommunity:outpost,UI,Radial blockcommand,,,,Outpost
+blockcommand_TEFeatureSCCommunity:disband,UI,Radial blockcommand,,,,Disband outpost
+scOpIsHome,UI,Tooltip,,,,This claim is your community's home - an outpost needs a claim of its own.
+scOpNotInPoi,UI,Tooltip,,,,An outpost needs a land claim inside a building away from home.
+scOpNotCleared,UI,Tooltip,,,,{0} is not cleared yet: {1}.
+scOpNothing,UI,Tooltip,,,,Nothing worth holding at {0}.
+scOpTooClose,UI,Tooltip,,,,Too close to home for an outpost ({0} m of {1}).
+scOpAlready,UI,Tooltip,,,,{0} is already one of our outposts.
+scOpNoSlot,UI,Tooltip,,,,{0} of {1} outposts: recruit more people to hold more ground.
+scOpMaxed,UI,Tooltip,,,,{0} of {1} outposts - that is all the ground the community can hold.
+scOpNoRadio,UI,Tooltip,,,,The radio at home has no power - nobody would hear from this outpost.
+scOpNoFee,UI,Tooltip,,,,An outpost needs {0} building material and {1} fuel from the stockpile (you have {2} and {3}).
+scOpEstablished,UI,Tooltip,,,,Outpost established at {0}: {1}.
+scOpLedgerNew,UI,Tooltip,,,,outpost established at {0} ({1})
+scOpLedgerDisband,UI,Tooltip,,,,outpost at {0} disbanded
+scOpLedgerLost,UI,Tooltip,,,,outpost at {0} LOST
+scOpDisbanded,UI,Tooltip,,,,The outpost at {0} is disbanded. The land claim stays yours.
+scOpDisbandConfirm,UI,Tooltip,,,,Disband the outpost at {0}? Pick Disband again within 5 seconds.
+scOpLostClaim,UI,Tooltip,,,,The outpost at {0} is lost: its land claim is gone.
+scOpIdle,UI,Tooltip,,,,{0} outpost(s) went idle: the community can only hold {1} now.
+scOpContested,UI,Tooltip,,,,{0} is contested ({1}). Clear it again to get it producing.
+scOpRunDown,UI,Tooltip,,,,Outposts are run-down: no building material for upkeep. Half yield until the stockpile can pay.
+scOpRecovered,UI,Tooltip,,,,Outposts are back to full work.
+scOpOnFoot,UI,Tooltip,,,,No fuel for haulage: the outposts carry on foot (three quarters of the yield).
+scOpDaily,UI,Tooltip,,,,- outposts {0}
+scOpNothingToday,UI,Tooltip,,,,nothing
+scOpDailyCosts,UI,Tooltip,,,,"(upkeep {0} building material, haulage {1} fuel)"
+scOpDailySilent,UI,Tooltip,,,,(the radio is silent: {0} bundle(s) waiting at the outposts)
+scOpDailyRunDown,UI,Tooltip,,,,(run-down)
+scOpDailyOnFoot,UI,Tooltip,,,,(on foot)
+scOpPerDay,UI,Tooltip,,,,{0} a day
+scOpReport,UI,Tooltip,,,,"{0} ({1}, {2}): {3}."
+scOpReportPending,UI,Tooltip,,,,{0} bundle(s) waiting for the radio.
+scOpReportSilent,UI,Tooltip,,,,The home radio is silent.
+scOpMarker,UI,Map,,,,Outpost: {0} ({1})
+scOpClaimLimit,UI,Tooltip,,,,"Your home and outposts use your land claims ({0} allowed, {1} outposts). Disband an outpost to place another claim."
+scOpStateActive,UI,Menu,,,,active
+scOpStateIdle,UI,Menu,,,,idle
+scOpStateContested,UI,Menu,,,,contested
+scOpStateLost,UI,Menu,,,,lost
+scOpStateRunDown,UI,Menu,,,,run-down
+scOpType_grocery,UI,Menu,,,,grocery
+scOpType_diner,UI,Menu,,,,diner
+scOpType_farm,UI,Menu,,,,farm
+scOpType_clinic,UI,Menu,,,,clinic
+scOpType_military,UI,Menu,,,,military
+scOpType_gunstore,UI,Menu,,,,gun store
+scOpType_police,UI,Menu,,,,police
+scOpType_firestation,UI,Menu,,,,fire station
+scOpType_hardware,UI,Menu,,,,hardware store
+scOpType_industry,UI,Menu,,,,industry
+scOpType_junkyard,UI,Menu,,,,junkyard
+scOpType_gasstation,UI,Menu,,,,gas station
+scOpType_refinery,UI,Menu,,,,refinery
+scOpType_scavenge,UI,Menu,,,,scavenging
+scOpDoorSilent,UI,Tooltip,,,,Nobody answers at home: the radio there has no power.
+scOpDoorWaiting,UI,Tooltip,,,,Still radioing home...
+scOpDoorCalling,UI,Tooltip,,,,Radioing home...
+scOpDoorNoAnswer,UI,Tooltip,,,,No answer from home. Try again in a moment.
+scMoraleTerritory,UI,Menu,,,,Territory
+scUiOutposts,UI,Menu,,,,Outposts
+scUiOpSelectHint,UI,Menu,,,,"Pick an outpost on the left to see what it sends home, how far it is and what is waiting there."
+scUiOpNone,UI,Menu,,,,No outposts yet
+scUiOpNoneHint,UI,Menu,,,,"Clear a building away from home, place a land claim inside it and pick Establish outpost on the claim. It sends supplies home every day while the radio at home has power."
+scUiOpState,UI,Menu,,,,Status
+scUiOpProduces,UI,Menu,,,,Sends home
+scUiOpDistance,UI,Menu,,,,Distance
+scUiOpWaiting,UI,Menu,,,,Waiting at the outpost
+scUiNetwork,UI,Menu,,,,Network
+scUiNetSlots,UI,Menu,,,,Outposts
+scUiNetRadio,UI,Menu,,,,Radio
+scUiNetDeliveries,UI,Menu,,,,Deliveries
+scUiNetCosts,UI,Menu,,,,Costs
+scUiNetStatus,UI,Menu,,,,Status
+scUiOpHowTo,UI,Menu,,,,How outposts work
+scUiOpHow1,UI,Menu,,,,"Clear a building, claim it, then pick Establish outpost on the claim."
+scUiOpHow2,UI,Menu,,,,Every day it sends bundles home while the home radio has power.
+scUiOpHow3,UI,Menu,,,,Upkeep costs building material; hauling costs fuel.
+scUiOpTrack,UI,Menu,,,,Track on map
+scUiOpUntrack,UI,Menu,,,,Stop tracking
+scUiOpTracked,UI,Menu,,,,Tracking {0} on your compass.
+scUiOpUntracked,UI,Menu,,,,Waypoint cleared.
+scUiOpDisband,UI,Menu,,,,Disband
+scUiOpDisbandConfirm,UI,Menu,,,,Confirm disband
+scUiOpForget,UI,Menu,,,,Forget
+scUiOpRowYield,UI,Menu,,,,+{0} {1}/day
+scUiOpPerDayShort,UI,Menu,,,,+{0}/day
+scUiOpSummary,UI,Menu,,,,{0} of {1} outposts held - radio {2}
+scUiOpSub,UI,Menu,,,,{0} - tier {1} - held since day {2}
+scUiOpRowType,UI,Menu,,,,{0} - tier {1}
+scUiOpContestedHint,UI,Menu,,,,"sleepers are back, clear it again"
+scUiOpIdleHint,UI,Menu,,,,not enough people to hold it
+scUiOpLostHint,UI,Menu,,,,its land claim is gone
+scUiOpDistFmt,UI,Menu,,,,{0} m {1} of home
+scDirN,UI,Menu,,,,north
+scDirNE,UI,Menu,,,,north-east
+scDirE,UI,Menu,,,,east
+scDirSE,UI,Menu,,,,south-east
+scDirS,UI,Menu,,,,south
+scDirSW,UI,Menu,,,,south-west
+scDirW,UI,Menu,,,,west
+scDirNW,UI,Menu,,,,north-west
+scUiOpWaitingFmt,UI,Menu,,,,"{0} bundle(s), for when the radio answers"
+scUiOpWaitingNone,UI,Menu,,,,nothing
+scUiNetSlotsFmt,UI,Menu,,,,{0} of {1} held ({2} at most)
+scUiNetRadioOn,UI,Menu,,,,reporting in
+scUiNetRadioOff,UI,Menu,,,,silent - deliveries wait
+scUiNetCostsFmt,UI,Menu,,,,"{0} building material, about {1} fuel a day"
+scUiNetNone,UI,Menu,,,,no outposts yet
+scUiNetRunDown,UI,Menu,,,,run-down: no building material
+scUiNetOnFoot,UI,Menu,,,,on foot: no fuel
+scUiNetOk,UI,Menu,,,,all working
+scResShortFood,UI,Menu,,,,food
+scResShortMeds,UI,Menu,,,,meds
+scResShortAmmo,UI,Menu,,,,ammo
+scResShortMaterials,UI,Menu,,,,mats
+scResShortFuel,UI,Menu,,,,fuel
+scRadioOutpostsHeader,UI,Menu,,,,Outposts reporting in
+scRadioOutpostsOnline,UI,Menu,,,,The radio is on: outposts report in and their bundles come home. {0} of {1} outposts held.
+scRadioOutpostsSilent,UI,Menu,,,,The radio is silent: outposts keep their bundles until it has power again. {0} of {1} outposts held.
+scRadioOutpostLine,UI,Menu,,,,{0} ({1}): {2}
+scRadioNoOutposts,UI,Menu,,,,No outposts yet. Claim a cleared building away from home and pick Establish outpost on the claim.
+scOpPostLost,UI,Tooltip,,,,That outpost is lost.
+scOpPostAlready,UI,Tooltip,,,,Already posted there.
+scOpPostElsewhere,UI,Tooltip,,,,Posted at another outpost - recall them first.
+scOpPostNotHome,UI,Tooltip,,,,Only someone stationed at home can be posted to an outpost.
+scOpPostInjured,UI,Tooltip,,,,Too hurt to hold an outpost.
+scOpPostFull,UI,Tooltip,,,,That outpost has all the people it can take (upgrade it for a second post).
+scOpPosted,UI,Tooltip,,,,{0} heads out to hold {1}.
+scOpRecalled,UI,Tooltip,,,,{0} is back home from {1}.
+scOpRecalledGone,UI,Tooltip,,,,{0} comes home: {1} is no longer ours.
+scOpStaffDied,UI,Tooltip,,,,{0} died holding the outpost.
+scOpPostedAway,UI,Tooltip,,,,Holding an outpost - recall them home first.
+scOpWalkIn,UI,Tooltip,,,,- a {0} turned up at {1}
+scOpWalkInTip,UI,Tooltip,,,,"Your people at {1} say a {0} turned up there, asking to join."
+scStPosted,UI,Menu,,,,Holding {0}
+scStPostedShort,UI,Menu,,,,At {0}
+scStatusPosted,UI,Menu,,,,holding an outpost
+scFilterPosted,UI,Menu,,,,At outposts
+scWinRecall,UI,Menu,,,,Recall home
+scOpUpgradeMax,UI,Tooltip,,,,{0} is as big as an outpost gets.
+scOpUpgradeWait,UI,Tooltip,,,,{0} needs {1} more day(s) before it can grow.
+scOpUpgradeNoStaff,UI,Tooltip,,,,Post someone at {0} before it can grow to level 3.
+scOpUpgradeNoFee,UI,Tooltip,,,,Level {0} needs {1} building material and {2} fuel from the stockpile (you have {3} and {4}).
+scOpUpgradeNotActive,UI,Tooltip,,,,{0} has to be working to grow.
+scOpUpgraded,UI,Tooltip,,,,{0} is now a level {1} outpost: {2}.
+scOpLedgerLevel,UI,Tooltip,,,,outpost at {0} grew to level {1}
+scScoutWait,UI,Tooltip,,,,The radio can scout again in {0} day(s).
+scScoutNone,UI,Tooltip,,,,No chatter about {0} within {1} m.
+scScoutSite,UI,Tooltip,,,,{0} ({1})
+scScoutWhere,UI,Tooltip,,,,{0} m {1}
+scScoutFound,UI,Tooltip,,,,Radio chatter about {0}: {1}. Marked on your map.
+scScoutMarker,UI,Map,,,,Chatter: {0} ({1})
+scUiGarrison,UI,Menu,,,,Garrison
+scUiStaffEmpty,UI,Menu,,,,Empty post
+scUiStaffLocked,UI,Menu,,,,Second post at level 2
+scUiStaffBonus,UI,Menu,,,,+{0}% yield
+scUiOpLevel,UI,Menu,,,,Level {0}
+scUiOpLevelMult,UI,Menu,,,,Level {0} - yield x{1}
+scUiOpNextLevel,UI,Menu,,,,"Next: {0} building material, {1} fuel"
+scUiOpNextWait,UI,Menu,,,,Can grow in {0} day(s)
+scUiOpNextStaff,UI,Menu,,,,Needs a staffer to grow
+scUiOpMaxLevel,UI,Menu,,,,Fully grown
+scUiOpAssign,UI,Menu,,,,Assign
+scUiOpAssignCancel,UI,Menu,,,,Cancel
+scUiOpUpgrade,UI,Menu,,,,Upgrade
+scUiOpPickStaff,UI,Menu,,,,Pick someone at home to post at {0}.
+scUiOpPerk,UI,Menu,,,,Perk: {0}
+scOpPerkFood,UI,Menu,,,,Canteen - hunger hurts morale less
+scOpPerkMeds,UI,Menu,,,,Field clinic - one injury healed free each day
+scOpPerkAmmo,UI,Menu,,,,Armed escort - supply runs are safer
+scOpPerkMaterials,UI,Menu,,,,Salvage yard - outpost fees and upgrades cost less
+scOpPerkFuel,UI,Menu,,,,Motor pool - supply runs bring back more
+scRadioScoutHeader,UI,Menu,,,,Scout for outposts (once a day)
+scRadioScoutDesc,UI,Menu,,,,Listen for chatter about a kind of site: the nearest few within range are marked on your map for a few days.
+scUiPerks,UI,Menu,,,,Perks in force
+scUiPerksNone,UI,Menu,,,,"None yet - each kind of producing outpost adds a perk (food, meds, ammo, materials, fuel)."
+scOpHomeGone,UI,Tooltip,,,,"Your community's home claim is gone - open Community on a claim at home, or pick Set as community home, first."
+scOpDoorCancelled,UI,Tooltip,,,,The line home dropped - use the claim again when you are standing at it.
+scOpModeNormal,UI,Menu,,,,normal
+scOpModeQuiet,UI,Menu,,,,quiet
+scOpModePush,UI,Menu,,,,push
+scUiOpMode,UI,Menu,,,,Mode: {0}
+scOpModeSet,UI,Tooltip,,,,{0} now works at a {1} pace.
+scOpWorkshopAmmo,UI,Tooltip,,,,- the workshop at {0} made 1 ammo from 2 building material
+scOpWorkshopMeds,UI,Tooltip,,,,- the lab at {0} made 1 medical from building material and fuel
+scBarterSame,UI,Tooltip,,,,Pick two different supplies.
+scBarterWait,UI,Tooltip,,,,Nobody wants to trade again today - try in {0} day(s).
+scBarterShort,UI,Tooltip,,,,The trade takes {0} {1} - the stockpile has {2}.
+scBarterDone,UI,Tooltip,,,,Traded {0} {1} for 1 {2} over the radio.
+scBarterLedger,UI,Tooltip,,,,radio barter: {0} {1} for 1 {2}
+scBarterGive,UI,Menu,,,,Give {0} {1}
+scBarterGet,UI,Menu,,,,Get 1 {0}
+scRadioBarterHeader,UI,Menu,,,,Barter over the radio (once a day)
+scRadioBarterTrade,UI,Menu,,,,Trade
+scRadioBarterDesc,UI,Menu,,,,Click the buttons to pick what you give and what you get.
+blockcommand_TEFeatureSCCommunity:opstorage,UI,Radial blockcommand,,,,Outpost storage
+scOpStorageTitle,UI,Menu,,,,Storage at {0}
+scOpUnstashed,UI,Tooltip,,,,Your people left {0} bundle(s) in the claim's box at {1} - more than the road could carry.
+scUiOpBuiltBonus,UI,Menu,,,,(+{0}% built)
+scUiOpStashed,UI,Menu,,,,({0} stashed)
+scUiOpInvest,UI,Menu,,,,"{0} beds, {1} facilities, {2} crops, {3} defenses: +{4}%"
+scFlagNotActive,UI,Tooltip,,,,The flag is not an active land claim here - it cannot hold an outpost.
+scFlagPlain,UI,Tooltip,,,,The flag stands as a plain land claim: {0}
+scOutpostFlag,UI,Block,,,,Outpost Flag
+scOutpostFlagDesc,UI,Block,,,,"A land claim that plants your community's flag. Place it inside a cleared building away from home and it becomes an outpost at once, if the radio at home has power and the stockpile can pay the fee. Anywhere else it is an ordinary land claim."
+scRiskAlertAttack,UI,Menu,,,,UNDER ATTACK - {0} h to get there
+scRiskAlertRaid,UI,Menu,,,,RAIDERS ATTACKING - {0} h to get there
+scRiskAlertDemand,UI,Menu,,,,Raiders demand {0} ammo + {1} food (answer on the radio)
+scRiskAlertDamaged,UI,Menu,,,,Damaged - back to work on day {0} (or repair it)
+scRiskDemand,UI,Tooltip,,,,"Raiders on the radio: {0} ammo and {1} food by tomorrow, or they take {2}."
+scRiskDemandLine,UI,Tooltip,,,,- raiders are leaning on {0}
+scRiskGoodNews,UI,Tooltip,,,,Good news from {0}: they found a cache too big to carry - {1} bundle(s) wait there for you.
+scRiskGoodNewsLine,UI,Tooltip,,,,- a cache of {1} bundle(s) turned up at {0}
+scRiskNeglect,UI,Tooltip,,,,Something moved into the back rooms of {0}. Clear it out to get it working again.
+scRiskNeglectLine,UI,Tooltip,,,,- something moved into {0}
+scRiskAttackCall,UI,Tooltip,,,,{0} is under attack! You have {1} hours to get there.
+scRiskRaidCall,UI,Tooltip,,,,Raiders are hitting {0}! You have {1} hours to get there.
+scRiskAttackHere,UI,Tooltip,,,,{0}: {1} of them - hold the outpost!
+scRiskRaidHere,UI,Tooltip,,,,{0}: {1} raiders - hold the outpost!
+scRiskHeld,UI,Tooltip,,,,{0} held - your people will not forget it.
+scRiskHeldAlone,UI,Tooltip,,,,{0} held on its own.
+scRiskSiegeHeldByYou,UI,Tooltip,,,,{0} held through the blood moon - you were there.
+scRiskDamaged,UI,Tooltip,,,,"{0} took a beating: nothing from it for {1} day(s), or repair it for {2} building material."
+scRiskOverrun,UI,Tooltip,,,,"{0} was overrun. Your people fell back home, hurt. Clear it again to take it back."
+scRiskLedgerHeld,UI,Tooltip,,,,{0} held against an attack
+scRiskLedgerDamaged,UI,Tooltip,,,,{0} damaged in an attack
+scRiskLedgerOverrun,UI,Tooltip,,,,{0} OVERRUN
+scRiskLedgerPaid,UI,Tooltip,,,,paid the raiders for {0}
+scRiskNoDemand,UI,Tooltip,,,,Nobody is asking for anything.
+scRiskCannotPay,UI,Tooltip,,,,The raiders want {0} ammo and {1} food - the stockpile has {2} and {3}.
+scRiskPaid,UI,Tooltip,,,,The raiders take their cut and leave {0} alone - for now.
+scRiskRefused,UI,Tooltip,,,,You told them no. They are coming for {0} - {1} hours to get there.
+scRiskNotDamaged,UI,Tooltip,,,,Nothing to repair.
+scRiskRepairShort,UI,Tooltip,,,,The repair takes {0} building material - the stockpile has {1}.
+scRiskRepaired,UI,Tooltip,,,,{0} is patched up ({1} building material) and back to work.
+scRiskMarker,UI,Map,,,,Under attack: {0}
+scUiOpSecurity,UI,Menu,,,,security {0}
+scUiOpRepair,UI,Menu,,,,Repair ({0})
+scUiOpRowAttack,UI,Menu,,,,UNDER ATTACK
+scUiOpRowDemand,UI,Menu,,,,raiders' demand
+scUiOpRowDamaged,UI,Menu,,,,damaged
+scRadioDemandText,UI,Menu,,,,Raiders want {0} ammo + {1} food for {2}
+scRadioDemandPay,UI,Menu,,,,Pay
+scRadioDemandRefuse,UI,Menu,,,,Refuse
+scStMissing,UI,Menu,,,,Missing - Call back
+scWinCallBack,UI,Menu,,,,Call back
+scMissingTip,UI,Tooltip,,,,{0} is nowhere at the base - open the Community window and pick Call back.
+scMissingRestored,UI,Tooltip,,,,{0} is back at the base.
+scMissingNotMissing,UI,Tooltip,,,,They are here already.
+scMissingNotYet,UI,Tooltip,,,,Give it a moment - they may still be on their way in.
+scMissingNoClass,UI,Tooltip,,,,That kind of survivor no longer exists in this game.

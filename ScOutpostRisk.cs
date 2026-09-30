@@ -1,0 +1,561 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+using UnityEngine;
+
+namespace SurvivorCommunity
+{
+    /// <summary>
+    /// Outposts v2, risk (Outposts_Plan.md section 3), all behind OutpostAttacks (off by default) except the
+    /// good-news caches (OutpostGoodNews, on):
+    ///   Security   0-100 from the registry: base, staff and their combat stars, the POI tier, a recent visit, ammo
+    ///              in the stockpile, defenses built there (ScScan counts them), and the afterglow of won fights.
+    ///   Attacks    each rollover an outpost may be hit (chance falls with security, output mode scales it). With the
+    ///              home radio on, the call comes in with OutpostAttackHours to get there. Arrive and the attackers
+    ///              spawn around the POI (the garrison's stand-ins fight too); kill them all and it holds, better for
+    ///              it. Unanswered, it is settled on security: Hold, Damaged (no yield for OutpostDamagedDays, or
+    ///              repair now for OutpostRepairMats), or Overrun (the POI's sleepers are re-armed: clear it again;
+    ///              the garrison falls back home hurt - nobody dies in a fight the player did not attend).
+    ///   Siege      at the end of a blood moon every outpost rolls the same, unless the player stood there.
+    ///   Neglect    an unstaffed outpost unvisited for OutpostNeglectDays gets one sleeper area re-armed.
+    ///   Raiders    past OutpostRaiderGamestage, raiders may demand supplies for an outpost: pay on the radio, or
+    ///              refuse (or ignore until the next rollover) and they attack it.
+    ///   Good news  a cache too big to carry: bundles wait at the outpost for the player (the claim's box).
+    /// Host only. Attack entities and blood-moon presence are session state; everything else persists.
+    /// </summary>
+    public static class ScOutpostRisk
+    {
+        public const string AttackNav = "sc_outpost_attack";
+
+        private sealed class Live
+        {
+            public bool Spawned;
+            public readonly List<int> Ids = new List<int>();
+            public bool BloodMoonHere;
+        }
+
+        private static readonly Dictionary<int, Live> live = new Dictionary<int, Live>();
+        private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
+        private static bool markersRestored;
+        private static bool wasBloodMoon;
+        private static float nextTick;
+        private static int lastClass = -1;
+
+        public static void Reset()
+        {
+            live.Clear();
+            markers.Clear();
+            markersRestored = false;
+            wasBloodMoon = false;
+            nextTick = 0f;
+        }
+
+        public static void OnRegistryChanged()
+        {
+            live.Clear();
+            markers.Clear();
+            markersRestored = false;
+        }
+
+        private static Live L(Outpost o)
+        {
+            Live l;
+            if (!live.TryGetValue(o.Id, out l)) live[o.Id] = l = new Live();
+            return l;
+        }
+
+        // ------------------------------------------------------------------ security ----
+
+        public static int Security(Outpost o)
+        {
+            if (o == null) return 0;
+            float s = ScConfig.OutpostSecBase;
+            List<Member> staff = ScGarrison.Staff(o);
+            s += ScConfig.OutpostSecPerStaffer * staff.Count;
+            foreach (Member m in staff) s += ScConfig.OutpostSecPerCombatStar * Math.Max(0, m.Stars(Skill.Fighting) + m.Stars(Skill.Shooting) - 2);
+            s -= ScConfig.OutpostSecPerTier * o.Tier;
+            if (o.LastVisitDay >= 0 && ScCommunity.Today - o.LastVisitDay <= 3) s += ScConfig.OutpostSecVisited;
+            if (ScRegistry.Community.Get(Resource.Ammo) <= 0) s -= ScConfig.OutpostSecNoAmmo;
+            s += Math.Min(ScConfig.OutpostSecDefenseCap, ScConfig.OutpostSecPerDefense * o.Invest[3]);
+            s += o.SecBonus;
+            return Mathf.Clamp(Mathf.RoundToInt(s), 0, 100);
+        }
+
+        /// <summary>Is the rollover into 'day' damaged (no yield)? The UI asks about the next one: IsDamaged(o, Today + 1).</summary>
+        public static bool IsDamaged(Outpost o, int day) { return o != null && o.DamagedUntil >= day; }
+
+        public static bool DamagedNow(Outpost o) { return IsDamaged(o, ScCommunity.Today + 1); }
+
+        public static bool UnderAttack(Outpost o) { return o != null && o.AttackUntil > 0; }
+
+        public static bool HasDemand(Outpost o) { return o != null && o.DemandUntil >= 0; }
+
+        /// <summary>A few words for the window / radio: under attack, damaged, raiders' demand.</summary>
+        public static string Alert(Outpost o)
+        {
+            if (o == null) return "";
+            World w = ScCommunity.World;
+            if (UnderAttack(o) && o.AttackHeard)
+            {
+                ulong now = w != null ? w.worldTime : 0UL;
+                int hours = o.AttackUntil > now ? (int)((o.AttackUntil - now + 999UL) / 1000UL) : 0;
+                return string.Format(Localization.Get(o.AttackRaiders ? "scRiskAlertRaid" : "scRiskAlertAttack"), hours);
+            }
+            if (HasDemand(o)) return string.Format(Localization.Get("scRiskAlertDemand"), o.DemandAmmo, o.DemandFood);
+            if (DamagedNow(o)) return string.Format(Localization.Get("scRiskAlertDamaged"), o.DamagedUntil + 1);
+            return "";
+        }
+
+        // ------------------------------------------------------------------ the day ----
+
+        /// <summary>ScOutposts.Daily, after the deliveries: fades, rolls attacks, demands, neglect and good news.</summary>
+        public static void Daily(int day, EntityPlayerLocal player, StringBuilder summary)
+        {
+            try
+            {
+                World w = ScCommunity.World;
+                GameRandom rnd = w != null ? w.GetGameRandom() : null;
+                bool radio = ScOutposts.RadioOnlineAnywhere();   // (triumph fades in ScOutposts.Daily, with or without outposts)
+                int gs = 0;
+                try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
+                var list = new List<Outpost>(ScRegistry.Outposts);
+                foreach (Outpost o in list)
+                {
+                    if (!o.Holding) continue;
+                    o.SecBonus = Math.Max(0f, o.SecBonus - ScConfig.OutpostSecBonusFade);
+                    // an unpaid demand runs out: the raiders come (with the risk features off it simply lapses)
+                    if (HasDemand(o) && day > o.DemandUntil)
+                    {
+                        o.DemandUntil = -1;
+                        if (ScConfig.OutpostAttacks) StartAttack(o, true, player, radio);
+                    }
+                    if (o.State != OutpostState.Active) continue;
+
+                    if (ScConfig.OutpostGoodNews && Roll(rnd) < ScConfig.OutpostGoodNewsChance) GoodNews(o, player, radio, rnd, summary);
+                    if (!ScConfig.OutpostAttacks) continue;
+                    if (day - o.Day < 2) continue;                   // a fresh outpost gets a couple of quiet days
+
+                    if (!UnderAttack(o) && Roll(rnd) < AttackChance(o)) { StartAttack(o, false, player, radio); continue; }
+                    if (!UnderAttack(o) && !HasDemand(o) && gs >= ScConfig.OutpostRaiderGamestage && Roll(rnd) < ScConfig.OutpostRaiderChance)
+                    {
+                        o.DemandUntil = day;                          // answer before the next rollover
+                        o.DemandAmmo = ScConfig.OutpostDemandAmmo;
+                        o.DemandFood = ScConfig.OutpostDemandFood;
+                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDemand"), o.DemandAmmo, o.DemandFood, o.Name), "ui_denied");
+                        if (summary.Length > 0) summary.Append(' ');
+                        summary.Append(string.Format(Localization.Get("scRiskDemandLine"), o.Name));
+                        ScLog.Out("raiders demand " + o.DemandAmmo + " ammo + " + o.DemandFood + " food for outpost " + o.Id + " (" + o.Name + ")");
+                        continue;
+                    }
+                    int quiet = Math.Max(Math.Max(o.LastVisitDay, o.NeglectDay), o.Day);
+                    if (ScGarrison.StaffCount(o) == 0 && day - quiet >= Math.Max(1, ScConfig.OutpostNeglectDays))
+                        Reinfest(o, player, summary);
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("risk-daily", e);
+            }
+        }
+
+        private static float Roll(GameRandom rnd) { return rnd != null ? rnd.RandomFloat : UnityEngine.Random.value; }
+
+        public static float AttackChance(Outpost o)
+        {
+            float c = ScConfig.OutpostAttackChance * ScOutpostPerks.ModeRisk(o) * (100 - Security(o)) / 65f;
+            return Mathf.Clamp(c, 0f, 0.5f);
+        }
+
+        /// <summary>An attack call: the deadline, the marker, and (radio on) the call itself.</summary>
+        public static void StartAttack(Outpost o, bool raiders, EntityPlayerLocal player, bool radio)
+        {
+            World w = ScCommunity.World;
+            if (w == null || o == null) return;
+            o.AttackUntil = w.worldTime + (ulong)Mathf.Max(1, ScConfig.OutpostAttackHours) * 1000UL;
+            o.AttackRaiders = raiders;
+            o.AttackHeard = radio;
+            Live l = L(o);
+            l.Spawned = false;
+            l.Ids.Clear();
+            if (radio) AddMarker(o, player);
+            if (player != null && radio)
+                ScCommunity.Tell(player, string.Format(Localization.Get(raiders ? "scRiskRaidCall" : "scRiskAttackCall"), o.Name, ScConfig.OutpostAttackHours), "ui_denied");
+            ScLog.Out((raiders ? "raiders attack" : "attack on") + " outpost " + o.Id + " (" + o.Name + "), security " + Security(o) + (radio ? "" : " - the radio is silent, nobody heard"));
+            ScRegistry.SaveAtomic();
+        }
+
+        private static void GoodNews(Outpost o, EntityPlayerLocal player, bool radio, GameRandom rnd, StringBuilder summary)
+        {
+            int n = rnd != null ? rnd.RandomRange(2, 5) : 3;
+            for (int i = 0; i < n; i++)
+            {
+                // mostly what the outpost makes, now and then something else
+                Resource r = (!o.Scavenge && Roll(rnd) < 0.6f) ? o.Primary : (Resource)(rnd != null ? rnd.RandomRange(0, 5) : 0);
+                o.Stash[(int)r]++;
+            }
+            if (player != null && radio) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskGoodNews"), o.Name, n), "");
+            if (summary.Length > 0) summary.Append(' ');
+            summary.Append(string.Format(Localization.Get("scRiskGoodNewsLine"), o.Name, n));
+            ScLog.Out("good news: a cache of " + n + " bundle(s) at outpost " + o.Id + " (" + o.Name + ")");
+        }
+
+        /// <summary>Neglect: one cleared sleeper area of the POI is re-armed.</summary>
+        private static void Reinfest(Outpost o, EntityPlayerLocal player, StringBuilder summary)
+        {
+            World w = ScCommunity.World;
+            PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
+            if (w == null || pi == null || pi.sleeperVolumes == null) return;
+            var cleared = new List<SleeperVolume>();
+            foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude && v.wasCleared) cleared.Add(v);
+            if (cleared.Count == 0) return;
+            GameRandom rnd = w.GetGameRandom();
+            cleared[rnd != null ? rnd.RandomRange(0, cleared.Count) : 0].DespawnAndReset(w);
+            o.NeglectDay = ScCommunity.Today;         // the next one waits another OutpostNeglectDays
+            o.State = OutpostState.Contested;
+            ScOutposts.Rebuild();
+            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskNeglect"), o.Name), "ui_denied");
+            if (summary.Length > 0) summary.Append(' ');
+            summary.Append(string.Format(Localization.Get("scRiskNeglectLine"), o.Name));
+            ScLog.Out("neglect: a sleeper area of outpost " + o.Id + " (" + o.Name + ") re-armed");
+        }
+
+        // ------------------------------------------------------------------ the ticker ----
+
+        /// <summary>ScTicker, every second: attack fights and deadlines, blood-moon presence and the siege at its end.</summary>
+        public static void Tick(World w, EntityPlayerLocal player)
+        {
+            try
+            {
+                if (w == null || player == null) return;
+                float now = Time.unscaledTime;
+                if (now < nextTick) return;
+                nextTick = now + 1f;
+                if (!markersRestored)
+                {
+                    markersRestored = true;
+                    foreach (Outpost o in ScRegistry.Outposts) if (UnderAttack(o) && o.AttackHeard) AddMarker(o, player);
+                }
+                bool bm = false;
+                try { bm = w.aiDirector != null && w.aiDirector.BloodMoonComponent != null && w.aiDirector.BloodMoonComponent.BloodMoonActive; }
+                catch (Exception) { }
+                Vector3 pp = player.position;
+                var list = new List<Outpost>(ScRegistry.Outposts);
+                foreach (Outpost o in list)
+                {
+                    if (!o.Holding) continue;
+                    float d = ScOutposts.DistanceToBox(o, pp);
+                    if (bm && d <= ScConfig.OutpostStandInRange) L(o).BloodMoonHere = true;
+                    if (!UnderAttack(o)) continue;
+                    Live l = L(o);
+                    if (!l.Spawned)
+                    {
+                        if (w.worldTime >= o.AttackUntil) { Settle(o, player, false, "unanswered"); continue; }
+                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag)) SpawnAttack(w, player, o);
+                        continue;
+                    }
+                    if (w.worldTime >= o.AttackUntil) { Settle(o, player, true, "fought, not finished"); continue; }
+                    // walking off until the attackers unload is not a win: judged only while the player is there
+                    if (d > ScConfig.RescueTriggerRange * 2f || !ScZone.IsLoaded(o.Flag)) continue;
+                    bool anyAlive = false;
+                    foreach (int id in l.Ids)
+                    {
+                        EntityAlive a = w.GetEntity(id) as EntityAlive;
+                        if (a != null && !a.IsDead()) { anyAlive = true; break; }
+                    }
+                    if (!anyAlive) Won(o, player);
+                }
+                if (wasBloodMoon && !bm && ScConfig.OutpostAttacks) Siege(player);
+                wasBloodMoon = bm;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("risk-tick", e);
+            }
+        }
+
+        private static int AttackerCount(Outpost o, EntityPlayerLocal player)
+        {
+            int gs = 0;
+            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
+            float n = (ScConfig.OutpostAttackBase + gs * ScConfig.OutpostAttackPerGamestage) * (1f + 0.1f * o.Tier) * ScOutpostPerks.ModeRisk(o);
+            return Mathf.Clamp(Mathf.RoundToInt(n), 2, Math.Max(2, ScConfig.OutpostAttackMax));
+        }
+
+        private static string RaiderGroup(EntityPlayerLocal player)
+        {
+            int gs = 0;
+            try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
+            return gs >= 100 ? "scRaiderGroupGS100" : gs >= 50 ? "scRaiderGroupGS50" : "scRaiderGroupGS01";
+        }
+
+        /// <summary>The player is here: the attackers come in around the POI, at whoever holds it.</summary>
+        private static void SpawnAttack(World w, EntityPlayerLocal player, Outpost o)
+        {
+            Live l = L(o);
+            l.Spawned = true;
+            l.Ids.Clear();
+            try
+            {
+                GameRandom rnd = w.GetGameRandom();
+                string group = o.AttackRaiders ? RaiderGroup(player) : ScConfig.DistressZombieGroup;
+                Vector3 c = o.Centre;
+                int count = AttackerCount(o, player);
+                float reach = Mathf.Max(12f, Mathf.Max(o.Size.x, o.Size.z) * 0.5f + 6f);
+                EntityAlive target = null;
+                foreach (Member m in ScGarrison.Staff(o))
+                {
+                    EntityAlive s = m.StandInId >= 0 ? w.GetEntity(m.StandInId) as EntityAlive : null;
+                    if (s != null && !s.IsDead()) { target = s; break; }
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    int cls = EntityGroups.GetRandomFromGroup(group, ref lastClass, rnd);
+                    if (!ScCommunity.ClassExists(cls)) continue;              // ids are string hashes: negative is fine
+                    float ang = rnd.RandomFloat * Mathf.PI * 2f;
+                    float dist = reach + rnd.RandomRange(0, 8);
+                    Vector3i at = new Vector3i(Mathf.RoundToInt(c.x + Mathf.Cos(ang) * dist), o.Flag.y, Mathf.RoundToInt(c.z + Mathf.Sin(ang) * dist));
+                    Vector3 pos = ScRadio.SpotNear(w, at, 3);
+                    EntityAlive a = EntityFactory.CreateEntity(cls, pos) as EntityAlive;
+                    if (a == null) continue;
+                    w.SpawnEntityInWorld(a);
+                    a.SetSpawnerSource(EnumSpawnerSource.Dynamic);             // never written with the chunk
+                    a.SetAttackTarget(target != null ? target : player, 1200);
+                    l.Ids.Add(a.entityId);
+                }
+                if (l.Ids.Count == 0)
+                {
+                    // nothing could be spawned (an empty or missing group): settled like an unanswered call
+                    ScLog.Warn("attack at outpost " + o.Id + ": no attacker could be spawned from " + group);
+                    Settle(o, player, true, "no attackers");
+                    return;
+                }
+                ScCommunity.Tell(player, string.Format(Localization.Get(o.AttackRaiders ? "scRiskRaidHere" : "scRiskAttackHere"), o.Name, l.Ids.Count), "ui_denied");
+                ScLog.Out("attack at outpost " + o.Id + " (" + o.Name + "): " + l.Ids.Count + " " + (o.AttackRaiders ? "raider(s)" : "zombie(s)") + " from " + group);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("risk-spawn", e);
+            }
+        }
+
+        private static void Won(Outpost o, EntityPlayerLocal player)
+        {
+            o.AttackUntil = 0;
+            L(o).Ids.Clear();
+            L(o).Spawned = false;
+            RemoveMarker(o);
+            o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus);
+            ScRegistry.Community.OutpostTriumph = Math.Min(10f, ScRegistry.Community.OutpostTriumph + ScConfig.OutpostWinMorale);
+            ScLeadership.Count(ScLeadership.RescueEvent);
+            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeld"), o.Name), "");
+            ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
+            ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held against the attack");
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>The deadline passed: settled on security (a fight the player joined never ends worse than damaged).</summary>
+        private static void Settle(Outpost o, EntityPlayerLocal player, bool attended, string why)
+        {
+            o.AttackUntil = 0;
+            L(o).Spawned = false;
+            L(o).Ids.Clear();
+            RemoveMarker(o);
+            Outcome(o, player, attended ? ScConfig.OutpostAttendedBonus : 0, attended, why);
+        }
+
+        /// <summary>The end of a blood moon: every outpost the player did not stand at rolls, a little harder.</summary>
+        private static void Siege(EntityPlayerLocal player)
+        {
+            var list = new List<Outpost>(ScRegistry.Outposts);
+            foreach (Outpost o in list)
+            {
+                Live l = L(o);
+                bool here = l.BloodMoonHere;
+                l.BloodMoonHere = false;                     // every blood moon starts from nobody there
+                if (o.State != OutpostState.Active) continue;
+                if (here)
+                {
+                    if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskSiegeHeldByYou"), o.Name), "");
+                    continue;
+                }
+                Outcome(o, player, -ScConfig.OutpostSiegePenalty, false, "blood moon");
+            }
+        }
+
+        private static void Outcome(Outpost o, EntityPlayerLocal player, int bonus, bool attended, string why)
+        {
+            World w = ScCommunity.World;
+            GameRandom rnd = w != null ? w.GetGameRandom() : null;
+            int sec = Mathf.Clamp(Security(o) + bonus, 0, 100);
+            int roll = rnd != null ? rnd.RandomRange(0, 100) : UnityEngine.Random.Range(0, 100);
+            if (roll < sec)
+            {
+                o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus * 0.5f);
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeldAlone"), o.Name), "");
+                ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
+                ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held on its own (" + why + ", roll " + roll + " < security " + sec + ")");
+            }
+            else if (attended || roll < sec + ScConfig.OutpostDamageBand || !HasSleepers(o))
+            {
+                o.DamagedUntil = ScCommunity.Today + Math.Max(1, ScConfig.OutpostDamagedDays);   // that many rollovers yield nothing
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDamaged"), o.Name, ScConfig.OutpostDamagedDays, ScConfig.OutpostRepairMats), "ui_denied");
+                ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerDamaged"), o.Name));
+                ScLog.Out("outpost " + o.Id + " (" + o.Name + ") damaged (" + why + ", roll " + roll + ", security " + sec + ")");
+            }
+            else
+            {
+                Overrun(o, player);
+                ScLog.Out("outpost " + o.Id + " (" + o.Name + ") OVERRUN (" + why + ", roll " + roll + ", security " + sec + ")");
+            }
+            ScRegistry.SaveAtomic();
+        }
+
+        private static bool HasSleepers(Outpost o)
+        {
+            PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
+            if (pi == null || pi.sleeperVolumes == null) return false;
+            foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude) return true;
+            return false;
+        }
+
+        /// <summary>Overrun: the POI's sleepers are back (clear it again to retake it); the garrison falls back hurt.</summary>
+        private static void Overrun(Outpost o, EntityPlayerLocal player)
+        {
+            World w = ScCommunity.World;
+            PrefabInstance pi = ScSecurity.PoiByKey(o.Poi);
+            if (w != null && pi != null && pi.sleeperVolumes != null)
+                foreach (SleeperVolume v in pi.sleeperVolumes) if (v != null && !v.isQuestExclude) v.DespawnAndReset(w);
+            foreach (Member m in ScGarrison.Staff(o))
+            {
+                m.Injured = true;
+                ScGarrison.Recall(m, player, null);
+            }
+            o.State = OutpostState.Contested;
+            for (int i = 0; i < 5; i++) { o.Pending[i] = 0; o.Stash[i] = 0; }
+            ScRegistry.Community.OutpostLoss += ScConfig.OutpostLostPenalty * 0.5f;
+            ScOutposts.Rebuild();
+            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskOverrun"), o.Name), "ui_denied");
+            ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerOverrun"), o.Name));
+        }
+
+        // ------------------------------------------------------------------ player answers ----
+
+        public static bool PayDemand(Outpost o, EntityPlayerLocal player, out string message)
+        {
+            message = null;
+            if (o == null || !HasDemand(o)) { message = Localization.Get("scRiskNoDemand"); return false; }
+            Community c = ScRegistry.Community;
+            if (c.Get(Resource.Ammo) < o.DemandAmmo || c.Get(Resource.Food) < o.DemandFood)
+            {
+                message = string.Format(Localization.Get("scRiskCannotPay"), o.DemandAmmo, o.DemandFood, c.Get(Resource.Ammo), c.Get(Resource.Food));
+                return false;
+            }
+            c.Add(Resource.Ammo, -o.DemandAmmo);
+            c.Add(Resource.Food, -o.DemandFood);
+            o.DemandUntil = -1;
+            ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerPaid"), o.Name));
+            ScRegistry.SaveAtomic();
+            message = string.Format(Localization.Get("scRiskPaid"), o.Name);
+            ScLog.Out("paid the raiders for outpost " + o.Id + " (" + o.Name + ")");
+            return true;
+        }
+
+        public static bool RefuseDemand(Outpost o, EntityPlayerLocal player, out string message)
+        {
+            message = null;
+            if (o == null || !HasDemand(o)) { message = Localization.Get("scRiskNoDemand"); return false; }
+            o.DemandUntil = -1;
+            StartAttack(o, true, player, true);
+            message = string.Format(Localization.Get("scRiskRefused"), o.Name, ScConfig.OutpostAttackHours);
+            return true;
+        }
+
+        /// <summary>"Repair now": the damage is paid off in materials and the outpost works again tomorrow.</summary>
+        public static bool Repair(Outpost o, EntityPlayerLocal player, out string message)
+        {
+            message = null;
+            if (o == null || !DamagedNow(o)) { message = Localization.Get("scRiskNotDamaged"); return false; }
+            Community c = ScRegistry.Community;
+            int mats = ScOutpostPerks.Salvaged(ScConfig.OutpostRepairMats);
+            if (c.Get(Resource.Materials) < mats) { message = string.Format(Localization.Get("scRiskRepairShort"), mats, c.Get(Resource.Materials)); return false; }
+            c.Add(Resource.Materials, -mats);
+            o.DamagedUntil = -1;
+            ScRegistry.SaveAtomic();
+            message = string.Format(Localization.Get("scRiskRepaired"), o.Name, mats);
+            return true;
+        }
+
+        /// <summary>The first outpost with an open demand (the radio window answers one at a time).</summary>
+        public static Outpost FirstDemand()
+        {
+            foreach (Outpost o in ScRegistry.Outposts) if (o.Holding && HasDemand(o)) return o;
+            return null;
+        }
+
+        /// <summary>The outpost was disbanded or lost: its attack marker and fight state go.</summary>
+        public static void Forget(Outpost o)
+        {
+            if (o == null) return;
+            RemoveMarker(o);
+            live.Remove(o.Id);
+            o.AttackUntil = 0;
+            o.DemandUntil = -1;
+        }
+
+        // ------------------------------------------------------------------ markers ----
+
+        private static void AddMarker(Outpost o, EntityPlayer owner)
+        {
+            try
+            {
+                NavObjectManager nav = NavObjectManager.Instance;
+                if (nav == null || owner == null || NavObjectClass.GetNavObjectClass(AttackNav) == null) return;
+                RemoveMarker(o);
+                Vector3 at = o.Centre + new Vector3(0f, 2f, 0f);
+                NavObject obj = nav.RegisterNavObject(AttackNav, at, "", false, -1, owner);
+                if (obj != null) obj.name = string.Format(Localization.Get("scRiskMarker"), o.Name);
+                markers[o.Id] = at;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("risk-marker", e);
+            }
+        }
+
+        private static void RemoveMarker(Outpost o)
+        {
+            try
+            {
+                Vector3 at;
+                if (!markers.TryGetValue(o.Id, out at)) return;
+                markers.Remove(o.Id);
+                NavObjectManager nav = NavObjectManager.Instance;
+                if (nav != null) nav.UnRegisterNavObjectByPosition(at, AttackNav);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("risk-unmarker", e);
+            }
+        }
+
+        /// <summary>Console / window: the security breakdown.</summary>
+        public static string SecurityText(Outpost o)
+        {
+            if (o == null) return "";
+            List<Member> staff = ScGarrison.Staff(o);
+            int stars = 0;
+            foreach (Member m in staff) stars += Math.Max(0, m.Stars(Skill.Fighting) + m.Stars(Skill.Shooting) - 2);
+            var sb = new StringBuilder();
+            sb.Append(Security(o)).Append(" = base ").Append(ScConfig.OutpostSecBase)
+              .Append(", staff +").Append(ScConfig.OutpostSecPerStaffer * staff.Count + ScConfig.OutpostSecPerCombatStar * stars)
+              .Append(", tier -").Append(ScConfig.OutpostSecPerTier * o.Tier)
+              .Append(", visited ").Append(o.LastVisitDay >= 0 && ScCommunity.Today - o.LastVisitDay <= 3 ? "+" + ScConfig.OutpostSecVisited : "0")
+              .Append(", ammo ").Append(ScRegistry.Community.Get(Resource.Ammo) <= 0 ? "-" + ScConfig.OutpostSecNoAmmo : "0")
+              .Append(", defenses +").Append(Math.Min(ScConfig.OutpostSecDefenseCap, ScConfig.OutpostSecPerDefense * o.Invest[3]))
+              .Append(", won fights +").Append(Mathf.RoundToInt(o.SecBonus).ToString(CultureInfo.InvariantCulture))
+              .Append("; attack chance ").Append((AttackChance(o) * 100f).ToString("0.#", CultureInfo.InvariantCulture)).Append("% a day");
+            return sb.ToString();
+        }
+    }
+}

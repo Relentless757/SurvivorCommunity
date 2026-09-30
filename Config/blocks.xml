@@ -1,0 +1,451 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!-- APPEND, never remove+re-add: TileEntityFeatureData.CustomOrder follows the insertion order of
+	     DynamicProperties.Classes and TEFeatureLandClaim must stay at CustomOrder 0 (LandClaimUpgrade
+	     appends its own feature the same way; both can coexist). -->
+	<append xpath="/blocks/block[@name='keystoneBlock']/property[@class='CompositeFeatures']">
+		<property class="TEFeatureSCCommunity" />
+	</append>
+
+	<append xpath="/blocks">
+		<!-- All tunables. Same shape as SCore's ConfigFeatureBlock: a block nobody can place, read by
+		     ScConfig once per world. Edit values here, not in code. -->
+		<block name="ConfigSurvivorCommunity">
+			<property name="Extends" value="terrDesertGround" />
+			<property name="CreativeMode" value="None" />
+
+			<!-- roster -->
+			<property name="MaxMembers" value="12" />
+			<!-- how many members may follow you at once -->
+			<property name="MaxFollowers" value="2" />
+			<!-- where residents idle: within this many blocks of the home land claim block -->
+			<property name="PostRadius" value="8" />
+
+			<!-- daily use, in bundles -->
+			<property name="FoodPerMemberDay" value="0.5" />
+			<property name="AmmoPerRangedDay" value="0.25" />
+
+			<!-- packing: EconomicValue x count that makes one bundle of each resource -->
+			<property name="PointsPerBundleFood" value="400" />
+			<property name="PointsPerBundleMeds" value="300" />
+			<property name="PointsPerBundleAmmo" value="2000" />
+			<property name="PointsPerBundleMaterials" value="1000" />
+			<property name="PointsPerBundleFuel" value="600" />
+			<!-- per-item point overrides: item:points,item:points -->
+			<property name="ValueOverrides" value="" />
+			<!-- Fuel bundles: items tagged gasoline plus this list. FuelValue is NOT used (wood, coal, cloth burn but are materials). -->
+			<property name="FuelItems" value="ammoGasCan" />
+
+			<!-- blocks counted as beds / facilities inside the zone (morale). Counted from every loaded chunk of the
+			     whole claim every few seconds; a chunk that is not loaded keeps its last count.
+			     Beds: every sleeping-bag class block when BedsBySleepingBag is true (vanilla bedrolls, king beds and
+			     bunk beds, and bed mods that copy that class), plus the BedBlocks name PREFIXES, minus the
+			     BedBlocksExclude prefixes. Placement helpers never count. -->
+			<property name="BedsBySleepingBag" value="true" />
+			<property name="BedBlocks" value="bedroll,bed02,bunkBed,bedMade,bedMessy,mattressFlatThin,hospitalBed" />
+			<property name="BedBlocksExclude" value="bunkBedFrame,mattressCurled" />
+			<property name="FacilityBlocks" value="campfire,workbench,forge,chemistryStation,cementMixer" />
+
+			<!-- morale consequences -->
+			<property name="LowMoraleDays" value="2" />
+			<!-- a member unseen this many days while the base is loaded is written off -->
+			<property name="MissingDaysToPurge" value="30" />
+
+			<!-- supply runs -->
+			<property name="RunRiskBase" value="0.15" />
+			<property name="RunYieldBase" value="2" />
+
+			<!-- recruit favours: "bring supplies" choices (category:count, one is rolled), and how far a
+			     "secure the POI" favour may send you -->
+			<property name="SuppliesFavours" value="food:15|meds:5|ammo:60" />
+			<property name="PoiFavourRange" value="300" />
+			<property name="TraitsPerRecruit" value="2" />
+
+			<!-- skill effects: bonus fraction per star above the first (Fighting: melee damage, Shooting: ranged
+			     damage, Cardio: run/walk speed and max health), read by buffSCSkills through NPC cvars -->
+			<property name="MeleePerStar" value="0.10" />
+			<property name="RangedPerStar" value="0.10" />
+			<property name="SpeedPerStar" value="0.04" />
+			<property name="HealthPerStar" value="0.08" />
+			<!-- specialties at the day rollover: the best cook cuts food use by CookFoodPerStar per star (floor 50%);
+			     gardeners turn living crops in the zone into food (crops x CropFoodPerStar x stars bundles/day);
+			     one medical bundle heals 1 + floor(medic stars x MedicPerStar) injuries; craftsmen lower the packing
+			     threshold by PackBonusPerStar per star (floor 60%). Mechanics / Chemistry apply to supply runs (M5). -->
+			<property name="CookFoodPerStar" value="0.08" />
+			<property name="CropFoodPerStar" value="0.01" />
+			<property name="MedicPerStar" value="0.5" />
+			<property name="PackBonusPerStar" value="0.04" />
+			<!-- base scan: 0 = the whole claim zone, above 0 = only this many blocks around the home block;
+			     seconds of following per Cardio XP, Wits XP per day -->
+			<property name="ScanRadius" value="0" />
+			<property name="FollowXpSeconds" value="60" />
+			<property name="DailyWitsXp" value="3" />
+			<!-- a stationed survivor that makes no progress for this many seconds is moved back to their post -->
+			<property name="StuckSeconds" value="12" />
+			<!-- morale: 50 + food days + medicine + beds + facilities + supplies + traits - recent deaths (each death
+			     costs DeathPenalty, fading DeathDecayPerDay per day). Below LowMoraleThreshold for LowMoraleDays days
+			     the unhappiest survivor threatens to leave and does so the next day; above HighMoraleThreshold XP x1.5. -->
+			<property name="DeathPenalty" value="15" />
+			<property name="DeathDecayPerDay" value="3" />
+			<property name="LowMoraleThreshold" value="25" />
+			<property name="HighMoraleThreshold" value="75" />
+			<!-- supply runs: RunYieldBase bundles x (1 + RunYieldPerWitsStar per Wits star) x specialist bonus (Mechanics for
+			     materials/fuel, Chemistry for medicine, Cooking for food) x traits x 1.25 at high morale; the runner is away
+			     RunDays; risk = RunRiskBase - RunRiskPerCombatStar per Fighting/Shooting star (a bad roll: injured with half
+			     the yield, or - RunDeathShare of the time - never comes back). At most MaxRunners are out at once. -->
+			<property name="RunDays" value="1" />
+			<property name="MaxRunners" value="3" />
+			<property name="RunYieldPerWitsStar" value="0.15" />
+			<property name="RunSpecialistPerStar" value="0.15" />
+			<property name="RunRiskPerCombatStar" value="0.02" />
+			<property name="RunDeathShare" value="0.25" />
+			<property name="RunWitsXp" value="8" />
+			<!-- most rows the linked storage grid shows: 0 = automatic (up to 1000 when Grid Inventory scrolls it,
+			     10 on vanilla's loot grid, which cannot scroll) -->
+			<property name="LinkedStorageRows" value="0" />
+			<!-- radio station. RadioOnlyAirdrops: vanilla's scheduled air drops are refused; the sandbox "air drop
+			     frequency" (hours) is the radio's cooldown instead. Calls find a hireable survivor at a real POI
+			     RadioContactMinDist..MaxDist from the home block, marked on the map, who fades after RadioContactDays.
+			     A supply run may radio for help (RadioDistressChance) while a radio is powered: zombies =
+			     DistressZombiesBase + gamestage x PerGamestage, at least PerCombatStar x (Fighting + Shooting stars - 2),
+			     capped at DistressZombiesMax, drawn from DistressZombieGroup; a rescued run's haul x RescueBonus. -->
+			<property name="RadioOnlyAirdrops" value="true" />
+			<property name="RadioCallDays" value="2" />
+			<property name="RadioContactDays" value="7" />
+			<property name="RadioMaxContacts" value="3" />
+			<property name="RadioContactMinDist" value="300" />
+			<property name="RadioContactMaxDist" value="1500" />
+			<property name="RadioDistressChance" value="0.35" />
+			<property name="RescueTriggerRange" value="70" />
+			<property name="DistressZombiesBase" value="4" />
+			<property name="DistressZombiesPerGamestage" value="0.06" />
+			<property name="DistressZombiesPerCombatStar" value="1.5" />
+			<property name="DistressZombiesMax" value="24" />
+			<property name="DistressZombieGroup" value="ZombiesAll" />
+			<property name="RescueBonus" value="1.25" />
+
+			<!-- Survivors wearing the player's body (entity classes scSurvivor*, Config/entityclasses.xml).
+			     SurvivorLookChance: share of radio contacts that are them instead of pack NPCs. Their clothes come
+			     from vanilla armor sets (armor<Set>Helmet/Outfit/Gloves/Boots): each piece with GearPieceChance,
+			     swapped for another set's piece with GearMixChance, quality Min..Max. -->
+			<property name="SurvivorLookChance" value="0.5" />
+			<property name="SurvivorGearSets" value="Primitive,Athletic,Enforcer,Lumberjack,Preacher,Rogue,Assassin,Biker,Commando,Farmer,Ranger,Scavenger,Miner,Nerd,Nomad,Raider" />
+			<property name="SurvivorGearPieceChance" value="0.8" />
+			<property name="SurvivorGearAlwaysChest" value="true" />
+			<property name="SurvivorGearMixChance" value="0.3" />
+			<property name="SurvivorGearQualityMin" value="1" />
+			<property name="SurvivorGearQualityMax" value="4" />
+			<!-- Survivors in your community are safe from your own shots; everyone else is not. True lets you
+			     hurt your own people too. -->
+			<property name="CommunityFriendlyFire" value="false" />
+			<property name="SurvivorBaldChance" value="0.15" />
+			<property name="SurvivorFacialHairChance" value="0.4" />
+
+			<property name="DebugLogging" value="false" />
+
+			<!-- Traits, rolled by weight at recruit. Keys: weight, food (food-use multiplier), morale
+			     (community offset), mood (own offset), skill=Name:stars (starting bonus), spec=Specialty
+			     (preferred), xp (skill XP multiplier), yield (supply-run yield multiplier), timid=1 (flees).
+			     A trait shows its tooltip through a buff named traitSC_<Name> when buffs.xml defines one. -->
+			<property class="Traits">
+				<property name="EatsLikeABird" value="weight=3,food=0.75" />
+				<property name="BottomlessStomach" value="weight=3,food=1.5" />
+				<property name="Optimist" value="weight=3,morale=3,mood=5" />
+				<property name="Pessimist" value="weight=3,morale=-3,mood=-5" />
+				<property name="Loner" value="weight=2,mood=-5" />
+				<property name="PeoplePerson" value="weight=2,morale=2" />
+				<property name="Veteran" value="weight=2,skill=Fighting:2" />
+				<property name="Sharpshooter" value="weight=2,skill=Shooting:2" />
+				<property name="MarathonRunner" value="weight=2,skill=Cardio:2" />
+				<property name="QuickStudy" value="weight=2,xp=1.5" />
+				<property name="Cowardly" value="weight=1,timid=1,mood=-5" />
+				<property name="Hardy" value="weight=2,mood=3" />
+				<property name="MedicTraining" value="weight=2,spec=Medicine" />
+				<property name="Homesteader" value="weight=2,spec=Gardening" />
+				<property name="Tinkerer" value="weight=2,spec=Mechanics,yield=1.15" />
+				<property name="Hoarder" value="weight=2,yield=1.25,mood=-2" />
+				<property name="Cheerful" value="weight=2,morale=2,mood=3" />
+				<property name="Insomniac" value="weight=1,mood=-3" />
+			</property>
+
+			<!-- OUTPOSTS. A cleared POI with a land claim can be made an outpost that sends bundles home each day.
+			     OutpostBase: bundles a day at tier 2 and weight 1 (food, meds, ammo, mats, fuel); OutpostTierMult: T0..T5;
+			     OutpostMinTier: below it a POI needs a sleeper volume to count; OutpostDailyCap: most bundles a day from one
+			     outpost; OutpostScavengeMult: a POI no row matches yields this share of whatever the community lacks;
+			     OutpostExclude: prefab-name words that are never outposts; OutpostNoise: author words ignored in prefab
+			     names; OutpostTagFallback: district tag -> row (e.g. industrial:junkyard), empty = off. -->
+			<property name="OutpostMinDistance" value="150" />
+			<property name="OutpostMax" value="4" />
+			<!-- Outpost economy. Slots = min(OutpostMax, 1 + members / OutpostMembersPerSlot + Leadership / OutpostLeadershipPerSlot);
+			     the fee is taken at Establish; upkeep (materials per working outpost per day) and haulage (fuel per bundle
+			     delivered) carry fractions. Unpaid upkeep: yields x OutpostRunDownMult; unpaid haulage: x OutpostOnFootMult.
+			     A silent home radio keeps bundles at the outpost, at most OutpostPendingDays of yield. OutpostDupMult: the
+			     best / second / other outposts sharing a primary resource. Morale: +OutpostMoralePer per producing outpost
+			     (cap OutpostMoraleCap); a lost one costs OutpostLostPenalty, fading OutpostLostDecay a day. -->
+			<property name="OutpostMembersPerSlot" value="4" />
+			<property name="OutpostLeadershipPerSlot" value="5" />
+			<property name="OutpostFeeMats" value="2" />
+			<property name="OutpostFeeFuel" value="1" />
+			<property name="OutpostUpkeep" value="0.2" />
+			<property name="OutpostHaulage" value="0.05" />
+			<property name="OutpostRunDownMult" value="0.5" />
+			<property name="OutpostOnFootMult" value="0.75" />
+			<property name="OutpostPendingDays" value="3" />
+			<property name="OutpostDupMult" value="1,0.75,0.5" />
+			<property name="OutpostMoralePer" value="2" />
+			<property name="OutpostMoraleCap" value="6" />
+			<property name="OutpostLostPenalty" value="5" />
+			<property name="OutpostLostDecay" value="1" />
+			<!-- Outposts v1.1-v1.3. Garrisons: +StaffBonus yield per member posted, and the best matching specialty
+			     +MatchBase +MatchPerStar x stars; stand-ins appear within StandInRange; WalkInChance a day per staffed outpost.
+			     Levels (bought from the stockpile): L2/L3 cost, days held first, yield multiplier; UpkeepPerLevel extra upkeep.
+			     Type perks while such an outpost produces: clinic heals, escort risk cut (max), motor pool run yield, salvage
+			     cost multiplier, canteen hunger floor. Radio scouting: range, sites, days. Output mode (quiet/push) yield and
+			     risk. CheckInDays (0 = off) and Depletion (0 = off). DistressChance: a runner's call pins them at an outpost.
+			     Workshops (posted crafters/chemists convert the surplus over Keep). Barter rate. What the player builds inside
+			     an outpost (beds/facilities/crops, capped) raises its yield; DefenseBlocks are counted for security. Stash and
+			     haul (off): only HaulBase + HaulPerLevel bundles a day come home, the rest wait in the claim box. -->
+			<property name="OutpostStaffBonus" value="0.5" />
+			<property name="OutpostMatchBase" value="0.2" />
+			<property name="OutpostMatchPerStar" value="0.1" />
+			<property name="OutpostStandInRange" value="60" />
+			<property name="OutpostWalkInChance" value="0.08" />
+			<property name="OutpostL2Mats" value="4" />
+			<property name="OutpostL2Fuel" value="2" />
+			<property name="OutpostL2Days" value="3" />
+			<property name="OutpostL3Mats" value="8" />
+			<property name="OutpostL3Fuel" value="4" />
+			<property name="OutpostL3Days" value="7" />
+			<property name="OutpostL2Mult" value="1.3" />
+			<property name="OutpostL3Mult" value="1.5" />
+			<property name="OutpostUpkeepPerLevel" value="0.1" />
+			<property name="OutpostClinicHeals" value="1" />
+			<property name="OutpostEscortRisk" value="0.03" />
+			<property name="OutpostEscortMax" value="0.06" />
+			<property name="OutpostMotorPoolMult" value="1.15" />
+			<property name="OutpostSalvageMult" value="0.75" />
+			<property name="OutpostCanteenFloor" value="-10" />
+			<property name="RadioScoutRange" value="1500" />
+			<property name="RadioScoutCount" value="3" />
+			<property name="RadioScoutDays" value="3" />
+			<property name="OutpostQuietMult" value="0.5" />
+			<property name="OutpostPushMult" value="1.5" />
+			<property name="OutpostQuietRisk" value="0.5" />
+			<property name="OutpostPushRisk" value="1.75" />
+			<property name="OutpostCheckInDays" value="0" />
+			<property name="OutpostCheckInDecay" value="0.1" />
+			<property name="OutpostCheckInFloor" value="0.5" />
+			<property name="OutpostDepletion" value="0" />
+			<property name="OutpostDepletedMult" value="0.25" />
+			<property name="OutpostDistressChance" value="0.3" />
+			<property name="OutpostWorkshop" value="true" />
+			<property name="OutpostWorkshopKeep" value="10" />
+			<property name="RadioBarterRate" value="3" />
+			<property name="OutpostBedBonus" value="0.05" />
+			<property name="OutpostFacilityBonus" value="0.1" />
+			<property name="OutpostCropBonus" value="0.02" />
+			<property name="OutpostBedMax" value="4" />
+			<property name="OutpostFacilityMax" value="3" />
+			<property name="OutpostCropMax" value="10" />
+			<property name="OutpostInvestCap" value="0.5" />
+			<property name="OutpostDefenseBlocks" value="trapSpikes,barbedWire,barbedFence,bladeTrap,dartTrap,electricfencepost,autoTurret,shotgunTurret,mineCandyTin,mineCookingPot,mineHubcap,mineAirFilter" />
+			<property name="OutpostStashAndHaul" value="false" />
+			<property name="OutpostHaulBase" value="2" />
+			<property name="OutpostHaulPerLevel" value="2" />
+			<property name="OutpostStashMax" value="30" />
+			<!-- Outposts v2, risk (OutpostAttacks, off by default): security rating, attack calls (fight there or it is settled
+			     on security: hold / damaged / overrun), blood-moon sieges, neglect reinfestation, raider demands. Good-news
+			     caches (OutpostGoodNews) are on by default. See ScOutpostRisk.cs for every term. -->
+			<property name="OutpostAttacks" value="false" />
+			<property name="OutpostGoodNews" value="true" />
+			<property name="OutpostGoodNewsChance" value="0.04" />
+			<property name="OutpostSecBase" value="35" />
+			<property name="OutpostSecPerStaffer" value="8" />
+			<property name="OutpostSecPerCombatStar" value="2" />
+			<property name="OutpostSecPerTier" value="4" />
+			<property name="OutpostSecVisited" value="5" />
+			<property name="OutpostSecNoAmmo" value="10" />
+			<property name="OutpostSecPerDefense" value="2" />
+			<property name="OutpostSecDefenseCap" value="30" />
+			<property name="OutpostSecBonusFade" value="1" />
+			<property name="OutpostSecWinBonus" value="10" />
+			<property name="OutpostSecBonusMax" value="30" />
+			<property name="OutpostAttackChance" value="0.08" />
+			<property name="OutpostAttackHours" value="10" />
+			<property name="OutpostAttackBase" value="3" />
+			<property name="OutpostAttackPerGamestage" value="0.04" />
+			<property name="OutpostAttackMax" value="16" />
+			<property name="OutpostAttendedBonus" value="20" />
+			<property name="OutpostDamageBand" value="35" />
+			<property name="OutpostDamagedDays" value="2" />
+			<property name="OutpostRepairMats" value="2" />
+			<property name="OutpostSiegePenalty" value="15" />
+			<property name="OutpostWinMorale" value="4" />
+			<property name="OutpostNeglectDays" value="10" />
+			<property name="OutpostRaiderGamestage" value="30" />
+			<property name="OutpostRaiderChance" value="0.03" />
+			<property name="OutpostDemandAmmo" value="2" />
+			<property name="OutpostDemandFood" value="2" />
+			<property name="OutpostBase" value="food:1.0,meds:0.35,ammo:0.3,mats:0.8,fuel:0.6" />
+			<property name="OutpostTierMult" value="0.6,0.8,1.0,1.15,1.3,1.5" />
+			<property name="OutpostMinTier" value="1" />
+			<property name="OutpostDailyCap" value="5" />
+			<property name="OutpostScavengeMult" value="0.5" />
+			<property name="OutpostExclude" value="foliage,foilage,plants,wind,solar,library,libary,pubic,museum,deco" />
+			<property name="OutpostNoise" value="xcpv,zztong,by,mplogue,fluffy,panda,voltralux" />
+			<property name="OutpostTagFallback" value="" />
+
+			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". A word ending in
+			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).
+			     Resolution: the prefab's own SCOutpost property > OutpostPrefabs > OutpostExclude > theme tags > prefab
+			     name > localized name > OutpostTagFallback > scavenge; within one layer the rarest resource wins
+			     (meds > ammo > fuel > food > materials). Check any POI with "sc poi" / "sc poi classify <prefab>". -->
+			<property class="OutpostRows">
+				<property name="grocery" value="food:1.2 | grocery,grocer*,supermarket,market,butcher*,deli,cannery,dairy,shamway,foods,food | grocery,supermarket,market,butcher,foods,shamway | storegrocery" />
+				<property name="diner" value="food:1.0 | diner,restaurant,fastfood,bakery,cafe,coffee,pizza*,burger*,taco*,donut*,bar,pub,brewery,smokehouse,saloon,tavern,winery,vineyard,bbq,steakhouse,buffet,kitchen,snack*,icecream | diner,cafe,bakery,pizza,burger*,restaurant,buffet,bar,pub,brewery,wine,smokehouse,saloon,tavern,grill,kitchen,biskitz,swines | " />
+				<property name="farm" value="food:1.0 | farm,farmers,barn,orchard | farm,ranch,barn | " />
+				<property name="clinic" value="meds:1.0 | hospital*,pharmac*,clinic,medical,medic,pills,dentist,vet,veterinary,asylum,nursing,urgent,healthcare,health,ambulance,vax,ultrascans,morgue,lab,laboratory | hospital,clinic,pharmacy,pills,medical,urgent,pharmaceutical,serum,healing,health,doctor,dental | storepharmacy" />
+				<property name="military" value="ammo:1.0,meds:0.3 | army,military,bunker,armory,armoury,barracks | army,military,armory,bunker,army post | sitemilitary" />
+				<property name="gunstore" value="ammo:1.0 | gun*,ammo,weapon*,range | gun,guns,bullets,rifle,shotgun,ammo,ammunition,range | storegun" />
+				<property name="police" value="ammo:0.7 | police,swat,prison,sheriff,jail,checkpoint | police,sheriff,prison,jail,npd,checkpoint | cpvlaw,cpvjail" />
+				<property name="firestation" value="meds:0.6,fuel:0.4 | fire station,firestation | fire district,fire station | stationfire" />
+				<property name="hardware" value="mats:1.2 | hardware,tools,tool | hardware,tools | storehardware" />
+				<property name="industry" value="mats:1.0 | lumber*,factory,warehouse*,construction,sawmill,mill,workshop,steel,concrete,quarry,mine,mining,depot,autoparts,mechanic,bodyshop,welding,foundry,selfstorage,storage,utility,substation,plant,coal,brick* | lumber,mill,welding,works,metal,construction,warehouse,factory,quarry,mine,supply | " />
+				<property name="junkyard" value="mats:0.8 | junkyard,scrap*,salvage,industrial | junkyard,salvage,scrap | " />
+				<property name="gasstation" value="fuel:1.0,food:0.2 | gas,gasstation,gas station,fuel,petrol,quicklube,oil,passngas,pump station | gas,fill,oil,fuel,petrol,lube | stationgas,cpvgas" />
+				<property name="refinery" value="fuel:1.3 | refinery,truckstop,truck stop | refinery,truck stop,truck plaza | " />
+			</property>
+			<!-- Prefabs whose names say nothing about what they are (countrytown_business_05 is Butcher Pete's), and
+			     false friends: prefab name = row id, or none. A modded POI pack is fixed with one line here. -->
+			<property class="OutpostPrefabs">
+				<property name="countrytown_business_05" value="grocery" />
+				<property name="countrytown_business_07" value="diner" />
+				<property name="countrytown_business_10" value="diner" />
+				<property name="countrytown_business_14" value="diner" />
+				<property name="countrytown_business_15" value="diner" />
+				<property name="countrytown_business_11" value="clinic" />
+				<property name="countrytown_business_12" value="gunstore" />
+				<property name="remnant_business_01" value="diner" />
+				<property name="remnant_business_02" value="clinic" />
+				<property name="remnant_business_04" value="industry" />
+				<property name="remnant_business_05" value="gunstore" />
+				<property name="oldwest_business_01" value="diner" />
+				<property name="oldwest_business_03" value="diner" />
+				<property name="oldwest_business_09" value="diner" />
+				<property name="oldwest_business_11" value="diner" />
+				<property name="oldwest_business_13" value="clinic" />
+				<property name="oldwest_business_10" value="gunstore" />
+				<property name="oldwest_business_02" value="industry" />
+				<property name="oldwest_business_14" value="industry" />
+				<property name="oldwest_business_05" value="gasstation" />
+				<property name="oldwest_strip_03" value="diner" />
+				<property name="oldwest_strip_02" value="industry" />
+				<property name="oldwest_strip_04" value="industry" />
+				<property name="industrial_strip_09" value="diner" />
+				<property name="industrial_strip_10" value="diner" />
+				<property name="survivor_site_02" value="farm" />
+				<property name="factory_02" value="gunstore" />
+				<property name="factory_03" value="clinic" />
+				<property name="skyscraper_03" value="clinic" />
+				<property name="docks_01" value="gasstation" />
+				<property name="rest_area_05" value="gasstation" />
+				<property name="lot_industrial_03" value="gasstation" />
+				<property name="lot_industrial_09" value="gasstation" />
+				<property name="remnant_mill_01" value="farm" />
+				<property name="store_gun_01" value="gunstore" />
+				<property name="store_grocery_03" value="grocery" />
+				<property name="army_camp_09" value="military" />
+				<property name="oldwest_jail" value="police" />
+				<property name="farm_04" value="clinic" />
+				<property name="farm_17" value="none" />
+			</property>
+		</block>
+	</append>
+
+	<append xpath="/blocks">
+		<!-- The packing station: a lockable crate (vanilla loot window) whose contents the packing strip
+		     in that window can turn into resource bundles. TEFeatureSCPacking is a marker the strip
+		     recognises; the storage feature holds the items. Model: the vanilla writable wood crate. -->
+		<block name="scPackingStation">
+			<property name="CreativeMode" value="Player" />
+			<property name="Class" value="CompositeTileEntity" />
+			<property class="CompositeFeatures">
+				<property class="TEFeatureStorage">
+					<property name="LootList" value="scPackingInput" />
+				</property>
+				<property class="TEFeatureLockable" />
+				<property class="TEFeatureSCPacking" />
+			</property>
+			<property name="DescriptionKey" value="scPackingStationDesc" />
+			<property name="CustomIcon" value="cntWoodWritableCrate" />
+			<property name="CustomIconTint" value="200,230,200" />
+			<property name="Material" value="MwoodReinforced" />
+			<property name="Shape" value="ModelEntity" />
+			<property name="Model" value="@:Entities/LootContainers/woodWritableCratePrefab.prefab" />
+			<property name="WaterFlow" value="permitted" />
+			<property name="Path" value="solid" />
+			<property name="Place" value="TowardsPlacerInverted" />
+			<property name="AllowedRotations" value="Basic90" />
+			<property name="FuelValue" value="300" />
+			<property name="EconomicValue" value="20" />
+			<property name="MaxDamage" value="600" />
+			<property name="SoundPickup" value="cratewood_grab" />
+			<property name="SoundPlace" value="cratewood_place" />
+			<property class="RepairItems">
+				<property name="resourceWood" value="10" />
+			</property>
+			<drop event="Destroy" name="resourceWood" count="1,3" />
+			<drop event="Fall" name="terrDestroyedWoodDebris" count="1" prob="0.75" stick_chance="1" />
+			<property name="SortOrder1" value="B106" />
+			<property name="SortOrder2" value="0001" />
+			<property name="Group" value="Basics,Building,advBuilding" />
+			<property name="FilterTags" value="MC_playerBlocks,SC_decor" />
+		</block>
+	</append>
+
+	<append xpath="/blocks">
+		<!-- The radio station: a powered consumer (wire it like a light). Its "Use radio" command opens the radio
+		     window while it has power. Model: vanilla's ham radio prop. -->
+		<block name="scRadioStation">
+			<property name="CreativeMode" value="Player" />
+			<property name="Class" value="ScRadio, SurvivorCommunity" />
+			<property name="RequiredPower" value="5" />
+			<property name="TakeDelay" value="2" />
+			<property name="DescriptionKey" value="scRadioStationDesc" />
+			<property name="CustomIcon" value="radioHam" />
+			<property name="CustomIconTint" value="200,230,255" />
+			<property name="Material" value="Mmetal_weak" />
+			<property name="Shape" value="ModelEntity" />
+			<property name="Model" value="@:Entities/Electrical/radioHamPrefab.prefab" />
+			<property name="IsTerrainDecoration" value="true" />
+			<property name="WaterFlow" value="permitted" />
+			<property name="Place" value="TowardsPlacer" />
+			<property name="AllowedRotations" value="Basic90" />
+			<property name="EconomicValue" value="120" />
+			<property name="MaxDamage" value="500" />
+			<property name="SoundPickup" value="metal_grab" />
+			<property name="SoundPlace" value="metal_place" />
+			<property class="RepairItems">
+				<property name="resourceElectricParts" value="2" />
+			</property>
+			<drop event="Destroy" name="resourceScrapIron" count="2,5" />
+			<drop event="Fall" name="terrDestroyedStone" count="1" prob="0.75" stick_chance="1" />
+			<property name="SortOrder1" value="B106" />
+			<property name="SortOrder2" value="0002" />
+			<property name="Group" value="Basics,Building,advBuilding,Science" />
+			<property name="FilterTags" value="MC_playerBlocks,SC_decor" />
+		</block>
+	</append>
+	<!-- The Outpost Flag: a land claim that establishes an outpost where it stands (inside a cleared building away
+	     from home, radio on, fee paid - the same gates as the claim's "Establish outpost"); anywhere else it is an
+	     ordinary claim. Same model and claim rules as the keystone (IndexName lpblock); TEFeatureSCCommunity.OnAdded. -->
+	<append xpath="/blocks">
+		<block name="scOutpostFlag">
+			<property name="Extends" value="keystoneBlock" />
+			<property name="CustomIcon" value="keystoneBlock" />
+			<property name="CustomIconTint" value="FFBE5A" />
+			<property name="DescriptionKey" value="scOutpostFlagDesc" />
+			<property name="SortOrder2" value="0001" />
+		</block>
+	</append>
+</configs>

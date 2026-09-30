@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!-- The packing station's box: 8x4 player storage, never rolls loot. No lootgroup references, so it is
+	     safe to append at the end of loot.xml (groups must be defined before first use; containers need not). -->
+	<append xpath="/lootcontainers">
+		<lootcontainer name="scPackingInput" count="0" size="8,4" sound_open="UseActions/crate_wood_open" sound_close="UseActions/crate_wood_close" loot_quality_template="qualBaseTemplate">
+			<item name="cobweb" count="0"/>
+		</lootcontainer>
+		<!-- The linked storage views (home, an outpost's own boxes): never placed, never rolled. The loot window only
+		     reads its sounds and open time; the view's title is passed separately (ScStorage.OpenWindow). -->
+		<lootcontainer name="scLinkedStorage" count="0" size="9,4" sound_open="UseActions/crate_wood_open" sound_close="UseActions/crate_wood_close" open_time="0" loot_quality_template="qualBaseTemplate">
+			<item name="cobweb" count="0"/>
+		</lootcontainer>
+	</append>
+
+	<!-- Resource bundles in world loot. Each goes into the vanilla groups of the containers it belongs in: food
+	     piles and cupboards, medical piles / cabinets / coolers / Pop-N-Pills, ammo piles / military lockers /
+	     Shotgun Messiah / ammo displays, Pass-N-Gas crates, construction crates and toolboxes, and air drops.
+	     Every one of these groups is count="all": each entry rolls on its own, and an entry's prob is only
+	     rolled when force_prob is set (LootContainer.SpawnAllItemsFromList) - without it the bundle would drop
+	     from every container. Only items are appended into existing groups (no new group is referenced), so the
+	     single-pass lootgroup ordering does not apply. -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupFoodPileSmall']"><item name="scBundleFood" count="1" prob="0.03" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupFoodPileMed']"><item name="scBundleFood" count="1" prob="0.05" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupFoodPileLarge']"><item name="scBundleFood" count="1,2" prob="0.08" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupCupboard']"><item name="scBundleFood" count="1" prob="0.02" force_prob="true"/></append>
+
+	<append xpath="/lootcontainers/lootgroup[@name='groupMedicalPileSmall']"><item name="scBundleMeds" count="1" prob="0.03" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupMedicalPileMed']"><item name="scBundleMeds" count="1" prob="0.05" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupMedicalPileLarge']"><item name="scBundleMeds" count="1,2" prob="0.08" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupMedicineCabinet']"><item name="scBundleMeds" count="1" prob="0.03" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupCoolerMedical']"><item name="scBundleMeds" count="1" prob="0.05" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupPopNPillsCrate']"><item name="scBundleMeds" count="1" prob="0.06" force_prob="true"/></append>
+
+	<append xpath="/lootcontainers/lootgroup[@name='groupAmmoPileSmall']"><item name="scBundleAmmo" count="1" prob="0.03" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupAmmoPileMed']"><item name="scBundleAmmo" count="1" prob="0.05" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupAmmoPileLarge']"><item name="scBundleAmmo" count="1,2" prob="0.08" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupMilitaryFootlocker']"><item name="scBundleAmmo" count="1" prob="0.05" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupShotgunMessiahCrate']"><item name="scBundleAmmo" count="1" prob="0.06" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupAmmoRackDisplay']"><item name="scBundleAmmo" count="1" prob="0.04" force_prob="true"/></append>
+
+	<append xpath="/lootcontainers/lootgroup[@name='groupPassNGas']"><item name="scBundleFuel" count="1" prob="0.08" force_prob="true"/></append>
+
+	<append xpath="/lootcontainers/lootgroup[@name='groupConstructionCrate']"><item name="scBundleMaterials" count="1" prob="0.06" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupToolbox']"><item name="scBundleMaterials" count="1" prob="0.03" force_prob="true"/></append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupRollingToolbox']"><item name="scBundleMaterials" count="1" prob="0.05" force_prob="true"/></append>
+
+	<!-- air drops (the radio calls them in): each bundle rolls on its own -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupAirDrop']">
+		<item name="scBundleFood" count="1,2" prob="0.35" force_prob="true"/>
+		<item name="scBundleMeds" count="1,2" prob="0.35" force_prob="true"/>
+		<item name="scBundleAmmo" count="1,2" prob="0.35" force_prob="true"/>
+		<item name="scBundleMaterials" count="1,2" prob="0.35" force_prob="true"/>
+		<item name="scBundleFuel" count="1,2" prob="0.35" force_prob="true"/>
+	</append>
+
+	<!-- Trader quest rewards (quests.xml reward type="LootItem" picks ONE entry of the group, weighted by each
+	     entry's loot_prob_template at the quest's tier - LootContainer.GetRewardItem). Food / medical / ammo use
+	     the vanilla tier templates like their neighbours: one bundle from tier 1, two from tier 2 on, three at
+	     tier 3; the resource rewards take a materials or a fuel bundle as one more equal choice. -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupQuestFood']">
+		<item name="scBundleFood" count="1" loot_prob_template="QuestT1Prob"/>
+		<item name="scBundleFood" count="2" loot_prob_template="QuestT2Prob"/>
+		<item name="scBundleFood" count="3" loot_prob_template="QuestT3Prob"/>
+	</append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupQuestMedical']">
+		<item name="scBundleMeds" count="1" loot_prob_template="QuestT1Prob"/>
+		<item name="scBundleMeds" count="2" loot_prob_template="QuestT2Prob"/>
+		<item name="scBundleMeds" count="3" loot_prob_template="QuestT3Prob"/>
+	</append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupQuestAmmo']">
+		<item name="scBundleAmmo" count="1" loot_prob_template="QuestT1Prob"/>
+		<item name="scBundleAmmo" count="2" loot_prob_template="QuestT2Prob"/>
+		<item name="scBundleAmmo" count="3" loot_prob_template="QuestT3Prob"/>
+	</append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupQuestResourcesT0']">
+		<item name="scBundleMaterials" count="1"/>
+		<item name="scBundleFuel" count="1"/>
+	</append>
+	<append xpath="/lootcontainers/lootgroup[@name='groupQuestResourcesT1']">
+		<item name="scBundleMaterials" count="2"/>
+		<item name="scBundleFuel" count="2"/>
+	</append>
+</configs>

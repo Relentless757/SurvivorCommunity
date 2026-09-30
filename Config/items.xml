@@ -1,0 +1,2119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!-- Resource bundles: the community's five resources in item form, made at the packing station and
+	     deposited into the stockpile there, and found in loot / trader quest rewards (Config/loot.xml).
+	     Deliberately NO OpenBundle action (a bundle that unpacked into goods would make the station a free item
+	     converter) and not sellable. Icons are the matching vanilla loot piles (Data/ItemIcons). -->
+	<append xpath="/items">
+		<item name="scBundleMaster">
+			<property name="CreativeMode" value="None"/>
+			<property name="ItemTypeIcon" value="bundle"/>
+			<property name="HoldType" value="45"/>
+			<property name="Meshfile" value="@:Other/Items/Misc/sackPrefab.prefab"/>
+			<property name="DropMeshfile" value="@:Other/Items/Misc/sack_droppedPrefab.prefab"/>
+			<property name="Material" value="Mmetal"/>
+			<property name="Stacknumber" value="10"/>
+			<property name="Weight" value="0"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="Group" value="Special Items"/>
+			<property name="SoundPickup" value="ammobox_grab"/>
+			<property name="SoundPlace" value="ammobox_place"/>
+		</item>
+		<item name="scBundleFood">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntFoodPileMedium"/>
+			<property name="Tags" value="scbundle,scfood"/>
+		</item>
+		<item name="scBundleMeds">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntMedicLootPileB"/>
+			<property name="Tags" value="scbundle,scmeds"/>
+		</item>
+		<item name="scBundleAmmo">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntAmmoPileMedium"/>
+			<property name="Tags" value="scbundle,scammo"/>
+		</item>
+		<item name="scBundleMaterials">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cinderBlocks02"/>
+			<property name="Tags" value="scbundle,scmaterials"/>
+		</item>
+		<item name="scBundleFuel">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntBarrelGasSingle00"/>
+			<property name="Tags" value="scbundle,scfuel"/>
+		</item>
+			<!-- BEGIN GENERATED: NPC weapons (Tools/gen_arsenal.py) -->
+		<!-- NPC versions of vanilla weapons the NPC framework has none of. Each is a full copy of the framework's
+		     closest NPC weapon (effect groups do not inherit through Extends) with the vanilla weapon's model,
+		     material, icon and sounds, and CompatibleWeapon pointing at it - which is what lets a player-body
+		     survivor animate it with the vanilla weapon's own hold type. Damage and timing are the base weapon's. -->
+		<!-- meleeWpnBladeT0BoneKnife -->
+		<item name="meleeNPCSCBoneKnife">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnBladeT0BoneKnife"/>
+			<property name="RightHandJointName" value="Knife"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="Tags" value="knife,melee,grunting,light,weapon,meleeWeapon,attAgility,perkDeepCuts,perkTheHuntsman,canHaveCosmetic"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/Knives/boneShivPrefab.prefab"/>
+			<property name="Material" value="MresourceBone"/>
+			<property name="TintColor" value="0,0,0"/>
+			<property name="RepairTools" value="resourceRepairKit"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="FuelValue" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property name="Group" value="Ammo/Weapons,Melee Weapons"/>
+			<property name="RepairExpMultiplier" value="5.5"/>
+			<property class="Action0">			
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/> <!-- Too small or large will miss  -->
+				<property name="Sphere" value="1.2"/> <!-- effects attack angle, too small will miss  -->  
+				<property name="Sound_start" value="knife_bone_swinglight"/>
+				<property name="Block_range" value="1"/> <!-- needs testing  -->
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/> 
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<property class="Action1">			
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="knife_bone_swingheavy"/>
+				<property name="Block_range" value="1"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/> 
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<effect_group name="meleeWpnBladeT1HuntingKnife">
+				<passive_effect name="AttacksPerMinute" operation="base_set" value="120" tags="perkDeepCuts,perkFlurryOfBlows"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="8.2" tags="primary"/>
+				<passive_effect name="DegradationMax" operation="base_set" value="462,1154" tier="1,6" tags="perkDeepCuts"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkDeepCuts"/>
+				<passive_effect name="MaxRange" operation="base_set" value="2.0" tags="perkDeepCuts"/>
+				<passive_effect name="BlockRange" operation="base_set" value="1" tags="perkDeepCuts"/>
+
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+				<passive_effect name="EntityDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random EntityDmg -->
+				<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="earth"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="stone"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="metal"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value=".6" tags="organic"/>
+				<passive_effect name="HarvestCount" operation="base_set" value="1" tags="butcherHarvest"/>
+			</effect_group>
+			<effect_group name="Power Attack">
+				<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+				<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+				<passive_effect name="AttacksPerMinute" operation="base_add" value="-60" tags="secondary"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="12.3" tags="secondary"/>
+			</effect_group>
+			<effect_group name="sneak damage bonus">
+				<requirement name="CVarCompare" cvar="_crouching" operation="Equals" value="1"/>
+				<requirement name="CVarCompare" cvar="_notAlerted" operation="GT" value="0" target="other"/>
+					<passive_effect name="DamageBonus" operation="base_add" value="4"/>
+					<passive_effect name="EntityDamage" operation="perc_add" value="4" tags="perkDeepCuts"/>
+					<display_value name="dEntityDamageSneak" value="4"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="36"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>	
+		<property name="CustomIcon" value="meleeWpnBladeT0BoneKnife"/></item>
+		<!-- meleeWpnKnucklesT0LeatherKnuckles -->
+		<item name="meleeNPCSCLeatherKnuckles">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnKnucklesT0LeatherKnuckles"/>
+			<property name="RightHandJointName" value="Knife"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="Tags" value="knife,melee,grunting,light,weapon,meleeWeapon,attAgility,perkDeepCuts,perkTheHuntsman,canHaveCosmetic"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/KnuckleWraps/knuckleWrapsRight_Prefab.prefab"/>
+			<property name="Material" value="MleatherKnuckles"/>
+			<property name="TintColor" value="0,0,0"/>
+			<property name="RepairTools" value="resourceRepairKit"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="FuelValue" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property name="Group" value="Ammo/Weapons,Melee Weapons"/>
+			<property name="RepairExpMultiplier" value="5.5"/>
+			<property class="Action0">			
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/> <!-- Too small or large will miss  -->
+				<property name="Sphere" value="1.2"/> <!-- effects attack angle, too small will miss  -->  
+				<property name="Sound_start" value="knuckles_wrap_swinglight"/>
+				<property name="Block_range" value="1"/> <!-- needs testing  -->
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/> 
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<property class="Action1">			
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="knuckles_wrap_swingheavy"/>
+				<property name="Block_range" value="1"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/> 
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<effect_group name="meleeWpnBladeT1HuntingKnife">
+				<passive_effect name="AttacksPerMinute" operation="base_set" value="120" tags="perkDeepCuts,perkFlurryOfBlows"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="8.2" tags="primary"/>
+				<passive_effect name="DegradationMax" operation="base_set" value="462,1154" tier="1,6" tags="perkDeepCuts"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkDeepCuts"/>
+				<passive_effect name="MaxRange" operation="base_set" value="2.0" tags="perkDeepCuts"/>
+				<passive_effect name="BlockRange" operation="base_set" value="1" tags="perkDeepCuts"/>
+
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+				<passive_effect name="EntityDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random EntityDmg -->
+				<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="earth"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="stone"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="metal"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value=".6" tags="organic"/>
+				<passive_effect name="HarvestCount" operation="base_set" value="1" tags="butcherHarvest"/>
+			</effect_group>
+			<effect_group name="Power Attack">
+				<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+				<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+				<passive_effect name="AttacksPerMinute" operation="base_add" value="-60" tags="secondary"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="12.3" tags="secondary"/>
+			</effect_group>
+			<effect_group name="sneak damage bonus">
+				<requirement name="CVarCompare" cvar="_crouching" operation="Equals" value="1"/>
+				<requirement name="CVarCompare" cvar="_notAlerted" operation="GT" value="0" target="other"/>
+					<passive_effect name="DamageBonus" operation="base_add" value="4"/>
+					<passive_effect name="EntityDamage" operation="perc_add" value="4" tags="perkDeepCuts"/>
+					<display_value name="dEntityDamageSneak" value="4"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="36"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>	
+		<property name="CustomIcon" value="meleeWpnKnucklesT0LeatherKnuckles"/></item>
+		<!-- meleeWpnKnucklesT1IronKnuckles -->
+		<item name="meleeNPCSCIronKnuckles">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnKnucklesT1IronKnuckles"/>
+			<property name="RightHandJointName" value="Knife"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="Tags" value="knife,melee,grunting,light,weapon,meleeWeapon,attAgility,perkDeepCuts,perkTheHuntsman,canHaveCosmetic"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/Knuckles/knucklesRight_Prefab.prefab"/>
+			<property name="Material" value="Mmetal"/>
+			<property name="TintColor" value="0,0,0"/>
+			<property name="RepairTools" value="resourceRepairKit"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="FuelValue" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property name="Group" value="Ammo/Weapons,Melee Weapons"/>
+			<property name="RepairExpMultiplier" value="5.5"/>
+			<property class="Action0">			
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/> <!-- Too small or large will miss  -->
+				<property name="Sphere" value="1.2"/> <!-- effects attack angle, too small will miss  -->  
+				<property name="Sound_start" value="knuckles_iron_swinglight"/>
+				<property name="Block_range" value="1"/> <!-- needs testing  -->
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/> 
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<property class="Action1">			
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="knuckles_iron_swingheavy"/>
+				<property name="Block_range" value="1"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/> 
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<effect_group name="meleeWpnBladeT1HuntingKnife">
+				<passive_effect name="AttacksPerMinute" operation="base_set" value="120" tags="perkDeepCuts,perkFlurryOfBlows"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="8.2" tags="primary"/>
+				<passive_effect name="DegradationMax" operation="base_set" value="462,1154" tier="1,6" tags="perkDeepCuts"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkDeepCuts"/>
+				<passive_effect name="MaxRange" operation="base_set" value="2.0" tags="perkDeepCuts"/>
+				<passive_effect name="BlockRange" operation="base_set" value="1" tags="perkDeepCuts"/>
+
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+				<passive_effect name="EntityDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random EntityDmg -->
+				<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="earth"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="stone"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="metal"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value=".6" tags="organic"/>
+				<passive_effect name="HarvestCount" operation="base_set" value="1" tags="butcherHarvest"/>
+			</effect_group>
+			<effect_group name="Power Attack">
+				<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+				<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+				<passive_effect name="AttacksPerMinute" operation="base_add" value="-60" tags="secondary"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="12.3" tags="secondary"/>
+			</effect_group>
+			<effect_group name="sneak damage bonus">
+				<requirement name="CVarCompare" cvar="_crouching" operation="Equals" value="1"/>
+				<requirement name="CVarCompare" cvar="_notAlerted" operation="GT" value="0" target="other"/>
+					<passive_effect name="DamageBonus" operation="base_add" value="4"/>
+					<passive_effect name="EntityDamage" operation="perc_add" value="4" tags="perkDeepCuts"/>
+					<display_value name="dEntityDamageSneak" value="4"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="36"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>	
+		<property name="CustomIcon" value="meleeWpnKnucklesT1IronKnuckles"/></item>
+		<!-- meleeWpnKnucklesT3SteelKnuckles -->
+		<item name="meleeNPCSCSteelKnuckles">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnKnucklesT3SteelKnuckles"/>
+			<property name="RightHandJointName" value="Knife"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="Tags" value="knife,melee,grunting,light,weapon,meleeWeapon,attAgility,perkDeepCuts,perkTheHuntsman,canHaveCosmetic"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/Knuckles/knucklesSpikedRight_Prefab.prefab"/>
+			<property name="Material" value="MmeleeWpnKnucklesParts"/>
+			<property name="TintColor" value="0,0,0"/>
+			<property name="RepairTools" value="resourceRepairKit"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="FuelValue" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property name="Group" value="Ammo/Weapons,Melee Weapons"/>
+			<property name="RepairExpMultiplier" value="5.5"/>
+			<property class="Action0">			
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/> <!-- Too small or large will miss  -->
+				<property name="Sphere" value="1.2"/> <!-- effects attack angle, too small will miss  -->  
+				<property name="Sound_start" value="knuckles_steel_swinglight"/>
+				<property name="Block_range" value="1"/> <!-- needs testing  -->
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/> 
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<property class="Action1">			
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="knuckles_steel_swingheavy"/>
+				<property name="Block_range" value="1"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/> 
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<effect_group name="meleeWpnBladeT1HuntingKnife">
+				<passive_effect name="AttacksPerMinute" operation="base_set" value="120" tags="perkDeepCuts,perkFlurryOfBlows"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="8.2" tags="primary"/>
+				<passive_effect name="DegradationMax" operation="base_set" value="462,1154" tier="1,6" tags="perkDeepCuts"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkDeepCuts"/>
+				<passive_effect name="MaxRange" operation="base_set" value="2.0" tags="perkDeepCuts"/>
+				<passive_effect name="BlockRange" operation="base_set" value="1" tags="perkDeepCuts"/>
+
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+				<passive_effect name="EntityDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random EntityDmg -->
+				<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="earth"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="stone"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="metal"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value=".6" tags="organic"/>
+				<passive_effect name="HarvestCount" operation="base_set" value="1" tags="butcherHarvest"/>
+			</effect_group>
+			<effect_group name="Power Attack">
+				<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+				<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+				<passive_effect name="AttacksPerMinute" operation="base_add" value="-60" tags="secondary"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="12.3" tags="secondary"/>
+			</effect_group>
+			<effect_group name="sneak damage bonus">
+				<requirement name="CVarCompare" cvar="_crouching" operation="Equals" value="1"/>
+				<requirement name="CVarCompare" cvar="_notAlerted" operation="GT" value="0" target="other"/>
+					<passive_effect name="DamageBonus" operation="base_add" value="4"/>
+					<passive_effect name="EntityDamage" operation="perc_add" value="4" tags="perkDeepCuts"/>
+					<display_value name="dEntityDamageSneak" value="4"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="36"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>	
+		<property name="CustomIcon" value="meleeWpnKnucklesT3SteelKnuckles"/></item>
+		<!-- meleeWpnBatonT0PipeBaton -->
+		<item name="meleeNPCSCPipeBaton">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnBatonT0PipeBaton"/>
+			<property name="RightHandJointName" value="Club"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="Tags" value="blunt,club,melee,grunting,light,longShaft,perkFlurryOfBlows,weapon,meleeWeapon,attStrength,perkPummelPete,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/PipeBaton/pipeBatonPrefab.prefab"/>
+			<property name="Candrop" value="false"/>
+			<property name="Material" value="Mmetal"/>
+			<property name="TintColor" value="102, 0, 0"/>
+			<property name="RepairTools" value="resourceWood"/>
+			<property name="SoundDestroy" value="wooddestroy1"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="FuelValue" value="25"/>
+			<property name="CustomIcon" value="meleeWpnBatonT0PipeBaton"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="stunbaton_swinglight"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="stunbaton_swingheavy"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+				<effect_group name="meleeWpnClubT0WoodenClub">
+					<passive_effect name="EntityDamage" operation="base_add" value="10" tags="perkPummelPete"/> <!-- base_add adds to the indexX damage property, base_set replaces it  -->
+					<passive_effect name="BlockDamage" operation="base_add" value="50" tags="perkPummelPete"/>
+					<passive_effect name="AttacksPerMinute" operation="base_set" value="55" tags="perkPummelPete,perkFlurryOfBlows"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="17.4" tags="primary"/>
+					<passive_effect name="DegradationMax" operation="base_set" value="60,110" tier="1,6" tags="perkPummelPete"/>
+					<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkPummelPete"/>
+					<passive_effect name="MaxRange" operation="base_set" value="2.4" tags="perkPummelPete"/>
+					<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkPummelPete"/>
+
+					<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+					<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+					<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+					<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+					<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="earth"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="stone"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="metal"/>
+
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allToolsHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="oreWoodHarvest"/>
+				</effect_group>
+				<effect_group name="Power Attack">
+					<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="26.1" tags="secondary"/>
+				</effect_group>
+				<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="2"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- meleeWpnBatonT2StunBaton -->
+		<item name="meleeNPCSCStunBaton">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnBatonT2StunBaton"/>
+			<property name="RightHandJointName" value="Club"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="Tags" value="blunt,club,melee,grunting,light,longShaft,perkFlurryOfBlows,weapon,meleeWeapon,attStrength,perkPummelPete,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/TaserBaton/TaserBatonPrefab.prefab"/>
+			<property name="Candrop" value="false"/>
+			<property name="Material" value="MmeleeWpnBatonParts"/>
+			<property name="TintColor" value="102, 0, 0"/>
+			<property name="RepairTools" value="resourceWood"/>
+			<property name="SoundDestroy" value="wooddestroy1"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="FuelValue" value="25"/>
+			<property name="CustomIcon" value="meleeWpnBatonT2StunBaton"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="stunbaton_swinglight"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="stunbaton_swingheavy"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+				<effect_group name="meleeWpnClubT0WoodenClub">
+					<passive_effect name="EntityDamage" operation="base_add" value="10" tags="perkPummelPete"/> <!-- base_add adds to the indexX damage property, base_set replaces it  -->
+					<passive_effect name="BlockDamage" operation="base_add" value="50" tags="perkPummelPete"/>
+					<passive_effect name="AttacksPerMinute" operation="base_set" value="55" tags="perkPummelPete,perkFlurryOfBlows"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="17.4" tags="primary"/>
+					<passive_effect name="DegradationMax" operation="base_set" value="60,110" tier="1,6" tags="perkPummelPete"/>
+					<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkPummelPete"/>
+					<passive_effect name="MaxRange" operation="base_set" value="2.4" tags="perkPummelPete"/>
+					<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkPummelPete"/>
+
+					<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+					<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+					<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+					<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+					<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="earth"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="stone"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="metal"/>
+
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allToolsHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="oreWoodHarvest"/>
+				</effect_group>
+				<effect_group name="Power Attack">
+					<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="26.1" tags="secondary"/>
+				</effect_group>
+				<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="2"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- meleeWpnClubT3SteelClub -->
+		<item name="meleeNPCSCSteelClub">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnClubT3SteelClub"/>
+			<property name="RightHandJointName" value="Club"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="Tags" value="blunt,club,melee,grunting,light,longShaft,perkFlurryOfBlows,weapon,meleeWeapon,attStrength,perkPummelPete,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/ClubIron/clubIronPrefab.prefab"/>
+			<property name="Candrop" value="false"/>
+			<property name="Material" value="MmeleeWpnClubParts"/>
+			<property name="TintColor" value="102, 0, 0"/>
+			<property name="RepairTools" value="resourceWood"/>
+			<property name="SoundDestroy" value="wooddestroy1"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="FuelValue" value="25"/>
+			<property name="CustomIcon" value="meleeWpnClubT3SteelClub"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="batwood_swinglight"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="batwood_swingheavy"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+				<effect_group name="meleeWpnClubT0WoodenClub">
+					<passive_effect name="EntityDamage" operation="base_add" value="10" tags="perkPummelPete"/> <!-- base_add adds to the indexX damage property, base_set replaces it  -->
+					<passive_effect name="BlockDamage" operation="base_add" value="50" tags="perkPummelPete"/>
+					<passive_effect name="AttacksPerMinute" operation="base_set" value="55" tags="perkPummelPete,perkFlurryOfBlows"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="17.4" tags="primary"/>
+					<passive_effect name="DegradationMax" operation="base_set" value="60,110" tier="1,6" tags="perkPummelPete"/>
+					<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkPummelPete"/>
+					<passive_effect name="MaxRange" operation="base_set" value="2.4" tags="perkPummelPete"/>
+					<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkPummelPete"/>
+
+					<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+					<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+					<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+					<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+					<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="earth"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="stone"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="metal"/>
+
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allToolsHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="oreWoodHarvest"/>
+				</effect_group>
+				<effect_group name="Power Attack">
+					<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="26.1" tags="secondary"/>
+				</effect_group>
+				<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="2"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- meleeWpnSledgeT0StoneSledgehammer -->
+		<item name="meleeNPCSCStoneSledge">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnSledgeT0StoneSledgehammer"/>
+			<property name="RightHandJointName" value="Club"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="Tags" value="blunt,club,melee,grunting,light,longShaft,perkFlurryOfBlows,weapon,meleeWeapon,attStrength,perkPummelPete,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/SledgeHammer/stoneSledgeHammerPrefab.prefab"/>
+			<property name="Candrop" value="false"/>
+			<property name="Material" value="Mstone"/>
+			<property name="TintColor" value="102, 0, 0"/>
+			<property name="RepairTools" value="resourceWood"/>
+			<property name="SoundDestroy" value="wooddestroy1"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="FuelValue" value="25"/>
+			<property name="CustomIcon" value="meleeWpnSledgeT0StoneSledgehammer"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="sledge_swinglight"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="sledge_swingheavy"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+				<effect_group name="meleeWpnClubT0WoodenClub">
+					<passive_effect name="EntityDamage" operation="base_add" value="10" tags="perkPummelPete"/> <!-- base_add adds to the indexX damage property, base_set replaces it  -->
+					<passive_effect name="BlockDamage" operation="base_add" value="50" tags="perkPummelPete"/>
+					<passive_effect name="AttacksPerMinute" operation="base_set" value="55" tags="perkPummelPete,perkFlurryOfBlows"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="17.4" tags="primary"/>
+					<passive_effect name="DegradationMax" operation="base_set" value="60,110" tier="1,6" tags="perkPummelPete"/>
+					<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkPummelPete"/>
+					<passive_effect name="MaxRange" operation="base_set" value="2.4" tags="perkPummelPete"/>
+					<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkPummelPete"/>
+
+					<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+					<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+					<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+					<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+					<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="earth"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="stone"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="metal"/>
+
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allToolsHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="oreWoodHarvest"/>
+				</effect_group>
+				<effect_group name="Power Attack">
+					<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="26.1" tags="secondary"/>
+				</effect_group>
+				<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="2"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- meleeWpnSledgeT1IronSledgehammer -->
+		<item name="meleeNPCSCIronSledge">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnSledgeT1IronSledgehammer"/>
+			<property name="RightHandJointName" value="Club"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="Tags" value="blunt,club,melee,grunting,light,longShaft,perkFlurryOfBlows,weapon,meleeWeapon,attStrength,perkPummelPete,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/SledgeHammer/ironSledgehammerPrefab.prefab"/>
+			<property name="Candrop" value="false"/>
+			<property name="Material" value="Mmetal"/>
+			<property name="TintColor" value="102, 0, 0"/>
+			<property name="RepairTools" value="resourceWood"/>
+			<property name="SoundDestroy" value="wooddestroy1"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="FuelValue" value="25"/>
+			<property name="CustomIcon" value="meleeWpnSledgeT1IronSledgehammer"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="sledge_swinglight"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="sledge_swingheavy"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+				<effect_group name="meleeWpnClubT0WoodenClub">
+					<passive_effect name="EntityDamage" operation="base_add" value="10" tags="perkPummelPete"/> <!-- base_add adds to the indexX damage property, base_set replaces it  -->
+					<passive_effect name="BlockDamage" operation="base_add" value="50" tags="perkPummelPete"/>
+					<passive_effect name="AttacksPerMinute" operation="base_set" value="55" tags="perkPummelPete,perkFlurryOfBlows"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="17.4" tags="primary"/>
+					<passive_effect name="DegradationMax" operation="base_set" value="60,110" tier="1,6" tags="perkPummelPete"/>
+					<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkPummelPete"/>
+					<passive_effect name="MaxRange" operation="base_set" value="2.4" tags="perkPummelPete"/>
+					<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkPummelPete"/>
+
+					<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+					<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+					<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+					<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+					<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="earth"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="stone"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="metal"/>
+
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allToolsHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="oreWoodHarvest"/>
+				</effect_group>
+				<effect_group name="Power Attack">
+					<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="26.1" tags="secondary"/>
+				</effect_group>
+				<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="2"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- meleeWpnSledgeT3SteelSledgehammer -->
+		<item name="meleeNPCSCSteelSledge">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnSledgeT3SteelSledgehammer"/>
+			<property name="RightHandJointName" value="Club"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="36"/>
+			<property name="Tags" value="blunt,club,melee,grunting,light,longShaft,perkFlurryOfBlows,weapon,meleeWeapon,attStrength,perkPummelPete,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/SledgeHammer/steelSledgehammerPrefab.prefab"/>
+			<property name="Candrop" value="false"/>
+			<property name="Material" value="MmeleeWpnSledgeParts"/>
+			<property name="TintColor" value="102, 0, 0"/>
+			<property name="RepairTools" value="resourceWood"/>
+			<property name="SoundDestroy" value="wooddestroy1"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="FuelValue" value="25"/>
+			<property name="CustomIcon" value="meleeWpnSledgeT3SteelSledgehammer"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="sledge_swinglight"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="sledge_swingheavy"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property> 
+				<effect_group name="meleeWpnClubT0WoodenClub">
+					<passive_effect name="EntityDamage" operation="base_add" value="10" tags="perkPummelPete"/> <!-- base_add adds to the indexX damage property, base_set replaces it  -->
+					<passive_effect name="BlockDamage" operation="base_add" value="50" tags="perkPummelPete"/>
+					<passive_effect name="AttacksPerMinute" operation="base_set" value="55" tags="perkPummelPete,perkFlurryOfBlows"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="17.4" tags="primary"/>
+					<passive_effect name="DegradationMax" operation="base_set" value="60,110" tier="1,6" tags="perkPummelPete"/>
+					<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkPummelPete"/>
+					<passive_effect name="MaxRange" operation="base_set" value="2.4" tags="perkPummelPete"/>
+					<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkPummelPete"/>
+
+					<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+					<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+					<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+					<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+					<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkPummelPete"/> <!-- tier bonus -->
+
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="earth"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="stone"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.5" tags="metal"/>
+
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allToolsHarvest"/>
+					<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="oreWoodHarvest"/>
+				</effect_group>
+				<effect_group name="Power Attack">
+					<passive_effect name="EntityDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="BlockDamage" operation="perc_add" value="1" tags="secondary"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="26.1" tags="secondary"/>
+				</effect_group>
+				<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="2"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- meleeWpnSpearT0StoneSpear -->
+		<item name="meleeNPCSCStoneSpear">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnSpearT0StoneSpear"/>
+			<property name="RightHandJointName" value="Spear"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="2"/>
+			<property name="Tags" value="melee,grunting,medium,weapon,meleeWeapon,longShaft,attPerception,perkJavelinMaster,canHaveCosmetic,thrownWeapon"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/Spear/spear_stone_Prefab.prefab"/>
+			<property name="Material" value="Mstone"/>
+			<property name="TintColor" value="153, 77, 0"/>
+			<property name="Candrop" value="false"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="CustomIcon" value="meleeWpnSpearT0StoneSpear"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="spear_fire"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property>
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="spear_fire"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="25"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property>	
+			<effect_group name="meleeWpnSpearT1IronSpear">
+				<passive_effect name="TargetArmor" operation="perc_add" value="-.4" tags="perkJavelinMaster"/><display_value name="dTargetArmor" value="-.4"/>
+				<passive_effect name="AttacksPerMinute" operation="base_set" value="55" tags="perkJavelinMaster"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="20.3" tags="primary"/>
+				<passive_effect name="DegradationMax" operation="base_set" value="212,423" tier="1,6" tags="perkJavelinMaster"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkJavelinMaster"/>
+				<passive_effect name="MaxRange" operation="base_set" value="3.2" tags="perkJavelinMaster"/>
+				<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkJavelinMaster"/>
+
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+				<passive_effect name="EntityDamage" operation="perc_add" value="-.15,.15" tags="perkJavelinMaster"/> <!-- random EntityDmg -->
+				<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkJavelinMaster"/> <!-- tier bonus -->
+
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkJavelinMaster"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkJavelinMaster"/> <!-- tier bonus -->
+
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="wood"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.9" tags="stone"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.9" tags="metal"/>
+
+				<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allHarvest"/>
+				<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allToolsHarvest"/>
+				<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="oreWoodHarvest"/>
+			</effect_group>
+
+			<effect_group name="Throw">
+				<passive_effect name="EntityDamage" operation="perc_add" value="2.85" tags="secondary"/>
+				<passive_effect name="BlockDamage" operation="perc_add" value="2.85" tags="secondary"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="40.6" tags="secondary"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="59"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- meleeWpnSpearT3SteelSpear -->
+		<item name="meleeNPCSCSteelSpear">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeWpnSpearT3SteelSpear"/>
+			<property name="RightHandJointName" value="Spear"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="2"/>
+			<property name="Tags" value="melee,grunting,medium,weapon,meleeWeapon,longShaft,attPerception,perkJavelinMaster,canHaveCosmetic,thrownWeapon"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/Spear/spear_steel_Prefab.prefab"/>
+			<property name="Material" value="MmeleeWpnSpearParts"/>
+			<property name="TintColor" value="153, 77, 0"/>
+			<property name="Candrop" value="false"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="CustomIcon" value="meleeWpnSpearT3SteelSpear"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="spear_fire"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property>
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="spear_fire"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="25"/>
+				<property name="DamageBlock" value="50"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="woodhitorganic"/>
+				</property>
+			</property>	
+			<effect_group name="meleeWpnSpearT1IronSpear">
+				<passive_effect name="TargetArmor" operation="perc_add" value="-.4" tags="perkJavelinMaster"/><display_value name="dTargetArmor" value="-.4"/>
+				<passive_effect name="AttacksPerMinute" operation="base_set" value="55" tags="perkJavelinMaster"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="20.3" tags="primary"/>
+				<passive_effect name="DegradationMax" operation="base_set" value="212,423" tier="1,6" tags="perkJavelinMaster"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkJavelinMaster"/>
+				<passive_effect name="MaxRange" operation="base_set" value="3.2" tags="perkJavelinMaster"/>
+				<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkJavelinMaster"/>
+
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+				<passive_effect name="EntityDamage" operation="perc_add" value="-.15,.15" tags="perkJavelinMaster"/> <!-- random EntityDmg -->
+				<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkJavelinMaster"/> <!-- tier bonus -->
+
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkJavelinMaster"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkJavelinMaster"/> <!-- tier bonus -->
+
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="wood"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.9" tags="stone"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.9" tags="metal"/>
+
+				<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allHarvest"/>
+				<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="allToolsHarvest"/>
+				<passive_effect name="HarvestCount" operation="base_add" value="-.75" tags="oreWoodHarvest"/>
+			</effect_group>
+
+			<effect_group name="Throw">
+				<passive_effect name="EntityDamage" operation="perc_add" value="2.85" tags="secondary"/>
+				<passive_effect name="BlockDamage" operation="perc_add" value="2.85" tags="secondary"/>
+				<passive_effect name="StaminaLoss" operation="base_set" value="40.6" tags="secondary"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="59"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- meleeToolAxeT2SteelAxe -->
+		<item name="meleeNPCSCSteelAxe">
+			<property name="Extends" value="meleeHandNPCMaster"/>
+			<property name="CompatibleWeapon" value="meleeToolAxeT2SteelAxe"/>
+			<property name="RightHandJointName" value="Axe"/>
+			<property name="Canhold" value="true"/>
+			<property name="HoldType" value="2"/>
+			<property name="Tags" value="axe,melee,grunting,weapon,meleeWeapon,medium,longShaft,attStrength,perkDeepCuts,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="melee"/>
+			<property name="Group" value="Ammo/Weapons,Basics"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Melee/Axe/steelAxePrefab.prefab"/>
+			<property name="Material" value="MmeleeToolAllSteel"/>
+			<property name="TintColor" value="102, 0, 0"/>
+			<property name="Candrop" value="false"/>
+			<property name="SellableToTrader" value="false"/>
+			<property name="EconomicBundleSize" value="1"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="CustomIcon" value="meleeToolAxeT2SteelAxe"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="SoundUnholster" value=""/>
+			<property name="SoundHolster" value=""/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="axe_steel_swinglight"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="100"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>
+			<property class="Action1">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Sound_start" value="axe_steel_swingheavy"/>
+				<property name="Block_range" value="1.65"/>
+				<property name="DamageEntity" value="25"/>
+				<property name="DamageBlock" value="100"/>
+				<property class="HitSounds">
+					<property name="Override0" value="organic" param1="metalstaborganic"/>
+				</property>
+			</property>	
+				<effect_group name="meleeToolAxeT1IronFireaxe">
+					<passive_effect name="AttacksPerMinute" operation="base_set" value="60" tags="perkDeepCuts,axe"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="19.9" tags="primary"/>
+					<passive_effect name="DegradationMax" operation="base_set" value="188,641" tier="1,6" tags="perkDeepCuts"/>
+					<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkDeepCuts"/>
+					<passive_effect name="MaxRange" operation="base_set" value="2.6" tags="perkDeepCuts"/>
+					<passive_effect name="BlockRange" operation="base_set" value="1.65" tags="perkDeepCuts"/>
+
+					<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+					<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+					<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+					<passive_effect name="EntityDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random EntityDmg -->
+					<passive_effect name="EntityDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+					<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random rng -->
+					<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeepCuts"/> <!-- tier bonus -->
+					<passive_effect name="DegradationMax" operation="perc_add" value="-.15,.15" tags="perkDeepCuts"/> <!-- random DegMax -->
+					<passive_effect name="AttacksPerMinute" operation="perc_add" value="-.05,.05" tags="perkDeepCuts"/> <!-- random APM -->
+					<passive_effect name="StaminaLoss" operation="perc_add" value="-.05,.05"/> <!-- random StamLoss -->
+
+					<passive_effect name="HarvestCount" operation="base_set" value=".7" tags="butcherHarvest"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="earth"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.75" tags="stone"/>
+					<passive_effect name="DamageModifier" operation="perc_add" value="-.75" tags="metal"/>
+				</effect_group>
+				<effect_group name="Power Attack">
+					<passive_effect name="EntityDamage" operation="perc_add" value="1.25" tags="secondary"/>
+					<passive_effect name="BlockDamage" operation="perc_add" value="1.25" tags="secondary"/>
+					<passive_effect name="AttacksPerMinute" operation="perc_add" value="-.3" tags="secondary"/>
+					<passive_effect name="StaminaLoss" operation="base_set" value="39.9" tags="secondary"/>
+				<!-- Moaning and grunting sounds moved to buffs.xml, <effect_group name="Power Attack Grunt"> -->
+				</effect_group>
+				<effect_group name="WeaponType">
+					<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="17"/>
+					<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+					<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="0"/>
+					<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="0"/>
+					<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="0"/>
+					<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="0"/>
+					<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffReload"/> 
+					<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" target="self" buff="buffBurst"/>
+				</effect_group>	
+				<effect_group name="Don't Show Arrow and Quiver">
+					<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+					<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+				</effect_group>	
+				<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+		</item>
+		<!-- gunHandgunT2Magnum44 -->
+		<item name="gunNPCSCMagnum">
+			<property name="Extends" value="gunNPCSMG5"/>
+			<property name="CompatibleWeapon" value="gunHandgunT2Magnum44"/>
+			<property name="RightHandJointName" value="Pistol"/>
+			<property name="Tags" value="weapon,ranged,shortRange,gun,pistol,reloadPenalty1,barrelAttachments,sideAttachments,smallTopAttachments,magazine,firingMode,attAgility,perkGunslinger"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="HoldType" value="2"/>
+			<property name="Stacknumber" value="1"/>
+			<property name="Candrop" value="false"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Ranged/Magnums/magnumPrefab.prefab"/>
+			<property name="Material" value="MHandGunParts"/>
+			<property name="Weight" value="6"/>
+			<property name="TintColor" value="66, 33, 0"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="SoundJammed" value="weapon_jam"/>
+			<property name="TintColor" value="255,255,255"/>
+			<property name="CrosshairOnAim" value="false"/> 
+			<property name="CrosshairUpAfterShot" value="false"/> 
+			<property name="Sound_Sight_In" value="smg_sight_in"/>
+			<property name="Sound_Sight_Out" value="smg_sight_out"/>
+			<property name="Group" value="Ammo/Weapons"/>
+			<property name="EconomicValue" value="0"/>
+			<property name="ShowQuality" value="false"/>
+			<property name="AutoReload" value="true"/>
+			<property name="CustomIcon" value="gunHandgunT2Magnum44"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="15"/>
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Sound_start" value="swoosh"/>
+				<property name="Block_range" value="1.65"/>
+			</property>
+			<property class="Action1">
+				<property name="Class" value="Ranged"/>
+				<property name="Range" value="15"/>
+				<property name="Magazine_items" value="ammoNPC9mmBulletBall"/>
+				<property name="Delay" value="0"/>
+				<property name="Auto_fire" value="true"/>
+				<property name="Crosshair_min_distance" value="5"/>
+				<property name="Crosshair_max_distance" value="30"/>
+				<property name="Reload_time" value="0"/>
+				<property name="Infinite_ammo" value="true"/>
+				<property name="Sound_start" value="44magnum_fire"/>
+				<property name="Sound_loop" value="44magnum_fire"/>
+				<property name="Sound_end" value=""/>
+				<property name="Sound_empty" value="dryfire"/>
+				<property name="Sound_reload" value="pistol_reload"/>
+				<property name="AutoReload" value="true"/>
+				<property name="Particles_muzzle_fire" value="gunfire_pistol"/>
+				<property name="DamageEntity" value="5"/> <!--  This is base damage per ray that hits) -->
+				<property name="DamageBlock" value="5"/> 				
+			</property>
+				
+			<effect_group name="gunHandgunT1Pistol">
+				<passive_effect name="MaxRange" operation="base_set" value="15" tags="perkGunslinger,9mmGun"/>
+				<passive_effect name="DamageFalloffRange" operation="base_set" value="12" tags="perkGunslinger,9mmGun"/>
+				<passive_effect name="DamageFalloffRange" operation="perc_add" value="-.2,.2" tags="perkGunslinger,9mmGun"/> <!-- random effective rng -->
+
+				<passive_effect name="RoundsPerMinute" operation="base_set" value="180" tags="perkGunslinger"/>
+				<passive_effect name="BurstRoundCount" operation="base_set" value="1" tags="perkGunslinger"/>
+
+				<!-- <passive_effect name="MagazineSize" operation="base_set" value="15" tags="perkGunslinger"/> -->
+				<!--<passive_effect name="ReloadSpeedMultiplier" operation="base_set" value="1" tags="perkGunslinger"/> 2s -->
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkGunslinger"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkGunslinger"/> <!-- tier bonus -->
+
+				<passive_effect name="DegradationMax" operation="perc_add" value="-.2,.2" tags="perkGunslinger"/> <!-- random DegMax -->
+				<passive_effect name="RoundsPerMinute" operation="perc_add" value="-.05,.05" tags="perkGunslinger"/>
+				<!-- <passive_effect name="MagazineSize" operation="perc_add" value="-.122,.122"/> -->
+				<passive_effect name="WeaponHandling" operation="perc_add" value="-.08,.08" tags="perkGunslinger"/> <!-- random WeaponHandling -->
+
+				<passive_effect name="SpreadDegreesVertical" operation="base_set" value="5" tags="perkGunslinger"/>
+				<passive_effect name="SpreadDegreesHorizontal" operation="base_set" value="2" tags="perkGunslinger"/>
+				<passive_effect name="SpreadMultiplierAiming" operation="base_set" value=".4" tags="perkGunslinger"/>
+				<passive_effect name="SpreadMultiplierCrouching" operation="base_set" value=".8" tags="perkGunslinger"/>
+				<passive_effect name="SpreadMultiplierWalking" operation="base_set" value="1.5" tags="perkGunslinger"/>
+				<passive_effect name="SpreadMultiplierRunning" operation="base_set" value="2.2" tags="perkGunslinger"/>
+
+				<passive_effect name="KickDegreesVerticalMin" operation="base_set" value=".7" tags="perkGunslinger"/>
+				<passive_effect name="KickDegreesVerticalMax" operation="base_set" value=".8" tags="perkGunslinger"/>
+				<passive_effect name="KickDegreesHorizontalMin" operation="base_set" value="-.25" tags="perkGunslinger"/>
+				<passive_effect name="KickDegreesHorizontalMax" operation="base_set" value=".25" tags="perkGunslinger"/>
+
+				<passive_effect name="IncrementalSpreadMultiplier" operation="base_set" value="2.0" tags="perkGunslinger,9mmGun"/>
+				<passive_effect name="WeaponHandling" operation="base_set" value=".95" tags="perkGunslinger"/>  <!-- crosshair reset speed -->
+				<passive_effect name="EntityPenetrationCount" operation="base_set" value="1"/> 
+				<passive_effect name="DegradationMax" operation="base_set" value="250,450" tier="1,6" tags="perkGunslinger,9mmGun"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkGunslinger,9mmGun"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="14"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="14"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="7"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="7"/>
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+			 <effect_group name="Melee pushback / knockdown">
+				<requirement name="!EntityTagCompare" target="other" tags="trader,animal,crawler"/>
+				<requirement name="RandomRoll" seed_type="Random" min_max="0,100" operation="LTE" value="33"/> 
+				<requirement name="IsPrimaryAttack"/>
+				<triggered_effect trigger="onSelfDamagedOther" action="Ragdoll" target="other" duration=".1" force="25"/>
+			</effect_group> 			
+		</item>
+		<!-- gunShotgunT1DoubleBarrel -->
+		<item name="gunNPCSCDoubleBarrel">
+			<property name="Extends" value="gunNPCSMG5"/>
+			<property name="CompatibleWeapon" value="gunShotgunT1DoubleBarrel"/>
+			<property name="RightHandJointName" value="PShotgun"/>
+			<property name="Tags" value="weapon,ranged,gun,shotgun,shortRange,reloadPenalty2,barrelAttachments,sideAttachments,smallTopAttachments,noScopes,stock,bottomAttachments,perkBoomstick,modGunShotgunTubeExtenderMagazine,attachmentsIncluded,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="rangedShotgun"/>
+			<property name="HoldType" value="32"/>
+			<property name="Stacknumber" value="1"/>
+			<property name="Candrop" value="false"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Ranged/DoubleBarrelShotgun/doubleBarrelShotgunPrefab.prefab"/>
+			<property name="Material" value="MShotgunParts"/>
+			<property name="Weight" value="6"/>
+			<property name="TintColor" value="80, 80, 80"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="SoundJammed" value="weapon_jam"/>
+			<property name="TintColor" value="255,255,255"/>
+			<property name="CrosshairOnAim" value="false"/>
+			<property name="CrosshairUpAfterShot" value="false"/>
+			<property name="Sound_Sight_In" value="rifle_sight_in"/>
+			<property name="Sound_Sight_Out" value="rifle_sight_out"/>
+			<property name="Group" value="Ammo/Weapons"/>
+			<property name="EconomicValue" value="1"/>
+			<property name="ShowQuality" value="true"/>
+			<property name="AutoReload" value="true"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="20"/>
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Sound_start" value="swoosh"/>
+				<property name="Block_range" value="1.65"/>
+			</property>			
+			<property class="Action1">
+				<property name="Class" value="Ranged"/>
+				<property name="Range" value="15"/>
+				<property name="Auto_fire" value="true"/> 
+				<property name="Magazine_items" value="ammoNPCShotgunShell"/>
+				<property name="Reload_time" value="0.5"/>
+				<property name="Infinite_ammo" value="true"/>
+				<property name="Single_magazine_usage" value="false"/>
+				<property name="Bullet_icon" value="uzi"/>
+				<property name="Sound_start" value="shotgundb_fire"/>
+				<property name="Sound_repeat" value=""/>
+				<property name="Sound_end" value=""/>
+				<property name="Sound_empty" value="dryfire"/>
+				<property name="Particles_muzzle_fire" value="gunfire_SG_pump"/>
+				<property name="Buff" value="buffInjuryBleedingZombie"/>
+				<property name="DamageEntity" value="5"/> <!--  This is base damage per ray that hits) -->
+				<property name="DamageBlock" value="10"/> 				
+			</property>
+			<effect_group name="gunShotgunT2PumpShotgun">
+				<passive_effect name="RoundsPerMinute" operation="base_set" value="60" tags="perkBoomstick"/>
+				<passive_effect name="BurstRoundCount" operation="base_set" value="0" tags="perkBoomstick"/>
+				<passive_effect name="ReloadSpeedMultiplier" operation="base_set" value="1" tags="perkBoomstick"/> <!-- 2.3s -->
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkBoomstick"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkBoomstick"/> <!-- tier bonus -->
+
+				<passive_effect name="DegradationMax" operation="perc_add" value="-.2,.2" tags="perkBoomstick"/> <!-- random DegMax -->
+				<passive_effect name="RoundsPerMinute" operation="perc_add" value="-.05,.05" tags="perkBoomstick"/> <!-- random APM -->
+				<!--	<passive_effect name="MagazineSize" operation="perc_add" value="-.122,.24"/>  -->
+				<passive_effect name="WeaponHandling" operation="perc_add" value="-.08,.08" tags="perkBoomstick"/> <!-- random WeaponHandling -->
+
+				<passive_effect name="KickDegreesVerticalMin" operation="base_set" value="4.2" tags="perkBoomstick"/>
+				<passive_effect name="KickDegreesVerticalMax" operation="base_set" value="4.2" tags="perkBoomstick"/>
+				<passive_effect name="KickDegreesHorizontalMin" operation="base_set" value="-2.5" tags="perkBoomstick"/>
+				<passive_effect name="KickDegreesHorizontalMax" operation="base_set" value="2.5" tags="perkBoomstick"/>
+
+				<passive_effect name="IncrementalSpreadMultiplier" operation="base_set" value="2" tags="perkBoomstick"/>
+				<passive_effect name="WeaponHandling" operation="base_set" value="1.7" tags="perkBoomstick"/>
+
+				<passive_effect name="DegradationMax" operation="base_set" value="160,350" tier="1,6" tags="perkBoomstick"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkBoomstick"/>
+				<display_value name="dStatStunEffect" value="4"/>
+				<passive_effect name="RoundRayCount" operation="base_set" value="10" tags="perkBoomstick"/>
+				<passive_effect name="MaxRange" operation="base_set" value="15" tags="perkBoomstick"/>
+				<passive_effect name="DamageFalloffRange" operation="base_set" value="7" tags="perkBoomstick"/>
+				<passive_effect name="EntityPenetrationCount" operation="base_set" value="2" tags="perkBoomstick"/>
+				<passive_effect name="BlockPenetrationFactor" operation="base_set" value="51" tags="perkBoomstick"/>
+				<passive_effect name="SpreadDegreesVertical" operation="base_set" value="15" tags="perkBoomstick"/>
+				<passive_effect name="SpreadDegreesHorizontal" operation="base_set" value="2" tags="perkBoomstick"/>
+				<passive_effect name="SpreadMultiplierAiming" operation="perc_add" value="-.13" tags="perkBoomstick"/>
+				<passive_effect name="SpreadMultiplierCrouching" operation="perc_add" value="-.05" tags="perkBoomstick"/>
+				<passive_effect name="SpreadMultiplierWalking" operation="perc_add" value=".15" tags="perkBoomstick"/>
+				<passive_effect name="SpreadMultiplierRunning" operation="perc_add" value=".3" tags="perkBoomstick"/>
+				<passive_effect name="DamageModifier" operation="perc_add" value="-.8" tags="earth"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="5"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="8"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="8"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="2"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="2"/>
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+			 <effect_group name="Melee pushback / knockdown">
+				<requirement name="!EntityTagCompare" target="other" tags="trader,animal,crawler"/>
+				<requirement name="RandomRoll" seed_type="Random" min_max="0,100" operation="LTE" value="50"/> 
+				<requirement name="IsPrimaryAttack"/>
+				<triggered_effect trigger="onSelfDamagedOther" action="Ragdoll" target="other" duration=".1" force="30"/>
+			</effect_group> 			
+		<property name="CustomIcon" value="gunShotgunT1DoubleBarrel"/></item>
+		<!-- gunRifleT2LeverActionRifle -->
+		<item name="gunNPCSCLeverAction">
+			<property name="Extends" value="gunNPCSMG5"/>
+			<property name="CompatibleWeapon" value="gunRifleT2LeverActionRifle"/>
+			<property name="RightHandJointName" value="HRifle"/>
+			<property name="Tags" value="weapon,ranged,longRange,gun,barrelAttachments,reloadPenalty1,sideAttachments,smallTopAttachments,mediumTopAttachments,largeTopAttachments,stock,bottomAttachments,attPerception,perkDeadEye,attachmentsIncluded,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="rangedGun"/>
+			<property name="HoldType" value="32"/>
+			<property name="Stacknumber" value="1"/>
+			<property name="Candrop" value="false"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Ranged/LeverActionRifle/leverActionRiflePrefab.prefab"/>
+			<property name="Material" value="MRifleParts"/>
+			<property name="Weight" value="4"/>
+			<property name="TintColor" value="101, 84, 67"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="SoundJammed" value="ItemNeedsRepair"/>
+			<property name="TintColor" value="255,255,255"/>
+			<property name="CrosshairOnAim" value="false"/>
+			<property name="CrosshairUpAfterShot" value="false"/>
+			<property name="Sound_Sight_In" value="rifle_sight_in"/>
+			<property name="Sound_Sight_Out" value="rifle_sight_out"/>
+			<property name="Group" value="Ammo/Weapons"/>
+			<property name="EconomicValue" value="0"/>
+			<property name="ShowQuality" value="true"/>
+			<property name="AutoReload" value="true"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="DamageEntity" value="20"/>
+				<property name="DamageBlock" value="20"/>
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Sound_start" value="swoosh"/>
+				<property name="Block_range" value="1.65"/>
+			</property>			
+			<property class="Action1">
+				<property name="Class" value="Ranged"/>
+				<property name="Range" value="35"/>
+				<property name="Auto_fire" value="true"/> 
+				<property name="Magazine_items" value="ammoNPC762mmBulletBall"/>
+				<property name="Reload_time" value="3"/>
+				<property name="Infinite_ammo" value="true"/>
+				<property name="Single_magazine_usage" value="false"/>
+				<property name="Bullet_icon" value="uzi"/>
+				<property name="Sound_start" value="lever_action_rifle_fire"/>
+				<property name="Sound_repeat" value=""/>
+				<property name="Sound_end" value=""/>
+				<property name="Sound_empty" value="dryfire"/>
+				<property name="Sound_reload" value="hunting_rifle_reload"/>
+				<property name="Particles_muzzle_fire" value="gunfire_pistol_magnum"/>
+				<property name="DamageEntity" value="10"/> 
+				<property name="DamageBlock" value="10"/> 				
+			</property>
+			<effect_group name="gunRifleT1HuntingRifle">
+				<passive_effect name="MaxRange" operation="base_set" value="35" tags="perkDeadEye"/>
+
+				<passive_effect name="DamageFalloffRange" operation="base_set" value="33.3" tags="perkDeadEye"/>
+				<passive_effect name="DamageFalloffRange" operation="perc_add" value="-.2,.2" tags="perkDeadEye"/> <!-- random effective rng -->
+
+				<passive_effect name="RoundsPerMinute" operation="base_set" value="80" tags="perkDeadEye"/>
+				<passive_effect name="BurstRoundCount" operation="base_set" value="1" tags="perkDeadEye"/>
+				<passive_effect name="MagazineSize" operation="base_set" value="1" tags="perkGunslinger"/> 
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkDeadEye"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkDeadEye"/> <!-- tier bonus -->
+
+				<passive_effect name="DegradationMax" operation="perc_add" value="-.2,.2" tags="perkDeadEye"/> <!-- random DegMax -->
+				<passive_effect name="RoundsPerMinute" operation="perc_add" value="-.05,.05" tags="perkDeadEye"/> <!-- random APM -->
+				<passive_effect name="WeaponHandling" operation="perc_add" value="-.08,.08" tags="perkDeadEye"/> <!-- random WeaponHandling -->
+
+				<passive_effect name="SpreadDegreesVertical" operation="base_set" value="2" tags="perkDeadEye"/>
+				<passive_effect name="SpreadDegreesHorizontal" operation="base_set" value="2" tags="perkDeadEye"/>
+				<passive_effect name="SpreadMultiplierAiming" operation="base_set" value=".08" tags="perkDeadEye"/>
+				<passive_effect name="SpreadMultiplierCrouching" operation="base_set" value=".8" tags="perkDeadEye"/>
+				<passive_effect name="SpreadMultiplierWalking" operation="base_set" value="1.5" tags="perkDeadEye"/>
+				<passive_effect name="SpreadMultiplierRunning" operation="base_set" value="2" tags="perkDeadEye"/>
+
+				<passive_effect name="KickDegreesVerticalMin" operation="base_set" value=".5" tags="perkDeadEye"/>
+				<passive_effect name="KickDegreesVerticalMax" operation="base_set" value="2" tags="perkDeadEye"/>
+				<passive_effect name="KickDegreesHorizontalMin" operation="base_set" value="-.35" tags="perkDeadEye"/>
+				<passive_effect name="KickDegreesHorizontalMax" operation="base_set" value=".35" tags="perkDeadEye"/>
+
+				<passive_effect name="IncrementalSpreadMultiplier" operation="base_set" value="5" tags="perkDeadEye"/>
+				<passive_effect name="WeaponHandling" operation="base_set" value=".65" tags="perkDeadEye"/>
+				<passive_effect name="EntityPenetrationCount" operation="base_set" value="1"/> 
+				<passive_effect name="DegradationMax" operation="base_set" value="170,320" tier="1,6" tags="perkDeadEye"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkDeadEye"/>
+				<passive_effect name="EntityPenetrationCount" operation="base_set" value="1"/> 
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="30"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="1"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/> 
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+			 <effect_group name="Melee pushback / knockdown">
+				<requirement name="!EntityTagCompare" target="other" tags="trader,animal,crawler"/>
+				<requirement name="RandomRoll" seed_type="Random" min_max="0,100" operation="LTE" value="50"/> 
+				<requirement name="IsPrimaryAttack"/>
+				<triggered_effect trigger="onSelfDamagedOther" action="Ragdoll" target="other" duration=".1" force="40"/>
+			</effect_group> 			
+		<property name="CustomIcon" value="gunRifleT2LeverActionRifle"/></item>
+		<!-- gunBowT0PrimitiveBow -->
+		<item name="gunNPCSCPrimitiveBow">
+			<property name="Extends" value="gunNPCSMG5"/>
+			<property name="CompatibleWeapon" value="gunBowT0PrimitiveBow"/>
+			<property name="RightHandJointName" value="LBow"/>
+			<property name="Tags" value="weapon,ranged,medRange,gun,attAgility,perkArchery,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="rangedBow"/>
+			<property name="HoldType" value="32"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Ranged/Bows/WoodenBow/WoodenBowPrefab.prefab"/>
+			<property name="Stacknumber" value="1"/>
+			<property name="Candrop" value="false"/>
+			<property name="Material" value="Mwood"/>
+			<property name="Weight" value="4"/>
+			<property name="TintColor" value="80, 80, 80"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="CustomIcon" value="gunBowT0PrimitiveBow"/>
+			<property name="AutoReload" value="true"/>
+			<property name="Magazine_items" value="ammoNPCArrowIron"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="15"/>
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Sound_start" value="swoosh"/>
+				<property name="Block_range" value="1.65"/>
+			</property>			
+			<property class="Action1">
+				<property name="Class" value="Ranged"/>
+				<property name="Range" value="25"/>
+				<property name="Auto_fire" value="true"/> 
+				<property name="Magazine_items" value="ammoNPCArrowIron"/>
+				<property name="Reload_time" value="0"/> 
+				<property name="Infinite_ammo" value="true"/>
+				<property name="Single_magazine_usage" value="false"/>
+				<property name="Bullet_icon" value="uzi"/>
+				<property name="Sound_start" value="bow_fire"/>
+				<property name="Sound_repeat" value=""/>
+				<property name="Sound_end" value=""/>
+				<property name="Sound_empty" value="dryfire"/>
+				<property name="Sound_reload" value="bow_unquiver"/>
+				<property name="Sound_draw" value="bow2_draw"/>
+				<property name="Sound_cancel" value="bow_fire_cancel"/>
+				<property name="SoundDestroy" value="wooddestroy1"/>
+				<property name="DamageEntity" value="10"/> 
+				<property name="DamageBlock" value="10"/> 				
+			</property>
+			<effect_group name="gunBowT3CompoundBow">
+
+				<passive_effect name="ProjectileVelocity" operation="perc_add" value=".2" tags="perkArchery"/>
+				<passive_effect name="DamageFalloffRange" operation="base_set" value="20" tags="perkArchery"/>
+				<passive_effect name="DamageFalloffRange" operation="perc_add" value="-.2,.2" tags="perkArchery"/> <!-- random effective rng -->
+				<passive_effect name="MaxRange" operation="base_set" value="25" tags="perkArchery"/>
+
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkArchery"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkArchery"/> <!-- tier bonus -->
+				<passive_effect name="ProjectileVelocity" operation="perc_add" value="-.08,.08" tags="perkArchery"/> <!-- random Veloc -->
+
+				<passive_effect name="DegradationMax" operation="perc_add" value="-.2,.2" tags="perkArchery"/> <!-- random DegMax -->
+				<passive_effect name="WeaponHandling" operation="perc_add" value="-.08,.08" tags="perkArchery"/> <!-- random WeaponHandling -->
+
+				<passive_effect name="SpreadDegreesVertical" operation="base_set" value="5" tags="perkArchery"/>
+				<passive_effect name="SpreadDegreesHorizontal" operation="base_set" value="2" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierAiming" operation="base_set" value=".15" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierCrouching" operation="base_set" value=".8" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierWalking" operation="base_set" value="1.5" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierRunning" operation="base_set" value="2.2" tags="perkArchery"/>
+				
+				<passive_effect name="IncrementalSpreadMultiplier" operation="base_set" value="2" tags="perkArchery"/>
+				<passive_effect name="WeaponHandling" operation="base_set" value=".9" tags="perkArchery"/> <!-- crosshair reset speed -->
+
+				<passive_effect name="RoundsPerMinute" operation="base_set" value="75" tags="perkArchery,bowDrawPenalty"/>
+				<passive_effect name="BurstRoundCount" operation="base_set" value="1" tags="perkArchery"/>
+
+				<passive_effect name="KickDegreesVerticalMin" operation="base_set" value=".1" tags="perkArchery"/>
+				<passive_effect name="KickDegreesVerticalMax" operation="base_set" value=".1" tags="perkArchery"/>
+				<passive_effect name="KickDegreesHorizontalMin" operation="base_set" value="-.2" tags="perkArchery"/>
+				<passive_effect name="KickDegreesHorizontalMax" operation="base_set" value=".2" tags="perkArchery"/>
+
+				<passive_effect name="DegradationMax" operation="base_set" value="200,400" tier="1,6" tags="perkArchery"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkArchery"/>
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+				<passive_effect name="EntityPenetrationCount" operation="base_set" value="1"/> 
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="68"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Show Arrow">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="true" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="true" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/>
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+			 <effect_group name="Melee pushback / knockdown">
+				<requirement name="!EntityTagCompare" target="other" tags="trader,animal,crawler"/>
+				<requirement name="RandomRoll" seed_type="Random" min_max="0,100" operation="LTE" value="15"/> 
+				<requirement name="IsPrimaryAttack"/>
+				<triggered_effect trigger="onSelfDamagedOther" action="Ragdoll" target="other" duration=".1" force="25"/>
+			</effect_group>
+			<!--<effect_group name="sneak damage bonus">
+				<requirement name="CVarCompare" cvar="_crouching" operation="Equals" value="1"/>
+				<requirement name="CVarCompare" cvar="_notAlerted" operation="GT" value="0" target="other"/>
+					<passive_effect name="DamageBonus" operation="base_add" value="2"/>
+					<passive_effect name="EntityDamage" operation="perc_add" value="2" tags="perkArchery"/>
+					<display_value name="dEntityDamageSneak" value="2"/>
+			</effect_group>-->
+		</item>
+		<!-- gunBowT3CompoundBow -->
+		<item name="gunNPCSCCompoundBow">
+			<property name="Extends" value="gunNPCSMG5"/>
+			<property name="CompatibleWeapon" value="gunBowT3CompoundBow"/>
+			<property name="RightHandJointName" value="LBow"/>
+			<property name="Tags" value="weapon,ranged,medRange,gun,attAgility,perkArchery,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="DisplayType" value="rangedBow"/>
+			<property name="HoldType" value="32"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Ranged/Bows/advancedBow/advancedCompoundBow/advancedCompoundBowPrefab.prefab"/>
+			<property name="Stacknumber" value="1"/>
+			<property name="Candrop" value="false"/>
+			<property name="Material" value="MBowCrossbowParts"/>
+			<property name="Weight" value="4"/>
+			<property name="TintColor" value="80, 80, 80"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="CustomIcon" value="gunBowT3CompoundBow"/>
+			<property name="AutoReload" value="true"/>
+			<property name="Magazine_items" value="ammoNPCArrowIron"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="15"/>
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Sound_start" value="swoosh"/>
+				<property name="Block_range" value="1.65"/>
+			</property>			
+			<property class="Action1">
+				<property name="Class" value="Ranged"/>
+				<property name="Range" value="25"/>
+				<property name="Auto_fire" value="true"/> 
+				<property name="Magazine_items" value="ammoNPCArrowIron"/>
+				<property name="Reload_time" value="0"/> 
+				<property name="Infinite_ammo" value="true"/>
+				<property name="Single_magazine_usage" value="false"/>
+				<property name="Bullet_icon" value="uzi"/>
+				<property name="Sound_start" value="bow3_fire"/>
+				<property name="Sound_repeat" value=""/>
+				<property name="Sound_end" value=""/>
+				<property name="Sound_empty" value="dryfire"/>
+				<property name="Sound_reload" value="bow_unquiver"/>
+				<property name="Sound_draw" value="bow2_draw"/>
+				<property name="Sound_cancel" value="bow_fire_cancel"/>
+				<property name="SoundDestroy" value="wooddestroy1"/>
+				<property name="DamageEntity" value="10"/> 
+				<property name="DamageBlock" value="10"/> 				
+			</property>
+			<effect_group name="gunBowT3CompoundBow">
+
+				<passive_effect name="ProjectileVelocity" operation="perc_add" value=".2" tags="perkArchery"/>
+				<passive_effect name="DamageFalloffRange" operation="base_set" value="20" tags="perkArchery"/>
+				<passive_effect name="DamageFalloffRange" operation="perc_add" value="-.2,.2" tags="perkArchery"/> <!-- random effective rng -->
+				<passive_effect name="MaxRange" operation="base_set" value="25" tags="perkArchery"/>
+
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkArchery"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkArchery"/> <!-- tier bonus -->
+				<passive_effect name="ProjectileVelocity" operation="perc_add" value="-.08,.08" tags="perkArchery"/> <!-- random Veloc -->
+
+				<passive_effect name="DegradationMax" operation="perc_add" value="-.2,.2" tags="perkArchery"/> <!-- random DegMax -->
+				<passive_effect name="WeaponHandling" operation="perc_add" value="-.08,.08" tags="perkArchery"/> <!-- random WeaponHandling -->
+
+				<passive_effect name="SpreadDegreesVertical" operation="base_set" value="5" tags="perkArchery"/>
+				<passive_effect name="SpreadDegreesHorizontal" operation="base_set" value="2" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierAiming" operation="base_set" value=".15" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierCrouching" operation="base_set" value=".8" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierWalking" operation="base_set" value="1.5" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierRunning" operation="base_set" value="2.2" tags="perkArchery"/>
+				
+				<passive_effect name="IncrementalSpreadMultiplier" operation="base_set" value="2" tags="perkArchery"/>
+				<passive_effect name="WeaponHandling" operation="base_set" value=".9" tags="perkArchery"/> <!-- crosshair reset speed -->
+
+				<passive_effect name="RoundsPerMinute" operation="base_set" value="75" tags="perkArchery,bowDrawPenalty"/>
+				<passive_effect name="BurstRoundCount" operation="base_set" value="1" tags="perkArchery"/>
+
+				<passive_effect name="KickDegreesVerticalMin" operation="base_set" value=".1" tags="perkArchery"/>
+				<passive_effect name="KickDegreesVerticalMax" operation="base_set" value=".1" tags="perkArchery"/>
+				<passive_effect name="KickDegreesHorizontalMin" operation="base_set" value="-.2" tags="perkArchery"/>
+				<passive_effect name="KickDegreesHorizontalMax" operation="base_set" value=".2" tags="perkArchery"/>
+
+				<passive_effect name="DegradationMax" operation="base_set" value="200,400" tier="1,6" tags="perkArchery"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkArchery"/>
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+				<passive_effect name="EntityPenetrationCount" operation="base_set" value="1"/> 
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="68"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Show Arrow">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="true" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="true" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/>
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+			 <effect_group name="Melee pushback / knockdown">
+				<requirement name="!EntityTagCompare" target="other" tags="trader,animal,crawler"/>
+				<requirement name="RandomRoll" seed_type="Random" min_max="0,100" operation="LTE" value="15"/> 
+				<requirement name="IsPrimaryAttack"/>
+				<triggered_effect trigger="onSelfDamagedOther" action="Ragdoll" target="other" duration=".1" force="25"/>
+			</effect_group>
+			<!--<effect_group name="sneak damage bonus">
+				<requirement name="CVarCompare" cvar="_crouching" operation="Equals" value="1"/>
+				<requirement name="CVarCompare" cvar="_notAlerted" operation="GT" value="0" target="other"/>
+					<passive_effect name="DamageBonus" operation="base_add" value="2"/>
+					<passive_effect name="EntityDamage" operation="perc_add" value="2" tags="perkArchery"/>
+					<display_value name="dEntityDamageSneak" value="2"/>
+			</effect_group>-->
+		</item>
+		<!-- gunBowT3CompoundCrossbow -->
+		<item name="gunNPCSCCompoundCrossbow">
+			<property name="Extends" value="gunNPCSMG5"/>
+			<property name="CompatibleWeapon" value="gunBowT3CompoundCrossbow"/>
+			<property name="RightHandJointName" value="XBow"/>
+			<property name="Tags" value="weapon,ranged,medRange,sideAttachments,reloadPenalty1,smallTopAttachments,mediumTopAttachments,bottomAttachments,attAgility,perkArchery,crossbow,attachmentsIncluded,canHaveCosmetic"/>
+			<property name="CreativeMode" value="None"/>
+			<property name="HoldType" value="32"/>
+			<property name="Stacknumber" value="1"/>
+			<property name="Candrop" value="false"/>
+			<property name="Meshfile" value="@:Other/Items/Weapons/Ranged/Bows/advancedBow/advancedCompoundCrossbow/advancedCompoundCrossbowPrefab.prefab"/>
+			<property name="Material" value="MBowCrossbowParts"/>
+			<property name="Weight" value="4"/>
+			<property name="TintColor" value="125, 110, 94"/>
+			<property name="DegradationBreaksAfter" value="false"/>
+			<property name="CustomIcon" value="gunBowT3CompoundCrossbow"/>
+			<property name="AutoReload" value="true"/>
+			<property name="Magazine_items" value="ammoNPCCrossbowBoltIron"/>
+			<property name="SoundUnholster" value="weapon_unholster"/>
+			<property name="SoundHolster" value="weapon_holster"/>
+			<property class="Action0">
+				<property name="Class" value="MeleeSDX, SCore"/>
+				<property name="DamageEntity" value="15"/>
+				<property name="DamageBlock" value="15"/>
+				<property name="Range" value="1.65"/>
+				<property name="Sphere" value="1.2"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Sound_start" value="swoosh"/>
+				<property name="Block_range" value="1.65"/>
+			</property>			
+			<property class="Action1">
+				<property name="Class" value="Ranged"/>
+				<property name="Range" value="25"/>
+				<property name="Auto_fire" value="true"/> 
+				<property name="Magazine_items" value="ammoNPCCrossbowBoltIron"/>
+				<property name="Reload_time" value="0"/> 
+				<property name="Infinite_ammo" value="true"/>
+				<property name="Single_magazine_usage" value="false"/>
+				<property name="Bullet_icon" value="uzi"/>
+				<property name="Sound_start" value="crossbow2_fire"/>
+				<property name="Sound_repeat" value=""/>
+				<property name="Sound_end" value=""/>
+				<property name="Sound_empty" value="dryfire"/>
+				<property name="Sound_reload" value="bow_unquiver"/>
+				<property name="Sound_draw" value="bow2_draw"/>
+				<property name="Sound_cancel" value="bow_fire_cancel"/>	
+				<property name="SoundDestroy" value="wooddestroy1"/>
+				<property name="DamageEntity" value="10"/> 
+				<property name="DamageBlock" value="10"/> 				
+			</property>
+			<!-- Testing launcher class  -->
+			<!--<property class="Action1"> 
+				<property name="Class" value="Launcher"/>
+				<property name="Hitmask_override" value="Arrow"/>
+				<property name="Delay" value=".8"/> 
+				<property name="Magazine_items" value="ammoNPCCrossbowBoltIron2"/>
+				<property name="Sound_start" value="crossbow2_fire"/>
+				<property name="Sound_repeat" value=""/>
+				<property name="Sound_end" value=""/>
+				<property name="Sound_empty" value="dryfire"/>
+				<property name="Sound_reload" value="crossbow2_reload"/>
+				<property name="AutoReload" value="true"/>
+				<property name="Auto_fire" value="true" /> 
+			</property> -->
+			<effect_group name="gunBowT1IronCrossbow">
+
+				<passive_effect name="DamageFalloffRange" operation="base_set" value="25" tags="perkArchery"/>
+				<passive_effect name="DamageFalloffRange" operation="perc_add" value="-.2,.2" tags="perkArchery"/> <!-- random effective rng -->
+				<passive_effect name="MaxRange" operation="base_set" value="25" tags="perkArchery"/>
+				
+				<passive_effect name="ProjectileVelocity" operation="perc_add" value="-.1" tags="perkArchery"/>
+
+				<passive_effect name="BlockDamage" operation="perc_add" value="-.15,.15" tags="perkArchery"/> <!-- random BlockDmg -->
+				<passive_effect name="BlockDamage" operation="perc_add" value=".1,.5" tier="2,6" tags="perkArchery"/> <!-- tier bonus -->
+				<passive_effect name="ProjectileVelocity" operation="perc_add" value="-.08,.08" tags="perkArchery"/> <!-- random Veloc -->
+
+				<passive_effect name="DegradationMax" operation="perc_add" value="-.2,.2" tags="perkArchery"/> <!-- random DegMax -->
+				<passive_effect name="WeaponHandling" operation="perc_add" value="-.08,.08" tags="perkArchery"/> <!-- random WeaponHandling -->
+
+				<passive_effect name="SpreadDegreesVertical" operation="base_set" value="5" tags="perkArchery"/>
+				<passive_effect name="SpreadDegreesHorizontal" operation="base_set" value="2" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierAiming" operation="base_set" value=".10" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierCrouching" operation="base_set" value=".8" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierWalking" operation="base_set" value="1.5" tags="perkArchery"/>
+				<passive_effect name="SpreadMultiplierRunning" operation="base_set" value="2.2" tags="perkArchery"/>
+
+				<passive_effect name="IncrementalSpreadMultiplier" operation="base_set" value="2" tags="perkArchery"/>
+				<passive_effect name="WeaponHandling" operation="base_set" value=".6" tags="perkArchery"/> <!-- crosshair reset speed -->
+
+				<passive_effect name="RoundsPerMinute" operation="base_set" value="75" tags="perkArchery"/>
+				<passive_effect name="BurstRoundCount" operation="base_set" value="1" tags="perkArchery"/>
+
+				<passive_effect name="KickDegreesVerticalMin" operation="base_set" value="2" tags="perkArchery"/>
+				<passive_effect name="KickDegreesVerticalMax" operation="base_set" value="2" tags="perkArchery"/>
+				<passive_effect name="KickDegreesHorizontalMin" operation="base_set" value="-1" tags="perkArchery"/>
+				<passive_effect name="KickDegreesHorizontalMax" operation="base_set" value="1" tags="perkArchery"/>
+				<passive_effect name="EntityPenetrationCount" operation="base_set" value="1"/> 
+				<passive_effect name="DegradationMax" operation="base_set" value="100,200" tier="1,6" tags="perkArchery"/>
+				<passive_effect name="DegradationPerUse" operation="base_set" value="0" tags="perkArchery"/>
+				<passive_effect name="ModSlots" operation="base_set" value="1,1,2,2,3,4" tier="1,2,3,4,5,6"/>
+				<passive_effect name="ModPowerBonus" operation="perc_add" value=".10" tags="EntityDamage,BlockDamage"/>
+				<passive_effect name="ModPowerBonus" operation="base_add" value="300" tags="EconomicValue"/>
+			</effect_group>
+			<effect_group name="WeaponType">
+                <triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponType" operation="set" value="26"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="WeaponTypeNeedsUpdate" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Magsize" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$roundsinmag" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$Burstsize" operation="set" value="1"/>
+				<triggered_effect trigger="onSelfEquipStart" action="ModifyCVar" cvar="$burstrate" operation="set" value="1"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffReload"/> 
+				<triggered_effect trigger="onSelfEquipStart" action="AddBuff" target="self" buff="buffBurst"/>
+			</effect_group>	
+			<effect_group name="Don't Show Arrow and Quiver">
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Quiver"/>	
+				<triggered_effect trigger="onSelfEquipStart" action="SetTransformActive" active="false" parent_transform="Hips" transform_path="Arrow"/>	
+			</effect_group>	
+			<effect_group name="Launcher Fix">
+				<triggered_effect trigger="onSelfEquipStart" action="RemoveBuff" buff="RocketLUser"/>
+				<requirement name="HasBuff" target="self" buff="RocketLUser"/>
+			</effect_group>
+			 <effect_group name="Melee pushback / knockdown">
+				<requirement name="!EntityTagCompare" target="other" tags="trader,animal,crawler"/>
+				<requirement name="RandomRoll" seed_type="Random" min_max="0,100" operation="LTE" value="33"/> 
+				<requirement name="IsPrimaryAttack"/>
+				<triggered_effect trigger="onSelfDamagedOther" action="Ragdoll" target="other" duration=".1" force="30"/>
+			</effect_group>
+			<!--<effect_group name="sneak damage bonus">
+				<requirement name="CVarCompare" cvar="_crouching" operation="Equals" value="1"/>
+				<requirement name="CVarCompare" cvar="_notAlerted" operation="GT" value="0" target="other"/>
+					<passive_effect name="DamageBonus" operation="base_add" value="2"/>
+					<passive_effect name="EntityDamage" operation="perc_add" value="2" tags="perkArchery"/>
+					<display_value name="dEntityDamageSneak" value="2"/>
+			</effect_group>-->
+		</item>
+		<!-- END GENERATED: NPC weapons -->
+	</append>
+</configs>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<append xpath="/recipes">
+		<recipe name="scPackingStation" count="1" craft_time="60" craft_area="workbench" tags="workbenchCrafting">
+			<ingredient name="resourceWood" count="30"/>
+			<ingredient name="resourceForgedIron" count="5"/>
+			<ingredient name="resourceDuctTape" count="2"/>
+		</recipe>
+		<recipe name="scRadioStation" count="1" craft_time="120" craft_area="workbench" tags="workbenchCrafting">
+			<ingredient name="resourceForgedIron" count="15"/>
+			<ingredient name="resourceElectricParts" count="6"/>
+			<ingredient name="resourceMechanicalParts" count="4"/>
+			<ingredient name="resourceScrapPolymers" count="10"/>
+		</recipe>
+	</append>
+	<!-- The Outpost Flag: a land claim plus cloth and iron for the flag. -->
+	<append xpath="/recipes">
+		<recipe name="scOutpostFlag" count="1" craft_time="10" tags="packMuleCrafting">
+			<ingredient name="resourceRockSmall" count="5" />
+			<ingredient name="resourceCloth" count="5" />
+			<ingredient name="resourceScrapIron" count="5" />
+		</recipe>
+	</append>
+</configs>

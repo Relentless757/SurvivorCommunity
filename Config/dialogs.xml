@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!--
+	  Recruiting is injected into EVERY dialog that has a "Hire" response (XNPCCore's GenericNPC,
+	  GenericNPCAnimal, GenericNPCNurse and any character pack that copies that shape), so installed NPC
+	  packs join the pool without being listed here. The custom operators live in SurvivorCommunity.dll:
+	  type="ScFavour, SurvivorCommunity" resolves to the global class DialogRequirementScFavour.
+
+	  Flow:  start -> "I could use someone like you in my community"   (scJoinPoi | scJoinSupplies)
+	         -> favour statement (secure the nearest POI / bring N items)
+	         -> scStartPoi (journal quest) ... scPoiDone (join)   |   scGiveSupplies (take + join)
+	  Members get "Community" (opens the roster) and lose the vanilla Hire entry.
+	-->
+
+	<!-- menu entries, after the Hire entry in every statement that lists it -->
+	<insertAfter xpath="/dialogs/dialog[response[@id='Hire']]/statement/response_entry[@id='Hire']">
+		<response_entry id="scJoinPoi" />
+		<response_entry id="scJoinSupplies" />
+		<response_entry id="scPoiDone" />
+		<response_entry id="scGiveSupplies" />
+		<response_entry id="scCommunity" />
+		<response_entry id="scFollow" />
+		<response_entry id="scGoHome" />
+		<response_entry id="scRun" />
+		<response_entry id="scLeave" />
+	</insertAfter>
+
+	<!-- Members are managed from the community roster: the vanilla hire / order / dismiss / pick-up
+	     entries disappear on them (a vanilla Dismiss or Follow on a member would fight the community's
+	     own stationing). Weapon swaps and "show me your inventory" stay. -->
+	<append xpath="/dialogs/dialog/response[@id='Hire' or @id='Dismiss' or @id='FollowMe' or @id='StayHere' or @id='GuardHere' or @id='GuardReturnHere' or @id='Wander' or @id='Patrol' or @id='Loot' or @id='SetCode' or @id='Pickup']">
+		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" operator="not" />
+		<!-- an outpost / distress stand-in is that member too: nobody hires, orders or picks it up -->
+		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_standin" operator="not" />
+	</append>
+
+	<append xpath="/dialogs/dialog[response[@id='Hire']]">
+		<!-- ask to join: one of the two shows, depending on the favour rolled for this NPC -->
+		<response id="scJoinPoi" text="scJoinPoi" nextstatementid="scFavourPoi">
+			<requirement type="HiredSDX, SCore" requirementtype="Hide" value="not" />
+			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="poi" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<action type="ScFavourBrief, SurvivorCommunity" />
+		</response>
+		<response id="scJoinSupplies" text="scJoinSupplies" nextstatementid="scFavourSupplies">
+			<requirement type="HiredSDX, SCore" requirementtype="Hide" value="not" />
+			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
+			<action type="ScFavourBrief, SurvivorCommunity" />
+		</response>
+
+		<statement id="scFavourPoi" text="scFavourPoi_text">
+			<response_entry id="scStartPoi" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scFavourSupplies" text="scFavourSupplies_text">
+			<response_entry id="scGiveSupplies" />
+			<response_entry id="done" />
+		</statement>
+
+		<!-- POI favour -->
+		<response id="scStartPoi" text="scStartPoi">
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<action type="ScStartPoiQuest, SurvivorCommunity" />
+		</response>
+		<!-- shown at the root once the POI reads clear -->
+		<response id="scPoiDone" text="scPoiDone">
+			<requirement type="HiredSDX, SCore" requirementtype="Hide" value="not" />
+			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="poi" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScJoin, SurvivorCommunity" />
+		</response>
+
+		<!-- supplies favour: visible in the favour statement and at the root while the items are carried -->
+		<response id="scGiveSupplies" text="scGiveSupplies">
+			<requirement type="HiredSDX, SCore" requirementtype="Hide" value="not" />
+			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
+			<requirement type="ScHasFavourItems, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScTakeFavourItems, SurvivorCommunity" />
+			<action type="ScJoin, SurvivorCommunity" />
+		</response>
+
+		<!-- members: open the roster, and the three orders (the vanilla hire / dismiss entries are hidden on them) -->
+		<response id="scCommunity" text="scCommunity">
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
+			<action type="ScOpenCommunity, SurvivorCommunity" />
+		</response>
+		<response id="scFollow" text="scFollow">
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_following" operator="not" />
+			<action type="ScFollow, SurvivorCommunity" />
+		</response>
+		<response id="scGoHome" text="scGoHome">
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_following" value="1" />
+			<action type="ScGoHome, SurvivorCommunity" />
+		</response>
+		<response id="scRun" text="scRun" nextstatementid="scRunPick">
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
+		</response>
+		<statement id="scRunPick" text="scRunPick_text">
+			<response_entry id="scRunFood" />
+			<response_entry id="scRunMeds" />
+			<response_entry id="scRunAmmo" />
+			<response_entry id="scRunMaterials" />
+			<response_entry id="scRunFuel" />
+			<response_entry id="done" />
+		</statement>
+		<response id="scRunFood" text="scRunFood"><action type="ScRun, SurvivorCommunity" value="food" /></response>
+		<response id="scRunMeds" text="scRunMeds"><action type="ScRun, SurvivorCommunity" value="meds" /></response>
+		<response id="scRunAmmo" text="scRunAmmo"><action type="ScRun, SurvivorCommunity" value="ammo" /></response>
+		<response id="scRunMaterials" text="scRunMaterials"><action type="ScRun, SurvivorCommunity" value="mats" /></response>
+		<response id="scRunFuel" text="scRunFuel"><action type="ScRun, SurvivorCommunity" value="fuel" /></response>
+		<response id="scLeave" text="scLeave" nextstatementid="scLeaveConfirm">
+			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
+		</response>
+		<statement id="scLeaveConfirm" text="scLeaveConfirm_text">
+			<response_entry id="scLeaveYes" />
+			<response_entry id="done" />
+		</statement>
+		<response id="scLeaveYes" text="scLeaveYes">
+			<action type="ScLeave, SurvivorCommunity" />
+		</response>
+	</append>
+</configs>

@@ -1,0 +1,162 @@
+import io, os, csv
+from lxml import etree as ET
+G = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
+def load(p): return ET.parse(p)
+def apply(doc, patchfile, label):
+    p = ET.parse(patchfile).getroot(); ok = miss = 0
+    def walk(node):
+        nonlocal ok, miss
+        for op in node:
+            if not isinstance(op.tag, str): continue
+            if op.tag in ("conditional", "if", "else"):
+                walk(op); continue
+            xp = op.get("xpath")
+            if not xp: continue
+            try: targets = doc.xpath(xp)
+            except Exception: targets = []
+            if not targets: miss += 1; continue
+            ok += 1
+            kids = [c for c in op if isinstance(c.tag, str)]
+            for t in targets:
+                if not hasattr(t, "getparent"): continue
+                if op.tag == "append":
+                    for c in kids: t.append(ET.fromstring(ET.tostring(c)))
+                elif op.tag == "insertAfter":
+                    i = t.getparent().index(t)
+                    for k, c in enumerate(kids): t.getparent().insert(i + 1 + k, ET.fromstring(ET.tostring(c)))
+                elif op.tag == "insertBefore":
+                    i = t.getparent().index(t)
+                    for k, c in enumerate(kids): t.getparent().insert(i + k, ET.fromstring(ET.tostring(c)))
+    walk(p)
+    print("  %-40s applied %d missed %d" % (label, ok, miss))
+
+print("entity classes")
+ec = load(G + r"\Data\Config\entityclasses.xml")
+apply(ec, G + r"\Mods\0-XNPCCore\Config\entityclasses.xml", "0-XNPCCore")
+apply(ec, G + r"\Mods\SurvivorCommunity\Config\entityclasses.xml", "SurvivorCommunity")
+names = {e.get("name"): e for e in ec.getroot().iter("entity_class")}
+print("items")
+it = load(G + r"\Data\Config\items.xml")
+apply(it, G + r"\Mods\0-XNPCCore\Config\items.xml", "0-XNPCCore")
+apply(it, G + r"\Mods\SurvivorCommunity\Config\items.xml", "SurvivorCommunity")
+items = set(e.get("name") for e in it.getroot().iter("item"))
+
+errors = []
+ours = [n for n in names if n.startswith("scSurvivor") or n.startswith("scRaider")]
+leaves = [n for n in ours if "Template" not in n]
+def chain(n):
+    seen = []
+    while n:
+        if n in seen: errors.append("extends loop at " + n); break
+        seen.append(n)
+        e = names.get(n)
+        if e is None: errors.append("unknown class in chain: " + n); break
+        n = e.get("extends")
+    return seen
+def resolved(n, prop, klass=None):
+    for c in chain(n):
+        e = names[c]
+        base = e if klass is None else (e.xpath("property[@class=$k]", k=klass) or [None])[0]
+        if base is None: continue
+        ign = (e.get("ignore") or "").split(",")
+        p = base.xpath("property[@name=$p]", p=prop)
+        if p: return p[0].get("value")
+    return None
+from collections import Counter
+cnt = Counter()
+for n in leaves:
+    ch = chain(n)
+    cls = resolved(n, "Class"); fac = resolved(n, "Faction"); mt = resolved(n, "ModelType")
+    loadout = resolved(n, "GameModeSurvival", "ItemsOnEnterGame") or ""
+    for x in [s.strip() for s in loadout.split(",") if s.strip()]:
+        if x not in items: errors.append("%s: loadout item %s does not exist" % (n, x))
+    bag = resolved(n, "BagItems")
+    if bag and bag not in items: errors.append("%s: BagItems %s does not exist" % (n, bag))
+    if mt != "SDCS": errors.append("%s: ModelType %s" % (n, mt))
+    # Mesh must be dropped by the template's ignore
+    tmpl = names[ch[1]]
+    if "Mesh" not in (tmpl.get("ignore") or ""): errors.append("%s: template does not ignore Mesh" % n)
+    side = "friendly" if n.startswith("scSurvivor") else "hostile"
+    if side == "friendly" and (fac != "whiteriver" or "EntityAliveSDX" not in (cls or "")): errors.append("%s: friendly but %s / %s" % (n, fac, cls))
+    if side == "hostile" and (fac != "bandits" or "EntityNPCBandit" not in (cls or "")): errors.append("%s: hostile but %s / %s" % (n, fac, cls))
+    if side == "friendly" and resolved(n, "Hirable") != "true": errors.append(n + ": friendly not hirable")
+    if side == "hostile" and resolved(n, "Hirable") == "true": errors.append(n + ": hostile is hirable")
+    cnt[(side, (loadout.split(",")[0] if loadout else "-"))] += 1
+# duplicate definitions (a rerun of the generator must replace its block, never append a second)
+for label, root, tag in (("item", it.getroot(), "item"), ("entity class", ec.getroot(), "entity_class")):
+    c = Counter(e.get("name") for e in root.iter(tag))
+    d = [k for k, v in c.items() if v > 1 and k and ("NPCSC" in k or k.startswith("scSurvivor") or k.startswith("scRaider"))]
+    if d: errors.append("duplicate %s definitions: %s" % (label, d[:5]))
+# new items: CompatibleWeapon must be a vanilla item, effect groups present
+van = set(e.get("name") for e in load(G + r"\Data\Config\items.xml").getroot().iter("item"))
+for e in it.getroot().iter("item"):
+    n = e.get("name") or ""
+    if "NPCSC" not in n: continue
+    cw = e.xpath("property[@name='CompatibleWeapon']/@value")
+    if not cw or cw[0] not in van: errors.append("%s: CompatibleWeapon %s" % (n, cw))
+    if not e.xpath("effect_group"): errors.append(n + ": no effect groups")
+    if not e.xpath("property[@name='Meshfile']/@value"): errors.append(n + ": no Meshfile")
+print("entity groups")
+eg = load(G + r"\Data\Config\entitygroups.xml")
+apply(eg, G + r"\Mods\0-XNPCCore\Config\entitygroups.xml", "0-XNPCCore")
+apply(eg, G + r"\Mods\SurvivorCommunity\Config\entitygroups.xml", "SurvivorCommunity")
+for grp in eg.getroot().iter("entitygroup"):
+    for e in grp.findall("e"):
+        n = e.get("n")
+        if n and (n.startswith("scSurvivor") or n.startswith("scRaider")) and n not in names:
+            errors.append("group %s: unknown class %s" % (grp.get("name"), n))
+groups = {g.get("name"): g for g in eg.getroot().iter("entitygroup")}
+placed = set()
+for tag in ("Survivor", "Raider"):
+    for band in ("GS01", "GS50", "GS100"):
+        gn = "sc%sGroup%s" % (tag, band)
+        grp = groups.get(gn)
+        if grp is None: errors.append("missing group " + gn); continue
+        es = grp.findall("e")
+        if es and es[0].get("n") == "none": errors.append(gn + ": 'none' is entry 0, IsEnemyGroup reads that one")
+        nones = [e for e in es if e.get("n") == "none"]
+        if len(nones) != 1: errors.append("%s: %d 'none' entries, want exactly 1" % (gn, len(nones)))
+        hit = sum(float(e.get("p")) for e in es if e.get("n") != "none")
+        tot = hit + sum(float(e.get("p")) for e in nones)
+        print("  %-22s %3d entries  %4.1f%% per roll" % (gn, len(es) - len(nones), 100.0 * hit / tot))
+        placed.update(e.get("n") for e in es if e.get("n") != "none")
+missing_leaf = [n for n in leaves if n not in placed]
+if missing_leaf: errors.append("%d leaves are in no group e.g. %s" % (len(missing_leaf), missing_leaf[:3]))
+# ours must no longer sit in the framework's groups: one rate knob, and installing packs must not dilute us
+for gn, grp in groups.items():
+    if gn.startswith("scSurvivorGroup") or gn.startswith("scRaiderGroup"): continue
+    stray = [e.get("n") for e in grp.findall("e") if (e.get("n") or "").startswith(("scSurvivor", "scRaider"))]
+    if stray: errors.append("%s still carries %d of ours e.g. %s" % (gn, len(stray), stray[0]))
+
+print("biome spawning")
+sp = load(G + r"\Data\Config\spawning.xml")
+apply(sp, G + r"\Mods\0-XNPCCore\Config\spawning.xml", "0-XNPCCore")
+apply(sp, G + r"\Mods\SurvivorCommunity\Config\spawning.xml", "SurvivorCommunity")
+covered = set()
+for biome in sp.getroot().iter("biome"):
+    bn = biome.get("name")
+    ids = [s.get("id") for s in biome.findall("spawn")]
+    for s in biome.findall("spawn"):
+        gn = s.get("entitygroup")
+        if gn not in groups: errors.append("%s: spawn %s calls unknown group %s" % (bn, s.get("id"), gn))
+        elif gn.startswith(("scSurvivorGroup", "scRaiderGroup")): covered.add(bn)
+    if not all(ids): errors.append(bn + ": a spawn has no id (the game hashes it and would collide)")
+    dup = [i for i, c in Counter(ids).items() if c > 1]
+    if dup: errors.append("%s: duplicate spawn ids %s - the game throws on this" % (bn, dup[:3]))
+bare = [b.get("name") for b in sp.getroot().iter("biome") if b.get("name") not in covered]
+if bare: errors.append("no spawns of ours in biomes: %s" % bare)
+print("  our spawn entries in %d biomes, %d total" % (
+    len(covered), len(sp.getroot().xpath("//spawn[starts-with(@entitygroup,'scSurvivorGroup') or starts-with(@entitygroup,'scRaiderGroup')]"))))
+# localization
+with io.open(G + r"\Mods\SurvivorCommunity\Config\Localization.csv", encoding="utf-8") as f:
+    rows = list(csv.reader(f))
+keys = [r[0] for r in rows if r]
+dups = [k for k, c in Counter(keys).items() if c > 1]
+if dups: errors.append("duplicate localization keys: %s" % dups[:5])
+missing_loc = [n for n in leaves if n not in keys]
+if missing_loc: errors.append("no localization for %d leaves e.g. %s" % (len(missing_loc), missing_loc[:3]))
+print()
+print("leaves:", len(leaves), " friendly:", sum(1 for n in leaves if n.startswith("scSurvivor")), " hostile:", sum(1 for n in leaves if n.startswith("scRaider")))
+print("distinct starting weapons:", len(set(k[1] for k in cnt)))
+print("ERRORS: %d" % len(errors))
+for e in errors[:30]: print("  " + e)
