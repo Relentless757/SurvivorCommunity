@@ -375,7 +375,7 @@ namespace SurvivorCommunity
                 if (ScRunners.IsPhysical(m)) Output("[SC] " + ScRunners.Describe(m, player));
                 else Output("[SC] " + m.Name + " [" + m.Id + "] hidden (legacy) run for " + m.RunKind + ", resolves on day " + m.RunEndDay);
             }
-            Output("[SC] " + n + " runner(s) out; physical runs " + (ScConfig.PhysicalRuns ? "on" : "OFF") + ", walk " + ScConfig.RunWalkMps + " m/s, "
+            Output("[SC] " + n + " runner(s) out; physical runs " + (ScConfig.PhysicalRuns ? "on" : "OFF") + ", offline pace " + ScConfig.RunWalkMps + " m/s, "
                    + ScConfig.RunMinDist + "-" + ScConfig.RunMaxDist + " m, " + ScConfig.RunSiteHours + " h at the site");
         }
 

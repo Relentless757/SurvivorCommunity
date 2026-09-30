@@ -90,7 +90,9 @@ namespace SurvivorCommunity
         // ---- physical supply runs (ScRunners) ----
         /// <summary>Runners walk to a real POI and back; off (or on a dedicated server) runs are the hidden-at-home kind.</summary>
         public static bool PhysicalRuns = true;
-        public static float RunWalkMps = 1.5f;
+        /// <summary>Members may open the community owner's own LOCKED doors (and shut them behind them). Other locks stay shut.</summary>
+        public static bool MembersOpenOwnerLockedDoors = true;
+        public static float RunWalkMps = 4f;       // the runner's RUNNING pace on the Outbound/Inbound legs (name kept for config compatibility)
         public static int RunMinDist = 150;
         public static int RunMaxDist = 700;
         public static float RunSiteHours = 6f;
@@ -304,7 +306,8 @@ namespace SurvivorCommunity
             MissingDaysToPurge = 30;
             RunRiskBase = 0.15f;
             RunYieldBase = 2;
-            PhysicalRuns = true; RunWalkMps = 1.5f; RunMinDist = 150; RunMaxDist = 700; RunSiteHours = 6f; RunDistressHours = 12f; RunDeadlineGraceDays = 2; RunWaypointSpacing = 25f; RunArriveRadius = 2.5f; RunPartialArrive = 6f; RunArriveSite = 6f; RunGridSize = 64; RunGridFarFromPlayer = 25f; RunOnlineRingMargin = 2; RunOfflineRingMargin = 0; RunOnlineDwellSeconds = 10f; RunOfflineDwellSeconds = 5f; RunFrozenSeconds = 3f; RunNoPopInRange = 50f; RunPopInMaxWait = 20f; RunGateDistance = 56f; RunStuckRepathSeconds = 5f; RunStuckSkipSeconds = 15f; RunSkipMinPlayerDist = 40f; RunSnapRefreshSeconds = 60f; RunSnapMaxBytes = 60000; RunMaterializePerTick = 1;
+            MembersOpenOwnerLockedDoors = true;
+            PhysicalRuns = true; RunWalkMps = 4f; RunMinDist = 150; RunMaxDist = 700; RunSiteHours = 6f; RunDistressHours = 12f; RunDeadlineGraceDays = 2; RunWaypointSpacing = 25f; RunArriveRadius = 2.5f; RunPartialArrive = 6f; RunArriveSite = 6f; RunGridSize = 64; RunGridFarFromPlayer = 25f; RunOnlineRingMargin = 2; RunOfflineRingMargin = 0; RunOnlineDwellSeconds = 10f; RunOfflineDwellSeconds = 5f; RunFrozenSeconds = 3f; RunNoPopInRange = 50f; RunPopInMaxWait = 20f; RunGateDistance = 56f; RunStuckRepathSeconds = 5f; RunStuckSkipSeconds = 15f; RunSkipMinPlayerDist = 40f; RunSnapRefreshSeconds = 60f; RunSnapMaxBytes = 60000; RunMaterializePerTick = 1;
             SuppliesFavours.Clear();
             PoiFavourRange = 300;
             TraitsPerRecruit = 2;
@@ -426,6 +429,7 @@ namespace SurvivorCommunity
                 {
                     string bv;
                     if (p.Values.TryGetValue("PhysicalRuns", out bv) && !string.IsNullOrEmpty(bv)) PhysicalRuns = StringParsers.ParseBool(bv);
+                    if (p.Values.TryGetValue("MembersOpenOwnerLockedDoors", out bv) && !string.IsNullOrEmpty(bv)) MembersOpenOwnerLockedDoors = StringParsers.ParseBool(bv);
                 }
                 ParseFloat(p, "RunWalkMps", ref RunWalkMps, 0.3f, 6.0f);
                 ParseInt(p, "RunMinDist", ref RunMinDist, 20, 5000);

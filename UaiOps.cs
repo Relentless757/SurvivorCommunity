@@ -34,6 +34,7 @@ namespace UAI
         private float cooldown = 45f;
         private readonly Dictionary<int, Vector3> targets = new Dictionary<int, Vector3>();
         private readonly Dictionary<int, float> deadlines = new Dictionary<int, float>();
+        private readonly HashSet<int> retried = new HashSet<int>();
         private const float MaxSeconds = 20f;   // of walking before giving up on a target (real time - ticks are frame-rate bound)
         private const float RetryBackoff = 5f;  // when no target could be found
 
@@ -89,6 +90,13 @@ namespace UAI
             if (!targets.TryGetValue(self.entityId, out target)) { Stop(_context); return; }
             float deadline;
             deadlines.TryGetValue(self.entityId, out deadline);
+            // SCore clears a stalled human's path (a door leaf still swinging open in front of them): try once more
+            if (Time.time <= deadline && self.getNavigator().noPathAndNotPlanningOne() && Vector3.Distance(self.position, target) >= 1.5f
+                && retried.Add(self.entityId))
+            {
+                self.FindPath(target, self.GetMoveSpeed(), false, null);
+                return;
+            }
             if (Time.time > deadline || self.getNavigator().noPathAndNotPlanningOne() || Vector3.Distance(self.position, target) < 1.5f
                 || (self.moveHelper != null && self.moveHelper.BlockedTime > 2f))     // furniture / doorway: stop pushing
             {
@@ -104,6 +112,7 @@ namespace UAI
             int id = self.entityId;
             targets.Remove(id);
             deadlines.Remove(id);
+            retried.Remove(id);
             if (ScRoamState.Active.Remove(id)) ScRoamState.NextAllowed[id] = Time.time + cooldown;
             self.getNavigator().clearPath();
             if (self.moveHelper != null) { self.moveHelper.Stop(); self.moveHelper.CanBreakBlocks = true; }
@@ -235,7 +244,12 @@ namespace UAI
             EntityPlayer p = w.GetClosestPlayer(self, -1f, false);
             if (AstarManager.Instance != null && (p == null || ScRunners.XZ(p.position, self.position) > ScConfig.RunGridFarFromPlayer))
                 AstarManager.Instance.AddLocationLine(self.position, s.Waypoint, ScConfig.RunGridSize);
-            self.FindPath(s.Waypoint, self.GetMoveSpeed(), false, null);                   // walking pace
+            // Run the travel legs; walk while searching the site, holding a pinned spot and on the last stroll to the post.
+            // GetMoveSpeedPanic MUST bind vanilla's non-virtual EntityAlive.GetMoveSpeedPanic (self is typed EntityAlive):
+            // it applies the NPC's own RunSpeed passives (XNPCCore's base_set 1.0, Cardio, hungry, injured, boots) - the
+            // speed SCore's FollowSDX runs at. Through an EntityAliveSDX reference it would bind SCore's hiding method,
+            // which ignores passives and returns the raw MoveSpeedPanic (0.45: still a walk on the player body).
+            self.FindPath(s.Waypoint, Running(m) ? self.GetMoveSpeedPanic() : self.GetMoveSpeed(), false, null);
         }
 
         public override void Update(Context _context)
@@ -255,6 +269,15 @@ namespace UAI
 
             Vector3 d = s.Waypoint - self.position;
             d.y = 0f;
+            // the lead never reaches half the waypoint spacing, so it cannot fire on a waypoint that was just issued
+            float lead = Mathf.Min(3f, Mathf.Max(0f, Mathf.Max(8f, ScConfig.RunWaypointSpacing) * 0.5f - ScConfig.RunArriveRadius));
+            if (Running(m) && lead > 0f && d.magnitude <= ScConfig.RunArriveRadius + lead && ScRunners.XZ(s.Waypoint, ScRunners.LegGoal(m)) > 1f)
+            {
+                // at running pace the next path is asked for a few metres early, so they do not stop at every waypoint
+                repaths[self.entityId] = 0;
+                PathTo(self, m, true);
+                return;
+            }
             if (d.magnitude <= ScConfig.RunArriveRadius)
             {
                 if (ScRunners.Pinned(m)) { self.getNavigator().clearPath(); if (self.moveHelper != null) self.moveHelper.Stop(); return; }   // hold the spot; attacks still win
@@ -275,6 +298,8 @@ namespace UAI
             }
             self.SetLookPosition(s.Waypoint);
         }
+
+        private static bool Running(Member m) { return m.RunLeg == RunLeg.Outbound || m.RunLeg == RunLeg.Inbound; }
 
         public override void Stop(Context _context)
         {

@@ -58,6 +58,7 @@ namespace SurvivorCommunity
                 }
 
                 Relink(w, player);
+                ScDoors.Tick(w, player);              // shut the doors members opened once they are through
                 ScRunners.Tick(w, player);            // physical supply runs: walk, capture out of range, re-create near the player
                 TrackProspects(w);
                 ScQuests.SyncCompleted(player);

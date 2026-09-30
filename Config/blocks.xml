@@ -105,7 +105,13 @@
 			     now rolled on arrival at the site, with the runner themself pinned there for RunDistressHours. RunDays only
 			     applies to the old hidden runs (PhysicalRuns false, no POI in range, or runs saved before this version). -->
 			<property name="PhysicalRuns" value="true" />
-			<property name="RunWalkMps" value="1.5" />
+			<!-- doors: members open closed doors on their way (and shut them behind them); drawbridges and hatches are left
+			     alone. A locked door stays shut unless it is YOUR lock (you own it or are on its list) and this is true. -->
+			<property name="MembersOpenOwnerLockedDoors" value="true" />
+			<!-- RunWalkMps: the offline pace of the Outbound/Inbound legs in m/s. Runners RUN those legs in the world (about
+			     4.4-5.3 m/s on the player body, 4.5-4.9 on pack NPCs); this sits a little under that because the offline walk is a
+			     straight line and the real one has detours. Match it to about 0.85-0.9 x the speed `sc runners` measures. -->
+			<property name="RunWalkMps" value="4" />
 			<property name="RunMinDist" value="150" />
 			<property name="RunMaxDist" value="700" />
 			<property name="RunSiteHours" value="6" />

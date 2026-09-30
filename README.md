@@ -160,8 +160,9 @@ walk back.
   radio scouted for that resource. Next, a POI whose type produces it, primary producers and nearer sites first.
   Last resort: any scavenging site. Never an outpost, and never a POI where another runner, radio contact or
   favour already is.
-- **The trip.** They walk to the site at `RunWalkMps`, spend `RunSiteHours` (6) game hours searching its ground
-  floor, then walk home.
+- **The trip.** They run to the site, spend `RunSiteHours` (6) game hours walking round its ground floor, then
+  run home and walk the last stretch to their post. Out of range they cover the distance at `RunWalkMps` (4 m/s,
+  a little under their real running pace to allow for detours).
 - **In the world while you are near.** Within your view distance they are a real NPC you can follow, escort, talk
   to (*Head home now.*) or watch fight. Further out, the mod captures the NPC into a snapshot kept in the
   registry: the same data the game uses to park vehicles and drones (name, health, buffs, bag, weapon, pack). It
@@ -181,7 +182,20 @@ walk back.
 - **Fallback.** With no POI in range, `PhysicalRuns=false`, or on a dedicated server, the old hidden run above is
   used. Runs saved before this version finish the old way too.
 - **Console:** `sc runners` lists each runner: leg, in world or not, position, distance, snapshot size, measured
-  walking speed. `sc run <name> skip|offline|recall|home` drives a run for testing.
+  speed. `sc run <name> skip|offline|recall|home` drives a run for testing.
+
+## Doors
+
+- Members open closed doors on their way (roaming, following, going home, supply runs) and shut them again
+  behind them once they are through and nobody is in or right beside the doorway. Double doors and gates work from
+  either leaf.
+- **Locked doors.** A member opens a locked door only if it is your lock (you own it or are on its list), and
+  `MembersOpenOwnerLockedDoors` is true (the default). A locked door in a POI, or anyone else's, stays shut. Set it to
+  false and your locked doors keep your own people out too.
+- **Drawbridges and hatches** are never touched: a member never lowers your bridge.
+- Why this was needed: SCore's NPC door opener does nothing on 3.x doors, and the game's own opener (which bandits
+  use) is off for SCore NPCs, while the pathfinder still routes them through closed doors. Members used to walk
+  into a shut door and stand there until they were teleported home.
 
 ## Linked storage
 

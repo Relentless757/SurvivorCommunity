@@ -473,6 +473,7 @@ namespace SurvivorCommunity
                 npc.Buffs.RemoveCustomVar("sc_favour");
                 npc.Buffs.RemoveCustomVar("sc_favourDone");
                 if (npc.AIPackages != null) npc.AIPackages.Remove(ResidentPackage);
+                ScDoors.Enable(npc, false);                // a former member no longer opens the player's doors
                 npc.Buffs.RemoveCustomVar("Persist");
                 if (npc.Buffs.HasCustomVar("onMission")) npc.SendOnMission(false);
                 npc.Buffs.AddBuff(OrderDismissBuff);       // zeroes Leader/Owner, wander
@@ -577,7 +578,11 @@ namespace SurvivorCommunity
         /// <summary>Adds the resident AI package at runtime (the list is rebuilt from the class on every load).</summary>
         public static void ApplyAiPackage(EntityAlive npc)
         {
-            if (npc == null || npc.AIPackages == null) return;
+            if (npc == null) return;
+            // doors: vanilla's move-helper opener, extended in ScDoors (double doors, look-ahead, shut behind them).
+            // Every member path runs through here once a second (ScTicker.Relink), so it survives reloads and re-creates.
+            ScDoors.Enable(npc, true);
+            if (npc.AIPackages == null) return;
             if (!UAI.UAIBase.AIPackages.ContainsKey(ResidentPackage))
             {
                 ScLog.Once("no-resident-package", "ai_package " + ResidentPackage + " is not registered - Config/utilityai.xml did not apply (residents will only guard)");

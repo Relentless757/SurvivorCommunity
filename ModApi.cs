@@ -47,6 +47,7 @@ namespace SurvivorCommunity
                 ScOutpostRisk.Reset();
                 ScMissing.Reset();
                 ScRunners.Reset();
+                ScDoors.Reset();
                 ScScan.Reset();
                 ScPortraits.Reset();
                 ScLooks.Reset();
@@ -147,6 +148,8 @@ namespace SurvivorCommunity
             Add(t, "EntityAliveSDX::SetDead", AccessTools.Method(typeof(EntityAliveSDX), "SetDead", new Type[0]));
             Add(t, "EntityAliveSDX::PostInit", AccessTools.Method(typeof(EntityAliveSDX), "PostInit", new Type[0]));
             Add(t, "EntityAliveSDX::IsSavedToFile", AccessTools.DeclaredMethod(typeof(EntityAliveSDX), "IsSavedToFile", new Type[0]));
+            // ScDoors.cs - members open (and shut) doors
+            Add(t, "EntityMoveHelper::CheckForDoorAndOpen", AccessTools.Method(typeof(EntityMoveHelper), "CheckForDoorAndOpen", new Type[0]));
             Add(t, "EntityNPCBandit::PostInit", AccessTools.Method(typeof(EntityNPCBandit), "PostInit", new Type[0]));
             Add(t, "SleeperEventData::Update", AccessTools.Method(typeof(SleeperEventData), "Update", new Type[0]));
             // Patches_QuestTitle.cs - per-POI favour quest title + marker

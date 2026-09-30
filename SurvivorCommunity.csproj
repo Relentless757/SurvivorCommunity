@@ -72,6 +72,7 @@
     <Compile Include="ScOutpostRisk.cs" />
     <Compile Include="ScMissing.cs" />
     <Compile Include="ScRunners.cs" />
+    <Compile Include="ScDoors.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />
     <Compile Include="Patches_Menu.cs" />
     <Compile Include="XUiC_ScPackingStrip.cs" />

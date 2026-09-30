@@ -1259,7 +1259,7 @@ namespace SurvivorCommunity
                    + " leg left " + (left / (float)TicksPerHour).ToString("0.0") + " h, ETA day " + m.RunEndDay
                    + ", carry " + m.RunCarry + (m.RollPending ? " (dice pending)" : "")
                    + ", snapshot " + SnapBytes(m) + " b"
-                   + (s.MeasuredMps > 0f ? ", walks " + s.MeasuredMps.ToString("0.00") + " m/s (config " + ScConfig.RunWalkMps.ToString("0.00") + ")" : "")
+                   + (s.MeasuredMps > 0f ? ", moves at " + s.MeasuredMps.ToString("0.00") + " m/s (offline pace " + ScConfig.RunWalkMps.ToString("0.00") + ")" : "")
                    + (s.LastCreateMs >= 0 ? ", last build " + s.LastCreateMs + " ms" : "");
         }
     }

@@ -25,6 +25,29 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## 2026-09-30 build (sc_stage10): doors, and runners run
+
+Turn on `DebugLogging` (Verbose) in Config/blocks.xml to see "opened the door at …" and "shut the door at … behind …".
+The startup log should say `patched EntityMoveHelper::CheckForDoorAndOpen` with no "unlisted method" warning.
+
+- [ ] **A resident roaming** through a closed door: it opens before they reach it, and shuts 2-3 s after they are
+      past it.
+- [ ] **A follower** follows you through a door you closed, with no teleport.
+- [ ] **Runners** leave through a closed base door or gate. At a POI they open the ground-floor doors they wander
+      through.
+- [ ] **Your own locked door** (you locked it): members open it and shut it again, and it is still locked. Set
+      `MembersOpenOwnerLockedDoors` to false and they are stopped by it (stuck, then the usual teleport to the post).
+- [ ] **A locked POI door** (not yours) is never opened.
+- [ ] **Double doors and 2-wide gates:** crossing either leaf opens the door.
+- [ ] **Drawbridges and hatches** are never touched.
+- [ ] **Standing in or right beside a doorway** keeps it open. The door never swings shut on you.
+- [ ] **Strangers and traders** don't open your doors. A member who leaves stops opening them.
+- [ ] **No new "was stuck" lines** at doorways. A resident no longer turns back from a door it just opened.
+- [ ] **Runners RUN** the way out and the way home (legs running, not sliding). They walk while searching the site
+      and on the last stretch from the edge of the base to their post. They don't stop at every waypoint.
+- [ ] **Offline pace.** Escort a runner for a minute, then compare `sc runners` "moves at X m/s" with the offline
+      pace (now 4.0). Set `RunWalkMps` to about 0.85-0.9 x the measured figure if it is far off.
+
 ## 2026-09-30 build (sc_stage9): physical supply runs
 
 Runners now walk to a real POI and back instead of vanishing. `sc runners` shows each runner's leg, online/offline
@@ -59,8 +82,7 @@ controls: `sc run <name> skip` (end the current leg now), `sc run <name> offline
       runner met on the road has **Head home now.** in their dialog, and no Follow or Run entries.
 - [ ] **A run saved before this version** (hidden at home) still resolves at the rollover as before.
 - [ ] **No POI in range** (or `PhysicalRuns` false in Config/blocks.xml): the old hidden run is used.
-- [ ] **Walking speed.** Compare the measured m/s in `sc runners` with `RunWalkMps` (1.5), and tune it if they differ
-      a lot.
+- [ ] **Walking speed.** (Superseded by the sc_stage10 running check above.)
 
 ## 2026-09-29 build (sc_stage8)
 
