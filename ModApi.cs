@@ -225,6 +225,7 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsFailoverTick", Patches_Xnpc.FailoverTarget());
             Add(t, "AvatarSdcsNpcController::SdcsCloseRangeTick", Patches_Xnpc.CloseRangeTarget());
             Add(t, "AvatarSdcsNpcController::SdcsTryWorldEntryRearm", Patches_Xnpc.RearmTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsChooseMeleeFallback", Patches_Xnpc.MeleeFallbackTarget());
             Add(t, "AvatarSdcsNpcController::Update", Patches_Xnpc.UpdateTarget());
             // ScAim.cs - the aim pose (visual only)
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));

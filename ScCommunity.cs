@@ -124,6 +124,7 @@ namespace SurvivorCommunity
                 ScSkills.RollStart(m, rnd);
                 m.Ranged = ScSkills.HoldsRanged(npc);
                 m.Look = ScLooks.Get(npc);          // null unless they wear the player's body
+                m.Loadout = ScLoadout.Current(npc); // their two weapons, so every body re-created for them carries the same (null for others)
                 ScRegistry.Members[m.Id] = m;
                 ScRegistry.Prospects.Remove(m.Id);
 

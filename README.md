@@ -328,12 +328,16 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   armor replaces them: stacked, a raider in three medium pieces measured 84.5% and barely noticed a bat. An
   unarmored one now sits at 5%, a full top set under 50% (`WORN_ARMOR_SCALE` in `Tools/gen_arsenal.py`). The
   armor does not break, and wear is not kept across loads.
-- **Every weapon, both sides.** There is one class per weapon and sex in two allegiances. Survivors
-  (`scSurvivor<Sex><Weapon>`) extend the NPC framework's hireable templates, so they talk, hire, fight and
-  join the community like its own NPCs. Raiders (`scRaider<Sex><Weapon>`) follow the framework's own hostile
-  pattern: SCore's bandit entity, the vanilla `bandits` faction (which hates everyone), and its hostile melee
-  and ranged AI. They cannot be talked to or recruited, and they fight your survivors as well as you.
-  43 weapons: the framework's 24 NPC weapons plus NPC versions of the 19 vanilla combat weapons it lacks
+- **Survivors are 0-XNPCCore's own.** Since the XNPCCore migration the community's survivors are 0-XNPCCore 3.2's
+  player-body survivors, `npcSdcsSurvivor{Male,Female}T{1,2,3}` (`XnpcSurvivorClasses`), dressed, named, healed and
+  armed by this mod; SurvivorCommunity no longer defines survivor classes of its own. **A save from before the
+  migration needs a new game:** its members were `scSurvivor` classes, which are gone, so they can never be found or
+  re-created; the log says `this save predates the XNPCCore migration: start a new game` when such a save loads,
+  and again when the daily tick finally removes them.
+- **Raiders: every weapon.** There is one raider class per weapon and sex (`scRaider<Sex><Weapon>`), following the
+  framework's own hostile pattern: SCore's bandit entity, the vanilla `bandits` faction (which hates everyone), and
+  its hostile melee and ranged AI. They cannot be talked to or recruited, and they fight your survivors as well as
+  you. 43 weapons: the framework's 24 NPC weapons plus NPC versions of the 19 vanilla combat weapons it lacks
   (bone knife, all three knuckles, pipe and stun batons, steel club, all three sledgehammers, stone and steel
   spears, steel axe, .44 Magnum, double barrel, lever action, primitive and compound bows, compound crossbow).
   Those new weapons copy the closest framework weapon's damage and timing with the vanilla model, icon and
@@ -346,28 +350,39 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   name and duplicate. Weapons are tiered (0 early melee plus the pipe guns and the primitive bow, 1 wooden
   bow, iron crossbow and double barrel, 2 late guns): the spawn groups follow the tiers, and a radio call brings a
   survivor whose weapons fit your gamestage.
-- **Two weapons each.** Every one of them carries the weapon its class is named for and one of the other kind,
-  rolled for that NPC: a melee survivor gets a ranged weapon, a gunner or archer gets a melee weapon. Ranged
-  weapons are mostly bows and crossbows - a ranged weapon is a firearm only `SurvivorFirearmChance` (12%) of the
-  time, whether it is the class weapon or the rolled one (the spawn groups use the same share, `FIREARM_SHARE` in
-  the generator) - and the rolled one never goes above the higher of its class's tier and your gamestage's. The
-  rocket launcher is never rolled. The pair is kept on the NPC and saved with it (console spawns, radio contacts
-  and raiders persist; wild survivors are never saved and roll anew). For now they hold their class weapon; `sc
-  arms <name> melee|ranged` switches by hand, `sc loadout <name>` shows the pair and `sc loadout <name> <weapon>
-  [weapon]` changes it, `sc loadout near [r]` lists the pairs around you. How: the NPC's own starting-item list
-  gets both weapons before SCore copies it into the inventory, which is what lets SCore's weapon swap and its
-  save of the held weapon accept either one. `SurvivorSecondWeapon` false turns it off. Members do not yet keep
-  the pair when they are re-created (a supply run's return, a call-back, a stand-in).
+- **Two weapons each.** Every survivor and raider carries one melee and one ranged weapon. Ranged weapons are
+  mostly bows and crossbows: a ranged weapon is a firearm only `SurvivorFirearmChance` (12%) of the time.
+  - A **survivor** carries real vanilla weapons, both rolled for that NPC from the generated `XnpcWeapons` list
+    (the raiders' weapons and tiers as their vanilla items, without fists and the rocket launcher: 41, in
+    `Config/blocks.xml`), at or below the lower of its class's
+    tier (T1 early, T2 middle, T3 late - the place and time of day it turned up) and your gamestage's. It fights
+    with 0-XNPCCore's own weapon handling: the gun while it has ammo, the melee weapon up close and when the gun
+    runs dry. **Ammo is finite:** a new survivor starts with `XnpcSpawnAmmo` (30) rounds of its gun's basic ammo,
+    or `XnpcSpawnArrows` (20) arrows or bolts, in the inventory window you see when you open them, and what it
+    shoots is gone. The pair is saved with the NPC and, for a prospect or member, in the registry (`loadout=`), so
+    every body the community re-creates for them (a call-back, a stand-in, a runner) carries the same two.
+  - A **raider** carries the weapon its class is named for and one of the other kind rolled for it, never above
+    the higher of its class's tier and your gamestage's (the spawn groups use the same firearm share,
+    `FIREARM_SHARE` in the generator). The rocket launcher is never rolled. `SurvivorSecondWeapon` false gives
+    raiders their class weapon only.
+  - `sc loadout <name>` shows the pair and `sc loadout <name> <weapon> [weapon]` changes it (a survivor takes
+    vanilla item names or their short names, `sc weapons` lists both sides), `sc loadout near [r]` lists the pairs
+    around you, `sc arms <name> melee|ranged` switches by hand. How: the NPC's own starting-item list gets both
+    weapons before SCore copies it into the inventory, which is what lets SCore's weapon swap and its save of the
+    held weapon accept either one.
 - You meet them three ways. They spawn in the world on their **own layer** (below), every radio call brings
-  one, and `sc spawn [hostile] [male|female] [weapon] [second weapon] [Set]` or the creative menu puts one in
-  front of you (`sc weapons` lists the weapon names).
+  one (the radio names the ranged weapon they carry), and `sc spawn [hostile] [male|female] [weapon] [second
+  weapon] [Set]` or the creative menu puts one in front of you (`sc weapons` lists the weapon names; for a
+  survivor `melee`, `bow` or `firearm` picks one of that family).
 - **No new pack NPCs.** While this mod is installed, the NPC framework's sample cast (Nurse, Baker, Harley, the
   NPC fox) and any character pack's NPCs filed in the same groups no longer spawn; ours are the only NPCs that
   turn up. Those already in a world stay and behave as before, and their classes still load. The generator
   removes the framework's own biome spawn entries, and in every framework group (the POI sleeper groups behind
   `S_-Group_NPC_*` included) it swaps each pack NPC for our class with the same weapon and side, since a group
-  may not be empty. Spawning one by hand (creative menu, test spawn cubes) still works. The radio and outpost
-  walk-ins roll only our survivors, so `SurvivorLookChance` is no longer used.
+  may not be empty: in a friendly group the 0-XNPCCore survivor class of the weapon's tier, in a hostile one our
+  raider. 0-XNPCCore's own survivors stay where its groups list them, but its own biome spawns of them are removed:
+  they turn up at this mod's rates. Spawning one by hand (creative menu, test spawn cubes) still works. The radio
+  and outpost walk-ins roll only our survivors, so `SurvivorLookChance` is no longer used.
 - **Wild spawns are ours, not a slice of the framework's.** They used to be appended into the NPC framework's
   own groups, where they shared the 3 points of NPC against 97 points of nothing that those groups carry and
   came out at 0.4% - you could roam for an hour and meet nobody. They now have their own entity groups and
@@ -379,9 +394,11 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   removed, rolled about 1-4%)
   and how often an area may roll again (`SURVIVOR_RESPAWN` half a game day, `RAIDER_RESPAWN` one). Which band
   an area draws from follows the framework's layout: wilderness has the early band by day and the middle one
-  by night, towns the early band by day and the late one at night, city centres the last two. The early band is
-  70% melee and 30% ranged (the primitive bow, now and then a pipe gun), the middle 60/40, the late 50/50. `core SurvivorCommunityDev spawns`
-  prints the live odds, the entries for the biome you are standing in and that area's counters.
+  by night, towns the early band by day and the late one at night, city centres the last two. A survivor band is
+  its tier's two classes (T1, T2, T3), whose weapons are rolled as above; a raider band's class weapons are 70% melee
+  and 30% ranged in the early band (the primitive bow, now and then a pipe gun), 60/40 in the middle, 50/50 late.
+  `core SurvivorCommunityDev spawns` prints the live odds, the entries for the biome you are standing in and that
+  area's counters.
 - The look and the four armor pieces are stored in the registry for prospects and members and re-applied on
   every load (vanilla never saves or sends a non-player's equipment). A survivor sent on a run that radios
   for help appears in the rescue event wearing their own face. `sc look <name>` rerolls a member's face,

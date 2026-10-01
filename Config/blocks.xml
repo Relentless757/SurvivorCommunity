@@ -170,7 +170,9 @@
 			<property name="DistressZombieGroup" value="ZombiesAll" />
 			<property name="RescueBonus" value="1.25" />
 
-			<!-- Survivors wearing the player's body (entity classes scSurvivor*, Config/entityclasses.xml).
+			<!-- Survivors and raiders wearing the player's body: the community's survivors are 0-XNPCCore's own
+			     survivor classes (XnpcSurvivorClasses below), the raiders SurvivorCommunity's scRaider* classes
+			     (Config/entityclasses.xml).
 			     SurvivorLookChance: NO LONGER USED - every radio contact is one of them now, since pack NPCs no
 			     longer spawn while this mod is installed. Their clothes come
 			     from vanilla armor sets (armor<Set>Helmet/Outfit/Gloves/Boots): each piece with GearPieceChance,
@@ -194,15 +196,22 @@
 			<property name="SurvivorAimPose" value="true" />
 			<property name="SurvivorAimVisualOnly" value="true" />
 			<property name="SurvivorAimHoldSeconds" value="2" />
-			<!-- Every survivor and raider with the player's body carries two weapons: the one its class is named for,
-			     and one of the other kind (melee or ranged) rolled for it. SurvivorFirearmChance: the odds that a
-			     ranged weapon is a firearm rather than a bow or crossbow - for the rolled one, and for the class weapon of
-			     console spawns and radio contacts (Tools/gen_arsenal.py's FIREARM_SHARE does the same for wild spawns;
-			     keep the two equal). SurvivorRangedMainChance: how often a console spawn or radio contact has a ranged
-			     class weapon. SurvivorSecondWeapon=false gives them only their class weapon again. -->
+			<!-- Every survivor and raider with the player's body carries two weapons, one melee and one ranged.
+			     A survivor (one of 0-XNPCCore's) rolls both from the XnpcWeapons list below: real vanilla weapons, with
+			     0-XNPCCore's own weapon handling (melee up close, the gun when it has ammo, melee when it runs dry).
+			     A raider carries the one its class is named for and rolls one of the other kind.
+			     SurvivorFirearmChance: the odds that a ranged weapon is a firearm rather than a bow or crossbow - a
+			     survivor's ranged weapon, a raider's rolled one, and the class weapon of hostile console spawns
+			     (Tools/gen_arsenal.py's FIREARM_SHARE does the same for the raiders' wild spawns; keep the two equal).
+			     SurvivorRangedMainChance: how often a hostile console spawn has a ranged class weapon.
+			     SurvivorSecondWeapon=false gives raiders only their class weapon again (survivors always carry both).
+			     XnpcSpawnAmmo / XnpcSpawnArrows: the rounds of its gun's basic ammo (arrows or bolts for a bow or
+			     crossbow) a survivor starts with, once, in its inventory window. Ammo is finite: what is shot is gone. -->
 			<property name="SurvivorSecondWeapon" value="true" />
 			<property name="SurvivorFirearmChance" value="0.12" />
 			<property name="SurvivorRangedMainChance" value="0.4" />
+			<property name="XnpcSpawnAmmo" value="30" />
+			<property name="XnpcSpawnArrows" value="20" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:
@@ -215,6 +224,55 @@
 			<property name="XnpcBodyGetUp" value="true" />
 			<property name="XnpcBodyJumpAnim" value="true" />
 			<property name="XnpcBodyColliderLayers" value="true" />
+			<!-- BEGIN GENERATED: XnpcWeapons (Tools/gen_arsenal.py) -->
+			<!-- The vanilla weapons the community's 0-XNPCCore survivors carry, one melee and one ranged each, rolled at or
+			     below the lower of their class's tier (T1 = 0, T2 = 1, T3 = 2) and the gamestage tier; a ranged one is a
+			     firearm at SurvivorFirearmChance, else a bow or crossbow. value = family (melee, bow, firearm), tier, and the
+			     short name the console accepts. Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->
+			<property class="XnpcWeapons">
+				<property name="meleeWpnClubT0WoodenClub" value="melee,0,Club" />
+				<property name="meleeWpnBladeT1HuntingKnife" value="melee,0,Knife" />
+				<property name="meleeWpnClubT1BaseballBat" value="melee,0,Bat" />
+				<property name="meleeToolAxeT1IronFireaxe" value="melee,0,Axe" />
+				<property name="meleeWpnSpearT1IronSpear" value="melee,0,Spear" />
+				<property name="meleeWpnBladeT3Machete" value="melee,0,Machete" />
+				<property name="gunHandgunT0PipePistol" value="firearm,0,PipePistol" />
+				<property name="gunRifleT0PipeRifle" value="firearm,0,PipeRifle" />
+				<property name="gunShotgunT0PipeShotgun" value="firearm,0,PipeShotgun" />
+				<property name="gunMGT0PipeMachineGun" value="firearm,0,PipeMG" />
+				<property name="gunBowT1WoodenBow" value="bow,1,LBow" />
+				<property name="gunBowT1IronCrossbow" value="bow,1,XBow" />
+				<property name="gunHandgunT1Pistol" value="firearm,2,Pistol" />
+				<property name="gunHandgunT3DesertVulture" value="firearm,2,DPistol" />
+				<property name="gunHandgunT3SMG5" value="firearm,2,SMG" />
+				<property name="gunMGT1AK47" value="firearm,2,Rifle" />
+				<property name="gunMGT2TacticalAR" value="firearm,2,TRifle" />
+				<property name="gunRifleT1HuntingRifle" value="firearm,2,HRifle" />
+				<property name="gunRifleT3SniperRifle" value="firearm,2,SRifle" />
+				<property name="gunShotgunT2PumpShotgun" value="firearm,2,PShotgun" />
+				<property name="gunShotgunT3AutoShotgun" value="firearm,2,AShotgun" />
+				<property name="gunMGT3M60" value="firearm,2,M60" />
+				<property name="meleeWpnBladeT0BoneKnife" value="melee,0,BoneKnife" />
+				<property name="meleeWpnKnucklesT0LeatherKnuckles" value="melee,0,LeatherKnuckles" />
+				<property name="meleeWpnKnucklesT1IronKnuckles" value="melee,0,IronKnuckles" />
+				<property name="meleeWpnKnucklesT3SteelKnuckles" value="melee,2,SteelKnuckles" />
+				<property name="meleeWpnBatonT0PipeBaton" value="melee,0,PipeBaton" />
+				<property name="meleeWpnBatonT2StunBaton" value="melee,1,StunBaton" />
+				<property name="meleeWpnClubT3SteelClub" value="melee,2,SteelClub" />
+				<property name="meleeWpnSledgeT0StoneSledgehammer" value="melee,0,StoneSledge" />
+				<property name="meleeWpnSledgeT1IronSledgehammer" value="melee,0,IronSledge" />
+				<property name="meleeWpnSledgeT3SteelSledgehammer" value="melee,2,SteelSledge" />
+				<property name="meleeWpnSpearT0StoneSpear" value="melee,0,StoneSpear" />
+				<property name="meleeWpnSpearT3SteelSpear" value="melee,2,SteelSpear" />
+				<property name="meleeToolAxeT2SteelAxe" value="melee,1,SteelAxe" />
+				<property name="gunHandgunT2Magnum44" value="firearm,2,Magnum" />
+				<property name="gunShotgunT1DoubleBarrel" value="firearm,1,DoubleBarrel" />
+				<property name="gunRifleT2LeverActionRifle" value="firearm,2,LeverAction" />
+				<property name="gunBowT0PrimitiveBow" value="bow,0,PrimitiveBow" />
+				<property name="gunBowT3CompoundBow" value="bow,2,CompoundBow" />
+				<property name="gunBowT3CompoundCrossbow" value="bow,2,CompoundCrossbow" />
+			</property>
+			<!-- END GENERATED: XnpcWeapons -->
 
 			<property name="DebugLogging" value="false" />
 

@@ -120,6 +120,20 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// The weapon tier a managed class stands for, 0..2 from its T1..T3 name: the band its spawn group, the radio or the
+        /// console picked it for (ClassFor). 2 when the name carries no tier, so such a class is capped by the gamestage
+        /// alone (ScLoadout).
+        /// </summary>
+        public static int TierOf(string className)
+        {
+            if (string.IsNullOrEmpty(className)) return 2;
+            int i = className.LastIndexOf('T');
+            int t;
+            if (i < 0 || i == className.Length - 1 || !int.TryParse(className.Substring(i + 1), out t)) return 2;
+            return Mathf.Clamp(t - 1, 0, 2);
+        }
+
+        /// <summary>
         /// Takes XNPC's kill levels off a body (decision D8: members and stand-ins grow through SC's skills only). Idempotent.
         /// Progression goes too: XNPC seeds one for any NPC with a leader, and V4's Write and XNPC's kill-XP handler both
         /// treat a null Progression as "none" (Persistence.cs writes the flag; SdcsNpcKillXpHandler skips it).

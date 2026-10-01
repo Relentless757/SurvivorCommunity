@@ -83,7 +83,8 @@
 		<spawn id="scRaiderCityNight" maxcount="1" respawndelay="1" time="Night" entitygroup="scRaiderGroupGS100" tags="downtown"/>
 	</append>
 
-	<!-- W0: no new pack NPCs while SurvivorCommunity is installed. The NPC framework's own biome spawns call these
-	     groups of its sample cast; removing the entries leaves our spawns above as the only wild NPCs. -->
+	<!-- W0 and D10: no new pack NPCs while SurvivorCommunity is installed, and 0-XNPCCore's survivors spawn only at
+	     SurvivorCommunity's rates. The NPC framework's own biome spawns call these groups of its sample cast and of its
+	     survivors; removing the entries leaves our spawns above as the only wild NPCs. -->
 	<remove xpath="/spawning/biome/spawn[@entitygroup='npcFriendlyCoreGroupGS01' or @entitygroup='npcFriendlyCoreGroupGS100' or @entitygroup='npcFriendlyCoreGroupGS50' or @entitygroup='npcHarleyGroupGS01' or @entitygroup='npcHarleyGroupGS100' or @entitygroup='npcHarleyGroupGS50' or @entitygroup='npcSdcsSurvivorGroupT1' or @entitygroup='npcSdcsSurvivorGroupT2' or @entitygroup='npcSdcsSurvivorGroupT3']"/>
 </configs>

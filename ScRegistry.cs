@@ -21,9 +21,10 @@ namespace SurvivorCommunity
     ///                deaths=11:Nancy;9:Harley  ledger=..;..  lowmorale=0  threat=-1  hungry=0  beds=3  facilities=2
     ///   [member]     id=1234 class=npcNurseSMG name=Nancy status=Resident post=x,y,z join=4 mood=55 injured=0
     ///                ranged=1 missing=0 skills=cardio:2:15,wits:1:0,fighting:3:40,shooting:2:5 spec=Medicine:1:0
-    ///                traits=Hoarder,Hardy run=food:13 pendingunhide=0
+    ///                traits=Hoarder,Hardy run=food:13 pendingunhide=0 loadout=gunBowT0PrimitiveBow,meleeWpnClubT0WoodenClub
     ///   [prospect]   id=1300 class=.. name=.. favour=poi|supplies poi=x,y,z poiname=.. poisize=w,d items=food:15 done=1
-    ///   [contact]    id=3 class=.. label=.. poi=x,y,z poiname=.. spawn=x,y,z day=12 expire=19
+    ///                loadout=ranged,melee
+    ///   [contact]    id=3 class=.. label=.. poi=x,y,z poiname=.. spawn=x,y,z day=12 expire=19 loadout=ranged,melee
     ///   [outpost]    id=2 flag=x,y,z poi=x,y,z size=w,h,d prefab=.. name=.. row=grocery weight=food:1.2 tier=4 day=20
     ///                carry=f,f,f,f,f pending=n,n,n,n,n state=Active lost=-1 last=f,f,f,f,f
     /// Main thread only.
@@ -126,12 +127,53 @@ namespace SurvivorCommunity
                 }
                 loaded = true;
                 foreach (var m in Members.Values) m.MissingDays = Math.Max(m.MissingDays, 0);
+                WarnPreMigration();
                 ScRunners.OnRegistryLoaded();          // a runner left in the world by a crash resumes from its snapshot
                 ScOutposts.OnRegistryChanged();
                 ScLog.Out("registry loaded: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s), " + Outposts.Count + " outpost(s), morale "
                           + Community.Morale + (Community.HasHome ? ", home " + Community.Home : ", no home yet")
                           + (degraded ? " (DEGRADED)" : ""));
             });
+        }
+
+        /// <summary>
+        /// What an old save is told (XNPCCore migration M9; decision D5: the migration needs a new game, so nothing is
+        /// converted). SurvivorCommunity no longer defines its own survivor classes (D11), so a member recorded as one of
+        /// them can never be re-created or found again: the relink never matches their entity, and ScDaily removes them
+        /// after MissingDaysToPurge days. This line names the cause wherever that shows.
+        /// </summary>
+        public const string PreMigrationLine = "this save predates the XNPCCore migration: start a new game";
+
+        /// <summary>Is this member recorded as an entity class the game no longer defines (an old save's scSurvivor member)?</summary>
+        public static bool PredatesMigration(Member m)
+        {
+            // an empty class table means the configs are not loaded yet: that says nothing about the save
+            if (m == null || string.IsNullOrEmpty(m.Class) || EntityClass.list == null || EntityClass.list.Count == 0) return false;
+            return !ScCommunity.ClassExists(EntityClass.FromString(m.Class));
+        }
+
+        /// <summary>Logs PreMigrationLine once per world when the registry holds members of classes that are gone.</summary>
+        private static void WarnPreMigration()
+        {
+            try
+            {
+                int n = 0;
+                string sample = null;
+                foreach (var m in Members.Values)
+                {
+                    if (!PredatesMigration(m)) continue;
+                    n++;
+                    if (sample == null) sample = m.Name + " (" + m.Class + ")";
+                }
+                if (n > 0)
+                    ScLog.Once("pre-migration-save", PreMigrationLine + ". " + n + " member(s) of entity classes that no longer exist, e.g. "
+                               + sample + ", cannot be brought back and are removed after " + ScConfig.MissingDaysToPurge + " days unseen"
+                               + " (or their class came from a character pack that is no longer installed).");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("pre-migration-check", e);
+            }
         }
 
         private static bool TryLoadFile(string path)
@@ -307,6 +349,7 @@ namespace SurvivorCommunity
                 case "spawn": { Vector3i v; if (TryVec(val, out v)) ct.Spawn = v; break; }
                 case "day": ct.Day = I(val); break;
                 case "expire": ct.ExpireDay = I(val); break;
+                case "loadout": ct.Loadout = Loadout.Decode(val); break;
             }
         }
 
@@ -459,6 +502,7 @@ namespace SurvivorCommunity
                 case "distresssafe": m.RunSafe = val == "1"; break;
                 case "look": { Look l = m.Look ?? new Look(); if (l.Decode(val)) m.Look = l; break; }
                 case "gear": { if (m.Look == null) m.Look = new Look(); m.Look.DecodeGear(val); break; }
+                case "loadout": m.Loadout = Loadout.Decode(val); break;
                 case "outpost": m.OutpostId = I(val); break;
                 case "leg": { RunLeg l; if (Enum.TryParse(val, true, out l)) m.RunLeg = l; break; }
                 case "dest": { Vector3i v; if (TryVec(val, out v)) m.RunDest = v; break; }
@@ -508,6 +552,7 @@ namespace SurvivorCommunity
                 case "done": p.Done = val == "1"; break;
                 case "look": { Look l = p.Look ?? new Look(); if (l.Decode(val)) p.Look = l; break; }
                 case "gear": { if (p.Look == null) p.Look = new Look(); p.Look.DecodeGear(val); break; }
+                case "loadout": p.Loadout = Loadout.Decode(val); break;
             }
         }
 
@@ -655,6 +700,7 @@ namespace SurvivorCommunity
                         sb.AppendLine("look=" + Clean(m.Look.Encode()));
                         sb.AppendLine("gear=" + Clean(m.Look.EncodeGear()));
                     }
+                    if (m.Loadout != null) sb.AppendLine("loadout=" + Clean(m.Loadout.Encode()));
                 }
                 foreach (var ct in Contacts)
                 {
@@ -667,6 +713,7 @@ namespace SurvivorCommunity
                     sb.AppendLine("spawn=" + Vec(ct.Spawn));
                     sb.AppendLine("day=" + ct.Day);
                     sb.AppendLine("expire=" + ct.ExpireDay);
+                    if (ct.Loadout != null) sb.AppendLine("loadout=" + Clean(ct.Loadout.Encode()));
                 }
                 foreach (var o in Outposts)
                 {
@@ -729,6 +776,7 @@ namespace SurvivorCommunity
                         sb.AppendLine("look=" + Clean(p.Look.Encode()));
                         sb.AppendLine("gear=" + Clean(p.Look.EncodeGear()));
                     }
+                    if (p.Loadout != null) sb.AppendLine("loadout=" + Clean(p.Loadout.Encode()));
                 }
 
                 string real = Path.Combine(saveDir, FileName);

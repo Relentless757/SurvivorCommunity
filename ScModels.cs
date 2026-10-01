@@ -116,6 +116,11 @@ namespace SurvivorCommunity
         public int AwaySeconds;
         /// <summary>Face, hair and worn armor when the survivor wears the player's body (null for pack NPCs).</summary>
         public Look Look;
+        /// <summary>
+        /// The two weapons a 0-XNPCCore survivor carries (ScLoadout: vanilla item names), so that every body the community
+        /// re-creates for them (ScSpawn) carries the same pair. Null for a member who joined without one.
+        /// </summary>
+        public Loadout Loadout;
         /// <summary>The outpost a Garrison member holds (-1 otherwise).</summary>
         public int OutpostId = -1;
         /// <summary>Physical supply run (ScRunners). Saved only while OnRun with a leg other than None.</summary>
@@ -164,6 +169,8 @@ namespace SurvivorCommunity
         public Vector3i NpcPos;
         /// <summary>Face, hair and worn armor when the survivor wears the player's body (null for pack NPCs).</summary>
         public Look Look;
+        /// <summary>The two weapons they carry (ScLoadout), handed on to the member record when they join.</summary>
+        public Loadout Loadout;
     }
 
     public sealed class Community

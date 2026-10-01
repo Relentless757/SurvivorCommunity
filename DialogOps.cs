@@ -33,6 +33,7 @@ namespace SurvivorCommunity
             ScConfig.EnsureParsed();
             p = new Prospect { Id = npc.entityId, Class = ScCommunity.ClassName(npc), Name = ScCommunity.DisplayName(npc) };
             p.Look = ScLooks.Get(npc);        // null unless they wear the player's body
+            p.Loadout = ScLoadout.Current(npc);   // their two weapons (null unless they carry a pair), handed on when they join
             World w = ScCommunity.World;
             GameRandom rnd = npc.rand ?? (w != null ? w.GetGameRandom() : null);
             bool wantPoi = rnd == null || rnd.RandomFloat < 0.5f;

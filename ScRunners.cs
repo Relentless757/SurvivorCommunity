@@ -890,12 +890,14 @@ namespace SurvivorCommunity
             RecreatingId = newId ? -1 : m.Id;
             try
             {
-                // a fresh body is built like every other respawn (ScSpawn: the record's class and look; the name follows
-                // below); a snapshot under a new id gets the look handed over the same way, the id not being the member's yet
-                if (fresh) e = ScSpawn.Create(cid, spot + new Vector3(0f, 0.002f, 0f), rot, m.Look);
+                // a fresh body is built like every other respawn (ScSpawn: the record's class, look and weapons; the name
+                // follows below); a snapshot under a new id gets the look and the weapons handed over the same way, the id
+                // not being the member's yet (its own saved cvars would give the same pair; the record is the truth)
+                if (fresh) e = ScSpawn.Create(cid, spot + new Vector3(0f, 0.002f, 0f), rot, m.Look, m.Loadout);
                 else
                 {
                     if (newId && m.Look != null) ScLooks.Pending = m.Look.Clone();
+                    if (newId && m.Loadout != null) ScLoadout.Pending = m.Loadout.Clone();
                     ecd.pos = spot + new Vector3(0f, 0.002f, 0f);                               // VehicleManager nudges y the same way
                     ecd.rot = rot;
                     ecd.id = rekey ? -1 : m.Id;                                                 // never the id inside the blob: after a re-key it is the old one
@@ -914,6 +916,7 @@ namespace SurvivorCommunity
             {
                 RecreatingId = -1;
                 ScLooks.Pending = null;
+                ScLoadout.Pending = null;
             }
             sw.Stop();
 

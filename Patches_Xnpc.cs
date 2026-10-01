@@ -7,8 +7,8 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// Every patch on a 0-XNPCCore type (NPCSdcsCharacters.dll), for the survivor classes the community owns (ScXnpc).
-    /// The numbering is the migration design's (section 1.2); the rows this file does not have yet belong to later tasks
-    /// (X3 kill levels and X6 the melee choice).
+    /// The numbering is the migration design's (section 1.2); the row this file does not have yet belongs to a later task
+    /// (X3 kill levels).
     ///
     ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype
     ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces)
@@ -16,6 +16,7 @@ namespace SurvivorCommunity
     ///   X4  AvatarSdcsNpcController.SdcsWearTick                     prefix   no no-wear buff: armor wears like SC's
     ///   X5  AvatarSdcsNpcController.SdcsFailoverTick / SdcsCloseRangeTick / SdcsTryWorldEntryRearm
     ///                                                                prefix   XNPC never swaps the hand during a medical use
+    ///   X6  AvatarSdcsNpcController.SdcsChooseMeleeFallback          prefix   XNPC's melee choice is the pair's melee weapon
     ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame
     ///
     /// Every target is DECLARED on XNPC's type (CLAUDE.md pattern #4: a base-class match would patch every player body),
@@ -92,6 +93,11 @@ namespace SurvivorCommunity
         public static MethodBase RearmTarget()
         {
             return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsTryWorldEntryRearm", new[] { typeof(ItemValue) });
+        }
+
+        public static MethodBase MeleeFallbackTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsChooseMeleeFallback", new[] { typeof(EntityAlive) });
         }
 
         public static MethodBase UpdateTarget()
@@ -316,6 +322,47 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-noswap", ex);
+                    return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X6: the melee weapon ----
+
+        /// <summary>
+        /// X6. The melee weapon XNPC reaches for is the pair's (migration M7, decision D4). XNPC's close-range swap and its
+        /// dry-gun failover both ask SdcsChooseMeleeFallback: with an Owner (a follower) it returns the last melee weapon
+        /// the NPC held (the SdcsLastMelee cvar, which a voice "use X" can leave on anything), otherwise the first melee
+        /// item on itemsOnEnterGame - the pair's melee weapon, since ScLoadout writes that list. For one of our bodies the
+        /// answer is always the pair's melee weapon while SCore's FindWeapon still accepts it; when it does not (or the
+        /// body has no pair yet) XNPC's own choice runs. The method has loops and is far too big to be inlined, and the
+        /// counters show it runs.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_MeleeFallback
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(MeleeFallbackTarget, "AvatarSdcsNpcController.SdcsChooseMeleeFallback"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MeleeFallbackTarget(); }
+
+            /// <summary>__0 is the entity argument (bound by position: the controller also has an "entity" field).</summary>
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive __0, ref string __result)
+            {
+                try
+                {
+                    if (__0 == null || !ScXnpc.IsBody(__0)) return true;
+                    string melee = ScLoadout.XnpcMelee(__0);
+                    if (melee == null) { Count("x6-xnpc-choice"); return true; }
+                    Count("x6-pair-melee");
+                    __result = melee;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-meleefallback", ex);
                     return true;
                 }
             }

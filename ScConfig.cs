@@ -29,6 +29,21 @@ namespace SurvivorCommunity
     }
 
     /// <summary>
+    /// One vanilla player weapon the community's 0-XNPCCore survivors may carry, parsed from the config block's
+    /// XnpcWeapons class (written by Tools/gen_arsenal.py from its WEAPONS table):
+    ///   &lt;property name="gunBowT0PrimitiveBow" value="bow,0,PrimitiveBow"/&gt;
+    /// family melee / bow / firearm, tier 0..2 (the same tiers as the raiders' weapons), and the generator's weapon
+    /// token as a short name the console accepts.
+    /// </summary>
+    public sealed class XnpcWeaponDef
+    {
+        public string Item = "";
+        public string Family = "";
+        public int Tier;
+        public string Alias = "";
+    }
+
+    /// <summary>
     /// All tunables, read from the block "ConfigSurvivorCommunity" in Config/blocks.xml once per world.
     /// Defaults are valid before the first parse so nothing depends on ordering.
     /// </summary>
@@ -262,7 +277,7 @@ namespace SurvivorCommunity
         public static float OutpostRaiderChance = 0.03f;
         public static int OutpostDemandAmmo = 2;
         public static int OutpostDemandFood = 2;
-        // ---- survivors wearing the player's body (Config/entityclasses.xml, classes scSurvivor*) ----
+        // ---- survivors and raiders wearing the player's body (0-XNPCCore's survivors, ScXnpc; SC's scRaider* classes) ----
         /// <summary>No longer used: it was the chance a radio contact is a player-body survivor rather than a pack NPC,
         /// and pack NPCs no longer spawn at all (every contact is now one of ours). Still parsed so old configs load.</summary>
         public static float SurvivorLookChance = 0.5f;
@@ -286,13 +301,22 @@ namespace SurvivorCommunity
         public static bool SurvivorAimVisualOnly = true;
         /// <summary>Seconds the weapon stays up after the last ranged attack.</summary>
         public static float SurvivorAimHoldSeconds = 2f;
-        /// <summary>Survivors and raiders with the player's body carry a second weapon of the other kind (ScLoadout).</summary>
+        /// <summary>Raiders carry a second weapon of the other kind (ScLoadout). The community's 0-XNPCCore survivors
+        /// always carry their pair: they have no class weapon to fall back on.</summary>
         public static bool SurvivorSecondWeapon = true;
-        /// <summary>The odds a ranged weapon is a firearm rather than a bow or crossbow: the rolled second weapon, and the
-        /// class weapon of console spawns and radio contacts (Tools/gen_arsenal.py FIREARM_SHARE for wild spawns).</summary>
+        /// <summary>The odds a ranged weapon is a firearm rather than a bow or crossbow: a survivor's ranged weapon, a
+        /// raider's rolled second weapon and the class weapon of hostile console spawns (Tools/gen_arsenal.py
+        /// FIREARM_SHARE for the raiders' wild spawns).</summary>
         public static float SurvivorFirearmChance = 0.12f;
-        /// <summary>How often a console spawn or radio contact gets a ranged class weapon.</summary>
+        /// <summary>How often a hostile console spawn gets a ranged class weapon.</summary>
         public static float SurvivorRangedMainChance = 0.4f;
+        /// <summary>The vanilla weapons the community's 0-XNPCCore survivors may carry (XnpcWeapons class, generated).</summary>
+        public static readonly List<XnpcWeaponDef> XnpcWeapons = new List<XnpcWeaponDef>();
+        /// <summary>Rounds of its gun's basic ammo a new 0-XNPCCore survivor carries in its inventory window, once per
+        /// entity (decision D3: finite ammo). 0 = none.</summary>
+        public static int XnpcSpawnAmmo = 30;
+        /// <summary>The same for a bow or crossbow: arrows or bolts.</summary>
+        public static int XnpcSpawnArrows = 20;
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
@@ -355,6 +379,9 @@ namespace SurvivorCommunity
             SurvivorSecondWeapon = true;
             SurvivorFirearmChance = 0.12f;
             SurvivorRangedMainChance = 0.4f;
+            XnpcWeapons.Clear();
+            XnpcSpawnAmmo = 30;
+            XnpcSpawnArrows = 20;
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
@@ -671,6 +698,8 @@ namespace SurvivorCommunity
                 SurvivorSecondWeapon = secondWeapon;
                 ParseFloat(p, "SurvivorFirearmChance", ref SurvivorFirearmChance, 0f, 1f);
                 ParseFloat(p, "SurvivorRangedMainChance", ref SurvivorRangedMainChance, 0f, 1f);
+                ParseInt(p, "XnpcSpawnAmmo", ref XnpcSpawnAmmo, 0, 1000);
+                ParseInt(p, "XnpcSpawnArrows", ref XnpcSpawnArrows, 0, 1000);
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
@@ -703,12 +732,22 @@ namespace SurvivorCommunity
                         if (t != null) Traits.Add(t);
                     }
                 }
+                DynamicProperties weapons;
+                if (p.Classes != null && p.Classes.TryGetValue("XnpcWeapons", out weapons) && weapons != null)
+                {
+                    foreach (var kv in weapons.Values)
+                    {
+                        XnpcWeaponDef wd = ParseXnpcWeapon(kv.Key, kv.Value);
+                        if (wd != null) XnpcWeapons.Add(wd);
+                    }
+                }
                 parsed = true;
                 ScLog.Out("config: MaxMembers=" + MaxMembers + " MaxFollowers=" + MaxFollowers + " FoodPerMemberDay=" + FoodPerMemberDay
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"
                           + " PostRadius=" + PostRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
                           + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count
-                          + " secondWeapon=" + SurvivorSecondWeapon + " firearmChance=" + SurvivorFirearmChance + " rangedMainChance=" + SurvivorRangedMainChance);
+                          + " secondWeapon=" + SurvivorSecondWeapon + " firearmChance=" + SurvivorFirearmChance + " rangedMainChance=" + SurvivorRangedMainChance
+                          + " xnpcWeapons=" + XnpcWeapons.Count + " xnpcSpawnAmmo=" + XnpcSpawnAmmo + "/" + XnpcSpawnArrows);
             }
             catch (Exception e)
             {
@@ -769,6 +808,22 @@ namespace SurvivorCommunity
                     ValueOverrides[kv[0].Trim()] = n;
                 else ScLog.Warn("config ValueOverrides: cannot parse '" + part + "'");
             }
+        }
+
+        /// <summary>"family,tier[,alias]" for one XnpcWeapons entry; null (with a warning) when it cannot be read.</summary>
+        private static XnpcWeaponDef ParseXnpcWeapon(string item, string spec)
+        {
+            if (string.IsNullOrEmpty(item) || string.IsNullOrEmpty(spec)) return null;
+            string[] parts = spec.Split(',');
+            int tier;
+            string family = parts[0].Trim().ToLowerInvariant();
+            if (parts.Length < 2 || (family != "melee" && family != "bow" && family != "firearm")
+                || !int.TryParse(parts[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out tier) || tier < 0 || tier > 2)
+            {
+                ScLog.Warn("config XnpcWeapons: cannot parse " + item + "='" + spec + "' (want family melee|bow|firearm, tier 0-2)");
+                return null;
+            }
+            return new XnpcWeaponDef { Item = item.Trim(), Family = family, Tier = tier, Alias = parts.Length > 2 ? parts[2].Trim() : "" };
         }
 
         private static TraitDef ParseTrait(string name, string spec)

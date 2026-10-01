@@ -15,14 +15,16 @@ namespace SurvivorCommunity
         public Vector3i Spawn;
         public int Day;
         public int ExpireDay;
+        /// <summary>The two weapons rolled with the contact (ScLoadout), handed to the body when it spawns. Null: rolled then.</summary>
+        public Loadout Loadout;
     }
 
     /// <summary>
     /// The radio station (block scRadioStation, powered). Four jobs:
     ///   Airdrop  - vanilla's own air drop, on request only: the AIDirector's scheduled drops are gated off
     ///              (Patches_Radio) and the sandbox "air drop frequency" (hours) is the radio's cooldown.
-    ///   Call     - reach out for survivors: one of our player-body survivors (never a pack NPC - those no longer
-    ///              spawn while this mod is installed) at a random real POI a few hundred metres out, marked on
+    ///   Call     - reach out for survivors: one of the community's 0-XNPCCore survivors (never a pack NPC - those no
+    ///              longer spawn while this mod is installed) at a random real POI a few hundred metres out, marked on
     ///              the map, kept as a registry record and spawned the first time that chunk loads (they then ask
     ///              a favour like any recruit). Fades after RadioContactDays.
     ///   Distress - a survivor on a supply run may radio for help (RadioDistressChance while a radio is
@@ -186,16 +188,27 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The class a new radio contact or outpost walk-in gets: one of our player-body survivors, capped by the
-        /// player's gamestage tier, ranged and firearm by the same odds as a console spawn (ScLoadout.PickClass). Pack
-        /// NPCs (Nurse, Baker, Harley...) are never rolled - they no longer spawn while this mod is installed (the
-        /// user's call, 2026-09-30). Null when no scSurvivor* class is loaded.
+        /// The class a new radio contact or outpost walk-in gets: one of the community's 0-XNPCCore survivor classes
+        /// (migration M6), either sex, at the player's gamestage tier (T1 early, T2 middle, T3 late). Its weapons are not
+        /// in the class: the contact rolls a pair (NewContactLoadout). Pack NPCs (Nurse, Baker, Harley...) are never
+        /// rolled - they no longer spawn while this mod is installed (the user's call, 2026-09-30). Null when none of
+        /// those classes is loaded.
         /// </summary>
         public static string NewContactClass(EntityPlayerLocal player, GameRandom rnd)
         {
-            if (rnd == null && ScCommunity.World != null) rnd = ScCommunity.World.GetGameRandom();   // else PickClass takes the first
-            return ScLoadout.PickClass(ScLooks.SurvivorClasses(), rnd, null,
-                                       ScLooks.MaxTierFor(player != null ? player.gameStage : 0));
+            if (rnd == null && ScCommunity.World != null) rnd = ScCommunity.World.GetGameRandom();
+            bool male = rnd == null || rnd.RandomFloat < 0.5f;
+            return ScXnpc.ClassFor(male, ScLooks.MaxTierFor(player != null ? player.gameStage : 0));
+        }
+
+        /// <summary>
+        /// The pair a new contact will carry, rolled now (the class's tier cap at today's gamestage) so the radio can
+        /// say what they are armed with and the body spawns with exactly that (ScLoadout.Pending).
+        /// </summary>
+        private static Loadout NewContactLoadout(string cls, GameRandom rnd)
+        {
+            try { return ScLoadout.RollXnpc(cls, null, rnd); }
+            catch (Exception e) { ScLog.Once("radio-contact-loadout", e); return null; }
         }
 
         /// <summary>A random real POI whose centre is MinDist..MaxDist from the home block and outside the zone.</summary>
@@ -255,11 +268,13 @@ namespace SurvivorCommunity
                 Community c = ScRegistry.Community;
                 Vector3 centre = Centre(pi);
                 int y = (int)w.GetHeightAt(centre.x, centre.z) + 1;      // static heightmap: refined with live blocks at spawn time
+                Loadout pair = NewContactLoadout(cls, rnd);
                 var contact = new Contact
                 {
                     Id = ++c.NextContactId,
                     Class = cls,
-                    Label = ClassLabel(cls),
+                    Label = ContactLabel(cls, pair),
+                    Loadout = pair,
                     PoiKey = pi.boundingBoxPosition,
                     PoiName = ScSecurity.DisplayName(pi),
                     Spawn = new Vector3i((int)centre.x, y, (int)centre.z),
@@ -271,7 +286,7 @@ namespace SurvivorCommunity
                 AddMarker(contact, player);
                 ScRegistry.SaveAtomic();
                 ScCommunity.Tell(player, string.Format(Localization.Get("scRadioContact"), contact.Label, contact.PoiName, Dist(centre)), "");
-                ScLog.Out("radio contact: " + cls + " at " + contact.PoiName + " " + contact.PoiKey + " (fades day " + contact.ExpireDay + ")");
+                ScLog.Out("radio contact: " + cls + (pair != null ? " (" + pair + ")" : "") + " at " + contact.PoiName + " " + contact.PoiKey + " (fades day " + contact.ExpireDay + ")");
                 return true;
             }
             catch (Exception e)
@@ -292,11 +307,13 @@ namespace SurvivorCommunity
                 string cls = NewContactClass(player, rnd);
                 if (cls == null) return null;
                 Community c = ScRegistry.Community;
+                Loadout pair = NewContactLoadout(cls, rnd);
                 var contact = new Contact
                 {
                     Id = ++c.NextContactId,
                     Class = cls,
-                    Label = ClassLabel(cls),
+                    Label = ContactLabel(cls, pair),
+                    Loadout = pair,
                     PoiKey = poiKey,
                     PoiName = poiName ?? "",
                     Spawn = spawn,
@@ -319,6 +336,23 @@ namespace SurvivorCommunity
         {
             Vector3i home = ScZone.Home;
             return ((int)Mathf.Sqrt((p.x - home.x) * (p.x - home.x) + (p.z - home.z) * (p.z - home.z))).ToString();
+        }
+
+        /// <summary>
+        /// What the radio calls a contact: the class's name and, when the contact rolled a pair, the ranged weapon - the one
+        /// that tells a bow from a rare firearm ("a survivor (Pipe Rifle)").
+        /// </summary>
+        private static string ContactLabel(string cls, Loadout pair)
+        {
+            string label = ClassLabel(cls);
+            try
+            {
+                ItemClass ic = pair != null && pair.Ranged != null ? ItemClass.GetItemClass(pair.Ranged, true) : null;
+                string weapon = ic != null ? ic.GetLocalizedItemName() : null;
+                if (!string.IsNullOrEmpty(weapon)) label += " (" + weapon + ")";
+            }
+            catch (Exception e) { ScLog.Once("radio-contact-label", e); }
+            return label;
         }
 
         /// <summary>The class's localized name ("Nurse (knife)") with a generic fallback.</summary>
@@ -423,14 +457,16 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (!ScLooks.IsSurvivorClass(ct.Class))
+                if (!ScXnpc.IsManagedClass(ct.Class))
                 {
-                    // a pack NPC rolled before pack NPCs stopped spawning: one of ours answers instead
+                    // a pack NPC rolled before pack NPCs stopped spawning, or one of SC's own survivor classes from before
+                    // the XNPCCore migration (decision D11): one of the community's 0-XNPCCore survivors answers instead
                     string again = NewContactClass(player, w.GetGameRandom());
-                    if (again == null) { ScLog.Warn("radio contact class " + ct.Class + " is a pack NPC and no scSurvivor class is loaded - dropped"); return true; }
-                    ScLog.Out("radio contact " + ct.Id + ": pack NPC " + ct.Class + " no longer spawns - " + again + " answers instead");
+                    if (again == null) { ScLog.Warn("radio contact class " + ct.Class + " no longer spawns and no 0-XNPCCore survivor class is loaded - dropped"); return true; }
+                    ScLog.Out("radio contact " + ct.Id + ": " + ct.Class + " no longer spawns - " + again + " answers instead");
                     ct.Class = again;
-                    ct.Label = ClassLabel(again);
+                    ct.Loadout = NewContactLoadout(again, w.GetGameRandom());
+                    ct.Label = ContactLabel(again, ct.Loadout);
                 }
                 int cid = EntityClass.FromString(ct.Class);
                 if (!ScCommunity.ClassExists(cid)) { ScLog.Warn("radio contact class " + ct.Class + " no longer exists - dropped"); return true; }
@@ -438,7 +474,7 @@ namespace SurvivorCommunity
                 // a survivor wearing one of our looks rolls their face and clothes here; the model (SC's shim, or
                 // Patches_Xnpc for the community's 0-XNPCCore survivors) consumes it while it is built
                 Look look = ScSpawn.IsSurvivorBodyClass(ct.Class) ? ScLooks.Roll(ScLooks.ClassIsMale(ct.Class), w.GetGameRandom(), true) : null;
-                EntityAlive npc = ScSpawn.Create(cid, pos, Vector3.zero, look);
+                EntityAlive npc = ScSpawn.Create(cid, pos, Vector3.zero, look, ct.Loadout);
                 if (npc == null) { ScLog.Warn("radio contact class " + ct.Class + " is not an SCore NPC class - dropped"); return true; }
                 w.SpawnEntityInWorld(npc);
                 npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);

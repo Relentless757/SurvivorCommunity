@@ -497,9 +497,9 @@ namespace SurvivorCommunity
                 Member m = ScRegistry.GetMember(id);
                 if (m == null || m.Look == null) return false;
                 // the live body takes its sex from the entity (ScLooks.Sync); a record rolled before that fix could
-                // disagree, and the survivor classes carry the sex in their name - SC's own and the community's
-                // 0-XNPCCore survivors (npcSdcsSurvivorFemaleT2 and so on) alike
-                if (ScLooks.IsSurvivorClass(m.Class) || ScXnpc.IsManagedClass(m.Class)) m.Look.Male = ScLooks.ClassIsMale(m.Class);
+                // disagree, and the survivor classes - the community's 0-XNPCCore survivors (npcSdcsSurvivorFemaleT2 and
+                // so on) - carry the sex in their name
+                if (ScXnpc.IsManagedClass(m.Class)) m.Look.Male = ScLooks.ClassIsMale(m.Class);
                 ScLooks.Validate(m.Look);                    // base body/head assets exist, else White/01 (ScLooks.cs:499-514)
                 BuildLookRig(m.Look, ref rig, ref cat);
                 Stage st = EnsureStage();

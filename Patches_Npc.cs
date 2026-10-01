@@ -151,10 +151,10 @@ namespace SurvivorCommunity
             public static IEnumerable<MethodBase> TargetMethods() { return ScNpc.Declared("PostInit", NoArgs); }
 
             /// <summary>
-            /// W2: both weapons on the item list before SCore's EntityAlive.PostInit postfix fills the slots from it, before
-            /// both SetupStartingItems calls, and before PostInit re-equips the saved weapon (ScLoadout). BeforePostInit
-            /// acts only on this mod's own survivor and raider class names, so 0-XNPCCore's V4 survivors pass through it
-            /// untouched.
+            /// Both weapons on the item list before SCore's EntityAlive.PostInit postfix fills the slots from it, before
+            /// SetupStartingItems, and before PostInit re-equips the saved weapon (ScLoadout). BeforePostInit acts on the
+            /// community's 0-XNPCCore survivor classes (EntityAliveSDXV4: their rolled pair, migration M7) and passes every
+            /// other class through untouched (pack NPCs, XNPC's other classes).
             /// </summary>
             [HarmonyPrefix]
             public static void Prefix(EntityAlive __instance)
@@ -173,6 +173,8 @@ namespace SurvivorCommunity
                     // player body needs it, not only members and prospects - a stranger found in the wild or spawned
                     // from the console used to keep its hit capsules on the no-collision layer.
                     Patches_Sdcs.FixColliderLayers(__instance);
+                    // a new 0-XNPCCore survivor's starting ammo, once per entity (its own catch; decision D3)
+                    ScLoadout.AfterPostInit(__instance);
                     if (!ScRegistry.Loaded) return;
                     if (ScRegistry.Cleanup.Contains(__instance.entityId))
                     {

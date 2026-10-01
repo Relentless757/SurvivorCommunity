@@ -1,4 +1,4 @@
-# SurvivorCommunity â€” in-game test checklist
+# SurvivorCommunity — in-game test checklist
 
 Steps not yet tested in game. Tick a step, or remove it, once it has been confirmed. Everything below was added on
 2026-09-28 and ships in the build `sc_stage7`, which is **not deployed yet**.
@@ -25,20 +25,100 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Migration round 2 (M7a, M6, M8, M9, build sc_r2): XNPC survivors armed, spawned and the only survivors
+
+**Deployed 2026-10-01** (DLL md5 9ae72bf9; Fable review: no defects, two low fixes applied). **Needs a new game** (decision D5). SurvivorCommunity no longer defines survivor classes of its
+own: the `scSurvivor*` classes are gone (D11), and the community's survivors are 0-XNPCCore's
+`npcSdcsSurvivor{Male,Female}T{1,2,3}`. Wild spawns (SC's own entries and rates, D10), radio contacts, outpost
+walk-ins and `sc spawn` now make them. Each carries a pair of real vanilla weapons rolled by SC (one melee, one bow /
+crossbow or, at `SurvivorFirearmChance` 12%, a firearm; tier capped by the lower of the class's T1-T3 and your
+gamestage tier) and finite ammo: 30 rounds, or 20 arrows or bolts, once, in the inventory window
+(`XnpcSpawnAmmo` / `XnpcSpawnArrows`). 0-XNPCCore's own weapon handling picks which of the two is in the hand (the
+gun while it has ammo, the melee weapon up close and when dry); its melee choice is always the pair's (new hook
+X6). Raiders are unchanged. They still cannot be recruited (M2); there is no ammo resupply yet (M7b).
+
+`sc xnpc <id>` now also prints `pair=`, `record=`, `ammoSeeded=` and `SdcsLastMelee=`; the hook line gains
+`x6-pair-melee` / `x6-xnpc-choice`. `sc loadout <id>` shows the pair with family, tier, the tier cap now and
+whether the starting ammo was given.
+
+- [ ] **Startup:** `patch verification: all 69 targets patched` (one more than round 1: AvatarSdcsNpcController
+      SdcsChooseMeleeFallback), no `MISSING PATCH`, no "0-XNPCCore method ... not found". The config line ends with
+      `xnpcWeapons=41 xnpcSpawnAmmo=30/20`. No `config XnpcWeapons: cannot parse`, `XnpcWeapons: no item`,
+      `config has no XnpcWeapons block` or `no weapons for 0-XNPCCore's survivors` warning. No XML warning for SC's
+      entityclasses, entitygroups, spawning or blocks.xml.
+- [ ] **The XML took** (DevLink `xmlprobe`): no `scSurvivor…` entity class exists (`se` lists none); the
+      `scSurvivorGroupGS01` / `GS50` / `GS100` groups hold `npcSdcsSurvivorMaleT1` + `FemaleT1` (T2, T3) at 3 each and
+      `none` 94 last; the config block has a `XnpcWeapons` class with 41 entries; no biome has 0-XNPCCore's own
+      `dnSdcs…` / `nnSdcs…` spawn entries, and SC's `scSurvivorWildDay…` entries are there.
+- [ ] **`sc spawn female`** (probe for M7.1/M7.2): spawns `npcSdcsSurvivorFemaleT<your tier + 1>`; the output names the
+      pair (two vanilla items) and the tier cap. `sc xnpc <id>`: `itemsOnEnterGame=[<melee>x1, <ranged>x1]` - no ammo
+      stack, no pipe pistol, no club unless rolled - `_defaultWeapon` the melee one, `pair=` the same two,
+      `ammoSeeded=True`, and the ammo line shows 30 (or 20 arrows/bolts) of the gun's basic ammo in the window.
+      Within a second she holds the gun (Player.log `[SDCS-REARM] … -> '<gun>'` for her id). Open her inventory
+      ("show me your inventory"): the ammo stack is there.
+- [ ] **Weapon Menu:** the SdcsNPC dialog's weapon menu lists both of her weapons; picking the other one swaps it.
+- [ ] **Fixed weapons:** `sc spawn male PrimitiveBow Club` (short names), `sc spawn female gunRifleT0PipeRifle
+      Lumberjack` (an item and an armor set), `sc spawn firearm` and `sc spawn bow melee` (one of that family) give
+      what was asked, the other kind rolled. `sc spawn PipeRifle PipePistol` refuses (both ranged).
+- [ ] **Tiers by gamestage:** below gamestage 50, `sc spawn` a few times: only tier 0 weapons (pipe guns, primitive
+      bow, the tier 0 melee list). `sc loadout sim 2000` prints about 12% firearms and the tier spread for your
+      gamestage; at gamestage 100+ tier 1 and 2 weapons appear.
+- [ ] **Finite ammo, given once:** let her shoot zombies until the window is empty. She reloads from the window
+      while it has rounds, then 0-XNPCCore fails over to melee (`[SDCS-FAILOVER] … failover to melee: '<her melee
+      weapon>'`) and `x6-pair-melee` rises. Save, quit, reload: the window is still as she left it (not refilled),
+      `ammoSeeded=True`, same pair, same held weapon, the same two items on `itemsOnEnterGame` (probe P9, the
+      weapons part). Hand her a stack of her gun's ammo through the window: 0-XNPCCore restores the gun
+      (`[SDCS-FAILOVER] restore`).
+- [ ] **Melee up close:** a zombie within 3 m: she swaps to the pair's melee weapon (`x6-pair-melee`), back to the
+      gun at about 5 m when it has ammo.
+- [ ] **`sc loadout <id> Rifle`** (or `gunMGT1AK47`, or `hunting`): the pair changes, `itemsOnEnterGame` follows,
+      she holds the same kind as before, SC writes no `CurrentWeaponClass` (0-XNPCCore keeps it 0/1). An ambiguous
+      name (`sc loadout <id> bow`) lists the matches. Note: a new gun gets no ammo of its own (the starting ammo was
+      given once), so it runs dry unless you hand her some.
+- [ ] **`sc arms <id> melee` / `ranged`** puts that weapon in her hand (0-XNPCCore may switch back by its own rules).
+- [ ] **`sc loadout near`** lists 0-XNPCCore survivors and raiders with their pairs and the firearm share;
+      **`sc weapons`** prints the survivors' vanilla weapons (with short names) and the raiders' tokens.
+- [ ] **Radio call:** the contact line reads like "a survivor (Primitive Bow)"; the registry's `[contact]` has
+      `loadout=`; when the chunk loads, the survivor there is an `npcSdcsSurvivor…T<tier>` with exactly that pair
+      (`sc loadout <id>` source `spawn`), a rolled SC look and starting ammo. Same for an **outpost walk-in** (log
+      `walk-in: npcSdcsSurvivor…`).
+- [ ] **Wild spawns (D10):** play a day and a night in wilderness, a town and a city centre. 0-XNPCCore survivors
+      turn up about as often as SC's survivors used to (6% per area roll): T1 in the wild and towns by day, T2 in the
+      wild by night and city centres by day, T3 in towns and city centres at night. They wear SC looks and names,
+      carry pairs within their cap (`sc loadout near`) and ammo. No pack NPC, no XNPC preset look.
+- [ ] *Only if a POI uses 0-XNPCCore's NPC sleeper volumes (`S_-Group_NPC_*`):* the survivors it spawns are ours
+      (SC look, pair, ammo).
+- [ ] **Prospect record:** a radio contact becomes a prospect when it spawns; after the next save
+      (`sc save`) its `[prospect]` record in `survivor_community.txt` has `loadout=<ranged>,<melee>`, the same pair as
+      `sc loadout <id>`. Reload: `sc loadout <id>` source `record`. Joining (and so the `[member]` record and the
+      respawn sites - call-back, stand-in, runner - bringing a member back with the same two weapons) needs M2:
+      *round 3 re-runs this.*
+- [ ] **Raiders unchanged (M8):** `sc spawn hostile`, `sc spawn hostile female Bat Pistol`, `sc loadout <raider>`
+      and the W2 rows below behave as before (raider classes, groups, spawns, NPC weapon items and their
+      Localization are byte-identical to round 1's). Raiders get no `no_voice` tag (see the report: 0-XNPCCore's
+      chat component also turns on their vanilla door opening, so the tag would change raider doors; untested).
+- [ ] **An old save (M9), on a copy only:** loading a pre-migration save logs `this save predates the XNPCCore
+      migration: start a new game. N member(s) of entity classes that no longer exist, …` once. A pending radio
+      contact of an `scSurvivor` class answers as an `npcSdcsSurvivor` (`… no longer spawns - … answers instead`).
+      After `MissingDaysToPurge` (30) days with the base loaded (`sc day` repeatedly), each such member's removal is
+      preceded by the same line naming them.
+
 ## Migration round 1 (M3 + M5, build sc_r1): looks, names, respawns, healing and aiming on XNPC survivors
 
-**Deployed 2026-10-01** (DLL md5 5c75b40c; Fable review: no defects). SurvivorCommunity now takes over 0-XNPCCore's own survivors, `npcSdcsSurvivor{Male,Female}T{1,2,3}`
+**Deployed 2026-10-01** (DLL md5 5c75b40c; Fable review: no defects). Self-test 2026-10-01 (DevLink, test save): patch verification 68/68, XNPC look applier off, SC look/name/half armor on spawned npcSdcs survivors, x1/x2/x4/x7 hooks firing, ranged fight drives ScAim, no SC errors. SurvivorCommunity now takes over 0-XNPCCore's own survivors, `npcSdcsSurvivor{Male,Female}T{1,2,3}`
 (the six classes in `XnpcSurvivorClasses`, Config/blocks.xml): they wear SC's rolled faces and mixed vanilla armor at
 SC's half protection (no XNPC preset, no full-protection set, no no-wear buff), SC's names, heal only with medical items
 and the bandage animation, and raise their gun or draw their bow while shooting. Everything SC's own survivors and
 raiders do is unchanged. They still cannot be recruited (M2), nothing spawns them in the wild or from the radio yet
 (M6), and they still carry 0-XNPCCore's starting weapons (M7). So spawn them by hand: `se` lists the entity ids, then
-`se <your id> <entity id>` for e.g. npcSdcsSurvivorFemaleT2. Kill them afterwards.
+`se <your id> <entity id>` for e.g. npcSdcsSurvivorFemaleT2. Kill them afterwards. *Since round 2 (above) `sc spawn`,
+the radio and wild spawns make them, armed with SC's pair; the rows below that mention SC's own survivors
+(`sc spawn female Lumberjack` as an SC survivor, the radio walk-in "SC survivor") now get an XNPC survivor.*
 
 `sc xnpc <id|name>` prints one NPC in detail (class, whether it is one of ours, where its look came from, archetype,
 worn items, names, weapons and ammo, XNPC's level cvars and buffs, orders, speeds, medical state, and the hit counters of
 the new hooks). Plain `sc xnpc` adds a line with those hook counters (`x1-look`, `x1b-applier-blocked`, `x2-eyes`,
-`x4-wear`, `x5-â€¦`, `x7-update`).
+`x4-wear`, `x5-…`, `x7-update`).
 
 - [ ] **Startup:** `patch verification: all 68 targets patched` (8 more than M1: EModelSdcsNpc createModel and
       GenerateMeshes, MinEventActionSdcsApplyLook Execute, AvatarSdcsNpcController SdcsWearTick, SdcsFailoverTick,
@@ -46,13 +126,13 @@ the new hooks). Plain `sc xnpc` adds a line with those hook counters (`x1-look`,
       ... not found", no "0-XNPCCore method ... not found". No XML warning for SC's entityclasses.xml.
 - [ ] **The XML took** (DevLink `xmlprobe entityclasses`): none of the six classes has an `SDCS Look` effect group, each
       has `SurvivorCommunity worn armor scale`, `BagItems` and `HarvestItems` are `none`, and `Names` is SC's list
-      (Alex, Ben, Carlâ€¦ for the Male classes, Amy, Beth, Caraâ€¦ for the Female ones).
+      (Alex, Ben, Carl… for the Male classes, Amy, Beth, Cara… for the Female ones).
 - [ ] **Look (probe P2):** spawn a female T2 next to you. She has an SC face (any race, hair, eye colour; not one of
       XNPC's presets) and mixed vanilla armor. `sc xnpc <id>`: `xnpcBody=True`, look `source=roll`, archetype
       `scSurvivor (Female)`, worn items listed, `x1-look` counted once. Player.log has no `[SDCS-LOOK]` or `[SDCS-NAME]`
       line for her id, and `x1b-applier-blocked` stays 0. If she is still there after save, quit and reload, she may
       have a new face: like SC's own strangers, only members and prospects have their look kept in the registry.
-- [ ] **Name:** her name comes from SC's pool (Amy, Beth, â€¦), not XNPC's (Alice, Angela, â€¦).
+- [ ] **Name:** her name comes from SC's pool (Amy, Beth, …), not XNPC's (Alice, Angela, …).
 - [ ] **Eyes (P3):** close up, her eyes sit in their sockets and follow you. `sc gear <id> Lumberjack` (a rebuild): she
       wears the lumberjack set, the eyes still sit right, and `x2-eyes` rose. `sc look <id>`: a new face, same clothes.
 - [ ] **Armor wears (D2):** `sc xnpc <id>` shows `SdcsNoWear=False` and `x4-wear` rising about once a second. Hit her
@@ -63,7 +143,7 @@ the new hooks). Plain `sc xnpc` adds a line with those hook counters (`x1-look`,
       Within a second or two she takes a first aid bandage into her hand, plays the bandage animation (3P_Bandage on
       `UpperBodyUseAndReload`), puts her weapon back, and her health climbs. `sc xnpc <id>`: `SdcsIsHealing=False`,
       `SdcsIsHealing refused` counting, medic `stocked=True` with 0-2 bandages left. During the use no
-      `[SDCS-FAILOVER] restore`, `[SDCS-CLOSEMELEE] exit` or `[SDCS-REARM]` line for her id; `x5-â€¦` may count. If she
+      `[SDCS-FAILOVER] restore`, `[SDCS-CLOSEMELEE] exit` or `[SDCS-REARM]` line for her id; `x5-…` may count. If she
       had no bandage, nothing happens (no free heal): `sc xnpc` shows `bandages=0 kits=0`.
 - [ ] **Bandage in the hand:** the bandage is visible in her right hand (it may sit at the hand's origin rather than in
       the palm: XNPC applies no per-item hand offset after a swap; note it if so).
@@ -128,7 +208,7 @@ NPC classes. What changed for it:
 loaded member that still has a hire contract.
 
 - [ ] **Startup:** the log shows SCore 3.2.36.628 and 0-XNPCCore 3.2.06 loading, no `TypeLoadException ...
-      EntityItemStore`, and SC's `patch verification: all â€¦ targets patched` (4 more than before: the Voice Control
+      EntityItemStore`, and SC's `patch verification: all … targets patched` (4 more than before: the Voice Control
       ones), no `MISSING PATCH`, no "unlisted method", no "billing guard is idle". No XML warning for SC's
       entitygroups.xml, spawning.xml, dialogs.xml or utilityai.xml.
 - [ ] **The existing save:** members are at their posts or following as before; outposts, runners and the community
@@ -175,12 +255,15 @@ unless you use `sc arms`. Members keep the pair only until they are re-created b
 call-back or as a stand-in (W3 stores it in the registry). Settings in Config/blocks.xml: `SurvivorSecondWeapon`,
 `SurvivorFirearmChance`, `SurvivorRangedMainChance`.
 
+*Since migration round 2 the survivor rows here apply to raiders only: SC's survivor classes are gone, and the
+0-XNPCCore survivors that replace them roll both weapons (see round 2 at the top).*
+
 Commands: `sc loadout <id|name>` shows the pair, what is held and the NPC's item list; `sc loadout <id|name> <weapon>
 [weapon]` gives it another pair; `sc loadout near [r]` lists the pairs around you with the firearm share;
 `sc loadout sim [n] [hostile]` rolls n console spawns without making anyone; `sc arms <id|name> melee|ranged` puts one
 of the two in the hand; `sc spawn [hostile] <weapon> <second weapon>` spawns with both chosen.
 
-- [ ] **Startup:** `patch verification: all â€¦ targets patched`, no `MISSING PATCH`, no "unlisted method". The config
+- [ ] **Startup:** `patch verification: all … targets patched`, no `MISSING PATCH`, no "unlisted method". The config
       line ends `secondWeapon=True firearmChance=0.12 rangedMainChance=0.4`. No XML warning for entityclasses.xml or
       entitygroups.xml.
 - [ ] **A club survivor** (`sc spawn club`): the spawn line shows `(<ranged> + Club)`; `sc loadout <id>` lists a
@@ -208,7 +291,7 @@ of the two in the hand; `sc spawn [hostile] <weapon> <second weapon>` spawns wit
 - [ ] **Rocket launcher survivor** (`sc spawn rocketl`): its second weapon is melee; no NPC ever rolls a launcher.
 - [ ] **Switch off:** `SurvivorSecondWeapon` false (world reload): new NPCs carry only their class weapon; `sc loadout`
       says it is off.
-- [ ] **No new errors** (`loadout-â€¦` entries) during a fight with several NPCs, and members still use bandages
+- [ ] **No new errors** (`loadout-…` entries) during a fight with several NPCs, and members still use bandages
       (`sc loadout` refuses while one is in use).
 
 ## Weapons task W1 (build sc_w1b): visible aiming
@@ -222,14 +305,14 @@ rifle (standing and crouched), and the bow draw/release cycle works on the playe
 `sc aim` lists every NPC in a ranged fight; `sc aim <id>` shows one in detail (why the gun is up or down, the
 animator flags, the aim/bow/reload layers) and the hook counters. `core SurvivorCommunityDev list 40` finds ids.
 
-- [ ] **Startup:** the log says `patch verification: all â€¦ targets patched`, including `patched EntityAlive::get_AimingGun`
+- [ ] **Startup:** the log says `patch verification: all … targets patched`, including `patched EntityAlive::get_AimingGun`
       and `patched UAITaskAttackTargetEntitySDX::Start` / `::Update`, with no `MISSING PATCH` and no "unlisted method".
 - [ ] **A rifle survivor fighting zombies** (`sc spawn rifle` near a zombie): the rifle comes up to the shoulder
       (head down at the sights) within about a quarter second of the fight starting, stays up between shots, and
       comes down about 2 s after the last shot. `sc aim <id>` during the fight: state `aiming`, animator
-      `IsAiming=True`, layer AdditiveAimPoses playing a `â€¦_Additive_Aim` clip.
+      `IsAiming=True`, layer AdditiveAimPoses playing a `…_Additive_Aim` clip.
 - [ ] **A pistol raider** (`sc spawn hostile pistol`) raises the pistol when it shoots at you or at zombies.
-- [ ] **Crouched:** an NPC that crouches while shooting shows the crouched aim (layer clip `â€¦_Additive_crouchAim`).
+- [ ] **Crouched:** an NPC that crouches while shooting shows the crouched aim (layer clip `…_Additive_crouchAim`).
       To force it: `core SurvivorCommunityDev setparam <id> IsCrouching 1`.
 - [ ] **Reload:** when the magazine runs out the gun comes down for the reload clip, then back up. `sc aim <id>`
       reads `reloading` during the clip.
@@ -258,6 +341,8 @@ animator flags, the aim/bow/reload layers) and the hook counters. `core Survivor
 `Config/spawning.xml`). Nurse, Baker, Harley and the NPC fox (and any character pack's NPCs that sit in the same
 framework groups) no longer spawn. Those already in your world stay as they are. Side effect: XNPCCore's two
 plain wild animals (arctic fox, Jeerkoa) rode the same spawn entries and no longer spawn in the wild either.
+*Since migration round 2 "player-body survivor" in these rows means a 0-XNPCCore survivor (`npcSdcsSurvivor…`), and the
+log line reads `radio contact: npcSdcsSurvivor…`.*
 
 - [ ] **An existing save loads cleanly.** The log has no "Empty entity groups not allowed", no XML patch warning
       naming SurvivorCommunity's `entitygroups.xml` or `spawning.xml`, and no exception while entity groups load.
@@ -266,10 +351,10 @@ plain wild animals (arctic fox, Jeerkoa) rode the same spawn entries and no long
       Harley or NPC fox turns up. Player-body survivors and raiders still do, about as often as before.
       `core SurvivorCommunityDev spawns` lists no `npcHarleyGroup*` or `npcFriendlyCoreGroup*` entries in any biome.
 - [ ] **Radio "call for survivors"**, two or three times: every contact is a player-body survivor. The log line reads
-      `radio contact: scSurvivorâ€¦`.
+      `radio contact: scSurvivor…`.
 - [ ] **An outpost walk-in** is a player-body survivor.
 - [ ] **A radio contact rolled before this build as a pack NPC** (only if one is still pending): a player-body
-      survivor waits at the POI instead. The log says `pack NPC â€¦ no longer spawns - â€¦ answers instead`.
+      survivor waits at the POI instead. The log says `pack NPC … no longer spawns - … answers instead`.
 - [ ] **`sc spawn` and `sc spawn hostile`** still give only scSurvivor / scRaider classes (unchanged).
 - [ ] *Later, only if you install an NPC POI pack:* its NPC sleeper volumes now spawn our survivors (friendly
       groups) or raiders (bandit groups). Player-body NPCs have never been tested as POI sleepers: expect them
@@ -280,7 +365,7 @@ plain wild animals (arctic fox, Jeerkoa) rode the same spawn entries and no long
 **Confirmed by the user on 2026-09-30: doors work and runners run.** The task is closed. The detailed items below are
 kept for regression checks.
 
-Turn on `DebugLogging` (Verbose) in Config/blocks.xml to see "opened the door at â€¦" and "shut the door at â€¦ behind â€¦".
+Turn on `DebugLogging` (Verbose) in Config/blocks.xml to see "opened the door at …" and "shut the door at … behind …".
 The startup log should say `patched EntityMoveHelper::CheckForDoorAndOpen` with no "unlisted method" warning.
 
 - [ ] **A resident roaming** through a closed door: it opens before they reach it, and shuts 2-3 s after they are
@@ -313,9 +398,9 @@ controls: `sc run <name> skip` (end the current leg now), `sc run <name> offline
 - [ ] **Escort.** Follow them. They walk waypoint to waypoint, fight zombies that reach them, then carry on. At the
       POI they wander its ground floor, pausing now and then, for about 6 game hours, then head home.
 - [ ] **Out of range.** Stay home and watch them leave. Past about 96 m (view distance 7) they are captured out of
-      sight. The log says "went offline â€¦ snapshot N bytes". `sc runners` shows them moving along the route.
+      sight. The log says "went offline … snapshot N bytes". `sc runners` shows them moving along the route.
 - [ ] **Meeting them on the road.** Drive toward their route. They reappear on the road as the same survivor
-      (name, look, health, weapon), with no pop-in right in front of you. The log says "is back in the world â€¦
+      (name, look, health, weapon), with no pop-in right in front of you. The log says "is back in the world …
       built in N ms". **Note the ms** (this is the one-time cost of building the NPC).
 - [ ] **Coming home.** At the edge of the base the haul is added ("is back with N bundles"). They walk in and are a
       resident at their post again.
@@ -343,13 +428,13 @@ controls: `sc run <name> skip` (end the current leg now), `sc run <name> offline
       shows "Missing - Call back" about 45 s after you reach home, with a tooltip. Pick her and press **Call back**:
       she respawns at her post with her look, gear, skills and traits. The console equivalent is
       `sc restore <name>`. Anything she was carrying is not restored.
-- [ ] **No more "LootContainer 'â€¦' unknown" errors.** Opening and closing linked storage, outpost storage, or home
+- [ ] **No more "LootContainer '…' unknown" errors.** Opening and closing linked storage, outpost storage, or home
       storage from an outpost writes no ERR lines. The window title is unchanged, and it still opens as the grid.
 
 ## Fixes to features you already have (in the same build)
 
 - [ ] **Radio contacts now spawn for every NPC class.** About half of the classes (any whose id hash is negative,
-      e.g. the Nurse) used to be dropped with "radio contact class â€¦ no longer exists" in the log, and the same
+      e.g. the Nurse) used to be dropped with "radio contact class … no longer exists" in the log, and the same
       survivors got no distress stand-in. Call a few contacts; each should appear when you reach its POI.
 - [ ] **Distress fights get their full pack of zombies** (half of the zombie classes used to be skipped).
       Walking away until they unload no longer counts as a rescue: come back and finish it, or it resolves at the
@@ -369,14 +454,14 @@ controls: `sc run <name> skip` (end the current leg now), `sc run <name> offline
   - there is no free slot (2 outposts with fewer than 4 members);
   - the radio is off;
   - the fee cannot be paid.
-- [ ] Run `sc day`: the stockpile rises by the yield, and the ledger/tooltip reads "outposts +n â€¦, upkeep â€¦".
+- [ ] Run `sc day`: the stockpile rises by the yield, and the ledger/tooltip reads "outposts +n …, upkeep …".
 - [ ] Unpower the home radio, then run `sc day` twice. The bundles wait at the outpost ("n waiting"). Power it again and run `sc day`: they arrive.
 - [ ] With an empty materials stockpile the outposts go **run-down** (half yield), and they recover after `sc give mats`.
 - [ ] Pick up the outpost's claim. Within ~10 s it is marked **Lost**, the marker goes, and morale shows a Territory penalty that fades.
 - [ ] Place more claims than LandClaimCount allows. The oldest plain claim deactivates, never the home or an outpost. When only home and outpost claims are left, the new one is refused with a tooltip.
 - [ ] Stay away more than 7 days: nothing respawns in the outpost POI and yields continue.
 - [ ] Accept a trader quest for a POI, establish there, then walk in. No quiet sleeper reset.
-- [ ] The outpost claim's radial **Linked storage** shows "Radioing homeâ€¦", then opens the home storage view at the outpost. It stays open, and Refresh keeps working.
+- [ ] The outpost claim's radial **Linked storage** shows "Radioing home…", then opens the home storage view at the outpost. It stays open, and Refresh keeps working.
 - [ ] The outpost claim's box shows the Pack / Deposit / Withdraw strip, and deposits land in the stockpile.
 - [ ] **Community window, Outposts tab:** rows, the detail panel, the network summary, "+n/day" under each resource, Track on map (compass waypoint), and Disband (two presses).
 - [ ] The morale panel shows **Territory**, and the radio window lists what each outpost is sending.
@@ -387,21 +472,21 @@ controls: `sc run <name> skip` (end the current leg now), `sc run <name> offline
 - [ ] A second post opens at level 2.
 - [ ] Walk within 60 m of a staffed outpost: a stand-in with the member's name and look guards the claim, and it disappears when you leave.
 - [ ] If a stand-in dies there, the member dies (ledger and tooltip).
-- [ ] A posted member's mood: âˆ’3, a Loner +5, and +3 after you visit.
-- [ ] Recall with the Ã— on a staff row, or "Recall home" on the member. The member is back at home, visible.
+- [ ] A posted member's mood: −3, a Loner +5, and +3 after you visit.
+- [ ] Recall with the × on a staff row, or "Recall home" on the member. The member is back at home, visible.
 - [ ] **Upgrade** is refused until 3 days have passed (L2) and until someone is posted (L3). When allowed it takes the cost, and the yield and the "Level" line change.
 - [ ] Perks listed with no outpost selected:
-  - [ ] **Canteen** (food): hunger morale capped at âˆ’10.
+  - [ ] **Canteen** (food): hunger morale capped at −10.
   - [ ] **Field clinic** (meds): one injury healed free a day.
   - [ ] **Armed escort** (ammo): runs are safer.
-  - [ ] **Salvage yard** (materials): fee and upgrade costs Ã—0.75.
+  - [ ] **Salvage yard** (materials): fee and upgrade costs ×0.75.
   - [ ] **Motor pool** (fuel): runs bring more.
 - [ ] Radio **Scout** buttons mark up to 3 sites for that resource on the map, once a day. The marks fade after 3 days.
 - [ ] Walk-ins: a staffed outpost sometimes gets a radio contact at it (8 % a day).
 
 ## v1.2 / v1.3: extras
 
-- [ ] **Mode** button: normal â†’ quiet (Ã—0.5) â†’ push (Ã—1.5). The yield changes in `sc outpost yield`.
+- [ ] **Mode** button: normal → quiet (×0.5) → push (×1.5). The yield changes in `sc outpost yield`.
 - [ ] **Radio relay:** place and power a radio inside an outpost POI. `sc outpost list` shows "[relay]", and the outpost still delivers with the home radio off.
 - [ ] **Workshop:** post a crafter with 12+ materials in stock and get "made 1 ammo" at the rollover. A chemist makes medical from materials and fuel.
 - [ ] **Radio barter:** Give/Get buttons, then Trade, 3 for 1, once a day.
@@ -418,11 +503,11 @@ controls: `sc run <name> skip` (end the current leg now), `sc run <name> offline
 
 - [ ] `sc outpost security <id>` gives a sensible breakdown. Defenses built there (spikes, wire, traps, turrets) raise it.
 - [ ] Attack call:
-  - [ ] `sc outpost attack <id>` gives a tooltip and a red skull on the map and compass. The detail reads "UNDER ATTACK â€“ n h".
+  - [ ] `sc outpost attack <id>` gives a tooltip and a red skull on the map and compass. The detail reads "UNDER ATTACK – n h".
   - [ ] Go there: zombies spawn around the POI and go for the stand-in or you. Kill them all and it holds, with a security bonus and morale.
   - [ ] Ignore it until the deadline: it holds, is damaged (no yield for 2 days; **Repair** for 2 materials), or is overrun (sleepers back, staff home injured). Nobody dies.
 - [ ] `sc outpost attack <id> raid` sends raiders instead of zombies.
 - [ ] Raider demand: `sc outpost demand <id>` puts a row in the radio window. **Pay** takes 2 ammo + 2 food. **Refuse** starts a raider attack, and so does an unanswered demand at the next rollover.
-- [ ] Blood moon: at its end, every outpost you were not standing at rolls on security (âˆ’15).
+- [ ] Blood moon: at its end, every outpost you were not standing at rolls on security (−15).
 - [ ] Neglect: an unstaffed outpost unvisited for 10 days gets one sleeper area re-armed and becomes Contested.
-- [ ] Good news (on by default): a cache of 2â€“4 bundles appears in the claim box when you next visit.
+- [ ] Good news (on by default): a cache of 2–4 bundles appears in the claim box when you next visit.

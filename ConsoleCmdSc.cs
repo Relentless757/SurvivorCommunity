@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save, xnpc [id|name]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save, xnpc [id|name]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -33,7 +33,10 @@ namespace SurvivorCommunity
                     case "runners": RunnersCmd(); break;
                     case "distress": Distress(_params); break;
                     case "spawn": Spawn(_params); break;
-                    case "weapons": Output("[SC] weapons: " + string.Join(", ", ScLooks.WeaponTokens().ToArray())); break;
+                    case "weapons":
+                        Output("[SC] survivors (0-XNPCCore, vanilla weapons): " + string.Join(", ", ScLoadout.Tokens(false).ToArray()));
+                        Output("[SC] raiders (sc spawn hostile): " + string.Join(", ", ScLooks.WeaponTokens().ToArray()));
+                        break;
                     case "loadout": LoadoutCmd(_params); break;
                     case "arms": ArmsCmd(_params); break;
                     case "look": LookCmd(_params); break;
@@ -173,23 +176,32 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// sc spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them) - a survivor wearing the
-        /// player's body, in front of the player. The first weapon picks the class, the second (the other kind) is its
-        /// second weapon; without them the class is picked like a radio contact's and the second weapon is rolled.
+        /// sc spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them) - an NPC wearing the
+        /// player's body, in front of the player. A survivor is one of the community's 0-XNPCCore survivors (migration
+        /// M6): the class of its sex at the gamestage tier, and each weapon given fixes that kind of its pair (an item, its
+        /// short name, or melee / bow / firearm for one of that family); the kind not given is rolled at the class's tier
+        /// cap. A raider (hostile): the first weapon picks the class, the second (the other kind) is its second weapon;
+        /// without them the class is picked at the configured odds and the second weapon is rolled.
         /// </summary>
         private static void Spawn(List<string> p)
         {
             World w = ScCommunity.World;
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
             if (w == null || player == null) { Output("[SC] no world / player"); return; }
-            string sex = null, weapon = null, weapon2 = null, set = null;
             bool hostile = false;
+            for (int i = 1; i < p.Count; i++)
+            {
+                string a = p[i].ToLowerInvariant();
+                if (a == "hostile" || a == "raider") hostile = true;
+            }
+            if (!hostile) { SpawnXnpc(p, w, player); return; }
+            string sex = null, weapon = null, weapon2 = null, set = null;
             List<string> tokens = ScLooks.WeaponTokens();
             for (int i = 1; i < p.Count; i++)
             {
                 string a = p[i].ToLowerInvariant();
                 if (a == "male" || a == "female") { sex = a; continue; }
-                if (a == "hostile" || a == "raider") { hostile = true; continue; }
+                if (a == "hostile" || a == "raider") continue;
                 if (a == "ak47") a = "rifle";                         // the legacy AK-47 class is named Rifle
                 string tok = tokens.Find(t => string.Equals(t, a, StringComparison.OrdinalIgnoreCase));
                 if (tok == null && IsArmorSet(p[i])) { set = p[i]; continue; }   // "Primitive" is a set, not PrimitiveBow
@@ -203,9 +215,9 @@ namespace SurvivorCommunity
                 else set = p[i];
             }
             GameRandom rnd = w.GetGameRandom();
-            List<string> pool = hostile ? ScLooks.RaiderClasses() : ScLooks.SurvivorClasses();
+            List<string> pool = ScLooks.RaiderClasses();
             string cls = weapon != null ? ScLooks.PickFrom(pool, rnd, sex, weapon, int.MaxValue) : ScLoadout.PickClass(pool, rnd, sex, int.MaxValue);
-            if (cls == null) { Output("[SC] no " + (hostile ? "scRaider" : "scSurvivor") + "* entity classes are loaded (Config/entityclasses.xml)"); return; }
+            if (cls == null) { Output("[SC] no scRaider* entity classes are loaded (Config/entityclasses.xml)"); return; }
             Loadout pending = null;
             if (weapon2 != null)
             {
@@ -233,6 +245,47 @@ namespace SurvivorCommunity
             string shown = ScCommunity.DisplayName(npc);
             Loadout pair = ScLoadout.Current(npc);
             Output("[SC] spawned " + cls + " (" + (pair != null ? pair.ToString() : ScLooks.WeaponOf(cls)) + ") id " + npc.entityId + " '" + shown + "': " + ScLooks.Describe(look));
+        }
+
+        /// <summary>
+        /// sc spawn [male|female] [weapon] [weapon] [Set]: one of the community's 0-XNPCCore survivors. The weapons fix the
+        /// kinds they are (one ranged, one melee); ScLoadout rolls the other at the class's tier cap and gives the gun its
+        /// starting ammo.
+        /// </summary>
+        private static void SpawnXnpc(List<string> p, World w, EntityPlayerLocal player)
+        {
+            GameRandom rnd = w.GetGameRandom();
+            string sex = null, set = null;
+            var fix = new Loadout();
+            for (int i = 1; i < p.Count; i++)
+            {
+                string a = p[i].ToLowerInvariant();
+                if (a == "male" || a == "female") { sex = a; continue; }
+                string why;
+                string tok = IsArmorSet(p[i]) && !ScLoadout.Knows(false, p[i]) ? null : ScLoadout.MatchToken(false, p[i], rnd, out why);
+                if (tok == null) { set = p[i]; continue; }                // "Primitive" is a set, not the primitive bow
+                bool ranged = ScLoadout.IsRangedToken(tok);
+                if (fix.Of(ranged) != null) { Output("[SC] " + tok + " and " + fix.Of(ranged) + " are both " + (ranged ? "ranged" : "melee") + " - a survivor carries one of each"); return; }
+                fix.Set(ranged, tok);
+            }
+            bool male = sex != null ? sex == "male" : rnd.RandomFloat < 0.5f;
+            string cls = ScXnpc.ClassFor(male, ScLooks.MaxTierFor(player.gameStage));
+            if (cls == null) { Output("[SC] no 0-XNPCCore survivor class of that sex is loaded (XnpcSurvivorClasses in Config/blocks.xml)"); return; }
+            Vector3 fwd = player.GetForwardVector(); fwd.y = 0f;
+            if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
+            fwd.Normalize();
+            Vector3 at = player.position + fwd * 3f;
+            Vector3 pos = ScRadio.SpotNear(w, new Vector3i(Mathf.RoundToInt(at.x), Mathf.RoundToInt(at.y), Mathf.RoundToInt(at.z)), 3);
+            Look look = ScLooks.Roll(male, rnd, true);
+            if (set != null && !ScLooks.WearSet(look, set, rnd)) { Output("[SC] no weapon or armor set '" + set + "' (sc weapons lists the weapons; armor" + set + "Helmet...)"); return; }
+            EntityAlive npc = ScSpawn.Create(EntityClass.FromString(cls), pos, Vector3.zero, look, fix.Ranged != null || fix.Melee != null ? fix : null);
+            if (npc == null) { Output("[SC] " + cls + " did not spawn as an SCore NPC"); return; }
+            w.SpawnEntityInWorld(npc);
+            npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
+            npc.Buffs.SetCustomVar("Persist", 1f);
+            Loadout pair = ScLoadout.Current(npc);
+            Output("[SC] spawned " + cls + " (" + (pair != null ? pair.ToString() : "no pair") + ", tier cap " + ScLoadout.TierCap(cls) + ") id " + npc.entityId
+                   + " '" + ScCommunity.DisplayName(npc) + "': " + ScLooks.Describe(look));
         }
 
         private static bool IsArmorSet(string name)
@@ -295,13 +348,14 @@ namespace SurvivorCommunity
             if (e == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
             if (p.Count >= 3)
             {
-                List<string> tokens = ScLooks.WeaponTokens();
+                // the NPC's own side: a raider's weapon tokens, or the vanilla weapons of the 0-XNPCCore survivors
+                bool raider = ScLooks.IsRaiderClass(ScCommunity.ClassName(e));
                 var change = new Loadout();
                 for (int i = 2; i < p.Count; i++)
                 {
-                    string want = p[i].ToLowerInvariant() == "ak47" ? "rifle" : p[i];
-                    string tok = tokens.Find(t => string.Equals(t, want, StringComparison.OrdinalIgnoreCase));
-                    if (tok == null) { Output("[SC] no weapon '" + p[i] + "' (sc weapons lists them)"); return; }
+                    string bad;
+                    string tok = ScLoadout.MatchToken(raider, p[i], null, out bad);
+                    if (tok == null) { Output("[SC] " + bad); return; }
                     change.Set(ScLoadout.IsRangedToken(tok), tok);
                 }
                 string why;
@@ -324,7 +378,7 @@ namespace SurvivorCommunity
                 EntityAlive e = en as EntityAlive;
                 if (e == null || e is EntityPlayer || e.IsDead() || (e.position - player.position).magnitude > r) continue;
                 string cls = ScCommunity.ClassName(e);
-                if (!ScLooks.IsSurvivorClass(cls) && !ScLooks.IsRaiderClass(cls)) continue;
+                if (!ScLoadout.IsBodyClass(cls)) continue;
                 Loadout l = ScLoadout.Current(e);
                 n++;
                 if (l == null) none++;
@@ -333,7 +387,7 @@ namespace SurvivorCommunity
                 Output("[SC] " + e.entityId + " " + ScCommunity.DisplayName(e) + " (" + cls + ") " + (l != null ? l.ToString() : "no pair")
                        + " - holding " + (held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : "nothing"));
             }
-            Output("[SC] " + n + " survivor(s)/raider(s) within " + r + " m, " + fire + " with a firearm ("
+            Output("[SC] " + n + " survivor(s)/raider(s) carrying a pair within " + r + " m, " + fire + " with a firearm ("
                    + (n - none > 0 ? (100.0 * fire / (n - none)).ToString("0.0") : "0") + "%, configured " + (100f * ScConfig.SurvivorFirearmChance).ToString("0.0") + "%)"
                    + (none > 0 ? ", " + none + " without a pair" : ""));
         }
@@ -1127,9 +1181,16 @@ namespace SurvivorCommunity
             sb.Append("\n  weapons: itemsOnEnterGame=[").Append(string.Join(", ", enter.ToArray())).Append("] held=").Append(held != null ? held.GetItemName() : "-")
               .Append(" _currentWeapon=").Append(ScNpc.CurrentWeapon(e) ?? "-").Append(" _defaultWeapon=").Append(ScNpc.DefaultWeapon(e) ?? "-");
             if (e.Buffs != null)
+            {
+                Loadout pair = ScLoadout.Current(e);
                 sb.Append(" sc_loadout_r/m=").Append(e.Buffs.GetCustomVar(ScLoadout.RangedCvar)).Append('/').Append(e.Buffs.GetCustomVar(ScLoadout.MeleeCvar))
+                  .Append(" pair=").Append(pair != null ? pair.ToString() : "-")
+                  .Append(" record=").Append(m != null && m.Loadout != null ? m.Loadout.ToString() : "-")
+                  .Append(" ammoSeeded=").Append(e.Buffs.GetCustomVar(ScLoadout.AmmoSeededCvar) > 0f)
                   .Append(" CurrentWeaponClass=").Append(e.Buffs.HasCustomVar("CurrentWeaponClass") ? e.Buffs.GetCustomVar("CurrentWeaponClass").ToString() : "-")
-                  .Append(" SdcsReloading=").Append(e.Buffs.GetCustomVar("SdcsReloading"));
+                  .Append(" SdcsReloading=").Append(e.Buffs.GetCustomVar("SdcsReloading"))
+                  .Append(" SdcsLastMelee=").Append(e.Buffs.HasCustomVar("SdcsLastMelee") ? ItemName((int)e.Buffs.GetCustomVar("SdcsLastMelee")) : "-");
+            }
             sb.Append("\n  ammo: ").Append(XnpcAmmo(e, held));
             // XNPC kill levels and buffs
             if (e.Buffs != null)
@@ -1150,6 +1211,13 @@ namespace SurvivorCommunity
             sb.Append("\n  medic: ").Append(ScMedic.Describe(e));
             sb.Append("\n  hooks: ").Append(Patches_Xnpc.Report());
             return sb.ToString();
+        }
+
+        /// <summary>An item type id as its name (XNPC keeps SdcsLastMelee as one), or the number when it is no item.</summary>
+        private static string ItemName(int type)
+        {
+            ItemClass ic = type > 0 ? ItemClass.GetForId(type) : null;
+            return ic != null ? ic.GetItemName() : type.ToString();
         }
 
         /// <summary>For the held ranged weapon: the magazine, and the reserve of each of its ammo types in every store.</summary>

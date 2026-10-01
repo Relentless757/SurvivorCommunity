@@ -284,6 +284,8 @@ namespace SurvivorCommunity
                 for (int i = 0; i < gone.Count; i++)
                 {
                     Member m = ScRegistry.GetMember(gone[i]);
+                    // a member of a class that no longer exists was never going to be seen: say why (migration M9)
+                    if (ScRegistry.PredatesMigration(m)) ScLog.Warn(ScRegistry.PreMigrationLine + " - " + m.Name + " (" + m.Class + ") is removed");
                     ScLog.Warn("member " + (m != null ? m.Name : gone[i].ToString()) + " has not been seen for " + ScConfig.MissingDaysToPurge + " days while the base was loaded - removed");
                     ScRegistry.Members.Remove(gone[i]);
                     ScLooks.Forget(gone[i]);

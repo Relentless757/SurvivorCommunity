@@ -115,15 +115,13 @@ namespace SurvivorCommunity
     /// Everything about survivors that wear the player's body: rolling a look, the gear table, staging armor
     /// into the entity's equipment slots, and keeping the entity in step with its registry record.
     ///
-    /// The community's 0-XNPCCore survivors (ScXnpc.IsBody) are dressed from here as well (decision D2): their model is
-    /// built from ForEntity's look by Patches_Xnpc (X1) instead of SC's own model shim, and a rebuild goes through XNPC's
-    /// own mesh build (Rebuild). The class lists below (SurvivorClasses, PickClass) are still SC's own classes only:
-    /// which classes the console and the radio spawn is a later migration task (M6).
+    /// The community's survivors are 0-XNPCCore's own (ScXnpc.IsBody; decisions D2 and D11 - SC no longer defines survivor
+    /// classes of its own): their model is built from ForEntity's look by Patches_Xnpc (X1), and a rebuild goes through
+    /// XNPC's own mesh build (Rebuild). SC's raiders (scRaider*, decision D1) wear the player's body through SC's own model
+    /// shim and are dressed from here the same way; the class lists below (RaiderClasses, PickFrom) are theirs.
     /// </summary>
     public static class ScLooks
     {
-        /// <summary>Our entity classes are named scSurvivor&lt;Sex&gt;&lt;Weapon&gt; (Config/entityclasses.xml).</summary>
-        public const string ClassPrefix = "scSurvivor";
         private static readonly string[] SlotSuffix = { "Helmet", "Outfit", "Gloves", "Boots" };
         /// <summary>The body armor slot, the one a survivor should never turn up without.</summary>
         private const int ChestSlot = 1;
@@ -136,7 +134,6 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, string> sessionClass = new Dictionary<int, string>();
         /// <summary>Where ForEntity found each body's look (pending / member / prospect / session / roll), for sc xnpc. Session only.</summary>
         private static readonly Dictionary<int, string> sessionSource = new Dictionary<int, string>();
-        private static List<string> survivorClasses;
         private static bool catalogueReady;
         // fallback catalogue (what 3.2 ships) when the game's SDCS data cannot be read
         private static readonly string[] FallbackRaces = { "White", "Black", "Asian", "Native" };
@@ -151,7 +148,6 @@ namespace SurvivorCommunity
             session.Clear();
             sessionClass.Clear();
             sessionSource.Clear();
-            survivorClasses = null;
             raiderClasses = null;
             catalogueReady = false;
         }
@@ -173,15 +169,9 @@ namespace SurvivorCommunity
 
         // ---- classes ----
 
-        /// <summary>Hostile player-body classes (Config/entityclasses.xml, generated): scRaider&lt;Sex&gt;&lt;Weapon&gt;.</summary>
+        /// <summary>Hostile player-body classes (Config/entityclasses.xml, generated): scRaider&lt;Sex&gt;&lt;Weapon&gt;. The only
+        /// player-body classes SurvivorCommunity still defines: its scSurvivor classes are gone (decision D11).</summary>
         public const string RaiderPrefix = "scRaider";
-
-        /// <summary>A friendly, recruitable survivor class. Raiders never match, so nothing friendly picks one.</summary>
-        public static bool IsSurvivorClass(string cls)
-        {
-            return !string.IsNullOrEmpty(cls) && cls.StartsWith(ClassPrefix, StringComparison.OrdinalIgnoreCase)
-                   && cls.IndexOf("Template", StringComparison.OrdinalIgnoreCase) < 0;
-        }
 
         public static bool IsRaiderClass(string cls)
         {
@@ -232,13 +222,6 @@ namespace SurvivorCommunity
             return Patches_Sdcs.IsAnyBodyNpc(e, "looks");
         }
 
-        /// <summary>The spawnable friendly player-body classes this mod defines (cached per session).</summary>
-        public static List<string> SurvivorClasses()
-        {
-            if (survivorClasses == null) survivorClasses = ScanClasses(IsSurvivorClass);
-            return survivorClasses;
-        }
-
         /// <summary>The hostile player-body classes this mod defines (cached per session).</summary>
         public static List<string> RaiderClasses()
         {
@@ -264,18 +247,12 @@ namespace SurvivorCommunity
             return list;
         }
 
-        /// <summary>Every weapon token the generated classes use, for the console.</summary>
+        /// <summary>Every weapon token the generated raider classes use, for the console.</summary>
         public static List<string> WeaponTokens()
         {
             var set = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string c in SurvivorClasses()) { string w = WeaponOf(c); if (w.Length > 0) set.Add(w); }
             foreach (string c in RaiderClasses()) { string w = WeaponOf(c); if (w.Length > 0) set.Add(w); }
             return new List<string>(set);
-        }
-
-        public static string PickClass(GameRandom rnd, string sex, string weapon)
-        {
-            return PickFrom(SurvivorClasses(), rnd, sex, weapon, 2);
         }
 
         /// <summary>
