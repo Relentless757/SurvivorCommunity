@@ -281,10 +281,10 @@ namespace SurvivorCommunity
         /// <summary>A new survivor's starting stack was given (ScLoadout.AfterPostInit): counted for sc xnpc.</summary>
         public static void NoteSeeded() { seeded++; }
 
-        /// <summary>Rounds of this ammo the inventory window still has room for: partly filled stacks and empty slots.</summary>
+        /// <summary>Rounds of this ammo the bag still has room for: partly filled stacks and empty slots.</summary>
         private static int Room(EntityAlive e, ItemValue ammo)
         {
-            ItemStack[] items = HarvestManager.GetOrCreate(e.entityId).items;
+            ItemStack[] items = e.bag != null ? e.bag.GetSlots() : null;
             int stack = Math.Max(1, ammo.ItemClass.Stacknumber.Value);
             int room = 0;
             if (items == null) return 0;
@@ -297,19 +297,75 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Puts rounds into the inventory window in stack-sized pieces (HarvestManager.AddItem files an oversized stack in one
-        /// slot as it is); returns how many went in. Straight into the container, as ScNpc.AddItem does for a framework NPC.
+        /// Ammo left in the inventory window (where SC kept it before 2026-10-01, or put there by hand) goes into the bag, the
+        /// one store a bow or crossbow can actually shoot from (see AddRounds). Cheap when there is nothing to move.
         /// </summary>
-        private static int AddRounds(EntityAlive e, ItemValue ammo, int count)
+        public static void MoveWindowAmmoToBag(EntityAlive e)
         {
-            if (ammo.ItemClass == null) return 0;
+            try
+            {
+                if (e == null || e.bag == null || !ScXnpc.IsBody(e) || !HarvestManager.Has(e.entityId)) return;
+                ItemStack[] items = HarvestManager.GetOrCreate(e.entityId).items;
+                if (items == null) return;
+                int moved = 0;
+                for (int i = 0; i < items.Length; i++)
+                {
+                    ItemStack s = items[i];
+                    if (s == null || s.IsEmpty() || s.itemValue.ItemClass == null || !IsAmmo(s.itemValue.ItemClass)) continue;
+                    int k = Math.Min(s.count, Room(e, s.itemValue));
+                    if (k <= 0) continue;
+                    if (!e.bag.AddItem(new ItemStack(s.itemValue.Clone(), k))) continue;
+                    moved += k;
+                    if (k >= s.count) items[i] = ItemStack.Empty.Clone();
+                    else s.count -= k;
+                }
+                if (moved > 0) ScLog.Verbose("moved " + moved + " round(s) of " + ScCommunity.DisplayName(e) + "'s ammo from the inventory window into the bag");
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("ammo-window-to-bag", ex);
+            }
+        }
+
+        /// <summary>A magazine item of some gun, bow or launcher (what a ranged weapon loads), not any consumable.</summary>
+        private static bool IsAmmo(ItemClass ic)
+        {
+            if (ammoTypes == null)
+            {
+                ammoTypes = new HashSet<int>();
+                foreach (ItemClass c in ItemClass.list)
+                {
+                    ItemActionRanged r = c != null ? RangedAction(c) : null;
+                    if (r == null || r.MagazineItemNames == null) continue;
+                    foreach (string n in r.MagazineItemNames)
+                    {
+                        ItemClass a = ItemClass.GetItemClass(n, true);
+                        if (a != null) ammoTypes.Add(a.Id);
+                    }
+                }
+            }
+            return ammoTypes.Contains(ic.Id);
+        }
+        private static HashSet<int> ammoTypes;
+
+        /// <summary>
+        /// Puts rounds into the BAG in stack-sized pieces; returns how many went in. Not the inventory window: SCore's NPC
+        /// reload does draw from the window, but vanilla's third-person reload state (Animator3PRangedReloadState) makes the
+        /// arrow or bolt a bow/crossbow actually shoots only for ammo it counts in the bag and the toolbelt - so with the
+        /// rounds in the window a reload used one up and the release fired nothing (measured 2026-10-01: arrows drained, no
+        /// hits, while 0-XNPCCore's own bow survivor, ammo in its bag, hit). Guns don't need the object, but one store for
+        /// all keeps the counts simple. V4 saves the bag with the entity (EntityCreationData).
+        /// </summary>
+        internal static int AddRounds(EntityAlive e, ItemValue ammo, int count)
+        {
+            if (ammo.ItemClass == null || e == null || e.bag == null) return 0;
             int stack = Math.Max(1, ammo.ItemClass.Stacknumber.Value);
             count = Math.Min(count, Room(e, ammo));
             int added = 0;
             while (added < count)
             {
                 int k = Math.Min(stack, count - added);
-                if (!HarvestManager.AddItem(e.entityId, new ItemStack(ammo.Clone(), k))) break;
+                if (!e.bag.AddItem(new ItemStack(ammo.Clone(), k))) break;
                 added += k;
             }
             return added;
@@ -347,6 +403,7 @@ namespace SurvivorCommunity
                     bool standIn;
                     EntityAlive e = BodyOf(w, m, out standIn);
                     if (e == null || !ScXnpc.IsBody(e)) continue;
+                    MoveWindowAmmoToBag(e);
                     Record(m, e);
                     if (ScConfig.XnpcResupply) Resupply(m, e, standIn, now);
                 }

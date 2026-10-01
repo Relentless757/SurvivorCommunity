@@ -116,8 +116,9 @@
 			<property name="MembersOpenHatches" value="true" />
 			<!-- RunWalkMps: the offline pace of the Outbound/Inbound legs in m/s. Runners RUN those legs in the world (about
 			     4.4-5.3 m/s on the player body, 4.5-4.9 on pack NPCs); this sits a little under that because the offline walk is a
-			     straight line and the real one has detours. Match it to about 0.85-0.9 x the speed `sc runners` measures. -->
-			<property name="RunWalkMps" value="4" />
+			     straight line and the real one has detours. Match it to about 0.85-0.9 x the speed `sc runners` measures.
+			     3.2 since 2026-10-01: an 0-XNPCCore survivor was measured covering about 3.6 m/s on the ground. -->
+			<property name="RunWalkMps" value="3.2" />
 			<!-- RunnerRunMps / RunnerWalkMps: the pace (m/s, on the ground) of a runner who is one of 0-XNPCCore's survivors
 			     while they are a real NPC near you: running the Outbound/Inbound legs, walking at the site and on the last stroll
 			     home. Cardio, hunger and injury still change it. 0-XNPCCore only runs an NPC above its own threshold, so a run is
@@ -263,6 +264,9 @@
 			<property name="XnpcBodyGetUp" value="true" />
 			<property name="XnpcBodyJumpAnim" value="true" />
 			<property name="XnpcBodyColliderLayers" value="true" />
+			<!-- XnpcModelY: how high an 0-XNPCCore survivor's body sits on its entity (m). 0 = feet on the ground; their
+			     player prefab ships -0.08, made for the player's character controller, which sank NPCs 8 cm. -->
+			<property name="XnpcModelY" value="0" />
 			<!-- BEGIN GENERATED: XnpcWeapons (Tools/gen_arsenal.py) -->
 			<!-- The vanilla weapons the community's 0-XNPCCore survivors carry, one melee and one ranged each, rolled at or
 			     below the lower of their class's tier (T1 = 0, T2 = 1, T3 = 2) and the gamestage tier; a ranged one is a

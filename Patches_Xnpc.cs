@@ -175,6 +175,17 @@ namespace SurvivorCommunity
                     }
                     __instance.archetype = look.ToArchetype();
                     ScLooks.StageGear(e as EntityAlive, look);
+                    // Feet on the ground. These classes use the player's entity prefab (Prefab "Player"), whose Model
+                    // transform sits at y -0.08 to cancel the player's CharacterController skin; an NPC moves with block
+                    // collision and stands right on the block top, so the body sank 8 cm (measured 2026-10-01: a V4
+                    // body's lowest foot bone 34.92 on ground 35.00; the player's 35.01; SC's raider, on an NPC prefab,
+                    // 35.00). Nothing else ever moves this transform.
+                    if (__instance.modelTransformParent != null)
+                    {
+                        UnityEngine.Vector3 lp = __instance.modelTransformParent.localPosition;
+                        if (UnityEngine.Mathf.Abs(lp.y - ScConfig.XnpcModelY) > 0.0005f)
+                            __instance.modelTransformParent.localPosition = new UnityEngine.Vector3(lp.x, ScConfig.XnpcModelY, lp.z);
+                    }
                     ScLog.Verbose("xnpc body for " + (_ec != null ? _ec.entityClassName : "?") + " id " + e.entityId + ": " + ScLooks.Describe(look));
                 }
                 catch (Exception ex)

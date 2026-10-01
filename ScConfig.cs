@@ -373,6 +373,8 @@ namespace SurvivorCommunity
         public static bool XnpcBodyJumpAnim = true;
         /// <summary>Their hit colliders are put back on the hittable layer after spawn and rebuilds (Patches_Sdcs.FixColliderLayers).</summary>
         public static bool XnpcBodyColliderLayers = true;
+        /// <summary>The XNPC body's Model offset (m): 0 puts its feet on the ground (the player prefab ships -0.08).</summary>
+        public static float XnpcModelY = 0f;
         public static int TraitsPerRecruit = 2;
         public static bool Verbose = false;
         public static readonly List<TraitDef> Traits = new List<TraitDef>();
@@ -447,6 +449,7 @@ namespace SurvivorCommunity
             XnpcBodyGetUp = true;
             XnpcBodyJumpAnim = true;
             XnpcBodyColliderLayers = true;
+            XnpcModelY = 0f;
             OutpostMinDistance = 150;
             OutpostMax = 4;
             OutpostMembersPerSlot = 4;
@@ -789,6 +792,7 @@ namespace SurvivorCommunity
                 bool xnpcColliders = XnpcBodyColliderLayers;
                 if (p.Values.ContainsKey("XnpcBodyColliderLayers")) p.ParseBool("XnpcBodyColliderLayers", ref xnpcColliders);
                 XnpcBodyColliderLayers = xnpcColliders;
+                ParseFloat(p, "XnpcModelY", ref XnpcModelY, -0.3f, 0.3f);
                 bool verbose = Verbose;
                 if (p.Values.ContainsKey("DebugLogging")) p.ParseBool("DebugLogging", ref verbose);
                 Verbose = verbose;

@@ -60,21 +60,34 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!HarvestManager.Has(e.entityId)) return;
-                    SCoreLootContainer window = HarvestManager.GetOrCreate(e.entityId);
-                    if (window != null && !window.IsEmpty() && window.items != null)
+                    // the window (meds, anything handed over) and, for the community's 0-XNPCCore survivors, the bag (their
+                    // ammo, ScAmmo.AddRounds): V4's own dropItemOnDeath drops neither
+                    var drop = new List<ItemStack>();
+                    bool hadWindow = HarvestManager.Has(e.entityId);
+                    if (hadWindow)
+                    {
+                        SCoreLootContainer window = HarvestManager.GetOrCreate(e.entityId);
+                        if (window != null && window.items != null)
+                            foreach (ItemStack s in window.items) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
+                    }
+                    if (ScXnpc.IsBody(e) && e.bag != null)
+                    {
+                        foreach (ItemStack s in e.bag.GetSlots()) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
+                        e.bag.Clear();
+                    }
+                    if (drop.Count > 0)
                     {
                         string className = ScCommunity.ClassExists(EntityClass.FromString("BackpackNPC")) ? "BackpackNPC" : "Backpack";
                         EntityItem pack = EntityFactory.CreateEntity(EntityClass.FromString(className), new Vector3i(e.position + e.transform.up)) as EntityItem;
                         if (pack != null)
                         {
-                            Bag bag = new Bag(window.items.Length);
-                            Array.Copy(window.items, bag.items, window.items.Length);
+                            Bag bag = new Bag(Math.Max(drop.Count, 1));
+                            for (int i = 0; i < drop.Count; i++) bag.items[i] = drop[i];
                             GameManager.Instance.RequestToSpawnEntityServer(new EntityCreationData(pack, true) { entityName = Localization.Get(e.EntityName), id = -1, bag = bag });
                             pack.OnEntityUnload();
                         }
                     }
-                    HarvestManager.Remove(e.entityId);
+                    if (hadWindow) HarvestManager.Remove(e.entityId);
                 }
                 catch (Exception ex)
                 {

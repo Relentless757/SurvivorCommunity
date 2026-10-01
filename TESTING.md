@@ -50,6 +50,20 @@ log says "this save predates the XNPCCore migration"). Each round's own rows fol
   so its measured speed under-reads; consider `RunWalkMps` about 3.2 (0.9 x 3.6) after your own check; recall works;
 - raiders still spawn and arm (`sc spawn hostile club`).
 
+**Fixes after your first look (2026-10-01, DLL 49f8286e):**
+- [ ] **Bows fire:** an XNPC survivor with a bow or crossbow now shoots visible arrows that hit. Cause: SC kept their
+      ammo in the inventory window; SCore reloads from it, but vanilla only makes the arrow object for ammo in the bag or
+      toolbelt, so a reload used an arrow and the release fired nothing. SC's ammo now lives in the bag (starting stack,
+      resupply, re-created bodies); old window ammo is moved over every 5 s; the bag is in the backpack they drop on
+      death. `sc xnpc <id>` shows `bag N` going down as they shoot. Measured before the fix: 9 arrows, 0 hits; XNPC's own
+      bow survivor (ammo in its bag) hit.
+- [ ] **Feet on the ground:** XNPC bodies used the player prefab's model offset (-0.08 m), sinking 8 cm. Now 0
+      (`XnpcModelY` in Config/blocks.xml). Dev check: `core SurvivorCommunityDev feet <id>` - lowest foot bone should be
+      about the ground y.
+- [ ] **RunWalkMps 3.2** (was 4).
+- [ ] **Melee:** measured working (machete 27-30, stone sledge 21-23 per hit, members and strangers alike), but the stone
+      sledgehammer lands rarely (about one hit per 20 s) - tell me if you'd rather keep sledgehammers out of the melee roll.
+
 Not covered by that check (needs you): favours and the join dialog, outposts and garrison stand-ins, death/backpack,
 healing with the bandage, weapon swaps in the dialog, overwhelmed, formations/wheel, doors and hatches, several days of
 play (morale, daily, no billing prompts), and how it all looks and feels.

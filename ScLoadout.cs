@@ -604,7 +604,7 @@ namespace SurvivorCommunity
                 if (iv == null || iv.IsEmpty()) return;
                 // marked only now: a body that had nothing to seed yet (no ranged weapon) is not marked for life
                 e.Buffs.SetCustomVar(AmmoSeededCvar, 1f);
-                ScNpc.AddItem(e, new ItemStack(iv, n));
+                ScAmmo.AddRounds(e, iv, n);    // the bag: the store a bow can shoot from (see ScAmmo.AddRounds)
                 ScAmmo.NoteSeeded();
                 ScLog.Verbose("starting ammo for " + ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + n + " " + ammo + " for " + r.Token);
             }
