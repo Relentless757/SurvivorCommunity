@@ -9,12 +9,13 @@ namespace SurvivorCommunity
     /// <summary>
     /// Doors for community members.
     ///
-    /// SCore's NPC door opener (SCoreUtils.CheckForClosedDoor -> EntityUtilities.OpenDoor) is a silent no-op on 3.x
-    /// doors: it calls the 4-argument Block.OnBlockActivated, which BlockCompositeTileEntity does not override (that
-    /// overload is Block's pick-up handler and returns false), and it reads "open" from block meta bit 1, which 3.x
-    /// moved into TEFeatureDoor.isOpen. It also only runs from some SCore tasks (never Guard, IdleSDX or our own
-    /// WanderHomeSC / TravelSC). Meanwhile the A* planner routes paths through closed doors anyway, so members walked
-    /// into shut doors and stood there until a watchdog teleported them.
+    /// SCore's own NPC door opener (SCoreUtils.CheckForClosedDoor) works on 3.x doors since SCore 3.2.36 (it goes
+    /// through TEFeatureDoor now; up to 3.2.7 it was a silent no-op), but it still only runs from SCore's move tasks
+    /// after a 0.2 s block, never from Guard, IdleSDX or our own WanderHomeSC / TravelSC; it cannot open a double door
+    /// or gate from the child leaf, refuses every locked door, and shuts the door after a blind 2 s. It also serves
+    /// every npc-tagged NPC, so raiders now open unlocked doors too (the user's call, 2026-10-01: allowed). Meanwhile
+    /// the A* planner routes paths through closed doors anyway, so without this members walk into shut doors and
+    /// stand there until a watchdog teleports them.
     ///
     /// Vanilla 3.2 has a working opener in the move helper: EntityMoveHelper.CheckForDoorAndOpen, run from the move
     /// helper's obstacle check (every 4th move tick, while roughly facing the move target) when moveHelper.CanOpenDoors
@@ -26,7 +27,8 @@ namespace SurvivorCommunity
     ///       still-swinging leaf;
     ///   (c) let members through the community owner's own LOCKED doors (MembersOpenOwnerLockedDoors) - a locked door
     ///       without that owner's permission (a POI's, another player's) stays shut, as in vanilla and SCore;
-    ///   (d) leave drawbridges and hatches alone (base defences; a member never lowers the bridge);
+    ///   (d) drawbridges and hatches too, unless MembersOpenHatches is false (the user's call, 2026-10-01: a base
+    ///       whose only way out is a hatch or a bridge must not trap its people; (e) raises the bridge again);
     ///   (e) remember the door and shut it behind them, as SCore meant to - vanilla never closes.
     /// Host only: the move helper exists on the server.
     /// </summary>
@@ -77,7 +79,7 @@ namespace SurvivorCommunity
             return te != null && te.TryGetSelfOrFeature<TEFeatureDoor>(out door) && door != null;
         }
 
-        /// <summary>A drawbridge or a hatch: base defences a member leaves as they are.</summary>
+        /// <summary>A drawbridge or a hatch: base defences, opened only while MembersOpenHatches is true.</summary>
         private static bool Defence(World w, Vector3i at, TEFeatureDoor door)
         {
             if (door.isDrawBridge) return true;
@@ -122,7 +124,7 @@ namespace SurvivorCommunity
             TEFeatureDoor door;
             Vector3i at;
             if (!FindDoor(npc.world, pt.GetBlockPos(), out te, out door, out at) || door.IsOpen()) return;
-            if (Defence(npc.world, at, door) || LockedForMembers(te)) return;
+            if ((!ScConfig.MembersOpenHatches && Defence(npc.world, at, door)) || LockedForMembers(te)) return;
             door.SetOpen(true, true);        // what vanilla does: animation, sound, SetBlockRPC sync
             opened[at] = new Opened { By = npc.entityId, Since = Time.time };
             ScLog.Verbose(npc.EntityName + " (" + npc.entityId + ") opened the door at " + at);
@@ -147,7 +149,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Anyone alive (player, NPC, zombie) in the door's cells - every leaf of a multi-block door - or within margin of them.</summary>
-        private static bool Occupied(World w, Vector3i at, float margin)
+        private static bool Occupied(World w, Vector3i at, float margin, bool drawBridge = false)
         {
             BlockValue bv = w.GetBlock(at);
             Block b = bv.Block;
@@ -161,6 +163,14 @@ namespace SurvivorCommunity
                     min = Vector3.Min(min, c);
                     max = Vector3.Max(max, c + Vector3.one);
                 }
+            }
+            if (drawBridge)
+            {
+                // the raised bridge's footprint is a wall; lowered, the deck lies flat out to its own height on one side.
+                // Which side is not worth working out here: hold it for anyone within that reach either way.
+                float reach = Mathf.Max(max.x - min.x, Mathf.Max(max.y - min.y, max.z - min.z));
+                min -= new Vector3(reach, 0f, reach);
+                max += new Vector3(reach, 0f, reach);
             }
             Bounds box = new Bounds();
             box.SetMinMax(min - new Vector3(margin, 0.1f, margin), max + new Vector3(margin, 0.1f, margin));
@@ -221,7 +231,7 @@ namespace SurvivorCommunity
                     bool fresh = now - kv.Value.Since < MaxHold;
                     Vector3 dc = new Vector3(at.x + 0.5f, at.y, at.z + 0.5f);
                     if (player != null && !player.IsDead() && ScRunners.XZ(player.position, dc) < PlayerHold && Mathf.Abs(player.position.y - dc.y) < 3f) continue;
-                    if (Occupied(w, at, fresh ? Margin : 0f) || MemberHeadingFor(w, at, kv.Value.By)) continue;
+                    if (Occupied(w, at, fresh ? Margin : 0f, door.isDrawBridge) || MemberHeadingFor(w, at, kv.Value.By)) continue;
                     door.SetOpen(false, true);
                     done.Add(kv.Key);
                     ScLog.Verbose("shut the door at " + at + " behind " + (by != null ? by.EntityName : "entity " + kv.Value.By));

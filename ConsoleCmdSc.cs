@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save, xnpc"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -75,6 +75,7 @@ namespace SurvivorCommunity
                         break;
                     }
                     case "relink": Relink(); break;
+                    case "xnpc": XnpcCmd(); break;
                     case "home": Home(); break;
                     case "dump": Dump(); break;
                     case "save": ScRegistry.SaveAtomic(); Output("[SC] saved"); break;
@@ -1046,6 +1047,28 @@ namespace SurvivorCommunity
             if (ok)
                 Output("[SC]   " + ScScan.LastChunks + " zone chunk(s), " + ScScan.LastLoaded + " loaded now, " + ScScan.LastMissing + " never counted, "
                        + ScScan.LastMs.ToString("0.00") + " ms; block types: " + ScScan.BedTypes + " bed, " + ScScan.FacilityTypes + " facility, " + ScScan.CropTypes + " crop");
+        }
+
+        /// <summary>0-XNPCCore 3.2 checks: the billing guard's counters, and the body hooks that met one of its survivors.</summary>
+        private static void XnpcCmd()
+        {
+            Output("[SC] voice control: " + (Patches_VoiceControl.ChatType != null ? "loaded" : "not loaded") + " - intercepted: " + Patches_VoiceControl.Report());
+            Output("[SC] body hooks that met a 0-XNPCCore survivor and stepped aside: " + Patches_Sdcs.ForeignReport());
+            World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+            if (w == null) return;
+            int ours = 0, contracts = 0, theirs = 0;
+            for (int i = 0; i < w.Entities.list.Count; i++)
+            {
+                EntityAlive a = w.Entities.list[i] as EntityAlive;
+                if (a == null || a.Buffs == null || a is EntityPlayer) continue;
+                if (a.emodel is EModelSDCS && !Patches_Sdcs.IsOurModel(a.emodel)) theirs++;
+                if (!Patches_VoiceControl.IsCommunityNpc(a)) continue;
+                ours++;
+                if (!a.Buffs.HasCustomVar("RetainerNextDueDay") && !a.Buffs.HasCustomVar("RetainerWeek")) continue;
+                contracts++;
+                Output("[SC]   hire contract on " + a.EntityName + " (" + a.entityId + ") - stripped at the next relink");
+            }
+            Output("[SC] loaded: " + ours + " member(s)/stand-in(s), " + contracts + " with a hire contract; " + theirs + " 0-XNPCCore survivor(s)");
         }
 
         private static void Relink()

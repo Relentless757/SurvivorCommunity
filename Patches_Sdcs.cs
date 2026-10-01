@@ -14,15 +14,55 @@ namespace SurvivorCommunity
     /// to use the entity itself (SDCSUtils only ever needed an EntityAlive). SCore's weapon swap then calls
     /// the avatar controller with the class's Mesh name, which the player rig does not have - fixed there too.
     /// Nothing here touches a real player: every patch first checks playerEntity.
+    ///
+    /// Nor does anything here touch 0-XNPCCore 3.2's own player-body survivors (npcSdcs*): their model is
+    /// EModelSdcsNpc, a SUBCLASS of EModelSDCS with its own Init, mesh build, avatar controller (AvatarSdcsNpcController,
+    /// a subclass of AvatarSDCSController whose Update and SwitchModelAndView call the base) and healing. An "is
+    /// EModelSDCS" test matches those too, so every body check here and in ScAim/ScMedic/ScLooks goes through
+    /// IsOurModel / IsBodyNpc, which want the exact type. A hook that meets one of theirs counts it (sc xnpc) and steps
+    /// aside, as if this mod were not installed; the migration tasks (M1-M5) retarget what their bodies need.
     /// </summary>
     public static class Patches_Sdcs
     {
+        /// <summary>
+        /// Our player body: a model of exactly EModelSDCS (players use it too - callers that mean an NPC use
+        /// IsBodyNpc). A subclass (0-XNPCCore's EModelSdcsNpc) is not ours; with a hook name it is counted.
+        /// </summary>
+        internal static bool IsOurModel(EModelBase m, string hook = null)
+        {
+            if (m == null) return false;
+            if (m.GetType() == typeof(EModelSDCS)) return true;
+            if (hook != null && m is EModelSDCS) CountForeign(hook);
+            return false;
+        }
+
+        /// <summary>Times each hook met a player body that is not ours and stepped aside (sc xnpc). Main thread only.</summary>
+        private static readonly Dictionary<string, int> foreignSkips = new Dictionary<string, int>();
+
+        internal static void CountForeign(string hook)
+        {
+            int n;
+            foreignSkips.TryGetValue(hook, out n);
+            foreignSkips[hook] = n + 1;
+        }
+
+        internal static string ForeignReport()
+        {
+            if (foreignSkips.Count == 0) return "none yet";
+            var keys = new List<string>(foreignSkips.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            var parts = new List<string>();
+            foreach (string k in keys) parts.Add(k + "=" + foreignSkips[k]);
+            return string.Join(", ", parts.ToArray());
+        }
+
         /// <summary>Models whose Init just built the body: the Init-time SwitchModelAndView must not build it twice.</summary>
         private static readonly HashSet<int> fresh = new HashSet<int>();
 
         public static void Reset()
         {
             fresh.Clear();
+            foreignSkips.Clear();
         }
 
         /// <summary>The entity that owns a player-body model: the player when there is one, else the NPC.</summary>
@@ -45,7 +85,7 @@ namespace SurvivorCommunity
         {
             try
             {
-                EModelSDCS m = e != null ? e.emodel as EModelSDCS : null;
+                EModelSDCS m = e != null && IsOurModel(e.emodel, "colliders") ? (EModelSDCS)e.emodel : null;
                 if (m == null || m.playerEntity != null) return;
                 Transform model = m.modelTransform != null ? m.modelTransform : (m.baseRig != null ? m.baseRig.transform : null);
                 if (model == null) return;
@@ -123,7 +163,7 @@ namespace SurvivorCommunity
             [HarmonyPrefix]
             public static bool Prefix(EModelSDCS __instance, World _world, Entity _entity, EModelInstanceAssets _assets)
             {
-                if (__instance.playerEntity != null || _entity is EntityPlayer) return true;
+                if (!IsOurModel(__instance, "init") || __instance.playerEntity != null || _entity is EntityPlayer) return true;
                 try
                 {
                     __instance.entity = _entity;
@@ -161,7 +201,7 @@ namespace SurvivorCommunity
             [HarmonyPrefix]
             public static bool Prefix(EModelSDCS __instance, ref Transform __result)
             {
-                if (__instance.playerEntity != null) return true;
+                if (!IsOurModel(__instance, "meshes") || __instance.playerEntity != null) return true;
                 try
                 {
                     if (fresh.Remove(__instance.GetInstanceID()) && __instance.baseRig != null)
@@ -354,7 +394,7 @@ namespace SurvivorCommunity
                 if (_propertyHash != AvatarController.weaponHoldTypeHash) return;
                 if (!(__instance is AvatarSDCSController)) return;
                 EntityAlive e = __instance.entity;
-                if (e == null || e is EntityPlayer) return;
+                if (!IsBodyNpc(e, "holdtype")) return;
                 _value = MapHoldType(e, _value);
             }
         }
@@ -370,7 +410,7 @@ namespace SurvivorCommunity
                 {
                     if (_bFPV || __instance == null || __instance.rightHandItemTransform == null) return;
                     EntityAlive e = __instance.entity;
-                    if (e == null || e is EntityPlayer || !(e.emodel is EModelSDCS) || e.inventory == null || e.inventory.holdingItem == null) return;
+                    if (!IsBodyNpc(e, "gunjoint") || e.inventory == null || e.inventory.holdingItem == null) return;
                     int raw = e.inventory.holdingItem.HoldType.Value;
                     int mapped = MapHoldType(e, raw);
                     if (mapped == raw || mapped < 0 || mapped >= AnimationGunjointOffsetData.AnimationGunjointOffset.Length) return;
@@ -401,7 +441,7 @@ namespace SurvivorCommunity
                 {
                     if (__instance == null || __instance.anim == null) return;
                     EntityAlive e = __instance.entity;
-                    if (e == null || e is EntityPlayer || !(e.emodel is EModelSDCS)) return;
+                    if (!IsBodyNpc(e, "carry")) return;
                     WriteAnimatorSpeed(__instance, e);
                     ScAim.Drive(__instance, e);
                     if (e.inventory == null || e.inventory.holdingItem == null) return;
@@ -434,7 +474,7 @@ namespace SurvivorCommunity
                 {
                     if (__instance == null || __instance.eyeMaterial == null) return;
                     EntityAlive e = __instance.entityAlive;
-                    if (e == null || e is EntityPlayer || !(e.emodel is EModelSDCS)) return;
+                    if (!IsBodyNpc(e, "gaze")) return;
                     // with the eye renderer rooted at the head the shader's pivot is right and the gaze is safe
                     SkinnedMeshRenderer smr = __instance.eyeSkinnedMeshRenderer;
                     if (smr != null && smr.rootBone != null && smr.rootBone == __instance.headTransform) return;
@@ -469,7 +509,7 @@ namespace SurvivorCommunity
                 {
                     if (!(__instance is AvatarSDCSController)) return true;
                     EntityAlive e = __instance.entity;
-                    if (e == null || e is EntityPlayer) return true;
+                    if (!IsBodyNpc(e, "motiongate")) return true;
                     __result = true;
                     return false;
                 }
@@ -505,7 +545,7 @@ namespace SurvivorCommunity
                 try
                 {
                     if (__instance == null || !__instance.isMoveDirAbsolute || __instance.RootMotion) return;
-                    if (__instance is EntityPlayer || !(__instance.emodel is EModelSDCS)) return;
+                    if (!IsBodyNpc(__instance, "absmove")) return;
                     __state = __instance.moveDirection;
                 }
                 catch (Exception ex)
@@ -543,7 +583,7 @@ namespace SurvivorCommunity
                     if (jumpMode != AnimJumpMode.Start) return;
                     if (!(__instance is AvatarSDCSController) || __instance.anim == null) return;
                     EntityAlive e = __instance.entity;
-                    if (e == null || e is EntityPlayer) return;
+                    if (!IsBodyNpc(e, "jumpanim")) return;
                     __instance._setTrigger(AvatarController.jumpTriggerHash);
                 }
                 catch (Exception ex)
@@ -606,7 +646,7 @@ namespace SurvivorCommunity
                     if (!Enabled || !__result || __instance == null) return;
                     if (__instance.ragdollIsPlayer) return;                       // a player, or already corrected
                     if (__instance.ragdollState != EModelBase.ERagdollState.On) return;
-                    if (!(__instance is EModelSDCS)) return;
+                    if (!IsOurModel(__instance, "ragdoll")) return;
                     EntityAlive e = __instance.entity as EntityAlive;
                     if (e == null || e is EntityPlayer || e.IsDead()) return;
                     __instance.ragdollIsPlayer = true;
@@ -643,7 +683,7 @@ namespace SurvivorCommunity
                 __state = new Vector3(float.NaN, 0f, 0f);
                 try
                 {
-                    if (!Enabled || !(__instance is EModelSDCS)) return;
+                    if (!Enabled || !IsOurModel(__instance, "ragdollpin")) return;
                     EModelBase.ERagdollState s = __instance.ragdollState;
                     if (s != EModelBase.ERagdollState.BlendOutGround && s != EModelBase.ERagdollState.BlendOutStand
                         && s != EModelBase.ERagdollState.Stand) return;
@@ -688,7 +728,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!(__instance is EntityNPC) || !(__instance.emodel is EModelSDCS)) return;
+                    if (!(__instance is EntityNPC) || !IsOurModel(__instance.emodel, "fade")) return;
                     __instance.renderFade = __instance.renderFadeMax;
                     __instance.renderFadeTarget = __instance.renderFadeMax;
                     __instance.emodel.SetFade(__instance.renderFadeMax);
@@ -739,7 +779,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (__instance == null || __instance is EntityPlayer || !(__instance.emodel is EModelSDCS)) return true;
+                    if (!IsBodyNpc(__instance, "rotateto")) return true;
                     EntityAlive target = CombatTarget(__instance);
                     if (target != null && Mathf.Abs(_z - _y) < 0.001f && Mathf.Abs(_x - target.position.x) < TargetReach
                         && Mathf.Abs(_z - target.position.z) > TargetReach)
@@ -789,10 +829,10 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>A player-body NPC (never a player).</summary>
-        internal static bool IsBodyNpc(Entity e)
+        /// <summary>One of our player-body NPCs (never a player, never 0-XNPCCore's own; a hook name counts theirs).</summary>
+        internal static bool IsBodyNpc(Entity e, string hook = null)
         {
-            return e != null && !(e is EntityPlayer) && e.emodel is EModelSDCS;
+            return e != null && !(e is EntityPlayer) && IsOurModel(e.emodel, hook);
         }
 
         /// <summary>
@@ -819,7 +859,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!IsBodyNpc(__instance) || _otherEntity == null) return true;
+                    if (!IsBodyNpc(__instance, "rotateto-entity") || _otherEntity == null) return true;
                     float dx = _otherEntity.position.x - __instance.position.x, dz = _otherEntity.position.z - __instance.position.z;
                     EntityAlive other = _otherEntity as EntityAlive;
                     float rise = other != null ? EyeY(other) - EyeY(__instance)
@@ -860,7 +900,7 @@ namespace SurvivorCommunity
                 {
                     if (__instance == null || animator == null || __instance.playingImpact) return;
                     EntityAlive e = __instance.entity;
-                    if (!IsBodyNpc(e) || e.inventory == null || e.inventory.holdingItem == null) return;
+                    if (!IsBodyNpc(e, "swingspeed") || e.inventory == null || e.inventory.holdingItem == null) return;
                     int i = __instance.actionIndex;
                     ItemAction[] actions = e.inventory.holdingItem.Actions;
                     if (actions == null || i < 0 || i >= actions.Length) return;
@@ -887,7 +927,7 @@ namespace SurvivorCommunity
             [HarmonyPostfix]
             public static void Postfix(EModelSDCS __instance)
             {
-                if (__instance == null || __instance.playerEntity != null) return;
+                if (__instance == null || __instance.playerEntity != null || !IsOurModel(__instance, "release")) return;
                 Release(__instance);
             }
         }
@@ -906,7 +946,7 @@ namespace SurvivorCommunity
                 try
                 {
                     if (_bFPV || __instance == null || __instance.modelTransform == null) return;
-                    EModelSDCS sdcs = __instance.entity != null ? __instance.entity.emodel as EModelSDCS : null;
+                    EModelSDCS sdcs = __instance.entity != null && IsOurModel(__instance.entity.emodel, "avatar-switch") ? (EModelSDCS)__instance.entity.emodel : null;
                     if (sdcs == null || sdcs.playerEntity != null || string.IsNullOrEmpty(sdcs.modelName)) return;
                     if (string.IsNullOrEmpty(_modelName) || __instance.modelTransform.Find(_modelName) == null) _modelName = sdcs.modelName;
                     // the controller grabs the first Animator it finds below the entity; make sure it is the rig's

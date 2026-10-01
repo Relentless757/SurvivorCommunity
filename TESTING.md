@@ -25,6 +25,61 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Migration task M0 (build sc_m0): SCore 3.2.36.628 + 0-XNPCCore 3.2.06
+
+**Deployed 2026-10-01** (DLL md5 4a06d2d6, with the regenerated `Config/entitygroups.xml` and `spawning.xml`).
+Not yet tested in game: the user tests everything once the whole migration (M0-M9) is done. The frameworks are upgraded: 0-SCore 3.2.7.728 -> 3.2.36.628, and 0-XNPCCore 3.1.00 -> 3.2.06,
+core only (no voice add-on, so no spoken voice, voice input or AI chat; typed `@` commands and the order wheel work).
+The old folders are backed up in `_backups\m0_2026-10-01\` in the game root. SurvivorCommunity still uses its own
+NPC classes. What changed for it:
+- its player-body code ignores 0-XNPCCore's new survivors (npcSdcs*), which build, animate and heal themselves;
+- members and their outpost stand-ins are never billed by Voice Control's weekly hire fee, but keep their voice;
+  a typed or spoken "dismiss" sends a member home, and "pick up" is refused;
+- members open hatches and drawbridges on their way (and shut them after): `MembersOpenHatches` in Config/blocks.xml;
+- raiders open unlocked doors (SCore does that now for every NPC);
+- Cowardly members flee again (0-XNPCCore 3.2 dropped its flee action; SC has its own now);
+- "Show me a route" / "Cancel patrol" are hidden on members, like the other vanilla orders;
+- W0: 0-XNPCCore's new survivors and its NPC fox no longer spawn (its sleeper groups carry our survivors instead).
+
+`sc xnpc` shows the billing guard's counters, the body hooks that met an npcSdcs survivor and stepped aside, and any
+loaded member that still has a hire contract.
+
+- [ ] **Startup:** the log shows SCore 3.2.36.628 and 0-XNPCCore 3.2.06 loading, no `TypeLoadException ...
+      EntityItemStore`, and SC's `patch verification: all … targets patched` (4 more than before: the Voice Control
+      ones), no `MISSING PATCH`, no "unlisted method", no "billing guard is idle". No XML warning for SC's
+      entitygroups.xml, spawning.xml, dialogs.xml or utilityai.xml.
+- [ ] **The existing save:** members are at their posts or following as before; outposts, runners and the community
+      window behave as before. Then run the open W0-W2 rows below.
+- [ ] **No bill:** say "Follow me" to a resident, then `sc xnpc`: `contract-refused` has counted and "0 with a hire
+      contract". After 8+ in-game days with a follower, no payment prompt and no "I'm done. Pay up" dismissal.
+- [ ] **Dismiss by chat:** next to a following member, press T and type `@dismiss`: they answer "Heading home." and
+      go home (still in `sc members`, never "left the community"). `@pick up` gets "I'll walk, thanks." `@hire you`
+      to a resident gets "Keep your money..." and no hire window opens (`sc xnpc`: hire-refused).
+- [ ] **Voice still works** for members: typed `@follow me` / `@stay` reach them, and greetings appear. Known until M2:
+      the community puts a following member back on Follow within a second, so a voice "stay" or "guard" on a follower
+      is undone (log line "following but the order is ... re-applying Follow").
+- [ ] **Hatches and drawbridges:** a member whose path runs through a hatch or a lowered-bridge gate opens it and
+      shuts it behind them. With `MembersOpenHatches` false they leave both alone.
+- [ ] **Raiders and doors:** a raider (`sc spawn hostile club` outside your base) opens an unlocked door; a locked one
+      stops it.
+- [ ] **Two door openers:** SCore's own opener now works too. No door slams on a member or on you, and none flickers
+      open and shut.
+- [ ] **Cowardly:** a Cowardly member runs from a zombie within 15 m instead of fighting it.
+- [ ] **The patrol rows:** a following member's dialog has no "Show me a route" or "Cancel patrol".
+- [ ] **No new XNPC survivors or NPC foxes** turn up in the wild or in POIs over a few days. Vanilla foxes still do.
+- [ ] **An XNPC survivor, spawned by hand** (`se` its id from the entity list, e.g. npcSdcsSurvivorFemaleT1): it builds
+      its own body and walks and fights normally, its dialog has none of the recruit lines, and `sc xnpc` counts body
+      hooks stepping aside (carry, holdtype, ... ). Kill it afterwards.
+- [ ] **Followers in a fight:** they now hold a defensive "cover me" stance (Voice Control's MayEngage): they fight
+      what hits them or threatens you, and don't chase enemies more than 8 m from you. Residents, runners and
+      stand-ins fight as before.
+- [ ] **Bows hurt now:** SCore 3.2.29+ fires NPC bows and crossbows at full draw (they used to do 1 damage per
+      arrow), so bow-armed survivors and raiders are much more dangerous. Watch the balance.
+- [ ] **Crouching:** NPCs no longer duck under low overhangs (CrouchType 0). Check that the stuck/unstick log lines
+      don't increase at low doorways or porches.
+- [ ] **A following member stuck behind something** may be teleported to you by Voice Control's follow assist
+      (after about 5 s). Note if it fights the community's own unstick.
+
 ## Weapons task W2 (build sc_w2): two weapons each
 
 **Deployed 2026-10-01** (DLL md5 e77bb729, with the regenerated `Config/entityclasses.xml`, `Config/entitygroups.xml`

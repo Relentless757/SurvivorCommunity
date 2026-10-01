@@ -62,6 +62,7 @@
     <Compile Include="ScAim.cs" />
     <Compile Include="ScLoadout.cs" />
     <Compile Include="ScMedic.cs" />
+    <Compile Include="Patches_VoiceControl.cs" />
     <Compile Include="ScPortraits.cs" />
     <Compile Include="ScLeadership.cs" />
     <Compile Include="ScPoiTypes.cs" />

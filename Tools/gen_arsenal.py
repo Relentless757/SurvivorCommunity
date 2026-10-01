@@ -24,7 +24,8 @@ from lxml import etree as ET
 GAME = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
 # SC_GEN_CONFIG points the output at a staged COPY of Config (items.xml and Localization.csv are read back too)
 MOD = os.environ.get("SC_GEN_CONFIG") or os.path.join(GAME, r"Mods\SurvivorCommunity\Config")
-XNPC = os.path.join(GAME, r"Mods\0-XNPCCore\Config")
+# SC_GEN_XNPC reads the framework's Config from somewhere else (e.g. a new 0-XNPCCore download before installing it)
+XNPC = os.environ.get("SC_GEN_XNPC") or os.path.join(GAME, r"Mods\0-XNPCCore\Config")
 VAN = os.path.join(GAME, r"Data\Config")
 
 # ------------------------------------------------------------------------------------------------------------
@@ -354,6 +355,12 @@ PLACES = [("Wild", "Day",   "GS01",  None,                    "commercial,indust
 # group's side, at the same probability split over both sexes. All element children are replaced (<e> and the
 # older <entity>), which also drops whatever a character pack inserted there. Groups whose other members are
 # vanilla animals only lose the pack NPC. Rerun after a 0-XNPCCore update: the lists come from its files.
+#
+# 0-XNPCCore 3.2 added its own player-body survivors, npcSdcsSurvivor{Male,Female}T1-T3 (EntityAliveSDXV4, model
+# EModelSdcsNpc). This mod cannot recruit them yet (migration tasks M1-M2), so they are kept out of spawns the same
+# way: their biome spawns go, and in its sleeper groups (which since 3.2 hold only them) each one becomes our
+# survivors of the same sex, spread like our own groups of the matching band (T1 early, T2 middle, T3 late), so
+# the melee / bow / firearm shares stay ours. Their tier carries no weapon of ours to copy: each rolls its own.
 # ------------------------------------------------------------------------------------------------------------
 CLASS_INDEX = {}                                  # name -> element; the framework's definition wins over vanilla's
 for root in (xnpc_classes, ET.parse(os.path.join(VAN, "entityclasses.xml")).getroot()):
@@ -395,13 +402,37 @@ def framework_cat(name):
         if m and m.group(1) in FRAMEWORK_CATS: return m.group(1)
     return None
 
+SDCS_BAND = {"1": "GS01", "2": "GS50", "3": "GS100"}
+
+def is_sdcs_npc(name):
+    """0-XNPCCore 3.2's own player-body survivor (EntityAliveSDXV4) - a pack NPC to W0, but with no framework weapon."""
+    return (class_prop(name, "Class") or "").startswith("EntityAliveSDXV4")
+
+def sdcs_subs(name, p):
+    """Our survivors of the same sex for one npcSdcs entry, spread like our own group of its band, summing to p."""
+    m = re.match(r"^npcSdcsSurvivor(Male|Female)T(\d)$", name)
+    if not m or m.group(2) not in SDCS_BAND:
+        raise SystemExit("W0: 0-XNPCCore survivor %s has no known sex/tier - map it by hand" % name)
+    sex, band = m.group(1), SDCS_BAND[m.group(2)]
+    mine = [(n, w) for n, w in band_weights("s", band) if n.startswith("scSurvivor" + sex)]
+    rel = sum(w for _, w in mine)
+    if not mine or rel <= 0: raise SystemExit("W0: no %s survivors in band %s" % (sex, band))
+    return [(n, p * w / rel) for n, w in mine]
+
+def fmt_p(p):
+    """A probability as plain decimals (the 0.001 sleeper weights split many ways would print as 1e-05 with %g)."""
+    t = ("%.8f" % p).rstrip("0").rstrip(".")
+    if t in ("", "0"): raise SystemExit("W0: probability %r rounds to 0" % p)
+    return t
+
 def is_pack_animal(name):
     """An NPC-framework animal (the NPC fox rides npcAnimalMeleeTemplate): dropped, never swapped."""
     return any(re.match(r"^npcAnimal", n) for n in class_chain(name))
 
 def swap_kind(name):
-    """'human' (swap for ours), 'animal' (drop), or stop: a human pack NPC with no known framework weapon would
-    otherwise lose its share silently."""
+    """'human' (swap for ours), 'sdcs' (0-XNPCCore's own survivor: swap for our mix), 'animal' (drop), or stop: a
+    human pack NPC with no known framework weapon would otherwise lose its share silently."""
+    if is_sdcs_npc(name): return "sdcs"
     if framework_cat(name): return "human"
     if is_pack_animal(name): return "animal"
     raise SystemExit("W0: pack NPC %s has no framework weapon template (chain %s) - map it by hand" % (name, class_chain(name)))
@@ -419,16 +450,16 @@ for grp in ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot().iter("enti
     ents = [(e.get("n") or e.get("name"), float(e.get("p") or e.get("prob") or 1)) for e in kids]
     pack = [n for n, _ in ents if is_pack_npc(n)]
     if not pack: continue
-    if gname in xnpc_spawn_groups:                # its biome groups: the <spawn> entries go, and the group is swapped
-        w0_spawns.append(gname)
     if (grp.text or "").strip(): raise SystemExit("W0: %s holds flat-text entries - not handled" % gname)
     if any(e.tag != "e" for e in kids): raise SystemExit("W0: %s has non-<e> entries - not handled" % gname)
-    humans = [n for n in pack if swap_kind(n) == "human"]
+    humans = [n for n in pack if swap_kind(n) in ("human", "sdcs")]
     if not humans:                                # only pack animals (the NPC fox) among other members
         rest = [n for n, _ in ents if n not in pack]
         if not rest or rest[0] == "none": raise SystemExit("W0: dropping %s would leave %s empty or 'none'-first" % (pack, gname))
         w0_drop[gname] = tuple(sorted(set(pack)))
-        continue
+        continue                                  # its spawn entries stay: they still bring the vanilla animals
+    if gname in xnpc_spawn_groups:                # its biome groups: the <spawn> entries go, and the group is swapped
+        w0_spawns.append(gname)
     # the group's side, not each NPC's: the framework files its one friendly Harley (npcHarleyKnife, an
     # EntityAliveSDX) among the bandits, and a survivor has no place in a bandit camp
     bandits = sum(1 for n in humans if "EntityNPCBandit" in (class_prop(n, "Class") or ""))
@@ -441,6 +472,9 @@ for grp in ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot().iter("enti
             subs = [(n, p)]
         elif swap_kind(n) == "animal":
             subs = []                             # a pack animal inside a human group: dropped
+        elif swap_kind(n) == "sdcs":
+            if prefix != "scSurvivor": raise SystemExit("W0: 0-XNPCCore survivor %s in hostile group %s" % (n, gname))
+            subs = sdcs_subs(n, p)
         else:
             subs = [("%s%s%s" % (prefix, sex, BASE_TOKEN[framework_cat(n)]), p / 2.0) for sex in ("Male", "Female")]
         for sn, sp in subs:
@@ -486,19 +520,21 @@ for side, tag, chance, _ in SIDES:
         g.append('\t\t</entitygroup>\n')
 g.append("\t</append>\n")
 g.append("""
-\t<!-- W0: no new pack NPCs while SurvivorCommunity is installed (Nurse, Baker, Harley, the NPC fox, and whatever a
-\t     character pack inserts next to them). These are the framework's own groups: the sleeper groups behind its
-\t     S_-Group_NPC_* POI volumes, and its biome groups (their spawn entries are removed in spawning.xml). A group
-\t     may not be empty (the game throws at load) and "none" must not come first, so each pack NPC becomes our
-\t     player-body class with the same framework weapon and the group's side, at the same probability split over
-\t     both sexes. Groups that also hold vanilla animals only lose the pack NPC. %d groups swapped, %d trimmed. -->
+\t<!-- W0: no new pack NPCs while SurvivorCommunity is installed (Nurse, Baker, Harley, the NPC fox, 0-XNPCCore 3.2's
+\t     own npcSdcs survivors, and whatever a character pack inserts next to them). These are the framework's own
+\t     groups: the sleeper groups behind its S_-Group_NPC_* POI volumes, and its biome groups (their spawn entries are
+\t     removed in spawning.xml). A group may not be empty (the game throws at load) and "none" must not come first,
+\t     so each pack NPC becomes our player-body class with the same framework weapon and the group's side, at the
+\t     same probability split over both sexes; an npcSdcs survivor becomes our survivors of its sex, spread like our
+\t     own group of its tier's band. Groups that also hold vanilla animals only lose the pack NPC. %d groups swapped,
+\t     %d trimmed. -->
 """ % (len(w0_swap), len(w0_drop)))
 for entries, names in sorted(w0_swap_sets.items(), key=lambda kv: kv[1][0]):
     sel = "/entitygroups/entitygroup[%s]" % xpath_names(names)
     g.append('\n\t<remove xpath="%s/*"/>\n' % sel)            # <e> and the older <entity> rows alike
     g.append('\t<append xpath="%s">\n' % sel)
     for n, p in entries:
-        g.append('\t\t<e n="%s" p="%s"/>\n' % (n, "%g" % round(p, 6)))
+        g.append('\t\t<e n="%s" p="%s"/>\n' % (n, fmt_p(p)))
     g.append('\t</append>\n')
 for packs, names in sorted(w0_drop_sets.items(), key=lambda kv: kv[1][0]):
     g.append('\n\t<remove xpath="/entitygroups/entitygroup[%s]/e[%s]"/>\n' % (

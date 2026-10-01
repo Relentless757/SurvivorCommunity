@@ -389,12 +389,14 @@
 		</entitygroup>
 	</append>
 
-	<!-- W0: no new pack NPCs while SurvivorCommunity is installed (Nurse, Baker, Harley, the NPC fox, and whatever a
-	     character pack inserts next to them). These are the framework's own groups: the sleeper groups behind its
-	     S_-Group_NPC_* POI volumes, and its biome groups (their spawn entries are removed in spawning.xml). A group
-	     may not be empty (the game throws at load) and "none" must not come first, so each pack NPC becomes our
-	     player-body class with the same framework weapon and the group's side, at the same probability split over
-	     both sexes. Groups that also hold vanilla animals only lose the pack NPC. 264 groups swapped, 12 trimmed. -->
+	<!-- W0: no new pack NPCs while SurvivorCommunity is installed (Nurse, Baker, Harley, the NPC fox, 0-XNPCCore 3.2's
+	     own npcSdcs survivors, and whatever a character pack inserts next to them). These are the framework's own
+	     groups: the sleeper groups behind its S_-Group_NPC_* POI volumes, and its biome groups (their spawn entries are
+	     removed in spawning.xml). A group may not be empty (the game throws at load) and "none" must not come first,
+	     so each pack NPC becomes our player-body class with the same framework weapon and the group's side, at the
+	     same probability split over both sexes; an npcSdcs survivor becomes our survivors of its sex, spread like our
+	     own group of its tier's band. Groups that also hold vanilla animals only lose the pack NPC. 267 groups swapped,
+	     13 trimmed. -->
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS01' or @name='npcBanditsAllGroupGS100' or @name='npcBanditsAllGroupGS50' or @name='npcDecoTrapGroupGS01' or @name='npcDecoTrapGroupGS100' or @name='npcDecoTrapGroupGS50' or @name='npcDukeAllGroupGS01' or @name='npcDukeAllGroupGS100' or @name='npcDukeAllGroupGS50' or @name='npcEnemyAllGroupGS01' or @name='npcEnemyAllGroupGS100' or @name='npcEnemyAllGroupGS50' or @name='npcFantasyAllGroupGS01' or @name='npcFantasyAllGroupGS100' or @name='npcFantasyAllGroupGS50' or @name='npcMechAllGroupGS01' or @name='npcMechAllGroupGS100' or @name='npcMechAllGroupGS50' or @name='npcWhisperersAllGroupGS01' or @name='npcWhisperersAllGroupGS100' or @name='npcWhisperersAllGroupGS50']/*"/>
 	<append xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS01' or @name='npcBanditsAllGroupGS100' or @name='npcBanditsAllGroupGS50' or @name='npcDecoTrapGroupGS01' or @name='npcDecoTrapGroupGS100' or @name='npcDecoTrapGroupGS50' or @name='npcDukeAllGroupGS01' or @name='npcDukeAllGroupGS100' or @name='npcDukeAllGroupGS50' or @name='npcEnemyAllGroupGS01' or @name='npcEnemyAllGroupGS100' or @name='npcEnemyAllGroupGS50' or @name='npcFantasyAllGroupGS01' or @name='npcFantasyAllGroupGS100' or @name='npcFantasyAllGroupGS50' or @name='npcMechAllGroupGS01' or @name='npcMechAllGroupGS100' or @name='npcMechAllGroupGS50' or @name='npcWhisperersAllGroupGS01' or @name='npcWhisperersAllGroupGS100' or @name='npcWhisperersAllGroupGS50']">
@@ -580,8 +582,8 @@
 		<e n="scRaiderFemaleXBow" p="0.0005"/>
 	</append>
 
-	<remove xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS01' or @name='npcDecoRescueGroupGS100' or @name='npcDecoRescueGroupGS50' or @name='npcFriendlyAllGroupGS01' or @name='npcFriendlyAllGroupGS100' or @name='npcFriendlyAllGroupGS50' or @name='npcWhiteriverAllGroupGS01' or @name='npcWhiteriverAllGroupGS100' or @name='npcWhiteriverAllGroupGS50']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS01' or @name='npcDecoRescueGroupGS100' or @name='npcDecoRescueGroupGS50' or @name='npcFriendlyAllGroupGS01' or @name='npcFriendlyAllGroupGS100' or @name='npcFriendlyAllGroupGS50' or @name='npcWhiteriverAllGroupGS01' or @name='npcWhiteriverAllGroupGS100' or @name='npcWhiteriverAllGroupGS50']">
+	<remove xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS01' or @name='npcDecoRescueGroupGS100' or @name='npcDecoRescueGroupGS50' or @name='npcWhiteriverAllGroupGS01' or @name='npcWhiteriverAllGroupGS100' or @name='npcWhiteriverAllGroupGS50']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS01' or @name='npcDecoRescueGroupGS100' or @name='npcDecoRescueGroupGS50' or @name='npcWhiteriverAllGroupGS01' or @name='npcWhiteriverAllGroupGS100' or @name='npcWhiteriverAllGroupGS50']">
 		<e n="scSurvivorMaleEmptyHand" p="0.001"/>
 		<e n="scSurvivorFemaleEmptyHand" p="0.001"/>
 		<e n="scSurvivorMaleClub" p="0.001"/>
@@ -630,8 +632,8 @@
 		<e n="scSurvivorFemaleXBow" p="0.0005"/>
 	</append>
 
-	<remove xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS200' or @name='npcDecoRescueGroupGS400' or @name='npcDecoRescueGroupGS800' or @name='npcFriendlyAllGroupGS200' or @name='npcFriendlyAllGroupGS400' or @name='npcFriendlyAllGroupGS800' or @name='npcWhiteriverAllGroupGS200' or @name='npcWhiteriverAllGroupGS400' or @name='npcWhiteriverAllGroupGS800']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS200' or @name='npcDecoRescueGroupGS400' or @name='npcDecoRescueGroupGS800' or @name='npcFriendlyAllGroupGS200' or @name='npcFriendlyAllGroupGS400' or @name='npcFriendlyAllGroupGS800' or @name='npcWhiteriverAllGroupGS200' or @name='npcWhiteriverAllGroupGS400' or @name='npcWhiteriverAllGroupGS800']">
+	<remove xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS200' or @name='npcDecoRescueGroupGS400' or @name='npcDecoRescueGroupGS800' or @name='npcWhiteriverAllGroupGS200' or @name='npcWhiteriverAllGroupGS400' or @name='npcWhiteriverAllGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS200' or @name='npcDecoRescueGroupGS400' or @name='npcDecoRescueGroupGS800' or @name='npcWhiteriverAllGroupGS200' or @name='npcWhiteriverAllGroupGS400' or @name='npcWhiteriverAllGroupGS800']">
 		<e n="scSurvivorMaleEmptyHand" p="0.001"/>
 		<e n="scSurvivorFemaleEmptyHand" p="0.001"/>
 		<e n="scSurvivorMaleClub" p="0.001"/>
@@ -780,34 +782,330 @@
 		<e n="scSurvivorFemaleLBow" p="0.0005"/>
 	</append>
 
-	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyBossGroupGS01' or @name='npcFriendlyBossGroupGS100' or @name='npcFriendlyBossGroupGS200' or @name='npcFriendlyBossGroupGS400' or @name='npcFriendlyBossGroupGS50' or @name='npcFriendlyBossGroupGS800' or @name='npcWhiteriverBossGroupGS01' or @name='npcWhiteriverBossGroupGS100' or @name='npcWhiteriverBossGroupGS200' or @name='npcWhiteriverBossGroupGS400' or @name='npcWhiteriverBossGroupGS50' or @name='npcWhiteriverBossGroupGS800']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcFriendlyBossGroupGS01' or @name='npcFriendlyBossGroupGS100' or @name='npcFriendlyBossGroupGS200' or @name='npcFriendlyBossGroupGS400' or @name='npcFriendlyBossGroupGS50' or @name='npcFriendlyBossGroupGS800' or @name='npcWhiteriverBossGroupGS01' or @name='npcWhiteriverBossGroupGS100' or @name='npcWhiteriverBossGroupGS200' or @name='npcWhiteriverBossGroupGS400' or @name='npcWhiteriverBossGroupGS50' or @name='npcWhiteriverBossGroupGS800']">
-		<e n="scSurvivorMaleSMG" p="0.001"/>
-		<e n="scSurvivorFemaleSMG" p="0.001"/>
-		<e n="scSurvivorMaleM60" p="0.001"/>
-		<e n="scSurvivorFemaleM60" p="0.001"/>
-		<e n="scSurvivorMalePistol" p="0.001"/>
-		<e n="scSurvivorFemalePistol" p="0.001"/>
-		<e n="scSurvivorMaleDPistol" p="0.001"/>
-		<e n="scSurvivorFemaleDPistol" p="0.001"/>
-		<e n="scSurvivorMaleRifle" p="0.001"/>
-		<e n="scSurvivorFemaleRifle" p="0.001"/>
-		<e n="scSurvivorMaleTRifle" p="0.001"/>
-		<e n="scSurvivorFemaleTRifle" p="0.001"/>
-		<e n="scSurvivorMaleHRifle" p="0.001"/>
-		<e n="scSurvivorFemaleHRifle" p="0.001"/>
-		<e n="scSurvivorMaleSRifle" p="0.001"/>
-		<e n="scSurvivorFemaleSRifle" p="0.001"/>
-		<e n="scSurvivorMalePShotgun" p="0.001"/>
-		<e n="scSurvivorFemalePShotgun" p="0.001"/>
-		<e n="scSurvivorMaleAShotgun" p="0.001"/>
-		<e n="scSurvivorFemaleAShotgun" p="0.001"/>
-		<e n="scSurvivorMaleLBow" p="0.001"/>
-		<e n="scSurvivorFemaleLBow" p="0.001"/>
-		<e n="scSurvivorMaleXBow" p="0.001"/>
-		<e n="scSurvivorFemaleXBow" p="0.001"/>
-		<e n="scSurvivorMaleRocketL" p="0.001"/>
-		<e n="scSurvivorFemaleRocketL" p="0.001"/>
+	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS01' or @name='npcFriendlyMeleeGroupGS01' or @name='npcFriendlyMeleeGroupGS100' or @name='npcFriendlyMeleeGroupGS200' or @name='npcFriendlyMeleeGroupGS400' or @name='npcFriendlyMeleeGroupGS50' or @name='npcFriendlyMeleeGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS01' or @name='npcFriendlyMeleeGroupGS01' or @name='npcFriendlyMeleeGroupGS100' or @name='npcFriendlyMeleeGroupGS200' or @name='npcFriendlyMeleeGroupGS400' or @name='npcFriendlyMeleeGroupGS50' or @name='npcFriendlyMeleeGroupGS800']">
+		<e n="scSurvivorMaleEmptyHand" p="0.00005"/>
+		<e n="scSurvivorMaleClub" p="0.00005"/>
+		<e n="scSurvivorMaleKnife" p="0.00005"/>
+		<e n="scSurvivorMaleBat" p="0.00005"/>
+		<e n="scSurvivorMaleAxe" p="0.00005"/>
+		<e n="scSurvivorMaleSpear" p="0.00005"/>
+		<e n="scSurvivorMaleMachete" p="0.00005"/>
+		<e n="scSurvivorMalePipePistol" p="0.000009"/>
+		<e n="scSurvivorMalePipeRifle" p="0.000009"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.000009"/>
+		<e n="scSurvivorMalePipeMG" p="0.000009"/>
+		<e n="scSurvivorMaleBoneKnife" p="0.00005"/>
+		<e n="scSurvivorMaleLeatherKnuckles" p="0.00005"/>
+		<e n="scSurvivorMaleIronKnuckles" p="0.00005"/>
+		<e n="scSurvivorMalePipeBaton" p="0.00005"/>
+		<e n="scSurvivorMaleStoneSledge" p="0.00005"/>
+		<e n="scSurvivorMaleIronSledge" p="0.00005"/>
+		<e n="scSurvivorMaleStoneSpear" p="0.00005"/>
+		<e n="scSurvivorMalePrimitiveBow" p="0.000264"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.00005"/>
+		<e n="scSurvivorFemaleClub" p="0.00005"/>
+		<e n="scSurvivorFemaleKnife" p="0.00005"/>
+		<e n="scSurvivorFemaleBat" p="0.00005"/>
+		<e n="scSurvivorFemaleAxe" p="0.00005"/>
+		<e n="scSurvivorFemaleSpear" p="0.00005"/>
+		<e n="scSurvivorFemaleMachete" p="0.00005"/>
+		<e n="scSurvivorFemalePipePistol" p="0.000009"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.000009"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.000009"/>
+		<e n="scSurvivorFemalePipeMG" p="0.000009"/>
+		<e n="scSurvivorFemaleBoneKnife" p="0.00005"/>
+		<e n="scSurvivorFemaleLeatherKnuckles" p="0.00005"/>
+		<e n="scSurvivorFemaleIronKnuckles" p="0.00005"/>
+		<e n="scSurvivorFemalePipeBaton" p="0.00005"/>
+		<e n="scSurvivorFemaleStoneSledge" p="0.00005"/>
+		<e n="scSurvivorFemaleIronSledge" p="0.00005"/>
+		<e n="scSurvivorFemaleStoneSpear" p="0.00005"/>
+		<e n="scSurvivorFemalePrimitiveBow" p="0.000264"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS100' or @name='npcFriendlyRangedGroupGS01' or @name='npcFriendlyRangedGroupGS100' or @name='npcFriendlyRangedGroupGS50']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS100' or @name='npcFriendlyRangedGroupGS01' or @name='npcFriendlyRangedGroupGS100' or @name='npcFriendlyRangedGroupGS50']">
+		<e n="scSurvivorMaleEmptyHand" p="0.0000375"/>
+		<e n="scSurvivorMaleClub" p="0.0000375"/>
+		<e n="scSurvivorMaleKnife" p="0.0000375"/>
+		<e n="scSurvivorMaleBat" p="0.0000375"/>
+		<e n="scSurvivorMaleAxe" p="0.0000375"/>
+		<e n="scSurvivorMaleSpear" p="0.0000375"/>
+		<e n="scSurvivorMaleMachete" p="0.0000375"/>
+		<e n="scSurvivorMalePipePistol" p="0.0000096"/>
+		<e n="scSurvivorMalePipeRifle" p="0.0000096"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.0000096"/>
+		<e n="scSurvivorMalePipeMG" p="0.0000096"/>
+		<e n="scSurvivorMaleLBow" p="0.00011733"/>
+		<e n="scSurvivorMaleXBow" p="0.00011733"/>
+		<e n="scSurvivorMaleBoneKnife" p="0.0000375"/>
+		<e n="scSurvivorMaleLeatherKnuckles" p="0.0000375"/>
+		<e n="scSurvivorMaleIronKnuckles" p="0.0000375"/>
+		<e n="scSurvivorMalePipeBaton" p="0.0000375"/>
+		<e n="scSurvivorMaleStunBaton" p="0.0000375"/>
+		<e n="scSurvivorMaleStoneSledge" p="0.0000375"/>
+		<e n="scSurvivorMaleIronSledge" p="0.0000375"/>
+		<e n="scSurvivorMaleStoneSpear" p="0.0000375"/>
+		<e n="scSurvivorMaleSteelAxe" p="0.0000375"/>
+		<e n="scSurvivorMaleDoubleBarrel" p="0.0000096"/>
+		<e n="scSurvivorMalePrimitiveBow" p="0.00011733"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.0000375"/>
+		<e n="scSurvivorFemaleClub" p="0.0000375"/>
+		<e n="scSurvivorFemaleKnife" p="0.0000375"/>
+		<e n="scSurvivorFemaleBat" p="0.0000375"/>
+		<e n="scSurvivorFemaleAxe" p="0.0000375"/>
+		<e n="scSurvivorFemaleSpear" p="0.0000375"/>
+		<e n="scSurvivorFemaleMachete" p="0.0000375"/>
+		<e n="scSurvivorFemalePipePistol" p="0.0000096"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.0000096"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.0000096"/>
+		<e n="scSurvivorFemalePipeMG" p="0.0000096"/>
+		<e n="scSurvivorFemaleLBow" p="0.00011733"/>
+		<e n="scSurvivorFemaleXBow" p="0.00011733"/>
+		<e n="scSurvivorFemaleBoneKnife" p="0.0000375"/>
+		<e n="scSurvivorFemaleLeatherKnuckles" p="0.0000375"/>
+		<e n="scSurvivorFemaleIronKnuckles" p="0.0000375"/>
+		<e n="scSurvivorFemalePipeBaton" p="0.0000375"/>
+		<e n="scSurvivorFemaleStunBaton" p="0.0000375"/>
+		<e n="scSurvivorFemaleStoneSledge" p="0.0000375"/>
+		<e n="scSurvivorFemaleIronSledge" p="0.0000375"/>
+		<e n="scSurvivorFemaleStoneSpear" p="0.0000375"/>
+		<e n="scSurvivorFemaleSteelAxe" p="0.0000375"/>
+		<e n="scSurvivorFemaleDoubleBarrel" p="0.0000096"/>
+		<e n="scSurvivorFemalePrimitiveBow" p="0.00011733"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS200' or @name='npcFriendlyRangedGroupGS200']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS200' or @name='npcFriendlyRangedGroupGS200']">
+		<e n="scSurvivorMaleEmptyHand" p="0.00005673"/>
+		<e n="scSurvivorMaleClub" p="0.00005673"/>
+		<e n="scSurvivorMaleKnife" p="0.00005673"/>
+		<e n="scSurvivorMaleBat" p="0.00005673"/>
+		<e n="scSurvivorMaleAxe" p="0.00005673"/>
+		<e n="scSurvivorMaleSpear" p="0.00005673"/>
+		<e n="scSurvivorMaleMachete" p="0.00005673"/>
+		<e n="scSurvivorMalePipePistol" p="0.00001148"/>
+		<e n="scSurvivorMalePipeRifle" p="0.00001148"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.00001148"/>
+		<e n="scSurvivorMalePipeMG" p="0.00001148"/>
+		<e n="scSurvivorMaleLBow" p="0.00021511"/>
+		<e n="scSurvivorMaleXBow" p="0.00021511"/>
+		<e n="scSurvivorMaleBoneKnife" p="0.00005673"/>
+		<e n="scSurvivorMaleLeatherKnuckles" p="0.00005673"/>
+		<e n="scSurvivorMaleIronKnuckles" p="0.00005673"/>
+		<e n="scSurvivorMalePipeBaton" p="0.00005673"/>
+		<e n="scSurvivorMaleStunBaton" p="0.00007596"/>
+		<e n="scSurvivorMaleStoneSledge" p="0.00005673"/>
+		<e n="scSurvivorMaleIronSledge" p="0.00005673"/>
+		<e n="scSurvivorMaleStoneSpear" p="0.00005673"/>
+		<e n="scSurvivorMaleSteelAxe" p="0.00007596"/>
+		<e n="scSurvivorMaleDoubleBarrel" p="0.00001335"/>
+		<e n="scSurvivorMalePrimitiveBow" p="0.00016622"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.00005673"/>
+		<e n="scSurvivorFemaleClub" p="0.00005673"/>
+		<e n="scSurvivorFemaleKnife" p="0.00005673"/>
+		<e n="scSurvivorFemaleBat" p="0.00005673"/>
+		<e n="scSurvivorFemaleAxe" p="0.00005673"/>
+		<e n="scSurvivorFemaleSpear" p="0.00005673"/>
+		<e n="scSurvivorFemaleMachete" p="0.00005673"/>
+		<e n="scSurvivorFemalePipePistol" p="0.00001148"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.00001148"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.00001148"/>
+		<e n="scSurvivorFemalePipeMG" p="0.00001148"/>
+		<e n="scSurvivorFemaleLBow" p="0.00021511"/>
+		<e n="scSurvivorFemaleXBow" p="0.00021511"/>
+		<e n="scSurvivorFemaleBoneKnife" p="0.00005673"/>
+		<e n="scSurvivorFemaleLeatherKnuckles" p="0.00005673"/>
+		<e n="scSurvivorFemaleIronKnuckles" p="0.00005673"/>
+		<e n="scSurvivorFemalePipeBaton" p="0.00005673"/>
+		<e n="scSurvivorFemaleStunBaton" p="0.00007596"/>
+		<e n="scSurvivorFemaleStoneSledge" p="0.00005673"/>
+		<e n="scSurvivorFemaleIronSledge" p="0.00005673"/>
+		<e n="scSurvivorFemaleStoneSpear" p="0.00005673"/>
+		<e n="scSurvivorFemaleSteelAxe" p="0.00007596"/>
+		<e n="scSurvivorFemaleDoubleBarrel" p="0.00001335"/>
+		<e n="scSurvivorFemalePrimitiveBow" p="0.00016622"/>
+		<e n="scSurvivorMalePistol" p="0.00000375"/>
+		<e n="scSurvivorMaleDPistol" p="0.00000375"/>
+		<e n="scSurvivorMaleSMG" p="0.00000375"/>
+		<e n="scSurvivorMaleRifle" p="0.00000375"/>
+		<e n="scSurvivorMaleTRifle" p="0.00000375"/>
+		<e n="scSurvivorMaleHRifle" p="0.00000375"/>
+		<e n="scSurvivorMaleSRifle" p="0.00000375"/>
+		<e n="scSurvivorMalePShotgun" p="0.00000375"/>
+		<e n="scSurvivorMaleAShotgun" p="0.00000375"/>
+		<e n="scSurvivorMaleM60" p="0.00000375"/>
+		<e n="scSurvivorMaleRocketL" p="0.00000375"/>
+		<e n="scSurvivorMaleSteelKnuckles" p="0.00003846"/>
+		<e n="scSurvivorMaleSteelClub" p="0.00003846"/>
+		<e n="scSurvivorMaleSteelSledge" p="0.00003846"/>
+		<e n="scSurvivorMaleSteelSpear" p="0.00003846"/>
+		<e n="scSurvivorMaleMagnum" p="0.00000375"/>
+		<e n="scSurvivorMaleLeverAction" p="0.00000375"/>
+		<e n="scSurvivorMaleCompoundBow" p="0.00009778"/>
+		<e n="scSurvivorMaleCompoundCrossbow" p="0.00009778"/>
+		<e n="scSurvivorFemalePistol" p="0.00000375"/>
+		<e n="scSurvivorFemaleDPistol" p="0.00000375"/>
+		<e n="scSurvivorFemaleSMG" p="0.00000375"/>
+		<e n="scSurvivorFemaleRifle" p="0.00000375"/>
+		<e n="scSurvivorFemaleTRifle" p="0.00000375"/>
+		<e n="scSurvivorFemaleHRifle" p="0.00000375"/>
+		<e n="scSurvivorFemaleSRifle" p="0.00000375"/>
+		<e n="scSurvivorFemalePShotgun" p="0.00000375"/>
+		<e n="scSurvivorFemaleAShotgun" p="0.00000375"/>
+		<e n="scSurvivorFemaleM60" p="0.00000375"/>
+		<e n="scSurvivorFemaleRocketL" p="0.00000375"/>
+		<e n="scSurvivorFemaleSteelKnuckles" p="0.00003846"/>
+		<e n="scSurvivorFemaleSteelClub" p="0.00003846"/>
+		<e n="scSurvivorFemaleSteelSledge" p="0.00003846"/>
+		<e n="scSurvivorFemaleSteelSpear" p="0.00003846"/>
+		<e n="scSurvivorFemaleMagnum" p="0.00000375"/>
+		<e n="scSurvivorFemaleLeverAction" p="0.00000375"/>
+		<e n="scSurvivorFemaleCompoundBow" p="0.00009778"/>
+		<e n="scSurvivorFemaleCompoundCrossbow" p="0.00009778"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS400' or @name='npcFriendlyAllGroupGS800' or @name='npcFriendlyBossGroupGS01' or @name='npcFriendlyBossGroupGS100' or @name='npcFriendlyBossGroupGS200' or @name='npcFriendlyBossGroupGS400' or @name='npcFriendlyBossGroupGS50' or @name='npcFriendlyBossGroupGS800' or @name='npcFriendlyRangedGroupGS400' or @name='npcFriendlyRangedGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS400' or @name='npcFriendlyAllGroupGS800' or @name='npcFriendlyBossGroupGS01' or @name='npcFriendlyBossGroupGS100' or @name='npcFriendlyBossGroupGS200' or @name='npcFriendlyBossGroupGS400' or @name='npcFriendlyBossGroupGS50' or @name='npcFriendlyBossGroupGS800' or @name='npcFriendlyRangedGroupGS400' or @name='npcFriendlyRangedGroupGS800']">
+		<e n="scSurvivorMaleEmptyHand" p="0.00001923"/>
+		<e n="scSurvivorMaleClub" p="0.00001923"/>
+		<e n="scSurvivorMaleKnife" p="0.00001923"/>
+		<e n="scSurvivorMaleBat" p="0.00001923"/>
+		<e n="scSurvivorMaleAxe" p="0.00001923"/>
+		<e n="scSurvivorMaleSpear" p="0.00001923"/>
+		<e n="scSurvivorMaleMachete" p="0.00001923"/>
+		<e n="scSurvivorMalePipePistol" p="0.00000188"/>
+		<e n="scSurvivorMalePipeRifle" p="0.00000188"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.00000188"/>
+		<e n="scSurvivorMalePipeMG" p="0.00000188"/>
+		<e n="scSurvivorMaleLBow" p="0.00009778"/>
+		<e n="scSurvivorMaleXBow" p="0.00009778"/>
+		<e n="scSurvivorMalePistol" p="0.00000375"/>
+		<e n="scSurvivorMaleDPistol" p="0.00000375"/>
+		<e n="scSurvivorMaleSMG" p="0.00000375"/>
+		<e n="scSurvivorMaleRifle" p="0.00000375"/>
+		<e n="scSurvivorMaleTRifle" p="0.00000375"/>
+		<e n="scSurvivorMaleHRifle" p="0.00000375"/>
+		<e n="scSurvivorMaleSRifle" p="0.00000375"/>
+		<e n="scSurvivorMalePShotgun" p="0.00000375"/>
+		<e n="scSurvivorMaleAShotgun" p="0.00000375"/>
+		<e n="scSurvivorMaleM60" p="0.00000375"/>
+		<e n="scSurvivorMaleRocketL" p="0.00000375"/>
+		<e n="scSurvivorMaleBoneKnife" p="0.00001923"/>
+		<e n="scSurvivorMaleLeatherKnuckles" p="0.00001923"/>
+		<e n="scSurvivorMaleIronKnuckles" p="0.00001923"/>
+		<e n="scSurvivorMaleSteelKnuckles" p="0.00003846"/>
+		<e n="scSurvivorMalePipeBaton" p="0.00001923"/>
+		<e n="scSurvivorMaleStunBaton" p="0.00003846"/>
+		<e n="scSurvivorMaleSteelClub" p="0.00003846"/>
+		<e n="scSurvivorMaleStoneSledge" p="0.00001923"/>
+		<e n="scSurvivorMaleIronSledge" p="0.00001923"/>
+		<e n="scSurvivorMaleSteelSledge" p="0.00003846"/>
+		<e n="scSurvivorMaleStoneSpear" p="0.00001923"/>
+		<e n="scSurvivorMaleSteelSpear" p="0.00003846"/>
+		<e n="scSurvivorMaleSteelAxe" p="0.00003846"/>
+		<e n="scSurvivorMaleMagnum" p="0.00000375"/>
+		<e n="scSurvivorMaleDoubleBarrel" p="0.00000375"/>
+		<e n="scSurvivorMaleLeverAction" p="0.00000375"/>
+		<e n="scSurvivorMalePrimitiveBow" p="0.00004889"/>
+		<e n="scSurvivorMaleCompoundBow" p="0.00009778"/>
+		<e n="scSurvivorMaleCompoundCrossbow" p="0.00009778"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.00001923"/>
+		<e n="scSurvivorFemaleClub" p="0.00001923"/>
+		<e n="scSurvivorFemaleKnife" p="0.00001923"/>
+		<e n="scSurvivorFemaleBat" p="0.00001923"/>
+		<e n="scSurvivorFemaleAxe" p="0.00001923"/>
+		<e n="scSurvivorFemaleSpear" p="0.00001923"/>
+		<e n="scSurvivorFemaleMachete" p="0.00001923"/>
+		<e n="scSurvivorFemalePipePistol" p="0.00000188"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.00000188"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.00000188"/>
+		<e n="scSurvivorFemalePipeMG" p="0.00000188"/>
+		<e n="scSurvivorFemaleLBow" p="0.00009778"/>
+		<e n="scSurvivorFemaleXBow" p="0.00009778"/>
+		<e n="scSurvivorFemalePistol" p="0.00000375"/>
+		<e n="scSurvivorFemaleDPistol" p="0.00000375"/>
+		<e n="scSurvivorFemaleSMG" p="0.00000375"/>
+		<e n="scSurvivorFemaleRifle" p="0.00000375"/>
+		<e n="scSurvivorFemaleTRifle" p="0.00000375"/>
+		<e n="scSurvivorFemaleHRifle" p="0.00000375"/>
+		<e n="scSurvivorFemaleSRifle" p="0.00000375"/>
+		<e n="scSurvivorFemalePShotgun" p="0.00000375"/>
+		<e n="scSurvivorFemaleAShotgun" p="0.00000375"/>
+		<e n="scSurvivorFemaleM60" p="0.00000375"/>
+		<e n="scSurvivorFemaleRocketL" p="0.00000375"/>
+		<e n="scSurvivorFemaleBoneKnife" p="0.00001923"/>
+		<e n="scSurvivorFemaleLeatherKnuckles" p="0.00001923"/>
+		<e n="scSurvivorFemaleIronKnuckles" p="0.00001923"/>
+		<e n="scSurvivorFemaleSteelKnuckles" p="0.00003846"/>
+		<e n="scSurvivorFemalePipeBaton" p="0.00001923"/>
+		<e n="scSurvivorFemaleStunBaton" p="0.00003846"/>
+		<e n="scSurvivorFemaleSteelClub" p="0.00003846"/>
+		<e n="scSurvivorFemaleStoneSledge" p="0.00001923"/>
+		<e n="scSurvivorFemaleIronSledge" p="0.00001923"/>
+		<e n="scSurvivorFemaleSteelSledge" p="0.00003846"/>
+		<e n="scSurvivorFemaleStoneSpear" p="0.00001923"/>
+		<e n="scSurvivorFemaleSteelSpear" p="0.00003846"/>
+		<e n="scSurvivorFemaleSteelAxe" p="0.00003846"/>
+		<e n="scSurvivorFemaleMagnum" p="0.00000375"/>
+		<e n="scSurvivorFemaleDoubleBarrel" p="0.00000375"/>
+		<e n="scSurvivorFemaleLeverAction" p="0.00000375"/>
+		<e n="scSurvivorFemalePrimitiveBow" p="0.00004889"/>
+		<e n="scSurvivorFemaleCompoundBow" p="0.00009778"/>
+		<e n="scSurvivorFemaleCompoundCrossbow" p="0.00009778"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS50']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcFriendlyAllGroupGS50']">
+		<e n="scSurvivorMaleEmptyHand" p="0.0000875"/>
+		<e n="scSurvivorMaleClub" p="0.0000875"/>
+		<e n="scSurvivorMaleKnife" p="0.0000875"/>
+		<e n="scSurvivorMaleBat" p="0.0000875"/>
+		<e n="scSurvivorMaleAxe" p="0.0000875"/>
+		<e n="scSurvivorMaleSpear" p="0.0000875"/>
+		<e n="scSurvivorMaleMachete" p="0.0000875"/>
+		<e n="scSurvivorMalePipePistol" p="0.0000186"/>
+		<e n="scSurvivorMalePipeRifle" p="0.0000186"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.0000186"/>
+		<e n="scSurvivorMalePipeMG" p="0.0000186"/>
+		<e n="scSurvivorMaleBoneKnife" p="0.0000875"/>
+		<e n="scSurvivorMaleLeatherKnuckles" p="0.0000875"/>
+		<e n="scSurvivorMaleIronKnuckles" p="0.0000875"/>
+		<e n="scSurvivorMalePipeBaton" p="0.0000875"/>
+		<e n="scSurvivorMaleStoneSledge" p="0.0000875"/>
+		<e n="scSurvivorMaleIronSledge" p="0.0000875"/>
+		<e n="scSurvivorMaleStoneSpear" p="0.0000875"/>
+		<e n="scSurvivorMalePrimitiveBow" p="0.00038133"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.0000875"/>
+		<e n="scSurvivorFemaleClub" p="0.0000875"/>
+		<e n="scSurvivorFemaleKnife" p="0.0000875"/>
+		<e n="scSurvivorFemaleBat" p="0.0000875"/>
+		<e n="scSurvivorFemaleAxe" p="0.0000875"/>
+		<e n="scSurvivorFemaleSpear" p="0.0000875"/>
+		<e n="scSurvivorFemaleMachete" p="0.0000875"/>
+		<e n="scSurvivorFemalePipePistol" p="0.0000186"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.0000186"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.0000186"/>
+		<e n="scSurvivorFemalePipeMG" p="0.0000186"/>
+		<e n="scSurvivorFemaleBoneKnife" p="0.0000875"/>
+		<e n="scSurvivorFemaleLeatherKnuckles" p="0.0000875"/>
+		<e n="scSurvivorFemaleIronKnuckles" p="0.0000875"/>
+		<e n="scSurvivorFemalePipeBaton" p="0.0000875"/>
+		<e n="scSurvivorFemaleStoneSledge" p="0.0000875"/>
+		<e n="scSurvivorFemaleIronSledge" p="0.0000875"/>
+		<e n="scSurvivorFemaleStoneSpear" p="0.0000875"/>
+		<e n="scSurvivorFemalePrimitiveBow" p="0.00038133"/>
+		<e n="scSurvivorMaleLBow" p="0.00011733"/>
+		<e n="scSurvivorMaleXBow" p="0.00011733"/>
+		<e n="scSurvivorMaleStunBaton" p="0.0000375"/>
+		<e n="scSurvivorMaleSteelAxe" p="0.0000375"/>
+		<e n="scSurvivorMaleDoubleBarrel" p="0.0000096"/>
+		<e n="scSurvivorFemaleLBow" p="0.00011733"/>
+		<e n="scSurvivorFemaleXBow" p="0.00011733"/>
+		<e n="scSurvivorFemaleStunBaton" p="0.0000375"/>
+		<e n="scSurvivorFemaleSteelAxe" p="0.0000375"/>
+		<e n="scSurvivorFemaleDoubleBarrel" p="0.0000096"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyCoreGroupGS01']/*"/>
@@ -891,60 +1189,6 @@
 		<e n="scSurvivorMaleXBow" p="0.05"/>
 		<e n="scSurvivorFemaleXBow" p="0.05"/>
 		<e n="none" p="97"/>
-	</append>
-
-	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyMeleeGroupGS01' or @name='npcFriendlyMeleeGroupGS100' or @name='npcFriendlyMeleeGroupGS200' or @name='npcFriendlyMeleeGroupGS400' or @name='npcFriendlyMeleeGroupGS50' or @name='npcFriendlyMeleeGroupGS800' or @name='npcWhiteriverMeleeGroupGS01' or @name='npcWhiteriverMeleeGroupGS100' or @name='npcWhiteriverMeleeGroupGS200' or @name='npcWhiteriverMeleeGroupGS400' or @name='npcWhiteriverMeleeGroupGS50' or @name='npcWhiteriverMeleeGroupGS800']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcFriendlyMeleeGroupGS01' or @name='npcFriendlyMeleeGroupGS100' or @name='npcFriendlyMeleeGroupGS200' or @name='npcFriendlyMeleeGroupGS400' or @name='npcFriendlyMeleeGroupGS50' or @name='npcFriendlyMeleeGroupGS800' or @name='npcWhiteriverMeleeGroupGS01' or @name='npcWhiteriverMeleeGroupGS100' or @name='npcWhiteriverMeleeGroupGS200' or @name='npcWhiteriverMeleeGroupGS400' or @name='npcWhiteriverMeleeGroupGS50' or @name='npcWhiteriverMeleeGroupGS800']">
-		<e n="scSurvivorMaleEmptyHand" p="0.001"/>
-		<e n="scSurvivorFemaleEmptyHand" p="0.001"/>
-		<e n="scSurvivorMaleClub" p="0.001"/>
-		<e n="scSurvivorFemaleClub" p="0.001"/>
-		<e n="scSurvivorMaleKnife" p="0.001"/>
-		<e n="scSurvivorFemaleKnife" p="0.001"/>
-		<e n="scSurvivorMaleBat" p="0.001"/>
-		<e n="scSurvivorFemaleBat" p="0.001"/>
-		<e n="scSurvivorMaleMachete" p="0.001"/>
-		<e n="scSurvivorFemaleMachete" p="0.001"/>
-		<e n="scSurvivorMaleAxe" p="0.001"/>
-		<e n="scSurvivorFemaleAxe" p="0.001"/>
-		<e n="scSurvivorMaleSpear" p="0.001"/>
-		<e n="scSurvivorFemaleSpear" p="0.001"/>
-	</append>
-
-	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyRangedGroupGS01' or @name='npcFriendlyRangedGroupGS100' or @name='npcFriendlyRangedGroupGS200' or @name='npcFriendlyRangedGroupGS400' or @name='npcFriendlyRangedGroupGS50' or @name='npcFriendlyRangedGroupGS800' or @name='npcWhiteriverRangedGroupGS01' or @name='npcWhiteriverRangedGroupGS100' or @name='npcWhiteriverRangedGroupGS200' or @name='npcWhiteriverRangedGroupGS400' or @name='npcWhiteriverRangedGroupGS50' or @name='npcWhiteriverRangedGroupGS800']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcFriendlyRangedGroupGS01' or @name='npcFriendlyRangedGroupGS100' or @name='npcFriendlyRangedGroupGS200' or @name='npcFriendlyRangedGroupGS400' or @name='npcFriendlyRangedGroupGS50' or @name='npcFriendlyRangedGroupGS800' or @name='npcWhiteriverRangedGroupGS01' or @name='npcWhiteriverRangedGroupGS100' or @name='npcWhiteriverRangedGroupGS200' or @name='npcWhiteriverRangedGroupGS400' or @name='npcWhiteriverRangedGroupGS50' or @name='npcWhiteriverRangedGroupGS800']">
-		<e n="scSurvivorMalePipePistol" p="0.001"/>
-		<e n="scSurvivorFemalePipePistol" p="0.001"/>
-		<e n="scSurvivorMalePipeRifle" p="0.001"/>
-		<e n="scSurvivorFemalePipeRifle" p="0.001"/>
-		<e n="scSurvivorMalePipeMG" p="0.001"/>
-		<e n="scSurvivorFemalePipeMG" p="0.001"/>
-		<e n="scSurvivorMalePipeShotgun" p="0.001"/>
-		<e n="scSurvivorFemalePipeShotgun" p="0.001"/>
-		<e n="scSurvivorMaleSMG" p="0.001"/>
-		<e n="scSurvivorFemaleSMG" p="0.001"/>
-		<e n="scSurvivorMaleM60" p="0.001"/>
-		<e n="scSurvivorFemaleM60" p="0.001"/>
-		<e n="scSurvivorMalePistol" p="0.001"/>
-		<e n="scSurvivorFemalePistol" p="0.001"/>
-		<e n="scSurvivorMaleDPistol" p="0.001"/>
-		<e n="scSurvivorFemaleDPistol" p="0.001"/>
-		<e n="scSurvivorMaleRifle" p="0.001"/>
-		<e n="scSurvivorFemaleRifle" p="0.001"/>
-		<e n="scSurvivorMaleTRifle" p="0.001"/>
-		<e n="scSurvivorFemaleTRifle" p="0.001"/>
-		<e n="scSurvivorMaleHRifle" p="0.001"/>
-		<e n="scSurvivorFemaleHRifle" p="0.001"/>
-		<e n="scSurvivorMaleSRifle" p="0.001"/>
-		<e n="scSurvivorFemaleSRifle" p="0.001"/>
-		<e n="scSurvivorMalePShotgun" p="0.001"/>
-		<e n="scSurvivorFemalePShotgun" p="0.001"/>
-		<e n="scSurvivorMaleAShotgun" p="0.001"/>
-		<e n="scSurvivorFemaleAShotgun" p="0.001"/>
-		<e n="scSurvivorMaleLBow" p="0.001"/>
-		<e n="scSurvivorFemaleLBow" p="0.001"/>
-		<e n="scSurvivorMaleXBow" p="0.001"/>
-		<e n="scSurvivorFemaleXBow" p="0.001"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcHarleyGroupGS01']/*"/>
@@ -1108,5 +1352,276 @@
 		<e n="scSurvivorFemaleLBow" p="0.0005"/>
 	</append>
 
-	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyAnimalsAllGroupGS01' or @name='npcFriendlyAnimalsAllGroupGS100' or @name='npcFriendlyAnimalsAllGroupGS200' or @name='npcFriendlyAnimalsAllGroupGS400' or @name='npcFriendlyAnimalsAllGroupGS50' or @name='npcFriendlyAnimalsAllGroupGS800' or @name='npcFriendlyAnimalsDomesticGroupGS01' or @name='npcFriendlyAnimalsDomesticGroupGS100' or @name='npcFriendlyAnimalsDomesticGroupGS200' or @name='npcFriendlyAnimalsDomesticGroupGS400' or @name='npcFriendlyAnimalsDomesticGroupGS50' or @name='npcFriendlyAnimalsDomesticGroupGS800']/e[@n='npcAnimalFox']"/>
+	<remove xpath="/entitygroups/entitygroup[@name='npcSdcsSurvivorGroupT1']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcSdcsSurvivorGroupT1']">
+		<e n="scSurvivorMaleEmptyHand" p="0.075"/>
+		<e n="scSurvivorMaleClub" p="0.075"/>
+		<e n="scSurvivorMaleKnife" p="0.075"/>
+		<e n="scSurvivorMaleBat" p="0.075"/>
+		<e n="scSurvivorMaleAxe" p="0.075"/>
+		<e n="scSurvivorMaleSpear" p="0.075"/>
+		<e n="scSurvivorMaleMachete" p="0.075"/>
+		<e n="scSurvivorMalePipePistol" p="0.0135"/>
+		<e n="scSurvivorMalePipeRifle" p="0.0135"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.0135"/>
+		<e n="scSurvivorMalePipeMG" p="0.0135"/>
+		<e n="scSurvivorMaleBoneKnife" p="0.075"/>
+		<e n="scSurvivorMaleLeatherKnuckles" p="0.075"/>
+		<e n="scSurvivorMaleIronKnuckles" p="0.075"/>
+		<e n="scSurvivorMalePipeBaton" p="0.075"/>
+		<e n="scSurvivorMaleStoneSledge" p="0.075"/>
+		<e n="scSurvivorMaleIronSledge" p="0.075"/>
+		<e n="scSurvivorMaleStoneSpear" p="0.075"/>
+		<e n="scSurvivorMalePrimitiveBow" p="0.396"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.075"/>
+		<e n="scSurvivorFemaleClub" p="0.075"/>
+		<e n="scSurvivorFemaleKnife" p="0.075"/>
+		<e n="scSurvivorFemaleBat" p="0.075"/>
+		<e n="scSurvivorFemaleAxe" p="0.075"/>
+		<e n="scSurvivorFemaleSpear" p="0.075"/>
+		<e n="scSurvivorFemaleMachete" p="0.075"/>
+		<e n="scSurvivorFemalePipePistol" p="0.0135"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.0135"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.0135"/>
+		<e n="scSurvivorFemalePipeMG" p="0.0135"/>
+		<e n="scSurvivorFemaleBoneKnife" p="0.075"/>
+		<e n="scSurvivorFemaleLeatherKnuckles" p="0.075"/>
+		<e n="scSurvivorFemaleIronKnuckles" p="0.075"/>
+		<e n="scSurvivorFemalePipeBaton" p="0.075"/>
+		<e n="scSurvivorFemaleStoneSledge" p="0.075"/>
+		<e n="scSurvivorFemaleIronSledge" p="0.075"/>
+		<e n="scSurvivorFemaleStoneSpear" p="0.075"/>
+		<e n="scSurvivorFemalePrimitiveBow" p="0.396"/>
+		<e n="none" p="97"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcSdcsSurvivorGroupT2']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcSdcsSurvivorGroupT2']">
+		<e n="scSurvivorMaleEmptyHand" p="0.05625"/>
+		<e n="scSurvivorMaleClub" p="0.05625"/>
+		<e n="scSurvivorMaleKnife" p="0.05625"/>
+		<e n="scSurvivorMaleBat" p="0.05625"/>
+		<e n="scSurvivorMaleAxe" p="0.05625"/>
+		<e n="scSurvivorMaleSpear" p="0.05625"/>
+		<e n="scSurvivorMaleMachete" p="0.05625"/>
+		<e n="scSurvivorMalePipePistol" p="0.0144"/>
+		<e n="scSurvivorMalePipeRifle" p="0.0144"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.0144"/>
+		<e n="scSurvivorMalePipeMG" p="0.0144"/>
+		<e n="scSurvivorMaleLBow" p="0.176"/>
+		<e n="scSurvivorMaleXBow" p="0.176"/>
+		<e n="scSurvivorMaleBoneKnife" p="0.05625"/>
+		<e n="scSurvivorMaleLeatherKnuckles" p="0.05625"/>
+		<e n="scSurvivorMaleIronKnuckles" p="0.05625"/>
+		<e n="scSurvivorMalePipeBaton" p="0.05625"/>
+		<e n="scSurvivorMaleStunBaton" p="0.05625"/>
+		<e n="scSurvivorMaleStoneSledge" p="0.05625"/>
+		<e n="scSurvivorMaleIronSledge" p="0.05625"/>
+		<e n="scSurvivorMaleStoneSpear" p="0.05625"/>
+		<e n="scSurvivorMaleSteelAxe" p="0.05625"/>
+		<e n="scSurvivorMaleDoubleBarrel" p="0.0144"/>
+		<e n="scSurvivorMalePrimitiveBow" p="0.176"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.05625"/>
+		<e n="scSurvivorFemaleClub" p="0.05625"/>
+		<e n="scSurvivorFemaleKnife" p="0.05625"/>
+		<e n="scSurvivorFemaleBat" p="0.05625"/>
+		<e n="scSurvivorFemaleAxe" p="0.05625"/>
+		<e n="scSurvivorFemaleSpear" p="0.05625"/>
+		<e n="scSurvivorFemaleMachete" p="0.05625"/>
+		<e n="scSurvivorFemalePipePistol" p="0.0144"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.0144"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.0144"/>
+		<e n="scSurvivorFemalePipeMG" p="0.0144"/>
+		<e n="scSurvivorFemaleLBow" p="0.176"/>
+		<e n="scSurvivorFemaleXBow" p="0.176"/>
+		<e n="scSurvivorFemaleBoneKnife" p="0.05625"/>
+		<e n="scSurvivorFemaleLeatherKnuckles" p="0.05625"/>
+		<e n="scSurvivorFemaleIronKnuckles" p="0.05625"/>
+		<e n="scSurvivorFemalePipeBaton" p="0.05625"/>
+		<e n="scSurvivorFemaleStunBaton" p="0.05625"/>
+		<e n="scSurvivorFemaleStoneSledge" p="0.05625"/>
+		<e n="scSurvivorFemaleIronSledge" p="0.05625"/>
+		<e n="scSurvivorFemaleStoneSpear" p="0.05625"/>
+		<e n="scSurvivorFemaleSteelAxe" p="0.05625"/>
+		<e n="scSurvivorFemaleDoubleBarrel" p="0.0144"/>
+		<e n="scSurvivorFemalePrimitiveBow" p="0.176"/>
+		<e n="none" p="97"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcSdcsSurvivorGroupT3']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcSdcsSurvivorGroupT3']">
+		<e n="scSurvivorMaleEmptyHand" p="0.02884615"/>
+		<e n="scSurvivorMaleClub" p="0.02884615"/>
+		<e n="scSurvivorMaleKnife" p="0.02884615"/>
+		<e n="scSurvivorMaleBat" p="0.02884615"/>
+		<e n="scSurvivorMaleAxe" p="0.02884615"/>
+		<e n="scSurvivorMaleSpear" p="0.02884615"/>
+		<e n="scSurvivorMaleMachete" p="0.02884615"/>
+		<e n="scSurvivorMalePipePistol" p="0.0028125"/>
+		<e n="scSurvivorMalePipeRifle" p="0.0028125"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.0028125"/>
+		<e n="scSurvivorMalePipeMG" p="0.0028125"/>
+		<e n="scSurvivorMaleLBow" p="0.14666667"/>
+		<e n="scSurvivorMaleXBow" p="0.14666667"/>
+		<e n="scSurvivorMalePistol" p="0.005625"/>
+		<e n="scSurvivorMaleDPistol" p="0.005625"/>
+		<e n="scSurvivorMaleSMG" p="0.005625"/>
+		<e n="scSurvivorMaleRifle" p="0.005625"/>
+		<e n="scSurvivorMaleTRifle" p="0.005625"/>
+		<e n="scSurvivorMaleHRifle" p="0.005625"/>
+		<e n="scSurvivorMaleSRifle" p="0.005625"/>
+		<e n="scSurvivorMalePShotgun" p="0.005625"/>
+		<e n="scSurvivorMaleAShotgun" p="0.005625"/>
+		<e n="scSurvivorMaleM60" p="0.005625"/>
+		<e n="scSurvivorMaleRocketL" p="0.005625"/>
+		<e n="scSurvivorMaleBoneKnife" p="0.02884615"/>
+		<e n="scSurvivorMaleLeatherKnuckles" p="0.02884615"/>
+		<e n="scSurvivorMaleIronKnuckles" p="0.02884615"/>
+		<e n="scSurvivorMaleSteelKnuckles" p="0.05769231"/>
+		<e n="scSurvivorMalePipeBaton" p="0.02884615"/>
+		<e n="scSurvivorMaleStunBaton" p="0.05769231"/>
+		<e n="scSurvivorMaleSteelClub" p="0.05769231"/>
+		<e n="scSurvivorMaleStoneSledge" p="0.02884615"/>
+		<e n="scSurvivorMaleIronSledge" p="0.02884615"/>
+		<e n="scSurvivorMaleSteelSledge" p="0.05769231"/>
+		<e n="scSurvivorMaleStoneSpear" p="0.02884615"/>
+		<e n="scSurvivorMaleSteelSpear" p="0.05769231"/>
+		<e n="scSurvivorMaleSteelAxe" p="0.05769231"/>
+		<e n="scSurvivorMaleMagnum" p="0.005625"/>
+		<e n="scSurvivorMaleDoubleBarrel" p="0.005625"/>
+		<e n="scSurvivorMaleLeverAction" p="0.005625"/>
+		<e n="scSurvivorMalePrimitiveBow" p="0.07333333"/>
+		<e n="scSurvivorMaleCompoundBow" p="0.14666667"/>
+		<e n="scSurvivorMaleCompoundCrossbow" p="0.14666667"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.02884615"/>
+		<e n="scSurvivorFemaleClub" p="0.02884615"/>
+		<e n="scSurvivorFemaleKnife" p="0.02884615"/>
+		<e n="scSurvivorFemaleBat" p="0.02884615"/>
+		<e n="scSurvivorFemaleAxe" p="0.02884615"/>
+		<e n="scSurvivorFemaleSpear" p="0.02884615"/>
+		<e n="scSurvivorFemaleMachete" p="0.02884615"/>
+		<e n="scSurvivorFemalePipePistol" p="0.0028125"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.0028125"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.0028125"/>
+		<e n="scSurvivorFemalePipeMG" p="0.0028125"/>
+		<e n="scSurvivorFemaleLBow" p="0.14666667"/>
+		<e n="scSurvivorFemaleXBow" p="0.14666667"/>
+		<e n="scSurvivorFemalePistol" p="0.005625"/>
+		<e n="scSurvivorFemaleDPistol" p="0.005625"/>
+		<e n="scSurvivorFemaleSMG" p="0.005625"/>
+		<e n="scSurvivorFemaleRifle" p="0.005625"/>
+		<e n="scSurvivorFemaleTRifle" p="0.005625"/>
+		<e n="scSurvivorFemaleHRifle" p="0.005625"/>
+		<e n="scSurvivorFemaleSRifle" p="0.005625"/>
+		<e n="scSurvivorFemalePShotgun" p="0.005625"/>
+		<e n="scSurvivorFemaleAShotgun" p="0.005625"/>
+		<e n="scSurvivorFemaleM60" p="0.005625"/>
+		<e n="scSurvivorFemaleRocketL" p="0.005625"/>
+		<e n="scSurvivorFemaleBoneKnife" p="0.02884615"/>
+		<e n="scSurvivorFemaleLeatherKnuckles" p="0.02884615"/>
+		<e n="scSurvivorFemaleIronKnuckles" p="0.02884615"/>
+		<e n="scSurvivorFemaleSteelKnuckles" p="0.05769231"/>
+		<e n="scSurvivorFemalePipeBaton" p="0.02884615"/>
+		<e n="scSurvivorFemaleStunBaton" p="0.05769231"/>
+		<e n="scSurvivorFemaleSteelClub" p="0.05769231"/>
+		<e n="scSurvivorFemaleStoneSledge" p="0.02884615"/>
+		<e n="scSurvivorFemaleIronSledge" p="0.02884615"/>
+		<e n="scSurvivorFemaleSteelSledge" p="0.05769231"/>
+		<e n="scSurvivorFemaleStoneSpear" p="0.02884615"/>
+		<e n="scSurvivorFemaleSteelSpear" p="0.05769231"/>
+		<e n="scSurvivorFemaleSteelAxe" p="0.05769231"/>
+		<e n="scSurvivorFemaleMagnum" p="0.005625"/>
+		<e n="scSurvivorFemaleDoubleBarrel" p="0.005625"/>
+		<e n="scSurvivorFemaleLeverAction" p="0.005625"/>
+		<e n="scSurvivorFemalePrimitiveBow" p="0.07333333"/>
+		<e n="scSurvivorFemaleCompoundBow" p="0.14666667"/>
+		<e n="scSurvivorFemaleCompoundCrossbow" p="0.14666667"/>
+		<e n="none" p="97"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcWhiteriverBossGroupGS01' or @name='npcWhiteriverBossGroupGS100' or @name='npcWhiteriverBossGroupGS200' or @name='npcWhiteriverBossGroupGS400' or @name='npcWhiteriverBossGroupGS50' or @name='npcWhiteriverBossGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcWhiteriverBossGroupGS01' or @name='npcWhiteriverBossGroupGS100' or @name='npcWhiteriverBossGroupGS200' or @name='npcWhiteriverBossGroupGS400' or @name='npcWhiteriverBossGroupGS50' or @name='npcWhiteriverBossGroupGS800']">
+		<e n="scSurvivorMaleSMG" p="0.001"/>
+		<e n="scSurvivorFemaleSMG" p="0.001"/>
+		<e n="scSurvivorMaleM60" p="0.001"/>
+		<e n="scSurvivorFemaleM60" p="0.001"/>
+		<e n="scSurvivorMalePistol" p="0.001"/>
+		<e n="scSurvivorFemalePistol" p="0.001"/>
+		<e n="scSurvivorMaleDPistol" p="0.001"/>
+		<e n="scSurvivorFemaleDPistol" p="0.001"/>
+		<e n="scSurvivorMaleRifle" p="0.001"/>
+		<e n="scSurvivorFemaleRifle" p="0.001"/>
+		<e n="scSurvivorMaleTRifle" p="0.001"/>
+		<e n="scSurvivorFemaleTRifle" p="0.001"/>
+		<e n="scSurvivorMaleHRifle" p="0.001"/>
+		<e n="scSurvivorFemaleHRifle" p="0.001"/>
+		<e n="scSurvivorMaleSRifle" p="0.001"/>
+		<e n="scSurvivorFemaleSRifle" p="0.001"/>
+		<e n="scSurvivorMalePShotgun" p="0.001"/>
+		<e n="scSurvivorFemalePShotgun" p="0.001"/>
+		<e n="scSurvivorMaleAShotgun" p="0.001"/>
+		<e n="scSurvivorFemaleAShotgun" p="0.001"/>
+		<e n="scSurvivorMaleLBow" p="0.001"/>
+		<e n="scSurvivorFemaleLBow" p="0.001"/>
+		<e n="scSurvivorMaleXBow" p="0.001"/>
+		<e n="scSurvivorFemaleXBow" p="0.001"/>
+		<e n="scSurvivorMaleRocketL" p="0.001"/>
+		<e n="scSurvivorFemaleRocketL" p="0.001"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcWhiteriverMeleeGroupGS01' or @name='npcWhiteriverMeleeGroupGS100' or @name='npcWhiteriverMeleeGroupGS200' or @name='npcWhiteriverMeleeGroupGS400' or @name='npcWhiteriverMeleeGroupGS50' or @name='npcWhiteriverMeleeGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcWhiteriverMeleeGroupGS01' or @name='npcWhiteriverMeleeGroupGS100' or @name='npcWhiteriverMeleeGroupGS200' or @name='npcWhiteriverMeleeGroupGS400' or @name='npcWhiteriverMeleeGroupGS50' or @name='npcWhiteriverMeleeGroupGS800']">
+		<e n="scSurvivorMaleEmptyHand" p="0.001"/>
+		<e n="scSurvivorFemaleEmptyHand" p="0.001"/>
+		<e n="scSurvivorMaleClub" p="0.001"/>
+		<e n="scSurvivorFemaleClub" p="0.001"/>
+		<e n="scSurvivorMaleKnife" p="0.001"/>
+		<e n="scSurvivorFemaleKnife" p="0.001"/>
+		<e n="scSurvivorMaleBat" p="0.001"/>
+		<e n="scSurvivorFemaleBat" p="0.001"/>
+		<e n="scSurvivorMaleMachete" p="0.001"/>
+		<e n="scSurvivorFemaleMachete" p="0.001"/>
+		<e n="scSurvivorMaleAxe" p="0.001"/>
+		<e n="scSurvivorFemaleAxe" p="0.001"/>
+		<e n="scSurvivorMaleSpear" p="0.001"/>
+		<e n="scSurvivorFemaleSpear" p="0.001"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcWhiteriverRangedGroupGS01' or @name='npcWhiteriverRangedGroupGS100' or @name='npcWhiteriverRangedGroupGS200' or @name='npcWhiteriverRangedGroupGS400' or @name='npcWhiteriverRangedGroupGS50' or @name='npcWhiteriverRangedGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcWhiteriverRangedGroupGS01' or @name='npcWhiteriverRangedGroupGS100' or @name='npcWhiteriverRangedGroupGS200' or @name='npcWhiteriverRangedGroupGS400' or @name='npcWhiteriverRangedGroupGS50' or @name='npcWhiteriverRangedGroupGS800']">
+		<e n="scSurvivorMalePipePistol" p="0.001"/>
+		<e n="scSurvivorFemalePipePistol" p="0.001"/>
+		<e n="scSurvivorMalePipeRifle" p="0.001"/>
+		<e n="scSurvivorFemalePipeRifle" p="0.001"/>
+		<e n="scSurvivorMalePipeMG" p="0.001"/>
+		<e n="scSurvivorFemalePipeMG" p="0.001"/>
+		<e n="scSurvivorMalePipeShotgun" p="0.001"/>
+		<e n="scSurvivorFemalePipeShotgun" p="0.001"/>
+		<e n="scSurvivorMaleSMG" p="0.001"/>
+		<e n="scSurvivorFemaleSMG" p="0.001"/>
+		<e n="scSurvivorMaleM60" p="0.001"/>
+		<e n="scSurvivorFemaleM60" p="0.001"/>
+		<e n="scSurvivorMalePistol" p="0.001"/>
+		<e n="scSurvivorFemalePistol" p="0.001"/>
+		<e n="scSurvivorMaleDPistol" p="0.001"/>
+		<e n="scSurvivorFemaleDPistol" p="0.001"/>
+		<e n="scSurvivorMaleRifle" p="0.001"/>
+		<e n="scSurvivorFemaleRifle" p="0.001"/>
+		<e n="scSurvivorMaleTRifle" p="0.001"/>
+		<e n="scSurvivorFemaleTRifle" p="0.001"/>
+		<e n="scSurvivorMaleHRifle" p="0.001"/>
+		<e n="scSurvivorFemaleHRifle" p="0.001"/>
+		<e n="scSurvivorMaleSRifle" p="0.001"/>
+		<e n="scSurvivorFemaleSRifle" p="0.001"/>
+		<e n="scSurvivorMalePShotgun" p="0.001"/>
+		<e n="scSurvivorFemalePShotgun" p="0.001"/>
+		<e n="scSurvivorMaleAShotgun" p="0.001"/>
+		<e n="scSurvivorFemaleAShotgun" p="0.001"/>
+		<e n="scSurvivorMaleLBow" p="0.001"/>
+		<e n="scSurvivorFemaleLBow" p="0.001"/>
+		<e n="scSurvivorMaleXBow" p="0.001"/>
+		<e n="scSurvivorFemaleXBow" p="0.001"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcAnimalsAny' or @name='npcFriendlyAnimalsAllGroupGS01' or @name='npcFriendlyAnimalsAllGroupGS100' or @name='npcFriendlyAnimalsAllGroupGS200' or @name='npcFriendlyAnimalsAllGroupGS400' or @name='npcFriendlyAnimalsAllGroupGS50' or @name='npcFriendlyAnimalsAllGroupGS800' or @name='npcFriendlyAnimalsDomesticGroupGS01' or @name='npcFriendlyAnimalsDomesticGroupGS100' or @name='npcFriendlyAnimalsDomesticGroupGS200' or @name='npcFriendlyAnimalsDomesticGroupGS400' or @name='npcFriendlyAnimalsDomesticGroupGS50' or @name='npcFriendlyAnimalsDomesticGroupGS800']/e[@n='npcAnimalFox']"/>
 </configs>

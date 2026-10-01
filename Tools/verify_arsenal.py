@@ -3,6 +3,8 @@ from lxml import etree as ET
 G = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
 # SC_GEN_CONFIG checks a staged copy of Config (the same switch gen_arsenal.py writes to)
 SC = os.environ.get("SC_GEN_CONFIG") or G + r"\Mods\SurvivorCommunity\Config"
+# SC_GEN_XNPC replays against another 0-XNPCCore Config (the same switch gen_arsenal.py reads)
+XNPC = os.environ.get("SC_GEN_XNPC") or G + r"\Mods\0-XNPCCore\Config"
 def load(p): return ET.parse(p)
 def apply(doc, patchfile, label):
     p = ET.parse(patchfile).getroot(); ok = miss = 0
@@ -38,12 +40,12 @@ def apply(doc, patchfile, label):
 
 print("entity classes")
 ec = load(G + r"\Data\Config\entityclasses.xml")
-apply(ec, G + r"\Mods\0-XNPCCore\Config\entityclasses.xml", "0-XNPCCore")
+apply(ec, XNPC + r"\entityclasses.xml", "0-XNPCCore")
 apply(ec, SC + r"\entityclasses.xml", "SurvivorCommunity")
 names = {e.get("name"): e for e in ec.getroot().iter("entity_class")}
 print("items")
 it = load(G + r"\Data\Config\items.xml")
-apply(it, G + r"\Mods\0-XNPCCore\Config\items.xml", "0-XNPCCore")
+apply(it, XNPC + r"\items.xml", "0-XNPCCore")
 apply(it, SC + r"\items.xml", "SurvivorCommunity")
 items = set(e.get("name") for e in it.getroot().iter("item"))
 
@@ -109,7 +111,7 @@ for e in it.getroot().iter("item"):
     if not e.xpath("property[@name='Meshfile']/@value"): errors.append(n + ": no Meshfile")
 print("entity groups")
 eg = load(G + r"\Data\Config\entitygroups.xml")
-apply(eg, G + r"\Mods\0-XNPCCore\Config\entitygroups.xml", "0-XNPCCore")
+apply(eg, XNPC + r"\entitygroups.xml", "0-XNPCCore")
 apply(eg, SC + r"\entitygroups.xml", "SurvivorCommunity")
 for grp in eg.getroot().iter("entitygroup"):
     for e in grp.findall("e"):
@@ -158,7 +160,7 @@ if missing_leaf: errors.append("%d leaves are in no group e.g. %s" % (len(missin
 
 print("biome spawning")
 sp = load(G + r"\Data\Config\spawning.xml")
-apply(sp, G + r"\Mods\0-XNPCCore\Config\spawning.xml", "0-XNPCCore")
+apply(sp, XNPC + r"\spawning.xml", "0-XNPCCore")
 apply(sp, SC + r"\spawning.xml", "SurvivorCommunity")
 covered = set()
 for biome in sp.getroot().iter("biome"):

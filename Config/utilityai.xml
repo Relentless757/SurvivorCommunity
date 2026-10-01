@@ -69,6 +69,17 @@
 				<consideration class="ScIsNight, SurvivorCommunity" />
 				<consideration class="ScNearPost, SurvivorCommunity" distance="4" />
 			</action>
+			<!-- Cowardly members ($Timid, written by ScTraits) run from enemies within 15 m. Up to 0-XNPCCore 3.1 its
+			     NPCModCore had this very action; 3.2 commented it out ("$Timid has no writer" - this mod is one), so it
+			     lives here now. NotHasOrder Stay keeps a parked, hidden runner or garrison body still. Under 3.1 both
+			     run at the same weight, which is harmless. -->
+			<action name="ScFlee" weight="6" entity_filter="IsEnemy">
+				<task class="FleeFromTarget" max_distance="30" />
+				<consideration class="SelfHasCVar, SCore" cvar="$Timid" value="1" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
+				<consideration class="SelfVisible" />
+			</action>
 		</ai_package>
 	</append>
 </configs>

@@ -192,10 +192,13 @@ walk back.
 - **Locked doors.** A member opens a locked door only if it is your lock (you own it or are on its list), and
   `MembersOpenOwnerLockedDoors` is true (the default). A locked door in a POI, or anyone else's, stays shut. Set it to
   false and your locked doors keep your own people out too.
-- **Drawbridges and hatches** are never touched: a member never lowers your bridge.
-- Why this was needed: SCore's NPC door opener does nothing on 3.x doors, and the game's own opener (which bandits
-  use) is off for SCore NPCs, while the pathfinder still routes them through closed doors. Members used to walk
-  into a shut door and stand there until they were teleported home.
+- **Drawbridges and hatches** are opened too, and shut (the bridge raised) behind them, so a base whose only way
+  out is a hatch or a bridge doesn't trap its people. Set `MembersOpenHatches` to false to keep members off them.
+- **Raiders** open unlocked doors (SCore 3.2.36 does that for every NPC); locked doors stop them.
+- Why this was needed: SCore's own door opener only runs from some of its tasks (and did nothing on 3.x doors
+  before SCore 3.2.36), and the game's opener (which bandits use) is off for SCore NPCs, while the pathfinder still
+  routes them through closed doors. Members used to walk into a shut door and stand there until they were teleported
+  home.
 
 ## Linked storage
 

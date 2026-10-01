@@ -55,6 +55,7 @@ namespace SurvivorCommunity
                 ScAim.Reset();
                 ScLoadout.Reset();
                 ScMedic.Reset();
+                Patches_VoiceControl.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
                 {
@@ -198,6 +199,16 @@ namespace SurvivorCommunity
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));
             Add(t, "UAITaskAttackTargetEntitySDX::Start", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Start", new[] { typeof(UAI.Context) }));
             Add(t, "UAITaskAttackTargetEntitySDX::Update", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Update", new[] { typeof(UAI.Context) }));
+            // Patches_VoiceControl.cs - members are never billed by 0-XNPCCore 3.2's Voice Control (only when it is loaded)
+            if (Patches_VoiceControl.ChatType != null)
+            {
+                Add(t, "NPCChatComponent::MaybeStampHireDay", Patches_VoiceControl.StampTarget());
+                Add(t, "NPCChatComponent::CheckBillingReactor", Patches_VoiceControl.ReactorTarget());
+                Add(t, "PhraseTriggerHandler::Dismiss", Patches_VoiceControl.DismissTarget());
+                Add(t, "PhraseTriggerHandler::Pickup", Patches_VoiceControl.PickupTarget());
+                Add(t, "PhraseTriggerHandler::Hire", Patches_VoiceControl.HireTarget());
+            }
+            else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");
             // Patches_Outposts.cs - outpost protection and the claim limit
             Add(t, "GameUtils::CheckForAnyPlayerHome", AccessTools.Method(typeof(GameUtils), "CheckForAnyPlayerHome", new[] { typeof(World), typeof(Vector3i), typeof(Vector3i) }));
             Add(t, "PersistentPlayerList::RemoveExtraLandClaims", AccessTools.Method(typeof(PersistentPlayerList), "RemoveExtraLandClaims", new[] { typeof(PersistentPlayerData) }));

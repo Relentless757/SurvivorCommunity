@@ -92,6 +92,8 @@ namespace SurvivorCommunity
         public static bool PhysicalRuns = true;
         /// <summary>Members may open the community owner's own LOCKED doors (and shut them behind them). Other locks stay shut.</summary>
         public static bool MembersOpenOwnerLockedDoors = true;
+        /// <summary>Members open drawbridges and hatches as well (and shut them behind them).</summary>
+        public static bool MembersOpenHatches = true;
         public static float RunWalkMps = 4f;       // the runner's RUNNING pace on the Outbound/Inbound legs (name kept for config compatibility)
         public static int RunMinDist = 150;
         public static int RunMaxDist = 700;
@@ -322,6 +324,7 @@ namespace SurvivorCommunity
             RunRiskBase = 0.15f;
             RunYieldBase = 2;
             MembersOpenOwnerLockedDoors = true;
+            MembersOpenHatches = true;
             PhysicalRuns = true; RunWalkMps = 4f; RunMinDist = 150; RunMaxDist = 700; RunSiteHours = 6f; RunDistressHours = 12f; RunDeadlineGraceDays = 2; RunWaypointSpacing = 25f; RunArriveRadius = 2.5f; RunPartialArrive = 6f; RunArriveSite = 6f; RunGridSize = 64; RunGridFarFromPlayer = 25f; RunOnlineRingMargin = 2; RunOfflineRingMargin = 0; RunOnlineDwellSeconds = 10f; RunOfflineDwellSeconds = 5f; RunFrozenSeconds = 3f; RunNoPopInRange = 50f; RunPopInMaxWait = 20f; RunGateDistance = 56f; RunStuckRepathSeconds = 5f; RunStuckSkipSeconds = 15f; RunSkipMinPlayerDist = 40f; RunSnapRefreshSeconds = 60f; RunSnapMaxBytes = 60000; RunMaterializePerTick = 1;
             SuppliesFavours.Clear();
             PoiFavourRange = 300;
@@ -451,6 +454,7 @@ namespace SurvivorCommunity
                     string bv;
                     if (p.Values.TryGetValue("PhysicalRuns", out bv) && !string.IsNullOrEmpty(bv)) PhysicalRuns = StringParsers.ParseBool(bv);
                     if (p.Values.TryGetValue("MembersOpenOwnerLockedDoors", out bv) && !string.IsNullOrEmpty(bv)) MembersOpenOwnerLockedDoors = StringParsers.ParseBool(bv);
+                    if (p.Values.TryGetValue("MembersOpenHatches", out bv) && !string.IsNullOrEmpty(bv)) MembersOpenHatches = StringParsers.ParseBool(bv);
                 }
                 ParseFloat(p, "RunWalkMps", ref RunWalkMps, 0.3f, 6.0f);
                 ParseInt(p, "RunMinDist", ref RunMinDist, 20, 5000);

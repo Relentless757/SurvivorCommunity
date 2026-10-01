@@ -26,6 +26,10 @@ scInternal,UI,Tooltip,,,,Something went wrong - see the log.
 scJoined,UI,Tooltip,,,,"{0} joined your community and is settling in."
 scJoinedFollow,UI,Tooltip,,,,"{0} joined your community and will follow you home."
 scStationed,UI,Tooltip,,,,"{0} is home and settling in."
+scVoiceGoingHome,Dialog,Statement,,,,"*nods* Heading home."
+scVoiceStays,Dialog,Statement,,,,"*shakes head* I'm with the community - I'm not going anywhere."
+scVoiceWalk,Dialog,Statement,,,,"*shakes head* I'll walk, thanks."
+scVoiceNoHire,Dialog,Statement,,,,"*smiles* Keep your money - I'm with you already. Just ask me to follow."
 scNotLoaded,UI,Tooltip,,,,They are too far away right now.
 scOnRun,UI,Tooltip,,,,They are away on a supply run.
 scFollowersFull,UI,Tooltip,,,,You already have as many followers as you can lead.
@@ -269,197 +273,6 @@ scQuestRescueDesc,UI,Quest,,,,"One of your survivors is pinned down on a supply 
 scQuestRescueOffer,UI,Quest,,,,A survivor of yours needs help.
 scQuestRescueCompletion,UI,Quest,,,,They are safe and heading home with the haul.
 scObjectiveRescue,UI,Quest,,,,"Defend {0} at {1}"
-scSurvivorMaleEmptyHand,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleEmptyHand,entityclasses,Entity,,,,Survivor
-scSurvivorMaleClub,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleClub,entityclasses,Entity,,,,Survivor
-scSurvivorMaleKnife,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleKnife,entityclasses,Entity,,,,Survivor
-scSurvivorMaleBat,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleBat,entityclasses,Entity,,,,Survivor
-scSurvivorMaleAxe,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleAxe,entityclasses,Entity,,,,Survivor
-scSurvivorMaleSpear,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleSpear,entityclasses,Entity,,,,Survivor
-scSurvivorMaleMachete,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleMachete,entityclasses,Entity,,,,Survivor
-scSurvivorMalePipePistol,entityclasses,Entity,,,,Survivor
-scSurvivorFemalePipePistol,entityclasses,Entity,,,,Survivor
-scSurvivorMalePipeRifle,entityclasses,Entity,,,,Survivor
-scSurvivorFemalePipeRifle,entityclasses,Entity,,,,Survivor
-scSurvivorMalePipeShotgun,entityclasses,Entity,,,,Survivor
-scSurvivorFemalePipeShotgun,entityclasses,Entity,,,,Survivor
-scSurvivorMalePipeMG,entityclasses,Entity,,,,Survivor
-scSurvivorFemalePipeMG,entityclasses,Entity,,,,Survivor
-scSurvivorMaleLBow,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleLBow,entityclasses,Entity,,,,Survivor
-scSurvivorMaleXBow,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleXBow,entityclasses,Entity,,,,Survivor
-scSurvivorMalePistol,entityclasses,Entity,,,,Survivor
-scSurvivorFemalePistol,entityclasses,Entity,,,,Survivor
-scSurvivorMaleDPistol,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleDPistol,entityclasses,Entity,,,,Survivor
-scSurvivorMaleSMG,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleSMG,entityclasses,Entity,,,,Survivor
-scSurvivorMaleRifle,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleRifle,entityclasses,Entity,,,,Survivor
-scSurvivorMaleTRifle,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleTRifle,entityclasses,Entity,,,,Survivor
-scSurvivorMaleHRifle,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleHRifle,entityclasses,Entity,,,,Survivor
-scSurvivorMaleSRifle,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleSRifle,entityclasses,Entity,,,,Survivor
-scSurvivorMalePShotgun,entityclasses,Entity,,,,Survivor
-scSurvivorFemalePShotgun,entityclasses,Entity,,,,Survivor
-scSurvivorMaleAShotgun,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleAShotgun,entityclasses,Entity,,,,Survivor
-scSurvivorMaleM60,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleM60,entityclasses,Entity,,,,Survivor
-scSurvivorMaleRocketL,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleRocketL,entityclasses,Entity,,,,Survivor
-scSurvivorMaleBoneKnife,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleBoneKnife,entityclasses,Entity,,,,Survivor
-scSurvivorMaleLeatherKnuckles,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleLeatherKnuckles,entityclasses,Entity,,,,Survivor
-scSurvivorMaleIronKnuckles,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleIronKnuckles,entityclasses,Entity,,,,Survivor
-scSurvivorMaleSteelKnuckles,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleSteelKnuckles,entityclasses,Entity,,,,Survivor
-scSurvivorMalePipeBaton,entityclasses,Entity,,,,Survivor
-scSurvivorFemalePipeBaton,entityclasses,Entity,,,,Survivor
-scSurvivorMaleStunBaton,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleStunBaton,entityclasses,Entity,,,,Survivor
-scSurvivorMaleSteelClub,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleSteelClub,entityclasses,Entity,,,,Survivor
-scSurvivorMaleStoneSledge,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleStoneSledge,entityclasses,Entity,,,,Survivor
-scSurvivorMaleIronSledge,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleIronSledge,entityclasses,Entity,,,,Survivor
-scSurvivorMaleSteelSledge,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleSteelSledge,entityclasses,Entity,,,,Survivor
-scSurvivorMaleStoneSpear,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleStoneSpear,entityclasses,Entity,,,,Survivor
-scSurvivorMaleSteelSpear,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleSteelSpear,entityclasses,Entity,,,,Survivor
-scSurvivorMaleSteelAxe,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleSteelAxe,entityclasses,Entity,,,,Survivor
-scSurvivorMaleMagnum,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleMagnum,entityclasses,Entity,,,,Survivor
-scSurvivorMaleDoubleBarrel,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleDoubleBarrel,entityclasses,Entity,,,,Survivor
-scSurvivorMaleLeverAction,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleLeverAction,entityclasses,Entity,,,,Survivor
-scSurvivorMalePrimitiveBow,entityclasses,Entity,,,,Survivor
-scSurvivorFemalePrimitiveBow,entityclasses,Entity,,,,Survivor
-scSurvivorMaleCompoundBow,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleCompoundBow,entityclasses,Entity,,,,Survivor
-scSurvivorMaleCompoundCrossbow,entityclasses,Entity,,,,Survivor
-scSurvivorFemaleCompoundCrossbow,entityclasses,Entity,,,,Survivor
-scRaiderMaleEmptyHand,entityclasses,Entity,,,,Raider
-scRaiderFemaleEmptyHand,entityclasses,Entity,,,,Raider
-scRaiderMaleClub,entityclasses,Entity,,,,Raider
-scRaiderFemaleClub,entityclasses,Entity,,,,Raider
-scRaiderMaleKnife,entityclasses,Entity,,,,Raider
-scRaiderFemaleKnife,entityclasses,Entity,,,,Raider
-scRaiderMaleBat,entityclasses,Entity,,,,Raider
-scRaiderFemaleBat,entityclasses,Entity,,,,Raider
-scRaiderMaleAxe,entityclasses,Entity,,,,Raider
-scRaiderFemaleAxe,entityclasses,Entity,,,,Raider
-scRaiderMaleSpear,entityclasses,Entity,,,,Raider
-scRaiderFemaleSpear,entityclasses,Entity,,,,Raider
-scRaiderMaleMachete,entityclasses,Entity,,,,Raider
-scRaiderFemaleMachete,entityclasses,Entity,,,,Raider
-scRaiderMalePipePistol,entityclasses,Entity,,,,Raider
-scRaiderFemalePipePistol,entityclasses,Entity,,,,Raider
-scRaiderMalePipeRifle,entityclasses,Entity,,,,Raider
-scRaiderFemalePipeRifle,entityclasses,Entity,,,,Raider
-scRaiderMalePipeShotgun,entityclasses,Entity,,,,Raider
-scRaiderFemalePipeShotgun,entityclasses,Entity,,,,Raider
-scRaiderMalePipeMG,entityclasses,Entity,,,,Raider
-scRaiderFemalePipeMG,entityclasses,Entity,,,,Raider
-scRaiderMaleLBow,entityclasses,Entity,,,,Raider
-scRaiderFemaleLBow,entityclasses,Entity,,,,Raider
-scRaiderMaleXBow,entityclasses,Entity,,,,Raider
-scRaiderFemaleXBow,entityclasses,Entity,,,,Raider
-scRaiderMalePistol,entityclasses,Entity,,,,Raider
-scRaiderFemalePistol,entityclasses,Entity,,,,Raider
-scRaiderMaleDPistol,entityclasses,Entity,,,,Raider
-scRaiderFemaleDPistol,entityclasses,Entity,,,,Raider
-scRaiderMaleSMG,entityclasses,Entity,,,,Raider
-scRaiderFemaleSMG,entityclasses,Entity,,,,Raider
-scRaiderMaleRifle,entityclasses,Entity,,,,Raider
-scRaiderFemaleRifle,entityclasses,Entity,,,,Raider
-scRaiderMaleTRifle,entityclasses,Entity,,,,Raider
-scRaiderFemaleTRifle,entityclasses,Entity,,,,Raider
-scRaiderMaleHRifle,entityclasses,Entity,,,,Raider
-scRaiderFemaleHRifle,entityclasses,Entity,,,,Raider
-scRaiderMaleSRifle,entityclasses,Entity,,,,Raider
-scRaiderFemaleSRifle,entityclasses,Entity,,,,Raider
-scRaiderMalePShotgun,entityclasses,Entity,,,,Raider
-scRaiderFemalePShotgun,entityclasses,Entity,,,,Raider
-scRaiderMaleAShotgun,entityclasses,Entity,,,,Raider
-scRaiderFemaleAShotgun,entityclasses,Entity,,,,Raider
-scRaiderMaleM60,entityclasses,Entity,,,,Raider
-scRaiderFemaleM60,entityclasses,Entity,,,,Raider
-scRaiderMaleRocketL,entityclasses,Entity,,,,Raider
-scRaiderFemaleRocketL,entityclasses,Entity,,,,Raider
-scRaiderMaleBoneKnife,entityclasses,Entity,,,,Raider
-scRaiderFemaleBoneKnife,entityclasses,Entity,,,,Raider
-scRaiderMaleLeatherKnuckles,entityclasses,Entity,,,,Raider
-scRaiderFemaleLeatherKnuckles,entityclasses,Entity,,,,Raider
-scRaiderMaleIronKnuckles,entityclasses,Entity,,,,Raider
-scRaiderFemaleIronKnuckles,entityclasses,Entity,,,,Raider
-scRaiderMaleSteelKnuckles,entityclasses,Entity,,,,Raider
-scRaiderFemaleSteelKnuckles,entityclasses,Entity,,,,Raider
-scRaiderMalePipeBaton,entityclasses,Entity,,,,Raider
-scRaiderFemalePipeBaton,entityclasses,Entity,,,,Raider
-scRaiderMaleStunBaton,entityclasses,Entity,,,,Raider
-scRaiderFemaleStunBaton,entityclasses,Entity,,,,Raider
-scRaiderMaleSteelClub,entityclasses,Entity,,,,Raider
-scRaiderFemaleSteelClub,entityclasses,Entity,,,,Raider
-scRaiderMaleStoneSledge,entityclasses,Entity,,,,Raider
-scRaiderFemaleStoneSledge,entityclasses,Entity,,,,Raider
-scRaiderMaleIronSledge,entityclasses,Entity,,,,Raider
-scRaiderFemaleIronSledge,entityclasses,Entity,,,,Raider
-scRaiderMaleSteelSledge,entityclasses,Entity,,,,Raider
-scRaiderFemaleSteelSledge,entityclasses,Entity,,,,Raider
-scRaiderMaleStoneSpear,entityclasses,Entity,,,,Raider
-scRaiderFemaleStoneSpear,entityclasses,Entity,,,,Raider
-scRaiderMaleSteelSpear,entityclasses,Entity,,,,Raider
-scRaiderFemaleSteelSpear,entityclasses,Entity,,,,Raider
-scRaiderMaleSteelAxe,entityclasses,Entity,,,,Raider
-scRaiderFemaleSteelAxe,entityclasses,Entity,,,,Raider
-scRaiderMaleMagnum,entityclasses,Entity,,,,Raider
-scRaiderFemaleMagnum,entityclasses,Entity,,,,Raider
-scRaiderMaleDoubleBarrel,entityclasses,Entity,,,,Raider
-scRaiderFemaleDoubleBarrel,entityclasses,Entity,,,,Raider
-scRaiderMaleLeverAction,entityclasses,Entity,,,,Raider
-scRaiderFemaleLeverAction,entityclasses,Entity,,,,Raider
-scRaiderMalePrimitiveBow,entityclasses,Entity,,,,Raider
-scRaiderFemalePrimitiveBow,entityclasses,Entity,,,,Raider
-scRaiderMaleCompoundBow,entityclasses,Entity,,,,Raider
-scRaiderFemaleCompoundBow,entityclasses,Entity,,,,Raider
-scRaiderMaleCompoundCrossbow,entityclasses,Entity,,,,Raider
-scRaiderFemaleCompoundCrossbow,entityclasses,Entity,,,,Raider
-meleeNPCSCBoneKnife,items,Item,,,,"Bone Knife"
-meleeNPCSCLeatherKnuckles,items,Item,,,,"Knuckle Wraps"
-meleeNPCSCIronKnuckles,items,Item,,,,"Iron Knuckles"
-meleeNPCSCSteelKnuckles,items,Item,,,,"Steel Knuckles"
-meleeNPCSCPipeBaton,items,Item,,,,"Pipe Baton"
-meleeNPCSCStunBaton,items,Item,,,,"Stun Baton"
-meleeNPCSCSteelClub,items,Item,,,,"Steel Club"
-meleeNPCSCStoneSledge,items,Item,,,,"Stone Sledgehammer"
-meleeNPCSCIronSledge,items,Item,,,,"Iron Sledgehammer"
-meleeNPCSCSteelSledge,items,Item,,,,"Steel Sledgehammer"
-meleeNPCSCStoneSpear,items,Item,,,,"Stone Spear"
-meleeNPCSCSteelSpear,items,Item,,,,"Steel Spear"
-meleeNPCSCSteelAxe,items,Item,,,,"Steel Axe"
-gunNPCSCMagnum,items,Item,,,,".44 Magnum"
-gunNPCSCDoubleBarrel,items,Item,,,,"Double Barrel Shotgun"
-gunNPCSCLeverAction,items,Item,,,,"Lever Action Rifle"
-gunNPCSCPrimitiveBow,items,Item,,,,"Primitive Bow"
-gunNPCSCCompoundBow,items,Item,,,,"Compound Bow"
-gunNPCSCCompoundCrossbow,items,Item,,,,"Compound Crossbow"
 scBedsShort,UI,Menu,,,,"Beds {0} for {1} survivors - {2} short ({3} morale)"
 scBedsSpare,UI,Menu,,,,"Beds {0} for {1} survivors - {2} spare (+{3} morale)"
 scBedsExact,UI,Menu,,,,"Beds {0} for {1} survivors (+{2} morale)"
@@ -789,3 +602,194 @@ scRunNotOut,UI,Tooltip,,,,They are not out on a run.
 scDailyRunLate,UI,Tooltip,,,,- {0} finally made it back to the gate
 scRunHeadHome,UI,Menu,,,,Head home now.
 scRunBackEmpty,UI,Tooltip,,,,{0} turned back before reaching {1} and is home empty-handed.
+scSurvivorMaleEmptyHand,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleEmptyHand,entityclasses,Entity,,,,Survivor
+scSurvivorMaleClub,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleClub,entityclasses,Entity,,,,Survivor
+scSurvivorMaleKnife,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleKnife,entityclasses,Entity,,,,Survivor
+scSurvivorMaleBat,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleBat,entityclasses,Entity,,,,Survivor
+scSurvivorMaleAxe,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleAxe,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSpear,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSpear,entityclasses,Entity,,,,Survivor
+scSurvivorMaleMachete,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleMachete,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipePistol,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipePistol,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipeRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipeRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipeShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipeShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipeMG,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipeMG,entityclasses,Entity,,,,Survivor
+scSurvivorMaleLBow,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleLBow,entityclasses,Entity,,,,Survivor
+scSurvivorMaleXBow,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleXBow,entityclasses,Entity,,,,Survivor
+scSurvivorMalePistol,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePistol,entityclasses,Entity,,,,Survivor
+scSurvivorMaleDPistol,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleDPistol,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSMG,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSMG,entityclasses,Entity,,,,Survivor
+scSurvivorMaleRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMaleTRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleTRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMaleHRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleHRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSRifle,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSRifle,entityclasses,Entity,,,,Survivor
+scSurvivorMalePShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorMaleAShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleAShotgun,entityclasses,Entity,,,,Survivor
+scSurvivorMaleM60,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleM60,entityclasses,Entity,,,,Survivor
+scSurvivorMaleRocketL,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleRocketL,entityclasses,Entity,,,,Survivor
+scSurvivorMaleBoneKnife,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleBoneKnife,entityclasses,Entity,,,,Survivor
+scSurvivorMaleLeatherKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleLeatherKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorMaleIronKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleIronKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelKnuckles,entityclasses,Entity,,,,Survivor
+scSurvivorMalePipeBaton,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePipeBaton,entityclasses,Entity,,,,Survivor
+scSurvivorMaleStunBaton,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleStunBaton,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelClub,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelClub,entityclasses,Entity,,,,Survivor
+scSurvivorMaleStoneSledge,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleStoneSledge,entityclasses,Entity,,,,Survivor
+scSurvivorMaleIronSledge,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleIronSledge,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelSledge,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelSledge,entityclasses,Entity,,,,Survivor
+scSurvivorMaleStoneSpear,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleStoneSpear,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelSpear,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelSpear,entityclasses,Entity,,,,Survivor
+scSurvivorMaleSteelAxe,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleSteelAxe,entityclasses,Entity,,,,Survivor
+scSurvivorMaleMagnum,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleMagnum,entityclasses,Entity,,,,Survivor
+scSurvivorMaleDoubleBarrel,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleDoubleBarrel,entityclasses,Entity,,,,Survivor
+scSurvivorMaleLeverAction,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleLeverAction,entityclasses,Entity,,,,Survivor
+scSurvivorMalePrimitiveBow,entityclasses,Entity,,,,Survivor
+scSurvivorFemalePrimitiveBow,entityclasses,Entity,,,,Survivor
+scSurvivorMaleCompoundBow,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleCompoundBow,entityclasses,Entity,,,,Survivor
+scSurvivorMaleCompoundCrossbow,entityclasses,Entity,,,,Survivor
+scSurvivorFemaleCompoundCrossbow,entityclasses,Entity,,,,Survivor
+scRaiderMaleEmptyHand,entityclasses,Entity,,,,Raider
+scRaiderFemaleEmptyHand,entityclasses,Entity,,,,Raider
+scRaiderMaleClub,entityclasses,Entity,,,,Raider
+scRaiderFemaleClub,entityclasses,Entity,,,,Raider
+scRaiderMaleKnife,entityclasses,Entity,,,,Raider
+scRaiderFemaleKnife,entityclasses,Entity,,,,Raider
+scRaiderMaleBat,entityclasses,Entity,,,,Raider
+scRaiderFemaleBat,entityclasses,Entity,,,,Raider
+scRaiderMaleAxe,entityclasses,Entity,,,,Raider
+scRaiderFemaleAxe,entityclasses,Entity,,,,Raider
+scRaiderMaleSpear,entityclasses,Entity,,,,Raider
+scRaiderFemaleSpear,entityclasses,Entity,,,,Raider
+scRaiderMaleMachete,entityclasses,Entity,,,,Raider
+scRaiderFemaleMachete,entityclasses,Entity,,,,Raider
+scRaiderMalePipePistol,entityclasses,Entity,,,,Raider
+scRaiderFemalePipePistol,entityclasses,Entity,,,,Raider
+scRaiderMalePipeRifle,entityclasses,Entity,,,,Raider
+scRaiderFemalePipeRifle,entityclasses,Entity,,,,Raider
+scRaiderMalePipeShotgun,entityclasses,Entity,,,,Raider
+scRaiderFemalePipeShotgun,entityclasses,Entity,,,,Raider
+scRaiderMalePipeMG,entityclasses,Entity,,,,Raider
+scRaiderFemalePipeMG,entityclasses,Entity,,,,Raider
+scRaiderMaleLBow,entityclasses,Entity,,,,Raider
+scRaiderFemaleLBow,entityclasses,Entity,,,,Raider
+scRaiderMaleXBow,entityclasses,Entity,,,,Raider
+scRaiderFemaleXBow,entityclasses,Entity,,,,Raider
+scRaiderMalePistol,entityclasses,Entity,,,,Raider
+scRaiderFemalePistol,entityclasses,Entity,,,,Raider
+scRaiderMaleDPistol,entityclasses,Entity,,,,Raider
+scRaiderFemaleDPistol,entityclasses,Entity,,,,Raider
+scRaiderMaleSMG,entityclasses,Entity,,,,Raider
+scRaiderFemaleSMG,entityclasses,Entity,,,,Raider
+scRaiderMaleRifle,entityclasses,Entity,,,,Raider
+scRaiderFemaleRifle,entityclasses,Entity,,,,Raider
+scRaiderMaleTRifle,entityclasses,Entity,,,,Raider
+scRaiderFemaleTRifle,entityclasses,Entity,,,,Raider
+scRaiderMaleHRifle,entityclasses,Entity,,,,Raider
+scRaiderFemaleHRifle,entityclasses,Entity,,,,Raider
+scRaiderMaleSRifle,entityclasses,Entity,,,,Raider
+scRaiderFemaleSRifle,entityclasses,Entity,,,,Raider
+scRaiderMalePShotgun,entityclasses,Entity,,,,Raider
+scRaiderFemalePShotgun,entityclasses,Entity,,,,Raider
+scRaiderMaleAShotgun,entityclasses,Entity,,,,Raider
+scRaiderFemaleAShotgun,entityclasses,Entity,,,,Raider
+scRaiderMaleM60,entityclasses,Entity,,,,Raider
+scRaiderFemaleM60,entityclasses,Entity,,,,Raider
+scRaiderMaleRocketL,entityclasses,Entity,,,,Raider
+scRaiderFemaleRocketL,entityclasses,Entity,,,,Raider
+scRaiderMaleBoneKnife,entityclasses,Entity,,,,Raider
+scRaiderFemaleBoneKnife,entityclasses,Entity,,,,Raider
+scRaiderMaleLeatherKnuckles,entityclasses,Entity,,,,Raider
+scRaiderFemaleLeatherKnuckles,entityclasses,Entity,,,,Raider
+scRaiderMaleIronKnuckles,entityclasses,Entity,,,,Raider
+scRaiderFemaleIronKnuckles,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelKnuckles,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelKnuckles,entityclasses,Entity,,,,Raider
+scRaiderMalePipeBaton,entityclasses,Entity,,,,Raider
+scRaiderFemalePipeBaton,entityclasses,Entity,,,,Raider
+scRaiderMaleStunBaton,entityclasses,Entity,,,,Raider
+scRaiderFemaleStunBaton,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelClub,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelClub,entityclasses,Entity,,,,Raider
+scRaiderMaleStoneSledge,entityclasses,Entity,,,,Raider
+scRaiderFemaleStoneSledge,entityclasses,Entity,,,,Raider
+scRaiderMaleIronSledge,entityclasses,Entity,,,,Raider
+scRaiderFemaleIronSledge,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelSledge,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelSledge,entityclasses,Entity,,,,Raider
+scRaiderMaleStoneSpear,entityclasses,Entity,,,,Raider
+scRaiderFemaleStoneSpear,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelSpear,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelSpear,entityclasses,Entity,,,,Raider
+scRaiderMaleSteelAxe,entityclasses,Entity,,,,Raider
+scRaiderFemaleSteelAxe,entityclasses,Entity,,,,Raider
+scRaiderMaleMagnum,entityclasses,Entity,,,,Raider
+scRaiderFemaleMagnum,entityclasses,Entity,,,,Raider
+scRaiderMaleDoubleBarrel,entityclasses,Entity,,,,Raider
+scRaiderFemaleDoubleBarrel,entityclasses,Entity,,,,Raider
+scRaiderMaleLeverAction,entityclasses,Entity,,,,Raider
+scRaiderFemaleLeverAction,entityclasses,Entity,,,,Raider
+scRaiderMalePrimitiveBow,entityclasses,Entity,,,,Raider
+scRaiderFemalePrimitiveBow,entityclasses,Entity,,,,Raider
+scRaiderMaleCompoundBow,entityclasses,Entity,,,,Raider
+scRaiderFemaleCompoundBow,entityclasses,Entity,,,,Raider
+scRaiderMaleCompoundCrossbow,entityclasses,Entity,,,,Raider
+scRaiderFemaleCompoundCrossbow,entityclasses,Entity,,,,Raider
+meleeNPCSCBoneKnife,items,Item,,,,"Bone Knife"
+meleeNPCSCLeatherKnuckles,items,Item,,,,"Knuckle Wraps"
+meleeNPCSCIronKnuckles,items,Item,,,,"Iron Knuckles"
+meleeNPCSCSteelKnuckles,items,Item,,,,"Steel Knuckles"
+meleeNPCSCPipeBaton,items,Item,,,,"Pipe Baton"
+meleeNPCSCStunBaton,items,Item,,,,"Stun Baton"
+meleeNPCSCSteelClub,items,Item,,,,"Steel Club"
+meleeNPCSCStoneSledge,items,Item,,,,"Stone Sledgehammer"
+meleeNPCSCIronSledge,items,Item,,,,"Iron Sledgehammer"
+meleeNPCSCSteelSledge,items,Item,,,,"Steel Sledgehammer"
+meleeNPCSCStoneSpear,items,Item,,,,"Stone Spear"
+meleeNPCSCSteelSpear,items,Item,,,,"Steel Spear"
+meleeNPCSCSteelAxe,items,Item,,,,"Steel Axe"
+gunNPCSCMagnum,items,Item,,,,".44 Magnum"
+gunNPCSCDoubleBarrel,items,Item,,,,"Double Barrel Shotgun"
+gunNPCSCLeverAction,items,Item,,,,"Lever Action Rifle"
+gunNPCSCPrimitiveBow,items,Item,,,,"Primitive Bow"
+gunNPCSCCompoundBow,items,Item,,,,"Compound Bow"
+gunNPCSCCompoundCrossbow,items,Item,,,,"Compound Crossbow"

@@ -73,7 +73,7 @@ namespace SurvivorCommunity
 
         public static bool IsBody(Entity e)
         {
-            return e is EntityAlive && !(e is EntityPlayer) && e.emodel is EModelSDCS;
+            return e is EntityAlive && Patches_Sdcs.IsBodyNpc(e);     // ours only: 0-XNPCCore's survivors heal their own way (until M5)
         }
 
         public static bool IsUsingItem(Entity e)
@@ -322,7 +322,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (__instance == null || !(__instance.emodel is EModelSDCS)) return;
+                    if (__instance == null || !Patches_Sdcs.IsOurModel(__instance.emodel, "medic-tick")) return;
                     Tick(__instance);
                 }
                 catch (Exception ex)

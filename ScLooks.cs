@@ -207,10 +207,10 @@ namespace SurvivorCommunity
             return string.IsNullOrEmpty(cls) || cls.IndexOf("Female", StringComparison.OrdinalIgnoreCase) < 0;
         }
 
-        /// <summary>A loaded NPC that wears the player's body (never the player).</summary>
+        /// <summary>A loaded NPC that wears our player body (never the player, never 0-XNPCCore's own survivors).</summary>
         public static bool IsSurvivor(Entity e)
         {
-            return e != null && !(e is EntityPlayer) && e.emodel is EModelSDCS;
+            return Patches_Sdcs.IsBodyNpc(e, "looks");
         }
 
         /// <summary>The spawnable friendly player-body classes this mod defines (cached per session).</summary>
@@ -599,7 +599,7 @@ namespace SurvivorCommunity
         /// <summary>Regenerates the body meshes from the archetype and the equipment slots.</summary>
         public static void Rebuild(EntityAlive npc)
         {
-            EModelSDCS m = npc != null ? npc.emodel as EModelSDCS : null;
+            EModelSDCS m = npc != null && Patches_Sdcs.IsOurModel(npc.emodel, "looks-rebuild") ? (EModelSDCS)npc.emodel : null;
             if (m == null) return;
             try
             {
@@ -612,7 +612,7 @@ namespace SurvivorCommunity
         /// <summary>A whole new face (same sex) plus the look's gear, applied to a loaded survivor.</summary>
         public static void Apply(EntityAlive npc, Look look)
         {
-            EModelSDCS m = npc != null ? npc.emodel as EModelSDCS : null;
+            EModelSDCS m = npc != null && Patches_Sdcs.IsOurModel(npc.emodel, "looks-apply") ? (EModelSDCS)npc.emodel : null;
             if (m == null || look == null) return;
             try
             {

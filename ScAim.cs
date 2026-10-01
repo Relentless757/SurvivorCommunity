@@ -133,7 +133,7 @@ namespace SurvivorCommunity
                 stampCalls++;
                 Sweep(Time.time);
                 EntityAlive e = ctx != null ? ctx.Self : null;
-                if (e == null || e.isEntityRemote || !Patches_Sdcs.IsBodyNpc(e)) return;
+                if (e == null || e.isEntityRemote || !Patches_Sdcs.IsBodyNpc(e, "aim")) return;
                 int index = ActionIndex(task);
                 if (index != 0 && index != 1) return;
                 State s;
@@ -329,7 +329,7 @@ namespace SurvivorCommunity
             [HarmonyPrefix]
             public static bool Prefix(EntityAlive __instance, ref bool __result)
             {
-                if (!ScConfig.SurvivorAimVisualOnly || !Patches_Sdcs.IsBodyNpc(__instance)) return true;
+                if (!ScConfig.SurvivorAimVisualOnly || !Patches_Sdcs.IsBodyNpc(__instance, "aim-gun")) return true;
                 getterCalls++;
                 __result = false;
                 return false;

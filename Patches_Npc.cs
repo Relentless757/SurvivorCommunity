@@ -5,8 +5,9 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// Two hooks on the NPC class itself. SetDead: EntityKilled needs a killer and falls / drowning have none.
-    /// PostInit: it forces SetSpawnerSource(Biome) on every load (EntityAliveSDX.cs:580), which would make a
-    /// stationed member eligible for ambient despawn until the ticker's next relink - re-stamp right there.
+    /// PostInit: up to SCore 3.2.7 it forced SetSpawnerSource(Biome) on every load, which made a stationed member
+    /// eligible for ambient despawn until the ticker's next relink. SCore 3.2.36 no longer does
+    /// (ApplySpawnerSourceOnPostInit); the re-stamp stays, harmless, for older SCore builds.
     /// </summary>
     public static class Patches_Npc
     {

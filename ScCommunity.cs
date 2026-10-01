@@ -551,6 +551,7 @@ namespace SurvivorCommunity
             if (m == null || npc == null || npc.Buffs == null) return;
             npc.Buffs.SetCustomVar("sc_member", 1f);
             if (owner != null) npc.Buffs.SetCustomVar("sc_owner", owner.entityId);
+            Patches_VoiceControl.StripContract(npc);   // hired and billed before joining: members are never billed
             StampFollowing(m, npc);
             ScSkills.StampCvars(m, npc);
         }

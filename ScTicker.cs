@@ -182,6 +182,7 @@ namespace SurvivorCommunity
                 if (!npc.Buffs.HasCustomVar("Persist") || npc.Buffs.GetCustomVar("Persist") < 1f) npc.Buffs.SetCustomVar("Persist", 1f);
                 if (!npc.Buffs.HasCustomVar("sc_member") || npc.Buffs.GetCustomVar("sc_owner") != player.entityId)
                     ScCommunity.StampCvars(m, npc, player);
+                Patches_VoiceControl.StripContract(npc);   // members are never billed (0-XNPCCore 3.2's Voice Control)
                 ScCommunity.ApplyAiPackage(npc);
                 ScCommunity.StampFollowing(m, npc);   // keeps the dialog's order options in step with the status
                 ScSkills.StampCvars(m, npc);          // levels and derived bonuses (daily XP changes them while loaded)
