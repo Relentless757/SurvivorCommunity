@@ -80,6 +80,14 @@ namespace SurvivorCommunity
         [HarmonyPatch(typeof(EntityNPCBandit), nameof(EntityNPCBandit.PostInit), new Type[0])]
         public static class Patch_RaiderPostInit
         {
+            /// <summary>W2: both weapons on the item list before the bandit's own fill and SCore's (ScLoadout).</summary>
+            [HarmonyPrefix]
+            public static void Prefix(EntityNPCBandit __instance)
+            {
+                try { ScLoadout.BeforePostInit(__instance); }
+                catch (Exception e) { ScLog.Once("loadout-raider-postinit", e); }
+            }
+
             [HarmonyPostfix]
             public static void Postfix(EntityNPCBandit __instance)
             {
@@ -112,6 +120,17 @@ namespace SurvivorCommunity
         [HarmonyPatch(typeof(EntityAliveSDX), nameof(EntityAliveSDX.PostInit), new Type[0])]
         public static class Patch_PostInit
         {
+            /// <summary>
+            /// W2: both weapons on the item list before SCore's EntityAlive.PostInit postfix fills the slots from it, before
+            /// both SetupStartingItems calls, and before PostInit re-equips the saved weapon (ScLoadout).
+            /// </summary>
+            [HarmonyPrefix]
+            public static void Prefix(EntityAliveSDX __instance)
+            {
+                try { ScLoadout.BeforePostInit(__instance); }
+                catch (Exception e) { ScLog.Once("loadout-postinit", e); }
+            }
+
             [HarmonyPostfix]
             public static void Postfix(EntityAliveSDX __instance)
             {

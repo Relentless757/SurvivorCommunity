@@ -53,6 +53,7 @@ namespace SurvivorCommunity
                 ScLooks.Reset();
                 Patches_Sdcs.Reset();
                 ScAim.Reset();
+                ScLoadout.Reset();
                 ScMedic.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>

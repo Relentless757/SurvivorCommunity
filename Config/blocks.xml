@@ -190,6 +190,15 @@
 			<property name="SurvivorAimPose" value="true" />
 			<property name="SurvivorAimVisualOnly" value="true" />
 			<property name="SurvivorAimHoldSeconds" value="2" />
+			<!-- Every survivor and raider with the player's body carries two weapons: the one its class is named for,
+			     and one of the other kind (melee or ranged) rolled for it. SurvivorFirearmChance: the odds that a
+			     ranged weapon is a firearm rather than a bow or crossbow - for the rolled one, and for the class weapon of
+			     console spawns and radio contacts (Tools/gen_arsenal.py's FIREARM_SHARE does the same for wild spawns;
+			     keep the two equal). SurvivorRangedMainChance: how often a console spawn or radio contact has a ranged
+			     class weapon. SurvivorSecondWeapon=false gives them only their class weapon again. -->
+			<property name="SurvivorSecondWeapon" value="true" />
+			<property name="SurvivorFirearmChance" value="0.12" />
+			<property name="SurvivorRangedMainChance" value="0.4" />
 
 			<property name="DebugLogging" value="false" />
 

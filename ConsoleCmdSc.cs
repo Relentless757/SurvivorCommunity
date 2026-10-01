@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [Set] (sc weapons lists them), weapons, look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -34,6 +34,8 @@ namespace SurvivorCommunity
                     case "distress": Distress(_params); break;
                     case "spawn": Spawn(_params); break;
                     case "weapons": Output("[SC] weapons: " + string.Join(", ", ScLooks.WeaponTokens().ToArray())); break;
+                    case "loadout": LoadoutCmd(_params); break;
+                    case "arms": ArmsCmd(_params); break;
                     case "look": LookCmd(_params); break;
                     case "gear": Gear(_params); break;
                     case "anim": Anim(_params); break;
@@ -169,13 +171,17 @@ namespace SurvivorCommunity
             Output("[SC] " + r + " = " + ScRegistry.Community.Get(r));
         }
 
-        /// <summary>sc spawn [hostile] [male|female] [weapon] [Set] (sc weapons lists them), weapons - a survivor wearing the player's body, in front of the player.</summary>
+        /// <summary>
+        /// sc spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them) - a survivor wearing the
+        /// player's body, in front of the player. The first weapon picks the class, the second (the other kind) is its
+        /// second weapon; without them the class is picked like a radio contact's and the second weapon is rolled.
+        /// </summary>
         private static void Spawn(List<string> p)
         {
             World w = ScCommunity.World;
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
             if (w == null || player == null) { Output("[SC] no world / player"); return; }
-            string sex = null, weapon = null, set = null;
+            string sex = null, weapon = null, weapon2 = null, set = null;
             bool hostile = false;
             List<string> tokens = ScLooks.WeaponTokens();
             for (int i = 1; i < p.Count; i++)
@@ -185,18 +191,29 @@ namespace SurvivorCommunity
                 if (a == "hostile" || a == "raider") { hostile = true; continue; }
                 if (a == "ak47") a = "rifle";                         // the legacy AK-47 class is named Rifle
                 string tok = tokens.Find(t => string.Equals(t, a, StringComparison.OrdinalIgnoreCase));
+                if (tok == null && IsArmorSet(p[i])) { set = p[i]; continue; }   // "Primitive" is a set, not PrimitiveBow
                 if (tok == null)
                 {
                     // a partial name ("sledge", "knuckles", "bow") picks among the weapons that contain it
                     List<string> partial = tokens.FindAll(t => t.IndexOf(a, StringComparison.OrdinalIgnoreCase) >= 0);
                     if (partial.Count > 0) tok = partial[w.GetGameRandom().RandomRange(0, partial.Count)];
                 }
-                if (tok != null) weapon = tok;
+                if (tok != null) { if (weapon == null) weapon = tok; else weapon2 = tok; }
                 else set = p[i];
             }
             GameRandom rnd = w.GetGameRandom();
-            string cls = ScLooks.PickFrom(hostile ? ScLooks.RaiderClasses() : ScLooks.SurvivorClasses(), rnd, sex, weapon, int.MaxValue);
+            List<string> pool = hostile ? ScLooks.RaiderClasses() : ScLooks.SurvivorClasses();
+            string cls = weapon != null ? ScLooks.PickFrom(pool, rnd, sex, weapon, int.MaxValue) : ScLoadout.PickClass(pool, rnd, sex, int.MaxValue);
             if (cls == null) { Output("[SC] no " + (hostile ? "scRaider" : "scSurvivor") + "* entity classes are loaded (Config/entityclasses.xml)"); return; }
+            Loadout pending = null;
+            if (weapon2 != null)
+            {
+                if (!ScLoadout.Knows(hostile, weapon2)) { Output("[SC] no " + (hostile ? "raider" : "survivor") + " class carries " + weapon2 + " - it cannot be a second weapon"); return; }
+                bool r1 = ScLoadout.IsRangedToken(ScLooks.WeaponOf(cls)), r2 = ScLoadout.IsRangedToken(weapon2);
+                if (r1 == r2) { Output("[SC] " + weapon2 + " is " + (r2 ? "ranged" : "melee") + " like " + ScLooks.WeaponOf(cls) + " - the second weapon must be the other kind"); return; }
+                if (ScLoadout.IsLauncher(weapon2)) { Output("[SC] the rocket launcher is never a second weapon (its class sets its attack cadence)"); return; }
+                pending = r2 ? new Loadout(weapon2, null) : new Loadout(null, weapon2);
+            }
             int cid = EntityClass.FromString(cls);
             Vector3 fwd = player.GetForwardVector(); fwd.y = 0f;
             if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
@@ -206,14 +223,134 @@ namespace SurvivorCommunity
             Look look = ScLooks.Roll(ScLooks.ClassIsMale(cls), rnd, true);
             if (set != null && !ScLooks.WearSet(look, set, rnd)) { Output("[SC] no armor set '" + set + "' (armor" + set + "Helmet...)"); return; }
             EntityAlive npc;                                              // a raider is an EntityNPCBandit, not SDX
-            try { ScLooks.Pending = look; npc = EntityFactory.CreateEntity(cid, pos) as EntityAlive; }
-            finally { ScLooks.Pending = null; }
+            try { ScLooks.Pending = look; ScLoadout.Pending = pending; npc = EntityFactory.CreateEntity(cid, pos) as EntityAlive; }
+            finally { ScLooks.Pending = null; ScLoadout.Pending = null; }
             if (npc == null) { Output("[SC] " + cls + " did not spawn as an EntityAlive"); return; }
             w.SpawnEntityInWorld(npc);
             npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
             if (npc is EntityAliveSDX) npc.Buffs.SetCustomVar("Persist", 1f);
             string shown = ScCommunity.DisplayName(npc);
-            Output("[SC] spawned " + cls + " (" + ScLooks.WeaponOf(cls) + ") id " + npc.entityId + " '" + shown + "': " + ScLooks.Describe(look));
+            Loadout pair = ScLoadout.Current(npc);
+            Output("[SC] spawned " + cls + " (" + (pair != null ? pair.ToString() : ScLooks.WeaponOf(cls)) + ") id " + npc.entityId + " '" + shown + "': " + ScLooks.Describe(look));
+        }
+
+        private static bool IsArmorSet(string name)
+        {
+            for (int slot = 0; slot < 4; slot++) if (ScLooks.SetItem(name, slot).Length > 0) return true;
+            return false;
+        }
+
+        /// <summary>A loaded player-body survivor or raider by member id/name, entity id, or display-name substring (within 200 m).</summary>
+        private static EntityAlive FindBodyNpc(string key)
+        {
+            int id;
+            if (int.TryParse(key, out id) && ScCommunity.World != null) return ScCommunity.World.GetEntity(id) as EntityAlive;
+            EntityAliveSDX s = FindSurvivor(key);
+            if (s != null) return s;
+            World w = ScCommunity.World;
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            if (w == null || player == null) return null;
+            var list = new List<Entity>();
+            w.GetEntitiesInBounds(typeof(EntityNPCBandit), new Bounds(player.position, new Vector3(400f, 400f, 400f)), list);
+            for (int i = 0; i < list.Count; i++)
+            {
+                EntityAlive b = list[i] as EntityAlive;
+                if (b != null && !b.IsDead() && ScCommunity.DisplayName(b).IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0) return b;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// sc loadout <id|name> [weapon] [weapon] - an NPC's two weapons, or give it new ones (one ranged, one melee; a
+        /// single weapon replaces the one of its kind). sc loadout near [r] - the pairs around the player, with the
+        /// firearm share. sc loadout sim [n] [hostile] - n console-spawn picks and rolls without making anyone.
+        /// </summary>
+        private static void LoadoutCmd(List<string> p)
+        {
+            if (p.Count < 2) { Output("[SC] loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile]"); return; }
+            string a = p[1].ToLowerInvariant();
+            if (a == "sim")
+            {
+                int n = 1000;
+                bool hostile = false;
+                for (int i = 2; i < p.Count; i++)
+                {
+                    int v;
+                    string k = p[i].ToLowerInvariant();
+                    if (k == "hostile" || k == "raider") hostile = true;
+                    else if (int.TryParse(k, out v)) n = v;
+                }
+                Output(ScLoadout.Simulate(Math.Max(1, Math.Min(100000, n)), hostile));
+                return;
+            }
+            if (a == "near")
+            {
+                float r = 40f;
+                if (p.Count >= 3) float.TryParse(p[2], out r);
+                LoadoutNear(Mathf.Clamp(r, 2f, 400f));
+                return;
+            }
+            EntityAlive e = FindBodyNpc(p[1]);
+            if (e == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
+            if (p.Count >= 3)
+            {
+                List<string> tokens = ScLooks.WeaponTokens();
+                var change = new Loadout();
+                for (int i = 2; i < p.Count; i++)
+                {
+                    string want = p[i].ToLowerInvariant() == "ak47" ? "rifle" : p[i];
+                    string tok = tokens.Find(t => string.Equals(t, want, StringComparison.OrdinalIgnoreCase));
+                    if (tok == null) { Output("[SC] no weapon '" + p[i] + "' (sc weapons lists them)"); return; }
+                    change.Set(ScLoadout.IsRangedToken(tok), tok);
+                }
+                string why;
+                if (!ScLoadout.Set(e, change, out why)) { Output("[SC] " + why); return; }
+                if (why != null) Output("[SC] pair set, but re-arming failed: " + why);
+            }
+            Output(ScLoadout.Describe(e));
+        }
+
+        private static void LoadoutNear(float r)
+        {
+            World w = ScCommunity.World;
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            if (w == null || player == null) { Output("[SC] no world / player"); return; }
+            var list = new List<Entity>();
+            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(player.position, new Vector3(2f * r, 2f * r, 2f * r)), list);
+            int n = 0, fire = 0, none = 0;
+            foreach (Entity en in list)
+            {
+                EntityAlive e = en as EntityAlive;
+                if (e == null || e is EntityPlayer || e.IsDead() || (e.position - player.position).magnitude > r) continue;
+                string cls = ScCommunity.ClassName(e);
+                if (!ScLooks.IsSurvivorClass(cls) && !ScLooks.IsRaiderClass(cls)) continue;
+                Loadout l = ScLoadout.Current(e);
+                n++;
+                if (l == null) none++;
+                else if (ScLoadout.IsFirearm(l.Ranged)) fire++;
+                ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+                Output("[SC] " + e.entityId + " " + ScCommunity.DisplayName(e) + " (" + cls + ") " + (l != null ? l.ToString() : "no pair")
+                       + " - holding " + (held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : "nothing"));
+            }
+            Output("[SC] " + n + " survivor(s)/raider(s) within " + r + " m, " + fire + " with a firearm ("
+                   + (n - none > 0 ? (100.0 * fire / (n - none)).ToString("0.0") : "0") + "%, configured " + (100f * ScConfig.SurvivorFirearmChance).ToString("0.0") + "%)"
+                   + (none > 0 ? ", " + none + " without a pair" : ""));
+        }
+
+        /// <summary>sc arms <id|name> [melee|ranged] - put one of the NPC's two weapons in its hand (debug; W4 automates it).</summary>
+        private static void ArmsCmd(List<string> p)
+        {
+            if (p.Count < 2) { Output("[SC] arms <id|name> [melee|ranged]"); return; }
+            EntityAlive e = FindBodyNpc(p[1]);
+            if (e == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
+            if (p.Count >= 3)
+            {
+                string k = p[2].ToLowerInvariant();
+                if (k != "melee" && k != "ranged") { Output("[SC] arms <id|name> [melee|ranged]"); return; }
+                string why;
+                if (!ScLoadout.Arm(e, k == "ranged", out why)) { Output("[SC] " + why); return; }
+            }
+            Output(ScLoadout.Describe(e));
         }
 
         /// <summary>A loaded NPC by member id/name, entity id, or display-name substring (any survivor within 200 m).</summary>

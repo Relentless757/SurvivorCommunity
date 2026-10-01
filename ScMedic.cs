@@ -247,7 +247,7 @@ namespace SurvivorCommunity
         /// its bookkeeping - _currentWeapon and the CurrentWeaponID cvar keep naming the real weapon, so nothing
         /// re-equips a bandage later.
         /// </summary>
-        private static void Hold(EntityAlive e, int slot, ItemValue item, int count)
+        internal static void Hold(EntityAlive e, int slot, ItemValue item, int count)
         {
             if (e == null || e.inventory == null) return;
             e.inventory.SetItem(slot, item, count);

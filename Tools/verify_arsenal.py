@@ -88,6 +88,11 @@ for n in leaves:
     if side == "friendly" and resolved(n, "Hirable") != "true": errors.append(n + ": friendly not hirable")
     if side == "hostile" and resolved(n, "Hirable") == "true": errors.append(n + ": hostile is hirable")
     cnt[(side, (loadout.split(",")[0] if loadout else "-"))] += 1
+    # W2: the DLL's second-weapon roll reads these; a missing or contradictory pair would leave an NPC one-armed
+    kind, fam = resolved(n, "ScWeaponKind"), resolved(n, "ScWeaponFamily")
+    if kind not in ("melee", "ranged"): errors.append("%s: ScWeaponKind %s" % (n, kind))
+    elif fam not in (("melee", "unarmed") if kind == "melee" else ("bow", "firearm", "launcher")):
+        errors.append("%s: ScWeaponFamily %s does not fit kind %s" % (n, fam, kind))
 # duplicate definitions (a rerun of the generator must replace its block, never append a second)
 for label, root, tag in (("item", it.getroot(), "item"), ("entity class", ec.getroot(), "entity_class")):
     c = Counter(e.get("name") for e in root.iter(tag))
@@ -126,6 +131,28 @@ for tag in ("Survivor", "Raider"):
         tot = hit + sum(float(e.get("p")) for e in nones)
         print("  %-22s %3d entries  %4.1f%% per roll" % (gn, len(es) - len(nones), 100.0 * hit / tot))
         placed.update(e.get("n") for e in es if e.get("n") != "none")
+# W2: firearms are rare - in every band they are the same share of the ranged class weapons as the DLL's ranged
+# roll uses for the second weapon (SurvivorFirearmChance in blocks.xml), so either way an NPC's one ranged weapon is
+# a firearm at that rate
+fc = None
+try:
+    bx = load(os.path.join(SC, "blocks.xml")).getroot().xpath("//property[@name='SurvivorFirearmChance']/@value")
+    fc = float(bx[0]) if bx else None
+except Exception as ex: errors.append("blocks.xml: " + str(ex))
+if fc is None: errors.append("blocks.xml has no SurvivorFirearmChance")
+for gn, grp in sorted(groups.items()):
+    if not gn.startswith(("scSurvivorGroup", "scRaiderGroup")): continue
+    share = {}
+    for e in grp.findall("e"):
+        if e.get("n") == "none": continue
+        f = resolved(e.get("n"), "ScWeaponFamily")
+        share[f] = share.get(f, 0.0) + float(e.get("p"))
+    ranged = sum(v for k, v in share.items() if k in ("bow", "firearm", "launcher"))
+    fire = share.get("firearm", 0.0) + share.get("launcher", 0.0)
+    pct = fire / ranged if ranged else 0.0
+    print("  %-22s ranged %4.1f%%, firearms %4.1f%% of those" % (gn, 100.0 * ranged / sum(share.values()), 100.0 * pct))
+    if fc is not None and abs(pct - fc) > 0.005:
+        errors.append("%s: firearms are %.1f%% of its ranged weapons, SurvivorFirearmChance is %.1f%%" % (gn, 100 * pct, 100 * fc))
 missing_leaf = [n for n in leaves if n not in placed]
 if missing_leaf: errors.append("%d leaves are in no group e.g. %s" % (len(missing_leaf), missing_leaf[:3]))
 

@@ -340,11 +340,24 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
 - The classes, spawn weights, new weapon items and their names are **generated** by `Tools/gen_arsenal.py`
   from one table; edit the table and rerun it rather than the XML. `Tools/verify_arsenal.py` replays the
   framework's and this mod's patches and checks every template, loadout, dropped weapon, spawn-group entry,
-  name and duplicate. Weapons are tiered (0 early melee, 1 pipe weapons and bows, 2 late guns): the spawn
-  groups follow the tiers, and a radio call brings a survivor whose weapon fits your gamestage.
+  name and duplicate. Weapons are tiered (0 early melee plus the pipe guns and the primitive bow, 1 wooden
+  bow, iron crossbow and double barrel, 2 late guns): the spawn groups follow the tiers, and a radio call brings a
+  survivor whose weapons fit your gamestage.
+- **Two weapons each.** Every one of them carries the weapon its class is named for and one of the other kind,
+  rolled for that NPC: a melee survivor gets a ranged weapon, a gunner or archer gets a melee weapon. Ranged
+  weapons are mostly bows and crossbows - a ranged weapon is a firearm only `SurvivorFirearmChance` (12%) of the
+  time, whether it is the class weapon or the rolled one (the spawn groups use the same share, `FIREARM_SHARE` in
+  the generator) - and the rolled one never goes above the higher of its class's tier and your gamestage's. The
+  rocket launcher is never rolled. The pair is kept on the NPC and saved with it (console spawns, radio contacts
+  and raiders persist; wild survivors are never saved and roll anew). For now they hold their class weapon; `sc
+  arms <name> melee|ranged` switches by hand, `sc loadout <name>` shows the pair and `sc loadout <name> <weapon>
+  [weapon]` changes it, `sc loadout near [r]` lists the pairs around you. How: the NPC's own starting-item list
+  gets both weapons before SCore copies it into the inventory, which is what lets SCore's weapon swap and its
+  save of the held weapon accept either one. `SurvivorSecondWeapon` false turns it off. Members do not yet keep
+  the pair when they are re-created (a supply run's return, a call-back, a stand-in).
 - You meet them three ways. They spawn in the world on their **own layer** (below), every radio call brings
-  one, and `sc spawn [hostile] [male|female] [weapon] [Set]` or the creative menu puts one in front of you
-  (`sc weapons` lists the weapon names).
+  one, and `sc spawn [hostile] [male|female] [weapon] [second weapon] [Set]` or the creative menu puts one in
+  front of you (`sc weapons` lists the weapon names).
 - **No new pack NPCs.** While this mod is installed, the NPC framework's sample cast (Nurse, Baker, Harley, the
   NPC fox) and any character pack's NPCs filed in the same groups no longer spawn; ours are the only NPCs that
   turn up. Those already in a world stay and behave as before, and their classes still load. The generator
@@ -362,8 +375,9 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   of one roll producing somebody (`SURVIVOR_CHANCE` 6%, `RAIDER_CHANCE` 4%; the framework's own cast, now
   removed, rolled about 1-4%)
   and how often an area may roll again (`SURVIVOR_RESPAWN` half a game day, `RAIDER_RESPAWN` one). Which band
-  an area draws from follows the framework's layout: wilderness is melee by day and pipe weapons by night,
-  towns melee by day and full guns at night, city centres the last two. `core SurvivorCommunityDev spawns`
+  an area draws from follows the framework's layout: wilderness has the early band by day and the middle one
+  by night, towns the early band by day and the late one at night, city centres the last two. The early band is
+  70% melee and 30% ranged (the primitive bow, now and then a pipe gun), the middle 60/40, the late 50/50. `core SurvivorCommunityDev spawns`
   prints the live odds, the entries for the biome you are standing in and that area's counters.
 - The look and the four armor pieces are stored in the registry for prospects and members and re-applied on
   every load (vanilla never saves or sends a non-player's equipment). A survivor sent on a run that radios

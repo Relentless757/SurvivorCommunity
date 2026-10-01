@@ -187,14 +187,15 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The class a new radio contact or outpost walk-in gets: one of our player-body survivors, capped by the
-        /// player's gamestage tier. Pack NPCs (Nurse, Baker, Harley...) are never rolled - they no longer spawn while
-        /// this mod is installed (the user's call, 2026-09-30). Null when no scSurvivor* class is loaded.
+        /// player's gamestage tier, ranged and firearm by the same odds as a console spawn (ScLoadout.PickClass). Pack
+        /// NPCs (Nurse, Baker, Harley...) are never rolled - they no longer spawn while this mod is installed (the
+        /// user's call, 2026-09-30). Null when no scSurvivor* class is loaded.
         /// </summary>
         public static string NewContactClass(EntityPlayerLocal player, GameRandom rnd)
         {
-            if (rnd == null && ScCommunity.World != null) rnd = ScCommunity.World.GetGameRandom();   // else PickFrom takes the first
-            return ScLooks.PickFrom(ScLooks.SurvivorClasses(), rnd, null, null,
-                                    ScLooks.MaxTierFor(player != null ? player.gameStage : 0));
+            if (rnd == null && ScCommunity.World != null) rnd = ScCommunity.World.GetGameRandom();   // else PickClass takes the first
+            return ScLoadout.PickClass(ScLooks.SurvivorClasses(), rnd, null,
+                                       ScLooks.MaxTierFor(player != null ? player.gameStage : 0));
         }
 
         /// <summary>A random real POI whose centre is MinDist..MaxDist from the home block and outside the zone.</summary>

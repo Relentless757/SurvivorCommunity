@@ -284,6 +284,13 @@ namespace SurvivorCommunity
         public static bool SurvivorAimVisualOnly = true;
         /// <summary>Seconds the weapon stays up after the last ranged attack.</summary>
         public static float SurvivorAimHoldSeconds = 2f;
+        /// <summary>Survivors and raiders with the player's body carry a second weapon of the other kind (ScLoadout).</summary>
+        public static bool SurvivorSecondWeapon = true;
+        /// <summary>The odds a ranged weapon is a firearm rather than a bow or crossbow: the rolled second weapon, and the
+        /// class weapon of console spawns and radio contacts (Tools/gen_arsenal.py FIREARM_SHARE for wild spawns).</summary>
+        public static float SurvivorFirearmChance = 0.12f;
+        /// <summary>How often a console spawn or radio contact gets a ranged class weapon.</summary>
+        public static float SurvivorRangedMainChance = 0.4f;
         public static int TraitsPerRecruit = 2;
         public static bool Verbose = false;
         public static readonly List<TraitDef> Traits = new List<TraitDef>();
@@ -333,6 +340,9 @@ namespace SurvivorCommunity
             SurvivorAimPose = true;
             SurvivorAimVisualOnly = true;
             SurvivorAimHoldSeconds = 2f;
+            SurvivorSecondWeapon = true;
+            SurvivorFirearmChance = 0.12f;
+            SurvivorRangedMainChance = 0.4f;
             OutpostMinDistance = 150;
             OutpostMax = 4;
             OutpostMembersPerSlot = 4;
@@ -638,6 +648,11 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("SurvivorAimVisualOnly")) p.ParseBool("SurvivorAimVisualOnly", ref aimVisualOnly);
                 SurvivorAimVisualOnly = aimVisualOnly;
                 ParseFloat(p, "SurvivorAimHoldSeconds", ref SurvivorAimHoldSeconds, 0.25f, 30f);
+                bool secondWeapon = SurvivorSecondWeapon;
+                if (p.Values.ContainsKey("SurvivorSecondWeapon")) p.ParseBool("SurvivorSecondWeapon", ref secondWeapon);
+                SurvivorSecondWeapon = secondWeapon;
+                ParseFloat(p, "SurvivorFirearmChance", ref SurvivorFirearmChance, 0f, 1f);
+                ParseFloat(p, "SurvivorRangedMainChance", ref SurvivorRangedMainChance, 0f, 1f);
                 bool verbose = Verbose;
                 if (p.Values.ContainsKey("DebugLogging")) p.ParseBool("DebugLogging", ref verbose);
                 Verbose = verbose;
@@ -664,7 +679,8 @@ namespace SurvivorCommunity
                 ScLog.Out("config: MaxMembers=" + MaxMembers + " MaxFollowers=" + MaxFollowers + " FoodPerMemberDay=" + FoodPerMemberDay
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"
                           + " PostRadius=" + PostRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
-                          + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count);
+                          + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count
+                          + " secondWeapon=" + SurvivorSecondWeapon + " firearmChance=" + SurvivorFirearmChance + " rangedMainChance=" + SurvivorRangedMainChance);
             }
             catch (Exception e)
             {

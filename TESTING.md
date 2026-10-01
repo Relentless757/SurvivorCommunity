@@ -25,6 +25,54 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Weapons task W2 (build sc_w2): two weapons each
+
+**Deployed 2026-10-01** (DLL md5 e77bb729, with the regenerated `Config/entityclasses.xml`, `Config/entitygroups.xml`
+and the new settings in `Config/blocks.xml`). Not yet tested in game. Every survivor and raider with the player's body now carries two weapons: the one its class is
+named for, and one of the other kind rolled for it (a club survivor gets a bow, crossbow or - rarely - a gun; a rifle
+raider gets a melee weapon). Ranged weapons are mostly bows and crossbows: a ranged weapon is a firearm 12% of the
+time (`SurvivorFirearmChance`), for wild spawns, console spawns and radio contacts alike. Pipe guns and the primitive
+bow are allowed from day 1. Nobody switches weapons on their own yet (that is W4) - they hold their class weapon
+unless you use `sc arms`. Members keep the pair only until they are re-created by a supply run return, a missing-member
+call-back or as a stand-in (W3 stores it in the registry). Settings in Config/blocks.xml: `SurvivorSecondWeapon`,
+`SurvivorFirearmChance`, `SurvivorRangedMainChance`.
+
+Commands: `sc loadout <id|name>` shows the pair, what is held and the NPC's item list; `sc loadout <id|name> <weapon>
+[weapon]` gives it another pair; `sc loadout near [r]` lists the pairs around you with the firearm share;
+`sc loadout sim [n] [hostile]` rolls n console spawns without making anyone; `sc arms <id|name> melee|ranged` puts one
+of the two in the hand; `sc spawn [hostile] <weapon> <second weapon>` spawns with both chosen.
+
+- [ ] **Startup:** `patch verification: all … targets patched`, no `MISSING PATCH`, no "unlisted method". The config
+      line ends `secondWeapon=True firearmChance=0.12 rangedMainChance=0.4`. No XML warning for entityclasses.xml or
+      entitygroups.xml.
+- [ ] **A club survivor** (`sc spawn club`): the spawn line shows `(<ranged> + Club)`; `sc loadout <id>` lists a
+      ranged weapon (mostly a bow or crossbow) and the item list `meleeNPCClubWood <bow item> <arrows>`. It holds
+      the club.
+- [ ] **`sc arms <id> ranged`:** the gun or bow appears in the hand with the right third-person hold and walk, and it
+      shoots zombies (a bow draws, a gun shoulders - W1). `sc loadout <id>` reads `CurrentWeaponClass=1..3`.
+- [ ] **`sc arms <id> melee`** switches back to the club; `CurrentWeaponClass=0`; it swings at zombies.
+- [ ] **A gun survivor** (`sc spawn rifle`): its second weapon is a melee weapon, and `sc arms` works both ways.
+- [ ] **A raider** (`sc spawn hostile club`, then `sc arms <name> ranged`): the same, on a hostile.
+- [ ] **Chosen pair:** `sc spawn club pipepistol` gives exactly that pair; `sc spawn club machete` refuses (both melee);
+      `sc spawn club rocketl` refuses (the launcher only comes with its own class).
+- [ ] **Save and reload a stranger holding its second weapon:** `sc spawn club`, `sc arms <id> ranged`, save and quit,
+      load. `sc loadout <id>`: the same pair, holding the ranged weapon (or the club) - never empty hands - and
+      no errors in the log. (Console spawns persist; wild survivors are never saved and roll anew.)
+- [ ] **Save and reload a raider:** the same pair after the reload, holding its class weapon (raiders always come back
+      on their class weapon).
+- [ ] **An existing save:** survivors, raiders and members already in the world get a second weapon on the first load,
+      and keep the same one on the next load (`sc loadout <id>` before and after).
+- [ ] **Firearms are rare:** `sc loadout sim 2000` reads about 12% (and `sc loadout sim 2000 hostile`). In the world,
+      `sc loadout near 200` after some roaming: few firearms. Optional: 50 x `sc spawn`, then `sc loadout near` - about
+      6 of 50 with a firearm.
+- [ ] **Day-1 world (gamestage under 50):** wild NPCs and radio contacts carry only early weapons: melee, the
+      primitive bow, now and then a pipe gun.
+- [ ] **Rocket launcher survivor** (`sc spawn rocketl`): its second weapon is melee; no NPC ever rolls a launcher.
+- [ ] **Switch off:** `SurvivorSecondWeapon` false (world reload): new NPCs carry only their class weapon; `sc loadout`
+      says it is off.
+- [ ] **No new errors** (`loadout-…` entries) during a fight with several NPCs, and members still use bandages
+      (`sc loadout` refuses while one is in use).
+
 ## Weapons task W1 (build sc_w1b): visible aiming
 
 **Deployed 2026-10-01** (DLL md5 ace5b130, commit 0562d4d). Not yet tested in game. Survivors and raiders with the player's body shoulder their gun while they
