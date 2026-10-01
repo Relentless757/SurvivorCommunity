@@ -25,9 +25,41 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## The XNPCCore migration (M0-M9): start here
+
+Done 2026-10-01 in one session (commits 6acc639 M0, 380a707 M1, 3fbc851 R1, 3bc52db R2, 9fa29e3 R3, b1ee630 R4).
+SurvivorCommunity now runs on 0-XNPCCore 3.2.06's own survivors (`npcSdcsSurvivor{Male,Female}T1-T3`); its own
+survivor classes are gone (raiders stay `scRaider*`). **Start a new game** - old saves' members can't be found (the
+log says "this save predates the XNPCCore migration"). Each round's own rows follow below (round 4 first, M0 last).
+
+**Already checked by Claude in game (DevLink, 2026-10-01; new test world `sCMigrationTest` on The Dead Coast, home at
+-398, 35, 1059 - delete it when you like):**
+- startup: `patch verification: all 75 targets patched`, recruit dialog injected into 4 dialogs incl. SdcsNPC, no SC
+  errors in a full session;
+- `sc spawn` makes XNPC survivors with SC's rolled face, mixed armor, SC names and a rolled pair (e.g. primitive bow +
+  stone spear) with 20 arrows; XNPC's own look applier stays off; strangers keep XNPC kill levels;
+- `sc recruit <id>` (new test command, skips the favour) → Resident at a post, Guard(9), SCResident package, kill
+  levels stripped, member door opener on, `ammo=` recorded;
+- community window Follow me → Following, Leader and Owner set on the XNPC body, no hire contract seeded
+  (`contract-refused`);
+- typed `@Lena stay` → held "Stay (holding)", still Following, no snap back; `@Lena dismiss` + `@Lena yes` → sent home
+  as Resident, still a member (`dismiss-to-home=1`); Voice Control greetings/subtitles appear;
+- a ranged fight (earlier build) drives the aim pose; a resident shot her arrows down to 10 and was resupplied at home
+  with 20 from the stockpile (one ammo bundle opened);
+- a food run on an XNPC body: she runs (`running=True`), real ground speed about 3.6 m/s - `sc runners` reports 2.39,
+  so its measured speed under-reads; consider `RunWalkMps` about 3.2 (0.9 x 3.6) after your own check; recall works;
+- raiders still spawn and arm (`sc spawn hostile club`).
+
+Not covered by that check (needs you): favours and the join dialog, outposts and garrison stand-ins, death/backpack,
+healing with the bandage, weapon swaps in the dialog, overwhelmed, formations/wheel, doors and hatches, several days of
+play (morale, daily, no billing prompts), and how it all looks and feels.
+
+**Useful:** `sc xnpc <id|name>` (everything about one NPC), `sc xnpc` (counters), `sc recruit <id|name>`, `sc spawn
+[male|female] [weapon] [weapon]`, `sc loadout <id>`, `sc arms <id> melee|ranged`, typed `@<name> <order>` in chat (T).
+
 ## Migration round 4 (M7b, build sc_r4): ammo resupply, no free ammo for re-created bodies, swap return, overwhelmed
 
-**Deployed 2026-10-01** (DLL md5 6ec03509).   Needs a new game** (decision D5). The community's 0-XNPCCore survivors keep finite ammo (D3), and
+**Deployed 2026-10-01** (DLL md5 6ec03509). **Needs a new game** (decision D5). The community's 0-XNPCCore survivors keep finite ammo (D3), and
 now:
 - **Resupply** (new `ScAmmo.cs`): a member - Resident, Following or PendingStation - or a posted member's garrison
   stand-in whose gun is down to fewer than `XnpcResupplyBelow` (10) rounds, standing inside the home zone or at one of
