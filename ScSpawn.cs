@@ -40,11 +40,12 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Is this a friendly class that wears a look of ours - the community's XNPC survivors, the only friendly
-        /// player-body classes since D11 - so that a stranger of it should be given a rolled look?
+        /// player-body classes since D11 - so that a stranger of it should be given a rolled look? (SC's raiders wear one
+        /// too since M10, but are never friendly: they roll their own in ScLooks.ForEntity.)
         /// </summary>
         public static bool IsSurvivorBodyClass(string className)
         {
-            return ScXnpc.IsManagedClass(className);
+            return ScXnpc.IsSurvivorClass(className);
         }
 
         /// <summary>

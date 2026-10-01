@@ -163,11 +163,14 @@ namespace SurvivorCommunity
             if (hostileScan)
             {
                 scratch.Clear();
-                w.GetEntitiesInBounds(typeof(EntityEnemy), FootprintBounds(pi), scratch);
+                // every living thing in the footprint, counting the enemies: zombies and animals (EntityEnemy) and SC's
+                // raiders, which since M10 are EntityAliveSDXV4 (an EntityNPC, not an EntityEnemy) and would otherwise
+                // never keep a POI "contested"
+                w.GetEntitiesInBounds(typeof(EntityAlive), FootprintBounds(pi), scratch);
                 for (int i = 0; i < scratch.Count; i++)
                 {
                     EntityAlive a = scratch[i] as EntityAlive;
-                    if (a != null && !a.IsDead()) hostile++;
+                    if (a != null && !a.IsDead() && (a is EntityEnemy || ScXnpc.IsRaider(a))) hostile++;
                 }
                 scratch.Clear();
             }

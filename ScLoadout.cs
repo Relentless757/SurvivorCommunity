@@ -5,18 +5,28 @@ using System.Text;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// An NPC's two weapons, one ranged and one melee: generated weapon tokens (ScWeapon) for a raider, vanilla item
-    /// names for one of the community's 0-XNPCCore survivors.
+    /// An NPC's two weapons, one ranged and one melee: vanilla item names, for one of the community's 0-XNPCCore survivors
+    /// or one of SC's raiders on the same body. A raider also has a lead weapon (Lead).
     /// </summary>
     public class Loadout
     {
+        /// <summary>Lead values (raiders only): not decided yet, the ranged weapon first, the melee weapon first.</summary>
+        public const int LeadNone = 0, LeadRanged = 1, LeadMelee = 2;
+
         public string Ranged;
         public string Melee;
+        /// <summary>
+        /// Raiders only (M10-D1): which of its two weapons it relies on - LeadRanged (the gun or bow first, as a survivor
+        /// fights) or LeadMelee (charges in with the melee weapon and takes the gun only for a target out of reach), rolled
+        /// against RaiderRangedShare or fixed by the console. Saved with the entity (ScLoadout.LeadCvar); never part of a
+        /// registry record (Encode).
+        /// </summary>
+        public int Lead;
 
         public Loadout() { }
         public Loadout(string ranged, string melee) { Ranged = ranged; Melee = melee; }
 
-        public Loadout Clone() { return new Loadout(Ranged, Melee); }
+        public Loadout Clone() { return new Loadout(Ranged, Melee) { Lead = Lead }; }
 
         public string Of(bool ranged) { return ranged ? Ranged : Melee; }
 
@@ -35,113 +45,86 @@ namespace SurvivorCommunity
             return l.Ranged == null && l.Melee == null ? null : l;
         }
 
-        public override string ToString() { return (Ranged ?? "-") + " + " + (Melee ?? "-"); }
+        public override string ToString() { return (Ranged ?? "-") + " + " + (Melee ?? "-") + (Lead == LeadRanged ? " (ranged-lead)" : Lead == LeadMelee ? " (melee-lead)" : ""); }
+
+        /// <summary>"ranged-lead", "melee-lead" or "-".</summary>
+        public static string LeadName(int lead) { return lead == LeadRanged ? "ranged-lead" : lead == LeadMelee ? "melee-lead" : "-"; }
     }
 
     /// <summary>
-    /// Two weapons, one ranged and one melee, for every NPC wearing the player's body: SC's raiders and the community's
-    /// 0-XNPCCore survivors. Both are made legal to hold by rewriting the entity's own itemsOnEnterGame list in a PostInit
-    /// PREFIX - before SCore's EntityAlive.PostInit postfix copies it into the inventory slots, before SetupStartingItems
-    /// and before PostInit re-equips the saved weapon. SCore's FindWeapon accepts anything on that list, so UpdateWeapon
-    /// can swap between the two and a reload brings back whichever was held.
+    /// Two weapons, one ranged and one melee, for every NPC SC drives on 0-XNPCCore's player body: the community's
+    /// survivors and SC's raiders (ScXnpc's managed classes). Both are made legal to hold by rewriting the entity's own
+    /// itemsOnEnterGame list in a PostInit PREFIX - before SCore's EntityAlive.PostInit postfix copies it into the
+    /// inventory slots, before SetupStartingItems and before PostInit re-equips the saved weapon. SCore's FindWeapon
+    /// accepts anything on that list, so XNPC's weapon logic can swap between the two and a reload brings back whichever
+    /// was held.
     ///
-    /// Raiders (weapons task W2, decision D1: unchanged). The class weapon stays the main one; the other kind is rolled
-    /// per entity from the weapons SC's own raider classes carry: a melee class rolls a bow or crossbow (a firearm at
-    /// SurvivorFirearmChance), a ranged class a melee weapon. The list becomes [main + ammo, second + ammo] (NPC items with
-    /// their NPC ammo), and the roll is capped by the higher of the class weapon's tier and the gamestage tier.
+    /// They use XNPC's weapon system: real vanilla player weapons with finite ammo, the melee swap up close and the
+    /// dry-gun failover. Their classes carry no weapon of ours, so both kinds are rolled from one catalogue, XnpcWeapons
+    /// (Config/blocks.xml, written by Tools/gen_arsenal.py): a melee weapon, and a bow or crossbow - a firearm at
+    /// SurvivorFirearmChance (RaiderFirearmChance for a raider) - each at or below the tier cap, which is the lower of the
+    /// class's band (T1..T3) and the gamestage tier, so the primitive weapons are there from day 1 and better ones come
+    /// with the gamestage. The list becomes [melee, ranged], weapons only: SCore's PostInit postfix refills every
+    /// non-quality item on the list to a full stack on every load, so ammo on it would be endless.
     ///
-    /// The community's 0-XNPCCore survivors (migration M7, decision D4). They use XNPC's weapon system: real vanilla player
-    /// weapons with finite ammo, the melee swap up close and the dry-gun failover. Their classes carry no weapon of ours,
-    /// so both kinds are rolled from the XnpcWeapons catalogue (Config/blocks.xml, written by Tools/gen_arsenal.py from the
-    /// same table as the raiders' weapons): a melee weapon, and a bow or crossbow - a firearm at SurvivorFirearmChance -
-    /// each at or below the tier cap, which is the lower of the class's band (T1..T3) and the gamestage tier, so the
-    /// primitive weapons are there from day 1 and better ones come with the gamestage. The list becomes [melee, ranged],
-    /// weapons only: SCore's PostInit postfix refills every non-quality item on the list to a full stack on every load,
-    /// so ammo on it would be endless. Their ammo is a finite stack of the gun's basic rounds put into the inventory
-    /// window once, when a new survivor is first created (AfterPostInit); SCore reloads an NPC's gun from that window,
-    /// and the stockpile tops it up only in the base or at an outpost (ScAmmo, decision D3).
+    /// Survivors (migration M7, decision D4): their ammo is a finite stack of the gun's basic rounds put into the bag once,
+    /// when a new survivor is first created (AfterPostInit); the stockpile tops it up only in the base or at an outpost
+    /// (ScAmmo, decision D3).
+    ///
+    /// Raiders (M10, DESIGN_M10_RAIDERS.md 2.5/2.6, the user's M10-D1): the same catalogue and the same full pair - every
+    /// raider carries both, its ranged weapon a firearm at RaiderFirearmChance - plus a lead: RaiderRangedShare per class
+    /// tier (the old bands' mix, 30/40/50%) leads with the ranged weapon, the rest with the melee weapon (ScArms keeps a
+    /// melee-lead raider on its melee weapon until the target stays out of reach). Their ammo is a finite starting stack of
+    /// RaiderSpawnAmmo / RaiderSpawnArrows in the bag that is never resupplied (M10-D2).
     ///
     /// The pair resolves, in order: Pending (a console spawn, a radio contact, a respawn of a known survivor), the member
-    /// or prospect record (loadout=), the pair this entity already carries (two cvars, saved with it), a roll seeded by
-    /// (entityId, WorldTimeBorn). The result goes into the cvars at once, so a later gamestage never changes a saved NPC's
-    /// weapons. Wild NPCs that are never saved re-roll as new NPCs.
+    /// or prospect record (loadout=; survivors only), the pair this entity already carries (two cvars, saved with it), a
+    /// roll seeded by (entityId, WorldTimeBorn). The result goes into the cvars at once, so a later gamestage never changes
+    /// a saved NPC's weapons. Wild NPCs that are never saved re-roll as new NPCs.
     /// </summary>
     public static class ScLoadout
     {
-        /// <summary>The pair this entity carries, as token hashes (exact in a float; 0 = none). Saved with the entity.</summary>
+        /// <summary>The pair this entity carries, as item-name hashes (exact in a float; 0 = none). Saved with the entity.</summary>
         public const string RangedCvar = "sc_loadout_r";
         public const string MeleeCvar = "sc_loadout_m";
-        /// <summary>Set once a 0-XNPCCore survivor has been given its starting ammo (value 1: a cvar of 0 is not saved).</summary>
+        /// <summary>A raider's lead (Loadout.LeadRanged 1 / LeadMelee 2; never 0, which a save drops). Saved with the entity.</summary>
+        public const string LeadCvar = "sc_raiderLead";
+        /// <summary>Set once a body has been given its starting ammo (value 1: a cvar of 0 is not saved).</summary>
         public const string AmmoSeededCvar = "sc_ammoSeeded";
 
-        /// <summary>Consumed by the next player-body entity that runs PostInit (set right before EntityFactory.CreateEntity).</summary>
+        /// <summary>Consumed by the next managed body that runs PostInit (set right before EntityFactory.CreateEntity).</summary>
         public static Loadout Pending;
 
         private class Weapon
         {
-            public string Token;
-            public string Family;          // melee, unarmed, bow, firearm, launcher
+            public string Token;           // the vanilla item name
+            public string Family;          // melee, bow, firearm
             public bool Ranged;
             public int Tier;
-            public string Class;           // raiders: a leaf class that carries it, whose ItemsOnEnterGame lists its items
-            public List<string> Items;     // the items it puts on the list: the weapon first, then a raider's NPC ammo
             public float Hash;
-            public string Alias = "";      // 0-XNPCCore survivors: the generator's short weapon token, for the console
-            public string Item { get { return Items.Count > 0 ? Items[0] : ""; } }
-            /// <summary>Rolled as a weapon of its kind: not fists, not the rocket launcher (its attack cadence is its class's).</summary>
-            public bool Rollable { get { return Family != "unarmed" && Family != "launcher"; } }
-            /// <summary>The share it counts towards: melee (fists too), bow, or firearm (the launcher too).</summary>
-            public string Group { get { return Family == "unarmed" ? "melee" : Family == "launcher" ? "firearm" : Family; } }
+            public string Alias = "";      // the generator's short weapon token, for the console
+            public string Item { get { return Token; } }
+            /// <summary>The share it counts towards: melee, bow or firearm.</summary>
+            public string Group { get { return Family; } }
         }
 
-        // per side (raiders ride SC's templates, the 0-XNPCCore survivors carry vanilla weapons), sorted by token so a
-        // seeded roll is stable. Every "raider" flag below picks the side: false is the 0-XNPCCore survivors.
-        private static List<Weapon> raiderWeapons, xnpcWeapons;
+        // sorted by item name so a seeded roll is stable
+        private static List<Weapon> xnpcWeapons;
         private static readonly Dictionary<int, string> sources = new Dictionary<int, string>();
 
         public static void Reset()
         {
             Pending = null;
-            raiderWeapons = null;
             xnpcWeapons = null;
             sources.Clear();
         }
 
         // ---- catalogue ----
 
-        private static List<Weapon> Catalogue(bool raider)
+        private static List<Weapon> Catalogue()
         {
-            if (raider) { if (raiderWeapons == null) raiderWeapons = Build(ScLooks.RaiderClasses()); return raiderWeapons; }
             if (xnpcWeapons == null) xnpcWeapons = BuildXnpc();
             return xnpcWeapons;
-        }
-
-        private static List<Weapon> Build(List<string> classes)
-        {
-            var byToken = new Dictionary<string, Weapon>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                string mode = GameModeName();
-                foreach (string c in classes)
-                {
-                    string token = ScLooks.WeaponOf(c);
-                    if (token.Length == 0 || byToken.ContainsKey(token)) continue;
-                    EntityClass ec;
-                    if (!EntityClass.list.TryGetValue(EntityClass.FromString(c), out ec) || ec == null || ec.Properties == null) continue;
-                    var w = new Weapon { Token = token, Class = c, Tier = ScLooks.TierOf(c), Items = ItemsOf(ec, mode) };
-                    if (w.Items.Count == 0) continue;
-                    string kind, fam;
-                    ec.Properties.Values.TryGetValue("ScWeaponKind", out kind);
-                    ec.Properties.Values.TryGetValue("ScWeaponFamily", out fam);
-                    // an older entityclasses.xml has neither: fall back on the item's own tags
-                    w.Ranged = kind != null ? kind == "ranged" : IsRangedItem(w.Item);
-                    w.Family = !string.IsNullOrEmpty(fam) ? fam : (w.Ranged ? (token == "RocketL" ? "launcher" : "firearm") : (token == "EmptyHand" ? "unarmed" : "melee"));
-                    w.Hash = Hash(token);
-                    byToken[token] = w;
-                }
-            }
-            catch (Exception e) { ScLog.Once("loadout-catalogue", e); }
-            return Sorted(byToken);
         }
 
         private static List<Weapon> Sorted(Dictionary<string, Weapon> byToken)
@@ -155,9 +138,9 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The 0-XNPCCore survivors' weapons: the config's XnpcWeapons (vanilla item, family, tier). Without that block -
-        /// an old blocks.xml - the six classes' own SdcsWeapons lists stand in, each item at the tier of the lowest class
-        /// that lists it (T1 = 0), so the survivors are still armed, if by XNPC's tiering rather than SC's.
+        /// The catalogue both sides roll from: the config's XnpcWeapons (vanilla item, family, tier). Without that block -
+        /// an old blocks.xml - the survivor classes' own SdcsWeapons lists stand in, each item at the tier of the lowest
+        /// class that lists it (T1 = 0), so the bodies are still armed, if by XNPC's tiering rather than SC's.
         /// </summary>
         private static List<Weapon> BuildXnpc()
         {
@@ -192,7 +175,7 @@ namespace SurvivorCommunity
             }
             catch (Exception e) { ScLog.Once("loadout-xnpc-catalogue", e); }
             List<Weapon> sorted = Sorted(byToken);
-            if (sorted.Count == 0) ScLog.Once("loadout-xnpc-empty", "no weapons for 0-XNPCCore's survivors - they keep their class items (XnpcWeapons in Config/blocks.xml)");
+            if (sorted.Count == 0) ScLog.Once("loadout-xnpc-empty", "no weapons for 0-XNPCCore's survivors and SC's raiders - they keep their class items (XnpcWeapons in Config/blocks.xml)");
             return sorted;
         }
 
@@ -205,7 +188,7 @@ namespace SurvivorCommunity
             bool ranged = family != "melee";
             if (ranged && AmmoOf(ic) == null) { ScLog.Once("loadout-xnpc-ammo-" + item, "XnpcWeapons: " + item + " has no ranged action with ammo - left out"); return; }
             string name = ic.GetItemName();
-            byToken[name] = new Weapon { Token = name, Family = family, Ranged = ranged, Tier = tier, Items = new List<string> { name }, Hash = Hash(name), Alias = alias ?? "" };
+            byToken[name] = new Weapon { Token = name, Family = family, Ranged = ranged, Tier = tier, Hash = Hash(name), Alias = alias ?? "" };
         }
 
         /// <summary>melee, bow (bows and crossbows) or firearm, from the item's own tags (the SdcsWeapons fallback only).</summary>
@@ -230,43 +213,6 @@ namespace SurvivorCommunity
             return null;
         }
 
-        private static string GameModeName()
-        {
-            try
-            {
-                GameMode gm = GameMode.GetGameModeForId(GameStats.GetInt(EnumGameStats.GameModeId));
-                if (gm != null) return gm.GetTypeName();
-            }
-            catch (Exception) { }
-            return "GameModeSurvival";
-        }
-
-        /// <summary>A class's ItemsOnEnterGame item names for this game mode - the list vanilla gives the entity (EntityAlive.CopyPropertiesFromEntityClass).</summary>
-        private static List<string> ItemsOf(EntityClass ec, string mode)
-        {
-            var list = new List<string>();
-            DynamicProperties dp;
-            if (!ec.Properties.Classes.TryGetValue(EntityClass.PropItemsOnEnterGame, out dp) || dp == null) return list;
-            string s;
-            if (!dp.Values.TryGetValue(mode, out s) || string.IsNullOrEmpty(s)) dp.Values.TryGetValue("GameModeSurvival", out s);
-            if (string.IsNullOrEmpty(s)) return list;
-            foreach (string part in s.Split(','))
-            {
-                string t = part.Trim();
-                if (t.Length > 0) list.Add(t);
-            }
-            return list;
-        }
-
-        private static bool IsRangedItem(string item)
-        {
-            ItemClass ic = ItemClass.GetItemClass(StackName(item), true);
-            if (ic == null) return false;
-            if (ic.HasAnyTags(FastTags<TagGroup.Global>.Parse("ranged"))) return true;
-            if (ic.Actions != null) foreach (ItemAction a in ic.Actions) if (a is ItemActionRanged) return true;   // NPC guns shoot on Action1
-            return false;
-        }
-
         /// <summary>The item name of an ItemsOnEnterGame entry ("name" or "name=count").</summary>
         private static string StackName(string entry)
         {
@@ -282,38 +228,39 @@ namespace SurvivorCommunity
             return (h & 0x7FFFFF) + 1;
         }
 
-        private static Weapon Find(bool raider, string token)
+        private static Weapon Find(string token)
         {
             if (string.IsNullOrEmpty(token)) return null;
-            foreach (Weapon w in Catalogue(raider)) if (string.Equals(w.Token, token, StringComparison.OrdinalIgnoreCase)) return w;
+            foreach (Weapon w in Catalogue()) if (string.Equals(w.Token, token, StringComparison.OrdinalIgnoreCase)) return w;
             return null;
         }
 
-        private static Weapon FromHash(bool raider, float hash)
+        private static Weapon FromHash(float hash)
         {
             if (hash <= 0f) return null;
-            foreach (Weapon w in Catalogue(raider)) if (w.Hash == hash) return w;
+            foreach (Weapon w in Catalogue()) if (w.Hash == hash) return w;
             return null;
         }
 
-        /// <summary>Does this side's catalogue carry the weapon (so it can be one of that side's pair)?</summary>
-        public static bool Knows(bool raider, string token) { return Find(raider, token) != null; }
+        /// <summary>Does the catalogue carry the weapon (so it can be one of a pair)?</summary>
+        public static bool Knows(string token) { return Find(token) != null; }
 
-        /// <summary>Is the weapon ranged (either side's catalogue)?</summary>
+        /// <summary>Is the weapon ranged?</summary>
         public static bool IsRangedToken(string token)
         {
-            Weapon w = Find(false, token) ?? Find(true, token);
+            Weapon w = Find(token);
             return w != null && w.Ranged;
         }
 
         // ---- resolution ----
 
-        /// <summary>A class whose NPCs carry a pair: SC's raider classes and the community's 0-XNPCCore survivor classes.</summary>
-        public static bool IsBodyClass(string cls) { return ScLooks.IsRaiderClass(cls) || ScXnpc.IsManagedClass(cls); }
+        /// <summary>A class whose NPCs carry a pair: ScXnpc's managed classes, survivors and raiders.</summary>
+        public static bool IsBodyClass(string cls) { return ScXnpc.IsManagedClass(cls); }
 
         /// <summary>
-        /// PostInit PREFIX for both framework classes and EntityNPCBandit: resolves the pair of a raider or of one of the
-        /// community's 0-XNPCCore survivors and rewrites itemsOnEnterGame to it. Idempotent.
+        /// PostInit PREFIX for the framework classes: resolves the pair of one of the community's 0-XNPCCore survivors or
+        /// one of SC's raiders and rewrites itemsOnEnterGame to it. Idempotent. (Also still called by the old raider shim's
+        /// EntityNPCBandit hook, where no class is managed any more and it returns at once.)
         /// </summary>
         public static void BeforePostInit(EntityAlive e)
         {
@@ -322,91 +269,61 @@ namespace SurvivorCommunity
             if (!IsBodyClass(cls)) return;
             Loadout pending = Pending;
             Pending = null;                                       // one entity only, used or not
-            // a known survivor's ammo record travels with the pair (ScSpawn) and is acted on in the postfix (AfterPostInit)
-            ScAmmo.TakePending(e, ScXnpc.IsManagedClass(cls) && ScNpc.IsV4(e));
+            // a known survivor's ammo record travels with the pair (ScSpawn) and is acted on in the postfix (AfterPostInit);
+            // a raider has no record, so whatever is pending is dropped here
+            ScAmmo.TakePending(e, ScXnpc.IsSurvivorClass(cls) && ScNpc.IsV4(e));
             if (!ScConfig.Parsed) ScConfig.EnsureParsed();
-            if (ScXnpc.IsManagedClass(cls))
-            {
-                // not behind SurvivorSecondWeapon: the class's own list (XNPC's pipe pistol, and a full 9 mm stack refilled
-                // on every load) has to go whatever that switch says
-                if (!ScNpc.IsV4(e)) return;
-                Loadout x = ResolveXnpc(e, cls, pending);
-                if (x != null) Rewrite(e, cls, XnpcOrder(x));
-                return;
-            }
-            if (!ScConfig.SurvivorSecondWeapon) return;
-            Loadout l = ResolveRaider(e, cls, pending);
-            if (l != null)
-            {
-                Weapon main = Find(true, ScLooks.WeaponOf(cls));
-                Rewrite(e, cls, new List<Weapon> { Find(true, l.Of(main.Ranged)), Find(true, l.Of(!main.Ranged)) });
-            }
-        }
-
-        private static Loadout ResolveRaider(EntityAlive e, string cls, Loadout pending)
-        {
-            const bool raider = true;
-            Weapon main = Find(raider, ScLooks.WeaponOf(cls));
-            if (main == null) return null;
-            Loadout l = null;
-            string src = null;
-            if (pending != null) { l = pending.Clone(); src = "spawn"; }
-            if (l == null) { l = FromRecord(e, cls); if (l != null) src = "record"; }
-            if (l == null) { l = FromCvars(e, raider); if (l != null) src = "saved"; }
-            if (l == null) l = new Loadout();
-            Validate(l, raider);
-            if (!LauncherOk(l, main, raider)) l.Ranged = null;
-            if (l.Of(main.Ranged) == null) l.Set(main.Ranged, main.Token);   // the class weapon is the main one
-            if (l.Of(!main.Ranged) == null)
-            {
-                int cap = Math.Max(main.Tier, ScLooks.MaxTierFor(GameStageNow()));
-                l.Set(!main.Ranged, Roll(raider, !main.Ranged, cap, Seeded(e)));
-                src = src == null ? "rolled" : src + "+rolled";
-            }
-            if (l.Of(!main.Ranged) == null) return null;           // nothing of that kind is loaded: leave the class list alone
-            WriteCvars(e, l, raider);
-            sources[e.entityId] = src ?? "?";
-            return l;
+            // not behind any switch: the class's own list (XNPC's pipe pistol, and a full 9 mm stack refilled on every
+            // load) has to go
+            if (!ScNpc.IsV4(e)) return;
+            Loadout x = ResolveXnpc(e, cls, pending, ScXnpc.IsRaiderClass(cls));
+            if (x != null) Rewrite(e, cls, XnpcOrder(x));
         }
 
         /// <summary>
-        /// A 0-XNPCCore survivor's pair: whatever of it the sources above give, and the missing kind(s) rolled at the
-        /// class's tier cap. Null (the class list stays) only when the catalogue has no weapon of a kind at all.
+        /// A body's pair: whatever of it the sources above give, and the missing kind(s) rolled at the class's tier cap.
+        /// A raider also gets its lead (RaiderRangedShare by class tier), from the same seeded stream after the pair. Null
+        /// (the class list stays) only when the catalogue has no weapon of a kind at all.
         /// </summary>
-        private static Loadout ResolveXnpc(EntityAlive e, string cls, Loadout pending)
+        private static Loadout ResolveXnpc(EntityAlive e, string cls, Loadout pending, bool raider)
         {
-            const bool raider = false;
             Loadout l = null;
             string src = null;
             if (pending != null) { l = pending.Clone(); src = "spawn"; }
-            if (l == null) { l = FromRecord(e, cls); if (l != null) src = "record"; }
-            if (l == null) { l = FromCvars(e, raider); if (l != null) src = "saved"; }
+            if (l == null && !raider) { l = FromRecord(e, cls); if (l != null) src = "record"; }   // raiders have no record
+            if (l == null) { l = FromCvars(e); if (l != null) src = "saved"; }
             if (l == null) l = new Loadout();
             Validate(l, raider);
+            Random rnd = null;
             if (l.Ranged == null || l.Melee == null)
             {
-                // ranged first, then melee, from one seeded stream: the same entity rolls the same pair on every attempt
-                Random rnd = Seeded(e);
+                // one seeded stream: the same entity rolls the same pair on every attempt. Ranged then melee (unchanged
+                // since M7 for the survivors); a raider then draws its lead from the same stream
+                rnd = Seeded(e);
                 int cap = TierCap(cls);
                 if (l.Ranged == null) l.Ranged = Roll(raider, true, cap, rnd);
                 if (l.Melee == null) l.Melee = Roll(raider, false, cap, rnd);
                 src = src == null ? "rolled" : src + "+rolled";
             }
+            if (raider && l.Lead == Loadout.LeadNone)
+            {
+                if (rnd == null) rnd = Seeded(e);
+                l.Lead = rnd.NextDouble() < ScConfig.RaiderRangedShareFor(ScXnpc.TierOf(cls)) ? Loadout.LeadRanged : Loadout.LeadMelee;
+            }
             if (l.Ranged == null || l.Melee == null)
             {
-                ScLog.Once("loadout-xnpc-nopair", "no " + (l.Ranged == null ? "ranged" : "melee") + " weapon for 0-XNPCCore's survivors - " + cls + " keeps its class items");
+                ScLog.Once("loadout-xnpc-nopair", "no " + (l.Melee == null ? "melee" : "ranged") + " weapon in XnpcWeapons - " + cls + " keeps its class items");
                 return null;
             }
-            WriteCvars(e, l, raider);
+            WriteCvars(e, l);
             sources[e.entityId] = src;
             return l;
         }
 
         /// <summary>
-        /// The highest weapon tier a 0-XNPCCore survivor of this class rolls: the lower of the class's band (T1 early, T2
-        /// middle, T3 late - the place and time of day its spawn group stands for, as the raiders' class weapons do) and
-        /// the gamestage tier (decision D4: tiers by gamestage). Tier 0 holds the pipe guns and the primitive bow, so
-        /// primitive ranged weapons are there from day 1.
+        /// The highest weapon tier a body of this class rolls: the lower of the class's band (T1 early, T2 middle, T3 late
+        /// - the place and time of day its spawn group stands for) and the gamestage tier (decision D4: tiers by
+        /// gamestage). Tier 0 holds the pipe guns and the primitive bow, so primitive ranged weapons are there from day 1.
         /// </summary>
         public static int TierCap(string cls)
         {
@@ -415,10 +332,11 @@ namespace SurvivorCommunity
 
         /// <summary>[melee, ranged]: XNPC's own weapon logic picks which of the two is in the hand (it re-arms a loaded gun
         /// on world entry, swaps to the melee one up close and when the gun runs dry), so the order only decides SCore's
-        /// fallback weapon (the first entry) - and the melee weapon is the one fallback that can never be an empty gun.</summary>
+        /// fallback weapon (the first entry, the one a new body holds) - and the melee weapon is the one fallback that can
+        /// never be an empty gun. A melee-lead raider keeps it: ScArms holds off XNPC's re-arm for it.</summary>
         private static List<Weapon> XnpcOrder(Loadout l)
         {
-            return new List<Weapon> { Find(false, l.Melee), Find(false, l.Ranged) };
+            return new List<Weapon> { Find(l.Melee), Find(l.Ranged) };
         }
 
         /// <summary>The member or prospect record's pair: the registry is the truth for the community's own people.</summary>
@@ -437,43 +355,38 @@ namespace SurvivorCommunity
             return string.IsNullOrEmpty(recorded) || string.Equals(recorded, cls, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static Loadout FromCvars(EntityAlive e, bool raider)
+        private static Loadout FromCvars(EntityAlive e)
         {
             if (e.Buffs == null) return null;
-            Weapon r = FromHash(raider, e.Buffs.GetCustomVar(RangedCvar));
-            Weapon m = FromHash(raider, e.Buffs.GetCustomVar(MeleeCvar));
+            Weapon r = FromHash(e.Buffs.GetCustomVar(RangedCvar));
+            Weapon m = FromHash(e.Buffs.GetCustomVar(MeleeCvar));
+            int lead = (int)e.Buffs.GetCustomVar(LeadCvar);
             if (r == null && m == null) return null;
-            return new Loadout(r != null ? r.Token : null, m != null ? m.Token : null);
+            return new Loadout(r != null ? r.Token : null, m != null ? m.Token : null) { Lead = lead == Loadout.LeadRanged || lead == Loadout.LeadMelee ? lead : Loadout.LeadNone };
         }
 
-        /// <summary>Drops a token that is unknown or in the wrong slot (a removed weapon, a typo in a record).</summary>
+        /// <summary>Drops a token that is unknown or in the wrong slot (a removed weapon, a typo in a record). Only a raider has a lead.</summary>
         private static void Validate(Loadout l, bool raider)
         {
-            Weapon r = Find(raider, l.Ranged), m = Find(raider, l.Melee);
+            if (!raider || (l.Lead != Loadout.LeadRanged && l.Lead != Loadout.LeadMelee)) l.Lead = Loadout.LeadNone;
+            Weapon r = Find(l.Ranged), m = Find(l.Melee);
             l.Ranged = r != null && r.Ranged ? r.Token : null;
             l.Melee = m != null && !m.Ranged ? m.Token : null;
         }
 
-        /// <summary>The rocket launcher only as the class weapon: the 5 s between rockets is its class's attack timeout.</summary>
-        private static bool LauncherOk(Loadout l, Weapon main, bool raider)
-        {
-            Weapon r = Find(raider, l.Ranged);
-            return r == null || r.Family != "launcher" || (main != null && main.Token == r.Token);
-        }
-
-        /// <summary>Is this token the rocket launcher (never a second weapon)?</summary>
-        public static bool IsLauncher(string token)
-        {
-            Weapon w = Find(false, token) ?? Find(true, token);
-            return w != null && w.Family == "launcher";
-        }
-
-        private static void WriteCvars(EntityAlive e, Loadout l, bool raider)
+        private static void WriteCvars(EntityAlive e, Loadout l)
         {
             if (e.Buffs == null) return;
-            Weapon r = Find(raider, l.Ranged), m = Find(raider, l.Melee);
+            Weapon r = Find(l.Ranged), m = Find(l.Melee);
             e.Buffs.SetCustomVar(RangedCvar, r != null ? r.Hash : 0f, false);
             e.Buffs.SetCustomVar(MeleeCvar, m != null ? m.Hash : 0f, false);
+            if (l.Lead != Loadout.LeadNone) e.Buffs.SetCustomVar(LeadCvar, l.Lead, false);
+        }
+
+        /// <summary>A raider that leads with its melee weapon (its lead cvar; false for everyone else).</summary>
+        public static bool IsMeleeLead(EntityAlive e)
+        {
+            return e != null && e.Buffs != null && e.Buffs.GetCustomVar(LeadCvar) == Loadout.LeadMelee && ScXnpc.IsRaider(e);
         }
 
         /// <summary>The same numbers for the same entity on every load: its id and the world time it was created at.</summary>
@@ -503,26 +416,29 @@ namespace SurvivorCommunity
             catch (Exception) { return 0; }
         }
 
+        /// <summary>The odds a rolled ranged weapon is a firearm: RaiderFirearmChance for a raider, SurvivorFirearmChance for a survivor.</summary>
+        private static float FirearmChance(bool raider) { return raider ? ScConfig.RaiderFirearmChance : ScConfig.SurvivorFirearmChance; }
+
         /// <summary>
-        /// A weapon of one kind at or below the tier cap: a melee weapon (never fists), or a bow/crossbow - a firearm when
-        /// SurvivorFirearmChance comes up (never the rocket launcher). Null if none is loaded.
+        /// A weapon of one kind at or below the tier cap: a melee weapon, or a bow/crossbow - a firearm when the side's
+        /// firearm chance comes up. Null if none is loaded.
         /// </summary>
         private static string Roll(bool raider, bool ranged, int cap, Random rnd)
         {
-            string want = !ranged ? "melee" : (rnd.NextDouble() < ScConfig.SurvivorFirearmChance ? "firearm" : "bow");
+            string want = !ranged ? "melee" : (rnd.NextDouble() < FirearmChance(raider) ? "firearm" : "bow");
             string other = !ranged ? null : (want == "firearm" ? "bow" : "firearm");
-            List<Weapon> pool = Rollable(raider, want, cap);
-            if (pool.Count == 0) pool = Rollable(raider, want, int.MaxValue);
-            if (pool.Count == 0 && other != null) pool = Rollable(raider, other, cap);
-            if (pool.Count == 0 && other != null) pool = Rollable(raider, other, int.MaxValue);
+            List<Weapon> pool = Rollable(want, cap);
+            if (pool.Count == 0) pool = Rollable(want, int.MaxValue);
+            if (pool.Count == 0 && other != null) pool = Rollable(other, cap);
+            if (pool.Count == 0 && other != null) pool = Rollable(other, int.MaxValue);
             return pool.Count > 0 ? pool[rnd.Next(pool.Count)].Token : null;
         }
 
-        private static List<Weapon> Rollable(bool raider, string family, int cap)
+        private static List<Weapon> Rollable(string family, int cap)
         {
             var list = new List<Weapon>();
-            foreach (Weapon w in Catalogue(raider))
-                if (w.Rollable && w.Family == family && w.Tier <= cap) list.Add(w);
+            foreach (Weapon w in Catalogue())
+                if (w.Family == family && w.Tier <= cap) list.Add(w);
             return list;
         }
 
@@ -547,8 +463,7 @@ namespace SurvivorCommunity
             if (order == null || order.Exists(x => x == null)) return false;
             var want = new List<string>();
             foreach (Weapon w in order)
-                foreach (string item in w.Items)
-                    if (!want.Exists(x => string.Equals(StackName(x), StackName(item), StringComparison.OrdinalIgnoreCase))) want.Add(item);
+                if (!want.Exists(x => string.Equals(StackName(x), StackName(w.Item), StringComparison.OrdinalIgnoreCase))) want.Add(w.Item);
             List<ItemStack> have = e.itemsOnEnterGame;
             if (have == null) return false;
             if (have.Count == want.Count)
@@ -575,39 +490,43 @@ namespace SurvivorCommunity
             return true;
         }
 
-        // ---- ammo (0-XNPCCore survivors, decision D3) ----
+        // ---- ammo (survivors: decision D3; raiders: M10-D2) ----
 
         /// <summary>
-        /// PostInit POSTFIX: a 0-XNPCCore survivor's starting ammo, once per survivor. Its gun's basic rounds
-        /// (XnpcSpawnAmmo, or XnpcSpawnArrows for a bow or crossbow) go into the inventory window, which SCore saves with
-        /// the NPC and reloads its gun from (ItemActionRangedHarvestAmmo: an EntityAliveSDXV4 with a bag - the classes keep
-        /// a BagItems property for that - and a window). The cvar is saved with the entity, so a reload never refills.
-        /// Only a genuinely new survivor gets the stack (a wild spawn, a radio contact's or a console spawn's body): a body
-        /// the community re-creates for somebody it knows (ScSpawn - a call-back, a stand-in, a runner's fresh body) gets
-        /// the rounds their record says they carry instead (ScAmmo.RestoreRecorded; the round 2 review's P1), so
-        /// re-creating a member never makes ammo. Server only: the window lives there.
+        /// PostInit POSTFIX: a body's starting ammo, once per body. Its gun's basic rounds go into the bag (ScAmmo.AddRounds:
+        /// the store vanilla makes a bow's arrow from; V4 saves it with the NPC). The cvar is saved with the entity, so a
+        /// reload never refills.
+        /// A survivor gets XnpcSpawnAmmo (XnpcSpawnArrows for a bow or crossbow), but only a genuinely new one (a wild spawn,
+        /// a radio contact's or a console spawn's body): a body the community re-creates for somebody it knows (ScSpawn - a
+        /// call-back, a stand-in, a runner's fresh body) gets the rounds their record says they carry instead
+        /// (ScAmmo.RestoreRecorded; the round 2 review's P1), so re-creating a member never makes ammo; the stockpile tops
+        /// members up later (ScAmmo).
+        /// A raider gets RaiderSpawnAmmo / RaiderSpawnArrows and nothing ever again (M10-D2): ScAmmo's resupply only walks
+        /// members. Server only: the bag is the server's.
         /// </summary>
         public static void AfterPostInit(EntityAlive e)
         {
             try
             {
                 if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost || e.Buffs == null) return;
-                ScAmmo.MoveWindowAmmoToBag(e);
-                if (ScAmmo.RestoreRecorded(e)) return;
+                ScAmmo.MoveWindowAmmoToBag(e);           // a no-op without a window (raiders never have one)
+                bool raider = ScXnpc.IsRaider(e);
+                if (!raider && ScAmmo.RestoreRecorded(e)) return;
                 if (e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f) return;
                 Loadout l = Current(e);
-                Weapon r = l != null ? Find(false, l.Ranged) : null;
+                Weapon r = l != null ? Find(l.Ranged) : null;
                 if (r == null) return;
                 string ammo = AmmoOf(ItemClass.GetItemClass(r.Item, true));
-                int n = r.Family == "bow" ? ScConfig.XnpcSpawnArrows : ScConfig.XnpcSpawnAmmo;
+                bool bow = r.Family == "bow";
+                int n = raider ? (bow ? ScConfig.RaiderSpawnArrows : ScConfig.RaiderSpawnAmmo) : (bow ? ScConfig.XnpcSpawnArrows : ScConfig.XnpcSpawnAmmo);
                 if (ammo == null || n <= 0) return;
                 ItemValue iv = ItemClass.GetItem(ammo, true);
                 if (iv == null || iv.IsEmpty()) return;
                 // marked only now: a body that had nothing to seed yet (no ranged weapon) is not marked for life
                 e.Buffs.SetCustomVar(AmmoSeededCvar, 1f);
                 ScAmmo.AddRounds(e, iv, n);    // the bag: the store a bow can shoot from (see ScAmmo.AddRounds)
-                ScAmmo.NoteSeeded();
-                ScLog.Verbose("starting ammo for " + ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + n + " " + ammo + " for " + r.Token);
+                ScAmmo.NoteSeeded(raider);
+                ScLog.Verbose("starting ammo for " + (raider ? "raider " : "") + ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + n + " " + ammo + " for " + r.Token);
             }
             catch (Exception ex)
             {
@@ -617,22 +536,22 @@ namespace SurvivorCommunity
 
         // ---- live NPCs (console; XNPC's melee choice) ----
 
-        /// <summary>The pair a live NPC carries (null for anything that is not a raider or one of the community's 0-XNPCCore survivors).</summary>
+        /// <summary>The pair a live NPC carries (null for anything that is not one of the managed survivor or raider classes).</summary>
         public static Loadout Current(EntityAlive e)
         {
+            if (e == null) return null;
             string cls = ScCommunity.ClassName(e);
-            if (e == null || !IsBodyClass(cls)) return null;
-            bool raider = ScLooks.IsRaiderClass(cls);
-            Loadout l = FromCvars(e, raider);
+            if (!IsBodyClass(cls)) return null;
+            Loadout l = FromCvars(e);
             if (l == null) return null;
-            Validate(l, raider);
+            Validate(l, ScXnpc.IsRaiderClass(cls));
             return l;
         }
 
         /// <summary>
-        /// The melee weapon of a 0-XNPCCore survivor's pair while it can still hold it (SCore's FindWeapon: it is on its
-        /// item list), else null. XNPC's own melee choice (X6) asks this, so its close-range swap and dry-gun failover
-        /// always reach for the pair's melee weapon.
+        /// The melee weapon of a managed body's pair while it can still hold it (SCore's FindWeapon: it is on its item
+        /// list), else null. XNPC's own melee choice (X6) asks this, so its close-range swap and dry-gun failover always
+        /// reach for the pair's melee weapon.
         /// </summary>
         public static string XnpcMelee(EntityAlive e)
         {
@@ -644,41 +563,37 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Gives a live NPC a new pair (either half may be null: kept). Refills its slots and re-equips the same kind.
-        /// freshAmmo: a 0-XNPCCore survivor given a new gun also gets a new starting stack for it (the console's sc loadout);
-        /// false for a weapon the player handed over (ScArms: its ammo is what the player gives, or a resupply at home).
+        /// Gives a live NPC a new pair (either half may be null: kept; a raider's change may carry a new Lead, which then
+        /// puts that weapon in its hand). Refills its slots and re-equips the same kind. freshAmmo: a body given a new gun
+        /// also gets a new starting stack for it (the console's sc loadout; a raider gets the raider amounts); false for a
+        /// weapon the player handed over (ScArms: its ammo is what the player gives, or a resupply at home).
         /// </summary>
         public static bool Set(EntityAlive e, Loadout change, out string why, bool freshAmmo = true)
         {
             why = null;
             string cls = ScCommunity.ClassName(e);
-            if (!IsBodyClass(cls)) { why = "not a raider or one of the community's 0-XNPCCore survivors"; return false; }
+            if (!IsBodyClass(cls)) { why = "not one of the community's 0-XNPCCore survivors or SC's raiders"; return false; }
             if (ScMedic.IsUsing(e.entityId)) { why = "busy using a medical item"; return false; }
-            bool raider = ScLooks.IsRaiderClass(cls);
-            if (!raider && !ScNpc.IsV4(e)) { why = cls + " is not an EntityAliveSDXV4"; return false; }
-            Loadout l = Current(e) ?? (raider ? ResolveRaider(e, cls, null) : ResolveXnpc(e, cls, null));
+            if (!ScNpc.IsV4(e)) { why = cls + " is not an EntityAliveSDXV4"; return false; }
+            bool raider = ScXnpc.IsRaiderClass(cls);
+            Loadout l = Current(e) ?? ResolveXnpc(e, cls, null, raider);
             if (l == null) { why = "no weapons loaded for " + cls; return false; }
             l = l.Clone();
             if (change.Ranged != null) l.Ranged = change.Ranged;
             if (change.Melee != null) l.Melee = change.Melee;
+            if (raider && change.Lead != Loadout.LeadNone) l.Lead = change.Lead;
             Validate(l, raider);
             if (l.Ranged == null || l.Melee == null) { why = "a pair needs one ranged and one melee weapon"; return false; }
-            List<Weapon> order;
-            if (raider)
-            {
-                Weapon main = Find(true, ScLooks.WeaponOf(cls));
-                if (!LauncherOk(l, main, true)) { why = "the rocket launcher only comes with its own class (that class sets its attack cadence)"; return false; }
-                order = new List<Weapon> { Find(true, l.Of(main.Ranged)), Find(true, l.Of(!main.Ranged)) };
-            }
-            else order = XnpcOrder(l);
-            bool heldRanged = ScSkills.HoldsRanged(e);
+            List<Weapon> order = XnpcOrder(l);
+            // a new lead is put in the hand at once (a test from the console); otherwise the same kind as before
+            bool heldRanged = raider && change.Lead != Loadout.LeadNone ? change.Lead == Loadout.LeadRanged : ScSkills.HoldsRanged(e);
             int before = e.itemsOnEnterGame.Count;
-            WriteCvars(e, l, raider);
+            WriteCvars(e, l);
             Remember(e, l);
             sources[e.entityId] = "console";
             if (Rewrite(e, cls, order)) Refill(e, before);
             Arm(e, heldRanged, out why);
-            if (freshAmmo && !raider && change.Ranged != null && ScXnpc.IsBody(e))
+            if (freshAmmo && change.Ranged != null && ScXnpc.IsBody(e))
             {
                 e.Buffs.RemoveCustomVar(AmmoSeededCvar);
                 AfterPostInit(e);
@@ -688,7 +603,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// A member's or prospect's new pair goes into its record too: the record outranks the cvars when the body is next
-        /// built (FromRecord), and every body the community re-creates for them is armed from it (ScSpawn).
+        /// built (FromRecord), and every body the community re-creates for them is armed from it (ScSpawn). Nothing for a
+        /// raider or a stranger: neither has a record.
         /// </summary>
         private static void Remember(EntityAlive e, Loadout l)
         {
@@ -719,22 +635,18 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Puts the ranged or melee weapon of the pair in the hand. Survivors go through SCore's own
-        /// UpdateWeapon(ItemValue) (it records the weapon for the save, and skips the network broadcast of the string
-        /// overload); raiders have none and get the weapon in their hand slot with the same model refresh. A raider's
-        /// CurrentWeaponClass is then written at once - XNPCCore's AI reads it to pick melee or ranged attacks, and its own
-        /// buff would only catch up a second later. A 0-XNPCCore survivor's is left alone: XNPC's controller writes it
-        /// (0 melee, 1 ranged) on every change of the held item, and SC's 1-3 range classes would sit there until then.
+        /// Puts the ranged or melee weapon of the pair in the hand, through SCore's own UpdateWeapon(ItemValue) (it records
+        /// the weapon for the save, and skips the network broadcast of the string overload). On an XNPC body - every managed
+        /// body - CurrentWeaponClass is left alone: XNPC's controller writes it (0 melee, 1 ranged) on every change of the
+        /// held item. The SetWeaponClass fallback is for a managed class configured onto some other body.
         /// </summary>
         public static bool Arm(EntityAlive e, bool ranged, out string why)
         {
             why = null;
             if (e == null || e.inventory == null) { why = "no inventory"; return false; }
             if (ScMedic.IsUsing(e.entityId)) { why = "busy using a medical item"; return false; }
-            string cls = ScCommunity.ClassName(e);
-            bool raider = ScLooks.IsRaiderClass(cls);
             Loadout l = Current(e);
-            Weapon w = l != null ? Find(raider, l.Of(ranged)) : null;
+            Weapon w = l != null ? Find(l.Of(ranged)) : null;
             if (w == null) { why = "no " + (ranged ? "ranged" : "melee") + " weapon in the pair"; return false; }
             ItemValue iv = null;
             foreach (ItemStack st in e.itemsOnEnterGame)
@@ -760,77 +672,65 @@ namespace SurvivorCommunity
             if (v >= 0) e.Buffs.SetCustomVar("CurrentWeaponClass", v, false);
         }
 
-        // ---- class picks (hostile console spawns) ----
-
-        /// <summary>
-        /// A raider class for a console spawn: ranged at SurvivorRangedMainChance, and then a firearm at
-        /// SurvivorFirearmChance (else a bow or crossbow), uniform among the classes of that sex and group at or below
-        /// maxTier. Together with the second weapon's roll this keeps a raider's one ranged weapon a firearm at
-        /// SurvivorFirearmChance whichever it is.
-        /// </summary>
-        public static string PickClass(List<string> pool, GameRandom rnd, string sex, int maxTier)
-        {
-            if (pool == null || pool.Count == 0) return null;
-            bool ranged = Chance(rnd) < ScConfig.SurvivorRangedMainChance;
-            string group = !ranged ? "melee" : (Chance(rnd) < ScConfig.SurvivorFirearmChance ? "firearm" : "bow");
-            var ok = Classes(pool, sex, group, maxTier);
-            if (ok.Count == 0) ok = Classes(pool, sex, group, int.MaxValue);
-            if (ok.Count == 0) return ScLooks.PickFrom(pool, rnd, sex, null, maxTier);
-            return ok[rnd != null ? rnd.RandomRange(0, ok.Count) : 0];
-        }
-
-        private static List<string> Classes(List<string> pool, string sex, string group, int maxTier)
-        {
-            var ok = new List<string>();
-            foreach (string c in pool)
-            {
-                if (!string.IsNullOrEmpty(sex) && ScLooks.ClassIsMale(c) != (sex == "male")) continue;
-                if (ScLooks.TierOf(c) > maxTier) continue;
-                Weapon w = Find(ScLooks.IsRaiderClass(c), ScLooks.WeaponOf(c));
-                if (w == null || w.Group != group) continue;
-                ok.Add(c);
-            }
-            return ok;
-        }
-
-        private static float Chance(GameRandom rnd) { return rnd != null ? rnd.RandomFloat : UnityEngine.Random.value; }
-
-        /// <summary>Is this token a firearm (a gun or the launcher, not a bow)?</summary>
+        /// <summary>Is this token a firearm (a gun, not a bow)?</summary>
         public static bool IsFirearm(string token)
         {
-            Weapon w = Find(false, token) ?? Find(true, token);
+            Weapon w = Find(token);
             return w != null && w.Group == "firearm";
+        }
+
+        /// <summary>
+        /// The pair's weapons as the body carries them (the toolbelt copies SCore made from itemsOnEnterGame at PostInit,
+        /// quality 1-6; the hand slot's live copy), for the death drop (M10-D6). Empty when there is no pair.
+        /// </summary>
+        public static List<ItemValue> CarriedPair(EntityAlive e)
+        {
+            var list = new List<ItemValue>();
+            Loadout l = Current(e);
+            if (l == null || e.inventory == null) return list;
+            foreach (string token in new[] { l.Melee, l.Ranged })
+            {
+                Weapon w = Find(token);
+                if (w == null) continue;
+                ItemClass ic = ItemClass.GetItemClass(w.Item, true);
+                if (ic == null) continue;
+                ItemValue found = null;
+                ItemStack[] slots = e.inventory.GetSlots();
+                for (int i = 0; slots != null && i < slots.Length && found == null; i++)
+                    if (slots[i] != null && !slots[i].IsEmpty() && slots[i].itemValue.type == ic.Id) found = slots[i].itemValue.Clone();
+                if (found != null) list.Add(found);
+            }
+            return list;
         }
 
         // ---- console names ----
 
-        /// <summary>A side's weapons for the console: raider tokens, or the survivors' vanilla items with their short names.</summary>
-        public static List<string> Tokens(bool raider)
+        /// <summary>The catalogue for the console: each vanilla item with its short name.</summary>
+        public static List<string> Tokens()
         {
             var list = new List<string>();
-            foreach (Weapon w in Catalogue(raider)) list.Add(w.Alias.Length > 0 ? w.Token + " (" + w.Alias + ")" : w.Token);
+            foreach (Weapon w in Catalogue()) list.Add(w.Alias.Length > 0 ? w.Token + " (" + w.Alias + ")" : w.Token);
             return list;
         }
 
         /// <summary>
-        /// A weapon of one side by what the console was given: the token (a raider's "Club", a survivor's item
-        /// "meleeWpnClubT0WoodenClub"), a survivor weapon's short name ("Club"), a family word (melee, bow, firearm), or a
-        /// part of a name. Several matches are picked from at random when rnd is given, else refused as ambiguous.
+        /// A weapon by what the console was given: the item ("meleeWpnClubT0WoodenClub"), its short name ("Club"), a family
+        /// word (melee, bow, firearm), or a part of a name. Several matches are picked from at random when rnd is given, else
+        /// refused as ambiguous.
         /// </summary>
-        public static string MatchToken(bool raider, string text, GameRandom rnd, out string why)
+        public static string MatchToken(string text, GameRandom rnd, out string why)
         {
             why = null;
             if (string.IsNullOrEmpty(text)) { why = "no weapon given"; return null; }
             string a = text.Trim();
-            if (raider && string.Equals(a, "ak47", StringComparison.OrdinalIgnoreCase)) a = "Rifle";   // the AK-47 raiders are named Rifle
-            List<Weapon> cat = Catalogue(raider);
+            List<Weapon> cat = Catalogue();
             foreach (Weapon w in cat) if (string.Equals(w.Token, a, StringComparison.OrdinalIgnoreCase)) return w.Token;
             foreach (Weapon w in cat) if (w.Alias.Length > 0 && string.Equals(w.Alias, a, StringComparison.OrdinalIgnoreCase)) return w.Token;
             var hits = new List<Weapon>();
             string fam = a.ToLowerInvariant() == "gun" ? "firearm" : a.ToLowerInvariant();
             if (fam == "melee" || fam == "bow" || fam == "firearm")
             {
-                foreach (Weapon w in cat) if (w.Rollable && w.Family == fam) hits.Add(w);
+                foreach (Weapon w in cat) if (w.Family == fam) hits.Add(w);
             }
             else
             {
@@ -852,19 +752,20 @@ namespace SurvivorCommunity
         {
             var sb = new StringBuilder();
             string cls = ScCommunity.ClassName(e);
-            sb.Append("[SC] ").Append(ScCommunity.DisplayName(e)).Append(" id ").Append(e.entityId).Append(" (").Append(cls).Append(")");
+            bool raider = ScXnpc.IsRaiderClass(cls);
+            sb.Append("[SC] ").Append(ScCommunity.DisplayName(e)).Append(" id ").Append(e.entityId).Append(" (").Append(cls)
+              .Append(IsBodyClass(cls) ? (raider ? ", raider" : ", survivor") : "").Append(")");
             Loadout l = Current(e);
-            bool raider = ScLooks.IsRaiderClass(cls);
             if (l == null)
-                sb.Append(" carries no pair").Append(!IsBodyClass(cls) ? " (not a raider or one of the community's 0-XNPCCore survivors)"
-                                                     : raider && !ScConfig.SurvivorSecondWeapon ? " (SurvivorSecondWeapon is off)" : " (not resolved yet)");
+                sb.Append(" carries no pair").Append(!IsBodyClass(cls) ? " (not one of the community's 0-XNPCCore survivors or SC's raiders)" : " (not resolved yet)");
             else
             {
                 string src;
                 sources.TryGetValue(e.entityId, out src);
-                sb.Append(": ranged ").Append(Label(raider, l.Ranged)).Append(", melee ").Append(Label(raider, l.Melee))
+                sb.Append(": ranged ").Append(Label(l.Ranged)).Append(", melee ").Append(Label(l.Melee))
                   .Append(" [").Append(src ?? "loaded").Append("]");
-                if (!raider) sb.Append(" tier cap now ").Append(TierCap(cls)).Append(", starting ammo given ").Append(e.Buffs != null && e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f);
+                if (raider) sb.Append(" lead ").Append(Loadout.LeadName(l.Lead));
+                sb.Append(" tier cap now ").Append(TierCap(cls)).Append(", starting ammo given ").Append(e.Buffs != null && e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f);
             }
             ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
             sb.Append("\n[SC]    holding ").Append(held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : "nothing")
@@ -877,57 +778,68 @@ namespace SurvivorCommunity
             return sb.ToString();
         }
 
-        private static string Label(bool raider, string token)
+        private static string Label(string token)
         {
-            Weapon w = Find(raider, token);
+            Weapon w = Find(token);
             return w == null ? (token ?? "-") : w.Token + " (" + w.Family + ", tier " + w.Tier + ")";
         }
 
         /// <summary>
-        /// sc loadout sim: n picks without making anyone. Raiders: a console spawn's class and second weapon. Survivors: a
-        /// 0-XNPCCore survivor's pair at today's gamestage tier cap (a late-band class, so only the gamestage caps it).
+        /// sc loadout sim: n rolls without making anyone. Survivors: a 0-XNPCCore survivor's pair at today's gamestage tier
+        /// cap (a late-band class, so only the gamestage caps it). Raiders: the class tier spread evenly over T1..T3, each
+        /// capped by the lower of its tier and today's gamestage tier, with the raiders' firearm odds and their lead.
         /// </summary>
         public static string Simulate(int n, bool raider)
         {
             var rnd = new Random(Environment.TickCount);
-            int cap = ScLooks.MaxTierFor(GameStageNow()), fire = 0, rangedMain = 0, noPair = 0;
+            int cap = ScLooks.MaxTierFor(GameStageNow()), fire = 0, noPair = 0, armed = 0;
             var fams = new Dictionary<string, int>();
             var tiers = new int[3];
-            List<string> pool = raider ? ScLooks.RaiderClasses() : null;
-            if (raider && pool.Count == 0) return "[SC] no raider classes loaded";
-            if (!raider && Catalogue(false).Count == 0) return "[SC] no weapons for 0-XNPCCore's survivors (XnpcWeapons)";
-            var gr = ScCommunity.World != null ? ScCommunity.World.GetGameRandom() : null;
+            var rangedLead = new int[3];
+            var perTier = new int[3];
+            if (Catalogue().Count == 0) return "[SC] no weapons in XnpcWeapons (Config/blocks.xml)";
             for (int i = 0; i < n; i++)
             {
                 Weapon rw;
                 if (raider)
                 {
-                    string cls = PickClass(pool, gr, null, int.MaxValue);
-                    Weapon main = Find(true, ScLooks.WeaponOf(cls));
-                    if (main == null) { noPair++; continue; }
-                    Weapon second = Find(true, Roll(true, !main.Ranged, Math.Max(main.Tier, cap), rnd));
-                    if (second == null) { noPair++; continue; }
-                    rw = main.Ranged ? main : second;
-                    if (main.Ranged) rangedMain++;
+                    int t = i % 3;
+                    perTier[t]++;
+                    int tcap = Math.Min(t, cap);
+                    rw = Find(Roll(true, true, tcap, rnd));
+                    Weapon mw = Find(Roll(true, false, tcap, rnd));
+                    if (rw == null || mw == null) { noPair++; continue; }
+                    if (rnd.NextDouble() < ScConfig.RaiderRangedShareFor(t)) rangedLead[t]++;
                 }
                 else
                 {
-                    rw = Find(false, Roll(false, true, cap, rnd));
-                    Weapon mw = Find(false, Roll(false, false, cap, rnd));
+                    rw = Find(Roll(false, true, cap, rnd));
+                    Weapon mw = Find(Roll(false, false, cap, rnd));
                     if (rw == null || mw == null) { noPair++; continue; }
-                    tiers[Math.Max(0, Math.Min(2, rw.Tier))]++;
                 }
+                armed++;
+                tiers[Math.Max(0, Math.Min(2, rw.Tier))]++;
                 if (rw.Group == "firearm") fire++;
                 int c;
                 fams.TryGetValue(rw.Family, out c);
                 fams[rw.Family] = c + 1;
             }
+            float chance = FirearmChance(raider);
             var sb = new StringBuilder();
             sb.Append("[SC] ").Append(n).Append(raider ? " raider" : " 0-XNPCCore survivor").Append(" spawns (gamestage tier cap ").Append(cap).Append("): ")
-              .Append(fire).Append(" carry a firearm (").Append((100.0 * fire / Math.Max(1, n - noPair)).ToString("0.0")).Append("%, configured ")
-              .Append((100f * ScConfig.SurvivorFirearmChance).ToString("0.0")).Append("%)");
-            if (raider) sb.Append(", ranged class weapon ").Append(rangedMain);
-            else sb.Append(", ranged weapon tiers 0/1/2: ").Append(tiers[0]).Append('/').Append(tiers[1]).Append('/').Append(tiers[2]);
+              .Append(fire).Append(" carry a firearm (").Append((100.0 * fire / Math.Max(1, armed)).ToString("0.0")).Append("%, configured ")
+              .Append((100f * chance).ToString("0.0")).Append("%)");
+            if (raider)
+            {
+                // every raider carries both; the lead says which one it relies on
+                sb.Append(", ranged-lead T1/T2/T3: ");
+                for (int t = 0; t < 3; t++)
+                    sb.Append(t > 0 ? "/" : "").Append((100.0 * rangedLead[t] / Math.Max(1, perTier[t])).ToString("0")).Append('%');
+                sb.Append(" (configured ");
+                for (int t = 0; t < 3; t++) sb.Append(t > 0 ? "/" : "").Append((100f * ScConfig.RaiderRangedShareFor(t)).ToString("0")).Append('%');
+                sb.Append("; the rest melee-lead)");
+            }
+            sb.Append(", ranged weapon tiers 0/1/2: ").Append(tiers[0]).Append('/').Append(tiers[1]).Append('/').Append(tiers[2]);
             sb.Append(", ranged weapons by family:");
             foreach (var kv in fams) sb.Append(' ').Append(kv.Key).Append('=').Append(kv.Value);
             if (noPair > 0) sb.Append(", ").Append(noPair).Append(" without a pair");

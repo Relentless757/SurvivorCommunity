@@ -313,14 +313,14 @@ namespace SurvivorCommunity
         public static bool SurvivorAimVisualOnly = true;
         /// <summary>Seconds the weapon stays up after the last ranged attack.</summary>
         public static float SurvivorAimHoldSeconds = 2f;
-        /// <summary>Raiders carry a second weapon of the other kind (ScLoadout). The community's 0-XNPCCore survivors
-        /// always carry their pair: they have no class weapon to fall back on.</summary>
+        /// <summary>OBSOLETE since M10 (raiders on XNPC bodies): it switched the old scRaider&lt;Sex&gt;&lt;Weapon&gt; classes'
+        /// rolled second weapon. Raiders now roll their pair by RaiderRangedShare / RaiderFirearmChance, and survivors always
+        /// carry theirs. Still parsed so an old blocks.xml loads; nothing reads it.</summary>
         public static bool SurvivorSecondWeapon = true;
-        /// <summary>The odds a ranged weapon is a firearm rather than a bow or crossbow: a survivor's ranged weapon, a
-        /// raider's rolled second weapon and the class weapon of hostile console spawns (Tools/gen_arsenal.py
-        /// FIREARM_SHARE for the raiders' wild spawns).</summary>
+        /// <summary>The odds a survivor's ranged weapon is a firearm rather than a bow or crossbow (raiders: RaiderFirearmChance).</summary>
         public static float SurvivorFirearmChance = 0.12f;
-        /// <summary>How often a hostile console spawn gets a ranged class weapon.</summary>
+        /// <summary>OBSOLETE since M10: how often a hostile console spawn got a ranged class weapon (the old raider classes).
+        /// Still parsed so an old blocks.xml loads; nothing reads it.</summary>
         public static float SurvivorRangedMainChance = 0.4f;
         /// <summary>The vanilla weapons the community's 0-XNPCCore survivors may carry (XnpcWeapons class, generated).</summary>
         public static readonly List<XnpcWeaponDef> XnpcWeapons = new List<XnpcWeaponDef>();
@@ -375,6 +375,38 @@ namespace SurvivorCommunity
         public static bool XnpcBodyColliderLayers = true;
         /// <summary>The XNPC body's Model offset (m): 0 puts its feet on the ground (the player prefab ships -0.08).</summary>
         public static float XnpcModelY = 0f;
+        // ---- SC's raiders on 0-XNPCCore's body (M10, DESIGN_M10_RAIDERS.md; the user's decisions M10-D1..D9) ----
+        /// <summary>SC's hostile classes on XNPC's body (Config/entityclasses.xml, written by Tools/gen_arsenal.py): ScXnpc's second managed set.</summary>
+        public static readonly List<string> XnpcRaiderClasses = new List<string>(ScXnpc.DefaultRaiderClasses);
+        /// <summary>
+        /// Per class tier (T1, T2, T3): the chance a raider leads with its ranged weapon (M10-D1, the old bands' mix). The
+        /// rest lead with the melee weapon; every raider carries both (ScLoadout's lead cvar, ScArms' lead rule).
+        /// </summary>
+        public static readonly float[] RaiderRangedShare = { 0.3f, 0.4f, 0.5f };
+        /// <summary>A melee-lead raider takes its ranged weapon when its target stays farther than this (m), above it or
+        /// beyond a path's reach for RaiderLeadRangedSeconds - and only while the gun has rounds.</summary>
+        public static float RaiderLeadRangedDist = 8f;
+        public static float RaiderLeadRangedSeconds = 3f;
+        /// <summary>The odds a raider's ranged weapon is a firearm rather than a bow or crossbow (the old FIREARM_SHARE).</summary>
+        public static float RaiderFirearmChance = 0.12f;
+        /// <summary>Rounds of its gun's basic ammo a raider starts with, in its bag, once (M10-D2: never resupplied).</summary>
+        public static int RaiderSpawnAmmo = 24;
+        /// <summary>The same for a bow or crossbow: arrows or bolts.</summary>
+        public static int RaiderSpawnArrows = 15;
+        /// <summary>XNPC's day-based kill levels on raiders (M10-D3: off - they are stripped as on members).</summary>
+        public static bool RaiderXnpcLevels = false;
+        /// <summary>With RaiderXnpcLevels on: keep the levels' 0.2 HP/s regeneration too (false zeroes it: raiders heal by items only).</summary>
+        public static bool RaiderLevelRegen = false;
+        /// <summary>Each of a dead raider's pair weapons goes into its backpack with this chance (M10-D6).</summary>
+        public static float RaiderWeaponDropChance = 0.25f;
+        /// <summary>
+        /// Raiders also get vanilla's move-helper door opener (unlocked doors, opened without a stall, never shut). False
+        /// (M10-D5): SCore's own opener alone, which every human NPC already has from its move tasks and which shuts the door
+        /// behind them.
+        /// </summary>
+        public static bool RaiderVanillaDoors = false;
+        /// <summary>The vanilla armor sets raiders roll their clothes from (M10-D7); empty = SurvivorGearSets.</summary>
+        public static readonly List<string> RaiderGearSets = new List<string>();
         public static int TraitsPerRecruit = 2;
         public static bool Verbose = false;
         public static readonly List<TraitDef> Traits = new List<TraitDef>();
@@ -450,6 +482,19 @@ namespace SurvivorCommunity
             XnpcBodyJumpAnim = true;
             XnpcBodyColliderLayers = true;
             XnpcModelY = 0f;
+            XnpcRaiderClasses.Clear();
+            XnpcRaiderClasses.AddRange(ScXnpc.DefaultRaiderClasses);
+            RaiderRangedShare[0] = 0.3f; RaiderRangedShare[1] = 0.4f; RaiderRangedShare[2] = 0.5f;
+            RaiderLeadRangedDist = 8f;
+            RaiderLeadRangedSeconds = 3f;
+            RaiderFirearmChance = 0.12f;
+            RaiderSpawnAmmo = 24;
+            RaiderSpawnArrows = 15;
+            RaiderXnpcLevels = false;
+            RaiderLevelRegen = false;
+            RaiderWeaponDropChance = 0.25f;
+            RaiderVanillaDoors = false;
+            RaiderGearSets.Clear();
             OutpostMinDistance = 150;
             OutpostMax = 4;
             OutpostMembersPerSlot = 4;
@@ -499,6 +544,20 @@ namespace SurvivorCommunity
             OutpostDefenseBlocks.AddRange(new[] { "trapSpikes", "barbedWire", "barbedFence", "bladeTrap", "dartTrap", "electricfencepost",
                                                   "autoTurret", "shotgunTurret", "mineCandyTin", "mineCookingPot", "mineHubcap", "mineAirFilter" });
             SurvivorGearSets.AddRange(new[] { "Primitive", "Athletic", "Enforcer", "Lumberjack", "Preacher", "Rogue", "Assassin", "Biker", "Commando", "Farmer", "Ranger", "Scavenger", "Miner", "Nerd", "Nomad", "Raider" });
+            // M10-D7: raiders dress rougher than survivors (the design's suggested list, accepted 2026-10-01)
+            RaiderGearSets.AddRange(new[] { "Raider", "Biker", "Enforcer", "Assassin", "Rogue", "Commando", "Nomad", "Scavenger", "Primitive" });
+        }
+
+        /// <summary>RaiderRangedShare for a class tier (0..2 = T1..T3, ScXnpc.TierOf).</summary>
+        public static float RaiderRangedShareFor(int tier)
+        {
+            return RaiderRangedShare[Math.Max(0, Math.Min(RaiderRangedShare.Length - 1, tier))];
+        }
+
+        /// <summary>The armor sets a raider's clothes are rolled from: RaiderGearSets, or SurvivorGearSets when that is empty.</summary>
+        public static List<string> GearSetsFor(bool raider)
+        {
+            return raider && RaiderGearSets.Count > 0 ? RaiderGearSets : SurvivorGearSets;
         }
 
         static ScConfig()
@@ -793,6 +852,21 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("XnpcBodyColliderLayers")) p.ParseBool("XnpcBodyColliderLayers", ref xnpcColliders);
                 XnpcBodyColliderLayers = xnpcColliders;
                 ParseFloat(p, "XnpcModelY", ref XnpcModelY, -0.3f, 0.3f);
+                ParseFloat(p, "RaiderFirearmChance", ref RaiderFirearmChance, 0f, 1f);
+                ParseFloat(p, "RaiderLeadRangedDist", ref RaiderLeadRangedDist, 3f, 60f);
+                ParseFloat(p, "RaiderLeadRangedSeconds", ref RaiderLeadRangedSeconds, 0f, 30f);
+                ParseInt(p, "RaiderSpawnAmmo", ref RaiderSpawnAmmo, 0, 1000);
+                ParseInt(p, "RaiderSpawnArrows", ref RaiderSpawnArrows, 0, 1000);
+                bool raiderLevels = RaiderXnpcLevels;
+                if (p.Values.ContainsKey("RaiderXnpcLevels")) p.ParseBool("RaiderXnpcLevels", ref raiderLevels);
+                RaiderXnpcLevels = raiderLevels;
+                bool raiderRegen = RaiderLevelRegen;
+                if (p.Values.ContainsKey("RaiderLevelRegen")) p.ParseBool("RaiderLevelRegen", ref raiderRegen);
+                RaiderLevelRegen = raiderRegen;
+                ParseFloat(p, "RaiderWeaponDropChance", ref RaiderWeaponDropChance, 0f, 1f);
+                bool raiderDoors = RaiderVanillaDoors;
+                if (p.Values.ContainsKey("RaiderVanillaDoors")) p.ParseBool("RaiderVanillaDoors", ref raiderDoors);
+                RaiderVanillaDoors = raiderDoors;
                 bool verbose = Verbose;
                 if (p.Values.ContainsKey("DebugLogging")) p.ParseBool("DebugLogging", ref verbose);
                 Verbose = verbose;
@@ -806,6 +880,10 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("ValueOverrides", out s) && !string.IsNullOrEmpty(s)) ParseOverrides(s);
                 if (p.Values.TryGetValue("SurvivorGearSets", out s) && !string.IsNullOrEmpty(s)) { SurvivorGearSets.Clear(); SurvivorGearSets.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("XnpcSurvivorClasses", out s) && !string.IsNullOrEmpty(s)) { XnpcSurvivorClasses.Clear(); XnpcSurvivorClasses.AddRange(SplitList(s)); }
+                if (p.Values.TryGetValue("XnpcRaiderClasses", out s) && !string.IsNullOrEmpty(s)) { XnpcRaiderClasses.Clear(); XnpcRaiderClasses.AddRange(SplitList(s)); }
+                // an empty value is meaningful here: raiders then dress from SurvivorGearSets
+                if (p.Values.TryGetValue("RaiderGearSets", out s)) { RaiderGearSets.Clear(); if (!string.IsNullOrEmpty(s)) RaiderGearSets.AddRange(SplitList(s)); }
+                if (p.Values.TryGetValue("RaiderRangedShare", out s) && !string.IsNullOrEmpty(s)) ParseRangedShare(s);
 
                 DynamicProperties traits;
                 if (p.Classes != null && p.Classes.TryGetValue("Traits", out traits) && traits != null)
@@ -834,7 +912,12 @@ namespace SurvivorCommunity
                           + " xnpcWeapons=" + XnpcWeapons.Count + " xnpcSpawnAmmo=" + XnpcSpawnAmmo + "/" + XnpcSpawnArrows
                           + " resupply=" + (XnpcResupply ? "below " + XnpcResupplyBelow + " +" + XnpcResupplyAmmo + "/" + XnpcResupplyArrows
                                             + " every " + XnpcResupplyCooldown + "s x" + XnpcResupplyPointsMult : "off")
-                          + " overwhelmed=" + (Overwhelmed ? OverwhelmedMin + ".." + OverwhelmedMax + "/" + OverwhelmedStrangers + " in " + OverwhelmedRadius + "m" : "off"));
+                          + " overwhelmed=" + (Overwhelmed ? OverwhelmedMin + ".." + OverwhelmedMax + "/" + OverwhelmedStrangers + " in " + OverwhelmedRadius + "m" : "off")
+                          + " raiders=" + XnpcRaiderClasses.Count + " classes, ranged-lead " + string.Join("/", Array.ConvertAll(RaiderRangedShare, x => x.ToString("0.##", CultureInfo.InvariantCulture)))
+                          + " (melee-lead to ranged beyond " + RaiderLeadRangedDist + "m for " + RaiderLeadRangedSeconds + "s)"
+                          + " firearm " + RaiderFirearmChance + " ammo " + RaiderSpawnAmmo + "/" + RaiderSpawnArrows
+                          + " levels=" + (RaiderXnpcLevels ? (RaiderLevelRegen ? "on" : "on, no regen") : "off") + " drop " + RaiderWeaponDropChance
+                          + " vanillaDoors=" + RaiderVanillaDoors + " gearSets=" + (RaiderGearSets.Count > 0 ? RaiderGearSets.Count.ToString() : "survivors'"));
             }
             catch (Exception e)
             {
@@ -850,6 +933,24 @@ namespace SurvivorCommunity
             {
                 string t = part.Trim();
                 if (t.Length > 0) yield return t;
+            }
+        }
+
+        /// <summary>RaiderRangedShare "0.3,0.4,0.5" (the ranged-lead chance): one share per class tier; a shorter list repeats its last value, a bad entry keeps the default.</summary>
+        private static void ParseRangedShare(string s)
+        {
+            string[] parts = s.Split(',');
+            float last = -1f;
+            for (int i = 0; i < RaiderRangedShare.Length; i++)
+            {
+                float v;
+                if (i < parts.Length && float.TryParse(parts[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out v))
+                {
+                    if (v < 0f || v > 1f) { ScLog.Warn("config RaiderRangedShare entry " + v + " out of range [0,1], keeping " + RaiderRangedShare[i]); continue; }
+                    RaiderRangedShare[i] = last = v;
+                }
+                else if (i >= parts.Length && last >= 0f) RaiderRangedShare[i] = last;
+                else ScLog.Warn("config RaiderRangedShare '" + s + "': entry " + (i + 1) + " unreadable, keeping " + RaiderRangedShare[i]);
             }
         }
 

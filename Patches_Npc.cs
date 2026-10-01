@@ -24,6 +24,9 @@ namespace SurvivorCommunity
         [HarmonyPatch]
         public static class Patch_SetDead
         {
+            /// <summary>Set on a dead raider once its pair weapons have had their drop roll (M10-D6).</summary>
+            private const string PairDroppedCvar = "sc_pairDropped";
+
             [HarmonyPrepare]
             public static bool Prepare() { return ScNpc.Declared("SetDead", NoArgs).Count > 0; }
 
@@ -55,13 +58,19 @@ namespace SurvivorCommunity
             /// its separate lootContainer, and only when the leader is the local player, and never removes the window - so
             /// without this the window's contents were lost with the body and its HarvestManager entry leaked (M1's
             /// SetDead finding). The same code SCore's EntityAliveSDX.SetDead runs.
+            ///
+            /// SC's raiders (M10-D6) go through here too, being managed bodies: their bag holds what is left of their
+            /// starting ammo and their meds (they never have a window, ScNpc.Items), and each weapon of their pair goes in
+            /// with RaiderWeaponDropChance, rolled per weapon - the toolbelt copy SCore made at PostInit, so a real vanilla
+            /// weapon of quality 1-6. That replaces the old raiders' 20% loot bag with their class weapon. V4's own drop
+            /// adds nothing: its SetDead nulls lootContainer before dropItemOnDeath runs.
             /// </summary>
             private static void DropWindow(EntityAlive e)
             {
                 try
                 {
-                    // the window (meds, anything handed over) and, for the community's 0-XNPCCore survivors, the bag (their
-                    // ammo, ScAmmo.AddRounds): V4's own dropItemOnDeath drops neither
+                    // the window (meds, anything handed over) and, for the community's 0-XNPCCore survivors and SC's
+                    // raiders, the bag (their ammo, ScAmmo.AddRounds): V4's own dropItemOnDeath drops neither
                     var drop = new List<ItemStack>();
                     bool hadWindow = HarvestManager.Has(e.entityId);
                     if (hadWindow)
@@ -74,6 +83,22 @@ namespace SurvivorCommunity
                     {
                         foreach (ItemStack s in e.bag.GetSlots()) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
                         e.bag.Clear();
+                    }
+                    // once per raider: vanilla's Kill calls SetDead again for every hit on a body that is already dead,
+                    // and the weapons, unlike the bag, are still in its toolbelt then
+                    if (ScXnpc.IsRaider(e) && ScConfig.RaiderWeaponDropChance > 0f && e.Buffs != null && e.Buffs.GetCustomVar(PairDroppedCvar) <= 0f)
+                    {
+                        e.Buffs.SetCustomVar(PairDroppedCvar, 1f);
+                        GameRandom rnd = e.world != null ? e.world.GetGameRandom() : null;
+                        int dropped = 0;
+                        foreach (ItemValue iv in ScLoadout.CarriedPair(e))
+                        {
+                            float roll = rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
+                            if (roll >= ScConfig.RaiderWeaponDropChance) continue;
+                            drop.Add(new ItemStack(iv, 1));
+                            dropped++;
+                        }
+                        if (dropped > 0) ScLog.Verbose("raider " + e.entityId + " dropped " + dropped + " of its pair weapon(s)");
                     }
                     if (drop.Count > 0)
                     {
@@ -140,9 +165,11 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Raiders wear the player body too, but they are EntityNPCBandit (SCore's hostile class), not one of its
-        /// friendly classes, so the survivor PostInit hook never runs for them: without this their hit capsules stay
-        /// on the no-collision layer EntityFactory put them on and shots pass straight through.
+        /// The OLD raiders (scRaider&lt;Sex&gt;&lt;Weapon&gt;) wore the player body as EntityNPCBandit (SCore's hostile class),
+        /// not one of its friendly classes, so the survivor PostInit hook never ran for them: without this their hit
+        /// capsules stayed on the no-collision layer EntityFactory put them on and shots passed straight through. Since M10
+        /// raiders are EntityAliveSDXV4 and go through Patch_PostInit; no such class is generated any more, and M10 round 2
+        /// removes this hook with the rest of the shim.
         /// </summary>
         [HarmonyPatch(typeof(EntityNPCBandit), nameof(EntityNPCBandit.PostInit), new Type[0])]
         public static class Patch_RaiderPostInit
@@ -203,8 +230,8 @@ namespace SurvivorCommunity
             /// <summary>
             /// Both weapons on the item list before SCore's EntityAlive.PostInit postfix fills the slots from it, before
             /// SetupStartingItems, and before PostInit re-equips the saved weapon (ScLoadout). BeforePostInit acts on the
-            /// community's 0-XNPCCore survivor classes (EntityAliveSDXV4: their rolled pair, migration M7) and passes every
-            /// other class through untouched (pack NPCs, XNPC's other classes).
+            /// community's 0-XNPCCore survivor classes and SC's raider classes (EntityAliveSDXV4: their rolled pair,
+            /// migration M7 and M10) and passes every other class through untouched (pack NPCs, XNPC's other classes).
             /// </summary>
             [HarmonyPrefix]
             public static void Prefix(EntityAlive __instance)
@@ -223,8 +250,11 @@ namespace SurvivorCommunity
                     // player body needs it, not only members and prospects - a stranger found in the wild or spawned
                     // from the console used to keep its hit capsules on the no-collision layer.
                     Patches_Sdcs.FixColliderLayers(__instance);
-                    // a new 0-XNPCCore survivor's starting ammo, once per entity (its own catch; decision D3)
+                    // a new body's starting ammo, once per entity (its own catch; decisions D3 and M10-D2)
                     ScLoadout.AfterPostInit(__instance);
+                    // M10-D5: a raider opens unlocked doors through SCore's own opener (its move tasks, for every human
+                    // NPC; it shuts them again). Vanilla's move-helper opener - the old EntityBandit raiders' - only on request.
+                    if (ScConfig.RaiderVanillaDoors && __instance.moveHelper != null && ScXnpc.IsRaider(__instance)) __instance.moveHelper.CanOpenDoors = true;
                     if (!ScRegistry.Loaded) return;
                     if (ScRegistry.Cleanup.Contains(__instance.entityId))
                     {

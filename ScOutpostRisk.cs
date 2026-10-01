@@ -282,14 +282,26 @@ namespace SurvivorCommunity
             return Mathf.Clamp(Mathf.RoundToInt(n), 2, Math.Max(2, ScConfig.OutpostAttackMax));
         }
 
-        private static string RaiderGroup(EntityPlayerLocal player)
+        /// <summary>
+        /// The raider band for the player's gamestage, 0..2 (T1 below 50, T2 below 100, T3 from 100): the thresholds the
+        /// wild raider spawn groups scRaiderGroupGS01/GS50/GS100 stand for.
+        /// </summary>
+        private static int RaiderBand(EntityPlayerLocal player)
         {
             int gs = 0;
             try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
-            return gs >= 100 ? "scRaiderGroupGS100" : gs >= 50 ? "scRaiderGroupGS50" : "scRaiderGroupGS01";
+            return gs >= 100 ? 2 : gs >= 50 ? 1 : 0;
         }
 
-        /// <summary>The player is here: the attackers come in around the POI, at whoever holds it.</summary>
+        /// <summary>
+        /// The player is here: the attackers come in around the POI, at whoever holds it.
+        ///
+        /// Raiders are picked as classes, never rolled from a spawn group (M10, design 3.6): the wild raider groups are 96%
+        /// "none" (class id 0, which this loop skips), so rolling them once per attacker spawned about one raider in 25 and
+        /// most raids settled as "no attackers". Each raider is the band's class of a random sex; their weapons, looks and
+        /// ammo are rolled by the body itself (ScLoadout, ScLooks) like any wild raider's. Zombie attacks keep their group,
+        /// which has no "none" entry.
+        /// </summary>
         private static void SpawnAttack(World w, EntityPlayerLocal player, Outpost o)
         {
             Live l = L(o);
@@ -298,7 +310,8 @@ namespace SurvivorCommunity
             try
             {
                 GameRandom rnd = w.GetGameRandom();
-                string group = o.AttackRaiders ? RaiderGroup(player) : ScConfig.DistressZombieGroup;
+                int band = RaiderBand(player);
+                string group = o.AttackRaiders ? "raider classes T" + (band + 1) : ScConfig.DistressZombieGroup;
                 Vector3 c = o.Centre;
                 int count = AttackerCount(o, player);
                 float reach = Mathf.Max(12f, Mathf.Max(o.Size.x, o.Size.z) * 0.5f + 6f);
@@ -310,7 +323,13 @@ namespace SurvivorCommunity
                 }
                 for (int i = 0; i < count; i++)
                 {
-                    int cls = EntityGroups.GetRandomFromGroup(group, ref lastClass, rnd);
+                    int cls;
+                    if (o.AttackRaiders)
+                    {
+                        string name = ScXnpc.RaiderClassFor(rnd.RandomFloat < 0.5f, band);
+                        cls = name != null ? EntityClass.FromString(name) : 0;
+                    }
+                    else cls = EntityGroups.GetRandomFromGroup(group, ref lastClass, rnd);
                     if (!ScCommunity.ClassExists(cls)) continue;              // ids are string hashes: negative is fine
                     float ang = rnd.RandomFloat * Mathf.PI * 2f;
                     float dist = reach + rnd.RandomRange(0, 8);

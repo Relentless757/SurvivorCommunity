@@ -90,5 +90,32 @@
 				<consideration class="SelfVisible" />
 			</action>
 		</ai_package>
+
+		<!-- Raiders (M10, DESIGN_M10_RAIDERS.md 2.7): SurvivorCommunity's hostile classes on 0-XNPCCore's player body run
+		     NPCModCoreNoChat (idle, wander) and XNPC's SdcsNpcRangedAdvanced (the package that fires a vanilla gun or bow on
+		     action 0, keeps its distance, and melees with the melee weapon), plus this package for the two things that one
+		     lacks. Each action carries its own entity_filter, as SCore's hostile packages do. Both weigh less than the
+		     attacks (5 to 7), so they only win when nothing can be shot or hit yet. -->
+		<ai_package name="SCRaider">
+			<!-- Close in on a seen enemy the gun or bow cannot reach yet: SdcsNpcRangedAdvanced's own approach is for the
+			     melee weapon only (CurrentWeaponClass 0). -->
+			<action name="ScRaiderApproach" weight="4" entity_filter="IsEnemy">
+				<task class="MoveToAttackTargetSDX, SCore" run="true" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="SelfNotHasCVar, SCore" cvar="CurrentWeaponClass" value="0" />
+				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="NotInWeaponRange, SCore" action_index="0" />
+				<consideration class="CanSeeTarget, SCore" />
+			</action>
+			<!-- Heard, not seen: go and look, whatever is in the hand (SCore's hostile packages do this as MoveToFindTarget).
+			     IsPlayer is any player, and every player is an enemy to a raider. -->
+			<action name="ScRaiderInvestigate" weight="3" entity_filter="IsPlayer">
+				<task class="MoveToInvestigate, SCore" run="true" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="CanNotSeeTarget, SCore" />
+				<consideration class="CanHearTarget, SCore" />
+				<consideration class="NotPathBlockedSDX, SCore" />
+			</action>
+		</ai_package>
 	</append>
 </configs>

@@ -18,8 +18,8 @@ namespace SurvivorCommunity
     /// Harmony target lists and the dependency probe in ModApi.
     ///
     /// For an EntityAliveSDX every call does exactly what the code it replaced did. Anything that is not one of the two
-    /// classes (a raider, a vanilla trader, a zombie) gets the neutral answer the old "as EntityAliveSDX" gave it:
-    /// null, false, or nothing done.
+    /// classes (an old EntityNPCBandit raider, a vanilla trader, a zombie) gets the neutral answer the old "as
+    /// EntityAliveSDX" gave it: null, false, or nothing done. SC's raiders are EntityAliveSDXV4 since M10.
     /// </summary>
     public static class ScNpc
     {
@@ -199,20 +199,26 @@ namespace SurvivorCommunity
         /// <summary>
         /// The slots the player sees in the NPC's inventory window: a framework NPC's lives in SCore's HarvestManager
         /// (saved with the world - both classes write it in their Write - and dropped as a backpack on death); anything
-        /// else, a raider included, uses its vanilla bag (null when it has none).
+        /// else uses its vanilla bag (null when it has none).
+        ///
+        /// SC's raiders on XNPC's body (M10, design 3.3) are framework NPCs too, but keep everything in the BAG: a
+        /// HarvestManager container, once created, is written to its own save file for good (HarvestManager persists every
+        /// container it holds), which for unsaved wild or raid raiders would leak one entry per raider. The bag is saved
+        /// with the entity (when it is saved at all) and emptied into the death backpack (Patches_Npc). So ScMedic's stock
+        /// and use, and a console give, go to a raider's bag, and no HarvestManager.GetOrCreate ever runs for one.
         /// </summary>
         public static ItemStack[] Items(EntityAlive e)
         {
             if (e == null) return null;
-            if (IsFramework(e)) return HarvestManager.GetOrCreate(e.entityId).GetItems();
+            if (UsesWindow(e)) return HarvestManager.GetOrCreate(e.entityId).GetItems();
             return e.bag != null ? e.bag.GetSlots() : null;
         }
 
-        /// <summary>Adds a stack to that inventory (a raider without a bag gets the vanilla 45-slot one first).</summary>
+        /// <summary>Adds a stack to that inventory (an NPC without a bag gets the vanilla 45-slot one first).</summary>
         public static void AddItem(EntityAlive e, ItemStack stack)
         {
             if (e == null || stack == null) return;
-            if (IsFramework(e)) HarvestManager.AddItem(e.entityId, stack);
+            if (UsesWindow(e)) HarvestManager.AddItem(e.entityId, stack);
             else
             {
                 if (e.bag == null) e.bag = new Bag(45);
@@ -224,8 +230,14 @@ namespace SurvivorCommunity
         public static void SetItem(EntityAlive e, int slot, ItemStack stack)
         {
             if (e == null) return;
-            if (IsFramework(e)) HarvestManager.GetOrCreate(e.entityId).UpdateSlot(slot, stack);
+            if (UsesWindow(e)) HarvestManager.GetOrCreate(e.entityId).UpdateSlot(slot, stack);
             else if (e.bag != null) e.bag.SetSlot(slot, stack);
+        }
+
+        /// <summary>A framework NPC that keeps its things in SCore's inventory window: every one but SC's raiders (see Items).</summary>
+        private static bool UsesWindow(EntityAlive e)
+        {
+            return IsFramework(e) && !ScXnpc.IsRaider(e);
         }
 
         // ------------------------------------------------------------------ orders ----

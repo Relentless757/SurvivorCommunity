@@ -91,6 +91,8 @@ namespace SurvivorCommunity
         {
             why = null;
             if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) { why = "scNotHireable"; return false; }
+            // a raider never joins (M10; belt and braces: its class is Hirable false, so the next checks refuse it too)
+            if (ScXnpc.IsRaider(npc)) { why = "scNotHireable"; return false; }
             if (!IsHost) { why = "scHostOnly"; return false; }
             if (!ScNpc.IsFramework(npc) || !ScNpc.IsHirable(npc)) { why = "scNotHireable"; return false; }
             if (!EntityUtilities.IsHuman(npc.entityId) || npc.HasAnyTags(AnimalTags)) { why = "scNotHireable"; return false; }

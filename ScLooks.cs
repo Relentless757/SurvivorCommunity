@@ -117,8 +117,10 @@ namespace SurvivorCommunity
     ///
     /// The community's survivors are 0-XNPCCore's own (ScXnpc.IsBody; decisions D2 and D11 - SC no longer defines survivor
     /// classes of its own): their model is built from ForEntity's look by Patches_Xnpc (X1), and a rebuild goes through
-    /// XNPC's own mesh build (Rebuild). SC's raiders (scRaider*, decision D1) wear the player's body through SC's own model
-    /// shim and are dressed from here the same way; the class lists below (RaiderClasses, PickFrom) are theirs.
+    /// XNPC's own mesh build (Rebuild). SC's raiders ride the same body since M10 (scRaider{Male,Female}T{1,2,3},
+    /// ScXnpc.IsRaider) and are built the same way, their clothes rolled from RaiderGearSets (M10-D7). The class lists
+    /// below (RaiderClasses, PickFrom, WeaponOf...) and the Rebuild/Apply branches for an exact EModelSDCS belong to the
+    /// old scRaider&lt;Sex&gt;&lt;Weapon&gt; shim: no such class is generated any more, and M10 round 2 removes them.
     /// </summary>
     public static class ScLooks
     {
@@ -169,14 +171,19 @@ namespace SurvivorCommunity
 
         // ---- classes ----
 
-        /// <summary>Hostile player-body classes (Config/entityclasses.xml, generated): scRaider&lt;Sex&gt;&lt;Weapon&gt;. The only
-        /// player-body classes SurvivorCommunity still defines: its scSurvivor classes are gone (decision D11).</summary>
+        /// <summary>The OLD shim's hostile player-body classes, scRaider&lt;Sex&gt;&lt;Weapon&gt; (EntityNPCBandit on an exact
+        /// EModelSDCS). No longer generated since M10; kept until round 2 removes the shim.</summary>
         public const string RaiderPrefix = "scRaider";
 
+        /// <summary>
+        /// One of the OLD shim's raider classes. The M10 raider classes share the prefix (scRaiderMaleT1...) but are
+        /// ScXnpc's managed classes on XNPC's body, so they are excluded here: anything that means today's raiders asks
+        /// ScXnpc.IsRaiderClass.
+        /// </summary>
         public static bool IsRaiderClass(string cls)
         {
             return !string.IsNullOrEmpty(cls) && cls.StartsWith(RaiderPrefix, StringComparison.OrdinalIgnoreCase)
-                   && cls.IndexOf("Template", StringComparison.OrdinalIgnoreCase) < 0;
+                   && cls.IndexOf("Template", StringComparison.OrdinalIgnoreCase) < 0 && !ScXnpc.IsManagedClass(cls);
         }
 
         /// <summary>The weapon token a generated class was built for (property ScWeapon), or "".</summary>
@@ -286,7 +293,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The look for an entity that is initialising its player body: the pending spawn look, else the
-        /// registry record (reloads), else what this session rolled for it, else a fresh roll.
+        /// registry record (reloads), else what this session rolled for it, else a fresh roll (a raider's clothes from
+        /// RaiderGearSets).
         /// </summary>
         public static Look ForEntity(Entity e)
         {
@@ -316,7 +324,7 @@ namespace SurvivorCommunity
                 {
                     source = "roll";
                     World w = ScCommunity.World;
-                    look = Roll(ClassIsMale(cls), w != null ? w.GetGameRandom() : null, true);
+                    look = Roll(ClassIsMale(cls), w != null ? w.GetGameRandom() : null, true, ScXnpc.IsRaiderClass(cls));
                 }
                 Validate(look);
                 if (e != null) { session[e.entityId] = look; sessionClass[e.entityId] = cls; sessionSource[e.entityId] = source; }
@@ -375,8 +383,8 @@ namespace SurvivorCommunity
             return rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
         }
 
-        /// <summary>A random face and hair (and a set of clothes when asked) for the given sex.</summary>
-        public static Look Roll(bool male, GameRandom rnd, bool withGear)
+        /// <summary>A random face and hair (and a set of clothes when asked - a raider's from RaiderGearSets) for the given sex.</summary>
+        public static Look Roll(bool male, GameRandom rnd, bool withGear, bool raider = false)
         {
             var look = new Look { Male = male };
             try
@@ -415,7 +423,7 @@ namespace SurvivorCommunity
                     look.Chops = Chance(rnd) < ScConfig.SurvivorFacialHairChance * 0.5f ? Pick(rnd, chops, FallbackFacial) : "";
                     look.Beard = Chance(rnd) < ScConfig.SurvivorFacialHairChance ? Pick(rnd, beards, FallbackFacial) : "";
                 }
-                if (withGear) RollGear(look, rnd);
+                if (withGear) RollGear(look, rnd, raider);
             }
             catch (Exception e)
             {
@@ -437,11 +445,12 @@ namespace SurvivorCommunity
         /// and swapped for another set's piece with SurvivorGearMixChance (a scavenged look). The body armor is
         /// the exception - at a piece chance of 0.8 one survivor in five turned up bare-chested, which reads as
         /// a missing mesh rather than as scavenging, so that slot ignores the chance (SurvivorGearAlwaysChest).
+        /// A raider's sets are RaiderGearSets (M10-D7; SurvivorGearSets when that is empty), with the same chances.
         /// </summary>
-        public static void RollGear(Look look, GameRandom rnd)
+        public static void RollGear(Look look, GameRandom rnd, bool raider = false)
         {
             for (int i = 0; i < 4; i++) { look.Gear[i] = ""; look.Quality[i] = 1; }
-            var sets = ScConfig.SurvivorGearSets;
+            var sets = ScConfig.GearSetsFor(raider);
             if (sets.Count == 0) return;
             string main = sets[rnd != null ? rnd.RandomRange(0, sets.Count) : 0];
             int qMin = Math.Max(1, Math.Min(ScConfig.SurvivorGearQualityMin, ScConfig.SurvivorGearQualityMax));

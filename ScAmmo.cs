@@ -36,6 +36,10 @@ namespace SurvivorCommunity
     /// fresh body) starts with exactly that instead of a new survivor's starting stack, so re-creating somebody never
     /// makes ammo; a record that was never written (they never stood loaded with a pair gun) starts them empty, and the
     /// next resupply in the base or at an outpost arms them. Host only.
+    ///
+    /// SC's raiders on the same body (M10-D2) get a starting stack in the bag too (RaiderSpawnAmmo / RaiderSpawnArrows,
+    /// ScLoadout.AfterPostInit) and nothing ever again: Tick walks members only, and a raider has no record. What is left
+    /// goes into the backpack it drops (Patches_Npc).
     /// </summary>
     public static class ScAmmo
     {
@@ -60,7 +64,7 @@ namespace SurvivorCommunity
         public static Dictionary<string, int> PendingRecord;
 
         // counters for sc xnpc (main thread only)
-        private static int resupplies, roundsGiven, bundlesOpened, refusedEmpty, refusedFull, outsideWaits, restored, seeded;
+        private static int resupplies, roundsGiven, bundlesOpened, refusedEmpty, refusedFull, outsideWaits, restored, seeded, raidersSeeded;
 
         public static void Reset()
         {
@@ -72,7 +76,7 @@ namespace SurvivorCommunity
             restore.Clear();
             PendingKnown = false;
             PendingRecord = null;
-            resupplies = roundsGiven = bundlesOpened = refusedEmpty = refusedFull = outsideWaits = restored = seeded = 0;
+            resupplies = roundsGiven = bundlesOpened = refusedEmpty = refusedFull = outsideWaits = restored = seeded = raidersSeeded = 0;
         }
 
         // ------------------------------------------------------------------ the gun and its rounds ----
@@ -279,8 +283,8 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>A new survivor's starting stack was given (ScLoadout.AfterPostInit): counted for sc xnpc.</summary>
-        public static void NoteSeeded() { seeded++; }
+        /// <summary>A new survivor's (or a raider's, M10-D2) starting stack was given (ScLoadout.AfterPostInit): counted for sc xnpc.</summary>
+        public static void NoteSeeded(bool raider) { if (raider) raidersSeeded++; else seeded++; }
 
         /// <summary>Rounds of this ammo the bag still has room for: partly filled stacks and empty slots.</summary>
         private static int Room(EntityAlive e, ItemValue ammo)
@@ -548,7 +552,7 @@ namespace SurvivorCommunity
                    + " round(s), " + bundlesOpened + " bundle(s) opened this session (" + c.AmmoOpened + " since the last rollover), refused "
                    + refusedEmpty + " (stockpile empty) / " + refusedFull + " (window full), " + outsideWaits + " ran low outside; "
                    + c.Get(Resource.Ammo) + " ammo bundle(s) in the stockpile, " + c.AmmoOpenPoints + " point(s) in the open one; starting stacks "
-                   + seeded + ", re-created bodies given their record " + restored;
+                   + seeded + " (raiders " + raidersSeeded + ", never resupplied), re-created bodies given their record " + restored;
         }
 
         /// <summary>One NPC's ammo as the resupply sees it, for sc xnpc &lt;id&gt;.</summary>

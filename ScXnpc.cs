@@ -19,6 +19,12 @@ namespace SurvivorCommunity
     /// The classes are configurable (XnpcSurvivorClasses in Config/blocks.xml) in case a later XNPCCore renames or adds
     /// tiers; the XML that strips XNPC's look applier from them (Config/entityclasses.xml, emitted by
     /// Tools/gen_arsenal.py) names the same six and has to follow such a change by hand.
+    ///
+    /// SC's raiders ride the same body since M10 (DESIGN_M10_RAIDERS.md): scRaider{Male,Female}T{1,2,3}, hostile
+    /// EntityAliveSDXV4 classes SC defines itself on XNPC's npcSdcsBase (Tools/gen_arsenal.py, XnpcRaiderClasses). They
+    /// are a second managed set: every body hook that asks IsBody / IsManagedClass (the union) covers them with no further
+    /// code - looks, eyes, colliders, the pair's melee weapon, aim, healing, the self-hit guard, the feet offset - and the
+    /// few places where a raider must differ from a survivor ask IsRaider / IsRaiderClass or IsSurvivorClass.
     /// </summary>
     public static class ScXnpc
     {
@@ -29,6 +35,13 @@ namespace SurvivorCommunity
             "npcSdcsSurvivorFemaleT1", "npcSdcsSurvivorFemaleT2", "npcSdcsSurvivorFemaleT3"
         };
 
+        /// <summary>SC's hostile classes on the same body (Config/entityclasses.xml, generated) when the config does not say otherwise.</summary>
+        public static readonly string[] DefaultRaiderClasses =
+        {
+            "scRaiderMaleT1", "scRaiderMaleT2", "scRaiderMaleT3",
+            "scRaiderFemaleT1", "scRaiderFemaleT2", "scRaiderFemaleT3"
+        };
+
         /// <summary>
         /// What XNPC's kill levels leave on a body (AvatarSdcsNpcController.SdcsLevelTick, the only writer of all of
         /// them): the level bonus buff (health, damage, spread and a 0.2 HP/s regeneration) and the no-wear buff its wear
@@ -36,9 +49,14 @@ namespace SurvivorCommunity
         /// </summary>
         private static readonly string[] LevelBuffs = { "SdcsNpcLevelBonus", "SdcsNoWear" };
         private static readonly string[] LevelCvars = { "SdcsNpcLevel", "SdcsLevelHealth", "SdcsLevelDamage", "SdcsLevelSpread", "SdcsLevelRegen" };
+        /// <summary>The regeneration cvar XNPC's level bonus buff reads live (0.2 HP/s per level): zeroed on raiders that keep levels.</summary>
+        public const string LevelRegenCvar = "SdcsLevelRegen";
 
-        /// <summary>Class ids (EntityClass.FromString, the name's hash) of the managed classes; built on first use per world.</summary>
-        private static HashSet<int> managed;
+        /// <summary>
+        /// Class ids (EntityClass.FromString, the name's hash): the survivor classes, the raider classes and their union
+        /// (the managed set every body hook asks). Built together on first use per world.
+        /// </summary>
+        private static HashSet<int> managed, survivors, raiders;
 
         /// <summary>AI package name -> has 0-XNPCCore's DynamicFollow (packages are fixed once the XML is loaded).</summary>
         private static readonly Dictionary<string, bool> followPackages = new Dictionary<string, bool>();
@@ -57,30 +75,47 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             managed = null;
+            survivors = null;
+            raiders = null;
             followPackages.Clear();
         }
 
+        /// <summary>The union. The three sets are built together, so a caller of one never sees another half-built.</summary>
         private static HashSet<int> Managed()
         {
             HashSet<int> set = managed;
             if (set != null) return set;
-            set = new HashSet<int>();
+            var s = new HashSet<int>();
+            var r = new HashSet<int>();
             try
             {
                 // Read lazily because a body can initialise before anything else in the mod has asked for the config.
                 if (!ScConfig.Parsed) ScConfig.EnsureParsed();
                 foreach (string c in ScConfig.XnpcSurvivorClasses)
-                    if (!string.IsNullOrEmpty(c)) set.Add(EntityClass.FromString(c.Trim()));
+                    if (!string.IsNullOrEmpty(c)) s.Add(EntityClass.FromString(c.Trim()));
+                foreach (string c in ScConfig.XnpcRaiderClasses)
+                    if (!string.IsNullOrEmpty(c)) r.Add(EntityClass.FromString(c.Trim()));
+                // a class listed on both sides would be a survivor with a raider's rules in some places and not in others
+                foreach (int id in r)
+                    if (s.Contains(id)) ScLog.Once("xnpc-classes-both", "a class is in both XnpcSurvivorClasses and XnpcRaiderClasses - it is treated as a raider");
+                s.ExceptWith(r);
             }
             catch (Exception e)
             {
                 ScLog.Once("xnpc-classes", e);
             }
+            set = new HashSet<int>(s);
+            set.UnionWith(r);
+            survivors = s;
+            raiders = r;
             managed = set;
             return set;
         }
 
-        /// <summary>Is this entity class one of the survivor classes the community owns?</summary>
+        private static HashSet<int> Survivors() { Managed(); return survivors ?? new HashSet<int>(); }
+        private static HashSet<int> Raiders() { Managed(); return raiders ?? new HashSet<int>(); }
+
+        /// <summary>Is this entity class one of the classes SC drives on XNPC's body - a survivor class the community owns, or a raider class?</summary>
         public static bool IsManagedClass(int entityClass)
         {
             return Managed().Contains(entityClass);
@@ -92,8 +127,42 @@ namespace SurvivorCommunity
             return !string.IsNullOrEmpty(className) && Managed().Contains(EntityClass.FromString(className));
         }
 
+        /// <summary>One of 0-XNPCCore's survivor classes the community owns (never a raider class): recruits, radio contacts, members.</summary>
+        public static bool IsSurvivorClass(int entityClass)
+        {
+            return Survivors().Contains(entityClass);
+        }
+
+        public static bool IsSurvivorClass(string className)
+        {
+            return !string.IsNullOrEmpty(className) && Survivors().Contains(EntityClass.FromString(className));
+        }
+
+        /// <summary>One of SC's hostile raider classes (scRaider{Male,Female}T{1,2,3}).</summary>
+        public static bool IsRaiderClass(int entityClass)
+        {
+            return Raiders().Contains(entityClass);
+        }
+
+        public static bool IsRaiderClass(string className)
+        {
+            return !string.IsNullOrEmpty(className) && Raiders().Contains(EntityClass.FromString(className));
+        }
+
+        /// <summary>A raider on XNPC's body (IsBody and a raider class). Type tests only, like IsBody.</summary>
+        public static bool IsRaider(Entity e)
+        {
+            return IsBody(e) && IsRaiderClass(e.entityClass);
+        }
+
+        /// <summary>One of the community's 0-XNPCCore survivors on XNPC's body (IsBody and a survivor class).</summary>
+        public static bool IsSurvivorBody(Entity e)
+        {
+            return IsBody(e) && IsSurvivorClass(e.entityClass);
+        }
+
         /// <summary>
-        /// One of our XNPC bodies: an EntityAliveSDXV4 of a managed class wearing XNPC's EModelSdcsNpc. Type tests only
+        /// One of our XNPC bodies, survivor or raider: an EntityAliveSDXV4 of a managed class wearing XNPC's EModelSdcsNpc. Type tests only
         /// (no Unity null comparison), so it answers correctly for a body that is being destroyed, which is when the
         /// asset release in Patches_Sdcs asks.
         /// </summary>
@@ -137,16 +206,30 @@ namespace SurvivorCommunity
         public static string ClassFor(bool male, int tier)
         {
             string want = "npcSdcsSurvivor" + (male ? "Male" : "Female") + "T" + (Mathf.Clamp(tier, 0, 2) + 1);
-            if (IsManagedClass(want) && ScCommunity.ClassExists(EntityClass.FromString(want))) return want;
+            if (IsSurvivorClass(want) && ScCommunity.ClassExists(EntityClass.FromString(want))) return want;
             foreach (string c in ScConfig.XnpcSurvivorClasses)
-                if (ScLooks.ClassIsMale(c) == male && ScCommunity.ClassExists(EntityClass.FromString(c))) return c;
+                if (ScLooks.ClassIsMale(c) == male && IsSurvivorClass(c) && ScCommunity.ClassExists(EntityClass.FromString(c))) return c;
+            return null;
+        }
+
+        /// <summary>
+        /// The raider class for a sex and a band tier (0..2: T1..T3; outpost raids and sc spawn hostile pick it directly
+        /// instead of rolling a spawn group, whose "none" entry would win 96% of the time). Falls back to any configured
+        /// raider class of that sex, then null.
+        /// </summary>
+        public static string RaiderClassFor(bool male, int tier)
+        {
+            string want = "scRaider" + (male ? "Male" : "Female") + "T" + (Mathf.Clamp(tier, 0, 2) + 1);
+            if (IsRaiderClass(want) && ScCommunity.ClassExists(EntityClass.FromString(want))) return want;
+            foreach (string c in ScConfig.XnpcRaiderClasses)
+                if (ScLooks.ClassIsMale(c) == male && IsRaiderClass(c) && ScCommunity.ClassExists(EntityClass.FromString(c))) return c;
             return null;
         }
 
         /// <summary>
         /// The weapon tier a managed class stands for, 0..2 from its T1..T3 name: the band its spawn group, the radio or the
-        /// console picked it for (ClassFor). 2 when the name carries no tier, so such a class is capped by the gamestage
-        /// alone (ScLoadout).
+        /// console picked it for (ClassFor, RaiderClassFor). 2 when the name carries no tier, so such a class is capped by
+        /// the gamestage alone (ScLoadout).
         /// </summary>
         public static int TierOf(string className)
         {
@@ -223,6 +306,7 @@ namespace SurvivorCommunity
         /// join and every stamp (ScCommunity.StampCvars), for respawned members and stand-ins (ScSpawn.Identify), and once
         /// a second in place of XNPC's level tick for every member or stand-in body (Patches_Xnpc X3), which is what keeps
         /// it off. A member who leaves loses the community cvars, and XNPC's tick then seeds a day-based level again.
+        /// X3 does the same for every raider while RaiderXnpcLevels is off (M10-D3: raiders get no kill levels).
         /// </summary>
         public static void StripLevels(EntityAlive e)
         {

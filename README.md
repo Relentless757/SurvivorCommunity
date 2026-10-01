@@ -352,24 +352,26 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
 - **Runners on 0-XNPCCore bodies** run at `RunnerRunMps` (4.5 m/s) and walk at `RunnerWalkMps` (1.6 m/s) in the
   world, in literal metres per second, with Cardio, hunger and injury applied on top.
 - **A member's inventory window** (their ammo and medical stock) drops as a backpack where they die.
-- **Raiders: every weapon.** There is one raider class per weapon and sex (`scRaider<Sex><Weapon>`), following the
-  framework's own hostile pattern: SCore's bandit entity, the vanilla `bandits` faction (which hates everyone), and
-  its hostile melee and ranged AI. They cannot be talked to or recruited, and they fight your survivors as well as
-  you. 43 weapons: the framework's 24 NPC weapons plus NPC versions of the 19 vanilla combat weapons it lacks
-  (bone knife, all three knuckles, pipe and stun batons, steel club, all three sledgehammers, stone and steel
-  spears, steel axe, .44 Magnum, double barrel, lever action, primitive and compound bows, compound crossbow).
-  Those new weapons copy the closest framework weapon's damage and timing with the vanilla model, icon and
-  sounds, and animate on these bodies with the vanilla weapon's own hold type. Left out on purpose: tools
-  (chainsaw, auger, nailgun, pickaxes, shovels, wrenches), event variants and the plasma baton, which has no
-  model in 3.2.
-- The classes, spawn weights, new weapon items and their names are **generated** by `Tools/gen_arsenal.py`
-  from one table; edit the table and rerun it rather than the XML. `Tools/verify_arsenal.py` replays the
-  framework's and this mod's patches and checks every template, loadout, dropped weapon, spawn-group entry,
-  name and duplicate. Weapons are tiered (0 early melee plus the pipe guns and the primitive bow, 1 wooden
-  bow, iron crossbow and double barrel, 2 late guns): the spawn groups follow the tiers, and a radio call brings a
-  survivor whose weapons fit your gamestage.
-- **Two weapons each.** Every survivor and raider carries one melee and one ranged weapon. Ranged weapons are
-  mostly bows and crossbows: a ranged weapon is a firearm only `SurvivorFirearmChance` (12%) of the time.
+- **Raiders (M10): the survivors' body, hostile.** Raiders are six classes on 0-XNPCCore's player body, the same
+  body as the survivors: `scRaider{Male,Female}T{1,2,3}`, the tier being the band they turned up in (T1 early, T2
+  middle, T3 late). They are hostile by class (the `bandits` faction, which hates you, your survivors and the
+  zombies, never another raider), cannot be talked to or recruited, and use 0-XNPCCore's fighting AI with real
+  vanilla weapons, plus a small package of this mod's (`SCRaider`: closing in until the gun or bow reaches, and
+  going to look when they hear you). Voice Control leaves them alone (`no_voice`). They get this mod's faces and
+  rougher clothes (`RaiderGearSets`), names like "Rook the Raider", items-only healing, the aim pose, and no
+  0-XNPCCore kill levels (`RaiderXnpcLevels` false). They open unlocked doors (SCore's opener, which shuts them
+  again; `RaiderVanillaDoors` adds the vanilla one); locked doors stop them.
+- The raider classes, the spawn groups, the `XnpcWeapons` list and their names are **generated** by
+  `Tools/gen_arsenal.py` from one table; edit the table and rerun it rather than the XML. `Tools/verify_arsenal.py`
+  replays the framework's and this mod's patches and checks every class, AI package, archetype, spawn-group entry,
+  name and duplicate. Weapons are tiered (0 early melee plus the pipe guns and the primitive bow, 1 wooden bow,
+  iron crossbow and double barrel, 2 late guns): a body's weapons are capped by its class's tier and your
+  gamestage's, and a radio call brings a survivor whose weapons fit your gamestage. (The old per-weapon raider
+  classes' NPC weapon items, `meleeNPCSC*` / `gunNPCSC*`, are still defined until the old model shim goes; nothing
+  spawns with them.)
+- **Two weapons each.** Every survivor and every raider carries one melee and one ranged weapon (a raider's
+  `RaiderRangedShare` only decides which of the two it leads with). Ranged weapons are mostly bows and crossbows: a survivor's is a firearm only
+  `SurvivorFirearmChance` (12%) of the time, a raider's `RaiderFirearmChance` (12%).
   - A **survivor** carries real vanilla weapons, both rolled for that NPC from the generated `XnpcWeapons` list
     (the raiders' weapons and tiers as their vanilla items, without fists and the rocket launcher: 41, in
     `Config/blocks.xml`), at or below the lower of its class's
@@ -407,26 +409,30 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   - **Not yet: holstering.** Survivors keep their weapon in hand when calm. 0-XNPCCore's controller drives their
     weapon pose and swaps the hand item several times a fight, so hiding the weapon alone would leave them miming
     an invisible gun; a proper holster (and the sling the plan wants) is a later task.
-  - A **raider** carries the weapon its class is named for and one of the other kind rolled for it, never above
-    the higher of its class's tier and your gamestage's (the spawn groups use the same firearm share,
-    `FIREARM_SHARE` in the generator). The rocket launcher is never rolled. `SurvivorSecondWeapon` false gives
-    raiders their class weapon only.
-  - `sc loadout <name>` shows the pair and `sc loadout <name> <weapon> [weapon]` changes it (a survivor takes
-    vanilla item names or their short names, `sc weapons` lists both sides), `sc loadout near [r]` lists the pairs
+  - A **raider** rolls both weapons from the same list at the same tier cap, and a lead: `RaiderRangedShare` of them
+    (30% / 40% / 50% for T1 / T2 / T3) rely on the ranged weapon and fight like a survivor (melee within 3 m, back to
+    the gun at 5 m); the rest lead with the melee weapon - they charge in, and take the gun or bow only when you stay
+    out of reach (farther than `RaiderLeadRangedDist`, 8 m, above them or where their path cannot get, for
+    `RaiderLeadRangedSeconds`, 3 s), back to melee once you are within 3 m. Every raider starts with
+    `RaiderSpawnAmmo` (24) rounds or `RaiderSpawnArrows` (15) arrows or bolts in its bag and is **never resupplied**:
+    once the gun is dry it fights with its melee weapon. When it dies it drops a
+    backpack with its leftover ammo and medical items, and each of its two weapons is in it `RaiderWeaponDropChance`
+    (25%) of the time. The rocket launcher is never rolled.
+  - `sc loadout <name>` shows the pair and `sc loadout <name> <weapon> [weapon]` changes it (vanilla item names or
+    their short names; `ranged-lead` / `melee-lead` for a raider; `sc weapons` lists them), `sc loadout near [r]` lists the pairs
     around you, `sc arms <name> melee|ranged` switches by hand. How: the NPC's own starting-item list gets both
     weapons before SCore copies it into the inventory, which is what lets SCore's weapon swap and its save of the
     held weapon accept either one.
 - You meet them three ways. They spawn in the world on their **own layer** (below), every radio call brings
-  one (the radio names the ranged weapon they carry), and `sc spawn [hostile] [male|female] [weapon] [second
-  weapon] [Set]` or the creative menu puts one in front of you (`sc weapons` lists the weapon names; for a
-  survivor `melee`, `bow` or `firearm` picks one of that family).
+  one (the radio names the ranged weapon they carry), and `sc spawn [hostile] [male|female] [T1|T2|T3] [weapon]
+  [ranged-lead|melee-lead] [Set]` or the creative menu puts one in front of you (`sc weapons` lists the weapon names;
+  `melee`, `bow` or `firearm` picks one of that family). `sc raiders [r]` lists the raiders around you.
 - **No new pack NPCs.** While this mod is installed, the NPC framework's sample cast (Nurse, Baker, Harley, the
   NPC fox) and any character pack's NPCs filed in the same groups no longer spawn; ours are the only NPCs that
   turn up. Those already in a world stay and behave as before, and their classes still load. The generator
   removes the framework's own biome spawn entries, and in every framework group (the POI sleeper groups behind
-  `S_-Group_NPC_*` included) it swaps each pack NPC for our class with the same weapon and side, since a group
-  may not be empty: in a friendly group the 0-XNPCCore survivor class of the weapon's tier, in a hostile one our
-  raider. 0-XNPCCore's own survivors stay where its groups list them, but its own biome spawns of them are removed:
+  `S_-Group_NPC_*` included) it swaps each pack NPC for our class of its weapon's tier and its side, since a group
+  may not be empty: in a friendly group the 0-XNPCCore survivor class, in a hostile one our raider class. 0-XNPCCore's own survivors stay where its groups list them, but its own biome spawns of them are removed:
   they turn up at this mod's rates. Spawning one by hand (creative menu, test spawn cubes) still works. The radio
   and outpost walk-ins roll only our survivors, so `SurvivorLookChance` is no longer used.
 - **Wild spawns are ours, not a slice of the framework's.** They used to be appended into the NPC framework's
@@ -441,8 +447,8 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   and how often an area may roll again (`SURVIVOR_RESPAWN` half a game day, `RAIDER_RESPAWN` one). Which band
   an area draws from follows the framework's layout: wilderness has the early band by day and the middle one
   by night, towns the early band by day and the late one at night, city centres the last two. A survivor band is
-  its tier's two classes (T1, T2, T3), whose weapons are rolled as above; a raider band's class weapons are 70% melee
-  and 30% ranged in the early band (the primitive bow, now and then a pipe gun), 60/40 in the middle, 50/50 late.
+  its tier's two classes (T1, T2, T3), whose weapons are rolled as above, and so is a raider band (its raiders lead
+  with the melee weapon 70% of the time in the early band, 60% in the middle, 50% late).
   `core SurvivorCommunityDev spawns` prints the live odds, the entries for the biome you are standing in and that
   area's counters.
 - The look and the four armor pieces are stored in the registry for prospects and members and re-applied on
@@ -467,7 +473,7 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
 - **They heal only with items.** The NPC framework heals all of its NPCs for free (30 health every 15 seconds
   below 70%, no item, and on this rig no animation either). That is refused for these bodies. Instead each
   one is stocked once with up to two first aid bandages and, now and then, a first aid kit - a survivor in the
-  inventory you see when you open them, a raider in its loot bag - and uses one when at or below 60% health
+  inventory you see when you open them, a raider in its bag (dropped in its backpack) - and uses one when at or below 60% health
   and not already healing, 12 seconds apart. They use it the way you do: the item goes into their hand, the
   player's own third-person bandage animation plays, and when it finishes the item's vanilla effects fire and
   their weapon goes back in their hand, so a bandage heals what a bandage heals. They cannot attack while

@@ -457,10 +457,11 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (!ScXnpc.IsManagedClass(ct.Class))
+                if (!ScXnpc.IsSurvivorClass(ct.Class))
                 {
                     // a pack NPC rolled before pack NPCs stopped spawning, or one of SC's own survivor classes from before
-                    // the XNPCCore migration (decision D11): one of the community's 0-XNPCCore survivors answers instead
+                    // the XNPCCore migration (decision D11): one of the community's 0-XNPCCore survivors answers instead.
+                    // Never a raider class (M10): those are managed bodies too, but no contact may be hostile
                     string again = NewContactClass(player, w.GetGameRandom());
                     if (again == null) { ScLog.Warn("radio contact class " + ct.Class + " no longer spawns and no 0-XNPCCore survivor class is loaded - dropped"); return true; }
                     ScLog.Out("radio contact " + ct.Id + ": " + ct.Class + " no longer spawns - " + again + " answers instead");

@@ -25,6 +25,112 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## M10 round 1: raiders on XNPC bodies
+
+**Not deployed yet** (build `mig\m10r1\out`, DLL md5 `6fa158fe465374f392a4b36e5167cae5`). **Needs a new game**: the old per-weapon raider
+classes (`scRaider<Sex><Weapon>`) no longer exist, so a console raider saved in an old world cannot load (kill old raiders
+first if you must keep a test world). Design: `_research\xnpc_migration\migrate\DESIGN_M10_RAIDERS.md`; decisions M10-D1..D9
+in SurvivorCommunity_Tasks_Migration.md. The old model shim (Patches_Sdcs' EModelSDCS hooks, `Patch_RaiderPostInit`) and
+the old `meleeNPCSC*` / `gunNPCSC*` items are still in place: round 2 removes them once the probes below pass.
+
+What changed:
+- **Raiders are six hostile classes on 0-XNPCCore's player body**, `scRaider{Male,Female}T{1,2,3}` (EntityAliveSDXV4 on
+  XNPC's `npcSdcsBase`, Faction `bandits`, IsEnemyEntity, not hirable, `no_voice`), AI `NPCModCoreNoChat,
+  SdcsNpcRangedAdvanced, SCRaider` (SC's new package: approach until in weapon range, investigate what they hear).
+  They are a second managed set in the DLL (`XnpcRaiderClasses`), so every body fix the survivors have covers them:
+  SC look (raider gear: `RaiderGearSets`), eyes, hit colliders, feet offset, self-hit guard (X8), aim pose, items-only
+  healing, the pair's melee weapon on failover.
+- **Weapons** from the survivors' `XnpcWeapons` list at the class tier cap: **every raider carries both** a melee and a
+  ranged weapon (a firearm at `RaiderFirearmChance` 12%, primitive ranged weapons from day 1), and has a **lead**
+  (M10-D1, saved as `sc_raiderLead`): `RaiderRangedShare` 30/40/50% (T1/T2/T3) are **ranged-lead** and fight like a
+  survivor (gun first, 0-XNPCCore's swap to melee at 3 m and back at 5 m, melee when dry); the rest are **melee-lead**:
+  0-XNPCCore's world-entry re-arm is held off so they keep the melee weapon and charge, and they take the gun or bow
+  only when the target stays out of reach (farther than `RaiderLeadRangedDist` 8 m, above them, or where their path
+  cannot get, for `RaiderLeadRangedSeconds` 3 s) and only while it has rounds; within 3 m 0-XNPCCore's own swap takes
+  them back to the pair's melee weapon, and they stay on it until the target is out of reach again. They also put the
+  gun away by themselves when the target is back in reach within 5 m (1.5 s, unless overwhelmed) or gone (2 s). Losing
+  sight of a target at 3-8 m does not count as "out of reach" (they investigate instead).
+  **Ammo** `RaiderSpawnAmmo` 24 / `RaiderSpawnArrows` 15 in the **bag**, never resupplied. No inventory window ever
+  (meds go to the bag too). **No XNPC kill levels** (`RaiderXnpcLevels` false). **Doors:** SCore's opener only
+  (`RaiderVanillaDoors` false). Names "X the Raider".
+- **Death:** a backpack with the bag's leftovers (ammo, meds) plus each pair weapon at `RaiderWeaponDropChance` 25%.
+- **Spawning:** `scRaiderGroup{GS01,GS50,GS100}` hold the band's two classes (4% per roll, as before); W0's hostile pack
+  NPCs become the raider class of their framework weapon's tier (M10-D9).
+- **Outpost raids fixed:** a raid now spawns `AttackerCount` raiders (the band's classes picked directly); before, each
+  attacker was rolled from the 96%-"none" spawn group, so almost nobody came. A raider inside an outpost POI now counts
+  as an enemy inside (security "contested").
+- Console: `sc spawn hostile [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set]`, `sc raiders
+  [r]` (new; shows the lead and what a melee-lead raider waits for), `sc weapons` (one list + raider odds),
+  `sc loadout sim [n] hostile` (ranged-lead %), `sc loadout <id> [weapon] [ranged-lead|melee-lead]`, `sc xnpc <id>` (new
+  `side=` and `hostility:` line with `lead=`), `sc xnpc` (raider count; the `weapons:` line counts melee-lead re-arms
+  held off and switches to the gun).
+
+Before you start: `sc r` below means `sc raiders 40`, `sc x <id>` means `sc xnpc <id>`. Stand on open ground, day.
+
+- [ ] **Startup:** `patch verification: all 76 targets patched` (unchanged count), no `MISSING PATCH`; the config line
+      ends with `raiders=6 classes, ranged-lead 0.3/0.4/0.5 (melee-lead to ranged beyond 8m for 3s) firearm 0.12 ammo
+      24/15 levels=off drop 0.25 vanillaDoors=False gearSets=9`. No `SdcsSwapToHand ... not found` or "could not be
+      bound" warning. No SC error or `[SC] ... failed` line in a session with raiders.
+- [ ] **P1 (gate for round 2) - a hostile V4 fights.** `sc spawn hostile male T1 club melee-lead` (it spawns 6 m ahead).
+      `sc x <id>`: `EntityAliveSDXV4`, `side=raider`, `hostility: faction=bandits IsEnemyEntity=True enemyOfYou=True
+      youCanHurt=True ... hirable=False ... lead=melee-lead ... no_voice=True pkgs=[NPCModCoreNoChat,SdcsNpcRangedAdvanced,
+      SCRaider]`, and a `pair=` with both a ranged and a melee weapon. Stand still: it attacks and your health drops. Hit
+      it back: damage lands. Repeat with `sc spawn hostile female T2 bow ranged-lead` and `sc spawn hostile male T3
+      firearm ranged-lead` (shots and arrows hit you from range). **If this fails, round 2 must wait.**
+- [ ] **P2 talk prompt:** look at a raider - a "talk" prompt still shows (expected until round 3); pressing it gives the
+      "sworn enemy" tooltip, never a dialog or the SdcsNPC window.
+- [ ] **P3 range and noise:** a bow raider 60 m away in the open walks in (`ScRaiderApproach`) and shoots from range
+      instead of hugging you. Hide behind a wall and make noise: it comes to look (`ScRaiderInvestigate`).
+- [ ] **P4 doors (D5):** close an unlocked door between you and a raider: it opens it (after a short stall) and the door
+      shuts again about 2 s later; `sc r` shows `canOpenDoors False`; no Voice Control `[DOOR]` line for its id. Lock the
+      door: it stays shut and the raider is stuck. With `RaiderVanillaDoors` true (new spawn): no stall, door stays open.
+- [ ] **P5 ammo, dry, failover:** a ranged-lead bow raider: `sc r` shows 15 rounds; let it shoot - visible arrows hit,
+      the count drops; at 0 it switches to its melee weapon and melees (`[SDCS-FAILOVER]` in the log). It never gets more.
+- [ ] **P5b ranged-lead up close:** walk up to a ranged-lead raider: within 3 m it swaps to its melee weapon
+      (`[SDCS-CLOSEMELEE] enter`), back off past 5 m and it takes the gun again (`exit ... restore='<gun>'`).
+- [ ] **P5c melee-lead:** `sc spawn hostile T2 melee-lead` 6 m away: it holds its melee weapon from the start (no
+      `[SDCS-REARM]` for its id; `sc xnpc` hooks line counts `x5-raider-melee-lead-no-rearm`) and charges. Run to 15 m and
+      keep away: after about 3 s (`sc r` shows `lead melee-lead (target at 15 m for 2.4 of 3 s)`) it takes its gun or bow
+      (`x5-raider-lead-to-ranged`, `[SDCS-SWAP] ... remember='<melee>'`) and shoots. Close in to 3 m: it goes back to
+      its melee weapon; step back to 6 m: it stays on melee (exit restores the melee weapon) until you are out of
+      reach again. Stand on a roof it cannot climb: it takes the gun even closer than 8 m (`above`). Empty its gun
+      first (or a melee-lead raider whose ammo is spent): it never takes the gun.
+- [ ] **P5e melee-lead back to melee:** make a melee-lead raider take its gun (stay at 10 m), then walk back to 4-5 m:
+      within about 1.5 s it puts the gun away (`x5-raider-lead-to-melee`, `[SDCS-SWAP] ... restore='<melee>'`) and
+      charges. Again, then die or `kill` yourself / leave: about 2 s later it holds its melee weapon (`sc r`: `lead
+      melee-lead (on the gun, target gone ...)` while it waits). A second player then gets charged, not shot.
+- [ ] **P5f lost sight is not out of reach:** with a melee-lead raider chasing you indoors, step round a corner 4-6 m
+      away and wait: it does not take its gun (`sc r` keeps `target in reach`); it comes looking with its melee weapon.
+- [ ] **P5d saved lead:** save and reload with a console raider of each lead nearby: `sc r` shows the same pair and lead
+      (`sc_raiderLead` is saved with the entity).
+- [ ] **P6 who fights whom:** spawn a zombie next to a raider - they fight. `sc spawn` a survivor next to a raider - they
+      fight. A follower engages a raider that shoots at you. Two raiders side by side never hurt each other.
+- [ ] **P7 outpost raid (the bug fix):** `sc outpost attack <id> raid`, walk in: the log says `attack at outpost ...: N
+      raider(s) from raider classes T<n>` with N = the attacker count (not 0-1); they go for the stand-in or you. Kill all
+      -> "held". Then `sc outpost demand <id>`, refuse on the radio -> the same.
+- [ ] **P8 death drop:** kill about 8 raiders: each leaves a backpack named after it with its leftover ammo and meds;
+      about 1 in 4 of their weapons - melee and ranged alike, every raider has both - (real vanilla items, quality 1-6)
+      are in them. Hitting a corpse again never makes a
+      second backpack or more weapons. `sc x <id>` on a live raider: `ammo: ... window 0 bag N` (never a window).
+- [ ] **P9 chase speed (decision M10-D4):** sprint 100 m away from a melee raider on flat ground (`sc r` shows its
+      `speed`). Can you outrun it? If it is too fast or too slow, tell me: `MoveSpeedPanic` (2.9 now) is the knob.
+- [ ] **P11 levels off:** in a world past day 8, a new raider's `sc x` shows `levels:` all `-` and `Progression=null`, and
+      the hooks line counts `x3-raider-levels-off`. (Optional: `RaiderXnpcLevels` true -> `SdcsNpcLevel` 2+ and
+      `SdcsLevelRegen=0`, `x3-raider-regen-off` counting.)
+- [ ] **P12 looks:** a screenshot of three raiders: SC faces with rougher gear (Raider, Biker, Enforcer, Assassin, Rogue,
+      Commando, Nomad, Scavenger, Primitive pieces), feet on the ground, eyes in place, names "X the Raider". A melee
+      raider's swing damages its target (`x8-self-hit-guard` counting in `sc xnpc`).
+- [ ] **P14 spawns:** `core SurvivorCommunityDev spawns`: the scRaiderGroup areas roll; wild raiders appear at the band's
+      tier (T1 by day in the wild, T3 in towns at night...). The creative menu lists six "Raider" entries.
+- [ ] **Odds:** `sc loadout sim 3000 hostile` -> ranged-lead about 30/40/50% (T1/T2/T3), firearms about 12%, no
+      "without a pair". `sc weapons` prints one list and the raider odds line. `sc raiders 200` near a few wild raiders:
+      every one shows both weapons and a lead.
+- [ ] **Raids/landmines/healing:** a raider walks onto a landmine and takes damage (no immunity any more); a hurt raider
+      uses a bandage from its bag with the animation (`sc x` medic line), never XNPC's free heal.
+- [ ] **No regressions for survivors:** `sc spawn` a survivor: SC face, pair, 30 rounds / 20 arrows; a member in the base
+      still gets resupplied; `sc xnpc` counts survivors and raiders separately; recruiting a raider is refused
+      (`sc recruit <raider id>` -> not hireable).
+
 ## The XNPCCore migration (M0-M9): start here
 
 Done 2026-10-01 in one session (commits 6acc639 M0, 380a707 M1, 3fbc851 R1, 3bc52db R2, 9fa29e3 R3, b1ee630 R4).

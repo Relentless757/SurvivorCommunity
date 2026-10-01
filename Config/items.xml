@@ -51,10 +51,11 @@
 			<property name="Tags" value="scbundle,scfuel"/>
 		</item>
 			<!-- BEGIN GENERATED: NPC weapons (Tools/gen_arsenal.py) -->
-		<!-- NPC versions of vanilla weapons the NPC framework has none of. Each is a full copy of the framework's
-		     closest NPC weapon (effect groups do not inherit through Extends) with the vanilla weapon's model,
-		     material, icon and sounds, and CompatibleWeapon pointing at it - which is what lets a player-body
-		     survivor animate it with the vanilla weapon's own hold type. Damage and timing are the base weapon's. -->
+		<!-- NPC versions of vanilla weapons the NPC framework has none of, made for the OLD raider classes
+		     (scRaider<Sex><Weapon>, replaced in M10 by raiders that carry the vanilla weapons themselves). Nothing
+		     spawns with them any more; they stay until M10 round 2 removes them with the old model shim. Each is a
+		     full copy of the framework's closest NPC weapon (effect groups do not inherit through Extends) with the
+		     vanilla weapon's model, material, icon and sounds, and CompatibleWeapon pointing at it. -->
 		<!-- meleeWpnBladeT0BoneKnife -->
 		<item name="meleeNPCSCBoneKnife">
 			<property name="Extends" value="meleeHandNPCMaster"/>

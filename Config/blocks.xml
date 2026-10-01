@@ -112,7 +112,7 @@
 			<property name="MembersOpenOwnerLockedDoors" value="true" />
 			<!-- MembersOpenHatches: drawbridges and hatches too (lowered/opened to pass, then shut again behind them). Set it
 			     to false to keep your people from ever lowering the bridge. Raiders open unlocked doors through SCore since
-			     3.2.36, whatever this says. -->
+			     3.2.36, whatever this says (and RaiderVanillaDoors below). -->
 			<property name="MembersOpenHatches" value="true" />
 			<!-- RunWalkMps: the offline pace of the Outbound/Inbound legs in m/s. Runners RUN those legs in the world (about
 			     4.4-5.3 m/s on the player body, 4.5-4.9 on pack NPCs); this sits a little under that because the offline walk is a
@@ -181,8 +181,8 @@
 			<property name="RescueBonus" value="1.25" />
 
 			<!-- Survivors and raiders wearing the player's body: the community's survivors are 0-XNPCCore's own
-			     survivor classes (XnpcSurvivorClasses below), the raiders SurvivorCommunity's scRaider* classes
-			     (Config/entityclasses.xml).
+			     survivor classes (XnpcSurvivorClasses below), the raiders SurvivorCommunity's scRaider classes on the same
+			     body (XnpcRaiderClasses below, Config/entityclasses.xml; their clothes come from RaiderGearSets).
 			     SurvivorLookChance: NO LONGER USED - every radio contact is one of them now, since pack NPCs no
 			     longer spawn while this mod is installed. Their clothes come
 			     from vanilla armor sets (armor<Set>Helmet/Outfit/Gloves/Boots): each piece with GearPieceChance,
@@ -206,17 +206,16 @@
 			<property name="SurvivorAimPose" value="true" />
 			<property name="SurvivorAimVisualOnly" value="true" />
 			<property name="SurvivorAimHoldSeconds" value="2" />
-			<!-- Every survivor and raider with the player's body carries two weapons, one melee and one ranged.
-			     A survivor (one of 0-XNPCCore's) rolls both from the XnpcWeapons list below: real vanilla weapons, with
-			     0-XNPCCore's own weapon handling (melee up close, the gun when it has ammo, melee when it runs dry).
-			     A raider carries the one its class is named for and rolls one of the other kind.
-			     SurvivorFirearmChance: the odds that a ranged weapon is a firearm rather than a bow or crossbow - a
-			     survivor's ranged weapon, a raider's rolled one, and the class weapon of hostile console spawns
-			     (Tools/gen_arsenal.py's FIREARM_SHARE does the same for the raiders' wild spawns; keep the two equal).
-			     SurvivorRangedMainChance: how often a hostile console spawn has a ranged class weapon.
-			     SurvivorSecondWeapon=false gives raiders only their class weapon again (survivors always carry both).
+			<!-- Every survivor and every raider with the player's body carries two weapons, one melee and one ranged (a
+			     raider's lead, which of the two it relies on, is set by the raider keys below). Both are rolled from the
+			     XnpcWeapons list below: real vanilla weapons, with 0-XNPCCore's own weapon handling (melee up close, the gun
+			     when it has ammo, melee when it runs dry).
+			     SurvivorFirearmChance: the odds that a survivor's ranged weapon is a firearm rather than a bow or crossbow
+			     (raiders: RaiderFirearmChance).
+			     SurvivorSecondWeapon and SurvivorRangedMainChance: NO LONGER USED (they belonged to the old per-weapon
+			     raider classes, replaced in M10); still read so an old file loads.
 			     XnpcSpawnAmmo / XnpcSpawnArrows: the rounds of its gun's basic ammo (arrows or bolts for a bow or
-			     crossbow) a new survivor starts with, once, in its inventory window. Ammo is finite: what is shot is gone.
+			     crossbow) a new survivor starts with, once, in its bag. Ammo is finite: what is shot is gone.
 			     A body the community re-creates for a member (a call-back, a stand-in, a runner) starts with what the
 			     member last carried instead, never a new stack. -->
 			<property name="SurvivorSecondWeapon" value="true" />
@@ -268,10 +267,11 @@
 			     player prefab ships -0.08, made for the player's character controller, which sank NPCs 8 cm. -->
 			<property name="XnpcModelY" value="0" />
 			<!-- BEGIN GENERATED: XnpcWeapons (Tools/gen_arsenal.py) -->
-			<!-- The vanilla weapons the community's 0-XNPCCore survivors carry, one melee and one ranged each, rolled at or
-			     below the lower of their class's tier (T1 = 0, T2 = 1, T3 = 2) and the gamestage tier; a ranged one is a
-			     firearm at SurvivorFirearmChance, else a bow or crossbow. value = family (melee, bow, firearm), tier, and the
-			     short name the console accepts. Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->
+			<!-- The vanilla weapons the community's 0-XNPCCore survivors and SurvivorCommunity's raiders carry, one melee
+			     and one ranged each (a raider leads with one of them), rolled at or below the lower of their class's tier (T1 = 0,
+			     T2 = 1, T3 = 2) and the gamestage tier; a ranged one is a firearm at SurvivorFirearmChance (a raider's at
+			     RaiderFirearmChance), else a bow or crossbow. value = family (melee, bow, firearm), tier, and the short name
+			     the console accepts. Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->
 			<property class="XnpcWeapons">
 				<property name="meleeWpnClubT0WoodenClub" value="melee,0,Club" />
 				<property name="meleeWpnBladeT1HuntingKnife" value="melee,0,Knife" />
@@ -316,6 +316,39 @@
 				<property name="gunBowT3CompoundCrossbow" value="bow,2,CompoundCrossbow" />
 			</property>
 			<!-- END GENERATED: XnpcWeapons -->
+			<!-- Raiders (M10): SurvivorCommunity's hostile classes on 0-XNPCCore's player body, the same body as the
+			     survivors (Config/entityclasses.xml, written by Tools/gen_arsenal.py, which names the same six: change both
+			     together). They get SurvivorCommunity's looks, a pair of vanilla weapons from XnpcWeapons, items-only
+			     healing and the aim pose, like the survivors, with these differences:
+			     Every raider carries both weapons. RaiderRangedShare: per class tier (T1, T2, T3), the chance a raider leads
+			     with its ranged weapon (it shoots first and goes to melee when you get within 3 m, as a survivor does); the
+			     rest lead with the melee weapon: they charge in, and take the gun or bow only when their target stays
+			     farther than RaiderLeadRangedDist metres, above them or out of their path's reach for
+			     RaiderLeadRangedSeconds, and only while it has rounds (back to melee within 3 m).
+			     RaiderFirearmChance: the odds a raider's ranged weapon is a firearm, else a bow or crossbow.
+			     RaiderSpawnAmmo / RaiderSpawnArrows: the rounds (arrows or bolts) of its gun's basic ammo a raider starts
+			     with, in its bag. Raiders are never resupplied: when it runs dry it fights with its melee weapon.
+			     RaiderXnpcLevels: 0-XNPCCore's day-based kill levels (more health and damage as the days go by) on raiders
+			     too; false keeps them off, as on your members. RaiderLevelRegen: with the levels on, keep their slow
+			     health regeneration too (false: raiders heal only with the medical items they carry).
+			     RaiderWeaponDropChance: each weapon of a dead raider's pair goes into the backpack it drops (with its
+			     leftover ammo and meds) at this chance.
+			     RaiderVanillaDoors: true also gives raiders the vanilla bandits' door opener (no pause at a door, but the
+			     door is left open); false leaves them SCore's opener alone, which opens unlocked doors and shuts them
+			     again. Locked doors stop raiders either way.
+			     RaiderGearSets: the vanilla armor sets raiders dress in (empty: SurvivorGearSets). -->
+			<property name="XnpcRaiderClasses" value="scRaiderMaleT1,scRaiderMaleT2,scRaiderMaleT3,scRaiderFemaleT1,scRaiderFemaleT2,scRaiderFemaleT3" />
+			<property name="RaiderRangedShare" value="0.3,0.4,0.5" />
+			<property name="RaiderLeadRangedDist" value="8" />
+			<property name="RaiderLeadRangedSeconds" value="3" />
+			<property name="RaiderFirearmChance" value="0.12" />
+			<property name="RaiderSpawnAmmo" value="24" />
+			<property name="RaiderSpawnArrows" value="15" />
+			<property name="RaiderXnpcLevels" value="false" />
+			<property name="RaiderLevelRegen" value="false" />
+			<property name="RaiderWeaponDropChance" value="0.25" />
+			<property name="RaiderVanillaDoors" value="false" />
+			<property name="RaiderGearSets" value="Raider,Biker,Enforcer,Assassin,Rogue,Commando,Nomad,Scavenger,Primitive" />
 
 			<property name="DebugLogging" value="false" />
 

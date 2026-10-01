@@ -27,6 +27,19 @@ namespace SurvivorCommunity
     /// into the base's linked storage, else the player's inventory, else a bag dropped at the player's feet. Only weapons
     /// the survivors can carry (the XnpcWeapons list) are kept; anything else the NPC simply holds from the window, as
     /// 0-XNPCCore does. Host only.
+    ///
+    /// The raiders' lead weapon (M10-D1: the old bands' mix, "30% early / 40% mid / 50% late rely on a ranged weapon; the
+    /// rest fight melee first; everyone still carries both"). A ranged-lead raider is left to 0-XNPCCore exactly as a
+    /// survivor is: its world-entry re-arm takes the gun, the close-range swap goes to the pair's melee weapon at 3 m and
+    /// back at 5 m, the failover to melee when the gun is dry. A melee-lead raider keeps the melee weapon it spawns with
+    /// (its re-arm is held off) and takes the gun only for a target that stays out of reach - farther than
+    /// RaiderLeadRangedDist, or above it, or with no path to it - for RaiderLeadRangedSeconds, and only while the gun has
+    /// rounds in its stores. The swap goes through 0-XNPCCore's own SdcsSwapToHand, which remembers the melee weapon it
+    /// puts away: when 0-XNPCCore's close-range swap later takes the raider back to melee at 3 m, its exit at 5 m
+    /// "restores" that melee weapon, so the raider stays on melee until the target is out of reach again. It also goes
+    /// back to melee by itself - through 0-XNPCCore's own restore - when its target is gone (dead, despawned, lost) or
+    /// back in reach within 5 m, so a melee-lead raider never stays a gun user. The melee weapon of every swap is the
+    /// pair's (X6). Run from the X5 prefixes (Patches_Xnpc), on the private state Bind binds.
     /// </summary>
     public static class ScArms
     {
@@ -57,6 +70,8 @@ namespace SurvivorCommunity
         // and nothing is emitted (the offline probe can check the bindings outside the game)
         private static FieldInfo closeMeleeField, closeSinceField, rememberedField;
         private static MethodInfo restoreHeld;
+        /// <summary>0-XNPCCore's own swap (it remembers what it puts away); optional - null falls back to the same steps by hand.</summary>
+        private static MethodInfo swapToHand;
 
         // swap-return counters for sc xnpc
         private static int swapsKept, swapsUnknown, returnedStorage, returnedInventory, returnedGround;
@@ -64,8 +79,10 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             watch.Clear();
+            leads.Clear();
             near.Clear();
             nextPrune = 0f;
+            leadSwitches = leadBacks = leadRearmsHeld = 0;
             swapsKept = swapsUnknown = returnedStorage = returnedInventory = returnedGround = 0;
         }
 
@@ -85,13 +102,16 @@ namespace SurvivorCommunity
                 rememberedField = Field("sdcsHeldWeaponRemembered", typeof(string));
                 restoreHeld = AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsRestoreHeldWeapon", Type.EmptyTypes);
                 if (restoreHeld == null || restoreHeld.ReturnType != typeof(bool)) throw new MissingMethodException("AvatarSdcsNpcController", "SdcsRestoreHeldWeapon");
+                swapToHand = AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsSwapToHand", new[] { typeof(string) });
+                if (swapToHand != null && swapToHand.ReturnType != typeof(bool)) swapToHand = null;
+                if (swapToHand == null) ScLog.Warn("0-XNPCCore's SdcsSwapToHand(string) not found - a melee-lead raider takes its gun through SCore's UpdateWeapon instead (0-XNPCCore update?)");
                 bound = true;
                 return true;
             }
             catch (Exception e)
             {
                 bindFailed = true;
-                ScLog.Warn("0-XNPCCore's close-range swap state could not be bound (" + e.Message + ") - the overwhelmed rule is off (0-XNPCCore update?)");
+                ScLog.Warn("0-XNPCCore's close-range swap state could not be bound (" + e.Message + ") - the overwhelmed rule is off, and raiders all lead with their ranged weapon (0-XNPCCore update?)");
                 return false;
             }
         }
@@ -233,6 +253,205 @@ namespace SurvivorCommunity
             var gone = new List<int>();
             foreach (var kv in watch) if (now - kv.Value.Seen > 60f) gone.Add(kv.Key);
             foreach (int id in gone) watch.Remove(id);
+            gone.Clear();
+            foreach (var kv in leads) if (now - kv.Value.Seen > 60f) gone.Add(kv.Key);
+            foreach (int id in gone) leads.Remove(id);
+        }
+
+        // ------------------------------------------------------------------ raiders' lead weapon (M10-D1) ----
+
+        /// <summary>Within this the melee weapon reaches: "no path" only counts beyond it (a raider swinging needs none).</summary>
+        private const float MeleeReach = 3f;
+        /// <summary>A target this far above the raider's feet stands where a melee weapon cannot reach it (a roof, a ledge).</summary>
+        private const float ReachAbove = 2.2f;
+        /// <summary>The path ends this far short of the target (horizontally): it cannot be reached (vanilla's own unreachable test uses 1.2 m).</summary>
+        private const float PathShortBy = 2f;
+        /// <summary>"No path" counts only with a real move block of at least this long (or the target in sight): see OutOfReach.</summary>
+        private const float BlockedSeconds = 0.5f;
+        /// <summary>
+        /// Back to melee with the target in reach within this distance - 0-XNPCCore's own close-range exit distance, so
+        /// the two never fight: 3 m (its enter) and 5 m (this) against 8 m out of reach leave a dead band, no flapping.
+        /// </summary>
+        private const float BackToMeleeDist = 5f;
+        /// <summary>How long the target must stay in reach (or be gone) before a melee-lead raider puts its gun away.</summary>
+        private const float BackToMeleeSeconds = 1.5f;
+        private const float TargetGoneSeconds = 2f;
+
+        private sealed class LeadWatch
+        {
+            public float OutSince;
+            public float BackSince;
+            public float Seen;
+            public string Why = "";
+            public string BackWhy = "";
+        }
+
+        private static readonly Dictionary<int, LeadWatch> leads = new Dictionary<int, LeadWatch>();
+        private static int leadSwitches, leadBacks, leadRearmsHeld;
+
+        /// <summary>
+        /// The X5 prefix on SdcsTryWorldEntryRearm: false (0-XNPCCore's re-arm is skipped) for a melee-lead raider, which
+        /// keeps the melee weapon a new body holds. 0-XNPCCore marks the re-arm done before it calls it, so it is never
+        /// retried. Only while the lead rule can work (Bind): otherwise the raider is left to 0-XNPCCore, ranged-lead.
+        /// </summary>
+        public static bool WorldEntryRearm(EntityAlive e)
+        {
+            try
+            {
+                if (e == null || e.isEntityRemote || !ScLoadout.IsMeleeLead(e) || !Bind()) return true;
+                leadRearmsHeld++;
+                Patches_Xnpc.Count("x5-raider-melee-lead-no-rearm");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("arms-lead-rearm", ex);
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// The X5 prefix's raider part on SdcsCloseRangeTick (5 Hz, before the overwhelmed rule), for a melee-lead raider
+        /// outside 0-XNPCCore's close-range melee. On its pair's melee weapon: a target that has stayed out of reach for
+        /// RaiderLeadRangedSeconds makes it take its ranged weapon, if that has rounds in its stores (SCore builds the hand
+        /// item with an empty magazine; the reload comes from the bag). On its pair's ranged weapon (BackToMelee): a target
+        /// gone for TargetGoneSeconds, or back in reach within BackToMeleeDist for BackToMeleeSeconds, puts it back on the
+        /// melee weapon. True when it swapped: 0-XNPCCore's close-range tick is skipped for this round.
+        /// </summary>
+        public static bool RaiderLead(AvatarSDCSController ctrl, EntityAlive e)
+        {
+            try
+            {
+                if (e == null || e.isEntityRemote || e.inventory == null || !ScLoadout.IsMeleeLead(e)) return false;
+                AvatarSdcsNpcController c = ctrl as AvatarSdcsNpcController;
+                if (c == null || !Bind()) return false;
+                float now = Time.time;
+                LeadWatch w;
+                if (!leads.TryGetValue(e.entityId, out w)) leads[e.entityId] = w = new LeadWatch();
+                w.Seen = now;
+                if (now >= nextPrune) Prune(now);
+                Loadout l = ScLoadout.Current(e);
+                ItemValue held = e.inventory.holdingItemItemValue;
+                string heldName = held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : null;
+                // never inside 0-XNPCCore's close-range melee (its exit decides that)
+                if (l == null || l.Ranged == null || l.Melee == null || CloseMelee(c))
+                {
+                    w.OutSince = 0f;
+                    w.BackSince = 0f;
+                    return false;
+                }
+                EntityAlive t = e.GetAttackTarget();
+                if (t == null) t = e.GetRevengeTarget();
+                if (string.Equals(heldName, l.Ranged, StringComparison.OrdinalIgnoreCase)) { w.OutSince = 0f; return BackToMelee(c, e, l, t, w, now); }
+                w.BackSince = 0f;
+                if (!string.Equals(heldName, l.Melee, StringComparison.OrdinalIgnoreCase)) { w.OutSince = 0f; return false; }
+                string why = t != null && !t.IsDead() ? OutOfReach(e, t) : null;
+                if (why == null) { w.OutSince = 0f; w.Why = ""; return false; }
+                w.Why = why;
+                if (w.OutSince <= 0f) { w.OutSince = now; return false; }
+                if (now - w.OutSince < ScConfig.RaiderLeadRangedSeconds) return false;
+                ItemClass gun = ItemClass.GetItemClass(l.Ranged, true);
+                if (ScAmmo.RangedAction(gun) == null || ScAmmo.Rounds(e, gun) <= 0) return false;   // nothing to shoot: melee it is
+                w.OutSince = 0f;
+                if (!SwapToHand(c, e, heldName, l.Ranged)) return false;
+                leadSwitches++;
+                Patches_Xnpc.Count("x5-raider-lead-to-ranged");
+                ScLog.Verbose("melee-lead raider " + ScCommunity.DisplayName(e) + " (id " + e.entityId + ") takes its " + l.Ranged + ": target " + why);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("arms-lead", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// A melee-lead raider holding its pair's ranged weapon goes back to the melee weapon when its target has been gone
+        /// (dead, despawned, lost) for TargetGoneSeconds, or has been back in reach (OutOfReach null) within
+        /// BackToMeleeDist for BackToMeleeSeconds. Only when the gun is ours to put away: 0-XNPCCore remembers the pair's
+        /// melee weapon (our own switch, SwapToHand) - then its own SdcsRestoreHeldWeapon brings it back and clears the
+        /// memory - or remembers nothing (a raider that was saved with its gun in hand, or armed from the console) - then
+        /// SCore's UpdateWeapon, which leaves the memory empty. Anything else 0-XNPCCore remembered is its own business.
+        /// </summary>
+        private static bool BackToMelee(AvatarSdcsNpcController c, EntityAlive e, Loadout l, EntityAlive t, LeadWatch w, float now)
+        {
+            string rem = Remembered(c);
+            if (rem != null && !string.Equals(rem, l.Melee, StringComparison.OrdinalIgnoreCase)) { w.BackSince = 0f; return false; }
+            string why = null;
+            float wait = BackToMeleeSeconds;
+            if (t == null || t.IsDead()) { why = "target gone"; wait = TargetGoneSeconds; }
+            else if ((t.position - e.position).sqrMagnitude <= BackToMeleeDist * BackToMeleeDist && OutOfReach(e, t) == null)
+            {
+                // overwhelmed, the gun stays up close: that is the overwhelmed rule's call (CloseRange), as for a survivor
+                int count, need;
+                if (!(ScConfig.Overwhelmed && IsOverwhelmed(e, out count, out need))) why = "target in reach";
+            }
+            if (why == null) { w.BackSince = 0f; w.BackWhy = ""; return false; }
+            w.BackWhy = why;
+            if (w.BackSince <= 0f) { w.BackSince = now; return false; }
+            if (now - w.BackSince < wait) return false;
+            w.BackSince = 0f;
+            bool done = rem != null ? (bool)restoreHeld.Invoke(c, null) : ScNpc.UpdateWeapon(e, l.Melee);
+            if (!done) return false;
+            leadBacks++;
+            Patches_Xnpc.Count("x5-raider-lead-to-melee");
+            ScLog.Verbose("melee-lead raider " + ScCommunity.DisplayName(e) + " (id " + e.entityId + ") back to its " + l.Melee + ": " + why);
+            return true;
+        }
+
+        /// <summary>
+        /// Why the target is out of the melee weapon's reach, or null: farther than RaiderLeadRangedDist; standing above
+        /// the raider; or, beyond melee reach, no way there - the raider's path ends short of it (vanilla's own unreachable
+        /// test, EntityMoveHelper.CalcIfUnreachablePos, which only the zombie AI runs), or there is no path and none is
+        /// being planned while the raider sees the target or is really blocked. Not on a plain loss of sight: the approach
+        /// tasks only ask for a path while CanSeeTarget scores (the Fable review of round 1), so a target round a corner has
+        /// no path because nobody is pathing to it - that one is investigated (SCRaider), not shot at.
+        /// </summary>
+        private static string OutOfReach(EntityAlive e, EntityAlive t)
+        {
+            Vector3 d = t.position - e.position;
+            float dist = d.magnitude;
+            if (dist > ScConfig.RaiderLeadRangedDist) return "at " + dist.ToString("0.#") + " m";
+            if (dist <= MeleeReach) return null;
+            if (d.y > ReachAbove) return "above (" + d.y.ToString("0.#") + " m)";
+            GamePath.PathNavigate nav = e.navigator;
+            if (nav == null) return null;
+            GamePath.PathEntity path = nav.getPath();
+            if (path != null && !path.isFinished())
+            {
+                float gx = path.toPos.x - path.rawEndPos.x, gz = path.toPos.z - path.rawEndPos.z;
+                if (gx * gx + gz * gz > PathShortBy * PathShortBy || path.toPos.y - path.rawEndPos.y > ReachAbove) return "unreachable (path ends short)";
+                return null;
+            }
+            if (!nav.noPathAndNotPlanningOne()) return null;
+            // the same vision test SCore's CanSeeTarget consideration uses, so "no path" means what the approach task saw
+            bool blocked = e.moveHelper != null && e.moveHelper.BlockedTime > BlockedSeconds;
+            return blocked || UAI.SCoreUtils.CanSee(e, t) ? "unreachable (no path)" : null;
+        }
+
+        /// <summary>
+        /// 0-XNPCCore's SdcsSwapToHand: it remembers the held weapon (here the melee one) unless something is remembered
+        /// already, then SCore's UpdateWeapon. Without the method the same two steps run by hand.
+        /// </summary>
+        private static bool SwapToHand(AvatarSdcsNpcController c, EntityAlive e, string heldName, string item)
+        {
+            if (swapToHand != null) return (bool)swapToHand.Invoke(c, new object[] { item });
+            if (Remembered(c) == null && heldName != null) rememberedField.SetValue(c, heldName);
+            return ScNpc.UpdateWeapon(e, item);
+        }
+
+        /// <summary>A raider's lead and the lead rule's state, for the console: "ranged-lead", or "melee-lead" with what it waits for.</summary>
+        public static string LeadState(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null || !ScXnpc.IsRaider(e)) return "lead -";
+            int lead = (int)e.Buffs.GetCustomVar(ScLoadout.LeadCvar);
+            if (lead != Loadout.LeadMelee) return "lead " + Loadout.LeadName(lead);
+            LeadWatch w;
+            if (!leads.TryGetValue(e.entityId, out w)) return "lead melee-lead";
+            if (w.BackSince > 0f) return "lead melee-lead (on the gun, " + w.BackWhy + " for " + (Time.time - w.BackSince).ToString("0.#") + " s)";
+            if (w.OutSince <= 0f) return "lead melee-lead (target in reach)";
+            return "lead melee-lead (target " + w.Why + " for " + (Time.time - w.OutSince).ToString("0.#") + " of " + ScConfig.RaiderLeadRangedSeconds.ToString("0.#") + " s)";
         }
 
         // ------------------------------------------------------------------ the swap-dialog return ----
@@ -268,7 +487,7 @@ namespace SurvivorCommunity
                 if (string.Equals(cur.Ranged, token, StringComparison.OrdinalIgnoreCase) || string.Equals(cur.Melee, token, StringComparison.OrdinalIgnoreCase)) return;
                 int slot = WindowSlot(npc, ic.Id);
                 if (slot < 0) return;                        // not handed over through the window: nothing to keep
-                if (!ScLoadout.Knows(false, token))
+                if (!ScLoadout.Knows(token))
                 {
                     swapsUnknown++;
                     ScLog.Out(m.Name + " holds " + token + " from the inventory window - not one of the weapons the survivors carry (XnpcWeapons), so it is not kept in their pair");
@@ -491,7 +710,9 @@ namespace SurvivorCommunity
         {
             return "overwhelmed " + (ScConfig.Overwhelmed ? (bound ? "on" : bindFailed ? "OFF (0-XNPCCore state not bound)" : "on (not bound yet)") : "off")
                    + ", " + watch.Count + " survivor(s) watched; swap returns: " + swapsKept + " kept, " + swapsUnknown + " not a survivor weapon, returned to storage "
-                   + returnedStorage + " / inventory " + returnedInventory + " / ground " + returnedGround;
+                   + returnedStorage + " / inventory " + returnedInventory + " / ground " + returnedGround
+                   + "; melee-lead raiders: " + leadRearmsHeld + " re-arm(s) held off, " + leadSwitches + " switch(es) to the ranged weapon, " + leadBacks + " back to melee"
+                   + (bound && swapToHand == null ? " (SdcsSwapToHand missing: by hand)" : "");
         }
 
         /// <summary>One survivor as the overwhelmed rule sees it, for sc xnpc &lt;id&gt;.</summary>

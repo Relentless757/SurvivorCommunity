@@ -53,11 +53,23 @@ apply(it, SC + r"\items.xml", "SurvivorCommunity")
 items = set(e.get("name") for e in it.getroot().iter("item"))
 
 errors = []
+_gen_src = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gen_arsenal.py"), encoding="utf-8").read()
+def _gen_const(name):
+    """A literal table from gen_arsenal.py, read without running it (running it would regenerate the Config)."""
+    m = re.search(r"^%s = (.*?)\n(?=[^\s}\])])" % name, _gen_src, flags=re.S | re.M)   # up to the next top-level line
+    return ast.literal_eval(m.group(1).strip()) if m else None
+gen_names = _gen_const("NAMES") or {}
+raiders = _gen_const("RAIDERS") or []
 # XNPCCore migration (decision D11): SurvivorCommunity defines raiders only; its survivors are 0-XNPCCore's own
-# npcSdcsSurvivor classes (XNPC_SURVIVORS in gen_arsenal.py), checked further down
+# npcSdcsSurvivor classes (XNPC_SURVIVORS in gen_arsenal.py), checked further down. M10: the raiders are six classes on
+# 0-XNPCCore's player body (RAIDERS), on two templates; the old per-weapon scRaider<Sex><Weapon> classes are gone.
 leaves = [n for n in names if n.startswith("scRaider") and "Template" not in n]
+templates = [n for n in names if n.startswith("scRaider") and "Template" in n]
 legacy = [n for n in names if n.startswith("scSurvivor")]
 if legacy: errors.append("D11: %d scSurvivor classes still defined e.g. %s" % (len(legacy), legacy[0]))
+if len(raiders) != 6: errors.append("gen_arsenal.py RAIDERS: %d classes, want 6" % len(raiders))
+if sorted(leaves) != sorted(raiders): errors.append("raider leaves %s are not gen_arsenal.py's RAIDERS (an old scRaider<Sex><Weapon> class left?)" % sorted(set(leaves) ^ set(raiders))[:5])
+if len(templates) != 2: errors.append("%d raider templates, want 2 (one per sex): %s" % (len(templates), templates[:4]))
 def chain(n):
     seen = []
     while n:
@@ -72,41 +84,61 @@ def resolved(n, prop, klass=None):
         e = names[c]
         base = e if klass is None else (e.xpath("property[@class=$k]", k=klass) or [None])[0]
         if base is None: continue
-        ign = (e.get("ignore") or "").split(",")
         p = base.xpath("property[@name=$p]", p=prop)
         if p: return p[0].get("value")
     return None
+def chain_groups(n, group):
+    """Every effect_group of that name along the extends chain (effect groups inherit, MinEffectController)."""
+    out = []
+    for c in chain(n):
+        out.extend(names[c].xpath("effect_group[@name=$g]", g=group))
+    return out
 from collections import Counter
 cnt = Counter()
+# what the leaves' class properties name must exist: AI packages (vanilla, SCore, 0-XNPCCore, SC replayed in load
+# order), the archetype (vanilla), the npc_info (vanilla, SCore, 0-XNPCCore)
+G_SCORE = G + r"\Mods\0-SCore\Config"
+ua = load(G + r"\Data\Config\utilityai.xml")
+for label, path in (("0-SCore", G_SCORE + r"\utilityai.xml"), ("0-XNPCCore", XNPC + r"\utilityai.xml"), ("SurvivorCommunity", SC + r"\utilityai.xml")):
+    if os.path.exists(path): apply(ua, path, label + " utilityai")
+packages = set(e.get("name") for e in ua.getroot().iter("ai_package"))
+npcx = load(G + r"\Data\Config\npc.xml")
+for label, path in (("0-SCore", G_SCORE + r"\npc.xml"), ("0-XNPCCore", XNPC + r"\npc.xml")):
+    if os.path.exists(path): apply(npcx, path, label + " npc")
+npc_ids = set(e.get("id") for e in npcx.getroot().iter("npc_info"))
+archetypes = set(e.get("name") for e in load(G + r"\Data\Config\archetypes.xml").getroot().iter("archetype"))
 for n in leaves:
-    ch = chain(n)
-    cls = resolved(n, "Class"); fac = resolved(n, "Faction"); mt = resolved(n, "ModelType")
+    male = "Female" not in n
+    cls = resolved(n, "Class") or ""
+    if "EntityAliveSDXV4" not in cls: errors.append("%s: Class %s, want EntityAliveSDXV4 (0-XNPCCore's body)" % (n, cls))
+    if (resolved(n, "ModelType") or "").split(",")[0].strip() != "SdcsNpc": errors.append("%s: ModelType %s, want 0-XNPCCore's SdcsNpc" % (n, resolved(n, "ModelType")))
+    if resolved(n, "Faction") != "bandits": errors.append("%s: Faction %s, want bandits" % (n, resolved(n, "Faction")))
+    if resolved(n, "IsEnemyEntity") != "true": errors.append(n + ": IsEnemyEntity is not true (enemy groups, EnemyCount)")
+    if resolved(n, "Hirable") != "false": errors.append(n + ": hostile but Hirable is not false")
+    tags = set((names[n].xpath("property[@name='Tags']/@value") or [""])[0].split(","))
+    for t in ("npc", "human", "bandit", "no_voice", "male" if male else "female"):
+        if t not in tags: errors.append("%s: its own Tags lack %s" % (n, t))
+    for pk in [x.strip() for x in (resolved(n, "AIPackages") or "").split(",") if x.strip()]:
+        if pk not in packages: errors.append("%s: AI package %s is not defined (utilityai replay)" % (n, pk))
+    for prop in ("BagItems", "HarvestItems"):
+        if resolved(n, prop) != "none": errors.append("%s: %s is %s, want none (the bag holds their things; no inventory window)" % (n, prop, resolved(n, prop)))
+    if chain_groups(n, "SDCS Look"): errors.append(n + ": inherits XNPC's 'SDCS Look' applier")
+    if len(chain_groups(n, "SurvivorCommunity worn armor scale")) != 1: errors.append(n + ": not exactly one 'SurvivorCommunity worn armor scale' group")
+    lm = [pe.get("value") for g_ in chain_groups(n, "SurvivorCommunity raider") for pe in g_.xpath("passive_effect[@name='LandMineImmunity']")]
+    if lm != ["0"]: errors.append("%s: LandMineImmunity in the raider group is %s, want one base_set 0" % (n, lm))
+    if resolved(n, "Archetype") not in archetypes: errors.append("%s: Archetype %s is not a vanilla archetype (EModelSdcsNpc builds no model)" % (n, resolved(n, "Archetype")))
+    if resolved(n, "NPCID") not in npc_ids: errors.append("%s: NPCID %s has no npc_info" % (n, resolved(n, "NPCID")))
+    if (resolved(n, "IsMale") == "true") != male: errors.append(n + ": IsMale does not match the name")
+    if names[n].xpath("property[@name='Names']/@value") != [gen_names.get(("r", male))]: errors.append(n + ": Names is not SC's raider pool")
+    if not re.search(r"T[123]$", n): errors.append(n + ": no T1-T3 tier in the name - the DLL's weapon tier cap reads it")
     loadout = resolved(n, "GameModeSurvival", "ItemsOnEnterGame") or ""
-    for x in [s.strip() for s in loadout.split(",") if s.strip()]:
-        if x not in items: errors.append("%s: loadout item %s does not exist" % (n, x))
-    bag = resolved(n, "BagItems")
-    if bag and bag not in items: errors.append("%s: BagItems %s does not exist" % (n, bag))
-    if mt != "SDCS": errors.append("%s: ModelType %s" % (n, mt))
-    # Mesh must be dropped by the template's ignore
-    tmpl = names[ch[1]]
-    if "Mesh" not in (tmpl.get("ignore") or ""): errors.append("%s: template does not ignore Mesh" % n)
-    if fac != "bandits" or "EntityNPCBandit" not in (cls or ""): errors.append("%s: hostile but %s / %s" % (n, fac, cls))
-    if resolved(n, "Hirable") == "true": errors.append(n + ": hostile is hirable")
-    cnt[("hostile", (loadout.split(",")[0] if loadout else "-"))] += 1
-    # W2: the DLL's second-weapon roll reads these; a missing or contradictory pair would leave an NPC one-armed
-    kind, fam = resolved(n, "ScWeaponKind"), resolved(n, "ScWeaponFamily")
-    if kind not in ("melee", "ranged"): errors.append("%s: ScWeaponKind %s" % (n, kind))
-    elif fam not in (("melee", "unarmed") if kind == "melee" else ("bow", "firearm", "launcher")):
-        errors.append("%s: ScWeaponFamily %s does not fit kind %s" % (n, fam, kind))
+    for x in [t.strip() for t in loadout.split(",") if t.strip()]:
+        if x not in items: errors.append("%s: ItemsOnEnterGame item %s does not exist" % (n, x))
+    cnt[("hostile", resolved(n, "Archetype"))] += 1
+print("  raider classes checked: %d leaves, %d templates (%d AI packages defined)" % (len(leaves), len(templates), len(packages)))
 # XNPCCore migration M3: 0-XNPCCore's own survivors carry SC's look, armor scale, names and no preset bag or stock
 # (gen_arsenal.py XNPC_SURVIVOR_OPS), every one of them, exactly once
-_gen_src = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gen_arsenal.py"), encoding="utf-8").read()
-def _gen_const(name):
-    """A literal table from gen_arsenal.py, read without running it (running it would regenerate the Config)."""
-    m = re.search(r"^%s = (.*?)\n(?=[^\s}\])])" % name, _gen_src, flags=re.S | re.M)   # up to the next top-level line
-    return ast.literal_eval(m.group(1).strip()) if m else None
 xnpc_survivors = _gen_const("XNPC_SURVIVORS") or []
-gen_names = _gen_const("NAMES") or {}
 if len(xnpc_survivors) != 6: errors.append("gen_arsenal.py XNPC_SURVIVORS: %d classes, want 6" % len(xnpc_survivors))
 for n in xnpc_survivors:
     e = names.get(n)
@@ -130,6 +162,8 @@ for label, root, tag in (("item", it.getroot(), "item"), ("entity class", ec.get
 # new items: CompatibleWeapon must be a vanilla item, effect groups present
 van_root = load(G + r"\Data\Config\items.xml").getroot()
 van = set(e.get("name") for e in van_root.iter("item"))
+npcsc = [e.get("name") for e in it.getroot().iter("item") if "NPCSC" in (e.get("name") or "")]
+print("  old raiders' NPCSC items still defined (M10 round 2 removes them): %d" % len(npcsc))
 for e in it.getroot().iter("item"):
     n = e.get("name") or ""
     if "NPCSC" not in n: continue
@@ -199,13 +233,22 @@ for cap in (0, 1, 2):
 xsc = (cfg.xpath("property[@name='XnpcSurvivorClasses']/@value") if cfg is not None else []) or [""]
 if [x.strip() for x in xsc[0].split(",") if x.strip()] != list(xnpc_survivors):
     errors.append("blocks.xml XnpcSurvivorClasses %s is not gen_arsenal.py's XNPC_SURVIVORS" % xsc[0])
+xrc = (cfg.xpath("property[@name='XnpcRaiderClasses']/@value") if cfg is not None else []) or [""]
+if [x.strip() for x in xrc[0].split(",") if x.strip()] != list(raiders):
+    errors.append("blocks.xml XnpcRaiderClasses %s is not gen_arsenal.py's RAIDERS" % xrc[0])
+rs = (cfg.xpath("property[@name='RaiderRangedShare']/@value") if cfg is not None else []) or [""]
+try:
+    shares = [float(x) for x in rs[0].split(",")]
+    if len(shares) != 3 or any(x < 0 or x > 1 for x in shares): errors.append("blocks.xml RaiderRangedShare %s: want three shares in 0..1" % rs[0])
+    else: print("  raiders: ranged-lead share T1/T2/T3 %s (every raider carries both)" % "/".join("%g" % x for x in shares))
+except ValueError: errors.append("blocks.xml RaiderRangedShare %s unreadable" % rs[0])
 
 print("entity groups")
 eg = load(G + r"\Data\Config\entitygroups.xml")
 apply(eg, XNPC + r"\entitygroups.xml", "0-XNPCCore")
 apply(eg, SC + r"\entitygroups.xml", "SurvivorCommunity")
 def is_ours(n):
-    return bool(n) and (n.startswith("scRaider") or n in xnpc_survivors)
+    return bool(n) and (n in raiders or n in xnpc_survivors)
 for grp in eg.getroot().iter("entitygroup"):
     for e in grp.findall("e"):
         n = e.get("n")
@@ -222,35 +265,26 @@ for tag in ("Survivor", "Raider"):
         if es and es[0].get("n") == "none": errors.append(gn + ": 'none' is entry 0, IsEnemyGroup reads that one")
         nones = [e for e in es if e.get("n") == "none"]
         if len(nones) != 1: errors.append("%s: %d 'none' entries, want exactly 1" % (gn, len(nones)))
-        if tag == "Survivor":
-            # D10: SC's tuned rates spawn 0-XNPCCore's survivors - its classes only, both sexes, the band's tier, none last
-            members = [e.get("n") for e in es if e.get("n") != "none"]
-            if es and es[-1].get("n") != "none": errors.append(gn + ": 'none' is not the last entry")
-            stray = [n for n in members if n not in xnpc_survivors]
-            if stray: errors.append("%s: holds %s - want only 0-XNPCCore's survivor classes" % (gn, stray))
-            want_t = {"GS01": "T1", "GS50": "T2", "GS100": "T3"}[band]
-            if any(not n.endswith(want_t) for n in members): errors.append("%s: a class of another tier than %s" % (gn, want_t))
-            if not any("Female" in n for n in members) or not any("Female" not in n for n in members): errors.append(gn + ": not both sexes")
+        # D10 / M10: SC's tuned rates spawn its own classes only - 0-XNPCCore's survivors, or SC's raiders - both sexes,
+        # the band's tier, none last
+        own = xnpc_survivors if tag == "Survivor" else raiders
+        members = [e.get("n") for e in es if e.get("n") != "none"]
+        if es and es[-1].get("n") != "none": errors.append(gn + ": 'none' is not the last entry")
+        stray = [n for n in members if n not in own]
+        if stray: errors.append("%s: holds %s - want only %s" % (gn, stray, "0-XNPCCore's survivor classes" if tag == "Survivor" else "SC's raider classes"))
+        want_t = {"GS01": "T1", "GS50": "T2", "GS100": "T3"}[band]
+        if any(not n.endswith(want_t) for n in members): errors.append("%s: a class of another tier than %s" % (gn, want_t))
+        if not any("Female" in n for n in members) or not any("Female" not in n for n in members): errors.append(gn + ": not both sexes")
+        # EntityGroups.IsEnemyGroup reads entry 0's IsEnemyEntity: a raider group must read hostile, a survivor group not
+        if es and es[0].get("n") in names:
+            hostile0 = resolved(es[0].get("n"), "IsEnemyEntity") == "true"
+            if hostile0 != (tag == "Raider"): errors.append("%s: entry 0 %s makes IsEnemyGroup %s" % (gn, es[0].get("n"), hostile0))
         hit = sum(float(e.get("p")) for e in es if e.get("n") != "none")
         tot = hit + sum(float(e.get("p")) for e in nones)
         print("  %-22s %3d entries  %4.1f%% per roll" % (gn, len(es) - len(nones), 100.0 * hit / tot))
         placed.update(e.get("n") for e in es if e.get("n") != "none")
-# W2: a raider's firearms are rare - in every band they are the same share of the ranged class weapons as the DLL's
-# ranged roll uses for the second weapon (SurvivorFirearmChance in blocks.xml), so either way a raider's one ranged
-# weapon is a firearm at that rate. The survivors' groups carry no weapons: their share is the DLL's roll (above).
-for gn, grp in sorted(groups.items()):
-    if not gn.startswith("scRaiderGroup"): continue
-    share = {}
-    for e in grp.findall("e"):
-        if e.get("n") == "none": continue
-        f = resolved(e.get("n"), "ScWeaponFamily")
-        share[f] = share.get(f, 0.0) + float(e.get("p"))
-    ranged = sum(v for k, v in share.items() if k in ("bow", "firearm", "launcher"))
-    fire = share.get("firearm", 0.0) + share.get("launcher", 0.0)
-    pct = fire / ranged if ranged else 0.0
-    print("  %-22s ranged %4.1f%%, firearms %4.1f%% of those" % (gn, 100.0 * ranged / sum(share.values()), 100.0 * pct))
-    if fc is not None and abs(pct - fc) > 0.005:
-        errors.append("%s: firearms are %.1f%% of its ranged weapons, SurvivorFirearmChance is %.1f%%" % (gn, 100 * pct, 100 * fc))
+# M10: no weapon mix in the raider groups any more (the old per-weapon classes and gen_arsenal's FIREARM_SHARE / MIX are
+# gone): the DLL rolls each raider's pair at RaiderRangedShare / RaiderFirearmChance, simulated by sc loadout sim hostile.
 missing_leaf = [n for n in leaves + list(xnpc_survivors) if n not in placed]
 if missing_leaf: errors.append("%d classes are in none of our groups e.g. %s" % (len(missing_leaf), missing_leaf[:3]))
 
@@ -308,6 +342,16 @@ for gn, grp in groups.items():
         swapped.append(gn)
         if len(sides) > 1: mixed.append(gn)
 if mixed: errors.append("framework groups mixing survivors and raiders: %s" % mixed[:5])
+w0_raiders = Counter()
+for gn, grp in groups.items():
+    if not gn.startswith("npc"): continue
+    for e in grp:
+        if not isinstance(e.tag, str): continue
+        n = e.get("n") or e.get("name")
+        if n and n.startswith("scRaider"):
+            if n not in raiders: errors.append("W0: group %s swaps in %s, not one of the six raider classes" % (gn, n))
+            w0_raiders[n] += 1
+print("  W0 raider swaps by class: %s" % ", ".join("%s %d" % kv for kv in sorted(w0_raiders.items())))
 print("  %d pack NPC classes; %d framework groups now carry ours; %d groups still hold pack NPCs" % (
     len(pack_classes), len(swapped), len(holding)))
 # localization
@@ -320,8 +364,9 @@ missing_loc = [n for n in leaves if n not in keys]
 if missing_loc: errors.append("no localization for %d leaves e.g. %s" % (len(missing_loc), missing_loc[:3]))
 stale_loc = [k for k in keys if re.match(r"^scSurvivor(Male|Female)", k)]
 if stale_loc: errors.append("D11: %d localization rows of removed scSurvivor classes e.g. %s" % (len(stale_loc), stale_loc[0]))
+stale_raider = [k for k in keys if re.match(r"^scRaider(Male|Female)\w+$", k) and k not in raiders]
+if stale_raider: errors.append("M10: %d localization rows of the old per-weapon raider classes e.g. %s" % (len(stale_raider), stale_raider[0]))
 print()
-print("raider leaves:", len(leaves), " survivor classes (0-XNPCCore):", len(xnpc_survivors), " survivor weapons:", len(cat))
-print("distinct raider starting weapons:", len(set(k[1] for k in cnt)))
+print("raider leaves:", len(leaves), " survivor classes (0-XNPCCore):", len(xnpc_survivors), " weapons (both sides):", len(cat))
 print("ERRORS: %d" % len(errors))
 for e in errors[:30]: print("  " + e)

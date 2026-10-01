@@ -6,17 +6,20 @@ using HarmonyLib;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// Every patch on a 0-XNPCCore type (NPCSdcsCharacters.dll), for the survivor classes the community owns (ScXnpc).
-    /// The numbering is the migration design's (section 1.2).
+    /// Every patch on a 0-XNPCCore type (NPCSdcsCharacters.dll), for the classes SC drives on XNPC's body (ScXnpc): the
+    /// survivor classes the community owns and, since M10, SC's raider classes. The numbering is the migration design's
+    /// (section 1.2).
     ///
     ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype
     ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces)
     ///   X2  EModelSdcsNpc.GenerateMeshes     postfix  eyes re-rooted on the head after every build (and hit colliders)
     ///   X3  AvatarSdcsNpcController.SdcsLevelTick                    prefix   no XNPC kill levels on members and stand-ins (D8)
+    ///                                                                         nor on raiders (M10-D3); postfix: no regen
     ///   X4  AvatarSdcsNpcController.SdcsWearTick                     prefix   no no-wear buff: armor wears like SC's
     ///   X5  AvatarSdcsNpcController.SdcsFailoverTick / SdcsCloseRangeTick / SdcsTryWorldEntryRearm
     ///                                                                prefix   XNPC never swaps the hand during a medical use;
-    ///                                                                         overwhelmed keeps the gun up close (ScArms)
+    ///                                                                         overwhelmed keeps the gun up close (ScArms);
+    ///                                                                         melee-lead raiders keep melee (M10-D1)
     ///   X6  AvatarSdcsNpcController.SdcsChooseMeleeFallback          prefix   XNPC's melee choice is the pair's melee weapon
     ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame
     ///
@@ -273,6 +276,10 @@ namespace SurvivorCommunity
         /// earlier tick or the time before joining left is taken off too. Skipping it also skips the wear tick it starts
         /// with (X4's job is then StripLevels' no-wear removal). A member who leaves loses the community cvars, and the tick
         /// resumes with a day-based level. The method is ~90 lines: Mono does not inline it, and the counter proves it.
+        ///
+        /// Raiders (M10-D3, "raiders won't persist"): no kill levels either while RaiderXnpcLevels is off (the default) -
+        /// the same strip. With it on, XNPC's tick runs and the postfix zeroes the levels' regeneration cvar (the bonus buff
+        /// reads it live) unless RaiderLevelRegen, since a raider heals by its items only (ScMedic).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_LevelTick
@@ -291,15 +298,36 @@ namespace SurvivorCommunity
                     // any community body this controller drives, not only the six managed classes: D8 is about members,
                     // and a hired XNPC companion of another player-body class may have joined (D9)
                     EntityAlive e = __instance != null ? __instance.entity : null;
-                    if (e == null || !ScXnpc.IsCommunity(e) || !ScXnpc.HasXnpcLevels(e)) return true;
+                    if (e == null || !ScXnpc.HasXnpcLevels(e)) return true;
+                    bool community = ScXnpc.IsCommunity(e);
+                    if (!community && !(ScXnpc.IsRaider(e) && !ScConfig.RaiderXnpcLevels)) return true;
                     ScXnpc.StripLevels(e);
-                    Count("x3-levels-off");
+                    Count(community ? "x3-levels-off" : "x3-raider-levels-off");
                     return false;
                 }
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-leveltick", ex);
                     return true;
+                }
+            }
+
+            /// <summary>A raider that keeps XNPC's levels (RaiderXnpcLevels) loses their regeneration (RaiderLevelRegen off).</summary>
+            [HarmonyPostfix]
+            public static void Postfix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    if (!ScConfig.RaiderXnpcLevels || ScConfig.RaiderLevelRegen) return;
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (e == null || e.Buffs == null || !ScXnpc.IsRaider(e) || ScXnpc.IsCommunity(e)) return;
+                    if (e.Buffs.GetCustomVar(ScXnpc.LevelRegenCvar) == 0f) return;
+                    e.Buffs.SetCustomVar(ScXnpc.LevelRegenCvar, 0f);
+                    Count("x3-raider-regen-off");
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-leveltick-post", ex);
                 }
             }
         }
@@ -347,8 +375,10 @@ namespace SurvivorCommunity
         /// gun as soon as there is reserve ammo and the held item is not dry-capable (a bandage is not), its close-range
         /// swap's exit restores the remembered weapon, and the world-entry re-arm swaps to the best loaded gun. All three
         /// are skipped for the 1-3 s a use lasts; ScMedic puts the weapon back itself when the use ends.
-        /// The close-range tick also carries the overwhelmed rule (migration M7.5, ScArms.CloseRange): one prefix, so the
-        /// medical-use skip always comes first and the order of the two never depends on how Harmony chains prefixes.
+        /// The close-range tick also carries the overwhelmed rule (migration M7.5, ScArms.CloseRange) and, before it, the
+        /// melee-lead raiders' switch to their gun for a target out of reach (M10-D1, ScArms.RaiderLead); the re-arm is held
+        /// off for a melee-lead raider (ScArms.WorldEntryRearm). One prefix, so the medical-use skip always comes first and
+        /// the order of the rules never depends on how Harmony chains prefixes.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoSwapWhileUsing
@@ -382,8 +412,16 @@ namespace SurvivorCommunity
                         Count("x5-" + (__originalMethod != null ? __originalMethod.Name : "?"));
                         return false;
                     }
-                    // overwhelmed: keep (or go back to) the gun instead of the melee swap up close
-                    if (__originalMethod != null && __originalMethod.Name == "SdcsCloseRangeTick") return ScArms.CloseRange(__instance, e);
+                    string name = __originalMethod != null ? __originalMethod.Name : null;
+                    // a melee-lead raider keeps the melee weapon it spawns with (M10-D1)
+                    if (name == "SdcsTryWorldEntryRearm") return ScArms.WorldEntryRearm(e);
+                    if (name == "SdcsCloseRangeTick")
+                    {
+                        // a melee-lead raider takes its gun for a target out of reach (then this round is done)
+                        if (ScArms.RaiderLead(__instance, e)) return false;
+                        // overwhelmed: keep (or go back to) the gun instead of the melee swap up close
+                        return ScArms.CloseRange(__instance, e);
+                    }
                     return true;
                 }
                 catch (Exception ex)

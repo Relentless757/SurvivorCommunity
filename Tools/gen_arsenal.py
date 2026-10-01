@@ -1,26 +1,32 @@
-# Generates the player-body raiders for every weapon, plus NPC versions of the vanilla weapons the NPC framework has
-# none for, and the spawning of the community's survivors - 0-XNPCCore's own npcSdcsSurvivor classes, which the
-# SurvivorCommunity DLL takes over (XNPCCore migration; decisions D10 and D11: SC no longer defines survivor classes of
-# its own). One table below is the single source of truth; rerunning is safe.
+# Generates SurvivorCommunity's raiders on 0-XNPCCore's player body (M10: scRaider{Male,Female}T{1,2,3}, hostile
+# EntityAliveSDXV4 classes on XNPC's npcSdcsBase), their spawning and the spawning of the community's survivors -
+# 0-XNPCCore's own npcSdcsSurvivor classes, which the SurvivorCommunity DLL takes over (XNPCCore migration; decisions
+# D10 and D11: SC no longer defines survivor classes of its own) - plus the vanilla weapons the DLL arms both with.
+# One table below is the single source of truth; rerunning is safe.
 #
 # Writes:
-#   Config/entityclasses.xml   (whole file)   scRaider<Weapon>Template + scRaider<Sex><Weapon>     (hostile, D1)
+#   Config/entityclasses.xml   (whole file)   RAIDER_CLASSES: two templates + scRaider{Male,Female}T{1,2,3} (M10)
 #                                             + XNPC_SURVIVOR_OPS: the hand-written ops that make 0-XNPCCore's own
 #                                             survivors ours (XNPCCore migration M3), emitted after the classes
 #   Config/entitygroups.xml    (whole file)   our own survivor groups (0-XNPCCore's survivors by band) and raider
-#                                             groups, tiered; and the pack NPCs swapped out of the framework's groups (W0)
+#                                             groups (SC's raider classes by band); and the pack NPCs swapped out of the
+#                                             framework's groups (W0)
 #   Config/spawning.xml        (whole file)   our own biome spawn entries that call those groups; and the
 #                                             framework's own NPC biome spawns removed (W0, D10)
-#   Config/items.xml           (marked block) the new NPC weapon items, cloned from the framework's closest one
-#   Config/blocks.xml          (marked block) XnpcWeapons: the vanilla weapons the DLL arms the survivors with (M7)
-#   Config/Localization.csv    (managed rows) entity and item names (the old scSurvivor rows are dropped)
+#   Config/items.xml           (marked block) the NPC weapon items of the OLD raiders (scRaider<Sex><Weapon>, gone since
+#                                             M10), cloned from the framework's closest one - still written until M10
+#                                             round 2 removes them with the old model shim; nothing spawns with them
+#   Config/blocks.xml          (marked block) XnpcWeapons: the vanilla weapons the DLL arms survivors and raiders with
+#   Config/Localization.csv    (managed rows) entity and item names (the old scSurvivor and scRaider<Sex><Weapon> rows
+#                                             are dropped)
 #
 # Facts this relies on (all checked in the 3.2 decompile or the installed XML):
 #  * item Extends copies properties but NOT effect groups (ItemClassesFromXml parses Effects from the child node
 #    only), so a new NPC weapon is a full clone of the framework item, not an Extends of it
-#  * entity classes: Tags do not inherit; ItemsOnEnterGame is a class block, merged per key
-#  * the framework's hostile pattern (npcHarleyAK47): the plain npc<W>Template + Class EntityNPCBandit + Faction
-#    bandits + AIPackages NPCModCoreNoChat, NPCModHostileMeleeBasic, NPCModHostileRangedBasic
+#  * entity classes: effect groups inherit down the extends chain (MinEffectController); ItemsOnEnterGame is a class
+#    block, merged per key; Tags are restated on every leaf (whether they inherit or not, that is right)
+#  * a hostile EntityAliveSDXV4 is made by class properties alone (DESIGN_M10_RAIDERS.md 1.2): Faction bandits,
+#    IsEnemyEntity true, Hirable false, and AI packages that can fire a vanilla gun (XNPC's SdcsNpcRangedAdvanced)
 import io, os, re, sys, csv
 from lxml import etree as ET
 
@@ -32,12 +38,13 @@ XNPC = os.environ.get("SC_GEN_XNPC") or os.path.join(GAME, r"Mods\0-XNPCCore\Con
 VAN = os.path.join(GAME, r"Data\Config")
 
 # ------------------------------------------------------------------------------------------------------------
-# The table.  token: class-name weapon token.  cat: the framework weapon whose templates this rides on.
+# The table.  token: the weapon's short name (the console accepts it).  cat: the framework weapon it maps to.
 # tier: 0 early (melee, and the primitive ranged weapons - pipe guns and the primitive bow - which everyone may
-# carry from day 1), 1 middle (wooden bow, iron crossbow, double barrel), 2 late.  new: vanilla item that needs a
-# new NPC weapon (cloned from base), or None when the framework already has one.
-# The raiders carry each weapon as its NPC item; the community's 0-XNPCCore survivors carry the vanilla weapon itself
-# (the "new" item, or the framework NPC item's CompatibleWeapon) with the same kind, family and tier (XNPC_WEAPONS).
+# carry from day 1), 1 middle (wooden bow, iron crossbow, double barrel), 2 late.  new: vanilla item that needed a
+# new NPC weapon (cloned from base) for the old raiders, or None when the framework already has one.
+# The community's 0-XNPCCore survivors and, since M10, SC's raiders carry the vanilla weapon itself (the "new" item,
+# or the framework NPC item's CompatibleWeapon) with the token's kind, family and tier (XNPC_WEAPONS). The framework
+# templates (cat) are still how a pack NPC's weapon is recognised for W0, and its tier picks the class W0 swaps in.
 # ------------------------------------------------------------------------------------------------------------
 WEAPONS = [
     # token              cat           kind      tier  new vanilla item                         base NPC item
@@ -87,11 +94,10 @@ WEAPONS = [
     ("CompoundCrossbow", "XBow",       "ranged", 2,    "gunBowT3CompoundCrossbow",              "gunNPCXBow"),
 ]
 
-# W2: what the DLL's second-weapon roll needs to know about a weapon (ScWeaponKind / ScWeaponFamily on every
-# template). Every raider carries one weapon of each kind: the class weapon, plus one of the other kind rolled per
-# entity. "unarmed" counts as melee but is never rolled as a second weapon; neither is the "launcher" (its attack
-# cadence is bound to its class). Firearms are rare (the user's call, 2026-09-30): the ranged roll picks a bow or
-# crossbow unless SurvivorFirearmChance comes up. The survivors' pair is rolled the same way from XNPC_WEAPONS.
+# The family of a weapon (the blocks.xml XnpcWeapons value the DLL's roll reads): melee, bow (bows and crossbows) or
+# firearm. Firearms are rare (the user's call, 2026-09-30): the ranged roll picks a bow or crossbow unless
+# SurvivorFirearmChance (a survivor) or RaiderFirearmChance (a raider) comes up. EmptyHand and RocketL are never
+# rolled (left out of XnpcWeapons below).
 BOWS = {"PrimitiveBow", "LBow", "XBow", "CompoundBow", "CompoundCrossbow"}
 
 def family(token, kind):
@@ -101,10 +107,6 @@ def family(token, kind):
     if token == "RocketL": return "launcher"
     return "firearm"
 
-# No DRLow/DRMid/DRHigh here: those tags buy the framework's flat +10/+20/+30 PhysicalDamageResist, which it
-# balanced for NPCs that wear no armor. These wear real vanilla armor, so the tag stacked on top of it - a raider in
-# three q1-2 Nerd pieces measured 84.5% armor rating (10 template + 20 DRMid + 54.5 armor) and shrugged off melee.
-SWAP_TAGS = "Knife,Machete,ClubWood,BatWood,Axe,Spear,SMG,PipePistol,PipeShotgun,PipeRifle,PipeMG,M60,Pistol,DPistol,Ak47,TRifle,HRifle,SRifle,LBow,XBow,PShotgun,AShotgun,RocketL"
 # Name pools: ("s", male) for the community's survivors (written onto 0-XNPCCore's survivor classes below), ("r", male)
 # for the raiders.
 NAMES = {
@@ -174,11 +176,65 @@ def xnpc_survivor_ops():
                                 "armor": "%g" % (WORN_ARMOR_SCALE - 1.0),
                                 "male_names": NAMES[("s", True)], "female_names": NAMES[("s", False)]}
 
-FEMALE_SOUNDS = [("SoundHurt","player2painlg"),("SoundHurtSmall","player2painsm"),("SoundDeath","player2death"),
-    ("SoundStamina","player2stamina"),("SoundDrownPain","player2drownpain"),("SoundWaterSurface","player2drownsurface"),
-    ("SoundDrownDeath","player2drowndeath"),("SoundJump","player2Jump"),("SoundLandSoft","player2LandSoft"),
-    ("SoundLandHard","player2LandHard"),("SoundPlayerLandThump","PlayerLandThump"),("SoundRandom","player2stamina"),
-    ("SoundAlert","player2stamina"),("SoundAttack","player2stamina"),("SoundSense","player2stamina")]
+# M10 (DESIGN_M10_RAIDERS.md 2.1): SurvivorCommunity's raiders, hostile EntityAliveSDXV4 classes on 0-XNPCCore's player
+# body. Keep in step with ScXnpc.DefaultRaiderClasses in the DLL and XnpcRaiderClasses in Config/blocks.xml. The tier
+# (T1..T3) is the band the class stands for: it caps the weapons the DLL rolls (with the gamestage) and picks the
+# raider's chance of leading with its ranged weapon (RaiderRangedShare; every raider carries both).
+RAIDERS = ["scRaiderMaleT1", "scRaiderMaleT2", "scRaiderMaleT3",
+           "scRaiderFemaleT1", "scRaiderFemaleT2", "scRaiderFemaleT3"]
+# The XNPC bases they extend (one per sex: the female base carries the female mass, tags and sound bank) and the vanilla
+# archetype each leaf names: EModelSdcsNpc.Init builds no model when the class archetype is missing, and the DLL swaps
+# it for SC's own look before the first build anyway (Patches_Xnpc X1).
+RAIDER_BASE = {True: "npcSdcsBase", False: "npcSdcsBaseFemale"}
+RAIDER_TEMPLATE = {True: "scRaiderTemplate", False: "scRaiderFemaleTemplate"}
+RAIDER_ARCHETYPE = {True: "Clark", False: "Anne"}
+# npc and human make SCore's IsHuman true (its door opener), bandit matches SCore's HumanTags / faction tags, sdcsnpc is
+# XNPC's own body tag, and no_voice keeps Voice Control's chat component (barks, hiring, its door flag) off them.
+RAIDER_TAGS = "entity,%s,npc,human,bandit,sdcsnpc,no_voice"
+
+# The template, emitted once per sex. XML comments may not contain two dashes. Speeds are LITERAL m/s on a V4 body;
+# the chase (run) uses MoveSpeedPanic, and XNPC runs at x1.6 above 2.75 (DESIGN_M10_RAIDERS.md 2.11, probe P9).
+RAIDER_TEMPLATE_XML = """
+\t\t<entity_class name="%(name)s" extends="%(base)s">
+\t\t\t<property name="UserSpawnType" value="None"/>
+\t\t\t<property name="Faction" value="bandits"/>
+\t\t\t<property name="IsEnemyEntity" value="true"/>
+\t\t\t<property name="Hirable" value="false"/>
+\t\t\t<property name="IsQuestGiver" value="false"/>
+\t\t\t<property name="AIPackages" value="NPCModCoreNoChat, SdcsNpcRangedAdvanced, SCRaider"/>
+\t\t\t<property name="MoveSpeed" value="1.6"/>
+\t\t\t<property name="MoveSpeedAggro" value="2.9, 3.1"/>
+\t\t\t<property name="MoveSpeedPanic" value="2.9"/>
+\t\t\t<property name="BagItems" value="none"/>
+\t\t\t<property name="HarvestItems" value="none"/>
+\t\t\t<property name="ExperienceGain" value="600"/>
+\t\t\t<property name="Titles" value="Raider"/>
+\t\t\t<property class="ItemsOnEnterGame">
+\t\t\t\t<property name="GameModeSurvival" value="meleeWpnClubT0WoodenClub"/>
+\t\t\t\t<property name="GameModeSurvivalSP" value="meleeWpnClubT0WoodenClub"/>
+\t\t\t\t<property name="GameModeSurvivalMP" value="meleeWpnClubT0WoodenClub"/>
+\t\t\t</property>
+\t\t\t<effect_group name="SurvivorCommunity worn armor scale">
+\t\t\t\t<passive_effect name="PhysicalDamageResist" operation="perc_add" value="%(armor)s"/>
+\t\t\t</effect_group>
+\t\t\t<effect_group name="SurvivorCommunity raider">
+\t\t\t\t<passive_effect name="LandMineImmunity" operation="base_set" value="0"/>
+\t\t\t</effect_group>
+\t\t</entity_class>
+"""
+RAIDER_LEAF_XML = """\t\t<entity_class name="%(name)s" extends="%(template)s">
+\t\t\t<property name="UserSpawnType" value="Menu"/>
+\t\t\t<property name="Archetype" value="%(archetype)s"/>
+\t\t\t<property name="IsMale" value="%(male)s"/>
+\t\t\t<property name="Tags" value="%(tags)s"/>
+\t\t\t<property name="Names" value="%(names)s"/>
+\t\t</entity_class>
+"""
+
+def raider(male, tier):
+    n = "scRaider%sT%d" % ("Male" if male else "Female", tier)
+    if n not in RAIDERS: raise SystemExit("no raider class %s in RAIDERS" % n)
+    return n
 
 def npc_item_name(token, vanilla):
     kind = "melee" if vanilla.startswith("melee") else "gun"
@@ -265,82 +321,44 @@ for token, cat, kind, tier, van, base in WEAPONS:
     new_items.append((name, van, it))
 
 # ------------------------------------------------------------------------------------------------------------
-# entity classes
+# entity classes (M10): two raider templates (one per sex) and the six leaves, then the survivor ops
 # ------------------------------------------------------------------------------------------------------------
-def P(name, value): return '\t\t\t<property name="%s" value="%s"/>\n' % (name, value)
-
-BODY = (P("ModelType", "SDCS") + P("PhysicsBody", "PlayerSDCS") + P("AvatarController", "AvatarSDCSController")
-        + P("RootMotion", "false"))
+for male in (True, False):                        # the bases and archetypes the classes name must exist
+    if cls(RAIDER_BASE[male]) is None: raise SystemExit("raider base %s is not in 0-XNPCCore's entityclasses.xml" % RAIDER_BASE[male])
+van_arch = ET.parse(os.path.join(VAN, "archetypes.xml")).getroot()
+for male in (True, False):
+    if not van_arch.xpath("//archetype[@name=$n]", n=RAIDER_ARCHETYPE[male]):
+        raise SystemExit("raider archetype %s is not in vanilla archetypes.xml" % RAIDER_ARCHETYPE[male])
 
 out = []
 out.append('<?xml version="1.0" encoding="UTF-8" ?>\n<configs>\n')
-out.append("""\t<!-- GENERATED by Tools/gen_arsenal.py - edit the table there, not this file.
+out.append("""\t<!-- GENERATED by Tools/gen_arsenal.py - edit RAIDERS and RAIDER_TEMPLATE_XML there, not this file.
 
-\t     Raiders that wear the PLAYER'S body (ModelType SDCS) and real vanilla armor, one class per weapon and sex:
-\t       scRaider<Sex><Weapon>     hostile raiders (bandits faction), the NPC framework's own hostile pattern:
-\t                                 EntityNPCBandit with the hostile melee and ranged AI packages
-\t     The community's own survivors are 0-XNPCCore's npcSdcsSurvivor classes (the ops after this block; the XNPCCore
-\t     migration, decisions D10 and D11): SurvivorCommunity defines no friendly classes of its own any more.
-\t     Each weapon has a template holding everything but the sex (scRaider<Weapon>Template); the SurvivorCommunity
-\t     DLL skips any class whose name contains "Template".
-\t     The rig is generated at runtime by SurvivorCommunity.dll (Patches_Sdcs.cs) from a rolled face plus armor
-\t     in the equipment slots. The pack's mesh and its rig-specific hand joint are dropped (ignore=); the
-\t     player rig's weapon hand is RightWeapon and vanilla picks it. Tags do not inherit, so every leaf class
-\t     restates them. RootMotion is off: the player's animator has none.
-
-\t     Speeds, measured live on this body: about 4.2 m/s per unit, tailing off near 6. MoveSpeed is the roaming
-\t     pace. A raider is an EntityNPCBandit, whose chase speed IS MoveSpeedAggro (RunSpeed-scaled), so theirs is
-\t     set to a jog you can outrun.
-
-\t     ScWeapon / ScWeaponTier / ScAllegiance / ScWeaponKind / ScWeaponFamily are read by the DLL (console spawns,
-\t     the second weapon every raider rolls). Tier 0 early melee plus the pipe guns and the primitive bow, 1 wooden
-\t     bow, iron crossbow and double barrel, 2 late guns. -->
+\t     SurvivorCommunity's raiders (M10, DESIGN_M10_RAIDERS.md): hostile classes on 0-XNPCCore's player body, the body
+\t     the community's survivors use. Each sex has a template on XNPC's base (npcSdcsBase, npcSdcsBaseFemale: Class
+\t     EntityAliveSDXV4, the player body, NPCID npcSdcsTest) holding everything but the leaf's name, archetype, sex,
+\t     tags and names; the leaves scRaider{Male,Female}T{1,2,3} are what spawns. The tier is the band the class stands
+\t     for (T1 early, T2 middle, T3 late), as for the survivors.
+\t     Hostile by class properties alone: Faction bandits (they hate players, survivors and zombies, never each other),
+\t     IsEnemyEntity true (enemy spawn rules, EnemyCount, headshot rules, killall), Hirable and IsQuestGiver false. AI:
+\t     XNPC's NPCModCoreNoChat (idle, wander) and SdcsNpcRangedAdvanced (the package that fires a vanilla gun on action 0
+\t     and melees on class 0), plus SC's SCRaider (Config/utilityai.xml: a ranged approach and investigating noise).
+\t     The SurvivorCommunity DLL owns the rest (ScXnpc's raider set, XnpcRaiderClasses in blocks.xml): SC's looks with
+\t     raider gear, a pair of vanilla weapons rolled per raider and which one it leads with, a finite stack of ammo in the bag, no
+\t     XNPC kill levels, items only healing, and a backpack on death. Their ItemsOnEnterGame is a wooden club only so
+\t     that nothing hands them XNPC's endlessly refilled 9 mm if the DLL cannot arm them; the DLL rewrites it.
+\t     no_voice keeps Voice Control off them; npc and human give them SCore's door opener (unlocked doors).
+\t     BagItems none builds an empty bag (their ammo and meds live there); HarvestItems none gives them no inventory
+\t     window. LandMineImmunity 0 undoes npcSdcsBase's 1. Speeds are literal m/s on this body. -->
 \t<append xpath="/entity_classes">
 """)
-
-leaf_names = []
-for side in ("r",):                               # raiders only: the survivor side ("s") is 0-XNPCCore's classes (D11)
-    for token, cat, kind, tier, van, base in WEAPONS:
-        prefix = "scRaider"
-        tmpl = "%s%sTemplate" % (prefix, token)
-        parent = "npc%sTemplate" % cat
-        t = []
-        t.append('\n\t\t<entity_class name="%s" extends="%s" ignore="Mesh,RightHandJointName">\n' % (tmpl, parent))
-        t.append(P("UserSpawnType", "None"))
-        t.append(P("ScWeapon", token) + P("ScWeaponTier", str(tier)) + P("ScAllegiance", "hostile"))
-        t.append(P("ScWeaponKind", kind) + P("ScWeaponFamily", family(token, kind)))
-        t.append(P("Class", "EntityNPCBandit, SCore") + P("Faction", "bandits") + P("IsEnemyEntity", "true")
-                 + P("AIPackages", "NPCModCoreNoChat, NPCModHostileMeleeBasic, NPCModHostileRangedBasic")
-                 + P("LootDropProb", "0.2"))
-        t.append(BODY)
-        t.append(P("MoveSpeed", "0.35") + P("MoveSpeedAggro", "0.8, 0.9") + P("MoveSpeedPanic", "0.9") + P("MoveSpeedRand", "-0.05, 0.05"))
-        if van:
-            framework_items = class_items_on_enter("npc%sTemplate" % cat) or ""
-            rest = framework_items.split(",")[1:]
-            loadout = ",".join([npc_item_name(token, van)] + [x.strip() for x in rest if x.strip()])
-            t.append('\t\t\t<property class="ItemsOnEnterGame">\n')
-            for gm in ("GameModeSurvival", "GameModeSurvivalSP", "GameModeSurvivalMP"):
-                t.append('\t\t\t\t<property name="%s" value="%s"/>\n' % (gm, loadout))
-            t.append('\t\t\t</property>\n')
-            t.append(P("BagItems", van))
-        # merged with, never replacing, the framework's inherited effect groups (a perc_add suppresses nothing)
-        t.append('\t\t\t<effect_group name="SurvivorCommunity worn armor scale">\n'
-                 '\t\t\t\t<passive_effect name="PhysicalDamageResist" operation="perc_add" value="%s"/>\n'
-                 '\t\t\t</effect_group>\n' % ("%g" % (WORN_ARMOR_SCALE - 1.0)))
-        t.append('\t\t</entity_class>\n')
-        out.append("".join(t))
-        for male in (True, False):
-            sex = "Male" if male else "Female"
-            name = "%s%s%s" % (prefix, sex, token)
-            leaf_names.append((name, side, token, tier))
-            tags = "entity,%s,npc,walker,%s,%s,bandit" % ("male" if male else "female", kind, SWAP_TAGS)
-            l = ['\t\t<entity_class name="%s" extends="%s">\n' % (name, tmpl)]
-            l.append(P("UserSpawnType", "Menu") + P("Tags", tags) + P("IsMale", "true" if male else "false")
-                     + P("Names", NAMES[(side, male)]))
-            if not male:
-                l.append("".join(P(k, v) for k, v in FEMALE_SOUNDS))
-            l.append('\t\t</entity_class>\n')
-            out.append("".join(l))
+for male in (True, False):
+    out.append(RAIDER_TEMPLATE_XML % {"name": RAIDER_TEMPLATE[male], "base": RAIDER_BASE[male], "armor": "%g" % (WORN_ARMOR_SCALE - 1.0)})
+    for n in RAIDERS:
+        if ("Female" not in n) != male: continue
+        out.append(RAIDER_LEAF_XML % {"name": n, "template": RAIDER_TEMPLATE[male], "archetype": RAIDER_ARCHETYPE[male],
+                                      "male": "true" if male else "false", "tags": RAIDER_TAGS % ("male" if male else "female"),
+                                      "names": NAMES[("r", male)]})
 out.append("\t</append>\n")
 for n in XNPC_SURVIVORS:                          # the ops below would silently match nothing for a renamed class
     if cls(n) is None: raise SystemExit("XNPC survivor class %s is not in 0-XNPCCore's entityclasses.xml - update XNPC_SURVIVORS" % n)
@@ -366,36 +384,14 @@ io.open(os.path.join(MOD, "entityclasses.xml"), "w", encoding="utf-8", newline="
 # the XNPCCore migration they spawn 0-XNPCCore's survivors (decision D10).
 SURVIVOR_CHANCE, SURVIVOR_RESPAWN = 0.06, 0.5
 RAIDER_CHANCE, RAIDER_RESPAWN = 0.04, 1.0
-# How each band picks a raider's CLASS weapon. Since W2 every raider also rolls a second weapon of the other kind in
-# the DLL, so this only decides which of the two is the class one. Per band: RANGED is the share of ranged class
-# weapons, and the tier weights spread each family over its tiers. FIREARM_SHARE is the share of those ranged class
-# weapons that are firearms (the rest are bows and crossbows); keep it equal to SurvivorFirearmChance in
-# Config/blocks.xml, the odds the DLL's ranged roll uses, so a raider's one ranged weapon is a firearm at that rate
-# whether it is the class weapon or the rolled one. RocketL counts as a firearm here (it is never rolled as a second
-# weapon). The survivors' classes carry no weapon: the DLL rolls both of theirs at SurvivorFirearmChance.
-FIREARM_SHARE = 0.12
-MIX = {"GS01": (0.30, {0: 1.0}), "GS50": (0.40, {0: 1.0, 1: 1.0}), "GS100": (0.50, {0: 0.5, 1: 1.0, 2: 1.0})}
-FAMILY_GROUP = {"melee": "melee", "unarmed": "melee", "bow": "bow", "firearm": "firearm", "launcher": "firearm"}
-TOKEN_GROUP = dict((tok, FAMILY_GROUP[family(tok, kind)]) for tok, cat, kind, tier, van, base in WEAPONS)
-
-def band_weights(side, band):
-    """(leaf, weight) for a band: the group shares, each spread over its entries by tier weight."""
-    ranged, tiers = MIX[band]
-    share = {"melee": 1.0 - ranged, "bow": ranged * (1.0 - FIREARM_SHARE), "firearm": ranged * FIREARM_SHARE}
-    entries = [(n, TOKEN_GROUP[tok], tiers[t]) for (n, sd, tok, t) in leaf_names if sd == side and t in tiers]
-    out = []
-    for grp, sh in share.items():
-        mine = [(n, w) for n, g, w in entries if g == grp]
-        rel = sum(w for _, w in mine)
-        if not mine or rel <= 0: raise SystemExit("band %s has no %s weapons" % (band, grp))
-        out.extend((n, sh * w / rel) for n, w in mine)
-    order = dict((n, i) for i, (n, _, _) in enumerate(entries))
-    out.sort(key=lambda nw: order[nw[0]])                      # the table's order, as before
-    return out
 # The survivors' groups (D10): each band holds the 0-XNPCCore survivor class of its tier, both sexes alike - T1 early,
 # T2 middle, T3 late. The class's tier caps the weapons the DLL rolls for it, together with the gamestage (ScLoadout
-# TierCap), so the place and time of day still decide how well armed a survivor can be, as the raiders' bands do.
-SURVIVOR_BAND_TIER = {"GS01": 1, "GS50": 2, "GS100": 3}
+# TierCap), so the place and time of day still decide how well armed a survivor can be. The raiders' groups (M10) are
+# the same shape with SC's raider classes: no weapon mix here any more - the DLL rolls each raider's full pair (its
+# ranged weapon a firearm at RaiderFirearmChance, 12%) and its lead: the ranged weapon at RaiderRangedShare by class
+# tier (the old bands' 30/40/50%), else the melee weapon (Config/blocks.xml).
+BAND_TIER = {"GS01": 1, "GS50": 2, "GS100": 3}
+SURVIVOR_BAND_TIER = BAND_TIER
 
 def xnpc_survivor(male, tier):
     n = "npcSdcsSurvivor%sT%d" % ("Male" if male else "Female", tier)
@@ -404,7 +400,11 @@ def xnpc_survivor(male, tier):
 
 def survivor_band(band):
     """(class, weight) for a survivor band: its tier's two classes, one per sex, at equal weight."""
-    return [(xnpc_survivor(True, SURVIVOR_BAND_TIER[band]), 0.5), (xnpc_survivor(False, SURVIVOR_BAND_TIER[band]), 0.5)]
+    return [(xnpc_survivor(True, BAND_TIER[band]), 0.5), (xnpc_survivor(False, BAND_TIER[band]), 0.5)]
+
+def raider_band(band):
+    """(class, weight) for a raider band: its tier's two raider classes, one per sex, at equal weight."""
+    return [(raider(True, BAND_TIER[band]), 0.5), (raider(False, BAND_TIER[band]), 0.5)]
 
 SIDES = (("s", "Survivor", SURVIVOR_CHANCE, SURVIVOR_RESPAWN),
          ("r", "Raider", RAIDER_CHANCE, RAIDER_RESPAWN))
@@ -433,9 +433,10 @@ PLACES = [("Wild", "Day",   "GS01",  None,                    "commercial,indust
 #
 # 0-XNPCCore 3.2's own player-body survivors, npcSdcsSurvivor{Male,Female}T1-T3 (EntityAliveSDXV4, model
 # EModelSdcsNpc), are the community's survivors since the XNPCCore migration (XNPC_SURVIVORS): ours, not pack NPCs.
-# Its sleeper groups that list them keep them as they are. In a friendly group a human pack NPC becomes the survivor
-# class of the tier its framework weapon has (tier 0 -> T1, 1 -> T2, 2 -> T3), both sexes; in a hostile group our
-# raider with the same framework weapon, as before. Its own biome spawns of them stay removed (D10): ours call them.
+# Its sleeper groups that list them keep them as they are. A human pack NPC becomes the class of the tier its framework
+# weapon has (tier 0 -> T1, 1 -> T2, 2 -> T3), both sexes: in a friendly group the survivor class, in a hostile group
+# SC's raider class (M10-D9; the raider's own weapons are then rolled by the DLL at that tier's cap). Its own biome
+# spawns of them stay removed (D10): ours call them.
 # Any other EntityAliveSDXV4 class in a group (none today) stops the generator, to be mapped by hand.
 # ------------------------------------------------------------------------------------------------------------
 CLASS_INDEX = {}                                  # name -> element; the framework's definition wins over vanilla's
@@ -464,7 +465,7 @@ def class_prop(name, prop):
 
 def is_ours(name):
     """One of the community's classes: our raiders, or the 0-XNPCCore survivors the community owns."""
-    return bool(name) and (name.startswith("scRaider") or name in XNPC_SURVIVORS)
+    return bool(name) and (name in RAIDERS or name in XNPC_SURVIVORS)
 
 def is_pack_npc(name):
     """A framework NPC (EntityAliveSDX / EntityAliveSDXV4 / EntityNPCBandit) that is not one of ours."""
@@ -485,7 +486,8 @@ def framework_cat(name):
 TOKEN_TIER = dict((tok, tier) for tok, cat, kind, tier, van, base in WEAPONS)
 
 def is_v4_npc(name):
-    """An EntityAliveSDXV4 class that is not one of the six we own (npcSdcsTest, npcSdcsMaleM60, ...)."""
+    """An EntityAliveSDXV4 class of 0-XNPCCore that is not one of the six survivors we own (npcSdcsTest, npcSdcsMaleM60,
+    ...). Our raiders are SC's classes, not in CLASS_INDEX, so they never answer here (and is_pack_npc skips them first)."""
     return (class_prop(name, "Class") or "").startswith("EntityAliveSDXV4")
 
 def fmt_p(p):
@@ -509,7 +511,7 @@ def swap_kind(name):
 def xpath_names(names):
     return " or ".join("@name='%s'" % n for n in names)
 
-ours = set(n for n, _, _, _ in leaf_names) | set(XNPC_SURVIVORS)
+ours = set(RAIDERS) | set(XNPC_SURVIVORS)
 xnpc_spawn_groups = set(e.get("entitygroup") for e in
                         ET.parse(os.path.join(XNPC, "spawning.xml")).getroot().iter("spawn") if e.get("entitygroup"))
 w0_spawns, w0_swap, w0_drop = [], {}, {}
@@ -547,11 +549,9 @@ for grp in ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot().iter("enti
             subs = [(n, p)]
         elif swap_kind(n) == "animal":
             subs = []                             # a pack animal inside a human group: dropped
-        elif hostile:
-            subs = [("scRaider%s%s" % (sex, BASE_TOKEN[framework_cat(n)]), p / 2.0) for sex in ("Male", "Female")]
-        else:                                     # friendly: the survivor class of its weapon's tier
+        else:                                     # the class of its weapon's tier, the group's side (M10-D9)
             tier = TOKEN_TIER[BASE_TOKEN[framework_cat(n)]] + 1
-            subs = [(xnpc_survivor(male, tier), p / 2.0) for male in (True, False)]
+            subs = [((raider if hostile else xnpc_survivor)(male, tier), p / 2.0) for male in (True, False)]
         for sn, sp in subs:
             if sn != "none" and is_pack_npc(sn): raise SystemExit("W0: %s still holds pack NPC %s" % (gname, sn))
             if sn.startswith(("scSurvivor", "scRaider", "npcSdcsSurvivor")) and sn not in ours: raise SystemExit("W0: no class " + sn)
@@ -568,7 +568,7 @@ w0_drop_sets = {}
 for gname in sorted(w0_drop): w0_drop_sets.setdefault(w0_drop[gname], []).append(gname)
 
 g = ['<?xml version="1.0" encoding="UTF-8" ?>\n<configs>\n']
-g.append("""\t<!-- GENERATED by Tools/gen_arsenal.py - edit SURVIVOR_CHANCE, RAIDER_CHANCE and MIX there, not this file.
+g.append("""\t<!-- GENERATED by Tools/gen_arsenal.py - edit SURVIVOR_CHANCE and RAIDER_CHANCE there, not this file.
 
 \t     Our own groups, called by our own spawn entries in spawning.xml, so our rate is independent of the NPC
 \t     framework's and of whatever character packs are installed. Each group is one roll: "none" is the odds of
@@ -576,17 +576,17 @@ g.append("""\t<!-- GENERATED by Tools/gen_arsenal.py - edit SURVIVOR_CHANCE, RAI
 \t     Survivors are 0-XNPCCore's npcSdcsSurvivor classes (decision D10), both sexes, the tier of the band: T1 early,
 \t     T2 middle, T3 late. They carry no weapon of their own: the SurvivorCommunity DLL rolls a melee weapon and a bow,
 \t     crossbow or (at SurvivorFirearmChance) firearm for each, capped by the class's tier and the gamestage.
-\t     Raiders: the class weapon is melee or ranged by a set share per band (%d%% / %d%% / %d%% ranged), and only %d%%
-\t     of the ranged ones are firearms - the rest are bows and crossbows. The early band has the primitive weapons
-\t     only, the middle adds the wooden bow, iron crossbow and double barrel, the late one everything. Every raider
-\t     also rolls a second weapon of the other kind in the DLL. "none" must never be the first entry -
-\t     EntityGroups.IsEnemyGroup reads entry 0 to decide whether the group is hostile. -->
+\t     Raiders are SurvivorCommunity's scRaider classes (M10), both sexes, the tier of the band, laid out the same
+\t     way. They carry no weapon of their own either: the DLL rolls each one's pair (a firearm at RaiderFirearmChance,
+\t     12%, capped by the class's tier and the gamestage) and its lead, the ranged weapon at RaiderRangedShare (by
+\t     default 30% / 40% / 50% for T1 / T2 / T3), else the melee weapon. "none" must never be the first entry: EntityGroups.IsEnemyGroup reads
+\t     entry 0 to decide whether the group is hostile, and a raider there makes the raider groups enemy groups. -->
 
 \t<append xpath="/entitygroups">
-""" % (100 * MIX["GS01"][0], 100 * MIX["GS50"][0], 100 * MIX["GS100"][0], 100 * FIREARM_SHARE))
+""")
 for side, tag, chance, _ in SIDES:
     for band in ("GS01", "GS50", "GS100"):
-        entries = survivor_band(band) if side == "s" else band_weights(side, band)
+        entries = survivor_band(band) if side == "s" else raider_band(band)
         rel = sum(w for _, w in entries)
         total = 100.0 * chance
         g.append('\n\t\t<!-- %d entries sharing %.2f in 100 -->\n' % (len(entries), total))
@@ -601,9 +601,9 @@ g.append("""
 \t     character pack inserts next to them). These are the framework's own groups: the sleeper groups behind its
 \t     S_-Group_NPC_* POI volumes, and its biome groups (their spawn entries are removed in spawning.xml). A group may
 \t     not be empty (the game throws at load) and "none" must not come first, so each pack NPC becomes one of ours at
-\t     the same probability split over both sexes: in a friendly group the 0-XNPCCore survivor class of its weapon's
-\t     tier (T1 for a tier 0 weapon, T2 for tier 1, T3 for tier 2), in a hostile group our raider with the same
-\t     framework weapon. 0-XNPCCore's own survivors are ours and stay where its groups list them. Groups that also hold
+\t     the same probability split over both sexes, the class of its weapon's tier (T1 for a tier 0 weapon, T2 for
+\t     tier 1, T3 for tier 2): in a friendly group the 0-XNPCCore survivor class, in a hostile group SurvivorCommunity's
+\t     raider class. 0-XNPCCore's own survivors are ours and stay where its groups list them. Groups that also hold
 \t     vanilla animals only lose the pack NPC. %d groups swapped, %d trimmed. -->
 """ % (len(w0_swap), len(w0_drop)))
 for entries, names in sorted(w0_swap_sets.items(), key=lambda kv: kv[1][0]):
@@ -655,10 +655,11 @@ ip = os.path.join(MOD, "items.xml")
 src = io.open(ip, encoding="utf-8").read()
 src = re.sub(r"\n?\t*" + re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n?", "\n", src, flags=re.S)
 block = ["\t\t" + BEGIN + "\n",
-         "\t\t<!-- NPC versions of vanilla weapons the NPC framework has none of. Each is a full copy of the framework's\n"
-         "\t\t     closest NPC weapon (effect groups do not inherit through Extends) with the vanilla weapon's model,\n"
-         "\t\t     material, icon and sounds, and CompatibleWeapon pointing at it - which is what lets a player-body\n"
-         "\t\t     survivor animate it with the vanilla weapon's own hold type. Damage and timing are the base weapon's. -->\n"]
+         "\t\t<!-- NPC versions of vanilla weapons the NPC framework has none of, made for the OLD raider classes\n"
+         "\t\t     (scRaider<Sex><Weapon>, replaced in M10 by raiders that carry the vanilla weapons themselves). Nothing\n"
+         "\t\t     spawns with them any more; they stay until M10 round 2 removes them with the old model shim. Each is a\n"
+         "\t\t     full copy of the framework's closest NPC weapon (effect groups do not inherit through Extends) with the\n"
+         "\t\t     vanilla weapon's model, material, icon and sounds, and CompatibleWeapon pointing at it. -->\n"]
 for name, van, it in new_items:
     txt = ET.tostring(it, encoding="unicode")
     block.append("\t\t<!-- %s -->\n\t\t%s\n" % (van, txt.strip()))
@@ -695,14 +696,17 @@ src = io.open(bp, encoding="utf-8").read()
 if src.count(XW_BEGIN) > 1 or src.count(XW_END) > 1: raise SystemExit("blocks.xml holds the XnpcWeapons markers more than once - fix it by hand")
 if XW_BEGIN in src:
     src = re.sub(r"\t*" + re.escape(XW_BEGIN) + r".*?" + re.escape(XW_END) + r"\n", "", src, flags=re.S)
-anchor = re.search(r'\n(\t*)<property name="XnpcBodyColliderLayers"[^\n]*\n', src)
-if anchor is None: raise SystemExit("blocks.xml: no XnpcBodyColliderLayers property to put XnpcWeapons after")
+# after XnpcModelY (the last of the body switches) when it exists, else after XnpcBodyColliderLayers as before: the
+# block then stays where it was, and the hand-written raider keys that follow it are never pulled above it
+anchor = re.search(r'\n(\t*)<property name="XnpcModelY"[^\n]*\n', src) or re.search(r'\n(\t*)<property name="XnpcBodyColliderLayers"[^\n]*\n', src)
+if anchor is None: raise SystemExit("blocks.xml: no XnpcModelY or XnpcBodyColliderLayers property to put XnpcWeapons after")
 ind = anchor.group(1)
 xw = [ind + XW_BEGIN + "\n",
-      ind + "<!-- The vanilla weapons the community's 0-XNPCCore survivors carry, one melee and one ranged each, rolled at or\n"
-      + ind + "     below the lower of their class's tier (T1 = 0, T2 = 1, T3 = 2) and the gamestage tier; a ranged one is a\n"
-      + ind + "     firearm at SurvivorFirearmChance, else a bow or crossbow. value = family (melee, bow, firearm), tier, and the\n"
-      + ind + "     short name the console accepts. Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->\n",
+      ind + "<!-- The vanilla weapons the community's 0-XNPCCore survivors and SurvivorCommunity's raiders carry, one melee\n"
+      + ind + "     and one ranged each (a raider leads with one of them), rolled at or below the lower of their class's tier (T1 = 0,\n"
+      + ind + "     T2 = 1, T3 = 2) and the gamestage tier; a ranged one is a firearm at SurvivorFirearmChance (a raider's at\n"
+      + ind + "     RaiderFirearmChance), else a bow or crossbow. value = family (melee, bow, firearm), tier, and the short name\n"
+      + ind + "     the console accepts. Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->\n",
       ind + '<property class="XnpcWeapons">\n']
 for item, fam, tier, token in XNPC_WEAPONS:
     xw.append(ind + '\t<property name="%s" value="%s,%d,%s" />\n' % (item, fam, tier, token))
@@ -718,9 +722,12 @@ lp = os.path.join(MOD, "Localization.csv")
 raw = io.open(lp, encoding="utf-8").read()
 nl = "\r\n" if "\r\n" in raw else "\n"
 lines = raw.split(nl)
-managed = set(n for n, _, _, _ in leaf_names) | set(n for n, _, _ in new_items)
-# the rows of SC's old survivor classes go too: those classes are no longer generated (D11)
-kept = [ln for ln in lines if ln.split(",", 1)[0] not in managed and not re.match(r"^scSurvivor(Male|Female)", ln.split(",", 1)[0])]
+managed = set(RAIDERS) | set(n for n, _, _ in new_items)
+# the rows of SC's old survivor classes go too (no longer generated, D11), and those of the old per-weapon raider
+# classes scRaider<Sex><Weapon> (M10: only the six T1-T3 classes are left)
+def stale(key):
+    return bool(re.match(r"^scSurvivor(Male|Female)", key)) or (bool(re.match(r"^scRaider(Male|Female)\w+$", key)) and key not in RAIDERS)
+kept = [ln for ln in lines if ln.split(",", 1)[0] not in managed and not stale(ln.split(",", 1)[0])]
 while kept and kept[-1] == "": kept.pop()
 van_loc = {}
 with io.open(os.path.join(VAN, "Localization.csv"), encoding="utf-8") as f:
@@ -729,17 +736,17 @@ with io.open(os.path.join(VAN, "Localization.csv"), encoding="utf-8") as f:
     for row in rd:
         if row and len(row) > ei: van_loc[row[0]] = row[ei]
 rows = []
-for n, side, tok, t in leaf_names:
-    rows.append("%s,entityclasses,Entity,,,,%s" % (n, "Survivor" if side == "s" else "Raider"))
+for n in RAIDERS:
+    rows.append("%s,entityclasses,Entity,,,,Raider" % n)
 for n, van, _ in new_items:
     label = van_loc.get(van, van).replace('"', "'")
     rows.append('%s,items,Item,,,,"%s"' % (n, label))
 io.open(lp, "w", encoding="utf-8", newline="").write(nl.join(kept + rows) + nl)
 
-print("classes: %d raider leaves + %d templates" % (len(leaf_names), len(WEAPONS)))
+print("classes: %d raider leaves + %d templates (M10, on 0-XNPCCore's body)" % (len(RAIDERS), len(RAIDER_TEMPLATE)))
 print("survivor weapons (XnpcWeapons): %d (%s)" % (len(XNPC_WEAPONS), ", ".join(
     "%s %d" % (f, sum(1 for x in XNPC_WEAPONS if x[1] == f)) for f in ("melee", "bow", "firearm"))))
 print("W0: %d groups swapped, %d trimmed, %d framework spawn groups removed" % (len(w0_swap), len(w0_drop), len(w0_spawns)))
-print("new NPC weapons: %d" % len(new_items))
+print("old raiders' NPC weapons (kept until M10 round 2): %d" % len(new_items))
 for n, van, it in new_items:
     print("   %-28s <- %-36s mesh=%s" % (n, van, (one(it, "property[@name='Meshfile']").get("value"))[-48:]))
