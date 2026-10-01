@@ -334,6 +334,22 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   migration needs a new game:** its members were `scSurvivor` classes, which are gone, so they can never be found or
   re-created; the log says `this save predates the XNPCCore migration: start a new game` when such a save loads,
   and again when the daily tick finally removes them.
+- **Following is 0-XNPCCore's; voice orders are member states.** A following member uses 0-XNPCCore's own follow
+  (`DynamicFollow`): its formations, follow distances and engage stances. The community's own follow actions are only
+  a fallback for a pack NPC that lacks it. The order wheel and `@name` commands work on followers - **stay**, **guard**,
+  **guard and return**, **wander**, **show me a route** / **patrol**, crouch, formations, stances - and the member
+  simply holds that order, still following you (the window shows *Following (holding)*, *(guarding)* ...) until you
+  call them (`@name follow`) or fetch them; none of it ever counts as leaving, and a spoken *dismiss* sends them home.
+  A member holding a spot outside the base is not stationed when you walk home without them, and is never counted
+  missing. Stationing clears 0-XNPCCore's formation, move-to and crouch state; the stance and follow distance stay.
+- **Hired companions may join.** A companion you hired the vanilla way can be asked to join like anyone (do the
+  favour first); joining ends the paid hire - members are never billed. Somebody else's hire cannot be recruited.
+- **No 0-XNPCCore kill levels for members.** Members and their stand-ins grow through the community's skills only;
+  0-XNPCCore's level bonus (health, damage, spread, regeneration) and NPC progression are kept off them. Strangers
+  keep 0-XNPCCore's levels, and a member who leaves gets them back.
+- **Runners on 0-XNPCCore bodies** run at `RunnerRunMps` (4.5 m/s) and walk at `RunnerWalkMps` (1.6 m/s) in the
+  world, in literal metres per second, with Cardio, hunger and injury applied on top.
+- **A member's inventory window** (their ammo and medical stock) drops as a backpack where they die.
 - **Raiders: every weapon.** There is one raider class per weapon and sex (`scRaider<Sex><Weapon>`), following the
   framework's own hostile pattern: SCore's bandit entity, the vanilla `bandits` faction (which hates everyone), and
   its hostile melee and ranged AI. They cannot be talked to or recruited, and they fight your survivors as well as
@@ -473,10 +489,11 @@ A full game restart is needed after editing `Config/Localization.csv`.
 
 ## How it hangs together (for modders)
 
-- NPCs are XNPCCore's `EntityAliveSDX`. A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars
+- NPCs are 0-XNPCCore's `EntityAliveSDXV4` survivors (SCore's legacy `EntityAliveSDX` still works for pack NPCs). A resident is SCore's *FarmHere* shape: `Leader`/`Owner` cvars
   cleared, `hired_<id>` removed from the player, leader cache evicted, `buffOrderGuard` with the guard
   position set to the post, `Persist=1`, static spawner source, plus the `SCResident` utility-AI package
-  added at runtime (`Config/utilityai.xml`). A follower is a plain SCore hire.
+  added at runtime (`Config/utilityai.xml`). A follower is a plain SCore hire; the order it holds (`CurrentOrder`) is
+  read as a member state (`ScOrders`), never repaired unless it is one nothing gives a follower (None, Hire, Task).
 - The recruit dialog is injected by xpath into **every** dialog that has a `Hire` response, so character
   packs join the pool without being listed. The custom operators (`ScCanRecruit`, `ScFavour`,
   `ScFavourDone`, `ScHasFavourItems`, `ScFavourBrief`, `ScStartPoiQuest`, `ScTakeFavourItems`, `ScJoin`)

@@ -230,10 +230,11 @@ namespace SurvivorCommunity
         public static string StatusText(Member m)
         {
             if (m == null) return "";
+            string held = ScOrders.StateWord(m);   // a voice / order-wheel order the follower holds
             switch (m.Status)
             {
-                case MemberStatus.Following: return Localization.Get("scStatusFollowing");
-                case MemberStatus.PendingStation: return Localization.Get("scStatusPending");
+                case MemberStatus.Following: return Localization.Get("scStatusFollowing") + (held.Length > 0 ? " (" + held + ")" : "");
+                case MemberStatus.PendingStation: return Localization.Get("scStatusPending") + (held.Length > 0 ? " (" + held + ")" : "");
                 case MemberStatus.OnRun: return Localization.Get("scStatusOnRun");
                 case MemberStatus.Garrison: return Localization.Get("scStatusPosted");
                 default: return Localization.Get("scStatusResident");

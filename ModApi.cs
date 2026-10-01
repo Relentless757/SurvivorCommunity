@@ -221,6 +221,7 @@ namespace SurvivorCommunity
             Add(t, "EModelSdcsNpc::createModel", Patches_Xnpc.CreateModelTarget());
             Add(t, "MinEventActionSdcsApplyLook::Execute", Patches_Xnpc.ApplyLookTarget());
             Add(t, "EModelSdcsNpc::GenerateMeshes", Patches_Xnpc.GenerateMeshesTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsLevelTick", Patches_Xnpc.LevelTickTarget());
             Add(t, "AvatarSdcsNpcController::SdcsWearTick", Patches_Xnpc.WearTickTarget());
             Add(t, "AvatarSdcsNpcController::SdcsFailoverTick", Patches_Xnpc.FailoverTarget());
             Add(t, "AvatarSdcsNpcController::SdcsCloseRangeTick", Patches_Xnpc.CloseRangeTarget());
@@ -231,6 +232,8 @@ namespace SurvivorCommunity
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));
             Add(t, "UAITaskAttackTargetEntitySDX::Start", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Start", new[] { typeof(UAI.Context) }));
             Add(t, "UAITaskAttackTargetEntitySDX::Update", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Update", new[] { typeof(UAI.Context) }));
+            Add(t, "UAITaskAttackTargetEntitySDXV4::Start", ScAim.V4AttackTarget("Start"));
+            Add(t, "UAITaskAttackTargetEntitySDXV4::Update", ScAim.V4AttackTarget("Update"));
             // Patches_VoiceControl.cs - members are never billed by 0-XNPCCore 3.2's Voice Control (only when it is loaded)
             if (Patches_VoiceControl.ChatType != null)
             {
@@ -239,6 +242,8 @@ namespace SurvivorCommunity
                 Add(t, "PhraseTriggerHandler::Dismiss", Patches_VoiceControl.DismissTarget());
                 Add(t, "PhraseTriggerHandler::Pickup", Patches_VoiceControl.PickupTarget());
                 Add(t, "PhraseTriggerHandler::Hire", Patches_VoiceControl.HireTarget());
+                // ScDoors.cs - doors Voice Control's follow opens for a member are shut behind them too
+                Add(t, "EntityMovementActuator::TryOpenBlockingDoor", ScDoors.VcDoorTarget());
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");
             // Patches_Outposts.cs - outpost protection and the claim limit

@@ -25,6 +25,127 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Migration round 3 (M2, M4, build sc_r3): recruiting XNPC survivors, voice orders as member states, runners on V4
+
+**Deployed 2026-10-01** (DLL md5 ae0ef852; Fable review: no defects, low fixes applied). **Needs a new game** (decision D5). 0-XNPCCore's survivors can now be recruited: the favour, join,
+follow, go home, leave, death and clean-up flows run on them (EntityAliveSDXV4). A companion you hired the vanilla way
+may join too (D9: joining ends the paid hire); somebody else's hire may not. Members and stand-ins get no 0-XNPCCore
+kill levels (D8, new hook X3); strangers keep them. Following is 0-XNPCCore's own DynamicFollow (formations, follow
+distances, stances, D6): SC's two follow actions are now only a fallback for a member without it. Every voice /
+order-wheel order on a follower (stay, guard, guard and return, wander, a route, patrol, loot) is held as a member
+STATE - still following, never "leaving", never "repaired" back to Follow. Runners on 0-XNPCCore bodies move at
+`RunnerRunMps` / `RunnerWalkMps` (literal m/s). Only members and stand-ins (of either SCore class) use SC's door
+opener now; doors 0-XNPCCore's follow opens for them are shut behind them too. A dead survivor's inventory window
+(ammo, meds) drops as a backpack.
+
+`sc xnpc <id>` gains a `member state:` line (order, Guarding, engage stance, follow distance, formation, move-to,
+crouch; for a member status / heldOrder / followPending; hiredBy, dynamicFollow, ourDoorOpener), and its `move:` line
+`passiveSpeedMod`, `running` and `runnerPath run/walk`. `sc members` prints the order description and the held state
+in brackets. The hook line gains `x3-levels-off`.
+
+- [ ] **Startup:** `patch verification: all 73 targets patched` (round 2's 69 plus AvatarSdcsNpcController
+      SdcsLevelTick, UAITaskAttackTargetEntitySDXV4 Start and Update, and Voice Control's
+      EntityMovementActuator.TryOpenBlockingDoor), no `MISSING PATCH`, no `patched an unlisted method`, no
+      "0-XNPCCore method AvatarSdcsNpcController.SdcsLevelTick not found". No XML warning for SC's `utilityai.xml`
+      or `dialogs.xml`, no "ai_package SCResident is not registered". The config line is unchanged.
+- [ ] **P1, the dialog reaches 0-XNPCCore's survivors:** DevLink `xmlprobe dialogs` finds
+      `/dialogs/dialog[@id='SdcsNPC']/response[@id='scJoinPoi']` and
+      `.../statement[@id='start']/response_entry[@id='scJoinPoi']`. Talk to a wild `npcSdcsSurvivor…`: "I could use
+      someone like you…" is offered (one of the two favours); no `HiredSDX` requirement is left on the four join rows.
+- [ ] **Recruit a V4 survivor, both favours, at home and away:** do the favour, join. Inside the base she is stationed
+      at once; outside she follows (PendingStation) until you walk in with her. `sc members` shows the
+      `npcSdcsSurvivor…` class; `sc xnpc <id>`: `sc_member`, `Owner=` your entity id (SC stamps it on V4; SCore does
+      not), `Persist=1`, `pair=` and `record=` the same two weapons (round 2's last prospect row: the member's
+      `[member]` record now has `loadout=`).
+- [ ] **P4, D8 levels off for members:** right after the join, `sc xnpc <id>` levels: every `SdcsLevel*` cvar `-`,
+      `Progression=null`, buffs `SdcsNpcLevelBonus=False SdcsNoWear=False`; the hook line's `x3-levels-off` rises by
+      about one per second per loaded member. Player.log has no `[SDCS-LEVEL] … start level` or `hired progression
+      seeded` for her id after the join. A wild survivor nearby still shows `SdcsNpcLevel` and
+      `SdcsNpcLevelBonus=True`. A posted member's outpost stand-in shows the same as the member (levels off).
+- [ ] **D8, a member leaves:** "Ask to leave" (twice): within about a second Player.log has `[SDCS-LEVEL] <name>
+      start level=…` for that id and `sc xnpc` shows the level cvars and buff again. *Open point for the user:* the
+      level bonus included 0.2 HP/s regeneration, which members no longer have (D7 says healing is items only).
+- [ ] **Kill XP still feeds SC's skills:** a member kills a zombie: `sc members` shows +5 Fighting (melee) or Shooting
+      (ranged) XP; Player.log has no `[SDCS-LEVEL] xp <member>` line (no 0-XNPCCore progression on members).
+- [ ] **P6, DynamicFollow replaces SC's follow:** walk and run 200 m with two V4 followers. They keep up without
+      orbiting you, stand off at 0-XNPCCore's follow distance, and are teleported back when more than 60 m behind
+      (V4's leader component). `sc xnpc <id>`: `dynamicFollow=True`. Player.log shows `[SDCS-BRIDGE]` lines, no
+      orbiting. The radial "Distance" (close / normal / far) changes `followMin=`.
+- [ ] **P5, voice orders are member states:** with a follower, type (or pick on the order wheel) in turn `@<name>
+      stay`, `guard`, `guard and return`, `wander`, `show me a route`, then `@<name> follow`. After each: `sc xnpc`
+      order is Stay(2) / Stay(2) with `guarding=1` / Guard(9) / Wander(3) / SetPatrolPoint(4) / Follow(1); Player.log
+      has one `<name> now holds the order …` line per change and **no** `re-applying Follow` line for 30 s; the window
+      shows "Following (holding)", "(guarding)", "(on guard)", "(wandering)", "(learning a route)", then plain
+      "Following"; `sc members` the same in brackets. She stays where she was told and never leaves the community.
+      Also: wheel **Formation** → `formation=<dist>m@<angle>` and she holds the slot; **Stance** aggressive / hold fire
+      → `engage=…`; **Crouch** → `crouched`. Record a route of 2+ points and say `patrol`: Patrol(5), "(patrolling)".
+- [ ] **"Show me a route" (expected quirk):** the Fable review found that SCore's SetPatrol re-adds buffOrderFollow, whose
+      deferred start overwrites order 4 a frame later - so the order reads Follow(1) again and "(learning a route)" may
+      never show. That is 0-XNPCCore/SCore behaviour; SC just keeps her following. Note what you see.
+- [ ] **Guard and return far from home:** 300+ m from the base, `@<name> guard and return`. She guards that spot
+      (0-XNPCCore's Guard), fights what comes and walks back to the spot - she is **not** walked toward her home post
+      (SC's leash and roam are residents-only now). By day she does not roam toward home.
+- [ ] **Holding while you go home:** join someone away from home (PendingStation), `@<name> stay`, walk into the
+      base: she is **not** stationed or teleported home; the window says "Heading home (holding)". `@<name> follow`
+      (she comes to you) and walk in together: stationed as usual ("<name> is home and settling in."). A member left
+      holding far out for days (`sc day` several times) is never counted missing.
+- [ ] **Relog while holding:** follower holding Stay, save and quit, reload: still Stay (the re-link keeps the held
+      order; log `leader link lost (relog?) - re-hiring … keeping the order Stay` only if the leader id went stale).
+- [ ] **Stationing clears 0-XNPCCore's movement state:** crouch a follower and put her in a formation slot, then
+      "Go home" (dialog or window) inside the base: `sc xnpc` shows no `CrouchOverride` / `vcFormation*` /
+      `vcMoveTo*`, `engage=` is kept; she stands upright at her post; the `move:` line shows `moveSpeed=2` (the class's
+      walk, restored - not the 1 she had while following). Residents roam the base at a normal walk.
+- [ ] **Dismiss is never fooled:** a spoken / typed `@<name> dismiss` sends her home (M0); SCore's companion window
+      Dismiss still makes her leave (log `was dismissed through SCore - leaving the community`); none of the voice
+      orders above ever does.
+- [ ] **P7, D9 a hired companion joins:** hire a wild `npcSdcs…` through its dialog (pay the fee). The dialog now also
+      offers "I could use someone like you…". Asking does **not** stop her following (no guard order for your own
+      companion). Do the favour and join: log `<name> was your hired companion - joining ends the paid hire (Voice
+      Control contract removed|none)`; `sc xnpc`: `Retainer*=none`, `hiredBy=` your id while following. `sc day` 8
+      times (or `settime` a week on): no billing prompt, no auto-dismiss.
+- [ ] *(MP only)* **Somebody else's hire** cannot be recruited: the join rows stay hidden ("scAlreadyHired").
+- [ ] **Death on V4:** let a following member die: V4's own "Oh no! <name> has died. :(" and SC's death tooltip both
+      show (accepted: the same pair the legacy class showed); a backpack with her inventory window (ammo, meds)
+      lies where she fell; the roster, morale and deaths list update. Kill a wild V4 survivor: a backpack with its
+      starting ammo. Player.log: no `npc-drop-window` error.
+- [ ] **Leave and clean-up on V4:** "Ask to leave": sc_* cvars, SCResident, door flag, Persist and the leader link
+      are gone (`sc xnpc`), CurrentOrder becomes 3 (buffOrderDismiss), no `CrouchOverride` or formation is left.
+- [ ] **M4.4, missing member on V4:** make a resident missing - remove her body without killing it (a DevLink /
+      world-tool entity remove), stay home 45 s: the window shows "Missing - Call back" - then "Call back" (or
+      `sc restore <name>`): she respawns at her post with her face, name, pair and starting ammo, log `<name>: entity id
+      A -> B (fresh body)` and `called back: respawned …`; the old id is on the doomed list; `sc xnpc <new id>` levels
+      off.
+- [ ] **P8, runner pace:** `sc run` (or the window) a V4 member on a physical run and walk beside her on the Outbound
+      leg. `sc runners` shows `MeasuredMps` near 4.5 (Cardio / hunger / injury change it); `sc xnpc <id>` `move:`
+      `running=True`, `runnerPath run/walk=2.81/2`. At the site and on the last stroll home she walks (about 1.6).
+      Then set `RunWalkMps` to about 0.85-0.9 x the measured value (4 is 0.89 x 4.5).
+- [ ] **P9, snapshot round trip on V4:** let the runner go offline (walk away beyond view distance, `sc runners`
+      shows offline) and come back near her: `sc xnpc <id>` same name and face, the pair in `itemsOnEnterGame`, the
+      same held weapon, the window's ammo kept (not refilled, `ammoSeeded=True`), levels still off. A quit and reload
+      while she is out does the same. A stale same-id copy, if a chunk loads one, is hidden and removed (log
+      `removing a stale copy of runner …`; 0-XNPCCore's own duplicate eviction may also remove it - harmless).
+- [ ] **Legacy hidden runs on V4** (`PhysicalRuns` false, or no POI in range): she vanishes at home (SendOnMission),
+      stays hidden and parked through a reload, and is visible again when the run resolves.
+- [ ] **Garrison stand-in on V4:** post a member at an outpost and go there: the stand-in has her face, name and pair,
+      guards near the flag, `sc xnpc <stand-in>` levels off and `ourDoorOpener=True`; talking to it does not save it
+      with the chunk (it is gone after the outpost unloads and a fresh one appears next visit).
+- [ ] **P10, doors:** a V4 follower walks through a double door and a gate (SC's opener: log `opened the door at …`
+      with DebugLogging on), and through a hatch into the base (members may open hatches, D13); doors are shut
+      behind her. A door 0-XNPCCore's follow opens for her (she is blocked by a closed unlocked door while following:
+      log `… opened the door at … (Voice Control's follow) - shut behind them`) is shut behind her too. A wild
+      survivor (`ourDoorOpener=False`) no longer opens your **locked** doors; it may still open unlocked ones
+      (vanilla's opener). *Known gap:* with `MembersOpenHatches` false, 0-XNPCCore's follow can still open a hatch
+      for a follower (its own opener, not SC's); it is then shut behind them.
+- [ ] **P20, compass marker:** a V4 follower has no compass/map marker (npcSdcs classes have no `NavObject`, so V4
+      registers none). Decide whether to append one to the six classes.
+- [ ] **P21, vehicles:** a V4 follower vanishes when you get into a vehicle and reappears beside you when you get out
+      (V4's leader component); arriving home in the vehicle with a PendingStation member stations her visible.
+- [ ] **ScAim on the V4 attack task:** inert while 0-XNPCCore's packages name the SDX task. `sc aim <id>` stamp
+      counts rise in a ranged fight exactly as in round 1 (the SDX task); nothing in the log about
+      `UAITaskAttackTargetEntitySDXV4._actionIndex not found`.
+- [ ] *Only with a non-XNPCCore pack NPC installed:* a recruited pack follower whose packages lack DynamicFollow
+      (`sc xnpc` `dynamicFollow=False`) still follows with SC's own follow (walks in to 3 m and stands).
+
 ## Migration round 2 (M7a, M6, M8, M9, build sc_r2): XNPC survivors armed, spawned and the only survivors
 
 **Deployed 2026-10-01** (DLL md5 9ae72bf9; Fable review: no defects, two low fixes applied). **Needs a new game** (decision D5). SurvivorCommunity no longer defines survivor classes of its

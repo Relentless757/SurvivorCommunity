@@ -110,6 +110,14 @@ namespace SurvivorCommunity
         /// <summary>Members open drawbridges and hatches as well (and shut them behind them).</summary>
         public static bool MembersOpenHatches = true;
         public static float RunWalkMps = 4f;       // the runner's RUNNING pace on the Outbound/Inbound legs (name kept for config compatibility)
+        /// <summary>
+        /// A 0-XNPCCore survivor's ground pace in the world, in literal m/s (migration M4.1): running the Outbound/Inbound
+        /// legs, and walking the site and the last stroll home. Its own passives (Cardio, hungry, injured) apply on top.
+        /// XNPC runs only above its own threshold, so a run is never slower than about 4.5 and a walk never faster than
+        /// about 2.1 (ScXnpc.PathSpeed). SCore's legacy class keeps its own speeds.
+        /// </summary>
+        public static float RunnerRunMps = 4.5f;
+        public static float RunnerWalkMps = 1.6f;
         public static int RunMinDist = 150;
         public static int RunMaxDist = 700;
         public static float RunSiteHours = 6f;
@@ -358,7 +366,7 @@ namespace SurvivorCommunity
             RunYieldBase = 2;
             MembersOpenOwnerLockedDoors = true;
             MembersOpenHatches = true;
-            PhysicalRuns = true; RunWalkMps = 4f; RunMinDist = 150; RunMaxDist = 700; RunSiteHours = 6f; RunDistressHours = 12f; RunDeadlineGraceDays = 2; RunWaypointSpacing = 25f; RunArriveRadius = 2.5f; RunPartialArrive = 6f; RunArriveSite = 6f; RunGridSize = 64; RunGridFarFromPlayer = 25f; RunOnlineRingMargin = 2; RunOfflineRingMargin = 0; RunOnlineDwellSeconds = 10f; RunOfflineDwellSeconds = 5f; RunFrozenSeconds = 3f; RunNoPopInRange = 50f; RunPopInMaxWait = 20f; RunGateDistance = 56f; RunStuckRepathSeconds = 5f; RunStuckSkipSeconds = 15f; RunSkipMinPlayerDist = 40f; RunSnapRefreshSeconds = 60f; RunSnapMaxBytes = 60000; RunMaterializePerTick = 1;
+            PhysicalRuns = true; RunWalkMps = 4f; RunnerRunMps = 4.5f; RunnerWalkMps = 1.6f; RunMinDist = 150; RunMaxDist = 700; RunSiteHours = 6f; RunDistressHours = 12f; RunDeadlineGraceDays = 2; RunWaypointSpacing = 25f; RunArriveRadius = 2.5f; RunPartialArrive = 6f; RunArriveSite = 6f; RunGridSize = 64; RunGridFarFromPlayer = 25f; RunOnlineRingMargin = 2; RunOfflineRingMargin = 0; RunOnlineDwellSeconds = 10f; RunOfflineDwellSeconds = 5f; RunFrozenSeconds = 3f; RunNoPopInRange = 50f; RunPopInMaxWait = 20f; RunGateDistance = 56f; RunStuckRepathSeconds = 5f; RunStuckSkipSeconds = 15f; RunSkipMinPlayerDist = 40f; RunSnapRefreshSeconds = 60f; RunSnapMaxBytes = 60000; RunMaterializePerTick = 1;
             SuppliesFavours.Clear();
             PoiFavourRange = 300;
             TraitsPerRecruit = 2;
@@ -498,6 +506,8 @@ namespace SurvivorCommunity
                     if (p.Values.TryGetValue("MembersOpenHatches", out bv) && !string.IsNullOrEmpty(bv)) MembersOpenHatches = StringParsers.ParseBool(bv);
                 }
                 ParseFloat(p, "RunWalkMps", ref RunWalkMps, 0.3f, 6.0f);
+                ParseFloat(p, "RunnerRunMps", ref RunnerRunMps, 1.0f, 6.0f);
+                ParseFloat(p, "RunnerWalkMps", ref RunnerWalkMps, 0.5f, 4.0f);
                 ParseInt(p, "RunMinDist", ref RunMinDist, 20, 5000);
                 ParseInt(p, "RunMaxDist", ref RunMaxDist, 50, 8000);
                 ParseFloat(p, "RunSiteHours", ref RunSiteHours, 0.25f, 48.0f);

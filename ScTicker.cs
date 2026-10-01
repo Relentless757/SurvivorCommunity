@@ -11,6 +11,12 @@ namespace SurvivorCommunity
     public static class ScTicker
     {
         private const float Interval = 1f;
+        /// <summary>
+        /// Real seconds SC's own Follow order has to land before a Guard still on the follower stops being SC's leftover
+        /// and counts as the player's "guard and return" (Member.FollowIssued). buffOrderFollow starts on the NPC's next
+        /// buff update, well inside one relink; the margin only covers a hitch.
+        /// </summary>
+        private const float FollowConfirmSeconds = 5f;
         private static float nextTick;
         private static readonly List<int> scratch = new List<int>();
 
@@ -99,7 +105,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// Every loaded member is re-stamped each second: the spawner source (PostInit resets it to Biome on
         /// load), Persist, the cvar mirror, the AI package (rebuilt from the class on load), the guard order
-        /// for residents, and - for followers whose leader id went stale across a relog - the leader link.
+        /// for residents, and - for followers whose leader id went stale across a relog - the leader link. A
+        /// follower's order is read as a member state (ScOrders), not repaired: voice and order-wheel orders are
+        /// the player's.
         /// </summary>
         public static void Relink(World w, EntityPlayerLocal player)
         {
@@ -168,7 +176,9 @@ namespace SurvivorCommunity
                 // not a lost link to repair. Read the cvars, not GetLeaderOrOwner - SCore's leader cache
                 // still answers with the player for a few seconds after a dismiss. After a relog the Owner
                 // cvar keeps the stale player id (> 0) and Persist stays 1, so that case falls through to
-                // the re-hire below. Detect it BEFORE anything re-stamps the member.
+                // the re-hire below. Detect it BEFORE anything re-stamps the member. Voice Control's orders never
+                // match this (they never write Leader, Owner or Persist; SCore's Loot drops Leader but keeps Owner),
+                // and its spoken "dismiss" is a Go Home for members (Patches_VoiceControl).
                 if ((m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation)
                     && npc.Buffs.HasCustomVar("Persist") && npc.Buffs.GetCustomVar("Persist") < 1f
                     && npc.Buffs.GetCustomVar("Leader") <= 0f && npc.Buffs.GetCustomVar("Owner") <= 0f)
@@ -212,28 +222,58 @@ namespace SurvivorCommunity
                         break;
                     case MemberStatus.Following:
                     case MemberStatus.PendingStation:
+                    {
+                        // Orders on a follower are the player's (decision D6): 0-XNPCCore's voice and order-wheel commands
+                        // write SCore orders - Stay, Guard here, Guard and return (9, the resident's own order), Wander, a
+                        // route, Patrol, Loot - and every one of them is a member STATE, kept as it is: the member is still
+                        // following, holding where they were told until called back (ScOrders). Only an order nothing ever
+                        // gives a follower (None, Hire, a runner's Task, or no order cvar at all) is broken and repaired.
+                        EntityUtilities.Orders order;
+                        bool hasOrder = ScOrders.TryCurrent(npc, out order);
+                        bool held = hasOrder && ScOrders.IsHeld(order);
+                        float now = Time.unscaledTime;
+                        // SC's own Follow (join, the Follow verb, a re-link) lands a tick later through buffOrderFollow:
+                        // until the NPC has been seen on it, a Guard still on them is the favour wait or the old station,
+                        // which leaves the member guarding a spot they were never told to hold - that one is SC's, not the
+                        // player's, and repaired
+                        bool ownGuard = m.FollowIssued > 0f && now - m.FollowIssued < FollowConfirmSeconds && order == EntityUtilities.Orders.Guard;
                         if (EntityUtilities.GetLeaderOrOwner(m.Id) == null)
                         {
-                            ScLog.Verbose(m.Name + ": leader link lost (relog?) - re-hiring to " + player.entityId);
-                            ScNpc.SetLeaderAndOwner(m.Id, player.entityId);
+                            // the leader id went stale (relog?): re-link, but a held voice order stays held
+                            bool follow = !held || order == EntityUtilities.Orders.Follow || ownGuard;
+                            ScLog.Verbose(m.Name + ": leader link lost (relog?) - re-hiring to " + player.entityId + (follow ? "" : ", keeping the order " + order));
+                            ScNpc.SetLeaderAndOwner(m.Id, player.entityId, follow);
+                            if (follow) m.FollowIssued = Mathf.Max(0.001f, now);
                         }
-                        // A follower left holding a Guard order obeys nothing: the pack's follow actions all
-                        // require the Follow order, so they stand at a post they are no longer assigned to.
-                        else if (EntityUtilities.GetCurrentOrder(m.Id) != EntityUtilities.Orders.Follow)
+                        else if (!held || ownGuard)
                         {
-                            ScLog.Out(m.Name + ": following but the order is " + EntityUtilities.GetCurrentOrder(m.Id) + " - re-applying Follow");
+                            ScLog.Out(m.Name + ": following but the order is " + (hasOrder ? order.ToString() : "unset") + " - re-applying Follow");
                             npc.Buffs.RemoveBuff("buffOrderGuard");
                             npc.Buffs.SetCustomVar("CurrentOrder", (float)EntityUtilities.Orders.Follow);
                             ScNpc.SetLeaderAndOwner(m.Id, player.entityId);
+                            m.FollowIssued = Mathf.Max(0.001f, now);
+                            order = EntityUtilities.Orders.Follow;
                         }
-                        ScSkills.OnFollowTick(m, npc);      // Cardio: the road builds stamina
-                        if (m.Status == MemberStatus.PendingStation && ScZone.Contains(player.GetBlockPosition()) && ScZone.HomeLoaded)
+                        if (order == EntityUtilities.Orders.Follow || (m.FollowIssued > 0f && now - m.FollowIssued >= FollowConfirmSeconds)) m.FollowIssued = 0f;
+                        if (ScOrders.IsHeld(order) && order != m.HeldOrder)
+                        {
+                            // logged once per change, so a voice order can be traced (probe P5); never a reason to leave
+                            ScLog.Out(m.Name + " now holds the order " + order + " (" + ScOrders.Describe(npc) + ") - still " + m.Status);
+                            m.HeldOrder = order;
+                        }
+                        if (ScOrders.WithLeader(order)) ScSkills.OnFollowTick(m, npc);   // Cardio: the road builds stamina (not while held)
+                        // Home with the player: only a member who is actually with them (or already inside the zone) is
+                        // stationed - one told to stay 2 km out would otherwise be teleported to their post the moment the
+                        // player walks in. They stay "heading home, holding" until called or fetched.
+                        if (m.Status == MemberStatus.PendingStation && ScZone.Contains(player.GetBlockPosition()) && ScZone.HomeLoaded
+                            && (ScOrders.WithLeader(order) || ScZone.Contains(npc.GetBlockPosition())))
                         {
                             ScCommunity.Station(m, npc);
                             ScCommunity.Tell(player, string.Format(Localization.Get("scStationed"), m.Name), "");
                             ScRegistry.SaveAtomic();
                         }
                         break;
+                    }
                     case MemberStatus.OnRun when ScRunners.IsPhysical(m):
                         // a physical runner is out in the world, walking: never hidden, always on the travel order
                         if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
@@ -277,6 +317,10 @@ namespace SurvivorCommunity
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     if (ScRunners.IsPhysical(m)) continue;     // a runner out of range has no entity by design
+                    // a follower left holding a spot far out (a voice "stay", "guard", a patrol - ScOrders) is unloaded by
+                    // design too, for as long as the player stays away: never counted missing. Only an old save's record
+                    // of a class that no longer exists still runs out (M9).
+                    if ((m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) && !ScRegistry.PredatesMigration(m)) continue;
                     bool loaded = w != null && ScNpc.IsFramework(w.GetEntity(m.Id));
                     if (!loaded) m.MissingDays++;
                     if (m.MissingDays > ScConfig.MissingDaysToPurge && ScZone.HomeLoaded) gone.Add(m.Id);

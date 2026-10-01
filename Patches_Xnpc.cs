@@ -7,12 +7,12 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// Every patch on a 0-XNPCCore type (NPCSdcsCharacters.dll), for the survivor classes the community owns (ScXnpc).
-    /// The numbering is the migration design's (section 1.2); the row this file does not have yet belongs to a later task
-    /// (X3 kill levels).
+    /// The numbering is the migration design's (section 1.2).
     ///
     ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype
     ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces)
     ///   X2  EModelSdcsNpc.GenerateMeshes     postfix  eyes re-rooted on the head after every build (and hit colliders)
+    ///   X3  AvatarSdcsNpcController.SdcsLevelTick                    prefix   no XNPC kill levels on members and stand-ins (D8)
     ///   X4  AvatarSdcsNpcController.SdcsWearTick                     prefix   no no-wear buff: armor wears like SC's
     ///   X5  AvatarSdcsNpcController.SdcsFailoverTick / SdcsCloseRangeTick / SdcsTryWorldEntryRearm
     ///                                                                prefix   XNPC never swaps the hand during a medical use
@@ -73,6 +73,11 @@ namespace SurvivorCommunity
         public static MethodBase ApplyLookTarget()
         {
             return AccessTools.DeclaredMethod(typeof(MinEventActionSdcsApplyLook), "Execute", new[] { typeof(MinEventParams) });
+        }
+
+        public static MethodBase LevelTickTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsLevelTick", NoArgs);
         }
 
         public static MethodBase WearTickTarget()
@@ -241,6 +246,47 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-generatemeshes", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X3: kill levels ----
+
+        /// <summary>
+        /// X3. No XNPC kill levels on a community member or stand-in (decision D8: they grow through SC's skills only;
+        /// strangers keep XNPC's levels). XNPC's level tick runs at 1 Hz for every body and is the only writer of the level
+        /// cvars, the level bonus buff (health, damage, spread and a 0.2 HP/s regeneration) and - once the NPC has a leader
+        /// - a Progression that XNPC's kill-XP handler then feeds. For ours it is replaced by StripLevels, so whatever an
+        /// earlier tick or the time before joining left is taken off too. Skipping it also skips the wear tick it starts
+        /// with (X4's job is then StripLevels' no-wear removal). A member who leaves loses the community cvars, and the tick
+        /// resumes with a day-based level. The method is ~90 lines: Mono does not inline it, and the counter proves it.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_LevelTick
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(LevelTickTarget, "AvatarSdcsNpcController.SdcsLevelTick"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return LevelTickTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    // any community body this controller drives, not only the six managed classes: D8 is about members,
+                    // and a hired XNPC companion of another player-body class may have joined (D9)
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (e == null || !ScXnpc.IsCommunity(e) || !ScXnpc.HasXnpcLevels(e)) return true;
+                    ScXnpc.StripLevels(e);
+                    Count("x3-levels-off");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-leveltick", ex);
+                    return true;
                 }
             }
         }

@@ -100,6 +100,18 @@ namespace SurvivorCommunity
         public bool PendingUnhide;
         /// <summary>Seconds spent following since the last Cardio XP tick (session only).</summary>
         public int FollowSeconds;
+        /// <summary>
+        /// Session only: the SCore order a Following / PendingStation member holds, as the ticker last read it. A voice
+        /// or order-wheel order (Stay, Guard, Wander, a route, Loot) is a member STATE (ScOrders, decision D6): the
+        /// member is still following, holding where they were told. For the window, the console and the log only.
+        /// </summary>
+        public EntityUtilities.Orders HeldOrder = EntityUtilities.Orders.Follow;
+        /// <summary>
+        /// Session only: Time.unscaledTime when the community itself last gave this member the Follow order (join, the
+        /// Follow verb, a re-link), 0 once the NPC has been seen on Follow. Until then a leftover Guard - the favour wait,
+        /// the resident's station - is SC's own and repaired; after it, any held order is the player's (ScTicker).
+        /// </summary>
+        public float FollowIssued;
         /// <summary>Radio distress on this run: pinned at a POI, rescued by the player or not (see ScRadio).</summary>
         public bool RunDistress;
         public Vector3i RunPoi;

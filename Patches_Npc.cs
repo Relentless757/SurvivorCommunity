@@ -35,13 +35,50 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!ScCommunity.IsHost || !ScRegistry.Loaded) return;
+                    if (!ScCommunity.IsHost) return;
+                    if (ScXnpc.IsBody(__instance) || (ScNpc.IsV4(__instance) && ScXnpc.IsCommunity(__instance))) DropWindow(__instance);
+                    if (!ScRegistry.Loaded) return;
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScRadio.StandInCvar)) { ScRadio.OnStandInDied(__instance); return; }
                     ScCommunity.OnMemberDied(__instance);
                 }
                 catch (Exception e)
                 {
                     ScLog.Once("npc.SetDead", e);
+                }
+            }
+
+            /// <summary>
+            /// The inventory window of one of the community's 0-XNPCCore survivors (any of the six classes, wild or not, or
+            /// any V4 member or stand-in), dropped as a backpack where they fell - the medical stock and the ammo the
+            /// community gave them (ScMedic, ScLoadout, decision D3). SCore's legacy
+            /// class drops its window (the HarvestManager container) for anyone and then forgets it; V4's SetDead drops only
+            /// its separate lootContainer, and only when the leader is the local player, and never removes the window - so
+            /// without this the window's contents were lost with the body and its HarvestManager entry leaked (M1's
+            /// SetDead finding). The same code SCore's EntityAliveSDX.SetDead runs.
+            /// </summary>
+            private static void DropWindow(EntityAlive e)
+            {
+                try
+                {
+                    if (!HarvestManager.Has(e.entityId)) return;
+                    SCoreLootContainer window = HarvestManager.GetOrCreate(e.entityId);
+                    if (window != null && !window.IsEmpty() && window.items != null)
+                    {
+                        string className = ScCommunity.ClassExists(EntityClass.FromString("BackpackNPC")) ? "BackpackNPC" : "Backpack";
+                        EntityItem pack = EntityFactory.CreateEntity(EntityClass.FromString(className), new Vector3i(e.position + e.transform.up)) as EntityItem;
+                        if (pack != null)
+                        {
+                            Bag bag = new Bag(window.items.Length);
+                            Array.Copy(window.items, bag.items, window.items.Length);
+                            GameManager.Instance.RequestToSpawnEntityServer(new EntityCreationData(pack, true) { entityName = Localization.Get(e.EntityName), id = -1, bag = bag });
+                            pack.OnEntityUnload();
+                        }
+                    }
+                    HarvestManager.Remove(e.entityId);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("npc-drop-window", ex);
                 }
             }
         }

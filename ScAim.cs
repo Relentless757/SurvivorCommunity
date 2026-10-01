@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using HarmonyLib;
 using UAI;
@@ -18,8 +19,9 @@ namespace SurvivorCommunity
     /// cleared the flag again. On a primitive bow, WeaponPreFire held 3P_2HBow_Draw until WeaponFire played
     /// 3P_2HBow_Fire, which then settled in 2HBowHold.
     ///
-    /// When: SCore's attack task (UAITaskAttackTargetEntitySDX, shared by survivors and raiders) is stamped on every
-    /// Start and Update with its action_index: 1 is the shot, 0 the gun-butt. The gun stays up for
+    /// When: SCore's attack task (UAITaskAttackTargetEntitySDX, shared by survivors and raiders, and its V4 sibling
+    /// UAITaskAttackTargetEntitySDXV4 should a package use it) is stamped on every Start and Update with its
+    /// action_index: 1 is the shot, 0 the gun-butt. The gun stays up for
     /// SurvivorAimHoldSeconds after the last ranged tick, so the AI re-scoring every 0.2 s does not make it bob. It
     /// comes down at once for a gun-butt, a reload, a use animation, a stun or a ragdoll. The driver runs on the
     /// machine that owns the NPC and writes through the controller's own setters, so the parameters reach other
@@ -110,29 +112,67 @@ namespace SurvivorCommunity
             for (int i = 0; i < gone.Count; i++) states.Remove(gone[i]);
         }
 
-        // ---- when: SCore's attack task ----
+        // ---- when: SCore's attack tasks ----
 
-        private static AccessTools.FieldRef<UAITaskAttackTargetEntitySDX, int> actionIndex;
-        private static bool actionIndexMissing;
+        /// <summary>
+        /// SCore's V4 attack task (UAI.UAITaskAttackTargetEntitySDXV4, SCore 3.2.36): a SIBLING of the SDX one - both
+        /// derive from vanilla's UAITaskAttackTargetEntity, each declaring its own Start, Update and private _actionIndex -
+        /// that 0-XNPCCore's packages do not use today (they name the SDX task). Bound by name too, so the aim pose stays
+        /// live if a package switches over, and an SCore without it only loses this half.
+        /// </summary>
+        private const string V4AttackTask = "UAI.UAITaskAttackTargetEntitySDXV4";
 
-        /// <summary>The task's private action_index, or -1. Resolved on first use, so a renamed field only logs.</summary>
-        private static int ActionIndex(UAITaskAttackTargetEntitySDX task)
+        /// <summary>The attack tasks' own declared method of this name (Start / Update with a Context), each class that has one.</summary>
+        public static List<MethodBase> AttackTargets(string name)
         {
-            if (actionIndex == null)
+            var list = new List<MethodBase>();
+            try
             {
-                if (actionIndexMissing) return -1;
-                try { actionIndex = AccessTools.FieldRefAccess<UAITaskAttackTargetEntitySDX, int>("_actionIndex"); }
-                catch (Exception e)
+                foreach (Type t in new[] { typeof(UAITaskAttackTargetEntitySDX), AccessTools.TypeByName(V4AttackTask) })
                 {
-                    actionIndexMissing = true;
-                    ScLog.Err("UAITaskAttackTargetEntitySDX._actionIndex not found (SCore update?) - NPCs will not raise their guns: " + e.Message);
-                    return -1;
+                    MethodInfo m = t != null ? AccessTools.DeclaredMethod(t, name, new[] { typeof(Context) }) : null;
+                    if (m != null) list.Add(m);
                 }
             }
-            return actionIndex(task);
+            catch (Exception e)
+            {
+                ScLog.Once("aim-targets-" + name, e);
+            }
+            return list;
         }
 
-        private static void Stamp(UAITaskAttackTargetEntitySDX task, Context ctx)
+        /// <summary>The V4 task's method for ModApi's ExpectedTargets (null when this SCore has no V4 task).</summary>
+        public static MethodBase V4AttackTarget(string name)
+        {
+            Type t = AccessTools.TypeByName(V4AttackTask);
+            return t != null ? AccessTools.DeclaredMethod(t, name, new[] { typeof(Context) }) : null;
+        }
+
+        /// <summary>Per task class: its private _actionIndex (null when the class has none - logged once, then -1).</summary>
+        private static readonly Dictionary<Type, AccessTools.FieldRef<object, int>> actionIndex = new Dictionary<Type, AccessTools.FieldRef<object, int>>();
+
+        /// <summary>The task's private action_index, or -1. Resolved per class on first use, so a renamed field only logs.</summary>
+        private static int ActionIndex(UAITaskBase task)
+        {
+            if (task == null) return -1;
+            Type t = task.GetType();
+            AccessTools.FieldRef<object, int> get;
+            if (!actionIndex.TryGetValue(t, out get))
+            {
+                string why = "no such field";
+                try { get = AccessTools.FieldRefAccess<int>(t, "_actionIndex"); }
+                catch (Exception e)
+                {
+                    get = null;
+                    why = e.Message;
+                }
+                if (get == null) ScLog.Err(t.Name + "._actionIndex not found (SCore update?) - NPCs will not raise their guns on that task: " + why);
+                actionIndex[t] = get;
+            }
+            return get != null ? get(task) : -1;
+        }
+
+        private static void Stamp(UAITaskBase task, Context ctx)
         {
             try
             {
@@ -169,23 +209,35 @@ namespace SurvivorCommunity
             return acts != null && index >= 0 && index < acts.Length && acts[index] is ItemActionRanged;
         }
 
-        /// <summary>Start: the gun comes up as soon as the ranged attack is chosen, before its first shot.</summary>
-        [HarmonyPatch(typeof(UAITaskAttackTargetEntitySDX), nameof(UAITaskAttackTargetEntitySDX.Start), new[] { typeof(Context) })]
+        /// <summary>Start: the gun comes up as soon as the ranged attack is chosen, before its first shot. Both attack tasks.</summary>
+        [HarmonyPatch]
         public static class Patch_AttackStart
         {
+            [HarmonyPrepare]
+            public static bool Prepare() { return AttackTargets("Start").Count > 0; }
+
+            [HarmonyTargetMethods]
+            public static IEnumerable<MethodBase> TargetMethods() { return AttackTargets("Start"); }
+
             [HarmonyPostfix]
-            public static void Postfix(UAITaskAttackTargetEntitySDX __instance, Context _context)
+            public static void Postfix(UAITaskBase __instance, Context _context)
             {
                 Stamp(__instance, _context);
             }
         }
 
-        /// <summary>Update runs on every AI tick while the attack is the chosen action, shooting or not (turning, throttled).</summary>
-        [HarmonyPatch(typeof(UAITaskAttackTargetEntitySDX), nameof(UAITaskAttackTargetEntitySDX.Update), new[] { typeof(Context) })]
+        /// <summary>Update runs on every AI tick while the attack is the chosen action, shooting or not (turning, throttled). Both attack tasks.</summary>
+        [HarmonyPatch]
         public static class Patch_AttackUpdate
         {
+            [HarmonyPrepare]
+            public static bool Prepare() { return AttackTargets("Update").Count > 0; }
+
+            [HarmonyTargetMethods]
+            public static IEnumerable<MethodBase> TargetMethods() { return AttackTargets("Update"); }
+
             [HarmonyPostfix]
-            public static void Postfix(UAITaskAttackTargetEntitySDX __instance, Context _context)
+            public static void Postfix(UAITaskBase __instance, Context _context)
             {
                 Stamp(__instance, _context);
             }

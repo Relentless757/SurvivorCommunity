@@ -40,10 +40,24 @@ namespace SurvivorCommunity
         /// <summary>Class ids (EntityClass.FromString, the name's hash) of the managed classes; built on first use per world.</summary>
         private static HashSet<int> managed;
 
+        /// <summary>AI package name -> has 0-XNPCCore's DynamicFollow (packages are fixed once the XML is loaded).</summary>
+        private static readonly Dictionary<string, bool> followPackages = new Dictionary<string, bool>();
+
+        /// <summary>The task class of 0-XNPCCore's follow action (UAI.UAITaskDynamicFollow, in 1-XNPCVoiceControl.dll).</summary>
+        private const string DynamicFollowTask = "UAITaskDynamicFollow";
+
+        /// <summary>
+        /// The move speed above which 0-XNPCCore's controller runs an NPC: AvatarSdcsNpcController.Update sets
+        /// MovementRunning = moveHelper.moveSpeed &gt; 2.75 (a private literal), and MovementRunning picks the run blend
+        /// and the RunSpeed passives in EntityAlive.GetPassiveEffectSpeedModifier.
+        /// </summary>
+        private const float XnpcRunAbove = 2.75f;
+
         /// <summary>Per-world reset (ModEvents.GameStarting): the config the set is built from is re-read for each world.</summary>
         public static void Reset()
         {
             managed = null;
+            followPackages.Clear();
         }
 
         private static HashSet<int> Managed()
@@ -100,6 +114,16 @@ namespace SurvivorCommunity
             return (object)e != null && ReferenceEquals(e.emodel, m) && IsBody(e);
         }
 
+        /// <summary>
+        /// A body 0-XNPCCore's kill levels run on: any of its player-body NPCs (EModelSdcsNpc, driven by its
+        /// AvatarSdcsNpcController, whose level tick is the only writer), the six managed classes or not - D8 keeps the
+        /// levels off every member, and a companion of another 0-XNPCCore class may have joined (D9).
+        /// </summary>
+        public static bool HasXnpcLevels(Entity e)
+        {
+            return e is EntityAliveSDXV4 && e.emodel is EModelSdcsNpc;
+        }
+
         /// <summary>A community member or an outpost or rescue stand-in (Patches_VoiceControl's test: the sc_member or stand-in cvar).</summary>
         public static bool IsCommunity(EntityAlive e)
         {
@@ -134,11 +158,71 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Does one of this NPC's AI packages carry 0-XNPCCore's DynamicFollow? Every 0-XNPCCore NPC does (NPCModNPCHired,
+        /// NPCModMechHired); SC's own follow actions are only the fallback for a member whose packages lack it
+        /// (UAIConsiderationScNoDynamicFollow). Looked up by task class name, so nothing here needs Voice Control's DLL.
+        /// </summary>
+        public static bool HasDynamicFollow(EntityAlive e)
+        {
+            if (e == null || e.AIPackages == null) return false;
+            for (int i = 0; i < e.AIPackages.Count; i++)
+                if (PackageFollows(e.AIPackages[i])) return true;
+            return false;
+        }
+
+        private static bool PackageFollows(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            bool has;
+            if (followPackages.TryGetValue(name, out has)) return has;
+            has = false;
+            try
+            {
+                UAI.UAIPackage pkg;
+                // a package that is not registered (yet) is not cached: it is looked up again next time
+                if (UAI.UAIBase.AIPackages == null || !UAI.UAIBase.AIPackages.TryGetValue(name, out pkg) || pkg == null) return false;
+                if (pkg.GetActions() != null)
+                {
+                    foreach (UAI.UAIAction a in pkg.GetActions())
+                    {
+                        if (a == null || a.GetTasks() == null) continue;
+                        foreach (UAI.UAITaskBase t in a.GetTasks())
+                            if (t != null && t.GetType().Name == DynamicFollowTask) { has = true; break; }
+                        if (has) break;
+                    }
+                }
+                followPackages[name] = has;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("xnpc-dynamicfollow", ex);
+            }
+            return has;
+        }
+
+        /// <summary>
+        /// The speed to hand FindPath so that one of 0-XNPCCore's V4 survivors moves at groundMps (migration M4.1, the
+        /// runners). XNPC drives the legs at moveHelper.moveSpeed x GetPassiveEffectSpeedModifier() (AvatarSdcsNpcController
+        /// .Update, clamped to 6 m/s): the NPC's own RunSpeed passives on vanilla's 1.6 while it runs (moveSpeed above 2.75),
+        /// its WalkSpeed passives on 0.8 while it walks. So the target pace is divided by that base factor - the NPC's own
+        /// passives (Cardio, hungry, injured) then apply exactly once, inside XNPC - and kept on its side of the run
+        /// threshold, else a slow run would drop into a walk (or a fast walk into a run) and halve (or double) the pace.
+        /// A run therefore never goes below about 4.5 m/s, a walk never above about 2.1.
+        /// </summary>
+        public static float PathSpeed(float groundMps, bool run)
+        {
+            float factor = run ? Constants.cPlayerSpeedModifierRunning : Constants.cPlayerSpeedModifierWalking;
+            float s = Mathf.Max(0.1f, groundMps) / Mathf.Max(0.1f, factor);
+            return run ? Mathf.Max(s, XnpcRunAbove + 0.05f) : Mathf.Min(s, XnpcRunAbove - 0.05f);
+        }
+
+        /// <summary>
         /// Takes XNPC's kill levels off a body (decision D8: members and stand-ins grow through SC's skills only). Idempotent.
         /// Progression goes too: XNPC seeds one for any NPC with a leader, and V4's Write and XNPC's kill-XP handler both
-        /// treat a null Progression as "none" (Persistence.cs writes the flag; SdcsNpcKillXpHandler skips it).
-        /// XNPC's level tick re-seeds all of this a second later until migration task M2's SdcsLevelTick prefix keeps it
-        /// off; until then a call here is harmless.
+        /// treat a null Progression as "none" (Persistence.cs writes the flag; SdcsNpcKillXpHandler skips it). Called on
+        /// join and every stamp (ScCommunity.StampCvars), for respawned members and stand-ins (ScSpawn.Identify), and once
+        /// a second in place of XNPC's level tick for every member or stand-in body (Patches_Xnpc X3), which is what keeps
+        /// it off. A member who leaves loses the community cvars, and XNPC's tick then seeds a day-based level again.
         /// </summary>
         public static void StripLevels(EntityAlive e)
         {

@@ -129,6 +129,36 @@ namespace UAI
         }
     }
 
+    /// <summary>
+    /// 1 when the entity is a member stationed at home (status Resident). The roam, the leash and the quiet night all work
+    /// from the member's HOME post, and a follower can hold the very same Guard order (9): 0-XNPCCore's "guard and
+    /// return" voice order is buffOrderGuard. Gated on the member alone, a follower told to guard a spot 500 m out would
+    /// be leashed back toward home (ScReturn 5.5 outranks melee) and roam toward it by day; this keeps those actions to
+    /// residents, and the follower guards where the player said (NPCModCore's Guard).
+    /// </summary>
+    public class UAIConsiderationScIsResident : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            Member m = ScRegistry.GetMember(_context.Self.entityId);
+            return m != null && m.Status == MemberStatus.Resident ? 1f : 0f;
+        }
+    }
+
+    /// <summary>
+    /// 1 when none of the entity's AI packages has 0-XNPCCore's DynamicFollow (ScXnpc.HasDynamicFollow). SC's own two
+    /// follow actions are the fallback for such a member only: wherever DynamicFollow exists - every 0-XNPCCore NPC,
+    /// through NPCModNPCHired - its follow and formations replace SC's (decision D6), and SC's actions, at 4 and 4.2,
+    /// would otherwise outrank it (2) and fight it.
+    /// </summary>
+    public class UAIConsiderationScNoDynamicFollow : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            return ScXnpc.HasDynamicFollow(_context.Self) ? 0f : 1f;
+        }
+    }
+
     public class UAIConsiderationScIsDaytime : UAIConsiderationBase
     {
         public override float GetScore(Context _context, object target)
@@ -245,11 +275,23 @@ namespace UAI
             if (AstarManager.Instance != null && (p == null || ScRunners.XZ(p.position, self.position) > ScConfig.RunGridFarFromPlayer))
                 AstarManager.Instance.AddLocationLine(self.position, s.Waypoint, ScConfig.RunGridSize);
             // Run the travel legs; walk while searching the site, holding a pinned spot and on the last stroll to the post.
-            // GetMoveSpeedPanic MUST bind vanilla's non-virtual EntityAlive.GetMoveSpeedPanic (self is typed EntityAlive):
-            // it applies the NPC's own RunSpeed passives (XNPCCore's base_set 1.0, Cardio, hungry, injured, boots) - the
-            // speed SCore's FollowSDX runs at. Through an EntityAliveSDX reference it would bind SCore's hiding method,
-            // which ignores passives and returns the raw MoveSpeedPanic (0.45: still a walk on the player body).
-            self.FindPath(s.Waypoint, Running(m) ? self.GetMoveSpeedPanic() : self.GetMoveSpeed(), false, null);
+            self.FindPath(s.Waypoint, PathSpeed(self, m), false, null);
+        }
+
+        /// <summary>
+        /// The speed handed to FindPath. SCore's legacy class: GetMoveSpeedPanic MUST bind vanilla's non-virtual
+        /// EntityAlive.GetMoveSpeedPanic (self is typed EntityAlive): it applies the NPC's own RunSpeed passives
+        /// (XNPCCore's base_set 1.0, Cardio, hungry, injured, boots) - the speed SCore's FollowSDX runs at. Through an
+        /// EntityAliveSDX reference it would bind SCore's hiding method, which ignores passives and returns the raw
+        /// MoveSpeedPanic (0.45: still a walk on the player body). 0-XNPCCore's V4 survivors move in literal metres per
+        /// second, scaled by their own passives inside XNPC's controller: RunnerRunMps / RunnerWalkMps are the target
+        /// paces, converted by ScXnpc.PathSpeed (migration M4.1).
+        /// </summary>
+        private static float PathSpeed(EntityAlive self, Member m)
+        {
+            bool run = Running(m);
+            if (ScNpc.IsV4(self)) return ScXnpc.PathSpeed(run ? ScConfig.RunnerRunMps : ScConfig.RunnerWalkMps, run);
+            return run ? self.GetMoveSpeedPanic() : self.GetMoveSpeed();
         }
 
         public override void Update(Context _context)

@@ -61,9 +61,12 @@ namespace SurvivorCommunity
             npc.Buffs.SetCustomVar("sc_favour", (int)p.Favour);
             if (p.Done) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
             npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
-            // they wait here (SCore guard order: fights what comes, walks back) so the player can find them again
+            // they wait here (SCore guard order: fights what comes, walks back) so the player can find them again - unless
+            // they are the player's own hired companion (decision D9: they may join), who keeps whatever order the player
+            // gave them: a companion asked about the community mid-trip must not be left guarding the spot
             p.NpcPos = npc.GetBlockPosition();
-            if (EntityUtilities.GetCurrentOrder(npc.entityId) != EntityUtilities.Orders.Guard && !npc.Buffs.HasBuff("buffOrderGuard")) npc.Buffs.AddBuff("buffOrderGuard");
+            if (ScCommunity.HiredBy(npc) <= 0
+                && EntityUtilities.GetCurrentOrder(npc.entityId) != EntityUtilities.Orders.Guard && !npc.Buffs.HasBuff("buffOrderGuard")) npc.Buffs.AddBuff("buffOrderGuard");
             ScRegistry.SaveAtomic();
             ScLog.Out(p.Name + " asks for a favour: " + Describe(p));
             return p;
@@ -80,7 +83,7 @@ namespace SurvivorCommunity
 
 // ---------------------------------------------------------------- requirements ----
 
-/// <summary>The NPC may be asked to join (host, hireable human, not hired, not a member, roster not full).</summary>
+/// <summary>The NPC may be asked to join (host, hireable human, not hired by somebody else, not a member, roster not full).</summary>
 public class DialogRequirementScCanRecruit : BaseDialogRequirement
 {
     public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)

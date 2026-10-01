@@ -29,8 +29,10 @@
 	<!-- Members are managed from the community roster: the vanilla hire / order / dismiss / pick-up
 	     entries disappear on them (a vanilla Dismiss or Follow on a member would fight the community's
 	     own stationing). Weapon swaps and "show me your inventory" stay. 0-XNPCCore 3.2's route recording
-	     (SetPatrolPoint "Show me a route", CancelPatrolRecord) goes too: the ticker puts a following member back on
-	     Follow within a second, so a route could never be recorded (until voice orders become member states, M2). -->
+	     (SetPatrolPoint "Show me a route", CancelPatrolRecord) is hidden too. Since migration M2 the ticker keeps a
+	     follower's voice / order-wheel orders (stay, guard, wander, a route) as member states, so these command rows
+	     COULD be offered to followers; they stay hidden until the user decides (the order wheel and "@name" commands
+	     already give the same orders). -->
 	<append xpath="/dialogs/dialog/response[@id='Hire' or @id='Dismiss' or @id='FollowMe' or @id='StayHere' or @id='GuardHere' or @id='GuardReturnHere' or @id='Wander' or @id='Patrol' or @id='Loot' or @id='SetCode' or @id='Pickup' or @id='SetPatrolPoint' or @id='CancelPatrolRecord']">
 		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" operator="not" />
 		<!-- an outpost / distress stand-in is that member too: nobody hires, orders or picks it up -->
@@ -38,16 +40,16 @@
 	</append>
 
 	<append xpath="/dialogs/dialog[response[@id='Hire']]">
-		<!-- ask to join: one of the two shows, depending on the favour rolled for this NPC -->
+		<!-- ask to join: one of the two shows, depending on the favour rolled for this NPC. Who may be asked is
+		     ScCanRecruit's call alone: since migration M2 (decision D9) that includes a companion YOU hired the
+		     vanilla way - joining ends the paid hire - but never somebody else's hire. -->
 		<response id="scJoinPoi" text="scJoinPoi" nextstatementid="scFavourPoi">
-			<requirement type="HiredSDX, SCore" requirementtype="Hide" value="not" />
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="poi" />
 			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
 			<action type="ScFavourBrief, SurvivorCommunity" />
 		</response>
 		<response id="scJoinSupplies" text="scJoinSupplies" nextstatementid="scFavourSupplies">
-			<requirement type="HiredSDX, SCore" requirementtype="Hide" value="not" />
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
 			<action type="ScFavourBrief, SurvivorCommunity" />
@@ -69,7 +71,6 @@
 		</response>
 		<!-- shown at the root once the POI reads clear -->
 		<response id="scPoiDone" text="scPoiDone">
-			<requirement type="HiredSDX, SCore" requirementtype="Hide" value="not" />
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="poi" />
@@ -79,7 +80,6 @@
 
 		<!-- supplies favour: visible in the favour statement and at the root while the items are carried -->
 		<response id="scGiveSupplies" text="scGiveSupplies">
-			<requirement type="HiredSDX, SCore" requirementtype="Hide" value="not" />
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />

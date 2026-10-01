@@ -8,7 +8,9 @@ namespace SurvivorCommunity
     /// The community verbs. Host / single player only: every mutator refuses on a client.
     ///
     /// Membership is layered on SCore's hire machinery rather than replacing it:
-    ///   - a FOLLOWING member is a normal SCore hire (Leader/Owner cvars, hired_* on the player, Follow order);
+    ///   - a FOLLOWING member is a normal SCore hire (Leader/Owner cvars, hired_* on the player, Follow order). The player
+    ///     may give them 0-XNPCCore's voice and order-wheel orders (stay, guard, wander, a route, formations); those
+    ///     are held as member states, never read as leaving (ScOrders, ScTicker.Relink);
     ///   - a RESIDENT is the FarmHere shape (EntityUtilities.cs:1443-1471): no Leader/Owner, so the NPC never
     ///     teleports after the player and is never in the party, a Guard order at a post inside the zone
     ///     (buffOrderGuard sets CurrentOrder=9 and stamps the guard position from the NPC's spot; the post is
@@ -81,21 +83,62 @@ namespace SurvivorCommunity
 
         // ---- recruiting ----
 
-        /// <summary>Can this NPC be asked to join? (Host, hireable human framework NPC, not hired, not a member, roster not full.)</summary>
+        /// <summary>
+        /// Can this NPC be asked to join? (Host, hireable human framework NPC - SCore's legacy class or 0-XNPCCore's V4
+        /// survivors - not hired by somebody else, not a member, roster not full.)
+        /// </summary>
         public static bool CanRecruit(EntityAlive npc, EntityPlayer player, out string why)
         {
             why = null;
             if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) { why = "scNotHireable"; return false; }
             if (!IsHost) { why = "scHostOnly"; return false; }
             if (!ScNpc.IsFramework(npc) || !ScNpc.IsHirable(npc)) { why = "scNotHireable"; return false; }
-            // 0-XNPCCore 3.2's survivors (EntityAliveSDXV4) are recruited from migration task M2 on, which brings the
-            // favour, join, follow and leave flows over to them; until then they answer as SCore's legacy NPCs did.
-            if (ScNpc.IsV4(npc)) { why = "scNotHireable"; return false; }
             if (!EntityUtilities.IsHuman(npc.entityId) || npc.HasAnyTags(AnimalTags)) { why = "scNotHireable"; return false; }
             if (ScRegistry.GetMember(npc.entityId) != null) { why = "scAlreadyMember"; return false; }
-            if (EntityUtilities.IsHired(npc.entityId)) { why = "scAlreadyHired"; return false; }
+            // Decision D9: a companion THIS player hired the vanilla way may join, and joining ends the paid hire (Join).
+            // Someone else's hire may not - the community must not poach another player's companion.
+            int hirer = HiredBy(npc);
+            if (hirer > 0 && !IsThisPlayer(hirer, player)) { why = "scAlreadyHired"; return false; }
             if (ScRegistry.Members.Count >= ScConfig.MaxMembers) { why = "scRosterFull"; return false; }
             return true;
+        }
+
+        /// <summary>
+        /// Who hired this NPC (an entity id), or 0: the Leader cvar, else the Owner cvar (SCore's Loot order keeps only
+        /// Owner), else SCore's FarmHere owner (Leader and Owner zeroed, the farmer still assigned). The cvars, not
+        /// GetLeaderOrOwner: SCore's leader cache answers with the old leader for seconds after a dismiss or a re-hire.
+        /// </summary>
+        public static int HiredBy(EntityAlive npc)
+        {
+            if (npc == null || npc.Buffs == null) return 0;
+            int id = (int)npc.Buffs.GetCustomVar("Leader");
+            if (id <= 0) id = (int)npc.Buffs.GetCustomVar("Owner");
+            if (id <= 0) id = (int)npc.Buffs.GetCustomVar("FarmOwnerEntityId");
+            return Math.Max(0, id);
+        }
+
+        /// <summary>
+        /// Is this hirer id the player asking? The player's own entity id, or a dangling id: a stale id of this same
+        /// player (the hire link outlives a change of the player's entity id, which ScTicker re-links the same way) is not
+        /// "somebody else". An id held by any other loaded entity (another player, an NPC leader) or by another player of
+        /// this save who is offline is theirs.
+        /// </summary>
+        private static bool IsThisPlayer(int hirer, EntityPlayer player)
+        {
+            if (player == null) return false;
+            if (hirer == player.entityId) return true;
+            try
+            {
+                World w = World;
+                if (w != null && w.GetEntity(hirer) != null) return false;
+                PersistentPlayerList ppl = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
+                return ppl == null || ppl.GetPlayerDataFromEntityID(hirer) == null;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("recruit-hirer", e);
+                return false;
+            }
         }
 
         /// <summary>The recruit is done with their favour: make them a member (no dukes, ever).</summary>
@@ -127,6 +170,16 @@ namespace SurvivorCommunity
                 m.Loadout = ScLoadout.Current(npc); // their two weapons, so every body re-created for them carries the same (null for others)
                 ScRegistry.Members[m.Id] = m;
                 ScRegistry.Prospects.Remove(m.Id);
+
+                // D9: a companion the player hired the vanilla way joins on the same terms as anyone - the paid hire ends
+                // here. Voice Control's contract (Retainer*) goes, and as a member it is never seeded again or billed
+                // (Patches_VoiceControl); SCore's own hire state (Leader, Owner, hired_*) is what following/stationing
+                // re-stamps or removes below, and a FarmHere assignment is the community's to make from now on.
+                bool wasHired = HiredBy(npc) > 0;
+                bool hadContract = Patches_VoiceControl.StripContract(npc);
+                if (npc.Buffs.HasCustomVar("FarmOwnerEntityId")) npc.Buffs.RemoveCustomVar("FarmOwnerEntityId");
+                if (wasHired || hadContract)
+                    ScLog.Out(m.Name + " was your hired companion - joining ends the paid hire (Voice Control contract " + (hadContract ? "removed" : "none") + ")");
 
                 npc.Buffs.SetCustomVar("Persist", 1f);
                 npc.Buffs.RemoveCustomVar("sc_favour");
@@ -178,6 +231,17 @@ namespace SurvivorCommunity
                     player.Buffs.RemoveCustomVar("hired_" + npc.entityId);
                     EntityUtilities.CheckForDanglingHires(player.entityId);
                 }
+                // Voice Control's movement state (a formation slot, a MoveTo target, crouch) means nothing at a post, and
+                // SCore's SetCrouching honours CrouchOverride for ANY NPC, so a member told to crouch while following would
+                // crouch at home for good. The engage stance and follow distance stay for when they follow again (ScOrders).
+                ScOrders.ClearVoiceMovement(npc);
+                // SCore's SetLeader copied the player's moveSpeed (1.0) onto the follower. On 0-XNPCCore's V4 bodies that is
+                // literal metres per second, half the class's walk, so a resident would roam the base at a crawl until the
+                // next load; RestoreSpeed reads the class's MoveSpeed back. SCore's legacy class is left as it always was
+                // (it restores its own speed whenever it takes an attack target).
+                if (ScNpc.IsV4(npc)) ScNpc.RestoreSpeed(npc);
+                m.HeldOrder = EntityUtilities.Orders.Guard;
+                m.FollowIssued = 0f;
 
                 if (m.Post == Vector3i.zero || !ScZone.Contains(m.Post) || (ScZone.IsLoaded(m.Post) && !ValidPost(w, m.Post)))
                     m.Post = ChoosePost(npc.rand ?? (w != null ? w.GetGameRandom() : null));
@@ -364,6 +428,10 @@ namespace SurvivorCommunity
             ScNpc.SetLeaderAndOwner(npc.entityId, player.entityId);   // Follow order, hired_*, cache, StaticSpawner, Owner
             npc.Buffs.SetCustomVar("Persist", 1f);
             m.Status = status;
+            // SCore's Follow lands a tick later (buffOrderFollow): until the ticker sees it, a Guard still on the NPC is the
+            // favour wait or the old station, not a voice order (ScTicker.Relink)
+            m.HeldOrder = EntityUtilities.Orders.Follow;
+            m.FollowIssued = Mathf.Max(0.001f, Time.unscaledTime);
             ScLog.Verbose(m.Name + " now " + status);
         }
 
@@ -477,7 +545,9 @@ namespace SurvivorCommunity
                 ScDoors.Enable(npc, false);                // a former member no longer opens the player's doors
                 npc.Buffs.RemoveCustomVar("Persist");
                 if (npc.Buffs.HasCustomVar("onMission")) ScNpc.SendOnMission(npc, false);
+                ScOrders.ClearVoiceMovement(npc);          // a former member must not stay crouched or hold a formation slot
                 npc.Buffs.AddBuff(OrderDismissBuff);       // zeroes Leader/Owner, wander
+                if (ScNpc.IsV4(npc)) ScNpc.RestoreSpeed(npc);   // a follower's leader speed (SetLeader copies it) must not outlive the membership
                 npc.Buffs.RemoveCustomVar("Leader");
                 npc.Buffs.RemoveCustomVar("Owner");
                 npc.SetSpawnerSource(EnumSpawnerSource.Biome);
@@ -553,6 +623,7 @@ namespace SurvivorCommunity
             npc.Buffs.SetCustomVar("sc_member", 1f);
             if (owner != null) npc.Buffs.SetCustomVar("sc_owner", owner.entityId);
             Patches_VoiceControl.StripContract(npc);   // hired and billed before joining: members are never billed
+            if (ScXnpc.HasXnpcLevels(npc)) ScXnpc.StripLevels(npc);   // D8: SC's skills only (Patches_Xnpc X3 keeps them off)
             StampFollowing(m, npc);
             ScSkills.StampCvars(m, npc);
         }

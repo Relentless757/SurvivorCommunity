@@ -8,6 +8,11 @@
 	  A resident holds the Guard order (CurrentOrder 9): NPCModCore's Guard action walks them back to their
 	  post and the combat packages (which only gate on NotHasOrder Stay) still fight anything that comes
 	  close. These two actions add a daytime roam around the post and a quiet night.
+
+	  The roam, the leash and the quiet night are gated on ScIsResident (stationed at home), not merely on
+	  membership: they work from the member's HOME post, and a FOLLOWER can hold the very same order 9 -
+	  0-XNPCCore's "guard and return" voice order is buffOrderGuard. Such a follower guards where the player
+	  said (NPCModCore's Guard) instead of being leashed back home from 500 m out.
 	-->
 	<append xpath="/utility_ai/ai_packages">
 		<ai_package name="SCResident">
@@ -16,7 +21,7 @@
 			     roam after one decision window. -->
 			<action name="ScRoam" weight="2.5" entity_filter="IsSelf">
 				<task class="WanderHomeSC, SurvivorCommunity" radius="12" cooldown="45" />
-				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="ScIsResident, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="EnemyNotNear, SCore" distance="30" />
 				<consideration class="ScIsDaytime, SurvivorCommunity" />
@@ -28,7 +33,7 @@
 			     from their post than ScConfig-independent "distance", walking them home with SCore's Guard task. -->
 			<action name="ScReturn" weight="5.5" entity_filter="IsSelf">
 				<task class="Guard, SCore" />
-				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="ScIsResident, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="ScFarFromPost, SurvivorCommunity" distance="25" />
 			</action>
@@ -42,20 +47,24 @@
 				<consideration class="HasOrder, SCore" order="Task" />
 				<consideration class="ScTravelling, SurvivorCommunity" />
 			</action>
-			<!-- Following is handled here rather than by the pack, whose three actions fight each other around
-			     2.5 m: LeaderFollowSlow (weight 2) pulls the NPC in, TooCloseInside/Outside (weight 3) push it
-			     back out, and with nothing winning cleanly the NPC orbits the player. These two outrank all of
-			     them, so a member walks in until 3 m and then simply stands, and the follow task is given
-			     explicit distances instead of SCore's defaults. Combat (weight 4-6) still takes precedence. -->
+			<!-- Following belongs to 0-XNPCCore: its DynamicFollow (NPCModNPCHired, weight 2) with Voice Control's
+			     formations, follow distances and stances replaces the community's own follow (decision D6), and the
+			     ticker reads every voice order as a member state. These two are only the FALLBACK for a member whose
+			     packages have no DynamicFollow (ScNoDynamicFollow - a pack NPC from another mod): at 4 and 4.2 they
+			     would outrank DynamicFollow and fight it. They were written for 3.1's pack, whose LeaderFollowSlow
+			     (2) and TooCloseInside/Outside (3) made a follower orbit the player around 2.5 m: these walk the NPC
+			     in to 3 m and let it stand. Combat (weight 4-6) still takes precedence. -->
 			<action name="ScFollowLeader" weight="4" entity_filter="IsLeader">
 				<task class="FollowSDX, SCore" stop_distance="3" max_distance="25" teleport_time="5" />
 				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="ScNoDynamicFollow, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Follow" />
 				<consideration class="TargetDistance" min="3" max="30" curve="threshold" />
 			</action>
 			<action name="ScHoldWithLeader" weight="4.2" entity_filter="IsLeader">
 				<task class="IdleSDX, SCore" />
 				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="ScNoDynamicFollow, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Follow" />
 				<consideration class="EnemyNotNear, SCore" distance="20" />
 				<consideration class="TargetDistance" flip_x="true" min="0" max="3" curve="threshold" />
@@ -63,7 +72,7 @@
 			<!-- only once they are back at the post: until then NPCModCore's Guard (weight 2) walks them home -->
 			<action name="ScNightIdle" weight="3" entity_filter="IsSelf">
 				<task class="IdleSDX, SCore" />
-				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="ScIsResident, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="EnemyNotNear, SCore" distance="30" />
 				<consideration class="ScIsNight, SurvivorCommunity" />

@@ -120,7 +120,9 @@ namespace SurvivorCommunity
             foreach (var m in ScRegistry.Members.Values)
             {
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
-                string live = npc == null ? (ScRunners.IsPhysical(m) && m.Offline ? "virtual at " + World.worldToBlockPos(ScRunners.Where(m)) : "unloaded") : ("at " + npc.GetBlockPosition() + " order " + EntityUtilities.GetCurrentOrder(m.Id)
+                string held = ScOrders.StateWord(m);
+                string live = npc == null ? (ScRunners.IsPhysical(m) && m.Offline ? "virtual at " + World.worldToBlockPos(ScRunners.Where(m)) : "unloaded") : ("at " + npc.GetBlockPosition() + " " + ScOrders.Describe(npc)
+                    + (held.Length > 0 ? " [" + held + "]" : "")
                     + " leader " + (EntityUtilities.GetLeaderOrOwner(m.Id) != null ? "yes" : "no") + " spawner " + npc.GetSpawnerSource()
                     + " pkgs [" + string.Join(",", npc.AIPackages.ToArray()) + "] sc_member=" + npc.Buffs.GetCustomVar("sc_member")
                     + " persist=" + npc.Buffs.HasCustomVar("Persist"));
@@ -1205,9 +1207,23 @@ namespace SurvivorCommunity
                 bool retainer = false;
                 foreach (string c in Patches_VoiceControl.ContractCvars) if (e.Buffs.HasCustomVar(c)) retainer = true;
                 sb.Append(" Retainer*=").Append(retainer ? "yes" : "none");
+                // migration M2: how the community reads the order (a follower's voice order is a member state)
+                sb.Append("\n  member state: ").Append(ScOrders.Describe(e));
+                if (m != null)
+                {
+                    string word = ScOrders.StateWord(m);
+                    sb.Append(" status=").Append(m.Status).Append(" heldOrder=").Append(m.HeldOrder).Append(word.Length > 0 ? " (" + word + ")" : "")
+                      .Append(" followPending=").Append(m.FollowIssued > 0f);
+                }
+                sb.Append(" hiredBy=").Append(ScCommunity.HiredBy(e)).Append(" dynamicFollow=").Append(ScXnpc.HasDynamicFollow(e))
+                  .Append(" ourDoorOpener=").Append(ScDoors.UsesOurOpener(e));
             }
             sb.Append("\n  move: onMission=").Append(ScNpc.IsOnMission(e)).Append(" moveSpeed=").Append(e.moveSpeed.ToString("0.##"))
-              .Append(" moveSpeedPanic=").Append(e.moveSpeedPanic.ToString("0.##")).Append(" GetMoveSpeedPanic()=").Append(e.GetMoveSpeedPanic().ToString("0.##"));
+              .Append(" moveSpeedPanic=").Append(e.moveSpeedPanic.ToString("0.##")).Append(" GetMoveSpeedPanic()=").Append(e.GetMoveSpeedPanic().ToString("0.##"))
+              .Append(" passiveSpeedMod=").Append(e.GetPassiveEffectSpeedModifier().ToString("0.##")).Append(" running=").Append(e.MovementRunning);
+            if (ScNpc.IsV4(e))   // migration M4.1: what a runner hands FindPath for RunnerRunMps / RunnerWalkMps
+                sb.Append(" runnerPath run/walk=").Append(ScXnpc.PathSpeed(ScConfig.RunnerRunMps, true).ToString("0.##"))
+                  .Append('/').Append(ScXnpc.PathSpeed(ScConfig.RunnerWalkMps, false).ToString("0.##"));
             sb.Append("\n  medic: ").Append(ScMedic.Describe(e));
             sb.Append("\n  hooks: ").Append(Patches_Xnpc.Report());
             return sb.ToString();

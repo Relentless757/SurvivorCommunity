@@ -961,8 +961,11 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>The runner came back under a new entity id: move every record keyed by the old one.</summary>
-        private static void Rekey(World w, EntityPlayerLocal player, Member m, EntityAlive e, int oldId, bool fresh)
+        /// <summary>
+        /// A member came back under a new entity id - a runner re-created under a new id, or a missing resident called
+        /// back (ScMissing.Restore): move every record keyed by the old one. fresh: a new body, so it takes the new birth time.
+        /// </summary>
+        public static void Rekey(World w, EntityPlayerLocal player, Member m, EntityAlive e, int oldId, bool fresh)
         {
             ScRegistry.Members.Remove(oldId);
             m.Id = e.entityId;

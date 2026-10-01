@@ -1294,7 +1294,7 @@ namespace SurvivorCommunity
             return !string.IsNullOrEmpty(trait) && traitIcons.TryGetValue(trait, out s) ? s : "ui_game_symbol_perk";   // the trait buffs' own icon
         }
 
-        /// <summary>"At base", "Following", "Heading home", "Supply run - back day 14" (row: "Supply run - day 14"), "+ Injured".</summary>
+        /// <summary>"At base", "Following", "Following (holding)", "Heading home", "Supply run - back day 14" (row: "Supply run - day 14"), "+ Injured".</summary>
         public static string StatusText(Member m, bool brief)
         {
             if (m == null) return "";
@@ -1308,6 +1308,9 @@ namespace SurvivorCommunity
                 case MemberStatus.Resident when ScMissing.IsMissing(m): s = Localization.Get("scStMissing"); break;
                 default: s = Localization.Get("scStAtBase"); break;
             }
+            // a follower holding a voice / order-wheel order: "Following (holding)", "Heading home (guarding)" (ScOrders)
+            string held = ScOrders.StateWord(m);
+            if (held.Length > 0) s += " (" + held + ")";
             if (m.Injured) s += " + " + Localization.Get("scStInjured");
             return s;
         }

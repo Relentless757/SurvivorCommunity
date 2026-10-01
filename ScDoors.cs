@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using GamePath;
 using HarmonyLib;
 using UnityEngine;
@@ -20,8 +21,8 @@ namespace SurvivorCommunity
     /// Vanilla 3.2 has a working opener in the move helper: EntityMoveHelper.CheckForDoorAndOpen, run from the move
     /// helper's obstacle check (every 4th move tick, while roughly facing the move target) when moveHelper.CanOpenDoors
     /// is set. Only EntityBandit sets it. Members get the flag (ScCommunity.ApplyAiPackage), which covers every task
-    /// that walks a path. For SDX NPCs, and for 0-XNPCCore's V4 NPCs while they are members, the prefix below replaces
-    /// the vanilla body to:
+    /// that walks a path. For community NPCs of either SCore class - members, and the stand-ins that are them
+    /// (UsesOurOpener) - the prefix below replaces the vanilla body to:
     ///   (a) resolve a multi-block child leaf (double doors, gates) to its parent - vanilla looks up the tile entity on
     ///       the child cell and finds none;
     ///   (b) look ahead along the path (every node within LookAhead metres), so a running NPC does not meet a
@@ -31,7 +32,8 @@ namespace SurvivorCommunity
     ///   (d) drawbridges and hatches too, unless MembersOpenHatches is false (the user's call, 2026-10-01: a base
     ///       whose only way out is a hatch or a bridge must not trap its people; (e) raises the bridge again);
     ///   (e) remember the door and shut it behind them, as SCore meant to - vanilla never closes.
-    /// Host only: the move helper exists on the server.
+    /// A door 0-XNPCCore's follow (Voice Control) opens for one of them is remembered and shut the same way
+    /// (Patch_VoiceFollowDoor). Host only: the move helper exists on the server.
     /// </summary>
     public static class ScDoors
     {
@@ -247,26 +249,45 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Who gets ScDoors.TryOpen, which opens the community owner's own locked doors, hatches and drawbridges: a
+        /// community member of either SCore class (legacy EntityAliveSDX or 0-XNPCCore's V4), or an outpost / rescue
+        /// stand-in, who IS that member. Membership, not the CanOpenDoors flag: Voice Control sets the flag on every human
+        /// NPC it gives a chat component (NPCChatComponent.Initialize - its warm-up attaches one to every survivor near the
+        /// player), so on its own the flag does not mean "one of ours", and a wild survivor must not walk through the
+        /// owner's locked doors (migration M4.5; before it, any SDX NPC with the flag got this opener). Everyone else -
+        /// strangers, vanilla bandits - keeps vanilla's opener (unlocked doors only).
+        /// </summary>
+        public static bool UsesOurOpener(EntityAlive e)
+        {
+            if (e == null || !ScNpc.IsFramework(e)) return false;
+            if (ScRegistry.GetMember(e.entityId) != null) return true;
+            return e.Buffs != null && e.Buffs.HasCustomVar(ScRadio.StandInCvar);
+        }
+
+        /// <summary>
+        /// Remembers a door someone of ours opened by another route, so Tick shuts it behind them like one TryOpen opened
+        /// (Voice Control's follow opens a door its follower is blocked by and never closes it).
+        /// </summary>
+        public static void Track(EntityAlive npc, Vector3i pos)
+        {
+            if (npc == null || npc.world == null) return;
+            TileEntityComposite te;
+            TEFeatureDoor door;
+            Vector3i at;
+            // Voice Control looks for the tile entity at the hit block and then one block below it: so does this
+            if (!FindDoor(npc.world, pos, out te, out door, out at) && !FindDoor(npc.world, pos + Vector3i.down, out te, out door, out at)) return;
+            if (!door.IsOpen()) return;
+            opened[at] = new Opened { By = npc.entityId, Since = Time.time };
+            ScLog.Verbose(npc.EntityName + " (" + npc.entityId + ") opened the door at " + at + " (Voice Control's follow) - shut behind them");
+        }
+
+        /// <summary>
         /// EntityMoveHelper.CheckForDoorAndOpen runs from the move helper's obstacle check while CanOpenDoors is set.
-        /// Vanilla bandits (EntityBandit) keep the vanilla body; SDX NPCs and member V4 NPCs get ScDoors.TryOpen
-        /// (UsesOurOpener).
+        /// Community NPCs (UsesOurOpener) get ScDoors.TryOpen; everyone else keeps the vanilla body.
         /// </summary>
         [HarmonyPatch(typeof(EntityMoveHelper), "CheckForDoorAndOpen")]
         public static class Patch_CheckForDoorAndOpen
         {
-            /// <summary>
-            /// Who gets ScDoors.TryOpen, which opens the community owner's own locked doors, hatches and drawbridges. SCore's
-            /// legacy class keeps the rule it has always had: any EntityAliveSDX with the flag. A V4 NPC (0-XNPCCore 3.2's
-            /// survivors) only while it is a member: Voice Control sets CanOpenDoors on every human NPC it gives a chat
-            /// component (NPCChatComponent.Initialize - its warm-up attaches one to every survivor near the player), so on
-            /// those NPCs the flag does not mean "one of ours", and a wild survivor must not walk through the owner's
-            /// locked doors. Everyone else keeps vanilla's opener.
-            /// </summary>
-            private static bool UsesOurOpener(EntityAlive e)
-            {
-                if (ScNpc.IsSdx(e)) return true;
-                return ScNpc.IsV4(e) && ScRegistry.GetMember(e.entityId) != null;
-            }
 
             // a missing target must not throw inside PatchAll (it would skip the patch classes after it)
             [HarmonyPrepare]
@@ -288,6 +309,75 @@ namespace SurvivorCommunity
                     ScLog.Once("doors-open", e);
                 }
                 return false;
+            }
+        }
+
+        // ------------------------------------------------------------------ Voice Control's follow ----
+
+        private const string VcActuatorType = "XNPCVoiceControl.Movement.EntityMovementActuator";
+
+        /// <summary>Voice Control's follow actuator's door opener, bound by name (null without Voice Control).</summary>
+        public static MethodBase VcDoorTarget()
+        {
+            Type t = AccessTools.TypeByName(VcActuatorType);
+            return t != null ? AccessTools.DeclaredMethod(t, "TryOpenBlockingDoor", new Type[0]) : null;
+        }
+
+        private static bool VcHasSelf()
+        {
+            Type t = AccessTools.TypeByName(VcActuatorType);
+            FieldInfo f = t != null ? AccessTools.Field(t, "_self") : null;
+            return f != null && f.FieldType == typeof(EntityAlive);
+        }
+
+        /// <summary>
+        /// 0-XNPCCore's DynamicFollow (Voice Control's FollowLoop) opens an unlocked door its follower is blocked by
+        /// (EntityMovementActuator.TryOpenBlockingDoor: SetOpen, no close) - the route by which a following member most often
+        /// meets a door now that DynamicFollow does the following. For one of ours the door is remembered, so Tick shuts it
+        /// behind them like every other door they open. The prefix notes the blocking block (the move helper's hit, which
+        /// the actuator reads), the postfix tracks it when the result is Opened (Voice Control's enum, compared by name).
+        /// Without Voice Control the patch is off (Prepare).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_VoiceFollowDoor
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try { return VcDoorTarget() != null && VcHasSelf(); }
+                catch (Exception e) { ScLog.Once("doors-vc-bind", e); return false; }
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return VcDoorTarget(); }
+
+            /// <summary>____self is the actuator's private _self field (Harmony's three underscores plus the name).</summary>
+            [HarmonyPrefix]
+            public static void Prefix(EntityAlive ____self, out Vector3i __state)
+            {
+                __state = Vector3i.invalid;
+                try
+                {
+                    if (UsesOurOpener(____self) && ____self.moveHelper != null && ____self.moveHelper.HitInfo != null)
+                        __state = ____self.moveHelper.HitInfo.hit.blockPos;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("doors-vc-pre", e);
+                }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive ____self, object __result, Vector3i __state)
+            {
+                try
+                {
+                    if (__state != Vector3i.invalid && __result != null && __result.ToString() == "Opened") Track(____self, __state);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("doors-vc-post", e);
+                }
             }
         }
     }

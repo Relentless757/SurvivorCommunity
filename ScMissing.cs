@@ -108,17 +108,13 @@ namespace SurvivorCommunity
                 EntityAlive npc = ScSpawn.Body(w, m, at, Vector3.zero, true);
                 if (npc == null) { error = "scInternal"; return false; }
 
+                // the one re-key every respawn under a new id uses (migration M4.4): the registry entry, the birth time,
+                // the threat marker, the doomed list (should the old body ever load again, it goes rather than doubles), the
+                // look cache, a rescue quest's member id, the runner session and the old body's inventory window
                 int oldId = m.Id;
-                ScRegistry.Members.Remove(oldId);
-                m.Id = npc.entityId;
-                m.Born = npc.WorldTimeBorn;
+                ScRunners.Rekey(w, player, m, npc, oldId, true);
                 m.MissingDays = 0;
                 m.StandInId = -1;
-                ScRegistry.Members[m.Id] = m;
-                Community c = ScRegistry.Community;
-                if (c.ThreatMemberId == oldId) c.ThreatMemberId = m.Id;
-                ScRegistry.Doomed.Add(oldId);        // should the old body ever load again, it goes rather than doubles
-                ScLooks.Forget(oldId);
                 Clear(oldId);
                 told.Remove(oldId);
 

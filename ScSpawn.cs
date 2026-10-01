@@ -75,7 +75,7 @@ namespace SurvivorCommunity
         {
             if (e == null || m == null) return;
             ScNpc.SetName(e, m.Name, "");             // the class rolled a random name at construction: this body IS the survivor
-            if (community && ScXnpc.IsBody(e)) ScXnpc.StripLevels(e);
+            if (community && ScXnpc.HasXnpcLevels(e)) ScXnpc.StripLevels(e);
         }
 
         /// <summary>

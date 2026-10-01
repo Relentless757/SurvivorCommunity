@@ -33,6 +33,7 @@
     <Compile Include="ScNpc.cs" />
     <Compile Include="ScXnpc.cs" />
     <Compile Include="ScSpawn.cs" />
+    <Compile Include="ScOrders.cs" />
     <Compile Include="ScCommunity.cs" />
     <Compile Include="ScTicker.cs" />
     <Compile Include="ScTraits.cs" />

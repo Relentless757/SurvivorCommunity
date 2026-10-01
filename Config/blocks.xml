@@ -116,6 +116,13 @@
 			     4.4-5.3 m/s on the player body, 4.5-4.9 on pack NPCs); this sits a little under that because the offline walk is a
 			     straight line and the real one has detours. Match it to about 0.85-0.9 x the speed `sc runners` measures. -->
 			<property name="RunWalkMps" value="4" />
+			<!-- RunnerRunMps / RunnerWalkMps: the pace (m/s, on the ground) of a runner who is one of 0-XNPCCore's survivors
+			     while they are a real NPC near you: running the Outbound/Inbound legs, walking at the site and on the last stroll
+			     home. Cardio, hunger and injury still change it. 0-XNPCCore only runs an NPC above its own threshold, so a run is
+			     never slower than about 4.5 and a walk never faster than about 2.1 (and 0-XNPCCore caps everything at 6). Keep
+			     RunWalkMps at about 0.85-0.9 x what `sc runners` measures for them. -->
+			<property name="RunnerRunMps" value="4.5" />
+			<property name="RunnerWalkMps" value="1.6" />
 			<property name="RunMinDist" value="150" />
 			<property name="RunMaxDist" value="700" />
 			<property name="RunSiteHours" value="6" />
