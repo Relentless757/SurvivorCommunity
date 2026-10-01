@@ -114,6 +114,11 @@ namespace SurvivorCommunity
     /// <summary>
     /// Everything about survivors that wear the player's body: rolling a look, the gear table, staging armor
     /// into the entity's equipment slots, and keeping the entity in step with its registry record.
+    ///
+    /// The community's 0-XNPCCore survivors (ScXnpc.IsBody) are dressed from here as well (decision D2): their model is
+    /// built from ForEntity's look by Patches_Xnpc (X1) instead of SC's own model shim, and a rebuild goes through XNPC's
+    /// own mesh build (Rebuild). The class lists below (SurvivorClasses, PickClass) are still SC's own classes only:
+    /// which classes the console and the radio spawn is a later migration task (M6).
     /// </summary>
     public static class ScLooks
     {
@@ -129,6 +134,8 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, Look> session = new Dictionary<int, Look>();
         /// <summary>The entity class each session look was rolled for (an id can be reused by a stranger).</summary>
         private static readonly Dictionary<int, string> sessionClass = new Dictionary<int, string>();
+        /// <summary>Where ForEntity found each body's look (pending / member / prospect / session / roll), for sc xnpc. Session only.</summary>
+        private static readonly Dictionary<int, string> sessionSource = new Dictionary<int, string>();
         private static List<string> survivorClasses;
         private static bool catalogueReady;
         // fallback catalogue (what 3.2 ships) when the game's SDCS data cannot be read
@@ -143,6 +150,7 @@ namespace SurvivorCommunity
             Pending = null;
             session.Clear();
             sessionClass.Clear();
+            sessionSource.Clear();
             survivorClasses = null;
             raiderClasses = null;
             catalogueReady = false;
@@ -153,6 +161,14 @@ namespace SurvivorCommunity
         {
             session.Remove(entityId);
             sessionClass.Remove(entityId);
+            sessionSource.Remove(entityId);
+        }
+
+        /// <summary>Where the body's look came from when its model was built (pending / member / prospect / session / roll), or "-".</summary>
+        public static string SourceOf(int entityId)
+        {
+            string s;
+            return sessionSource.TryGetValue(entityId, out s) ? s : "-";
         }
 
         // ---- classes ----
@@ -207,10 +223,13 @@ namespace SurvivorCommunity
             return string.IsNullOrEmpty(cls) || cls.IndexOf("Female", StringComparison.OrdinalIgnoreCase) < 0;
         }
 
-        /// <summary>A loaded NPC that wears our player body (never the player, never 0-XNPCCore's own survivors).</summary>
+        /// <summary>
+        /// A loaded NPC that wears a look of ours: SC's own player body, or one of the 0-XNPCCore survivor classes the
+        /// community owns (never the player, never XNPC's other classes).
+        /// </summary>
         public static bool IsSurvivor(Entity e)
         {
-            return Patches_Sdcs.IsBodyNpc(e, "looks");
+            return Patches_Sdcs.IsAnyBodyNpc(e, "looks");
         }
 
         /// <summary>The spawnable friendly player-body classes this mod defines (cached per session).</summary>
@@ -295,32 +314,35 @@ namespace SurvivorCommunity
         public static Look ForEntity(Entity e)
         {
             Look look = null;
+            string source = "roll";
             try
             {
                 string cls = e != null ? ScCommunity.ClassName(e as EntityAlive) : "";
-                if (Pending != null) { look = Pending; Pending = null; }
+                if (Pending != null) { look = Pending; Pending = null; source = "pending"; }
                 if (look == null && e != null)
                 {
                     Member m = ScRegistry.GetMember(e.entityId);
-                    if (m != null && m.Look != null && (string.IsNullOrEmpty(m.Class) || string.Equals(m.Class, cls, StringComparison.OrdinalIgnoreCase))) look = m.Look;
+                    if (m != null && m.Look != null && (string.IsNullOrEmpty(m.Class) || string.Equals(m.Class, cls, StringComparison.OrdinalIgnoreCase))) { look = m.Look; source = "member"; }
                     if (look == null)
                     {
                         Prospect p = ScRegistry.GetProspect(e.entityId);
-                        if (p != null && p.Look != null && (string.IsNullOrEmpty(p.Class) || string.Equals(p.Class, cls, StringComparison.OrdinalIgnoreCase))) look = p.Look;
+                        if (p != null && p.Look != null && (string.IsNullOrEmpty(p.Class) || string.Equals(p.Class, cls, StringComparison.OrdinalIgnoreCase))) { look = p.Look; source = "prospect"; }
                     }
                     if (look == null && session.TryGetValue(e.entityId, out look))
                     {
+                        source = "session";
                         string was;
                         if (sessionClass.TryGetValue(e.entityId, out was) && !string.Equals(was, cls, StringComparison.OrdinalIgnoreCase)) look = null;   // recycled id
                     }
                 }
                 if (look == null)
                 {
+                    source = "roll";
                     World w = ScCommunity.World;
                     look = Roll(ClassIsMale(cls), w != null ? w.GetGameRandom() : null, true);
                 }
                 Validate(look);
-                if (e != null) { session[e.entityId] = look; sessionClass[e.entityId] = cls; }
+                if (e != null) { session[e.entityId] = look; sessionClass[e.entityId] = cls; sessionSource[e.entityId] = source; }
             }
             catch (Exception ex)
             {
@@ -571,20 +593,33 @@ namespace SurvivorCommunity
         /// <summary>
         /// Makes the loaded entity wear exactly what the look says (equipment is never saved for NPCs, so this
         /// runs from the relink tick). Returns true when something changed and the body was rebuilt.
+        /// On one of the community's 0-XNPCCore survivors every SetSlotItem would also fire XNPC's equipment handler,
+        /// which rebuilds the whole body - up to four rebuilds before ours - so its own switch for that
+        /// (EModelSdcsNpc.SuppressEquipmentRebuild) is held on for the loop and the body is rebuilt once after it.
         /// </summary>
         public static bool SyncGear(EntityAlive npc, Look look)
         {
             if (npc == null || npc.equipment == null || look == null || !IsSurvivor(npc)) return false;
+            EModelSdcsNpc x = ScXnpc.IsBody(npc) ? npc.emodel as EModelSdcsNpc : null;
+            bool wasSuppressed = x != null && x.SuppressEquipmentRebuild;
             try
             {
                 Wanted(look, wantNames, wantQuality);
                 bool changed = false;
-                for (int slot = 0; slot < 4; slot++)
+                if (x != null) x.SuppressEquipmentRebuild = true;
+                try
                 {
-                    string have = SlotName(npc, slot);
-                    if (string.Equals(have, wantNames[slot], StringComparison.OrdinalIgnoreCase)) continue;
-                    npc.equipment.SetSlotItem(slot, wantNames[slot].Length > 0 ? MakeItem(wantNames[slot], wantQuality[slot]) : null);
-                    changed = true;
+                    for (int slot = 0; slot < 4; slot++)
+                    {
+                        string have = SlotName(npc, slot);
+                        if (string.Equals(have, wantNames[slot], StringComparison.OrdinalIgnoreCase)) continue;
+                        npc.equipment.SetSlotItem(slot, wantNames[slot].Length > 0 ? MakeItem(wantNames[slot], wantQuality[slot]) : null);
+                        changed = true;
+                    }
+                }
+                finally
+                {
+                    if (x != null) x.SuppressEquipmentRebuild = wasSuppressed;
                 }
                 if (changed) Rebuild(npc);
                 return changed;
@@ -596,13 +631,26 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Regenerates the body meshes from the archetype and the equipment slots.</summary>
+        /// <summary>
+        /// Regenerates the body meshes from the archetype and the equipment slots. One of the community's 0-XNPCCore
+        /// survivors is rebuilt through XNPC's own GenerateMeshes (the "new" one on EModelSdcsNpc, which also guards
+        /// against its equipment handler re-entering), not through its UpdateEquipment: that one does nothing while the
+        /// animator is disabled, as on a hidden or culled body. Patches_Xnpc (X2) re-roots the new eyes after it.
+        /// </summary>
         public static void Rebuild(EntityAlive npc)
         {
-            EModelSDCS m = npc != null && Patches_Sdcs.IsOurModel(npc.emodel, "looks-rebuild") ? (EModelSDCS)npc.emodel : null;
-            if (m == null) return;
             try
             {
+                EModelSdcsNpc x = ScXnpc.IsBody(npc) ? npc.emodel as EModelSdcsNpc : null;
+                if (x != null)
+                {
+                    x.GenerateMeshes();
+                    npc.ReassignEquipmentTransforms();
+                    x.EnsureTestAnimatorController("SurvivorCommunity");   // what XNPC's own rebuild does after the meshes
+                    return;
+                }
+                EModelSDCS m = npc != null && Patches_Sdcs.IsOurModel(npc.emodel, "looks-rebuild") ? (EModelSDCS)npc.emodel : null;
+                if (m == null) return;
                 m.GenerateMeshes();
                 npc.ReassignEquipmentTransforms();
             }
@@ -612,7 +660,7 @@ namespace SurvivorCommunity
         /// <summary>A whole new face (same sex) plus the look's gear, applied to a loaded survivor.</summary>
         public static void Apply(EntityAlive npc, Look look)
         {
-            EModelSDCS m = npc != null && Patches_Sdcs.IsOurModel(npc.emodel, "looks-apply") ? (EModelSDCS)npc.emodel : null;
+            EModelSDCS m = npc != null && (Patches_Sdcs.IsOurModel(npc.emodel, "looks-apply") || ScXnpc.IsBody(npc)) ? (EModelSDCS)npc.emodel : null;
             if (m == null || look == null) return;
             try
             {

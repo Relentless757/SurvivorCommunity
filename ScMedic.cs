@@ -24,6 +24,13 @@ namespace SurvivorCommunity
     /// item's onSelfPrimaryActionEnd effects fire on the NPC and the weapon goes back in the hand. Interrupted by a
     /// knockdown, the weapon comes back and the item returns to the inventory. You can also hand a survivor medical
     /// items and they will use those.
+    ///
+    /// The community's 0-XNPCCore survivors (ScXnpc.IsBody) are healed the same way (decision D7: items only, with the
+    /// bandage animation). XNPC heals its own through a different buff, SdcsIsHealing (added by its class buff
+    /// SdcsStatusCheck: for free with no leader, from a medical item without an animation when hired), which is refused
+    /// for them like IsHealing. Their medical stock is this file's roll alone (Config/entityclasses.xml sets XNPC's
+    /// HarvestItems to none), in the same SCore inventory window. While a use is in progress XNPC's own weapon logic is
+    /// held off (Patches_Xnpc X5), so its failover or close-range swap cannot take the bandage out of the hand.
     /// </summary>
     public static class ScMedic
     {
@@ -70,11 +77,23 @@ namespace SurvivorCommunity
             nextCheck.Clear();
             readyAt.Clear();
             uses.Clear();
+            Patch_NoFreeHeal.SdcsRefused = 0;
         }
 
+        /// <summary>For sc xnpc: the stock flag, whether a use is in progress, and how often XNPC's own heal was refused.</summary>
+        public static string Describe(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null) return "-";
+            Use u;
+            string use = uses.TryGetValue(e.entityId, out u) ? "using " + u.Item + (u.Triggered ? " (animation started)" : " (waiting for the hold pose)") : "idle";
+            return "stocked=" + (e.Buffs.GetCustomVar(StockedCvar) > 0f) + " " + use + " bandages=" + Count(e, "medicalFirstAidBandage")
+                   + " kits=" + Count(e, "medicalFirstAidKit") + " SdcsIsHealing refused (all bodies)=" + Patch_NoFreeHeal.SdcsRefused;
+        }
+
+        /// <summary>SC's own player bodies and the community's 0-XNPCCore survivors; XNPC's other classes heal their own way.</summary>
         public static bool IsBody(Entity e)
         {
-            return e is EntityAlive && Patches_Sdcs.IsBodyNpc(e);     // ours only: 0-XNPCCore's survivors heal their own way (until M5)
+            return e is EntityAlive && (Patches_Sdcs.IsBodyNpc(e) || ScXnpc.IsBody(e));
         }
 
         public static bool IsUsingItem(Entity e)
@@ -241,6 +260,10 @@ namespace SurvivorCommunity
         /// EntityAliveSDX.UpdateWeapon uses (SetItem, SwitchModelAndView, OnUpdate, ForceHoldingItemUpdate), without
         /// its bookkeeping - _currentWeapon and the CurrentWeaponID cvar keep naming the real weapon, so nothing
         /// re-equips a bandage later.
+        ///
+        /// On one of the community's 0-XNPCCore survivors the SwitchModelAndView step is left out: XNPC's controller only
+        /// warns and keeps its model when it is handed a class name (it has no child of that name), so the call would
+        /// change nothing but the log. The rest is the sequence XNPC's own weapon swaps effectively get.
         /// </summary>
         internal static void Hold(EntityAlive e, int slot, ItemValue item, int count)
         {
@@ -248,7 +271,7 @@ namespace SurvivorCommunity
             e.inventory.SetItem(slot, item, count);
             EntityClass ec = EntityClass.list[e.entityClass];
             string meshName = ec.Properties.Values.ContainsKey("Mesh") ? ec.Properties.Values["Mesh"] : ec.entityClassName;
-            if (e.emodel != null && e.emodel.avatarController != null)
+            if (e.emodel != null && e.emodel.avatarController != null && !ScXnpc.IsBody(e))
                 e.emodel.avatarController.SwitchModelAndView(meshName, e.emodel.IsFPV, e.IsMale);
             e.inventory.OnUpdate();
             e.inventory.ForceHoldingItemUpdate();
@@ -315,7 +338,8 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (__instance == null || !Patches_Sdcs.IsOurModel(__instance.emodel, "medic-tick")) return;
+                    if (__instance == null) return;
+                    if (!Patches_Sdcs.IsOurModel(__instance.emodel, "medic-tick") && !ScXnpc.IsBody(__instance)) return;
                     Tick(__instance);
                 }
                 catch (Exception ex)
@@ -325,16 +349,28 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Refuses the framework's free IsHealing buff for our bodies (see the class summary).</summary>
+        /// <summary>
+        /// Refuses the frameworks' own heals for our bodies (see the class summary): the NPC framework's free IsHealing,
+        /// and 0-XNPCCore's SdcsIsHealing on the community's XNPC survivors. Both are added through this AddBuff by a buff's
+        /// triggered effect; SC's own bodies never get SdcsIsHealing (their classes have no SdcsStatusCheck), so the
+        /// second name changes nothing for them. XNPC's attack actions gate on SdcsIsHealing, so refusing it also keeps
+        /// them from standing down for a heal that never comes.
+        /// </summary>
         [HarmonyPatch(typeof(EntityBuffs), nameof(EntityBuffs.AddBuff),
             new[] { typeof(string), typeof(Vector3i), typeof(int), typeof(bool), typeof(bool), typeof(float) })]
         public static class Patch_NoFreeHeal
         {
+            /// <summary>Times the XNPC heal was refused (sc xnpc). Main thread only.</summary>
+            internal static int SdcsRefused;
+
             [HarmonyPrefix]
             public static bool Prefix(EntityBuffs __instance, string _name, ref EntityBuffs.BuffStatus __result)
             {
-                if (_name == null || !string.Equals(_name, "IsHealing", StringComparison.OrdinalIgnoreCase)) return true;
+                if (_name == null) return true;
+                bool xnpcHeal = string.Equals(_name, "SdcsIsHealing", StringComparison.OrdinalIgnoreCase);
+                if (!xnpcHeal && !string.Equals(_name, "IsHealing", StringComparison.OrdinalIgnoreCase)) return true;
                 if (__instance == null || !IsBody(__instance.parent)) return true;
+                if (xnpcHeal) SdcsRefused++;
                 __result = EntityBuffs.BuffStatus.FailedImmune;
                 return false;
             }

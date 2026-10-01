@@ -435,14 +435,10 @@ namespace SurvivorCommunity
                 int cid = EntityClass.FromString(ct.Class);
                 if (!ScCommunity.ClassExists(cid)) { ScLog.Warn("radio contact class " + ct.Class + " no longer exists - dropped"); return true; }
                 Vector3 pos = SpotNear(w, ct.Spawn, 4);
-                EntityAlive npc;
-                try
-                {
-                    // a player-body survivor rolls their face and clothes here; the model shim consumes it
-                    if (ScLooks.IsSurvivorClass(ct.Class)) ScLooks.Pending = ScLooks.Roll(ScLooks.ClassIsMale(ct.Class), w.GetGameRandom(), true);
-                    npc = ScNpc.As(EntityFactory.CreateEntity(cid, pos));
-                }
-                finally { ScLooks.Pending = null; }
+                // a survivor wearing one of our looks rolls their face and clothes here; the model (SC's shim, or
+                // Patches_Xnpc for the community's 0-XNPCCore survivors) consumes it while it is built
+                Look look = ScSpawn.IsSurvivorBodyClass(ct.Class) ? ScLooks.Roll(ScLooks.ClassIsMale(ct.Class), w.GetGameRandom(), true) : null;
+                EntityAlive npc = ScSpawn.Create(cid, pos, Vector3.zero, look);
                 if (npc == null) { ScLog.Warn("radio contact class " + ct.Class + " is not an SCore NPC class - dropped"); return true; }
                 w.SpawnEntityInWorld(npc);
                 npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
@@ -596,25 +592,14 @@ namespace SurvivorCommunity
             try
             {
                 GameRandom rnd = w.GetGameRandom();
-                int cid = EntityClass.FromString(m.Class);
                 // a physical runner is there in person: the zombies come for them, and there is no stand-in
                 EntityAlive runner = ScRunners.IsPhysical(m) ? ScCommunity.FindNpc(m.Id) : null;
                 if (ScRunners.IsPhysical(m) && runner == null) return;
                 Vector3 centre = runner != null ? runner.position : SpotNear(w, m.RunSpawn, 5);
-                EntityAlive standIn = null;
-                if (runner == null)
-                {
-                    try
-                    {
-                        if (m.Look != null) ScLooks.Pending = m.Look.Clone();      // the stand-in IS the survivor
-                        if (ScCommunity.ClassExists(cid)) standIn = ScNpc.As(EntityFactory.CreateEntity(cid, centre));
-                    }
-                    finally { ScLooks.Pending = null; }
-                }
+                // the stand-in IS the survivor: their class, look and name (ScSpawn); none when the class is gone
+                EntityAlive standIn = runner == null ? ScSpawn.Body(w, m, centre, Vector3.zero, true) : null;
                 if (standIn != null)
                 {
-                    w.SpawnEntityInWorld(standIn);
-                    ScNpc.SetName(standIn, m.Name, "");          // the class rolls a random name at spawn: the stand-in IS this survivor
                     standIn.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
                     standIn.Buffs.SetCustomVar(StandInCvar, m.Id);
                     standIn.Buffs.SetCustomVar("Persist", 1f);

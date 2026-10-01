@@ -287,21 +287,13 @@ namespace SurvivorCommunity
         {
             try
             {
-                int cid = EntityClass.FromString(m.Class);
-                if (!ScCommunity.ClassExists(cid)) return;
+                if (!ScSpawn.ClassOf(m, out _)) return;
                 int k = Staff(o).IndexOf(m);
                 Vector3i near = new Vector3i(o.Flag.x + (k == 0 ? 2 : -2), o.Flag.y, o.Flag.z + 1);
                 Vector3 at = ScRadio.SpotNear(w, near, 4);
-                EntityAlive s = null;
-                try
-                {
-                    if (m.Look != null) ScLooks.Pending = m.Look.Clone();   // the stand-in IS the survivor
-                    s = ScNpc.As(EntityFactory.CreateEntity(cid, at));
-                }
-                finally { ScLooks.Pending = null; }
+                // the stand-in IS the survivor: their class, look and name (ScSpawn)
+                EntityAlive s = ScSpawn.Body(w, m, at, Vector3.zero, true);
                 if (s == null) return;
-                w.SpawnEntityInWorld(s);
-                ScNpc.SetName(s, m.Name, "");          // the class rolls a random name at spawn: the stand-in IS this survivor
                 // Dynamic + no Persist: SCore's IsSavedToFile (both classes) skips Dynamic (and Biome) sources, so a stand-in is
                 // never written with the chunk - it goes when the outpost unloads (a StaticSpawner one would come back)
                 s.SetSpawnerSource(EnumSpawnerSource.Dynamic);

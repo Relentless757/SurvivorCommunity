@@ -203,6 +203,18 @@
 			<property name="SurvivorSecondWeapon" value="true" />
 			<property name="SurvivorFirearmChance" value="0.12" />
 			<property name="SurvivorRangedMainChance" value="0.4" />
+			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
+			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
+			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:
+			     change both together.
+			     XnpcBodyGetUp / XnpcBodyJumpAnim / XnpcBodyColliderLayers: the player-body fixes SurvivorCommunity's own
+			     survivors needed (getting up after a knockdown without floating, the jump animation, hit capsules that
+			     shots can reach), applied to those bodies too. Each is a switch because only a test in game shows
+			     whether 0-XNPCCore's bodies need it; false leaves that part to 0-XNPCCore. -->
+			<property name="XnpcSurvivorClasses" value="npcSdcsSurvivorMaleT1,npcSdcsSurvivorMaleT2,npcSdcsSurvivorMaleT3,npcSdcsSurvivorFemaleT1,npcSdcsSurvivorFemaleT2,npcSdcsSurvivorFemaleT3" />
+			<property name="XnpcBodyGetUp" value="true" />
+			<property name="XnpcBodyJumpAnim" value="true" />
+			<property name="XnpcBodyColliderLayers" value="true" />
 
 			<property name="DebugLogging" value="false" />
 

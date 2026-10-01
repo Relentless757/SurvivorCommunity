@@ -20,20 +20,38 @@ namespace SurvivorCommunity
     /// a subclass of AvatarSDCSController whose Update and SwitchModelAndView call the base) and healing. An "is
     /// EModelSDCS" test matches those too, so every body check here and in ScAim/ScMedic/ScLooks goes through
     /// IsOurModel / IsBodyNpc, which want the exact type. A hook that meets one of theirs counts it (sc xnpc) and steps
-    /// aside, as if this mod were not installed; the migration tasks (M1-M5) retarget what their bodies need.
+    /// aside, as if this mod were not installed.
+    ///
+    /// The exception is the six 0-XNPCCore survivor classes the community owns (ScXnpc.IsBody, migration M3/M5). They are
+    /// never counted as foreign, and the hooks their bodies need as well go through IsAnyBodyNpc or an explicit
+    /// ScXnpc.IsBody: the eyes (FixEyeRenderers from Patches_Xnpc X2, and the gaze safety net), the asset release on
+    /// despawn, and - each behind its own config switch, because only a test in game shows whether XNPC's bodies need
+    /// it - the get-up (XnpcBodyGetUp), the jump trigger (XnpcBodyJumpAnim) and the hit-collider layers
+    /// (XnpcBodyColliderLayers). Everything else here stays on SC's own bodies: XNPC builds its model itself (X1 feeds
+    /// it SC's look), and it writes locomotion, carry, pitch and look itself, so a second writer would fight it.
     /// </summary>
     public static class Patches_Sdcs
     {
         /// <summary>
         /// Our player body: a model of exactly EModelSDCS (players use it too - callers that mean an NPC use
-        /// IsBodyNpc). A subclass (0-XNPCCore's EModelSdcsNpc) is not ours; with a hook name it is counted.
+        /// IsBodyNpc). A subclass (0-XNPCCore's EModelSdcsNpc) is not ours; with a hook name it is counted, unless it
+        /// belongs to one of the survivor classes the community owns (those are not foreign, merely built by XNPC).
         /// </summary>
         internal static bool IsOurModel(EModelBase m, string hook = null)
         {
             if (m == null) return false;
             if (m.GetType() == typeof(EModelSDCS)) return true;
-            if (hook != null && m is EModelSDCS) CountForeign(hook);
+            if (hook != null && m is EModelSDCS && !ScXnpc.IsBodyModel(m)) CountForeign(hook);
             return false;
+        }
+
+        /// <summary>
+        /// One of SC's own player-body NPCs (IsBodyNpc) or one of the 0-XNPCCore survivors the community owns
+        /// (ScXnpc.IsBody): for the hooks both kinds of body need (see the class summary).
+        /// </summary>
+        internal static bool IsAnyBodyNpc(Entity e, string hook = null)
+        {
+            return IsBodyNpc(e, hook) || ScXnpc.IsBody(e);
         }
 
         /// <summary>Times each hook met a player body that is not ours and stepped aside (sc xnpc). Main thread only.</summary>
@@ -79,13 +97,16 @@ namespace SurvivorCommunity
         /// puts the model's own colliders back on layer 0 - but for these bodies that happens during Init, i.e.
         /// BEFORE the factory's pass, so the hit capsules stayed on the no-collision layer and every shot and
         /// swing went straight through. Re-applied after the factory has finished (PostInit) and after any
-        /// rebuild. Measured: ours were on layer 14 while a pack NPC's were on 0.
+        /// rebuild. Measured: ours were on layer 14 while a pack NPC's were on 0. 0-XNPCCore builds its bodies inside
+        /// Init as well, so the same ordering may leave the community's XNPC survivors unhittable; they get the same fix
+        /// while XnpcBodyColliderLayers is on (an in-game probe decides whether they need it).
         /// </summary>
         public static void FixColliderLayers(EntityAlive e)
         {
             try
             {
-                EModelSDCS m = e != null && IsOurModel(e.emodel, "colliders") ? (EModelSDCS)e.emodel : null;
+                bool ours = e != null && (IsOurModel(e.emodel, "colliders") || (ScConfig.XnpcBodyColliderLayers && ScXnpc.IsBody(e)));
+                EModelSDCS m = ours ? (EModelSDCS)e.emodel : null;
                 if (m == null || m.playerEntity != null) return;
                 Transform model = m.modelTransform != null ? m.modelTransform : (m.baseRig != null ? m.baseRig.transform : null);
                 if (model == null) return;
@@ -460,7 +481,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// Safety net for the eyes. FixEyeRenderers above puts the eye renderer back on the head bone, which is
         /// what the shader's rotation pivot assumes; if that ever fails (a game update renaming the tag or the
-        /// shader), the gaze rotation would slide the eyeballs out of the face, so neutralise it instead.
+        /// shader), the gaze rotation would slide the eyeballs out of the face, so neutralise it instead. The same holds
+        /// for the community's 0-XNPCCore survivors, whose eyes Patches_Xnpc (X2) re-roots the same way.
         /// </summary>
         [HarmonyPatch(typeof(CharacterGazeController), "LateUpdate")]
         public static class Patch_GazeEyes
@@ -474,7 +496,7 @@ namespace SurvivorCommunity
                 {
                     if (__instance == null || __instance.eyeMaterial == null) return;
                     EntityAlive e = __instance.entityAlive;
-                    if (!IsBodyNpc(e, "gaze")) return;
+                    if (!IsAnyBodyNpc(e, "gaze")) return;
                     // with the eye renderer rooted at the head the shader's pivot is right and the gaze is safe
                     SkinnedMeshRenderer smr = __instance.eyeSkinnedMeshRenderer;
                     if (smr != null && smr.rootBone != null && smr.rootBone == __instance.headTransform) return;
@@ -570,7 +592,8 @@ namespace SurvivorCommunity
         /// such parameter - AvatarMultiBodyController jumps the same body with "JumpTrigger"
         /// (AvatarController.cs:667 vs :693) - so the trigger went nowhere and a survivor hopped blocks in her
         /// idle pose. Landing already matches: both animators use "JumpLand". Fired here as well as the
-        /// original, so nothing is taken away from any other controller.
+        /// original, so nothing is taken away from any other controller. 0-XNPCCore fires no JumpTrigger either, so the
+        /// community's XNPC survivors get it too while XnpcBodyJumpAnim is on.
         /// </summary>
         [HarmonyPatch(typeof(LegacyAvatarController), nameof(LegacyAvatarController.StartAnimationJump), new[] { typeof(AnimJumpMode) })]
         public static class Patch_JumpAnim
@@ -583,7 +606,7 @@ namespace SurvivorCommunity
                     if (jumpMode != AnimJumpMode.Start) return;
                     if (!(__instance is AvatarSDCSController) || __instance.anim == null) return;
                     EntityAlive e = __instance.entity;
-                    if (!IsBodyNpc(e, "jumpanim")) return;
+                    if (!IsBodyNpc(e, "jumpanim") && !(ScConfig.XnpcBodyJumpAnim && ScXnpc.IsBody(e))) return;
                     __instance._setTrigger(AvatarController.jumpTriggerHash);
                 }
                 catch (Exception ex)
@@ -631,6 +654,8 @@ namespace SurvivorCommunity
         /// and a player's never, so correcting it after StartRagdoll has run means undoing what that method
         /// already did on the non-player branch: the Physics object goes back on and the stun is halved, as
         /// it is for a player. Only a fresh start is touched, and never a corpse, which does not get up.
+        /// 0-XNPCCore's player-body survivors run the same animator and XNPC has no get-up handling of its own, so the
+        /// community's ones are corrected too while XnpcBodyGetUp is on.
         /// </summary>
         [HarmonyPatch(typeof(EModelBase), nameof(EModelBase.StartRagdoll), new[] { typeof(float) })]
         public static class Patch_RagdollAsPlayer
@@ -646,7 +671,7 @@ namespace SurvivorCommunity
                     if (!Enabled || !__result || __instance == null) return;
                     if (__instance.ragdollIsPlayer) return;                       // a player, or already corrected
                     if (__instance.ragdollState != EModelBase.ERagdollState.On) return;
-                    if (!IsOurModel(__instance, "ragdoll")) return;
+                    if (!IsOurModel(__instance, "ragdoll") && !(ScConfig.XnpcBodyGetUp && ScXnpc.IsBodyModel(__instance))) return;
                     EntityAlive e = __instance.entity as EntityAlive;
                     if (e == null || e is EntityPlayer || e.IsDead()) return;
                     __instance.ragdollIsPlayer = true;
@@ -669,7 +694,8 @@ namespace SurvivorCommunity
         /// to 40.0 the instant the pinning stopped at StandCollide - the "floats high and comes back down".
         /// By then BlendRagdoll has already put the entity on the ground under the pelvis (PhysicsResume), so the
         /// pin write is undone from BlendOutGround on. Nothing else in those states moves the entity. Verified
-        /// live: the position held at the floor through the whole get-up.
+        /// live: the position held at the floor through the whole get-up. The community's 0-XNPCCore survivors get the
+        /// same pin while XnpcBodyGetUp is on (it belongs with Patch_RagdollAsPlayer).
         /// </summary>
         [HarmonyPatch(typeof(EModelBase), "FrameUpdateRagdoll")]
         public static class Patch_RagdollPin
@@ -683,7 +709,8 @@ namespace SurvivorCommunity
                 __state = new Vector3(float.NaN, 0f, 0f);
                 try
                 {
-                    if (!Enabled || !IsOurModel(__instance, "ragdollpin")) return;
+                    if (!Enabled) return;
+                    if (!IsOurModel(__instance, "ragdollpin") && !(ScConfig.XnpcBodyGetUp && ScXnpc.IsBodyModel(__instance))) return;
                     EModelBase.ERagdollState s = __instance.ragdollState;
                     if (s != EModelBase.ERagdollState.BlendOutGround && s != EModelBase.ERagdollState.BlendOutStand
                         && s != EModelBase.ERagdollState.Stand) return;
@@ -921,13 +948,20 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Frees a despawned body's stitched meshes, materials and asset handles (Release). 0-XNPCCore's EModelSdcsNpc
+        /// declares its own OnDestroy, which calls this one as its base, and XNPC never releases them either, so the
+        /// community's XNPC survivors are released here too: without it every one that unloads leaks its rig's assets.
+        /// The test is by type only (ScXnpc.IsBody), because the entity is being destroyed along with its model.
+        /// </summary>
         [HarmonyPatch(typeof(EModelSDCS), "OnDestroy")]
         public static class Patch_OnDestroy
         {
             [HarmonyPostfix]
             public static void Postfix(EModelSDCS __instance)
             {
-                if (__instance == null || __instance.playerEntity != null || !IsOurModel(__instance, "release")) return;
+                if (__instance == null || __instance.playerEntity != null) return;
+                if (!IsOurModel(__instance, "release") && !ScXnpc.IsBody(__instance.entity)) return;
                 Release(__instance);
             }
         }

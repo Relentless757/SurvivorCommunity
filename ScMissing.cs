@@ -101,19 +101,12 @@ namespace SurvivorCommunity
                 if (ScNpc.IsFramework(w.GetEntity(m.Id))) { error = "scMissingNotMissing"; return false; }
                 if (!force && !IsMissing(m)) { error = "scMissingNotYet"; return false; }
                 if (!ScZone.IsLoaded(m.Post)) { error = "scNotLoaded"; return false; }
-                int cid = EntityClass.FromString(m.Class);
-                if (!ScCommunity.ClassExists(cid)) { error = "scMissingNoClass"; return false; }
+                if (!ScSpawn.ClassOf(m, out _)) { error = "scMissingNoClass"; return false; }
 
+                // the same class, face, hair, worn gear and name (ScSpawn); the registry is re-keyed below
                 Vector3 at = ScRadio.SpotNear(w, m.Post, 4);
-                EntityAlive npc = null;
-                try
-                {
-                    if (m.Look != null) ScLooks.Pending = m.Look.Clone();     // the same face, hair and worn gear
-                    npc = ScNpc.As(EntityFactory.CreateEntity(cid, at));
-                }
-                finally { ScLooks.Pending = null; }
+                EntityAlive npc = ScSpawn.Body(w, m, at, Vector3.zero, true);
                 if (npc == null) { error = "scInternal"; return false; }
-                w.SpawnEntityInWorld(npc);
 
                 int oldId = m.Id;
                 ScRegistry.Members.Remove(oldId);
@@ -129,7 +122,6 @@ namespace SurvivorCommunity
                 Clear(oldId);
                 told.Remove(oldId);
 
-                ScNpc.SetName(npc, m.Name, "");               // the class rolls a random name at spawn
                 npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
                 npc.Buffs.SetCustomVar("Persist", 1f);
                 ScCommunity.StampCvars(m, npc, player);

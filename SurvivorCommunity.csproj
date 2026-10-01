@@ -31,6 +31,8 @@
     <Compile Include="ScRegistry.cs" />
     <Compile Include="ScZone.cs" />
     <Compile Include="ScNpc.cs" />
+    <Compile Include="ScXnpc.cs" />
+    <Compile Include="ScSpawn.cs" />
     <Compile Include="ScCommunity.cs" />
     <Compile Include="ScTicker.cs" />
     <Compile Include="ScTraits.cs" />
@@ -64,6 +66,7 @@
     <Compile Include="ScLoadout.cs" />
     <Compile Include="ScMedic.cs" />
     <Compile Include="Patches_VoiceControl.cs" />
+    <Compile Include="Patches_Xnpc.cs" />
     <Compile Include="ScPortraits.cs" />
     <Compile Include="ScLeadership.cs" />
     <Compile Include="ScPoiTypes.cs" />
@@ -146,6 +149,13 @@
          checks it at runtime too). -->
     <Reference Include="SCore">
       <HintPath>$(GameDir)\Mods\0-SCore\SCore.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- 0-XNPCCore 3.2's player-body survivors: EModelSdcsNpc, AvatarSdcsNpcController and MinEventActionSdcsApplyLook
+         (public types; their private methods are bound by name in Patches_Xnpc). Hard dependency like SCore (ModApi
+         probes it at runtime); never copied next to our DLL, the game loads 0-XNPCCore's own. -->
+    <Reference Include="NPCSdcsCharacters">
+      <HintPath>$(GameDir)\Mods\0-XNPCCore\NPCSdcsCharacters.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

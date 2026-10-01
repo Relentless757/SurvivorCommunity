@@ -4553,4 +4553,38 @@
 			<property name="SoundSense" value="player2stamina"/>
 		</entity_class>
 	</append>
+
+	<!-- HAND-WRITTEN BLOCK, emitted verbatim by Tools/gen_arsenal.py (XNPC_SURVIVOR_OPS): edit it there, not here.
+
+	     0-XNPCCore 3.2's own survivors, npcSdcsSurvivor{Male,Female}T{1,2,3}, as SurvivorCommunity's survivors (XNPCCore
+	     migration M3; the user's decisions D2 and D7). The DLL owns the same six classes (ScXnpc, XnpcSurvivorClasses in
+	     blocks.xml) and dresses, names, heals and arms them; these ops take XNPC's own versions of that away.
+
+	     XNPC's look applier (SdcsLookApplier) gives each of them a preset archetype, a whole vanilla armor set at full
+	     protection, a name from its pool and a rolled weapon with 60 rounds. Its only trigger is this effect group
+	     (onSelfFirstSpawn, which fires on every world entry), so without it the look is SurvivorCommunity's: the DLL
+	     builds the body from a rolled or remembered SC look (Patches_Xnpc, createModel). -->
+	<remove xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/effect_group[@name='SDCS Look']"/>
+
+	<!-- Worn vanilla armor protects them at SurvivorCommunity's fraction, the same group the scSurvivor templates
+	     above carry (merged with the inherited effect groups; a perc_add suppresses nothing). -->
+	<append xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']">
+		<effect_group name="SurvivorCommunity worn armor scale">
+			<passive_effect name="PhysicalDamageResist" operation="perc_add" value="-0.5"/>
+		</effect_group>
+	</append>
+
+	<!-- No preset weapons in the bag. The property itself stays: SCore's EntityAliveSDXV4 builds the NPC's bag only when
+	     the class has one (SetupBagItems), and SCore reloads an NPC's gun from its inventory window only when it has a
+	     bag (ItemActionRangedHarvestAmmo). "none" is no item, so the bag is built empty. -->
+	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/property[@name='BagItems']/@value">none</set>
+
+	<!-- No preset medical stock: what they carry is SurvivorCommunity's roll (ScMedic: a few first aid bandages, now and
+	     then a kit), which they use with the bandage animation. -->
+	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/property[@name='HarvestItems']/@value">none</set>
+
+	<!-- SurvivorCommunity's name pools (the scSurvivor classes' Names above), one per sex. EntityAliveSDXV4 picks a
+	     random one when the entity is made; a known survivor's body then gets the registry name (ScSpawn). -->
+	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3']/property[@name='Names']/@value">Alex,Ben,Carl,Dan,Eli,Frank,Gus,Hank,Ivan,Jack,Kyle,Leo,Mike,Nate,Owen,Pete,Ray,Sam,Tom,Vic,Walt,Zack,Abe,Bill,Cole,Dave,Ed,Fred,Glen,Hal,Ike,Joe,Ken,Luke,Max,Ned,Otis,Paul,Rob,Seth,Ty,Vern,Wes,Zeke</set>
+	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/property[@name='Names']/@value">Amy,Beth,Cara,Dana,Erin,Faye,Gina,Holly,Iris,Jess,Kate,Lena,Mia,Nora,Opal,Pam,Rose,Sara,Tess,Val,Wren,Zoe</set>
 </configs>

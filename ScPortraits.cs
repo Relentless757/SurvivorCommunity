@@ -16,8 +16,10 @@ namespace SurvivorCommunity
     ///
     /// Player-body survivors (Member.Look != null) are rebuilt from the Look alone - no entity needed - with the
     /// same SDCSUtils steps vanilla's UI previews use, in the ENTITY path's order (gear before hair) so helmets
-    /// mask the hair exactly as they do on the live body. Pack NPCs (Look == null) can only be pictured while
-    /// loaded: their live skinned meshes are baked into static copies on the stage (the entity is never touched).
+    /// mask the hair exactly as they do on the live body. The community's 0-XNPCCore survivors wear an SC look as well
+    /// (Patches_Xnpc builds them from it), so a member who joined as one has a Look and takes the same path. Pack NPCs
+    /// (Look == null) can only be pictured while loaded: their live skinned meshes are baked into static copies on the
+    /// stage (the entity is never touched).
     ///
     /// Everything renders on an isolated stage 1 km below the world origin, on layer 27 (no game camera renders
     /// it), with our own lights; sun, moon, ambient and fog are overridden only for the duration of Camera.Render.
@@ -495,8 +497,9 @@ namespace SurvivorCommunity
                 Member m = ScRegistry.GetMember(id);
                 if (m == null || m.Look == null) return false;
                 // the live body takes its sex from the entity (ScLooks.Sync); a record rolled before that fix could
-                // disagree, and the survivor classes carry the sex in their name
-                if (ScLooks.IsSurvivorClass(m.Class)) m.Look.Male = ScLooks.ClassIsMale(m.Class);
+                // disagree, and the survivor classes carry the sex in their name - SC's own and the community's
+                // 0-XNPCCore survivors (npcSdcsSurvivorFemaleT2 and so on) alike
+                if (ScLooks.IsSurvivorClass(m.Class) || ScXnpc.IsManagedClass(m.Class)) m.Look.Male = ScLooks.ClassIsMale(m.Class);
                 ScLooks.Validate(m.Look);                    // base body/head assets exist, else White/01 (ScLooks.cs:499-514)
                 BuildLookRig(m.Look, ref rig, ref cat);
                 Stage st = EnsureStage();

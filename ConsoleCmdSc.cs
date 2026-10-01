@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save, xnpc"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save, xnpc [id|name]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -75,7 +75,7 @@ namespace SurvivorCommunity
                         break;
                     }
                     case "relink": Relink(); break;
-                    case "xnpc": XnpcCmd(); break;
+                    case "xnpc": XnpcCmd(_params); break;
                     case "home": Home(); break;
                     case "dump": Dump(); break;
                     case "save": ScRegistry.SaveAtomic(); Output("[SC] saved"); break;
@@ -1051,25 +1051,137 @@ namespace SurvivorCommunity
         }
 
         /// <summary>0-XNPCCore 3.2 checks: the billing guard's counters, and the body hooks that met one of its survivors.</summary>
-        private static void XnpcCmd()
+        /// <summary>
+        /// sc xnpc: the billing guard's counters, the body hooks that stepped aside for a 0-XNPCCore survivor, the
+        /// Patches_Xnpc hit counters and the loaded members with a hire contract. sc xnpc &lt;id|name&gt;: one NPC in
+        /// detail - the migration's main probe, since DevLink's cvar command only reads the player's cvars.
+        /// </summary>
+        private static void XnpcCmd(List<string> p)
         {
+            if (p.Count >= 2)
+            {
+                EntityAlive e = FindBodyNpc(p[1]);
+                if (e == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
+                Output(XnpcDescribe(e));
+                return;
+            }
             Output("[SC] voice control: " + (Patches_VoiceControl.ChatType != null ? "loaded" : "not loaded") + " - intercepted: " + Patches_VoiceControl.Report());
             Output("[SC] body hooks that met a 0-XNPCCore survivor and stepped aside: " + Patches_Sdcs.ForeignReport());
+            Output("[SC] 0-XNPCCore survivor hooks (Patches_Xnpc): " + Patches_Xnpc.Report());
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
             if (w == null) return;
-            int ours = 0, contracts = 0, theirs = 0;
+            int ours = 0, contracts = 0, theirs = 0, managed = 0;
             for (int i = 0; i < w.Entities.list.Count; i++)
             {
                 EntityAlive a = w.Entities.list[i] as EntityAlive;
                 if (a == null || a.Buffs == null || a is EntityPlayer) continue;
-                if (a.emodel is EModelSDCS && !Patches_Sdcs.IsOurModel(a.emodel)) theirs++;
+                if (a.emodel is EModelSDCS && !Patches_Sdcs.IsOurModel(a.emodel)) { if (ScXnpc.IsBody(a)) managed++; else theirs++; }
                 if (!Patches_VoiceControl.IsCommunityNpc(a)) continue;
                 ours++;
                 if (!a.Buffs.HasCustomVar("RetainerNextDueDay") && !a.Buffs.HasCustomVar("RetainerWeek")) continue;
                 contracts++;
                 Output("[SC]   hire contract on " + a.EntityName + " (" + a.entityId + ") - stripped at the next relink");
             }
-            Output("[SC] loaded: " + ours + " member(s)/stand-in(s), " + contracts + " with a hire contract; " + theirs + " 0-XNPCCore survivor(s)");
+            Output("[SC] loaded: " + ours + " member(s)/stand-in(s), " + contracts + " with a hire contract; " + managed
+                   + " 0-XNPCCore survivor(s) of the community's classes, " + theirs + " of 0-XNPCCore's other classes");
+        }
+
+        private static readonly string[] XnpcLevelCvars = { "SdcsNpcLevel", "SdcsLevelHealth", "SdcsLevelDamage", "SdcsLevelSpread", "SdcsLevelRegen" };
+        private static readonly string[] XnpcBuffs = { "SdcsNpcLevelBonus", "SdcsNoWear", "SdcsStatusCheck", "SdcsIsHealing", "IsHealing" };
+        private static readonly string[] XnpcOrderCvars = { "CurrentOrder", "Guarding", "Leader", "Owner", "vcEngage", "vcFollowMin", "vcFormationDist", "vcFormationAngle", "CrouchOverride" };
+
+        /// <summary>One NPC as the XNPCCore migration sees it (design section 1.4).</summary>
+        private static string XnpcDescribe(EntityAlive e)
+        {
+            var sb = new StringBuilder();
+            string cls = ScCommunity.ClassName(e);
+            Member m = ScRegistry.Loaded ? ScRegistry.GetMember(e.entityId) : null;
+            Prospect pr = ScRegistry.Loaded ? ScRegistry.GetProspect(e.entityId) : null;
+            sb.Append("[SC] ").Append(ScCommunity.DisplayName(e)).Append(" id ").Append(e.entityId).Append(' ').Append(e.GetType().Name)
+              .Append(" class ").Append(cls).Append(" managed=").Append(ScXnpc.IsManagedClass(e.entityClass)).Append(" xnpcBody=").Append(ScXnpc.IsBody(e))
+              .Append(" scBody=").Append(Patches_Sdcs.IsBodyNpc(e)).Append(" model=").Append(e.emodel != null ? e.emodel.GetType().Name : "null");
+            sb.Append("\n  record: ").Append(m != null ? "member " + m.Name + " (" + m.Status + ", class " + m.Class + ")" : (pr != null ? "prospect (class " + pr.Class + ")" : "none"))
+              .Append(" community=").Append(ScXnpc.IsCommunity(e));
+            // looks and names
+            EModelSDCS em = e.emodel as EModelSDCS;
+            Archetype arch = em != null ? em.Archetype : null;
+            sb.Append("\n  look: source=").Append(ScLooks.SourceOf(e.entityId)).Append(" archetype=").Append(arch != null ? arch.Name + " (" + arch.Sex + ")" : "-")
+              .Append(" isMale=").Append(e.IsMale).Append(" - ").Append(ScLooks.Describe(ScLooks.Get(e)));
+            sb.Append("\n  worn:");
+            for (int slot = 0; slot < 4; slot++)
+            {
+                ItemValue iv = e.equipment != null ? e.equipment.GetSlotItem(slot) : null;
+                // name:quality, then the wear (UseTimes of MaxUseTimes) so armor damage can be watched
+                sb.Append(' ').Append(iv != null && !iv.IsEmpty() && iv.ItemClass != null
+                    ? iv.ItemClass.GetItemName() + ":" + iv.Quality + " (" + iv.UseTimes.ToString("0.#") + "/" + iv.MaxUseTimesBase + ")" : "-");
+            }
+            EntityAliveSDXV4 v4 = e as EntityAliveSDXV4;
+            sb.Append("\n  name: FirstName=").Append(v4 != null ? v4.FirstName : "-").Append(" display=").Append(ScCommunity.DisplayName(e))
+              .Append(" registry=").Append(m != null ? m.Name : "-");
+            // weapons
+            var enter = new List<string>();
+            if (e.itemsOnEnterGame != null)
+                foreach (ItemStack st in e.itemsOnEnterGame)
+                    if (st != null && !st.IsEmpty() && st.itemValue.ItemClass != null) enter.Add(st.itemValue.ItemClass.GetItemName() + "x" + st.count);
+            ItemClass held = e.inventory != null ? e.inventory.holdingItem : null;
+            sb.Append("\n  weapons: itemsOnEnterGame=[").Append(string.Join(", ", enter.ToArray())).Append("] held=").Append(held != null ? held.GetItemName() : "-")
+              .Append(" _currentWeapon=").Append(ScNpc.CurrentWeapon(e) ?? "-").Append(" _defaultWeapon=").Append(ScNpc.DefaultWeapon(e) ?? "-");
+            if (e.Buffs != null)
+                sb.Append(" sc_loadout_r/m=").Append(e.Buffs.GetCustomVar(ScLoadout.RangedCvar)).Append('/').Append(e.Buffs.GetCustomVar(ScLoadout.MeleeCvar))
+                  .Append(" CurrentWeaponClass=").Append(e.Buffs.HasCustomVar("CurrentWeaponClass") ? e.Buffs.GetCustomVar("CurrentWeaponClass").ToString() : "-")
+                  .Append(" SdcsReloading=").Append(e.Buffs.GetCustomVar("SdcsReloading"));
+            sb.Append("\n  ammo: ").Append(XnpcAmmo(e, held));
+            // XNPC kill levels and buffs
+            if (e.Buffs != null)
+            {
+                sb.Append("\n  levels:");
+                foreach (string c in XnpcLevelCvars) sb.Append(' ').Append(c).Append('=').Append(e.Buffs.HasCustomVar(c) ? e.Buffs.GetCustomVar(c).ToString("0.###") : "-");
+                sb.Append(" Progression=").Append(e.Progression != null ? "level " + e.Progression.Level : "null");
+                sb.Append("\n  buffs:");
+                foreach (string b in XnpcBuffs) sb.Append(' ').Append(b).Append('=').Append(e.Buffs.HasBuff(b));
+                sb.Append("\n  orders:");
+                foreach (string c in XnpcOrderCvars) sb.Append(' ').Append(c).Append('=').Append(e.Buffs.HasCustomVar(c) ? e.Buffs.GetCustomVar(c).ToString("0.##") : "-");
+                bool retainer = false;
+                foreach (string c in Patches_VoiceControl.ContractCvars) if (e.Buffs.HasCustomVar(c)) retainer = true;
+                sb.Append(" Retainer*=").Append(retainer ? "yes" : "none");
+            }
+            sb.Append("\n  move: onMission=").Append(ScNpc.IsOnMission(e)).Append(" moveSpeed=").Append(e.moveSpeed.ToString("0.##"))
+              .Append(" moveSpeedPanic=").Append(e.moveSpeedPanic.ToString("0.##")).Append(" GetMoveSpeedPanic()=").Append(e.GetMoveSpeedPanic().ToString("0.##"));
+            sb.Append("\n  medic: ").Append(ScMedic.Describe(e));
+            sb.Append("\n  hooks: ").Append(Patches_Xnpc.Report());
+            return sb.ToString();
+        }
+
+        /// <summary>For the held ranged weapon: the magazine, and the reserve of each of its ammo types in every store.</summary>
+        private static string XnpcAmmo(EntityAlive e, ItemClass held)
+        {
+            ItemActionRanged ranged = null;
+            if (held != null && held.Actions != null)
+                foreach (ItemAction a in held.Actions) { ranged = a as ItemActionRanged; if (ranged != null) break; }
+            if (ranged == null || ranged.MagazineItemNames == null) return "not holding a ranged weapon";
+            var sb = new StringBuilder();
+            ItemValue hv = e.inventory.holdingItemItemValue;
+            sb.Append("magazine ").Append(hv != null ? hv.Meta : 0);
+            ItemStack[] window = HarvestManager.Has(e.entityId) ? ScNpc.Items(e) : null;
+            ItemStack[] bag = e.bag != null ? e.bag.GetSlots() : null;
+            ItemStack[] belt = e.inventory != null ? e.inventory.GetSlots() : null;
+            foreach (string name in ranged.MagazineItemNames)
+            {
+                ItemValue ammo = ItemClass.GetItem(name, true);
+                if (ammo == null || ammo.IsEmpty()) continue;
+                sb.Append("; ").Append(name).Append(": window ").Append(CountOf(window, ammo.type)).Append(" bag ").Append(CountOf(bag, ammo.type))
+                  .Append(" toolbelt ").Append(CountOf(belt, ammo.type));
+            }
+            return sb.ToString();
+        }
+
+        private static int CountOf(ItemStack[] slots, int type)
+        {
+            if (slots == null) return 0;
+            int n = 0;
+            for (int i = 0; i < slots.Length; i++)
+                if (slots[i] != null && !slots[i].IsEmpty() && slots[i].itemValue.type == type) n += slots[i].count;
+            return n;
         }
 
         private static void Relink()

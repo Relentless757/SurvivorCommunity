@@ -56,6 +56,8 @@ namespace SurvivorCommunity
                 ScLoadout.Reset();
                 ScMedic.Reset();
                 Patches_VoiceControl.Reset();
+                ScXnpc.Reset();
+                Patches_Xnpc.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
                 {
@@ -128,6 +130,13 @@ namespace SurvivorCommunity
                 if (Type.GetType("EntityAliveSDXV4, SCore") == null)
                 {
                     ScLog.Err("EntityAliveSDXV4 (SCore.dll) not found - this SCore is older than 0-XNPCCore 3.2 needs; SurvivorCommunity is inert");
+                    ok = false;
+                }
+                // 0-XNPCCore 3.2's player-body survivors (EModelSdcsNpc, AvatarSdcsNpcController) are named directly by
+                // ScXnpc and the looks code: without NPCSdcsCharacters.dll every body check would throw on first use
+                if (Type.GetType("EModelSdcsNpc, NPCSdcsCharacters") == null)
+                {
+                    ScLog.Err("EModelSdcsNpc (0-XNPCCore's NPCSdcsCharacters.dll) not found - 0-XNPCCore is older than 3.2 or incomplete; SurvivorCommunity is inert");
                     ok = false;
                 }
             }
@@ -208,6 +217,15 @@ namespace SurvivorCommunity
             Add(t, "EntityAliveSDX::Write", AccessTools.Method(typeof(EntityAliveSDX), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
             Add(t, "EntityAliveSDXV4::ExecuteAction", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
             Add(t, "EntityAliveSDXV4::Write", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
+            // Patches_Xnpc.cs - the 0-XNPCCore survivor classes the community owns (all declared on XNPC's own types)
+            Add(t, "EModelSdcsNpc::createModel", Patches_Xnpc.CreateModelTarget());
+            Add(t, "MinEventActionSdcsApplyLook::Execute", Patches_Xnpc.ApplyLookTarget());
+            Add(t, "EModelSdcsNpc::GenerateMeshes", Patches_Xnpc.GenerateMeshesTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsWearTick", Patches_Xnpc.WearTickTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsFailoverTick", Patches_Xnpc.FailoverTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsCloseRangeTick", Patches_Xnpc.CloseRangeTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsTryWorldEntryRearm", Patches_Xnpc.RearmTarget());
+            Add(t, "AvatarSdcsNpcController::Update", Patches_Xnpc.UpdateTarget());
             // ScAim.cs - the aim pose (visual only)
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));
             Add(t, "UAITaskAttackTargetEntitySDX::Start", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Start", new[] { typeof(UAI.Context) }));

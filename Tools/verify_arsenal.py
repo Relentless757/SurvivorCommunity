@@ -1,4 +1,4 @@
-import io, os, csv
+import io, os, csv, re, ast
 from lxml import etree as ET
 G = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
 # SC_GEN_CONFIG checks a staged copy of Config (the same switch gen_arsenal.py writes to)
@@ -23,6 +23,9 @@ def apply(doc, patchfile, label):
             kids = [c for c in op if isinstance(c.tag, str)]
             for t in targets:
                 if not hasattr(t, "getparent"): continue
+                if op.tag == "set":                   # attribute targets only: that is all SC's ops use
+                    if isinstance(t, str) and getattr(t, "is_attribute", False): t.getparent().set(t.attrname, op.text or "")
+                    continue
                 if op.tag == "remove":
                     if isinstance(t, str):            # an attribute or text match: the game's RemoveByXPath throws
                         print("  !! %s: <remove> matches an attribute/text node: %s" % (label, xp)); continue
@@ -95,6 +98,28 @@ for n in leaves:
     if kind not in ("melee", "ranged"): errors.append("%s: ScWeaponKind %s" % (n, kind))
     elif fam not in (("melee", "unarmed") if kind == "melee" else ("bow", "firearm", "launcher")):
         errors.append("%s: ScWeaponFamily %s does not fit kind %s" % (n, fam, kind))
+# XNPCCore migration M3: 0-XNPCCore's own survivors carry SC's look, armor scale, names and no preset bag or stock
+# (gen_arsenal.py XNPC_SURVIVOR_OPS), every one of them, exactly once
+_gen_src = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gen_arsenal.py"), encoding="utf-8").read()
+def _gen_const(name):
+    """A literal table from gen_arsenal.py, read without running it (running it would regenerate the Config)."""
+    m = re.search(r"^%s = (.*?)\n(?=[^\s}\])])" % name, _gen_src, flags=re.S | re.M)   # up to the next top-level line
+    return ast.literal_eval(m.group(1).strip()) if m else None
+xnpc_survivors = _gen_const("XNPC_SURVIVORS") or []
+gen_names = _gen_const("NAMES") or {}
+if len(xnpc_survivors) != 6: errors.append("gen_arsenal.py XNPC_SURVIVORS: %d classes, want 6" % len(xnpc_survivors))
+for n in xnpc_survivors:
+    e = names.get(n)
+    if e is None: errors.append("XNPC survivor %s does not exist after the replay" % n); continue
+    if e.xpath("effect_group[@name='SDCS Look']"): errors.append(n + ": still has XNPC's 'SDCS Look' effect group")
+    groups_ = e.xpath("effect_group[@name='SurvivorCommunity worn armor scale']")
+    if len(groups_) != 1: errors.append("%s: %d 'SurvivorCommunity worn armor scale' groups, want 1" % (n, len(groups_)))
+    for prop in ("BagItems", "HarvestItems"):
+        v = e.xpath("property[@name=$p]/@value", p=prop)
+        if v != ["none"]: errors.append("%s: %s is %s, want none (the property must stay)" % (n, prop, v))
+    want = gen_names.get(("s", "Female" not in n))
+    if e.xpath("property[@name='Names']/@value") != [want]: errors.append(n + ": Names is not SC's survivor pool")
+print("  XNPC survivors checked: %d" % len(xnpc_survivors))
 # duplicate definitions (a rerun of the generator must replace its block, never append a second)
 for label, root, tag in (("item", it.getroot(), "item"), ("entity class", ec.getroot(), "entity_class")):
     c = Counter(e.get("name") for e in root.iter(tag))

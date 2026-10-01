@@ -4,6 +4,8 @@
 # Writes:
 #   Config/entityclasses.xml   (whole file)   scSurvivor<Weapon>Template + scSurvivor<Sex><Weapon>   (friendly)
 #                                             scRaider<Weapon>Template   + scRaider<Sex><Weapon>     (hostile)
+#                                             + XNPC_SURVIVOR_OPS: the hand-written ops that make 0-XNPCCore's own
+#                                             survivors ours (XNPCCore migration M3), emitted after the classes
 #   Config/entitygroups.xml    (whole file)   our own survivor and raider groups, tiered; and the pack NPCs
 #                                             swapped out of the framework's sleeper groups (W0, below)
 #   Config/spawning.xml        (whole file)   our own biome spawn entries that call those groups; and the
@@ -110,6 +112,60 @@ NAMES = {
 # the percentage multiplies the whole rating (EffectManager sums every base first, then applies perc_add). 0.5 puts
 # an unarmored NPC at 5%, three medium pieces around 30%, a full top set under 50% - never near-immune.
 WORN_ARMOR_SCALE = 0.5
+
+# 0-XNPCCore 3.2's own player-body survivors that SurvivorCommunity takes over (XNPCCore migration M3, decisions D2
+# and D7). Keep in step with ScXnpc.DefaultClasses in the DLL and XnpcSurvivorClasses in Config/blocks.xml.
+XNPC_SURVIVORS = ["npcSdcsSurvivorMaleT1", "npcSdcsSurvivorMaleT2", "npcSdcsSurvivorMaleT3",
+                  "npcSdcsSurvivorFemaleT1", "npcSdcsSurvivorFemaleT2", "npcSdcsSurvivorFemaleT3"]
+
+# Hand-written patch ops for those six, emitted verbatim after the generated classes (this script rewrites the whole
+# entityclasses.xml, and the game only reads Config/entityclasses.xml, so they live here). The %(...)s fields are
+# filled from the tables in this file - the class selectors, the armor scale and the survivor name pools - so the
+# XNPC survivors always get exactly what SC's own scSurvivor classes carry. XML comments may not contain two dashes.
+XNPC_SURVIVOR_OPS = """
+\t<!-- HAND-WRITTEN BLOCK, emitted verbatim by Tools/gen_arsenal.py (XNPC_SURVIVOR_OPS): edit it there, not here.
+
+\t     0-XNPCCore 3.2's own survivors, npcSdcsSurvivor{Male,Female}T{1,2,3}, as SurvivorCommunity's survivors (XNPCCore
+\t     migration M3; the user's decisions D2 and D7). The DLL owns the same six classes (ScXnpc, XnpcSurvivorClasses in
+\t     blocks.xml) and dresses, names, heals and arms them; these ops take XNPC's own versions of that away.
+
+\t     XNPC's look applier (SdcsLookApplier) gives each of them a preset archetype, a whole vanilla armor set at full
+\t     protection, a name from its pool and a rolled weapon with 60 rounds. Its only trigger is this effect group
+\t     (onSelfFirstSpawn, which fires on every world entry), so without it the look is SurvivorCommunity's: the DLL
+\t     builds the body from a rolled or remembered SC look (Patches_Xnpc, createModel). -->
+\t<remove xpath="/entity_classes/entity_class[%(sel)s]/effect_group[@name='SDCS Look']"/>
+
+\t<!-- Worn vanilla armor protects them at SurvivorCommunity's fraction, the same group the scSurvivor templates
+\t     above carry (merged with the inherited effect groups; a perc_add suppresses nothing). -->
+\t<append xpath="/entity_classes/entity_class[%(sel)s]">
+\t\t<effect_group name="SurvivorCommunity worn armor scale">
+\t\t\t<passive_effect name="PhysicalDamageResist" operation="perc_add" value="%(armor)s"/>
+\t\t</effect_group>
+\t</append>
+
+\t<!-- No preset weapons in the bag. The property itself stays: SCore's EntityAliveSDXV4 builds the NPC's bag only when
+\t     the class has one (SetupBagItems), and SCore reloads an NPC's gun from its inventory window only when it has a
+\t     bag (ItemActionRangedHarvestAmmo). "none" is no item, so the bag is built empty. -->
+\t<set xpath="/entity_classes/entity_class[%(sel)s]/property[@name='BagItems']/@value">none</set>
+
+\t<!-- No preset medical stock: what they carry is SurvivorCommunity's roll (ScMedic: a few first aid bandages, now and
+\t     then a kit), which they use with the bandage animation. -->
+\t<set xpath="/entity_classes/entity_class[%(sel)s]/property[@name='HarvestItems']/@value">none</set>
+
+\t<!-- SurvivorCommunity's name pools (the scSurvivor classes' Names above), one per sex. EntityAliveSDXV4 picks a
+\t     random one when the entity is made; a known survivor's body then gets the registry name (ScSpawn). -->
+\t<set xpath="/entity_classes/entity_class[%(male)s]/property[@name='Names']/@value">%(male_names)s</set>
+\t<set xpath="/entity_classes/entity_class[%(female)s]/property[@name='Names']/@value">%(female_names)s</set>
+"""
+
+def xnpc_survivor_ops():
+    sel = lambda names: " or ".join("@name='%s'" % n for n in names)
+    male = [n for n in XNPC_SURVIVORS if "Female" not in n]
+    female = [n for n in XNPC_SURVIVORS if "Female" in n]
+    if not male or not female: raise SystemExit("XNPC_SURVIVORS needs both sexes")
+    return XNPC_SURVIVOR_OPS % {"sel": sel(XNPC_SURVIVORS), "male": sel(male), "female": sel(female),
+                                "armor": "%g" % (WORN_ARMOR_SCALE - 1.0),
+                                "male_names": NAMES[("s", True)], "female_names": NAMES[("s", False)]}
 
 FEMALE_SOUNDS = [("SoundHurt","player2painlg"),("SoundHurtSmall","player2painsm"),("SoundDeath","player2death"),
     ("SoundStamina","player2stamina"),("SoundDrownPain","player2drownpain"),("SoundWaterSurface","player2drownsurface"),
@@ -286,7 +342,11 @@ for side in ("s", "r"):
                 l.append("".join(P(k, v) for k, v in FEMALE_SOUNDS))
             l.append('\t\t</entity_class>\n')
             out.append("".join(l))
-out.append("\t</append>\n</configs>\n")
+out.append("\t</append>\n")
+for n in XNPC_SURVIVORS:                          # the ops below would silently match nothing for a renamed class
+    if cls(n) is None: raise SystemExit("XNPC survivor class %s is not in 0-XNPCCore's entityclasses.xml - update XNPC_SURVIVORS" % n)
+out.append(xnpc_survivor_ops())
+out.append("</configs>\n")
 io.open(os.path.join(MOD, "entityclasses.xml"), "w", encoding="utf-8", newline="\n").write("".join(out))
 
 # ------------------------------------------------------------------------------------------------------------

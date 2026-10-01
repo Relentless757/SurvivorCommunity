@@ -293,6 +293,15 @@ namespace SurvivorCommunity
         public static float SurvivorFirearmChance = 0.12f;
         /// <summary>How often a console spawn or radio contact gets a ranged class weapon.</summary>
         public static float SurvivorRangedMainChance = 0.4f;
+        // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
+        /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
+        public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
+        /// <summary>Their knock-down recovery runs as a player's (Patches_Sdcs ragdoll fixes), as it does for SC's own bodies.</summary>
+        public static bool XnpcBodyGetUp = true;
+        /// <summary>Their jumps fire the player animator's jump trigger (Patches_Sdcs.Patch_JumpAnim).</summary>
+        public static bool XnpcBodyJumpAnim = true;
+        /// <summary>Their hit colliders are put back on the hittable layer after spawn and rebuilds (Patches_Sdcs.FixColliderLayers).</summary>
+        public static bool XnpcBodyColliderLayers = true;
         public static int TraitsPerRecruit = 2;
         public static bool Verbose = false;
         public static readonly List<TraitDef> Traits = new List<TraitDef>();
@@ -346,6 +355,11 @@ namespace SurvivorCommunity
             SurvivorSecondWeapon = true;
             SurvivorFirearmChance = 0.12f;
             SurvivorRangedMainChance = 0.4f;
+            XnpcSurvivorClasses.Clear();
+            XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
+            XnpcBodyGetUp = true;
+            XnpcBodyJumpAnim = true;
+            XnpcBodyColliderLayers = true;
             OutpostMinDistance = 150;
             OutpostMax = 4;
             OutpostMembersPerSlot = 4;
@@ -657,6 +671,15 @@ namespace SurvivorCommunity
                 SurvivorSecondWeapon = secondWeapon;
                 ParseFloat(p, "SurvivorFirearmChance", ref SurvivorFirearmChance, 0f, 1f);
                 ParseFloat(p, "SurvivorRangedMainChance", ref SurvivorRangedMainChance, 0f, 1f);
+                bool xnpcGetUp = XnpcBodyGetUp;
+                if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
+                XnpcBodyGetUp = xnpcGetUp;
+                bool xnpcJump = XnpcBodyJumpAnim;
+                if (p.Values.ContainsKey("XnpcBodyJumpAnim")) p.ParseBool("XnpcBodyJumpAnim", ref xnpcJump);
+                XnpcBodyJumpAnim = xnpcJump;
+                bool xnpcColliders = XnpcBodyColliderLayers;
+                if (p.Values.ContainsKey("XnpcBodyColliderLayers")) p.ParseBool("XnpcBodyColliderLayers", ref xnpcColliders);
+                XnpcBodyColliderLayers = xnpcColliders;
                 bool verbose = Verbose;
                 if (p.Values.ContainsKey("DebugLogging")) p.ParseBool("DebugLogging", ref verbose);
                 Verbose = verbose;
@@ -669,6 +692,7 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("SuppliesFavours", out s) && !string.IsNullOrEmpty(s)) ParseSuppliesFavours(s);
                 if (p.Values.TryGetValue("ValueOverrides", out s) && !string.IsNullOrEmpty(s)) ParseOverrides(s);
                 if (p.Values.TryGetValue("SurvivorGearSets", out s) && !string.IsNullOrEmpty(s)) { SurvivorGearSets.Clear(); SurvivorGearSets.AddRange(SplitList(s)); }
+                if (p.Values.TryGetValue("XnpcSurvivorClasses", out s) && !string.IsNullOrEmpty(s)) { XnpcSurvivorClasses.Clear(); XnpcSurvivorClasses.AddRange(SplitList(s)); }
 
                 DynamicProperties traits;
                 if (p.Classes != null && p.Classes.TryGetValue("Traits", out traits) && traits != null)
