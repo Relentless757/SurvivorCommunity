@@ -64,6 +64,7 @@ namespace SurvivorCommunity
 
         public static void Reset()
         {
+            ammoTypes = null;
             nextCheck = 0f;
             nextResupply.Clear();
             nextRefusalLog.Clear();
@@ -305,7 +306,11 @@ namespace SurvivorCommunity
             try
             {
                 if (e == null || e.bag == null || !ScXnpc.IsBody(e) || !HarvestManager.Has(e.entityId)) return;
-                ItemStack[] items = HarvestManager.GetOrCreate(e.entityId).items;
+                SCoreLootContainer window = HarvestManager.GetOrCreate(e.entityId);
+                // never while someone has the window open: the loot grid shows copies and refreshes only on a change
+                // notice, so arrows moved under it would stay on screen and could be dragged out a second time
+                if (window == null || window.IsUserAccessing()) return;
+                ItemStack[] items = window.items;
                 if (items == null) return;
                 int moved = 0;
                 for (int i = 0; i < items.Length; i++)
@@ -319,7 +324,11 @@ namespace SurvivorCommunity
                     if (k >= s.count) items[i] = ItemStack.Empty.Clone();
                     else s.count -= k;
                 }
-                if (moved > 0) ScLog.Verbose("moved " + moved + " round(s) of " + ScCommunity.DisplayName(e) + "'s ammo from the inventory window into the bag");
+                if (moved > 0)
+                {
+                    window.NotifyListeners();
+                    ScLog.Verbose("moved " + moved + " round(s) of " + ScCommunity.DisplayName(e) + "'s ammo from the inventory window into the bag");
+                }
             }
             catch (Exception ex)
             {

@@ -592,6 +592,7 @@ namespace SurvivorCommunity
             try
             {
                 if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost || e.Buffs == null) return;
+                ScAmmo.MoveWindowAmmoToBag(e);
                 if (ScAmmo.RestoreRecorded(e)) return;
                 if (e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f) return;
                 Loadout l = Current(e);

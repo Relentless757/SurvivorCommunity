@@ -38,6 +38,7 @@ namespace SurvivorCommunity
         {
             hits.Clear();
             updateHits = 0;
+            Patch_ModelLayer.Reset();
         }
 
         internal static void Count(string what)
@@ -465,6 +466,68 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-update", ex);
+                }
+            }
+        }
+            /// <summary>
+        /// X8. Our bodies must not hit themselves. A melee swing (ItemActionDynamic.GetExecuteActionTarget) and a gun's shot
+        /// hide the attacker from their own ray with SetModelLayer(2) and put it back afterwards, but EntityAliveSDXV4
+        /// overrides SetModelLayer with an empty body. 0-XNPCCore's own survivors get away with it because their hit
+        /// colliders stay on the no-collision layer; ours are on layer 0 so they can be hit at all (FixColliderLayers),
+        /// so the ray met the attacker's own arm or hand first: a bat seen landing on a zombie did no damage (reported
+        /// 2026-10-01). On SetModelLayer(2) the body's layer-0 colliders - and only those, never the renderers vanilla's
+        /// version would flatten too - go to layer 2; the next SetModelLayer call (the restore) puts exactly those back.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_ModelLayer
+        {
+            private static readonly Dictionary<int, List<UnityEngine.Collider>> lifted = new Dictionary<int, List<UnityEngine.Collider>>();
+
+            public static void Reset() { lifted.Clear(); }
+
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "SetModelLayer", new[] { typeof(int), typeof(bool), typeof(string[]) });
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare() { return Target() != null; }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(EntityAliveSDXV4 __instance, int _layerId)
+            {
+                try
+                {
+                    if (__instance == null || !ScXnpc.IsBody(__instance) || __instance.emodel == null) return;
+                    int id = __instance.entityId;
+                    List<UnityEngine.Collider> list;
+                    if (_layerId == 2)
+                    {
+                        if (lifted.ContainsKey(id)) return;
+                        UnityEngine.Transform mt = __instance.emodel.GetModelTransform();
+                        if (mt == null) return;
+                        list = new List<UnityEngine.Collider>();
+                        foreach (UnityEngine.Collider c in mt.GetComponentsInChildren<UnityEngine.Collider>(true))
+                        {
+                            if (c == null || c.gameObject.layer != 0) continue;
+                            c.gameObject.layer = 2;
+                            list.Add(c);
+                        }
+                        lifted[id] = list;
+                        Count("x8-self-hit-guard");
+                    }
+                    else if (lifted.TryGetValue(id, out list))
+                    {
+                        foreach (UnityEngine.Collider c in list) if (c != null && c.gameObject.layer == 2) c.gameObject.layer = 0;
+                        lifted.Remove(id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-modellayer", ex);
                 }
             }
         }
