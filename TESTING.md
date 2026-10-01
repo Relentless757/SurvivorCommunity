@@ -27,7 +27,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 ## Weapons task W1 (build sc_w1b): visible aiming
 
-**Built 2026-10-01 (DLL md5 ace5b130), NOT deployed yet.** Survivors and raiders with the player's body shoulder their gun while they
+**Deployed 2026-10-01** (DLL md5 ace5b130, commit 0562d4d). Not yet tested in game. Survivors and raiders with the player's body shoulder their gun while they
 shoot and lower it about 2 s after the last shot. Bows draw before each release. It is only a pose: their accuracy and
 critical hits are unchanged. Settings in Config/blocks.xml: `SurvivorAimPose`, `SurvivorAimVisualOnly`,
 `SurvivorAimHoldSeconds`. Already proven live before the code (2026-10-01, DevLink): the `IsAiming` flag shoulders the
