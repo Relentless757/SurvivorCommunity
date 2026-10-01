@@ -286,16 +286,6 @@ namespace SurvivorCommunity
             return ok;
         }
 
-        /// <summary>A hireable class that is NOT one of ours (the pack NPCs); any class when there are none.</summary>
-        public static string PickOther(List<string> classes, GameRandom rnd)
-        {
-            if (classes == null || classes.Count == 0) return null;
-            var ok = new List<string>();
-            foreach (string c in classes) if (!IsSurvivorClass(c)) ok.Add(c);
-            if (ok.Count == 0) ok = classes;
-            return ok[rnd != null ? rnd.RandomRange(0, ok.Count) : 0];
-        }
-
         // ---- resolution for the model shim ----
 
         /// <summary>

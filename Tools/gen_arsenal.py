@@ -4,8 +4,10 @@
 # Writes:
 #   Config/entityclasses.xml   (whole file)   scSurvivor<Weapon>Template + scSurvivor<Sex><Weapon>   (friendly)
 #                                             scRaider<Weapon>Template   + scRaider<Sex><Weapon>     (hostile)
-#   Config/entitygroups.xml    (whole file)   our own survivor and raider groups, tiered
-#   Config/spawning.xml        (whole file)   our own biome spawn entries that call those groups
+#   Config/entitygroups.xml    (whole file)   our own survivor and raider groups, tiered; and the pack NPCs
+#                                             swapped out of the framework's sleeper groups (W0, below)
+#   Config/spawning.xml        (whole file)   our own biome spawn entries that call those groups; and the
+#                                             framework's own pack-NPC biome spawns removed (W0)
 #   Config/items.xml           (marked block) the new NPC weapon items, cloned from the framework's closest one
 #   Config/Localization.csv    (managed rows) entity and item names
 #
@@ -20,7 +22,8 @@ import io, os, re, sys, csv
 from lxml import etree as ET
 
 GAME = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
-MOD = os.path.join(GAME, r"Mods\SurvivorCommunity\Config")
+# SC_GEN_CONFIG points the output at a staged COPY of Config (items.xml and Localization.csv are read back too)
+MOD = os.environ.get("SC_GEN_CONFIG") or os.path.join(GAME, r"Mods\SurvivorCommunity\Config")
 XNPC = os.path.join(GAME, r"Mods\0-XNPCCore\Config")
 VAN = os.path.join(GAME, r"Data\Config")
 
@@ -281,8 +284,8 @@ io.open(os.path.join(MOD, "entityclasses.xml"), "w", encoding="utf-8", newline="
 # diced into 80x80 m areas, and an area rolls one <spawn> entry at a time against its entity group. A "none" hit
 # burns that entry for that area until respawndelay has passed (DecMaxCount), so each area gives one real roll
 # per entry per respawndelay - and CHANCE is exactly the odds of that roll being one of ours. RESPAWN is in game
-# days. The framework's own friendly cast sits at 3%, so a survivor at 6% turns up about twice as often as the
-# whole core cast, and a raider at 4% a little more often than Harley.
+# days. For scale, the framework's own sample cast rolled about 1-4% per area (by band) before W0 removed its biome
+# spawns, so these are now the only wild NPCs.
 SURVIVOR_CHANCE, SURVIVOR_RESPAWN = 0.06, 0.5
 RAIDER_CHANCE, RAIDER_RESPAWN = 0.04, 1.0
 # how each band mixes weapon tiers (relative weight per tier)
@@ -298,9 +301,122 @@ PLACES = [("Wild", "Day",   "GS01",  None,                    "commercial,indust
           ("City", "Day",   "GS50",  "downtown",              None),
           ("City", "Night", "GS100", "downtown",              None)]
 
-def framework_total(group):
-    g = one(ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot(), "//entitygroup[@name=$n]", n=group)
-    return sum(float(e.get("p") or 1) for e in g.findall("e") if e.get("n") != "none")
+# ------------------------------------------------------------------------------------------------------------
+# W0: no NEW pack NPCs while this mod is installed (the user's call, 2026-09-30). Existing ones stay and keep their
+# behaviour; the class definitions are untouched, so saves holding them still load. The framework's sample cast
+# (Nurse, Baker, Harley, the NPC fox - and any character pack that inserts next to them) spawns from:
+#  * its own biome <spawn> entries (0-XNPCCore/Config/spawning.xml) - removed;
+#  * the sleeper groups behind its S_-Group_NPC_* POI volumes (gamestages.xml spawners NPC*Horde). No installed
+#    POI uses them today (only its own testonly prefabs), an NPC POI pack would.
+# A group cannot just be emptied (EntityGroupsFromXml throws "Empty entity groups not allowed!") and "none" must
+# never be entry 0 (see below), so in EVERY framework group (the now-uncalled biome ones too, in case a later mod
+# calls them again) each human pack NPC becomes our player-body class with the same framework weapon and the
+# group's side, at the same probability split over both sexes. All element children are replaced (<e> and the
+# older <entity>), which also drops whatever a character pack inserted there. Groups whose other members are
+# vanilla animals only lose the pack NPC. Rerun after a 0-XNPCCore update: the lists come from its files.
+# ------------------------------------------------------------------------------------------------------------
+CLASS_INDEX = {}                                  # name -> element; the framework's definition wins over vanilla's
+for root in (xnpc_classes, ET.parse(os.path.join(VAN, "entityclasses.xml")).getroot()):
+    for e in root.iter("entity_class"):
+        CLASS_INDEX.setdefault(e.get("name"), e)
+
+def any_class(name):
+    return CLASS_INDEX.get(name)
+
+def class_chain(name):
+    out = []
+    while name and len(out) < 40:
+        out.append(name)
+        e = any_class(name)
+        if e is None: break
+        name = e.get("extends")
+    return out
+
+def class_prop(name, prop):
+    for n in class_chain(name):
+        e = any_class(n)
+        p = one(e, "property[@name=$p]", p=prop) if e is not None else None
+        if p is not None: return p.get("value")
+    return None
+
+def is_pack_npc(name):
+    """A framework NPC (EntityAliveSDX / EntityNPCBandit) that is not one of ours."""
+    if not name or name == "none" or name.startswith(("scSurvivor", "scRaider")): return False
+    c = class_prop(name, "Class") or ""
+    return "EntityAliveSDX" in c or "EntityNPCBandit" in c
+
+FRAMEWORK_CATS = set(cat for _, cat, _, _, van, _ in WEAPONS if van is None)
+BASE_TOKEN = dict((cat, tok) for tok, cat, _, _, van, _ in WEAPONS if van is None)   # AK47 -> Rifle
+
+def framework_cat(name):
+    """The framework weapon a pack NPC carries, from its npc[Advanced|Bandit|BM]<Cat>Template ancestor, or None."""
+    for n in class_chain(name):
+        m = re.match(r"^npc(?:Advanced|Bandit|BM)?(\w+?)Template$", n)
+        if m and m.group(1) in FRAMEWORK_CATS: return m.group(1)
+    return None
+
+def is_pack_animal(name):
+    """An NPC-framework animal (the NPC fox rides npcAnimalMeleeTemplate): dropped, never swapped."""
+    return any(re.match(r"^npcAnimal", n) for n in class_chain(name))
+
+def swap_kind(name):
+    """'human' (swap for ours), 'animal' (drop), or stop: a human pack NPC with no known framework weapon would
+    otherwise lose its share silently."""
+    if framework_cat(name): return "human"
+    if is_pack_animal(name): return "animal"
+    raise SystemExit("W0: pack NPC %s has no framework weapon template (chain %s) - map it by hand" % (name, class_chain(name)))
+
+def xpath_names(names):
+    return " or ".join("@name='%s'" % n for n in names)
+
+ours = set(n for n, _, _, _ in leaf_names)
+xnpc_spawn_groups = set(e.get("entitygroup") for e in
+                        ET.parse(os.path.join(XNPC, "spawning.xml")).getroot().iter("spawn") if e.get("entitygroup"))
+w0_spawns, w0_swap, w0_drop = [], {}, {}
+for grp in ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot().iter("entitygroup"):
+    gname = grp.get("name")
+    kids = [e for e in grp if isinstance(e.tag, str)]
+    ents = [(e.get("n") or e.get("name"), float(e.get("p") or e.get("prob") or 1)) for e in kids]
+    pack = [n for n, _ in ents if is_pack_npc(n)]
+    if not pack: continue
+    if gname in xnpc_spawn_groups:                # its biome groups: the <spawn> entries go, and the group is swapped
+        w0_spawns.append(gname)
+    if (grp.text or "").strip(): raise SystemExit("W0: %s holds flat-text entries - not handled" % gname)
+    if any(e.tag != "e" for e in kids): raise SystemExit("W0: %s has non-<e> entries - not handled" % gname)
+    humans = [n for n in pack if swap_kind(n) == "human"]
+    if not humans:                                # only pack animals (the NPC fox) among other members
+        rest = [n for n, _ in ents if n not in pack]
+        if not rest or rest[0] == "none": raise SystemExit("W0: dropping %s would leave %s empty or 'none'-first" % (pack, gname))
+        w0_drop[gname] = tuple(sorted(set(pack)))
+        continue
+    # the group's side, not each NPC's: the framework files its one friendly Harley (npcHarleyKnife, an
+    # EntityAliveSDX) among the bandits, and a survivor has no place in a bandit camp
+    bandits = sum(1 for n in humans if "EntityNPCBandit" in (class_prop(n, "Class") or ""))
+    prefix = "scRaider" if bandits * 2 >= len(humans) else "scSurvivor"
+    if 0 < bandits < len(humans) and min(bandits, len(humans) - bandits) * 4 > len(humans):
+        raise SystemExit("W0: %s mixes %d bandits with %d friendlies - pick its side by hand" % (gname, bandits, len(humans) - bandits))
+    new = []                                      # (name, p) in the framework's order, duplicates summed
+    for n, p in ents:
+        if not is_pack_npc(n):
+            subs = [(n, p)]
+        elif swap_kind(n) == "animal":
+            subs = []                             # a pack animal inside a human group: dropped
+        else:
+            subs = [("%s%s%s" % (prefix, sex, BASE_TOKEN[framework_cat(n)]), p / 2.0) for sex in ("Male", "Female")]
+        for sn, sp in subs:
+            if sn != "none" and is_pack_npc(sn): raise SystemExit("W0: %s still holds pack NPC %s" % (gname, sn))
+            if sn.startswith(("scSurvivor", "scRaider")) and sn not in ours: raise SystemExit("W0: no class " + sn)
+            for i, (en, ep) in enumerate(new):
+                if en == sn: new[i] = (en, ep + sp); break
+            else:
+                new.append((sn, sp))
+    if not new or new[0][0] == "none": raise SystemExit("W0: %s would be empty or 'none'-first" % gname)
+    w0_swap[gname] = tuple(new)
+if not w0_spawns or not w0_swap: raise SystemExit("W0: found no framework pack groups - did 0-XNPCCore change?")
+w0_swap_sets = {}                                 # identical replacement lists share one remove + append
+for gname in sorted(w0_swap): w0_swap_sets.setdefault(w0_swap[gname], []).append(gname)
+w0_drop_sets = {}
+for gname in sorted(w0_drop): w0_drop_sets.setdefault(w0_drop[gname], []).append(gname)
 
 g = ['<?xml version="1.0" encoding="UTF-8" ?>\n<configs>\n']
 g.append("""\t<!-- GENERATED by Tools/gen_arsenal.py - edit SURVIVOR_CHANCE, RAIDER_CHANCE and MIX there, not this file.
@@ -320,14 +436,32 @@ for side, tag, chance, _ in SIDES:
         entries = [(n, mix[t]) for (n, sd, tok, t) in leaf_names if sd == side and t in mix]
         rel = sum(w for _, w in entries)
         total = 100.0 * chance
-        fw = framework_total("npcFriendlyCoreGroup" + band if side == "s" else "npcHarleyGroup" + band)
-        g.append('\n\t\t<!-- %d entries sharing %.2f in 100, against the framework\'s own %.2f -->\n' % (len(entries), total, fw))
+        g.append('\n\t\t<!-- %d entries sharing %.2f in 100 -->\n' % (len(entries), total))
         g.append('\t\t<entitygroup name="sc%sGroup%s">\n' % (tag, band))
         for n, w in entries:
             g.append('\t\t\t<e n="%s" p="%.5f"/>\n' % (n, total * w / rel))
         g.append('\t\t\t<e n="none" p="%.2f"/>\n' % (100.0 - total))
         g.append('\t\t</entitygroup>\n')
-g.append("\t</append>\n</configs>\n")
+g.append("\t</append>\n")
+g.append("""
+\t<!-- W0: no new pack NPCs while SurvivorCommunity is installed (Nurse, Baker, Harley, the NPC fox, and whatever a
+\t     character pack inserts next to them). These are the framework's own groups: the sleeper groups behind its
+\t     S_-Group_NPC_* POI volumes, and its biome groups (their spawn entries are removed in spawning.xml). A group
+\t     may not be empty (the game throws at load) and "none" must not come first, so each pack NPC becomes our
+\t     player-body class with the same framework weapon and the group's side, at the same probability split over
+\t     both sexes. Groups that also hold vanilla animals only lose the pack NPC. %d groups swapped, %d trimmed. -->
+""" % (len(w0_swap), len(w0_drop)))
+for entries, names in sorted(w0_swap_sets.items(), key=lambda kv: kv[1][0]):
+    sel = "/entitygroups/entitygroup[%s]" % xpath_names(names)
+    g.append('\n\t<remove xpath="%s/*"/>\n' % sel)            # <e> and the older <entity> rows alike
+    g.append('\t<append xpath="%s">\n' % sel)
+    for n, p in entries:
+        g.append('\t\t<e n="%s" p="%s"/>\n' % (n, "%g" % round(p, 6)))
+    g.append('\t</append>\n')
+for packs, names in sorted(w0_drop_sets.items(), key=lambda kv: kv[1][0]):
+    g.append('\n\t<remove xpath="/entitygroups/entitygroup[%s]/e[%s]"/>\n' % (
+        xpath_names(names), " or ".join("@n='%s'" % n for n in packs)))
+g.append("</configs>\n")
 io.open(os.path.join(MOD, "entitygroups.xml"), "w", encoding="utf-8", newline="\n").write("".join(g))
 
 s = ['<?xml version="1.0" encoding="UTF-8" ?>\n<configs>\n']
@@ -349,6 +483,11 @@ for biome in BIOMES:
             if notags: a += ' notags="%s"' % notags
             s.append('\t\t<spawn %s/>\n' % a)
     s.append('\t</append>\n')
+s.append("""
+\t<!-- W0: no new pack NPCs while SurvivorCommunity is installed. The NPC framework's own biome spawns call these
+\t     groups of its sample cast; removing the entries leaves our spawns above as the only wild NPCs. -->
+\t<remove xpath="/spawning/biome/spawn[%s]"/>
+""" % " or ".join("@entitygroup='%s'" % n for n in sorted(w0_spawns)))
 s.append("</configs>\n")
 io.open(os.path.join(MOD, "spawning.xml"), "w", encoding="utf-8", newline="\n").write("".join(s))
 

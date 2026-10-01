@@ -227,7 +227,8 @@ walk back.
   requests one, and the sandbox **air drop frequency** is its cooldown - the same day range vanilla would
   have scheduled (every 3 days, 1-7 days...). Turn that setting off and the radio cannot call a plane.
   `RadioOnlyAirdrops=false` restores vanilla's own drops.
-- **Call for survivors.** One call every `RadioCallDays`: a hireable survivor answers from a real POI
+- **Call for survivors.** One call every `RadioCallDays`: one of our player-body survivors (never a pack NPC,
+  see *No new pack NPCs* below) answers from a real POI
   `RadioContactMinDist`-`RadioContactMaxDist` metres from home, marked on the map. They exist as a record
   (not an entity) until you get near: the first time that chunk loads the NPC spawns there, standing in
   the building with a favour to ask like any recruit. Unvisited contacts fade after `RadioContactDays`.
@@ -341,9 +342,16 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   framework's and this mod's patches and checks every template, loadout, dropped weapon, spawn-group entry,
   name and duplicate. Weapons are tiered (0 early melee, 1 pipe weapons and bows, 2 late guns): the spawn
   groups follow the tiers, and a radio call brings a survivor whose weapon fits your gamestage.
-- You meet them three ways. They spawn in the world on their **own layer** (below), a radio call brings one
-  with `SurvivorLookChance`, and `sc spawn [hostile] [male|female] [weapon] [Set]` or the creative menu puts
-  one in front of you (`sc weapons` lists the weapon names).
+- You meet them three ways. They spawn in the world on their **own layer** (below), every radio call brings
+  one, and `sc spawn [hostile] [male|female] [weapon] [Set]` or the creative menu puts one in front of you
+  (`sc weapons` lists the weapon names).
+- **No new pack NPCs.** While this mod is installed, the NPC framework's sample cast (Nurse, Baker, Harley, the
+  NPC fox) and any character pack's NPCs filed in the same groups no longer spawn; ours are the only NPCs that
+  turn up. Those already in a world stay and behave as before, and their classes still load. The generator
+  removes the framework's own biome spawn entries, and in every framework group (the POI sleeper groups behind
+  `S_-Group_NPC_*` included) it swaps each pack NPC for our class with the same weapon and side, since a group
+  may not be empty. Spawning one by hand (creative menu, test spawn cubes) still works. The radio and outpost
+  walk-ins roll only our survivors, so `SurvivorLookChance` is no longer used.
 - **Wild spawns are ours, not a slice of the framework's.** They used to be appended into the NPC framework's
   own groups, where they shared the 3 points of NPC against 97 points of nothing that those groups carry and
   came out at 0.4% - you could roam for an hour and meet nobody. They now have their own entity groups and
@@ -351,7 +359,8 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   guide asks add-ons to do, so the rate is ours alone and does not move when character packs are added or
   removed. The world is diced into 80x80 m areas; an area rolls one spawn entry at a time against its group,
   and a miss burns that entry for the area until `respawndelay` has passed. So the knobs are exactly: the odds
-  of one roll producing somebody (`SURVIVOR_CHANCE` 6%, `RAIDER_CHANCE` 4%, against the framework's own 3%)
+  of one roll producing somebody (`SURVIVOR_CHANCE` 6%, `RAIDER_CHANCE` 4%; the framework's own cast, now
+  removed, rolled about 1-4%)
   and how often an area may roll again (`SURVIVOR_RESPAWN` half a game day, `RAIDER_RESPAWN` one). Which band
   an area draws from follows the framework's layout: wilderness is melee by day and pipe weapons by night,
   towns melee by day and full guns at night, city centres the last two. `core SurvivorCommunityDev spawns`
@@ -421,8 +430,7 @@ The two mods talk only through CVars on the local player; without SurvivorOrigin
 `Traits` table (weight, food-use multiplier, morale/mood offsets, starting skill bonus, preferred
 specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `MeleePerStar`, `RangedPerStar`,
 `SpeedPerStar`, `HealthPerStar`, `CookFoodPerStar`, `CropFoodPerStar`, `MedicPerStar`, `PackBonusPerStar`,
-`ScanRadius`, `FollowXpSeconds`, `DailyWitsXp`, and for the player-body survivors `SurvivorLookChance`,
-`SurvivorGearSets`, `SurvivorGearPieceChance`, `SurvivorGearAlwaysChest`, `SurvivorGearMixChance`,
+`ScanRadius`, `FollowXpSeconds`, `DailyWitsXp`, and for the player-body survivors `SurvivorGearSets`, `SurvivorGearPieceChance`, `SurvivorGearAlwaysChest`, `SurvivorGearMixChance`,
 `SurvivorGearQualityMin/Max`,
 `SurvivorBaldChance`, `SurvivorFacialHairChance`. Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features.

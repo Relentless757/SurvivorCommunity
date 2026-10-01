@@ -261,7 +261,8 @@ namespace SurvivorCommunity
         public static int OutpostDemandAmmo = 2;
         public static int OutpostDemandFood = 2;
         // ---- survivors wearing the player's body (Config/entityclasses.xml, classes scSurvivor*) ----
-        /// <summary>Chance a radio contact is one of the player-body survivor classes rather than a pack NPC.</summary>
+        /// <summary>No longer used: it was the chance a radio contact is a player-body survivor rather than a pack NPC,
+        /// and pack NPCs no longer spawn at all (every contact is now one of ours). Still parsed so old configs load.</summary>
         public static float SurvivorLookChance = 0.5f;
         /// <summary>Whether the player's own attacks can hurt members of their community. NPCs outside the
         /// community are always damageable; the NPC framework shields both, which this undoes.</summary>

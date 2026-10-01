@@ -21,9 +21,10 @@ namespace SurvivorCommunity
     /// The radio station (block scRadioStation, powered). Four jobs:
     ///   Airdrop  - vanilla's own air drop, on request only: the AIDirector's scheduled drops are gated off
     ///              (Patches_Radio) and the sandbox "air drop frequency" (hours) is the radio's cooldown.
-    ///   Call     - reach out for survivors: a hireable NPC class at a random real POI a few hundred metres
-    ///              out, marked on the map, kept as a registry record and spawned the first time that chunk
-    ///              loads (they then ask a favour like any recruit). Fades after RadioContactDays.
+    ///   Call     - reach out for survivors: one of our player-body survivors (never a pack NPC - those no longer
+    ///              spawn while this mod is installed) at a random real POI a few hundred metres out, marked on
+    ///              the map, kept as a registry record and spawned the first time that chunk loads (they then ask
+    ///              a favour like any recruit). Fades after RadioContactDays.
     ///   Distress - a survivor on a supply run may radio for help (RadioDistressChance while a radio is
     ///              powered): a rescue quest marks the POI they are pinned at; when the player gets there a
     ///              stand-in of the survivor and a gamestage- and skill-scaled pack of zombies spawn around
@@ -49,7 +50,6 @@ namespace SurvivorCommunity
         private static bool markersRestored;
         private static float nextTick;
         private static int lastZombieClass = -1;
-        private static List<string> hireable;
 
         public static void Reset()
         {
@@ -57,7 +57,6 @@ namespace SurvivorCommunity
             markers.Clear();
             markersRestored = false;
             nextTick = 0f;
-            hireable = null;
             DropRequested = false;
             CurrentRadio = null;
         }
@@ -186,30 +185,16 @@ namespace SurvivorCommunity
             return Localization.Get(key ?? "scInternal");
         }
 
-        /// <summary>Every hireable, human NPC class the installed packs define (cached per session).</summary>
-        public static List<string> HireableClasses()
+        /// <summary>
+        /// The class a new radio contact or outpost walk-in gets: one of our player-body survivors, capped by the
+        /// player's gamestage tier. Pack NPCs (Nurse, Baker, Harley...) are never rolled - they no longer spawn while
+        /// this mod is installed (the user's call, 2026-09-30). Null when no scSurvivor* class is loaded.
+        /// </summary>
+        public static string NewContactClass(EntityPlayerLocal player, GameRandom rnd)
         {
-            if (hireable != null) return hireable;
-            var list = new List<string>();
-            try
-            {
-                foreach (EntityClass ec in EntityClass.list.Dict.Values)
-                {
-                    if (ec == null || string.IsNullOrEmpty(ec.entityClassName)) continue;
-                    string hir;
-                    if (ec.Properties == null || !ec.Properties.Values.TryGetValue("Hirable", out hir) || !StringParsers.ParseBool(hir)) continue;
-                    if (ec.Tags.Test_AnySet(ScCommunity.AnimalTags)) continue;
-                    if (ec.entityClassName.IndexOf("Template", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-                    list.Add(ec.entityClassName);
-                }
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("radio-classes", e);
-            }
-            hireable = list;
-            ScLog.Out("radio: " + list.Count + " hireable NPC class(es) available for calls");
-            return list;
+            if (rnd == null && ScCommunity.World != null) rnd = ScCommunity.World.GetGameRandom();   // else PickFrom takes the first
+            return ScLooks.PickFrom(ScLooks.SurvivorClasses(), rnd, null, null,
+                                    ScLooks.MaxTierFor(player != null ? player.gameStage : 0));
         }
 
         /// <summary>A random real POI whose centre is MinDist..MaxDist from the home block and outside the zone.</summary>
@@ -260,8 +245,8 @@ namespace SurvivorCommunity
             {
                 World w = ScCommunity.World;
                 GameRandom rnd = w.GetGameRandom();
-                List<string> classes = HireableClasses();
-                if (classes.Count == 0) { ScCommunity.Tell(player, Localization.Get("scRadioNobody"), "ui_denied"); return false; }
+                string cls = NewContactClass(player, rnd);
+                if (cls == null) { ScCommunity.Tell(player, Localization.Get("scRadioNobody"), "ui_denied"); return false; }
                 var taken = new HashSet<Vector3i>();
                 foreach (var ct in ScRegistry.Contacts) taken.Add(ct.PoiKey);
                 PrefabInstance pi = PickPoi(ScConfig.RadioContactMinDist, ScConfig.RadioContactMaxDist, taken, rnd);
@@ -269,10 +254,6 @@ namespace SurvivorCommunity
                 Community c = ScRegistry.Community;
                 Vector3 centre = Centre(pi);
                 int y = (int)w.GetHeightAt(centre.x, centre.z) + 1;      // static heightmap: refined with live blocks at spawn time
-                string cls = ScLooks.SurvivorClasses().Count > 0 && rnd.RandomFloat < ScConfig.SurvivorLookChance
-                    ? ScLooks.PickFrom(ScLooks.SurvivorClasses(), rnd, null, null,
-                                       ScLooks.MaxTierFor(player != null ? player.gameStage : 0))
-                    : ScLooks.PickOther(classes, rnd);
                 var contact = new Contact
                 {
                     Id = ++c.NextContactId,
@@ -307,13 +288,9 @@ namespace SurvivorCommunity
         {
             try
             {
-                List<string> classes = HireableClasses();
-                if (classes.Count == 0) return null;
+                string cls = NewContactClass(player, rnd);
+                if (cls == null) return null;
                 Community c = ScRegistry.Community;
-                float roll = rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
-                string cls = ScLooks.SurvivorClasses().Count > 0 && roll < ScConfig.SurvivorLookChance
-                    ? ScLooks.PickFrom(ScLooks.SurvivorClasses(), rnd, null, null, ScLooks.MaxTierFor(player != null ? player.gameStage : 0))
-                    : ScLooks.PickOther(classes, rnd);
                 var contact = new Contact
                 {
                     Id = ++c.NextContactId,
@@ -445,6 +422,15 @@ namespace SurvivorCommunity
         {
             try
             {
+                if (!ScLooks.IsSurvivorClass(ct.Class))
+                {
+                    // a pack NPC rolled before pack NPCs stopped spawning: one of ours answers instead
+                    string again = NewContactClass(player, w.GetGameRandom());
+                    if (again == null) { ScLog.Warn("radio contact class " + ct.Class + " is a pack NPC and no scSurvivor class is loaded - dropped"); return true; }
+                    ScLog.Out("radio contact " + ct.Id + ": pack NPC " + ct.Class + " no longer spawns - " + again + " answers instead");
+                    ct.Class = again;
+                    ct.Label = ClassLabel(again);
+                }
                 int cid = EntityClass.FromString(ct.Class);
                 if (!ScCommunity.ClassExists(cid)) { ScLog.Warn("radio contact class " + ct.Class + " no longer exists - dropped"); return true; }
                 Vector3 pos = SpotNear(w, ct.Spawn, 4);

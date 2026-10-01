@@ -1,6 +1,8 @@
 import io, os, csv
 from lxml import etree as ET
 G = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
+# SC_GEN_CONFIG checks a staged copy of Config (the same switch gen_arsenal.py writes to)
+SC = os.environ.get("SC_GEN_CONFIG") or G + r"\Mods\SurvivorCommunity\Config"
 def load(p): return ET.parse(p)
 def apply(doc, patchfile, label):
     p = ET.parse(patchfile).getroot(); ok = miss = 0
@@ -19,7 +21,11 @@ def apply(doc, patchfile, label):
             kids = [c for c in op if isinstance(c.tag, str)]
             for t in targets:
                 if not hasattr(t, "getparent"): continue
-                if op.tag == "append":
+                if op.tag == "remove":
+                    if isinstance(t, str):            # an attribute or text match: the game's RemoveByXPath throws
+                        print("  !! %s: <remove> matches an attribute/text node: %s" % (label, xp)); continue
+                    t.getparent().remove(t)
+                elif op.tag == "append":
                     for c in kids: t.append(ET.fromstring(ET.tostring(c)))
                 elif op.tag == "insertAfter":
                     i = t.getparent().index(t)
@@ -33,12 +39,12 @@ def apply(doc, patchfile, label):
 print("entity classes")
 ec = load(G + r"\Data\Config\entityclasses.xml")
 apply(ec, G + r"\Mods\0-XNPCCore\Config\entityclasses.xml", "0-XNPCCore")
-apply(ec, G + r"\Mods\SurvivorCommunity\Config\entityclasses.xml", "SurvivorCommunity")
+apply(ec, SC + r"\entityclasses.xml", "SurvivorCommunity")
 names = {e.get("name"): e for e in ec.getroot().iter("entity_class")}
 print("items")
 it = load(G + r"\Data\Config\items.xml")
 apply(it, G + r"\Mods\0-XNPCCore\Config\items.xml", "0-XNPCCore")
-apply(it, G + r"\Mods\SurvivorCommunity\Config\items.xml", "SurvivorCommunity")
+apply(it, SC + r"\items.xml", "SurvivorCommunity")
 items = set(e.get("name") for e in it.getroot().iter("item"))
 
 errors = []
@@ -99,7 +105,7 @@ for e in it.getroot().iter("item"):
 print("entity groups")
 eg = load(G + r"\Data\Config\entitygroups.xml")
 apply(eg, G + r"\Mods\0-XNPCCore\Config\entitygroups.xml", "0-XNPCCore")
-apply(eg, G + r"\Mods\SurvivorCommunity\Config\entitygroups.xml", "SurvivorCommunity")
+apply(eg, SC + r"\entitygroups.xml", "SurvivorCommunity")
 for grp in eg.getroot().iter("entitygroup"):
     for e in grp.findall("e"):
         n = e.get("n")
@@ -122,16 +128,11 @@ for tag in ("Survivor", "Raider"):
         placed.update(e.get("n") for e in es if e.get("n") != "none")
 missing_leaf = [n for n in leaves if n not in placed]
 if missing_leaf: errors.append("%d leaves are in no group e.g. %s" % (len(missing_leaf), missing_leaf[:3]))
-# ours must no longer sit in the framework's groups: one rate knob, and installing packs must not dilute us
-for gn, grp in groups.items():
-    if gn.startswith("scSurvivorGroup") or gn.startswith("scRaiderGroup"): continue
-    stray = [e.get("n") for e in grp.findall("e") if (e.get("n") or "").startswith(("scSurvivor", "scRaider"))]
-    if stray: errors.append("%s still carries %d of ours e.g. %s" % (gn, len(stray), stray[0]))
 
 print("biome spawning")
 sp = load(G + r"\Data\Config\spawning.xml")
 apply(sp, G + r"\Mods\0-XNPCCore\Config\spawning.xml", "0-XNPCCore")
-apply(sp, G + r"\Mods\SurvivorCommunity\Config\spawning.xml", "SurvivorCommunity")
+apply(sp, SC + r"\spawning.xml", "SurvivorCommunity")
 covered = set()
 for biome in sp.getroot().iter("biome"):
     bn = biome.get("name")
@@ -147,8 +148,43 @@ bare = [b.get("name") for b in sp.getroot().iter("biome") if b.get("name") not i
 if bare: errors.append("no spawns of ours in biomes: %s" % bare)
 print("  our spawn entries in %d biomes, %d total" % (
     len(covered), len(sp.getroot().xpath("//spawn[starts-with(@entitygroup,'scSurvivorGroup') or starts-with(@entitygroup,'scRaiderGroup')]"))))
+biome_groups = set(s.get("entitygroup") for s in sp.getroot().iter("spawn"))
+# biome rate: ours only through our own groups (one rate knob; installing packs must not dilute us). The framework's
+# SLEEPER groups do carry ours since W0, by design - they feed POI volumes, not the biome rate.
+for gn in sorted(biome_groups):
+    if gn.startswith(("scSurvivorGroup", "scRaiderGroup")) or gn not in groups: continue
+    stray = [e.get("n") for e in groups[gn].findall("e") if (e.get("n") or "").startswith(("scSurvivor", "scRaider"))]
+    if stray: errors.append("biome group %s carries %d of ours e.g. %s" % (gn, len(stray), stray[0]))
+
+# W0: no NEW pack NPCs (framework NPC classes that are not ours) from any spawner while this mod is installed
+# Any group can be called by something - a biome <spawn>, a gamestage spawner (sleeper volumes, hordes), a sleeper
+# block's SpawnGroup, an <entityspawner>, an SCore spawn block - so after W0 NO group may hold a pack NPC.
+print("W0: pack NPCs in entity groups")
+def is_pack(n):
+    if not n or n == "none" or n.startswith(("scSurvivor", "scRaider")) or "Template" in n or n not in names: return False
+    c = resolved(n, "Class") or ""
+    return "EntityAliveSDX" in c or "EntityNPCBandit" in c
+pack_classes = sorted(n for n in names if is_pack(n))
+holding, swapped, mixed = [], [], []
+for gn, grp in groups.items():
+    es = [e for e in grp if isinstance(e.tag, str) and e.tag in ("e", "entity")]
+    if not es and not (grp.text or "").strip(): errors.append("group %s is empty - the game throws at load" % gn)
+    ns = [e.get("n") or e.get("name") for e in es]
+    for n in ns:
+        if n != "none" and n not in names: errors.append("group %s: unknown class %s - the game throws at load" % (gn, n))
+    if gn.startswith("npc") and ns and ns[0] == "none":
+        errors.append("%s: 'none' is entry 0, IsEnemyGroup reads that one" % gn)
+    packs = [n for n in ns if is_pack(n)]
+    if packs: holding.append(gn); errors.append("group %s still holds %d pack NPC(s) e.g. %s" % (gn, len(packs), packs[0]))
+    sides = set("survivor" if n.startswith("scSurvivor") else "raider" for n in ns if n and n.startswith(("scSurvivor", "scRaider")))
+    if gn.startswith("npc") and sides:
+        swapped.append(gn)
+        if len(sides) > 1: mixed.append(gn)
+if mixed: errors.append("framework groups mixing survivors and raiders: %s" % mixed[:5])
+print("  %d pack NPC classes; %d framework groups now carry ours; %d groups still hold pack NPCs" % (
+    len(pack_classes), len(swapped), len(holding)))
 # localization
-with io.open(G + r"\Mods\SurvivorCommunity\Config\Localization.csv", encoding="utf-8") as f:
+with io.open(SC + r"\Localization.csv", encoding="utf-8") as f:
     rows = list(csv.reader(f))
 keys = [r[0] for r in rows if r]
 dups = [k for k, c in Counter(keys).items() if c > 1]

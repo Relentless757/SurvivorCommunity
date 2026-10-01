@@ -25,6 +25,29 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Weapons task W0 (build sc_w0): no new pack NPCs
+
+**Deployed 2026-09-30** (DLL md5 572d05a6, with the regenerated `Config/entitygroups.xml` and
+`Config/spawning.xml`). Nurse, Baker, Harley and the NPC fox (and any character pack's NPCs that sit in the same
+framework groups) no longer spawn. Those already in your world stay as they are. Side effect: XNPCCore's two
+plain wild animals (arctic fox, Jeerkoa) rode the same spawn entries and no longer spawn in the wild either.
+
+- [ ] **An existing save loads cleanly.** The log has no "Empty entity groups not allowed", no XML patch warning
+      naming SurvivorCommunity's `entitygroups.xml` or `spawning.xml`, and no exception while entity groups load.
+      Any pack NPC already in the world (or in the community) is still there and behaves as before.
+- [ ] **A fresh game, played for an in-game day and night** (wilderness, a town, a city centre): no Nurse, Baker,
+      Harley or NPC fox turns up. Player-body survivors and raiders still do, about as often as before.
+      `core SurvivorCommunityDev spawns` lists no `npcHarleyGroup*` or `npcFriendlyCoreGroup*` entries in any biome.
+- [ ] **Radio "call for survivors"**, two or three times: every contact is a player-body survivor. The log line reads
+      `radio contact: scSurvivor…`.
+- [ ] **An outpost walk-in** is a player-body survivor.
+- [ ] **A radio contact rolled before this build as a pack NPC** (only if one is still pending): a player-body
+      survivor waits at the POI instead. The log says `pack NPC … no longer spawns - … answers instead`.
+- [ ] **`sc spawn` and `sc spawn hostile`** still give only scSurvivor / scRaider classes (unchanged).
+- [ ] *Later, only if you install an NPC POI pack:* its NPC sleeper volumes now spawn our survivors (friendly
+      groups) or raiders (bandit groups). Player-body NPCs have never been tested as POI sleepers: expect them
+      standing upright where a pack NPC would lie or sit (the player animator has no sleeper poses).
+
 ## 2026-09-30 build (sc_stage10): doors, and runners run
 
 **Confirmed by the user on 2026-09-30: doors work and runners run.** The task is closed. The detailed items below are
