@@ -27,6 +27,9 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 ## 2026-09-30 build (sc_stage10): doors, and runners run
 
+**Confirmed by the user on 2026-09-30: doors work and runners run.** The task is closed. The detailed items below are
+kept for regression checks.
+
 Turn on `DebugLogging` (Verbose) in Config/blocks.xml to see "opened the door at …" and "shut the door at … behind …".
 The startup log should say `patched EntityMoveHelper::CheckForDoorAndOpen` with no "unlisted method" warning.
 
