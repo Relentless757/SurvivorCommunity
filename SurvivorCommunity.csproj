@@ -59,6 +59,7 @@
     <Compile Include="Patches_Radio.cs" />
     <Compile Include="ScLooks.cs" />
     <Compile Include="Patches_Sdcs.cs" />
+    <Compile Include="ScAim.cs" />
     <Compile Include="ScMedic.cs" />
     <Compile Include="ScPortraits.cs" />
     <Compile Include="ScLeadership.cs" />

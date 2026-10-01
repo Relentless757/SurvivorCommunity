@@ -183,6 +183,13 @@
 			<property name="CommunityFriendlyFire" value="false" />
 			<property name="SurvivorBaldChance" value="0.15" />
 			<property name="SurvivorFacialHairChance" value="0.4" />
+			<!-- Survivors and raiders with the player's body raise and shoulder their gun while shooting (bows draw
+			     before each release), and lower it SurvivorAimHoldSeconds after the last shot.
+			     SurvivorAimVisualOnly: true = only the pose changes, their accuracy and critical hits stay as they are;
+			     false = aiming also tightens their spread and makes every hit a critical, as it does for a player. -->
+			<property name="SurvivorAimPose" value="true" />
+			<property name="SurvivorAimVisualOnly" value="true" />
+			<property name="SurvivorAimHoldSeconds" value="2" />
 
 			<property name="DebugLogging" value="false" />
 

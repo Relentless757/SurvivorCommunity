@@ -388,7 +388,8 @@ namespace SurvivorCommunity
         /// The player's own third-person controller (AvatarMultiBodyController.Update) also writes WeaponCarry every
         /// frame from AnimationDelayData; remote players receive it over the network. The SDCS controller a
         /// survivor gets writes neither, and the arm hold-pose layers key on it - so do it here, with the mapped
-        /// hold type, exactly as the player controller does (not while a use animation plays).
+        /// hold type, exactly as the player controller does (not while a use animation plays). The aim pose (ScAim) is
+        /// driven from here too, before the use-animation return, so that a use lowers the gun.
         /// </summary>
         [HarmonyPatch(typeof(AvatarSDCSController), "Update", new Type[0])]
         public static class Patch_UpdateCarry
@@ -402,6 +403,7 @@ namespace SurvivorCommunity
                     EntityAlive e = __instance.entity;
                     if (e == null || e is EntityPlayer || !(e.emodel is EModelSDCS)) return;
                     WriteAnimatorSpeed(__instance, e);
+                    ScAim.Drive(__instance, e);
                     if (e.inventory == null || e.inventory.holdingItem == null) return;
                     if (__instance.IsAnimationUsePlaying()) return;
                     int hold = MapHoldType(e, e.inventory.holdingItem.HoldType.Value);
@@ -788,7 +790,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A player-body NPC (never a player).</summary>
-        private static bool IsBodyNpc(Entity e)
+        internal static bool IsBodyNpc(Entity e)
         {
             return e != null && !(e is EntityPlayer) && e.emodel is EModelSDCS;
         }

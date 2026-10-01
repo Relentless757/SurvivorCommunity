@@ -277,6 +277,13 @@ namespace SurvivorCommunity
         public static int SurvivorGearQualityMax = 4;
         public static float SurvivorBaldChance = 0.15f;
         public static float SurvivorFacialHairChance = 0.4f;
+        /// <summary>Survivors and raiders with the player's body shoulder their gun (or draw their bow) while shooting (ScAim).</summary>
+        public static bool SurvivorAimPose = true;
+        /// <summary>The aim pose is only a pose: their spread, critical hits and kickback stay as without it. False gives
+        /// aiming NPCs the aimed spread and a critical on every hit, as aiming does for a player.</summary>
+        public static bool SurvivorAimVisualOnly = true;
+        /// <summary>Seconds the weapon stays up after the last ranged attack.</summary>
+        public static float SurvivorAimHoldSeconds = 2f;
         public static int TraitsPerRecruit = 2;
         public static bool Verbose = false;
         public static readonly List<TraitDef> Traits = new List<TraitDef>();
@@ -323,6 +330,9 @@ namespace SurvivorCommunity
             SurvivorGearQualityMax = 4;
             SurvivorBaldChance = 0.15f;
             SurvivorFacialHairChance = 0.4f;
+            SurvivorAimPose = true;
+            SurvivorAimVisualOnly = true;
+            SurvivorAimHoldSeconds = 2f;
             OutpostMinDistance = 150;
             OutpostMax = 4;
             OutpostMembersPerSlot = 4;
@@ -621,6 +631,13 @@ namespace SurvivorCommunity
                 ParseInt(p, "SurvivorGearQualityMax", ref SurvivorGearQualityMax, 1, 6);
                 ParseFloat(p, "SurvivorBaldChance", ref SurvivorBaldChance, 0f, 1f);
                 ParseFloat(p, "SurvivorFacialHairChance", ref SurvivorFacialHairChance, 0f, 1f);
+                bool aimPose = SurvivorAimPose;
+                if (p.Values.ContainsKey("SurvivorAimPose")) p.ParseBool("SurvivorAimPose", ref aimPose);
+                SurvivorAimPose = aimPose;
+                bool aimVisualOnly = SurvivorAimVisualOnly;
+                if (p.Values.ContainsKey("SurvivorAimVisualOnly")) p.ParseBool("SurvivorAimVisualOnly", ref aimVisualOnly);
+                SurvivorAimVisualOnly = aimVisualOnly;
+                ParseFloat(p, "SurvivorAimHoldSeconds", ref SurvivorAimHoldSeconds, 0.25f, 30f);
                 bool verbose = Verbose;
                 if (p.Values.ContainsKey("DebugLogging")) p.ParseBool("DebugLogging", ref verbose);
                 Verbose = verbose;

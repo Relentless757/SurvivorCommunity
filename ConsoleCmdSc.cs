@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [Set] (sc weapons lists them), weapons, look <id|name>, gear <id|name> <Set|none>, anim <id|name>, portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [Set] (sc weapons lists them), weapons, look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -37,6 +37,7 @@ namespace SurvivorCommunity
                     case "look": LookCmd(_params); break;
                     case "gear": Gear(_params); break;
                     case "anim": Anim(_params); break;
+                    case "aim": AimCmd(_params); break;
                     case "portrait": PortraitCmd(_params); break;
                     case "poi": PoiCmd(_params); break;
                     case "outpost": case "outposts": OutpostCmd(_params); break;
@@ -266,6 +267,21 @@ namespace SurvivorCommunity
             ScLooks.SyncGear(npc, look);
             ScRegistry.SaveAtomic();
             Output("[SC] " + ScCommunity.DisplayName(npc) + " wears [" + look.EncodeGear() + "]");
+        }
+
+        /// <summary>sc aim [id|name]: the aim pose's hook counters and every NPC in a ranged fight, or one NPC in detail.
+        /// An id also finds raiders, which are not EntityAliveSDX.</summary>
+        private static void AimCmd(List<string> p)
+        {
+            EntityAlive e = null;
+            if (p.Count >= 2)
+            {
+                int id;
+                if (int.TryParse(p[1], out id)) e = ScCommunity.World != null ? ScCommunity.World.GetEntity(id) as EntityAlive : null;
+                else e = FindSurvivor(p[1]);
+                if (e == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
+            }
+            Output(ScAim.Describe(e));
         }
 
         /// <summary>sc anim <id|name> - what drives a survivor's animator (diagnostic).</summary>

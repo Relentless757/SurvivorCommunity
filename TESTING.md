@@ -25,6 +25,47 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Weapons task W1 (build sc_w1b): visible aiming
+
+**Built 2026-10-01 (DLL md5 ace5b130), NOT deployed yet.** Survivors and raiders with the player's body shoulder their gun while they
+shoot and lower it about 2 s after the last shot. Bows draw before each release. It is only a pose: their accuracy and
+critical hits are unchanged. Settings in Config/blocks.xml: `SurvivorAimPose`, `SurvivorAimVisualOnly`,
+`SurvivorAimHoldSeconds`. Already proven live before the code (2026-10-01, DevLink): the `IsAiming` flag shoulders the
+rifle (standing and crouched), and the bow draw/release cycle works on the player rig.
+
+`sc aim` lists every NPC in a ranged fight; `sc aim <id>` shows one in detail (why the gun is up or down, the
+animator flags, the aim/bow/reload layers) and the hook counters. `core SurvivorCommunityDev list 40` finds ids.
+
+- [ ] **Startup:** the log says `patch verification: all … targets patched`, including `patched EntityAlive::get_AimingGun`
+      and `patched UAITaskAttackTargetEntitySDX::Start` / `::Update`, with no `MISSING PATCH` and no "unlisted method".
+- [ ] **A rifle survivor fighting zombies** (`sc spawn rifle` near a zombie): the rifle comes up to the shoulder
+      (head down at the sights) within about a quarter second of the fight starting, stays up between shots, and
+      comes down about 2 s after the last shot. `sc aim <id>` during the fight: state `aiming`, animator
+      `IsAiming=True`, layer AdditiveAimPoses playing a `…_Additive_Aim` clip.
+- [ ] **A pistol raider** (`sc spawn hostile pistol`) raises the pistol when it shoots at you or at zombies.
+- [ ] **Crouched:** an NPC that crouches while shooting shows the crouched aim (layer clip `…_Additive_crouchAim`).
+      To force it: `core SurvivorCommunityDev setparam <id> IsCrouching 1`.
+- [ ] **Reload:** when the magazine runs out the gun comes down for the reload clip, then back up. `sc aim <id>`
+      reads `reloading` during the clip.
+- [ ] **Gun-butt:** when a zombie reaches a gun survivor and they bash it with the gun, the gun is not shouldered
+      (`sc aim` reads `melee`). Back to shooting, it comes up again.
+- [ ] **Melee weapon:** a club or knife survivor never raises anything (`sc aim <id>`: state none).
+- [ ] **Bow** (`sc spawn primitivebow`, or `compoundbow` / `lbow`, near a zombie): draws before each release, draws again after it, and lowers the bow
+      about 2 s after the last shot. At 75 shots a minute a shot can come mid-draw; a short draw is expected, no draw
+      at all is a bug. Kill its target mid-draw: the drawn bow lowers within about a second (`sc aim <id>`
+      then reads `calm` 2 s later, and the BowDrawAndFire layer is back at BowHold). Note: the probe survivor **Opal (id 1092)** near where you stood at 19:40 on day 3 holds a
+      primitive bow through the dev core (her class is Rifle). She is a stray test NPC; use her for this row, then
+      kill her.
+- [ ] **Crossbow** (`sc spawn xbow` or `compoundcrossbow`): shoulders like a gun (crossbows use the aim pose, not the bow draw).
+- [ ] **Rocket launcher** (`sc spawn rocketl`): unchanged (its hold pose is already shouldered).
+- [ ] **Using an item mid-fight** (a member bandaging themselves while armed): the gun lowers for the use clip.
+- [ ] **Visual only:** while an NPC is aiming, `sc aim <id>` shows animator `IsAiming=True` but `game reads
+      AimingGun=False`, and the `AimingGun getter` count rises. That is what keeps spread and criticals unchanged.
+      Optional comparison: with `SurvivorAimVisualOnly` false (and a world reload) the same line shows
+      `AimingGun=True` and their shots group visibly tighter.
+- [ ] **Switch off:** with `SurvivorAimPose` false (world reload) nobody raises a gun; `sc aim <id>` reads `off`.
+- [ ] **No new errors** in the log during a 2-minute fight with several shooters (no `aim-drive` / `aim-stamp` entries).
+
 ## Weapons task W0 (build sc_w0): no new pack NPCs
 
 **Deployed 2026-09-30** (DLL md5 572d05a6, with the regenerated `Config/entitygroups.xml` and
