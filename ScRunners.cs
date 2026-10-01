@@ -893,7 +893,7 @@ namespace SurvivorCommunity
                 // a fresh body is built like every other respawn (ScSpawn: the record's class, look and weapons; the name
                 // follows below); a snapshot under a new id gets the look and the weapons handed over the same way, the id
                 // not being the member's yet (its own saved cvars would give the same pair; the record is the truth)
-                if (fresh) e = ScSpawn.Create(cid, spot + new Vector3(0f, 0.002f, 0f), rot, m.Look, m.Loadout);
+                if (fresh) e = ScSpawn.Create(cid, spot + new Vector3(0f, 0.002f, 0f), rot, m.Look, m.Loadout, m);   // their recorded ammo too (ScAmmo)
                 else
                 {
                     if (newId && m.Look != null) ScLooks.Pending = m.Look.Clone();

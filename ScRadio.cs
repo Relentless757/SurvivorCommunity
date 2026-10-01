@@ -737,7 +737,11 @@ namespace SurvivorCommunity
             {
                 if (m.StandInId < 0) return;
                 EntityAlive s = w != null ? ScNpc.As(w.GetEntity(m.StandInId)) : null;
-                if (s != null) ScRuns.RemoveEntity(s);
+                if (s != null)
+                {
+                    if (!s.IsDead()) ScAmmo.Record(m, s);   // what the rescue left them with (ScAmmo: re-created bodies start from it)
+                    ScRuns.RemoveEntity(s);
+                }
                 m.StandInId = -1;
             }
             catch (Exception e)

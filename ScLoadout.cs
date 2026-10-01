@@ -58,7 +58,8 @@ namespace SurvivorCommunity
     /// primitive weapons are there from day 1 and better ones come with the gamestage. The list becomes [melee, ranged],
     /// weapons only: SCore's PostInit postfix refills every non-quality item on the list to a full stack on every load,
     /// so ammo on it would be endless. Their ammo is a finite stack of the gun's basic rounds put into the inventory
-    /// window once, when the entity is first created (AfterPostInit); SCore reloads an NPC's gun from that window.
+    /// window once, when a new survivor is first created (AfterPostInit); SCore reloads an NPC's gun from that window,
+    /// and the stockpile tops it up only in the base or at an outpost (ScAmmo, decision D3).
     ///
     /// The pair resolves, in order: Pending (a console spawn, a radio contact, a respawn of a known survivor), the member
     /// or prospect record (loadout=), the pair this entity already carries (two cvars, saved with it), a roll seeded by
@@ -321,6 +322,8 @@ namespace SurvivorCommunity
             if (!IsBodyClass(cls)) return;
             Loadout pending = Pending;
             Pending = null;                                       // one entity only, used or not
+            // a known survivor's ammo record travels with the pair (ScSpawn) and is acted on in the postfix (AfterPostInit)
+            ScAmmo.TakePending(e, ScXnpc.IsManagedClass(cls) && ScNpc.IsV4(e));
             if (!ScConfig.Parsed) ScConfig.EnsureParsed();
             if (ScXnpc.IsManagedClass(cls))
             {
@@ -575,18 +578,21 @@ namespace SurvivorCommunity
         // ---- ammo (0-XNPCCore survivors, decision D3) ----
 
         /// <summary>
-        /// PostInit POSTFIX: a 0-XNPCCore survivor's starting ammo, once per entity. Its gun's basic rounds
+        /// PostInit POSTFIX: a 0-XNPCCore survivor's starting ammo, once per survivor. Its gun's basic rounds
         /// (XnpcSpawnAmmo, or XnpcSpawnArrows for a bow or crossbow) go into the inventory window, which SCore saves with
         /// the NPC and reloads its gun from (ItemActionRangedHarvestAmmo: an EntityAliveSDXV4 with a bag - the classes keep
-        /// a BagItems property for that - and a window). The cvar is written first and is saved with the entity, so a
-        /// reload never refills; a body the community re-creates (a respawn, a stand-in) is a new entity and starts with
-        /// the same stack, the way XNPC's own survivors get their grant. Server only: the window lives there.
+        /// a BagItems property for that - and a window). The cvar is saved with the entity, so a reload never refills.
+        /// Only a genuinely new survivor gets the stack (a wild spawn, a radio contact's or a console spawn's body): a body
+        /// the community re-creates for somebody it knows (ScSpawn - a call-back, a stand-in, a runner's fresh body) gets
+        /// the rounds their record says they carry instead (ScAmmo.RestoreRecorded; the round 2 review's P1), so
+        /// re-creating a member never makes ammo. Server only: the window lives there.
         /// </summary>
         public static void AfterPostInit(EntityAlive e)
         {
             try
             {
                 if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost || e.Buffs == null) return;
+                if (ScAmmo.RestoreRecorded(e)) return;
                 if (e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f) return;
                 Loadout l = Current(e);
                 Weapon r = l != null ? Find(false, l.Ranged) : null;
@@ -599,6 +605,7 @@ namespace SurvivorCommunity
                 // marked only now: a body that had nothing to seed yet (no ranged weapon) is not marked for life
                 e.Buffs.SetCustomVar(AmmoSeededCvar, 1f);
                 ScNpc.AddItem(e, new ItemStack(iv, n));
+                ScAmmo.NoteSeeded();
                 ScLog.Verbose("starting ammo for " + ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + n + " " + ammo + " for " + r.Token);
             }
             catch (Exception ex)
@@ -635,8 +642,12 @@ namespace SurvivorCommunity
             return v.FindWeapon(l.Melee) ? l.Melee : null;
         }
 
-        /// <summary>Gives a live NPC a new pair (either half may be null: kept). Refills its slots and re-equips the same kind.</summary>
-        public static bool Set(EntityAlive e, Loadout change, out string why)
+        /// <summary>
+        /// Gives a live NPC a new pair (either half may be null: kept). Refills its slots and re-equips the same kind.
+        /// freshAmmo: a 0-XNPCCore survivor given a new gun also gets a new starting stack for it (the console's sc loadout);
+        /// false for a weapon the player handed over (ScArms: its ammo is what the player gives, or a resupply at home).
+        /// </summary>
+        public static bool Set(EntityAlive e, Loadout change, out string why, bool freshAmmo = true)
         {
             why = null;
             string cls = ScCommunity.ClassName(e);
@@ -666,7 +677,7 @@ namespace SurvivorCommunity
             sources[e.entityId] = "console";
             if (Rewrite(e, cls, order)) Refill(e, before);
             Arm(e, heldRanged, out why);
-            if (!raider && change.Ranged != null && ScXnpc.IsBody(e))
+            if (freshAmmo && !raider && change.Ranged != null && ScXnpc.IsBody(e))
             {
                 e.Buffs.RemoveCustomVar(AmmoSeededCvar);
                 AfterPostInit(e);

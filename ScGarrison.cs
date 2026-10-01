@@ -318,7 +318,11 @@ namespace SurvivorCommunity
                 if (m == null || m.StandInId < 0) return;
                 World w = ScCommunity.World;
                 EntityAlive s = w != null ? ScNpc.As(w.GetEntity(m.StandInId)) : null;
-                if (s != null && !s.IsDead()) ScRuns.RemoveEntity(s);
+                if (s != null && !s.IsDead())
+                {
+                    ScAmmo.Record(m, s);          // the next stand-in starts with what this one had left (never a fresh stack)
+                    ScRuns.RemoveEntity(s);
+                }
                 m.StandInId = -1;
             }
             catch (Exception e)

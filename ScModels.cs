@@ -133,6 +133,13 @@ namespace SurvivorCommunity
         /// re-creates for them (ScSpawn) carries the same pair. Null for a member who joined without one.
         /// </summary>
         public Loadout Loadout;
+        /// <summary>
+        /// The rounds for their gun they carried when last seen (ScAmmo: ammo item name -> count, the inventory window plus
+        /// a loaded magazine), so a body the community re-creates for them (a call-back, a stand-in, a runner's fresh body)
+        /// starts with what they had, not with a new survivor's starting stack. Null = never recorded (the body then starts
+        /// empty, and a resupply in the base or at an outpost arms it).
+        /// </summary>
+        public Dictionary<string, int> Ammo;
         /// <summary>The outpost a Garrison member holds (-1 otherwise).</summary>
         public int OutpostId = -1;
         /// <summary>Physical supply run (ScRunners). Saved only while OnRun with a leg other than None.</summary>
@@ -205,7 +212,15 @@ namespace SurvivorCommunity
         public float DeathPenalty;
         /// <summary>Fractional daily needs carried to the next day (0.5 bundles/member/day etc.).</summary>
         public float FoodCarry;
-        public float AmmoCarry;
+        /// <summary>
+        /// Ammo (decision D3: no daily upkeep, only resupplies spend it). AmmoOpenPoints: packing points left in the ammo
+        /// bundle ScAmmo last opened to hand out rounds, so a bundle is used up round by round instead of being lost to
+        /// one resupply. AmmoOpened / AmmoShort: bundles opened, and whether a resupply found the stockpile empty, since
+        /// the last day rollover (the daily ledger's "ammo used" and "out of ammo").
+        /// </summary>
+        public int AmmoOpenPoints;
+        public int AmmoOpened;
+        public bool AmmoShort;
         /// <summary>Fractional garden harvest carried to the next day.</summary>
         public float HarvestCarry;
         /// <summary>Beds / facilities / crops inside the zone (ScScan: recounted every few seconds from the loaded chunks).</summary>

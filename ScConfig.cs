@@ -55,7 +55,11 @@ namespace SurvivorCommunity
         public static int MaxFollowers = 2;
         /// <summary>Food bundles per member per day (0.5 = one bundle feeds two survivors for a day).</summary>
         public static float FoodPerMemberDay = 0.5f;
-        /// <summary>Ammo bundles per stationed ranged member per day.</summary>
+        /// <summary>
+        /// No longer charged (decision D3: there is no daily ammo upkeep; the stockpile's ammo is spent only when a survivor
+        /// is resupplied, ScAmmo). Kept as the planning estimate of ammo bundles a ranged resident gets through in a day,
+        /// which is all ScOutposts.Shortest ("the resource that runs out first") still reads it for.
+        /// </summary>
         public static float AmmoPerRangedDay = 0.25f;
         /// <summary>Points (EconomicValue x count) that make one bundle, per resource.</summary>
         public static readonly int[] PointsPerBundle = { 400, 300, 2000, 1000, 600 };
@@ -325,6 +329,41 @@ namespace SurvivorCommunity
         public static int XnpcSpawnAmmo = 30;
         /// <summary>The same for a bow or crossbow: arrows or bolts.</summary>
         public static int XnpcSpawnArrows = 20;
+        // ---- ammo resupply (ScAmmo, migration M7.3, decision D3) ----
+        /// <summary>A member (or an outpost's stand-in) whose gun runs low is resupplied from the stockpile's ammo, but only
+        /// inside the home zone or at one of the community's outposts. False: they only ever have what they carry.</summary>
+        public static bool XnpcResupply = true;
+        /// <summary>Resupplied when the gun's rounds (magazine plus every store SCore reloads from) are below this.</summary>
+        public static int XnpcResupplyBelow = 10;
+        /// <summary>Rounds of the gun's basic ammo one resupply hands over (XnpcResupplyArrows: arrows or bolts for a bow).</summary>
+        public static int XnpcResupplyAmmo = 30;
+        public static int XnpcResupplyArrows = 20;
+        /// <summary>Real seconds before the same NPC may be resupplied again (so a long fight in the base does not drain
+        /// the stockpile in one go).</summary>
+        public static float XnpcResupplyCooldown = 60f;
+        /// <summary>
+        /// The conversion from the stockpile's ammo to rounds: a round costs its packing points (EconomicValue, or its
+        /// ValueOverrides entry - what it was worth when it was packed) times this, and an ammo bundle holds
+        /// PointsPerBundleAmmo points. 1 = a bundle gives back what it took to pack (2000 points: about 220 9 mm rounds or
+        /// 165 stone arrows). Above 1 ammo costs more to hand out than it was worth in the box.
+        /// </summary>
+        public static float XnpcResupplyPointsMult = 1f;
+        // ---- overwhelmed (ScArms, migration M7.5, the weapons task's W4/W6 decision) ----
+        /// <summary>An overwhelmed survivor keeps the gun instead of 0-XNPCCore's melee swap at 3 m (while it has ammo).</summary>
+        public static bool Overwhelmed = true;
+        /// <summary>Enemies targeting the survivor within this many metres are counted.</summary>
+        public static float OverwhelmedRadius = 12f;
+        /// <summary>
+        /// How many of them make a member overwhelmed: OverwhelmedMin + (Fighting stars - 1) / OverwhelmedStarsPerStep,
+        /// at most OverwhelmedMax (2/2/3/3/4/4/5 for 1-7 stars: a better fighter takes on more up close before falling back
+        /// on the gun). Anyone else (a stranger) uses OverwhelmedStrangers.
+        /// </summary>
+        public static int OverwhelmedMin = 2;
+        public static int OverwhelmedMax = 5;
+        public static int OverwhelmedStarsPerStep = 2;
+        public static int OverwhelmedStrangers = 3;
+        /// <summary>Seconds the state outlasts the count dropping below the threshold (no weapon flapping at the edge).</summary>
+        public static float OverwhelmedHoldSeconds = 3f;
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
@@ -390,6 +429,19 @@ namespace SurvivorCommunity
             XnpcWeapons.Clear();
             XnpcSpawnAmmo = 30;
             XnpcSpawnArrows = 20;
+            XnpcResupply = true;
+            XnpcResupplyBelow = 10;
+            XnpcResupplyAmmo = 30;
+            XnpcResupplyArrows = 20;
+            XnpcResupplyCooldown = 60f;
+            XnpcResupplyPointsMult = 1f;
+            Overwhelmed = true;
+            OverwhelmedRadius = 12f;
+            OverwhelmedMin = 2;
+            OverwhelmedMax = 5;
+            OverwhelmedStarsPerStep = 2;
+            OverwhelmedStrangers = 3;
+            OverwhelmedHoldSeconds = 3f;
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
@@ -710,6 +762,24 @@ namespace SurvivorCommunity
                 ParseFloat(p, "SurvivorRangedMainChance", ref SurvivorRangedMainChance, 0f, 1f);
                 ParseInt(p, "XnpcSpawnAmmo", ref XnpcSpawnAmmo, 0, 1000);
                 ParseInt(p, "XnpcSpawnArrows", ref XnpcSpawnArrows, 0, 1000);
+                bool resupply = XnpcResupply;
+                if (p.Values.ContainsKey("XnpcResupply")) p.ParseBool("XnpcResupply", ref resupply);
+                XnpcResupply = resupply;
+                ParseInt(p, "XnpcResupplyBelow", ref XnpcResupplyBelow, 1, 1000);
+                ParseInt(p, "XnpcResupplyAmmo", ref XnpcResupplyAmmo, 1, 1000);
+                ParseInt(p, "XnpcResupplyArrows", ref XnpcResupplyArrows, 1, 1000);
+                ParseFloat(p, "XnpcResupplyCooldown", ref XnpcResupplyCooldown, 5f, 3600f);
+                ParseFloat(p, "XnpcResupplyPointsMult", ref XnpcResupplyPointsMult, 0.1f, 100f);
+                bool overwhelmed = Overwhelmed;
+                if (p.Values.ContainsKey("Overwhelmed")) p.ParseBool("Overwhelmed", ref overwhelmed);
+                Overwhelmed = overwhelmed;
+                ParseFloat(p, "OverwhelmedRadius", ref OverwhelmedRadius, 2f, 40f);
+                ParseInt(p, "OverwhelmedMin", ref OverwhelmedMin, 1, 20);
+                ParseInt(p, "OverwhelmedMax", ref OverwhelmedMax, 1, 20);
+                if (OverwhelmedMax < OverwhelmedMin) OverwhelmedMax = OverwhelmedMin;
+                ParseInt(p, "OverwhelmedStarsPerStep", ref OverwhelmedStarsPerStep, 1, 7);
+                ParseInt(p, "OverwhelmedStrangers", ref OverwhelmedStrangers, 1, 20);
+                ParseFloat(p, "OverwhelmedHoldSeconds", ref OverwhelmedHoldSeconds, 0f, 30f);
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
@@ -757,7 +827,10 @@ namespace SurvivorCommunity
                           + " PostRadius=" + PostRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
                           + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count
                           + " secondWeapon=" + SurvivorSecondWeapon + " firearmChance=" + SurvivorFirearmChance + " rangedMainChance=" + SurvivorRangedMainChance
-                          + " xnpcWeapons=" + XnpcWeapons.Count + " xnpcSpawnAmmo=" + XnpcSpawnAmmo + "/" + XnpcSpawnArrows);
+                          + " xnpcWeapons=" + XnpcWeapons.Count + " xnpcSpawnAmmo=" + XnpcSpawnAmmo + "/" + XnpcSpawnArrows
+                          + " resupply=" + (XnpcResupply ? "below " + XnpcResupplyBelow + " +" + XnpcResupplyAmmo + "/" + XnpcResupplyArrows
+                                            + " every " + XnpcResupplyCooldown + "s x" + XnpcResupplyPointsMult : "off")
+                          + " overwhelmed=" + (Overwhelmed ? OverwhelmedMin + ".." + OverwhelmedMax + "/" + OverwhelmedStrangers + " in " + OverwhelmedRadius + "m" : "off"));
             }
             catch (Exception e)
             {

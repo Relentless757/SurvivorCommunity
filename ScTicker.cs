@@ -64,6 +64,7 @@ namespace SurvivorCommunity
                 }
 
                 Relink(w, player);
+                ScAmmo.Tick(w);                       // every 5 s: each member's ammo into the record; resupply in the base / at an outpost
                 ScDoors.Tick(w, player);              // shut the doors members opened once they are through
                 ScRunners.Tick(w, player);            // physical supply runs: walk, capture out of range, re-create near the player
                 TrackProspects(w);

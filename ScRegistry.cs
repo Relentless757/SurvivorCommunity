@@ -22,6 +22,7 @@ namespace SurvivorCommunity
     ///   [member]     id=1234 class=npcNurseSMG name=Nancy status=Resident post=x,y,z join=4 mood=55 injured=0
     ///                ranged=1 missing=0 skills=cardio:2:15,wits:1:0,fighting:3:40,shooting:2:5 spec=Medicine:1:0
     ///                traits=Hoarder,Hardy run=food:13 pendingunhide=0 loadout=gunBowT0PrimitiveBow,meleeWpnClubT0WoodenClub
+    ///                ammo=ammoArrowStone:14 (or ammo=none: recorded, carrying nothing)
     ///   [prospect]   id=1300 class=.. name=.. favour=poi|supplies poi=x,y,z poiname=.. poisize=w,d items=food:15 done=1
     ///                loadout=ranged,melee
     ///   [contact]    id=3 class=.. label=.. poi=x,y,z poiname=.. spawn=x,y,z day=12 expire=19 loadout=ranged,melee
@@ -381,7 +382,10 @@ namespace SurvivorCommunity
                 case "hungry": c.Hungry = val == "1"; break;
                 case "deathpenalty": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DeathPenalty = f; break; }
                 case "foodcarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.FoodCarry = f; break; }
-                case "ammocarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.AmmoCarry = f; break; }
+                // "ammocarry" (the old daily ammo upkeep's fraction) is no longer read: there is no upkeep (decision D3)
+                case "ammoopen": c.AmmoOpenPoints = Math.Max(0, I(val)); break;
+                case "ammoopened": c.AmmoOpened = Math.Max(0, I(val)); break;
+                case "ammoshort": c.AmmoShort = val == "1"; break;
                 case "beds": c.Beds = I(val); break;
                 case "facilities": c.Facilities = I(val); break;
                 case "crops": c.Crops = I(val); break;
@@ -503,6 +507,7 @@ namespace SurvivorCommunity
                 case "look": { Look l = m.Look ?? new Look(); if (l.Decode(val)) m.Look = l; break; }
                 case "gear": { if (m.Look == null) m.Look = new Look(); m.Look.DecodeGear(val); break; }
                 case "loadout": m.Loadout = Loadout.Decode(val); break;
+                case "ammo": m.Ammo = ScAmmo.Decode(val); break;
                 case "outpost": m.OutpostId = I(val); break;
                 case "leg": { RunLeg l; if (Enum.TryParse(val, true, out l)) m.RunLeg = l; break; }
                 case "dest": { Vector3i v; if (TryVec(val, out v)) m.RunDest = v; break; }
@@ -583,7 +588,9 @@ namespace SurvivorCommunity
                 sb.AppendLine("hungry=" + (c.Hungry ? 1 : 0));
                 sb.AppendLine("deathpenalty=" + c.DeathPenalty.ToString("0.###", CultureInfo.InvariantCulture));
                 sb.AppendLine("foodcarry=" + c.FoodCarry.ToString("0.###", CultureInfo.InvariantCulture));
-                sb.AppendLine("ammocarry=" + c.AmmoCarry.ToString("0.###", CultureInfo.InvariantCulture));
+                sb.AppendLine("ammoopen=" + c.AmmoOpenPoints);
+                sb.AppendLine("ammoopened=" + c.AmmoOpened);
+                sb.AppendLine("ammoshort=" + (c.AmmoShort ? 1 : 0));
                 sb.AppendLine("beds=" + c.Beds);
                 sb.AppendLine("facilities=" + c.Facilities);
                 sb.AppendLine("crops=" + c.Crops);
@@ -701,6 +708,7 @@ namespace SurvivorCommunity
                         sb.AppendLine("gear=" + Clean(m.Look.EncodeGear()));
                     }
                     if (m.Loadout != null) sb.AppendLine("loadout=" + Clean(m.Loadout.Encode()));
+                    if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo)));
                 }
                 foreach (var ct in Contacts)
                 {

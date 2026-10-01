@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save, xnpc [id|name]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [weapon] [second weapon] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), weapons, loadout <id|name> [weapon] [weapon] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -33,6 +33,7 @@ namespace SurvivorCommunity
                     case "runners": RunnersCmd(); break;
                     case "distress": Distress(_params); break;
                     case "spawn": Spawn(_params); break;
+                    case "recruit": RecruitCmd(_params); break;
                     case "weapons":
                         Output("[SC] survivors (0-XNPCCore, vanilla weapons): " + string.Join(", ", ScLoadout.Tokens(false).ToArray()));
                         Output("[SC] raiders (sc spawn hostile): " + string.Join(", ", ScLooks.WeaponTokens().ToArray()));
@@ -411,6 +412,21 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A loaded NPC by member id/name, entity id, or display-name substring (any survivor within 200 m).</summary>
+        /// <summary>
+        /// Test helper: joins a survivor without the favour (the same ScCommunity.Join the dialog ends in, with every
+        /// other check intact - a home, room on the roster, hireable, not someone else's hire).
+        /// </summary>
+        private static void RecruitCmd(List<string> p)
+        {
+            EntityAlive npc = p.Count > 1 ? FindSurvivor(p[1]) : null;
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            if (npc == null || lp == null) { Output("[SC] usage: sc recruit <id|name> - joins a loaded survivor without the favour (testing)"); return; }
+            string error;
+            bool ok = ScCommunity.Join(npc, lp, out error);
+            Output("[SC] " + (ok ? ScCommunity.DisplayName(npc) + " joined the community (entity " + npc.entityId + ")"
+                                 : "refused: " + Localization.Get(error ?? "scInternal")));
+        }
+
         private static EntityAlive FindSurvivor(string key)
         {
             Member m = FindMember(key);
@@ -1109,8 +1125,9 @@ namespace SurvivorCommunity
         /// <summary>0-XNPCCore 3.2 checks: the billing guard's counters, and the body hooks that met one of its survivors.</summary>
         /// <summary>
         /// sc xnpc: the billing guard's counters, the body hooks that stepped aside for a 0-XNPCCore survivor, the
-        /// Patches_Xnpc hit counters and the loaded members with a hire contract. sc xnpc &lt;id|name&gt;: one NPC in
-        /// detail - the migration's main probe, since DevLink's cvar command only reads the player's cvars.
+        /// Patches_Xnpc hit counters, the ammo resupply and swap-return counters (ScAmmo, ScArms) and the loaded members
+        /// with a hire contract. sc xnpc &lt;id|name&gt;: one NPC in detail - the migration's main probe, since DevLink's
+        /// cvar command only reads the player's cvars.
         /// </summary>
         private static void XnpcCmd(List<string> p)
         {
@@ -1124,6 +1141,8 @@ namespace SurvivorCommunity
             Output("[SC] voice control: " + (Patches_VoiceControl.ChatType != null ? "loaded" : "not loaded") + " - intercepted: " + Patches_VoiceControl.Report());
             Output("[SC] body hooks that met a 0-XNPCCore survivor and stepped aside: " + Patches_Sdcs.ForeignReport());
             Output("[SC] 0-XNPCCore survivor hooks (Patches_Xnpc): " + Patches_Xnpc.Report());
+            if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
+            Output("[SC] weapons: " + ScArms.Report());
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
             if (w == null) return;
             int ours = 0, contracts = 0, theirs = 0, managed = 0;
@@ -1194,6 +1213,8 @@ namespace SurvivorCommunity
                   .Append(" SdcsLastMelee=").Append(e.Buffs.HasCustomVar("SdcsLastMelee") ? ItemName((int)e.Buffs.GetCustomVar("SdcsLastMelee")) : "-");
             }
             sb.Append("\n  ammo: ").Append(XnpcAmmo(e, held));
+            if (ScRegistry.Loaded) sb.Append("\n  resupply: ").Append(ScAmmo.Describe(e));
+            sb.Append("\n  overwhelmed: ").Append(ScArms.Describe(e));
             // XNPC kill levels and buffs
             if (e.Buffs != null)
             {

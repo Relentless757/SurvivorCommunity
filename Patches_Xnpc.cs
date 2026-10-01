@@ -15,7 +15,8 @@ namespace SurvivorCommunity
     ///   X3  AvatarSdcsNpcController.SdcsLevelTick                    prefix   no XNPC kill levels on members and stand-ins (D8)
     ///   X4  AvatarSdcsNpcController.SdcsWearTick                     prefix   no no-wear buff: armor wears like SC's
     ///   X5  AvatarSdcsNpcController.SdcsFailoverTick / SdcsCloseRangeTick / SdcsTryWorldEntryRearm
-    ///                                                                prefix   XNPC never swaps the hand during a medical use
+    ///                                                                prefix   XNPC never swaps the hand during a medical use;
+    ///                                                                         overwhelmed keeps the gun up close (ScArms)
     ///   X6  AvatarSdcsNpcController.SdcsChooseMeleeFallback          prefix   XNPC's melee choice is the pair's melee weapon
     ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame
     ///
@@ -334,6 +335,8 @@ namespace SurvivorCommunity
         /// gun as soon as there is reserve ammo and the held item is not dry-capable (a bandage is not), its close-range
         /// swap's exit restores the remembered weapon, and the world-entry re-arm swaps to the best loaded gun. All three
         /// are skipped for the 1-3 s a use lasts; ScMedic puts the weapon back itself when the use ends.
+        /// The close-range tick also carries the overwhelmed rule (migration M7.5, ScArms.CloseRange): one prefix, so the
+        /// medical-use skip always comes first and the order of the two never depends on how Harmony chains prefixes.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoSwapWhileUsing
@@ -361,9 +364,15 @@ namespace SurvivorCommunity
                 try
                 {
                     EntityAlive e = __instance != null ? __instance.entity : null;
-                    if (e == null || !ScMedic.IsUsing(e.entityId) || !ScXnpc.IsBody(e)) return true;
-                    Count("x5-" + (__originalMethod != null ? __originalMethod.Name : "?"));
-                    return false;
+                    if (e == null) return true;
+                    if (ScMedic.IsUsing(e.entityId) && ScXnpc.IsBody(e))
+                    {
+                        Count("x5-" + (__originalMethod != null ? __originalMethod.Name : "?"));
+                        return false;
+                    }
+                    // overwhelmed: keep (or go back to) the gun instead of the melee swap up close
+                    if (__originalMethod != null && __originalMethod.Name == "SdcsCloseRangeTick") return ScArms.CloseRange(__instance, e);
+                    return true;
                 }
                 catch (Exception ex)
                 {

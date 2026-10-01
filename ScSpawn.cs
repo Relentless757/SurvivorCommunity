@@ -13,7 +13,8 @@ namespace SurvivorCommunity
     ///    back (ClassOf; ScRegistry.PreMigrationLine says why);
     ///  - the record's look is handed to the model while it is built: for an XNPC body Patches_Xnpc's createModel prefix
     ///    (X1) takes it as ScLooks.Pending (SC's model shim, Patches_Sdcs.Patch_Init, does the same for any other body);
-    ///  - the record's two weapons (m.Loadout) go to ScLoadout as Pending, so the new body carries the same pair;
+    ///  - the record's two weapons (m.Loadout) go to ScLoadout as Pending, so the new body carries the same pair, and
+    ///    the rounds they last carried (m.Ammo) go with them instead of a new survivor's starting stack (ScAmmo);
     ///  - the record's name replaces the one the class rolled at construction (both NPC classes roll a random first
     ///    name and title from the class's Names / Titles);
     ///  - an XNPC member or stand-in loses XNPC's kill levels (decision D8; ScXnpc.StripLevels).
@@ -49,21 +50,26 @@ namespace SurvivorCommunity
         /// <summary>
         /// Creates (does not spawn) a framework NPC of the class, built wearing a copy of the look (null: the model
         /// resolves one itself, from the registry by id or a fresh roll) and carrying a copy of the pair (null, or a half:
-        /// ScLoadout resolves or rolls the rest). Null when the class does not make an SCore NPC. Both pending values are
-        /// always cleared again, so a failed creation cannot hand them to the next body built.
+        /// ScLoadout resolves or rolls the rest). known: the member this body is re-created for - it then starts with the
+        /// rounds their record says they carry (ScAmmo), never a new survivor's starting stack; null for a genuinely new
+        /// survivor (a radio walk-in, a console spawn). Null when the class does not make an SCore NPC. The pending values
+        /// are always cleared again, so a failed creation cannot hand them to the next body built.
         /// </summary>
-        public static EntityAlive Create(int classId, Vector3 at, Vector3 rotation, Look look, Loadout loadout = null)
+        public static EntityAlive Create(int classId, Vector3 at, Vector3 rotation, Look look, Loadout loadout = null, Member known = null)
         {
             try
             {
                 if (look != null) ScLooks.Pending = look.Clone();
                 if (loadout != null) ScLoadout.Pending = loadout.Clone();
+                if (known != null) { ScAmmo.PendingKnown = true; ScAmmo.PendingRecord = ScAmmo.Copy(known.Ammo); }
                 return ScNpc.As(EntityFactory.CreateEntity(classId, at, rotation));
             }
             finally
             {
                 ScLooks.Pending = null;
                 ScLoadout.Pending = null;
+                ScAmmo.PendingKnown = false;
+                ScAmmo.PendingRecord = null;
             }
         }
 
@@ -86,7 +92,7 @@ namespace SurvivorCommunity
         {
             int cid;
             if (w == null || !ClassOf(m, out cid)) return null;
-            EntityAlive e = Create(cid, at, rotation, m.Look, m.Loadout);
+            EntityAlive e = Create(cid, at, rotation, m.Look, m.Loadout, m);
             if (e == null) return null;
             w.SpawnEntityInWorld(e);
             Identify(e, m, community);

@@ -21,7 +21,9 @@
 			<!-- where residents idle: within this many blocks of the home land claim block -->
 			<property name="PostRadius" value="8" />
 
-			<!-- daily use, in bundles -->
+			<!-- daily use, in bundles. AmmoPerRangedDay is NOT charged any more: ammo is only spent when a survivor is
+			     resupplied (XnpcResupply* below); it is only the estimate the outposts use to judge which resource runs
+			     out first. -->
 			<property name="FoodPerMemberDay" value="0.5" />
 			<property name="AmmoPerRangedDay" value="0.25" />
 
@@ -213,12 +215,42 @@
 			     SurvivorRangedMainChance: how often a hostile console spawn has a ranged class weapon.
 			     SurvivorSecondWeapon=false gives raiders only their class weapon again (survivors always carry both).
 			     XnpcSpawnAmmo / XnpcSpawnArrows: the rounds of its gun's basic ammo (arrows or bolts for a bow or
-			     crossbow) a survivor starts with, once, in its inventory window. Ammo is finite: what is shot is gone. -->
+			     crossbow) a new survivor starts with, once, in its inventory window. Ammo is finite: what is shot is gone.
+			     A body the community re-creates for a member (a call-back, a stand-in, a runner) starts with what the
+			     member last carried instead, never a new stack. -->
 			<property name="SurvivorSecondWeapon" value="true" />
 			<property name="SurvivorFirearmChance" value="0.12" />
 			<property name="SurvivorRangedMainChance" value="0.4" />
 			<property name="XnpcSpawnAmmo" value="30" />
 			<property name="XnpcSpawnArrows" value="20" />
+			<!-- Ammo resupply: a member (or a posted member's stand-in) whose gun is down to fewer than XnpcResupplyBelow
+			     rounds gets XnpcResupplyAmmo rounds of its basic ammo (XnpcResupplyArrows arrows or bolts for a bow or
+			     crossbow) from the stockpile - only inside the home zone or at one of your outposts, at most once every
+			     XnpcResupplyCooldown seconds. Anywhere else they fight on with what they carry, and with their melee weapon
+			     once the gun is dry. Strangers are never resupplied, and there is no daily ammo upkeep.
+			     The stockpile pays in packing points: a round costs what it is worth at the packing station (its
+			     EconomicValue, or its ValueOverrides entry) times XnpcResupplyPointsMult, and an ammo bundle holds
+			     PointsPerBundleAmmo points - a bundle is opened only when the last one is used up. At the defaults a bundle
+			     is about 220 9 mm rounds or 165 stone arrows. -->
+			<property name="XnpcResupply" value="true" />
+			<property name="XnpcResupplyBelow" value="10" />
+			<property name="XnpcResupplyAmmo" value="30" />
+			<property name="XnpcResupplyArrows" value="20" />
+			<property name="XnpcResupplyCooldown" value="60" />
+			<property name="XnpcResupplyPointsMult" value="1" />
+			<!-- Overwhelmed: 0-XNPCCore's survivors swap the gun for their melee weapon when the enemy is within 3 m. With
+			     at least X enemies targeting them within OverwhelmedRadius metres they keep the gun instead (and go back
+			     to it from melee), backing off as they shoot, while it has ammo. X for a member =
+			     OverwhelmedMin + (Fighting stars - 1) / OverwhelmedStarsPerStep, at most OverwhelmedMax (2 at 1-2 stars,
+			     3 at 3-4, 4 at 5-6, 5 at 7); for anyone else OverwhelmedStrangers. The state lasts OverwhelmedHoldSeconds
+			     after the count drops. Overwhelmed=false leaves 0-XNPCCore's swap as it is. -->
+			<property name="Overwhelmed" value="true" />
+			<property name="OverwhelmedRadius" value="12" />
+			<property name="OverwhelmedMin" value="2" />
+			<property name="OverwhelmedMax" value="5" />
+			<property name="OverwhelmedStarsPerStep" value="2" />
+			<property name="OverwhelmedStrangers" value="3" />
+			<property name="OverwhelmedHoldSeconds" value="3" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:

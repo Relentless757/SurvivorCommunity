@@ -78,10 +78,12 @@ NPCs but cannot manage a community (v2).
   (food / medical / ammo rewards from tier 1, more per bundle at higher tiers; resource rewards offer a
   materials or fuel bundle).
 - **Daily needs.** At each day rollover the community eats `FoodPerMemberDay` (0.5) food bundles per
-  member (trait multipliers apply, fractions carry over), uses one medical bundle per injured member
-  (which heals them) and `AmmoPerRangedDay` (0.25) ammo bundles per armed resident. This happens whether
-  or not the base is loaded. A tooltip and the ledger (`sc status`) report what was used and whether anyone
-  went hungry; the hungry flag feeds morale in milestone 4.
+  member (trait multipliers apply, fractions carry over) and uses one medical bundle per injured member
+  (which heals them). This happens whether or not the base is loaded. **Ammo has no daily upkeep:** it is
+  spent only when a survivor's gun is refilled in the base or at an outpost (see *Ammo* under the survivors
+  below), and the day's report counts the ammo bundles that took. A tooltip and the ledger (`sc status`) report
+  what was used, whether anyone went hungry, and whether a survivor ran low while the stockpile had no ammo; the
+  hungry flag feeds morale in milestone 4.
 
 ## Milestone 3 - skills and traits that do something
 
@@ -373,10 +375,38 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
     `Config/blocks.xml`), at or below the lower of its class's
     tier (T1 early, T2 middle, T3 late - the place and time of day it turned up) and your gamestage's. It fights
     with 0-XNPCCore's own weapon handling: the gun while it has ammo, the melee weapon up close and when the gun
-    runs dry. **Ammo is finite:** a new survivor starts with `XnpcSpawnAmmo` (30) rounds of its gun's basic ammo,
-    or `XnpcSpawnArrows` (20) arrows or bolts, in the inventory window you see when you open them, and what it
-    shoots is gone. The pair is saved with the NPC and, for a prospect or member, in the registry (`loadout=`), so
-    every body the community re-creates for them (a call-back, a stand-in, a runner) carries the same two.
+    runs dry. The pair is saved with the NPC and, for a prospect or member, in the registry (`loadout=`), so every
+    body the community re-creates for them (a call-back, a stand-in, a runner) carries the same two.
+  - **Ammo is finite.** A new survivor starts with `XnpcSpawnAmmo` (30) rounds of its gun's basic ammo, or
+    `XnpcSpawnArrows` (20) arrows or bolts, in the inventory window you see when you open them, and what it shoots
+    is gone. Hand them more through that window whenever you like.
+  - **The stockpile refills members - only at home or at an outpost.** A member (or a posted member's stand-in)
+    whose gun is down to fewer than `XnpcResupplyBelow` (10) rounds while standing inside the base's claim or at one
+    of your outposts gets `XnpcResupplyAmmo` (30) rounds, or `XnpcResupplyArrows` (20) arrows or bolts, from the
+    stockpile's ammo, at most once a `XnpcResupplyCooldown` (60 s). Out in the world nobody refills them: once the
+    gun is dry they fight on with their melee weapon until you bring them home or hand them ammo. Strangers are never
+    refilled. The stockpile pays in packing points: a round costs what it is worth at the packing station (its
+    economic value, times `XnpcResupplyPointsMult`, 1), and an ammo bundle holds `PointsPerBundleAmmo` (2000) points,
+    opened only when the last one is used up - about 220 9 mm rounds or 165 stone arrows a bundle. The log names
+    every refill; `sc xnpc` counts them.
+  - **Nobody comes back with new ammo.** A body the community re-creates for a member (a call-back, an outpost
+    stand-in, a rescue stand-in, a runner's fresh body) starts with the rounds that member last carried (kept in the
+    registry as `ammo=`), not a new survivor's 30.
+  - **Giving a member a better weapon.** Put the weapon in their inventory window and pick it in the dialog's weapon
+    menu ("Use ..."), or tell them to use it by voice: they keep it for good in place of their weapon of that kind
+    (the registry's `loadout=` follows), and the weapon it replaces comes back to you as a real item - into the
+    base's storage boxes when they are loaded and have room, else your inventory, else a bag at your feet; any mods
+    on the weapon you gave come back too. Only the weapons the survivors can carry (`XnpcWeapons`) are kept this way;
+    anything else they just hold for now. The handed weapon's own quality is not kept (the NPC's copy is rolled 1-6,
+    as 0-XNPCCore's are), and a gun given this way brings no ammo of its own.
+  - **Overwhelmed, they keep shooting.** 0-XNPCCore puts the gun away for the melee weapon when an enemy is within
+    3 m. With enough enemies on them within `OverwhelmedRadius` (12 m) a survivor keeps the gun instead, or goes back
+    to it, and backs off as it shoots, as long as it has rounds: 2 enemies for a 1-2 star fighter, 3 at 3-4 stars, 4
+    at 5-6, 5 at 7 (`OverwhelmedMin` / `OverwhelmedMax` / `OverwhelmedStarsPerStep`), 3 for anyone who is not a
+    member (`OverwhelmedStrangers`). `Overwhelmed` false leaves 0-XNPCCore's swap alone.
+  - **Not yet: holstering.** Survivors keep their weapon in hand when calm. 0-XNPCCore's controller drives their
+    weapon pose and swaps the hand item several times a fight, so hiding the weapon alone would leave them miming
+    an invisible gun; a proper holster (and the sling the plan wants) is a later task.
   - A **raider** carries the weapon its class is named for and one of the other kind rolled for it, never above
     the higher of its class's tier and your gamestage's (the spawn groups use the same firearm share,
     `FIREARM_SHARE` in the generator). The rocket launcher is never rolled. `SurvivorSecondWeapon` false gives
@@ -482,7 +512,11 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `SpeedPerStar`, `HealthPerStar`, `CookFoodPerStar`, `CropFoodPerStar`, `MedicPerStar`, `PackBonusPerStar`,
 `ScanRadius`, `FollowXpSeconds`, `DailyWitsXp`, and for the player-body survivors `SurvivorGearSets`, `SurvivorGearPieceChance`, `SurvivorGearAlwaysChest`, `SurvivorGearMixChance`,
 `SurvivorGearQualityMin/Max`,
-`SurvivorBaldChance`, `SurvivorFacialHairChance`. Outposts: every `Outpost*` and `Radio*` property in the block
+`SurvivorBaldChance`, `SurvivorFacialHairChance`. Weapons and ammo: `SurvivorFirearmChance`, `XnpcSpawnAmmo` /
+`XnpcSpawnArrows`, `XnpcResupply`, `XnpcResupplyBelow`, `XnpcResupplyAmmo` / `XnpcResupplyArrows`,
+`XnpcResupplyCooldown`, `XnpcResupplyPointsMult`, `Overwhelmed`, `OverwhelmedRadius`, `OverwhelmedMin` / `OverwhelmedMax`,
+`OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds` (`AmmoPerRangedDay` is no longer charged; the
+outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features.
 
 A full game restart is needed after editing `Config/Localization.csv`.

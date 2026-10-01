@@ -1,0 +1,512 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Text;
+using HarmonyLib;
+using UnityEngine;
+
+namespace SurvivorCommunity
+{
+    /// <summary>
+    /// The hand of the community's 0-XNPCCore survivors, on top of 0-XNPCCore's own weapon state machine (its close-range
+    /// melee swap, dry-gun failover and world-entry re-arm own the hand slot; the weapons task's planned ScArms switcher
+    /// is retired - migration design M7.5). Two pieces:
+    ///
+    /// Overwhelmed (M7.5, the weapons task's W4/W6 decision). 0-XNPCCore swaps a gun for the melee weapon when the target
+    /// is within 3 m and back at 5 m. A survivor that is overwhelmed - at least X enemies targeting it within
+    /// OverwhelmedRadius (12 m), X = OverwhelmedMin + (Fighting stars - 1) / OverwhelmedStarsPerStep, at most
+    /// OverwhelmedMax (2..5 for 1..7 stars; OverwhelmedStrangers, 3, for anyone who is not a member) - fights with the gun
+    /// instead, as long as it has something to shoot: no swap to melee, and one already on melee goes back to the gun.
+    /// 0-XNPCCore's BackupKeepDistance (weight 7 inside 4 m) then provides the "back off". Run from the X5 prefix on
+    /// AvatarSdcsNpcController.SdcsCloseRangeTick (Patches_Xnpc), on 0-XNPCCore's private state bound by name (Bind).
+    ///
+    /// The swap-dialog return (M7.4, the weapons task's W3 decision). A member handed a weapon through their inventory
+    /// window and told to use it (the SdcsNPC dialog's weapon menu - SCore's SwapWeapon action - or Voice Control's
+    /// SwapWeapon) keeps it: it replaces the pair's weapon of the same kind (registry loadout=, cvars, item list), the
+    /// handed item leaves the window (it lives in the pair now), and the weapon it replaced comes back as a real item -
+    /// into the base's linked storage, else the player's inventory, else a bag dropped at the player's feet. Only weapons
+    /// the survivors can carry (the XnpcWeapons list) are kept; anything else the NPC simply holds from the window, as
+    /// 0-XNPCCore does. Host only.
+    /// </summary>
+    public static class ScArms
+    {
+        // ------------------------------------------------------------------ overwhelmed ----
+
+        /// <summary>0-XNPCCore's minimum time on close-range melee before it may leave it (a private constant, SdcsCloseMinHold).</summary>
+        private const float XnpcCloseMinHold = 3f;
+        /// <summary>The distance at which 0-XNPCCore swaps a gun for melee (a private constant, SdcsCloseEnterDist).</summary>
+        private const float XnpcCloseEnterDist = 3f;
+        /// <summary>How often the attackers around one survivor are recounted (the close-range tick runs at 5 Hz).</summary>
+        private const float CountSeconds = 0.5f;
+
+        private sealed class Watch
+        {
+            public float NextCount;
+            public int Count;
+            public float OverUntil;
+            public float Seen;
+        }
+
+        private static readonly Dictionary<int, Watch> watch = new Dictionary<int, Watch>();
+        private static readonly List<Entity> near = new List<Entity>();
+        private static float nextPrune;
+
+        // 0-XNPCCore's private close-range state (AvatarSdcsNpcController, 3.2.06), bound once by name
+        private static bool bound, bindFailed;
+        // plain FieldInfo, not FieldRefAccess: read only once a survivor is overwhelmed, so the reflection cost is nothing,
+        // and nothing is emitted (the offline probe can check the bindings outside the game)
+        private static FieldInfo closeMeleeField, closeSinceField, rememberedField;
+        private static MethodInfo restoreHeld;
+
+        // swap-return counters for sc xnpc
+        private static int swapsKept, swapsUnknown, returnedStorage, returnedInventory, returnedGround;
+
+        public static void Reset()
+        {
+            watch.Clear();
+            near.Clear();
+            nextPrune = 0f;
+            swapsKept = swapsUnknown = returnedStorage = returnedInventory = returnedGround = 0;
+        }
+
+        /// <summary>
+        /// Binds 0-XNPCCore's private close-range swap state: the on-melee flag and its start time, the weapon it will
+        /// restore, and the restore itself. Also run once at startup (ModApi), so a renamed member shows up in the log at
+        /// once rather than in the first fight. A failure switches the overwhelmed rule off for the session.
+        /// </summary>
+        public static bool Bind()
+        {
+            if (bound) return true;
+            if (bindFailed) return false;
+            try
+            {
+                closeMeleeField = Field("sdcsCloseMelee", typeof(bool));
+                closeSinceField = Field("sdcsCloseSinceTime", typeof(float));
+                rememberedField = Field("sdcsHeldWeaponRemembered", typeof(string));
+                restoreHeld = AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsRestoreHeldWeapon", Type.EmptyTypes);
+                if (restoreHeld == null || restoreHeld.ReturnType != typeof(bool)) throw new MissingMethodException("AvatarSdcsNpcController", "SdcsRestoreHeldWeapon");
+                bound = true;
+                return true;
+            }
+            catch (Exception e)
+            {
+                bindFailed = true;
+                ScLog.Warn("0-XNPCCore's close-range swap state could not be bound (" + e.Message + ") - the overwhelmed rule is off (0-XNPCCore update?)");
+                return false;
+            }
+        }
+
+        /// <summary>An instance field the controller itself declares, of exactly this type (else a throw: Bind fails loud).</summary>
+        private static FieldInfo Field(string name, Type type)
+        {
+            FieldInfo f = AccessTools.DeclaredField(typeof(AvatarSdcsNpcController), name);
+            if (f == null || f.IsStatic || f.FieldType != type) throw new MissingFieldException("AvatarSdcsNpcController", name);
+            return f;
+        }
+
+        private static bool CloseMelee(AvatarSdcsNpcController c) { return (bool)closeMeleeField.GetValue(c); }
+        private static float CloseSince(AvatarSdcsNpcController c) { return (float)closeSinceField.GetValue(c); }
+        private static string Remembered(AvatarSdcsNpcController c) { return rememberedField.GetValue(c) as string; }
+
+        /// <summary>
+        /// The X5 prefix's close-range part (Patches_Xnpc.Patch_NoSwapWhileUsing, on SdcsCloseRangeTick): true runs
+        /// 0-XNPCCore's own tick, false skips it. Overwhelmed with a gun that has rounds: not on melee - skip (no swap to
+        /// melee); on melee past 0-XNPCCore's own minimum hold - restore the gun, as its exit would, and skip. Anything
+        /// else is 0-XNPCCore's own logic.
+        /// </summary>
+        public static bool CloseRange(AvatarSDCSController ctrl, EntityAlive e)
+        {
+            try
+            {
+                if (!ScConfig.Overwhelmed || e == null || e.isEntityRemote || e.inventory == null || !ScXnpc.IsBody(e)) return true;
+                AvatarSdcsNpcController c = ctrl as AvatarSdcsNpcController;
+                if (c == null || !Bind()) return true;
+                int count, need;
+                // the cheap tests first: the enemies are only counted when 0-XNPCCore is about to decide something
+                if (!CloseMelee(c))
+                {
+                    if (!TargetWithin(e, XnpcCloseEnterDist)) return true;                               // 0-XNPCCore would not swap yet
+                    ItemValue held = e.inventory.holdingItemItemValue;
+                    ItemClass gun = held != null && !held.IsEmpty() ? held.ItemClass : null;
+                    if (ScAmmo.RangedAction(gun) == null || ScAmmo.Rounds(e, gun) <= 0) return true;   // no gun to keep: melee it is
+                    if (!IsOverwhelmed(e, out count, out need)) return true;
+                    Patches_Xnpc.Count("x5-overwhelmed-keep-gun");
+                    return false;
+                }
+                if (Time.time - CloseSince(c) < XnpcCloseMinHold) return true;
+                string name = Remembered(c);
+                ItemClass rem = string.IsNullOrEmpty(name) ? null : ItemClass.GetItemClass(name, true);
+                // reserve rounds only: SCore's UpdateWeapon builds the hand item fresh (an empty magazine), so a stored
+                // magazine alone would bring back a gun that fires nothing until 0-XNPCCore's failover swaps it out again
+                if (ScAmmo.RangedAction(rem) == null || ScAmmo.Rounds(e, rem) <= 0) return true;
+                if (!IsOverwhelmed(e, out count, out need)) return true;
+                // 0-XNPCCore's own exit: restore the remembered gun (UpdateWeapon), then clear the close-range state
+                restoreHeld.Invoke(c, null);
+                closeMeleeField.SetValue(c, false);
+                closeSinceField.SetValue(c, 0f);
+                Patches_Xnpc.Count("x5-overwhelmed-exit");
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is overwhelmed (" + count + " of " + need + " enemies on them) - back to the " + name);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("arms-closerange", ex);
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Are enough enemies on this survivor (recounted every half second; the state outlasts the count by
+        /// OverwhelmedHoldSeconds, so a zombie stepping in and out of the radius does not flip the weapon twice a second)?
+        /// </summary>
+        public static bool IsOverwhelmed(EntityAlive e, out int count, out int need)
+        {
+            need = Threshold(e);
+            float now = Time.time;
+            Watch st;
+            if (!watch.TryGetValue(e.entityId, out st)) watch[e.entityId] = st = new Watch();
+            st.Seen = now;
+            if (now >= st.NextCount)
+            {
+                st.NextCount = now + CountSeconds;
+                st.Count = Attackers(e);
+                if (st.Count >= need) st.OverUntil = now + ScConfig.OverwhelmedHoldSeconds;
+            }
+            count = st.Count;
+            if (now >= nextPrune) Prune(now);
+            return st.Count >= need || now < st.OverUntil;
+        }
+
+        /// <summary>
+        /// Living entities within OverwhelmedRadius whose target is this survivor: the attack target, else the revenge
+        /// target - the same "who is it fighting" 0-XNPCCore's close-range tick reads (SdcsCurrentTargetDist).
+        /// </summary>
+        private static int Attackers(EntityAlive e)
+        {
+            World w = e.world;
+            if (w == null) return 0;
+            float r = ScConfig.OverwhelmedRadius;
+            near.Clear();
+            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * r, 2f * r, 2f * r)), near);
+            int n = 0;
+            float r2 = r * r;
+            for (int i = 0; i < near.Count; i++)
+            {
+                EntityAlive a = near[i] as EntityAlive;
+                if (a == null || a == e || a.IsDead() || (a.position - e.position).sqrMagnitude > r2) continue;
+                EntityAlive t = a.GetAttackTarget();
+                if (t == null) t = a.GetRevengeTarget();
+                if (t == e) n++;
+            }
+            near.Clear();
+            return n;
+        }
+
+        /// <summary>Its target (attack target, else revenge target, alive) within this distance - 0-XNPCCore's own reading.</summary>
+        private static bool TargetWithin(EntityAlive e, float dist)
+        {
+            EntityAlive t = e.GetAttackTarget();
+            if (t == null) t = e.GetRevengeTarget();
+            return t != null && !t.IsDead() && (t.position - e.position).sqrMagnitude <= dist * dist;
+        }
+
+        /// <summary>X for this survivor: from the member's Fighting stars (a stand-in fights as the member), else OverwhelmedStrangers.</summary>
+        public static int Threshold(EntityAlive e)
+        {
+            Member m = MemberOf(e);
+            if (m == null) return ScConfig.OverwhelmedStrangers;
+            int steps = (m.Stars(Skill.Fighting) - 1) / Math.Max(1, ScConfig.OverwhelmedStarsPerStep);
+            return Mathf.Clamp(ScConfig.OverwhelmedMin + steps, ScConfig.OverwhelmedMin, ScConfig.OverwhelmedMax);
+        }
+
+        private static Member MemberOf(EntityAlive e)
+        {
+            if (e == null || !ScRegistry.Loaded) return null;
+            Member m = ScRegistry.GetMember(e.entityId);
+            if (m == null && e.Buffs != null && e.Buffs.HasCustomVar(ScRadio.StandInCvar)) m = ScRegistry.GetMember((int)e.Buffs.GetCustomVar(ScRadio.StandInCvar));
+            return m;
+        }
+
+        private static void Prune(float now)
+        {
+            nextPrune = now + 30f;
+            var gone = new List<int>();
+            foreach (var kv in watch) if (now - kv.Value.Seen > 60f) gone.Add(kv.Key);
+            foreach (int id in gone) watch.Remove(id);
+        }
+
+        // ------------------------------------------------------------------ the swap-dialog return ----
+
+        public static MethodBase DialogSwapTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(DialogActionSwapWeapon), "PerformAction", new[] { typeof(EntityPlayer) });
+        }
+
+        /// <summary>Voice Control's swap (XNPCVoiceControl.Net.VCCommandRouter.MutateSwapWeapon, internal); null without Voice Control.</summary>
+        public static MethodBase VcSwapTarget()
+        {
+            Type t = AccessTools.TypeByName("XNPCVoiceControl.Net.VCCommandRouter");
+            return t != null ? AccessTools.DeclaredMethod(t, "MutateSwapWeapon", new[] { typeof(EntityAlive), typeof(string) }) : null;
+        }
+
+        /// <summary>
+        /// After the NPC was told to use an item (it is already in their hand, from the window): a member's handed weapon
+        /// joins the pair and the one it replaces comes back as a real item. route is "dialog" or "voice", for the log.
+        /// </summary>
+        public static void OnSwap(EntityAlive npc, string itemName, EntityPlayer player, string route)
+        {
+            try
+            {
+                if (!ScCommunity.IsHost || npc == null || string.IsNullOrEmpty(itemName) || !ScRegistry.Loaded || !ScXnpc.IsBody(npc)) return;
+                Member m = ScRegistry.GetMember(npc.entityId);
+                if (m == null) return;                       // a stranger's or a prospect's hand stays 0-XNPCCore's business
+                ItemClass ic = ItemClass.GetItemClass(itemName, true);
+                if (ic == null) return;
+                string token = ic.GetItemName();
+                Loadout cur = ScLoadout.Current(npc);
+                if (cur == null) return;
+                if (string.Equals(cur.Ranged, token, StringComparison.OrdinalIgnoreCase) || string.Equals(cur.Melee, token, StringComparison.OrdinalIgnoreCase)) return;
+                int slot = WindowSlot(npc, ic.Id);
+                if (slot < 0) return;                        // not handed over through the window: nothing to keep
+                if (!ScLoadout.Knows(false, token))
+                {
+                    swapsUnknown++;
+                    ScLog.Out(m.Name + " holds " + token + " from the inventory window - not one of the weapons the survivors carry (XnpcWeapons), so it is not kept in their pair");
+                    return;
+                }
+                bool ranged = ScLoadout.IsRangedToken(token);
+                string old = cur.Of(ranged);
+                ItemValue oldIv = old != null ? CarriedCopy(npc, old) : null;     // before Set refills the slots
+                var change = new Loadout();
+                change.Set(ranged, token);
+                string why;
+                // no starting stack for a handed gun: its ammo is what the player hands over, or a resupply at home
+                if (!ScLoadout.Set(npc, change, out why, false))
+                {
+                    ScLog.Warn(m.Name + ": could not keep the handed " + token + " (" + why + ")");
+                    return;
+                }
+                RetargetRemembered(npc, old, token);
+                var back = new List<ItemStack>();
+                TakeFromWindow(npc, slot, back);              // the handed item lives in the pair now; any mods on it come back
+                if (oldIv != null) back.Insert(0, new ItemStack(oldIv, 1));
+                string where = back.Count > 0 ? Return(back, player, npc) : null;
+                swapsKept++;
+                ScLog.Out(m.Name + " keeps the " + token + " (" + route + ") in place of the " + (old ?? "-") + (where != null ? ", returned to " + where : "")
+                          + " - loadout now " + (m.Loadout != null ? m.Loadout.ToString() : "-"));
+                if (player != null && old != null)
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scSwapKept"), m.Name, ItemLabel(token), ItemLabel(old), Localization.Get(WhereKey(where))), "");
+                ScRegistry.SaveAtomic();
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("arms-swap", e);
+            }
+        }
+
+        /// <summary>
+        /// 0-XNPCCore remembers the weapon its close-range swap or failover took out of the hand and restores it later. If
+        /// that is the weapon the member just gave back, the restore would ask SCore for an item it no longer finds and fall
+        /// back to the melee weapon for good; it remembers the new one instead.
+        /// </summary>
+        private static void RetargetRemembered(EntityAlive npc, string old, string token)
+        {
+            AvatarSdcsNpcController c = npc.emodel != null ? npc.emodel.avatarController as AvatarSdcsNpcController : null;
+            if (c == null || old == null || !Bind()) return;
+            if (string.Equals(Remembered(c), old, StringComparison.OrdinalIgnoreCase)) rememberedField.SetValue(c, token);
+        }
+
+        /// <summary>The window slot holding this item, an unmodded one first (its mods then need not come back separately).</summary>
+        private static int WindowSlot(EntityAlive npc, int type)
+        {
+            if (!HarvestManager.Has(npc.entityId)) return -1;
+            ItemStack[] items = ScNpc.Items(npc);
+            if (items == null) return -1;
+            int modded = -1;
+            for (int i = 0; i < items.Length; i++)
+            {
+                ItemStack s = items[i];
+                if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.type != type) continue;
+                if (!s.itemValue.HasMods()) return i;
+                if (modded < 0) modded = i;
+            }
+            return modded;
+        }
+
+        /// <summary>Takes one of the stack in this window slot; its mods (and cosmetic mods) go into back.</summary>
+        private static void TakeFromWindow(EntityAlive npc, int slot, List<ItemStack> back)
+        {
+            ItemStack[] items = ScNpc.Items(npc);
+            ItemStack s = items != null && slot >= 0 && slot < items.Length ? items[slot] : null;
+            if (s == null || s.IsEmpty()) return;
+            ItemValue iv = s.itemValue;
+            if (iv.Modifications != null) foreach (ItemValue mod in iv.Modifications) if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1));
+            if (iv.CosmeticMods != null) foreach (ItemValue mod in iv.CosmeticMods) if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1));
+            ItemStack rest = s.Clone();
+            rest.count--;
+            ScNpc.SetItem(npc, slot, rest.count > 0 ? rest : ItemStack.Empty.Clone());
+        }
+
+        /// <summary>
+        /// The replaced weapon as the NPC carried it: its copy in the toolbelt (SCore filled it from the item list, quality
+        /// 1-6), else a fresh one the way SCore makes those copies.
+        /// </summary>
+        private static ItemValue CarriedCopy(EntityAlive npc, string item)
+        {
+            ItemClass ic = ItemClass.GetItemClass(item, true);
+            if (ic == null) return null;
+            ItemStack[] belt = npc.inventory != null ? npc.inventory.GetSlots() : null;
+            if (belt != null)
+                foreach (ItemStack s in belt)
+                    if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == ic.Id) { ItemValue v = s.itemValue.Clone(); v.Meta = 0; return v; }
+            return ic.HasQuality ? new ItemValue(ic.Id, 1, 6, false, null, 1f) : new ItemValue(ic.Id);
+        }
+
+        /// <summary>
+        /// Real items back to the player, each in order of availability: the base's linked storage (a box with room inside
+        /// the home zone, loaded), the player's own inventory (the host's), else one bag at the player's feet (at the NPC
+        /// without a player). Returns where the first item - the weapon - went: storage, inventory or ground.
+        /// </summary>
+        private static string Return(List<ItemStack> items, EntityPlayer player, EntityAlive npc)
+        {
+            string first = null;
+            var ground = new List<ItemStack>();
+            EntityPlayerLocal local = player as EntityPlayerLocal;
+            foreach (ItemStack st in items)
+            {
+                string where;
+                Vector3i box;
+                if (ScStorage.DepositInZone(st, out box)) { where = "storage"; returnedStorage++; }
+                else if (local != null && local.PlayerUI != null && local.PlayerUI.xui != null && local.PlayerUI.xui.PlayerInventory != null
+                         && local.PlayerUI.xui.PlayerInventory.AddItem(st.Clone())) { where = "inventory"; returnedInventory++; }
+                else { ground.Add(st); where = "ground"; returnedGround++; }
+                if (first == null) first = where;
+            }
+            if (ground.Count > 0) DropBag(player != null ? player.GetDropPosition() : npc.position + Vector3.up, ground, npc);
+            return first;
+        }
+
+        /// <summary>One backpack holding the items (the container SC drops a dead survivor's window in: it stays until looted).</summary>
+        private static void DropBag(Vector3 at, List<ItemStack> items, EntityAlive npc)
+        {
+            string className = ScCommunity.ClassExists(EntityClass.FromString("BackpackNPC")) ? "BackpackNPC" : "Backpack";
+            EntityItem pack = EntityFactory.CreateEntity(EntityClass.FromString(className), at) as EntityItem;
+            if (pack == null)
+            {
+                // no bag class: loose items, which despawn like any drop
+                foreach (ItemStack st in items) GameManager.Instance.ItemDropServer(st, at, Vector3.zero, -1, 60f);
+                return;
+            }
+            var bag = new Bag(Math.Max(8, items.Count));      // empty slots to begin with (ItemStack.CreateArray)
+            for (int i = 0; i < items.Count; i++) bag.items[i] = items[i].Clone();
+            GameManager.Instance.RequestToSpawnEntityServer(new EntityCreationData(pack, true) { entityName = Localization.Get(npc.EntityName), id = -1, bag = bag });
+            pack.OnEntityUnload();
+        }
+
+        private static string WhereKey(string where)
+        {
+            switch (where)
+            {
+                case "storage": return "scSwapToStorage";
+                case "inventory": return "scSwapToInventory";
+                default: return "scSwapToGround";
+            }
+        }
+
+        private static string ItemLabel(string item)
+        {
+            ItemClass ic = ItemClass.GetItemClass(item, true);
+            return ic != null ? ic.GetLocalizedItemName() : item;
+        }
+
+        /// <summary>SCore's dialog action: the SdcsNPC weapon menu's "Use X" (DialogActionSwapWeapon) on a member.</summary>
+        [HarmonyPatch]
+        public static class Patch_DialogSwap
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try { return DialogSwapTarget() != null; }
+                catch (Exception e) { ScLog.Once("arms-dialog-bind", e); return false; }
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return DialogSwapTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(BaseDialogAction __instance, EntityPlayer player)
+            {
+                try
+                {
+                    if (__instance == null || !ScCommunity.IsHost) return;
+                    // the same respondent lookup the action itself makes
+                    LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
+                    EntityAlive npc = ui != null && ui.xui != null && ui.xui.Dialog != null ? ui.xui.Dialog.Respondent as EntityAlive : null;
+                    OnSwap(npc, __instance.ID, player, "dialog");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("arms-dialog-swap", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Voice Control's SwapWeapon (a typed or spoken "use X"), which makes the same two calls as the dialog action; only
+        /// the NPC's leader can give it (VCCommandRouter.ExecuteAuthoritative), so the returns go to the leader. Off without
+        /// Voice Control (Prepare).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_VoiceSwap
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try { return VcSwapTarget() != null; }
+                catch (Exception e) { ScLog.Once("arms-vc-bind", e); return false; }
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return VcSwapTarget(); }
+
+            /// <summary>__0 the NPC, __1 the item name (bound by position: Voice Control is not referenced).</summary>
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0, string __1)
+            {
+                try
+                {
+                    if (__0 == null || !ScCommunity.IsHost) return;
+                    OnSwap(__0, __1, EntityUtilities.GetLeaderOrOwner(__0.entityId) as EntityPlayer, "voice");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("arms-voice-swap", e);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ diagnostics ----
+
+        public static string Report()
+        {
+            return "overwhelmed " + (ScConfig.Overwhelmed ? (bound ? "on" : bindFailed ? "OFF (0-XNPCCore state not bound)" : "on (not bound yet)") : "off")
+                   + ", " + watch.Count + " survivor(s) watched; swap returns: " + swapsKept + " kept, " + swapsUnknown + " not a survivor weapon, returned to storage "
+                   + returnedStorage + " / inventory " + returnedInventory + " / ground " + returnedGround;
+        }
+
+        /// <summary>One survivor as the overwhelmed rule sees it, for sc xnpc &lt;id&gt;.</summary>
+        public static string Describe(EntityAlive e)
+        {
+            if (e == null || !ScXnpc.IsBody(e)) return "not one of the community's 0-XNPCCore survivors";
+            var sb = new StringBuilder();
+            int count, need;
+            bool over = IsOverwhelmed(e, out count, out need);
+            sb.Append(count).Append(" enemy(ies) on them within ").Append(ScConfig.OverwhelmedRadius.ToString("0.#")).Append(" m, overwhelmed at ").Append(need)
+              .Append(MemberOf(e) != null ? " (Fighting stars)" : " (stranger)").Append(": ").Append(over ? "OVERWHELMED" : "no");
+            AvatarSdcsNpcController c = e.emodel != null ? e.emodel.avatarController as AvatarSdcsNpcController : null;
+            if (c != null && Bind())
+                sb.Append("; 0-XNPCCore close melee=").Append(CloseMelee(c)).Append(" remembered='").Append(Remembered(c) ?? "-").Append('\'');
+            return sb.ToString();
+        }
+    }
+}

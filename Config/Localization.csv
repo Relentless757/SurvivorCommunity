@@ -118,7 +118,11 @@ scDaily,UI,Tooltip,,,,"Community ({0} survivors): {1}"
 scDailyUse,UI,Tooltip,,,,"used {0} food, {1} medical, {2} ammo"
 scDailyHungry,UI,Tooltip,,,,"- NOT ENOUGH FOOD, your survivors went hungry"
 scDailyInjured,UI,Tooltip,,,,"- {0} injured with no medical supplies"
-scDailyNoAmmo,UI,Tooltip,,,,"- the guards are out of ammo"
+scDailyNoAmmo,UI,Tooltip,,,,"- a survivor ran low on ammo and the stockpile had none to give"
+scSwapKept,UI,Tooltip,,,,"{0} keeps the {1}. The {2} is {3}."
+scSwapToStorage,UI,Tooltip,,,,"in the base storage"
+scSwapToInventory,UI,Tooltip,,,,"in your inventory"
+scSwapToGround,UI,Tooltip,,,,"in a bag at your feet"
 buffSCSkillsName,Buff,Buff,,,,Survivor skills
 buffSCSkillsDesc,Buff,Buff,,,,"Fighting and Shooting raise this survivor's melee and ranged damage; Cardio raises speed and health."
 buffSCHungryName,Buff,Buff,,,,Hungry

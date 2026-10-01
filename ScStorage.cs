@@ -272,6 +272,65 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Puts one stack into the first box of the home zone's linked storage with a free slot (and, with the grid bridge,
+        /// room for its footprint): what a member hands back when they keep a weapon you gave them (ScArms). The boxes are
+        /// walked here rather than through Scan, which would replace the view's list and its area (an outpost's, when that
+        /// was the last view opened). Loaded chunks only. False when no box has room.
+        /// </summary>
+        public static bool DepositInZone(ItemStack stack, out Vector3i box)
+        {
+            box = Vector3i.zero;
+            try
+            {
+                World w = ScCommunity.World;
+                if (w == null || !ScZone.HasHome || stack == null || stack.IsEmpty()) return false;
+                int xMin, xMax, zMin, zMax;
+                ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
+                for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
+                {
+                    for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
+                    {
+                        Chunk chunk = w.GetChunkSync(cx, cz) as Chunk;
+                        var tes = chunk != null ? chunk.tileEntities : null;
+                        if (tes == null || tes.list == null) continue;
+                        for (int i = 0; i < tes.list.Count; i++)
+                        {
+                            // the same boxes Scan links: player-placed storage inside the zone, never the packing station
+                            TileEntityComposite tc = tes.list[i] as TileEntityComposite;
+                            TEFeatureStorage st = tc != null ? tc.GetFeature<TEFeatureStorage>() : null;
+                            if (st == null || st.items == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
+                            if (!(tc.PlayerPlaced || st.bPlayerStorage)) continue;
+                            Vector3i pos = tc.ToWorldPos();
+                            if (!ScZone.Contains(pos)) continue;
+                            if (BoxHasRoomFor != null)
+                            {
+                                bool room;
+                                try { room = BoxHasRoomFor(st, stack); }
+                                catch (Exception e) { ScLog.Once("storage-room", e); room = true; }
+                                if (!room) continue;
+                            }
+                            for (int k = 0; k < st.items.Length; k++)
+                            {
+                                if (st.items[k] != null && !st.items[k].IsEmpty()) continue;
+                                st.UpdateSlot(k, stack.Clone());
+                                st.SetModified();
+                                freeByBox.Remove(pos);
+                                box = pos;
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-deposit-zone", e);
+                return false;
+            }
+        }
+
         /// <summary>Stacks that still hold something (takes leave empty entries until the next scan).</summary>
         public static int LiveStacks()
         {

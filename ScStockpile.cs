@@ -217,13 +217,13 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// One day of the community: food for every member (fractions carry over), meds for injured members
-        /// (one per injury, healing it), ammo for stationed ranged members. Appends a summary line.
+        /// (one per injury, healing it), and the day's ammo resupplies reported (no ammo upkeep). Appends a summary line.
         /// </summary>
         public static void DailyConsume(int day, StringBuilder summary)
         {
             Community c = ScRegistry.Community;
             int members = ScRegistry.Members.Count;
-            if (members == 0) { c.Hungry = false; return; }
+            if (members == 0) { c.Hungry = false; c.AmmoOpened = 0; c.AmmoShort = false; return; }
 
             // Gardening: living crops in the zone (last scan) feed the stockpile through the gardeners
             int gardenStars = ScSkills.SpecialistStars(Specialty.Gardening);
@@ -273,16 +273,14 @@ namespace SurvivorCommunity
             // Wits: every day lived
             foreach (var m in ScRegistry.Members.Values) ScSkills.AddXp(m, Skill.Wits, ScConfig.DailyWitsXp);
 
-            // ammo: stationed ranged members keep the base defended
-            float ammoNeed = c.AmmoCarry;
-            foreach (var m in ScRegistry.Members.Values)
-                if (m.Ranged && (m.IsHome || m.Status == MemberStatus.Garrison)) ammoNeed += ScConfig.AmmoPerRangedDay;   // posted shooters hold an outpost
-            int ammoWhole = (int)Math.Floor(ammoNeed);
-            c.AmmoCarry = ammoNeed - ammoWhole;
-            int ammoUsed = Math.Min(ammoWhole, c.Get(Resource.Ammo));
-            c.Add(Resource.Ammo, -ammoUsed);
-            bool dryAmmo = ammoUsed < ammoWhole;
-            if (dryAmmo) c.AmmoCarry = 0f;
+            // ammo: no daily upkeep (decision D3, the weapons task's W3 call: ammo is spent only by shooting). The
+            // survivors' guns are finite and are refilled from the stockpile only when they run low in the base or at an
+            // outpost (ScAmmo), which opens a bundle when it needs one: today's "ammo used" is the bundles opened since
+            // the last rollover, and "out of ammo" means a resupply found the stockpile empty
+            int ammoUsed = c.AmmoOpened;
+            bool dryAmmo = c.AmmoShort;
+            c.AmmoOpened = 0;
+            c.AmmoShort = false;
 
             if (summary.Length > 0) summary.Append(' ');     // runs and outposts report first
             summary.Append(string.Format(Localization.Get("scDailyUse"), foodUsed, medsUsed, ammoUsed));

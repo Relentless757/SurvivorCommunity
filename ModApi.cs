@@ -29,6 +29,8 @@ namespace SurvivorCommunity
                 var h = new HarmonyLib.Harmony(HarmonyId);
                 h.PatchAll(Assembly.GetExecutingAssembly());
                 VerifyPatches(h);
+                // the overwhelmed rule reads 0-XNPCCore's private close-range state: bound now, so a rename shows at startup
+                if (ScArms.Bind()) ScLog.Out("overwhelmed rule: 0-XNPCCore's close-range swap state bound");
                 LogFeatureHashes();
 
                 ModEvents.GameStarting.RegisterHandler((ref ModEvents.SGameStartingData _d) =>
@@ -58,6 +60,8 @@ namespace SurvivorCommunity
                 Patches_VoiceControl.Reset();
                 ScXnpc.Reset();
                 Patches_Xnpc.Reset();
+                ScAmmo.Reset();
+                ScArms.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
                 {
@@ -234,6 +238,8 @@ namespace SurvivorCommunity
             Add(t, "UAITaskAttackTargetEntitySDX::Update", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Update", new[] { typeof(UAI.Context) }));
             Add(t, "UAITaskAttackTargetEntitySDXV4::Start", ScAim.V4AttackTarget("Start"));
             Add(t, "UAITaskAttackTargetEntitySDXV4::Update", ScAim.V4AttackTarget("Update"));
+            // ScArms.cs - a weapon handed to a member through the weapon menu joins their pair; the replaced one comes back
+            Add(t, "DialogActionSwapWeapon::PerformAction", ScArms.DialogSwapTarget());
             // Patches_VoiceControl.cs - members are never billed by 0-XNPCCore 3.2's Voice Control (only when it is loaded)
             if (Patches_VoiceControl.ChatType != null)
             {
@@ -244,6 +250,8 @@ namespace SurvivorCommunity
                 Add(t, "PhraseTriggerHandler::Hire", Patches_VoiceControl.HireTarget());
                 // ScDoors.cs - doors Voice Control's follow opens for a member are shut behind them too
                 Add(t, "EntityMovementActuator::TryOpenBlockingDoor", ScDoors.VcDoorTarget());
+                // ScArms.cs - Voice Control's "use X" keeps a handed weapon the same way
+                Add(t, "VCCommandRouter::MutateSwapWeapon", ScArms.VcSwapTarget());
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");
             // Patches_Outposts.cs - outpost protection and the claim limit

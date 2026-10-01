@@ -25,6 +25,118 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Migration round 4 (M7b, build sc_r4): ammo resupply, no free ammo for re-created bodies, swap return, overwhelmed
+
+**Deployed 2026-10-01** (DLL md5 6ec03509).   Needs a new game** (decision D5). The community's 0-XNPCCore survivors keep finite ammo (D3), and
+now:
+- **Resupply** (new `ScAmmo.cs`): a member - Resident, Following or PendingStation - or a posted member's garrison
+  stand-in whose gun is down to fewer than `XnpcResupplyBelow` (10) rounds, standing inside the home zone or at one of
+  the community's outposts (its POI or the claim square around its flag), gets `XnpcResupplyAmmo` (30) rounds of the
+  gun's basic ammo (`XnpcResupplyArrows` 20 for a bow or crossbow) in the inventory window, at most once per
+  `XnpcResupplyCooldown` (60 s). Never elsewhere, never strangers, runners, hidden bodies or a rescue stand-in. The
+  stockpile pays in packing points: a round costs `PointsEach` (EconomicValue / ValueOverrides) x
+  `XnpcResupplyPointsMult`; a bundle (`PointsPerBundleAmmo` 2000) is opened only when the points left in the last one
+  (`ammoopen=` in the registry) do not cover it. **No daily ammo upkeep any more**: the daily line's ammo number is the
+  bundles opened by resupplies that day, and "- a survivor ran low on ammo and the stockpile had none to give" means a
+  resupply found it empty.
+- **No starting stack for re-created bodies** (round 2 review P1): every 5 s each member's ammo for the gun (window +
+  stores + loaded magazine) is written to the registry (`ammo=`); a body the community re-creates (call-back, garrison
+  or rescue stand-in, a runner's fresh body) starts with that instead of 30. Only a genuinely new survivor (wild spawn,
+  radio contact, walk-in, `sc spawn`) gets the starting stack.
+- **Swap return** (new `ScArms.cs`, postfixes on SCore's `DialogActionSwapWeapon.PerformAction` and Voice Control's
+  `VCCommandRouter.MutateSwapWeapon`): a member told to use a weapon you put in their window keeps it in place of the
+  weapon of that kind; the replaced weapon comes back as a real item (base storage, else your inventory, else a bag at
+  your feet).
+- **Overwhelmed** (inside the X5 prefix on `SdcsCloseRangeTick`): with at least X enemies targeting them within 12 m
+  (X = 2 + (Fighting stars - 1) / 2, at most 5; 3 for non-members) and a gun that has rounds, a survivor does not take
+  0-XNPCCore's melee swap at 3 m, and one already on melee goes back to the gun after 0-XNPCCore's 3 s minimum hold.
+- **Holster (M7.6): not done** - see R4_REPORT.md; nothing to test.
+
+`sc xnpc` gains an `ammo (D3):` line (resupplies, rounds, bundles opened, refusals, "ran low outside", the stockpile and
+the open bundle's points, starting stacks and re-created bodies) and a `weapons:` line (overwhelmed on/bound, swap
+returns by destination). `sc xnpc <id>` gains `resupply:` (the gun's rounds, the cost per round, eligibility, where it
+stands, the cooldown, the registry record) and `overwhelmed:` (enemies on them, X, the state, 0-XNPCCore's close-melee
+flag and remembered weapon). Hook line: `x5-overwhelmed-keep-gun`, `x5-overwhelmed-exit`. Turn `DebugLogging` on for
+the verbose lines named below.
+
+- [ ] **Startup:** `patch verification: all 75 targets patched` (round 3's 73 plus `DialogActionSwapWeapon::PerformAction`
+      and, with Voice Control, `VCCommandRouter::MutateSwapWeapon`), no `MISSING PATCH`, no `patched an unlisted
+      method`; `overwhelmed rule: 0-XNPCCore's close-range swap state bound` (no "could not be bound"). The config line
+      ends with `resupply=below 10 +30/20 every 60s x1 overwhelmed=2..5/3 in 12m`.
+- [ ] **P18, resupply at home:** with ammo bundles in the stockpile, let a ranged member at home shoot her window empty
+      (or take the ammo out of her window by hand). Within about 5 s of dropping below 10 rounds Player.log has
+      `<name> (id N) resupplied at home: 30 <ammo> for <gun> at <p> point(s) each - opened 1 ammo bundle(s), K left
+      (… point(s) left in the open bundle)`; her window holds the rounds; the stockpile's ammo dropped by one; if she
+      had failed over to melee, `[SDCS-FAILOVER] … restore '<gun>'` follows. Empty her again at once: no second
+      resupply until 60 s have passed (`sc xnpc <id>` `next resupply in … s`). The next resupplies take points from the
+      open bundle and open no new bundle until it is used up (about 7 for 9 mm, 8 for stone arrows).
+- [ ] **P18, never outside:** the same 200 m outside the base and away from any outpost: no resupply, she stays on her
+      melee weapon; `sc xnpc <id>` `resupply: … here: outside the base and the outposts`; the `ran low outside`
+      counter rises once (DebugLogging: `<name> … is low on ammo outside the base and the outposts`). Walk her home: she
+      is refilled within about 5 s of entering the claim.
+- [ ] **At an outpost:** a follower run dry inside one of your outposts (the POI or its claim square) is refilled
+      (`resupplied at <outpost name>`); so is a posted member's stand-in that shot itself dry defending it
+      (`<name>'s stand-in … resupplied at …`). A rescue stand-in at a distress POI is never refilled.
+- [ ] **Strangers and runners never:** a wild survivor that shot itself dry inside your base gets nothing (`sc xnpc
+      <id>` `not resupplied: not a member`); a member walking out on a physical run is not refilled even inside the
+      claim (`OnRun (out on the community's business …)`).
+- [ ] **Empty stockpile:** `sc give ammo -99`, then let a member at home run low: Player.log `<name> needs ammo at home
+      but the stockpile has none (pack some at the packing station)` (at most once per 5 minutes per NPC); `sc day`: the
+      daily line ends with `- a survivor ran low on ammo and the stockpile had none to give`. Pack and deposit an ammo
+      bundle: she is refilled at the next check after her cooldown.
+- [ ] **No daily ammo upkeep:** with ranged residents and ammo in the stockpile, `sc day` a few times without any
+      fighting: the ammo stock does not change and the daily line says `… 0 ammo`. After a day with one resupply that
+      opened a bundle: `… 1 ammo`. The registry's `[community]` has `ammoopen=`, `ammoopened=`, `ammoshort=` and no
+      `ammocarry=`.
+- [ ] **The ammo record:** after `sc save`, each member with a gun has `ammo=<item>:<n>` in their `[member]` record
+      (`ammo=none` when she carries nothing), matching `sc xnpc <id>` `record ammo=` and her window (plus a loaded
+      magazine).
+- [ ] **P1, a stand-in brings no fresh ammo:** post a member with a gun at an outpost and go there. The stand-in's window
+      holds what the member last carried (`ammo=`), not a fresh 30; `sc xnpc <stand-in>` `ammoSeeded=True`; DebugLogging:
+      `re-created body N: X round(s) from the record (…), no starting stack`; the `ammo (D3):` line's
+      `re-created bodies given their record` rises and `starting stacks` does not. Let it shoot some, leave until it is
+      removed, come back: the new stand-in has what the last one had left (plus any resupply at the outpost).
+- [ ] **P1, call-back and a runner's fresh body:** the round 3 M4.4 call-back and a runner whose snapshot is unusable
+      (fresh body) come back with their recorded rounds, never 30. A member who never stood loaded with a gun since
+      joining (`record ammo=never recorded`) comes back with an empty window and is refilled at home.
+- [ ] **New survivors still get the starting stack:** `sc spawn female`, a radio contact and an outpost walk-in each
+      start with 30 rounds (20 arrows/bolts), `starting stacks` rises; a survivor that joins keeps what she has.
+- [ ] **P19, swap return (dialog):** with a following member, put a weapon of the survivors' list in her window (a
+      Hunting Rifle - `gunRifleT1HuntingRifle`), open the dialog's weapon menu, Rifles, "Use Hunting Rifle". Player.log:
+      `<name> keeps the gunRifleT1HuntingRifle (dialog) in place of the <old gun>, returned to storage - loadout now …`;
+      the tooltip "<name> keeps the Hunting Rifle. The <old> is in the base storage."; the rifle is gone from her window;
+      `sc xnpc <id>` `pair=` and `record=` have the rifle; `sc save` → her `loadout=` has it; the old weapon is in one of
+      the base's storage boxes (linked storage shows it). She holds the rifle. No free ammo came with it.
+- [ ] **P19, the other destinations:** do it out in the world (the base unloaded): the old weapon goes into your
+      inventory (`returned to inventory`); with your inventory full: a bag at your feet with the weapon
+      (`returned to ground`). With the base loaded but every box full: your inventory.
+- [ ] **P19, melee and mods:** swap her melee weapon the same way (Melee menu): the old melee weapon comes back. Hand her
+      a gun with a mod attached: the mod comes back as an item next to the old gun. A weapon not on the survivors' list
+      (anything not in `XnpcWeapons`) is held from the window but not kept (`… not kept in their pair`), and the window
+      keeps it. "Use" one of her own two weapons changes nothing.
+- [ ] **P19, voice:** typed `@<name> use <weapon>` (Voice Control's SwapWeapon) with the weapon in her window does the
+      same, route `voice`, returns going to you (her leader).
+- [ ] **Swap while on melee:** let her gun run dry outside so she fails over to melee, then hand her a new gun with ammo
+      in her window and "Use" it: she holds the new gun; `sc xnpc <id>` `overwhelmed: … remembered='…'` never names the
+      returned gun afterwards.
+- [ ] **Overwhelmed keeps the gun (P17 too):** a 1-2 star member (`sc members`) with a loaded gun, two or more zombies
+      on her within 12 m: when one reaches 3 m she keeps the gun (`x5-overwhelmed-keep-gun` rises; no
+      `[SDCS-CLOSEMELEE] … enter` for her id), backs off and shoots; `sc aim <id>` shows the aim pose up; `sc xnpc <id>`
+      `overwhelmed: 2 enemy(ies) on them … overwhelmed at 2 … OVERWHELMED`. With a single zombie she still swaps to melee
+      at 3 m and back at 5 m as before.
+- [ ] **Overwhelmed exit:** one zombie gets her onto melee (`[SDCS-CLOSEMELEE] enter`), then two more arrive: after she
+      has been on melee 3 s she goes back to the gun (`x5-overwhelmed-exit`, DebugLogging `<name> … is overwhelmed (3 of
+      2 enemies on them) - back to the <gun>`), and does not flip back to melee within 3 s of the count dropping
+      (`OverwhelmedHoldSeconds`).
+- [ ] **Thresholds:** raise her Fighting to 7 stars (`sc xp <name> fighting <n>`): she needs 5 enemies (`overwhelmed at 5`); a stranger (wild
+      survivor) needs 3; a stand-in uses its member's stars. A dry gun (no rounds anywhere) always goes to melee.
+      `Overwhelmed` false in the config: 0-XNPCCore's swap as before, the counters stay 0.
+- [ ] **P16 again (X5 now has two jobs):** during a bandage use the close-range tick is still skipped
+      (`x5-SdcsCloseRangeTick` rises during the use, no `x5-overwhelmed-*`), no `[SDCS-CLOSEMELEE]` / `[SDCS-FAILOVER]`
+      line during the use.
+- [ ] *Probe:* no error lines `arms-closerange`, `arms-swap`, `arms-dialog-swap`, `ammo-tick`, `ammo-record`,
+      `storage-deposit-zone` in Player.log after an evening of fights.
+
 ## Migration round 3 (M2, M4, build sc_r3): recruiting XNPC survivors, voice orders as member states, runners on V4
 
 **Deployed 2026-10-01** (DLL md5 ae0ef852; Fable review: no defects, low fixes applied). **Needs a new game** (decision D5). 0-XNPCCore's survivors can now be recruited: the favour, join,
@@ -112,7 +224,8 @@ in brackets. The hook line gains `x3-levels-off`.
       are gone (`sc xnpc`), CurrentOrder becomes 3 (buffOrderDismiss), no `CrouchOverride` or formation is left.
 - [ ] **M4.4, missing member on V4:** make a resident missing - remove her body without killing it (a DevLink /
       world-tool entity remove), stay home 45 s: the window shows "Missing - Call back" - then "Call back" (or
-      `sc restore <name>`): she respawns at her post with her face, name, pair and starting ammo, log `<name>: entity id
+      `sc restore <name>`): she respawns at her post with her face, name, pair and the ammo she last carried (round 4:
+      the registry's `ammo=`, never a new 30), log `<name>: entity id
       A -> B (fresh body)` and `called back: respawned …`; the old id is on the doomed list; `sc xnpc <new id>` levels
       off.
 - [ ] **P8, runner pace:** `sc run` (or the window) a V4 member on a physical run and walk beside her on the Outbound
@@ -194,8 +307,8 @@ whether the starting ammo was given.
       gun at about 5 m when it has ammo.
 - [ ] **`sc loadout <id> Rifle`** (or `gunMGT1AK47`, or `hunting`): the pair changes, `itemsOnEnterGame` follows,
       she holds the same kind as before, SC writes no `CurrentWeaponClass` (0-XNPCCore keeps it 0/1). An ambiguous
-      name (`sc loadout <id> bow`) lists the matches. Note: a new gun gets no ammo of its own (the starting ammo was
-      given once), so it runs dry unless you hand her some.
+      name (`sc loadout <id> bow`) lists the matches. A new gun from the console comes with a new starting stack for
+      it (a test tool; a weapon handed over through the weapon menu does not - round 4).
 - [ ] **`sc arms <id> melee` / `ranged`** puts that weapon in her hand (0-XNPCCore may switch back by its own rules).
 - [ ] **`sc loadout near`** lists 0-XNPCCore survivors and raiders with their pairs and the firearm share;
       **`sc weapons`** prints the survivors' vanilla weapons (with short names) and the raiders' tokens.
