@@ -13,7 +13,7 @@ namespace SurvivorCommunity
     /// <summary>Shared helpers for the dialog operators.</summary>
     public static class ScFavours
     {
-        public static EntityAliveSDX CurrentNpc(EntityPlayer player)
+        public static EntityAlive CurrentNpc(EntityPlayer player)
         {
             try
             {
@@ -25,7 +25,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The prospect record for this NPC, rolling the favour the first time the player asks.</summary>
-        public static Prospect Ensure(EntityAliveSDX npc, EntityPlayer player)
+        public static Prospect Ensure(EntityAlive npc, EntityPlayer player)
         {
             if (npc == null) return null;
             Prospect p = ScRegistry.GetProspect(npc.entityId);
@@ -86,7 +86,7 @@ public class DialogRequirementScCanRecruit : BaseDialogRequirement
     {
         try
         {
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             string why;
             return npc != null && ScCommunity.CanRecruit(npc, player, out why);
         }
@@ -101,7 +101,7 @@ public class DialogRequirementScFavour : BaseDialogRequirement
     {
         try
         {
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             if (npc == null || !ScCommunity.IsHost) return false;
             // Never roll (and pin as persistent) an NPC that cannot join anyway - requirement evaluation
             // order is not something to rely on.
@@ -125,7 +125,7 @@ public class DialogRequirementScFavourDone : BaseDialogRequirement
     {
         try
         {
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (p != null && !p.Done && ScQuests.FavourQuestDone(player, p.Id))
             {
@@ -157,7 +157,7 @@ public class DialogRequirementScHasFavourItems : BaseDialogRequirement
     {
         try
         {
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (p == null || p.Favour != FavourKind.Supplies) return false;
             return ScCategories.CountInPlayer(player, p.ItemCategory) >= p.ItemCount;
@@ -175,7 +175,7 @@ public class DialogActionScFavourBrief : BaseDialogAction
     {
         try
         {
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScFavours.Ensure(npc, player) : null;
             if (p == null) return;
             ScCommunity.Tell(player, ScFavours.Describe(p) + (p.Done ? " " + Localization.Get("scFavourAlreadyDone") : ""), "");
@@ -191,7 +191,7 @@ public class DialogActionScStartPoiQuest : BaseDialogAction
         try
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (lp == null || p == null) return;
             string error;
@@ -208,7 +208,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
         try
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
             // never take the goods when the join that follows would be refused
@@ -245,7 +245,7 @@ public class DialogActionScJoin : BaseDialogAction
         try
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             if (lp == null || npc == null) return;
             Prospect p = ScRegistry.GetProspect(npc.entityId);
             if (p != null && !p.Done) { ScCommunity.Tell(player, Localization.Get("scFavourNotDone"), "ui_denied"); return; }
@@ -264,7 +264,7 @@ public class DialogActionScFollow : BaseDialogAction
         try
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || npc == null || m == null) return;
             string error;
@@ -283,7 +283,7 @@ public class DialogActionScGoHome : BaseDialogAction
         try
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || npc == null || m == null) return;
             string error;
@@ -302,7 +302,7 @@ public class DialogActionScRecall : BaseDialogAction
         try
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || npc == null || m == null) return;
             string error;
@@ -321,7 +321,7 @@ public class DialogActionScRun : BaseDialogAction
         try
         {
             EntityPlayerLocal lp = player as EntityPlayerLocal;
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || npc == null || m == null) return;
             Resource kind;
@@ -340,7 +340,7 @@ public class DialogActionScLeave : BaseDialogAction
     {
         try
         {
-            EntityAliveSDX npc = ScFavours.CurrentNpc(player);
+            EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (m == null) return;
             ScCommunity.Leave(m, "scLeft");

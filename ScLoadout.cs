@@ -42,7 +42,7 @@ namespace SurvivorCommunity
     /// entity's own itemsOnEnterGame list in a PostInit PREFIX - before SCore's EntityAlive.PostInit postfix copies it
     /// into the inventory slots, before both SetupStartingItems calls and before PostInit re-equips the saved weapon.
     /// SCore's FindWeapon accepts anything on that list, so UpdateWeapon can swap between the two and a reload brings
-    /// back whichever was held (EntityAliveSDX saves its held weapon by name; raiders always come back on slot 0).
+    /// back whichever was held (SCore's NPC classes save their held weapon by name; raiders always come back on slot 0).
     ///
     /// The pair resolves, in order: Pending (a console spawn), the member/prospect record (T3), the pair this entity
     /// already carries (two cvars, saved with it), a roll seeded by (entityId, WorldTimeBorn). The roll is capped by the
@@ -209,7 +209,7 @@ namespace SurvivorCommunity
         private static bool IsBody(string cls) { return ScLooks.IsSurvivorClass(cls) || ScLooks.IsRaiderClass(cls); }
 
         /// <summary>
-        /// PostInit PREFIX for EntityAliveSDX and EntityNPCBandit: resolves the pair for a player-body survivor or raider
+        /// PostInit PREFIX for both framework classes and EntityNPCBandit: resolves the pair for a player-body survivor or raider
         /// and rewrites itemsOnEnterGame to [main weapon + ammo, second weapon + ammo]. Idempotent.
         /// </summary>
         public static void BeforePostInit(EntityAlive e)
@@ -463,9 +463,7 @@ namespace SurvivorCommunity
                 if (st != null && st.itemValue != null && st.itemValue.ItemClass != null
                     && string.Equals(st.itemValue.ItemClass.GetItemName(), StackName(w.Item), StringComparison.OrdinalIgnoreCase)) { iv = st.itemValue.Clone(); break; }
             if (iv == null) { why = w.Item + " is not on the NPC's item list"; return false; }
-            EntityAliveSDX sdx = e as EntityAliveSDX;
-            if (sdx != null) sdx.UpdateWeapon(iv, true);
-            else ScMedic.Hold(e, e.inventory.holdingItemIdx, iv, 1);
+            if (!ScNpc.UpdateWeapon(e, iv, true)) ScMedic.Hold(e, e.inventory.holdingItemIdx, iv, 1);
             SetWeaponClass(e);
             return true;
         }
@@ -546,8 +544,7 @@ namespace SurvivorCommunity
             sb.Append("\n[SC]    holding ").Append(held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : "nothing")
               .Append(" (slot ").Append(e.inventory != null ? e.inventory.holdingItemIdx : -1).Append(") CurrentWeaponClass=")
               .Append(e.Buffs != null ? e.Buffs.GetCustomVar("CurrentWeaponClass").ToString() : "?");
-            EntityAliveSDX sdx = e as EntityAliveSDX;
-            if (sdx != null) sb.Append(" saved weapon '").Append(sdx._currentWeapon).Append("'");
+            if (ScNpc.IsFramework(e)) sb.Append(" saved weapon '").Append(ScNpc.CurrentWeapon(e)).Append("'");
             sb.Append("\n[SC]    item list:");
             foreach (ItemStack st in e.itemsOnEnterGame)
                 sb.Append(' ').Append(st != null && st.itemValue != null && st.itemValue.ItemClass != null ? st.itemValue.ItemClass.GetItemName() : "?");

@@ -199,7 +199,7 @@ namespace SurvivorCommunity
                     Count("dismiss-to-home");
                     StripContract(npc);
                     Member m = ScRegistry.Loaded ? ScRegistry.GetMember(npc.entityId) : null;
-                    EntityAliveSDX sdx = npc as EntityAliveSDX;
+                    EntityAlive sdx = ScNpc.As(npc);
                     EntityPlayerLocal lp = __args[1] as EntityPlayerLocal;
                     string error = "scVoiceStays";
                     if (m != null && sdx != null && lp != null && ScCommunity.ReturnHome(m, sdx, lp, out error))

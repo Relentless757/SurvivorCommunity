@@ -25,6 +25,21 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Migration task M1 (build sc_m1): the type seam
+
+**Deployed 2026-10-01** (DLL md5 68a7aca1; Fable review: no defects). Code plumbing only: SurvivorCommunity now holds its NPCs as plain EntityAlive and asks the new
+`ScNpc` for anything only SCore's two NPC classes have, so the same code can later drive 0-XNPCCore's survivors
+(EntityAliveSDXV4). Nothing should look different with the current members, who are all still the old class. XNPC
+survivors still cannot be recruited (M2).
+
+- [ ] **Startup:** `patch verification: all 60 targets patched` (5 more than M0: SetDead, PostInit, IsSavedToFile,
+      ExecuteAction and Write on EntityAliveSDXV4), no `MISSING PATCH`, no "unlisted method", no "EntityAliveSDXV4
+      ... not found".
+- [ ] **The existing save plays as before:** run the M0 rows below; in particular join, follow, go home, a supply run
+      (hidden and physical), an outpost posting, a missing member's return, a death, and doors.
+- [ ] **An XNPC survivor, spawned by hand** (as in the M0 row): its dialog still has none of the recruit lines,
+      `sc anim <its name>` now finds it, and it does not open the base's locked doors (only members do).
+
 ## Migration task M0 (build sc_m0): SCore 3.2.36.628 + 0-XNPCCore 3.2.06
 
 **Deployed 2026-10-01** (DLL md5 4a06d2d6, with the regenerated `Config/entitygroups.xml` and `spawning.xml`).

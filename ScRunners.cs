@@ -115,7 +115,7 @@ namespace SurvivorCommunity
         /// (same class, same birth time): an old copy from a chunk saved before they left. Anything else holding
         /// the id is a stranger who inherited it after a crash rewound the id counter - never touched.
         /// </summary>
-        public static bool IsStaleCopy(Member m, EntityAliveSDX npc)
+        public static bool IsStaleCopy(Member m, EntityAlive npc)
         {
             if (npc == null || !IsPhysical(m) || !m.Offline || npc.entityId == RecreatingId) return false;
             if (!string.IsNullOrEmpty(m.Class) && !string.Equals(ScCommunity.ClassName(npc), m.Class, StringComparison.OrdinalIgnoreCase)) return false;
@@ -154,7 +154,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>ScRuns.SendPhysical: the runner is in the world, walking out of the base.</summary>
-        public static void OnSent(Member m, EntityAliveSDX npc)
+        public static void OnSent(Member m, EntityAlive npc)
         {
             float t = Time.unscaledTime;
             Session s = S(m.Id);
@@ -211,7 +211,7 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             if (!m.Offline && w != null)
             {
-                EntityAliveSDX npc = w.GetEntity(m.Id) as EntityAliveSDX;
+                EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
                 if (npc != null) return npc.position;
             }
             return VirtualPos(m, w != null ? w.worldTime : 0UL);
@@ -379,7 +379,7 @@ namespace SurvivorCommunity
                 StaleIds.Clear();
                 foreach (int id in ids)
                 {
-                    EntityAliveSDX e = w.GetEntity(id) as EntityAliveSDX;
+                    EntityAlive e = ScNpc.As(w.GetEntity(id));
                     Member sm = ScRegistry.GetMember(id);
                     if (e == null || !IsStaleCopy(sm, e)) continue;
                     ScLog.Out("removing a stale copy of runner " + sm.Name + " (id " + id + ") that a chunk loaded");
@@ -408,7 +408,7 @@ namespace SurvivorCommunity
                     }
                     if (!m.Offline)
                     {
-                        EntityAliveSDX npc = w.GetEntity(m.Id) as EntityAliveSDX;
+                        EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
                         if (npc == null)
                         {
                             // lost without passing our unload handler: carry on from the last snapshot
@@ -436,7 +436,7 @@ namespace SurvivorCommunity
             scratch.Clear();
         }
 
-        private static void OnlineTick(World w, EntityPlayerLocal player, Member m, EntityAliveSDX npc, ulong now, float t)
+        private static void OnlineTick(World w, EntityPlayerLocal player, Member m, EntityAlive npc, ulong now, float t)
         {
             Session s = S(m.Id);
             if (npc.onGround && npc.position.y > 1f) { s.LastGoodPos = npc.position; s.HasGoodPos = true; }
@@ -511,7 +511,7 @@ namespace SurvivorCommunity
             return XZ(pos, ScCommunity.PostCenter(m)) <= 38f;   // Station teleports beyond 40 m: walk right in first
         }
 
-        private static void Watchdog(World w, EntityPlayerLocal player, Member m, EntityAliveSDX npc, Session s, float t)
+        private static void Watchdog(World w, EntityPlayerLocal player, Member m, EntityAlive npc, Session s, float t)
         {
             if (m.RunLeg == RunLeg.AtSite)
             {
@@ -621,7 +621,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Inside the zone / near the post: a resident again, saved with their chunk as before.</summary>
-        public static void Arrive(EntityPlayerLocal player, Member m, EntityAliveSDX npc)
+        public static void Arrive(EntityPlayerLocal player, Member m, EntityAlive npc)
         {
             npc.Buffs.RemoveCustomVar(OnRunCvar);
             ClearRun(m);
@@ -841,7 +841,7 @@ namespace SurvivorCommunity
             Entity occupant = w.GetEntity(m.Id);                                                // also flushes a pending chunk-stub create
             if (occupant != null)
             {
-                EntityAliveSDX sdx = occupant as EntityAliveSDX;
+                EntityAlive sdx = ScNpc.As(occupant);
                 if (sdx != null && IsStaleCopy(m, sdx)) { StaleIds.Add(m.Id); return false; }     // removed next tick, then we come back
                 rekey = true;                                                                    // a stranger has the id
             }
@@ -885,19 +885,19 @@ namespace SurvivorCommunity
             Vector3 rot = new Vector3(0f, face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face).eulerAngles.y : 0f, 0f);
 
             int oldId = m.Id;
-            EntityAliveSDX e = null;
+            EntityAlive e = null;
             var sw = Stopwatch.StartNew();
             RecreatingId = newId ? -1 : m.Id;
             try
             {
                 if (newId && m.Look != null) ScLooks.Pending = m.Look.Clone();                // the id is not the member's yet: hand the look over
-                if (fresh) e = EntityFactory.CreateEntity(cid, spot + new Vector3(0f, 0.002f, 0f), rot) as EntityAliveSDX;
+                if (fresh) e = ScNpc.As(EntityFactory.CreateEntity(cid, spot + new Vector3(0f, 0.002f, 0f), rot));
                 else
                 {
                     ecd.pos = spot + new Vector3(0f, 0.002f, 0f);                               // VehicleManager nudges y the same way
                     ecd.rot = rot;
                     ecd.id = rekey ? -1 : m.Id;                                                 // never the id inside the blob: after a re-key it is the old one
-                    e = EntityFactory.CreateEntity(ecd) as EntityAliveSDX;
+                    e = ScNpc.As(EntityFactory.CreateEntity(ecd));
                 }
                 if (e == null) { s.CreateFailures++; ScLog.Warn(m.Name + ": re-create returned no entity (" + s.CreateFailures + ")"); return false; }
                 w.SpawnEntityInWorld(e);
@@ -926,14 +926,13 @@ namespace SurvivorCommunity
             s = S(m.Id);
             if (fresh)
             {
-                e.FirstName = m.Name;
-                e.Title = "";
+                ScNpc.SetName(e, m.Name, "");
                 e.Buffs.SetCustomVar("Persist", 1f);
                 ScCommunity.StampCvars(m, e, player);
                 ScTraits.ApplyBuffs(m, e);
             }
             e.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
-            if (e.Buffs.HasCustomVar("onMission") || !e.enabled) e.SendOnMission(false);
+            if (e.Buffs.HasCustomVar("onMission") || !e.enabled) ScNpc.SendOnMission(e, false);
             ScCommunity.ApplyAiPackage(e);
             ApplyTravelOrder(e);
             m.Offline = false;
@@ -958,7 +957,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The runner came back under a new entity id: move every record keyed by the old one.</summary>
-        private static void Rekey(World w, EntityPlayerLocal player, Member m, EntityAliveSDX e, int oldId, bool fresh)
+        private static void Rekey(World w, EntityPlayerLocal player, Member m, EntityAlive e, int oldId, bool fresh)
         {
             ScRegistry.Members.Remove(oldId);
             m.Id = e.entityId;
@@ -1020,7 +1019,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The Task order: no resident action runs, the pack's combat does, and ScTravel walks the route.</summary>
-        public static void ApplyTravelOrder(EntityAliveSDX npc)
+        public static void ApplyTravelOrder(EntityAlive npc)
         {
             npc.Buffs.RemoveBuff("buffOrderGuard");
             npc.Buffs.RemoveCustomVar("Guarding");
@@ -1031,7 +1030,7 @@ namespace SurvivorCommunity
             npc.Buffs.SetCustomVar(OnRunCvar, 1f);
         }
 
-        public static bool HasTravelOrder(EntityAliveSDX npc)
+        public static bool HasTravelOrder(EntityAlive npc)
         {
             return npc.Buffs.GetCustomVar("CurrentOrder") == OrderTask && !npc.Buffs.HasCustomVar("Leader") && !npc.Buffs.HasCustomVar("Owner");
         }
@@ -1039,7 +1038,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ online -> offline ----
 
         /// <summary>Snapshot, registry saved, then the clean removal. forced: keep the previous snapshot when a fresh one fails.</summary>
-        public static bool GoOffline(World w, Member m, EntityAliveSDX npc, string why, bool forced)
+        public static bool GoOffline(World w, Member m, EntityAlive npc, string why, bool forced)
         {
             if (w == null || m == null || npc == null || npc.IsDead() || npc.IsMarkedForUnload()) return false;
             int id = npc.entityId;
@@ -1098,7 +1097,7 @@ namespace SurvivorCommunity
             try
             {
                 if (e == null || e.entityId == capturingId || !ScCommunity.IsHost || !ScRegistry.Loaded) return;
-                EntityAliveSDX npc = e as EntityAliveSDX;
+                EntityAlive npc = ScNpc.As(e);
                 if (npc == null) return;
                 Member m = ScRegistry.GetMember(npc.entityId);
                 if (!IsPhysical(m) || m.Offline || npc.IsDead()) return;
@@ -1140,7 +1139,7 @@ namespace SurvivorCommunity
                 foreach (var m in ScRegistry.Members.Values) if (IsPhysical(m) && !m.Offline) online.Add(m);
                 foreach (Member m in online)
                 {
-                    EntityAliveSDX npc = w.GetEntity(m.Id) as EntityAliveSDX;
+                    EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
                     if (npc == null || !GoOffline(w, m, npc, "quit", true)) { m.Offline = true; ScRegistry.SaveAtomic(); }
                 }
             }
@@ -1179,7 +1178,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>new EntityCreationData(npc, false) - the persistence form VehicleManager uses - serialised at once, read back and checked.</summary>
-        public static bool TryCapture(EntityAliveSDX npc, out string snap)
+        public static bool TryCapture(EntityAlive npc, out string snap)
         {
             snap = null;
             try

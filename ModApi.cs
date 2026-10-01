@@ -123,6 +123,13 @@ namespace SurvivorCommunity
                     ScLog.Err("EntityAliveSDX (SCore.dll) not found - SurvivorCommunity is inert");
                     ok = false;
                 }
+                // 0-XNPCCore 3.2's survivors are SCore's EntityAliveSDXV4, and ScNpc names it in every NPC check: on an
+                // SCore without it each of those checks would throw on first use, so the mod stays out of the way instead.
+                if (Type.GetType("EntityAliveSDXV4, SCore") == null)
+                {
+                    ScLog.Err("EntityAliveSDXV4 (SCore.dll) not found - this SCore is older than 0-XNPCCore 3.2 needs; SurvivorCommunity is inert");
+                    ok = false;
+                }
             }
             catch (Exception e)
             {
@@ -148,9 +155,13 @@ namespace SurvivorCommunity
             var t = new List<Target>();
             Add(t, "PersistentPlayerList::ReadXML", AccessTools.Method(typeof(PersistentPlayerList), "ReadXML", new[] { typeof(string) }));
             Add(t, "PersistentPlayerList::Write(string)", AccessTools.Method(typeof(PersistentPlayerList), "Write", new[] { typeof(string) }));
+            // Patches_Npc.cs - both of SCore's friendly NPC classes declare their own (ScNpc.Declared)
             Add(t, "EntityAliveSDX::SetDead", AccessTools.Method(typeof(EntityAliveSDX), "SetDead", new Type[0]));
             Add(t, "EntityAliveSDX::PostInit", AccessTools.Method(typeof(EntityAliveSDX), "PostInit", new Type[0]));
             Add(t, "EntityAliveSDX::IsSavedToFile", AccessTools.DeclaredMethod(typeof(EntityAliveSDX), "IsSavedToFile", new Type[0]));
+            Add(t, "EntityAliveSDXV4::SetDead", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "SetDead", new Type[0]));
+            Add(t, "EntityAliveSDXV4::PostInit", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "PostInit", new Type[0]));
+            Add(t, "EntityAliveSDXV4::IsSavedToFile", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "IsSavedToFile", new Type[0]));
             // ScDoors.cs - members open (and shut) doors
             Add(t, "EntityMoveHelper::CheckForDoorAndOpen", AccessTools.Method(typeof(EntityMoveHelper), "CheckForDoorAndOpen", new Type[0]));
             Add(t, "EntityNPCBandit::PostInit", AccessTools.Method(typeof(EntityNPCBandit), "PostInit", new Type[0]));
@@ -195,6 +206,8 @@ namespace SurvivorCommunity
             Add(t, "EntityAlive::UseHoldingItem", AccessTools.Method(typeof(EntityAlive), "UseHoldingItem", new[] { typeof(int), typeof(bool) }));
             Add(t, "EntityAliveSDX::ExecuteAction", AccessTools.Method(typeof(EntityAliveSDX), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
             Add(t, "EntityAliveSDX::Write", AccessTools.Method(typeof(EntityAliveSDX), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
+            Add(t, "EntityAliveSDXV4::ExecuteAction", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
+            Add(t, "EntityAliveSDXV4::Write", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
             // ScAim.cs - the aim pose (visual only)
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));
             Add(t, "UAITaskAttackTargetEntitySDX::Start", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Start", new[] { typeof(UAI.Context) }));

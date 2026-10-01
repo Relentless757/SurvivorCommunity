@@ -36,7 +36,7 @@ namespace SurvivorCommunity
             Orphans.Clear();
         }
 
-        /// <summary>Stand-ins that loaded from a save (EntityAliveSDX.PostInit postfix): removed on the next tick.</summary>
+        /// <summary>Stand-ins that loaded from a save (the framework PostInit postfix): removed on the next tick.</summary>
         public static readonly HashSet<int> Orphans = new HashSet<int>();
 
         private static void SweepOrphans(World w)
@@ -44,7 +44,7 @@ namespace SurvivorCommunity
             if (Orphans.Count == 0) return;
             foreach (int id in Orphans)
             {
-                EntityAliveSDX s = w.GetEntity(id) as EntityAliveSDX;
+                EntityAlive s = ScNpc.As(w.GetEntity(id));
                 if (s == null) continue;
                 bool current = false;
                 foreach (var m in ScRegistry.Members.Values) if (m.StandInId == id) { current = true; break; }
@@ -115,7 +115,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ posting ----
 
         /// <summary>error = a localization key.</summary>
-        public static bool CanPost(Member m, EntityAliveSDX npc, Outpost o, out string error)
+        public static bool CanPost(Member m, EntityAlive npc, Outpost o, out string error)
         {
             error = null;
             if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
@@ -131,7 +131,7 @@ namespace SurvivorCommunity
             return true;
         }
 
-        public static bool Post(Member m, EntityAliveSDX npc, Outpost o, EntityPlayerLocal player, out string error)
+        public static bool Post(Member m, EntityAlive npc, Outpost o, EntityPlayerLocal player, out string error)
         {
             if (!CanPost(m, npc, o, out error)) return false;
             try
@@ -139,7 +139,7 @@ namespace SurvivorCommunity
                 m.Status = MemberStatus.Garrison;
                 m.OutpostId = o.Id;
                 ScRuns.Park(npc);
-                npc.SendOnMission(true);
+                ScNpc.SendOnMission(npc, true);
                 ScRegistry.SaveAtomic();
                 if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scOpPosted"), m.Name, o.Name), "");
                 ScLog.Out(m.Name + " posted to outpost " + o.Id + " at " + o.Name);
@@ -161,10 +161,10 @@ namespace SurvivorCommunity
             RemoveStandIn(m);
             m.Status = MemberStatus.Resident;
             m.OutpostId = -1;
-            EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
             if (npc != null)
             {
-                npc.SendOnMission(false);
+                ScNpc.SendOnMission(npc, false);
                 ScCommunity.Station(m, npc);
             }
             if (player != null && tellKey != null)
@@ -234,7 +234,7 @@ namespace SurvivorCommunity
                     {
                         if (m.StandInId >= 0)
                         {
-                            EntityAliveSDX s = w.GetEntity(m.StandInId) as EntityAliveSDX;
+                            EntityAlive s = ScNpc.As(w.GetEntity(m.StandInId));
                             if (s == null || s.IsDead()) { if (s == null) m.StandInId = -1; continue; }
                             if (!keep) RemoveStandIn(m);
                             continue;
@@ -292,18 +292,17 @@ namespace SurvivorCommunity
                 int k = Staff(o).IndexOf(m);
                 Vector3i near = new Vector3i(o.Flag.x + (k == 0 ? 2 : -2), o.Flag.y, o.Flag.z + 1);
                 Vector3 at = ScRadio.SpotNear(w, near, 4);
-                EntityAliveSDX s = null;
+                EntityAlive s = null;
                 try
                 {
                     if (m.Look != null) ScLooks.Pending = m.Look.Clone();   // the stand-in IS the survivor
-                    s = EntityFactory.CreateEntity(cid, at) as EntityAliveSDX;
+                    s = ScNpc.As(EntityFactory.CreateEntity(cid, at));
                 }
                 finally { ScLooks.Pending = null; }
                 if (s == null) return;
                 w.SpawnEntityInWorld(s);
-                s.FirstName = m.Name;          // the class rolls a random name at spawn: the stand-in IS this survivor
-                s.Title = "";
-                // Dynamic + no Persist: EntityAliveSDX.IsSavedToFile skips Dynamic (and Biome) sources, so a stand-in is
+                ScNpc.SetName(s, m.Name, "");          // the class rolls a random name at spawn: the stand-in IS this survivor
+                // Dynamic + no Persist: SCore's IsSavedToFile (both classes) skips Dynamic (and Biome) sources, so a stand-in is
                 // never written with the chunk - it goes when the outpost unloads (a StaticSpawner one would come back)
                 s.SetSpawnerSource(EnumSpawnerSource.Dynamic);
                 s.Buffs.SetCustomVar(ScRadio.StandInCvar, m.Id);
@@ -326,7 +325,7 @@ namespace SurvivorCommunity
             {
                 if (m == null || m.StandInId < 0) return;
                 World w = ScCommunity.World;
-                EntityAliveSDX s = w != null ? w.GetEntity(m.StandInId) as EntityAliveSDX : null;
+                EntityAlive s = w != null ? ScNpc.As(w.GetEntity(m.StandInId)) : null;
                 if (s != null && !s.IsDead()) ScRuns.RemoveEntity(s);
                 m.StandInId = -1;
             }
@@ -341,7 +340,7 @@ namespace SurvivorCommunity
         {
             Outpost o = ScOutposts.ById(m.OutpostId);
             m.StandInId = -1;
-            EntityAliveSDX real = ScCommunity.FindNpc(m.Id);
+            EntityAlive real = ScCommunity.FindNpc(m.Id);
             if (real != null) ScRuns.RemoveEntity(real); else ScRegistry.Doomed.Add(m.Id);
             ScCommunity.RecordDeath(m, player, "scOpStaffDied");
             ScLog.Out(m.Name + " died defending " + (o != null ? o.Name : "an outpost"));

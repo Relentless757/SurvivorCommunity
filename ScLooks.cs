@@ -626,7 +626,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Relink: a member wearing the player's body keeps the registry's look and gear.</summary>
-        public static void Sync(Member m, EntityAliveSDX npc)
+        public static void Sync(Member m, EntityAlive npc)
         {
             if (m == null || npc == null || !IsSurvivor(npc)) return;
             if (m.Look == null)

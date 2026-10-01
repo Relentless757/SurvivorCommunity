@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 
@@ -124,13 +125,7 @@ namespace SurvivorCommunity
         {
             ItemValue iv = ItemClass.GetItem(item, true);
             if (iv == null || iv.IsEmpty()) return;
-            var stack = new ItemStack(iv, count);
-            if (e is EntityAliveSDX) HarvestManager.AddItem(e.entityId, stack);
-            else
-            {
-                if (e.bag == null) e.bag = new Bag(45);
-                e.bag.AddItem(stack);
-            }
+            ScNpc.AddItem(e, new ItemStack(iv, count));
         }
 
         // ---------------------------------------------------------------------------------------------------------
@@ -279,8 +274,7 @@ namespace SurvivorCommunity
 
         private static ItemStack[] Slots(EntityAlive e)
         {
-            if (e is EntityAliveSDX) return HarvestManager.GetOrCreate(e.entityId).GetItems();
-            return e.bag != null ? e.bag.GetSlots() : null;
+            return ScNpc.Items(e);
         }
 
         private static int Count(EntityAlive e, string item)
@@ -303,8 +297,7 @@ namespace SurvivorCommunity
                 ItemStack s = slots[i];
                 if (s == null || s.IsEmpty() || s.itemValue.type != type) continue;
                 ItemStack left = s.count > 1 ? new ItemStack(s.itemValue, s.count - 1) : ItemStack.Empty.Clone();
-                if (e is EntityAliveSDX) HarvestManager.GetOrCreate(e.entityId).UpdateSlot(i, left);
-                else e.bag.SetSlot(i, left);
+                ScNpc.SetItem(e, i, left);
                 return true;
             }
             return false;
@@ -360,12 +353,23 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>No attacking with a bandage: SCore's own attack path for EntityAliveSDX.</summary>
-        [HarmonyPatch(typeof(EntityAliveSDX), nameof(EntityAliveSDX.ExecuteAction))]
+        /// <summary>
+        /// No attacking with a bandage: SCore's own attack path, ExecuteAction(bool, int), which each of its two NPC classes
+        /// declares for itself (ScNpc.Declared). Only our bodies ever have a use in progress, so on anyone else it is a no-op.
+        /// </summary>
+        [HarmonyPatch]
         public static class Patch_NoSdxAttackWhileUsing
         {
+            private static readonly Type[] Args = { typeof(bool), typeof(int) };
+
+            [HarmonyPrepare]
+            public static bool Prepare() { return ScNpc.Declared("ExecuteAction", Args).Count > 0; }
+
+            [HarmonyTargetMethods]
+            public static IEnumerable<MethodBase> TargetMethods() { return ScNpc.Declared("ExecuteAction", Args); }
+
             [HarmonyPrefix]
-            public static bool Prefix(EntityAliveSDX __instance, ref bool __result)
+            public static bool Prefix(EntityAlive __instance, ref bool __result)
             {
                 if (__instance == null || !uses.ContainsKey(__instance.entityId)) return true;
                 __result = false;
@@ -375,13 +379,22 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// A world save in the middle of a use would record the bandage as the NPC's hand item (SCore writes the held
-        /// item's name). Put the weapon back and the item back in the inventory before the entity is written.
+        /// item's name). Put the weapon back and the item back in the inventory before the entity is written. Both of
+        /// SCore's NPC classes write the held item that way, each in its own Write override.
         /// </summary>
-        [HarmonyPatch(typeof(EntityAliveSDX), nameof(EntityAliveSDX.Write))]
+        [HarmonyPatch]
         public static class Patch_SaveMidUse
         {
+            private static readonly Type[] Args = { typeof(System.IO.BinaryWriter), typeof(bool) };
+
+            [HarmonyPrepare]
+            public static bool Prepare() { return ScNpc.Declared("Write", Args).Count > 0; }
+
+            [HarmonyTargetMethods]
+            public static IEnumerable<MethodBase> TargetMethods() { return ScNpc.Declared("Write", Args); }
+
             [HarmonyPrefix]
-            public static void Prefix(EntityAliveSDX __instance, bool bNetworkWrite)
+            public static void Prefix(EntityAlive __instance, bool bNetworkWrite)
             {
                 try
                 {

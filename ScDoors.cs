@@ -20,7 +20,8 @@ namespace SurvivorCommunity
     /// Vanilla 3.2 has a working opener in the move helper: EntityMoveHelper.CheckForDoorAndOpen, run from the move
     /// helper's obstacle check (every 4th move tick, while roughly facing the move target) when moveHelper.CanOpenDoors
     /// is set. Only EntityBandit sets it. Members get the flag (ScCommunity.ApplyAiPackage), which covers every task
-    /// that walks a path. For SDX NPCs the prefix below replaces the vanilla body to:
+    /// that walks a path. For SDX NPCs, and for 0-XNPCCore's V4 NPCs while they are members, the prefix below replaces
+    /// the vanilla body to:
     ///   (a) resolve a multi-block child leaf (double doors, gates) to its parent - vanilla looks up the tile entity on
     ///       the child cell and finds none;
     ///   (b) look ahead along the path (every node within LookAhead metres), so a running NPC does not meet a
@@ -103,7 +104,7 @@ namespace SurvivorCommunity
             return path != null && path.HasPoints() && !path.isFinished() ? path : null;
         }
 
-        /// <summary>The CheckForDoorAndOpen body for SDX NPCs: opens the closed doors on the path within LookAhead metres.</summary>
+        /// <summary>The CheckForDoorAndOpen body for the NPCs UsesOurOpener picks: opens the closed doors on the path within LookAhead metres.</summary>
         public static void TryOpen(EntityAlive npc)
         {
             PathEntity path = LivePath(npc);
@@ -190,7 +191,7 @@ namespace SurvivorCommunity
             foreach (var m in ScRegistry.Members.Values)
             {
                 if (m.Id == except) continue;
-                EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+                EntityAlive npc = ScCommunity.FindNpc(m.Id);
                 if (npc != null && !npc.IsDead() && HeadingFor(npc, at)) return true;
             }
             return false;
@@ -247,11 +248,26 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// EntityMoveHelper.CheckForDoorAndOpen runs from the move helper's obstacle check while CanOpenDoors is set.
-        /// Vanilla bandits (EntityBandit) keep the vanilla body; SDX NPCs - only members have the flag - get ScDoors.TryOpen.
+        /// Vanilla bandits (EntityBandit) keep the vanilla body; SDX NPCs and member V4 NPCs get ScDoors.TryOpen
+        /// (UsesOurOpener).
         /// </summary>
         [HarmonyPatch(typeof(EntityMoveHelper), "CheckForDoorAndOpen")]
         public static class Patch_CheckForDoorAndOpen
         {
+            /// <summary>
+            /// Who gets ScDoors.TryOpen, which opens the community owner's own locked doors, hatches and drawbridges. SCore's
+            /// legacy class keeps the rule it has always had: any EntityAliveSDX with the flag. A V4 NPC (0-XNPCCore 3.2's
+            /// survivors) only while it is a member: Voice Control sets CanOpenDoors on every human NPC it gives a chat
+            /// component (NPCChatComponent.Initialize - its warm-up attaches one to every survivor near the player), so on
+            /// those NPCs the flag does not mean "one of ours", and a wild survivor must not walk through the owner's
+            /// locked doors. Everyone else keeps vanilla's opener.
+            /// </summary>
+            private static bool UsesOurOpener(EntityAlive e)
+            {
+                if (ScNpc.IsSdx(e)) return true;
+                return ScNpc.IsV4(e) && ScRegistry.GetMember(e.entityId) != null;
+            }
+
             // a missing target must not throw inside PatchAll (it would skip the patch classes after it)
             [HarmonyPrepare]
             public static bool Prepare()
@@ -262,7 +278,7 @@ namespace SurvivorCommunity
             [HarmonyPrefix]
             public static bool Prefix(EntityAlive ___entity)
             {
-                if (!(___entity is EntityAliveSDX)) return true;
+                if (!UsesOurOpener(___entity)) return true;
                 try
                 {
                     ScDoors.TryOpen(___entity);

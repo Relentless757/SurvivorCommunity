@@ -116,7 +116,7 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             foreach (var m in ScRegistry.Members.Values)
             {
-                EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+                EntityAlive npc = ScCommunity.FindNpc(m.Id);
                 string live = npc == null ? (ScRunners.IsPhysical(m) && m.Offline ? "virtual at " + World.worldToBlockPos(ScRunners.Where(m)) : "unloaded") : ("at " + npc.GetBlockPosition() + " order " + EntityUtilities.GetCurrentOrder(m.Id)
                     + " leader " + (EntityUtilities.GetLeaderOrOwner(m.Id) != null ? "yes" : "no") + " spawner " + npc.GetSpawnerSource()
                     + " pkgs [" + string.Join(",", npc.AIPackages.ToArray()) + "] sc_member=" + npc.Buffs.GetCustomVar("sc_member")
@@ -229,7 +229,7 @@ namespace SurvivorCommunity
             if (npc == null) { Output("[SC] " + cls + " did not spawn as an EntityAlive"); return; }
             w.SpawnEntityInWorld(npc);
             npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
-            if (npc is EntityAliveSDX) npc.Buffs.SetCustomVar("Persist", 1f);
+            if (ScNpc.IsFramework(npc)) npc.Buffs.SetCustomVar("Persist", 1f);
             string shown = ScCommunity.DisplayName(npc);
             Loadout pair = ScLoadout.Current(npc);
             Output("[SC] spawned " + cls + " (" + (pair != null ? pair.ToString() : ScLooks.WeaponOf(cls)) + ") id " + npc.entityId + " '" + shown + "': " + ScLooks.Describe(look));
@@ -246,7 +246,7 @@ namespace SurvivorCommunity
         {
             int id;
             if (int.TryParse(key, out id) && ScCommunity.World != null) return ScCommunity.World.GetEntity(id) as EntityAlive;
-            EntityAliveSDX s = FindSurvivor(key);
+            EntityAlive s = FindSurvivor(key);
             if (s != null) return s;
             World w = ScCommunity.World;
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
@@ -355,20 +355,21 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A loaded NPC by member id/name, entity id, or display-name substring (any survivor within 200 m).</summary>
-        private static EntityAliveSDX FindSurvivor(string key)
+        private static EntityAlive FindSurvivor(string key)
         {
             Member m = FindMember(key);
-            if (m != null) { EntityAliveSDX e = ScCommunity.FindNpc(m.Id); if (e != null) return e; }
+            if (m != null) { EntityAlive e = ScCommunity.FindNpc(m.Id); if (e != null) return e; }
             World w = ScCommunity.World;
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
             if (w == null || player == null) return null;
             int id;
-            if (int.TryParse(key, out id)) return w.GetEntity(id) as EntityAliveSDX;
+            if (int.TryParse(key, out id)) return ScNpc.As(w.GetEntity(id));
             var list = new List<Entity>();
-            w.GetEntitiesInBounds(typeof(EntityAliveSDX), new Bounds(player.position, new Vector3(400f, 400f, 400f)), list);
+            // both framework classes derive from EntityTrader; the filter below keeps only them (vanilla traders are not survivors)
+            w.GetEntitiesInBounds(typeof(EntityTrader), new Bounds(player.position, new Vector3(400f, 400f, 400f)), list);
             for (int i = 0; i < list.Count; i++)
             {
-                EntityAliveSDX s = list[i] as EntityAliveSDX;
+                EntityAlive s = ScNpc.As(list[i]);
                 if (s != null && !s.IsDead() && ScCommunity.DisplayName(s).IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0) return s;
             }
             return null;
@@ -378,7 +379,7 @@ namespace SurvivorCommunity
         private static void LookCmd(List<string> p)
         {
             if (p.Count < 2) { Output("[SC] look <id|name>"); return; }
-            EntityAliveSDX npc = FindSurvivor(p[1]);
+            EntityAlive npc = FindSurvivor(p[1]);
             if (npc == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
             if (!ScLooks.IsSurvivor(npc)) { Output("[SC] " + ScCommunity.DisplayName(npc) + " does not wear the player's body"); return; }
             Look old = ScLooks.Get(npc);
@@ -397,7 +398,7 @@ namespace SurvivorCommunity
         private static void Gear(List<string> p)
         {
             if (p.Count < 3) { Output("[SC] gear <id|name> <Set|none>   sets: " + string.Join(",", ScConfig.SurvivorGearSets.ToArray())); return; }
-            EntityAliveSDX npc = FindSurvivor(p[1]);
+            EntityAlive npc = FindSurvivor(p[1]);
             if (npc == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
             Look look = ScLooks.Get(npc);
             if (look == null) { Output("[SC] " + ScCommunity.DisplayName(npc) + " does not wear the player's body"); return; }
@@ -408,7 +409,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>sc aim [id|name]: the aim pose's hook counters and every NPC in a ranged fight, or one NPC in detail.
-        /// An id also finds raiders, which are not EntityAliveSDX.</summary>
+        /// An id also finds raiders, which are not framework NPCs (ScNpc).</summary>
         private static void AimCmd(List<string> p)
         {
             EntityAlive e = null;
@@ -426,7 +427,7 @@ namespace SurvivorCommunity
         private static void Anim(List<string> p)
         {
             if (p.Count < 2) { Output("[SC] anim <id|name>"); return; }
-            EntityAliveSDX npc = FindSurvivor(p[1]);
+            EntityAlive npc = FindSurvivor(p[1]);
             if (npc == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
             var sb = new StringBuilder();
             EModelBase em = npc.emodel;
@@ -539,7 +540,7 @@ namespace SurvivorCommunity
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
             World w = ScCommunity.World;
             if (!ScRunners.IsPhysical(m) || w == null) { Output("[SC] " + m.Name + " is not on a physical run"); return; }
-            EntityAliveSDX npc = m.Offline ? null : w.GetEntity(m.Id) as EntityAliveSDX;
+            EntityAlive npc = m.Offline ? null : ScNpc.As(w.GetEntity(m.Id));
             switch (sub)
             {
                 case "recall":

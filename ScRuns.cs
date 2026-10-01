@@ -25,7 +25,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Can this member be sent right now? (error = localization key)</summary>
-        public static bool CanSend(Member m, EntityAliveSDX npc, out string error)
+        public static bool CanSend(Member m, EntityAlive npc, out string error)
         {
             error = null;
             if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
@@ -39,7 +39,7 @@ namespace SurvivorCommunity
             return true;
         }
 
-        public static bool Send(Member m, EntityAliveSDX npc, Resource kind, EntityPlayerLocal player, out string error)
+        public static bool Send(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, out string error)
         {
             if (!CanSend(m, npc, out error)) return false;
             if (ScConfig.PhysicalRuns && player != null && player.ChunkObserver != null)
@@ -55,7 +55,7 @@ namespace SurvivorCommunity
                 m.RunKind = kind;
                 m.RunEndDay = ScCommunity.Today + Math.Max(1, ScConfig.RunDays);
                 Park(npc);
-                npc.SendOnMission(true);
+                ScNpc.SendOnMission(npc, true);
                 m.RunDistress = false;
                 m.RunSafe = false;
                 m.EventSpawned = false;
@@ -75,7 +75,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A physical run: the runner walks out of the base toward the destination POI right now.</summary>
-        private static bool SendPhysical(Member m, EntityAliveSDX npc, Resource kind, EntityPlayerLocal player, PrefabInstance dest, out string error)
+        private static bool SendPhysical(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, PrefabInstance dest, out string error)
         {
             error = null;
             World w = ScCommunity.World;
@@ -99,9 +99,9 @@ namespace SurvivorCommunity
                 m.StandInId = -1;
                 m.EventZombies.Clear();
                 m.Offline = false;
-                if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) npc.SendOnMission(false);
+                if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
                 ScRunners.ApplyTravelOrder(npc);
-                npc.RestoreSpeed();
+                ScNpc.RestoreSpeed(npc);
                 if (npc.getNavigator() != null) npc.getNavigator().clearPath();
                 if (npc.moveHelper != null) npc.moveHelper.Stop();
                 ScRunners.BeginLeg(m, RunLeg.Outbound, npc.position, ScRunners.EdgeNearest(w, dest, npc.position), now);
@@ -196,7 +196,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>A hidden entity still runs its AI: a Stay order keeps it from roaming or fighting unseen.</summary>
-        public static void Park(EntityAliveSDX npc)
+        public static void Park(EntityAlive npc)
         {
             try
             {
@@ -276,10 +276,10 @@ namespace SurvivorCommunity
                     m.Status = MemberStatus.Resident;
                     m.RunEndDay = -1;
                     // the entity: un-hide and re-station now when loaded; the relink does it when it next loads
-                    EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+                    EntityAlive npc = ScCommunity.FindNpc(m.Id);
                     if (npc != null)
                     {
-                        npc.SendOnMission(false);
+                        ScNpc.SendOnMission(npc, false);
                         ScCommunity.Station(m, npc);
                     }
                     summary.Append(' ').Append(string.Format(Localization.Get(bad ? "scDailyRunHurt" : "scDailyRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))));
@@ -321,7 +321,7 @@ namespace SurvivorCommunity
 
         private static void Die(Member m, EntityPlayerLocal player)
         {
-            EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
             ScCommunity.RecordDeath(m, player, "scRunDied");
             if (npc != null)
             {
@@ -334,7 +334,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Removes a hidden runner's entity for good (no corpse, no chunk record).</summary>
-        public static void RemoveEntity(EntityAliveSDX npc)
+        public static void RemoveEntity(EntityAlive npc)
         {
             try
             {

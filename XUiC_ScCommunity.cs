@@ -822,7 +822,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
-            EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
             if (ScMissing.IsMissing(m))
             {
@@ -868,7 +868,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
-            EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
             if (npc == null) err = "scNotLoaded";
             else if (ScCommunity.ReturnHome(m, npc, p, out err)) message = string.Format(Localization.Get("scStationed"), m.Name);
@@ -901,7 +901,7 @@ namespace SurvivorCommunity
             Member m = Selected;
             EntityPlayerLocal p = Player;
             if (m == null || p == null) return;
-            EntityAliveSDX npc = ScCommunity.FindNpc(m.Id);
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
             runPicking = false;
             if (ScRuns.Send(m, npc, kind, p, out err)) message = string.Format(Localization.Get("scRunSent"), m.Name, Localization.Get(ScNames.LocKey(kind)), m.RunEndDay);
@@ -1206,7 +1206,7 @@ namespace SurvivorCommunity
 
         private static string Health(Member sel, string which)
         {
-            EntityAliveSDX npc = sel != null ? ScCommunity.FindNpc(sel.Id) : null;
+            EntityAlive npc = sel != null ? ScCommunity.FindNpc(sel.Id) : null;
             bool live = npc != null && !npc.IsDead() && npc.Stats != null && npc.Stats.Health != null;
             switch (which)
             {

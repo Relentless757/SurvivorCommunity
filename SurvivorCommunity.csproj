@@ -30,6 +30,7 @@
     <Compile Include="ScModels.cs" />
     <Compile Include="ScRegistry.cs" />
     <Compile Include="ScZone.cs" />
+    <Compile Include="ScNpc.cs" />
     <Compile Include="ScCommunity.cs" />
     <Compile Include="ScTicker.cs" />
     <Compile Include="ScTraits.cs" />
@@ -140,8 +141,9 @@
       <HintPath>$(GameDir)\Mods\0_TFP_Harmony\0Harmony.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- The NPC framework: EntityAliveSDX, EntityUtilities, SphereCache, IEntityOrderReceiverSDX,
-         the dialog/UAI base classes SCore adds. Hard dependency (ModApi checks it at runtime too). -->
+    <!-- The NPC framework: EntityAliveSDX and EntityAliveSDXV4 (ScNpc.cs is the type seam), EntityUtilities,
+         SphereCache, IEntityOrderReceiverSDX, the dialog/UAI base classes SCore adds. Hard dependency (ModApi
+         checks it at runtime too). -->
     <Reference Include="SCore">
       <HintPath>$(GameDir)\Mods\0-SCore\SCore.dll</HintPath>
       <Private>false</Private>

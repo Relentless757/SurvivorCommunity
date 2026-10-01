@@ -51,7 +51,7 @@ namespace SurvivorCommunity
                 {
                     // followers, runners and posted members are hidden or away by design
                     if (m.Status != MemberStatus.Resident) { Clear(m.Id); continue; }
-                    if (w.GetEntity(m.Id) is EntityAliveSDX) { Clear(m.Id); told.Remove(m.Id); continue; }
+                    if (ScNpc.IsFramework(w.GetEntity(m.Id))) { Clear(m.Id); told.Remove(m.Id); continue; }
                     if (!atHome || !PostSettled(w, m.Post)) { absentSince.Remove(m.Id); continue; }
                     float since;
                     if (!absentSince.TryGetValue(m.Id, out since)) { absentSince[m.Id] = now; continue; }
@@ -98,18 +98,18 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 if (m == null || w == null) { error = "scInternal"; return false; }
                 if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }      // a runner out of range has no body by design
-                if (w.GetEntity(m.Id) is EntityAliveSDX) { error = "scMissingNotMissing"; return false; }
+                if (ScNpc.IsFramework(w.GetEntity(m.Id))) { error = "scMissingNotMissing"; return false; }
                 if (!force && !IsMissing(m)) { error = "scMissingNotYet"; return false; }
                 if (!ScZone.IsLoaded(m.Post)) { error = "scNotLoaded"; return false; }
                 int cid = EntityClass.FromString(m.Class);
                 if (!ScCommunity.ClassExists(cid)) { error = "scMissingNoClass"; return false; }
 
                 Vector3 at = ScRadio.SpotNear(w, m.Post, 4);
-                EntityAliveSDX npc = null;
+                EntityAlive npc = null;
                 try
                 {
                     if (m.Look != null) ScLooks.Pending = m.Look.Clone();     // the same face, hair and worn gear
-                    npc = EntityFactory.CreateEntity(cid, at) as EntityAliveSDX;
+                    npc = ScNpc.As(EntityFactory.CreateEntity(cid, at));
                 }
                 finally { ScLooks.Pending = null; }
                 if (npc == null) { error = "scInternal"; return false; }
@@ -129,8 +129,7 @@ namespace SurvivorCommunity
                 Clear(oldId);
                 told.Remove(oldId);
 
-                npc.FirstName = m.Name;               // the class rolls a random name at spawn
-                npc.Title = "";
+                ScNpc.SetName(npc, m.Name, "");               // the class rolls a random name at spawn
                 npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
                 npc.Buffs.SetCustomVar("Persist", 1f);
                 ScCommunity.StampCvars(m, npc, player);

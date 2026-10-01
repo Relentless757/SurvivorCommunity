@@ -146,7 +146,7 @@ namespace SurvivorCommunity
         /// <summary>Where the survivor is: the loaded entity, else the last position the ticker recorded.</summary>
         public static Vector3 GiverPosition(Prospect p)
         {
-            EntityAliveSDX npc = ScCommunity.FindNpc(p.Id);
+            EntityAlive npc = ScCommunity.FindNpc(p.Id);
             if (npc != null) return npc.position;
             return new Vector3(p.NpcPos.x + 0.5f, p.NpcPos.y, p.NpcPos.z + 0.5f);
         }
@@ -510,7 +510,7 @@ namespace SurvivorCommunity
                     ScLeadership.Count(ScLeadership.FavourEvent);
                     // the quest stays open: its phase 2 ("return to <name>") completes when the player talks to
                     // them, and ScJoin closes whatever is still open as a fallback
-                    EntityAliveSDX npc = ScCommunity.FindNpc(p.Id);
+                    EntityAlive npc = ScCommunity.FindNpc(p.Id);
                     if (npc != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
                     ScCommunity.Tell(player, string.Format(Localization.Get("scFavourPoiDone"), p.PoiName, p.Name), "");
                     ScLog.Out("favour done: " + p.PoiName + " is clear - return to " + p.Name + " and they will join");

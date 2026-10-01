@@ -132,7 +132,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>From the relink tick: a pack NPC that has no picture yet gets one while it is loaded and near.</summary>
-        public static void OnMemberLoaded(Member m, EntityAliveSDX npc)
+        public static void OnMemberLoaded(Member m, EntityAlive npc)
         {
             if (m == null || m.Look != null || npc == null || !Wanted) return;
             Entry e;
@@ -624,7 +624,7 @@ namespace SurvivorCommunity
 
         // ---------------------------------------------------------------- pack NPCs: bake the live body
 
-        private static bool CanShootLive(Member m, out EntityAliveSDX npc)
+        private static bool CanShootLive(Member m, out EntityAlive npc)
         {
             npc = ScCommunity.FindNpc(m.Id);
             if (npc == null || npc.IsDead() || !npc.enabled || m.Status == MemberStatus.OnRun) return false;
@@ -646,7 +646,7 @@ namespace SurvivorCommunity
             yield return new WaitForEndOfFrame();          // this frame's animation + LateUpdate are done
             if (gen != generation) yield break;
             Member m = ScRegistry.GetMember(id);
-            EntityAliveSDX npc;
+            EntityAlive npc;
             if (m == null || !CanShootLive(m, out npc)) { Fail(e, 5f); yield break; }
             var made = new List<GameObject>();
             var baked = new List<Mesh>();

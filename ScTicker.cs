@@ -88,7 +88,7 @@ namespace SurvivorCommunity
             bool changed = false;
             foreach (var p in ScRegistry.Prospects.Values)
             {
-                EntityAliveSDX npc = w.GetEntity(p.Id) as EntityAliveSDX;
+                EntityAlive npc = ScNpc.As(w.GetEntity(p.Id));
                 if (npc == null || npc.IsDead()) continue;
                 Vector3i at = npc.GetBlockPosition();
                 if (at != p.NpcPos) { p.NpcPos = at; changed = true; }
@@ -109,7 +109,7 @@ namespace SurvivorCommunity
             {
                 foreach (int id in ScRegistry.Cleanup)
                 {
-                    EntityAliveSDX stale = w.GetEntity(id) as EntityAliveSDX;
+                    EntityAlive stale = ScNpc.As(w.GetEntity(id));
                     if (stale == null) continue;
                     // an id can be inherited by a stranger after an id-counter rewind: only strip an entity
                     // that actually carries the mod's marks, and drop the entry either way
@@ -122,7 +122,7 @@ namespace SurvivorCommunity
             {
                 foreach (int id in ScRegistry.Doomed)
                 {
-                    EntityAliveSDX gone = w.GetEntity(id) as EntityAliveSDX;
+                    EntityAlive gone = ScNpc.As(w.GetEntity(id));
                     if (gone == null) continue;
                     if (ScCommunity.CarriesOurMarks(gone)) ScRuns.RemoveEntity(gone);
                     scratch.Add(int.MinValue / 4 + id);   // marker: remove from the doomed set below
@@ -131,7 +131,7 @@ namespace SurvivorCommunity
             foreach (var kv in ScRegistry.Members)
             {
                 Member m = kv.Value;
-                EntityAliveSDX npc = w.GetEntity(m.Id) as EntityAliveSDX;
+                EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
                 if (npc == null)
                 {
                     continue;   // unloaded (or gone) - the daily tick tracks MissingDays
@@ -143,7 +143,7 @@ namespace SurvivorCommunity
                     // ScRunners) or a stranger who inherited the id (left alone - the runner returns under a new id)
                     if (ScRunners.IsStaleCopy(m, npc))
                     {
-                        if (!npc.Buffs.HasCustomVar("onMission")) npc.SendOnMission(true);
+                        if (!npc.Buffs.HasCustomVar("onMission")) ScNpc.SendOnMission(npc, true);
                         ScRunners.StaleIds.Add(m.Id);
                     }
                     continue;
@@ -194,7 +194,7 @@ namespace SurvivorCommunity
                 switch (m.Status)
                 {
                     case MemberStatus.Resident:
-                        if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) npc.SendOnMission(false);   // never a hidden resident
+                        if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);   // never a hidden resident
                         if (EntityUtilities.GetCurrentOrder(m.Id) != EntityUtilities.Orders.Guard
                             || EntityUtilities.GetLeaderOrOwner(m.Id) != null)
                         {
@@ -206,7 +206,7 @@ namespace SurvivorCommunity
                             // self-heal the post: SCore's GuardHere/GuardThere minevents (pathing cubes, order
                             // buffs) may rewrite the guard position with the NPC's own spot
                             Vector3 post = ScCommunity.PostCenter(m);
-                            if (((IEntityOrderReceiverSDX)npc).GuardPosition != post) ScCommunity.ApplyPost(npc, post);
+                            if (ScNpc.GuardPosition(npc) != post) ScCommunity.ApplyPost(npc, post);
                             ScCommunity.Watchdog(m, npc);
                         }
                         break;
@@ -215,7 +215,7 @@ namespace SurvivorCommunity
                         if (EntityUtilities.GetLeaderOrOwner(m.Id) == null)
                         {
                             ScLog.Verbose(m.Name + ": leader link lost (relog?) - re-hiring to " + player.entityId);
-                            EntityUtilities.SetLeaderAndOwner(m.Id, player.entityId);
+                            ScNpc.SetLeaderAndOwner(m.Id, player.entityId);
                         }
                         // A follower left holding a Guard order obeys nothing: the pack's follow actions all
                         // require the Follow order, so they stand at a post they are no longer assigned to.
@@ -224,7 +224,7 @@ namespace SurvivorCommunity
                             ScLog.Out(m.Name + ": following but the order is " + EntityUtilities.GetCurrentOrder(m.Id) + " - re-applying Follow");
                             npc.Buffs.RemoveBuff("buffOrderGuard");
                             npc.Buffs.SetCustomVar("CurrentOrder", (float)EntityUtilities.Orders.Follow);
-                            EntityUtilities.SetLeaderAndOwner(m.Id, player.entityId);
+                            ScNpc.SetLeaderAndOwner(m.Id, player.entityId);
                         }
                         ScSkills.OnFollowTick(m, npc);      // Cardio: the road builds stamina
                         if (m.Status == MemberStatus.PendingStation && ScZone.Contains(player.GetBlockPosition()) && ScZone.HomeLoaded)
@@ -236,14 +236,14 @@ namespace SurvivorCommunity
                         break;
                     case MemberStatus.OnRun when ScRunners.IsPhysical(m):
                         // a physical runner is out in the world, walking: never hidden, always on the travel order
-                        if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) npc.SendOnMission(false);
+                        if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
                         if (!ScRunners.HasTravelOrder(npc)) ScRunners.ApplyTravelOrder(npc);
                         break;
                     case MemberStatus.OnRun:
                     case MemberStatus.Garrison:
                         // hidden NPCs come back visible from a chunk load; keep them hidden (and parked) until the run
                         // resolves / the posting ends (a posted member is bookkeeping at the outpost, the body waits home)
-                        if (!npc.Buffs.HasCustomVar("onMission") || npc.enabled) { ScRuns.Park(npc); npc.SendOnMission(true); }
+                        if (!npc.Buffs.HasCustomVar("onMission") || npc.enabled) { ScRuns.Park(npc); ScNpc.SendOnMission(npc, true); }
                         break;
                 }
             }
@@ -277,7 +277,7 @@ namespace SurvivorCommunity
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     if (ScRunners.IsPhysical(m)) continue;     // a runner out of range has no entity by design
-                    bool loaded = w != null && w.GetEntity(m.Id) is EntityAliveSDX;
+                    bool loaded = w != null && ScNpc.IsFramework(w.GetEntity(m.Id));
                     if (!loaded) m.MissingDays++;
                     if (m.MissingDays > ScConfig.MissingDaysToPurge && ScZone.HomeLoaded) gone.Add(m.Id);
                 }

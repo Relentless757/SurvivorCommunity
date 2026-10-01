@@ -58,7 +58,7 @@ namespace SurvivorCommunity
 
         public static string DisplayName(EntityAlive npc)
         {
-            EntityAliveSDX sdx = npc as EntityAliveSDX;
+            EntityAlive sdx = ScNpc.As(npc);
             if (sdx != null && !string.IsNullOrEmpty(sdx.EntityName)) return sdx.EntityName;
             return npc != null ? (npc.EntityName ?? "?") : "?";
         }
@@ -69,26 +69,28 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool ClassExists(int classId) { return EntityClass.list != null && EntityClass.list.ContainsKey(classId); }
 
-        public static EntityAliveSDX FindNpc(int id)
+        public static EntityAlive FindNpc(int id)
         {
             World w = World;
             if (w == null) return null;
             // an offline physical runner has no entity: whatever holds the id is a stale copy or a stranger
             Member m = ScRegistry.GetMember(id);
             if (m != null && ScRunners.IsPhysical(m) && m.Offline) return null;
-            return w.GetEntity(id) as EntityAliveSDX;
+            return ScNpc.As(w.GetEntity(id));
         }
 
         // ---- recruiting ----
 
-        /// <summary>Can this NPC be asked to join? (Host, hireable human EntityAliveSDX, not hired, not a member, roster not full.)</summary>
+        /// <summary>Can this NPC be asked to join? (Host, hireable human framework NPC, not hired, not a member, roster not full.)</summary>
         public static bool CanRecruit(EntityAlive npc, EntityPlayer player, out string why)
         {
             why = null;
             if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) { why = "scNotHireable"; return false; }
             if (!IsHost) { why = "scHostOnly"; return false; }
-            EntityAliveSDX sdx = npc as EntityAliveSDX;
-            if (sdx == null || !sdx.IsHirable) { why = "scNotHireable"; return false; }
+            if (!ScNpc.IsFramework(npc) || !ScNpc.IsHirable(npc)) { why = "scNotHireable"; return false; }
+            // 0-XNPCCore 3.2's survivors (EntityAliveSDXV4) are recruited from migration task M2 on, which brings the
+            // favour, join, follow and leave flows over to them; until then they answer as SCore's legacy NPCs did.
+            if (ScNpc.IsV4(npc)) { why = "scNotHireable"; return false; }
             if (!EntityUtilities.IsHuman(npc.entityId) || npc.HasAnyTags(AnimalTags)) { why = "scNotHireable"; return false; }
             if (ScRegistry.GetMember(npc.entityId) != null) { why = "scAlreadyMember"; return false; }
             if (EntityUtilities.IsHired(npc.entityId)) { why = "scAlreadyHired"; return false; }
@@ -97,7 +99,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The recruit is done with their favour: make them a member (no dukes, ever).</summary>
-        public static bool Join(EntityAliveSDX npc, EntityPlayerLocal player, out string error)
+        public static bool Join(EntityAlive npc, EntityPlayerLocal player, out string error)
         {
             error = null;
             try
@@ -153,7 +155,7 @@ namespace SurvivorCommunity
         // ---- stationing ----
 
         /// <summary>Makes the member a resident at their post (the FarmHere shape). The entity must be loaded.</summary>
-        public static void Station(Member m, EntityAliveSDX npc)
+        public static void Station(Member m, EntityAlive npc)
         {
             if (m == null || npc == null) return;
             try
@@ -163,7 +165,7 @@ namespace SurvivorCommunity
 
                 // A follower hidden for the leader's vehicle ride (SCore SendOnMission) would stay invisible
                 // for ever once the leader link is gone: un-hide before anything else.
-                if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) npc.SendOnMission(false);
+                if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
 
                 // detach from the party without SCore ever re-stamping it back
                 npc.Buffs.RemoveCustomVar("Leader");
@@ -217,7 +219,7 @@ namespace SurvivorCommunity
         /// blocked, or SCore's own in-a-block flag - for StuckSeconds in a row; or far from the post for long.
         /// The cure is a short teleport to the post (or a fresh post when the old one is no longer standable).
         /// </summary>
-        public static void Watchdog(Member m, EntityAliveSDX npc)
+        public static void Watchdog(Member m, EntityAlive npc)
         {
             try
             {
@@ -242,7 +244,7 @@ namespace SurvivorCommunity
             }
         }
 
-        public static void Unstick(Member m, EntityAliveSDX npc, string why)
+        public static void Unstick(Member m, EntityAlive npc, string why)
         {
             World w = World;
             if (w == null) return;
@@ -264,11 +266,9 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Writes the guard position (and a look direction) for the post.</summary>
-        public static void ApplyPost(EntityAliveSDX npc, Vector3 post)
+        public static void ApplyPost(EntityAlive npc, Vector3 post)
         {
-            IEntityOrderReceiverSDX r = npc;
-            r.GuardPosition = post;
-            r.GuardLookPosition = post + npc.GetForwardVector();
+            ScNpc.SetGuard(npc, post, post + npc.GetForwardVector());
         }
 
         /// <summary>Two blocks of air over something solid that is not water (water is a block in 3.2, not air).</summary>
@@ -343,7 +343,7 @@ namespace SurvivorCommunity
 
         // ---- following ----
 
-        public static bool Follow(Member m, EntityAliveSDX npc, EntityPlayerLocal player, out string error)
+        public static bool Follow(Member m, EntityAlive npc, EntityPlayerLocal player, out string error)
         {
             error = null;
             if (!IsHost) { error = "scHostOnly"; return false; }
@@ -358,9 +358,9 @@ namespace SurvivorCommunity
             return true;
         }
 
-        private static void FollowInternal(Member m, EntityAliveSDX npc, EntityPlayerLocal player, MemberStatus status)
+        private static void FollowInternal(Member m, EntityAlive npc, EntityPlayerLocal player, MemberStatus status)
         {
-            EntityUtilities.SetLeaderAndOwner(npc.entityId, player.entityId);   // Follow order, hired_*, cache, StaticSpawner
+            ScNpc.SetLeaderAndOwner(npc.entityId, player.entityId);   // Follow order, hired_*, cache, StaticSpawner, Owner
             npc.Buffs.SetCustomVar("Persist", 1f);
             m.Status = status;
             ScLog.Verbose(m.Name + " now " + status);
@@ -385,7 +385,7 @@ namespace SurvivorCommunity
             return "?";
         }
 
-        public static bool ReturnHome(Member m, EntityAliveSDX npc, EntityPlayerLocal player, out string error)
+        public static bool ReturnHome(Member m, EntityAlive npc, EntityPlayerLocal player, out string error)
         {
             error = null;
             if (!IsHost) { error = "scHostOnly"; return false; }
@@ -429,7 +429,7 @@ namespace SurvivorCommunity
                 ScGarrison.RemoveStandIn(m);          // a posted member leaving takes their stand-in with them
                 if (m.Status == MemberStatus.OnRun && m.RunDistress) ScRadio.EndDistress(World, LocalPlayer, m);   // no orphaned rescue quest
                 m.Snap = null;
-                EntityAliveSDX npc = FindNpc(m.Id);
+                EntityAlive npc = FindNpc(m.Id);
                 EntityPlayerLocal player = LocalPlayer;
                 if (npc != null) CleanupStale(npc);
                 else ScRegistry.Cleanup.Add(m.Id);
@@ -451,7 +451,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Does this entity carry the mod's marks at all? (The cleanup queue must never strip an innocent NPC that inherited a purged id.)</summary>
-        public static bool CarriesOurMarks(EntityAliveSDX npc)
+        public static bool CarriesOurMarks(EntityAlive npc)
         {
             return npc != null && npc.Buffs != null && (npc.Buffs.HasCustomVar("sc_member") || npc.Buffs.HasCustomVar("sc_favour"));
         }
@@ -460,7 +460,7 @@ namespace SurvivorCommunity
         /// Strips everything the mod ever put on an NPC (cvars, buffs, AI package, persistence pin, leader
         /// link). Used when a member leaves and for an entity that comes back after its record was purged.
         /// </summary>
-        public static void CleanupStale(EntityAliveSDX npc)
+        public static void CleanupStale(EntityAlive npc)
         {
             if (npc == null) return;
             try
@@ -475,7 +475,7 @@ namespace SurvivorCommunity
                 if (npc.AIPackages != null) npc.AIPackages.Remove(ResidentPackage);
                 ScDoors.Enable(npc, false);                // a former member no longer opens the player's doors
                 npc.Buffs.RemoveCustomVar("Persist");
-                if (npc.Buffs.HasCustomVar("onMission")) npc.SendOnMission(false);
+                if (npc.Buffs.HasCustomVar("onMission")) ScNpc.SendOnMission(npc, false);
                 npc.Buffs.AddBuff(OrderDismissBuff);       // zeroes Leader/Owner, wander
                 npc.Buffs.RemoveCustomVar("Leader");
                 npc.Buffs.RemoveCustomVar("Owner");
@@ -493,8 +493,8 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>EntityAliveSDX.SetDead postfix.</summary>
-        public static void OnMemberDied(EntityAliveSDX npc)
+        /// <summary>SetDead postfix (both framework classes, Patches_Npc).</summary>
+        public static void OnMemberDied(EntityAlive npc)
         {
             if (npc == null) return;
             try
@@ -546,7 +546,7 @@ namespace SurvivorCommunity
 
         // ---- mirrors ----
 
-        public static void StampCvars(Member m, EntityAliveSDX npc, EntityPlayer owner)
+        public static void StampCvars(Member m, EntityAlive npc, EntityPlayer owner)
         {
             if (m == null || npc == null || npc.Buffs == null) return;
             npc.Buffs.SetCustomVar("sc_member", 1f);
@@ -557,7 +557,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Mirrors "is with the player right now" so the dialog offers only the order that applies.</summary>
-        public static void StampFollowing(Member m, EntityAliveSDX npc)
+        public static void StampFollowing(Member m, EntityAlive npc)
         {
             if (m == null || npc == null || npc.Buffs == null) return;
             bool with = m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation;
@@ -567,7 +567,7 @@ namespace SurvivorCommunity
             else if (npc.Buffs.HasCustomVar(ScRunners.OnRunCvar)) npc.Buffs.RemoveCustomVar(ScRunners.OnRunCvar);
         }
 
-        public static void ClearCvars(EntityAliveSDX npc)
+        public static void ClearCvars(EntityAlive npc)
         {
             if (npc == null || npc.Buffs == null) return;
             npc.Buffs.RemoveCustomVar("sc_member");

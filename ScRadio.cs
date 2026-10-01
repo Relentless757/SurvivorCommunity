@@ -435,15 +435,15 @@ namespace SurvivorCommunity
                 int cid = EntityClass.FromString(ct.Class);
                 if (!ScCommunity.ClassExists(cid)) { ScLog.Warn("radio contact class " + ct.Class + " no longer exists - dropped"); return true; }
                 Vector3 pos = SpotNear(w, ct.Spawn, 4);
-                EntityAliveSDX npc;
+                EntityAlive npc;
                 try
                 {
                     // a player-body survivor rolls their face and clothes here; the model shim consumes it
                     if (ScLooks.IsSurvivorClass(ct.Class)) ScLooks.Pending = ScLooks.Roll(ScLooks.ClassIsMale(ct.Class), w.GetGameRandom(), true);
-                    npc = EntityFactory.CreateEntity(cid, pos) as EntityAliveSDX;
+                    npc = ScNpc.As(EntityFactory.CreateEntity(cid, pos));
                 }
                 finally { ScLooks.Pending = null; }
-                if (npc == null) { ScLog.Warn("radio contact class " + ct.Class + " is not an EntityAliveSDX - dropped"); return true; }
+                if (npc == null) { ScLog.Warn("radio contact class " + ct.Class + " is not an SCore NPC class - dropped"); return true; }
                 w.SpawnEntityInWorld(npc);
                 npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
                 npc.Buffs.SetCustomVar("Persist", 1f);
@@ -598,24 +598,23 @@ namespace SurvivorCommunity
                 GameRandom rnd = w.GetGameRandom();
                 int cid = EntityClass.FromString(m.Class);
                 // a physical runner is there in person: the zombies come for them, and there is no stand-in
-                EntityAliveSDX runner = ScRunners.IsPhysical(m) ? ScCommunity.FindNpc(m.Id) : null;
+                EntityAlive runner = ScRunners.IsPhysical(m) ? ScCommunity.FindNpc(m.Id) : null;
                 if (ScRunners.IsPhysical(m) && runner == null) return;
                 Vector3 centre = runner != null ? runner.position : SpotNear(w, m.RunSpawn, 5);
-                EntityAliveSDX standIn = null;
+                EntityAlive standIn = null;
                 if (runner == null)
                 {
                     try
                     {
                         if (m.Look != null) ScLooks.Pending = m.Look.Clone();      // the stand-in IS the survivor
-                        if (ScCommunity.ClassExists(cid)) standIn = EntityFactory.CreateEntity(cid, centre) as EntityAliveSDX;
+                        if (ScCommunity.ClassExists(cid)) standIn = ScNpc.As(EntityFactory.CreateEntity(cid, centre));
                     }
                     finally { ScLooks.Pending = null; }
                 }
                 if (standIn != null)
                 {
                     w.SpawnEntityInWorld(standIn);
-                    standIn.FirstName = m.Name;          // the class rolls a random name at spawn: the stand-in IS this survivor
-                    standIn.Title = "";
+                    ScNpc.SetName(standIn, m.Name, "");          // the class rolls a random name at spawn: the stand-in IS this survivor
                     standIn.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
                     standIn.Buffs.SetCustomVar(StandInCvar, m.Id);
                     standIn.Buffs.SetCustomVar("Persist", 1f);
@@ -666,7 +665,7 @@ namespace SurvivorCommunity
             ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
             if (ScRunners.IsPhysical(m) && m.RunLeg == RunLeg.AtSite)
             {
-                EntityAliveSDX r = ScCommunity.FindNpc(m.Id);
+                EntityAlive r = ScCommunity.FindNpc(m.Id);
                 ScRunners.LeaveSite(player, m, r != null ? r.position : ScRunners.C(m.RunSite), w.worldTime, true, 1f);
                 ScRunners.S(m.Id).HasWaypoint = false;
             }
@@ -716,7 +715,7 @@ namespace SurvivorCommunity
             try
             {
                 if (m.StandInId < 0) return;
-                EntityAliveSDX s = w != null ? w.GetEntity(m.StandInId) as EntityAliveSDX : null;
+                EntityAlive s = w != null ? ScNpc.As(w.GetEntity(m.StandInId)) : null;
                 if (s != null) ScRuns.RemoveEntity(s);
                 m.StandInId = -1;
             }
@@ -727,7 +726,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>SetDead postfix: the stand-in fell - that IS the survivor dying out there.</summary>
-        public static void OnStandInDied(EntityAliveSDX standIn)
+        public static void OnStandInDied(EntityAlive standIn)
         {
             try
             {
@@ -744,7 +743,7 @@ namespace SurvivorCommunity
                 m.StandInId = -1;
                 ScQuests.CloseRescue(player, m, false);
                 World w = ScCommunity.World;
-                EntityAliveSDX real = ScCommunity.FindNpc(m.Id);
+                EntityAlive real = ScCommunity.FindNpc(m.Id);
                 if (real != null) ScRuns.RemoveEntity(real); else ScRegistry.Doomed.Add(m.Id);
                 ScCommunity.RecordDeath(m, player, "scRescueDied");
             }
