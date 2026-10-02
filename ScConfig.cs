@@ -101,6 +101,13 @@ namespace SurvivorCommunity
         public static int DailyWitsXp = 3;
         /// <summary>Seconds a stationed resident may make no progress before being moved back to the post.</summary>
         public static int StuckSeconds = 12;
+        /// <summary>
+        /// Defend the base (M11 fix, the user's decision): a resident goes after any awake enemy inside the home zone within
+        /// this many metres of its post, seen or not (SCResident's ScDefendBase, UAIConsiderationScIntruder), fights it and
+        /// walks back. 0 = off: residents only fight what they see, as before. At most 23, kept inside the resident leash
+        /// (ScReturn, 25 m from the post in Config/utilityai.xml) so the defence and the leash never take turns at the edge.
+        /// </summary>
+        public static int DefendBaseRadius = 22;
         // ---- morale ----
         public static float DeathPenalty = 15f;
         public static float DeathDecayPerDay = 3f;
@@ -443,6 +450,7 @@ namespace SurvivorCommunity
             FuelItems.Clear();
             FacilityBlocks.Clear();
             PostRadius = 8;
+            DefendBaseRadius = 22;
             LowMoraleDays = 2;
             MissingDaysToPurge = 30;
             RunRiskBase = 0.15f;
@@ -619,6 +627,7 @@ namespace SurvivorCommunity
                 ParseInt(p, "FollowXpSeconds", ref FollowXpSeconds, 5, 3600);
                 ParseInt(p, "DailyWitsXp", ref DailyWitsXp, 0, 100);
                 ParseInt(p, "StuckSeconds", ref StuckSeconds, 3, 600);
+                ParseInt(p, "DefendBaseRadius", ref DefendBaseRadius, 0, 23);
                 ParseFloat(p, "DeathPenalty", ref DeathPenalty, 0f, 100f);
                 ParseFloat(p, "DeathDecayPerDay", ref DeathDecayPerDay, 0f, 100f);
                 ParseInt(p, "LowMoraleThreshold", ref LowMoraleThreshold, 0, 100);
@@ -920,7 +929,7 @@ namespace SurvivorCommunity
                 parsed = true;
                 ScLog.Out("config: MaxMembers=" + MaxMembers + " MaxFollowers=" + MaxFollowers + " FoodPerMemberDay=" + FoodPerMemberDay
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"
-                          + " PostRadius=" + PostRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
+                          + " PostRadius=" + PostRadius + " DefendBaseRadius=" + DefendBaseRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
                           + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count
                           + " secondWeapon=" + SurvivorSecondWeapon + " firearmChance=" + SurvivorFirearmChance + " rangedMainChance=" + SurvivorRangedMainChance
                           + " xnpcWeapons=" + XnpcWeapons.Count + " xnpcSpawnAmmo=" + XnpcSpawnAmmo + "/" + XnpcSpawnArrows

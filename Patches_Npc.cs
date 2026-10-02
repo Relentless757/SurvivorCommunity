@@ -300,6 +300,10 @@ namespace SurvivorCommunity
         /// way vanilla keeps vehicles and drones out of chunk saves). Chunk saves run on the save thread too - this
         /// reads one immutable set and nothing else. Both classes' IsSavedToFile apply the same rule (saved when the
         /// Leader or Persist cvar exists, else not for Dynamic or Biome spawns), so the veto is the same on both.
+        /// The M11 fix: a reference test on __instance (was Unity's != null). The body of an unloaded chunk is written
+        /// after its GameObject was destroyed, so the old test skipped the veto on every unload save and only
+        /// ScRunners.OnEntityUnloaded's Delete-source backstop kept the copy from coming back. ScRunners.VetoChunkSave
+        /// also keeps the verdict for such a body fixed, so Chunk.write's count and write passes agree.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_IsSavedToFile
@@ -313,7 +317,73 @@ namespace SurvivorCommunity
             [HarmonyPostfix]
             public static void Postfix(EntityAlive __instance, ref bool __result)
             {
-                if (__result && __instance != null && ScRunners.IsRunnerBody(__instance)) __result = false;
+                // runs inside Chunk.write on the save thread, where vanilla catches nothing: an exception would abort that
+                // chunk's save (the review's M4). On one, the game's own verdict stands - both of Chunk.write's passes then
+                // answer alike - and ScLog.Once (locked) reports it.
+                try
+                {
+                    if (__result && (object)__instance != null && ScRunners.VetoChunkSave(__instance)) __result = false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("runner-chunk-veto", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The M11 fix re-check's R1, at the shot itself. SCore's CanSee calls an NPC's attack or revenge target seen WITHOUT
+        /// a ray within sqrt(20) = 4.47 m, and InWeaponRange's CanShoot passes on any entity in the line, so the pack's
+        /// RangedMeleeAttack fires across whoever stands between - the player stepping into a doorway fight, one member in
+        /// front of another - however the attack target got set (MoveToAttackTargetSDX.Stop on every stop, the attack task's
+        /// own 60 s, a hit). SCore's faction gates stop the damage, not the shot. For the community's own NPCs (members and
+        /// stand-ins) firing a ranged action, this casts CanSee's own ray at that range and, while a protected one
+        /// (UAI.ScEngage.Protected: a player, or a living non-enemy NPC) is first in the line, holds the shot: the task's
+        /// countdown to its next shot is kept above zero (it still turns and aims), and the target is dropped as ATTACK
+        /// target, so the next decision's CanSee has to cast its ray, fails on the blocker, and the defence holds
+        /// (ScDefendHold) or the pack backs off. A revenge target keeps SCore's self-defence choosing the attack; its shot
+        /// stays held until the line clears (melee, from 3 m, is 0-XNPCCore's swap and untouched). Beyond 4.47 m CanSee
+        /// casts its ray at every decision, as for every NPC. The same two targets as ScAim's Patch_AttackUpdate (both
+        /// attack tasks' Update), so no new target; one ray per frame only while such an NPC attacks within 4.47 m.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_HoldFireAcross
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return ScAim.AttackTargets("Update").Count > 0; }
+
+            [HarmonyTargetMethods]
+            public static IEnumerable<MethodBase> TargetMethods() { return ScAim.AttackTargets("Update"); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(UAI.UAITaskBase __instance, UAI.Context _context)
+            {
+                try
+                {
+                    EntityAlive self = _context != null ? _context.Self : null;
+                    if (self == null || self.isEntityRemote || !ScXnpc.IsCommunity(self)) return true;
+                    if (!ScAim.IsRangedAction(self, ScAim.ActionIndex(__instance))) return true;
+                    // the task's own choice of target: its action target, or for a self-target the attack/revenge target
+                    EntityAlive t = _context.ActionData.Target as EntityAlive;
+                    if (t != null && t.entityId == self.entityId) t = EntityUtilities.GetAttackOrRevengeTarget(self.entityId) as EntityAlive;
+                    if (t == null || t.IsDead() || self.GetDistanceSq(t) >= UAI.ScEngage.ShortcutDistanceSq) return true;
+                    bool block;
+                    if (!UAI.ScEngage.Protected(self, UAI.ScEngage.FirstOnSeeRay(self, t, out block))) return true;
+                    if (self.GetAttackTarget() == t)
+                    {
+                        self.SetAttackTarget(null, 0);
+                        Patches_Xnpc.Count("hold-fire-across");     // once per attack start (AttackTargetEntitySDX.Start sets it)
+                    }
+                    UAI.UAITaskAttackTargetEntity attack = __instance as UAI.UAITaskAttackTargetEntity;
+                    if (attack == null) return false;               // not the task we know: skip this frame's update
+                    if (attack.attackTimeout < 2) attack.attackTimeout = 2;   // Update counts down once: no shot this frame
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("hold-fire-across", ex);
+                    return true;
+                }
             }
         }
 

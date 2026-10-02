@@ -281,11 +281,27 @@ namespace SurvivorCommunity
             return new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
         }
 
+        /// <summary>A live enemy within this many metres means the resident is fighting (Watchdog).</summary>
+        public const float FightRange = 30f;
+        /// <summary>
+        /// After a move back to the post made while FIGHTING, the base defence pauses this long (UAI.ScDefendState): an
+        /// intruder it could not reach. A plain wedge or the far rule with no enemy about leaves the defence as it was.
+        /// </summary>
+        public const float DefendRestSeconds = 60f;
+        /// <summary>SCResident's Cowardly flee: its target is the enemy it runs FROM, not a fight (LiveFoe).</summary>
+        private const string FleeAction = "ScFlee";
+
         /// <summary>
         /// Once a second for a stationed resident: POI furniture, gaps and doorways trap NPC pathing. Stuck =
         /// trying to move (an active move helper or a path) without getting anywhere, the move helper reporting
         /// blocked, or SCore's own in-a-block flag - for StuckSeconds in a row; or far from the post for long.
         /// The cure is a short teleport to the post (or a fresh post when the old one is no longer standable).
+        /// A resident with a live enemy within FightRange (LiveFoe) gets three times StuckSeconds (36 s by default): in a
+        /// fight it pushes at a target the player or another zombie blocks, backs into walls and waits on the player's
+        /// melee, and a playtest showed the 12 s rule teleport one out of a fight (GUARD_DIAG cause 4) - while a real wedge
+        /// is still cured. The far rule stays (PostRadius x 3 + 12 m for 90 s, 36 m by default); in a fight it is never
+        /// shorter than DefendBaseRadius + 14 m (36 m at 22), so a defence at the edge of its reach on a small PostRadius
+        /// cannot trip it either - the 25 m leash (ScReturn) walks a resident home long before.
         /// </summary>
         public static void Watchdog(Member m, EntityAlive npc)
         {
@@ -301,10 +317,14 @@ namespace SurvivorCommunity
                                    || (npc.getNavigator() != null && !npc.getNavigator().noPathAndNotPlanningOne());
                 bool blocked = (mh != null && mh.BlockedTime > 1.5f) || npc.IsStuck;
                 if (blocked || (wantsToMove && moved < 0.04f)) m.StillSeconds++; else m.StillSeconds = 0;
+                bool fighting = LiveFoe(npc, FightRange) != null;
+                int stuckLimit = fighting ? ScConfig.StuckSeconds * 3 : ScConfig.StuckSeconds;
+                float farLimit = ScConfig.PostRadius * 3 + 12;
+                if (fighting) farLimit = Mathf.Max(farLimit, ScConfig.DefendBaseRadius + 14f);
                 float away = Vector3.Distance(pos, PostCenter(m));
-                if (away > ScConfig.PostRadius * 3 + 12) m.AwaySeconds++; else m.AwaySeconds = 0;
-                if (m.StillSeconds >= ScConfig.StuckSeconds) Unstick(m, npc, "no progress for " + m.StillSeconds + " s");
-                else if (m.AwaySeconds >= 90) Unstick(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s");
+                if (away > farLimit) m.AwaySeconds++; else m.AwaySeconds = 0;
+                if (m.StillSeconds >= stuckLimit) Unstick(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting);
+                else if (m.AwaySeconds >= 90) Unstick(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s" + (fighting ? ", fighting" : ""), fighting);
             }
             catch (Exception e)
             {
@@ -312,7 +332,39 @@ namespace SurvivorCommunity
             }
         }
 
-        public static void Unstick(Member m, EntityAlive npc, string why)
+        /// <summary>
+        /// The live enemy an NPC is busy with within "range" metres, or null: its attack target, its revenge target, or
+        /// the target of the UAI action it runs when that is an enemy - SCResident's ScDefendBase walks to an intruder
+        /// before anything sets the attack target (MoveToAttackTargetSDX sets it only when it stops). Not ScFlee's target
+        /// (the review's M6): a Cowardly member running from an enemy is not fighting it, and one that flees into a corner
+        /// is cured in StuckSeconds like any wedge. Main thread.
+        /// </summary>
+        public static EntityAlive LiveFoe(EntityAlive npc, float range)
+        {
+            if (npc == null) return null;
+            float r2 = range * range;
+            EntityAlive t = npc.GetAttackTarget();
+            if (IsLiveFoe(npc, t, r2, false)) return t;
+            t = npc.GetRevengeTarget();
+            if (IsLiveFoe(npc, t, r2, false)) return t;
+            UAI.Context ctx = npc.utilityAIContext;
+            if (ctx == null || (ctx.ActionData.Action != null && ctx.ActionData.Action.Name == FleeAction)) return null;
+            t = ctx.ActionData.Target as EntityAlive;
+            return IsLiveFoe(npc, t, r2, true) ? t : null;
+        }
+
+        private static bool IsLiveFoe(EntityAlive npc, EntityAlive t, float r2, bool mustBeEnemy)
+        {
+            return t != null && t != npc && !t.IsDead() && (t.position - npc.position).sqrMagnitude <= r2
+                   && (!mustBeEnemy || EntityTargetingUtilities.IsEnemy(npc, t));
+        }
+
+        /// <summary>
+        /// Moves a stuck resident back to its post. "fighting" (a live enemy within FightRange when the watchdog fired, the
+        /// review's M3): the base defence then pauses DefendRestSeconds, so an intruder it could not reach does not pull it
+        /// straight back; a wedge with no enemy about leaves the defence alone.
+        /// </summary>
+        public static void Unstick(Member m, EntityAlive npc, string why, bool fighting)
         {
             World w = World;
             if (w == null) return;
@@ -330,6 +382,9 @@ namespace SurvivorCommunity
             m.LastPos = target;
             ApplyPost(npc, target);
             UAI.ScRoamState.NextAllowed[npc.entityId] = UnityEngine.Time.time + 30f;
+            // an intruder it could not reach would pull it straight back to the same spot: the defence pauses a while
+            // (what it sees it still fights)
+            if (fighting) UAI.ScDefendState.Rest(npc.entityId, DefendRestSeconds);
             ScLog.Out(m.Name + " was stuck (" + why + ") - moved back to the post " + m.Post);
         }
 

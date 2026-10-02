@@ -7,7 +7,8 @@
 
 	  A resident holds the Guard order (CurrentOrder 9): NPCModCore's Guard action walks them back to their
 	  post and the combat packages (which only gate on NotHasOrder Stay) still fight anything that comes
-	  close. These two actions add a daytime roam around the post and a quiet night.
+	  close. These two actions add a daytime roam around the post and a quiet night, and ScDefendBase sends
+	  them after an intruder they cannot see (M11 fix, "defend the base").
 
 	  The roam, the leash and the quiet night are gated on ScIsResident (stationed at home), not merely on
 	  membership: they work from the member's HOME post, and a FOLLOWER can hold the very same order 9 -
@@ -36,6 +37,50 @@
 				<consideration class="ScIsResident, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="ScFarFromPost, SurvivorCommunity" distance="25" />
+			</action>
+			<!-- Defend the base (M11 fix). Every combat action of the packs needs CanSeeTarget, and with a gun 0-XNPCCore's
+			     SdcsNpcRangedAdvanced has no approach at all (its MeleeApproach is for CurrentWeaponClass 0), so a resident
+			     stood at his post while a zombie walked through the base out of his sight. This walks him to any intruder
+			     (ScIntruder: an awake enemy inside the home zone within DefendBaseRadius, 22 m, of his post - seen or not;
+			     SCore's UAI scores every living entity in his bounds grown by his sight range, 60 m, i.e. about 30 m each
+			     way, and sight is only a consideration, CanSeeTarget, left out here) for as long as he
+			     cannot hit it from where he stands. ScCannotEngage: with a melee weapon beyond reach (NotInWeaponRange's
+			     rule); with a gun out of range, without a clear shot (SCore's CanShoot ray: walls, glass, decor), or with
+			     a friendly NPC in the line from farther than 6.5 m (closing in opens the line round the one in front); 0
+			     the moment the gun is in range AND sees it, exactly RangedMeleeAttack's own pair, so the hand-over is
+			     immediate (within 4.47 m, where SCore calls its attack target seen without a ray, SC casts it itself).
+			     MoveToAttackTargetSDX paths to the entity with no sight test; it shoots nothing itself. ScIntruder also
+			     pauses the defence for 20 s once the walk has taken him more than 23 m from his post (a detour round a
+			     wall would otherwise trade turns with the 25 m leash every 0.2 s). Weight 4: beats Guard (2), ScRoam (2.5),
+			     ScNightIdle (3) and BackupRanged (3); loses to every attack (5-7), the leash (5.5) and the Cowardly flee
+			     (6), so the pack's own attack takes over the moment a shot or a swing is possible, and Guard walks him home
+			     after. Ties MeleeApproach (4) with the same task; SCResident is the last package, so it wins the tie. A
+			     Cowardly member ($Timid) does not go looking for a fight. Followers, runners and stand-ins: ScIsResident. -->
+			<action name="ScDefendBase" weight="4" entity_filter="IsEnemy">
+				<task class="MoveToAttackTargetSDX, SCore" run="true" />
+				<consideration class="ScIsResident, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
+				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="ScIntruder, SurvivorCommunity" />
+				<consideration class="ScCannotEngage, SurvivorCommunity" />
+			</action>
+			<!-- ...and holds still, facing the intruder, while his gun is in range with no block in the way but a player -
+			     anywhere - or a friendly NPC within 6.5 m stands in the line (ScHoldFire): he never closes in on a fight
+			     across you, and without this Guard walked him home and ScDefendBase walked him back. Its task also drops
+			     the intruder as attack target, which SCore would otherwise treat as seen within 4.47 m whatever stands in
+			     between (Patches_Npc's Patch_HoldFireAcross holds any such shot as well). The moment the line clears,
+			     RangedMeleeAttack (6) fires; out of range, ScDefendBase walks on. Same weight and gates as ScDefendBase;
+			     the two are never 1 for the same intruder, and on a tie between two intruders ScDefendBase, listed first,
+			     wins (walking to one he can reach beats waiting on one he cannot shoot). -->
+			<action name="ScDefendHold" weight="4" entity_filter="IsEnemy">
+				<task class="DefendHoldSC, SurvivorCommunity" />
+				<consideration class="ScIsResident, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
+				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="ScIntruder, SurvivorCommunity" />
+				<consideration class="ScHoldFire, SurvivorCommunity" />
 			</action>
 			<!-- A physical supply runner (ScRunners) holds the Task order (8), which nothing else in SCore or XNPCCore
 			     uses: every resident action above stands down, the pack's combat still fires (it only gates on NotHasOrder

@@ -94,13 +94,45 @@ namespace SurvivorCommunity
         /// <summary>
         /// Thread-safe (the IsSavedToFile postfix asks from the chunk-save thread): is this entity a physical runner's
         /// body - same id, class and birth time? A stranger that inherited the id after a crash is saved as normal.
+        /// A reference test (the M11 fix): a body whose chunk unloaded is written after Entity.OnEntityUnload destroyed its
+        /// GameObject, and Unity's == null - true for a destroyed body - made this answer "not a runner" on exactly the
+        /// save the veto exists for. The id, class and birth time are managed fields that outlive the GameObject. Its one
+        /// caller is that postfix (through VetoChunkSave); no main-thread caller relies on a destroyed body reading as
+        /// "not a runner".
         /// </summary>
         public static bool IsRunnerBody(Entity e)
         {
             KeyValuePair<int, ulong> who;
-            if (e == null || !runnerIds.TryGetValue(e.entityId, out who)) return false;
+            if ((object)e == null || !runnerIds.TryGetValue(e.entityId, out who)) return false;
             if (who.Key != 0 && e.entityClass != who.Key) return false;
             return who.Value == 0 || e.WorldTimeBorn == 0 || e.WorldTimeBorn == who.Value;
+        }
+
+        /// <summary>Boxed verdicts for the per-body memo below (ConditionalWeakTable wants a reference type).</summary>
+        private static readonly object Vetoed = new object(), NotVetoed = new object();
+
+        /// <summary>
+        /// The verdict for each unloaded (destroyed) body, kept with the body object itself: weak keys by reference, so
+        /// it goes when the body is collected, and thread-safe.
+        /// </summary>
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Entity, object> unloadedVerdicts =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<Entity, object>();
+
+        /// <summary>
+        /// The IsSavedToFile postfix's question (the M11 fix): keep this body out of its chunk's save? IsRunnerBody, with
+        /// one guard for the save thread. Chunk.write asks IsSavedToFile twice per entity - once to count, once to write -
+        /// and an unloaded chunk is written on thread_SaveChunks while RebuildRunnerSet may swap the set on the main
+        /// thread: two different answers for one body would put a count in the chunk that does not match the entities
+        /// after it. So a destroyed body (Unity's bool operator: a managed check of the cached native pointer, safe on any
+        /// thread) gets one verdict for good - it is never live again, and a later write of the same object (the
+        /// chunk-cache reload's entity stubs) must agree with the first. A live body is answered fresh: a world save
+        /// snapshots it on the main thread, where the set cannot change between the two passes.
+        /// </summary>
+        public static bool VetoChunkSave(Entity e)
+        {
+            if ((object)e == null) return false;
+            if (e) return IsRunnerBody(e);
+            return unloadedVerdicts.GetValue(e, k => IsRunnerBody(k) ? Vetoed : NotVetoed) == Vetoed;
         }
 
         public static void RebuildRunnerSet()

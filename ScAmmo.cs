@@ -100,6 +100,12 @@ namespace SurvivorCommunity
         private static int armed, raidersArmed, armedRounds, refills, refillRounds, magsFull, looseLoaded, issued, swapReturns, swapRounds, deathRounds;
         // the held gun across a save (review F1): times written, put back in the hand, rounds given back loose instead
         private static int gunsSaved, gunsRestored, gunsLoose;
+        /// <summary>
+        /// Of gunsSaved, the records written for a body whose chunk had unloaded (its GameObject already destroyed: the
+        /// save-on-drop write, M11 fix). Both are bumped by WriteHeldGun, which runs on the chunk-save thread for an unloaded
+        /// chunk and on the main thread for a world save - Interlocked, never ++.
+        /// </summary>
+        private static int gunsSavedUnloaded;
 
         public static void Reset()
         {
@@ -119,7 +125,7 @@ namespace SurvivorCommunity
             PendingMags = null;
             resupplies = roundsGiven = bundlesOpened = refusedEmpty = refusedFull = outsideWaits = restored = seeded = raidersSeeded = 0;
             armed = raidersArmed = armedRounds = refills = refillRounds = magsFull = looseLoaded = issued = swapReturns = swapRounds = deathRounds = 0;
-            gunsSaved = gunsRestored = gunsLoose = 0;
+            gunsSaved = gunsRestored = gunsLoose = gunsSavedUnloaded = 0;
         }
 
         // ------------------------------------------------------------------ the gun and its rounds ----
@@ -774,10 +780,19 @@ namespace SurvivorCommunity
         /// warning, if it would take the record over vanilla's 65535-byte limit. Reads only the entity's own inventory,
         /// SC's immutable class sets and ScMedic's concurrent mirror, no Unity API: an unloaded chunk is saved on the save
         /// thread.
+        ///
+        /// The M11 fix: an unloaded chunk is written frames AFTER Entity.OnEntityUnload destroyed the body's GameObject
+        /// (Object.Destroy; the chunk only reaches RegionFileManager's save queue on a later DetermineChunksToLoad), and
+        /// Unity's == null is true for a destroyed MonoBehaviour. The first guard used to be that test, so every chunk
+        /// unload silently skipped the record and the gun came back empty; it is a reference test now, like ScXnpc.IsBody.
+        /// Everything read below is managed data that outlives the GameObject. The two Unity operators that remain on this
+        /// path - ConnectionManager's != null in IsHost and !e for the unloaded counter - are UnityEngine.Object's
+        /// CompareBaseObjects / op_Implicit, which only compare the cached native pointer (m_CachedPtr): pure managed code
+        /// that never throws and is safe on any thread. No Patches_Xnpc.Count here (a plain Dictionary, main thread only).
         /// </summary>
         public static void WriteHeldGun(EntityAlive e, System.IO.BinaryWriter bw)
         {
-            if (e == null || bw == null || e.inventory == null || !ScCommunity.IsHost || !ScXnpc.IsBody(e)) return;
+            if ((object)e == null || bw == null || e.inventory == null || !ScCommunity.IsHost || !ScXnpc.IsBody(e)) return;
             ItemValue gun = e.inventory.holdingItemItemValue;
             string useItem = null;
             ScMedic.Displaced d;
@@ -801,11 +816,13 @@ namespace SurvivorCommunity
             long used = bw.BaseStream != null && bw.BaseStream.CanSeek ? bw.BaseStream.Position : 0;
             if (used + SavedGunHeaderBytes + payload.Length > ushort.MaxValue)
             {
-                ScLog.Once("ammo-held-gun-size-" + e.entityId, ScCommunity.DisplayName(e) + " (id " + e.entityId + "): the gun in hand is not saved with its rounds - the save record is too big");
+                // e.EntityName, not ScCommunity.DisplayName: that one's Unity null tests answer "?" for a destroyed body
+                ScLog.Once("ammo-held-gun-size-" + e.entityId, e.EntityName + " (id " + e.entityId + "): the gun in hand is not saved with its rounds - the save record is too big");
                 return;
             }
             WriteSavedGun(bw, payload);
-            gunsSaved++;
+            System.Threading.Interlocked.Increment(ref gunsSaved);
+            if (!e) System.Threading.Interlocked.Increment(ref gunsSavedUnloaded);   // destroyed = its chunk unloaded (see above)
         }
 
         /// <summary>The record's bytes after SCore's section (split out for the offline check).</summary>
@@ -1477,7 +1494,7 @@ namespace SurvivorCommunity
                    + armedRounds + " round(s), issued to " + issued + " member(s), " + refills + " refill(s) of " + refillRounds + " round(s), "
                    + magsFull + " time(s) full, " + looseLoaded + " loose round(s) loaded"
                    + "; guns put away gave back " + swapRounds + " round(s) in " + swapReturns + " swap(s), dead NPCs' guns " + deathRounds
-                   + "; held guns saved " + gunsSaved + " time(s), back in the hand on load " + gunsRestored + ", given back loose " + gunsLoose + " round(s)"
+                   + "; held guns saved " + gunsSaved + " time(s) (unloaded " + gunsSavedUnloaded + "), back in the hand on load " + gunsRestored + ", given back loose " + gunsLoose + " round(s)"
                    + "; inventory windows open by remote players now " + RemoteOpenCount()
                    + ", dead NPCs' windows waiting for them to close " + Patches_Npc.Patch_SetDead.HeldCount;
         }

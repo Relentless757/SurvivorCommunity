@@ -149,7 +149,7 @@ namespace SurvivorCommunity
         private static readonly Dictionary<Type, AccessTools.FieldRef<object, int>> actionIndex = new Dictionary<Type, AccessTools.FieldRef<object, int>>();
 
         /// <summary>The task's private action_index, or -1. Resolved per class on first use, so a renamed field only logs.</summary>
-        private static int ActionIndex(UAITaskBase task)
+        internal static int ActionIndex(UAITaskBase task)
         {
             if (task == null) return -1;
             Type t = task.GetType();
@@ -198,7 +198,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The held item's action at this index shoots (ItemActionRanged, which the bows and launchers derive from too).</summary>
-        private static bool IsRangedAction(EntityAlive e, int index)
+        internal static bool IsRangedAction(EntityAlive e, int index)
         {
             ItemClass held = e.inventory != null ? e.inventory.holdingItem : null;
             ItemAction[] acts = held != null ? held.Actions : null;

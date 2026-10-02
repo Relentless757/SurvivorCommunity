@@ -82,8 +82,15 @@
 			<property name="ScanRadius" value="0" />
 			<property name="FollowXpSeconds" value="60" />
 			<property name="DailyWitsXp" value="3" />
-			<!-- a stationed survivor that makes no progress for this many seconds is moved back to their post -->
+			<!-- a stationed survivor that makes no progress for this many seconds is moved back to their post (three times
+			     as long while it has a live enemy within 30 m: a fight is not a wedge) -->
 			<property name="StuckSeconds" value="12" />
+			<!-- defend the base: a stationed survivor goes after any awake enemy inside the home zone within this many metres
+			     of its post - also one it cannot see from there - fights it and walks back (SCResident's ScDefendBase in
+			     Config/utilityai.xml). Sleepers stay asleep, Cowardly members stay put, followers, runners and outpost
+			     stand-ins are not affected. 0 = off (residents only fight what they see, as before). 0..23: it must stay
+			     inside the 25 m leash. -->
+			<property name="DefendBaseRadius" value="22" />
 			<!-- morale: 50 + food days + medicine + beds + facilities + supplies + traits - recent deaths (each death
 			     costs DeathPenalty, fading DeathDecayPerDay per day). Below LowMoraleThreshold for LowMoraleDays days
 			     the unhappiest survivor threatens to leave and does so the next day; above HighMoraleThreshold XP x1.5. -->

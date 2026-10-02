@@ -40,7 +40,31 @@ NPCs but cannot manage a community (v2).
   around it by day, stand quiet at night, fight whatever comes close and walk back. They are not in your
   party: no teleporting after you, no hired-NPC HUD entry. They survive save/reload and chunk unloads.
   A resident that gets wedged in furniture or a doorway (no progress for `StuckSeconds`, or far from the
-  post for long) is moved back to their post; the roam task also gives up on a blocked target.
+  post for long) is moved back to their post; the roam task also gives up on a blocked target. While it is
+  fighting (a live enemy within 30 m) it gets three times `StuckSeconds` first, so a fight is not mistaken for
+  a wedge.
+- **Defending the base.** Residents go after any awake enemy that gets inside the home zone within
+  `DefendBaseRadius` (22 m) of their post, also one they cannot see from there - a zombie in the next room,
+  on another floor, behind a wall. They walk to it until they can hit it (with a gun: in range and a clear
+  shot), fight it, and walk back to their post. With a gun, when you are in their line of fire they stand
+  still facing the enemy until you step aside, rather than closing in on your fight; when another member (or
+  any friendly NPC) is in the line they close in to about 6.5 m, which usually opens the line, then wait.
+  Within about 4.5 m of the enemy your people hold their fire while you or another friendly NPC is in the
+  line, whatever they were doing (the NPC framework skips its sight check at that range). That includes your
+  followers: in a close fight with you in front of them they aim and wait rather than fire past you, and swap
+  to their melee weapon only once the zombie gets round you or hits them. Farther out the framework
+  re-checks the line five times a second, so a shot fired just as you step in can still come; it hits you
+  for nothing (friendly NPCs cannot hurt you) but is a wasted round. A deer or a dead body in the line does
+  not stop them. A path that
+  would take them more than 23 m from their post (a long detour round a wall to a door) makes them give up
+  for 20 s and walk back, instead of trading places with the 25 m leash. Sleepers in a base built in a POI
+  are left asleep, Cowardly members stay put, and followers, runners and outpost stand-ins are not affected.
+  An enemy they cannot reach holds them at most three times `StuckSeconds`; they are then moved back to
+  their post and leave unseen enemies alone for a minute (what they see they still fight) - only after a
+  move made during a fight; a resident freed from a plain wedge goes on defending at once.
+  `DefendBaseRadius` 0 turns it off (they fight only what they see, as before); at most 23, inside the
+  25 m leash. They only notice enemies within about 30 m of themselves (the NPC framework's search box),
+  which covers the whole radius while they are near their post.
 - **Followers.** From the roster (or the SCore companion window once they follow) a member can follow
   you like a normal hire - at most `MaxFollowers` (2) at a time - and be sent home again.
 - **Skills and traits (data).** Each survivor rolls 2 traits, starting stars in Cardio / Wits / Fighting /
@@ -530,7 +554,7 @@ The two mods talk only through CVars on the local player; without SurvivorOrigin
 
 ## Configuration (`Config/blocks.xml`, block `ConfigSurvivorCommunity`)
 
-`MaxMembers`, `MaxFollowers`, `PostRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `PointsPerBundle*`,
+`MaxMembers`, `MaxFollowers`, `PostRadius`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `PointsPerBundle*`,
 `ValueOverrides`, `FuelItems`, `BedsBySleepingBag`, `BedBlocks`, `BedBlocksExclude`, `FacilityBlocks`, `LowMoraleDays`, `MissingDaysToPurge`, `RunRiskBase`,
 `RunYieldBase`, `SuppliesFavours`, `PoiFavourRange`, `TraitsPerRecruit`, `DebugLogging`, and the
 `Traits` table (weight, food-use multiplier, morale/mood offsets, starting skill bonus, preferred

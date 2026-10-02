@@ -25,6 +25,146 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## M11 fix: the gun survives a chunk unload, the runner veto, defending the base
+
+**Deployed 2026-10-02** (DLL md5
+`2d3b5aa3f7d69d370db51109bcfa5476`, 600064 bytes; Fable review, re-check and final confirmation: deployable; Fable review fixes M1-M6 and M8 and re-check fixes R1, R2, R4
+included). One more Harmony patch method (Patch_HoldFireAcross) on targets SC already patches: still 70 targets. Deploy it **together with** the same tree's `Config/utilityai.xml`
+and `Config/blocks.xml`: the new actions name the DLL's new `ScIntruder`, `ScCannotEngage` and `ScHoldFire`
+considerations and `DefendHoldSC` task, and an XML without its DLL would drop them and let residents chase every enemy
+around them. No save format change; an existing world is fine. Report: `M11FIX_REPORT.md` (next to `M11_REPORT.md`;
+its "Review fixes" section covers `fable_review_m11fix.md`). Diagnosis: `X13_CHUNK_DIAG.md`, `GUARD_DIAG.md`.
+
+What changed:
+- **X13 really works on a chunk unload.** A chunk that unloads behind you is written a frame or more after the game has
+  destroyed its NPCs' bodies, and the held-gun save asked Unity's "is it null", which says yes for a destroyed body - so
+  every chunk unload skipped the record and the gun came back empty (one magazine fewer with L&L). Quit/continue was
+  never affected. Now a plain reference test; the `ammo (D3)` line counts the records written for an unloaded chunk:
+  `held guns saved N time(s) (unloaded M)`. The bandage-mid-use save (M11 re-check) now runs on unloads too.
+- **Runners stay out of chunk saves.** The "never save a runner into a chunk" veto had the same defect and never fired
+  on an unload; the Delete-source backstop hid it. Fixed the same way (the verdict for an unloaded body is fixed once,
+  so the chunk's count and its entities always agree).
+- **Defend the base (your decision).** A stationed member goes after any awake enemy inside the home zone within
+  `DefendBaseRadius` (22 m, new key in `blocks.xml`) of its post, also one it cannot see, walks to it until it can shoot
+  (in range, clear shot) or swing, fights it with the normal attacks and walks back. With a gun too (0-XNPCCore's ranged
+  package had no approach for guns). Sleepers stay asleep, Cowardly members and followers, runners and stand-ins are
+  not affected; `DefendBaseRadius` 0 turns it off. New AI actions `ScDefendBase` and `ScDefendHold` in `SCResident`
+  (weight 4). After the Fable review:
+  - a defence walk that takes the member more than 23 m from its post (a long detour to a door) pauses the defence for
+    20 s - it walks home and tries again - instead of trading turns with the 25 m leash every 0.2 s;
+  - with a gun in range but someone in its line of fire it no longer paces between its post and the intruder: with you
+    in the line it stands still, facing the intruder, until you step aside (it never closes in on a fight across you);
+    with another member or a friendly NPC in the line it closes in to about 6.5 m (which usually opens the line), then
+    waits. A deer or a dead body in the line does not stop it. Shots are still only the pack's attack.
+  - after the re-check: within about 4.5 m of its target a member never fires while you or a friendly NPC is first in
+    its line - the NPC framework skips its sight check at that range, so SC checks the line itself before each shot
+    (hook `hold-fire-across`). Farther out the framework re-checks the line five times a second (and briefly trusts a
+    target it has just seen), so one shot as you step in can still come: it hits you for no damage and costs a round.
+    Expected, not a bug: while it holds fire this way it keeps its gun level and doesn't swap to its melee weapon until
+    the zombie gets round you or hits it. This applies to your followers too: in a close scrum with you in front, they
+    aim and wait instead of firing past you.
+- **Stuck watchdog:** a resident with a live enemy within 30 m gets three times `StuckSeconds` (36 s) before it is moved
+  back to its post (`was stuck (no progress for N s, fighting)`); after such a move made during a fight the defence
+  pauses for a minute. A plain wedge with no enemy about is cured in 12 s and the defence does not pause. A Cowardly
+  member fleeing does not count as fighting.
+- **`sc xnpc <id>` has a `uai:` line:** the AI's current action, task and target; for the foe (that target, else the
+  attack/revenge target, else the nearest enemy) `OUTSIDE the AI's search box` when the AI cannot consider it at all
+  (about 30 m each way around the NPC), `CanSee=`, `clearShot=` / `range=` / `InWeaponRange=` (what the
+  ranged attack asks), what the see ray and the shot ray hit first (`target`, `block <name> at <pos>`, `PLAYER <id>`,
+  `entity <id>`), how far you stand from the line (`(IN THE LINE)` under 0.6 m), the defence's verdict (`intruder`, or
+  why not: `beyond DefendBaseRadius of the post`, `outside the home zone`, `asleep`, `not a resident at a post`,
+  `resting (moved back to the post in a fight, or strayed)`), what it would do (`engage=approach (ScDefendBase)`,
+  `engage=hold (ScDefendHold)` or `engage=hand over (the pack's attack)`, each with the reason, e.g. `out of range`,
+  `no clear shot (a block in the line)`, `the player is in the line`, `the player is in the line (close)`, `an ally is
+  in the line - closing in`, `an ally is in the line, within 6.5 m`, `an enemy, an animal or a body is in the line`)
+  and the member's own distance from its post (`- BEYOND the 23 m stray limit` past it).
+
+- [ ] **Startup:** `patch verification: all 70 targets patched` (63 without Voice Control) - no new target; the
+      `config:` line shows `DefendBaseRadius=22`; no `Type:... was missing` warning for `ScIntruder`, `ScCannotEngage`,
+      `ScHoldFire` or `DefendHoldSC`, and no `AIPackage 'SCResident' not found`. `sc xnpc <member>` prints the `uai:`
+      line.
+- [ ] **Chunk cycle, re-test of the M11 row (X13):** a magazine member at home holding its gun with a part-used
+      magazine seated (`remags npc <id>`: write down the held gun's Meta, `seated` and every magazine) and the `sc xnpc`
+      ammo line's `held guns saved N time(s) (unloaded M)`. Walk (or fly) about 300 m away until it unloads (the status
+      line's `Ent:` count drops; best with no `Saving N of chunks` autosave line in that minute), wait 5 s: `(unloaded M)`
+      has gone up by one for each NPC holding a loaded gun (or mid-bandage) that unloaded - one holding its melee weapon
+      writes nothing - and `held guns saved` by the same. Come back: `remags npc <id>`
+      shows the same held gun with the same Meta and seated magazine, the same magazines in the bag - not one fewer;
+      `back in the hand on load` +1; DebugLogging `<name> (id N) holds its saved gunX again, R round(s) in it`; and in
+      the log for that NPC no `[SDCS-READY] ... event=preload` and no `[REMags] ... no magazine was seated` (the old
+      bug's signature; X13_CHUNK_DIAG also expects its `[SDCS-WEAPON] ... t0` line to show the rounds rather than
+      `meta=0` - note what it shows). Three cycles in a row. Variants: a
+      loose-round pipe pistol member (the gun's rounds survive), a bow member with an arrow nocked, a console raider
+      (`sc spawn hostile male T2 Rifle`) you leave and come back to.
+- [ ] **Bandage on unload (the M11 re-check row, now through a real unload):** the "Saved while bandaging" row's
+      walk-away variant: it comes back with the pistol in hand and both bandages; `medic-load-hand-fixed` +1 and
+      `(unloaded M)` +1 for it.
+- [ ] **A runner is not saved into its chunk:** send a member on a physical run and stay near it until it is out in the
+      world; note the hooks line's `x13-held-gun-read=N` (`sc xnpc`). Walk away until its chunk unloads behind you
+      (`<name> was captured as their chunk unloaded (Unloaded)`), then go back to that spot before the run brings it
+      there again, where no other NPC was: `x13-held-gun-read` has not risen (nothing was read back, because nothing of
+      the runner was written; before the fix a copy was written, read and thrown away), no second body, `sc runners`
+      shows it offline and it carries on and comes home as usual.
+- [ ] **Defend the base, unseen:** a resident with a pistol at its post; a zombie (creative menu / `spawnentity`) inside
+      the base, inside the land claim and within 22 m of its post, out of its sight (another room, a closed door
+      between, another floor). Within a few seconds `sc xnpc <member>`: `uai: action=ScDefendBase
+      task=UAITaskMoveToAttackTargetSDX ... target=<zombie id>` and `defend (radius 22 m): intruder, engage=approach
+      (ScDefendBase) - no clear shot (a block in the line)` (or `out of range`). It walks there (opening doors), stops once
+      it has a clear shot (`engage=hand over`) and shoots (`remags npc <id>`: the
+      rounds go down), and after the kill walks back to its post (`action=Guard`, later `ScNightIdle` / `ScRoam`). The
+      same with a melee member: it walks up and swings.
+- [ ] **Defend: outside the zone or beyond 22 m - stays:** a zombie just outside the land claim, and one inside the
+      claim but more than 22 m from the member's post: the `uai:` line says `outside the home zone` /
+      `beyond DefendBaseRadius of the post`, and the member stays at its post unless the zombie comes into sight and
+      range (then the old rules: it fights what comes close). A sleeping zombie in a POI base's sleeper volume: `asleep`,
+      nobody goes to wake it. A Cowardly member: never `ScDefendBase`; it still flees from 15 m. A following member:
+      never `ScDefendBase` (`not a resident at a post`).
+- [ ] **Unreachable intruder:** a zombie inside the radius that cannot be reached (on a roof, in a pit, behind bars):
+      the member walks as close as it can; at most about 36 s later `<name> was stuck (no progress for 36 s, fighting) -
+      moved back to the post`, then the `uai:` line shows `resting (moved back to the post in a fight, or strayed) (rests
+      N s more)` and it stays at its post for a minute (it still shoots the zombie if it can see it), then tries again.
+      Control: a member wedged in furniture with no enemy within 30 m is moved back after 12 s (`no progress for 12 s`,
+      no `, fighting`) and the `uai:` line shows no `rests ...` - it defends at once if an intruder appears.
+- [ ] **Long detour - no oscillation (review M1):** a walled yard inside the claim; the member's post on one side of a
+      wall, a zombie about 15-20 m from the post on the other side, and the only way round a door that swings the path
+      more than 23 m from the post (the `uai:` line's `N m from its post` while it walks). Expect: it walks out; when it
+      passes 23 m the `uai:` line shows `BEYOND the 23 m stray limit` and then `resting (...)`, it turns and walks back
+      towards its post (`action=Guard`), and about 20 s later tries again - a slow cycle, never a back-and-forth every
+      fraction of a second at the 25 m mark. If the zombie comes round into sight, it is fought as usual.
+- [ ] **Someone in the line of fire (review M2):** two pistol residents and one zombie inside the base, the residents one
+      behind the other in line with the zombie (the rear one 10-15 m from it), no wall between. The rear one's `uai:`
+      line: `seeRay=entity <front member id>`, `engage=approach (ScDefendBase) - an ally is in the line - closing in`: it
+      walks forward (it does not walk back to its post), and as soon as it has a clear line (`CanSee=True`, `engage=hand
+      over`) it shoots; if it gets to about 6.5 m still blocked it stands (`action=ScDefendHold`, `an ally is in the line,
+      within 6.5 m`) until the line clears. What you should see: the rear one stops 6.5 m or more from the zombie, does
+      not fire into the front one's back, and fires when the line opens. Then you step into the line between a pistol
+      resident and the zombie, first at 8-10 m: `engage=hold (ScDefendHold) - the player is in the line`; it stops
+      shooting - at most one shot as you step in (the framework re-checks the line five times a second and briefly
+      trusts what it just saw: a hit on you does no damage) - stands still facing the zombie, does not walk closer or
+      home, and shoots again once you step aside. Then the close case: let the zombie come to 3-4.5 m of the resident
+      (a doorway fight) and step in between: no shot at all while you are in the line (hooks `hold-fire-across` rises
+      when it had the zombie as its attack target); it backs off to 4 m or stands (`ScDefendHold`, `the player is in
+      the line (close)`, or `RangedMeleeAttack` aiming without firing if the zombie has hit it); under 3 m it swaps to
+      its melee weapon as before. Report any shot fired while you stand in the line within 4.5 m with the `uai:` line.
+- [ ] **The watchdog leaves a fight alone:** a resident fighting a zombie the player is also fighting (it pushes against
+      you or a wall): no `was stuck (no progress for 12 s)` while it has the zombie as a target. A real wedge still
+      ends with a move back, after 36 s with `, fighting` in the line.
+- [ ] **Blood moon sanity:** a blood moon at the base with several residents. Expect: they engage zombies that get inside
+      the claim within 22 m of their posts, and walk back to their posts afterwards; no runaway chases past 25 m (the
+      leash); frame rate as before; no `watchdog`, `console-uai` or other SC errors. Watch whether residents opening
+      doors to fight zombies outside the walls (but inside the claim) lets zombies in - the doors shut 2 s behind them.
+      If the night goes badly, `DefendBaseRadius` 0 turns the defence off; note what happened.
+- [ ] **"Never fired" control test (GUARD_DIAG cause 3):** a pistol resident and one zombie standing in the open about 8 m
+      from it, you off to the side (not between them). `sc xnpc <member>` while it faces the zombie. Expected:
+      `action=RangedMeleeAttack`, `CanSee=True clearShot=True ... InWeaponRange=True seeRay=target shotRay=target`,
+      `player ... not between them` or a distance well over 0.6 m, and the rounds go down. If it does not shoot, copy the
+      whole `uai:` line: `CanSee=False` with `seeRay=...`, or `clearShot=False` with `shotRay=block <name> ...`, names the
+      cause; `action=RangedMeleeAttack` with no shots points at the attack task itself (`sc aim <member>`'s hook counts).
+      Then step into the line between them: `seeRay=PLAYER <id>`, `player ... (IN THE LINE)`, `CanSee=False`, and it
+      stops shooting (at most one shot as you step in, which does you no damage); if the zombie is an intruder (inside
+      the claim, within 22 m of its post) it holds still (`engage=hold (ScDefendHold) - the player is in the line`)
+      rather than walking off.
+
 ## M11: Locked & Loaded NPC magazines
 
 **Deployed 2026-10-02** (DLL md5 `56614e13b1f1a5d5468ef2b2c89665f4`, 587776 bytes; Fable review + two re-checks, all findings fixed).

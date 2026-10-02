@@ -80,11 +80,20 @@ namespace SurvivorCommunity
             followPackages.Clear();
         }
 
-        /// <summary>The union. The three sets are built together, so a caller of one never sees another half-built.</summary>
+        /// <summary>Never filled: what Managed answers off the main thread before the set exists.</summary>
+        private static readonly HashSet<int> NoClasses = new HashSet<int>();
+
+        /// <summary>
+        /// The union. The three sets are built together, so a caller of one never sees another half-built. Built on the main
+        /// thread only (the M11 fix review's M5): ScAmmo.WriteHeldGun asks IsBody from the chunk-save thread, and building
+        /// would parse the config there. Every body asks IsBody on the main thread when it is created, long before its chunk
+        /// can unload, so this answers "none" off the main thread only in theory - and then that one record is skipped.
+        /// </summary>
         private static HashSet<int> Managed()
         {
             HashSet<int> set = managed;
             if (set != null) return set;
+            if (!ThreadManager.IsMainThread()) return NoClasses;
             var s = new HashSet<int>();
             var r = new HashSet<int>();
             try

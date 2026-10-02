@@ -1161,6 +1161,7 @@ namespace SurvivorCommunity
               .Append(" side=").Append(ScXnpc.IsRaiderClass(e.entityClass) ? "raider" : ScXnpc.IsSurvivorClass(e.entityClass) ? "survivor" : "-")
               .Append(" model=").Append(e.emodel != null ? e.emodel.GetType().Name : "null");
             sb.Append("\n  hostility: ").Append(Hostility(e));
+            sb.Append("\n  uai: ").Append(UaiProbe(e));
             sb.Append("\n  record: ").Append(m != null ? "member " + m.Name + " (" + m.Status + ", class " + m.Class + ")" : (pr != null ? "prospect (class " + pr.Class + ")" : "none"))
               .Append(" community=").Append(ScXnpc.IsCommunity(e));
             // looks and names
@@ -1267,6 +1268,160 @@ namespace SurvivorCommunity
                 sb.Append(" (failed: ").Append(ex.Message).Append(')');
             }
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// sc xnpc &lt;id&gt;'s uai: line (M11 fix; GUARD_DIAG cause 3, a resident that never fired): what SCore's utility AI
+        /// runs now - the action, its task and its target - and, for the foe (that target when it is an enemy, else the
+        /// attack or revenge target, else the nearest enemy within the see distance), whether it is in the AI's candidate
+        /// box at all, and the two questions the ranged attack asks: CanSeeTarget (SCoreUtils.CanSee) and InWeaponRange
+        /// (the weapon's range and SCoreUtils.CanShoot, the clear-shot ray). Then what each of those two rays hits first
+        /// and how far the local player stands from the line - a player in the line fails CanSee while CanShoot passes -
+        /// and the base defence's verdict on that foe (UAIConsiderationScIntruder.Why), what it would do about it (ScEngage:
+        /// approach, hold, or hand over to the pack's attack, and why) and the resident's own distance from its post
+        /// against the stray limit. Main thread. Read-only but for what SCore's CanSee itself does on success: it puts the
+        /// foe in the NPC's see cache, as the AI's own CanSeeTarget does with the same answer every 0.2 s.
+        /// </summary>
+        private static string UaiProbe(EntityAlive e)
+        {
+            var sb = new StringBuilder();
+            try
+            {
+                UAI.Context ctx = e.utilityAIContext;
+                if (ctx == null) return "no utility AI context";
+                UAI.UAIAction act = ctx.ActionData.Action;
+                UAI.UAITaskBase task = ctx.ActionData.CurrentTask;
+                object target = ctx.ActionData.Target;
+                EntityAlive ta = target as EntityAlive;
+                sb.Append("action=").Append(act != null ? act.Name : "-").Append(" task=").Append(task != null ? task.GetType().Name : "-")
+                  .Append(ctx.ActionData.Started ? " started" : "").Append(ctx.ActionData.Executing ? " executing" : "").Append(" target=");
+                if (ta != null) sb.Append(ta == e ? "self" : Who(ta) + " at " + e.GetDistance(ta).ToString("0.#") + " m");
+                else if (target is Vector3) sb.Append(((Vector3)target).ToString("0.#"));
+                else sb.Append('-');
+
+                string from;
+                EntityAlive foe = ProbeFoe(e, ta, out from);
+                if (foe == null)
+                {
+                    sb.Append("; no foe (no enemy target and none within ").Append(e.GetSeeDistance().ToString("0")).Append(" m)");
+                    return sb.ToString();
+                }
+                float dist = e.GetDistance(foe);
+                // SCore's candidate box (UAIBase_considerAction): the NPC's bounds grown by its see distance - Bounds.Expand
+                // adds half on each side - tested against the other entity's bounds, as World.GetEntitiesInBounds does
+                Bounds box = e.boundingBox;
+                box.Expand(e.GetSeeDistance());
+                sb.Append("; foe ").Append(Who(foe)).Append(' ').Append(foe.EntityName).Append(" (").Append(from).Append(") at ")
+                  .Append(dist.ToString("0.#")).Append(" m").Append(box.Intersects(foe.boundingBox) ? "" : " OUTSIDE the AI's search box")
+                  .Append(": CanSee=").Append(UAI.SCoreUtils.CanSee(e, foe));
+                // InWeaponRange as SCore computes it for action 0 (fire on a player gun, the swing on a melee weapon)
+                ItemClass held = e.inventory != null ? e.inventory.holdingItem : null;
+                ItemAction a0 = held != null && held.Actions != null && held.Actions.Length > 0 ? held.Actions[0] : null;
+                ItemActionRanged ranged = a0 as ItemActionRanged;
+                ItemInventoryData hd = e.inventory != null ? e.inventory.holdingItemData : null;
+                ItemActionRanged.ItemActionDataRanged rd = ranged != null && hd != null && hd.actionData != null && hd.actionData.Count > 0
+                    ? hd.actionData[0] as ItemActionRanged.ItemActionDataRanged : null;
+                if (ranged != null && rd != null)
+                {
+                    float range = ranged.GetRange(rd);
+                    bool clear = UAI.SCoreUtils.CanShoot(e, foe, range);
+                    sb.Append(" clearShot=").Append(clear).Append(" range=").Append(range.ToString("0.#")).Append(" InWeaponRange=").Append(clear && dist <= range)
+                      .Append(" shotRay=").Append(FirstHit(e, foe, range, -1));
+                }
+                else
+                {
+                    float reach = a0 != null && a0.Range != 0f ? a0.Range : 1.5f;
+                    sb.Append(" melee reach=").Append(reach.ToString("0.#")).Append(" InWeaponRange=").Append(dist <= reach);
+                }
+                sb.Append(" seeRay=").Append(FirstHit(e, foe, e.GetSeeDistance(), UAI.SCoreUtils.GetHitMaskByWeaponBuff(e)));
+                EntityPlayerLocal p = ScCommunity.LocalPlayer;
+                if (p != null) sb.Append(" player ").Append(PlayerFromLine(e, foe, p));
+                string why = UAI.UAIConsiderationScIntruder.Why(e, foe);
+                float rest = UAI.ScDefendState.RestLeft(e.entityId);
+                float fromPost = UAI.UAIConsiderationScIntruder.FromPost(e);
+                string engageWhy;
+                UAI.ScEngage.Verdict verdict = UAI.ScEngage.Classify(e, foe, out engageWhy);
+                sb.Append("; defend (radius ").Append(ScConfig.DefendBaseRadius).Append(" m): ").Append(why ?? "intruder")
+                  .Append(rest > 0f ? " (rests " + rest.ToString("0") + " s more)" : "")
+                  .Append(", engage=").Append(verdict == UAI.ScEngage.Verdict.Approach ? "approach (ScDefendBase)"
+                                              : verdict == UAI.ScEngage.Verdict.Hold ? "hold (ScDefendHold)" : "hand over (the pack's attack)")
+                  .Append(" - ").Append(engageWhy);
+                if (fromPost >= 0f)
+                    sb.Append("; ").Append(fromPost.ToString("0.#")).Append(" m from its post")
+                      .Append(fromPost > UAI.UAIConsiderationScIntruder.StrayLimit ? " - BEYOND the " + UAI.UAIConsiderationScIntruder.StrayLimit.ToString("0") + " m stray limit (the defence pauses)" : "");
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("console-uai", ex);
+                sb.Append(" (failed: ").Append(ex.Message).Append(')');
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>The probe's foe: the UAI target if it is an enemy, else the attack target, else the revenge target, else the nearest enemy in sight range.</summary>
+        private static EntityAlive ProbeFoe(EntityAlive e, EntityAlive uaiTarget, out string from)
+        {
+            from = "uai target";
+            if (uaiTarget != null && uaiTarget != e && !uaiTarget.IsDead() && EntityTargetingUtilities.IsEnemy(e, uaiTarget)) return uaiTarget;
+            from = "attack target";
+            EntityAlive t = e.GetAttackTarget();
+            if (t != null && !t.IsDead()) return t;
+            from = "revenge target";
+            t = e.GetRevengeTarget();
+            if (t != null && !t.IsDead()) return t;
+            from = "nearest enemy";
+            float see = e.GetSeeDistance(), best = float.MaxValue;
+            EntityAlive found = null;
+            var list = new List<Entity>();
+            e.world.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * see, 2f * see, 2f * see)), list);
+            foreach (Entity en in list)
+            {
+                EntityAlive a = en as EntityAlive;
+                if (a == null || a == e || a.IsDead() || !EntityTargetingUtilities.IsEnemy(e, a)) continue;
+                float d = (a.position - e.position).sqrMagnitude;
+                if (d < best) { best = d; found = a; }
+            }
+            return found;
+        }
+
+        /// <summary>
+        /// What a ray from e's head to t's head hits first, cast as SCore casts it: hitMask -1 = CanShoot's ray
+        /// (Voxel.Raycast with transparent and non-collidable blocks: glass, cobwebs and plants stop it), otherwise
+        /// CanSee's ray with that hit mask (it passes those). "target" is what both want; a block, the player or another
+        /// entity in front of it fails the test (CanShoot passes on any entity, CanSee only on the target).
+        /// </summary>
+        private static string FirstHit(EntityAlive e, EntityAlive t, float length, int hitMask)
+        {
+            Vector3 from = e.getHeadPosition();
+            Vector3 dir = t.getHeadPosition() - from;
+            Ray ray = new Ray(from, dir);
+            ray.origin += dir.normalized * 0.2f;
+            bool hit = hitMask < 0 ? Voxel.Raycast(e.world, ray, length, true, true) : Voxel.Raycast(e.world, ray, length, hitMask, 0f);
+            WorldRayHitInfo info = Voxel.voxelRayHitInfo;
+            if (!hit || info == null) return "nothing";
+            if (GameUtils.IsBlockOrTerrain(info.tag))
+            {
+                BlockValue bv = e.world.GetBlock(info.hit.blockPos);
+                return "block " + (bv.Block != null ? bv.Block.GetBlockName() : "?") + " at " + info.hit.blockPos;
+            }
+            Transform root = info.transform != null ? GameUtils.GetHitRootTransform(info.tag, info.transform) : null;
+            EntityAlive who = root != null ? root.GetComponent<EntityAlive>() : null;
+            if (who == null) return "other (" + info.tag + ")";
+            if (who == t) return "target";
+            if (who == e) return "self";
+            return (who is EntityPlayer ? "PLAYER " : "entity ") + who.entityId;
+        }
+
+        /// <summary>How far the player's chest is from the head-to-head line between e and t, and whether it is between them.</summary>
+        private static string PlayerFromLine(EntityAlive e, EntityAlive t, EntityPlayer p)
+        {
+            Vector3 a = e.getHeadPosition(), b = t.getHeadPosition(), c = p.getChestPosition();
+            Vector3 ab = b - a;
+            float len2 = ab.sqrMagnitude;
+            float k = len2 > 0.0001f ? Vector3.Dot(c - a, ab) / len2 : 0f;
+            if (k <= 0f || k >= 1f) return "not between them";
+            float off = (a + ab * k - c).magnitude;
+            return off.ToString("0.0") + " m from the line, between them" + (off < 0.6f ? " (IN THE LINE)" : "");
         }
 
         /// <summary>A target for the console: "-", an entity id, or "player &lt;id&gt;".</summary>
