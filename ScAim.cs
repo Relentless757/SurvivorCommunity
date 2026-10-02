@@ -35,6 +35,15 @@ namespace SurvivorCommunity
     /// Visual only (the user's decision): EntityAlive.AimingGun reads the animator's IsAiming, and every gameplay
     /// reader goes through it: the spread (ItemActionRanged.updateAccuracy via OnHoldingUpdate), the forced critical
     /// in fireShot and the kickback. So its getter answers false for these bodies while SurvivorAimVisualOnly is on.
+    ///
+    /// The M11 fix 2 (AIM_DIAG): the arms under the aim. (1) KeepCarry re-asserts the base carry pose (WeaponCarry) every
+    /// frame: 0-XNPCCore writes it only when its own cache changes, so a parameter reset or a write dropped while the
+    /// animator was off left it at 0 - unarmed, arms hanging - under a correct IsAiming until the next weapon swap.
+    /// (2) A resident that holds fire (SCResident's ScDefendHold, "aims and waits") stamps as an attack does
+    /// (StampHeld), so its gun is up while it waits. (3) Whether it faces its foe is judged by the target the task works
+    /// on first, then the attack and revenge targets (FacingTarget). (4) The user's decision: the gun stays up while
+    /// SCore's back-off task (UAITaskBackupFromTargetSDX: 0-XNPCCore's BackupKeepDistance inside 4 m and BackupRanged)
+    /// walks it away from a target its gun reaches - one new target, Patch_BackoffAim.
     /// </summary>
     public static class ScAim
     {
@@ -81,6 +90,8 @@ namespace SurvivorCommunity
 
         /// <summary>Hook counters: a patch is proven by a count, not assumed from Harmony's report.</summary>
         private static int stampCalls, driveCalls, getterCalls;
+        /// <summary>The M11 fix 2's counters: hold stamps (ScDefendHold), back-off stamps, and WeaponCarry repairs (KeepCarry).</summary>
+        private static int holdStamps, backoffStamps, carryFixes;
 
         private static float lastSweep;
         private static readonly List<int> gone = new List<int>();
@@ -89,6 +100,8 @@ namespace SurvivorCommunity
         {
             states.Clear();
             stampCalls = driveCalls = getterCalls = 0;
+            holdStamps = backoffStamps = carryFixes = 0;
+            carryAnimators.Clear();
             lastSweep = 0f;
         }
 
@@ -177,23 +190,49 @@ namespace SurvivorCommunity
                 Sweep(Time.time);
                 EntityAlive e = ctx != null ? ctx.Self : null;
                 if (e == null || e.isEntityRemote || !ScXnpc.IsBody(e)) return;
-                int index = ActionIndex(task);
-                if (index != 0 && index != 1) return;
-                // player items shoot on whichever action the attack names, so the item itself says what this attack is
-                bool ranged = IsRangedAction(e, index);
-                State s;
-                if (!states.TryGetValue(e.entityId, out s))
-                {
-                    if (!ranged) return;            // a melee fight alone never raises anything
-                    s = new State();
-                    states[e.entityId] = s;
-                }
-                if (ranged) s.LastRanged = Time.time;
-                else s.LastMelee = Time.time;
+                StampIndex(e, ActionIndex(task));
             }
             catch (Exception ex)
             {
                 ScLog.Once("aim-stamp", ex);
+            }
+        }
+
+        /// <summary>The stamp itself, for one of our bodies on the machine that owns it: the action at this index says ranged or melee.</summary>
+        private static void StampIndex(EntityAlive e, int index)
+        {
+            if (index != 0 && index != 1) return;
+            // player items shoot on whichever action the attack names, so the item itself says what this attack is
+            bool ranged = IsRangedAction(e, index);
+            State s;
+            if (!states.TryGetValue(e.entityId, out s))
+            {
+                if (!ranged) return;            // a melee fight alone never raises anything
+                s = new State();
+                states[e.entityId] = s;
+            }
+            if (ranged) s.LastRanged = Time.time;
+            else s.LastMelee = Time.time;
+        }
+
+        /// <summary>
+        /// The M11 fix 2 (AIM_DIAG fix 2): a stamp from a task that is not an attack - SCResident's DefendHoldSC, a resident
+        /// that holds fire while someone stands in its line and "aims and waits" - with the held weapon's action 0, the
+        /// action every one of XNPC's attacks names, deciding ranged or melee as Stamp does. Without it the gun came down
+        /// 2 s into the wait (no attack task ran, so "calm"). Visual only: AimingGun stays false; a bow holding fire stays
+        /// drawn while it waits.
+        /// </summary>
+        public static void StampHeld(EntityAlive e)
+        {
+            try
+            {
+                if (e == null || e.isEntityRemote || !ScXnpc.IsBody(e)) return;
+                holdStamps++;
+                StampIndex(e, 0);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("aim-stamp-held", ex);
             }
         }
 
@@ -239,6 +278,71 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>SCore's back-off task's Update (UAI.UAITaskBackupFromTargetSDX.Update(Context), SCore 3.2.36), or null.</summary>
+        public static MethodBase BackoffTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(UAITaskBackupFromTargetSDX), "Update", new[] { typeof(Context) });
+        }
+
+        /// <summary>
+        /// The M11 fix 2, the user's decision "aim while backing off" (AIM_DIAG's optional fix): 0-XNPCCore's
+        /// BackupKeepDistance (weight 7 inside 4 m, beating its own attack's 6) and BackupRanged both run SCore's
+        /// UAITaskBackupFromTargetSDX, and no attack task stamps while it walks the NPC away, so the gun came down 2 s into
+        /// every back-off ("calm") - in close fights most of the time. This postfix stamps ranged while the task's target
+        /// is alive and within the held gun's range; FacingAway still lowers it while the NPC walks with its back to the
+        /// target. Visual only, as every stamp. One new target (ModApi's ExpectedTargets): declared on the SCore class,
+        /// exact parameter types, a Prepare that logs an error and turns the patch off when it is gone and never throws.
+        /// The V4 sibling (UAITaskBackupFromTargetSDXV4) is not patched: no package our bodies carry names it.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_BackoffAim
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (BackoffTarget() != null) return true;
+                    ScLog.Err("UAITaskBackupFromTargetSDX.Update(Context) not found (SCore update?) - NPCs lower their gun while they back off");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("aim-backoff-bind", e);
+                }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BackoffTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(Context _context)
+            {
+                try
+                {
+                    EntityAlive e = _context != null ? _context.Self : null;
+                    if (e == null || e.isEntityRemote || !ScXnpc.IsBody(e)) return;
+                    EntityAlive t = UAIUtils.ConvertToEntityAlive(_context.ActionData.Target);
+                    if (t == null || t == e || t.IsDead()) return;
+                    // the gun in hand and the target within its range: what the pack's own attack asks before it shoots
+                    Inventory inv = e.inventory;
+                    ItemClass held = inv != null ? inv.holdingItem : null;
+                    ItemActionRanged ranged = held != null && held.Actions != null && held.Actions.Length > 0 ? held.Actions[0] as ItemActionRanged : null;
+                    ItemActionRanged.ItemActionDataRanged rd = ranged != null && inv.holdingItemData != null && inv.holdingItemData.actionData != null
+                                                             && inv.holdingItemData.actionData.Count > 0
+                        ? inv.holdingItemData.actionData[0] as ItemActionRanged.ItemActionDataRanged : null;
+                    if (rd == null || e.GetDistance(t) > ranged.GetRange(rd)) return;
+                    backoffStamps++;
+                    Sweep(Time.time);
+                    StampIndex(e, 0);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("aim-backoff", ex);
+                }
+            }
+        }
+
         // ---- what: the animator ----
 
         /// <summary>
@@ -271,6 +375,56 @@ namespace SurvivorCommunity
             catch (Exception ex)
             {
                 ScLog.Once("aim-drive", ex);
+            }
+        }
+
+        /// <summary>The player controller's carry pose parameter (0 = unarmed, 5 pistol, 6 rifle, 3 club ...), hashed as 0-XNPCCore hashes it.</summary>
+        private static readonly int WeaponCarryHash = Animator.StringToHash("WeaponCarry");
+        /// <summary>Animators (instance ids) known to have WeaponCarry: GetInteger on a missing parameter logs a warning every call.</summary>
+        private static readonly Dictionary<int, bool> carryAnimators = new Dictionary<int, bool>();
+
+        /// <summary>
+        /// The M11 fix 2 (AIM_DIAG fix 1, mechanism A). The arms of a pistol or rifle come from the carry pose layers, which
+        /// WeaponCarry selects; IsAiming's additive aim only adds to them. 0-XNPCCore writes WeaponCarry in its Update only
+        /// when its own cache (sdcsCarryLast) changes, so a parameter reset (the Animator's GameObject deactivated, a
+        /// controller reassigned, a Rebind) or a write dropped while the Animator was disabled or inactive (a ragdoll, a
+        /// rebuild) left it at its default 0, unarmed - arms hanging under a correct IsAiming - until the next weapon swap.
+        /// Re-asserted here every frame with 0-XNPCCore's own formula (AnimationDelayData.AnimationDelay[hold type].Carry),
+        /// so the two never disagree; written only on a mismatch, straight to the Animator as 0-XNPCCore does (a local value,
+        /// not sent: it runs on every machine, like 0-XNPCCore's write), and not while a use animation plays (0-XNPCCore's
+        /// own gate: the bandage clip owns the arms). A future 0-XNPCCore holster or alternate carry would be overridden
+        /// here. Called from X7 before Drive; carryFixes in sc aim counts the repairs - it shows whether the hole is ever hit.
+        /// </summary>
+        public static void KeepCarry(AvatarSDCSController c, EntityAlive e)
+        {
+            try
+            {
+                Animator a = c.anim;
+                if (a == null || !a.isActiveAndEnabled || a.runtimeAnimatorController == null || e.IsDead() || c.IsAnimationUsePlaying()) return;
+                ItemClass held = e.inventory != null ? e.inventory.holdingItem : null;
+                if (held == null || held.HoldType == null) return;
+                int hold = held.HoldType.Value;
+                AnimationDelayData.AnimationDelays[] d = AnimationDelayData.AnimationDelay;
+                if (d == null || hold < 0 || hold >= d.Length) return;
+                int id = a.GetInstanceID();
+                bool has;
+                if (!carryAnimators.TryGetValue(id, out has))
+                {
+                    has = false;
+                    foreach (AnimatorControllerParameter p in a.parameters)
+                        if (p.nameHash == WeaponCarryHash && p.type == AnimatorControllerParameterType.Int) { has = true; break; }
+                    if (carryAnimators.Count > 512) carryAnimators.Clear();
+                    carryAnimators[id] = has;
+                }
+                if (!has) return;
+                int carry = d[hold].Carry;
+                if (a.GetInteger(WeaponCarryHash) == carry) return;
+                a.SetInteger(WeaponCarryHash, carry);
+                carryFixes++;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("aim-carry", ex);
             }
         }
 
@@ -332,12 +486,32 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>The live attack (else revenge) target is more than <paramref name="limit"/> degrees off the NPC's facing.</summary>
-        private static bool FacingAway(EntityAlive e, float limit)
+        /// <summary>
+        /// Who the NPC's weapon is meant for (the M11 fix 2, AIM_DIAG fix 3): while it runs an attack task, SCResident's
+        /// hold-fire task or SCore's back-off task (the three that stamp), the target that task works on - SCore's attack task
+        /// keeps its own action target when the attack target is cleared, which hold fire (Patch_HoldFireAcross,
+        /// DefendHoldSC) now does often, and a revenge target can be another entity; else the live attack target, else the
+        /// revenge target. Null when none is alive.
+        /// </summary>
+        private static EntityAlive FacingTarget(EntityAlive e)
         {
+            Context ctx = e.utilityAIContext;
+            UAITaskBase task = ctx != null ? ctx.ActionData.CurrentTask : null;
+            if (task is UAITaskAttackTargetEntity || task is UAITaskDefendHoldSC || task is UAITaskBackupFromTargetSDX)
+            {
+                EntityAlive at = ctx.ActionData.Target as EntityAlive;
+                if (at != null && at != e && !at.IsDead()) return at;     // a self-target attack falls through to its attack/revenge target
+            }
             EntityAlive t = e.GetAttackTarget();
             if (t == null || t == e || t.IsDead()) t = e.GetRevengeTarget();
-            if (t == null || t == e || t.IsDead()) return false;
+            return t == null || t == e || t.IsDead() ? null : t;
+        }
+
+        /// <summary>The target the NPC fights (FacingTarget) is more than <paramref name="limit"/> degrees off its facing.</summary>
+        private static bool FacingAway(EntityAlive e, float limit)
+        {
+            EntityAlive t = FacingTarget(e);
+            if (t == null) return false;
             float dx = t.position.x - e.position.x, dz = t.position.z - e.position.z;
             if (dx * dx + dz * dz < 0.01f) return false;
             float yaw = 0f - (float)(Math.Atan2(dz, dx) * 180.0 / Math.PI) + 90f;
@@ -410,7 +584,8 @@ namespace SurvivorCommunity
             var sb = new StringBuilder();
             sb.Append("[SC] aim: pose=").Append(ScConfig.SurvivorAimPose).Append(" visualOnly=").Append(ScConfig.SurvivorAimVisualOnly)
               .Append(" hold=").Append(ScConfig.SurvivorAimHoldSeconds.ToString("0.0")).Append("s; hook calls: attack task=").Append(stampCalls)
-              .Append(" driver=").Append(driveCalls).Append(" AimingGun getter=").Append(getterCalls)
+              .Append(" hold fire=").Append(holdStamps).Append(" back off=").Append(backoffStamps)
+              .Append(" driver=").Append(driveCalls).Append(" AimingGun getter=").Append(getterCalls).Append(" carryFixes=").Append(carryFixes)
               .Append("; in a ranged fight: ").Append(states.Count);
             float now = Time.time;
             if (e == null)
@@ -435,13 +610,21 @@ namespace SurvivorCommunity
                 sb.Append("\n  state: ").Append(s.Why).Append(" ranged ").Append(Age(now, s.LastRanged)).Append(" melee ").Append(Age(now, s.LastMelee))
                   .Append(" aiming=").Append(s.Aiming).Append(" drawn=").Append(s.Drawn).Append(" lastDraw ").Append(Age(now, s.DrawAt));
             else sb.Append("\n  state: none (no ranged attack in the last ").Append(ForgetAfter.ToString("0")).Append(" s)");
+            EntityAlive ft = FacingTarget(e);
+            UAITaskBase task = e.utilityAIContext != null ? e.utilityAIContext.ActionData.CurrentTask : null;
             sb.Append("\n  game reads AimingGun=").Append(e.AimingGun).Append(" target=")
-              .Append(e.GetAttackTarget() != null ? e.GetAttackTarget().entityId.ToString() : "-").Append(" facingAway=").Append(FacingAway(e, s != null && s.Up ? FacingDrop : FacingRaise))
+              .Append(e.GetAttackTarget() != null ? e.GetAttackTarget().entityId.ToString() : "-").Append(" facing judged on=").Append(ft != null ? ft.entityId.ToString() : "-")
+              .Append(" (task ").Append(task != null ? task.GetType().Name : "-").Append(')')
+              .Append(" facingAway=").Append(FacingAway(e, s != null && s.Up ? FacingDrop : FacingRaise))
               .Append(" stun=").Append(e.bodyDamage.CurrentStun);
             Animator a = e.emodel != null && e.emodel.avatarController != null ? e.emodel.avatarController.anim : null;
             if (a == null) { sb.Append("\n  no animator"); return sb.ToString(); }
+            int want = -1;
+            if (held != null && held.HoldType != null && AnimationDelayData.AnimationDelay != null && held.HoldType.Value >= 0 && held.HoldType.Value < AnimationDelayData.AnimationDelay.Length)
+                want = AnimationDelayData.AnimationDelay[held.HoldType.Value].Carry;
             sb.Append("\n  animator IsAiming=").Append(a.GetBool(AvatarController.isAimingHash)).Append(" IsCrouching=").Append(a.GetBool(AvatarController.isCrouchingHash))
-              .Append(" Reload=").Append(a.GetBool(AvatarController.reloadHash)).Append(" WeaponHoldType=").Append(a.GetInteger(AvatarController.weaponHoldTypeHash));
+              .Append(" Reload=").Append(a.GetBool(AvatarController.reloadHash)).Append(" WeaponHoldType=").Append(a.GetInteger(AvatarController.weaponHoldTypeHash))
+              .Append(" WeaponCarry=").Append(a.GetInteger(WeaponCarryHash)).Append(" (the hold type's ").Append(want).Append(')');
             AppendLayer(sb, a, "AdditiveAimPoses");
             AppendLayer(sb, a, "BowDrawAndFire");
             AppendLayer(sb, a, "UpperBodyUseAndReload");

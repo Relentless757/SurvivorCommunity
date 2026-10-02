@@ -8,7 +8,8 @@
 	  A resident holds the Guard order (CurrentOrder 9): NPCModCore's Guard action walks them back to their
 	  post and the combat packages (which only gate on NotHasOrder Stay) still fight anything that comes
 	  close. These two actions add a daytime roam around the post and a quiet night, and ScDefendBase sends
-	  them after an intruder they cannot see (M11 fix, "defend the base").
+	  them after an intruder they cannot see (M11 fix, "defend the base"); ScAtPost (M11 fix 2) lets them stand
+	  at a post whose floor sits below the cell top, where Guard would re-plan for ever.
 
 	  The roam, the leash and the quiet night are gated on ScIsResident (stationed at home), not merely on
 	  membership: they work from the member's HOME post, and a FOLLOWER can hold the very same order 9 -
@@ -113,6 +114,18 @@
 				<consideration class="HasOrder, SCore" order="Follow" />
 				<consideration class="EnemyNotNear, SCore" distance="20" />
 				<consideration class="TargetDistance" flip_x="true" min="0" max="3" curve="threshold" />
+			</action>
+			<!-- At the post (M11 fix 2): within 0.8 m of it horizontally and 1.2 m of its floor the resident stands and faces
+			     the post's look direction instead of running NPCModCore's Guard. Guard counts itself arrived only when the
+			     floor of the body's height is the post's own cell, so on a surface below the cell top (a terrain surface, a
+			     plate) it plans a path to where it already stands for ever, which the stuck watchdog took for a wedge.
+			     Weight 2.2: beats Guard (2) only; loses to the roam (2.5), the quiet night (3), the defence (4), every attack
+			     and the leash. -->
+			<action name="ScAtPost" weight="2.2" entity_filter="IsSelf">
+				<task class="HoldPostSC, SurvivorCommunity" />
+				<consideration class="ScIsResident, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="ScAtPost, SurvivorCommunity" xz="0.8" dy="1.2" />
 			</action>
 			<!-- only once they are back at the post: until then NPCModCore's Guard (weight 2) walks them home -->
 			<action name="ScNightIdle" weight="3" entity_filter="IsSelf">

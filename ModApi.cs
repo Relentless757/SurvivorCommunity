@@ -63,6 +63,7 @@ namespace SurvivorCommunity
                 ScAmmo.Reset();
                 ScMags.Reset();
                 ScArms.Reset();
+                ScMelee.Reset();
                 Patches_Npc.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
@@ -252,6 +253,10 @@ namespace SurvivorCommunity
             Add(t, "UAITaskAttackTargetEntitySDX::Update", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Update", new[] { typeof(UAI.Context) }));
             Add(t, "UAITaskAttackTargetEntitySDXV4::Start", ScAim.V4AttackTarget("Start"));
             Add(t, "UAITaskAttackTargetEntitySDXV4::Update", ScAim.V4AttackTarget("Update"));
+            // ScAim.cs - the gun stays up while SCore's back-off task walks the NPC away from its target (M11 fix 2)
+            Add(t, "UAITaskBackupFromTargetSDX::Update", ScAim.BackoffTarget());
+            // ScMelee.cs - SCore's in-range test with the melee weapon's real reach for our bodies (M11 fix 2)
+            Add(t, "UAIConsiderationInWeaponRange::GetScore", ScMelee.InWeaponRangeTarget());
             // ScArms.cs - a weapon handed to a member through the weapon menu joins their pair; the replaced one comes back
             Add(t, "DialogActionSwapWeapon::PerformAction", ScArms.DialogSwapTarget());
             // Patches_VoiceControl.cs - members are never billed by 0-XNPCCore 3.2's Voice Control (only when it is loaded)

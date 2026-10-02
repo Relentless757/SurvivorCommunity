@@ -59,15 +59,20 @@ namespace UAI
             Vector3 post = new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
             Vector3 target = Vector3.zero;
             World w = self.world;
-            for (int attempt = 0; attempt < 6; attempt++)
+            for (int attempt = 0; attempt < 6 && target == Vector3.zero; attempt++)
             {
-                // CalcNear validates nothing - check the cell ourselves
-                Vector3 p = RandomPositionGenerator.CalcNear(self, post, radius, 2);
-                Vector3i bp = World.worldToBlockPos(p);
-                if (!ScZone.Contains(bp)) continue;
-                if (w != null && !ScCommunity.Standable(w, bp.x, bp.y, bp.z)) continue;
-                target = new Vector3(bp.x + 0.5f, bp.y, bp.z + 0.5f);
-                break;
+                // CalcNear validates nothing - check the cell ourselves. A real floor (the M11 fix 2, STUCK_DIAG: the old
+                // "two air cells over anything" aimed roams at furniture tops), at the post's level or up to 2 off it
+                Vector3 p = RandomPositionGenerator.CalcNear(self, post, radius, 0);
+                for (int step = 0; step <= 4; step++)
+                {
+                    Vector3i bp = World.worldToBlockPos(p) + new Vector3i(0, (step + 1) / 2 * (step % 2 == 0 ? 1 : -1), 0);
+                    if (!ScZone.Contains(bp)) break;
+                    string why;
+                    if (w != null && !ScCommunity.GoodPost(w, bp, false, out why)) continue;
+                    target = new Vector3(bp.x + 0.5f, bp.y, bp.z + 0.5f);
+                    break;
+                }
             }
             if (target == Vector3.zero)
             {
@@ -227,6 +232,67 @@ namespace UAI
     }
 
     /// <summary>
+    /// 1 when the resident stands at its post within a tolerance: within xz="0.8" metres of the post's centre horizontally
+    /// and dy="1.2" metres of its floor (the M11 fix 2, STUCK_DIAG fix A2). SCore's Guard counts a guard as arrived only when
+    /// the floor of its height is exactly the post's cell, so on a surface below the cell top - terrain whose density puts
+    /// it under the block top, a plate, a slab - it plans a path to where it already stands for ever, and the watchdog saw
+    /// a body that wants to move and does not. With this, SCResident's ScAtPost (HoldPostSC, 2.2) takes over from Guard (2)
+    /// once the resident is there.
+    /// </summary>
+    public class UAIConsiderationScAtPost : UAIConsiderationBase
+    {
+        private float xz = 0.8f;
+        private float dy = 1.2f;
+
+        public override void Init(Dictionary<string, string> parameters)
+        {
+            base.Init(parameters);
+            if (parameters.ContainsKey("xz")) xz = StringParsers.ParseFloat(parameters["xz"]);
+            if (parameters.ContainsKey("dy")) dy = StringParsers.ParseFloat(parameters["dy"]);
+        }
+
+        public override float GetScore(Context _context, object target)
+        {
+            Member m = ScRegistry.GetMember(_context.Self.entityId);
+            return m != null && m.Post != Vector3i.zero && AtPost(_context.Self, m, xz, dy) ? 1f : 0f;
+        }
+
+        public static bool AtPost(EntityAlive self, Member m, float xz, float dy)
+        {
+            Vector3 d = self.position - ScCommunity.PostCenter(m);
+            return d.x * d.x + d.z * d.z <= xz * xz && Mathf.Abs(d.y) <= dy;
+        }
+    }
+
+    /// <summary>
+    /// SCResident's ScAtPost task (the M11 fix 2): what SCore's Guard does once it has arrived - face the post's look
+    /// direction (GuardLookPosition, as Guard turns, V4 bodies without the pitch) - without Guard's arrival test, which a
+    /// post over a surface below its cell top never passes. Start drops any path and pending path request (DropPath).
+    /// Stops when the resident has left the tolerance (a shove, a fight); Guard walks it back. Shared singleton, no
+    /// per-entity state.
+    /// </summary>
+    public class UAITaskHoldPostSC : UAITaskBase
+    {
+        public override void Start(Context _context)
+        {
+            base.Start(_context);
+            ScCommunity.DropPath(_context.Self);
+        }
+
+        public override void Update(Context _context)
+        {
+            EntityAlive self = _context.Self;
+            Member m = ScRegistry.GetMember(self.entityId);
+            if (m == null || m.Post == Vector3i.zero || !UAIConsiderationScAtPost.AtPost(self, m, 1f, 1.5f)) { Stop(_context); return; }
+            IEntityOrderReceiverSDX orders = ScNpc.Orders(self);
+            if (orders == null) return;
+            Vector3 look = orders.GuardLookPosition;
+            self.SetLookPosition(look);
+            self.RotateTo(look.x, look.y, look.z, 30f, self is EntityAliveSDXV4 ? 0f : 30f);
+        }
+    }
+
+    /// <summary>
     /// Per-resident pause of the base defence (ScDefendBase / ScDefendHold), real seconds. Set when ScCommunity.Unstick
     /// moves a FIGHTING resident back to its post (60 s): an intruder it cannot reach (on a roof, behind bars, in a pit)
     /// would otherwise pull it straight back to the same wall after every teleport. And set by ScIntruder when the defence
@@ -342,6 +408,7 @@ namespace UAI
     /// InWeaponRange (in GetRange and SCoreUtils.CanShoot's ray clear of blocks) AND CanSeeTarget (SCoreUtils.CanSee: the
     /// first thing its ray meets is the target) - RangedMeleeAttack's own considerations; with a melee weapon, within reach,
     /// NotInWeaponRange's rule unchanged (MeleeAttack takes over once MoveToAttackTargetSDX.Stop has set the attack target).
+    /// (Since the M11 fix 2 that reach is the weapon's own, ScMelee.Reach, as SCore's InWeaponRange now judges it.)
     /// The gap the review found: CanShoot passes on ANY entity in the line, CanSee only on the target, so with another
     /// resident (or the player) in front, in range, neither the attack nor NotInWeaponRange scored, Guard walked the
     /// resident home, and out of range the defence walked it back - pacing. Now, in range with no block in the way but not
@@ -428,7 +495,10 @@ namespace UAI
                 ? inv.holdingItemData.actionData[0] as ItemActionRanged.ItemActionDataRanged : null;
             if (ranged == null || rd == null)
             {
-                float reach = a0.Range != 0f ? a0.Range : 1.5f;
+                // the reach the pack's MeleeAttack now judges by (ScMelee, the M11 fix 2), else SCore's own reading
+                float weapon;
+                float reach = ScMelee.Reach(self, 0, out weapon);
+                if (reach < 0f) reach = a0.Range != 0f ? a0.Range : ScMelee.SCoreFallbackReach;
                 why = dist <= reach ? "in reach" : "beyond reach";
                 return dist <= reach ? Verdict.Engage : Verdict.Approach;
             }
@@ -524,7 +594,8 @@ namespace UAI
     /// across the blocker. UAIBase.Update runs updateAction right after chooseAction, so the clear in Start lands before
     /// the next decision. Only the attack target: a revenge target (the intruder hit this resident) stays, and with it
     /// SCore's self-defence - Patches_Npc.Patch_HoldFireAcross still holds that shot while a protected one is in the line.
-    /// Shared singleton, no per-entity state.
+    /// Every update stamps the aim pose (ScAim.StampHeld, the M11 fix 2), so the gun is up while it waits rather than
+    /// down 2 s in. Shared singleton, no per-entity state.
     /// </summary>
     public class UAITaskDefendHoldSC : UAITaskBase
     {
@@ -546,6 +617,8 @@ namespace UAI
             if (self.moveHelper != null && self.moveHelper.IsActive) self.moveHelper.Stop();
             self.SetLookPosition(t.getHeadPosition());
             self.RotateTo(t, 30f, 30f);
+            // "aims and waits" (the M11 fix 2, AIM_DIAG fix 2): no attack task stamps the aim pose while this holds
+            ScAim.StampHeld(self);
         }
 
         /// <summary>

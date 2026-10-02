@@ -19,6 +19,18 @@ namespace SurvivorCommunity
     /// instead, as long as it has something to shoot: no swap to melee, and one already on melee goes back to the gun.
     /// 0-XNPCCore's BackupKeepDistance (weight 7 inside 4 m) then provides the "back off". Run from the X5 prefix on
     /// AvatarSdcsNpcController.SdcsCloseRangeTick (Patches_Xnpc), on 0-XNPCCore's private state bound by name (Bind).
+    /// Hysteresis since the M11 fix 2 (MELEE_DIAG F3): with zombies switching their target between the player and the
+    /// survivor the count sat at the threshold, and every flip between bat and gun cost a swap and, with Locked &amp; Loaded,
+    /// a 2 s reload. The way back from melee to the gun needs the count to have held for OverwhelmedSustainSeconds (and at
+    /// point-blank, the target within PointBlankDist, one enemy more); after such a return the gun stays for
+    /// OverwhelmedGunSeconds whatever the count. A swarm still takes the gun: two zombies on a 1-star member for 1.5 s.
+    ///
+    /// The melee hold (the M11 fix 2, MELEE_DIAG F2). 0-XNPCCore leaves close melee once its target - the attack target,
+    /// else the revenge target - is dead, gone or beyond 5 m, whoever else is within reach: a kill swapped the gun back in
+    /// with the next zombie at 0.7 m, and SCore's 1 s attack-target lease from MoveToAttackTargetSDX.Stop running out read
+    /// as "target-gone" with the zombie alive. While any awake enemy is within 3 m (0-XNPCCore's own enter distance), and
+    /// for MeleeExitGraceSeconds after its target was lost, that exit is held off. Its real exit - the fight moved away -
+    /// still comes, at most MeleeExitGraceSeconds later.
     ///
     /// The swap-dialog return (M7.4, the weapons task's W3 decision). A member handed a weapon through their inventory
     /// window and told to use it (the SdcsNPC dialog's weapon menu - SCore's SwapWeapon action - or Voice Control's
@@ -49,8 +61,20 @@ namespace SurvivorCommunity
         private const float XnpcCloseMinHold = 3f;
         /// <summary>The distance at which 0-XNPCCore swaps a gun for melee (a private constant, SdcsCloseEnterDist).</summary>
         private const float XnpcCloseEnterDist = 3f;
+        /// <summary>The distance beyond which 0-XNPCCore leaves close-range melee (a private constant, SdcsCloseExitDist).</summary>
+        private const float XnpcCloseExitDist = 5f;
         /// <summary>How often the attackers around one survivor are recounted (the close-range tick runs at 5 Hz).</summary>
         private const float CountSeconds = 0.5f;
+        /// <summary>
+        /// Point-blank (F3): with its target this close the survivor is in the middle of a swing exchange, where two seconds of
+        /// swap and reload lose more than they gain, so the way back to the gun takes one enemy more than the threshold.
+        /// </summary>
+        private const float PointBlankDist = 1.5f;
+        /// <summary>
+        /// F2: 0-XNPCCore's exit for a lost target is held this long - SCore's attack-target lease is 1 s, a shove carries a
+        /// zombie past 5 m for a moment, and after a kill the next zombie becomes the target within a decision or two.
+        /// </summary>
+        private const float MeleeExitGraceSeconds = 1.5f;
 
         private sealed class Watch
         {
@@ -58,6 +82,12 @@ namespace SurvivorCommunity
             public int Count;
             public float OverUntil;
             public float Seen;
+            /// <summary>F3: since when the count has been at the threshold, and at the threshold + 1 (0 = not now); the last recount.</summary>
+            public float OverSince, OverPlusSince, LastCount = -1000f;
+            /// <summary>F3: after an overwhelmed return to the gun, 0-XNPCCore's melee swap is held off until then.</summary>
+            public float GunUntil;
+            /// <summary>F2: since when 0-XNPCCore has wanted to leave close melee (0 = it does not), in the bout that began at ExitBout.</summary>
+            public float ExitWantSince, ExitBout;
         }
 
         private static readonly Dictionary<int, Watch> watch = new Dictionary<int, Watch>();
@@ -130,43 +160,47 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The X5 prefix's close-range part (Patches_Xnpc.Patch_NoSwapWhileUsing, on SdcsCloseRangeTick): true runs
-        /// 0-XNPCCore's own tick, false skips it. Overwhelmed with a gun that has rounds: not on melee - skip (no swap to
-        /// melee); on melee past 0-XNPCCore's own minimum hold - restore the gun, as its exit would, and skip. Anything
-        /// else is 0-XNPCCore's own logic.
+        /// 0-XNPCCore's own tick, false skips it. Not on melee, with a gun that has rounds and the target within 3 m: right
+        /// after an overwhelmed return to the gun (OverwhelmedGunSeconds), or overwhelmed - skip (no swap to melee). On
+        /// melee past 0-XNPCCore's own minimum hold: a swarm that has held (SwarmHeld) - restore the gun, as its exit would,
+        /// and skip; else 0-XNPCCore's exit while an enemy is still within reach, or just after the target was lost - skip
+        /// (HoldMelee). Anything else is 0-XNPCCore's own logic.
         /// </summary>
         public static bool CloseRange(AvatarSDCSController ctrl, EntityAlive e)
         {
             try
             {
-                if (!ScConfig.Overwhelmed || e == null || e.isEntityRemote || e.inventory == null || !ScXnpc.IsBody(e)) return true;
+                if (e == null || e.isEntityRemote || e.inventory == null || !ScXnpc.IsBody(e)) return true;
                 AvatarSdcsNpcController c = ctrl as AvatarSdcsNpcController;
                 if (c == null || !Bind()) return true;
+                float now = Time.time;
                 int count, need;
                 // the cheap tests first: the enemies are only counted when 0-XNPCCore is about to decide something
                 if (!CloseMelee(c))
                 {
+                    if (!ScConfig.Overwhelmed) return true;
                     if (!TargetWithin(e, XnpcCloseEnterDist)) return true;                               // 0-XNPCCore would not swap yet
                     ItemValue held = e.inventory.holdingItemItemValue;
                     ItemClass gun = held != null && !held.IsEmpty() ? held.ItemClass : null;
                     if (ScAmmo.RangedAction(gun) == null || ScAmmo.Rounds(e, gun) <= 0) return true;   // no gun to keep: melee it is
+                    Watch gw;
+                    if (watch.TryGetValue(e.entityId, out gw) && now < gw.GunUntil)
+                    {
+                        Patches_Xnpc.Count("x5-overwhelmed-gun-hold");
+                        return false;
+                    }
                     if (!IsOverwhelmed(e, out count, out need)) return true;
                     Patches_Xnpc.Count("x5-overwhelmed-keep-gun");
                     return false;
                 }
-                if (Time.time - CloseSince(c) < XnpcCloseMinHold) return true;
-                string name = Remembered(c);
-                ItemClass rem = string.IsNullOrEmpty(name) ? null : ItemClass.GetItemClass(name, true);
-                // reserve rounds only: SCore's UpdateWeapon builds the hand item fresh (an empty magazine), so a stored
-                // magazine alone would bring back a gun that fires nothing until 0-XNPCCore's failover swaps it out again
-                if (ScAmmo.RangedAction(rem) == null || ScAmmo.Rounds(e, rem) <= 0) return true;
-                if (!IsOverwhelmed(e, out count, out need)) return true;
-                // 0-XNPCCore's own exit: restore the remembered gun (UpdateWeapon), then clear the close-range state
-                restoreHeld.Invoke(c, null);
-                closeMeleeField.SetValue(c, false);
-                closeSinceField.SetValue(c, 0f);
-                Patches_Xnpc.Count("x5-overwhelmed-exit");
-                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is overwhelmed (" + count + " of " + need + " enemies on them) - back to the " + name);
-                return false;
+                // on melee: with a gun to go back to, the count runs from the swap on, so a swarm that was there at once
+                // can take the gun back as soon as 0-XNPCCore's own minimum hold is over
+                string name = null;
+                bool gunBack = ScConfig.Overwhelmed && RememberedGun(c, e, out name);
+                if (gunBack) IsOverwhelmed(e, out count, out need);
+                if (now - CloseSince(c) < XnpcCloseMinHold) return true;                                 // 0-XNPCCore holds the first 3 s itself
+                if (gunBack && RestoreGun(c, e, now, name)) return false;
+                return !HoldMelee(c, e, now);
             }
             catch (Exception ex)
             {
@@ -176,21 +210,130 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// The gun 0-XNPCCore will restore when the survivor leaves close melee, when it is a ranged weapon with rounds in
+        /// the survivor's stores. Reserve rounds only: SCore's UpdateWeapon builds the hand item fresh (an empty magazine),
+        /// so a stored magazine alone would bring back a gun that fires nothing until 0-XNPCCore's failover swaps it out again.
+        /// </summary>
+        private static bool RememberedGun(AvatarSdcsNpcController c, EntityAlive e, out string name)
+        {
+            name = Remembered(c);
+            ItemClass rem = string.IsNullOrEmpty(name) ? null : ItemClass.GetItemClass(name, true);
+            return ScAmmo.RangedAction(rem) != null && ScAmmo.Rounds(e, rem) > 0;
+        }
+
+        /// <summary>
+        /// F3: on melee, a swarm that has held takes the survivor back to its remembered gun (RememberedGun: name) -
+        /// 0-XNPCCore's own exit, restore and clear the close-range state - and keeps it there OverwhelmedGunSeconds. True
+        /// when it did.
+        /// </summary>
+        private static bool RestoreGun(AvatarSdcsNpcController c, EntityAlive e, float now, string name)
+        {
+            int count, need;
+            bool pointBlank;
+            if (!SwarmHeld(e, now, out count, out need, out pointBlank)) return false;
+            restoreHeld.Invoke(c, null);
+            closeMeleeField.SetValue(c, false);
+            closeSinceField.SetValue(c, 0f);
+            Watch st = WatchOf(e, now);
+            st.GunUntil = now + ScConfig.OverwhelmedGunSeconds;
+            st.ExitWantSince = 0f;
+            Patches_Xnpc.Count("x5-overwhelmed-exit");
+            ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is overwhelmed (" + count + " enemies on them, " + need + (pointBlank ? " + 1 at point-blank" : "")
+                          + " needed, for " + ScConfig.OverwhelmedSustainSeconds.ToString("0.#") + " s) - back to the " + name + ", kept for " + ScConfig.OverwhelmedGunSeconds.ToString("0.#") + " s");
+            return true;
+        }
+
+        /// <summary>
+        /// F3's swarm: the count has stayed at the threshold for OverwhelmedSustainSeconds - at the threshold + 1 with the
+        /// target within PointBlankDist. Unlike IsOverwhelmed, no hold after the count drops: it decides a swap, not a stay.
+        /// </summary>
+        private static bool SwarmHeld(EntityAlive e, float now, out int count, out int need, out bool pointBlank)
+        {
+            IsOverwhelmed(e, out count, out need);
+            Watch st = WatchOf(e, now);
+            pointBlank = TargetWithin(e, PointBlankDist);
+            float since = pointBlank ? st.OverPlusSince : st.OverSince;
+            return since > 0f && now - since >= ScConfig.OverwhelmedSustainSeconds;
+        }
+
+        /// <summary>
+        /// F2: true while 0-XNPCCore's close-melee exit is held off. Its rule (past the minimum hold) exits on a target that
+        /// is dead, gone or beyond 5 m; that is held while any awake enemy is within 3 m, and for MeleeExitGraceSeconds after
+        /// the wish to exit began in this bout (a new bout - a new enter time - starts the grace afresh).
+        /// </summary>
+        private static bool HoldMelee(AvatarSdcsNpcController c, EntityAlive e, float now)
+        {
+            Watch st = WatchOf(e, now);
+            float bout = CloseSince(c);
+            if (st.ExitBout != bout) { st.ExitBout = bout; st.ExitWantSince = 0f; }
+            EntityAlive t = e.GetAttackTarget();
+            if (t == null) t = e.GetRevengeTarget();
+            bool wouldExit = t == null || t.IsDead() || (t.position - e.position).sqrMagnitude > XnpcCloseExitDist * XnpcCloseExitDist;
+            if (!wouldExit) { st.ExitWantSince = 0f; return false; }
+            bool first = st.ExitWantSince <= 0f;
+            if (first) st.ExitWantSince = now;
+            if (now - st.ExitWantSince >= MeleeExitGraceSeconds && !EnemyWithin(e, XnpcCloseEnterDist)) return false;   // the fight moved away: 0-XNPCCore exits
+            if (first) Patches_Xnpc.Count("x5-melee-exit-held");                                                         // once per wish to exit
+            return true;
+        }
+
+        /// <summary>
+        /// Any awake, living enemy of this NPC (SCore's IsEnemy) within this distance and with no block between the two heads
+        /// (SCore's CanShoot ray, which passes entities - you shoving it is not a wall): a zombie at the far side of a wall
+        /// or on the floor below is not in reach, and must not keep the melee weapon in hand against a target farther off.
+        /// </summary>
+        private static bool EnemyWithin(EntityAlive e, float dist)
+        {
+            World w = e.world;
+            if (w == null) return false;
+            near.Clear();
+            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * dist, 2f * dist, 2f * dist)), near);
+            float d2 = dist * dist;
+            bool found = false;
+            for (int i = 0; i < near.Count && !found; i++)
+            {
+                EntityAlive a = near[i] as EntityAlive;
+                if (a == null || a == e || a.IsDead() || a.IsSleeping || (a.position - e.position).sqrMagnitude > d2) continue;
+                found = EntityTargetingUtilities.IsEnemy(e, a) && UAI.SCoreUtils.CanShoot(e, a, dist + 1f);
+            }
+            near.Clear();
+            return found;
+        }
+
+        private static Watch WatchOf(EntityAlive e, float now)
+        {
+            Watch st;
+            if (!watch.TryGetValue(e.entityId, out st)) watch[e.entityId] = st = new Watch();
+            st.Seen = now;
+            return st;
+        }
+
+        /// <summary>
         /// Are enough enemies on this survivor (recounted every half second; the state outlasts the count by
         /// OverwhelmedHoldSeconds, so a zombie stepping in and out of the radius does not flip the weapon twice a second)?
+        /// Each recount also keeps F3's sustain clocks (since when the count has been at the threshold, and at it + 1).
         /// </summary>
         public static bool IsOverwhelmed(EntityAlive e, out int count, out int need)
         {
             need = Threshold(e);
             float now = Time.time;
-            Watch st;
-            if (!watch.TryGetValue(e.entityId, out st)) watch[e.entityId] = st = new Watch();
-            st.Seen = now;
+            Watch st = WatchOf(e, now);
             if (now >= st.NextCount)
             {
+                // the sustain clocks only run over recounts in a row: after a gap (not asked for a while - off melee, or no
+                // gun to go back to) they start again, so an old swarm never counts as one that has held
+                bool inRow = now - st.LastCount <= CountSeconds * 3f;
+                st.LastCount = now;
                 st.NextCount = now + CountSeconds;
                 st.Count = Attackers(e);
-                if (st.Count >= need) st.OverUntil = now + ScConfig.OverwhelmedHoldSeconds;
+                if (st.Count >= need)
+                {
+                    st.OverUntil = now + ScConfig.OverwhelmedHoldSeconds;
+                    if (st.OverSince <= 0f || !inRow) st.OverSince = now;
+                }
+                else st.OverSince = 0f;
+                if (st.Count >= need + 1) { if (st.OverPlusSince <= 0f || !inRow) st.OverPlusSince = now; }
+                else st.OverPlusSince = 0f;
             }
             count = st.Count;
             if (now >= nextPrune) Prune(now);
@@ -733,9 +876,22 @@ namespace SurvivorCommunity
             bool over = IsOverwhelmed(e, out count, out need);
             sb.Append(count).Append(" enemy(ies) on them within ").Append(ScConfig.OverwhelmedRadius.ToString("0.#")).Append(" m, overwhelmed at ").Append(need)
               .Append(MemberOf(e) != null ? " (Fighting stars)" : " (stranger)").Append(": ").Append(over ? "OVERWHELMED" : "no");
+            float now = Time.time;
+            Watch st;
+            if (watch.TryGetValue(e.entityId, out st))
+            {
+                // F3: how long the swarm has held (the way back to the gun needs OverwhelmedSustainSeconds), the gun hold
+                sb.Append(" (at ").Append(need).Append(st.OverSince > 0f ? " for " + (now - st.OverSince).ToString("0.0") + " s" : ": no")
+                  .Append(", at ").Append(need + 1).Append(st.OverPlusSince > 0f ? " for " + (now - st.OverPlusSince).ToString("0.0") + " s" : ": no")
+                  .Append(" of ").Append(ScConfig.OverwhelmedSustainSeconds.ToString("0.0")).Append(" s needed)");
+                if (now < st.GunUntil) sb.Append(" GUN HELD ").Append((st.GunUntil - now).ToString("0.0")).Append(" s more");
+                if (st.ExitWantSince > 0f) sb.Append("; 0-XNPCCore wants to leave melee for ").Append((now - st.ExitWantSince).ToString("0.0")).Append(" s")
+                                             .Append(EnemyWithin(e, XnpcCloseEnterDist) ? " (held: an enemy within 3 m)" : "");
+            }
             AvatarSdcsNpcController c = e.emodel != null ? e.emodel.avatarController as AvatarSdcsNpcController : null;
             if (c != null && Bind())
-                sb.Append("; 0-XNPCCore close melee=").Append(CloseMelee(c)).Append(" remembered='").Append(Remembered(c) ?? "-").Append('\'');
+                sb.Append("; 0-XNPCCore close melee=").Append(CloseMelee(c)).Append(CloseMelee(c) ? " for " + (now - CloseSince(c)).ToString("0.0") + " s" : "")
+                  .Append(" remembered='").Append(Remembered(c) ?? "-").Append('\'');
             return sb.ToString();
         }
     }

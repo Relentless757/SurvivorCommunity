@@ -42,7 +42,13 @@ NPCs but cannot manage a community (v2).
   A resident that gets wedged in furniture or a doorway (no progress for `StuckSeconds`, or far from the
   post for long) is moved back to their post; the roam task also gives up on a blocked target. While it is
   fighting (a live enemy within 30 m) it gets three times `StuckSeconds` first, so a fight is not mistaken for
-  a wedge.
+  a wedge. A post is always a spot with a real floor - a full block or terrain, preferably in the open, never
+  the top of furniture, a plate, a ramp or a railing (roams aim the same way) - and a post from an older save
+  that is not one is replaced the first time it loads (the log names what it stood on). A resident stuck at its
+  post itself, or moved back three times within three minutes, gets a new post rather than another teleport;
+  with no other spot to give, the check waits twice as long each time. Nothing counts while the game is paused,
+  and a resident standing within a step of its post just stands there. `sc repost <member>` gives a new post by
+  hand.
 - **Defending the base.** Residents go after any awake enemy that gets inside the home zone within
   `DefendBaseRadius` (22 m) of their post, also one they cannot see from there - a zombie in the next room,
   on another floor, behind a wall. They walk to it until they can hit it (with a gun: in range and a clear
@@ -71,7 +77,7 @@ NPCs but cannot manage a community (v2).
   Shooting and a specialty (Medicine, Cooking, Mechanics, Gardening, Chemistry, Craftsmanship). Kills
   already earn Fighting / Shooting XP. Gameplay effects come with milestone 3.
 - **Persistence.** `<save>/survivor_community.txt` is the source of truth (atomic write, `.bak`).
-- **Console:** `sc status | members | day | morale <n> | give <res> <n> | relink | home | dump | save`.
+- **Console:** `sc status | members | day | morale <n> | give <res> <n> | relink | repost <member> | home | dump | save`.
 
 ## Milestone 2 - packing station, stockpile, daily needs
 
@@ -453,7 +459,22 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
     3 m. With enough enemies on them within `OverwhelmedRadius` (12 m) a survivor keeps the gun instead, or goes back
     to it, and backs off as it shoots, as long as it has rounds: 2 enemies for a 1-2 star fighter, 3 at 3-4 stars, 4
     at 5-6, 5 at 7 (`OverwhelmedMin` / `OverwhelmedMax` / `OverwhelmedStarsPerStep`), 3 for anyone who is not a
-    member (`OverwhelmedStrangers`). `Overwhelmed` false leaves 0-XNPCCore's swap alone.
+    member (`OverwhelmedStrangers`). It lasts `OverwhelmedHoldSeconds` (5) after the count drops. From the melee
+    weapon they go back to the gun only once that many have been on them for `OverwhelmedSustainSeconds` (1.5 s) -
+    one more with the zombie within 1.5 m - and then keep the gun at least `OverwhelmedGunSeconds` (6 s), so a
+    zombie turning between you and them no longer flips their weapon back and forth (each return to the gun costs a
+    reload). `Overwhelmed` false leaves 0-XNPCCore's swap alone.
+  - **Melee as fast as the weapon allows.** Survivors and raiders swing their melee weapon at its own rate - the bat
+    about every 1.25 s, as yours - instead of every 2 s on the NPC framework's attack ticks, and from the weapon's
+    real reach less `MeleeReachMargin` (the bat: about 2 m, not the framework's 1.5 m), so they no longer step into a
+    zombie's reach first or go back to walking every time a hit knocks it back. They keep the melee weapon while
+    any enemy is within 3 m and for 1.5 s after their target falls, instead of drawing the gun between two zombies.
+    `MeleePacingRaiders` false keeps raiders on the old pace, `MeleePacing` false everyone; `MeleeReach` false gives
+    back the framework's 1.5 m. Guns keep their pace.
+  - **The gun stays up.** The aim pose now also holds while a resident waits for you to step out of its line of
+    fire and while it backs away from a zombie its gun reaches (it lowers the gun only while it faces away), and its
+    arms keep their carry pose: a body whose animator lost it (arms hanging, the gun at the hip even while shooting)
+    gets it back at once (`sc aim <name>` counts the repairs, `carryFixes`).
   - **Not yet: holstering.** Survivors keep their weapon in hand when calm. 0-XNPCCore's controller drives their
     weapon pose and swaps the hand item several times a fight, so hiding the weapon alone would leave them miming
     an invisible gun; a proper holster (and the sling the plan wants) is a later task.
@@ -565,7 +586,8 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `SurvivorBaldChance`, `SurvivorFacialHairChance`. Weapons and ammo: `SurvivorFirearmChance`, `XnpcSpawnAmmo` /
 `XnpcSpawnArrows`, `XnpcResupply`, `XnpcResupplyBelow`, `XnpcResupplyAmmo` / `XnpcResupplyArrows`,
 `XnpcResupplyCooldown`, `XnpcResupplyPointsMult`, `Overwhelmed`, `OverwhelmedRadius`, `OverwhelmedMin` / `OverwhelmedMax`,
-`OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds` (`AmmoPerRangedDay` is no longer charged; the
+`OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds`, `OverwhelmedSustainSeconds`,
+`OverwhelmedGunSeconds`, `MeleePacing`, `MeleePacingRaiders`, `MeleeReach`, `MeleeReachMargin` (`AmmoPerRangedDay` is no longer charged; the
 outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features.
 

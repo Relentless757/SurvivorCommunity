@@ -21,7 +21,7 @@ namespace SurvivorCommunity
     ///                                                                         overwhelmed keeps the gun up close (ScArms);
     ///                                                                         melee-lead raiders keep melee (M10-D1)
     ///   X6  AvatarSdcsNpcController.SdcsChooseMeleeFallback          prefix   XNPC's melee choice is the pair's melee weapon
-    ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame
+    ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame (and its carry pose kept)
     ///   X8  EntityAliveSDXV4.SetModelLayer   prefix   our bodies' own colliders are lifted out of their own attack ray
     ///   X9  EntityTrader.AllowActivationCommand      postfix  no talk prompt (and nothing on E) on a raider
     ///   X10 AutoTurretFireController / MiniTurretFireController / MotionSensorController.shouldIgnoreTarget
@@ -569,7 +569,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// X7. SC's visible aiming (decision D12) on our bodies. XNPC's controller overrides Update, drives locomotion,
         /// carry and the look pitch itself and never sets IsAiming; ScAim.Drive runs after the whole of it, so the aim pose
-        /// is the last thing written in the frame.
+        /// is the last thing written in the frame. Before it, ScAim.KeepCarry (the M11 fix 2) repairs the carry pose XNPC
+        /// writes only on a change - on every machine, as XNPC's own write; Drive itself acts only on the owner's.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_Update
@@ -589,6 +590,7 @@ namespace SurvivorCommunity
                     EntityAlive e = __instance.entity;
                     if (!ScXnpc.IsBody(e)) return;
                     updateHits++;
+                    ScAim.KeepCarry(__instance, e);
                     ScAim.Drive(__instance, e);
                 }
                 catch (Exception ex)

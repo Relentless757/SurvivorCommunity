@@ -69,6 +69,9 @@ namespace SurvivorCommunity
             public float LastTickTime = -1f;
             public float MeasuredMps;
             public long LastCreateMs = -1;
+            /// <summary>The watchdog's last sample: its real time and the body's ticksExisted (the M11 fix 2: frozen time is not stuck time).</summary>
+            public float WatchAt = -1f;
+            public int WatchTicks = -1;
         }
 
         public static Session S(int id)
@@ -553,6 +556,21 @@ namespace SurvivorCommunity
 
         private static void Watchdog(World w, EntityPlayerLocal player, Member m, EntityAlive npc, Session s, float t)
         {
+            // The M11 fix 2 (STUCK_DIAG section 7): its clocks run on real time, so the pause menu (single player stops the
+            // world's time, not this ticker) or a body that does not tick (a chunk without colliders) counted as a runner
+            // making no progress, and a long pause could skip one ahead or send it offline. Frozen time is moved past instead:
+            // every clock here is pushed forward by it, so a runner picks up where it was.
+            bool frozen = (GameManager.Instance != null && GameManager.Instance.IsPaused()) || npc.ticksExisted == s.WatchTicks;
+            float gap = s.WatchAt >= 0f ? t - s.WatchAt : 0f;
+            s.WatchAt = t;
+            s.WatchTicks = npc.ticksExisted;
+            if (frozen)
+            {
+                if (s.ProgressSince > 0f) s.ProgressSince += gap;
+                if (s.SidestepSince > 0f) s.SidestepSince += gap;
+                if (s.WaypointSince > 0f) s.WaypointSince += gap;
+                return;
+            }
             if (m.RunLeg == RunLeg.AtSite)
             {
                 // looking around the site: a wander spot not reached in 40 s is dropped for another

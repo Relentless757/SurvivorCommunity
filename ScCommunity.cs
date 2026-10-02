@@ -246,8 +246,26 @@ namespace SurvivorCommunity
                 m.HeldOrder = EntityUtilities.Orders.Guard;
                 m.FollowIssued = 0f;
 
-                if (m.Post == Vector3i.zero || !ScZone.Contains(m.Post) || (ScZone.IsLoaded(m.Post) && !ValidPost(w, m.Post)))
-                    m.Post = ChoosePost(npc.rand ?? (w != null ? w.GetGameRandom() : null));
+                bool none = m.Post == Vector3i.zero || !ScZone.Contains(m.Post);
+                if (none || (ScZone.IsLoaded(m.Post) && !ValidPost(w, m.Post)))
+                {
+                    if (!none) m.BadPosts.Add(m.Post);
+                    int tier;
+                    Vector3i fresh = ChoosePost(npc.rand ?? (w != null ? w.GetGameRandom() : null), m.BadPosts, out tier);
+                    if (fresh != Vector3i.zero)
+                    {
+                        m.Post = fresh;
+                        if (tier > TierRelaxed) ScLog.Out(m.Name + "'s post " + m.Post + " is " + TierName(tier) + " (the best spot within PostRadius of the land claim)");
+                    }
+                    else if (none)
+                    {
+                        // nowhere at all (every column outside the zone): where they stand, which they evidently can
+                        m.Post = npc.GetBlockPosition();
+                        ScLog.Warn(m.Name + ": no spot for a post within PostRadius of the land claim - posted where they stand, " + m.Post);
+                    }
+                    else ScLog.Warn(m.Name + " keeps the post " + m.Post + " although it is not a real one: no other spot within PostRadius of the land claim");
+                }
+                if (ScZone.IsLoaded(m.Post)) m.PostChecked = true;      // validated just now (CheckPostOnce)
                 Vector3 post = PostCenter(m);
                 if (Vector3.Distance(npc.position, post) > 40f && ScZone.IsLoaded(m.Post))
                 {
@@ -302,34 +320,125 @@ namespace SurvivorCommunity
         /// is still cured. The far rule stays (PostRadius x 3 + 12 m for 90 s, 36 m by default); in a fight it is never
         /// shorter than DefendBaseRadius + 14 m (36 m at 22), so a defence at the edge of its reach on a small PostRadius
         /// cannot trip it either - the 25 m leash (ScReturn) walks a resident home long before.
+        ///
+        /// The M11 fix 2 (STUCK_DIAG): Kyle's post was the air over a bathtub, which SCore's Guard can never reach - it
+        /// counts a guard as arrived only when the floor of its height is the post's own - so Guard re-planned forever and
+        /// this teleported him back onto the tub every 13 s. Now: no sample while the game is paused or the body did not
+        /// tick since the last one (the pause menu stops time but not this ticker: a path request pending at the pause kept
+        /// "wants to move" true, one teleport every 12 s for the whole pause); stuck AT its post (within AtPostXZ, AtPostDy,
+        /// not pushing at a player) a resident gets a new post instead of a teleport to where it already stands, and so does
+        /// one moved back RepeatCount times within RepeatWindowSeconds (Repost); with no better post the limit backs off
+        /// (StuckShift: 24 s, 48 s ... up to 32 x StuckSeconds) until BackoffResetSeconds pass without a stuck verdict.
+        /// The log line names the signal that counted and where the body stood (StuckDiag).
         /// </summary>
         public static void Watchdog(Member m, EntityAlive npc)
         {
             try
             {
                 if (m == null || npc == null || npc.IsDead()) return;
+                // a frozen world makes no progress and needs none: the pause menu (single player stops time, this ticker
+                // runs on), or a body that did not tick since the last sample (a chunk without colliders, a long hitch)
+                if (GameManager.Instance != null && GameManager.Instance.IsPaused()) return;
+                int ticks = npc.ticksExisted;
+                if (ticks == m.LastTicks) return;
+                m.LastTicks = ticks;
                 Vector3 pos = npc.position;
                 float moved = (pos - m.LastPos).sqrMagnitude;
                 m.LastPos = pos;
                 EntityMoveHelper mh = npc.moveHelper;
+                GamePath.PathNavigate nav = npc.getNavigator();
                 // "wants to move" = a move target more than 1.5 m away (standing at the post or in melee range is not stuck)
-                bool wantsToMove = (mh != null && mh.IsActive && (mh.moveToPos - pos).sqrMagnitude > 2.25f)
-                                   || (npc.getNavigator() != null && !npc.getNavigator().noPathAndNotPlanningOne());
-                bool blocked = (mh != null && mh.BlockedTime > 1.5f) || npc.IsStuck;
-                if (blocked || (wantsToMove && moved < 0.04f)) m.StillSeconds++; else m.StillSeconds = 0;
+                bool mhFar = mh != null && mh.IsActive && (mh.moveToPos - pos).sqrMagnitude > 2.25f;
+                bool navBusy = nav != null && !nav.noPathAndNotPlanningOne();
+                bool blockedTime = mh != null && mh.BlockedTime > 1.5f;
+                bool isStuck = npc.IsStuck;
+                if (blockedTime || isStuck || ((mhFar || navBusy) && moved < 0.04f))
+                {
+                    if (m.StillSeconds == 0) m.StuckTicks0 = ticks;
+                    m.StillSeconds++;
+                    // each signal on its own, for the log line (STUCK_DIAG 5c)
+                    if (PathPending(npc)) m.SigPlan++;
+                    if (nav != null && !nav.noPath()) m.SigPath++;
+                    if (mhFar) m.SigMover++;
+                    if (blockedTime) m.SigBlocked++;
+                    if (isStuck) m.SigIsStuck++;
+                }
+                else ResetStill(m);
                 bool fighting = LiveFoe(npc, FightRange) != null;
-                int stuckLimit = fighting ? ScConfig.StuckSeconds * 3 : ScConfig.StuckSeconds;
+                float now = Time.unscaledTime;
+                if (m.StuckShift > 0 && now - m.LastStuckAt > BackoffResetSeconds) m.StuckShift = 0;
+                int stuckLimit = (fighting ? ScConfig.StuckSeconds * 3 : ScConfig.StuckSeconds) << m.StuckShift;
                 float farLimit = ScConfig.PostRadius * 3 + 12;
                 if (fighting) farLimit = Mathf.Max(farLimit, ScConfig.DefendBaseRadius + 14f);
                 float away = Vector3.Distance(pos, PostCenter(m));
                 if (away > farLimit) m.AwaySeconds++; else m.AwaySeconds = 0;
-                if (m.StillSeconds >= stuckLimit) Unstick(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting);
-                else if (m.AwaySeconds >= 90) Unstick(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s" + (fighting ? ", fighting" : ""), fighting);
+                if (m.StillSeconds >= stuckLimit) Stuck(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting, now);
+                else if (m.AwaySeconds >= 90) Stuck(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s" + (fighting ? ", fighting" : ""), fighting, now);
             }
             catch (Exception e)
             {
                 ScLog.Once("watchdog", e);
             }
+        }
+
+        /// <summary>Stuck at the post: within this many metres of it horizontally (STUCK_DIAG's loop protection)...</summary>
+        private const float AtPostXZ = 1f;
+        /// <summary>...and this far above or below its floor (on a tub at 0.72 m, on a low terrain surface).</summary>
+        private const float AtPostDy = 1.5f;
+        /// <summary>This many moves back to the post within RepeatWindowSeconds (real time) give it a new post instead.</summary>
+        private const int RepeatCount = 3;
+        private const float RepeatWindowSeconds = 180f;
+        /// <summary>StuckShift's cap (StuckSeconds x 32, 6.4 min at 12 s) and the quiet time that resets it (ten minutes).</summary>
+        private const int MaxStuckShift = 5;
+        private const float BackoffResetSeconds = 600f;
+
+        /// <summary>A path request for this NPC is pending in the path finder (or its finished path is not collected yet).</summary>
+        public static bool PathPending(EntityAlive npc)
+        {
+            return GamePath.PathFinderThread.Instance != null && GamePath.PathFinderThread.Instance.IsCalculatingPath(npc.entityId);
+        }
+
+        private static void ResetStill(Member m)
+        {
+            m.StillSeconds = 0;
+            m.SigPlan = m.SigPath = m.SigMover = m.SigBlocked = m.SigIsStuck = 0;
+        }
+
+        /// <summary>
+        /// A stuck verdict (Watchdog). Not fighting: stuck AT the post gets a new post and no teleport (Repost; with none to
+        /// give, the back-off), and so does the RepeatCount-th move back within RepeatWindowSeconds (with none to give, it is
+        /// moved back as before, the limit backed off). Everything else - a fight included - is the old cure, Unstick.
+        /// </summary>
+        private static void Stuck(Member m, EntityAlive npc, string why, bool fighting, float now)
+        {
+            m.LastStuckAt = now;
+            string diag = StuckDiag(m, npc);
+            if (!fighting)
+            {
+                Vector3 pos = npc.position;
+                float xz = XZ(pos, PostCenter(m)), dy = pos.y - m.Post.y;
+                EntityMoveHelper mh = npc.moveHelper;
+                if (xz <= AtPostXZ && Mathf.Abs(dy) <= AtPostDy && !(mh != null && mh.BlockedEntity is EntityPlayer))
+                {
+                    // a teleport to where it already stands cannot help: the post is the problem
+                    Repost(m, npc, "stuck at the post itself (" + xz.ToString("0.0", Inv) + " m, dy " + dy.ToString("0.00", Inv) + "; " + why + ")", diag, true);
+                    return;
+                }
+                for (int i = m.UnstickTimes.Count - 1; i >= 0; i--) if (now - m.UnstickTimes[i] > RepeatWindowSeconds) m.UnstickTimes.RemoveAt(i);
+                if (m.UnstickTimes.Count >= RepeatCount - 1
+                    && Repost(m, npc, RepeatCount + " moves back to the same post within " + (RepeatWindowSeconds / 60f).ToString("0", Inv) + " min (" + why + ")", diag, true))
+                    return;
+            }
+            m.UnstickTimes.Add(now);
+            Unstick(m, npc, why, fighting, diag);
+        }
+
+        private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+
+        private static float XZ(Vector3 a, Vector3 b)
+        {
+            float dx = a.x - b.x, dz = a.z - b.z;
+            return Mathf.Sqrt(dx * dx + dz * dz);
         }
 
         /// <summary>
@@ -362,22 +471,33 @@ namespace SurvivorCommunity
         /// <summary>
         /// Moves a stuck resident back to its post. "fighting" (a live enemy within FightRange when the watchdog fired, the
         /// review's M3): the base defence then pauses DefendRestSeconds, so an intruder it could not reach does not pull it
-        /// straight back; a wedge with no enemy about leaves the defence alone.
+        /// straight back; a wedge with no enemy about leaves the defence alone. A post that is no real post any more (built
+        /// over, its floor gone, or never one) is replaced first when a better spot exists (the M11 fix 2: GoodPost, not the
+        /// old "two air cells over anything"); any path request still pending goes with the path (DropPath), so it cannot
+        /// survive the teleport. diag: the watchdog's details (StuckDiag), appended to the log line.
         /// </summary>
-        public static void Unstick(Member m, EntityAlive npc, string why, bool fighting)
+        public static void Unstick(Member m, EntityAlive npc, string why, bool fighting, string diag = null)
         {
             World w = World;
             if (w == null) return;
-            m.StillSeconds = 0;
+            ResetStill(m);
             m.AwaySeconds = 0;
-            if (!Standable(w, m.Post.x, m.Post.y, m.Post.z))
+            string bad;
+            if (ScZone.IsLoaded(m.Post) && !GoodPost(w, m.Post, false, out bad))
             {
-                Vector3i fresh = ChoosePost(w.GetGameRandom());
-                if (fresh != Vector3i.zero) m.Post = fresh;
+                m.BadPosts.Add(m.Post);
+                int tier;
+                Vector3i fresh = ChoosePost(w.GetGameRandom(), m.BadPosts, out tier);
+                // a real floor; or anything at all when the post has no room to stand any more (built over): never a
+                // teleport into a block
+                if (fresh != Vector3i.zero && (tier <= TierRelaxed || !Standable(w, m.Post.x, m.Post.y, m.Post.z)))
+                {
+                    ScLog.Out(m.Name + "'s post " + m.Post + " is " + bad + " - new post " + fresh + " (" + TierName(tier) + ")");
+                    m.Post = fresh;
+                }
             }
             Vector3 target = PostCenter(m);
-            if (npc.getNavigator() != null) npc.getNavigator().clearPath();
-            if (npc.moveHelper != null) npc.moveHelper.Stop();
+            DropPath(npc);
             npc.SetPosition(target, true);
             m.LastPos = target;
             ApplyPost(npc, target);
@@ -385,13 +505,218 @@ namespace SurvivorCommunity
             // an intruder it could not reach would pull it straight back to the same spot: the defence pauses a while
             // (what it sees it still fights)
             if (fighting) UAI.ScDefendState.Rest(npc.entityId, DefendRestSeconds);
-            ScLog.Out(m.Name + " was stuck (" + why + ") - moved back to the post " + m.Post);
+            ScLog.Out(m.Name + " was stuck (" + why + ") - moved back to the post " + m.Post + (diag != null ? " [" + diag + "]" : ""));
+        }
+
+        /// <summary>
+        /// Gives a resident a new post (the M11 fix 2, STUCK_DIAG fix b). The old one goes on the member's session blacklist
+        /// (Member.BadPosts), ChoosePost picks the best spot left - only a strict or relaxed one: a post on furniture again
+        /// would only move the problem (any spot at all only when the old post has no room to stand any more, built over) -
+        /// the guard position follows, any path and pending path request is dropped and the
+        /// counters start again, and roaming is allowed at once. No teleport: Guard walks it there, and the normal rule still
+        /// cures a real wedge on the way. Warned once per member and post, with the watchdog's details (diag). With no such
+        /// spot: backOff (the watchdog) doubles the stuck limit, up to 32x (Member.StuckShift), the console and the load check
+        /// only say so. True when the post moved.
+        /// </summary>
+        public static bool Repost(Member m, EntityAlive npc, string why, string diag, bool backOff)
+        {
+            World w = World;
+            if (w == null || m == null || npc == null) return false;
+            Vector3i old = m.Post;
+            if (old != Vector3i.zero) m.BadPosts.Add(old);
+            int tier;
+            Vector3i fresh = ChoosePost(npc.rand ?? w.GetGameRandom(), m.BadPosts, out tier);
+            ResetStill(m);
+            m.AwaySeconds = 0;
+            string details = diag != null ? " [" + diag + "]" : "";
+            // only a real floor - or anything at all when the old post has no room to stand any more (built over)
+            bool oldGone = old != Vector3i.zero && ScZone.IsLoaded(old) && !Standable(w, old.x, old.y, old.z);
+            if (fresh == Vector3i.zero || (tier > TierRelaxed && !oldGone))
+            {
+                if (!backOff)
+                {
+                    ScLog.Warn(m.Name + "'s post " + old + " cannot be used (" + why + ")" + details + " - but there is no other spot with a real floor within PostRadius; it stays");
+                    return false;
+                }
+                if (m.StuckShift < MaxStuckShift) m.StuckShift++;
+                ScLog.Warn(m.Name + "'s post " + old + " cannot be used (" + why + ")" + details + " - no other spot with a real floor within PostRadius: the stuck check now waits "
+                           + (ScConfig.StuckSeconds << m.StuckShift) + " s");
+                return false;
+            }
+            m.Post = fresh;
+            m.PostChecked = true;
+            ApplyPost(npc, PostCenter(m));
+            DropPath(npc);
+            m.UnstickTimes.Clear();
+            m.LastPos = npc.position;
+            UAI.ScRoamState.NextAllowed.Remove(npc.entityId);
+            ScRegistry.SaveAtomic();
+            string line = m.Name + "'s post " + old + " cannot be used (" + why + ")" + details + " - new post " + fresh + " (" + TierName(tier) + ")";
+            if (m.WarnedPosts.Add(old)) ScLog.Warn(line);
+            else ScLog.Out(line);
+            return true;
+        }
+
+        /// <summary>
+        /// Once per member and session, as soon as the post's chunk is loaded (ScTicker.Relink, residents): a post that is no
+        /// real post - built over or its floor broken since, or one chosen before the M11 fix 2 (Kyle's on top of a bathtub)
+        /// - is replaced (Repost), with a log line naming what it stood on. Station validates the same way when it runs.
+        /// </summary>
+        public static void CheckPostOnce(Member m, EntityAlive npc)
+        {
+            if (m == null || npc == null || m.PostChecked || m.Post == Vector3i.zero || !ScZone.IsLoaded(m.Post)) return;
+            m.PostChecked = true;
+            World w = World;
+            string why;
+            if (w == null || GoodPost(w, m.Post, false, out why)) return;
+            Repost(m, npc, "the post is " + why + ", checked on load", null, false);
+        }
+
+        /// <summary>
+        /// Drops the NPC's path, the path request that may still be pending in the path finder (clearPath does not touch
+        /// it; vanilla's EAIRunAway drops it the same way - the path "thread" is a main-thread coroutine) and its move target.
+        /// </summary>
+        public static void DropPath(EntityAlive npc)
+        {
+            if (npc.getNavigator() != null) npc.getNavigator().clearPath();
+            if (GamePath.PathFinderThread.Instance != null) GamePath.PathFinderThread.Instance.RemovePathsFor(npc.entityId);
+            if (npc.moveHelper != null) npc.moveHelper.Stop();
         }
 
         /// <summary>Writes the guard position (and a look direction) for the post.</summary>
         public static void ApplyPost(EntityAlive npc, Vector3 post)
         {
             ScNpc.SetGuard(npc, post, post + npc.GetForwardVector());
+        }
+
+        // ---- the stuck line's details and the console's nav: / post: lines (the M11 fix 2, STUCK_DIAG 5c) ----
+
+        /// <summary>
+        /// What the watchdog saw, for the stuck line: per signal the seconds it held while the count ran, where the body
+        /// stands against the post (and on what), the cell SCore's Guard compares with the body's (Guard counts itself
+        /// arrived only when they are equal), the move helper, the path, the UAI action, how far the body ticked, the pause.
+        /// Invariant formatting. Only built for a verdict or the console.
+        /// </summary>
+        public static string StuckDiag(Member m, EntityAlive npc)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append(m.StillSeconds).Append(" s counted: navPlanning ").Append(m.SigPlan).Append(", navPath ").Append(m.SigPath)
+              .Append(", moveHelperFar ").Append(m.SigMover).Append(", blockedTime ").Append(m.SigBlocked).Append(", isStuck ").Append(m.SigIsStuck).Append("; ");
+            sb.Append(PostLine(m, npc)).Append("; ").Append(NavLine(npc))
+              .Append("; entity ticks +").Append(npc.ticksExisted - m.StuckTicks0)
+              .Append("; paused=").Append(GameManager.Instance != null && GameManager.Instance.IsPaused() ? "T" : "F");
+            return sb.ToString();
+        }
+
+        /// <summary>The body against its post: where it stands, the distance and height to the post, what it stands on, Guard's cell against its own.</summary>
+        public static string PostLine(Member m, EntityAlive npc)
+        {
+            var sb = new System.Text.StringBuilder();
+            Vector3 pos = npc.position;
+            Vector3 post = PostCenter(m);
+            sb.Append("at ").Append(V(pos)).Append(" = ").Append(XZ(pos, post).ToString("0.0", Inv)).Append(" m from the post ").Append(m.Post)
+              .Append(", dy ").Append((pos.y - m.Post.y).ToString("0.00", Inv));
+            World w = World;
+            if (w != null) sb.Append(", standing on ").Append(BlockName(w.GetBlock(World.worldToBlockPos(pos - new Vector3(0f, 0.05f, 0f)))));
+            Vector3 guard = ScNpc.GuardPosition(npc);
+            Vector3 gc = EntityUtilities.CenterPosition(guard), bc = EntityUtilities.CenterPosition(pos);
+            sb.Append("; Guard cell ").Append(World.worldToBlockPos(gc)).Append(" vs body cell ").Append(World.worldToBlockPos(bc))
+              .Append(gc == bc ? " (Guard: arrived)" : " (Guard: not there yet)");
+            if (XZ(guard, post) > 0.01f || Mathf.Abs(guard.y - post.y) > 0.01f) sb.Append(" GUARD POSITION ").Append(V(guard)).Append(" IS NOT THE POST");
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// A member's post for sc xnpc &lt;id&gt;: the post and the floor under it, GoodPost's strict and relaxed verdicts with
+        /// their reasons, where the body stands against it (PostLine), and the watchdog's state: the count and its signals,
+        /// recent moves back, the back-off and the posts this member will not get again.
+        /// </summary>
+        public static string PostReport(Member m, EntityAlive npc)
+        {
+            var sb = new System.Text.StringBuilder();
+            World w = World;
+            sb.Append(m.Post);
+            if (w != null && ScZone.IsLoaded(m.Post))
+            {
+                string strictWhy, relaxedWhy;
+                bool strict = GoodPost(w, m.Post, true, out strictWhy), relaxed = GoodPost(w, m.Post, false, out relaxedWhy);
+                sb.Append(" floor ").Append(BlockName(w.GetBlock(new Vector3i(m.Post.x, m.Post.y - 1, m.Post.z))))
+                  .Append(", strict ").Append(strict ? "good" : "NO (" + strictWhy + ")").Append(", relaxed ").Append(relaxed ? "good" : "NO (" + relaxedWhy + ")");
+            }
+            else sb.Append(" (chunk not loaded)");
+            sb.Append("; ").Append(PostLine(m, npc))
+              .Append("; watchdog: still ").Append(m.StillSeconds).Append(" s (plan ").Append(m.SigPlan).Append(", path ").Append(m.SigPath).Append(", mh ").Append(m.SigMover)
+              .Append(", blocked ").Append(m.SigBlocked).Append(", isStuck ").Append(m.SigIsStuck).Append("), away ").Append(m.AwaySeconds).Append(" s, ")
+              .Append(m.UnstickTimes.Count).Append(" move(s) back lately, limit x").Append(1 << m.StuckShift).Append(", checked on load=").Append(m.PostChecked)
+              .Append(", not again: ").Append(m.BadPosts.Count > 0 ? string.Join(" ", ToStrings(m.BadPosts)) : "-");
+            return sb.ToString();
+        }
+
+        private static string[] ToStrings(HashSet<Vector3i> set)
+        {
+            var list = new List<string>();
+            foreach (Vector3i v in set) list.Add(v.ToString());
+            return list.ToArray();
+        }
+
+        /// <summary>The move helper, the path and the path finder, and the UAI action, for an NPC.</summary>
+        public static string NavLine(EntityAlive npc)
+        {
+            var sb = new System.Text.StringBuilder();
+            Vector3 pos = npc.position;
+            EntityMoveHelper mh = npc.moveHelper;
+            if (mh != null)
+                sb.Append("mh active=").Append(mh.IsActive ? "T" : "F").Append(" to ").Append(V(mh.moveToPos)).Append(" (").Append((mh.moveToPos - pos).magnitude.ToString("0.0", Inv))
+                  .Append(" m) blockedTime ").Append(mh.BlockedTime.ToString("0.00", Inv)).Append(" flags ").Append(mh.BlockedFlags)
+                  .Append(" blockedBy ").Append(mh.BlockedEntity != null ? (mh.BlockedEntity is EntityPlayer ? "PLAYER " : "") + mh.BlockedEntity.entityId : "-");
+            else sb.Append("mh -");
+            GamePath.PathNavigate nav = npc.getNavigator();
+            GamePath.PathEntity path = nav != null ? nav.getPath() : null;
+            sb.Append("; nav ").Append(path != null && !path.isFinished() ? "path " + path.getCurrentPathIndex() + "/" + path.getCurrentPathLength() + " end " + V(path.rawEndPos) : "no path")
+              .Append(", planning=").Append(PathPending(npc) ? "T" : "F").Append(", onGround=").Append(npc.onGround ? "T" : "F").Append(", isStuck=").Append(npc.IsStuck ? "T" : "F");
+            UAI.Context ctx = npc.utilityAIContext;
+            if (ctx != null)
+            {
+                object t = ctx.ActionData.Target;
+                EntityAlive ta = t as EntityAlive;
+                sb.Append("; uai ").Append(ctx.ActionData.Action != null ? ctx.ActionData.Action.Name : "-").Append('/')
+                  .Append(ctx.ActionData.CurrentTask != null ? ctx.ActionData.CurrentTask.GetType().Name : "-").Append(" target ")
+                  .Append(ta != null ? (ta == npc ? "self" : ta.entityId.ToString()) : t is Vector3 ? V((Vector3)t) : "-");
+            }
+            return sb.ToString();
+        }
+
+        private static string V(Vector3 v)
+        {
+            return v.x.ToString("0.00", Inv) + ", " + v.y.ToString("0.00", Inv) + ", " + v.z.ToString("0.00", Inv);
+        }
+
+        private static string BlockName(BlockValue v)
+        {
+            if (v.isair) return "air";
+            Block b = v.Block;
+            return (b != null ? b.GetBlockName() : "?") + (v.ischild ? " (multi-block part)" : "");
+        }
+
+        // ---- what makes a post (the M11 fix 2, STUCK_DIAG fix A1) ----
+
+        /// <summary>ChoosePost's tiers, best first: GoodPost strict, GoodPost relaxed, the old Standable, a column not loaded.</summary>
+        public const int TierStrict = 0, TierRelaxed = 1, TierStandable = 2, TierUnloaded = 3;
+        /// <summary>A strict post wants at least this many of its 8 neighbours open (two air cells over a real floor).</summary>
+        private const int MinOpenNeighbours = 5;
+        /// <summary>A strict spot at least this far (XZ) from every other post ends the search (the old "good enough").</summary>
+        private const float MinPostSpacing = 3f;
+
+        public static string TierName(int tier)
+        {
+            switch (tier)
+            {
+                case TierStrict: return "an open spot on a real floor";
+                case TierRelaxed: return "a real floor, but cramped or next to furniture";
+                case TierStandable: return "only standable: on furniture or a part block";
+                case TierUnloaded: return "unchecked: its chunk is not loaded";
+                default: return "none";
+            }
         }
 
         /// <summary>Two blocks of air over something solid that is not water (water is a block in 3.2, not air).</summary>
@@ -402,18 +727,91 @@ namespace SurvivorCommunity
             return w.GetBlock(new Vector3i(x, y, z)).isair && w.GetBlock(new Vector3i(x, y + 1, z)).isair && !floor.isair && !floor.isWater;
         }
 
-        /// <summary>Standable cell; true for an unloaded chunk (unknown).</summary>
+        /// <summary>
+        /// A floor a body stands ON at the cell's top - what SCore's Guard needs, since it counts a guard as arrived only
+        /// when the floor of the body's height is the post's own. Terrain; or a block the pathfinder treats as solid
+        /// (Block.PathType &gt; 0: "Path=solid" and the cube models, AstarVoxelGrid's own test) that fills the cell to its top:
+        /// its rotated top face is flagged full (BlockShapeNew reads the flag off the model's "T_F" face mesh - verified on
+        /// shapes_assets_all.bundle: Cube has it, ramp, plate, wedge_stairs, pole and the 0.75 m cube do not; the old cube
+        /// shape is full on every face), or it is one of the three whole-cube models the game itself gives PathType 1
+        /// (BlocksFromXml: cube, cube_glass, cube_frame - a frame and a glass cube flag their faces partial because they
+        /// are see-through, not short). So a cube, a frame or glass, never a ramp, a pole, a pillar or stairs, which pass
+        /// PathType too. Never a model (ModelEntity: furniture, doors, the bathtub), a multi-block or one of its child cells.
+        /// Not BlockShape.IsSolidCube: for the shape blocks it only comes from a "Solid" child in the model, which the
+        /// shapes' Cube.fbx does not have (STUCK_DIAG), so woodShapes:cube reports false.
+        /// </summary>
+        public static bool SolidFloor(BlockValue f)
+        {
+            if (f.isair || f.isWater || f.ischild) return false;
+            Block b = f.Block;
+            if (b == null || b.shape == null || b.isMultiBlock || b.shape is BlockShapeModelEntity) return false;
+            if (b.shape.IsTerrain()) return true;
+            if (b.PathType <= 0) return false;
+            if ((b.shape.getFacesDrawnFullBitfield(f) & (1 << (int)BlockFace.Top)) != 0) return true;
+            BlockShapeNew sn = b.shape as BlockShapeNew;
+            return sn != null && IsWholeCubeModel(sn.ShapeName);
+        }
+
+        /// <summary>The models BlocksFromXml gives PathType 1 by themselves: whole cubes, whatever their faces' flags.</summary>
+        private static bool IsWholeCubeModel(string model)
+        {
+            return model != null && (model.Equals("@:Shapes/cube.fbx", StringComparison.OrdinalIgnoreCase)
+                                     || model.Equals("@:Shapes/cube_glass.fbx", StringComparison.OrdinalIgnoreCase)
+                                     || model.Equals("@:Shapes/cube_frame.fbx", StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>Something a body cannot stand among: a model (furniture, a door), a multi-block or one of its child cells.</summary>
+        private static bool IsFixture(BlockValue v)
+        {
+            if (v.isair) return false;
+            Block b = v.Block;
+            return v.ischild || (b != null && (b.isMultiBlock || b.shape is BlockShapeModelEntity));
+        }
+
+        /// <summary>
+        /// A post a resident can reach and stand at. Relaxed: Standable over a SolidFloor. Strict, also: no fixture in the 8
+        /// cells around it (at its feet or its head), and at least MinOpenNeighbours of them open - two air cells over a real
+        /// floor - so a post is not wedged between furniture or against a wall in a closet. why: the first reason it fails
+        /// (e.g. "on decoClawFootBathTub"), null when it is good.
+        /// </summary>
+        public static bool GoodPost(World w, Vector3i p, bool strict, out string why)
+        {
+            why = null;
+            if (w == null) { why = "no world"; return false; }
+            if (!Standable(w, p.x, p.y, p.z)) { why = "no room to stand (two air cells over a floor)"; return false; }
+            BlockValue floor = w.GetBlock(new Vector3i(p.x, p.y - 1, p.z));
+            if (!SolidFloor(floor)) { why = "on " + BlockName(floor); return false; }
+            if (!strict) return true;
+            int open = 0;
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    if (dx == 0 && dz == 0) continue;
+                    BlockValue a = w.GetBlock(new Vector3i(p.x + dx, p.y, p.z + dz));
+                    BlockValue b = w.GetBlock(new Vector3i(p.x + dx, p.y + 1, p.z + dz));
+                    if (IsFixture(a) || IsFixture(b)) { why = "next to " + BlockName(IsFixture(a) ? a : b); return false; }
+                    if (a.isair && b.isair && SolidFloor(w.GetBlock(new Vector3i(p.x + dx, p.y - 1, p.z + dz)))) open++;
+                }
+            }
+            if (open < MinOpenNeighbours) { why = "cramped (" + open + " of 8 neighbours open)"; return false; }
+            return true;
+        }
+
+        /// <summary>A post that is fit to keep (GoodPost relaxed: a real floor); true for an unloaded chunk (unknown).</summary>
         public static bool ValidPost(World w, Vector3i p)
         {
             if (w == null || w.GetChunkSync(World.toChunkXZ(p.x), World.toChunkXZ(p.z)) == null) return true;
-            return Standable(w, p.x, p.y, p.z);
+            string why;
+            return GoodPost(w, p, false, out why);
         }
 
         /// <summary>
         /// The standable cell NEAREST the land claim's own height in this column (0, -1, +1, -2, +2 ... within
         /// -10..+6) - the live block column, not the world's static heightmap. The claim's level is by far the
         /// most likely floor: searching top-down would put every post in a roofed base on the roof, and every
-        /// post of a shallow underground base on the surface. False when the column has none in range.
+        /// post of a shallow underground base on the surface. False when the column has none in range. For a post,
+        /// FindPost asks more of the floor; this is the plain rule (ScRadio's and ScRunners' drop spots).
         /// </summary>
         public static bool FindStandable(World w, int x, int z, int yRef, out int y)
         {
@@ -427,41 +825,97 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// A free spot near the home block inside the zone, spread away from other posts. While the chunk is
-        /// unloaded the height is the land claim's own; Station re-validates it once the chunk is there.
+        /// The best post in one column: the standable heights in FindStandable's order (nearest the claim's level first), the
+        /// best tier any of them reaches, at the first height that reaches it. Excluded cells are skipped. False: none.
         /// </summary>
-        public static Vector3i ChoosePost(GameRandom rnd)
+        private static bool FindPost(World w, int x, int z, int yRef, ICollection<Vector3i> exclude, out Vector3i post, out int tier)
         {
+            post = Vector3i.zero;
+            tier = -1;
+            for (int step = 0; step <= 10; step++)
+            {
+                for (int side = 0; side < 2; side++)
+                {
+                    if (side == 1 && (step == 0 || step > 6)) continue;
+                    int y = side == 0 ? yRef - step : yRef + step;
+                    if (!Standable(w, x, y, z)) continue;
+                    Vector3i p = new Vector3i(x, y, z);
+                    if (exclude != null && exclude.Contains(p)) continue;
+                    string why;
+                    int t = GoodPost(w, p, true, out why) ? TierStrict : SolidFloor(w.GetBlock(new Vector3i(x, y - 1, z))) ? TierRelaxed : TierStandable;
+                    if (tier < 0 || t < tier) { tier = t; post = p; }
+                    if (tier == TierStrict) return true;
+                }
+            }
+            return tier >= 0;
+        }
+
+        /// <summary>How far (XZ) a column is from the nearest member's post: 100 when there is none.</summary>
+        private static float Spacing(int x, int z)
+        {
+            float score = float.MaxValue;
+            foreach (var other in ScRegistry.Members.Values)
+            {
+                if (other.Post == Vector3i.zero) continue;
+                float d = Vector3.Distance(new Vector3(other.Post.x, 0, other.Post.z), new Vector3(x, 0, z));
+                if (d < score) score = d;
+            }
+            return score == float.MaxValue ? 100f : score;
+        }
+
+        /// <summary>
+        /// A spot near the home block inside the zone for a post, spread away from other posts (the M11 fix 2, STUCK_DIAG fix
+        /// A1; it was 24 random tries of "two air cells over anything", which put about 2 in 5 posts of a cabin on furniture,
+        /// railings or plates, with an unchecked home + (2, 0, 2) when every try failed). Every column within PostRadius, in
+        /// random order, at the height nearest the land claim's own that passes the best tier it can (FindPost): strict, then
+        /// relaxed, then standable; the first strict spot at least MinPostSpacing from every other post ends the search, else
+        /// the best-spread spot of the best tier wins. A column whose chunk is not loaded is only the last resort, at the
+        /// claim's own height (Station re-validates it once the chunk is there). exclude: posts this member must not get again
+        /// (Member.BadPosts). tier: the tier of the answer. Vector3i.zero when nothing at all qualifies (every column
+        /// excluded or outside the zone): callers keep what they have. Once per stationing or re-post: a few thousand
+        /// GetBlock calls.
+        /// </summary>
+        public static Vector3i ChoosePost(GameRandom rnd, ICollection<Vector3i> exclude, out int tier)
+        {
+            tier = -1;
             Vector3i home = ScZone.Home;
             World w = World;
-            Vector3i best = new Vector3i(home.x + 2, home.y, home.z + 2);
-            float bestScore = -1f;
             int r = Math.Max(2, ScConfig.PostRadius);
-            for (int attempt = 0; attempt < 24; attempt++)
+            int side = 2 * r + 1;
+            var order = new List<int>(side * side);
+            for (int i = 0; i < side * side; i++) order.Add(i);
+            for (int i = order.Count - 1; i > 0; i--)
             {
-                int x = home.x + (rnd != null ? rnd.RandomRange(-r, r + 1) : attempt - r);
-                int z = home.z + (rnd != null ? rnd.RandomRange(-r, r + 1) : r - attempt);
-                if (x == home.x && z == home.z) continue;
-                Vector3i p = new Vector3i(x, home.y, z);
-                if (!ScZone.Contains(p)) continue;
-                if (w != null && w.GetChunkSync(World.toChunkXZ(x), World.toChunkXZ(z)) != null)
-                {
-                    int y;
-                    if (!FindStandable(w, x, z, home.y, out y)) continue;      // wall / solid column: try another
-                    p = new Vector3i(x, y, z);
-                }
-                float score = float.MaxValue;
-                foreach (var other in ScRegistry.Members.Values)
-                {
-                    if (other.Post == Vector3i.zero) continue;
-                    float d = Vector3.Distance(new Vector3(other.Post.x, 0, other.Post.z), new Vector3(x, 0, z));
-                    if (d < score) score = d;
-                }
-                if (score == float.MaxValue) score = 100f;
-                if (score > bestScore) { bestScore = score; best = p; }
-                if (bestScore >= 3f && attempt >= 8) break;
+                int j = rnd != null ? rnd.RandomRange(0, i + 1) : UnityEngine.Random.Range(0, i + 1);
+                int s = order[i]; order[i] = order[j]; order[j] = s;
             }
-            return best;
+            var best = new Vector3i[4];
+            var bestScore = new[] { -1f, -1f, -1f, -1f };
+            foreach (int idx in order)
+            {
+                int x = home.x + idx / side - r, z = home.z + idx % side - r;
+                if (x == home.x && z == home.z) continue;
+                if (!ScZone.Contains(new Vector3i(x, home.y, z))) continue;
+                Vector3i p;
+                int t;
+                if (w == null || w.GetChunkSync(World.toChunkXZ(x), World.toChunkXZ(z)) == null)
+                {
+                    p = new Vector3i(x, home.y, z);
+                    t = TierUnloaded;
+                    if (exclude != null && exclude.Contains(p)) continue;
+                }
+                else if (!FindPost(w, x, z, home.y, exclude, out p, out t)) continue;      // wall / solid column: the next
+                float score = Spacing(x, z);
+                if (score > bestScore[t]) { bestScore[t] = score; best[t] = p; }
+                if (t == TierStrict && score >= MinPostSpacing) break;                     // a random open spot clear of the others
+            }
+            for (int t = TierStrict; t <= TierUnloaded; t++)
+            {
+                if (bestScore[t] < 0f) continue;
+                tier = t;
+                return best[t];
+            }
+            return Vector3i.zero;
         }
 
         // ---- following ----

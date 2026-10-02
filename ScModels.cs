@@ -126,6 +126,25 @@ namespace SurvivorCommunity
         public UnityEngine.Vector3 LastPos;
         public int StillSeconds;
         public int AwaySeconds;
+        /// <summary>
+        /// The M11 fix 2's stuck bookkeeping (session only, STUCK_DIAG): the body's ticksExisted at the last sample (a
+        /// paused or frozen world does not tick, and is not watched), ticksExisted when the current count began, and per
+        /// signal the seconds it held while StillSeconds counted - a path request pending in the path finder, a path, the
+        /// move helper aiming more than 1.5 m off, its BlockedTime over 1.5 s, SCore's IsStuck - for the log line.
+        /// </summary>
+        public int LastTicks, StuckTicks0;
+        public int SigPlan, SigPath, SigMover, SigBlocked, SigIsStuck;
+        /// <summary>Real times of the recent moves back to the post (three within three minutes get a new post instead).</summary>
+        public readonly List<float> UnstickTimes = new List<float>();
+        /// <summary>Posts this member was moved off this session: ChoosePost never gives them back. Warned: posts already warned about.</summary>
+        public readonly HashSet<Vector3i> BadPosts = new HashSet<Vector3i>();
+        public readonly HashSet<Vector3i> WarnedPosts = new HashSet<Vector3i>();
+        /// <summary>With no better post to give, the stuck limit is StuckSeconds shifted left by this (doubling, at most 32x); 0 after ten quiet minutes.</summary>
+        public int StuckShift;
+        /// <summary>Real time of the last stuck verdict (the back-off's ten quiet minutes count from it).</summary>
+        public float LastStuckAt;
+        /// <summary>The post was checked against GoodPost once its chunk was loaded this session (ScCommunity.CheckPostOnce).</summary>
+        public bool PostChecked;
         /// <summary>Face, hair and worn armor when the survivor wears the player's body (null for pack NPCs).</summary>
         public Look Look;
         /// <summary>

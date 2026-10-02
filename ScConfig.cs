@@ -371,8 +371,30 @@ namespace SurvivorCommunity
         public static int OverwhelmedMax = 5;
         public static int OverwhelmedStarsPerStep = 2;
         public static int OverwhelmedStrangers = 3;
-        /// <summary>Seconds the state outlasts the count dropping below the threshold (no weapon flapping at the edge).</summary>
-        public static float OverwhelmedHoldSeconds = 3f;
+        /// <summary>
+        /// Seconds the state outlasts the count dropping below the threshold (no weapon flapping at the edge). 5 since the
+        /// M11 fix 2 (was 3): zombies keep switching their target between the player and the survivor, so the count sat at
+        /// the threshold and dipped for 3-4 s at a time (MELEE_DIAG cause 3), and each dip let 0-XNPCCore swap to melee
+        /// with the gun's next return costing a Locked &amp; Loaded reload of about 2 s - staying on a loaded gun costs nothing.
+        /// </summary>
+        public static float OverwhelmedHoldSeconds = 5f;
+        /// <summary>
+        /// The M11 fix 2 (MELEE_DIAG F3): a survivor on its melee weapon goes back to the gun only once the count has stayed
+        /// at the threshold for this long (three recounts), and with its target within 1.5 m only at the threshold + 1 - a
+        /// zombie switching its target for a moment is not a swarm.
+        /// </summary>
+        public static float OverwhelmedSustainSeconds = 1.5f;
+        /// <summary>After such a return to the gun, 0-XNPCCore's swap to melee is held off this long (the reload plus some shooting).</summary>
+        public static float OverwhelmedGunSeconds = 6f;
+        // ---- melee (ScMelee, the M11 fix 2, MELEE_DIAG F1 and F4) ----
+        /// <summary>Survivors swing their melee weapon as fast as it allows (its AttacksPerMinute), not on SCore's 1 s attack ticks.</summary>
+        public static bool MeleePacing = true;
+        /// <summary>The same for SC's raiders (the user's decision: on; a raider then swings about 60% faster than before).</summary>
+        public static bool MeleePacingRaiders = true;
+        /// <summary>SCore's in-range test uses the melee weapon's real reach (its MaxRange less MeleeReachMargin) instead of 1.5 m.</summary>
+        public static bool MeleeReach = true;
+        /// <summary>Metres kept off the weapon's reach so a swing started at the edge still lands on a target that steps back.</summary>
+        public static float MeleeReachMargin = 0.4f;
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
@@ -493,7 +515,13 @@ namespace SurvivorCommunity
             OverwhelmedMax = 5;
             OverwhelmedStarsPerStep = 2;
             OverwhelmedStrangers = 3;
-            OverwhelmedHoldSeconds = 3f;
+            OverwhelmedHoldSeconds = 5f;
+            OverwhelmedSustainSeconds = 1.5f;
+            OverwhelmedGunSeconds = 6f;
+            MeleePacing = true;
+            MeleePacingRaiders = true;
+            MeleeReach = true;
+            MeleeReachMargin = 0.4f;
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
@@ -862,6 +890,18 @@ namespace SurvivorCommunity
                 ParseInt(p, "OverwhelmedStarsPerStep", ref OverwhelmedStarsPerStep, 1, 7);
                 ParseInt(p, "OverwhelmedStrangers", ref OverwhelmedStrangers, 1, 20);
                 ParseFloat(p, "OverwhelmedHoldSeconds", ref OverwhelmedHoldSeconds, 0f, 30f);
+                ParseFloat(p, "OverwhelmedSustainSeconds", ref OverwhelmedSustainSeconds, 0f, 10f);
+                ParseFloat(p, "OverwhelmedGunSeconds", ref OverwhelmedGunSeconds, 0f, 60f);
+                bool meleePacing = MeleePacing;
+                if (p.Values.ContainsKey("MeleePacing")) p.ParseBool("MeleePacing", ref meleePacing);
+                MeleePacing = meleePacing;
+                bool meleePacingRaiders = MeleePacingRaiders;
+                if (p.Values.ContainsKey("MeleePacingRaiders")) p.ParseBool("MeleePacingRaiders", ref meleePacingRaiders);
+                MeleePacingRaiders = meleePacingRaiders;
+                bool meleeReach = MeleeReach;
+                if (p.Values.ContainsKey("MeleeReach")) p.ParseBool("MeleeReach", ref meleeReach);
+                MeleeReach = meleeReach;
+                ParseFloat(p, "MeleeReachMargin", ref MeleeReachMargin, 0f, 1.5f);
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
@@ -935,7 +975,10 @@ namespace SurvivorCommunity
                           + " xnpcWeapons=" + XnpcWeapons.Count + " xnpcSpawnAmmo=" + XnpcSpawnAmmo + "/" + XnpcSpawnArrows
                           + " resupply=" + (XnpcResupply ? "below " + XnpcResupplyBelow + " +" + XnpcResupplyAmmo + "/" + XnpcResupplyArrows
                                             + " every " + XnpcResupplyCooldown + "s x" + XnpcResupplyPointsMult : "off")
-                          + " overwhelmed=" + (Overwhelmed ? OverwhelmedMin + ".." + OverwhelmedMax + "/" + OverwhelmedStrangers + " in " + OverwhelmedRadius + "m" : "off")
+                          + " overwhelmed=" + (Overwhelmed ? OverwhelmedMin + ".." + OverwhelmedMax + "/" + OverwhelmedStrangers + " in " + OverwhelmedRadius + "m"
+                                               + " hold " + OverwhelmedHoldSeconds + "s sustain " + OverwhelmedSustainSeconds + "s gun " + OverwhelmedGunSeconds + "s" : "off")
+                          + " meleePacing=" + (MeleePacing ? (MeleePacingRaiders ? "on" : "on, not raiders") : "off")
+                          + " meleeReach=" + (MeleeReach ? "weapon -" + MeleeReachMargin + "m" : "off (1.5 m)")
                           + " raiders=" + XnpcRaiderClasses.Count + " classes, ranged-lead " + string.Join("/", Array.ConvertAll(RaiderRangedShare, x => x.ToString("0.##", CultureInfo.InvariantCulture)))
                           + " (melee-lead to ranged beyond " + RaiderLeadRangedDist + "m for " + RaiderLeadRangedSeconds + "s)"
                           + " firearm " + RaiderFirearmChance + " ammo " + RaiderSpawnAmmo + "/" + RaiderSpawnArrows

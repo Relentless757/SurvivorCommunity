@@ -83,7 +83,11 @@
 			<property name="FollowXpSeconds" value="60" />
 			<property name="DailyWitsXp" value="3" />
 			<!-- a stationed survivor that makes no progress for this many seconds is moved back to their post (three times
-			     as long while it has a live enemy within 30 m: a fight is not a wedge) -->
+			     as long while it has a live enemy within 30 m: a fight is not a wedge). Not while the game is paused. One
+			     stuck at the post itself, or moved back three times within three minutes, gets a new post instead (only a
+			     spot with a real floor: a full block or terrain, never furniture, a plate, a ramp or a railing); with none
+			     to give, the wait doubles each time, up to 32 times this, and is back to normal after ten quiet minutes.
+			     `sc repost <member>` gives a new post by hand. -->
 			<property name="StuckSeconds" value="12" />
 			<!-- defend the base: a stationed survivor goes after any awake enemy inside the home zone within this many metres
 			     of its post - also one it cannot see from there - fights it and walks back (SCResident's ScDefendBase in
@@ -257,14 +261,32 @@
 			     to it from melee), backing off as they shoot, while it has ammo. X for a member =
 			     OverwhelmedMin + (Fighting stars - 1) / OverwhelmedStarsPerStep, at most OverwhelmedMax (2 at 1-2 stars,
 			     3 at 3-4, 4 at 5-6, 5 at 7); for anyone else OverwhelmedStrangers. The state lasts OverwhelmedHoldSeconds
-			     after the count drops. Overwhelmed=false leaves 0-XNPCCore's swap as it is. -->
+			     after the count drops (5: zombies switch between you and them, and every swap back to the gun costs a
+			     reload). Already on the melee weapon, they go back to the gun only once X have been on them for
+			     OverwhelmedSustainSeconds - X + 1 with the zombie within 1.5 m - and then keep the gun at least
+			     OverwhelmedGunSeconds (0-XNPCCore's swap to melee waits). Overwhelmed=false leaves 0-XNPCCore's swap as it
+			     is. -->
 			<property name="Overwhelmed" value="true" />
 			<property name="OverwhelmedRadius" value="12" />
 			<property name="OverwhelmedMin" value="2" />
 			<property name="OverwhelmedMax" value="5" />
 			<property name="OverwhelmedStarsPerStep" value="2" />
 			<property name="OverwhelmedStrangers" value="3" />
-			<property name="OverwhelmedHoldSeconds" value="3" />
+			<property name="OverwhelmedHoldSeconds" value="5" />
+			<property name="OverwhelmedSustainSeconds" value="1.5" />
+			<property name="OverwhelmedGunSeconds" value="6" />
+			<!-- Melee: survivors (members and strangers) and raiders with the player's body swing their melee weapon as fast
+			     as it allows - the bat about every 1.25 s, as yours - instead of on the NPC framework's 1 s attack ticks,
+			     which gave one swing every 2 s. MeleePacingRaiders=false keeps raiders on the old pace (MeleePacing=false:
+			     everyone). Guns are not affected. MeleeReach: they swing from the weapon's real reach less
+			     MeleeReachMargin metres (the bat: 2.4 - 0.4 = 2.0 m) instead of the framework's 1.5 m, so they no longer step
+			     into a zombie's reach first; raise the margin if swings at the edge miss. They also keep the melee weapon
+			     while any enemy is within 3 m, and for 1.5 s after their target is gone, instead of swapping to the gun
+			     between two zombies. -->
+			<property name="MeleePacing" value="true" />
+			<property name="MeleePacingRaiders" value="true" />
+			<property name="MeleeReach" value="true" />
+			<property name="MeleeReachMargin" value="0.4" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:

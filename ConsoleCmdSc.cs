@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -86,6 +86,7 @@ namespace SurvivorCommunity
                         break;
                     }
                     case "relink": Relink(); break;
+                    case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
                     case "home": Home(); break;
                     case "dump": Dump(); break;
@@ -1127,6 +1128,7 @@ namespace SurvivorCommunity
             Output("[SC] 0-XNPCCore survivor hooks (Patches_Xnpc): " + Patches_Xnpc.Report());
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
+            Output("[SC] melee: " + ScMelee.Report());
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
             if (w == null) return;
             int ours = 0, contracts = 0, theirs = 0, managed = 0, raiders = 0;
@@ -1162,6 +1164,9 @@ namespace SurvivorCommunity
               .Append(" model=").Append(e.emodel != null ? e.emodel.GetType().Name : "null");
             sb.Append("\n  hostility: ").Append(Hostility(e));
             sb.Append("\n  uai: ").Append(UaiProbe(e));
+            // the M11 fix 2 (STUCK_DIAG 5c): the move helper, the path and the path finder; and a member's post
+            sb.Append("\n  nav: ").Append(ScCommunity.NavLine(e));
+            if (m != null && m.Post != Vector3i.zero) sb.Append("\n  post: ").Append(ScCommunity.PostReport(m, e));
             sb.Append("\n  record: ").Append(m != null ? "member " + m.Name + " (" + m.Status + ", class " + m.Class + ")" : (pr != null ? "prospect (class " + pr.Class + ")" : "none"))
               .Append(" community=").Append(ScXnpc.IsCommunity(e));
             // looks and names
@@ -1330,8 +1335,9 @@ namespace SurvivorCommunity
                 }
                 else
                 {
-                    float reach = a0 != null && a0.Range != 0f ? a0.Range : 1.5f;
-                    sb.Append(" melee reach=").Append(reach.ToString("0.#")).Append(" InWeaponRange=").Append(dist <= reach);
+                    // the reach SCore reads (the action's Range field, 1.5 m when 0) and the one SC gives it (ScMelee, the M11 fix 2)
+                    float scoreReach = a0 != null && a0.Range != 0f ? a0.Range : ScMelee.SCoreFallbackReach;
+                    sb.Append(' ').Append(ScMelee.Describe(e, dist, scoreReach));
                 }
                 sb.Append(" seeRay=").Append(FirstHit(e, foe, e.GetSeeDistance(), UAI.SCoreUtils.GetHitMaskByWeaponBuff(e)));
                 EntityPlayerLocal p = ScCommunity.LocalPlayer;
@@ -1530,6 +1536,24 @@ namespace SurvivorCommunity
             if (w == null || p == null) { Output("[SC] no world / player"); return; }
             ScTicker.Relink(w, p);
             Output("[SC] relinked");
+        }
+
+        /// <summary>
+        /// sc repost &lt;member&gt; (the M11 fix 2): a loaded resident gets a new post, as the stuck watchdog's loop protection
+        /// gives one (ScCommunity.Repost: the old post is not given back this session, no teleport - it walks there). For
+        /// testing and as a manual cure for a post that does not work. Host only.
+        /// </summary>
+        private static void RepostCmd(List<string> p)
+        {
+            if (!ScCommunity.IsHost) { Output("[SC] host only"); return; }
+            Member m = p.Count > 1 ? FindMember(p[1]) : null;
+            if (m == null) { Output("[SC] usage: sc repost <member id|name> - gives a resident a new post"); return; }
+            if (m.Status != MemberStatus.Resident) { Output("[SC] " + m.Name + " is " + m.Status + ", not a resident at a post"); return; }
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
+            if (npc == null) { Output("[SC] " + m.Name + " is not loaded"); return; }
+            Vector3i old = m.Post;
+            bool moved = ScCommunity.Repost(m, npc, "sc repost", ScCommunity.StuckDiag(m, npc), false);
+            Output("[SC] " + m.Name + (moved ? ": post " + old + " -> " + m.Post + " (" + ScCommunity.PostLine(m, npc) + ")" : " keeps the post " + old + ": no other spot with a real floor within PostRadius"));
         }
 
         private static void Home()

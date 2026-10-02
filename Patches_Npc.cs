@@ -345,6 +345,12 @@ namespace SurvivorCommunity
         /// stays held until the line clears (melee, from 3 m, is 0-XNPCCore's swap and untouched). Beyond 4.47 m CanSee
         /// casts its ray at every decision, as for every NPC. The same two targets as ScAim's Patch_AttackUpdate (both
         /// attack tasks' Update), so no new target; one ray per frame only while such an NPC attacks within 4.47 m.
+        ///
+        /// The M11 fix 2 (MELEE_DIAG F1) adds the melee half to the same prefix: for an action that does not shoot, held by
+        /// one of our bodies (members, strangers and - with MeleePacingRaiders - raiders), ScMelee.BeforeUpdate sets the
+        /// countdown from the weapon's own swing clock instead of SCore's 1 s ticks, and the postfix (ScMelee.AfterUpdate)
+        /// spaces out a try the weapon refused. One prefix for both halves, so their order never depends on how Harmony
+        /// chains two prefixes of one mod; the ranged half is unchanged.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_HoldFireAcross
@@ -355,14 +361,23 @@ namespace SurvivorCommunity
             [HarmonyTargetMethods]
             public static IEnumerable<MethodBase> TargetMethods() { return ScAim.AttackTargets("Update"); }
 
+            /// <summary>__state: the melee weapon's lastUseTime when ScMelee cleared this update to swing, else -1.</summary>
             [HarmonyPrefix]
-            public static bool Prefix(UAI.UAITaskBase __instance, UAI.Context _context)
+            public static bool Prefix(UAI.UAITaskBase __instance, UAI.Context _context, out float __state)
             {
+                __state = -1f;
                 try
                 {
                     EntityAlive self = _context != null ? _context.Self : null;
-                    if (self == null || self.isEntityRemote || !ScXnpc.IsCommunity(self)) return true;
-                    if (!ScAim.IsRangedAction(self, ScAim.ActionIndex(__instance))) return true;
+                    if (self == null || self.isEntityRemote) return true;
+                    int index = ScAim.ActionIndex(__instance);
+                    if (!ScAim.IsRangedAction(self, index))
+                    {
+                        // melee: swing on the weapon's own clock (the M11 fix 2); SCore's update then runs as always
+                        __state = ScMelee.BeforeUpdate(__instance as UAI.UAITaskAttackTargetEntity, self, index);
+                        return true;
+                    }
+                    if (!ScXnpc.IsCommunity(self)) return true;
                     // the task's own choice of target: its action target, or for a self-target the attack/revenge target
                     EntityAlive t = _context.ActionData.Target as EntityAlive;
                     if (t != null && t.entityId == self.entityId) t = EntityUtilities.GetAttackOrRevengeTarget(self.entityId) as EntityAlive;
@@ -383,6 +398,23 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("hold-fire-across", ex);
                     return true;
+                }
+            }
+
+            /// <summary>After a melee update ScMelee cleared to swing: did it swing, find no chance, or meet a refusal?</summary>
+            [HarmonyPostfix]
+            public static void Postfix(UAI.UAITaskBase __instance, UAI.Context _context, float __state)
+            {
+                if (__state < 0f) return;
+                try
+                {
+                    EntityAlive self = _context != null ? _context.Self : null;
+                    if (self == null) return;
+                    ScMelee.AfterUpdate(__instance as UAI.UAITaskAttackTargetEntity, self, ScAim.ActionIndex(__instance), __state);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("melee-pace-after", ex);
                 }
             }
         }

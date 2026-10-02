@@ -25,7 +25,92 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
-## M11 fix: the gun survives a chunk unload, the runner veto, defending the base
+## M11 fix 2: melee pace and reach, posts with a real floor, the gun stays up
+
+**Deployed 2026-10-02** (Fable review: deployable, low notes only). DLL md5
+`60686311b981724eca64b2866e2a5f63`, 624640 bytes, deployed **together with** the same tree's `Config/utilityai.xml`
+(new action `ScAtPost`, naming the DLL's new `ScAtPost` consideration and `HoldPostSC` task) and `Config/blocks.xml` (new
+keys; `OverwhelmedHoldSeconds` 3 -> 5). Two new Harmony targets: **72** in all (65 without Voice Control). No save format
+change. Report: `M11FIX2_REPORT.md`; diagnosis: `MELEE_DIAG.md`, `STUCK_DIAG.md`, `AIM_DIAG.md`.
+
+What changed:
+- **Melee pace (your decision: raiders too).** Survivors and raiders swing their melee weapon as soon as it allows (the
+  T1 bat every ~1.25 s, as yours) instead of on the framework's 1 s ticks, which gave one swing every 2 s and a lost second
+  after every new target. Switches: `MeleePacingRaiders`, `MeleePacing`. Guns unchanged.
+- **Melee reach.** The framework judged every melee weapon's reach as 1.5 m; now the weapon's own (the bat 2.4 m) less
+  `MeleeReachMargin` (0.4): they swing from about 2 m and stop flipping between walking in and swinging. `MeleeReach`
+  false gives the old 1.5 m back. New Harmony target.
+- **No bat/gun churn.** They keep the melee weapon while any enemy is within 3 m (no wall between), and for 1.5 s after
+  their target dies or is lost. Overwhelmed takes them back to the gun only after the count has held 1.5 s
+  (`OverwhelmedSustainSeconds`; one enemy more with the zombie within 1.5 m), then the gun stays at least 6 s
+  (`OverwhelmedGunSeconds`); `OverwhelmedHoldSeconds` is now 5.
+- **Posts.** A post needs a real floor (a full block or terrain, preferably open, never furniture, a plate, a ramp or a
+  railing); a bad post from an older save is replaced the first time it loads (Kyle's bathtub). Roams aim at real
+  floors too. A resident within a step of its post just stands (new `ScAtPost`, instead of Guard re-planning for ever).
+- **Stuck loop.** Not while the game is paused; a pending path request no longer survives a move back; stuck at the post
+  itself, or three moves back within three minutes -> a new post (no teleport); none to give -> the wait doubles. The
+  stuck line says which signal counted and where it stood. `sc repost <member>`. The supply runners' watchdog ignores
+  paused time too.
+- **The gun stays up.** The aim pose holds while a resident waits for you to clear its line (`ScDefendHold`) and while it
+  backs away from a zombie (your decision; new Harmony target); the carry pose is repaired if the animator lost it
+  (`carryFixes`); "facing away" is judged on the target the task works on.
+
+- [ ] **Startup:** `patch verification: all 72 targets patched` (65 without Voice Control), with `patched
+      UAITaskBackupFromTargetSDX::Update` and `patched UAIConsiderationInWeaponRange::GetScore`; the `config:` line shows
+      `overwhelmed=... hold 5s sustain 1.5s gun 6s meleePacing=on meleeReach=weapon -0.4m`; no `Type:... was missing`
+      for `ScAtPost` or `HoldPostSC`. `sc xnpc` prints a `[SC] melee:` line; `sc xnpc <member>` prints `nav:` and (for a
+      member) `post:` lines.
+- [ ] **Swing rate:** a member with the T1 bat against one zombie, you standing aside and **not** shoving. Count its
+      swings over 20 s: before this build about 10, now about **16** (a stopwatch, or `sc xnpc`'s `[SC] melee:` line:
+      `swing(s)` before and after). `sc xnpc <member>` mid-fight: `melee reach=2.0 (the weapon's 2.4 m less 0.4; SCore
+      alone: 1.5) ... swing every 1.27 s, last 0.x s ago, paced=True`. `refused by the weapon` should stay near 0 (a few
+      after a hit stun is fine). Then a melee-lead raider with the bat (`sc spawn hostile male T1 <bat> melee-lead`, the
+      bat's name from `sc weapons`; let it fight a zombie, or you in god mode): also ~16 swings in 20 s. Then
+      `MeleePacingRaiders` false (restart): the raider back to ~10, the member still ~16; `MeleePacing` false: both ~10.
+      Watch that every swing plays its whole animation and hits (no half swings, no double hits per swing).
+- [ ] **No gun/bat churn (2-3 zombies):** a 1-2 star member with bat and pistol, 2-3 zombies at once, you aside. In the
+      log, count `[SDCS-SWAP]` lines: after a kill with the next zombie within 3 m there is **no** `[SDCS-CLOSEMELEE]
+      exit reason='target-gone'` - it keeps the bat and turns to the next one (hooks `x5-melee-exit-held` +1). `sc xnpc
+      <member>`'s overwhelmed line may show `0-XNPCCore wants to leave melee for N s (held: an enemy within 3 m)`. Once
+      the last zombie is dead it goes back to the pistol within about 1.5 s. Compare with the 17:40 log (7 bat/gun round
+      trips in 81 s): expect at most one or two.
+- [ ] **Overwhelmed still pulls the gun when swarmed:** the same member (pistol with rounds) with 3-4 zombies on it.
+      After the bat's first 3 s plus about 1.5 s: `[SDCS-SWAP] restore=...` with no `[SDCS-CLOSEMELEE] exit` before it
+      (hooks `x5-overwhelmed-exit` +1); with `DebugLogging` true: `... is overwhelmed (3 enemies on them, 2 needed, for
+      1.5 s) - back to the gunHandgunT1Pistol, kept for 6 s`. For the next 6 s it does not go back to the bat even with a
+      zombie at 1-2 m (`x5-overwhelmed-gun-hold` rises; `sc xnpc` shows `GUN HELD N s more`). Control: exactly 2 zombies
+      with one of them at arm's length (under 1.5 m) - it stays on the bat (point-blank needs 3).
+- [ ] **Melee reach, no approach/attack flip:** XNPC `VerboseLogging` true (its `Settings.xml`). One zombie, a bat member:
+      `[SDCS-UAI] action='MeleeApproach'` / `'MeleeAttack'` flips should be rare - it stops about 2 m from the zombie and
+      swings (`sc xnpc` `InWeaponRange=True` at 1.6-2.0 m), and a hit that knocks the zombie back a little does not send it
+      walking. Watch for swings that miss at the edge, especially against crawlers; if they do, raise `MeleeReachMargin`
+      to 0.6 and say so.
+- [ ] **Kyle off the tub (load):** load the 17:04 save. Within a second or two of Kyle's chunk loading, a warning:
+      `Kyle's post -414, 43, -748 cannot be used (the post is on decoClawFootBathTub, checked on load) - new post X, Y, Z
+      (an open spot on a real floor)`; he walks there. `sc xnpc Kyle`: `post: X, Y, Z floor woodShapes:cube (or a
+      terrain block), strict good, relaxed good; at ... (Guard: arrived)`, and `uai: action=ScAtPost task=UAITaskHoldPostSC`
+      once he is there. `sc members` shows the new post. No `was stuck` lines in 10 minutes of daylight.
+- [ ] **No stuck loop while paused:** with a resident walking somewhere (a roam, or just after `sc repost`), press ESC
+      and stay in the pause menu for 40 s: **no** `was stuck` line while paused (before: one every 12 s). Same with a
+      physical supply runner out walking: no `stuck ... skipped ahead` and no `stuck` hand-off while paused.
+- [ ] **`sc repost <member>`:** on a resident: `[SC] <name>: post A -> B (at ... from the post B ...)` and a warning in the
+      log; the member walks to B (no teleport). Again: a different post each time (A is not given back this session). On a
+      follower: `is Following, not a resident at a post`.
+- [ ] **The stuck line:** wedge a resident (block it into a 1x1 nook with a door it cannot open, or stand it in a pit):
+      after 12 s `<name> was stuck (no progress for 12 s) - moved back to the post P [12 s counted: navPlanning N, navPath
+      N, moveHelperFar N, blockedTime N, isStuck N; at x, y, z = d m from the post P, dy d, standing on <block>; Guard cell
+      ... vs body cell ... (Guard: ...); mh active=T to ... (d m) blockedTime ... flags ... blockedBy -; nav path i/n end
+      ..., planning=F, onGround=T, isStuck=F; uai Guard/UAITaskGuard target self; entity ticks +240; paused=F]`. Do it a
+      third time within three minutes: instead of a teleport, `<name>'s post P cannot be used (3 moves back to the same
+      post within 3 min ...) - new post Q`. Report any line whose signals look wrong, with the whole line.
+- [ ] **Arms up while shooting, holding fire and backing off:** a pistol member and one zombie.
+      (a) shooting at 8 m: `sc aim <member>`: `state: aiming`, `animator ... WeaponHoldType=1 WeaponCarry=5 (the hold
+      type's 5)`; the gun is at the shoulder. (b) you step into its line (a resident defending, `ScDefendHold`): the header's
+      `hold fire=N` rises, `state: aiming` - the gun stays up while it waits (before: down after 2 s, `calm`). (c) let the
+      zombie come within 4 m (BackupKeepDistance): `back off=N` rises, `state: aiming` while it backs off facing the
+      zombie (`facing away` while it walks with its back turned is expected). (d) `carryFixes=` in the header: 0 is fine;
+      if it rises, note when (after a knockdown, a rebuild, a chunk reload) - that was the "arms down" bug. `sc anim
+      <member>`: `WeaponCarry=5` with the pistol, 3 with the bat, never 0 with a weapon in hand.
 
 **Deployed 2026-10-02** (DLL md5
 `2d3b5aa3f7d69d370db51109bcfa5476`, 600064 bytes; Fable review, re-check and final confirmation: deployable; Fable review fixes M1-M6 and M8 and re-check fixes R1, R2, R4

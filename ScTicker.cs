@@ -217,6 +217,9 @@ namespace SurvivorCommunity
                         }
                         else
                         {
+                            // a post that is no real post (one chosen before the M11 fix 2 may sit on furniture) is
+                            // replaced once per session, as soon as its chunk is loaded
+                            ScCommunity.CheckPostOnce(m, npc);
                             // self-heal the post: SCore's GuardHere/GuardThere minevents (pathing cubes, order
                             // buffs) may rewrite the guard position with the NPC's own spot
                             Vector3 post = ScCommunity.PostCenter(m);
