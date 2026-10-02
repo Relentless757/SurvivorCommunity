@@ -21,11 +21,36 @@ namespace SurvivorCommunity
     {
         private static readonly Type[] NoArgs = new Type[0];
 
+        /// <summary>Per-world reset (ModEvents.GameStarting): a dead NPC's held window means nothing in another world.</summary>
+        public static void Reset()
+        {
+            Patch_SetDead.Reset();
+        }
+
         [HarmonyPatch]
         public static class Patch_SetDead
         {
             /// <summary>Set on a dead raider once its pair weapons have had their drop roll (M10-D6).</summary>
             private const string PairDroppedCvar = "sc_pairDropped";
+
+            /// <summary>Where a held window's backpack goes (the body's death spot, as for the first one) and its label.</summary>
+            private sealed class HeldWindow
+            {
+                public UnityEngine.Vector3 Pos;
+                public string Name;
+            }
+
+            /// <summary>
+            /// Dead NPCs whose inventory window a remote player still had open (or the host, if closing the host's grid
+            /// did not clear the flag), by entity id: the window is kept in HarvestManager until its last holder lets go
+            /// and is then dropped at the body (Release). Host only, main thread.
+            /// </summary>
+            private static readonly Dictionary<int, HeldWindow> heldWindows = new Dictionary<int, HeldWindow>();
+
+            public static void Reset() { heldWindows.Clear(); }
+
+            /// <summary>Dead NPCs' windows waiting for their holders, for sc xnpc.</summary>
+            public static int HeldCount { get { return heldWindows.Count; } }
 
             [HarmonyPrepare]
             public static bool Prepare() { return ScNpc.Declared("SetDead", NoArgs).Count > 0; }
@@ -64,6 +89,15 @@ namespace SurvivorCommunity
             /// with RaiderWeaponDropChance, rolled per weapon - the toolbelt copy SCore made at PostInit, so a real vanilla
             /// weapon of quality 1-6. That replaces the old raiders' 20% loot bag with their class weapon. V4's own drop
             /// adds nothing: its SetDead nulls lootContainer before dropItemOnDeath runs.
+            ///
+            /// A window somebody is looking at when the NPC dies (M10 round 3 review, F1): its items must not go into the
+            /// backpack while the same items can still be dragged out of the open grid. The host's own grid is closed first
+            /// (CloseHostWindow), so the host's case is the normal drop. A remote player's grid is a copy the server cannot
+            /// close: the window stays out of this backpack and in HarvestManager (so SCore's close handler writes the
+            /// player's copy into it instead of re-creating a container for the dead id), and Release drops what is left
+            /// in a second backpack at the same spot once nobody holds it - the close, the player's disconnect, the 600 s
+            /// expiry of the open (swept every second by ScTicker) or the world shutting down. Repeated SetDead calls see
+            /// the window still held, or gone, so nothing drops twice. Raiders never have a window.
             /// </summary>
             private static void DropWindow(EntityAlive e)
             {
@@ -73,12 +107,11 @@ namespace SurvivorCommunity
                     // raiders, the bag (their ammo, ScAmmo.AddRounds): V4's own dropItemOnDeath drops neither
                     var drop = new List<ItemStack>();
                     bool hadWindow = HarvestManager.Has(e.entityId);
-                    if (hadWindow)
-                    {
-                        SCoreLootContainer window = HarvestManager.GetOrCreate(e.entityId);
-                        if (window != null && window.items != null)
-                            foreach (ItemStack s in window.items) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
-                    }
+                    SCoreLootContainer window = hadWindow ? HarvestManager.GetOrCreate(e.entityId) : null;
+                    if (window != null && window.IsUserAccessing()) CloseHostWindow(window);
+                    bool held = window != null && (window.IsUserAccessing() || ScAmmo.IsRemoteOpen(e.entityId));
+                    if (window != null && !held && window.items != null)
+                        foreach (ItemStack s in window.items) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
                     if (ScXnpc.IsBody(e) && e.bag != null)
                     {
                         foreach (ItemStack s in e.bag.GetSlots()) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
@@ -100,24 +133,110 @@ namespace SurvivorCommunity
                         }
                         if (dropped > 0) ScLog.Verbose("raider " + e.entityId + " dropped " + dropped + " of its pair weapon(s)");
                     }
-                    if (drop.Count > 0)
+                    UnityEngine.Vector3 at = e.position + e.transform.up;
+                    string label = Localization.Get(e.EntityName);
+                    DropBackpack(drop, at, label);
+                    if (held)
                     {
-                        string className = ScCommunity.ClassExists(EntityClass.FromString("BackpackNPC")) ? "BackpackNPC" : "Backpack";
-                        EntityItem pack = EntityFactory.CreateEntity(EntityClass.FromString(className), new Vector3i(e.position + e.transform.up)) as EntityItem;
-                        if (pack != null)
+                        if (!heldWindows.ContainsKey(e.entityId))
                         {
-                            Bag bag = new Bag(Math.Max(drop.Count, 1));
-                            for (int i = 0; i < drop.Count; i++) bag.items[i] = drop[i];
-                            GameManager.Instance.RequestToSpawnEntityServer(new EntityCreationData(pack, true) { entityName = Localization.Get(e.EntityName), id = -1, bag = bag });
-                            pack.OnEntityUnload();
+                            heldWindows[e.entityId] = new HeldWindow { Pos = at, Name = label };
+                            Patches_Xnpc.Count("window-death-held");
+                            ScLog.Out(label + " (id " + e.entityId + ") died with their inventory window open - its contents drop at the body once it is closed");
                         }
                     }
-                    if (hadWindow) HarvestManager.Remove(e.entityId);
+                    else if (hadWindow)
+                    {
+                        HarvestManager.Remove(e.entityId);
+                        heldWindows.Remove(e.entityId);
+                    }
                 }
                 catch (Exception ex)
                 {
                     ScLog.Once("npc-drop-window", ex);
                 }
+            }
+
+            /// <summary>
+            /// Drops stacks as one backpack (BackpackNPC when it exists, else vanilla's Backpack) at a spot, labelled with
+            /// the NPC's name - the drop SCore's EntityAliveSDX.SetDead makes. Nothing for an empty list.
+            /// </summary>
+            private static void DropBackpack(List<ItemStack> drop, UnityEngine.Vector3 at, string label)
+            {
+                if (drop == null || drop.Count == 0) return;
+                string className = ScCommunity.ClassExists(EntityClass.FromString("BackpackNPC")) ? "BackpackNPC" : "Backpack";
+                EntityItem pack = EntityFactory.CreateEntity(EntityClass.FromString(className), new Vector3i(at)) as EntityItem;
+                if (pack == null) return;
+                Bag bag = new Bag(Math.Max(drop.Count, 1));
+                for (int i = 0; i < drop.Count; i++) bag.items[i] = drop[i];
+                GameManager.Instance.RequestToSpawnEntityServer(new EntityCreationData(pack, true) { entityName = label, id = -1, bag = bag });
+                pack.OnEntityUnload();
+            }
+
+            /// <summary>
+            /// The host's own loot window showing this window is closed before the drop (F1, the host's case). Its OnClose
+            /// clears the window's user-accessing flag at once, so the items go into the one death backpack and the grid
+            /// that showed them is gone. Chosen over a postfix on XUiC_LootWindowGroup.OnClose that would release the window
+            /// later: no new Harmony target, nothing deferred, one backpack, and nobody keeps looting a dead NPC's window.
+            /// A flag still set afterwards (some other screen) makes the window held like a remote one.
+            /// </summary>
+            private static void CloseHostWindow(SCoreLootContainer window)
+            {
+                try
+                {
+                    EntityPlayerLocal p = ScCommunity.LocalPlayer;
+                    LocalPlayerUI ui = p != null ? p.PlayerUI : null;
+                    if (ui == null || ui.windowManager == null || ui.xui == null || !ui.windowManager.IsWindowOpen(XUiC_LootWindowGroup.ID)) return;
+                    XUiC_LootWindowGroup lg = ui.xui.FindWindowGroupByName(XUiC_LootWindowGroup.ID) as XUiC_LootWindowGroup;
+                    if (lg == null || !ReferenceEquals(lg.te, window)) return;
+                    ui.windowManager.Close(XUiC_LootWindowGroup.ID);
+                    Patches_Xnpc.Count("window-death-host-closed");
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("npc-close-host-window", ex);
+                }
+            }
+
+            /// <summary>
+            /// Drops a held dead NPC's window at its body once nobody holds it any more (force: at once, whoever holds it -
+            /// the world is shutting down) and removes it from HarvestManager. True when it dropped. The entry goes before
+            /// the drop, so a failure loses the items rather than leaving them to drop twice. HarvestManager.bin is saved
+            /// again because SCore's close handler has just written the dead id's window into it.
+            /// </summary>
+            internal static bool Release(int id, bool force)
+            {
+                HeldWindow h;
+                if (!heldWindows.TryGetValue(id, out h)) return false;
+                try
+                {
+                    if (!HarvestManager.Has(id)) { heldWindows.Remove(id); return false; }    // gone some other way: nothing to drop
+                    SCoreLootContainer window = HarvestManager.GetOrCreate(id);
+                    if (!force && (window.IsUserAccessing() || ScAmmo.IsRemoteOpen(id))) return false;
+                    var drop = new List<ItemStack>();
+                    if (window.items != null)
+                        foreach (ItemStack s in window.items) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
+                    heldWindows.Remove(id);
+                    HarvestManager.Remove(id);
+                    HarvestManager.Save();
+                    DropBackpack(drop, h.Pos, h.Name);
+                    Patches_Xnpc.Count("window-death-released");
+                    ScLog.Out(h.Name + " (id " + id + "): the inventory window left open at their death was closed - " + drop.Count
+                              + " stack(s) dropped at the body" + (force ? " (world shutting down)" : ""));
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("npc-release-window", ex);
+                    return false;
+                }
+            }
+
+            /// <summary>Every held window that is free (ScTicker, once a second: the expiry of a remote open), or all of them (force).</summary>
+            internal static void ReleaseAll(bool force)
+            {
+                if (heldWindows.Count == 0) return;
+                foreach (int id in new List<int>(heldWindows.Keys)) Release(id, force);
             }
         }
 

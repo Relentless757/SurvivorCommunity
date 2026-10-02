@@ -34,6 +34,9 @@ namespace SurvivorCommunity
                 nextTick = now + Interval;
 
                 if (!ScCommunity.IsHost) return;
+                // before the local-player test below, so a dedicated server sweeps too: a dead NPC's window a remote
+                // player held drops at the body once its open mark has expired (Patches_Npc)
+                Patches_Npc.Patch_SetDead.ReleaseAll(false);
                 World w = ScCommunity.World;
                 if (w == null || !ScRegistry.Loaded) return;
                 EntityPlayerLocal player = ScCommunity.LocalPlayer;

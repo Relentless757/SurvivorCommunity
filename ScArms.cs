@@ -487,6 +487,15 @@ namespace SurvivorCommunity
                 if (string.Equals(cur.Ranged, token, StringComparison.OrdinalIgnoreCase) || string.Equals(cur.Melee, token, StringComparison.OrdinalIgnoreCase)) return;
                 int slot = WindowSlot(npc, ic.Id);
                 if (slot < 0) return;                        // not handed over through the window: nothing to keep
+                // somebody has this window open (ScAmmo.IsWindowOpen): a remote player's copy, written back over every slot
+                // when they close it, would put the weapon back in the window while it is also in the pair, and the host's
+                // own grid is not told the weapon left - it is only held for now, as anything that is not kept
+                if (ScAmmo.IsWindowOpen(npc.entityId))
+                {
+                    Patches_Xnpc.Count("window-swap-held");
+                    ScLog.Warn(m.Name + ": could not keep the handed " + token + " (someone has their inventory window open - try again once it is closed)");
+                    return;
+                }
                 if (!ScLoadout.Knows(token))
                 {
                     swapsUnknown++;

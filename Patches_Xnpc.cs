@@ -7,8 +7,8 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// Every patch on a 0-XNPCCore type (NPCSdcsCharacters.dll), for the classes SC drives on XNPC's body (ScXnpc): the
-    /// survivor classes the community owns and, since M10, SC's raider classes - plus the two on the body's SCore and
-    /// vanilla classes that only these bodies need (X8, X9). The numbering is the migration design's (section 1.2).
+    /// survivor classes the community owns and, since M10, SC's raider classes - plus the ones on SCore and vanilla
+    /// classes that only these bodies need (X8-X11). The numbering is the migration design's (section 1.2).
     ///
     ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype
     ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces)
@@ -24,6 +24,10 @@ namespace SurvivorCommunity
     ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame
     ///   X8  EntityAliveSDXV4.SetModelLayer   prefix   our bodies' own colliders are lifted out of their own attack ray
     ///   X9  EntityTrader.AllowActivationCommand      postfix  no talk prompt (and nothing on E) on a raider
+    ///   X10 AutoTurretFireController / MiniTurretFireController / MotionSensorController.shouldIgnoreTarget
+    ///                                                postfix  player turrets shoot raiders as enemies, motion sensors
+    ///                                                         trip on them (RaiderTurretsAsEnemies)
+    ///   X11 EntityAliveSDXV4.HandleNavObject         prefix   a raider gets its class's map markers (clear-sleeper dots)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
     /// bound by name with a Prepare that turns the patch off when the method is gone, and listed in ModApi's
@@ -40,12 +44,18 @@ namespace SurvivorCommunity
         private static int updateHits;
         /// <summary>X9 runs every frame while a raider is looked at (once per command): a plain counter too.</summary>
         private static int talkRefused;
+        /// <summary>X10 runs every frame a turret looks at a raider: a plain counter of the times it was made a target.</summary>
+        private static int turretTargets;
+        /// <summary>The same for a motion sensor's scan.</summary>
+        private static int sensorTargets;
 
         public static void Reset()
         {
             hits.Clear();
             updateHits = 0;
             talkRefused = 0;
+            turretTargets = 0;
+            sensorTargets = 0;
             Patch_ModelLayer.Reset();
         }
 
@@ -64,6 +74,8 @@ namespace SurvivorCommunity
             foreach (string k in keys) parts.Add(k + "=" + hits[k]);
             parts.Add("x7-update=" + updateHits);
             parts.Add("x9-raider-talk-refused=" + talkRefused);
+            parts.Add("x10-turret-raider-target=" + turretTargets);
+            parts.Add("x10-sensor-raider-target=" + sensorTargets);
             return string.Join(", ", parts.ToArray());
         }
 
@@ -125,6 +137,51 @@ namespace SurvivorCommunity
         public static MethodBase TalkPromptTarget()
         {
             return AccessTools.DeclaredMethod(typeof(EntityTrader), "AllowActivationCommand", new[] { typeof(ReadOnlySpan<char>), typeof(EntityPlayerLocal) });
+        }
+
+        /// <summary>X10: the powered auto turret's target filter (vanilla; public in the shipped 3.2 assembly).</summary>
+        public static MethodBase AutoTurretTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AutoTurretFireController), "shouldIgnoreTarget", new[] { typeof(Entity) });
+        }
+
+        /// <summary>X10: the junk turret's and junk sledge's (EntityTurret's) target filter (vanilla).</summary>
+        public static MethodBase MiniTurretTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(MiniTurretFireController), "shouldIgnoreTarget", new[] { typeof(Entity) });
+        }
+
+        /// <summary>X10: the motion sensor's target filter (vanilla; public in the shipped 3.2 assembly; no mod patches it).</summary>
+        public static MethodBase MotionSensorTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(MotionSensorController), "shouldIgnoreTarget", new[] { typeof(Entity) });
+        }
+
+        /// <summary>X11: SCore's override of vanilla's Entity.HandleNavObject (SCore 3.2.36).</summary>
+        public static MethodBase NavObjectTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "HandleNavObject", NoArgs);
+        }
+
+        /// <summary>SCore's Harmony id (SphereIICoreInit): X10 runs after its turret postfixes, which decide an EntityNPC alone.</summary>
+        private const string SCoreHarmonyId = "Harmony.SphereIICoreInit";
+
+        /// <summary>
+        /// Resolves a vanilla or SCore target for a Prepare like Bound, but fail-loud (an error line, not a warning): these
+        /// are not 0-XNPCCore's private methods but public game and SCore API, so a miss means a game or SCore update.
+        /// </summary>
+        private static bool BoundLoud(Func<MethodBase> target, string label, string effect)
+        {
+            try
+            {
+                if (target() != null) return true;
+                ScLog.Err(label + " not found (game or SCore update?) - " + effect);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("xnpc-bind-" + label, e);
+            }
+            return false;
         }
 
         /// <summary>
@@ -633,6 +690,192 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-talkprompt", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X10: turrets shoot raiders ----
+
+        /// <summary>
+        /// X10. Player turrets treat a raider as the enemy it is (RaiderTurretsAsEnemies, M10-D8). The old raiders were
+        /// EntityEnemy, so the powered auto turret shot them under "target zombies" and the junk turret under "target
+        /// enemies". A raider on this body is an EntityNPC - an EntityTrader even - which vanilla's auto turret shoots only
+        /// with "target strangers" on and its junk turret never; SCore's postfixes on both filters then decide every
+        /// EntityNPC alone: "target strangers" on and the turret's owner its enemy (Harmony\MiniTurret\shouldIgnoreTarget.cs).
+        /// These postfixes run after SCore's (Priority.Last, after its Harmony id) and only ever turn "ignore" into "shoot",
+        /// for a raider body (IsRaider: SC's raider class on XNPC's body - never a survivor, a member, a trader or one of
+        /// 0-XNPCCore's own NPCs) that is alive, with the turret's zombie or enemy switch on, inside the field of view
+        /// vanilla tests first, and - the junk turret's filter ends with it - within its reach and line of fire
+        /// (canHitEntity). SCore's strangers rule stays, so either switch lets the turret fire; with the key off only
+        /// SCore's rule is left. Pure and stateless: the same answer on the server and on a client.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_AutoTurretRaiders
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(AutoTurretTarget, "AutoTurretFireController.shouldIgnoreTarget(Entity)", "the auto turret shoots raiders only with 'target strangers' on");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return AutoTurretTarget(); }
+
+            [HarmonyPostfix]
+            [HarmonyPriority(Priority.Last)]
+            [HarmonyAfter(SCoreHarmonyId)]
+            public static void Postfix(AutoTurretFireController __instance, Entity _target, ref bool __result)
+            {
+                try
+                {
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !ScXnpc.IsRaider(_target)) return;
+                    TileEntityPoweredRangedTrap te = __instance != null ? __instance.TileEntity : null;
+                    if (te == null || !te.TargetZombies || !_target.IsAlive() || __instance.Cone == null) return;
+                    // vanilla's own first test, unchanged: a positive dot product with the cone's forward is out of view
+                    if (UnityEngine.Vector3.Dot(_target.position - te.ToWorldPos().ToVector3(), __instance.Cone.forward) > 0f) return;
+                    __result = false;
+                    turretTargets++;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-autoturret", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// X10 for the junk turret and the junk sledge (EntityTurret; JunkSledgeFireController inherits this filter): their
+        /// "target enemies" switch, as for the old EntityEnemy raiders.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_MiniTurretRaiders
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(MiniTurretTarget, "MiniTurretFireController.shouldIgnoreTarget(Entity)", "the junk turret shoots raiders only with 'target strangers' on");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MiniTurretTarget(); }
+
+            [HarmonyPostfix]
+            [HarmonyPriority(Priority.Last)]
+            [HarmonyAfter(SCoreHarmonyId)]
+            public static void Postfix(MiniTurretFireController __instance, Entity _target, ref bool __result)
+            {
+                try
+                {
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !ScXnpc.IsRaider(_target)) return;
+                    EntityTurret turret = __instance != null ? __instance.entityTurret : null;
+                    if (turret == null || !turret.TargetEnemies || !_target.IsAlive() || _target.entityId == turret.entityId) return;
+                    // vanilla's field of view (the cone's forward, else the controller's)...
+                    UnityEngine.Vector3 forward = __instance.Cone != null ? __instance.Cone.forward : __instance.transform.forward;
+                    if (UnityEngine.Vector3.Dot(_target.position - turret.position, forward) > 0f) return;
+                    // ...and the reach and line-of-fire test its filter ends with
+                    float yaw = 0f, pitch = 0f;
+                    UnityEngine.Vector3 aim;
+                    if (!__instance.canHitEntity(_target, ref yaw, ref pitch, out aim)) return;
+                    __result = false;
+                    turretTargets++;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-miniturret", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// X10 for the motion sensor (M10 round 3 review, F4): a sensor with "target zombies" on trips on a live raider, as
+        /// it did on the old EntityEnemy raiders; vanilla trips on an EntityNPC only with "target strangers" on. No mod
+        /// patches this filter (SCore included); the same ordering attributes keep this postfix last should one appear.
+        /// Vanilla's own tests are kept: alive and inside the cone's field of view (its first test); the scan that calls
+        /// the filter then tracks and ray-tests the target itself (MotionSensorController.hasTarget).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_MotionSensorRaiders
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(MotionSensorTarget, "MotionSensorController.shouldIgnoreTarget(Entity)", "motion sensors trip on raiders only with 'target strangers' on");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MotionSensorTarget(); }
+
+            [HarmonyPostfix]
+            [HarmonyPriority(Priority.Last)]
+            [HarmonyAfter(SCoreHarmonyId)]
+            public static void Postfix(MotionSensorController __instance, Entity _target, ref bool __result)
+            {
+                try
+                {
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !ScXnpc.IsRaider(_target)) return;
+                    TileEntityPoweredTrigger te = __instance != null ? __instance.TileEntity : null;
+                    if (te == null || !te.TargetZombies || !_target.IsAlive() || __instance.Cone == null) return;
+                    if (UnityEngine.Vector3.Dot(_target.position - te.ToWorldPos().ToVector3(), __instance.Cone.forward) > 0f) return;
+                    __result = false;
+                    sensorTargets++;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-motionsensor", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X11: map markers on raiders ----
+
+        /// <summary>
+        /// X11. A raider gets its class's map markers like any other enemy: the red clear-sleeper dot during a clear quest
+        /// (and the twitch-spawn markers), from the class's NavObject - "twitch_spawn,twitch_spawn_other,clear_sleeper", the
+        /// old raiders' value (Config/entityclasses.xml, written by Tools/gen_arsenal.py). Vanilla's Entity.HandleNavObject,
+        /// run from PostInit, registers the class's NavObject for every entity; SCore's EntityAliveSDXV4 overrides it to
+        /// register one only while the local player is the NPC's leader (its companion marker) and to drop it otherwise, so
+        /// an enemy never had one. For a raider body this prefix does vanilla's registration instead and skips SCore's;
+        /// every other NPC - survivors, members, companions - keeps SCore's. The marker is a local UI object, made on
+        /// every machine that builds the entity (IsRaider needs no registry); V4's SetDead and vanilla's entity removal
+        /// unregister it. Each marker class decides when it shows: clear_sleeper only for a sleeper inside the bounds of
+        /// the local player's active quest (NavObject.IsValidEntity), so a wild raider shows nothing, as a wild zombie.
+        /// A raider that already has its marker keeps it (only PostInit calls this today; SCore's leader component would
+        /// call it again for an NPC with a local leader, which a raider never has).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_RaiderNavObject
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(NavObjectTarget, "EntityAliveSDXV4.HandleNavObject()", "raiders get no clear-sleeper markers");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return NavObjectTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAliveSDXV4 __instance)
+            {
+                try
+                {
+                    if (__instance == null || !ScXnpc.IsRaider(__instance)) return true;
+                    // once only: vanilla's RegisterNavObject finds an existing marker by its first class name, not the
+                    // whole list, so a second call would add a second marker that nothing ever unregisters
+                    if (__instance.NavObject != null) return false;
+                    EntityClass ec;
+                    string nav = EntityClass.list.TryGetValue(__instance.entityClass, out ec) && ec != null ? ec.NavObject : null;
+                    if (!string.IsNullOrEmpty(nav))
+                    {
+                        __instance.NavObject = NavObjectManager.Instance.RegisterNavObject(nav, __instance);
+                        Count("x11-raider-navobject");
+                    }
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-navobject", ex);
+                    return true;
                 }
             }
         }

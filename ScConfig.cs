@@ -405,6 +405,13 @@ namespace SurvivorCommunity
         /// behind them.
         /// </summary>
         public static bool RaiderVanillaDoors = false;
+        /// <summary>
+        /// Player turrets shoot raiders as enemies (M10 round 3): the powered auto turret with "target zombies" on, the junk
+        /// turret and junk sledge with "target enemies" on, as they shot the old EntityEnemy raiders; a motion sensor with
+        /// "target zombies" on trips on them. Raiders are EntityNPCs on this body, which turrets and sensors otherwise only
+        /// take with "target strangers" on (vanilla's and SCore's rule, which stays either way).
+        /// </summary>
+        public static bool RaiderTurretsAsEnemies = true;
         /// <summary>The vanilla armor sets raiders roll their clothes from (M10-D7); empty = SurvivorGearSets.</summary>
         public static readonly List<string> RaiderGearSets = new List<string>();
         public static int TraitsPerRecruit = 2;
@@ -494,6 +501,7 @@ namespace SurvivorCommunity
             RaiderLevelRegen = false;
             RaiderWeaponDropChance = 0.25f;
             RaiderVanillaDoors = false;
+            RaiderTurretsAsEnemies = true;
             RaiderGearSets.Clear();
             OutpostMinDistance = 150;
             OutpostMax = 4;
@@ -867,6 +875,9 @@ namespace SurvivorCommunity
                 bool raiderDoors = RaiderVanillaDoors;
                 if (p.Values.ContainsKey("RaiderVanillaDoors")) p.ParseBool("RaiderVanillaDoors", ref raiderDoors);
                 RaiderVanillaDoors = raiderDoors;
+                bool raiderTurrets = RaiderTurretsAsEnemies;
+                if (p.Values.ContainsKey("RaiderTurretsAsEnemies")) p.ParseBool("RaiderTurretsAsEnemies", ref raiderTurrets);
+                RaiderTurretsAsEnemies = raiderTurrets;
                 bool verbose = Verbose;
                 if (p.Values.ContainsKey("DebugLogging")) p.ParseBool("DebugLogging", ref verbose);
                 Verbose = verbose;
@@ -917,7 +928,8 @@ namespace SurvivorCommunity
                           + " (melee-lead to ranged beyond " + RaiderLeadRangedDist + "m for " + RaiderLeadRangedSeconds + "s)"
                           + " firearm " + RaiderFirearmChance + " ammo " + RaiderSpawnAmmo + "/" + RaiderSpawnArrows
                           + " levels=" + (RaiderXnpcLevels ? (RaiderLevelRegen ? "on" : "on, no regen") : "off") + " drop " + RaiderWeaponDropChance
-                          + " vanillaDoors=" + RaiderVanillaDoors + " gearSets=" + (RaiderGearSets.Count > 0 ? RaiderGearSets.Count.ToString() : "survivors'"));
+                          + " vanillaDoors=" + RaiderVanillaDoors + " turretsAsEnemies=" + RaiderTurretsAsEnemies
+                          + " gearSets=" + (RaiderGearSets.Count > 0 ? RaiderGearSets.Count.ToString() : "survivors'"));
             }
             catch (Exception e)
             {

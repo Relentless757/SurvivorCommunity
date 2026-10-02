@@ -1277,7 +1277,8 @@ namespace SurvivorCommunity
         /// sc raiders [r] - every living raider (SC's raider classes on XNPC's body, M10) within r metres (40): id, name,
         /// class, its pair and lead, the rounds left for its gun (bag plus magazine; never resupplied), its XNPC level, its
         /// attack and revenge targets, vanilla's door flag, what it holds, the lead rule's state, its health, distance and
-        /// speed. The M10 probes read this line.
+        /// speed, what killing it pays (kill XP from the pair, round 3) and its map marker (sleeper or not). The M10 probes
+        /// read this line.
         /// </summary>
         private static void RaidersCmd(List<string> p)
         {
@@ -1309,7 +1310,9 @@ namespace SurvivorCommunity
                        + " level " + level + " target " + Who(e.GetAttackTarget()) + " revenge " + Who(e.GetRevengeTarget())
                        + " canOpenDoors " + (e.moveHelper != null && e.moveHelper.CanOpenDoors)
                        + " holding " + (held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : "nothing")
-                       + " " + ScArms.LeadState(e) + " hp " + e.Health + "/" + e.GetMaxHealth() + " at " + dist.ToString("0.#") + " m speed " + e.GetVelocityPerSecond().magnitude.ToString("0.0") + " m/s");
+                       + " " + ScArms.LeadState(e) + " hp " + e.Health + "/" + e.GetMaxHealth() + " at " + dist.ToString("0.#") + " m speed " + e.GetVelocityPerSecond().magnitude.ToString("0.0") + " m/s"
+                       + " killXp " + ScLoadout.KillXp(e) + " (" + ScLoadout.RaiderXpCvar + " " + (e.Buffs != null ? e.Buffs.GetCustomVar(ScLoadout.RaiderXpCvar).ToString("0.##") : "-") + ")"
+                       + " marker " + (e.NavObject != null ? "on" : "off") + (e.IsSleeper ? " (sleeper)" : ""));
             }
             Output("[SC] " + n + " raider(s) within " + r + " m" + (dead > 0 ? " (" + dead + " dead)" : ""));
         }

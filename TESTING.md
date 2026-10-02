@@ -25,6 +25,149 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## M10 round 3: the remote-window guard, turrets, clear-sleeper markers and kill XP for raiders
+
+**Deployed 2026-10-02** (DLL md5 `87350de60369fff5de5323875b1d88dc`, 563712 bytes; Fable review fixes F1-F4 included,
+re-check: no defects). Config changes: `blocks.xml` (the `RaiderTurretsAsEnemies` key) and the generated
+`entityclasses.xml` (the raider templates' `NavObject` and kill XP passive). A world made with round 2 is fine (raiders pick up the XP and the marker when they next load).
+Design: DESIGN_M10_RAIDERS.md sections 5, 1.1 ("Player turrets", "NavObject"), 2.9 and 3.12; review
+`fable_review_m10r3.md`.
+
+What changed:
+- **A remote player's open NPC inventory window holds things still** (design section 5; dedicated server, or another
+  player on a listen server). SCore sends such a player a copy of the window and, when they close it, writes their copy
+  back over every slot. Until now the host went on moving ammo out of the window into the NPC's bag (and the NPC on
+  using bandages from it) while they had it open, so the close brought those items back: duplicated. Now the server
+  marks the window when the request comes in and lets go when the close comes in (then moves the ammo left in it at
+  once), when the player disconnects, or 10 minutes after the open if no close ever comes. While it is marked nothing
+  is moved out of it, ScMedic neither uses nor stocks anything in it, and a weapon handed over through the dialog's
+  weapon menu (or Voice Control's "use") is not kept in the pair (review F2). The last two also wait while the host has
+  the window open on their own screen (SC's writes to a window never refreshed an open grid). Two new targets: SCore's
+  `NetPackageHarvestInventoryRequest::ProcessPackage` and `NetPackageHarvestInventoryUpdate::ProcessPackage`.
+  Note: on a dedicated server SC's once-a-second ticker does not run (it needs a local player), so the members' 5 s
+  window-to-bag move only exists in single player and on a listen server; there the guard's work is the medical hold,
+  the swap hold and the move on close.
+- **An NPC that dies while its window is open** (review F1): its items no longer drop while the same items can still
+  be dragged out of the open grid. The host's own grid (single player, listen host) is closed at the death, and the
+  items go into the one death backpack. A remote player's grid cannot be closed from the server: the bag and the
+  weapons drop at once, the window stays, and when its last holder closes it (or disconnects, or the 10 minutes run
+  out, or the world shuts down) what is left drops in a second backpack at the same spot. A copy closed after the
+  window has already dropped is thrown away, so no container is left behind for the dead id.
+- **Turrets shoot raiders, motion sensors trip on them** (`RaiderTurretsAsEnemies`, default true; X10): the powered
+  auto turret with "target zombies" on and the junk turret (and junk sledge) with "target enemies" on shoot raiders, as
+  they shot the old raiders, and a motion sensor with "target zombies" on trips on them (review F4). With the key
+  false, only "target strangers" makes them react to raiders (vanilla's and SCore's rule, which stays in both cases).
+  Survivors, members, traders and 0-XNPCCore's own NPCs are never affected. Three new targets: the turrets' and the
+  sensor's `shouldIgnoreTarget`.
+- **Clear-sleeper markers** (X11): raiders get the old raiders' `NavObject` (`twitch_spawn,twitch_spawn_other,
+  clear_sleeper`), registered the vanilla way (SCore's V4 registers a marker only for a companion), once per raider
+  (review F3). A sleeper raider inside your clear quest's area shows the red dot, like a zombie; a wild one shows
+  nothing. New target: `EntityAliveSDXV4::HandleNavObject`.
+- **Kill XP from the pair** (design 2.9): 600, raised by the raider's ranged weapon - a bow or crossbow +33% (tier 0,
+  798) or +67% (tier 1-2, 1002), a firearm +50% / +100% / +133% (tier 0 / 1 / 2: 900 / 1200 / 1398). Written as the
+  cvar `sc_raiderXp` on every load from the pair (saved with the raider); the raider classes' `ExperienceGain perc_add
+  @sc_raiderXp` reads it. The lead does not count (a melee-lead raider still has its gun).
+- Console: `sc raiders` shows `killXp <n> (sc_raiderXp <bonus>)` and `marker on|off (sleeper)`; `sc xnpc <id>` ends its
+  `resupply:` line with `window open remotely: none | player <id> for <n> s`; the `sc xnpc` ammo line ends with
+  `inventory windows open by remote players now <n>, dead NPCs' windows waiting for them to close <n>`; the hooks line
+  has `x10-turret-raider-target`, `x10-sensor-raider-target`, `x11-raider-navobject` and `window-remote-open` /
+  `-close` / `-expired` / `-disconnect`, `window-move-held`, `window-medic-held`, `window-swap-held`,
+  `window-death-host-closed`, `window-death-held`, `window-death-released`, `window-dead-orphan-removed` (each counted
+  once it happens).
+
+- [ ] **Startup:** `patch verification: all 68 targets patched` (61 without Voice Control), no `MISSING PATCH`, no
+      `... not found (game or SCore update?)` / `... not found (SCore update?)` line; the config line ends with
+      `vanillaDoors=False turretsAsEnemies=True gearSets=9`. On the dedicated server's log too (P15).
+- [ ] **P10 kill XP:** `sc spawn hostile male T1 PrimitiveBow club melee-lead` and `sc spawn hostile male T3 Magnum club
+      melee-lead`. `sc raiders`: `killXp 798 (sc_raiderXp 0.33)` and `killXp 1398 (sc_raiderXp 1.33)`. Kill both with the
+      same weapon: the XP popups say 798 and 1398 (times your world's XP multiplier; a perk that scales kill XP scales
+      both alike). Spot-check the others the same way: `LBow` or `CompoundBow` 1002, `PipePistol` 900, `DoubleBarrel`
+      1200. `sc loadout <id> Magnum` on the bow raider: its `killXp` turns 1398 at once. Save and reload with a console
+      raider alive: the same `killXp`. A raider that bleeds to death after your hit (a bladed weapon) pays the same as a
+      direct kill. A wild survivor you kill pays 0-XNPCCore's 500 as before.
+- [ ] **P13 turrets, key on (default):** place a junk turret and a powered auto turret. Set "target strangers" OFF and
+      "target enemies" (junk) / "target zombies" (auto) ON. `sc spawn hostile male T1 club melee-lead` in front of each:
+      the turret shoots the raider until it dies; `sc xnpc` hooks line `x10-turret-raider-target` rises. Behind a turret
+      (outside its cone) or dead: not shot. A wild survivor (`sc spawn`), a member, a vanilla trader and one of
+      0-XNPCCore's own NPCs (creative menu `npcSdcsTest`) in front of the same turret: never shot, and `x10` does not
+      move. Enemies / zombies OFF and strangers OFF: the raider is not shot. Strangers ON (either key value): shot
+      (SCore's rule). Optional: a junk sledge with "target enemies" on hits a raider that walks up to it.
+- [ ] **Motion sensor (F4), key on:** a powered motion sensor wired to a light (or a spike/dart trap), "target zombies"
+      ON, "target strangers" OFF. A raider walking into its cone trips it (the light comes on);
+      `x10-sensor-raider-target` rises. A wild survivor or a member in the cone does not trip it. Zombies OFF and
+      strangers OFF: the raider does not trip it either.
+- [ ] **P13 turrets and sensor, key off:** `RaiderTurretsAsEnemies` false in `Config/blocks.xml`, load the world again
+      (the config line says `turretsAsEnemies=False`): with strangers OFF and enemies / zombies ON a raider is NOT shot,
+      does not trip the sensor, and both `x10` counters stay 0; with strangers ON it is shot and trips it.
+- [ ] **Clear-sleeper markers:** `sc raiders` shows `marker on` for every live raider, and the `sc xnpc` hooks line's
+      `x11-raider-navobject` counts one per raider loaded this session (never two for one raider); no error when a
+      raider dies or its chunk unloads. A follower you hired the vanilla way still has its cyan companion marker; a wild
+      survivor still has none. The red dot itself needs a sleeper raider inside a clear quest's area: no installed POI
+      spawns NPC sleepers today (W0 swaps raiders into the framework's `S_-Group_NPC_*` volumes, which only an NPC POI
+      pack uses), so check it when such a POI is available - its sleeper raiders show the dot like the zombies and lose
+      it when they die.
+- [ ] **F1, the host's own window (single player or the listen host):** open a member's inventory window that holds,
+      say, 2 bandages and 20 arrows, and kill the member with the window still open (`kill <id>` in the F1 console over
+      the window, or let zombies at it while you watch the grid): the window closes at once; one backpack at the body
+      holds the window's items and the bag's; nothing is left to drag out. `sc xnpc` hooks: `window-death-host-closed`
+      +1, `window-death-held` 0. Hitting the corpse again drops nothing more.
+- [ ] **F1, a remote player's window (dedicated server or listen client; see P15 for the setup):** the client opens the
+      survivor's window (2 bandages, 20 arrows in it) and keeps it open; kill it from the server console
+      (`dedi_cmd.ps1 -Command "kill <id>"`). The client's grid stays open (it is a copy); a first backpack drops at the
+      body with the bag's contents only (its ammo); the server logs `<name> (id <id>) died with their
+      inventory window open - its contents drop at the body once it is closed`, `window-death-held` +1, and the `sc xnpc`
+      ammo line says `dead NPCs' windows waiting for them to close 1`. Take one bandage out of the grid, then close: a
+      second backpack drops at the same spot with the other bandage and the 20 arrows - never the bandage you took;
+      `window-death-released` +1, `... waiting ... 0`, log `... the inventory window left open at their death was
+      closed - 2 stack(s) dropped at the body`. Hitting the corpse again drops nothing.
+      Variants: kill it, then quit the client: the second backpack drops at once (`window-remote-disconnect` +1). Kill
+      it and keep the grid open over 10 minutes: the window drops within a second of the mark expiring
+      (`window-remote-expired`); closing afterwards drops nothing more and leaves no container behind
+      (`window-dead-orphan-removed` +1) - only what you take from the still-open grid after those 10 minutes is a
+      duplicate (the accepted trade-off of the 10-minute rule).
+- [ ] **P15 remote window guard (dedicated server, client + server):** the server's `Mods` needs the same 0-SCore,
+      0-XNPCCore and SurvivorCommunity (this build) as the client (it holds only the Grid Inventory test set today);
+      a fresh `GameName`; `DebugLogging` true in SC's `blocks.xml` on the server for the `remote window:` lines. Server
+      console: `dedi_cmd.ps1 -Command "sc xnpc"` / `"sc xnpc <id>"` (`le` lists entity ids). Use one of the community's
+      0-XNPCCore survivors whose dialog offers its inventory (hire one the vanilla way, or a member if you have one):
+      - Open its inventory and keep it open: the server's `sc xnpc <id>` says `window open remotely: player <your id> for
+        <n> s`, the hooks line `window-remote-open=1`, the log `remote window: player ... opened NPC ...'s inventory`.
+      - Medical hold: leave exactly 2 first aid bandages in its window (no kit) and close. Hurt it hard, to about a third
+        of its health (a heavy hit or a zombie): it uses one bandage, which is not enough to lift it above 60%. Open its
+        window right away and keep it open 30 s: it does NOT use the second one, even after the first one's healing has
+        run out (about 15 s; `sc xnpc <id>` medic line `idle`, `bandages=1`; `window-medic-held` rising). Close: within
+        about 2 s it uses the second. Open again: no bandage left - not 1 (1 would be the duplicate).
+      - Ammo on close: put 20 rounds of its ranged weapon's ammo (stone arrows for a bow) in its window and close: at
+        once `window-remote-close` +1 and the `ammo:` line of `sc xnpc <id>` (while it holds that weapon) shows them
+        under `bag`, `window 0`; reopen: they are not in the window.
+      - Disconnect: open its window and quit the game (Task Manager end-task, or `taskkill /F` for a real crash): the
+        server's hooks line `window-remote-disconnect` +1, `sc xnpc <id>` says `window open remotely: none`, and
+        `window-medic-held` stops rising. (What you took out of the window before a crash is SCore's business: it never
+        got your copy back.)
+      - Optional, long: leave a window open over 10 minutes: the server logs `... never closed it - taken as closed`
+        (`window-remote-expired`) and it bandages again (only then could a later close bring an item back).
+- [ ] **P15 on a listen server (host + one client):** the same rows with the host as the server and the second player
+      as the remote one - a member is easy there (`sc recruit` on the host). The host's own opens are never counted
+      (`window-remote-open` stays 0 for them; they use the window's own open flag, as before). Members only, which
+      needs the host's ticker: with the client holding the member's window open and arrows in it, wait 15 s - nothing
+      moves (`window-move-held` rising every 5 s); the client takes 5 out and closes: the other 15 go to its bag at
+      once, the client has exactly the 5, and reopening shows none.
+- [ ] **F2, the weapon menu under a remote open (listen server: host + one client):** the client opens a member's
+      window and puts a weapon from `sc weapons` in it; while the client keeps the window open, the host picks that
+      weapon in the member's dialog weapon menu ("Use ..."): the host's log says `<name>: could not keep the handed
+      <weapon> (someone has their inventory window open - try again once it is closed)`, `window-swap-held` +1, the
+      member just holds it, nothing comes back to you, and `sc loadout <name>` is unchanged. After the client closes,
+      the same pick keeps the weapon and returns the old one as before.
+- [ ] **Host's own open (single player):** the P15 medical-hold steps on your own screen: 2 first aid bandages in a
+      member's window, hurt it to about a third of its health, it uses one; open its window right away and keep it
+      open 30 s: it does not use the second (`window-medic-held` rising; the grid shows 1 and that is the truth);
+      close: it uses it within about 2 s; reopen: none left.
+- [ ] **Regression:** single player: `window-remote-*`, `window-move-held`, `window-swap-held` and `window-death-held`
+      stay 0; a member's window -> bag move after you close its window, a survivor's bandage from its window (window
+      closed) and the weapon menu work as before; a member who dies with nobody looking drops one backpack (window and
+      bag) as before; no talk prompt on raiders (X9); raiders still fight, drop their backpack and count in `sc xnpc`
+      (round 1's P1/P8 in brief).
+
 ## M10 round 2: the old player-body shim removed, no talk prompt on raiders
 
 **Deployed 2026-10-01** (DLL md5 `6ec3b3ae915059de861c6db6fba0576b`; Fable review: no defects, a doc fix applied). **Needs a new game**, as round 1.
@@ -42,8 +185,8 @@ What changed:
   refused for a raider body, so no "Press E to talk", no radial and nothing on E.
 - The old-save warning (M9) says that raiders saved before M10 are gone too.
 
-- [ ] **Startup:** `patch verification: all 62 targets patched` (55 without Voice Control), no `MISSING PATCH`, no
-      `patched an unlisted method`, no `EntityTrader.AllowActivationCommand ... not found`.
+- [ ] **Startup:** `patch verification: all 62 targets patched` (55 without Voice Control; 68 / 61 since round 3), no
+      `MISSING PATCH`, no `patched an unlisted method`, no `EntityTrader.AllowActivationCommand ... not found`.
 - [ ] **Talk prompt, raider:** look at a raider up close: no "Press E to talk to <name> the Raider", and E does nothing
       (no radial, no "sworn enemy" tooltip). `sc xnpc`: the hooks line's `x9-raider-talk-refused` counts up while you
       look at one. Same with the debug menu on (vanilla's debug "remove" command no longer keeps the prompt alive).
@@ -58,8 +201,8 @@ What changed:
       knocked down (sledge power attack) she gets up on the spot without floating, P16 a bandage from her window with
       the animation, P17 the aim pose in a ranged fight (`sc aim <id>`: stamps rising, state `aiming`).
 - [ ] **Raider regressions:** round 1's P12 (faces, feet on the ground, eyes in place, `x8-self-hit-guard` counting),
-      a firearm raider raises its gun (it only fires once Locked & Loaded lets NPCs reload; see LnL_NPC_Reload_Handoff.md in the
-      game folder), a hurt raider bandages from its bag.
+      a firearm raider raises its gun and fires (needs Locked & Loaded 1.3.1 or later, which lets NPCs reload), a hurt
+      raider bandages from its bag.
 - [ ] **Dev core:** `core SurvivorCommunityDev ragpin off` then `ragpin on` answer `ragdoll pin cancel is OFF` / `ON`
       (not "not loaded"), and `ragfix off` / `ragfix on` answer `ragdoll-as-player is OFF` / `ON`.
 - [ ] **Items:** the creative menu has no `NPCSC` weapons any more; the log has no item or localization error about them.

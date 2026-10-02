@@ -17,7 +17,11 @@
 	     that nothing hands them XNPC's endlessly refilled 9 mm if the DLL cannot arm them; the DLL rewrites it.
 	     no_voice keeps Voice Control off them; npc and human give them SCore's door opener (unlocked doors).
 	     BagItems none builds an empty bag (their ammo and meds live there); HarvestItems none gives them no inventory
-	     window. LandMineImmunity 0 undoes npcSdcsBase's 1. Speeds are literal m/s on this body. -->
+	     window. LandMineImmunity 0 undoes npcSdcsBase's 1. Speeds are literal m/s on this body.
+	     NavObject: the old raiders' map markers (the red dot of a sleeper inside a clear quest); the DLL registers them
+	     for a raider body, which SCore's EntityAliveSDXV4 does only for a companion. Kill XP: ExperienceGain 600 (the old
+	     melee raider's), raised by the cvar sc_raiderXp the DLL writes from the pair's ranged weapon: a bow
+	     798 or 1002, a firearm 900, 1200 or 1398 by tier. -->
 	<append xpath="/entity_classes">
 
 		<entity_class name="scRaiderTemplate" extends="npcSdcsBase">
@@ -34,6 +38,7 @@
 			<property name="HarvestItems" value="none"/>
 			<property name="ExperienceGain" value="600"/>
 			<property name="Titles" value="Raider"/>
+			<property name="NavObject" value="twitch_spawn,twitch_spawn_other,clear_sleeper"/>
 			<property class="ItemsOnEnterGame">
 				<property name="GameModeSurvival" value="meleeWpnClubT0WoodenClub"/>
 				<property name="GameModeSurvivalSP" value="meleeWpnClubT0WoodenClub"/>
@@ -44,6 +49,7 @@
 			</effect_group>
 			<effect_group name="SurvivorCommunity raider">
 				<passive_effect name="LandMineImmunity" operation="base_set" value="0"/>
+				<passive_effect name="ExperienceGain" operation="perc_add" value="@sc_raiderXp"/>
 			</effect_group>
 		</entity_class>
 		<entity_class name="scRaiderMaleT1" extends="scRaiderTemplate">
@@ -82,6 +88,7 @@
 			<property name="HarvestItems" value="none"/>
 			<property name="ExperienceGain" value="600"/>
 			<property name="Titles" value="Raider"/>
+			<property name="NavObject" value="twitch_spawn,twitch_spawn_other,clear_sleeper"/>
 			<property class="ItemsOnEnterGame">
 				<property name="GameModeSurvival" value="meleeWpnClubT0WoodenClub"/>
 				<property name="GameModeSurvivalSP" value="meleeWpnClubT0WoodenClub"/>
@@ -92,6 +99,7 @@
 			</effect_group>
 			<effect_group name="SurvivorCommunity raider">
 				<passive_effect name="LandMineImmunity" operation="base_set" value="0"/>
+				<passive_effect name="ExperienceGain" operation="perc_add" value="@sc_raiderXp"/>
 			</effect_group>
 		</entity_class>
 		<entity_class name="scRaiderFemaleT1" extends="scRaiderFemaleTemplate">

@@ -337,7 +337,13 @@
 			     RaiderVanillaDoors: true also gives raiders the vanilla bandits' door opener (no pause at a door, but the
 			     door is left open); false leaves them SCore's opener alone, which opens unlocked doors and shuts them
 			     again. Locked doors stop raiders either way.
-			     RaiderGearSets: the vanilla armor sets raiders dress in (empty: SurvivorGearSets). -->
+			     RaiderTurretsAsEnemies: true makes your turrets shoot raiders as the enemies they are, as they shot the
+			     old raiders: the powered auto turret with "target zombies" on, the junk turret and junk sledge with
+			     "target enemies" on; and a motion sensor with "target zombies" on trips on them. False: only "target
+			     strangers" makes a turret or sensor react to them (survivors and traders are never affected).
+			     RaiderGearSets: the vanilla armor sets raiders dress in (empty: SurvivorGearSets).
+			     Not a key: killing a raider pays 600 XP, more for a better ranged weapon (a bow 798 or 1002, a firearm
+			     900, 1200 or 1398 by tier), and a sleeper raider shows the clear-quest dot like a zombie. -->
 			<property name="XnpcRaiderClasses" value="scRaiderMaleT1,scRaiderMaleT2,scRaiderMaleT3,scRaiderFemaleT1,scRaiderFemaleT2,scRaiderFemaleT3" />
 			<property name="RaiderRangedShare" value="0.3,0.4,0.5" />
 			<property name="RaiderLeadRangedDist" value="8" />
@@ -349,6 +355,7 @@
 			<property name="RaiderLevelRegen" value="false" />
 			<property name="RaiderWeaponDropChance" value="0.25" />
 			<property name="RaiderVanillaDoors" value="false" />
+			<property name="RaiderTurretsAsEnemies" value="true" />
 			<property name="RaiderGearSets" value="Raider,Biker,Enforcer,Assassin,Rogue,Commando,Nomad,Scavenger,Primitive" />
 
 			<property name="DebugLogging" value="false" />

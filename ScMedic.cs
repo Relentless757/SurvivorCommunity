@@ -24,7 +24,9 @@ namespace SurvivorCommunity
     /// 3P_Bandage_Hold and 3P_Bandage_Use for medical items, verified live), and when that animation finishes the
     /// item's onSelfPrimaryActionEnd effects fire on the NPC and the weapon goes back in the hand. Interrupted by a
     /// knockdown, the weapon comes back and the item returns to the inventory. You can also hand a survivor medical
-    /// items and they will use those.
+    /// items and they will use those. While anyone has a survivor's inventory window open (the host, or a remote player:
+    /// ScAmmo.IsWindowOpen) the survivor neither stocks nor uses anything from it, since the open grid would not show the
+    /// change, or the copy written back on close would undo it.
     ///
     /// Decision D7: items only, with the bandage animation. XNPC heals its own bodies through a different buff,
     /// SdcsIsHealing (added by its class buff SdcsStatusCheck: for free with no leader, from a medical item without an
@@ -114,6 +116,11 @@ namespace SurvivorCommunity
             nextCheck[e.entityId] = now + CheckEvery;
             if (e.IsDead() || e.Health <= 0 || e.Buffs == null) return;
             if (GameManager.Instance == null || GameManager.Instance.gameStateManager == null || !GameManager.Instance.gameStateManager.IsGameStarted()) return;
+            // its inventory window is open (ScAmmo.IsWindowOpen): a remote player's copy is written back over every slot
+            // when they close it, and even the host's own grid is not told about a change, so a bandage taken out now
+            // could be had twice and one stocked now could be lost - both wait for the close (raiders keep theirs in the
+            // bag, never held)
+            if (ScNpc.UsesWindow(e) && ScAmmo.IsWindowOpen(e.entityId)) { Patches_Xnpc.Count("window-medic-held"); return; }
             if (!e.world.IsRemote() && e.Buffs.GetCustomVar(StockedCvar) <= 0f) Stock(e);
             TryHeal(e, now);
         }

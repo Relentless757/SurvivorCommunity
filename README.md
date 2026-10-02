@@ -341,7 +341,9 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   keep 0-XNPCCore's levels, and a member who leaves gets them back.
 - **Runners on 0-XNPCCore bodies** run at `RunnerRunMps` (4.5 m/s) and walk at `RunnerWalkMps` (1.6 m/s) in the
   world, in literal metres per second, with Cardio, hunger and injury applied on top.
-- **A member's inventory window** (their ammo and medical stock) drops as a backpack where they die.
+- **A member's inventory window** (their ammo and medical stock) drops as a backpack where they die. If you have it
+  open then, it closes; if another player has it open, its contents drop at the body in a second backpack once they
+  close it (or leave the game), so nothing in it can be taken twice.
 - **Raiders (M10): the survivors' body, hostile.** Raiders are six classes on 0-XNPCCore's player body, the same
   body as the survivors: `scRaider{Male,Female}T{1,2,3}`, the tier being the band they turned up in (T1 early, T2
   middle, T3 late). They are hostile by class (the `bandits` faction, which hates you, your survivors and the
@@ -351,7 +353,10 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   going to look when they hear you). Voice Control leaves them alone (`no_voice`). They get this mod's faces and
   rougher clothes (`RaiderGearSets`), names like "Rook the Raider", items-only healing, the aim pose, and no
   0-XNPCCore kill levels (`RaiderXnpcLevels` false). They open unlocked doors (SCore's opener, which shuts them
-  again; `RaiderVanillaDoors` adds the vanilla one); locked doors stop them.
+  again; `RaiderVanillaDoors` adds the vanilla one); locked doors stop them. Your turrets shoot them as enemies, as
+  they shot the old raiders: the powered auto turret with "target zombies" on, the junk turret and junk sledge with
+  "target enemies" on, and a motion sensor set to "target zombies" trips on them (`RaiderTurretsAsEnemies`; false
+  leaves only "target strangers", and survivors, members and traders are never affected). A raider spawned as a sleeper shows the red dot of a clear quest, like a zombie.
 - The raider classes, the spawn groups, the `XnpcWeapons` list and their names are **generated** by
   `Tools/gen_arsenal.py` from one table; edit the table and rerun it rather than the XML. `Tools/verify_arsenal.py`
   replays the framework's and this mod's patches and checks every class, AI package, archetype, spawn-group entry,
@@ -370,7 +375,10 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
     body the community re-creates for them (a call-back, a stand-in, a runner) carries the same two.
   - **Ammo is finite.** A new survivor starts with `XnpcSpawnAmmo` (30) rounds of its gun's basic ammo, or
     `XnpcSpawnArrows` (20) arrows or bolts, in the inventory window you see when you open them, and what it shoots
-    is gone. Hand them more through that window whenever you like.
+    is gone. Hand them more through that window whenever you like. (Ammo put in the window moves to their bag, where a
+    bow can shoot it from, within a few seconds - but never while anyone has the window open, in multiplayer too, so
+    nothing in it can be taken twice. On a dedicated server it moves when the window is closed. While the window is
+    open they also don't bandage or swap weapons from it.)
   - **The stockpile refills members - only at home or at an outpost.** A member (or a posted member's stand-in)
     whose gun is down to fewer than `XnpcResupplyBelow` (10) rounds while standing inside the base's claim or at one
     of your outposts gets `XnpcResupplyAmmo` (30) rounds, or `XnpcResupplyArrows` (20) arrows or bolts, from the
@@ -406,7 +414,9 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
     `RaiderSpawnAmmo` (24) rounds or `RaiderSpawnArrows` (15) arrows or bolts in its bag and is **never resupplied**:
     once the gun is dry it fights with its melee weapon. When it dies it drops a
     backpack with its leftover ammo and medical items, and each of its two weapons is in it `RaiderWeaponDropChance`
-    (25%) of the time. The rocket launcher is never rolled.
+    (25%) of the time. The rocket launcher is never rolled. Killing one pays 600 XP, more the better its ranged
+    weapon: a bow or crossbow 798 (tier 0) or 1002, a firearm 900, 1200 or 1398 (tier 0, 1, 2) - the old raiders'
+    range (before party and difficulty scaling; `sc raiders` shows each one's `killXp`).
   - `sc loadout <name>` shows the pair and `sc loadout <name> <weapon> [weapon]` changes it (vanilla item names or
     their short names; `ranged-lead` / `melee-lead` for a raider; `sc weapons` lists them), `sc loadout near [r]` lists the pairs
     around you, `sc arms <name> melee|ranged` switches by hand. How: the NPC's own starting-item list gets both
@@ -521,7 +531,9 @@ A full game restart is needed after editing `Config/Localization.csv`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
 - Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
-  all 62 targets patched` with Voice Control loaded, 55 without; a `MISSING PATCH` line names one that did not
+  all 68 targets patched` with Voice Control loaded, 61 without; a `MISSING PATCH` line names one that did not
   bind). Among them
   `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
-  `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests).
+  `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests), the two turrets'
+  and the motion sensor's target filters and `EntityAliveSDXV4.HandleNavObject` (raiders), and SCore's two NPC
+  inventory packages (`NetPackageHarvestInventoryRequest` / `...Update`: a remote player's open window).

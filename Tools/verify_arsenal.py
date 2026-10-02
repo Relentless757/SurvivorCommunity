@@ -107,6 +107,21 @@ for label, path in (("0-SCore", G_SCORE + r"\npc.xml"), ("0-XNPCCore", XNPC + r"
     if os.path.exists(path): apply(npcx, path, label + " npc")
 npc_ids = set(e.get("id") for e in npcx.getroot().iter("npc_info"))
 archetypes = set(e.get("name") for e in load(G + r"\Data\Config\archetypes.xml").getroot().iter("archetype"))
+# M10 round 3: the map markers (NavObject, registered by the DLL's X11) and the kill XP from the pair (the passive reads
+# the cvar the DLL writes: gen_arsenal.py RAIDER_XP_CVAR must be ScLoadout.RaiderXpCvar, read from the source when the
+# Tools folder sits in the mod's source tree)
+nav_classes = set(e.get("name") for e in load(G + r"\Data\Config\nav_objects.xml").getroot().iter("nav_object_class"))
+raider_nav = _gen_const("RAIDER_NAV_OBJECT")
+raider_xp = _gen_const("RAIDER_XP_CVAR")
+if not raider_nav: errors.append("gen_arsenal.py has no RAIDER_NAV_OBJECT")
+if not raider_xp: errors.append("gen_arsenal.py has no RAIDER_XP_CVAR")
+_loadout_cs = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ScLoadout.cs")
+if os.path.exists(_loadout_cs):
+    m_ = re.search(r'public const string RaiderXpCvar = "([^"]*)";', io.open(_loadout_cs, encoding="utf-8").read())
+    if not m_: errors.append("ScLoadout.cs has no RaiderXpCvar constant")
+    elif m_.group(1) != raider_xp: errors.append("ScLoadout.RaiderXpCvar %r is not gen_arsenal.py's RAIDER_XP_CVAR %r" % (m_.group(1), raider_xp))
+    else: print("  kill XP cvar %s matches ScLoadout.RaiderXpCvar" % raider_xp)
+else: print("  note: no ScLoadout.cs next to Tools - RAIDER_XP_CVAR not compared with the DLL's constant")
 for n in leaves:
     male = "Female" not in n
     cls = resolved(n, "Class") or ""
@@ -126,6 +141,18 @@ for n in leaves:
     if len(chain_groups(n, "SurvivorCommunity worn armor scale")) != 1: errors.append(n + ": not exactly one 'SurvivorCommunity worn armor scale' group")
     lm = [pe.get("value") for g_ in chain_groups(n, "SurvivorCommunity raider") for pe in g_.xpath("passive_effect[@name='LandMineImmunity']")]
     if lm != ["0"]: errors.append("%s: LandMineImmunity in the raider group is %s, want one base_set 0" % (n, lm))
+    # kill XP: base 600, and exactly one ExperienceGain passive along the chain, the raider group's perc_add of the cvar
+    if resolved(n, "ExperienceGain") != "600": errors.append("%s: ExperienceGain %s, want 600 (the pair's bonus is on top)" % (n, resolved(n, "ExperienceGain")))
+    xpe = [(pe.get("operation"), pe.get("value")) for c in chain(n) for g_ in names[c].xpath("effect_group") for pe in g_.xpath("passive_effect[@name='ExperienceGain']")]
+    xpr = [(pe.get("operation"), pe.get("value")) for g_ in chain_groups(n, "SurvivorCommunity raider") for pe in g_.xpath("passive_effect[@name='ExperienceGain']")]
+    if xpr != [("perc_add", "@%s" % raider_xp)] or len(xpe) != 1:
+        errors.append("%s: ExperienceGain passives %s (raider group %s), want only one perc_add @%s" % (n, xpe, xpr, raider_xp))
+    # map markers: the old raiders' NavObject, every class a vanilla nav_object_class (an unknown one is skipped silently)
+    nav = resolved(n, "NavObject") or ""
+    if nav != raider_nav: errors.append("%s: NavObject %r, want %r" % (n, nav, raider_nav))
+    for nc in [x.strip() for x in nav.split(",") if x.strip()]:
+        if nc not in nav_classes: errors.append("%s: NavObject class %s is not in vanilla nav_objects.xml" % (n, nc))
+    if "clear_sleeper" not in nav.split(","): errors.append(n + ": NavObject lacks clear_sleeper (the clear-quest dot)")
     if resolved(n, "Archetype") not in archetypes: errors.append("%s: Archetype %s is not a vanilla archetype (EModelSdcsNpc builds no model)" % (n, resolved(n, "Archetype")))
     if resolved(n, "NPCID") not in npc_ids: errors.append("%s: NPCID %s has no npc_info" % (n, resolved(n, "NPCID")))
     if (resolved(n, "IsMale") == "true") != male: errors.append(n + ": IsMale does not match the name")
@@ -135,7 +162,8 @@ for n in leaves:
     for x in [t.strip() for t in loadout.split(",") if t.strip()]:
         if x not in items: errors.append("%s: ItemsOnEnterGame item %s does not exist" % (n, x))
     cnt[("hostile", resolved(n, "Archetype"))] += 1
-print("  raider classes checked: %d leaves, %d templates (%d AI packages defined)" % (len(leaves), len(templates), len(packages)))
+print("  raider classes checked: %d leaves, %d templates (%d AI packages defined; NavObject %s; kill XP 600 + @%s)" % (
+    len(leaves), len(templates), len(packages), raider_nav, raider_xp))
 # XNPCCore migration M3: 0-XNPCCore's own survivors carry SC's look, armor scale, names and no preset bag or stock
 # (gen_arsenal.py XNPC_SURVIVOR_OPS), every one of them, exactly once
 xnpc_survivors = _gen_const("XNPC_SURVIVORS") or []

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
+using HarmonyLib;
 using UnityEngine;
 
 namespace SurvivorCommunity
@@ -40,6 +42,16 @@ namespace SurvivorCommunity
     /// SC's raiders on the same body (M10-D2) get a starting stack in the bag too (RaiderSpawnAmmo / RaiderSpawnArrows,
     /// ScLoadout.AfterPostInit) and nothing ever again: Tick walks members only, and a raider has no record. What is left
     /// goes into the backpack it drops (Patches_Npc).
+    ///
+    /// A remote player's open inventory window (M10 round 3, design section 5). Ammo left in the window moves to the bag
+    /// (MoveWindowAmmoToBag), never while somebody has the window open. The host's own open sets the container's
+    /// user-accessing flag; a remote player's does not: SCore sends them a copy (NetPackageHarvestInventoryRequest ->
+    /// ...Data) and, when they close it, writes their copy back over every slot (...Update). So the two package handlers
+    /// are hooked here and the remote opens kept in a table of SC's own (RemoteOpened / RemoteClosed): while a mark is
+    /// up, nothing is moved out of that window, ScMedic neither takes from it nor stocks it and ScArms keeps no weapon
+    /// out of it, or the close would bring a moved arrow, a used bandage or a kept weapon back; an NPC that dies under a
+    /// mark keeps its window until the mark ends (Patches_Npc DropWindow / Release). A mark ends with the close, the
+    /// player's disconnect, a new game, or RemoteOpenStaleSeconds after the open.
     /// </summary>
     public static class ScAmmo
     {
@@ -74,6 +86,7 @@ namespace SurvivorCommunity
             nextRefusalLog.Clear();
             waitingOutside.Clear();
             restore.Clear();
+            remoteOpen.Clear();
             PendingKnown = false;
             PendingRecord = null;
             resupplies = roundsGiven = bundlesOpened = refusedEmpty = refusedFull = outsideWaits = restored = seeded = raidersSeeded = 0;
@@ -303,17 +316,20 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Ammo left in the inventory window (where SC kept it before 2026-10-01, or put there by hand) goes into the bag, the
-        /// one store a bow or crossbow can actually shoot from (see AddRounds). Cheap when there is nothing to move.
+        /// one store a bow or crossbow can actually shoot from (see AddRounds). Cheap when there is nothing to move. Never
+        /// while the window is open, on the host's screen or a remote player's (IsRemoteOpen).
         /// </summary>
         public static void MoveWindowAmmoToBag(EntityAlive e)
         {
             try
             {
-                if (e == null || e.bag == null || !ScXnpc.IsBody(e) || !HarvestManager.Has(e.entityId)) return;
+                if (e == null || e.bag == null || e.IsDead() || !ScXnpc.IsBody(e) || !HarvestManager.Has(e.entityId)) return;
                 SCoreLootContainer window = HarvestManager.GetOrCreate(e.entityId);
                 // never while someone has the window open: the loot grid shows copies and refreshes only on a change
                 // notice, so arrows moved under it would stay on screen and could be dragged out a second time
                 if (window == null || window.IsUserAccessing()) return;
+                // nor while a remote player has their copy of it open: closing it writes that copy back over every slot
+                if (IsRemoteOpen(e.entityId)) { Patches_Xnpc.Count("window-move-held"); return; }
                 ItemStack[] items = window.items;
                 if (items == null) return;
                 int moved = 0;
@@ -382,6 +398,254 @@ namespace SurvivorCommunity
                 added += k;
             }
             return added;
+        }
+
+        // ------------------------------------------------------------------ a remote player's open window ----
+
+        /// <summary>
+        /// How long a remote open counts without a close (s). SCore sends the close on every way the client's loot window
+        /// shuts - by hand, vanilla's auto-close 32 m from the container (XUiC_LootWindow.Update), the player's death - and
+        /// a disconnect ends the mark through ModEvents.PlayerDisconnected, so this only ends a mark whose close never comes
+        /// while the player stays connected: their window never opened (SCore's Data handler found no local player) or
+        /// SCore's close patch skipped it. Ten minutes is far longer than anyone keeps an NPC's inventory open, so a live
+        /// window is not let go early (that would bring the duplication back), and a stuck mark only delays that NPC's
+        /// window-to-bag move, its medical items and its weapon-menu swap - or, for an NPC that died meanwhile, the drop
+        /// of its window at the body (swept once a second, Patches_Npc) - for that long; a resupply goes to the bag and is
+        /// never held.
+        /// </summary>
+        public const float RemoteOpenStaleSeconds = 600f;
+
+        /// <summary>
+        /// NPC entity id -> (remote player entity id -> real time of the open). Written by the server's package handlers
+        /// only, so it stays empty on a client and in single player. Main thread: packages are processed there.
+        /// </summary>
+        private static readonly Dictionary<int, Dictionary<int, float>> remoteOpen = new Dictionary<int, Dictionary<int, float>>();
+
+        /// <summary>A remote player asked the server for this NPC's inventory: their copy opens on their screen.</summary>
+        public static void RemoteOpened(int npc, int player)
+        {
+            Dictionary<int, float> by;
+            if (!remoteOpen.TryGetValue(npc, out by)) remoteOpen[npc] = by = new Dictionary<int, float>();
+            by[player] = Time.unscaledTime;
+            Patches_Xnpc.Count("window-remote-open");
+            ScLog.Verbose("remote window: player " + player + " opened NPC " + npc + "'s inventory - nothing is taken out of it until they close it");
+        }
+
+        /// <summary>That player's copy came back and is the window now (player &lt; 0: every mark on the NPC).</summary>
+        public static void RemoteClosed(int npc, int player)
+        {
+            Patches_Xnpc.Count("window-remote-close");
+            Dictionary<int, float> by;
+            if (!remoteOpen.TryGetValue(npc, out by)) return;
+            if (player < 0) by.Clear();
+            else by.Remove(player);
+            if (by.Count == 0) remoteOpen.Remove(npc);
+        }
+
+        /// <summary>
+        /// Does a remote player have this NPC's inventory window open? A mark older than RemoteOpenStaleSeconds is dropped
+        /// here, with a log line. Always false on a client and in single player (see remoteOpen).
+        /// </summary>
+        public static bool IsRemoteOpen(int npc)
+        {
+            Dictionary<int, float> by;
+            if (remoteOpen.Count == 0 || !remoteOpen.TryGetValue(npc, out by)) return false;
+            float now = Time.unscaledTime;
+            List<int> stale = null;
+            foreach (var kv in by)
+                if (now - kv.Value >= RemoteOpenStaleSeconds) (stale ?? (stale = new List<int>())).Add(kv.Key);
+            if (stale != null)
+            {
+                foreach (int player in stale)
+                {
+                    by.Remove(player);
+                    Patches_Xnpc.Count("window-remote-expired");
+                    ScLog.Warn("remote window: player " + player + " opened NPC " + npc + "'s inventory " + RemoteOpenStaleSeconds.ToString("0")
+                               + " s ago and never closed it - taken as closed");
+                }
+            }
+            if (by.Count > 0) return true;
+            remoteOpen.Remove(npc);
+            return false;
+        }
+
+        /// <summary>
+        /// Is this NPC's inventory window open anywhere: on the host's own screen (the container's user-accessing flag) or
+        /// on a remote player's (IsRemoteOpen)? False without a window. SC's own writes to a window (ScNpc.SetItem /
+        /// AddItem -&gt; SCore's UpdateSlot) send no change notice, so even the host's open grid would keep showing - and
+        /// let the host take - an item ScMedic or ScArms just took out: both hold off while this is true.
+        /// </summary>
+        public static bool IsWindowOpen(int npc)
+        {
+            if (IsRemoteOpen(npc)) return true;
+            if (!HarvestManager.Has(npc)) return false;
+            SCoreLootContainer w = HarvestManager.GetOrCreate(npc);
+            return w != null && w.IsUserAccessing();
+        }
+
+        /// <summary>
+        /// ModEvents.PlayerDisconnected: a player who left with a window open will never close it. A dead NPC's window
+        /// they held (Patches_Npc DropWindow) drops at the body now if nobody else holds it.
+        /// </summary>
+        public static void ForgetPlayer(int player)
+        {
+            if (remoteOpen.Count == 0) return;
+            var lost = new List<int>();
+            foreach (var kv in remoteOpen)
+            {
+                if (!kv.Value.Remove(player)) continue;
+                Patches_Xnpc.Count("window-remote-disconnect");
+                ScLog.Verbose("remote window: player " + player + " left with NPC " + kv.Key + "'s inventory open - mark dropped");
+                lost.Add(kv.Key);
+            }
+            foreach (int npc in lost)
+            {
+                Dictionary<int, float> by;
+                if (remoteOpen.TryGetValue(npc, out by) && by.Count == 0) remoteOpen.Remove(npc);
+                Patches_Npc.Patch_SetDead.Release(npc, false);
+            }
+        }
+
+        /// <summary>Remote opens still marked (stale ones dropped first), for sc xnpc.</summary>
+        private static int RemoteOpenCount()
+        {
+            int n = 0;
+            foreach (int npc in new List<int>(remoteOpen.Keys))
+            {
+                Dictionary<int, float> by;
+                if (IsRemoteOpen(npc) && remoteOpen.TryGetValue(npc, out by)) n += by.Count;
+            }
+            return n;
+        }
+
+        /// <summary>Who has this NPC's window open remotely and for how long, for sc xnpc &lt;id&gt;: "none" or "player 171 for 12 s".</summary>
+        public static string RemoteOpenState(int npc)
+        {
+            Dictionary<int, float> by;
+            if (!IsRemoteOpen(npc) || !remoteOpen.TryGetValue(npc, out by)) return "none";
+            var parts = new List<string>();
+            foreach (var kv in by) parts.Add("player " + kv.Key + " for " + (Time.unscaledTime - kv.Value).ToString("0") + " s");
+            return string.Join(", ", parts.ToArray());
+        }
+
+        /// <summary>SCore's handler of a remote player's request for an NPC's inventory (runs on the server, sends them the copy).</summary>
+        public static MethodBase RemoteOpenTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(NetPackageHarvestInventoryRequest), "ProcessPackage", new[] { typeof(World), typeof(GameManager) });
+        }
+
+        /// <summary>SCore's handler of the copy a remote player sends back on close (runs on the server, writes it over every slot).</summary>
+        public static MethodBase RemoteCloseTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(NetPackageHarvestInventoryUpdate), "ProcessPackage", new[] { typeof(World), typeof(GameManager) });
+        }
+
+        /// <summary>
+        /// Resolves a target for a Prepare: an error line when it is gone (an SCore update), and never a throw inside
+        /// PatchAll, which would silently drop every patch class after this one (CLAUDE.md pattern #5).
+        /// </summary>
+        private static bool Bound(Func<MethodBase> target, string label)
+        {
+            try
+            {
+                if (target() != null) return true;
+                ScLog.Err(label + " not found (SCore update?) - a remote player's open NPC inventory window no longer holds off the ammo move and"
+                          + " medical use out of it, so items in it can be duplicated on a dedicated server");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("ammo-bind-" + label, e);
+            }
+            return false;
+        }
+
+        /// <summary>The remote player behind a package: its sender (the server's own record of the connection), else the id it carries.</summary>
+        private static int PlayerOf(NetPackage p, int carried)
+        {
+            return p != null && p.Sender != null && p.Sender.entityId >= 0 ? p.Sender.entityId : carried;
+        }
+
+        /// <summary>
+        /// A remote player opens an NPC's inventory window (a dedicated server's client, or another player on a listen
+        /// server: SCore's EntityUtilities sends the request whenever the opener is not the server). Marked for whatever
+        /// NPC it is; MoveWindowAmmoToBag and ScMedic only ask about our bodies. ____npcEntityId and ____playerId are
+        /// SCore's private fields _npcEntityId and _playerId (Harmony's three-underscore field injection).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_RemoteWindowOpen
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(RemoteOpenTarget, "NetPackageHarvestInventoryRequest.ProcessPackage(World, GameManager)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return RemoteOpenTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(NetPackage __instance, World world, int ____npcEntityId, int ____playerId)
+            {
+                try
+                {
+                    if (world == null || !ScCommunity.IsHost) return;
+                    RemoteOpened(____npcEntityId, PlayerOf(__instance, ____playerId));
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("ammo-remote-open", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The remote player closed it: SCore has just written their copy over every slot, so the mark comes down and the
+        /// ammo they left in it (handed over, say) moves to the bag at once - unless somebody else still has it open.
+        /// The NPC died while it was open (Patches_Npc DropWindow kept the window): what is left drops at the body now,
+        /// once nobody holds it. And when SCore's handler had to make a new container because the NPC's window was
+        /// already gone - its owner dead or no longer in the world, its window dropped (after an expiry, say) - that copy
+        /// has nowhere to go and is removed again, so no orphan entry for a dead id is left in HarvestManager.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_RemoteWindowClose
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(RemoteCloseTarget, "NetPackageHarvestInventoryUpdate.ProcessPackage(World, GameManager)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return RemoteCloseTarget(); }
+
+            /// <summary>Did the NPC have a window before SCore's handler ran (its GetOrCreate makes one otherwise)?</summary>
+            [HarmonyPrefix]
+            public static void Prefix(int ____npcEntityId, out bool __state)
+            {
+                __state = true;
+                try { __state = HarvestManager.Has(____npcEntityId); }
+                catch (Exception ex) { ScLog.Once("ammo-remote-close-pre", ex); }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(NetPackage __instance, World world, int ____npcEntityId, bool __state)
+            {
+                try
+                {
+                    if (world == null || !ScCommunity.IsHost) return;
+                    int id = ____npcEntityId;
+                    RemoteClosed(id, PlayerOf(__instance, -1));
+                    if (Patches_Npc.Patch_SetDead.Release(id, false)) return;
+                    EntityAlive e = world.GetEntity(id) as EntityAlive;
+                    if (!__state && HarvestManager.Has(id) && (e == null || e.IsDead()))
+                    {
+                        HarvestManager.Remove(id);
+                        HarvestManager.Save();
+                        Patches_Xnpc.Count("window-dead-orphan-removed");
+                        ScLog.Verbose("remote window: a closed copy of NPC " + id + "'s inventory came back after its window was gone - dropped, not kept");
+                        return;
+                    }
+                    MoveWindowAmmoToBag(e);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("ammo-remote-close", ex);
+                }
+            }
         }
 
         // ------------------------------------------------------------------ resupply ----
@@ -552,7 +816,9 @@ namespace SurvivorCommunity
                    + " round(s), " + bundlesOpened + " bundle(s) opened this session (" + c.AmmoOpened + " since the last rollover), refused "
                    + refusedEmpty + " (stockpile empty) / " + refusedFull + " (window full), " + outsideWaits + " ran low outside; "
                    + c.Get(Resource.Ammo) + " ammo bundle(s) in the stockpile, " + c.AmmoOpenPoints + " point(s) in the open one; starting stacks "
-                   + seeded + " (raiders " + raidersSeeded + ", never resupplied), re-created bodies given their record " + restored;
+                   + seeded + " (raiders " + raidersSeeded + ", never resupplied), re-created bodies given their record " + restored
+                   + "; inventory windows open by remote players now " + RemoteOpenCount()
+                   + ", dead NPCs' windows waiting for them to close " + Patches_Npc.Patch_SetDead.HeldCount;
         }
 
         /// <summary>One NPC's ammo as the resupply sees it, for sc xnpc &lt;id&gt;.</summary>
@@ -585,6 +851,7 @@ namespace SurvivorCommunity
             float due;
             if (nextResupply.TryGetValue(e.entityId, out due) && due > Time.unscaledTime) sb.Append(", next resupply in ").Append((due - Time.unscaledTime).ToString("0")).Append(" s");
             if (m != null) sb.Append("; record ammo=").Append(m.Ammo != null ? Encode(m.Ammo) : "never recorded");
+            sb.Append("; window open remotely: ").Append(RemoteOpenState(e.entityId));
             return sb.ToString();
         }
     }

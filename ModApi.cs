@@ -62,6 +62,7 @@ namespace SurvivorCommunity
                 Patches_Xnpc.Reset();
                 ScAmmo.Reset();
                 ScArms.Reset();
+                Patches_Npc.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
                 {
@@ -72,12 +73,20 @@ namespace SurvivorCommunity
                 ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) =>
                 {
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
+                    // a dead NPC's window still held by a remote player drops at the body now (the world is saved after this event)
+                    if (ScCommunity.IsHost) Patches_Npc.Patch_SetDead.ReleaseAll(true);
                     ScPortraits.Reset(); ScHomeLink.Reset(); ScRegistry.FlushAndReset();
                 });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });
                 ModEvents.EntityKilled.RegisterHandler((ref ModEvents.SEntityKilledData _d) =>
                 {
                     if (ScCommunity.IsHost && ScRegistry.Loaded) ScSkills.OnEntityKilled(_d.KilledEntitiy, _d.KillingEntity);
+                });
+                // a player who leaves with an NPC's inventory window open never sends its close (ScAmmo's remote-window guard)
+                ModEvents.PlayerDisconnected.RegisterHandler((ref ModEvents.SPlayerDisconnectedData _d) =>
+                {
+                    try { if (_d.ClientInfo != null) ScAmmo.ForgetPlayer(_d.ClientInfo.entityId); }
+                    catch (Exception e) { ScLog.Once("player-disconnected", e); }
                 });
 
                 // The only event SCore raises. Hiring a member through the vanilla popup should be impossible
@@ -207,8 +216,9 @@ namespace SurvivorCommunity
             Add(t, "EntityAliveSDXV4::ExecuteAction", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
             Add(t, "EntityAliveSDXV4::Write", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
             Add(t, "EntityAliveSDXV4::SetModelLayer", Patches_Xnpc.Patch_ModelLayer.Target());
-            // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; the last, X9, on
-            // vanilla's EntityTrader: no talk prompt on a raider)
+            // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
+            // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11 on SCore's V4:
+            // raiders' map markers)
             Add(t, "EModelSdcsNpc::createModel", Patches_Xnpc.CreateModelTarget());
             Add(t, "MinEventActionSdcsApplyLook::Execute", Patches_Xnpc.ApplyLookTarget());
             Add(t, "EModelSdcsNpc::GenerateMeshes", Patches_Xnpc.GenerateMeshesTarget());
@@ -220,6 +230,13 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsChooseMeleeFallback", Patches_Xnpc.MeleeFallbackTarget());
             Add(t, "AvatarSdcsNpcController::Update", Patches_Xnpc.UpdateTarget());
             Add(t, "EntityTrader::AllowActivationCommand", Patches_Xnpc.TalkPromptTarget());
+            Add(t, "AutoTurretFireController::shouldIgnoreTarget", Patches_Xnpc.AutoTurretTarget());
+            Add(t, "MiniTurretFireController::shouldIgnoreTarget", Patches_Xnpc.MiniTurretTarget());
+            Add(t, "MotionSensorController::shouldIgnoreTarget", Patches_Xnpc.MotionSensorTarget());
+            Add(t, "EntityAliveSDXV4::HandleNavObject", Patches_Xnpc.NavObjectTarget());
+            // ScAmmo.cs - a remote player's open NPC inventory window holds off the ammo move and medical use out of it
+            Add(t, "NetPackageHarvestInventoryRequest::ProcessPackage", ScAmmo.RemoteOpenTarget());
+            Add(t, "NetPackageHarvestInventoryUpdate::ProcessPackage", ScAmmo.RemoteCloseTarget());
             // ScAim.cs - the aim pose (visual only)
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));
             Add(t, "UAITaskAttackTargetEntitySDX::Start", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Start", new[] { typeof(UAI.Context) }));

@@ -210,7 +210,7 @@ namespace SurvivorCommunity
         public static ItemStack[] Items(EntityAlive e)
         {
             if (e == null) return null;
-            if (UsesWindow(e)) return HarvestManager.GetOrCreate(e.entityId).GetItems();
+            if (UsesWindow(e)) return DeadWithoutWindow(e) ? null : HarvestManager.GetOrCreate(e.entityId).GetItems();
             return e.bag != null ? e.bag.GetSlots() : null;
         }
 
@@ -218,7 +218,7 @@ namespace SurvivorCommunity
         public static void AddItem(EntityAlive e, ItemStack stack)
         {
             if (e == null || stack == null) return;
-            if (UsesWindow(e)) HarvestManager.AddItem(e.entityId, stack);
+            if (UsesWindow(e)) { if (!DeadWithoutWindow(e)) HarvestManager.AddItem(e.entityId, stack); }
             else
             {
                 if (e.bag == null) e.bag = new Bag(45);
@@ -230,12 +230,21 @@ namespace SurvivorCommunity
         public static void SetItem(EntityAlive e, int slot, ItemStack stack)
         {
             if (e == null) return;
-            if (UsesWindow(e)) HarvestManager.GetOrCreate(e.entityId).UpdateSlot(slot, stack);
+            if (UsesWindow(e)) { if (!DeadWithoutWindow(e)) HarvestManager.GetOrCreate(e.entityId).UpdateSlot(slot, stack); }
             else if (e.bag != null) e.bag.SetSlot(slot, stack);
         }
 
+        /// <summary>
+        /// A dead NPC whose window is gone (dropped with it, Patches_Npc): HarvestManager.GetOrCreate would make a new,
+        /// never-dropped container for the dead id (HarvestManager saves every container it holds), so none is made.
+        /// </summary>
+        private static bool DeadWithoutWindow(EntityAlive e)
+        {
+            return e.IsDead() && !HarvestManager.Has(e.entityId);
+        }
+
         /// <summary>A framework NPC that keeps its things in SCore's inventory window: every one but SC's raiders (see Items).</summary>
-        private static bool UsesWindow(EntityAlive e)
+        internal static bool UsesWindow(EntityAlive e)
         {
             return IsFramework(e) && !ScXnpc.IsRaider(e);
         }

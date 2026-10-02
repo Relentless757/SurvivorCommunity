@@ -91,6 +91,13 @@ namespace SurvivorCommunity
         public const string LeadCvar = "sc_raiderLead";
         /// <summary>Set once a body has been given its starting ammo (value 1: a cvar of 0 is not saved).</summary>
         public const string AmmoSeededCvar = "sc_ammoSeeded";
+        /// <summary>
+        /// A raider's kill XP bonus from its pair (design 2.9): read by the raider templates' passive
+        /// "ExperienceGain perc_add @sc_raiderXp" (Config/entityclasses.xml, Tools/gen_arsenal.py RAIDER_XP_CVAR), which
+        /// vanilla evaluates on the killed entity when it pays a kill (EntityPlayer.AddKillXP). Saved with the entity, and
+        /// written again from the pair on every PostInit.
+        /// </summary>
+        public const string RaiderXpCvar = "sc_raiderXp";
 
         /// <summary>Consumed by the next managed body that runs PostInit (set right before EntityFactory.CreateEntity).</summary>
         public static Loadout Pending;
@@ -501,7 +508,7 @@ namespace SurvivorCommunity
         /// (ScAmmo.RestoreRecorded; the round 2 review's P1), so re-creating a member never makes ammo; the stockpile tops
         /// members up later (ScAmmo).
         /// A raider gets RaiderSpawnAmmo / RaiderSpawnArrows and nothing ever again (M10-D2): ScAmmo's resupply only walks
-        /// members. Server only: the bag is the server's.
+        /// members. Server only: the bag is the server's. A raider's kill XP bonus is written here too (SetRaiderXp).
         /// </summary>
         public static void AfterPostInit(EntityAlive e)
         {
@@ -510,6 +517,7 @@ namespace SurvivorCommunity
                 if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost || e.Buffs == null) return;
                 ScAmmo.MoveWindowAmmoToBag(e);           // a no-op without a window (raiders never have one)
                 bool raider = ScXnpc.IsRaider(e);
+                if (raider) SetRaiderXp(e);              // every PostInit, before the seeded raider returns below
                 if (!raider && ScAmmo.RestoreRecorded(e)) return;
                 if (e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f) return;
                 Loadout l = Current(e);
@@ -531,6 +539,49 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("loadout-seed-ammo", ex);
             }
+        }
+
+        // ---- kill XP (raiders, design 2.9) ----
+
+        /// <summary>
+        /// The kill XP bonus a raider's pair earns (design 2.9), as the perc_add on its class's ExperienceGain (600): the
+        /// old raiders paid 600 for a melee weapon and 800-1400 for a gun, so the ranged weapon decides it - a bow or
+        /// crossbow +33% at tier 0, +67% above; a firearm +50% / +100% / +133% at tier 0 / 1 / 2 (900, 1200, 1398 XP); no
+        /// ranged weapon 0. The lead does not count: a melee-lead raider still takes its gun for a target out of reach.
+        /// Fixed by the pair, which is fixed per raider (seeded, saved), so the same raider is always worth the same.
+        /// </summary>
+        private static float RaiderXpBonus(Weapon ranged)
+        {
+            if (ranged == null || !ranged.Ranged) return 0f;
+            if (ranged.Family == "bow") return ranged.Tier <= 0 ? 0.33f : 0.67f;
+            if (ranged.Family == "firearm") return ranged.Tier <= 0 ? 0.5f : ranged.Tier == 1 ? 1f : 1.33f;
+            return 0f;
+        }
+
+        /// <summary>
+        /// Writes a raider's kill XP bonus from its current pair (RaiderXpCvar; removed when it is 0). Host: the cvar is
+        /// saved with the entity, and a client's copy gets it with the entity's spawn data (EntityAliveSDXV4.Write carries
+        /// its buffs and cvars), which is what a bleed-out kill paid on that client reads.
+        /// </summary>
+        public static void SetRaiderXp(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null) return;
+            Loadout l = Current(e);
+            float bonus = RaiderXpBonus(l != null ? Find(l.Ranged) : null);
+            if (bonus > 0f) e.Buffs.SetCustomVar(RaiderXpCvar, bonus, false);
+            else if (e.Buffs.HasCustomVar(RaiderXpCvar)) e.Buffs.RemoveCustomVar(RaiderXpCvar);
+        }
+
+        /// <summary>
+        /// What killing this NPC pays the killer before party and difficulty scaling: its class's ExperienceGain through
+        /// the ExperienceGain passive evaluated on it - exactly EntityPlayer.AddKillXP's first two lines. For sc raiders.
+        /// </summary>
+        public static int KillXp(EntityAlive e)
+        {
+            EntityClass ec;
+            if (e == null || !EntityClass.list.TryGetValue(e.entityClass, out ec) || ec == null) return 0;
+            ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            return (int)EffectManager.GetValue(PassiveEffects.ExperienceGain, held, ec.ExperienceValue, e);
         }
 
         // ---- live NPCs (console; XNPC's melee choice) ----
@@ -589,6 +640,7 @@ namespace SurvivorCommunity
             int before = e.itemsOnEnterGame.Count;
             WriteCvars(e, l);
             Remember(e, l);
+            if (raider) SetRaiderXp(e);                          // a new ranged weapon changes what it is worth
             sources[e.entityId] = "console";
             if (Rewrite(e, cls, order)) Refill(e, before);
             Arm(e, heldRanged, out why);
