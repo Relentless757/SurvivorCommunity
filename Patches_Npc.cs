@@ -165,38 +165,6 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The OLD raiders (scRaider&lt;Sex&gt;&lt;Weapon&gt;) wore the player body as EntityNPCBandit (SCore's hostile class),
-        /// not one of its friendly classes, so the survivor PostInit hook never ran for them: without this their hit
-        /// capsules stayed on the no-collision layer EntityFactory put them on and shots passed straight through. Since M10
-        /// raiders are EntityAliveSDXV4 and go through Patch_PostInit; no such class is generated any more, and M10 round 2
-        /// removes this hook with the rest of the shim.
-        /// </summary>
-        [HarmonyPatch(typeof(EntityNPCBandit), nameof(EntityNPCBandit.PostInit), new Type[0])]
-        public static class Patch_RaiderPostInit
-        {
-            /// <summary>W2: both weapons on the item list before the bandit's own fill and SCore's (ScLoadout).</summary>
-            [HarmonyPrefix]
-            public static void Prefix(EntityNPCBandit __instance)
-            {
-                try { ScLoadout.BeforePostInit(__instance); }
-                catch (Exception e) { ScLog.Once("loadout-raider-postinit", e); }
-            }
-
-            [HarmonyPostfix]
-            public static void Postfix(EntityNPCBandit __instance)
-            {
-                try
-                {
-                    if (__instance != null) Patches_Sdcs.FixColliderLayers(__instance);
-                }
-                catch (Exception e)
-                {
-                    ScLog.Once("EntityNPCBandit.PostInit", e);
-                }
-            }
-        }
-
-        /// <summary>
         /// A physical runner is never written into a chunk: the registry snapshot is its only persistent copy (the
         /// way vanilla keeps vehicles and drones out of chunk saves). Chunk saves run on the save thread too - this
         /// reads one immutable set and nothing else. Both classes' IsSavedToFile apply the same rule (saved when the

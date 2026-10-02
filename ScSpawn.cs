@@ -11,8 +11,8 @@ namespace SurvivorCommunity
     ///  - the class is the record's own (m.Class); a record never changes class in place. SurvivorCommunity's own survivor
     ///    classes are gone (decision D11), so a record of one of them - an old save's - finds no class and is not brought
     ///    back (ClassOf; ScRegistry.PreMigrationLine says why);
-    ///  - the record's look is handed to the model while it is built: for an XNPC body Patches_Xnpc's createModel prefix
-    ///    (X1) takes it as ScLooks.Pending (SC's model shim, Patches_Sdcs.Patch_Init, does the same for any other body);
+    ///  - the record's look is handed to the model while it is built: Patches_Xnpc's createModel prefix (X1) takes it
+    ///    as ScLooks.Pending;
     ///  - the record's two weapons (m.Loadout) go to ScLoadout as Pending, so the new body carries the same pair, and
     ///    the rounds they last carried (m.Ammo) go with them instead of a new survivor's starting stack (ScAmmo);
     ///  - the record's name replaces the one the class rolled at construction (both NPC classes roll a random first

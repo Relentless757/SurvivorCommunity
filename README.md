@@ -21,21 +21,11 @@ NPCs but cannot manage a community (v2).
   **for free** - no dukes.
 - **Home.** The community lives in your land claim. The first land claim you own becomes home
   automatically; the land claim block's radial menu gets **Set as community home** and **Community**.
-- **Walking at all.** These classes use the player body, and the game's move helper only pushes an entity
-  along its path while the animator reports a motion state, skipping that check only for the root-motion
-  animators every pack NPC uses. Without a fix a survivor stands in idle forever with a path it never walks;
-  the mod reports motion for them so the AI's intent reaches their feet.
-- **Walking in a straight line.** The same move helper writes a path direction in world space and then, one
-  tick later, replaces it with a direction measured from the body's nose, which only root-motion bodies are
-  spared. A survivor could therefore travel only where she was already looking, which tied her speed to her
-  turn rate and left her orbiting her destination on a circle several metres wide. The mod puts the world
-  direction back after that overwrite: she still turns at her own rate, but her feet follow the path.
-- **Moving at a sensible speed, and animating at it.** For a body without root motion the class's move speeds
-  scale real velocity instead of feeding an animator, so the templates' values came out as a sprint;
-  `MoveSpeed` in `Config/entityclasses.xml` is the roaming pace. Following is a different number: the NPC
-  framework takes `MoveSpeedPanic` and scales it by the player's own running modifiers, which is how a
-  follower keeps up with you. The animator is fed the survivor's measured speed in metres per second, the
-  same units a player's body gets, so the walk and run clips blend to match what she is actually doing.
+- **Walking.** The survivors (and the raiders) are 0-XNPCCore's player-body NPCs, and 0-XNPCCore's own controller
+  drives their walking and running and the animator's locomotion. The fixes this mod once needed for its own
+  player-body classes (a move helper that would not start a non-root-motion body, a path direction overwritten by
+  the body's facing, an animator fed a tenth of the real speed) went with those classes; see "Survivors with the
+  player's body" for the few body fixes that remain.
 - **Friendly fire.** The NPC framework shields every friendly NPC from the player twice over - as allies while
   they follow you, and by faction while they do not - so shots at any of them passed through without a mark.
   The mod turns that into the division a community needs: an NPC who is not one of your people can be killed,
@@ -355,7 +345,8 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
 - **Raiders (M10): the survivors' body, hostile.** Raiders are six classes on 0-XNPCCore's player body, the same
   body as the survivors: `scRaider{Male,Female}T{1,2,3}`, the tier being the band they turned up in (T1 early, T2
   middle, T3 late). They are hostile by class (the `bandits` faction, which hates you, your survivors and the
-  zombies, never another raider), cannot be talked to or recruited, and use 0-XNPCCore's fighting AI with real
+  zombies, never another raider), cannot be talked to or recruited (looking at one shows no talk prompt, and E does
+  nothing), and use 0-XNPCCore's fighting AI with real
   vanilla weapons, plus a small package of this mod's (`SCRaider`: closing in until the gun or bow reaches, and
   going to look when they hear you). Voice Control leaves them alone (`no_voice`). They get this mod's faces and
   rougher clothes (`RaiderGearSets`), names like "Rook the Raider", items-only healing, the aim pose, and no
@@ -366,9 +357,7 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   replays the framework's and this mod's patches and checks every class, AI package, archetype, spawn-group entry,
   name and duplicate. Weapons are tiered (0 early melee plus the pipe guns and the primitive bow, 1 wooden bow,
   iron crossbow and double barrel, 2 late guns): a body's weapons are capped by its class's tier and your
-  gamestage's, and a radio call brings a survivor whose weapons fit your gamestage. (The old per-weapon raider
-  classes' NPC weapon items, `meleeNPCSC*` / `gunNPCSC*`, are still defined until the old model shim goes; nothing
-  spawns with them.)
+  gamestage's, and a radio call brings a survivor whose weapons fit your gamestage.
 - **Two weapons each.** Every survivor and every raider carries one melee and one ranged weapon (a raider's
   `RaiderRangedShare` only decides which of the two it leads with). Ranged weapons are mostly bows and crossbows: a survivor's is a firearm only
   `SurvivorFirearmChance` (12%) of the time, a raider's `RaiderFirearmChance` (12%).
@@ -460,12 +449,10 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   five had a bare torso and read as a missing mesh instead. The chest slot now ignores the chance and falls
   back to any set that has the piece; set `SurvivorGearAlwaysChest` false for the old behaviour. Only affects
   looks rolled from then on - anyone already wearing a look keeps it, and `sc gear <name> none` still strips.
-- How: `Patches_Sdcs.cs` patches the game's player body model (`EModelSDCS`) so that it works on an NPC
-  (it assumed a player on its game object), and SCore's weapon swap so it finds the generated rig.
-  Strangers that were never a prospect keep their face only for the session.
-- The pack's NPC weapons use hold types for the pack's own animators; on a player body they are animated
-  with the hold type of the vanilla weapon they mirror (`CompatibleWeapon`), so handing them any pack weapon
-  keeps the right pose.
+- How: 0-XNPCCore builds and animates the body (its `EModelSdcsNpc` model and controller); this mod hands it the
+  look before the first build (`Patches_Xnpc.cs`) and adds the few fixes it lacks for these classes
+  (`Patches_Sdcs.cs`: the eyes, hit colliders shots can reach, the jump animation, the get-up, and freeing a
+  despawned body's meshes). Strangers that were never a prospect keep their face only for the session.
 - Their eyes track you like a player's. That needs one repair: the eye shader spins each eyeball about a pivot
   given in head-bone space, while the game re-roots every untagged skinned mesh of a non-player entity onto the
   pelvis - which slid the eyeballs out of the face. The mod tags the generated eye mesh the way vanilla's own
@@ -479,21 +466,14 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   their weapon goes back in their hand, so a bandage heals what a bandage heals. They cannot attack while
   bandaging; a knockdown interrupts it and hands the item back; a save in the middle puts the weapon back first.
   Hand a survivor medical items and they will use those; loot a dead one and you get what they had left.
-- **No spawning invisible.** The framework's template flags them as bandits, which makes the game fade them to
-  nothing at spawn so they can fade in. The fade-in never ran for a survivor, because NPC-class entities use a
-  visibility check that ignores the fade, and only the player body's shaders honour it. They now start fully
-  visible.
-- **No vibrating upper body.** The game's "turn to face" call flips the sign of the pitch on every call, so an
-  NPC facing you across any height difference rocked its torso back and forth; only the player body's
-  torso-look animation layer made that visible. The pitch is now stepped without the flip.
 - Knocked down, they get up the way you do. The game picks the knockdown and get-up animations from a
   different animator layer for players than for NPCs, deciding by whether the entity is a player; these
   bodies run the player's animator without being players, so they asked for animations their layer does
-  not have and skipped the get-up. Two more things had to go with it: the ragdoll keeps an NPC's position
+  not have and skipped the get-up. One more thing had to go with it: the ragdoll keeps an NPC's position
   pinned to its pelvis until nearly the end, which on this rig lifted them several metres into the air as
-  the get-up clip raised the pelvis, and their own movement during the ragdoll read as walking, so the
-  locomotion animations cut the get-up short. The mod marks their ragdoll as a player's, leaves them on the
-  ground once the physics part is over, and reports no movement to the animator until they are up.
+  the get-up clip raised the pelvis. The mod marks their ragdoll as a player's and leaves them on the ground
+  once the physics part is over (`XnpcBodyGetUp`; `XnpcBodyJumpAnim` and `XnpcBodyColliderLayers` switch the
+  jump animation and the hit colliders the same way).
 - Known limits: no per-weapon hand joints (the player rig has one weapon hand, which vanilla's third-person
   weapon offsets already handle), no dismemberment, other players in multiplayer would see them undressed
   (host/single player only, like the rest of this mod).
@@ -540,6 +520,8 @@ A full game restart is needed after editing `Config/Localization.csv`.
   live in `SurvivorCommunity.dll`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
-- Harmony targets: `PersistentPlayerList.ReadXML/Write(string)` (registry load/save),
-  `EntityAliveSDX.SetDead` (deaths), `EntityAliveSDX.PostInit` (re-pin the spawner source),
-  `SleeperEventData.Update` (no POI re-arm for favour quests). Everything else is XML or `ModEvents`.
+- Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
+  all 62 targets patched` with Voice Control loaded, 55 without; a `MISSING PATCH` line names one that did not
+  bind). Among them
+  `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
+  `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests).

@@ -177,7 +177,6 @@ namespace SurvivorCommunity
             Add(t, "EntityAliveSDXV4::IsSavedToFile", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "IsSavedToFile", new Type[0]));
             // ScDoors.cs - members open (and shut) doors
             Add(t, "EntityMoveHelper::CheckForDoorAndOpen", AccessTools.Method(typeof(EntityMoveHelper), "CheckForDoorAndOpen", new Type[0]));
-            Add(t, "EntityNPCBandit::PostInit", AccessTools.Method(typeof(EntityNPCBandit), "PostInit", new Type[0]));
             Add(t, "SleeperEventData::Update", AccessTools.Method(typeof(SleeperEventData), "Update", new Type[0]));
             // Patches_QuestTitle.cs - per-POI favour quest title + marker
             Type[] binding = { typeof(string).MakeByRefType(), typeof(string) };
@@ -192,29 +191,15 @@ namespace SurvivorCommunity
             Add(t, "XUiC_InGameMenuWindow::Init", AccessTools.Method(typeof(XUiC_InGameMenuWindow), "Init", new Type[0]));
             // Patches_Radio.cs - air drops only on request
             Add(t, "AIDirectorAirDropComponent::SpawnAirDrop", AccessTools.Method(typeof(AIDirectorAirDropComponent), "SpawnAirDrop", new Type[0]));
-            // Patches_Sdcs.cs - survivors wearing the player's body
-            Add(t, "EModelSDCS::Init", AccessTools.Method(typeof(EModelSDCS), "Init", new[] { typeof(World), typeof(Entity), typeof(EModelInstanceAssets) }));
-            Add(t, "EModelSDCS::GenerateMeshes", AccessTools.Method(typeof(EModelSDCS), "GenerateMeshes", new Type[0]));
-            Add(t, "EModelSDCS::SwitchModelAndView", AccessTools.Method(typeof(EModelSDCS), "SwitchModelAndView", new[] { typeof(bool), typeof(bool) }));
-            Add(t, "EModelSDCS::XUiM_PlayerEquipment_HandleRefreshEquipment", AccessTools.Method(typeof(EModelSDCS), "XUiM_PlayerEquipment_HandleRefreshEquipment", new[] { typeof(XUiM_PlayerEquipment) }));
+            // Patches_Sdcs.cs - body fixes for the community's XNPC bodies (M10 round 2 removed SC's own player-body shim)
             Add(t, "EModelSDCS::OnDestroy", AccessTools.DeclaredMethod(typeof(EModelSDCS), "OnDestroy", new Type[0]));
-            Add(t, "AvatarSDCSController::SwitchModelAndView", AccessTools.Method(typeof(AvatarSDCSController), "SwitchModelAndView", new[] { typeof(string), typeof(bool), typeof(bool) }));
-            Add(t, "EModelPlayer::SetSkinTexture", AccessTools.Method(typeof(EModelPlayer), "SetSkinTexture", new[] { typeof(string) }));
-            Add(t, "AvatarController::_setInt", AccessTools.Method(typeof(AvatarController), "_setInt", new[] { typeof(int), typeof(int), typeof(bool) }));
-            Add(t, "AvatarSDCSController::Update", AccessTools.DeclaredMethod(typeof(AvatarSDCSController), "Update", new Type[0]));
             Add(t, "CharacterGazeController::LateUpdate", AccessTools.DeclaredMethod(typeof(CharacterGazeController), "LateUpdate", new Type[0]));
-            Add(t, "LegacyAvatarController::IsAnimationWithMotionRunning", AccessTools.DeclaredMethod(typeof(LegacyAvatarController), "IsAnimationWithMotionRunning", new Type[0]));
             Add(t, "LegacyAvatarController::StartAnimationJump", AccessTools.DeclaredMethod(typeof(LegacyAvatarController), "StartAnimationJump", new[] { typeof(AnimJumpMode) }));
-            Add(t, "EntityAlive::SetMoveForwardWithModifiers", AccessTools.Method(typeof(EntityAlive), "SetMoveForwardWithModifiers", new[] { typeof(float), typeof(float), typeof(float), typeof(bool) }));
             Add(t, "EntityTargetingUtilities::CanTakeDamage", AccessTools.Method(typeof(EntityTargetingUtilities), "CanTakeDamage", new[] { typeof(EntityAlive), typeof(Entity) }));
             Add(t, "Entity::PhysicsSetHeight", AccessTools.Method(typeof(Entity), "PhysicsSetHeight", new[] { typeof(float) }));
             Add(t, "EModelBase::StartRagdoll", AccessTools.Method(typeof(EModelBase), "StartRagdoll", new[] { typeof(float) }));
             Add(t, "EModelBase::FrameUpdateRagdoll", AccessTools.Method(typeof(EModelBase), "FrameUpdateRagdoll", new Type[0]));
             Add(t, "EntityAlive::OnUpdateLive", AccessTools.Method(typeof(EntityAlive), "OnUpdateLive", new Type[0]));
-            Add(t, "EntityAlive::InitPostCommon", AccessTools.Method(typeof(EntityAlive), "InitPostCommon", new Type[0]));
-            Add(t, "EntityAlive::RotateTo(xyz)", AccessTools.Method(typeof(EntityAlive), "RotateTo", new[] { typeof(float), typeof(float), typeof(float), typeof(float), typeof(float) }));
-            Add(t, "EntityAlive::RotateTo(entity)", AccessTools.Method(typeof(EntityAlive), "RotateTo", new[] { typeof(Entity), typeof(float), typeof(float) }));
-            Add(t, "AnimatorMeleeAttackState::OnStateEnter", AccessTools.Method(typeof(AnimatorMeleeAttackState), "OnStateEnter", new[] { typeof(UnityEngine.Animator), typeof(UnityEngine.AnimatorStateInfo), typeof(int) }));
             Add(t, "EntityBuffs::AddBuff", AccessTools.Method(typeof(EntityBuffs), "AddBuff", new[] { typeof(string), typeof(Vector3i), typeof(int), typeof(bool), typeof(bool), typeof(float) }));
             Add(t, "EntityAlive::UseHoldingItem", AccessTools.Method(typeof(EntityAlive), "UseHoldingItem", new[] { typeof(int), typeof(bool) }));
             Add(t, "EntityAliveSDX::ExecuteAction", AccessTools.Method(typeof(EntityAliveSDX), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
@@ -222,7 +207,8 @@ namespace SurvivorCommunity
             Add(t, "EntityAliveSDXV4::ExecuteAction", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
             Add(t, "EntityAliveSDXV4::Write", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
             Add(t, "EntityAliveSDXV4::SetModelLayer", Patches_Xnpc.Patch_ModelLayer.Target());
-            // Patches_Xnpc.cs - the 0-XNPCCore survivor classes the community owns (all declared on XNPC's own types)
+            // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; the last, X9, on
+            // vanilla's EntityTrader: no talk prompt on a raider)
             Add(t, "EModelSdcsNpc::createModel", Patches_Xnpc.CreateModelTarget());
             Add(t, "MinEventActionSdcsApplyLook::Execute", Patches_Xnpc.ApplyLookTarget());
             Add(t, "EModelSdcsNpc::GenerateMeshes", Patches_Xnpc.GenerateMeshesTarget());
@@ -233,6 +219,7 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsTryWorldEntryRearm", Patches_Xnpc.RearmTarget());
             Add(t, "AvatarSdcsNpcController::SdcsChooseMeleeFallback", Patches_Xnpc.MeleeFallbackTarget());
             Add(t, "AvatarSdcsNpcController::Update", Patches_Xnpc.UpdateTarget());
+            Add(t, "EntityTrader::AllowActivationCommand", Patches_Xnpc.TalkPromptTarget());
             // ScAim.cs - the aim pose (visual only)
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));
             Add(t, "UAITaskAttackTargetEntitySDX::Start", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Start", new[] { typeof(UAI.Context) }));

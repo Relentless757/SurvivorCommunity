@@ -619,22 +619,3 @@ scRaiderMaleT3,entityclasses,Entity,,,,Raider
 scRaiderFemaleT1,entityclasses,Entity,,,,Raider
 scRaiderFemaleT2,entityclasses,Entity,,,,Raider
 scRaiderFemaleT3,entityclasses,Entity,,,,Raider
-meleeNPCSCBoneKnife,items,Item,,,,"Bone Knife"
-meleeNPCSCLeatherKnuckles,items,Item,,,,"Knuckle Wraps"
-meleeNPCSCIronKnuckles,items,Item,,,,"Iron Knuckles"
-meleeNPCSCSteelKnuckles,items,Item,,,,"Steel Knuckles"
-meleeNPCSCPipeBaton,items,Item,,,,"Pipe Baton"
-meleeNPCSCStunBaton,items,Item,,,,"Stun Baton"
-meleeNPCSCSteelClub,items,Item,,,,"Steel Club"
-meleeNPCSCStoneSledge,items,Item,,,,"Stone Sledgehammer"
-meleeNPCSCIronSledge,items,Item,,,,"Iron Sledgehammer"
-meleeNPCSCSteelSledge,items,Item,,,,"Steel Sledgehammer"
-meleeNPCSCStoneSpear,items,Item,,,,"Stone Spear"
-meleeNPCSCSteelSpear,items,Item,,,,"Steel Spear"
-meleeNPCSCSteelAxe,items,Item,,,,"Steel Axe"
-gunNPCSCMagnum,items,Item,,,,".44 Magnum"
-gunNPCSCDoubleBarrel,items,Item,,,,"Double Barrel Shotgun"
-gunNPCSCLeverAction,items,Item,,,,"Lever Action Rifle"
-gunNPCSCPrimitiveBow,items,Item,,,,"Primitive Bow"
-gunNPCSCCompoundBow,items,Item,,,,"Compound Bow"
-gunNPCSCCompoundCrossbow,items,Item,,,,"Compound Crossbow"

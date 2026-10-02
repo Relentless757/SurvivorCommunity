@@ -25,13 +25,54 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## M10 round 2: the old player-body shim removed, no talk prompt on raiders
+
+**Deployed 2026-10-01** (DLL md5 `6ec3b3ae915059de861c6db6fba0576b`; Fable review: no defects, a doc fix applied). **Needs a new game**, as round 1.
+Design: DESIGN_M10_RAIDERS.md section 4 (the talk prompt, section 1.1 "Trader activation", was brought forward from round 3).
+
+What changed:
+- **Patches_Sdcs** keeps only the body fixes our XNPC bodies (survivors and raiders) use: hit colliders, eyes and the gaze
+  safety net, the asset release on despawn, the jump trigger, the get-up (`Patch_RagdollAsPlayer`, `Patch_RagdollPin`)
+  and the physics-height guard. The shim for SC's own player-body classes is gone (the model's Init, mesh build and
+  SwitchModelAndView, skin texture, equipment refresh, hold-type mapping, carry and animator speed, motion gate, path
+  direction, fade-in, pitch, swing speed, avatar switch), and `Patch_RaiderPostInit` with it. ScLooks, ScAim and ScMedic
+  lose their halves for those classes. 15 Harmony targets fewer.
+- **The old NPC weapon items** (`meleeNPCSC*` / `gunNPCSC*`, 19) and their localization rows are gone.
+- **No talk prompt on raiders** (X9, new target `EntityTrader::AllowActivationCommand`): every activation command is
+  refused for a raider body, so no "Press E to talk", no radial and nothing on E.
+- The old-save warning (M9) says that raiders saved before M10 are gone too.
+
+- [ ] **Startup:** `patch verification: all 62 targets patched` (55 without Voice Control), no `MISSING PATCH`, no
+      `patched an unlisted method`, no `EntityTrader.AllowActivationCommand ... not found`.
+- [ ] **Talk prompt, raider:** look at a raider up close: no "Press E to talk to <name> the Raider", and E does nothing
+      (no radial, no "sworn enemy" tooltip). `sc xnpc`: the hooks line's `x9-raider-talk-refused` counts up while you
+      look at one. Same with the debug menu on (vanilla's debug "remove" command no longer keeps the prompt alive).
+- [ ] **Talk prompt, everyone else:** look at a wild survivor (`sc spawn`), a member, a vanilla trader and one of
+      0-XNPCCore's own NPCs (creative menu, e.g. `npcSdcsTest`): the prompt is still there and E works as before
+      (dialog / radial). `x9-raider-talk-refused` does not move.
+- [ ] **Foreign hooks:** `sc xnpc` with only our survivors and raiders around: the "body hooks that met another
+      player-body NPC ... stepped aside" line says `none yet`. Spawn `npcSdcsTest` from the creative menu: its hooks
+      (`gaze`, `colliders`, ...) count there; ours never do.
+- [ ] **Survivor regressions** (DESIGN_M2_M9 section 10): P2 the look applies (`sc xnpc <id>` archetype scSurvivor, X1
+      count), P3 eyes stay in their sockets after `sc gear <id> <Set>`, P11 a real jump animation over a block, P12
+      knocked down (sledge power attack) she gets up on the spot without floating, P16 a bandage from her window with
+      the animation, P17 the aim pose in a ranged fight (`sc aim <id>`: stamps rising, state `aiming`).
+- [ ] **Raider regressions:** round 1's P12 (faces, feet on the ground, eyes in place, `x8-self-hit-guard` counting),
+      a firearm raider raises its gun (it only fires once Locked & Loaded lets NPCs reload; see LnL_NPC_Reload_Handoff.md in the
+      game folder), a hurt raider bandages from its bag.
+- [ ] **Dev core:** `core SurvivorCommunityDev ragpin off` then `ragpin on` answer `ragdoll pin cancel is OFF` / `ON`
+      (not "not loaded"), and `ragfix off` / `ragfix on` answer `ragdoll-as-player is OFF` / `ON`.
+- [ ] **Items:** the creative menu has no `NPCSC` weapons any more; the log has no item or localization error about them.
+- [ ] **Old-save warning, on a copy only:** a pre-migration save logs the M9 line ending in `Raiders it saved (the old
+      per-weapon scRaider<Sex><Weapon> classes, e.g. console spawns) are of classes that no longer exist either.`
+
 ## M10 round 1: raiders on XNPC bodies
 
-**Not deployed yet** (build `mig\m10r1\out`, DLL md5 `6fa158fe465374f392a4b36e5167cae5`). **Needs a new game**: the old per-weapon raider
+**Deployed 2026-10-01** (DLL md5 `6fa158fe465374f392a4b36e5167cae5`). **Needs a new game**: the old per-weapon raider
 classes (`scRaider<Sex><Weapon>`) no longer exist, so a console raider saved in an old world cannot load (kill old raiders
 first if you must keep a test world). Design: `_research\xnpc_migration\migrate\DESIGN_M10_RAIDERS.md`; decisions M10-D1..D9
 in SurvivorCommunity_Tasks_Migration.md. The old model shim (Patches_Sdcs' EModelSDCS hooks, `Patch_RaiderPostInit`) and
-the old `meleeNPCSC*` / `gunNPCSC*` items are still in place: round 2 removes them once the probes below pass.
+the old `meleeNPCSC*` / `gunNPCSC*` items were still in this round's build; round 2 (above) removes them.
 
 What changed:
 - **Raiders are six hostile classes on 0-XNPCCore's player body**, `scRaider{Male,Female}T{1,2,3}` (EntityAliveSDXV4 on
@@ -67,7 +108,7 @@ What changed:
 
 Before you start: `sc r` below means `sc raiders 40`, `sc x <id>` means `sc xnpc <id>`. Stand on open ground, day.
 
-- [ ] **Startup:** `patch verification: all 76 targets patched` (unchanged count), no `MISSING PATCH`; the config line
+- [ ] **Startup:** `patch verification: all 76 targets patched` (round 1's build; 62 since round 2), no `MISSING PATCH`; the config line
       ends with `raiders=6 classes, ranged-lead 0.3/0.4/0.5 (melee-lead to ranged beyond 8m for 3s) firearm 0.12 ammo
       24/15 levels=off drop 0.25 vanillaDoors=False gearSets=9`. No `SdcsSwapToHand ... not found` or "could not be
       bound" warning. No SC error or `[SC] ... failed` line in a session with raiders.
@@ -77,8 +118,9 @@ Before you start: `sc r` below means `sc raiders 40`, `sc x <id>` means `sc xnpc
       SCRaider]`, and a `pair=` with both a ranged and a melee weapon. Stand still: it attacks and your health drops. Hit
       it back: damage lands. Repeat with `sc spawn hostile female T2 bow ranged-lead` and `sc spawn hostile male T3
       firearm ranged-lead` (shots and arrows hit you from range). **If this fails, round 2 must wait.**
-- [ ] **P2 talk prompt:** look at a raider - a "talk" prompt still shows (expected until round 3); pressing it gives the
-      "sworn enemy" tooltip, never a dialog or the SdcsNPC window.
+- [ ] **P2 talk prompt:** superseded by round 2 (no prompt on raiders any more; its "Talk prompt" rows above). With
+      round 1's build alone: a "talk" prompt shows, pressing it gives the "sworn enemy" tooltip, never a dialog or the
+      SdcsNPC window.
 - [ ] **P3 range and noise:** a bow raider 60 m away in the open walks in (`ScRaiderApproach`) and shoots from range
       instead of hugging you. Hide behind a wall and make noise: it comes to look (`ScRaiderInvestigate`).
 - [ ] **P4 doors (D5):** close an unlocked door between you and a raider: it opens it (after a short stall) and the door

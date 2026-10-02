@@ -7,8 +7,8 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// Every patch on a 0-XNPCCore type (NPCSdcsCharacters.dll), for the classes SC drives on XNPC's body (ScXnpc): the
-    /// survivor classes the community owns and, since M10, SC's raider classes. The numbering is the migration design's
-    /// (section 1.2).
+    /// survivor classes the community owns and, since M10, SC's raider classes - plus the two on the body's SCore and
+    /// vanilla classes that only these bodies need (X8, X9). The numbering is the migration design's (section 1.2).
     ///
     ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype
     ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces)
@@ -22,8 +22,10 @@ namespace SurvivorCommunity
     ///                                                                         melee-lead raiders keep melee (M10-D1)
     ///   X6  AvatarSdcsNpcController.SdcsChooseMeleeFallback          prefix   XNPC's melee choice is the pair's melee weapon
     ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame
+    ///   X8  EntityAliveSDXV4.SetModelLayer   prefix   our bodies' own colliders are lifted out of their own attack ray
+    ///   X9  EntityTrader.AllowActivationCommand      postfix  no talk prompt (and nothing on E) on a raider
     ///
-    /// Every target is DECLARED on XNPC's type (CLAUDE.md pattern #4: a base-class match would patch every player body),
+    /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
     /// bound by name with a Prepare that turns the patch off when the method is gone, and listed in ModApi's
     /// ExpectedTargets, so a renamed private method shows up as a MISSING PATCH line instead of silence. The patch
     /// methods take XNPC's objects as their vanilla base types (EModelSDCS, AvatarSDCSController, MinEventActionBase), so
@@ -36,11 +38,14 @@ namespace SurvivorCommunity
         private static readonly Dictionary<string, int> hits = new Dictionary<string, int>();
         /// <summary>X7 runs every frame for every body: a plain counter instead of a dictionary write.</summary>
         private static int updateHits;
+        /// <summary>X9 runs every frame while a raider is looked at (once per command): a plain counter too.</summary>
+        private static int talkRefused;
 
         public static void Reset()
         {
             hits.Clear();
             updateHits = 0;
+            talkRefused = 0;
             Patch_ModelLayer.Reset();
         }
 
@@ -58,6 +63,7 @@ namespace SurvivorCommunity
             var parts = new List<string>();
             foreach (string k in keys) parts.Add(k + "=" + hits[k]);
             parts.Add("x7-update=" + updateHits);
+            parts.Add("x9-raider-talk-refused=" + talkRefused);
             return string.Join(", ", parts.ToArray());
         }
 
@@ -115,6 +121,12 @@ namespace SurvivorCommunity
             return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "Update", NoArgs);
         }
 
+        /// <summary>X9: vanilla's virtual on EntityTrader; EntityAliveSDXV4 does not override it (SCore 3.2.36).</summary>
+        public static MethodBase TalkPromptTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(EntityTrader), "AllowActivationCommand", new[] { typeof(ReadOnlySpan<char>), typeof(EntityPlayerLocal) });
+        }
+
         /// <summary>
         /// Resolves a target for a Prepare. The lookup runs in its own method so that a missing NPCSdcsCharacters.dll (the
         /// type cannot load) surfaces here as a caught exception and an inert patch, never as a throw inside PatchAll,
@@ -145,8 +157,8 @@ namespace SurvivorCommunity
         /// and the raw slot writes trigger no rebuild. Every later rebuild (XNPC's SwitchModelAndView prefix, its
         /// equipment handler, ScLooks) builds from the same archetype field, which is ours from here on.
         ///
-        /// The look comes from ScLooks.ForEntity, the same resolution SC's own bodies use: a pending spawn look, else the
-        /// registry's (member or prospect), else this session's, else a fresh roll. Its sex follows the class: the rig, the
+        /// The look comes from ScLooks.ForEntity: a pending spawn look, else the registry's (member or prospect), else
+        /// this session's, else a fresh roll (a raider's clothes from RaiderGearSets). Its sex follows the class: the rig, the
         /// animator, the voice and the ragdoll ("player_" + Sex + "Ragdoll") are the class's, so a record that disagrees is
         /// corrected the way ScLooks.Apply corrects one on a live body.
         /// </summary>
@@ -236,9 +248,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// X2. The eyes after every build of one of our bodies. XNPC's mesh build makes fresh, untagged eye renderers, and
         /// the base EModelBase.SwitchModelAndView its own SwitchModelAndView prefix then runs re-roots every untagged
-        /// renderer onto the pelvis - the same eyes-out-of-the-face fault Patches_Sdcs.FixEyeRenderers fixes on SC's own
-        /// bodies, fixed the same way (tag and head root bone). The hit colliders of the new build are put back on the
-        /// hittable layer too, as SC's own rebuild does, while XnpcBodyColliderLayers is on.
+        /// renderer onto the pelvis, which slides the eyes out of the face; Patches_Sdcs.FixEyeRenderers tags them and
+        /// roots them at the head. The hit colliders of the new build are put back on the hittable layer too
+        /// (Patches_Sdcs.FixColliderLayers) while XnpcBodyColliderLayers is on.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_GenerateMeshes
@@ -478,8 +490,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// X7. SC's visible aiming (decision D12) on our bodies. XNPC's controller overrides Update, drives locomotion,
         /// carry and the look pitch itself and never sets IsAiming; ScAim.Drive runs after the whole of it, so the aim pose
-        /// is the last thing written in the frame. SC's own per-frame body hook (Patches_Sdcs.Patch_UpdateCarry) also
-        /// fires inside XNPC's base.Update call, but stays on SC's own bodies: its locomotion writes would fight XNPC's.
+        /// is the last thing written in the frame.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_Update
@@ -507,7 +518,10 @@ namespace SurvivorCommunity
                 }
             }
         }
-            /// <summary>
+
+        // ------------------------------------------------------------------ X8: no self-hits ----
+
+        /// <summary>
         /// X8. Our bodies must not hit themselves. A melee swing (ItemActionDynamic.GetExecuteActionTarget) and a gun's shot
         /// hide the attacker from their own ray with SetModelLayer(2) and put it back afterwards, but EntityAliveSDXV4
         /// overrides SetModelLayer with an empty body. 0-XNPCCore's own survivors get away with it because their hit
@@ -566,6 +580,59 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-modellayer", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X9: no talk prompt on raiders ----
+
+        /// <summary>
+        /// X9. A raider offers nothing to talk about (M10; the user's call, brought forward from round 3): looking at one
+        /// showed "Press E to talk to Dregs the Raider", and E opened the radial to SCore's "sworn enemy" tooltip.
+        /// Vanilla shows an entity's prompt and opens its radial whenever one of its activation commands is allowed
+        /// (PlayerMoveController's focus check calls Entity.HasEnabledActivationCommands, which asks AllowActivationCommand
+        /// for every command InitLocalActivationCommands registered; XUiC_Radial asks the same method). A raider is an
+        /// EntityTrader - EntityAliveSDXV4 derives from it - and EntityTrader registers talk, trade and remove and allows
+        /// talk and trade for anything alive with an NPCInfo (remove with the debug menu on). SCore's V4 only hides
+        /// GetActivationCommands behind a "new" method that returns nothing for an enemy, and vanilla never calls that one
+        /// (the vanilla method is not virtual), nor does V4 override AllowActivationCommand, InitLocalActivationCommands or
+        /// GetActivationText (SCore 3.2.36, decompiled). So every command is refused here for a raider body: no prompt, no
+        /// radial, nothing on E. Survivors, members, traders and 0-XNPCCore's own NPCs are untouched (IsRaider: a raider
+        /// class on our body). A dead raider was already refused by vanilla (its loot is a dropped backpack).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoTalkToRaiders
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (TalkPromptTarget() != null) return true;
+                    ScLog.Err("EntityTrader.AllowActivationCommand(ReadOnlySpan<char>, EntityPlayerLocal) not found (game update?) - raiders show the talk prompt again");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("xnpc-bind-talkprompt", e);
+                }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return TalkPromptTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityTrader __instance, ref bool __result)
+            {
+                try
+                {
+                    if (!__result || !(__instance is EntityAliveSDXV4) || !ScXnpc.IsRaider(__instance)) return;
+                    __result = false;
+                    talkRefused++;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-talkprompt", ex);
                 }
             }
         }

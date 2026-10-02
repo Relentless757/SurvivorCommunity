@@ -7,7 +7,7 @@ using UnityEngine;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// A survivor's appearance when the NPC uses the player's body (entity classes with ModelType SDCS): the
+    /// A survivor's (or raider's) appearance on 0-XNPCCore's player body (EModelSdcsNpc, ScXnpc.IsBody): the
     /// face/hair archetype plus the four worn armor pieces. Vanilla never saves or network-sends a non-player's
     /// equipment, so the community registry keeps this and the mod re-applies it on every load.
     /// </summary>
@@ -118,9 +118,9 @@ namespace SurvivorCommunity
     /// The community's survivors are 0-XNPCCore's own (ScXnpc.IsBody; decisions D2 and D11 - SC no longer defines survivor
     /// classes of its own): their model is built from ForEntity's look by Patches_Xnpc (X1), and a rebuild goes through
     /// XNPC's own mesh build (Rebuild). SC's raiders ride the same body since M10 (scRaider{Male,Female}T{1,2,3},
-    /// ScXnpc.IsRaider) and are built the same way, their clothes rolled from RaiderGearSets (M10-D7). The class lists
-    /// below (RaiderClasses, PickFrom, WeaponOf...) and the Rebuild/Apply branches for an exact EModelSDCS belong to the
-    /// old scRaider&lt;Sex&gt;&lt;Weapon&gt; shim: no such class is generated any more, and M10 round 2 removes them.
+    /// ScXnpc.IsRaider) and are built the same way, their clothes rolled from RaiderGearSets (M10-D7). The old
+    /// per-weapon raider classes, their class scans and the branches for SC's own player body (an exact EModelSDCS)
+    /// went with the model shim in M10 round 2.
     /// </summary>
     public static class ScLooks
     {
@@ -150,7 +150,6 @@ namespace SurvivorCommunity
             session.Clear();
             sessionClass.Clear();
             sessionSource.Clear();
-            raiderClasses = null;
             catalogueReady = false;
         }
 
@@ -171,48 +170,10 @@ namespace SurvivorCommunity
 
         // ---- classes ----
 
-        /// <summary>The OLD shim's hostile player-body classes, scRaider&lt;Sex&gt;&lt;Weapon&gt; (EntityNPCBandit on an exact
-        /// EModelSDCS). No longer generated since M10; kept until round 2 removes the shim.</summary>
-        public const string RaiderPrefix = "scRaider";
-
-        /// <summary>
-        /// One of the OLD shim's raider classes. The M10 raider classes share the prefix (scRaiderMaleT1...) but are
-        /// ScXnpc's managed classes on XNPC's body, so they are excluded here: anything that means today's raiders asks
-        /// ScXnpc.IsRaiderClass.
-        /// </summary>
-        public static bool IsRaiderClass(string cls)
-        {
-            return !string.IsNullOrEmpty(cls) && cls.StartsWith(RaiderPrefix, StringComparison.OrdinalIgnoreCase)
-                   && cls.IndexOf("Template", StringComparison.OrdinalIgnoreCase) < 0 && !ScXnpc.IsManagedClass(cls);
-        }
-
-        /// <summary>The weapon token a generated class was built for (property ScWeapon), or "".</summary>
-        public static string WeaponOf(string cls)
-        {
-            EntityClass ec = ClassByName(cls);
-            string v;
-            return ec != null && ec.Properties != null && ec.Properties.Values.TryGetValue("ScWeapon", out v) ? v : "";
-        }
-
-        /// <summary>0 early melee, 1 pipe weapons and bows, 2 late guns (property ScWeaponTier); 0 when absent.</summary>
-        public static int TierOf(string cls)
-        {
-            EntityClass ec = ClassByName(cls);
-            string v; int t;
-            return ec != null && ec.Properties != null && ec.Properties.Values.TryGetValue("ScWeaponTier", out v) && int.TryParse(v, out t) ? t : 0;
-        }
-
         /// <summary>The highest weapon tier a stranger should carry at this gamestage (mirrors the spawn groups).</summary>
         public static int MaxTierFor(int gamestage)
         {
             return gamestage < 50 ? 0 : (gamestage < 100 ? 1 : 2);
-        }
-
-        private static EntityClass ClassByName(string cls)
-        {
-            if (string.IsNullOrEmpty(cls)) return null;
-            EntityClass ec;
-            return EntityClass.list.TryGetValue(EntityClass.FromString(cls), out ec) ? ec : null;
         }
 
         public static bool ClassIsMale(string cls)
@@ -221,75 +182,15 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// A loaded NPC that wears a look of ours: SC's own player body, or one of the 0-XNPCCore survivor classes the
-        /// community owns (never the player, never XNPC's other classes).
+        /// A loaded NPC that wears a look of ours: one of our XNPC bodies (ScXnpc.IsBody - a survivor class the community
+        /// owns, or a raider), never the player, never XNPC's other classes.
         /// </summary>
         public static bool IsSurvivor(Entity e)
         {
-            return Patches_Sdcs.IsAnyBodyNpc(e, "looks");
+            return ScXnpc.IsBody(e);
         }
 
-        /// <summary>The hostile player-body classes this mod defines (cached per session).</summary>
-        public static List<string> RaiderClasses()
-        {
-            if (raiderClasses == null) raiderClasses = ScanClasses(IsRaiderClass);
-            return raiderClasses;
-        }
-        private static List<string> raiderClasses;
-
-        private static List<string> ScanClasses(Func<string, bool> match)
-        {
-            var list = new List<string>();
-            try
-            {
-                foreach (EntityClass ec in EntityClass.list.Dict.Values)
-                {
-                    if (ec == null || !match(ec.entityClassName)) continue;
-                    if (ec.modelType != typeof(EModelSDCS)) continue;
-                    list.Add(ec.entityClassName);
-                }
-                list.Sort(StringComparer.OrdinalIgnoreCase);
-            }
-            catch (Exception e) { ScLog.Once("looks-classes", e); }
-            return list;
-        }
-
-        /// <summary>Every weapon token the generated raider classes use, for the console.</summary>
-        public static List<string> WeaponTokens()
-        {
-            var set = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string c in RaiderClasses()) { string w = WeaponOf(c); if (w.Length > 0) set.Add(w); }
-            return new List<string>(set);
-        }
-
-        /// <summary>
-        /// A class from a pool: sex "male"/"female" or null, weapon an exact ScWeapon token or null, and no weapon
-        /// above maxTier. Falls back to ignoring the tier, then the weapon, rather than returning nothing.
-        /// </summary>
-        public static string PickFrom(List<string> pool, GameRandom rnd, string sex, string weapon, int maxTier)
-        {
-            if (pool == null || pool.Count == 0) return null;
-            var ok = Filter(pool, sex, weapon, maxTier);
-            if (ok.Count == 0) ok = Filter(pool, sex, weapon, int.MaxValue);
-            if (ok.Count == 0) ok = Filter(pool, sex, null, int.MaxValue);
-            if (ok.Count == 0) ok = pool;
-            return ok[rnd != null ? rnd.RandomRange(0, ok.Count) : 0];
-        }
-
-        private static List<string> Filter(List<string> pool, string sex, string weapon, int maxTier)
-        {
-            var ok = new List<string>();
-            foreach (string c in pool)
-            {
-                if (!string.IsNullOrEmpty(sex) && ClassIsMale(c) != (sex == "male")) continue;
-                if (!string.IsNullOrEmpty(weapon) && !string.Equals(WeaponOf(c), weapon, StringComparison.OrdinalIgnoreCase)) continue;
-                if (TierOf(c) > maxTier) continue;
-                ok.Add(c);
-            }
-            return ok;
-        }
-
-        // ---- resolution for the model shim ----
+        // ---- resolution for the body build (Patches_Xnpc X1) ----
 
         /// <summary>
         /// The look for an entity that is initialising its player body: the pending spawn look, else the
@@ -549,8 +450,8 @@ namespace SurvivorCommunity
         private static readonly int[] wantQuality = new int[4];
 
         /// <summary>
-        /// Before the FIRST body build (from the model shim's Init): raw slot writes, no events, so the body
-        /// is generated already wearing the clothes and nothing has to be rebuilt.
+        /// Before the FIRST body build (Patches_Xnpc X1, in front of XNPC's createModel): raw slot writes, no events, so
+        /// the body is generated already wearing the clothes and nothing has to be rebuilt.
         /// </summary>
         public static void StageGear(EntityAlive npc, Look look)
         {
@@ -618,27 +519,20 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Regenerates the body meshes from the archetype and the equipment slots. One of the community's 0-XNPCCore
-        /// survivors is rebuilt through XNPC's own GenerateMeshes (the "new" one on EModelSdcsNpc, which also guards
-        /// against its equipment handler re-entering), not through its UpdateEquipment: that one does nothing while the
-        /// animator is disabled, as on a hidden or culled body. Patches_Xnpc (X2) re-roots the new eyes after it.
+        /// Regenerates the body meshes from the archetype and the equipment slots. One of our XNPC bodies is rebuilt
+        /// through XNPC's own GenerateMeshes (the "new" one on EModelSdcsNpc, which also guards against its equipment
+        /// handler re-entering), not through its UpdateEquipment: that one does nothing while the animator is disabled,
+        /// as on a hidden or culled body. Patches_Xnpc (X2) re-roots the new eyes after it.
         /// </summary>
         public static void Rebuild(EntityAlive npc)
         {
             try
             {
                 EModelSdcsNpc x = ScXnpc.IsBody(npc) ? npc.emodel as EModelSdcsNpc : null;
-                if (x != null)
-                {
-                    x.GenerateMeshes();
-                    npc.ReassignEquipmentTransforms();
-                    x.EnsureTestAnimatorController("SurvivorCommunity");   // what XNPC's own rebuild does after the meshes
-                    return;
-                }
-                EModelSDCS m = npc != null && Patches_Sdcs.IsOurModel(npc.emodel, "looks-rebuild") ? (EModelSDCS)npc.emodel : null;
-                if (m == null) return;
-                m.GenerateMeshes();
+                if (x == null) return;
+                x.GenerateMeshes();
                 npc.ReassignEquipmentTransforms();
+                x.EnsureTestAnimatorController("SurvivorCommunity");   // what XNPC's own rebuild does after the meshes
             }
             catch (Exception e) { ScLog.Once("looks-rebuild", e); }
         }
@@ -646,7 +540,7 @@ namespace SurvivorCommunity
         /// <summary>A whole new face (same sex) plus the look's gear, applied to a loaded survivor.</summary>
         public static void Apply(EntityAlive npc, Look look)
         {
-            EModelSDCS m = npc != null && (Patches_Sdcs.IsOurModel(npc.emodel, "looks-apply") || ScXnpc.IsBody(npc)) ? (EModelSDCS)npc.emodel : null;
+            EModelSDCS m = ScXnpc.IsBody(npc) ? (EModelSDCS)npc.emodel : null;
             if (m == null || look == null) return;
             try
             {

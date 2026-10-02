@@ -145,6 +145,13 @@ namespace SurvivorCommunity
         /// </summary>
         public const string PreMigrationLine = "this save predates the XNPCCore migration: start a new game";
 
+        /// <summary>
+        /// Added to the old-save warning (M10 round 2): raiders saved by such a world (console raiders are saved, as
+        /// StaticSpawner entities) belong to the old per-weapon scRaider&lt;Sex&gt;&lt;Weapon&gt; classes, which are gone too
+        /// (since M10 round 1), so the world cannot bring them back either.
+        /// </summary>
+        public const string PreM10RaiderLine = "Raiders it saved (the old per-weapon scRaider<Sex><Weapon> classes, e.g. console spawns) are of classes that no longer exist either.";
+
         /// <summary>Is this member recorded as an entity class the game no longer defines (an old save's scSurvivor member)?</summary>
         public static bool PredatesMigration(Member m)
         {
@@ -169,7 +176,7 @@ namespace SurvivorCommunity
                 if (n > 0)
                     ScLog.Once("pre-migration-save", PreMigrationLine + ". " + n + " member(s) of entity classes that no longer exist, e.g. "
                                + sample + ", cannot be brought back and are removed after " + ScConfig.MissingDaysToPurge + " days unseen"
-                               + " (or their class came from a character pack that is no longer installed).");
+                               + " (or their class came from a character pack that is no longer installed). " + PreM10RaiderLine);
             }
             catch (Exception e)
             {

@@ -181,8 +181,9 @@
 			<property name="RescueBonus" value="1.25" />
 
 			<!-- Survivors and raiders wearing the player's body: the community's survivors are 0-XNPCCore's own
-			     survivor classes (XnpcSurvivorClasses below), the raiders SurvivorCommunity's scRaider classes on the same
-			     body (XnpcRaiderClasses below, Config/entityclasses.xml; their clothes come from RaiderGearSets).
+			     survivor classes (XnpcSurvivorClasses below), the raiders SurvivorCommunity's six scRaider{Male,Female}T1-T3
+			     classes on the same body (XnpcRaiderClasses below, Config/entityclasses.xml; their clothes come from
+			     RaiderGearSets).
 			     SurvivorLookChance: NO LONGER USED - every radio contact is one of them now, since pack NPCs no
 			     longer spawn while this mod is installed. Their clothes come
 			     from vanilla armor sets (armor<Set>Helmet/Outfit/Gloves/Boots): each piece with GearPieceChance,
@@ -255,10 +256,10 @@
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:
 			     change both together.
-			     XnpcBodyGetUp / XnpcBodyJumpAnim / XnpcBodyColliderLayers: the player-body fixes SurvivorCommunity's own
-			     survivors needed (getting up after a knockdown without floating, the jump animation, hit capsules that
-			     shots can reach), applied to those bodies too. Each is a switch because only a test in game shows
-			     whether 0-XNPCCore's bodies need it; false leaves that part to 0-XNPCCore. -->
+			     XnpcBodyGetUp / XnpcBodyJumpAnim / XnpcBodyColliderLayers: player-body fixes 0-XNPCCore does not make
+			     (getting up after a knockdown without floating, the jump animation, hit capsules that shots can reach),
+			     for these survivors and the raiders below. Each is a switch because only a test in game shows whether
+			     0-XNPCCore's bodies need it; false leaves that part to 0-XNPCCore. -->
 			<property name="XnpcSurvivorClasses" value="npcSdcsSurvivorMaleT1,npcSdcsSurvivorMaleT2,npcSdcsSurvivorMaleT3,npcSdcsSurvivorFemaleT1,npcSdcsSurvivorFemaleT2,npcSdcsSurvivorFemaleT3" />
 			<property name="XnpcBodyGetUp" value="true" />
 			<property name="XnpcBodyJumpAnim" value="true" />

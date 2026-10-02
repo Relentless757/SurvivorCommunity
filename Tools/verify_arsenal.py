@@ -159,18 +159,18 @@ for label, root, tag in (("item", it.getroot(), "item"), ("entity class", ec.get
     c = Counter(e.get("name") for e in root.iter(tag))
     d = [k for k, v in c.items() if v > 1 and k and ("NPCSC" in k or k.startswith("scSurvivor") or k.startswith("scRaider"))]
     if d: errors.append("duplicate %s definitions: %s" % (label, d[:5]))
-# new items: CompatibleWeapon must be a vanilla item, effect groups present
+# M10 round 2: the old raiders' NPC weapon copies (meleeNPCSC*/gunNPCSC*) are gone - none defined after the replay, and
+# nothing in SC's Config (loot, recipes, classes' ItemsOnEnterGame, W0 swaps...) names one any more
 van_root = load(G + r"\Data\Config\items.xml").getroot()
-van = set(e.get("name") for e in van_root.iter("item"))
 npcsc = [e.get("name") for e in it.getroot().iter("item") if "NPCSC" in (e.get("name") or "")]
-print("  old raiders' NPCSC items still defined (M10 round 2 removes them): %d" % len(npcsc))
-for e in it.getroot().iter("item"):
-    n = e.get("name") or ""
-    if "NPCSC" not in n: continue
-    cw = e.xpath("property[@name='CompatibleWeapon']/@value")
-    if not cw or cw[0] not in van: errors.append("%s: CompatibleWeapon %s" % (n, cw))
-    if not e.xpath("effect_group"): errors.append(n + ": no effect groups")
-    if not e.xpath("property[@name='Meshfile']/@value"): errors.append(n + ": no Meshfile")
+if npcsc: errors.append("M10 round 2: %d NPCSC items still defined e.g. %s" % (len(npcsc), npcsc[0]))
+for dirpath, _, files in os.walk(SC):
+    for f in files:
+        if not f.endswith((".xml", ".csv")): continue
+        with io.open(os.path.join(dirpath, f), encoding="utf-8") as fh:
+            hits = [i + 1 for i, ln in enumerate(fh) if "NPCSC" in ln]
+        if hits: errors.append("M10 round 2: %s still names an NPCSC item (line %s)" % (os.path.relpath(os.path.join(dirpath, f), SC), ", ".join(map(str, hits[:5]))))
+print("  NPCSC items defined: %d (want 0)" % len(npcsc))
 
 # XNPCCore migration M7: the survivors' weapons (blocks.xml XnpcWeapons). Their classes carry none: the DLL rolls a
 # melee weapon and a ranged one per NPC, at or below a tier cap of 0, 1 or 2, a firearm at SurvivorFirearmChance. So
@@ -366,6 +366,8 @@ stale_loc = [k for k in keys if re.match(r"^scSurvivor(Male|Female)", k)]
 if stale_loc: errors.append("D11: %d localization rows of removed scSurvivor classes e.g. %s" % (len(stale_loc), stale_loc[0]))
 stale_raider = [k for k in keys if re.match(r"^scRaider(Male|Female)\w+$", k) and k not in raiders]
 if stale_raider: errors.append("M10: %d localization rows of the old per-weapon raider classes e.g. %s" % (len(stale_raider), stale_raider[0]))
+stale_item = [k for k in keys if re.match(r"^(melee|gun)NPCSC\w+$", k)]
+if stale_item: errors.append("M10 round 2: %d localization rows of the removed NPCSC items e.g. %s" % (len(stale_item), stale_item[0]))
 print()
 print("raider leaves:", len(leaves), " survivor classes (0-XNPCCore):", len(xnpc_survivors), " weapons (both sides):", len(cat))
 print("ERRORS: %d" % len(errors))

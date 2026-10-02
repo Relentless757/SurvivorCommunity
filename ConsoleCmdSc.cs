@@ -1103,9 +1103,10 @@ namespace SurvivorCommunity
                        + ScScan.LastMs.ToString("0.00") + " ms; block types: " + ScScan.BedTypes + " bed, " + ScScan.FacilityTypes + " facility, " + ScScan.CropTypes + " crop");
         }
 
-        /// <summary>0-XNPCCore 3.2 checks: the billing guard's counters, and the body hooks that met one of its survivors.</summary>
+        /// <summary>0-XNPCCore 3.2 checks: the billing guard's counters, and the body hooks that met one of its own NPCs.</summary>
         /// <summary>
-        /// sc xnpc: the billing guard's counters, the body hooks that stepped aside for a 0-XNPCCore survivor, the
+        /// sc xnpc: the billing guard's counters, the body hooks that stepped aside for a player-body NPC that is not one of
+        /// ours (0-XNPCCore's own classes: since M10 round 2 SC's own bodies never show up there), the
         /// Patches_Xnpc hit counters, the ammo resupply and swap-return counters (ScAmmo, ScArms) and the loaded members
         /// with a hire contract. sc xnpc &lt;id|name&gt;: one NPC in detail - the migration's main probe, since DevLink's
         /// cvar command only reads the player's cvars.
@@ -1120,7 +1121,7 @@ namespace SurvivorCommunity
                 return;
             }
             Output("[SC] voice control: " + (Patches_VoiceControl.ChatType != null ? "loaded" : "not loaded") + " - intercepted: " + Patches_VoiceControl.Report());
-            Output("[SC] body hooks that met a 0-XNPCCore survivor and stepped aside: " + Patches_Sdcs.ForeignReport());
+            Output("[SC] body hooks that met another player-body NPC (0-XNPCCore's own classes) and stepped aside: " + Patches_Sdcs.ForeignReport());
             Output("[SC] 0-XNPCCore survivor hooks (Patches_Xnpc): " + Patches_Xnpc.Report());
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
@@ -1131,7 +1132,7 @@ namespace SurvivorCommunity
             {
                 EntityAlive a = w.Entities.list[i] as EntityAlive;
                 if (a == null || a.Buffs == null || a is EntityPlayer) continue;
-                if (a.emodel is EModelSDCS && !Patches_Sdcs.IsOurModel(a.emodel)) { if (ScXnpc.IsRaider(a)) raiders++; else if (ScXnpc.IsBody(a)) managed++; else theirs++; }
+                if (a.emodel is EModelSDCS) { if (ScXnpc.IsRaider(a)) raiders++; else if (ScXnpc.IsBody(a)) managed++; else theirs++; }
                 if (!Patches_VoiceControl.IsCommunityNpc(a)) continue;
                 ours++;
                 if (!a.Buffs.HasCustomVar("RetainerNextDueDay") && !a.Buffs.HasCustomVar("RetainerWeek")) continue;
@@ -1139,7 +1140,7 @@ namespace SurvivorCommunity
                 Output("[SC]   hire contract on " + a.EntityName + " (" + a.entityId + ") - stripped at the next relink");
             }
             Output("[SC] loaded: " + ours + " member(s)/stand-in(s), " + contracts + " with a hire contract; " + managed
-                   + " 0-XNPCCore survivor(s) of the community's classes, " + raiders + " raider(s) (sc raiders), " + theirs + " of 0-XNPCCore's other classes");
+                   + " 0-XNPCCore survivor(s) of the community's classes, " + raiders + " raider(s) (sc raiders), " + theirs + " other player-body NPC(s) (0-XNPCCore's other classes)");
         }
 
         private static readonly string[] XnpcLevelCvars = { "SdcsNpcLevel", "SdcsLevelHealth", "SdcsLevelDamage", "SdcsLevelSpread", "SdcsLevelRegen" };
@@ -1156,7 +1157,7 @@ namespace SurvivorCommunity
             sb.Append("[SC] ").Append(ScCommunity.DisplayName(e)).Append(" id ").Append(e.entityId).Append(' ').Append(e.GetType().Name)
               .Append(" class ").Append(cls).Append(" managed=").Append(ScXnpc.IsManagedClass(e.entityClass)).Append(" xnpcBody=").Append(ScXnpc.IsBody(e))
               .Append(" side=").Append(ScXnpc.IsRaiderClass(e.entityClass) ? "raider" : ScXnpc.IsSurvivorClass(e.entityClass) ? "survivor" : "-")
-              .Append(" scBody=").Append(Patches_Sdcs.IsBodyNpc(e)).Append(" model=").Append(e.emodel != null ? e.emodel.GetType().Name : "null");
+              .Append(" model=").Append(e.emodel != null ? e.emodel.GetType().Name : "null");
             sb.Append("\n  hostility: ").Append(Hostility(e));
             sb.Append("\n  record: ").Append(m != null ? "member " + m.Name + " (" + m.Status + ", class " + m.Class + ")" : (pr != null ? "prospect (class " + pr.Class + ")" : "none"))
               .Append(" community=").Append(ScXnpc.IsCommunity(e));

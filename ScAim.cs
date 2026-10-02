@@ -19,25 +19,22 @@ namespace SurvivorCommunity
     /// cleared the flag again. On a primitive bow, WeaponPreFire held 3P_2HBow_Draw until WeaponFire played
     /// 3P_2HBow_Fire, which then settled in 2HBowHold.
     ///
-    /// When: SCore's attack task (UAITaskAttackTargetEntitySDX, shared by survivors and raiders, and its V4 sibling
+    /// These are our XNPC bodies (ScXnpc.IsBody: the survivor classes the community owns and SC's raiders; decision D12 -
+    /// XNPC itself never sets IsAiming).
+    ///
+    /// When: SCore's attack task (UAITaskAttackTargetEntitySDX, which 0-XNPCCore's packages use, and its V4 sibling
     /// UAITaskAttackTargetEntitySDXV4 should a package use it) is stamped on every Start and Update with its
-    /// action_index: 1 is the shot, 0 the gun-butt. The gun stays up for
-    /// SurvivorAimHoldSeconds after the last ranged tick, so the AI re-scoring every 0.2 s does not make it bob. It
-    /// comes down at once for a gun-butt, a reload, a use animation, a stun or a ragdoll. The driver runs on the
-    /// machine that owns the NPC and writes through the controller's own setters, so the parameters reach other
-    /// players the way a remote player's aim does. This assumes the NPC items' layout, which every gunNPC* item and
-    /// every attack package uses: Action0 the gun-butt, Action1 the shot. A vanilla-layout gun (the shot on Action0)
-    /// in one of these hands would never aim.
+    /// action_index. Our bodies carry vanilla player weapons, which shoot on Action0 - XNPC's attack actions all use
+    /// action_index 0 - so a stamp is ranged when the held item's action at that index is an ItemActionRanged, and melee
+    /// otherwise. The gun stays up for SurvivorAimHoldSeconds after the last ranged tick, so the AI re-scoring every
+    /// 0.2 s does not make it bob. It comes down at once for a melee tick, a reload, a use animation, a stun or a
+    /// ragdoll. The driver runs from Patches_Xnpc (X7) after XNPC's own Update, on the machine that owns the NPC, and
+    /// writes through the controller's own setters, so the parameters reach other players the way a remote player's aim
+    /// does. Their reload is the vanilla one, which XNPC publishes as the SdcsReloading cvar.
     ///
     /// Visual only (the user's decision): EntityAlive.AimingGun reads the animator's IsAiming, and every gameplay
     /// reader goes through it: the spread (ItemActionRanged.updateAccuracy via OnHoldingUpdate), the forced critical
     /// in fireShot and the kickback. So its getter answers false for these bodies while SurvivorAimVisualOnly is on.
-    ///
-    /// The community's 0-XNPCCore survivors (ScXnpc.IsBody) aim too (decision D12; XNPC itself never sets IsAiming).
-    /// They carry vanilla player weapons, which shoot on Action0 - XNPC's attack actions all use action_index 0 - so
-    /// for them a stamp is ranged when the held item's action at that index is an ItemActionRanged, and the driver
-    /// runs from Patches_Xnpc (X7) after XNPC's own Update. Their reload is the vanilla one, which XNPC publishes as
-    /// the SdcsReloading cvar. SC's own bodies keep the index rule above unchanged.
     /// </summary>
     public static class ScAim
     {
@@ -68,8 +65,8 @@ namespace SurvivorCommunity
 
         private sealed class State
         {
-            public float LastRanged = -1000f;    // Time.time of the last attack-task tick with action_index 1
-            public float LastMelee = -1000f;     // ... with action_index 0 (the gun-butt, or any melee weapon)
+            public float LastRanged = -1000f;    // Time.time of the last attack-task tick whose action shoots
+            public float LastMelee = -1000f;     // ... whose action does not (a melee weapon)
             public float DrawAt = -1000f;        // bow: when the last draw was triggered
             public bool Aiming;                  // what the driver last wrote to IsAiming
             public bool Up;                      // the last decision was weapon up (aim or bow), for the facing hysteresis
@@ -179,12 +176,11 @@ namespace SurvivorCommunity
                 stampCalls++;
                 Sweep(Time.time);
                 EntityAlive e = ctx != null ? ctx.Self : null;
-                if (e == null || e.isEntityRemote || !Patches_Sdcs.IsAnyBodyNpc(e, "aim")) return;
+                if (e == null || e.isEntityRemote || !ScXnpc.IsBody(e)) return;
                 int index = ActionIndex(task);
                 if (index != 0 && index != 1) return;
-                // SC's own bodies hold NPC items (Action1 the shot, Action0 the gun-butt); 0-XNPCCore's hold player items,
-                // which shoot on whichever action the attack names, so the item itself says what this attack is
-                bool ranged = ScXnpc.IsBody(e) ? IsRangedAction(e, index) : index == 1;
+                // player items shoot on whichever action the attack names, so the item itself says what this attack is
+                bool ranged = IsRangedAction(e, index);
                 State s;
                 if (!states.TryGetValue(e.entityId, out s))
                 {
@@ -246,10 +242,9 @@ namespace SurvivorCommunity
         // ---- what: the animator ----
 
         /// <summary>
-        /// Called every frame for each player-body NPC from Patches_Sdcs.Patch_UpdateCarry, before that patch returns
-        /// for a use animation, so a use lowers the gun too - and for the community's 0-XNPCCore survivors from
-        /// Patches_Xnpc's AvatarSdcsNpcController.Update postfix. IsAiming is re-asserted every frame because a controller
-        /// swap resets every animator parameter; the setter only writes (and syncs) a change.
+        /// Called every frame for each of our bodies from Patches_Xnpc's AvatarSdcsNpcController.Update postfix (X7), after
+        /// XNPC's whole frame; a use animation lowers the gun (Blocker). IsAiming is re-asserted every frame because a
+        /// controller swap resets every animator parameter; the setter only writes (and syncs) a change.
         /// </summary>
         public static void Drive(AvatarSDCSController c, EntityAlive e)
         {
@@ -279,7 +274,7 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Why the weapon must stay down, or null when it goes up. Also returns the mapped hold type.</summary>
+        /// <summary>Why the weapon must stay down, or null when it goes up. Also returns the held item's hold type.</summary>
         private static string Blocker(AvatarSDCSController c, EntityAlive e, State s, float now, out int hold)
         {
             hold = -1;
@@ -288,19 +283,17 @@ namespace SurvivorCommunity
             ItemClass held = e.inventory != null ? e.inventory.holdingItem : null;
             if (held == null) return "empty hands";
             ItemAction[] acts = held.Actions;
-            bool xnpc = ScXnpc.IsBody(e);
-            // SC's NPC items shoot on Action1; a player item (0-XNPCCore's bodies) shoots on Action0, its Action1 is the zoom
-            bool shoots = xnpc ? acts != null && ((acts.Length > 0 && acts[0] is ItemActionRanged) || (acts.Length > 1 && acts[1] is ItemActionRanged))
-                               : acts != null && acts.Length >= 2 && acts[1] is ItemActionRanged;
+            // a player item shoots on Action0 (its Action1 is the zoom); either one shooting makes it a ranged weapon
+            bool shoots = acts != null && ((acts.Length > 0 && acts[0] is ItemActionRanged) || (acts.Length > 1 && acts[1] is ItemActionRanged));
             if (!shoots) return "not a ranged weapon";
-            hold = Patches_Sdcs.MapHoldType(e, held.HoldType.Value);
+            hold = held.HoldType.Value;
             if (!AimHoldTypes.Contains(hold) && !IsBow(hold)) return "no aim pose for this hold type";
             if (s.LastMelee > s.LastRanged) return "melee";
             if (now - s.LastRanged > ScConfig.SurvivorAimHoldSeconds) return "calm";
             if (e.emodel == null || e.emodel.IsRagdollActive) return "ragdoll";
             if (e.bodyDamage.CurrentStun != EnumEntityStunType.None) return "stunned";
             if (c.IsAnimationUsePlaying()) return "using an item";
-            if (Reloading(c.anim, s) || (xnpc && e.Buffs != null && e.Buffs.GetCustomVar("SdcsReloading") > 0f)) return "reloading";
+            if (Reloading(c.anim, s) || (e.Buffs != null && e.Buffs.GetCustomVar("SdcsReloading") > 0f)) return "reloading";
             if (FacingAway(e, s.Up ? FacingDrop : FacingRaise)) return "facing away";
             return null;
         }
@@ -322,11 +315,10 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// A reload clip is playing. The NPC framework only pulses the Reload bool (its buffReloadDelay sets it, its
-        /// buffReload2 clears it at once), and vanilla's reload state behaviour returns early for these guns (their
-        /// Action0 is the gun-butt, so ItemActionDataRanged.isReloading never changes). So the clip itself is read:
-        /// a gun reloads on layer 19, which rests in Empty; a bow reloads on its own layer 18. (0-XNPCCore's bodies
-        /// reload the vanilla way and say so in the SdcsReloading cvar, which Blocker reads as well.)
+        /// A reload clip is playing (or the Reload bool is set): a gun reloads on layer 19, which rests in Empty; a bow
+        /// reloads on its own layer 18. 0-XNPCCore reloads our bodies the vanilla way and says so in the SdcsReloading
+        /// cvar, which Blocker reads as well. The clip test dates from SC's former NPC-item bodies, whose framework only
+        /// pulsed the Reload bool; it stays as a second witness.
         /// </summary>
         private static bool Reloading(Animator a, State s)
         {
@@ -392,12 +384,11 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Keeps the aim cosmetic. AimingGun's getter reads the animator's IsAiming, which the driver now sets, and the
-        /// game would then give these NPCs aimed spread (SpreadMultiplierAiming, 2.5x to 16x tighter on the NPC guns),
-        /// a critical on every hit (fireShot) and the smaller aimed kickback. All three read this getter, so answering
-        /// false here leaves them as they were before the pose existed; the animator flag, and the pose, stay. The
-        /// getter is virtual (EntityZombie overrides it, nothing on the survivor or raider chain does), so Mono cannot
-        /// inline it into its callers; the counter in `sc aim` proves it runs. The community's 0-XNPCCore survivors are
-        /// included, so XNPC's tuned spread on them stays exactly as XNPC set it.
+        /// game would then give these NPCs aimed spread (SpreadMultiplierAiming), a critical on every hit (fireShot) and
+        /// the smaller aimed kickback. All three read this getter, so answering false here leaves them as they were
+        /// before the pose existed - XNPC's tuned spread stays exactly as XNPC set it; the animator flag, and the pose,
+        /// stay. The getter is virtual (EntityZombie overrides it, nothing on the survivor or raider chain does), so Mono
+        /// cannot inline it into its callers; the counter in `sc aim` proves it runs.
         /// </summary>
         [HarmonyPatch(typeof(EntityAlive), nameof(EntityAlive.AimingGun), MethodType.Getter)]
         public static class Patch_AimingGunVisualOnly
@@ -405,7 +396,7 @@ namespace SurvivorCommunity
             [HarmonyPrefix]
             public static bool Prefix(EntityAlive __instance, ref bool __result)
             {
-                if (!ScConfig.SurvivorAimVisualOnly || !Patches_Sdcs.IsAnyBodyNpc(__instance, "aim-gun")) return true;
+                if (!ScConfig.SurvivorAimVisualOnly || !ScXnpc.IsBody(__instance)) return true;
                 getterCalls++;
                 __result = false;
                 return false;
@@ -430,13 +421,12 @@ namespace SurvivorCommunity
                 return sb.ToString();
             }
             sb.Append("\n  ").Append(ScCommunity.DisplayName(e)).Append(" id ").Append(e.entityId).Append(' ').Append(e.GetType().Name)
-              .Append(" body=").Append(Patches_Sdcs.IsBodyNpc(e)).Append(" xnpcBody=").Append(ScXnpc.IsBody(e)).Append(" remote=").Append(e.isEntityRemote);
+              .Append(" xnpcBody=").Append(ScXnpc.IsBody(e)).Append(" remote=").Append(e.isEntityRemote);
             ItemClass held = e.inventory != null ? e.inventory.holdingItem : null;
             if (held != null)
             {
                 ItemAction[] acts = held.Actions;
-                sb.Append("\n  holding ").Append(held.GetItemName()).Append(" holdType ").Append(held.HoldType.Value).Append(" -> ")
-                  .Append(Patches_Sdcs.MapHoldType(e, held.HoldType.Value)).Append(" action0=")
+                sb.Append("\n  holding ").Append(held.GetItemName()).Append(" holdType ").Append(held.HoldType.Value).Append(" action0=")
                   .Append(acts != null && acts.Length > 0 && acts[0] != null ? acts[0].GetType().Name : "none").Append(" action1=")
                   .Append(acts != null && acts.Length > 1 && acts[1] != null ? acts[1].GetType().Name : "none");
             }

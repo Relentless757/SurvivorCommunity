@@ -367,7 +367,7 @@ namespace SurvivorCommunity
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
-        /// <summary>Their knock-down recovery runs as a player's (Patches_Sdcs ragdoll fixes), as it does for SC's own bodies.</summary>
+        /// <summary>Their knock-down recovery runs as a player's (Patches_Sdcs ragdoll fixes); the raiders' too (every switch below covers both sets).</summary>
         public static bool XnpcBodyGetUp = true;
         /// <summary>Their jumps fire the player animator's jump trigger (Patches_Sdcs.Patch_JumpAnim).</summary>
         public static bool XnpcBodyJumpAnim = true;

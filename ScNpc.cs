@@ -18,7 +18,7 @@ namespace SurvivorCommunity
     /// Harmony target lists and the dependency probe in ModApi.
     ///
     /// For an EntityAliveSDX every call does exactly what the code it replaced did. Anything that is not one of the two
-    /// classes (an old EntityNPCBandit raider, a vanilla trader, a zombie) gets the neutral answer the old "as
+    /// classes (a vanilla EntityNPCBandit, a vanilla trader, a zombie) gets the neutral answer the old "as
     /// EntityAliveSDX" gave it: null, false, or nothing done. SC's raiders are EntityAliveSDXV4 since M10.
     /// </summary>
     public static class ScNpc

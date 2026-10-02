@@ -13,21 +13,19 @@
 #                                             framework's groups (W0)
 #   Config/spawning.xml        (whole file)   our own biome spawn entries that call those groups; and the
 #                                             framework's own NPC biome spawns removed (W0, D10)
-#   Config/items.xml           (marked block) the NPC weapon items of the OLD raiders (scRaider<Sex><Weapon>, gone since
-#                                             M10), cloned from the framework's closest one - still written until M10
-#                                             round 2 removes them with the old model shim; nothing spawns with them
+#   Config/items.xml           (strip only)   nothing generated any more: the NPC weapon items of the OLD raiders
+#                                             (meleeNPCSC*/gunNPCSC*, for scRaider<Sex><Weapon>) went in M10 round 2; a
+#                                             run removes their old marked block if a file still has it
 #   Config/blocks.xml          (marked block) XnpcWeapons: the vanilla weapons the DLL arms survivors and raiders with
-#   Config/Localization.csv    (managed rows) entity and item names (the old scSurvivor and scRaider<Sex><Weapon> rows
-#                                             are dropped)
+#   Config/Localization.csv    (managed rows) the raider class names (the old scSurvivor, scRaider<Sex><Weapon> and
+#                                             NPCSC item rows are dropped)
 #
 # Facts this relies on (all checked in the 3.2 decompile or the installed XML):
-#  * item Extends copies properties but NOT effect groups (ItemClassesFromXml parses Effects from the child node
-#    only), so a new NPC weapon is a full clone of the framework item, not an Extends of it
 #  * entity classes: effect groups inherit down the extends chain (MinEffectController); ItemsOnEnterGame is a class
 #    block, merged per key; Tags are restated on every leaf (whether they inherit or not, that is right)
 #  * a hostile EntityAliveSDXV4 is made by class properties alone (DESIGN_M10_RAIDERS.md 1.2): Faction bandits,
 #    IsEnemyEntity true, Hirable false, and AI packages that can fire a vanilla gun (XNPC's SdcsNpcRangedAdvanced)
-import io, os, re, sys, csv
+import io, os, re, sys
 from lxml import etree as ET
 
 GAME = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
@@ -40,58 +38,59 @@ VAN = os.path.join(GAME, r"Data\Config")
 # ------------------------------------------------------------------------------------------------------------
 # The table.  token: the weapon's short name (the console accepts it).  cat: the framework weapon it maps to.
 # tier: 0 early (melee, and the primitive ranged weapons - pipe guns and the primitive bow - which everyone may
-# carry from day 1), 1 middle (wooden bow, iron crossbow, double barrel), 2 late.  new: vanilla item that needed a
-# new NPC weapon (cloned from base) for the old raiders, or None when the framework already has one.
-# The community's 0-XNPCCore survivors and, since M10, SC's raiders carry the vanilla weapon itself (the "new" item,
-# or the framework NPC item's CompatibleWeapon) with the token's kind, family and tier (XNPC_WEAPONS). The framework
-# templates (cat) are still how a pack NPC's weapon is recognised for W0, and its tier picks the class W0 swaps in.
+# carry from day 1), 1 middle (wooden bow, iron crossbow, double barrel), 2 late.  vanilla: the vanilla item, for a
+# weapon the framework has no NPC version of; None when the framework's NPC item names it (its CompatibleWeapon).
+# The community's 0-XNPCCore survivors and, since M10, SC's raiders carry that vanilla weapon itself with the token's
+# kind, family and tier (XNPC_WEAPONS). The framework templates (cat) are still how a pack NPC's weapon is recognised
+# for W0, and its tier picks the class W0 swaps in. (Until M10 round 2 a sixth column named the framework NPC item the
+# old raiders' NPC copy of each vanilla weapon was cloned from; those NPCSC items are gone.)
 # ------------------------------------------------------------------------------------------------------------
 WEAPONS = [
-    # token              cat           kind      tier  new vanilla item                         base NPC item
-    ("EmptyHand",        "EmptyHand",  "melee",  0,    None,                                    None),
-    ("Club",             "Club",       "melee",  0,    None,                                    None),   # legacy name
-    ("Knife",            "Knife",      "melee",  0,    None,                                    None),
-    ("Bat",              "Bat",        "melee",  0,    None,                                    None),
-    ("Axe",              "Axe",        "melee",  0,    None,                                    None),
-    ("Spear",            "Spear",      "melee",  0,    None,                                    None),
-    ("Machete",          "Machete",    "melee",  0,    None,                                    None),
-    ("PipePistol",       "PipePistol", "ranged", 0,    None,                                    None),
-    ("PipeRifle",        "PipeRifle",  "ranged", 0,    None,                                    None),
-    ("PipeShotgun",      "PipeShotgun","ranged", 0,    None,                                    None),
-    ("PipeMG",           "PipeMG",     "ranged", 0,    None,                                    None),
-    ("LBow",             "LBow",       "ranged", 1,    None,                                    None),
-    ("XBow",             "XBow",       "ranged", 1,    None,                                    None),
-    ("Pistol",           "Pistol",     "ranged", 2,    None,                                    None),
-    ("DPistol",          "DPistol",    "ranged", 2,    None,                                    None),
-    ("SMG",              "SMG",        "ranged", 2,    None,                                    None),
-    ("Rifle",            "AK47",       "ranged", 2,    None,                                    None),   # legacy name, an AK-47
-    ("TRifle",           "TRifle",     "ranged", 2,    None,                                    None),
-    ("HRifle",           "HRifle",     "ranged", 2,    None,                                    None),
-    ("SRifle",           "SRifle",     "ranged", 2,    None,                                    None),
-    ("PShotgun",         "PShotgun",   "ranged", 2,    None,                                    None),
-    ("AShotgun",         "AShotgun",   "ranged", 2,    None,                                    None),
-    ("M60",              "M60",        "ranged", 2,    None,                                    None),
-    ("RocketL",          "RocketL",    "ranged", 2,    None,                                    None),
+    # token              cat           kind      tier  vanilla item
+    ("EmptyHand",        "EmptyHand",  "melee",  0,    None),
+    ("Club",             "Club",       "melee",  0,    None),   # legacy name
+    ("Knife",            "Knife",      "melee",  0,    None),
+    ("Bat",              "Bat",        "melee",  0,    None),
+    ("Axe",              "Axe",        "melee",  0,    None),
+    ("Spear",            "Spear",      "melee",  0,    None),
+    ("Machete",          "Machete",    "melee",  0,    None),
+    ("PipePistol",       "PipePistol", "ranged", 0,    None),
+    ("PipeRifle",        "PipeRifle",  "ranged", 0,    None),
+    ("PipeShotgun",      "PipeShotgun","ranged", 0,    None),
+    ("PipeMG",           "PipeMG",     "ranged", 0,    None),
+    ("LBow",             "LBow",       "ranged", 1,    None),
+    ("XBow",             "XBow",       "ranged", 1,    None),
+    ("Pistol",           "Pistol",     "ranged", 2,    None),
+    ("DPistol",          "DPistol",    "ranged", 2,    None),
+    ("SMG",              "SMG",        "ranged", 2,    None),
+    ("Rifle",            "AK47",       "ranged", 2,    None),   # legacy name, an AK-47
+    ("TRifle",           "TRifle",     "ranged", 2,    None),
+    ("HRifle",           "HRifle",     "ranged", 2,    None),
+    ("SRifle",           "SRifle",     "ranged", 2,    None),
+    ("PShotgun",         "PShotgun",   "ranged", 2,    None),
+    ("AShotgun",         "AShotgun",   "ranged", 2,    None),
+    ("M60",              "M60",        "ranged", 2,    None),
+    ("RocketL",          "RocketL",    "ranged", 2,    None),
     # vanilla weapons the framework has no NPC version of
-    ("BoneKnife",        "Knife",      "melee",  0,    "meleeWpnBladeT0BoneKnife",              "meleeNPCKnife"),
-    ("LeatherKnuckles",  "Knife",      "melee",  0,    "meleeWpnKnucklesT0LeatherKnuckles",     "meleeNPCKnife"),
-    ("IronKnuckles",     "Knife",      "melee",  0,    "meleeWpnKnucklesT1IronKnuckles",        "meleeNPCKnife"),
-    ("SteelKnuckles",    "Knife",      "melee",  2,    "meleeWpnKnucklesT3SteelKnuckles",       "meleeNPCKnife"),
-    ("PipeBaton",        "Club",       "melee",  0,    "meleeWpnBatonT0PipeBaton",              "meleeNPCClubWood"),
-    ("StunBaton",        "Club",       "melee",  1,    "meleeWpnBatonT2StunBaton",              "meleeNPCClubWood"),
-    ("SteelClub",        "Club",       "melee",  2,    "meleeWpnClubT3SteelClub",               "meleeNPCClubWood"),
-    ("StoneSledge",      "Club",       "melee",  0,    "meleeWpnSledgeT0StoneSledgehammer",     "meleeNPCClubWood"),
-    ("IronSledge",       "Club",       "melee",  0,    "meleeWpnSledgeT1IronSledgehammer",      "meleeNPCClubWood"),
-    ("SteelSledge",      "Club",       "melee",  2,    "meleeWpnSledgeT3SteelSledgehammer",     "meleeNPCClubWood"),
-    ("StoneSpear",       "Spear",      "melee",  0,    "meleeWpnSpearT0StoneSpear",             "meleeNPCSpear"),
-    ("SteelSpear",       "Spear",      "melee",  2,    "meleeWpnSpearT3SteelSpear",             "meleeNPCSpear"),
-    ("SteelAxe",         "Axe",        "melee",  1,    "meleeToolAxeT2SteelAxe",                "meleeNPCAxe"),
-    ("Magnum",           "Pistol",     "ranged", 2,    "gunHandgunT2Magnum44",                  "gunNPCPistol"),
-    ("DoubleBarrel",     "PShotgun",   "ranged", 1,    "gunShotgunT1DoubleBarrel",              "gunNPCPShotgun"),
-    ("LeverAction",      "HRifle",     "ranged", 2,    "gunRifleT2LeverActionRifle",            "gunNPCHRifle"),
-    ("PrimitiveBow",     "LBow",       "ranged", 0,    "gunBowT0PrimitiveBow",                  "gunNPCLBow"),
-    ("CompoundBow",      "LBow",       "ranged", 2,    "gunBowT3CompoundBow",                   "gunNPCLBow"),
-    ("CompoundCrossbow", "XBow",       "ranged", 2,    "gunBowT3CompoundCrossbow",              "gunNPCXBow"),
+    ("BoneKnife",        "Knife",      "melee",  0,    "meleeWpnBladeT0BoneKnife"),
+    ("LeatherKnuckles",  "Knife",      "melee",  0,    "meleeWpnKnucklesT0LeatherKnuckles"),
+    ("IronKnuckles",     "Knife",      "melee",  0,    "meleeWpnKnucklesT1IronKnuckles"),
+    ("SteelKnuckles",    "Knife",      "melee",  2,    "meleeWpnKnucklesT3SteelKnuckles"),
+    ("PipeBaton",        "Club",       "melee",  0,    "meleeWpnBatonT0PipeBaton"),
+    ("StunBaton",        "Club",       "melee",  1,    "meleeWpnBatonT2StunBaton"),
+    ("SteelClub",        "Club",       "melee",  2,    "meleeWpnClubT3SteelClub"),
+    ("StoneSledge",      "Club",       "melee",  0,    "meleeWpnSledgeT0StoneSledgehammer"),
+    ("IronSledge",       "Club",       "melee",  0,    "meleeWpnSledgeT1IronSledgehammer"),
+    ("SteelSledge",      "Club",       "melee",  2,    "meleeWpnSledgeT3SteelSledgehammer"),
+    ("StoneSpear",       "Spear",      "melee",  0,    "meleeWpnSpearT0StoneSpear"),
+    ("SteelSpear",       "Spear",      "melee",  2,    "meleeWpnSpearT3SteelSpear"),
+    ("SteelAxe",         "Axe",        "melee",  1,    "meleeToolAxeT2SteelAxe"),
+    ("Magnum",           "Pistol",     "ranged", 2,    "gunHandgunT2Magnum44"),
+    ("DoubleBarrel",     "PShotgun",   "ranged", 1,    "gunShotgunT1DoubleBarrel"),
+    ("LeverAction",      "HRifle",     "ranged", 2,    "gunRifleT2LeverActionRifle"),
+    ("PrimitiveBow",     "LBow",       "ranged", 0,    "gunBowT0PrimitiveBow"),
+    ("CompoundBow",      "LBow",       "ranged", 2,    "gunBowT3CompoundBow"),
+    ("CompoundCrossbow", "XBow",       "ranged", 2,    "gunBowT3CompoundCrossbow"),
 ]
 
 # The family of a weapon (the blocks.xml XnpcWeapons value the DLL's roll reads): melee, bow (bows and crossbows) or
@@ -236,10 +235,6 @@ def raider(male, tier):
     if n not in RAIDERS: raise SystemExit("no raider class %s in RAIDERS" % n)
     return n
 
-def npc_item_name(token, vanilla):
-    kind = "melee" if vanilla.startswith("melee") else "gun"
-    return kind + "NPCSC" + token          # SC marks them as ours; the framework uses meleeNPC*/gunNPC*
-
 # ------------------------------------------------------------------------------------------------------------
 xnpc_classes = ET.parse(os.path.join(XNPC, "entityclasses.xml")).getroot()
 xnpc_items = ET.parse(os.path.join(XNPC, "items.xml")).getroot()
@@ -276,49 +271,12 @@ def class_items_on_enter(template_name):
     return None
 
 problems = []
-for token, cat, kind, tier, van, base in WEAPONS:
+for token, cat, kind, tier, van in WEAPONS:
     for t in ("npcAdvanced%sTemplate" % cat, "npc%sTemplate" % cat):
         if cls(t) is None: problems.append("missing framework template " + t)
-    if van:
-        if vitem(van) is None: problems.append("missing vanilla item " + van)
-        if xitem(base) is None: problems.append("missing framework NPC item " + base)
+    if van and vitem(van) is None: problems.append("missing vanilla item " + van)
 if problems:
     print("\n".join(problems)); sys.exit(1)
-
-# ------------------------------------------------------------------------------------------------------------
-# items
-# ------------------------------------------------------------------------------------------------------------
-def set_prop(parent, name, value):
-    p = one(parent, "property[@name=$n]", n=name)
-    if p is None:
-        p = ET.SubElement(parent, "property"); p.set("name", name)
-    p.set("value", value)
-
-new_items = []
-for token, cat, kind, tier, van, base in WEAPONS:
-    if not van: continue
-    v = vitem(van)
-    it = ET.fromstring(ET.tostring(xitem(base)))
-    it.tail = None
-    name = npc_item_name(token, van)
-    it.set("name", name)
-    set_prop(it, "CompatibleWeapon", van)
-    for pn in ("Meshfile", "Material"):
-        val = vprop(v, pn)
-        if val: set_prop(it, pn, val)
-    set_prop(it, "CustomIcon", vprop(v, "CustomIcon") or van)
-    if kind == "melee":
-        light, heavy = vprop(v, "Sound_start", "Action0"), vprop(v, "Sound_start", "Action1")
-        for aname, snd in (("Action0", light), ("Action1", heavy or light)):
-            a = one(it, "property[@class=$c]", c=aname)
-            if a is not None and snd: set_prop(a, "Sound_start", snd)
-    else:
-        fire = vprop(v, "Sound_start", "Action0")
-        a = one(it, "property[@class='Action1']")
-        if a is not None and fire:
-            set_prop(a, "Sound_start", fire)
-            if one(a, "property[@name='Sound_loop']") is not None: set_prop(a, "Sound_loop", fire)
-    new_items.append((name, van, it))
 
 # ------------------------------------------------------------------------------------------------------------
 # entity classes (M10): two raider templates (one per sex) and the six leaves, then the survivor ops
@@ -473,8 +431,8 @@ def is_pack_npc(name):
     c = class_prop(name, "Class") or ""
     return "EntityAliveSDX" in c or "EntityNPCBandit" in c
 
-FRAMEWORK_CATS = set(cat for _, cat, _, _, van, _ in WEAPONS if van is None)
-BASE_TOKEN = dict((cat, tok) for tok, cat, _, _, van, _ in WEAPONS if van is None)   # AK47 -> Rifle
+FRAMEWORK_CATS = set(cat for _, cat, _, _, van in WEAPONS if van is None)
+BASE_TOKEN = dict((cat, tok) for tok, cat, _, _, van in WEAPONS if van is None)   # AK47 -> Rifle
 
 def framework_cat(name):
     """The framework weapon a pack NPC carries, from its npc[Advanced|Bandit|BM]<Cat>Template ancestor, or None."""
@@ -483,7 +441,7 @@ def framework_cat(name):
         if m and m.group(1) in FRAMEWORK_CATS: return m.group(1)
     return None
 
-TOKEN_TIER = dict((tok, tier) for tok, cat, kind, tier, van, base in WEAPONS)
+TOKEN_TIER = dict((tok, tier) for tok, cat, kind, tier, van in WEAPONS)
 
 def is_v4_npc(name):
     """An EntityAliveSDXV4 class of 0-XNPCCore that is not one of the six survivors we own (npcSdcsTest, npcSdcsMaleM60,
@@ -648,36 +606,27 @@ s.append("</configs>\n")
 io.open(os.path.join(MOD, "spawning.xml"), "w", encoding="utf-8", newline="\n").write("".join(s))
 
 # ------------------------------------------------------------------------------------------------------------
-# items.xml: a marked block, replaced on every run
+# items.xml: nothing generated since M10 round 2. The old raiders' NPC weapon copies (meleeNPCSC*/gunNPCSC*) lived in a
+# marked block; a file that still has it loses it here, markers included, and a second run finds nothing to change.
 # ------------------------------------------------------------------------------------------------------------
 BEGIN, END = "<!-- BEGIN GENERATED: NPC weapons (Tools/gen_arsenal.py) -->", "<!-- END GENERATED: NPC weapons -->"
 ip = os.path.join(MOD, "items.xml")
 src = io.open(ip, encoding="utf-8").read()
+old_items_block = BEGIN in src
 src = re.sub(r"\n?\t*" + re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n?", "\n", src, flags=re.S)
-block = ["\t\t" + BEGIN + "\n",
-         "\t\t<!-- NPC versions of vanilla weapons the NPC framework has none of, made for the OLD raider classes\n"
-         "\t\t     (scRaider<Sex><Weapon>, replaced in M10 by raiders that carry the vanilla weapons themselves). Nothing\n"
-         "\t\t     spawns with them any more; they stay until M10 round 2 removes them with the old model shim. Each is a\n"
-         "\t\t     full copy of the framework's closest NPC weapon (effect groups do not inherit through Extends) with the\n"
-         "\t\t     vanilla weapon's model, material, icon and sounds, and CompatibleWeapon pointing at it. -->\n"]
-for name, van, it in new_items:
-    txt = ET.tostring(it, encoding="unicode")
-    block.append("\t\t<!-- %s -->\n\t\t%s\n" % (van, txt.strip()))
-block.append("\t\t" + END + "\n")
-last = src.rfind("</append>")
-src = src[:last] + "".join(block) + "\t" + src[last:]
+if "NPCSC" in src: raise SystemExit("items.xml still names an NPCSC item outside the old marked block - remove it by hand")
 io.open(ip, "w", encoding="utf-8", newline="\n").write(src)
 
 # ------------------------------------------------------------------------------------------------------------
 # blocks.xml: XnpcWeapons, the vanilla weapons the DLL arms the community's 0-XNPCCore survivors with (migration M7,
 # decision D4). 0-XNPCCore's survivors use real player weapons, so each token of the table becomes the vanilla item
-# behind it - its "new" item, or the framework NPC item's CompatibleWeapon - with the token's kind, family and tier,
+# behind it - its vanilla column, or the framework NPC item's CompatibleWeapon - with the token's kind, family and tier,
 # so the survivors' tiers and firearm odds are the raiders'. EmptyHand and RocketL are left out (no fists as a weapon,
 # no rocket launcher outside its own class). A marked block inside the config block, replaced on every run.
 # ------------------------------------------------------------------------------------------------------------
 XW_BEGIN, XW_END = "<!-- BEGIN GENERATED: XnpcWeapons (Tools/gen_arsenal.py) -->", "<!-- END GENERATED: XnpcWeapons -->"
 XNPC_WEAPONS = []                                 # (vanilla item, family, tier, token), the table's order
-for token, cat, kind, tier, van, base in WEAPONS:
+for token, cat, kind, tier, van in WEAPONS:
     if token in ("EmptyHand", "RocketL"): continue
     item = van
     if not item:
@@ -716,37 +665,29 @@ src = src[:anchor.end()] + "".join(xw) + src[anchor.end():]
 io.open(bp, "w", encoding="utf-8", newline="\n").write(src)
 
 # ------------------------------------------------------------------------------------------------------------
-# Localization.csv: rows for every leaf class and every new item, managed by key
+# Localization.csv: a row for every leaf class, managed by key
 # ------------------------------------------------------------------------------------------------------------
 lp = os.path.join(MOD, "Localization.csv")
 raw = io.open(lp, encoding="utf-8").read()
 nl = "\r\n" if "\r\n" in raw else "\n"
 lines = raw.split(nl)
-managed = set(RAIDERS) | set(n for n, _, _ in new_items)
-# the rows of SC's old survivor classes go too (no longer generated, D11), and those of the old per-weapon raider
-# classes scRaider<Sex><Weapon> (M10: only the six T1-T3 classes are left)
+managed = set(RAIDERS)
+# the rows of SC's old survivor classes go too (no longer generated, D11), those of the old per-weapon raider classes
+# scRaider<Sex><Weapon> (M10: only the six T1-T3 classes are left), and those of the old raiders' NPC weapon copies
+# meleeNPCSC*/gunNPCSC* (gone in M10 round 2)
 def stale(key):
-    return bool(re.match(r"^scSurvivor(Male|Female)", key)) or (bool(re.match(r"^scRaider(Male|Female)\w+$", key)) and key not in RAIDERS)
+    return (bool(re.match(r"^scSurvivor(Male|Female)", key))
+            or (bool(re.match(r"^scRaider(Male|Female)\w+$", key)) and key not in RAIDERS)
+            or bool(re.match(r"^(melee|gun)NPCSC\w+$", key)))
 kept = [ln for ln in lines if ln.split(",", 1)[0] not in managed and not stale(ln.split(",", 1)[0])]
 while kept and kept[-1] == "": kept.pop()
-van_loc = {}
-with io.open(os.path.join(VAN, "Localization.csv"), encoding="utf-8") as f:
-    rd = csv.reader(f)
-    hdr = next(rd); ei = hdr.index("english")
-    for row in rd:
-        if row and len(row) > ei: van_loc[row[0]] = row[ei]
 rows = []
 for n in RAIDERS:
     rows.append("%s,entityclasses,Entity,,,,Raider" % n)
-for n, van, _ in new_items:
-    label = van_loc.get(van, van).replace('"', "'")
-    rows.append('%s,items,Item,,,,"%s"' % (n, label))
 io.open(lp, "w", encoding="utf-8", newline="").write(nl.join(kept + rows) + nl)
 
 print("classes: %d raider leaves + %d templates (M10, on 0-XNPCCore's body)" % (len(RAIDERS), len(RAIDER_TEMPLATE)))
 print("survivor weapons (XnpcWeapons): %d (%s)" % (len(XNPC_WEAPONS), ", ".join(
     "%s %d" % (f, sum(1 for x in XNPC_WEAPONS if x[1] == f)) for f in ("melee", "bow", "firearm"))))
 print("W0: %d groups swapped, %d trimmed, %d framework spawn groups removed" % (len(w0_swap), len(w0_drop), len(w0_spawns)))
-print("old raiders' NPC weapons (kept until M10 round 2): %d" % len(new_items))
-for n, van, it in new_items:
-    print("   %-28s <- %-36s mesh=%s" % (n, van, (one(it, "property[@name='Meshfile']").get("value"))[-48:]))
+print("items.xml: %s" % ("the old raiders' NPC weapon block removed (M10 round 2)" if old_items_block else "no generated block (none since M10 round 2)"))

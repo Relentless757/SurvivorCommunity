@@ -259,8 +259,7 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// PostInit PREFIX for the framework classes: resolves the pair of one of the community's 0-XNPCCore survivors or
-        /// one of SC's raiders and rewrites itemsOnEnterGame to it. Idempotent. (Also still called by the old raider shim's
-        /// EntityNPCBandit hook, where no class is managed any more and it returns at once.)
+        /// one of SC's raiders and rewrites itemsOnEnterGame to it. Idempotent.
         /// </summary>
         public static void BeforePostInit(EntityAlive e)
         {

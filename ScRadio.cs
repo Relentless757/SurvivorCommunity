@@ -472,8 +472,8 @@ namespace SurvivorCommunity
                 int cid = EntityClass.FromString(ct.Class);
                 if (!ScCommunity.ClassExists(cid)) { ScLog.Warn("radio contact class " + ct.Class + " no longer exists - dropped"); return true; }
                 Vector3 pos = SpotNear(w, ct.Spawn, 4);
-                // a survivor wearing one of our looks rolls their face and clothes here; the model (SC's shim, or
-                // Patches_Xnpc for the community's 0-XNPCCore survivors) consumes it while it is built
+                // a survivor wearing one of our looks rolls their face and clothes here; the model consumes it while it
+                // is built (Patches_Xnpc X1)
                 Look look = ScSpawn.IsSurvivorBodyClass(ct.Class) ? ScLooks.Roll(ScLooks.ClassIsMale(ct.Class), w.GetGameRandom(), true) : null;
                 EntityAlive npc = ScSpawn.Create(cid, pos, Vector3.zero, look, ct.Loadout);
                 if (npc == null) { ScLog.Warn("radio contact class " + ct.Class + " is not an SCore NPC class - dropped"); return true; }

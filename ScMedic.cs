@@ -7,13 +7,14 @@ using UnityEngine;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// Player-body survivors and raiders heal only by using a medical item they actually carry, and you see them do it.
+    /// Our XNPC bodies - the community's survivors and SC's raiders (ScXnpc.IsBody) - heal only by using a medical item
+    /// they actually carry, and you see them do it.
     ///
     /// The NPC framework heals every one of its NPCs for free: its status buff (buffNPCStatusCheck, effect group
     /// NPCHealing) adds IsHealing whenever health is at or below 70% and a 15 s cooldown has run out, and IsHealing
     /// queues 30 health at 2 per second - no item, and no animation on this rig (it fires an animator trigger the
-    /// player animator does not have). Measured on a raider: 50 to 82 health within a few seconds of a fight.
-    /// That buff is refused here for our bodies; the framework's own NPCs keep it.
+    /// player animator does not have). Measured on a raider of SC's former player-body classes: 50 to 82 health within
+    /// a few seconds of a fight. That buff is refused here for our bodies; the framework's own NPCs keep it.
     ///
     /// Instead each body is stocked once with a few first aid bandages and, now and then, a first aid kit, in the
     /// inventory SCore shows for a friendly NPC (HarvestManager, saved with the world and dropped as a backpack on
@@ -25,12 +26,12 @@ namespace SurvivorCommunity
     /// knockdown, the weapon comes back and the item returns to the inventory. You can also hand a survivor medical
     /// items and they will use those.
     ///
-    /// The community's 0-XNPCCore survivors (ScXnpc.IsBody) are healed the same way (decision D7: items only, with the
-    /// bandage animation). XNPC heals its own through a different buff, SdcsIsHealing (added by its class buff
-    /// SdcsStatusCheck: for free with no leader, from a medical item without an animation when hired), which is refused
-    /// for them like IsHealing. Their medical stock is this file's roll alone (Config/entityclasses.xml sets XNPC's
-    /// HarvestItems to none), in the same SCore inventory window. While a use is in progress XNPC's own weapon logic is
-    /// held off (Patches_Xnpc X5), so its failover or close-range swap cannot take the bandage out of the hand.
+    /// Decision D7: items only, with the bandage animation. XNPC heals its own bodies through a different buff,
+    /// SdcsIsHealing (added by its class buff SdcsStatusCheck: for free with no leader, from a medical item without an
+    /// animation when hired), which is refused for ours like IsHealing. Their medical stock is this file's roll alone
+    /// (Config/entityclasses.xml sets HarvestItems to none on the survivor classes and on the raider templates). While a
+    /// use is in progress XNPC's own weapon logic is held off (Patches_Xnpc X5), so its failover or close-range swap
+    /// cannot take the bandage out of the hand.
     /// </summary>
     public static class ScMedic
     {
@@ -90,10 +91,10 @@ namespace SurvivorCommunity
                    + " kits=" + Count(e, "medicalFirstAidKit") + " SdcsIsHealing refused (all bodies)=" + Patch_NoFreeHeal.SdcsRefused;
         }
 
-        /// <summary>SC's own player bodies and the community's 0-XNPCCore survivors; XNPC's other classes heal their own way.</summary>
+        /// <summary>One of our XNPC bodies (ScXnpc.IsBody: a survivor class the community owns, or a raider); XNPC's other classes heal their own way.</summary>
         public static bool IsBody(Entity e)
         {
-            return e is EntityAlive && (Patches_Sdcs.IsBodyNpc(e) || ScXnpc.IsBody(e));
+            return ScXnpc.IsBody(e);
         }
 
         public static bool IsUsingItem(Entity e)
@@ -256,23 +257,19 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Puts an item in the hand slot and refreshes the hand model: the same sequence SCore's
-        /// EntityAliveSDX.UpdateWeapon uses (SetItem, SwitchModelAndView, OnUpdate, ForceHoldingItemUpdate), without
-        /// its bookkeeping - _currentWeapon and the CurrentWeaponID cvar keep naming the real weapon, so nothing
-        /// re-equips a bandage later.
+        /// Puts an item in the hand slot and refreshes the hand model: SCore's EntityAliveSDX.UpdateWeapon sequence
+        /// (SetItem, SwitchModelAndView, OnUpdate, ForceHoldingItemUpdate) without its bookkeeping - _currentWeapon and
+        /// the CurrentWeaponID cvar keep naming the real weapon, so nothing re-equips a bandage later.
         ///
-        /// On one of the community's 0-XNPCCore survivors the SwitchModelAndView step is left out: XNPC's controller only
-        /// warns and keeps its model when it is handed a class name (it has no child of that name), so the call would
-        /// change nothing but the log. The rest is the sequence XNPC's own weapon swaps effectively get.
+        /// The SwitchModelAndView step is left out: on one of our XNPC bodies XNPC's controller only warns and keeps its
+        /// model when it is handed a class name (it has no child of that name), so the call would change nothing but the
+        /// log. The rest is the sequence XNPC's own weapon swaps effectively get. (ScLoadout.Arm's fallback for an entity
+        /// that is not a framework NPC comes here too; nothing that reaches it today is one.)
         /// </summary>
         internal static void Hold(EntityAlive e, int slot, ItemValue item, int count)
         {
             if (e == null || e.inventory == null) return;
             e.inventory.SetItem(slot, item, count);
-            EntityClass ec = EntityClass.list[e.entityClass];
-            string meshName = ec.Properties.Values.ContainsKey("Mesh") ? ec.Properties.Values["Mesh"] : ec.entityClassName;
-            if (e.emodel != null && e.emodel.avatarController != null && !ScXnpc.IsBody(e))
-                e.emodel.avatarController.SwitchModelAndView(meshName, e.emodel.IsFPV, e.IsMale);
             e.inventory.OnUpdate();
             e.inventory.ForceHoldingItemUpdate();
         }
@@ -338,8 +335,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (__instance == null) return;
-                    if (!Patches_Sdcs.IsOurModel(__instance.emodel, "medic-tick") && !ScXnpc.IsBody(__instance)) return;
+                    if (__instance == null || !ScXnpc.IsBody(__instance)) return;
                     Tick(__instance);
                 }
                 catch (Exception ex)
@@ -351,10 +347,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Refuses the frameworks' own heals for our bodies (see the class summary): the NPC framework's free IsHealing,
-        /// and 0-XNPCCore's SdcsIsHealing on the community's XNPC survivors. Both are added through this AddBuff by a buff's
-        /// triggered effect; SC's own bodies never get SdcsIsHealing (their classes have no SdcsStatusCheck), so the
-        /// second name changes nothing for them. XNPC's attack actions gate on SdcsIsHealing, so refusing it also keeps
-        /// them from standing down for a heal that never comes.
+        /// and 0-XNPCCore's SdcsIsHealing. Both are added through this AddBuff by a buff's triggered effect. XNPC's attack
+        /// actions gate on SdcsIsHealing, so refusing it also keeps them from standing down for a heal that never comes.
         /// </summary>
         [HarmonyPatch(typeof(EntityBuffs), nameof(EntityBuffs.AddBuff),
             new[] { typeof(string), typeof(Vector3i), typeof(int), typeof(bool), typeof(bool), typeof(float) })]
