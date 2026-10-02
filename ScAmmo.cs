@@ -52,6 +52,21 @@ namespace SurvivorCommunity
     /// out of it, or the close would bring a moved arrow, a used bandage or a kept weapon back; an NPC that dies under a
     /// mark keeps its window until the mark ends (Patches_Npc DropWindow / Release). A mark ends with the close, the
     /// player's disconnect, a new game, or RemoteOpenStaleSeconds after the open.
+    ///
+    /// Magazines (M11, with Locked &amp; Loaded 1.4; ScMags). An NPC that carries a magazine for its gun reloads like a
+    /// player; one that carries none reloads from loose rounds. So with L&amp;L loaded a gun that takes magazines is armed
+    /// with its tier's loaded magazines instead of a loose stack (ScLoadout), Rounds counts the loose rounds plus L&amp;L's
+    /// (its magazines and the gun's own count), a member is resupplied through Refill and the stockpile pays only for the
+    /// rounds that went in, loose rounds of its gun's ammo in its bag are loaded into its magazines whenever they have
+    /// room (LoadLoose: the window's handed-over rounds, an old save's), and the member record carries L&amp;L's text of
+    /// every magazine (Member.Mags) beside the loose rounds, so a re-created body gets the same magazines back. A member
+    /// whose gun takes magazines but who has none is issued its tier's empty ones where the stockpile reaches (Issue).
+    /// Bows, crossbows and guns without magazines - and every gun without L&amp;L - keep the loose rounds as before.
+    ///
+    /// Rounds in a gun SCore's weapon swap writes over (Patches_Xnpc X12) or that a dead NPC still holds come back as
+    /// loose rounds (ReturnLoose); a seated L&amp;L magazine is L&amp;L's to give back, and it empties the gun in doing so.
+    /// The gun in the hand - rounds and seated magazine - is saved with the body and put back when it loads (X13,
+    /// WriteHeldGun / RestoreHeldGun): SCore saves only its name, so every chunk unload cost it.
     /// </summary>
     public static class ScAmmo
     {
@@ -67,16 +82,24 @@ namespace SurvivorCommunity
         private static readonly HashSet<int> waitingOutside = new HashSet<int>();
         /// <summary>ScSpawn -&gt; ScLoadout.BeforePostInit -&gt; AfterPostInit: the record a re-created body starts with, by entity id.</summary>
         private static readonly Dictionary<int, Dictionary<string, int>> restore = new Dictionary<int, Dictionary<string, int>>();
+        /// <summary>The same for the record's magazines (L&amp;L's text, Member.Mags), by entity id.</summary>
+        private static readonly Dictionary<int, string> restoreMags = new Dictionary<int, string>();
 
         /// <summary>
         /// Set by ScSpawn.Create around the creation of a body for a survivor the community already knows, with that
-        /// member's record (null = never recorded). Taken by the next managed body's PostInit, like ScLoadout.Pending.
+        /// member's record (null = never recorded) and its magazines (null = none). Taken by the next managed body's
+        /// PostInit, like ScLoadout.Pending.
         /// </summary>
         public static bool PendingKnown;
         public static Dictionary<string, int> PendingRecord;
+        public static string PendingMags;
 
         // counters for sc xnpc (main thread only)
         private static int resupplies, roundsGiven, bundlesOpened, refusedEmpty, refusedFull, outsideWaits, restored, seeded, raidersSeeded;
+        // magazines (M11) and the rounds given back from a gun that was put away or held at death
+        private static int armed, raidersArmed, armedRounds, refills, refillRounds, magsFull, looseLoaded, issued, swapReturns, swapRounds, deathRounds;
+        // the held gun across a save (review F1): times written, put back in the hand, rounds given back loose instead
+        private static int gunsSaved, gunsRestored, gunsLoose;
 
         public static void Reset()
         {
@@ -86,10 +109,17 @@ namespace SurvivorCommunity
             nextRefusalLog.Clear();
             waitingOutside.Clear();
             restore.Clear();
+            restoreMags.Clear();
+            issuedTo.Clear();
+            savedGuns.Clear();
+            deferredLoose.Clear();
             remoteOpen.Clear();
             PendingKnown = false;
             PendingRecord = null;
+            PendingMags = null;
             resupplies = roundsGiven = bundlesOpened = refusedEmpty = refusedFull = outsideWaits = restored = seeded = raidersSeeded = 0;
+            armed = raidersArmed = armedRounds = refills = refillRounds = magsFull = looseLoaded = issued = swapReturns = swapRounds = deathRounds = 0;
+            gunsSaved = gunsRestored = gunsLoose = 0;
         }
 
         // ------------------------------------------------------------------ the gun and its rounds ----
@@ -125,20 +155,30 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Rounds the gun can still fire: every one of its ammo types in the stores (what 0-XNPCCore's failover and close-range
-        /// swap count as its reserve) plus its magazine while it is in the hand.
+        /// swap count as its reserve) plus its magazine while it is in the hand. With Locked &amp; Loaded the gun's own count
+        /// comes from L&amp;L's Rounds instead, which adds the rounds in the NPC's magazines for it (XNPC's own counts include
+        /// them too); asking both for the gun would count its magazine twice.
         /// </summary>
         public static int Rounds(EntityAlive e, ItemClass gun)
         {
             ItemActionRanged r = RangedAction(gun);
             if (e == null || r == null) return 0;
+            int n = Loose(e, r), mags;
+            if (ScMags.Active && ScMags.TryRounds(e, gun.GetItemName(), out mags)) return n + mags;
+            ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            if (held != null && !held.IsEmpty() && held.type == gun.Id) n += Math.Max(0, (int)held.Meta);
+            return n;
+        }
+
+        /// <summary>Loose rounds of every one of the gun's ammo types in the stores (toolbelt, bag, inventory window).</summary>
+        private static int Loose(EntityAlive e, ItemActionRanged r)
+        {
             int n = 0;
             foreach (string name in r.MagazineItemNames)
             {
                 ItemValue iv = ItemClass.GetItem(name, true);
                 if (iv != null && !iv.IsEmpty()) n += InStores(e, iv.type);
             }
-            ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
-            if (held != null && !held.IsEmpty() && held.type == gun.Id) n += Math.Max(0, (int)held.Meta);
             return n;
         }
 
@@ -177,6 +217,19 @@ namespace SurvivorCommunity
         /// </summary>
         public static Dictionary<string, int> Carried(EntityAlive e)
         {
+            string mags;
+            return Carried(e, out mags);
+        }
+
+        /// <summary>
+        /// The same, and its magazines (M11): when the body reloads this gun by L&amp;L magazine (ScMags.Carries), mags is
+        /// L&amp;L's text of every magazine it has for it - the one in the gun included, which is why the gun's own rounds
+        /// then stay out of the loose rounds (they would be restored twice). Null mags: no magazines to record.
+        /// heldLoose false leaves the gun's own rounds out in any case (Record, while it keeps older magazines that hold them).
+        /// </summary>
+        public static Dictionary<string, int> Carried(EntityAlive e, out string mags, bool heldLoose = true)
+        {
+            mags = null;
             ItemClass gun = PairGun(e);
             ItemActionRanged r = RangedAction(gun);
             if (e == null || r == null) return null;
@@ -187,8 +240,13 @@ namespace SurvivorCommunity
                 if (iv == null || iv.IsEmpty() || iv.ItemClass == null) continue;
                 Add(rec, iv.ItemClass.GetItemName(), InStores(e, iv.type));
             }
+            if (ScMags.Active && ScMags.Carries(e, ScMags.GunValue(e, gun)))
+            {
+                string text = ScMags.Record(e, gun.GetItemName());
+                if (!string.IsNullOrEmpty(text)) mags = text;
+            }
             ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
-            if (held != null && !held.IsEmpty() && held.type == gun.Id && held.Meta > 0)
+            if (heldLoose && mags == null && held != null && !held.IsEmpty() && held.type == gun.Id && held.Meta > 0)
             {
                 int idx = held.SelectedAmmoTypeIndex < r.MagazineItemNames.Length ? held.SelectedAmmoTypeIndex : 0;
                 ItemValue loaded = ItemClass.GetItem(r.MagazineItemNames[idx], true);
@@ -212,14 +270,25 @@ namespace SurvivorCommunity
             return n;
         }
 
-        /// <summary>Writes what this body carries into the member record now (the ticker, and a stand-in about to be removed).</summary>
+        /// <summary>
+        /// Writes what this body carries into the member record now (the ticker, and a stand-in about to be removed).
+        /// After an L&amp;L exception has switched the adapter off (ScMags.Threw, the review's F2) SC cannot read the magazines
+        /// any more, though the body still has them: the record keeps the last magazines it could name instead of losing
+        /// them (they can only have been fired from since, so a re-created body gets at most those rounds back), and the
+        /// gun's own rounds stay out of the loose part, as they are in those magazines. Without L&amp;L at all (never bound,
+        /// nothing thrown) the magazines are cleared as before, once RestoreMagazines has turned them into loose rounds.
+        /// </summary>
         public static void Record(Member m, EntityAlive e)
         {
             try
             {
                 if (m == null || e == null || !ScXnpc.IsBody(e)) return;
-                Dictionary<string, int> rec = Carried(e);
-                if (rec != null) m.Ammo = rec;
+                bool keep = ScMags.Threw && !string.IsNullOrEmpty(m.Mags);
+                string mags;
+                Dictionary<string, int> rec = Carried(e, out mags, !keep);
+                if (rec == null) return;
+                m.Ammo = rec;
+                if (!keep) m.Mags = mags;
             }
             catch (Exception ex)
             {
@@ -227,26 +296,82 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The registry form: "item:n,item:n", or "none" for a record of nothing.</summary>
-        public static string Encode(Dictionary<string, int> rec)
+        /// <summary>The marker of the magazines part of the registry form: no item name starts with '@'.</summary>
+        private const string MagsPart = "@mags:";
+
+        /// <summary>
+        /// The registry form: "item:n,item:n", or "none" for a record of nothing. Magazines (M11) ride in the same value as
+        /// one more part, "@mags:" and L&amp;L's text with every ':' ',' ';' '=' '%' and line break %-escaped - the registry
+        /// writer turns ';' and '=' into other characters, and an SC from before M11 reading it finds no number after the
+        /// part's last ':' and skips it, so the loose rounds of a newer save still load there.
+        /// </summary>
+        public static string Encode(Dictionary<string, int> rec, string mags)
         {
             var parts = new List<string>();
             if (rec != null) foreach (var kv in rec) if (kv.Value > 0) parts.Add(kv.Key + ":" + kv.Value.ToString(CultureInfo.InvariantCulture));
+            if (!string.IsNullOrEmpty(mags)) parts.Add(MagsPart + Escape(mags));
             return parts.Count > 0 ? string.Join(",", parts.ToArray()) : "none";
         }
 
-        public static Dictionary<string, int> Decode(string s)
+        public static string Encode(Dictionary<string, int> rec) { return Encode(rec, null); }
+
+        /// <summary>The loose rounds of a registry form; mags gets its magazines (null for none, as in every save from before M11).</summary>
+        public static Dictionary<string, int> Decode(string s, out string mags)
         {
+            mags = null;
             var rec = new Dictionary<string, int>(StringComparer.Ordinal);
             if (string.IsNullOrEmpty(s) || s.Trim() == "none") return rec;
             foreach (string part in s.Split(','))
             {
-                int i = part.LastIndexOf(':');
+                string p = part.Trim();
+                if (p.StartsWith(MagsPart, StringComparison.Ordinal))
+                {
+                    string text = Unescape(p.Substring(MagsPart.Length));
+                    if (text.Length > 0) mags = text;
+                    continue;
+                }
+                int i = p.LastIndexOf(':');
                 int n;
-                if (i <= 0 || !int.TryParse(part.Substring(i + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) continue;
-                Add(rec, part.Substring(0, i).Trim(), n);
+                if (i <= 0 || !int.TryParse(p.Substring(i + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out n)) continue;
+                Add(rec, p.Substring(0, i).Trim(), n);
             }
             return rec;
+        }
+
+        public static Dictionary<string, int> Decode(string s)
+        {
+            string mags;
+            return Decode(s, out mags);
+        }
+
+        private const string EscapedChars = "%:,;=\r\n";
+
+        private static string Escape(string s)
+        {
+            var sb = new StringBuilder(s.Length + 16);
+            foreach (char c in s)
+            {
+                if (EscapedChars.IndexOf(c) >= 0) sb.Append('%').Append(((int)c).ToString("X2", CultureInfo.InvariantCulture));
+                else sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
+        private static string Unescape(string s)
+        {
+            var sb = new StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                int code;
+                if (s[i] == '%' && i + 2 < s.Length
+                    && int.TryParse(s.Substring(i + 1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out code))
+                {
+                    sb.Append((char)code);
+                    i += 2;
+                }
+                else sb.Append(s[i]);
+            }
+            return sb.ToString();
         }
 
         public static Dictionary<string, int> Copy(Dictionary<string, int> rec)
@@ -264,21 +389,29 @@ namespace SurvivorCommunity
         {
             bool known = PendingKnown;
             Dictionary<string, int> rec = PendingRecord;
+            string mags = PendingMags;
             PendingKnown = false;
             PendingRecord = null;
-            if (known && managed && e != null) restore[e.entityId] = rec;
+            PendingMags = null;
+            if (!known || !managed || e == null) return;
+            restore[e.entityId] = rec;
+            if (!string.IsNullOrEmpty(mags)) restoreMags[e.entityId] = mags;
+            else restoreMags.Remove(e.entityId);
         }
 
         /// <summary>
         /// ScLoadout.AfterPostInit, before the starting stack: a body re-created for a survivor the community knows gets
-        /// the record's rounds (none when nothing was ever recorded) and is marked as given its ammo, so it never gets the
-        /// starting stack a new survivor gets. False for every other body (a new survivor, a body loaded from the save).
+        /// the record's rounds (none when nothing was ever recorded) and its magazines (RestoreMagazines), and is marked as
+        /// given its ammo, so it never gets the starting stack - or a new survivor's magazines - a new survivor gets. False
+        /// for every other body (a new survivor, a body loaded from the save).
         /// </summary>
         public static bool RestoreRecorded(EntityAlive e)
         {
             Dictionary<string, int> rec;
             if (e == null || e.Buffs == null || !restore.TryGetValue(e.entityId, out rec)) return false;
             restore.Remove(e.entityId);
+            string mags;
+            if (restoreMags.TryGetValue(e.entityId, out mags)) restoreMags.Remove(e.entityId);
             e.Buffs.SetCustomVar(ScLoadout.AmmoSeededCvar, 1f);
             int n = 0;
             if (rec != null)
@@ -290,14 +423,46 @@ namespace SurvivorCommunity
                     n += AddRounds(e, iv, kv.Value);
                 }
             }
+            int k = !string.IsNullOrEmpty(mags) ? RestoreMagazines(e, mags) : 0;
             restored++;
             ScLog.Verbose("re-created body " + e.entityId + ": " + (rec == null ? "no ammo record - starts empty" : n + " round(s) from the record (" + Encode(rec) + ")")
+                          + (string.IsNullOrEmpty(mags) ? "" : ", " + ScMags.Entries(mags).Count + " magazine(s) holding " + k)
                           + ", no starting stack");
             return true;
         }
 
+        /// <summary>
+        /// A record's magazines back as magazine items, one L&amp;L Restore per magazine, so a magazine L&amp;L no longer knows (a
+        /// removed kind) - or every one of them, when L&amp;L is not loaded now - comes back as its loose rounds instead of
+        /// being lost. The rounds restored either way.
+        /// </summary>
+        private static int RestoreMagazines(EntityAlive e, string mags)
+        {
+            int n = 0;
+            foreach (ScMags.Entry x in ScMags.Entries(mags))
+            {
+                int got = ScMags.Active ? ScMags.Restore(e, x.Text) : -1;
+                if (got >= x.Rounds) { n += got; continue; }
+                int left = x.Rounds - Math.Max(0, got);
+                ItemValue ammo = x.Ammo.Length > 0 ? ItemClass.GetItem(x.Ammo, true) : null;
+                int loose = ammo != null && !ammo.IsEmpty() ? AddRounds(e, ammo, left) : 0;
+                n += Math.Max(0, got) + loose;
+                if (loose < left)
+                    ScLog.Warn(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + (left - loose) + " round(s) of a recorded " + x.Magazine
+                               + " could not be given back (no such magazine or ammo now, or no room in the bag)");
+            }
+            return n;
+        }
+
         /// <summary>A new survivor's (or a raider's, M10-D2) starting stack was given (ScLoadout.AfterPostInit): counted for sc xnpc.</summary>
         public static void NoteSeeded(bool raider) { if (raider) raidersSeeded++; else seeded++; }
+
+        /// <summary>A new survivor or raider got its tier's loaded magazines instead (M11, ScLoadout.AfterPostInit): counted for sc xnpc.</summary>
+        public static void NoteArmed(bool raider, int rounds)
+        {
+            if (raider) raidersArmed++; else armed++;
+            armedRounds += Math.Max(0, rounds);
+        }
 
         /// <summary>Rounds of this ammo the bag still has room for: partly filled stacks and empty slots.</summary>
         private static int Room(EntityAlive e, ItemValue ammo)
@@ -316,8 +481,9 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Ammo left in the inventory window (where SC kept it before 2026-10-01, or put there by hand) goes into the bag, the
-        /// one store a bow or crossbow can actually shoot from (see AddRounds). Cheap when there is nothing to move. Never
-        /// while the window is open, on the host's screen or a remote player's (IsRemoteOpen).
+        /// one store a bow or crossbow can actually shoot from (see AddRounds); with Locked &amp; Loaded so do magazines for
+        /// the pair gun (MoveWindowMagazines). Cheap when there is nothing to move. Never while the window is open, on the
+        /// host's screen or a remote player's (IsRemoteOpen).
         /// </summary>
         public static void MoveWindowAmmoToBag(EntityAlive e)
         {
@@ -344,16 +510,58 @@ namespace SurvivorCommunity
                     if (k >= s.count) items[i] = ItemStack.Empty.Clone();
                     else s.count -= k;
                 }
-                if (moved > 0)
+                int mags = MoveWindowMagazines(e, items);
+                if (moved > 0 || mags > 0)
                 {
                     window.NotifyListeners();
-                    ScLog.Verbose("moved " + moved + " round(s) of " + ScCommunity.DisplayName(e) + "'s ammo from the inventory window into the bag");
+                    ScLog.Verbose("moved " + moved + " round(s) and " + mags + " magazine(s) of " + ScCommunity.DisplayName(e) + "'s from the inventory window into the bag");
                 }
             }
             catch (Exception ex)
             {
                 ScLog.Once("ammo-window-to-bag", ex);
             }
+        }
+
+        /// <summary>
+        /// Locked &amp; Loaded magazines for the pair gun that were handed over through the window go into the bag too (the
+        /// review's open item 2): L&amp;L looks for an NPC's magazines in its bag and toolbelt only, so in the window they were
+        /// never used. Each stack moves as it is (a magazine is Stacknumber 1; the clone keeps its rounds, ammo type and
+        /// L&amp;L's metadata) while the bag takes it; magazines of other guns stay. Before the first one lands, a body that
+        /// does not reload by magazine yet gives the rounds loaded in its gun back to the bag (UnloadHeld, as Issue does):
+        /// once a magazine is in the bag, L&amp;L takes rounds in an unflagged gun for a found gun's seated magazine, one more
+        /// than was handed over. If the bag has no room for those rounds, no magazine moves this time; one the bag has no
+        /// room for stays in the window. The caller's open-window guards apply; LoadLoose, run next at every call site,
+        /// fills the magazines from the loose rounds. Returns the magazines moved.
+        /// </summary>
+        private static int MoveWindowMagazines(EntityAlive e, ItemStack[] items)
+        {
+            if (!ScMags.Active) return 0;
+            ItemClass gun = PairGun(e);
+            HashSet<string> names = gun != null ? ScMags.MagazineNames(gun.GetItemName()) : null;
+            if (names == null || names.Count == 0) return 0;
+            int moved = 0;
+            bool checkedGun = false;
+            for (int i = 0; i < items.Length; i++)
+            {
+                ItemStack s = items[i];
+                if (s == null || s.IsEmpty() || s.itemValue.ItemClass == null || !names.Contains(s.itemValue.ItemClass.GetItemName())) continue;
+                if (!checkedGun)
+                {
+                    checkedGun = true;
+                    if (!ScMags.Carries(e, ScMags.GunValue(e, gun)))
+                    {
+                        UnloadHeld(e, gun, "magazines handed over");
+                        ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+                        if (held != null && held.type == gun.Id && held.Meta > 0) return 0;     // the bag is full: not now
+                    }
+                }
+                if (!e.bag.AddItem(new ItemStack(s.itemValue.Clone(), s.count))) break;
+                moved += s.count;
+                items[i] = ItemStack.Empty.Clone();
+            }
+            if (moved > 0) Patches_Xnpc.Count("mags-window-to-bag");
+            return moved;
         }
 
         /// <summary>A magazine item of some gun, bow or launcher (what a ranged weapon loads), not any consumable.</summary>
@@ -398,6 +606,332 @@ namespace SurvivorCommunity
                 added += k;
             }
             return added;
+        }
+
+        // ------------------------------------------------------------------ magazines and a gun's own rounds (M11) ----
+
+        /// <summary>
+        /// Loose rounds of the pair gun's ammo in the bag go into the body's L&amp;L magazines for it (Refill: same-ammo part-
+        /// loaded ones first, then empty ones), and exactly what went in leaves the bag - a body that reloads by magazine never
+        /// touches loose rounds again, so they would be dead weight: rounds handed over through the window (moved to the bag
+        /// first, MoveWindowAmmoToBag), an old save's loose stack, a gun's rounds given back by a swap. Runs where the window
+        /// is moved: ScAmmo.Tick every 5 s for members, the remote window's close, and once at load for every body
+        /// (ScLoadout.AfterPostInit). Never while the window is open anywhere (IsWindowOpen, as for the move), never for a
+        /// body that has no magazines for the gun (it reloads from the loose rounds), host only. The bag is counted, the
+        /// magazines take at most that, and the bag gives up exactly what they took, so no round is made or lost.
+        /// </summary>
+        public static int LoadLoose(EntityAlive e)
+        {
+            try
+            {
+                if (e == null || e.bag == null || e.IsDead() || !ScCommunity.IsHost || !ScXnpc.IsBody(e) || !ScMags.Active) return 0;
+                ItemClass gun = PairGun(e);
+                ItemActionRanged r = RangedAction(gun);
+                if (r == null || !ScMags.Carries(e, ScMags.GunValue(e, gun))) return 0;
+                if (IsWindowOpen(e.entityId)) { Patches_Xnpc.Count("mags-load-held"); return 0; }
+                int total = 0;
+                var seen = new HashSet<int>();
+                foreach (string name in r.MagazineItemNames)
+                {
+                    ItemValue ammo = ItemClass.GetItem(name, true);
+                    if (ammo == null || ammo.IsEmpty() || ammo.ItemClass == null || !seen.Add(ammo.type)) continue;
+                    int have = InBag(e, ammo.type);
+                    if (have <= 0) continue;
+                    int k = ScMags.Refill(e, gun.GetItemName(), ammo.ItemClass.GetItemName(), have);
+                    if (k <= 0) continue;
+                    int taken = e.bag.DecItem(ammo, k);
+                    if (taken != k) ScLog.Err(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + k + " " + ammo.ItemClass.GetItemName()
+                                              + " went into magazines but the bag gave up " + taken);
+                    total += k;
+                }
+                if (total > 0)
+                {
+                    looseLoaded += total;
+                    ScLog.Verbose("loaded " + total + " loose round(s) from " + ScCommunity.DisplayName(e) + "'s bag into their " + gun.GetItemName() + " magazines");
+                }
+                return total;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("ammo-load-loose", ex);
+                return 0;
+            }
+        }
+
+        /// <summary>Empty slots in the bag (a magazine takes one each).</summary>
+        private static int FreeBagSlots(EntityAlive e)
+        {
+            int n = 0;
+            ItemStack[] slots = e.bag != null ? e.bag.GetSlots() : null;
+            if (slots != null) foreach (ItemStack s in slots) if (s == null || s.IsEmpty()) n++;
+            return n;
+        }
+
+        /// <summary>Rounds of one ammo item in the bag alone (what Bag.DecItem takes from).</summary>
+        private static int InBag(EntityAlive e, int type)
+        {
+            int n = 0;
+            ItemStack[] slots = e.bag != null ? e.bag.GetSlots() : null;
+            if (slots == null) return 0;
+            foreach (ItemStack s in slots)
+                if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == type) n += s.count;
+            return n;
+        }
+
+        /// <summary>
+        /// The rounds loaded in a ranged weapon (its Meta) go to the body's bag as loose rounds of its selected ammo, and the
+        /// weapon's count drops by what went in - in place, on this very ItemValue, so whoever still holds it (SCore's
+        /// thrown-charge stand-in, ScMedic's displaced weapon) cannot bring them back a second time. gone: the weapon is
+        /// leaving for good (written over by a swap, or held by a dead NPC), so what the bag has no room for drops at the
+        /// body and the count goes to 0; otherwise it stays in the weapon. Returns the rounds given back.
+        /// </summary>
+        public static int ReturnLoose(EntityAlive e, ItemValue gun, string why, bool gone)
+        {
+            if (e == null || gun == null || gun.IsEmpty() || gun.Meta <= 0) return 0;
+            ItemActionRanged r = RangedAction(gun.ItemClass);
+            if (r == null) return 0;
+            int idx = gun.SelectedAmmoTypeIndex < r.MagazineItemNames.Length ? gun.SelectedAmmoTypeIndex : 0;
+            ItemValue ammo = ItemClass.GetItem(r.MagazineItemNames[idx], true);
+            if (ammo == null || ammo.IsEmpty() || ammo.ItemClass == null) return 0;
+            int n = gun.Meta;
+            int added = AddRounds(e, ammo, n);
+            int dropped = 0;
+            if (gone && added < n)
+            {
+                dropped = n - added;
+                GameManager.Instance.ItemDropServer(new ItemStack(ammo.Clone(), dropped), e.position + Vector3.up, Vector3.zero, -1, 60f);
+            }
+            gun.Meta = gone ? 0 : n - added;
+            if (added + dropped > 0)
+                ScLog.Verbose(why + ": " + ScCommunity.DisplayName(e) + " (id " + e.entityId + ")'s " + gun.ItemClass.GetItemName() + " gave back " + added
+                              + " " + ammo.ItemClass.GetItemName() + " into the bag" + (dropped > 0 ? " and dropped " + dropped + " (the bag is full)" : ""));
+            return added + dropped;
+        }
+
+        /// <summary>A weapon swap gave back the rounds of the gun it put away (Patches_Xnpc X12): counted for sc xnpc.</summary>
+        public static void NoteSwapReturn(int n) { swapReturns++; swapRounds += n; }
+
+        /// <summary>A dead NPC's held gun gave back its rounds before the death drop (Patches_Npc): counted for sc xnpc.</summary>
+        public static void NoteDeathReturn(int n) { deathRounds += n; }
+
+        /// <summary>
+        /// Before a body is given magazines for its gun (armed at spawn, or issued empties): rounds loaded in the gun in its
+        /// hand go back to the bag as loose rounds (LoadLoose then puts them into the magazines). L&amp;L treats a gun that
+        /// holds rounds and no seated magazine as a found gun whose rounds are a magazine, so leaving them would hand out
+        /// one magazine more than the tier says. Left alone when L&amp;L already has the body reloading this gun by magazine
+        /// (ScMags.Carries: a seated magazine's rounds are that magazine's); neither caller gets there with one.
+        /// </summary>
+        public static int UnloadHeld(EntityAlive e, ItemClass gun, string why)
+        {
+            ItemValue held = e != null && e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            if (gun == null || held == null || held.IsEmpty() || held.type != gun.Id || held.Meta <= 0) return 0;
+            if (ScMags.Active && ScMags.Carries(e, held)) return 0;
+            return ReturnLoose(e, held, why, false);
+        }
+
+        // ------------------------------------------------------------------ the held gun across a save (review F1) ----
+
+        /// <summary>"SCM1", little-endian: the start of SC's held-gun record after SCore's V4 section in an entity's save data.</summary>
+        internal const uint SavedGunMarker = 0x314D4353;
+        internal const byte SavedGunVersion = 1;
+        /// <summary>marker (4) + version (1) + payload length (4).</summary>
+        internal const int SavedGunHeaderBytes = 9;
+
+        /// <summary>What a body's save said about its hand: the gun (null: none worth keeping) and a medical item in use.</summary>
+        private sealed class SavedHandEntry
+        {
+            public int Frame;
+            public ItemValue Gun;
+            public string UseItem;
+        }
+
+        /// <summary>
+        /// Held guns read from the save, by entity id, with the frame they were read in (Patches_Xnpc X13). An entry is good
+        /// only for the PostInit that follows its Read in the same EntityFactory.CompleteEntity call - the same frame - so
+        /// AfterPostInit takes its own and drops any from an earlier frame (a body whose creation stopped before PostInit).
+        /// Cleared per game. Host only, main thread.
+        /// </summary>
+        private static readonly Dictionary<int, SavedHandEntry> savedGuns = new Dictionary<int, SavedHandEntry>();
+
+        /// <summary>
+        /// Runner re-creations whose bag ScRunners replaces with the snapshot's right after PostInit (the re-check's R1): the
+        /// saved gun's loose fallback waits for that (ScLoadout.AfterRunnerRestore) instead of going into a bag about to be thrown
+        /// away. Main thread.
+        /// </summary>
+        private static readonly Dictionary<int, ItemValue> deferredLoose = new Dictionary<int, ItemValue>();
+
+        /// <summary>
+        /// X13's Write postfix: the gun in an SC body's hand - with its loaded rounds and, with L&amp;L, its seated magazine
+        /// (Meta and the gun's metadata) - goes into the entity's save data after SCore's own section, which saves only the
+        /// gun's name (so every load, a chunk's as well as a game's, gave back an empty gun and lost a magazine per body).
+        /// Framed as marker, version, length and a payload of ItemValue.Write's bytes plus the medical item in use (""
+        /// for none): SCore's Read stops at the end of its own length-framed section and never sees them, vanilla keeps an
+        /// entity's data as one length-prefixed blob, and an SC without this, or SCore alone, ignores them.
+        /// While a medical use is in progress (ScMedic.TryDisplaced: the hand holds the item) the record is the weapon the
+        /// use displaced, and the item - so the load can put both back (ScMedic.FixLoadedHand). Otherwise nothing for a melee
+        /// weapon (the gun's rounds are in the bag then: X12, L&amp;L) or an empty, unflagged gun. Written on network writes
+        /// too (chunk saves and unloads use the same flag, see the report); a client's Read skips it. Skipped, with a
+        /// warning, if it would take the record over vanilla's 65535-byte limit. Reads only the entity's own inventory,
+        /// SC's immutable class sets and ScMedic's concurrent mirror, no Unity API: an unloaded chunk is saved on the save
+        /// thread.
+        /// </summary>
+        public static void WriteHeldGun(EntityAlive e, System.IO.BinaryWriter bw)
+        {
+            if (e == null || bw == null || e.inventory == null || !ScCommunity.IsHost || !ScXnpc.IsBody(e)) return;
+            ItemValue gun = e.inventory.holdingItemItemValue;
+            string useItem = null;
+            ScMedic.Displaced d;
+            if ((gun == null || gun.IsEmpty() || RangedAction(gun.ItemClass) == null) && ScMedic.TryDisplaced(e.entityId, out d))
+            {
+                gun = d.Weapon;
+                useItem = d.Item;
+            }
+            bool keepGun = gun != null && !gun.IsEmpty() && RangedAction(gun.ItemClass) != null
+                           && (gun.Meta > 0 || (gun.Metadata != null && gun.Metadata.Count > 0));
+            if (!keepGun && useItem == null) return;
+            byte[] payload;
+            using (var ms = new System.IO.MemoryStream())
+            {
+                var w = new System.IO.BinaryWriter(ms);
+                ItemValue.Write(keepGun ? gun : null, w);
+                w.Write(useItem ?? "");
+                w.Flush();
+                payload = ms.ToArray();
+            }
+            long used = bw.BaseStream != null && bw.BaseStream.CanSeek ? bw.BaseStream.Position : 0;
+            if (used + SavedGunHeaderBytes + payload.Length > ushort.MaxValue)
+            {
+                ScLog.Once("ammo-held-gun-size-" + e.entityId, ScCommunity.DisplayName(e) + " (id " + e.entityId + "): the gun in hand is not saved with its rounds - the save record is too big");
+                return;
+            }
+            WriteSavedGun(bw, payload);
+            gunsSaved++;
+        }
+
+        /// <summary>The record's bytes after SCore's section (split out for the offline check).</summary>
+        internal static void WriteSavedGun(System.IO.BinaryWriter bw, byte[] payload)
+        {
+            bw.Write(SavedGunMarker);
+            bw.Write(SavedGunVersion);
+            bw.Write(payload.Length);
+            bw.Write(payload);
+        }
+
+        /// <summary>
+        /// The held gun written by WriteHeldGun (null when there was none worth keeping) and the medical item in use (null
+        /// for none), read where SCore's Read stopped. False when the next bytes are not one (a save from before this, a
+        /// network read, SCore's data alone). The stream is the entity's own data blob, so a record that does not parse costs
+        /// only this gun: a later SC's version is skipped, a bad length ends the read.
+        /// </summary>
+        internal static bool ReadSavedGun(System.IO.BinaryReader br, out ItemValue gun, out string useItem)
+        {
+            gun = null;
+            useItem = null;
+            System.IO.Stream s = br != null ? br.BaseStream : null;
+            if (s == null || !s.CanSeek) return false;
+            long start = s.Position;
+            if (s.Length - start < SavedGunHeaderBytes) return false;
+            if (br.ReadUInt32() != SavedGunMarker) { s.Position = start; return false; }
+            byte version = br.ReadByte();
+            int len = br.ReadInt32();
+            if (len <= 0 || len > s.Length - s.Position) { s.Position = s.Length; return false; }
+            byte[] payload = br.ReadBytes(len);
+            if (version != SavedGunVersion) return false;
+            var iv = new ItemValue();
+            try
+            {
+                using (var ms = new System.IO.MemoryStream(payload))
+                {
+                    var r = new System.IO.BinaryReader(ms);
+                    iv.Read(r);
+                    string item = ms.Position < ms.Length ? r.ReadString() : "";
+                    if (item.Length > 0) useItem = item;
+                }
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("ammo-held-gun-read", "a saved held gun could not be read (" + ex.GetType().Name + ") - the NPC loads with an empty gun");
+                return false;
+            }
+            gun = iv.IsEmpty() ? null : iv;
+            return gun != null || useItem != null;
+        }
+
+        /// <summary>X13's Read postfix: keeps a held gun read from an SC body's save for its PostInit (host only).</summary>
+        public static void KeepHeldGun(EntityAlive e, System.IO.BinaryReader br)
+        {
+            if (e == null || br == null || !ScCommunity.IsHost || !ScXnpc.IsBody(e)) return;
+            ItemValue gun;
+            string useItem;
+            if (ReadSavedGun(br, out gun, out useItem))
+                savedGuns[e.entityId] = new SavedHandEntry { Frame = Time.frameCount, Gun = gun, UseItem = useItem };
+        }
+
+        /// <summary>
+        /// What this body's save said about its hand, for ScMedic.FixLoadedHand (it runs before RestoreHeldGun, which then
+        /// consumes the entry): false when it was not loaded from a save with X13's record in this frame.
+        /// </summary>
+        internal static bool SavedHand(int id, out ItemValue gun, out string useItem)
+        {
+            gun = null;
+            useItem = null;
+            SavedHandEntry entry;
+            if (!savedGuns.TryGetValue(id, out entry) || entry.Frame != Time.frameCount) return false;
+            gun = entry.Gun;
+            useItem = entry.UseItem;
+            return true;
+        }
+
+        /// <summary>
+        /// ScLoadout.AfterPostInit, before the starting ammo (after ScMedic.FixLoadedHand): the gun this body held when it
+        /// was saved goes back into its hand, with its rounds and L&amp;L's seated magazine, in place of the empty one SCore's
+        /// load re-equipped by name - when that is the same gun and still empty (Inventory.SetItem stores a copy, L&amp;L's
+        /// SetItem prefix sees an empty unflagged gun and does nothing). Otherwise (the hand holds something else, or a gun
+        /// with rounds already) its rounds come back loose into the bag (ReturnLoose; a seated magazine's item cannot be
+        /// rebuilt then, its rounds can) - for a runner whose bag ScRunners is about to replace, once it has (runnerRestore).
+        /// Each saved gun is used once: re-created bodies (ScSpawn) are never read from a save and have no entry, and the
+        /// bag, X12 and the death drop act on the live gun only afterwards.
+        /// </summary>
+        public static void RestoreHeldGun(EntityAlive e, bool runnerRestore)
+        {
+            if (e == null || e.inventory == null) return;
+            deferredLoose.Remove(e.entityId);        // one from an earlier attempt at this body that never got its flush
+            if (savedGuns.Count == 0) return;
+            SavedHandEntry entry;
+            bool got = savedGuns.TryGetValue(e.entityId, out entry);
+            savedGuns.Remove(e.entityId);
+            int frame = Time.frameCount;
+            if (savedGuns.Count > 0)
+                foreach (int id in new List<int>(savedGuns.Keys)) if (savedGuns[id].Frame != frame) savedGuns.Remove(id);
+            if (!got || entry.Frame != frame || entry.Gun == null) return;
+            ItemValue saved = entry.Gun;
+            ItemValue held = e.inventory.holdingItemItemValue;
+            bool emptySameGun = held != null && !held.IsEmpty() && held.type == saved.type && held.Meta <= 0
+                                && (held.Metadata == null || held.Metadata.Count == 0);
+            if (emptySameGun)
+            {
+                e.inventory.SetItem(e.inventory.holdingItemIdx, saved, 1);
+                e.inventory.OnUpdate();
+                e.inventory.ForceHoldingItemUpdate();
+                gunsRestored++;
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") holds its saved " + saved.ItemClass.GetItemName() + " again, " + saved.Meta + " round(s) in it");
+                return;
+            }
+            if (runnerRestore) { deferredLoose[e.entityId] = saved; return; }
+            int n = ReturnLoose(e, saved, "loaded from the save", true);
+            gunsLoose += n;
+        }
+
+        /// <summary>
+        /// ScLoadout.AfterRunnerRestore (the re-check's R1): the saved gun's loose fallback RestoreHeldGun held back for a
+        /// runner, into the snapshot bag ScRunners has just put back.
+        /// </summary>
+        public static void FlushDeferredLoose(EntityAlive e)
+        {
+            ItemValue saved;
+            if (e == null || !deferredLoose.TryGetValue(e.entityId, out saved)) return;
+            deferredLoose.Remove(e.entityId);
+            gunsLoose += ReturnLoose(e, saved, "loaded from the save", true);
         }
 
         // ------------------------------------------------------------------ a remote player's open window ----
@@ -640,6 +1174,7 @@ namespace SurvivorCommunity
                         return;
                     }
                     MoveWindowAmmoToBag(e);
+                    LoadLoose(e);        // and on into its magazines (M11), as the ticker does
                 }
                 catch (Exception ex)
                 {
@@ -667,7 +1202,10 @@ namespace SurvivorCommunity
             return null;
         }
 
-        /// <summary>ScTicker, every second (works every CheckSeconds): records every member's ammo and resupplies the ones who qualify.</summary>
+        /// <summary>
+        /// ScTicker, every second (works every CheckSeconds): moves every member's window ammo to the bag and on into their
+        /// magazines (LoadLoose), records what they carry and resupplies the ones who qualify.
+        /// </summary>
         public static void Tick(World w)
         {
             try
@@ -681,6 +1219,7 @@ namespace SurvivorCommunity
                     EntityAlive e = BodyOf(w, m, out standIn);
                     if (e == null || !ScXnpc.IsBody(e)) continue;
                     MoveWindowAmmoToBag(e);
+                    LoadLoose(e);
                     Record(m, e);
                     if (ScConfig.XnpcResupply) Resupply(m, e, standIn, now);
                 }
@@ -738,6 +1277,14 @@ namespace SurvivorCommunity
             ItemClass gun = PairGun(e);
             ItemActionRanged r = RangedAction(gun);
             if (r == null) return;
+            // M11: a body that reloads this gun by L&L magazine is resupplied into its magazines; one whose gun takes them
+            // but who has none is issued them first, where the stockpile reaches (Issue)
+            bool mags = ScMags.Active && ScMags.Carries(e, ScMags.GunValue(e, gun));
+            if (!mags && ScMags.Active && !issuedTo.Contains(IssueKey(e, gun)) && ScMags.TakesMagazines(gun.GetItemName()))
+            {
+                string at = Where(e.GetBlockPosition());
+                if (at != null) mags = Issue(m, e, gun, standIn, at);
+            }
             if (Rounds(e, gun) >= ScConfig.XnpcResupplyBelow) { waitingOutside.Remove(e.entityId); return; }
             float due;
             if (nextResupply.TryGetValue(e.entityId, out due) && now < due) return;
@@ -755,6 +1302,7 @@ namespace SurvivorCommunity
             waitingOutside.Remove(e.entityId);
             ItemValue ammo = ItemClass.GetItem(r.MagazineItemNames[0], true);
             if (ammo == null || ammo.IsEmpty() || ammo.ItemClass == null) return;
+            if (mags) { ResupplyMagazines(m, e, gun, ammo, standIn, where, now); return; }
             bool bow = !ScLoadout.IsFirearm(gun.GetItemName());
             int want = Math.Min(bow ? ScConfig.XnpcResupplyArrows : ScConfig.XnpcResupplyAmmo, Room(e, ammo));
             if (want <= 0)
@@ -798,6 +1346,114 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
         }
 
+        /// <summary>
+        /// The resupply of a body that reloads its gun by L&amp;L magazine (M11): up to XnpcResupplyAmmo rounds of the gun's
+        /// basic ammo go into its magazines (ScMags.Refill), and the stockpile pays for exactly the rounds that went in -
+        /// what it can pay for is offered, and bundles are opened only for what was taken. Magazines that take nothing are
+        /// full: nothing to resupply, the stockpile untouched (the count is low only when its magazines hold fewer than
+        /// XnpcResupplyBelow in all).
+        /// </summary>
+        private static void ResupplyMagazines(Member m, EntityAlive e, ItemClass gun, ItemValue ammo, bool standIn, string where, float now)
+        {
+            Community c = ScRegistry.Community;
+            int each = PointsPerRound(ammo.ItemClass);
+            int perBundle = Math.Max(1, ScConfig.PointsPerBundle[(int)Resource.Ammo]);
+            int want = ScConfig.XnpcResupplyAmmo;
+            long canPay = (long)c.AmmoOpenPoints + (long)Math.Max(0, c.Get(Resource.Ammo)) * perBundle;
+            int give = (int)Math.Min(want, canPay / each);
+            nextResupply[e.entityId] = now + ScConfig.XnpcResupplyCooldown;
+            string who = (standIn ? m.Name + "'s stand-in" : m.Name) + " (id " + e.entityId + ")";
+            if (give <= 0)
+            {
+                refusedEmpty++;
+                c.AmmoShort = true;        // tonight's ledger: the stockpile could not cover a resupply
+                Refused(e, m.Name + " needs ammo " + (where == "home" ? "at home" : "at " + where) + " but the stockpile has none (pack some at the packing station)");
+                return;
+            }
+            int added = ScMags.Refill(e, gun.GetItemName(), ammo.ItemClass.GetItemName(), give);
+            if (added <= 0)
+            {
+                magsFull++;
+                ScLog.Verbose(who + " is low on ammo but their " + gun.GetItemName() + " magazines are full - nothing to resupply");
+                return;
+            }
+            if (added == give && give < want) c.AmmoShort = true;    // the stockpile, not the magazines, set the limit
+            int cost = added * each, opened = 0;
+            while (c.AmmoOpenPoints < cost && c.Get(Resource.Ammo) > 0)
+            {
+                c.Add(Resource.Ammo, -1);
+                c.AmmoOpenPoints += perBundle;
+                opened++;
+            }
+            c.AmmoOpenPoints = Math.Max(0, c.AmmoOpenPoints - cost);
+            c.AmmoOpened += opened;
+            bundlesOpened += opened;
+            resupplies++;
+            roundsGiven += added;
+            refills++;
+            refillRounds += added;
+            Record(m, e);
+            ScLog.Out(who + " resupplied " + (where == "home" ? "at home" : "at " + where) + ": " + added + " " + ammo.ItemClass.GetItemName()
+                      + " into their " + gun.GetItemName() + " magazines at " + each + " point(s) each"
+                      + (opened > 0 ? " - opened " + opened + " ammo bundle(s), " + c.Get(Resource.Ammo) + " left" : "")
+                      + " (" + c.AmmoOpenPoints + " point(s) left in the open bundle)");
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>Body and gun pairs issued magazines this game (Issue): at most once each, so a failed issue cannot repeat every tick.</summary>
+        private static readonly HashSet<string> issuedTo = new HashSet<string>(StringComparer.Ordinal);
+
+        private static string IssueKey(EntityAlive e, ItemClass gun) { return e.entityId + ":" + gun.GetItemName(); }
+
+        /// <summary>
+        /// A member whose gun takes L&amp;L magazines but who has none for it - one from before M11, or one whose magazines
+        /// are gone - is issued its tier's count (ScMags.TierMagazines) of the gun's standard magazine, EMPTY, the first time
+        /// it stands where the stockpile reaches with that gun and room in its bag this game. The gun's own loaded rounds go
+        /// back to the bag first (UnloadHeld), the member's loose rounds go into the new magazines at once (LoadLoose), and
+        /// the stockpile fills the rest through the ordinary resupply, paying only for what goes in. Empty rather than Arm's
+        /// loaded set: Arm's rounds would come from nowhere, and charging them afterwards fails whenever the stockpile is
+        /// short; this way no round is made. The tier's extended and drum rolls are a new survivor's only. False (loose
+        /// rounds as before) when L&amp;L made no magazine.
+        /// </summary>
+        private static bool Issue(Member m, EntityAlive e, ItemClass gun, bool standIn, string where)
+        {
+            string std = ScMags.StandardMagazine(gun.GetItemName());
+            if (std == null) return false;
+            int count = ScMags.TierMagazines(ScMags.TierOf(e));
+            string who = (standIn ? m.Name + "'s stand-in" : m.Name) + " (id " + e.entityId + ")";
+            // the review's F4: not while the bag is too full to take the magazines and the gun's loaded rounds - rounds left
+            // in the unflagged gun would count as a found gun's seated magazine, one more than issued. Not marked, so it is
+            // tried again on a later tick once there is room. The slot test comes first (the re-check): a member with a
+            // short bag is not emptied into it, and made to reload, every 5 s for nothing.
+            if (FreeBagSlots(e) < count + 1)
+            {
+                Patches_Xnpc.Count("mags-issue-bag-full");
+                return false;
+            }
+            UnloadHeld(e, gun, "magazines issued");
+            ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            if (held != null && held.type == gun.Id && held.Meta > 0)
+            {
+                Patches_Xnpc.Count("mags-issue-bag-full");
+                return false;
+            }
+            issuedTo.Add(IssueKey(e, gun));
+            var parts = new List<string>();
+            for (int i = 0; i < count; i++) parts.Add(std + "::0");
+            ScMags.Restore(e, string.Join(";", parts.ToArray()));
+            if (!ScMags.Carries(e, ScMags.GunValue(e, gun)))
+            {
+                ScLog.Warn(who + " could not be issued " + std + " magazines (Locked & Loaded made none) - loose rounds for their " + gun.GetItemName() + " as before");
+                return false;
+            }
+            issued++;
+            int loaded = LoadLoose(e);
+            Record(m, e);
+            ScLog.Out(who + " was issued " + count + " empty " + std + " for their " + gun.GetItemName() + " " + (where == "home" ? "at home" : "at " + where)
+                      + (loaded > 0 ? " and loaded " + loaded + " of their own loose rounds into them" : "") + " - the stockpile fills the rest as it resupplies");
+            return true;
+        }
+
         private static void Refused(EntityAlive e, string msg)
         {
             float now = Time.unscaledTime, due;
@@ -817,6 +1473,11 @@ namespace SurvivorCommunity
                    + refusedEmpty + " (stockpile empty) / " + refusedFull + " (window full), " + outsideWaits + " ran low outside; "
                    + c.Get(Resource.Ammo) + " ammo bundle(s) in the stockpile, " + c.AmmoOpenPoints + " point(s) in the open one; starting stacks "
                    + seeded + " (raiders " + raidersSeeded + ", never resupplied), re-created bodies given their record " + restored
+                   + "; magazines (Locked & Loaded): " + ScMags.State + " - armed " + armed + " survivor(s) and " + raidersArmed + " raider(s) with "
+                   + armedRounds + " round(s), issued to " + issued + " member(s), " + refills + " refill(s) of " + refillRounds + " round(s), "
+                   + magsFull + " time(s) full, " + looseLoaded + " loose round(s) loaded"
+                   + "; guns put away gave back " + swapRounds + " round(s) in " + swapReturns + " swap(s), dead NPCs' guns " + deathRounds
+                   + "; held guns saved " + gunsSaved + " time(s), back in the hand on load " + gunsRestored + ", given back loose " + gunsLoose + " round(s)"
                    + "; inventory windows open by remote players now " + RemoteOpenCount()
                    + ", dead NPCs' windows waiting for them to close " + Patches_Npc.Patch_SetDead.HeldCount;
         }
@@ -839,7 +1500,10 @@ namespace SurvivorCommunity
             {
                 ItemActionRanged r = RangedAction(gun);
                 ItemValue ammo = ItemClass.GetItem(r.MagazineItemNames[0], true);
-                sb.Append(gun.GetItemName()).Append(' ').Append(Rounds(e, gun)).Append(" round(s) (resupplied below ").Append(ScConfig.XnpcResupplyBelow).Append(')');
+                string mags = ScMags.Describe(e, gun);
+                sb.Append(gun.GetItemName()).Append(' ').Append(Rounds(e, gun)).Append(" round(s)")
+                  .Append(mags.Length > 0 ? " (" + Loose(e, r) + " loose, " + mags + ")" : "")
+                  .Append(" (resupplied below ").Append(ScConfig.XnpcResupplyBelow).Append(')');
                 if (ammo != null && !ammo.IsEmpty() && ammo.ItemClass != null)
                     sb.Append(", ").Append(ammo.ItemClass.GetItemName()).Append(" costs ").Append(PointsPerRound(ammo.ItemClass)).Append(" point(s)");
             }
@@ -850,7 +1514,9 @@ namespace SurvivorCommunity
               .Append(", here: ").Append(where ?? "outside the base and the outposts (never resupplied here)");
             float due;
             if (nextResupply.TryGetValue(e.entityId, out due) && due > Time.unscaledTime) sb.Append(", next resupply in ").Append((due - Time.unscaledTime).ToString("0")).Append(" s");
-            if (m != null) sb.Append("; record ammo=").Append(m.Ammo != null ? Encode(m.Ammo) : "never recorded");
+            if (m != null)
+                sb.Append("; record ammo=").Append(m.Ammo != null ? Encode(m.Ammo) : "never recorded")
+                  .Append(" magazines=").Append(string.IsNullOrEmpty(m.Mags) ? "none" : m.Mags + " (" + ScMags.RoundsIn(m.Mags) + " round(s))");
             sb.Append("; window open remotely: ").Append(RemoteOpenState(e.entityId));
             return sb.ToString();
         }

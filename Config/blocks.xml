@@ -217,8 +217,11 @@
 			     raider classes, replaced in M10); still read so an old file loads.
 			     XnpcSpawnAmmo / XnpcSpawnArrows: the rounds of its gun's basic ammo (arrows or bolts for a bow or
 			     crossbow) a new survivor starts with, once, in its bag. Ammo is finite: what is shot is gone.
+			     With Locked & Loaded installed, a gun that takes magazines starts with Locked & Loaded's loaded
+			     magazines for the survivor's tier (T1 2, T2 3, T3 4, its <npcs> table) instead, and XnpcSpawnAmmo only
+			     applies to guns without magazines; bows and crossbows keep XnpcSpawnArrows.
 			     A body the community re-creates for a member (a call-back, a stand-in, a runner) starts with what the
-			     member last carried instead, never a new stack. -->
+			     member last carried instead (its magazines too), never a new stack. -->
 			<property name="SurvivorSecondWeapon" value="true" />
 			<property name="SurvivorFirearmChance" value="0.12" />
 			<property name="SurvivorRangedMainChance" value="0.4" />
@@ -232,7 +235,10 @@
 			     The stockpile pays in packing points: a round costs what it is worth at the packing station (its
 			     EconomicValue, or its ValueOverrides entry) times XnpcResupplyPointsMult, and an ammo bundle holds
 			     PointsPerBundleAmmo points - a bundle is opened only when the last one is used up. At the defaults a bundle
-			     is about 220 9 mm rounds or 165 stone arrows. -->
+			     is about 220 9 mm rounds or 165 stone arrows.
+			     With Locked & Loaded, a member who carries magazines counts their rounds too, and a resupply loads up to
+			     XnpcResupplyAmmo rounds into those magazines: the stockpile pays only for what goes in, and nothing when
+			     they are full. A member whose gun takes magazines but who has none is first given empty ones there. -->
 			<property name="XnpcResupply" value="true" />
 			<property name="XnpcResupplyBelow" value="10" />
 			<property name="XnpcResupplyAmmo" value="30" />
@@ -328,7 +334,9 @@
 			     RaiderLeadRangedSeconds, and only while it has rounds (back to melee within 3 m).
 			     RaiderFirearmChance: the odds a raider's ranged weapon is a firearm, else a bow or crossbow.
 			     RaiderSpawnAmmo / RaiderSpawnArrows: the rounds (arrows or bolts) of its gun's basic ammo a raider starts
-			     with, in its bag. Raiders are never resupplied: when it runs dry it fights with its melee weapon.
+			     with, in its bag. Raiders are never resupplied: when it runs dry it fights with its melee weapon. With
+			     Locked & Loaded installed, a gun that takes magazines starts with Locked & Loaded's loaded magazines for
+			     the raider's tier instead, and RaiderSpawnAmmo only applies to guns without magazines.
 			     RaiderXnpcLevels: 0-XNPCCore's day-based kill levels (more health and damage as the days go by) on raiders
 			     too; false keeps them off, as on your members. RaiderLevelRegen: with the levels on, keep their slow
 			     health regeneration too (false: raiders heal only with the medical items they carry).

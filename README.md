@@ -387,10 +387,37 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
     refilled. The stockpile pays in packing points: a round costs what it is worth at the packing station (its
     economic value, times `XnpcResupplyPointsMult`, 1), and an ammo bundle holds `PointsPerBundleAmmo` (2000) points,
     opened only when the last one is used up - about 220 9 mm rounds or 165 stone arrows a bundle. The log names
-    every refill; `sc xnpc` counts them.
+    every refill; `sc xnpc` counts them. With Locked & Loaded a member who carries magazines counts the rounds in
+    them too, and the refill goes into those magazines: the stockpile pays only for the rounds they take, and nothing
+    when they are full.
   - **Nobody comes back with new ammo.** A body the community re-creates for a member (a call-back, an outpost
     stand-in, a rescue stand-in, a runner's fresh body) starts with the rounds that member last carried (kept in the
-    registry as `ammo=`), not a new survivor's 30.
+    registry as `ammo=`), not a new survivor's 30 - and with Locked & Loaded, with the same magazines holding the
+    same rounds (the magazines ride in the same `ammo=` value; an older SurvivorCommunity reading it keeps the loose
+    rounds and skips them). If Locked & Loaded is gone by then, or one of the magazine kinds is, its rounds come back
+    loose instead.
+  - **Magazines, with Locked & Loaded** (1.4 or later). An NPC that carries a magazine for its gun reloads like you:
+    the fullest magazine goes in and the old one comes back with what it had left. So with Locked & Loaded installed
+    a new survivor's or raider's gun that takes magazines starts with Locked & Loaded's loaded magazines for its
+    tier (T1 2, T2 3, T3 4; at T2 and T3 some are extended magazines or drums) instead of the loose rounds above.
+    Of the weapons they carry, Locked & Loaded 1.4 has magazines for the pistol, the desert vulture, the SMG, the pipe
+    machine gun, the AK-47, the tactical rifle, the M60, the sniper rifle and the auto shotgun. Bows, crossbows and
+    the guns without magazines (the pipe pistol, pipe rifle and pipe shotgun, the double barrel, the hunting rifle,
+    the lever-action rifle, the pump shotgun, the magnum) start with `XnpcSpawnAmmo` / `RaiderSpawnAmmo` as before,
+    and so does every gun without Locked & Loaded. Loose rounds of its gun's ammo that a member has - handed over
+    through their window, or from a save made before - go into their magazines whenever those have room, so none is
+    dead weight; magazines for their gun handed over through the window go into their bag, where they use them. A
+    member whose gun takes magazines but who has none (one from an older save, or given such a gun through the
+    weapon menu) is issued empty ones the first time they are at home or at an outpost with it, and the stockpile
+    fills them. `remags npc <id>` (Locked & Loaded's console) shows an NPC's magazines; `sc raiders` and
+    `sc xnpc <id>` count them.
+  - **A gun put away keeps its rounds.** 0-XNPCCore swaps the gun for the melee weapon up close, and the rounds left
+    in the gun used to vanish with it (up to a magazine's worth per melee bout). Now they go back to the NPC's bag as
+    loose rounds and are loaded again when the gun comes back (with Locked & Loaded the magazine itself goes back,
+    as Locked & Loaded does it). The same for the gun an NPC is holding when it dies: its rounds drop in the
+    backpack. And the gun in its hand is saved with it: the game keeps only the name of what an NPC holds, so every
+    time its chunk unloaded behind you (or the game was saved and loaded) it came back with an empty gun, and with
+    Locked & Loaded a magazine fewer. Now it comes back holding the same gun, loaded the same, magazine and all.
   - **Giving a member a better weapon.** Put the weapon in their inventory window and pick it in the dialog's weapon
     menu ("Use ..."), or tell them to use it by voice: they keep it for good in place of their weapon of that kind
     (the registry's `loadout=` follows), and the weapon it replaces comes back to you as a real item - into the
@@ -411,7 +438,8 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
     the gun at 5 m); the rest lead with the melee weapon - they charge in, and take the gun or bow only when you stay
     out of reach (farther than `RaiderLeadRangedDist`, 8 m, above them or where their path cannot get, for
     `RaiderLeadRangedSeconds`, 3 s), back to melee once you are within 3 m. Every raider starts with
-    `RaiderSpawnAmmo` (24) rounds or `RaiderSpawnArrows` (15) arrows or bolts in its bag and is **never resupplied**:
+    `RaiderSpawnAmmo` (24) rounds or `RaiderSpawnArrows` (15) arrows or bolts in its bag (with Locked & Loaded, a gun
+    that takes magazines starts with its tier's loaded magazines instead) and is **never resupplied**:
     once the gun is dry it fights with its melee weapon. When it dies it drops a
     backpack with its leftover ammo and medical items, and each of its two weapons is in it `RaiderWeaponDropChance`
     (25%) of the time. The rocket launcher is never rolled. Killing one pays 600 XP, more the better its ranged
@@ -474,7 +502,9 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   and not already healing, 12 seconds apart. They use it the way you do: the item goes into their hand, the
   player's own third-person bandage animation plays, and when it finishes the item's vanilla effects fire and
   their weapon goes back in their hand, so a bandage heals what a bandage heals. They cannot attack while
-  bandaging; a knockdown interrupts it and hands the item back; a save in the middle puts the weapon back first.
+  bandaging; a knockdown interrupts it and hands the item back. Saved in the middle of it (its chunk unloading behind
+  you, or the game), it comes back with the item back in its inventory and its weapon - its gun loaded as it was -
+  in hand; killed in the middle of it, the item and the gun's rounds are in its backpack.
   Hand a survivor medical items and they will use those; loot a dead one and you get what they had left.
 - Knocked down, they get up the way you do. The game picks the knockdown and get-up animations from a
   different animator layer for players than for NPCs, deciding by whether the entity is a player; these
@@ -531,9 +561,16 @@ A full game restart is needed after editing `Config/Localization.csv`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
 - Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
-  all 68 targets patched` with Voice Control loaded, 61 without; a `MISSING PATCH` line names one that did not
+  all 70 targets patched` with Voice Control loaded, 63 without; a `MISSING PATCH` line names one that did not
   bind). Among them
   `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
   `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests), the two turrets'
-  and the motion sensor's target filters and `EntityAliveSDXV4.HandleNavObject` (raiders), and SCore's two NPC
-  inventory packages (`NetPackageHarvestInventoryRequest` / `...Update`: a remote player's open window).
+  and the motion sensor's target filters and `EntityAliveSDXV4.HandleNavObject` (raiders), SCore's two NPC
+  inventory packages (`NetPackageHarvestInventoryRequest` / `...Update`: a remote player's open window),
+  `EntityAliveSDXV4.UpdateWeapon(ItemValue, bool)` (a gun put away keeps its rounds), and `EntityAliveSDXV4.Write` /
+  `Read` (the gun in hand is saved after SCore's own data, as `SCM1` + the item, and put back when the NPC loads; an
+  older SurvivorCommunity or SCore alone skips those bytes).
+- Locked & Loaded is reached by name only (`ScMags.cs`: `ModManager.ModLoaded("LockedAndLoaded")`, then
+  `REInvMags.NpcMagazines`' `Arm`, `Refill`, `Rounds`, `Record`, `Restore` and `Carries`, bound with their exact
+  signatures once per game); there is no reference to its DLL. Missing or throwing, it is switched off for the game
+  with one log line, and SC's NPCs use loose rounds.

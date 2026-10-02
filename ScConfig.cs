@@ -324,8 +324,9 @@ namespace SurvivorCommunity
         public static float SurvivorRangedMainChance = 0.4f;
         /// <summary>The vanilla weapons the community's 0-XNPCCore survivors may carry (XnpcWeapons class, generated).</summary>
         public static readonly List<XnpcWeaponDef> XnpcWeapons = new List<XnpcWeaponDef>();
-        /// <summary>Rounds of its gun's basic ammo a new 0-XNPCCore survivor carries in its inventory window, once per
-        /// entity (decision D3: finite ammo). 0 = none.</summary>
+        /// <summary>Rounds of its gun's basic ammo a new 0-XNPCCore survivor carries in its bag, once per entity (decision D3:
+        /// finite ammo). 0 = none. With Locked &amp; Loaded (M11) only for a gun without magazines: one that takes them gets
+        /// L&amp;L's tier magazines instead.</summary>
         public static int XnpcSpawnAmmo = 30;
         /// <summary>The same for a bow or crossbow: arrows or bolts.</summary>
         public static int XnpcSpawnArrows = 20;
@@ -335,7 +336,8 @@ namespace SurvivorCommunity
         public static bool XnpcResupply = true;
         /// <summary>Resupplied when the gun's rounds (magazine plus every store SCore reloads from) are below this.</summary>
         public static int XnpcResupplyBelow = 10;
-        /// <summary>Rounds of the gun's basic ammo one resupply hands over (XnpcResupplyArrows: arrows or bolts for a bow).</summary>
+        /// <summary>Rounds of the gun's basic ammo one resupply hands over (XnpcResupplyArrows: arrows or bolts for a bow).
+        /// With Locked &amp; Loaded (M11) the most one resupply loads into a member's magazines; it pays only for what they take.</summary>
         public static int XnpcResupplyAmmo = 30;
         public static int XnpcResupplyArrows = 20;
         /// <summary>Real seconds before the same NPC may be resupplied again (so a long fight in the base does not drain
@@ -389,7 +391,8 @@ namespace SurvivorCommunity
         public static float RaiderLeadRangedSeconds = 3f;
         /// <summary>The odds a raider's ranged weapon is a firearm rather than a bow or crossbow (the old FIREARM_SHARE).</summary>
         public static float RaiderFirearmChance = 0.12f;
-        /// <summary>Rounds of its gun's basic ammo a raider starts with, in its bag, once (M10-D2: never resupplied).</summary>
+        /// <summary>Rounds of its gun's basic ammo a raider starts with, in its bag, once (M10-D2: never resupplied). With
+        /// Locked &amp; Loaded (M11) only for a gun without magazines: one that takes them gets L&amp;L's tier magazines instead.</summary>
         public static int RaiderSpawnAmmo = 24;
         /// <summary>The same for a bow or crossbow: arrows or bolts.</summary>
         public static int RaiderSpawnArrows = 15;

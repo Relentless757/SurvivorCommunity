@@ -103,6 +103,18 @@ namespace SurvivorCommunity
             {
                 try
                 {
+                    // M11: the rounds loaded in the gun in its hand go into the bag first, so they drop with it - the held gun
+                    // itself never drops (a raider's pair roll below drops a copy, which is then empty, not loaded twice). A
+                    // seated Locked & Loaded magazine is already in the bag: L&L's EntityAlive.SetDead prefix runs inside
+                    // V4's base.SetDead() call, before this postfix, and empties the gun as it gives it back.
+                    if (ScXnpc.IsBody(e) && e.inventory != null)
+                    {
+                        // dying in the middle of a medical use: the item back into the window, the displaced gun's rounds
+                        // into the bag (M11 re-check), before either is collected
+                        ScMedic.OnDied(e);
+                        int back = ScAmmo.ReturnLoose(e, e.inventory.holdingItemItemValue, "died", true);
+                        if (back > 0) ScAmmo.NoteDeathReturn(back);
+                    }
                     // the window (meds, anything handed over) and, for the community's 0-XNPCCore survivors and SC's
                     // raiders, the bag (their ammo, ScAmmo.AddRounds): V4's own dropItemOnDeath drops neither
                     var drop = new List<ItemStack>();

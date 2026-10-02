@@ -514,7 +514,7 @@ namespace SurvivorCommunity
                 case "look": { Look l = m.Look ?? new Look(); if (l.Decode(val)) m.Look = l; break; }
                 case "gear": { if (m.Look == null) m.Look = new Look(); m.Look.DecodeGear(val); break; }
                 case "loadout": m.Loadout = Loadout.Decode(val); break;
-                case "ammo": m.Ammo = ScAmmo.Decode(val); break;
+                case "ammo": m.Ammo = ScAmmo.Decode(val, out m.Mags); break;
                 case "outpost": m.OutpostId = I(val); break;
                 case "leg": { RunLeg l; if (Enum.TryParse(val, true, out l)) m.RunLeg = l; break; }
                 case "dest": { Vector3i v; if (TryVec(val, out v)) m.RunDest = v; break; }
@@ -715,7 +715,7 @@ namespace SurvivorCommunity
                         sb.AppendLine("gear=" + Clean(m.Look.EncodeGear()));
                     }
                     if (m.Loadout != null) sb.AppendLine("loadout=" + Clean(m.Loadout.Encode()));
-                    if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo)));
+                    if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11)
                 }
                 foreach (var ct in Contacts)
                 {

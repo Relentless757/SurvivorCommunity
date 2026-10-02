@@ -25,6 +25,169 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## M11: Locked & Loaded NPC magazines
+
+**Deployed 2026-10-02** (DLL md5 `56614e13b1f1a5d5468ef2b2c89665f4`, 587776 bytes; Fable review + two re-checks, all findings fixed).
+Needs Locked & Loaded 1.4.0 (`zzzz_2_LockedAndLoaded`, commit 4d18bb2) for the magazine rows;
+without it everything is as in round 3. No Config change but comments in `blocks.xml`; an existing world is fine (see
+the old-save rows). Report: `_research\xnpc_migration\migrate\M11_REPORT.md`; L&L's side: `LnL_NPC_Magazines_API.md`.
+
+What changed:
+- **Magazines at spawn.** With L&L loaded, a new survivor's or raider's gun that takes magazines gets L&L's loaded
+  magazines for its class tier (T1 2, T2 3, T3 4; extended or drum chances at T2/T3) and **no loose stack**. Armed
+  inside PostInit, before 0-XNPCCore's first reload (`[SDCS-READY] ... event=preload`), so no extra "found" magazine.
+  Bows, crossbows and guns without magazines keep `XnpcSpawnAmmo` / `RaiderSpawnAmmo` / the arrows; so does everything
+  without L&L. Once per body (the same `sc_ammoSeeded` mark): a saved body is never armed again.
+- **Rounds** (`sc raiders`, `sc xnpc <id>`, the resupply threshold, the overwhelmed and lead rules) count the loose
+  rounds plus L&L's (its magazines and the gun's own count).
+- **Resupply** (members, at home / outposts, as before): into the magazines with L&L's `Refill`; the stockpile pays only
+  for the rounds that went in; full magazines take nothing and cost nothing. A member whose gun takes magazines but
+  who has none (an old save's, or a gun given through the weapon menu) is **issued** its tier's count of the gun's
+  standard magazine, empty, the first time it is there with that gun; its own loose rounds go in, the stockpile fills
+  the rest.
+- **Loose rounds into magazines:** loose rounds of the gun's ammo in a body's bag (handed over through the window, an
+  old save's) go into its magazines whenever they have room - every 5 s for members, on a remote window's close, and
+  once when any body loads. Never while its window is open; exactly what the magazines take leaves the bag.
+- **Member record:** the registry's `ammo=` value now also carries L&L's text of every magazine
+  (`...,@mags:<escaped>`); a re-created body (call-back, stand-in, runner) gets the same magazines back. Old records
+  load unchanged; a magazine L&L no longer knows (or every one, without L&L) comes back as loose rounds.
+- **X12, a gun put away keeps its rounds:** SCore's weapon swap (`EntityAliveSDXV4.UpdateWeapon(ItemValue, bool)`, the
+  close-melee swap, the dry failover, the re-arm) gives the rounds loaded in the gun it writes over back to the bag as
+  loose rounds - loose-round guns and bows (a nocked arrow); L&L gives back its own seated magazine first, so nothing
+  comes back twice. New target.
+- **Death:** the rounds loaded in the gun an NPC holds when it dies go into its bag first, so they drop in the backpack
+  (a raider's dropped gun copy is then empty).
+- **Bandage fix:** a survivor bandaging while L&L has a magazine seated in its gun no longer gets that magazine twice
+  (L&L puts it in the bag when the bandage goes into the hand; SC used to put back a copy of the loaded gun).
+- **Review fixes (`fable_review_m11.md`):**
+  - **F1, X13 - the gun in the hand survives a save.** SCore saves only the held item's name and the game keeps the
+    rest of an NPC's hand nowhere, so every load - each time a body's chunk unloaded behind you and came back, not only
+    quit/continue - gave it an empty gun, and with L&L one magazine fewer. SC now writes the held gun (rounds, seated
+    magazine) after SCore's own save data and puts it back in the hand when the body loads. New target
+    `EntityAliveSDXV4::Read` (the `Write` half shares an existing target): **70 / 63**.
+  - **F2:** after an L&L error switches the magazines off, the member record keeps the magazines it last could read
+    (it used to erase them within 5 s). Not testable without making L&L throw.
+  - **F3:** `sc loadout <name> <gun>` on a body that already has magazines for that gun gives no second set.
+  - **F4:** a member is issued magazines only when its bag has room for them and its gun's rounds.
+  - **Open item 2:** magazines for the member's gun handed over through its window move into its bag, where L&L uses
+    them.
+- **Re-check fixes (`fable_review_m11.md`, second pass):**
+  - **Saved while bandaging:** a body saved in the middle of a bandage or kit (its chunk unloading, or the game) came
+    back holding the bandage as its weapon, with the bandage it was using gone and its gun's loaded rounds lost. Now
+    the save keeps the gun the use took out of the hand and the item in use, and the load puts the item back in its
+    inventory and the gun - loaded as it was - back in its hand. Dying while bandaging puts the item in its window and
+    the gun's rounds in its bag, so both drop.
+  - **F4:** a member short of bag room for an issue is not emptied and made to reload every 5 s.
+  - **R1:** a runner coming back from its snapshot loses nothing that was in its window or its saved gun.
+- Console: `sc raiders` `rounds N (K magazine(s) holding N)`; `sc xnpc <id>` resupply line
+  `gunX N round(s) (L loose, K magazine(s) holding M)` and `record ammo=... magazines=<L&L text> (R round(s))`; its
+  `ammo:` line `Locked & Loaded: K magazine(s) holding M with the gun's own` (or `no magazines`); the `sc xnpc` ammo
+  line `magazines (Locked & Loaded): on - armed ... issued ... refill(s) ... time(s) full ... loose round(s) loaded;
+  guns put away gave back N round(s) in K swap(s), dead NPCs' guns N; held guns saved N time(s), back in the hand on
+  load N, given back loose N round(s)`; hooks `x12-swap-loaded-gun`, `x13-held-gun-read`, `mags-load-held`,
+  `mags-window-to-bag`, `mags-issue-bag-full`, `medic-load-hand-fixed`, `medic-died-mid-use`; `sc weapons` ends with `Locked & Loaded magazines: on - ... (T1/T2/T3:
+  2/3/4)`.
+
+L&L's console (`remags npc <id>`: the held item, Meta, the seated magazine, `usesMagazines`, rounds, every magazine and
+any loose rounds) is the ground truth below. `DebugLogging` true in `blocks.xml` for SC's `starting magazines ...`,
+`loaded ... loose round(s) ...` and `... gave back ...` lines.
+
+- [ ] **Startup:** `patch verification: all 70 targets patched` (63 without Voice Control), no `MISSING PATCH`; the
+      line `NPC magazines: Locked & Loaded's NPC API bound - ...` once per game (no `could not be bound`, no `threw`).
+      `sc weapons` ends with `Locked & Loaded magazines: on - ... (T1/T2/T3: 2/3/4)`.
+- [ ] **Raider arming per tier:** `sc spawn hostile male T1 Pistol ranged-lead` (id printed). In `Player.log` L&L's
+      `[REMags] armed ... (tier 1) for gunHandgunT1Pistol: magPistol9mm, magPistol9mm - 30 round(s)` comes BEFORE that
+      raider's `[SDCS-READY] ... event=preload`. `remags npc <id>`: 2 magazines, 30 rounds, no loose `ammo9mmBulletBall`;
+      after its first reload still 2 magazines (one seated, one in the bag) - never 3. `sc raiders`:
+      `rounds 30 (2 magazine(s) holding 30)`. Repeat with `T2 Pistol` (3 magazines, now and then an extended one) and
+      `T3 Rifle` (the AK: 4 magazines, now and then a drum).
+- [ ] **Survivor arming per tier:** `sc spawn male T2 Pistol` (friendly) and `sc spawn female T3 Rifle`: 3 and 4
+      magazines, no loose stack; `sc xnpc <id>` resupply line `gunHandgunT1Pistol 45 round(s) (0 loose, 3 magazine(s)
+      holding 45)` (more with an extended one); the `ammo (D3)` line's `armed N survivor(s) and M raider(s)` counts them
+      and `starting stacks` does not.
+- [ ] **Bows and guns without magazines unchanged:** `sc spawn hostile male T1 LBow` - 15 arrows loose in the bag
+      (`remags npc <id>`: no magazines); `sc spawn hostile male T1 PipePistol` - 24 loose rounds; `sc spawn male T1
+      DoubleBarrel` - 30 loose shells. They reload and fire as before.
+- [ ] **Chunk cycle keeps the gun loaded (F1):** a magazine member at home holding its gun with a part-used magazine
+      seated (let it fire a few; `remags npc <id>`: the held gun's Meta, `seated`, every magazine - write them down).
+      Walk (or fly) about 300 m away until it unloads, wait a minute, come back: `remags npc <id>` shows the same held
+      gun with the same Meta and seated magazine and the same magazines in the bag - not one fewer; the `ammo (D3)`
+      line's `held guns saved` and `back in the hand on load` have risen; DebugLogging `<name> (id N) holds its saved
+      gunX again, R round(s) in it`. Twice more: still the same count. The same with a loose-round member (a pipe pistol:
+      the gun's rounds survive), a bow member with an arrow nocked (it still has it, and shoots it), and a console raider
+      (`sc spawn hostile male T2 Rifle`) that you leave and come back to.
+- [ ] **Quit and continue keeps it too (F1):** the same notes, then save, quit to the menu, continue: the same held gun,
+      Meta, seated magazine and magazines; `sc xnpc <id>` `ammoSeeded=True` and no new magazines (never re-armed).
+- [ ] **Saved while bandaging (re-check):** a member with a pipe pistol (loose rounds; note `remags npc <id>`: the
+      gun's Meta) and 2 first aid bandages in its window: hurt it below 60% (a zombie, or `CommunityFriendlyFire` on and a hit) and the moment
+      it raises the bandage walk or fly 300 m away so its chunk unloads mid-bandage, then come back. It holds its pipe
+      pistol, not a bandage; the pistol has the same Meta as before; its window has 2 bandages again (the one it was
+      using came back, unused: count before the hurt = count now); the hooks line `medic-load-hand-fixed` +1. It then
+      bandages normally. The same with quit to the menu instead of walking away (press Esc while it bandages), and with
+      a magazine gun (a Pistol member: the magazine stays in its bag; after the load `remags npc <id>` shows the same
+      magazines and it re-arms its gun by itself). Killed while bandaging (`kill <id>` during the animation): its
+      backpack holds the bandage it was using and the pistol's rounds; `medic-died-mid-use` +1.
+- [ ] **Without L&L (optional, a COPY of a test world - L&L's magazine items vanish from a world loaded without it):**
+      move `zzzz_2_LockedAndLoaded` out of `Mods`: the log says `NPC magazines: Locked & Loaded is not loaded`; `sc
+      spawn hostile male T1 Pistol` gets 24 loose rounds; `sc weapons` says `Locked & Loaded magazines: off (Locked &
+      Loaded is not loaded)`. A member whose record has magazines (`sc xnpc <id>` `magazines=...` before the move),
+      re-created (post them at an outpost and go there): the stand-in has those magazines' rounds loose in its bag.
+- [ ] **Resupply at home:** recruit a Pistol survivor (`sc spawn male T1 Pistol`, `sc recruit <id>`), `sc give ammo 2`, at
+      home let it empty its magazines on zombies until it is under 10 rounds. Within 5 s (60 s cooldown): `<name> (id
+      N) resupplied at home: 30 ammo9mmBulletBall into their gunHandgunT1Pistol magazines at P point(s) each`;
+      `remags npc <id>` shows 30 more rounds in its magazines and no loose 9 mm; the `ammo (D3)` line's
+      `refill(s) of ... round(s)` rises by 30 and the open bundle's points fall by exactly 30 x P (or a bundle opens
+      and the rest are left). With magazines that can take only, say, 12: exactly 12 go in and only 12 x P is charged.
+- [ ] **Full magazines cost nothing:** set `XnpcResupplyBelow` to 100 in `blocks.xml`, reload the world, the Pistol
+      member at home with both magazines full: no resupply line, `time(s) full` rises once a minute, the stockpile and
+      the open bundle's points do not move (DebugLogging: `... magazines are full - nothing to resupply`). Set it back.
+- [ ] **Loose rounds handed over:** give a magazine member with room in its magazines (some fired) 20 `ammo9mmBulletBall`
+      through its inventory window and close: within 5 s `remags npc <id>` shows them in the magazines (the window and
+      the bag hold none; `loose round(s) loaded` rises; DebugLogging `loaded N loose round(s) ...`). With its magazines
+      full: the rounds wait loose in its bag (`remags npc` loose rounds 20) and go in as soon as a magazine has room.
+      With the window held open on your screen nothing moves (`mags-load-held` rises in the hooks line); close it and it
+      does. Total rounds (`sc xnpc <id>`) never change by more than what it fires.
+- [ ] **Magazines handed over through the window (open item 2):** give a Pistol member two `magPistol9mm` (one full,
+      one empty) through its inventory window and close it: within 5 s they leave the window and `remags npc <id>`
+      lists them in the bag (the empty one filled from its loose 9 mm, if it has any); `mags-window-to-bag` rises.
+      Magazines for another gun (an AK magazine) stay in the window. With the window held open nothing moves. A member
+      that had no magazines yet and holds a gun loaded from loose rounds: its gun's rounds go back to the bag first, and
+      after its next reload it has exactly the handed-over magazines, not one more.
+- [ ] **`sc loadout` gives no second set (F3):** `sc spawn hostile male T1 Pistol`, note `remags npc <id>` (2 magazines),
+      then `sc loadout <id> Pistol`: still 2 magazines (and no `[REMags] armed` line). `sc loadout <id> Rifle`: the AK
+      gets its tier's set (the 9 mm magazines stay in the bag, unused).
+- [ ] **Issue to a member without magazines:** hand a member with a bow a `gunHandgunT1Pistol` through its window and
+      pick it in the dialog's weapon menu ("Use ...") at home: within 5 s `<name> (id N) was issued 2 empty magPistol9mm
+      for their gunHandgunT1Pistol at home ...` (T1 class; 3 / 4 for T2 / T3); `remags npc <id>` shows them; with
+      `sc give ammo 1` it is resupplied into them within a minute. Only once per member and gun this game. (An old-save
+      member with loose 9 mm: the same line ends `and loaded N of their own loose rounds into them`.)
+- [ ] **Re-created member keeps exactly its magazines:** a magazine member: `sc xnpc <id>` resupply line ends
+      `magazines=magPistol9mm:ammo9mmBulletBall:15;... (R round(s))`. Post it at an outpost and go there: the stand-in's
+      `remags npc <stand-in>` shows the same magazines with the same rounds (the seated one comes back as a magazine
+      item; its first reload seats it) and no fresh tier set; DebugLogging `re-created body N: ... K magazine(s)
+      holding R, no starting stack`. Same with `sc restore <member>` on a missing one and a distress stand-in.
+      Registry file: the member's `ammo=` line ends `,@mags:magPistol9mm%3Aammo9mmBulletBall%3A15...`.
+- [ ] **The swap fix, loose-round gun:** `sc spawn hostile male T1 PipePistol ranged-lead` (no magazines), let it fire a
+      few, then walk up to it so it swaps to melee (`[SDCS-CLOSEMELEE] ... enter`): `remags npc <id>` (or `sc xnpc
+      <id>` ammo line on the gun later) shows the rounds that were in the gun back as loose rounds in the bag - total
+      rounds unchanged by the swap; hooks `x12-swap-loaded-gun` +1, `guns put away gave back N round(s)` rises;
+      DebugLogging `weapon swap: ...'s gunHandgunT0PipePistol gave back N ammo9mmBulletBall into the bag`. Back at range
+      it re-arms the gun and reloads from them. A bow: a nocked arrow comes back the same way.
+- [ ] **The swap with L&L magazines (no double return):** the T1 Pistol raider: walk up to it after a few shots: L&L's
+      `[REMags] weapon swap: ... gave back its magPistol9mm holding N` and NO SC `gave back` line for that swap;
+      `remags npc <id>`: the magazine count unchanged and no loose 9 mm.
+- [ ] **Death drop holds the magazines:** kill a magazine raider (`kill <id>`, or zombies): its backpack holds its
+      magazines (the seated one included, with its rounds) and nothing else of them is lost; a loose-round raider's
+      backpack holds the rounds that were in its gun as loose rounds (its dropped gun, if rolled, is empty). A member
+      the same, with its window's items.
+- [ ] **Bandage with a seated magazine:** hurt a magazine survivor (a stranger is fine) below 60% with bandages in its
+      window: when it bandages, L&L logs `[REMags] weapon swap: ... gave back its magPistol9mm holding N`; after the
+      bandage the gun goes back empty and reloads from the bag: `remags npc <id>` shows the same number of magazines as
+      before the bandage, not one more.
+- [ ] **Regression:** raiders and survivors with bows still shoot and resupply as before; `sc xnpc` shows no
+      `ammo-load-loose`, `mags-`, `xnpc-swap-rounds` errors; a member with a pipe gun is resupplied with loose rounds as
+      before.
+
 ## M10 round 3: the remote-window guard, turrets, clear-sleeper markers and kill XP for raiders
 
 **Deployed 2026-10-02** (DLL md5 `87350de60369fff5de5323875b1d88dc`, 563712 bytes; Fable review fixes F1-F4 included,

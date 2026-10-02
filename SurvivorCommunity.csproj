@@ -66,6 +66,7 @@
     <Compile Include="ScAim.cs" />
     <Compile Include="ScLoadout.cs" />
     <Compile Include="ScAmmo.cs" />
+    <Compile Include="ScMags.cs" />
     <Compile Include="ScArms.cs" />
     <Compile Include="ScMedic.cs" />
     <Compile Include="Patches_VoiceControl.cs" />

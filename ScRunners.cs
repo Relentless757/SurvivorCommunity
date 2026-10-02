@@ -32,6 +32,13 @@ namespace SurvivorCommunity
 
         /// <summary>Set around our own re-create: the PostInit guard lets exactly this id through.</summary>
         public static int RecreatingId = -1;
+
+        /// <summary>
+        /// Set around the creation of a body from its snapshot, whose bag is replaced with the snapshot's right after
+        /// (M11 re-check, R1): ScLoadout.AfterPostInit leaves the bag alone then, and AfterRunnerRestore does that part on
+        /// the bag that stays. Main thread.
+        /// </summary>
+        public static bool Restoring;
         private static int capturingId = -1;
         /// <summary>Same-id copies a chunk loaded while the runner was offline: hidden in PostInit, removed next tick. Never Doomed.</summary>
         public static readonly HashSet<int> StaleIds = new HashSet<int>();
@@ -74,6 +81,7 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             RecreatingId = -1;
+            Restoring = false;
             capturingId = -1;
             StaleIds.Clear();
             sessions.Clear();
@@ -901,7 +909,9 @@ namespace SurvivorCommunity
                     ecd.pos = spot + new Vector3(0f, 0.002f, 0f);                               // VehicleManager nudges y the same way
                     ecd.rot = rot;
                     ecd.id = rekey ? -1 : m.Id;                                                 // never the id inside the blob: after a re-key it is the old one
-                    e = ScNpc.As(EntityFactory.CreateEntity(ecd));
+                    Restoring = true;                                                           // its PostInit leaves the bag to AfterRunnerRestore
+                    try { e = ScNpc.As(EntityFactory.CreateEntity(ecd)); }
+                    finally { Restoring = false; }
                 }
                 if (e == null) { s.CreateFailures++; ScLog.Warn(m.Name + ": re-create returned no entity (" + s.CreateFailures + ")"); return false; }
                 w.SpawnEntityInWorld(e);
@@ -922,6 +932,9 @@ namespace SurvivorCommunity
 
             // SCore's SetupBagItems re-appends the class BagItems on every PostInit: put the saved bag back
             if (!fresh && ecd.bag != null && e.bag != null) e.bag.SetSlots(ecd.bag.Clone().GetSlots());
+            // M11 re-check R1: the window move, the saved gun's loose fallback and the loose rounds into magazines that
+            // AfterPostInit left out, now on the bag that stays
+            if (!fresh) ScLoadout.AfterRunnerRestore(e);
             if (newId)
             {
                 Rekey(w, player, m, e, oldId, fresh);

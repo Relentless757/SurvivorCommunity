@@ -41,6 +41,8 @@ namespace SurvivorCommunity
                                + (100f * ScConfig.RaiderRangedShareFor(0)).ToString("0") + "/" + (100f * ScConfig.RaiderRangedShareFor(1)).ToString("0") + "/"
                                + (100f * ScConfig.RaiderRangedShareFor(2)).ToString("0") + "% lead with it (T1/T2/T3, the rest melee-lead; all carry both), a firearm at "
                                + (100f * ScConfig.RaiderFirearmChance).ToString("0") + "%, " + ScConfig.RaiderSpawnAmmo + " rounds / " + ScConfig.RaiderSpawnArrows + " arrows, never resupplied");
+                        Output("[SC] Locked & Loaded magazines: " + ScMags.State + (ScMags.Active ? " - a gun that takes magazines starts with its tier's (T1/T2/T3: "
+                               + ScMags.TierMagazines(1) + "/" + ScMags.TierMagazines(2) + "/" + ScMags.TierMagazines(3) + ") instead of loose rounds" : ""));
                         break;
                     case "raiders": RaidersCmd(_params); break;
                     case "loadout": LoadoutCmd(_params); break;
@@ -1275,7 +1277,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// sc raiders [r] - every living raider (SC's raider classes on XNPC's body, M10) within r metres (40): id, name,
-        /// class, its pair and lead, the rounds left for its gun (bag plus magazine; never resupplied), its XNPC level, its
+        /// class, its pair and lead, the rounds left for its gun (bag plus magazine, and with Locked &amp; Loaded its magazines
+        /// and how many, M11; never resupplied), its XNPC level, its
         /// attack and revenge targets, vanilla's door flag, what it holds, the lead rule's state, its health, distance and
         /// speed, what killing it pays (kill XP from the pair, round 3) and its map marker (sleeper or not). The M10 probes
         /// read this line.
@@ -1304,9 +1307,10 @@ namespace SurvivorCommunity
                 ItemClass gun = ScAmmo.PairGun(e);
                 ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
                 string level = e.Buffs != null && e.Buffs.HasCustomVar("SdcsNpcLevel") ? e.Buffs.GetCustomVar("SdcsNpcLevel").ToString("0") : "-";
+                string mags = gun != null ? ScMags.Describe(e, gun) : "";
                 Output("[SC] " + e.entityId + " " + ScCommunity.DisplayName(e) + " (" + ScCommunity.ClassName(e) + ") "
                        + (l != null ? l.ToString() : "no pair")
-                       + " rounds " + (gun != null ? ScAmmo.Rounds(e, gun).ToString() : "-")
+                       + " rounds " + (gun != null ? ScAmmo.Rounds(e, gun).ToString() : "-") + (mags.Length > 0 ? " (" + mags + ")" : "")
                        + " level " + level + " target " + Who(e.GetAttackTarget()) + " revenge " + Who(e.GetRevengeTarget())
                        + " canOpenDoors " + (e.moveHelper != null && e.moveHelper.CanOpenDoors)
                        + " holding " + (held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : "nothing")
@@ -1324,7 +1328,10 @@ namespace SurvivorCommunity
             return ic != null ? ic.GetItemName() : type.ToString();
         }
 
-        /// <summary>For the held ranged weapon: the magazine, and the reserve of each of its ammo types in every store.</summary>
+        /// <summary>
+        /// For the held ranged weapon: the magazine, Locked &amp; Loaded's magazines for it (M11: how many, and their rounds
+        /// with the gun's own - NpcMagazines.Rounds), and the reserve of each of its ammo types in every store.
+        /// </summary>
         private static string XnpcAmmo(EntityAlive e, ItemClass held)
         {
             ItemActionRanged ranged = null;
@@ -1334,6 +1341,11 @@ namespace SurvivorCommunity
             var sb = new StringBuilder();
             ItemValue hv = e.inventory.holdingItemItemValue;
             sb.Append("magazine ").Append(hv != null ? hv.Meta : 0);
+            if (ScMags.Active)
+            {
+                string mags = ScMags.Describe(e, held);
+                sb.Append("; Locked & Loaded: ").Append(mags.Length > 0 ? mags + " with the gun's own" : "no magazines (reloads from loose rounds)");
+            }
             ItemStack[] window = HarvestManager.Has(e.entityId) ? ScNpc.Items(e) : null;
             ItemStack[] bag = e.bag != null ? e.bag.GetSlots() : null;
             ItemStack[] belt = e.inventory != null ? e.inventory.GetSlots() : null;

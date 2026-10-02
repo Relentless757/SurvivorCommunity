@@ -170,7 +170,7 @@ namespace SurvivorCommunity
                 m.Ranged = ScSkills.HoldsRanged(npc);
                 m.Look = ScLooks.Get(npc);          // null unless they wear the player's body
                 m.Loadout = ScLoadout.Current(npc); // their two weapons, so every body re-created for them carries the same (null for others)
-                m.Ammo = ScAmmo.Carried(npc);       // and the rounds they carry for the gun (ScAmmo keeps it current every 5 s)
+                m.Ammo = ScAmmo.Carried(npc, out m.Mags);   // and the rounds and magazines they carry for the gun (ScAmmo keeps it current every 5 s)
                 ScRegistry.Members[m.Id] = m;
                 ScRegistry.Prospects.Remove(m.Id);
 

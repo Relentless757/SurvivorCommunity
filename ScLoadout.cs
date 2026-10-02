@@ -77,6 +77,9 @@ namespace SurvivorCommunity
     /// melee-lead raider on its melee weapon until the target stays out of reach). Their ammo is a finite starting stack of
     /// RaiderSpawnAmmo / RaiderSpawnArrows in the bag that is never resupplied (M10-D2).
     ///
+    /// With Locked &amp; Loaded (M11), on both sides a gun that takes magazines starts with its class tier's loaded
+    /// magazines (ScMags.Arm) instead of the loose stack; bows, crossbows and guns without magazines keep the stack.
+    ///
     /// The pair resolves, in order: Pending (a console spawn, a radio contact, a respawn of a known survivor), the member
     /// or prospect record (loadout=; survivors only), the pair this entity already carries (two cvars, saved with it), a
     /// roll seeded by (entityId, WorldTimeBorn). The result goes into the cvars at once, so a later gamestage never changes
@@ -509,36 +512,115 @@ namespace SurvivorCommunity
         /// members up later (ScAmmo).
         /// A raider gets RaiderSpawnAmmo / RaiderSpawnArrows and nothing ever again (M10-D2): ScAmmo's resupply only walks
         /// members. Server only: the bag is the server's. A raider's kill XP bonus is written here too (SetRaiderXp).
+        /// With Locked &amp; Loaded (M11, ArmMagazines) a gun that takes magazines gets its class tier's loaded magazines
+        /// instead of either loose stack; and every body - new, re-created or loaded from the save - then has the loose
+        /// rounds of its gun's ammo in its bag loaded into its magazines (ScAmmo.LoadLoose).
         /// </summary>
         public static void AfterPostInit(EntityAlive e)
         {
             try
             {
                 if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost || e.Buffs == null) return;
-                ScAmmo.MoveWindowAmmoToBag(e);           // a no-op without a window (raiders never have one)
+                // a runner coming back from its snapshot: ScRunners puts the snapshot's bag back right after this, so what
+                // would go into the bag here waits for AfterRunnerRestore (the re-check's R1)
+                bool runnerRestore = ScRunners.Restoring;
+                // saved while bandaging: the item back into its inventory, the weapon back into the hand (re-check)
+                ScMedic.FixLoadedHand(e);
+                // the gun it held when it was saved (review F1, X13): before the window move and the arming, so their
+                // guards see the real gun (each unloads a loose-loaded gun before magazines arrive)
+                ScAmmo.RestoreHeldGun(e, runnerRestore);
                 bool raider = ScXnpc.IsRaider(e);
                 if (raider) SetRaiderXp(e);              // every PostInit, before the seeded raider returns below
-                if (!raider && ScAmmo.RestoreRecorded(e)) return;
-                if (e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f) return;
-                Loadout l = Current(e);
-                Weapon r = l != null ? Find(l.Ranged) : null;
-                if (r == null) return;
-                string ammo = AmmoOf(ItemClass.GetItemClass(r.Item, true));
-                bool bow = r.Family == "bow";
-                int n = raider ? (bow ? ScConfig.RaiderSpawnArrows : ScConfig.RaiderSpawnAmmo) : (bow ? ScConfig.XnpcSpawnArrows : ScConfig.XnpcSpawnAmmo);
-                if (ammo == null || n <= 0) return;
-                ItemValue iv = ItemClass.GetItem(ammo, true);
-                if (iv == null || iv.IsEmpty()) return;
-                // marked only now: a body that had nothing to seed yet (no ranged weapon) is not marked for life
-                e.Buffs.SetCustomVar(AmmoSeededCvar, 1f);
-                ScAmmo.AddRounds(e, iv, n);    // the bag: the store a bow can shoot from (see ScAmmo.AddRounds)
-                ScAmmo.NoteSeeded(raider);
-                ScLog.Verbose("starting ammo for " + (raider ? "raider " : "") + ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + n + " " + ammo + " for " + r.Token);
+                if (runnerRestore) return;               // the rest: AfterRunnerRestore, on the bag the runner keeps
+                ScAmmo.MoveWindowAmmoToBag(e);           // a no-op without a window (raiders never have one)
+                SeedAmmo(e, raider);
+                ScAmmo.LoadLoose(e);                     // once at load (M11): loose rounds of a magazine gun into its magazines
             }
             catch (Exception ex)
             {
                 ScLog.Once("loadout-seed-ammo", ex);
             }
+        }
+
+        /// <summary>
+        /// ScRunners, right after it has put a re-created runner's snapshot bag back (the re-check's R1): the part of
+        /// AfterPostInit that works on the bag runs now, on the bag the runner keeps - the saved gun's loose fallback, the
+        /// window move (ammo and magazines), the starting ammo (a snapshot's body is seeded already) and the loose rounds
+        /// into magazines. Nothing went into the bag that was thrown away, so nothing is lost or done twice.
+        /// </summary>
+        public static void AfterRunnerRestore(EntityAlive e)
+        {
+            try
+            {
+                if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost || e.Buffs == null) return;
+                ScAmmo.FlushDeferredLoose(e);
+                ScAmmo.MoveWindowAmmoToBag(e);
+                SeedAmmo(e, ScXnpc.IsRaider(e));
+                ScAmmo.LoadLoose(e);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("loadout-runner-restore", ex);
+            }
+        }
+
+        /// <summary>AfterPostInit's starting ammo: the record for a re-created survivor, else once per body its magazines or its loose stack.</summary>
+        private static void SeedAmmo(EntityAlive e, bool raider)
+        {
+            if (!raider && ScAmmo.RestoreRecorded(e)) return;
+            if (e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f) return;
+            Loadout l = Current(e);
+            Weapon r = l != null ? Find(l.Ranged) : null;
+            if (r == null) return;
+            ItemClass gun = ItemClass.GetItemClass(r.Item, true);
+            if (ScMags.Active && ArmMagazines(e, gun, raider)) return;
+            string ammo = AmmoOf(gun);
+            bool bow = r.Family == "bow";
+            int n = raider ? (bow ? ScConfig.RaiderSpawnArrows : ScConfig.RaiderSpawnAmmo) : (bow ? ScConfig.XnpcSpawnArrows : ScConfig.XnpcSpawnAmmo);
+            if (ammo == null || n <= 0) return;
+            ItemValue iv = ItemClass.GetItem(ammo, true);
+            if (iv == null || iv.IsEmpty()) return;
+            // marked only now: a body that had nothing to seed yet (no ranged weapon) is not marked for life
+            e.Buffs.SetCustomVar(AmmoSeededCvar, 1f);
+            ScAmmo.AddRounds(e, iv, n);    // the bag: the store a bow can shoot from (see ScAmmo.AddRounds)
+            ScAmmo.NoteSeeded(raider);
+            ScLog.Verbose("starting ammo for " + (raider ? "raider " : "") + ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + n + " " + ammo + " for " + r.Token);
+        }
+
+        /// <summary>
+        /// M11, the user's decision 1: with Locked &amp; Loaded a new survivor's or raider's gun that takes magazines gets the
+        /// tier's loaded magazines of its basic ammo (NpcMagazines.Arm; tier = the class's T1..T3) and no loose stack. False
+        /// - the loose stack then - when L&amp;L hands out nothing: a bow or crossbow, a gun it has no magazines for, one with
+        /// only twin magazines. Marked with the same AmmoSeededCvar as the stack, so a saved body is never armed again; a
+        /// body that already reloads the gun by magazine is marked and gets nothing more.
+        /// Runs here, inside PostInit, which is before 0-XNPCCore's first reload of the gun: that is its controller's
+        /// preload ([SDCS-READY] event=preload), a tick of AvatarSdcsNpcController.Update once the body is in the world,
+        /// and a body's PostInit runs inside EntityFactory before it is spawned. A gun that already holds rounds would be
+        /// taken by L&amp;L for a found gun with a seated magazine - one magazine more than the tier - so its rounds go back
+        /// to the bag first (ScAmmo.UnloadHeld; LoadLoose loads them afterwards). A guard rather than a path seen today: a
+        /// new body holds its melee weapon here, SCore's copies of the gun are fresh items with no rounds, a body loaded from
+        /// the save (its held gun put back by RestoreHeldGun) is marked already, and sc loadout's re-arm puts a fresh gun in
+        /// the hand before it gets here.
+        /// </summary>
+        private static bool ArmMagazines(EntityAlive e, ItemClass gun, bool raider)
+        {
+            if (gun == null) return false;
+            // the review's F3: a body that already reloads this gun by magazine (sc loadout setting the same gun again,
+            // magazines handed over) is armed - no second tier set made from nothing
+            if (ScMags.Carries(e, ScMags.GunValue(e, gun)))
+            {
+                e.Buffs.SetCustomVar(AmmoSeededCvar, 1f);
+                return true;
+            }
+            ScAmmo.UnloadHeld(e, gun, "armed with magazines");
+            int tier = ScMags.TierOf(e);
+            int given = ScMags.Arm(e, gun.GetItemName(), tier);
+            if (given <= 0) return false;
+            e.Buffs.SetCustomVar(AmmoSeededCvar, 1f);
+            ScAmmo.NoteArmed(raider, given);
+            ScLog.Verbose("starting magazines for " + (raider ? "raider " : "") + ScCommunity.DisplayName(e) + " (id " + e.entityId + "): tier " + tier
+                          + ", " + given + " round(s) for " + gun.GetItemName() + " (Locked & Loaded)");
+            return true;
         }
 
         // ---- kill XP (raiders, design 2.9) ----
@@ -615,8 +697,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// Gives a live NPC a new pair (either half may be null: kept; a raider's change may carry a new Lead, which then
         /// puts that weapon in its hand). Refills its slots and re-equips the same kind. freshAmmo: a body given a new gun
-        /// also gets a new starting stack for it (the console's sc loadout; a raider gets the raider amounts); false for a
-        /// weapon the player handed over (ScArms: its ammo is what the player gives, or a resupply at home).
+        /// also gets a new starting stack - or its tier's magazines (M11) - for it (the console's sc loadout; a raider gets
+        /// the raider amounts); false for a weapon the player handed over (ScArms: its ammo is what the player gives, or a
+        /// resupply at home).
         /// </summary>
         public static bool Set(EntityAlive e, Loadout change, out string why, bool freshAmmo = true)
         {

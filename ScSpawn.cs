@@ -62,7 +62,7 @@ namespace SurvivorCommunity
             {
                 if (look != null) ScLooks.Pending = look.Clone();
                 if (loadout != null) ScLoadout.Pending = loadout.Clone();
-                if (known != null) { ScAmmo.PendingKnown = true; ScAmmo.PendingRecord = ScAmmo.Copy(known.Ammo); }
+                if (known != null) { ScAmmo.PendingKnown = true; ScAmmo.PendingRecord = ScAmmo.Copy(known.Ammo); ScAmmo.PendingMags = known.Mags; }
                 return ScNpc.As(EntityFactory.CreateEntity(classId, at, rotation));
             }
             finally
@@ -71,6 +71,7 @@ namespace SurvivorCommunity
                 ScLoadout.Pending = null;
                 ScAmmo.PendingKnown = false;
                 ScAmmo.PendingRecord = null;
+                ScAmmo.PendingMags = null;
             }
         }
 

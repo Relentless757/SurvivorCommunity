@@ -61,6 +61,7 @@ namespace SurvivorCommunity
                 ScXnpc.Reset();
                 Patches_Xnpc.Reset();
                 ScAmmo.Reset();
+                ScMags.Reset();
                 ScArms.Reset();
                 Patches_Npc.Reset();
                 });
@@ -68,6 +69,9 @@ namespace SurvivorCommunity
                 {
                     try { ScConfig.EnsureParsed(); ReportDialogCoverage(); }
                     catch (Exception e) { ScLog.Once("gamestartdone", e); }
+                    // Locked & Loaded's NPC magazines (M11): bound once per game, its state logged every game
+                    try { ScMags.Resolve(); }
+                    catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }
                 });
                 ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) => ScTicker.OnGameUpdate());
                 ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) =>
@@ -217,8 +221,8 @@ namespace SurvivorCommunity
             Add(t, "EntityAliveSDXV4::Write", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
             Add(t, "EntityAliveSDXV4::SetModelLayer", Patches_Xnpc.Patch_ModelLayer.Target());
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
-            // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11 on SCore's V4:
-            // raiders' map markers)
+            // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on
+            // SCore's V4: raiders' map markers, a swapped-out gun's rounds, the held gun across a save)
             Add(t, "EModelSdcsNpc::createModel", Patches_Xnpc.CreateModelTarget());
             Add(t, "MinEventActionSdcsApplyLook::Execute", Patches_Xnpc.ApplyLookTarget());
             Add(t, "EModelSdcsNpc::GenerateMeshes", Patches_Xnpc.GenerateMeshesTarget());
@@ -234,6 +238,11 @@ namespace SurvivorCommunity
             Add(t, "MiniTurretFireController::shouldIgnoreTarget", Patches_Xnpc.MiniTurretTarget());
             Add(t, "MotionSensorController::shouldIgnoreTarget", Patches_Xnpc.MotionSensorTarget());
             Add(t, "EntityAliveSDXV4::HandleNavObject", Patches_Xnpc.NavObjectTarget());
+            // X12 (M11): the rounds in a gun SCore's weapon swap writes over go back to the bag
+            Add(t, "EntityAliveSDXV4::UpdateWeapon(ItemValue,bool)", Patches_Xnpc.UpdateWeaponTarget());
+            // X13 (M11 review F1): the held gun is saved after SCore's section (its Write postfix shares the
+            // EntityAliveSDXV4::Write entry above) and read back here
+            Add(t, "EntityAliveSDXV4::Read", Patches_Xnpc.ReadTarget());
             // ScAmmo.cs - a remote player's open NPC inventory window holds off the ammo move and medical use out of it
             Add(t, "NetPackageHarvestInventoryRequest::ProcessPackage", ScAmmo.RemoteOpenTarget());
             Add(t, "NetPackageHarvestInventoryUpdate::ProcessPackage", ScAmmo.RemoteCloseTarget());

@@ -140,6 +140,12 @@ namespace SurvivorCommunity
         /// empty, and a resupply in the base or at an outpost arms it).
         /// </summary>
         public Dictionary<string, int> Ammo;
+        /// <summary>
+        /// Their Locked &amp; Loaded magazines for the gun when last seen (M11: NpcMagazines.Record's text, the one in the gun
+        /// included; ScAmmo), recorded with Ammo and saved in the same ammo= value; a re-created body gets them back as
+        /// magazines. Null = none (a gun without magazines, no L&amp;L, or a save from before M11).
+        /// </summary>
+        public string Mags;
         /// <summary>The outpost a Garrison member holds (-1 otherwise).</summary>
         public int OutpostId = -1;
         /// <summary>Physical supply run (ScRunners). Saved only while OnRun with a leg other than None.</summary>

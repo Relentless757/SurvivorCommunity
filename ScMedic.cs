@@ -72,14 +72,38 @@ namespace SurvivorCommunity
         }
         private static readonly Dictionary<int, Use> uses = new Dictionary<int, Use>();
 
+        /// <summary>The weapon a use took out of the hand and the item in the hand instead, for the held-gun save.</summary>
+        internal sealed class Displaced
+        {
+            public readonly ItemValue Weapon;
+            public readonly string Item;
+            public Displaced(ItemValue weapon, string item) { Weapon = weapon; Item = item; }
+        }
+
+        /// <summary>
+        /// Every use in progress, mirrored for ScAmmo.WriteHeldGun (the re-check's step 2): a body saved while it bandages
+        /// holds the medical item, so its gun - rounds and all - is only here. Written on the main thread only (Begin,
+        /// Finish, OnDied, FixLoadedHand, Reset); read from the chunk save, which runs on the save thread for an unloaded
+        /// chunk (ChunkCluster.RemoveChunk unloads the entities first, RegionFileManager writes them later on
+        /// thread_SaveChunks), hence a concurrent dictionary of immutable entries. For the same reason an entry outlives
+        /// its body's unload: the save that needs it comes after. It goes when the use ends, the body dies, the body is
+        /// loaded again (FixLoadedHand) or the game ends.
+        /// </summary>
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, Displaced> displaced =
+            new System.Collections.Concurrent.ConcurrentDictionary<int, Displaced>();
+
         /// <summary>A medical use is in progress (ScRunners skips its periodic snapshot - a Write(false) would finish the use).</summary>
         public static bool IsUsing(int id) { return uses.ContainsKey(id); }
+
+        /// <summary>The weapon a use in progress took out of this body's hand, and the item it holds instead (any thread).</summary>
+        internal static bool TryDisplaced(int id, out Displaced d) { return displaced.TryGetValue(id, out d); }
 
         public static void Reset()
         {
             nextCheck.Clear();
             readyAt.Clear();
             uses.Clear();
+            displaced.Clear();
             Patch_NoFreeHeal.SdcsRefused = 0;
         }
 
@@ -130,6 +154,8 @@ namespace SurvivorCommunity
             nextCheck.Remove(entityId);
             readyAt.Remove(entityId);
             uses.Remove(entityId);
+            Displaced gone;
+            displaced.TryRemove(entityId, out gone);
         }
 
         // ---------------------------------------------------------------------------------------------------------
@@ -197,10 +223,16 @@ namespace SurvivorCommunity
                 Duration = Mathf.Clamp(delay > 0f ? delay : 2.5f, 1f, 6f),
             };
             ItemStack held = e.inventory.GetItem(u.Slot);
-            u.Displaced = held != null ? held.Clone() : ItemStack.Empty.Clone();
+            // the weapon's own ItemValue, not a copy (M11): Locked & Loaded's Inventory.SetItem prefix gives a seated
+            // magazine back to the bag when the medical item goes into the hand and empties this very ItemValue, so a copy
+            // taken first would bring the magazine back with the gun while it also sits in the bag. Nothing else touches
+            // it once it leaves the slot (SetItem stores a clone of whatever goes in).
+            u.Displaced = held != null && !held.IsEmpty() ? new ItemStack(held.itemValue, held.count) : ItemStack.Empty.Clone();
             u.EndAt = now + u.Duration + TriggerTimeout;
             uses[e.entityId] = u;
             Hold(e, u.Slot, new ItemValue(ic.Id), 1);
+            // after the hold: an L&L gun has just been emptied in place (its magazine is in the bag), a loose one keeps its rounds
+            displaced[e.entityId] = new Displaced(u.Displaced.IsEmpty() ? null : u.Displaced.itemValue, item);
             string sound;
             DynamicProperties a0;
             if (ic.Properties != null && ic.Properties.Classes.TryGetValue("Action0", out a0) && a0.Values.TryGetValue("Sound_start", out sound) && !string.IsNullOrEmpty(sound))
@@ -250,6 +282,8 @@ namespace SurvivorCommunity
         private static void Finish(EntityAlive e, Use u, bool completed, bool returnItem)
         {
             uses.Remove(e.entityId);
+            Displaced gone;
+            displaced.TryRemove(e.entityId, out gone);
             try
             {
                 if (completed) ApplyEffects(e, u.Item);
@@ -279,6 +313,75 @@ namespace SurvivorCommunity
             e.inventory.SetItem(slot, item, count);
             e.inventory.OnUpdate();
             e.inventory.ForceHoldingItemUpdate();
+        }
+
+        /// <summary>
+        /// Patches_Npc's death drop, first thing: a body that dies in the middle of a use ends it here, before its bag
+        /// and window are collected - the item goes back into the window and the weapon it displaced gives its loaded
+        /// rounds to the bag (ScAmmo.ReturnLoose; an L&amp;L gun's magazine went to the bag when the use began), so both
+        /// drop with the body instead of being lost with the hand. No effects, no hand change on the dead. True when a use
+        /// was ended (SetDead runs again for every hit on the corpse; by then there is none).
+        /// </summary>
+        internal static bool OnDied(EntityAlive e)
+        {
+            Use u;
+            if (e == null || !uses.TryGetValue(e.entityId, out u)) return false;
+            uses.Remove(e.entityId);
+            Displaced gone;
+            displaced.TryRemove(e.entityId, out gone);
+            Add(e, u.Item, 1);
+            int n = u.Displaced != null && !u.Displaced.IsEmpty() ? ScAmmo.ReturnLoose(e, u.Displaced.itemValue, "died while using " + u.Item, true) : 0;
+            if (n > 0) ScAmmo.NoteDeathReturn(n);
+            Patches_Xnpc.Count("medic-died-mid-use");
+            return true;
+        }
+
+        /// <summary>
+        /// ScLoadout.AfterPostInit, first thing (the re-check's bandage case): a body saved while using a medical item
+        /// comes back holding it. Chunk saves and unloads write the entity with bNetworkWrite true, so Patch_SaveMidUse
+        /// never runs for them, and SCore's load re-equips the saved hand item by name whenever the window still holds one
+        /// (FindWeapon) - which 0-XNPCCore never swaps away from (neither melee nor ranged). Here:
+        ///  - a use left over from before this body was unloaded in this game ends without effect, and its mirror goes;
+        ///  - when the save says a use was in progress (X13's record: ScAmmo.SavedHand), or that leftover use exists, its
+        ///    item goes back into the window once: it was taken out when the use began and the hand at the save was
+        ///    written nowhere, so the count is the one before the use;
+        ///  - the hand gets the pair weapon again: the gun when X13 saved the gun the use displaced (a fresh copy, which
+        ///    RestoreHeldGun, next, replaces with the saved one, rounds and magazine), else the melee weapon
+        ///    (0-XNPCCore's world-entry re-arm then draws the gun by its own rules, from an L&amp;L gun's magazines in the
+        ///    bag).
+        /// A medical item in the hand with no such record (a save from before this build, or one handed over and held
+        /// through the dialog's weapon menu, whose window copy was never taken) only gets the weapon back: no item is made.
+        /// </summary>
+        internal static void FixLoadedHand(EntityAlive e)
+        {
+            if (e == null || e.inventory == null) return;
+            int id = e.entityId;
+            Use stale;
+            bool hadUse = uses.TryGetValue(id, out stale);
+            if (hadUse) uses.Remove(id);
+            Displaced gone;
+            displaced.TryRemove(id, out gone);
+            ItemValue savedGun;
+            string savedUse;
+            bool record = ScAmmo.SavedHand(id, out savedGun, out savedUse);
+            string item = !string.IsNullOrEmpty(savedUse) ? savedUse : hadUse ? stale.Item : null;
+            ItemValue held = e.inventory.holdingItemItemValue;
+            string inHand = held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : null;
+            bool medicalInHand = inHand != null && Array.IndexOf(HealItems, inHand) >= 0;
+            if (item == null && !medicalInHand) return;
+            if (item != null) Add(e, item, 1);
+            if (medicalInHand || item != null)
+            {
+                Loadout l = ScLoadout.Current(e);
+                ItemClass pairGun = l != null && l.Ranged != null ? ItemClass.GetItemClass(l.Ranged, true) : null;
+                bool ranged = record && savedGun != null && pairGun != null && savedGun.type == pairGun.Id;
+                string why;
+                if (!ScLoadout.Arm(e, ranged, out why))
+                    ScLog.Warn(ScCommunity.DisplayName(e) + " (id " + id + ") loaded holding " + (inHand ?? "-") + " and could not be re-armed: " + why);
+            }
+            Patches_Xnpc.Count("medic-load-hand-fixed");
+            ScLog.Verbose("medic: " + id + " loaded " + (item != null ? "in the middle of using " + item + " - put back in its inventory" : "holding " + inHand)
+                          + ", pair weapon back in hand");
         }
 
         private static void ApplyEffects(EntityAlive e, string item)
@@ -418,6 +521,10 @@ namespace SurvivorCommunity
         /// A world save in the middle of a use would record the bandage as the NPC's hand item (SCore writes the held
         /// item's name). Put the weapon back and the item back in the inventory before the entity is written. Both of
         /// SCore's NPC classes write the held item that way, each in its own Write override.
+        /// Only for a non-network write, which in practice is ScRunners' snapshot alone: chunk saves and unloads write
+        /// every entity with bNetworkWrite true (vanilla Chunk.cs), and finishing a use there would run Unity calls on the
+        /// save thread and end a heal on every spawn sent to a client. Those saves keep the use (ScAmmo.WriteHeldGun saves
+        /// the displaced gun and the item) and the load undoes it (FixLoadedHand).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_SaveMidUse

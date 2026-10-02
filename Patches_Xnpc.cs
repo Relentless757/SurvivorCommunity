@@ -8,7 +8,7 @@ namespace SurvivorCommunity
     /// <summary>
     /// Every patch on a 0-XNPCCore type (NPCSdcsCharacters.dll), for the classes SC drives on XNPC's body (ScXnpc): the
     /// survivor classes the community owns and, since M10, SC's raider classes - plus the ones on SCore and vanilla
-    /// classes that only these bodies need (X8-X11). The numbering is the migration design's (section 1.2).
+    /// classes that only these bodies need (X8-X13). The numbering is the migration design's (section 1.2).
     ///
     ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype
     ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces)
@@ -28,6 +28,10 @@ namespace SurvivorCommunity
     ///                                                postfix  player turrets shoot raiders as enemies, motion sensors
     ///                                                         trip on them (RaiderTurretsAsEnemies)
     ///   X11 EntityAliveSDXV4.HandleNavObject         prefix   a raider gets its class's map markers (clear-sleeper dots)
+    ///   X12 EntityAliveSDXV4.UpdateWeapon(ItemValue, bool)   prefix + finalizer   the loose rounds in a gun SCore's swap
+    ///                                                         writes over go back to the bag (M11)
+    ///   X13 EntityAliveSDXV4.Write / Read                     postfixes  the gun in the hand, its rounds and its seated
+    ///                                                         magazine are saved and loaded with the body (M11 review F1)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
     /// bound by name with a Prepare that turns the patch off when the method is gone, and listed in ModApi's
@@ -161,6 +165,24 @@ namespace SurvivorCommunity
         public static MethodBase NavObjectTarget()
         {
             return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "HandleNavObject", NoArgs);
+        }
+
+        /// <summary>X12: SCore's weapon swap, the overload every other one ends in (SCore 3.2.36; no other mod patches it).</summary>
+        public static MethodBase UpdateWeaponTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "UpdateWeapon", new[] { typeof(ItemValue), typeof(bool) });
+        }
+
+        /// <summary>X13: SCore's V4 save (Write(BinaryWriter _bw, bool bNetworkWrite); ScMedic's mid-use prefix is on it too).</summary>
+        public static MethodBase WriteTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) });
+        }
+
+        /// <summary>X13: SCore's V4 load (Read(byte _version, BinaryReader _br)).</summary>
+        public static MethodBase ReadTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Read", new[] { typeof(byte), typeof(System.IO.BinaryReader) });
         }
 
         /// <summary>SCore's Harmony id (SphereIICoreInit): X10 runs after its turret postfixes, which decide an EntityNPC alone.</summary>
@@ -876,6 +898,144 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("xnpc-navobject", ex);
                     return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X12: a gun put away keeps its rounds ----
+
+        /// <summary>
+        /// X12 (M11, the user's decision 6). SCore's weapon swap writes the new hand item over slot 0
+        /// (Inventory.SetItem(0, item, 1)), and the gun that was there went with whatever it had loaded: a magazine's worth of
+        /// loose rounds per melee bout, or a nocked arrow. Every swap of SC's bodies ends here - 0-XNPCCore's close-melee
+        /// swap and dry failover (UpdateWeapon(string)), its restore and world-entry re-arm, ScArms' lead and overwhelmed
+        /// swaps, ScLoadout.Arm and SCore's own load-time re-equip. The prefix notes slot 0's own ItemValue when it is a
+        /// ranged weapon with rounds in it; the finalizer, if the slot holds a different ItemValue afterwards (the gun was
+        /// written over) that is not a loaded copy of the same gun (which carries the rounds over), gives those rounds back
+        /// to the bag as loose rounds of the gun's selected ammo and empties that ItemValue in place (ScAmmo.ReturnLoose).
+        ///
+        /// Never twice: a gun Locked &amp; Loaded manages is handled before this sees it - L&amp;L's own Inventory.SetItem prefix
+        /// runs inside this call, gives the seated magazine back and empties the very same ItemValue in place, so it holds
+        /// nothing by the finalizer (and L&amp;L leaves an unflagged loose-round gun alone). Re-equipping never brings rounds
+        /// back either: every re-equip builds a fresh gun with Meta 0 (UpdateWeapon(string) and ItemClass.GetItem; ScLoadout's
+        /// copy from the item list, whose entries SCore made with new ItemValues and Inventory.SetItem clones). A finalizer,
+        /// not a postfix, because the model refresh after the write could throw, and the gun is gone either way. SC's bodies
+        /// only, on the host (the bag is the server's).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_SwapKeepsRounds
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(UpdateWeaponTarget, "EntityAliveSDXV4.UpdateWeapon(ItemValue, bool)", "the rounds in a gun SCore's weapon swap puts away are lost again");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return UpdateWeaponTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(EntityAlive __instance, out ItemValue __state)
+            {
+                __state = null;
+                try
+                {
+                    if (__instance == null || __instance.inventory == null || !ScCommunity.IsHost || !ScXnpc.IsBody(__instance)) return;
+                    if (__instance.inventory.GetItemCount() <= 0) return;
+                    ItemStack slot = __instance.inventory.GetItem(0);
+                    ItemValue gun = slot != null ? slot.itemValue : null;
+                    if (gun == null || gun.IsEmpty() || gun.Meta <= 0 || ScAmmo.RangedAction(gun.ItemClass) == null) return;
+                    __state = gun;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-swap-rounds-pre", ex);
+                }
+            }
+
+            [HarmonyFinalizer]
+            public static void Finalizer(EntityAlive __instance, ItemValue __state)
+            {
+                if (__state == null) return;
+                try
+                {
+                    ItemStack slot = __instance.inventory.GetItem(0);
+                    ItemValue now = slot != null ? slot.itemValue : null;
+                    if (ReferenceEquals(now, __state)) return;                                   // not written over: the gun is still there
+                    // the same gun written back still loaded (a copy of it) carries its rounds over: not a swap (L&L's rule too)
+                    if (now != null && now.type == __state.type && now.Meta > 0) return;
+                    Count("x12-swap-loaded-gun");
+                    int n = ScAmmo.ReturnLoose(__instance, __state, "weapon swap", true);
+                    if (n > 0) ScAmmo.NoteSwapReturn(n);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-swap-rounds", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X13: the held gun survives a save ----
+
+        /// <summary>
+        /// X13 (M11, the review's F1), the save half. SCore's V4 Write saves the held item's name only, and vanilla keeps the
+        /// rest of a non-player's hand nowhere (EntityCreationData writes holdingItem for players only), so every load - a
+        /// chunk coming back as well as a game - re-equipped an empty gun: the loaded rounds and, with Locked &amp; Loaded,
+        /// the seated magazine were gone. The postfix appends the held gun (ScAmmo.WriteHeldGun) after SCore's section, which
+        /// is length-framed (SdxEntityPersistence: magic, count, each component's length), so SCore's Read stops before it
+        /// and an SC without X13, or SCore alone, never reads it; vanilla stores the whole entity record behind one ushort
+        /// length, so the next entity is never misaligned. Not gated on bNetworkWrite: chunk saves and unloads build their
+        /// EntityCreationData with the default true (Chunk.cs), the same as a spawn sent to a client.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_SaveHeldGun
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(WriteTarget, "EntityAliveSDXV4.Write(BinaryWriter, bool)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return WriteTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __instance, System.IO.BinaryWriter _bw)
+            {
+                try { ScAmmo.WriteHeldGun(__instance, _bw); }
+                catch (Exception ex) { ScLog.Once("xnpc-save-held-gun", ex); }
+            }
+        }
+
+        /// <summary>
+        /// X13, the load half: right where SCore's V4 Read stopped, the held gun X13 saved is read back (ScAmmo.KeepHeldGun)
+        /// for this body's PostInit (ScLoadout.AfterPostInit -&gt; ScAmmo.RestoreHeldGun). A save from before X13, SCore's data
+        /// alone or a network read without it: the next bytes are not the marker, nothing is read. A client keeps nothing
+        /// (host only). Counted (x13-held-gun-read) so an inlined or skipped Read would show.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_LoadHeldGun
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(ReadTarget, "EntityAliveSDXV4.Read(byte, BinaryReader)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return ReadTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __instance, System.IO.BinaryReader _br)
+            {
+                try
+                {
+                    Count("x13-held-gun-read");
+                    ScAmmo.KeepHeldGun(__instance, _br);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-load-held-gun", ex);
                 }
             }
         }
