@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using HarmonyLib;
 using UnityEngine;
 
@@ -50,6 +51,7 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             foreignSkips.Clear();
+            GetUp.Reset();
         }
 
         /// <summary>
@@ -258,7 +260,10 @@ namespace SurvivorCommunity
         /// and a player's never, so correcting it after StartRagdoll has run means undoing what that method
         /// already did on the non-player branch: the Physics object goes back on and the stun is halved, as
         /// it is for a player. Only a fresh start is touched, and never a corpse, which does not get up.
-        /// XNPC has no get-up handling of its own; this runs while XnpcBodyGetUp is on.
+        /// XNPC has no get-up handling of its own; this runs while XnpcBodyGetUp is on. A fresh start is told apart by the
+        /// state before the call (the prefix): StartRagdoll on a ragdoll that is already On only lengthens it. Every fresh
+        /// knockdown of a living body of ours also starts GetUp (below) - its guard on the player path, its trace on
+        /// either path, so a get-up that stayed on vanilla's path still writes its line.
         /// </summary>
         [HarmonyPatch(typeof(EModelBase), nameof(EModelBase.StartRagdoll), new[] { typeof(float) })]
         public static class Patch_RagdollAsPlayer
@@ -266,20 +271,36 @@ namespace SurvivorCommunity
             /// <summary>Runtime switch, so the dev core can compare the two recoveries in one session.</summary>
             public static bool Enabled = true;
 
+            [HarmonyPrefix]
+            public static void Prefix(EModelBase __instance, out EModelBase.ERagdollState __state)
+            {
+                __state = __instance != null ? __instance.ragdollState : EModelBase.ERagdollState.Off;
+            }
+
             [HarmonyPostfix]
-            public static void Postfix(EModelBase __instance, bool __result)
+            public static void Postfix(EModelBase __instance, bool __result, EModelBase.ERagdollState __state)
             {
                 try
                 {
-                    if (!Enabled || !__result || __instance == null) return;
-                    if (__instance.ragdollIsPlayer) return;                       // a player, or already corrected
-                    if (__instance.ragdollState != EModelBase.ERagdollState.On) return;
-                    if (!BodyModel(__instance, "ragdoll") || !ScConfig.XnpcBodyGetUp) return;
+                    if (!__result || __instance == null || __state == EModelBase.ERagdollState.On) return;
+                    if (__instance.ragdollState != EModelBase.ERagdollState.On) return;   // a corpse
                     EntityAlive e = __instance.entity as EntityAlive;
                     if (e == null || e is EntityPlayer || e.IsDead()) return;
-                    __instance.ragdollIsPlayer = true;
-                    if (e.PhysicsTransform != null) e.PhysicsTransform.gameObject.SetActive(true);
-                    __instance.ragdollDuration *= 0.5f;
+                    if (!BodyModel(__instance, "ragdoll"))
+                    {
+                        if (e is EntityAliveSDXV4 && ScXnpc.IsRaiderClass(e.entityClass))
+                            ScLog.OnceOut("getup-raider-notbody", "a raider (" + ScCommunity.ClassName(e) + " #" + e.entityId
+                                          + ") was knocked down but is not one of our bodies (model " + (e.emodel != null ? e.emodel.GetType().Name : "none")
+                                          + ") - it gets up on vanilla's path, with no get-up clip");
+                        return;
+                    }
+                    if (Enabled && ScConfig.XnpcBodyGetUp && !__instance.ragdollIsPlayer)
+                    {
+                        __instance.ragdollIsPlayer = true;
+                        if (e.PhysicsTransform != null) e.PhysicsTransform.gameObject.SetActive(true);
+                        __instance.ragdollDuration *= 0.5f;
+                    }
+                    GetUp.OnStart(__instance, e, __instance.ragdollIsPlayer);
                 }
                 catch (Exception ex)
                 {
@@ -338,10 +359,243 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Keeps the get-up clip of one of our knocked-down bodies from being cut short, and traces each get-up (the
+        /// user's T2, 2026-10-03: raiders came back up without the get-up animation; survivors were not reported).
+        ///
+        /// On the player path (Patch_RagdollAsPlayer) the knockdown pose and the get-up ("Knockdown - Chest"/"- Back",
+        /// then "GetUpChest" 2.567 s / "GetUpBack" 2.5 s) play on the player animator's layer 5, "Locomotion" - the layer
+        /// that also holds the walk and run blend trees. That layer is entered from Any State on [WeaponCarry == n and
+        /// IsMoving] (22 transitions, 0.25 s, one per carry and crouch; read from 3PPlayerMaleController), and the get-up
+        /// states' only own exit is Empty at 90 %. So whenever IsMoving is true while the knockdown or the get-up plays,
+        /// layer 5 drops into a run blend tree and the body comes up in its locomotion pose.
+        ///
+        /// What makes it raiders: StartRagdoll turns the animator off for the ragdoll, and LegacyAvatarController.Update
+        /// writes no parameter while the animator is off, so IsMoving keeps the value it had at the knockdown until
+        /// DisableRagdoll turns the animator back on and cross-fades to the knockdown pose. A raider is usually running at
+        /// its target when it is knocked down (IsMoving true); a survivor standing beside the player is not. After that the
+        /// controller writes IsMoving every frame from entity.speedForward/Strafe, which on these bodies come from how far
+        /// the entity actually moved (SCore's EntityAliveSDXV4 overrides updateSpeedForwardAndStrafe; EntityTrader's is
+        /// empty), so a slide or push during the get-up does it too. And the clip outlives the ragdoll: FrameUpdateRagdoll
+        /// cross-fades to the get-up 0.25 s after DisableRagdoll and goes Off (clearing the stun, so the AI may move
+        /// again) 2.4 s after it, while GetUpChest reaches its exit at 0.25 + 0.9 x 2.567 = 2.56 s - a raider that
+        /// runs at its target the moment it is free cuts the clip's tail too. That is the suspected cause, not yet a
+        /// measured one: the trace records it.
+        ///
+        /// The guard (XnpcGetUpGuard, player path only): IsMoving is cleared when the ragdoll starts (the animator is
+        /// already off and keeps its state, keepAnimatorStateOnDisable), and from the knockdown cross-fade on it is held
+        /// false after the controller's own write each frame (from Patches_Xnpc X7, after XNPC's whole Update) for as long
+        /// as layer 5 is on, or heading for, a knockdown or get-up state - past Off, until the clip has left for Empty (at
+        /// most OffGrace seconds after Off). Written with the controller's _setBool without a network sync: every machine
+        /// runs the ragdoll and guards its own copy (the patches are type tests). Nothing else on the layer is touched.
+        ///
+        /// The trace (XnpcGetUpTrace): one line per knockdown of a living body of ours, on either path - each ragdoll step
+        /// with layer 5's state (during a transition, the state it is leaving) and IsMoving at that moment, how and when
+        /// layer 5 left the clip, IsMoving at the knockdown, the frames IsMoving was on (and held off), InAir frames and
+        /// the top speed. Main thread only (StartRagdoll, the controller's Update, the model's OnDestroy).
+        /// </summary>
+        internal static class GetUp
+        {
+            private const string LocomotionLayer = "Locomotion";
+            private static readonly int EmptyHash = Animator.StringToHash("Empty");
+            private static readonly int GetUpChestHash = Animator.StringToHash("GetUpChest");
+            private static readonly int GetUpBackHash = Animator.StringToHash("GetUpBack");
+            private static readonly int KnockChestHash = Animator.StringToHash("Knockdown - Chest");
+            private static readonly int KnockBackHash = Animator.StringToHash("Knockdown - Back");
+
+            /// <summary>A run that saw no frame for this long (its body unloaded mid get-up) is dropped at the next start.</summary>
+            private const int StaleFrames = 3000;
+            /// <summary>After the ragdoll is Off, the run (and the hold) lasts until the clip has left, at most this long.</summary>
+            private const float OffGrace = 2f;
+
+            private sealed class Run
+            {
+                public float Start;
+                public int LastFrame;
+                public int Layer = -1;
+                public bool PlayerPath;
+                public EModelBase.ERagdollState State = EModelBase.ERagdollState.On;
+                public float OffAt = -1f;
+                public bool MovingAtStart;
+                public readonly System.Text.StringBuilder Steps = new System.Text.StringBuilder();
+                public int Frames, Moving, Held, InAir;
+                public float MaxSpeed2;
+                public bool SawClip;
+                public string Exit;
+            }
+
+            private static readonly Dictionary<int, Run> runs = new Dictionary<int, Run>();
+            private static int started, vanillaPath, clearedAtStart, heldRuns, heldFrames, cutShort;
+
+            internal static void Reset()
+            {
+                runs.Clear();
+                started = vanillaPath = clearedAtStart = heldRuns = heldFrames = cutShort = 0;
+            }
+
+            internal static string Report()
+            {
+                return "knockdowns " + started + " (" + vanillaPath + " on vanilla's path), IsMoving cleared at the knockdown "
+                       + clearedAtStart + ", held off in " + heldRuns + " get-up(s) (" + heldFrames + " frames), the locomotion "
+                       + "layer left a get-up clip for a locomotion state " + cutShort + " time(s), " + runs.Count + " running";
+            }
+
+            private static bool IsClip(int hash)
+            {
+                return hash == GetUpChestHash || hash == GetUpBackHash || hash == KnockChestHash || hash == KnockBackHash;
+            }
+
+            private static string Name(int hash)
+            {
+                if (hash == EmptyHash) return "Empty";
+                if (hash == GetUpChestHash) return "GetUpChest";
+                if (hash == GetUpBackHash) return "GetUpBack";
+                if (hash == KnockChestHash) return "Knockdown-Chest";
+                if (hash == KnockBackHash) return "Knockdown-Back";
+                return "locomotion";
+            }
+
+            /// <summary>From Patch_RagdollAsPlayer, on every fresh knockdown of a living body of ours.</summary>
+            internal static void OnStart(EModelBase m, EntityAlive e, bool playerPath)
+            {
+                if (!ScConfig.XnpcGetUpGuard && !ScConfig.XnpcGetUpTrace) return;
+                AvatarController ac = m.avatarController;
+                Animator a = ac != null ? ac.GetAnimator() : null;
+                if (a == null) return;
+                int now = Time.frameCount;
+                Run old;
+                if (runs.TryGetValue(e.entityId, out old)) Finish(old, e, "knocked down again");
+                if (runs.Count > 0)
+                {
+                    var stale = new List<int>();
+                    foreach (KeyValuePair<int, Run> kv in runs)
+                        if (now - kv.Value.LastFrame > StaleFrames) stale.Add(kv.Key);
+                    foreach (int id in stale) runs.Remove(id);
+                }
+                var run = new Run { Start = Time.time, LastFrame = now, Layer = a.GetLayerIndex(LocomotionLayer), PlayerPath = playerPath };
+                run.MovingAtStart = a.GetBool(AvatarController.isMovingHash);
+                runs[e.entityId] = run;
+                started++;
+                if (!playerPath) vanillaPath++;
+                if (playerPath && run.MovingAtStart && ScConfig.XnpcGetUpGuard)
+                {
+                    ac._setBool(AvatarController.isMovingHash, false, false);
+                    clearedAtStart++;
+                }
+            }
+
+            /// <summary>From Patch_OnDestroy: a body unloaded mid get-up leaves no run behind.</summary>
+            internal static void Forget(int entityId)
+            {
+                if (runs.Count > 0) runs.Remove(entityId);
+            }
+
+            /// <summary>Every frame for every body of ours, from Patches_Xnpc X7 (after the controller's own writes).</summary>
+            internal static void Tick(AvatarSDCSController c, EntityAlive e)
+            {
+                Run run;
+                if (runs.Count == 0 || !runs.TryGetValue(e.entityId, out run)) return;
+                EModelBase m = e.emodel;
+                Animator a = c.anim;
+                if (m == null || a == null) return;
+                run.LastFrame = Time.frameCount;
+                EModelBase.ERagdollState s = m.ragdollState;
+                bool moving = a.GetBool(AvatarController.isMovingHash);
+                int cur = 0, next = 0;
+                bool inTransition = false;
+                float norm = 0f;
+                bool readable = run.Layer >= 0 && a.enabled;
+                if (readable)
+                {
+                    AnimatorStateInfo info = a.GetCurrentAnimatorStateInfo(run.Layer);
+                    cur = info.shortNameHash;
+                    norm = info.normalizedTime;
+                    inTransition = a.IsInTransition(run.Layer);
+                    if (inTransition) next = a.GetNextAnimatorStateInfo(run.Layer).shortNameHash;
+                }
+                if (s != run.State)
+                {
+                    run.State = s;
+                    if (run.Steps.Length > 0) run.Steps.Append(" > ");
+                    run.Steps.Append(s).Append(' ').Append((Time.time - run.Start).ToString("0.00", CultureInfo.InvariantCulture))
+                       .Append('[').Append(!a.enabled ? "animator off" : run.Layer < 0 ? "no locomotion layer" : Name(cur))
+                       .Append(moving ? " moving" : "").Append(']');
+                }
+                if (s == EModelBase.ERagdollState.Dead || e.IsDead())
+                {
+                    Finish(run, e, "died");
+                    runs.Remove(e.entityId);
+                    return;
+                }
+                if (s == EModelBase.ERagdollState.On || s == EModelBase.ERagdollState.SpawnWait) return;   // the animator is off
+
+                bool clipNow = IsClip(cur), clipNext = inTransition && IsClip(next);
+                if (s == EModelBase.ERagdollState.Off)
+                {
+                    if (run.OffAt < 0f) run.OffAt = Time.time;
+                    // the clip outlives the ragdoll by about 0.4 s: follow it until it has left, within OffGrace
+                    if (!run.PlayerPath || !(clipNow || clipNext) || Time.time - run.OffAt > OffGrace)
+                    {
+                        Finish(run, e, clipNow || clipNext ? "still on the clip " + OffGrace + " s after the ragdoll ended" : null);
+                        runs.Remove(e.entityId);
+                        return;
+                    }
+                }
+
+                if (clipNow || clipNext) run.SawClip = true;
+                if (run.Exit == null && clipNow && inTransition && !clipNext)
+                {
+                    run.Exit = Name(cur) + " at " + norm.ToString("0.00", CultureInfo.InvariantCulture) + " for " + Name(next)
+                               + (moving ? " (IsMoving)" : "") + " in " + s;
+                    if (next != EmptyHash) cutShort++;
+                }
+                else if (run.Exit == null && run.SawClip && readable && !clipNow && !clipNext && cur != EmptyHash)
+                {
+                    run.Exit = "jumped to " + Name(cur) + (moving ? " (IsMoving)" : "") + " in " + s;
+                    cutShort++;
+                }
+
+                run.Frames++;
+                if (moving) run.Moving++;
+                if (a.GetBool(AvatarController.inAirHash)) run.InAir++;
+                float sp = e.speedForward * e.speedForward + e.speedStrafe * e.speedStrafe;
+                if (sp > run.MaxSpeed2) run.MaxSpeed2 = sp;
+                // the hold: from the knockdown cross-fade (BlendOutGround, before it has landed) for as long as the
+                // layer is on or heading for a knockdown or get-up state
+                if (run.PlayerPath && moving && ScConfig.XnpcGetUpGuard && (s == EModelBase.ERagdollState.BlendOutGround || clipNow || clipNext))
+                {
+                    c._setBool(AvatarController.isMovingHash, false, false);
+                    if (run.Held == 0) heldRuns++;
+                    run.Held++;
+                    heldFrames++;
+                }
+            }
+
+            private static void Finish(Run run, EntityAlive e, string how)
+            {
+                if (!ScConfig.XnpcGetUpTrace) return;
+                EntityAlive target = e.GetAttackTarget();
+                string clip = run.Exit != null ? "left " + run.Exit
+                            : run.SawClip ? "seen, no exit seen"
+                            : run.Layer < 0 ? "no locomotion layer on this animator"
+                            : "never on the locomotion layer";
+                ScLog.Out("get-up " + ScCommunity.DisplayName(e) + " (" + ScCommunity.ClassName(e) + " #" + e.entityId + ","
+                          + (ScXnpc.IsRaider(e) ? " raider" : " survivor") + (run.PlayerPath ? ", player path)" : ", VANILLA path - XnpcBodyGetUp or the dev switch off)")
+                          + (how != null ? " (" + how + ")" : "")
+                          + ": " + run.Steps
+                          + " | clip " + clip
+                          + " | IsMoving at the knockdown " + run.MovingAtStart + ", on " + run.Moving + "/" + run.Frames
+                          + " frames, held off " + run.Held + ", InAir " + run.InAir
+                          + ", top speed " + Mathf.Sqrt(run.MaxSpeed2).ToString("0.000", CultureInfo.InvariantCulture)
+                          + ", target " + (target != null ? target.entityId.ToString() : "none"));
+            }
+        }
+
+        /// <summary>
         /// Frees a despawned body's stitched meshes, materials and asset handles (Release). 0-XNPCCore's EModelSdcsNpc
         /// declares its own OnDestroy, which calls this one as its base, and XNPC never releases them either, so our
         /// bodies are released here: without it every one that unloads leaks its rig's assets. The test is by type only
-        /// (ScXnpc.IsBody), because the entity is being destroyed along with its model.
+        /// (ScXnpc.IsBody), because the entity is being destroyed along with its model. A get-up run (GetUp) still open
+        /// for the body is dropped with it.
         /// </summary>
         [HarmonyPatch(typeof(EModelSDCS), "OnDestroy")]
         public static class Patch_OnDestroy
@@ -351,6 +605,7 @@ namespace SurvivorCommunity
             {
                 if (__instance == null || __instance.playerEntity != null) return;
                 if (!Body(__instance.entity, "release")) return;
+                GetUp.Forget(__instance.entity.entityId);
                 Release(__instance);
             }
         }

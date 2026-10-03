@@ -25,6 +25,56 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## T1 + T2: no Trade on members, raiders get up properly
+
+**Deployed 2026-10-03** (Fable review + re-check: deployable). DLL md5 `8d145663f3c5ac9329b73e8617b89816`, 631296
+bytes, deployed **together with** the same tree's `Config/blocks.xml` (two new keys, `XnpcGetUpGuard` and
+`XnpcGetUpTrace`). No new Harmony target: still **72** (65 without Voice Control). No save format change. Report:
+`T1T2_REPORT.md`.
+
+What changed:
+- **No "Trade" on members (T1).** Choosing Trade on a member's radial locked the game: these NPCs have no trader
+  (0-XNPCCore's npc_info has no `trader_id`, so the trader id is -1), and vanilla's trade path zoomed the camera in,
+  took a lock and then crashed on trader -1 before any window opened. Trade is now refused on every NPC of this kind
+  (an SCore V4 or older EntityAliveSDX body with no real trader): members, strangers, a joined 0-XNPCCore companion
+  and XNPC's own NPCs. Talk is untouched. A real trader keeps its Trade.
+- **Get-ups (T2).** Suspected cause, not yet measured: the get-up clip shares the animator's locomotion layer, which
+  jumps to the run pose whenever `IsMoving` is on, and a raider knocked down while running at you keeps `IsMoving` on
+  through the whole ragdoll (the animator is off then, so nothing updates it); the clip also runs about 0.4 s past the
+  end of the ragdoll, when the raider is free to run again. Now `IsMoving` is cleared at the knockdown and held off
+  while the knockdown/get-up clip plays, to its end (`XnpcGetUpGuard`). Every knockdown of a survivor or raider writes
+  one `get-up ...` log line (`XnpcGetUpTrace`) that shows what the layer did, so the log settles it.
+
+- [ ] **Startup:** `patch verification: all 72 targets patched` (65 without Voice Control); the `config:` line contains
+      `getUp=guarded+trace`; no `xnpc-talkprompt threw` error. `sc xnpc` prints `x9-no-trader-trade-refused=...` and a
+      new `[SC] get-ups:` line.
+- [ ] **Trade is gone:** look at a member: "Press E to talk" still shows. Hold E for the radial: Talk is there (and
+      Remove with the debug menu on), **no Trade**. Talk still opens the member dialog (and recruiting still works on a
+      stranger). The same on a stranger and on an `npcSdcsFemaleBow` from the spawn menu. `sc xnpc`:
+      `x9-no-trader-trade-refused` above 0. A raider still shows no prompt at all. A vanilla trader still offers Trade.
+      With the debug menu off only Talk is left, so E may open the dialog straight away instead of a one-entry radial:
+      either is fine.
+- [ ] **A raider gets up:** shove (or otherwise knock down) a raider that is running at you. It should lie down, then
+      play the push-up/roll-over get-up (about 2.5 s) before it comes at you again. Keep the log: its line reads like
+      `get-up Crow (scRaiderFemaleT1 #1060, raider, player path): BlendOutGround 0.45[locomotion] > BlendOutStand
+      0.72[Knockdown-Chest] > Stand 1.15[GetUpChest] > StandCollide 1.95[GetUpChest] > Off 2.85[GetUpChest] | clip
+      left GetUpChest at 0.90 for Empty in Off | IsMoving at the knockdown True, on n/N frames, held off m ...` (times
+      are seconds from the knockdown; the bracket is the locomotion layer's state, during a blend the one it leaves).
+      Read it so: `IsMoving at the knockdown True` + `held off` above 0 + `left GetUpChest at 0.90 for Empty` = the
+      suspected cause, now held off. A `moving` inside a step's bracket (and the `on n/N frames` count) is the
+      controller's write of that frame, which the guard clears before the animator runs: not a failure. The failures
+      are in the `clip ...` part - `left GetUpChest at 0.31 for locomotion (IsMoving)`, `jumped to locomotion`, `never
+      on the locomotion layer` - or `held off 0` with `IsMoving at the knockdown True` and the raider still popping up.
+- [ ] **No line at all for a raider's knockdown** = it never reached SC's get-up fix: look for a `was knocked down but
+      is not one of our bodies` line, `sc xnpc`'s `ragdoll=` count among the hooks that stepped aside, and
+      `XnpcRaiderClasses`. A line saying `VANILLA path` means `XnpcBodyGetUp` (or the dev core's switch) was off.
+- [ ] **Survivors still get up as before:** shove a member that stands still: the same clip as before this build, and
+      its line ends the clip with `left GetUpChest at 0.90 for Empty` (or `GetUpBack`), `held off` 0 or a few frames.
+- [ ] **Optional, the comparison:** `XnpcGetUpGuard` false (restart), shove a running raider again: if the guard is
+      what fixed it, the raider pops up again and its line shows `left ... for locomotion (IsMoving)` or `jumped to
+      locomotion (IsMoving)`. Set it back to true.
+- [ ] Once get-ups look right, `XnpcGetUpTrace` false silences the per-knockdown line (the guard stays).
+
 ## M11 fix 2: melee pace and reach, posts with a real floor, the gun stays up
 
 **Deployed 2026-10-02** (Fable review: deployable, low notes only). DLL md5

@@ -1129,6 +1129,7 @@ namespace SurvivorCommunity
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] melee: " + ScMelee.Report());
+            Output("[SC] get-ups: " + Patches_Sdcs.GetUp.Report());
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
             if (w == null) return;
             int ours = 0, contracts = 0, theirs = 0, managed = 0, raiders = 0;

@@ -400,6 +400,10 @@ namespace SurvivorCommunity
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
         /// <summary>Their knock-down recovery runs as a player's (Patches_Sdcs ragdoll fixes); the raiders' too (every switch below covers both sets).</summary>
         public static bool XnpcBodyGetUp = true;
+        /// <summary>While one of them plays its get-up clip, IsMoving is held false so the locomotion layer cannot cut it short (Patches_Sdcs.GetUp).</summary>
+        public static bool XnpcGetUpGuard = true;
+        /// <summary>One log line per knockdown of one of them: the ragdoll's steps and what the animator's locomotion layer did (Patches_Sdcs.GetUp).</summary>
+        public static bool XnpcGetUpTrace = true;
         /// <summary>Their jumps fire the player animator's jump trigger (Patches_Sdcs.Patch_JumpAnim).</summary>
         public static bool XnpcBodyJumpAnim = true;
         /// <summary>Their hit colliders are put back on the hittable layer after spawn and rebuilds (Patches_Sdcs.FixColliderLayers).</summary>
@@ -525,6 +529,8 @@ namespace SurvivorCommunity
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
+            XnpcGetUpGuard = true;
+            XnpcGetUpTrace = true;
             XnpcBodyJumpAnim = true;
             XnpcBodyColliderLayers = true;
             XnpcModelY = 0f;
@@ -905,6 +911,12 @@ namespace SurvivorCommunity
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
+                bool getUpGuard = XnpcGetUpGuard;
+                if (p.Values.ContainsKey("XnpcGetUpGuard")) p.ParseBool("XnpcGetUpGuard", ref getUpGuard);
+                XnpcGetUpGuard = getUpGuard;
+                bool getUpTrace = XnpcGetUpTrace;
+                if (p.Values.ContainsKey("XnpcGetUpTrace")) p.ParseBool("XnpcGetUpTrace", ref getUpTrace);
+                XnpcGetUpTrace = getUpTrace;
                 bool xnpcJump = XnpcBodyJumpAnim;
                 if (p.Values.ContainsKey("XnpcBodyJumpAnim")) p.ParseBool("XnpcBodyJumpAnim", ref xnpcJump);
                 XnpcBodyJumpAnim = xnpcJump;
@@ -979,6 +991,7 @@ namespace SurvivorCommunity
                                                + " hold " + OverwhelmedHoldSeconds + "s sustain " + OverwhelmedSustainSeconds + "s gun " + OverwhelmedGunSeconds + "s" : "off")
                           + " meleePacing=" + (MeleePacing ? (MeleePacingRaiders ? "on" : "on, not raiders") : "off")
                           + " meleeReach=" + (MeleeReach ? "weapon -" + MeleeReachMargin + "m" : "off (1.5 m)")
+                          + " getUp=" + (XnpcBodyGetUp ? (XnpcGetUpGuard ? "guarded" : "unguarded") + (XnpcGetUpTrace ? "+trace" : "") : "off")
                           + " raiders=" + XnpcRaiderClasses.Count + " classes, ranged-lead " + string.Join("/", Array.ConvertAll(RaiderRangedShare, x => x.ToString("0.##", CultureInfo.InvariantCulture)))
                           + " (melee-lead to ranged beyond " + RaiderLeadRangedDist + "m for " + RaiderLeadRangedSeconds + "s)"
                           + " firearm " + RaiderFirearmChance + " ammo " + RaiderSpawnAmmo + "/" + RaiderSpawnArrows

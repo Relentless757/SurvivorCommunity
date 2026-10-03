@@ -294,9 +294,15 @@
 			     XnpcBodyGetUp / XnpcBodyJumpAnim / XnpcBodyColliderLayers: player-body fixes 0-XNPCCore does not make
 			     (getting up after a knockdown without floating, the jump animation, hit capsules that shots can reach),
 			     for these survivors and the raiders below. Each is a switch because only a test in game shows whether
-			     0-XNPCCore's bodies need it; false leaves that part to 0-XNPCCore. -->
+			     0-XNPCCore's bodies need it; false leaves that part to 0-XNPCCore.
+			     XnpcGetUpGuard (with XnpcBodyGetUp): while one of them plays its get-up clip, the animator's IsMoving is
+			     held false, so the locomotion layer the clip shares cannot cut it short. XnpcGetUpTrace: one log line per
+			     knockdown ("get-up ...") with the ragdoll's steps and what that layer did; turn it off once get-ups look
+			     right. -->
 			<property name="XnpcSurvivorClasses" value="npcSdcsSurvivorMaleT1,npcSdcsSurvivorMaleT2,npcSdcsSurvivorMaleT3,npcSdcsSurvivorFemaleT1,npcSdcsSurvivorFemaleT2,npcSdcsSurvivorFemaleT3" />
 			<property name="XnpcBodyGetUp" value="true" />
+			<property name="XnpcGetUpGuard" value="true" />
+			<property name="XnpcGetUpTrace" value="true" />
 			<property name="XnpcBodyJumpAnim" value="true" />
 			<property name="XnpcBodyColliderLayers" value="true" />
 			<!-- XnpcModelY: how high an 0-XNPCCore survivor's body sits on its entity (m). 0 = feet on the ground; their

@@ -23,7 +23,8 @@ namespace SurvivorCommunity
     ///   X6  AvatarSdcsNpcController.SdcsChooseMeleeFallback          prefix   XNPC's melee choice is the pair's melee weapon
     ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame (and its carry pose kept)
     ///   X8  EntityAliveSDXV4.SetModelLayer   prefix   our bodies' own colliders are lifted out of their own attack ray
-    ///   X9  EntityTrader.AllowActivationCommand      postfix  no talk prompt (and nothing on E) on a raider
+    ///   X9  EntityTrader.AllowActivationCommand      postfix  no talk prompt (and nothing on E) on a raider; no "Trade"
+    ///                                                         on an NPC body that has no trader (it locked the game)
     ///   X10 AutoTurretFireController / MiniTurretFireController / MotionSensorController.shouldIgnoreTarget
     ///                                                postfix  player turrets shoot raiders as enemies, motion sensors
     ///                                                         trip on them (RaiderTurretsAsEnemies)
@@ -48,6 +49,8 @@ namespace SurvivorCommunity
         private static int updateHits;
         /// <summary>X9 runs every frame while a raider is looked at (once per command): a plain counter too.</summary>
         private static int talkRefused;
+        /// <summary>X9's trade half: the frames a body with no trader was refused its "Trade" command.</summary>
+        private static int tradeRefused;
         /// <summary>X10 runs every frame a turret looks at a raider: a plain counter of the times it was made a target.</summary>
         private static int turretTargets;
         /// <summary>The same for a motion sensor's scan.</summary>
@@ -58,6 +61,7 @@ namespace SurvivorCommunity
             hits.Clear();
             updateHits = 0;
             talkRefused = 0;
+            tradeRefused = 0;
             turretTargets = 0;
             sensorTargets = 0;
             Patch_ModelLayer.Reset();
@@ -78,6 +82,7 @@ namespace SurvivorCommunity
             foreach (string k in keys) parts.Add(k + "=" + hits[k]);
             parts.Add("x7-update=" + updateHits);
             parts.Add("x9-raider-talk-refused=" + talkRefused);
+            parts.Add("x9-no-trader-trade-refused=" + tradeRefused);
             parts.Add("x10-turret-raider-target=" + turretTargets);
             parts.Add("x10-sensor-raider-target=" + sensorTargets);
             return string.Join(", ", parts.ToArray());
@@ -570,7 +575,8 @@ namespace SurvivorCommunity
         /// X7. SC's visible aiming (decision D12) on our bodies. XNPC's controller overrides Update, drives locomotion,
         /// carry and the look pitch itself and never sets IsAiming; ScAim.Drive runs after the whole of it, so the aim pose
         /// is the last thing written in the frame. Before it, ScAim.KeepCarry (the M11 fix 2) repairs the carry pose XNPC
-        /// writes only on a change - on every machine, as XNPC's own write; Drive itself acts only on the owner's.
+        /// writes only on a change - on every machine, as XNPC's own write; Drive itself acts only on the owner's. Then, in
+        /// its own try, Patches_Sdcs.GetUp holds IsMoving off while a knocked-down body plays its get-up clip (and traces it).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_Update
@@ -596,6 +602,15 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-update", ex);
+                }
+                try
+                {
+                    EntityAlive e = __instance != null && __instance.anim != null ? __instance.entity : null;
+                    if (ScXnpc.IsBody(e)) Patches_Sdcs.GetUp.Tick(__instance, e);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-getup", ex);
                 }
             }
         }
@@ -680,6 +695,21 @@ namespace SurvivorCommunity
         /// GetActivationText (SCore 3.2.36, decompiled). So every command is refused here for a raider body: no prompt, no
         /// radial, nothing on E. Survivors, members, traders and 0-XNPCCore's own NPCs are untouched (IsRaider: a raider
         /// class on our body). A dead raider was already refused by vanilla (its loot is a dropped backpack).
+        ///
+        /// The trade half (2026-10-03, the user's T1: "Trade" on a member's radial made the UI vanish and left the player
+        /// unable to do anything until a reload). Every SCore V4 body offers vanilla's "trade" while it is alive, but
+        /// 0-XNPCCore's bodies carry NPCID npcSdcsTest, whose npc_info has no trader_id: NPCInfo.TraderID stays -1 and so
+        /// does TraderData.TraderID (EntityTrader.PostInit copies it only when it is above 0). Choosing Trade runs V4's
+        /// OnEntityActivated -> the lock on channel 0 -> EntityTrader.OnLockedLocal, which zooms the camera in (OverrideFOV
+        /// 30) and asks for the channel 1 lock; the server's OnLockedServer then calls TraderManager.TraderInventoryRequested,
+        /// whose first line is TraderInfo.traderInfoList[TraderID] - [-1] on a 256-entry array throws, after the lock was
+        /// already taken and before any window opened or the zoom was undone (the throw is inside LockRequestServer's
+        /// finally, so the lock response never comes either). So "trade" is refused for every SCore NPC body - an
+        /// EntityAliveSDXV4, or the older EntityAliveSDX that 0-XNPCCore's legacy templates still use, which inherits the
+        /// same AllowActivationCommand and lock path - whose TraderData names no existing trader (HasTrader): SC's
+        /// survivors and members, a 0-XNPCCore companion that joined (D9) and XNPC's own NPCs, all of which can only hit
+        /// that throw. An NPC with a real trader_id keeps it. "talk" is untouched, so the prompt, the radial's Talk and
+        /// SC's recruit/member dialogs stay. (Voice Control's trade orders open SCore's inventory, not this path.)
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoTalkToRaiders
@@ -690,7 +720,7 @@ namespace SurvivorCommunity
                 try
                 {
                     if (TalkPromptTarget() != null) return true;
-                    ScLog.Err("EntityTrader.AllowActivationCommand(ReadOnlySpan<char>, EntityPlayerLocal) not found (game update?) - raiders show the talk prompt again");
+                    ScLog.Err("EntityTrader.AllowActivationCommand(ReadOnlySpan<char>, EntityPlayerLocal) not found (game update?) - raiders show the talk prompt again, and Trade on a member locks the game");
                 }
                 catch (Exception e)
                 {
@@ -703,18 +733,41 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return TalkPromptTarget(); }
 
             [HarmonyPostfix]
-            public static void Postfix(EntityTrader __instance, ref bool __result)
+            public static void Postfix(EntityTrader __instance, ReadOnlySpan<char> _commandName, ref bool __result)
             {
                 try
                 {
-                    if (!__result || !(__instance is EntityAliveSDXV4) || !ScXnpc.IsRaider(__instance)) return;
-                    __result = false;
-                    talkRefused++;
+                    if (!__result) return;
+                    if (__instance is EntityAliveSDXV4)
+                    {
+                        if (ScXnpc.IsRaider(__instance))
+                        {
+                            __result = false;
+                            talkRefused++;
+                            return;
+                        }
+                    }
+                    else if (!(__instance is EntityAliveSDX)) return;
+                    if (__instance.CommandIs(_commandName, EntityTrader.CommandTrade) && !HasTrader(__instance))
+                    {
+                        __result = false;
+                        tradeRefused++;
+                    }
                 }
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-talkprompt", ex);
                 }
+            }
+
+            /// <summary>Does this NPC's TraderData name a trader that exists, i.e. would vanilla's trade lock find one?</summary>
+            private static bool HasTrader(EntityTrader npc)
+            {
+                TraderData data = npc.TraderData;
+                TraderInfo[] list = TraderInfo.traderInfoList;
+                if (data == null || list == null) return false;
+                int id = data.TraderID;
+                return id >= 0 && id < list.Length && list[id] != null;
             }
         }
 
