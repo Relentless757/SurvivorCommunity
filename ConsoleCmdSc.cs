@@ -1130,6 +1130,7 @@ namespace SurvivorCommunity
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] melee: " + ScMelee.Report());
             Output("[SC] get-ups: " + Patches_Sdcs.GetUp.Report());
+            Output("[SC] relaxed (arms down, weapon hidden): " + ScRelax.Report());
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
             if (w == null) return;
             int ours = 0, contracts = 0, theirs = 0, managed = 0, raiders = 0;
@@ -1208,6 +1209,7 @@ namespace SurvivorCommunity
             sb.Append("\n  ammo: ").Append(XnpcAmmo(e, held));
             if (ScRegistry.Loaded) sb.Append("\n  resupply: ").Append(ScAmmo.Describe(e));
             sb.Append("\n  overwhelmed: ").Append(ScArms.Describe(e));
+            sb.Append("\n  ").Append(ScRelax.Describe(e));
             // XNPC kill levels and buffs
             if (e.Buffs != null)
             {

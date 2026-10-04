@@ -64,6 +64,7 @@ namespace SurvivorCommunity
                 ScMags.Reset();
                 ScArms.Reset();
                 ScMelee.Reset();
+                ScRelax.Reset();
                 Patches_Npc.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
@@ -257,6 +258,10 @@ namespace SurvivorCommunity
             Add(t, "UAITaskBackupFromTargetSDX::Update", ScAim.BackoffTarget());
             // ScMelee.cs - SCore's in-range test with the melee weapon's real reach for our bodies (M11 fix 2)
             Add(t, "UAIConsiderationInWeaponRange::GetScore", ScMelee.InWeaponRangeTarget());
+            // ScRelax.cs - a relaxed body's controller writes the bare-hands hold type, and a reload starting raises it (its
+            // attack prefixes share the EntityAlive::UseHoldingItem and the two ExecuteAction entries above)
+            Add(t, "LegacyAvatarController::_setInt(int)", ScRelax.HoldTypeTarget());
+            Add(t, "LegacyAvatarController::StartAnimationReloading", ScRelax.ReloadStartTarget());
             // ScArms.cs - a weapon handed to a member through the weapon menu joins their pair; the replaced one comes back
             Add(t, "DialogActionSwapWeapon::PerformAction", ScArms.DialogSwapTarget());
             // Patches_VoiceControl.cs - members are never billed by 0-XNPCCore 3.2's Voice Control (only when it is loaded)

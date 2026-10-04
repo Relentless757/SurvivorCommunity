@@ -404,6 +404,16 @@ namespace SurvivorCommunity
         public static bool XnpcGetUpGuard = true;
         /// <summary>One log line per knockdown of one of them: the ragdoll's steps and what the animator's locomotion layer did (Patches_Sdcs.GetUp).</summary>
         public static bool XnpcGetUpTrace = true;
+        /// <summary>Out of danger, they lower their arms and hide the weapon they still hold (ScRelax).</summary>
+        public static bool XnpcRelax = true;
+        /// <summary>Raiders relax too (the user's call: they look unarmed until they spot someone).</summary>
+        public static bool XnpcRelaxRaiders = true;
+        /// <summary>A relaxed body's weapon is hidden; false only lowers the arms (the weapon stays in the lowered hand).</summary>
+        public static bool XnpcRelaxHideWeapon = true;
+        /// <summary>Seconds with no alert reason before a body relaxes; any reason raises it at once.</summary>
+        public static float XnpcRelaxCalmSeconds = 4f;
+        /// <summary>The enemy range (m) that keeps a body alert; 0 = the NPC's own sight range (its class's SightRange).</summary>
+        public static float XnpcRelaxRange = 0f;
         /// <summary>Their jumps fire the player animator's jump trigger (Patches_Sdcs.Patch_JumpAnim).</summary>
         public static bool XnpcBodyJumpAnim = true;
         /// <summary>Their hit colliders are put back on the hittable layer after spawn and rebuilds (Patches_Sdcs.FixColliderLayers).</summary>
@@ -531,6 +541,11 @@ namespace SurvivorCommunity
             XnpcBodyGetUp = true;
             XnpcGetUpGuard = true;
             XnpcGetUpTrace = true;
+            XnpcRelax = true;
+            XnpcRelaxRaiders = true;
+            XnpcRelaxHideWeapon = true;
+            XnpcRelaxCalmSeconds = 4f;
+            XnpcRelaxRange = 0f;
             XnpcBodyJumpAnim = true;
             XnpcBodyColliderLayers = true;
             XnpcModelY = 0f;
@@ -917,6 +932,17 @@ namespace SurvivorCommunity
                 bool getUpTrace = XnpcGetUpTrace;
                 if (p.Values.ContainsKey("XnpcGetUpTrace")) p.ParseBool("XnpcGetUpTrace", ref getUpTrace);
                 XnpcGetUpTrace = getUpTrace;
+                bool relax = XnpcRelax;
+                if (p.Values.ContainsKey("XnpcRelax")) p.ParseBool("XnpcRelax", ref relax);
+                XnpcRelax = relax;
+                bool relaxRaiders = XnpcRelaxRaiders;
+                if (p.Values.ContainsKey("XnpcRelaxRaiders")) p.ParseBool("XnpcRelaxRaiders", ref relaxRaiders);
+                XnpcRelaxRaiders = relaxRaiders;
+                bool relaxHide = XnpcRelaxHideWeapon;
+                if (p.Values.ContainsKey("XnpcRelaxHideWeapon")) p.ParseBool("XnpcRelaxHideWeapon", ref relaxHide);
+                XnpcRelaxHideWeapon = relaxHide;
+                ParseFloat(p, "XnpcRelaxCalmSeconds", ref XnpcRelaxCalmSeconds, 0f, 120f);
+                ParseFloat(p, "XnpcRelaxRange", ref XnpcRelaxRange, 0f, 200f);
                 bool xnpcJump = XnpcBodyJumpAnim;
                 if (p.Values.ContainsKey("XnpcBodyJumpAnim")) p.ParseBool("XnpcBodyJumpAnim", ref xnpcJump);
                 XnpcBodyJumpAnim = xnpcJump;
@@ -992,6 +1018,8 @@ namespace SurvivorCommunity
                           + " meleePacing=" + (MeleePacing ? (MeleePacingRaiders ? "on" : "on, not raiders") : "off")
                           + " meleeReach=" + (MeleeReach ? "weapon -" + MeleeReachMargin + "m" : "off (1.5 m)")
                           + " getUp=" + (XnpcBodyGetUp ? (XnpcGetUpGuard ? "guarded" : "unguarded") + (XnpcGetUpTrace ? "+trace" : "") : "off")
+                          + " relax=" + (XnpcRelax ? "after " + XnpcRelaxCalmSeconds + "s, " + (XnpcRelaxRange > 0f ? XnpcRelaxRange + "m" : "sight range")
+                                                     + (XnpcRelaxHideWeapon ? ", weapon hidden" : ", weapon shown") + (XnpcRelaxRaiders ? ", raiders too" : ", not raiders") : "off")
                           + " raiders=" + XnpcRaiderClasses.Count + " classes, ranged-lead " + string.Join("/", Array.ConvertAll(RaiderRangedShare, x => x.ToString("0.##", CultureInfo.InvariantCulture)))
                           + " (melee-lead to ranged beyond " + RaiderLeadRangedDist + "m for " + RaiderLeadRangedSeconds + "s)"
                           + " firearm " + RaiderFirearmChance + " ammo " + RaiderSpawnAmmo + "/" + RaiderSpawnArrows

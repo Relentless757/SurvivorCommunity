@@ -595,7 +595,7 @@ namespace SurvivorCommunity
         /// declares its own OnDestroy, which calls this one as its base, and XNPC never releases them either, so our
         /// bodies are released here: without it every one that unloads leaks its rig's assets. The test is by type only
         /// (ScXnpc.IsBody), because the entity is being destroyed along with its model. A get-up run (GetUp) still open
-        /// for the body is dropped with it.
+        /// for the body, and its relaxed state (ScRelax), are dropped with it.
         /// </summary>
         [HarmonyPatch(typeof(EModelSDCS), "OnDestroy")]
         public static class Patch_OnDestroy
@@ -606,6 +606,7 @@ namespace SurvivorCommunity
                 if (__instance == null || __instance.playerEntity != null) return;
                 if (!Body(__instance.entity, "release")) return;
                 GetUp.Forget(__instance.entity.entityId);
+                ScRelax.Forget(__instance.entity.entityId);
                 Release(__instance);
             }
         }

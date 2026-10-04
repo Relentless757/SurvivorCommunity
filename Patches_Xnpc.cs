@@ -575,7 +575,8 @@ namespace SurvivorCommunity
         /// X7. SC's visible aiming (decision D12) on our bodies. XNPC's controller overrides Update, drives locomotion,
         /// carry and the look pitch itself and never sets IsAiming; ScAim.Drive runs after the whole of it, so the aim pose
         /// is the last thing written in the frame. Before it, ScAim.KeepCarry (the M11 fix 2) repairs the carry pose XNPC
-        /// writes only on a change - on every machine, as XNPC's own write; Drive itself acts only on the owner's. Then, in
+        /// writes only on a change - on every machine, as XNPC's own write; Drive itself acts only on the owner's. Before
+        /// both, ScRelax lowers or raises the arms and hides or shows the weapon of a body out of danger. Then, in
         /// its own try, Patches_Sdcs.GetUp holds IsMoving off while a knocked-down body plays its get-up clip (and traces it).
         /// </summary>
         [HarmonyPatch]
@@ -596,6 +597,14 @@ namespace SurvivorCommunity
                     EntityAlive e = __instance.entity;
                     if (!ScXnpc.IsBody(e)) return;
                     updateHits++;
+                    try
+                    {
+                        ScRelax.Tick(__instance, e);
+                    }
+                    catch (Exception ex)
+                    {
+                        ScLog.Once("xnpc-relax", ex);
+                    }
                     ScAim.KeepCarry(__instance, e);
                     ScAim.Drive(__instance, e);
                 }

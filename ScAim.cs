@@ -258,6 +258,16 @@ namespace SurvivorCommunity
             public static void Postfix(UAITaskBase __instance, Context _context)
             {
                 Stamp(__instance, _context);
+                // a relaxed body raises its weapon as its attack starts, before the task's first swing or shot (ScRelax)
+                try
+                {
+                    EntityAlive self = _context != null ? _context.Self : null;
+                    if ((object)self != null) ScRelax.OnAlert(self, "attack starting", false);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("relax-attackstart", ex);
+                }
             }
         }
 
@@ -417,7 +427,7 @@ namespace SurvivorCommunity
                     carryAnimators[id] = has;
                 }
                 if (!has) return;
-                int carry = d[hold].Carry;
+                int carry = ScRelax.IsRelaxed(e) ? 0 : d[hold].Carry;     // relaxed: the bare-hands carry (ScRelax)
                 if (a.GetInteger(WeaponCarryHash) == carry) return;
                 a.SetInteger(WeaponCarryHash, carry);
                 carryFixes++;
@@ -434,6 +444,7 @@ namespace SurvivorCommunity
             hold = -1;
             if (!ScConfig.SurvivorAimPose) return "off";
             if (e.IsDead()) return "dead";
+            if (ScRelax.IsRelaxed(e)) return "relaxed";
             ItemClass held = e.inventory != null ? e.inventory.holdingItem : null;
             if (held == null) return "empty hands";
             ItemAction[] acts = held.Actions;

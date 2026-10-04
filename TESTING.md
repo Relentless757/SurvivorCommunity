@@ -25,6 +25,54 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Relaxed: arms down and weapon hidden when out of danger (replaces the deferred holster, M7.6)
+
+**Deployed 2026-10-04** (Fable review + re-check: deployable). DLL md5 `33573592c0eee3eb51e6c9645061f5d9`, 640000
+bytes, deployed **together with** the same tree's `Config/blocks.xml` (new keys `XnpcRelax`, `XnpcRelaxRaiders`,
+`XnpcRelaxHideWeapon`, `XnpcRelaxCalmSeconds` 4, `XnpcRelaxRange` 0). Two new Harmony targets: **74** (67 without Voice
+Control). No save format change (one new cvar, `sc_relaxed`). Report: `RELAX_REPORT.md`; review: `fable_review_relax.md`.
+
+What changed (your decisions: the NPC's own sight range with awake enemies only, survivors and raiders, every weapon):
+- A survivor, member or raider with no danger for 4 s lowers its arms to the bare-hands pose (walking with swinging arms)
+  and its weapon disappears; it still holds it (ammo, swaps and the AI are unchanged).
+- Danger = knocked down or stunned, fighting someone, hurt by someone, or an awake enemy within its sight range (60 m on
+  these bodies; `XnpcRelaxRange` shortens it). Sleepers in a POI don't count. The weapon comes back up the moment danger
+  returns, when an attack starts, before every swing or shot, and before every reload; a gun with an empty magazine and
+  ammo to load stays up until it is loaded.
+- Never with a bandage, food or bare hands in hand. `XnpcRelaxHideWeapon` false only lowers the arms; `XnpcRelax` false
+  turns it all off.
+
+- [ ] **Startup:** `patch verification: all 74 targets patched` (67 without Voice Control), with `patched
+      LegacyAvatarController::_setInt(int)` and `patched LegacyAvatarController::StartAnimationReloading`; the `config:` line contains `relax=after 4s, sight range, weapon hidden,
+      raiders too`. `sc xnpc` prints `[SC] relaxed (arms down, weapon hidden): on, N relaxed now; ...`.
+- [ ] **A member at home relaxes:** with no zombie around, watch a resident with a gun (then one with a melee weapon):
+      about 4 s after the last danger its arms drop to its sides and the weapon is gone; it walks with swinging arms.
+      `sc xnpc <member>`: `relax: RELAXED (arms down, N weapon renderer(s) hidden), cvar 1, calm, ...`.
+- [ ] **It raises at once:** spawn a zombie 30-50 m away (awake, in sight range): the weapon reappears in its hand and the
+      hold pose comes back within about half a second, before it starts shooting. `sc xnpc <member>` while it lasts:
+      `relax: alert, cvar 0, enemy zombie... #N at 37 m`. Kill the zombie: about 4 s later it relaxes again.
+- [ ] **First shot is armed:** let a relaxed ranged member be surprised (a zombie that wakes up close, or one you spawn
+      right beside it): the gun is up and visible for the first shot (no punch animation, never fired from an empty
+      hand); the same for a melee member's first swing, which lands. `sc xnpc`: `... (n by an attack starting, ...)` rises.
+- [ ] **Followers:** a follower walking with you through a quiet area walks unarmed-looking; the moment a zombie comes
+      within its range (60 m by default) it draws.
+- [ ] **Raiders:** a raider wandering with nobody within 60 m looks empty-handed; when it spots you it has its weapon up
+      before attacking. `XnpcRelaxRaiders` false (restart): raiders always armed.
+- [ ] **Never with an item:** a member bandaging itself keeps the bandage visible and plays the use animation as before.
+- [ ] **Empty magazine:** a calm gunner that shot its magazine empty (with spare ammo in its bag) keeps the gun up,
+      reloads it (the reload animation plays; `[SDCS-READY] ... event=preload`, no `preload-stuck`), and only then
+      relaxes; `sc xnpc <id>` meanwhile: `relax: alert, ... magazine empty (loading it first)` or `reloading`.
+- [ ] **Bow or crossbow member:** relaxes and raises like a gunner; after a fight it nocks/reloads with the weapon up,
+      then relaxes (no arrow drawn from an empty hand).
+- [ ] **Knockdown and get-up:** shove a relaxed member: it gets up exactly as before (the `get-up ...` line still ends
+      `for Empty`), and it shows its weapon while down (danger: knocked down), then relaxes again after 4 s.
+- [ ] **Swaps while relaxed:** hand a relaxed member a weapon through the weapon menu: the new weapon is hidden too while
+      it stays relaxed; when it draws, the new weapon shows. The old one comes back to you visible (an item, not held).
+- [ ] **Save and reload:** quit and continue near relaxed members: they come back relaxed or alert as the situation
+      says within a second; no invisible weapon in a raised pose, no floating hold pose with no weapon.
+- [ ] **Multiplayer (when there is a second player):** both players see the same arms-down/weapon-hidden state on the
+      same NPC.
+
 ## T1 + T2: no Trade on members, raiders get up properly
 
 **Deployed 2026-10-03** (Fable review + re-check: deployable). DLL md5 `8d145663f3c5ac9329b73e8617b89816`, 631296

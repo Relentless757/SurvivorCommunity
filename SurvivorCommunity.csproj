@@ -69,6 +69,7 @@
     <Compile Include="ScMags.cs" />
     <Compile Include="ScArms.cs" />
     <Compile Include="ScMelee.cs" />
+    <Compile Include="ScRelax.cs" />
     <Compile Include="ScMedic.cs" />
     <Compile Include="Patches_VoiceControl.cs" />
     <Compile Include="Patches_Xnpc.cs" />

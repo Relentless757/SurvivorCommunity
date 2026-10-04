@@ -303,6 +303,16 @@
 			<property name="XnpcBodyGetUp" value="true" />
 			<property name="XnpcGetUpGuard" value="true" />
 			<property name="XnpcGetUpTrace" value="true" />
+			<!-- XnpcRelax: out of danger, these survivors (and the raiders below, XnpcRelaxRaiders) lower their arms to the
+			     bare-hands pose and hide the weapon they still hold (XnpcRelaxHideWeapon; false only lowers the arms).
+			     Danger = knocked down, fighting, hurt, or an awake enemy within XnpcRelaxRange metres (0 = the NPC's own
+			     sight range). They relax after XnpcRelaxCalmSeconds without danger and raise the weapon at once when
+			     danger comes back or an attack starts. -->
+			<property name="XnpcRelax" value="true" />
+			<property name="XnpcRelaxRaiders" value="true" />
+			<property name="XnpcRelaxHideWeapon" value="true" />
+			<property name="XnpcRelaxCalmSeconds" value="4" />
+			<property name="XnpcRelaxRange" value="0" />
 			<property name="XnpcBodyJumpAnim" value="true" />
 			<property name="XnpcBodyColliderLayers" value="true" />
 			<!-- XnpcModelY: how high an 0-XNPCCore survivor's body sits on its entity (m). 0 = feet on the ground; their
