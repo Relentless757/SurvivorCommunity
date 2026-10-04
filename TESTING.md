@@ -45,30 +45,33 @@ What changed:
   while the knockdown/get-up clip plays, to its end (`XnpcGetUpGuard`). Every knockdown of a survivor or raider writes
   one `get-up ...` log line (`XnpcGetUpTrace`) that shows what the layer did, so the log settles it.
 
-- [ ] **Startup:** `patch verification: all 72 targets patched` (65 without Voice Control); the `config:` line contains
+- [x] **Startup** (2026-10-03 21:25 log: 72 patched, `getUp=guarded+trace`; the `sc xnpc` lines not checked):
+      `patch verification: all 72 targets patched` (65 without Voice Control); the `config:` line contains
       `getUp=guarded+trace`; no `xnpc-talkprompt threw` error. `sc xnpc` prints `x9-no-trader-trade-refused=...` and a
       new `[SC] get-ups:` line.
-- [ ] **Trade is gone:** look at a member: "Press E to talk" still shows. Hold E for the radial: Talk is there (and
-      Remove with the debug menu on), **no Trade**. Talk still opens the member dialog (and recruiting still works on a
-      stranger). The same on a stranger and on an `npcSdcsFemaleBow` from the spawn menu. `sc xnpc`:
-      `x9-no-trader-trade-refused` above 0. A raider still shows no prompt at all. A vanilla trader still offers Trade.
-      With the debug menu off only Talk is left, so E may open the dialog straight away instead of a one-entry radial:
-      either is fine.
-- [ ] **A raider gets up:** shove (or otherwise knock down) a raider that is running at you. It should lie down, then
-      play the push-up/roll-over get-up (about 2.5 s) before it comes at you again. Keep the log: its line reads like
-      `get-up Crow (scRaiderFemaleT1 #1060, raider, player path): BlendOutGround 0.45[locomotion] > BlendOutStand
-      0.72[Knockdown-Chest] > Stand 1.15[GetUpChest] > StandCollide 1.95[GetUpChest] > Off 2.85[GetUpChest] | clip
-      left GetUpChest at 0.90 for Empty in Off | IsMoving at the knockdown True, on n/N frames, held off m ...` (times
-      are seconds from the knockdown; the bracket is the locomotion layer's state, during a blend the one it leaves).
-      Read it so: `IsMoving at the knockdown True` + `held off` above 0 + `left GetUpChest at 0.90 for Empty` = the
-      suspected cause, now held off. A `moving` inside a step's bracket (and the `on n/N frames` count) is the
-      controller's write of that frame, which the guard clears before the animator runs: not a failure. The failures
-      are in the `clip ...` part - `left GetUpChest at 0.31 for locomotion (IsMoving)`, `jumped to locomotion`, `never
-      on the locomotion layer` - or `held off 0` with `IsMoving at the knockdown True` and the raider still popping up.
+- [x] **Trade is gone** (the user, 2026-10-03)**:** look at a member: "Press E to talk" still shows. Hold E for the
+      radial: Talk is there (and Remove with the debug menu on), **no Trade**. Talk still opens the member dialog (and
+      recruiting still works on a stranger). The same on a stranger and on an `npcSdcsFemaleBow` from the spawn menu.
+      `sc xnpc`: `x9-no-trader-trade-refused` above 0. A raider still shows no prompt at all. A vanilla trader still
+      offers Trade. With the debug menu off only Talk is left, so E may open the dialog straight away instead of a
+      one-entry radial: either is fine.
+- [x] **A raider gets up** (the user, 2026-10-03; log: `Knox the Raider ... IsMoving at the knockdown True, on 100/189
+      frames, held off 100 ... left GetUpBack at 0.90 for Empty` - the suspected cause confirmed)**:** shove (or
+      otherwise knock down) a raider that is running at you. It should lie down, then play the push-up/roll-over get-up
+      (about 2.5 s) before it comes at you again. Keep the log: its line reads like `get-up Crow (scRaiderFemaleT1
+      #1060, raider, player path): BlendOutGround 0.45[locomotion] > BlendOutStand 0.72[Knockdown-Chest] > Stand
+      1.15[GetUpChest] > StandCollide 1.95[GetUpChest] > Off 2.85[GetUpChest] | clip left GetUpChest at 0.90 for Empty
+      in Off | IsMoving at the knockdown True, on n/N frames, held off m ...` (times are seconds from the knockdown; the
+      bracket is the locomotion layer's state, during a blend the one it leaves). Read it so: `IsMoving at the knockdown
+      True` + `held off` above 0 + `left GetUpChest at 0.90 for Empty` = the suspected cause, now held off. A `moving`
+      inside a step's bracket (and the `on n/N frames` count) is the controller's write of that frame, which the guard
+      clears before the animator runs: not a failure. The failures are in the `clip ...` part - `left GetUpChest at 0.31
+      for locomotion (IsMoving)`, `jumped to locomotion`, `never on the locomotion layer` - or `held off 0` with
+      `IsMoving at the knockdown True` and the raider still popping up.
 - [ ] **No line at all for a raider's knockdown** = it never reached SC's get-up fix: look for a `was knocked down but
       is not one of our bodies` line, `sc xnpc`'s `ragdoll=` count among the hooks that stepped aside, and
       `XnpcRaiderClasses`. A line saying `VANILLA path` means `XnpcBodyGetUp` (or the dev core's switch) was off.
-- [ ] **Survivors still get up as before:** shove a member that stands still: the same clip as before this build, and
+- [x] **Survivors still get up as before** (the user, 2026-10-03)**:** shove a member that stands still: the same clip as before this build, and
       its line ends the clip with `left GetUpChest at 0.90 for Empty` (or `GetUpBack`), `held off` 0 or a few frames.
 - [ ] **Optional, the comparison:** `XnpcGetUpGuard` false (restart), shove a running raider again: if the guard is
       what fixed it, the raider pops up again and its line shows `left ... for locomotion (IsMoving)` or `jumped to
