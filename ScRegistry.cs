@@ -429,6 +429,9 @@ namespace SurvivorCommunity
                     break;
                 case "barterday": c.RadioNextBarterDay = I(val); break;
                 case "triumph": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.OutpostTriumph = Math.Max(0f, f); break; }
+                case "noiseev": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.NoiseEvents = Math.Max(0f, f); break; }
+                case "attention": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.Attention = Math.Max(0f, Math.Min(100f, f)); break; }
+                case "noisestamp": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.NoiseStamp = u; break; }
                 case "harvestcarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.HarvestCarry = f; break; }
                 case "stock":
                     foreach (string part in val.Split(','))
@@ -639,6 +642,9 @@ namespace SurvivorCommunity
                 }
                 sb.AppendLine("barterday=" + c.RadioNextBarterDay);
                 if (c.OutpostTriumph > 0f) sb.AppendLine("triumph=" + c.OutpostTriumph.ToString("0.##", CultureInfo.InvariantCulture));
+                if (c.NoiseEvents > 0f) sb.AppendLine("noiseev=" + c.NoiseEvents.ToString("0.###", CultureInfo.InvariantCulture));
+                if (c.Attention > 0f) sb.AppendLine("attention=" + c.Attention.ToString("0.###", CultureInfo.InvariantCulture));
+                if (c.NoiseStamp > 0UL) sb.AppendLine("noisestamp=" + c.NoiseStamp.ToString(CultureInfo.InvariantCulture));
                 sb.AppendLine("harvestcarry=" + c.HarvestCarry.ToString("0.###", CultureInfo.InvariantCulture));
                 var st = new StringBuilder();
                 for (int i = 0; i < 5; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }

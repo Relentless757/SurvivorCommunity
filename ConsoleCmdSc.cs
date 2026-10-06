@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -85,6 +85,8 @@ namespace SurvivorCommunity
                         Output("[SC] " + (ok ? "" : "refused: ") + msg);
                         break;
                     }
+                    case "noise": NoiseCmd(_params); break;
+                    case "attention": AttentionCmd(_params); break;
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
@@ -175,6 +177,43 @@ namespace SurvivorCommunity
             foreach (string line in ScMorale.Breakdown().Split('\n')) Output("[SC] " + line);
             Community c = ScRegistry.Community;
             Output("[SC] lowMoraleDays=" + c.LowMoraleDays + " threat=" + c.ThreatMemberId + " deathPenalty=" + c.DeathPenalty);
+        }
+
+        /// <summary>sc noise [add &lt;n&gt; | clear] - the base's noise and attention (base defence D1).</summary>
+        private static void NoiseCmd(List<string> p)
+        {
+            Community c = ScRegistry.Community;
+            string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "";
+            float v;
+            if (verb == "add" && p.Count >= 3 && float.TryParse(p[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v))
+            {
+                c.NoiseEvents = Math.Max(0f, c.NoiseEvents + v);
+                ScRegistry.SaveAtomic();
+                Output("[SC] event noise " + c.NoiseEvents.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " (it fades like any event)");
+            }
+            else if (verb == "clear")
+            {
+                c.NoiseEvents = 0f;
+                ScRegistry.SaveAtomic();
+                Output("[SC] event noise cleared");
+            }
+            else if (verb.Length > 0) { Output("[SC] noise [add <n> | clear]"); return; }
+            if (!c.HasHome) Output("[SC] no community home yet - nothing is counted");
+            foreach (string line in ScNoise.Breakdown().Split('\n')) Output("[SC] " + line);
+        }
+
+        /// <summary>sc attention &lt;0-100&gt; - sets the dead's attention (base defence D1 only measures it).</summary>
+        private static void AttentionCmd(List<string> p)
+        {
+            float v;
+            if (p.Count < 2 || !float.TryParse(p[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v))
+            {
+                Output("[SC] attention <0-100>");
+                return;
+            }
+            ScRegistry.Community.Attention = Math.Max(0f, Math.Min(100f, v));
+            ScRegistry.SaveAtomic();
+            Output("[SC] attention " + ScRegistry.Community.Attention.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "%");
         }
 
         private static void Give(List<string> p)

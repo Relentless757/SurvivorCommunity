@@ -65,6 +65,7 @@ namespace SurvivorCommunity
                 ScArms.Reset();
                 ScMelee.Reset();
                 ScRelax.Reset();
+                ScNoise.Reset();
                 Patches_Npc.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
@@ -264,6 +265,9 @@ namespace SurvivorCommunity
             Add(t, "LegacyAvatarController::StartAnimationReloading", ScRelax.ReloadStartTarget());
             // ScArms.cs - a weapon handed to a member through the weapon menu joins their pair; the replaced one comes back
             Add(t, "DialogActionSwapWeapon::PerformAction", ScArms.DialogSwapTarget());
+            // ScNoise.cs - the base's noise (base defence D1): every vanilla heat event, and the NPC shots vanilla never hears
+            Add(t, "AIDirector::NotifyActivity", AccessTools.Method(typeof(AIDirector), "NotifyActivity", new[] { typeof(EnumAIDirectorChunkEvent), typeof(Vector3i), typeof(float), typeof(float) }));
+            Add(t, "ItemActionRanged::ItemActionEffects", AccessTools.DeclaredMethod(typeof(ItemActionRanged), "ItemActionEffects", new[] { typeof(GameManager), typeof(ItemActionData), typeof(int), typeof(UnityEngine.Vector3), typeof(UnityEngine.Vector3), typeof(int) }));
             // Patches_VoiceControl.cs - members are never billed by 0-XNPCCore 3.2's Voice Control (only when it is loaded)
             if (Patches_VoiceControl.ChatType != null)
             {

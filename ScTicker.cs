@@ -74,6 +74,7 @@ namespace SurvivorCommunity
                 ScQuests.SyncCompleted(player);
                 ScQuests.TickMarkers(player);
                 ScScan.RunIfDue(15f);                  // beds / facilities / crops from the loaded chunks, so the HUD morale follows what you build
+                ScNoise.Tick(w, player);               // the base's noise (what was heard in the zone) and the dead's attention
                 ScMorale.SyncHud(player);
                 ScLeadership.Publish(player);          // sc_followers / sc_inzone / sc_morale_high for SurvivorOrigins' Leadership
                 ScRadio.Tick(w, player);

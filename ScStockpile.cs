@@ -289,5 +289,59 @@ namespace SurvivorCommunity
             if (stillInjured > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyInjured"), stillInjured));
             if (dryAmmo) summary.Append(' ').Append(Localization.Get("scDailyNoAmmo"));
         }
+
+        /// <summary>
+        /// Whole bundles of each resource the next rollover will want (the Home Status panel shows a stock below it in red):
+        ///   food      - what DailyConsume takes (members x FoodPerMemberDay x traits x the cook, plus the carried fraction),
+        ///               less what the gardeners will harvest first;
+        ///   meds      - one bundle per healsPerBundle injured members the outpost clinic does not cover;
+        ///   ammo      - no upkeep (D3): 1 while any member at home fights with a gun, so an empty stockpile (no resupply)
+        ///               shows red;
+        ///   materials - the outposts' upkeep, debt included (ScOutposts.Daily);
+        ///   fuel      - the haulage for what the rollover will deliver (ScOutposts.ProjectedDelivery), debt included.
+        /// Without outposts there is no materials or fuel need, as ScOutposts.Daily clears the debts then.
+        /// </summary>
+        public static int[] NeedForRollover()
+        {
+            var need = new int[5];
+            Community c = ScRegistry.Community;
+            if (ScRegistry.Members.Count == 0) return need;
+
+            Member cook;
+            int cookStars = ScSkills.BestSpecialist(Specialty.Cooking, out cook);
+            float cookMult = Math.Max(0.5f, 1f - ScConfig.CookFoodPerStar * cookStars);
+            float food = c.FoodCarry;
+            foreach (var m in ScRegistry.Members.Values) food += ScConfig.FoodPerMemberDay * ScTraits.FoodMult(m) * cookMult;
+            int harvest = 0;
+            int gardenStars = ScSkills.SpecialistStars(Specialty.Gardening);
+            if (gardenStars > 0 && c.Crops > 0) harvest = (int)Math.Floor(c.HarvestCarry + c.Crops * ScConfig.CropFoodPerStar * gardenStars);
+            need[(int)Resource.Food] = Math.Max(0, (int)Math.Floor(food) - harvest);
+
+            Member medic;
+            int medicStars = ScSkills.BestSpecialist(Specialty.Medicine, out medic);
+            int healsPerBundle = 1 + (int)Math.Floor(medicStars * ScConfig.MedicPerStar);
+            int injured = 0;
+            bool gunner = false;
+            foreach (var m in ScRegistry.Members.Values)
+            {
+                if (m.Injured) injured++;
+                if (m.Ranged && m.Status == MemberStatus.Resident) gunner = true;
+            }
+            if (ScOutpostPerks.PerkActive(Resource.Meds)) injured = Math.Max(0, injured - ScConfig.OutpostClinicHeals);
+            need[(int)Resource.Meds] = (injured + healsPerBundle - 1) / healsPerBundle;
+            need[(int)Resource.Ammo] = gunner ? 1 : 0;
+
+            // ScOutposts.Daily settles nothing without outposts (and clears the debts then)
+            if (ScRegistry.Outposts.Count > 0)
+            {
+                float upkeep = 0f;
+                foreach (Outpost o in ScRegistry.Outposts)
+                    if (o.State == OutpostState.Active || o.State == OutpostState.Contested) upkeep += ScOutpostPerks.UpkeepFor(o);
+                if (upkeep > 0f || c.UpkeepDebt > 0f) need[(int)Resource.Materials] = (int)Math.Floor(c.UpkeepDebt + upkeep + 1e-4f);
+                int delivered = ScOutposts.ProjectedDelivery(ScCommunity.Today + 1);
+                if (delivered > 0 || c.HaulDebt > 0f) need[(int)Resource.Fuel] = (int)Math.Floor(c.HaulDebt + ScConfig.OutpostHaulage * delivered + 1e-4f);
+            }
+            return need;
+        }
     }
 }

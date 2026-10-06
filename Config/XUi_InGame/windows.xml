@@ -641,4 +641,41 @@
 			</rect>
 		</window>
 	</append>
+
+	<!-- The Home Status panel (base defence D1, XUiC_ScHomeStatus): the HUD's top left while the player is inside the home
+	     zone, laid out like State of Decay 2's. Row 1: title, morale dot and word. Row 2: food, meds, ammo, materials, fuel
+	     (a number turns red below what the next rollover wants). Row 3: members and the base's noise. It sits in the HUD's
+	     toolbelt group (xui.xml), so it is open whenever the HUD is; the controller hides it while a modal window is open.
+	     Vanilla sprites only, and no [darkGrey]/menu_empty "background" plate or boxbg, so AshfallUI's dialog dressing does
+	     not take it for a dialog; AshfallUI restyles it on purpose later. -->
+	<append xpath="/windows">
+		<window name="windowScHomeStatus" anchor="TopLeft" pos="16,-16" width="430" height="118" depth="-20"
+		        controller="SurvivorCommunity.ScHomeStatus, SurvivorCommunity">
+			<rect depth="0" name="panel" pos="0,0" width="430" height="118" visible="{scvisible}">
+				<sprite depth="0" name="plate" sprite="menu_empty" type="sliced" color="16,18,18,205"/>
+				<sprite depth="1" name="strip" sprite="menu_empty" pos="0,0" width="46" height="118" color="38,112,104,235"/>
+				<sprite depth="2" name="stripIcon" sprite="ui_game_symbol_players" pos="23,-59" width="32" height="32" pivot="center" color="255,255,255,255"/>
+
+				<label depth="2" name="title" pos="58,-22" width="176" height="30" font_size="24" pivot="left" justify="left" text_key="scHomeStatusTitle" color="255,255,255,255"/>
+				<sprite depth="2" name="moodDot" sprite="ui_game_filled_circle" pos="246,-22" width="20" height="20" pivot="center" color="{scmoodcolor}"/>
+				<label depth="2" name="mood" pos="262,-22" width="160" height="30" font_size="24" pivot="left" justify="left" text="{scmood}" color="255,255,255,255"/>
+
+				<sprite depth="2" name="iconFood" sprite="ui_game_symbol_fork" pos="70,-60" width="22" height="22" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="food" pos="86,-60" width="44" height="26" font_size="22" pivot="left" justify="left" text="{scfood}" color="{scfoodcolor}"/>
+				<sprite depth="2" name="iconMeds" sprite="ui_game_symbol_medical" pos="144,-60" width="22" height="22" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="meds" pos="160,-60" width="44" height="26" font_size="22" pivot="left" justify="left" text="{scmeds}" color="{scmedscolor}"/>
+				<sprite depth="2" name="iconAmmo" sprite="ui_game_symbol_shape_ammo" pos="218,-60" width="22" height="22" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="ammo" pos="234,-60" width="44" height="26" font_size="22" pivot="left" justify="left" text="{scammo}" color="{scammocolor}"/>
+				<sprite depth="2" name="iconMats" sprite="ui_game_symbol_brick" pos="292,-60" width="22" height="22" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="mats" pos="308,-60" width="44" height="26" font_size="22" pivot="left" justify="left" text="{scmats}" color="{scmatscolor}"/>
+				<sprite depth="2" name="iconFuel" sprite="ui_game_symbol_gas" pos="366,-60" width="22" height="22" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="fuel" pos="382,-60" width="44" height="26" font_size="22" pivot="left" justify="left" text="{scfuel}" color="{scfuelcolor}"/>
+
+				<sprite depth="2" name="iconMembers" sprite="ui_game_symbol_players" pos="70,-96" width="22" height="22" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="members" pos="86,-96" width="44" height="26" font_size="22" pivot="left" justify="left" text="{scmembers}" color="255,255,255,255"/>
+				<sprite depth="2" name="iconNoise" sprite="ui_game_symbol_noise" pos="144,-96" width="22" height="22" pivot="center" color="255,255,255,255" visible="{scnoisevisible}"/>
+				<label depth="2" name="noise" pos="160,-96" width="262" height="26" font_size="22" pivot="left" justify="left" text="{scnoise}" color="{scnoisecolor}" visible="{scnoisevisible}"/>
+			</rect>
+		</window>
+	</append>
 </configs>

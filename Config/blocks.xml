@@ -526,7 +526,7 @@
 			<!-- Outposts v2, risk (OutpostAttacks, off by default): security rating, attack calls (fight there or it is settled
 			     on security: hold / damaged / overrun), blood-moon sieges, neglect reinfestation, raider demands. Good-news
 			     caches (OutpostGoodNews) are on by default. See ScOutpostRisk.cs for every term. -->
-			<property name="OutpostAttacks" value="false" />
+			<property name="OutpostAttacks" value="true" />
 			<property name="OutpostGoodNews" value="true" />
 			<property name="OutpostGoodNewsChance" value="0.04" />
 			<property name="OutpostSecBase" value="35" />
@@ -564,6 +564,33 @@
 			<property name="OutpostExclude" value="foliage,foilage,plants,wind,solar,library,libary,pubic,museum,deco" />
 			<property name="OutpostNoise" value="xcpv,zztong,by,mplogue,fluffy,panda,voltralux" />
 			<property name="OutpostTagFallback" value="" />
+
+			<!-- Base defence D1 (BaseDefence_Plan.md): the Home Status panel and the base's noise. HomeStatusHud: the panel at
+			     the HUD's top left while you are inside the home zone (morale, the five resources - red below what the next
+			     rollover wants - members, noise). BaseNoise: the noise meter and the dead's attention (ScNoise).
+			     Noise = steady (NoisePerMember per member living at home, NoisePerGenerator per running generator in the zone,
+			     NoisePerFacility per workstation) + events that halve every NoiseHalfLifeHours game hours (every vanilla heat
+			     event inside the zone x NoiseHeatMult, every NPC shot there at its gun's heat x NoiseNpcShotMult, as vanilla rates
+			     the same gun in your hands; a gun sound with no Noise entry in sounds.xml counts NoiseNpcShotDefault; zombies'
+			     and drones' shots are not counted, as vanilla does not hear them; never above NoiseEventCap). Levels: quiet, noticeable from
+			     NoiseNoticeable, loud from NoiseLoud, very loud from NoiseVeryLoud. Attention (0-100) per game hour:
+			     + (noise - NoiseNoticeable) x AttentionPerNoiseHour - AttentionDecayPerHour, nothing gained during a blood moon.
+			     D1 only measures it ("sc noise"); the hordes come with D2. -->
+			<property name="HomeStatusHud" value="true" />
+			<property name="BaseNoise" value="true" />
+			<property name="NoisePerMember" value="2" />
+			<property name="NoisePerGenerator" value="6" />
+			<property name="NoisePerFacility" value="1" />
+			<property name="NoiseHeatMult" value="1" />
+			<property name="NoiseNpcShotMult" value="1" />
+			<property name="NoiseNpcShotDefault" value="0.5" />
+			<property name="NoiseHalfLifeHours" value="1" />
+			<property name="NoiseEventCap" value="200" />
+			<property name="NoiseNoticeable" value="15" />
+			<property name="NoiseLoud" value="30" />
+			<property name="NoiseVeryLoud" value="50" />
+			<property name="AttentionPerNoiseHour" value="0.14" />
+			<property name="AttentionDecayPerHour" value="2" />
 
 			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". A word ending in
 			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).

@@ -284,6 +284,11 @@ namespace SurvivorCommunity
         public int RadioNextBarterDay;
         /// <summary>Morale from outposts held in a fight (OutpostWinMorale each, fades 1 a day, at most 10).</summary>
         public float OutpostTriumph;
+        /// <summary>Base defence (ScNoise): the fading part of the base's noise, and the dead's attention (0-100).</summary>
+        public float NoiseEvents;
+        public float Attention;
+        /// <summary>World time the noise and attention were last advanced to (0 = not yet).</summary>
+        public ulong NoiseStamp;
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }

@@ -25,6 +25,64 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Base defence D1: the Home Status panel and the noise meter
+
+**Deployed 2026-10-05** (Fable review + re-check: deployable). DLL md5 `c035ed57eee3402a3cd467472a43b536`, 655360
+bytes, deployed **together with** the same tree's Config (`blocks.xml` keys, the XUi window, localization). Plan:
+`BaseDefence_Plan.md` in the game root; report and reviews in `_research\base_defence\` (D1_REPORT.md,
+fable_review_d1.md, fable_recheck_d1.md). Two new Harmony targets: **76** (69 without
+Voice Control). No save format change: three new keys in the registry's `[community]` section (`noiseev`, `attention`,
+`noisestamp`), which older builds ignore. Nothing attacks yet: D1 only shows and measures; the hordes come with D2.
+
+What changed:
+- **Home Status panel** at the HUD's top left while you stand inside the home zone, laid out like State of Decay 2's:
+  "Home Status" with a morale dot and word (green happy, light content, amber uneasy, red miserable); food, meds,
+  ammo, materials and fuel (a number is **red when it is below what the next rollover wants**: food for everyone, meds
+  for the injured, 1 ammo while any resident fights with a gun, the outposts' upkeep in materials and haulage in fuel);
+  the member count; the base's noise. It hides while a menu (inventory, map, a workstation) is open, and with F7.
+- **Noise** = steady (2 per member living at home, 6 per running generator in the zone, 1 per workstation) + events
+  that halve every game hour (anything that makes vanilla heat inside the zone - a burning forge or campfire, crafting,
+  torches, your gunfire, explosions, broken blocks - and NPC gunfire, which vanilla never hears). Levels: quiet,
+  noticeable from 15, loud from 30, very loud from 50.
+- **Attention** (0-100%) grows each game hour with noise above 15 and fades 2 an hour; it gains nothing during the blood
+  moon. The panel shows it as "Noise: Loud (42%)" once it is above 0.
+
+Console: `sc noise` (the breakdown and what was heard this session), `sc noise add <n>` / `sc noise clear` (event noise),
+`sc attention <0-100>`.
+
+- [ ] **Startup:** `patch verification: all 76 targets patched` (69 without Voice Control), with `patched
+      AIDirector::NotifyActivity` and `patched ItemActionRanged::ItemActionEffects`; the `config:` line ends with
+      `homeHud=True noise=member 2 generator 6 workstation 1, heat x1 npc shot x1, half-life 1h, levels 15/30/50,
+      attention +0.14 -2/h`.
+- [ ] **The panel shows at home only:** walk into the home zone: the panel appears at the top left; walk out: it goes.
+      Open the inventory or the map inside the zone: it hides, and comes back when you close them. F7: gone with the
+      rest of the HUD.
+- [ ] **It reads like the reference:** title, dot and morale word on the first row (the word matches `sc morale`'s
+      band); the five resource icons with numbers that match `sc status`'s stock; the member count; the noise line.
+      Nothing overlaps or is cut off; AshfallUI did not dress it as a dialog (it is a plain dark plate with a teal strip).
+- [ ] **Red when short:** `sc give food -999`: food turns red (it is below the day's need); `sc give food 20`: white
+      again. Injure a member with no meds (`sc injure <member>`, `sc give meds -999`): meds red. With a resident gunner,
+      `sc give ammo -999`: ammo red. Materials and fuel only go red with outposts that cost upkeep or haulage.
+- [ ] **Steady noise:** `sc noise`: `members at home` equals your residents, `workstations` the facilities the
+      community window counts, `running generators` the generators switched on with fuel inside the zone (switch one
+      off: it drops within about 10 s).
+- [ ] **Heat events:** light a forge or a campfire in the base and wait a few minutes: `sc noise` shows `heat events`
+      rising and `Forge=` / `Campfire=` among the counted kinds, and the event noise grows. Fire a few shots in the base:
+      `Sound=` grows. Do the same outside the zone: `heard` rises but `in the zone` does not.
+- [ ] **NPC gunfire counts:** let a resident with a gun fight a zombie inside the zone: `NPC shots ... (in the zone N)`
+      rises and `npcShot=` appears among the counted kinds. A bow adds nothing (vanilla rates bows as silent for you
+      too), and a cop's or spitter's vomit is never counted.
+- [ ] **Fuel and materials only with outposts:** with no outposts both stay white whatever the stock; with outposts,
+      fuel is red only when the next rollover will actually deliver something (a working radio, or the outpost's relay).
+- [ ] **Fading and attention:** `sc noise add 60`: the panel shows "Very loud"; `sc noise` reports attention gaining
+      about +4/h; let a game hour or two pass: the event noise has halved each hour and attention has grown. `sc noise
+      clear` and `sc attention 0` reset them. Reaching 100% only writes one log line (`base attention reached 100% ...
+      no horde is called yet`).
+- [ ] **Save and reload:** quit and continue: noise and attention come back as they were (minus the time that passed).
+- [ ] **Blood moon:** during the blood moon `sc noise` says `paused: blood moon` and attention does not grow.
+- [ ] **Tuning (no pass/fail):** play a normal session at home and note what `sc noise` says for your base on a quiet
+      evening and while you work (forge, crafting, a fight). Those numbers set D2's horde frequency.
+
 ## Relaxed: arms down and weapon hidden when out of danger (replaces the deferred holster, M7.6)
 
 **Deployed 2026-10-04** (Fable review + re-check: deployable). **Passed in game 2026-10-05** (the user); only the multiplayer row is open. DLL md5 `33573592c0eee3eb51e6c9645061f5d9`, 640000

@@ -258,6 +258,21 @@ namespace SurvivorCommunity
         /// <summary>Stash and haul (off by default): only Base + PerLevel bundles a day come home, the rest wait in the claim box.</summary>
         public static bool OutpostStashAndHaul = false;
         public static int OutpostHaulBase = 2, OutpostHaulPerLevel = 2, OutpostStashMax = 30;
+        // ---- base defence D1: the Home Status panel and the base's noise (XUiC_ScHomeStatus, ScNoise) ----
+        /// <summary>The Home Status panel at the HUD's top left while the player is inside the home zone.</summary>
+        public static bool HomeStatusHud = true;
+        /// <summary>The noise meter and the dead's attention (false: no noise is counted and attention stands still).</summary>
+        public static bool BaseNoise = true;
+        /// <summary>Steady noise: per member living at home, per running generator in the zone, per workstation counted.</summary>
+        public static float NoisePerMember = 2f, NoisePerGenerator = 6f, NoisePerFacility = 1f;
+        /// <summary>Event noise: x vanilla's heat for heat events in the zone, x the gun's heat for NPC shots (a gun sound with none counts NoiseNpcShotDefault).</summary>
+        public static float NoiseHeatMult = 1f, NoiseNpcShotMult = 1f, NoiseNpcShotDefault = 0.5f;
+        /// <summary>Event noise halves every NoiseHalfLifeHours game hours; it never stacks above NoiseEventCap.</summary>
+        public static float NoiseHalfLifeHours = 1f, NoiseEventCap = 200f;
+        /// <summary>Level thresholds (quiet below NoiseNoticeable); attention only grows above NoiseNoticeable.</summary>
+        public static float NoiseNoticeable = 15f, NoiseLoud = 30f, NoiseVeryLoud = 50f;
+        /// <summary>Attention per game hour: + (noise - NoiseNoticeable) x AttentionPerNoiseHour, - AttentionDecayPerHour.</summary>
+        public static float AttentionPerNoiseHour = 0.14f, AttentionDecayPerHour = 2f;
         // ---- outposts v2: risk (ScOutpostRisk) ----
         /// <summary>Master switch for the risk features (attacks, sieges, neglect, raider demands).</summary>
         public static bool OutpostAttacks = false;
@@ -595,6 +610,9 @@ namespace SurvivorCommunity
             OutpostBedMax = 4; OutpostFacilityMax = 3; OutpostCropMax = 10; OutpostInvestCap = 0.5f;
             OutpostDefenseBlocks.Clear();
             OutpostStashAndHaul = false; OutpostHaulBase = 2; OutpostHaulPerLevel = 2; OutpostStashMax = 30;
+            HomeStatusHud = true; BaseNoise = true; NoisePerMember = 2f; NoisePerGenerator = 6f; NoisePerFacility = 1f;
+            NoiseHeatMult = 1f; NoiseNpcShotMult = 1f; NoiseNpcShotDefault = 0.5f; NoiseHalfLifeHours = 1f; NoiseEventCap = 200f;
+            NoiseNoticeable = 15f; NoiseLoud = 30f; NoiseVeryLoud = 50f; AttentionPerNoiseHour = 0.14f; AttentionDecayPerHour = 2f;
             OutpostAttacks = false; OutpostGoodNews = true; OutpostGoodNewsChance = 0.04f; OutpostSecBase = 35; OutpostSecPerStaffer = 8; OutpostSecPerCombatStar = 2; OutpostSecPerTier = 4; OutpostSecVisited = 5; OutpostSecNoAmmo = 10; OutpostSecPerDefense = 2; OutpostSecDefenseCap = 30; OutpostSecBonusFade = 1f; OutpostSecWinBonus = 10f; OutpostSecBonusMax = 30f; OutpostAttackChance = 0.08f; OutpostAttackHours = 10; OutpostAttackBase = 3f; OutpostAttackPerGamestage = 0.04f; OutpostAttackMax = 16; OutpostAttendedBonus = 20; OutpostDamageBand = 35; OutpostDamagedDays = 2; OutpostRepairMats = 2; OutpostSiegePenalty = 15; OutpostWinMorale = 4f; OutpostNeglectDays = 10; OutpostRaiderGamestage = 30; OutpostRaiderChance = 0.03f; OutpostDemandAmmo = 2; OutpostDemandFood = 2;
             ScPoiTypes.LoadDefaults();
             Defaults();
@@ -831,6 +849,24 @@ namespace SurvivorCommunity
                 ParseInt(p, "OutpostStashMax", ref OutpostStashMax, 0, 1000);
                 {
                     string bv;
+                    if (p.Values.TryGetValue("HomeStatusHud", out bv) && !string.IsNullOrEmpty(bv)) HomeStatusHud = StringParsers.ParseBool(bv);
+                    if (p.Values.TryGetValue("BaseNoise", out bv) && !string.IsNullOrEmpty(bv)) BaseNoise = StringParsers.ParseBool(bv);
+                }
+                ParseFloat(p, "NoisePerMember", ref NoisePerMember, 0f, 100f);
+                ParseFloat(p, "NoisePerGenerator", ref NoisePerGenerator, 0f, 100f);
+                ParseFloat(p, "NoisePerFacility", ref NoisePerFacility, 0f, 100f);
+                ParseFloat(p, "NoiseHeatMult", ref NoiseHeatMult, 0f, 100f);
+                ParseFloat(p, "NoiseNpcShotMult", ref NoiseNpcShotMult, 0f, 100f);
+                ParseFloat(p, "NoiseNpcShotDefault", ref NoiseNpcShotDefault, 0f, 100f);
+                ParseFloat(p, "NoiseHalfLifeHours", ref NoiseHalfLifeHours, 0.05f, 48f);
+                ParseFloat(p, "NoiseEventCap", ref NoiseEventCap, 0f, 10000f);
+                ParseFloat(p, "NoiseNoticeable", ref NoiseNoticeable, 0f, 10000f);
+                ParseFloat(p, "NoiseLoud", ref NoiseLoud, 0f, 10000f);
+                ParseFloat(p, "NoiseVeryLoud", ref NoiseVeryLoud, 0f, 10000f);
+                ParseFloat(p, "AttentionPerNoiseHour", ref AttentionPerNoiseHour, 0f, 100f);
+                ParseFloat(p, "AttentionDecayPerHour", ref AttentionDecayPerHour, 0f, 100f);
+                {
+                    string bv;
                     if (p.Values.TryGetValue("OutpostAttacks", out bv) && !string.IsNullOrEmpty(bv)) OutpostAttacks = StringParsers.ParseBool(bv);
                 }
                 {
@@ -1025,7 +1061,12 @@ namespace SurvivorCommunity
                           + " firearm " + RaiderFirearmChance + " ammo " + RaiderSpawnAmmo + "/" + RaiderSpawnArrows
                           + " levels=" + (RaiderXnpcLevels ? (RaiderLevelRegen ? "on" : "on, no regen") : "off") + " drop " + RaiderWeaponDropChance
                           + " vanillaDoors=" + RaiderVanillaDoors + " turretsAsEnemies=" + RaiderTurretsAsEnemies
-                          + " gearSets=" + (RaiderGearSets.Count > 0 ? RaiderGearSets.Count.ToString() : "survivors'"));
+                          + " gearSets=" + (RaiderGearSets.Count > 0 ? RaiderGearSets.Count.ToString() : "survivors'")
+                          + " homeHud=" + HomeStatusHud
+                          + " noise=" + (BaseNoise ? "member " + NoisePerMember + " generator " + NoisePerGenerator + " workstation " + NoisePerFacility
+                                                      + ", heat x" + NoiseHeatMult + " npc shot x" + NoiseNpcShotMult + ", half-life " + NoiseHalfLifeHours + "h"
+                                                      + ", levels " + NoiseNoticeable + "/" + NoiseLoud + "/" + NoiseVeryLoud
+                                                      + ", attention +" + AttentionPerNoiseHour + " -" + AttentionDecayPerHour + "/h" : "off"));
             }
             catch (Exception e)
             {

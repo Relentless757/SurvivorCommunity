@@ -860,6 +860,49 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// The bundles the next rollover (day) would bring home - Daily's delivery loop, changing nothing: the producing
+        /// outposts' yields after duplicates and the network multipliers, whole bundles out of the carried fractions plus
+        /// what is pending, delivered only when reported (the home radio or the outpost's own relay) and within the haul
+        /// cap. Slot changes at the rollover are not foreseen. The Home Status panel turns it into the day's haulage.
+        /// </summary>
+        public static int ProjectedDelivery(int day)
+        {
+            Community c = ScRegistry.Community;
+            List<Outpost> list = ScRegistry.Outposts;
+            if (list.Count == 0) return 0;
+            var producing = new List<Outpost>();
+            var yields = new Dictionary<int, float[]>();
+            foreach (Outpost o in list)
+            {
+                if (o.State != OutpostState.Active || ScOutpostRisk.IsDamaged(o, day)) continue;
+                producing.Add(o);
+                yields[o.Id] = RawYield(o);
+            }
+            ApplyDuplicates(producing, yields);
+            float mult = 1f;
+            if (c.OutpostRunDown) mult *= ScConfig.OutpostRunDownMult;
+            if (c.OutpostOnFoot) mult *= ScConfig.OutpostOnFootMult;
+            bool homeReported = c.RadioOnlineDay >= day - 1 || RadioOnlineAnywhere();
+            int total = 0;
+            foreach (Outpost o in list)
+            {
+                if (!o.Holding || !(homeReported || RelayOnline(o))) continue;
+                float[] y;
+                yields.TryGetValue(o.Id, out y);
+                int haulRoom = ScOutpostPerks.HaulCap(o);
+                for (int r = 0; r < 5; r++)
+                {
+                    float v = y != null ? y[r] * mult : 0f;
+                    int whole = (int)Math.Floor(o.Carry[r] + v + 1e-4f);
+                    int take = Math.Min(whole + o.Pending[r], haulRoom);
+                    if (haulRoom != int.MaxValue) haulRoom -= take;
+                    total += take;
+                }
+            }
+            return total;
+        }
+
         /// <summary>The resource with the fewest days of cover: stock over what the community uses a day.</summary>
         public static Resource Shortest()
         {
