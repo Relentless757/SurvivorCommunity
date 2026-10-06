@@ -32,6 +32,7 @@ namespace SurvivorCommunity
             if (m == null) { error = "scInternal"; return false; }
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
             if (m.Status != MemberStatus.Resident) { error = "scRunNotHome"; return false; }
+            if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
             if (npc == null) { error = "scNotLoaded"; return false; }
             if (m.Injured) { error = "scRunInjured"; return false; }
             if (m.Mood < 25) { error = "scRefuseMood"; return false; }

@@ -247,7 +247,9 @@ namespace SurvivorCommunity
                 m.FollowIssued = 0f;
 
                 bool none = m.Post == Vector3i.zero || !ScZone.Contains(m.Post);
-                if (none || (ScZone.IsLoaded(m.Post) && !ValidPost(w, m.Post)))
+                // a guard on watch keeps the Watch post whatever the post rules say (base defence D3: ScWatch checks it and
+                // ends the watch when it is gone or blocked)
+                if (!ScWatch.OnWatch(m) && (none || (ScZone.IsLoaded(m.Post) && !ValidPost(w, m.Post))))
                 {
                     if (!none) m.BadPosts.Add(m.Post);
                     int tier;
@@ -586,9 +588,14 @@ namespace SurvivorCommunity
             if (npc.moveHelper != null) npc.moveHelper.Stop();
         }
 
-        /// <summary>Writes the guard position (and a look direction) for the post.</summary>
+        /// <summary>
+        /// Writes the guard position (and a look direction) for the post: the way the NPC faces now, or for a guard on watch
+        /// the way the Watch post faces (base defence D3, ScWatch.LookAt; HoldPostSC turns them to it).
+        /// </summary>
         public static void ApplyPost(EntityAlive npc, Vector3 post)
         {
+            Vector3 look;
+            if (ScWatch.LookAt(ScRegistry.GetMember(npc.entityId), post, out look)) { ScNpc.SetGuard(npc, post, look); return; }
             ScNpc.SetGuard(npc, post, post + npc.GetForwardVector());
         }
 
@@ -931,6 +938,7 @@ namespace SurvivorCommunity
             if (m.Status == MemberStatus.Following) return true;
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
             if (m.Status == MemberStatus.Garrison) { error = "scOpPostedAway"; return false; }
+            if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
             if (ScRegistry.FollowerCount >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
             if (m.Mood < 25) { error = "scRefuseMood"; return false; }
             FollowInternal(m, npc, player, MemberStatus.Following);
@@ -1063,6 +1071,7 @@ namespace SurvivorCommunity
                 ScOrders.ClearVoiceMovement(npc);          // a former member must not stay crouched or hold a formation slot
                 npc.Buffs.AddBuff(OrderDismissBuff);       // zeroes Leader/Owner, wander
                 if (ScNpc.IsV4(npc)) ScNpc.RestoreSpeed(npc);   // a follower's leader speed (SetLeader copies it) must not outlive the membership
+                ScWatch.Unboost(npc);                           // nor a guard's raised sight (base defence D3)
                 npc.Buffs.RemoveCustomVar("Leader");
                 npc.Buffs.RemoveCustomVar("Owner");
                 npc.SetSpawnerSource(EnumSpawnerSource.Biome);

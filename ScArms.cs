@@ -178,11 +178,20 @@ namespace SurvivorCommunity
                 // the cheap tests first: the enemies are only counted when 0-XNPCCore is about to decide something
                 if (!CloseMelee(c))
                 {
-                    if (!ScConfig.Overwhelmed) return true;
+                    // a guard on watch (base defence D3) keeps the gun up close: on a tower the melee swap only leads to a
+                    // walk off the edge, and the gun still hits what climbs up
+                    bool onWatch = ScWatch.Guarding(e.entityId);
+                    if (!ScConfig.Overwhelmed && !onWatch) return true;
                     if (!TargetWithin(e, XnpcCloseEnterDist)) return true;                               // 0-XNPCCore would not swap yet
                     ItemValue held = e.inventory.holdingItemItemValue;
                     ItemClass gun = held != null && !held.IsEmpty() ? held.ItemClass : null;
                     if (ScAmmo.RangedAction(gun) == null || ScAmmo.Rounds(e, gun) <= 0) return true;   // no gun to keep: melee it is
+                    if (onWatch)
+                    {
+                        Patches_Xnpc.Count("x5-watch-keep-gun");
+                        return false;
+                    }
+                    if (!ScConfig.Overwhelmed) return true;
                     Watch gw;
                     if (watch.TryGetValue(e.entityId, out gw) && now < gw.GunUntil)
                     {

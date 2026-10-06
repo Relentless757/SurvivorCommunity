@@ -151,6 +151,20 @@ namespace UAI
     }
 
     /// <summary>
+    /// 1 unless the entity is a guard on watch (base defence D3, ScWatch.Guarding) - for everyone else, raiders and
+    /// strangers included, it is always 1. Gates every action that would walk a guard off a Watch post: SCResident's roam,
+    /// defence walk and hold, quiet night and Cowardly flee, and 0-XNPCCore's BackupKeepDistance, BackupRanged and
+    /// MeleeApproach (Config/utilityai.xml).
+    /// </summary>
+    public class UAIConsiderationScNotOnWatch : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            return ScWatch.Guarding(_context.Self.entityId) ? 0f : 1f;
+        }
+    }
+
+    /// <summary>
     /// 1 when none of the entity's AI packages has 0-XNPCCore's DynamicFollow (ScXnpc.HasDynamicFollow). SC's own two
     /// follow actions are the fallback for such a member only: wherever DynamicFollow exists - every 0-XNPCCore NPC,
     /// through NPCModNPCHired - its follow and formations replace SC's (decision D6), and SC's actions, at 4 and 4.2,
@@ -207,8 +221,9 @@ namespace UAI
         {
             Member m = ScRegistry.GetMember(_context.Self.entityId);
             if (m == null || m.Post == Vector3i.zero) return 0f;
-            // a live home attack (base defence D2): the leash is the defended area + LeashExtra, not the distance from the post
-            if (ScBaseAttack.WideDefence) return ScBaseAttack.InDefenceArea(_context.Self.position, ScBaseAttack.LeashExtra) ? 0f : 1f;
+            // a live home attack (base defence D2): the leash is the defended area + LeashExtra, not the distance from the post -
+            // except for a guard on watch (D3), who is leashed to the Watch post as always
+            if (ScBaseAttack.WideDefence && !ScWatch.OnWatch(m)) return ScBaseAttack.InDefenceArea(_context.Self.position, ScBaseAttack.LeashExtra) ? 0f : 1f;
             Vector3 post = new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
             return Vector3.Distance(_context.Self.position, post) > distance ? 1f : 0f;
         }
@@ -401,6 +416,8 @@ namespace UAI
             if (t.IsSleeping) return "asleep";
             m = ScRegistry.GetMember(self.entityId);
             if (m == null || m.Status != MemberStatus.Resident || m.Post == Vector3i.zero) return "not a resident at a post";
+            // a guard on watch (base defence D3) shoots from the post and never walks to an intruder, a live attack or not
+            if (ScWatch.OnWatch(m)) return "on watch (stays at the Watch post)";
             if (ScDefendState.RestLeft(self.entityId) > 0f) return "resting (moved back to the post in a fight, or strayed)";
             if (ScBaseAttack.WideDefence)
             {

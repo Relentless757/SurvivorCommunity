@@ -185,6 +185,18 @@ namespace SurvivorCommunity
         public int RunCarry;
         /// <summary>The run's dice are still to be rolled (only ever while offline).</summary>
         public bool RollPending;
+        /// <summary>
+        /// Base defence D3 (ScWatch): the Watch post block this resident keeps watch on (Vector3i.zero = not on watch).
+        /// While on watch, Post is the cell above it; WatchHome is the post to go back to. WatchStart: world time the
+        /// shift began (it lasts WatchShiftHours). WatchPrepaid: packing points left of the ammo the shift paid for at its
+        /// start (ScAmmo spends them before the stockpile). Saved as watch=, a key older builds ignore.
+        /// </summary>
+        public Vector3i WatchPost;
+        public Vector3i WatchHome;
+        public ulong WatchStart;
+        public int WatchPrepaid;
+        /// <summary>No new shift before this world time: the rest after a full shift (saved as watchrest=).</summary>
+        public ulong WatchRestUntil;
 
         public SkillState Skill(Skill s) { return Skills[(int)s]; }
 
@@ -300,6 +312,13 @@ namespace SurvivorCommunity
         public int AttackBearing, AttackSize, AttackSpawned, AttackKilled, AttackAmmoRounds, AttackAmmoPoints;
         /// <summary>Morale from home attacks held (BaseAttackWinMorale each, fades 1 a day, at most 10): the Defence part.</summary>
         public float DefenceTriumph;
+        /// <summary>
+        /// Base defence D3 (ScWatch): the Watch post blocks in the home zone (at most WatchMaxPosts), saved as watchposts=;
+        /// and what a guard on watch has told the player about the open attack: 0 nothing, 1 "gathering" (at the call),
+        /// 2 "spotted" (saved as attackwarn=; cleared with the attack).
+        /// </summary>
+        public readonly List<Vector3i> WatchPosts = new List<Vector3i>();
+        public int AttackWarned;
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }

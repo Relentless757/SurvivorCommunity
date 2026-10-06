@@ -85,6 +85,7 @@ namespace SurvivorCommunity
                 ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
                 ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight
+                ScWatch.Tick(w, player);              // watch posts: shifts, the zone scan, a guard's call-outs and marker
                 ScMissing.Tick(w, player);            // residents whose body is gone from the world (Call back)
             }
             catch (Exception e)
@@ -216,6 +217,13 @@ namespace SurvivorCommunity
                         {
                             ScLog.Verbose(m.Name + ": re-applying the resident station (order " + EntityUtilities.GetCurrentOrder(m.Id) + ")");
                             ScCommunity.Station(m, npc);
+                        }
+                        else if (ScWatch.OnWatch(m))
+                        {
+                            // a guard on watch (base defence D3): the post is a Watch post - no load check, self-heal or
+                            // watchdog (each would hand out a ground post); ScWatch keeps the post, the facing and the sight,
+                            // and places a guard that does not get there
+                            ScWatch.TickGuard(m, npc, player);
                         }
                         else
                         {

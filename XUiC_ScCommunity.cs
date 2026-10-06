@@ -69,6 +69,10 @@ namespace SurvivorCommunity
         private bool radioOnline;
         /// <summary>Assign mode: the Members tab is picking someone to post at this outpost (-1 = off).</summary>
         private int assignOutpostId = -1;
+        /// <summary>Set before the window opens by a Watch post's "Assign guard" (base defence D3): pick a guard for that post.</summary>
+        public static Vector3i PendingWatch;
+        /// <summary>Watch assign mode: the Members tab is picking a guard for this Watch post (Vector3i.zero = off).</summary>
+        private Vector3i assignWatch;
 
         private struct Part
         {
@@ -175,6 +179,15 @@ namespace SurvivorCommunity
                 outpostTab = PendingOutpost != 0;
                 if (PendingOutpost > 0) opSelectedId = PendingOutpost;
                 PendingOutpost = 0;
+                // opened by a Watch post's "Assign guard": the residents, picking one (Select -> TryAssignWatch)
+                assignWatch = PendingWatch;
+                PendingWatch = Vector3i.zero;
+                if (assignWatch != Vector3i.zero)
+                {
+                    outpostTab = false;
+                    filter = Filter.AtBase;
+                    filterDirty = true;
+                }
                 search = "";
                 if (searchInput != null && !string.IsNullOrEmpty(searchInput.Text)) searchInput.Text = "";
                 if (xui != null && xui.playerUI != null && xui.playerUI.CursorController != null)
@@ -200,6 +213,8 @@ namespace SurvivorCommunity
                 list.Clear();
                 all.Clear();
                 runPicking = false;
+                // a watch pick closed unfinished: the next opening starts on the whole list again
+                if (assignWatch != Vector3i.zero) { assignWatch = Vector3i.zero; message = ""; filter = Filter.All; }
                 if (selPortrait != null) selPortrait.Texture = null;
                 if (rows != null) for (int i = 0; i < rows.Length; i++) rows[i].ClearPortrait();
                 selHasPortrait = false;
@@ -333,6 +348,7 @@ namespace SurvivorCommunity
         public void Select(Member m)
         {
             if (m == null) return;
+            if (assignWatch != Vector3i.zero && TryAssignWatch(m)) return;
             if (assignOutpostId >= 0 && TryAssign(m)) return;
             selectedId = m.Id;
             message = "";
@@ -384,6 +400,7 @@ namespace SurvivorCommunity
         private void SetTab(bool outposts)
         {
             if (assignOutpostId >= 0) { assignOutpostId = -1; message = ""; filter = Filter.All; filterDirty = true; }   // any tab click ends assign mode
+            if (assignWatch != Vector3i.zero) { assignWatch = Vector3i.zero; message = ""; filter = Filter.All; filterDirty = true; }   // and the watch one
             if (outpostTab == outposts) { RefreshBindingsSelfAndChildren(); return; }
             outpostTab = outposts;
             opMessage = "";
@@ -556,6 +573,30 @@ namespace SurvivorCommunity
             opSelectedId = o.Id;
             opMessage = string.Format(Localization.Get("scOpPosted"), m.Name, o.Name);
             Refresh();
+            return true;
+        }
+
+        /// <summary>
+        /// Watch assign mode (base defence D3): the member picked takes the watch (ScWatch.Assign tells the player and the
+        /// window closes), or the reason shows and the pick stays open.
+        /// </summary>
+        private bool TryAssignWatch(Member m)
+        {
+            EntityPlayerLocal p = Player;
+            string err;
+            if (!ScWatch.Assign(assignWatch, m, p, out err))
+            {
+                message = ScWatch.ErrorText(err, m, assignWatch);
+                if (p != null) p.PlayOneShot("ui_denied");
+                RefreshBindingsSelfAndChildren();
+                return true;
+            }
+            assignWatch = Vector3i.zero;
+            filter = Filter.All;
+            filterDirty = true;
+            message = "";
+            selectedId = m.Id;
+            Close();
             return true;
         }
 
@@ -1029,7 +1070,8 @@ namespace SurvivorCommunity
                 // ---- member list ----
                 case "membercount": _value = Num(ScRegistry.Members.Count); return true;
                 case "showingtext":
-                    _value = assignOutpostId >= 0 && !string.IsNullOrEmpty(message) ? message
+                    _value = (assignOutpostId >= 0 || assignWatch != Vector3i.zero) && !string.IsNullOrEmpty(message) ? message
+                           : assignWatch != Vector3i.zero ? string.Format(Localization.Get("scUiWatchPick"), ScWatch.Label(assignWatch))
                            : string.Format(Localization.Get("scWinShowing"), ShownOnPage(), list.Count);
                     return true;
                 case "filterlabel": _value = Localization.Get(FilterKeys[(int)filter]); return true;
@@ -1307,6 +1349,7 @@ namespace SurvivorCommunity
                 case MemberStatus.OnRun: s = ScRuns.ShortStatus(m, brief); break;
                 case MemberStatus.Garrison: s = ScGarrison.StatusText(m, brief); break;
                 case MemberStatus.Resident when ScMissing.IsMissing(m): s = Localization.Get("scStMissing"); break;
+                case MemberStatus.Resident when ScWatch.OnWatch(m): s = ScWatch.StatusText(m, brief); break;   // base defence D3
                 default: s = Localization.Get("scStAtBase"); break;
             }
             // a follower holding a voice / order-wheel order: "Following (holding)", "Heading home (guarding)" (ScOrders)

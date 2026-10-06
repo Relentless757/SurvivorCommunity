@@ -1334,17 +1334,21 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             int each = PointsPerRound(ammo.ItemClass);
             int perBundle = Math.Max(1, ScConfig.PointsPerBundle[(int)Resource.Ammo]);
+            // a guard on watch spends what the shift prepaid first (base defence D3, decision Q10); 0 for everyone else
+            int pre = ScWatch.Prepaid(m);
             int opened = 0;
-            while (c.AmmoOpenPoints < want * each && c.Get(Resource.Ammo) > 0)
+            while (pre + c.AmmoOpenPoints < want * each && c.Get(Resource.Ammo) > 0)
             {
                 c.Add(Resource.Ammo, -1);
                 c.AmmoOpenPoints += perBundle;
                 opened++;
             }
-            int give = Math.Min(want, c.AmmoOpenPoints / each);
+            int give = Math.Min(want, (pre + c.AmmoOpenPoints) / each);
             if (give < want) c.AmmoShort = true;        // tonight's ledger: the stockpile could not cover a resupply
             int added = give > 0 ? AddRounds(e, ammo, give) : 0;
-            c.AmmoOpenPoints = Math.Max(0, c.AmmoOpenPoints - added * each);
+            int fromShift = ScWatch.SpendPrepaid(m, added * each);
+            int fromStock = added * each - fromShift;
+            c.AmmoOpenPoints = Math.Max(0, c.AmmoOpenPoints - fromStock);
             c.AmmoOpened += opened;
             bundlesOpened += opened;
             nextResupply[e.entityId] = now + ScConfig.XnpcResupplyCooldown;
@@ -1357,10 +1361,12 @@ namespace SurvivorCommunity
             }
             resupplies++;
             roundsGiven += added;
-            if (where == "home") ScBaseAttack.NoteResupply(added, added * each);   // a home attack's bill (base defence D2)
+            // a home attack's bill (base defence D2): what the stockpile paid now, not what a watch shift paid at its start
+            if (where == "home" && fromStock > 0) ScBaseAttack.NoteResupply((fromStock + each - 1) / each, fromStock);
             Record(m, e);       // the stockpile just paid for these: a body that unloads before the next tick keeps them
             ScLog.Out((standIn ? m.Name + "'s stand-in" : m.Name) + " (id " + e.entityId + ") resupplied " + (where == "home" ? "at home" : "at " + where) + ": "
                       + added + " " + ammo.ItemClass.GetItemName() + " for " + gun.GetItemName() + " at " + each + " point(s) each"
+                      + (fromShift > 0 ? " - " + fromShift + " point(s) from the watch shift, " + m.WatchPrepaid + " left" : "")
                       + (opened > 0 ? " - opened " + opened + " ammo bundle(s), " + c.Get(Resource.Ammo) + " left" : "")
                       + " (" + c.AmmoOpenPoints + " point(s) left in the open bundle)");
             ScRegistry.SaveAtomic();
@@ -1379,7 +1385,8 @@ namespace SurvivorCommunity
             int each = PointsPerRound(ammo.ItemClass);
             int perBundle = Math.Max(1, ScConfig.PointsPerBundle[(int)Resource.Ammo]);
             int want = ScConfig.XnpcResupplyAmmo;
-            long canPay = (long)c.AmmoOpenPoints + (long)Math.Max(0, c.Get(Resource.Ammo)) * perBundle;
+            // a guard on watch spends what the shift prepaid first (base defence D3, decision Q10); 0 for everyone else
+            long canPay = (long)ScWatch.Prepaid(m) + (long)c.AmmoOpenPoints + (long)Math.Max(0, c.Get(Resource.Ammo)) * perBundle;
             int give = (int)Math.Min(want, canPay / each);
             nextResupply[e.entityId] = now + ScConfig.XnpcResupplyCooldown;
             string who = (standIn ? m.Name + "'s stand-in" : m.Name) + " (id " + e.entityId + ")";
@@ -1399,23 +1406,27 @@ namespace SurvivorCommunity
             }
             if (added == give && give < want) c.AmmoShort = true;    // the stockpile, not the magazines, set the limit
             int cost = added * each, opened = 0;
-            while (c.AmmoOpenPoints < cost && c.Get(Resource.Ammo) > 0)
+            int fromShift = ScWatch.SpendPrepaid(m, cost);
+            int fromStock = cost - fromShift;
+            while (c.AmmoOpenPoints < fromStock && c.Get(Resource.Ammo) > 0)
             {
                 c.Add(Resource.Ammo, -1);
                 c.AmmoOpenPoints += perBundle;
                 opened++;
             }
-            c.AmmoOpenPoints = Math.Max(0, c.AmmoOpenPoints - cost);
+            c.AmmoOpenPoints = Math.Max(0, c.AmmoOpenPoints - fromStock);
             c.AmmoOpened += opened;
             bundlesOpened += opened;
             resupplies++;
             roundsGiven += added;
             refills++;
             refillRounds += added;
-            if (where == "home") ScBaseAttack.NoteResupply(added, cost);   // a home attack's bill (base defence D2)
+            // a home attack's bill (base defence D2): what the stockpile paid now, not what a watch shift paid at its start
+            if (where == "home" && fromStock > 0) ScBaseAttack.NoteResupply((fromStock + each - 1) / each, fromStock);
             Record(m, e);
             ScLog.Out(who + " resupplied " + (where == "home" ? "at home" : "at " + where) + ": " + added + " " + ammo.ItemClass.GetItemName()
                       + " into their " + gun.GetItemName() + " magazines at " + each + " point(s) each"
+                      + (fromShift > 0 ? " - " + fromShift + " point(s) from the watch shift, " + m.WatchPrepaid + " left" : "")
                       + (opened > 0 ? " - opened " + opened + " ammo bundle(s), " + c.Get(Resource.Ammo) + " left" : "")
                       + " (" + c.AmmoOpenPoints + " point(s) left in the open bundle)");
             ScRegistry.SaveAtomic();

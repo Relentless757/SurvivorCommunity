@@ -35,7 +35,10 @@ namespace SurvivorCommunity
     ///             zombie would walk past the residents - and only nudged to another spot in the zone after IdleNudge
     ///             seconds with nothing to do. A zombie that wanders far off is steered back.
     ///   Defence   while it is live the residents defend the whole zone + BaseAttackDefendMargin (WideDefence: ScIntruder,
-    ///             the leash ScFarFromPost, the watchdog), not just DefendBaseRadius around their posts.
+    ///             the leash ScFarFromPost, the watchdog), not just DefendBaseRadius around their posts - except a guard on
+    ///             watch (D3, ScWatch), who stays at the Watch post and shoots from there.
+    ///   Warning   none from here: a guard on watch calls the horde out (ScWatch, decision Q6) with ApproachPoint, SeenBy
+    ///             and Centroid; Community.AttackWarned records what was told and is cleared with each call and ending.
     ///   Held      every attacker dead while the player is home: the Defence morale part, sc_ev_defend, a tooltip and a
     ///             ledger line with what the fight cost the stockpile (ScAmmo's resupplies, NoteResupply).
     ///   Left      the player more than BaseAttackLeaveRange m outside the zone: the attackers still standing go, and
@@ -155,11 +158,12 @@ namespace SurvivorCommunity
             return new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));     // 0 = north (+z), 90 = east (+x)
         }
 
+        private static readonly string[] SideNames = { "north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west" };
+
         public static string Side(int bearing)
         {
-            string[] names = { "north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west" };
             int i = Mathf.RoundToInt(((bearing % 360) + 360) % 360 / 45f) % 8;
-            return names[i];
+            return SideNames[i];
         }
 
         /// <summary>A random spot inside the zone (inset 2 m), at the home block's height.</summary>
@@ -315,8 +319,10 @@ namespace SurvivorCommunity
             c.AttackArrive = w.worldTime + (now ? 0UL : LeadTicks(rnd));
             if (c.AttackArrive == 0UL) c.AttackArrive = 1UL;
             c.Attention = 0f;                     // the dead have found the base: attention starts over
+            c.AttackWarned = 0;
             sessionReady = true;
-            // no word to the player: only a guard on watch sees a horde coming (D3, decision Q6)
+            // no word to the player here: only a guard on watch sees a horde coming (decision Q6) - ScWatch's call-out,
+            // within the second while the player is at the base
             ScLog.Out("base attack called (" + why + "): " + c.AttackSize + " zombie(s) from the " + Side(c.AttackBearing)
                       + " (bearing " + c.AttackBearing + "), arriving " + Clock(c.AttackArrive) + "; mix " + Mix(player));
             ScRegistry.SaveAtomic();
@@ -733,6 +739,7 @@ namespace SurvivorCommunity
             c.AttackSpawned = c.AttackKilled;
             c.AttackState = StateCalled;
             c.AttackArrive = 0UL;
+            if (c.AttackWarned > 1) c.AttackWarned = 1;   // the ones that come back are a fresh sighting for a guard on watch (D3)
             int left = c.AttackSize - c.AttackKilled;
             if (player != null && arrivalTold) ScCommunity.Tell(player, string.Format(Localization.Get("scBaseLeft"), left), "");
             ScLog.Out("base attack: the player left the fight (" + (int)OutsideZone(player.position) + " m out) - " + gone + " attacker(s) despawned; "
@@ -783,8 +790,56 @@ namespace SurvivorCommunity
             c.AttackArrive = c.AttackStarted = 0UL;
             c.AttackBearing = c.AttackSize = c.AttackSpawned = c.AttackKilled = 0;
             c.AttackAmmoRounds = c.AttackAmmoPoints = 0;
+            c.AttackWarned = 0;                    // ScWatch's call-outs; its marker goes on its next tick
             attackers.Clear();
             arrivalTold = false;
+        }
+
+        // ------------------------------------------------------------------ for the watch posts (D3, ScWatch) ----
+
+        /// <summary>Where the called horde gathers: on its side, half-way out the spawn ring (the guard's "gathering" marker).</summary>
+        public static Vector3 ApproachPoint()
+        {
+            Vector3 dir = Dir(ScRegistry.Community.AttackBearing);
+            return homeCentre + dir * (EdgeAlong(homeCentre, dir) + 0.5f * (ScConfig.BaseAttackSpawnMin + ScConfig.BaseAttackSpawnMax));
+        }
+
+        /// <summary>The centre of the live attackers in the world; false with none.</summary>
+        public static bool Centroid(World w, out Vector3 at)
+        {
+            at = Vector3.zero;
+            if (w == null || attackers.Count == 0) return false;
+            int n = 0;
+            foreach (int id in attackers.Keys)
+            {
+                EntityAlive z = w.GetEntity(id) as EntityAlive;
+                if (z == null || z.IsDead()) continue;
+                at += z.position;
+                n++;
+            }
+            if (n == 0) return false;
+            at /= n;
+            return true;
+        }
+
+        /// <summary>
+        /// A live attacker the guard can see - within its sight (raised on watch) with no block between their heads
+        /// (EntityAlive.CanSee: it sees through glass) - or null. Once a second per guard until one is seen.
+        /// </summary>
+        public static EntityAlive SeenBy(World w, EntityAlive guard)
+        {
+            if (w == null || guard == null || attackers.Count == 0) return null;
+            float see = guard.GetSeeDistance();
+            Vector3 eye = guard.getHeadPosition();
+            foreach (int id in attackers.Keys)
+            {
+                EntityAlive z = w.GetEntity(id) as EntityAlive;
+                if (z == null || z.IsDead()) continue;
+                Vector3 head = z.getHeadPosition();
+                if ((head - eye).sqrMagnitude > see * see) continue;
+                if (guard.CanSee(head)) return z;
+            }
+            return null;
         }
 
         // ------------------------------------------------------------------ ammo, the day, text ----

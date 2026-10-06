@@ -633,3 +633,37 @@ scBaseLeft,UI,Tooltip,,,,"You left the fight. The {0} dead still standing will b
 scBaseAmmo,UI,Tooltip,,,,"{0} rounds from the stockpile, about {1} ammo bundles"
 scBaseAmmoNone,UI,Tooltip,,,,"nothing from the stockpile"
 scMoraleDefence,UI,Menu,,,,"Defended the base"
+scWatchPost,Block,Block,,,,Watch Post
+scWatchPostDesc,Block,Block,,,,"A lookout spot for your community. Place it inside your community's land - on top of a tower is best, with two blocks of room above it - up to 4 of them. Hold E on it to assign a guard: they stand on it for a 12-hour watch facing the way you looked when you placed it, see 50% farther, shoot whatever comes into range and call out hordes while you're at the base. A shift takes 3 ammo bundles from the stockpile, which also pay for that guard's resupplies. Every manned post makes the base draw the dead's attention more slowly."
+blockcommand_scwatchassign,UI,Radial blockcommand,,,,Assign guard
+blockcommand_scwatchrelieve,UI,Radial blockcommand,,,,Relieve guard
+scWatchPostLabel,UI,Tooltip,,,,Watch post {0} ({1})
+scWatchActEmpty,UI,Tooltip,,,,{0}: no guard on watch
+scWatchActManned,UI,Tooltip,,,,"{0}: {1} on watch, {2} h left"
+scWatchActNotPost,UI,Tooltip,,,,Not a working watch post: {0}
+scWatchReady,UI,Tooltip,,,,{3} is ready. Hold E on it to assign a guard.
+scWatchAssigned,UI,Tooltip,,,,{0} takes the watch at {3} for {1} hours ({2} ammo bundles from the stockpile).
+scWatchRelieved,UI,Tooltip,,,,{0} comes down from {3}.
+scWatchShiftOver,UI,Tooltip,,,,{0}'s watch at {3} is over. The post is empty until you assign someone; {0} rests {1} hours.
+scWatchPostGone,UI,Tooltip,,,,{3} is gone - {0} goes back to their post.
+scWatchBlockedEnd,UI,Tooltip,,,,There's no room to stand on {3} any more - {0} goes back to their post.
+scWatchGathering,UI,Tooltip,,,,{0} on watch: a horde is gathering to the {1}!
+scWatchSpotted,UI,Tooltip,,,,{0} on watch: the horde is coming from the {1}!
+scWatchMarker,UI,Map,,,,Horde
+scWatchOff,UI,Tooltip,,,,Watch posts are switched off (WatchPosts in the config).
+scWatchNoHome,UI,Tooltip,,,,A watch post only works inside your community's land - set a home first.
+scWatchOutside,UI,Tooltip,,,,A watch post must stand inside your community's land.
+scWatchTooMany,UI,Tooltip,,,,Your community already has {1} watch posts.
+scWatchErrNotPost,UI,Tooltip,,,,This is not a working watch post.
+scWatchManned,UI,Tooltip,,,,{0} is already on watch at {3}.
+scWatchNoGuard,UI,Tooltip,,,,Nobody is on watch at {3}.
+scWatchElsewhere,UI,Tooltip,,,,{0} is already on watch at another post - relieve them there first.
+scWatchNotHome,UI,Tooltip,,,,{0} must be living at the base to keep watch.
+scWatchInjured,UI,Tooltip,,,,{0} is injured and can't keep watch.
+scWatchResting,UI,Tooltip,,,,{0} is resting after a watch ({1} h left).
+scWatchNoAmmo,UI,Tooltip,,,,A watch shift takes {1} ammo bundles - the stockpile has {2}.
+scWatchErrBlocked,UI,Tooltip,,,,There's no room to stand on {3} (two blocks of air above it).
+scWatchBusy,UI,Tooltip,,,,They're on watch - relieve them at their watch post first.
+scUiWatchPick,UI,Menu,,,,Pick a guard for {0}.
+scStOnWatch,UI,Menu,,,,On watch
+scStOnWatchLong,UI,Menu,,,,On watch at {0} - {1} h left

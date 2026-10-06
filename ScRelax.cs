@@ -186,7 +186,10 @@ namespace SurvivorCommunity
             if (t != null && t != e && !t.IsDead()) return "fighting #" + t.entityId;
             t = e.GetRevengeTarget();
             if (t != null && t != e && !t.IsDead()) return "hurt by #" + t.entityId;
-            return EnemyInRange(e);
+            string near = EnemyInRange(e);
+            // a guard on watch stays alert all shift (base defence D3); the cvar carries it to every machine
+            if (near == null && ScWatch.Guarding(e.entityId)) return "on watch";
+            return near;
         }
 
         /// <summary>

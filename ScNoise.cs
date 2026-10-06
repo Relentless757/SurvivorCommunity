@@ -178,6 +178,8 @@ namespace SurvivorCommunity
         {
             float steady = Steady();
             bool attack = ScBaseAttack.Open;
+            // manned watch posts (base defence D3): each cuts the gain by WatchAttentionCut, at most WatchAttentionCutMax
+            float watch = ScWatch.AttentionFactor();
             float halfLife = Math.Max(0.05f, ScConfig.NoiseHalfLifeHours);
             float lambda = 0.6931472f / halfLife;
             float left = hours;
@@ -190,6 +192,7 @@ namespace SurvivorCommunity
                 c.NoiseEvents *= keep;
                 if (c.NoiseEvents < 0.01f) c.NoiseEvents = 0f;
                 float rate = RatePerHour(steady + avgEvents);
+                if (rate > 0f) rate *= watch;
                 if ((bloodMoon || attack) && rate > 0f) rate = 0f;   // the dead are busy (the blood moon, or here already): nothing gained
                 // full is full until a horde is called (D2: the call waits for the player, the gap, the blood moon)
                 if (rate < 0f && c.Attention >= 100f && ScBaseAttack.HoldsFullAttention) rate = 0f;
@@ -291,6 +294,8 @@ namespace SurvivorCommunity
               .Append(", workstations ").Append(c.Facilities).Append(" x").Append(F(ScConfig.NoisePerFacility))
               .Append(") + events ").Append(F(c.NoiseEvents)).Append(" (half-life ").Append(F(ScConfig.NoiseHalfLifeHours)).Append(" h)\n");
             float rate = RatePerHour(cur);
+            float watch = ScWatch.AttentionFactor();
+            if (rate > 0f) rate *= watch;
             sb.Append("attention ").Append(F(c.Attention)).Append("% (");
             if (bloodMoon) sb.Append("paused: blood moon");
             else if (ScBaseAttack.Open) sb.Append("paused: an attack is open");
@@ -300,6 +305,7 @@ namespace SurvivorCommunity
                 sb.Append(rate >= 0f ? "+" : "").Append(rate.ToString("0.##", CultureInfo.InvariantCulture)).Append("/h at this noise");
                 if (rate > 0f && c.Attention < 100f) sb.Append(", full in about ").Append(F((100f - c.Attention) / rate)).Append(" h");
             }
+            if (watch < 1f) sb.Append("; gain x").Append(watch.ToString("0.##", CultureInfo.InvariantCulture)).Append(" for ").Append(ScWatch.Manned()).Append(" manned watch post(s)");
             sb.Append("); levels: noticeable ").Append(F(ScConfig.NoiseNoticeable)).Append(", loud ").Append(F(ScConfig.NoiseLoud))
               .Append(", very loud ").Append(F(ScConfig.NoiseVeryLoud)).Append('\n');
             sb.Append("heard this session: heat events ").Append(heardHeat).Append(" (in the zone ").Append(countedHeat)

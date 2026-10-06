@@ -150,5 +150,26 @@
 				<property name="offset" value="0,0,0" />
 			</compass_settings>
 		</nav_object_class>
+		<!-- A horde a guard on watch called out (ScWatch, base defence D3): on the side it gathers on, then on the horde
+		     once a guard sees it. Owner-only, map and compass, orange so it is not mistaken for an outpost under attack. -->
+		<nav_object_class name="sc_base_attack">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_skull"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="255,150,40,255"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+			<compass_settings>
+				<property name="sprite_name" value="ui_game_symbol_skull"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="255,150,40,255"/>
+				<property name="has_pulse" value="true"/>
+				<property name="offset" value="0,0,0" />
+			</compass_settings>
+		</nav_object_class>
 	</append>
 </configs>

@@ -25,6 +25,16 @@ namespace SurvivorCommunity
         private static EntityPlayerLocal placingPlayer;
         private static float nextRefusalTip;
 
+        /// <summary>
+        /// The local player when this frame is a block placement press (Patch_BlockToolExecuteUseAction's stamp), else
+        /// null: a placement gate that refuses every frame for the preview tells the reason only on the press (the Watch
+        /// post, base defence D3).
+        /// </summary>
+        public static EntityPlayerLocal PressingPlayer()
+        {
+            return placingFrame == Time.frameCount ? placingPlayer : null;
+        }
+
         /// <summary>The home claim, or a held outpost's claim: never the one the claim limit drops.</summary>
         public static bool IsProtectedClaim(Vector3i p)
         {

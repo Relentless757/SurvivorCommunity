@@ -435,6 +435,11 @@ namespace SurvivorCommunity
                 case "baseattack": ParseBaseAttack(c, val); break;
                 case "attacknext": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.AttackNotBefore = u; break; }
                 case "defended": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DefenceTriumph = Math.Max(0f, Math.Min(10f, f)); break; }
+                case "watchposts":
+                    c.WatchPosts.Clear();
+                    foreach (string part in val.Split(';')) { Vector3i v; if (part.Length > 0 && TryVec(part, out v) && !c.WatchPosts.Contains(v)) c.WatchPosts.Add(v); }
+                    break;
+                case "attackwarn": c.AttackWarned = Clamp(I(val), 0, 2); break;
                 case "harvestcarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.HarvestCarry = f; break; }
                 case "stock":
                     foreach (string part in val.Split(','))
@@ -540,6 +545,23 @@ namespace SurvivorCommunity
                 case "carry": m.RunCarry = Math.Max(0, I(val)); break;
                 case "rollpending": m.RollPending = val == "1"; break;
                 case "snap": m.Snap = val; break;
+                case "watch":
+                {
+                    // post x,y,z : start : prepaid points : home post x,y,z (base defence D3)
+                    string[] f = val.Split(':');
+                    Vector3i post, home;
+                    ulong start;
+                    if (f.Length == 4 && TryVec(f[0], out post) && post != Vector3i.zero
+                        && ulong.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out start) && TryVec(f[3], out home))
+                    {
+                        m.WatchPost = post;
+                        m.WatchStart = start;
+                        m.WatchPrepaid = Math.Max(0, I(f[2]));
+                        m.WatchHome = home;
+                    }
+                    break;
+                }
+                case "watchrest": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) m.WatchRestUntil = u; break; }
             }
         }
 
@@ -653,6 +675,13 @@ namespace SurvivorCommunity
                                   + ":" + c.AttackBearing + ":" + c.AttackSize + ":" + c.AttackSpawned + ":" + c.AttackKilled + ":" + c.AttackAmmoRounds + ":" + c.AttackAmmoPoints);
                 if (c.AttackNotBefore > 0UL) sb.AppendLine("attacknext=" + c.AttackNotBefore.ToString(CultureInfo.InvariantCulture));
                 if (c.DefenceTriumph > 0f) sb.AppendLine("defended=" + c.DefenceTriumph.ToString("0.##", CultureInfo.InvariantCulture));
+                if (c.WatchPosts.Count > 0)
+                {
+                    var wp = new StringBuilder();
+                    foreach (Vector3i v in c.WatchPosts) { if (wp.Length > 0) wp.Append(';'); wp.Append(Vec(v)); }
+                    sb.AppendLine("watchposts=" + wp);
+                }
+                if (c.AttackWarned > 0) sb.AppendLine("attackwarn=" + c.AttackWarned);
                 sb.AppendLine("harvestcarry=" + c.HarvestCarry.ToString("0.###", CultureInfo.InvariantCulture));
                 var st = new StringBuilder();
                 for (int i = 0; i < 5; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
@@ -730,6 +759,9 @@ namespace SurvivorCommunity
                     }
                     if (m.Loadout != null) sb.AppendLine("loadout=" + Clean(m.Loadout.Encode()));
                     if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11)
+                    if (m.WatchPost != Vector3i.zero)
+                        sb.AppendLine("watch=" + Vec(m.WatchPost) + ":" + m.WatchStart.ToString(CultureInfo.InvariantCulture) + ":" + m.WatchPrepaid + ":" + Vec(m.WatchHome));
+                    if (m.WatchRestUntil > 0UL) sb.AppendLine("watchrest=" + m.WatchRestUntil.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var ct in Contacts)
                 {

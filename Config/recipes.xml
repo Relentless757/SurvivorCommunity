@@ -13,6 +13,13 @@
 			<ingredient name="resourceScrapPolymers" count="10"/>
 		</recipe>
 	</append>
+	<!-- The Watch post (base defence D3): cheap, crafted in the backpack. -->
+	<append xpath="/recipes">
+		<recipe name="scWatchPost" count="1" craft_time="10" tags="packMuleCrafting">
+			<ingredient name="resourceWood" count="10" />
+			<ingredient name="resourceNail" count="4" />
+		</recipe>
+	</append>
 	<!-- The Outpost Flag: a land claim plus cloth and iron for the flag. -->
 	<append xpath="/recipes">
 		<recipe name="scOutpostFlag" count="1" craft_time="10" tags="packMuleCrafting">

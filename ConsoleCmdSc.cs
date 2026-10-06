@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end, watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -88,6 +88,7 @@ namespace SurvivorCommunity
                     case "noise": NoiseCmd(_params); break;
                     case "attention": AttentionCmd(_params); break;
                     case "attack": AttackCmd(_params); break;
+                    case "watch": WatchCmd(_params); break;
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
@@ -241,6 +242,75 @@ namespace SurvivorCommunity
             if (why != null) { Output("[SC] no attack: " + why); return; }
             ScBaseAttack.Call(w, player, size, now, "the console");
             foreach (string line in ScBaseAttack.StatusText(w, player).Split('\n')) Output("[SC] " + line);
+        }
+
+        /// <summary>
+        /// sc watch [list] - the Watch posts, their guards and hours left, who rests, the attention cut and the call-outs
+        /// (base defence D3). assign &lt;post&gt; &lt;member&gt; - a shift, with every rule the radial has (ammo, rest, room).
+        /// relieve &lt;post|member&gt; - ends it early (no rest). end &lt;post|member&gt; - ends it now as if its hours had run
+        /// (the rest applies). rest &lt;member&gt; [clear] - the rest left, or cleared. place &lt;post|member&gt; - the guard
+        /// onto the post now, looked at or not. scan - the zone's loaded chunks against the post list now. A post is its
+        /// number in the list or x,y,z. Host only.
+        /// </summary>
+        private static void WatchCmd(List<string> p)
+        {
+            World w = ScCommunity.World;
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            if (!ScCommunity.IsHost || w == null) { Output("[SC] host only, in a world"); return; }
+            string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "list";
+            string usage = "watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan (a post: its number or x,y,z)";
+            switch (verb)
+            {
+                case "list":
+                    break;
+                case "scan":
+                    ScWatch.Scan(w);
+                    break;
+                case "assign":
+                {
+                    Vector3i post = p.Count >= 3 ? ScWatch.ParsePost(p[2]) : Vector3i.zero;
+                    Member m = p.Count >= 4 ? FindMember(p[3]) : null;
+                    if (post == Vector3i.zero || m == null) { Output("[SC] " + usage); return; }
+                    string err;
+                    bool ok = ScWatch.Assign(post, m, player, out err);
+                    Output("[SC] " + (ok ? m.Name + " is on watch at " + ScWatch.Label(post) : "refused: " + ScWatch.ErrorText(err, m, post)));
+                    break;
+                }
+                case "relieve":
+                case "end":
+                case "place":
+                {
+                    Member m = p.Count >= 3 ? WatchMember(p[2]) : null;
+                    if (m == null) { Output("[SC] nobody on watch there - " + usage); return; }
+                    bool ok = verb == "relieve" ? ScWatch.Relieve(m, player, "the console")
+                            : verb == "end" ? ScWatch.EndShiftNow(m, player)
+                            : ScWatch.PlaceNow(m);
+                    Output("[SC] " + m.Name + ": " + (ok ? verb + " done" : verb + " failed (not loaded, or the post's chunk is not)"));
+                    break;
+                }
+                case "rest":
+                {
+                    Member m = p.Count >= 3 ? FindMember(p[2]) : null;
+                    if (m == null) { Output("[SC] " + usage); return; }
+                    if (p.Count >= 4 && p[3].Equals("clear", StringComparison.OrdinalIgnoreCase)) { m.WatchRestUntil = 0UL; ScRegistry.SaveAtomic(); Output("[SC] " + m.Name + " may take a watch at once"); return; }
+                    Output("[SC] " + m.Name + (m.WatchRestUntil > w.worldTime ? " rests until " + ScBaseAttack.Clock(m.WatchRestUntil) : " is not resting"));
+                    return;
+                }
+                default:
+                    Output("[SC] " + usage);
+                    return;
+            }
+            foreach (string line in ScWatch.ListText(w).Split('\n')) Output("[SC] " + line);
+        }
+
+        /// <summary>The guard of a post (its number or x,y,z), or a member on watch by id or name.</summary>
+        private static Member WatchMember(string key)
+        {
+            Vector3i post = ScWatch.ParsePost(key);
+            Member g = post != Vector3i.zero ? ScWatch.GuardOf(post) : null;
+            if (g != null) return g;
+            Member m = FindMember(key);
+            return ScWatch.OnWatch(m) ? m : null;
         }
 
         /// <summary>sc attention &lt;0-100&gt; - sets the dead's attention (at 100 a horde is called once the player is home).</summary>
@@ -1632,6 +1702,7 @@ namespace SurvivorCommunity
             Member m = p.Count > 1 ? FindMember(p[1]) : null;
             if (m == null) { Output("[SC] usage: sc repost <member id|name> - gives a resident a new post"); return; }
             if (m.Status != MemberStatus.Resident) { Output("[SC] " + m.Name + " is " + m.Status + ", not a resident at a post"); return; }
+            if (ScWatch.OnWatch(m)) { Output("[SC] " + m.Name + " is on watch at " + ScWatch.Label(m.WatchPost) + " - sc watch relieve first"); return; }
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             if (npc == null) { Output("[SC] " + m.Name + " is not loaded"); return; }
             Vector3i old = m.Post;

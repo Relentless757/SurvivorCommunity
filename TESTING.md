@@ -25,6 +25,103 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Base defence D3: watch posts and 12-hour guard shifts
+
+**Deployed 2026-10-06** (Fable review + re-check: deployable). DLL md5 `7d2731b0ab47af8926a22101da37f40f`, deployed **together with** the same tree's Config: the
+`scWatchPost` block and the `Watch*` keys in `blocks.xml`, its recipe, the `sc_base_attack` marker in `nav_objects.xml`,
+the AI gates in `utilityai.xml` (the gates name a class in the DLL: the two must ship together) and the localization.
+Plan: `BaseDefence_Plan.md` in the game root (section 6, with the D3 answers of 2026-10-06); report and reviews in
+`_research\base_defence\` (D3_REPORT.md, fable_review_d3.md, fable_recheck_d3.md). No new Harmony target (still **76**,
+69 without Voice Control). No save format change: new keys in existing sections - `[community]` `watchposts`,
+`attackwarn`; `[member]` `watch`, `watchrest` - which older builds ignore (an older build sees a guard as an ordinary
+resident whose post is the tower top).
+
+What changed:
+- **The Watch Post** (crafted in the backpack: 10 wood, 4 nails) is a full cube with barricade planks on top and
+  reinforced wood sides. It only goes inside the community's land, at most 4; elsewhere the ghost is red and the press
+  says why. It faces the way you looked when you placed it (R turns it). Leave two blocks of air above it.
+- **Assigning a guard:** hold E on the post, "Assign guard": the community window opens on the residents; pick one. A
+  shift lasts 12 game hours and takes 3 ammo bundles from the stockpile at once (no shift with fewer). Refused for
+  someone injured, unhappy (mood under 25), resting, or already on watch, and when there is no room on the post.
+  "Relieve guard" ends it early (no rest, nothing refunded).
+- **Getting there:** the guard walks up (ladders work for these bodies). Not there about 30 s after setting off, they
+  are put on the post the moment you are not looking at them or the post.
+- **On watch** the guard stays on the post: no roaming, no walking to intruders (even during a live attack), no
+  backing off, no Cowardly flight, no melee swap up close while the gun has rounds. They face the post's way, never lower
+  their weapon, see 50% farther (90 m instead of 60) and shoot whatever comes into range. No watchdog moves them: the
+  only fix-up is the 30 s placement.
+- **The shift's ammo** pays for that guard's resupplies first (3 x 2000 points); once used up, resupply comes from
+  the stockpile as usual. What is left at the end is spent.
+- **After a full shift** the post is empty until you assign someone, and that guard rests 12 game hours. A post that
+  is picked up, broken or built over sends its guard back to their old post; so does following you, which is refused
+  while on watch anyway (as are supply runs and outpost postings).
+- **Call-outs**, only while you are at the base (inside the claim or within 30 m): when a horde is called, a guard on
+  watch says "X on watch: a horde is gathering to the north!" and an orange skull marker (compass and map) shows that
+  side; when a guard first sees an attacker, "X on watch: the horde is coming from the north!" and the marker moves onto
+  the horde until the fight ends. Without a guard, nothing changes from D2.
+- **Attention:** every manned post cuts attention gain by 15% (at most 45% for three or four).
+
+Known limits (not bugs): until a guard first sees an attacker, the marker stays on the side the horde was called from,
+even if the spawns fall back to another side (no spot on theirs for 20 s). The Watch Post's item description names the
+default numbers (4 posts, 12 hours, 50% farther, 3 bundles); after retuning the `Watch*` keys it no longer matches.
+
+Console: `sc watch` (or `sc watch list`) lists the posts, which way each faces, each guard's hours left, prepaid points
+and sight, who is resting, the attention cut and the call-outs. `sc watch assign <post> <member>` (all the radial's
+rules), `sc watch relieve <post|member>`, `sc watch end <post|member>` (as if the 12 hours had run: the rest applies),
+`sc watch rest <member> [clear]`, `sc watch place <post|member>` (onto the post now, looked at or not), `sc watch scan`.
+A post is its number in the list or `x,y,z`. Config: `WatchPosts` and the `Watch*` keys in `Config/blocks.xml`.
+
+- [ ] **Startup:** `patch verification: all 76 targets patched` (69 without Voice Control); the `config:` line ends with
+      `watchPosts=4 posts, shift 12h (rest 12h, 3 ammo), sight x1.5, placed after 30s, attention -0.15/post (max -0.45)`.
+- [ ] **The block:** it crafts in the backpack; placed, it is a cube with planks on top and reinforced wood sides, and
+      its inventory icon is a cube on the plank texture. Its E prompt reads "Watch post 1 (north): no guard on watch".
+- [ ] **Placement rules:** outside the claim the ghost is red and pressing says "A watch post must stand inside your
+      community's land."; a fifth post says "Your community already has 4 watch posts."; inside, "Watch post 1 (...) is
+      ready. Hold E on it to assign a guard." `sc watch` lists it and the way it faces (the way you looked).
+- [ ] **Assigning:** "Assign guard" opens the window on the residents with "Pick a guard for Watch post 1 (...)." in
+      the list header; a click closes it with "X takes the watch at Watch post 1 (...) for 12 hours (3 ammo bundles from the
+      stockpile)." and the stockpile shows 3 fewer. The list row says "On watch", the selection "On watch at Watch post 1
+      (...) - 12 h left".
+- [ ] **Refusals:** with fewer than 3 ammo bundles the radial says so at once; picking someone injured, under 25 mood,
+      resting or already on watch shows the reason in the list header and keeps the pick open.
+- [ ] **Getting there:** the guard walks to the tower and climbs. If they are not up within about 30 s they appear on
+      the post the moment you look away (log: `placed on Watch post 1 ... the player not looking`), never while you watch.
+- [ ] **Stays put:** on the post the guard faces the post's way, keeps the weapon up (`sc xnpc <id>` with nothing
+      about: relax says "on watch"), does not roam by day, does not idle facing elsewhere at night, and is never moved by
+      the stuck watchdog.
+- [ ] **Fights from the post:** zombies in range are shot from up there; the guard does not back off the edge, chase an
+      intruder, swap to the melee weapon up close (while the gun has rounds) or flee if Cowardly. During `sc attack now 6`
+      the other residents defend the whole base and the guard stays on the tower.
+- [ ] **Sight:** `sc watch` shows the guard's sight as 90 m; when the watch ends the log line `X's watch at ... ended
+      (...)` ends with `sight 60 m`.
+- [ ] **Call-out at the call:** guard on watch, you at home: `sc attack 6` - within a second "X on watch: a horde is
+      gathering to the <side>!" and an orange skull on the compass and the map on the side `sc attack status` names.
+      Without a guard on watch nothing is shown (D2).
+- [ ] **Call-out on sight:** when the horde arrives, the first time the guard sees one: "X on watch: the horde is
+      coming from the <side>!", and the skull moves onto the horde and follows it; it is gone once the attack ends.
+- [ ] **Not while away:** called while you are more than 30 m outside the claim (`sc attack` from afar): no call-out
+      until you are back; the skull hides when you are more than 150 m out.
+- [ ] **Attention:** with one guard on watch `sc noise` adds "gain x0.85 for 1 manned watch post(s)" (x0.7 with two,
+      x0.55 with three or four) and the "+N/h" figure is that much smaller.
+- [ ] **The shift's ammo:** during the shift the guard's resupplies log "N point(s) from the watch shift, M left" and
+      open no bundles until the 6000 points are used up; then they open bundles as usual.
+- [ ] **Shift end:** `sc watch end 1` (or a 12-hour `settime` jump): "X's watch at Watch post 1 (...) is over. ...",
+      the guard walks back to their old post, `sc watch` shows "X rests 12 more h" and assigning them is refused until
+      then (`sc watch rest X clear` lifts it). The real 12 hours end the same way.
+- [ ] **Relieve:** "Relieve guard" on the radial: "X comes down from Watch post 1 (...)." and they go back to their
+      old post; they can take a new shift at once (3 more ammo).
+- [ ] **Post gone:** pick up or break a manned post: "Watch post 1 (...) is gone - X goes back to their post."; `sc
+      watch` no longer lists it. Put a block in the cell above a manned post, with the guard nearby (loaded): the watch
+      ends ("There's no room to stand on ... any more").
+- [ ] **Leaving mid-fight** with a guard on watch: after the horde comes back, the guard calls it out again ("...
+      coming from the ...") when they first see it.
+- [ ] **A guard is busy:** following you, a supply run and an outpost posting are refused for a guard on watch
+      ("They're on watch - relieve them at their watch post first."); `sc repost <guard>` refuses too.
+- [ ] **Save and reload mid-shift:** the guard is still on the tower with the same hours left, facing the same way,
+      sight 90; `sc watch` unchanged.
+- [ ] **Multiplayer** (only if handy): host only, like all of SC - a client can place the block, but only the host's
+      radial assigns.
+
 ## Base defence D2: live horde attacks on the home
 
 **Deployed 2026-10-06** (Fable review + re-check: deployable). DLL md5 `44050e6e2643eb10e29933b2a5878e75`, 679424

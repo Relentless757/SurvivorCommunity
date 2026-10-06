@@ -191,6 +191,7 @@ namespace SurvivorCommunity
             ScScouting.OnRegistryChanged();       // scout marks are restored from the registry too
             ScOutpostRisk.OnRegistryChanged();
             ScBaseAttack.OnRegistryChanged();     // the home attack's session state is squared with the loaded counts
+            ScWatch.OnRegistryChanged();          // the guards' session state and the call-out marker start again
             // ids must be unique (yields, selection and staff key on them) and the counter ahead of all of them
             Community c = ScRegistry.Community;
             var ids = new HashSet<int>();

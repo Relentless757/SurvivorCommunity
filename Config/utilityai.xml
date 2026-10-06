@@ -15,6 +15,13 @@
 	  membership: they work from the member's HOME post, and a FOLLOWER can hold the very same order 9 -
 	  0-XNPCCore's "guard and return" voice order is buffOrderGuard. Such a follower guards where the player
 	  said (NPCModCore's Guard) instead of being leashed back home from 500 m out.
+
+	  A guard on watch (base defence D3, ScWatch: a resident whose post is a Watch post) stays put: ScNotOnWatch keeps
+	  them out of the roam, the defence walk and hold, the quiet night (it would idle facing anywhere) and the Cowardly
+	  flee, and - at the end of this file - out of 0-XNPCCore's two back-off actions and its melee approach. What is
+	  left is Guard / ScAtPost (walk to the post, stand facing the post's way), the leash (measured from the Watch post,
+	  never widened by a live attack) and the pack's attacks, which shoot or swing at whatever comes into range. These
+	  gates and the DLL ship together: the consideration class lives in the DLL.
 	-->
 	<append xpath="/utility_ai/ai_packages">
 		<ai_package name="SCResident">
@@ -24,6 +31,7 @@
 			<action name="ScRoam" weight="2.5" entity_filter="IsSelf">
 				<task class="WanderHomeSC, SurvivorCommunity" radius="12" cooldown="45" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="EnemyNotNear, SCore" distance="30" />
 				<consideration class="ScIsDaytime, SurvivorCommunity" />
@@ -60,6 +68,7 @@
 			<action name="ScDefendBase" weight="4" entity_filter="IsEnemy">
 				<task class="MoveToAttackTargetSDX, SCore" run="true" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
 				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
@@ -77,6 +86,7 @@
 			<action name="ScDefendHold" weight="4" entity_filter="IsEnemy">
 				<task class="DefendHoldSC, SurvivorCommunity" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
 				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
@@ -131,6 +141,7 @@
 			<action name="ScNightIdle" weight="3" entity_filter="IsSelf">
 				<task class="IdleSDX, SCore" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="EnemyNotNear, SCore" distance="30" />
 				<consideration class="ScIsNight, SurvivorCommunity" />
@@ -144,6 +155,7 @@
 				<task class="FleeFromTarget" max_distance="30" />
 				<consideration class="SelfHasCVar, SCore" cvar="$Timid" value="1" />
 				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
 				<consideration class="SelfVisible" />
 			</action>
@@ -175,5 +187,19 @@
 				<consideration class="NotPathBlockedSDX, SCore" />
 			</action>
 		</ai_package>
+	</append>
+
+	<!-- A guard on watch (D3) never backs off or walks to a melee target: on a tower either one walks them off the edge.
+	     0-XNPCCore's SdcsNpcRangedAdvanced (weights 7, 3 and 4) gets one more consideration each; ScNotOnWatch is 1 for
+	     everyone else, raiders and strangers included, so nothing changes for them. SC loads after 0-XNPCCore, whose
+	     utilityai.xml builds this package. The melee swap itself is held off in the DLL (ScArms keeps a guard's gun). -->
+	<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
+		<consideration class="ScNotOnWatch, SurvivorCommunity" />
+	</append>
+	<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupRanged']">
+		<consideration class="ScNotOnWatch, SurvivorCommunity" />
+	</append>
+	<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='MeleeApproach']">
+		<consideration class="ScNotOnWatch, SurvivorCommunity" />
 	</append>
 </configs>

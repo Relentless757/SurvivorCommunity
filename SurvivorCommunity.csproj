@@ -88,6 +88,8 @@
     <Compile Include="ScDoors.cs" />
     <Compile Include="ScNoise.cs" />
     <Compile Include="ScBaseAttack.cs" />
+    <Compile Include="ScWatch.cs" />
+    <Compile Include="BlockScWatchPost.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />
     <Compile Include="Patches_Menu.cs" />

@@ -296,6 +296,21 @@ namespace SurvivorCommunity
         public static float BaseAttackResumeSeconds = 15f;
         /// <summary>Morale for a held attack (the Defence part; at most 10, fades 1 a day).</summary>
         public static float BaseAttackWinMorale = 4f;
+        // ---- base defence D3: watch posts and guard shifts (ScWatch, BlockScWatchPost) ----
+        /// <summary>Watch posts register and take guards (false: posts are inert, guards on watch come down).</summary>
+        public static bool WatchPosts = true;
+        /// <summary>At most this many Watch posts in the home zone.</summary>
+        public static int WatchMaxPosts = 4;
+        /// <summary>A shift lasts this many game hours; after a full one the guard rests WatchRestHours before another.</summary>
+        public static float WatchShiftHours = 12f, WatchRestHours = 12f;
+        /// <summary>Ammo bundles a shift takes from the stockpile at its start (it cannot start with fewer); they prepay the guard's resupplies.</summary>
+        public static int WatchShiftAmmo = 3;
+        /// <summary>A guard on watch sees this many times farther (EntityAlive.sightRangeBase).</summary>
+        public static float WatchSightMult = 1.5f;
+        /// <summary>Real seconds a guard may take to reach the post before being placed on it while the player is not looking.</summary>
+        public static float WatchPlaceSeconds = 30f;
+        /// <summary>Each manned post cuts attention gain by this share, all of them together by at most WatchAttentionCutMax.</summary>
+        public static float WatchAttentionCut = 0.15f, WatchAttentionCutMax = 0.45f;
         // ---- outposts v2: risk (ScOutpostRisk) ----
         /// <summary>Master switch for the risk features (attacks, sieges, neglect, raider demands).</summary>
         public static bool OutpostAttacks = false;
@@ -640,6 +655,8 @@ namespace SurvivorCommunity
             BaseAttackBase = 6f; BaseAttackPerGamestage = 0.16f; BaseAttackPerMember = 0.05f; BaseAttackMin = 4; BaseAttackMax = 40;
             BaseAttackGameStages = "ScoutGSList"; BaseAttackSpawnMin = 25f; BaseAttackSpawnMax = 50f; BaseAttackSpread = 30f; BaseAttackMinPlayerRange = 30;
             BaseAttackDefendMargin = 10f; BaseAttackHomeMargin = 30f; BaseAttackLeaveRange = 150f; BaseAttackMaxHours = 4f; BaseAttackResumeSeconds = 15f; BaseAttackWinMorale = 4f;
+            WatchPosts = true; WatchMaxPosts = 4; WatchShiftHours = 12f; WatchRestHours = 12f; WatchShiftAmmo = 3; WatchSightMult = 1.5f;
+            WatchPlaceSeconds = 30f; WatchAttentionCut = 0.15f; WatchAttentionCutMax = 0.45f;
             OutpostAttacks = false; OutpostGoodNews = true; OutpostGoodNewsChance = 0.04f; OutpostSecBase = 35; OutpostSecPerStaffer = 8; OutpostSecPerCombatStar = 2; OutpostSecPerTier = 4; OutpostSecVisited = 5; OutpostSecNoAmmo = 10; OutpostSecPerDefense = 2; OutpostSecDefenseCap = 30; OutpostSecBonusFade = 1f; OutpostSecWinBonus = 10f; OutpostSecBonusMax = 30f; OutpostAttackChance = 0.08f; OutpostAttackHours = 10; OutpostAttackBase = 3f; OutpostAttackPerGamestage = 0.04f; OutpostAttackMax = 16; OutpostAttendedBonus = 20; OutpostDamageBand = 35; OutpostDamagedDays = 2; OutpostRepairMats = 2; OutpostSiegePenalty = 15; OutpostWinMorale = 4f; OutpostNeglectDays = 10; OutpostRaiderGamestage = 30; OutpostRaiderChance = 0.03f; OutpostDemandAmmo = 2; OutpostDemandFood = 2;
             ScPoiTypes.LoadDefaults();
             Defaults();
@@ -925,6 +942,18 @@ namespace SurvivorCommunity
                 if (BaseAttackLeadMaxHours < BaseAttackLeadMinHours) BaseAttackLeadMaxHours = BaseAttackLeadMinHours;
                 {
                     string bv;
+                    if (p.Values.TryGetValue("WatchPosts", out bv) && !string.IsNullOrEmpty(bv)) WatchPosts = StringParsers.ParseBool(bv);
+                }
+                ParseInt(p, "WatchMaxPosts", ref WatchMaxPosts, 0, 16);
+                ParseFloat(p, "WatchShiftHours", ref WatchShiftHours, 0.25f, 240f);
+                ParseFloat(p, "WatchRestHours", ref WatchRestHours, 0f, 240f);
+                ParseInt(p, "WatchShiftAmmo", ref WatchShiftAmmo, 0, 100);
+                ParseFloat(p, "WatchSightMult", ref WatchSightMult, 1f, 4f);
+                ParseFloat(p, "WatchPlaceSeconds", ref WatchPlaceSeconds, 5f, 600f);
+                ParseFloat(p, "WatchAttentionCut", ref WatchAttentionCut, 0f, 1f);
+                ParseFloat(p, "WatchAttentionCutMax", ref WatchAttentionCutMax, 0f, 1f);
+                {
+                    string bv;
                     if (p.Values.TryGetValue("OutpostAttacks", out bv) && !string.IsNullOrEmpty(bv)) OutpostAttacks = StringParsers.ParseBool(bv);
                 }
                 {
@@ -1129,7 +1158,10 @@ namespace SurvivorCommunity
                                                              + BaseAttackBase + "+gs*" + BaseAttackPerGamestage + ")*(1+" + BaseAttackPerMember + "/resident) " + BaseAttackMin + ".." + BaseAttackMax
                                                              + ", mix " + BaseAttackGameStages + ", ring +" + BaseAttackSpawnMin + ".." + BaseAttackSpawnMax + "m +-" + BaseAttackSpread + "deg"
                                                              + ", defend zone+" + BaseAttackDefendMargin + "m, home " + BaseAttackHomeMargin + "m, leave " + BaseAttackLeaveRange + "m"
-                                                             + ", max " + BaseAttackMaxHours + "h, morale +" + BaseAttackWinMorale : "off"));
+                                                             + ", max " + BaseAttackMaxHours + "h, morale +" + BaseAttackWinMorale : "off")
+                          + " watchPosts=" + (WatchPosts ? WatchMaxPosts + " posts, shift " + WatchShiftHours + "h (rest " + WatchRestHours + "h, " + WatchShiftAmmo
+                                                           + " ammo), sight x" + WatchSightMult + ", placed after " + WatchPlaceSeconds + "s, attention -" + WatchAttentionCut
+                                                           + "/post (max -" + WatchAttentionCutMax + ")" : "off"));
             }
             catch (Exception e)
             {
