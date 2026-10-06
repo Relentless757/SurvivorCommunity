@@ -738,6 +738,7 @@ namespace SurvivorCommunity
                     bool full = false;
                     if (!ScConfig.WatchPosts) why = "WatchPosts is off";
                     else if (m.Status != MemberStatus.Resident) why = "no longer living at home (" + m.Status + ")";
+                    else if (m.Injured) { why = "injured (no meds for them)"; key = "scWatchInjured"; }   // D4: hurt in a fight without the player
                     else if (!c.HasHome || !c.WatchPosts.Contains(m.WatchPost)) { why = "the post is no Watch post any more"; key = "scWatchPostGone"; }
                     else if (t >= m.WatchStart + ShiftTicks) { why = "the shift is over"; key = "scWatchShiftOver"; full = true; }
                     if (why != null) End(m, null, key, full, why, player);

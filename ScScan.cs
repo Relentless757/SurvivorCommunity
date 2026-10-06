@@ -84,6 +84,8 @@ namespace SurvivorCommunity
                 if (!c.HasScanHome || c.ScanHome != c.Home)
                 {
                     c.ScanChunks.Clear();
+                    c.ScanDefences.Clear();
+                    c.HomeDefences = 0;
                     c.ScanHome = c.Home;
                     c.HasScanHome = true;
                 }
@@ -122,7 +124,7 @@ namespace SurvivorCommunity
                 List<long> fresh = w.newlyLoadedChunksThisUpdate;
                 if (fresh != null) lock (fresh) { for (int i = 0; i < fresh.Count; i++) pending.Add(fresh[i]); }
 
-                int beds = 0, facilities = 0, crops = 0, chunks = 0, loaded = 0, missing = 0;
+                int beds = 0, facilities = 0, crops = 0, defences = 0, chunks = 0, loaded = 0, missing = 0;
                 for (int cx = cxMin; cx <= cxMax; cx++)
                 {
                     for (int cz = czMin; cz <= czMax; cz++)
@@ -132,6 +134,7 @@ namespace SurvivorCommunity
                         long key = WorldChunkCache.MakeChunkKey(cx, cz);
                         visited.Add(key);
                         int[] known;
+                        int defs = 0;
                         c.ScanChunks.TryGetValue(key, out known);
                         Chunk ch = w.GetChunkSync(cx, cz) as Chunk;
                         int[] now = null;
@@ -143,18 +146,21 @@ namespace SurvivorCommunity
                             KeyValuePair<Chunk, float> was;
                             float first = (seen.TryGetValue(key, out was) && ReferenceEquals(was.Key, ch)) ? was.Value : now0;
                             seenNext[key] = new KeyValuePair<Chunk, float>(ch, first);
-                            if (now0 - first >= SettleSeconds) now = Count(ch, cx, cz, home, r);
+                            if (now0 - first >= SettleSeconds) now = Count(ch, cx, cz, home, r, out defs);
                         }
                         if (now != null)
                         {
                             loaded++;
                             c.ScanChunks[key] = now;
                             known = now;
+                            if (defs > 0) c.ScanDefences[key] = defs; else c.ScanDefences.Remove(key);
                         }
                         if (known == null) { missing++; continue; }
                         beds += known[2];
                         facilities += known[3];
                         crops += known[4];
+                        int kd;
+                        if (c.ScanDefences.TryGetValue(key, out kd)) defences += kd;
                     }
                 }
                 var swap = seen; seen = seenNext; seenNext = swap;
@@ -165,6 +171,12 @@ namespace SurvivorCommunity
                     foreach (long k in c.ScanChunks.Keys) if (!visited.Contains(k)) drop.Add(k);
                     for (int i = 0; i < drop.Count; i++) c.ScanChunks.Remove(drop[i]);
                 }
+                if (c.ScanDefences.Count > 0)
+                {
+                    var dropD = new List<long>();
+                    foreach (long k in c.ScanDefences.Keys) if (!c.ScanChunks.ContainsKey(k)) dropD.Add(k);
+                    for (int i = 0; i < dropD.Count; i++) c.ScanDefences.Remove(dropD[i]);
+                }
 
                 // part of the zone has never been seen: a total may rise, not fall
                 if (missing > 0)
@@ -172,15 +184,17 @@ namespace SurvivorCommunity
                     beds = Math.Max(beds, c.Beds);
                     facilities = Math.Max(facilities, c.Facilities);
                     crops = Math.Max(crops, c.Crops);
+                    defences = Math.Max(defences, c.HomeDefences);
                 }
-                bool changed = beds != c.Beds || facilities != c.Facilities || crops != c.Crops;
+                bool changed = beds != c.Beds || facilities != c.Facilities || crops != c.Crops || defences != c.HomeDefences;
                 c.Beds = beds;
                 c.Facilities = facilities;
                 c.Crops = crops;
+                c.HomeDefences = defences;
                 sw.Stop();
                 LastChunks = chunks; LastLoaded = loaded; LastMissing = missing; LastMs = sw.Elapsed.TotalMilliseconds;
                 if (changed || force)
-                    ScLog.Verbose("scan: beds " + beds + ", facilities " + facilities + ", crops " + crops + " (" + chunks + " zone chunks, "
+                    ScLog.Verbose("scan: beds " + beds + ", facilities " + facilities + ", crops " + crops + ", traps " + defences + " (" + chunks + " zone chunks, "
                                   + loaded + " loaded, " + missing + " never counted, " + LastMs.ToString("0.00") + " ms)");
                 if (changed) ScRegistry.SaveAtomic();
                 return true;
@@ -204,9 +218,14 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>One loaded chunk: {cx, cz, beds, facilities, crops} from its model-block list, zone positions only.</summary>
-        private static int[] Count(Chunk ch, int cx, int cz, Vector3i home, int r)
+        /// <summary>
+        /// One loaded chunk: {cx, cz, beds, facilities, crops} from its model-block list, zone positions only; 'defences' the
+        /// traps and turrets (OutpostDefenseBlocks) among them - the defence rating's count (D4), kept apart from the
+        /// five-field scanmap entry that older builds read.
+        /// </summary>
+        private static int[] Count(Chunk ch, int cx, int cz, Vector3i home, int r, out int defences)
         {
+            defences = 0;
             var n = new int[] { cx, cz, 0, 0, 0 };
             var stubs = ch.blockEntityStubs;
             if (stubs == null) return n;
@@ -231,6 +250,7 @@ namespace SurvivorCommunity
                     case KFacility: n[3]++; break;
                     case KCrop: n[4]++; break;
                     case KRadio: ScRadio.NoteRadio(p); break;
+                    case KDefense: defences++; break;
                 }
             }
             return n;
@@ -256,7 +276,7 @@ namespace SurvivorCommunity
                 else if (IsCrop(name)) { k[t] = KCrop; cropT++; }
                 else if (IsBed(b, name)) { k[t] = KBed; bedT++; }
                 else if (IsFacility(name)) { k[t] = KFacility; facT++; }
-                else if (IsDefense(name)) k[t] = KDefense;       // outposts only (the home scan ignores them)
+                else if (IsDefense(name)) k[t] = KDefense;       // outposts' investment and the home's defence rating (D4)
             }
             kinds = k;
             tableFor = list;

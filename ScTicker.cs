@@ -84,7 +84,8 @@ namespace SurvivorCommunity
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
                 ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
-                ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight
+                ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight (with or without the player)
+                ScSiege.Tick(w, player);              // a blood moon passed with the player away besieges the base
                 ScWatch.Tick(w, player);              // watch posts: shifts, the zone scan, a guard's call-outs and marker
                 ScMissing.Tick(w, player);            // residents whose body is gone from the world (Call back)
             }

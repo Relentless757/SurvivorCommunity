@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end, watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -88,6 +88,9 @@ namespace SurvivorCommunity
                     case "noise": NoiseCmd(_params); break;
                     case "attention": AttentionCmd(_params); break;
                     case "attack": AttackCmd(_params); break;
+                    case "defence":
+                    case "defense": DefenceCmd(_params); break;
+                    case "siege": SiegeCmd(_params); break;
                     case "watch": WatchCmd(_params); break;
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
@@ -209,8 +212,10 @@ namespace SurvivorCommunity
         /// <summary>
         /// sc attack [now] [size] - calls a horde on the home base (base defence D2) whatever the attention, the gap after the
         /// last attack and the blood moon: it arrives the usual 1-2 game hours later, or with "now" at once, with the usual
-        /// size unless one is given; away from home it waits for the player like any call. sc attack status - the open attack
-        /// and what the next call waits for. sc attack end - despawns the attackers and closes the attack (nothing won).
+        /// size unless one is given. Within BaseAttackJoinRange of the claim it is fought live; farther off the defenders
+        /// fight it alone (D4; a console call forgets this absence's earlier fight). sc attack status - the open attack and
+        /// what the next call waits for. sc attack end - despawns the attackers and closes the attack (nothing won). sc attack
+        /// settle [held|damaged|overrun] - ends it now as a fight without the player: settled on the rating, or as given.
         /// </summary>
         private static void AttackCmd(List<string> p)
         {
@@ -230,18 +235,65 @@ namespace SurvivorCommunity
                 Output("[SC] the attack is over (nothing won; attention starts again from where it is, 0 since the call)");
                 return;
             }
+            if (verb == "settle")
+            {
+                int forced = p.Count >= 3 ? ScDefence.ParseResult(p[2]) : -1;
+                if (p.Count >= 3 && forced < 0) { Output("[SC] attack settle [held|damaged|overrun]"); return; }
+                if (!ScBaseAttack.SettleNow(w, player, forced)) { Output("[SC] no attack is open"); return; }
+                Output("[SC] settled as a fight without the player (the log line 'base attack without the player' has the roll and every death chance)");
+                return;
+            }
             bool now = verb == "now";
             int size = 0;
             string sizeArg = now ? (p.Count >= 3 ? p[2] : null) : (verb.Length > 0 ? verb : null);
             if (sizeArg != null && (!int.TryParse(sizeArg, out size) || size < 1))
             {
-                Output("[SC] attack [now] [size] | attack status | attack end");
+                Output("[SC] attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun]");
                 return;
             }
             string why = ScBaseAttack.WhyNoCall(w, player, true);
             if (why != null) { Output("[SC] no attack: " + why); return; }
+            if (ScRegistry.Community.AttackAwayUsed)
+            {
+                ScRegistry.Community.AttackAwayUsed = false;     // a test call may be fought without the player again
+                Output("[SC] this absence's earlier fight forgotten for the console call");
+            }
             ScBaseAttack.Call(w, player, size, now, "the console");
             foreach (string line in ScBaseAttack.StatusText(w, player).Split('\n')) Output("[SC] " + line);
+        }
+
+        /// <summary>
+        /// sc defence [horde] - the defence rating term by term against the open attack's horde (or 'horde', or the next
+        /// one's usual size), the odds of a fight without the player and the highest death risk (base defence D4).
+        /// </summary>
+        private static void DefenceCmd(List<string> p)
+        {
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            Community c = ScRegistry.Community;
+            int horde;
+            if (p.Count >= 2)
+            {
+                if (!int.TryParse(p[1], out horde) || horde < 1) { Output("[SC] defence [horde]"); return; }
+            }
+            else if (ScBaseAttack.Away) horde = Math.Max(1, c.AttackSize - c.AttackAwayBase);      // what the defenders' fight is rated against
+            else horde = ScBaseAttack.Open ? Math.Max(1, c.AttackSize - c.AttackKilled) : ScBaseAttack.Size(player);
+            foreach (string line in ScDefence.Breakdown(horde).Split('\n')) Output("[SC] " + line);
+        }
+
+        /// <summary>
+        /// sc siege [held|damaged|overrun] - the blood-moon siege now, as if a blood moon had passed with the player away
+        /// (base defence D4): settled on the rating less BaseSiegePenalty, or as given.
+        /// </summary>
+        private static void SiegeCmd(List<string> p)
+        {
+            World w = ScCommunity.World;
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            if (!ScCommunity.IsHost || w == null || player == null) { Output("[SC] host only, in a world"); return; }
+            if (!ScRegistry.Community.HasHome) { Output("[SC] no community home"); return; }
+            int forced = p.Count >= 2 ? ScDefence.ParseResult(p[1]) : -1;
+            if (p.Count >= 2 && forced < 0) { Output("[SC] siege [held|damaged|overrun]"); return; }
+            ScSiege.Besiege(w, player, forced, "the console");
+            Output("[SC] siege settled (the log line 'base SIEGE' has the roll and every death chance)");
         }
 
         /// <summary>

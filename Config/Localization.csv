@@ -667,3 +667,20 @@ scWatchBusy,UI,Tooltip,,,,They're on watch - relieve them at their watch post fi
 scUiWatchPick,UI,Menu,,,,Pick a guard for {0}.
 scStOnWatch,UI,Menu,,,,On watch
 scStOnWatchLong,UI,Menu,,,,On watch at {0} - {1} h left
+scDefRadioCall,UI,Tooltip,,,,Radio from home: a horde of {0} is gathering to the {1} of the base - it hits in about {2} game hour(s).
+scDefRadioArrived,UI,Tooltip,,,,Radio from home: the horde is at the walls - {0} of the dead from the {1}. Your people hold out for about {2} game hour(s); come back to help!
+scBaseLeftAway,UI,Tooltip,,,,You left the fight. Your people hold the base against the {0} dead still standing for about {1} game hour(s) - come back to help.
+scDefJoin,UI,Tooltip,,,,You're back - the base is still under attack! Your people dealt with {0} of the dead ({2} ammo bundles); {1} are at the walls.
+scDefRadio,UI,Tooltip,,,,Radio from home: {0}.
+scDefAway,UI,Tooltip,,,,While you were away: {0}.
+scDefNow,UI,Tooltip,,,,The fight at the base is over: {0}.
+scDefHeld,UI,Tooltip,,,,the base held against {0} of the dead
+scDefDamaged,UI,Tooltip,,,,the base was damaged holding off {0} of the dead
+scDefOverrun,UI,Tooltip,,,,the base was overrun by {0} of the dead
+scDefSiegeHeld,UI,Tooltip,,,,the blood moon horde besieged the base ({0} of the dead) - it held
+scDefSiegeDamaged,UI,Tooltip,,,,the blood moon horde besieged the base ({0} of the dead) - it was damaged
+scDefSiegeOverrun,UI,Tooltip,,,,the blood moon horde overran the base ({0} of the dead)
+scDefAmmo,UI,Tooltip,,,,{0} ammo bundles used
+scDefAmmoShort,UI,Tooltip,,,,{0} ammo bundles used - the stockpile ran out
+scDefHurt,UI,Tooltip,,,,"{0} hurt ({1} treated with meds, {2} still injured)"
+scDefDied,UI,Tooltip,,,,lost: {0}

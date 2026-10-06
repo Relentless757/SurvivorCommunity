@@ -311,6 +311,37 @@ namespace SurvivorCommunity
         public static float WatchPlaceSeconds = 30f;
         /// <summary>Each manned post cuts attention gain by this share, all of them together by at most WatchAttentionCutMax.</summary>
         public static float WatchAttentionCut = 0.15f, WatchAttentionCutMax = 0.45f;
+        // ---- base defence D4: attacks while the player is away, the defence rating, the siege (ScBaseAttack, ScDefence, ScSiege) ----
+        /// <summary>A horde is called, and fought by the defenders alone, while the player is away (false: a call waits for them, as in D2).</summary>
+        public static bool BaseAttacksAway = true;
+        /// <summary>Metres outside the zone within which an arriving horde is fought live and an away fight is joined (below BaseAttackLeaveRange).</summary>
+        public static float BaseAttackJoinRange = 100f;
+        /// <summary>A fight without the player lasts BaseAwayHoursBase + BaseAwayHoursPer10 per 10 attackers (game hours).</summary>
+        public static float BaseAwayHoursBase = 2f, BaseAwayHoursPer10 = 1f;
+        /// <summary>The roll against the rating: under it held, under it + this damaged, else overrun.</summary>
+        public static int BaseAwayDamageBand = 35;
+        /// <summary>Ammo bundles a fight without the player takes: one per this many attackers (at least 1), x BaseAwayAmmoOverrun when overrun.</summary>
+        public static float BaseAwayAmmoPer = 10f, BaseAwayAmmoOverrun = 1.5f;
+        /// <summary>Residents hurt: BaseAwayHurtMin..Max when damaged, this share of them when overrun, none when held.</summary>
+        public static int BaseAwayHurtMin = 1, BaseAwayHurtMax = 2;
+        public static float BaseAwayHurtOverrun = 0.67f;
+        /// <summary>
+        /// A hurt resident's chance to die: BaseAwayDeathChance x horde / BaseAwayDeathHorde x (1 + BaseAwayDeathSkillStep x
+        /// (BaseAwayDeathSkillRef - Fighting - Shooting), 0.5..1.5), at most BaseAwayDeathCap; an unhurt one BaseAwayDeathUnhurt of it.
+        /// </summary>
+        public static float BaseAwayDeathChance = 0.08f, BaseAwayDeathHorde = 15f, BaseAwayDeathSkillRef = 6f, BaseAwayDeathSkillStep = 0.125f;
+        public static float BaseAwayDeathCap = 0.5f, BaseAwayDeathUnhurt = 0.1f;
+        /// <summary>Morale for a fight without the player: held +, damaged -, overrun - (the Defence part, fading 1 a day).</summary>
+        public static float BaseAwayHeldMorale = 2f, BaseAwayDamagedMorale = 5f, BaseAwayOverrunMorale = 12f;
+        /// <summary>The blood moon passing while the player was never at home besieges the base: settled on the rating minus BaseSiegePenalty.</summary>
+        public static bool BaseSiege = true;
+        public static int BaseSiegePenalty = 15;
+        /// <summary>The defence rating's terms (ScDefence.Rating; 0..100).</summary>
+        public static float BaseDefenceBase = 20f, BaseDefencePerResident = 4f, BaseDefencePerCombatStar = 1f;
+        public static float BaseDefencePerPost = 10f, BaseDefencePostCap = 30f, BaseDefencePerBlock = 1f, BaseDefenceBlockCap = 20f;
+        public static float BaseDefenceNoAmmo = 15f, BaseDefenceMorale = 5f;
+        /// <summary>A horde bigger than BaseDefenceBigFrom lowers the rating BaseDefenceBigPer per extra attacker, by at most BaseDefenceBigCap.</summary>
+        public static float BaseDefenceBigFrom = 20f, BaseDefenceBigPer = 1f, BaseDefenceBigCap = 15f;
         // ---- outposts v2: risk (ScOutpostRisk) ----
         /// <summary>Master switch for the risk features (attacks, sieges, neglect, raider demands).</summary>
         public static bool OutpostAttacks = false;
@@ -657,6 +688,14 @@ namespace SurvivorCommunity
             BaseAttackDefendMargin = 10f; BaseAttackHomeMargin = 30f; BaseAttackLeaveRange = 150f; BaseAttackMaxHours = 4f; BaseAttackResumeSeconds = 15f; BaseAttackWinMorale = 4f;
             WatchPosts = true; WatchMaxPosts = 4; WatchShiftHours = 12f; WatchRestHours = 12f; WatchShiftAmmo = 3; WatchSightMult = 1.5f;
             WatchPlaceSeconds = 30f; WatchAttentionCut = 0.15f; WatchAttentionCutMax = 0.45f;
+            BaseAttacksAway = true; BaseAttackJoinRange = 100f; BaseAwayHoursBase = 2f; BaseAwayHoursPer10 = 1f; BaseAwayDamageBand = 35;
+            BaseAwayAmmoPer = 10f; BaseAwayAmmoOverrun = 1.5f; BaseAwayHurtMin = 1; BaseAwayHurtMax = 2; BaseAwayHurtOverrun = 0.67f;
+            BaseAwayDeathChance = 0.08f; BaseAwayDeathHorde = 15f; BaseAwayDeathSkillRef = 6f; BaseAwayDeathSkillStep = 0.125f;
+            BaseAwayDeathCap = 0.5f; BaseAwayDeathUnhurt = 0.1f;
+            BaseAwayHeldMorale = 2f; BaseAwayDamagedMorale = 5f; BaseAwayOverrunMorale = 12f; BaseSiege = true; BaseSiegePenalty = 15;
+            BaseDefenceBase = 20f; BaseDefencePerResident = 4f; BaseDefencePerCombatStar = 1f; BaseDefencePerPost = 10f; BaseDefencePostCap = 30f;
+            BaseDefencePerBlock = 1f; BaseDefenceBlockCap = 20f; BaseDefenceNoAmmo = 15f; BaseDefenceMorale = 5f;
+            BaseDefenceBigFrom = 20f; BaseDefenceBigPer = 1f; BaseDefenceBigCap = 15f;
             OutpostAttacks = false; OutpostGoodNews = true; OutpostGoodNewsChance = 0.04f; OutpostSecBase = 35; OutpostSecPerStaffer = 8; OutpostSecPerCombatStar = 2; OutpostSecPerTier = 4; OutpostSecVisited = 5; OutpostSecNoAmmo = 10; OutpostSecPerDefense = 2; OutpostSecDefenseCap = 30; OutpostSecBonusFade = 1f; OutpostSecWinBonus = 10f; OutpostSecBonusMax = 30f; OutpostAttackChance = 0.08f; OutpostAttackHours = 10; OutpostAttackBase = 3f; OutpostAttackPerGamestage = 0.04f; OutpostAttackMax = 16; OutpostAttendedBonus = 20; OutpostDamageBand = 35; OutpostDamagedDays = 2; OutpostRepairMats = 2; OutpostSiegePenalty = 15; OutpostWinMorale = 4f; OutpostNeglectDays = 10; OutpostRaiderGamestage = 30; OutpostRaiderChance = 0.03f; OutpostDemandAmmo = 2; OutpostDemandFood = 2;
             ScPoiTypes.LoadDefaults();
             Defaults();
@@ -954,6 +993,49 @@ namespace SurvivorCommunity
                 ParseFloat(p, "WatchAttentionCutMax", ref WatchAttentionCutMax, 0f, 1f);
                 {
                     string bv;
+                    if (p.Values.TryGetValue("BaseAttacksAway", out bv) && !string.IsNullOrEmpty(bv)) BaseAttacksAway = StringParsers.ParseBool(bv);
+                    if (p.Values.TryGetValue("BaseSiege", out bv) && !string.IsNullOrEmpty(bv)) BaseSiege = StringParsers.ParseBool(bv);
+                }
+                ParseFloat(p, "BaseAttackJoinRange", ref BaseAttackJoinRange, 10f, 1000f);
+                if (BaseAttackJoinRange > BaseAttackLeaveRange - 20f)
+                {
+                    // joined at the edge of "left": the fight would hand over and come back every few steps
+                    ScLog.Warn("config: BaseAttackJoinRange " + BaseAttackJoinRange + " is not well inside BaseAttackLeaveRange " + BaseAttackLeaveRange + " - using " + (BaseAttackLeaveRange - 20f));
+                    BaseAttackJoinRange = BaseAttackLeaveRange - 20f;
+                }
+                ParseFloat(p, "BaseAwayHoursBase", ref BaseAwayHoursBase, 0.25f, 48f);
+                ParseFloat(p, "BaseAwayHoursPer10", ref BaseAwayHoursPer10, 0f, 24f);
+                ParseInt(p, "BaseAwayDamageBand", ref BaseAwayDamageBand, 0, 100);
+                ParseFloat(p, "BaseAwayAmmoPer", ref BaseAwayAmmoPer, 1f, 200f);
+                ParseFloat(p, "BaseAwayAmmoOverrun", ref BaseAwayAmmoOverrun, 1f, 10f);
+                ParseInt(p, "BaseAwayHurtMin", ref BaseAwayHurtMin, 0, 50);
+                ParseInt(p, "BaseAwayHurtMax", ref BaseAwayHurtMax, 0, 50);
+                if (BaseAwayHurtMax < BaseAwayHurtMin) BaseAwayHurtMax = BaseAwayHurtMin;
+                ParseFloat(p, "BaseAwayHurtOverrun", ref BaseAwayHurtOverrun, 0f, 1f);
+                ParseFloat(p, "BaseAwayDeathChance", ref BaseAwayDeathChance, 0f, 1f);
+                ParseFloat(p, "BaseAwayDeathHorde", ref BaseAwayDeathHorde, 1f, 200f);
+                ParseFloat(p, "BaseAwayDeathSkillRef", ref BaseAwayDeathSkillRef, 2f, 14f);
+                ParseFloat(p, "BaseAwayDeathSkillStep", ref BaseAwayDeathSkillStep, 0f, 0.5f);
+                ParseFloat(p, "BaseAwayDeathCap", ref BaseAwayDeathCap, 0f, 1f);
+                ParseFloat(p, "BaseAwayDeathUnhurt", ref BaseAwayDeathUnhurt, 0f, 1f);
+                ParseFloat(p, "BaseAwayHeldMorale", ref BaseAwayHeldMorale, 0f, 10f);
+                ParseFloat(p, "BaseAwayDamagedMorale", ref BaseAwayDamagedMorale, 0f, 30f);
+                ParseFloat(p, "BaseAwayOverrunMorale", ref BaseAwayOverrunMorale, 0f, 30f);
+                ParseInt(p, "BaseSiegePenalty", ref BaseSiegePenalty, 0, 100);
+                ParseFloat(p, "BaseDefenceBase", ref BaseDefenceBase, 0f, 100f);
+                ParseFloat(p, "BaseDefencePerResident", ref BaseDefencePerResident, 0f, 100f);
+                ParseFloat(p, "BaseDefencePerCombatStar", ref BaseDefencePerCombatStar, 0f, 100f);
+                ParseFloat(p, "BaseDefencePerPost", ref BaseDefencePerPost, 0f, 100f);
+                ParseFloat(p, "BaseDefencePostCap", ref BaseDefencePostCap, 0f, 100f);
+                ParseFloat(p, "BaseDefencePerBlock", ref BaseDefencePerBlock, 0f, 100f);
+                ParseFloat(p, "BaseDefenceBlockCap", ref BaseDefenceBlockCap, 0f, 100f);
+                ParseFloat(p, "BaseDefenceNoAmmo", ref BaseDefenceNoAmmo, 0f, 100f);
+                ParseFloat(p, "BaseDefenceMorale", ref BaseDefenceMorale, 0f, 100f);
+                ParseFloat(p, "BaseDefenceBigFrom", ref BaseDefenceBigFrom, 0f, 200f);
+                ParseFloat(p, "BaseDefenceBigPer", ref BaseDefenceBigPer, 0f, 10f);
+                ParseFloat(p, "BaseDefenceBigCap", ref BaseDefenceBigCap, 0f, 100f);
+                {
+                    string bv;
                     if (p.Values.TryGetValue("OutpostAttacks", out bv) && !string.IsNullOrEmpty(bv)) OutpostAttacks = StringParsers.ParseBool(bv);
                 }
                 {
@@ -1161,7 +1243,14 @@ namespace SurvivorCommunity
                                                              + ", max " + BaseAttackMaxHours + "h, morale +" + BaseAttackWinMorale : "off")
                           + " watchPosts=" + (WatchPosts ? WatchMaxPosts + " posts, shift " + WatchShiftHours + "h (rest " + WatchRestHours + "h, " + WatchShiftAmmo
                                                            + " ammo), sight x" + WatchSightMult + ", placed after " + WatchPlaceSeconds + "s, attention -" + WatchAttentionCut
-                                                           + "/post (max -" + WatchAttentionCutMax + ")" : "off"));
+                                                           + "/post (max -" + WatchAttentionCutMax + ")" : "off")
+                          + " awayAttacks=" + (BaseAttacks && BaseAttacksAway ? BaseAwayHoursBase + "h+" + BaseAwayHoursPer10 + "h/10, join " + BaseAttackJoinRange + "m, band "
+                                                           + BaseAwayDamageBand + ", ammo 1/" + BaseAwayAmmoPer + " (x" + BaseAwayAmmoOverrun + "), death " + BaseAwayDeathChance
+                                                           + " (cap " + BaseAwayDeathCap + ", unhurt x" + BaseAwayDeathUnhurt + "), morale +" + BaseAwayHeldMorale + "/-"
+                                                           + BaseAwayDamagedMorale + "/-" + BaseAwayOverrunMorale : "off")
+                          + " siege=" + (BaseAttacks && BaseSiege ? "-" + BaseSiegePenalty : "off")
+                          + " defence=" + BaseDefenceBase + "+" + BaseDefencePerResident + "/resident+" + BaseDefencePerCombatStar + "/star+" + BaseDefencePerPost + "/post(max "
+                          + BaseDefencePostCap + ")+" + BaseDefencePerBlock + "/trap(max " + BaseDefenceBlockCap + ") -" + BaseDefenceNoAmmo + " no ammo +-" + BaseDefenceMorale + " morale");
             }
             catch (Exception e)
             {

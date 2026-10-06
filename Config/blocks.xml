@@ -643,6 +643,56 @@
 			<property name="WatchPlaceSeconds" value="30" />
 			<property name="WatchAttentionCut" value="0.15" />
 			<property name="WatchAttentionCutMax" value="0.45" />
+			<!-- Base defence D4: attacks while you are away (BaseDefence_Plan.md, section 6). With BaseAttacksAway a horde
+			     is called while you are away too (at most one per absence) and fought by the defenders alone: it lasts
+			     BaseAwayHoursBase + BaseAwayHoursPer10 per 10 attackers. Within BaseAttackJoinRange m of the zone you fight it
+			     live (an arrival, or joining an away fight: the attackers not yet dealt with come); leaving a live fight
+			     (BaseAttackLeaveRange) hands the rest back to the defenders. One left to them is settled on the defence rating
+			     (sc defence): a roll under it holds, under it + BaseAwayDamageBand is damaged, else overrun. It takes ammo
+			     bundles (1 per BaseAwayAmmoPer attackers, x BaseAwayAmmoOverrun overrun), hurts residents (BaseAwayHurtMin..Max
+			     damaged, BaseAwayHurtOverrun of them overrun; each uses a meds bundle at once, else stays injured) and can kill:
+			     a hurt resident's chance is BaseAwayDeathChance for a 6-star fighter against BaseAwayDeathHorde zombies,
+			     scaled by the horde and by Fighting + Shooting, at most BaseAwayDeathCap; an unhurt one BaseAwayDeathUnhurt of
+			     that. Morale +BaseAwayHeldMorale / -Damaged / -Overrun. A powered radio tells you at the call, the arrival and
+			     the end; without one you hear on your return. BaseSiege: a blood moon that passes while you were never home is
+			     a siege, settled the same way at BaseSiegePenalty below the rating. The rating: BaseDefenceBase,
+			     +PerResident per fit resident, +PerCombatStar per star of Fighting + Shooting above 2, +PerPost per manned
+			     watch post (at most PostCap, only with ammo in stock), +PerBlock per trap or turret in the zone
+			     (OutpostDefenseBlocks, at most BlockCap), -NoAmmo with no ammo, +-Morale for morale 75+ / under 25,
+			     -BigPer per attacker over BigFrom (at most BigCap). -->
+			<property name="BaseAttacksAway" value="true" />
+			<property name="BaseAttackJoinRange" value="100" />
+			<property name="BaseAwayHoursBase" value="2" />
+			<property name="BaseAwayHoursPer10" value="1" />
+			<property name="BaseAwayDamageBand" value="35" />
+			<property name="BaseAwayAmmoPer" value="10" />
+			<property name="BaseAwayAmmoOverrun" value="1.5" />
+			<property name="BaseAwayHurtMin" value="1" />
+			<property name="BaseAwayHurtMax" value="2" />
+			<property name="BaseAwayHurtOverrun" value="0.67" />
+			<property name="BaseAwayDeathChance" value="0.08" />
+			<property name="BaseAwayDeathHorde" value="15" />
+			<property name="BaseAwayDeathSkillRef" value="6" />
+			<property name="BaseAwayDeathSkillStep" value="0.125" />
+			<property name="BaseAwayDeathCap" value="0.5" />
+			<property name="BaseAwayDeathUnhurt" value="0.1" />
+			<property name="BaseAwayHeldMorale" value="2" />
+			<property name="BaseAwayDamagedMorale" value="5" />
+			<property name="BaseAwayOverrunMorale" value="12" />
+			<property name="BaseSiege" value="true" />
+			<property name="BaseSiegePenalty" value="15" />
+			<property name="BaseDefenceBase" value="20" />
+			<property name="BaseDefencePerResident" value="4" />
+			<property name="BaseDefencePerCombatStar" value="1" />
+			<property name="BaseDefencePerPost" value="10" />
+			<property name="BaseDefencePostCap" value="30" />
+			<property name="BaseDefencePerBlock" value="1" />
+			<property name="BaseDefenceBlockCap" value="20" />
+			<property name="BaseDefenceNoAmmo" value="15" />
+			<property name="BaseDefenceMorale" value="5" />
+			<property name="BaseDefenceBigFrom" value="20" />
+			<property name="BaseDefenceBigPer" value="1" />
+			<property name="BaseDefenceBigCap" value="15" />
 
 			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". A word ending in
 			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).

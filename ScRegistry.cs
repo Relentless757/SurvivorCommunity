@@ -440,6 +440,40 @@ namespace SurvivorCommunity
                     foreach (string part in val.Split(';')) { Vector3i v; if (part.Length > 0 && TryVec(part, out v) && !c.WatchPosts.Contains(v)) c.WatchPosts.Add(v); }
                     break;
                 case "attackwarn": c.AttackWarned = Clamp(I(val), 0, 2); break;
+                case "attackaway":
+                    {
+                        // since:end:base:heard (the away part of the open attack, D4)
+                        string[] f = val.Split(':');
+                        ulong since, end;
+                        if (f.Length >= 4 && ulong.TryParse(f[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out since)
+                            && ulong.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out end))
+                        {
+                            c.AttackAwaySince = since;
+                            c.AttackAwayEnd = end;
+                            c.AttackAwayBase = Math.Max(0, I(f[2]));
+                            c.AttackHeard = Clamp(I(f[3]), 0, 3);
+                        }
+                        break;
+                    }
+                case "awayused": c.AttackAwayUsed = I(val) != 0; break;
+                case "defloss": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DefenceLoss = Math.Max(0f, Math.Min(30f, f)); break; }
+                case "homedef": c.HomeDefences = Math.Max(0, I(val)); break;
+                case "scandef":
+                    // cx:cz:n;... (chunks with any trap or turret; the rest of scanmap's chunks have none)
+                    c.ScanDefences.Clear();
+                    foreach (string part in val.Split(';'))
+                    {
+                        string[] f = part.Split(':');
+                        if (f.Length != 3) continue;
+                        int n = I(f[2]);
+                        if (n > 0) c.ScanDefences[WorldChunkCache.MakeChunkKey(I(f[0]), I(f[1]))] = n;
+                    }
+                    break;
+                case "bmhome": c.BloodMoonHomeDay = Math.Max(0, I(val)); break;
+                case "awaynews":
+                    c.AwayNews.Clear();
+                    foreach (string part in val.Split(';')) if (part.Length > 0 && c.AwayNews.Count < 4) c.AwayNews.Add(part);
+                    break;
                 case "harvestcarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.HarvestCarry = f; break; }
                 case "stock":
                     foreach (string part in val.Split(','))
@@ -682,6 +716,31 @@ namespace SurvivorCommunity
                     sb.AppendLine("watchposts=" + wp);
                 }
                 if (c.AttackWarned > 0) sb.AppendLine("attackwarn=" + c.AttackWarned);
+                if (c.AttackState != 0 && (c.AttackAwayEnd > 0UL || c.AttackHeard > 0))
+                    sb.AppendLine("attackaway=" + c.AttackAwaySince.ToString(CultureInfo.InvariantCulture) + ":" + c.AttackAwayEnd.ToString(CultureInfo.InvariantCulture)
+                                  + ":" + c.AttackAwayBase + ":" + c.AttackHeard);
+                if (c.AttackAwayUsed) sb.AppendLine("awayused=1");
+                if (c.DefenceLoss > 0f) sb.AppendLine("defloss=" + c.DefenceLoss.ToString("0.##", CultureInfo.InvariantCulture));
+                if (c.HomeDefences > 0) sb.AppendLine("homedef=" + c.HomeDefences);
+                if (c.ScanDefences.Count > 0)
+                {
+                    var sd = new StringBuilder();
+                    foreach (KeyValuePair<long, int> kv in c.ScanDefences)
+                    {
+                        if (kv.Value <= 0) continue;
+                        if (sd.Length > 0) sd.Append(';');
+                        sd.Append(WorldChunkCache.extractX(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':')
+                          .Append(WorldChunkCache.extractZ(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':').Append(kv.Value);
+                    }
+                    if (sd.Length > 0) sb.AppendLine("scandef=" + sd);
+                }
+                if (c.BloodMoonHomeDay > 0) sb.AppendLine("bmhome=" + c.BloodMoonHomeDay);
+                if (c.AwayNews.Count > 0)
+                {
+                    var an = new StringBuilder();
+                    foreach (string n in c.AwayNews) { if (an.Length > 0) an.Append(';'); an.Append(Clean(n)); }
+                    sb.AppendLine("awaynews=" + an);
+                }
                 sb.AppendLine("harvestcarry=" + c.HarvestCarry.ToString("0.###", CultureInfo.InvariantCulture));
                 var st = new StringBuilder();
                 for (int i = 0; i < 5; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
@@ -932,7 +991,7 @@ namespace SurvivorCommunity
                 || !ulong.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out started)) return;
             int state = I(f[0]);
             int size = Clamp(I(f[4]), 0, 200);
-            if (state < 1 || state > 2 || size <= 0) return;
+            if (state < 1 || state > 3 || size <= 0) return;     // 3: fought without the player (D4); older builds drop it
             c.AttackState = state;
             c.AttackArrive = arrive;
             c.AttackStarted = started;

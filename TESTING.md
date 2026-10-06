@@ -25,6 +25,84 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Base defence D4: attacks while you're away, the defence rating, the blood-moon siege
+
+**Deployed 2026-10-06** (Fable review + re-check: deployable). DLL md5 `db1ddf2e28336d4fbbdf4c3601f763b2`, deployed **together with** the same tree's Config (the `BaseAttacksAway`,
+`BaseAway*`, `BaseSiege*` and `BaseDefence*` keys in `blocks.xml`, and the localization). Plan: `BaseDefence_Plan.md` in
+the game root (section 6, with the D4 answers of 2026-10-06); report and reviews in `_research\base_defence\`
+(D4_REPORT.md, fable_review_d4.md, fable_recheck_d4.md). No new Harmony target (still **76**, 69 without Voice Control).
+No save format change: new keys in the existing `[community]` section (`attackaway`, `awayused`, `defloss`, `homedef`,
+`scandef`, `bmhome`, `awaynews`), which older builds ignore; an older build drops an attack that is being fought without
+you (`baseattack=3:...`) rather than misread it.
+
+What changed:
+- **Hordes come while you're away.** At full attention a horde is called wherever you are - but only one per trip: after
+  one fight without you, the meter waits full until you're home again (as in D2).
+- **Near or far:** within 100 m of the claim when it arrives, you fight it live (D2). Farther off, your people fight it
+  alone for 2 game hours + 1 per 10 zombies (about 3 h for 8, 4 h for 22), wearing it down at the pace the defence rating
+  gives. Come within 100 m before it ends and the ones they haven't dealt with yet are at the walls, live. Leave a live
+  fight (150 m) and your people fight the rest alone, the kills so far counted.
+- **The result** of a fight you missed: a roll against the defence rating - held, damaged or overrun. Only ammo is used
+  (1 bundle per 10 zombies, 1.5x overrun); 1-2 residents are hurt when damaged, about 2/3 when overrun, each using a meds
+  bundle at once (no meds: they stay injured). **Anyone at home can die**: about 8% for someone hurt (Fighting + Shooting 6,
+  15 zombies), more against bigger hordes or for novices, less for veterans, at most 50%; a tenth of that for those not
+  hurt, so even a held base can rarely lose someone. Morale +2 held, -5 damaged, -12 overrun (fading a point a day), plus
+  the usual death penalty. Only fights you're at count for Leadership.
+- **The defence rating** (`sc defence`): 20, +4 per fit resident, +1 per combat star above 2, +10 per manned watch post
+  (at most +30, only with ammo in the stockpile), +1 per trap or turret in the claim (at most +20), -15 with no ammo,
+  +-5 for morale 75+/under 25, -1 per zombie over 20 (at most -15).
+- **Word of it:** with a powered radio you're told when the horde is called, when it hits and how it ended. Without one you
+  hear nothing until you're back home: then one tooltip per result, and the ledger has the line.
+- **Blood-moon siege:** a blood moon that passes while you were never within 100 m of the claim is settled the same way, 15 below the rating,
+  against a horde of the usual size; told at the end (radio) or on your return.
+- A guard on watch who is hurt with no meds comes down from the post.
+
+Known limits (not bugs): nothing happens to the base's blocks - "damaged" and "overrun" cost ammo, meds, people and
+morale only. The fight without you is a simulation: residents in sight (100-150 m out) just stand about. Arrival "near"
+is now 100 m (D2 waited until you were within 30 m), even with BaseAttacksAway off. Back home while an outpost attack is
+still being fought, you don't join (one live fight at a time): your people carry on and it settles as usual. Passing
+within 100 m and leaving again restarts the time your people hold out. A horde held back by the blood moon arrives the
+morning after, the same dawn a siege may be settled: two results that night is expected.
+
+Console: `sc defence [horde]` (the rating term by term, the odds of a fight without you, the highest death risk),
+`sc attack status` (now shows a fight without you, its end and how many are dealt with), `sc attack now` far from the claim
+(starts a fight without you; it also forgets this trip's earlier fight), `sc attack settle [held|damaged|overrun]` (ends
+the open attack now as a fight without you - rolled, or as given), `sc siege [held|damaged|overrun]` (a siege now). The log
+line `base attack without the player ...` / `base SIEGE ...` lists the roll and every resident's death chance.
+
+- [ ] **Startup:** `patch verification: all 76 targets patched`; the `config:` line ends with `awayAttacks=2h+1h/10, join
+      100m, band 35, ammo 1/10 (x1.5), death 0.08 (cap 0.5, unhurt x0.1), morale +2/-5/-12 siege=-15 defence=20+4/resident+...`.
+- [ ] **Rating:** `sc defence` lists base 20, fit residents, combat stars, manned posts, traps/turrets, ammo, morale and the
+      horde, and a total 0-100; place a few spike traps in the claim and after ~15 s the trap count goes up (`sc scan`
+      forces it).
+- [ ] **Fight without you (no radio):** walk more than 100 m from the claim, `sc attack now 8`: no tooltip. `sc attack
+      status` shows "the defenders fight it alone", its end time and the dealt count rising. Stay away until it ends (or
+      `settime` past it): still nothing. Walk home: "While you were away: the base held/was damaged/... ; N ammo bundles
+      used; ..." and the ledger has the line. The stockpile shows the ammo and meds gone.
+- [ ] **With a powered radio:** the same, with the radio up: "Radio from home: the horde is at the walls..." at the arrival
+      and "Radio from home: ..." with the result at the end, while you're still away. A natural call (attention 100%) while
+      away also gives "a horde of N is gathering to the ... - it hits in about N game hour(s)".
+- [ ] **Joining:** start one far away (`sc attack now 12`), wait a game hour, walk back within 100 m: "You're back - the base
+      is still under attack! Your people dealt with N ... M are at the walls." and M zombies come from that side (D2's
+      fight); killing them all gives D2's "The base held!" (and the Leadership event).
+- [ ] **Leaving a live fight:** during a live fight walk more than 150 m away: "You left the fight. Your people hold the base
+      against the N dead still standing for about H game hour(s)..."; it then settles without you (or come back to join).
+- [ ] **One per trip:** after a fight without you settles, while you stay away a full attention meter waits (`sc noise`:
+      "held full"; `sc attack status`: "this absence's fight ... has been had"); once you're home a call comes.
+- [ ] **Results:** `sc attack now 30` then `sc attack settle overrun` (at home is fine): about 2/3 of the residents hurt, a
+      meds bundle each while they last, then injured ones (mood -15); morale's Defence part -12 (`sc morale`). `sc attack
+      settle held`: morale +2, nobody hurt. Deaths are rare at the defaults - the log line shows each chance; `sc attack
+      settle overrun` with a big horde (`sc attack now 60`) makes one likely: the member is gone from the list, "lost: Name"
+      in the result, the death penalty applies, the body disappears.
+- [ ] **A guard hurt:** a guard on watch hurt with no meds left comes down ("X is injured and can't keep watch.").
+- [ ] **Siege:** spend a whole blood moon more than 100 m from the claim (or `sc siege`): at its end (dawn) the result, as
+      above, "the blood moon horde besieged the base ..."; spend any part of it within 100 m: no siege (log: "no siege (the
+      player was home for it)").
+- [ ] **Save and reload during a fight without you:** `sc attack status` unchanged after the reload; it still ends at the
+      same time and settles.
+- [ ] **D2/D3 unchanged at home:** a call while you're home is still a live fight with the guard's call-outs; WideDefence and
+      the guard exemptions as before.
+
 ## Base defence D3: watch posts and 12-hour guard shifts
 
 **Deployed 2026-10-06** (Fable review + re-check: deployable). DLL md5 `7d2731b0ab47af8926a22101da37f40f`, deployed **together with** the same tree's Config: the

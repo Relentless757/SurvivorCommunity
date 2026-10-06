@@ -202,7 +202,7 @@ namespace SurvivorCommunity
             {
                 fullLogged = true;
                 ScLog.Out("base attention reached 100% (noise " + Current().ToString("0.#", CultureInfo.InvariantCulture)
-                          + ")" + (ScConfig.BaseAttacks ? "; a horde is called once the player is home (ScBaseAttack)" : "; base attacks are off"));
+                          + ")" + (ScConfig.BaseAttacks ? "; a horde is called when nothing holds it back (sc attack status)" : "; base attacks are off"));
             }
             else if (c.Attention < 90f) fullLogged = false;
         }

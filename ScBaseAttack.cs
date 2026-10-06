@@ -9,15 +9,21 @@ namespace SurvivorCommunity
     /// <summary>
     /// Base defence D2: live horde attacks on the home base (BaseDefence_Plan.md in the game root; its section 6 decides).
     /// Host only, all behind BaseAttacks.
-    ///   Call      attention (ScNoise) at 100 calls a horde while the player is home. Until D4 a call waits for the
-    ///             player: away, attention just stays full (HoldsFullAttention: full stays full until a call, whatever
-    ///             holds it back). Never within BaseAttackGapDays of the last attack's end,
+    ///   Call      attention (ScNoise) at 100 calls a horde - while the player is away too (D4, BaseAttacksAway), but only
+    ///             once per absence: after one fight without the player a call waits for them (HoldsFullAttention: full
+    ///             stays full until a call, whatever holds it back). Never within BaseAttackGapDays of the last attack's end,
     ///             never from 10:00 on blood-moon day until the blood moon ends at dawn (vanilla's blood moon comes for
     ///             the player at home already), never while an outpost attack is being fought (one live attack at a
     ///             time). Attention resets at the call and gains nothing while an attack is open.
-    ///   Arrival   BaseAttackLeadMin..MaxHours later, from one side (the bearing kept with the attack). A player away
-    ///             from home at that time, or a blood-moon window, puts it off: it comes the lead time after the player
-    ///             is back and the window is over.
+    ///   Arrival   BaseAttackLeadMin..MaxHours later, from one side (the bearing kept with the attack). The player within
+    ///             BaseAttackJoinRange of the zone fights it live; farther off, the defenders fight it alone (D4: Away). A
+    ///             blood-moon window puts it off (so does the player being away once this absence's fight has been had):
+    ///             it comes the lead time after the window is over.
+    ///   Away      (D4) it lasts BaseAwayHoursBase + BaseAwayHoursPer10 per 10 attackers of game time, the defenders
+    ///             wearing it down at the rate the defence rating gives (ScDefence). The player coming within
+    ///             BaseAttackJoinRange joins it: the attackers not yet dealt with come live (their ammo is billed). Not
+    ///             joined, it is settled on the rating (ScDefence.Settle: ammo, the hurt, maybe a death, morale). A powered
+    ///             radio tells the player at the call, the arrival and the end; without one they hear on their return.
     ///   Size      (BaseAttackBase + gamestage x BaseAttackPerGamestage) x (1 + BaseAttackPerMember x residents),
     ///             BaseAttackMin..BaseAttackMax, fixed at the call.
     ///   Mix       vanilla's gamestage list BaseAttackGameStages (ScoutGSList: the screamer hordes, the one vanilla horde
@@ -41,16 +47,16 @@ namespace SurvivorCommunity
     ///             and Centroid; Community.AttackWarned records what was told and is cleared with each call and ending.
     ///   Held      every attacker dead while the player is home: the Defence morale part, sc_ev_defend, a tooltip and a
     ///             ledger line with what the fight cost the stockpile (ScAmmo's resupplies, NoteResupply).
-    ///   Left      the player more than BaseAttackLeaveRange m outside the zone: the attackers still standing go, and
-    ///             only they come back, the lead time after the player returns - nobody fights while the player is away.
-    ///             A save and reload mid-fight is the same: the attackers are Dynamic and never saved; the persisted
-    ///             counts bring back only the ones still standing, BaseAttackResumeSeconds after the load.
+    ///   Left      the player more than BaseAttackLeaveRange m outside the zone: the attackers still standing go, and the
+    ///             defenders fight the rest alone (Away, the kills so far credited; D2 without BaseAttacksAway: they come
+    ///             back the lead time after the player returns). A save and reload mid-fight brings back only the ones
+    ///             still standing (the attackers are Dynamic and never saved), BaseAttackResumeSeconds after the load.
     ///   Timeout   BaseAttackMaxHours after it went live with no kill in the last game hour, the stragglers are let go
     ///             as ordinary zombies and it counts as held (none killed at all: they lost the trail).
     /// </summary>
     public static class ScBaseAttack
     {
-        public const int StateNone = 0, StateCalled = 1, StateLive = 2;
+        public const int StateNone = 0, StateCalled = 1, StateLive = 2, StateAway = 3;
         public const string DefendEvent = ScLeadership.DefendEvent;
         /// <summary>Metres past the defended area a defender may go before its defence pauses (ScIntruder's stray rule)...</summary>
         public const float StrayExtra = 3f;
@@ -104,6 +110,8 @@ namespace SurvivorCommunity
 
         public static bool Open { get { return ScRegistry.Community.AttackState != StateNone; } }
         public static bool Live { get { return ScRegistry.Community.AttackState == StateLive; } }
+        /// <summary>The defenders are fighting the open attack alone (D4): the player is away.</summary>
+        public static bool Away { get { return ScRegistry.Community.AttackState == StateAway; } }
 
         /// <summary>
         /// A full attention meter stays full until a horde is called (ScNoise): whatever holds the call back - the player
@@ -141,6 +149,18 @@ namespace SurvivorCommunity
         public static bool PlayerHome(EntityPlayer player)
         {
             return player != null && OutsideZone(player.position) <= ScConfig.BaseAttackHomeMargin;
+        }
+
+        /// <summary>Near enough to fight it (D4): an arriving horde comes live and an away fight is joined within BaseAttackJoinRange.</summary>
+        public static bool Near(EntityPlayer player)
+        {
+            return player != null && OutsideZone(player.position) <= Math.Max(ScConfig.BaseAttackHomeMargin, ScConfig.BaseAttackJoinRange);
+        }
+
+        /// <summary>A horde may come while the player is away (D4): switched on, and this absence's one fight not yet had.</summary>
+        private static bool AwayAllowed(Community c)
+        {
+            return ScConfig.BaseAttacksAway && !c.AttackAwayUsed;
         }
 
         /// <summary>How far from 'from' the zone ends along 'dir' (its last block on that line, for an L or a T too).</summary>
@@ -217,7 +237,9 @@ namespace SurvivorCommunity
             if (!forced && w.worldTime < c.AttackNotBefore) return "too soon after the last attack (not before " + Clock(c.AttackNotBefore) + ")";
             if (!forced && BloodMoonWindow(w)) return "the blood moon (no calls from 10:00 on its day until it ends at dawn)";
             if (ScOutpostRisk.AnyLive()) return "an outpost attack is being fought";
-            if (!forced && !PlayerHome(player)) return "the player is away from home (a call waits for them)";
+            if (!forced && !Near(player) && !AwayAllowed(c))
+                return ScConfig.BaseAttacksAway ? "the defenders already fought a horde while the player was away (one per absence: the next call waits for them)"
+                                                : "the player is away from home (a call waits for them)";
             return null;
         }
 
@@ -261,6 +283,13 @@ namespace SurvivorCommunity
                 homeCentre = new Vector3(c.Home.x + 0.5f, c.Home.y, c.Home.z + 0.5f);
                 if (Open && !ScConfig.BaseAttacks) { Abort(w, "BaseAttacks is off"); return; }
                 SaneTimes(w, c);
+                ScDefence.TickNews(player, now);
+                if (c.AttackAwayUsed && c.AttackState == StateNone && Near(player))
+                {
+                    // back (near enough to fight one live) with no attack open: the next absence may have its fight
+                    c.AttackAwayUsed = false;
+                    ScRegistry.SaveAtomic();
+                }
                 switch (c.AttackState)
                 {
                     case StateNone:
@@ -271,6 +300,9 @@ namespace SurvivorCommunity
                         break;
                     case StateLive:
                         TickLive(w, player, c, now);
+                        break;
+                    case StateAway:
+                        TickAway(w, player, c, now);
                         break;
                     default:
                         ScLog.Warn("unknown base attack state " + c.AttackState + " - cleared");
@@ -301,7 +333,29 @@ namespace SurvivorCommunity
                 ScLog.Out("base attack: the arrival was further off than any lead (clock went back?) - it comes the lead time after the player is home");
             }
             if (c.AttackState == StateLive && c.AttackStarted > now) c.AttackStarted = now;
+            if (c.AttackState == StateAway)
+            {
+                ulong span = AwayTicks(c.AttackSize - c.AttackAwayBase);
+                if (c.AttackAwaySince > now || c.AttackAwayEnd > now + span || c.AttackAwayEnd == 0UL)
+                {
+                    c.AttackAwaySince = now;
+                    c.AttackAwayEnd = now + span;
+                    ScLog.Out("base attack: the defenders' fight was in the future (clock went back?) - it runs its full length from " + Clock(now));
+                }
+            }
             if (lastProgress > now) lastProgress = now;
+        }
+
+        /// <summary>How long the defenders hold out alone against 'left' attackers (D4): BaseAwayHoursBase + BaseAwayHoursPer10 per 10.</summary>
+        private static ulong AwayTicks(int left)
+        {
+            float h = Math.Max(0.25f, ScConfig.BaseAwayHoursBase + ScConfig.BaseAwayHoursPer10 * Math.Max(0, left) / 10f);
+            return (ulong)(h * TicksPerHour);
+        }
+
+        private static string Hours(ulong ticks)
+        {
+            return Math.Max(1, Mathf.RoundToInt(ticks / (float)TicksPerHour)).ToString(CultureInfo.InvariantCulture);
         }
 
         /// <summary>A horde is called: size, side and arrival are fixed now. 'size' 0 = the usual; 'now' = it arrives at once.</summary>
@@ -320,38 +374,159 @@ namespace SurvivorCommunity
             if (c.AttackArrive == 0UL) c.AttackArrive = 1UL;
             c.Attention = 0f;                     // the dead have found the base: attention starts over
             c.AttackWarned = 0;
+            c.AttackAwaySince = c.AttackAwayEnd = 0UL;
+            c.AttackAwayBase = 0;
+            c.AttackHeard = 0;
             sessionReady = true;
-            // no word to the player here: only a guard on watch sees a horde coming (decision Q6) - ScWatch's call-out,
-            // within the second while the player is at the base
+            // at the base only a guard on watch sees a horde coming (decision Q6) - ScWatch's call-out, within the second;
+            // away (beyond the join range: it will be the defenders' fight), a powered radio tells of it (D4)
+            bool radio = false;
+            if (!Near(player) && ScDefence.Radio())
+            {
+                radio = true;
+                c.AttackHeard |= 1;
+                ScCommunity.Tell(player, string.Format(Localization.Get("scDefRadioCall"), c.AttackSize, Side(c.AttackBearing),
+                                                       Hours(c.AttackArrive > w.worldTime ? c.AttackArrive - w.worldTime : 0UL)), "ui_denied");
+            }
             ScLog.Out("base attack called (" + why + "): " + c.AttackSize + " zombie(s) from the " + Side(c.AttackBearing)
-                      + " (bearing " + c.AttackBearing + "), arriving " + Clock(c.AttackArrive) + "; mix " + Mix(player));
+                      + " (bearing " + c.AttackBearing + "), arriving " + Clock(c.AttackArrive) + "; mix " + Mix(player)
+                      + (Near(player) ? "" : radio ? "; the player is away - told over the radio" : "; the player is away - no radio to hear it"));
             ScRegistry.SaveAtomic();
         }
 
         private static void TickCalled(World w, EntityPlayerLocal player, Community c)
         {
-            bool home = PlayerHome(player);
-            bool held = BloodMoonWindow(w) || ScOutpostRisk.AnyLive();
+            bool near = Near(player);
+            // the blood moon holds every arrival; an outpost being fought holds one the player would fight live
+            bool held = BloodMoonWindow(w) || (near && ScOutpostRisk.AnyLive());
             if (c.AttackArrive == 0UL)
             {
-                // put off (the player was away, or the blood moon): it comes the lead time after the player is back
-                if (home && !held)
+                // put off (the blood moon, an outpost fight, or the player away with this absence's fight had): it comes
+                // the lead time after that is over
+                if (!held && (near || AwayAllowed(c)))
                 {
                     c.AttackArrive = w.worldTime + LeadTicks(w.GetGameRandom());
-                    ScLog.Out("base attack: the player is home - " + (c.AttackSize - c.AttackKilled) + " zombie(s) arrive " + Clock(c.AttackArrive));
+                    ScLog.Out("base attack: no longer held back - " + (c.AttackSize - c.AttackKilled) + " zombie(s) arrive " + Clock(c.AttackArrive));
                     ScRegistry.SaveAtomic();
                 }
                 return;
             }
             if (w.worldTime < c.AttackArrive) return;
-            if (!home || held)
+            if (held || (!near && !AwayAllowed(c)))
             {
                 c.AttackArrive = 0UL;
-                ScLog.Out("base attack due but " + (!home ? "the player is away from home" : "it is the blood moon or an outpost fight") + " - it waits");
+                ScLog.Out("base attack due but " + (held ? "it is the blood moon or an outpost fight" : "the player is away and this absence's fight was had") + " - it waits");
                 ScRegistry.SaveAtomic();
                 return;
             }
+            if (near) GoLive(w, c);
+            else GoAway(w, player, c, false);
+        }
+
+        // ------------------------------------------------------------------ without the player (D4) ----
+
+        /// <summary>
+        /// The defenders fight it alone: at the arrival with the player far off, or handed over when the player left a live
+        /// fight ('handoff'). It lasts AwayTicks of the ones not yet killed (those already killed are credited).
+        /// </summary>
+        private static void GoAway(World w, EntityPlayerLocal player, Community c, bool handoff)
+        {
+            c.AttackState = StateAway;
+            c.AttackSpawned = c.AttackKilled;
+            if (c.AttackStarted == 0UL) c.AttackStarted = w.worldTime;
+            c.AttackAwaySince = w.worldTime;
+            c.AttackAwayBase = c.AttackKilled;
+            int left = c.AttackSize - c.AttackKilled;
+            ulong span = AwayTicks(left);
+            c.AttackAwayEnd = w.worldTime + span;
+            c.AttackAwayUsed = true;               // this absence's fight
+            bool radio = false;
+            if (handoff)
+            {
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scBaseLeftAway"), left, Hours(span)), "ui_denied");
+            }
+            else if (ScDefence.Radio())
+            {
+                radio = true;
+                c.AttackHeard |= 2;
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scDefRadioArrived"), left, Side(c.AttackBearing), Hours(span)), "ui_denied");
+            }
+            ScLog.Out("base attack " + (handoff ? "handed to the defenders (the player left the fight)" : "arrives with the player away") + ": " + left + " zombie(s) from the "
+                      + Side(c.AttackBearing) + (c.AttackKilled > 0 ? " (" + c.AttackKilled + " already killed)" : "") + "; the defenders hold until " + Clock(c.AttackAwayEnd)
+                      + " (rating " + ScDefence.Rating(left, null) + ")" + (handoff ? "" : radio ? "; told over the radio" : "; no radio to hear it"));
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>How many the defenders have dealt with by 't': the credited ones, plus the rest at the rate the rating gives.</summary>
+        private static int Dealt(Community c, ulong t)
+        {
+            int left = c.AttackSize - c.AttackAwayBase;
+            if (left <= 0) return c.AttackSize;
+            ulong span = c.AttackAwayEnd > c.AttackAwaySince ? c.AttackAwayEnd - c.AttackAwaySince : 1UL;
+            float frac = t <= c.AttackAwaySince ? 0f : Mathf.Clamp01((t - c.AttackAwaySince) / (float)span);
+            int rating = ScDefence.Rating(left, null);
+            return Math.Min(c.AttackSize, c.AttackAwayBase + Mathf.FloorToInt(left * frac * rating / 100f));
+        }
+
+        private static void TickAway(World w, EntityPlayerLocal player, Community c, float now)
+        {
+            // one live attack at a time: back from an outpost still being fought, the defenders carry on until it is over
+            if (Near(player) && !ScOutpostRisk.AnyLive()) { Join(w, player, c); return; }
+            if (w.worldTime >= c.AttackAwayEnd) { SettleAway(w, player, c, -1, "the defenders fought it alone"); return; }
+            int dealt = Dealt(c, w.worldTime);
+            if (dealt > c.AttackKilled)
+            {
+                c.AttackKilled = dealt;
+                if (now >= nextSave) { nextSave = now + 10f; ScRegistry.SaveAtomic(); }
+            }
+        }
+
+        /// <summary>The player is back in time: what the defenders have dealt with is billed, the rest come live.</summary>
+        private static void Join(World w, EntityPlayerLocal player, Community c)
+        {
+            c.AttackKilled = Math.Max(c.AttackKilled, Dealt(c, w.worldTime));
+            if (c.AttackKilled >= c.AttackSize)
+            {
+                // the defenders had already finished it (a rating of 100 on its last tick): their win, not the player's
+                SettleAway(w, player, c, ScDefence.Held, "the defenders finished it as the player came back");
+                return;
+            }
+            int part = c.AttackKilled - c.AttackAwayBase;
+            int took = ScDefence.TakeAmmo(ScDefence.Bundles(part, 1f));
+            int left = c.AttackSize - c.AttackKilled;
+            ScLog.Out("base attack joined: the player is back - the defenders dealt with " + part + " (" + took + " ammo bundle(s)), " + left + " come live");
+            c.AttackAwaySince = c.AttackAwayEnd = 0UL;
+            c.AttackAwayBase = 0;
+            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scDefJoin"), part, left, took), "ui_denied");
             GoLive(w, c);
+        }
+
+        /// <summary>Not joined in time (or the console): settled on the defence rating; only the ones not yet killed count.</summary>
+        private static void SettleAway(World w, EntityPlayerLocal player, Community c, int forced, string why)
+        {
+            int left = Math.Max(1, c.AttackSize - c.AttackAwayBase);
+            Release(w, true);
+            // the attack is closed before its costs are applied: should anything in them throw, the tick does not settle it
+            // again every second (ammo, the hurt and the death rolls once only)
+            c.Attention = 0f;
+            c.AttackNotBefore = w.worldTime + (ulong)(Math.Max(0f, ScConfig.BaseAttackGapDays) * TicksPerDay);
+            Clear(c);
+            ScRegistry.SaveAtomic();
+            ScDefence.Settle(w, player, left, 0, false, forced, why);
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>
+        /// sc attack settle [held|damaged|overrun]: the open attack ends now as a fight without the player would - its
+        /// attackers in the world go, and the ones not yet killed are settled on the rating (or the given result).
+        /// </summary>
+        public static bool SettleNow(World w, EntityPlayerLocal player, int forced)
+        {
+            Community c = ScRegistry.Community;
+            if (!Open) return false;
+            if (c.AttackState != StateAway) c.AttackAwayBase = c.AttackKilled;
+            SettleAway(w, player, c, forced, "the console");
+            return true;
         }
 
         private static void GoLive(World w, Community c)
@@ -732,14 +907,23 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
         }
 
-        /// <summary>The player left mid-fight: the attackers still standing go, and only they come back once the player does.</summary>
+        /// <summary>
+        /// The player left mid-fight: the attackers still standing go, and the defenders fight the rest alone (D4, the kills
+        /// so far credited); without BaseAttacksAway only they come back once the player does (D2).
+        /// </summary>
         private static void Suspend(World w, EntityPlayerLocal player, Community c)
         {
             int gone = Release(w, true);
             c.AttackSpawned = c.AttackKilled;
+            if (c.AttackWarned > 1) c.AttackWarned = 1;   // the ones met again on a return are a fresh sighting for a guard on watch (D3)
+            if (ScConfig.BaseAttacksAway)
+            {
+                ScLog.Out("base attack: the player left the fight (" + (int)OutsideZone(player.position) + " m out) - " + gone + " attacker(s) despawned");
+                GoAway(w, player, c, true);
+                return;
+            }
             c.AttackState = StateCalled;
             c.AttackArrive = 0UL;
-            if (c.AttackWarned > 1) c.AttackWarned = 1;   // the ones that come back are a fresh sighting for a guard on watch (D3)
             int left = c.AttackSize - c.AttackKilled;
             if (player != null && arrivalTold) ScCommunity.Tell(player, string.Format(Localization.Get("scBaseLeft"), left), "");
             ScLog.Out("base attack: the player left the fight (" + (int)OutsideZone(player.position) + " m out) - " + gone + " attacker(s) despawned; "
@@ -791,6 +975,9 @@ namespace SurvivorCommunity
             c.AttackBearing = c.AttackSize = c.AttackSpawned = c.AttackKilled = 0;
             c.AttackAmmoRounds = c.AttackAmmoPoints = 0;
             c.AttackWarned = 0;                    // ScWatch's call-outs; its marker goes on its next tick
+            c.AttackAwaySince = c.AttackAwayEnd = 0UL;
+            c.AttackAwayBase = 0;
+            c.AttackHeard = 0;
             attackers.Clear();
             arrivalTold = false;
         }
@@ -865,6 +1052,7 @@ namespace SurvivorCommunity
         {
             Community c = ScRegistry.Community;
             if (c.DefenceTriumph > 0f) c.DefenceTriumph = Math.Max(0f, c.DefenceTriumph - 1f);
+            if (c.DefenceLoss > 0f) c.DefenceLoss = Math.Max(0f, c.DefenceLoss - 1f);          // D4: fights lost without the player
         }
 
         public static string Clock(ulong t)
@@ -881,12 +1069,19 @@ namespace SurvivorCommunity
             {
                 case StateCalled:
                     sb.Append("attack: called, ").Append(c.AttackSize - c.AttackKilled).Append(" of ").Append(c.AttackSize).Append(" zombie(s) from the ")
-                      .Append(Side(c.AttackBearing)).Append(", ").Append(c.AttackArrive == 0UL ? "waiting for the player to be home" : "arriving " + Clock(c.AttackArrive));
+                      .Append(Side(c.AttackBearing)).Append(", ").Append(c.AttackArrive == 0UL ? "held back (the blood moon, an outpost fight, or the player away with this absence's fight had)" : "arriving " + Clock(c.AttackArrive));
                     break;
                 case StateLive:
                     sb.Append("attack: LIVE from the ").Append(Side(c.AttackBearing)).Append(" since ").Append(Clock(c.AttackStarted)).Append(" - spawned ")
                       .Append(c.AttackSpawned).Append('/').Append(c.AttackSize).Append(", killed ").Append(c.AttackKilled).Append(", in the world ").Append(attackers.Count)
                       .Append(anySide ? " (from any side)" : "").Append("; resupplied ").Append(c.AttackAmmoRounds).Append(" round(s)");
+                    break;
+                case StateAway:
+                    sb.Append("attack: the defenders fight it alone (the player is away) from the ").Append(Side(c.AttackBearing)).Append(" since ").Append(Clock(c.AttackAwaySince))
+                      .Append(", settled ").Append(Clock(c.AttackAwayEnd)).Append(" unless the player comes within ").Append(ScConfig.BaseAttackJoinRange.ToString("0", CultureInfo.InvariantCulture))
+                      .Append(" m - dealt with ").Append(c.AttackKilled).Append(" of ").Append(c.AttackSize).Append(" (").Append(c.AttackAwayBase).Append(" before), rating ")
+                      .Append(ScDefence.Rating(c.AttackSize - c.AttackAwayBase, null)).Append("; radio heard: ").Append((c.AttackHeard & 1) != 0 ? "call " : "").Append((c.AttackHeard & 2) != 0 ? "arrival" : "")
+                      .Append(c.AttackHeard == 0 ? "nothing" : "");
                     break;
                 default:
                     sb.Append("attack: none; ");
@@ -895,6 +1090,8 @@ namespace SurvivorCommunity
                     break;
             }
             sb.Append('\n').Append("next horde: ").Append(Size(player)).Append(" zombie(s), ").Append(Mix(player));
+            if (c.AttackAwayUsed) sb.Append("; this absence's fight without the player has been had (the next call waits until the player is back within the join range)");
+            if (c.AwayNews.Count > 0) sb.Append("; ").Append(c.AwayNews.Count).Append(" result(s) to tell on the return");
             if (w != null && c.AttackNotBefore > w.worldTime) sb.Append("; no call before ").Append(Clock(c.AttackNotBefore));
             return sb.ToString();
         }

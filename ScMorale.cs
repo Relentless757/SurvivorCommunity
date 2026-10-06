@@ -29,7 +29,7 @@ namespace SurvivorCommunity
             public int Leadership;
             /// <summary>Outposts: +OutpostMoralePer per producing outpost (capped), minus the fading penalty for lost ones.</summary>
             public int Territory;
-            /// <summary>Base defence: home attacks held lately (Community.DefenceTriumph, fades a point a day).</summary>
+            /// <summary>Base defence: home attacks held lately, less those lost without the player (DefenceTriumph - DefenceLoss, each fading a point a day).</summary>
             public int Defence;
             public float FoodDays;
             public int Total;
@@ -68,7 +68,7 @@ namespace SurvivorCommunity
             foreach (Outpost o in ScRegistry.Outposts) if (o.State == OutpostState.Active) producing++;
             p.Territory = Math.Min(ScConfig.OutpostMoraleCap, ScConfig.OutpostMoralePer * producing) - Mathf.RoundToInt(c.OutpostLoss)
                           + Mathf.RoundToInt(c.OutpostTriumph);
-            p.Defence = Mathf.RoundToInt(c.DefenceTriumph);
+            p.Defence = Mathf.RoundToInt(c.DefenceTriumph - c.DefenceLoss);       // D4: fights lost without the player count against it
 
             // SurvivorOrigins' Leadership (0 / 0 without it): a part of its own, and a shield that shrinks every
             // negative part toward 0 (never past it)
@@ -82,6 +82,7 @@ namespace SurvivorCommunity
                 p.Traits = ScLeadership.Shielded(p.Traits, shield);
                 p.Deaths = ScLeadership.Shielded(p.Deaths, shield);
                 p.Territory = ScLeadership.Shielded(p.Territory, shield);
+                p.Defence = ScLeadership.Shielded(p.Defence, shield);
             }
 
             int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory + p.Defence;

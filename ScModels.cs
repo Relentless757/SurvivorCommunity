@@ -303,7 +303,8 @@ namespace SurvivorCommunity
         public ulong NoiseStamp;
         /// <summary>
         /// Base defence D2 (ScBaseAttack): the open home attack. State 0 none, 1 called (AttackArrive = world time it
-        /// arrives, 0 = when the player is next home), 2 live (since AttackStarted). The side it comes from, how many come,
+        /// arrives, 0 = when the player is next home), 2 live (since AttackStarted), 3 fought without the player (D4). The
+        /// side it comes from, how many come,
         /// how many have been spawned and killed (a reload brings back only the ones still standing), and the stockpile's
         /// resupplies during the fight. AttackNotBefore: the next call waits until this world time.
         /// </summary>
@@ -319,6 +320,24 @@ namespace SurvivorCommunity
         /// </summary>
         public readonly List<Vector3i> WatchPosts = new List<Vector3i>();
         public int AttackWarned;
+        /// <summary>
+        /// Base defence D4 (ScBaseAttack state 3, ScDefence): the open attack fought without the player - since when, when it
+        /// is settled, and how many were already killed when it began (a live fight's kills are credited); saved as
+        /// attackaway=. AttackHeard: the radio's notices given for it (1 the call, 2 the arrival). AttackAwayUsed: this
+        /// absence's attack has come (at most one per absence; cleared once the player is home with none open, awayused=).
+        /// </summary>
+        public ulong AttackAwaySince, AttackAwayEnd;
+        public int AttackAwayBase, AttackHeard;
+        public bool AttackAwayUsed;
+        /// <summary>Morale lost in fights at home without the player (fades 1 a day): the Defence part is DefenceTriumph - DefenceLoss.</summary>
+        public float DefenceLoss;
+        /// <summary>Traps and turrets in the home zone (OutpostDefenseBlocks, the home scan) and per counted chunk (only those with any).</summary>
+        public int HomeDefences;
+        public readonly Dictionary<long, int> ScanDefences = new Dictionary<long, int>();
+        /// <summary>The day the player was last seen at home during a blood moon (0: not this one) - no siege at its end.</summary>
+        public int BloodMoonHomeDay;
+        /// <summary>What happened at home while the player was away with no working radio, told when they are back (ScDefence.News).</summary>
+        public readonly List<string> AwayNews = new List<string>();
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }
