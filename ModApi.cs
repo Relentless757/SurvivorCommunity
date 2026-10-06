@@ -66,6 +66,7 @@ namespace SurvivorCommunity
                 ScMelee.Reset();
                 ScRelax.Reset();
                 ScNoise.Reset();
+                ScBaseAttack.Reset();
                 Patches_Npc.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>

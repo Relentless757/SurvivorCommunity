@@ -25,6 +25,102 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Base defence D2: live horde attacks on the home
+
+**Deployed 2026-10-06** (Fable review + re-check: deployable). DLL md5 `44050e6e2643eb10e29933b2a5878e75`, 679424
+bytes, deployed **together with** the same tree's Config (`blocks.xml` keys, localization). Plan: `BaseDefence_Plan.md`
+in the game root (section 6, with the D2 answers of 2026-10-06); report and reviews in `_research\base_defence\`
+(D2_REPORT.md, fable_review_d2.md, fable_recheck_d2.md). No new Harmony target
+(still **76**, 69 without Voice Control). No save format change: three new keys in the registry's `[community]` section
+(`baseattack`, `attacknext`, `defended`), which older builds ignore.
+
+What changed:
+- **The call.** When attention reaches 100% while you are home (inside the zone or within 30 m of it), a horde is
+  called and attention drops to 0. Nothing tells you: only a guard on watch will see it coming (D3). Away from home the
+  call waits for you. No call within 2 days of the last attack's end, from 10:00 on blood-moon day until the blood
+  moon ends at dawn, or while an outpost attack is being fought. Whatever holds the call back, a full meter stays at
+  100% until the horde is called. Attention gains nothing while an attack is open.
+- **The arrival**, 1-2 game hours later, from one side. If you are away at that time (or it is the blood moon), it
+  comes 1-2 hours after you are back.
+- **The horde.** About 8 zombies early, 14 at gamestage 50, 22 at 100 (cap 40), +5% per resident. The types are
+  vanilla's screamer-horde list (`ScoutGSList`) for your gamestage, so ferals and radiated come when they would there.
+  They spawn one a second 25-50 m beyond the zone's edge (45-70 m from a default claim's centre), all within 30 degrees
+  of their side, never within 30 m of you, and only while vanilla's zombie cap has room. With no spot on their side
+  for 20 s they may come from any side; with none at all for 40 s (a base ringed by POI floors or paving, which
+  vanilla's spawn rule rejects) from any block they can stand on.
+- **At the base** they are vanilla's horde: they bang their way in (ZombieAIOverhaul: only ferals break walls), fight
+  whoever hurts them, and you. A zombie with nothing to do for 45 s is sent elsewhere in the base; one that wanders
+  more than 30 m off is sent back.
+- **Your residents defend the whole base** while the attack is live: any enemy in the zone or up to 10 m outside it,
+  wherever their post is (normally 22 m around the post). Cowardly members still run.
+- **Held** (every attacker dead): tooltip and ledger line with what the fight cost the stockpile (the resupplies during
+  it), a new morale part "Defended the base" (+4, at most 10, fading 1 a day), and Leadership's `sc_ev_defend`.
+- **Leaving mid-fight** (more than 150 m from the zone): the attackers still standing vanish and come back, only they,
+  1-2 hours after you return. **A reload mid-fight** is the same: only the ones still standing come back, 15 s after the
+  load. Nobody fights while you are away.
+- **A stalled fight** (4 game hours after it began and no kill in the last hour) ends: the stragglers become ordinary
+  zombies and it counts as held.
+
+Console: `sc attack [now] [size]` calls a horde whatever the attention, the 2-day gap and the blood moon ("now": it
+arrives at once; a size overrides the usual one; away from home it waits for you). `sc attack status` shows the open
+attack, the next horde's size and mix, and what the next call waits for. `sc attack end` despawns the attackers and
+closes the attack (nothing won). `sc noise` shows the attack status too. Config: `BaseAttacks` and the `BaseAttack*` keys
+in `Config/blocks.xml` (ConfigSurvivorCommunity).
+
+- [ ] **Startup:** `patch verification: all 76 targets patched` (69 without Voice Control); the `config:` line ends with
+      `baseAttacks=gap 2d, lead 1-2h, size (6+gs*0.16)*(1+0.05/resident) 4..40, mix ScoutGSList, ring +25..50m +-30deg,
+      defend zone+10m, home 30m, leave 150m, max 4h, morale +4`.
+- [ ] **Status:** at home, `sc attack status`: `attack: none; a call comes at attention 100%`, then `next horde: N
+      zombie(s), ScoutGSList stage S (gamestage G): scoutHordeStageGS...` with N about as above for your gamestage.
+- [ ] **A forced attack:** at home, `sc attack now 6`: within a few seconds zombies appear one a second outside the
+      claim, all on the side `sc attack status` names; the tooltip "The dead are at the walls! 6 of them came for the
+      base." when the first reaches the claim (or a minute after the first spawned).
+- [ ] **They come for the base:** they head straight for the base and bang on doors and windows; none stands around
+      outside or wanders off for good.
+- [ ] **Residents defend the whole base:** residents posted on the far side of the base come over and fight, also just
+      outside the claim, without turning back halfway or being teleported to their posts mid-fight. Cowardly members still
+      run. Afterwards everyone walks back to their post.
+- [ ] **Held:** kill them all: the tooltip "The base held! 6 of the dead lie at the walls; the fight cost ..." and a
+      ledger line; `sc morale` and the community window show "Defended the base +4"; `sc attack status` says no call
+      before two days later.
+- [ ] **The ammo bill:** with resident gunners and ammo in the stockpile, the held message names the rounds resupplied
+      during the fight ("N rounds from the stockpile, about X ammo bundles"); with none resupplied, "nothing from the
+      stockpile".
+- [ ] **Attention calls it:** at home, `sc attention 100`: within a second the log has `base attack called (attention
+      100%)`, nothing is shown to you, `sc noise` shows attention 0 and "paused: an attack is open"; 1-2 game hours later
+      the horde arrives.
+- [ ] **The call waits for you:** more than 30 m outside the claim, `sc attention 100`: no call (`sc attack status`: `a
+      call waits: the player is away from home`); stay away a few game hours: `sc noise` still shows 100%; walk home:
+      the call comes.
+- [ ] **The arrival waits for you:** `sc attack` at home (1-2 hours' lead), leave the claim by more than 30 m and stay
+      out past the arrival time: the log says `base attack due but the player is away from home - it waits`. Come home:
+      `the player is home - N zombie(s) arrive day ...`, and they come 1-2 hours later.
+- [ ] **Leaving mid-fight:** `sc attack now 10`, kill a few, then go more than 150 m from the claim: the attackers vanish
+      and "You left the fight..." shows. Come back: 1-2 hours later only the rest arrive (`sc attack status` keeps the
+      killed count), and holding counts all 10.
+- [ ] **Reload mid-fight:** `sc attack now 10`, kill some, save and quit to the menu, load: about 15 s later only the
+      ones still standing come back (`base attack resumes after a load` in the log); holding counts all 10.
+- [ ] **Blood moon:** on blood-moon day after 10:00, `sc attention 100` at home: no call (`a call waits: the blood
+      moon ...`); once the blood moon is over at dawn the call comes if you are home.
+- [ ] **The gap:** right after a held attack, `sc attention 100`: no call (`too soon after the last attack`) until two
+      game days after it ended.
+- [ ] **The zombie cap:** with many zombies already about, the spawning pauses instead of dropping attackers, and goes
+      on as room frees up (`sc attack status`: spawned holds, then rises).
+- [ ] **A city base** (only if yours is one): if the log says `no terrain spawn spot around the base - spawning on any
+      standable block in the ring`, the horde still comes (from streets or POI floors) instead of never arriving.
+- [ ] **The mix:** at a higher gamestage, ferals and radiated turn up as in vanilla's screamer hordes.
+- [ ] **Pause:** open the pause menu during an attack: nothing spawns while it is open.
+- [ ] **`sc attack end`:** the attackers vanish, the attack closes, nothing is won.
+- [ ] **A stalled fight ends** (only if one happens): a zombie stuck out of reach keeps the attack open; 4 game hours
+      after it began, with no kill in the last hour, the log has `base attack HELD ... straggler(s) let go` and the
+      held tooltip shows (with nothing killed at all: `base attack ended without a fight`, no reward).
+- [ ] **A full meter stays full:** with attention at 100% during the 2-day gap or on blood-moon day, `sc noise` says
+      `held full until a horde is called`, and the horde is called once the gap ends / at the dawn after the blood moon
+      (if you are home).
+- [ ] **One live attack at a time** (only if handy): while an outpost attack is being fought (its attackers are out),
+      a home call or arrival waits; while a home attack is live, an outpost's attackers do not spawn.
+- [ ] **Multiplayer:** host only, as all of SC: "home" and "left the fight" are the host's own player.
+
 ## Base defence D1: the Home Status panel and the noise meter
 
 **Deployed 2026-10-05** (Fable review + re-check: deployable). **First look by the user 2026-10-06: panel, red numbers and noise levels work;** the rows still open were not reported either way. DLL md5 `c035ed57eee3402a3cd467472a43b536`, 655360
@@ -76,8 +172,8 @@ Console: `sc noise` (the breakdown and what was heard this session), `sc noise a
       fuel is red only when the next rollover will actually deliver something (a working radio, or the outpost's relay).
 - [ ] **Fading and attention:** `sc noise add 60`: the panel shows "Very loud"; `sc noise` reports attention gaining
       about +4/h; let a game hour or two pass: the event noise has halved each hour and attention has grown. `sc noise
-      clear` and `sc attention 0` reset them. Reaching 100% only writes one log line (`base attention reached 100% ...
-      no horde is called yet`).
+      clear` and `sc attention 0` reset them. Reaching 100% writes one log line (`base attention reached 100% ...`;
+      since D2 it is followed by the call once you are home, see the D2 section).
 - [ ] **Save and reload:** quit and continue: noise and attention come back as they were (minus the time that passed).
 - [ ] **Blood moon:** during the blood moon `sc noise` says `paused: blood moon` and attention does not grow.
 - [ ] **Tuning (no pass/fail):** play a normal session at home and note what `sc noise` says for your base on a quiet

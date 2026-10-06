@@ -84,6 +84,7 @@ namespace SurvivorCommunity
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
                 ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
+                ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight
                 ScMissing.Tick(w, player);            // residents whose body is gone from the world (Call back)
             }
             catch (Exception e)
@@ -346,6 +347,7 @@ namespace SurvivorCommunity
                 var summary = new System.Text.StringBuilder();
                 ScRuns.Resolve(day, player, summary);    // runs land first: the yield counts for today's needs
                 ScOutposts.Daily(day, player, summary);  // then the outposts' deliveries, upkeep and haulage
+                ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)
                 ScStockpile.DailyConsume(day, summary);
                 ScMorale.Daily(day, player, summary);     // fades the death penalty, recomputes, threat / departure

@@ -367,11 +367,14 @@ namespace SurvivorCommunity
                 bool fighting = LiveFoe(npc, FightRange) != null;
                 float now = Time.unscaledTime;
                 if (m.StuckShift > 0 && now - m.LastStuckAt > BackoffResetSeconds) m.StuckShift = 0;
-                int stuckLimit = (fighting ? ScConfig.StuckSeconds * 3 : ScConfig.StuckSeconds) << m.StuckShift;
+                // a live home attack (base defence D2): a crowd at the walls blocks more, so a fight gets five times
+                // StuckSeconds, and the whole defended area (+ LeashExtra) counts as near the post
+                bool wide = ScBaseAttack.WideDefence;
+                int stuckLimit = (fighting ? ScConfig.StuckSeconds * (wide ? 5 : 3) : ScConfig.StuckSeconds) << m.StuckShift;
                 float farLimit = ScConfig.PostRadius * 3 + 12;
                 if (fighting) farLimit = Mathf.Max(farLimit, ScConfig.DefendBaseRadius + 14f);
                 float away = Vector3.Distance(pos, PostCenter(m));
-                if (away > farLimit) m.AwaySeconds++; else m.AwaySeconds = 0;
+                if (away > farLimit && !(wide && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra))) m.AwaySeconds++; else m.AwaySeconds = 0;
                 if (m.StillSeconds >= stuckLimit) Stuck(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting, now);
                 else if (m.AwaySeconds >= 90) Stuck(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s" + (fighting ? ", fighting" : ""), fighting, now);
             }

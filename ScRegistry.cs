@@ -432,6 +432,9 @@ namespace SurvivorCommunity
                 case "noiseev": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.NoiseEvents = Math.Max(0f, f); break; }
                 case "attention": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.Attention = Math.Max(0f, Math.Min(100f, f)); break; }
                 case "noisestamp": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.NoiseStamp = u; break; }
+                case "baseattack": ParseBaseAttack(c, val); break;
+                case "attacknext": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.AttackNotBefore = u; break; }
+                case "defended": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DefenceTriumph = Math.Max(0f, Math.Min(10f, f)); break; }
                 case "harvestcarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.HarvestCarry = f; break; }
                 case "stock":
                     foreach (string part in val.Split(','))
@@ -645,6 +648,11 @@ namespace SurvivorCommunity
                 if (c.NoiseEvents > 0f) sb.AppendLine("noiseev=" + c.NoiseEvents.ToString("0.###", CultureInfo.InvariantCulture));
                 if (c.Attention > 0f) sb.AppendLine("attention=" + c.Attention.ToString("0.###", CultureInfo.InvariantCulture));
                 if (c.NoiseStamp > 0UL) sb.AppendLine("noisestamp=" + c.NoiseStamp.ToString(CultureInfo.InvariantCulture));
+                if (c.AttackState != 0)
+                    sb.AppendLine("baseattack=" + c.AttackState + ":" + c.AttackArrive.ToString(CultureInfo.InvariantCulture) + ":" + c.AttackStarted.ToString(CultureInfo.InvariantCulture)
+                                  + ":" + c.AttackBearing + ":" + c.AttackSize + ":" + c.AttackSpawned + ":" + c.AttackKilled + ":" + c.AttackAmmoRounds + ":" + c.AttackAmmoPoints);
+                if (c.AttackNotBefore > 0UL) sb.AppendLine("attacknext=" + c.AttackNotBefore.ToString(CultureInfo.InvariantCulture));
+                if (c.DefenceTriumph > 0f) sb.AppendLine("defended=" + c.DefenceTriumph.ToString("0.##", CultureInfo.InvariantCulture));
                 sb.AppendLine("harvestcarry=" + c.HarvestCarry.ToString("0.###", CultureInfo.InvariantCulture));
                 var st = new StringBuilder();
                 for (int i = 0; i < 5; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
@@ -882,5 +890,26 @@ namespace SurvivorCommunity
         }
 
         private static int Clamp(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+        /// <summary>baseattack=state:arrive:started:bearing:size:spawned:killed:rounds:points (ScBaseAttack). A short or bad line is no attack.</summary>
+        private static void ParseBaseAttack(Community c, string val)
+        {
+            string[] f = val.Split(':');
+            ulong arrive, started;
+            if (f.Length < 9 || !ulong.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out arrive)
+                || !ulong.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out started)) return;
+            int state = I(f[0]);
+            int size = Clamp(I(f[4]), 0, 200);
+            if (state < 1 || state > 2 || size <= 0) return;
+            c.AttackState = state;
+            c.AttackArrive = arrive;
+            c.AttackStarted = started;
+            c.AttackBearing = Clamp(I(f[3]), 0, 359);
+            c.AttackSize = size;
+            c.AttackSpawned = Clamp(I(f[5]), 0, c.AttackSize);
+            c.AttackKilled = Clamp(I(f[6]), 0, c.AttackSize);
+            c.AttackAmmoRounds = Math.Max(0, I(f[7]));
+            c.AttackAmmoPoints = Math.Max(0, I(f[8]));
+        }
     }
 }

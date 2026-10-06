@@ -26,6 +26,8 @@ namespace SurvivorCommunity
         public const string OutpostEvent = "sc_ev_outpost";
         /// <summary>A contested outpost cleared again (same: for a future SurvivorOrigins release).</summary>
         public const string OutpostRetakenEvent = "sc_ev_outpost_retaken";
+        /// <summary>A home attack held (base defence D2; same: for a future SurvivorOrigins release).</summary>
+        public const string DefendEvent = "sc_ev_defend";
         /// <summary>Fact: outposts producing right now.</summary>
         public const string OutpostsCvar = "sc_outposts";
         public const string XpMultCvar = "$soLeadXpMult";

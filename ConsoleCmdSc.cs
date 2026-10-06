@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -87,6 +87,7 @@ namespace SurvivorCommunity
                     }
                     case "noise": NoiseCmd(_params); break;
                     case "attention": AttentionCmd(_params); break;
+                    case "attack": AttackCmd(_params); break;
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
@@ -200,9 +201,49 @@ namespace SurvivorCommunity
             else if (verb.Length > 0) { Output("[SC] noise [add <n> | clear]"); return; }
             if (!c.HasHome) Output("[SC] no community home yet - nothing is counted");
             foreach (string line in ScNoise.Breakdown().Split('\n')) Output("[SC] " + line);
+            World w = ScCommunity.World;
+            if (c.HasHome && w != null) foreach (string line in ScBaseAttack.StatusText(w, ScCommunity.LocalPlayer).Split('\n')) Output("[SC] " + line);
         }
 
-        /// <summary>sc attention &lt;0-100&gt; - sets the dead's attention (base defence D1 only measures it).</summary>
+        /// <summary>
+        /// sc attack [now] [size] - calls a horde on the home base (base defence D2) whatever the attention, the gap after the
+        /// last attack and the blood moon: it arrives the usual 1-2 game hours later, or with "now" at once, with the usual
+        /// size unless one is given; away from home it waits for the player like any call. sc attack status - the open attack
+        /// and what the next call waits for. sc attack end - despawns the attackers and closes the attack (nothing won).
+        /// </summary>
+        private static void AttackCmd(List<string> p)
+        {
+            World w = ScCommunity.World;
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            if (w == null || player == null) { Output("[SC] no world / player"); return; }
+            string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "";
+            if (verb == "status")
+            {
+                foreach (string line in ScBaseAttack.StatusText(w, player).Split('\n')) Output("[SC] " + line);
+                return;
+            }
+            if (verb == "end")
+            {
+                if (!ScBaseAttack.Open) { Output("[SC] no attack is open"); return; }
+                ScBaseAttack.Abort(w, "the console");
+                Output("[SC] the attack is over (nothing won; attention starts again from where it is, 0 since the call)");
+                return;
+            }
+            bool now = verb == "now";
+            int size = 0;
+            string sizeArg = now ? (p.Count >= 3 ? p[2] : null) : (verb.Length > 0 ? verb : null);
+            if (sizeArg != null && (!int.TryParse(sizeArg, out size) || size < 1))
+            {
+                Output("[SC] attack [now] [size] | attack status | attack end");
+                return;
+            }
+            string why = ScBaseAttack.WhyNoCall(w, player, true);
+            if (why != null) { Output("[SC] no attack: " + why); return; }
+            ScBaseAttack.Call(w, player, size, now, "the console");
+            foreach (string line in ScBaseAttack.StatusText(w, player).Split('\n')) Output("[SC] " + line);
+        }
+
+        /// <summary>sc attention &lt;0-100&gt; - sets the dead's attention (at 100 a horde is called once the player is home).</summary>
         private static void AttentionCmd(List<string> p)
         {
             float v;

@@ -929,6 +929,7 @@ namespace SurvivorCommunity
             AddPart(p.Deaths, Localization.Get("scMoraleDeaths"), "ui_game_symbol_skull");
             AddPart(p.Leadership, Localization.Get("scMoraleLeadership"), "ui_game_symbol_influence");
             AddPart(p.Territory, Localization.Get("scMoraleTerritory"), "ui_game_symbol_map_town");
+            AddPart(p.Defence, Localization.Get("scMoraleDefence"), "ui_game_symbol_defense");
             helping.Sort((a, b) => b.Value.CompareTo(a.Value));
             hurting.Sort((a, b) => a.Value.CompareTo(b.Value));
         }

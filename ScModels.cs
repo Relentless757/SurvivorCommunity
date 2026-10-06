@@ -289,6 +289,17 @@ namespace SurvivorCommunity
         public float Attention;
         /// <summary>World time the noise and attention were last advanced to (0 = not yet).</summary>
         public ulong NoiseStamp;
+        /// <summary>
+        /// Base defence D2 (ScBaseAttack): the open home attack. State 0 none, 1 called (AttackArrive = world time it
+        /// arrives, 0 = when the player is next home), 2 live (since AttackStarted). The side it comes from, how many come,
+        /// how many have been spawned and killed (a reload brings back only the ones still standing), and the stockpile's
+        /// resupplies during the fight. AttackNotBefore: the next call waits until this world time.
+        /// </summary>
+        public int AttackState;
+        public ulong AttackArrive, AttackStarted, AttackNotBefore;
+        public int AttackBearing, AttackSize, AttackSpawned, AttackKilled, AttackAmmoRounds, AttackAmmoPoints;
+        /// <summary>Morale from home attacks held (BaseAttackWinMorale each, fades 1 a day, at most 10): the Defence part.</summary>
+        public float DefenceTriumph;
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }

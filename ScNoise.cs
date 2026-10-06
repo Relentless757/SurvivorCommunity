@@ -16,8 +16,9 @@ namespace SurvivorCommunity
     ///               block destruction) at vanilla's own strength, and NPC gunfire, which vanilla never hears (its sound
     ///               path forwards players only), at the gun's own heat. Events fade with NoiseHalfLifeHours.
     ///   attention = 0-100. Each game hour it gains (noise - NoiseNoticeable) x AttentionPerNoiseHour and loses
-    ///               AttentionDecayPerHour; it gains nothing while the blood moon is up. D1 only measures it: nothing is
-    ///               called at 100 yet (D2 calls the horde).
+    ///               AttentionDecayPerHour; it gains nothing while the blood moon is up or a home attack is open (the
+    ///               fight's own gunfire never calls the next horde). At 100 ScBaseAttack calls a horde (D2); until it
+    ///               can (the player away, the 2-day gap, the blood moon, an outpost fight) a full meter stays full.
     /// Vanilla's own heat map is not used as the meter: it wipes an area to 0 at 25, exists only near a player and
     /// never hears NPCs (_research\base_defence\engine_report.md).
     /// </summary>
@@ -176,6 +177,7 @@ namespace SurvivorCommunity
         private static void Advance(Community c, float hours)
         {
             float steady = Steady();
+            bool attack = ScBaseAttack.Open;
             float halfLife = Math.Max(0.05f, ScConfig.NoiseHalfLifeHours);
             float lambda = 0.6931472f / halfLife;
             float left = hours;
@@ -188,14 +190,16 @@ namespace SurvivorCommunity
                 c.NoiseEvents *= keep;
                 if (c.NoiseEvents < 0.01f) c.NoiseEvents = 0f;
                 float rate = RatePerHour(steady + avgEvents);
-                if (bloodMoon && rate > 0f) rate = 0f;       // the dead are busy with the blood moon: nothing gained
+                if ((bloodMoon || attack) && rate > 0f) rate = 0f;   // the dead are busy (the blood moon, or here already): nothing gained
+                // full is full until a horde is called (D2: the call waits for the player, the gap, the blood moon)
+                if (rate < 0f && c.Attention >= 100f && ScBaseAttack.HoldsFullAttention) rate = 0f;
                 c.Attention = Mathf.Clamp(c.Attention + rate * dt, 0f, 100f);
             }
             if (c.Attention >= 100f && !fullLogged)
             {
                 fullLogged = true;
                 ScLog.Out("base attention reached 100% (noise " + Current().ToString("0.#", CultureInfo.InvariantCulture)
-                          + "); D1 only measures - no horde is called yet");
+                          + ")" + (ScConfig.BaseAttacks ? "; a horde is called once the player is home (ScBaseAttack)" : "; base attacks are off"));
             }
             else if (c.Attention < 90f) fullLogged = false;
         }
@@ -289,6 +293,8 @@ namespace SurvivorCommunity
             float rate = RatePerHour(cur);
             sb.Append("attention ").Append(F(c.Attention)).Append("% (");
             if (bloodMoon) sb.Append("paused: blood moon");
+            else if (ScBaseAttack.Open) sb.Append("paused: an attack is open");
+            else if (c.Attention >= 100f && ScBaseAttack.HoldsFullAttention && rate < 0f) sb.Append("held full until a horde is called");
             else
             {
                 sb.Append(rate >= 0f ? "+" : "").Append(rate.ToString("0.##", CultureInfo.InvariantCulture)).Append("/h at this noise");

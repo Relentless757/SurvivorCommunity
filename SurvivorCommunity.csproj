@@ -87,6 +87,7 @@
     <Compile Include="ScRunners.cs" />
     <Compile Include="ScDoors.cs" />
     <Compile Include="ScNoise.cs" />
+    <Compile Include="ScBaseAttack.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />
     <Compile Include="Patches_Menu.cs" />

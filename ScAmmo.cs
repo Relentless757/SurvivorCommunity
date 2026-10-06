@@ -1209,6 +1209,8 @@ namespace SurvivorCommunity
         public static string Where(Vector3i p)
         {
             if (ScZone.Contains(p)) return "home";
+            // a live home attack (base defence D2): the defenders fight up to BaseAttackDefendMargin outside the claim
+            if (ScBaseAttack.WideDefence && ScBaseAttack.InDefenceArea(new Vector3(p.x + 0.5f, p.y, p.z + 0.5f))) return "home";
             int vr = ScZone.VanillaRadius;
             foreach (Outpost o in ScRegistry.Outposts)
             {
@@ -1355,6 +1357,7 @@ namespace SurvivorCommunity
             }
             resupplies++;
             roundsGiven += added;
+            if (where == "home") ScBaseAttack.NoteResupply(added, added * each);   // a home attack's bill (base defence D2)
             Record(m, e);       // the stockpile just paid for these: a body that unloads before the next tick keeps them
             ScLog.Out((standIn ? m.Name + "'s stand-in" : m.Name) + " (id " + e.entityId + ") resupplied " + (where == "home" ? "at home" : "at " + where) + ": "
                       + added + " " + ammo.ItemClass.GetItemName() + " for " + gun.GetItemName() + " at " + each + " point(s) each"
@@ -1409,6 +1412,7 @@ namespace SurvivorCommunity
             roundsGiven += added;
             refills++;
             refillRounds += added;
+            if (where == "home") ScBaseAttack.NoteResupply(added, cost);   // a home attack's bill (base defence D2)
             Record(m, e);
             ScLog.Out(who + " resupplied " + (where == "home" ? "at home" : "at " + where) + ": " + added + " " + ammo.ItemClass.GetItemName()
                       + " into their " + gun.GetItemName() + " magazines at " + each + " point(s) each"

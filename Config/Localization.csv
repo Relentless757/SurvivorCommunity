@@ -626,3 +626,10 @@ scNoiseLoud,UI,HUD,,,,Loud
 scNoiseVeryLoud,UI,HUD,,,,Very loud
 scNoiseHud,UI,HUD,,,,"Noise: {0}"
 scNoiseHudAttention,UI,HUD,,,,"Noise: {0} ({1}%)"
+scBaseArrived,UI,Tooltip,,,,"The dead are at the walls! {0} of them came for the base."
+scBaseHeld,UI,Tooltip,,,,"The base held! {0} of the dead lie at the walls; the fight cost {1}."
+scBaseLedgerHeld,UI,Tooltip,,,,"held the base against {0} of the dead; it cost {1}"
+scBaseLeft,UI,Tooltip,,,,"You left the fight. The {0} dead still standing will be back when you are."
+scBaseAmmo,UI,Tooltip,,,,"{0} rounds from the stockpile, about {1} ammo bundles"
+scBaseAmmoNone,UI,Tooltip,,,,"nothing from the stockpile"
+scMoraleDefence,UI,Menu,,,,"Defended the base"

@@ -207,6 +207,8 @@ namespace UAI
         {
             Member m = ScRegistry.GetMember(_context.Self.entityId);
             if (m == null || m.Post == Vector3i.zero) return 0f;
+            // a live home attack (base defence D2): the leash is the defended area + LeashExtra, not the distance from the post
+            if (ScBaseAttack.WideDefence) return ScBaseAttack.InDefenceArea(_context.Self.position, ScBaseAttack.LeashExtra) ? 0f : 1f;
             Vector3 post = new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
             return Vector3.Distance(_context.Self.position, post) > distance ? 1f : 0f;
         }
@@ -333,6 +335,9 @@ namespace UAI
     /// A Cowardly member is kept out in the XML (it flees from 15 m instead), and a member moved back to its post by the
     /// watchdog during a fight rests a while (ScDefendState). Cheap tests first: it runs for every enemy in the candidate
     /// list of every resident each 0.2 s.
+    /// While a home attack is live (base defence D2, ScBaseAttack.WideDefence) the radius and the zone test give way to
+    /// the whole zone + BaseAttackDefendMargin, the stray limit to that area + StrayExtra, and the leash (ScFarFromPost)
+    /// and the watchdog's far rule to that area + LeashExtra: every resident defends the whole base.
     /// </summary>
     public class UAIConsiderationScIntruder : UAIConsiderationBase
     {
@@ -355,7 +360,11 @@ namespace UAI
             EntityAlive self = _context.Self;
             Member m;
             if (Why(self, target as EntityAlive, out m) != null) return 0f;
-            if (FromPost(m, self) > StrayLimit)     // m: the member Why already looked up (the re-check's R4)
+            // during a home attack (base defence D2) the defence covers the whole zone + BaseAttackDefendMargin and the
+            // stray rule moves with it: StrayExtra past that area, LeashExtra - StrayExtra inside the widened leash
+            bool strayed = ScBaseAttack.WideDefence ? !ScBaseAttack.InDefenceArea(self.position, ScBaseAttack.StrayExtra)
+                                                    : FromPost(m, self) > StrayLimit;     // m: the member Why already looked up (the re-check's R4)
+            if (strayed)
             {
                 ScDefendState.Rest(self.entityId, StrayRestSeconds);
                 return 0f;
@@ -393,8 +402,16 @@ namespace UAI
             m = ScRegistry.GetMember(self.entityId);
             if (m == null || m.Status != MemberStatus.Resident || m.Post == Vector3i.zero) return "not a resident at a post";
             if (ScDefendState.RestLeft(self.entityId) > 0f) return "resting (moved back to the post in a fight, or strayed)";
-            if ((t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)radius * radius) return "beyond DefendBaseRadius of the post";
-            if (!ScZone.Contains(t.GetBlockPosition())) return "outside the home zone";
+            if (ScBaseAttack.WideDefence)
+            {
+                // a home attack is live: anything in the zone + BaseAttackDefendMargin, wherever the post is
+                if (!ScBaseAttack.InDefenceArea(t.position)) return "outside the zone + BaseAttackDefendMargin (a home attack is live)";
+            }
+            else
+            {
+                if ((t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)radius * radius) return "beyond DefendBaseRadius of the post";
+                if (!ScZone.Contains(t.GetBlockPosition())) return "outside the home zone";
+            }
             if (!EntityTargetingUtilities.IsEnemy(self, t)) return "not an enemy";
             if (global::Harmony.ZombieFeatures.InertEntity.IsInert(t)) return "inert";   // CanSeeTarget's own exclusion
             return null;

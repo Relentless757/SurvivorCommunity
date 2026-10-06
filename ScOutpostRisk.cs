@@ -91,6 +91,17 @@ namespace SurvivorCommunity
 
         public static bool HasDemand(Outpost o) { return o != null && o.DemandUntil >= 0; }
 
+        /// <summary>An outpost attack is being fought (its attackers are in the world): a home attack waits (one live attack at a time).</summary>
+        public static bool AnyLive()
+        {
+            foreach (Outpost o in ScRegistry.Outposts)
+            {
+                Live l;
+                if (UnderAttack(o) && live.TryGetValue(o.Id, out l) && l.Spawned) return true;
+            }
+            return false;
+        }
+
         /// <summary>A few words for the window / radio: under attack, damaged, raiders' demand.</summary>
         public static string Alert(Outpost o)
         {
@@ -251,7 +262,8 @@ namespace SurvivorCommunity
                     if (!l.Spawned)
                     {
                         if (w.worldTime >= o.AttackUntil) { Settle(o, player, false, "unanswered"); continue; }
-                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag)) SpawnAttack(w, player, o);
+                        // one live attack at a time: an outpost next to a home being fought waits for that fight
+                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag) && !ScBaseAttack.Live) SpawnAttack(w, player, o);
                         continue;
                     }
                     if (w.worldTime >= o.AttackUntil) { Settle(o, player, true, "fought, not finished"); continue; }

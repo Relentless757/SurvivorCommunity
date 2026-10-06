@@ -574,8 +574,8 @@
 			     the same gun in your hands; a gun sound with no Noise entry in sounds.xml counts NoiseNpcShotDefault; zombies'
 			     and drones' shots are not counted, as vanilla does not hear them; never above NoiseEventCap). Levels: quiet, noticeable from
 			     NoiseNoticeable, loud from NoiseLoud, very loud from NoiseVeryLoud. Attention (0-100) per game hour:
-			     + (noise - NoiseNoticeable) x AttentionPerNoiseHour - AttentionDecayPerHour, nothing gained during a blood moon.
-			     D1 only measures it ("sc noise"); the hordes come with D2. -->
+			     + (noise - NoiseNoticeable) x AttentionPerNoiseHour - AttentionDecayPerHour, nothing gained during a blood moon
+			     or while a home attack is open. "sc noise" shows it; at 100 the horde is called (BaseAttacks below). -->
 			<property name="HomeStatusHud" value="true" />
 			<property name="BaseNoise" value="true" />
 			<property name="NoisePerMember" value="2" />
@@ -591,6 +591,40 @@
 			<property name="NoiseVeryLoud" value="50" />
 			<property name="AttentionPerNoiseHour" value="0.14" />
 			<property name="AttentionDecayPerHour" value="2" />
+
+			<!-- Base defence D2 (ScBaseAttack): live horde attacks on the home. BaseAttacks: attention at 100 calls a horde
+			     while you are home (away, the call waits for you), never within BaseAttackGapDays of the last attack's end, from
+			     10:00 on blood-moon day until the blood moon ends at dawn, or while an outpost attack is being fought.
+			     It arrives BaseAttackLeadMinHours..BaseAttackLeadMaxHours later from one side (away then: the lead time after
+			     you are back). Size (BaseAttackBase + gamestage x BaseAttackPerGamestage) x (1 + BaseAttackPerMember x
+			     residents), BaseAttackMin..BaseAttackMax. The zombies are the stage of vanilla's gamestage list
+			     BaseAttackGameStages (gamestages.xml) for your gamestage. They spawn one a second BaseAttackSpawnMin..Max m
+			     beyond the zone's edge within BaseAttackSpread degrees of their side, at least BaseAttackMinPlayerRange m from
+			     any player, as vanilla's zombie cap allows. While it is live the residents defend the zone +
+			     BaseAttackDefendMargin m. You are home within BaseAttackHomeMargin m of the zone; BaseAttackLeaveRange m out
+			     you have left the fight (the ones still standing go, and come back after you do; a reload is the same,
+			     BaseAttackResumeSeconds after it). After BaseAttackMaxHours (no kill in the last hour) stragglers are let go.
+			     Held: BaseAttackWinMorale morale (the Defence part, at most 10, fades 1 a day). "sc attack" for the rest. -->
+			<property name="BaseAttacks" value="true" />
+			<property name="BaseAttackGapDays" value="2" />
+			<property name="BaseAttackLeadMinHours" value="1" />
+			<property name="BaseAttackLeadMaxHours" value="2" />
+			<property name="BaseAttackBase" value="6" />
+			<property name="BaseAttackPerGamestage" value="0.16" />
+			<property name="BaseAttackPerMember" value="0.05" />
+			<property name="BaseAttackMin" value="4" />
+			<property name="BaseAttackMax" value="40" />
+			<property name="BaseAttackGameStages" value="ScoutGSList" />
+			<property name="BaseAttackSpawnMin" value="25" />
+			<property name="BaseAttackSpawnMax" value="50" />
+			<property name="BaseAttackSpread" value="30" />
+			<property name="BaseAttackMinPlayerRange" value="30" />
+			<property name="BaseAttackDefendMargin" value="10" />
+			<property name="BaseAttackHomeMargin" value="30" />
+			<property name="BaseAttackLeaveRange" value="150" />
+			<property name="BaseAttackMaxHours" value="4" />
+			<property name="BaseAttackResumeSeconds" value="15" />
+			<property name="BaseAttackWinMorale" value="4" />
 
 			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". A word ending in
 			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).

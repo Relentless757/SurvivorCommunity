@@ -29,6 +29,8 @@ namespace SurvivorCommunity
             public int Leadership;
             /// <summary>Outposts: +OutpostMoralePer per producing outpost (capped), minus the fading penalty for lost ones.</summary>
             public int Territory;
+            /// <summary>Base defence: home attacks held lately (Community.DefenceTriumph, fades a point a day).</summary>
+            public int Defence;
             public float FoodDays;
             public int Total;
         }
@@ -66,6 +68,7 @@ namespace SurvivorCommunity
             foreach (Outpost o in ScRegistry.Outposts) if (o.State == OutpostState.Active) producing++;
             p.Territory = Math.Min(ScConfig.OutpostMoraleCap, ScConfig.OutpostMoralePer * producing) - Mathf.RoundToInt(c.OutpostLoss)
                           + Mathf.RoundToInt(c.OutpostTriumph);
+            p.Defence = Mathf.RoundToInt(c.DefenceTriumph);
 
             // SurvivorOrigins' Leadership (0 / 0 without it): a part of its own, and a shield that shrinks every
             // negative part toward 0 (never past it)
@@ -81,7 +84,7 @@ namespace SurvivorCommunity
                 p.Territory = ScLeadership.Shielded(p.Territory, shield);
             }
 
-            int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory;
+            int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory + p.Defence;
             p.Total = Mathf.Clamp(total, 0, 100);
             if (Override >= 0) p.Total = Mathf.Clamp(Override, 0, 100);
             return p;
@@ -137,6 +140,7 @@ namespace SurvivorCommunity
             if (p.Deaths != 0) sb.Append('\n').Append(Term("scMoraleDeaths", p.Deaths));
             if (p.Leadership != 0) sb.Append('\n').Append(Term("scMoraleLeadership", p.Leadership));
             if (p.Territory != 0) sb.Append('\n').Append(Term("scMoraleTerritory", p.Territory));
+            if (p.Defence != 0) sb.Append('\n').Append(Term("scMoraleDefence", p.Defence));
             return sb.ToString();
         }
 

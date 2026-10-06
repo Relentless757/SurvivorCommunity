@@ -273,6 +273,29 @@ namespace SurvivorCommunity
         public static float NoiseNoticeable = 15f, NoiseLoud = 30f, NoiseVeryLoud = 50f;
         /// <summary>Attention per game hour: + (noise - NoiseNoticeable) x AttentionPerNoiseHour, - AttentionDecayPerHour.</summary>
         public static float AttentionPerNoiseHour = 0.14f, AttentionDecayPerHour = 2f;
+        // ---- base defence D2: live horde attacks on the home (ScBaseAttack) ----
+        /// <summary>Attention at 100 calls a horde on the home base (false: attention is still measured, nothing comes).</summary>
+        public static bool BaseAttacks = true;
+        /// <summary>Game days after an attack ends before the next may be called.</summary>
+        public static float BaseAttackGapDays = 2f;
+        /// <summary>Game hours from the call to the arrival.</summary>
+        public static float BaseAttackLeadMinHours = 1f, BaseAttackLeadMaxHours = 2f;
+        /// <summary>Size: (Base + gamestage x PerGamestage) x (1 + PerMember x residents), Min..Max.</summary>
+        public static float BaseAttackBase = 6f, BaseAttackPerGamestage = 0.16f, BaseAttackPerMember = 0.05f;
+        public static int BaseAttackMin = 4, BaseAttackMax = 40;
+        /// <summary>The gamestages.xml spawner whose stage for the host's gamestage names the zombies' entity group.</summary>
+        public static string BaseAttackGameStages = "ScoutGSList";
+        /// <summary>Spawn ring: SpawnMin..SpawnMax m beyond the zone's edge, within Spread degrees of the attack's side, MinPlayerRange m from every player.</summary>
+        public static float BaseAttackSpawnMin = 25f, BaseAttackSpawnMax = 50f, BaseAttackSpread = 30f;
+        public static int BaseAttackMinPlayerRange = 30;
+        /// <summary>During an attack the residents defend the zone + DefendMargin m. The player is home within HomeMargin m of the zone; LeaveRange m out they have left the fight.</summary>
+        public static float BaseAttackDefendMargin = 10f, BaseAttackHomeMargin = 30f, BaseAttackLeaveRange = 150f;
+        /// <summary>Game hours a live attack may run (with no kill in the last hour) before the stragglers are let go.</summary>
+        public static float BaseAttackMaxHours = 4f;
+        /// <summary>Real seconds after a load before the attackers of a live attack come back.</summary>
+        public static float BaseAttackResumeSeconds = 15f;
+        /// <summary>Morale for a held attack (the Defence part; at most 10, fades 1 a day).</summary>
+        public static float BaseAttackWinMorale = 4f;
         // ---- outposts v2: risk (ScOutpostRisk) ----
         /// <summary>Master switch for the risk features (attacks, sieges, neglect, raider demands).</summary>
         public static bool OutpostAttacks = false;
@@ -613,6 +636,10 @@ namespace SurvivorCommunity
             HomeStatusHud = true; BaseNoise = true; NoisePerMember = 2f; NoisePerGenerator = 6f; NoisePerFacility = 1f;
             NoiseHeatMult = 1f; NoiseNpcShotMult = 1f; NoiseNpcShotDefault = 0.5f; NoiseHalfLifeHours = 1f; NoiseEventCap = 200f;
             NoiseNoticeable = 15f; NoiseLoud = 30f; NoiseVeryLoud = 50f; AttentionPerNoiseHour = 0.14f; AttentionDecayPerHour = 2f;
+            BaseAttacks = true; BaseAttackGapDays = 2f; BaseAttackLeadMinHours = 1f; BaseAttackLeadMaxHours = 2f;
+            BaseAttackBase = 6f; BaseAttackPerGamestage = 0.16f; BaseAttackPerMember = 0.05f; BaseAttackMin = 4; BaseAttackMax = 40;
+            BaseAttackGameStages = "ScoutGSList"; BaseAttackSpawnMin = 25f; BaseAttackSpawnMax = 50f; BaseAttackSpread = 30f; BaseAttackMinPlayerRange = 30;
+            BaseAttackDefendMargin = 10f; BaseAttackHomeMargin = 30f; BaseAttackLeaveRange = 150f; BaseAttackMaxHours = 4f; BaseAttackResumeSeconds = 15f; BaseAttackWinMorale = 4f;
             OutpostAttacks = false; OutpostGoodNews = true; OutpostGoodNewsChance = 0.04f; OutpostSecBase = 35; OutpostSecPerStaffer = 8; OutpostSecPerCombatStar = 2; OutpostSecPerTier = 4; OutpostSecVisited = 5; OutpostSecNoAmmo = 10; OutpostSecPerDefense = 2; OutpostSecDefenseCap = 30; OutpostSecBonusFade = 1f; OutpostSecWinBonus = 10f; OutpostSecBonusMax = 30f; OutpostAttackChance = 0.08f; OutpostAttackHours = 10; OutpostAttackBase = 3f; OutpostAttackPerGamestage = 0.04f; OutpostAttackMax = 16; OutpostAttendedBonus = 20; OutpostDamageBand = 35; OutpostDamagedDays = 2; OutpostRepairMats = 2; OutpostSiegePenalty = 15; OutpostWinMorale = 4f; OutpostNeglectDays = 10; OutpostRaiderGamestage = 30; OutpostRaiderChance = 0.03f; OutpostDemandAmmo = 2; OutpostDemandFood = 2;
             ScPoiTypes.LoadDefaults();
             Defaults();
@@ -867,6 +894,37 @@ namespace SurvivorCommunity
                 ParseFloat(p, "AttentionDecayPerHour", ref AttentionDecayPerHour, 0f, 100f);
                 {
                     string bv;
+                    if (p.Values.TryGetValue("BaseAttacks", out bv) && !string.IsNullOrEmpty(bv)) BaseAttacks = StringParsers.ParseBool(bv);
+                    if (p.Values.TryGetValue("BaseAttackGameStages", out bv) && !string.IsNullOrEmpty(bv)) BaseAttackGameStages = bv.Trim();
+                }
+                ParseFloat(p, "BaseAttackGapDays", ref BaseAttackGapDays, 0f, 100f);
+                ParseFloat(p, "BaseAttackLeadMinHours", ref BaseAttackLeadMinHours, 0f, 24f);
+                ParseFloat(p, "BaseAttackLeadMaxHours", ref BaseAttackLeadMaxHours, 0f, 24f);
+                ParseFloat(p, "BaseAttackBase", ref BaseAttackBase, 0f, 200f);
+                ParseFloat(p, "BaseAttackPerGamestage", ref BaseAttackPerGamestage, 0f, 10f);
+                ParseFloat(p, "BaseAttackPerMember", ref BaseAttackPerMember, 0f, 10f);
+                ParseInt(p, "BaseAttackMin", ref BaseAttackMin, 1, 200);
+                ParseInt(p, "BaseAttackMax", ref BaseAttackMax, 1, 200);
+                ParseFloat(p, "BaseAttackSpawnMin", ref BaseAttackSpawnMin, 1f, 200f);
+                ParseFloat(p, "BaseAttackSpawnMax", ref BaseAttackSpawnMax, 2f, 300f);
+                ParseFloat(p, "BaseAttackSpread", ref BaseAttackSpread, 0f, 180f);
+                ParseInt(p, "BaseAttackMinPlayerRange", ref BaseAttackMinPlayerRange, 0, 200);
+                ParseFloat(p, "BaseAttackDefendMargin", ref BaseAttackDefendMargin, 0f, 60f);
+                ParseFloat(p, "BaseAttackHomeMargin", ref BaseAttackHomeMargin, 0f, 200f);
+                ParseFloat(p, "BaseAttackLeaveRange", ref BaseAttackLeaveRange, 20f, 1000f);
+                ParseFloat(p, "BaseAttackMaxHours", ref BaseAttackMaxHours, 0.5f, 48f);
+                ParseFloat(p, "BaseAttackResumeSeconds", ref BaseAttackResumeSeconds, 0f, 300f);
+                ParseFloat(p, "BaseAttackWinMorale", ref BaseAttackWinMorale, 0f, 10f);
+                if (BaseAttackLeaveRange < BaseAttackHomeMargin + 20f)
+                {
+                    // "left the fight" inside "home" would despawn and re-arm the attack every lead time
+                    ScLog.Warn("config: BaseAttackLeaveRange " + BaseAttackLeaveRange + " is not well beyond BaseAttackHomeMargin " + BaseAttackHomeMargin + " - using " + (BaseAttackHomeMargin + 20f));
+                    BaseAttackLeaveRange = BaseAttackHomeMargin + 20f;
+                }
+                if (BaseAttackSpawnMax <= BaseAttackSpawnMin) BaseAttackSpawnMax = BaseAttackSpawnMin + 1f;
+                if (BaseAttackLeadMaxHours < BaseAttackLeadMinHours) BaseAttackLeadMaxHours = BaseAttackLeadMinHours;
+                {
+                    string bv;
                     if (p.Values.TryGetValue("OutpostAttacks", out bv) && !string.IsNullOrEmpty(bv)) OutpostAttacks = StringParsers.ParseBool(bv);
                 }
                 {
@@ -1066,7 +1124,12 @@ namespace SurvivorCommunity
                           + " noise=" + (BaseNoise ? "member " + NoisePerMember + " generator " + NoisePerGenerator + " workstation " + NoisePerFacility
                                                       + ", heat x" + NoiseHeatMult + " npc shot x" + NoiseNpcShotMult + ", half-life " + NoiseHalfLifeHours + "h"
                                                       + ", levels " + NoiseNoticeable + "/" + NoiseLoud + "/" + NoiseVeryLoud
-                                                      + ", attention +" + AttentionPerNoiseHour + " -" + AttentionDecayPerHour + "/h" : "off"));
+                                                      + ", attention +" + AttentionPerNoiseHour + " -" + AttentionDecayPerHour + "/h" : "off")
+                          + " baseAttacks=" + (BaseAttacks ? "gap " + BaseAttackGapDays + "d, lead " + BaseAttackLeadMinHours + "-" + BaseAttackLeadMaxHours + "h, size ("
+                                                             + BaseAttackBase + "+gs*" + BaseAttackPerGamestage + ")*(1+" + BaseAttackPerMember + "/resident) " + BaseAttackMin + ".." + BaseAttackMax
+                                                             + ", mix " + BaseAttackGameStages + ", ring +" + BaseAttackSpawnMin + ".." + BaseAttackSpawnMax + "m +-" + BaseAttackSpread + "deg"
+                                                             + ", defend zone+" + BaseAttackDefendMargin + "m, home " + BaseAttackHomeMargin + "m, leave " + BaseAttackLeaveRange + "m"
+                                                             + ", max " + BaseAttackMaxHours + "h, morale +" + BaseAttackWinMorale : "off"));
             }
             catch (Exception e)
             {
