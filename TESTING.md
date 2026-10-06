@@ -27,7 +27,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 ## Relaxed: arms down and weapon hidden when out of danger (replaces the deferred holster, M7.6)
 
-**Deployed 2026-10-04** (Fable review + re-check: deployable). DLL md5 `33573592c0eee3eb51e6c9645061f5d9`, 640000
+**Deployed 2026-10-04** (Fable review + re-check: deployable). **Passed in game 2026-10-05** (the user); only the multiplayer row is open. DLL md5 `33573592c0eee3eb51e6c9645061f5d9`, 640000
 bytes, deployed **together with** the same tree's `Config/blocks.xml` (new keys `XnpcRelax`, `XnpcRelaxRaiders`,
 `XnpcRelaxHideWeapon`, `XnpcRelaxCalmSeconds` 4, `XnpcRelaxRange` 0). Two new Harmony targets: **74** (67 without Voice
 Control). No save format change (one new cvar, `sc_relaxed`). Report: `RELAX_REPORT.md`; review: `fable_review_relax.md`.
@@ -42,33 +42,33 @@ What changed (your decisions: the NPC's own sight range with awake enemies only,
 - Never with a bandage, food or bare hands in hand. `XnpcRelaxHideWeapon` false only lowers the arms; `XnpcRelax` false
   turns it all off.
 
-- [ ] **Startup:** `patch verification: all 74 targets patched` (67 without Voice Control), with `patched
+- [x] **Startup** (2026-10-05 20:44 log: 74 patched, `relax=after 4s, sight range, weapon hidden, raiders too`)**:** `patch verification: all 74 targets patched` (67 without Voice Control), with `patched
       LegacyAvatarController::_setInt(int)` and `patched LegacyAvatarController::StartAnimationReloading`; the `config:` line contains `relax=after 4s, sight range, weapon hidden,
       raiders too`. `sc xnpc` prints `[SC] relaxed (arms down, weapon hidden): on, N relaxed now; ...`.
-- [ ] **A member at home relaxes:** with no zombie around, watch a resident with a gun (then one with a melee weapon):
+- [x] **A member at home relaxes** (the user, 2026-10-05)**:** with no zombie around, watch a resident with a gun (then one with a melee weapon):
       about 4 s after the last danger its arms drop to its sides and the weapon is gone; it walks with swinging arms.
       `sc xnpc <member>`: `relax: RELAXED (arms down, N weapon renderer(s) hidden), cvar 1, calm, ...`.
-- [ ] **It raises at once:** spawn a zombie 30-50 m away (awake, in sight range): the weapon reappears in its hand and the
+- [x] **It raises at once** (the user, 2026-10-05)**:** spawn a zombie 30-50 m away (awake, in sight range): the weapon reappears in its hand and the
       hold pose comes back within about half a second, before it starts shooting. `sc xnpc <member>` while it lasts:
       `relax: alert, cvar 0, enemy zombie... #N at 37 m`. Kill the zombie: about 4 s later it relaxes again.
-- [ ] **First shot is armed:** let a relaxed ranged member be surprised (a zombie that wakes up close, or one you spawn
+- [x] **First shot is armed** (the user, 2026-10-05)**:** let a relaxed ranged member be surprised (a zombie that wakes up close, or one you spawn
       right beside it): the gun is up and visible for the first shot (no punch animation, never fired from an empty
       hand); the same for a melee member's first swing, which lands. `sc xnpc`: `... (n by an attack starting, ...)` rises.
-- [ ] **Followers:** a follower walking with you through a quiet area walks unarmed-looking; the moment a zombie comes
+- [x] **Followers** (the user, 2026-10-05)**:** a follower walking with you through a quiet area walks unarmed-looking; the moment a zombie comes
       within its range (60 m by default) it draws.
-- [ ] **Raiders:** a raider wandering with nobody within 60 m looks empty-handed; when it spots you it has its weapon up
+- [x] **Raiders** (the user, 2026-10-05)**:** a raider wandering with nobody within 60 m looks empty-handed; when it spots you it has its weapon up
       before attacking. `XnpcRelaxRaiders` false (restart): raiders always armed.
-- [ ] **Never with an item:** a member bandaging itself keeps the bandage visible and plays the use animation as before.
-- [ ] **Empty magazine:** a calm gunner that shot its magazine empty (with spare ammo in its bag) keeps the gun up,
+- [x] **Never with an item** (the user, 2026-10-05)**:** a member bandaging itself keeps the bandage visible and plays the use animation as before.
+- [x] **Empty magazine** (the user, 2026-10-05)**:** a calm gunner that shot its magazine empty (with spare ammo in its bag) keeps the gun up,
       reloads it (the reload animation plays; `[SDCS-READY] ... event=preload`, no `preload-stuck`), and only then
       relaxes; `sc xnpc <id>` meanwhile: `relax: alert, ... magazine empty (loading it first)` or `reloading`.
-- [ ] **Bow or crossbow member:** relaxes and raises like a gunner; after a fight it nocks/reloads with the weapon up,
+- [x] **Bow or crossbow member** (the user, 2026-10-05)**:** relaxes and raises like a gunner; after a fight it nocks/reloads with the weapon up,
       then relaxes (no arrow drawn from an empty hand).
-- [ ] **Knockdown and get-up:** shove a relaxed member: it gets up exactly as before (the `get-up ...` line still ends
+- [x] **Knockdown and get-up** (the user, 2026-10-05)**:** shove a relaxed member: it gets up exactly as before (the `get-up ...` line still ends
       `for Empty`), and it shows its weapon while down (danger: knocked down), then relaxes again after 4 s.
-- [ ] **Swaps while relaxed:** hand a relaxed member a weapon through the weapon menu: the new weapon is hidden too while
+- [x] **Swaps while relaxed** (the user, 2026-10-05)**:** hand a relaxed member a weapon through the weapon menu: the new weapon is hidden too while
       it stays relaxed; when it draws, the new weapon shows. The old one comes back to you visible (an item, not held).
-- [ ] **Save and reload:** quit and continue near relaxed members: they come back relaxed or alert as the situation
+- [x] **Save and reload** (the user, 2026-10-05)**:** quit and continue near relaxed members: they come back relaxed or alert as the situation
       says within a second; no invisible weapon in a raised pose, no floating hold pose with no weapon.
 - [ ] **Multiplayer (when there is a second player):** both players see the same arms-down/weapon-hidden state on the
       same NPC.
