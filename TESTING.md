@@ -27,7 +27,7 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 ## Base defence D1: the Home Status panel and the noise meter
 
-**Deployed 2026-10-05** (Fable review + re-check: deployable). DLL md5 `c035ed57eee3402a3cd467472a43b536`, 655360
+**Deployed 2026-10-05** (Fable review + re-check: deployable). **First look by the user 2026-10-06: panel, red numbers and noise levels work;** the rows still open were not reported either way. DLL md5 `c035ed57eee3402a3cd467472a43b536`, 655360
 bytes, deployed **together with** the same tree's Config (`blocks.xml` keys, the XUi window, localization). Plan:
 `BaseDefence_Plan.md` in the game root; report and reviews in `_research\base_defence\` (D1_REPORT.md,
 fable_review_d1.md, fable_recheck_d1.md). Two new Harmony targets: **76** (69 without
@@ -50,20 +50,20 @@ What changed:
 Console: `sc noise` (the breakdown and what was heard this session), `sc noise add <n>` / `sc noise clear` (event noise),
 `sc attention <0-100>`.
 
-- [ ] **Startup:** `patch verification: all 76 targets patched` (69 without Voice Control), with `patched
+- [x] **Startup** (2026-10-05 23:57 log: 76 patched, both new targets, the full `noise=` config line)**:** `patch verification: all 76 targets patched` (69 without Voice Control), with `patched
       AIDirector::NotifyActivity` and `patched ItemActionRanged::ItemActionEffects`; the `config:` line ends with
       `homeHud=True noise=member 2 generator 6 workstation 1, heat x1 npc shot x1, half-life 1h, levels 15/30/50,
       attention +0.14 -2/h`.
 - [ ] **The panel shows at home only:** walk into the home zone: the panel appears at the top left; walk out: it goes.
       Open the inventory or the map inside the zone: it hides, and comes back when you close them. F7: gone with the
       rest of the HUD.
-- [ ] **It reads like the reference:** title, dot and morale word on the first row (the word matches `sc morale`'s
+- [x] **It reads like the reference** (the user, 2026-10-06: "Panel looks good")**:** title, dot and morale word on the first row (the word matches `sc morale`'s
       band); the five resource icons with numbers that match `sc status`'s stock; the member count; the noise line.
       Nothing overlaps or is cut off; AshfallUI did not dress it as a dialog (it is a plain dark plate with a teal strip).
-- [ ] **Red when short:** `sc give food -999`: food turns red (it is below the day's need); `sc give food 20`: white
+- [x] **Red when short** (the user, 2026-10-06: food via `sc give food -999` / `6`; meds/ammo not reported)**:** `sc give food -999`: food turns red (it is below the day's need); `sc give food 20`: white
       again. Injure a member with no meds (`sc injure <member>`, `sc give meds -999`): meds red. With a resident gunner,
       `sc give ammo -999`: ammo red. Materials and fuel only go red with outposts that cost upkeep or haulage.
-- [ ] **Steady noise:** `sc noise`: `members at home` equals your residents, `workstations` the facilities the
+- [x] **Steady noise** (the user, 2026-10-06: "noise levels work"; the generator switch-off not reported)**:** `sc noise`: `members at home` equals your residents, `workstations` the facilities the
       community window counts, `running generators` the generators switched on with fuel inside the zone (switch one
       off: it drops within about 10 s).
 - [ ] **Heat events:** light a forge or a campfire in the base and wait a few minutes: `sc noise` shows `heat events`
