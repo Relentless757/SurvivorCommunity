@@ -7,8 +7,9 @@
 	  the tracker line. Phase 2 is "return to the survivor": vanilla InteractWithNPC completes on the
 	  NPC-interacted event when the player opens the dialog of the quest giver (Quest.QuestGiverID = the
 	  survivor; return_to_quest_giver defaults to true). completiontype AutoComplete: the quest completes on
-	  that talk, no turn-in window; add_to_tier_complete false: no trader tier progression. A player who
-	  clears the POI without the quest is never blocked - the favour itself is judged by the mod.
+	  that talk, no turn-in window; add_to_tier_complete false: no trader tier progression. The favour
+	  completes only through this quest: a POI that already reads clear when the player marks it is
+	  completed from the dialog ("Actually, I've already cleared that."), which closes the quest.
 
 	  Do NOT add a Goto / RandomPOIGoto objective: the mod pre-seeds DataVariables["POIName"] and those
 	  objectives do an unguarded DataVariables.Add("POIName", ...).

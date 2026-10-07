@@ -5,13 +5,14 @@ using UnityEngine;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// The "secure this POI for me" favour quest (Config/quests.xml, quest_scSecurePoi). A guide, never a
-    /// gate: whether the favour is done is decided by ScSecurity.IsCleared alone, so a player who clears the
-    /// POI without ever taking the quest is not blocked. No RallyPoint / Goto objective on purpose - the
-    /// rally point is the only vanilla path to World.ResetPOIS (which wipes anything built there), and the
-    /// quieter reset ObjectiveClearSleepers performs on subscribe is suppressed by Patches_Quest for the POIs
-    /// of these quests only. Position data must be set BEFORE QuestJournal.AddQuest (the objectives read it
-    /// in AddHooks).
+    /// The "secure this POI for me" favour quest (Config/quests.xml, quest_scSecurePoi). The favour completes
+    /// only through it: its clearing phase (SyncCompleted), or - when the POI already reads clear as the player
+    /// takes it - the player's "Actually, I've already cleared that." in the dialog (DialogActionScFavourPoiCleared,
+    /// which closes the quest as completed). Clearing the POI without the quest completes nothing.
+    /// No RallyPoint / Goto objective on purpose - the rally point is the only vanilla path to World.ResetPOIS
+    /// (which wipes anything built there), and the quieter reset ObjectiveClearSleepers performs on subscribe is
+    /// suppressed by Patches_Quest for the POIs of these quests only. Position data must be set BEFORE
+    /// QuestJournal.AddQuest (the objectives read it in AddHooks).
     /// </summary>
     public static class ScQuests
     {
@@ -281,21 +282,52 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Closes the quest through Quest.CloseQuest (unhooks objectives) and restores the compass.</summary>
-        public static void Close(EntityPlayer player, Vector3i poiKey, bool completed)
+        /// <summary>
+        /// The favour quest THIS survivor gave, still in progress (by quest giver, not by POI: two survivors can name
+        /// the same building, and only the first one's quest goes in the journal - Start refuses a second on that POI).
+        /// </summary>
+        public static Quest FindFavour(EntityPlayer player, int prospectId)
         {
             try
             {
-                Quest q = Find(player, poiKey);
+                QuestJournal j = Journal(player);
+                if (j == null || j.quests == null) return null;
+                for (int i = 0; i < j.quests.Count; i++)
+                {
+                    Quest q = j.quests[i];
+                    if (q == null || q.CurrentState != Quest.QuestState.InProgress || q.QuestGiverID != prospectId) continue;
+                    if (string.Equals(q.ID, QuestId, StringComparison.OrdinalIgnoreCase)) return q;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-findfavour", e);
+            }
+            return null;
+        }
+
+        /// <summary>Closes the favour quest this survivor gave, if one is still in progress - see Close.</summary>
+        public static void CloseFavour(EntityPlayer player, int prospectId, bool completed)
+        {
+            Close(player, FindFavour(player, prospectId), completed);
+        }
+
+        /// <summary>Closes the quest through Quest.CloseQuest (unhooks objectives) and restores the compass.</summary>
+        private static void Close(EntityPlayer player, Quest q, bool completed)
+        {
+            try
+            {
                 if (q == null) return;
                 QuestJournal j = Journal(player);
                 if (j == null) return;
                 Vector3 pos, size;
                 Rect ours = default(Rect);
-                if (q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition) && q.GetPositionData(out size, Quest.PositionDataTypes.POISize))
+                bool hasPos = q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition);
+                if (hasPos && q.GetPositionData(out size, Quest.PositionDataTypes.POISize))
                     ours = new Rect(pos.x, pos.z, size.x, size.z);
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
                 bool restoreCompass = lp != null && lp.ZombieCompassBounds == ours;
+                if (hasPos) NoRearm(pos);
                 if (completed) q.CloseQuest(Quest.QuestState.Completed);
                 else j.RemoveQuest(q);
                 if (restoreCompass) lp.ZombieCompassBounds = default(Rect);
@@ -304,6 +336,24 @@ namespace SurvivorCommunity
             catch (Exception e)
             {
                 ScLog.Once("quest-close", e);
+            }
+        }
+
+        // Closing unsubscribes, but QuestEventManager runs a dropped POI's SleeperEventData once more before removing it,
+        // and with our quest closed Patches_Quest no longer suppresses its re-arm: a quest closed before its first update
+        // (the frame it started) would re-arm the POI. Marking it refreshed is what that first update would have done.
+        private static void NoRearm(Vector3 poiPos)
+        {
+            try
+            {
+                QuestEventManager qem = QuestEventManager.Current;
+                SleeperEventData sed;
+                if (qem != null && qem.SleeperVolumeUpdateDictionary != null
+                    && qem.SleeperVolumeUpdateDictionary.TryGetValue(poiPos, out sed) && sed != null) sed.hasRefreshed = true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-norearm", e);
             }
         }
 
@@ -484,32 +534,44 @@ namespace SurvivorCommunity
 
         private static readonly List<Prospect> doneScratch = new List<Prospect>();
 
-        /// <summary>Ticker: marks POI favours done once their POI reads cleared (quest or no quest).</summary>
+        /// <summary>The entity id of the NPC whose dialog the player has open (SCore's CurrentNPC), or -1.</summary>
+        private static int TalkingTo(EntityPlayerLocal player)
+        {
+            try
+            {
+                LocalPlayerUI ui = player.PlayerUI;
+                if (ui == null || ui.windowManager == null || !ui.windowManager.IsWindowOpen("dialog")) return -1;
+                if (player.Buffs == null || !player.Buffs.HasCustomVar("CurrentNPC")) return -1;
+                return (int)player.Buffs.GetCustomVar("CurrentNPC");
+            }
+            catch (Exception) { return -1; }
+        }
+
+        /// <summary>
+        /// Ticker: marks a POI favour done once its quest is past the clearing phase. Only the quest counts - a POI
+        /// cleared without it (before or after the favour was asked) never completes the favour on its own; the
+        /// player says so in the dialog instead (DialogActionScFavourPoiCleared). Not while the player is talking to
+        /// that survivor: on a POI that is already clear vanilla moves the quest on the frame after "Mark it" (the
+        /// re-arm is suppressed, every volume reads cleared), and the dialog completes it there.
+        /// </summary>
         public static void SyncCompleted(EntityPlayerLocal player)
         {
             try
             {
-                World w = ScCommunity.World;
-                if (w == null || player == null || ScRegistry.Prospects.Count == 0) return;
+                if (player == null || ScRegistry.Prospects.Count == 0) return;
+                int talking = TalkingTo(player);
                 doneScratch.Clear();
                 foreach (var p in ScRegistry.Prospects.Values)
                 {
-                    if (p.Favour != FavourKind.Poi || p.Done) continue;
-                    if (FavourQuestDone(player, p.Id)) { doneScratch.Add(p); continue; }   // the quest cleared it
-                    // only judge a POI while it is loaded - an unloaded one has no volumes to read
-                    if (!ScZone.IsLoaded(p.PoiPos)) continue;
-                    PrefabInstance pi = ScSecurity.PoiByKey(p.PoiPos);
-                    if (pi == null) continue;
-                    string why;
-                    if (ScSecurity.IsCleared(w, pi, out why)) doneScratch.Add(p);
+                    if (p.Favour != FavourKind.Poi || p.Done || p.Id == talking) continue;
+                    if (FavourQuestDone(player, p.Id)) doneScratch.Add(p);
                 }
                 for (int i = 0; i < doneScratch.Count; i++)
                 {
                     Prospect p = doneScratch[i];
                     p.Done = true;
                     ScLeadership.Count(ScLeadership.FavourEvent);
-                    // the quest stays open: its phase 2 ("return to <name>") completes when the player talks to
-                    // them, and ScJoin closes whatever is still open as a fallback
+                    // the quest stays open: its phase 2 ("return to <name>") completes when the player talks to them
                     EntityAlive npc = ScCommunity.FindNpc(p.Id);
                     if (npc != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
                     ScCommunity.Tell(player, string.Format(Localization.Get("scFavourPoiDone"), p.PoiName, p.Name), "");

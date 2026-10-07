@@ -172,6 +172,10 @@ namespace SurvivorCommunity
                 m.Loadout = ScLoadout.Current(npc); // their two weapons, so every body re-created for them carries the same (null for others)
                 m.Ammo = ScAmmo.Carried(npc, out m.Mags);   // and the rounds and magazines they carry for the gun (ScAmmo keeps it current every 5 s)
                 ScRegistry.Members[m.Id] = m;
+                // their favour quest ends with the join: one still open is waiting on "return to <name>" (completed),
+                // or the favour was skipped (`sc recruit`, removed)
+                Prospect pr = ScRegistry.GetProspect(m.Id);
+                if (pr != null && pr.Favour == FavourKind.Poi) ScQuests.CloseFavour(player, pr.Id, pr.Done);
                 ScRegistry.Prospects.Remove(m.Id);
 
                 // D9: a companion the player hired the vanilla way joins on the same terms as anyone - the paid hire ends
@@ -1102,8 +1106,9 @@ namespace SurvivorCommunity
                 Prospect p = ScRegistry.GetProspect(npc.entityId);
                 if (p != null)
                 {
-                    // an unfinished favour quest would otherwise linger in the journal
-                    if (p.Favour == FavourKind.Poi && !p.Done && LocalPlayer != null) ScQuests.Close(LocalPlayer, p.PoiPos, false);
+                    // their favour quest would otherwise linger in the journal: failed while clearing, completed once
+                    // the POI was secured and only "return to <name>" was left
+                    if (p.Favour == FavourKind.Poi && LocalPlayer != null) ScQuests.CloseFavour(LocalPlayer, p.Id, p.Done);
                     ScRegistry.Prospects.Remove(npc.entityId);
                     ScRegistry.SaveAtomic();
                 }

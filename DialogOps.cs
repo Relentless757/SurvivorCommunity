@@ -45,8 +45,8 @@ namespace SurvivorCommunity
                 p.PoiName = ScSecurity.DisplayName(pi);
                 p.PoiWidth = pi.boundingBoxSize.x;
                 p.PoiDepth = pi.boundingBoxSize.z;
-                string why;
-                if (w != null && ScSecurity.IsCleared(w, pi, out why)) { p.Done = true; ScLeadership.Count(ScLeadership.FavourEvent); }   // already clear: lucky
+                // a POI that already reads clear is still a favour to take: the player says so in the dialog
+                // (scPoiAlreadyCleared), it never completes on its own
             }
             else
             {
@@ -59,7 +59,6 @@ namespace SurvivorCommunity
             ScRegistry.Prospects[p.Id] = p;
             npc.Buffs.SetCustomVar("Persist", 1f);                       // a prospect must survive the chunk
             npc.Buffs.SetCustomVar("sc_favour", (int)p.Favour);
-            if (p.Done) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
             npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
             // they wait here (SCore guard order: fights what comes, walks back) so the player can find them again - unless
             // they are the player's own hired companion (decision D9: they may join), who keeps whatever order the player
@@ -70,6 +69,16 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
             ScLog.Out(p.Name + " asks for a favour: " + Describe(p));
             return p;
+        }
+
+        /// <summary>The POI favour's building reads clear now; 'why' says what is left when it does not.</summary>
+        public static bool PoiReadsCleared(Prospect p, out string why)
+        {
+            why = null;
+            World w = ScCommunity.World;
+            PrefabInstance pi = p != null && p.Favour == FavourKind.Poi ? ScSecurity.PoiByKey(p.PoiPos) : null;
+            if (w == null || pi == null) { why = "no POI"; return false; }
+            return ScSecurity.IsCleared(w, pi, out why);
         }
 
         public static string Describe(Prospect p)
@@ -154,7 +163,7 @@ public class DialogRequirementScHasHome : BaseDialogRequirement
     }
 }
 
-/// <summary>The player carries the supplies the NPC asked for.</summary>
+/// <summary>The player has asked for the supplies favour (heard it) and carries what the NPC asked for.</summary>
 public class DialogRequirementScHasFavourItems : BaseDialogRequirement
 {
     public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
@@ -163,16 +172,40 @@ public class DialogRequirementScHasFavourItems : BaseDialogRequirement
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
-            if (p == null || p.Favour != FavourKind.Supplies) return false;
+            if (p == null || p.Favour != FavourKind.Supplies || !p.Started) return false;
             return ScCategories.CountInPlayer(player, p.ItemCategory) >= p.ItemCount;
         }
         catch (Exception e) { ScLog.Once("req-hasitems", e); return false; }
     }
 }
 
+/// <summary>
+/// The POI favour's building already reads clear (ScSecurity.IsCleared: the saved sleeper volumes, which the world
+/// keeps for every POI, loaded or not, plus the enemies inside while it is loaded), or its quest is past the clearing.
+/// Offers "Actually, I've already cleared that." right after the player takes the favour.
+/// </summary>
+public class DialogRequirementScFavourPoiCleared : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            EntityAlive npc = ScFavours.CurrentNpc(player);
+            Prospect p = npc != null && ScCommunity.IsHost ? ScRegistry.GetProspect(npc.entityId) : null;
+            if (p == null || p.Favour != FavourKind.Poi || p.Done) return false;
+            string why;
+            return ScFavours.PoiReadsCleared(p, out why) || ScQuests.FavourQuestDone(player, p.Id);
+        }
+        catch (Exception e) { ScLog.Once("req-poicleared", e); return false; }
+    }
+}
+
 // ---------------------------------------------------------------- actions ----
 
-/// <summary>Tooltip describing the favour ("Secure X for me" / "Bring me N food items").</summary>
+/// <summary>
+/// Tooltip describing the favour ("Secure X for me" / "Bring me N food items"). Hearing it is what starts the
+/// favour: the supplies hand-over is offered only from then on.
+/// </summary>
 public class DialogActionScFavourBrief : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -182,6 +215,11 @@ public class DialogActionScFavourBrief : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScFavours.Ensure(npc, player) : null;
             if (p == null) return;
+            if (!p.Started)
+            {
+                p.Started = true;
+                ScRegistry.SaveAtomic();
+            }
             ScCommunity.Tell(player, ScFavours.Describe(p) + (p.Done ? " " + Localization.Get("scFavourAlreadyDone") : ""), "");
         }
         catch (Exception e) { ScLog.Once("act-brief", e); }
@@ -199,9 +237,45 @@ public class DialogActionScStartPoiQuest : BaseDialogAction
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
             if (lp == null || p == null) return;
             string error;
-            if (!ScQuests.Start(lp, p, out error)) ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            // asked again with the quest already in the journal: it is marked, nothing to say
+            if (!ScQuests.Start(lp, p, out error) && error != "scQuestAlready")
+                ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-startquest", e); }
+    }
+}
+
+/// <summary>
+/// "Actually, I've already cleared that.": the POI reads clear (checked again here - the list was built a moment
+/// ago), so the favour is done. This survivor's quest closes as completed: "Mark it" just put it in the journal, and
+/// on a clear POI vanilla has already moved it on to "return to &lt;name&gt;" - which is where the player is standing.
+/// </summary>
+public class DialogActionScFavourPoiCleared : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try
+        {
+            EntityAlive npc = ScFavours.CurrentNpc(player);
+            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            if (p == null || p.Favour != FavourKind.Poi) return;
+            if (!p.Done)
+            {
+                string why;
+                if (!ScFavours.PoiReadsCleared(p, out why) && !ScQuests.FavourQuestDone(player, p.Id))
+                {
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scFavourPoiNotClear"), p.PoiName, why), "ui_denied");
+                    return;
+                }
+                p.Done = true;
+                if (npc.Buffs != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
+                ScLeadership.Count(ScLeadership.FavourEvent);
+                ScRegistry.SaveAtomic();
+                ScLog.Out("favour done: " + p.PoiName + " was already clear (the player said so to " + p.Name + ")");
+            }
+            ScQuests.CloseFavour(player, p.Id, true);
+        }
+        catch (Exception e) { ScLog.Once("act-poicleared", e); }
     }
 }
 
@@ -214,7 +288,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
-            if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
+            if (lp == null || p == null || p.Favour != FavourKind.Supplies || !p.Started || p.Done) return;
             // never take the goods when the join that follows would be refused
             if (!ScZone.EnsureHome(player)) { ScCommunity.Tell(player, Localization.Get("scNeedHome"), "ui_denied"); return; }
             if (ScRegistry.Members.Count >= ScConfig.MaxMembers) { ScCommunity.Tell(player, Localization.Get("scRosterFull"), "ui_denied"); return; }

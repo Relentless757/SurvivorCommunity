@@ -18,7 +18,9 @@ NPCs but cannot manage a community (v2).
   built there is ever reset; once the building is clear the quest's second step is **Return to <name>**
   and the marker moves to the survivor, who waits where you left them) or **bring supplies** (e.g. 15 food
   items, 5 medical items or 60 rounds). When the favour is done, the join option appears and they join
-  **for free** - no dukes.
+  **for free** - no dukes. A favour only completes through itself: clearing the POI without its quest does
+  nothing, but if the building is already clear when you say *"Mark it"*, you can answer *"Actually, I've
+  already cleared that."*; and *"Here are the supplies"* is offered only once they have told you what they need.
 - **Home.** The community lives in your land claim. The first land claim you own becomes home
   automatically; the land claim block's radial menu gets **Set as community home** and **Community**.
 - **Walking.** The survivors (and the raiders) are 0-XNPCCore's player-body NPCs, and 0-XNPCCore's own controller
@@ -602,7 +604,8 @@ A full game restart is needed after editing `Config/Localization.csv`.
   read as a member state (`ScOrders`), never repaired unless it is one nothing gives a follower (None, Hire, Task).
 - The recruit dialog is injected by xpath into **every** dialog that has a `Hire` response, so character
   packs join the pool without being listed. The custom operators (`ScCanRecruit`, `ScFavour`,
-  `ScFavourDone`, `ScHasFavourItems`, `ScFavourBrief`, `ScStartPoiQuest`, `ScTakeFavourItems`, `ScJoin`)
+  `ScFavourDone`, `ScHasFavourItems`, `ScFavourPoiCleared`, `ScFavourBrief`, `ScStartPoiQuest`, `ScTakeFavourItems`,
+  `ScJoin`)
   live in `SurvivorCommunity.dll`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.

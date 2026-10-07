@@ -25,6 +25,63 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Recruit favours: completed only through the favour
+
+**Deployed 2026-10-07** (Fable review + re-check: deployable; DLL md5 `04cb2923022cd269a54d7a0d242b3a82`, Config and Localization with it). From your report: a POI cleared with no quest completed a survivor's favour
+(the "is clear - go back to ..." message) and let you recruit them, and "Here are the supplies" showed before you had
+ever asked about the favour. No new Harmony target (still 77); the registry gains a `started=1` line per prospect (an
+older build ignores it).
+
+What changed:
+- **A POI favour completes only through its quest.** Clearing the building without the quest does nothing any more,
+  before or after the survivor asked. The favour is no longer completed on the spot when the survivor first names a POI
+  that already reads clear.
+- **"Actually, I've already cleared that."** After "Mark it. I'll take care of it." the survivor answers ("It's on your
+  map...") and, when that POI already reads clear, a new line appears: "Actually, I've already cleared that." Choosing it
+  completes the favour, closes the quest as completed, and the survivor answers ("You already did? ...") with "Then come
+  join my community." / "Not yet. I'll come back for you." Otherwise only "I'm on it." shows. "Reads clear" is the same
+  test as `sc poi` (no sleepers left or due to respawn, every sleeper area visited, no enemy inside while it is loaded).
+- **Supplies:** "Here are the supplies..." is offered only once the survivor has told you what they want (after "I could
+  use someone like you in my community."), in that answer and from then on at the start of every talk while you carry
+  the items. Survivors who asked for supplies before this build need asking once more.
+- `sc status` marks each prospect "asked" / "not asked yet".
+- Favour quests are now found by the survivor who gave them, not by the building: a survivor's death closes their own
+  quest ("Quest failed" while clearing, "Quest completed" once it reached "Return to <name>" - that one used to stay in
+  the journal), and joining closes one still open.
+  On a POI that is already clear the quest jumps to "Return to <name>" right after "Mark it" (vanilla); the "is clear -
+  go back to <name>" message waits until you close that survivor's dialog, so it no longer pops up mid-conversation.
+
+Steps:
+- [ ] **No completion without the favour (your report):** talk to a new survivor (don't pick the community line) or pick
+  it and walk away without "Mark it". Clear their POI. Expect no "is clear - go back to ..." message and no join line at
+  the survivor. (A survivor whose favour already completed in an older build stays completed.)
+- [ ] **Already cleared:** with a survivor whose POI you've cleared (or one `sc poi` reports cleared while you stand in
+  it), pick "I could use someone like you..." then "Mark it. I'll take care of it.". Expect the survivor's answer with
+  "Actually, I've already cleared that." and "I'm on it.". Take your time reading (a few seconds): no "is clear - go
+  back to ..." message pops up. Pick the first: "Quest completed", then "Then come join my community." joins them, and
+  the journal has no "Secure ..." quest left in progress. Log: `favour done: <POI> was already clear (the player said
+  so to <name>)`.
+- [ ] **Already cleared, "I'm on it." instead:** the same, but pick "I'm on it.": once the dialog closes, the "<POI> is
+  clear - go back to <name>" message shows. Talk to them again: "Quest completed: Secure <POI>" shows as the talk opens
+  (the quest's "return to <name>" step), and "That place is clear now. Come join my community." is at the start and joins
+  them.
+- [ ] **A survivor dies with their quest open:** (kill them yourself, or let the dead do it) once while their quest is still
+  clearing - "Quest failed: Secure <POI>" - and once at "Return to <name>" - "Quest completed". Either way no "Secure ..."
+  quest is left in progress in the journal.
+- [ ] (Edge) a POI with no sleeper areas at all reads clear straight away, so "Actually, I've already cleared that."
+  shows on the first "Mark it" (the old build marked such favours done the moment the survivor named the POI).
+- [ ] **Not cleared yet:** the same with a POI that still has sleepers: only "I'm on it." shows and the quest is in the
+  journal as before. Clear it with the quest: the usual "is clear - go back to <name>" message, and talking to them
+  completes the quest and offers the join line, as before.
+- [ ] **Back later:** take the quest, clear the POI, and if the quest doesn't move on to "return to <name>" (a POI cleared
+  before the quest), talk to them, pick "I could use someone like you..." then "Mark it" again: no "You already have that
+  quest." message, and "Actually, I've already cleared that." is there.
+- [ ] **Supplies:** with the items already in your pack, talk to a new supplies survivor. The start of the talk has no
+  "Here are the supplies". Pick "I could use someone like you...": their answer offers "Here are the supplies...". Close
+  the talk and open it again: the line is now at the start too.
+- [ ] **Save and reload** between "I could use someone like you..." and handing over the supplies: the line is still
+  offered after the reload (`sc status` still says "asked").
+
 ## Base defence: the Guard Tower kit
 
 **Deployed 2026-10-06** (Fable review + re-check: deployable). DLL md5 `75a6adb5f99419a50c5c72276c9b5469`, deployed **together with** the same tree's Config (the

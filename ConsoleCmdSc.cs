@@ -155,7 +155,8 @@ namespace SurvivorCommunity
             foreach (var p in ScRegistry.Prospects.Values)
             {
                 Output("[SC] prospect " + p.Id + " " + p.Name + " (" + p.Class + ") favour " + p.Favour
-                       + (p.Favour == FavourKind.Poi ? " " + p.PoiName + " at " + p.PoiPos : " " + p.ItemCount + " " + p.ItemCategory) + (p.Done ? " DONE" : ""));
+                       + (p.Favour == FavourKind.Poi ? " " + p.PoiName + " at " + p.PoiPos : " " + p.ItemCount + " " + p.ItemCategory)
+                       + (p.Started ? " asked" : " not asked yet") + (p.Done ? " DONE" : ""));
             }
             if (ScRegistry.Members.Count == 0 && ScRegistry.Prospects.Count == 0) Output("[SC] no members or prospects");
         }

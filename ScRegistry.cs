@@ -623,6 +623,7 @@ namespace SurvivorCommunity
                     if (kv.Length == 2 && ScNames.TryResource(kv[0], out r)) { p.ItemCategory = r; p.ItemCount = I(kv[1]); }
                     break;
                 }
+                case "started": p.Started = val == "1"; break;
                 case "done": p.Done = val == "1"; break;
                 case "look": { Look l = p.Look ?? new Look(); if (l.Decode(val)) p.Look = l; break; }
                 case "gear": { if (p.Look == null) p.Look = new Look(); p.Look.DecodeGear(val); break; }
@@ -890,6 +891,7 @@ namespace SurvivorCommunity
                     }
                     if (p.Favour == FavourKind.Supplies) sb.AppendLine("items=" + ScNames.Key(p.ItemCategory) + ":" + p.ItemCount);
                     if (p.NpcPos != Vector3i.zero) sb.AppendLine("npcpos=" + Vec(p.NpcPos));
+                    if (p.Started) sb.AppendLine("started=1");
                     sb.AppendLine("done=" + (p.Done ? 1 : 0));
                     if (p.Look != null)
                     {

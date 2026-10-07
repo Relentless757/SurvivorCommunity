@@ -705,3 +705,10 @@ scTowerWater,UI,Tooltip,,,,Water is in the way.
 scTowerSomeone,UI,Tooltip,,,,{0} is standing in the way.
 scTowerFailed,UI,Tooltip,,,,The Guard Tower couldn't go up: {0} The kit is back in your inventory.
 scTowerFailedDropped,UI,Tooltip,,,,The Guard Tower couldn't go up: {0} The kit is on the ground where you placed it.
+scPoiMarked_text,Dialog,Statement,,,,"It's on your map. Clear out everything in there, then come back and tell me it's quiet."
+scPoiAlreadyCleared,Dialog,Response,,,,"Actually, I've already cleared that."
+scPoiOnIt,Dialog,Response,,,,I'm on it.
+scPoiClearedReply_text,Dialog,Statement,,,,You already did? Huh. I did wonder why it went so quiet over there. All right - you've shown me you can keep people safe.
+scPoiClearedJoin,Dialog,Response,,,,Then come join my community.
+scPoiLater,Dialog,Response,,,,Not yet. I'll come back for you.
+scFavourPoiNotClear,UI,Tooltip,,,,{0} isn't clear yet: {1}.

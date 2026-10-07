@@ -220,6 +220,8 @@ namespace SurvivorCommunity
         /// <summary>Supplies favour: the category and count asked for.</summary>
         public Resource ItemCategory = Resource.Food;
         public int ItemCount;
+        /// <summary>The player has asked them about it (heard the favour): until then nothing can complete it.</summary>
+        public bool Started;
         public bool Done;
         /// <summary>Where the survivor was last seen (they hold a guard order there); the return marker when unloaded.</summary>
         public Vector3i NpcPos;

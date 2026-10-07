@@ -7,8 +7,11 @@
 	  type="ScFavour, SurvivorCommunity" resolves to the global class DialogRequirementScFavour.
 
 	  Flow:  start -> "I could use someone like you in my community"   (scJoinPoi | scJoinSupplies)
-	         -> favour statement (secure the nearest POI / bring N items)
-	         -> scStartPoi (journal quest) ... scPoiDone (join)   |   scGiveSupplies (take + join)
+	         -> favour statement (secure the nearest POI / bring N items) - hearing it starts the favour
+	         -> scStartPoi (journal quest) -> scPoiMarked [-> scPoiAlreadyCleared -> scPoiClearedReply (join)]
+	            ... scPoiDone (join)   |   scGiveSupplies (take + join)
+	  A favour completes only through itself: the quest's clearing (or "Actually, I've already cleared that." when the
+	  POI reads clear as it is marked), or the supplies handed over after the survivor asked for them.
 	  Members get "Community" (opens the roster) and lose the vanilla Hire entry.
 	-->
 
@@ -64,12 +67,33 @@
 			<response_entry id="done" />
 		</statement>
 
-		<!-- POI favour -->
-		<response id="scStartPoi" text="scStartPoi">
+		<!-- POI favour. "Mark it" puts the quest in the journal; the survivor answers, and when the POI already reads
+		     clear the player can say so (the line shows only then) - that completes the favour and closes the quest. -->
+		<response id="scStartPoi" text="scStartPoi" nextstatementid="scPoiMarked">
 			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
 			<action type="ScStartPoiQuest, SurvivorCommunity" />
 		</response>
-		<!-- shown at the root once the POI reads clear -->
+		<statement id="scPoiMarked" text="scPoiMarked_text">
+			<response_entry id="scPoiAlreadyCleared" />
+			<response_entry id="scPoiOnIt" />
+		</statement>
+		<response id="scPoiOnIt" text="scPoiOnIt" />
+		<response id="scPoiAlreadyCleared" text="scPoiAlreadyCleared" nextstatementid="scPoiClearedReply">
+			<requirement type="ScFavourPoiCleared, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScFavourPoiCleared, SurvivorCommunity" />
+		</response>
+		<statement id="scPoiClearedReply" text="scPoiClearedReply_text">
+			<response_entry id="scPoiClearedJoin" />
+			<response_entry id="scPoiLater" />
+		</statement>
+		<response id="scPoiLater" text="scPoiLater" />
+		<response id="scPoiClearedJoin" text="scPoiClearedJoin">
+			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScJoin, SurvivorCommunity" />
+		</response>
+		<!-- shown at the root once the favour is done (the quest's clearing, or "Actually, I've already cleared that.") -->
 		<response id="scPoiDone" text="scPoiDone">
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
@@ -78,7 +102,8 @@
 			<action type="ScJoin, SurvivorCommunity" />
 		</response>
 
-		<!-- supplies favour: visible in the favour statement and at the root while the items are carried -->
+		<!-- supplies favour: visible in the favour statement and at the root while the items are carried - once the
+		     survivor has told the player what they want (ScHasFavourItems checks that too) -->
 		<response id="scGiveSupplies" text="scGiveSupplies">
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
