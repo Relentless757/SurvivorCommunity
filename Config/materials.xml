@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configs>
+	<!-- The Watch Post shape family's material (blocks.xml scWatchPostShapes): reinforced wood's numbers under its own
+	     id, so every shape is named "Watch Post - <shape>" (Block.GetLocalizedBlockName: the material's name, then the
+	     shape's), and 600 hit points for the cube like the first Watch post (each shape scales it by its own
+	     MaterialHitpointMultiplier). -->
+	<append xpath="/materials">
+		<material id="MscWatchPost">
+			<property name="damage_category" value="wood" />
+			<property name="surface_category" value="wood" />
+			<property name="forge_category" value="wood" />
+			<property name="Hardness" type="float" value="1" />
+			<property name="stepsound" value="wood" />
+			<property name="stability_glue" value="40" />
+			<property name="Mass" type="int" value="5" />
+			<property name="MaxDamage" value="600" />
+			<property name="Experience" value="2" />
+		</material>
+	</append>
+</configs>

@@ -13,9 +13,10 @@
 			<ingredient name="resourceScrapPolymers" count="10"/>
 		</recipe>
 	</append>
-	<!-- The Watch post (base defence D3): cheap, crafted in the backpack. -->
+	<!-- The Watch post (base defence D3): cheap, crafted in the backpack. Since 2026-10-07 it is the shape family's helper
+	     (any shape from the shape menu); the old cube scWatchPost is no longer crafted. -->
 	<append xpath="/recipes">
-		<recipe name="scWatchPost" count="1" craft_time="10" tags="packMuleCrafting">
+		<recipe name="scWatchPostShapes:VariantHelper" count="1" craft_time="10" tags="packMuleCrafting">
 			<ingredient name="resourceWood" count="10" />
 			<ingredient name="resourceNail" count="4" />
 		</recipe>

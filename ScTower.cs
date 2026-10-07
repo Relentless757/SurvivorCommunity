@@ -14,7 +14,7 @@ namespace SurvivorCommunity
     /// user's tower prefab into the world in one go. The prefab is Prefabs/scGuardTower, copied from the user's
     /// LocalPrefabs/Guard_Tower by Tools/import_guard_tower.py with its Watch post turned to look away from the ladder.
     ///
-    /// Placing: the kit's cell is the prefab's bottom-centre cell at ground level (YOffset sinks the rest), and the tower
+    /// Placing: the kit's cell is the prefab's bottom-centre cell, on the ground (the prefab's YOffset is ignored), and the tower
     /// turns with the kit's rotation plus 180 degrees - Place=TowardsPlacer points the kit's forward the way the player
     /// looks, and the prefab's forward (+Z) is its ladder side, so by default the ladder comes toward the player and the
     /// guard looks the way the player looked. The kit's CanPlaceBlockAt runs Check (the vanilla ghost and the press), the
@@ -23,10 +23,9 @@ namespace SurvivorCommunity
     ///
     /// Check: inside the home zone with room for one more Watch post (when SC runs the host and watch posts are on), off
     /// other claims and trader land, chunks loaded, and the box clear - only air, grass and wild plants (not a player's
-    /// crops), and terrain up to GuardTowerCut layers above the ground (cut away; higher is "too uneven"). Below ground
-    /// level only the tower's own blocks are written: terrain gives way to them, a built block that carries weight is left
-    /// to carry them. A bottom-layer block over air reaches down to the ground with copies of itself, at most
-    /// GuardTowerFill, and stops only on terrain or a weight-carrying block. Nothing built is ever replaced.
+    /// crops), and terrain up to GuardTowerCut layers above the ground (cut away; higher is "too uneven"). Nothing below
+    /// the kit's layer is written except legs: a bottom-layer block over air reaches down to the ground with copies of
+    /// itself, at most GuardTowerFill, and stops only on terrain or a weight-carrying block. Nothing built is ever replaced.
     /// </summary>
     public static class ScTower
     {
@@ -89,7 +88,7 @@ namespace SurvivorCommunity
                 // the stamp leaves a multi-block's cells to its parent's OnBlockAdded, untested for a tower (none in the user's)
                 if (children > 0) ScLog.Warn("guard tower: " + PrefabName + " has " + children + " multi-block cell(s) (doors, gates...) - they may not come out right");
                 prefab = p;
-                ScLog.Out("guard tower: " + PrefabName + " loaded, size " + P(p.size) + ", yOffset " + p.yOffset + ", anchor " + P(Anchor(p))
+                ScLog.Out("guard tower: " + PrefabName + " loaded, size " + P(p.size) + ", anchor " + P(Anchor(p)) + " (on the ground; yOffset " + p.yOffset + " ignored)"
                           + (hasPost ? ", Watch post at " + P(postCell) + " (rotation " + p.GetBlock(postCell.x, postCell.y, postCell.z).rotation + ")" : ", no Watch post"));
             }
             catch (Exception e)
@@ -105,10 +104,14 @@ namespace SurvivorCommunity
             return "(" + v + ")";
         }
 
-        /// <summary>The prefab cell that lands on the kit's cell: bottom centre, at ground level.</summary>
+        /// <summary>
+        /// The prefab cell that lands on the kit's cell: the bottom layer's centre. The bottom layer stands on the ground in
+        /// the kit's own layer - the prefab's YOffset is ignored (the user's call, 2026-10-06: YOffset -1 sank the legs a
+        /// block into the ground, replacing terrain and denting the ground around them).
+        /// </summary>
         public static Vector3i Anchor(Prefab p)
         {
-            return new Vector3i(p.size.x / 2, -p.yOffset, p.size.z / 2);
+            return new Vector3i(p.size.x / 2, 0, p.size.z / 2);
         }
 
         /// <summary>Quarter turns (+90 degrees about up, +Z to +X) for a kit rotation: its own plus 180 (see the class summary).</summary>
@@ -231,8 +234,7 @@ namespace SurvivorCommunity
             int order = 0;
             for (int y = 0; y < size.y; y++)
             {
-                bool buried = y < a.y;
-                int above = y - a.y;
+                // y is also the layer above the ground: the bottom layer stands in the kit's own layer
                 for (int x = 0; x < size.x; x++)
                 {
                     for (int z = 0; z < size.z; z++)
@@ -243,35 +245,26 @@ namespace SurvivorCommunity
                         if (w.GetWater(wp).HasMass()) return "scTowerWater";
                         bool terrain = !cur.isair && cur.Block.shape.IsTerrain();
                         bool clearable = !terrain && Clearable(cur);
-                        if (buried)
+                        if (terrain && y >= cut) return "scTowerSteep";
+                        if (!terrain && !clearable)
                         {
-                            // below ground level only the tower's own blocks: terrain and loose cover give way, a built
-                            // block that carries weight is left to carry them, and the ground around them stays as it is
-                            if (pb.isair) continue;
-                            if (!terrain && !clearable)
-                            {
-                                if (Carries(cur)) continue;
-                                arg = cur.Block.GetLocalizedBlockName();
-                                return "scTowerBlocked";
-                            }
+                            arg = cur.Block.GetLocalizedBlockName();
+                            return "scTowerBlocked";
                         }
-                        else
+                        if (pb.isair)
                         {
-                            if (terrain && above >= cut) return "scTowerSteep";
-                            if (!terrain && !clearable)
-                            {
-                                arg = cur.Block.GetLocalizedBlockName();
-                                return "scTowerBlocked";
-                            }
-                            if (pb.isair)
-                            {
-                                if (cur.isair) continue;
-                                // terrain within the cut, grass and plants: cleared
-                                if (plan != null) plan.Cleared++;
-                                written.Add(wp);
-                                if (pending != null) pending.Add(new Pending { Y = wp.y, Order = order++, Change = new BlockChangeInfo(wp, BlockValue.Air, MarchingCubes.DensityAir, owner) });
-                                continue;
-                            }
+                            if (cur.isair) continue;
+                            // terrain within the cut goes to air; grass and plants come out with the ground's shape
+                            // left as it is (density untouched, as when vanilla replaces a plant)
+                            if (plan != null) plan.Cleared++;
+                            written.Add(wp);
+                            if (pending != null)
+                                pending.Add(new Pending
+                                {
+                                    Y = wp.y, Order = order++,
+                                    Change = terrain ? new BlockChangeInfo(wp, BlockValue.Air, MarchingCubes.DensityAir, owner) : new BlockChangeInfo(wp, BlockValue.Air, owner)
+                                });
+                            continue;
                         }
                         // a tower block (a multi-block's child cells are left to its parent's OnBlockAdded)
                         if (pb.Block.IsCollideMovement) solids.Add(CellBounds(wp));
@@ -520,7 +513,8 @@ namespace SurvivorCommunity
                         counts[n] = c + 1;
                     }
             var sb = new StringBuilder();
-            sb.Append(PrefabName).Append(": size ").Append(P(p.size)).Append(", yOffset ").Append(p.yOffset).Append(", anchor ").Append(P(Anchor(p)));
+            sb.Append(PrefabName).Append(": size ").Append(P(p.size)).Append(", anchor ").Append(P(Anchor(p))).Append(" (on the ground; yOffset ")
+              .Append(p.yOffset).Append(" ignored)");
             if (hasPost) sb.Append(", Watch post at ").Append(P(postCell)).Append(" rotation ").Append(p.GetBlock(postCell.x, postCell.y, postCell.z).rotation);
             sb.Append('\n').Append("blocks:");
             foreach (var kv in counts) sb.Append(' ').Append(kv.Key).Append(" x").Append(kv.Value).Append(',');
@@ -531,8 +525,37 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Vanilla's placement box around the whole tower instead of the kit's cell - the focus cube vanilla scales to a
+        /// multi-block's bounds (RenderDisplacedCube.update0: localScale = bounds size, centred on its pivot) - and the
+        /// kit's own 1x1 ghost hidden. Vanilla sets both back every frame in update0, before this postfix runs; it still
+        /// colours the box (green / yellow / white / red from the kit's CanPlaceBlockAt, the whole tower's test).
+        /// </summary>
+        private static void FrameTower(RenderDisplacedCube rdc, Prefab p, Vector3i kit, int turns)
+        {
+            if (rdc.transformBlockPreview != null)
+                foreach (Renderer r in rdc.transformBlockPreview.GetComponentsInChildren<Renderer>()) r.enabled = false;
+            Transform box = rdc.transformFocusCubePrefab;
+            if (box == null || p == null) return;
+            Vector3i a = Anchor(p);
+            Vector3i c0 = ToWorld(kit, a, turns, 0, 0, 0), c1 = ToWorld(kit, a, turns, p.size.x - 1, p.size.y - 1, p.size.z - 1);
+            var min = new Vector3(Math.Min(c0.x, c1.x), Math.Min(c0.y, c1.y), Math.Min(c0.z, c1.z));
+            var max = new Vector3(Math.Max(c0.x, c1.x) + 1, Math.Max(c0.y, c1.y) + 1, Math.Max(c0.z, c1.z) + 1);
+            // vanilla resets the box's scale and position every frame but never its rotation, so that stays as it is:
+            // the size goes in the parent's axes instead (the wireframe turns with the kit, a quarter turn about up)
+            Vector3 size = max - min;
+            if (box.parent != null)
+            {
+                size = Quaternion.Inverse(box.parent.rotation) * size;
+                size = new Vector3(Mathf.Abs(size.x), Mathf.Abs(size.y), Mathf.Abs(size.z));
+            }
+            box.localScale = size;
+            box.position = (min + max) * 0.5f - Origin.position;
+        }
+
+        /// <summary>
         /// The ghost of the whole tower rides vanilla's placement ghost: shown while that ghost is (the kit held, aimed in
         /// range), at its cell and rotation, green / yellow / white / red as vanilla colours its own. Client side, visual.
+        /// Vanilla's box frames the whole tower and its 1x1 cube is hidden (FrameTower).
         /// </summary>
         [HarmonyPatch(typeof(RenderDisplacedCube), nameof(RenderDisplacedCube.Update))]
         public static class Patch_FocusPreview
@@ -565,7 +588,9 @@ namespace SurvivorCommunity
                             case EnumLandClaimOwner.Ally: color = Color.yellow; break;
                         }
                     }
-                    ScTowerGhost.Show(Get(), pos, Turns(bv.rotation), ok, color, __instance.transparencyFade, __instance);
+                    Prefab p = Get();
+                    ScTowerGhost.Show(p, pos, Turns(bv.rotation), ok, color, __instance.transparencyFade, __instance);
+                    FrameTower(__instance, p, pos, Turns(bv.rotation));
                 }
                 catch (Exception e)
                 {

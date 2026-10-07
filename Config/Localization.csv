@@ -633,8 +633,12 @@ scBaseLeft,UI,Tooltip,,,,"You left the fight. The {0} dead still standing will b
 scBaseAmmo,UI,Tooltip,,,,"{0} rounds from the stockpile, about {1} ammo bundles"
 scBaseAmmoNone,UI,Tooltip,,,,"nothing from the stockpile"
 scMoraleDefence,UI,Menu,,,,"Defended the base"
-scWatchPost,Block,Block,,,,Watch Post
-scWatchPostDesc,Block,Block,,,,"A lookout spot for your community. Place it inside your community's land - on top of a tower is best, with two blocks of room above it - up to 4 of them. Hold E on it to assign a guard: they stand on it for a 12-hour watch facing the way you looked when you placed it, see 50% farther, shoot whatever comes into range and call out hordes while you're at the base. A shift takes 3 ammo bundles from the stockpile, which also pay for that guard's resupplies. Every manned post makes the base draw the dead's attention more slowly."
+scWatchPost,Block,Block,,,,Watch Post (old cube)
+scWatchPostDesc,Block,Block,,,,"A lookout spot for your community, in any shape: hold Reload on it for the shape menu, and paint it to match the floor around it. The guard stands on top of it, so use the cube, or a plate or catwalk turned upside down in a deck. Place it inside your community's land - on top of a tower is best, with two blocks of room above it - up to 4 of them. Hold E on it to assign a guard: they stand on it for a 12-hour watch facing the way the post points, see 50% farther, shoot whatever comes into range and call out hordes while you're at the base. A shift takes 3 ammo bundles from the stockpile, which also pay for that guard's resupplies. Every manned post makes the base draw the dead's attention more slowly."
+scWatchPostShapes:VariantHelper,Block,Block,,,,Watch Post
+materialMscWatchPost,Block,Block,,,,Watch Post
+scWatchPostName,UI,Tooltip,,,,Watch Post
+scWatchActNoTop,UI,Tooltip,,,,{0}: a guard can't stand on this shape
 blockcommand_scwatchassign,UI,Radial blockcommand,,,,Assign guard
 blockcommand_scwatchrelieve,UI,Radial blockcommand,,,,Relieve guard
 scWatchPostLabel,UI,Tooltip,,,,Watch post {0} ({1})
@@ -663,6 +667,8 @@ scWatchInjured,UI,Tooltip,,,,{0} is injured and can't keep watch.
 scWatchResting,UI,Tooltip,,,,{0} is resting after a watch ({1} h left).
 scWatchNoAmmo,UI,Tooltip,,,,A watch shift takes {1} ammo bundles - the stockpile has {2}.
 scWatchErrBlocked,UI,Tooltip,,,,There's no room to stand on {3} (two blocks of air above it).
+scWatchErrShape,UI,Tooltip,,,,"{3} has no flat top to stand on - use the cube, or a plate or catwalk turned upside down."
+scWatchShapeWarn,UI,Tooltip,,,,"{3} is in place, but a guard can't stand on this shape - use the cube, or a plate or catwalk turned upside down."
 scWatchBusy,UI,Tooltip,,,,They're on watch - relieve them at their watch post first.
 scUiWatchPick,UI,Menu,,,,Pick a guard for {0}.
 scStOnWatch,UI,Menu,,,,On watch

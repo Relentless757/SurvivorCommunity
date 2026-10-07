@@ -77,6 +77,8 @@ namespace SurvivorCommunity
                 {
                     try { ScConfig.EnsureParsed(); ReportDialogCoverage(); }
                     catch (Exception e) { ScLog.Once("gamestartdone", e); }
+                    // the crafted Watch Post (a shape helper) shows the post's own description
+                    ScWatch.DescribeHelper();
                     // Locked & Loaded's NPC magazines (M11): bound once per game, its state logged every game
                     try { ScMags.Resolve(); }
                     catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }

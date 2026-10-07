@@ -756,6 +756,11 @@ namespace SurvivorCommunity
             Block b = f.Block;
             if (b == null || b.shape == null || b.isMultiBlock || b.shape is BlockShapeModelEntity) return false;
             if (b.shape.IsTerrain()) return true;
+            // a Watch post of any shape whose rotated top is a full face - the cube, or a plate or catwalk turned upside
+            // down (catwalk_plate flags its bottom face full, B_F): the walking surface is the cell's top, as on a cube.
+            // The shapes leave Path unset, so a plate never passes PathType (the user's call, 2026-10-07: a post in the
+            // catwalk deck). Only for posts; any other plate still is no post floor.
+            if (b is BlockScWatchPost && (b.shape.getFacesDrawnFullBitfield(f) & (1 << (int)BlockFace.Top)) != 0) return true;
             if (b.PathType <= 0) return false;
             if ((b.shape.getFacesDrawnFullBitfield(f) & (1 << (int)BlockFace.Top)) != 0) return true;
             BlockShapeNew sn = b.shape as BlockShapeNew;

@@ -217,7 +217,7 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (!ScCommunity.IsHost || !ScRegistry.Loaded) return Localization.Get("scWatchPost");
+                if (!ScCommunity.IsHost || !ScRegistry.Loaded) return Localization.Get("scWatchPostName");
                 if (!IsPost(pos))
                 {
                     string why = ScConfig.WatchPosts ? PostRefusal(pos) : "scWatchOff";
@@ -228,13 +228,15 @@ namespace SurvivorCommunity
                         return string.Format(Localization.Get("scWatchActNotPost"), ErrorText(why ?? "scWatchErrNotPost", null, Vector3i.zero));
                 }
                 Member g = GuardOf(pos);
+                World w = ScCommunity.World;
+                if (g == null && w != null && ScZone.IsLoaded(pos) && !FlatTop(w, pos)) return string.Format(Localization.Get("scWatchActNoTop"), Label(pos));
                 if (g == null) return string.Format(Localization.Get("scWatchActEmpty"), Label(pos));
                 return string.Format(Localization.Get("scWatchActManned"), Label(pos), g.Name, HoursLeft(g));
             }
             catch (Exception e)
             {
                 ScLog.Once("watch-acttext", e);
-                return Localization.Get("scWatchPost");
+                return Localization.Get("scWatchPostName");
             }
         }
 
@@ -285,8 +287,11 @@ namespace SurvivorCommunity
                     return;
                 }
                 Posts.Add(pos);
-                ScLog.Out(Label(pos) + " at " + pos + " registered (" + Posts.Count + " of " + ScConfig.WatchMaxPosts + ")");
-                if (near) ScCommunity.Tell(player, ErrorText("scWatchReady", null, pos), "");
+                World w = ScCommunity.World;
+                bool flat = w == null || FlatTop(w, pos);
+                ScLog.Out(Label(pos) + " at " + pos + " registered (" + Posts.Count + " of " + ScConfig.WatchMaxPosts + ")"
+                          + (flat ? "" : " - its shape has no flat top, so it can't take a guard"));
+                if (near) ScCommunity.Tell(player, ErrorText(flat ? "scWatchReady" : "scWatchShapeWarn", null, pos), flat ? "" : "ui_denied");
                 ScRegistry.SaveAtomic();
             }
             catch (Exception e)
@@ -413,7 +418,46 @@ namespace SurvivorCommunity
             if (ScRegistry.Community.Get(Resource.Ammo) < Math.Max(0, ScConfig.WatchShiftAmmo)) { error = "scWatchNoAmmo"; return false; }
             World w = ScCommunity.World;
             if (w != null && ScZone.IsLoaded(post) && !Room(w, post)) { error = "scWatchErrBlocked"; return false; }
+            if (w != null && ScZone.IsLoaded(post) && !FlatTop(w, post)) { error = "scWatchErrShape"; return false; }
             return true;
+        }
+
+        /// <summary>The crafted Watch Post: the shape family's helper item (blocks.xml scWatchPostShapes).</summary>
+        public const string HelperName = "scWatchPostShapes:VariantHelper";
+
+        /// <summary>
+        /// GameStartDone: the crafted Watch Post describes the post, not vanilla's generic "hold Reload for the shape menu"
+        /// text every shape helper gets (ShapesFromXml.CreateMaterialHelper) - the post's description says that too.
+        /// Blocks and items are rebuilt with each game's config, so this runs every game. A missing helper means the
+        /// family did not load (Config/materials.xml missing?): the Guard Tower's post would be missing too.
+        /// </summary>
+        public static void DescribeHelper()
+        {
+            try
+            {
+                Block b = Block.GetBlockByName(HelperName, true);
+                if (b == null)
+                {
+                    ScLog.Warn("watch post: " + HelperName + " not found - the Watch Post shapes did not load (is Config/materials.xml there?)");
+                    return;
+                }
+                b.DescriptionKey = "scWatchPostDesc";
+                ItemClass ic = ItemClass.GetForId(b.blockID);
+                if (ic != null) ic.DescriptionKey = "scWatchPostDesc";
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("watch-helper-desc", e);
+            }
+        }
+
+        /// <summary>
+        /// Can a guard stand on this post's shape? The Watch post comes in every shape (scWatchPostShapes); the guard stands
+        /// ON it, so its top must be a full flat face: the cube, or a plate or catwalk upside down (ScCommunity.SolidFloor).
+        /// </summary>
+        private static bool FlatTop(World w, Vector3i post)
+        {
+            return ScCommunity.SolidFloor(w.GetBlock(post));
         }
 
         /// <summary>A shift starts: the ammo leaves the stockpile, the post becomes the guard's, the old post is kept.</summary>
@@ -887,7 +931,8 @@ namespace SurvivorCommunity
                 {
                     BlockValue bv = w.GetBlock(p);
                     sb.Append(bv.Block is BlockScWatchPost ? ", faces " + Compass(Facing(bv)) + " (rotation " + bv.rotation + ")" : ", NOT A WATCH POST (" + (bv.Block != null ? bv.Block.GetBlockName() : "?") + ")")
-                      .Append(Room(w, p) ? "" : ", NO ROOM TO STAND");
+                      .Append(Room(w, p) ? "" : ", NO ROOM TO STAND")
+                      .Append(bv.Block is BlockScWatchPost && !FlatTop(w, p) ? ", NO FLAT TOP (" + bv.Block.GetBlockName() + ")" : "");
                 }
                 else sb.Append(", chunk not loaded");
                 Member g = GuardOf(p);

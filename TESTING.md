@@ -35,18 +35,32 @@ research `_research\base_defence\prefab_tower_report.md`. **One new Harmony targ
 `RenderDisplacedCube::Update`, for the ghost (visual only). No save format change: once up, the tower is ordinary blocks,
 and its Watch post registers like a hand-placed one.
 
+**Fixes after your first test: deployed 2026-10-07** (Fable reviews: deployable; DLL md5 `ca42a7c5d62cf24091ea1ae69321e180`, still 77 targets; Config,
+Localization, the new `Config\materials.xml` and the re-imported prefab go with it).
+- **Fix 1 (the tower sat in the ground):** the bottom layer now stands on the ground in the kit's own layer, the prefab's
+  YOffset -1 ignored (it put the legs a block into the ground, replacing terrain and denting the ground around them).
+  Clearing grass no longer reshapes the ground. Vanilla's placement box now frames the whole tower, and the kit's own
+  cube is hidden. The two towers placed with the first build keep their sunk legs and dented ground: break them (or fill
+  the dip) and place them again.
+- **Fix 2 (a Watch post in any shape, the tower's post matching the deck):** the Watch Post is now crafted as a shape
+  block like vanilla's building blocks (hold Reload on it for the shape menu; "Watch Post - <shape>"). The guard stands
+  on top of the post, so a shape takes a guard when its top is a full flat face: the cube, or a plate or catwalk turned
+  upside down as in a deck. Other shapes still register but say a guard can't stand on them. The tower's post is now a
+  catwalk plate in the deck's paint, turned the deck's way. The old cube Watch Post keeps working where it stands and
+  from your inventory ("Watch Post (old cube)") but is no longer crafted. **`Config\materials.xml` is new and must ship
+  with it:** without it the shapes don't load (the log warns at game start) and the Guard Tower can't be placed.
+
 What it does:
 - **Crafting:** "Guard Tower" in the backpack, 782 wood + 4 nails (its blocks' worth: 76 wood shapes x 10, 4 wooden
   ladders x 3, the Watch post's 10 wood + 4 nails). Its icon is a tinted wooden ladder for now.
-- **Placing:** hold it and aim at the ground. A see-through ghost of the whole tower follows the kit's own cube, which
-  sits at its middle under the deck. R turns it. By default the ladder comes toward you and the guard looks the way
+- **Placing:** hold it and aim at the ground. A see-through ghost of the whole tower follows your aim, framed by the
+  placement box. R turns it. By default the ladder comes toward you and the guard looks the way
   you're looking, so stand inside the base facing out. The ghost is green on your claim and red where it can't go;
   pressing then tells you why.
 - **Where:** wholly inside the home zone with room for one more Watch post (4 by default), off other claims and trader
   land, with nothing built, none of your crops, no trees or rocks, no water and nobody standing where its blocks go. Wild grass and
   plants inside it are cleared, terrain up to 2 layers above the ground is cut away, and a leg over a dip reaches down up
-  to 3 blocks. The bottom layer sinks one block into the ground (your prefab's YOffset -1); on a built floor that buried
-  layer is left out and the tower stands on the floor, the same height above it.
+  to 3 blocks. The bottom layer stands on the ground, or on a built floor (your prefab's YOffset -1 is ignored).
 - **Then:** the tower appears a moment after the click, "Watch post N (...) is ready" shows, and you hold E on the post to
   assign a guard (D3). Once up it's ordinary blocks; there is no pack-up. If the spot stopped fitting by the time the
   tower goes up, the kit comes back to your inventory with the reason ("...The kit is back in your inventory."). With no
@@ -56,8 +70,7 @@ What it does:
 
 Known limits (not bugs): the icon is a ladder (a proper one can come with D5). How the ghost looks is untested;
 `GuardTowerGhost` in `blocks.xml` switches it between glow (the default), solid (vanilla's block ghost), plain (a flat
-see-through tint) and off. The ground right around each buried leg may show a small dip (the leg's block replaces a
-terrain cell, as a sunk POI's foundation does). Doors or other multi-blocks in a future version of the prefab are untested
+see-through tint) and off. Doors or other multi-blocks in a future version of the prefab are untested
 (the log warns on load). Whether a guard climbs the ladder is untested; as for any post, SC places them on it after 30 s
 while you're not looking. After editing the tower in the editor, run `python Tools\import_guard_tower.py` in the mod folder
 (it copies `LocalPrefabs\Guard_Tower` in and turns the post again), then restart the game.
@@ -66,24 +79,37 @@ Console: `sc tower` (the prefab: size, anchor, post, blocks), `sc tower check [r
 at, and why not; rot 0-3, default: as the kit would face), `sc tower stamp [rot]` (built there at once, no kit used).
 
 - [ ] **Startup:** `patch verification: all 77 targets patched` (70 without Voice Control); the `config:` line ends with
-      `guardTower=preview glow, legs +3, cut 2`. `sc tower` prints `scGuardTower: size (4, 7, 5), yOffset -1, anchor
-      (2, 1, 2), Watch post at (2, 3, 1) rotation 2` and the blocks.
+      `guardTower=preview glow, legs +3, cut 2`. `sc tower` prints `scGuardTower: size (4, 7, 5), anchor (2, 0, 2) (on
+      the ground; yOffset -1 ignored), Watch post at (2, 3, 1) rotation 6` and the blocks (one
+      `scWatchPostShapes:catwalkPlate`).
 - [ ] **Recipe:** the Guard Tower is in the backpack crafting list at 782 wood + 4 nails.
+- [ ] **Watch Post shapes (fix 2):** the backpack recipe "Watch Post" (10 wood + 4 nails) gives the shape item, whose
+      description is the post's own (not vanilla's generic shape text); hold Reload on it for the shape menu. A cube, or a catwalk or plate placed upside down (its flat side up, as in a deck), takes a
+      guard; a ramp or a pole says "...a guard can't stand on this shape" when placed and when you look at it, and
+      assigning one says it has no flat top. An old cube Watch Post still works where it stands.
+- [ ] **The tower's post (fix 2):** a new Guard Tower's post looks like the deck around it (a catwalk plate in the same
+      paint); looking at it shows "Watch post N (...)"; `sc watch` lists it facing away from the ladder; a guard
+      assigned to it stands on it at deck height, stays there and looks out.
 - [ ] **Ghost:** holding the kit, aimed at flat ground in the home zone: the whole tower shows see-through, following the
-      aim; R turns it a quarter at a time; by default the ladder is on your side. Walking hides it and standing still fades
+      aim inside a placement box around the whole tower, with no extra cube in it; R turns it a quarter at a time; by
+      default the ladder is on your side. Walking hides it and standing still fades
       it in, as vanilla's ghost does. If it looks wrong, try `GuardTowerGhost` solid and plain (edit `blocks.xml`, then
       load the save again) and tell me what each looks like.
 - [ ] **Red, with the reason on the press:** outside the home zone ("...must stand wholly inside your community's land");
       against a wall, a tree or a crop ("<name> is in the way."); on a steep hillside ("The ground is too uneven here.");
-      with yourself where a leg goes ("<you> is standing in the way."). The ghost and the kit's own cube are red together.
-- [ ] **Build:** on flat ground the tower appears exactly where the ghost was, turned the same way, and the kit is used up;
+      with yourself where a leg goes ("<you> is standing in the way."). The ghost and the box around it are red together.
+- [ ] **Build:** on flat ground the tower appears exactly where the ghost was, turned the same way, standing on the ground
+      with its legs full height (three blocks under the deck) and no dip around it, and the kit is used up;
       "Watch post N (...) is ready."; `sc watch` lists the post facing away from the ladder; the log has `guard tower built
       at ...`. Try all four turns once.
 - [ ] **Uneven ground:** on a gentle slope the legs on the low side reach down to the ground and the high side's bumps
       inside the tower are cut away; the terrain around the legs looks tidy.
 - [ ] **Guard:** assign a guard on it; they climb the ladder (or get placed on the post within ~30 s) and look out, away
       from the ladder.
-- [ ] **Stability:** the tower still stands a minute later; breaking blocks of it behaves like any build.
+- [ ] **Stability:** the tower still stands a minute later, every block of it (roof and deck included) - no rock-like
+      shards or debris around it, no dip; breaking blocks of it behaves like any build. (With the first build the base
+      showed shards and a dip: most likely the terrain mesh, bent by the densities that build wrote, not falling tower
+      blocks - wood glue holds the roof several times over. If anything does fall, tell me which part.)
 - [ ] **Cap:** with 4 posts already, the ghost is red and the press says "Your community already has 4 watch posts."
 - [ ] **Prefab editor:** the Watch post is in the editor's creative menu.
 - [ ] **Save and reload:** the tower and its post stay; `sc watch` still lists the post.

@@ -847,10 +847,11 @@
 	     the guard faces the way you looked when you placed it (R turns it). Vanilla's cube with vanilla textures: barricade
 	     planks on top, reinforced wood on the sides (the user's pick, candidate 6). IndexName scwatchpost: every chunk
 	     indexes it, so SC finds posts in the zone without trusting its own list (and a stamped Guard Tower later too).
-	     CreativeMode All: the prefab editor's creative menu lists Dev and All blocks only, and towers are built there. -->
+	     Since 2026-10-07 the Watch post comes in every shape (scWatchPostShapes below): this cube stays for the posts
+	     and items already in saves, works as before, but is no longer crafted or listed (CreativeMode None). -->
 	<append xpath="/blocks">
 		<block name="scWatchPost">
-			<property name="CreativeMode" value="All" />
+			<property name="CreativeMode" value="None" />
 			<property name="Class" value="ScWatchPost, SurvivorCommunity" />
 			<property name="DescriptionKey" value="scWatchPostDesc" />
 			<property name="CustomIcon" value="shapeCube" />
@@ -877,6 +878,39 @@
 			<drop event="Fall" name="terrDestroyedWoodDebris" count="1" prob="0.75" stick_chance="1" />
 			<property name="SortOrder1" value="B106" />
 			<property name="SortOrder2" value="0003" />
+			<property name="Group" value="Basics,Building,advBuilding" />
+			<property name="FilterTags" value="MC_playerBlocks,SC_decor" />
+		</block>
+	</append>
+	<!-- The Watch post in every shape (the user's call, 2026-10-07), from one crafted item like vanilla's building blocks
+	     (hold Reload on it for the shape menu): ShapesFromXml makes scWatchPostShapes:<shape> for each shape plus the
+	     scWatchPostShapes:VariantHelper item, each carrying this Class and IndexName, so every shape is a Watch post to
+	     SC. The guard stands ON the post, so only a shape whose top is a full flat face takes a guard: the cube, or a
+	     plate or catwalk turned upside down so its walking surface is the top of the cell, as in a catwalk deck
+	     (ScCommunity.SolidFloor); others register but say they need a flat top. The guard faces the post's front: the
+	     way its rotation points. Barricade planks all over; paint it to match the floor around it. Material
+	     MscWatchPost (materials.xml): reinforced wood under the name "Watch Post". The Guard Tower's post is the
+	     catwalk shape in the deck's paint (Tools/import_guard_tower.py). -->
+	<append xpath="/blocks">
+		<block name="scWatchPostShapes" shapes="All">
+			<property name="Class" value="ScWatchPost, SurvivorCommunity" />
+			<property name="DescriptionKey" value="scWatchPostDesc" />
+			<property name="IndexName" value="scwatchpost" />
+			<property name="Material" value="MscWatchPost" />
+			<property name="Shape" value="New" />
+			<property name="Texture" value="407" />
+			<property name="UiBackgroundTexture" value="407" />
+			<property name="CanPickup" value="true" />
+			<property name="FuelValue" value="300" />
+			<property name="EconomicValue" value="20" />
+			<property name="SoundPickup" value="cratewood_grab" />
+			<property name="SoundPlace" value="cratewood_place" />
+			<property class="RepairItems">
+				<property name="resourceWood" value="5" />
+			</property>
+			<drop event="Destroy" name="resourceWood" count="1,3" />
+			<drop event="Fall" name="terrDestroyedWoodDebris" count="1" prob="0.75" stick_chance="1" />
+			<property name="SortOrder1" value="B106" />
 			<property name="Group" value="Basics,Building,advBuilding" />
 			<property name="FilterTags" value="MC_playerBlocks,SC_decor" />
 		</block>
