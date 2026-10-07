@@ -693,6 +693,13 @@
 			<property name="BaseDefenceBigFrom" value="20" />
 			<property name="BaseDefenceBigPer" value="1" />
 			<property name="BaseDefenceBigCap" value="15" />
+			<!-- The Guard Tower kit (ScTower): GuardTowerGhost is how the whole tower's ghost looks while you aim - glow,
+			     solid (vanilla's block ghost), plain (a flat see-through tint) or off. A block of its bottom layer over
+			     air reaches down to the ground, at most GuardTowerFill blocks; terrain inside its box up to GuardTowerCut
+			     layers above the ground is cut away. More than either: "the ground is too uneven here". -->
+			<property name="GuardTowerGhost" value="glow" />
+			<property name="GuardTowerFill" value="3" />
+			<property name="GuardTowerCut" value="2" />
 
 			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". A word ending in
 			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).
@@ -839,10 +846,11 @@
 	     blocks works (SC's post rules want a real cube under a post). It counts inside the home zone, at most WatchMaxPosts;
 	     the guard faces the way you looked when you placed it (R turns it). Vanilla's cube with vanilla textures: barricade
 	     planks on top, reinforced wood on the sides (the user's pick, candidate 6). IndexName scwatchpost: every chunk
-	     indexes it, so SC finds posts in the zone without trusting its own list (and a stamped Guard Tower later too). -->
+	     indexes it, so SC finds posts in the zone without trusting its own list (and a stamped Guard Tower later too).
+	     CreativeMode All: the prefab editor's creative menu lists Dev and All blocks only, and towers are built there. -->
 	<append xpath="/blocks">
 		<block name="scWatchPost">
-			<property name="CreativeMode" value="Player" />
+			<property name="CreativeMode" value="All" />
 			<property name="Class" value="ScWatchPost, SurvivorCommunity" />
 			<property name="DescriptionKey" value="scWatchPostDesc" />
 			<property name="CustomIcon" value="shapeCube" />
@@ -869,6 +877,39 @@
 			<drop event="Fall" name="terrDestroyedWoodDebris" count="1" prob="0.75" stick_chance="1" />
 			<property name="SortOrder1" value="B106" />
 			<property name="SortOrder2" value="0003" />
+			<property name="Group" value="Basics,Building,advBuilding" />
+			<property name="FilterTags" value="MC_playerBlocks,SC_decor" />
+		</block>
+	</append>
+	<!-- The Guard Tower kit (ScTower, BlockScGuardTower): placed like a block, it puts up the user's tower
+	     (Prefabs/scGuardTower, from LocalPrefabs/Guard_Tower by Tools/import_guard_tower.py) in one go. While you aim,
+	     a ghost of the whole tower follows the kit's own (R turns it, red when it can't go there, the reason on the
+	     press); the ladder comes toward you and the guard looks the way you look. Only inside the home zone with room
+	     for one more Watch post. The kit block itself lives one frame: the server replaces it with the tower, or drops
+	     the kit back if the spot stopped fitting. Its look is the Watch post's; its icon a tinted wooden ladder. -->
+	<append xpath="/blocks">
+		<block name="scGuardTower">
+			<property name="CreativeMode" value="Player" />
+			<property name="Class" value="ScGuardTower, SurvivorCommunity" />
+			<property name="DescriptionKey" value="scGuardTowerDesc" />
+			<property name="CustomIcon" value="ladderWood" />
+			<property name="CustomIconTint" value="255,215,160" />
+			<property name="Material" value="MwoodReinforced" />
+			<property name="Shape" value="New" />
+			<property name="Model" value="@:Shapes/cube.fbx" />
+			<property name="Texture" value="407,379,379,379,379,379" />
+			<property name="ImposterExchange" value="imposterBlock" param1="86" />
+			<property name="Path" value="solid" />
+			<property name="Place" value="TowardsPlacer" />
+			<property name="AllowedRotations" value="Basic90" />
+			<property name="CanPickup" value="true" />
+			<property name="Stacknumber" value="10" />
+			<property name="EconomicValue" value="400" />
+			<property name="MaxDamage" value="600" />
+			<property name="SoundPickup" value="cratewood_grab" />
+			<property name="SoundPlace" value="cratewood_place" />
+			<property name="SortOrder1" value="B106" />
+			<property name="SortOrder2" value="0004" />
 			<property name="Group" value="Basics,Building,advBuilding" />
 			<property name="FilterTags" value="MC_playerBlocks,SC_decor" />
 		</block>

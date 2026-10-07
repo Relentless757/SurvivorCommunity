@@ -70,6 +70,7 @@ namespace SurvivorCommunity
                 ScWatch.Reset();
                 ScDefence.Reset();
                 ScSiege.Reset();
+                ScTower.Reset();
                 Patches_Npc.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
@@ -272,6 +273,8 @@ namespace SurvivorCommunity
             // ScNoise.cs - the base's noise (base defence D1): every vanilla heat event, and the NPC shots vanilla never hears
             Add(t, "AIDirector::NotifyActivity", AccessTools.Method(typeof(AIDirector), "NotifyActivity", new[] { typeof(EnumAIDirectorChunkEvent), typeof(Vector3i), typeof(float), typeof(float) }));
             Add(t, "ItemActionRanged::ItemActionEffects", AccessTools.DeclaredMethod(typeof(ItemActionRanged), "ItemActionEffects", new[] { typeof(GameManager), typeof(ItemActionData), typeof(int), typeof(UnityEngine.Vector3), typeof(UnityEngine.Vector3), typeof(int) }));
+            // ScTower.cs - the Guard Tower kit's ghost of the whole tower rides vanilla's placement ghost (visual only)
+            Add(t, "RenderDisplacedCube::Update", AccessTools.Method(typeof(RenderDisplacedCube), "Update", new[] { typeof(bool), typeof(World), typeof(WorldRayHitInfo), typeof(Vector3i), typeof(EntityAlive), typeof(PersistentPlayerData), typeof(bool) }));
             // Patches_VoiceControl.cs - members are never billed by 0-XNPCCore 3.2's Voice Control (only when it is loaded)
             if (Patches_VoiceControl.ChatType != null)
             {

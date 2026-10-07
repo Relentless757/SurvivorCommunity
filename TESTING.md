@@ -25,6 +25,69 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Base defence: the Guard Tower kit
+
+**Deployed 2026-10-06** (Fable review + re-check: deployable). DLL md5 `75a6adb5f99419a50c5c72276c9b5469`, deployed **together with** the same tree's Config (the
+`scGuardTower` block and recipe, the `GuardTower*` keys, the localization, the Watch post's `CreativeMode`) and the new
+`Prefabs` folder (`scGuardTower.tts`, `.blocks.nim`, `.xml`: your `LocalPrefabs\Guard_Tower` with its Watch post turned to
+look away from the ladder). Plan: `BaseDefence_Plan.md` (section 6, Q8 and the Guard Tower answers; milestone 6);
+research `_research\base_defence\prefab_tower_report.md`. **One new Harmony target: 77** (70 without Voice Control),
+`RenderDisplacedCube::Update`, for the ghost (visual only). No save format change: once up, the tower is ordinary blocks,
+and its Watch post registers like a hand-placed one.
+
+What it does:
+- **Crafting:** "Guard Tower" in the backpack, 782 wood + 4 nails (its blocks' worth: 76 wood shapes x 10, 4 wooden
+  ladders x 3, the Watch post's 10 wood + 4 nails). Its icon is a tinted wooden ladder for now.
+- **Placing:** hold it and aim at the ground. A see-through ghost of the whole tower follows the kit's own cube, which
+  sits at its middle under the deck. R turns it. By default the ladder comes toward you and the guard looks the way
+  you're looking, so stand inside the base facing out. The ghost is green on your claim and red where it can't go;
+  pressing then tells you why.
+- **Where:** wholly inside the home zone with room for one more Watch post (4 by default), off other claims and trader
+  land, with nothing built, none of your crops, no trees or rocks, no water and nobody standing where its blocks go. Wild grass and
+  plants inside it are cleared, terrain up to 2 layers above the ground is cut away, and a leg over a dip reaches down up
+  to 3 blocks. The bottom layer sinks one block into the ground (your prefab's YOffset -1); on a built floor that buried
+  layer is left out and the tower stands on the floor, the same height above it.
+- **Then:** the tower appears a moment after the click, "Watch post N (...) is ready" shows, and you hold E on the post to
+  assign a guard (D3). Once up it's ordinary blocks; there is no pack-up. If the spot stopped fitting by the time the
+  tower goes up, the kit comes back to your inventory with the reason ("...The kit is back in your inventory."). With no
+  room for it, or for another player in multiplayer (a client can't see the zone or the cap, so the host refuses those
+  then), it is left on the ground where it was placed, for an hour ("...The kit is on the ground where you placed it.").
+- The Watch post now also shows in the prefab editor's creative menu (`CreativeMode` All).
+
+Known limits (not bugs): the icon is a ladder (a proper one can come with D5). How the ghost looks is untested;
+`GuardTowerGhost` in `blocks.xml` switches it between glow (the default), solid (vanilla's block ghost), plain (a flat
+see-through tint) and off. The ground right around each buried leg may show a small dip (the leg's block replaces a
+terrain cell, as a sunk POI's foundation does). Doors or other multi-blocks in a future version of the prefab are untested
+(the log warns on load). Whether a guard climbs the ladder is untested; as for any post, SC places them on it after 30 s
+while you're not looking. After editing the tower in the editor, run `python Tools\import_guard_tower.py` in the mod folder
+(it copies `LocalPrefabs\Guard_Tower` in and turns the post again), then restart the game.
+
+Console: `sc tower` (the prefab: size, anchor, post, blocks), `sc tower check [rot]` (would it fit at the block you look
+at, and why not; rot 0-3, default: as the kit would face), `sc tower stamp [rot]` (built there at once, no kit used).
+
+- [ ] **Startup:** `patch verification: all 77 targets patched` (70 without Voice Control); the `config:` line ends with
+      `guardTower=preview glow, legs +3, cut 2`. `sc tower` prints `scGuardTower: size (4, 7, 5), yOffset -1, anchor
+      (2, 1, 2), Watch post at (2, 3, 1) rotation 2` and the blocks.
+- [ ] **Recipe:** the Guard Tower is in the backpack crafting list at 782 wood + 4 nails.
+- [ ] **Ghost:** holding the kit, aimed at flat ground in the home zone: the whole tower shows see-through, following the
+      aim; R turns it a quarter at a time; by default the ladder is on your side. Walking hides it and standing still fades
+      it in, as vanilla's ghost does. If it looks wrong, try `GuardTowerGhost` solid and plain (edit `blocks.xml`, then
+      load the save again) and tell me what each looks like.
+- [ ] **Red, with the reason on the press:** outside the home zone ("...must stand wholly inside your community's land");
+      against a wall, a tree or a crop ("<name> is in the way."); on a steep hillside ("The ground is too uneven here.");
+      with yourself where a leg goes ("<you> is standing in the way."). The ghost and the kit's own cube are red together.
+- [ ] **Build:** on flat ground the tower appears exactly where the ghost was, turned the same way, and the kit is used up;
+      "Watch post N (...) is ready."; `sc watch` lists the post facing away from the ladder; the log has `guard tower built
+      at ...`. Try all four turns once.
+- [ ] **Uneven ground:** on a gentle slope the legs on the low side reach down to the ground and the high side's bumps
+      inside the tower are cut away; the terrain around the legs looks tidy.
+- [ ] **Guard:** assign a guard on it; they climb the ladder (or get placed on the post within ~30 s) and look out, away
+      from the ladder.
+- [ ] **Stability:** the tower still stands a minute later; breaking blocks of it behaves like any build.
+- [ ] **Cap:** with 4 posts already, the ghost is red and the press says "Your community already has 4 watch posts."
+- [ ] **Prefab editor:** the Watch post is in the editor's creative menu.
+- [ ] **Save and reload:** the tower and its post stay; `sc watch` still lists the post.
+
 ## Base defence D4: attacks while you're away, the defence rating, the blood-moon siege
 
 **Deployed 2026-10-06** (Fable review + re-check: deployable). DLL md5 `db1ddf2e28336d4fbbdf4c3601f763b2`, deployed **together with** the same tree's Config (the `BaseAttacksAway`,

@@ -92,6 +92,8 @@
     <Compile Include="ScDefence.cs" />
     <Compile Include="ScSiege.cs" />
     <Compile Include="BlockScWatchPost.cs" />
+    <Compile Include="ScTower.cs" />
+    <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />
     <Compile Include="Patches_Menu.cs" />

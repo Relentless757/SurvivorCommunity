@@ -684,3 +684,18 @@ scDefAmmo,UI,Tooltip,,,,{0} ammo bundles used
 scDefAmmoShort,UI,Tooltip,,,,{0} ammo bundles used - the stockpile ran out
 scDefHurt,UI,Tooltip,,,,"{0} hurt ({1} treated with meds, {2} still injured)"
 scDefDied,UI,Tooltip,,,,lost: {0}
+scGuardTower,Block,Block,,,,Guard Tower
+scGuardTowerDesc,Block,Block,,,,"A wooden watch tower with a Watch Post on its deck, put up in one go. Aim where it should stand and you see the whole tower; R turns it. The ladder comes toward you and the guard looks the way you're looking, so stand inside your base facing out when you place it. It must stand wholly inside your community's land, clear of anything built, trees and rocks, on fairly level ground: its legs reach down up to 3 blocks. Once up it's ordinary blocks - repair, upgrade or break them like anything you built. Hold E on its Watch Post to assign a guard."
+scTowerNoPrefab,UI,Tooltip,,,,The Guard Tower's plan is missing from the mod (Prefabs/scGuardTower).
+scTowerHeight,UI,Tooltip,,,,The Guard Tower doesn't fit here - too high or too deep.
+scTowerUnloaded,UI,Tooltip,,,,Part of that spot isn't loaded yet - move a little closer.
+scTowerNoHome,UI,Tooltip,,,,A Guard Tower only goes inside your community's land - set a home first.
+scTowerOutside,UI,Tooltip,,,,The Guard Tower must stand wholly inside your community's land.
+scTowerClaim,UI,Tooltip,,,,Part of the Guard Tower would stand on someone else's land claim.
+scTowerTrader,UI,Tooltip,,,,Too close to a trader.
+scTowerSteep,UI,Tooltip,,,,The ground is too uneven here.
+scTowerBlocked,UI,Tooltip,,,,{0} is in the way.
+scTowerWater,UI,Tooltip,,,,Water is in the way.
+scTowerSomeone,UI,Tooltip,,,,{0} is standing in the way.
+scTowerFailed,UI,Tooltip,,,,The Guard Tower couldn't go up: {0} The kit is back in your inventory.
+scTowerFailedDropped,UI,Tooltip,,,,The Guard Tower couldn't go up: {0} The kit is on the ground where you placed it.

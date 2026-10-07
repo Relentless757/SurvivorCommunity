@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -92,6 +92,7 @@ namespace SurvivorCommunity
                     case "defense": DefenceCmd(_params); break;
                     case "siege": SiegeCmd(_params); break;
                     case "watch": WatchCmd(_params); break;
+                    case "tower": TowerCmd(_params); break;
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
@@ -353,6 +354,40 @@ namespace SurvivorCommunity
                     return;
             }
             foreach (string line in ScWatch.ListText(w).Split('\n')) Output("[SC] " + line);
+        }
+
+        /// <summary>
+        /// sc tower [info] - the Guard Tower prefab: size, anchor, Watch post, blocks. check [rot] - would it fit with the
+        /// kit on the block you look at (as the kit would land there; rot 0-3, default: as placed from where you stand).
+        /// stamp [rot] - the same, then built at once (no kit used). Host only for stamp.
+        /// </summary>
+        private static void TowerCmd(List<string> p)
+        {
+            string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "info";
+            string usage = "tower [info] | tower check [rot] | tower stamp [rot] (rot 0-3; default: as the kit would face, placed from where you stand)";
+            if (verb == "info")
+            {
+                foreach (string line in ScTower.InfoText().Split('\n')) Output("[SC] " + line);
+                return;
+            }
+            if (verb != "check" && verb != "stamp") { Output("[SC] " + usage); return; }
+            World w = ScCommunity.World;
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            if (w == null || player == null) { Output("[SC] in a world, as the local player"); return; }
+            if (verb == "stamp" && !ScCommunity.IsHost) { Output("[SC] host only"); return; }
+            WorldRayHitInfo hit = player.HitInfo;
+            if (hit == null || !hit.bHitValid || !GameUtils.IsBlockOrTerrain(hit.tag)) { Output("[SC] look at the ground where the tower should stand"); return; }
+            Vector3i kit = hit.lastBlockPos;
+            int rot = ScTower.PlacerRotation(player.position, kit);
+            if (p.Count >= 3 && (!int.TryParse(p[2], out rot) || rot < 0 || rot > 3)) { Output("[SC] " + usage); return; }
+            var plan = new ScTower.Plan();
+            string arg;
+            string key = ScTower.Check(w, kit, rot, GameManager.Instance.persistentLocalPlayer, ScTower.Owner(player.entityId), plan, out arg);
+            if (key != null) { Output("[SC] kit at " + ScTower.P(kit) + " rotation " + rot + ": refused - " + ScTower.Text(key, arg)); return; }
+            Output("[SC] kit at " + ScTower.P(kit) + " rotation " + rot + " (tower turned " + plan.Turns * 90 + " deg): fits - " + ScTower.Counts(plan));
+            if (verb != "stamp") return;
+            ScTower.Stamp(w, plan);
+            Output("[SC] built (" + plan.Changes.Count + " block change(s))");
         }
 
         /// <summary>The guard of a post (its number or x,y,z), or a member on watch by id or name.</summary>

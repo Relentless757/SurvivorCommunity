@@ -20,6 +20,14 @@
 			<ingredient name="resourceNail" count="4" />
 		</recipe>
 	</append>
+	<!-- The Guard Tower kit: its blocks' worth (the user's pick) - 76 wood shapes x 10 wood, 4 wooden ladders x 3, and
+	     the Watch post's 10 wood + 4 nails. Crafted in the backpack like the post. -->
+	<append xpath="/recipes">
+		<recipe name="scGuardTower" count="1" craft_time="60" tags="packMuleCrafting">
+			<ingredient name="resourceWood" count="782" />
+			<ingredient name="resourceNail" count="4" />
+		</recipe>
+	</append>
 	<!-- The Outpost Flag: a land claim plus cloth and iron for the flag. -->
 	<append xpath="/recipes">
 		<recipe name="scOutpostFlag" count="1" craft_time="10" tags="packMuleCrafting">

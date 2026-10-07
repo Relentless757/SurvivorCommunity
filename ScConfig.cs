@@ -342,6 +342,13 @@ namespace SurvivorCommunity
         public static float BaseDefenceNoAmmo = 15f, BaseDefenceMorale = 5f;
         /// <summary>A horde bigger than BaseDefenceBigFrom lowers the rating BaseDefenceBigPer per extra attacker, by at most BaseDefenceBigCap.</summary>
         public static float BaseDefenceBigFrom = 20f, BaseDefenceBigPer = 1f, BaseDefenceBigCap = 15f;
+        // ---- base defence: the Guard Tower kit (ScTower, BlockScGuardTower) ----
+        /// <summary>How the whole tower's ghost looks while placing: glow, solid (vanilla's block ghost), plain (a flat tint) or off.</summary>
+        public static string GuardTowerGhost = "glow";
+        /// <summary>A bottom-layer block over air reaches down at most this many blocks to the ground (more: too uneven).</summary>
+        public static int GuardTowerFill = 3;
+        /// <summary>Terrain up to this many layers above the ground inside the tower's box is cut away (higher: too uneven).</summary>
+        public static int GuardTowerCut = 2;
         // ---- outposts v2: risk (ScOutpostRisk) ----
         /// <summary>Master switch for the risk features (attacks, sieges, neglect, raider demands).</summary>
         public static bool OutpostAttacks = false;
@@ -696,6 +703,7 @@ namespace SurvivorCommunity
             BaseDefenceBase = 20f; BaseDefencePerResident = 4f; BaseDefencePerCombatStar = 1f; BaseDefencePerPost = 10f; BaseDefencePostCap = 30f;
             BaseDefencePerBlock = 1f; BaseDefenceBlockCap = 20f; BaseDefenceNoAmmo = 15f; BaseDefenceMorale = 5f;
             BaseDefenceBigFrom = 20f; BaseDefenceBigPer = 1f; BaseDefenceBigCap = 15f;
+            GuardTowerGhost = "glow"; GuardTowerFill = 3; GuardTowerCut = 2;
             OutpostAttacks = false; OutpostGoodNews = true; OutpostGoodNewsChance = 0.04f; OutpostSecBase = 35; OutpostSecPerStaffer = 8; OutpostSecPerCombatStar = 2; OutpostSecPerTier = 4; OutpostSecVisited = 5; OutpostSecNoAmmo = 10; OutpostSecPerDefense = 2; OutpostSecDefenseCap = 30; OutpostSecBonusFade = 1f; OutpostSecWinBonus = 10f; OutpostSecBonusMax = 30f; OutpostAttackChance = 0.08f; OutpostAttackHours = 10; OutpostAttackBase = 3f; OutpostAttackPerGamestage = 0.04f; OutpostAttackMax = 16; OutpostAttendedBonus = 20; OutpostDamageBand = 35; OutpostDamagedDays = 2; OutpostRepairMats = 2; OutpostSiegePenalty = 15; OutpostWinMorale = 4f; OutpostNeglectDays = 10; OutpostRaiderGamestage = 30; OutpostRaiderChance = 0.03f; OutpostDemandAmmo = 2; OutpostDemandFood = 2;
             ScPoiTypes.LoadDefaults();
             Defaults();
@@ -1035,6 +1043,17 @@ namespace SurvivorCommunity
                 ParseFloat(p, "BaseDefenceBigPer", ref BaseDefenceBigPer, 0f, 10f);
                 ParseFloat(p, "BaseDefenceBigCap", ref BaseDefenceBigCap, 0f, 100f);
                 {
+                    string gv;
+                    if (p.Values.TryGetValue("GuardTowerGhost", out gv) && !string.IsNullOrEmpty(gv))
+                    {
+                        gv = gv.Trim().ToLowerInvariant();
+                        if (gv == "glow" || gv == "solid" || gv == "plain" || gv == "off") GuardTowerGhost = gv;
+                        else ScLog.Warn("config: GuardTowerGhost '" + gv + "' is not glow, solid, plain or off - using " + GuardTowerGhost);
+                    }
+                }
+                ParseInt(p, "GuardTowerFill", ref GuardTowerFill, 0, 8);
+                ParseInt(p, "GuardTowerCut", ref GuardTowerCut, 0, 6);
+                {
                     string bv;
                     if (p.Values.TryGetValue("OutpostAttacks", out bv) && !string.IsNullOrEmpty(bv)) OutpostAttacks = StringParsers.ParseBool(bv);
                 }
@@ -1250,7 +1269,8 @@ namespace SurvivorCommunity
                                                            + BaseAwayDamagedMorale + "/-" + BaseAwayOverrunMorale : "off")
                           + " siege=" + (BaseAttacks && BaseSiege ? "-" + BaseSiegePenalty : "off")
                           + " defence=" + BaseDefenceBase + "+" + BaseDefencePerResident + "/resident+" + BaseDefencePerCombatStar + "/star+" + BaseDefencePerPost + "/post(max "
-                          + BaseDefencePostCap + ")+" + BaseDefencePerBlock + "/trap(max " + BaseDefenceBlockCap + ") -" + BaseDefenceNoAmmo + " no ammo +-" + BaseDefenceMorale + " morale");
+                          + BaseDefencePostCap + ")+" + BaseDefencePerBlock + "/trap(max " + BaseDefenceBlockCap + ") -" + BaseDefenceNoAmmo + " no ammo +-" + BaseDefenceMorale + " morale"
+                          + " guardTower=preview " + GuardTowerGhost + ", legs +" + GuardTowerFill + ", cut " + GuardTowerCut);
             }
             catch (Exception e)
             {
