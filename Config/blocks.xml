@@ -222,6 +222,28 @@
 			<property name="SurvivorDyedHairColors" value="11 Yellow,12 Orange,13 Redder,14 Redder1,15 Pink,16 Pink 1,17 Blue,18 Blue 1,19 Blue 2,20 Purple,21 Purple1,22 Purple 2,23 Green,24 Green 1" />
 			<property name="SurvivorDyedHairChanceFemale" value="0.06" />
 			<property name="SurvivorDyedHairChanceMale" value="0.005" />
+			<!-- Vanity Vault paints and tattoos on new survivors and raiders (only with Vanity Vault installed; a survivor
+			     already met keeps their look). Chances per new survivor / raider: a body paint set, else a face paint alone,
+			     and a tattoo (one at most). Lists are Vanity Vault's names, comma separated, empty = none of that kind:
+			     body paint sets as body:face (a body paint has light skin baked in, so it brings its face paint; Clean keeps
+			     the survivor's own tone and needs none), face paints, tattoo shapes, and tattoo inks (Vanity Vault's colour
+			     names; a name listed twice is twice as likely; a shape without colours uses its own). TattooMode: Blend
+			     (ink in the skin) or Vivid (painted on top). sc paint <id|name> shows and sets them on a loaded survivor. -->
+			<property name="SurvivorBodyPaintChance" value="0.01" />
+			<property name="RaiderBodyPaintChance" value="0.06" />
+			<property name="SurvivorFacePaintChance" value="0.02" />
+			<property name="RaiderFacePaintChance" value="0.1" />
+			<property name="SurvivorTattooChance" value="0.15" />
+			<property name="RaiderTattooChance" value="0.35" />
+			<property name="SurvivorBodyPaints" value="Sonja_Clean_Vanilla_Full_F,Sonja_Broken_Full_M:Sonja_Broken" />
+			<property name="RaiderBodyPaints" value="Sonja_Broken_Full_M:Sonja_Broken,Sonja_Harley_Full_F:Sonja_Harley,Sonja_Skeletton_Full_M:Sonja_Skeletton,Sonja_Skeletton_Full_F:Sonja_Skeletton" />
+			<property name="SurvivorFacePaints" value="Sonja_Broken,Sonja_Furiosa" />
+			<property name="RaiderFacePaints" value="Sonja_Broken,Sonja_Furiosa,Sonja_Tribal_01,Sonja_Braveheart,Sonja_Voodoo,Sonja_Skeletton,Sonja_Catrina,Sonja_Clown,Sonja_Joker,Sonja_Harley" />
+			<property name="SurvivorTattoos" value="Arm Dragon 01,Arm Flowers 01,Hand Cat 01,Hand Cat 02,Hand Hearts 14,Snake Between Flowers,Leg Color 09,Leg Color 11,Leg Color 13,Leg Color 14,Back Dragon 01,Back Dragon 02,Maori 01,Maori 02,Maori 03,Star 01,Tribal 01 - Face,Tribal 01 - Body,Tribal 01 - Full,Yakuza" />
+			<property name="RaiderTattoos" value="Arm Dragon 01,Arm Flowers 01,Hand Cat 01,Hand Cat 02,Hand Hearts 14,Snake Between Flowers,Leg Color 09,Leg Color 11,Leg Color 13,Leg Color 14,Back Dragon 01,Back Dragon 02,Maori 01,Maori 02,Maori 03,Star 01,Tribal 01 - Face,Tribal 01 - Body,Tribal 01 - Full,Yakuza,Oni 01,Kiss 01,Harley Tattoo,Harley Eyes Only" />
+			<property name="SurvivorTattooInks" value="Black Orchid,Black Orchid,Black Orchid,Dark Truffle,Abyssal,Royal Lapis,Venom,Cendre" />
+			<property name="RaiderTattooInks" value="Black Orchid,Black Orchid,Dark Truffle,Abyssal,Venom,Rouge Noir,Oxblood Wine,Chili Red" />
+			<property name="TattooMode" value="Blend" />
 			<!-- Survivors and raiders with the player's body raise and shoulder their gun while shooting (bows draw
 			     before each release), and lower it SurvivorAimHoldSeconds after the last shot.
 			     SurvivorAimVisualOnly: true = only the pose changes, their accuracy and critical hits stay as they are;

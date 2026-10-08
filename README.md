@@ -548,6 +548,17 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   every load (vanilla never saves or sends a non-player's equipment). A survivor sent on a run that radios
   for help appears in the rescue event wearing their own face. `sc look <name>` rerolls a member's face,
   `sc gear <name> <Set|none>` dresses them in a whole set.
+- **Paints and tattoos** (with Vanity Vault installed): a new survivor rarely comes with a body paint set (1%; a
+  body paint has light skin baked in, so it brings its matching face paint) or a face paint alone (2%), and one
+  in seven has a tattoo (dark inks); raiders far more often (6%, 10%, 35%) and from wilder lists (skeleton,
+  Harley, clown, Joker, war paint, oni and KISS masks). The picks are yours (`SurvivorPaints_Choices.md`, 2026-10-07),
+  kept in the look with the rest of the face and put on after every body build through Vanity Vault's own code
+  (`ScVanity.cs`, by reflection: without Vanity Vault there are no paints and nothing else changes). Survivors
+  already met keep their looks. `sc paint <name>` shows a survivor's paints and the lists; `sc paint <name> body
+  <id>` / `face <id>` / `tattoo <shape>[/ink]` / `none` / `roll` sets them and rebuilds the body. Each paint
+  costs its textures once (a few to ~50 MB, shared by everyone wearing it), loaded the first time it shows; with
+  every picked paint and tattoo turning up in one session that is about 350-400 MB. A survivor rebuilt while out
+  of view gets their paints when they come into view.
 - **Body armor is never rolled away.** Helmet, gloves and boots each turn up with `SurvivorGearPieceChance`
   (0.8), which is what makes them look scavenged rather than uniformed, but at that chance one survivor in
   five had a bare torso and read as a missing mesh instead. The chest slot now ignores the chance and falls
@@ -606,7 +617,8 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `SurvivorGearQualityMin/Max`,
 `SurvivorBaldChance`, `SurvivorFacialHairChance`, the looks never rolled `SurvivorExcludeSkins` / `SurvivorExcludeEyes` /
 `SurvivorExcludeHairs` (Vanity Vault's tinted skins and eyes by default), and the rare dyed hair `SurvivorDyedHairColors`,
-`SurvivorDyedHairChanceFemale` / `Male`. Weapons and ammo: `SurvivorFirearmChance`, `XnpcSpawnAmmo` /
+`SurvivorDyedHairChanceFemale` / `Male`, Vanity Vault paints `Survivor`/`RaiderBodyPaintChance`, `...FacePaintChance`,
+`...TattooChance`, the lists `Survivor`/`RaiderBodyPaints`, `...FacePaints`, `...Tattoos`, `...TattooInks` and `TattooMode`. Weapons and ammo: `SurvivorFirearmChance`, `XnpcSpawnAmmo` /
 `XnpcSpawnArrows`, `XnpcResupply`, `XnpcResupplyBelow`, `XnpcResupplyAmmo` / `XnpcResupplyArrows`,
 `XnpcResupplyCooldown`, `XnpcResupplyPointsMult`, `Overwhelmed`, `OverwhelmedRadius`, `OverwhelmedMin` / `OverwhelmedMax`,
 `OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds`, `OverwhelmedSustainSeconds`,
@@ -631,7 +643,7 @@ A full game restart is needed after editing `Config/Localization.csv`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
 - Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
-  all 80 targets patched` with Voice Control loaded, 73 without; a `MISSING PATCH` line names one that did not
+  all 82 targets patched` with Voice Control loaded, 75 without; a `MISSING PATCH` line names one that did not
   bind). Among them
   `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
   `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests), the two turrets'

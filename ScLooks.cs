@@ -27,10 +27,20 @@ namespace SurvivorCommunity
         public readonly int[] Quality = { 1, 1, 1, 1 };
         /// <summary>Session flag: the base body/head assets were confirmed to exist.</summary>
         public bool Validated;
+        /// <summary>
+        /// Vanity Vault ids (ScVanity): a body paint ("Sonja_Broken_Full_M"), a face paint ("Sonja_Broken") and one tattoo
+        /// ("Maori 03 (Black Orchid) [Blend]"); "" = none. Kept when Vanity Vault is missing, so they come back with it.
+        /// </summary>
+        public string BodyPaint = "";
+        public string FacePaint = "";
+        public string Tattoo = "";
+
+        public bool HasPaint { get { return !string.IsNullOrEmpty(BodyPaint) || !string.IsNullOrEmpty(FacePaint) || !string.IsNullOrEmpty(Tattoo); } }
 
         public Look Clone()
         {
-            var l = new Look { Male = Male, Race = Race, Variant = Variant, Hair = Hair, HairColor = HairColor, Mustache = Mustache, Chops = Chops, Beard = Beard, Eyes = Eyes, Validated = Validated };
+            var l = new Look { Male = Male, Race = Race, Variant = Variant, Hair = Hair, HairColor = HairColor, Mustache = Mustache, Chops = Chops, Beard = Beard, Eyes = Eyes, Validated = Validated,
+                              BodyPaint = BodyPaint, FacePaint = FacePaint, Tattoo = Tattoo };
             for (int i = 0; i < 4; i++) { l.Gear[i] = Gear[i]; l.Quality[i] = Quality[i]; }
             return l;
         }
@@ -50,10 +60,15 @@ namespace SurvivorCommunity
             };
         }
 
-        /// <summary>"M|White|2|buzzcut|06 Black|1||3|Blue05" - no '=', ';' or newlines, so the registry's Clean() leaves it alone.</summary>
+        /// <summary>
+        /// "M|White|2|buzzcut|06 Black|1||3|Blue05" - no '=', ';' or newlines, so the registry's Clean() leaves it alone.
+        /// Paints add "|body|face|tattoo" only when there are any: an unpainted look reads as before (older builds and
+        /// portrait keys alike), and an older build reading a painted one stops at the eyes.
+        /// </summary>
         public string Encode()
         {
-            return string.Join("|", new[] { Male ? "M" : "F", Race ?? "", Variant.ToString(CultureInfo.InvariantCulture), Hair ?? "", HairColor ?? "", Mustache ?? "", Chops ?? "", Beard ?? "", Eyes ?? "" });
+            string s = string.Join("|", new[] { Male ? "M" : "F", Race ?? "", Variant.ToString(CultureInfo.InvariantCulture), Hair ?? "", HairColor ?? "", Mustache ?? "", Chops ?? "", Beard ?? "", Eyes ?? "" });
+            return HasPaint ? s + "|" + (BodyPaint ?? "") + "|" + (FacePaint ?? "") + "|" + (Tattoo ?? "") : s;
         }
 
         /// <summary>Fills this look from Encode()'s format; unknown/short input leaves the current values.</summary>
@@ -71,6 +86,9 @@ namespace SurvivorCommunity
             if (p.Length > 6) Chops = p[6].Trim();
             if (p.Length > 7) Beard = p[7].Trim();
             if (p.Length > 8) Eyes = p[8].Trim();
+            BodyPaint = p.Length > 9 ? p[9].Trim() : "";
+            FacePaint = p.Length > 10 ? p[10].Trim() : "";
+            Tattoo = p.Length > 11 ? p[11].Trim() : "";
             if (string.IsNullOrEmpty(Race)) Race = "White";
             Validated = false;
             return true;
@@ -159,6 +177,7 @@ namespace SurvivorCommunity
             session.Remove(entityId);
             sessionClass.Remove(entityId);
             sessionSource.Remove(entityId);
+            ScVanity.Forget(entityId);                 // a paint still waiting for the body to show
         }
 
         /// <summary>Where the body's look came from when its model was built (pending / member / prospect / session / roll), or "-".</summary>
@@ -341,6 +360,7 @@ namespace SurvivorCommunity
                     look.Beard = Chance(rnd) < ScConfig.SurvivorFacialHairChance ? Pick(rnd, beards, FallbackFacial) : "";
                 }
                 if (withGear) RollGear(look, rnd, raider);
+                ScVanity.Roll(look, rnd, raider);   // Vanity Vault paints and tattoos (host only; none without it)
             }
             catch (Exception e)
             {
@@ -608,7 +628,15 @@ namespace SurvivorCommunity
             if (l.Male && facial != "//") sb.Append(" facial ").Append(facial);
             sb.Append(" eyes ").Append(l.Eyes ?? "");
             sb.Append(" gear [").Append(l.EncodeGear()).Append(']');
+            if (l.HasPaint) sb.Append(' ').Append(DescribePaints(l));
             return sb.ToString();
+        }
+
+        public static string DescribePaints(Look l)
+        {
+            if (l == null || !l.HasPaint) return "no paints";
+            return "paint " + (string.IsNullOrEmpty(l.BodyPaint) ? "-" : l.BodyPaint) + "/" + (string.IsNullOrEmpty(l.FacePaint) ? "-" : l.FacePaint)
+                   + " tattoo " + (string.IsNullOrEmpty(l.Tattoo) ? "-" : l.Tattoo);
         }
     }
 }

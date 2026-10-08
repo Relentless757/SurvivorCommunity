@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -48,6 +48,7 @@ namespace SurvivorCommunity
                     case "loadout": LoadoutCmd(_params); break;
                     case "arms": ArmsCmd(_params); break;
                     case "look": LookCmd(_params); break;
+                    case "paint": PaintCmd(_params); break;
                     case "gear": Gear(_params); break;
                     case "anim": Anim(_params); break;
                     case "aim": AimCmd(_params); break;
@@ -678,7 +679,8 @@ namespace SurvivorCommunity
             if (npc == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
             if (!ScLooks.IsSurvivor(npc)) { Output("[SC] " + ScCommunity.DisplayName(npc) + " does not wear the player's body"); return; }
             Look old = ScLooks.Get(npc);
-            Look look = ScLooks.Roll(old != null ? old.Male : npc.IsMale, ScCommunity.World.GetGameRandom(), false);
+            Look look = ScLooks.Roll(old != null ? old.Male : npc.IsMale, ScCommunity.World.GetGameRandom(), false,
+                                     ScXnpc.IsRaiderClass(ScCommunity.ClassName(npc)));   // a raider's paints from the raider lists
             if (old != null) for (int i = 0; i < 4; i++) { look.Gear[i] = old.Gear[i]; look.Quality[i] = old.Quality[i]; }
             Member m = ScRegistry.GetMember(npc.entityId);
             if (m != null) m.Look = look;
@@ -687,6 +689,72 @@ namespace SurvivorCommunity
             ScLooks.Apply(npc, look);
             ScRegistry.SaveAtomic();
             Output("[SC] " + ScCommunity.DisplayName(npc) + ": " + ScLooks.Describe(look));
+        }
+
+        /// <summary>
+        /// sc paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll] - a loaded survivor's Vanity
+        /// Vault paints (ScVanity): with the name alone, theirs and what the lists offer; otherwise set (a body paint brings
+        /// its set's face paint), clear or re-roll them (roll uses the chances, so often nothing) and rebuild the body.
+        /// Names may have spaces; a tattoo's ink follows a '/': sc paint Ana tattoo Maori 03/Royal Lapis.
+        /// </summary>
+        private static void PaintCmd(List<string> p)
+        {
+            if (p.Count < 2) { Output("[SC] paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll]"); return; }
+            EntityAlive npc = FindSurvivor(p[1]);
+            if (npc == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
+            Look look = ScLooks.IsSurvivor(npc) ? ScLooks.Get(npc) : null;
+            if (look == null) { Output("[SC] " + ScCommunity.DisplayName(npc) + " does not wear the player's body"); return; }
+            if (p.Count == 2)
+            {
+                Output("[SC] " + ScCommunity.DisplayName(npc) + ": " + ScLooks.DescribePaints(look));
+                Output("[SC] " + ScVanity.Report(look.Male));
+                return;
+            }
+            if (!ScVanity.Ready) { Output("[SC] Vanity Vault is not loaded - no paints"); return; }
+            string arg = p.Count > 3 ? string.Join(" ", p.GetRange(3, p.Count - 3).ToArray()).Trim() : "";
+            switch (p[2].ToLowerInvariant())
+            {
+                case "none":
+                    look.BodyPaint = look.FacePaint = look.Tattoo = "";
+                    break;
+                case "roll":
+                    ScVanity.Roll(look, ScCommunity.World.GetGameRandom(), ScXnpc.IsRaiderClass(ScCommunity.ClassName(npc)));
+                    break;
+                case "body":
+                    string body = ScVanity.BodyKey(arg);
+                    if (body == null) { Output("[SC] Vanity Vault has no body paint '" + arg + "'"); return; }
+                    if (!ScVanity.BodyFits(body, look.Male)) { Output("[SC] " + body + " has no " + (look.Male ? "male" : "female") + " version"); return; }
+                    look.BodyPaint = body;
+                    look.FacePaint = ScVanity.FaceFor(body) ?? "";   // the set's face paint; none for a body outside the lists
+                    if (look.FacePaint.Length == 0 && !ScVanity.ListedAlone(body)) Output("[SC] note: " + body + " goes on without a face paint");
+                    break;
+                case "face":
+                    string face = ScVanity.FaceKey(arg);
+                    if (face == null) { Output("[SC] Vanity Vault has no face paint '" + arg + "'"); return; }
+                    if (!ScVanity.FaceFits(face, look.Male)) { Output("[SC] " + face + " has no " + (look.Male ? "male" : "female") + " version"); return; }
+                    look.FacePaint = face;
+                    break;
+                case "tattoo":
+                    int slash = arg.IndexOf('/');
+                    string shape = slash >= 0 ? arg.Substring(0, slash).Trim() : arg;
+                    List<string> inks = ScXnpc.IsRaiderClass(ScCommunity.ClassName(npc)) ? ScConfig.RaiderTattooInks : ScConfig.SurvivorTattooInks;
+                    string ink = slash >= 0 ? arg.Substring(slash + 1).Trim() : (inks.Count > 0 ? inks[0] : "No Color");
+                    string tattoo = ScVanity.TattooId(shape, ink, ScConfig.TattooMode);
+                    if (tattoo == null) { Output("[SC] Vanity Vault has no tattoo '" + shape + "'"); return; }
+                    look.Tattoo = tattoo;
+                    break;
+                default:
+                    Output("[SC] paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll]");
+                    return;
+            }
+            // the record takes this look (right after a respawn the body's look is still a copy of it), as sc look does
+            Member m = ScRegistry.GetMember(npc.entityId);
+            if (m != null) m.Look = look;
+            Prospect pr = ScRegistry.GetProspect(npc.entityId);
+            if (pr != null) pr.Look = look;
+            ScLooks.Rebuild(npc);
+            ScRegistry.SaveAtomic();
+            Output("[SC] " + ScCommunity.DisplayName(npc) + ": " + ScLooks.DescribePaints(look) + " (body rebuilt)");
         }
 
         /// <summary>sc gear <id|name> <Set|none> - dress a loaded survivor in a whole vanilla armor set (or strip them).</summary>

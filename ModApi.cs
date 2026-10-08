@@ -54,6 +54,7 @@ namespace SurvivorCommunity
                 ScPortraits.Reset();
                 ScLooks.Reset();
                 Patches_Sdcs.Reset();
+                ScVanity.Reset();
                 ScAim.Reset();
                 ScLoadout.Reset();
                 ScMedic.Reset();
@@ -260,6 +261,9 @@ namespace SurvivorCommunity
             // X13 (M11 review F1): the held gun is saved after SCore's section (its Write postfix shares the
             // EntityAliveSDXV4::Write entry above) and read back here
             Add(t, "EntityAliveSDXV4::Read", Patches_Xnpc.ReadTarget());
+            // ScVanity.cs - Vanity Vault paints and tattoos on our bodies after every build (inert without Vanity Vault)
+            Add(t, "SDCSUtils::CreateVizTP", Patches_Vanity.Patch_CreateVizTP.Target());
+            Add(t, "EModelSDCS::SetVisible", Patches_Vanity.Patch_SetVisible.Target());
             // ScAmmo.cs - a remote player's open NPC inventory window holds off the ammo move and medical use out of it
             Add(t, "NetPackageHarvestInventoryRequest::ProcessPackage", ScAmmo.RemoteOpenTarget());
             Add(t, "NetPackageHarvestInventoryUpdate::ProcessPackage", ScAmmo.RemoteCloseTarget());

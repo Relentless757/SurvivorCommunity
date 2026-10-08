@@ -25,6 +25,55 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Survivor paints and tattoos (Vanity Vault)
+
+**Deployed 2026-10-07** (Fable review + re-check: deployable; DLL md5 `b651c719c18c229a8d860ed4268ef83d`, Config with it). Your ticks in `SurvivorPaints_Choices.md` (game root): paints for anyone (not
+just light skin), the suggested rates. **Two new Harmony targets: 82** (75 without Voice Control). No save format
+change for unpainted survivors; a painted one's look gets three more fields (an older build reads the look and drops
+the paints).
+
+What it does:
+- A new survivor rarely comes with a **body paint set** (1%; raiders 6%): survivors get Clean (women: smoother skin,
+  own tone) or Broken (men: bruises, taped fingers, chest tattoo); raiders get Broken, Harley (women) or Skeleton. A body
+  paint comes with its matching face paint (Clean needs none).
+- Otherwise maybe a **face paint alone** (2%; raiders 10%): survivors Broken or Furiosa; raiders also Tribal,
+  Braveheart, Voodoo, Skeleton, Catrina, Clown, Joker and Harley.
+- And maybe one **tattoo** (15%; raiders 35%) from the shapes you ticked, in a dark ink (mostly black; also brown,
+  deep blue, blue, dark green, grey; raiders add three dark reds). Raiders also get Oni, KISS and the two Harley ones.
+- Only new looks get paints: survivors you've already met keep theirs. `sc look <id>` re-rolls a face with paints.
+- The paints show in their portrait and on the snapshot card too.
+- All of it is in Config/blocks.xml (`SurvivorBodyPaintChance`... `TattooMode`). The log says which Vanity Vault was
+  found (at the first new survivor) and lists any configured name it doesn't know.
+- **`sc paint <id|name>`** shows a survivor's paints and what the lists offer. To try one without waiting for a roll:
+  `sc paint <id> body Sonja_Broken_Full_M`, `face Sonja_Furiosa`, `tattoo Maori 03/Royal Lapis` (shape, then the ink
+  after a `/`), `none`, or `roll` (uses the chances, so often nothing). The body is rebuilt with it on the spot.
+- Each paint loads its textures the first time it shows (a brief hitch is possible), shared by everyone wearing it.
+- A survivor whose body is rebuilt while out of view (a runner coming back, `sc paint` on someone far off) gets the
+  paints when they come into view.
+
+Steps:
+- [ ] **Startup:** `patch verification: all 82 targets patched` (75 without Voice Control). When the first new survivor
+  is rolled (or at your first `sc paint`), a line `Vanity Vault 3.2.0: paints and tattoos on survivors - it knows 15 body paints, 20 face paints, 1374 tattoo variants`
+  with no "not found there" list. The `config:` line ends with `paints=body 0.01/0.06 of 2/4, face 0.02/0.1 of 2/10,
+  tattoo 0.15/0.35 of 20/24 Blend`.
+- [ ] **Try each kind:** on a nearby survivor, `sc paint <id> face Sonja_Furiosa`, then `tattoo Maori 03`, then
+  `body Sonja_Broken_Full_M` (a man; its set brings the Broken face paint in place of Furiosa) or
+  `body Sonja_Clean_Vanilla_Full_F` (a woman; Clean takes the face paint off): each shows on the body right away, the
+  tattoo stays on top of a paint, and the rest of them (hair, eyes, clothes) is unchanged. `sc paint <id> none` takes
+  it all off. A paint with no version for their sex is refused.
+- [ ] **Skin looks right:** a tattooed survivor's skin (face, hands) looks the same as before apart from the tattoo
+  (a tattoo moves their skin to Vanity Vault's shader). A body paint on a dark-skinned survivor won't match their tone
+  (your choice: paints for anyone).
+- [ ] **Raiders:** `sc spawn raider` a dozen times: some face paints and tattoos, now and then a skeleton or Harley body.
+  `sc paint <id>` on one lists the raider choices.
+- [ ] **Kept:** paint a member (`sc paint`), save and reload: the paint is back, and their portrait in the community
+  window shows it.
+- [ ] **Out of view:** paint a survivor, walk 100+ m away, `sc paint <id> tattoo Star 01` (rebuilt while unseen), walk
+  back: the paints are on when they come into view (`sc xnpc` counts `paints-hidden` and `paints-late`).
+- [ ] **Old survivors:** someone you met before this build has no paints and keeps their look.
+- [ ] (Optional) the female Skeleton body uses the male texture: check it lines up on a woman (`sc paint <id> body
+  Sonja_Skeletton_Full_F`); if not, take it out of `RaiderBodyPaints`.
+
 ## Survivor snapshot: a card while you talk
 
 **Deployed 2026-10-07** (one DLL for this section and the three next to it - snapshot, trust, looks, favours round 2: md5 `3f332219c4cb76cd90887de0320526de`, with Config, Localization and UIAtlases; Fable review + re-check of each: deployable). Your design: while you talk to a survivor, a card on the left of the screen

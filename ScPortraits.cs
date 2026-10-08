@@ -498,6 +498,7 @@ namespace SurvivorCommunity
                 hairMask == SDCSUtils.SlotData.HairMaskTypes.Full ? arch.Hair : "",
                 facial ? arch.MustacheName : "", facial ? arch.ChopsName : "", facial ? arch.BeardName : "");
             if (old != null) old.ReleaseAssets();
+            ScVanity.Apply(rig, look, look.Male);            // face paint and tattoo show in the picture (the key covers them)
 
             Transform ik = rig.transform.Find("IKRig");
             Rig ikRig = ik != null ? ik.GetComponent<Rig>() : null;

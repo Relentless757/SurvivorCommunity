@@ -415,6 +415,27 @@ namespace SurvivorCommunity
         public static readonly List<string> SurvivorDyedHairColors = new List<string>();
         public static float SurvivorDyedHairChanceFemale = 0.06f;
         public static float SurvivorDyedHairChanceMale = 0.005f;
+        /// <summary>
+        /// Vanity Vault paints and tattoos on new survivors and raiders (ScVanity; the user's picks of 2026-10-07): the
+        /// chance per new look, and the lists to pick from - body paint sets as "body:face" (the body alone when it has
+        /// no face paint), face paints alone, tattoo shapes, and tattoo inks (a name twice is twice as likely).
+        /// </summary>
+        public static float SurvivorBodyPaintChance = 0.01f;
+        public static float RaiderBodyPaintChance = 0.06f;
+        public static float SurvivorFacePaintChance = 0.02f;
+        public static float RaiderFacePaintChance = 0.1f;
+        public static float SurvivorTattooChance = 0.15f;
+        public static float RaiderTattooChance = 0.35f;
+        public static readonly List<string> SurvivorBodyPaints = new List<string>();
+        public static readonly List<string> RaiderBodyPaints = new List<string>();
+        public static readonly List<string> SurvivorFacePaints = new List<string>();
+        public static readonly List<string> RaiderFacePaints = new List<string>();
+        public static readonly List<string> SurvivorTattoos = new List<string>();
+        public static readonly List<string> RaiderTattoos = new List<string>();
+        public static readonly List<string> SurvivorTattooInks = new List<string>();
+        public static readonly List<string> RaiderTattooInks = new List<string>();
+        /// <summary>Vanity Vault's tattoo mode: Blend (ink in the skin) or Vivid (painted on top).</summary>
+        public static string TattooMode = "Blend";
         /// <summary>Survivors and raiders with the player's body shoulder their gun (or draw their bow) while shooting (ScAim).</summary>
         public static bool SurvivorAimPose = true;
         /// <summary>The aim pose is only a pose: their spread, critical hits and kickback stay as without it. False gives
@@ -616,6 +637,14 @@ namespace SurvivorCommunity
             SurvivorDyedHairColors.Clear();
             SurvivorDyedHairChanceFemale = 0.06f;
             SurvivorDyedHairChanceMale = 0.005f;
+            SurvivorBodyPaintChance = 0.01f; RaiderBodyPaintChance = 0.06f;
+            SurvivorFacePaintChance = 0.02f; RaiderFacePaintChance = 0.1f;
+            SurvivorTattooChance = 0.15f; RaiderTattooChance = 0.35f;
+            SurvivorBodyPaints.Clear(); RaiderBodyPaints.Clear();
+            SurvivorFacePaints.Clear(); RaiderFacePaints.Clear();
+            SurvivorTattoos.Clear(); RaiderTattoos.Clear();
+            SurvivorTattooInks.Clear(); RaiderTattooInks.Clear();
+            TattooMode = "Blend";
             SurvivorAimPose = true;
             SurvivorAimVisualOnly = true;
             SurvivorAimHoldSeconds = 2f;
@@ -746,7 +775,24 @@ namespace SurvivorCommunity
                                                  "Sonja_Blackeyes", "Sonja_Eyes_AllScaryBlack", "Sonja_Eyes_Emission_Red", "Sonja_Eyes_TEST" });
             SurvivorDyedHairColors.AddRange(new[] { "11 Yellow", "12 Orange", "13 Redder", "14 Redder1", "15 Pink", "16 Pink 1", "17 Blue",
                                                     "18 Blue 1", "19 Blue 2", "20 Purple", "21 Purple1", "22 Purple 2", "23 Green", "24 Green 1" });
+            // the user's paint and tattoo picks (2026-10-07, SurvivorPaints_Choices.md): Vanity Vault's names
+            SurvivorBodyPaints.AddRange(new[] { "Sonja_Clean_Vanilla_Full_F", "Sonja_Broken_Full_M:Sonja_Broken" });
+            RaiderBodyPaints.AddRange(new[] { "Sonja_Broken_Full_M:Sonja_Broken", "Sonja_Harley_Full_F:Sonja_Harley",
+                                              "Sonja_Skeletton_Full_M:Sonja_Skeletton", "Sonja_Skeletton_Full_F:Sonja_Skeletton" });
+            SurvivorFacePaints.AddRange(new[] { "Sonja_Broken", "Sonja_Furiosa" });
+            RaiderFacePaints.AddRange(new[] { "Sonja_Broken", "Sonja_Furiosa", "Sonja_Tribal_01", "Sonja_Braveheart", "Sonja_Voodoo",
+                                              "Sonja_Skeletton", "Sonja_Catrina", "Sonja_Clown", "Sonja_Joker", "Sonja_Harley" });
+            SurvivorTattoos.AddRange(TattooShapes);
+            RaiderTattoos.AddRange(TattooShapes);
+            RaiderTattoos.AddRange(new[] { "Oni 01", "Kiss 01", "Harley Tattoo", "Harley Eyes Only" });
+            SurvivorTattooInks.AddRange(new[] { "Black Orchid", "Black Orchid", "Black Orchid", "Dark Truffle", "Abyssal", "Royal Lapis", "Venom", "Cendre" });
+            RaiderTattooInks.AddRange(new[] { "Black Orchid", "Black Orchid", "Dark Truffle", "Abyssal", "Venom", "Rouge Noir", "Oxblood Wine", "Chili Red" });
         }
+
+        /// <summary>The tattoo shapes the user picked for survivors (raiders get these and four more).</summary>
+        private static readonly string[] TattooShapes = { "Arm Dragon 01", "Arm Flowers 01", "Hand Cat 01", "Hand Cat 02", "Hand Hearts 14",
+            "Snake Between Flowers", "Leg Color 09", "Leg Color 11", "Leg Color 13", "Leg Color 14", "Back Dragon 01", "Back Dragon 02",
+            "Maori 01", "Maori 02", "Maori 03", "Star 01", "Tribal 01 - Face", "Tribal 01 - Body", "Tribal 01 - Full", "Yakuza" };
 
         /// <summary>A name is on an exclude list: exact (case-insensitive), or a prefix when the entry ends in '*' (a lone '*' is everything).</summary>
         public static bool Listed(List<string> list, string name)
@@ -1145,6 +1191,12 @@ namespace SurvivorCommunity
                 ParseFloat(p, "SurvivorFacialHairChance", ref SurvivorFacialHairChance, 0f, 1f);
                 ParseFloat(p, "SurvivorDyedHairChanceFemale", ref SurvivorDyedHairChanceFemale, 0f, 1f);
                 ParseFloat(p, "SurvivorDyedHairChanceMale", ref SurvivorDyedHairChanceMale, 0f, 1f);
+                ParseFloat(p, "SurvivorBodyPaintChance", ref SurvivorBodyPaintChance, 0f, 1f);
+                ParseFloat(p, "RaiderBodyPaintChance", ref RaiderBodyPaintChance, 0f, 1f);
+                ParseFloat(p, "SurvivorFacePaintChance", ref SurvivorFacePaintChance, 0f, 1f);
+                ParseFloat(p, "RaiderFacePaintChance", ref RaiderFacePaintChance, 0f, 1f);
+                ParseFloat(p, "SurvivorTattooChance", ref SurvivorTattooChance, 0f, 1f);
+                ParseFloat(p, "RaiderTattooChance", ref RaiderTattooChance, 0f, 1f);
                 bool aimPose = SurvivorAimPose;
                 if (p.Values.ContainsKey("SurvivorAimPose")) p.ParseBool("SurvivorAimPose", ref aimPose);
                 SurvivorAimPose = aimPose;
@@ -1256,6 +1308,22 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("SurvivorExcludeEyes", out s)) { SurvivorExcludeEyes.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeEyes.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("SurvivorExcludeHairs", out s)) { SurvivorExcludeHairs.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeHairs.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("SurvivorDyedHairColors", out s)) { SurvivorDyedHairColors.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorDyedHairColors.AddRange(SplitList(s)); }
+                // paints: an empty list = none of that kind
+                ParseList(p, "SurvivorBodyPaints", SurvivorBodyPaints);
+                ParseList(p, "RaiderBodyPaints", RaiderBodyPaints);
+                ParseList(p, "SurvivorFacePaints", SurvivorFacePaints);
+                ParseList(p, "RaiderFacePaints", RaiderFacePaints);
+                ParseList(p, "SurvivorTattoos", SurvivorTattoos);
+                ParseList(p, "RaiderTattoos", RaiderTattoos);
+                ParseList(p, "SurvivorTattooInks", SurvivorTattooInks);
+                ParseList(p, "RaiderTattooInks", RaiderTattooInks);
+                if (p.Values.TryGetValue("TattooMode", out s) && !string.IsNullOrEmpty(s))
+                {
+                    s = s.Trim();
+                    if (string.Equals(s, "Blend", StringComparison.OrdinalIgnoreCase) || string.Equals(s, "Vivid", StringComparison.OrdinalIgnoreCase))
+                        TattooMode = char.ToUpperInvariant(s[0]) + s.Substring(1).ToLowerInvariant();
+                    else ScLog.Warn("config: TattooMode '" + s + "' is not Blend or Vivid - using " + TattooMode);
+                }
 
                 DynamicProperties traits;
                 if (p.Classes != null && p.Classes.TryGetValue("Traits", out traits) && traits != null)
@@ -1319,7 +1387,10 @@ namespace SurvivorCommunity
                           + BaseDefencePostCap + ")+" + BaseDefencePerBlock + "/trap(max " + BaseDefenceBlockCap + ") -" + BaseDefenceNoAmmo + " no ammo +-" + BaseDefenceMorale + " morale"
                           + " guardTower=preview " + GuardTowerGhost + ", legs +" + GuardTowerFill + ", cut " + GuardTowerCut
                           + " looks=excluded " + SurvivorExcludeSkins.Count + " skins/" + SurvivorExcludeEyes.Count + " eyes/" + SurvivorExcludeHairs.Count
-                          + " hairs, dyed hair F" + SurvivorDyedHairChanceFemale + "/M" + SurvivorDyedHairChanceMale + " of " + SurvivorDyedHairColors.Count);
+                          + " hairs, dyed hair F" + SurvivorDyedHairChanceFemale + "/M" + SurvivorDyedHairChanceMale + " of " + SurvivorDyedHairColors.Count
+                          + " paints=body " + SurvivorBodyPaintChance + "/" + RaiderBodyPaintChance + " of " + SurvivorBodyPaints.Count + "/" + RaiderBodyPaints.Count
+                          + ", face " + SurvivorFacePaintChance + "/" + RaiderFacePaintChance + " of " + SurvivorFacePaints.Count + "/" + RaiderFacePaints.Count
+                          + ", tattoo " + SurvivorTattooChance + "/" + RaiderTattooChance + " of " + SurvivorTattoos.Count + "/" + RaiderTattoos.Count + " " + TattooMode);
             }
             catch (Exception e)
             {
@@ -1327,6 +1398,15 @@ namespace SurvivorCommunity
                 ScLog.Err("config parse failed, defaults in use: " + e.Message);
                 Log.Exception(e);
             }
+        }
+
+        /// <summary>A comma list key: present = replaces the list (an empty value empties it), absent = keeps the default.</summary>
+        private static void ParseList(DynamicProperties p, string key, List<string> into)
+        {
+            string s;
+            if (!p.Values.TryGetValue(key, out s)) return;
+            into.Clear();
+            if (!string.IsNullOrEmpty(s)) into.AddRange(SplitList(s));
         }
 
         private static IEnumerable<string> SplitList(string s)

@@ -96,6 +96,7 @@
     <Compile Include="ScTrust.cs" />
     <Compile Include="Patches_Trust.cs" />
     <Compile Include="ScProfile.cs" />
+    <Compile Include="ScVanity.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
