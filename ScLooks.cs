@@ -279,6 +279,15 @@ namespace SurvivorCommunity
             return list[rnd != null ? rnd.RandomRange(0, list.Count) : 0];
         }
 
+        /// <summary>A new list of the names not on the exclude list (null in, null out - Pick then uses its fallback).</summary>
+        private static List<string> Allowed(List<string> names, List<string> exclude)
+        {
+            if (names == null) return null;
+            var keep = new List<string>(names.Count);
+            for (int i = 0; i < names.Count; i++) if (!ScConfig.Listed(exclude, names[i])) keep.Add(names[i]);
+            return keep;
+        }
+
         private static float Chance(GameRandom rnd)
         {
             return rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
@@ -296,13 +305,20 @@ namespace SurvivorCommunity
                 List<string> colors = null;
                 try
                 {
-                    races = SDCSDataUtils.GetRaceList(male);
+                    // the exclude lists (SurvivorExclude*) filter copies: GetEyeColorNames hands out the live static list
+                    races = Allowed(SDCSDataUtils.GetRaceList(male), ScConfig.SurvivorExcludeSkins);
                     look.Race = Pick(rnd, races, FallbackRaces);
                     variants = SDCSDataUtils.GetVariantList(male, look.Race);
-                    hairs = SDCSDataUtils.GetHairNames(male, SDCSDataUtils.HairTypes.Hair);
-                    eyes = SDCSDataUtils.GetEyeColorNames();
+                    hairs = Allowed(SDCSDataUtils.GetHairNames(male, SDCSDataUtils.HairTypes.Hair), ScConfig.SurvivorExcludeHairs);
+                    eyes = Allowed(SDCSDataUtils.GetEyeColorNames(), ScConfig.SurvivorExcludeEyes);
                     colors = new List<string>();
                     foreach (var hc in SDCSDataUtils.GetHairColorNames()) if (!string.IsNullOrEmpty(hc.PrefabName)) colors.Add(hc.PrefabName);
+                    // dyed colours are rare, rarer still on men: pick from the dyed or the natural ones (the natural
+                    // ones also when no dyed colour is left to pick)
+                    bool dyed = Chance(rnd) < (male ? ScConfig.SurvivorDyedHairChanceMale : ScConfig.SurvivorDyedHairChanceFemale);
+                    List<string> all = colors;
+                    colors = dyed ? all.FindAll(c => ScConfig.Listed(ScConfig.SurvivorDyedHairColors, c)) : null;
+                    if (colors == null || colors.Count == 0) colors = Allowed(all, ScConfig.SurvivorDyedHairColors);
                     if (male)
                     {
                         must = SDCSDataUtils.GetHairNames(true, SDCSDataUtils.HairTypes.Mustache);

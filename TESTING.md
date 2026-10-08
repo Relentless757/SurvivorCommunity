@@ -25,9 +25,167 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Survivor snapshot: a card while you talk
+
+**Deployed 2026-10-07** (one DLL for this section and the three next to it - snapshot, trust, looks, favours round 2: md5 `3f332219c4cb76cd90887de0320526de`, with Config, Localization and UIAtlases; Fable review + re-check of each: deployable). Your design: while you talk to a survivor, a card on the left of the screen
+(clear of their face and of the spoken line at the bottom, its bottom at the XP bar's line) shows their name, role,
+portrait, health, stamina, mood, traits and skills - State of Decay 2's card without the standing. No new Harmony
+target; new files: `XUiC_ScSnapshot.cs`, `ScProfile.cs`, `Tools/generate_snapshot_ui.py`, four mood faces
+(`UIAtlases/UIAtlas/scui_mood_*.png`), the window in `Config/XUi_InGame/windows.xml` and `xui.xml`.
+
+What it shows:
+- **Name** in the title bar, **role** under it (Medic, Cook... from their specialty), **portrait** at the top right
+  (shot the same way as the community window's; a silhouette until it's ready - a stranger's picture is kept in
+  memory only, so it's shot again on each talk).
+- **Health** (current / max), **stamina** (from Cardio: 100, +10 per star above one - NPCs have no real stamina, so it
+  always shows full), **mood**: a face and a word (Happy, Content, Uneasy, Miserable) in the mood's colour.
+- **Traits**: a member's by name; anyone else's as "????" until their favour is done.
+- **Skills**: Cardio, Wits, Fighting, Shooting and their specialty, as 7 stars each (unlit stars are the same star,
+  dimmed).
+- Someone not in your community gets their traits, skills and mood rolled the first time you talk to them and brings
+  exactly those when they join - their mood too, instead of starting at the community's morale. Survivors you
+  already met before this build get theirs on your next talk. It lives on the body, so it lasts as long as the body
+  does: once you've asked about their favour they're kept (unloads, save/reload); one you only chatted with goes with
+  the chunk like any wild survivor, and whoever spawns later is someone new.
+- A member who leaves takes their record as it is then (trained stars, current mood) and shows their traits by name.
+- The card sits clear of XNPCCore's voice-subtitle box too (the dark box a voice line shows in).
+- Multiplayer: profiles are rolled by the host, so another player sees a stranger's card once the host has talked to
+  them (until then, no card). Members show for everyone.
+- "Personal morale" in the community window is called "Mood" now.
+
+Steps:
+- [ ] **Card shows:** talk to a survivor: the card is on the left, nothing overlaps their face, the spoken line or a
+  voice line's subtitle box, the dialog choices on the right still work. Try at your 1440p, and if you can at 1080p (the card should still fit).
+- [ ] **Stranger:** traits read "????", skills and mood filled in; close and talk again - the same values.
+- [ ] **Favour done:** a survivor whose favour is done (before they join) shows their trait names.
+- [ ] **Join keeps it:** recruit someone whose card you saw: the community window shows the same traits, skills and mood.
+- [ ] **Member:** talk to a member: their own traits (named), skills and mood.
+- [ ] **Not for others:** a trader or a non-survivor NPC shows no card.
+- [ ] **Portrait:** the picture appears within a second or two (silhouette first) - for a stranger and for a member.
+- [ ] **Save/reload:** a survivor whose favour you've asked about keeps the same card after a reload.
+- [ ] **Dismissed member:** dismiss a member and talk to them: their traits by name, the stars and mood they had.
+
+## Survivor trust: hits land, and a hit makes a survivor hostile for good
+
+**Deployed 2026-10-07** (one DLL for this section and the three next to it - snapshot, trust, looks, favours round 2: md5 `3f332219c4cb76cd90887de0320526de`, with Config, Localization and UIAtlases; Fable review + re-check of each: deployable). Your design: wild survivors are Neutral, Friendly once their favour is done,
+and Hostile for good once you hit them - any hit (you chose this over a warning first). **Three new Harmony targets:
+80** (73 without Voice Control). No save format change: a grudge is a cvar on the survivor.
+
+Why you did little or no damage: SCore refused every melee swing on a survivor outright (it counts their Neutral
+standing toward you as friendly fire and its melee check returns that answer before the hit is resolved). Shots,
+arrows and thrown weapons went through a different check SC had already opened, so they landed; what made guns feel
+weak is armour (kept at half), XNPCCore's free self-heal for unhired NPCs (+30 HP and bleeding cleared at 70% health,
+every 30 s) and SC's bandages.
+
+What changed:
+- **Melee lands** on any SCore NPC (survivors, and any NPC pack on SCore's classes) who isn't a trader, one of your people (members, stand-ins) or a hired companion.
+- **Hired companions can't be hurt by you any more** (before this, shots got through and melee didn't): one stray
+  shot in a shared fight would otherwise turn them hostile for good. They have no trust either.
+- **The first hit of yours that lands** (melee, shot, arrow, thrown weapon, your explosion, running them over; not a
+  bleed ticking on, a molotov's fire, or your turrets and traps)
+  makes that survivor hostile to you for good: "<name> won't forget that - they're hostile to you now." They attack
+  you on sight, their talk prompt is gone for you, a favour they offered is off (its quest closes as failed, with the
+  usual toast, and leaves the journal), and they can't be recruited. If one ever does join (another player's doing),
+  the grudge is dropped. They're kept through chunk unloads and reloads. Your companions and community fight them; your turrets
+  shoot them like raiders, and they keep a POI from reading clear.
+- Members don't have trust (their mood is the mechanic), raiders are hostile anyway, traders keep their protection.
+- A hostile survivor can't be hired by you either - Voice Control's spoken "hire" gets "Not for all the dukes in the
+  world." (with "*glares*" in front, unless Voice Control strips it) Anyone hired or recruited anyway (another player's doing) drops the grudge. A hostile prospect who
+  was waiting for you at their spot stops guarding it.
+- `CommunityFriendlyFire` (Config/blocks.xml, default off) works for members again: with it on you can hurt your own
+  people, and they never turn hostile.
+- **Changes two favour tests below** ("A survivor dies with their quest open" and round 2's "Supplies, death"):
+  killing them yourself now fails their quest at your first hit, even at "Return to <name>". Let zombies do the
+  killing to test the death path. A forgiven survivor offers a new favour.
+- `sc trust <id|name>` says where a survivor stands with you; `sc trust <id|name> forgive` clears a grudge (testing;
+  it reaches other players too). `sc xnpc <id>` now also shows `youCanMelee` and `trust`.
+
+Steps:
+- [ ] **Startup:** `patch verification: all 80 targets patched` (73 without Voice Control).
+- [ ] **Melee lands:** hit a wild survivor with a melee weapon: damage numbers/blood, their health drops.
+- [ ] **Hostile on the first hit:** the message shows, they turn and attack you (gun or melee), the talk prompt is gone,
+  `sc trust <id>` says Hostile. If they had a favour quest for you, it shows as failed.
+- [ ] **Stays hostile:** walk far away (chunk unload) and back, and save/reload: still hostile, still no prompt.
+- [ ] **Others unaffected:** a different survivor nearby is still Neutral and talks to you.
+- [ ] **Your people are safe:** melee and shoot a member and a hired companion: no damage, no hostility.
+- [ ] **Turrets:** a hostile survivor in your turret's view gets shot (with the turret's zombie or enemy targeting on,
+  and `RaiderTurretsAsEnemies` true, the default). A neutral survivor walking past your turret or into your dart trap
+  does not turn hostile.
+- [ ] **Forgive:** `sc trust <id> forgive` - they stop attacking and the prompt comes back.
+- [ ] (Voice Control) **No hire:** say "hire" to a survivor who is hostile to you: the refusal line, no hire window.
+
+## Survivor looks: Vanity Vault filter, rare dyed hair
+
+**Deployed 2026-10-07** (one DLL for this section and the three next to it - snapshot, trust, looks, favours round 2: md5 `3f332219c4cb76cd90887de0320526de`, with Config, Localization and UIAtlases; Fable review + re-check of each: deployable). Your ticks in
+`SurvivorLooks_Filter.md` (game root): survivors and raiders no longer roll
+Vanity Vault's 9 tinted skins (Obsidian, Ash, Mutant Green, Demon Red, Orchid, Brimstone, Cobalt, Amethyst, Ember) or
+any of its 9 eyes; its hair styles and all faces stay. Dyed hair (vanilla colours 11-24: yellow, orange, the reds,
+pinks, blues, purples, greens) is rolled 6% of the time for women and 0.5% for men; everyone else gets a natural
+colour. Survivors you've already met keep their looks. All of it is in Config/blocks.xml (`SurvivorExcludeSkins`,
+`SurvivorExcludeEyes`, `SurvivorExcludeHairs`, `SurvivorDyedHairColors`, `SurvivorDyedHairChanceFemale` / `Male`).
+
+Steps:
+- [ ] **Startup:** the `config:` log line ends with `looks=excluded 9 skins/9 eyes/0 hairs, dyed hair F0.06/M0.005 of 14`.
+- [ ] **New survivors look natural:** `sc spawn` a dozen or so (or meet new ones): no tinted skin, no Sonja eyes;
+  Sonja hair styles still turn up; dyed hair only now and then on a woman, almost never on a man. `sc spawn` ends
+  its line with the look (skin, hair and colour, eyes), so you can read them off the console. `sc look <id>`
+  re-rolls one to see more.
+- [ ] **Raiders too:** `sc spawn raider` a few times: same rules.
+- [ ] **Old survivors unchanged:** someone you'd already met with a tinted skin keeps it. (Don't run `sc look` on a
+  survivor you want to keep: it replaces their look.)
+
+## Recruit favours round 2: fewer clicks, community first, a supplies quest
+
+**Deployed 2026-10-07** (one DLL for this section and the three next to it - snapshot, trust, looks, favours round 2: md5 `3f332219c4cb76cd90887de0320526de`, with Config, Localization and UIAtlases; Fable review + re-check of each: deployable). From your t4 results. No new Harmony target (still 77); one new quest class
+(`quest_scSupplies` in Config/quests.xml) and new localization rows ship with it.
+
+What changed:
+- **"Mark it" only leads on when there is something to say.** When the POI doesn't read clear, "Mark it. I'll take
+  care of it." marks it and ends the talk, as it did before the first round. Only when it already reads clear does
+  the survivor answer, with "Actually, I've already cleared that.".
+- **"Reads clear" now matches vanilla's quest.** Your Soyer Family Farm test (log, 16:40): the quest moved on 4
+  seconds after "Mark it" - vanilla saw every sleeper area cleared - but SC's own test said no (it also refuses areas
+  due to respawn, enemies inside, areas not generated), so the line stayed hidden. The line now also shows whenever
+  vanilla's quest would complete at once. The log says, on every "Mark it", whether the POI read clear and if not why
+  (`<POI> for <name> is not clear yet: ...`).
+- **Nothing before a community.** "I could use someone like you in my community." (and so every favour line) only
+  shows once you have a community home (your land claim). Talking to a survivor before that no longer rolls a favour
+  or pins them in place.
+- **Supplies quest.** The survivor's answer now offers "Sure, I'll see what I can find.": it puts "Supplies for
+  <name>" in the journal ("Bring 15 food items to <name>"), with the marker on the survivor, and ends the talk. From
+  then on "Here are the supplies you asked for..." is at the start of the talk while you carry them; handing them
+  over completes the quest and they join. If you already carry them when they ask, "Here are the supplies..." is in
+  their answer straight away (no quest needed). Their death removes the quest; joining closes it. Survivors you asked
+  with the previous build get "Sure, I'll see what I can find." like anyone else (the line only checks your journal).
+  If the join is ever refused after the hand-over went through, "You've got what you needed. Come join my
+  community." is at the start of their talk.
+- `sc status` says "taken on" / "not taken on" for each prospect (survivors asked with the previous build say "taken
+  on" - it meant "asked" there).
+- This replaces four bits of the "Recruit favours" section below: the survivor no longer answers after every "Mark
+  it", "reads clear" is no longer exactly `sc poi`'s test, `sc status` no longer says "asked", and supplies survivors
+  asked before don't need asking again.
+
+Steps:
+- [ ] **No community yet:** in a game where you have no land claim, talk to a survivor: no "I could use someone like
+  you..." line, and `sc status` lists no new prospect. Place a land claim, talk again: the line is there.
+- [ ] **POI not clear:** "I could use someone like you..." -> "Mark it. I'll take care of it." ends the talk, the quest is
+  in the journal. Log: `<POI> for <name> is not clear yet: ...`.
+- [ ] **POI already clear (t4.2 again):** ask a survivor (don't mark it), clear their POI, come back, "Mark it": the
+  survivor answers, "Actually, I've already cleared that." is there and completes the quest; then "Then come join my
+  community." Log: `<POI> for <name> already reads clear`. If the line still doesn't show, send me that log line.
+- [ ] **Supplies, taken on:** without the items, "I could use someone like you..." -> "Sure, I'll see what I can find.":
+  the talk ends, "Supplies for <name>" is in the journal with the objective, the marker is on the survivor (and
+  follows them). Fetch the items, talk: "Here are the supplies..." at the start; "Quest completed: Supplies for
+  <name>", then they join. Also try it on a supplies survivor you asked with the previous build.
+- [ ] **Supplies, already carried:** with the items in your pack, ask a new supplies survivor: their answer offers
+  "Here are the supplies..." and "Sure, I'll see what I can find."; handing over joins them with no quest left.
+- [ ] **Supplies, reload:** take one on, save and reload: the quest and its marker are back, and the hand-over still works.
+- [ ] **Supplies, death:** a survivor whose supplies quest is open dies: "Quest failed: Supplies for <name>" and the
+  quest is gone (`sc recruit` on them does the same).
+
 ## Recruit favours: completed only through the favour
 
-**Deployed 2026-10-07** (Fable review + re-check: deployable; DLL md5 `04cb2923022cd269a54d7a0d242b3a82`, Config and Localization with it). From your report: a POI cleared with no quest completed a survivor's favour
+**Deployed 2026-10-07** (Fable review + re-check: deployable; DLL md5 `04cb2923022cd269a54d7a0d242b3a82`, Config and Localization with it). Parts of it are replaced by "Recruit favours round 2" above. From your report: a POI cleared with no quest completed a survivor's favour
 (the "is clear - go back to ..." message) and let you recruit them, and "Here are the supplies" showed before you had
 ever asked about the favour. No new Harmony target (still 77); the registry gains a `started=1` line per prospect (an
 older build ignores it).

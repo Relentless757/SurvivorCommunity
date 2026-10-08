@@ -93,6 +93,8 @@ namespace SurvivorCommunity
             if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) { why = "scNotHireable"; return false; }
             // a raider never joins (M10; belt and braces: its class is Hirable false, so the next checks refuse it too)
             if (ScXnpc.IsRaider(npc)) { why = "scNotHireable"; return false; }
+            // nor one who holds a grudge against this player (ScTrust: they were hit)
+            if (ScTrust.IsHostileToAny(npc)) { why = "scTrustRefuses"; return false; }
             if (!IsHost) { why = "scHostOnly"; return false; }
             if (!ScNpc.IsFramework(npc) || !ScNpc.IsHirable(npc)) { why = "scNotHireable"; return false; }
             if (!EntityUtilities.IsHuman(npc.entityId) || npc.HasAnyTags(AnimalTags)) { why = "scNotHireable"; return false; }
@@ -165,17 +167,22 @@ namespace SurvivorCommunity
                     Mood = ScRegistry.Community.Morale
                 };
                 GameRandom rnd = npc.rand ?? GameManager.Instance.World.GetGameRandom();
-                m.Traits.AddRange(ScTraits.Roll(ScConfig.TraitsPerRecruit, rnd));
-                ScSkills.RollStart(m, rnd);
+                // the traits, skills and mood the player was shown when they first talked (ScProfile), else fresh ones
+                if (!ScProfile.ApplyOnJoin(m, npc))
+                {
+                    m.Traits.AddRange(ScTraits.Roll(ScConfig.TraitsPerRecruit, rnd));
+                    ScSkills.RollStart(m, rnd);
+                }
                 m.Ranged = ScSkills.HoldsRanged(npc);
                 m.Look = ScLooks.Get(npc);          // null unless they wear the player's body
                 m.Loadout = ScLoadout.Current(npc); // their two weapons, so every body re-created for them carries the same (null for others)
                 m.Ammo = ScAmmo.Carried(npc, out m.Mags);   // and the rounds and magazines they carry for the gun (ScAmmo keeps it current every 5 s)
                 ScRegistry.Members[m.Id] = m;
+                ScTrust.StripOnJoin(npc);
                 // their favour quest ends with the join: one still open is waiting on "return to <name>" (completed),
                 // or the favour was skipped (`sc recruit`, removed)
                 Prospect pr = ScRegistry.GetProspect(m.Id);
-                if (pr != null && pr.Favour == FavourKind.Poi) ScQuests.CloseFavour(player, pr.Id, pr.Done);
+                if (pr != null) ScQuests.CloseFavour(player, pr.Id, pr.Done);
                 ScRegistry.Prospects.Remove(m.Id);
 
                 // D9: a companion the player hired the vanilla way joins on the same terms as anyone - the paid hire ends
@@ -1032,7 +1039,11 @@ namespace SurvivorCommunity
                 m.Snap = null;
                 EntityAlive npc = FindNpc(m.Id);
                 EntityPlayerLocal player = LocalPlayer;
-                if (npc != null) CleanupStale(npc);
+                if (npc != null)
+                {
+                    ScProfile.Store(m, npc);          // the snapshot shows who they are now (and a re-join brings it)
+                    CleanupStale(npc);
+                }
                 else ScRegistry.Cleanup.Add(m.Id);
                 if (player != null)
                 {
@@ -1106,9 +1117,9 @@ namespace SurvivorCommunity
                 Prospect p = ScRegistry.GetProspect(npc.entityId);
                 if (p != null)
                 {
-                    // their favour quest would otherwise linger in the journal: failed while clearing, completed once
-                    // the POI was secured and only "return to <name>" was left
-                    if (p.Favour == FavourKind.Poi && LocalPlayer != null) ScQuests.CloseFavour(LocalPlayer, p.Id, p.Done);
+                    // their favour quest would otherwise linger in the journal: failed while clearing or gathering,
+                    // completed once the POI was secured and only "return to <name>" was left
+                    if (LocalPlayer != null) ScQuests.CloseFavour(LocalPlayer, p.Id, p.Done);
                     ScRegistry.Prospects.Remove(npc.entityId);
                     ScRegistry.SaveAtomic();
                 }

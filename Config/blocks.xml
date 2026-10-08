@@ -211,6 +211,17 @@
 			<property name="CommunityFriendlyFire" value="false" />
 			<property name="SurvivorBaldChance" value="0.15" />
 			<property name="SurvivorFacialHairChance" value="0.4" />
+			<!-- Looks never rolled for survivors or raiders (new ones; a survivor already met keeps theirs): comma lists of
+			     character-creator names, case-insensitive, a trailing * matches a prefix (Sonja_* = every Vanity Vault
+			     eye, a lone * = all of them). Skins are Vanity Vault's tone names (it replaces vanilla's White/Black/Asian/Native). Empty = none.
+			     SurvivorDyedHairColors: the colours counted as dyed, rolled only with SurvivorDyedHairChanceFemale / Male;
+			     everyone else gets one of the natural colours. -->
+			<property name="SurvivorExcludeSkins" value="Obsidian,Ash,Mutant Green,Demon Red,Orchid,Brimstone,Cobalt,Amethyst,Ember" />
+			<property name="SurvivorExcludeEyes" value="Sonja_RedEyes_01,Sonja_Underworld,Sonja_YellowEyes_01,Sonja_Bullseye,Sonja_Smiley,Sonja_Blackeyes,Sonja_Eyes_AllScaryBlack,Sonja_Eyes_Emission_Red,Sonja_Eyes_TEST" />
+			<property name="SurvivorExcludeHairs" value="" />
+			<property name="SurvivorDyedHairColors" value="11 Yellow,12 Orange,13 Redder,14 Redder1,15 Pink,16 Pink 1,17 Blue,18 Blue 1,19 Blue 2,20 Purple,21 Purple1,22 Purple 2,23 Green,24 Green 1" />
+			<property name="SurvivorDyedHairChanceFemale" value="0.06" />
+			<property name="SurvivorDyedHairChanceMale" value="0.005" />
 			<!-- Survivors and raiders with the player's body raise and shoulder their gun while shooting (bows draw
 			     before each release), and lower it SurvivorAimHoldSeconds after the last shot.
 			     SurvivorAimVisualOnly: true = only the pose changes, their accuracy and critical hits stay as they are;

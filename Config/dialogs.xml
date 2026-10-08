@@ -6,12 +6,17 @@
 	  packs join the pool without being listed here. The custom operators live in SurvivorCommunity.dll:
 	  type="ScFavour, SurvivorCommunity" resolves to the global class DialogRequirementScFavour.
 
-	  Flow:  start -> "I could use someone like you in my community"   (scJoinPoi | scJoinSupplies)
-	         -> favour statement (secure the nearest POI / bring N items) - hearing it starts the favour
-	         -> scStartPoi (journal quest) -> scPoiMarked [-> scPoiAlreadyCleared -> scPoiClearedReply (join)]
-	            ... scPoiDone (join)   |   scGiveSupplies (take + join)
-	  A favour completes only through itself: the quest's clearing (or "Actually, I've already cleared that." when the
-	  POI reads clear as it is marked), or the supplies handed over after the survivor asked for them.
+	  Flow (only once the player has a community home):
+	         start -> "I could use someone like you in my community"   (scJoinPoi | scJoinSupplies)
+	         -> favour statement (secure the nearest POI / bring N items)
+	         POI:      "Mark it" (journal quest; ends the talk) ... scPoiDone (join)
+	                   or, when the POI already reads clear, "Mark it" -> scPoiMarked -> scPoiAlreadyCleared
+	                   -> scPoiClearedReply (join)
+	         supplies: scAcceptSupplies "Sure, I'll see what I can find." (journal quest) ... scGiveSupplies (take + join),
+	                   or scGiveSuppliesNow in the same talk when the items are already carried;
+	                   scSuppliesDone (join) if the join was refused after the hand-over
+	  A favour completes only through itself: the quest's clearing (or "Actually, I've already cleared that."), or the
+	  supplies handed over.
 	  Members get "Community" (opens the roster) and lose the vanilla Hire entry.
 	-->
 
@@ -21,6 +26,7 @@
 		<response_entry id="scJoinSupplies" />
 		<response_entry id="scPoiDone" />
 		<response_entry id="scGiveSupplies" />
+		<response_entry id="scSuppliesDone" />
 		<response_entry id="scCommunity" />
 		<response_entry id="scFollow" />
 		<response_entry id="scGoHome" />
@@ -44,33 +50,46 @@
 
 	<append xpath="/dialogs/dialog[response[@id='Hire']]">
 		<!-- ask to join: one of the two shows, depending on the favour rolled for this NPC. Who may be asked is
-		     ScCanRecruit's call alone: since migration M2 (decision D9) that includes a companion YOU hired the
-		     vanilla way - joining ends the paid hire - but never somebody else's hire. -->
+		     ScCanRecruit's call: since migration M2 (decision D9) that includes a companion YOU hired the vanilla way -
+		     joining ends the paid hire - but never somebody else's hire. Nothing is offered (or rolled: requirements stop
+		     at the first that fails) before the player has a community home. -->
 		<response id="scJoinPoi" text="scJoinPoi" nextstatementid="scFavourPoi">
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="poi" />
 			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
 			<action type="ScFavourBrief, SurvivorCommunity" />
 		</response>
 		<response id="scJoinSupplies" text="scJoinSupplies" nextstatementid="scFavourSupplies">
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
 			<action type="ScFavourBrief, SurvivorCommunity" />
 		</response>
 
 		<statement id="scFavourPoi" text="scFavourPoi_text">
 			<response_entry id="scStartPoi" />
+			<response_entry id="scStartPoiCleared" />
 			<response_entry id="done" />
 		</statement>
 		<statement id="scFavourSupplies" text="scFavourSupplies_text">
-			<response_entry id="scGiveSupplies" />
+			<response_entry id="scGiveSuppliesNow" />
+			<response_entry id="scAcceptSupplies" />
 			<response_entry id="done" />
 		</statement>
 
-		<!-- POI favour. "Mark it" puts the quest in the journal; the survivor answers, and when the POI already reads
-		     clear the player can say so (the line shows only then) - that completes the favour and closes the quest. -->
-		<response id="scStartPoi" text="scStartPoi" nextstatementid="scPoiMarked">
+		<!-- POI favour. "Mark it" puts the quest in the journal. Two of them, one shown: when the POI does not read clear
+		     it just ends the talk; when it already does (the test vanilla's quest uses), the survivor answers and the
+		     player can say so - that completes the favour and closes the quest. -->
+		<response id="scStartPoi" text="scStartPoi">
 			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<requirement type="ScFavourPoiCleared, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<action type="ScStartPoiQuest, SurvivorCommunity" />
+		</response>
+		<response id="scStartPoiCleared" text="scStartPoi" nextstatementid="scPoiMarked">
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<requirement type="ScFavourPoiCleared, SurvivorCommunity" requirementtype="Hide" />
 			<action type="ScStartPoiQuest, SurvivorCommunity" />
 		</response>
 		<statement id="scPoiMarked" text="scPoiMarked_text">
@@ -102,14 +121,38 @@
 			<action type="ScJoin, SurvivorCommunity" />
 		</response>
 
-		<!-- supplies favour: visible in the favour statement and at the root while the items are carried - once the
-		     survivor has told the player what they want (ScHasFavourItems checks that too) -->
+		<!-- supplies favour. "Sure, I'll see what I can find." takes it on (journal quest, marker on the survivor; ends
+		     the talk). The hand-over: at the root while the items are carried, once taken on (scGiveSupplies), or in the
+		     answer itself when they are carried already (scGiveSuppliesNow). -->
+		<response id="scAcceptSupplies" text="scAcceptSupplies">
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<requirement type="ScFavourQuestOpen, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<action type="ScStartSuppliesQuest, SurvivorCommunity" />
+		</response>
+		<!-- shown at the root if the join was refused after the supplies were handed over -->
+		<response id="scSuppliesDone" text="scSuppliesDone">
+			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScJoin, SurvivorCommunity" />
+		</response>
 		<response id="scGiveSupplies" text="scGiveSupplies">
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
 			<requirement type="ScHasFavourItems, SurvivorCommunity" requirementtype="Hide" />
 			<action type="ScTakeFavourItems, SurvivorCommunity" />
+			<action type="ScJoin, SurvivorCommunity" />
+		</response>
+		<response id="scGiveSuppliesNow" text="scGiveSupplies">
+			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<requirement type="ScHasFavourItems, SurvivorCommunity" requirementtype="Hide" value="any" />
+			<action type="ScTakeFavourItems, SurvivorCommunity" value="any" />
 			<action type="ScJoin, SurvivorCommunity" />
 		</response>
 

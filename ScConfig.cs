@@ -404,6 +404,17 @@ namespace SurvivorCommunity
         public static int SurvivorGearQualityMax = 4;
         public static float SurvivorBaldChance = 0.15f;
         public static float SurvivorFacialHairChance = 0.4f;
+        /// <summary>
+        /// Character-creator options never rolled for survivors or raiders (exact names, case-insensitive; a trailing '*'
+        /// matches a prefix). Defaults = the user's picks of 2026-10-07: Vanity Vault's tinted skins and its eyes.
+        /// </summary>
+        public static readonly List<string> SurvivorExcludeSkins = new List<string>();
+        public static readonly List<string> SurvivorExcludeEyes = new List<string>();
+        public static readonly List<string> SurvivorExcludeHairs = new List<string>();
+        /// <summary>The dyed hair colours, rolled only with SurvivorDyedHairChance (female / male); the rest are natural.</summary>
+        public static readonly List<string> SurvivorDyedHairColors = new List<string>();
+        public static float SurvivorDyedHairChanceFemale = 0.06f;
+        public static float SurvivorDyedHairChanceMale = 0.005f;
         /// <summary>Survivors and raiders with the player's body shoulder their gun (or draw their bow) while shooting (ScAim).</summary>
         public static bool SurvivorAimPose = true;
         /// <summary>The aim pose is only a pose: their spread, critical hits and kickback stay as without it. False gives
@@ -599,6 +610,12 @@ namespace SurvivorCommunity
             SurvivorGearQualityMax = 4;
             SurvivorBaldChance = 0.15f;
             SurvivorFacialHairChance = 0.4f;
+            SurvivorExcludeSkins.Clear();
+            SurvivorExcludeEyes.Clear();
+            SurvivorExcludeHairs.Clear();
+            SurvivorDyedHairColors.Clear();
+            SurvivorDyedHairChanceFemale = 0.06f;
+            SurvivorDyedHairChanceMale = 0.005f;
             SurvivorAimPose = true;
             SurvivorAimVisualOnly = true;
             SurvivorAimHoldSeconds = 2f;
@@ -723,6 +740,29 @@ namespace SurvivorCommunity
             SurvivorGearSets.AddRange(new[] { "Primitive", "Athletic", "Enforcer", "Lumberjack", "Preacher", "Rogue", "Assassin", "Biker", "Commando", "Farmer", "Ranger", "Scavenger", "Miner", "Nerd", "Nomad", "Raider" });
             // M10-D7: raiders dress rougher than survivors (the design's suggested list, accepted 2026-10-01)
             RaiderGearSets.AddRange(new[] { "Raider", "Biker", "Enforcer", "Assassin", "Rogue", "Commando", "Nomad", "Scavenger", "Primitive" });
+            // the user's picks (2026-10-07): Vanity Vault's tinted skins and all of its eyes; vanilla's dyed colours made rare
+            SurvivorExcludeSkins.AddRange(new[] { "Obsidian", "Ash", "Mutant Green", "Demon Red", "Orchid", "Brimstone", "Cobalt", "Amethyst", "Ember" });
+            SurvivorExcludeEyes.AddRange(new[] { "Sonja_RedEyes_01", "Sonja_Underworld", "Sonja_YellowEyes_01", "Sonja_Bullseye", "Sonja_Smiley",
+                                                 "Sonja_Blackeyes", "Sonja_Eyes_AllScaryBlack", "Sonja_Eyes_Emission_Red", "Sonja_Eyes_TEST" });
+            SurvivorDyedHairColors.AddRange(new[] { "11 Yellow", "12 Orange", "13 Redder", "14 Redder1", "15 Pink", "16 Pink 1", "17 Blue",
+                                                    "18 Blue 1", "19 Blue 2", "20 Purple", "21 Purple1", "22 Purple 2", "23 Green", "24 Green 1" });
+        }
+
+        /// <summary>A name is on an exclude list: exact (case-insensitive), or a prefix when the entry ends in '*' (a lone '*' is everything).</summary>
+        public static bool Listed(List<string> list, string name)
+        {
+            if (list == null || string.IsNullOrEmpty(name)) return false;
+            for (int i = 0; i < list.Count; i++)
+            {
+                string e = list[i];
+                if (string.IsNullOrEmpty(e)) continue;
+                if (e[e.Length - 1] == '*')
+                {
+                    if (name.StartsWith(e.Substring(0, e.Length - 1), StringComparison.OrdinalIgnoreCase)) return true;
+                }
+                else if (string.Equals(e, name, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
         }
 
         /// <summary>RaiderRangedShare for a class tier (0..2 = T1..T3, ScXnpc.TierOf).</summary>
@@ -1103,6 +1143,8 @@ namespace SurvivorCommunity
                 ParseInt(p, "SurvivorGearQualityMax", ref SurvivorGearQualityMax, 1, 6);
                 ParseFloat(p, "SurvivorBaldChance", ref SurvivorBaldChance, 0f, 1f);
                 ParseFloat(p, "SurvivorFacialHairChance", ref SurvivorFacialHairChance, 0f, 1f);
+                ParseFloat(p, "SurvivorDyedHairChanceFemale", ref SurvivorDyedHairChanceFemale, 0f, 1f);
+                ParseFloat(p, "SurvivorDyedHairChanceMale", ref SurvivorDyedHairChanceMale, 0f, 1f);
                 bool aimPose = SurvivorAimPose;
                 if (p.Values.ContainsKey("SurvivorAimPose")) p.ParseBool("SurvivorAimPose", ref aimPose);
                 SurvivorAimPose = aimPose;
@@ -1209,6 +1251,11 @@ namespace SurvivorCommunity
                 // an empty value is meaningful here: raiders then dress from SurvivorGearSets
                 if (p.Values.TryGetValue("RaiderGearSets", out s)) { RaiderGearSets.Clear(); if (!string.IsNullOrEmpty(s)) RaiderGearSets.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("RaiderRangedShare", out s) && !string.IsNullOrEmpty(s)) ParseRangedShare(s);
+                // an empty value is meaningful for these: nothing excluded / no colour counted as dyed
+                if (p.Values.TryGetValue("SurvivorExcludeSkins", out s)) { SurvivorExcludeSkins.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeSkins.AddRange(SplitList(s)); }
+                if (p.Values.TryGetValue("SurvivorExcludeEyes", out s)) { SurvivorExcludeEyes.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeEyes.AddRange(SplitList(s)); }
+                if (p.Values.TryGetValue("SurvivorExcludeHairs", out s)) { SurvivorExcludeHairs.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeHairs.AddRange(SplitList(s)); }
+                if (p.Values.TryGetValue("SurvivorDyedHairColors", out s)) { SurvivorDyedHairColors.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorDyedHairColors.AddRange(SplitList(s)); }
 
                 DynamicProperties traits;
                 if (p.Classes != null && p.Classes.TryGetValue("Traits", out traits) && traits != null)
@@ -1270,7 +1317,9 @@ namespace SurvivorCommunity
                           + " siege=" + (BaseAttacks && BaseSiege ? "-" + BaseSiegePenalty : "off")
                           + " defence=" + BaseDefenceBase + "+" + BaseDefencePerResident + "/resident+" + BaseDefencePerCombatStar + "/star+" + BaseDefencePerPost + "/post(max "
                           + BaseDefencePostCap + ")+" + BaseDefencePerBlock + "/trap(max " + BaseDefenceBlockCap + ") -" + BaseDefenceNoAmmo + " no ammo +-" + BaseDefenceMorale + " morale"
-                          + " guardTower=preview " + GuardTowerGhost + ", legs +" + GuardTowerFill + ", cut " + GuardTowerCut);
+                          + " guardTower=preview " + GuardTowerGhost + ", legs +" + GuardTowerFill + ", cut " + GuardTowerCut
+                          + " looks=excluded " + SurvivorExcludeSkins.Count + " skins/" + SurvivorExcludeEyes.Count + " eyes/" + SurvivorExcludeHairs.Count
+                          + " hairs, dyed hair F" + SurvivorDyedHairChanceFemale + "/M" + SurvivorDyedHairChanceMale + " of " + SurvivorDyedHairColors.Count);
             }
             catch (Exception e)
             {

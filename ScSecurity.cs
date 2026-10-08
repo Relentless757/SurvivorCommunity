@@ -120,6 +120,33 @@ namespace SurvivorCommunity
             return new Bounds(new Vector3(p.x + s.x * 0.5f, 128f, p.z + s.z * 0.5f), new Vector3(s.x, 256f, s.z));
         }
 
+        /// <summary>
+        /// Vanilla's own test for a clear quest on this POI - SleeperEventData.SetupData + Update with the re-arm
+        /// suppressed, as Patches_Quest does for SC's quests: every generated, non-quest-exclude sleeper volume of the
+        /// prefab reads wasCleared. A favour quest on such a POI moves on the frame after it starts. False when none
+        /// is generated (vanilla's quest would never finish there). Looser than IsCleared: no respawn timer, no enemy
+        /// scan, ungenerated volumes ignored.
+        /// </summary>
+        public static bool QuestWouldClear(World w, PrefabInstance pi)
+        {
+            if (w == null || pi == null || pi.prefab == null || pi.prefab.SleeperVolumeList == null) return false;
+            var pl = pi.prefab.SleeperVolumeList.List;
+            if (pl == null) return false;
+            int found = 0;
+            for (int i = 0; i < pl.Count; i++)
+            {
+                if (pl[i] == null) continue;
+                Vector3i a = pi.boundingBoxPosition + pl[i].startPos;
+                int idx = w.FindSleeperVolume(a, a + pl[i].size);
+                if (idx == -1) continue;
+                SleeperVolume v = w.GetSleeperVolume(idx);
+                if (v == null || v.isQuestExclude) continue;
+                found++;
+                if (!v.wasCleared) return false;
+            }
+            return found > 0;
+        }
+
         /// <summary>True when the POI holds no remaining enemies; otherwise 'why' says what is left.</summary>
         public static bool IsCleared(World w, PrefabInstance pi, out string why)
         {
@@ -170,7 +197,7 @@ namespace SurvivorCommunity
                 for (int i = 0; i < scratch.Count; i++)
                 {
                     EntityAlive a = scratch[i] as EntityAlive;
-                    if (a != null && !a.IsDead() && (a is EntityEnemy || ScXnpc.IsRaider(a))) hostile++;
+                    if (a != null && !a.IsDead() && (a is EntityEnemy || ScXnpc.IsRaider(a) || ScTrust.IsHostileToAny(a))) hostile++;
                 }
                 scratch.Clear();
             }

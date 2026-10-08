@@ -283,9 +283,17 @@ namespace SurvivorCommunity
                     EntityNPC npc = self as EntityNPC;
                     if (npc != null && npc.NPCInfo != null && !string.IsNullOrEmpty(npc.NPCInfo.DialogID)
                         && npc.NPCInfo.DialogID.StartsWith("trader", StringComparison.OrdinalIgnoreCase)) return;
-                    // your own people are protected unless friendly fire is switched on
-                    if (!ScConfig.CommunityFriendlyFire && (ScRegistry.GetMember(self.entityId) != null
-                        || (self.Buffs != null && self.Buffs.HasCustomVar(ScRadio.StandInCvar)))) return;
+                    // your own people are protected unless friendly fire is switched on (decided before the hire test:
+                    // a member who ever followed carries Owner)
+                    if (ScRegistry.GetMember(self.entityId) != null
+                        || (self.Buffs != null && self.Buffs.HasCustomVar(ScRadio.StandInCvar)))
+                    {
+                        if (ScConfig.CommunityFriendlyFire) __result = true;
+                        return;
+                    }
+                    // nor anyone's hired companion (SCore's ally and PvP rules decide those; this postfix used to override
+                    // them for shots, and a stray hit would now turn one hostile for good - ScTrust)
+                    if (ScCommunity.HiredBy(self) > 0) return;
                     __result = true;
                 }
                 catch (Exception e)

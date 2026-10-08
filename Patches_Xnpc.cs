@@ -742,7 +742,7 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return TalkPromptTarget(); }
 
             [HarmonyPostfix]
-            public static void Postfix(EntityTrader __instance, ReadOnlySpan<char> _commandName, ref bool __result)
+            public static void Postfix(EntityTrader __instance, ReadOnlySpan<char> _commandName, EntityPlayerLocal _playerFocusing, ref bool __result)
             {
                 try
                 {
@@ -757,6 +757,13 @@ namespace SurvivorCommunity
                         }
                     }
                     else if (!(__instance is EntityAliveSDX)) return;
+                    // a survivor this player hit holds a grudge (ScTrust): nothing to say, nothing on the radial
+                    if (ScTrust.IsHostileTo(__instance, _playerFocusing))
+                    {
+                        __result = false;
+                        talkRefused++;
+                        return;
+                    }
                     if (__instance.CommandIs(_commandName, EntityTrader.CommandTrade) && !HasTrader(__instance))
                     {
                         __result = false;
@@ -789,8 +796,9 @@ namespace SurvivorCommunity
         /// with "target strangers" on and its junk turret never; SCore's postfixes on both filters then decide every
         /// EntityNPC alone: "target strangers" on and the turret's owner its enemy (Harmony\MiniTurret\shouldIgnoreTarget.cs).
         /// These postfixes run after SCore's (Priority.Last, after its Harmony id) and only ever turn "ignore" into "shoot",
-        /// for a raider body (IsRaider: SC's raider class on XNPC's body - never a survivor, a member, a trader or one of
-        /// 0-XNPCCore's own NPCs) that is alive, with the turret's zombie or enemy switch on, inside the field of view
+        /// for a raider body (IsRaider: SC's raider class on XNPC's body - never a member, a trader or one of 0-XNPCCore's
+        /// own NPCs), or a survivor hostile to a player (ScTrust.IsHostileToAny), that is alive, with the turret's zombie
+        /// or enemy switch on, inside the field of view
         /// vanilla tests first, and - the junk turret's filter ends with it - within its reach and line of fire
         /// (canHitEntity). SCore's strangers rule stays, so either switch lets the turret fire; with the key off only
         /// SCore's rule is left. Pure and stateless: the same answer on the server and on a client.
@@ -814,7 +822,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !ScXnpc.IsRaider(_target)) return;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target))) return;
                     TileEntityPoweredRangedTrap te = __instance != null ? __instance.TileEntity : null;
                     if (te == null || !te.TargetZombies || !_target.IsAlive() || __instance.Cone == null) return;
                     // vanilla's own first test, unchanged: a positive dot product with the cone's forward is out of view
@@ -852,7 +860,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !ScXnpc.IsRaider(_target)) return;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target))) return;
                     EntityTurret turret = __instance != null ? __instance.entityTurret : null;
                     if (turret == null || !turret.TargetEnemies || !_target.IsAlive() || _target.entityId == turret.entityId) return;
                     // vanilla's field of view (the cone's forward, else the controller's)...
@@ -898,7 +906,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !ScXnpc.IsRaider(_target)) return;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target))) return;
                     TileEntityPoweredTrigger te = __instance != null ? __instance.TileEntity : null;
                     if (te == null || !te.TargetZombies || !_target.IsAlive() || __instance.Cone == null) return;
                     if (UnityEngine.Vector3.Dot(_target.position - te.ToWorldPos().ToVector3(), __instance.Cone.forward) > 0f) return;

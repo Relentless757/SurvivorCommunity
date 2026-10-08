@@ -79,6 +79,12 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Entry> cache = new Dictionary<int, Entry>();
         private static readonly List<int> queue = new List<int>();
+        /// <summary>
+        /// Subjects that are not in the registry - the dialog snapshot's strangers (XUiC_ScSnapshot) - by id, so the pump
+        /// and the renders can find them. A registry record always wins. Their pictures stay in memory only (never
+        /// written to the save); Forget drops one, Reset all.
+        /// </summary>
+        private static readonly Dictionary<int, Member> transient = new Dictionary<int, Member>();
         private static Coroutine pump;
         private static float busySince;               // when the current job started (watchdog)
         private const float StallSeconds = 20f;
@@ -103,6 +109,7 @@ namespace SurvivorCommunity
             try
             {
                 DrainGraveyard(false);
+                Remember(m);
                 Entry e;
                 if (!cache.TryGetValue(m.Id, out e)) { e = new Entry(); cache[m.Id] = e; }
                 e.Want = KeyFor(m);
@@ -126,6 +133,7 @@ namespace SurvivorCommunity
         public static void Request(Member m, bool urgent = false)
         {
             if (m == null || GameManager.IsDedicatedServer || !Wanted) return;
+            Remember(m);
             Entry e;
             if (!cache.TryGetValue(m.Id, out e)) { e = new Entry(); cache[m.Id] = e; }
             e.Want = KeyFor(m);
@@ -151,6 +159,29 @@ namespace SurvivorCommunity
             if (dir == null || !Directory.Exists(dir)) return;
             try { foreach (string f in Directory.GetFiles(dir, memberId + "_*.png")) File.Delete(f); }
             catch (Exception ex) { ScLog.Once("portrait-invalidate", ex); }
+        }
+
+        /// <summary>The snapshot is done with this stranger: forget them and their picture.</summary>
+        public static void Forget(int id)
+        {
+            if (!transient.Remove(id) || ScRegistry.GetMember(id) != null) return;
+            Entry e;
+            if (cache.TryGetValue(id, out e)) { Retire(e.Tex); e.Tex = null; e.Have = null; cache.Remove(id); Version++; }
+        }
+
+        /// <summary>The record to shoot: the member's, else a stranger handed to Get/Request.</summary>
+        private static Member Resolve(int id)
+        {
+            Member m = ScRegistry.GetMember(id);
+            if (m != null) return m;
+            Member t;
+            return transient.TryGetValue(id, out t) ? t : null;
+        }
+
+        private static void Remember(Member m)
+        {
+            if (ScRegistry.GetMember(m.Id) == null) transient[m.Id] = m;   // the latest record: its look may have changed
+            else transient.Remove(m.Id);
         }
 
         /// <summary>Delete stored pictures whose member is gone or whose look has changed (window open / world load).</summary>
@@ -179,6 +210,7 @@ namespace SurvivorCommunity
             queue.Clear();
             foreach (Entry e in cache.Values) DestroyTex(e);
             cache.Clear();
+            transient.Clear();
             DrainGraveyard(true);
             if (stage != null) { stage.Destroy(); stage = null; }
             Version++;
@@ -269,6 +301,7 @@ namespace SurvivorCommunity
             SetTex(e, key, tex);
             string dir = Dir();
             if (dir == null) return;                        // client / no save yet: memory only
+            if (transient.ContainsKey(id)) return;          // a stranger: memory only, re-shot on the next talk
             byte[] png = tex.EncodeToPNG();                 // main thread; ImageConversion.EncodeArrayToPNG is the thread-safe alternative
             string path = Path.Combine(dir, key + ".png");
             // the member's previous picture is removed here, on the main thread: a background delete could race a
@@ -359,7 +392,7 @@ namespace SurvivorCommunity
                 Entry e;
                 if (!cache.TryGetValue(id, out e)) continue;
                 e.Queued = false;                                                // even for a member who left: they may rejoin under this id
-                Member m = ScRegistry.GetMember(id);
+                Member m = Resolve(id);
                 if (m == null) continue;
                 if (Time.unscaledTime < e.RetryAt) continue;                     // failed recently: Get() re-queues it later
                 string key = null;
@@ -494,7 +527,7 @@ namespace SurvivorCommunity
             SDCSUtils.TransformCatalog cat = null;
             try
             {
-                Member m = ScRegistry.GetMember(id);
+                Member m = Resolve(id);
                 if (m == null || m.Look == null) return false;
                 // the live body takes its sex from the entity (ScLooks.Sync); a record rolled before that fix could
                 // disagree, and the survivor classes - the community's 0-XNPCCore survivors (npcSdcsSurvivorFemaleT2 and
@@ -545,7 +578,7 @@ namespace SurvivorCommunity
             long buildMs = sw.ElapsedMilliseconds;
             try
             {
-                Member vm = ScRegistry.GetMember(id);
+                Member vm = Resolve(id);
                 if (vm != null) key = KeyFor(vm);            // Validate / the sex check may have rewritten the look
             }
             catch (Exception ex) { ScLog.Once("portrait-rekey", ex); }
@@ -648,7 +681,7 @@ namespace SurvivorCommunity
         {
             yield return new WaitForEndOfFrame();          // this frame's animation + LateUpdate are done
             if (gen != generation) yield break;
-            Member m = ScRegistry.GetMember(id);
+            Member m = Resolve(id);
             EntityAlive npc;
             if (m == null || !CanShootLive(m, out npc)) { Fail(e, 5f); yield break; }
             var made = new List<GameObject>();

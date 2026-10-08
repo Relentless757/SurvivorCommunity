@@ -109,6 +109,9 @@ namespace SurvivorCommunity
                 {
                     try
                     {
+                        // a hire ends a grudge, as joining does (ScTrust): suspended, it would come back on dismissal
+                        EntityAlive hired = ScCommunity.World != null ? ScCommunity.World.GetEntity(hiredId) as EntityAlive : null;
+                        if (hired != null) ScTrust.StripOnJoin(hired);
                         Member m = ScRegistry.GetMember(hiredId);
                         if (m != null && m.Status == MemberStatus.Resident)
                         {
@@ -219,6 +222,10 @@ namespace SurvivorCommunity
             Add(t, "CharacterGazeController::LateUpdate", AccessTools.DeclaredMethod(typeof(CharacterGazeController), "LateUpdate", new Type[0]));
             Add(t, "LegacyAvatarController::StartAnimationJump", AccessTools.DeclaredMethod(typeof(LegacyAvatarController), "StartAnimationJump", new[] { typeof(AnimJumpMode) }));
             Add(t, "EntityTargetingUtilities::CanTakeDamage", AccessTools.Method(typeof(EntityTargetingUtilities), "CanTakeDamage", new[] { typeof(EntityAlive), typeof(Entity) }));
+            // Patches_Trust.cs - survivor trust: the player's melee lands, a hit makes a survivor hostile for good
+            Add(t, "EntityTargetingUtilities::CanDamage", AccessTools.Method(typeof(EntityTargetingUtilities), "CanDamage", new[] { typeof(EntityAlive), typeof(Entity) }));
+            Add(t, "EntityUtilities::GetFactionRelationship", AccessTools.Method(typeof(EntityUtilities), "GetFactionRelationship", new[] { typeof(EntityAlive), typeof(EntityAlive) }));
+            Add(t, "EntityAliveSDXV4::ProcessDamageResponseLocal", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "ProcessDamageResponseLocal", new[] { typeof(DamageResponse) }));
             Add(t, "Entity::PhysicsSetHeight", AccessTools.Method(typeof(Entity), "PhysicsSetHeight", new[] { typeof(float) }));
             Add(t, "EModelBase::StartRagdoll", AccessTools.Method(typeof(EModelBase), "StartRagdoll", new[] { typeof(float) }));
             Add(t, "EModelBase::FrameUpdateRagdoll", AccessTools.Method(typeof(EModelBase), "FrameUpdateRagdoll", new Type[0]));

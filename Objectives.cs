@@ -41,6 +41,37 @@ public class ObjectiveScRescue : BaseObjective
     }
 }
 
+/// <summary>
+/// The supplies favour's objective: "Bring 15 food items to &lt;name&gt;". It never completes on its own - the hand-over
+/// in the survivor's dialog (DialogActionScTakeFavourItems) closes the quest.
+/// </summary>
+[Preserve]
+public class ObjectiveScBringSupplies : BaseObjective
+{
+    public override void SetupDisplay()
+    {
+        string name = null, what = null;
+        try
+        {
+            if (base.OwnerQuest != null && base.OwnerQuest.DataVariables != null)
+            {
+                base.OwnerQuest.DataVariables.TryGetValue(ObjectiveScTalkToSurvivor.NameVar, out name);
+                base.OwnerQuest.DataVariables.TryGetValue(SurvivorCommunity.ScQuests.SuppliesVar, out what);
+            }
+        }
+        catch (System.Exception) { }
+        base.Description = string.Format(Localization.Get("scObjectiveSupplies"), what ?? "", name ?? Localization.Get("scObjectiveReturnWho"));
+        StatusText = "";
+    }
+
+    public override BaseObjective Clone()
+    {
+        ObjectiveScBringSupplies o = new ObjectiveScBringSupplies();
+        CopyValues(o);
+        return o;
+    }
+}
+
 [Preserve]
 public class ObjectiveScTalkToSurvivor : ObjectiveInteractWithNPC
 {

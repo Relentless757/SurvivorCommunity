@@ -18,12 +18,26 @@ namespace SurvivorCommunity
     {
         public const string QuestId = "quest_scSecurePoi";
         public const string RescueQuestId = "quest_scRescue";
+        /// <summary>The supplies favour ("Sure, I'll see what I can find."): one objective, closed by the hand-over.</summary>
+        public const string SuppliesQuestId = "quest_scSupplies";
         public const string TitleVar = "ScTitle";
         public const string MemberVar = "ScMember";
+        public const string SuppliesVar = "ScSupplies";
 
         public static bool IsOurs(Quest q)
         {
-            return q != null && (string.Equals(q.ID, QuestId, StringComparison.OrdinalIgnoreCase) || string.Equals(q.ID, RescueQuestId, StringComparison.OrdinalIgnoreCase));
+            return q != null && (Is(q, QuestId) || Is(q, RescueQuestId) || Is(q, SuppliesQuestId));
+        }
+
+        private static bool Is(Quest q, string id)
+        {
+            return string.Equals(q.ID, id, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>A recruit favour's quest: the POI one or the supplies one.</summary>
+        public static bool IsFavourQuest(Quest q)
+        {
+            return q != null && (Is(q, QuestId) || Is(q, SuppliesQuestId));
         }
 
         /// <summary>
@@ -144,6 +158,52 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Starts the supplies favour's quest: "Supplies for &lt;name&gt;", one objective ("Bring 15 food items to
+        /// &lt;name&gt;") that never completes on its own - the hand-over (DialogActionScTakeFavourItems) closes it. Its
+        /// marker is the survivor (EnsureMapObject / TickMarkers).
+        /// </summary>
+        public static bool StartSupplies(EntityPlayerLocal player, Prospect p, out string error)
+        {
+            error = null;
+            try
+            {
+                if (player == null || p == null || p.Favour != FavourKind.Supplies) { error = "scInternal"; return false; }
+                if (QuestClass.s_Quests == null || !QuestClass.s_Quests.ContainsKey(SuppliesQuestId))
+                {
+                    error = "scQuestUnavailable";
+                    ScLog.Err("quest class " + SuppliesQuestId + " is not loaded - Config/quests.xml did not apply");
+                    return false;
+                }
+                if (FindFavour(player, p.Id) != null) { error = "scQuestAlready"; return false; }
+                Quest q = QuestClass.CreateQuest(SuppliesQuestId);
+                if (q == null) { error = "scQuestUnavailable"; return false; }
+                string name = SafeName(p.Name ?? "");
+                q.DataVariables[ObjectiveScTalkToSurvivor.NameVar] = name;
+                q.DataVariables[TitleVar] = string.Format(Localization.Get("scQuestSuppliesNameFmt"), name);
+                q.DataVariables[SuppliesVar] = SafeName(string.Format(Localization.Get("scQuestSuppliesWhat"), p.ItemCount,
+                    Localization.Get(ScNames.LocKey(p.ItemCategory))));
+                q.QuestGiverID = p.Id;
+                q.SetPositionData(Quest.PositionDataTypes.QuestGiver, GiverPosition(p));
+                QuestJournal j = Journal(player);
+                GameManager gm = GameManager.Instance;
+                if (j == null || gm == null || gm.persistentPlayers == null || gm.persistentPlayers.GetPlayerDataFromEntityID(player.entityId) == null)
+                {
+                    error = "scQuestFailed";
+                    return false;
+                }
+                j.AddQuest(q);
+                ScLog.Out("supplies quest started: " + p.ItemCount + " " + p.ItemCategory + " for " + p.Name);
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-startsupplies", e);
+                error = "scQuestFailed";
+                return false;
+            }
+        }
+
         /// <summary>Where the survivor is: the loaded entity, else the last position the ticker recorded.</summary>
         public static Vector3 GiverPosition(Prospect p)
         {
@@ -152,19 +212,24 @@ namespace SurvivorCommunity
             return new Vector3(p.NpcPos.x + 0.5f, p.NpcPos.y, p.NpcPos.z + 0.5f);
         }
 
+        /// <summary>The prospect a favour quest belongs to: its quest giver, else (an older POI quest) the POI.</summary>
         private static Prospect ProspectFor(Quest q)
         {
+            if (q == null) return null;
+            Prospect byGiver = ScRegistry.GetProspect(q.QuestGiverID);
+            if (byGiver != null) return byGiver;
             Vector3 pos;
-            if (q == null || !q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition)) return null;
+            if (!q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition)) return null;
             Vector3i key = World.worldToBlockPos(pos);
             foreach (var p in ScRegistry.Prospects.Values) if (p.Favour == FavourKind.Poi && p.PoiPos == key) return p;
             return null;
         }
 
         /// <summary>
-        /// Ticker: in phase 2 the quest marker leaves the building and follows the survivor (their entity while
-        /// loaded, the last recorded position otherwise), so they can be found again. The map object is the
-        /// one EnsureMapObject registered by position; moving it is a TrackedPosition write.
+        /// Ticker: the favour quest's marker follows the survivor (their entity while loaded, the last recorded
+        /// position otherwise) so they can be found again - the POI quest's from phase 2, when it leaves the
+        /// building; the supplies quest's always. The map object is the one EnsureMapObject registered by position;
+        /// moving it is a TrackedPosition write.
         /// </summary>
         public static void TickMarkers(EntityPlayerLocal player)
         {
@@ -176,9 +241,9 @@ namespace SurvivorCommunity
                 {
                     Quest q = j.quests[i];
                     if (q == null || q.CurrentState != Quest.QuestState.InProgress) continue;
-                    if (!string.Equals(q.ID, QuestId, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!IsFavourQuest(q)) continue;
                     if (q.NavObject == null) { EnsureMapObject(q); continue; }
-                    if (q.CurrentPhase < 2) continue;
+                    if (Is(q, QuestId) && q.CurrentPhase < 2) continue;
                     Prospect p = ProspectFor(q);
                     if (p == null) continue;
                     Vector3 target = GiverPosition(p) + new Vector3(0f, 0.25f, 0f);
@@ -283,8 +348,9 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The favour quest THIS survivor gave, still in progress (by quest giver, not by POI: two survivors can name
-        /// the same building, and only the first one's quest goes in the journal - Start refuses a second on that POI).
+        /// The favour quest THIS survivor gave (POI or supplies), still in progress - by quest giver, not by POI: two
+        /// survivors can name the same building, and only the first one's quest goes in the journal (Start refuses a
+        /// second on that POI).
         /// </summary>
         public static Quest FindFavour(EntityPlayer player, int prospectId)
         {
@@ -296,7 +362,7 @@ namespace SurvivorCommunity
                 {
                     Quest q = j.quests[i];
                     if (q == null || q.CurrentState != Quest.QuestState.InProgress || q.QuestGiverID != prospectId) continue;
-                    if (string.Equals(q.ID, QuestId, StringComparison.OrdinalIgnoreCase)) return q;
+                    if (IsFavourQuest(q)) return q;
                 }
             }
             catch (Exception e)
@@ -326,7 +392,7 @@ namespace SurvivorCommunity
                 if (hasPos && q.GetPositionData(out size, Quest.PositionDataTypes.POISize))
                     ours = new Rect(pos.x, pos.z, size.x, size.z);
                 EntityPlayerLocal lp = player as EntityPlayerLocal;
-                bool restoreCompass = lp != null && lp.ZombieCompassBounds == ours;
+                bool restoreCompass = hasPos && lp != null && lp.ZombieCompassBounds == ours;
                 if (hasPos) NoRearm(pos);
                 if (completed) q.CloseQuest(Quest.QuestState.Completed);
                 else j.RemoveQuest(q);
@@ -484,16 +550,27 @@ namespace SurvivorCommunity
                 if (q.OwnerJournal == null || !q.Active || q.NavObject != null) return;
                 if (GameManager.IsDedicatedServer) return;
                 if (NavObjectClass.GetNavObjectClass("quest") == null) return;
-                Vector3 pos, size;
-                if (!q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition)
-                    || !q.GetPositionData(out size, Quest.PositionDataTypes.POISize)) return;
                 World w = ScCommunity.World;
                 NavObjectManager nav = NavObjectManager.Instance;
                 EntityPlayer owner = (w != null) ? w.GetPrimaryPlayer() : null;
                 if (w == null || nav == null || owner == null) return;
 
-                float cx = pos.x + size.x / 2f, cz = pos.z + size.z / 2f;
-                Vector3 at = new Vector3(cx + 0.5f, (int)w.GetHeightAt(cx, cz) + 0.25f, cz + 0.5f);
+                Vector3 at;
+                if (Is(q, SuppliesQuestId))
+                {
+                    // no building: the survivor (TickMarkers keeps it on them; retried there until the registry is in)
+                    Prospect p = ProspectFor(q);
+                    if (p == null) return;
+                    at = GiverPosition(p) + new Vector3(0f, 0.25f, 0f);
+                }
+                else
+                {
+                    Vector3 pos, size;
+                    if (!q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition)
+                        || !q.GetPositionData(out size, Quest.PositionDataTypes.POISize)) return;
+                    float cx = pos.x + size.x / 2f, cz = pos.z + size.z / 2f;
+                    at = new Vector3(cx + 0.5f, (int)w.GetHeightAt(cx, cz) + 0.25f, cz + 0.5f);
+                }
                 NavObject obj = nav.RegisterNavObject("quest", at, "", false, -1, owner);
                 if (obj == null) return;
                 if (IsHeldByAnotherQuest(q, obj))

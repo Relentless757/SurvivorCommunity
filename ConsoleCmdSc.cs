@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -96,6 +96,7 @@ namespace SurvivorCommunity
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
+                    case "trust": TrustCmd(_params); break;
                     case "home": Home(); break;
                     case "dump": Dump(); break;
                     case "save": ScRegistry.SaveAtomic(); Output("[SC] saved"); break;
@@ -156,7 +157,7 @@ namespace SurvivorCommunity
             {
                 Output("[SC] prospect " + p.Id + " " + p.Name + " (" + p.Class + ") favour " + p.Favour
                        + (p.Favour == FavourKind.Poi ? " " + p.PoiName + " at " + p.PoiPos : " " + p.ItemCount + " " + p.ItemCategory)
-                       + (p.Started ? " asked" : " not asked yet") + (p.Done ? " DONE" : ""));
+                       + (p.Started ? " taken on" : " not taken on") + (p.Done ? " DONE" : ""));
             }
             if (ScRegistry.Members.Count == 0 && ScRegistry.Prospects.Count == 0) Output("[SC] no members or prospects");
         }
@@ -1352,6 +1353,24 @@ namespace SurvivorCommunity
         /// with a hire contract. sc xnpc &lt;id|name&gt;: one NPC in detail - the migration's main probe, since DevLink's
         /// cvar command only reads the player's cvars.
         /// </summary>
+        /// <summary>sc trust &lt;id|name&gt; [forgive]: where a survivor stands with you (ScTrust); forgive clears a grudge (testing).</summary>
+        private static void TrustCmd(List<string> p)
+        {
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            if (lp == null) { Output("[SC] no local player"); return; }
+            if (p.Count < 2) { Output("[SC] usage: sc trust <id|name> [forgive] - " + ScTrust.Report()); return; }
+            EntityAlive e = FindBodyNpc(p[1]);
+            if (e == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
+            if (!ScTrust.Subject(e)) { Output("[SC] " + e.EntityName + " (" + e.entityId + ") has no trust: a member, stand-in, hired companion, raider, trader or not a survivor"); return; }
+            if (p.Count >= 3 && p[2].Equals("forgive", StringComparison.OrdinalIgnoreCase))
+            {
+                Output("[SC] " + (ScTrust.Forgive(e, lp) ? e.EntityName + " forgives you (neutral again)" : e.EntityName + " held no grudge"));
+                return;
+            }
+            Output("[SC] " + e.EntityName + " (" + e.entityId + "): " + ScTrust.Level(e, lp) + ", hostile to anyone " + ScTrust.IsHostileToAny(e)
+                   + ", you can melee " + EntityTargetingUtilities.CanDamage(lp, e) + ", enemy of you " + EntityTargetingUtilities.IsEnemy(e, lp));
+        }
+
         private static void XnpcCmd(List<string> p)
         {
             if (p.Count >= 2)
@@ -1500,7 +1519,9 @@ namespace SurvivorCommunity
                 EntityPlayerLocal p = ScCommunity.LocalPlayer;
                 if (p != null)
                     sb.Append(" enemyOfYou=").Append(EntityTargetingUtilities.IsEnemy(e, p))
-                      .Append(" youCanHurt=").Append(EntityTargetingUtilities.CanTakeDamage(e, p));
+                      .Append(" youCanHurt=").Append(EntityTargetingUtilities.CanTakeDamage(e, p))
+                      .Append(" youCanMelee=").Append(EntityTargetingUtilities.CanDamage(p, e))
+                      .Append(" trust=").Append(ScTrust.Subject(e) ? ScTrust.Level(e, p).ToString() : "n/a");
                 sb.Append(" target=").Append(Who(e.GetAttackTarget())).Append(" revenge=").Append(Who(e.GetRevengeTarget()))
                   .Append(" hirable=").Append(ScNpc.IsHirable(e)).Append(" canOpenDoors=").Append(e.moveHelper != null && e.moveHelper.CanOpenDoors)
                   .Append(" lead=").Append(e.Buffs != null ? Loadout.LeadName((int)e.Buffs.GetCustomVar(ScLoadout.LeadCvar)) : "-")

@@ -252,7 +252,8 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The spoken "hire": refused for members and stand-ins (no fee, no SCore hire behind the community's back).</summary>
+        /// <summary>The spoken "hire": refused for members and stand-ins (no fee, no SCore hire behind the community's back),
+        /// and by a survivor hostile to the player (ScTrust: the talk prompt is refused, this would be a side door).</summary>
         [HarmonyPatch]
         public static class Patch_VoiceHire
         {
@@ -267,7 +268,14 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!IsCommunityNpc(__args[0] as EntityAlive)) return true;
+                    EntityAlive npc = __args[0] as EntityAlive;
+                    if (ScTrust.IsHostileTo(npc, __args[1] as EntityPlayer))
+                    {
+                        Count("hire-refused-hostile");
+                        __result = Localization.Get("scTrustNoHire");
+                        return false;
+                    }
+                    if (!IsCommunityNpc(npc)) return true;
                     Count("hire-refused");
                     __result = Localization.Get("scVoiceNoHire");
                     return false;

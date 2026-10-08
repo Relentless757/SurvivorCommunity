@@ -71,14 +71,19 @@ namespace SurvivorCommunity
             return p;
         }
 
-        /// <summary>The POI favour's building reads clear now; 'why' says what is left when it does not.</summary>
+        /// <summary>
+        /// The POI favour's building reads clear now: by vanilla's own quest test (ScSecurity.QuestWouldClear - the
+        /// favour quest would move on at once, so the line must agree with it), or by SC's stricter one (which also
+        /// covers a POI without sleeper volumes, where vanilla's quest never finishes). 'why' says what is left.
+        /// </summary>
         public static bool PoiReadsCleared(Prospect p, out string why)
         {
             why = null;
             World w = ScCommunity.World;
             PrefabInstance pi = p != null && p.Favour == FavourKind.Poi ? ScSecurity.PoiByKey(p.PoiPos) : null;
             if (w == null || pi == null) { why = "no POI"; return false; }
-            return ScSecurity.IsCleared(w, pi, out why);
+            bool strict = ScSecurity.IsCleared(w, pi, out why);
+            return strict || ScSecurity.QuestWouldClear(w, pi);
         }
 
         public static string Describe(Prospect p)
@@ -163,7 +168,10 @@ public class DialogRequirementScHasHome : BaseDialogRequirement
     }
 }
 
-/// <summary>The player has asked for the supplies favour (heard it) and carries what the NPC asked for.</summary>
+/// <summary>
+/// The player carries the supplies the NPC asked for, and has taken on the favour ("Sure, I'll see what I can find.");
+/// value="any": straight after hearing it, in the same talk, taken on or not.
+/// </summary>
 public class DialogRequirementScHasFavourItems : BaseDialogRequirement
 {
     public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
@@ -172,7 +180,8 @@ public class DialogRequirementScHasFavourItems : BaseDialogRequirement
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
-            if (p == null || p.Favour != FavourKind.Supplies || !p.Started) return false;
+            if (p == null || p.Favour != FavourKind.Supplies) return false;
+            if (!p.Started && !(Value ?? "").Trim().Equals("any", StringComparison.OrdinalIgnoreCase)) return false;
             return ScCategories.CountInPlayer(player, p.ItemCategory) >= p.ItemCount;
         }
         catch (Exception e) { ScLog.Once("req-hasitems", e); return false; }
@@ -180,9 +189,31 @@ public class DialogRequirementScHasFavourItems : BaseDialogRequirement
 }
 
 /// <summary>
-/// The POI favour's building already reads clear (ScSecurity.IsCleared: the saved sleeper volumes, which the world
-/// keeps for every POI, loaded or not, plus the enemies inside while it is loaded), or its quest is past the clearing.
-/// Offers "Actually, I've already cleared that." right after the player takes the favour.
+/// This survivor's favour quest is in the player's journal, in progress; value="not" inverts. Gates "Sure, I'll see
+/// what I can find." on the journal, not on Prospect.Started: a quest removed by hand, a failed start, or a prospect
+/// marked started=1 by the previous build (where it meant "heard") can still take it on.
+/// </summary>
+public class DialogRequirementScFavourQuestOpen : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            EntityAlive npc = ScFavours.CurrentNpc(player);
+            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            if (p == null) return false;
+            bool open = ScQuests.FindFavour(player, p.Id) != null;
+            return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !open : open;
+        }
+        catch (Exception e) { ScLog.Once("req-favourquestopen", e); return false; }
+    }
+}
+
+/// <summary>
+/// The POI favour's building already reads clear (ScFavours.PoiReadsCleared, from the saved sleeper volumes, which the
+/// world keeps for every POI, loaded or not), or its quest is past the clearing. Chooses the "Mark it" that leads to
+/// the survivor's answer and "Actually, I've already cleared that."; value="not" picks the "Mark it" that just ends
+/// the talk. Neither shows once the favour is done.
 /// </summary>
 public class DialogRequirementScFavourPoiCleared : BaseDialogRequirement
 {
@@ -194,18 +225,21 @@ public class DialogRequirementScFavourPoiCleared : BaseDialogRequirement
             Prospect p = npc != null && ScCommunity.IsHost ? ScRegistry.GetProspect(npc.entityId) : null;
             if (p == null || p.Favour != FavourKind.Poi || p.Done) return false;
             string why;
-            return ScFavours.PoiReadsCleared(p, out why) || ScQuests.FavourQuestDone(player, p.Id);
+            bool cleared = ScFavours.PoiReadsCleared(p, out why) || ScQuests.FavourQuestDone(player, p.Id);
+            return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !cleared : cleared;
         }
-        catch (Exception e) { ScLog.Once("req-poicleared", e); return false; }
+        catch (Exception e)
+        {
+            ScLog.Once("req-poicleared", e);
+            // unknown counts as not clear, so the plain "Mark it" still shows
+            return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase);
+        }
     }
 }
 
 // ---------------------------------------------------------------- actions ----
 
-/// <summary>
-/// Tooltip describing the favour ("Secure X for me" / "Bring me N food items"). Hearing it is what starts the
-/// favour: the supplies hand-over is offered only from then on.
-/// </summary>
+/// <summary>Tooltip describing the favour ("Secure X for me" / "Bring me N food items").</summary>
 public class DialogActionScFavourBrief : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -215,14 +249,20 @@ public class DialogActionScFavourBrief : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScFavours.Ensure(npc, player) : null;
             if (p == null) return;
-            if (!p.Started)
-            {
-                p.Started = true;
-                ScRegistry.SaveAtomic();
-            }
             ScCommunity.Tell(player, ScFavours.Describe(p) + (p.Done ? " " + Localization.Get("scFavourAlreadyDone") : ""), "");
         }
         catch (Exception e) { ScLog.Once("act-brief", e); }
+    }
+}
+
+/// <summary>Marks the favour taken on (Prospect.Started) and saves, once.</summary>
+internal static class ScFavourStart
+{
+    public static void Mark(Prospect p)
+    {
+        if (p == null || p.Started) return;
+        p.Started = true;
+        ScRegistry.SaveAtomic();
     }
 }
 
@@ -238,10 +278,31 @@ public class DialogActionScStartPoiQuest : BaseDialogAction
             if (lp == null || p == null) return;
             string error;
             // asked again with the quest already in the journal: it is marked, nothing to say
-            if (!ScQuests.Start(lp, p, out error) && error != "scQuestAlready")
-                ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            if (ScQuests.Start(lp, p, out error) || error == "scQuestAlready") ScFavourStart.Mark(p);
+            else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+            string why;
+            ScLog.Out(p.PoiName + " for " + p.Name + (ScFavours.PoiReadsCleared(p, out why) ? " already reads clear" : " is not clear yet: " + why));
         }
         catch (Exception e) { ScLog.Once("act-startquest", e); }
+    }
+}
+
+/// <summary>"Sure, I'll see what I can find.": takes on the supplies favour and puts its quest in the journal.</summary>
+public class DialogActionScStartSuppliesQuest : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try
+        {
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            EntityAlive npc = ScFavours.CurrentNpc(player);
+            Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
+            if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
+            string error;
+            if (ScQuests.StartSupplies(lp, p, out error) || error == "scQuestAlready") ScFavourStart.Mark(p);
+            else ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+        }
+        catch (Exception e) { ScLog.Once("act-startsupplies", e); }
     }
 }
 
@@ -288,7 +349,9 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
             EntityPlayerLocal lp = player as EntityPlayerLocal;
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
-            if (lp == null || p == null || p.Favour != FavourKind.Supplies || !p.Started || p.Done) return;
+            if (lp == null || p == null || p.Favour != FavourKind.Supplies || p.Done) return;
+            // value="any": handed over in the talk that named them, before taking the favour on (ScHasFavourItems "any")
+            if (!p.Started && !(Value ?? "").Trim().Equals("any", StringComparison.OrdinalIgnoreCase)) return;
             // never take the goods when the join that follows would be refused
             if (!ScZone.EnsureHome(player)) { ScCommunity.Tell(player, Localization.Get("scNeedHome"), "ui_denied"); return; }
             if (ScRegistry.Members.Count >= ScConfig.MaxMembers) { ScCommunity.Tell(player, Localization.Get("scRosterFull"), "ui_denied"); return; }
@@ -304,6 +367,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
                 npc.Buffs.SetCustomVar("sc_favourDone", 1f);
                 ScLeadership.Count(ScLeadership.FavourEvent);
                 ScRegistry.SaveAtomic();
+                ScQuests.CloseFavour(player, p.Id, true);
                 ScLog.Out(p.Name + " received " + taken + " " + p.ItemCategory + " item(s)");
             }
             else

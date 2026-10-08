@@ -330,7 +330,7 @@ scUiTitle,UI,Menu,,,,"Community"
 scUiOpenStorage,UI,Menu,,,,"Open storage"
 scUiMembers,UI,Menu,,,,"Members"
 scUiHealth,UI,Menu,,,,"Health"
-scUiMood,UI,Menu,,,,"Personal morale"
+scUiMood,UI,Menu,,,,"Mood"
 scUiSkills,UI,Menu,,,,"Skills"
 scUiTraits,UI,Menu,,,,"Traits"
 scUiOrders,UI,Menu,,,,"Orders"
@@ -712,3 +712,16 @@ scPoiClearedReply_text,Dialog,Statement,,,,You already did? Huh. I did wonder wh
 scPoiClearedJoin,Dialog,Response,,,,Then come join my community.
 scPoiLater,Dialog,Response,,,,Not yet. I'll come back for you.
 scFavourPoiNotClear,UI,Tooltip,,,,{0} isn't clear yet: {1}.
+scAcceptSupplies,Dialog,Response,,,,"Sure, I'll see what I can find."
+scQuestSuppliesName,UI,Quest,,,,Supplies for a survivor
+scQuestSuppliesNameFmt,UI,Quest,,,,Supplies for {0}
+scQuestSuppliesDesc,UI,Quest,,,,Gather what the survivor asked for and bring it to them - they wait where you left them and will join your community once they have it.
+scQuestSuppliesOffer,UI,Quest,,,,Bring them what they need and they will join you.
+scQuestSuppliesCompletion,UI,Quest,,,,The survivor has the supplies and will join your community.
+scQuestSuppliesWhat,UI,Quest,,,,{0} {1} items
+scObjectiveSupplies,UI,Quest,,,,Bring {0} to {1}
+scSuppliesDone,Dialog,Response,,,,You've got what you needed. Come join my community.
+scTrustHostile,UI,Tooltip,,,,{0} won't forget that - they're hostile to you now.
+scTrustRefuses,UI,Tooltip,,,,They want nothing to do with you.
+scTrustNoHire,Dialog,Statement,,,,"*glares* Not for all the dukes in the world."
+scSnapUnknownTrait,UI,Menu,,,,????

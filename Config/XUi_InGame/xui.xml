@@ -15,4 +15,9 @@
 	<append xpath="/xui/window_group[@name='toolbelt']">
 		<window name="windowScHomeStatus"/>
 	</append>
+	<!-- The survivor snapshot rides the NPC dialog's own group, so it opens and closes with every conversation; its
+	     controller shows it only for a survivor (XUiC_ScSnapshot). -->
+	<append xpath="/xui/window_group[@name='dialog']">
+		<window name="windowScSnapshot"/>
+	</append>
 </configs>
