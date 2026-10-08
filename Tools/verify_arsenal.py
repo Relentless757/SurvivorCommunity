@@ -258,6 +258,118 @@ for cap in (0, 1, 2):
     if empty: errors.append("XnpcWeapons: no %s weapon at tier cap %d - the roll would drift off SurvivorFirearmChance" % ("/".join(empty), cap))
     print("  tier cap %d: melee %d, bow %d, firearm %d -> a survivor's ranged weapon is a firearm %s%%" % (
         cap, len(pools["melee"]), len(pools["bow"]), len(pools["firearm"]), "?" if fc is None or empty else "%.1f" % (100 * fc)))
+
+# IZY Classic's guns (2026-10-08): a top-level conditional at the end of blocks.xml appends rows with bands= and
+# group= and re-tiers every vanilla firearm row with a <set>. Every row must parse, its tier must be its first band, its
+# group must be the tier in its name, no alias may repeat, and the bands must follow the user's rule by that tier: T1
+# NPCs (band 0) T0/T1 with T1 rarer, T2 NPCs T1/T2 with T2 rarer, T3 NPCs T2/T3/T4 with T4 rarer - as group weights,
+# which the guns of a group split. With IZY installed each new gun must exist there, carry the ranged tag
+# (0-XNPCCore's weapon class) and an Action0 Magazine_items (its reload).
+print("IZY Classic weapons (blocks.xml, conditional)")
+RULE = {0: (0, 1), 1: (1, 2), 2: (2, 3, 4)}           # band -> the name tiers it may carry
+IGPD = G + r"\Mods\IGP_Classic\Config\IZY26513"
+izy = {}
+if os.path.isdir(IGPD):
+    for sub in sorted(os.listdir(IGPD)):
+        pth = os.path.join(IGPD, sub, "items.xml")
+        if not os.path.isfile(pth): continue
+        for it in ET.parse(pth).getroot().iter("item"):
+            izy[it.get("name")] = it
+def izy_prop(item, name, klass=None):
+    hops = 0
+    while item is not None and hops < 6:
+        base = item if klass is None else (item.xpath("property[@class=$c]", c=klass) or [None])[0]
+        if base is not None:
+            pp = base.xpath("property[@name=$n]", n=name)
+            if pp: return pp[0].get("value")
+        ext = item.xpath("property[@name='Extends']")
+        nm = ext[0].get("value") if ext else None
+        item = izy.get(nm) if nm in izy else (vitem(nm) if nm else None)
+        hops += 1
+    return None
+def name_tier(item):
+    m = re.search(r"[A-Za-z]T(minus1|\d)", item)
+    return None if not m else (0 if m.group(1) == "minus1" else int(m.group(1)))
+def parse_row(label, item, value):
+    v = (value or "").split(",")
+    b = [x for x in v[3:] if x.strip().startswith("bands=")]
+    g = [x.strip()[6:] for x in v[3:] if x.strip().startswith("group=")]
+    if len(v) < 5 or v[0] not in ("bow", "firearm") or not v[1].strip().isdigit() or len(b) != 1 or len(g) != 1:
+        errors.append("%s %s: value %r, want family,tier,alias,bands=a/b/c,group=Tn" % (label, item, value)); return None
+    if g[0] != "T%s" % name_tier(item): errors.append("%s %s: group %s is not the tier in its name" % (label, item, g[0]))
+    try: w = [float(x) for x in b[0].strip()[6:].split("/")]
+    except ValueError: w = []
+    if len(w) != 3 or any(x < 0 for x in w) or not any(x > 0 for x in w):
+        errors.append("%s %s: bands %r, want three weights of 0 or more, one above 0" % (label, item, b[0])); return None
+    if int(v[1]) != next(i for i, x in enumerate(w) if x > 0):
+        errors.append("%s %s: tier %s is not its first band (%s)" % (label, item, v[1], b[0]))
+    return (item, v[0], int(v[1]), v[2].strip(), w)
+btxt = io.open(os.path.join(SC, "blocks.xml"), encoding="utf-8").read()
+mb = re.search(r"<!-- BEGIN GENERATED: XnpcWeapons IZY Classic.*?<!-- END GENERATED: XnpcWeapons IZY Classic -->", btxt, re.S)
+if not mb: errors.append("blocks.xml: no IZY Classic weapon block")
+else:
+    if btxt.find("</configs>") < mb.end(): errors.append("blocks.xml: the IZY block is not before </configs>")
+    cond = (blocks.xpath("/configs/conditional[if[contains(@cond, \"mod_loaded('IGP_Classic')\")]]") or [None])[0]
+    ifs = cond.xpath("if")[0] if cond is not None else None
+    if ifs is None or "mod_loaded('Combat_Sandbox_FLTR')" not in ifs.get("cond", ""):
+        errors.append("blocks.xml: the IZY block is not a top-level conditional on IGP_Classic and Combat_Sandbox_FLTR")
+    else:
+        aps = ifs.xpath("append[@xpath=\"/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']\"]")
+        if len(aps) != 1: errors.append("blocks.xml: the IZY block needs one append into XnpcWeapons, found %d" % len(aps))
+        rows = []
+        for pp in (aps[0].xpath("property") if aps else []):
+            r = parse_row("IZY row", pp.get("name"), pp.get("value"))
+            if r: rows.append(r)
+        base_alias = {p.get("value", "").split(",")[2].strip().lower() for p in xw if len(p.get("value", "").split(",")) > 2}
+        seen = Counter(r[3].lower() for r in rows)
+        for a_, c in seen.items():
+            if c > 1 or a_ in base_alias: errors.append("IZY rows: alias %s is not unique" % a_)
+        sets = ifs.xpath("set")
+        rep = []
+        for s in sets:
+            m = re.fullmatch(r"/blocks/block\[@name='ConfigSurvivorCommunity'\]/property\[@class='XnpcWeapons'\]/property\[@name='(\w+)'\]/@value", s.get("xpath", ""))
+            if not m: errors.append("IZY vanilla gun set: unexpected xpath %s" % s.get("xpath")); continue
+            if m.group(1) not in [x[0] for x in cat]: errors.append("IZY vanilla gun set: %s is no XnpcWeapons row" % m.group(1)); continue
+            old = [p.get("value").split(",") for p in xw if p.get("name") == m.group(1)][0]
+            r = parse_row("IZY vanilla gun", m.group(1), s.text)
+            if r and (r[1] != old[0] or r[3] != old[2].strip()): errors.append("IZY vanilla gun %s: family/alias changed from its row" % r[0])
+            if r: rep.append(r)
+        if set(x[0] for x in rep) != set(x[0] for x in cat if x[1] == "firearm"):
+            errors.append("IZY vanilla gun sets %s are not every firearm row" % sorted(set(x[0] for x in rep) ^ set(x[0] for x in cat if x[1] == "firearm")))
+        for r in rows + rep:
+            nt = name_tier(r[0])
+            if nt is None: errors.append("IZY %s: no tier in its name" % r[0]); continue
+            for band, w in enumerate(r[4]):
+                if w > 0 and nt not in RULE[band]: errors.append("IZY %s (T%d) weighs %g at band %d, which carries T%s only" % (r[0], nt, w, band, "/".join(map(str, RULE[band]))))
+                if w == 0 and nt in RULE[band]: errors.append("IZY %s (T%d) weighs 0 at band %d, which should carry it" % (r[0], nt, band))
+            if izy and r in rows:                      # the vanilla rows were checked above
+                it = izy.get(r[0])
+                if it is None: errors.append("IZY %s: not in IGP_Classic" % r[0]); continue
+                tg = set(x.strip() for x in (izy_prop(it, "Tags") or "").split(","))
+                if "ranged" not in tg and r[0] != "gunRifleT1HuntingRifle":
+                    errors.append("IZY %s: no ranged tag - 0-XNPCCore would fight with it as melee" % r[0])
+                if not izy_prop(it, "Magazine_items", "Action0"): errors.append("IZY %s: no Action0 Magazine_items" % r[0])
+        # the rule's "rarer" halves, as weights per band and name tier
+        for band in (0, 1, 2):
+            per = {}
+            for r in rows + rep:
+                if r[4][band] > 0: per.setdefault(name_tier(r[0]), set()).add(r[4][band])
+            if any(len(v) > 1 for v in per.values()): errors.append("IZY band %d: one name tier with several weights %s" % (band, per))
+            w = {k: min(v) for k, v in per.items()}
+            lo, hi = RULE[band][0], RULE[band][-1]
+            if band < 2 and not (w.get(hi, 0) < w.get(lo, 0)): errors.append("IZY band %d: T%d should be rarer than T%d (%s)" % (band, hi, lo, w))
+            if band == 2 and not (w.get(4, 0) < min(w.get(2, 0), w.get(3, 0))): errors.append("IZY band 2: T4 should be rarer than T2/T3 (%s)" % w)
+            # a firearm's odds at this band: its group's weight over all the firearm groups', split among the group's guns
+            fw = {k: w[k] for k in w if any(r[1] == "firearm" and name_tier(r[0]) == k for r in rows + rep)}
+            tot = sum(fw.values())
+            print("  band %d (T%d NPCs) firearms: %s" % (band, band + 1, ", ".join("T%d %.0f%% over %d guns" % (
+                k, 100 * fw[k] / tot, sum(1 for r in rows + rep if r[1] == "firearm" and name_tier(r[0]) == k and r[4][band] > 0)) for k in sorted(fw))))
+        print("  %d new rows, %d vanilla guns re-tiered%s" % (len(rows), len(rep), "" if izy else " (IGP_Classic not installed: not checked against it)"))
+        # the Hunting Rifle's tags come back from items.xml (same condition, under Disable_VRP)
+        itx = io.open(os.path.join(SC, "items.xml"), encoding="utf-8").read()
+        if "gunRifleT1HuntingRifle']/property[@name='Tags']/@value\" delim=\",\" op=\"add\">T1,weapon,ranged</csv>" not in itx:
+            errors.append("items.xml: the IZY Hunting Rifle tag fix is missing")
+
 xsc = (cfg.xpath("property[@name='XnpcSurvivorClasses']/@value") if cfg is not None else []) or [""]
 if [x.strip() for x in xsc[0].split(",") if x.strip()] != list(xnpc_survivors):
     errors.append("blocks.xml XnpcSurvivorClasses %s is not gen_arsenal.py's XNPC_SURVIVORS" % xsc[0])

@@ -25,6 +25,49 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Mod guns and outfits (IZY Classic, LittleRedSonja's armor)
+
+**Deployed 2026-10-08** (Fable review + re-check: deployable; DLL md5 `5cec517ceb3d310fce1ed2fe176b241b`, Config with it). Your picks (2026-10-08): IZY Classic's guns for survivors and raiders by the tier in their name
+(no IZY melee weapons), Locked & Loaded magazines for them, the Hunting Rifle's tags fixed, clothes by tier with 20
+whole LittleRedSonja outfits at 35%. No save format change; survivors you've already met keep their weapons and clothes.
+
+What it does:
+- **"NPC tier" = the tier its weapons use:** its class (T1/T2/T3) capped by your gamestage (T1 below 50, T2 below 100).
+  So at gamestage 30 every NPC rolls as a T1, whatever its class.
+- **Guns** (12% of ranged weapons, as before): T1 NPCs get T0 guns 61% and T1 guns 39%; T2 NPCs T1 61%, T2 39%; T3
+  NPCs T2 42%, T3 42%, T4 17%. This covers IZY's 51 new guns and vanilla's guns too (the pipe guns are T0, IZY's AK-47
+  replacement is T1 and so on, by the name Combat Sandbox gives them). The VH Automatic Crossbow is a T4 bow (about 7%
+  of a T3 NPC's bows).
+- **Magazines:** guns with detachable magazines start with 2-4 Locked & Loaded magazines; revolvers, bolt-actions,
+  tube shotguns, the musket and the crossbow start with loose rounds.
+- **Clothes:** 35% wear a whole mod outfit (when one fits), the rest vanilla sets weighted light early, heavy late.
+  Armor quality 1-2 (T1), 2-4 (T2), 3-5 (T3).
+
+Steps:
+- [ ] **Startup:** the `config:` line has `xnpcWeapons=93` and `outfits=20 (share 0.35/0.35) gearQuality=1-2,2-4,3-5`;
+  no `XnpcWeapons: no item ...` or `config Outfits` warnings. `sc weapons` lists the IZY guns with their short names.
+- [ ] **Gun odds:** `sc loadout sim 5000 T1 any`, then `T2 any`, `T3 any`. Its "firearms by name tier T0..T5" should be
+  about 61/39 split between T0 and T1 (T1), T1 and T2 (T2), and 42/42/17 over T2/T3/T4 (T3), with nothing else. Same with
+  `hostile` for raiders.
+- [ ] **An IZY gun with magazines:** `sc spawn T3 HK416`: it aims, fires and reloads it, and its inventory window holds
+  Locked & Loaded HK416 magazines. A raider too: `sc spawn hostile T3 M249` (watch the aim and reload on the body).
+- [ ] **Loose rounds:** `sc spawn T3 Mosin` (or `Enfield`): it starts with loose rounds and reloads them.
+- [ ] **Hunting Rifle:** `sc spawn T1 HRifle`: it keeps its distance and shoots instead of walking up to club you. Your
+  own Hunting Rifle still works (it now counts as ranged for perks and mods, like vanilla's).
+- [ ] **Crossbow:** `sc spawn T3 VHCrossbow`: it shoots bolts.
+- [ ] **Outfit odds:** `sc gear sim 3000 T1 any`, `T2 any`, `T3 any` (and with `hostile`, and `male`/`female`): about 35%
+  mod outfits, only outfits for that side and sex (no TactiGirls on `male`, no Motorgang on `female`), heavier vanilla
+  sets at T3, quality 1-2 / 2-4 / 3-5.
+- [ ] **Outfits look right:** on a woman `sc gear <id> HitGirl`, `BoomGirlGreen`, `TactiCool`, `Hitman`, `GeekWhite`; on a
+  man `sc gear <id> Motorgang`, `Tank`, `Rick`, `Michonne` (keeps their own hair), `Coyote` (a bearded man: does the
+  beard poke through the bandana?). `sc gear <id> HitGirl` on a man is refused. Hitman, TactiCool and the Geek are
+  built on a male body: if one looks wrong on a woman, tell me and I'll make it men-only.
+- [ ] **Spawned at random:** `sc spawn` and `sc spawn hostile` a dozen times each: a mix of outfits and vanilla sets,
+  no one bare-chested, no clipping between an outfit and vanilla pieces.
+- [ ] **Kept:** a member in a mod outfit keeps it after save and reload.
+- [ ] **Old survivors:** someone you met before this build keeps their weapons and clothes. (A raider carrying
+  vanilla's AK-47, Pistol, Hunting Rifle or Double Barrel now counts it as T1: worth +100% kill XP, not +133%.)
+
 ## Survivor paints and tattoos (Vanity Vault)
 
 **Deployed 2026-10-07** (Fable review + re-check: deployable; DLL md5 `b651c719c18c229a8d860ed4268ef83d`, Config with it). Your ticks in `SurvivorPaints_Choices.md` (game root): paints for anyone (not

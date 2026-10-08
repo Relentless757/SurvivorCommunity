@@ -197,8 +197,8 @@
 			     RaiderGearSets).
 			     SurvivorLookChance: NO LONGER USED - every radio contact is one of them now, since pack NPCs no
 			     longer spawn while this mod is installed. Their clothes come
-			     from vanilla armor sets (armor<Set>Helmet/Outfit/Gloves/Boots): each piece with GearPieceChance,
-			     swapped for another set's piece with GearMixChance, quality Min..Max. -->
+			     from vanilla armor sets (armor<Set>Helmet/Outfit/Gloves/Boots) or a mod outfit (Outfits below): each
+			     piece with GearPieceChance, swapped for another set's piece with GearMixChance, quality by tier. -->
 			<property name="SurvivorLookChance" value="0.5" />
 			<property name="SurvivorGearSets" value="Primitive,Athletic,Enforcer,Lumberjack,Preacher,Rogue,Assassin,Biker,Commando,Farmer,Ranger,Scavenger,Miner,Nerd,Nomad,Raider" />
 			<property name="SurvivorGearPieceChance" value="0.8" />
@@ -206,6 +206,48 @@
 			<property name="SurvivorGearMixChance" value="0.3" />
 			<property name="SurvivorGearQualityMin" value="1" />
 			<property name="SurvivorGearQualityMax" value="4" />
+			<!-- Clothes by tier (the user's picks, 2026-10-08). An NPC's effective tier is the one its weapons use: its
+			     class (T1 = 0, T2 = 1, T3 = 2) capped by the gamestage (0 below 50, 1 below 100, else 2).
+			     GearSetTiers: each vanilla set's weight class (0 light and Primitive, 1 medium, 2 heavy; an unlisted set
+			     weighs 1). GearTierWeights: per tier, the light/medium/heavy weights (lighter likelier early, heavier
+			     later, nothing ruled out). GearQualityByTier: the armor quality range per tier (SurvivorGearQualityMin/Max
+			     are only for sc gear). -->
+			<property name="GearSetTiers" value="Primitive:0,Athletic:0,Enforcer:0,Lumberjack:0,Preacher:0,Rogue:0,Assassin:1,Biker:1,Commando:1,Farmer:1,Ranger:1,Scavenger:1,Miner:2,Nerd:2,Nomad:2,Raider:2" />
+			<property name="GearTierWeights" value="1/0.5/0.25,0.6/1/0.6,0.35/0.7/1" />
+			<property name="GearQualityByTier" value="1-2,2-4,3-5" />
+			<!-- Mod outfits (LittleRedSonja's armor packs; any other pack can be added the same way): with
+			     SurvivorOutfitShare (RaiderOutfitShare for raiders) an NPC wears one of these instead of vanilla armor,
+			     when one fits. Only outfits whose chest item exists are used, so a pack that is not installed is no
+			     error. value = the four pieces, sex (any / male / female: a mesh built for one sex only), side
+			     (survivor / raider / both), tier (the lowest effective tier it turns up at), weight (among those that
+			     fit), mix (pieces swap with SurvivorGearMixChance only within the same group; none = never, and never
+			     with vanilla pieces, which clip). Helmet, gloves and boots each with SurvivorGearPieceChance; quality
+			     from GearQualityByTier. Set bonuses are player-only. sc gear <id> <outfit> puts one on (TG_HitGirl or
+			     HitGirl); sc gear sim checks the odds. -->
+			<property name="SurvivorOutfitShare" value="0.35" />
+			<property name="RaiderOutfitShare" value="0.35" />
+			<property class="Outfits">
+				<property name="VRV_Hitman" value="head=armorTheHitmanHelmet,chest=armorTheHitmanOutfit,hands=armorTheHitmanGloves,feet=armorTheHitmanBoots,sex=any,side=raider,tier=1,weight=1,mix=VanillaReVamp" />
+				<property name="VRV_Motorgang" value="head=armorTheMotorgangHelmet,chest=armorTheMotorgangOutfit,hands=armorTheMotorgangGloves,feet=armorTheMotorgangBoots,sex=male,side=raider,tier=1,weight=1,mix=VanillaReVamp" />
+				<property name="VRV_TactiCool" value="head=armorTheTactiCoolHelmet,chest=armorTheTactiCoolOutfit,hands=armorTheTactiCoolGloves,feet=armorTheTactiCoolBoots,sex=any,side=both,tier=1,weight=1,mix=VanillaReVamp" />
+				<property name="VRV_GeekWhite" value="head=armorTheGeekHelmet_White,chest=armorTheGeekOutfit_White,hands=armorTheGeekGloves_White,feet=armorTheGeekBoots_White,sex=any,side=survivor,tier=2,weight=0.5,mix=VanillaReVamp" />
+				<property name="VRV_GeekYellow" value="head=armorTheGeekHelmet_Yellow,chest=armorTheGeekOutfit_Yellow,hands=armorTheGeekGloves_Yellow,feet=armorTheGeekBoots_Yellow,sex=any,side=survivor,tier=2,weight=0.5,mix=VanillaReVamp" />
+				<property name="ST_Jen" value="head=armorUnisexJenHelmet,chest=armorUnisexJenOutfit,hands=armorUnisexJenGloves,feet=armorUnisexJenBoots,sex=any,side=survivor,tier=0,weight=0.7,mix=SomeTraders" />
+				<property name="ST_Rekt" value="head=armorUnisexRektHelmet,chest=armorUnisexRektOutfit,hands=armorUnisexRektGloves,feet=armorUnisexRektBoots,sex=any,side=survivor,tier=1,weight=0.5,mix=SomeTraders" />
+				<property name="ST_Bob" value="head=armorUnisexBobHelmet,chest=armorUnisexBobOutfit,hands=armorUnisexBobGloves,feet=armorUnisexBobBoots,sex=any,side=both,tier=2,weight=0.5,mix=SomeTraders" />
+				<property name="GNS_CasualGuy" value="head=armorTemLightHelmet,chest=armorTemLightOutfit,hands=armorTemLightGloves,feet=armorTemLightBoots,sex=any,side=survivor,tier=0,weight=1,mix=GNSArmor" />
+				<property name="GNS_Undecided" value="head=armorTemMediumHelmet,chest=armorTemMediumOutfit,hands=armorTemMediumGloves,feet=armorTemMediumBoots,sex=any,side=both,tier=1,weight=1,mix=GNSArmor" />
+				<property name="GNS_Tank" value="head=armorTemHeavyHelmet,chest=armorTemHeavyOutfit,hands=armorTemHeavyGloves,feet=armorTemHeavyBoots,sex=any,side=both,tier=2,weight=1,mix=GNSArmor" />
+				<property name="TG_Coyote" value="head=armorFemaleCoyoteHelmet,chest=armorFemaleCoyoteOutfit,hands=armorFemaleCoyoteGloves,feet=armorFemaleCoyoteBoots,sex=any,side=raider,tier=0,weight=1,mix=TactiGirls" />
+				<property name="TG_LittleKitty" value="head=armorFemaleAnnikaHelmet,chest=armorFemaleAnnikaOutfit,hands=armorFemaleAnnikaGloves,feet=armorFemaleAnnikaBoots,sex=female,side=survivor,tier=0,weight=0.5,mix=none" />
+				<property name="TG_BoomGirlGreen" value="head=armorFemaleJennerHelmet_V1,chest=armorFemaleJennerOutfit_V1,hands=armorFemaleJennerGloves_V1,feet=armorFemaleJennerBoots_V1,sex=female,side=both,tier=1,weight=0.5,mix=TactiGirls_F" />
+				<property name="TG_BoomGirlOrange" value="head=armorFemaleJennerHelmet_V2,chest=armorFemaleJennerOutfit_V2,hands=armorFemaleJennerGloves_V2,feet=armorFemaleJennerBoots_V2,sex=female,side=both,tier=1,weight=0.5,mix=TactiGirls_F" />
+				<property name="TG_HitGirl" value="head=armorFemaleAngieHelmet,chest=armorFemaleAngieOutfit,hands=armorFemaleAngieGloves,feet=armorFemaleAngieBoots,sex=female,side=both,tier=1,weight=1,mix=TactiGirls_F" />
+				<property name="TWD_Daryl" value="head=armorUnisexDarylTWDHelmet,chest=armorUnisexDarylTWDOutfit,hands=armorUnisexDarylTWDGloves,feet=armorUnisexDarylTWDBoots,sex=any,side=survivor,tier=0,weight=1,mix=TWD" />
+				<property name="TWD_Michonne" value="head=armorUnisexMichonneTWDHelmet_Headband,chest=armorUnisexMichonneTWDOutfit,hands=armorUnisexMichonneTWDGloves,feet=armorUnisexMichonneTWDBoots,sex=any,side=survivor,tier=0,weight=1,mix=TWD" />
+				<property name="TWD_Rick" value="head=armorUnisexRickTWDHelmet,chest=armorUnisexRickTWDOutfit,hands=armorUnisexRickTWDGloves,feet=armorUnisexRickTWDBoots,sex=any,side=survivor,tier=1,weight=1,mix=TWD" />
+				<property name="TWD_Negan" value="head=armorUnisexNeganTWDHelmet,chest=armorUnisexNeganTWDOutfit,hands=armorUnisexNeganTWDGloves,feet=armorUnisexNeganTWDBoots,sex=any,side=raider,tier=1,weight=1,mix=TWD" />
+			</property>
 			<!-- Survivors in your community are safe from your own shots; everyone else is not. True lets you
 			     hurt your own people too. -->
 			<property name="CommunityFriendlyFire" value="false" />
@@ -993,4 +1035,87 @@
 			<property name="SortOrder2" value="0001" />
 		</block>
 	</append>
+	<!-- BEGIN GENERATED: XnpcWeapons IZY Classic (Tools/gen_arsenal.py) -->
+	<!-- IZY Classic's guns for any survivor or raider, only while IZY Classic (with Combat Sandbox) is installed,
+	     and every gun then follows the tier in its name: T1 NPCs carry T0/T1 guns (T1 a little rarer), T2 NPCs T1/T2
+	     (T2 rarer), T3 NPCs T2/T3/T4 (T4 rarer). bands = the weight of the gun's group (group=, its name tier) at an
+	     NPC's effective tier 0/1/2 (T1, T2, T3 NPCs, capped by the gamestage); the group's guns split it. Locked &
+	     Loaded arms them with its IZY Classic magazines. Written by Tools/gen_arsenal.py (IZY_WEAPONS): edit it there. -->
+	<conditional>
+		<if cond="mod_loaded('IGP_Classic') and mod_loaded('Combat_Sandbox_FLTR')">
+			<append xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']">
+				<property name="IZYgunTminus1MusketM1777Rifle" value="firearm,0,Musket,bands=1/0/0,group=T0" />
+				<property name="IZYgunT0PistolLiberatorImprovisedPistol" value="firearm,0,Liberator,bands=1/0/0,group=T0" />
+				<property name="IZYgunT0SMGPIPEsubmachinegun" value="firearm,0,PipeSMG,bands=1/0/0,group=T0" />
+				<property name="IZYgunT145TACSMGMAC10" value="firearm,0,MAC10,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1ARCabineM608SurvivalRifle" value="firearm,0,M608,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1BattleRifleBARbrowningautomaticrifle" value="firearm,0,BAR,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1Pistol45M1917" value="firearm,0,M1917,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1Pistol45Type17C96" value="firearm,0,Type17,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1Pistol9Makarov" value="firearm,0,Makarov,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1SMGTec9submachinegun" value="firearm,0,Tec9,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1SNIPERRIFLE762Mosinnagant" value="firearm,0,Mosin,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1TACCompactshotgunSuperShortty" value="firearm,0,SuperShorty,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT1TradshotgunDoubleBarrelOverUnder" value="firearm,0,OverUnder,bands=0.65/1/0,group=T1" />
+				<property name="IZYgunT245SMGM3Greasegun" value="firearm,1,GreaseGun,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2ARCabineCAR15" value="firearm,1,CAR15,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2ARSTG44N" value="firearm,1,StG44,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2BattleRifleFNFALRifle" value="firearm,1,FAL,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2LMGLMG36" value="firearm,1,LMG36,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2LMGlightmachinegunRPD" value="firearm,1,RPD,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2MarksManRifle762M1garandNavyconverted" value="firearm,1,M1Garand,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2Pistol45M1911A1" value="firearm,1,M1911,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2SMGUZIsubmachinegun" value="firearm,1,Uzi,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT2TradshotgunLeveractionShotgunModel1887" value="firearm,1,Model1887,bands=0/0.65/1,group=T2" />
+				<property name="IZYgunT345SMGM1thompson" value="firearm,2,Thompson,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3ARAKM" value="firearm,2,AKM,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3ARCabineM4Carbine" value="firearm,2,M4,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3BULLPUPHellionVHS2" value="firearm,2,VHS2,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3BattleRifleHKG3" value="firearm,2,G3,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3LMGM249FNminimi" value="firearm,2,M249,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3MarksManRifle556M16A2DMR" value="firearm,2,M16DMR,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3MarksManRifle762HKPSG1" value="firearm,2,PSG1,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3MarksmanRifleMMRM1Carbine45" value="firearm,2,CampCarbine,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3Pistol45USP45" value="firearm,2,USP45,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3PistolMagnumAutomag44" value="firearm,2,AutoMag,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3SMGMP9submachinegun" value="firearm,2,MP9,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3SNIPERRIFLE762LeeEnfieldRifle" value="firearm,2,Enfield,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3TACshotgunSPAS12G" value="firearm,2,SPAS12,bands=0/0/1,group=T3" />
+				<property name="IZYgunT3TradshotgunTrenchGunM1897" value="firearm,2,TrenchGun,bands=0/0/1,group=T3" />
+				<property name="IZYgunT445SMGM1928thompson" value="firearm,2,Thompson1928,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT445TACSMGKrissSuperV" value="firearm,2,Kriss,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4ARCabineHK416" value="firearm,2,HK416,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4BULLPUPFNF2000" value="firearm,2,F2000,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4BattleRifleSCARH" value="firearm,2,SCARH,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4LMGlightmachinegunMG34R" value="firearm,2,MG34,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4MarksManRifle762SVUprototypeRifle" value="firearm,2,SVU,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4MarksManRifleM110SASS" value="firearm,2,M110,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4MarksmanRifle45MMRKrissVectorCarbine" value="firearm,2,VectorCarbine,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4Pistol45STIEAGLE6" value="firearm,2,STIEagle,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4SMGCZScorpionEVO3" value="firearm,2,Scorpion,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4SNIPERRIFLE762L96AWMRifle" value="firearm,2,L96,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4TradshotgunBrowningAuto5" value="firearm,2,Auto5,bands=0/0/0.4,group=T4" />
+				<property name="IZYgunT4BowVanhelsingAutomaticCrossbowVH" value="bow,2,VHCrossbow,bands=0/0/0.4,group=T4" />
+			</append>
+			<!-- vanilla's guns (the pipe guns, and the 13 IZY replaces): the same rule by the tier in their name -->
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT0PipePistol']/@value">firearm,0,PipePistol,bands=1/0/0,group=T0</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunRifleT0PipeRifle']/@value">firearm,0,PipeRifle,bands=1/0/0,group=T0</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunShotgunT0PipeShotgun']/@value">firearm,0,PipeShotgun,bands=1/0/0,group=T0</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunMGT0PipeMachineGun']/@value">firearm,0,PipeMG,bands=1/0/0,group=T0</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT1Pistol']/@value">firearm,0,Pistol,bands=0.65/1/0,group=T1</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT3DesertVulture']/@value">firearm,2,DPistol,bands=0/0/1,group=T3</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT3SMG5']/@value">firearm,2,SMG,bands=0/0/1,group=T3</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunMGT1AK47']/@value">firearm,0,Rifle,bands=0.65/1/0,group=T1</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunMGT2TacticalAR']/@value">firearm,1,TRifle,bands=0/0.65/1,group=T2</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunRifleT1HuntingRifle']/@value">firearm,0,HRifle,bands=0.65/1/0,group=T1</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunRifleT3SniperRifle']/@value">firearm,2,SRifle,bands=0/0/1,group=T3</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunShotgunT2PumpShotgun']/@value">firearm,1,PShotgun,bands=0/0.65/1,group=T2</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunShotgunT3AutoShotgun']/@value">firearm,2,AShotgun,bands=0/0/1,group=T3</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunMGT3M60']/@value">firearm,2,M60,bands=0/0/1,group=T3</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT2Magnum44']/@value">firearm,1,Magnum,bands=0/0.65/1,group=T2</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunShotgunT1DoubleBarrel']/@value">firearm,0,DoubleBarrel,bands=0.65/1/0,group=T1</set>
+			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunRifleT2LeverActionRifle']/@value">firearm,1,LeverAction,bands=0/0.65/1,group=T2</set>
+		</if>
+	</conditional>
+	<!-- END GENERATED: XnpcWeapons IZY Classic -->
 </configs>

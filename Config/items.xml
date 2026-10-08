@@ -51,4 +51,16 @@
 			<property name="Tags" value="scbundle,scfuel"/>
 		</item>
 	</append>
+	<!-- IZY Classic's replacement Hunting Rifle (IGP_Classic with Combat Sandbox, unless Disable_VRP) lost vanilla's
+	     T1,weapon,ranged tags, so 0-XNPCCore took it for a melee weapon and survivors and raiders carrying one walked up
+	     and clubbed with it (found 2026-10-08). The add skips any tag it already has. -->
+	<conditional>
+		<if cond="mod_loaded('IGP_Classic') and mod_loaded('Combat_Sandbox_FLTR')">
+			<conditional>
+				<if cond="mod_loaded('Disable_VRP') == false">
+					<csv xpath="/items/item[@name='gunRifleT1HuntingRifle']/property[@name='Tags']/@value" delim="," op="add">T1,weapon,ranged</csv>
+				</if>
+			</conditional>
+		</if>
+	</conditional>
 </configs>

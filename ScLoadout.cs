@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace SurvivorCommunity
@@ -113,7 +114,34 @@ namespace SurvivorCommunity
             public int Tier;
             public float Hash;
             public string Alias = "";      // the generator's short weapon token, for the console
+            public float[] Bands;          // weight at band 0/1/2 (bands=, with IZY Classic); null = 1 from Tier up
+            public string Pool = "";       // group=: the weapons of this family and pool split Bands
+            public int[] PoolSize;         // per band, how many of them weigh anything there (BuildXnpc)
             public string Item { get { return Token; } }
+            /// <summary>How strong it counts as (the raider XP bonus, sc loadout sim): the band it is likeliest at, the
+            /// higher one on a tie; its tier without bands.</summary>
+            public int Level
+            {
+                get
+                {
+                    if (Bands == null) return Tier;
+                    int best = Tier;
+                    for (int b = 0; b < Bands.Length; b++) if (Bands[b] > 0f && Bands[b] >= Bands[best]) best = b;
+                    return best;
+                }
+            }
+            /// <summary>Its weight in a roll at this effective band - its share of its pool's when it has one; band -1 = any
+            /// band (the fallback), every weapon 1.</summary>
+            public float Weight(int band)
+            {
+                if (band < 0) return 1f;
+                if (Bands != null)
+                {
+                    int b = Math.Min(band, Bands.Length - 1);
+                    return PoolSize != null && PoolSize[b] > 1 ? Bands[b] / PoolSize[b] : Bands[b];
+                }
+                return Tier <= band ? 1f : 0f;
+            }
             /// <summary>The share it counts towards: melee, bow or firearm.</summary>
             public string Group { get { return Family; } }
         }
@@ -160,7 +188,7 @@ namespace SurvivorCommunity
                 if (!ScConfig.Parsed) ScConfig.EnsureParsed();
                 if (ScConfig.XnpcWeapons.Count > 0)
                 {
-                    foreach (XnpcWeaponDef d in ScConfig.XnpcWeapons) AddXnpc(byToken, d.Item, d.Family, d.Tier, d.Alias);
+                    foreach (XnpcWeaponDef d in ScConfig.XnpcWeapons) AddXnpc(byToken, d.Item, d.Family, d.Tier, d.Alias, d.Bands, d.Pool);
                 }
                 else
                 {
@@ -178,19 +206,28 @@ namespace SurvivorCommunity
                             if (item.Length == 0) continue;
                             Weapon have;
                             if (byToken.TryGetValue(item, out have)) { have.Tier = Math.Min(have.Tier, tier); continue; }
-                            AddXnpc(byToken, item, FamilyOfItem(item), tier, "");
+                            AddXnpc(byToken, item, FamilyOfItem(item), tier, "", null, "");
                         }
                     }
                 }
             }
             catch (Exception e) { ScLog.Once("loadout-xnpc-catalogue", e); }
             List<Weapon> sorted = Sorted(byToken);
+            // group=: the loaded weapons of one family and pool split its bands, so a pool's share does not grow with its size
+            foreach (Weapon w in sorted)
+            {
+                if (w.Pool.Length == 0) continue;
+                w.PoolSize = new int[w.Bands.Length];
+                foreach (Weapon o in sorted)
+                    if (o.Family == w.Family && string.Equals(o.Pool, w.Pool, StringComparison.OrdinalIgnoreCase) && o.Bands != null)
+                        for (int b = 0; b < w.Bands.Length && b < o.Bands.Length; b++) if (o.Bands[b] > 0f) w.PoolSize[b]++;
+            }
             if (sorted.Count == 0) ScLog.Once("loadout-xnpc-empty", "no weapons for 0-XNPCCore's survivors and SC's raiders - they keep their class items (XnpcWeapons in Config/blocks.xml)");
             return sorted;
         }
 
         /// <summary>One catalogue entry, when the item exists and a ranged one names its ammo (XNPC reloads and fails over by it).</summary>
-        private static void AddXnpc(Dictionary<string, Weapon> byToken, string item, string family, int tier, string alias)
+        private static void AddXnpc(Dictionary<string, Weapon> byToken, string item, string family, int tier, string alias, float[] bands, string pool)
         {
             if (string.IsNullOrEmpty(item) || string.IsNullOrEmpty(family) || byToken.ContainsKey(item)) return;
             ItemClass ic = ItemClass.GetItemClass(item, true);
@@ -198,7 +235,7 @@ namespace SurvivorCommunity
             bool ranged = family != "melee";
             if (ranged && AmmoOf(ic) == null) { ScLog.Once("loadout-xnpc-ammo-" + item, "XnpcWeapons: " + item + " has no ranged action with ammo - left out"); return; }
             string name = ic.GetItemName();
-            byToken[name] = new Weapon { Token = name, Family = family, Ranged = ranged, Tier = tier, Hash = Hash(name), Alias = alias ?? "" };
+            byToken[name] = new Weapon { Token = name, Family = family, Ranged = ranged, Tier = tier, Hash = Hash(name), Alias = alias ?? "", Bands = bands, Pool = bands != null ? pool ?? "" : "" };
         }
 
         /// <summary>melee, bow (bows and crossbows) or firearm, from the item's own tags (the SdcsWeapons fallback only).</summary>
@@ -411,7 +448,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The highest gamestage among the players (the host's own when there is one).</summary>
-        private static int GameStageNow()
+        internal static int GameStageNow()
         {
             try
             {
@@ -429,26 +466,39 @@ namespace SurvivorCommunity
         private static float FirearmChance(bool raider) { return raider ? ScConfig.RaiderFirearmChance : ScConfig.SurvivorFirearmChance; }
 
         /// <summary>
-        /// A weapon of one kind at or below the tier cap: a melee weapon, or a bow/crossbow - a firearm when the side's
-        /// firearm chance comes up. Null if none is loaded.
+        /// A weapon of one kind for an NPC of this effective band (the tier cap): a melee weapon, or a bow/crossbow - a
+        /// firearm when the side's firearm chance comes up. Picked by weight (Weapon.Weight: 1 at its tier and above, or
+        /// its bands= weights), so IZY Classic's guns follow their own tier rule. When nothing of that kind weighs
+        /// anything at this band, any of that kind; then the other ranged kind. Null if none is loaded.
         /// </summary>
         private static string Roll(bool raider, bool ranged, int cap, Random rnd)
         {
             string want = !ranged ? "melee" : (rnd.NextDouble() < FirearmChance(raider) ? "firearm" : "bow");
             string other = !ranged ? null : (want == "firearm" ? "bow" : "firearm");
-            List<Weapon> pool = Rollable(want, cap);
-            if (pool.Count == 0) pool = Rollable(want, int.MaxValue);
-            if (pool.Count == 0 && other != null) pool = Rollable(other, cap);
-            if (pool.Count == 0 && other != null) pool = Rollable(other, int.MaxValue);
-            return pool.Count > 0 ? pool[rnd.Next(pool.Count)].Token : null;
+            Weapon w = Pick(want, cap, rnd) ?? Pick(want, -1, rnd);
+            if (w == null && other != null) w = Pick(other, cap, rnd) ?? Pick(other, -1, rnd);
+            return w != null ? w.Token : null;
         }
 
-        private static List<Weapon> Rollable(string family, int cap)
+        /// <summary>One weapon of this family by weight at this band (-1: any, all alike); null when none weighs anything.</summary>
+        private static Weapon Pick(string family, int band, Random rnd)
         {
-            var list = new List<Weapon>();
-            foreach (Weapon w in Catalogue())
-                if (w.Family == family && w.Tier <= cap) list.Add(w);
-            return list;
+            List<Weapon> all = Catalogue();
+            float total = 0f;
+            foreach (Weapon w in all) if (w.Family == family) total += w.Weight(band);
+            if (total <= 0f) return null;
+            double r = rnd.NextDouble() * total;
+            Weapon last = null;
+            foreach (Weapon w in all)
+            {
+                if (w.Family != family) continue;
+                float x = w.Weight(band);
+                if (x <= 0f) continue;
+                last = w;
+                if (r < x) return w;
+                r -= x;
+            }
+            return last;                // rounding at the very end
         }
 
         /// <summary>
@@ -628,15 +678,17 @@ namespace SurvivorCommunity
         /// <summary>
         /// The kill XP bonus a raider's pair earns (design 2.9), as the perc_add on its class's ExperienceGain (600): the
         /// old raiders paid 600 for a melee weapon and 800-1400 for a gun, so the ranged weapon decides it - a bow or
-        /// crossbow +33% at tier 0, +67% above; a firearm +50% / +100% / +133% at tier 0 / 1 / 2 (900, 1200, 1398 XP); no
+        /// crossbow +33% at tier 0, +67% above; a firearm +50% / +100% / +133% at tier 0 / 1 / 2 (900, 1200, 1398 XP; an IZY
+        /// gun with bands= at the band it is likeliest at, Weapon.Level); no
         /// ranged weapon 0. The lead does not count: a melee-lead raider still takes its gun for a target out of reach.
         /// Fixed by the pair, which is fixed per raider (seeded, saved), so the same raider is always worth the same.
         /// </summary>
         private static float RaiderXpBonus(Weapon ranged)
         {
             if (ranged == null || !ranged.Ranged) return 0f;
-            if (ranged.Family == "bow") return ranged.Tier <= 0 ? 0.33f : 0.67f;
-            if (ranged.Family == "firearm") return ranged.Tier <= 0 ? 0.5f : ranged.Tier == 1 ? 1f : 1.33f;
+            int level = ranged.Level;  // a banded IZY gun counts at the band it is likeliest at
+            if (ranged.Family == "bow") return level <= 0 ? 0.33f : 0.67f;
+            if (ranged.Family == "firearm") return level <= 0 ? 0.5f : level == 1 ? 1f : 1.33f;
             return 0f;
         }
 
@@ -915,18 +967,26 @@ namespace SurvivorCommunity
         private static string Label(string token)
         {
             Weapon w = Find(token);
-            return w == null ? (token ?? "-") : w.Token + " (" + w.Family + ", tier " + w.Tier + ")";
+            if (w == null) return token ?? "-";
+            return w.Token + " (" + w.Family + ", tier " + w.Tier
+                   + (w.Bands != null ? ", weights " + string.Join("/", Array.ConvertAll(w.Bands, x => x.ToString("0.##", CultureInfo.InvariantCulture)))
+                                        + (w.Pool.Length > 0 ? " for group " + w.Pool : "") : "") + ")";
         }
 
         /// <summary>
         /// sc loadout sim: n rolls without making anyone. Survivors: a 0-XNPCCore survivor's pair at today's gamestage tier
         /// cap (a late-band class, so only the gamestage caps it). Raiders: the class tier spread evenly over T1..T3, each
         /// capped by the lower of its tier and today's gamestage tier, with the raiders' firearm odds and their lead.
+        /// classTier 0..2 (T1..T3) fixes the class band for either side, still capped by the gamestage unless anyStage.
+        /// The firearms are also counted by the tier in their item name (IZYgunT3..., gunMGT1AK47: T0..T5).
         /// </summary>
-        public static string Simulate(int n, bool raider)
+        public static string Simulate(int n, bool raider, int classTier = -1, bool anyStage = false)
         {
             var rnd = new Random(Environment.TickCount);
-            int cap = ScLooks.MaxTierFor(GameStageNow()), fire = 0, noPair = 0, armed = 0;
+            int cap = anyStage ? 2 : ScLooks.MaxTierFor(GameStageNow()), fire = 0, noPair = 0, armed = 0;
+            if (classTier >= 0) cap = Math.Min(cap, classTier);
+            var nameTiers = new int[6];
+            int izy = 0;
             var fams = new Dictionary<string, int>();
             var tiers = new int[3];
             var rangedLead = new int[3];
@@ -937,7 +997,7 @@ namespace SurvivorCommunity
                 Weapon rw;
                 if (raider)
                 {
-                    int t = i % 3;
+                    int t = classTier >= 0 ? classTier : i % 3;
                     perTier[t]++;
                     int tcap = Math.Min(t, cap);
                     rw = Find(Roll(true, true, tcap, rnd));
@@ -952,15 +1012,22 @@ namespace SurvivorCommunity
                     if (rw == null || mw == null) { noPair++; continue; }
                 }
                 armed++;
-                tiers[Math.Max(0, Math.Min(2, rw.Tier))]++;
-                if (rw.Group == "firearm") fire++;
+                tiers[Math.Max(0, Math.Min(2, rw.Level))]++;
+                if (rw.Group == "firearm")
+                {
+                    fire++;
+                    int nt = NameTier(rw.Token);
+                    if (nt >= 0) nameTiers[Math.Min(5, nt)]++;
+                    if (rw.Token.StartsWith("IZY", StringComparison.Ordinal)) izy++;
+                }
                 int c;
                 fams.TryGetValue(rw.Family, out c);
                 fams[rw.Family] = c + 1;
             }
             float chance = FirearmChance(raider);
             var sb = new StringBuilder();
-            sb.Append("[SC] ").Append(n).Append(raider ? " raider" : " 0-XNPCCore survivor").Append(" spawns (gamestage tier cap ").Append(cap).Append("): ")
+            sb.Append("[SC] ").Append(n).Append(raider ? " raider" : " 0-XNPCCore survivor").Append(" spawns (")
+              .Append(classTier >= 0 ? "class T" + (classTier + 1) + ", " : "").Append(anyStage ? "any gamestage, " : "").Append("tier cap ").Append(cap).Append("): ")
               .Append(fire).Append(" carry a firearm (").Append((100.0 * fire / Math.Max(1, armed)).ToString("0.0")).Append("%, configured ")
               .Append((100f * chance).ToString("0.0")).Append("%)");
             if (raider)
@@ -974,10 +1041,29 @@ namespace SurvivorCommunity
                 sb.Append("; the rest melee-lead)");
             }
             sb.Append(", ranged weapon tiers 0/1/2: ").Append(tiers[0]).Append('/').Append(tiers[1]).Append('/').Append(tiers[2]);
+            if (fire > 0)
+            {
+                sb.Append(", firearms by name tier T0..T5:");
+                for (int t = 0; t < 6; t++) sb.Append(t > 0 ? "/" : " ").Append(nameTiers[t]);
+                sb.Append(" (IZY's own ").Append(izy).Append(')');
+            }
             sb.Append(", ranged weapons by family:");
             foreach (var kv in fams) sb.Append(' ').Append(kv.Key).Append('=').Append(kv.Value);
             if (noPair > 0) sb.Append(", ").Append(noPair).Append(" without a pair");
             return sb.ToString();
+        }
+
+        /// <summary>The tier in a weapon's item name - "IZYgunT3ARAKM" 3, "gunMGT1AK47" 1, "IZYgunTminus1..." 0 - or -1.</summary>
+        private static int NameTier(string item)
+        {
+            if (string.IsNullOrEmpty(item)) return -1;
+            for (int i = 1; i + 1 < item.Length; i++)
+            {
+                if (item[i] != 'T' || !char.IsLetter(item[i - 1])) continue;
+                if (char.IsDigit(item[i + 1])) return item[i + 1] - '0';
+                if (string.CompareOrdinal(item, i + 1, "minus1", 0, 6) == 0) return 0;
+            }
+            return -1;
         }
     }
 }

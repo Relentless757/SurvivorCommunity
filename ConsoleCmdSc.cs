@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|none>, anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -503,8 +503,9 @@ namespace SurvivorCommunity
             // a raider a little further out: it is hostile from its first frame
             Vector3 at = player.position + fwd * (hostile ? 6f : 3f);
             Vector3 pos = ScRadio.SpotNear(w, new Vector3i(Mathf.RoundToInt(at.x), Mathf.RoundToInt(at.y), Mathf.RoundToInt(at.z)), 3);
-            Look look = ScLooks.Roll(male, rnd, true, hostile);
-            if (set != null && !ScLooks.WearSet(look, set, rnd)) { Output("[SC] no weapon or armor set '" + set + "' (sc weapons lists the weapons; armor" + set + "Helmet...)"); return; }
+            int cap = ScLoadout.TierCap(cls);
+            Look look = ScLooks.Roll(male, rnd, true, hostile, cap);   // clothes at the weapons' tier cap
+            if (set != null && !ScLooks.WearSet(look, set, rnd, cap)) { Output("[SC] no weapon, armor set or outfit '" + set + "' for a " + (male ? "man" : "woman") + " (sc weapons lists the weapons, sc gear the sets and outfits)"); return; }
             Loadout pending = fix.Ranged != null || fix.Melee != null || fix.Lead != Loadout.LeadNone ? fix : null;
             EntityAlive npc = ScSpawn.Create(EntityClass.FromString(cls), pos, Vector3.zero, look, pending);
             if (npc == null) { Output("[SC] " + cls + " did not spawn as an SCore NPC"); return; }
@@ -519,7 +520,7 @@ namespace SurvivorCommunity
         private static bool IsArmorSet(string name)
         {
             for (int slot = 0; slot < 4; slot++) if (ScLooks.SetItem(name, slot).Length > 0) return true;
-            return false;
+            return ScLooks.FindOutfit(name) != null;
         }
 
         /// <summary>A loaded player-body survivor or raider by member id/name, entity id, or display-name substring (within 200 m).</summary>
@@ -536,24 +537,26 @@ namespace SurvivorCommunity
         /// sc loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] - an NPC's two weapons, or give it new ones (one
         /// ranged, one melee; a single weapon replaces the one of its kind; a raider's lead may be changed, which puts that
         /// weapon in its hand). sc loadout near [r] - the pairs around the player, with the firearm share. sc loadout sim
-        /// [n] [hostile] - n rolls without making anyone.
+        /// [n] [hostile] [T1|T2|T3] [any] - n rolls without making anyone (a class tier; any = ignore the gamestage cap).
         /// </summary>
         private static void LoadoutCmd(List<string> p)
         {
-            if (p.Count < 2) { Output("[SC] loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile]"); return; }
+            if (p.Count < 2) { Output("[SC] loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any]"); return; }
             string a = p[1].ToLowerInvariant();
             if (a == "sim")
             {
-                int n = 1000;
-                bool hostile = false;
+                int n = 1000, classTier = -1;
+                bool hostile = false, anyStage = false;
                 for (int i = 2; i < p.Count; i++)
                 {
                     int v;
                     string k = p[i].ToLowerInvariant();
                     if (k == "hostile" || k == "raider") hostile = true;
+                    else if (k == "any") anyStage = true;
+                    else if (k.Length == 2 && k[0] == 't' && k[1] >= '1' && k[1] <= '3') classTier = k[1] - '1';
                     else if (int.TryParse(k, out v)) n = v;
                 }
-                Output(ScLoadout.Simulate(Math.Max(1, Math.Min(100000, n)), hostile));
+                Output(ScLoadout.Simulate(Math.Max(1, Math.Min(100000, n)), hostile, classTier, anyStage));
                 return;
             }
             if (a == "near")
@@ -757,15 +760,44 @@ namespace SurvivorCommunity
             Output("[SC] " + ScCommunity.DisplayName(npc) + ": " + ScLooks.DescribePaints(look) + " (body rebuilt)");
         }
 
-        /// <summary>sc gear <id|name> <Set|none> - dress a loaded survivor in a whole vanilla armor set (or strip them).</summary>
+        /// <summary>
+        /// sc gear <id|name> <Set|Outfit|none> - dress a loaded survivor in a whole vanilla armor set or mod outfit (or strip
+        /// them). sc gear sim [n] [hostile] [T1|T2|T3] [any] [male|female] - n clothes rolls without making anyone.
+        /// </summary>
         private static void Gear(List<string> p)
         {
-            if (p.Count < 3) { Output("[SC] gear <id|name> <Set|none>   sets: " + string.Join(",", ScConfig.SurvivorGearSets.ToArray())); return; }
+            if (p.Count >= 2 && p[1].Equals("sim", StringComparison.OrdinalIgnoreCase))
+            {
+                int n = 1000, classTier = -1, sex = 0;
+                bool hostile = false, anyStage = false;
+                for (int i = 2; i < p.Count; i++)
+                {
+                    int v;
+                    string k = p[i].ToLowerInvariant();
+                    if (k == "hostile" || k == "raider") hostile = true;
+                    else if (k == "any") anyStage = true;
+                    else if (k == "male") sex = 1;
+                    else if (k == "female") sex = 2;
+                    else if (k.Length == 2 && k[0] == 't' && k[1] >= '1' && k[1] <= '3') classTier = k[1] - '1';
+                    else if (int.TryParse(k, out v)) n = v;
+                }
+                // the band a spawn of that class gets today (ScLoadout.TierCap): its class tier capped by the gamestage
+                int band = anyStage ? 2 : ScLooks.MaxTierFor(ScLoadout.GameStageNow());
+                if (classTier >= 0) band = Math.Min(band, classTier);
+                Output(ScLooks.SimulateGear(Math.Max(1, Math.Min(100000, n)), hostile, band, sex));
+                return;
+            }
+            if (p.Count < 3)
+            {
+                Output("[SC] gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female]   sets: " + string.Join(",", ScConfig.SurvivorGearSets.ToArray())
+                       + "   outfits: " + string.Join(",", ScLooks.InstalledOutfits().ToArray()));
+                return;
+            }
             EntityAlive npc = FindSurvivor(p[1]);
             if (npc == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
             Look look = ScLooks.Get(npc);
             if (look == null) { Output("[SC] " + ScCommunity.DisplayName(npc) + " does not wear the player's body"); return; }
-            if (!ScLooks.WearSet(look, p[2], ScCommunity.World.GetGameRandom())) { Output("[SC] no armor set '" + p[2] + "' (armor" + p[2] + "Helmet...)"); return; }
+            if (!ScLooks.WearSet(look, p[2], ScCommunity.World.GetGameRandom())) { Output("[SC] no armor set or installed outfit '" + p[2] + "' for a " + (look.Male ? "man" : "woman") + " (sc gear lists them)"); return; }
             ScLooks.SyncGear(npc, look);
             ScRegistry.SaveAtomic();
             Output("[SC] " + ScCommunity.DisplayName(npc) + " wears [" + look.EncodeGear() + "]");

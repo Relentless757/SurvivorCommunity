@@ -684,6 +684,156 @@ src = src[:anchor.end()] + "".join(xw) + src[anchor.end():]
 io.open(bp, "w", encoding="utf-8", newline="\n").write(src)
 
 # ------------------------------------------------------------------------------------------------------------
+# blocks.xml, optional: IZY Classic's guns (IGP_Classic, whose items only exist with Combat_Sandbox_FLTR) for any
+# survivor or raider while that pack is installed. The user's rule (2026-10-08), by the tier in the gun's name (Tminus1
+# counts as T0): T1 NPCs carry T0/T1 guns, T1 a little rarer; T2 NPCs T1/T2, T2 a little rarer; T3 NPCs T2/T3/T4, T4
+# rarer. An NPC's tier is its effective band, the class band capped by the gamestage (ScLoadout.TierCap), as for every
+# weapon. Each row's bands= field gives its group's weight at band 0/1/2 and group= names the group (T0..T4): the DLL
+# picks a family's weapon by weight, the guns of one group splitting its weight, so "T1 a little rarer" holds for the
+# tier as a whole however many T1 guns there are. The tier field is the first band it can turn up in (the console, and
+# DLLs from before bands=). Left out (research 2026-10-08, scratch mig\mw\izy_weapons_research.md): IZY's melee weapons
+# (the user's call), the duals (HoldType 67: no aim or reload pose on a body), the grenade launchers, the M134, the
+# flamethrower, the Broken AR-15 (no ranged tag), the nailgun (nail ammo) and Combat Sandbox's not-ready items.
+# Vanilla's own firearm rows above take the same rule while the pack is installed: Combat Sandbox names every gun with
+# its tier ("Pipe Shotgun (T0)", and IZY's 13 replacers such as "AK-47 Machine Gun (T1)"), so a <set> per row gives each
+# the bands and group of the tier in its item name. The bows are untouched. A top-level conditional, so without the pack
+# none of it exists and nothing is logged.
+# ------------------------------------------------------------------------------------------------------------
+IZ_BEGIN, IZ_END = "<!-- BEGIN GENERATED: XnpcWeapons IZY Classic (Tools/gen_arsenal.py) -->", "<!-- END GENERATED: XnpcWeapons IZY Classic -->"
+IZY_COND = "mod_loaded('IGP_Classic') and mod_loaded('Combat_Sandbox_FLTR')"
+IZY_RARE, IZY_RARER = 0.65, 0.4
+IZY_BANDS = {0: (1.0, 0.0, 0.0), 1: (IZY_RARE, 1.0, 0.0), 2: (0.0, IZY_RARE, 1.0), 3: (0.0, 0.0, 1.0), 4: (0.0, 0.0, IZY_RARER)}
+IZY_WEAPONS = [   # (item, family, alias, display) - the pack tier is the T<n> in the item name (Tminus1 = T0)
+    ("IZYgunTminus1MusketM1777Rifle", "firearm", "Musket", "Musket Model 1777 (TS)"),
+    ("IZYgunT0PistolLiberatorImprovisedPistol", "firearm", "Liberator", "FP-45 Liberator Pistol (T0)"),
+    ("IZYgunT0SMGPIPEsubmachinegun", "firearm", "PipeSMG", "Pipe SMG (T0)"),
+    ("IZYgunT145TACSMGMAC10", "firearm", "MAC10", "MAC-10 SMG (T1)"),
+    ("IZYgunT1ARCabineM608SurvivalRifle", "firearm", "M608", "Model 608 Survival Rifle (T1)"),
+    ("IZYgunT1BattleRifleBARbrowningautomaticrifle", "firearm", "BAR", "Browning Automatic Rifle (T1)"),
+    ("IZYgunT1Pistol45M1917", "firearm", "M1917", "M1917 Revolver (T1)"),
+    ("IZYgunT1Pistol45Type17C96", "firearm", "Type17", "Shanxi Type 17 Pistol (T1)"),
+    ("IZYgunT1Pistol9Makarov", "firearm", "Makarov", "Makarov Pistol (T1)"),
+    ("IZYgunT1SMGTec9submachinegun", "firearm", "Tec9", "Tec-9 SMG (T1)"),
+    ("IZYgunT1SNIPERRIFLE762Mosinnagant", "firearm", "Mosin", "Mosin Nagant Rifle (T1)"),
+    ("IZYgunT1TACCompactshotgunSuperShortty", "firearm", "SuperShorty", "Super-Shorty Shotgun (T1)"),
+    ("IZYgunT1TradshotgunDoubleBarrelOverUnder", "firearm", "OverUnder", "Over-Under Shotgun (T1)"),
+    ("IZYgunT245SMGM3Greasegun", "firearm", "GreaseGun", "M3 Grease Gun SMG (T2)"),
+    ("IZYgunT2ARCabineCAR15", "firearm", "CAR15", "CAR-15 Rifle (T2)"),
+    ("IZYgunT2ARSTG44N", "firearm", "StG44", "StG 44 Rifle (T2)"),
+    ("IZYgunT2BattleRifleFNFALRifle", "firearm", "FAL", "FNN FAL Rifle (T2)"),
+    ("IZYgunT2LMGLMG36", "firearm", "LMG36", "MG36 Machine Gun (T2)"),
+    ("IZYgunT2LMGlightmachinegunRPD", "firearm", "RPD", "RPD Machine Gun (T2)"),
+    ("IZYgunT2MarksManRifle762M1garandNavyconverted", "firearm", "M1Garand", "M1N Reserve Rifle (T2)"),
+    ("IZYgunT2Pistol45M1911A1", "firearm", "M1911", "M1911 Pistol (T2)"),
+    ("IZYgunT2SMGUZIsubmachinegun", "firearm", "Uzi", "UZI SMG (T2)"),
+    ("IZYgunT2TradshotgunLeveractionShotgunModel1887", "firearm", "Model1887", "Model 1887 Shotgun (T2)"),
+    ("IZYgunT345SMGM1thompson", "firearm", "Thompson", "M1 Thompson SMG (T3)"),
+    ("IZYgunT3ARAKM", "firearm", "AKM", "AKM Rifle (T3)"),
+    ("IZYgunT3ARCabineM4Carbine", "firearm", "M4", "M4 Carbine (T3)"),
+    ("IZYgunT3BULLPUPHellionVHS2", "firearm", "VHS2", "VHS-2 Assault Rifle (T3)"),
+    ("IZYgunT3BattleRifleHKG3", "firearm", "G3", "G3 Rifle (T3)"),
+    ("IZYgunT3LMGM249FNminimi", "firearm", "M249", "M249 Machine Gun (T3)"),
+    ("IZYgunT3MarksManRifle556M16A2DMR", "firearm", "M16DMR", "M16A2 DMR (T3)"),
+    ("IZYgunT3MarksManRifle762HKPSG1", "firearm", "PSG1", "PSG1 Rifle (T3)"),
+    ("IZYgunT3MarksmanRifleMMRM1Carbine45", "firearm", "CampCarbine", "Camp Carbine 45 (T3)"),
+    ("IZYgunT3Pistol45USP45", "firearm", "USP45", "USP45 Pistol (T3)"),
+    ("IZYgunT3PistolMagnumAutomag44", "firearm", "AutoMag", ".44 AutoMag Heavy Pistol (T3)"),
+    ("IZYgunT3SMGMP9submachinegun", "firearm", "MP9", "MP9 SMG (T3)"),
+    ("IZYgunT3SNIPERRIFLE762LeeEnfieldRifle", "firearm", "Enfield", "Enfield Rifle (T3)"),
+    ("IZYgunT3TACshotgunSPAS12G", "firearm", "SPAS12", "SPAS-12 Shotgun (T3)"),
+    ("IZYgunT3TradshotgunTrenchGunM1897", "firearm", "TrenchGun", "Model 1897 Trench Gun (T3)"),
+    ("IZYgunT445SMGM1928thompson", "firearm", "Thompson1928", "M1928 Thompson SMG (T4)"),
+    ("IZYgunT445TACSMGKrissSuperV", "firearm", "Kriss", "KRISS Vector SMG (T4)"),
+    ("IZYgunT4ARCabineHK416", "firearm", "HK416", "M416 Carbine (T4)"),
+    ("IZYgunT4BULLPUPFNF2000", "firearm", "F2000", "FNN F2000 Assault Rifle (T4)"),
+    ("IZYgunT4BattleRifleSCARH", "firearm", "SCARH", "SCAR-H Rifle (T4)"),
+    ("IZYgunT4LMGlightmachinegunMG34R", "firearm", "MG34", "Antique Machine Gun (T4)"),
+    ("IZYgunT4MarksManRifle762SVUprototypeRifle", "firearm", "SVU", "Prototype SVU Rifle (T4)"),
+    ("IZYgunT4MarksManRifleM110SASS", "firearm", "M110", "M110 SASS Rifle (T4)"),
+    ("IZYgunT4MarksmanRifle45MMRKrissVectorCarbine", "firearm", "VectorCarbine", "Vector Carbine (T4)"),
+    ("IZYgunT4Pistol45STIEAGLE6", "firearm", "STIEagle", "STI Eagle 6 Pistol (T4)"),
+    ("IZYgunT4SMGCZScorpionEVO3", "firearm", "Scorpion", "Scorpion EVO 3 SMG (T4)"),
+    ("IZYgunT4SNIPERRIFLE762L96AWMRifle", "firearm", "L96", "L96 Rifle (T4)"),
+    ("IZYgunT4TradshotgunBrowningAuto5", "firearm", "Auto5", "Browning Auto-5 Shotgun (T4)"),
+    ("IZYgunT4BowVanhelsingAutomaticCrossbowVH", "bow", "VHCrossbow", "VH Automatic Crossbow (T4)"),
+]
+
+
+def izy_tier(item):
+    m = re.match(r"IZYgunT(minus1|\d)", item)
+    if not m: raise SystemExit("IZY_WEAPONS: %s has no T<n> in its name" % item)
+    return 0 if m.group(1) == "minus1" else int(m.group(1))
+
+def fmt_w(x):
+    return ("%.2f" % x).rstrip("0").rstrip(".")
+
+IGP = os.path.join(GAME, r"Mods\IGP_Classic\Config\IZY26513")
+CSB = os.path.join(GAME, r"Mods\zzzCombatSandboxFLTR\Config\items.xml")
+izy_items = {}
+if os.path.isdir(IGP):
+    for sub in sorted(os.listdir(IGP)):
+        p = os.path.join(IGP, sub, "items.xml")
+        if os.path.isfile(p):
+            for it in ET.parse(p).getroot().iter("item"):
+                izy_items[it.get("name")] = it          # the last definition wins, as in game
+    not_ready = set()                               # Combat Sandbox's live CreativeMode Dev appends (not ready, no loot)
+    if os.path.isfile(CSB):
+        for ap in ET.parse(CSB).getroot().iter("append"):
+            if ap.xpath("property[@name='CreativeMode' and @value='Dev']"):
+                not_ready.update(re.findall(r"@name='(IZY\w+)'", ap.get("xpath", "")))
+tokens = {x[3].lower() for x in XNPC_WEAPONS}
+izy_rows = []
+for item, fam, alias, disp in IZY_WEAPONS:
+    t = izy_tier(item)
+    if t not in IZY_BANDS: raise SystemExit("IZY_WEAPONS: %s is T%d, which no band takes" % (item, t))
+    if fam not in ("bow", "firearm"): raise SystemExit("IZY_WEAPONS: %s is a %s (guns and bows only)" % (item, fam))
+    if alias.lower() in tokens: raise SystemExit("IZY_WEAPONS: alias %s is taken" % alias)
+    tokens.add(alias.lower())
+    if izy_items:
+        it = izy_items.get(item)
+        if it is None: raise SystemExit("IZY_WEAPONS: %s is not in IGP_Classic" % item)
+        tags = {x.strip().lower() for x in (one(it, "property[@name='Tags']").get("value") if one(it, "property[@name='Tags']") is not None else "").split(",")}
+        if "ranged" not in tags: raise SystemExit("IZY_WEAPONS: %s has no ranged tag - 0-XNPCCore would fight with it as melee" % item)
+        if item in not_ready: raise SystemExit("IZY_WEAPONS: %s is on Combat Sandbox's not-ready list" % item)
+    bands = IZY_BANDS[t]
+    tier = next(i for i, x in enumerate(bands) if x > 0)
+    izy_rows.append((item, fam, tier, alias, "/".join(fmt_w(x) for x in bands), t))
+# vanilla's firearm rows: the tier in the item name, which Combat Sandbox shows (gunMGT1AK47 "AK-47 Machine Gun (T1)")
+rep_rows = []
+for item, fam, tier0, token in XNPC_WEAPONS:
+    if fam != "firearm": continue
+    m = re.match(r"gun[A-Za-z]+?T(\d)", item)
+    if not m or int(m.group(1)) not in IZY_BANDS: raise SystemExit("XnpcWeapons firearm %s has no usable T<n> in its name" % item)
+    t = int(m.group(1))
+    bands = IZY_BANDS[t]
+    tier = next(i for i, x in enumerate(bands) if x > 0)
+    rep_rows.append((item, fam, tier, token, "/".join(fmt_w(x) for x in bands), t))
+bp = os.path.join(MOD, "blocks.xml")
+src = io.open(bp, encoding="utf-8").read()
+if src.count(IZ_BEGIN) > 1 or src.count(IZ_END) > 1: raise SystemExit("blocks.xml holds the IZY markers more than once - fix it by hand")
+if IZ_BEGIN in src:
+    src = re.sub(r"\t*" + re.escape(IZ_BEGIN) + r".*?" + re.escape(IZ_END) + r"\n", "", src, flags=re.S)
+if src.count("</configs>") != 1: raise SystemExit("blocks.xml: expected one </configs>")
+iz = ["\t" + IZ_BEGIN + "\n",
+      "\t<!-- IZY Classic's guns for any survivor or raider, only while IZY Classic (with Combat Sandbox) is installed,\n"
+      "\t     and every gun then follows the tier in its name: T1 NPCs carry T0/T1 guns (T1 a little rarer), T2 NPCs T1/T2\n"
+      "\t     (T2 rarer), T3 NPCs T2/T3/T4 (T4 rarer). bands = the weight of the gun's group (group=, its name tier) at an\n"
+      "\t     NPC's effective tier 0/1/2 (T1, T2, T3 NPCs, capped by the gamestage); the group's guns split it. Locked &\n"
+      "\t     Loaded arms them with its IZY Classic magazines. Written by Tools/gen_arsenal.py (IZY_WEAPONS): edit it there. -->\n",
+      "\t<conditional>\n", '\t\t<if cond="%s">\n' % IZY_COND,
+      "\t\t\t<append xpath=\"/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']\">\n"]
+for item, fam, tier, alias, bands, t in izy_rows:
+    iz.append('\t\t\t\t<property name="%s" value="%s,%d,%s,bands=%s,group=T%d" />\n' % (item, fam, tier, alias, bands, t))
+iz += ["\t\t\t</append>\n",
+       "\t\t\t<!-- vanilla's guns (the pipe guns, and the 13 IZY replaces): the same rule by the tier in their name -->\n"]
+for item, fam, tier, token, bands, t in rep_rows:
+    iz.append("\t\t\t<set xpath=\"/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']"
+              "/property[@name='%s']/@value\">%s,%d,%s,bands=%s,group=T%d</set>\n" % (item, fam, tier, token, bands, t))
+iz += ["\t\t</if>\n", "\t</conditional>\n", "\t" + IZ_END + "\n"]
+src = src.replace("</configs>", "".join(iz) + "</configs>")
+io.open(bp, "w", encoding="utf-8", newline="\n").write(src)
+
+# ------------------------------------------------------------------------------------------------------------
 # Localization.csv: a row for every leaf class, managed by key
 # ------------------------------------------------------------------------------------------------------------
 lp = os.path.join(MOD, "Localization.csv")
@@ -708,5 +858,7 @@ io.open(lp, "w", encoding="utf-8", newline="").write(nl.join(kept + rows) + nl)
 print("classes: %d raider leaves + %d templates (M10, on 0-XNPCCore's body)" % (len(RAIDERS), len(RAIDER_TEMPLATE)))
 print("survivor weapons (XnpcWeapons): %d (%s)" % (len(XNPC_WEAPONS), ", ".join(
     "%s %d" % (f, sum(1 for x in XNPC_WEAPONS if x[1] == f)) for f in ("melee", "bow", "firearm"))))
+print("IZY Classic weapons (optional block): %d new, %d vanilla guns re-tiered (%s)%s" % (len(izy_rows), len(rep_rows), ", ".join("T%d %d" % (k, sum(1 for r in izy_rows if r[5] == k)) for k in sorted(IZY_BANDS)),
+      "" if izy_items else " - IGP_Classic not found, not checked against the pack"))
 print("W0: %d groups swapped, %d trimmed, %d framework spawn groups removed" % (len(w0_swap), len(w0_drop), len(w0_spawns)))
 print("items.xml: %s" % ("the old raiders' NPC weapon block removed (M10 round 2)" if old_items_block else "no generated block (none since M10 round 2)"))

@@ -33,7 +33,10 @@ namespace SurvivorCommunity
     /// XnpcWeapons class (written by Tools/gen_arsenal.py from its WEAPONS table):
     ///   &lt;property name="gunBowT0PrimitiveBow" value="bow,0,PrimitiveBow"/&gt;
     /// family melee / bow / firearm, tier 0..2 (the same tiers as the raiders' weapons), and the generator's weapon
-    /// token as a short name the console accepts.
+    /// token as a short name the console accepts. An optional "bands=a/b/c" field (with IZY Classic installed) weights it
+    /// per band instead: a at an NPC's effective tier 0, b at 1, c at 2 (0 = never there); without it a weapon weighs 1 at
+    /// its tier and above. An optional "group=T2" makes the bands the whole group's: the weapons of one family and group
+    /// split them, so a tier with many guns is no likelier than one with few. Other fields past the alias are ignored.
     /// </summary>
     public sealed class XnpcWeaponDef
     {
@@ -41,6 +44,31 @@ namespace SurvivorCommunity
         public string Family = "";
         public int Tier;
         public string Alias = "";
+        /// <summary>Weight at band 0, 1, 2; null = 1 from Tier up.</summary>
+        public float[] Bands;
+        /// <summary>The group whose weapons (of this family) share Bands; "" = Bands are this weapon's own.</summary>
+        public string Pool = "";
+    }
+
+    /// <summary>
+    /// One whole mod outfit survivors and raiders may wear (the config block's Outfits class, LittleRedSonja's packs):
+    ///   &lt;property name="TWD_Rick" value="head=armorUnisexRickTWDHelmet,chest=...,hands=...,feet=...,sex=any,
+    ///             side=survivor,tier=1,weight=1,mix=TWD"/&gt;
+    /// sex any / male / female (a mesh built for one sex only), side survivor / raider / both, tier 0..2 (from which
+    /// effective band it turns up), weight among the outfits that fit, and mix: pieces swap only with another outfit of
+    /// the same group (empty = never). Only outfits whose body armor item exists are used, so a missing pack is no error.
+    /// </summary>
+    public sealed class OutfitDef
+    {
+        public string Id = "";
+        /// <summary>Item names by slot: Head, Chest, Hands, Feet ("" = none).</summary>
+        public readonly string[] Items = { "", "", "", "" };
+        /// <summary>0 any, 1 male only, 2 female only.</summary>
+        public int Sex;
+        public bool Survivors = true, Raiders = true;
+        public int Tier;
+        public float Weight = 1f;
+        public string Mix = "";
     }
 
     /// <summary>
@@ -400,8 +428,22 @@ namespace SurvivorCommunity
         /// <summary>Whether the body armor piece ignores SurvivorGearPieceChance and is always worn.</summary>
         public static bool SurvivorGearAlwaysChest = true;
         public static float SurvivorGearMixChance = 0.3f;
+        /// <summary>Armor quality range when the band is unknown (sc gear); a rolled NPC uses GearQualityByTier.</summary>
         public static int SurvivorGearQualityMin = 1;
         public static int SurvivorGearQualityMax = 4;
+        /// <summary>
+        /// Each vanilla armor set's weight class (Primitive and light 0, medium 1, heavy 2); an unlisted set weighs 1
+        /// everywhere. GearTierWeights[band][class] is a set's weight when an NPC of that effective band rolls (the user's
+        /// pick 2026-10-08: lighter sets likelier early, heavier later, nothing ruled out).
+        /// </summary>
+        public static readonly Dictionary<string, int> GearSetTiers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        public static float[][] GearTierWeights = DefaultGearTierWeights();
+        /// <summary>Armor quality [min, max] by effective band (T1 1-2, T2 2-4, T3 3-5).</summary>
+        public static int[][] GearQualityByTier = DefaultGearQuality();
+        /// <summary>Mod outfits (OutfitDef): how often one is worn instead of a vanilla set, when one fits the NPC.</summary>
+        public static readonly List<OutfitDef> Outfits = new List<OutfitDef>();
+        public static float SurvivorOutfitShare = 0.35f;
+        public static float RaiderOutfitShare = 0.35f;
         public static float SurvivorBaldChance = 0.15f;
         public static float SurvivorFacialHairChance = 0.4f;
         /// <summary>
@@ -629,6 +671,12 @@ namespace SurvivorCommunity
             SurvivorGearMixChance = 0.3f;
             SurvivorGearQualityMin = 1;
             SurvivorGearQualityMax = 4;
+            GearSetTiers.Clear();
+            GearTierWeights = DefaultGearTierWeights();
+            GearQualityByTier = DefaultGearQuality();
+            Outfits.Clear();
+            SurvivorOutfitShare = 0.35f;
+            RaiderOutfitShare = 0.35f;
             SurvivorBaldChance = 0.15f;
             SurvivorFacialHairChance = 0.4f;
             SurvivorExcludeSkins.Clear();
@@ -767,6 +815,9 @@ namespace SurvivorCommunity
             OutpostDefenseBlocks.AddRange(new[] { "trapSpikes", "barbedWire", "barbedFence", "bladeTrap", "dartTrap", "electricfencepost",
                                                   "autoTurret", "shotgunTurret", "mineCandyTin", "mineCookingPot", "mineHubcap", "mineAirFilter" });
             SurvivorGearSets.AddRange(new[] { "Primitive", "Athletic", "Enforcer", "Lumberjack", "Preacher", "Rogue", "Assassin", "Biker", "Commando", "Farmer", "Ranger", "Scavenger", "Miner", "Nerd", "Nomad", "Raider" });
+            foreach (string s in new[] { "Primitive", "Athletic", "Enforcer", "Lumberjack", "Preacher", "Rogue" }) GearSetTiers[s] = 0;
+            foreach (string s in new[] { "Assassin", "Biker", "Commando", "Farmer", "Ranger", "Scavenger" }) GearSetTiers[s] = 1;
+            foreach (string s in new[] { "Miner", "Nerd", "Nomad", "Raider" }) GearSetTiers[s] = 2;
             // M10-D7: raiders dress rougher than survivors (the design's suggested list, accepted 2026-10-01)
             RaiderGearSets.AddRange(new[] { "Raider", "Biker", "Enforcer", "Assassin", "Rogue", "Commando", "Nomad", "Scavenger", "Primitive" });
             // the user's picks (2026-10-07): Vanity Vault's tinted skins and all of its eyes; vanilla's dyed colours made rare
@@ -821,6 +872,39 @@ namespace SurvivorCommunity
         public static List<string> GearSetsFor(bool raider)
         {
             return raider && RaiderGearSets.Count > 0 ? RaiderGearSets : SurvivorGearSets;
+        }
+
+        private static float[][] DefaultGearTierWeights()
+        {
+            return new[] { new[] { 1f, 0.5f, 0.25f }, new[] { 0.6f, 1f, 0.6f }, new[] { 0.35f, 0.7f, 1f } };
+        }
+
+        private static int[][] DefaultGearQuality()
+        {
+            return new[] { new[] { 1, 2 }, new[] { 2, 4 }, new[] { 3, 5 } };
+        }
+
+        /// <summary>A vanilla armor set's weight for an NPC of this effective band (1 when the band or the set's class is unknown).</summary>
+        public static float GearSetWeight(string set, int band)
+        {
+            int c;
+            if (band < 0 || string.IsNullOrEmpty(set) || !GearSetTiers.TryGetValue(set, out c)) return 1f;
+            float[] row = GearTierWeights[Math.Min(band, GearTierWeights.Length - 1)];
+            return row[Math.Max(0, Math.Min(row.Length - 1, c))];
+        }
+
+        /// <summary>The armor quality range for this effective band; SurvivorGearQualityMin..Max when it is unknown (-1).</summary>
+        public static void GearQuality(int band, out int min, out int max)
+        {
+            if (band < 0)
+            {
+                min = Math.Max(1, Math.Min(SurvivorGearQualityMin, SurvivorGearQualityMax));
+                max = Math.Max(min, SurvivorGearQualityMax);
+                return;
+            }
+            int[] q = GearQualityByTier[Math.Min(band, GearQualityByTier.Length - 1)];
+            min = q[0];
+            max = q[1];
         }
 
         static ScConfig()
@@ -1187,6 +1271,8 @@ namespace SurvivorCommunity
                 ParseFloat(p, "SurvivorGearMixChance", ref SurvivorGearMixChance, 0f, 1f);
                 ParseInt(p, "SurvivorGearQualityMin", ref SurvivorGearQualityMin, 1, 6);
                 ParseInt(p, "SurvivorGearQualityMax", ref SurvivorGearQualityMax, 1, 6);
+                ParseFloat(p, "SurvivorOutfitShare", ref SurvivorOutfitShare, 0f, 1f);
+                ParseFloat(p, "RaiderOutfitShare", ref RaiderOutfitShare, 0f, 1f);
                 ParseFloat(p, "SurvivorBaldChance", ref SurvivorBaldChance, 0f, 1f);
                 ParseFloat(p, "SurvivorFacialHairChance", ref SurvivorFacialHairChance, 0f, 1f);
                 ParseFloat(p, "SurvivorDyedHairChanceFemale", ref SurvivorDyedHairChanceFemale, 0f, 1f);
@@ -1298,6 +1384,10 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("SuppliesFavours", out s) && !string.IsNullOrEmpty(s)) ParseSuppliesFavours(s);
                 if (p.Values.TryGetValue("ValueOverrides", out s) && !string.IsNullOrEmpty(s)) ParseOverrides(s);
                 if (p.Values.TryGetValue("SurvivorGearSets", out s) && !string.IsNullOrEmpty(s)) { SurvivorGearSets.Clear(); SurvivorGearSets.AddRange(SplitList(s)); }
+                // an empty value is meaningful here: every set weighs the same
+                if (p.Values.TryGetValue("GearSetTiers", out s)) ParseGearSetTiers(s);
+                if (p.Values.TryGetValue("GearTierWeights", out s) && !string.IsNullOrEmpty(s)) ParseGearTierWeights(s);
+                if (p.Values.TryGetValue("GearQualityByTier", out s) && !string.IsNullOrEmpty(s)) ParseGearQuality(s);
                 if (p.Values.TryGetValue("XnpcSurvivorClasses", out s) && !string.IsNullOrEmpty(s)) { XnpcSurvivorClasses.Clear(); XnpcSurvivorClasses.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("XnpcRaiderClasses", out s) && !string.IsNullOrEmpty(s)) { XnpcRaiderClasses.Clear(); XnpcRaiderClasses.AddRange(SplitList(s)); }
                 // an empty value is meaningful here: raiders then dress from SurvivorGearSets
@@ -1343,6 +1433,15 @@ namespace SurvivorCommunity
                         if (wd != null) XnpcWeapons.Add(wd);
                     }
                 }
+                DynamicProperties outfits;
+                if (p.Classes != null && p.Classes.TryGetValue("Outfits", out outfits) && outfits != null)
+                {
+                    foreach (var kv in outfits.Values)
+                    {
+                        OutfitDef od = ParseOutfit(kv.Key, kv.Value);
+                        if (od != null) Outfits.Add(od);
+                    }
+                }
                 parsed = true;
                 ScLog.Out("config: MaxMembers=" + MaxMembers + " MaxFollowers=" + MaxFollowers + " FoodPerMemberDay=" + FoodPerMemberDay
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"
@@ -1365,6 +1464,8 @@ namespace SurvivorCommunity
                           + " levels=" + (RaiderXnpcLevels ? (RaiderLevelRegen ? "on" : "on, no regen") : "off") + " drop " + RaiderWeaponDropChance
                           + " vanillaDoors=" + RaiderVanillaDoors + " turretsAsEnemies=" + RaiderTurretsAsEnemies
                           + " gearSets=" + (RaiderGearSets.Count > 0 ? RaiderGearSets.Count.ToString() : "survivors'")
+                          + " outfits=" + Outfits.Count + " (share " + SurvivorOutfitShare.ToString("0.##", CultureInfo.InvariantCulture) + "/" + RaiderOutfitShare.ToString("0.##", CultureInfo.InvariantCulture) + ")"
+                          + " gearQuality=" + string.Join(",", Array.ConvertAll(GearQualityByTier, q => q[0] + "-" + q[1]))
                           + " homeHud=" + HomeStatusHud
                           + " noise=" + (BaseNoise ? "member " + NoisePerMember + " generator " + NoisePerGenerator + " workstation " + NoisePerFacility
                                                       + ", heat x" + NoiseHeatMult + " npc shot x" + NoiseNpcShotMult + ", half-life " + NoiseHalfLifeHours + "h"
@@ -1480,7 +1581,7 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>"family,tier[,alias]" for one XnpcWeapons entry; null (with a warning) when it cannot be read.</summary>
+        /// <summary>"family,tier[,alias][,bands=a/b/c][,group=g]" for one XnpcWeapons entry; null (with a warning) when it cannot be read.</summary>
         private static XnpcWeaponDef ParseXnpcWeapon(string item, string spec)
         {
             if (string.IsNullOrEmpty(item) || string.IsNullOrEmpty(spec)) return null;
@@ -1493,7 +1594,126 @@ namespace SurvivorCommunity
                 ScLog.Warn("config XnpcWeapons: cannot parse " + item + "='" + spec + "' (want family melee|bow|firearm, tier 0-2)");
                 return null;
             }
-            return new XnpcWeaponDef { Item = item.Trim(), Family = family, Tier = tier, Alias = parts.Length > 2 ? parts[2].Trim() : "" };
+            var d = new XnpcWeaponDef { Item = item.Trim(), Family = family, Tier = tier, Alias = parts.Length > 2 ? parts[2].Trim() : "" };
+            for (int i = 3; i < parts.Length; i++)
+            {
+                string f = parts[i].Trim();
+                if (f.StartsWith("group=", StringComparison.OrdinalIgnoreCase)) { d.Pool = f.Substring(6).Trim(); continue; }
+                if (!f.StartsWith("bands=", StringComparison.OrdinalIgnoreCase)) continue;
+                d.Bands = ParseWeights(f.Substring(6), 3);
+                if (d.Bands == null) ScLog.Warn("config XnpcWeapons: " + item + " has an unreadable '" + f + "' (want bands=a/b/c, each 0 or more, one above 0) - weighted by its tier");
+            }
+            return d;
+        }
+
+        /// <summary>n numbers of 0 or more separated by '/', at least one above 0; null when they are not.</summary>
+        private static float[] ParseWeights(string s, int n)
+        {
+            string[] parts = (s ?? "").Split('/');
+            if (parts.Length != n) return null;
+            var w = new float[n];
+            bool any = false;
+            for (int i = 0; i < n; i++)
+            {
+                if (!float.TryParse(parts[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out w[i]) || w[i] < 0f || float.IsNaN(w[i]) || float.IsInfinity(w[i])) return null;
+                if (w[i] > 0f) any = true;
+            }
+            return any ? w : null;
+        }
+
+        /// <summary>"Primitive:0,Assassin:1,Raider:2" - each vanilla armor set's weight class.</summary>
+        private static void ParseGearSetTiers(string s)
+        {
+            GearSetTiers.Clear();
+            if (string.IsNullOrEmpty(s)) return;
+            foreach (string part in s.Split(','))
+            {
+                string[] kv = part.Split(':');
+                int c;
+                if (kv.Length == 2 && kv[0].Trim().Length > 0 && int.TryParse(kv[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out c) && c >= 0 && c <= 2)
+                    GearSetTiers[kv[0].Trim()] = c;
+                else if (part.Trim().Length > 0) ScLog.Warn("config GearSetTiers: cannot parse '" + part + "' (want Set:0-2)");
+            }
+        }
+
+        /// <summary>"1/0.5/0.25,0.6/1/0.6,0.35/0.7/1" - per band, the light/medium/heavy set weights.</summary>
+        private static void ParseGearTierWeights(string s)
+        {
+            string[] rows = s.Split(',');
+            var w = new float[3][];
+            for (int i = 0; i < 3; i++)
+            {
+                w[i] = rows.Length == 3 ? ParseWeights(rows[i], 3) : null;
+                if (w[i] == null) { ScLog.Warn("config GearTierWeights: cannot parse '" + s + "' (want three a/b/c groups) - using the defaults"); return; }
+            }
+            GearTierWeights = w;
+        }
+
+        /// <summary>"1-2,2-4,3-5" - the armor quality range per band.</summary>
+        private static void ParseGearQuality(string s)
+        {
+            string[] rows = s.Split(',');
+            var q = new int[3][];
+            for (int i = 0; i < 3; i++)
+            {
+                string[] mm = rows.Length == 3 ? rows[i].Split('-') : new string[0];
+                int a, b;
+                if (mm.Length != 2 || !int.TryParse(mm[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out a)
+                    || !int.TryParse(mm[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out b) || a < 1 || b > 6 || a > b)
+                {
+                    ScLog.Warn("config GearQualityByTier: cannot parse '" + s + "' (want three min-max ranges within 1-6) - using the defaults");
+                    return;
+                }
+                q[i] = new[] { a, b };
+            }
+            GearQualityByTier = q;
+        }
+
+        /// <summary>One Outfits entry (OutfitDef); null (with a warning) when it has no body armor item or cannot be read.</summary>
+        private static OutfitDef ParseOutfit(string id, string spec)
+        {
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(spec)) return null;
+            var o = new OutfitDef { Id = id.Trim() };
+            foreach (string part in spec.Split(','))
+            {
+                int eq = part.IndexOf('=');
+                if (eq <= 0) continue;
+                string k = part.Substring(0, eq).Trim().ToLowerInvariant(), v = part.Substring(eq + 1).Trim();
+                switch (k)
+                {
+                    case "head": o.Items[0] = v; break;
+                    case "chest": o.Items[1] = v; break;
+                    case "hands": o.Items[2] = v; break;
+                    case "feet": o.Items[3] = v; break;
+                    case "sex":
+                        string sx = v.ToLowerInvariant();
+                        if (sx == "male") o.Sex = 1;
+                        else if (sx == "female") o.Sex = 2;
+                        else if (sx == "any" || sx == "both") o.Sex = 0;
+                        else { ScLog.Warn("config Outfits: " + id + " sex '" + v + "' is not any, male or female - left out"); return null; }
+                        break;
+                    case "side":
+                        string sd = v.ToLowerInvariant();
+                        if (sd == "survivor" || sd == "survivors") { o.Survivors = true; o.Raiders = false; }
+                        else if (sd == "raider" || sd == "raiders") { o.Survivors = false; o.Raiders = true; }
+                        else if (sd == "both") { o.Survivors = true; o.Raiders = true; }
+                        else { ScLog.Warn("config Outfits: " + id + " side '" + v + "' is not survivor, raider or both - left out"); return null; }
+                        break;
+                    case "tier":
+                        int tier;
+                        if (!int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out tier) || tier < 0 || tier > 2) { ScLog.Warn("config Outfits: " + id + " tier '" + v + "' is not 0-2 - left out"); return null; }
+                        o.Tier = tier;
+                        break;
+                    case "weight":
+                        float w;
+                        if (!float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out w) || w < 0f || float.IsNaN(w) || float.IsInfinity(w)) { ScLog.Warn("config Outfits: " + id + " weight '" + v + "' is not a number of 0 or more - left out"); return null; }
+                        o.Weight = w;
+                        break;
+                    case "mix": o.Mix = v.Equals("none", StringComparison.OrdinalIgnoreCase) ? "" : v; break;
+                }
+            }
+            if (o.Items[1].Length == 0) { ScLog.Warn("config Outfits: " + id + " has no chest item - left out"); return null; }
+            return o;
         }
 
         private static TraitDef ParseTrait(string name, string spec)

@@ -244,7 +244,7 @@ namespace SurvivorCommunity
                 {
                     source = "roll";
                     World w = ScCommunity.World;
-                    look = Roll(ClassIsMale(cls), w != null ? w.GetGameRandom() : null, true, ScXnpc.IsRaiderClass(cls));
+                    look = Roll(ClassIsMale(cls), w != null ? w.GetGameRandom() : null, true, ScXnpc.IsRaiderClass(cls), ScLoadout.TierCap(cls));
                 }
                 Validate(look);
                 if (e != null) { session[e.entityId] = look; sessionClass[e.entityId] = cls; sessionSource[e.entityId] = source; }
@@ -312,8 +312,12 @@ namespace SurvivorCommunity
             return rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
         }
 
-        /// <summary>A random face and hair (and a set of clothes when asked - a raider's from RaiderGearSets) for the given sex.</summary>
-        public static Look Roll(bool male, GameRandom rnd, bool withGear, bool raider = false)
+        /// <summary>
+        /// A random face and hair (and a set of clothes when asked - a raider's from RaiderGearSets) for the given sex. band
+        /// is the NPC's effective tier (ScLoadout.TierCap, as for its weapons): it weights the armor and sets its quality;
+        /// -1 when unknown.
+        /// </summary>
+        public static Look Roll(bool male, GameRandom rnd, bool withGear, bool raider = false, int band = -1)
         {
             var look = new Look { Male = male };
             try
@@ -359,7 +363,7 @@ namespace SurvivorCommunity
                     look.Chops = Chance(rnd) < ScConfig.SurvivorFacialHairChance * 0.5f ? Pick(rnd, chops, FallbackFacial) : "";
                     look.Beard = Chance(rnd) < ScConfig.SurvivorFacialHairChance ? Pick(rnd, beards, FallbackFacial) : "";
                 }
-                if (withGear) RollGear(look, rnd, raider);
+                if (withGear) RollGear(look, rnd, raider, band);
                 ScVanity.Roll(look, rnd, raider);   // Vanity Vault paints and tattoos (host only; none without it)
             }
             catch (Exception e)
@@ -378,26 +382,31 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Clothes from the config's armor sets: one main set, each piece present with SurvivorGearPieceChance
-        /// and swapped for another set's piece with SurvivorGearMixChance (a scavenged look). The body armor is
-        /// the exception - at a piece chance of 0.8 one survivor in five turned up bare-chested, which reads as
-        /// a missing mesh rather than as scavenging, so that slot ignores the chance (SurvivorGearAlwaysChest).
-        /// A raider's sets are RaiderGearSets (M10-D7; SurvivorGearSets when that is empty), with the same chances.
+        /// Clothes for an NPC of this effective band (ScLoadout.TierCap; -1 = unknown). With SurvivorOutfitShare
+        /// (RaiderOutfitShare for a raider) a whole mod outfit (Outfits) when one fits its sex, side and band - its pieces
+        /// only ever swap with another outfit of its mix group, never with vanilla pieces, which clip. Otherwise the
+        /// config's armor sets: one main set picked by weight (GearSetTiers x GearTierWeights: lighter sets likelier early,
+        /// heavier ones later, nothing ruled out), each piece present with SurvivorGearPieceChance and swapped for another
+        /// set's piece with SurvivorGearMixChance (a scavenged look). The body armor is the exception - at a piece chance
+        /// of 0.8 one survivor in five turned up bare-chested, which reads as a missing mesh rather than as scavenging, so
+        /// that slot ignores the chance (SurvivorGearAlwaysChest). A raider's sets are RaiderGearSets (M10-D7;
+        /// SurvivorGearSets when that is empty), with the same chances. Quality from GearQualityByTier for the band.
         /// </summary>
-        public static void RollGear(Look look, GameRandom rnd, bool raider = false)
+        public static void RollGear(Look look, GameRandom rnd, bool raider = false, int band = -1)
         {
             for (int i = 0; i < 4; i++) { look.Gear[i] = ""; look.Quality[i] = 1; }
+            int qMin, qMax;
+            ScConfig.GearQuality(band, out qMin, out qMax);
+            if (RollOutfit(look, rnd, raider, band, qMin, qMax)) return;
             var sets = ScConfig.GearSetsFor(raider);
             if (sets.Count == 0) return;
-            string main = sets[rnd != null ? rnd.RandomRange(0, sets.Count) : 0];
-            int qMin = Math.Max(1, Math.Min(ScConfig.SurvivorGearQualityMin, ScConfig.SurvivorGearQualityMax));
-            int qMax = Math.Max(qMin, ScConfig.SurvivorGearQualityMax);
+            string main = PickSet(sets, band, rnd);
             for (int slot = 0; slot < 4; slot++)
             {
                 bool must = slot == ChestSlot && ScConfig.SurvivorGearAlwaysChest;
                 if (!must && Chance(rnd) >= ScConfig.SurvivorGearPieceChance) continue;
                 string set = main;
-                if (sets.Count > 1 && Chance(rnd) < ScConfig.SurvivorGearMixChance) set = sets[rnd != null ? rnd.RandomRange(0, sets.Count) : 0];
+                if (sets.Count > 1 && Chance(rnd) < ScConfig.SurvivorGearMixChance) set = PickSet(sets, band, rnd);
                 string item = SetItem(set, slot);
                 if (item.Length == 0) item = SetItem(main, slot);
                 // a required piece takes whichever set has one rather than leaving the slot bare
@@ -408,8 +417,134 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Puts a whole set on (or "none" strips everything).</summary>
-        public static bool WearSet(Look look, string set, GameRandom rnd)
+        /// <summary>One vanilla armor set by weight for this band (all alike when the band is unknown or nothing weighs anything).</summary>
+        private static string PickSet(List<string> sets, int band, GameRandom rnd)
+        {
+            float total = 0f;
+            foreach (string s in sets) total += ScConfig.GearSetWeight(s, band);
+            if (total <= 0f) return sets[rnd != null ? rnd.RandomRange(0, sets.Count) : 0];
+            float r = Chance(rnd) * total;
+            string last = null;
+            foreach (string s in sets)
+            {
+                float w = ScConfig.GearSetWeight(s, band);
+                if (w <= 0f) continue;
+                last = s;
+                if (r < w) return s;
+                r -= w;
+            }
+            return last;
+        }
+
+        // ---- mod outfits (ScConfig.Outfits) ----
+
+        /// <summary>An item that exists in this game (a mod outfit's pack is installed).</summary>
+        private static bool Has(string item)
+        {
+            return !string.IsNullOrEmpty(item) && ItemClass.GetItemClass(item, true) != null;
+        }
+
+        private static bool SexFits(int sex, bool male)
+        {
+            return sex == 0 || (sex == 1) == male;
+        }
+
+        /// <summary>Installed (its body armor exists), weighted, and right for this sex, side and band (-1: any band).</summary>
+        private static bool Fits(OutfitDef o, bool male, bool raider, int band)
+        {
+            if (o == null || o.Weight <= 0f || !SexFits(o.Sex, male) || !Has(o.Items[ChestSlot])) return false;
+            if (raider ? !o.Raiders : !o.Survivors) return false;
+            return band < 0 || o.Tier <= band;
+        }
+
+        private static OutfitDef PickOutfit(List<OutfitDef> list, GameRandom rnd)
+        {
+            float total = 0f;
+            foreach (OutfitDef o in list) total += o.Weight;
+            if (total <= 0f) return null;
+            float r = Chance(rnd) * total;
+            OutfitDef last = null;
+            foreach (OutfitDef o in list)
+            {
+                if (o.Weight <= 0f) continue;
+                last = o;
+                if (r < o.Weight) return o;
+                r -= o.Weight;
+            }
+            return last;
+        }
+
+        /// <summary>
+        /// A whole mod outfit, with the outfit share, when one fits: every piece of the main outfit with the same piece and
+        /// body-armor chances as a vanilla set, a piece swapped (SurvivorGearMixChance) only for one of an outfit of the same
+        /// mix group that fits too. False (nothing changed) when none fits or the share does not come up.
+        /// </summary>
+        private static bool RollOutfit(Look look, GameRandom rnd, bool raider, int band, int qMin, int qMax)
+        {
+            float share = raider ? ScConfig.RaiderOutfitShare : ScConfig.SurvivorOutfitShare;
+            if (share <= 0f || ScConfig.Outfits.Count == 0) return false;
+            var fit = new List<OutfitDef>();
+            foreach (OutfitDef o in ScConfig.Outfits) if (Fits(o, look.Male, raider, band)) fit.Add(o);
+            if (fit.Count == 0 || Chance(rnd) >= share) return false;
+            OutfitDef main = PickOutfit(fit, rnd);
+            if (main == null) return false;
+            List<OutfitDef> mates = main.Mix.Length == 0 ? null
+                : fit.FindAll(o => o != main && string.Equals(o.Mix, main.Mix, StringComparison.OrdinalIgnoreCase));
+            for (int slot = 0; slot < 4; slot++)
+            {
+                bool must = slot == ChestSlot && ScConfig.SurvivorGearAlwaysChest;
+                if (!must && Chance(rnd) >= ScConfig.SurvivorGearPieceChance) continue;
+                string item = main.Items[slot];
+                if (mates != null && mates.Count > 0 && Chance(rnd) < ScConfig.SurvivorGearMixChance)
+                {
+                    OutfitDef other = PickOutfit(mates, rnd);
+                    if (other != null && Has(other.Items[slot])) item = other.Items[slot];
+                }
+                if (!Has(item)) continue;
+                look.Gear[slot] = item;
+                look.Quality[slot] = rnd != null ? rnd.RandomRange(qMin, qMax + 1) : qMin;
+            }
+            return true;
+        }
+
+        /// <summary>A mod outfit by its id ("TG_HitGirl") or the id past its pack prefix ("HitGirl"); null if none.</summary>
+        public static OutfitDef FindOutfit(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            foreach (OutfitDef o in ScConfig.Outfits) if (string.Equals(o.Id, name, StringComparison.OrdinalIgnoreCase)) return o;
+            foreach (OutfitDef o in ScConfig.Outfits)
+            {
+                int u = o.Id.IndexOf('_');
+                if (u >= 0 && string.Equals(o.Id.Substring(u + 1), name, StringComparison.OrdinalIgnoreCase)) return o;
+            }
+            return null;
+        }
+
+        /// <summary>The ids of the mod outfits whose pack is installed.</summary>
+        public static List<string> InstalledOutfits()
+        {
+            var ids = new List<string>();
+            foreach (OutfitDef o in ScConfig.Outfits) if (Has(o.Items[ChestSlot])) ids.Add(o.Id);
+            return ids;
+        }
+
+        /// <summary>0 any, 1 male only, 2 female only: the sex of the first single-sex Outfits entry listing this item.</summary>
+        private static int ItemSex(string item)
+        {
+            foreach (OutfitDef o in ScConfig.Outfits)
+            {
+                if (o.Sex == 0) continue;
+                for (int i = 0; i < 4; i++) if (string.Equals(o.Items[i], item, StringComparison.OrdinalIgnoreCase)) return o.Sex;
+            }
+            return 0;
+        }
+
+        /// <summary>
+        /// Puts a whole vanilla set or mod outfit on (an outfit by its id, FindOutfit), or "none" strips everything. False
+        /// when there is no such set or installed outfit, or the outfit is built for the other sex. Quality from the band's
+        /// GearQualityByTier range (sc spawn), or SurvivorGearQualityMin..Max when it is unknown (-1, sc gear).
+        /// </summary>
+        public static bool WearSet(Look look, string set, GameRandom rnd, int band = -1)
         {
             if (look == null) return false;
             if (string.Equals(set, "none", StringComparison.OrdinalIgnoreCase))
@@ -417,8 +552,20 @@ namespace SurvivorCommunity
                 for (int i = 0; i < 4; i++) { look.Gear[i] = ""; look.Quality[i] = 1; }
                 return true;
             }
-            int qMin = Math.Max(1, Math.Min(ScConfig.SurvivorGearQualityMin, ScConfig.SurvivorGearQualityMax));
-            int qMax = Math.Max(qMin, ScConfig.SurvivorGearQualityMax);
+            int qMin, qMax;
+            ScConfig.GearQuality(band, out qMin, out qMax);
+            OutfitDef outfit = FindOutfit(set);
+            if (outfit != null)
+            {
+                if (!SexFits(outfit.Sex, look.Male) || !Has(outfit.Items[ChestSlot])) return false;
+                for (int slot = 0; slot < 4; slot++)
+                {
+                    string item = Has(outfit.Items[slot]) ? outfit.Items[slot] : "";
+                    look.Gear[slot] = item;
+                    look.Quality[slot] = item.Length > 0 && rnd != null ? rnd.RandomRange(qMin, qMax + 1) : qMin;
+                }
+                return true;
+            }
             bool any = false;
             for (int slot = 0; slot < 4; slot++)
             {
@@ -467,6 +614,13 @@ namespace SurvivorCommunity
             for (int i = 0; i < 4; i++)
             {
                 if (string.IsNullOrEmpty(look.Gear[i])) continue;
+                if (!SexFits(ItemSex(look.Gear[i]), look.Male))
+                {
+                    // a mesh built for the other sex (an old record, a hand edit): left off rather than shown broken
+                    ScLog.Once("looks-sex-" + look.Gear[i] + (look.Male ? "-m" : "-f"), "armor " + look.Gear[i] + " is built for "
+                               + (look.Male ? "women" : "men") + " only (Outfits) - not put on a " + (look.Male ? "man" : "woman"));
+                    continue;
+                }
                 int slot = SlotOf(look.Gear[i], i);
                 if (slot < 0) continue;
                 names[slot] = look.Gear[i];
@@ -615,6 +769,66 @@ namespace SurvivorCommunity
                 return;
             }
             SyncGear(npc, m.Look);
+        }
+
+        /// <summary>
+        /// sc gear sim: n clothes rolls at this effective band (-1 = unknown) without making anyone - how many wear a mod
+        /// outfit (and which), the vanilla sets' weight classes, and the quality. Sex alternates unless one is given.
+        /// </summary>
+        public static string SimulateGear(int n, bool raider, int band, int sex)
+        {
+            World w = ScCommunity.World;
+            GameRandom rnd = w != null ? w.GetGameRandom() : null;
+            var look = new Look();
+            int outfits = 0, bare = 0, pieces = 0, qSum = 0, qLo = 99, qHi = 0;
+            var byOutfit = new Dictionary<string, int>();
+            var classes = new int[4];      // light, medium, heavy, unlisted
+            for (int i = 0; i < n; i++)
+            {
+                look.Male = sex == 1 || (sex == 0 && i % 2 == 0);
+                RollGear(look, rnd, raider, band);
+                for (int s = 0; s < 4; s++)
+                {
+                    if (look.Gear[s].Length == 0) continue;
+                    pieces++;
+                    qSum += look.Quality[s];
+                    qLo = Math.Min(qLo, look.Quality[s]);
+                    qHi = Math.Max(qHi, look.Quality[s]);
+                }
+                string chest = look.Gear[ChestSlot];
+                if (chest.Length == 0) { bare++; continue; }
+                OutfitDef o = null;
+                foreach (OutfitDef d in ScConfig.Outfits) if (string.Equals(d.Items[ChestSlot], chest, StringComparison.OrdinalIgnoreCase)) { o = d; break; }
+                if (o != null)
+                {
+                    outfits++;
+                    int c;
+                    byOutfit.TryGetValue(o.Id, out c);
+                    byOutfit[o.Id] = c + 1;
+                    continue;
+                }
+                string set = chest.StartsWith("armor", StringComparison.Ordinal) && chest.EndsWith("Outfit", StringComparison.Ordinal)
+                    ? chest.Substring(5, chest.Length - 11) : null;
+                int k;
+                classes[set != null && ScConfig.GearSetTiers.TryGetValue(set, out k) ? k : 3]++;
+            }
+            var sb = new StringBuilder();
+            sb.Append("[SC] ").Append(n).Append(raider ? " raider" : " survivor").Append(" outfits (")
+              .Append(sex == 1 ? "men, " : sex == 2 ? "women, " : "").Append(band >= 0 ? "band " + band : "band unknown").Append("): ")
+              .Append(outfits).Append(" mod outfits (").Append((100.0 * outfits / Math.Max(1, n)).ToString("0.0")).Append("%)");
+            if (byOutfit.Count > 0)
+            {
+                var top = new List<KeyValuePair<string, int>>(byOutfit);
+                top.Sort((a, b) => b.Value.CompareTo(a.Value));
+                sb.Append(" [");
+                for (int i = 0; i < top.Count; i++) sb.Append(i > 0 ? " " : "").Append(top[i].Key).Append('=').Append(top[i].Value);
+                sb.Append(']');
+            }
+            sb.Append(", vanilla light/medium/heavy/other ").Append(classes[0]).Append('/').Append(classes[1]).Append('/').Append(classes[2]).Append('/').Append(classes[3]);
+            if (bare > 0) sb.Append(", ").Append(bare).Append(" without body armor");
+            if (pieces > 0) sb.Append(", quality ").Append(qLo).Append('-').Append(qHi).Append(" avg ").Append(((double)qSum / pieces).ToString("0.00", CultureInfo.InvariantCulture));
+            sb.Append(" (installed outfits ").Append(InstalledOutfits().Count).Append('/').Append(ScConfig.Outfits.Count).Append(')');
+            return sb.ToString();
         }
 
         public static string Describe(Look l)
