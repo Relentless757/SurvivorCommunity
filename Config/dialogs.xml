@@ -205,4 +205,19 @@
 			<action type="ScLeave, SurvivorCommunity" />
 		</response>
 	</append>
+
+	<!-- The weapon menu (0-XNPCCore's "Weapon Classes", shown to the NPC's leader) lists vanilla weapons only, so a gun from
+	     a weapon pack (IZY Classic) handed over through the inventory window had no "Use" line. This one takes the best
+	     gun or bow and the best melee weapon from the window that the survivors can carry (XnpcWeapons) into the pair and
+	     the hand, the replaced ones coming back to you (ScArms.UseHanded). Hidden when there is none. ONE line: the
+	     dialog shows ten responses at most and 0-XNPCCore's weapon menu has nine. -->
+	<insertBefore xpath="/dialogs/dialog/statement[@id='Weapon Classes']/response_entry[1]">
+		<response_entry id="scUseHanded" />
+	</insertBefore>
+	<append xpath="/dialogs/dialog[statement[@id='Weapon Classes']]">
+		<response id="scUseHanded" text="scUseHanded">
+			<requirement type="ScHandedWeapon, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScUseHanded, SurvivorCommunity" />
+		</response>
+	</append>
 </configs>

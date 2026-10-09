@@ -373,7 +373,7 @@ namespace SurvivorCommunity
             if (medicalInHand || item != null)
             {
                 Loadout l = ScLoadout.Current(e);
-                ItemClass pairGun = l != null && l.Ranged != null ? ItemClass.GetItemClass(l.Ranged, true) : null;
+                ItemClass pairGun = l != null && l.HasRanged ? ItemClass.GetItemClass(l.Ranged, true) : null;
                 bool ranged = record && savedGun != null && pairGun != null && savedGun.type == pairGun.Id;
                 string why;
                 if (!ScLoadout.Arm(e, ranged, out why))

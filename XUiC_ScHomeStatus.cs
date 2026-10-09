@@ -6,8 +6,8 @@ using UnityEngine.Scripting;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// The Home Status panel (Config/XUi_InGame/windows.xml windowScHomeStatus, in the HUD's toolbelt group): at the top left
-    /// while the player is inside the home zone - morale (dot + word), the five resources (red below what the next rollover
+    /// The Home Status panel (Config/XUi_InGame/windows.xml windowScHomeStatus, in the HUD's toolbelt group): at the top, right
+    /// of the compass (left of the quest tracker), while the player is inside the home zone - morale (dot + word), the five resources (red below what the next rollover
     /// wants, ScStockpile.NeedForRollover), the member count and the base's noise (ScNoise). Hidden while a modal window is
     /// open, and with HomeStatusHud=false. Host only, like the registry it reads. Every binding is non-null from the
     /// constructor: bindings are evaluated while the XML is parsed, before Init.

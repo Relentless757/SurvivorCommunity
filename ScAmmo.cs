@@ -142,7 +142,7 @@ namespace SurvivorCommunity
         public static ItemClass PairGun(EntityAlive e)
         {
             Loadout l = ScLoadout.Current(e);
-            ItemClass ic = l != null && l.Ranged != null ? ItemClass.GetItemClass(l.Ranged, true) : null;
+            ItemClass ic = l != null && l.HasRanged ? ItemClass.GetItemClass(l.Ranged, true) : null;
             return RangedAction(ic) != null ? ic : null;
         }
 

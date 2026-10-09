@@ -398,6 +398,39 @@ public class DialogActionScJoin : BaseDialogAction
     }
 }
 
+/// <summary>
+/// The NPC holds a weapon in its inventory window that it could carry (ScArms.HandedWeapon: a gun or bow, or a melee
+/// weapon). Gates the weapon menu's "Use the weapons I gave you".
+/// </summary>
+public class DialogRequirementScHandedWeapon : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            EntityAlive npc = ScFavours.CurrentNpc(player);
+            int slot;
+            return ScCommunity.IsHost && npc != null && (ScArms.HandedWeapon(npc, true, out slot) != null || ScArms.HandedWeapon(npc, false, out slot) != null);
+        }
+        catch (Exception e) { ScLog.Once("req-handed", e); return false; }
+    }
+}
+
+/// <summary>The weapon menu's "Use the weapons I gave you" (ScArms.UseHanded).</summary>
+public class DialogActionScUseHanded : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try
+        {
+            EntityAlive npc = ScFavours.CurrentNpc(player);
+            if (npc == null) return;
+            ScArms.UseHanded(npc, player);
+        }
+        catch (Exception e) { ScLog.Once("act-use-handed", e); }
+    }
+}
+
 /// <summary>Member order: follow the player (refused below mood 25 or when the party is full).</summary>
 public class DialogActionScFollow : BaseDialogAction
 {

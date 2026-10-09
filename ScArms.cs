@@ -486,7 +486,7 @@ namespace SurvivorCommunity
                 ItemValue held = e.inventory.holdingItemItemValue;
                 string heldName = held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : null;
                 // never inside 0-XNPCCore's close-range melee (its exit decides that)
-                if (l == null || l.Ranged == null || l.Melee == null || CloseMelee(c))
+                if (l == null || !l.HasRanged || l.Melee == null || CloseMelee(c))
                 {
                     w.OutSince = 0f;
                     w.BackSince = 0f;
@@ -654,33 +654,131 @@ namespace SurvivorCommunity
                     ScLog.Out(m.Name + " holds " + token + " from the inventory window - not one of the weapons the survivors carry (XnpcWeapons), so it is not kept in their pair");
                     return;
                 }
-                bool ranged = ScLoadout.IsRangedToken(token);
-                string old = cur.Of(ranged);
-                ItemValue oldIv = old != null ? CarriedCopy(npc, old) : null;     // before Set refills the slots
-                var change = new Loadout();
-                change.Set(ranged, token);
-                string why;
-                // no starting stack for a handed gun: its ammo is what the player hands over, or a resupply at home
-                if (!ScLoadout.Set(npc, change, out why, false))
-                {
-                    ScLog.Warn(m.Name + ": could not keep the handed " + token + " (" + why + ")");
-                    return;
-                }
-                RetargetRemembered(npc, old, token);
-                var back = new List<ItemStack>();
-                TakeFromWindow(npc, slot, back);              // the handed item lives in the pair now; any mods on it come back
-                if (oldIv != null) back.Insert(0, new ItemStack(oldIv, 1));
-                string where = back.Count > 0 ? Return(back, player, npc) : null;
-                swapsKept++;
-                ScLog.Out(m.Name + " keeps the " + token + " (" + route + ") in place of the " + (old ?? "-") + (where != null ? ", returned to " + where : "")
-                          + " - loadout now " + (m.Loadout != null ? m.Loadout.ToString() : "-"));
-                if (player != null && old != null)
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scSwapKept"), m.Name, ItemLabel(token), ItemLabel(old), Localization.Get(WhereKey(where))), "");
-                ScRegistry.SaveAtomic();
+                Keep(npc, m.Name, token, slot, player, route);
             }
             catch (Exception e)
             {
                 ScLog.Once("arms-swap", e);
+            }
+        }
+
+        /// <summary>
+        /// The handed weapon in this window slot joins the NPC's pair in place of the one of its kind (a melee-only NPC's
+        /// first ranged weapon replaces nothing), and the replaced one and any mods on the handed one come back as real
+        /// items. Shared by 0-XNPCCore's weapon menu (OnSwap, members) and SC's own "Use the weapons I gave you" (UseHanded).
+        /// </summary>
+        private static bool Keep(EntityAlive npc, string name, string token, int slot, EntityPlayer player, string route)
+        {
+            Loadout cur = ScLoadout.Current(npc);
+            if (cur == null) return false;
+            bool ranged = ScLoadout.IsRangedToken(token);
+            string old = cur.Of(ranged);
+            if (Loadout.IsNoRanged(old)) old = null;                     // a melee-only NPC's first ranged weapon
+            ItemValue oldIv = old != null ? CarriedCopy(npc, old) : null;     // before Set refills the slots
+            var change = new Loadout();
+            change.Set(ranged, token);
+            string why;
+            // no starting stack for a handed gun: its ammo is what the player hands over, or a resupply at home
+            if (!ScLoadout.Set(npc, change, out why, false))
+            {
+                ScLog.Warn(name + ": could not keep the handed " + token + " (" + why + ")");
+                return false;
+            }
+            RetargetRemembered(npc, old, token);
+            var back = new List<ItemStack>();
+            TakeFromWindow(npc, slot, back);              // the handed item lives in the pair now; any mods on it come back
+            if (oldIv != null) back.Insert(0, new ItemStack(oldIv, 1));
+            string where = back.Count > 0 ? Return(back, player, npc) : null;
+            swapsKept++;
+            Loadout now = ScLoadout.Current(npc);
+            ScLog.Out(name + " keeps the " + token + " (" + route + ") in place of the " + (old ?? "-") + (where != null ? ", returned to " + where : "")
+                      + " - loadout now " + (now != null ? now.ToString() : "-"));
+            if (player != null && old != null)
+                ScCommunity.Tell(player, string.Format(Localization.Get("scSwapKept"), name, ItemLabel(token), ItemLabel(old), Localization.Get(WhereKey(where))), "");
+            if (ScRegistry.GetMember(npc.entityId) != null || ScRegistry.GetProspect(npc.entityId) != null) ScRegistry.SaveAtomic();
+            return true;
+        }
+
+        /// <summary>
+        /// The weapon of this kind the player handed the NPC through its inventory window that it could carry in its pair:
+        /// one of XnpcWeapons, not the one it carries already - the highest tier; on a tie an unmodded copy before a modded
+        /// one, else the first. Null when there is none (a weapon the survivors never carry, such as IZY's dual pistols,
+        /// cannot join a pair).
+        /// </summary>
+        public static string HandedWeapon(EntityAlive npc, bool ranged, out int slot)
+        {
+            slot = -1;
+            if (npc == null || !ScXnpc.IsBody(npc) || !HarvestManager.Has(npc.entityId)) return null;
+            ItemStack[] items = ScNpc.Items(npc);
+            Loadout cur = ScLoadout.Current(npc);
+            if (items == null || cur == null) return null;
+            string best = null;
+            int bestLevel = -1;
+            for (int i = 0; i < items.Length; i++)
+            {
+                ItemStack s = items[i];
+                if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.ItemClass == null) continue;
+                string token = s.itemValue.ItemClass.GetItemName();
+                if (!ScLoadout.Knows(token) || ScLoadout.IsRangedToken(token) != ranged) continue;
+                if (string.Equals(token, cur.Of(ranged), StringComparison.OrdinalIgnoreCase)) continue;
+                int level = ScLoadout.LevelOf(token);
+                if (level > bestLevel || (level == bestLevel && !s.itemValue.HasMods() && items[slot].itemValue.HasMods()))
+                {
+                    best = token;
+                    bestLevel = level;
+                    slot = i;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// The weapon menu's "Use the weapons I gave you" (Config/dialogs.xml): the handed weapon of each kind
+        /// (HandedWeapon: a gun or bow, a melee weapon) joins the pair, and the ranged one, else the melee one, goes into
+        /// the hand. 0-XNPCCore's own menu lists only vanilla weapons, so this is how IZY Classic's guns, and every other
+        /// weapon the survivors carry, are handed over. One line for both kinds: that menu shows ten lines at most and
+        /// 0-XNPCCore's has nine. It shows for the NPC's leader only (a follower, a hired companion), so no other check.
+        /// </summary>
+        public static void UseHanded(EntityAlive npc, EntityPlayer player)
+        {
+            try
+            {
+                if (!ScCommunity.IsHost || npc == null || !ScXnpc.IsBody(npc)) return;
+                string name = ScCommunity.DisplayName(npc);
+                int slot;
+                if (HandedWeapon(npc, true, out slot) == null && HandedWeapon(npc, false, out slot) == null)
+                {
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scUseHandedNone"), name), "ui_denied");
+                    return;
+                }
+                if (ScAmmo.IsWindowOpen(npc.entityId))
+                {
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scUseHandedWindowOpen"), name), "ui_denied");
+                    return;
+                }
+                var kept = new List<string>();
+                bool rangedKept = false;
+                foreach (bool ranged in new[] { true, false })
+                {
+                    string token = HandedWeapon(npc, ranged, out slot);       // again: the first Keep took its item out of the window
+                    if (token == null) continue;
+                    if (!Keep(npc, name, token, slot, player, "use handed"))
+                    {
+                        ScCommunity.Tell(player, string.Format(Localization.Get("scUseHandedFailed"), name, ItemLabel(token)), "ui_denied");
+                        continue;
+                    }
+                    kept.Add(ItemLabel(token));
+                    if (ranged) rangedKept = true;
+                }
+                if (kept.Count == 0) return;
+                string why;
+                if (!ScLoadout.Arm(npc, rangedKept, out why)) ScLog.Warn(name + ": kept the handed weapon(s) but could not take one in hand (" + why + ")");
+                ScCommunity.Tell(player, kept.Count > 1 ? string.Format(Localization.Get("scUseHandedNowBoth"), name, kept[0], kept[1])
+                                                        : string.Format(Localization.Get("scUseHandedNow"), name, kept[0]), "");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("arms-use-handed", e);
             }
         }
 

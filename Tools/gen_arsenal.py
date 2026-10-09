@@ -642,7 +642,35 @@ io.open(ip, "w", encoding="utf-8", newline="\n").write(src)
 # behind it - its vanilla column, or the framework NPC item's CompatibleWeapon - with the token's kind, family and tier,
 # so the survivors' tiers and firearm odds are the raiders'. EmptyHand and RocketL are left out (no fists as a weapon,
 # no rocket launcher outside its own class). A marked block inside the config block, replaced on every run.
+#
+# The user's tier rule (2026-10-08, for every weapon since 2026-10-09: "T2 NPCs must not get T0 gear"), by the tier in
+# the item's name (meleeWpnClubT0WoodenClub T0, gunMGT1AK47 T1; Combat Sandbox shows it as "(T1)"): T1 NPCs carry T0 and
+# T1 weapons (T1 a little rarer), T2 NPCs T1 and T2 (T2 rarer), T3 NPCs T2, T3 and T4 (T4 rarer). An NPC's tier is its
+# class's (T1 = band 0); the gamestage picks the class when it spawns (ScLoadout.ClassByGamestage). Each row's bands=
+# gives its group's weight at band 0/1/2 and group= names the group (the name tier): the weapons of one family and group
+# split the weight, so a tier with many weapons is no likelier than one with few. The tier field is the first band it
+# turns up in (the console, and DLLs from before bands=).
 # ------------------------------------------------------------------------------------------------------------
+TIER_RARE, TIER_RARER = 0.65, 0.4
+TIER_BANDS = {0: (1.0, 0.0, 0.0), 1: (TIER_RARE, 1.0, 0.0), 2: (0.0, TIER_RARE, 1.0), 3: (0.0, 0.0, 1.0), 4: (0.0, 0.0, TIER_RARER)}
+
+def fmt_w(x):
+    return ("%.2f" % x).rstrip("0").rstrip(".")
+
+def name_tier(item):
+    """The tier in a weapon's item name: IZYgunT3ARAKM 3, gunMGT1AK47 1, meleeToolAxeT1IronFireaxe 1, Tminus1 0."""
+    m = re.search(r"[A-Za-z]T(minus1|\d)", item)
+    if not m: raise SystemExit("weapon %s has no T<n> in its name" % item)
+    return 0 if m.group(1) == "minus1" else int(m.group(1))
+
+def tier_value(item, fam, alias):
+    """family,tier,alias,bands=a/b/c,group=Tn for a weapon by the tier in its name."""
+    t = name_tier(item)
+    if t not in TIER_BANDS: raise SystemExit("weapon %s is T%d, which no band takes" % (item, t))
+    bands = TIER_BANDS[t]
+    tier = next(i for i, x in enumerate(bands) if x > 0)
+    return "%s,%d,%s,bands=%s,group=T%d" % (fam, tier, alias, "/".join(fmt_w(x) for x in bands), t), tier, t
+
 XW_BEGIN, XW_END = "<!-- BEGIN GENERATED: XnpcWeapons (Tools/gen_arsenal.py) -->", "<!-- END GENERATED: XnpcWeapons -->"
 XNPC_WEAPONS = []                                 # (vanilla item, family, tier, token), the table's order
 for token, cat, kind, tier, van in WEAPONS:
@@ -671,13 +699,15 @@ if anchor is None: raise SystemExit("blocks.xml: no XnpcModelY or XnpcBodyCollid
 ind = anchor.group(1)
 xw = [ind + XW_BEGIN + "\n",
       ind + "<!-- The vanilla weapons the community's 0-XNPCCore survivors and SurvivorCommunity's raiders carry, one melee\n"
-      + ind + "     and one ranged each (a raider leads with one of them), rolled at or below the lower of their class's tier (T1 = 0,\n"
-      + ind + "     T2 = 1, T3 = 2) and the gamestage tier; a ranged one is a firearm at SurvivorFirearmChance (a raider's at\n"
-      + ind + "     RaiderFirearmChance), else a bow or crossbow. value = family (melee, bow, firearm), tier, and the short name\n"
-      + ind + "     the console accepts. Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->\n",
+      + ind + "     and one ranged each (a raider leads with one of them; some carry only the melee one, SurvivorMeleeOnlyChance /\n"
+      + ind + "     RaiderMeleeOnlyChance); a ranged one is a firearm at SurvivorFirearmChance (a raider's at RaiderFirearmChance),\n"
+      + ind + "     else a bow or crossbow. By the tier in the item's name: T1 NPCs carry T0/T1 weapons (T1 a little rarer), T2 NPCs\n"
+      + ind + "     T1/T2 (T2 rarer), T3 NPCs T2/T3/T4 (T4 rarer). value = family (melee, bow, firearm), the first tier it turns up\n"
+      + ind + "     at, the short name the console accepts, bands = its tier group's weight for T1/T2/T3 NPCs, group = that tier\n"
+      + ind + "     (a group's weapons split its weight). Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->\n",
       ind + '<property class="XnpcWeapons">\n']
 for item, fam, tier, token in XNPC_WEAPONS:
-    xw.append(ind + '\t<property name="%s" value="%s,%d,%s" />\n' % (item, fam, tier, token))
+    xw.append(ind + '\t<property name="%s" value="%s" />\n' % (item, tier_value(item, fam, token)[0]))
 xw.append(ind + "</property>\n")
 xw.append(ind + XW_END + "\n")
 src = src[:anchor.end()] + "".join(xw) + src[anchor.end():]
@@ -687,22 +717,16 @@ io.open(bp, "w", encoding="utf-8", newline="\n").write(src)
 # blocks.xml, optional: IZY Classic's guns (IGP_Classic, whose items only exist with Combat_Sandbox_FLTR) for any
 # survivor or raider while that pack is installed. The user's rule (2026-10-08), by the tier in the gun's name (Tminus1
 # counts as T0): T1 NPCs carry T0/T1 guns, T1 a little rarer; T2 NPCs T1/T2, T2 a little rarer; T3 NPCs T2/T3/T4, T4
-# rarer. An NPC's tier is its effective band, the class band capped by the gamestage (ScLoadout.TierCap), as for every
-# weapon. Each row's bands= field gives its group's weight at band 0/1/2 and group= names the group (T0..T4): the DLL
-# picks a family's weapon by weight, the guns of one group splitting its weight, so "T1 a little rarer" holds for the
-# tier as a whole however many T1 guns there are. The tier field is the first band it can turn up in (the console, and
-# DLLs from before bands=). Left out (research 2026-10-08, scratch mig\mw\izy_weapons_research.md): IZY's melee weapons
-# (the user's call), the duals (HoldType 67: no aim or reload pose on a body), the grenade launchers, the M134, the
-# flamethrower, the Broken AR-15 (no ranged tag), the nailgun (nail ammo) and Combat Sandbox's not-ready items.
-# Vanilla's own firearm rows above take the same rule while the pack is installed: Combat Sandbox names every gun with
-# its tier ("Pipe Shotgun (T0)", and IZY's 13 replacers such as "AK-47 Machine Gun (T1)"), so a <set> per row gives each
-# the bands and group of the tier in its item name. The bows are untouched. A top-level conditional, so without the pack
-# none of it exists and nothing is logged.
+# rarer - the rule every weapon row above follows (tier_value). Left out (research 2026-10-08, scratch
+# mig\mw\izy_weapons_research.md): IZY's melee weapons (the user's call), the duals (HoldType 67: no aim or reload pose on
+# a body), the grenade launchers, the M134, the flamethrower, the Broken AR-15 (no ranged tag), the nailgun (nail ammo)
+# and Combat Sandbox's not-ready items. IZY's 13 vanilla replacers keep their rows above (with the pack installed those
+# names are IZY's guns, which Combat Sandbox names "AK-47 Machine Gun (T1)"). A top-level conditional, so without the
+# pack none of it exists and nothing is logged.
 # ------------------------------------------------------------------------------------------------------------
 IZ_BEGIN, IZ_END = "<!-- BEGIN GENERATED: XnpcWeapons IZY Classic (Tools/gen_arsenal.py) -->", "<!-- END GENERATED: XnpcWeapons IZY Classic -->"
 IZY_COND = "mod_loaded('IGP_Classic') and mod_loaded('Combat_Sandbox_FLTR')"
-IZY_RARE, IZY_RARER = 0.65, 0.4
-IZY_BANDS = {0: (1.0, 0.0, 0.0), 1: (IZY_RARE, 1.0, 0.0), 2: (0.0, IZY_RARE, 1.0), 3: (0.0, 0.0, 1.0), 4: (0.0, 0.0, IZY_RARER)}
+IZY_BANDS = TIER_BANDS
 IZY_WEAPONS = [   # (item, family, alias, display) - the pack tier is the T<n> in the item name (Tminus1 = T0)
     ("IZYgunTminus1MusketM1777Rifle", "firearm", "Musket", "Musket Model 1777 (TS)"),
     ("IZYgunT0PistolLiberatorImprovisedPistol", "firearm", "Liberator", "FP-45 Liberator Pistol (T0)"),
@@ -760,12 +784,8 @@ IZY_WEAPONS = [   # (item, family, alias, display) - the pack tier is the T<n> i
 
 
 def izy_tier(item):
-    m = re.match(r"IZYgunT(minus1|\d)", item)
-    if not m: raise SystemExit("IZY_WEAPONS: %s has no T<n> in its name" % item)
-    return 0 if m.group(1) == "minus1" else int(m.group(1))
-
-def fmt_w(x):
-    return ("%.2f" % x).rstrip("0").rstrip(".")
+    if not re.match(r"IZYgunT(minus1|\d)", item): raise SystemExit("IZY_WEAPONS: %s has no T<n> in its name" % item)
+    return name_tier(item)
 
 IGP = os.path.join(GAME, r"Mods\IGP_Classic\Config\IZY26513")
 CSB = os.path.join(GAME, r"Mods\zzzCombatSandboxFLTR\Config\items.xml")
@@ -795,19 +815,7 @@ for item, fam, alias, disp in IZY_WEAPONS:
         tags = {x.strip().lower() for x in (one(it, "property[@name='Tags']").get("value") if one(it, "property[@name='Tags']") is not None else "").split(",")}
         if "ranged" not in tags: raise SystemExit("IZY_WEAPONS: %s has no ranged tag - 0-XNPCCore would fight with it as melee" % item)
         if item in not_ready: raise SystemExit("IZY_WEAPONS: %s is on Combat Sandbox's not-ready list" % item)
-    bands = IZY_BANDS[t]
-    tier = next(i for i, x in enumerate(bands) if x > 0)
-    izy_rows.append((item, fam, tier, alias, "/".join(fmt_w(x) for x in bands), t))
-# vanilla's firearm rows: the tier in the item name, which Combat Sandbox shows (gunMGT1AK47 "AK-47 Machine Gun (T1)")
-rep_rows = []
-for item, fam, tier0, token in XNPC_WEAPONS:
-    if fam != "firearm": continue
-    m = re.match(r"gun[A-Za-z]+?T(\d)", item)
-    if not m or int(m.group(1)) not in IZY_BANDS: raise SystemExit("XnpcWeapons firearm %s has no usable T<n> in its name" % item)
-    t = int(m.group(1))
-    bands = IZY_BANDS[t]
-    tier = next(i for i, x in enumerate(bands) if x > 0)
-    rep_rows.append((item, fam, tier, token, "/".join(fmt_w(x) for x in bands), t))
+    izy_rows.append((item, tier_value(item, fam, alias)[0], t))
 bp = os.path.join(MOD, "blocks.xml")
 src = io.open(bp, encoding="utf-8").read()
 if src.count(IZ_BEGIN) > 1 or src.count(IZ_END) > 1: raise SystemExit("blocks.xml holds the IZY markers more than once - fix it by hand")
@@ -816,20 +824,14 @@ if IZ_BEGIN in src:
 if src.count("</configs>") != 1: raise SystemExit("blocks.xml: expected one </configs>")
 iz = ["\t" + IZ_BEGIN + "\n",
       "\t<!-- IZY Classic's guns for any survivor or raider, only while IZY Classic (with Combat Sandbox) is installed,\n"
-      "\t     and every gun then follows the tier in its name: T1 NPCs carry T0/T1 guns (T1 a little rarer), T2 NPCs T1/T2\n"
-      "\t     (T2 rarer), T3 NPCs T2/T3/T4 (T4 rarer). bands = the weight of the gun's group (group=, its name tier) at an\n"
-      "\t     NPC's effective tier 0/1/2 (T1, T2, T3 NPCs, capped by the gamestage); the group's guns split it. Locked &\n"
-      "\t     Loaded arms them with its IZY Classic magazines. Written by Tools/gen_arsenal.py (IZY_WEAPONS): edit it there. -->\n",
+      "\t     by the same tier rule as every weapon (XnpcWeapons): T1 NPCs carry T0/T1 guns (T1 a little rarer), T2 NPCs\n"
+      "\t     T1/T2 (T2 rarer), T3 NPCs T2/T3/T4 (T4 rarer). Locked & Loaded arms them with its IZY Classic magazines.\n"
+      "\t     Written by Tools/gen_arsenal.py (IZY_WEAPONS): edit it there. -->\n",
       "\t<conditional>\n", '\t\t<if cond="%s">\n' % IZY_COND,
       "\t\t\t<append xpath=\"/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']\">\n"]
-for item, fam, tier, alias, bands, t in izy_rows:
-    iz.append('\t\t\t\t<property name="%s" value="%s,%d,%s,bands=%s,group=T%d" />\n' % (item, fam, tier, alias, bands, t))
-iz += ["\t\t\t</append>\n",
-       "\t\t\t<!-- vanilla's guns (the pipe guns, and the 13 IZY replaces): the same rule by the tier in their name -->\n"]
-for item, fam, tier, token, bands, t in rep_rows:
-    iz.append("\t\t\t<set xpath=\"/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']"
-              "/property[@name='%s']/@value\">%s,%d,%s,bands=%s,group=T%d</set>\n" % (item, fam, tier, token, bands, t))
-iz += ["\t\t</if>\n", "\t</conditional>\n", "\t" + IZ_END + "\n"]
+for item, value, t in izy_rows:
+    iz.append('\t\t\t\t<property name="%s" value="%s" />\n' % (item, value))
+iz += ["\t\t\t</append>\n", "\t\t</if>\n", "\t</conditional>\n", "\t" + IZ_END + "\n"]
 src = src.replace("</configs>", "".join(iz) + "</configs>")
 io.open(bp, "w", encoding="utf-8", newline="\n").write(src)
 
@@ -858,7 +860,7 @@ io.open(lp, "w", encoding="utf-8", newline="").write(nl.join(kept + rows) + nl)
 print("classes: %d raider leaves + %d templates (M10, on 0-XNPCCore's body)" % (len(RAIDERS), len(RAIDER_TEMPLATE)))
 print("survivor weapons (XnpcWeapons): %d (%s)" % (len(XNPC_WEAPONS), ", ".join(
     "%s %d" % (f, sum(1 for x in XNPC_WEAPONS if x[1] == f)) for f in ("melee", "bow", "firearm"))))
-print("IZY Classic weapons (optional block): %d new, %d vanilla guns re-tiered (%s)%s" % (len(izy_rows), len(rep_rows), ", ".join("T%d %d" % (k, sum(1 for r in izy_rows if r[5] == k)) for k in sorted(IZY_BANDS)),
+print("IZY Classic weapons (optional block): %d (%s)%s" % (len(izy_rows), ", ".join("T%d %d" % (k, sum(1 for r in izy_rows if r[2] == k)) for k in sorted(IZY_BANDS)),
       "" if izy_items else " - IGP_Classic not found, not checked against the pack"))
 print("W0: %d groups swapped, %d trimmed, %d framework spawn groups removed" % (len(w0_swap), len(w0_drop), len(w0_spawns)))
 print("items.xml: %s" % ("the old raiders' NPC weapon block removed (M10 round 2)" if old_items_block else "no generated block (none since M10 round 2)"))

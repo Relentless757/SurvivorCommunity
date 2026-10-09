@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -427,7 +427,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// sc spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon] [ranged-lead|melee-lead] [Set] - an NPC on
+        /// sc spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] - an NPC on
         /// 0-XNPCCore's player body, in front of the player: one of the community's survivors, or with "hostile" (or
         /// "raider") one of SC's raiders (M10). The class is the one of its sex at the given band tier, else at the
         /// gamestage tier. Each weapon given fixes that kind of its pair (an item, its short name, or melee / bow / firearm
@@ -474,6 +474,12 @@ namespace SurvivorCommunity
                 if (a == "male" || a == "female") { sex = a; continue; }
                 if (a == "hostile" || a == "raider") continue;
                 if (a.Length == 2 && a[0] == 't' && a[1] >= '1' && a[1] <= '3') { tier = a[1] - '1'; continue; }
+                if (a == "meleeonly" || a == "melee-only")
+                {
+                    if (fix.Ranged != null) { Output("[SC] " + fix.Ranged + " is a ranged weapon - a melee-only NPC carries none"); return; }
+                    fix.Ranged = Loadout.NoRanged;
+                    continue;
+                }
                 int lead = LeadWord(a);
                 if (lead != Loadout.LeadNone)
                 {
@@ -485,6 +491,7 @@ namespace SurvivorCommunity
                 string tok = IsArmorSet(p[i]) && !ScLoadout.Knows(p[i]) ? null : ScLoadout.MatchToken(p[i], rnd, out why);
                 if (tok == null) { set = p[i]; continue; }                // "Primitive" is a set, not the primitive bow
                 bool ranged = ScLoadout.IsRangedToken(tok);
+                if (ranged && fix.Ranged == Loadout.NoRanged) { Output("[SC] " + tok + " is a ranged weapon - a melee-only NPC carries none"); return; }
                 if (fix.Of(ranged) != null) { Output("[SC] " + tok + " and " + fix.Of(ranged) + " are both " + (ranged ? "ranged" : "melee") + " - an NPC carries one of each"); return; }
                 fix.Set(ranged, tok);
             }
@@ -513,7 +520,7 @@ namespace SurvivorCommunity
             npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
             npc.Buffs.SetCustomVar("Persist", 1f);
             Loadout pair = ScLoadout.Current(npc);
-            Output("[SC] spawned " + (hostile ? "raider " : "") + cls + " (" + (pair != null ? pair.ToString() : "no pair") + ", tier cap " + ScLoadout.TierCap(cls) + ") id " + npc.entityId
+            Output("[SC] spawned " + (hostile ? "raider " : "") + cls + " (" + (pair != null ? pair.ToString() : "no pair") + ", tier " + ScLoadout.TierCap(cls) + ") id " + npc.entityId
                    + " '" + ScCommunity.DisplayName(npc) + "': " + ScLooks.Describe(look));
         }
 
@@ -541,7 +548,7 @@ namespace SurvivorCommunity
         /// </summary>
         private static void LoadoutCmd(List<string> p)
         {
-            if (p.Count < 2) { Output("[SC] loadout <id|name> [weapon] [weapon] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any]"); return; }
+            if (p.Count < 2) { Output("[SC] loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any]"); return; }
             string a = p[1].ToLowerInvariant();
             if (a == "sim")
             {
@@ -582,6 +589,8 @@ namespace SurvivorCommunity
                         change.Lead = lead;
                         continue;
                     }
+                    string k = p[i].ToLowerInvariant();
+                    if (k == "meleeonly" || k == "melee-only") { change.Ranged = Loadout.NoRanged; continue; }
                     string bad;
                     string tok = ScLoadout.MatchToken(p[i], null, out bad);
                     if (tok == null) { Output("[SC] " + bad); return; }
@@ -781,9 +790,9 @@ namespace SurvivorCommunity
                     else if (k.Length == 2 && k[0] == 't' && k[1] >= '1' && k[1] <= '3') classTier = k[1] - '1';
                     else if (int.TryParse(k, out v)) n = v;
                 }
-                // the band a spawn of that class gets today (ScLoadout.TierCap): its class tier capped by the gamestage
-                int band = anyStage ? 2 : ScLooks.MaxTierFor(ScLoadout.GameStageNow());
-                if (classTier >= 0) band = Math.Min(band, classTier);
+                // a class tier rolls as that class (ScLoadout.TierCap); without one, a T3 class spawned now, which the
+                // gamestage brings down (Patch_ClassByGamestage) unless any
+                int band = classTier >= 0 ? classTier : anyStage ? 2 : ScLoadout.GamestageTier();
                 Output(ScLooks.SimulateGear(Math.Max(1, Math.Min(100000, n)), hostile, band, sex));
                 return;
             }

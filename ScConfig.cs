@@ -437,6 +437,8 @@ namespace SurvivorCommunity
         /// pick 2026-10-08: lighter sets likelier early, heavier later, nothing ruled out).
         /// </summary>
         public static readonly Dictionary<string, int> GearSetTiers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Sets that stop at a band: "Primitive:0" - the starter armor is T1 NPCs' only (the user, 2026-10-09: no T0 gear on T2 NPCs).</summary>
+        public static readonly Dictionary<string, int> GearSetLastTier = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         public static float[][] GearTierWeights = DefaultGearTierWeights();
         /// <summary>Armor quality [min, max] by effective band (T1 1-2, T2 2-4, T3 3-5).</summary>
         public static int[][] GearQualityByTier = DefaultGearQuality();
@@ -491,6 +493,14 @@ namespace SurvivorCommunity
         public static bool SurvivorSecondWeapon = true;
         /// <summary>The odds a survivor's ranged weapon is a firearm rather than a bow or crossbow (raiders: RaiderFirearmChance).</summary>
         public static float SurvivorFirearmChance = 0.12f;
+        /// <summary>The odds a new survivor carries only a melee weapon (Loadout.NoRanged; raiders: RaiderMeleeOnlyChance).</summary>
+        public static float SurvivorMeleeOnlyChance = 0.15f;
+        /// <summary>
+        /// Decision D4 (tiers by gamestage), kept at spawn time since 2026-10-09: a spawn group's pick of one of our tiered
+        /// classes above the gamestage tier comes in as the same side and sex at that tier (ScLoadout.Patch_ClassByGamestage),
+        /// and a body's weapons and clothes follow its class tier alone - so a T2 NPC never carries T0 gear.
+        /// </summary>
+        public static bool XnpcClassByGamestage = true;
         /// <summary>OBSOLETE since M10: how often a hostile console spawn got a ranged class weapon (the old raider classes).
         /// Still parsed so an old blocks.xml loads; nothing reads it.</summary>
         public static float SurvivorRangedMainChance = 0.4f;
@@ -599,6 +609,8 @@ namespace SurvivorCommunity
         public static float RaiderLeadRangedSeconds = 3f;
         /// <summary>The odds a raider's ranged weapon is a firearm rather than a bow or crossbow (the old FIREARM_SHARE).</summary>
         public static float RaiderFirearmChance = 0.12f;
+        /// <summary>The odds a new raider carries only a melee weapon (it then always leads with it).</summary>
+        public static float RaiderMeleeOnlyChance = 0.15f;
         /// <summary>Rounds of its gun's basic ammo a raider starts with, in its bag, once (M10-D2: never resupplied). With
         /// Locked &amp; Loaded (M11) only for a gun without magazines: one that takes them gets L&amp;L's tier magazines instead.</summary>
         public static int RaiderSpawnAmmo = 24;
@@ -672,6 +684,7 @@ namespace SurvivorCommunity
             SurvivorGearQualityMin = 1;
             SurvivorGearQualityMax = 4;
             GearSetTiers.Clear();
+            GearSetLastTier.Clear();
             GearTierWeights = DefaultGearTierWeights();
             GearQualityByTier = DefaultGearQuality();
             Outfits.Clear();
@@ -698,6 +711,8 @@ namespace SurvivorCommunity
             SurvivorAimHoldSeconds = 2f;
             SurvivorSecondWeapon = true;
             SurvivorFirearmChance = 0.12f;
+            SurvivorMeleeOnlyChance = 0.15f;
+            XnpcClassByGamestage = true;
             SurvivorRangedMainChance = 0.4f;
             XnpcWeapons.Clear();
             XnpcSpawnAmmo = 30;
@@ -740,6 +755,7 @@ namespace SurvivorCommunity
             RaiderLeadRangedDist = 8f;
             RaiderLeadRangedSeconds = 3f;
             RaiderFirearmChance = 0.12f;
+            RaiderMeleeOnlyChance = 0.15f;
             RaiderSpawnAmmo = 24;
             RaiderSpawnArrows = 15;
             RaiderXnpcLevels = false;
@@ -818,6 +834,7 @@ namespace SurvivorCommunity
             foreach (string s in new[] { "Primitive", "Athletic", "Enforcer", "Lumberjack", "Preacher", "Rogue" }) GearSetTiers[s] = 0;
             foreach (string s in new[] { "Assassin", "Biker", "Commando", "Farmer", "Ranger", "Scavenger" }) GearSetTiers[s] = 1;
             foreach (string s in new[] { "Miner", "Nerd", "Nomad", "Raider" }) GearSetTiers[s] = 2;
+            GearSetLastTier["Primitive"] = 0;
             // M10-D7: raiders dress rougher than survivors (the design's suggested list, accepted 2026-10-01)
             RaiderGearSets.AddRange(new[] { "Raider", "Biker", "Enforcer", "Assassin", "Rogue", "Commando", "Nomad", "Scavenger", "Primitive" });
             // the user's picks (2026-10-07): Vanity Vault's tinted skins and all of its eyes; vanilla's dyed colours made rare
@@ -888,6 +905,7 @@ namespace SurvivorCommunity
         public static float GearSetWeight(string set, int band)
         {
             int c;
+            if (band >= 0 && !string.IsNullOrEmpty(set) && GearSetLastTier.TryGetValue(set, out c) && band > c) return 0f;
             if (band < 0 || string.IsNullOrEmpty(set) || !GearSetTiers.TryGetValue(set, out c)) return 1f;
             float[] row = GearTierWeights[Math.Min(band, GearTierWeights.Length - 1)];
             return row[Math.Max(0, Math.Min(row.Length - 1, c))];
@@ -1294,6 +1312,10 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("SurvivorSecondWeapon")) p.ParseBool("SurvivorSecondWeapon", ref secondWeapon);
                 SurvivorSecondWeapon = secondWeapon;
                 ParseFloat(p, "SurvivorFirearmChance", ref SurvivorFirearmChance, 0f, 1f);
+                ParseFloat(p, "SurvivorMeleeOnlyChance", ref SurvivorMeleeOnlyChance, 0f, 1f);
+                bool byGs = XnpcClassByGamestage;
+                if (p.Values.ContainsKey("XnpcClassByGamestage")) p.ParseBool("XnpcClassByGamestage", ref byGs);
+                XnpcClassByGamestage = byGs;
                 ParseFloat(p, "SurvivorRangedMainChance", ref SurvivorRangedMainChance, 0f, 1f);
                 ParseInt(p, "XnpcSpawnAmmo", ref XnpcSpawnAmmo, 0, 1000);
                 ParseInt(p, "XnpcSpawnArrows", ref XnpcSpawnArrows, 0, 1000);
@@ -1355,6 +1377,7 @@ namespace SurvivorCommunity
                 XnpcBodyColliderLayers = xnpcColliders;
                 ParseFloat(p, "XnpcModelY", ref XnpcModelY, -0.3f, 0.3f);
                 ParseFloat(p, "RaiderFirearmChance", ref RaiderFirearmChance, 0f, 1f);
+                ParseFloat(p, "RaiderMeleeOnlyChance", ref RaiderMeleeOnlyChance, 0f, 1f);
                 ParseFloat(p, "RaiderLeadRangedDist", ref RaiderLeadRangedDist, 3f, 60f);
                 ParseFloat(p, "RaiderLeadRangedSeconds", ref RaiderLeadRangedSeconds, 0f, 30f);
                 ParseInt(p, "RaiderSpawnAmmo", ref RaiderSpawnAmmo, 0, 1000);
@@ -1385,7 +1408,8 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("ValueOverrides", out s) && !string.IsNullOrEmpty(s)) ParseOverrides(s);
                 if (p.Values.TryGetValue("SurvivorGearSets", out s) && !string.IsNullOrEmpty(s)) { SurvivorGearSets.Clear(); SurvivorGearSets.AddRange(SplitList(s)); }
                 // an empty value is meaningful here: every set weighs the same
-                if (p.Values.TryGetValue("GearSetTiers", out s)) ParseGearSetTiers(s);
+                if (p.Values.TryGetValue("GearSetTiers", out s)) ParseSetTiers(s, GearSetTiers, "GearSetTiers");
+                if (p.Values.TryGetValue("GearSetLastTier", out s)) ParseSetTiers(s, GearSetLastTier, "GearSetLastTier");
                 if (p.Values.TryGetValue("GearTierWeights", out s) && !string.IsNullOrEmpty(s)) ParseGearTierWeights(s);
                 if (p.Values.TryGetValue("GearQualityByTier", out s) && !string.IsNullOrEmpty(s)) ParseGearQuality(s);
                 if (p.Values.TryGetValue("XnpcSurvivorClasses", out s) && !string.IsNullOrEmpty(s)) { XnpcSurvivorClasses.Clear(); XnpcSurvivorClasses.AddRange(SplitList(s)); }
@@ -1447,7 +1471,8 @@ namespace SurvivorCommunity
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"
                           + " PostRadius=" + PostRadius + " DefendBaseRadius=" + DefendBaseRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
                           + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count
-                          + " secondWeapon=" + SurvivorSecondWeapon + " firearmChance=" + SurvivorFirearmChance + " rangedMainChance=" + SurvivorRangedMainChance
+                          + " secondWeapon=" + SurvivorSecondWeapon + " firearmChance=" + SurvivorFirearmChance + " meleeOnly=" + SurvivorMeleeOnlyChance + "/" + RaiderMeleeOnlyChance
+                          + " classByGamestage=" + XnpcClassByGamestage + " rangedMainChance=" + SurvivorRangedMainChance
                           + " xnpcWeapons=" + XnpcWeapons.Count + " xnpcSpawnAmmo=" + XnpcSpawnAmmo + "/" + XnpcSpawnArrows
                           + " resupply=" + (XnpcResupply ? "below " + XnpcResupplyBelow + " +" + XnpcResupplyAmmo + "/" + XnpcResupplyArrows
                                             + " every " + XnpcResupplyCooldown + "s x" + XnpcResupplyPointsMult : "off")
@@ -1621,18 +1646,18 @@ namespace SurvivorCommunity
             return any ? w : null;
         }
 
-        /// <summary>"Primitive:0,Assassin:1,Raider:2" - each vanilla armor set's weight class.</summary>
-        private static void ParseGearSetTiers(string s)
+        /// <summary>"Primitive:0,Assassin:1,Raider:2" - a 0-2 number per vanilla armor set (GearSetTiers, GearSetLastTier).</summary>
+        private static void ParseSetTiers(string s, Dictionary<string, int> into, string key)
         {
-            GearSetTiers.Clear();
+            into.Clear();
             if (string.IsNullOrEmpty(s)) return;
             foreach (string part in s.Split(','))
             {
                 string[] kv = part.Split(':');
                 int c;
                 if (kv.Length == 2 && kv[0].Trim().Length > 0 && int.TryParse(kv[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out c) && c >= 0 && c <= 2)
-                    GearSetTiers[kv[0].Trim()] = c;
-                else if (part.Trim().Length > 0) ScLog.Warn("config GearSetTiers: cannot parse '" + part + "' (want Set:0-2)");
+                    into[kv[0].Trim()] = c;
+                else if (part.Trim().Length > 0) ScLog.Warn("config " + key + ": cannot parse '" + part + "' (want Set:0-2)");
             }
         }
 

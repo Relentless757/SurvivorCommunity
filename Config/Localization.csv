@@ -123,6 +123,12 @@ scSwapKept,UI,Tooltip,,,,"{0} keeps the {1}. The {2} is {3}."
 scSwapToStorage,UI,Tooltip,,,,"in the base storage"
 scSwapToInventory,UI,Tooltip,,,,"in your inventory"
 scSwapToGround,UI,Tooltip,,,,"in a bag at your feet"
+scUseHanded,Dialog,Response,,,,Use the weapons I gave you.
+scUseHandedNow,UI,Tooltip,,,,"{0} now uses the {1}."
+scUseHandedNowBoth,UI,Tooltip,,,,"{0} now uses the {1} and the {2}."
+scUseHandedNone,UI,Tooltip,,,,"{0} has no weapon from you that they can use."
+scUseHandedWindowOpen,UI,Tooltip,,,,"Close {0}'s inventory first."
+scUseHandedFailed,UI,Tooltip,,,,"{0} could not take the {1}."
 buffSCSkillsName,Buff,Buff,,,,Survivor skills
 buffSCSkillsDesc,Buff,Buff,,,,"Fighting and Shooting raise this survivor's melee and ranged damage; Cardio raises speed and health."
 buffSCHungryName,Buff,Buff,,,,Hungry

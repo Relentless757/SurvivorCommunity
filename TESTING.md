@@ -25,6 +25,47 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Gear by class tier, melee-only NPCs, handing over pack guns, the panel by the compass
+
+**Deployed 2026-10-09** (Fable review + re-check: deployable; DLL md5 `57ede10fe447de0b9e47143f4c095311`, Config with it). Your asks (2026-10-09): T2 NPCs never with T0 gear; a chance an NPC has only a melee weapon; a
+follower given an IZY gun can be told to use it; the community panel between the compass and the quest tracker. No save
+format change: NPCs you've already met keep their weapons and clothes (a melee-only record reads "none" for the ranged
+weapon; an older build would give them one).
+
+What it does:
+- **Gear follows the class tier.** Melee weapons, bows and guns all follow the tier in their name now (before, only the
+  guns did, and e.g. the Machete was a "tier 0" weapon): T1 NPCs T0/T1, T2 NPCs T1/T2, T3 NPCs T2/T3/T4. The Primitive
+  armor set is T1-only. Clothes quality by tier as before.
+- **The gamestage picks the class instead.** Below gamestage 50 a T2 or T3 survivor or raider from a spawn group comes
+  in as a T1 (below 100 a T3 comes in as a T2). Before, it kept its class but rolled T1 gear, which is what you saw at
+  gamestage 46. `sc spawn T2` makes a real T2 at any gamestage.
+- **Melee-only:** 15% of new survivors and raiders carry only a melee weapon (such a raider always charges).
+- **Handing over:** the weapon menu gets "Use the weapons I gave you." (one line: that menu shows ten at most) when
+  their inventory window holds a weapon they can carry (any XnpcWeapons entry - IZY's guns included; not IZY's duals or
+  launchers). It takes the highest tier gun or bow and the highest tier melee weapon there, puts the ranged one in their
+  hand, and gives you back the ones they replace.
+- **The panel** sits at the top, right of the compass, 394 wide (was 430 at the top left).
+
+Steps:
+- [ ] **Startup:** `patch verification: all 83 targets patched` (76 without Voice Control; one more than before). The
+  `config:` line has `meleeOnly=0.15/0.15 classByGamestage=True`.
+- [ ] **No T0 gear on T2:** `sc loadout sim 5000 T2` (and `hostile`): by name tier, melee/bow/firearm show only T1 and T2
+  (bows only T1). `sc loadout sim 5000 T3`: only T2/T3 (and T4 with IZY). `sc gear sim 3000 T2`: no Primitive (it shows
+  as light, so check `sc spawn T2` a dozen times: nobody in Primitive armor or with a T0 item).
+- [ ] **Gamestage picks the class:** at gamestage under 50, raiders and survivors met in towns at night or downtown are
+  T1 classes (`sc loadout near` lists the class); turn on `DebugLogging` to see `spawn: scRaiderMaleT3 comes in as
+  scRaiderMaleT1` lines.
+- [ ] **Melee-only:** the sims print about 15% melee-only. `sc spawn meleeonly` and `sc spawn hostile meleeonly`: only a
+  melee weapon, and the raider charges. Save and reload: still melee-only (no bow appears).
+- [ ] **Hand a gun to a melee-only member:** put a gun in their window, Weapon Menu, "Use the weapons I gave you.": they
+  hold it and keep it after a reload.
+- [ ] **Hand an IZY gun to a follower:** put e.g. an IZY M4 in their inventory window, open the Weapon Menu: "Use the
+  weapons I gave you." is the first line and "Nevermind." is still at the bottom; pick it: they hold the M4, their old gun
+  comes back to you (storage, inventory or a bag), and the message names both. With a gun and a melee weapon in the
+  window both are taken. With nothing usable in the window the line is hidden.
+- [ ] **The panel:** inside the home zone it shows at the top, right of the compass, clear of the compass, its day/time
+  line and the quest tracker (and the biome name above the tracker). All five numbers and the noise line still fit.
+
 ## Mod guns and outfits (IZY Classic, LittleRedSonja's armor)
 
 **Deployed 2026-10-08** (Fable review + re-check: deployable; DLL md5 `5cec517ceb3d310fce1ed2fe176b241b`, Config with it). Your picks (2026-10-08): IZY Classic's guns for survivors and raiders by the tier in their name
@@ -702,7 +743,7 @@ Voice Control). No save format change: three new keys in the registry's `[commun
 `noisestamp`), which older builds ignore. Nothing attacks yet: D1 only shows and measures; the hordes come with D2.
 
 What changed:
-- **Home Status panel** at the HUD's top left while you stand inside the home zone, laid out like State of Decay 2's:
+- **Home Status panel** at the HUD's top left (since 2026-10-09: right of the compass) while you stand inside the home zone, laid out like State of Decay 2's:
   "Home Status" with a morale dot and word (green happy, light content, amber uneasy, red miserable); food, meds,
   ammo, materials and fuel (a number is **red when it is below what the next rollover wants**: food for everyone, meds
   for the injured, 1 ammo while any resident fights with a gun, the outposts' upkeep in materials and haulage in fuel);

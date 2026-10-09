@@ -206,14 +206,16 @@
 			<property name="SurvivorGearMixChance" value="0.3" />
 			<property name="SurvivorGearQualityMin" value="1" />
 			<property name="SurvivorGearQualityMax" value="4" />
-			<!-- Clothes by tier (the user's picks, 2026-10-08). An NPC's effective tier is the one its weapons use: its
-			     class (T1 = 0, T2 = 1, T3 = 2) capped by the gamestage (0 below 50, 1 below 100, else 2).
+			<!-- Clothes by tier (the user's picks, 2026-10-08). An NPC's tier is the one its weapons use: its class's
+			     (T1 = 0, T2 = 1, T3 = 2; the gamestage picks the class, XnpcClassByGamestage).
 			     GearSetTiers: each vanilla set's weight class (0 light and Primitive, 1 medium, 2 heavy; an unlisted set
 			     weighs 1). GearTierWeights: per tier, the light/medium/heavy weights (lighter likelier early, heavier
-			     later, nothing ruled out). GearQualityByTier: the armor quality range per tier (SurvivorGearQualityMin/Max
-			     are only for sc gear). -->
+			     later). GearSetLastTier: sets that stop at a tier - the Primitive starter armor is T1 NPCs' only (no T0
+			     gear on T2 NPCs, 2026-10-09). GearQualityByTier: the armor quality range per tier
+			     (SurvivorGearQualityMin/Max are only for sc gear). -->
 			<property name="GearSetTiers" value="Primitive:0,Athletic:0,Enforcer:0,Lumberjack:0,Preacher:0,Rogue:0,Assassin:1,Biker:1,Commando:1,Farmer:1,Ranger:1,Scavenger:1,Miner:2,Nerd:2,Nomad:2,Raider:2" />
 			<property name="GearTierWeights" value="1/0.5/0.25,0.6/1/0.6,0.35/0.7/1" />
+			<property name="GearSetLastTier" value="Primitive:0" />
 			<property name="GearQualityByTier" value="1-2,2-4,3-5" />
 			<!-- Mod outfits (LittleRedSonja's armor packs; any other pack can be added the same way): with
 			     SurvivorOutfitShare (RaiderOutfitShare for raiders) an NPC wears one of these instead of vanilla armor,
@@ -299,6 +301,12 @@
 			     when it has ammo, melee when it runs dry).
 			     SurvivorFirearmChance: the odds that a survivor's ranged weapon is a firearm rather than a bow or crossbow
 			     (raiders: RaiderFirearmChance).
+			     SurvivorMeleeOnlyChance: the odds a new survivor carries only its melee weapon (raiders:
+			     RaiderMeleeOnlyChance). Hand them a gun or bow later and it becomes their ranged weapon.
+			     A body's weapons and clothes follow its class tier (T1, T2, T3), so a T2 NPC never carries T0 gear.
+			     XnpcClassByGamestage: the gamestage picks the class instead - a spawn group's T2 or T3 survivor or
+			     raider above your gamestage's tier (T1 below 50, T2 below 100) comes in as the T1 or T2 one of the
+			     same sex. false: every class spawns as listed, at its own tier from day 1.
 			     SurvivorSecondWeapon and SurvivorRangedMainChance: NO LONGER USED (they belonged to the old per-weapon
 			     raider classes, replaced in M10); still read so an old file loads.
 			     XnpcSpawnAmmo / XnpcSpawnArrows: the rounds of its gun's basic ammo (arrows or bolts for a bow or
@@ -310,6 +318,8 @@
 			     member last carried instead (its magazines too), never a new stack. -->
 			<property name="SurvivorSecondWeapon" value="true" />
 			<property name="SurvivorFirearmChance" value="0.12" />
+			<property name="SurvivorMeleeOnlyChance" value="0.15" />
+			<property name="XnpcClassByGamestage" value="true" />
 			<property name="SurvivorRangedMainChance" value="0.4" />
 			<property name="XnpcSpawnAmmo" value="30" />
 			<property name="XnpcSpawnArrows" value="20" />
@@ -395,52 +405,54 @@
 			<property name="XnpcModelY" value="0" />
 			<!-- BEGIN GENERATED: XnpcWeapons (Tools/gen_arsenal.py) -->
 			<!-- The vanilla weapons the community's 0-XNPCCore survivors and SurvivorCommunity's raiders carry, one melee
-			     and one ranged each (a raider leads with one of them), rolled at or below the lower of their class's tier (T1 = 0,
-			     T2 = 1, T3 = 2) and the gamestage tier; a ranged one is a firearm at SurvivorFirearmChance (a raider's at
-			     RaiderFirearmChance), else a bow or crossbow. value = family (melee, bow, firearm), tier, and the short name
-			     the console accepts. Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->
+			     and one ranged each (a raider leads with one of them; some carry only the melee one, SurvivorMeleeOnlyChance /
+			     RaiderMeleeOnlyChance); a ranged one is a firearm at SurvivorFirearmChance (a raider's at RaiderFirearmChance),
+			     else a bow or crossbow. By the tier in the item's name: T1 NPCs carry T0/T1 weapons (T1 a little rarer), T2 NPCs
+			     T1/T2 (T2 rarer), T3 NPCs T2/T3/T4 (T4 rarer). value = family (melee, bow, firearm), the first tier it turns up
+			     at, the short name the console accepts, bands = its tier group's weight for T1/T2/T3 NPCs, group = that tier
+			     (a group's weapons split its weight). Written by Tools/gen_arsenal.py from its weapon table: edit it there. -->
 			<property class="XnpcWeapons">
-				<property name="meleeWpnClubT0WoodenClub" value="melee,0,Club" />
-				<property name="meleeWpnBladeT1HuntingKnife" value="melee,0,Knife" />
-				<property name="meleeWpnClubT1BaseballBat" value="melee,0,Bat" />
-				<property name="meleeToolAxeT1IronFireaxe" value="melee,0,Axe" />
-				<property name="meleeWpnSpearT1IronSpear" value="melee,0,Spear" />
-				<property name="meleeWpnBladeT3Machete" value="melee,0,Machete" />
-				<property name="gunHandgunT0PipePistol" value="firearm,0,PipePistol" />
-				<property name="gunRifleT0PipeRifle" value="firearm,0,PipeRifle" />
-				<property name="gunShotgunT0PipeShotgun" value="firearm,0,PipeShotgun" />
-				<property name="gunMGT0PipeMachineGun" value="firearm,0,PipeMG" />
-				<property name="gunBowT1WoodenBow" value="bow,1,LBow" />
-				<property name="gunBowT1IronCrossbow" value="bow,1,XBow" />
-				<property name="gunHandgunT1Pistol" value="firearm,2,Pistol" />
-				<property name="gunHandgunT3DesertVulture" value="firearm,2,DPistol" />
-				<property name="gunHandgunT3SMG5" value="firearm,2,SMG" />
-				<property name="gunMGT1AK47" value="firearm,2,Rifle" />
-				<property name="gunMGT2TacticalAR" value="firearm,2,TRifle" />
-				<property name="gunRifleT1HuntingRifle" value="firearm,2,HRifle" />
-				<property name="gunRifleT3SniperRifle" value="firearm,2,SRifle" />
-				<property name="gunShotgunT2PumpShotgun" value="firearm,2,PShotgun" />
-				<property name="gunShotgunT3AutoShotgun" value="firearm,2,AShotgun" />
-				<property name="gunMGT3M60" value="firearm,2,M60" />
-				<property name="meleeWpnBladeT0BoneKnife" value="melee,0,BoneKnife" />
-				<property name="meleeWpnKnucklesT0LeatherKnuckles" value="melee,0,LeatherKnuckles" />
-				<property name="meleeWpnKnucklesT1IronKnuckles" value="melee,0,IronKnuckles" />
-				<property name="meleeWpnKnucklesT3SteelKnuckles" value="melee,2,SteelKnuckles" />
-				<property name="meleeWpnBatonT0PipeBaton" value="melee,0,PipeBaton" />
-				<property name="meleeWpnBatonT2StunBaton" value="melee,1,StunBaton" />
-				<property name="meleeWpnClubT3SteelClub" value="melee,2,SteelClub" />
-				<property name="meleeWpnSledgeT0StoneSledgehammer" value="melee,0,StoneSledge" />
-				<property name="meleeWpnSledgeT1IronSledgehammer" value="melee,0,IronSledge" />
-				<property name="meleeWpnSledgeT3SteelSledgehammer" value="melee,2,SteelSledge" />
-				<property name="meleeWpnSpearT0StoneSpear" value="melee,0,StoneSpear" />
-				<property name="meleeWpnSpearT3SteelSpear" value="melee,2,SteelSpear" />
-				<property name="meleeToolAxeT2SteelAxe" value="melee,1,SteelAxe" />
-				<property name="gunHandgunT2Magnum44" value="firearm,2,Magnum" />
-				<property name="gunShotgunT1DoubleBarrel" value="firearm,1,DoubleBarrel" />
-				<property name="gunRifleT2LeverActionRifle" value="firearm,2,LeverAction" />
-				<property name="gunBowT0PrimitiveBow" value="bow,0,PrimitiveBow" />
-				<property name="gunBowT3CompoundBow" value="bow,2,CompoundBow" />
-				<property name="gunBowT3CompoundCrossbow" value="bow,2,CompoundCrossbow" />
+				<property name="meleeWpnClubT0WoodenClub" value="melee,0,Club,bands=1/0/0,group=T0" />
+				<property name="meleeWpnBladeT1HuntingKnife" value="melee,0,Knife,bands=0.65/1/0,group=T1" />
+				<property name="meleeWpnClubT1BaseballBat" value="melee,0,Bat,bands=0.65/1/0,group=T1" />
+				<property name="meleeToolAxeT1IronFireaxe" value="melee,0,Axe,bands=0.65/1/0,group=T1" />
+				<property name="meleeWpnSpearT1IronSpear" value="melee,0,Spear,bands=0.65/1/0,group=T1" />
+				<property name="meleeWpnBladeT3Machete" value="melee,2,Machete,bands=0/0/1,group=T3" />
+				<property name="gunHandgunT0PipePistol" value="firearm,0,PipePistol,bands=1/0/0,group=T0" />
+				<property name="gunRifleT0PipeRifle" value="firearm,0,PipeRifle,bands=1/0/0,group=T0" />
+				<property name="gunShotgunT0PipeShotgun" value="firearm,0,PipeShotgun,bands=1/0/0,group=T0" />
+				<property name="gunMGT0PipeMachineGun" value="firearm,0,PipeMG,bands=1/0/0,group=T0" />
+				<property name="gunBowT1WoodenBow" value="bow,0,LBow,bands=0.65/1/0,group=T1" />
+				<property name="gunBowT1IronCrossbow" value="bow,0,XBow,bands=0.65/1/0,group=T1" />
+				<property name="gunHandgunT1Pistol" value="firearm,0,Pistol,bands=0.65/1/0,group=T1" />
+				<property name="gunHandgunT3DesertVulture" value="firearm,2,DPistol,bands=0/0/1,group=T3" />
+				<property name="gunHandgunT3SMG5" value="firearm,2,SMG,bands=0/0/1,group=T3" />
+				<property name="gunMGT1AK47" value="firearm,0,Rifle,bands=0.65/1/0,group=T1" />
+				<property name="gunMGT2TacticalAR" value="firearm,1,TRifle,bands=0/0.65/1,group=T2" />
+				<property name="gunRifleT1HuntingRifle" value="firearm,0,HRifle,bands=0.65/1/0,group=T1" />
+				<property name="gunRifleT3SniperRifle" value="firearm,2,SRifle,bands=0/0/1,group=T3" />
+				<property name="gunShotgunT2PumpShotgun" value="firearm,1,PShotgun,bands=0/0.65/1,group=T2" />
+				<property name="gunShotgunT3AutoShotgun" value="firearm,2,AShotgun,bands=0/0/1,group=T3" />
+				<property name="gunMGT3M60" value="firearm,2,M60,bands=0/0/1,group=T3" />
+				<property name="meleeWpnBladeT0BoneKnife" value="melee,0,BoneKnife,bands=1/0/0,group=T0" />
+				<property name="meleeWpnKnucklesT0LeatherKnuckles" value="melee,0,LeatherKnuckles,bands=1/0/0,group=T0" />
+				<property name="meleeWpnKnucklesT1IronKnuckles" value="melee,0,IronKnuckles,bands=0.65/1/0,group=T1" />
+				<property name="meleeWpnKnucklesT3SteelKnuckles" value="melee,2,SteelKnuckles,bands=0/0/1,group=T3" />
+				<property name="meleeWpnBatonT0PipeBaton" value="melee,0,PipeBaton,bands=1/0/0,group=T0" />
+				<property name="meleeWpnBatonT2StunBaton" value="melee,1,StunBaton,bands=0/0.65/1,group=T2" />
+				<property name="meleeWpnClubT3SteelClub" value="melee,2,SteelClub,bands=0/0/1,group=T3" />
+				<property name="meleeWpnSledgeT0StoneSledgehammer" value="melee,0,StoneSledge,bands=1/0/0,group=T0" />
+				<property name="meleeWpnSledgeT1IronSledgehammer" value="melee,0,IronSledge,bands=0.65/1/0,group=T1" />
+				<property name="meleeWpnSledgeT3SteelSledgehammer" value="melee,2,SteelSledge,bands=0/0/1,group=T3" />
+				<property name="meleeWpnSpearT0StoneSpear" value="melee,0,StoneSpear,bands=1/0/0,group=T0" />
+				<property name="meleeWpnSpearT3SteelSpear" value="melee,2,SteelSpear,bands=0/0/1,group=T3" />
+				<property name="meleeToolAxeT2SteelAxe" value="melee,1,SteelAxe,bands=0/0.65/1,group=T2" />
+				<property name="gunHandgunT2Magnum44" value="firearm,1,Magnum,bands=0/0.65/1,group=T2" />
+				<property name="gunShotgunT1DoubleBarrel" value="firearm,0,DoubleBarrel,bands=0.65/1/0,group=T1" />
+				<property name="gunRifleT2LeverActionRifle" value="firearm,1,LeverAction,bands=0/0.65/1,group=T2" />
+				<property name="gunBowT0PrimitiveBow" value="bow,0,PrimitiveBow,bands=1/0/0,group=T0" />
+				<property name="gunBowT3CompoundBow" value="bow,2,CompoundBow,bands=0/0/1,group=T3" />
+				<property name="gunBowT3CompoundCrossbow" value="bow,2,CompoundCrossbow,bands=0/0/1,group=T3" />
 			</property>
 			<!-- END GENERATED: XnpcWeapons -->
 			<!-- Raiders (M10): SurvivorCommunity's hostile classes on 0-XNPCCore's player body, the same body as the
@@ -453,6 +465,7 @@
 			     farther than RaiderLeadRangedDist metres, above them or out of their path's reach for
 			     RaiderLeadRangedSeconds, and only while it has rounds (back to melee within 3 m).
 			     RaiderFirearmChance: the odds a raider's ranged weapon is a firearm, else a bow or crossbow.
+			     RaiderMeleeOnlyChance: the odds a raider carries only its melee weapon (it then always leads with it).
 			     RaiderSpawnAmmo / RaiderSpawnArrows: the rounds (arrows or bolts) of its gun's basic ammo a raider starts
 			     with, in its bag. Raiders are never resupplied: when it runs dry it fights with its melee weapon. With
 			     Locked & Loaded installed, a gun that takes magazines starts with Locked & Loaded's loaded magazines for
@@ -477,6 +490,7 @@
 			<property name="RaiderLeadRangedDist" value="8" />
 			<property name="RaiderLeadRangedSeconds" value="3" />
 			<property name="RaiderFirearmChance" value="0.12" />
+			<property name="RaiderMeleeOnlyChance" value="0.15" />
 			<property name="RaiderSpawnAmmo" value="24" />
 			<property name="RaiderSpawnArrows" value="15" />
 			<property name="RaiderXnpcLevels" value="false" />
@@ -1037,10 +1051,9 @@
 	</append>
 	<!-- BEGIN GENERATED: XnpcWeapons IZY Classic (Tools/gen_arsenal.py) -->
 	<!-- IZY Classic's guns for any survivor or raider, only while IZY Classic (with Combat Sandbox) is installed,
-	     and every gun then follows the tier in its name: T1 NPCs carry T0/T1 guns (T1 a little rarer), T2 NPCs T1/T2
-	     (T2 rarer), T3 NPCs T2/T3/T4 (T4 rarer). bands = the weight of the gun's group (group=, its name tier) at an
-	     NPC's effective tier 0/1/2 (T1, T2, T3 NPCs, capped by the gamestage); the group's guns split it. Locked &
-	     Loaded arms them with its IZY Classic magazines. Written by Tools/gen_arsenal.py (IZY_WEAPONS): edit it there. -->
+	     by the same tier rule as every weapon (XnpcWeapons): T1 NPCs carry T0/T1 guns (T1 a little rarer), T2 NPCs
+	     T1/T2 (T2 rarer), T3 NPCs T2/T3/T4 (T4 rarer). Locked & Loaded arms them with its IZY Classic magazines.
+	     Written by Tools/gen_arsenal.py (IZY_WEAPONS): edit it there. -->
 	<conditional>
 		<if cond="mod_loaded('IGP_Classic') and mod_loaded('Combat_Sandbox_FLTR')">
 			<append xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']">
@@ -1097,24 +1110,6 @@
 				<property name="IZYgunT4TradshotgunBrowningAuto5" value="firearm,2,Auto5,bands=0/0/0.4,group=T4" />
 				<property name="IZYgunT4BowVanhelsingAutomaticCrossbowVH" value="bow,2,VHCrossbow,bands=0/0/0.4,group=T4" />
 			</append>
-			<!-- vanilla's guns (the pipe guns, and the 13 IZY replaces): the same rule by the tier in their name -->
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT0PipePistol']/@value">firearm,0,PipePistol,bands=1/0/0,group=T0</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunRifleT0PipeRifle']/@value">firearm,0,PipeRifle,bands=1/0/0,group=T0</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunShotgunT0PipeShotgun']/@value">firearm,0,PipeShotgun,bands=1/0/0,group=T0</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunMGT0PipeMachineGun']/@value">firearm,0,PipeMG,bands=1/0/0,group=T0</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT1Pistol']/@value">firearm,0,Pistol,bands=0.65/1/0,group=T1</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT3DesertVulture']/@value">firearm,2,DPistol,bands=0/0/1,group=T3</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT3SMG5']/@value">firearm,2,SMG,bands=0/0/1,group=T3</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunMGT1AK47']/@value">firearm,0,Rifle,bands=0.65/1/0,group=T1</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunMGT2TacticalAR']/@value">firearm,1,TRifle,bands=0/0.65/1,group=T2</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunRifleT1HuntingRifle']/@value">firearm,0,HRifle,bands=0.65/1/0,group=T1</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunRifleT3SniperRifle']/@value">firearm,2,SRifle,bands=0/0/1,group=T3</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunShotgunT2PumpShotgun']/@value">firearm,1,PShotgun,bands=0/0.65/1,group=T2</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunShotgunT3AutoShotgun']/@value">firearm,2,AShotgun,bands=0/0/1,group=T3</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunMGT3M60']/@value">firearm,2,M60,bands=0/0/1,group=T3</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunHandgunT2Magnum44']/@value">firearm,1,Magnum,bands=0/0.65/1,group=T2</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunShotgunT1DoubleBarrel']/@value">firearm,0,DoubleBarrel,bands=0.65/1/0,group=T1</set>
-			<set xpath="/blocks/block[@name='ConfigSurvivorCommunity']/property[@class='XnpcWeapons']/property[@name='gunRifleT2LeverActionRifle']/@value">firearm,1,LeverAction,bands=0/0.65/1,group=T2</set>
 		</if>
 	</conditional>
 	<!-- END GENERATED: XnpcWeapons IZY Classic -->

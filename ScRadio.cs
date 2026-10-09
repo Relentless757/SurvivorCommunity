@@ -347,7 +347,7 @@ namespace SurvivorCommunity
             string label = ClassLabel(cls);
             try
             {
-                ItemClass ic = pair != null && pair.Ranged != null ? ItemClass.GetItemClass(pair.Ranged, true) : null;
+                ItemClass ic = pair != null && pair.HasRanged ? ItemClass.GetItemClass(pair.Ranged, true) : null;
                 string weapon = ic != null ? ic.GetLocalizedItemName() : null;
                 if (!string.IsNullOrEmpty(weapon)) label += " (" + weapon + ")";
             }

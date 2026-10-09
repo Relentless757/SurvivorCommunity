@@ -283,6 +283,8 @@ namespace SurvivorCommunity
             Add(t, "LegacyAvatarController::StartAnimationReloading", ScRelax.ReloadStartTarget());
             // ScArms.cs - a weapon handed to a member through the weapon menu joins their pair; the replaced one comes back
             Add(t, "DialogActionSwapWeapon::PerformAction", ScArms.DialogSwapTarget());
+            // ScLoadout.cs - decision D4 at spawn time: a group's pick of our tiered class above the gamestage tier comes in at that tier
+            Add(t, "EntityGroups::GetRandomFromGroupList", ScLoadout.Patch_ClassByGamestage.Target());
             // ScNoise.cs - the base's noise (base defence D1): every vanilla heat event, and the NPC shots vanilla never hears
             Add(t, "AIDirector::NotifyActivity", AccessTools.Method(typeof(AIDirector), "NotifyActivity", new[] { typeof(EnumAIDirectorChunkEvent), typeof(Vector3i), typeof(float), typeof(float) }));
             Add(t, "ItemActionRanged::ItemActionEffects", AccessTools.DeclaredMethod(typeof(ItemActionRanged), "ItemActionEffects", new[] { typeof(GameManager), typeof(ItemActionData), typeof(int), typeof(UnityEngine.Vector3), typeof(UnityEngine.Vector3), typeof(int) }));
