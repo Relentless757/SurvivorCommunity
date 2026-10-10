@@ -18,6 +18,7 @@ namespace SurvivorCommunity
 
         public const string BuffName = "buffSCSkills";
         public const string HungryBuff = "buffSCHungry";
+        public const string ThirstyBuff = "buffSCThirsty";
         public const string InjuredBuff = "buffSCInjured";
 
         public static int NeededFor(int star)
@@ -140,6 +141,7 @@ namespace SurvivorCommunity
         {
             if (npc == null || npc.Buffs == null) return;
             Toggle(npc, HungryBuff, ScRegistry.Community.Hungry);
+            Toggle(npc, ThirstyBuff, ScRegistry.Community.Thirsty);
             Toggle(npc, InjuredBuff, m.Injured);
         }
 
@@ -169,6 +171,7 @@ namespace SurvivorCommunity
             npc.Buffs.RemoveCustomVar("sc_hp");
             if (npc.Buffs.HasBuff(BuffName)) npc.Buffs.RemoveBuff(BuffName);
             if (npc.Buffs.HasBuff(HungryBuff)) npc.Buffs.RemoveBuff(HungryBuff);
+            if (npc.Buffs.HasBuff(ThirstyBuff)) npc.Buffs.RemoveBuff(ThirstyBuff);
             if (npc.Buffs.HasBuff(InjuredBuff)) npc.Buffs.RemoveBuff(InjuredBuff);
         }
 

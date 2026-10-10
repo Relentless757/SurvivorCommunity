@@ -23,10 +23,14 @@ namespace SurvivorCommunity
     /// </summary>
     public static class ScBarter
     {
+        /// <summary>What the radio trades: food, meds, ammo, materials, fuel and (round wl) water - Resource 0..Kinds-1. Not luxuries.</summary>
+        public const int Kinds = (int)Resource.Water + 1;
+
         public static bool CanTrade(Resource give, Resource get, out string why)
         {
             why = null;
             if (!ScCommunity.IsHost) { why = Localization.Get("scHostOnly"); return false; }
+            if ((int)give >= Kinds || (int)get >= Kinds) { why = Localization.Get("scBarterNoLuxury"); return false; }
             if (!ScRadio.Usable()) { why = Localization.Get("scRadioNoPower"); return false; }
             if (give == get) { why = Localization.Get("scBarterSame"); return false; }
             Community c = ScRegistry.Community;
@@ -96,6 +100,7 @@ namespace SurvivorCommunity
         public static bool Scout(Resource r, EntityPlayerLocal player, out string message)
         {
             message = null;
+            if ((int)r >= ScNames.ClassicCount) { message = Localization.Get("scScoutClassicOnly"); return false; }
             if (!CanScout(out message)) return false;
             try
             {

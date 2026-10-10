@@ -16,6 +16,7 @@ namespace SurvivorCommunity
     ///             ammo  Armed escort   run risk -OutpostEscortRisk per such outpost, at most -OutpostEscortMax (ScRuns)
     ///             mats  Salvage yard   establish fees and upgrades x OutpostSalvageMult (here)
     ///             fuel  Motor pool     run yield x OutpostMotorPoolMult (ScRuns)
+    ///             water Cistern        the thirst morale hit is floored at OutpostCisternFloor (ScMorale, round wl)
     /// Host only.
     /// </summary>
     public static class ScOutpostPerks
@@ -58,9 +59,9 @@ namespace SurvivorCommunity
         public static string PerkLines()
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < ScNames.ResourceCount; i++)
             {
-                if (!PerkActive((Resource)i)) continue;
+                if ((Resource)i == Resource.Luxury || !PerkActive((Resource)i)) continue;    // no luxury outposts, no luxury perk
                 if (sb.Length > 0) sb.Append('\n');
                 sb.Append(Localization.Get("scOpPerk" + (Resource)i));
             }
@@ -142,18 +143,29 @@ namespace SurvivorCommunity
             TEFeatureStorage st = te != null ? te.GetSelfOrFeature<TEFeatureStorage>() : null;
             if (st == null) return 0;
             int moved = 0;
-            for (int r = 0; r < 5; r++)
+            for (int r = 0; r < ScNames.ResourceCount; r++)
             {
                 if (o.Stash[r] <= 0) continue;
-                ItemValue iv = ItemClass.GetItem(ScNames.BundleItem((Resource)r), true);
-                if (iv == null || iv.IsEmpty()) continue;
-                int stackMax = Math.Max(1, iv.ItemClass.Stacknumber.Value);
-                while (o.Stash[r] > 0)
+                // the stash counts units: Large bundles first, then one Medium or Small for the rest (round wl)
+                int large, medium, small;
+                ScStockpile.SplitUnits(o.Stash[r], out large, out medium, out small);
+                int[] counts = { large, medium, small };
+                BundleSize[] sizes = { BundleSize.Large, BundleSize.Medium, BundleSize.Small };
+                for (int k = 0; k < 3; k++)
                 {
-                    int n = Math.Min(stackMax, o.Stash[r]);
-                    if (!st.AddItem(new ItemStack(iv.Clone(), n))) break;
-                    o.Stash[r] -= n;
-                    moved += n;
+                    if (counts[k] <= 0) continue;
+                    ItemValue iv = ScStockpile.BundleValue((Resource)r, sizes[k]);
+                    if (iv == null) continue;
+                    int units = (int)sizes[k];
+                    int stackMax = Math.Max(1, iv.ItemClass.Stacknumber.Value);
+                    while (counts[k] > 0)
+                    {
+                        int n = Math.Min(stackMax, counts[k]);
+                        if (!st.AddItem(new ItemStack(iv.Clone(), n))) break;
+                        counts[k] -= n;
+                        o.Stash[r] -= n * units;
+                        moved += n;
+                    }
                 }
             }
             if (moved > 0)

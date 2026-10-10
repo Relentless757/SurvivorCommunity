@@ -6,8 +6,9 @@ using UnityEngine;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// Counts what the base contains: beds, facilities and living crops inside the whole home zone, and
-    /// notes radios. Every one of those is a model block, and every loaded chunk already keeps a list of its
+    /// Counts what the base contains: beds, facilities and living crops inside the whole home zone, the
+    /// water its wells and dew collectors give a day (ScFacilities, round wl), and notes radios. Every one of
+    /// those is a model block, and every loaded chunk already keeps a list of its
     /// model blocks (Chunk.blockEntityStubs, filled on the main thread by BlockShapeModelEntity
     /// OnBlockLoaded / OnBlockAdded, parents only, keyed by world position). Walking those lists instead of
     /// the block volume makes a scan cheap enough to run whenever the community window refreshes and every
@@ -86,6 +87,8 @@ namespace SurvivorCommunity
                     c.ScanChunks.Clear();
                     c.ScanDefences.Clear();
                     c.HomeDefences = 0;
+                    c.ScanWater.Clear();
+                    c.HomeWater = 0;
                     c.ScanHome = c.Home;
                     c.HasScanHome = true;
                 }
@@ -124,7 +127,7 @@ namespace SurvivorCommunity
                 List<long> fresh = w.newlyLoadedChunksThisUpdate;
                 if (fresh != null) lock (fresh) { for (int i = 0; i < fresh.Count; i++) pending.Add(fresh[i]); }
 
-                int beds = 0, facilities = 0, crops = 0, defences = 0, chunks = 0, loaded = 0, missing = 0;
+                int beds = 0, facilities = 0, crops = 0, defences = 0, water = 0, chunks = 0, loaded = 0, missing = 0;
                 for (int cx = cxMin; cx <= cxMax; cx++)
                 {
                     for (int cz = czMin; cz <= czMax; cz++)
@@ -134,7 +137,7 @@ namespace SurvivorCommunity
                         long key = WorldChunkCache.MakeChunkKey(cx, cz);
                         visited.Add(key);
                         int[] known;
-                        int defs = 0;
+                        int defs = 0, wet = 0;
                         c.ScanChunks.TryGetValue(key, out known);
                         Chunk ch = w.GetChunkSync(cx, cz) as Chunk;
                         int[] now = null;
@@ -146,7 +149,7 @@ namespace SurvivorCommunity
                             KeyValuePair<Chunk, float> was;
                             float first = (seen.TryGetValue(key, out was) && ReferenceEquals(was.Key, ch)) ? was.Value : now0;
                             seenNext[key] = new KeyValuePair<Chunk, float>(ch, first);
-                            if (now0 - first >= SettleSeconds) now = Count(ch, cx, cz, home, r, out defs);
+                            if (now0 - first >= SettleSeconds) now = Count(ch, cx, cz, home, r, out defs, out wet);
                         }
                         if (now != null)
                         {
@@ -154,6 +157,7 @@ namespace SurvivorCommunity
                             c.ScanChunks[key] = now;
                             known = now;
                             if (defs > 0) c.ScanDefences[key] = defs; else c.ScanDefences.Remove(key);
+                            if (wet > 0) c.ScanWater[key] = wet; else c.ScanWater.Remove(key);
                         }
                         if (known == null) { missing++; continue; }
                         beds += known[2];
@@ -161,6 +165,8 @@ namespace SurvivorCommunity
                         crops += known[4];
                         int kd;
                         if (c.ScanDefences.TryGetValue(key, out kd)) defences += kd;
+                        int kw;
+                        if (c.ScanWater.TryGetValue(key, out kw)) water += kw;
                     }
                 }
                 var swap = seen; seen = seenNext; seenNext = swap;
@@ -177,6 +183,12 @@ namespace SurvivorCommunity
                     foreach (long k in c.ScanDefences.Keys) if (!c.ScanChunks.ContainsKey(k)) dropD.Add(k);
                     for (int i = 0; i < dropD.Count; i++) c.ScanDefences.Remove(dropD[i]);
                 }
+                if (c.ScanWater.Count > 0)
+                {
+                    var dropW = new List<long>();
+                    foreach (long k in c.ScanWater.Keys) if (!c.ScanChunks.ContainsKey(k)) dropW.Add(k);
+                    for (int i = 0; i < dropW.Count; i++) c.ScanWater.Remove(dropW[i]);
+                }
 
                 // part of the zone has never been seen: a total may rise, not fall
                 if (missing > 0)
@@ -185,16 +197,18 @@ namespace SurvivorCommunity
                     facilities = Math.Max(facilities, c.Facilities);
                     crops = Math.Max(crops, c.Crops);
                     defences = Math.Max(defences, c.HomeDefences);
+                    water = Math.Max(water, c.HomeWater);
                 }
-                bool changed = beds != c.Beds || facilities != c.Facilities || crops != c.Crops || defences != c.HomeDefences;
+                bool changed = beds != c.Beds || facilities != c.Facilities || crops != c.Crops || defences != c.HomeDefences || water != c.HomeWater;
                 c.Beds = beds;
                 c.Facilities = facilities;
                 c.Crops = crops;
                 c.HomeDefences = defences;
+                c.HomeWater = water;
                 sw.Stop();
                 LastChunks = chunks; LastLoaded = loaded; LastMissing = missing; LastMs = sw.Elapsed.TotalMilliseconds;
                 if (changed || force)
-                    ScLog.Verbose("scan: beds " + beds + ", facilities " + facilities + ", crops " + crops + ", traps " + defences + " (" + chunks + " zone chunks, "
+                    ScLog.Verbose("scan: beds " + beds + ", facilities " + facilities + ", crops " + crops + ", traps " + defences + ", water " + water + "/day (" + chunks + " zone chunks, "
                                   + loaded + " loaded, " + missing + " never counted, " + LastMs.ToString("0.00") + " ms)");
                 if (changed) ScRegistry.SaveAtomic();
                 return true;
@@ -220,17 +234,20 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// One loaded chunk: {cx, cz, beds, facilities, crops} from its model-block list, zone positions only; 'defences' the
-        /// traps and turrets (OutpostDefenseBlocks) among them - the defence rating's count (D4), kept apart from the
-        /// five-field scanmap entry that older builds read.
+        /// traps and turrets (OutpostDefenseBlocks) among them - the defence rating's count (D4) - and 'water' what its
+        /// wells and dew collectors give a day (round wl), both kept apart from the five-field scanmap entry that older
+        /// builds read. A dew collector's level that no longer has its collector here is forgotten.
         /// </summary>
-        private static int[] Count(Chunk ch, int cx, int cz, Vector3i home, int r, out int defences)
+        private static int[] Count(Chunk ch, int cx, int cz, Vector3i home, int r, out int defences, out int water)
         {
             defences = 0;
+            water = 0;
             var n = new int[] { cx, cz, 0, 0, 0 };
             var stubs = ch.blockEntityStubs;
             if (stubs == null) return n;
             List<BlockEntityData> list = stubs.list;
             byte[] k = kinds;
+            List<Vector3i> dews = null;
             for (int i = 0; i < list.Count; i++)
             {
                 BlockEntityData d = list[i];
@@ -240,10 +257,13 @@ namespace SurvivorCommunity
                 int t = bv.type;
                 if (t <= 0 || t >= k.Length) continue;
                 byte kind = k[t];
-                if (kind == KNone) continue;
+                bool fac = ScFacilities.IsFacility(t);
+                if (kind == KNone && !fac) continue;
                 Vector3i p = d.pos;
+                if (fac && ScFacilities.IsDew(t)) { if (dews == null) dews = new List<Vector3i>(); dews.Add(p); }
                 if (r > 0 && (Math.Abs(p.x - home.x) > r || Math.Abs(p.z - home.z) > r)) continue;
                 if (!ScZone.Contains(p)) continue;
+                if (fac) water += ScFacilities.WaterAt(p, bv);
                 switch (kind)
                 {
                     case KBed: n[2]++; break;
@@ -251,6 +271,24 @@ namespace SurvivorCommunity
                     case KCrop: n[4]++; break;
                     case KRadio: ScRadio.NoteRadio(p); break;
                     case KDefense: defences++; break;
+                }
+            }
+            // a dew collector picked up or broken: its level goes with it (this chunk's entries only - it is loaded and settled)
+            Dictionary<Vector3i, int> levels = ScRegistry.Community.DewLevels;
+            if (levels.Count > 0)
+            {
+                List<Vector3i> gone = null;
+                foreach (Vector3i at in levels.Keys)
+                {
+                    if (World.toChunkXZ(at.x) != cx || World.toChunkXZ(at.z) != cz) continue;
+                    if (dews != null && dews.Contains(at)) continue;
+                    if (gone == null) gone = new List<Vector3i>();
+                    gone.Add(at);
+                }
+                if (gone != null)
+                {
+                    for (int i = 0; i < gone.Count; i++) levels.Remove(gone[i]);
+                    ScLog.Out("facilities: " + gone.Count + " upgraded dew collector(s) no longer there - level forgotten (" + string.Join(", ", gone.ConvertAll(v => v.ToString()).ToArray()) + ")");
                 }
             }
             return n;

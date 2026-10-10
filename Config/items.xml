@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <configs>
-	<!-- Resource bundles: the community's five resources in item form, made at the packing station and
-	     deposited into the stockpile there, and found in loot / trader quest rewards (Config/loot.xml).
-	     Deliberately NO OpenBundle action (a bundle that unpacked into goods would make the station a free item
-	     converter) and not sellable. Icons are the matching vanilla loot piles (Data/ItemIcons). -->
+	<!-- Resource bundles: the community's resources in item form, made at the packing station and deposited into the
+	     stockpile there, and found in loot / trader quest rewards (Config/loot.xml; never water). Round wl: three sizes,
+	     Small / Medium / Large = 1 / 2 / 3 stockpile units (ScNames.TryBundle reads the size from the name), for food,
+	     water, medical, ammo, materials, fuel and luxuries; the old one-size scBundle<Res> items stay valid (one unit)
+	     but nothing makes or drops them. Deliberately NO OpenBundle action (a bundle that unpacked into goods would
+	     make the station a free item converter) and not sellable. Icons are the matching vanilla loot piles and barrels
+	     (Data/ItemIcons). -->
 	<append xpath="/items">
 		<item name="scBundleMaster">
 			<property name="CreativeMode" value="None"/>
@@ -22,33 +25,180 @@
 		</item>
 		<item name="scBundleFood">
 			<property name="Extends" value="scBundleMaster"/>
-			<property name="CreativeMode" value="Player"/>
+			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cntFoodPileMedium"/>
 			<property name="Tags" value="scbundle,scfood"/>
 		</item>
 		<item name="scBundleMeds">
 			<property name="Extends" value="scBundleMaster"/>
-			<property name="CreativeMode" value="Player"/>
+			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cntMedicLootPileB"/>
 			<property name="Tags" value="scbundle,scmeds"/>
 		</item>
 		<item name="scBundleAmmo">
 			<property name="Extends" value="scBundleMaster"/>
-			<property name="CreativeMode" value="Player"/>
+			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cntAmmoPileMedium"/>
 			<property name="Tags" value="scbundle,scammo"/>
 		</item>
 		<item name="scBundleMaterials">
 			<property name="Extends" value="scBundleMaster"/>
-			<property name="CreativeMode" value="Player"/>
+			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cinderBlocks02"/>
 			<property name="Tags" value="scbundle,scmaterials"/>
 		</item>
 		<item name="scBundleFuel">
 			<property name="Extends" value="scBundleMaster"/>
-			<property name="CreativeMode" value="Player"/>
+			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cntBarrelGasSingle00"/>
 			<property name="Tags" value="scbundle,scfuel"/>
+		</item>
+		<item name="scBundleFoodSmall">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntFoodPileSmall"/>
+			<property name="DescriptionKey" value="scBundleFoodSmallDesc"/>
+			<property name="Tags" value="scbundle,scfood,scbundlesmall"/>
+		</item>
+		<item name="scBundleFoodMedium">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntFoodPileMedium"/>
+			<property name="DescriptionKey" value="scBundleFoodMediumDesc"/>
+			<property name="Tags" value="scbundle,scfood,scbundlemedium"/>
+		</item>
+		<item name="scBundleFoodLarge">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntFoodPileLarge"/>
+			<property name="DescriptionKey" value="scBundleFoodLargeDesc"/>
+			<property name="Tags" value="scbundle,scfood,scbundlelarge"/>
+		</item>
+		<item name="scBundleWaterSmall">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntBarrelPlasticSingle00"/>
+			<property name="DescriptionKey" value="scBundleWaterSmallDesc"/>
+			<property name="Tags" value="scbundle,scwater,scbundlesmall"/>
+		</item>
+		<item name="scBundleWaterMedium">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntBarrelPlasticQuadB"/>
+			<property name="DescriptionKey" value="scBundleWaterMediumDesc"/>
+			<property name="Tags" value="scbundle,scwater,scbundlemedium"/>
+		</item>
+		<item name="scBundleWaterLarge">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntBarrelPlasticQuadB"/>
+			<property name="DescriptionKey" value="scBundleWaterLargeDesc"/>
+			<property name="Tags" value="scbundle,scwater,scbundlelarge"/>
+		</item>
+		<item name="scBundleMedsSmall">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntMedicLootPileA"/>
+			<property name="DescriptionKey" value="scBundleMedsSmallDesc"/>
+			<property name="Tags" value="scbundle,scmeds,scbundlesmall"/>
+		</item>
+		<item name="scBundleMedsMedium">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntMedicLootPileB"/>
+			<property name="DescriptionKey" value="scBundleMedsMediumDesc"/>
+			<property name="Tags" value="scbundle,scmeds,scbundlemedium"/>
+		</item>
+		<item name="scBundleMedsLarge">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntMedicLootPileB"/>
+			<property name="DescriptionKey" value="scBundleMedsLargeDesc"/>
+			<property name="Tags" value="scbundle,scmeds,scbundlelarge"/>
+		</item>
+		<item name="scBundleAmmoSmall">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntAmmoPileSmall"/>
+			<property name="DescriptionKey" value="scBundleAmmoSmallDesc"/>
+			<property name="Tags" value="scbundle,scammo,scbundlesmall"/>
+		</item>
+		<item name="scBundleAmmoMedium">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntAmmoPileMedium"/>
+			<property name="DescriptionKey" value="scBundleAmmoMediumDesc"/>
+			<property name="Tags" value="scbundle,scammo,scbundlemedium"/>
+		</item>
+		<item name="scBundleAmmoLarge">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntAmmoPileLarge"/>
+			<property name="DescriptionKey" value="scBundleAmmoLargeDesc"/>
+			<property name="Tags" value="scbundle,scammo,scbundlelarge"/>
+		</item>
+		<item name="scBundleMaterialsSmall">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cinderBlocks03"/>
+			<property name="DescriptionKey" value="scBundleMaterialsSmallDesc"/>
+			<property name="Tags" value="scbundle,scmaterials,scbundlesmall"/>
+		</item>
+		<item name="scBundleMaterialsMedium">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cinderBlocks01"/>
+			<property name="DescriptionKey" value="scBundleMaterialsMediumDesc"/>
+			<property name="Tags" value="scbundle,scmaterials,scbundlemedium"/>
+		</item>
+		<item name="scBundleMaterialsLarge">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cinderBlocks02"/>
+			<property name="DescriptionKey" value="scBundleMaterialsLargeDesc"/>
+			<property name="Tags" value="scbundle,scmaterials,scbundlelarge"/>
+		</item>
+		<item name="scBundleFuelSmall">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntBarrelGasSingle00"/>
+			<property name="DescriptionKey" value="scBundleFuelSmallDesc"/>
+			<property name="Tags" value="scbundle,scfuel,scbundlesmall"/>
+		</item>
+		<item name="scBundleFuelMedium">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntBarrelGasQuadB"/>
+			<property name="DescriptionKey" value="scBundleFuelMediumDesc"/>
+			<property name="Tags" value="scbundle,scfuel,scbundlemedium"/>
+		</item>
+		<item name="scBundleFuelLarge">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntBarrelGasQuadB"/>
+			<property name="DescriptionKey" value="scBundleFuelLargeDesc"/>
+			<property name="Tags" value="scbundle,scfuel,scbundlelarge"/>
+		</item>
+		<item name="scBundleLuxurySmall">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntLiquorPileSmall"/>
+			<property name="DescriptionKey" value="scBundleLuxurySmallDesc"/>
+			<property name="Tags" value="scbundle,scluxury,scbundlesmall"/>
+		</item>
+		<item name="scBundleLuxuryMedium">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntLiquorPileMedium"/>
+			<property name="DescriptionKey" value="scBundleLuxuryMediumDesc"/>
+			<property name="Tags" value="scbundle,scluxury,scbundlemedium"/>
+		</item>
+		<item name="scBundleLuxuryLarge">
+			<property name="Extends" value="scBundleMaster"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="CustomIcon" value="cntLiquorPileLarge"/>
+			<property name="DescriptionKey" value="scBundleLuxuryLargeDesc"/>
+			<property name="Tags" value="scbundle,scluxury,scbundlelarge"/>
 		</item>
 	</append>
 	<!-- IZY Classic's replacement Hunting Rifle (IGP_Classic with Combat Sandbox, unless Disable_VRP) lost vanilla's

@@ -6,7 +6,8 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// Community morale (0-100) and each survivor's mood, recomputed from the registry (State of Decay
-    /// style: food days, medicine, beds, facilities, the other resources, traits, recent deaths, outposts). Morale
+    /// style: food days, thirst, medicine, beds, facilities, the other resources, traits, recent deaths, outposts,
+    /// the Activities' round of drinks). Morale
     /// drives: XP x1.5 above HighMoraleThreshold (ScSkills.AddXp), refusal to follow below mood 25
     /// (ScCommunity.Follow), and below LowMoraleThreshold for LowMoraleDays in a row the unhappiest survivor
     /// threatens to leave and does so the next day unless morale recovers. The player sees it as the
@@ -31,7 +32,13 @@ namespace SurvivorCommunity
             public int Territory;
             /// <summary>Base defence: home attacks held lately, less those lost without the player (DefenceTriumph - DefenceLoss, each fading a point a day).</summary>
             public int Defence;
+            /// <summary>Thirst (round wl): -20 while the last rollover ran short of water (a water outpost's cistern floors it), else 0.</summary>
+            public int Water;
+            /// <summary>Activities (round wl): the round of drinks while it lasts.</summary>
+            public int Activity;
             public float FoodDays;
+            /// <summary>Days the water lasts at today's use less what the wells and dew collectors add (99 = no need / more made than drunk).</summary>
+            public float WaterDays;
             public int Total;
         }
 
@@ -40,6 +47,12 @@ namespace SurvivorCommunity
             float need = 0f;
             foreach (var m in ScRegistry.Members.Values) need += ScConfig.FoodPerMemberDay * ScTraits.FoodMult(m);
             return need;
+        }
+
+        /// <summary>Water drunk a day beyond what the home's wells and dew collectors make (0 when they cover it).</summary>
+        public static float DailyWaterShortfall()
+        {
+            return Math.Max(0f, ScRegistry.Members.Count * ScConfig.WaterPerMemberDay - Math.Max(0, ScRegistry.Community.HomeWater));
         }
 
         /// <summary>Computes every term without storing anything.</summary>
@@ -69,6 +82,11 @@ namespace SurvivorCommunity
             p.Territory = Math.Min(ScConfig.OutpostMoraleCap, ScConfig.OutpostMoralePer * producing) - Mathf.RoundToInt(c.OutpostLoss)
                           + Mathf.RoundToInt(c.OutpostTriumph);
             p.Defence = Mathf.RoundToInt(c.DefenceTriumph - c.DefenceLoss);       // D4: fights lost without the player count against it
+            // round wl: thirst works like hunger (a water outpost's cistern is the canteen's twin); the round of drinks
+            float shortfall = DailyWaterShortfall();
+            p.WaterDays = shortfall > 0.01f ? c.Get(Resource.Water) / shortfall : 99f;
+            if (c.Thirsty) p.Water = ScOutpostPerks.PerkActive(Resource.Water) ? Math.Max(-20, ScConfig.OutpostCisternFloor) : -20;
+            p.Activity = ScActivities.MoraleBonus();
 
             // SurvivorOrigins' Leadership (0 / 0 without it): a part of its own, and a shield that shrinks every
             // negative part toward 0 (never past it)
@@ -83,9 +101,11 @@ namespace SurvivorCommunity
                 p.Deaths = ScLeadership.Shielded(p.Deaths, shield);
                 p.Territory = ScLeadership.Shielded(p.Territory, shield);
                 p.Defence = ScLeadership.Shielded(p.Defence, shield);
+                p.Water = ScLeadership.Shielded(p.Water, shield);
             }
 
-            int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory + p.Defence;
+            int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory + p.Defence
+                        + p.Water + p.Activity;
             p.Total = Mathf.Clamp(total, 0, 100);
             if (Override >= 0) p.Total = Mathf.Clamp(Override, 0, 100);
             return p;
@@ -101,7 +121,7 @@ namespace SurvivorCommunity
                 c.Morale = p.Total;
                 foreach (var m in ScRegistry.Members.Values)
                 {
-                    int mood = c.Morale + ScTraits.MoodOffset(m) - (m.Injured ? 15 : 0) - (c.Hungry ? 10 : 0) + ScGarrison.MoodOffset(m);
+                    int mood = c.Morale + ScTraits.MoodOffset(m) - (m.Injured ? 15 : 0) - (c.Hungry ? 10 : 0) - (c.Thirsty ? 10 : 0) + ScGarrison.MoodOffset(m);
                     m.Mood = Mathf.Clamp(mood, 0, 100);
                 }
                 // a threat is withdrawn the moment morale is back above the line (not only at the next rollover)
@@ -133,6 +153,10 @@ namespace SurvivorCommunity
             var sb = new StringBuilder();
             sb.Append(string.Format(Localization.Get("scMoraleLine"), p.Total));
             sb.Append('\n').Append(Term("scMoraleFood", p.Food)).Append(p.FoodDays < 99f ? string.Format(Localization.Get("scMoraleFoodDays"), p.FoodDays.ToString("0.0")) : "");
+            if (ScRegistry.Members.Count > 0 || ScRegistry.Community.HomeWater > 0)
+                sb.Append('\n').Append(Term("scMoraleWater", p.Water)).Append(p.WaterDays < 99f ? string.Format(Localization.Get("scMoraleFoodDays"), p.WaterDays.ToString("0.0")) : "")
+                  .Append(' ').Append(string.Format(Localization.Get("scMoraleWaterMade"), ScRegistry.Community.HomeWater));
+            if (p.Activity != 0) sb.Append('\n').Append(Term("scMoraleActivity", p.Activity)).Append(" (").Append(ScActivities.TimeLeft()).Append(')');
             sb.Append('\n').Append(Term("scMoraleMeds", p.Meds));
             sb.Append('\n').Append(Term("scMoraleBeds", p.Beds)).Append(' ').Append(string.Format(Localization.Get("scMoraleBedsDetail"), ScRegistry.Community.Beds, ScRegistry.Members.Count));
             sb.Append('\n').Append(Term("scMoraleFacilities", p.Facilities)).Append(" (").Append(ScRegistry.Community.Facilities).Append(')');

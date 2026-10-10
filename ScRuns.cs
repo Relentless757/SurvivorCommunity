@@ -42,6 +42,8 @@ namespace SurvivorCommunity
 
         public static bool Send(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, out string error)
         {
+            // luxuries are not fetched (round wl): the dialog and the window never offer it, the console could
+            if (kind == Resource.Luxury) { error = "scRunNoLuxury"; return false; }
             if (!CanSend(m, npc, out error)) return false;
             if (ScConfig.PhysicalRuns && player != null && player.ChunkObserver != null)
             {
@@ -307,7 +309,10 @@ namespace SurvivorCommunity
             return Math.Max(1, Mathf.RoundToInt(y));
         }
 
-        /// <summary>Which specialty knows where to find a resource: Mechanics for materials and fuel, Chemistry for medicine, Cooking for food.</summary>
+        /// <summary>
+        /// Which specialty knows where to find a resource: Mechanics for materials and fuel, Chemistry for medicine, Cooking
+        /// for food, Gardening for water (round wl: wells, springs, rain barrels).
+        /// </summary>
         public static Specialty SpecialtyFor(Resource kind)
         {
             switch (kind)
@@ -316,6 +321,7 @@ namespace SurvivorCommunity
                 case Resource.Fuel: return Specialty.Mechanics;
                 case Resource.Meds: return Specialty.Chemistry;
                 case Resource.Food: return Specialty.Cooking;
+                case Resource.Water: return Specialty.Gardening;
                 default: return Specialty.None;
             }
         }

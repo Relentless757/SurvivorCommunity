@@ -8,8 +8,8 @@ XUiC_ScMemberRow answer every binding and control here (the SurvivorCommunity se
 
     [cabin] COMMUNITY                                  [OPEN STORAGE] [x]
             <community name>
-    +- FOOD ---+- MEDICAL -+- MATERIALS -+- AMMO -+- FUEL -+
-    +[MEMBERS n][OUTPOSTS 2/3]+- NAME -------+ +- COMMUNITY MORALE -+
+    +- FOOD -+- WATER -+- MEDICAL -+- MATERIALS -+- AMMO -+- FUEL -+- LUXURIES -+
+    +[MEMBERS n][OUTPOSTS 2/3][ACTIVITIES n]+- NAME --+ +- COMMUNITY MORALE -+
     | [search][filter]| | role . status          | |  68 / 100  STEADY  |
     | [pic] NAME  stat| | [portrait] health bar  | |  [=========      ] |
     |  ... 6 rows     | |            morale bar  | |  What is affecting |
@@ -31,10 +31,12 @@ RULES THAT MATTER:
 - Every plate is a scui_* sprite (Tools/import_ui_assets.py), handed [white]; AshfallUI ships
   premium art under the same names. Icons are vanilla menu symbols.
 - Stamina is not drawn: NPCs have none ({selstaminavisible} is always False).
-- The left panel has two tabs (btnTabMembers / btnTabOutposts, {tabmembers} / {taboutposts}): the Outposts tab
-  swaps the member list for the outpost rows (XUiC_ScOutpostRow) and the survivor detail for the outpost detail
-  and the network summary; the morale panel stays. Wrappers that switch tabs are depth 0, so every depth inside
-  them is what it was before the tabs existed (XUi depth is cumulative).
+- The left panel has three tabs (btnTabMembers / btnTabOutposts / btnTabActivities, {tabmembers} / {taboutposts} /
+  {tabactivities}): the Outposts tab swaps the member list for the outpost rows (XUiC_ScOutpostRow) and the survivor
+  detail for the outpost detail and the network summary; the Activities tab (round wl) for the activity rows
+  (btnAct1..4, plain buttons) and the selected activity with its do-button (btnActDo); the morale panel stays.
+  Wrappers that switch tabs are depth 0, so every depth inside them is what it was before the tabs existed (XUi
+  depth is cumulative).
 """
 
 import io
@@ -88,16 +90,19 @@ DANGER_TEXT = "240,150,130,255"
 RULE = "196,168,112,70"
 THIN = (3, 3)                         # a bar's fill window inside its rim
 
-RESOURCES = (("ui_game_symbol_fork", "scRunFood", "resfood"),
-             ("ui_game_symbol_medical", "scRunMeds", "resmeds"),
-             ("ui_game_symbol_brick", "scRunMaterials", "resmats"),
-             ("ui_game_symbol_shape_ammo", "scRunAmmo", "resammo"),
-             ("ui_game_symbol_gas", "scRunFuel", "resfuel"))
+# (icon, label key, value binding, extra line binding or None); the green per-day delta is "op" + the binding minus "res"
+RESOURCES = (("ui_game_symbol_fork", "scRunFood", "resfood", "fooddays"),
+             ("ui_game_symbol_water", "scRunWater", "reswater", "waterdays"),
+             ("ui_game_symbol_medical", "scRunMeds", "resmeds", None),
+             ("ui_game_symbol_brick", "scRunMaterials", "resmats", None),
+             ("ui_game_symbol_shape_ammo", "scRunAmmo", "resammo", None),
+             ("ui_game_symbol_gas", "scRunFuel", "resfuel", None),
+             ("ui_game_symbol_beer", "scRunLuxury", "resluxury", None))
 SKILLS = (("ui_game_symbol_cardio", "scSkillCardio", "skcardio"),
           ("ui_game_symbol_intellect", "scSkillWits", "skwits"),
           ("ui_game_symbol_melee", "scSkillFighting", "skfighting"),
           ("ui_game_symbol_rifle", "scSkillShooting", "skshooting"))
-RUNS = (("btnRunFood", "scRunFood"), ("btnRunMeds", "scRunMeds"), ("btnRunAmmo", "scRunAmmo"),
+RUNS = (("btnRunFood", "scRunFood"), ("btnRunWater", "scRunWater"), ("btnRunMeds", "scRunMeds"), ("btnRunAmmo", "scRunAmmo"),
         ("btnRunMaterials", "scRunMaterials"), ("btnRunFuel", "scRunFuel"))
 # the outposts network summary: icon, label key, value binding, colour binding (None = body text)
 NETS = (("ui_game_symbol_map_town", "scUiNetSlots", "netslots", None),
@@ -106,6 +111,7 @@ NETS = (("ui_game_symbol_map_town", "scUiNetSlots", "netslots", None),
         ("ui_game_symbol_brick", "scUiNetCosts", "netcosts", None),
         ("ui_game_symbol_wrench", "scUiNetStatus", "netstate", "netstatecolor"))
 HOW = ("scUiOpHow1", "scUiOpHow2", "scUiOpHow3")
+ACT_ROWS = 4                          # activity rows on the Activities tab (ScActivities.All, XUiC_ScCommunity.ActivitySlots)
 OP_ACTIONS = (("btnOpTrack", "optracklabel", BODY, False), ("btnOpAssign", "opassignlabel", BODY, False),
               ("btnOpUpgrade", "opupgradelabel", "{opupgradecolor}", False), ("btnOpDisband", "opdisbandlabel", DANGER_TEXT, True))
 
@@ -163,18 +169,19 @@ def header():
 
 
 def resources():
+    """Seven cells of (1500 - 48) / 7 = 207: the icon on the left, label / number / delta / extra line beside it."""
     gw = (WIN_W - 2 * M) // len(RESOURCES)
     o = [plate("scui_window", M, -RES_Y, WIN_W - 2 * M, RES_H)]
-    for i, (sprite, key, binding) in enumerate(RESOURCES):
+    for i, (sprite, key, binding, extra) in enumerate(RESOURCES):
         x0 = M + i * gw
         if i:
             o.append(rule(x0, -(RES_Y + 14), 2, RES_H - 28))
-        o.append(icon(sprite, x0 + 62, -(RES_Y + RES_H // 2), 44))
-        o.append(label(x0 + 100, -(RES_Y + 10), 170, 22, 17, DIM, key=key, extra='upper_case="true"'))
-        o.append(label(x0 + 100, -(RES_Y + 30), 170, 36, 32, TITLE, text="{%s}" % binding))
-        o.append(label(x0 + 164, -(RES_Y + 40), 112, 20, 16, GOOD, text="{op%s}" % binding[3:], extra='justify="right"'))
-        if binding == "resfood":
-            o.append(label(x0 + 100, -(RES_Y + 66), 180, 18, 15, DIM, text="{fooddays}"))
+        o.append(icon(sprite, x0 + 38, -(RES_Y + RES_H // 2), 36))
+        o.append(label(x0 + 66, -(RES_Y + 10), gw - 72, 20, 15, DIM, key=key, extra='upper_case="true"'))
+        o.append(label(x0 + 66, -(RES_Y + 30), 80, 34, 30, TITLE, text="{%s}" % binding))
+        o.append(label(x0 + 120, -(RES_Y + 40), gw - 128, 20, 15, GOOD, text="{op%s}" % binding[3:], extra='justify="right"'))
+        if extra:
+            o.append(label(x0 + 66, -(RES_Y + 66), gw - 72, 18, 13, DIM, text="{%s}" % extra))
     return o
 
 
@@ -196,19 +203,24 @@ def member_row(i):
         "</rect>"])
 
 
+TABS = (("btnTabMembers", "scUiMembers", "membercount", "tabmembers"),
+        ("btnTabOutposts", "scUiOutposts", "outpostcount", "taboutposts"),
+        ("btnTabActivities", "scUiActivities", "luxcount", "tabactivities"))
+
+
 def tabs():
-    """MEMBERS n | OUTPOSTS held/slots: the active tab gets the selected plate over its button."""
-    half = (MEM_W - 40 - 8) // 2
+    """MEMBERS n | OUTPOSTS held/slots | ACTIVITIES luxuries: the active tab gets the selected plate over its button.
+    Three to a row they are 128 wide, so the label is 15 px with its count in the last 34."""
+    w = (MEM_W - 40 - 8 * (len(TABS) - 1)) // len(TABS)
     o = []
-    for i, (name, key, count, active) in enumerate((("btnTabMembers", "scUiMembers", "membercount", "tabmembers"),
-                                                     ("btnTabOutposts", "scUiOutposts", "outpostcount", "taboutposts"))):
-        x = 20 + i * (half + 8)
-        o += [button(name, x, -12, half, 44),
+    for i, (name, key, count, active) in enumerate(TABS):
+        x = 20 + i * (w + 8)
+        o += [button(name, x, -12, w, 44),
               '<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%s}">' % (MEM_W, 60, active),
-              "\t" + plate("scui_row_selected", x, -12, half, 44, depth=3),
+              "\t" + plate("scui_row_selected", x, -12, w, 44, depth=3),
               "</rect>",
-              centred(x + 12, -12, half - 84, 44, 22, TITLE, key=key, extra='upper_case="true"'),
-              centred(x + half - 76, -12, 64, 44, 22, GOLD, text="{%s}" % count, extra='justify="right"')]
+              centred(x + 8, -12, w - 46, 44, 15, TITLE, key=key, extra='upper_case="true"'),
+              centred(x + w - 40, -12, 34, 44, 15, GOLD, text="{%s}" % count, extra='justify="right"')]
     return o
 
 
@@ -268,6 +280,25 @@ def outpost_list():
     return o
 
 
+def activity_list():
+    """The Activities tab's left panel: what the stockpile holds for them, then one row (a plain button) per activity."""
+    w = MEM_W - 40
+    o = [label(20, -70, w, 24, 17, DIM, text="{actsummary}")]
+    for i in range(1, ACT_ROWS + 1):
+        y = ROWS_TOP + (i - 1) * (ROW_H + ROW_GAP)
+        o += ['<rect depth="1" pos="0,0" width="%d" height="%d" visible="{act%dvisible}">' % (MEM_W, PAN_H, i),
+              "\t" + button("btnAct%d" % i, 20, -y, w, ROW_H, sprite="scui_row", hover="scui_row_hover"),
+              '\t<rect depth="0" pos="0,0" width="%d" height="%d" visible="{act%dselected}">' % (MEM_W, PAN_H, i),
+              "\t\t" + plate("scui_row_selected", 20, -y, w, ROW_H, depth=3),
+              "\t</rect>",
+              "\t" + plate("scui_portrait", 26, -(y + 6), 68, 68, depth=4),
+              "\t" + icon("{act%dicon}" % i, 60, -(y + 40), 40, depth=5),
+              "\t" + label(106, -(y + 12), w - 100, 26, 22, TITLE, text="{act%dname}" % i, extra='upper_case="true"'),
+              "\t" + label(106, -(y + 45), w - 106, 22, 16, "{act%dstatuscolor}" % i, text="{act%dstatus}" % i),
+              "</rect>"]
+    return o
+
+
 def members():
     o = ['<rect depth="1" name="membersPanel" pos="%d,-%d" width="%d" height="%d">' % (MEM_X, PAN_Y, MEM_W, PAN_H),
          "\t" + plate("scui_window", 0, 0, MEM_W, PAN_H)]
@@ -277,6 +308,9 @@ def members():
     o.append("\t</rect>")
     o.append('\t<rect depth="0" name="outpostList" pos="0,0" width="%d" height="%d" visible="{taboutposts}">' % (MEM_W, PAN_H))
     o += ["\t\t" + t.replace("\n", "\n\t\t") for t in outpost_list()]
+    o.append("\t</rect>")
+    o.append('\t<rect depth="0" name="activityList" pos="0,0" width="%d" height="%d" visible="{tabactivities}">' % (MEM_W, PAN_H))
+    o += ["\t\t" + t.replace("\n", "\n\t\t") for t in activity_list()]
     o += ["\t</rect>", "</rect>"]
     return o
 
@@ -357,12 +391,13 @@ def member_detail():
                            extra='justify="center" upper_case="true"'),
           # btnHome is still hooked by the controller; "Follow me" already turns into "Go home".
           "\t\t" + button("btnHome", 24, -ORDER_Y, bw, ORDER_H, extra='visible="false"')]
-    rw = (tw - 4 * 6) // 5
+    # six run kinds since round wl (water): 80 wide, so 13 px labels ("MATERIALS" fits)
+    rw = (tw - (len(RUNS) - 1) * 6) // len(RUNS)
     o.append('\t\t<rect depth="1" visible="{runpicking}">')
     for k, (name, key) in enumerate(RUNS):
         x = 24 + k * (rw + 6)
         o += ["\t\t\t" + button(name, x, -RUN_Y, rw, RUN_H),
-              "\t\t\t" + centred(x, -RUN_Y, rw, RUN_H, 16, BODY, key=key, extra='justify="center" upper_case="true"')]
+              "\t\t\t" + centred(x, -RUN_Y, rw, RUN_H, 13, BODY, key=key, extra='justify="center" upper_case="true"')]
     o += ["\t\t</rect>",
           "\t\t" + label(24, -(RUN_Y + 2), tw, 32, 15, BODY, text="{message}",
                          extra="visible=\"{# runpicking ? 'false' : 'true' }\""),
@@ -438,6 +473,28 @@ def outpost_detail():
     return o
 
 
+def activity_detail():
+    """The selected activity: name, icon, cost (red when the stockpile is short), effect, status, what it is for, and
+    the do-button with the outcome under it."""
+    tw = DET_W - 48
+    o = [label(24, -12, tw, 46, 40, TITLE, text="{actname}", extra='upper_case="true"'),
+         plate("scui_portrait", 24, -92, 176, 176, depth=1),
+         icon("{acticon}", 112, -180, 96)]
+    facts = (("scUiActCost", "actcost", "{actcostcolor}"), ("scUiActEffect", "acteffect", BODY),
+             ("scUiActStatus", "actstatus", "{actstatuscolor}"))
+    for k, (key, binding, color) in enumerate(facts):
+        y = 96 + k * 42
+        o += [label(224, -y, tw - 200, 18, 15, DIM, key=key, extra='upper_case="true"'),
+              label(224, -(y + 18), tw - 200, 22, 18, color, text="{%s}" % binding)]
+    o += [label(24, -290, tw, 24, 22, TITLE, key="scUiActAbout", extra='upper_case="true"'),
+          plate("scui_divider", 24, -315, tw, 3, depth=1),
+          label(24, -326, tw, 200, 17, BODY, text="{actdesc}"),
+          button("btnActDo", 24, -ORDER_Y, tw, ORDER_H),
+          centred(24, -ORDER_Y, tw, ORDER_H, 18, "{actdocolor}", text="{actdolabel}", extra='justify="center" upper_case="true"'),
+          label(24, -(RUN_Y + 2), tw, 32, 15, BODY, text="{actmessage}")]
+    return o
+
+
 def detail():
     o = ['<rect depth="1" name="detailPanel" pos="%d,-%d" width="%d" height="%d">' % (DET_X, PAN_Y, DET_W, PAN_H),
          "\t" + plate("scui_window", 0, 0, DET_W, PAN_H),
@@ -446,6 +503,9 @@ def detail():
     o += ["\t</rect>",
           '\t<rect depth="0" name="outpostDetail" pos="0,0" width="%d" height="%d" visible="{taboutposts}">' % (DET_W, PAN_H)]
     o += ["\t\t" + line.replace("\n", "\n\t\t") for line in outpost_detail()]
+    o += ["\t</rect>",
+          '\t<rect depth="0" name="activityDetail" pos="0,0" width="%d" height="%d" visible="{tabactivities}">' % (DET_W, PAN_H)]
+    o += ["\t\t" + line.replace("\n", "\n\t\t") for line in activity_detail()]
     o += ["\t</rect>", "</rect>"]
     return o
 
@@ -526,9 +586,12 @@ def main():
         text = LEGACY.sub(lambda _m: block, text)
     with io.open(TARGET, "w", encoding="utf-8", newline="") as f:
         f.write(text)
-    print("generate_community_ui: wrote windowScCommunity %dx%d, %d member rows, %d outpost rows" % (WIN_W, WIN_H, ROWS, OP_ROWS))
+    print("generate_community_ui: wrote windowScCommunity %dx%d, %d member rows, %d outpost rows, %d activity rows, %d resources"
+          % (WIN_W, WIN_H, ROWS, OP_ROWS, ACT_ROWS, len(RESOURCES)))
     assert ROWS_TOP + ROWS * (ROW_H + ROW_GAP) + 40 <= PAN_H, "member rows run past the panel"
     assert ROWS_TOP + OP_ROWS * (ROW_H + ROW_GAP) + 40 <= PAN_H, "outpost rows run past the panel"
+    assert ROWS_TOP + ACT_ROWS * (ROW_H + ROW_GAP) + 40 <= PAN_H, "activity rows run past the panel"
+    assert 326 + 200 <= ORDER_Y - 4, "the activity description runs into its button"
     assert STAFF_TOP + 3 * (STAFF_H + STAFF_GAP) <= NET_TOP - 36, "the garrison runs into the network heading"
     assert NET_TOP + len(NETS) * (NET_H + NET_GAP) <= 578, "the network rows run into the orders (heading at 580)"
     assert RUN_Y + RUN_H <= PAN_H - 4, "the orders run past the detail panel"

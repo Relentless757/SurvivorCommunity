@@ -89,8 +89,32 @@ namespace SurvivorCommunity
         /// which is all ScOutposts.Shortest ("the resource that runs out first") still reads it for.
         /// </summary>
         public static float AmmoPerRangedDay = 0.25f;
-        /// <summary>Points (EconomicValue x count) that make one bundle, per resource.</summary>
-        public static readonly int[] PointsPerBundle = { 400, 300, 2000, 1000, 600 };
+        /// <summary>Points (EconomicValue x count) that make one bundle unit, per resource (a Medium bundle is two units, a Large three).</summary>
+        public static readonly int[] PointsPerBundle = { 400, 300, 2000, 1000, 600, 200, 300 };
+        /// <summary>Water bundles per member per day (round wl: 1 = a Level 1 well, 2 a day, keeps two survivors).</summary>
+        public static float WaterPerMemberDay = 1f;
+        /// <summary>
+        /// Alcohol: these items are Luxuries, never Food or Water. Vanilla has no alcohol tag, so it is a name list: the
+        /// drinks that give a drunk buff (beer and Grandpa's three).
+        /// </summary>
+        public static readonly List<string> LuxuryItems = new List<string>();
+        // ---- facilities (ScFacilities, round wl): hold E on one inside the home zone to upgrade it with materials ----
+        /// <summary>The well blocks in level order (V3-OakravenWaterFillers' five models): the block IS the level.</summary>
+        public static readonly List<string> WellBlocks = new List<string>();
+        /// <summary>Dew collector blocks: one block for every level, the level is kept in the registry.</summary>
+        public static readonly List<string> DewCollectorBlocks = new List<string>();
+        public static int WellWaterPerLevel = 2;
+        public static int DewWaterPerLevel = 1;
+        /// <summary>Stockpile materials for levels 2, 3, 4, 5 (the length sets the top level, 1 + its count).</summary>
+        public static int[] FacilityUpgradeCost = { 4, 8, 12, 16 };
+        /// <summary>Crafting a well places Level 1 only: the well kit's model picker is cut to the first model at world start.</summary>
+        public static bool WellsPlaceLevelOne = true;
+        // ---- activities (ScActivities): the community window's Activities tab ----
+        public static int DrinksLuxury = 4;
+        public static int DrinksFood = 1;
+        public static int DrinksMorale = 15;
+        /// <summary>Real minutes the round of drinks lifts morale (only while the game runs unpaused).</summary>
+        public static float DrinksMinutes = 15f;
         /// <summary>Per-item point overrides: item name -> points each.</summary>
         public static readonly Dictionary<string, int> ValueOverrides = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         /// <summary>Bed name PREFIXES, on top of every sleeping-bag class block when BedsBySleepingBag is on.</summary>
@@ -256,6 +280,8 @@ namespace SurvivorCommunity
         public static float OutpostMotorPoolMult = 1.15f;
         public static float OutpostSalvageMult = 0.75f;
         public static int OutpostCanteenFloor = -10;
+        /// <summary>A water outpost's cistern: the thirst morale hit is floored here (the canteen's twin, round wl).</summary>
+        public static int OutpostCisternFloor = -10;
         /// <summary>Radio scouting: search radius around home, sites marked per call, days the marks last.</summary>
         public static int RadioScoutRange = 1500;
         public static int RadioScoutCount = 3;
@@ -654,6 +680,17 @@ namespace SurvivorCommunity
             FoodPerMemberDay = 0.5f;
             AmmoPerRangedDay = 0.25f;
             PointsPerBundle[0] = 400; PointsPerBundle[1] = 300; PointsPerBundle[2] = 2000; PointsPerBundle[3] = 1000; PointsPerBundle[4] = 600;
+            PointsPerBundle[5] = 200; PointsPerBundle[6] = 300;
+            WaterPerMemberDay = 1f;
+            LuxuryItems.Clear();
+            WellBlocks.Clear();
+            DewCollectorBlocks.Clear();
+            WellWaterPerLevel = 2;
+            DewWaterPerLevel = 1;
+            FacilityUpgradeCost = new[] { 4, 8, 12, 16 };
+            WellsPlaceLevelOne = true;
+            DrinksLuxury = 4; DrinksFood = 1; DrinksMorale = 15; DrinksMinutes = 15f;
+            OutpostCisternFloor = -10;
             ValueOverrides.Clear();
             BedBlocks.Clear();
             BedBlocksExclude.Clear();
@@ -824,6 +861,9 @@ namespace SurvivorCommunity
             BedBlocks.AddRange(new[] { "bedroll", "bed02", "bunkBed", "bedMade", "bedMessy", "mattressFlatThin", "hospitalBed" });   // name PREFIXES (3.2 beds are bed02Blue, bunkBedMadeWhite, bedMadeNoFrameGrey ...)
             BedBlocksExclude.AddRange(new[] { "bunkBedFrame", "mattressCurled" });
             FuelItems.Add("ammoGasCan");
+            LuxuryItems.AddRange(new[] { "drinkJarBeer", "drinkJarGrandpasMoonshine", "drinkJarGrandpasAwesomeSauce", "drinkJarGrandpasLearningElixir" });
+            WellBlocks.AddRange(new[] { "OakravenWaterFiller1", "OakravenWaterFiller2", "OakravenWaterFiller3", "OakravenWaterFiller4", "OakravenWaterFiller5" });
+            DewCollectorBlocks.Add("cntDewCollector");
             FacilityBlocks.AddRange(new[] { "campfire", "workbench", "forge", "chemistryStation", "cementMixer" });
             SuppliesFavours.Add(new KeyValuePair<Resource, int>(Resource.Food, 15));
             SuppliesFavours.Add(new KeyValuePair<Resource, int>(Resource.Meds, 5));
@@ -948,12 +988,23 @@ namespace SurvivorCommunity
                 ParseInt(p, "MaxFollowers", ref MaxFollowers, 0, 8);
                 ParseFloat(p, "FoodPerMemberDay", ref FoodPerMemberDay, 0f, 10f);
                 ParseFloat(p, "AmmoPerRangedDay", ref AmmoPerRangedDay, 0f, 10f);
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < ScNames.ResourceCount; i++)
                 {
                     int v = PointsPerBundle[i];
                     ParseInt(p, "PointsPerBundle" + (Resource)i, ref v, 1, 1000000);
                     PointsPerBundle[i] = v;
                 }
+                ParseFloat(p, "WaterPerMemberDay", ref WaterPerMemberDay, 0f, 10f);
+                ParseInt(p, "WellWaterPerLevel", ref WellWaterPerLevel, 0, 100);
+                ParseInt(p, "DewWaterPerLevel", ref DewWaterPerLevel, 0, 100);
+                bool wellsOne = WellsPlaceLevelOne;
+                if (p.Values.ContainsKey("WellsPlaceLevelOne")) p.ParseBool("WellsPlaceLevelOne", ref wellsOne);
+                WellsPlaceLevelOne = wellsOne;
+                ParseInt(p, "DrinksLuxury", ref DrinksLuxury, 0, 1000);
+                ParseInt(p, "DrinksFood", ref DrinksFood, 0, 1000);
+                ParseInt(p, "DrinksMorale", ref DrinksMorale, 0, 100);
+                ParseFloat(p, "DrinksMinutes", ref DrinksMinutes, 0.1f, 1440f);
+                ParseInt(p, "OutpostCisternFloor", ref OutpostCisternFloor, -100, 0);
                 ParseInt(p, "PostRadius", ref PostRadius, 2, 40);
                 ParseInt(p, "LowMoraleDays", ref LowMoraleDays, 1, 30);
                 ParseInt(p, "MissingDaysToPurge", ref MissingDaysToPurge, 1, 1000);
@@ -1403,6 +1454,11 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("BedBlocks", out s) && !string.IsNullOrEmpty(s)) { BedBlocks.Clear(); BedBlocks.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("BedBlocksExclude", out s)) { BedBlocksExclude.Clear(); if (!string.IsNullOrEmpty(s)) BedBlocksExclude.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("FuelItems", out s) && !string.IsNullOrEmpty(s)) { FuelItems.Clear(); FuelItems.AddRange(SplitList(s)); }
+                // an empty value is meaningful for these three: no alcohol / no wells / no dew collectors
+                ParseList(p, "LuxuryItems", LuxuryItems);
+                ParseList(p, "WellBlocks", WellBlocks);
+                ParseList(p, "DewCollectorBlocks", DewCollectorBlocks);
+                if (p.Values.TryGetValue("FacilityUpgradeCost", out s) && !string.IsNullOrEmpty(s)) ParseUpgradeCost(s);
                 if (p.Values.TryGetValue("FacilityBlocks", out s) && !string.IsNullOrEmpty(s)) { FacilityBlocks.Clear(); FacilityBlocks.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("SuppliesFavours", out s) && !string.IsNullOrEmpty(s)) ParseSuppliesFavours(s);
                 if (p.Values.TryGetValue("ValueOverrides", out s) && !string.IsNullOrEmpty(s)) ParseOverrides(s);
@@ -1471,6 +1527,10 @@ namespace SurvivorCommunity
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"
                           + " PostRadius=" + PostRadius + " DefendBaseRadius=" + DefendBaseRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
                           + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count
+                          + " WaterPerMemberDay=" + WaterPerMemberDay + " luxuryItems=" + LuxuryItems.Count
+                          + " wells=" + WellBlocks.Count + "x" + WellWaterPerLevel + " dew=" + DewCollectorBlocks.Count + "x" + DewWaterPerLevel
+                          + " upgrades=" + string.Join("/", Array.ConvertAll(FacilityUpgradeCost, x => x.ToString())) + (WellsPlaceLevelOne ? " (wells place L1)" : "")
+                          + " drinks=" + DrinksLuxury + "lux+" + DrinksFood + "food +" + DrinksMorale + " for " + DrinksMinutes + "min"
                           + " secondWeapon=" + SurvivorSecondWeapon + " firearmChance=" + SurvivorFirearmChance + " meleeOnly=" + SurvivorMeleeOnlyChance + "/" + RaiderMeleeOnlyChance
                           + " classByGamestage=" + XnpcClassByGamestage + " rangedMainChance=" + SurvivorRangedMainChance
                           + " xnpcWeapons=" + XnpcWeapons.Count + " xnpcSpawnAmmo=" + XnpcSpawnAmmo + "/" + XnpcSpawnArrows
@@ -1578,6 +1638,23 @@ namespace SurvivorCommunity
             p.ParseFloat(key, ref tmp);
             if (tmp < min || tmp > max) { ScLog.Warn("config " + key + "=" + tmp + " out of range [" + min + "," + max + "], keeping " + v); return; }
             v = tmp;
+        }
+
+        /// <summary>FacilityUpgradeCost "4,8,12,16": materials for each level above 1. Any unreadable or negative entry keeps the whole default.</summary>
+        private static void ParseUpgradeCost(string s)
+        {
+            var list = new List<int>();
+            foreach (string part in SplitList(s))
+            {
+                int n;
+                if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out n) || n < 0)
+                {
+                    ScLog.Warn("config FacilityUpgradeCost '" + s + "': entry '" + part + "' unreadable - keeping " + string.Join(",", Array.ConvertAll(FacilityUpgradeCost, x => x.ToString())));
+                    return;
+                }
+                list.Add(n);
+            }
+            if (list.Count > 0) FacilityUpgradeCost = list.ToArray();
         }
 
         private static void ParseSuppliesFavours(string s)

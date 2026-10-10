@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public sealed class PoiRow
     {
         public string Id = "";
-        public readonly float[] Weight = new float[5];
+        public readonly float[] Weight = new float[ScNames.ResourceCount];
         public readonly List<string> NameWords = new List<string>();
         public readonly List<string> LocWords = new List<string>();
         public readonly List<string> Themes = new List<string>();
@@ -47,8 +47,9 @@ namespace SurvivorCommunity
     ///
     /// Resolution, first layer that decides wins: prefab SCOutpost > OutpostPrefabs > exclude words > ThemeTags >
     /// prefab-name tokens (author tokens dropped) > localized-name tokens > district-tag fallback (off by default)
-    /// > scavenge. When one layer matches several rows the rarest primary resource wins: meds > ammo > fuel > food >
-    /// materials ("Medical Warehouse" is meds). Words: "abc*" is a prefix; otherwise the token equals the word or the
+    /// > scavenge. When one layer matches several rows the rarest primary resource wins: meds > ammo > fuel > water >
+    /// food > materials ("Medical Warehouse" is meds, "utility_waterworks" water, not industry). The gate (tier at least
+    /// OutpostMinTier or a sleeper volume) skips the OutpostAnyTierRows rows. Words: "abc*" is a prefix; otherwise the token equals the word or the
     /// word + "s"; a word with a space is a phrase matched against the joined tokens ("gas station"). Tokens split
     /// on non-letters, digits and CamelCase. Results are cached per prefab name; host only (ThemeTags, zoning and
     /// custom prefab properties live on the server).
@@ -56,11 +57,16 @@ namespace SurvivorCommunity
     public static class ScPoiTypes
     {
         // ---- tunables (ScConfig parses them from ConfigSurvivorCommunity) ----
-        public static readonly float[] Base = { 1.0f, 0.35f, 0.3f, 0.8f, 0.6f };      // food, meds, ammo, mats, fuel: bundles/day at T2, weight 1
+        public static readonly float[] Base = { 1.0f, 0.35f, 0.3f, 0.8f, 0.6f, 1.5f, 0f };      // food, meds, ammo, mats, fuel, water, luxury: bundles/day at T2, weight 1
         public static float[] TierMult = { 0.6f, 0.8f, 1.0f, 1.15f, 1.3f, 1.5f };
         public static int MinTier = 1;
         public static float DailyCap = 5f;
         public static float ScavengeMult = 0.5f;
+        /// <summary>
+        /// Rows exempt from the tier / sleeper gate (round wl: the water towers are tier 0 with no sleepers, and the
+        /// user wants them as small water outposts). OutpostAnyTierRows in the config.
+        /// </summary>
+        public static readonly HashSet<string> AnyTierRows = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public static readonly List<PoiRow> Rows = new List<PoiRow>();
         private static readonly Dictionary<string, PoiRow> byId = new Dictionary<string, PoiRow>(StringComparer.OrdinalIgnoreCase);
@@ -73,7 +79,7 @@ namespace SurvivorCommunity
         private static readonly Dictionary<string, PoiClass> cache = new Dictionary<string, PoiClass>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Rarest first: decides between rows matched in the same layer.</summary>
-        private static readonly Resource[] Rarity = { Resource.Meds, Resource.Ammo, Resource.Fuel, Resource.Food, Resource.Materials };
+        private static readonly Resource[] Rarity = { Resource.Meds, Resource.Ammo, Resource.Fuel, Resource.Water, Resource.Food, Resource.Materials, Resource.Luxury };
 
         // ---- the built-in table (Config/blocks.xml carries the same, and wins when present) ----
         private static readonly string[][] DefaultRows =
@@ -91,6 +97,7 @@ namespace SurvivorCommunity
             new[] { "junkyard", "mats:0.8 | junkyard,scrap*,salvage,industrial | junkyard,salvage,scrap | " },
             new[] { "gasstation", "fuel:1.0,food:0.2 | gas,gasstation,gas station,fuel,petrol,quicklube,oil,passngas,pump station | gas,fill,oil,fuel,petrol,lube | stationgas,cpvgas" },
             new[] { "refinery", "fuel:1.3 | refinery,truckstop,truck stop | refinery,truck stop,truck plaza | " },
+            new[] { "waterworks", "water:1.0 | waterworks,watertower,water tower,water works,cistern,aqueduct,reservoir,well,stormwater,watering hole,pumphouse,pump house,water treatment,water plant | water works,water tower,waterworks,cistern,aqueduct,reservoir,well,pump house,water treatment | " },
         };
 
         /// <summary>Vanilla POIs whose names say nothing ("countrytown_business_05" is Butcher Pete's) and known false friends.</summary>
@@ -108,10 +115,13 @@ namespace SurvivorCommunity
             "skyscraper_03:clinic", "docks_01:gasstation", "rest_area_05:gasstation", "lot_industrial_03:gasstation",
             "lot_industrial_09:gasstation", "remnant_mill_01:farm", "store_gun_01:gunstore", "store_grocery_03:grocery",
             "army_camp_09:military", "oldwest_jail:police", "farm_04:clinic", "farm_17:none",
+            "utility_waterworks_01:waterworks", "water_tower_01:waterworks", "water_tower_02:waterworks", "water_tower_03:waterworks",
+            "water_tower_04:waterworks", "oldwest_watertower:waterworks",
         };
 
         private const string DefaultExclude = "foliage,foilage,plants,wind,solar,library,libary,pubic,museum,deco";
         private const string DefaultNoise = "xcpv,zztong,by,mplogue,fluffy,panda,voltralux";
+        private const string DefaultAnyTier = "waterworks";
 
         static ScPoiTypes()
         {
@@ -121,14 +131,15 @@ namespace SurvivorCommunity
         /// <summary>Per-world reset (ScConfig.Reset): back to the built-in table; EnsureParsed then applies the config.</summary>
         public static void LoadDefaults()
         {
-            Rows.Clear(); byId.Clear(); Exact.Clear(); Exclude.Clear(); Noise.Clear(); TagFallback.Clear(); cache.Clear();
-            Base[0] = 1.0f; Base[1] = 0.35f; Base[2] = 0.3f; Base[3] = 0.8f; Base[4] = 0.6f;
+            Rows.Clear(); byId.Clear(); Exact.Clear(); Exclude.Clear(); Noise.Clear(); TagFallback.Clear(); cache.Clear(); AnyTierRows.Clear();
+            Base[0] = 1.0f; Base[1] = 0.35f; Base[2] = 0.3f; Base[3] = 0.8f; Base[4] = 0.6f; Base[5] = 1.5f; Base[6] = 0f;
             TierMult = new[] { 0.6f, 0.8f, 1.0f, 1.15f, 1.3f, 1.5f };
             MinTier = 1; DailyCap = 5f; ScavengeMult = 0.5f;
             foreach (string[] r in DefaultRows) AddRow(r[0], r[1]);
             foreach (string e in DefaultExact) { int c = e.IndexOf(':'); Exact[e.Substring(0, c)] = e.Substring(c + 1); }
             foreach (string w in DefaultExclude.Split(',')) Exclude.Add(w.Trim());
             foreach (string w in DefaultNoise.Split(',')) Noise.Add(w.Trim());
+            foreach (string w in DefaultAnyTier.Split(',')) AnyTierRows.Add(w.Trim());
         }
 
         /// <summary>Reads the outpost properties and tables of the config block (called from ScConfig.EnsureParsed).</summary>
@@ -141,7 +152,7 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("OutpostBase", out s) && !string.IsNullOrEmpty(s))
                 {
                     float[] w = ParseYields(s);
-                    for (int i = 0; i < 5; i++) Base[i] = w[i];
+                    for (int i = 0; i < ScNames.ResourceCount; i++) Base[i] = w[i];
                 }
                 if (p.Values.TryGetValue("OutpostTierMult", out s) && !string.IsNullOrEmpty(s))
                 {
@@ -154,6 +165,7 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("OutpostScavengeMult", out s)) { float v; if (float.TryParse(s.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) ScavengeMult = Math.Max(0f, v); }
                 if (p.Values.TryGetValue("OutpostExclude", out s)) { Exclude.Clear(); foreach (string w in Split(s, ',')) Exclude.Add(w); }
                 if (p.Values.TryGetValue("OutpostNoise", out s)) { Noise.Clear(); foreach (string w in Split(s, ',')) Noise.Add(w); }
+                if (p.Values.TryGetValue("OutpostAnyTierRows", out s)) { AnyTierRows.Clear(); foreach (string w in Split(s, ',')) AnyTierRows.Add(w); }
                 if (p.Values.TryGetValue("OutpostTagFallback", out s))
                 {
                     TagFallback.Clear();
@@ -197,10 +209,10 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>"food:1.2,meds:0.3" -> five weights (Resource order).</summary>
+        /// <summary>"food:1.2,meds:0.3" -> one weight per resource (Resource order; a resource not named is 0).</summary>
         public static float[] ParseYields(string s)
         {
-            var w = new float[5];
+            var w = new float[ScNames.ResourceCount];
             foreach (string part in Split(s, ','))
             {
                 int c = part.IndexOf(':');
@@ -221,7 +233,7 @@ namespace SurvivorCommunity
             var row = new PoiRow { Id = id.Trim() };
             float[] w = ParseYields(parts.Length > 0 ? parts[0] : "");
             float best = 0f;
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < ScNames.ResourceCount; i++)
             {
                 row.Weight[i] = w[i];
                 if (w[i] > best) { best = w[i]; row.Primary = (Resource)i; }
@@ -347,6 +359,8 @@ namespace SurvivorCommunity
         private static PoiClass Gate(PoiClass c)
         {
             if (c.Eligible) return c;
+            // a row the gate does not apply to (the water towers: tier 0, no sleepers)
+            if (c.Row != null && AnyTierRows.Contains(c.Row.Id)) { c.Eligible = true; c.Why += " (any tier)"; return c; }
             c.Why = "tier " + c.Tier + ", " + c.SleeperVolumes + " sleeper volume(s) - would be " + c.Label + " (" + c.Rule + ")";
             c.Kind = "ineligible"; c.Row = null; c.Rule = "gate";
             return c;
@@ -430,11 +444,11 @@ namespace SurvivorCommunity
         /// <summary>Bundles per day for a row at a tier (no duplicates, upkeep or staff), capped at DailyCap in total.</summary>
         public static float[] RowYield(PoiRow row, int tier)
         {
-            var y = new float[5];
+            var y = new float[ScNames.ResourceCount];
             if (row == null) return y;
             float m = TierMultiplier(tier), total = 0f;
-            for (int i = 0; i < 5; i++) { y[i] = Base[i] * row.Weight[i] * m; total += y[i]; }
-            if (DailyCap > 0f && total > DailyCap) for (int i = 0; i < 5; i++) y[i] *= DailyCap / total;
+            for (int i = 0; i < ScNames.ResourceCount; i++) { y[i] = Base[i] * row.Weight[i] * m; total += y[i]; }
+            if (DailyCap > 0f && total > DailyCap) for (int i = 0; i < ScNames.ResourceCount; i++) y[i] *= DailyCap / total;
             return y;
         }
 
@@ -451,7 +465,7 @@ namespace SurvivorCommunity
             if (c.Kind == "scavenge") return "scavenge: +" + ScavengeYield(Resource.Food, c.Tier).ToString("0.00", CultureInfo.InvariantCulture) + " food or equivalent of what you lack";
             float[] y = RowYield(c.Row, c.Tier);
             var sb = new StringBuilder();
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < ScNames.ResourceCount; i++)
             {
                 if (y[i] <= 0f) continue;
                 if (sb.Length > 0) sb.Append(", ");

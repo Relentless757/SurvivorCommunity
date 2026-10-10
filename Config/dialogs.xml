@@ -183,6 +183,7 @@
 		</response>
 		<statement id="scRunPick" text="scRunPick_text">
 			<response_entry id="scRunFood" />
+			<response_entry id="scRunWater" />
 			<response_entry id="scRunMeds" />
 			<response_entry id="scRunAmmo" />
 			<response_entry id="scRunMaterials" />
@@ -190,6 +191,7 @@
 			<response_entry id="done" />
 		</statement>
 		<response id="scRunFood" text="scRunFood"><action type="ScRun, SurvivorCommunity" value="food" /></response>
+		<response id="scRunWater" text="scRunWater"><action type="ScRun, SurvivorCommunity" value="water" /></response>
 		<response id="scRunMeds" text="scRunMeds"><action type="ScRun, SurvivorCommunity" value="meds" /></response>
 		<response id="scRunAmmo" text="scRunAmmo"><action type="ScRun, SurvivorCommunity" value="ammo" /></response>
 		<response id="scRunMaterials" text="scRunMaterials"><action type="ScRun, SurvivorCommunity" value="mats" /></response>

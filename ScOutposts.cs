@@ -34,17 +34,17 @@ namespace SurvivorCommunity
         /// never re-types an existing outpost behind the player's back ("sc outpost reclassify" does it on purpose).
         /// </summary>
         public string Row = "";
-        public readonly float[] Weight = new float[5];
+        public readonly float[] Weight = new float[ScNames.ResourceCount];
         public int Tier;
         public int Day;
         /// <summary>Fractional bundles carried to the next day, per resource.</summary>
-        public readonly float[] Carry = new float[5];
+        public readonly float[] Carry = new float[ScNames.ResourceCount];
         /// <summary>Whole bundles produced while the home radio was silent; delivered the next day it reports in.</summary>
-        public readonly int[] Pending = new int[5];
+        public readonly int[] Pending = new int[ScNames.ResourceCount];
         public OutpostState State = OutpostState.Active;
         public int LostDay = -1;
         /// <summary>The last rollover's production in bundles/day (fractional): the "+n/day" the UI shows.</summary>
-        public readonly float[] LastYield = new float[5];
+        public readonly float[] LastYield = new float[ScNames.ResourceCount];
         /// <summary>1..3, bought from the stockpile (ScOutposts.Upgrade); LevelDay = the day it last went up.</summary>
         public int Level = 1;
         public int LevelDay = -1;
@@ -64,8 +64,8 @@ namespace SurvivorCommunity
         /// <summary>Whether the home radio heard the open attack (no radio, no warning, no marker).</summary>
         public bool AttackHeard;
         /// <summary>Stash and haul: bundles past the day's haul, waiting in the claim's box for the player.</summary>
-        public readonly int[] Stash = new int[5];
-        public int StashTotal { get { int n = 0; for (int i = 0; i < 5; i++) n += Stash[i]; return n; } }
+        public readonly int[] Stash = new int[ScNames.ResourceCount];
+        public int StashTotal { get { int n = 0; for (int i = 0; i < ScNames.ResourceCount; i++) n += Stash[i]; return n; } }
 
         /// <summary>v2 risk: an open attack's deadline (world time, 0 = none) and whether raiders; damaged through day;
         /// security won in fights (fades); an open raider demand (answer by day, -1 = none) and its price.</summary>
@@ -84,7 +84,7 @@ namespace SurvivorCommunity
 
         public int PendingTotal
         {
-            get { int n = 0; for (int i = 0; i < 5; i++) n += Pending[i]; return n; }
+            get { int n = 0; for (int i = 0; i < ScNames.ResourceCount; i++) n += Pending[i]; return n; }
         }
 
         /// <summary>The resource with the largest weight (scavenge outposts pick theirs each day).</summary>
@@ -94,7 +94,7 @@ namespace SurvivorCommunity
             {
                 Resource best = Resource.Food;
                 float w = -1f;
-                for (int i = 0; i < 5; i++) if (Weight[i] > w) { w = Weight[i]; best = (Resource)i; }
+                for (int i = 0; i < ScNames.ResourceCount; i++) if (Weight[i] > w) { w = Weight[i]; best = (Resource)i; }
                 return best;
             }
         }
@@ -553,11 +553,11 @@ namespace SurvivorCommunity
         /// <summary>Stores the row (or scavenge) and its weights on the outpost.</summary>
         public static void SetType(Outpost o, PoiClass cls)
         {
-            for (int i = 0; i < 5; i++) o.Weight[i] = 0f;
+            for (int i = 0; i < ScNames.ResourceCount; i++) o.Weight[i] = 0f;
             if (cls != null && cls.Kind == "row" && cls.Row != null)
             {
                 o.Row = cls.Row.Id;
-                for (int i = 0; i < 5; i++) o.Weight[i] = cls.Row.Weight[i];
+                for (int i = 0; i < ScNames.ResourceCount; i++) o.Weight[i] = cls.Row.Weight[i];
             }
             else o.Row = ScavengeRow;
         }
@@ -609,7 +609,7 @@ namespace SurvivorCommunity
             if (o.State == OutpostState.Lost) return;
             o.State = OutpostState.Lost;
             o.LostDay = ScCommunity.Today;
-            for (int i = 0; i < 5; i++) o.Pending[i] = 0;
+            for (int i = 0; i < ScNames.ResourceCount; i++) o.Pending[i] = 0;
             ScGarrison.OnOutpostGone(o, player);
             ScOutpostRisk.Forget(o);
             ScRegistry.Community.OutpostLoss += ScConfig.OutpostLostPenalty;
@@ -703,7 +703,7 @@ namespace SurvivorCommunity
                 var yields = new Dictionary<int, float[]>();
                 foreach (Outpost o in list)
                 {
-                    for (int i = 0; i < 5; i++) o.LastYield[i] = 0f;
+                    for (int i = 0; i < ScNames.ResourceCount; i++) o.LastYield[i] = 0f;
                     if (o.State != OutpostState.Active || ScOutpostRisk.IsDamaged(o, day)) continue;
                     producing.Add(o);
                     yields[o.Id] = RawYield(o);
@@ -714,7 +714,7 @@ namespace SurvivorCommunity
                 if (c.OutpostOnFoot) mult *= ScConfig.OutpostOnFootMult;
 
                 bool homeReported = c.RadioOnlineDay >= day - 1 || RadioOnlineAnywhere();
-                var delivered = new int[5];
+                var delivered = new int[ScNames.ResourceCount];
                 int waiting = 0;
                 foreach (Outpost o in list)
                 {
@@ -723,7 +723,7 @@ namespace SurvivorCommunity
                     yields.TryGetValue(o.Id, out y);
                     bool reported = homeReported || RelayOnline(o);   // its own radio relay reports in without the home one
                     int haulRoom = ScOutpostPerks.HaulCap(o);
-                    for (int r = 0; r < 5; r++)
+                    for (int r = 0; r < ScNames.ResourceCount; r++)
                     {
                         float v = y != null ? y[r] * mult : 0f;
                         o.LastYield[r] = v;
@@ -749,7 +749,7 @@ namespace SurvivorCommunity
                     waiting += o.PendingTotal;
                 }
                 int total = 0;
-                for (int r = 0; r < 5; r++) { if (delivered[r] > 0) c.Add((Resource)r, delivered[r]); total += delivered[r]; }
+                for (int r = 0; r < ScNames.ResourceCount; r++) { if (delivered[r] > 0) c.Add((Resource)r, delivered[r]); total += delivered[r]; }
 
                 // costs: upkeep for every outpost that works (idle ones cost nothing), haulage per bundle carried
                 int working = 0;
@@ -817,12 +817,12 @@ namespace SurvivorCommunity
             if (!o.Scavenge)
             {
                 var row = new PoiRow { Id = o.Row };
-                for (int i = 0; i < 5; i++) row.Weight[i] = o.Weight[i];
+                for (int i = 0; i < ScNames.ResourceCount; i++) row.Weight[i] = o.Weight[i];
                 y = ScPoiTypes.RowYield(row, o.Tier);
             }
             else
             {
-                y = new float[5];
+                y = new float[ScNames.ResourceCount];
                 Resource r = Shortest();
                 y[(int)r] = ScPoiTypes.ScavengeYield(r, o.Tier);
             }
@@ -831,9 +831,9 @@ namespace SurvivorCommunity
                          * ScOutpostPerks.ModeMult(o) * ScOutpostPerks.CheckInMult(o) * ScOutpostPerks.DepletionMult(o)
                          * ScOutpostPerks.InvestMult(o);
             float total = 0f;
-            for (int i = 0; i < 5; i++) { y[i] *= mult; total += y[i]; }
+            for (int i = 0; i < ScNames.ResourceCount; i++) { y[i] *= mult; total += y[i]; }
             if (ScPoiTypes.DailyCap > 0f && total > ScPoiTypes.DailyCap)
-                for (int i = 0; i < 5; i++) y[i] *= ScPoiTypes.DailyCap / total;
+                for (int i = 0; i < ScNames.ResourceCount; i++) y[i] *= ScPoiTypes.DailyCap / total;
             return y;
         }
 
@@ -851,7 +851,7 @@ namespace SurvivorCommunity
         {
             float[] dup = ScConfig.OutpostDupMult;
             if (dup == null || dup.Length == 0) return;
-            for (int r = 0; r < 5; r++)
+            for (int r = 0; r < ScNames.ResourceCount; r++)
             {
                 var same = new List<Outpost>();
                 foreach (Outpost o in producing) if ((int)PrimaryToday(o) == r) same.Add(o);
@@ -893,7 +893,7 @@ namespace SurvivorCommunity
                 float[] y;
                 yields.TryGetValue(o.Id, out y);
                 int haulRoom = ScOutpostPerks.HaulCap(o);
-                for (int r = 0; r < 5; r++)
+                for (int r = 0; r < ScNames.ResourceCount; r++)
                 {
                     float v = y != null ? y[r] * mult : 0f;
                     int whole = (int)Math.Floor(o.Carry[r] + v + 1e-4f);
@@ -905,7 +905,10 @@ namespace SurvivorCommunity
             return total;
         }
 
-        /// <summary>The resource with the fewest days of cover: stock over what the community uses a day.</summary>
+        /// <summary>
+        /// The resource with the fewest days of cover: stock over what the community uses a day. Water counts what the
+        /// home's wells and dew collectors do not cover; luxuries are never needed, so never the shortest.
+        /// </summary>
         public static Resource Shortest()
         {
             Community c = ScRegistry.Community;
@@ -918,16 +921,25 @@ namespace SurvivorCommunity
                 Math.Max(0.1f, injured > 0 ? injured : members * 0.05f),
                 Math.Max(0.1f, ranged * ScConfig.AmmoPerRangedDay),
                 Math.Max(0.1f, ScConfig.OutpostUpkeep * Math.Max(1, HeldCount())),
-                Math.Max(0.1f, 0.1f * Math.Max(1, HeldCount()))
+                Math.Max(0.1f, 0.1f * Math.Max(1, HeldCount())),
+                WaterNeed(members * ScConfig.WaterPerMemberDay - Math.Max(0, c.HomeWater)),
+                0f
             };
             Resource best = Resource.Food;
             float bestDays = float.MaxValue;
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < ScNames.ResourceCount; i++)
             {
+                if (need[i] <= 0f) continue;
                 float days = c.Get((Resource)i) / need[i];
                 if (days < bestDays) { bestDays = days; best = (Resource)i; }
             }
             return best;
+        }
+
+        /// <summary>Shortest's water need: what the home's wells and dew collectors do not cover (0 = covered, never the shortest).</summary>
+        private static float WaterNeed(float shortfall)
+        {
+            return shortfall > 0.001f ? Math.Max(0.1f, shortfall) : 0f;
         }
 
         /// <summary>What an outpost would make a day right now (duplicates and network multipliers included).</summary>
@@ -943,22 +955,22 @@ namespace SurvivorCommunity
                 producing.Add(o);
                 yields[o.Id] = RawYield(o);
             }
-            if (target.State != OutpostState.Active || ScOutpostRisk.IsDamaged(target, today + 1)) return new float[5];
+            if (target.State != OutpostState.Active || ScOutpostRisk.IsDamaged(target, today + 1)) return new float[ScNames.ResourceCount];
             ApplyDuplicates(producing, yields);
             float mult = 1f;
             if (c.OutpostRunDown) mult *= ScConfig.OutpostRunDownMult;
             if (c.OutpostOnFoot) mult *= ScConfig.OutpostOnFootMult;
             float[] y;
-            if (!yields.TryGetValue(target.Id, out y)) return new float[5];
-            var outp = new float[5];
-            for (int i = 0; i < 5; i++) outp[i] = y[i] * mult;
+            if (!yields.TryGetValue(target.Id, out y)) return new float[ScNames.ResourceCount];
+            var outp = new float[ScNames.ResourceCount];
+            for (int i = 0; i < ScNames.ResourceCount; i++) outp[i] = y[i] * mult;
             return outp;
         }
 
         /// <summary>The last rollover's yield once there has been one, else the estimate.</summary>
         public static float[] ShownYield(Outpost o)
         {
-            for (int i = 0; i < 5; i++) if (o.LastYield[i] > 0f) return o.LastYield;
+            for (int i = 0; i < ScNames.ResourceCount; i++) if (o.LastYield[i] > 0f) return o.LastYield;
             return Estimate(o);
         }
 
@@ -968,7 +980,7 @@ namespace SurvivorCommunity
         public static string YieldText(float[] y)
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < ScNames.ResourceCount; i++)
             {
                 if (y[i] <= 0.005f) continue;
                 if (sb.Length > 0) sb.Append(", ");
@@ -981,7 +993,7 @@ namespace SurvivorCommunity
         public static string Amounts(int[] n)
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < ScNames.ResourceCount; i++)
             {
                 if (n[i] <= 0) continue;
                 if (sb.Length > 0) sb.Append(", ");

@@ -47,13 +47,31 @@ namespace SurvivorCommunity
         Craftsmanship
     }
 
+    /// <summary>
+    /// The stockpile's resources. APPEND ONLY: the registry keeps per-outpost arrays by position (carry, pending, last,
+    /// stash), so a value is never renumbered. Water and Luxury came in round wl (2026-10-10); a save from before simply
+    /// has none of them.
+    /// </summary>
     public enum Resource
     {
         Food = 0,
         Meds = 1,
         Ammo = 2,
         Materials = 3,
-        Fuel = 4
+        Fuel = 4,
+        /// <summary>Drinks that hydrate (not alcohol). Members drink WaterPerMemberDay a day; wells, dew collectors and water outposts make it.</summary>
+        Water = 5,
+        /// <summary>Alcohol (LuxuryItems). Never used up by the day: spent on the community window's Activities.</summary>
+        Luxury = 6
+    }
+
+    /// <summary>A bundle item's size: the stockpile units it holds (round wl). Legacy = the old one-size bundle, worth 1.</summary>
+    public enum BundleSize
+    {
+        Legacy = 0,
+        Small = 1,
+        Medium = 2,
+        Large = 3
     }
 
     public enum FavourKind
@@ -238,7 +256,7 @@ namespace SurvivorCommunity
         public string Owner = "";
         public int Morale = 50;
         public int LastDay = -1;
-        public readonly int[] Stock = new int[5];
+        public readonly int[] Stock = new int[ScNames.ResourceCount];
         /// <summary>day:name of the last few deaths, newest first.</summary>
         public readonly List<KeyValuePair<int, string>> Deaths = new List<KeyValuePair<int, string>>();
         /// <summary>One summary line per day, newest first, last 7.</summary>
@@ -247,10 +265,28 @@ namespace SurvivorCommunity
         /// <summary>Member who was warned they will leave; -1 = nobody.</summary>
         public int ThreatMemberId = -1;
         public bool Hungry;
+        /// <summary>The last rollover found too little water (round wl): thirst, the hunger rules over again.</summary>
+        public bool Thirsty;
         /// <summary>Morale penalty from recent deaths (DeathPenalty per death, fades DeathDecayPerDay per day).</summary>
         public float DeathPenalty;
         /// <summary>Fractional daily needs carried to the next day (0.5 bundles/member/day etc.).</summary>
         public float FoodCarry;
+        public float WaterCarry;
+        /// <summary>
+        /// Water a day from the wells and dew collectors inside the home zone (ScScan, ScFacilities), and per counted
+        /// chunk (only those with any; key WorldChunkCache.MakeChunkKey). Like the beds, a chunk that is not loaded keeps
+        /// its last count.
+        /// </summary>
+        public int HomeWater;
+        public readonly Dictionary<long, int> ScanWater = new Dictionary<long, int>();
+        /// <summary>Upgraded dew collectors: parent block position -> level 2..5 (a collector not listed is level 1).</summary>
+        public readonly Dictionary<Vector3i, int> DewLevels = new Dictionary<Vector3i, int>();
+        /// <summary>
+        /// Activities (ScActivities): real seconds the round of drinks still lifts morale (counted only while the game
+        /// runs unpaused), and the world day it was last poured (once a day).
+        /// </summary>
+        public float DrinksLeft;
+        public int DrinksDay = -1;
         /// <summary>
         /// Ammo (decision D3: no daily upkeep, only resupplies spend it). AmmoOpenPoints: packing points left in the ammo
         /// bundle ScAmmo last opened to hand out rounds, so a bundle is used up round by round instead of being lost to
@@ -348,7 +384,11 @@ namespace SurvivorCommunity
 
     public static class ScNames
     {
-        public static readonly string[] ResourceKeys = { "food", "meds", "ammo", "mats", "fuel" };
+        /// <summary>Every resource (the stockpile, the registry's arrays). Loops over resources run to this, never to a literal.</summary>
+        public const int ResourceCount = 7;
+        /// <summary>The five resources the game began with: the radio's barter and scouting and the supply runs stay on these.</summary>
+        public const int ClassicCount = 5;
+        public static readonly string[] ResourceKeys = { "food", "meds", "ammo", "mats", "fuel", "water", "luxury" };
         public static readonly string[] SkillKeys = { "cardio", "wits", "fighting", "shooting" };
 
         public static string Key(Resource r) { return ResourceKeys[(int)r]; }
@@ -368,6 +408,7 @@ namespace SurvivorCommunity
             {
                 case "medical": case "medicine": r = Resource.Meds; return true;
                 case "materials": case "material": r = Resource.Materials; return true;
+                case "luxuries": case "lux": case "alcohol": r = Resource.Luxury; return true;
                 default: return false;
             }
         }
@@ -401,7 +442,39 @@ namespace SurvivorCommunity
         public static string LocKey(Skill s) { return "scSkill" + s; }
         public static string LocKey(Specialty s) { return "scSpec" + s; }
 
-        /// <summary>The bundle item for a resource.</summary>
+        /// <summary>The old one-size bundle item for a resource (round wl keeps it working, worth 1; nothing makes it any more).</summary>
         public static string BundleItem(Resource r) { return "scBundle" + r; }
+
+        /// <summary>A sized bundle: "scBundleFoodSmall", "scBundleWaterLarge" ...</summary>
+        public static string BundleItem(Resource r, BundleSize size)
+        {
+            return size == BundleSize.Legacy ? BundleItem(r) : "scBundle" + r + size;
+        }
+
+        private static Dictionary<string, KeyValuePair<Resource, int>> bundleNames;
+
+        /// <summary>A bundle item's resource and the stockpile units it holds (Small 1, Medium 2, Large 3, the old bundle 1).</summary>
+        public static bool TryBundle(string itemName, out Resource r, out int units)
+        {
+            r = Resource.Food;
+            units = 0;
+            if (string.IsNullOrEmpty(itemName)) return false;
+            if (bundleNames == null)
+            {
+                var map = new Dictionary<string, KeyValuePair<Resource, int>>(StringComparer.Ordinal);
+                for (int i = 0; i < ResourceCount; i++)
+                {
+                    var res = (Resource)i;
+                    map[BundleItem(res)] = new KeyValuePair<Resource, int>(res, 1);
+                    for (int s = 1; s <= 3; s++) map[BundleItem(res, (BundleSize)s)] = new KeyValuePair<Resource, int>(res, s);
+                }
+                bundleNames = map;
+            }
+            KeyValuePair<Resource, int> hit;
+            if (!bundleNames.TryGetValue(itemName, out hit)) return false;
+            r = hit.Key;
+            units = hit.Value;
+            return true;
+        }
     }
 }

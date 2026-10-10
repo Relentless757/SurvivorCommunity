@@ -37,8 +37,9 @@ namespace SurvivorCommunity
                 Hook("btnScoutAmmo", () => DoScout(Resource.Ammo));
                 Hook("btnScoutMaterials", () => DoScout(Resource.Materials));
                 Hook("btnScoutFuel", () => DoScout(Resource.Fuel));
-                Hook("btnBarterGive", () => { barterGive = (Resource)(((int)barterGive + 1) % 5); if (barterGive == barterGet) barterGive = (Resource)(((int)barterGive + 1) % 5); RefreshBindings(); });
-                Hook("btnBarterGet", () => { barterGet = (Resource)(((int)barterGet + 1) % 5); if (barterGet == barterGive) barterGet = (Resource)(((int)barterGet + 1) % 5); RefreshBindings(); });
+                // the five classic supplies and water (round wl); luxuries are not bartered
+                Hook("btnBarterGive", () => { barterGive = (Resource)(((int)barterGive + 1) % ScBarter.Kinds); if (barterGive == barterGet) barterGive = (Resource)(((int)barterGive + 1) % ScBarter.Kinds); RefreshBindings(); });
+                Hook("btnBarterGet", () => { barterGet = (Resource)(((int)barterGet + 1) % ScBarter.Kinds); if (barterGet == barterGive) barterGet = (Resource)(((int)barterGet + 1) % ScBarter.Kinds); RefreshBindings(); });
                 Hook("btnDemandPay", () =>
                 {
                     string msg;

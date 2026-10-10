@@ -50,6 +50,8 @@
     <Compile Include="TEFeatureSCCommunity.cs" />
     <Compile Include="TEFeatureSCPacking.cs" />
     <Compile Include="ScStockpile.cs" />
+    <Compile Include="ScFacilities.cs" />
+    <Compile Include="ScActivities.cs" />
     <Compile Include="ScScan.cs" />
     <Compile Include="Objectives.cs" />
     <Compile Include="ScMorale.cs" />

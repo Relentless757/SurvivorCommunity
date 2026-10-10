@@ -26,13 +26,23 @@
 			     out first. -->
 			<property name="FoodPerMemberDay" value="0.5" />
 			<property name="AmmoPerRangedDay" value="0.25" />
+			<!-- water (round wl): bundles a member drinks a day. Short of it the survivors go thirsty: morale -20, every mood
+			     -10, buffSCThirsty on them (the hunger rules again, on top of hunger). -->
+			<property name="WaterPerMemberDay" value="1" />
 
-			<!-- packing: EconomicValue x count that makes one bundle of each resource -->
+			<!-- packing: EconomicValue x count that makes one bundle UNIT of each resource. A Small bundle is one unit, a
+			     Medium two, a Large three; the station packs Large first. Water: drinks that hydrate (not alcohol), 200 =
+			     five boiled waters. Luxury: the LuxuryItems below, 300 = three beers. -->
 			<property name="PointsPerBundleFood" value="400" />
 			<property name="PointsPerBundleMeds" value="300" />
 			<property name="PointsPerBundleAmmo" value="2000" />
 			<property name="PointsPerBundleMaterials" value="1000" />
 			<property name="PointsPerBundleFuel" value="600" />
+			<property name="PointsPerBundleWater" value="200" />
+			<property name="PointsPerBundleLuxury" value="300" />
+			<!-- alcohol: these are Luxuries, never Food or Water (vanilla has no alcohol tag; these four give a drunk buff).
+			     An empty value = no luxuries from packing. -->
+			<property name="LuxuryItems" value="drinkJarBeer,drinkJarGrandpasMoonshine,drinkJarGrandpasAwesomeSauce,drinkJarGrandpasLearningElixir" />
 			<!-- per-item point overrides: item:points,item:points -->
 			<property name="ValueOverrides" value="" />
 			<!-- Fuel bundles: items tagged gasoline plus this list. FuelValue is NOT used (wood, coal, cloth burn but are materials). -->
@@ -47,6 +57,27 @@
 			<property name="BedBlocks" value="bedroll,bed02,bunkBed,bedMade,bedMessy,mattressFlatThin,hospitalBed" />
 			<property name="BedBlocksExclude" value="bunkBedFrame,mattressCurled" />
 			<property name="FacilityBlocks" value="campfire,workbench,forge,chemistryStation,cementMixer" />
+
+			<!-- water facilities (round wl): inside the home zone they give the stockpile water every day, and holding E on
+			     one offers Info and Upgrade (stockpile materials, FacilityUpgradeCost for levels 2, 3, 4, 5).
+			     WellBlocks: V3-OakravenWaterFillers' five models in level order - the model IS the level, an upgrade swaps
+			     it for the next; WellWaterPerLevel a day per level (2/4/6/8/10). WellsPlaceLevelOne: the well kit places
+			     the first model only. DewCollectorBlocks: one block for every level (kept in the registry by position);
+			     DewWaterPerLevel a day per level (1..5), and it still fills its jars as before. -->
+			<property name="WellBlocks" value="OakravenWaterFiller1,OakravenWaterFiller2,OakravenWaterFiller3,OakravenWaterFiller4,OakravenWaterFiller5" />
+			<property name="WellWaterPerLevel" value="2" />
+			<property name="WellsPlaceLevelOne" value="true" />
+			<property name="DewCollectorBlocks" value="cntDewCollector" />
+			<property name="DewWaterPerLevel" value="1" />
+			<property name="FacilityUpgradeCost" value="4,8,12,16" />
+
+			<!-- activities (round wl): the community window's Activities tab. "Prepare a round of drinks": DrinksLuxury
+			     luxuries + DrinksFood food, +DrinksMorale morale for DrinksMinutes real minutes (paused with the game),
+			     once a game day. -->
+			<property name="DrinksLuxury" value="4" />
+			<property name="DrinksFood" value="1" />
+			<property name="DrinksMorale" value="15" />
+			<property name="DrinksMinutes" value="15" />
 
 			<!-- morale consequences -->
 			<property name="LowMoraleDays" value="2" />
@@ -584,6 +615,8 @@
 			<property name="OutpostMotorPoolMult" value="1.15" />
 			<property name="OutpostSalvageMult" value="0.75" />
 			<property name="OutpostCanteenFloor" value="-10" />
+			<!-- a water outpost's cistern: the thirst morale hit is floored here (round wl) -->
+			<property name="OutpostCisternFloor" value="-10" />
 			<property name="RadioScoutRange" value="1500" />
 			<property name="RadioScoutCount" value="3" />
 			<property name="RadioScoutDays" value="3" />
@@ -645,13 +678,15 @@
 			<property name="OutpostRaiderChance" value="0.03" />
 			<property name="OutpostDemandAmmo" value="2" />
 			<property name="OutpostDemandFood" value="2" />
-			<property name="OutpostBase" value="food:1.0,meds:0.35,ammo:0.3,mats:0.8,fuel:0.6" />
+			<property name="OutpostBase" value="food:1.0,meds:0.35,ammo:0.3,mats:0.8,fuel:0.6,water:1.5" />
 			<property name="OutpostTierMult" value="0.6,0.8,1.0,1.15,1.3,1.5" />
 			<property name="OutpostMinTier" value="1" />
 			<property name="OutpostDailyCap" value="5" />
 			<property name="OutpostScavengeMult" value="0.5" />
 			<property name="OutpostExclude" value="foliage,foilage,plants,wind,solar,library,libary,pubic,museum,deco" />
 			<property name="OutpostNoise" value="xcpv,zztong,by,mplogue,fluffy,panda,voltralux" />
+			<!-- rows the tier / sleeper gate does not apply to: the water towers are tier 0 with no sleepers (round wl) -->
+			<property name="OutpostAnyTierRows" value="waterworks" />
 			<property name="OutpostTagFallback" value="" />
 
 			<!-- Base defence D1 (BaseDefence_Plan.md): the Home Status panel and the base's noise. HomeStatusHud: the panel at
@@ -794,7 +829,7 @@
 			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).
 			     Resolution: the prefab's own SCOutpost property > OutpostPrefabs > OutpostExclude > theme tags > prefab
 			     name > localized name > OutpostTagFallback > scavenge; within one layer the rarest resource wins
-			     (meds > ammo > fuel > food > materials). Check any POI with "sc poi" / "sc poi classify <prefab>". -->
+			     (meds > ammo > fuel > water > food > materials). Check any POI with "sc poi" / "sc poi classify <prefab>". -->
 			<property class="OutpostRows">
 				<property name="grocery" value="food:1.2 | grocery,grocer*,supermarket,market,butcher*,deli,cannery,dairy,shamway,foods,food | grocery,supermarket,market,butcher,foods,shamway | storegrocery" />
 				<property name="diner" value="food:1.0 | diner,restaurant,fastfood,bakery,cafe,coffee,pizza*,burger*,taco*,donut*,bar,pub,brewery,smokehouse,saloon,tavern,winery,vineyard,bbq,steakhouse,buffet,kitchen,snack*,icecream | diner,cafe,bakery,pizza,burger*,restaurant,buffet,bar,pub,brewery,wine,smokehouse,saloon,tavern,grill,kitchen,biskitz,swines | " />
@@ -809,6 +844,7 @@
 				<property name="junkyard" value="mats:0.8 | junkyard,scrap*,salvage,industrial | junkyard,salvage,scrap | " />
 				<property name="gasstation" value="fuel:1.0,food:0.2 | gas,gasstation,gas station,fuel,petrol,quicklube,oil,passngas,pump station | gas,fill,oil,fuel,petrol,lube | stationgas,cpvgas" />
 				<property name="refinery" value="fuel:1.3 | refinery,truckstop,truck stop | refinery,truck stop,truck plaza | " />
+				<property name="waterworks" value="water:1.0 | waterworks,watertower,water tower,water works,cistern,aqueduct,reservoir,well,stormwater,watering hole,pumphouse,pump house,water treatment,water plant | water works,water tower,waterworks,cistern,aqueduct,reservoir,well,pump house,water treatment | " />
 			</property>
 			<!-- Prefabs whose names say nothing about what they are (countrytown_business_05 is Butcher Pete's), and
 			     false friends: prefab name = row id, or none. A modded POI pack is fixed with one line here. -->
@@ -853,6 +889,12 @@
 				<property name="oldwest_jail" value="police" />
 				<property name="farm_04" value="clinic" />
 				<property name="farm_17" value="none" />
+				<property name="utility_waterworks_01" value="waterworks" />
+				<property name="water_tower_01" value="waterworks" />
+				<property name="water_tower_02" value="waterworks" />
+				<property name="water_tower_03" value="waterworks" />
+				<property name="water_tower_04" value="waterworks" />
+				<property name="oldwest_watertower" value="waterworks" />
 			</property>
 		</block>
 	</append>

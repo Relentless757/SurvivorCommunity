@@ -72,6 +72,9 @@ namespace SurvivorCommunity
                 ScDefence.Reset();
                 ScSiege.Reset();
                 ScTower.Reset();
+                ScFacilities.Reset();
+                ScActivities.Reset();
+                ScCategories.Reset();
                 Patches_Npc.Reset();
                 });
                 ModEvents.GameStartDone.RegisterHandler((ref ModEvents.SGameStartDoneData _d) =>
@@ -80,6 +83,8 @@ namespace SurvivorCommunity
                     catch (Exception e) { ScLog.Once("gamestartdone", e); }
                     // the crafted Watch Post (a shape helper) shows the post's own description
                     ScWatch.DescribeHelper();
+                    // the well kit places Level 1 only; levels 2-5 are upgrades (round wl). Every machine: placement is local.
+                    ScFacilities.RestrictWellKit();
                     // Locked & Loaded's NPC magazines (M11): bound once per game, its state logged every game
                     try { ScMags.Resolve(); }
                     catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }
@@ -290,6 +295,14 @@ namespace SurvivorCommunity
             Add(t, "ItemActionRanged::ItemActionEffects", AccessTools.DeclaredMethod(typeof(ItemActionRanged), "ItemActionEffects", new[] { typeof(GameManager), typeof(ItemActionData), typeof(int), typeof(UnityEngine.Vector3), typeof(UnityEngine.Vector3), typeof(int) }));
             // ScTower.cs - the Guard Tower kit's ghost of the whole tower rides vanilla's placement ghost (visual only)
             Add(t, "RenderDisplacedCube::Update", AccessTools.Method(typeof(RenderDisplacedCube), "Update", new[] { typeof(bool), typeof(World), typeof(WorldRayHitInfo), typeof(Vector3i), typeof(EntityAlive), typeof(PersistentPlayerData), typeof(bool) }));
+            // ScFacilities.cs - the facility radial (hold E): wells are plain Block, dew collectors BlockCollector (round wl)
+            Add(t, "Block::HasBlockActivationCommands", AccessTools.DeclaredMethod(typeof(Block), "HasBlockActivationCommands", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
+            Add(t, "Block::GetBlockActivationCommands", AccessTools.DeclaredMethod(typeof(Block), "GetBlockActivationCommands", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
+            Add(t, "Block::OnBlockActivated(string)", AccessTools.DeclaredMethod(typeof(Block), "OnBlockActivated", new[] { typeof(string), typeof(WorldBase), typeof(Vector3i), typeof(BlockValue), typeof(EntityPlayerLocal) }));
+            Add(t, "Block::GetActivationText", AccessTools.DeclaredMethod(typeof(Block), "GetActivationText", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
+            Add(t, "BlockCollector::GetBlockActivationCommands", AccessTools.DeclaredMethod(typeof(BlockCollector), "GetBlockActivationCommands", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
+            Add(t, "Block::OnBlockPlaceBefore", AccessTools.DeclaredMethod(typeof(Block), "OnBlockPlaceBefore", new[] { typeof(WorldBase), typeof(BlockPlacement.Result).MakeByRefType(), typeof(EntityAlive), typeof(GameRandom) }));
+            Add(t, "BlockCollector::OnBlockActivated(string)", AccessTools.DeclaredMethod(typeof(BlockCollector), "OnBlockActivated", new[] { typeof(string), typeof(WorldBase), typeof(Vector3i), typeof(BlockValue), typeof(EntityPlayerLocal) }));
             // Patches_VoiceControl.cs - members are never billed by 0-XNPCCore 3.2's Voice Control (only when it is loaded)
             if (Patches_VoiceControl.ChatType != null)
             {

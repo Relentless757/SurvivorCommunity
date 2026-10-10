@@ -64,6 +64,16 @@
 				<property name="offset" value="0,0,0" />
 			</map_settings>
 		</nav_object_class>
+		<nav_object_class name="sc_outpost_water">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_water"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="90,170,255,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
 		<nav_object_class name="sc_outpost_scavenge">
 			<property name="requirement_type" value="IsOwner" />
 			<map_settings>

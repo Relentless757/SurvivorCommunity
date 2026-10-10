@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel> <n>, xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -26,6 +26,8 @@ namespace SurvivorCommunity
                     case "day": Day(); break;
                     case "morale": Morale(_params); break;
                     case "give": Give(_params); break;
+                    case "facility": case "facilities": FacilityCmd(_params); break;
+                    case "drinks": DrinksCmd(_params); break;
                     case "xp": Xp(_params); break;
                     case "injure": Injure(_params); break;
                     case "scan": Scan(); break;
@@ -117,10 +119,11 @@ namespace SurvivorCommunity
             Output("[SC] host=" + ScCommunity.IsHost + " loaded=" + ScRegistry.Loaded + " dir=" + (ScRegistry.SaveDir ?? "<none>")
                    + " degraded=" + ScRegistry.Degraded + " lcbu=" + ScZone.LcbuAvailable);
             Output("[SC] home=" + (c.HasHome ? c.Home.ToString() : "<none>") + " owner=" + c.Owner + " day=" + ScCommunity.Today
-                   + " lastday=" + c.LastDay + " morale=" + c.Morale + " lowMoraleDays=" + c.LowMoraleDays + " hungry=" + c.Hungry
-                   + " beds=" + c.Beds + " facilities=" + c.Facilities + " crops=" + c.Crops);
+                   + " lastday=" + c.LastDay + " morale=" + c.Morale + " lowMoraleDays=" + c.LowMoraleDays + " hungry=" + c.Hungry + " thirsty=" + c.Thirsty
+                   + " beds=" + c.Beds + " facilities=" + c.Facilities + " crops=" + c.Crops + " water/day=" + c.HomeWater
+                   + (ScActivities.DrinksActive ? " drinks=" + ScActivities.TimeLeft() : ""));
             var sb = new StringBuilder("[SC] stock:");
-            for (int i = 0; i < 5; i++) sb.Append(' ').Append(ScNames.ResourceKeys[i]).Append('=').Append(c.Stock[i]);
+            for (int i = 0; i < ScNames.ResourceCount; i++) sb.Append(' ').Append(ScNames.ResourceKeys[i]).Append('=').Append(c.Stock[i]);
             Output(sb.ToString());
             Output("[SC] members=" + ScRegistry.Members.Count + " (residents " + ScRegistry.CountStatus(MemberStatus.Resident)
                    + ", following " + ScRegistry.FollowerCount + ", on run " + ScRegistry.CountStatus(MemberStatus.OnRun) + ") prospects=" + ScRegistry.Prospects.Count);
@@ -152,7 +155,7 @@ namespace SurvivorCommunity
                     "cardio " + m.Skill(Skill.Cardio).Level + "(" + m.Skill(Skill.Cardio).Xp + "xp)", "wits " + m.Skill(Skill.Wits).Level + "(" + m.Skill(Skill.Wits).Xp + "xp)",
                     "fighting " + m.Skill(Skill.Fighting).Level + "(" + m.Skill(Skill.Fighting).Xp + "xp)", "shooting " + m.Skill(Skill.Shooting).Level + "(" + m.Skill(Skill.Shooting).Xp + "xp)" })
                        + " spec " + m.Specialty + " " + m.SpecLevel + "(" + m.SpecXp + "xp) traits [" + string.Join(",", m.Traits.ToArray()) + "]"
-                       + (npc != null ? " | melee+" + npc.Buffs.GetCustomVar("sc_dmgmelee") + " ranged+" + npc.Buffs.GetCustomVar("sc_dmgranged") + " speed+" + npc.Buffs.GetCustomVar("sc_speed") + " hp+" + npc.Buffs.GetCustomVar("sc_hp") + " maxhp " + npc.Stats.Health.Max + " buffs " + (npc.Buffs.HasBuff(ScSkills.BuffName) ? "skills " : "") + (npc.Buffs.HasBuff(ScSkills.HungryBuff) ? "hungry " : "") + (npc.Buffs.HasBuff(ScSkills.InjuredBuff) ? "injured " : "") + (npc.Buffs.GetCustomVar("$Timid") >= 1f ? "timid" : "") : ""));
+                       + (npc != null ? " | melee+" + npc.Buffs.GetCustomVar("sc_dmgmelee") + " ranged+" + npc.Buffs.GetCustomVar("sc_dmgranged") + " speed+" + npc.Buffs.GetCustomVar("sc_speed") + " hp+" + npc.Buffs.GetCustomVar("sc_hp") + " maxhp " + npc.Stats.Health.Max + " buffs " + (npc.Buffs.HasBuff(ScSkills.BuffName) ? "skills " : "") + (npc.Buffs.HasBuff(ScSkills.HungryBuff) ? "hungry " : "") + (npc.Buffs.HasBuff(ScSkills.ThirstyBuff) ? "thirsty " : "") + (npc.Buffs.HasBuff(ScSkills.InjuredBuff) ? "injured " : "") + (npc.Buffs.GetCustomVar("$Timid") >= 1f ? "timid" : "") : ""));
             }
             foreach (var p in ScRegistry.Prospects.Values)
             {
@@ -420,10 +423,90 @@ namespace SurvivorCommunity
         private static void Give(List<string> p)
         {
             Resource r; int n;
-            if (p.Count < 3 || !ScNames.TryResource(p[1], out r) || !int.TryParse(p[2], out n)) { Output("[SC] give <food|meds|ammo|mats|fuel> <n>"); return; }
+            if (p.Count < 3 || !ScNames.TryResource(p[1], out r) || !int.TryParse(p[2], out n)) { Output("[SC] give <food|meds|ammo|mats|fuel|water|luxury> <n> (negative takes)"); return; }
             ScRegistry.Community.Add(r, n);
             ScRegistry.SaveAtomic();
             Output("[SC] " + r + " = " + ScRegistry.Community.Get(r));
+        }
+
+        /// <summary>
+        /// sc facility [list]: every well and dew collector in the loaded chunks of the home zone, with its level and water a
+        /// day, and the scan's total; sc facility level x y z n: set one's level (a well becomes that model, free).
+        /// </summary>
+        private static void FacilityCmd(List<string> p)
+        {
+            World w = ScCommunity.World;
+            Community c = ScRegistry.Community;
+            if (w == null || !ScRegistry.Loaded) { Output("[SC] no world"); return; }
+            ScFacilities.EnsureTable();
+            string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "list";
+            if (sub == "level")
+            {
+                int x, y, z, lv;
+                if (p.Count < 6 || !int.TryParse(p[2], out x) || !int.TryParse(p[3], out y) || !int.TryParse(p[4], out z) || !int.TryParse(p[5], out lv))
+                { Output("[SC] usage: sc facility level <x> <y> <z> <level> (the parent block's position, as sc facility lists it)"); return; }
+                var at = new Vector3i(x, y, z);
+                BlockValue bv = w.GetBlock(at);
+                if (!ScFacilities.IsFacility(bv.type) || bv.ischild) { Output("[SC] no well or dew collector parent block at " + at); return; }
+                lv = Math.Max(1, Math.Min(lv, ScFacilities.MaxLevel(bv.type)));
+                if (ScFacilities.WellLevel(bv.type) > 0)
+                {
+                    Block b = Block.GetBlockByName(ScConfig.WellBlocks[lv - 1], true);
+                    if (b == null) { Output("[SC] " + ScConfig.WellBlocks[lv - 1] + " is not a block"); return; }
+                    BlockValue nv = b.ToBlockValue();
+                    nv.rotation = bv.rotation;
+                    w.SetBlockRPC(at, nv);
+                }
+                else if (lv > 1) c.DewLevels[at] = lv;
+                else c.DewLevels.Remove(at);
+                ScRegistry.SaveAtomic();
+                Output("[SC] " + ScFacilities.NameOf(bv) + " at " + at + " set to level " + lv + " (the scan picks it up within seconds; sc scan to count now)");
+                return;
+            }
+            Output("[SC] facilities: " + ScFacilities.WellTypes + " well level(s), " + ScFacilities.DewTypes + " dew collector block(s); upgrades "
+                   + string.Join("/", Array.ConvertAll(ScConfig.FacilityUpgradeCost, v => v.ToString())) + " materials; water a day "
+                   + ScConfig.WellWaterPerLevel + " per well level, " + ScConfig.DewWaterPerLevel + " per dew level; the zone's last count " + c.HomeWater + "/day");
+            if (!c.HasHome) { Output("[SC] no home"); return; }
+            int xMin, xMax, zMin, zMax, shown = 0;
+            ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
+            for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
+            {
+                for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
+                {
+                    Chunk ch = w.GetChunkSync(cx, cz) as Chunk;
+                    if (ch == null || ch.blockEntityStubs == null) continue;
+                    foreach (BlockEntityData d in ch.blockEntityStubs.list)
+                    {
+                        if (d == null || d.blockValue.ischild || !ScFacilities.IsFacility(d.blockValue.type)) continue;
+                        bool inZone = ScZone.Contains(d.pos);
+                        Output("[SC]   " + ScFacilities.NameOf(d.blockValue) + " at " + d.pos.x + " " + d.pos.y + " " + d.pos.z + ": level "
+                               + ScFacilities.LevelAt(d.pos, d.blockValue) + "/" + ScFacilities.MaxLevel(d.blockValue.type)
+                               + (inZone ? ", " + ScFacilities.WaterAt(d.pos, d.blockValue) + " water a day" : " - outside the zone, nothing"));
+                        shown++;
+                    }
+                }
+            }
+            if (shown == 0) Output("[SC]   none in the loaded chunks of the home zone");
+            if (c.DewLevels.Count > 0)
+            {
+                var parts = new List<string>();
+                foreach (var kv in c.DewLevels) parts.Add(kv.Key + ":" + kv.Value);
+                Output("[SC]   upgraded dew collectors on record: " + string.Join(", ", parts.ToArray()));
+            }
+        }
+
+        /// <summary>sc drinks: the round's state; on = pour one free (and mark today), off = end it and allow another today.</summary>
+        private static void DrinksCmd(List<string> p)
+        {
+            if (!ScRegistry.Loaded) { Output("[SC] no registry"); return; }
+            string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "";
+            if (sub == "on" || sub == "off") ScActivities.ConsoleSet(sub == "on");
+            Community c = ScRegistry.Community;
+            string why = ScActivities.WhyNotDrinks();
+            Output("[SC] drinks: " + (ScActivities.DrinksActive ? "running, " + ScActivities.TimeLeft() + " left (+" + ScConfig.DrinksMorale + " morale)" : "not running")
+                   + ", last poured day " + c.DrinksDay + " (today " + ScCommunity.Today + "); cost " + ScConfig.DrinksLuxury + " luxury + " + ScConfig.DrinksFood
+                   + " food (stock " + c.Get(Resource.Luxury) + " / " + c.Get(Resource.Food) + "); " + (why == null ? "can pour now" : "cannot: " + why)
+                   + "; morale " + c.Morale);
         }
 
         /// <summary>
@@ -987,7 +1070,7 @@ namespace SurvivorCommunity
                 }
             }
             Resource r;
-            if (p.Count < 3 || !ScNames.TryResource(p[2], out r)) { Output("[SC] run <id|name> <food|meds|ammo|mats|fuel>"); return; }
+            if (p.Count < 3 || !ScNames.TryResource(p[2], out r)) { Output("[SC] run <id|name> <food|water|meds|ammo|mats|fuel>"); return; }
             Member m = FindMember(p[1]);
             if (m == null) { Output("[SC] no member '" + p[1] + "'"); return; }
             string err;
@@ -1147,7 +1230,7 @@ namespace SurvivorCommunity
                 int k; names.TryGetValue(n, out k); names[n] = k + 1;
             }
             Output("[SC] outpost census of this world: " + real + " real POIs placed");
-            foreach (string res in new[] { "food", "meds", "ammo", "mats", "fuel", "scavenge", "none", "ineligible" })
+            foreach (string res in new[] { "food", "meds", "ammo", "mats", "fuel", "water", "scavenge", "none", "ineligible" })
             {
                 Dictionary<string, int> names;
                 byRes.TryGetValue(res, out names);
@@ -1396,12 +1479,12 @@ namespace SurvivorCommunity
 
         private static void OutpostYield()
         {
-            float[] total = new float[5];
+            float[] total = new float[ScNames.ResourceCount];
             foreach (Outpost o in ScOutposts.All)
             {
                 if (!o.Holding) continue;
                 float[] raw = ScOutposts.RawYield(o), est = ScOutposts.Estimate(o);
-                for (int i = 0; i < 5; i++) total[i] += est[i];
+                for (int i = 0; i < ScNames.ResourceCount; i++) total[i] += est[i];
                 Output("[SC]   #" + o.Id + " " + o.Name + " [" + o.State + "] raw " + ScOutposts.YieldText(raw) + " -> tonight " + ScOutposts.YieldText(est)
                        + (o.Scavenge ? " (scavenge: shortest is " + ScOutposts.Shortest() + ")" : ""));
             }

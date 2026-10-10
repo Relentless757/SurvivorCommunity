@@ -25,6 +25,77 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Water, luxuries, bundle sizes, upgradable wells and dew collectors, the Activities tab
+
+**Deployed 2026-10-10** (Fable review + re-check: deployable; DLL md5 `73c0337919ef0a707c56713a17acef74`, Config with it). Your asks (2026-10-10): small / medium / large bundles (1 / 2 / 3) in loot; a Water resource
+(drinks that hydrate, not alcohol; water outposts; the Oakraven wells inside the community give water by level);
+a Luxuries resource (alcohol) spent on a new Activities tab ("Prepare a round of drinks"); and upgrading the wells
+and dew collectors with materials by holding E. Your answers: dew collectors give community water by level (1..5);
+upgrades cost 4 / 8 / 12 / 16 materials; 1 water per member a day, thirst like hunger; loot keeps today's value;
+luxury bundles in liquor piles and beer coolers; all four drunk drinks are luxuries; one round of drinks per game
+day; water outposts at the Water Works and the water towers. Then (same day): water in supply runs and the radio
+barter, and more medical bundles in Pop-N-Pills crates and food / water bundles in Shamway crates. Old saves load as they are: no water or luxuries
+yet, old bundles count as one unit each. Handy: `sc give water 10`, `sc give luxury 8`, `sc give mats 40`,
+`sc facility`, `sc drinks`, `sc day`.
+
+Steps:
+- [ ] **Startup:** `patch verification: all 90 targets patched` (83 without Voice Control; seven more than before). The
+  `config:` line has `WaterPerMemberDay=1 luxuryItems=4 wells=5x2 dew=1x1 upgrades=4/8/12/16 (wells place L1)`
+  and `drinks=4lux+1food +15 for 15min`. At the first scan: `facilities: 5 well level(s) (of 5 listed), 1 dew
+  collector block(s) recognised`. Once in the world: `facilities: the well kit OakravenWaterFillerVariantHelper now
+  places OakravenWaterFiller1 (Level 1) only`.
+- [ ] **Packing strip:** seven Pack and seven Take buttons fit under the grid with readable labels, and the stock line
+  below fits.
+- [ ] **Packing sizes:** 15 boiled waters in the box, Pack Water: one Large Water Bundle (5 boiled waters a unit),
+  message "Packed 3 water into 1 large bundle(s)." 7 food units' worth of cans: 2 large and 1 small. 4 beers, Pack
+  Luxuries: one Small Luxury Bundle (1 beer left over). Pack Food leaves drinks and alcohol in the box.
+- [ ] **Icons and names:** Small / Medium / Large Food, Water, Medical, Ammo, Materials, Fuel and Luxury bundles each
+  show their own pile or barrel (meds and materials: see README), and the descriptions say one / two / three units.
+- [ ] **Deposit:** a Large Food, two Small Water and an old Food Bundle together: "4 bundle(s) added to the stockpile:
+  +4 food, +2 water." Take Water hands out a Small one.
+- [ ] **Thirst:** with members and `sc give water -99`, `sc day`: the line says NOT ENOUGH WATER, morale shows a Water
+  -20 part, the members get the Thirsty buff, `sc status` shows `thirsty=True`. `sc give water 20`, `sc day`: gone.
+- [ ] **Well kit:** craft it: no model picker; it places a Barrel Well (Level 1), turned the way the ghost showed
+  (try all four turns, and against a wall: the well sits where the ghost was).
+- [ ] **Well upgrades:** inside the home claim, look at it: "Press E to check Oak's Barrel Well (level 1) - hold E to
+  upgrade". A tap shows the Check line (level, 2 water a day, next cost). Hold E: Check and Upgrade. Upgrade with
+  under 4 materials: refused with what it needs. `sc give mats 40`, upgrade four times: Stone Well, Lantern Well,
+  Brick Well, Standing Pipe; each says its level, water a day (4/6/8/10) and the materials spent; the model swaps
+  with no leftover pieces, faces about the same way, and filling a jar still works on each. At level 5 there is no
+  Upgrade and Check says top level.
+- [ ] **Outside the community:** a well outside the claim: a tap says it gives the stockpile no water; no Upgrade.
+- [ ] **Dew collector:** hold E: Search (a tap still opens it), Take when it can be taken, Check, Upgrade. Level 2 for
+  4 materials: Check says 2 water a day. Save and reload: still level 2 (`sc facility`). Pick it up and put it back:
+  level 1.
+- [ ] **Water every day:** `sc facility` lists each well / collector with its level and water (its x y z is the
+  parent block, the one `sc facility level x y z n` wants); `sc day` says "the wells
+  gave N water" and the stock goes up by that.
+- [ ] **Water outposts:** a water tower (tier 0) with a land claim: Establish outpost works, type "water supply",
+  about 0.9 water a day (map marker: the water drop). The Water Works classifies as water too (`sc poi` there). The
+  Outposts tab's perks show "Cistern - thirst hurts morale less", and while thirsty the Water part is -10 instead of -20.
+- [ ] **Community window:** seven resource cells, nothing overlapping; water shows its days left or "+N a day from the
+  wells". Tabs MEMBERS / OUTPOSTS / ACTIVITIES fit with their counts.
+- [ ] **Activities, short:** under 4 luxuries: the row says "Not enough luxuries or food", the cost is red, the button
+  grey; pressing it says what is missing.
+- [ ] **A round of drinks:** `sc give luxury 4`, press "Pour a round": the message and tooltip, -4 luxuries -1 food,
+  morale +15 ("A round of drinks (14:58 left)" under HELPING), the row says "Running - mm:ss left". Again: "still going".
+  Pause (ESC) for a minute: the time does not move. Save and reload mid-round: about the same time left. After 15
+  minutes "The round of drinks has worn off." and morale drops back; the row says "Poured today - again tomorrow"
+  until the next day.
+- [ ] **HUD panel:** a water icon and number between food and meds, nothing clipped at the right; water turns red when
+  the next rollover will run short.
+- [ ] **Bring-supplies favour:** a survivor who asks for food is not satisfied by water or beer any more (real food only).
+- [ ] **Loot (as you play):** food, medical, ammo and liquor piles now and then hold a small / medium / large bundle
+  (rare, as before); water bundles only in Shamway crates.
+- [ ] **Crates:** Pop-N-Pills crates hold a medical bundle about one time in five (Small 15%, Medium 5%); Shamway
+  crates a food bundle as often and a water bundle about one time in six (Small 12%, Medium 4%).
+- [ ] **Water runs:** a member's dialog, "I need you to go find supplies.": Water is the second choice (and the menu still fits);
+  in the community window the run picker has six buttons (FOOD WATER MEDICAL AMMO MATERIALS FUEL) with readable
+  labels. A water run comes back with water; a physical runner heads for a water tower / water works when one is in
+  range. A gardener brings more (`sc run <member> water` to skip the wait).
+- [ ] **Water barter:** the radio's Give / Get buttons cycle through food, medical, ammo, materials, fuel and water
+  (never luxuries); 3 water for 1 food and 3 food for 1 water both go through. `sc barter luxury food` is refused.
+
 ## Gear by class tier, melee-only NPCs, handing over pack guns, the panel by the compass
 
 **Deployed 2026-10-09** (Fable review + re-check: deployable; DLL md5 `57ede10fe447de0b9e47143f4c095311`, Config with it). Your asks (2026-10-09): T2 NPCs never with T0 gear; a chance an NPC has only a melee weapon; a

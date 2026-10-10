@@ -75,6 +75,7 @@ namespace SurvivorCommunity
                 ScQuests.TickMarkers(player);
                 ScScan.RunIfDue(15f);                  // beds / facilities / crops from the loaded chunks, so the HUD morale follows what you build
                 ScNoise.Tick(w, player);               // the base's noise (what was heard in the zone) and the dead's attention
+                ScActivities.Tick(player);             // the round of drinks: its real-time countdown (round wl)
                 ScMorale.SyncHud(player);
                 ScLeadership.Publish(player);          // sc_followers / sc_inzone / sc_morale_high for SurvivorOrigins' Leadership
                 ScRadio.Tick(w, player);
@@ -365,7 +366,7 @@ namespace SurvivorCommunity
                 while (c.Ledger.Count > 7) c.Ledger.RemoveAt(c.Ledger.Count - 1);
                 ScLog.Out("daily tick " + line);
                 if (ScRegistry.Members.Count > 0 && player != null)
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scDaily"), ScRegistry.Members.Count, summary), c.Hungry ? "ui_denied" : "");
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scDaily"), ScRegistry.Members.Count, summary), c.Hungry || c.Thirsty ? "ui_denied" : "");
                 ScRegistry.SaveAtomic();
             }
             catch (Exception e)

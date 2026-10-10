@@ -23,7 +23,8 @@ namespace SurvivorCommunity
     ///
     /// The Outposts tab (btnTabOutposts) swaps the member list and the survivor detail for the outposts
     /// (XUiC_ScOutpostRow), the selected outpost and the network summary. ScCommunity.OpenOutposts opens the
-    /// window straight onto it (the outpost claim's radial).
+    /// window straight onto it (the outpost claim's radial). The Activities tab (btnTabActivities, round wl) swaps
+    /// them for the activities (btnAct1..4) and the selected one with its do-button (btnActDo, ScActivities).
     /// </summary>
     [Preserve]
     public class XUiC_ScCommunity : XUiController
@@ -58,14 +59,16 @@ namespace SurvivorCommunity
         // ---- the Outposts tab ----
         /// <summary>Set before the window opens: 0 = members tab, -1 = the Outposts tab, n = that outpost selected.</summary>
         public static int PendingOutpost;
-        private bool outpostTab;
+        /// <summary>The left panel's tab (round wl added Activities): the detail panel follows it.</summary>
+        public enum Tab { Members, Outposts, Activities }
+        private Tab tab = Tab.Members;
         private XUiC_ScOutpostRow[] opRows;
         private readonly List<Outpost> opList = new List<Outpost>();
         private int opPage;
         private int opSelectedId = -1;
         private string opMessage = "";
         private float confirmDisbandUntil;
-        private readonly float[] netYield = new float[5];
+        private readonly float[] netYield = new float[ScNames.ResourceCount];
         private bool radioOnline;
         /// <summary>Assign mode: the Members tab is picking someone to post at this outpost (-1 = off).</summary>
         private int assignOutpostId = -1;
@@ -107,6 +110,7 @@ namespace SurvivorCommunity
                 Hook("btnHome", OnHome);
                 Hook("btnLeave", OnLeave);
                 Hook("btnRunFood", () => OnRun(Resource.Food));
+                Hook("btnRunWater", () => OnRun(Resource.Water));
                 Hook("btnRunMeds", () => OnRun(Resource.Meds));
                 Hook("btnRunAmmo", () => OnRun(Resource.Ammo));
                 Hook("btnRunMaterials", () => OnRun(Resource.Materials));
@@ -117,8 +121,12 @@ namespace SurvivorCommunity
                 // the Outposts tab (optional: an older windows.xml has none of it)
                 opRows = GetChildrenByType<XUiC_ScOutpostRow>();
                 if (opRows != null) for (int i = 0; i < opRows.Length; i++) opRows[i].Bind(this);
-                HookOptional("btnTabMembers", () => SetTab(false));
-                HookOptional("btnTabOutposts", () => SetTab(true));
+                HookOptional("btnTabMembers", () => SetTab(Tab.Members));
+                HookOptional("btnTabOutposts", () => SetTab(Tab.Outposts));
+                // the Activities tab (round wl): the activity rows select, the do-button spends
+                HookOptional("btnTabActivities", () => SetTab(Tab.Activities));
+                for (int i = 0; i < ActivitySlots; i++) { int slot = i; HookOptional("btnAct" + (i + 1), () => SelectActivity(slot)); }
+                HookOptional("btnActDo", OnActivityDo);
                 HookOptional("btnOpPrev", () => TurnOutposts(-1));
                 HookOptional("btnOpNext", () => TurnOutposts(1));
                 HookOptional("btnOpTrack", OnOutpostTrack);
@@ -176,7 +184,8 @@ namespace SurvivorCommunity
                 opMessage = "";
                 confirmDisbandUntil = 0f;
                 assignOutpostId = -1;
-                outpostTab = PendingOutpost != 0;
+                tab = PendingOutpost != 0 ? Tab.Outposts : Tab.Members;
+                actMessage = "";
                 if (PendingOutpost > 0) opSelectedId = PendingOutpost;
                 PendingOutpost = 0;
                 // opened by a Watch post's "Assign guard": the residents, picking one (Select -> TryAssignWatch)
@@ -184,7 +193,7 @@ namespace SurvivorCommunity
                 PendingWatch = Vector3i.zero;
                 if (assignWatch != Vector3i.zero)
                 {
-                    outpostTab = false;
+                    tab = Tab.Members;
                     filter = Filter.AtBase;
                     filterDirty = true;
                 }
@@ -397,23 +406,128 @@ namespace SurvivorCommunity
 
         // ---- the Outposts tab ----
 
-        private void SetTab(bool outposts)
+        private void SetTab(Tab to)
         {
             if (assignOutpostId >= 0) { assignOutpostId = -1; message = ""; filter = Filter.All; filterDirty = true; }   // any tab click ends assign mode
             if (assignWatch != Vector3i.zero) { assignWatch = Vector3i.zero; message = ""; filter = Filter.All; filterDirty = true; }   // and the watch one
-            if (outpostTab == outposts) { RefreshBindingsSelfAndChildren(); return; }
-            outpostTab = outposts;
+            if (tab == to) { RefreshBindingsSelfAndChildren(); return; }
+            tab = to;
             opMessage = "";
+            actMessage = "";
             confirmDisbandUntil = 0f;
-            if (outposts) BuildOutposts();
+            if (to == Tab.Outposts) BuildOutposts();
             RefreshBindingsSelfAndChildren();
+        }
+
+        // ---- the Activities tab (round wl) ----
+
+        private const int ActivitySlots = 4;
+        private int actSelected;
+        private string actMessage = "";
+
+        private void SelectActivity(int slot)
+        {
+            if (slot < 0 || slot >= ScActivities.All.Length) return;
+            actSelected = slot;
+            actMessage = "";
+            RefreshBindingsSelfAndChildren();
+        }
+
+        private void OnActivityDo()
+        {
+            EntityPlayerLocal p = Player;
+            if (p == null || actSelected < 0 || actSelected >= ScActivities.All.Length) return;
+            string msg = null;
+            bool ok = ScActivities.All[actSelected][0] == ScActivities.Drinks && ScActivities.PourDrinks(p, out msg);
+            if (!ok)
+            {
+                if (string.IsNullOrEmpty(msg)) msg = Localization.Get("scInternal");
+                p.PlayOneShot("ui_denied");
+            }
+            else ScCommunity.Tell(p, msg, "");
+            actMessage = msg ?? "";
+            Refresh();
+        }
+
+        /// <summary>act&lt;1..4&gt;&lt;visible|selected|name|icon|status|statuscolor&gt; for the rows, act* for the detail panel.</summary>
+        private bool ActivityBinding(string name, ref string value)
+        {
+            if (!name.StartsWith("act", StringComparison.Ordinal) && name != "tabactivities" && name != "luxcount") return false;
+            switch (name)
+            {
+                case "tabactivities": value = (tab == Tab.Activities).ToString(); return true;
+                case "luxcount": value = ScRegistry.Loaded ? Num(ScRegistry.Community.Get(Resource.Luxury)) : ""; return true;
+                case "actsummary":
+                    value = ScRegistry.Loaded ? string.Format(Localization.Get("scUiActSummary"), ScRegistry.Community.Get(Resource.Luxury), ScRegistry.Community.Get(Resource.Food)) : "";
+                    return true;
+                case "actmessage": value = actMessage ?? ""; return true;
+            }
+            if (name.Length >= 5 && name[3] >= '1' && name[3] <= '0' + ActivitySlots)
+            {
+                int i = name[3] - '1';
+                string field = name.Substring(4);
+                bool has = i < ScActivities.All.Length;
+                switch (field)
+                {
+                    case "visible": value = has.ToString(); return true;
+                    case "selected": value = (has && i == actSelected).ToString(); return true;
+                    case "name": value = has ? Localization.Get(ScActivities.All[i][1]) : ""; return true;
+                    case "icon": value = has ? ScActivities.All[i][3] : ""; return true;
+                    case "status": value = has ? ActivityStatus(i) : ""; return true;
+                    case "statuscolor": value = has ? ActivityStatusColor(i) : "226,220,208,255"; return true;
+                }
+                return false;
+            }
+            bool sel = actSelected >= 0 && actSelected < ScActivities.All.Length;
+            switch (name)
+            {
+                case "actname": value = sel ? Localization.Get(ScActivities.All[actSelected][1]) : ""; return true;
+                case "acticon": value = sel ? ScActivities.All[actSelected][3] : "ui_game_symbol_party"; return true;
+                case "actdesc": value = sel ? Localization.Get(ScActivities.All[actSelected][2]) : ""; return true;
+                case "actcost":
+                    value = sel ? string.Format(Localization.Get("scUiActDrinksCost"), ScConfig.DrinksLuxury, ScConfig.DrinksFood) : "";
+                    return true;
+                case "actcostcolor":
+                {
+                    Community c = ScRegistry.Community;
+                    bool afford = ScRegistry.Loaded && c.Get(Resource.Luxury) >= ScConfig.DrinksLuxury && c.Get(Resource.Food) >= ScConfig.DrinksFood;
+                    value = afford ? "226,220,208,255" : "226,108,86,255";
+                    return true;
+                }
+                case "acteffect":
+                    value = sel ? string.Format(Localization.Get("scUiActDrinksEffect"), ScConfig.DrinksMorale, ScActivities.FormatMinutes(ScConfig.DrinksMinutes)) : "";
+                    return true;
+                case "actstatus": value = sel ? ActivityStatus(actSelected) : ""; return true;
+                case "actstatuscolor": value = sel ? ActivityStatusColor(actSelected) : "226,220,208,255"; return true;
+                case "actdolabel": value = Localization.Get("scUiActDrinksDo"); return true;
+                case "actdocolor": value = ScRegistry.Loaded && ScActivities.WhyNotDrinks() == null ? "142,208,108,255" : "140,134,124,255"; return true;
+            }
+            return false;
+        }
+
+        /// <summary>"Running - 12:34 left" / "Poured today - again tomorrow" / "Ready" / "Needs 4 luxuries and 1 food".</summary>
+        private static string ActivityStatus(int i)
+        {
+            if (!ScRegistry.Loaded || i < 0 || i >= ScActivities.All.Length || ScActivities.All[i][0] != ScActivities.Drinks) return "";
+            Community c = ScRegistry.Community;
+            if (ScActivities.DrinksActive) return string.Format(Localization.Get("scUiActRunning"), ScActivities.TimeLeft());
+            if (c.DrinksDay == ScCommunity.Today) return Localization.Get("scUiActDoneToday");
+            return ScActivities.WhyNotDrinks() == null ? Localization.Get("scUiActReady") : Localization.Get("scUiActNotReady");
+        }
+
+        private static string ActivityStatusColor(int i)
+        {
+            if (!ScRegistry.Loaded || i < 0 || i >= ScActivities.All.Length || ScActivities.All[i][0] != ScActivities.Drinks) return "226,220,208,255";
+            if (ScActivities.DrinksActive) return "142,208,108,255";
+            if (ScRegistry.Community.DrinksDay == ScCommunity.Today) return "190,182,166,255";
+            return ScActivities.WhyNotDrinks() == null ? "142,208,108,255" : "226,108,86,255";
         }
 
         /// <summary>Held outposts in the order they were established, then the lost ones; the network's yield.</summary>
         private void BuildOutposts()
         {
             opList.Clear();
-            for (int i = 0; i < 5; i++) netYield[i] = 0f;
+            for (int i = 0; i < ScNames.ResourceCount; i++) netYield[i] = 0f;
             radioOnline = false;
             if (!ScRegistry.Loaded) { ApplyOutpostRows(); return; }
             foreach (Outpost o in ScRegistry.Outposts) if (o.Holding) opList.Add(o);
@@ -423,7 +537,7 @@ namespace SurvivorCommunity
             {
                 if (!o.Holding) continue;
                 float[] y = ScOutposts.Estimate(o);
-                for (int i = 0; i < 5; i++) netYield[i] += y[i];
+                for (int i = 0; i < ScNames.ResourceCount; i++) netYield[i] += y[i];
             }
             radioOnline = ScOutposts.RadioOnlineAnywhere();
             if (opSelectedId >= 0 && OutpostSelected == null) opSelectedId = -1;
@@ -544,7 +658,7 @@ namespace SurvivorCommunity
                 RefreshBindingsSelfAndChildren();
                 return;
             }
-            outpostTab = false;
+            tab = Tab.Members;
             assignOutpostId = o.Id;
             filter = Filter.AtBase;
             page = 0;
@@ -569,7 +683,7 @@ namespace SurvivorCommunity
             assignOutpostId = -1;
             filter = Filter.All;
             message = "";
-            outpostTab = true;
+            tab = Tab.Outposts;
             opSelectedId = o.Id;
             opMessage = string.Format(Localization.Get("scOpPosted"), m.Name, o.Name);
             Refresh();
@@ -670,6 +784,8 @@ namespace SurvivorCommunity
                 case Resource.Ammo: return "ui_game_symbol_shape_ammo";
                 case Resource.Materials: return "ui_game_symbol_brick";
                 case Resource.Fuel: return "ui_game_symbol_gas";
+                case Resource.Water: return "ui_game_symbol_water";
+                case Resource.Luxury: return "ui_game_symbol_beer";
                 default: return "ui_game_symbol_fork";
             }
         }
@@ -690,7 +806,7 @@ namespace SurvivorCommunity
             if (o.State != OutpostState.Active) return ScOutposts.StateLabel(o);
             float[] y = ScOutposts.ShownYield(o);
             int best = -1;
-            for (int i = 0; i < 5; i++) if (y[i] > 0.005f && (best < 0 || y[i] > y[best])) best = i;
+            for (int i = 0; i < ScNames.ResourceCount; i++) if (y[i] > 0.005f && (best < 0 || y[i] > y[best])) best = i;
             if (best < 0) return ScOutposts.StateLabel(o);
             return string.Format(Localization.Get("scUiOpRowYield"), y[best].ToString("0.#", CultureInfo.InvariantCulture), Localization.Get("scResShort" + (Resource)best));
         }
@@ -734,14 +850,16 @@ namespace SurvivorCommunity
             bool loaded = ScRegistry.Loaded;
             switch (name)
             {
-                case "tabmembers": value = (!outpostTab).ToString(); return true;
-                case "taboutposts": value = outpostTab.ToString(); return true;
+                case "tabmembers": value = (tab == Tab.Members).ToString(); return true;
+                case "taboutposts": value = (tab == Tab.Outposts).ToString(); return true;
                 case "outpostcount": value = loaded ? ScOutposts.HeldCount() + "/" + ScOutposts.Slots() : ""; return true;
                 case "opfood": value = NetResource(Resource.Food); return true;
                 case "opmeds": value = NetResource(Resource.Meds); return true;
                 case "opmats": value = NetResource(Resource.Materials); return true;
                 case "opammo": value = NetResource(Resource.Ammo); return true;
                 case "opfuel": value = NetResource(Resource.Fuel); return true;
+                case "opwater": value = NetResource(Resource.Water); return true;
+                case "opluxury": value = NetResource(Resource.Luxury); return true;
                 case "opsummary":
                     value = loaded ? string.Format(Localization.Get("scUiOpSummary"), ScOutposts.HeldCount(), ScOutposts.Slots(),
                                                    Localization.Get(radioOnline ? "scUiNetRadioOn" : "scUiNetRadioOff")) : "";
@@ -776,7 +894,7 @@ namespace SurvivorCommunity
                 case "opyield":
                 {
                     if (o == null) { value = ""; return true; }
-                    value = ScOutposts.YieldText(o.Holding ? ScOutposts.Estimate(o) : new float[5]);
+                    value = ScOutposts.YieldText(o.Holding ? ScOutposts.Estimate(o) : new float[ScNames.ResourceCount]);
                     int built = Mathf.RoundToInt(ScOutpostPerks.InvestBonus(o) * 100f);
                     if (built > 0) value += " " + string.Format(Localization.Get("scUiOpBuiltBonus"), built);
                     if (o.StashTotal > 0) value += " " + string.Format(Localization.Get("scUiOpStashed"), o.StashTotal);
@@ -825,7 +943,7 @@ namespace SurvivorCommunity
                     float upkeep = 0f;
                     foreach (Outpost x in opList) if (x.State == OutpostState.Active || x.State == OutpostState.Contested) upkeep += ScOutpostPerks.UpkeepFor(x);
                     float bundles = 0f;
-                    for (int i = 0; i < 5; i++) bundles += netYield[i];
+                    for (int i = 0; i < ScNames.ResourceCount; i++) bundles += netYield[i];
                     value = loaded ? string.Format(Localization.Get("scUiNetCostsFmt"),
                                                    upkeep.ToString("0.#", CultureInfo.InvariantCulture),
                                                    (ScConfig.OutpostHaulage * bundles).ToString("0.##", CultureInfo.InvariantCulture)) : "";
@@ -962,6 +1080,8 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             int members = ScRegistry.Members.Count;
             AddPart(p.Food, Localization.Get("scMoraleFood"), "ui_game_symbol_fork");
+            AddPart(p.Water, Localization.Get("scMoraleWater"), "ui_game_symbol_thirst");
+            AddPart(p.Activity, string.Format(Localization.Get("scMoraleActivityLeft"), ScActivities.TimeLeft()), "ui_game_symbol_beer");
             AddPart(p.Meds, Localization.Get("scMoraleMeds"), "ui_game_symbol_medical");
             AddPart(p.Beds, string.Format(Localization.Get("scMoraleBedsCount"), c.Beds, members), "ui_game_symbol_map_bed");
             AddPart(p.Facilities, Localization.Get("scMoraleFacilities"), "ui_game_symbol_workbench");
@@ -1012,6 +1132,7 @@ namespace SurvivorCommunity
             if (TraitBinding(_bindingName, sel, ref _value)) return true;
             if (OutpostBinding(_bindingName, ref _value)) return true;
             if (StaffBinding(_bindingName, OutpostSelected, ref _value)) return true;
+            if (ActivityBinding(_bindingName, ref _value)) return true;
             switch (_bindingName)
             {
                 // ---- the original layout ----
@@ -1020,7 +1141,8 @@ namespace SurvivorCommunity
                     return true;
                 case "subtitle":
                     _value = string.Format(Localization.Get("scWinSubtitle"), ScRegistry.Members.Count, ScConfig.MaxMembers, c.Beds, c.Facilities, c.Crops)
-                             + (c.Hungry ? " - " + Localization.Get("scWinHungry") : "");
+                             + (c.Hungry ? " - " + Localization.Get("scWinHungry") : "")
+                             + (c.Thirsty ? " - " + Localization.Get("scWinThirsty") : "");
                     return true;
                 case "bedsline":
                     _value = ScScan.BedLine();
@@ -1029,7 +1151,8 @@ namespace SurvivorCommunity
                     _value = ScScan.BedColor();
                     return true;
                 case "stock":
-                    _value = string.Format(Localization.Get("scWinStock"), c.Get(Resource.Food), c.Get(Resource.Meds), c.Get(Resource.Ammo), c.Get(Resource.Materials), c.Get(Resource.Fuel));
+                    _value = string.Format(Localization.Get("scWinStock"), c.Get(Resource.Food), c.Get(Resource.Meds), c.Get(Resource.Ammo), c.Get(Resource.Materials), c.Get(Resource.Fuel),
+                                           c.Get(Resource.Water), c.Get(Resource.Luxury));
                     return true;
                 case "breakdown":
                     _value = ScRegistry.Loaded ? ScMorale.Breakdown() : "";
@@ -1065,7 +1188,10 @@ namespace SurvivorCommunity
                 case "resmats": _value = Num(c.Get(Resource.Materials)); return true;
                 case "resammo": _value = Num(c.Get(Resource.Ammo)); return true;
                 case "resfuel": _value = Num(c.Get(Resource.Fuel)); return true;
+                case "reswater": _value = Num(c.Get(Resource.Water)); return true;
+                case "resluxury": _value = Num(c.Get(Resource.Luxury)); return true;
                 case "fooddays": _value = FoodDays(c); return true;
+                case "waterdays": _value = WaterDays(c); return true;
 
                 // ---- member list ----
                 case "membercount": _value = Num(ScRegistry.Members.Count); return true;
@@ -1234,6 +1360,22 @@ namespace SurvivorCommunity
             return m == 0 ? 0 : Math.Max(0, m - ScRegistry.Community.Beds);
         }
 
+        /// <summary>
+        /// "+6 a day from the wells" when the facilities cover what is drunk; otherwise the days the stock lasts at what
+        /// they do not cover; "" with nobody to give water to (round wl).
+        /// </summary>
+        private static string WaterDays(Community c)
+        {
+            if (!ScRegistry.Loaded || ScRegistry.Members.Count == 0) return c.HomeWater > 0 ? string.Format(Localization.Get("scWinWaterMade"), c.HomeWater) : "";
+            float shortfall = ScMorale.DailyWaterShortfall();
+            if (shortfall <= 0.01f) return string.Format(Localization.Get("scWinWaterMade"), c.HomeWater);
+            if (c.Get(Resource.Water) <= 0) return Localization.Get("scWinWaterNone");
+            int days = Mathf.FloorToInt(c.Get(Resource.Water) / shortfall);
+            if (days <= 0) return Localization.Get("scWinFoodUnderDay");
+            if (days == 1) return Localization.Get("scWinFoodOneDay");
+            return string.Format(Localization.Get("scWinFoodDays"), days);
+        }
+
         /// <summary>"4 days remaining" from what the community eats now; "" with nobody to feed.</summary>
         private static string FoodDays(Community c)
         {
@@ -1400,6 +1542,7 @@ namespace SurvivorCommunity
             var sb = new StringBuilder();
             if (m.Injured) sb.Append(Localization.Get("scWinInjured"));
             if (c.Hungry) { if (sb.Length > 0) sb.Append(", "); sb.Append(Localization.Get("scWinHungry")); }
+            if (c.Thirsty) { if (sb.Length > 0) sb.Append(", "); sb.Append(Localization.Get("scWinThirsty")); }
             if (c.ThreatMemberId == m.Id) { if (sb.Length > 0) sb.Append(", "); sb.Append(Localization.Get("scWinThreat")); }
             return sb.ToString();
         }

@@ -202,7 +202,7 @@ namespace SurvivorCommunity
             for (int i = 0; i < n; i++)
             {
                 // mostly what the outpost makes, now and then something else
-                Resource r = (!o.Scavenge && Roll(rnd) < 0.6f) ? o.Primary : (Resource)(rnd != null ? rnd.RandomRange(0, 5) : 0);
+                Resource r = (!o.Scavenge && Roll(rnd) < 0.6f) ? o.Primary : (Resource)(rnd != null ? rnd.RandomRange(0, ScNames.ClassicCount) : 0);   // the five classic ones: no luxury caches
                 o.Stash[(int)r]++;
             }
             if (player != null && radio) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskGoodNews"), o.Name, n), "");
@@ -463,7 +463,7 @@ namespace SurvivorCommunity
                 ScGarrison.Recall(m, player, null);
             }
             o.State = OutpostState.Contested;
-            for (int i = 0; i < 5; i++) { o.Pending[i] = 0; o.Stash[i] = 0; }
+            for (int i = 0; i < ScNames.ResourceCount; i++) { o.Pending[i] = 0; o.Stash[i] = 0; }
             ScRegistry.Community.OutpostLoss += ScConfig.OutpostLostPenalty * 0.5f;
             ScOutposts.Rebuild();
             if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskOverrun"), o.Name), "ui_denied");

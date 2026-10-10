@@ -7,7 +7,7 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// The Home Status panel (Config/XUi_InGame/windows.xml windowScHomeStatus, in the HUD's toolbelt group): at the top, right
-    /// of the compass (left of the quest tracker), while the player is inside the home zone - morale (dot + word), the five resources (red below what the next rollover
+    /// of the compass (left of the quest tracker), while the player is inside the home zone - morale (dot + word), six resources (luxuries only show in the window; red below what the next rollover
     /// wants, ScStockpile.NeedForRollover), the member count and the base's noise (ScNoise). Hidden while a modal window is
     /// open, and with HomeStatusHud=false. Host only, like the registry it reads. Every binding is non-null from the
     /// constructor: bindings are evaluated while the XML is parsed, before Init.
@@ -23,12 +23,12 @@ namespace SurvivorCommunity
         private const float NeedSeconds = 5f;
 
         private float nextRefresh, nextNeed;
-        private int[] need = new int[5];
+        private int[] need = new int[ScNames.ResourceCount];
         private bool visible;
         private string mood = "", moodColor = White, members = "0", noise = "", noiseColor = White;
         private bool noiseVisible;
-        private readonly string[] stock = { "0", "0", "0", "0", "0" };
-        private readonly string[] stockColor = { White, White, White, White, White };
+        private readonly string[] stock = { "0", "0", "0", "0", "0", "0", "0" };
+        private readonly string[] stockColor = { White, White, White, White, White, White, White };
 
         public override void Update(float _dt)
         {
@@ -63,9 +63,9 @@ namespace SurvivorCommunity
                 nextNeed = now + NeedSeconds;
                 // a failure here only costs the red/white colouring, never the rest of the panel
                 try { need = ScStockpile.NeedForRollover(); }
-                catch (Exception e) { need = new int[5]; ScLog.Once("home-status-need", e); }
+                catch (Exception e) { need = new int[ScNames.ResourceCount]; ScLog.Once("home-status-need", e); }
             }
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < ScNames.ResourceCount; i++)
             {
                 int have = c.Get((Resource)i);
                 changed |= Set(ref stock[i], have.ToString(CultureInfo.InvariantCulture));
@@ -149,6 +149,8 @@ namespace SurvivorCommunity
                 case "scmatscolor": _value = stockColor[(int)Resource.Materials]; return true;
                 case "scfuel": _value = stock[(int)Resource.Fuel]; return true;
                 case "scfuelcolor": _value = stockColor[(int)Resource.Fuel]; return true;
+                case "scwater": _value = stock[(int)Resource.Water]; return true;
+                case "scwatercolor": _value = stockColor[(int)Resource.Water]; return true;
                 case "scmembers": _value = members; return true;
                 case "scnoise": _value = noise; return true;
                 case "scnoisecolor": _value = noiseColor; return true;

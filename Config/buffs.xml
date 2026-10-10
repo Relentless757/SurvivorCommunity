@@ -39,6 +39,14 @@
 				<passive_effect name="EntityDamage" operation="perc_add" value="-0.1"/>
 			</effect_group>
 		</buff>
+		<!-- round wl: the community is out of water (ScStockpile.DailyConsume) - the hunger buff's twin, and it stacks with it -->
+		<buff name="buffSCThirsty" name_key="buffSCThirstyName" description_key="buffSCThirstyDesc" icon="ui_game_symbol_thirst" icon_color="120,180,255" remove_on_death="true">
+			<stack_type value="ignore"/>
+			<effect_group>
+				<passive_effect name="RunSpeed" operation="perc_add" value="-0.1"/>
+				<passive_effect name="EntityDamage" operation="perc_add" value="-0.1"/>
+			</effect_group>
+		</buff>
 		<buff name="buffSCInjured" name_key="buffSCInjuredName" description_key="buffSCInjuredDesc" icon="ui_game_symbol_brokenbone" icon_color="255,80,80" remove_on_death="true">
 			<stack_type value="ignore"/>
 			<effect_group>

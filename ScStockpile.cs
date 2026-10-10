@@ -5,13 +5,15 @@ using System.Text;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// The stockpile (five numbers in the registry) and the packing station's verbs on its container:
-    ///   Pack     - turns the loose items of one category in the box into whole bundles (points = EconomicValue
-    ///              x count, PointsPerBundle&lt;Resource&gt; per bundle; the highest-value stacks go first and
-    ///              anything not needed for a whole bundle stays in the box; a small overshoot on the last
-    ///              stack is accepted)
-    ///   Deposit  - moves every bundle in the box into the stockpile (bundles only exist in transit)
-    ///   Withdraw - one bundle from the stockpile back into the box
+    /// The stockpile (one number per resource in the registry, counted in bundle UNITS) and the packing station's
+    /// verbs on its container:
+    ///   Pack     - turns the loose items of one category in the box into whole units (points = EconomicValue
+    ///              x count, PointsPerBundle&lt;Resource&gt; per unit; the highest-value stacks go first and
+    ///              anything not needed for a whole unit stays in the box; a small overshoot on the last
+    ///              stack is accepted), handed out as Large bundles (3 units) first, then one Medium (2) or Small (1)
+    ///   Deposit  - moves every bundle in the box into the stockpile at its size (bundles only exist in transit;
+    ///              the old one-size bundle counts 1)
+    ///   Withdraw - one Small bundle from the stockpile back into the box
     /// and the daily consumption the ticker runs. Host only.
     /// </summary>
     public static class ScStockpile
@@ -35,15 +37,46 @@ namespace SurvivorCommunity
             catch (Exception) { return null; }
         }
 
-        public static bool IsBundle(ItemStack s, out Resource r)
+        /// <summary>A bundle stack: its resource and the units ONE of its items holds (Small 1, Medium 2, Large 3, old 1).</summary>
+        public static bool IsBundle(ItemStack s, out Resource r, out int units)
         {
             r = Resource.Food;
+            units = 0;
             if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.ItemClass == null) return false;
             ItemClass ic = s.itemValue.ItemClass;
             if (!ic.HasAnyTags(BundleTags)) return false;
-            string name = ic.Name ?? "";
-            for (int i = 0; i < 5; i++) if (name == ScNames.BundleItem((Resource)i)) { r = (Resource)i; return true; }
-            return false;
+            return ScNames.TryBundle(ic.Name, out r, out units);
+        }
+
+        /// <summary>Units as bundles, the biggest first: as many Large as fit, then one Medium or one Small for the rest.</summary>
+        public static void SplitUnits(int units, out int large, out int medium, out int small)
+        {
+            units = Math.Max(0, units);
+            large = units / 3;
+            int rest = units - large * 3;
+            medium = rest == 2 ? 1 : 0;
+            small = rest == 1 ? 1 : 0;
+        }
+
+        /// <summary>The item of a sized bundle, or null (an error is logged once) when Config/items.xml did not define it.</summary>
+        public static ItemValue BundleValue(Resource r, BundleSize size)
+        {
+            string name = ScNames.BundleItem(r, size);
+            ItemValue iv = ItemClass.GetItem(name, true);
+            if (iv == null || iv.IsEmpty() || iv.ItemClass == null) { ScLog.Once("bundle-item-" + name, "bundle item " + name + " is not defined - Config/items.xml did not apply"); return null; }
+            return iv;
+        }
+
+        /// <summary>"2 large and 1 small" (the sizes Pack made).</summary>
+        public static string SizesText(int large, int medium, int small)
+        {
+            var parts = new List<string>(3);
+            if (large > 0) parts.Add(large + " " + Localization.Get("scBundleSizeLarge"));
+            if (medium > 0) parts.Add(medium + " " + Localization.Get("scBundleSizeMedium"));
+            if (small > 0) parts.Add(small + " " + Localization.Get("scBundleSizeSmall"));
+            if (parts.Count == 0) return "0";
+            if (parts.Count == 1) return parts[0];
+            return string.Join(", ", parts.GetRange(0, parts.Count - 1).ToArray()) + " " + Localization.Get("scAnd") + " " + parts[parts.Count - 1];
         }
 
         private struct Slot
@@ -102,15 +135,19 @@ namespace SurvivorCommunity
                     need -= (long)take * sl.PointsEach;
                 }
 
-                int made = GiveBundles(st, r, bundles, player);
+                int large, medium, small;
+                SplitUnits(bundles, out large, out medium, out small);
+                int made = GiveBundles(st, r, BundleSize.Large, large, player) * 3
+                         + GiveBundles(st, r, BundleSize.Medium, medium, player) * 2
+                         + GiveBundles(st, r, BundleSize.Small, small, player);
                 st.SetModified();
                 if (made > 0 && craftStars > 0)
                 {
                     foreach (var cm in ScRegistry.Members.Values)
                         if (cm.Specialty == Specialty.Craftsmanship && cm.IsHome && cm.Status != MemberStatus.OnRun) ScSkills.AddSpecialtyXp(cm, 1f);
                 }
-                message = string.Format(Localization.Get("scPacked"), made, Localization.Get(ScNames.LocKey(r)));
-                ScLog.Out("packed " + made + " " + r + " bundle(s) from " + total + " points at the station");
+                message = string.Format(Localization.Get("scPackedInto"), made, Localization.Get(ScNames.LocKey(r)), SizesText(large, medium, small));
+                ScLog.Out("packed " + made + " " + r + " unit(s) (" + large + " large, " + medium + " medium, " + small + " small) from " + total + " points at the station");
                 return made;
             }
             catch (Exception e)
@@ -121,11 +158,12 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Bundles into the box; what does not fit goes to the player, then the ground.</summary>
-        private static int GiveBundles(TEFeatureStorage st, Resource r, int count, EntityPlayerLocal player)
+        /// <summary>Bundles of one size into the box; what does not fit goes to the player, then the ground. Returns the bundles given.</summary>
+        public static int GiveBundles(TEFeatureStorage st, Resource r, BundleSize size, int count, EntityPlayerLocal player)
         {
-            ItemValue iv = ItemClass.GetItem(ScNames.BundleItem(r), true);
-            if (iv == null || iv.IsEmpty()) { ScLog.Err("bundle item " + ScNames.BundleItem(r) + " is not defined - Config/items.xml did not apply"); return 0; }
+            if (count <= 0) return 0;
+            ItemValue iv = BundleValue(r, size);
+            if (iv == null) return 0;
             int stackMax = Math.Max(1, iv.ItemClass.Stacknumber.Value);
             int given = 0;
             while (given < count)
@@ -146,7 +184,7 @@ namespace SurvivorCommunity
             return given;
         }
 
-        /// <summary>Moves every bundle in the box into the stockpile. Returns the number of bundles moved.</summary>
+        /// <summary>Moves every bundle in the box into the stockpile, each at its size. Returns the number of bundles moved.</summary>
         public static int Deposit(TEFeatureStorage st, out string message)
         {
             message = null;
@@ -156,21 +194,22 @@ namespace SurvivorCommunity
                 if (st == null || st.items == null) { message = Localization.Get("scInternal"); return 0; }
                 ItemStack[] items = st.items;
                 int moved = 0;
-                var counts = new int[5];
+                var counts = new int[ScNames.ResourceCount];
                 for (int i = 0; i < items.Length; i++)
                 {
                     Resource r;
-                    if (!IsBundle(items[i], out r)) continue;
-                    counts[(int)r] += items[i].count;
+                    int units;
+                    if (!IsBundle(items[i], out r, out units)) continue;
+                    counts[(int)r] += items[i].count * units;
                     moved += items[i].count;
                     st.UpdateSlot(i, ItemStack.Empty.Clone());
                 }
                 if (moved == 0) { message = Localization.Get("scNoBundles"); return 0; }
-                for (int i = 0; i < 5; i++) ScRegistry.Community.Add((Resource)i, counts[i]);
+                for (int i = 0; i < ScNames.ResourceCount; i++) ScRegistry.Community.Add((Resource)i, counts[i]);
                 st.SetModified();
                 ScRegistry.SaveAtomic();
-                message = string.Format(Localization.Get("scDeposited"), moved);
-                ScLog.Out("deposited " + moved + " bundle(s): " + StockText());
+                message = string.Format(Localization.Get("scDepositedUnits"), moved, ScOutposts.Amounts(counts));
+                ScLog.Out("deposited " + moved + " bundle(s) (" + ScOutposts.Amounts(counts) + "): " + StockText());
                 return moved;
             }
             catch (Exception e)
@@ -181,7 +220,7 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>One bundle from the stockpile into the box.</summary>
+        /// <summary>One Small bundle (one unit) from the stockpile into the box.</summary>
         public static bool Withdraw(TEFeatureStorage st, Resource r, out string message)
         {
             message = null;
@@ -190,8 +229,8 @@ namespace SurvivorCommunity
                 if (!ScCommunity.IsHost) { message = Localization.Get("scHostOnly"); return false; }
                 if (st == null) { message = Localization.Get("scInternal"); return false; }
                 if (ScRegistry.Community.Get(r) <= 0) { message = string.Format(Localization.Get("scStockEmpty"), Localization.Get(ScNames.LocKey(r))); return false; }
-                ItemValue iv = ItemClass.GetItem(ScNames.BundleItem(r), true);
-                if (iv == null || iv.IsEmpty()) { message = Localization.Get("scInternal"); return false; }
+                ItemValue iv = BundleValue(r, BundleSize.Small);
+                if (iv == null) { message = Localization.Get("scInternal"); return false; }
                 if (!st.AddItem(new ItemStack(iv.Clone(), 1))) { message = Localization.Get("scBoxFull"); return false; }
                 ScRegistry.Community.Add(r, -1);
                 st.SetModified();
@@ -210,20 +249,30 @@ namespace SurvivorCommunity
         public static string StockText()
         {
             Community c = ScRegistry.Community;
-            return string.Format(Localization.Get("scStockText"), c.Get(Resource.Food), c.Get(Resource.Meds), c.Get(Resource.Ammo), c.Get(Resource.Materials), c.Get(Resource.Fuel));
+            return string.Format(Localization.Get("scStockText"), c.Get(Resource.Food), c.Get(Resource.Meds), c.Get(Resource.Ammo), c.Get(Resource.Materials), c.Get(Resource.Fuel),
+                                 c.Get(Resource.Water), c.Get(Resource.Luxury));
         }
 
         // ---- daily use ----
 
         /// <summary>
-        /// One day of the community: food for every member (fractions carry over), meds for injured members
-        /// (one per injury, healing it), and the day's ammo resupplies reported (no ammo upkeep). Appends a summary line.
+        /// One day of the community: the wells and dew collectors fill the water store, then food and water for every
+        /// member (fractions carry over), meds for injured members (one per injury, healing it), and the day's ammo
+        /// resupplies reported (no ammo upkeep). Appends a summary line.
         /// </summary>
         public static void DailyConsume(int day, StringBuilder summary)
         {
             Community c = ScRegistry.Community;
             int members = ScRegistry.Members.Count;
-            if (members == 0) { c.Hungry = false; c.AmmoOpened = 0; c.AmmoShort = false; return; }
+            // water facilities in the home zone (the last scan's count): they run with or without anyone to drink
+            int drawn = Math.Max(0, c.HomeWater);
+            if (drawn > 0) c.Add(Resource.Water, drawn);
+            if (members == 0)
+            {
+                c.Hungry = false; c.Thirsty = false; c.AmmoOpened = 0; c.AmmoShort = false;
+                if (drawn > 0) { if (summary.Length > 0) summary.Append(' '); summary.Append(string.Format(Localization.Get("scDailyWells"), drawn)); }
+                return;
+            }
 
             // Gardening: living crops in the zone (last scan) feed the stockpile through the gardeners
             int gardenStars = ScSkills.SpecialistStars(Specialty.Gardening);
@@ -252,6 +301,16 @@ namespace SurvivorCommunity
             bool hungry = foodUsed < foodWhole;
             if (hungry) c.FoodCarry = 0f;           // an unpaid day is simply a hungry day, not a growing debt
             c.Hungry = hungry;
+
+            // water (round wl): WaterPerMemberDay a member, fractional carry; short = thirsty, the hunger rules again
+            float waterNeed = c.WaterCarry + members * ScConfig.WaterPerMemberDay;
+            int waterWhole = (int)Math.Floor(waterNeed + 1e-4f);
+            c.WaterCarry = Math.Max(0f, waterNeed - waterWhole);
+            int waterUsed = Math.Min(waterWhole, c.Get(Resource.Water));
+            c.Add(Resource.Water, -waterUsed);
+            bool thirsty = waterUsed < waterWhole;
+            if (thirsty) c.WaterCarry = 0f;
+            c.Thirsty = thirsty;
 
             // meds: one bundle heals 1 + floor(medic stars x MedicPerStar) injuries
             if (cookStars > 0 && foodUsed > 0 && cook != null) ScSkills.AddSpecialtyXp(cook, 2f);
@@ -283,9 +342,11 @@ namespace SurvivorCommunity
             c.AmmoShort = false;
 
             if (summary.Length > 0) summary.Append(' ');     // runs and outposts report first
-            summary.Append(string.Format(Localization.Get("scDailyUse"), foodUsed, medsUsed, ammoUsed));
+            summary.Append(string.Format(Localization.Get("scDailyUse"), foodUsed, medsUsed, ammoUsed, waterUsed));
             if (harvested > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyHarvest"), harvested));
+            if (drawn > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyWells"), drawn));
             if (hungry) summary.Append(' ').Append(Localization.Get("scDailyHungry"));
+            if (thirsty) summary.Append(' ').Append(Localization.Get("scDailyThirsty"));
             if (stillInjured > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyInjured"), stillInjured));
             if (dryAmmo) summary.Append(' ').Append(Localization.Get("scDailyNoAmmo"));
         }
@@ -298,14 +359,18 @@ namespace SurvivorCommunity
         ///   ammo      - no upkeep (D3): 1 while any member at home fights with a gun, so an empty stockpile (no resupply)
         ///               shows red;
         ///   materials - the outposts' upkeep, debt included (ScOutposts.Daily);
-        ///   fuel      - the haulage for what the rollover will deliver (ScOutposts.ProjectedDelivery), debt included.
+        ///   fuel      - the haulage for what the rollover will deliver (ScOutposts.ProjectedDelivery), debt included;
+        ///   water     - members x WaterPerMemberDay plus the carried fraction, less what the wells and dew collectors
+        ///               add first;
+        ///   luxury    - nothing (only the Activities spend it).
         /// Without outposts there is no materials or fuel need, as ScOutposts.Daily clears the debts then.
         /// </summary>
         public static int[] NeedForRollover()
         {
-            var need = new int[5];
+            var need = new int[ScNames.ResourceCount];
             Community c = ScRegistry.Community;
             if (ScRegistry.Members.Count == 0) return need;
+            need[(int)Resource.Water] = Math.Max(0, (int)Math.Floor(c.WaterCarry + ScRegistry.Members.Count * ScConfig.WaterPerMemberDay + 1e-4f) - Math.Max(0, c.HomeWater));
 
             Member cook;
             int cookStars = ScSkills.BestSpecialist(Specialty.Cooking, out cook);

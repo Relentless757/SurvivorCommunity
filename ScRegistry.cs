@@ -262,7 +262,7 @@ namespace SurvivorCommunity
                 case "weight":
                 {
                     float[] w = ScPoiTypes.ParseYields(val);
-                    for (int i = 0; i < 5; i++) o.Weight[i] = w[i];
+                    for (int i = 0; i < ScNames.ResourceCount; i++) o.Weight[i] = w[i];
                     break;
                 }
                 case "tier": o.Tier = I(val); break;
@@ -272,7 +272,7 @@ namespace SurvivorCommunity
                 case "pending":
                 {
                     string[] f = val.Split(',');
-                    for (int i = 0; i < 5 && i < f.Length; i++) o.Pending[i] = Math.Max(0, I(f[i]));
+                    for (int i = 0; i < ScNames.ResourceCount && i < f.Length; i++) o.Pending[i] = Math.Max(0, I(f[i]));
                     break;
                 }
                 case "state": o.State = (OutpostState)Enum.Parse(typeof(OutpostState), val, true); break;
@@ -313,7 +313,7 @@ namespace SurvivorCommunity
                 case "stash":
                 {
                     string[] f = val.Split(',');
-                    for (int i = 0; i < 5 && i < f.Length; i++) o.Stash[i] = Math.Max(0, I(f[i]));
+                    for (int i = 0; i < ScNames.ResourceCount && i < f.Length; i++) o.Stash[i] = Math.Max(0, I(f[i]));
                     break;
                 }
                 case "produced": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) o.Produced = Math.Max(0f, f); break; }
@@ -475,6 +475,35 @@ namespace SurvivorCommunity
                     foreach (string part in val.Split(';')) if (part.Length > 0 && c.AwayNews.Count < 4) c.AwayNews.Add(part);
                     break;
                 case "harvestcarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.HarvestCarry = f; break; }
+                // round wl: water, the facilities, the round of drinks (keys an older build ignores)
+                case "thirsty": c.Thirsty = val == "1"; break;
+                case "watercarry": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.WaterCarry = Math.Max(0f, f); break; }
+                case "homewater": c.HomeWater = Math.Max(0, I(val)); break;
+                case "scanwater":
+                    // cx:cz:n;... (zone chunks with any well or dew collector)
+                    c.ScanWater.Clear();
+                    foreach (string part in val.Split(';'))
+                    {
+                        string[] f = part.Split(':');
+                        if (f.Length != 3) continue;
+                        int n = I(f[2]);
+                        if (n > 0) c.ScanWater[WorldChunkCache.MakeChunkKey(I(f[0]), I(f[1]))] = n;
+                    }
+                    break;
+                case "dewlevels":
+                    // x,y,z:level;...
+                    c.DewLevels.Clear();
+                    foreach (string part in val.Split(';'))
+                    {
+                        int colon = part.LastIndexOf(':');
+                        Vector3i v;
+                        if (colon <= 0 || !TryVec(part.Substring(0, colon), out v)) continue;
+                        int lv = I(part.Substring(colon + 1));
+                        if (lv > 1) c.DewLevels[v] = lv;
+                    }
+                    break;
+                case "drinks": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) c.DrinksLeft = Math.Max(0f, f); break; }
+                case "drinksday": c.DrinksDay = I(val); break;
                 case "stock":
                     foreach (string part in val.Split(','))
                     {
@@ -743,8 +772,36 @@ namespace SurvivorCommunity
                     sb.AppendLine("awaynews=" + an);
                 }
                 sb.AppendLine("harvestcarry=" + c.HarvestCarry.ToString("0.###", CultureInfo.InvariantCulture));
+                if (c.Thirsty) sb.AppendLine("thirsty=1");
+                if (c.WaterCarry > 0f) sb.AppendLine("watercarry=" + c.WaterCarry.ToString("0.###", CultureInfo.InvariantCulture));
+                if (c.HomeWater > 0) sb.AppendLine("homewater=" + c.HomeWater);
+                if (c.ScanWater.Count > 0)
+                {
+                    var sw = new StringBuilder();
+                    foreach (KeyValuePair<long, int> kv in c.ScanWater)
+                    {
+                        if (kv.Value <= 0) continue;
+                        if (sw.Length > 0) sw.Append(';');
+                        sw.Append(WorldChunkCache.extractX(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':')
+                          .Append(WorldChunkCache.extractZ(kv.Key).ToString(CultureInfo.InvariantCulture)).Append(':').Append(kv.Value);
+                    }
+                    if (sw.Length > 0) sb.AppendLine("scanwater=" + sw);
+                }
+                if (c.DewLevels.Count > 0)
+                {
+                    var dl = new StringBuilder();
+                    foreach (KeyValuePair<Vector3i, int> kv in c.DewLevels)
+                    {
+                        if (kv.Value <= 1) continue;
+                        if (dl.Length > 0) dl.Append(';');
+                        dl.Append(Vec(kv.Key)).Append(':').Append(kv.Value);
+                    }
+                    if (dl.Length > 0) sb.AppendLine("dewlevels=" + dl);
+                }
+                if (c.DrinksLeft > 0f) sb.AppendLine("drinks=" + c.DrinksLeft.ToString("0.#", CultureInfo.InvariantCulture));
+                if (c.DrinksDay >= 0) sb.AppendLine("drinksday=" + c.DrinksDay);
                 var st = new StringBuilder();
-                for (int i = 0; i < 5; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
+                for (int i = 0; i < ScNames.ResourceCount; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
                 sb.AppendLine("stock=" + st);
                 if (c.Deaths.Count > 0)
                 {
@@ -847,7 +904,7 @@ namespace SurvivorCommunity
                     sb.AppendLine("name=" + Clean(o.Name));
                     sb.AppendLine("row=" + Clean(o.Row));
                     var wt = new StringBuilder();
-                    for (int i = 0; i < 5; i++)
+                    for (int i = 0; i < ScNames.ResourceCount; i++)
                     {
                         if (o.Weight[i] <= 0f) continue;
                         if (wt.Length > 0) wt.Append(',');

@@ -10,54 +10,70 @@
 			        anchor_left="#parent,0,0" anchor_right="#parent,1,0" anchor_top="#parent,1,0" anchor_bottom="#parent,0,0"/>
 
 			<label depth="2" pos="8,-6" width="60" height="26" font_size="16" text="Pack" color="[lightGrey]"/>
-			<rect depth="2" name="btnPackFood" pos="60,-4" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnPackFood" pos="60,-4" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="50,80,50,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scPackFood" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunFood" color="[white]"/>
 			</rect>
-			<rect depth="2" name="btnPackMeds" pos="168,-4" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnPackWater" pos="136,-4" width="72" height="28" style="press, hover">
+				<sprite depth="0" name="background" color="40,70,100,255" type="sliced"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunWater" color="[white]"/>
+			</rect>
+			<rect depth="2" name="btnPackMeds" pos="212,-4" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="90,50,50,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scPackMeds" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunMeds" color="[white]"/>
 			</rect>
-			<rect depth="2" name="btnPackAmmo" pos="276,-4" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnPackAmmo" pos="288,-4" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="90,80,40,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scPackAmmo" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunAmmo" color="[white]"/>
 			</rect>
-			<rect depth="2" name="btnPackMaterials" pos="384,-4" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnPackMaterials" pos="364,-4" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="50,60,90,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scPackMaterials" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunMaterials" color="[white]"/>
 			</rect>
-			<rect depth="2" name="btnPackFuel" pos="492,-4" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnPackFuel" pos="440,-4" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="70,70,70,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scPackFuel" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunFuel" color="[white]"/>
+			</rect>
+			<rect depth="2" name="btnPackLuxury" pos="516,-4" width="72" height="28" style="press, hover">
+				<sprite depth="0" name="background" color="85,55,90,255" type="sliced"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunLuxury" color="[white]"/>
 			</rect>
 
 			<label depth="2" pos="8,-38" width="60" height="26" font_size="16" text="Take" color="[lightGrey]"/>
-			<rect depth="2" name="btnTakeFood" pos="60,-36" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnTakeFood" pos="60,-36" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="40,60,40,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scTakeFood" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunFood" color="[white]"/>
 			</rect>
-			<rect depth="2" name="btnTakeMeds" pos="168,-36" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnTakeWater" pos="136,-36" width="72" height="28" style="press, hover">
+				<sprite depth="0" name="background" color="30,55,80,255" type="sliced"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunWater" color="[white]"/>
+			</rect>
+			<rect depth="2" name="btnTakeMeds" pos="212,-36" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="70,40,40,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scTakeMeds" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunMeds" color="[white]"/>
 			</rect>
-			<rect depth="2" name="btnTakeAmmo" pos="276,-36" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnTakeAmmo" pos="288,-36" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="70,60,30,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scTakeAmmo" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunAmmo" color="[white]"/>
 			</rect>
-			<rect depth="2" name="btnTakeMaterials" pos="384,-36" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnTakeMaterials" pos="364,-36" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="40,50,70,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scTakeMaterials" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunMaterials" color="[white]"/>
 			</rect>
-			<rect depth="2" name="btnTakeFuel" pos="492,-36" width="104" height="28" style="press, hover">
+			<rect depth="2" name="btnTakeFuel" pos="440,-36" width="72" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="55,55,55,255" type="sliced"/>
-				<label depth="1" pos="0,-3" width="104" height="22" font_size="14" justify="center" text_key="scTakeFuel" color="[white]"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunFuel" color="[white]"/>
+			</rect>
+			<rect depth="2" name="btnTakeLuxury" pos="516,-36" width="72" height="28" style="press, hover">
+				<sprite depth="0" name="background" color="65,45,70,255" type="sliced"/>
+				<label depth="1" pos="0,-3" width="72" height="22" font_size="14" justify="center" text_key="scRunLuxury" color="[white]"/>
 			</rect>
 
 			<rect depth="2" name="btnDeposit" pos="8,-68" width="156" height="28" style="press, hover">
 				<sprite depth="0" name="background" color="120,90,30,255" type="sliced"/>
 				<label depth="1" pos="0,-3" width="156" height="22" font_size="14" justify="center" text_key="scDeposit" color="[white]"/>
 			</rect>
-			<label depth="2" pos="172,-70" width="424" height="24" font_size="14" text="{scstock}" color="[white]"/>
+			<label depth="2" pos="172,-70" width="424" height="24" font_size="13" text="{scstock}" color="[white]"/>
 			<label depth="2" pos="8,-98" width="588" height="22" font_size="13" text="{scmessage}" color="[lightGrey]"/>
 		</rect>
 	</append>
@@ -83,45 +99,62 @@
 			<button depth="2" name="btnClose" pos="1420,-18" width="56" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 			<sprite depth="4" sprite="ui_game_symbol_x" pos="1448,-42" width="24" height="24" pivot="center" color="[white]"/>
 			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-88" width="1452" height="88"/>
-			<sprite depth="3" sprite="ui_game_symbol_fork" pos="86,-132" width="44" height="44" pivot="center" color="[white]"/>
-			<label depth="4" pos="124,-98" width="170" height="22" font_size="17" text_key="scRunFood" color="190,182,166,255" upper_case="true"/>
-			<label depth="4" pos="124,-118" width="170" height="36" font_size="32" text="{resfood}" color="226,219,203,255"/>
-			<label depth="4" pos="188,-128" width="112" height="20" font_size="16" text="{opfood}" color="142,208,108,255" justify="right"/>
-			<label depth="4" pos="124,-154" width="180" height="18" font_size="15" text="{fooddays}" color="190,182,166,255"/>
-			<sprite depth="2" pos="314,-102" width="2" height="60" color="196,168,112,70"/>
-			<sprite depth="3" sprite="ui_game_symbol_medical" pos="376,-132" width="44" height="44" pivot="center" color="[white]"/>
-			<label depth="4" pos="414,-98" width="170" height="22" font_size="17" text_key="scRunMeds" color="190,182,166,255" upper_case="true"/>
-			<label depth="4" pos="414,-118" width="170" height="36" font_size="32" text="{resmeds}" color="226,219,203,255"/>
-			<label depth="4" pos="478,-128" width="112" height="20" font_size="16" text="{opmeds}" color="142,208,108,255" justify="right"/>
-			<sprite depth="2" pos="604,-102" width="2" height="60" color="196,168,112,70"/>
-			<sprite depth="3" sprite="ui_game_symbol_brick" pos="666,-132" width="44" height="44" pivot="center" color="[white]"/>
-			<label depth="4" pos="704,-98" width="170" height="22" font_size="17" text_key="scRunMaterials" color="190,182,166,255" upper_case="true"/>
-			<label depth="4" pos="704,-118" width="170" height="36" font_size="32" text="{resmats}" color="226,219,203,255"/>
-			<label depth="4" pos="768,-128" width="112" height="20" font_size="16" text="{opmats}" color="142,208,108,255" justify="right"/>
-			<sprite depth="2" pos="894,-102" width="2" height="60" color="196,168,112,70"/>
-			<sprite depth="3" sprite="ui_game_symbol_shape_ammo" pos="956,-132" width="44" height="44" pivot="center" color="[white]"/>
-			<label depth="4" pos="994,-98" width="170" height="22" font_size="17" text_key="scRunAmmo" color="190,182,166,255" upper_case="true"/>
-			<label depth="4" pos="994,-118" width="170" height="36" font_size="32" text="{resammo}" color="226,219,203,255"/>
-			<label depth="4" pos="1058,-128" width="112" height="20" font_size="16" text="{opammo}" color="142,208,108,255" justify="right"/>
-			<sprite depth="2" pos="1184,-102" width="2" height="60" color="196,168,112,70"/>
-			<sprite depth="3" sprite="ui_game_symbol_gas" pos="1246,-132" width="44" height="44" pivot="center" color="[white]"/>
-			<label depth="4" pos="1284,-98" width="170" height="22" font_size="17" text_key="scRunFuel" color="190,182,166,255" upper_case="true"/>
-			<label depth="4" pos="1284,-118" width="170" height="36" font_size="32" text="{resfuel}" color="226,219,203,255"/>
-			<label depth="4" pos="1348,-128" width="112" height="20" font_size="16" text="{opfuel}" color="142,208,108,255" justify="right"/>
+			<sprite depth="3" sprite="ui_game_symbol_fork" pos="62,-132" width="36" height="36" pivot="center" color="[white]"/>
+			<label depth="4" pos="90,-98" width="135" height="20" font_size="15" text_key="scRunFood" color="190,182,166,255" upper_case="true"/>
+			<label depth="4" pos="90,-118" width="80" height="34" font_size="30" text="{resfood}" color="226,219,203,255"/>
+			<label depth="4" pos="144,-128" width="79" height="20" font_size="15" text="{opfood}" color="142,208,108,255" justify="right"/>
+			<label depth="4" pos="90,-154" width="135" height="18" font_size="13" text="{fooddays}" color="190,182,166,255"/>
+			<sprite depth="2" pos="231,-102" width="2" height="60" color="196,168,112,70"/>
+			<sprite depth="3" sprite="ui_game_symbol_water" pos="269,-132" width="36" height="36" pivot="center" color="[white]"/>
+			<label depth="4" pos="297,-98" width="135" height="20" font_size="15" text_key="scRunWater" color="190,182,166,255" upper_case="true"/>
+			<label depth="4" pos="297,-118" width="80" height="34" font_size="30" text="{reswater}" color="226,219,203,255"/>
+			<label depth="4" pos="351,-128" width="79" height="20" font_size="15" text="{opwater}" color="142,208,108,255" justify="right"/>
+			<label depth="4" pos="297,-154" width="135" height="18" font_size="13" text="{waterdays}" color="190,182,166,255"/>
+			<sprite depth="2" pos="438,-102" width="2" height="60" color="196,168,112,70"/>
+			<sprite depth="3" sprite="ui_game_symbol_medical" pos="476,-132" width="36" height="36" pivot="center" color="[white]"/>
+			<label depth="4" pos="504,-98" width="135" height="20" font_size="15" text_key="scRunMeds" color="190,182,166,255" upper_case="true"/>
+			<label depth="4" pos="504,-118" width="80" height="34" font_size="30" text="{resmeds}" color="226,219,203,255"/>
+			<label depth="4" pos="558,-128" width="79" height="20" font_size="15" text="{opmeds}" color="142,208,108,255" justify="right"/>
+			<sprite depth="2" pos="645,-102" width="2" height="60" color="196,168,112,70"/>
+			<sprite depth="3" sprite="ui_game_symbol_brick" pos="683,-132" width="36" height="36" pivot="center" color="[white]"/>
+			<label depth="4" pos="711,-98" width="135" height="20" font_size="15" text_key="scRunMaterials" color="190,182,166,255" upper_case="true"/>
+			<label depth="4" pos="711,-118" width="80" height="34" font_size="30" text="{resmats}" color="226,219,203,255"/>
+			<label depth="4" pos="765,-128" width="79" height="20" font_size="15" text="{opmats}" color="142,208,108,255" justify="right"/>
+			<sprite depth="2" pos="852,-102" width="2" height="60" color="196,168,112,70"/>
+			<sprite depth="3" sprite="ui_game_symbol_shape_ammo" pos="890,-132" width="36" height="36" pivot="center" color="[white]"/>
+			<label depth="4" pos="918,-98" width="135" height="20" font_size="15" text_key="scRunAmmo" color="190,182,166,255" upper_case="true"/>
+			<label depth="4" pos="918,-118" width="80" height="34" font_size="30" text="{resammo}" color="226,219,203,255"/>
+			<label depth="4" pos="972,-128" width="79" height="20" font_size="15" text="{opammo}" color="142,208,108,255" justify="right"/>
+			<sprite depth="2" pos="1059,-102" width="2" height="60" color="196,168,112,70"/>
+			<sprite depth="3" sprite="ui_game_symbol_gas" pos="1097,-132" width="36" height="36" pivot="center" color="[white]"/>
+			<label depth="4" pos="1125,-98" width="135" height="20" font_size="15" text_key="scRunFuel" color="190,182,166,255" upper_case="true"/>
+			<label depth="4" pos="1125,-118" width="80" height="34" font_size="30" text="{resfuel}" color="226,219,203,255"/>
+			<label depth="4" pos="1179,-128" width="79" height="20" font_size="15" text="{opfuel}" color="142,208,108,255" justify="right"/>
+			<sprite depth="2" pos="1266,-102" width="2" height="60" color="196,168,112,70"/>
+			<sprite depth="3" sprite="ui_game_symbol_beer" pos="1304,-132" width="36" height="36" pivot="center" color="[white]"/>
+			<label depth="4" pos="1332,-98" width="135" height="20" font_size="15" text_key="scRunLuxury" color="190,182,166,255" upper_case="true"/>
+			<label depth="4" pos="1332,-118" width="80" height="34" font_size="30" text="{resluxury}" color="226,219,203,255"/>
+			<label depth="4" pos="1386,-128" width="79" height="20" font_size="15" text="{opluxury}" color="142,208,108,255" justify="right"/>
 			<rect depth="1" name="membersPanel" pos="24,-188" width="440" height="696">
 				<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="440" height="696"/>
-				<button depth="2" name="btnTabMembers" pos="20,-12" width="196" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<button depth="2" name="btnTabMembers" pos="20,-12" width="128" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 				<rect depth="0" pos="0,0" width="440" height="60" visible="{tabmembers}">
-					<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-12" width="196" height="44"/>
+					<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-12" width="128" height="44"/>
 				</rect>
-				<label depth="4" pos="32,-23" width="112" height="28" font_size="22" text_key="scUiMembers" color="226,219,203,255" upper_case="true"/>
-				<label depth="4" pos="140,-23" width="64" height="28" font_size="22" text="{membercount}" color="206,178,120,255" justify="right"/>
-				<button depth="2" name="btnTabOutposts" pos="224,-12" width="196" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<label depth="4" pos="28,-26" width="82" height="21" font_size="15" text_key="scUiMembers" color="226,219,203,255" upper_case="true"/>
+				<label depth="4" pos="108,-26" width="34" height="21" font_size="15" text="{membercount}" color="206,178,120,255" justify="right"/>
+				<button depth="2" name="btnTabOutposts" pos="156,-12" width="128" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 				<rect depth="0" pos="0,0" width="440" height="60" visible="{taboutposts}">
-					<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="224,-12" width="196" height="44"/>
+					<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="156,-12" width="128" height="44"/>
 				</rect>
-				<label depth="4" pos="236,-23" width="112" height="28" font_size="22" text_key="scUiOutposts" color="226,219,203,255" upper_case="true"/>
-				<label depth="4" pos="344,-23" width="64" height="28" font_size="22" text="{outpostcount}" color="206,178,120,255" justify="right"/>
+				<label depth="4" pos="164,-26" width="82" height="21" font_size="15" text_key="scUiOutposts" color="226,219,203,255" upper_case="true"/>
+				<label depth="4" pos="244,-26" width="34" height="21" font_size="15" text="{outpostcount}" color="206,178,120,255" justify="right"/>
+				<button depth="2" name="btnTabActivities" pos="292,-12" width="128" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<rect depth="0" pos="0,0" width="440" height="60" visible="{tabactivities}">
+					<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="292,-12" width="128" height="44"/>
+				</rect>
+				<label depth="4" pos="300,-26" width="82" height="21" font_size="15" text_key="scUiActivities" color="226,219,203,255" upper_case="true"/>
+				<label depth="4" pos="380,-26" width="34" height="21" font_size="15" text="{luxcount}" color="206,178,120,255" justify="right"/>
 				<rect depth="0" name="memberList" pos="0,0" width="440" height="696" visible="{tabmembers}">
 					<sprite depth="1" sprite="scui_row_thin" type="sliced" color="[white]" pos="20,-60" width="250" height="40"/>
 					<sprite depth="3" sprite="ui_game_symbol_search" pos="40,-80" width="24" height="24" pivot="center" color="[white]"/>
@@ -259,6 +292,49 @@
 						<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="401,-661" width="18" height="18" pivot="center" color="[white]"/>
 					</rect>
 				</rect>
+				<rect depth="0" name="activityList" pos="0,0" width="440" height="696" visible="{tabactivities}">
+					<label depth="4" pos="20,-70" width="400" height="24" font_size="17" text="{actsummary}" color="190,182,166,255"/>
+					<rect depth="1" pos="0,0" width="440" height="696" visible="{act1visible}">
+						<button depth="2" name="btnAct1" pos="20,-112" width="400" height="80" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+						<rect depth="0" pos="0,0" width="440" height="696" visible="{act1selected}">
+							<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-112" width="400" height="80"/>
+						</rect>
+						<sprite depth="4" sprite="scui_portrait" type="sliced" color="[white]" pos="26,-118" width="68" height="68"/>
+						<sprite depth="5" sprite="{act1icon}" pos="60,-152" width="40" height="40" pivot="center" color="[white]"/>
+						<label depth="4" pos="106,-124" width="300" height="26" font_size="22" text="{act1name}" color="226,219,203,255" upper_case="true"/>
+						<label depth="4" pos="106,-157" width="294" height="22" font_size="16" text="{act1status}" color="{act1statuscolor}"/>
+					</rect>
+					<rect depth="1" pos="0,0" width="440" height="696" visible="{act2visible}">
+						<button depth="2" name="btnAct2" pos="20,-200" width="400" height="80" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+						<rect depth="0" pos="0,0" width="440" height="696" visible="{act2selected}">
+							<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-200" width="400" height="80"/>
+						</rect>
+						<sprite depth="4" sprite="scui_portrait" type="sliced" color="[white]" pos="26,-206" width="68" height="68"/>
+						<sprite depth="5" sprite="{act2icon}" pos="60,-240" width="40" height="40" pivot="center" color="[white]"/>
+						<label depth="4" pos="106,-212" width="300" height="26" font_size="22" text="{act2name}" color="226,219,203,255" upper_case="true"/>
+						<label depth="4" pos="106,-245" width="294" height="22" font_size="16" text="{act2status}" color="{act2statuscolor}"/>
+					</rect>
+					<rect depth="1" pos="0,0" width="440" height="696" visible="{act3visible}">
+						<button depth="2" name="btnAct3" pos="20,-288" width="400" height="80" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+						<rect depth="0" pos="0,0" width="440" height="696" visible="{act3selected}">
+							<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-288" width="400" height="80"/>
+						</rect>
+						<sprite depth="4" sprite="scui_portrait" type="sliced" color="[white]" pos="26,-294" width="68" height="68"/>
+						<sprite depth="5" sprite="{act3icon}" pos="60,-328" width="40" height="40" pivot="center" color="[white]"/>
+						<label depth="4" pos="106,-300" width="300" height="26" font_size="22" text="{act3name}" color="226,219,203,255" upper_case="true"/>
+						<label depth="4" pos="106,-333" width="294" height="22" font_size="16" text="{act3status}" color="{act3statuscolor}"/>
+					</rect>
+					<rect depth="1" pos="0,0" width="440" height="696" visible="{act4visible}">
+						<button depth="2" name="btnAct4" pos="20,-376" width="400" height="80" sprite="scui_row" hoversprite="scui_row_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+						<rect depth="0" pos="0,0" width="440" height="696" visible="{act4selected}">
+							<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-376" width="400" height="80"/>
+						</rect>
+						<sprite depth="4" sprite="scui_portrait" type="sliced" color="[white]" pos="26,-382" width="68" height="68"/>
+						<sprite depth="5" sprite="{act4icon}" pos="60,-416" width="40" height="40" pivot="center" color="[white]"/>
+						<label depth="4" pos="106,-388" width="300" height="26" font_size="22" text="{act4name}" color="226,219,203,255" upper_case="true"/>
+						<label depth="4" pos="106,-421" width="294" height="22" font_size="16" text="{act4status}" color="{act4statuscolor}"/>
+					</rect>
+				</rect>
 			</rect>
 			<rect depth="1" name="detailPanel" pos="476,-188" width="560" height="696">
 				<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="560" height="696"/>
@@ -359,16 +435,18 @@
 						<label depth="4" pos="370,-617" width="165" height="24" font_size="18" text="{leavelabel}" color="240,150,130,255" justify="center" upper_case="true"/>
 						<button depth="2" name="btnHome" pos="24,-606" width="165" height="40" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" visible="false"/>
 						<rect depth="1" visible="{runpicking}">
-							<button depth="2" name="btnRunFood" pos="24,-654" width="97" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-							<label depth="4" pos="24,-663" width="97" height="22" font_size="16" text_key="scRunFood" color="226,220,208,255" justify="center" upper_case="true"/>
-							<button depth="2" name="btnRunMeds" pos="127,-654" width="97" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-							<label depth="4" pos="127,-663" width="97" height="22" font_size="16" text_key="scRunMeds" color="226,220,208,255" justify="center" upper_case="true"/>
-							<button depth="2" name="btnRunAmmo" pos="230,-654" width="97" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-							<label depth="4" pos="230,-663" width="97" height="22" font_size="16" text_key="scRunAmmo" color="226,220,208,255" justify="center" upper_case="true"/>
-							<button depth="2" name="btnRunMaterials" pos="333,-654" width="97" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-							<label depth="4" pos="333,-663" width="97" height="22" font_size="16" text_key="scRunMaterials" color="226,220,208,255" justify="center" upper_case="true"/>
-							<button depth="2" name="btnRunFuel" pos="436,-654" width="97" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-							<label depth="4" pos="436,-663" width="97" height="22" font_size="16" text_key="scRunFuel" color="226,220,208,255" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRunFood" pos="24,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="24,-664" width="80" height="19" font_size="13" text_key="scRunFood" color="226,220,208,255" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRunWater" pos="110,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="110,-664" width="80" height="19" font_size="13" text_key="scRunWater" color="226,220,208,255" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRunMeds" pos="196,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="196,-664" width="80" height="19" font_size="13" text_key="scRunMeds" color="226,220,208,255" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRunAmmo" pos="282,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="282,-664" width="80" height="19" font_size="13" text_key="scRunAmmo" color="226,220,208,255" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRunMaterials" pos="368,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="368,-664" width="80" height="19" font_size="13" text_key="scRunMaterials" color="226,220,208,255" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRunFuel" pos="454,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="454,-664" width="80" height="19" font_size="13" text_key="scRunFuel" color="226,220,208,255" justify="center" upper_case="true"/>
 						</rect>
 						<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{message}" color="226,220,208,255" visible="{# runpicking ? 'false' : 'true' }"/>
 					</rect>
@@ -457,6 +535,23 @@
 						<label depth="4" pos="414,-617" width="122" height="23" font_size="17" text="{opdisbandlabel}" color="240,150,130,255" justify="center" upper_case="true"/>
 					</rect>
 					<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{opmessage}" color="226,220,208,255"/>
+				</rect>
+				<rect depth="0" name="activityDetail" pos="0,0" width="560" height="696" visible="{tabactivities}">
+					<label depth="4" pos="24,-12" width="512" height="46" font_size="40" text="{actname}" color="226,219,203,255" upper_case="true"/>
+					<sprite depth="1" sprite="scui_portrait" type="sliced" color="[white]" pos="24,-92" width="176" height="176"/>
+					<sprite depth="3" sprite="{acticon}" pos="112,-180" width="96" height="96" pivot="center" color="[white]"/>
+					<label depth="4" pos="224,-96" width="312" height="18" font_size="15" text_key="scUiActCost" color="190,182,166,255" upper_case="true"/>
+					<label depth="4" pos="224,-114" width="312" height="22" font_size="18" text="{actcost}" color="{actcostcolor}"/>
+					<label depth="4" pos="224,-138" width="312" height="18" font_size="15" text_key="scUiActEffect" color="190,182,166,255" upper_case="true"/>
+					<label depth="4" pos="224,-156" width="312" height="22" font_size="18" text="{acteffect}" color="226,220,208,255"/>
+					<label depth="4" pos="224,-180" width="312" height="18" font_size="15" text_key="scUiActStatus" color="190,182,166,255" upper_case="true"/>
+					<label depth="4" pos="224,-198" width="312" height="22" font_size="18" text="{actstatus}" color="{actstatuscolor}"/>
+					<label depth="4" pos="24,-290" width="512" height="24" font_size="22" text_key="scUiActAbout" color="226,219,203,255" upper_case="true"/>
+					<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="24,-315" width="512" height="3"/>
+					<label depth="4" pos="24,-326" width="512" height="200" font_size="17" text="{actdesc}" color="226,220,208,255"/>
+					<button depth="2" name="btnActDo" pos="24,-606" width="512" height="40" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+					<label depth="4" pos="24,-617" width="512" height="24" font_size="18" text="{actdolabel}" color="{actdocolor}" justify="center" upper_case="true"/>
+					<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{actmessage}" color="226,220,208,255"/>
 				</rect>
 			</rect>
 			<rect depth="1" name="moralePanel" pos="1048,-188" width="428" height="696">
@@ -647,8 +742,8 @@
 	     gap before the quest tracker: anchored to the top centre, 8 units right of AshfallUI's compass plate (which ends
 	     206 units right of centre) and 394 wide, so at 16:9 (about 1856 units across at 2560x1440, measured) it ends 8
 	     short of the quest tracker (312 in from the right edge). A narrower screen than 16:9 overlaps the tracker.
-	     Row 1: title, morale dot and word. Row 2: food, meds, ammo, materials, fuel (a number turns red below what the
-	     next rollover wants). Row 3: members and the base's noise. It sits in the HUD's toolbelt group (xui.xml), so it
+	     Row 1: title, morale dot and word. Row 2: food, water, meds, ammo, materials, fuel (a number turns red below what the
+	     next rollover wants; luxuries only show in the community window). Row 3: members and the base's noise. It sits in the HUD's toolbelt group (xui.xml), so it
 	     is open whenever the HUD is; the controller hides it while a modal window is open. Vanilla sprites only, and no
 	     [darkGrey]/menu_empty "background" plate or boxbg, so AshfallUI's dialog dressing does not take it for a dialog. -->
 	<append xpath="/windows">
@@ -663,16 +758,18 @@
 				<sprite depth="2" name="moodDot" sprite="ui_game_filled_circle" pos="226,-20" width="18" height="18" pivot="center" color="{scmoodcolor}"/>
 				<label depth="2" name="mood" pos="240,-20" width="150" height="28" font_size="22" pivot="left" justify="left" text="{scmood}" color="255,255,255,255"/>
 
-				<sprite depth="2" name="iconFood" sprite="ui_game_symbol_fork" pos="64,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
-				<label depth="2" name="food" pos="78,-55" width="42" height="24" font_size="20" pivot="left" justify="left" text="{scfood}" color="{scfoodcolor}"/>
-				<sprite depth="2" name="iconMeds" sprite="ui_game_symbol_medical" pos="132,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
-				<label depth="2" name="meds" pos="146,-55" width="42" height="24" font_size="20" pivot="left" justify="left" text="{scmeds}" color="{scmedscolor}"/>
-				<sprite depth="2" name="iconAmmo" sprite="ui_game_symbol_shape_ammo" pos="200,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
-				<label depth="2" name="ammo" pos="214,-55" width="42" height="24" font_size="20" pivot="left" justify="left" text="{scammo}" color="{scammocolor}"/>
-				<sprite depth="2" name="iconMats" sprite="ui_game_symbol_brick" pos="268,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
-				<label depth="2" name="mats" pos="282,-55" width="42" height="24" font_size="20" pivot="left" justify="left" text="{scmats}" color="{scmatscolor}"/>
-				<sprite depth="2" name="iconFuel" sprite="ui_game_symbol_gas" pos="336,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
-				<label depth="2" name="fuel" pos="350,-55" width="42" height="24" font_size="20" pivot="left" justify="left" text="{scfuel}" color="{scfuelcolor}"/>
+				<sprite depth="2" name="iconFood" sprite="ui_game_symbol_fork" pos="60,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="food" pos="73,-55" width="40" height="24" font_size="20" pivot="left" justify="left" text="{scfood}" color="{scfoodcolor}"/>
+				<sprite depth="2" name="iconWater" sprite="ui_game_symbol_water" pos="116,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="water" pos="129,-55" width="40" height="24" font_size="20" pivot="left" justify="left" text="{scwater}" color="{scwatercolor}"/>
+				<sprite depth="2" name="iconMeds" sprite="ui_game_symbol_medical" pos="172,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="meds" pos="185,-55" width="40" height="24" font_size="20" pivot="left" justify="left" text="{scmeds}" color="{scmedscolor}"/>
+				<sprite depth="2" name="iconAmmo" sprite="ui_game_symbol_shape_ammo" pos="228,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="ammo" pos="241,-55" width="40" height="24" font_size="20" pivot="left" justify="left" text="{scammo}" color="{scammocolor}"/>
+				<sprite depth="2" name="iconMats" sprite="ui_game_symbol_brick" pos="284,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="mats" pos="297,-55" width="40" height="24" font_size="20" pivot="left" justify="left" text="{scmats}" color="{scmatscolor}"/>
+				<sprite depth="2" name="iconFuel" sprite="ui_game_symbol_gas" pos="340,-55" width="20" height="20" pivot="center" color="255,255,255,255"/>
+				<label depth="2" name="fuel" pos="353,-55" width="40" height="24" font_size="20" pivot="left" justify="left" text="{scfuel}" color="{scfuelcolor}"/>
 
 				<sprite depth="2" name="iconMembers" sprite="ui_game_symbol_players" pos="64,-87" width="20" height="20" pivot="center" color="255,255,255,255"/>
 				<label depth="2" name="members" pos="78,-87" width="42" height="24" font_size="20" pivot="left" justify="left" text="{scmembers}" color="255,255,255,255"/>

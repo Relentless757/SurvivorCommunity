@@ -7,7 +7,7 @@ namespace SurvivorCommunity
     /// <summary>
     /// The packing controls appended into vanilla's loot window (Config/XUi_InGame/windows.xml): a rect that
     /// only shows while the open container belongs to a packing station. Its buttons pack one category of
-    /// the box's contents into bundles, deposit the bundles into the stockpile, or withdraw one.
+    /// the box's contents into bundles (Large first), deposit the bundles into the stockpile, or withdraw one Small.
     /// Bindings are evaluated during XML parsing, before Init and before any container is open, so every
     /// value below is non-null and "false" by default.
     /// </summary>
@@ -31,11 +31,15 @@ namespace SurvivorCommunity
                 Hook("btnPackAmmo", () => DoPack(Resource.Ammo));
                 Hook("btnPackMaterials", () => DoPack(Resource.Materials));
                 Hook("btnPackFuel", () => DoPack(Resource.Fuel));
+                Hook("btnPackWater", () => DoPack(Resource.Water));
+                Hook("btnPackLuxury", () => DoPack(Resource.Luxury));
                 Hook("btnTakeFood", () => DoWithdraw(Resource.Food));
                 Hook("btnTakeMeds", () => DoWithdraw(Resource.Meds));
                 Hook("btnTakeAmmo", () => DoWithdraw(Resource.Ammo));
                 Hook("btnTakeMaterials", () => DoWithdraw(Resource.Materials));
                 Hook("btnTakeFuel", () => DoWithdraw(Resource.Fuel));
+                Hook("btnTakeWater", () => DoWithdraw(Resource.Water));
+                Hook("btnTakeLuxury", () => DoWithdraw(Resource.Luxury));
                 Hook("btnDeposit", DoDeposit);
             }
             catch (Exception e)

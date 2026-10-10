@@ -98,26 +98,30 @@ NPCs but cannot manage a community (v2).
   Shooting and a specialty (Medicine, Cooking, Mechanics, Gardening, Chemistry, Craftsmanship). Kills
   already earn Fighting / Shooting XP. Gameplay effects come with milestone 3.
 - **Persistence.** `<save>/survivor_community.txt` is the source of truth (atomic write, `.bak`).
-- **Console:** `sc status | members | day | morale <n> | give <res> <n> | relink | repost <member> | home | dump | save`.
+- **Console:** `sc status | members | day | morale <n> | give <res> <n> | facility | drinks | relink | repost <member> | home | dump | save`.
 
 ## Milestone 2 - packing station, stockpile, daily needs
 
 - **Packing Station** (`scPackingStation`, workbench recipe: 30 wood, 5 forged iron, 2 duct tape). It is
-  a lockable crate with an 8x4 box. Open it and a strip appears under the grid: **Pack food / medical /
-  ammo / materials / fuel** turns what is in the box into **bundles** (points = the items' economic value,
-  `PointsPerBundle<Resource>` per bundle; the most valuable stacks go first and anything short of a whole
-  bundle stays in the box), **Deposit bundles** moves every bundle in the box into the community
-  **stockpile**, and **Take ...** puts one bundle back in the box. The strip only shows on a station.
-- **Bundles** (`scBundleFood/Meds/Ammo/Materials/Fuel`) are plain items: they cannot be opened, sold or
-  scrapped back into goods. Food = anything tagged `food`/`drinks`, medical = `medical`, ammo = `ammo`,
-  fuel = gasoline (the `gasoline` tag or the `FuelItems` list), materials = the `Resources` group or
-  `resource*` items (wood and coal are materials even though they burn).
+  a lockable crate with an 8x4 box. Open it and a strip appears under the grid: **Pack** food / water /
+  medical / ammo / materials / fuel / luxuries turns what is in the box into **bundle units** (points = the
+  items' economic value, `PointsPerBundle<Resource>` per unit; the most valuable stacks go first and anything
+  short of a whole unit stays in the box), handed out biggest first (see *Water, luxuries and bundle sizes*),
+  **Deposit bundles** moves every bundle in the box into the community **stockpile** at its size, and **Take**
+  puts one Small bundle back in the box. The strip only shows on a station.
+- **Bundles** (`scBundle<Res>Small/Medium/Large`) are plain items: they cannot be opened, sold or
+  scrapped back into goods. Luxury = the `LuxuryItems` list (alcohol), water = a `drinks` item that hydrates,
+  food = anything else tagged `food`/`drinks`, medical = `medical`, ammo = `ammo`, fuel = gasoline (the
+  `gasoline` tag or the `FuelItems` list), materials = the `Resources` group or `resource*` items (wood and coal
+  are materials even though they burn; empty jars too).
 - **Bundles in the world** (`Config/loot.xml`): a small chance in the containers they belong in - food
   piles and cupboards; medical piles, medicine cabinets, medical coolers and Pop-N-Pills crates; ammo
   piles, military lockers, Shotgun Messiah crates and ammo displays; Pass-N-Gas crates (fuel);
-  construction crates and toolboxes (materials) - every kind in air drops, and as trader quest rewards
-  (food / medical / ammo rewards from tier 1, more per bundle at higher tiers; resource rewards offer a
-  materials or fuel bundle).
+  construction crates and toolboxes (materials); liquor piles and beer coolers (luxuries) - a pile drops the
+  bundle of its own size - the five classic kinds in air drops (Medium), and as trader quest rewards (food /
+  medical / ammo: a Small from tier 1, Medium from tier 2, Large at tier 3; resource rewards offer a materials
+  or fuel bundle). Pop-N-Pills crates carry medical bundles and Shamway crates food and water bundles more often
+  than anything else (Small 15% + Medium 5%; water 12% + 4%) - the only place water bundles are found.
 - **Daily needs.** At each day rollover the community eats `FoodPerMemberDay` (0.5) food bundles per
   member (trait multipliers apply, fractions carry over) and uses one medical bundle per injured member
   (which heals them). This happens whether or not the base is loaded. **Ammo has no daily upkeep:** it is
@@ -125,6 +129,45 @@ NPCs but cannot manage a community (v2).
   below), and the day's report counts the ammo bundles that took. A tooltip and the ledger (`sc status`) report
   what was used, whether anyone went hungry, and whether a survivor ran low while the stockpile had no ammo; the
   hungry flag feeds morale in milestone 4.
+
+## Water, luxuries and bundle sizes (round wl)
+
+- **Bundle sizes.** Every resource has a **Small, Medium and Large** bundle worth **1, 2 and 3** stockpile units.
+  Packing makes Large first, then one Medium or Small for the rest; Take gives a Small. The old one-size bundles
+  still deposit as one unit; nothing makes or drops them any more. Icons: the matching vanilla piles (food, ammo,
+  liquor small/medium/large; meds pile A small, B medium and large; cinder blocks 03/01/02; fuel and water a single
+  barrel small, the four-barrel set medium and large).
+- **Water** (`Resource.Water`): any `drinks` item that hydrates (a `$waterAmountAdd` or water-stat effect above 0)
+  and is not alcohol - river and boiled water, tea, coffee, juice, Mega Crush, smoothies. Stews and canned soups
+  hydrate too but are tagged `food` and stay food. Members drink `WaterPerMemberDay` (1) a day; short of it the
+  community is **thirsty**, the hunger rules again on top of hunger (morale -20 - a water outpost's cistern floors
+  it at `OutpostCisternFloor` -10 - every mood -10, `buffSCThirsty` -10% run speed and damage). Water bundles
+  are loot only in Shamway crates.
+- **Where water comes from:** packing drinks; Shamway crates; **supply runs** for water (the dialog and the
+  window's run picker; water outposts' POIs first; a **gardener** is the water specialist); the **radio barter**
+  (water can be given or asked for; luxuries cannot); **water outposts** (row `waterworks`: the Water Works, the water
+  towers - tier 0 and allowed anyway through `OutpostAnyTierRows` - and modded wells, cisterns, aqueducts,
+  watering holes; `OutpostBase` water 1.5 a day at tier 2; a scavenge outpost may fetch water when it runs
+  lowest); and **facilities inside the home zone**, counted with the base's scan:
+  - **wells** (`V3-OakravenWaterFillers`): the five models are levels 1-5 (`WellBlocks`), `WellWaterPerLevel`
+    (2) water a day per level - 2/4/6/8/10. The well kit places Level 1 only (`WellsPlaceLevelOne`).
+  - **dew collectors** (vanilla, `DewCollectorBlocks`): `DewWaterPerLevel` (1) a day per level - 1..5. Their
+    level lives in the registry by position (picking one up forgets it). They keep filling jars as before.
+- **Upgrading a facility:** hold E on it inside the community: **Check** (first, so a tap only reads it: level,
+  water a day, next cost) and **Upgrade** (stockpile materials, `FacilityUpgradeCost` 4/8/12/16 for levels 2-5).
+  A well becomes its next model; a dew collector's level goes up. These hooks are Harmony patches by block type
+  (`ScFacilities`): this mod loads before the wells mod, so its XML cannot reach those blocks.
+- **Luxuries** (`Resource.Luxury`): alcohol - the `LuxuryItems` list (beer and Grandpa's moonshine, Awesome Sauce
+  and Learning Elixir); never food or water. Found in liquor piles and beer coolers. Not used up by the day: they
+  are spent on **Activities**.
+- **Activities** - a third tab in the community window. **Prepare a round of drinks**: `DrinksLuxury` (4)
+  luxuries + `DrinksFood` (1) food for +`DrinksMorale` (15) morale over `DrinksMinutes` (15) **real** minutes
+  (counted only while the game runs unpaused, saved with the registry), once per game day. Meant for the days
+  after a death.
+- **Window and HUD:** the resources strip shows all seven (water with its days left or "+N a day from the wells");
+  the Home Status panel shows water between food and meds; morale lists Water and the round of drinks.
+- **Console:** `sc give water|luxury <n>`, `sc run <member> water`, `sc barter water <res>`, `sc facility` (the wells and dew collectors in the loaded home zone,
+  their levels and water), `sc facility level <x y z> <n>`, `sc drinks [on|off]`.
 
 ## Milestone 3 - skills and traits that do something
 
@@ -338,7 +381,8 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
 
 **Radio**
 - **Scout** marks the nearest sites for a resource.
-- **Barter** trades 3 bundles of one resource for 1 of another, once a day.
+- **Barter** trades 3 bundles of one resource for 1 of another, once a day (food, medical, ammo, materials, fuel
+  and water; not luxuries).
 - It lists every outpost and answers raiders.
 - Staffed outposts sometimes draw survivors in, and runs in distress sometimes hole up at an outpost.
 
@@ -641,8 +685,9 @@ The two mods talk only through CVars on the local player; without SurvivorOrigin
 
 ## Configuration (`Config/blocks.xml`, block `ConfigSurvivorCommunity`)
 
-`MaxMembers`, `MaxFollowers`, `PostRadius`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `PointsPerBundle*`,
-`ValueOverrides`, `FuelItems`, `BedsBySleepingBag`, `BedBlocks`, `BedBlocksExclude`, `FacilityBlocks`, `LowMoraleDays`, `MissingDaysToPurge`, `RunRiskBase`,
+`MaxMembers`, `MaxFollowers`, `PostRadius`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `WaterPerMemberDay`, `PointsPerBundle*`
+(Food, Meds, Ammo, Materials, Fuel, Water, Luxury), `LuxuryItems`, `WellBlocks`, `WellWaterPerLevel`, `WellsPlaceLevelOne`, `DewCollectorBlocks`,
+`DewWaterPerLevel`, `FacilityUpgradeCost`, `DrinksLuxury`, `DrinksFood`, `DrinksMorale`, `DrinksMinutes`, `ValueOverrides`, `FuelItems`, `BedsBySleepingBag`, `BedBlocks`, `BedBlocksExclude`, `FacilityBlocks`, `LowMoraleDays`, `MissingDaysToPurge`, `RunRiskBase`,
 `RunYieldBase`, `SuppliesFavours`, `PoiFavourRange`, `TraitsPerRecruit`, `DebugLogging`, and the
 `Traits` table (weight, food-use multiplier, morale/mood offsets, starting skill bonus, preferred
 specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `MeleePerStar`, `RangedPerStar`,

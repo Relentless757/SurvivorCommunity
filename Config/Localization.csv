@@ -84,17 +84,17 @@ scTraitHoarder,UI,Trait,,,,Hoarder
 scTraitCheerful,UI,Trait,,,,Cheerful
 scTraitInsomniac,UI,Trait,,,,Insomniac
 scPackingStation,Block,Block,,,,Packing Station
-scPackingStationDesc,Block,Block,,,,"Drop food, medical supplies, ammo, building materials or fuel in the box and pack them into bundles for your community. Deposit bundles into the stockpile here; withdraw them to carry."
+scPackingStationDesc,Block,Block,,,,"Drop food, water and other drinks, medical supplies, ammo, building materials, fuel or alcohol in the box and pack them into bundles for your community - the biggest first: a Large bundle holds three units, a Medium two, a Small one. Deposit bundles into the stockpile here; take Small ones out to carry."
 scBundleFood,Item,Item,,,,Food Bundle
-scBundleFoodDesc,Item,Item,,,,A day's food for a couple of survivors. Deposit it at a packing station.
+scBundleFoodDesc,Item,Item,,,,"An older bundle of food, worth one unit (a Small bundle). Deposit it at a packing station."
 scBundleMeds,Item,Item,,,,Medical Bundle
-scBundleMedsDesc,Item,Item,,,,Enough medical supplies to treat one injury. Deposit it at a packing station.
+scBundleMedsDesc,Item,Item,,,,"An older bundle of medical supplies, worth one unit (a Small bundle). Deposit it at a packing station."
 scBundleAmmo,Item,Item,,,,Ammo Bundle
-scBundleAmmoDesc,Item,Item,,,,Ammunition for the survivors guarding your base. Deposit it at a packing station.
+scBundleAmmoDesc,Item,Item,,,,"An older bundle of ammunition, worth one unit (a Small bundle). Deposit it at a packing station."
 scBundleMaterials,Item,Item,,,,Materials Bundle
-scBundleMaterialsDesc,Item,Item,,,,Building materials for the community. Deposit it at a packing station.
+scBundleMaterialsDesc,Item,Item,,,,"An older bundle of building materials, worth one unit (a Small bundle). Deposit it at a packing station."
 scBundleFuel,Item,Item,,,,Fuel Bundle
-scBundleFuelDesc,Item,Item,,,,Fuel for the community. Deposit it at a packing station.
+scBundleFuelDesc,Item,Item,,,,"An older bundle of fuel, worth one unit (a Small bundle). Deposit it at a packing station."
 scPackFood,UI,Packing,,,,Pack food
 scPackMeds,UI,Packing,,,,Pack medical
 scPackAmmo,UI,Packing,,,,Pack ammo
@@ -106,16 +106,16 @@ scTakeAmmo,UI,Packing,,,,Take ammo
 scTakeMaterials,UI,Packing,,,,Take materials
 scTakeFuel,UI,Packing,,,,Take fuel
 scDeposit,UI,Packing,,,,Deposit bundles
-scStockText,UI,Packing,,,,"Stockpile - food {0}, medical {1}, ammo {2}, materials {3}, fuel {4}"
+scStockText,UI,Packing,,,,"Stock: food {0}, water {5}, meds {1}, ammo {2}, mats {3}, fuel {4}, lux {6}"
 scPacked,UI,Packing,,,,"Packed {0} {1} bundle(s)."
 scPackShort,UI,Packing,,,,"Not enough {0} in the box for a bundle ({1} of {2} points)."
 scDeposited,UI,Packing,,,,"{0} bundle(s) added to the stockpile."
 scNoBundles,UI,Packing,,,,There are no bundles in the box.
-scWithdrawn,UI,Packing,,,,"One {0} bundle taken from the stockpile."
+scWithdrawn,UI,Packing,,,,One small {0} bundle taken from the stockpile.
 scStockEmpty,UI,Packing,,,,"The stockpile has no {0} bundles."
 scBoxFull,UI,Packing,,,,The box is full.
 scDaily,UI,Tooltip,,,,"Community ({0} survivors): {1}"
-scDailyUse,UI,Tooltip,,,,"used {0} food, {1} medical, {2} ammo"
+scDailyUse,UI,Tooltip,,,,"used {0} food, {3} water, {1} medical, {2} ammo"
 scDailyHungry,UI,Tooltip,,,,"- NOT ENOUGH FOOD, your survivors went hungry"
 scDailyInjured,UI,Tooltip,,,,"- {0} injured with no medical supplies"
 scDailyNoAmmo,UI,Tooltip,,,,"- a survivor ran low on ammo and the stockpile had none to give"
@@ -158,7 +158,7 @@ scObjectiveReturn,UI,Quest,,,,"Return to {0}"
 scObjectiveReturnWho,UI,Quest,,,,the survivor
 scWinTitle,UI,Menu,,,,"Community - morale {0} ({1})"
 scWinSubtitle,UI,Menu,,,,"{0} of {1} survivors - facilities {3}, crops {4}"
-scWinStock,UI,Menu,,,,"Stockpile: food {0}, medical {1}, ammo {2}, materials {3}, fuel {4}"
+scWinStock,UI,Menu,,,,"Stockpile: food {0}, water {5}, medical {1}, ammo {2}, materials {3}, fuel {4}, luxuries {6}"
 scWinListHeader,UI,Menu,,,,"Survivors ({0})"
 scWinPage,UI,Menu,,,,"Page {0} of {1}"
 scWinPrev,UI,Menu,,,,Previous
@@ -525,7 +525,7 @@ scOpPerkFuel,UI,Menu,,,,Motor pool - supply runs bring back more
 scRadioScoutHeader,UI,Menu,,,,Scout for outposts (once a day)
 scRadioScoutDesc,UI,Menu,,,,Listen for chatter about a kind of site: the nearest few within range are marked on your map for a few days.
 scUiPerks,UI,Menu,,,,Perks in force
-scUiPerksNone,UI,Menu,,,,"None yet - each kind of producing outpost adds a perk (food, meds, ammo, materials, fuel)."
+scUiPerksNone,UI,Menu,,,,"None yet - each kind of producing outpost adds a perk (food, meds, ammo, materials, fuel, water)."
 scOpHomeGone,UI,Tooltip,,,,"Your community's home claim is gone - open Community on a claim at home, or pick Set as community home, first."
 scOpDoorCancelled,UI,Tooltip,,,,The line home dropped - use the claim again when you are standing at it.
 scOpModeNormal,UI,Menu,,,,normal
@@ -731,3 +731,107 @@ scTrustHostile,UI,Tooltip,,,,{0} won't forget that - they're hostile to you now.
 scTrustRefuses,UI,Tooltip,,,,They want nothing to do with you.
 scTrustNoHire,Dialog,Statement,,,,"*glares* Not for all the dukes in the world."
 scSnapUnknownTrait,UI,Menu,,,,????
+scResWater,UI,Resource,,,,water
+scResLuxury,UI,Resource,,,,luxury
+scResShortWater,UI,Menu,,,,water
+scResShortLuxury,UI,Menu,,,,lux
+scRunWater,UI,Menu,,,,Water
+scRunLuxury,UI,Menu,,,,Luxuries
+scBundleFoodSmall,Item,Item,,,,Small Food Bundle
+scBundleFoodSmallDesc,Item,Item,,,,One unit of food for the community stockpile. Deposit it at a packing station.
+scBundleFoodMedium,Item,Item,,,,Medium Food Bundle
+scBundleFoodMediumDesc,Item,Item,,,,Two units of food for the community stockpile. Deposit it at a packing station.
+scBundleFoodLarge,Item,Item,,,,Large Food Bundle
+scBundleFoodLargeDesc,Item,Item,,,,Three units of food for the community stockpile. Deposit it at a packing station.
+scBundleWaterSmall,Item,Item,,,,Small Water Bundle
+scBundleWaterSmallDesc,Item,Item,,,,One unit of water for the community stockpile. Deposit it at a packing station.
+scBundleWaterMedium,Item,Item,,,,Medium Water Bundle
+scBundleWaterMediumDesc,Item,Item,,,,Two units of water for the community stockpile. Deposit it at a packing station.
+scBundleWaterLarge,Item,Item,,,,Large Water Bundle
+scBundleWaterLargeDesc,Item,Item,,,,Three units of water for the community stockpile. Deposit it at a packing station.
+scBundleMedsSmall,Item,Item,,,,Small Medical Bundle
+scBundleMedsSmallDesc,Item,Item,,,,One unit of medical supplies for the community stockpile. Deposit it at a packing station.
+scBundleMedsMedium,Item,Item,,,,Medium Medical Bundle
+scBundleMedsMediumDesc,Item,Item,,,,Two units of medical supplies for the community stockpile. Deposit it at a packing station.
+scBundleMedsLarge,Item,Item,,,,Large Medical Bundle
+scBundleMedsLargeDesc,Item,Item,,,,Three units of medical supplies for the community stockpile. Deposit it at a packing station.
+scBundleAmmoSmall,Item,Item,,,,Small Ammo Bundle
+scBundleAmmoSmallDesc,Item,Item,,,,One unit of ammunition for the community stockpile. Deposit it at a packing station.
+scBundleAmmoMedium,Item,Item,,,,Medium Ammo Bundle
+scBundleAmmoMediumDesc,Item,Item,,,,Two units of ammunition for the community stockpile. Deposit it at a packing station.
+scBundleAmmoLarge,Item,Item,,,,Large Ammo Bundle
+scBundleAmmoLargeDesc,Item,Item,,,,Three units of ammunition for the community stockpile. Deposit it at a packing station.
+scBundleMaterialsSmall,Item,Item,,,,Small Materials Bundle
+scBundleMaterialsSmallDesc,Item,Item,,,,One unit of building materials for the community stockpile. Deposit it at a packing station.
+scBundleMaterialsMedium,Item,Item,,,,Medium Materials Bundle
+scBundleMaterialsMediumDesc,Item,Item,,,,Two units of building materials for the community stockpile. Deposit it at a packing station.
+scBundleMaterialsLarge,Item,Item,,,,Large Materials Bundle
+scBundleMaterialsLargeDesc,Item,Item,,,,Three units of building materials for the community stockpile. Deposit it at a packing station.
+scBundleFuelSmall,Item,Item,,,,Small Fuel Bundle
+scBundleFuelSmallDesc,Item,Item,,,,One unit of fuel for the community stockpile. Deposit it at a packing station.
+scBundleFuelMedium,Item,Item,,,,Medium Fuel Bundle
+scBundleFuelMediumDesc,Item,Item,,,,Two units of fuel for the community stockpile. Deposit it at a packing station.
+scBundleFuelLarge,Item,Item,,,,Large Fuel Bundle
+scBundleFuelLargeDesc,Item,Item,,,,Three units of fuel for the community stockpile. Deposit it at a packing station.
+scBundleLuxurySmall,Item,Item,,,,Small Luxury Bundle
+scBundleLuxurySmallDesc,Item,Item,,,,One unit of luxuries (alcohol) for the community stockpile. Deposit it at a packing station.
+scBundleLuxuryMedium,Item,Item,,,,Medium Luxury Bundle
+scBundleLuxuryMediumDesc,Item,Item,,,,Two units of luxuries (alcohol) for the community stockpile. Deposit it at a packing station.
+scBundleLuxuryLarge,Item,Item,,,,Large Luxury Bundle
+scBundleLuxuryLargeDesc,Item,Item,,,,Three units of luxuries (alcohol) for the community stockpile. Deposit it at a packing station.
+scBundleSizeSmall,UI,Packing,,,,small
+scBundleSizeMedium,UI,Packing,,,,medium
+scBundleSizeLarge,UI,Packing,,,,large
+scAnd,UI,Packing,,,,and
+scPackedInto,UI,Packing,,,,Packed {0} {1} into {2} bundle(s).
+scDepositedUnits,UI,Packing,,,,{0} bundle(s) added to the stockpile: {1}.
+scDailyWells,UI,Tooltip,,,,- the wells gave {0} water
+scDailyThirsty,UI,Tooltip,,,,"- NOT ENOUGH WATER, your survivors went thirsty"
+buffSCThirstyName,Buff,Buff,,,,Thirsty
+buffSCThirstyDesc,Buff,Buff,,,,The community is out of water. Slower and weaker until the stockpile has water again.
+scWinThirsty,UI,Menu,,,,Thirsty
+scWinWaterMade,UI,Menu,,,,+{0} a day from the wells
+scWinWaterNone,UI,Menu,,,,No water left
+scMoraleWater,UI,Menu,,,,Water
+scMoraleWaterMade,UI,Menu,,,,(the wells and dew collectors give {0} a day)
+scMoraleActivity,UI,Menu,,,,A round of drinks
+scMoraleActivityLeft,UI,Menu,,,,A round of drinks ({0} left)
+scUiActivities,UI,Menu,,,,Activities
+scUiActSummary,UI,Menu,,,,"In the stockpile: {0} luxuries, {1} food"
+scUiActCost,UI,Menu,,,,Cost
+scUiActEffect,UI,Menu,,,,Effect
+scUiActStatus,UI,Menu,,,,Status
+scUiActAbout,UI,Menu,,,,What it is for
+scUiActDrinksCost,UI,Menu,,,,{0} luxuries + {1} food
+scUiActDrinksEffect,UI,Menu,,,,+{0} morale for {1} minutes
+scUiActDrinksDo,UI,Menu,,,,Pour a round
+scUiActRunning,UI,Menu,,,,Running - {0} left
+scUiActDoneToday,UI,Menu,,,,Poured today - again tomorrow
+scUiActReady,UI,Menu,,,,Ready
+scUiActNotReady,UI,Menu,,,,Not enough luxuries or food
+scActDrinks,UI,Menu,,,,Prepare a round of drinks
+scActDrinksDesc,UI,Menu,,,,"Break out the good stuff and pour everyone a drink. After a loss it lifts the community's spirits for a while. It costs luxuries and a little food, and there is one round a day. The time only runs while you play."
+scActNoMembers,UI,Tooltip,,,,There is nobody at home to share a drink with.
+scActDrinksRunning,UI,Tooltip,,,,The round is still going - there is one a day.
+scActDrinksToday,UI,Tooltip,,,,There has already been a round today - try again tomorrow.
+scActDrinksShort,UI,Tooltip,,,,A round needs {0} luxuries and {1} food (the stockpile has {2} and {3}).
+scActDrinksPoured,UI,Tooltip,,,,You pour a round of drinks. Spirits lift: +{0} morale for {1} minutes.
+scActDrinksOver,UI,Tooltip,,,,The round of drinks has worn off.
+blockcommand_scfacinfo,UI,Menu,,,,Check
+blockcommand_scfacupgrade,UI,Menu,,,,Upgrade
+scFacPrompt,UI,Tooltip,,,,Press {0} to check {1} (level {2})
+scFacPromptUp,UI,Tooltip,,,,Press {0} to check {1} (level {2}) - hold {0} to upgrade
+scFacInfo,UI,Tooltip,,,,{0} - level {1} of {2}: {3} water a day for the community.
+scFacInfoTop,UI,Tooltip,,,,It is at its top level.
+scFacInfoNext,UI,Tooltip,,,,Level {0} costs {1} materials ({2} in the stockpile).
+scFacInfoOutside,UI,Tooltip,,,,"{0} - level {1} of {2}: outside your community, it gives the stockpile no water."
+scFacInfoClient,UI,Tooltip,,,,{0} - level {1} of {2}. The host manages the community and its upgrades.
+scFacOutside,UI,Tooltip,,,,{0} is outside your community - only facilities inside the home claim can be upgraded.
+scFacMaxed,UI,Tooltip,,,,{0} is already at its top level ({1}).
+scFacNoMats,UI,Tooltip,,,,Level {2} needs {0} materials - the stockpile has {1}.
+scFacUpgraded,UI,Tooltip,,,,{0} is now level {1}: {2} water a day for the community (-{3} materials).
+scOpType_waterworks,UI,Menu,,,,water supply
+scOpPerkWater,UI,Menu,,,,Cistern - thirst hurts morale less
+scBarterNoLuxury,UI,Tooltip,,,,"The radio trades food, water, medical, ammo, materials and fuel - not luxuries."
+scRunNoLuxury,UI,Tooltip,,,,Nobody goes out just for liquor - pick something the community needs.
+scScoutClassicOnly,UI,Tooltip,,,,"The radio scouts for food, medical, ammo, materials and fuel."
