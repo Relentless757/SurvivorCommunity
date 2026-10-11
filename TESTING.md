@@ -25,6 +25,20 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Talking to a survivor with a reward waiting (X14)
+
+**Deployed 2026-10-11** (Fable review: deployable; DLL md5 `32ca5289936deed49642c9d02cda4dd0`). Your report (2026-10-11): with a challenge reward waiting at the trader, Talk on any survivor
+opened the reward claim window instead, and the camera stayed zoomed with movement broken. Cause: SCore's survivors take
+vanilla's trader path, which shows any "claim at a trader" quest first, and the window crashed on a survivor (it has no
+trader). Now a survivor without a trader never offers a turn-in.
+
+1. Finish a challenge or trader quest that is claimed at a trader, and do not claim it.
+2. Talk to a survivor and a member. The normal dialog opens, the camera zooms and comes back, and you can walk off.
+3. Go to a real trader. The reward claim window opens there and the reward can be claimed.
+4. Talk to the trader again with nothing to claim: the trader dialog and Trade work as before.
+5. A recruit favour (talk to the survivor after the job) still finishes at that survivor.
+6. `sc xnpc` shows `x14-no-trader-turnin-hidden` above 0 after step 2.
+
 ## Water, luxuries, bundle sizes, upgradable wells and dew collectors, the Activities tab
 
 **Deployed 2026-10-10** (Fable review + re-check: deployable; DLL md5 `73c0337919ef0a707c56713a17acef74`, Config with it). Your asks (2026-10-10): small / medium / large bundles (1 / 2 / 3) in loot; a Water resource

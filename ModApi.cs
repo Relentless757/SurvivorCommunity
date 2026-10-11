@@ -266,6 +266,8 @@ namespace SurvivorCommunity
             // X13 (M11 review F1): the held gun is saved after SCore's section (its Write postfix shares the
             // EntityAliveSDXV4::Write entry above) and read back here
             Add(t, "EntityAliveSDXV4::Read", Patches_Xnpc.ReadTarget());
+            // X14: no quest turn-in window on an NPC body that has no trader
+            Add(t, "QuestJournal::GetNextCompletedQuest", Patches_Xnpc.TurnInTarget());
             // ScVanity.cs - Vanity Vault paints and tattoos on our bodies after every build (inert without Vanity Vault)
             Add(t, "SDCSUtils::CreateVizTP", Patches_Vanity.Patch_CreateVizTP.Target());
             Add(t, "EModelSDCS::SetVisible", Patches_Vanity.Patch_SetVisible.Target());

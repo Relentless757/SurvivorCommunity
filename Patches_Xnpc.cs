@@ -33,6 +33,8 @@ namespace SurvivorCommunity
     ///                                                         writes over go back to the bag (M11)
     ///   X13 EntityAliveSDXV4.Write / Read                     postfixes  the gun in the hand, its rounds and its seated
     ///                                                         magazine are saved and loaded with the body (M11 review F1)
+    ///   X14 QuestJournal.GetNextCompletedQuest       postfix  no quest turn-in window on an NPC body that has no trader
+    ///                                                         (Talk crashed into it and left the camera zoomed)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
     /// bound by name with a Prepare that turns the patch off when the method is gone, and listed in ModApi's
@@ -51,6 +53,8 @@ namespace SurvivorCommunity
         private static int talkRefused;
         /// <summary>X9's trade half: the frames a body with no trader was refused its "Trade" command.</summary>
         private static int tradeRefused;
+        /// <summary>X14: the times a finished quest was kept back from a body with no trader (once per Talk).</summary>
+        private static int turnInHidden;
         /// <summary>X10 runs every frame a turret looks at a raider: a plain counter of the times it was made a target.</summary>
         private static int turretTargets;
         /// <summary>The same for a motion sensor's scan.</summary>
@@ -62,6 +66,7 @@ namespace SurvivorCommunity
             updateHits = 0;
             talkRefused = 0;
             tradeRefused = 0;
+            turnInHidden = 0;
             turretTargets = 0;
             sensorTargets = 0;
             Patch_ModelLayer.Reset();
@@ -83,6 +88,7 @@ namespace SurvivorCommunity
             parts.Add("x7-update=" + updateHits);
             parts.Add("x9-raider-talk-refused=" + talkRefused);
             parts.Add("x9-no-trader-trade-refused=" + tradeRefused);
+            parts.Add("x14-no-trader-turnin-hidden=" + turnInHidden);
             parts.Add("x10-turret-raider-target=" + turretTargets);
             parts.Add("x10-sensor-raider-target=" + sensorTargets);
             return string.Join(", ", parts.ToArray());
@@ -188,6 +194,12 @@ namespace SurvivorCommunity
         public static MethodBase ReadTarget()
         {
             return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Read", new[] { typeof(byte), typeof(System.IO.BinaryReader) });
+        }
+
+        /// <summary>X14: vanilla's lookup of the next quest an NPC can take back (EntityTrader.OnLockedLocal and the turn-in window).</summary>
+        public static MethodBase TurnInTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(QuestJournal), "GetNextCompletedQuest", new[] { typeof(Quest), typeof(int) });
         }
 
         /// <summary>SCore's Harmony id (SphereIICoreInit): X10 runs after its turret postfixes, which decide an EntityNPC alone.</summary>
@@ -776,8 +788,8 @@ namespace SurvivorCommunity
                 }
             }
 
-            /// <summary>Does this NPC's TraderData name a trader that exists, i.e. would vanilla's trade lock find one?</summary>
-            private static bool HasTrader(EntityTrader npc)
+            /// <summary>Does this NPC's TraderData name a trader that exists, i.e. would vanilla's trade lock find one? (X14 too)</summary>
+            internal static bool HasTrader(EntityTrader npc)
             {
                 TraderData data = npc.TraderData;
                 TraderInfo[] list = TraderInfo.traderInfoList;
@@ -1108,6 +1120,56 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-load-held-gun", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X14: no turn-in at a body with no trader ----
+
+        /// <summary>
+        /// X14 (2026-10-11, the user: "talking to any survivor when I have a challenge reward waiting to be claimed at the
+        /// trader pulls up the challenge reward claim window ... Camera breaks and unable to move normally"). Talk on an
+        /// SCore V4 body takes vanilla's trader lock on channel 0 (V4's OnEntityActivated), so EntityTrader.OnLockedLocal
+        /// runs for it as for a trader: it asks QuestJournal.GetNextCompletedQuest(null, entityId) first, and that returns
+        /// any quest ReadyForTurnIn that does not have to go back to its own giver (!ReturnToQuestGiver or QuestGiverID -1:
+        /// the trader-tier challenges and every "any trader" quest) - so a survivor opened the quest turn-in window instead
+        /// of the dialog. TransitionToNextWindow sets OverrideFOV 30 and keeps the lock, then XUiC_QuestTurnInWindowGroup
+        /// opens the backpack, whose item info binds pricelabel -&gt; XUiM_Trader.GetSellPrice -&gt; traderData.TraderInfo, which
+        /// is null for a TraderID of -1 (the X9 note: 0-XNPCCore's npc_info has no trader_id), and throws (at once, or on
+        /// the first priced reward hovered) before the close state can undo the zoom or the lock. SC's own favour quests
+        /// are AutoComplete and never wait for a turn-in, and SC's bodies offer no quest list (SdcsNPC has no quest_entry;
+        /// 0-XNPCCore's jobs dialog, which hands out turn-in quests, is on its trader_id NPCs), so for an EntityAliveSDXV4 /
+        /// EntityAliveSDX with no trader (HasTrader, as X9) the lookup finds none: Talk opens the dialog, and the reward
+        /// stays for a real trader. An NPC with a real trader_id, a vanilla trader and every other caller are untouched.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoTurnInWithoutTrader
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(TurnInTarget, "QuestJournal.GetNextCompletedQuest(Quest, int)", "talking to a survivor with a quest or challenge reward to claim opens the turn-in window, which locks the camera");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return TurnInTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(int entityId, ref Quest __result)
+            {
+                try
+                {
+                    if (__result == null) return;
+                    World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+                    EntityTrader npc = w != null ? w.GetEntity(entityId) as EntityTrader : null;
+                    if (npc == null || !(npc is EntityAliveSDXV4 || npc is EntityAliveSDX)) return;
+                    if (Patch_NoTalkToRaiders.HasTrader(npc)) return;
+                    __result = null;
+                    turnInHidden++;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-turnin", ex);
                 }
             }
         }
