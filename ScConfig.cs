@@ -127,6 +127,20 @@ namespace SurvivorCommunity
         public static readonly List<string> FuelItems = new List<string>();
         public static readonly List<string> FacilityBlocks = new List<string>();
         public static int PostRadius = 8;
+        // ---- residents about the base (round hz) ----
+        /// <summary>
+        /// By day residents walk anywhere in the home zone and stand ResidentRoamPauseMin..Max real seconds at each stop
+        /// (UAI.UAITaskWanderHomeSC); inside the zone, or within ResidentRoamZoneMargin metres of it, the 25 m leash and
+        /// the watchdog's far-from-the-post rule do not count. False: the old roam within 12 m of the post, 45 s apart.
+        /// </summary>
+        public static bool ResidentRoamZone = true;
+        public static float ResidentRoamPauseMin = 10f;
+        public static float ResidentRoamPauseMax = 20f;
+        public static float ResidentRoamZoneMargin = 8f;
+        // ---- the home zone kept loaded (round hz, ScHomeHold) ----
+        public static bool HomeKeepLoaded = true;
+        /// <summary>Held while any player is within this many metres of the zone (let go 50 m further out).</summary>
+        public static float HomeKeepLoadedRange = 250f;
         public static int LowMoraleDays = 2;
         public static int MissingDaysToPurge = 30;
         public static float RunRiskBase = 0.15f;
@@ -700,6 +714,11 @@ namespace SurvivorCommunity
             FuelItems.Clear();
             FacilityBlocks.Clear();
             PostRadius = 8;
+            ResidentRoamZone = true;
+            ResidentRoamPauseMin = 10f; ResidentRoamPauseMax = 20f;
+            ResidentRoamZoneMargin = 8f;
+            HomeKeepLoaded = true;
+            HomeKeepLoadedRange = 250f;
             DefendBaseRadius = 22;
             LowMoraleDays = 2;
             MissingDaysToPurge = 30;
@@ -1006,6 +1025,17 @@ namespace SurvivorCommunity
                 ParseFloat(p, "DrinksMinutes", ref DrinksMinutes, 0.1f, 1440f);
                 ParseInt(p, "OutpostCisternFloor", ref OutpostCisternFloor, -100, 0);
                 ParseInt(p, "PostRadius", ref PostRadius, 2, 40);
+                bool roamZone = ResidentRoamZone;
+                if (p.Values.ContainsKey("ResidentRoamZone")) p.ParseBool("ResidentRoamZone", ref roamZone);
+                ResidentRoamZone = roamZone;
+                ParseFloat(p, "ResidentRoamPauseMin", ref ResidentRoamPauseMin, 0f, 600f);
+                ParseFloat(p, "ResidentRoamPauseMax", ref ResidentRoamPauseMax, 0f, 600f);
+                if (ResidentRoamPauseMax < ResidentRoamPauseMin) ResidentRoamPauseMax = ResidentRoamPauseMin;
+                ParseFloat(p, "ResidentRoamZoneMargin", ref ResidentRoamZoneMargin, 0f, 100f);
+                bool keepLoaded = HomeKeepLoaded;
+                if (p.Values.ContainsKey("HomeKeepLoaded")) p.ParseBool("HomeKeepLoaded", ref keepLoaded);
+                HomeKeepLoaded = keepLoaded;
+                ParseFloat(p, "HomeKeepLoadedRange", ref HomeKeepLoadedRange, 0f, 2000f);
                 ParseInt(p, "LowMoraleDays", ref LowMoraleDays, 1, 30);
                 ParseInt(p, "MissingDaysToPurge", ref MissingDaysToPurge, 1, 1000);
                 ParseFloat(p, "RunRiskBase", ref RunRiskBase, 0f, 1f);

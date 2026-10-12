@@ -81,6 +81,7 @@ namespace SurvivorCommunity
                 ScRadio.Tick(w, player);
                 ScOutposts.Tick(w, player);           // radio report-in stamp, claim check, markers (every 10 s)
                 ScHomeLink.Tick(player);              // an outpost's door into the home storage: load, open, release
+                ScHomeHold.Tick(w);                   // the home zone held loaded while a player is near (round hz)
                 ScGarrison.Tick(w, player);           // stand-ins at the staffed outpost the player is at, visit stamps
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
                 ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves

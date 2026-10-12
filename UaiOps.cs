@@ -27,16 +27,28 @@ namespace UAI
         }
     }
 
-    /// <summary>Roams a few blocks around the member's post, never leaving the home zone. radius="12" cooldown="45" (real seconds).</summary>
+    /// <summary>
+    /// The daytime roam. With ResidentRoamZone (round hz, the default; the user: "They should be able to walk about inside
+    /// the base rather than find somewhere to stand"): a walk to a random standable floor anywhere in the home zone, then
+    /// ResidentRoamPauseMin..Max real seconds standing where the walk ended, then the next walk at once (no cooldown: a gap
+    /// of even a second scored ScRoam 0, and NPCModCore's Guard set off running for the post - the review's F1); radius and
+    /// cooldown are not used, and a walk with no spot to go to is a pause too. Without it: a few blocks around the member's
+    /// post, never leaving the home zone,
+    /// radius="12" cooldown="45" (real seconds), and Guard walks them back to the post in between.
+    /// </summary>
     public class UAITaskWanderHomeSC : UAITaskBase
     {
         private int radius = 12;
         private float cooldown = 45f;
         private readonly Dictionary<int, Vector3> targets = new Dictionary<int, Vector3>();
         private readonly Dictionary<int, float> deadlines = new Dictionary<int, float>();
+        private readonly Dictionary<int, float> pauseUntil = new Dictionary<int, float>();
         private readonly HashSet<int> retried = new HashSet<int>();
         private const float MaxSeconds = 20f;   // of walking before giving up on a target (real time - ticks are frame-rate bound)
+        private const float MaxZoneSeconds = 90f;   // zone roaming: the walk's limit grows with the distance, up to this
         private const float RetryBackoff = 5f;  // when no target could be found
+        private const float ZoneCooldown = 0f;  // zone roaming: the pause is the rest between walks (F1: any gap hands over to Guard)
+        private const float MinZoneStep = 6f;   // zone roaming: a walk is at least this long (horizontal metres)
 
         public override void initializeParameters()
         {
@@ -50,6 +62,7 @@ namespace UAI
             base.Start(_context);
             EntityAlive self = _context.Self;
             int id = self.entityId;
+            pauseUntil.Remove(id);   // a pause left by a body that unloaded mid-pause (no Stop; the same id comes back)
             Member m = ScRegistry.GetMember(id);
             if (m == null || m.Post == Vector3i.zero) { Stop(_context); return; }
             // SCore's updateAction re-Starts a finished task on the next AI tick, before chooseAction sees the
@@ -59,7 +72,9 @@ namespace UAI
             Vector3 post = new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
             Vector3 target = Vector3.zero;
             World w = self.world;
-            for (int attempt = 0; attempt < 6 && target == Vector3.zero; attempt++)
+            bool zone = ScConfig.ResidentRoamZone;
+            if (zone) target = ZoneTarget(self, post, w);
+            for (int attempt = 0; !zone && attempt < 6 && target == Vector3.zero; attempt++)
             {
                 // CalcNear validates nothing - check the cell ourselves. A real floor (the M11 fix 2, STUCK_DIAG: the old
                 // "two air cells over anything" aimed roams at furniture tops), at the post's level or up to 2 off it
@@ -74,6 +89,13 @@ namespace UAI
                     break;
                 }
             }
+            if (target == Vector3.zero && zone)
+            {
+                // nowhere to go just now: a pause where they stand (the task keeps running, so Guard does not take over)
+                ScRoamState.Active.Add(id);
+                Pause(self, 1f);   // at least a second: a 0 s pause config would search for a spot every few frames
+                return;
+            }
             if (target == Vector3.zero)
             {
                 ScRoamState.NextAllowed[id] = Time.time + RetryBackoff;   // hand the entity to Guard instead of retrying every tick
@@ -82,7 +104,7 @@ namespace UAI
             }
 
             targets[id] = target;
-            deadlines[id] = Time.time + MaxSeconds;
+            deadlines[id] = Time.time + (zone ? Mathf.Clamp(Vector3.Distance(self.position, target) * 1.2f + 8f, MaxSeconds, MaxZoneSeconds) : MaxSeconds);
             ScRoamState.Active.Add(id);
             self.moveHelper.CanBreakBlocks = false;
             self.FindPath(target, self.GetMoveSpeed(), false, null);
@@ -91,6 +113,12 @@ namespace UAI
         public override void Update(Context _context)
         {
             EntityAlive self = _context.Self;
+            float until;
+            if (pauseUntil.TryGetValue(self.entityId, out until))
+            {
+                if (Time.time >= until) Stop(_context);   // a pause where the walk ended: standing, nothing to push at
+                return;
+            }
             Vector3 target;
             if (!targets.TryGetValue(self.entityId, out target)) { Stop(_context); return; }
             float deadline;
@@ -105,10 +133,56 @@ namespace UAI
             if (Time.time > deadline || self.getNavigator().noPathAndNotPlanningOne() || Vector3.Distance(self.position, target) < 1.5f
                 || (self.moveHelper != null && self.moveHelper.BlockedTime > 2f))     // furniture / doorway: stop pushing
             {
+                if (ScConfig.ResidentRoamZone) { Pause(self); return; }
                 Stop(_context);
                 return;
             }
             self.SetLookPosition(target);
+        }
+
+        /// <summary>Zone roaming: the walk is over (there, blocked or out of time) - stand where it ended for a while (atLeast seconds or more).</summary>
+        private void Pause(EntityAlive self, float atLeast = 0f)
+        {
+            float lo = Mathf.Max(0f, ScConfig.ResidentRoamPauseMin), hi = Mathf.Max(lo, ScConfig.ResidentRoamPauseMax);
+            pauseUntil[self.entityId] = Time.time + Mathf.Max(atLeast, Random.Range(lo, hi));
+            targets.Remove(self.entityId);
+            ScCommunity.DropPath(self);   // the path, a request still in the path finder (F5) and the move helper
+        }
+
+        /// <summary>
+        /// Zone roaming: a random standable floor anywhere in the home zone, at least MinZoneStep from the body. The floor is
+        /// looked for around the body's own level and the post's (a base has storeys), each up to two cells either way, with
+        /// the post's own test (GoodPost, relaxed); then around the column's top (World.GetHeight is the highest non-air
+        /// block, not the terrain), only when that is within two cells of one of those levels - a yard a step or two down or
+        /// up, never a roof (the review's F3). Zero when none was found in ten tries.
+        /// </summary>
+        private static Vector3 ZoneTarget(EntityAlive self, Vector3 post, World w)
+        {
+            if (w == null) return Vector3.zero;
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                Vector3 p;
+                if (!ScZone.RandomPoint(out p)) return Vector3.zero;
+                float dx = p.x - self.position.x, dz = p.z - self.position.z;
+                if (dx * dx + dz * dz < MinZoneStep * MinZoneStep) continue;
+                int x = Mathf.FloorToInt(p.x), z = Mathf.FloorToInt(p.z);
+                int own = Mathf.FloorToInt(self.position.y + 0.05f), atPost = Mathf.FloorToInt(post.y + 0.05f);
+                int top = w.GetHeight(x, z) + 1;
+                int[] levels = { own, atPost, top };
+                int count = top <= Mathf.Max(own, atPost) + 2 ? 3 : 2;
+                for (int l = 0; l < count; l++)
+                {
+                    for (int step = 0; step <= 4; step++)
+                    {
+                        Vector3i bp = new Vector3i(x, levels[l] + (step + 1) / 2 * (step % 2 == 0 ? 1 : -1), z);
+                        if (!ScZone.Contains(bp)) break;
+                        string why;
+                        if (!ScCommunity.GoodPost(w, bp, false, out why)) continue;
+                        return new Vector3(bp.x + 0.5f, bp.y, bp.z + 0.5f);
+                    }
+                }
+            }
+            return Vector3.zero;
         }
 
         public override void Stop(Context _context)
@@ -117,8 +191,9 @@ namespace UAI
             int id = self.entityId;
             targets.Remove(id);
             deadlines.Remove(id);
+            pauseUntil.Remove(id);
             retried.Remove(id);
-            if (ScRoamState.Active.Remove(id)) ScRoamState.NextAllowed[id] = Time.time + cooldown;
+            if (ScRoamState.Active.Remove(id)) ScRoamState.NextAllowed[id] = Time.time + (ScConfig.ResidentRoamZone ? ZoneCooldown : cooldown);
             self.getNavigator().clearPath();
             if (self.moveHelper != null) { self.moveHelper.Stop(); self.moveHelper.CanBreakBlocks = true; }
             base.Stop(_context);
@@ -224,6 +299,10 @@ namespace UAI
             // a live home attack (base defence D2): the leash is the defended area + LeashExtra, not the distance from the post -
             // except for a guard on watch (D3), who is leashed to the Watch post as always
             if (ScBaseAttack.WideDefence && !ScWatch.OnWatch(m)) return ScBaseAttack.InDefenceArea(_context.Self.position, ScBaseAttack.LeashExtra) ? 0f : 1f;
+            // zone roaming (round hz): the home zone, and ResidentRoamZoneMargin round it, is home - a walk there is the
+            // roam, not a chase; outside it the post leash applies as before. Not for a guard on watch.
+            if (ScConfig.ResidentRoamZone && !ScWatch.OnWatch(m)
+                && ScZone.DistanceOutside(_context.Self.position) <= ScConfig.ResidentRoamZoneMargin) return 0f;
             Vector3 post = new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
             return Vector3.Distance(_context.Self.position, post) > distance ? 1f : 0f;
         }
@@ -340,7 +419,8 @@ namespace UAI
     /// CanSeeTarget, which SCResident's ScDefendBase leaves out: that is the whole fix for "a zombie in the base and he
     /// stands in his room". Near the post that box holds the whole radius; a resident roaming 12 m off can miss an
     /// intruder at the far edge until one of them moves.
-    /// The radius is measured from the post, not from the resident, and stays inside the 25 m leash (ScReturn). The
+    /// Without zone roaming (see the last paragraph) the radius is measured from the post, not from the resident, and stays
+    /// inside the 25 m leash (ScReturn). The
     /// resident's own walk is bounded too (StrayLimit, the review's M1): the target is within 22 m, but the path to it is
     /// whatever A* finds, and a door round the back of a wall can swing it past the leash - ScReturn (5.5) then walks it
     /// home, ScDefendBase (4) walks it out again the moment it is back inside 25 m, and so on every 0.2 s while the target
@@ -353,6 +433,9 @@ namespace UAI
     /// While a home attack is live (base defence D2, ScBaseAttack.WideDefence) the radius and the zone test give way to
     /// the whole zone + BaseAttackDefendMargin, the stray limit to that area + StrayExtra, and the leash (ScFarFromPost)
     /// and the watchdog's far rule to that area + LeashExtra: every resident defends the whole base.
+    /// With zone roaming (ResidentRoamZone, round hz; the review's F2) a resident lives all over the zone, 20-60 m from its
+    /// post, so the radius is measured from the resident itself (the intruder still inside the zone), and the stray limit
+    /// is the zone + ResidentRoamZoneMargin - StrayMarginInside, just inside the leash that zone roaming draws there.
     /// </summary>
     public class UAIConsiderationScIntruder : UAIConsiderationBase
     {
@@ -369,6 +452,14 @@ namespace UAI
         public const float StrayLimit = 23f;
         /// <summary>The pause after a stray: long enough for Guard to walk the resident well inside the limit.</summary>
         public const float StrayRestSeconds = 20f;
+        /// <summary>Zone roaming: the stray limit sits this far inside the leash (zone + ResidentRoamZoneMargin), as 23 m sits inside 25 m.</summary>
+        public const float StrayMarginInside = 2f;
+
+        /// <summary>Zone roaming applies to this resident (a guard on watch never roams, and never walks to an intruder).</summary>
+        public static bool Roams(Member m)
+        {
+            return ScConfig.ResidentRoamZone && m != null && !ScWatch.OnWatch(m);
+        }
 
         public override float GetScore(Context _context, object target)
         {
@@ -378,7 +469,8 @@ namespace UAI
             // during a home attack (base defence D2) the defence covers the whole zone + BaseAttackDefendMargin and the
             // stray rule moves with it: StrayExtra past that area, LeashExtra - StrayExtra inside the widened leash
             bool strayed = ScBaseAttack.WideDefence ? !ScBaseAttack.InDefenceArea(self.position, ScBaseAttack.StrayExtra)
-                                                    : FromPost(m, self) > StrayLimit;     // m: the member Why already looked up (the re-check's R4)
+                         : Roams(m) ? ScZone.DistanceOutside(self.position) > Mathf.Max(0f, ScConfig.ResidentRoamZoneMargin - StrayMarginInside)
+                                    : FromPost(m, self) > StrayLimit;     // m: the member Why already looked up (the re-check's R4)
             if (strayed)
             {
                 ScDefendState.Rest(self.entityId, StrayRestSeconds);
@@ -426,7 +518,12 @@ namespace UAI
             }
             else
             {
-                if ((t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)radius * radius) return "beyond DefendBaseRadius of the post";
+                // zone roaming: from where the resident is (it lives all over the zone); otherwise from its post
+                if (Roams(m))
+                {
+                    if ((t.position - self.position).sqrMagnitude > (float)radius * radius) return "beyond DefendBaseRadius of the resident";
+                }
+                else if ((t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)radius * radius) return "beyond DefendBaseRadius of the post";
                 if (!ScZone.Contains(t.GetBlockPosition())) return "outside the home zone";
             }
             if (!EntityTargetingUtilities.IsEnemy(self, t)) return "not an enemy";

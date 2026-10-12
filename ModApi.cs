@@ -44,6 +44,7 @@ namespace SurvivorCommunity
                 ScRadio.Reset();
                 ScOutposts.Reset();
                 ScHomeLink.Reset();
+                ScHomeHold.Reset();
                 ScGarrison.Reset();
                 ScScouting.Reset();
                 ScOutpostRisk.Reset();
@@ -95,7 +96,7 @@ namespace SurvivorCommunity
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
                     // a dead NPC's window still held by a remote player drops at the body now (the world is saved after this event)
                     if (ScCommunity.IsHost) Patches_Npc.Patch_SetDead.ReleaseAll(true);
-                    ScPortraits.Reset(); ScHomeLink.Reset(); ScRegistry.FlushAndReset();
+                    ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScRegistry.FlushAndReset();
                 });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });
                 ModEvents.EntityKilled.RegisterHandler((ref ModEvents.SEntityKilledData _d) =>

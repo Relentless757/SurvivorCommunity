@@ -20,6 +20,18 @@
 			<property name="MaxFollowers" value="2" />
 			<!-- where residents idle: within this many blocks of the home land claim block -->
 			<property name="PostRadius" value="8" />
+			<!-- residents about the base (round hz). ResidentRoamZone: by day they walk anywhere in the home zone and stand
+			     ResidentRoamPauseMin..Max seconds at each stop; at night, or with an enemy within 30 m, they go back to their
+			     spot. Inside the zone, or within ResidentRoamZoneMargin metres of it, the 25 m leash and the stuck watchdog's
+			     "far from the post" rule do not count. false: the old short roam round their spot. -->
+			<property name="ResidentRoamZone" value="true" />
+			<property name="ResidentRoamPauseMin" value="10" />
+			<property name="ResidentRoamPauseMax" value="20" />
+			<property name="ResidentRoamZoneMargin" value="8" />
+			<!-- the home zone stays loaded while any player is within HomeKeepLoadedRange metres of it (let go 50 m further
+			     out), so survivors at the edge of your view distance are not unloaded and rebuilt as you move (round hz) -->
+			<property name="HomeKeepLoaded" value="true" />
+			<property name="HomeKeepLoadedRange" value="250" />
 
 			<!-- daily use, in bundles. AmmoPerRangedDay is NOT charged any more: ammo is only spent when a survivor is
 			     resupplied (XnpcResupply* below); it is only the estimate the outposts use to judge which resource runs

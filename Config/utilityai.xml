@@ -27,7 +27,10 @@
 		<ai_package name="SCResident">
 			<!-- ScRoamReady stays true while the roam runs and false for "cooldown" real seconds after it
 			     stops; the AI re-scores every 0.2 s, so a cooldown consumed during scoring would end every
-			     roam after one decision window. -->
+			     roam after one decision window. With ResidentRoamZone (blocks.xml; the default since round hz) radius and
+			     cooldown are not used: the walk goes anywhere in the home zone, the resident stands ResidentRoamPauseMin..Max
+			     seconds where it ended (the task still running, so Guard does not walk them back), and the next walk starts at
+			     once (any gap would let Guard run them toward the post). -->
 			<action name="ScRoam" weight="2.5" entity_filter="IsSelf">
 				<task class="WanderHomeSC, SurvivorCommunity" radius="12" cooldown="45" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
@@ -40,7 +43,8 @@
 			<!-- The leash. The pack's combat actions (weight 4-6) only stand down under a Stay order, so a
 			     resident on Guard chases a zombie as far as it runs - playtest logs showed one 92 m from home.
 			     This outscores the chase (but not point-blank self defence at weight 6) once they are further
-			     from their post than ScConfig-independent "distance", walking them home with SCore's Guard task. -->
+			     from their post than ScConfig-independent "distance", walking them home with SCore's Guard task. With
+			     ResidentRoamZone the home zone (and ResidentRoamZoneMargin round it) counts as home too. -->
 			<action name="ScReturn" weight="5.5" entity_filter="IsSelf">
 				<task class="Guard, SCore" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
@@ -50,7 +54,7 @@
 			<!-- Defend the base (M11 fix). Every combat action of the packs needs CanSeeTarget, and with a gun 0-XNPCCore's
 			     SdcsNpcRangedAdvanced has no approach at all (its MeleeApproach is for CurrentWeaponClass 0), so a resident
 			     stood at his post while a zombie walked through the base out of his sight. This walks him to any intruder
-			     (ScIntruder: an awake enemy inside the home zone within DefendBaseRadius, 22 m, of his post - seen or not;
+			     (ScIntruder: an awake enemy inside the home zone within DefendBaseRadius, 22 m, of his post (with ResidentRoamZone: of himself) - seen or not;
 			     SCore's UAI scores every living entity in his bounds grown by his sight range, 60 m, i.e. about 30 m each
 			     way, and sight is only a consideration, CanSeeTarget, left out here) for as long as he
 			     cannot hit it from where he stands. ScCannotEngage: with a melee weapon beyond reach (NotInWeaponRange's
@@ -59,7 +63,7 @@
 			     the moment the gun is in range AND sees it, exactly RangedMeleeAttack's own pair, so the hand-over is
 			     immediate (within 4.47 m, where SCore calls its attack target seen without a ray, SC casts it itself).
 			     MoveToAttackTargetSDX paths to the entity with no sight test; it shoots nothing itself. ScIntruder also
-			     pauses the defence for 20 s once the walk has taken him more than 23 m from his post (a detour round a
+			     pauses the defence for 20 s once the walk has taken him more than 23 m from his post (with ResidentRoamZone: 6 m outside the zone) (a detour round a
 			     wall would otherwise trade turns with the 25 m leash every 0.2 s). Weight 4: beats Guard (2), ScRoam (2.5),
 			     ScNightIdle (3) and BackupRanged (3); loses to every attack (5-7), the leash (5.5) and the Cowardly flee
 			     (6), so the pack's own attack takes over the moment a shot or a swing is possible, and Guard walks him home

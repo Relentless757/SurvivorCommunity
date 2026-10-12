@@ -330,7 +330,8 @@ namespace SurvivorCommunity
         /// A resident with a live enemy within FightRange (LiveFoe) gets three times StuckSeconds (36 s by default): in a
         /// fight it pushes at a target the player or another zombie blocks, backs into walls and waits on the player's
         /// melee, and a playtest showed the 12 s rule teleport one out of a fight (GUARD_DIAG cause 4) - while a real wedge
-        /// is still cured. The far rule stays (PostRadius x 3 + 12 m for 90 s, 36 m by default); in a fight it is never
+        /// is still cured. The far rule stays (PostRadius x 3 + 12 m for 90 s, 36 m by default; with ResidentRoamZone, round
+        /// hz, it only counts outside the home zone and its margin, where the roam never goes); in a fight it is never
         /// shorter than DefendBaseRadius + 14 m (36 m at 22), so a defence at the edge of its reach on a small PostRadius
         /// cannot trip it either - the 25 m leash (ScReturn) walks a resident home long before.
         ///
@@ -387,7 +388,10 @@ namespace SurvivorCommunity
                 float farLimit = ScConfig.PostRadius * 3 + 12;
                 if (fighting) farLimit = Mathf.Max(farLimit, ScConfig.DefendBaseRadius + 14f);
                 float away = Vector3.Distance(pos, PostCenter(m));
-                if (away > farLimit && !(wide && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra))) m.AwaySeconds++; else m.AwaySeconds = 0;
+                // zone roaming (round hz): anywhere in the home zone (+ ResidentRoamZoneMargin) is near enough - the far rule
+                // only counts outside it, so a resident walking the base is never teleported back to the post
+                bool homeGround = ScConfig.ResidentRoamZone && ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin;
+                if (away > farLimit && !(wide && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra)) && !homeGround) m.AwaySeconds++; else m.AwaySeconds = 0;
                 if (m.StillSeconds >= stuckLimit) Stuck(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting, now);
                 else if (m.AwaySeconds >= 90) Stuck(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s" + (fighting ? ", fighting" : ""), fighting, now);
             }

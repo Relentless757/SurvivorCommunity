@@ -25,6 +25,26 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Residents walk about the base; the home zone stays loaded (round hz)
+
+**Deployed 2026-10-12** (Fable review, re-check and final check: deployable; DLL md5 `dafab068456d22bf6015457ff05bb700`). Your asks (2026-10-12): residents should walk about inside the base rather than stand at one spot,
+and the hitch from survivors rebuilt at the edge of your view should go. By day each resident walks to a random spot
+anywhere in the home zone, stands 10-20 s, and walks on; at night or with an enemy within 30 m they go back to their
+spot. While you are within 250 m of the base its whole zone stays loaded.
+
+1. By day at home: every resident keeps walking between spots all over the base, with short stops; none stands at one
+   spot for minutes, and none walks out of the base.
+2. Nobody is teleported back to their spot while walking (the log has no "moved back to the post ... m from the post"
+   line for them), and nobody gets stuck pacing at a wall.
+3. At dusk they walk back to their spots and stand quiet; at dawn they set off again.
+4. A zombie in the base: residents within 22 m of it go after it, seen or not; the ones farther off head back to their
+   spots. `sc xnpc <member>` names the verdict (`beyond DefendBaseRadius of the resident` for one too far away).
+5. The log shows `home hold: keeping the home zone loaded around ...` as you come within 250 m, and `home hold:
+   released the home zone (no player within 300 m)` once you go past 300 m.
+6. The hitch test of the section below again: no LIPSYNC line, no `force spawning pending entity` for a survivor, while you
+   walk back and forth near the base (their bodies stay built).
+7. `ResidentRoamZone` false in blocks.xml brings back the old short roam round each spot.
+
 ## No hitch when a survivor's chunk loads (pending bodies)
 
 **Deployed 2026-10-12** (Fable review: deployable; DLL md5 `4b07781e65b36bb69026acb1a1330569`). Your report (2026-10-12): a frame hitch with the LIPSYNC line. Cause: when a chunk loads, the game
@@ -1133,7 +1153,8 @@ What changed:
   `engage=hold (ScDefendHold)` or `engage=hand over (the pack's attack)`, each with the reason, e.g. `out of range`,
   `no clear shot (a block in the line)`, `the player is in the line`, `the player is in the line (close)`, `an ally is
   in the line - closing in`, `an ally is in the line, within 6.5 m`, `an enemy, an animal or a body is in the line`)
-  and the member's own distance from its post (`- BEYOND the 23 m stray limit` past it).
+  and the member's own distance from its post (`- BEYOND the 23 m stray limit` past it; with `ResidentRoamZone`,
+  `- BEYOND the stray limit, the zone + 6 m` outside it, or `(zone roaming: the stray limit is the zone + 6 m)`).
 
 - [ ] **Startup:** `patch verification: all 70 targets patched` (63 without Voice Control) - no new target; the
       `config:` line shows `DefendBaseRadius=22`; no `Type:... was missing` warning for `ScIntruder`, `ScCannotEngage`,
@@ -1161,6 +1182,9 @@ What changed:
       there again, where no other NPC was: `x13-held-gun-read` has not risen (nothing was read back, because nothing of
       the runner was written; before the fix a copy was written, read and thrown away), no second body, `sc runners`
       shows it offline and it carries on and comes home as usual.
+- Note (round hz, 2026-10-12): with `ResidentRoamZone` on, the default now, the defence radius below is measured from
+  the resident, not its post (`beyond DefendBaseRadius of the resident`), and the stray limit is 6 m outside the home
+  zone instead of 23 m from the post. The 22 m / 23 m steps hold as written only with `ResidentRoamZone` false.
 - [ ] **Defend the base, unseen:** a resident with a pistol at its post; a zombie (creative menu / `spawnentity`) inside
       the base, inside the land claim and within 22 m of its post, out of its sight (another room, a closed door
       between, another floor). Within a few seconds `sc xnpc <member>`: `uai: action=ScDefendBase

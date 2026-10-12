@@ -28,7 +28,67 @@ namespace SurvivorCommunity
         /// <summary>Per-world reset (the LCBU assembly does not change, but be safe about statics).</summary>
         public static void Reset()
         {
-            // nothing cached per world besides the probe, which is process-wide
+            // the probe is process-wide; the rectangle cache is per world
+            rectCache.Clear();
+            rectCacheAt = -100f;
+        }
+
+        // ---- distance and random spots (round hz: residents roam the zone, ScHomeHold keeps it loaded) ----
+
+        private static readonly List<int[]> rectCache = new List<int[]>();
+        private static float rectCacheAt = -100f;
+        private const float RectCacheSeconds = 2f;
+
+        /// <summary>The zone's rectangles (Rects), read again at most every RectCacheSeconds: AI scoring asks five times a second per resident.</summary>
+        private static List<int[]> CachedRects()
+        {
+            float now = UnityEngine.Time.unscaledTime;
+            if (rectCache.Count == 0 || now - rectCacheAt > RectCacheSeconds)
+            {
+                Rects(rectCache);
+                rectCacheAt = now;
+            }
+            return rectCache;
+        }
+
+        /// <summary>Horizontal metres from the position to the nearest part of the home zone: 0 inside it, float.MaxValue with no home.</summary>
+        public static float DistanceOutside(UnityEngine.Vector3 p)
+        {
+            if (!HasHome) return float.MaxValue;
+            List<int[]> rs = CachedRects();
+            float best = float.MaxValue;
+            for (int i = 0; i < rs.Count; i++)
+            {
+                int[] r = rs[i];
+                // inclusive block bounds: block xMax covers world x up to xMax + 1
+                float dx = Math.Max(Math.Max(r[0] - p.x, p.x - (r[1] + 1)), 0f);
+                float dz = Math.Max(Math.Max(r[2] - p.z, p.z - (r[3] + 1)), 0f);
+                float d = (float)Math.Sqrt(dx * dx + dz * dz);
+                if (d < best) best = d;
+            }
+            return best;
+        }
+
+        /// <summary>A random point in the zone (y 0), each rectangle weighted by its area. False with no home.</summary>
+        public static bool RandomPoint(out UnityEngine.Vector3 p)
+        {
+            p = UnityEngine.Vector3.zero;
+            if (!HasHome) return false;
+            List<int[]> rs = CachedRects();
+            if (rs.Count == 0) return false;
+            long total = 0;
+            for (int i = 0; i < rs.Count; i++) total += (long)(rs[i][1] - rs[i][0] + 1) * (rs[i][3] - rs[i][2] + 1);
+            if (total <= 0) return false;
+            long pick = (long)(UnityEngine.Random.value * total);
+            int[] r = rs[rs.Count - 1];
+            for (int i = 0; i < rs.Count; i++)
+            {
+                long a = (long)(rs[i][1] - rs[i][0] + 1) * (rs[i][3] - rs[i][2] + 1);
+                if (pick < a) { r = rs[i]; break; }
+                pick -= a;
+            }
+            p = new UnityEngine.Vector3(UnityEngine.Random.Range(r[0], r[1] + 1) + 0.5f, 0f, UnityEngine.Random.Range(r[2], r[3] + 1) + 0.5f);
+            return true;
         }
 
         private static void Probe()

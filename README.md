@@ -53,15 +53,21 @@ NPCs but cannot manage a community (v2).
   and your own members cannot, unless you set `CommunityFriendlyFire` true in the config block. Traders stay
   immune either way, NPCs still cannot shoot each other, and zombies were never shielded.
 - **Staying home.** Residents hold a Guard order, and the NPC framework's combat actions will chase a target
-  as far as it runs, so the resident package adds a leash: more than 25 m from their post they walk back
+  as far as it runs, so the resident package adds a leash: more than 25 m from their post (with zone roaming:
+  and outside the home zone) they walk back
   instead of chasing (they still defend themselves at arm's length). Followers standing next to you hold
   position rather than letting the framework's wander behaviour walk them off.
 - **Residents.** A recruit who joins inside the base is stationed at a post near the land claim block;
-  one who joins elsewhere follows you until you walk into the base. Residents guard their post, roam
-  around it by day, stand quiet at night, fight whatever comes close and walk back. They are not in your
-  party: no teleporting after you, no hired-NPC HUD entry. They survive save/reload and chunk unloads.
+  one who joins elsewhere follows you until you walk into the base. By day residents walk about the whole
+  base (`ResidentRoamZone`: a stop anywhere in the home zone, `ResidentRoamPauseMin`..`Max` seconds there,
+  then the next); at night, or with an enemy within 30 m, they go back to their post, stand quiet, fight
+  whatever comes close and walk back. They are not in your party: no teleporting after you, no hired-NPC
+  HUD entry. They survive save/reload and chunk unloads. While any player is within `HomeKeepLoadedRange`
+  (250 m) of the base the whole home zone stays loaded (`HomeKeepLoaded`), so a survivor at the edge of your
+  view distance is not unloaded and rebuilt every time you cross a chunk line.
   A resident that gets wedged in furniture or a doorway (no progress for `StuckSeconds`, or far from the
-  post for long) is moved back to their post; the roam task also gives up on a blocked target. While it is
+  post for long - with zone roaming, outside the home zone for long) is moved back to their post; the roam
+  task also gives up on a blocked target. While it is
   fighting (a live enemy within 30 m) it gets three times `StuckSeconds` first, so a fight is not mistaken for
   a wedge. A post is always a spot with a real floor - a full block or terrain, preferably in the open, never
   the top of furniture, a plate, a ramp or a railing (roams aim the same way) - and a post from an older save
@@ -71,7 +77,8 @@ NPCs but cannot manage a community (v2).
   and a resident standing within a step of its post just stands there. `sc repost <member>` gives a new post by
   hand.
 - **Defending the base.** Residents go after any awake enemy that gets inside the home zone within
-  `DefendBaseRadius` (22 m) of their post, also one they cannot see from there - a zombie in the next room,
+  `DefendBaseRadius` (22 m) of their post (of themselves, while they walk the base with `ResidentRoamZone`), also
+  one they cannot see from there - a zombie in the next room,
   on another floor, behind a wall. They walk to it until they can hit it (with a gun: in range and a clear
   shot), fight it, and walk back to their post. With a gun, when you are in their line of fire they stand
   still facing the enemy until you step aside, rather than closing in on your fight; when another member (or
@@ -83,7 +90,8 @@ NPCs but cannot manage a community (v2).
   re-checks the line five times a second, so a shot fired just as you step in can still come; it hits you
   for nothing (friendly NPCs cannot hurt you) but is a wasted round. A deer or a dead body in the line does
   not stop them. A path that
-  would take them more than 23 m from their post (a long detour round a wall to a door) makes them give up
+  would take them more than 23 m from their post (with `ResidentRoamZone`: more than 6 m outside the home zone)
+  (a long detour round a wall to a door) makes them give up
   for 20 s and walk back, instead of trading places with the 25 m leash. Sleepers in a base built in a POI
   are left asleep, Cowardly members stay put, and followers, runners and outpost stand-ins are not affected.
   An enemy they cannot reach holds them at most three times `StuckSeconds`; they are then moved back to
@@ -685,7 +693,8 @@ The two mods talk only through CVars on the local player; without SurvivorOrigin
 
 ## Configuration (`Config/blocks.xml`, block `ConfigSurvivorCommunity`)
 
-`MaxMembers`, `MaxFollowers`, `PostRadius`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `WaterPerMemberDay`, `PointsPerBundle*`
+`MaxMembers`, `MaxFollowers`, `PostRadius`, `ResidentRoamZone`, `ResidentRoamPauseMin`, `ResidentRoamPauseMax`,
+`ResidentRoamZoneMargin`, `HomeKeepLoaded`, `HomeKeepLoadedRange`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `WaterPerMemberDay`, `PointsPerBundle*`
 (Food, Meds, Ammo, Materials, Fuel, Water, Luxury), `LuxuryItems`, `WellBlocks`, `WellWaterPerLevel`, `WellsPlaceLevelOne`, `DewCollectorBlocks`,
 `DewWaterPerLevel`, `FacilityUpgradeCost`, `DrinksLuxury`, `DrinksFood`, `DrinksMorale`, `DrinksMinutes`, `ValueOverrides`, `FuelItems`, `BedsBySleepingBag`, `BedBlocks`, `BedBlocksExclude`, `FacilityBlocks`, `LowMoraleDays`, `MissingDaysToPurge`, `RunRiskBase`,
 `RunYieldBase`, `SuppliesFavours`, `PoiFavourRange`, `TraitsPerRecruit`, `DebugLogging`, and the

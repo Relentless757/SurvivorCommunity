@@ -1807,8 +1807,18 @@ namespace SurvivorCommunity
                                               : verdict == UAI.ScEngage.Verdict.Hold ? "hold (ScDefendHold)" : "hand over (the pack's attack)")
                   .Append(" - ").Append(engageWhy);
                 if (fromPost >= 0f)
-                    sb.Append("; ").Append(fromPost.ToString("0.#")).Append(" m from its post")
-                      .Append(fromPost > UAI.UAIConsiderationScIntruder.StrayLimit ? " - BEYOND the " + UAI.UAIConsiderationScIntruder.StrayLimit.ToString("0") + " m stray limit (the defence pauses)" : "");
+                {
+                    sb.Append("; ").Append(fromPost.ToString("0.#")).Append(" m from its post");
+                    if (UAI.UAIConsiderationScIntruder.Roams(ScRegistry.GetMember(e.entityId)))
+                    {
+                        // zone roaming (round hz): the stray limit is the zone + ResidentRoamZoneMargin - StrayMarginInside
+                        float lim = Math.Max(0f, ScConfig.ResidentRoamZoneMargin - UAI.UAIConsiderationScIntruder.StrayMarginInside);
+                        float outside = ScZone.DistanceOutside(e.position);
+                        sb.Append(outside > lim ? " - BEYOND the stray limit, the zone + " + lim.ToString("0") + " m (the defence pauses)"
+                                                : " (zone roaming: the stray limit is the zone + " + lim.ToString("0") + " m)");
+                    }
+                    else sb.Append(fromPost > UAI.UAIConsiderationScIntruder.StrayLimit ? " - BEYOND the " + UAI.UAIConsiderationScIntruder.StrayLimit.ToString("0") + " m stray limit (the defence pauses)" : "");
+                }
             }
             catch (Exception ex)
             {
