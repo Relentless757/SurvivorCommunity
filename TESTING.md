@@ -32,12 +32,12 @@ opened the reward claim window instead, and the camera stayed zoomed with moveme
 vanilla's trader path, which shows any "claim at a trader" quest first, and the window crashed on a survivor (it has no
 trader). Now a survivor without a trader never offers a turn-in.
 
-1. Finish a challenge or trader quest that is claimed at a trader, and do not claim it.
-2. Talk to a survivor and a member. The normal dialog opens, the camera zooms and comes back, and you can walk off.
-3. Go to a real trader. The reward claim window opens there and the reward can be claimed.
-4. Talk to the trader again with nothing to claim: the trader dialog and Trade work as before.
-5. A recruit favour (talk to the survivor after the job) still finishes at that survivor.
-6. `sc xnpc` shows `x14-no-trader-turnin-hidden` above 0 after step 2.
+Tested 2026-10-12: with a challenge reward waiting, Talk on survivors opens the dialog, and the reward is claimed at the
+trader. Still open:
+
+1. Talk to the trader again with nothing to claim: the trader dialog and Trade work as before.
+2. A recruit favour (talk to the survivor after the job) still finishes at that survivor.
+3. `sc xnpc` shows `x14-no-trader-turnin-hidden` above 0 after talking to a survivor with a reward waiting.
 
 ## Water, luxuries, bundle sizes, upgradable wells and dew collectors, the Activities tab
 
