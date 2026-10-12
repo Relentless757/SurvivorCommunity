@@ -67,6 +67,7 @@ namespace SurvivorCommunity
             talkRefused = 0;
             tradeRefused = 0;
             turnInHidden = 0;
+            ScNpc.PendingSkips = 0;
             turretTargets = 0;
             sensorTargets = 0;
             Patch_ModelLayer.Reset();
@@ -89,6 +90,7 @@ namespace SurvivorCommunity
             parts.Add("x9-raider-talk-refused=" + talkRefused);
             parts.Add("x9-no-trader-trade-refused=" + tradeRefused);
             parts.Add("x14-no-trader-turnin-hidden=" + turnInHidden);
+            parts.Add("pending-body-skips=" + ScNpc.PendingSkips);
             parts.Add("x10-turret-raider-target=" + turretTargets);
             parts.Add("x10-sensor-raider-target=" + sensorTargets);
             return string.Join(", ", parts.ToArray());

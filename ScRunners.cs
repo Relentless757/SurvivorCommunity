@@ -254,7 +254,7 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             if (!m.Offline && w != null)
             {
-                EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
+                EntityAlive npc = ScNpc.As(ScNpc.Loaded(w, m.Id));
                 if (npc != null) return npc.position;
             }
             return VirtualPos(m, w != null ? w.worldTime : 0UL);

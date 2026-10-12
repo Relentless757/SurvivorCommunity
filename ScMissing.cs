@@ -51,7 +51,7 @@ namespace SurvivorCommunity
                 {
                     // followers, runners and posted members are hidden or away by design
                     if (m.Status != MemberStatus.Resident) { Clear(m.Id); continue; }
-                    if (ScNpc.IsFramework(w.GetEntity(m.Id))) { Clear(m.Id); told.Remove(m.Id); continue; }
+                    if (ScNpc.HasBody(w, m.Id)) { Clear(m.Id); told.Remove(m.Id); continue; }    // being built counts, unforced
                     if (!atHome || !PostSettled(w, m.Post)) { absentSince.Remove(m.Id); continue; }
                     float since;
                     if (!absentSince.TryGetValue(m.Id, out since)) { absentSince[m.Id] = now; continue; }

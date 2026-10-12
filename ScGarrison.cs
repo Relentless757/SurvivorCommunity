@@ -44,7 +44,7 @@ namespace SurvivorCommunity
             if (Orphans.Count == 0) return;
             foreach (int id in Orphans)
             {
-                EntityAlive s = ScNpc.As(w.GetEntity(id));
+                EntityAlive s = ScNpc.As(ScNpc.Loaded(w, id));     // still being built: looked at again next sweep
                 if (s == null) continue;
                 bool current = false;
                 foreach (var m in ScRegistry.Members.Values) if (m.StandInId == id) { current = true; break; }
@@ -235,6 +235,8 @@ namespace SurvivorCommunity
                     {
                         if (m.StandInId >= 0)
                         {
+                            // a stand-in still being built is neither forced nor taken for gone (that would spawn a second one)
+                            if (ScNpc.IsPending(w, m.StandInId)) { ScNpc.PendingSkips++; continue; }
                             EntityAlive s = ScNpc.As(w.GetEntity(m.StandInId));
                             if (s == null || s.IsDead()) { if (s == null) m.StandInId = -1; continue; }
                             if (!keep) RemoveStandIn(m);

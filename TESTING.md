@@ -25,6 +25,25 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## No hitch when a survivor's chunk loads (pending bodies)
+
+**Deployed 2026-10-12** (Fable review: deployable; DLL md5 `4b07781e65b36bb69026acb1a1330569`). Your report (2026-10-12): a frame hitch with the LIPSYNC line. Cause: when a chunk loads, the game
+builds its survivors over the next frames, but SC looked every member up each second, and a lookup forces the build
+there and then (`[EntityAsync] force spawning pending entity`, the player prefab loaded again synchronously). Hal and Ty
+stand on the edge of view distance 7 from where you were, so their chunk reloaded 8 times in 4 minutes. SC now leaves a
+body that is still being built alone and links it a second later.
+
+1. Stand where a survivor's spot is about 7 chunks away (Hal and Ty from about z -600 to -617) and walk back and forth
+   across the chunk line. Expect the hitch smaller, not gone: the first body of each class no longer reloads the player
+   prefab synchronously, but every rebuild still takes about 0.16 s on the main thread (the game finishes a body in one
+   frame either way). Only keeping the chunk loaded removes it.
+2. In the log, `[EntityAsync] force spawning pending entity npcSdcsSurvivor...` no longer repeats about once a second
+   for each member while their chunk loads (one doubled line at the first load is another mod's). If it still does,
+   send the log.
+3. `sc xnpc` shows `pending-body-skips` above 0 after step 1.
+4. Members still settle at home after a load: the window shows them, none is marked Missing, and no survivor is doubled.
+5. An outpost with staff: walk up to it, and its stand-ins appear once each (not twice).
+
 ## Talking to a survivor with a reward waiting (X14)
 
 **Deployed 2026-10-11** (Fable review: deployable; DLL md5 `32ca5289936deed49642c9d02cda4dd0`). Your report (2026-10-11): with a challenge reward waiting at the trader, Talk on any survivor

@@ -118,7 +118,7 @@ namespace SurvivorCommunity
             if (w == null) return;
             gone.Clear();
             foreach (KeyValuePair<int, State> kv in states)
-                if (w.GetEntity(kv.Key) == null) gone.Add(kv.Key);
+                if (!ScNpc.Exists(w, kv.Key)) gone.Add(kv.Key);    // a body being built is kept, unforced
             for (int i = 0; i < gone.Count; i++) states.Remove(gone[i]);
         }
 

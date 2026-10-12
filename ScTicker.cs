@@ -103,7 +103,7 @@ namespace SurvivorCommunity
             bool changed = false;
             foreach (var p in ScRegistry.Prospects.Values)
             {
-                EntityAlive npc = ScNpc.As(w.GetEntity(p.Id));
+                EntityAlive npc = ScNpc.As(ScNpc.Loaded(w, p.Id));
                 if (npc == null || npc.IsDead()) continue;
                 Vector3i at = npc.GetBlockPosition();
                 if (at != p.NpcPos) { p.NpcPos = at; changed = true; }
@@ -126,7 +126,7 @@ namespace SurvivorCommunity
             {
                 foreach (int id in ScRegistry.Cleanup)
                 {
-                    EntityAlive stale = ScNpc.As(w.GetEntity(id));
+                    EntityAlive stale = ScNpc.As(ScNpc.Loaded(w, id));    // still being built: stays listed for a later tick
                     if (stale == null) continue;
                     // an id can be inherited by a stranger after an id-counter rewind: only strip an entity
                     // that actually carries the mod's marks, and drop the entry either way
@@ -139,7 +139,7 @@ namespace SurvivorCommunity
             {
                 foreach (int id in ScRegistry.Doomed)
                 {
-                    EntityAlive gone = ScNpc.As(w.GetEntity(id));
+                    EntityAlive gone = ScNpc.As(ScNpc.Loaded(w, id));     // the same
                     if (gone == null) continue;
                     if (ScCommunity.CarriesOurMarks(gone)) ScRuns.RemoveEntity(gone);
                     scratch.Add(int.MinValue / 4 + id);   // marker: remove from the doomed set below
@@ -148,10 +148,11 @@ namespace SurvivorCommunity
             foreach (var kv in ScRegistry.Members)
             {
                 Member m = kv.Value;
-                EntityAlive npc = ScNpc.As(w.GetEntity(m.Id));
+                // every member every second: forcing a body a chunk just queued built it inside this frame (the hitch)
+                EntityAlive npc = ScNpc.As(ScNpc.Loaded(w, m.Id));
                 if (npc == null)
                 {
-                    continue;   // unloaded (or gone) - the daily tick tracks MissingDays
+                    continue;   // unloaded, still being built (linked next tick), or gone - the daily tick tracks MissingDays
                 }
                 if (npc.IsDead()) continue;   // SetDead postfix handles it
                 if (ScRunners.IsPhysical(m) && m.Offline)
@@ -340,7 +341,7 @@ namespace SurvivorCommunity
                     // design too, for as long as the player stays away: never counted missing. Only an old save's record
                     // of a class that no longer exists still runs out (M9).
                     if ((m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) && !ScRegistry.PredatesMigration(m)) continue;
-                    bool loaded = w != null && ScNpc.IsFramework(w.GetEntity(m.Id));
+                    bool loaded = ScNpc.HasBody(w, m.Id);      // a body still being built counts, unforced
                     if (!loaded) m.MissingDays++;
                     if (m.MissingDays > ScConfig.MissingDaysToPurge && ScZone.HomeLoaded) gone.Add(m.Id);
                 }

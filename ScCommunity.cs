@@ -78,7 +78,7 @@ namespace SurvivorCommunity
             // an offline physical runner has no entity: whatever holds the id is a stale copy or a stranger
             Member m = ScRegistry.GetMember(id);
             if (m != null && ScRunners.IsPhysical(m) && m.Offline) return null;
-            return ScNpc.As(w.GetEntity(id));
+            return ScNpc.As(ScNpc.Loaded(w, id));       // a body still being built is not forced (ScNpc.IsPending)
         }
 
         // ---- recruiting ----

@@ -37,6 +37,56 @@ namespace SurvivorCommunity
         /// <summary>The entity as a framework NPC, or null: what "as EntityAliveSDX" used to do.</summary>
         public static EntityAlive As(Entity e) { return IsFramework(e) ? (EntityAlive)e : null; }
 
+        // ------------------------------------------------------------------ lookups that never force a body ----
+
+        /// <summary>Lookups that found a body still being built and left it alone (sc xnpc: pending-body-skips).</summary>
+        internal static int PendingSkips;
+
+        /// <summary>
+        /// Is the game still building this entity? A chunk that loads queues its entities with 3.2's EntityAsyncManager,
+        /// which builds them over the next frames. World.GetEntity on a queued id finishes the build there and then
+        /// (EnsureEntity: "[EntityAsync] force spawning pending entity", and the survivor's player prefab loaded again
+        /// synchronously), so every survivor whose chunk loaded was built inside one frame by SC's own lookups - the
+        /// hitch the user saw on 2026-10-12, when two residents on the edge of the view distance were rebuilt 8 times in
+        /// 4 minutes, each one forced in registry order by the ticker's relink.
+        /// </summary>
+        public static bool IsPending(World w, int id)
+        {
+            EntityAsyncManager am = w != null ? w.entityAsyncManager : null;
+            return am != null && am.IsEntityPending(id);
+        }
+
+        /// <summary>
+        /// World.GetEntity for a body the mod wants to act on now, without forcing one that is still being built: that
+        /// one reads as not loaded yet - which every caller handles, it is the unloaded case a moment before the load -
+        /// and is there on a later tick. Duplicate and missing checks want HasBody / Exists instead.
+        /// </summary>
+        public static Entity Loaded(World w, int id)
+        {
+            if (w == null) return null;
+            if (IsPending(w, id)) { PendingSkips++; return null; }
+            return w.GetEntity(id);
+        }
+
+        /// <summary>Is there an entity with this id, loaded or still being built? Never forces the build.</summary>
+        public static bool Exists(World w, int id)
+        {
+            if (w == null) return false;
+            if (IsPending(w, id)) { PendingSkips++; return true; }
+            return w.GetEntity(id) != null;
+        }
+
+        /// <summary>
+        /// Is there a framework body with this id, loaded or still being built? A queued id is a chunk's saved copy of
+        /// that body, so it counts before its class can be checked. Never forces the build.
+        /// </summary>
+        public static bool HasBody(World w, int id)
+        {
+            if (w == null) return false;
+            if (IsPending(w, id)) { PendingSkips++; return true; }
+            return IsFramework(w.GetEntity(id));
+        }
+
         /// <summary>
         /// The loaded framework NPC with this entity id, or null. A plain world lookup: unlike ScCommunity.FindNpc it
         /// knows nothing about the registry, so an offline runner's stale copy is returned like anyone else.
@@ -44,7 +94,7 @@ namespace SurvivorCommunity
         public static EntityAlive Find(int id)
         {
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
-            return w != null ? As(w.GetEntity(id)) : null;
+            return w != null ? As(Loaded(w, id)) : null;
         }
 
         /// <summary>
