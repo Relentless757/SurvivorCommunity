@@ -97,6 +97,7 @@
     <Compile Include="ScSiege.cs" />
     <Compile Include="BlockScWatchPost.cs" />
     <Compile Include="ScTower.cs" />
+    <Compile Include="ScShooting.cs" />
     <Compile Include="ScTrust.cs" />
     <Compile Include="ScTypes.cs" />
     <Compile Include="Patches_Trust.cs" />

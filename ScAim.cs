@@ -341,7 +341,7 @@ namespace SurvivorCommunity
                     ItemActionRanged.ItemActionDataRanged rd = ranged != null && inv.holdingItemData != null && inv.holdingItemData.actionData != null
                                                              && inv.holdingItemData.actionData.Count > 0
                         ? inv.holdingItemData.actionData[0] as ItemActionRanged.ItemActionDataRanged : null;
-                    if (rd == null || e.GetDistance(t) > ranged.GetRange(rd)) return;
+                    if (rd == null || e.GetDistance(t) > ScShooting.CapRange(e, ranged.GetRange(rd), t)) return;
                     backoffStamps++;
                     Sweep(Time.time);
                     StampIndex(e, 0);

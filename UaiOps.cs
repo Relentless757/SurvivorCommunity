@@ -633,8 +633,9 @@ namespace UAI
                 why = dist <= reach ? "in reach" : "beyond reach";
                 return dist <= reach ? Verdict.Engage : Verdict.Approach;
             }
-            float range = ranged.GetRange(rd);
-            if (dist > range) { why = "out of range"; return Verdict.Approach; }
+            float gunRange = ranged.GetRange(rd);
+            float range = ScShooting.CapRange(self, gunRange, t);   // no farther than its Shooting stars engage, unless t shoots at it (round sh)
+            if (dist > range) { why = range < gunRange ? "beyond its shooting range (" + range.ToString("0") + " m)" : "out of range"; return Verdict.Approach; }
             if (!SCoreUtils.CanShoot(self, t, range)) { why = "no clear shot (a block in the line)"; return Verdict.Approach; }
             bool block;
             EntityAlive first;

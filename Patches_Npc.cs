@@ -465,6 +465,9 @@ namespace SurvivorCommunity
                     // NPC; it shuts them again). Vanilla's move-helper opener - the old EntityBandit raiders' - only on request.
                     if (ScConfig.RaiderVanillaDoors && __instance.moveHelper != null && ScXnpc.IsRaider(__instance)) __instance.moveHelper.CanOpenDoors = true;
                     if (!ScRegistry.Loaded) return;
+                    // round sh: a raider's Shooting stars from its tier, a wild survivor's profile (its own catch)
+                    try { ScShooting.OnPostInit(__instance); }
+                    catch (Exception e) { ScLog.Once("shooting-postinit", e); }
                     if (ScRegistry.Cleanup.Contains(__instance.entityId))
                     {
                         if (ScCommunity.CarriesOurMarks(__instance)) ScCommunity.CleanupStale(__instance);

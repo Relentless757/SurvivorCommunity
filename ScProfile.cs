@@ -3,10 +3,11 @@ using System;
 namespace SurvivorCommunity
 {
     /// <summary>
-    /// The person behind a survivor who is not (yet) in the community: traits, skills, specialty and mood, rolled the
-    /// first time the player talks to them (the dialog's snapshot panel, XUiC_ScSnapshot) and kept when they join (the
-    /// user's choice, 2026-10-07) - ScCommunity.Join takes them instead of rolling new ones. Members keep their own
-    /// record in the registry; this is only for everyone else.
+    /// The person behind a survivor who is not (yet) in the community: traits, skills, specialty and mood, rolled when they
+    /// spawn on SC's own survivor bodies (ScShooting.OnPostInit from their PostInit, round sh: their Shooting stars aim their
+    /// gun from the start), else - another mod's survivors, and an older body that has none - the first time the player
+    /// talks to them (the dialog's snapshot panel, XUiC_ScSnapshot), and kept when they join (the user's choice, 2026-10-07) - ScCommunity.Join takes them instead of
+    /// rolling new ones. Members keep their own record in the registry; this is only for everyone else.
     ///
     /// Stored as cvars on the survivor, so it lives and dies with the body (EntityAliveSDXV4.Write saves every non-zero
     /// cvar) and needs no registry record: %sc_pf (rolled), %sc_pf_t1..t5 (trait codes, TraitCode), %sc_pf_s0..s3 (skill
@@ -32,6 +33,13 @@ namespace SurvivorCommunity
         public static bool Has(EntityAlive npc)
         {
             return npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(Rolled);
+        }
+
+        /// <summary>A skill's stars in this survivor's profile (1..7), or 0 when no profile was rolled.</summary>
+        public static int SkillStars(EntityAlive npc, Skill s)
+        {
+            if (!Has(npc)) return 0;
+            return Math.Max(1, Math.Min(Member.MaxStars, (int)npc.Buffs.GetCustomVar(skillVars[(int)s])));
         }
 
         /// <summary>Host: roll this survivor's profile unless they have one (or are not a survivor trust applies to).</summary>

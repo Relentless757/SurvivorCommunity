@@ -67,6 +67,7 @@ namespace SurvivorCommunity
                 ScMags.Reset();
                 ScArms.Reset();
                 ScMelee.Reset();
+                ScShooting.Reset();
                 ScRelax.Reset();
                 ScNoise.Reset();
                 ScBaseAttack.Reset();
@@ -293,6 +294,9 @@ namespace SurvivorCommunity
             Add(t, "UAITaskBackupFromTargetSDX::Update", ScAim.BackoffTarget());
             // ScMelee.cs - SCore's in-range test with the melee weapon's real reach for our bodies (M11 fix 2)
             Add(t, "UAIConsiderationInWeaponRange::GetScore", ScMelee.InWeaponRangeTarget());
+            // ScShooting.cs - the Shooting skill aims the gun: hitscan shots and launchers (round sh)
+            Add(t, "ItemActionRanged::getDirectionOffset", ScShooting.Patch_ShotDirection.Target());
+            Add(t, "ItemActionLauncher::GetActionEffectsValues", ScShooting.Patch_LauncherDirection.Target());
             // ScRelax.cs - a relaxed body's controller writes the bare-hands hold type, and a reload starting raises it (its
             // attack prefixes share the EntityAlive::UseHoldingItem and the two ExecuteAction entries above)
             Add(t, "LegacyAvatarController::_setInt(int)", ScRelax.HoldTypeTarget());

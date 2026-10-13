@@ -205,8 +205,10 @@ namespace SurvivorCommunity
         /// <summary>
         /// F4: the in-range verdict with the weapon's real reach for our bodies' melee actions. NotInWeaponRange derives from
         /// it and calls this GetScore as its base, so the approach follows. Bound by Prepare (exact signature and SCore's
-        /// private _actionIndex, fail-loud), never throwing out of it; ModApi's ExpectedTargets lists it. SCore's own verdict
-        /// stands for guns, for every other NPC and whenever Reach declines.
+        /// private _actionIndex, fail-loud), never throwing out of it; ModApi's ExpectedTargets lists it. For a gun, SCore's
+        /// verdict stands except that a target beyond the shooter's engage range (ScShooting, round sh) is out of range,
+        /// unless it is shooting at the NPC (ScShooting.ReturnsFire); for
+        /// every other NPC, and whenever Reach declines, SCore's own verdict stands.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_InWeaponRange
@@ -263,15 +265,28 @@ namespace SurvivorCommunity
                 try
                 {
                     EntityAlive self = context != null ? context.Self : null;
-                    if (self == null || actionIndexField == null || __instance == null || self.isEntityRemote || !ScConfig.MeleeReach || !ScXnpc.IsBody(self)) return;
-                    float weapon;
-                    float reach = Reach(self, ActionIndexOf(__instance), out weapon);
-                    if (reach < 0f) return;
+                    if (self == null || actionIndexField == null || __instance == null || self.isEntityRemote || !ScXnpc.IsBody(self)) return;
+                    int index = ActionIndexOf(__instance);
+                    // a gun: no farther than its shooter's Shooting stars let it engage (round sh); -1 when the action is no gun
+                    float cap = ScShooting.RangedCap(self, index);
+                    float weapon = -1f;
+                    float reach = cap < 0f ? Reach(self, index, out weapon) : -1f;
+                    if (cap < 0f && reach < 0f) return;
                     float dist;
                     EntityAlive t = UAIUtils.ConvertToEntityAlive(target);
                     if (t != null) dist = self.GetDistance(t);
                     else if (target is Vector3) dist = (self.position - (Vector3)target).magnitude;
                     else return;
+                    if (cap >= 0f)
+                    {
+                        if (__result > 0f && dist > cap)
+                        {
+                            // a target shooting at it is answered out to the gun's range (round sh, return fire)
+                            if (ScShooting.ReturnsFire(self, t)) ScShooting.CountReturnFire();
+                            else { __result = 0f; ScShooting.CountCapped(); }
+                        }
+                        return;
+                    }
                     float was = __result;
                     __result = dist <= reach ? 1f : 0f;
                     reachCalls++;

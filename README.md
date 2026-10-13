@@ -568,6 +568,13 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
     any enemy is within 3 m and for 1.5 s after their target falls, instead of drawing the gun between two zombies.
     `MeleePacingRaiders` false keeps raiders on the old pace, `MeleePacing` false everyone; `MeleeReach` false gives
     back the framework's 1.5 m. Guns keep their pace.
+  - **Shooting skill aims the gun.** Survivors and raiders no longer hit everything they see. Each one hits nearly every
+    shot within 5 m per Shooting star (5 m at 1 star, 35 m at 7) and fewer and fewer beyond it, and opens fire only out
+    to twice that (at least 12 m, never past the gun's range) - though one being shot at fires back at its attacker
+    out to the gun's range, mostly missing. Shots go at the chest. Strangers' stars come from the
+    profile they get when they spawn, raiders' are rolled by tier (1-2, 2-4, 4-6). `ShootingSkill` false gives back the
+    old perfect aim; `ShootingRangePerStar`, `ShootingEngageMult`, `ShootingEngageMin`, `ShootingHitRadius`,
+    `ShootingAimChest`, `ShootingDefaultStars` and `RaiderShootingStars` tune it.
   - **The gun stays up.** The aim pose now also holds while a resident waits for you to step out of its line of
     fire and while it backs away from a zombie its gun reaches (it lowers the gun only while it faces away), and its
     arms keep their carry pose: a body whose animator lost it (arms hanging, the gun at the hip even while shooting)
@@ -710,7 +717,8 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `XnpcSpawnArrows`, `XnpcResupply`, `XnpcResupplyBelow`, `XnpcResupplyAmmo` / `XnpcResupplyArrows`,
 `XnpcResupplyCooldown`, `XnpcResupplyPointsMult`, `Overwhelmed`, `OverwhelmedRadius`, `OverwhelmedMin` / `OverwhelmedMax`,
 `OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds`, `OverwhelmedSustainSeconds`,
-`OverwhelmedGunSeconds`, `MeleePacing`, `MeleePacingRaiders`, `MeleeReach`, `MeleeReachMargin` (`AmmoPerRangedDay` is no longer charged; the
+`OverwhelmedGunSeconds`, `MeleePacing`, `MeleePacingRaiders`, `MeleeReach`, `MeleeReachMargin`, `ShootingSkill`, `ShootingRangePerStar`,
+`ShootingEngageMult`, `ShootingEngageMin`, `ShootingHitRadius`, `ShootingAimChest`, `ShootingDefaultStars`, `RaiderShootingStars` (`AmmoPerRangedDay` is no longer charged; the
 outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features.
 

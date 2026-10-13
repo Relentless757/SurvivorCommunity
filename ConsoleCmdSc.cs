@@ -1578,6 +1578,7 @@ namespace SurvivorCommunity
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] melee: " + ScMelee.Report());
+            Output("[SC] shooting skill: " + ScShooting.Report());
             Output("[SC] get-ups: " + Patches_Sdcs.GetUp.Report());
             Output("[SC] relaxed (arms down, weapon hidden): " + ScRelax.Report());
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
@@ -1783,9 +1784,12 @@ namespace SurvivorCommunity
                 if (ranged != null && rd != null)
                 {
                     float range = ranged.GetRange(rd);
+                    float engage = ScShooting.CapRange(e, range, foe);
                     bool clear = UAI.SCoreUtils.CanShoot(e, foe, range);
-                    sb.Append(" clearShot=").Append(clear).Append(" range=").Append(range.ToString("0.#")).Append(" InWeaponRange=").Append(clear && dist <= range)
-                      .Append(" shotRay=").Append(FirstHit(e, foe, range, -1));
+                    sb.Append(" clearShot=").Append(clear).Append(" range=").Append(range.ToString("0.#"))
+                      .Append(engage < range ? " engage=" + engage.ToString("0.#") : ScShooting.ReturnsFire(e, foe) ? " (returning fire)" : "")
+                      .Append(" InWeaponRange=").Append(clear && dist <= engage)
+                      .Append(" shotRay=").Append(FirstHit(e, foe, range, -1)).Append(" (").Append(ScShooting.Describe(e)).Append(')');
                 }
                 else
                 {

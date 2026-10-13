@@ -610,6 +610,23 @@ namespace SurvivorCommunity
         public static bool MeleeReach = true;
         /// <summary>Metres kept off the weapon's reach so a swing started at the edge still lands on a target that steps back.</summary>
         public static float MeleeReachMargin = 0.4f;
+        // ---- the Shooting skill aims the gun (ScShooting, round sh) ----
+        /// <summary>Our bodies' guns hit by their Shooting stars and engage no farther than they shoot well; false: perfect aim as before.</summary>
+        public static bool ShootingSkill = true;
+        /// <summary>The hit range per Shooting star (5 m at 1 star, 35 m at 7): inside it nearly every shot lands.</summary>
+        public static float ShootingRangePerStar = 5f;
+        /// <summary>A gun engages out to this many times its shooter's hit range.</summary>
+        public static float ShootingEngageMult = 2f;
+        /// <summary>...but never closer than this (at least 10: 0-XNPCCore's BackupRanged walks a shooter back to 10 m).</summary>
+        public static float ShootingEngageMin = 12f;
+        /// <summary>The aim error's size at the hit range, in metres: about a torso's half-width.</summary>
+        public static float ShootingHitRadius = 0.25f;
+        /// <summary>Shots are aimed at the target's chest instead of the head SCore aims at.</summary>
+        public static bool ShootingAimChest = true;
+        /// <summary>Stars for one of our bodies that has none (someone's hired companion, an older body).</summary>
+        public static int ShootingDefaultStars = 2;
+        /// <summary>A raider's Shooting stars by tier (T1, T2, T3): low and high, rolled at spawn.</summary>
+        public static readonly int[,] RaiderShootingStars = { { 1, 2 }, { 2, 4 }, { 4, 6 } };
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
@@ -794,6 +811,14 @@ namespace SurvivorCommunity
             MeleePacingRaiders = true;
             MeleeReach = true;
             MeleeReachMargin = 0.4f;
+            ShootingSkill = true;
+            ShootingRangePerStar = 5f;
+            ShootingEngageMult = 2f;
+            ShootingEngageMin = 12f;
+            ShootingHitRadius = 0.25f;
+            ShootingAimChest = true;
+            ShootingDefaultStars = 2;
+            ParseRaiderShooting("1-2,2-4,4-6");
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
@@ -1433,6 +1458,19 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("MeleeReach")) p.ParseBool("MeleeReach", ref meleeReach);
                 MeleeReach = meleeReach;
                 ParseFloat(p, "MeleeReachMargin", ref MeleeReachMargin, 0f, 1.5f);
+                bool shooting = ShootingSkill;
+                if (p.Values.ContainsKey("ShootingSkill")) p.ParseBool("ShootingSkill", ref shooting);
+                ShootingSkill = shooting;
+                ParseFloat(p, "ShootingRangePerStar", ref ShootingRangePerStar, 1f, 30f);
+                ParseFloat(p, "ShootingEngageMult", ref ShootingEngageMult, 1f, 5f);
+                ParseFloat(p, "ShootingEngageMin", ref ShootingEngageMin, 10f, 60f);   // below 10 m BackupRanged walks them out of it
+                ParseFloat(p, "ShootingHitRadius", ref ShootingHitRadius, 0.05f, 1f);
+                bool chest = ShootingAimChest;
+                if (p.Values.ContainsKey("ShootingAimChest")) p.ParseBool("ShootingAimChest", ref chest);
+                ShootingAimChest = chest;
+                ParseInt(p, "ShootingDefaultStars", ref ShootingDefaultStars, 1, 7);
+                string raiderShooting;
+                if (p.Values.TryGetValue("RaiderShootingStars", out raiderShooting) && !string.IsNullOrEmpty(raiderShooting)) ParseRaiderShooting(raiderShooting);
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
@@ -1576,6 +1614,10 @@ namespace SurvivorCommunity
                                                + " hold " + OverwhelmedHoldSeconds + "s sustain " + OverwhelmedSustainSeconds + "s gun " + OverwhelmedGunSeconds + "s" : "off")
                           + " meleePacing=" + (MeleePacing ? (MeleePacingRaiders ? "on" : "on, not raiders") : "off")
                           + " meleeReach=" + (MeleeReach ? "weapon -" + MeleeReachMargin + "m" : "off (1.5 m)")
+                          + " shooting=" + (ShootingSkill ? ShootingRangePerStar + "m/star engage x" + ShootingEngageMult + " min " + ShootingEngageMin + "m radius "
+                                            + ShootingHitRadius + "m" + (ShootingAimChest ? " chest" : " head") + " default " + ShootingDefaultStars + " raiders "
+                                            + RaiderShootingStars[0, 0] + "-" + RaiderShootingStars[0, 1] + "/" + RaiderShootingStars[1, 0] + "-" + RaiderShootingStars[1, 1]
+                                            + "/" + RaiderShootingStars[2, 0] + "-" + RaiderShootingStars[2, 1] : "off")
                           + " getUp=" + (XnpcBodyGetUp ? (XnpcGetUpGuard ? "guarded" : "unguarded") + (XnpcGetUpTrace ? "+trace" : "") : "off")
                           + " relax=" + (XnpcRelax ? "after " + XnpcRelaxCalmSeconds + "s, " + (XnpcRelaxRange > 0f ? XnpcRelaxRange + "m" : "sight range")
                                                      + (XnpcRelaxHideWeapon ? ", weapon hidden" : ", weapon shown") + (XnpcRelaxRaiders ? ", raiders too" : ", not raiders") : "off")
@@ -1674,6 +1716,31 @@ namespace SurvivorCommunity
             p.ParseFloat(key, ref tmp);
             if (tmp < min || tmp > max) { ScLog.Warn("config " + key + "=" + tmp + " out of range [" + min + "," + max + "], keeping " + v); return; }
             v = tmp;
+        }
+
+        /// <summary>
+        /// RaiderShootingStars "1-2,2-4,4-6": low-high Shooting stars for tiers T1, T2, T3 (a single number is both). Anything
+        /// unreadable, outside 1..7 or low above high keeps the whole table as it was.
+        /// </summary>
+        private static void ParseRaiderShooting(string s)
+        {
+            string[] parts = s.Split(',');
+            if (parts.Length != 3) { ScLog.Warn("config RaiderShootingStars '" + s + "' needs three tiers (\"1-2,2-4,4-6\") - kept"); return; }
+            var t = new int[3, 2];
+            for (int i = 0; i < 3; i++)
+            {
+                string[] lh = parts[i].Trim().Split('-');
+                int lo, hi;
+                if (lh.Length < 1 || lh.Length > 2 || !int.TryParse(lh[0].Trim(), out lo) || !int.TryParse(lh[lh.Length - 1].Trim(), out hi)
+                    || lo < 1 || hi > 7 || lo > hi)
+                {
+                    ScLog.Warn("config RaiderShootingStars '" + s + "' tier " + (i + 1) + " is not low-high within 1..7 - kept");
+                    return;
+                }
+                t[i, 0] = lo;
+                t[i, 1] = hi;
+            }
+            for (int i = 0; i < 3; i++) { RaiderShootingStars[i, 0] = t[i, 0]; RaiderShootingStars[i, 1] = t[i, 1]; }
         }
 
         /// <summary>FacilityUpgradeCost "4,8,12,16": materials for each level above 1. Any unreadable or negative entry keeps the whole default.</summary>

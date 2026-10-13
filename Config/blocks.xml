@@ -415,6 +415,24 @@
 			<property name="MeleePacingRaiders" value="true" />
 			<property name="MeleeReach" value="true" />
 			<property name="MeleeReachMargin" value="0.4" />
+			<!-- Shooting skill (round sh): survivors (members and strangers) and raiders with the player's body hit by their
+			     Shooting stars. Each has a hit range of ShootingRangePerStar metres a star (5 m at 1 star, 35 m at 7): inside it
+			     nearly every shot lands, beyond it fewer and fewer (about one in five at twice the range, almost none at three
+			     times). They open fire out to ShootingEngageMult times that range, never closer than ShootingEngageMin metres
+			     (10 at least: the framework backs a shooter off to 10 m), nor past the gun's own range - except that one being
+			     shot at fires back at its attacker out to the gun's range (mostly missing past its hit range).
+			     ShootingHitRadius is the aim error at the hit range (about a torso's half-width); ShootingAimChest
+			     aims at the chest, not the head (false: the head, as the NPC framework does). Strangers' stars come from the
+			     profile they get when they spawn, members' from the community, raiders' are rolled per tier (T1, T2, T3 as
+			     low-high) and anyone else's is ShootingDefaultStars. ShootingSkill=false gives back the old perfect aim. -->
+			<property name="ShootingSkill" value="true" />
+			<property name="ShootingRangePerStar" value="5" />
+			<property name="ShootingEngageMult" value="2" />
+			<property name="ShootingEngageMin" value="12" />
+			<property name="ShootingHitRadius" value="0.25" />
+			<property name="ShootingAimChest" value="true" />
+			<property name="ShootingDefaultStars" value="2" />
+			<property name="RaiderShootingStars" value="1-2,2-4,4-6" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:

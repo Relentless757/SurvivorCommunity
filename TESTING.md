@@ -34,6 +34,32 @@ icons); XUiC_ScRadio gained dropready / callready / scoutready / barterready. Wi
 - [ ] With a raiders' demand open, the red callout and Pay / Refuse show; without one, nothing there.
 - [ ] Contacts, distress and seven outpost lines fit their plates; the message line shows under barter.
 
+## Shooting skill aims the gun (round sh)
+
+**Deployed 2026-10-13** (Fable review and two re-checks: deployable; DLL md5 `25ab0e2458034e36a5a177dd3187fede`). Your ask (2026-10-13): Shooting should set how well and how far NPCs shoot - at 1 star they miss
+most shots unless the target is within 5 m, +5 m a star. Your choices: everyone (members, strangers, raiders), a gradual
+fall-off, and they open fire out to twice that range. So: hit range 5 m x Shooting stars (5 m at 1 star, 35 m at 7);
+inside it nearly every shot lands, about one in five at twice the range, almost none at three times. They start
+shooting at twice that (at least 12 m - the
+framework backs a shooter off to 10 m - and never past the gun's own range). Shots now go at the chest, not the head.
+
+1. `sc xnpc <id>` on a survivor with a gun: its `uai:` line ends `(shooting N star(s) (member/profile/raider...): hits
+   within X m, engages within Y m, aim error Z deg (growing past X m), at the chest)`. A stranger shows `profile`, a
+   raider `raider`.
+2. A 1-2 star member: zombies at 15-20 m are mostly missed (or not shot at all past the engage range); at 5 m nearly every
+   shot hits. Watch the bullet impacts on walls behind the zombie.
+3. A high-star member (5+) still hits reliably at 20-30 m.
+4. Raiders: a T1 raider walks in much closer before it fires than before, and misses you at range.
+5. Return fire: a 1-2 star member being shot at by a raider 30-40 m away shoots back (and mostly misses) once the
+   raider has hit them, or sooner if it is within about 30 m (the AI only notices a still-missing raider that close), and
+   stops once the raider has not hurt them for about 25 s and is no longer aiming at them. `sc xnpc <id>` shows `(returning
+   fire)` on the `uai:` line meanwhile.
+6. Bows and crossbows miss the same way (the arrow wanders).
+7. `sc xnpc` (no id): the `shooting skill:` line counts shots aimed, launcher shots, engagements refused and fire
+   returned - send it if something looks off.
+8. Fights take longer now, and survivors take more damage before a zombie drops; tell me if a 1-star survivor is useless
+   or a 7-star one still feels like an aimbot (the numbers are all in blocks.xml).
+
 ## The first painted survivor no longer hitches (round vb)
 
 **Deployed 2026-10-13** (Fable review and re-check: deployable; DLL md5 `a55c736f10cab14fd8ebd96b391bc83b`; zSpawnProbe
