@@ -21,6 +21,10 @@ namespace SurvivorCommunity
     /// paint can also come alone; one tattoo at most (Vanity Vault cannot stack them), applied last so it sits on top of a
     /// paint. Never loads Vanity Vault's bundles itself: a bundle held open would break Vanity Vault's own loads.
     /// Research: scratchpad mig\nf\vv_paint_research.md.
+    ///
+    /// Bound at world start (Warm, from GameStartDone, inside the loading screen) through ScTypes: the first binding of
+    /// 2026-10-13 ran in the build of the first painted survivor and, with Harmony's AccessTools.TypeByName, took 0.4 s of
+    /// that frame (round vb).
     /// </summary>
     public static class ScVanity
     {
@@ -46,18 +50,82 @@ namespace SurvivorCommunity
             pending.Remove(entityId);
         }
 
-        /// <summary>Vanity Vault is loaded and its helpers and registries were found (bound on first use).</summary>
+        /// <summary>Vanity Vault is loaded and its helpers and registries were found (bound by Warm, else on first use).</summary>
         public static bool Ready { get { Bind(); return ok; } }
+
+        private static bool hairTried;
+        /// <summary>The Vanity Vault version whose CustomLoader the hair pre-fill was checked against (its ModInfo Version).</summary>
+        private const string HairPrefillCheckedVersion = "3.2.0";
+
+        /// <summary>
+        /// GameStartDone: binds now, inside the loading screen, rather than in the frame of the first painted body's build;
+        /// and fills Vanity Vault's own first-hair lookup (PrefillHairLookup). Both once per process; cheap after that.
+        /// </summary>
+        public static void Warm()
+        {
+            Bind();
+            if (hairTried) return;
+            hairTried = true;
+            try
+            {
+                PrefillHairLookup();
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("vanity-hair-prefill", e);
+            }
+        }
+
+        /// <summary>
+        /// Vanity Vault colours one of its own hairs (CustomLoader.ApplySmartColor) through DataLoader.LoadAsset, a method
+        /// it looks up the first time with AccessTools.TypeByName("DataLoader") - the same full type scan as above, inside the
+        /// first build of any body with one of its hairs. That scan stops at Assembly-CSharp, so it is likely cheaper than the
+        /// ones above, and it is part of, not all of, the 152 ms Hal's first Vanity Vault hair took on 2026-10-13 (about 12 ms
+        /// for a new hair after it; the probe's typename lines measure it now). Vanity Vault keeps the answer in its private
+        /// static DataLoaderMethod (CustomLoader.cs:333-345 of the 3.2.0 decompile, its only write, never reset); this puts
+        /// exactly what that search finds there - DataLoader's one public static generic LoadAsset of (string, bool), made
+        /// for ScriptableObject - only for the Vanity Vault version it was checked against (HairPrefillCheckedVersion; any
+        /// other version makes its own lookup as before) and only while the field is still empty and of that type, so a
+        /// value Vanity Vault already set always wins. Loads nothing.
+        /// </summary>
+        private static void PrefillHairLookup()
+        {
+            if (version == "?") return;   // Vanity Vault is not loaded (Bind found none of its types)
+            if (!string.Equals(version, HairPrefillCheckedVersion, StringComparison.Ordinal))
+            {
+                ScLog.Verbose("Vanity Vault " + version + ": its hair colour lookup left to it (the pre-fill was checked against "
+                              + HairPrefillCheckedVersion + " only)");
+                return;
+            }
+            Type loader = ScTypes.Find("Sonja.VanityVault.CustomLoader");
+            if (loader == null) return;
+            FieldInfo f = AccessTools.Field(loader, "DataLoaderMethod");
+            if (f == null || !f.IsStatic || f.FieldType != typeof(MethodInfo) || f.GetValue(null) != null)
+            {
+                ScLog.Verbose("Vanity Vault: its hair colour lookup is not the expected empty field - left alone");
+                return;
+            }
+            foreach (MethodInfo m in typeof(DataLoader).GetMethods(BindingFlags.Static | BindingFlags.Public))
+            {
+                if (m.Name != "LoadAsset" || !m.IsGenericMethod) continue;
+                ParameterInfo[] ps = m.GetParameters();
+                if (ps.Length != 2 || ps[0].ParameterType != typeof(string)) continue;
+                f.SetValue(null, m.MakeGenericMethod(typeof(ScriptableObject)));
+                ScLog.Verbose("Vanity Vault: its hair colour lookup filled ahead (DataLoader.LoadAsset<ScriptableObject>)");
+                return;
+            }
+        }
 
         private static void Bind()
         {
             if (tried) return;
             tried = true;
+            var clock = System.Diagnostics.Stopwatch.StartNew();   // the bind line says what it cost (round vb: it was 0.4 s)
             try
             {
-                Type fm = AccessTools.TypeByName("Sonja.VanityVault.FacepaintManager");
-                Type bm = AccessTools.TypeByName("Sonja.VanityVault.BodypaintManager");
-                Type tm = AccessTools.TypeByName("Sonja.VanityVault.TattooMakeupManager");
+                Type fm = ScTypes.Find("Sonja.VanityVault.FacepaintManager");
+                Type bm = ScTypes.Find("Sonja.VanityVault.BodypaintManager");
+                Type tm = ScTypes.Find("Sonja.VanityVault.TattooMakeupManager");
                 if (fm == null || bm == null || tm == null) { ScLog.Out("Vanity Vault not loaded - no paints or tattoos on survivors"); return; }
                 Type smrs = typeof(SkinnedMeshRenderer[]), s = typeof(string), b = typeof(bool);
                 MethodInfo mf = AccessTools.DeclaredMethod(fm, "ApplyFacepaint", new[] { smrs, s, b });
@@ -75,8 +143,10 @@ namespace SurvivorCommunity
                 version = vv != null && !string.IsNullOrEmpty(vv.VersionString) ? vv.VersionString : fm.Assembly.GetName().Version.ToString();
                 ok = applyFace != null && applyBody != null && applyCosmetics != null && bodyGroups != null && faceGroups != null && tattoos != null;
                 if (!ok) { ScLog.Warn("Vanity Vault " + version + " is loaded but its paint code has moved - no paints or tattoos on survivors (Vanity Vault update?)"); return; }
+                string unknown = Unknown();
                 ScLog.Out("Vanity Vault " + version + ": paints and tattoos on survivors - it knows " + bodyGroups.Count + " body paints, " + faceGroups.Count
-                          + " face paints, " + tattoos.Count + " tattoo variants" + Unknown());
+                          + " face paints, " + tattoos.Count + " tattoo variants (bound in "
+                          + clock.Elapsed.TotalMilliseconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " ms)" + unknown);
             }
             catch (Exception e)
             {
@@ -87,7 +157,7 @@ namespace SurvivorCommunity
 
         private static IDictionary Registry(string type, string field)
         {
-            Type t = AccessTools.TypeByName(type);
+            Type t = ScTypes.Find(type);
             FieldInfo f = t != null ? AccessTools.Field(t, field) : null;
             return f != null && f.IsStatic ? f.GetValue(null) as IDictionary : null;
         }

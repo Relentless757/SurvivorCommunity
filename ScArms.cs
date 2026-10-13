@@ -616,7 +616,7 @@ namespace SurvivorCommunity
         /// <summary>Voice Control's swap (XNPCVoiceControl.Net.VCCommandRouter.MutateSwapWeapon, internal); null without Voice Control.</summary>
         public static MethodBase VcSwapTarget()
         {
-            Type t = AccessTools.TypeByName("XNPCVoiceControl.Net.VCCommandRouter");
+            Type t = ScTypes.Find("XNPCVoiceControl.Net.VCCommandRouter");
             return t != null ? AccessTools.DeclaredMethod(t, "MutateSwapWeapon", new[] { typeof(EntityAlive), typeof(string) }) : null;
         }
 

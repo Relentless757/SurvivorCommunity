@@ -37,8 +37,8 @@ namespace SurvivorCommunity
         /// <summary>Counters for sc xnpc. Main thread only.</summary>
         private static readonly Dictionary<string, int> counts = new Dictionary<string, int>();
 
-        public static Type ChatType { get { return AccessTools.TypeByName("XNPCVoiceControl.NPCChatComponent"); } }
-        public static Type TriggerType { get { return AccessTools.TypeByName("XNPCVoiceControl.PhraseTriggerHandler"); } }
+        public static Type ChatType { get { return ScTypes.Find("XNPCVoiceControl.NPCChatComponent"); } }
+        public static Type TriggerType { get { return ScTypes.Find("XNPCVoiceControl.PhraseTriggerHandler"); } }
 
         public static MethodBase StampTarget()
         {

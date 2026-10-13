@@ -90,6 +90,9 @@ namespace SurvivorCommunity
                     // Locked & Loaded's NPC magazines (M11): bound once per game, its state logged every game
                     try { ScMags.Resolve(); }
                     catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }
+                    // Vanity Vault bound inside the loading screen, not in the first painted body's build (round vb)
+                    try { ScVanity.Warm(); }
+                    catch (Exception e) { ScLog.Once("gamestartdone-vanity", e); }
                 });
                 ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) =>
                 {

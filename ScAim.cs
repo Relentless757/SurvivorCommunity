@@ -138,7 +138,7 @@ namespace SurvivorCommunity
             var list = new List<MethodBase>();
             try
             {
-                foreach (Type t in new[] { typeof(UAITaskAttackTargetEntitySDX), AccessTools.TypeByName(V4AttackTask) })
+                foreach (Type t in new[] { typeof(UAITaskAttackTargetEntitySDX), ScTypes.Find(V4AttackTask) })
                 {
                     MethodInfo m = t != null ? AccessTools.DeclaredMethod(t, name, new[] { typeof(Context) }) : null;
                     if (m != null) list.Add(m);
@@ -154,7 +154,7 @@ namespace SurvivorCommunity
         /// <summary>The V4 task's method for ModApi's ExpectedTargets (null when this SCore has no V4 task).</summary>
         public static MethodBase V4AttackTarget(string name)
         {
-            Type t = AccessTools.TypeByName(V4AttackTask);
+            Type t = ScTypes.Find(V4AttackTask);
             return t != null ? AccessTools.DeclaredMethod(t, name, new[] { typeof(Context) }) : null;
         }
 

@@ -25,6 +25,29 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## The first painted survivor no longer hitches (round vb)
+
+**Deployed 2026-10-13** (Fable review and re-check: deployable; DLL md5 `a55c736f10cab14fd8ebd96b391bc83b`; zSpawnProbe
+DLL `7ed75646b936598c96d9de3e5ad0b2c7`). From the probe's build timing (2026-10-13): Kyle's first build took 479 ms, and 392 ms of it was SC
+looking Vanity Vault up by name (`AccessTools.TypeByName`, which scans every type in the game, six times) the first time a
+survivor with a paint or tattoo was built. Now SC finds those types directly and binds Vanity Vault during the loading
+screen; Vanity Vault's own one-time lookup for its custom hairs is filled ahead too. The broad look pre-load (heads,
+outfits) was measured and dropped: those parts cost 5-45 ms each on first use, and loading them all would take well over
+1 GB.
+
+1. In the game log, `Vanity Vault 3.2.0: paints and tattoos on survivors - it knows ...` now comes during loading, right
+   after `NPC magazines: ...`, not when you first meet a painted survivor, and it contains `(bound in N ms)`: N should be
+   a few ms at most (the old way took about 390).
+2. The first painted or tattooed survivor of a session: no big hitch. In `zSpawnProbe\spawnprobe.log` their `build ...`
+   line should total under about 150 ms (Kyle's was 479 ms).
+3. Vanity Vault's hairs: `spawnprobe.log` has no `typename DataLoader ...` line (that was Vanity Vault's own one-time
+   lookup, now filled ahead; with `DebugLogging` true in SC's blocks.xml, the game log says `its hair colour lookup filled ahead`). The first
+   `VanityVault.TryLoadHair` of a session may still take a while - it loads the hair itself - but tell me what it shows
+   (Hal's was 152 ms).
+4. Paints, tattoos and Vanity Vault hairs still show on survivors as before.
+5. `spawnprobe.log` now has `typename <name> N ms <- callers` for every `AccessTools.TypeByName` call over 5 ms: there
+   should be none from SurvivorCommunity once you are in the world. Send me any others you see in play.
+
 ## NPC weapon models loaded ahead (round wp)
 
 **Deployed 2026-10-12** (Fable review: deployable; DLL md5 `880ca43913a467431e460e734e4917df`). Your report (2026-10-12): a big hitch when Carl, a stranger, spawned. Of his 0.9 s, about 0.3 s was

@@ -319,13 +319,13 @@ namespace SurvivorCommunity
         /// <summary>Voice Control's follow actuator's door opener, bound by name (null without Voice Control).</summary>
         public static MethodBase VcDoorTarget()
         {
-            Type t = AccessTools.TypeByName(VcActuatorType);
+            Type t = ScTypes.Find(VcActuatorType);
             return t != null ? AccessTools.DeclaredMethod(t, "TryOpenBlockingDoor", new Type[0]) : null;
         }
 
         private static bool VcHasSelf()
         {
-            Type t = AccessTools.TypeByName(VcActuatorType);
+            Type t = ScTypes.Find(VcActuatorType);
             FieldInfo f = t != null ? AccessTools.Field(t, "_self") : null;
             return f != null && f.FieldType == typeof(EntityAlive);
         }

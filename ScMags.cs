@@ -15,7 +15,7 @@ namespace SurvivorCommunity
     /// magazine?", "how many rounds does it have for it?") and arms, refills, records and restores through here.
     ///
     /// Bound by name, no compile-time reference: ModManager.ModLoaded("LockedAndLoaded") (its ModInfo Name), then
-    /// AccessTools.TypeByName and AccessTools.Method with the exact parameter types; each method must be public, static and
+    /// ScTypes.Find and AccessTools.Method with the exact parameter types; each method must be public, static and
     /// return what the hand-off says. Required: Arm, Refill, Rounds, Record, Restore (the API) and Carries (L&amp;L's own "this
     /// NPC uses magazines for this gun", the same test its reload asks). Optional: MagazineRegistry.AllForGun with
     /// MagazineDef.Name / Twin, and NpcMagazines.TierOf with Tier.Magazines - only the issue of empty magazines to a member
@@ -106,7 +106,7 @@ namespace SurvivorCommunity
         internal static bool BindTypes(out string why)
         {
             var missing = new List<string>();
-            Type t = AccessTools.TypeByName(ApiTypeName);
+            Type t = ScTypes.Find(ApiTypeName);
             if (t == null) { why = ApiTypeName + " not found"; return false; }
             arm = Bind(t, "Arm", typeof(int), new[] { typeof(EntityAlive), typeof(string), typeof(int), typeof(string) }, missing);
             refill = Bind(t, "Refill", typeof(int), new[] { typeof(EntityAlive), typeof(string), typeof(string), typeof(int) }, missing);
@@ -118,7 +118,7 @@ namespace SurvivorCommunity
 
             // optional: the gun's magazine kinds (for the issue of empty magazines) and the tier table's counts
             var optional = new List<string>();
-            Type reg = AccessTools.TypeByName(RegistryTypeName);
+            Type reg = ScTypes.Find(RegistryTypeName);
             allForGun = reg != null ? Bind(reg, "AllForGun", null, new[] { typeof(string) }, optional) : null;
             Type def = allForGun != null && typeof(IList).IsAssignableFrom(allForGun.ReturnType) && allForGun.ReturnType.IsGenericType
                 ? allForGun.ReturnType.GetGenericArguments()[0] : null;
