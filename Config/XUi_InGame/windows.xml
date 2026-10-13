@@ -638,104 +638,83 @@
 		</rect>
 	</append>
 
-	<!-- The radio window (same layout rules as the community window). -->
+	<!-- GENERATED:BEGIN scradio (Tools/generate_radio_ui.py) -->
 	<append xpath="/windows">
-		<window name="windowScRadio" anchor="Center" pos="-360,480" width="720" height="960"
-		        controller="SurvivorCommunity.ScRadio, SurvivorCommunity" cursor_area="true">
-			<rect depth="0" pos="0,0" width="720" height="960">
-				<sprite depth="0" name="background" color="0,0,0,235" type="sliced"/>
-				<sprite depth="1" name="border" color="[black]" type="sliced" fillcenter="false"/>
-
-				<label depth="2" pos="20,-14" width="500" height="28" font_size="24" justify="left" text="{title}" color="[white]"/>
-				<label depth="2" pos="20,-42" width="680" height="22" font_size="15" justify="left" text="{status}" color="[lightGrey]"/>
-				<rect depth="2" name="btnClose" pos="656,-12" width="48" height="30" style="press, hover">
-					<sprite depth="0" name="background" color="90,40,40,255" type="sliced"/>
-					<label depth="1" pos="0,-4" width="48" height="22" font_size="16" justify="center" text="X" color="[white]"/>
-				</rect>
-
-				<rect depth="1" pos="16,-76" width="688" height="140">
-					<sprite depth="0" name="background" color="20,20,20,200" type="sliced"/>
-					<rect depth="2" name="btnDrop" pos="12,-12" width="300" height="44" style="press, hover">
-						<sprite depth="0" name="background" color="{dropcolor}" type="sliced"/>
-						<label depth="1" pos="0,-11" width="300" height="26" font_size="17" justify="center" text="{droplabel}" color="[white]"/>
-					</rect>
-					<label depth="2" pos="12,-62" width="300" height="70" font_size="13" text="{dropdesc}" color="[lightGrey]"/>
-					<rect depth="2" name="btnCall" pos="376,-12" width="300" height="44" style="press, hover">
-						<sprite depth="0" name="background" color="{callcolor}" type="sliced"/>
-						<label depth="1" pos="0,-11" width="300" height="26" font_size="17" justify="center" text="{calllabel}" color="[white]"/>
-					</rect>
-					<label depth="2" pos="376,-62" width="300" height="70" font_size="13" text="{calldesc}" color="[lightGrey]"/>
-				</rect>
-
-				<label depth="2" pos="20,-228" width="680" height="22" font_size="16" text_key="scRadioContactsHeader" color="[lightGrey]"/>
-				<label depth="2" pos="20,-252" width="680" height="110" font_size="14" text="{contacts}" color="[white]"/>
-
-				<label depth="2" pos="20,-372" width="680" height="22" font_size="16" text_key="scRadioDistressHeader" color="[lightGrey]"/>
-				<label depth="2" pos="20,-396" width="680" height="110" font_size="14" text="{distress}" color="[white]"/>
-
-				<label depth="2" pos="20,-516" width="680" height="22" font_size="16" text_key="scRadioOutpostsHeader" color="[lightGrey]"/>
-				<label depth="2" pos="20,-540" width="680" height="96" font_size="14" text="{outposts}" color="[white]"/>
-				<rect depth="1" pos="16,-638" width="688" height="42" visible="{demandvisible}">
-					<sprite depth="0" name="background" color="70,25,20,220" type="sliced"/>
-					<label depth="2" pos="10,-11" width="400" height="22" font_size="14" text="{demandtext}" color="255,200,140,255"/>
-					<rect depth="2" name="btnDemandPay" pos="420,-5" width="126" height="32" style="press, hover">
-						<sprite depth="0" name="background" color="60,90,60,255" type="sliced"/>
-						<label depth="1" pos="0,-7" width="126" height="22" font_size="15" justify="center" text_key="scRadioDemandPay" color="[white]"/>
-					</rect>
-					<rect depth="2" name="btnDemandRefuse" pos="554,-5" width="126" height="32" style="press, hover">
-						<sprite depth="0" name="background" color="110,40,40,255" type="sliced"/>
-						<label depth="1" pos="0,-7" width="126" height="22" font_size="15" justify="center" text_key="scRadioDemandRefuse" color="[white]"/>
-					</rect>
-				</rect>
-
-				<rect depth="1" pos="16,-686" width="688" height="100">
-					<sprite depth="0" name="background" color="20,20,20,200" type="sliced"/>
-					<label depth="2" pos="12,-6" width="660" height="20" font_size="15" text_key="scRadioScoutHeader" color="[lightGrey]"/>
-					<rect depth="2" name="btnScoutFood" pos="12,-30" width="126" height="34" style="press, hover">
-						<sprite depth="0" name="background" color="{scoutcolor}" type="sliced"/>
-						<label depth="1" pos="0,-8" width="126" height="22" font_size="15" justify="center" text_key="scRunFood" color="[white]"/>
-					</rect>
-					<rect depth="2" name="btnScoutMeds" pos="146,-30" width="126" height="34" style="press, hover">
-						<sprite depth="0" name="background" color="{scoutcolor}" type="sliced"/>
-						<label depth="1" pos="0,-8" width="126" height="22" font_size="15" justify="center" text_key="scRunMeds" color="[white]"/>
-					</rect>
-					<rect depth="2" name="btnScoutAmmo" pos="280,-30" width="126" height="34" style="press, hover">
-						<sprite depth="0" name="background" color="{scoutcolor}" type="sliced"/>
-						<label depth="1" pos="0,-8" width="126" height="22" font_size="15" justify="center" text_key="scRunAmmo" color="[white]"/>
-					</rect>
-					<rect depth="2" name="btnScoutMaterials" pos="414,-30" width="126" height="34" style="press, hover">
-						<sprite depth="0" name="background" color="{scoutcolor}" type="sliced"/>
-						<label depth="1" pos="0,-8" width="126" height="22" font_size="15" justify="center" text_key="scRunMaterials" color="[white]"/>
-					</rect>
-					<rect depth="2" name="btnScoutFuel" pos="548,-30" width="126" height="34" style="press, hover">
-						<sprite depth="0" name="background" color="{scoutcolor}" type="sliced"/>
-						<label depth="1" pos="0,-8" width="126" height="22" font_size="15" justify="center" text_key="scRunFuel" color="[white]"/>
-					</rect>
-					<label depth="2" pos="12,-70" width="660" height="26" font_size="13" text="{scoutdesc}" color="[lightGrey]"/>
-				</rect>
-
-				<rect depth="1" pos="16,-792" width="688" height="84">
-					<sprite depth="0" name="background" color="20,20,20,200" type="sliced"/>
-					<label depth="2" pos="12,-6" width="660" height="20" font_size="15" text_key="scRadioBarterHeader" color="[lightGrey]"/>
-					<rect depth="2" name="btnBarterGive" pos="12,-30" width="200" height="34" style="press, hover">
-						<sprite depth="0" name="background" color="60,60,80,255" type="sliced"/>
-						<label depth="1" pos="0,-8" width="200" height="22" font_size="15" justify="center" text="{bartergive}" color="[white]"/>
-					</rect>
-					<rect depth="2" name="btnBarterGet" pos="222,-30" width="200" height="34" style="press, hover">
-						<sprite depth="0" name="background" color="60,60,80,255" type="sliced"/>
-						<label depth="1" pos="0,-8" width="200" height="22" font_size="15" justify="center" text="{barterget}" color="[white]"/>
-					</rect>
-					<rect depth="2" name="btnBarterTrade" pos="432,-30" width="244" height="34" style="press, hover">
-						<sprite depth="0" name="background" color="{bartercolor}" type="sliced"/>
-						<label depth="1" pos="0,-8" width="244" height="22" font_size="15" justify="center" text_key="scRadioBarterTrade" color="[white]"/>
-					</rect>
-					<label depth="2" pos="12,-66" width="660" height="18" font_size="13" text="{barterdesc}" color="[lightGrey]"/>
-				</rect>
-
-				<label depth="2" pos="20,-884" width="680" height="60" font_size="14" text="{message}" color="255,200,140,255"/>
+		<window name="windowScRadio" anchor="Center" pos="-380,470" width="760" height="940" depth="20" controller="SurvivorCommunity.ScRadio, SurvivorCommunity" cursor_area="true">
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="760" height="940"/>
+			<sprite depth="3" sprite="ui_game_symbol_talk" pos="52,-40" width="56" height="56" pivot="center" color="[white]"/>
+			<label depth="4" pos="92,-8" width="560" height="44" font_size="40" text="{title}" color="226,219,203,255" upper_case="true"/>
+			<label depth="4" pos="94,-52" width="560" height="24" font_size="17" text="{status}" color="206,178,120,255"/>
+			<button depth="2" name="btnClose" pos="680,-18" width="56" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_x" pos="708,-42" width="24" height="24" pivot="center" color="[white]"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-84" width="712" height="140"/>
+			<button depth="2" name="btnDrop" pos="40,-98" width="332" height="46" sprite="scui_btn" hoversprite="{# dropready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_airdrop" pos="68,-121" width="28" height="28" pivot="center" color="[white]"/>
+			<label depth="4" pos="90,-112" width="274" height="23" font_size="17" text="{droplabel}" color="{# dropready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true" overflow="ClampContent" overflow_ellipsis="true"/>
+			<label depth="4" pos="42,-154" width="328" height="64" font_size="14" text="{dropdesc}" color="190,182,166,255"/>
+			<button depth="2" name="btnCall" pos="388,-98" width="332" height="46" sprite="scui_btn" hoversprite="{# callready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_players" pos="416,-121" width="28" height="28" pivot="center" color="[white]"/>
+			<label depth="4" pos="438,-112" width="274" height="23" font_size="17" text="{calllabel}" color="{# callready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true" overflow="ClampContent" overflow_ellipsis="true"/>
+			<label depth="4" pos="390,-154" width="328" height="64" font_size="14" text="{calldesc}" color="190,182,166,255"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-232" width="712" height="106"/>
+			<sprite depth="3" sprite="ui_game_symbol_talk" pos="51,-251" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="70,-241" width="650" height="24" font_size="18" text_key="scRadioContactsHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-266" width="680" height="3"/>
+			<label depth="4" pos="40,-272" width="680" height="62" font_size="14" text="{contacts}" color="226,220,208,255"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-346" width="712" height="90"/>
+			<sprite depth="3" sprite="ui_game_symbol_map_waypoint_set" pos="51,-365" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="70,-355" width="650" height="24" font_size="18" text_key="scRadioDistressHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-380" width="680" height="3"/>
+			<label depth="4" pos="40,-386" width="680" height="46" font_size="14" text="{distress}" color="226,220,208,255"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-444" width="712" height="150"/>
+			<sprite depth="3" sprite="ui_game_symbol_map_town" pos="51,-463" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="70,-453" width="650" height="24" font_size="18" text_key="scRadioOutpostsHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-478" width="680" height="3"/>
+			<label depth="4" pos="40,-484" width="680" height="106" font_size="14" text="{outposts}" color="226,220,208,255"/>
+			<rect depth="1" pos="24,-600" width="712" height="40" visible="{demandvisible}">
+				<sprite depth="0" sprite="scui_btn_danger" type="sliced" color="[white]" pos="0,0" width="712" height="40"/>
+				<label depth="4" pos="16,-12" width="424" height="21" font_size="15" text="{demandtext}" color="240,150,130,255"/>
+				<button depth="2" name="btnDemandPay" pos="448,-5" width="120" height="30" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<label depth="4" pos="448,-12" width="120" height="21" font_size="15" text_key="scRadioDemandPay" color="226,220,208,255" justify="center" upper_case="true"/>
+				<button depth="2" name="btnDemandRefuse" pos="576,-5" width="120" height="30" sprite="scui_btn_danger" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<label depth="4" pos="576,-12" width="120" height="21" font_size="15" text_key="scRadioDemandRefuse" color="240,150,130,255" justify="center" upper_case="true"/>
 			</rect>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-648" width="712" height="104"/>
+			<sprite depth="3" sprite="ui_game_symbol_search" pos="51,-667" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="70,-657" width="650" height="24" font_size="18" text_key="scRadioScoutHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-682" width="680" height="3"/>
+			<button depth="2" name="btnScoutFood" pos="40,-690" width="128" height="36" sprite="scui_btn" hoversprite="{# scoutready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_fork" pos="60,-708" width="20" height="20" pivot="center" color="[white]"/>
+			<label depth="4" pos="74,-700" width="88" height="21" font_size="15" text_key="scRunFood" color="{# scoutready ? '226,220,208,255' : '130,124,112,255' }" upper_case="true"/>
+			<button depth="2" name="btnScoutMeds" pos="178,-690" width="128" height="36" sprite="scui_btn" hoversprite="{# scoutready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_medical" pos="198,-708" width="20" height="20" pivot="center" color="[white]"/>
+			<label depth="4" pos="212,-700" width="88" height="21" font_size="15" text_key="scRunMeds" color="{# scoutready ? '226,220,208,255' : '130,124,112,255' }" upper_case="true"/>
+			<button depth="2" name="btnScoutAmmo" pos="316,-690" width="128" height="36" sprite="scui_btn" hoversprite="{# scoutready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_shape_ammo" pos="336,-708" width="20" height="20" pivot="center" color="[white]"/>
+			<label depth="4" pos="350,-700" width="88" height="21" font_size="15" text_key="scRunAmmo" color="{# scoutready ? '226,220,208,255' : '130,124,112,255' }" upper_case="true"/>
+			<button depth="2" name="btnScoutMaterials" pos="454,-690" width="128" height="36" sprite="scui_btn" hoversprite="{# scoutready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_brick" pos="474,-708" width="20" height="20" pivot="center" color="[white]"/>
+			<label depth="4" pos="488,-700" width="88" height="21" font_size="15" text_key="scRunMaterials" color="{# scoutready ? '226,220,208,255' : '130,124,112,255' }" upper_case="true"/>
+			<button depth="2" name="btnScoutFuel" pos="592,-690" width="128" height="36" sprite="scui_btn" hoversprite="{# scoutready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_gas" pos="612,-708" width="20" height="20" pivot="center" color="[white]"/>
+			<label depth="4" pos="626,-700" width="88" height="21" font_size="15" text_key="scRunFuel" color="{# scoutready ? '226,220,208,255' : '130,124,112,255' }" upper_case="true"/>
+			<label depth="4" pos="40,-730" width="680" height="20" font_size="13" text="{scoutdesc}" color="190,182,166,255"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-760" width="712" height="104"/>
+			<sprite depth="3" sprite="ui_game_symbol_barter" pos="51,-779" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="70,-769" width="650" height="24" font_size="18" text_key="scRadioBarterHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-794" width="680" height="3"/>
+			<button depth="2" name="btnBarterGive" pos="40,-802" width="250" height="36" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<label depth="4" pos="40,-812" width="250" height="21" font_size="15" text="{bartergive}" color="226,220,208,255" justify="center"/>
+			<button depth="2" name="btnBarterGet" pos="300,-802" width="210" height="36" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<label depth="4" pos="300,-812" width="210" height="21" font_size="15" text="{barterget}" color="226,220,208,255" justify="center"/>
+			<button depth="2" name="btnBarterTrade" pos="520,-802" width="200" height="36" sprite="scui_btn" hoversprite="{# barterready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_coin" pos="542,-820" width="20" height="20" pivot="center" color="[white]"/>
+			<label depth="4" pos="556,-812" width="156" height="21" font_size="15" text_key="scRadioBarterTrade" color="{# barterready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true"/>
+			<label depth="4" pos="40,-842" width="680" height="20" font_size="13" text="{barterdesc}" color="190,182,166,255"/>
+			<label depth="4" pos="28,-872" width="704" height="60" font_size="15" text="{message}" color="206,178,120,255"/>
 		</window>
 	</append>
+	<!-- GENERATED:END scradio -->
 
 	<!-- The Home Status panel (base defence D1, XUiC_ScHomeStatus), laid out like State of Decay 2's, shown while the
 	     player is inside the home zone. Since 2026-10-09 (the user's ask) it sits at the top, right of the compass, in the

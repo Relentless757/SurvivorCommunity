@@ -153,6 +153,13 @@ namespace SurvivorCommunity
                 case "dropcolor":
                     _value = ScRadio.CanDrop(out why) ? "50,110,50,255" : "70,70,70,255";
                     return true;
+                // Whether each control can act now (Tools/generate_radio_ui.py: a control that cannot keeps its
+                // plate but loses its hover plate and its label dims). The *color bindings are kept for any
+                // older markup.
+                case "dropready": _value = ScRadio.CanDrop(out why).ToString(); return true;
+                case "callready": _value = ScRadio.CanCall(out why).ToString(); return true;
+                case "scoutready": _value = ScScouting.CanScout(out why).ToString(); return true;
+                case "barterready": _value = ScBarter.CanTrade(barterGive, barterGet, out why).ToString(); return true;
                 case "dropdesc":
                     _value = ScRadio.DropMaxDays() > 0 ? string.Format(Localization.Get("scRadioDropDesc"), ScRadio.DropDaysText()) : Localization.Get("scRadioDropsOff");
                     return true;

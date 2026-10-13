@@ -25,6 +25,15 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Radio window restyle (built 2026-10-13)
+
+Tools/generate_radio_ui.py rebuilt windowScRadio on the community window's look (scui_* plates, <button> controls,
+icons); XUiC_ScRadio gained dropready / callready / scoutready / barterready. With AshfallUI the plates are premium.
+- [ ] The radio opens; every button still works (drop, call, the five scout runs, barter give/get/trade, close).
+- [ ] A control that can't act (cooldown, no power) keeps its plate, loses its hover, and its label dims and says why.
+- [ ] With a raiders' demand open, the red callout and Pay / Refuse show; without one, nothing there.
+- [ ] Contacts, distress and seven outpost lines fit their plates; the message line shows under barter.
+
 ## The first painted survivor no longer hitches (round vb)
 
 **Deployed 2026-10-13** (Fable review and re-check: deployable; DLL md5 `a55c736f10cab14fd8ebd96b391bc83b`; zSpawnProbe
