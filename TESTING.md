@@ -32,7 +32,7 @@ his Izayo Tec9's model loaded for the first time in that frame. Now the models o
 gamestage load in the background, one at a time, from 20 s after the world is up.
 
 1. About 20 s after loading in, the log says `weapon warm: loading N NPC weapon model(s) in the background (gamestage
-   tier T, ...)`, and a little later `weapon warm: N model(s) loaded in X s, process memory +M MB`. Send me those numbers
+   tier T, ...)`, and a little later `weapon warm: N model(s) loaded in X s, memory (RSS) +M MB` (the first deploy printed a broken +0 MB). Send me those numbers
    (M is the memory cost; if it is too much, `XnpcWarmWeapons` false in blocks.xml turns it off).
 2. No hitch while it runs (it loads in the background).
 3. The next fresh stranger with a gun: smaller hitch. `zSpawnProbe\spawnprobe.log` has `force id=...` lines naming what

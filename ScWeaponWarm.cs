@@ -17,7 +17,7 @@ namespace SurvivorCommunity
     /// MB - checked again every RecheckSeconds as the gamestage rises. The models are held here, as
     /// ItemClass.renderGameObject holds one for the rest of the session once anything has held that item, so Unity's
     /// unused-asset sweep cannot drop them again: the memory is what a long session ends up with anyway, only sooner. Each
-    /// batch logs its count, time and the process memory it added. Off with XnpcWarmWeapons false; never on a dedicated
+    /// batch logs its count, time and the resident memory (RSS) it added. Off with XnpcWarmWeapons false; never on a dedicated
     /// server (it draws nothing). Main thread (ModEvents.GameUpdate).
     /// </summary>
     public static class ScWeaponWarm
@@ -139,13 +139,17 @@ namespace SurvivorCommunity
             inBatch = false;
             long added = MemMb() - batchMemBefore;
             ScLog.Out("weapon warm: " + batchLoaded + " model(s) loaded" + (batchFailed > 0 ? ", " + batchFailed + " failed" : "") + " in "
-                      + (now - batchStart).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s, process memory "
+                      + (now - batchStart).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s, memory (RSS) "
                       + (added >= 0 ? "+" : "") + added + " MB (" + held.Count + " held this session)");
         }
 
+        /// <summary>
+        /// The process's resident memory in MB - the game's own RSS figure (the "RSS:" of its stats line). Process's
+        /// PrivateMemorySize64 read 0 under the game's Mono, so the first deploy logged "+0 MB" (2026-10-12).
+        /// </summary>
         private static long MemMb()
         {
-            try { return System.Diagnostics.Process.GetCurrentProcess().PrivateMemorySize64 / (1024L * 1024L); }
+            try { return SystemInformation.GetRSS.GetCurrentRSS() / (1024L * 1024L); }
             catch (Exception) { return 0; }
         }
     }
