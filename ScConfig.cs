@@ -635,6 +635,8 @@ namespace SurvivorCommunity
         public static bool XnpcBodyColliderLayers = true;
         /// <summary>The XNPC body's Model offset (m): 0 puts its feet on the ground (the player prefab ships -0.08).</summary>
         public static float XnpcModelY = 0f;
+        /// <summary>Load the held models of the weapons NPCs can carry now in the background (ScWeaponWarm, round wp).</summary>
+        public static bool XnpcWarmWeapons = true;
         // ---- SC's raiders on 0-XNPCCore's body (M10, DESIGN_M10_RAIDERS.md; the user's decisions M10-D1..D9) ----
         /// <summary>SC's hostile classes on XNPC's body (Config/entityclasses.xml, written by Tools/gen_arsenal.py): ScXnpc's second managed set.</summary>
         public static readonly List<string> XnpcRaiderClasses = new List<string>(ScXnpc.DefaultRaiderClasses);
@@ -805,6 +807,7 @@ namespace SurvivorCommunity
             XnpcBodyJumpAnim = true;
             XnpcBodyColliderLayers = true;
             XnpcModelY = 0f;
+            XnpcWarmWeapons = true;
             XnpcRaiderClasses.Clear();
             XnpcRaiderClasses.AddRange(ScXnpc.DefaultRaiderClasses);
             RaiderRangedShare[0] = 0.3f; RaiderRangedShare[1] = 0.4f; RaiderRangedShare[2] = 0.5f;
@@ -1457,6 +1460,9 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("XnpcBodyColliderLayers")) p.ParseBool("XnpcBodyColliderLayers", ref xnpcColliders);
                 XnpcBodyColliderLayers = xnpcColliders;
                 ParseFloat(p, "XnpcModelY", ref XnpcModelY, -0.3f, 0.3f);
+                bool warm = XnpcWarmWeapons;
+                if (p.Values.ContainsKey("XnpcWarmWeapons")) p.ParseBool("XnpcWarmWeapons", ref warm);
+                XnpcWarmWeapons = warm;
                 ParseFloat(p, "RaiderFirearmChance", ref RaiderFirearmChance, 0f, 1f);
                 ParseFloat(p, "RaiderMeleeOnlyChance", ref RaiderMeleeOnlyChance, 0f, 1f);
                 ParseFloat(p, "RaiderLeadRangedDist", ref RaiderLeadRangedDist, 3f, 60f);

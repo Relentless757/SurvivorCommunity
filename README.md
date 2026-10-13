@@ -694,7 +694,7 @@ The two mods talk only through CVars on the local player; without SurvivorOrigin
 ## Configuration (`Config/blocks.xml`, block `ConfigSurvivorCommunity`)
 
 `MaxMembers`, `MaxFollowers`, `PostRadius`, `ResidentRoamZone`, `ResidentRoamPauseMin`, `ResidentRoamPauseMax`,
-`ResidentRoamZoneMargin`, `HomeKeepLoaded`, `HomeKeepLoadedRange`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `WaterPerMemberDay`, `PointsPerBundle*`
+`ResidentRoamZoneMargin`, `HomeKeepLoaded`, `HomeKeepLoadedRange`, `XnpcWarmWeapons`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `WaterPerMemberDay`, `PointsPerBundle*`
 (Food, Meds, Ammo, Materials, Fuel, Water, Luxury), `LuxuryItems`, `WellBlocks`, `WellWaterPerLevel`, `WellsPlaceLevelOne`, `DewCollectorBlocks`,
 `DewWaterPerLevel`, `FacilityUpgradeCost`, `DrinksLuxury`, `DrinksFood`, `DrinksMorale`, `DrinksMinutes`, `ValueOverrides`, `FuelItems`, `BedsBySleepingBag`, `BedBlocks`, `BedBlocksExclude`, `FacilityBlocks`, `LowMoraleDays`, `MissingDaysToPurge`, `RunRiskBase`,
 `RunYieldBase`, `SuppliesFavours`, `PoiFavourRange`, `TraitsPerRecruit`, `DebugLogging`, and the

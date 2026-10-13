@@ -45,6 +45,7 @@ namespace SurvivorCommunity
                 ScOutposts.Reset();
                 ScHomeLink.Reset();
                 ScHomeHold.Reset();
+                ScWeaponWarm.Reset();
                 ScGarrison.Reset();
                 ScScouting.Reset();
                 ScOutpostRisk.Reset();
@@ -90,13 +91,17 @@ namespace SurvivorCommunity
                     try { ScMags.Resolve(); }
                     catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }
                 });
-                ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) => ScTicker.OnGameUpdate());
+                ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) =>
+                {
+                    ScTicker.OnGameUpdate();
+                    ScWeaponWarm.Update();             // NPC weapon models in the background (round wp)
+                });
                 ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) =>
                 {
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
                     // a dead NPC's window still held by a remote player drops at the body now (the world is saved after this event)
                     if (ScCommunity.IsHost) Patches_Npc.Patch_SetDead.ReleaseAll(true);
-                    ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScRegistry.FlushAndReset();
+                    ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScWeaponWarm.Reset(); ScRegistry.FlushAndReset();
                 });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });
                 ModEvents.EntityKilled.RegisterHandler((ref ModEvents.SEntityKilledData _d) =>

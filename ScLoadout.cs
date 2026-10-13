@@ -308,6 +308,23 @@ namespace SurvivorCommunity
         /// <summary>Does the catalogue carry the weapon (so it can be one of a pair)?</summary>
         public static bool Knows(string token) { return Find(token) != null; }
 
+        /// <summary>
+        /// The catalogue's weapons an NPC can be given at this gamestage tier: a weight above 0 at some band up to it (an NPC's
+        /// band is capped at the gamestage tier - TierCap and ClassByGamestage). ScWeaponWarm loads their models ahead.
+        /// </summary>
+        public static List<string> RollableNow(int gsTier)
+        {
+            var list = new List<string>();
+            foreach (Weapon w in Catalogue())
+            {
+                for (int b = 0; b <= gsTier; b++)
+                {
+                    if (w.Weight(b) > 0f) { list.Add(w.Token); break; }
+                }
+            }
+            return list;
+        }
+
         /// <summary>A weapon's strength band (Weapon.Level: the band it is likeliest at), or -1 when it is not carried.</summary>
         public static int LevelOf(string token)
         {

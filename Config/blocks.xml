@@ -446,6 +446,11 @@
 			<!-- XnpcModelY: how high an 0-XNPCCore survivor's body sits on its entity (m). 0 = feet on the ground; their
 			     player prefab ships -0.08, made for the player's character controller, which sank NPCs 8 cm. -->
 			<property name="XnpcModelY" value="0" />
+			<!-- XnpcWarmWeapons (round wp): the held models of the weapons below that an NPC can carry at the current
+			     gamestage are loaded in the background, one at a time, from 20 s after the world is up, so a stranger's first
+			     spawn does not load its gun in that frame (an Izayo gun took about 0.3 s). The log says how many and how much
+			     memory they took ("weapon warm: ..."). -->
+			<property name="XnpcWarmWeapons" value="true" />
 			<!-- BEGIN GENERATED: XnpcWeapons (Tools/gen_arsenal.py) -->
 			<!-- The vanilla weapons the community's 0-XNPCCore survivors and SurvivorCommunity's raiders carry, one melee
 			     and one ranged each (a raider leads with one of them; some carry only the melee one, SurvivorMeleeOnlyChance /

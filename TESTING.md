@@ -25,6 +25,20 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## NPC weapon models loaded ahead (round wp)
+
+**Deployed 2026-10-12** (Fable review: deployable; DLL md5 `880ca43913a467431e460e734e4917df`). Your report (2026-10-12): a big hitch when Carl, a stranger, spawned. Of his 0.9 s, about 0.3 s was
+his Izayo Tec9's model loaded for the first time in that frame. Now the models of the weapons NPCs can carry at your
+gamestage load in the background, one at a time, from 20 s after the world is up.
+
+1. About 20 s after loading in, the log says `weapon warm: loading N NPC weapon model(s) in the background (gamestage
+   tier T, ...)`, and a little later `weapon warm: N model(s) loaded in X s, process memory +M MB`. Send me those numbers
+   (M is the memory cost; if it is too much, `XnpcWarmWeapons` false in blocks.xml turns it off).
+2. No hitch while it runs (it loads in the background).
+3. The next fresh stranger with a gun: smaller hitch. `zSpawnProbe\spawnprobe.log` has `force id=...` lines naming what
+   forced the spawn and `done in N ms` for how long it took - send me those too.
+4. When your gamestage passes 50 or 100, a new `weapon warm: loading ...` line follows within two minutes.
+
 ## Residents walk about the base; the home zone stays loaded (round hz)
 
 **Deployed 2026-10-12** (Fable review, re-check and final check: deployable; DLL md5 `dafab068456d22bf6015457ff05bb700`). Your asks (2026-10-12): residents should walk about inside the base rather than stand at one spot,

@@ -82,6 +82,7 @@
     <Compile Include="Patches_Outposts.cs" />
     <Compile Include="ScHomeLink.cs" />
     <Compile Include="ScHomeHold.cs" />
+    <Compile Include="ScWeaponWarm.cs" />
     <Compile Include="ScGarrison.cs" />
     <Compile Include="ScScouting.cs" />
     <Compile Include="ScOutpostPerks.cs" />
