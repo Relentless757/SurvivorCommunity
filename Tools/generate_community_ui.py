@@ -209,7 +209,9 @@ TABS = (("btnTabMembers", "scUiMembers", "membercount", "tabmembers"),
 
 
 def tabs():
-    """MEMBERS n | OUTPOSTS held/slots | ACTIVITIES luxuries: the active tab gets the selected plate over its button.
+    """MEMBERS n | OUTPOSTS held/slots | ACTIVITIES luxuries: the active tab gets the selected plate over its button -
+    scui_tab_selected, its own name since 2026-10-13: the member rows' scui_row_selected is cut for 80-unit rows and
+    read too heavy at 44 (user); AshfallUI ships the nav bar's selected plate under it.
     Three to a row they are 128 wide, so the label is 15 px with its count in the last 34."""
     w = (MEM_W - 40 - 8 * (len(TABS) - 1)) // len(TABS)
     o = []
@@ -217,7 +219,7 @@ def tabs():
         x = 20 + i * (w + 8)
         o += [button(name, x, -12, w, 44),
               '<rect depth="0" pos="0,0" width="%d" height="%d" visible="{%s}">' % (MEM_W, 60, active),
-              "\t" + plate("scui_row_selected", x, -12, w, 44, depth=3),
+              "\t" + plate("scui_tab_selected", x, -12, w, 44, depth=3),
               "</rect>",
               centred(x + 8, -12, w - 46, 44, 15, TITLE, key=key, extra='upper_case="true"'),
               centred(x + w - 40, -12, 34, 44, 15, GOLD, text="{%s}" % count, extra='justify="right"')]

@@ -33,6 +33,7 @@ SPRITES = [
     ("scui_row", "skill_row_normal", "a member row at rest"),
     ("scui_row_hover", "skill_row_hover", "a member row under the pointer"),
     ("scui_row_selected", "skill_row_selected", "the selected member's row"),
+    ("scui_tab_selected", "tab_selected", "the active tab's plate, over its button (44 tall)"),
     ("scui_row_thin", "milestone_unlocked", "the thin rows: skills, traits, the search field"),
     ("scui_btn", "button_normal", "a button at rest"),
     ("scui_btn_hover", "button_hover", "a button under the pointer"),

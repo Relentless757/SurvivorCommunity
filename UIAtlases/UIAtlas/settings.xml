@@ -6,6 +6,7 @@
 	<sprite name="scui_row" borderleft="8" borderright="8" bordertop="8" borderbottom="8"/>  <!-- a member row at rest -->
 	<sprite name="scui_row_hover" borderleft="8" borderright="8" bordertop="8" borderbottom="8"/>  <!-- a member row under the pointer -->
 	<sprite name="scui_row_selected" borderleft="8" borderright="8" bordertop="8" borderbottom="8"/>  <!-- the selected member's row -->
+	<sprite name="scui_tab_selected" borderleft="8" borderright="8" bordertop="8" borderbottom="8"/>  <!-- the active tab's plate, over its button (44 tall) -->
 	<sprite name="scui_row_thin" borderleft="8" borderright="8" bordertop="8" borderbottom="8"/>  <!-- the thin rows: skills, traits, the search field -->
 	<sprite name="scui_btn" borderleft="8" borderright="8" bordertop="8" borderbottom="8"/>  <!-- a button at rest -->
 	<sprite name="scui_btn_hover" borderleft="8" borderright="8" bordertop="8" borderbottom="8"/>  <!-- a button under the pointer -->

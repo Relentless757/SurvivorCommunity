@@ -139,19 +139,19 @@
 				<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="440" height="696"/>
 				<button depth="2" name="btnTabMembers" pos="20,-12" width="128" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 				<rect depth="0" pos="0,0" width="440" height="60" visible="{tabmembers}">
-					<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="20,-12" width="128" height="44"/>
+					<sprite depth="3" sprite="scui_tab_selected" type="sliced" color="[white]" pos="20,-12" width="128" height="44"/>
 				</rect>
 				<label depth="4" pos="28,-26" width="82" height="21" font_size="15" text_key="scUiMembers" color="226,219,203,255" upper_case="true"/>
 				<label depth="4" pos="108,-26" width="34" height="21" font_size="15" text="{membercount}" color="206,178,120,255" justify="right"/>
 				<button depth="2" name="btnTabOutposts" pos="156,-12" width="128" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 				<rect depth="0" pos="0,0" width="440" height="60" visible="{taboutposts}">
-					<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="156,-12" width="128" height="44"/>
+					<sprite depth="3" sprite="scui_tab_selected" type="sliced" color="[white]" pos="156,-12" width="128" height="44"/>
 				</rect>
 				<label depth="4" pos="164,-26" width="82" height="21" font_size="15" text_key="scUiOutposts" color="226,219,203,255" upper_case="true"/>
 				<label depth="4" pos="244,-26" width="34" height="21" font_size="15" text="{outpostcount}" color="206,178,120,255" justify="right"/>
 				<button depth="2" name="btnTabActivities" pos="292,-12" width="128" height="44" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 				<rect depth="0" pos="0,0" width="440" height="60" visible="{tabactivities}">
-					<sprite depth="3" sprite="scui_row_selected" type="sliced" color="[white]" pos="292,-12" width="128" height="44"/>
+					<sprite depth="3" sprite="scui_tab_selected" type="sliced" color="[white]" pos="292,-12" width="128" height="44"/>
 				</rect>
 				<label depth="4" pos="300,-26" width="82" height="21" font_size="15" text_key="scUiActivities" color="226,219,203,255" upper_case="true"/>
 				<label depth="4" pos="380,-26" width="34" height="21" font_size="15" text="{luxcount}" color="206,178,120,255" justify="right"/>
