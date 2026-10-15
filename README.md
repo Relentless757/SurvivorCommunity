@@ -708,13 +708,15 @@ The two mods talk only through CVars on the local player; without SurvivorOrigin
 `Traits` table (weight, food-use multiplier, morale/mood offsets, starting skill bonus, preferred
 specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `MeleePerStar`, `RangedPerStar`,
 `SpeedPerStar`, `HealthPerStar`, `CookFoodPerStar`, `CropFoodPerStar`, `MedicPerStar`, `PackBonusPerStar`,
-`ScanRadius`, `FollowXpSeconds`, `DailyWitsXp`, and for the player-body survivors `SurvivorGearSets`, `SurvivorGearPieceChance`, `SurvivorGearAlwaysChest`, `SurvivorGearMixChance`,
+`ScanRadius`, `FollowXpSeconds`, `DailyWitsXp`, the starting skills `SkillFloorByTier`, `StandoutSkillChance`,
+`StartSkillCap`, and for the player-body survivors `SurvivorGearSets`, `SurvivorGearPieceChance`, `SurvivorGearAlwaysChest`, `SurvivorGearMixChance`,
 `SurvivorGearQualityMin/Max` (sc gear), `GearSetTiers`, `GearSetLastTier`, `GearTierWeights`, `GearQualityByTier`, `SurvivorOutfitShare`, `RaiderOutfitShare`, the `Outfits` table,
 `SurvivorBaldChance`, `SurvivorFacialHairChance`, the looks never rolled `SurvivorExcludeSkins` / `SurvivorExcludeEyes` /
 `SurvivorExcludeHairs` (Vanity Vault's tinted skins and eyes by default), and the rare dyed hair `SurvivorDyedHairColors`,
 `SurvivorDyedHairChanceFemale` / `Male`, Vanity Vault paints `Survivor`/`RaiderBodyPaintChance`, `...FacePaintChance`,
 `...TattooChance`, the lists `Survivor`/`RaiderBodyPaints`, `...FacePaints`, `...Tattoos`, `...TattooInks` and `TattooMode`. Weapons and ammo: `SurvivorFirearmChance`, `SurvivorMeleeOnlyChance` / `RaiderMeleeOnlyChance`, `XnpcClassByGamestage`, `XnpcSpawnAmmo` /
-`XnpcSpawnArrows`, `XnpcResupply`, `XnpcResupplyBelow`, `XnpcResupplyAmmo` / `XnpcResupplyArrows`,
+`XnpcSpawnArrows`, `SurvivorFirearmChanceT3` / `RaiderFirearmChanceT3`,
+`XnpcResupply`, `XnpcResupplyBelow`, `XnpcResupplyAmmo` / `XnpcResupplyArrows`,
 `XnpcResupplyCooldown`, `XnpcResupplyPointsMult`, `Overwhelmed`, `OverwhelmedRadius`, `OverwhelmedMin` / `OverwhelmedMax`,
 `OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds`, `OverwhelmedSustainSeconds`,
 `OverwhelmedGunSeconds`, `MeleePacing`, `MeleePacingRaiders`, `MeleeReach`, `MeleeReachMargin`, `ShootingSkill`, `ShootingRangePerStar`,

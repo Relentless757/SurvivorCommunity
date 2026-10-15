@@ -34,6 +34,22 @@ icons); XUiC_ScRadio gained dropready / callready / scoutready / barterready. Wi
 - [ ] With a raiders' demand open, the red callout and Pay / Refuse show; without one, nothing there.
 - [ ] Contacts, distress and seven outpost lines fit their plates; the message line shows under barter.
 
+## T3 guns, tier skill floors and standout survivors (round t3)
+
+**Deployed 2026-10-15** (Fable review and re-check: deployable; DLL md5 `ba1cdc49cbde95e1fd1f2fcf5e2e43ea`). Your asks (2026-10-15): at gamestage 100 T3 survivors and raiders mostly carried bows - a T3
+should carry a firearm 85% of the time; T2/T3 survivors should start with better skills (T2 at least 2 stars in every
+skill, T3 at least 3), and any survivor may rarely have one skill of 5+ stars (a little likelier at higher tiers: 4%,
+6%, 8%). An ordinary start now stops at 4 stars (the +2 traits such as Sharpshooter used to push a third of T3s to 5+),
+so a 5+ skill is always a standout. Existing survivors keep the profile they already have; new spawns roll the new way.
+
+1. `sc loadout sim T3` and `sc loadout sim hostile T3`: the line says `N% of all of them carry a firearm`, N about 85 (of
+   the ranged weapons it is about 87%, and about 2.5% are melee-only). `sc loadout sim T2`: as before (about 10% of all,
+   12% of the ranged weapons).
+2. `sc skills sim`: T2 shows no skill below 2, T3 none below 3 ("skills below the floor 0"), and "with a 5+ skill" near
+   4% / 6% / 8% for T1 / T2 / T3.
+3. In play at gamestage 100: most new T3 survivors and raiders have a gun; a new T3 stranger's snapshot card shows at
+   least 3 stars in every skill (T2: 2).
+
 ## Shooting skill aims the gun (round sh)
 
 **Deployed 2026-10-13** (Fable review and two re-checks: deployable; DLL md5 `25ab0e2458034e36a5a177dd3187fede`). Your ask (2026-10-13): Shooting should set how well and how far NPCs shoot - at 1 star they miss
@@ -1762,7 +1778,8 @@ Before you start: `sc r` below means `sc raiders 40`, `sc x <id>` means `sc xnpc
       raider's swing damages its target (`x8-self-hit-guard` counting in `sc xnpc`).
 - [ ] **P14 spawns:** `core SurvivorCommunityDev spawns`: the scRaiderGroup areas roll; wild raiders appear at the band's
       tier (T1 by day in the wild, T3 in towns at night...). The creative menu lists six "Raider" entries.
-- [ ] **Odds:** `sc loadout sim 3000 hostile` -> ranged-lead about 30/40/50% (T1/T2/T3), firearms about 12%, no
+- [ ] **Odds:** `sc loadout sim 3000 hostile` -> ranged-lead about 30/40/50% (T1/T2/T3), firearms about 12% (below
+      gamestage 100: T3 raiders carry one at 85% since round t3), no
       "without a pair". `sc weapons` prints one list and the raider odds line. `sc raiders 200` near a few wild raiders:
       every one shows both weapons and a lead.
 - [ ] **Raids/landmines/healing:** a raider walks onto a landmine and takes damage (no immunity any more); a hurt raider
@@ -2087,7 +2104,8 @@ whether the starting ammo was given.
       Lumberjack` (an item and an armor set), `sc spawn firearm` and `sc spawn bow melee` (one of that family) give
       what was asked, the other kind rolled. `sc spawn PipeRifle PipePistol` refuses (both ranged).
 - [ ] **Tiers by gamestage:** below gamestage 50, `sc spawn` a few times: only tier 0 weapons (pipe guns, primitive
-      bow, the tier 0 melee list). `sc loadout sim 2000` prints about 12% firearms and the tier spread for your
+      bow, the tier 0 melee list). `sc loadout sim 2000` prints about 12% firearms (below gamestage 100; round t3
+      arms T3s at 85%) and the tier spread for your
       gamestage; at gamestage 100+ tier 1 and 2 weapons appear.
 - [ ] **Finite ammo, given once:** let her shoot zombies until the window is empty. She reloads from the window
       while it has rounds, then 0-XNPCCore fails over to melee (`[SDCS-FAILOVER] … failover to melee: '<her melee
@@ -2309,7 +2327,8 @@ of the two in the hand; `sc spawn [hostile] <weapon> <second weapon>` spawns wit
       on their class weapon).
 - [ ] **An existing save:** survivors, raiders and members already in the world get a second weapon on the first load,
       and keep the same one on the next load (`sc loadout <id>` before and after).
-- [ ] **Firearms are rare:** `sc loadout sim 2000` reads about 12% (and `sc loadout sim 2000 hostile`). In the world,
+- [ ] **Firearms are rare:** `sc loadout sim 2000` reads about 12% below gamestage 100 (and `sc loadout sim 2000
+      hostile`; at 100+ T3s carry one at 85% since round t3). In the world,
       `sc loadout near 200` after some roaming: few firearms. Optional: 50 x `sc spawn`, then `sc loadout near` - about
       6 of 50 with a firearm.
 - [ ] **Day-1 world (gamestage under 50):** wild NPCs and radio contacts carry only early weapons: melee, the

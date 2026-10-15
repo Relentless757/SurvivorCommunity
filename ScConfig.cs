@@ -165,6 +165,15 @@ namespace SurvivorCommunity
         public static int ScanRadius = 0;
         public static int FollowXpSeconds = 60;
         public static int DailyWitsXp = 3;
+        /// <summary>
+        /// A new survivor's lowest stars in every core skill by class tier (T1, T2, T3; round t3, the user's ask: T2 at least
+        /// 2, T3 at least 3). Rolled when the profile is (ScSkills.RollStart); 0-XNPCCore's other classes and pack NPCs count as T1.
+        /// </summary>
+        public static readonly int[] SkillFloorByTier = { 1, 2, 3 };
+        /// <summary>The odds a new survivor has one standout core skill of 5+ stars (5 60%, 6 30%, 7 10%), by class tier.</summary>
+        public static readonly float[] StandoutSkillChance = { 0.04f, 0.06f, 0.08f };
+        /// <summary>The most stars an ordinary start gives a skill (floor, +1 and traits): above it only a standout.</summary>
+        public static int StartSkillCap = 4;
         /// <summary>Seconds a stationed resident may make no progress before being moved back to the post.</summary>
         public static int StuckSeconds = 12;
         /// <summary>
@@ -536,6 +545,11 @@ namespace SurvivorCommunity
         /// <summary>The odds a new survivor carries only a melee weapon (Loadout.NoRanged; raiders: RaiderMeleeOnlyChance).</summary>
         public static float SurvivorMeleeOnlyChance = 0.15f;
         /// <summary>
+        /// A T3 survivor's odds of carrying a firearm at all (round t3, the user's ask: 85%); the rest are melee-only or carry a
+        /// bow or crossbow in the proportion the two chances above give them. T1 and T2 roll by those two chances alone.
+        /// </summary>
+        public static float SurvivorFirearmChanceT3 = 0.85f;
+        /// <summary>
         /// Decision D4 (tiers by gamestage), kept at spawn time since 2026-10-09: a spawn group's pick of one of our tiered
         /// classes above the gamestage tier comes in as the same side and sex at that tier (ScLoadout.Patch_ClassByGamestage),
         /// and a body's weapons and clothes follow its class tier alone - so a T2 NPC never carries T0 gear.
@@ -670,6 +684,8 @@ namespace SurvivorCommunity
         public static float RaiderFirearmChance = 0.12f;
         /// <summary>The odds a new raider carries only a melee weapon (it then always leads with it).</summary>
         public static float RaiderMeleeOnlyChance = 0.15f;
+        /// <summary>A T3 raider's odds of carrying a firearm at all (SurvivorFirearmChanceT3's twin; round t3: 85%).</summary>
+        public static float RaiderFirearmChanceT3 = 0.85f;
         /// <summary>Rounds of its gun's basic ammo a raider starts with, in its bag, once (M10-D2: never resupplied). With
         /// Locked &amp; Loaded (M11) only for a gun without magazines: one that takes them gets L&amp;L's tier magazines instead.</summary>
         public static int RaiderSpawnAmmo = 24;
@@ -787,6 +803,7 @@ namespace SurvivorCommunity
             SurvivorSecondWeapon = true;
             SurvivorFirearmChance = 0.12f;
             SurvivorMeleeOnlyChance = 0.15f;
+            SurvivorFirearmChanceT3 = 0.85f;
             XnpcClassByGamestage = true;
             SurvivorRangedMainChance = 0.4f;
             XnpcWeapons.Clear();
@@ -836,10 +853,14 @@ namespace SurvivorCommunity
             XnpcRaiderClasses.Clear();
             XnpcRaiderClasses.AddRange(ScXnpc.DefaultRaiderClasses);
             RaiderRangedShare[0] = 0.3f; RaiderRangedShare[1] = 0.4f; RaiderRangedShare[2] = 0.5f;
+            SkillFloorByTier[0] = 1; SkillFloorByTier[1] = 2; SkillFloorByTier[2] = 3;
+            StandoutSkillChance[0] = 0.04f; StandoutSkillChance[1] = 0.06f; StandoutSkillChance[2] = 0.08f;
+            StartSkillCap = 4;
             RaiderLeadRangedDist = 8f;
             RaiderLeadRangedSeconds = 3f;
             RaiderFirearmChance = 0.12f;
             RaiderMeleeOnlyChance = 0.15f;
+            RaiderFirearmChanceT3 = 0.85f;
             RaiderSpawnAmmo = 24;
             RaiderSpawnArrows = 15;
             RaiderXnpcLevels = false;
@@ -1081,6 +1102,10 @@ namespace SurvivorCommunity
                 ParseInt(p, "ScanRadius", ref ScanRadius, 0, 1000);
                 ParseInt(p, "FollowXpSeconds", ref FollowXpSeconds, 5, 3600);
                 ParseInt(p, "DailyWitsXp", ref DailyWitsXp, 0, 100);
+                ParseInt(p, "StartSkillCap", ref StartSkillCap, 1, 7);
+                string tierList;
+                if (p.Values.TryGetValue("SkillFloorByTier", out tierList) && !string.IsNullOrEmpty(tierList)) ParseTierInts("SkillFloorByTier", tierList, SkillFloorByTier, 1, 7);
+                if (p.Values.TryGetValue("StandoutSkillChance", out tierList) && !string.IsNullOrEmpty(tierList)) ParseTierFloats("StandoutSkillChance", tierList, StandoutSkillChance, 0f, 1f);
                 ParseInt(p, "StuckSeconds", ref StuckSeconds, 3, 600);
                 ParseInt(p, "DefendBaseRadius", ref DefendBaseRadius, 0, 23);
                 ParseFloat(p, "DeathPenalty", ref DeathPenalty, 0f, 100f);
@@ -1422,6 +1447,7 @@ namespace SurvivorCommunity
                 SurvivorSecondWeapon = secondWeapon;
                 ParseFloat(p, "SurvivorFirearmChance", ref SurvivorFirearmChance, 0f, 1f);
                 ParseFloat(p, "SurvivorMeleeOnlyChance", ref SurvivorMeleeOnlyChance, 0f, 1f);
+                ParseFloat(p, "SurvivorFirearmChanceT3", ref SurvivorFirearmChanceT3, 0f, 1f);
                 bool byGs = XnpcClassByGamestage;
                 if (p.Values.ContainsKey("XnpcClassByGamestage")) p.ParseBool("XnpcClassByGamestage", ref byGs);
                 XnpcClassByGamestage = byGs;
@@ -1503,6 +1529,7 @@ namespace SurvivorCommunity
                 XnpcWarmWeapons = warm;
                 ParseFloat(p, "RaiderFirearmChance", ref RaiderFirearmChance, 0f, 1f);
                 ParseFloat(p, "RaiderMeleeOnlyChance", ref RaiderMeleeOnlyChance, 0f, 1f);
+                ParseFloat(p, "RaiderFirearmChanceT3", ref RaiderFirearmChanceT3, 0f, 1f);
                 ParseFloat(p, "RaiderLeadRangedDist", ref RaiderLeadRangedDist, 3f, 60f);
                 ParseFloat(p, "RaiderLeadRangedSeconds", ref RaiderLeadRangedSeconds, 0f, 30f);
                 ParseInt(p, "RaiderSpawnAmmo", ref RaiderSpawnAmmo, 0, 1000);
@@ -1698,6 +1725,47 @@ namespace SurvivorCommunity
                 else if (i >= parts.Length && last >= 0f) RaiderRangedShare[i] = last;
                 else ScLog.Warn("config RaiderRangedShare '" + s + "': entry " + (i + 1) + " unreadable, keeping " + RaiderRangedShare[i]);
             }
+        }
+
+        /// <summary>
+        /// "1,2,3" into a per-tier array (T1, T2, T3): every entry within [min,max], else the whole array is kept; a short
+        /// list repeats its last entry for the higher tiers.
+        /// </summary>
+        private static void ParseTierInts(string key, string s, int[] into, int min, int max)
+        {
+            string[] parts = s.Split(',');
+            var v = new int[into.Length];
+            for (int i = 0; i < into.Length; i++)
+            {
+                string part = parts[Math.Min(i, parts.Length - 1)].Trim();
+                int x;
+                if (!int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out x) || x < min || x > max)
+                {
+                    ScLog.Warn("config " + key + " '" + s + "': entry " + (i + 1) + " is not a number in [" + min + "," + max + "] - kept");
+                    return;
+                }
+                v[i] = x;
+            }
+            Array.Copy(v, into, into.Length);
+        }
+
+        /// <summary>"0.04,0.06,0.08" into a per-tier array (T1, T2, T3), as ParseTierInts.</summary>
+        private static void ParseTierFloats(string key, string s, float[] into, float min, float max)
+        {
+            string[] parts = s.Split(',');
+            var v = new float[into.Length];
+            for (int i = 0; i < into.Length; i++)
+            {
+                string part = parts[Math.Min(i, parts.Length - 1)].Trim();
+                float x;
+                if (!float.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out x) || x < min || x > max)
+                {
+                    ScLog.Warn("config " + key + " '" + s + "': entry " + (i + 1) + " is not a number in [" + min + "," + max + "] - kept");
+                    return;
+                }
+                v[i] = x;
+            }
+            Array.Copy(v, into, into.Length);
         }
 
         private static void ParseInt(DynamicProperties p, string key, ref int v, int min, int max)

@@ -62,18 +62,44 @@ namespace SurvivorCommunity
             return gained;
         }
 
-        /// <summary>Starting skills at recruit: 1 star each, one random +1, trait bonuses; specialty random or trait-preferred.</summary>
-        public static void RollStart(Member m, GameRandom rnd)
+        /// <summary>
+        /// The class tier a new survivor's skills roll at (0..2 = T1..T3): one of the community's own survivor bodies by its
+        /// class name (npcSdcsSurvivorMaleT2 = 1, ScXnpc.TierOf); any other NPC (another mod's survivor) counts as T1.
+        /// </summary>
+        public static int RecruitTier(EntityAlive npc)
         {
-            for (int i = 0; i < Member.SkillCount; i++) { m.Skills[i].Level = 1; m.Skills[i].Xp = 0; }
-            m.Skills[rnd.RandomRange(0, Member.SkillCount)].Level = 2;
+            return npc != null && ScXnpc.IsBody(npc) && !ScXnpc.IsRaider(npc) ? Math.Max(0, Math.Min(2, ScXnpc.TierOf(ScCommunity.ClassName(npc)))) : 0;
+        }
+
+        /// <summary>
+        /// Starting skills (a profile, or a recruit without one): every core skill at the tier's floor (SkillFloorByTier: T1 1,
+        /// T2 2, T3 3 - round t3, the user's ask of 2026-10-15), one random skill one higher, trait bonuses (never below the
+        /// floor), all at most StartSkillCap (4: the +2 skill traits on the T3 floor otherwise gave a third of T3 survivors a
+        /// 5+ skill), then at StandoutSkillChance one random skill raised to a standout 5 (60%), 6 (30%) or 7 (10%) stars -
+        /// the only way past the cap; specialty random or trait-preferred.
+        /// </summary>
+        public static void RollStart(Member m, GameRandom rnd, int tier = 0)
+        {
+            int t3 = Math.Max(0, Math.Min(2, tier));
+            int floor = Math.Max(1, Math.Min(Member.MaxStars, ScConfig.SkillFloorByTier[t3]));
+            for (int i = 0; i < Member.SkillCount; i++) { m.Skills[i].Level = floor; m.Skills[i].Xp = 0; }
+            m.Skills[rnd.RandomRange(0, Member.SkillCount)].Level = Math.Min(Member.MaxStars, floor + 1);
             Specialty preferred = Specialty.None;
             for (int i = 0; i < m.Traits.Count; i++)
             {
                 TraitDef t = ScTraits.Find(m.Traits[i]);
                 if (t == null) continue;
-                if (t.HasSkill) m.Skill(t.SkillBonus).Level = Math.Max(1, Math.Min(Member.MaxStars, m.Skill(t.SkillBonus).Level + t.SkillBonusStars));
+                if (t.HasSkill) m.Skill(t.SkillBonus).Level = Math.Max(floor, Math.Min(Member.MaxStars, m.Skill(t.SkillBonus).Level + t.SkillBonusStars));
                 if (t.PreferredSpecialty != Specialty.None) preferred = t.PreferredSpecialty;
+            }
+            int cap = Math.Max(floor, Math.Min(Member.MaxStars, ScConfig.StartSkillCap));
+            for (int i = 0; i < Member.SkillCount; i++) if (m.Skills[i].Level > cap) m.Skills[i].Level = cap;
+            if (rnd.RandomFloat < ScConfig.StandoutSkillChance[t3])
+            {
+                SkillState s = m.Skills[rnd.RandomRange(0, Member.SkillCount)];
+                float r = rnd.RandomFloat;
+                int standout = r < 0.6f ? 5 : (r < 0.9f ? 6 : 7);
+                if (s.Level < standout) s.Level = Math.Min(Member.MaxStars, standout);
             }
             // class-name bias: a Nurse tends to Medicine, a Baker to Cooking
             string cls = (m.Class ?? "").ToLowerInvariant();
@@ -88,6 +114,47 @@ namespace SurvivorCommunity
             m.SpecLevel = 1;
             m.SpecXp = 0;
             for (int i = 0; i < Member.SkillCount; i++) m.Skills[i].Xp = NeededFor(m.Skills[i].Level);
+        }
+
+        /// <summary>
+        /// sc skills sim: n new survivors of a class tier rolled as a profile would be (their traits too), without making
+        /// anyone - each skill's average, the share at the floor and with a standout (5+), and how many stars, 1..7.
+        /// </summary>
+        public static string SimulateStart(int tier, int n)
+        {
+            World w = ScCommunity.World;
+            GameRandom rnd = w != null ? w.GetGameRandom() : null;
+            if (rnd == null) return "[SC] no world";
+            int t3 = Math.Max(0, Math.Min(2, tier));
+            int floor = Math.Max(1, Math.Min(Member.MaxStars, ScConfig.SkillFloorByTier[t3]));
+            var sum = new int[Member.SkillCount];
+            var hist = new int[Member.MaxStars + 1];
+            int standout = 0, belowFloor = 0;
+            for (int i = 0; i < n; i++)
+            {
+                var m = new Member();
+                m.Traits.AddRange(ScTraits.Roll(ScConfig.TraitsPerRecruit, rnd));
+                RollStart(m, rnd, t3);
+                bool any5 = false;
+                for (int k = 0; k < Member.SkillCount; k++)
+                {
+                    int lv = m.Skills[k].Level;
+                    sum[k] += lv;
+                    hist[Math.Max(0, Math.Min(Member.MaxStars, lv))]++;
+                    if (lv >= 5) any5 = true;
+                    if (lv < floor) belowFloor++;
+                }
+                if (any5) standout++;
+            }
+            var sb = new System.Text.StringBuilder();
+            sb.Append("[SC] ").Append(n).Append(" new T").Append(t3 + 1).Append(" survivors (floor ").Append(floor).Append(", standout chance ")
+              .Append((100f * ScConfig.StandoutSkillChance[t3]).ToString("0.#")).Append("%): average");
+            for (int k = 0; k < Member.SkillCount; k++)
+                sb.Append(' ').Append(ScNames.SkillKeys[k]).Append(' ').Append(((float)sum[k] / Math.Max(1, n)).ToString("0.00"));
+            sb.Append("; with a 5+ skill ").Append((100.0 * standout / Math.Max(1, n)).ToString("0.0")).Append("%; skills below the floor ").Append(belowFloor)
+              .Append("; stars 1..7:");
+            for (int s = 1; s <= Member.MaxStars; s++) sb.Append(' ').Append(s).Append('=').Append((100.0 * hist[s] / Math.Max(1, n * Member.SkillCount)).ToString("0.0")).Append('%');
+            return sb.ToString();
         }
 
         // ---- derived bonuses (fractions; star 1 = no bonus) ----

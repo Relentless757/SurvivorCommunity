@@ -125,6 +125,14 @@
 			<property name="ScanRadius" value="0" />
 			<property name="FollowXpSeconds" value="60" />
 			<property name="DailyWitsXp" value="3" />
+			<!-- A new survivor's skills by its class tier (T1, T2, T3), when its profile is rolled (it spawns, or for another
+			     mod's survivors the first talk): every core skill starts at SkillFloorByTier stars, one random skill one
+			     higher, traits on top (never below the floor), none above StartSkillCap. StandoutSkillChance: the odds one
+			     random core skill is a standout instead - 5 stars (60%), 6 (30%) or 7 (10%) - the only way a new survivor
+			     has more than StartSkillCap. Existing profiles are kept. sc skills sim shows the spread. -->
+			<property name="SkillFloorByTier" value="1,2,3" />
+			<property name="StandoutSkillChance" value="0.04,0.06,0.08" />
+			<property name="StartSkillCap" value="4" />
 			<!-- a stationed survivor that makes no progress for this many seconds is moved back to their post (three times
 			     as long while it has a live enemy within 30 m: a fight is not a wedge). Not while the game is paused. One
 			     stuck at the post itself, or moved back three times within three minutes, gets a new post instead (only a
@@ -362,6 +370,10 @@
 			<property name="SurvivorSecondWeapon" value="true" />
 			<property name="SurvivorFirearmChance" value="0.12" />
 			<property name="SurvivorMeleeOnlyChance" value="0.15" />
+			<!-- SurvivorFirearmChanceT3: a T3 survivor's odds of carrying a firearm at all (the two chances above then only
+			     split the rest between melee-only and a bow or crossbow); T1 and T2 roll by the two chances above alone.
+			     sc loadout sim T3 shows the result. -->
+			<property name="SurvivorFirearmChanceT3" value="0.85" />
 			<property name="XnpcClassByGamestage" value="true" />
 			<property name="SurvivorRangedMainChance" value="0.4" />
 			<property name="XnpcSpawnAmmo" value="30" />
@@ -557,6 +569,8 @@
 			<property name="RaiderLeadRangedSeconds" value="3" />
 			<property name="RaiderFirearmChance" value="0.12" />
 			<property name="RaiderMeleeOnlyChance" value="0.15" />
+			<!-- RaiderFirearmChanceT3: a T3 raider's odds of carrying a firearm at all, as SurvivorFirearmChanceT3. -->
+			<property name="RaiderFirearmChanceT3" value="0.85" />
 			<property name="RaiderSpawnAmmo" value="24" />
 			<property name="RaiderSpawnArrows" value="15" />
 			<property name="RaiderXnpcLevels" value="false" />

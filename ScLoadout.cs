@@ -77,7 +77,8 @@ namespace SurvivorCommunity
     /// They use XNPC's weapon system: real vanilla player weapons with finite ammo, the melee swap up close and the
     /// dry-gun failover. Their classes carry no weapon of ours, so both kinds are rolled from one catalogue, XnpcWeapons
     /// (Config/blocks.xml, written by Tools/gen_arsenal.py): a melee weapon, and a bow or crossbow - a firearm at
-    /// SurvivorFirearmChance (RaiderFirearmChance for a raider) - each at or below the tier cap, which is the lower of the
+    /// SurvivorFirearmChance (RaiderFirearmChance for a raider; a T3 class carries a firearm at all at
+    /// SurvivorFirearmChanceT3 / RaiderFirearmChanceT3, 85%, round t3, RollRanged) - each at or below the tier cap, which is the lower of the
     /// class's band (T1..T3) and the gamestage tier, so the primitive weapons are there from day 1 and better ones come
     /// with the gamestage. The list becomes [melee, ranged], weapons only: SCore's PostInit postfix refills every
     /// non-quality item on the list to a full stack on every load, so ammo on it would be endless.
@@ -387,7 +388,7 @@ namespace SurvivorCommunity
                 // since M7 for the survivors); a raider then draws its lead from the same stream
                 rnd = Seeded(e);
                 int cap = TierCap(cls);
-                if (l.Ranged == null) l.Ranged = rnd.NextDouble() < MeleeOnlyChance(raider) ? Loadout.NoRanged : Roll(raider, true, cap, rnd);
+                if (l.Ranged == null) l.Ranged = RollRanged(raider, ScXnpc.TierOf(cls), cap, rnd);   // a T3 class: a firearm at 85% (round t3)
                 if (l.Melee == null) l.Melee = Roll(raider, false, cap, rnd);
                 src = src == null ? "rolled" : src + "+rolled";
             }
@@ -604,6 +605,29 @@ namespace SurvivorCommunity
         /// <summary>The odds a new NPC carries only a melee weapon: RaiderMeleeOnlyChance for a raider, SurvivorMeleeOnlyChance for a survivor.</summary>
         private static float MeleeOnlyChance(bool raider) { return raider ? ScConfig.RaiderMeleeOnlyChance : ScConfig.SurvivorMeleeOnlyChance; }
 
+        /// <summary>A T3 class's odds of carrying a firearm at all (round t3), -1 below T3 (classTier 0..2, ScXnpc.TierOf).</summary>
+        private static float FirearmChanceT3(bool raider, int classTier)
+        {
+            if (classTier < 2) return -1f;
+            return raider ? ScConfig.RaiderFirearmChanceT3 : ScConfig.SurvivorFirearmChanceT3;
+        }
+
+        /// <summary>
+        /// The ranged weapon of a new NPC of this class tier, or Loadout.NoRanged (melee only). Below T3 as before: melee-only
+        /// at MeleeOnlyChance, else a bow/crossbow or, at FirearmChance, a firearm. A T3 class (round t3, the user's ask
+        /// of 2026-10-15: at gamestage 100 most of them carried bows) carries a firearm at FirearmChanceT3; the rest are
+        /// melee-only or carry a bow or crossbow in the proportion the two chances give them (2.5% / 12.5% at the defaults).
+        /// </summary>
+        private static string RollRanged(bool raider, int classTier, int cap, Random rnd)
+        {
+            float t3 = FirearmChanceT3(raider, classTier);
+            if (t3 < 0f) return rnd.NextDouble() < MeleeOnlyChance(raider) ? Loadout.NoRanged : Roll(raider, true, cap, rnd);
+            if (rnd.NextDouble() < t3) return RollFamily("firearm", cap, rnd);
+            float meleeOnly = MeleeOnlyChance(raider), bow = (1f - meleeOnly) * (1f - FirearmChance(raider));
+            if (meleeOnly + bow <= 0f) return RollFamily("firearm", cap, rnd);   // configured: every ranged weapon a firearm
+            return rnd.NextDouble() * (meleeOnly + bow) < meleeOnly ? Loadout.NoRanged : RollFamily("bow", cap, rnd);
+        }
+
         /// <summary>
         /// A weapon of one kind for an NPC of this effective band (the tier cap): a melee weapon, or a bow/crossbow - a
         /// firearm when the side's firearm chance comes up. Picked by weight (Weapon.Weight: 1 at its tier and above, or
@@ -613,7 +637,13 @@ namespace SurvivorCommunity
         private static string Roll(bool raider, bool ranged, int cap, Random rnd)
         {
             string want = !ranged ? "melee" : (rnd.NextDouble() < FirearmChance(raider) ? "firearm" : "bow");
-            string other = !ranged ? null : (want == "firearm" ? "bow" : "firearm");
+            return RollFamily(want, cap, rnd);
+        }
+
+        /// <summary>A weapon of this family (melee, bow, firearm) at the tier cap, as Roll; a ranged family falls back to the other.</summary>
+        private static string RollFamily(string want, int cap, Random rnd)
+        {
+            string other = want == "melee" ? null : (want == "firearm" ? "bow" : "firearm");
             Weapon w = Pick(want, cap, rnd) ?? Pick(want, -1, rnd);
             if (w == null && other != null) w = Pick(other, cap, rnd) ?? Pick(other, -1, rnd);
             return w != null ? w.Token : null;
@@ -650,7 +680,7 @@ namespace SurvivorCommunity
             Validate(l, false);
             var r = new Random(rnd != null ? rnd.RandomInt : Environment.TickCount);
             int cap = TierCap(cls);
-            if (l.Ranged == null) l.Ranged = r.NextDouble() < MeleeOnlyChance(false) ? Loadout.NoRanged : Roll(false, true, cap, r);
+            if (l.Ranged == null) l.Ranged = RollRanged(false, ScXnpc.TierOf(cls), cap, r);
             if (l.Melee == null) l.Melee = Roll(false, false, cap, r);
             return l.HasRanged || l.Melee != null ? l : null;
         }
@@ -1136,8 +1166,10 @@ namespace SurvivorCommunity
             {
                 int t = classTier >= 0 ? classTier : raider ? i % 3 : 2;
                 int band = classTier >= 0 ? classTier : Math.Min(t, gs);
-                bool noGun = rnd.NextDouble() < MeleeOnlyChance(raider);
-                Weapon rw = noGun ? null : Find(Roll(raider, true, band, rnd));
+                // the class the spawn ends up as is the band (Patch_ClassByGamestage brings a T3 down to it), so the T3 rule follows it
+                string rolled = RollRanged(raider, band, band, rnd);
+                bool noGun = rolled == Loadout.NoRanged;
+                Weapon rw = noGun ? null : Find(rolled);
                 Weapon mw = Find(Roll(raider, false, band, rnd));
                 if (mw == null || (!noGun && rw == null)) { noPair++; continue; }
                 armed++;
@@ -1159,7 +1191,9 @@ namespace SurvivorCommunity
               .Append(meleeOnly).Append(" melee-only (").Append((100.0 * meleeOnly / Math.Max(1, armed)).ToString("0.0")).Append("%, configured ")
               .Append((100f * MeleeOnlyChance(raider)).ToString("0.0")).Append("%), ")
               .Append(fire).Append(" of ").Append(ranged).Append(" ranged weapons are firearms (").Append((100.0 * fire / Math.Max(1, ranged)).ToString("0.0"))
-              .Append("%, configured ").Append((100f * FirearmChance(raider)).ToString("0.0")).Append("%)");
+              .Append("%, configured ").Append((100f * FirearmChance(raider)).ToString("0.0")).Append("% below T3; a T3 class carries one at ")
+              .Append((100f * (raider ? ScConfig.RaiderFirearmChanceT3 : ScConfig.SurvivorFirearmChanceT3)).ToString("0")).Append("% all told); ")
+              .Append((100.0 * fire / Math.Max(1, armed)).ToString("0.0")).Append("% of all of them carry a firearm");
             if (raider)
             {
                 sb.Append(", ranged-lead T1/T2/T3: ");

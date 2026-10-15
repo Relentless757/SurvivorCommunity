@@ -171,7 +171,7 @@ namespace SurvivorCommunity
                 if (!ScProfile.ApplyOnJoin(m, npc))
                 {
                     m.Traits.AddRange(ScTraits.Roll(ScConfig.TraitsPerRecruit, rnd));
-                    ScSkills.RollStart(m, rnd);
+                    ScSkills.RollStart(m, rnd, ScSkills.RecruitTier(npc));
                 }
                 m.Ranged = ScSkills.HoldsRanged(npc);
                 m.Look = ScLooks.Get(npc);          // null unless they wear the player's body

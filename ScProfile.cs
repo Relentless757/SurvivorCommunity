@@ -54,7 +54,7 @@ namespace SurvivorCommunity
                 if (rnd == null) return;
                 var m = new Member { Id = npc.entityId, Class = ScCommunity.ClassName(npc) };
                 m.Traits.AddRange(ScTraits.Roll(ScConfig.TraitsPerRecruit, rnd));
-                ScSkills.RollStart(m, rnd);
+                ScSkills.RollStart(m, rnd, ScSkills.RecruitTier(npc));   // T2/T3 bodies start higher (round t3)
                 // their own mood: a middling start, nudged by their traits (Optimist, Pessimist...)
                 m.Mood = Math.Max(5, Math.Min(95, rnd.RandomRange(35, 71) + ScTraits.MoodOffset(m)));
                 Write(npc.Buffs, m);
