@@ -25,6 +25,34 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## The NPC's line above the responses, and voiced lines (round vo, the voice test)
+
+**Deployed 2026-10-16** (Fable review and re-check: deployable; DLL md5 `b7e562ac3ab28cabcf9cd0828d82b2fc`). Your answers (2026-10-16): survivors' lines never showed; they should sit above
+the dialogue choices as subtitles, and the goal is voiced dialogue made with ElevenLabs. The seven lines are voiced by
+Vane (men) and Jessica (women), your picks from ElevenLabs' library, one take each.
+
+1. Talk to any survivor. Their line ("Hello friend, how can I help you?") shows in a panel above the responses, lined
+   up with them, and a voice of their sex says it.
+2. Their mouth moves while the clip plays (Voice Control's lip sync). If it doesn't, or the jaw opens the wrong way, say
+   so: Voice Control's jaw axis and angle for these bodies are guesses in its `modconfig.xml`.
+3. "I could use someone like you…": the favour line shows and is spoken. Pick a response while they are still talking:
+   the next line replaces it, and the old clip stops.
+4. Close the talk mid-line: the voice stops.
+5. Reopen the talk within 30 seconds: the greeting shows but isn't spoken again. After 30 seconds it is. Going back to
+   the first menu inside a talk doesn't repeat it either.
+6. A member: the supply run asks "What should I look for? I'll be back tomorrow." aloud; "leave the community" asks
+   "You're sure? If I go, I won't be back." aloud (then pick Nevermind).
+7. A trader shows its line in the panel, with no voice. The nurse keeps SCore's own subtitle at the bottom (she is
+   SCore's older NPC type). Raiders still can't be talked to.
+8. No hitch when a line starts. The first clip of a session loads from disk.
+9. The panel covers nothing: the survivor card stays on the left, and the responses below it.
+10. `sc voice` lists female_Jessica and male_Vane with 7 lines each, and names the player in use (Voice Control's, or
+    SC's own). `sc voice play scRunPick` makes the nearest survivor say it, and `sc voice stop` stops it. A line played
+    this way counts for the 30-second rule, so test item 5 with lines the console hasn't just played.
+11. Voice Control's own speech (its greeting as you walk up, chat replies) keeps its own voice, and a dialog line cuts it
+    off when it starts. Tell me whether the two voices clash.
+12. How the two voices and the takes sound in game, and any line worth re-recording.
+
 ## Radio window restyle (built 2026-10-13)
 
 Tools/generate_radio_ui.py rebuilt windowScRadio on the community window's look (scui_* plates, <button> controls,

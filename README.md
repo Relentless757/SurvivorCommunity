@@ -688,6 +688,32 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
   weapon offsets already handle), no dismemberment, other players in multiplayer would see them undressed
   (host/single player only, like the rest of this mod).
 
+## The NPC's line and voiced dialogue (the voice test, 2026-10-16)
+
+- **The line.** Vanilla 3.2's dialog window shows only your responses, and SCore shows an NPC's line as a subtitle only
+  for its older body type, so the player-body survivors' lines never reached the screen. The NPC's current line now
+  shows in a panel above the responses, for every NPC but SCore's older type (`DialogLine`; `windowScDialogLine` in the
+  vanilla dialog group, `XUiC_ScDialogLine`).
+- **Voices.** The community's survivors (recruits, radio contacts, members, stand-ins) speak a line when the mod has a
+  recording of it: `Resources/Voices/<male|female>_<Name>/<line>.ogg`, mono Ogg Vorbis (`VoiceLines`, `ScVoice`).
+  - Each survivor speaks in one voice of their sex, picked from their name, so they keep it while the voice list stays
+    the same (a new voice of their sex may re-deal it).
+  - A clip is named after the line's statement id (`scFavourPoi.ogg`), or `<dialog>.<statement>` for another mod's line
+    (`SdcsNPC.start.ogg`, 0-XNPCCore's greeting). A `.txt` beside it holds the words.
+  - `python Tools/voice_lines.py list | check | sidecars` lists the voiced lines, checks every voice folder, and writes
+    the `.txt` files.
+- **Playback** goes through Voice Control's player on the NPC when Voice Control has set one up, as it does for
+  survivors near you: its face lip sync, and its TTS volume and range from its `modconfig.xml`. Otherwise SC plays the
+  clip itself, with no lip sync. A new line replaces whatever the NPC was saying, Voice Control's own speech included;
+  closing the talk stops only SC's clip. The same line from the same survivor is not spoken again within 30 seconds (it
+  still shows), so going back to a talk's first menu doesn't repeat the greeting.
+- **The shipped voices** (`male_Vane`, `female_Jessica`) speak the seven lines: SC's six and 0-XNPCCore's greeting.
+  They are Vane and Jessica from the ElevenLabs Voice Library, generated with ElevenLabs (eleven_v4) on 2026-10-16 and
+  converted to mono Ogg Vorbis. A new voice is a new folder with the same file names; `Tools/voice_lines.py check`
+  shows what it still lacks.
+- **Console:** `sc voice` (the switches, the player in use, the voices), `sc voice play <line> [id|name]`, `sc voice
+  stop`, and `sc voice rescan`, which picks up new or replaced clips without a restart.
+
 ## With SurvivorOrigins: the Leadership skill
 
 The two mods talk only through CVars on the local player; without SurvivorOrigins nothing changes.
@@ -720,7 +746,8 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `XnpcResupplyCooldown`, `XnpcResupplyPointsMult`, `Overwhelmed`, `OverwhelmedRadius`, `OverwhelmedMin` / `OverwhelmedMax`,
 `OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds`, `OverwhelmedSustainSeconds`,
 `OverwhelmedGunSeconds`, `MeleePacing`, `MeleePacingRaiders`, `MeleeReach`, `MeleeReachMargin`, `ShootingSkill`, `ShootingRangePerStar`,
-`ShootingEngageMult`, `ShootingEngageMin`, `ShootingHitRadius`, `ShootingAimChest`, `ShootingDefaultStars`, `RaiderShootingStars` (`AmmoPerRangedDay` is no longer charged; the
+`ShootingEngageMult`, `ShootingEngageMin`, `ShootingHitRadius`, `ShootingAimChest`, `ShootingDefaultStars`, `RaiderShootingStars`, the dialog
+line and voices `DialogLine`, `VoiceLines` (`AmmoPerRangedDay` is no longer charged; the
 outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features.
 

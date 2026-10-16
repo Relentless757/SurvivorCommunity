@@ -641,6 +641,11 @@ namespace SurvivorCommunity
         public static int ShootingDefaultStars = 2;
         /// <summary>A raider's Shooting stars by tier (T1, T2, T3): low and high, rolled at spawn.</summary>
         public static readonly int[,] RaiderShootingStars = { { 1, 2 }, { 2, 4 }, { 4, 6 } };
+        // ---- the dialog line and voiced lines (XUiC_ScDialogLine, ScVoice; the voice test, 2026-10-16) ----
+        /// <summary>The NPC's line shows above the dialog's responses (vanilla shows only the responses).</summary>
+        public static bool DialogLine = true;
+        /// <summary>A survivor's line plays as a recorded clip when Resources/Voices has one in their voice.</summary>
+        public static bool VoiceLines = true;
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
@@ -836,6 +841,8 @@ namespace SurvivorCommunity
             ShootingAimChest = true;
             ShootingDefaultStars = 2;
             ParseRaiderShooting("1-2,2-4,4-6");
+            DialogLine = true;
+            VoiceLines = true;
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
@@ -1497,6 +1504,12 @@ namespace SurvivorCommunity
                 ParseInt(p, "ShootingDefaultStars", ref ShootingDefaultStars, 1, 7);
                 string raiderShooting;
                 if (p.Values.TryGetValue("RaiderShootingStars", out raiderShooting) && !string.IsNullOrEmpty(raiderShooting)) ParseRaiderShooting(raiderShooting);
+                bool dialogLine = DialogLine;
+                if (p.Values.ContainsKey("DialogLine")) p.ParseBool("DialogLine", ref dialogLine);
+                DialogLine = dialogLine;
+                bool voiceLines = VoiceLines;
+                if (p.Values.ContainsKey("VoiceLines")) p.ParseBool("VoiceLines", ref voiceLines);
+                VoiceLines = voiceLines;
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
@@ -1645,6 +1658,7 @@ namespace SurvivorCommunity
                                             + ShootingHitRadius + "m" + (ShootingAimChest ? " chest" : " head") + " default " + ShootingDefaultStars + " raiders "
                                             + RaiderShootingStars[0, 0] + "-" + RaiderShootingStars[0, 1] + "/" + RaiderShootingStars[1, 0] + "-" + RaiderShootingStars[1, 1]
                                             + "/" + RaiderShootingStars[2, 0] + "-" + RaiderShootingStars[2, 1] : "off")
+                          + " dialogLine=" + DialogLine + " voiceLines=" + VoiceLines
                           + " getUp=" + (XnpcBodyGetUp ? (XnpcGetUpGuard ? "guarded" : "unguarded") + (XnpcGetUpTrace ? "+trace" : "") : "off")
                           + " relax=" + (XnpcRelax ? "after " + XnpcRelaxCalmSeconds + "s, " + (XnpcRelaxRange > 0f ? XnpcRelaxRange + "m" : "sight range")
                                                      + (XnpcRelaxHideWeapon ? ", weapon hidden" : ", weapon shown") + (XnpcRelaxRaiders ? ", raiders too" : ", not raiders") : "off")

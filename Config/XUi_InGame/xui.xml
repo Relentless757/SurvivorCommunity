@@ -20,4 +20,8 @@
 	<append xpath="/xui/window_group[@name='dialog']">
 		<window name="windowScSnapshot"/>
 	</append>
+	<!-- The NPC's line above the responses (XUiC_ScDialogLine): vanilla's dialog group shows only the responses. -->
+	<append xpath="/xui/window_group[@name='dialog']">
+		<window name="windowScDialogLine"/>
+	</append>
 </configs>

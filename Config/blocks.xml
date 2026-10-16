@@ -445,6 +445,16 @@
 			<property name="ShootingAimChest" value="true" />
 			<property name="ShootingDefaultStars" value="2" />
 			<property name="RaiderShootingStars" value="1-2,2-4,4-6" />
+			<!-- The dialog line and voiced lines (the voice test, 2026-10-16). DialogLine: the NPC's line shows above the
+			     dialog's responses (vanilla shows only the responses; SCore's subtitle covers only its older body type).
+			     VoiceLines: a survivor's line plays as a recorded clip when Resources/Voices has one in their voice. The
+			     folders are male_<Name> and female_<Name>; each survivor keeps one voice of their sex; a clip is named after
+			     the line's statement id (scFavourPoi.ogg; SdcsNPC.start.ogg for 0-XNPCCore's greeting). Clips play through
+			     Voice Control's player where Voice Control has set one up for that NPC (lip sync, its TTS volume and
+			     range), else from SC's own. "sc voice"
+			     lists the voices; "sc voice play <line>" plays one on the nearest survivor. -->
+			<property name="DialogLine" value="true" />
+			<property name="VoiceLines" value="true" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:
