@@ -18,6 +18,8 @@ namespace SurvivorCommunity
     ///     BlockToolSelection.ExecuteUseAction on the PRESS (ItemActionPlaceAsBlock is torches and candles), so
     ///     that call stamps the frame; the preview cube calls the gate every frame and never reports.
     /// The quiet ClearSleepers re-arm is Patches_Quest; radio and favour picks skip outposts in ScRadio / ScSecurity.
+    /// Enclave POIs (ScEnclaves, E1) get the same two: a box touching one counts as a claim (no trader quest, rally reset
+    /// or vanilla respawn there), and a claim whose square would reach into one is refused.
     /// </summary>
     public static class Patches_Outposts
     {
@@ -50,7 +52,7 @@ namespace SurvivorCommunity
                 try
                 {
                     if (__result != GameUtils.EPlayerHomeType.None) return;
-                    if (ScOutposts.BoxHitsOutpost(BoxMin, BoxMax)) __result = GameUtils.EPlayerHomeType.Landclaim;
+                    if (ScOutposts.BoxHitsOutpost(BoxMin, BoxMax) || ScEnclaves.BoxHitsEnclave(BoxMin, BoxMax)) __result = GameUtils.EPlayerHomeType.Landclaim;
                 }
                 catch (Exception e)
                 {
@@ -119,8 +121,24 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || lpRelative == null || lpRelative.LPBlocks == null || !ScRegistry.Loaded) return;
-                    if (!ScCommunity.IsHost) return;
+                    if (!__result || !ScRegistry.Loaded || !ScCommunity.IsHost) return;
+                    // an enclave's building is theirs (E1): no claim whose square reaches into it - checked before the
+                    // claim list, which a player who never placed a claim does not have yet
+                    int vr = ScZone.VanillaRadius;
+                    Vector3i min = new Vector3i(blockPos.x - vr, blockPos.y, blockPos.z - vr), max = new Vector3i(blockPos.x + vr, blockPos.y, blockPos.z + vr);
+                    if (ScEnclaves.BoxHitsEnclave(min, max))
+                    {
+                        __result = false;
+                        if (placingFrame == Time.frameCount && placingPlayer != null && Time.unscaledTime >= nextRefusalTip)
+                        {
+                            nextRefusalTip = Time.unscaledTime + 1f;
+                            Enclave en = ScEnclaves.FirstIn(min, max);
+                            ScCommunity.Tell(placingPlayer, string.Format(Localization.Get("scEnclaveClaim"), en != null ? en.Name : "?", en != null ? en.PoiName : "?"), "ui_denied");
+                            placingFrame = -1;
+                        }
+                        return;
+                    }
+                    if (lpRelative == null || lpRelative.LPBlocks == null) return;
                     int limit = GameStats.GetInt(EnumGameStats.LandClaimCount);
                     int needed = lpRelative.LPBlocks.Count + 1 - limit;     // claims the new one would push out
                     if (needed <= 0) return;

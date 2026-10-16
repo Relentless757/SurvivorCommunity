@@ -464,6 +464,43 @@ namespace SurvivorCommunity
         public static float OutpostRaiderChance = 0.03f;
         public static int OutpostDemandAmmo = 2;
         public static int OutpostDemandFood = 2;
+        // ---- enclaves (ScEnclaves, E1: groups of survivors in POIs, on the map; no people yet) ----
+        /// <summary>The master switch: seeding, discovery, markers and the POI protections (off: the records are kept, nothing acts).</summary>
+        public static bool Enclaves = true;
+        /// <summary>How many: clamp(round(EnclavesPerKm2 x the world's km2), EnclaveMin, EnclaveMax) - 11 on a 6k map, 20 on an 8k one.</summary>
+        public static float EnclavesPerKm2 = 0.3f;
+        public static int EnclaveMin = 4, EnclaveMax = 36;
+        /// <summary>Spacing D = max(EnclaveSpacingMin, EnclaveSpacingFactor x sqrt(world area / N)) m, relaxed 15% a pass down to EnclaveSpacingFloor.</summary>
+        public static int EnclaveSpacingMin = 500;
+        public static float EnclaveSpacingFactor = 0.55f;
+        public static int EnclaveSpacingFloor = 300;
+        /// <summary>The share that are raiders, never within EnclaveHostileMinStart m of the start or a spawn point (half that on maps under 4 km).</summary>
+        public static float EnclaveHostileShare = 0.25f;
+        public static int EnclaveHostileMinStart = 1200;
+        /// <summary>The start ring: up to EnclaveStartRing non-hostile enclaves EnclaveStartRingMin..Max m from the start, EnclaveStartRingSpacing m apart.</summary>
+        public static int EnclaveStartRing = 2;
+        public static int EnclaveStartRingMin = 400, EnclaveStartRingMax = 1500, EnclaveStartRingSpacing = 600;
+        /// <summary>Which POIs: tier, the footprint's larger side (m), and the distance from traders, spawn points and the world's edge (m).</summary>
+        public static int EnclaveTierMin = 1, EnclaveTierMax = 4;
+        public static int EnclaveSizeMin = 20, EnclaveSizeMax = 80;
+        public static int EnclaveTraderDistance = 300, EnclaveSpawnDistance = 300, EnclaveEdgeDistance = 300;
+        /// <summary>Weight by district (a POI's first Tags entry of ScPoiIndex.KindNames, else "other"); 0 = never; a district not listed weighs as "other".</summary>
+        public static readonly Dictionary<string, float> EnclaveKindWeights = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Prefab-name parts (lower case) never picked: caves, mines, lots, rubble, bridges and the like.</summary>
+        public static readonly List<string> EnclavePoiExcludes = new List<string>();
+        /// <summary>An existing save gets enclaves the first time this build loads it: none within EnclaveClaimBuffer m of a claim, none in loaded chunks.</summary>
+        public static bool EnclaveLateSeed = true;
+        public static int EnclaveClaimBuffer = 150;
+        /// <summary>The late seed's (and a top-up's) weight for a POI never generated in the save, so nobody has looted it.</summary>
+        public static float EnclaveUnvisitedWeight = 3f;
+        /// <summary>An enclave whose POI is gone moves to the nearest free POI within this many m, else it is dropped.</summary>
+        public static int EnclaveRelocateRange = 1000;
+        /// <summary>Found within EnclaveDiscoverRange m of its POI; a powered radio picks one up every EnclaveRadioRevealDays within EnclaveRadioRange m of home.</summary>
+        public static int EnclaveDiscoverRange = 150;
+        public static int EnclaveRadioRevealDays = 3;
+        public static int EnclaveRadioRange = 2000;
+        private const string DefaultEnclaveKindWeights = "rural:1.5,countryresidential:1.4,countrytown:1.3,wilderness:1.2,oldwest:1.2,residential:1,commercial:0.9,industrial:0.8,other:0.6,downtown:0";
+        private const string DefaultEnclavePoiExcludes = "cave,mine,bunker,bombshelter,rubble,lot_,filler,street,bridge,tunnel,sewer,crater,crack,parking,remnant_waste,wreck,dock,skyscraper,water_tower,celltower,sign,billboard,deco";
         // ---- survivors and raiders wearing the player's body (0-XNPCCore's survivors, ScXnpc; SC's scRaider* classes) ----
         /// <summary>No longer used: it was the chance a radio contact is a player-body survivor rather than a pack NPC,
         /// and pack NPCs no longer spawn at all (every contact is now one of ours). Still parsed so old configs load.</summary>
@@ -927,6 +964,11 @@ namespace SurvivorCommunity
             BaseDefenceBigFrom = 20f; BaseDefenceBigPer = 1f; BaseDefenceBigCap = 15f;
             GuardTowerGhost = "glow"; GuardTowerFill = 3; GuardTowerCut = 2;
             OutpostAttacks = false; OutpostGoodNews = true; OutpostGoodNewsChance = 0.04f; OutpostSecBase = 35; OutpostSecPerStaffer = 8; OutpostSecPerCombatStar = 2; OutpostSecPerTier = 4; OutpostSecVisited = 5; OutpostSecNoAmmo = 10; OutpostSecPerDefense = 2; OutpostSecDefenseCap = 30; OutpostSecBonusFade = 1f; OutpostSecWinBonus = 10f; OutpostSecBonusMax = 30f; OutpostAttackChance = 0.08f; OutpostAttackHours = 10; OutpostAttackBase = 3f; OutpostAttackPerGamestage = 0.04f; OutpostAttackMax = 16; OutpostAttendedBonus = 20; OutpostDamageBand = 35; OutpostDamagedDays = 2; OutpostRepairMats = 2; OutpostSiegePenalty = 15; OutpostWinMorale = 4f; OutpostNeglectDays = 10; OutpostRaiderGamestage = 30; OutpostRaiderChance = 0.03f; OutpostDemandAmmo = 2; OutpostDemandFood = 2;
+            Enclaves = true; EnclavesPerKm2 = 0.3f; EnclaveMin = 4; EnclaveMax = 36; EnclaveSpacingMin = 500; EnclaveSpacingFactor = 0.55f; EnclaveSpacingFloor = 300;
+            EnclaveHostileShare = 0.25f; EnclaveHostileMinStart = 1200; EnclaveStartRing = 2; EnclaveStartRingMin = 400; EnclaveStartRingMax = 1500; EnclaveStartRingSpacing = 600;
+            EnclaveTierMin = 1; EnclaveTierMax = 4; EnclaveSizeMin = 20; EnclaveSizeMax = 80; EnclaveTraderDistance = 300; EnclaveSpawnDistance = 300; EnclaveEdgeDistance = 300;
+            EnclaveKindWeights.Clear(); EnclavePoiExcludes.Clear(); EnclaveLateSeed = true; EnclaveClaimBuffer = 150; EnclaveUnvisitedWeight = 3f; EnclaveRelocateRange = 1000;
+            EnclaveDiscoverRange = 150; EnclaveRadioRevealDays = 3; EnclaveRadioRange = 2000;
             ScPoiTypes.LoadDefaults();
             Defaults();
         }
@@ -970,6 +1012,8 @@ namespace SurvivorCommunity
             RaiderTattoos.AddRange(new[] { "Oni 01", "Kiss 01", "Harley Tattoo", "Harley Eyes Only" });
             SurvivorTattooInks.AddRange(new[] { "Black Orchid", "Black Orchid", "Black Orchid", "Dark Truffle", "Abyssal", "Royal Lapis", "Venom", "Cendre" });
             RaiderTattooInks.AddRange(new[] { "Black Orchid", "Black Orchid", "Dark Truffle", "Abyssal", "Venom", "Rouge Noir", "Oxblood Wine", "Chili Red" });
+            ParseKindWeights(DefaultEnclaveKindWeights);
+            EnclavePoiExcludes.AddRange(SplitList(DefaultEnclavePoiExcludes));
         }
 
         /// <summary>The tattoo shapes the user picked for survivors (raiders get these and four more).</summary>
@@ -1418,6 +1462,51 @@ namespace SurvivorCommunity
                 ParseFloat(p, "OutpostRaiderChance", ref OutpostRaiderChance, 0f, 100000f);
                 ParseInt(p, "OutpostDemandAmmo", ref OutpostDemandAmmo, 0, 100000);
                 ParseInt(p, "OutpostDemandFood", ref OutpostDemandFood, 0, 100000);
+                bool enclaves = Enclaves;
+                if (p.Values.ContainsKey("Enclaves")) p.ParseBool("Enclaves", ref enclaves);
+                Enclaves = enclaves;
+                ParseFloat(p, "EnclavesPerKm2", ref EnclavesPerKm2, 0f, 10f);
+                ParseInt(p, "EnclaveMin", ref EnclaveMin, 0, 500);
+                ParseInt(p, "EnclaveMax", ref EnclaveMax, 0, 500);
+                if (EnclaveMax < EnclaveMin) EnclaveMax = EnclaveMin;
+                ParseInt(p, "EnclaveSpacingMin", ref EnclaveSpacingMin, 0, 20000);
+                ParseFloat(p, "EnclaveSpacingFactor", ref EnclaveSpacingFactor, 0f, 5f);
+                ParseInt(p, "EnclaveSpacingFloor", ref EnclaveSpacingFloor, 0, 20000);
+                ParseFloat(p, "EnclaveHostileShare", ref EnclaveHostileShare, 0f, 1f);
+                ParseInt(p, "EnclaveHostileMinStart", ref EnclaveHostileMinStart, 0, 20000);
+                ParseInt(p, "EnclaveStartRing", ref EnclaveStartRing, 0, 10);
+                ParseInt(p, "EnclaveStartRingMin", ref EnclaveStartRingMin, 0, 20000);
+                ParseInt(p, "EnclaveStartRingMax", ref EnclaveStartRingMax, 0, 20000);
+                if (EnclaveStartRingMax < EnclaveStartRingMin) EnclaveStartRingMax = EnclaveStartRingMin;
+                ParseInt(p, "EnclaveStartRingSpacing", ref EnclaveStartRingSpacing, 0, 20000);
+                ParseInt(p, "EnclaveTierMin", ref EnclaveTierMin, 0, 6);
+                ParseInt(p, "EnclaveTierMax", ref EnclaveTierMax, 0, 6);
+                if (EnclaveTierMax < EnclaveTierMin) EnclaveTierMax = EnclaveTierMin;
+                ParseInt(p, "EnclaveSizeMin", ref EnclaveSizeMin, 1, 1000);
+                ParseInt(p, "EnclaveSizeMax", ref EnclaveSizeMax, 1, 1000);
+                if (EnclaveSizeMax < EnclaveSizeMin) EnclaveSizeMax = EnclaveSizeMin;
+                ParseInt(p, "EnclaveTraderDistance", ref EnclaveTraderDistance, 0, 20000);
+                ParseInt(p, "EnclaveSpawnDistance", ref EnclaveSpawnDistance, 0, 20000);
+                ParseInt(p, "EnclaveEdgeDistance", ref EnclaveEdgeDistance, 0, 20000);
+                {
+                    string ev;
+                    if (p.Values.TryGetValue("EnclaveKindWeights", out ev) && !string.IsNullOrEmpty(ev)) ParseKindWeights(ev);
+                    // an empty value is meaningful here: no prefab name is ruled out
+                    if (p.Values.TryGetValue("EnclavePoiExcludes", out ev))
+                    {
+                        EnclavePoiExcludes.Clear();
+                        if (!string.IsNullOrEmpty(ev)) foreach (string x in SplitList(ev)) EnclavePoiExcludes.Add(x.ToLowerInvariant());
+                    }
+                }
+                bool lateSeed = EnclaveLateSeed;
+                if (p.Values.ContainsKey("EnclaveLateSeed")) p.ParseBool("EnclaveLateSeed", ref lateSeed);
+                EnclaveLateSeed = lateSeed;
+                ParseInt(p, "EnclaveClaimBuffer", ref EnclaveClaimBuffer, 0, 5000);
+                ParseFloat(p, "EnclaveUnvisitedWeight", ref EnclaveUnvisitedWeight, 0f, 100f);
+                ParseInt(p, "EnclaveRelocateRange", ref EnclaveRelocateRange, 0, 20000);
+                ParseInt(p, "EnclaveDiscoverRange", ref EnclaveDiscoverRange, 0, 5000);
+                ParseInt(p, "EnclaveRadioRevealDays", ref EnclaveRadioRevealDays, 1, 365);
+                ParseInt(p, "EnclaveRadioRange", ref EnclaveRadioRange, 0, 20000);
                 ScPoiTypes.Parse(p);
                 ParseFloat(p, "SurvivorLookChance", ref SurvivorLookChance, 0f, 1f);
                 bool friendlyFire = CommunityFriendlyFire;
@@ -1691,6 +1780,13 @@ namespace SurvivorCommunity
                           + " defence=" + BaseDefenceBase + "+" + BaseDefencePerResident + "/resident+" + BaseDefencePerCombatStar + "/star+" + BaseDefencePerPost + "/post(max "
                           + BaseDefencePostCap + ")+" + BaseDefencePerBlock + "/trap(max " + BaseDefenceBlockCap + ") -" + BaseDefenceNoAmmo + " no ammo +-" + BaseDefenceMorale + " morale"
                           + " guardTower=preview " + GuardTowerGhost + ", legs +" + GuardTowerFill + ", cut " + GuardTowerCut
+                          + " enclaves=" + (Enclaves ? EnclavesPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + EnclaveMin + ".." + EnclaveMax + "), D max("
+                                            + EnclaveSpacingMin + "," + EnclaveSpacingFactor.ToString("0.##", CultureInfo.InvariantCulture) + "*sqrt(A/N)) floor " + EnclaveSpacingFloor
+                                            + ", hostile " + EnclaveHostileShare.ToString("0.##", CultureInfo.InvariantCulture) + " from " + EnclaveHostileMinStart + "m, ring "
+                                            + EnclaveStartRing + " at " + EnclaveStartRingMin + "-" + EnclaveStartRingMax + "m, T" + EnclaveTierMin + "-" + EnclaveTierMax + ", "
+                                            + EnclaveSizeMin + "-" + EnclaveSizeMax + "m, " + EnclaveKindWeights.Count + " districts, " + EnclavePoiExcludes.Count + " excludes, late seed "
+                                            + (EnclaveLateSeed ? "on" : "off") + ", discover " + EnclaveDiscoverRange + "m, radio every " + EnclaveRadioRevealDays + "d within "
+                                            + EnclaveRadioRange + "m" : "off")
                           + " looks=excluded " + SurvivorExcludeSkins.Count + " skins/" + SurvivorExcludeEyes.Count + " eyes/" + SurvivorExcludeHairs.Count
                           + " hairs, dyed hair F" + SurvivorDyedHairChanceFemale + "/M" + SurvivorDyedHairChanceMale + " of " + SurvivorDyedHairColors.Count
                           + " paints=body " + SurvivorBodyPaintChance + "/" + RaiderBodyPaintChance + " of " + SurvivorBodyPaints.Count + "/" + RaiderBodyPaints.Count
@@ -1721,6 +1817,26 @@ namespace SurvivorCommunity
                 string t = part.Trim();
                 if (t.Length > 0) yield return t;
             }
+        }
+
+        /// <summary>EnclaveKindWeights "rural:1.5,...,downtown:0": replaces the table; an unreadable entry is skipped with a warning, none readable keeps it.</summary>
+        private static void ParseKindWeights(string s)
+        {
+            var parsed = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            foreach (string part in SplitList(s))
+            {
+                int c = part.IndexOf(':');
+                float w;
+                if (c <= 0 || !float.TryParse(part.Substring(c + 1).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out w) || w < 0f)
+                {
+                    ScLog.Warn("config EnclaveKindWeights entry '" + part + "' is not district:weight (a weight of 0 or more) - skipped");
+                    continue;
+                }
+                parsed[part.Substring(0, c).Trim().ToLowerInvariant()] = w;
+            }
+            if (parsed.Count == 0) { ScLog.Warn("config EnclaveKindWeights '" + s + "' names no district:weight - kept"); return; }
+            EnclaveKindWeights.Clear();
+            foreach (var kv in parsed) EnclaveKindWeights[kv.Key] = kv.Value;
         }
 
         /// <summary>RaiderRangedShare "0.3,0.4,0.5" (the ranged-lead chance): one share per class tier; a shorter list repeats its last value, a bad entry keeps the default.</summary>

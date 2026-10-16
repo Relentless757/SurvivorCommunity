@@ -414,6 +414,85 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
 **SurvivorOrigins:** the fact `sc_outposts` and the events `sc_ev_outpost` (established) and `sc_ev_outpost_retaken` are
 published for a future Leadership release; won outpost fights count as `sc_ev_rescue`.
 
+## Enclaves (E1: on the map)
+
+You aren't the only survivors. Other groups have holed up in buildings across the map: families, drifters, preppers
+and raiders. Each group is an **enclave**, with a name and a building of its own. This first milestone puts them on
+the map. **There are no people in them yet**: you can find them, see them on the map, and their buildings are theirs.
+Their people, standing, trade, requests, sieges and the infestations come in later milestones (`Enclaves_Plan.md`).
+
+**When they appear**
+- **A new save** gets its enclaves the moment it first starts. Nothing spawns: they are records until you get near.
+- **An existing save** gets them the first time this build loads it (the *late seed*, `EnclaveLateSeed`). Then no
+  enclave goes within `EnclaveClaimBuffer` (150 m) of anyone's land claim, none into the chunks around you, and
+  buildings you have never visited are preferred, so nobody moves into one you already looted.
+- **Every later load** finds each enclave's building again. If it is gone (a POI pack removed), the enclave moves to
+  the nearest free building within `EnclaveRelocateRange` (1 km), keeping its name. If the free ones there are only
+  loaded, near a claim or in use just then, it waits off the map for a later load; if there is none at all, it is
+  dropped. Raising `EnclavesPerKm2` adds more on the next load; lowering it removes none.
+- The same save always gets the same enclaves: everything is drawn from the world seed.
+
+**How many, and where**
+- About `EnclavesPerKm2` (0.3) per km², at least `EnclaveMin` (4), at most `EnclaveMax` (36): 11 on a 6k map, 20 on 8k.
+  They are spread about 1 km apart.
+- Tier 1-4 buildings that have zombies, 20-80 m across. Rural and residential buildings are likelier; downtown,
+  caves, mines, bunkers, lots, rubble, bridges and the like are never picked (`EnclaveKindWeights`,
+  `EnclavePoiExcludes`).
+- At least 300 m from traders, spawn points and the map's edge, and never a building someone has claimed (a land
+  claim, a bedroll, an outpost), your home zone, or a building a radio contact, favour, supply run, radio scouting
+  mark or one of your quests in progress uses.
+- **Near your start:** up to 2 non-hostile enclaves 400-1500 m from where you spawn (from home, in an existing save),
+  when buildings that fit stand there.
+- **About a quarter are raiders** (hostile; fewer when too few fit), never within 1.2 km of the start or a spawn point
+  (600 m on maps under 4 km).
+  Military, police, prison, junkyard and factory buildings, tier 3-4, and the wasteland and burnt forest suit them.
+- **Names** are generated from the biome, the building and a leader or family: "The Pinefield Survivors", "The
+  Holdouts at the Diner", "Jody's Lot", "The Rabid Rats". No name repeats in a save.
+
+**Finding them**
+- Come within `EnclaveDiscoverRange` (150 m) of one: "You've found The X, holed up at Y (Neutral)." It goes on the map
+  and in the ledger.
+- A **powered radio** picks one up every `EnclaveRadioRevealDays` (3) days: the nearest unknown enclave within
+  `EnclaveRadioRange` (2 km) of home (of you, without a home). It tells you where: "900 m north-east".
+- **Markers** (owner-only): a grey fortress for a neutral enclave, a red skull for raiders, labelled with the name and
+  the standing ("The Pinefield Survivors (Neutral)"). Raiders also show on the compass within 300 m. Friendly (green)
+  and Allied (blue, on the compass within 600 m) come with standing in a later milestone.
+
+**Their building is theirs**
+- **No zombies.** Every sleeper room in it is marked cleared for good, and a room the game creates later (when its
+  chunk first loads) is cleared the moment you would trigger it.
+- **No trader quests**, no rally reset, no vanilla respawn there: it counts as claimed, like an outpost.
+- **No land claims:** a claim whose square would reach into the building is refused, and the tooltip names who lives
+  there. **No outposts** either.
+- **In multiplayer** the host seeds them, and the zombies, trader quests and outposts are kept out for everyone. The
+  claim check runs on the machine that places the claim, so for now only the host's own claims are refused. Finding
+  them, the markers and the radio are the host's. A dedicated server seeds and protects them, but nobody finds them
+  there yet.
+- SC's own picks (radio contacts, recruit favours, supply runs, radio scouting) never send anyone there.
+- The loot is still the building's own loot; locking it is for E2, with the people.
+
+**Config** (`Config/blocks.xml`, commented there): the switch `Enclaves`; how many `EnclavesPerKm2`, `EnclaveMin`,
+`EnclaveMax`; spacing `EnclaveSpacingMin`, `EnclaveSpacingFactor`, `EnclaveSpacingFloor`; raiders `EnclaveHostileShare`,
+`EnclaveHostileMinStart`; the start ring `EnclaveStartRing`, `EnclaveStartRingMin`, `EnclaveStartRingMax`,
+`EnclaveStartRingSpacing`; which buildings `EnclaveTierMin`/`Max`, `EnclaveSizeMin`/`Max`, `EnclaveTraderDistance`,
+`EnclaveSpawnDistance`, `EnclaveEdgeDistance`, `EnclaveKindWeights`, `EnclavePoiExcludes`; existing saves
+`EnclaveLateSeed`, `EnclaveClaimBuffer`, `EnclaveUnvisitedWeight`, `EnclaveRelocateRange`; finding them
+`EnclaveDiscoverRange`, `EnclaveRadioRevealDays`, `EnclaveRadioRange`.
+
+**Console:** `sc enclave [list]`, `sc enclave info <id>` (the record, its footprint, its sleeper rooms),
+`sc enclave reveal <id|all>` / `hide <id|all>`, `sc enclave sim [late]` (the seeding on this world as if it had none,
+nothing saved), `sc enclave names [n] [hostile]`, `sc enclave reseed confirm` (testing: drops every enclave and seeds
+again with the late rules). `sc poi` adds a line when the building you stand in is an enclave's.
+
+**Saving:** the enclaves are `[enclave]` sections in `survivor_community.txt`, plus `enclaveid`, `enclaveseed` and
+`enclaveradio` in `[community]`. This is **forward-only**: an older SurvivorCommunity build skips the `[enclave]`
+sections as unreadable (a "degraded" load), ignores the three keys, and its next save drops them all.
+
+**Switching them off:** set `Enclaves=false`. The records stay, but nothing is seeded, shown or protected, and the rooms
+they kept clear (the world save remembers that) respawn after the loot respawn wait (never, when loot respawn is off).
+**Before you uninstall SurvivorCommunity**, load the save once with `Enclaves=false`: otherwise those rooms stay empty
+until something resets the building, such as a trader quest there.
+
 ## Survivors with the player's body
 
 - Player-body NPCs (`Config/entityclasses.xml`) wear the **player character model**: a random face, race,
@@ -749,7 +828,13 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `ShootingEngageMult`, `ShootingEngageMin`, `ShootingHitRadius`, `ShootingAimChest`, `ShootingDefaultStars`, `RaiderShootingStars`, the dialog
 line and voices `DialogLine`, `VoiceLines` (`AmmoPerRangedDay` is no longer charged; the
 outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
-(commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features.
+(commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features. Enclaves (E1):
+`Enclaves`, `EnclavesPerKm2`, `EnclaveMin`, `EnclaveMax`, `EnclaveSpacingMin`, `EnclaveSpacingFactor`, `EnclaveSpacingFloor`,
+`EnclaveHostileShare`, `EnclaveHostileMinStart`, `EnclaveStartRing`, `EnclaveStartRingMin`, `EnclaveStartRingMax`,
+`EnclaveStartRingSpacing`, `EnclaveTierMin`, `EnclaveTierMax`, `EnclaveSizeMin`, `EnclaveSizeMax`, `EnclaveTraderDistance`,
+`EnclaveSpawnDistance`, `EnclaveEdgeDistance`, `EnclaveKindWeights`, `EnclavePoiExcludes`, `EnclaveLateSeed`,
+`EnclaveClaimBuffer`, `EnclaveUnvisitedWeight`, `EnclaveRelocateRange`, `EnclaveDiscoverRange`, `EnclaveRadioRevealDays`
+and `EnclaveRadioRange` (commented in the block).
 
 A full game restart is needed after editing `Config/Localization.csv`.
 
@@ -768,10 +853,11 @@ A full game restart is needed after editing `Config/Localization.csv`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
 - Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
-  all 82 targets patched` with Voice Control loaded, 75 without; a `MISSING PATCH` line names one that did not
+  all 94 targets patched` with Voice Control loaded, 87 without; a `MISSING PATCH` line names one that did not
   bind). Among them
   `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
-  `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests), the two turrets'
+  `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests, outposts and
+  enclaves), `SleeperVolume.UpdatePlayerTouched` (no sleepers in an enclave's building), the two turrets'
   and the motion sensor's target filters and `EntityAliveSDXV4.HandleNavObject` (raiders), SCore's two NPC
   inventory packages (`NetPackageHarvestInventoryRequest` / `...Update`: a remote player's open window),
   `EntityAliveSDXV4.UpdateWeapon(ItemValue, bool)` (a gun put away keeps its rounds), and `EntityAliveSDXV4.Write` /

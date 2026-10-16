@@ -835,3 +835,15 @@ scOpPerkWater,UI,Menu,,,,Cistern - thirst hurts morale less
 scBarterNoLuxury,UI,Tooltip,,,,"The radio trades food, water, medical, ammo, materials and fuel - not luxuries."
 scRunNoLuxury,UI,Tooltip,,,,Nobody goes out just for liquor - pick something the community needs.
 scScoutClassicOnly,UI,Tooltip,,,,"The radio scouts for food, medical, ammo, materials and fuel."
+scEnclaveMarker,UI,Map,,,,{0} ({1})
+scEnclaveNeutral,UI,Map,,,,Neutral
+scEnclaveFriendly,UI,Map,,,,Friendly
+scEnclaveAllied,UI,Map,,,,Allied
+scEnclaveHostile,UI,Map,,,,Hostile
+scEnclaveWhere,UI,Tooltip,,,,{0} m {1}
+scEnclaveFound,UI,Tooltip,,,,"You've found {0}, holed up at {1} ({2})."
+scEnclaveRadio,UI,Tooltip,,,,"The radio picks up voices: {0}, holed up at {1}, {2}."
+scEnclaveLedgerFound,UI,Tooltip,,,,found {0} at {1}
+scEnclaveLedgerRadio,UI,Tooltip,,,,the radio picked up {0} at {1}
+scOutpostEnclave,UI,Tooltip,,,,{0} belongs to {1}: it can't be an outpost.
+scEnclaveClaim,UI,Tooltip,,,,"{0} live at {1}: you can't claim land over their building."

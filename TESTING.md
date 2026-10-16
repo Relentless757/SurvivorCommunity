@@ -25,11 +25,53 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Enclaves on the map (E1)
+
+**Deployed 2026-10-16** (Fable review: deployable, its 12 findings fixed; re-check: deployable; DLL md5
+`01e63cc8ae5c143393a56e3aaaacd642`). Groups of survivors (enclaves) are seeded into POIs, named, found and marked on
+the map, and their buildings are kept free of zombies, quests, claims and outposts. There are no people in them yet.
+`sc enclave list` shows them all; `sc enclave info <id>` shows one.
+
+1. Start a new game. The log has a line like `enclaves: seeded 11 (3 hostile) for a new save on a 6144 m world, D 1019
+   m, nearest 714 m from you`. `sc enclave list` shows about 0.3 per km²: 4 on a 2k map, 11 on 6k, 20 on 8k. Up to
+   about a quarter are hostile (fewer on a small map), and none is found yet.
+2. Up to two of them are not hostile and 400-1500 m from where you spawned (the distances in `sc enclave list`, and the
+   log line's "nearest"). No hostile one is within 1200 m of you (600 m on a map under 4 km).
+3. Before you walk off, `sc enclave sim` lists the same enclaves, with the same names, as `sc enclave list`.
+4. Walk to one (`sc enclave info <id>` says how far and which way). At about 150 m from its building you get "You've
+   found ..., holed up at ... (Neutral)", a grey fortress with its name appears on the map, and the ledger has "found
+   ... at ...". A hostile one says (Hostile), with a red skull that also shows on the compass within 300 m.
+5. Walk through every room of its building, doors and trigger rooms too. No zombie spawns. `sc enclave info <id>` then
+   says all the generated sleeper areas are cleared and never respawn. `sc poi` inside it adds an "enclave" line.
+6. Try to place a land claim inside it, or close enough that the claim's square reaches it. It is refused, and the
+   tooltip names the enclave. An Outpost Flag is refused the same way.
+7. `sc enclave reveal all`: every enclave shows on the map, grey fortresses and red skulls, each labelled "Name
+   (Neutral)" or "Name (Hostile)". `sc enclave hide all` takes them all off again.
+8. Save, quit and load. The log says `enclaves: 11 loaded, 0 moved, 0 dropped, 0 added`. The same enclaves are listed,
+   and the markers of the ones you found come back.
+9. Load a save from before this build. The log says `enclaves: seeded ... late into this save ...`. None is within 150
+   m of any land claim, none is in the area around you, and none is on a building a radio scout marked. Up to two
+   non-hostile ones are 400-1500 m from home.
+10. With a powered radio at home and an enclave you haven't found within 2 km of it, `sc day`: "The radio picks up
+    voices: ..., holed up at ..., 900 m north-east." Its marker appears. Another `sc day` reveals nothing: the next one
+    is 3 days later (`sc enclave list` shows the day). With no unfound enclave within 2 km, it tries again the next day.
+11. Raise `EnclavesPerKm2` in `Config/blocks.xml` (0.5, say), restart and load. The log says `... added N ... to reach
+    the raised target ...`. Lower it again: none is removed.
+12. Trader quests never send you to an enclave's building, and radio contacts, favours, supply runs and radio scouting
+    never pick one.
+13. `sc enclave names 20` and `sc enclave names 10 hostile` print sample names. Tell me which ones you don't like.
+14. `sc enclave reseed confirm` drops every enclave and seeds again with the late rules (testing only).
+15. Set `Enclaves` to false in `Config/blocks.xml`, restart and load. The log says `enclaves: off (Enclaves=false) - N
+    kept ...`, with how many sleeper areas respawn after the loot respawn wait, and no enclave marker shows. Set it back
+    to true and load again: the same enclaves are back, and their rooms are kept clear again.
+
 ## The NPC's line above the responses, and voiced lines (round vo, the voice test)
 
-**Deployed 2026-10-16** (Fable review and re-check: deployable; DLL md5 `b7e562ac3ab28cabcf9cd0828d82b2fc`). Your answers (2026-10-16): survivors' lines never showed; they should sit above
-the dialogue choices as subtitles, and the goal is voiced dialogue made with ElevenLabs. The seven lines are voiced by
-Vane (men) and Jessica (women), your picks from ElevenLabs' library, one take each.
+**Deployed 2026-10-16** (Fable review and re-check: deployable; DLL md5 `b7e562ac3ab28cabcf9cd0828d82b2fc`). **Your first
+test (2026-10-16): you heard the voice and saw the line, with no issues spotted;** the log showed Voice Control's lip sync
+bound to the jaw. The steps you haven't checked stay open. Your answers (2026-10-16): survivors' lines never showed;
+they should sit above the dialogue choices as subtitles, and the goal is voiced dialogue made with ElevenLabs. The seven
+lines are voiced by Vane (men) and Jessica (women), your picks from ElevenLabs' library, one take each.
 
 1. Talk to any survivor. Their line ("Hello friend, how can I help you?") shows in a panel above the responses, lined
    up with them, and a voice of their sex says it.

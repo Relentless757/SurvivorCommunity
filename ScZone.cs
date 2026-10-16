@@ -276,6 +276,36 @@ namespace SurvivorCommunity
             into.Add(new[] { xMin, xMax, zMin, zMax });
         }
 
+        /// <summary>
+        /// Any claim's rectangles {xMin, xMax, zMin, zMax}, ADDED to the list (Rects is the home's): its LandClaimUpgrade
+        /// pieces when LCBU is loaded (a claim it stores nothing for comes back as the vanilla square), else the vanilla
+        /// square round the block. The enclave late seed keeps its distance from every player's claims with it.
+        /// </summary>
+        public static void ClaimRects(Vector3i claim, List<int[]> into)
+        {
+            try
+            {
+                Probe();
+                if (lcbuGetZone != null && lcbuPiecesField != null && rxMin != null && rxMax != null && rzMin != null && rzMax != null)
+                {
+                    object zone = lcbuGetZone.Invoke(null, new object[] { claim });
+                    Array pieces = zone != null ? lcbuPiecesField.GetValue(zone) as Array : null;
+                    if (pieces != null && pieces.Length > 0)
+                    {
+                        foreach (object r in pieces)
+                            into.Add(new[] { (int)rxMin.GetValue(r), (int)rxMax.GetValue(r), (int)rzMin.GetValue(r), (int)rzMax.GetValue(r) });
+                        return;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("zone-claimrects", e);
+            }
+            int vr = VanillaRadius;
+            into.Add(new[] { claim.x - vr, claim.x + vr, claim.z - vr, claim.z + vr });
+        }
+
         /// <summary>Is the chunk holding this block position loaded?</summary>
         public static bool IsLoaded(Vector3i p)
         {

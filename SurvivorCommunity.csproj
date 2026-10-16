@@ -80,6 +80,10 @@
     <Compile Include="ScPoiTypes.cs" />
     <Compile Include="ScOutposts.cs" />
     <Compile Include="Patches_Outposts.cs" />
+    <Compile Include="ScPoiIndex.cs" />
+    <Compile Include="ScEnclaveNames.cs" />
+    <Compile Include="ScEnclaves.cs" />
+    <Compile Include="Patches_Enclaves.cs" />
     <Compile Include="ScHomeLink.cs" />
     <Compile Include="ScHomeHold.cs" />
     <Compile Include="ScWeaponWarm.cs" />

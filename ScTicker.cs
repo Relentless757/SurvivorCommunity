@@ -84,6 +84,7 @@ namespace SurvivorCommunity
                 ScHomeHold.Tick(w);                   // the home zone held loaded while a player is near (round hz)
                 ScGarrison.Tick(w, player);           // stand-ins at the staffed outpost the player is at, visit stamps
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
+                ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
                 ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
                 ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight (with or without the player)
@@ -359,6 +360,7 @@ namespace SurvivorCommunity
                 var summary = new System.Text.StringBuilder();
                 ScRuns.Resolve(day, player, summary);    // runs land first: the yield counts for today's needs
                 ScOutposts.Daily(day, player, summary);  // then the outposts' deliveries, upkeep and haulage
+                ScEnclaves.Daily(day, player);           // a powered radio picks up an enclave every few days (E1)
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)
                 ScStockpile.DailyConsume(day, summary);

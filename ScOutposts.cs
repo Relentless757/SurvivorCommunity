@@ -192,6 +192,7 @@ namespace SurvivorCommunity
             ScOutpostRisk.OnRegistryChanged();
             ScBaseAttack.OnRegistryChanged();     // the home attack's session state is squared with the loaded counts
             ScWatch.OnRegistryChanged();          // the guards' session state and the call-out marker start again
+            ScEnclaves.OnRegistryChanged();       // enclave ids, their POI lookups, markers restored on the next tick
             // ids must be unique (yields, selection and staff key on them) and the counter ahead of all of them
             Community c = ScRegistry.Community;
             var ids = new HashSet<int>();
@@ -440,6 +441,8 @@ namespace SurvivorCommunity
             poi = ScSecurity.PoiAt(claim);
             if (poi == null || ScSecurity.OverlapsHome(poi)) return Localization.Get("scOpNotInPoi");
             string name = ScSecurity.DisplayName(poi);
+            Enclave enclave = ScEnclaves.Holding(poi);
+            if (enclave != null) return string.Format(Localization.Get("scOutpostEnclave"), name, enclave.Name);   // their building, not ours to hold
             string why;
             if (!ScSecurity.IsCleared(w, poi, out why)) return string.Format(Localization.Get("scOpNotCleared"), name, why);
             cls = ScPoiTypes.Classify(poi);
@@ -500,6 +503,8 @@ namespace SurvivorCommunity
                     pi = ScSecurity.PoiAt(claim);
                     if (pi == null) { message = Localization.Get("scOpNotInPoi"); return null; }
                     if (ByPoi(pi.boundingBoxPosition) != null) { message = string.Format(Localization.Get("scOpAlready"), ScSecurity.DisplayName(pi)); return null; }
+                    Enclave enclave = ScEnclaves.Holding(pi);
+                    if (enclave != null) { message = string.Format(Localization.Get("scOutpostEnclave"), ScSecurity.DisplayName(pi), enclave.Name); return null; }
                     cls = ScPoiTypes.Classify(pi);
                 }
 

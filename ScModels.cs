@@ -376,6 +376,18 @@ namespace SurvivorCommunity
         public int BloodMoonHomeDay;
         /// <summary>What happened at home while the player was away with no working radio, told when they are back (ScDefence.News).</summary>
         public readonly List<string> AwayNews = new List<string>();
+        /// <summary>
+        /// Enclaves (ScEnclaves, E1): the id counter; the seeding stamp enclaveseed=1:day:mode:seed:count (absent = never
+        /// seeded in this save: a new save gets its world-start seed, an existing one the late seed; count = the target that
+        /// run aimed at, which a raised config tops up); and the day the radio may next reveal one (enclaveradio=).
+        /// </summary>
+        public int NextEnclaveId;
+        public bool EnclaveSeeded;
+        public int EnclaveSeedDay;
+        public string EnclaveSeedMode = "";
+        public int EnclaveSeed;
+        public int EnclaveSeedCount;
+        public int EnclaveRadioDay;
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }

@@ -181,5 +181,62 @@
 				<property name="offset" value="0,0,0" />
 			</compass_settings>
 		</nav_object_class>
+		<!-- Enclaves (ScEnclaves, E1): owner-only, one class per standing, shown once found. Neutral and friendly are map
+		     only (no compass_settings: hiddenOnCompass would grey the map icon); allied and hostile also show on the
+		     compass when close. The label is the name and the standing. -->
+		<nav_object_class name="sc_enclave_neutral">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_map_fortress"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="210,210,210,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_enclave_friendly">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_map_fortress"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="140,220,120,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_enclave_allied">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_map_fortress"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="90,170,255,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+			<compass_settings>
+				<property name="sprite_name" value="ui_game_symbol_map_fortress"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="600"/>
+				<property name="color" value="90,170,255,255"/>
+				<property name="offset" value="0,0,0" />
+			</compass_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_enclave_hostile">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_skull"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="240,70,60,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+			<compass_settings>
+				<property name="sprite_name" value="ui_game_symbol_skull"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="300"/>
+				<property name="color" value="240,70,60,255"/>
+				<property name="offset" value="0,0,0" />
+			</compass_settings>
+		</nav_object_class>
 	</append>
 </configs>

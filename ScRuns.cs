@@ -136,8 +136,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// Where to look for a resource: a site the radio scouted for it, else a POI whose type produces it (primary
         /// producers first, nearest first, one of the best three), else any scavenging site, else any real POI -
-        /// RunMinDist..RunMaxDist from home, never inside the base, never an outpost, never where another runner,
-        /// radio contact or favour already is.
+        /// RunMinDist..RunMaxDist from home, never inside the base, never an outpost or an enclave's POI, never where
+        /// another runner, radio contact or favour already is.
         /// </summary>
         public static PrefabInstance PickDestination(Resource kind, GameRandom rnd)
         {
@@ -159,6 +159,7 @@ namespace SurvivorCommunity
                 {
                     if (!ScSecurity.IsRealPoi(pi) || !seen.Add(pi.boundingBoxPosition)) continue;
                     if (ScSecurity.OverlapsHome(pi) || ScOutposts.IsOutpostPoiKey(pi.boundingBoxPosition) || taken.Contains(pi.boundingBoxPosition)) continue;
+                    if (ScEnclaves.IsEnclavePoi(pi)) continue;
                     float d = ScOutposts.DistanceToHome(pi.boundingBoxPosition, pi.boundingBoxSize);
                     if (d < min || d > max) continue;
                     ok.Add(new KeyValuePair<float, PrefabInstance>(d, pi));

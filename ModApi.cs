@@ -43,6 +43,8 @@ namespace SurvivorCommunity
                 ScSkills.Reset();
                 ScRadio.Reset();
                 ScOutposts.Reset();
+                ScEnclaves.Reset();
+                ScPoiIndex.Reset();
                 ScHomeLink.Reset();
                 ScHomeHold.Reset();
                 ScWeaponWarm.Reset();
@@ -94,6 +96,10 @@ namespace SurvivorCommunity
                     // Vanity Vault bound inside the loading screen, not in the first painted body's build (round vb)
                     try { ScVanity.Warm(); }
                     catch (Exception e) { ScLog.Once("gamestartdone-vanity", e); }
+                    // enclaves (E1): seeded, found again or topped up now that the world, its POI list, the registry and the
+                    // player are all here (host only; registry-only work - only the chunks round the player have started
+                    // loading, and the pre-clear covers any of those)
+                    if (ScCommunity.IsHost) ScEnclaves.OnGameStart();
                 });
                 ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) =>
                 {
@@ -337,6 +343,8 @@ namespace SurvivorCommunity
             Add(t, "PersistentPlayerList::RemoveExtraLandClaims", AccessTools.Method(typeof(PersistentPlayerList), "RemoveExtraLandClaims", new[] { typeof(PersistentPlayerData) }));
             Add(t, "World::CanPlaceLandProtectionBlockAt", AccessTools.Method(typeof(World), "CanPlaceLandProtectionBlockAt", new[] { typeof(Vector3i), typeof(PersistentPlayerData) }));
             Add(t, "BlockToolSelection::ExecuteUseAction", AccessTools.Method(typeof(BlockToolSelection), "ExecuteUseAction", new[] { typeof(ItemInventoryData), typeof(bool), typeof(PlayerActionsLocal) }));
+            // Patches_Enclaves.cs - no sleeper zombies in an enclave's POI (E1; its other protections share the outposts' entries)
+            Add(t, "SleeperVolume::UpdatePlayerTouched", AccessTools.Method(typeof(SleeperVolume), "UpdatePlayerTouched", new[] { typeof(World), typeof(EntityPlayer) }));
             return t;
         }
 

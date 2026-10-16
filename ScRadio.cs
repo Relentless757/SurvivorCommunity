@@ -228,6 +228,7 @@ namespace SurvivorCommunity
                     if (!ScSecurity.IsRealPoi(pi)) continue;
                     if (ScSecurity.OverlapsHome(pi)) continue;
                     if (ScOutposts.IsOutpostPoiKey(pi.boundingBoxPosition)) continue;   // never send anyone to our own outpost
+                    if (ScEnclaves.IsEnclavePoi(pi)) continue;                          // nor into an enclave's building
                     if (exclude != null && exclude.Contains(pi.boundingBoxPosition)) continue;
                     Vector3i a = pi.boundingBoxPosition, s = pi.boundingBoxSize;
                     float cx = a.x + s.x * 0.5f, cz = a.z + s.z * 0.5f;

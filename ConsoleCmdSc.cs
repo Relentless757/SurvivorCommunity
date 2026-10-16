@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -59,6 +59,7 @@ namespace SurvivorCommunity
                     case "portrait": PortraitCmd(_params); break;
                     case "poi": PoiCmd(_params); break;
                     case "outpost": case "outposts": OutpostCmd(_params); break;
+                    case "enclave": case "enclaves": EnclaveCmd(_params); break;
                     case "radio": RadioCmd(); break;
                     case "restore":
                     {
@@ -1228,6 +1229,10 @@ namespace SurvivorCommunity
                        + " | home: " + (d < 0f ? "none" : Mathf.RoundToInt(d) + " m (outposts need " + ScConfig.OutpostMinDistance + ")")
                        + (ScSecurity.OverlapsHome(pi) ? " | touches the home zone" : ""));
             }
+            Enclave en = ScEnclaves.Holding(pi);
+            if (en != null)
+                Output("[SC]   enclave #" + en.Id + ": " + en.Name + " (" + ScEnclaves.StandingWord(en) + (en.Known ? "" : ", not found yet")
+                       + ") - no sleepers, claims, outposts or trader quests here (sc enclave info " + en.Id + ")");
         }
 
         private static void PoiNear(World w, EntityPlayerLocal pl, int r)
@@ -1293,6 +1298,76 @@ namespace SurvivorCommunity
                 if (total == 0 && res != "none" && res != "ineligible" && res != "scavenge")
                     Output("[SC]     no " + res + " site in this world - a scavenge outpost will cover it");
             }
+        }
+
+        // ---------------------------------------------------------------- enclaves (E1)
+
+        /// <summary>sc enclave [list | info &lt;id&gt; | reveal &lt;id|all&gt; | hide &lt;id|all&gt; | sim [late] | names [n] [hostile] | reseed confirm]</summary>
+        private static void EnclaveCmd(List<string> p)
+        {
+            ScConfig.EnsureParsed();
+            string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "list";
+            var lines = new List<string>();
+            if (sub == "names")
+            {
+                // the generator only: works anywhere
+                int n = 10;
+                bool hostile = false;
+                for (int i = 2; i < p.Count; i++)
+                {
+                    int v;
+                    if (int.TryParse(p[i], out v)) n = Mathf.Clamp(v, 1, 200);
+                    else if (p[i].Equals("hostile", StringComparison.OrdinalIgnoreCase)) hostile = true;
+                }
+                Output("[SC] " + n + " sample " + (hostile ? "raider" : "survivor") + " enclave name(s):");
+                ScEnclaves.SampleNames(n, hostile, lines);
+                foreach (string l in lines) Output("[SC] " + l);
+                return;
+            }
+            if (!ScCommunity.IsHost) { Output("[SC] host only"); return; }
+            switch (sub)
+            {
+                case "list": ScEnclaves.ListLines(lines); break;
+                case "info":
+                {
+                    Enclave e = EnclaveArg(p);
+                    if (e == null) return;
+                    ScEnclaves.InfoLines(e, lines);
+                    break;
+                }
+                case "reveal":
+                case "hide":
+                {
+                    bool all = p.Count > 2 && p[2].Equals("all", StringComparison.OrdinalIgnoreCase);
+                    Enclave e = all ? null : EnclaveArg(p);
+                    if (!all && e == null) return;
+                    int n = ScEnclaves.SetKnown(e, sub == "reveal", ScCommunity.LocalPlayer);
+                    lines.Add(n + " enclave(s) " + (sub == "reveal" ? "revealed, with their markers" : "hidden again, markers off"));
+                    break;
+                }
+                case "sim": ScEnclaves.Simulate(p.Count > 2 && p[2].Equals("late", StringComparison.OrdinalIgnoreCase), lines); break;
+                case "reseed":
+                    if (p.Count < 3 || !p[2].Equals("confirm", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Output("[SC] sc enclave reseed confirm - drops EVERY enclave and seeds again with the late-seed rules (testing only)");
+                        return;
+                    }
+                    lines.Add(ScEnclaves.Reseed(ScCommunity.LocalPlayer));
+                    break;
+                default:
+                    Output("[SC] sc enclave [list | info <id> | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm]");
+                    return;
+            }
+            foreach (string l in lines) Output("[SC] " + l);
+        }
+
+        private static Enclave EnclaveArg(List<string> p)
+        {
+            int id;
+            if (p.Count < 3 || !int.TryParse(p[2], out id)) { Output("[SC] give an enclave id (sc enclave list)"); return null; }
+            Enclave e = ScEnclaves.ById(id);
+            if (e == null) Output("[SC] no enclave " + id);
+            return e;
         }
 
         // ---------------------------------------------------------------- outposts (milestone 2)

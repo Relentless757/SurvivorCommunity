@@ -19,7 +19,11 @@ namespace SurvivorCommunity
                 try
                 {
                     if (__result == null || string.IsNullOrEmpty(filePath)) return;
-                    ScRegistry.Load(Path.GetDirectoryName(filePath));
+                    string dir = Path.GetDirectoryName(filePath);
+                    // no world file yet: this save is starting for the first time (World.LoadWorld writes main.ttw later in
+                    // this same startup) - the enclaves' world-start seed (ScEnclaves)
+                    ScRegistry.SaveIsNew = !string.IsNullOrEmpty(dir) && !File.Exists(Path.Combine(dir, "main.ttw"));
+                    ScRegistry.Load(dir);
                 }
                 catch (Exception e)
                 {

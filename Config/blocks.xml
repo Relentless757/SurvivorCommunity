@@ -884,6 +884,55 @@
 			<property name="GuardTowerFill" value="3" />
 			<property name="GuardTowerCut" value="2" />
 
+			<!-- ENCLAVES (E1: on the map, no people yet; Enclaves_Plan.md). Groups of survivors holed up in POIs across the
+			     map, seeded once per save from the world seed: a new save at its first start, an existing save the first time
+			     this build loads it (EnclaveLateSeed: then no POI within EnclaveClaimBuffer m of any land claim or in loaded
+			     chunks, and a POI never visited weighs EnclaveUnvisitedWeight times more). How many: EnclavesPerKm2 x the map's
+			     km2, at least EnclaveMin, at most EnclaveMax (11 on a 6k map, 20 on 8k); a higher value adds more on the next
+			     load, a lower one removes none. Spacing D = max(EnclaveSpacingMin, EnclaveSpacingFactor x sqrt(map area / N)) m,
+			     relaxed 15% a pass down to EnclaveSpacingFloor when the map has no room. EnclaveHostileShare of them are raiders,
+			     never within EnclaveHostileMinStart m of the start or a spawn point (half that on maps under 4 km). The start
+			     ring: EnclaveStartRing non-hostile ones EnclaveStartRingMin..Max m from where you start (from home in an existing
+			     save), EnclaveStartRingSpacing m apart. POIs: tier EnclaveTierMin..Max, the larger side EnclaveSizeMin..Max m, at
+			     least EnclaveTraderDistance / EnclaveSpawnDistance / EnclaveEdgeDistance m from traders, spawn points and the
+			     map's edge, weighted by district (EnclaveKindWeights: a POI's first tag of the list, else "other"; a district at
+			     0 rules a POI out even when it has another tag too), and no prefab name holding an EnclavePoiExcludes part. An
+			     enclave whose POI vanished (a POI pack removed) moves to the nearest free POI within EnclaveRelocateRange m, or
+			     waits for a later load when the free ones are only loaded, near a claim or in use. You find one by coming within
+			     EnclaveDiscoverRange m of it; a powered radio picks one up every EnclaveRadioRevealDays days within
+			     EnclaveRadioRange m of home (of you, without one). Their POIs keep no zombies and take no trader quests, land
+			     claims or outposts. Enclaves=false keeps the records but switches them off, and the rooms they kept clear respawn
+			     after the loot respawn wait. "sc enclave" lists and tests them. -->
+			<property name="Enclaves" value="true" />
+			<property name="EnclavesPerKm2" value="0.3" />
+			<property name="EnclaveMin" value="4" />
+			<property name="EnclaveMax" value="36" />
+			<property name="EnclaveSpacingMin" value="500" />
+			<property name="EnclaveSpacingFactor" value="0.55" />
+			<property name="EnclaveSpacingFloor" value="300" />
+			<property name="EnclaveHostileShare" value="0.25" />
+			<property name="EnclaveHostileMinStart" value="1200" />
+			<property name="EnclaveStartRing" value="2" />
+			<property name="EnclaveStartRingMin" value="400" />
+			<property name="EnclaveStartRingMax" value="1500" />
+			<property name="EnclaveStartRingSpacing" value="600" />
+			<property name="EnclaveTierMin" value="1" />
+			<property name="EnclaveTierMax" value="4" />
+			<property name="EnclaveSizeMin" value="20" />
+			<property name="EnclaveSizeMax" value="80" />
+			<property name="EnclaveTraderDistance" value="300" />
+			<property name="EnclaveSpawnDistance" value="300" />
+			<property name="EnclaveEdgeDistance" value="300" />
+			<property name="EnclaveKindWeights" value="rural:1.5,countryresidential:1.4,countrytown:1.3,wilderness:1.2,oldwest:1.2,residential:1,commercial:0.9,industrial:0.8,other:0.6,downtown:0" />
+			<property name="EnclavePoiExcludes" value="cave,mine,bunker,bombshelter,rubble,lot_,filler,street,bridge,tunnel,sewer,crater,crack,parking,remnant_waste,wreck,dock,skyscraper,water_tower,celltower,sign,billboard,deco" />
+			<property name="EnclaveLateSeed" value="true" />
+			<property name="EnclaveClaimBuffer" value="150" />
+			<property name="EnclaveUnvisitedWeight" value="3" />
+			<property name="EnclaveRelocateRange" value="1000" />
+			<property name="EnclaveDiscoverRange" value="150" />
+			<property name="EnclaveRadioRevealDays" value="3" />
+			<property name="EnclaveRadioRange" value="2000" />
+
 			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". A word ending in
 			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).
 			     Resolution: the prefab's own SCOutpost property > OutpostPrefabs > OutpostExclude > theme tags > prefab
