@@ -847,3 +847,12 @@ scEnclaveLedgerFound,UI,Tooltip,,,,found {0} at {1}
 scEnclaveLedgerRadio,UI,Tooltip,,,,the radio picked up {0} at {1}
 scOutpostEnclave,UI,Tooltip,,,,{0} belongs to {1}: it can't be an outpost.
 scEnclaveClaim,UI,Tooltip,,,,"{0} live at {1}: you can't claim land over their building."
+scInfestMarker,UI,Map,,,,Infested: {0}
+scInfestFound,UI,Tooltip,,,,"Infested: {0}. More of them, ferals, and something worse."
+scInfestRadio,UI,Tooltip,,,,"The radio picks up a warning: {0} is infested, {1}."
+scInfestSpread,UI,Tooltip,,,,The infestation at {0} has spread to {1}.
+scInfestCleared,UI,Tooltip,,,,You've cleared the infestation at {0}.
+scInfestLedgerFound,UI,Tooltip,,,,found an infestation at {0}
+scInfestLedgerRadio,UI,Tooltip,,,,the radio reported an infestation at {0}
+scInfestLedgerSpread,UI,Tooltip,,,,the infestation at {0} spread to {1}
+scInfestLedgerCleared,UI,Tooltip,,,,cleared the infestation at {0}

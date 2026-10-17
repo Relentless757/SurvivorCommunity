@@ -19,10 +19,19 @@ namespace SurvivorCommunity
         private const float FollowConfirmSeconds = 5f;
         private static float nextTick;
         private static readonly List<int> scratch = new List<int>();
+        /// <summary>
+        /// The day "sc day" last simulated (ConsoleCmdSc.Day runs ScDaily for LastDay + 1, ahead of the world): the resync
+        /// that follows a second later is then SC's own, and says so quietly instead of warning. -1 = none pending.
+        /// </summary>
+        public static int SimulatedDay = -1;
+        /// <summary>The world's day when "sc day" ran: the quiet resync needs both, so a real jump right after it still warns.</summary>
+        public static int SimulatedFromDay = -1;
 
         public static void Reset()
         {
             nextTick = 0f;
+            SimulatedDay = -1;
+            SimulatedFromDay = -1;
         }
 
         public static void OnGameUpdate()
@@ -53,8 +62,10 @@ namespace SurvivorCommunity
                 {
                     // the world clock went backwards (an older save loaded, or a time command): without this the
                     // community is frozen until the world catches up - no consumption, no morale, and supply
-                    // runs never come home
-                    ScLog.Warn("the world day went backwards (" + c.LastDay + " -> " + day + "); resyncing the community to day " + day);
+                    // runs never come home. "sc day" runs ahead of the world on purpose: its own day ending is no fault.
+                    if (c.LastDay == SimulatedDay && day == SimulatedFromDay) ScLog.Out("sc day: the simulated day " + c.LastDay + " is over - back to the world's day " + day);
+                    else ScLog.Warn("the world day went backwards (" + c.LastDay + " -> " + day + "); resyncing the community to day " + day);
+                    SimulatedDay = -1;
                     c.LastDay = day;
                     foreach (var m in ScRegistry.Members.Values)
                         if (m.Status == MemberStatus.OnRun && m.RunEndDay > day) m.RunEndDay = day;   // land the runs that were already due
@@ -62,6 +73,7 @@ namespace SurvivorCommunity
                 }
                 else
                 {
+                    SimulatedDay = -1;      // the world has caught up with any simulated day: no resync of ours is coming
                     int guard = 0;
                     while (c.LastDay < day && guard++ < 60) { c.LastDay++; ScDaily.Run(c.LastDay, player); }
                 }
@@ -85,6 +97,7 @@ namespace SurvivorCommunity
                 ScGarrison.Tick(w, player);           // stand-ins at the staffed outpost the player is at, visit stamps
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
                 ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
+                ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
                 ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
                 ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight (with or without the player)
@@ -361,6 +374,7 @@ namespace SurvivorCommunity
                 ScRuns.Resolve(day, player, summary);    // runs land first: the yield counts for today's needs
                 ScOutposts.Daily(day, player, summary);  // then the outposts' deliveries, upkeep and haulage
                 ScEnclaves.Daily(day, player);           // a powered radio picks up an enclave every few days (E1)
+                ScInfestations.Daily(day, player);       // cleared ones end, old ones may spread, the day's roll for a new one (I1)
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)
                 ScStockpile.DailyConsume(day, summary);

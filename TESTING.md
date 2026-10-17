@@ -25,12 +25,65 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Infestations (I1)
+
+**Deployed 2026-10-16** (Fable review: deployable after fixes, all fixed; re-check: deployable; DLL md5
+`3807a366c37df7fa90a30d16d8acfbac`). Buildings get infested: about twice the zombies, more ferals and one special
+(radiated below gamestage 50, then charged or infernal) until you clear them. A daily roll starts them, old ones spread,
+a powered radio reports new ones near home, and a purple marker shows the ones you know. `sc infest list` shows them
+all; `sc infest info <id>` shows one, with its rooms.
+
+1. Stand in (or right next to) a POI you haven't fought through yet and `sc infest add` (or `sc infest add <x> <z>`
+   for one nearby). The log has `infestation #1 at ... [console]: ...`, the ledger (`sc status`) has "found an
+   infestation at ...", and a purple marker labelled "Infested: ..." is on the map (and on the compass within 300 m).
+   `sc poi` inside it adds an "infestation #1" line.
+2. Walk through it. Each room has about twice its usual zombies (1.5 times in a tier 4-5 building); the log's
+   `SleeperVolume ...: Spawning` lines show the classes. At a low gamestage about a third of them are ferals (glowing
+   eyes). One room brings a radiated zombie below gamestage 50: the log says `the room at ... brings the special
+   (GroupAllRadiated, gamestage N, 1 in M)`, then `its special came - zombie...Radiated`. `sc infest info 1` shows the
+   special's state.
+3. Clear every room. You get "You've cleared the infestation at ...", the ledger has "cleared the infestation at
+   ...", the marker is gone and `sc infest list` no longer lists it. The log says `... ended (cleared) after N day(s)`.
+4. A cleared POI infested again: clear a POI (the one from step 3 will do), go at least 100 m away and
+   `sc infest add <x> <z>` it. The log says `N cleared room(s) due again`. Walk back in: its rooms fill up again as
+   you come near them (at spawn points out of your sight). Then try it standing inside a cleared POI (`sc infest add`
+   there): the room you're in stays quiet while you're within 8 m of it; the others come due after about 2.5 minutes
+   of game time and fill up when you come within 8 m of them (out of your sight). Leave your room for 2.5 minutes,
+   come back, and it fills up too. The infestation can't end before each of those rooms has filled up and been
+   cleared. Best in a POI
+   with a trap room (one a door sets off; `sc infest info <id>` counts "N trigger"): leave that door open, and the
+   infestation still ends once the other rooms are cleared again.
+5. Save and quit in the middle of a fight in an infested building, then load. The log says `infestations: 1 loaded, 0
+   dropped ...`, the infestation is still listed and its marker comes back, and the zombies you left (ferals and the
+   special too) are back, asleep, when you return.
+6. `sc day` a few times, and `sc infest roll` a few times: new ones start (`... [roll]` in the log), at most the cap
+   (`sc infest list` says "at most N on this world": 8 on a 6k map, 13 on 8k). At the cap, `sc infest roll` says
+   "at the cap". None is in the first week above tier 2.
+7. Spread: `sc infest spread <id>`. The nearest eligible POI within 300 m gets infested (`[spread from #id]` in the
+   log). When you knew the first one, you get "The infestation at ... has spread to ...", and its marker. (On its own
+   this needs 3 days, then a 30% roll a day.)
+8. The radio: with a powered radio at home (or any powered radio, without a home), `sc infest roll` until one starts
+   within 2 km: "The radio picks up a warning: ... is infested, 900 m north-east.", a ledger line and its marker. One
+   farther away stays unknown until you come within 150 m of it: "Infested: .... More of them, ferals, and something
+   worse."
+9. Never in an enclave's building, your home zone, a claimed building or near a trader: `sc infest add` inside an
+   enclave's building, your home, or a building with your land claim or bedroll is refused, with the reason. A
+   building within 150 m of a trader is never rolled or spread to (the trader's own POI included).
+10. `sc day` gives no warning any more: a second after it, the log says `sc day: the simulated day N is over - back to
+    the world's day M` instead of `WRN ... the world day went backwards`.
+11. Set `Infestations` to false in `Config/blocks.xml`, restart and load. The log says `infestations: off
+    (Infestations=false) - N kept ...`, no infestation marker shows and rooms spawn as usual. Set it back to true and
+    load again: the same infestations are back.
+
 ## Enclaves on the map (E1)
 
 **Deployed 2026-10-16** (Fable review: deployable, its 12 findings fixed; re-check: deployable; DLL md5
-`01e63cc8ae5c143393a56e3aaaacd642`). Groups of survivors (enclaves) are seeded into POIs, named, found and marked on
-the map, and their buildings are kept free of zombies, quests, claims and outposts. There are no people in them yet.
-`sc enclave list` shows them all; `sc enclave info <id>` shows one.
+`01e63cc8ae5c143393a56e3aaaacd642`). **Your test (2026-10-16), on a new world and an existing save:** seeding,
+discovery, no zombies, claims and outposts refused, reload and the names were all fine. The survivors you saw at
+enclaves were SC's own wild spawns; keeping those off enclave grounds is part of E2. The steps you haven't checked stay
+open. Groups of survivors (enclaves) are seeded into POIs, named, found and marked on the map, and their buildings are
+kept free of zombies, quests, claims and outposts. There are no people in them yet. `sc enclave list` shows them all;
+`sc enclave info <id>` shows one.
 
 1. Start a new game. The log has a line like `enclaves: seeded 11 (3 hostile) for a new save on a 6144 m world, D 1019
    m, nearest 714 m from you`. `sc enclave list` shows about 0.3 per km²: 4 on a 2k map, 11 on 6k, 20 on 8k. Up to
@@ -52,9 +105,11 @@ the map, and their buildings are kept free of zombies, quests, claims and outpos
 9. Load a save from before this build. The log says `enclaves: seeded ... late into this save ...`. None is within 150
    m of any land claim, none is in the area around you, and none is on a building a radio scout marked. Up to two
    non-hostile ones are 400-1500 m from home.
-10. With a powered radio at home and an enclave you haven't found within 2 km of it, `sc day`: "The radio picks up
-    voices: ..., holed up at ..., 900 m north-east." Its marker appears. Another `sc day` reveals nothing: the next one
-    is 3 days later (`sc enclave list` shows the day). With no unfound enclave within 2 km, it tries again the next day.
+10. The radio needs an enclave you haven't found (`sc enclave hide all` first if you revealed them) and a powered radio
+    at home, or any powered radio when you have no home. Then, with that enclave within 2 km of home (of you, without
+    one), `sc day`: "The radio picks up voices: ..., holed up at ..., 900 m north-east." Its marker appears. Another
+    `sc day` reveals nothing: the next one is 3 days later (`sc enclave list` shows the day). With no unfound enclave
+    within 2 km, it tries again the next day.
 11. Raise `EnclavesPerKm2` in `Config/blocks.xml` (0.5, say), restart and load. The log says `... added N ... to reach
     the raised target ...`. Lower it again: none is removed.
 12. Trader quests never send you to an enclave's building, and radio contacts, favours, supply runs and radio scouting

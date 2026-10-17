@@ -193,6 +193,7 @@ namespace SurvivorCommunity
             ScBaseAttack.OnRegistryChanged();     // the home attack's session state is squared with the loaded counts
             ScWatch.OnRegistryChanged();          // the guards' session state and the call-out marker start again
             ScEnclaves.OnRegistryChanged();       // enclave ids, their POI lookups, markers restored on the next tick
+            ScInfestations.OnRegistryChanged();   // the same for the infestations (I1)
             // ids must be unique (yields, selection and staff key on them) and the counter ahead of all of them
             Community c = ScRegistry.Community;
             var ids = new HashSet<int>();

@@ -501,6 +501,43 @@ namespace SurvivorCommunity
         public static int EnclaveRadioRange = 2000;
         private const string DefaultEnclaveKindWeights = "rural:1.5,countryresidential:1.4,countrytown:1.3,wilderness:1.2,oldwest:1.2,residential:1,commercial:0.9,industrial:0.8,other:0.6,downtown:0";
         private const string DefaultEnclavePoiExcludes = "cave,mine,bunker,bombshelter,rubble,lot_,filler,street,bridge,tunnel,sewer,crater,crack,parking,remnant_waste,wreck,dock,skyscraper,water_tower,celltower,sign,billboard,deco";
+        // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
+        /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
+        public static bool Infestations = true;
+        /// <summary>The chance a day that a new one starts; at most clamp(round(InfestPerKm2 x the world's km2), InfestMin, InfestMax) at once - 8 on a 6k map, 13 on 8k.</summary>
+        public static float InfestDailyChance = 0.4f;
+        public static float InfestPerKm2 = 0.2f;
+        public static int InfestMin = 2, InfestMax = 30;
+        /// <summary>Spread: one at least InfestSpreadDays old has InfestSpreadChance a day to infest the nearest eligible POI within InfestSpreadRange m.</summary>
+        public static int InfestSpreadDays = 3;
+        public static float InfestSpreadChance = 0.3f;
+        public static int InfestSpreadRange = 300;
+        /// <summary>
+        /// Which POIs: at least InfestTraderDistance m from a trader; the daily roll weighs a POI 1 within InfestMinDist..InfestMaxDist m
+        /// of home (of the player without one) and InfestOutsideWeight outside, and takes the tiers of the day (InfestTierByDay).
+        /// </summary>
+        public static int InfestTraderDistance = 150;
+        public static int InfestMinDist = 300, InfestMaxDist = 2500;
+        public static float InfestOutsideWeight = 0.1f;
+        /// <summary>InfestTierByDay "day:min-max,...", sorted by day: {day, min, max} - from that day on, the tiers the daily roll takes.</summary>
+        public static readonly List<int[]> InfestTierByDay = new List<int[]>();
+        /// <summary>
+        /// Inside: the rooms' count multiplier (InfestMultiplierHighTier from prefab tier InfestHighTier up, vanilla's infested quests'
+        /// numbers), the share of normal zombies that come feral, and the special (InfestSpecial): radiated below gamestage
+        /// InfestSpecialRadiatedBelowGS, then charged or infernal.
+        /// </summary>
+        public static float InfestMultiplier = 2f, InfestMultiplierHighTier = 1.5f;
+        public static int InfestHighTier = 4;
+        public static float InfestFeralShare = 0.35f;
+        public static bool InfestSpecial = true;
+        public static int InfestSpecialRadiatedBelowGS = 50;
+        /// <summary>
+        /// Found within InfestDiscoverRange m of its POI; a powered radio reports a new one within InfestRadioRange m of home (of the
+        /// player without one); none starts or spreads within InfestPlayerMargin m of a player; a room with sleepers left from before
+        /// is reset only with no player within InfestRearmPlayerRange m.
+        /// </summary>
+        public static int InfestDiscoverRange = 150, InfestRadioRange = 2000, InfestPlayerMargin = 50, InfestRearmPlayerRange = 100;
+        private const string DefaultInfestTierByDay = "1:1-2,8:1-3,15:2-4,29:3-5";
         // ---- survivors and raiders wearing the player's body (0-XNPCCore's survivors, ScXnpc; SC's scRaider* classes) ----
         /// <summary>No longer used: it was the chance a radio contact is a player-body survivor rather than a pack NPC,
         /// and pack NPCs no longer spawn at all (every contact is now one of ours). Still parsed so old configs load.</summary>
@@ -969,6 +1006,10 @@ namespace SurvivorCommunity
             EnclaveTierMin = 1; EnclaveTierMax = 4; EnclaveSizeMin = 20; EnclaveSizeMax = 80; EnclaveTraderDistance = 300; EnclaveSpawnDistance = 300; EnclaveEdgeDistance = 300;
             EnclaveKindWeights.Clear(); EnclavePoiExcludes.Clear(); EnclaveLateSeed = true; EnclaveClaimBuffer = 150; EnclaveUnvisitedWeight = 3f; EnclaveRelocateRange = 1000;
             EnclaveDiscoverRange = 150; EnclaveRadioRevealDays = 3; EnclaveRadioRange = 2000;
+            Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
+            InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
+            InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
+            InfestDiscoverRange = 150; InfestRadioRange = 2000; InfestPlayerMargin = 50; InfestRearmPlayerRange = 100;
             ScPoiTypes.LoadDefaults();
             Defaults();
         }
@@ -1014,6 +1055,7 @@ namespace SurvivorCommunity
             RaiderTattooInks.AddRange(new[] { "Black Orchid", "Black Orchid", "Dark Truffle", "Abyssal", "Venom", "Rouge Noir", "Oxblood Wine", "Chili Red" });
             ParseKindWeights(DefaultEnclaveKindWeights);
             EnclavePoiExcludes.AddRange(SplitList(DefaultEnclavePoiExcludes));
+            ParseTierByDay(DefaultInfestTierByDay);
         }
 
         /// <summary>The tattoo shapes the user picked for survivors (raiders get these and four more).</summary>
@@ -1507,6 +1549,39 @@ namespace SurvivorCommunity
                 ParseInt(p, "EnclaveDiscoverRange", ref EnclaveDiscoverRange, 0, 5000);
                 ParseInt(p, "EnclaveRadioRevealDays", ref EnclaveRadioRevealDays, 1, 365);
                 ParseInt(p, "EnclaveRadioRange", ref EnclaveRadioRange, 0, 20000);
+                bool infest = Infestations;
+                if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
+                Infestations = infest;
+                ParseFloat(p, "InfestDailyChance", ref InfestDailyChance, 0f, 1f);
+                ParseFloat(p, "InfestPerKm2", ref InfestPerKm2, 0f, 10f);
+                ParseInt(p, "InfestMin", ref InfestMin, 0, 500);
+                ParseInt(p, "InfestMax", ref InfestMax, 0, 500);
+                if (InfestMax < InfestMin) InfestMax = InfestMin;
+                ParseInt(p, "InfestSpreadDays", ref InfestSpreadDays, 0, 365);
+                ParseFloat(p, "InfestSpreadChance", ref InfestSpreadChance, 0f, 1f);
+                ParseInt(p, "InfestSpreadRange", ref InfestSpreadRange, 0, 5000);
+                ParseInt(p, "InfestTraderDistance", ref InfestTraderDistance, 0, 20000);
+                ParseInt(p, "InfestMinDist", ref InfestMinDist, 0, 20000);
+                ParseInt(p, "InfestMaxDist", ref InfestMaxDist, 0, 20000);
+                if (InfestMaxDist < InfestMinDist) InfestMaxDist = InfestMinDist;
+                ParseFloat(p, "InfestOutsideWeight", ref InfestOutsideWeight, 0f, 100f);
+                {
+                    string tv;
+                    if (p.Values.TryGetValue("InfestTierByDay", out tv) && !string.IsNullOrEmpty(tv)) ParseTierByDay(tv);
+                }
+                // 1..4: never fewer zombies than vanilla's roll, and a room's counts stay far below the byte the world saves them in
+                ParseFloat(p, "InfestMultiplier", ref InfestMultiplier, 1f, 4f);
+                ParseFloat(p, "InfestMultiplierHighTier", ref InfestMultiplierHighTier, 1f, 4f);
+                ParseInt(p, "InfestHighTier", ref InfestHighTier, 0, 7);
+                ParseFloat(p, "InfestFeralShare", ref InfestFeralShare, 0f, 1f);
+                bool special = InfestSpecial;
+                if (p.Values.ContainsKey("InfestSpecial")) p.ParseBool("InfestSpecial", ref special);
+                InfestSpecial = special;
+                ParseInt(p, "InfestSpecialRadiatedBelowGS", ref InfestSpecialRadiatedBelowGS, 0, 100000);
+                ParseInt(p, "InfestDiscoverRange", ref InfestDiscoverRange, 0, 5000);
+                ParseInt(p, "InfestRadioRange", ref InfestRadioRange, 0, 20000);
+                ParseInt(p, "InfestPlayerMargin", ref InfestPlayerMargin, 0, 5000);
+                ParseInt(p, "InfestRearmPlayerRange", ref InfestRearmPlayerRange, 0, 5000);
                 ScPoiTypes.Parse(p);
                 ParseFloat(p, "SurvivorLookChance", ref SurvivorLookChance, 0f, 1f);
                 bool friendlyFire = CommunityFriendlyFire;
@@ -1787,6 +1862,16 @@ namespace SurvivorCommunity
                                             + EnclaveSizeMin + "-" + EnclaveSizeMax + "m, " + EnclaveKindWeights.Count + " districts, " + EnclavePoiExcludes.Count + " excludes, late seed "
                                             + (EnclaveLateSeed ? "on" : "off") + ", discover " + EnclaveDiscoverRange + "m, radio every " + EnclaveRadioRevealDays + "d within "
                                             + EnclaveRadioRange + "m" : "off")
+                          + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
+                                                + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
+                                                + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange
+                                                + "m, trader " + InfestTraderDistance + "m, home " + InfestMinDist + "-" + InfestMaxDist + "m (else x"
+                                                + InfestOutsideWeight.ToString("0.##", CultureInfo.InvariantCulture) + "), tiers " + TierByDayText() + ", x"
+                                                + InfestMultiplier.ToString("0.##", CultureInfo.InvariantCulture) + " (T" + InfestHighTier + "+ x"
+                                                + InfestMultiplierHighTier.ToString("0.##", CultureInfo.InvariantCulture) + "), feral "
+                                                + InfestFeralShare.ToString("0.##", CultureInfo.InvariantCulture) + ", special "
+                                                + (InfestSpecial ? "radiated below gs " + InfestSpecialRadiatedBelowGS : "off") + ", discover " + InfestDiscoverRange + "m, radio "
+                                                + InfestRadioRange + "m, margin " + InfestPlayerMargin + "m, re-arm " + InfestRearmPlayerRange + "m" : "off")
                           + " looks=excluded " + SurvivorExcludeSkins.Count + " skins/" + SurvivorExcludeEyes.Count + " eyes/" + SurvivorExcludeHairs.Count
                           + " hairs, dyed hair F" + SurvivorDyedHairChanceFemale + "/M" + SurvivorDyedHairChanceMale + " of " + SurvivorDyedHairColors.Count
                           + " paints=body " + SurvivorBodyPaintChance + "/" + RaiderBodyPaintChance + " of " + SurvivorBodyPaints.Count + "/" + RaiderBodyPaints.Count
@@ -1837,6 +1922,50 @@ namespace SurvivorCommunity
             if (parsed.Count == 0) { ScLog.Warn("config EnclaveKindWeights '" + s + "' names no district:weight - kept"); return; }
             EnclaveKindWeights.Clear();
             foreach (var kv in parsed) EnclaveKindWeights[kv.Key] = kv.Value;
+        }
+
+        /// <summary>InfestTierByDay "1:1-2,8:1-3,...": replaces the table (sorted by day); an unreadable entry is skipped with a warning, none readable keeps it.</summary>
+        private static void ParseTierByDay(string s)
+        {
+            var parsed = new List<int[]>();
+            foreach (string part in SplitList(s))
+            {
+                int c = part.IndexOf(':'), dash = part.IndexOf('-', c + 1);
+                int day, lo, hi;
+                if (c <= 0 || dash <= c + 1 || !int.TryParse(part.Substring(0, c).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out day)
+                    || !int.TryParse(part.Substring(c + 1, dash - c - 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out lo)
+                    || !int.TryParse(part.Substring(dash + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out hi) || day < 0 || lo < 0 || hi < lo)
+                {
+                    ScLog.Warn("config InfestTierByDay entry '" + part + "' is not day:min-max (min at most max) - skipped");
+                    continue;
+                }
+                parsed.Add(new[] { day, lo, hi });
+            }
+            if (parsed.Count == 0) { ScLog.Warn("config InfestTierByDay '" + s + "' names no day:min-max - kept"); return; }
+            parsed.Sort((a, b) => a[0].CompareTo(b[0]));
+            InfestTierByDay.Clear();
+            InfestTierByDay.AddRange(parsed);
+        }
+
+        /// <summary>The tiers the daily roll takes on this day: the last InfestTierByDay entry at or before it (before the first, the first).</summary>
+        public static void InfestTierWindow(int day, out int min, out int max)
+        {
+            min = 1;
+            max = 2;
+            for (int i = 0; i < InfestTierByDay.Count; i++)
+            {
+                int[] e = InfestTierByDay[i];
+                if (i > 0 && e[0] > day) break;
+                min = e[1];
+                max = e[2];
+            }
+        }
+
+        private static string TierByDayText()
+        {
+            var parts = new List<string>();
+            foreach (int[] e in InfestTierByDay) parts.Add(e[0] + ":" + e[1] + "-" + e[2]);
+            return string.Join(",", parts.ToArray());
         }
 
         /// <summary>RaiderRangedShare "0.3,0.4,0.5" (the ranged-lead chance): one share per class tier; a shorter list repeats its last value, a bad entry keeps the default.</summary>

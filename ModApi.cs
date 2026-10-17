@@ -44,6 +44,7 @@ namespace SurvivorCommunity
                 ScRadio.Reset();
                 ScOutposts.Reset();
                 ScEnclaves.Reset();
+                ScInfestations.Reset();
                 ScPoiIndex.Reset();
                 ScHomeLink.Reset();
                 ScHomeHold.Reset();
@@ -100,6 +101,8 @@ namespace SurvivorCommunity
                     // player are all here (host only; registry-only work - only the chunks round the player have started
                     // loading, and the pre-clear covers any of those)
                     if (ScCommunity.IsHost) ScEnclaves.OnGameStart();
+                    // infestations (I1): each one's POI found again - after the enclaves, so none is left on an enclave's POI
+                    if (ScCommunity.IsHost) ScInfestations.OnGameStart();
                 });
                 ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) =>
                 {
@@ -345,6 +348,11 @@ namespace SurvivorCommunity
             Add(t, "BlockToolSelection::ExecuteUseAction", AccessTools.Method(typeof(BlockToolSelection), "ExecuteUseAction", new[] { typeof(ItemInventoryData), typeof(bool), typeof(PlayerActionsLocal) }));
             // Patches_Enclaves.cs - no sleeper zombies in an enclave's POI (E1; its other protections share the outposts' entries)
             Add(t, "SleeperVolume::UpdatePlayerTouched", AccessTools.Method(typeof(SleeperVolume), "UpdatePlayerTouched", new[] { typeof(World), typeof(EntityPlayer) }));
+            // Patches_Infestations.cs - an infested POI's rooms (I1; the count, spawn points and special share the UpdatePlayerTouched
+            // entry above, the feral share ScLoadout's GetRandomFromGroupList entry)
+            Add(t, "SleeperVolume::UpdateSpawn", AccessTools.Method(typeof(SleeperVolume), "UpdateSpawn", new[] { typeof(World) }));
+            Add(t, "SleeperVolume::Spawn", AccessTools.Method(typeof(SleeperVolume), "Spawn", new[] { typeof(World), typeof(int), typeof(int), typeof(BlockSleeper) }));
+            Add(t, "SleeperVolume::ClearedUpdate", AccessTools.Method(typeof(SleeperVolume), "ClearedUpdate", new[] { typeof(World) }));
             return t;
         }
 

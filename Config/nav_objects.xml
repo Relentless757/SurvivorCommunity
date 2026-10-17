@@ -238,5 +238,24 @@
 				<property name="offset" value="0,0,0" />
 			</compass_settings>
 		</nav_object_class>
+		<!-- Infestations (ScInfestations, I1): owner-only, shown once known (found within 150 m, reported by the radio, or
+		     spread from a known one). Purple, on the map, and on the compass within 300 m. The label is the POI's name. -->
+		<nav_object_class name="sc_infestation">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_infection"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="170,80,220,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+			<compass_settings>
+				<property name="sprite_name" value="ui_game_symbol_infection"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="300"/>
+				<property name="color" value="170,80,220,255"/>
+				<property name="offset" value="0,0,0" />
+			</compass_settings>
+		</nav_object_class>
 	</append>
 </configs>

@@ -84,6 +84,8 @@
     <Compile Include="ScEnclaveNames.cs" />
     <Compile Include="ScEnclaves.cs" />
     <Compile Include="Patches_Enclaves.cs" />
+    <Compile Include="ScInfestations.cs" />
+    <Compile Include="Patches_Infestations.cs" />
     <Compile Include="ScHomeLink.cs" />
     <Compile Include="ScHomeHold.cs" />
     <Compile Include="ScWeaponWarm.cs" />

@@ -467,6 +467,8 @@ namespace SurvivorCommunity
         /// Every entity-group pick (biome spawns, sleeper volumes, SC's own group rolls) ends in
         /// EntityGroups.GetRandomFromGroupList: a pick of one of our tiered classes above the gamestage tier is swapped for
         /// its tier's class there (ClassByGamestage). Zombies and everything else pass through untouched (one set lookup).
+        /// First, though, an infested room's pick may come feral (ScInfestations.FeralShare, I1): the check is one static
+        /// read, null for every pick outside an infested room's spawn step.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_ClassByGamestage
@@ -492,10 +494,11 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return Target(); }
 
             [HarmonyPostfix]
-            public static void Postfix(ref int __result)
+            public static void Postfix(ref int __result, GameRandom random)
             {
                 try
                 {
+                    if (ScInfestations.CurrentVolume != null) ScInfestations.FeralShare(ref __result, random);
                     int to;
                     if (!ClassByGamestage(__result, out to)) return;
                     classDowngrades++;

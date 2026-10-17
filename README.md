@@ -419,7 +419,8 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
 You aren't the only survivors. Other groups have holed up in buildings across the map: families, drifters, preppers
 and raiders. Each group is an **enclave**, with a name and a building of its own. This first milestone puts them on
 the map. **There are no people in them yet**: you can find them, see them on the map, and their buildings are theirs.
-Their people, standing, trade, requests, sieges and the infestations come in later milestones (`Enclaves_Plan.md`).
+Their people, standing, trade, requests and sieges come in later milestones (`Enclaves_Plan.md`); the infestations are
+I1, below.
 
 **When they appear**
 - **A new save** gets its enclaves the moment it first starts. Nothing spawns: they are records until you get near.
@@ -439,8 +440,8 @@ Their people, standing, trade, requests, sieges and the infestations come in lat
   caves, mines, bunkers, lots, rubble, bridges and the like are never picked (`EnclaveKindWeights`,
   `EnclavePoiExcludes`).
 - At least 300 m from traders, spawn points and the map's edge, and never a building someone has claimed (a land
-  claim, a bedroll, an outpost), your home zone, or a building a radio contact, favour, supply run, radio scouting
-  mark or one of your quests in progress uses.
+  claim, a bedroll, an outpost), your home zone, an infested building, or a building a radio contact, favour, supply
+  run, radio scouting mark or one of your quests in progress uses.
 - **Near your start:** up to 2 non-hostile enclaves 400-1500 m from where you spawn (from home, in an existing save),
   when buildings that fit stand there.
 - **About a quarter are raiders** (hostile; fewer when too few fit), never within 1.2 km of the start or a spawn point
@@ -492,6 +493,90 @@ sections as unreadable (a "degraded" load), ignores the three keys, and its next
 they kept clear (the world save remembers that) respawn after the loot respawn wait (never, when loot respawn is off).
 **Before you uninstall SurvivorCommunity**, load the save once with `Enclaves=false`: otherwise those rooms stay empty
 until something resets the building, such as a trader quest there.
+
+## Infestations (I1)
+
+Some buildings get overrun. An **infested** building holds about twice the zombies, more of them feral, and something
+worse in one of its rooms, until you clear it. Infestations start on their own, spread when left alone, and go on the
+map once you know about them.
+
+**When and where**
+- **At each day rollover** there is a 40% chance (`InfestDailyChance`) that one more building becomes infested.
+- **Which buildings:** real POIs with sleepers, at least `InfestTraderDistance` (150 m) from a trader. Never one
+  someone has claimed (a land claim, a bedroll, an upgraded claim zone, an outpost), an enclave's building, your home
+  zone, a building a trader quest has locked, one SC or you are using (a radio contact, a recruit's "secure this
+  building" favour, a supply run's destination, a radio scouting mark, one of your quests in progress), one with a
+  player within `InfestPlayerMargin` (50 m), or one with a room still live: nobody watches a building turn. It needs a
+  room that coming near sets off (a building of trap rooms alone is never picked).
+- **The tier rises with the days** (`InfestTierByDay`): tier 1-2 in the first week, 1-3 in the second, 2-4 from day 15,
+  3-5 from day 29.
+- **Close enough to matter:** a building 300-2,500 m from home (from you, before you have a home; `InfestMinDist`,
+  `InfestMaxDist`) is ten times likelier than one outside that band (`InfestOutsideWeight` 0.1).
+- **Spread:** an infestation 3 days old or more (`InfestSpreadDays`) has a 30% chance a day (`InfestSpreadChance`) to
+  spread to the nearest such building within 300 m (`InfestSpreadRange`), of any tier. At most once a day.
+- **The cap:** at most about 0.2 per km² at once (`InfestPerKm2`; at least `InfestMin` 2, at most `InfestMax` 30): 8 on
+  a 6k map, 13 on 8k. At the cap, nothing new starts or spreads.
+
+**What changes inside** (when a room spawns, so it works in buildings you never visited, and after a reload)
+- **About twice the zombies** (`InfestMultiplier`; 1.5 times in tier 4-5 buildings, `InfestMultiplierHighTier` from
+  `InfestHighTier`), as vanilla's infested trader quests do. A trader quest's own larger number is never lowered.
+- **Vanilla's infested spawn points open** (346 vanilla POIs have them).
+- **Ferals:** 35% of the normal zombies come as their feral version (`InfestFeralShare`), at any gamestage. Vanilla's
+  POI lists have no ferals at all below gamestage 76.
+- **One special** in one of its rooms (`InfestSpecial`): a radiated zombie below gamestage 50
+  (`InfestSpecialRadiatedBelowGS`, the room's gamestage), then a charged or infernal one. None when the sandbox's
+  maximum enemy type is below radiated; only radiated ones when it stops below charged. If its room ends without it (a
+  crawler's spawn point, too many zombies about), the next room owes it.
+- **A building you'd already cleared is dangerous again:** its rooms respawn the next time you come near them. If you
+  were within 100 m when it turned (`InfestRearmPlayerRange`), its rooms wait first: a room fills up again only after
+  about 2.5 minutes of game time away from it (1000 world-time, vanilla's own wait for a room someone is in) and then
+  when you come within 8 m of it, at spawn points out of your sight. A trap room (one a door or a switch sets off)
+  comes back only if you set it off again.
+- Ferals and the special that you leave alive are still there when you come back, as any sleeper is.
+- The loot stays the building's own. Vanilla's infested crate needs the building rebuilt, which SC never does.
+
+**Clearing it:** clear every sleeper room of the building (you, your followers or your turrets) and the infestation
+ends: "You've cleared the infestation at X.", a ledger line, and its marker goes. A room the game closed without
+spawning anything because too many zombies were about (vanilla's enemy cap) doesn't count: it respawns when you come
+back. A room whose own roll came out empty does count, as vanilla's clear quests count it. A trap room is the exception both ways: once cleared (or closed empty) it counts as cleared unless its door or
+switch sets it off again.
+
+**Seeing them** (an infestation shows on the map only once you know about it)
+- Come within `InfestDiscoverRange` (150 m) of it: "Infested: X. More of them, ferals, and something worse."
+- A **powered radio** reports a new one within `InfestRadioRange` (2 km) of home (of you, without a home), and where:
+  "The radio picks up a warning: X is infested, 900 m north-east."
+- A spread from one you know about is known too: "The infestation at X has spread to Y."
+- **Marker** (owner-only): a purple infection symbol labelled "Infested: X", on the map, and on the compass within 300 m.
+
+**Config** (`Config/blocks.xml`, commented there): the switch `Infestations`; how often and how many
+`InfestDailyChance`, `InfestPerKm2`, `InfestMin`, `InfestMax`; spread `InfestSpreadDays`, `InfestSpreadChance`,
+`InfestSpreadRange`; which buildings `InfestTraderDistance`, `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`,
+`InfestTierByDay`, `InfestPlayerMargin`; inside `InfestMultiplier`, `InfestMultiplierHighTier`, `InfestHighTier` (the
+multipliers go from 1 to 4), `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`,
+`InfestRearmPlayerRange`; seeing them `InfestDiscoverRange`, `InfestRadioRange`.
+
+**Console** (host only): `sc infest [list]` (each one's building, tier, start day and age, whether you know of it, its
+special and where it is from you), `sc infest info <id>` (the record and the building's rooms: generated, cleared,
+alive, due, the special's room), `sc infest add [<x> <z>]` (infests the building you stand in, or the one at x z, at
+once: no roll, no tier or distance rules, but never an enclave's building, your home, a claimed building or one
+already infested; known, with its marker), `sc infest clear <id|all>` (ends it: the record and the marker only, the
+rooms are left as they are), `sc infest spread <id>` (spreads now; the cap holds), `sc infest roll` (the daily roll
+now, without the chance; the cap and every rule hold), `sc infest reveal <id|all>` / `hide <id|all>`. `sc poi` adds a
+line when the building you stand in is infested.
+
+**Saving:** the infestations are `[infestation]` sections in `survivor_community.txt`, plus `infestid` in
+`[community]`. This is **forward-only**: an older SurvivorCommunity build skips the `[infestation]` sections as
+unreadable (a "degraded" load), ignores the key, and its next save drops them all.
+
+**Multiplayer:** the host rolls, spreads and clears them, and the changes inside apply to every player's rooms (the
+server spawns the sleepers). Finding them, the markers and the radio are the host's. A dedicated server runs no SC day
+rollover (it has no local player), so nothing new starts, spreads or is found there; infestations already in the save
+still change their rooms and still end when cleared.
+
+**Switching them off and uninstalling:** with `Infestations=false` the records stay, but nothing starts or spreads, the
+rooms spawn as vanilla's and no marker shows. Uninstalling is safe: nothing SC changes in a room needs SC to load. The
+special is saved under vanilla's group names, ferals are vanilla classes, and a room made due again just respawns as
+vanilla's.
 
 ## Survivors with the player's body
 
@@ -834,7 +919,11 @@ outposts only use it to guess which resource runs out first). Outposts: every `O
 `EnclaveStartRingSpacing`, `EnclaveTierMin`, `EnclaveTierMax`, `EnclaveSizeMin`, `EnclaveSizeMax`, `EnclaveTraderDistance`,
 `EnclaveSpawnDistance`, `EnclaveEdgeDistance`, `EnclaveKindWeights`, `EnclavePoiExcludes`, `EnclaveLateSeed`,
 `EnclaveClaimBuffer`, `EnclaveUnvisitedWeight`, `EnclaveRelocateRange`, `EnclaveDiscoverRange`, `EnclaveRadioRevealDays`
-and `EnclaveRadioRange` (commented in the block).
+and `EnclaveRadioRange` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
+`InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
+`InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
+`InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,
+`InfestRadioRange`, `InfestPlayerMargin` and `InfestRearmPlayerRange` (commented in the block).
 
 A full game restart is needed after editing `Config/Localization.csv`.
 
@@ -853,11 +942,13 @@ A full game restart is needed after editing `Config/Localization.csv`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
 - Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
-  all 94 targets patched` with Voice Control loaded, 87 without; a `MISSING PATCH` line names one that did not
+  all 97 targets patched` with Voice Control loaded, 90 without; a `MISSING PATCH` line names one that did not
   bind). Among them
   `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
   `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests, outposts and
-  enclaves), `SleeperVolume.UpdatePlayerTouched` (no sleepers in an enclave's building), the two turrets'
+  enclaves), `SleeperVolume.UpdatePlayerTouched` (no sleepers in an enclave's building; an infested building's count,
+  spawn points and special), `SleeperVolume.UpdateSpawn`, `Spawn` and `ClearedUpdate` (an infested room's spawn step,
+  its special, and the clear check; the feral share rides the `EntityGroups.GetRandomFromGroupList` postfix), the two turrets'
   and the motion sensor's target filters and `EntityAliveSDXV4.HandleNavObject` (raiders), SCore's two NPC
   inventory packages (`NetPackageHarvestInventoryRequest` / `...Update`: a remote player's open window),
   `EntityAliveSDXV4.UpdateWeapon(ItemValue, bool)` (a gun put away keeps its rounds), and `EntityAliveSDXV4.Write` /

@@ -30,6 +30,8 @@ namespace SurvivorCommunity
     ///                carry=f,f,f,f,f pending=n,n,n,n,n state=Active lost=-1 last=f,f,f,f,f
     ///   [enclave]    id=4 name=.. poi=x,y,z size=w,h,d prefab=.. poiname=.. biome=pine_forest row=farm tier=2 hostile=0
     ///                standing=0 known=1 knownday=6 seeded=1:new (forward-only: an older build drops the section)
+    ///   [infestation] id=3 poi=x,y,z size=w,h,d prefab=.. poiname=.. tier=2 start=12 how=roll source=0 known=1 knownday=13
+    ///                special=owed (none | pending:x,y,z | met:class) spread=-1 rearm=x,y,z;.. (forward-only, as [enclave])
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -46,6 +48,8 @@ namespace SurvivorCommunity
         public static readonly List<Outpost> Outposts = new List<Outpost>();
         /// <summary>Groups of survivors holed up in POIs (ScEnclaves), in seeding order.</summary>
         public static readonly List<Enclave> Enclaves = new List<Enclave>();
+        /// <summary>Infested POIs (ScInfestations), in the order they began.</summary>
+        public static readonly List<Infestation> Infestations = new List<Infestation>();
         /// <summary>
         /// Set by the PersistentPlayerList.ReadXML postfix before Load: the save has no main.ttw yet, so this is its first
         /// start (World.LoadWorld creates the file later in the same startup). ScEnclaves seeds a new save from it.
@@ -111,7 +115,7 @@ namespace SurvivorCommunity
                 Community = new Community();
                 Members.Clear();
                 Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); Infestations.Clear();
                 Cleanup.Clear();
                 Doomed.Clear();
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Warn("registry load: no save directory"); return; }
@@ -126,7 +130,7 @@ namespace SurvivorCommunity
                     Community = new Community();
                     Members.Clear();
                     Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); Infestations.Clear();
                     Cleanup.Clear();
                 Doomed.Clear();
                     ok = TryLoadFile(bak);
@@ -141,7 +145,7 @@ namespace SurvivorCommunity
                 ScRunners.OnRegistryLoaded();          // a runner left in the world by a crash resumes from its snapshot
                 ScOutposts.OnRegistryChanged();
                 ScLog.Out("registry loaded: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s), " + Outposts.Count + " outpost(s), "
-                          + Enclaves.Count + " enclave(s)" + (SaveIsNew ? " (a new save)" : "") + ", morale "
+                          + Enclaves.Count + " enclave(s), " + Infestations.Count + " infestation(s)" + (SaveIsNew ? " (a new save)" : "") + ", morale "
                           + Community.Morale + (Community.HasHome ? ", home " + Community.Home : ", no home yet")
                           + (degraded ? " (DEGRADED)" : ""));
             });
@@ -206,6 +210,7 @@ namespace SurvivorCommunity
                 Contact ct = null;
                 Outpost op = null;
                 Enclave en = null;
+                Infestation inf = null;
                 int bad = 0;
                 for (int i = 1; i < lines.Length; i++)
                 {
@@ -213,13 +218,14 @@ namespace SurvivorCommunity
                     if (line.Length == 0 || line[0] == '#') continue;
                     if (line[0] == '[')
                     {
-                        Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en);
+                        Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitInfestation(ref inf);
                         section = line.Trim('[', ']').ToLowerInvariant();
                         if (section == "member") m = new Member();
                         else if (section == "prospect") p = new Prospect();
                         else if (section == "contact") ct = new Contact();
                         else if (section == "outpost") op = new Outpost();
                         else if (section == "enclave") en = new Enclave();
+                        else if (section == "infestation") inf = new Infestation();
                         continue;
                     }
                     int eq = line.IndexOf('=');
@@ -234,6 +240,7 @@ namespace SurvivorCommunity
                         else if (section == "contact" && ct != null) ParseContact(ct, key, val);
                         else if (section == "outpost" && op != null) ParseOutpost(op, key, val);
                         else if (section == "enclave" && en != null) ParseEnclave(en, key, val);
+                        else if (section == "infestation" && inf != null) ParseInfestation(inf, key, val);
                         else bad++;
                     }
                     catch (Exception)
@@ -241,7 +248,7 @@ namespace SurvivorCommunity
                         bad++;
                     }
                 }
-                Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en);
+                Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitInfestation(ref inf);
                 if (bad > 0) { degraded = true; ScLog.Warn("registry: " + bad + " unreadable line(s) skipped in " + path); }
                 return true;
             }
@@ -369,6 +376,56 @@ namespace SurvivorCommunity
                     if (colon > 0) e.Mode = val.Substring(colon + 1);
                     break;
                 }
+            }
+        }
+
+        private static void CommitInfestation(ref Infestation inf)
+        {
+            if (inf != null)
+            {
+                if (inf.Id > 0 && inf.Size.x > 0 && inf.Size.z > 0 && !string.IsNullOrEmpty(inf.Prefab)) Infestations.Add(inf); else degraded = true;
+            }
+            inf = null;
+        }
+
+        private static void ParseInfestation(Infestation inf, string key, string val)
+        {
+            switch (key)
+            {
+                case "id": inf.Id = I(val); break;
+                case "poi": { Vector3i v; if (TryVec(val, out v)) inf.Poi = v; break; }
+                case "size": { Vector3i v; if (TryVec(val, out v)) inf.Size = v; break; }
+                case "prefab": inf.Prefab = val; break;
+                case "poiname": inf.PoiName = val; break;
+                case "tier": inf.Tier = I(val); break;
+                case "start": inf.StartDay = I(val); break;
+                case "how": inf.How = val; break;
+                case "source": inf.Source = I(val); break;
+                case "known": inf.Known = val == "1"; break;
+                case "knownday": inf.KnownDay = I(val); break;
+                case "special":
+                {
+                    // none | owed | pending:x,y,z (the room bringing it) | met:class; a pending one without its room is owed
+                    int colon = val.IndexOf(':');
+                    string kind = (colon > 0 ? val.Substring(0, colon) : val).Trim().ToLowerInvariant();
+                    string arg = colon > 0 ? val.Substring(colon + 1).Trim() : "";
+                    Vector3i v;
+                    if (kind == "owed") inf.Special = SpecialState.Owed;
+                    else if (kind == "pending" && TryVec(arg, out v)) { inf.Special = SpecialState.Pending; inf.SpecialHost = v; }
+                    else if (kind == "pending") inf.Special = SpecialState.Owed;
+                    else if (kind == "met") { inf.Special = SpecialState.Met; inf.SpecialClass = arg; }
+                    else inf.Special = SpecialState.None;
+                    break;
+                }
+                case "spread": inf.LastSpreadDay = I(val); break;
+                case "rearm":
+                    // x,y,z;x,y,z - the rooms it re-armed that have not rolled again yet
+                    foreach (string part in val.Split(';'))
+                    {
+                        Vector3i v;
+                        if (TryVec(part, out v) && !inf.Rearmed.Contains(v)) inf.Rearmed.Add(v);
+                    }
+                    break;
             }
         }
 
@@ -570,6 +627,8 @@ namespace SurvivorCommunity
                     break;
                 }
                 case "enclaveradio": c.EnclaveRadioDay = I(val); break;
+                // infestations (I1): the id counter
+                case "infestid": c.NextInfestationId = I(val); break;
                 case "stock":
                     foreach (string part in val.Split(','))
                     {
@@ -871,6 +930,7 @@ namespace SurvivorCommunity
                     sb.AppendLine("enclaveseed=1:" + c.EnclaveSeedDay + ":" + Clean(c.EnclaveSeedMode).Replace(":", "") + ":"
                                   + c.EnclaveSeed.ToString(CultureInfo.InvariantCulture) + ":" + c.EnclaveSeedCount);
                 sb.AppendLine("enclaveradio=" + c.EnclaveRadioDay);
+                sb.AppendLine("infestid=" + c.NextInfestationId);
                 var st = new StringBuilder();
                 for (int i = 0; i < ScNames.ResourceCount; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
                 sb.AppendLine("stock=" + st);
@@ -1022,6 +1082,30 @@ namespace SurvivorCommunity
                     sb.AppendLine("knownday=" + en.KnownDay.ToString(CultureInfo.InvariantCulture));
                     sb.AppendLine("seeded=" + en.SeededDay + ":" + Clean(en.Mode));
                 }
+                foreach (var inf in Infestations)
+                {
+                    sb.AppendLine("[infestation]");
+                    sb.AppendLine("id=" + inf.Id);
+                    sb.AppendLine("poi=" + Vec(inf.Poi));
+                    sb.AppendLine("size=" + Vec(inf.Size));
+                    sb.AppendLine("prefab=" + Clean(inf.Prefab));
+                    sb.AppendLine("poiname=" + Clean(inf.PoiName));
+                    sb.AppendLine("tier=" + inf.Tier);
+                    sb.AppendLine("start=" + inf.StartDay.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("how=" + Clean(inf.How));
+                    sb.AppendLine("source=" + inf.Source);
+                    sb.AppendLine("known=" + (inf.Known ? 1 : 0));
+                    sb.AppendLine("knownday=" + inf.KnownDay.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("special=" + (inf.Special == SpecialState.Owed ? "owed" : inf.Special == SpecialState.Pending ? "pending:" + Vec(inf.SpecialHost)
+                                                : inf.Special == SpecialState.Met ? "met:" + Clean(inf.SpecialClass) : "none"));
+                    sb.AppendLine("spread=" + inf.LastSpreadDay.ToString(CultureInfo.InvariantCulture));
+                    if (inf.Rearmed.Count > 0)
+                    {
+                        var ra = new StringBuilder();
+                        foreach (Vector3i v in inf.Rearmed) { if (ra.Length > 0) ra.Append(';'); ra.Append(Vec(v)); }
+                        sb.AppendLine("rearm=" + ra);
+                    }
+                }
                 foreach (var p in Prospects.Values)
                 {
                     sb.AppendLine("[prospect]");
@@ -1080,7 +1164,7 @@ namespace SurvivorCommunity
                     Community = new Community();
                     Members.Clear();
                     Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); Infestations.Clear();
                     Cleanup.Clear();
                 Doomed.Clear();
                     saveDir = null;

@@ -454,6 +454,7 @@ namespace SurvivorCommunity
             foreach (int[] t in r.Traders) if (ToBox(e.X, e.Z, t) < ScConfig.EnclaveTraderDistance) return "trader";
             foreach (Vector2 s in r.Spawns) if (Dist(e.X, e.Z, s.x, s.y) < ScConfig.EnclaveSpawnDistance) return "spawn";
             if (r.Enclaves.Contains(e.Key)) return "enclave";
+            if (ScInfestations.IsInfestedPoiKey(e.Key)) return "infested";     // I1: never an infested building (until it is cleared)
             if (ScOutposts.IsOutpostPoiKey(e.Key)) return "outpost";
             if (ScSecurity.OverlapsHome(e.Pi)) return "home";
             if (r.Taken.Contains(e.Key)) return "in use";
@@ -824,7 +825,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// The nearest POI a late seed would take within EnclaveRelocateRange of a vanished one, at least EnclaveSpacingFloor
         /// from every other enclave. When there is none, passing says whether a POI in range was refused only for now: in
-        /// loaded chunks, near a claim, or in use by a run, contact, favour, scouting mark or quest.
+        /// loaded chunks, near a claim, in use by a run, contact, favour, scouting mark or quest, or infested (I1).
         /// </summary>
         private static PoiEntry Relocation(Enclave e, Rules r, out bool passing)
         {
@@ -838,7 +839,7 @@ namespace SurvivorCommunity
                 string why = Refuse(pe, r);
                 if (why != null)
                 {
-                    if (why == "loaded" || why == "near a claim" || why == "in use") passing = true;
+                    if (why == "loaded" || why == "near a claim" || why == "in use" || why == "infested") passing = true;
                     continue;
                 }
                 bool close = false;

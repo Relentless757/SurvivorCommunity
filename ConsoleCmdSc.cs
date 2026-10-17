@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -60,6 +60,7 @@ namespace SurvivorCommunity
                     case "poi": PoiCmd(_params); break;
                     case "outpost": case "outposts": OutpostCmd(_params); break;
                     case "enclave": case "enclaves": EnclaveCmd(_params); break;
+                    case "infest": case "infestation": case "infestations": InfestCmd(_params); break;
                     case "radio": RadioCmd(); break;
                     case "restore":
                     {
@@ -175,6 +176,8 @@ namespace SurvivorCommunity
             if (!ScCommunity.IsHost || p == null) { Output("[SC] host only"); return; }
             Community c = ScRegistry.Community;
             c.LastDay++;
+            ScTicker.SimulatedDay = c.LastDay;     // the ticker's resync back to the world's day is then ours, not a fault
+            ScTicker.SimulatedFromDay = ScCommunity.World != null ? GameUtils.WorldTimeToDays(ScCommunity.World.worldTime) : -1;
             ScDaily.Run(c.LastDay, p);
             Output("[SC] simulated day " + c.LastDay + " - morale " + c.Morale);
             Status();
@@ -1233,6 +1236,8 @@ namespace SurvivorCommunity
             if (en != null)
                 Output("[SC]   enclave #" + en.Id + ": " + en.Name + " (" + ScEnclaves.StandingWord(en) + (en.Known ? "" : ", not found yet")
                        + ") - no sleepers, claims, outposts or trader quests here (sc enclave info " + en.Id + ")");
+            string infested = ScInfestations.PoiLine(pi);
+            if (infested != null) Output("[SC]   " + infested);
         }
 
         private static void PoiNear(World w, EntityPlayerLocal pl, int r)
@@ -1368,6 +1373,76 @@ namespace SurvivorCommunity
             Enclave e = ScEnclaves.ById(id);
             if (e == null) Output("[SC] no enclave " + id);
             return e;
+        }
+
+        // ---------------------------------------------------------------- infestations (I1)
+
+        /// <summary>sc infest [list | info &lt;id&gt; | add [&lt;x&gt; &lt;z&gt;] | clear &lt;id|all&gt; | spread &lt;id&gt; | roll | reveal &lt;id|all&gt; | hide &lt;id|all&gt;]</summary>
+        private static void InfestCmd(List<string> p)
+        {
+            ScConfig.EnsureParsed();
+            if (!ScCommunity.IsHost) { Output("[SC] host only"); return; }
+            string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "list";
+            var lines = new List<string>();
+            switch (sub)
+            {
+                case "list": ScInfestations.ListLines(lines); break;
+                case "info":
+                {
+                    Infestation inf = InfestArg(p);
+                    if (inf == null) return;
+                    ScInfestations.InfoLines(inf, lines);
+                    break;
+                }
+                case "add":
+                {
+                    int x = 0, z = 0;
+                    bool at = p.Count > 3 && int.TryParse(p[2], out x) && int.TryParse(p[3], out z);
+                    if (p.Count > 2 && !at) { Output("[SC] sc infest add [<x> <z>] - the POI you stand in, or the one at x z"); return; }
+                    lines.Add(ScInfestations.ConsoleAdd(at, x, z, ScCommunity.LocalPlayer));
+                    break;
+                }
+                case "clear":
+                {
+                    bool all = p.Count > 2 && p[2].Equals("all", StringComparison.OrdinalIgnoreCase);
+                    Infestation inf = all ? null : InfestArg(p);
+                    if (!all && inf == null) return;
+                    int n = ScInfestations.ConsoleClear(inf, ScCommunity.LocalPlayer);
+                    lines.Add(n + " infestation(s) ended - records and markers only, the rooms are left as they are");
+                    break;
+                }
+                case "spread":
+                {
+                    Infestation inf = InfestArg(p);
+                    if (inf == null) return;
+                    lines.Add(ScInfestations.ConsoleSpread(inf, ScCommunity.LocalPlayer));
+                    break;
+                }
+                case "roll": lines.Add(ScInfestations.ConsoleRoll(ScCommunity.LocalPlayer)); break;
+                case "reveal":
+                case "hide":
+                {
+                    bool all = p.Count > 2 && p[2].Equals("all", StringComparison.OrdinalIgnoreCase);
+                    Infestation inf = all ? null : InfestArg(p);
+                    if (!all && inf == null) return;
+                    int n = ScInfestations.SetKnown(inf, sub == "reveal", ScCommunity.LocalPlayer);
+                    lines.Add(n + " infestation(s) " + (sub == "reveal" ? "revealed, with their markers" : "hidden again, markers off"));
+                    break;
+                }
+                default:
+                    Output("[SC] sc infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>]");
+                    return;
+            }
+            foreach (string l in lines) Output("[SC] " + l);
+        }
+
+        private static Infestation InfestArg(List<string> p)
+        {
+            int id;
+            if (p.Count < 3 || !int.TryParse(p[2], out id)) { Output("[SC] give an infestation id (sc infest list)"); return null; }
+            Infestation inf = ScInfestations.ById(id);
+            if (inf == null) Output("[SC] no infestation " + id);
+            return inf;
         }
 
         // ---------------------------------------------------------------- outposts (milestone 2)
