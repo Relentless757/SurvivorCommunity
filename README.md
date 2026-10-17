@@ -456,7 +456,7 @@ section; trade, requests and sieges come in later milestones (`Enclaves_Plan.md`
   `EnclaveRadioRange` (2 km) of home (of you, without a home). It tells you where: "900 m north-east".
 - **Markers** (owner-only): a grey fortress for a neutral enclave, a red skull for raiders, labelled with the name and
   the standing ("The Pinefield Survivors (Neutral)"). Raiders also show on the compass within 300 m. Friendly (green)
-  and Allied (blue, on the compass within 600 m) follow the standing (E2 keeps it; E4's requests will earn it), and a
+  and Allied (blue, on the compass within 600 m) follow the standing (E2 keeps it; E4's requests earn it), and a
   group that turns on you goes red.
 
 **Their building is theirs**
@@ -534,11 +534,11 @@ Every enclave now has people: a leader and the rest of the group, living in thei
   *"Tell me about this place."* (their name, how many they are, the leader, the building).
 - The others greet you the same way, and *"Where's your leader?"* tells you who leads and where they are from you.
 - None of them can be hired, picked up or dismissed, by dialog or by voice; the leader's trade, enlisting and
-  recruiting go through their own rows (E3, below), requests come in E4.
+  recruiting go through their own rows (E3, below), and the leader's requests through *"What do you need?"* (E4).
 
 **Standing, warnings and hostility**
 - Standing is 0 at first and goes from `EnclaveStandingMin` (-30) to 100: Neutral below 30, Friendly from 30, Allied
-  from 70. The map marker follows it. (E4's requests are how you will earn it.)
+  from 70. The map marker follows it. E4's requests are how you earn it (and lose it), below.
 - **Hitting one of them** is a warning: they shout *"Watch it!"* and the enclave's standing drops by
   `EnclaveWarnPenalty` (10). Hits within `EnclaveHitDebounce` (1.5 s) of each other are one attack (a shotgun blast).
   **Another hit within `EnclaveWarnWindow` (2 minutes), or killing one of them** (you, or a companion of yours), turns
@@ -594,7 +594,7 @@ the same fields as a member), with `encpersonid` in `[community]` and `kind`, `t
 
 **Limits:** host only - in multiplayer the host's world runs them; a dedicated server runs no SC ticker, so nobody
 appears there. Breaking containers open is not stopped. A multiplayer client does not see the enclave dialog (only
-"Nevermind"). Requests (E4) and allied benefits (E6) are still to come.
+"Nevermind"). Allied benefits (E6) are still to come.
 
 ## Trade, enlist and recruit (E3)
 
@@ -653,6 +653,104 @@ person saved while they were out with you (`state=enlisted`, a save from mid-enl
 **Limits:** host only, as E2. A multiplayer client sees neither the dialog nor the leader's Trade, and their trade
 prices would be vanilla's. A stray hire entry can stay on the player after a crash while someone was enlisted (it is
 cleared at the next load).
+
+## Requests (E4)
+
+An enclave's leader now asks you for help, and how you answer moves the enclave's standing: requests are how a group
+becomes your friend and your ally, and how it stops being one.
+
+**Standing**
+- From `EnclaveStandingMin` (-30) to 100: Neutral below 30, Friendly from 30, Allied from 70. Hostile is separate:
+  letting a group down never makes it hostile.
+- **Gains:** a resource request +10 (`EnclaveGainResource`, whatever its size), a generator +15
+  (`EnclaveGainGenerator`), a gun +3 to +30 by its tier and quality (below).
+- **Losses** (Neutral / Friendly / Allied): saying no -5 / -5 / -12 (`EnclaveLossDecline`); agreeing, then giving up or
+  running out of time -8 / -8 / -15 (`EnclaveLossFail`); leaving an offer unanswered until it lapses 0 / -3 / -15
+  (`EnclaveLossLapse`). Keeping an ally is standing only: an Allied group let down is back to Friendly.
+- The marker's colour, the leader's greeting and E3's prices follow the band as it changes; a tell names the new band
+  ("The X is now Friendly.") and the ledger notes every request's end with the standing it moved.
+
+**When they ask**
+- At each day's rollover, every enclave you have found that is not hostile, has no open request and is past its
+  cooldown may ask: 35 % at Neutral, 45 % at Friendly, 20 % at Allied (`EnclaveRequestChance*`). One per enclave, at
+  most 3 open across the map (`EnclaveRequestMaxOpen`). After the day one of its requests closed, an enclave rests a
+  whole day before it asks again (`EnclaveRequestCooldownDays`).
+- What they ask (`EnclaveRequestKindWeights`): a resource most often, a gun, or - from day 10
+  (`EnclaveGeneratorFromDay`) - a generator. A resource is one their kind doesn't live on (growers never ask for food,
+  medics for medicine, militia for ammo, builders for materials, a road crew for fuel), small, medium or large: 1, 2
+  or 3 bundle units (`EnclaveRequestSizeWeights`).
+- With a **powered radio** you hear of it: *"The radio crackles: The X is asking for help."*, and the ledger says so.
+  Without one you find out when you talk to their leader.
+- An **offer stands for 3 days** (`EnclaveOfferLapseDays`, the day it's made counts): unanswered, it lapses. Days you
+  miss (a long sleep, a long absence) still run their lapses and expiries in order; new requests come only on the
+  newest day.
+
+**Talking to the leader:** *"What do you need?"*, their first row.
+- Nothing open: *"Nothing right now. We're managing."*
+- **An offer:** they say what they need, how long you'll have once you agree, and how long they'll wait for your
+  answer. Then:
+  - *"Leave it with me."* - you agree. It's due by the end of the 4th day, counting today (`EnclaveDueDaysItems`). It
+    goes in your journal as "Help The X" (what, to whom, by when) with a marker on their building. *"Thank you. We'll
+    be here."*
+  - *"I have it right here."* - only while you carry it: handed over on the spot.
+  - *"Take one of these."* - a gun request, while you carry a gun: the gun pick (below).
+  - *"No, I can't help with that."* - a failure now.
+  - *"Let me think about it."* - the talk ends and nothing happens yet; the offer lapses when its days are up.
+- **One you agreed to:** *"Still waiting on ..."* with the hand-over, the gun pick and *"I can't do it."* (a failure
+  now).
+- Every answer gets their reply, with the standing it moved. The journal quest can't be removed from the journal (tell
+  the leader instead): it completes when you deliver and fails when you give up, run out of time, or the group turns
+  hostile or is gone.
+
+**What they take**
+- **A resource:** packed bundles of that resource from your bag and toolbelt (the packing station makes them) - any
+  sizes that add up. The bundles that overpay least (then the fewest) are taken; any overpay is a gift. Small 1,
+  medium 2, large 3; the old one-size bundle counts 1.
+- **A generator:** any item that places a generator - vanilla's generator bank, or another mod's.
+- **A gun:** any firearm or launcher, never a bow, a crossbow or an admin gun. The pick shows your 2 least and 2 most
+  valuable guns (all of them when you carry 4 or fewer), each as "Pistol (T1, quality 3): they'll be grateful" - the
+  last part says what it means to them (small thanks, they'll be grateful, a real help to them, they'll remember this,
+  they'll never forget it: `EnclaveGunWorthBands`), then *"None of these."*. The gun you pick is taken from its very
+  slot, mods and all, and only if it is still there unchanged. Its **tier**: its T0-T5 tag, else a T and a digit in its
+  name (IZY's guns), else the NPC weapon catalogue's band + 1, else its value (`EnclaveGunValueBands`). Its **points**:
+  3, 6, 10, 15, 18 or 22 for T0-T5 (`EnclaveGunTierPoints`) x (0.75 + 0.1 x quality) (`EnclaveGunQualityBase`,
+  `EnclaveGunQualityStep`), rounded, kept within 3-30 (`EnclaveGunPointsMin`/`Max`): a quality-3 T1 pistol +6, a
+  quality-5 T3 rifle +19.
+- **Done:** the standing, SurvivorOrigins' "favour" Leadership event (60 XP), the ledger line ("The X: a medium bundle
+  of medicine delivered (+10 standing)") and their thanks.
+
+**A group that turns hostile or is gone** withdraws its request: no standing change, its journal quest is removed. An
+enclave that moves to a new building keeps its request, and the journal marker follows it after the next load.
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveRequestChanceNeutral`, `EnclaveRequestChanceFriendly`,
+`EnclaveRequestChanceAllied`, `EnclaveRequestMaxOpen`, `EnclaveRequestCooldownDays`, `EnclaveOfferLapseDays`,
+`EnclaveDueDaysItems`, `EnclaveGeneratorFromDay`, `EnclaveRequestKindWeights`, `EnclaveRequestSizeWeights`,
+`EnclaveGainResource`, `EnclaveGainGenerator`, `EnclaveGunTierPoints`, `EnclaveGunQualityBase`, `EnclaveGunQualityStep`,
+`EnclaveGunPointsMin`, `EnclaveGunPointsMax`, `EnclaveGunValueBands`, `EnclaveGunWorthBands`, `EnclaveLossDecline`,
+`EnclaveLossFail`, `EnclaveLossLapse`. With `Enclaves=false` every request is held as it is.
+
+**Console** (host): `sc enclave requests` (every open one: the enclave, its standing, the kind, what, the state and the
+days left), `sc enclave request <id>` (its request, and whether the daily roll can give it one and at what chance),
+`sc enclave request <id> offer <resource|generator|gun> [food|meds|ammo|mats|fuel] [small|medium|large] [force]`
+(ignores the chance, the cooldown and the generator day; refuses at `EnclaveRequestMaxOpen` without `force`),
+`... accept`, `... complete [points]` (the real outcome: standing, journal, Leadership, ledger; a gun's points default
+to a quality-3 T1's), `... fail` (an offer is declined, an agreed one fails), `... lapse` (an offer lapses, an agreed
+one runs out of time), `... clear` (withdrawn with no standing change, the cooldown cleared too).
+
+**The request clock:** `sc day` simulates the next day each time it is used, but the world's day stays where it is,
+so requests keep their own day: it moves one day per `sc day` and otherwise follows the world. While it is ahead of the
+world, the world's next days pass for requests only once the world gets there (the log says so once). A world day set
+back by the console (`settime`) pulls the request clock, every open request and the journal's due days back with it
+(the log: "enclave requests: the world's day went back to N ...").
+
+**Saving:** the requests are `[encrequest]` sections in `survivor_community.txt`, with `encrequestid` and `encreqday`
+in `[community]` and `nextreq` (the cooldown) in each `[enclave]`. Forward-only, as E2's: an older build drops them.
+A request whose enclave is missing is dropped. The journal quest is the player's own save: on every load SC squares
+the two - a request quest whose request is gone is closed, an agreed request whose quest is missing gets it again.
+
+**Limits:** host only, as E2 - a multiplayer client sees no request rows. The request's own words are picked at
+runtime by kind and standing, so a voice pack (keyed by statement) can't voice them; they show as text in SC's line
+panel, and with `DialogLine=false` the specifics are only in the journal once you agree.
 
 ## Infestations (I1)
 
@@ -1088,7 +1186,12 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `EnclaveBuyFriendly`, `EnclaveBuyAllied`, `EnclaveSellNeutral`, `EnclaveSellFriendly`, `EnclaveSellAllied`,
 `EnclaveEnlistCostNeutral`, `EnclaveEnlistCostFriendly`, `EnclaveEnlistCostAllied`, `EnclaveEnlistDays`,
 `EnclaveEnlistDeathPenalty`, `EnclaveRecruitMinLeft`, `EnclaveRecruitCooldownDays` and `EnclaveRecruitStanding`
-(commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
+(commented in the block). Enclave requests (E4): `EnclaveRequestChanceNeutral`, `EnclaveRequestChanceFriendly`,
+`EnclaveRequestChanceAllied`, `EnclaveRequestMaxOpen`, `EnclaveRequestCooldownDays`, `EnclaveOfferLapseDays`,
+`EnclaveDueDaysItems`, `EnclaveGeneratorFromDay`, `EnclaveRequestKindWeights`, `EnclaveRequestSizeWeights`,
+`EnclaveGainResource`, `EnclaveGainGenerator`, `EnclaveGunTierPoints`, `EnclaveGunQualityBase`, `EnclaveGunQualityStep`,
+`EnclaveGunPointsMin`, `EnclaveGunPointsMax`, `EnclaveGunValueBands`, `EnclaveGunWorthBands`, `EnclaveLossDecline`,
+`EnclaveLossFail` and `EnclaveLossLapse` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
 `InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,
@@ -1111,7 +1214,7 @@ A full game restart is needed after editing `Config/Localization.csv`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
 - Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
-  all 100 targets patched` with Voice Control loaded, 93 without; a `MISSING PATCH` line names one that did not
+  all 104 targets patched` with Voice Control loaded, 97 without; a `MISSING PATCH` line names one that did not
   bind). Among them
   `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
   `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests, outposts and

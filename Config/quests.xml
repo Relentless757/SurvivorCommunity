@@ -80,5 +80,29 @@
 				<property name="phase" value="1"/>
 			</objective>
 		</quest>
+
+		<!-- E4, an enclave's request taken on ("Leave it with me."): "Help <enclave>", one display-only objective (what,
+		     to whom, by the end of which day) that never completes on its own - the hand-over in the leader's talk closes
+		     it (Completed); giving it up, running out of time or the enclave turning hostile or falling removes it
+		     (failed). The registry's request is the authority, so the player cannot remove it from the journal
+		     (allow_remove false: they tell the leader "I can't do it."). The marker is the mod's own, on the enclave's
+		     building (POIPosition/POISize). No InteractWithNPC: the giver is the enclave, not a body. -->
+		<quest id="quest_scEncRequest">
+			<property name="name_key" value="scQuestEncReqName"/>
+			<property name="subtitle_key" value="scQuestEncReqSubtitle"/>
+			<property name="description_key" value="scQuestEncReqDesc"/>
+			<property name="icon" value="ui_game_symbol_loot_sack"/>
+			<property name="category_key" value="quest"/>
+			<property name="offer_key" value="scQuestEncReqOffer"/>
+			<property name="repeatable" value="true"/>
+			<property name="shareable" value="false"/>
+			<property name="completiontype" value="AutoComplete"/>
+			<property name="completion_key" value="scQuestEncReqCompletion"/>
+			<property name="add_to_tier_complete" value="false"/>
+			<property name="allow_remove" value="false"/>
+			<objective type="ScEncRequest, SurvivorCommunity">
+				<property name="phase" value="1"/>
+			</objective>
+		</quest>
 	</append>
 </configs>

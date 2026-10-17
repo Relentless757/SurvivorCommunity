@@ -25,6 +25,82 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Enclave requests, part 1 (E4)
+
+**Built 2026-10-17, not deployed yet.** A known, non-hostile enclave's leader asks for a resource, a generator or a gun;
+"What do you need?" is their first row. Standing moves with how you answer (Neutral below 30, Friendly 30, Allied 70).
+`sc enclave requests` lists the open ones; `sc enclave request <id>` shows one enclave's;
+`sc enclave request <id> offer <resource|generator|gun> [food|meds|ammo|mats|fuel] [small|medium|large] [force]` makes
+one now; `... accept | complete [points] | fail | lapse | clear` move it. `sc day` moves the request clock one day per
+use (the log says so once when the world's day is behind it). Bundles: `giveself scBundleMedsMedium` (and
+`...Small`, `...Large`, the old `scBundleMeds`); a generator: `giveself generatorbank`. `sc day` may also bring offers
+from other enclaves: `sc enclave requests` tells them apart.
+
+1. The offer: `sc enclave reveal <id>` on a survivor enclave, `sc enclave request <id> offer resource meds medium`. Talk
+   to the leader: the first row is "What do you need?"; it shows the offer - their words (by kind and standing), then
+   "We need a medium bundle of medicine - packed bundles, any sizes that add up. Once you agree you'll have 4 day(s);
+   I can wait for your answer until the end of day N." (N = today + 2). Rows: "Leave it with me.", "No, I can't help
+   with that.", "Let me think about it.", done ("I have it right here." only while you carry 2 units of medicine).
+2. "Let me think about it.": the talk closes, then the tell "<leader>: "Don't take too long. Our shelves won't wait."
+   The offer stands until the end of day N." No standing change (`sc enclave request <id>`).
+3. "No, I can't help with that.": "Figured as much. We'll find it somewhere else. (standing -5)"; "Something else." goes
+   back to the greeting. The ledger (community window) has "turned down <enclave>'s request (-5 standing)".
+   `sc enclave request <id>` shows no open request and "the cooldown runs to day N" (today + 2).
+4. Hand it over at once: `offer resource meds medium` again (the console ignores the cooldown), carry 1
+   `scBundleMedsMedium`, talk: "I have it right here." - the bundle leaves your bag, "That's more than I expected from a
+   stranger. Thank you. (standing +10)", no journal quest. SurvivorOrigins pays its "favour" Leadership XP (60). Ledger:
+   "<enclave>: a medium bundle of medicine delivered (+10 standing)".
+5. Accept: `offer resource meds medium`, "Leave it with me.": "Thank you. We'll be here. Bring a medium bundle of
+   medicine by the end of day M." (M = today + 3). The journal has "Help <enclave>" (objective "Bring a medium bundle of
+   medicine to <enclave> by the end of day M"), its marker is on their building (track it: compass and map), and it
+   has no Remove button. Talk again: "Still waiting on those supplies. We still need a medium bundle of medicine, by the
+   end of day M." with "I can't do it." and done.
+6. Deliver it later: carry the bundle, talk: "I have it right here." - the quest completes ("Quest completed: Help
+   <enclave>"), the marker goes, +10.
+7. A lapse: `offer gun` (don't answer), then `sc day` three times: on the third the tell "<enclave> stopped waiting for
+   your answer.", the ledger "never answered <enclave>'s request (standing unchanged)" at Neutral; at Friendly
+   (`sc enclave standing <id> 40` first) -3, at Allied (75) -15.
+8. Running out of time: `offer gun`, `accept`, then `sc day` four times: on the fourth "You ran out of time on
+   <enclave>'s request.", the quest fails ("Quest failed: Help <enclave>"), -8 at Neutral.
+9. "I can't do it.": `offer gun`, accept it in the talk, then "I can't do it.": "Then you shouldn't have said yes. Our
+   watch stays short. (standing -8)", the quest fails.
+10. Mixed bundles: `offer resource meds large` (3 units), carry 1 medium + 2 small medicine bundles: "I have it right
+    here." takes the medium and one small (3 units), the other small stays. Again with only 2 medium bundles: both go
+    (4 units; the log says "4 meds unit(s) handed over for 3 (the rest a gift)"). With 2 small only: no hand-over row.
+    The old one-size `scBundleMeds` counts 1.
+11. A generator: `offer generator` (any day), carry a `generatorbank`: "I have it right here." takes it (from the bag
+    or the toolbelt), "A generator! You didn't have to do this. Thank you. (standing +15)". The ledger names the item.
+12. A gun: `offer gun`, carry 5+ guns (say a pipe pistol, a T1 pistol, a hunting rifle, an AK-47 and a T3 sniper
+    rifle, mixed qualities), one of them on the toolbelt. "Take one of these." lists 4: your 2 least and 2 most valuable,
+    each "<name> (T<tier>, quality <q>): <worth>" (a quality-3 T1 pistol "they'll be grateful", +6; a quality-5 T3 rifle
+    "they'll remember this", +19), then "None of these." (back to the offer) and done. Pick one: it leaves exactly that
+    slot (another gun of the same kind stays), "(standing +N)". With 4 or fewer guns, all of them show; bows,
+    crossbows and admin guns never do.
+13. A gun with mods: put a scope on a pistol and pick it: the pistol goes, mods and all (the log names the slot). A
+    second pistol of the same kind without mods stays where it was.
+14. RE Inventory's bag: with the grid bag, pick a gun lying in the grid: it leaves the grid (the space is free when you
+    reopen the bag, nothing left drawn there); the other items keep their places.
+15. Crossing into Friendly: `sc enclave standing <id> 25`, complete a resource request (+10, 35): the tell "<enclave> is
+    now Friendly.", the marker turns green, the next talk opens with the Friendly greeting, and E3's trade pays 20 % more
+    when you sell. Into Allied: standing 65 and a generator (+15, 80): "is now Allied.", the marker blue, the Allied
+    greeting, Allied prices.
+16. An ally let down: at 75, `offer resource`, accept, "I can't do it.": -15, 60 - "<enclave> is now Friendly.", the
+    marker green.
+17. The radio: with a powered radio at home, `offer resource` at another known enclave: "The radio crackles: <enclave>
+    is asking for help. Talk to their leader." and the ledger "<enclave> is asking for help". Radio unpowered: no tell,
+    no ledger line (the leader asks in person).
+18. Hostility closes it: accept a request at an enclave, then `sc enclave hostile <id>`: the quest fails, the ledger
+    has "<enclave>'s request is off", the standing is unchanged (compare `sc enclave info <id>` before and after).
+19. Across a reload: accept a request, save and quit, load: the quest is still in the journal with its marker, and
+    `sc enclave requests` shows it accepted with the same due day; the log has "enclave requests: the journal has 1
+    request quest(s) of open requests". Hand it over: it completes.
+20. A quest whose request is gone: accept one, quit, delete its `[encrequest]` section from the save's
+    `survivor_community.txt`, load: the quest is closed as failed at the first second, nothing else changes.
+21. The daily pacing: `sc enclave reveal all`, then `sc day` seven times, `sc enclave requests` after each: at most 3
+    open at once, at most one per enclave, none from a hostile or raider enclave, no generator before day 10, and an
+    enclave whose request ended on a day asks nothing on the next (`sc enclave request <id>`: "the cooldown runs to day
+    N"). Offers nobody answers lapse on the third `sc day` after they came.
+
 ## Enclave trade, enlist and recruit (E3)
 
 **Built 2026-10-17, not deployed yet.** A survivor enclave's leader trades through vanilla's trade window with their

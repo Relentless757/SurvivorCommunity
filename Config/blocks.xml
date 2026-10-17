@@ -998,6 +998,46 @@
 			<property name="EnclaveRecruitCooldownDays" value="7" />
 			<property name="EnclaveRecruitStanding" value="10" />
 
+			<!-- ENCLAVE REQUESTS, PART 1 (E4; Enclaves_Plan.md 2.4 and 2.10). Each day every enclave you have found that is not
+			     hostile, has no open request and is past its cooldown may ask for help: EnclaveRequestChanceNeutral /
+			     EnclaveRequestChanceFriendly / EnclaveRequestChanceAllied by its standing, at most EnclaveRequestMaxOpen open
+			     across the map; after the day a request of theirs closed, an enclave rests EnclaveRequestCooldownDays whole
+			     days. What they ask: EnclaveRequestKindWeights (resource, gun, generator - generators only from day
+			     EnclaveGeneratorFromDay); a resource is one they do not live on, its size by EnclaveRequestSizeWeights (small
+			     1, medium 2, large 3 bundle units, paid in bundles from your bag and toolbelt; any overpay is a gift). A powered
+			     radio announces a new request; otherwise their leader tells you when you talk. An offer stands
+			     EnclaveOfferLapseDays days (the day it is made counts); once you agree you have EnclaveDueDaysItems days (the
+			     day you agree counts). Done: +EnclaveGainResource or +EnclaveGainGenerator standing; a gun earns
+			     EnclaveGunTierPoints (T0..T5) x (EnclaveGunQualityBase + EnclaveGunQualityStep x quality), rounded and kept
+			     within EnclaveGunPointsMin..EnclaveGunPointsMax (a gun with no tier tag, no T# in its name and not one NPCs
+			     carry takes its tier from its value: T1 from EnclaveGunValueBands' first number, T2 from the second ...); the
+			     pick's words for what a gun is worth to them change above each of EnclaveGunWorthBands' numbers. The standing
+			     lost by band (Neutral, Friendly, Allied): EnclaveLossDecline when you say no, EnclaveLossFail when you give up
+			     or run out of time, EnclaveLossLapse when you leave an offer unanswered. Enclaves=false holds every request
+			     as it is. -->
+			<property name="EnclaveRequestChanceNeutral" value="0.35" />
+			<property name="EnclaveRequestChanceFriendly" value="0.45" />
+			<property name="EnclaveRequestChanceAllied" value="0.2" />
+			<property name="EnclaveRequestMaxOpen" value="3" />
+			<property name="EnclaveRequestCooldownDays" value="1" />
+			<property name="EnclaveOfferLapseDays" value="3" />
+			<property name="EnclaveDueDaysItems" value="4" />
+			<property name="EnclaveGeneratorFromDay" value="10" />
+			<property name="EnclaveRequestKindWeights" value="resource:6,gun:3,generator:1" />
+			<property name="EnclaveRequestSizeWeights" value="small:5,medium:3,large:2" />
+			<property name="EnclaveGainResource" value="10" />
+			<property name="EnclaveGainGenerator" value="15" />
+			<property name="EnclaveGunTierPoints" value="3,6,10,15,18,22" />
+			<property name="EnclaveGunQualityBase" value="0.75" />
+			<property name="EnclaveGunQualityStep" value="0.1" />
+			<property name="EnclaveGunPointsMin" value="3" />
+			<property name="EnclaveGunPointsMax" value="30" />
+			<property name="EnclaveGunValueBands" value="400,1200,3500,7000,12000" />
+			<property name="EnclaveGunWorthBands" value="5,9,14,20" />
+			<property name="EnclaveLossDecline" value="5,5,12" />
+			<property name="EnclaveLossFail" value="8,8,15" />
+			<property name="EnclaveLossLapse" value="0,3,15" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

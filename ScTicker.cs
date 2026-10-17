@@ -64,7 +64,11 @@ namespace SurvivorCommunity
                     // community is frozen until the world catches up - no consumption, no morale, and supply
                     // runs never come home. "sc day" runs ahead of the world on purpose: its own day ending is no fault.
                     if (c.LastDay == SimulatedDay && day == SimulatedFromDay) ScLog.Out("sc day: the simulated day " + c.LastDay + " is over - back to the world's day " + day);
-                    else ScLog.Warn("the world day went backwards (" + c.LastDay + " -> " + day + "); resyncing the community to day " + day);
+                    else
+                    {
+                        ScLog.Warn("the world day went backwards (" + c.LastDay + " -> " + day + "); resyncing the community to day " + day);
+                        ScEncRequests.OnWorldDayBack(day);     // E4: the request clock follows a real jump back (never sc day's own end)
+                    }
                     SimulatedDay = -1;
                     c.LastDay = day;
                     foreach (var m in ScRegistry.Members.Values)
@@ -98,6 +102,7 @@ namespace SurvivorCommunity
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
                 ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
                 ScEnclavePeople.Tick(w, player);      // their people: made, spawned near a player, gone when none is, the watchdog (E2)
+                ScEncRequests.Tick(w, player);        // their requests: the journal squared with the records once a session (E4)
                 ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
                 ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
@@ -380,6 +385,7 @@ namespace SurvivorCommunity
                 ScOutposts.Daily(day, player, summary);  // then the outposts' deliveries, upkeep and haulage
                 ScEnclaves.Daily(day, player);           // a powered radio picks up an enclave every few days (E1)
                 ScEnclavePeople.Daily(day);              // their people healed and their rounds refilled (E2)
+                ScEncRequests.Daily(day, player);        // offers lapse, accepted requests expire, the day's new requests (E4)
                 ScInfestations.Daily(day, player);       // cleared ones end, old ones may spread, the day's roll for a new one (I1)
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)

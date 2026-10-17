@@ -238,8 +238,9 @@
 	     on them besides (%sc_enc, above). A hostile enclave matches no phase, but X9 keeps its people from being talked to.
 	     Requirements and the tokens the line panel fills ({enc}, {count}, {poi}, {leader}, {where}: XUiC_ScDialogLine,
 	     ScEncDialog.Fill) are host-only. A line that will be voiced later says nothing that needs a name or a number: those
-	     sit in a sentence of their own. Rows: the leader 4 with E3's trade (8 once E4's requests come), members 6 entries with
-	     E3's enlist and the three recruit variants (4 at most on screen: hidden rows take no row), under the dialog's 10.
+	     sit in a sentence of their own. Rows: the leader 7 entries with E3's trade and E4's three "What do you need?"
+	     variants (5 on screen: hidden rows take no row), members 6 entries with E3's enlist and the three recruit variants
+	     (4 at most on screen), under the dialog's 10.
 	     Never list Hire in these statements: SC's injection keys on it. -->
 	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
 		<phase id="scEncLeaderAllied" startstatementid="scEncLeaderAllied">
@@ -267,20 +268,29 @@
 			<requirement type="ScEncStanding, SurvivorCommunity" value="neutral" />
 		</phase>
 
-		<!-- the leader's greetings (E3: "Let's trade." first) -->
+		<!-- the leader's greetings (E4: "What do you need?" first - one of its three rows, by their request; E3: "Let's trade.") -->
 		<statement id="scEncLeaderNeutral" text="scEncLeaderNeutral_text">
+			<response_entry id="scEncReqAskNone" />
+			<response_entry id="scEncReqAskOffered" />
+			<response_entry id="scEncReqAskAccepted" />
 			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
 			<response_entry id="done" />
 		</statement>
 		<statement id="scEncLeaderFriendly" text="scEncLeaderFriendly_text">
+			<response_entry id="scEncReqAskNone" />
+			<response_entry id="scEncReqAskOffered" />
+			<response_entry id="scEncReqAskAccepted" />
 			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
 			<response_entry id="done" />
 		</statement>
 		<statement id="scEncLeaderAllied" text="scEncLeaderAllied_text">
+			<response_entry id="scEncReqAskNone" />
+			<response_entry id="scEncReqAskOffered" />
+			<response_entry id="scEncReqAskAccepted" />
 			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
@@ -498,4 +508,119 @@
 	<insertBefore xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='scPoiClearedReply']/response_entry[@id='scPoiLater']">
 		<response_entry id="scEncPoiClearedJoin" />
 	</insertBefore>
+
+	<!-- Requests, part 1 (E4, Enclaves_Plan.md 2.4 and 2.10; ScEncRequests, DialogOpsEncRequests.cs). The leader's "What do
+	     you need?" is one of three rows by their enclave's open request (ScEncReq: none | offered | accepted; the
+	     scStartPoi / scStartPoiCleared precedent) and leads to its statement: nothing; the offer ({reqask}: their words by
+	     kind and band, then what they need, the days you get once you agree and how long the offer stands) with "Leave it
+	     with me." (the journal quest), "I have it right here." (a resource or a generator you carry: done on the spot), "Take
+	     one of these." (a gun request: the pick), "No, I can't help with that." (a failure now) and "Let me think about it."
+	     (the talk closes, the offer stands); or the wait ({reqwait}) with the hand-over, the pick and "I can't do it." (a
+	     failure now). Every answer lands on scEncReqReply ({reqreply}: the reply the action left, and the standing it
+	     moved). The pick lists the 2 least and the 2 most valuable guns you carry (scEncReqGun0..3; their words come through
+	     the row's binding, Patches_Enclaves.Patch_DialogRowText, as the shared Text is never written), "None of these." and
+	     done. Rows on screen: the offer 5 at most (the hand-over or the pick, by kind), the wait 3, the pick 6 (one of its
+	     two "None of these." rows), under the dialog's 10. A voiced line says nothing that needs a name or a number: the specifics sit in a sentence of their
+	     own. Host only; every action checks everything again. -->
+	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
+		<statement id="scEncReqNothing" text="scEncReqNothing_text">
+			<response_entry id="scEncLeaderBackNeutral" />
+			<response_entry id="scEncLeaderBackFriendly" />
+			<response_entry id="scEncLeaderBackAllied" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncReqOffer" text="scEncReqOffer_text">
+			<response_entry id="scEncReqAccept" />
+			<response_entry id="scEncReqGive" />
+			<response_entry id="scEncReqGunPick" />
+			<response_entry id="scEncReqNo" />
+			<response_entry id="scEncReqThink" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncReqWaiting" text="scEncReqWaiting_text">
+			<response_entry id="scEncReqGive" />
+			<response_entry id="scEncReqGunPick" />
+			<response_entry id="scEncReqCantDo" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncReqGuns" text="scEncReqGuns_text">
+			<response_entry id="scEncReqGun0" />
+			<response_entry id="scEncReqGun1" />
+			<response_entry id="scEncReqGun2" />
+			<response_entry id="scEncReqGun3" />
+			<response_entry id="scEncReqNoneOffered" />
+			<response_entry id="scEncReqNoneAccepted" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncReqReply" text="scEncReqReply_text">
+			<response_entry id="scEncLeaderBackNeutral" />
+			<response_entry id="scEncLeaderBackFriendly" />
+			<response_entry id="scEncLeaderBackAllied" />
+			<response_entry id="done" />
+		</statement>
+
+		<!-- "What do you need?": one of the three shows -->
+		<response id="scEncReqAskNone" text="scEncReqAsk" nextstatementid="scEncReqNothing">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="none" />
+		</response>
+		<response id="scEncReqAskOffered" text="scEncReqAsk" nextstatementid="scEncReqOffer">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered" />
+		</response>
+		<response id="scEncReqAskAccepted" text="scEncReqAsk" nextstatementid="scEncReqWaiting">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="accepted" />
+		</response>
+		<response id="scEncReqAccept" text="scEncReqAccept" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered" />
+			<action type="ScEncReqAccept, SurvivorCommunity" />
+		</response>
+		<!-- the hand-over: only while you carry it (checked again when taken) -->
+		<response id="scEncReqGive" text="scEncReqGive" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered,accepted" />
+			<requirement type="ScEncReqKind, SurvivorCommunity" requirementtype="Hide" value="resource,generator" />
+			<requirement type="ScEncReqHas, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScEncReqGive, SurvivorCommunity" />
+		</response>
+		<response id="scEncReqGunPick" text="scEncReqGunPick" nextstatementid="scEncReqGuns">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered,accepted" />
+			<requirement type="ScEncReqKind, SurvivorCommunity" requirementtype="Hide" value="gun" />
+			<requirement type="ScEncReqHas, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScEncReqGunList, SurvivorCommunity" />
+		</response>
+		<response id="scEncReqGun0" text="scEncReqGun" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReqGun, SurvivorCommunity" requirementtype="Hide" value="0" />
+			<action type="ScEncReqGiveGun, SurvivorCommunity" value="0" />
+		</response>
+		<response id="scEncReqGun1" text="scEncReqGun" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReqGun, SurvivorCommunity" requirementtype="Hide" value="1" />
+			<action type="ScEncReqGiveGun, SurvivorCommunity" value="1" />
+		</response>
+		<response id="scEncReqGun2" text="scEncReqGun" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReqGun, SurvivorCommunity" requirementtype="Hide" value="2" />
+			<action type="ScEncReqGiveGun, SurvivorCommunity" value="2" />
+		</response>
+		<response id="scEncReqGun3" text="scEncReqGun" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReqGun, SurvivorCommunity" requirementtype="Hide" value="3" />
+			<action type="ScEncReqGiveGun, SurvivorCommunity" value="3" />
+		</response>
+		<!-- "None of these.": back to the offer or the wait, whichever it is -->
+		<response id="scEncReqNoneOffered" text="scEncReqNone" nextstatementid="scEncReqOffer">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered" />
+		</response>
+		<response id="scEncReqNoneAccepted" text="scEncReqNone" nextstatementid="scEncReqWaiting">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="accepted" />
+		</response>
+		<response id="scEncReqNo" text="scEncReqNo" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered" />
+			<action type="ScEncReqDecline, SurvivorCommunity" />
+		</response>
+		<!-- no next statement: the talk closes; their word comes as a tell after it -->
+		<response id="scEncReqThink" text="scEncReqThink">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered" />
+			<action type="ScEncReqThink, SurvivorCommunity" />
+		</response>
+		<response id="scEncReqCantDo" text="scEncReqCantDo" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="accepted" />
+			<action type="ScEncReqCantDo, SurvivorCommunity" />
+		</response>
+	</append>
 </configs>

@@ -18,6 +18,7 @@ namespace SurvivorCommunity
     /// grounds (Patch_BiomeSpawn and Patch_BiomeSpawnSpot, with the check in ScLoadout's group-pick postfix).
     /// E3 adds the leader's trade: prices by standing (Patch_TradeBuyPrice, Patch_TradeSellPrice) and the stock recorded when
     /// a trade window with them closes (Patch_TradeClosed).
+    /// E4 adds the gun pick's row texts in the leader's talk (Patch_DialogRowText).
     /// </summary>
     public static class Patches_Enclaves
     {
@@ -144,6 +145,44 @@ namespace SurvivorCommunity
             {
                 try { ScEnclaveDeals.OnTradeClosed(__instance, _channel); }
                 catch (Exception e) { ScLog.Once("enclave-tradeclosed", e); }
+            }
+        }
+
+        /// <summary>
+        /// E4, the gun pick's rows (scEncReqGun0..3): a response's Text is the shared, parsed-once "{gun}", so each row's words
+        /// ("Pistol (T1, quality 3): small thanks") come through the entry's "response" binding instead - never written into the
+        /// dialog. XUiC_DialogResponseEntry declares its own override; no installed mod patches it (E4_REPORT.md). It runs every
+        /// frame for every visible row: a first-character test, then the binding name, then (ours only) a list read.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_DialogRowText
+        {
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(XUiC_DialogResponseEntry), "GetBindingValueInternal", new[] { typeof(string).MakeByRefType(), typeof(string) });
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (Target() != null) return true;
+                    ScLog.Err("XUiC_DialogResponseEntry.GetBindingValueInternal(ref string, string) not found (game update?) - an enclave's gun pick shows no names");
+                }
+                catch (Exception e) { ScLog.Once("enclave-bind-rowtext", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(XUiC_DialogResponseEntry __instance, ref string value, string bindingName)
+            {
+                if (value == null || value.Length < 3 || value[0] != '{' || bindingName != "response") return;
+                try { ScEncRequests.FillRow(__instance, ref value); }
+                catch (Exception e) { ScLog.Once("enclave-rowtext", e); }
             }
         }
         [HarmonyPatch(typeof(SleeperVolume), nameof(SleeperVolume.UpdatePlayerTouched), new Type[] { typeof(World), typeof(EntityPlayer) })]

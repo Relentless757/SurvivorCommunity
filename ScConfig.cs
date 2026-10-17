@@ -551,6 +551,42 @@ namespace SurvivorCommunity
         public static int EnclaveEnlistDays = 2, EnclaveEnlistDeathPenalty = 5;
         /// <summary>Recruiting: at least EnclaveRecruitMinLeft stay, one every EnclaveRecruitCooldownDays days, EnclaveRecruitStanding standing at Neutral and Friendly.</summary>
         public static int EnclaveRecruitMinLeft = 2, EnclaveRecruitCooldownDays = 7, EnclaveRecruitStanding = 10;
+        // ---- enclave requests (ScEncRequests, E4: standing changes, pacing, the resource, generator and gun requests) ----
+        /// <summary>The day's chance of a new request from an enclave, by its band (Q17); at most EnclaveRequestMaxOpen open across the map.</summary>
+        public static float EnclaveRequestChanceNeutral = 0.35f, EnclaveRequestChanceFriendly = 0.45f, EnclaveRequestChanceAllied = 0.2f;
+        public static int EnclaveRequestMaxOpen = 3;
+        /// <summary>
+        /// Days: an enclave rests EnclaveRequestCooldownDays whole days after the day its last request closed; an offer stands
+        /// EnclaveOfferLapseDays days (the day it is made counts); an accepted item or gun request is due in EnclaveDueDaysItems
+        /// days (the day it is accepted counts); generator requests from day EnclaveGeneratorFromDay.
+        /// </summary>
+        public static int EnclaveRequestCooldownDays = 1, EnclaveOfferLapseDays = 3, EnclaveDueDaysItems = 4, EnclaveGeneratorFromDay = 10;
+        /// <summary>EnclaveRequestKindWeights "resource:6,gun:3,generator:1" and EnclaveRequestSizeWeights "small:5,medium:3,large:2" (0 = never).</summary>
+        public static readonly Dictionary<string, float> EnclaveRequestKindWeights = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        public static readonly Dictionary<string, float> EnclaveRequestSizeWeights = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        private const string DefaultEnclaveRequestKindWeights = "resource:6,gun:3,generator:1";
+        private const string DefaultEnclaveRequestSizeWeights = "small:5,medium:3,large:2";
+        /// <summary>Standing gained for a request done: a resource request (whatever its size), a generator.</summary>
+        public static int EnclaveGainResource = 10, EnclaveGainGenerator = 15;
+        /// <summary>
+        /// A gun's gain (Q11): EnclaveGunTierPoints[tier] (T0..T5) x (EnclaveGunQualityBase + EnclaveGunQualityStep x quality),
+        /// rounded, clamped to EnclaveGunPointsMin..Max - a T1 pistol of quality 3 is +6, a T3 rifle of quality 5 +19. A gun with
+        /// no tier tag, no T# in its name and not in the NPC weapon catalogue takes its tier from its EconomicValue: T1 from
+        /// EnclaveGunValueBands[0], T2 from [1] ... The gun pick's worth phrase (scEncReqWorth0..4) by points: up to
+        /// EnclaveGunWorthBands[0] the first, up to [1] the second ... above the last the fifth.
+        /// </summary>
+        public static readonly int[] EnclaveGunTierPoints = { 3, 6, 10, 15, 18, 22 };
+        public static float EnclaveGunQualityBase = 0.75f, EnclaveGunQualityStep = 0.1f;
+        public static int EnclaveGunPointsMin = 3, EnclaveGunPointsMax = 30;
+        public static readonly int[] EnclaveGunValueBands = { 400, 1200, 3500, 7000, 12000 };
+        public static readonly int[] EnclaveGunWorthBands = { 5, 9, 14, 20 };
+        /// <summary>
+        /// Standing lost by band (Neutral, Friendly, Allied): saying no (EnclaveLossDecline), accepting then giving up or running
+        /// out of time (EnclaveLossFail), leaving an offer unanswered until it lapses (EnclaveLossLapse).
+        /// </summary>
+        public static readonly int[] EnclaveLossDecline = { 5, 5, 12 };
+        public static readonly int[] EnclaveLossFail = { 8, 8, 15 };
+        public static readonly int[] EnclaveLossLapse = { 0, 3, 15 };
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1063,6 +1099,12 @@ namespace SurvivorCommunity
             EnclaveTraderIdBase = 200; EnclaveBuyNeutral = 1f; EnclaveBuyFriendly = 1f; EnclaveBuyAllied = 0.8f; EnclaveSellNeutral = 1f; EnclaveSellFriendly = 1.2f;
             EnclaveSellAllied = 1.35f; EnclaveEnlistCostNeutral = 500; EnclaveEnlistCostFriendly = 250; EnclaveEnlistCostAllied = 0; EnclaveEnlistDays = 2;
             EnclaveEnlistDeathPenalty = 5; EnclaveRecruitMinLeft = 2; EnclaveRecruitCooldownDays = 7; EnclaveRecruitStanding = 10;
+            EnclaveRequestChanceNeutral = 0.35f; EnclaveRequestChanceFriendly = 0.45f; EnclaveRequestChanceAllied = 0.2f; EnclaveRequestMaxOpen = 3;
+            EnclaveRequestCooldownDays = 1; EnclaveOfferLapseDays = 3; EnclaveDueDaysItems = 4; EnclaveGeneratorFromDay = 10;
+            EnclaveRequestKindWeights.Clear(); EnclaveRequestSizeWeights.Clear(); EnclaveGainResource = 10; EnclaveGainGenerator = 15;
+            SetInts(EnclaveGunTierPoints, 3, 6, 10, 15, 18, 22); EnclaveGunQualityBase = 0.75f; EnclaveGunQualityStep = 0.1f; EnclaveGunPointsMin = 3;
+            EnclaveGunPointsMax = 30; SetInts(EnclaveGunValueBands, 400, 1200, 3500, 7000, 12000); SetInts(EnclaveGunWorthBands, 5, 9, 14, 20);
+            SetInts(EnclaveLossDecline, 5, 5, 12); SetInts(EnclaveLossFail, 8, 8, 15); SetInts(EnclaveLossLapse, 0, 3, 15);
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1113,7 +1155,15 @@ namespace SurvivorCommunity
             ParseKindWeights(DefaultEnclaveKindWeights);
             EnclavePoiExcludes.AddRange(SplitList(DefaultEnclavePoiExcludes));
             ParseKindRows(DefaultEnclaveKindRows);
+            ParseNamedWeights("EnclaveRequestKindWeights", DefaultEnclaveRequestKindWeights, ScEncRequests.Kinds, EnclaveRequestKindWeights);
+            ParseNamedWeights("EnclaveRequestSizeWeights", DefaultEnclaveRequestSizeWeights, ScEncRequests.Sizes, EnclaveRequestSizeWeights);
             ParseTierByDay(DefaultInfestTierByDay);
+        }
+
+        /// <summary>A fixed-size array's defaults (Reset): as many values as it holds.</summary>
+        private static void SetInts(int[] into, params int[] values)
+        {
+            Array.Copy(values, into, Math.Min(values.Length, into.Length));
         }
 
         /// <summary>The tattoo shapes the user picked for survivors (raiders get these and four more).</summary>
@@ -1658,6 +1708,35 @@ namespace SurvivorCommunity
                 ParseInt(p, "EnclaveRecruitMinLeft", ref EnclaveRecruitMinLeft, 1, 12);
                 ParseInt(p, "EnclaveRecruitCooldownDays", ref EnclaveRecruitCooldownDays, 0, 365);
                 ParseInt(p, "EnclaveRecruitStanding", ref EnclaveRecruitStanding, 0, 100);
+                // enclave requests (E4)
+                ParseFloat(p, "EnclaveRequestChanceNeutral", ref EnclaveRequestChanceNeutral, 0f, 1f);
+                ParseFloat(p, "EnclaveRequestChanceFriendly", ref EnclaveRequestChanceFriendly, 0f, 1f);
+                ParseFloat(p, "EnclaveRequestChanceAllied", ref EnclaveRequestChanceAllied, 0f, 1f);
+                ParseInt(p, "EnclaveRequestMaxOpen", ref EnclaveRequestMaxOpen, 0, 100);
+                ParseInt(p, "EnclaveRequestCooldownDays", ref EnclaveRequestCooldownDays, 0, 365);
+                ParseInt(p, "EnclaveOfferLapseDays", ref EnclaveOfferLapseDays, 1, 60);
+                ParseInt(p, "EnclaveDueDaysItems", ref EnclaveDueDaysItems, 1, 60);
+                ParseInt(p, "EnclaveGeneratorFromDay", ref EnclaveGeneratorFromDay, 0, 100000);
+                ParseInt(p, "EnclaveGainResource", ref EnclaveGainResource, 0, 100);
+                ParseInt(p, "EnclaveGainGenerator", ref EnclaveGainGenerator, 0, 100);
+                ParseFloat(p, "EnclaveGunQualityBase", ref EnclaveGunQualityBase, 0f, 10f);
+                ParseFloat(p, "EnclaveGunQualityStep", ref EnclaveGunQualityStep, 0f, 10f);
+                ParseInt(p, "EnclaveGunPointsMin", ref EnclaveGunPointsMin, 0, 100);
+                ParseInt(p, "EnclaveGunPointsMax", ref EnclaveGunPointsMax, 0, 100);
+                if (EnclaveGunPointsMax < EnclaveGunPointsMin) EnclaveGunPointsMax = EnclaveGunPointsMin;
+                {
+                    string rv;
+                    if (p.Values.TryGetValue("EnclaveRequestKindWeights", out rv) && !string.IsNullOrEmpty(rv))
+                        ParseNamedWeights("EnclaveRequestKindWeights", rv, ScEncRequests.Kinds, EnclaveRequestKindWeights);
+                    if (p.Values.TryGetValue("EnclaveRequestSizeWeights", out rv) && !string.IsNullOrEmpty(rv))
+                        ParseNamedWeights("EnclaveRequestSizeWeights", rv, ScEncRequests.Sizes, EnclaveRequestSizeWeights);
+                    if (p.Values.TryGetValue("EnclaveGunTierPoints", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveGunTierPoints", rv, EnclaveGunTierPoints, 0, 100);
+                    if (p.Values.TryGetValue("EnclaveGunValueBands", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveGunValueBands", rv, EnclaveGunValueBands, 0, 10000000);
+                    if (p.Values.TryGetValue("EnclaveGunWorthBands", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveGunWorthBands", rv, EnclaveGunWorthBands, 0, 100);
+                    if (p.Values.TryGetValue("EnclaveLossDecline", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveLossDecline", rv, EnclaveLossDecline, 0, 100);
+                    if (p.Values.TryGetValue("EnclaveLossFail", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveLossFail", rv, EnclaveLossFail, 0, 100);
+                    if (p.Values.TryGetValue("EnclaveLossLapse", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveLossLapse", rv, EnclaveLossLapse, 0, 100);
+                }
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -1983,6 +2062,13 @@ namespace SurvivorCommunity
                                                 + F2(EnclaveBuyAllied) + ", sell x" + F2(EnclaveSellNeutral) + "/" + F2(EnclaveSellFriendly) + "/" + F2(EnclaveSellAllied) + ", enlist "
                                                 + EnclaveEnlistCostNeutral + "/" + EnclaveEnlistCostFriendly + "/" + EnclaveEnlistCostAllied + " dukes for " + EnclaveEnlistDays + "d (death -"
                                                 + EnclaveEnlistDeathPenalty + "), recruit -" + EnclaveRecruitStanding + " (" + EnclaveRecruitMinLeft + " stay, every " + EnclaveRecruitCooldownDays + "d)" : "off")
+                          + " enclaveRequests=" + (Enclaves ? F2(EnclaveRequestChanceNeutral) + "/" + F2(EnclaveRequestChanceFriendly) + "/" + F2(EnclaveRequestChanceAllied)
+                                                + " a day, " + EnclaveRequestMaxOpen + " open, cooldown " + EnclaveRequestCooldownDays + "d, offers stand " + EnclaveOfferLapseDays
+                                                + "d, due in " + EnclaveDueDaysItems + "d, generators from day " + EnclaveGeneratorFromDay + ", kinds " + WeightsText(EnclaveRequestKindWeights)
+                                                + ", sizes " + WeightsText(EnclaveRequestSizeWeights) + ", gains +" + EnclaveGainResource + "/+" + EnclaveGainGenerator + "/guns "
+                                                + string.Join(",", Array.ConvertAll(EnclaveGunTierPoints, x => x.ToString(CultureInfo.InvariantCulture))) + " x ("
+                                                + F2(EnclaveGunQualityBase) + "+" + F2(EnclaveGunQualityStep) + "q) in " + EnclaveGunPointsMin + ".." + EnclaveGunPointsMax
+                                                + ", losses no " + IntsText(EnclaveLossDecline) + " fail " + IntsText(EnclaveLossFail) + " lapse " + IntsText(EnclaveLossLapse) : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange
@@ -2066,6 +2152,44 @@ namespace SurvivorCommunity
             if (parsed.Count == 0) { ScLog.Warn("config EnclaveKindRows '" + s + "' names no row:kind - kept"); return; }
             EnclaveKindRows.Clear();
             foreach (var kv in parsed) EnclaveKindRows[kv.Key] = kv.Value;
+        }
+
+        /// <summary>
+        /// E4's "name:weight,..." tables (EnclaveRequestKindWeights, EnclaveRequestSizeWeights): replaces the table; a name not
+        /// among 'names' or a weight below 0 is skipped with a warning, none readable keeps the table. A name left out weighs 0.
+        /// </summary>
+        private static void ParseNamedWeights(string key, string s, string[] names, Dictionary<string, float> into)
+        {
+            var parsed = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            foreach (string part in SplitList(s))
+            {
+                int c = part.IndexOf(':');
+                string name = c > 0 ? part.Substring(0, c).Trim().ToLowerInvariant() : "";
+                float w;
+                if (c <= 0 || Array.IndexOf(names, name) < 0 || !float.TryParse(part.Substring(c + 1).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out w) || w < 0f)
+                {
+                    ScLog.Warn("config " + key + " entry '" + part + "' is not name:weight (names: " + string.Join(", ", names) + "; a weight of 0 or more) - skipped");
+                    continue;
+                }
+                parsed[name] = w;
+            }
+            if (parsed.Count == 0) { ScLog.Warn("config " + key + " '" + s + "' names no name:weight - kept"); return; }
+            into.Clear();
+            foreach (var kv in parsed) into[kv.Key] = kv.Value;
+        }
+
+        /// <summary>"resource:6,gun:3,generator:1" for the config line.</summary>
+        private static string WeightsText(Dictionary<string, float> weights)
+        {
+            var parts = new List<string>();
+            foreach (var kv in weights) parts.Add(kv.Key + ":" + F2(kv.Value));
+            return string.Join(",", parts.ToArray());
+        }
+
+        /// <summary>"5/5/12" for the config line.</summary>
+        private static string IntsText(int[] v)
+        {
+            return string.Join("/", Array.ConvertAll(v, x => x.ToString(CultureInfo.InvariantCulture)));
         }
 
         /// <summary>InfestTierByDay "1:1-2,8:1-3,...": replaces the table (sorted by day); an unreadable entry is skipped with a warning, none readable keeps it.</summary>

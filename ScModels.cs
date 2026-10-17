@@ -398,6 +398,12 @@ namespace SurvivorCommunity
         public int NextInfestationId;
         /// <summary>Enclave people (ScEnclavePeople, E2): the person id counter (encpersonid=), one for every enclave.</summary>
         public int NextEncPersonId;
+        /// <summary>
+        /// Enclave requests (ScEncRequests, E4): the id counter (encrequestid=), and the request clock - the last day the
+        /// request pass ran (encreqday=; ahead of the world's day only after "sc day").
+        /// </summary>
+        public int NextEncRequestId;
+        public int EncRequestDay;
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }

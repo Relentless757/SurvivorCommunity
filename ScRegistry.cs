@@ -41,6 +41,11 @@ namespace SurvivorCommunity
     ///                world time) - a load finds them home all the same (bodies never outlive one) and clears that body's hire.
     ///   [infestation] id=3 poi=x,y,z size=w,h,d prefab=.. poiname=.. tier=2 start=12 how=roll source=0 known=1 knownday=13
     ///                special=owed (none | pending:x,y,z | met:class) spread=-1 rearm=x,y,z;.. (forward-only, as [enclave])
+    ///   [encrequest] id=3 enclave=4 kind=resource|generator|gun state=offered|accepted offered=12 lapse=14 accepted=-1 due=-1
+    ///                res=meds:2 (a resource request's resource and units) quest=QuestCode (E4, ScEncRequests; forward-only, as
+    ///                [enclave], with [community] encrequestid= and encreqday= and [enclave] nextreq=). E5's kinds add
+    ///                target=x,y,z infest=id person=pid deadline=worldtime. A request whose enclave is missing is dropped (a
+    ///                degraded load); one of a kind this build does not know is dropped at OnRegistryChanged.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -64,6 +69,8 @@ namespace SurvivorCommunity
         public static readonly List<EncPerson> EncPeople = new List<EncPerson>();
         /// <summary>Infested POIs (ScInfestations), in the order they began.</summary>
         public static readonly List<Infestation> Infestations = new List<Infestation>();
+        /// <summary>The enclaves' open requests (ScEncRequests, E4), at most one per enclave, in the order they were offered.</summary>
+        public static readonly List<EnclaveRequest> EncRequests = new List<EnclaveRequest>();
         /// <summary>
         /// Set by the PersistentPlayerList.ReadXML postfix before Load: the save has no main.ttw yet, so this is its first
         /// start (World.LoadWorld creates the file later in the same startup). ScEnclaves seeds a new save from it.
@@ -129,7 +136,7 @@ namespace SurvivorCommunity
                 Community = new Community();
                 Members.Clear();
                 Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear();
                 Cleanup.Clear();
                 Doomed.Clear();
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Warn("registry load: no save directory"); return; }
@@ -144,7 +151,7 @@ namespace SurvivorCommunity
                     Community = new Community();
                     Members.Clear();
                     Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear();
                     Cleanup.Clear();
                 Doomed.Clear();
                     ok = TryLoadFile(bak);
@@ -159,7 +166,8 @@ namespace SurvivorCommunity
                 ScRunners.OnRegistryLoaded();          // a runner left in the world by a crash resumes from its snapshot
                 ScOutposts.OnRegistryChanged();
                 ScLog.Out("registry loaded: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s), " + Outposts.Count + " outpost(s), "
-                          + Enclaves.Count + " enclave(s) with " + EncPeople.Count + " person record(s), " + Infestations.Count + " infestation(s)"
+                          + Enclaves.Count + " enclave(s) with " + EncPeople.Count + " person record(s) and " + EncRequests.Count + " open request(s), "
+                          + Infestations.Count + " infestation(s)"
                           + (SaveIsNew ? " (a new save)" : "") + ", morale "
                           + Community.Morale + (Community.HasHome ? ", home " + Community.Home : ", no home yet")
                           + (degraded ? " (DEGRADED)" : ""));
@@ -227,6 +235,7 @@ namespace SurvivorCommunity
                 Enclave en = null;
                 EncPerson ep = null;
                 Infestation inf = null;
+                EnclaveRequest rq = null;
                 int bad = 0;
                 for (int i = 1; i < lines.Length; i++)
                 {
@@ -234,7 +243,7 @@ namespace SurvivorCommunity
                     if (line.Length == 0 || line[0] == '#') continue;
                     if (line[0] == '[')
                     {
-                        Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf);
+                        Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf); CommitRequest(ref rq);
                         section = line.Trim('[', ']').ToLowerInvariant();
                         if (section == "member") m = new Member();
                         else if (section == "prospect") p = new Prospect();
@@ -243,6 +252,7 @@ namespace SurvivorCommunity
                         else if (section == "enclave") en = new Enclave();
                         else if (section == "encperson") ep = new EncPerson();
                         else if (section == "infestation") inf = new Infestation();
+                        else if (section == "encrequest") rq = new EnclaveRequest();
                         continue;
                     }
                     int eq = line.IndexOf('=');
@@ -259,6 +269,7 @@ namespace SurvivorCommunity
                         else if (section == "enclave" && en != null) ParseEnclave(en, key, val);
                         else if (section == "encperson" && ep != null) ParsePerson(ep, key, val);
                         else if (section == "infestation" && inf != null) ParseInfestation(inf, key, val);
+                        else if (section == "encrequest" && rq != null) ParseRequest(rq, key, val);
                         else bad++;
                     }
                     catch (Exception)
@@ -266,9 +277,10 @@ namespace SurvivorCommunity
                         bad++;
                     }
                 }
-                Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf);
+                Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf); CommitRequest(ref rq);
                 if (bad > 0) { degraded = true; ScLog.Warn("registry: " + bad + " unreadable line(s) skipped in " + path); }
                 DropStrayPeople();
+                DropStrayRequests();
                 return true;
             }
             catch (Exception e)
@@ -402,6 +414,8 @@ namespace SurvivorCommunity
                 // E3: the leader's trade stock (packed, read back by ScEnclaveDeals.DecodeStock), the last recruit's day
                 case "stock": e.Stock = val.Trim(); break;
                 case "recruited": e.LastRecruitDay = I(val); break;
+                // E4: the first day the daily roll may give them a new request
+                case "nextreq": e.NextRequestDay = I(val); break;
             }
         }
 
@@ -452,6 +466,57 @@ namespace SurvivorCommunity
             if (n <= 0) return;
             degraded = true;
             ScLog.Warn("registry: " + n + " enclave person record(s) whose enclave is missing dropped");
+        }
+
+        private static void CommitRequest(ref EnclaveRequest rq)
+        {
+            if (rq != null)
+            {
+                if (rq.Id > 0 && rq.EnclaveId > 0 && !string.IsNullOrEmpty(rq.Kind)) EncRequests.Add(rq); else degraded = true;
+            }
+            rq = null;
+        }
+
+        /// <summary>One [encrequest] line (E4). E5's keys are read here already, so a save of its kinds loads its fields whole.</summary>
+        private static void ParseRequest(EnclaveRequest r, string key, string val)
+        {
+            switch (key)
+            {
+                case "id": r.Id = I(val); break;
+                case "enclave": r.EnclaveId = I(val); break;
+                case "kind": r.Kind = val.Trim().ToLowerInvariant(); break;
+                case "state": r.State = val.Trim().ToLowerInvariant(); break;
+                case "offered": r.OfferDay = I(val); break;
+                case "lapse": r.LapseDay = I(val); break;
+                case "accepted": r.AcceptDay = I(val); break;
+                case "due": r.DueDay = I(val); break;
+                case "res":
+                {
+                    // resource:units
+                    string[] f = val.Split(':');
+                    Resource res;
+                    if (f.Length >= 1 && ScNames.TryResource(f[0], out res)) r.Res = res;
+                    if (f.Length >= 2) r.Units = Clamp(I(f[1]), 0, 3);
+                    break;
+                }
+                case "quest": r.QuestCode = I(val); break;
+                case "target": { Vector3i v; if (TryVec(val, out v)) { r.Target = v; r.HasTarget = true; } break; }
+                case "infest": r.InfestationId = I(val); break;
+                case "person": r.PersonId = I(val); break;
+                case "deadline": { ulong u; if (ulong.TryParse(val.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) r.Deadline = u; break; }
+            }
+        }
+
+        /// <summary>A request whose enclave is not in the file is dropped: a degraded load (its journal quest closes at the first tick).</summary>
+        private static void DropStrayRequests()
+        {
+            if (EncRequests.Count == 0) return;
+            var ids = new HashSet<int>();
+            foreach (Enclave e in Enclaves) ids.Add(e.Id);
+            int n = EncRequests.RemoveAll(r => !ids.Contains(r.EnclaveId));
+            if (n <= 0) return;
+            degraded = true;
+            ScLog.Warn("registry: " + n + " enclave request record(s) whose enclave is missing dropped");
         }
 
         private static void CommitInfestation(ref Infestation inf)
@@ -706,6 +771,9 @@ namespace SurvivorCommunity
                 case "infestid": c.NextInfestationId = I(val); break;
                 // enclave people (E2): the person id counter
                 case "encpersonid": c.NextEncPersonId = I(val); break;
+                // enclave requests (E4): the id counter, the request clock's last day
+                case "encrequestid": c.NextEncRequestId = I(val); break;
+                case "encreqday": c.EncRequestDay = I(val); break;
                 case "stock":
                     foreach (string part in val.Split(','))
                     {
@@ -1010,6 +1078,8 @@ namespace SurvivorCommunity
                 sb.AppendLine("enclaveradio=" + c.EnclaveRadioDay);
                 sb.AppendLine("infestid=" + c.NextInfestationId);
                 sb.AppendLine("encpersonid=" + c.NextEncPersonId);
+                sb.AppendLine("encrequestid=" + c.NextEncRequestId);
+                if (c.EncRequestDay > 0) sb.AppendLine("encreqday=" + c.EncRequestDay.ToString(CultureInfo.InvariantCulture));
                 var st = new StringBuilder();
                 for (int i = 0; i < ScNames.ResourceCount; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
                 sb.AppendLine("stock=" + st);
@@ -1117,6 +1187,7 @@ namespace SurvivorCommunity
                     sb.AppendLine("people=" + (en.PeopleRolled ? 1 : 0));
                     if (en.Stock.Length > 0) sb.AppendLine("stock=" + en.Stock);   // base64url: never Clean()ed (it has no '=' or ';')
                     if (en.LastRecruitDay >= 0) sb.AppendLine("recruited=" + en.LastRecruitDay.ToString(CultureInfo.InvariantCulture));
+                    if (en.NextRequestDay > 0) sb.AppendLine("nextreq=" + en.NextRequestDay.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var ep in EncPeople)
                 {
@@ -1137,6 +1208,24 @@ namespace SurvivorCommunity
                         sb.AppendLine("enlisted=" + ep.EnlistedBy.ToString(CultureInfo.InvariantCulture) + ":" + ep.EnlistedUntil.ToString(CultureInfo.InvariantCulture)
                                       + ":" + ep.EnlistedBody.ToString(CultureInfo.InvariantCulture));
                     WriteMemberFields(sb, ep.Who);
+                }
+                foreach (var rq in EncRequests)
+                {
+                    sb.AppendLine("[encrequest]");
+                    sb.AppendLine("id=" + rq.Id);
+                    sb.AppendLine("enclave=" + rq.EnclaveId);
+                    sb.AppendLine("kind=" + Clean(rq.Kind));
+                    sb.AppendLine("state=" + Clean(rq.State));
+                    sb.AppendLine("offered=" + rq.OfferDay.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("lapse=" + rq.LapseDay.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("accepted=" + rq.AcceptDay.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("due=" + rq.DueDay.ToString(CultureInfo.InvariantCulture));
+                    if (rq.Units > 0) sb.AppendLine("res=" + ScNames.Key(rq.Res) + ":" + rq.Units);
+                    if (rq.QuestCode != 0) sb.AppendLine("quest=" + rq.QuestCode.ToString(CultureInfo.InvariantCulture));
+                    if (rq.HasTarget) sb.AppendLine("target=" + Vec(rq.Target));
+                    if (rq.InfestationId >= 0) sb.AppendLine("infest=" + rq.InfestationId.ToString(CultureInfo.InvariantCulture));
+                    if (rq.PersonId >= 0) sb.AppendLine("person=" + rq.PersonId.ToString(CultureInfo.InvariantCulture));
+                    if (rq.Deadline > 0) sb.AppendLine("deadline=" + rq.Deadline.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var inf in Infestations)
                 {
@@ -1221,7 +1310,7 @@ namespace SurvivorCommunity
                     Community = new Community();
                     Members.Clear();
                     Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear();
                     Cleanup.Clear();
                 Doomed.Clear();
                     saveDir = null;

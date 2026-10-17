@@ -914,6 +914,135 @@ scEncEnlistHostile,UI,Tooltip,,,,{0} leaves your side to go back to {1}.
 scEncEnlistGone,UI,Tooltip,,,,{0} went back to {1}.
 scEncLedgerEnlistedDied,UI,Tooltip,,,,{0} of {1} died at your side
 scEncLedgerRecruited,UI,Tooltip,,,,{0} left {1} to join you
+scEncReqAsk,Dialog,Response,,,,What do you need?
+scEncReqAccept,Dialog,Response,,,,Leave it with me.
+scEncReqGive,Dialog,Response,,,,I have it right here.
+scEncReqGunPick,Dialog,Response,,,,Take one of these.
+scEncReqGun,Dialog,Response,,,,{gun}
+scEncReqNone,Dialog,Response,,,,None of these.
+scEncReqNo,Dialog,Response,,,,"No, I can't help with that."
+scEncReqThink,Dialog,Response,,,,Let me think about it.
+scEncReqCantDo,Dialog,Response,,,,I can't do it.
+scEncReqNothing_text,Dialog,Statement,,,,Nothing right now. We're managing.
+scEncReqOffer_text,Dialog,Statement,,,,{reqask}
+scEncReqWaiting_text,Dialog,Statement,,,,{reqwait}
+scEncReqGuns_text,Dialog,Statement,,,,Let's see what you've got. Which one can you spare?
+scEncReqReply_text,Dialog,Statement,,,,{reqreply}
+scEncAsk,Dialog,Statement,,,,We could use a hand with something.
+scEncAsk_resource_neutral,Dialog,Statement,,,,"We don't like asking outsiders for anything. But we're running short, and you look like you get around."
+scEncAsk_resource_friendly,Dialog,Statement,,,,"You've been good to us, so I'll be straight with you: we're running low, and we could use your help."
+scEncAsk_resource_allied,Dialog,Statement,,,,"I hate to lean on you again, friend, but we're running low and you're the first one I thought of."
+scEncAsk_generator_neutral,Dialog,Statement,,,,"We've got lights and pumps and nothing to run them on. Bring us a generator and we'll remember it."
+scEncAsk_generator_friendly,Dialog,Statement,,,,Our power's been out for days. A generator would change everything here. Think you could find one?
+scEncAsk_generator_allied,Dialog,Statement,,,,"Friend, we need power. A generator would keep the lights and the pumps going for all of us."
+scEncAsk_gun_neutral,Dialog,Statement,,,,"Our people go out with whatever they can find, and it isn't enough. If you've got a gun to spare, we'd remember it."
+scEncAsk_gun_friendly,Dialog,Statement,,,,We're stretched thin on weapons. Any gun you can spare would help keep the dead off our walls.
+scEncAsk_gun_allied,Dialog,Statement,,,,"Our watch is short a weapon, friend. A gun from you would mean a lot to everyone here."
+scEncWait,Dialog,Statement,,,,Still waiting on what we asked for.
+scEncWait_resource_neutral,Dialog,Statement,,,,Still waiting on those supplies.
+scEncWait_resource_friendly,Dialog,Statement,,,,"Any luck with those supplies? We're getting by, barely."
+scEncWait_resource_allied,Dialog,Statement,,,,"Don't worry about us, friend. We're still waiting on those supplies, but we'll hold."
+scEncWait_generator_neutral,Dialog,Statement,,,,Still waiting on that generator.
+scEncWait_generator_friendly,Dialog,Statement,,,,Still no generator? We're keeping the candles lit for now.
+scEncWait_generator_allied,Dialog,Statement,,,,"Any word on that generator, friend? We're making do in the dark."
+scEncWait_gun_neutral,Dialog,Statement,,,,Still waiting on that gun.
+scEncWait_gun_friendly,Dialog,Statement,,,,Found a gun you can spare yet? Our watch could use it.
+scEncWait_gun_allied,Dialog,Statement,,,,"Our watch is still a weapon short, friend. Whenever you can."
+scEncThanks,Dialog,Statement,,,,Thank you. We won't forget it.
+scEncThanks_resource_neutral,Dialog,Statement,,,,That's more than I expected from a stranger. Thank you.
+scEncThanks_resource_friendly,Dialog,Statement,,,,"This will see us through. Thank you, really."
+scEncThanks_resource_allied,Dialog,Statement,,,,You came through for us again. We won't forget it.
+scEncThanks_generator_neutral,Dialog,Statement,,,,A generator! You didn't have to do this. Thank you.
+scEncThanks_generator_friendly,Dialog,Statement,,,,Power again. You've no idea what this means to us.
+scEncThanks_generator_allied,Dialog,Statement,,,,"Lights, water, the works. Friend, you've done it again."
+scEncThanks_gun_neutral,Dialog,Statement,,,,A gun. That'll keep someone alive out there. Thank you.
+scEncThanks_gun_friendly,Dialog,Statement,,,,Our watch will sleep easier with this. Thank you.
+scEncThanks_gun_allied,Dialog,Statement,,,,"You're arming us like one of your own. Thank you, friend."
+scEncAccepted,Dialog,Statement,,,,Thank you. We'll be here.
+scEncDeclined,Dialog,Statement,,,,I understand. We'll manage.
+scEncDeclined_neutral,Dialog,Statement,,,,Figured as much. We'll manage without you.
+scEncDeclined_friendly,Dialog,Statement,,,,"I understand. Can't say it doesn't sting, though."
+scEncDeclined_allied,Dialog,Statement,,,,That's not what I expected from you. We'll find another way.
+scEncDeclined_resource_neutral,Dialog,Statement,,,,Figured as much. We'll find it somewhere else.
+scEncDeclined_resource_friendly,Dialog,Statement,,,,I understand. We'll stretch what we have.
+scEncDeclined_resource_allied,Dialog,Statement,,,,That's not what I expected from you. We'll stretch what we have.
+scEncDeclined_generator_neutral,Dialog,Statement,,,,Figured as much. We'll keep sitting in the dark.
+scEncDeclined_generator_friendly,Dialog,Statement,,,,I understand. We'll make do without power a while longer.
+scEncDeclined_generator_allied,Dialog,Statement,,,,That's not what I expected from you. We'll make do in the dark.
+scEncDeclined_gun_neutral,Dialog,Statement,,,,Figured as much. We'll keep scraping by with what we've got.
+scEncDeclined_gun_friendly,Dialog,Statement,,,,I understand. Our watch will manage somehow.
+scEncDeclined_gun_allied,Dialog,Statement,,,,That's not what I expected from you. Our watch will have to manage.
+scEncThink,Dialog,Statement,,,,Don't take too long.
+scEncThink_neutral,Dialog,Statement,,,,Don't take too long.
+scEncThink_friendly,Dialog,Statement,,,,"Take your time, but not too much of it."
+scEncThink_allied,Dialog,Statement,,,,"Sure, friend. Let me know."
+scEncThink_resource_neutral,Dialog,Statement,,,,Don't take too long. Our shelves won't wait.
+scEncThink_resource_friendly,Dialog,Statement,,,,"Take your time, but not too much of it. We're running low."
+scEncThink_resource_allied,Dialog,Statement,,,,"Sure, friend. Just don't forget about us."
+scEncThink_generator_neutral,Dialog,Statement,,,,Don't take too long. The nights are long without power.
+scEncThink_generator_friendly,Dialog,Statement,,,,"Take your time, but the nights are long without power."
+scEncThink_generator_allied,Dialog,Statement,,,,"Sure, friend. We'll keep the candles burning."
+scEncThink_gun_neutral,Dialog,Statement,,,,Don't take too long. The dead won't wait.
+scEncThink_gun_friendly,Dialog,Statement,,,,"Take your time, but our watch is thin."
+scEncThink_gun_allied,Dialog,Statement,,,,"Sure, friend. Let me know."
+scEncCantDo,Dialog,Statement,,,,That's a shame. We were counting on you.
+scEncCantDo_neutral,Dialog,Statement,,,,Then you shouldn't have said yes.
+scEncCantDo_friendly,Dialog,Statement,,,,That's a shame. We were counting on you.
+scEncCantDo_allied,Dialog,Statement,,,,"We were counting on you, friend. That hurts."
+scEncCantDo_resource_neutral,Dialog,Statement,,,,Then you shouldn't have said yes. We were counting on those supplies.
+scEncCantDo_resource_friendly,Dialog,Statement,,,,That's a shame. We were counting on those supplies.
+scEncCantDo_resource_allied,Dialog,Statement,,,,"We were counting on you, friend. We'll have to ration harder."
+scEncCantDo_generator_neutral,Dialog,Statement,,,,Then you shouldn't have said yes. We'll stay in the dark.
+scEncCantDo_generator_friendly,Dialog,Statement,,,,That's a shame. We were looking forward to having power again.
+scEncCantDo_generator_allied,Dialog,Statement,,,,"We were counting on you, friend. Back to candles, then."
+scEncCantDo_gun_neutral,Dialog,Statement,,,,Then you shouldn't have said yes. Our watch stays short.
+scEncCantDo_gun_friendly,Dialog,Statement,,,,That's a shame. Our watch could have used it.
+scEncCantDo_gun_allied,Dialog,Statement,,,,"We were counting on you, friend. That hurts."
+scEncReqNotCarried,Dialog,Statement,,,,You don't seem to have it on you.
+scEncReqGone,Dialog,Statement,,,,Never mind that now. It's settled.
+scEncReqOfferInfoRes,UI,Tooltip,,,,"We need {0} - packed bundles, any sizes that add up. Once you agree you'll have {1} day(s); I can wait for your answer until the end of day {2}."
+scEncReqOfferInfo,UI,Tooltip,,,,We need {0}. Once you agree you'll have {1} day(s); I can wait for your answer until the end of day {2}.
+scEncReqWaitInfo,UI,Tooltip,,,,"We still need {0}, by the end of day {1}."
+scEncReqAcceptInfo,UI,Tooltip,,,,Bring {0} by the end of day {1}.
+scEncReqStandingUp,UI,Tooltip,,,,(standing +{0})
+scEncReqStandingDown,UI,Tooltip,,,,(standing -{0})
+scEncReqThinkTell,UI,Tooltip,,,,"{0}: ""{1}"" The offer stands until the end of day {2}."
+scEncReqWhatResource,UI,Tooltip,,,,a {0} bundle of {1}
+scEncReqResFood,UI,Tooltip,,,,food
+scEncReqResMeds,UI,Tooltip,,,,medicine
+scEncReqResAmmo,UI,Tooltip,,,,ammo
+scEncReqResMaterials,UI,Tooltip,,,,building materials
+scEncReqResFuel,UI,Tooltip,,,,fuel
+scEncReqWhatGenerator,UI,Tooltip,,,,a generator bank
+scEncReqWhatGun,UI,Tooltip,,,,a gun
+scEncReqGunRow,UI,Tooltip,,,,"{0} (T{1}, quality {2}): {3}"
+scEncReqGunWhat,UI,Tooltip,,,,"{0} (T{1}, quality {2})"
+scEncReqWorth0,UI,Tooltip,,,,small thanks
+scEncReqWorth1,UI,Tooltip,,,,they'll be grateful
+scEncReqWorth2,UI,Tooltip,,,,a real help to them
+scEncReqWorth3,UI,Tooltip,,,,they'll remember this
+scEncReqWorth4,UI,Tooltip,,,,they'll never forget it
+scEncReqHeard,UI,Tooltip,,,,The radio crackles: {0} is asking for help. Talk to their leader.
+scEncReqBandTell,UI,Tooltip,,,,{0} is now {1}.
+scEncReqLapsedTell,UI,Tooltip,,,,{0} stopped waiting for your answer.
+scEncReqExpiredTell,UI,Tooltip,,,,You ran out of time on {0}'s request.
+scEncReqLedgerAsk,UI,Tooltip,,,,{0} is asking for help
+scEncReqLedgerDone,UI,Tooltip,,,,{0}: {1} delivered ({2})
+scEncReqLedgerDeclined,UI,Tooltip,,,,turned down {0}'s request ({1})
+scEncReqLedgerFailed,UI,Tooltip,,,,gave up on {0}'s request ({1})
+scEncReqLedgerExpired,UI,Tooltip,,,,ran out of time on {0}'s request ({1})
+scEncReqLedgerLapsed,UI,Tooltip,,,,never answered {0}'s request ({1})
+scEncReqLedgerWithdrawn,UI,Tooltip,,,,{0}'s request is off
+scEncReqLedgerNoChange,UI,Tooltip,,,,standing unchanged
+scEncReqLedgerDelta,UI,Tooltip,,,,{0} standing
+scEncReqLedgerDeltaBand,UI,Tooltip,,,,"{0} standing, now {1}"
+scQuestEncReqName,UI,Quest,,,,Help an enclave
+scQuestEncReqNameFmt,UI,Quest,,,,Help {0}
+scQuestEncReqSubtitle,UI,Quest,,,,An enclave's request
+scQuestEncReqDesc,UI,Quest,,,,"An enclave asked for your help. Bring what they need to their leader before the time runs out. If you can't, tell their leader: it's better than leaving them waiting."
+scQuestEncReqOffer,UI,Quest,,,,An enclave needs your help.
+scQuestEncReqCompletion,UI,Quest,,,,They have what they needed.
+scObjectiveEncRequest,UI,Quest,,,,Bring {0} to {1} by the end of day {2}
 scInfestMarker,UI,Map,,,,Infested: {0}
 scInfestFound,UI,Tooltip,,,,"Infested: {0}. More of them, ferals, and something worse."
 scInfestRadio,UI,Tooltip,,,,"The radio picks up a warning: {0} is infested, {1}."

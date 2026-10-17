@@ -42,6 +42,11 @@ namespace SurvivorCommunity
         public string Stock = "";
         /// <summary>E3: the day the last of their people left to join the player (-1: never) - one every EnclaveRecruitCooldownDays.</summary>
         public int LastRecruitDay = -1;
+        /// <summary>
+        /// E4: the first day (the request clock's: ScEncRequests.Now) the daily roll may give them a new request - set when one
+        /// closes: the day after, plus EnclaveRequestCooldownDays (0: any day).
+        /// </summary>
+        public int NextRequestDay;
         /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
         public int Standing;
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
@@ -174,6 +179,7 @@ namespace SurvivorCommunity
             }
             Rebuild();
             ScEnclavePeople.OnRegistryChanged();    // E2: person ids, no body known, the hostility lookup
+            ScEncRequests.OnRegistryChanged();      // E4: request ids, unknown kinds dropped, the session's pick and journal pass
         }
 
         /// <summary>Rebuilds the thread-safe lookup arrays (after any change to the list; empty while Enclaves is off).</summary>
@@ -850,6 +856,7 @@ namespace SurvivorCommunity
                                   + ScConfig.EnclaveRelocateRange + " m are loaded, near a claim or in use just now - kept, tried again on the next load");
                         continue;
                     }
+                    ScEncRequests.Withdraw(e, "their building is gone");    // E4: their open request with them
                     RemoveMarker(e);
                     ScEnclavePeople.DropPeople(e);          // E2: its people's records go with it
                     All.Remove(e);
@@ -1123,11 +1130,12 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ standing, hostility, a group gone (E2) ----
 
         /// <summary>
-        /// Standing changes (E2; E4's requests will use it): clamped to EnclaveStandingMin..100, the marker re-registered when
+        /// Standing changes (E2; E4's requests use it): clamped to EnclaveStandingMin..100, the marker re-registered when
         /// the band changes (Neutral / Friendly / Allied - the dialog's greetings follow on the next talk), a ledger line, the
         /// log, a save. A hostile enclave's standing still moves, but it shows and acts as hostile whatever the points.
+        /// ledger=false: the caller writes its own ledger line with the change in it (E4's ScEncRequests.Close).
         /// </summary>
-        public static void AddStanding(Enclave e, int delta, string reason)
+        public static void AddStanding(Enclave e, int delta, string reason, bool ledger = true)
         {
             if (e == null || delta == 0) return;
             int old = e.Standing;
@@ -1137,7 +1145,7 @@ namespace SurvivorCommunity
             string after = StandingKey(e);
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             if (after != before && e.Known && pl != null) AddMarker(e, pl);
-            ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerStanding"), e.Name, (e.Standing > old ? "+" : "") + (e.Standing - old), StandingWord(e)));
+            if (ledger) ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerStanding"), e.Name, (e.Standing > old ? "+" : "") + (e.Standing - old), StandingWord(e)));
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': standing " + old + " -> " + e.Standing + " (" + after + ", " + reason + ")");
             ScRegistry.SaveAtomic();
         }
@@ -1154,7 +1162,7 @@ namespace SurvivorCommunity
             // E3: one of theirs enlisted with the player goes home first - released before the flip, so they never turn on
             // the player at their side
             ScEnclaveDeals.ReleaseEnlisted(e, "their people turned hostile");
-            // E4: the enclave's open request is closed here
+            ScEncRequests.Withdraw(e, "they turned hostile");    // E4: their open request closes, no standing change
             e.TurnedHostile = true;
             e.HostileDay = ScCommunity.Today;
             ScEnclavePeople.OnTurnedHostile(e, grace);
@@ -1176,6 +1184,7 @@ namespace SurvivorCommunity
         {
             if (e == null || !All.Contains(e)) return;
             World w = ScCommunity.World;
+            ScEncRequests.Withdraw(e, "the group is gone (" + cause + ")");     // E4: before the record goes
             ScEnclavePeople.DropPeople(e);
             RemoveMarker(e);
             int released = Release(PoiOf(e), w);
@@ -1341,6 +1350,7 @@ namespace SurvivorCommunity
             int old = All.Count, released = 0;
             foreach (Enclave e in All)
             {
+                ScEncRequests.Withdraw(e, "the enclaves were reseeded");    // E4: their requests (and journal quests) close first
                 ScEnclavePeople.DropPeople(e);       // E2: bodies out of the world, records gone (a hostile one too: reseed is the only way back)
                 RemoveMarker(e);
                 released += Release(PoiOf(e), w);

@@ -72,6 +72,39 @@ public class ObjectiveScBringSupplies : BaseObjective
     }
 }
 
+/// <summary>
+/// E4, an enclave's request taken on: "Bring a medium bundle of medicine to &lt;enclave&gt; by the end of day 14". Display
+/// only: it never completes on its own - the hand-over in the leader's talk, or the request's end (ScEncRequests.Close),
+/// closes the quest. No InteractWithNPC: the giver is the enclave, and its people's bodies are rebuilt with new ids.
+/// </summary>
+[Preserve]
+public class ObjectiveScEncRequest : BaseObjective
+{
+    public override void SetupDisplay()
+    {
+        string what = null, name = null, due = null;
+        try
+        {
+            if (base.OwnerQuest != null && base.OwnerQuest.DataVariables != null)
+            {
+                base.OwnerQuest.DataVariables.TryGetValue(SurvivorCommunity.ScQuests.RequestWhatVar, out what);
+                base.OwnerQuest.DataVariables.TryGetValue(SurvivorCommunity.ScQuests.RequestNameVar, out name);
+                base.OwnerQuest.DataVariables.TryGetValue(SurvivorCommunity.ScQuests.RequestDueVar, out due);
+            }
+        }
+        catch (System.Exception) { }
+        base.Description = string.Format(Localization.Get("scObjectiveEncRequest"), what ?? "", name ?? "", due ?? "?");
+        StatusText = "";
+    }
+
+    public override BaseObjective Clone()
+    {
+        ObjectiveScEncRequest o = new ObjectiveScEncRequest();
+        CopyValues(o);
+        return o;
+    }
+}
+
 [Preserve]
 public class ObjectiveScTalkToSurvivor : ObjectiveInteractWithNPC
 {

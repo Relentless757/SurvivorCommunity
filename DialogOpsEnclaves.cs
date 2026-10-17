@@ -38,8 +38,10 @@ namespace SurvivorCommunity
         /// The line panel's tokens (XUiC_ScDialogLine) for an enclave respondent: {enc} the enclave's name, {leader} its
         /// leader, {count} how many living, {poi} the POI, {standing} the standing's word, {where} where the leader is from
         /// the player (E1's Where), {kind} the kind of group, {name} the respondent; E3's {terms} (the enlist fee and days),
-        /// {until} (when one enlisted goes home) and {recruitcost} (what a recruit costs with the enclave). A token with no
-        /// value becomes "". The statement's shared Text is never written; a line of anybody else is returned as it is.
+        /// {until} (when one enlisted goes home) and {recruitcost} (what a recruit costs with the enclave); E4's {reqask},
+        /// {reqwait} and {reqreply} (their request: the offer, the wait, the reply to the last answer - ScEncRequests.FillTokens).
+        /// A token with no value becomes "". The statement's shared Text is never written; a line of anybody else is returned
+        /// as it is.
         /// </summary>
         public static string Fill(string text, EntityAlive npc, EntityPlayer player)
         {
@@ -49,6 +51,7 @@ namespace SurvivorCommunity
             if (e == null) return text;
             EncPerson leader = ScEnclavePeople.LeaderOf(e);
             string s = text;
+            if (s.IndexOf("{req", StringComparison.Ordinal) >= 0) s = ScEncRequests.FillTokens(s, e);    // E4: first - its lines carry {enc} and the like
             if (s.IndexOf("{terms}", StringComparison.Ordinal) >= 0) s = Token(s, "{terms}", ScEnclaveDeals.TermsText(e));
             if (s.IndexOf("{until}", StringComparison.Ordinal) >= 0) s = Token(s, "{until}", ScEnclaveDeals.UntilText(p));
             if (s.IndexOf("{recruitcost}", StringComparison.Ordinal) >= 0) s = Token(s, "{recruitcost}", ScEnclaveDeals.RecruitCostText(e));

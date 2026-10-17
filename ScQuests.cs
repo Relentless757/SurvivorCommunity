@@ -25,10 +25,32 @@ namespace SurvivorCommunity
         public const string SuppliesVar = "ScSupplies";
         /// <summary>E3: the enclave person a favour quest belongs to (their prospect's giver id follows each new body).</summary>
         public const string EncPersonVar = "ScEncPerson";
+        /// <summary>
+        /// E4: an enclave's request taken on (ScEncRequests.Accept): the request's id, what is wanted, the enclave's name and the
+        /// last day (the objective's line), its marker on their building (POIPosition/POISize: EnsureMapObject).
+        /// </summary>
+        public const string RequestQuestId = "quest_scEncRequest";
+        public const string RequestVar = "ScEncRequest", RequestWhatVar = "ScEncWhat", RequestNameVar = "ScEncName", RequestDueVar = "ScEncDue";
+        /// <summary>StartRequest's error when the player's record is not in yet (the journal pass tries again).</summary>
+        public const string RequestJournalNotReady = "the player's journal is not ready";
 
         public static bool IsOurs(Quest q)
         {
-            return q != null && (Is(q, QuestId) || Is(q, RescueQuestId) || Is(q, SuppliesQuestId));
+            return q != null && (Is(q, QuestId) || Is(q, RescueQuestId) || Is(q, SuppliesQuestId) || Is(q, RequestQuestId));
+        }
+
+        /// <summary>E4: an enclave request's quest.</summary>
+        public static bool IsRequestQuest(Quest q)
+        {
+            return q != null && Is(q, RequestQuestId);
+        }
+
+        /// <summary>The request id an enclave request's quest carries (0: none).</summary>
+        public static int RequestIdOf(Quest q)
+        {
+            string v;
+            int id;
+            return q != null && q.DataVariables != null && q.DataVariables.TryGetValue(RequestVar, out v) && int.TryParse(v, out id) ? id : 0;
         }
 
         private static bool Is(Quest q, string id)
@@ -245,6 +267,8 @@ namespace SurvivorCommunity
                 {
                     Quest q = j.quests[i];
                     if (q == null || q.CurrentState != Quest.QuestState.InProgress) continue;
+                    // E4: an enclave request's marker stays on their building - only placed again when it is missing
+                    if (IsRequestQuest(q)) { if (q.NavObject == null) EnsureMapObject(q); continue; }
                     if (!IsFavourQuest(q)) continue;
                     if (q.NavObject == null) { EnsureMapObject(q); continue; }
                     if (Is(q, QuestId) && q.CurrentPhase < 2) continue;
@@ -439,6 +463,115 @@ namespace SurvivorCommunity
                 ScLog.Once("quest-syncenc", e);
             }
             return n;
+        }
+
+        // ------------------------------------------------------------------ enclave requests (E4) ----
+
+        /// <summary>
+        /// E4: the journal entry of an accepted enclave request (ScEncRequests.Accept and the session's journal pass):
+        /// quest_scEncRequest, "Help &lt;enclave&gt;", one display-only objective (what, to whom, by the end of which day), the
+        /// marker on their building - position data set before AddQuest, as the favour quests do. The giver is the enclave
+        /// (no QuestGiverID, no InteractWithNPC: their bodies are rebuilt with new ids). Null (and why) when it cannot start.
+        /// </summary>
+        public static Quest StartRequest(EntityPlayerLocal player, Enclave e, EnclaveRequest r, string what, out string error)
+        {
+            error = null;
+            try
+            {
+                if (player == null || e == null || r == null) { error = "no player, enclave or request"; return null; }
+                if (QuestClass.s_Quests == null || !QuestClass.s_Quests.ContainsKey(RequestQuestId))
+                {
+                    error = "quest class " + RequestQuestId + " is not loaded";
+                    ScLog.Once("no-request-quest", "quest class " + RequestQuestId + " is not loaded - Config/quests.xml did not apply (requests work without the journal)");
+                    return null;
+                }
+                QuestJournal j = Journal(player);
+                GameManager gm = GameManager.Instance;
+                if (j == null || gm == null || gm.persistentPlayers == null || gm.persistentPlayers.GetPlayerDataFromEntityID(player.entityId) == null)
+                {
+                    error = RequestJournalNotReady;
+                    return null;
+                }
+                Quest q = QuestClass.CreateQuest(RequestQuestId);
+                if (q == null) { error = "quest class " + RequestQuestId + " made no quest"; return null; }
+                q.SetPositionData(Quest.PositionDataTypes.POIPosition, new Vector3(e.Poi.x, e.Poi.y, e.Poi.z));
+                q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(Math.Max(1, e.Size.x), 1f, Math.Max(1, e.Size.z)));
+                string name = SafeName(e.Name ?? "");
+                q.DataVariables[PoiNameVar] = SafeName(e.PoiName ?? "");
+                q.DataVariables[TitleVar] = string.Format(Localization.Get("scQuestEncReqNameFmt"), name);
+                q.DataVariables[RequestVar] = r.Id.ToString();
+                q.DataVariables[RequestWhatVar] = SafeName(what ?? "");
+                q.DataVariables[RequestNameVar] = name;
+                q.DataVariables[RequestDueVar] = r.DueDay.ToString();
+                // a code of our own (SetupQuestCode keeps a non-zero one): vanilla's hashes the frame time, the quest id and a
+                // giver of -1, so two requests re-added in one frame would share it (the E4 review's L1)
+                q.QuestCode = ("scEncRequest_" + r.Id + "_" + Time.unscaledTime).GetHashCode();
+                if (q.QuestCode == 0) q.QuestCode = r.Id + 1;
+                j.AddQuest(q);
+                return q;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("quest-startrequest", ex);
+                error = "the journal threw (see the log)";
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// E4: an enclave request's quest closed - completed, or removed as failed. Quest.CloseQuest's POI unlock looks the
+        /// building up by its exact key and throws when no POI has it any more (an enclave that moved or lost its building):
+        /// that quest's POI data goes first (the marker is ours, NavObject, and is removed all the same).
+        /// </summary>
+        public static void CloseRequest(EntityPlayer player, Quest q, bool completed)
+        {
+            try
+            {
+                QuestJournal j = Journal(player);
+                if (q == null || j == null) return;
+                Vector3 pos;
+                if (q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition))
+                {
+                    DynamicPrefabDecorator dpd = GameManager.Instance != null ? GameManager.Instance.GetDynamicPrefabDecorator() : null;
+                    if (dpd == null || dpd.GetPrefabFromWorldPos((int)pos.x, (int)pos.z) == null)
+                    {
+                        q.RemovePositionData(Quest.PositionDataTypes.POIPosition);
+                        q.RemovePositionData(Quest.PositionDataTypes.POISize);
+                    }
+                }
+                if (completed) q.CloseQuest(Quest.QuestState.Completed);
+                else j.RemoveQuest(q);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("quest-closerequest", ex);
+            }
+        }
+
+        /// <summary>
+        /// E4, the session's journal pass: a request quest points at its enclave's building now - an enclave moves when its
+        /// POI is gone (ScEnclaves.Validate), and a POI pack can move a key - and its marker follows.
+        /// </summary>
+        public static void FollowRequestPoi(Quest q, Enclave e)
+        {
+            try
+            {
+                if (q == null || e == null) return;
+                var want = new Vector3(e.Poi.x, e.Poi.y, e.Poi.z);
+                Vector3 pos;
+                if (q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition) && pos == want) return;
+                q.SetPositionData(Quest.PositionDataTypes.POIPosition, want);
+                q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(Math.Max(1, e.Size.x), 1f, Math.Max(1, e.Size.z)));
+                q.DataVariables[PoiNameVar] = SafeName(e.PoiName ?? "");
+                if (q.NavObject != null && NavObjectManager.Instance != null) NavObjectManager.Instance.UnRegisterNavObject(q.NavObject);
+                q.NavObject = null;
+                EnsureMapObject(q);
+                ScLog.Out("enclave request quest " + q.QuestCode + ": its marker moved to " + e.Name + "'s building now (" + e.PoiName + " at " + e.Poi + ")");
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("quest-followrequest", ex);
+            }
         }
 
         /// <summary>Closes the quest through Quest.CloseQuest (unhooks objectives) and restores the compass.</summary>
