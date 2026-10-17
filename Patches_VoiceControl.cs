@@ -25,6 +25,8 @@ namespace SurvivorCommunity
     ///    without a leader, which would charge the fee for a resident and flip them to Following, or turn an outpost
     ///    stand-in into a saved, untracked copy of the member.
     /// Other NPCs, including companions hired the vanilla way, keep Voice Control's billing.
+    /// E2: one of an enclave's people (the %sc_enc cvar) is refused the spoken hire, pick-up and dismiss as well - they stay
+    /// with their group, and SCore's Dismiss would end the Guard that holds them at their spot.
     ///
     /// Bound by name, with no reference to the DLL: without Voice Control every patch here skips itself (Prepare), and
     /// ModApi only expects them when NPCChatComponent exists, so a changed signature shows up as a MISSING PATCH line.
@@ -195,6 +197,13 @@ namespace SurvivorCommunity
                 try
                 {
                     EntityAlive npc = __args[0] as EntityAlive;
+                    // one of an enclave's people (E2): nobody's to dismiss - SCore's Dismiss would end their Guard at their spot
+                    if (ScEnclavePeople.IsEnclaveNpc(npc))
+                    {
+                        Count("dismiss-refused-enclave");
+                        __result = Localization.Get("scEncVoiceStays");
+                        return false;
+                    }
                     if (!IsCommunityNpc(npc)) return true;
                     Count("dismiss-to-home");
                     StripContract(npc);
@@ -238,7 +247,15 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!IsCommunityNpc(__args[0] as EntityAlive)) return true;
+                    EntityAlive npc = __args[0] as EntityAlive;
+                    // one of an enclave's people (E2): they stay with their group
+                    if (ScEnclavePeople.IsEnclaveNpc(npc))
+                    {
+                        Count("pickup-refused-enclave");
+                        __result = Localization.Get("scEncVoiceStays");
+                        return false;
+                    }
+                    if (!IsCommunityNpc(npc)) return true;
                     Count("pickup-refused");
                     __result = Localization.Get("scVoiceWalk");
                     return false;
@@ -273,6 +290,13 @@ namespace SurvivorCommunity
                     {
                         Count("hire-refused-hostile");
                         __result = Localization.Get("scTrustNoHire");
+                        return false;
+                    }
+                    // one of an enclave's people (E2): not for hire (E3 brings enlisting)
+                    if (ScEnclavePeople.IsEnclaveNpc(npc))
+                    {
+                        Count("hire-refused-enclave");
+                        __result = Localization.Get("scEncVoiceNoHire");
                         return false;
                     }
                     if (!IsCommunityNpc(npc)) return true;

@@ -418,9 +418,8 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
 
 You aren't the only survivors. Other groups have holed up in buildings across the map: families, drifters, preppers
 and raiders. Each group is an **enclave**, with a name and a building of its own. This first milestone puts them on
-the map. **There are no people in them yet**: you can find them, see them on the map, and their buildings are theirs.
-Their people, standing, trade, requests and sieges come in later milestones (`Enclaves_Plan.md`); the infestations are
-I1, below.
+the map: you can find them, see them on the map, and their buildings are theirs. Their **people** are E2, the next
+section; trade, requests and sieges come in later milestones (`Enclaves_Plan.md`); the infestations are I1, below.
 
 **When they appear**
 - **A new save** gets its enclaves the moment it first starts. Nothing spawns: they are records until you get near.
@@ -457,7 +456,8 @@ I1, below.
   `EnclaveRadioRange` (2 km) of home (of you, without a home). It tells you where: "900 m north-east".
 - **Markers** (owner-only): a grey fortress for a neutral enclave, a red skull for raiders, labelled with the name and
   the standing ("The Pinefield Survivors (Neutral)"). Raiders also show on the compass within 300 m. Friendly (green)
-  and Allied (blue, on the compass within 600 m) come with standing in a later milestone.
+  and Allied (blue, on the compass within 600 m) follow the standing (E2 keeps it; E4's requests will earn it), and a
+  group that turns on you goes red.
 
 **Their building is theirs**
 - **No zombies.** Every sleeper room in it is marked cleared for good, and a room the game creates later (when its
@@ -470,7 +470,7 @@ I1, below.
   them, the markers and the radio are the host's. A dedicated server seeds and protects them, but nobody finds them
   there yet.
 - SC's own picks (radio contacts, recruit favours, supply runs, radio scouting) never send anyone there.
-- The loot is still the building's own loot; locking it is for E2, with the people.
+- The loot is the building's own loot, and its containers are its people's (E2, below).
 
 **Config** (`Config/blocks.xml`, commented there): the switch `Enclaves`; how many `EnclavesPerKm2`, `EnclaveMin`,
 `EnclaveMax`; spacing `EnclaveSpacingMin`, `EnclaveSpacingFactor`, `EnclaveSpacingFloor`; raiders `EnclaveHostileShare`,
@@ -493,6 +493,109 @@ sections as unreadable (a "degraded" load), ignores the three keys, and its next
 they kept clear (the world save remembers that) respawn after the loot respawn wait (never, when loot respawn is off).
 **Before you uninstall SurvivorCommunity**, load the save once with `Enclaves=false`: otherwise those rooms stay empty
 until something resets the building, such as a trader quest there.
+
+## Enclave people (E2)
+
+Every enclave now has people: a leader and the rest of the group, living in their building.
+
+**Who they are, and how many**
+- 3-5 people for a survivor enclave and 3-6 for raiders (`EnclaveGroupMin`/`Max`, `EnclaveRaiderGroupMin`/`Max`): the
+  bigger the building, the more of them, give or take one.
+- They are made the first time you come within `EnclaveSpawnRange` (150 m): SC's own wild survivors (raiders for a
+  raider enclave) of the tier your gamestage gives then, so faces, sexes, weapons, skills and traits vary as wild
+  spawns do. From then on each of them is a record: the same name, face, weapons, skills and traits on every visit.
+  Like wild survivors they carry 0-XNPCCore's day-based levels (set again each visit); your members never do.
+- The first one made is the **leader**. Each group has a **kind** from its building (`EnclaveKindRows`): growers at
+  farms, medics at clinics, militia at military, police and gun stores, builders at industry and hardware stores, a
+  road crew at gas stations and refineries, scavengers anywhere else.
+
+**When they appear and go**
+- Within `EnclaveSpawnRange` of the building, once its chunks are built for walking on, one a second, the leader
+  first, and never popping up within `EnclaveNoPopRange` (50 m) in front of you. Your view distance decides when the
+  chunks are built: at the default that is about 90-100 m out, so that is where they usually appear.
+- When nobody is within `EnclaveSpawnRange` + `EnclaveDespawnMargin` (200 m) and nobody sees them, they go: their
+  health and rounds are kept for next time. While they are out, the building's chunks stay loaded
+  (`EnclaveHoldChunks`).
+- They are never written into the world's save: a save and reload next to them brings the same people back from their
+  records. Their bodies are SC's, so leaving and coming back never makes duplicates.
+- Each day they heal, and survivors get the rounds they were made with back (`EnclaveDailyRestock`); a raider enclave's
+  people start every visit with a fresh raider's stack anyway.
+
+**What they do**
+- Each has a **home spot** in the building (the places its author put sleepers first). By day the others walk about
+  the building and its yard and stand a while; at night they idle near their spots. The **leader stays at their spot**
+  all day, so you always know where to find them.
+- They defend their building: an awake enemy on their grounds within `EnclaveDefendRadius` (22 m) of one of them is
+  fought, seen or not. A chase never takes them more than `EnclaveLeashMargin` (8 m) past the building: they walk back.
+- The cowardly ones run from a fight. Stuck ones are moved back to their spot, as residents are.
+
+**Talking to them**
+- The leader greets you by your **standing**: wary at Neutral, warm at Friendly, welcoming at Allied. Ask them
+  *"Tell me about this place."* (their name, how many they are, the leader, the building).
+- The others greet you the same way, and *"Where's your leader?"* tells you who leads and where they are from you.
+- None of them can be hired, picked up, dismissed, asked to join or given a favour, by dialog or by voice; trade,
+  enlisting and recruiting come in E3, requests in E4.
+
+**Standing, warnings and hostility**
+- Standing is 0 at first and goes from `EnclaveStandingMin` (-30) to 100: Neutral below 30, Friendly from 30, Allied
+  from 70. The map marker follows it. (E4's requests are how you will earn it.)
+- **Hitting one of them** is a warning: they shout *"Watch it!"* and the enclave's standing drops by
+  `EnclaveWarnPenalty` (10). Hits within `EnclaveHitDebounce` (1.5 s) of each other are one attack (a shotgun blast).
+  **Another hit within `EnclaveWarnWindow` (2 minutes), or killing one of them** (you, or a companion of yours), turns
+  the **whole enclave hostile for good**. After the two minutes a hit is a fresh warning.
+- **Threats:** ask the leader *"Hand over your supplies."* and confirm with *"I'm not asking."*: they hand over
+  `EnclaveThreatBundlesMin`-`Max` (2-4) medium bundles, mostly of what their kind lives on (growers food, medics
+  medical, militia ammo, builders materials, a road crew fuel), into your bag (the rest at your feet). Then they are
+  hostile for good, after `EnclaveThreatGrace` (10 s) so you can walk away from the talk. *"Forget it."* takes it back.
+- **A hostile enclave** shoots you on sight, and you can't talk to them any more; its marker is red. Your residents,
+  your followers and your turrets fight its people, and they fight them back. A hostile survivor with a gun closes in
+  like a raider, and investigates noise, but never leaves its building for long. Nothing makes them friendly again.
+
+**Raider enclaves** are raiders: they attack on sight, have nothing to say, and stay home - noise or a chase does not
+pull them off their building. Hitting them changes nothing; they are hostile already.
+
+**Deaths, the leader, a group wiped out**
+- Deaths are real. Whoever dies (to zombies, raiders or you) is dead for good; their body is left with its loot. You
+  hear of it when you are near, and the ledger notes it.
+- When the leader dies, the strongest of the rest (then the longest in the group) leads from the leader's spot.
+- When the last of them dies, the enclave is gone: its marker comes off, and its building is free again - claims,
+  quests, infestations and its containers; its sleeper rooms respawn after the loot respawn wait. Wipe out raiders and
+  you're told "You wiped out <name>." (While a group is still being made, the first ones dying does not end it: the
+  rest still come, a new leader first.)
+
+**Their containers are theirs:** opening a loot container in their building is refused while the enclave exists -
+"That belongs to <name>." (`EnclaveContainerLock`). Containers you placed are yours as always. **Breaking a container
+open is not covered** (a known limit).
+
+**No wild NPCs on their grounds:** SC's and 0-XNPCCore's wild survivors and raiders never spawn within
+`EnclaveWildSpawnMargin` (40 m) of a living enclave, so a stranger is never mistaken for one of them (zombies and
+animals spawn as before). `sc enclave list` counts the spawns kept off. A spawn kept off counts as vanilla's "none"
+for that spawn entry, so wild NPCs also thin out a little in the rest of the 80 m spawn area round the enclave until
+the entry resets.
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveGroupMin`, `EnclaveGroupMax`, `EnclaveRaiderGroupMin`,
+`EnclaveRaiderGroupMax`, `EnclaveSpawnRange`, `EnclaveDespawnMargin`, `EnclaveNoPopRange`, `EnclaveSpawnPerTick`,
+`EnclaveHoldChunks`, `EnclaveDailyRestock`, `EnclaveLeashMargin`, `EnclaveDefendRadius`, `EnclaveStandingMin`,
+`EnclaveWarnPenalty`, `EnclaveWarnWindow`, `EnclaveHitDebounce`, `EnclaveThreatBundlesMin`, `EnclaveThreatBundlesMax`,
+`EnclaveThreatGrace`, `EnclaveContainerLock`, `EnclaveWildSpawnMargin`, `EnclaveKindRows`. With `Enclaves=false` every
+body goes and none comes; the records stay.
+
+**Console** (host): `sc enclave people <id>` (each person: role, name, class, state, health, spot, body),
+`sc enclave info <id>` (adds the kind and the people), `sc enclave spawn <id>` (its people now, made first if need be,
+when its chunks are loaded; no view rule), `sc enclave despawn <id>` (they go, and stay away 30 s),
+`sc enclave standing <id> <points>` (greetings and the marker follow), `sc enclave hostile <id>` (no payout),
+`sc enclave kill <id> [<person id>|all]` (the leader without one: deaths, succession and a group wiped out; `all` is
+the whole group, those not made yet included).
+`sc enclave reseed confirm` drops the people with the enclaves - the only way back from hostility.
+
+**Saving:** the people are `[encperson]` sections in `survivor_community.txt` (each with the person's own fields, then
+the same fields as a member), with `encpersonid` in `[community]` and `kind`, `turned` and `people` in each
+`[enclave]`. Forward-only, as `[enclave]`: an older build drops them. A person whose enclave is missing is dropped.
+
+**Limits:** host only - in multiplayer the host's world runs them; a dedicated server runs no SC ticker, so nobody
+appears there. Breaking containers open is not stopped. A multiplayer client does not see the enclave dialog (only
+"Nevermind"). The leader's trade, enlisting and recruiting (E3), requests (E4) and allied benefits (E6) are still to
+come.
 
 ## Infestations (I1)
 
@@ -919,7 +1022,12 @@ outposts only use it to guess which resource runs out first). Outposts: every `O
 `EnclaveStartRingSpacing`, `EnclaveTierMin`, `EnclaveTierMax`, `EnclaveSizeMin`, `EnclaveSizeMax`, `EnclaveTraderDistance`,
 `EnclaveSpawnDistance`, `EnclaveEdgeDistance`, `EnclaveKindWeights`, `EnclavePoiExcludes`, `EnclaveLateSeed`,
 `EnclaveClaimBuffer`, `EnclaveUnvisitedWeight`, `EnclaveRelocateRange`, `EnclaveDiscoverRange`, `EnclaveRadioRevealDays`
-and `EnclaveRadioRange` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
+and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveGroupMin`, `EnclaveGroupMax`,
+`EnclaveRaiderGroupMin`, `EnclaveRaiderGroupMax`, `EnclaveSpawnRange`, `EnclaveDespawnMargin`, `EnclaveNoPopRange`,
+`EnclaveSpawnPerTick`, `EnclaveHoldChunks`, `EnclaveDailyRestock`, `EnclaveLeashMargin`, `EnclaveDefendRadius`,
+`EnclaveStandingMin`, `EnclaveWarnPenalty`, `EnclaveWarnWindow`, `EnclaveHitDebounce`, `EnclaveThreatBundlesMin`,
+`EnclaveThreatBundlesMax`, `EnclaveThreatGrace`, `EnclaveContainerLock`, `EnclaveWildSpawnMargin` and `EnclaveKindRows`
+(commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
 `InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,
@@ -942,13 +1050,16 @@ A full game restart is needed after editing `Config/Localization.csv`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
 - Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
-  all 97 targets patched` with Voice Control loaded, 90 without; a `MISSING PATCH` line names one that did not
+  all 100 targets patched` with Voice Control loaded, 93 without; a `MISSING PATCH` line names one that did not
   bind). Among them
   `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
   `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests, outposts and
   enclaves), `SleeperVolume.UpdatePlayerTouched` (no sleepers in an enclave's building; an infested building's count,
   spawn points and special), `SleeperVolume.UpdateSpawn`, `Spawn` and `ClearedUpdate` (an infested room's spawn step,
-  its special, and the clear check; the feral share rides the `EntityGroups.GetRandomFromGroupList` postfix), the two turrets'
+  its special, and the clear check; the feral share rides the `EntityGroups.GetRandomFromGroupList` postfix),
+  `TEFeatureStorage.OnBlockActivated` (an enclave's containers), `SpawnManagerBiomes.SpawnUpdate` and
+  `World.GetRandomSpawnPositionInAreaMinMaxToPlayers` (no wild NPCs on an enclave's grounds, with the group-pick
+  postfix), the two turrets'
   and the motion sensor's target filters and `EntityAliveSDXV4.HandleNavObject` (raiders), SCore's two NPC
   inventory packages (`NetPackageHarvestInventoryRequest` / `...Update`: a remote player's open window),
   `EntityAliveSDXV4.UpdateWeapon(ItemValue, bool)` (a gun put away keeps its rounds), and `EntityAliveSDXV4.Write` /

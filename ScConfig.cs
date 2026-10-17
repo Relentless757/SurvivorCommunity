@@ -501,6 +501,42 @@ namespace SurvivorCommunity
         public static int EnclaveRadioRange = 2000;
         private const string DefaultEnclaveKindWeights = "rural:1.5,countryresidential:1.4,countrytown:1.3,wilderness:1.2,oldwest:1.2,residential:1,commercial:0.9,industrial:0.8,other:0.6,downtown:0";
         private const string DefaultEnclavePoiExcludes = "cave,mine,bunker,bombshelter,rubble,lot_,filler,street,bridge,tunnel,sewer,crater,crack,parking,remnant_waste,wreck,dock,skyscraper,water_tower,celltower,sign,billboard,deco";
+        // ---- enclave people (ScEnclavePeople, E2: their records and bodies, the SCEnclave AI, standing and hostility) ----
+        /// <summary>
+        /// A group's size: by the footprint's larger side (EnclaveSizeMin..Max m) from EnclaveGroupMin to EnclaveGroupMax people
+        /// (a raider enclave from EnclaveRaiderGroupMin to EnclaveRaiderGroupMax), +-1 from a seeded roll, clamped.
+        /// </summary>
+        public static int EnclaveGroupMin = 3, EnclaveGroupMax = 5, EnclaveRaiderGroupMin = 3, EnclaveRaiderGroupMax = 6;
+        /// <summary>
+        /// Bodies: built within EnclaveSpawnRange m of the footprint, at most EnclaveSpawnPerTick a second, never at a spot within
+        /// EnclaveNoPopRange m in a player's view; removed out of sight once nobody is within EnclaveSpawnRange +
+        /// EnclaveDespawnMargin m. EnclaveHoldChunks keeps the POI's chunks loaded while its bodies are out.
+        /// </summary>
+        public static int EnclaveSpawnRange = 150, EnclaveDespawnMargin = 50, EnclaveNoPopRange = 50, EnclaveSpawnPerTick = 1;
+        public static bool EnclaveHoldChunks = true;
+        /// <summary>The day rollover gives every living person their full health and their starting ammo back.</summary>
+        public static bool EnclaveDailyRestock = true;
+        /// <summary>
+        /// The SCEnclave AI: the footprint plus EnclaveLeashMargin m is home (beyond it the leash walks them back to their spot),
+        /// and they go after an enemy inside the footprint within EnclaveDefendRadius m of themselves.
+        /// </summary>
+        public static int EnclaveLeashMargin = 8, EnclaveDefendRadius = 22;
+        /// <summary>
+        /// Standing's floor (Neutral below 30 whatever the points). Attacks: the first counted hit is a warning costing
+        /// EnclaveWarnPenalty; another within EnclaveWarnWindow s turns them hostile; hits within EnclaveHitDebounce s of the last
+        /// counted one are the same attack.
+        /// </summary>
+        public static int EnclaveStandingMin = -30, EnclaveWarnPenalty = 10;
+        public static float EnclaveWarnWindow = 120f, EnclaveHitDebounce = 1.5f;
+        /// <summary>A threat pays EnclaveThreatBundlesMin..Max bundles; they attack EnclaveThreatGrace s later.</summary>
+        public static int EnclaveThreatBundlesMin = 2, EnclaveThreatBundlesMax = 4;
+        public static float EnclaveThreatGrace = 10f;
+        /// <summary>Their POI's loot containers are refused while they live; no wild NPC spawns within EnclaveWildSpawnMargin m of a footprint.</summary>
+        public static bool EnclaveContainerLock = true;
+        public static int EnclaveWildSpawnMargin = 40;
+        /// <summary>EnclaveKindRows "row:kind,...": an enclave's kind by its POI's ScPoiTypes row (a row not named: general).</summary>
+        public static readonly Dictionary<string, string> EnclaveKindRows = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private const string DefaultEnclaveKindRows = "farm:growers,clinic:medics,military:militia,police:militia,gunstore:militia,industry:builders,hardware:builders,gasstation:roadcrew,refinery:roadcrew";
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1006,6 +1042,10 @@ namespace SurvivorCommunity
             EnclaveTierMin = 1; EnclaveTierMax = 4; EnclaveSizeMin = 20; EnclaveSizeMax = 80; EnclaveTraderDistance = 300; EnclaveSpawnDistance = 300; EnclaveEdgeDistance = 300;
             EnclaveKindWeights.Clear(); EnclavePoiExcludes.Clear(); EnclaveLateSeed = true; EnclaveClaimBuffer = 150; EnclaveUnvisitedWeight = 3f; EnclaveRelocateRange = 1000;
             EnclaveDiscoverRange = 150; EnclaveRadioRevealDays = 3; EnclaveRadioRange = 2000;
+            EnclaveGroupMin = 3; EnclaveGroupMax = 5; EnclaveRaiderGroupMin = 3; EnclaveRaiderGroupMax = 6; EnclaveSpawnRange = 150; EnclaveDespawnMargin = 50;
+            EnclaveNoPopRange = 50; EnclaveSpawnPerTick = 1; EnclaveHoldChunks = true; EnclaveDailyRestock = true; EnclaveLeashMargin = 8; EnclaveDefendRadius = 22;
+            EnclaveStandingMin = -30; EnclaveWarnPenalty = 10; EnclaveWarnWindow = 120f; EnclaveHitDebounce = 1.5f; EnclaveThreatBundlesMin = 2; EnclaveThreatBundlesMax = 4;
+            EnclaveThreatGrace = 10f; EnclaveContainerLock = true; EnclaveWildSpawnMargin = 40; EnclaveKindRows.Clear();
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1055,6 +1095,7 @@ namespace SurvivorCommunity
             RaiderTattooInks.AddRange(new[] { "Black Orchid", "Black Orchid", "Dark Truffle", "Abyssal", "Venom", "Rouge Noir", "Oxblood Wine", "Chili Red" });
             ParseKindWeights(DefaultEnclaveKindWeights);
             EnclavePoiExcludes.AddRange(SplitList(DefaultEnclavePoiExcludes));
+            ParseKindRows(DefaultEnclaveKindRows);
             ParseTierByDay(DefaultInfestTierByDay);
         }
 
@@ -1549,6 +1590,41 @@ namespace SurvivorCommunity
                 ParseInt(p, "EnclaveDiscoverRange", ref EnclaveDiscoverRange, 0, 5000);
                 ParseInt(p, "EnclaveRadioRevealDays", ref EnclaveRadioRevealDays, 1, 365);
                 ParseInt(p, "EnclaveRadioRange", ref EnclaveRadioRange, 0, 20000);
+                // enclave people (E2)
+                ParseInt(p, "EnclaveGroupMin", ref EnclaveGroupMin, 1, 12);
+                ParseInt(p, "EnclaveGroupMax", ref EnclaveGroupMax, 1, 12);
+                if (EnclaveGroupMax < EnclaveGroupMin) EnclaveGroupMax = EnclaveGroupMin;
+                ParseInt(p, "EnclaveRaiderGroupMin", ref EnclaveRaiderGroupMin, 1, 12);
+                ParseInt(p, "EnclaveRaiderGroupMax", ref EnclaveRaiderGroupMax, 1, 12);
+                if (EnclaveRaiderGroupMax < EnclaveRaiderGroupMin) EnclaveRaiderGroupMax = EnclaveRaiderGroupMin;
+                ParseInt(p, "EnclaveSpawnRange", ref EnclaveSpawnRange, 20, 1000);
+                ParseInt(p, "EnclaveDespawnMargin", ref EnclaveDespawnMargin, 0, 1000);
+                ParseInt(p, "EnclaveNoPopRange", ref EnclaveNoPopRange, 0, 500);
+                ParseInt(p, "EnclaveSpawnPerTick", ref EnclaveSpawnPerTick, 1, 12);
+                bool holdChunks = EnclaveHoldChunks;
+                if (p.Values.ContainsKey("EnclaveHoldChunks")) p.ParseBool("EnclaveHoldChunks", ref holdChunks);
+                EnclaveHoldChunks = holdChunks;
+                bool restock = EnclaveDailyRestock;
+                if (p.Values.ContainsKey("EnclaveDailyRestock")) p.ParseBool("EnclaveDailyRestock", ref restock);
+                EnclaveDailyRestock = restock;
+                ParseInt(p, "EnclaveLeashMargin", ref EnclaveLeashMargin, 2, 100);
+                ParseInt(p, "EnclaveDefendRadius", ref EnclaveDefendRadius, 0, 100);
+                ParseInt(p, "EnclaveStandingMin", ref EnclaveStandingMin, -100, 0);
+                ParseInt(p, "EnclaveWarnPenalty", ref EnclaveWarnPenalty, 0, 100);
+                ParseFloat(p, "EnclaveWarnWindow", ref EnclaveWarnWindow, 0f, 3600f);
+                ParseFloat(p, "EnclaveHitDebounce", ref EnclaveHitDebounce, 0f, 30f);
+                ParseInt(p, "EnclaveThreatBundlesMin", ref EnclaveThreatBundlesMin, 0, 20);
+                ParseInt(p, "EnclaveThreatBundlesMax", ref EnclaveThreatBundlesMax, 0, 20);
+                if (EnclaveThreatBundlesMax < EnclaveThreatBundlesMin) EnclaveThreatBundlesMax = EnclaveThreatBundlesMin;
+                ParseFloat(p, "EnclaveThreatGrace", ref EnclaveThreatGrace, 0f, 300f);
+                bool containerLock = EnclaveContainerLock;
+                if (p.Values.ContainsKey("EnclaveContainerLock")) p.ParseBool("EnclaveContainerLock", ref containerLock);
+                EnclaveContainerLock = containerLock;
+                ParseInt(p, "EnclaveWildSpawnMargin", ref EnclaveWildSpawnMargin, 0, 1000);
+                {
+                    string kr;
+                    if (p.Values.TryGetValue("EnclaveKindRows", out kr) && !string.IsNullOrEmpty(kr)) ParseKindRows(kr);
+                }
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -1862,6 +1938,14 @@ namespace SurvivorCommunity
                                             + EnclaveSizeMin + "-" + EnclaveSizeMax + "m, " + EnclaveKindWeights.Count + " districts, " + EnclavePoiExcludes.Count + " excludes, late seed "
                                             + (EnclaveLateSeed ? "on" : "off") + ", discover " + EnclaveDiscoverRange + "m, radio every " + EnclaveRadioRevealDays + "d within "
                                             + EnclaveRadioRange + "m" : "off")
+                          + " enclavePeople=" + (Enclaves ? EnclaveGroupMin + "-" + EnclaveGroupMax + " (raiders " + EnclaveRaiderGroupMin + "-" + EnclaveRaiderGroupMax
+                                                 + "), spawn " + EnclaveSpawnRange + "m (+" + EnclaveDespawnMargin + "m out, no pop-in " + EnclaveNoPopRange + "m, "
+                                                 + EnclaveSpawnPerTick + "/s, hold " + (EnclaveHoldChunks ? "on" : "off") + "), restock " + (EnclaveDailyRestock ? "on" : "off")
+                                                 + ", leash +" + EnclaveLeashMargin + "m, defend " + EnclaveDefendRadius + "m, standing from " + EnclaveStandingMin
+                                                 + ", warning -" + EnclaveWarnPenalty + " (" + EnclaveWarnWindow.ToString("0.#", CultureInfo.InvariantCulture) + "s, hits "
+                                                 + EnclaveHitDebounce.ToString("0.##", CultureInfo.InvariantCulture) + "s apart), threat " + EnclaveThreatBundlesMin + "-"
+                                                 + EnclaveThreatBundlesMax + " bundles (grace " + EnclaveThreatGrace.ToString("0.#", CultureInfo.InvariantCulture) + "s), containers "
+                                                 + (EnclaveContainerLock ? "locked" : "open") + ", wild spawns off " + EnclaveWildSpawnMargin + "m, " + EnclaveKindRows.Count + " kind rows" : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange
@@ -1922,6 +2006,29 @@ namespace SurvivorCommunity
             if (parsed.Count == 0) { ScLog.Warn("config EnclaveKindWeights '" + s + "' names no district:weight - kept"); return; }
             EnclaveKindWeights.Clear();
             foreach (var kv in parsed) EnclaveKindWeights[kv.Key] = kv.Value;
+        }
+
+        /// <summary>
+        /// EnclaveKindRows "farm:growers,...,refinery:roadcrew" (E2): replaces the table; an entry whose kind is not one of
+        /// ScEnclaves.Kinds is skipped with a warning, none readable keeps the table.
+        /// </summary>
+        private static void ParseKindRows(string s)
+        {
+            var parsed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string part in SplitList(s))
+            {
+                int c = part.IndexOf(':');
+                string kind = c > 0 ? part.Substring(c + 1).Trim().ToLowerInvariant() : "";
+                if (c <= 0 || Array.IndexOf(ScEnclaves.Kinds, kind) < 0)
+                {
+                    ScLog.Warn("config EnclaveKindRows entry '" + part + "' is not row:kind (kinds: " + string.Join(", ", ScEnclaves.Kinds) + ") - skipped");
+                    continue;
+                }
+                parsed[part.Substring(0, c).Trim()] = kind;
+            }
+            if (parsed.Count == 0) { ScLog.Warn("config EnclaveKindRows '" + s + "' names no row:kind - kept"); return; }
+            EnclaveKindRows.Clear();
+            foreach (var kv in parsed) EnclaveKindRows[kv.Key] = kv.Value;
         }
 
         /// <summary>InfestTierByDay "1:1-2,8:1-3,...": replaces the table (sorted by day); an unreadable entry is skipped with a warning, none readable keeps it.</summary>

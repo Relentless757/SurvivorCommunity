@@ -39,12 +39,13 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// A survivor trust applies to: a framework NPC (SCore's two classes) that is not a raider, not a member or
-        /// stand-in, and not a trader. Type and cvar tests only.
+        /// stand-in, not one of an enclave's people (E2: the enclave's own rules, ScEnclavePeople.OnHitBy), and not a
+        /// trader. Type and cvar tests only.
         /// </summary>
         public static bool Subject(EntityAlive npc)
         {
             if (npc == null || npc.Buffs == null || !ScNpc.IsFramework(npc)) return false;
-            if (ScXnpc.IsRaider(npc) || ScXnpc.IsCommunity(npc)) return false;
+            if (ScXnpc.IsRaider(npc) || ScXnpc.IsCommunity(npc) || ScEnclavePeople.IsEnclaveNpc(npc)) return false;
             if (ScCommunity.HiredBy(npc) > 0) return false;      // somebody's hired companion
             return !IsTrader(npc);
         }

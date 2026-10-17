@@ -933,6 +933,45 @@
 			<property name="EnclaveRadioRevealDays" value="3" />
 			<property name="EnclaveRadioRange" value="2000" />
 
+			<!-- ENCLAVE PEOPLE (E2; Enclaves_Plan.md 2.3-2.6). The first time you come within EnclaveSpawnRange m of an
+			     enclave its group is made: EnclaveGroupMin..EnclaveGroupMax people by the size of its building (a raider
+			     enclave EnclaveRaiderGroupMin..EnclaveRaiderGroupMax), +-1, the first one the leader, at the tier your
+			     gamestage gives then. They are records; their bodies are built within EnclaveSpawnRange m, at most
+			     EnclaveSpawnPerTick a second, never at a spot within EnclaveNoPopRange m in your view, and removed out of sight
+			     once nobody is within EnclaveSpawnRange + EnclaveDespawnMargin m (EnclaveHoldChunks keeps their building loaded
+			     while they are out). Nothing goes into the chunk saves. The footprint plus EnclaveLeashMargin m is home: the leash
+			     walks them back beyond it, and they go after an enemy inside the footprint within EnclaveDefendRadius m of
+			     themselves. EnclaveDailyRestock gives the living their health and starting ammo back each day. Standing never
+			     goes below EnclaveStandingMin. Hitting one is a warning (-EnclaveWarnPenalty standing); another hit within
+			     EnclaveWarnWindow s, or a kill, turns the enclave hostile for good; hits within EnclaveHitDebounce s are one
+			     attack. A threat ("Hand over your supplies") pays EnclaveThreatBundlesMin..Max bundles and they attack
+			     EnclaveThreatGrace s later. EnclaveContainerLock refuses their building's loot containers while they live. No
+			     wild survivor or raider spawns within EnclaveWildSpawnMargin m of an enclave's building. EnclaveKindRows maps
+			     the building's outpost row (OutpostRows below) to the group's kind: growers, medics, militia, builders, roadcrew
+			     or general (a row not named). Enclaves=false removes every body and builds none; the records stay. -->
+			<property name="EnclaveGroupMin" value="3" />
+			<property name="EnclaveGroupMax" value="5" />
+			<property name="EnclaveRaiderGroupMin" value="3" />
+			<property name="EnclaveRaiderGroupMax" value="6" />
+			<property name="EnclaveSpawnRange" value="150" />
+			<property name="EnclaveDespawnMargin" value="50" />
+			<property name="EnclaveNoPopRange" value="50" />
+			<property name="EnclaveSpawnPerTick" value="1" />
+			<property name="EnclaveHoldChunks" value="true" />
+			<property name="EnclaveDailyRestock" value="true" />
+			<property name="EnclaveLeashMargin" value="8" />
+			<property name="EnclaveDefendRadius" value="22" />
+			<property name="EnclaveStandingMin" value="-30" />
+			<property name="EnclaveWarnPenalty" value="10" />
+			<property name="EnclaveWarnWindow" value="120" />
+			<property name="EnclaveHitDebounce" value="1.5" />
+			<property name="EnclaveThreatBundlesMin" value="2" />
+			<property name="EnclaveThreatBundlesMax" value="4" />
+			<property name="EnclaveThreatGrace" value="10" />
+			<property name="EnclaveContainerLock" value="true" />
+			<property name="EnclaveWildSpawnMargin" value="40" />
+			<property name="EnclaveKindRows" value="farm:growers,clinic:medics,military:militia,police:militia,gunstore:militia,industry:builders,hardware:builders,gasstation:roadcrew,refinery:roadcrew" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

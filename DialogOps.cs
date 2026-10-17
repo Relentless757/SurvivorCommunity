@@ -27,7 +27,9 @@ namespace SurvivorCommunity
         /// <summary>The prospect record for this NPC, rolling the favour the first time the player asks.</summary>
         public static Prospect Ensure(EntityAlive npc, EntityPlayer player)
         {
-            if (npc == null) return null;
+            // never one of an enclave's people (E2): a prospect pins the body (Persist, StaticSpawner) and the favour is no way
+            // into an enclave (E3 brings its own recruit path)
+            if (npc == null || ScEnclavePeople.IsEnclaveNpc(npc)) return null;
             Prospect p = ScRegistry.GetProspect(npc.entityId);
             if (p != null) return p;
             ScConfig.EnsureParsed();

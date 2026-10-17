@@ -468,7 +468,8 @@ namespace SurvivorCommunity
         /// EntityGroups.GetRandomFromGroupList: a pick of one of our tiered classes above the gamestage tier is swapped for
         /// its tier's class there (ClassByGamestage). Zombies and everything else pass through untouched (one set lookup).
         /// First, though, an infested room's pick may come feral (ScInfestations.FeralShare, I1): the check is one static
-        /// read, null for every pick outside an infested room's spawn step.
+        /// read, null for every pick outside an infested room's spawn step. Then a biome spawn's NPC at a spot on an
+        /// enclave's grounds is refused (E2, ScEnclavePeople.FilterWild): one static read outside a biome spawn.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_ClassByGamestage
@@ -499,6 +500,8 @@ namespace SurvivorCommunity
                 try
                 {
                     if (ScInfestations.CurrentVolume != null) ScInfestations.FeralShare(ref __result, random);
+                    // E2: a biome spawn's NPC on an enclave's grounds comes as "none" (one static read outside a biome spawn)
+                    if (ScEnclavePeople.WildSpotNoted) ScEnclavePeople.FilterWild(ref __result);
                     int to;
                     if (!ClassByGamestage(__result, out to)) return;
                     classDowngrades++;

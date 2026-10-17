@@ -22,9 +22,19 @@ namespace SurvivorCommunity
         /// <summary>The ScPoiTypes row at seeding ("" = none), frozen like Outpost.Row: the group's archetype in later milestones.</summary>
         public string Row = "";
         public int Tier;
-        /// <summary>A raider enclave by nature (seeded hostile). Hostility earned in play comes with the people (E2).</summary>
+        /// <summary>A raider enclave by nature (seeded hostile, raider classes). Hostility earned in play is TurnedHostile (E2).</summary>
         public bool Hostile;
-        /// <summary>Standing points: Neutral below 30, Friendly 30-69, Allied 70 and up. 0 until requests exist (E4).</summary>
+        /// <summary>
+        /// E2: the group's kind (ScEnclaves.Kinds) from the POI's Row through EnclaveKindRows - what they live on and, in a
+        /// threat, what they hand over most. Derived when missing (E1 records) and kept when the enclave moves.
+        /// </summary>
+        public string Kind = "";
+        /// <summary>E2: hostile for good since HostileDay (a second hit within the warning window, a kill, a threat). Never undone.</summary>
+        public bool TurnedHostile;
+        public int HostileDay = -1;
+        /// <summary>E2: its group was made (ScEnclavePeople.Generate); until then the next approach makes the rest.</summary>
+        public bool PeopleRolled;
+        /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
         public int Standing;
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
         public bool Known;
@@ -37,6 +47,15 @@ namespace SurvivorCommunity
         /// again on the next load, off the map and out of the lookups meanwhile. Not saved.
         /// </summary>
         public bool Lost;
+
+        // ---- E2, session only (never saved) ----
+        /// <summary>The attack rule's clock (real time): the last hit that counted, and the warning it gave (-1: none).</summary>
+        public float LastHitAt = -1f, WarnedAt = -1f;
+        /// <summary>A threat's grace (real time): its hostility is on only from then (ScEnclavePeople.RebuildHostile).</summary>
+        public float GraceUntil;
+
+        /// <summary>A raider enclave, or one turned hostile: what standing, markers and talk act on.</summary>
+        public bool IsHostile { get { return Hostile || TurnedHostile; } }
 
         /// <summary>The POI footprint as an inclusive box {xMin, xMax, zMin, zMax}.</summary>
         public int[] Box { get { return new[] { Poi.x, Poi.x + Math.Max(1, Size.x) - 1, Poi.z, Poi.z + Math.Max(1, Size.z) - 1 }; } }
@@ -60,7 +79,8 @@ namespace SurvivorCommunity
     /// the map, kept as registry records. E1 puts them on the map - seeding, names, discovery, markers - and makes their
     /// POIs theirs: no sleeper zombies (Patches_Enclaves and the pre-clear here), no trader quests or vanilla respawns (the
     /// CheckForAnyPlayerHome postfix), no quest re-arm (Patches_Quest), no land claims (the claim gate in Patches_Outposts),
-    /// no outposts (ScOutposts.CanEstablish), and SC's own POI pickers pass them by. There are no people yet.
+    /// no outposts (ScOutposts.CanEstablish), and SC's own POI pickers pass them by. E2 gives them people (ScEnclavePeople)
+    /// and adds here the kind, the hostility earned in play and its standing helpers, and Fall (a group gone).
     ///
     /// Seeding runs on the host at GameStartDone, when the whole POI list is there and only the chunks round the player
     /// have started loading (StartAsServer adds the player's chunk observer just before): a new save at its first start;
@@ -79,6 +99,14 @@ namespace SurvivorCommunity
         /// <summary>Prefab or POI-name words that make a likely raider den (the hostile ranking): a word of the name that starts with one.</summary>
         private static readonly string[] HostileWords = { "army", "military", "prison", "police", "fort", "junk", "scrap", "industrial", "factory", "camp" };
         private static readonly string[] DirKeys = { "scDirN", "scDirNE", "scDirE", "scDirSE", "scDirS", "scDirSW", "scDirW", "scDirNW" };
+        /// <summary>E2: the kinds of group (Enclaves_Plan.md 2.7; EnclaveKindRows maps POI rows onto them, any other row is general).</summary>
+        public static readonly string[] Kinds = { "growers", "medics", "militia", "builders", "roadcrew", "general" };
+
+        /// <summary>
+        /// E6's seam: an enclave fell (Fall: wiped out, or E5's lost siege) - its record is gone and its POI free again. The
+        /// refill of lost enclaves hooks in here. Main thread, after the save.
+        /// </summary>
+        public static event Action<Enclave, string> Fallen;
 
         /// <summary>Footprints {xMin, xMax, zMin, zMax} and keys of every enclave POI: read by patches that may run off the main thread.</summary>
         private static volatile int[][] boxes = new int[0][];
@@ -98,6 +126,9 @@ namespace SurvivorCommunity
         /// reveal an enclave that Validate is about to move or drop.
         /// </summary>
         private static bool ready;
+
+        /// <summary>OnGameStart has run this session (E2's people wait for it too).</summary>
+        public static bool Ready { get { return ready; } }
 
         public static List<Enclave> All { get { return ScRegistry.Enclaves; } }
 
@@ -134,6 +165,7 @@ namespace SurvivorCommunity
                 if (e.Id > c.NextEnclaveId) c.NextEnclaveId = e.Id;
             }
             Rebuild();
+            ScEnclavePeople.OnRegistryChanged();    // E2: person ids, no body known, the hostility lookup
         }
 
         /// <summary>Rebuilds the thread-safe lookup arrays (after any change to the list; empty while Enclaves is off).</summary>
@@ -152,6 +184,7 @@ namespace SurvivorCommunity
             }
             boxes = b.ToArray();
             keys = k.ToArray();
+            ScEnclavePeople.RebuildHostile();       // E2: a lost or gone enclave's hostility goes with its lookups
         }
 
         // ------------------------------------------------------------------ queries (thread-safe) ----
@@ -185,6 +218,14 @@ namespace SurvivorCommunity
                 int[] r = b[i];
                 if (min.x <= r[1] && max.x >= r[0] && min.z <= r[3] && max.z >= r[2]) return true;
             }
+            return false;
+        }
+
+        /// <summary>Is the point within margin metres (XZ) of a living enclave's footprint? (E2's wild-spawn rule.)</summary>
+        public static bool NearEnclave(Vector3 p, float margin)
+        {
+            int[][] b = boxes;
+            for (int i = 0; i < b.Length; i++) if (ToBox(p.x, p.z, b[i]) <= margin) return true;
             return false;
         }
 
@@ -223,7 +264,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The live POI of an enclave (found by x, z and prefab; the exact key as a fallback), or null.</summary>
-        private static PrefabInstance PoiOf(Enclave e)
+        internal static PrefabInstance PoiOf(Enclave e)
         {
             PoiEntry pe = ScPoiIndex.Built ? ScPoiIndex.Find(e.Poi.x, e.Poi.z, e.Prefab) : null;
             return pe != null ? pe.Pi : ScSecurity.PoiByKey(e.Poi);
@@ -255,7 +296,14 @@ namespace SurvivorCommunity
 
         public static string StandingKey(Enclave e)
         {
-            return e.Hostile ? "hostile" : e.Standing >= 70 ? "allied" : e.Standing >= 30 ? "friendly" : "neutral";
+            return e.IsHostile ? "hostile" : e.Standing >= 70 ? "allied" : e.Standing >= 30 ? "friendly" : "neutral";
+        }
+
+        /// <summary>E2: the kind of group a POI row makes (EnclaveKindRows; any other row, or none, is general).</summary>
+        public static string KindFor(string row)
+        {
+            string k;
+            return !string.IsNullOrEmpty(row) && ScConfig.EnclaveKindRows.TryGetValue(row, out k) ? k : "general";
         }
 
         /// <summary>Neutral below 30, Friendly 30-69, Allied 70+; Hostile whatever the points (Localization).</summary>
@@ -284,6 +332,8 @@ namespace SurvivorCommunity
                 if (!ScCommunity.IsHost || !ScRegistry.Loaded) return;
                 World w = ScCommunity.World;
                 if (w == null) return;
+                // E2: a kind for every enclave seeded before E2 (its POI's row through EnclaveKindRows)
+                foreach (Enclave e in All) if (string.IsNullOrEmpty(e.Kind)) e.Kind = KindFor(e.Row);
                 if (!ScConfig.Enclaves)
                 {
                     Rebuild();
@@ -709,6 +759,7 @@ namespace SurvivorCommunity
                     PoiName = k.E.Display,
                     Biome = k.E.Biome,
                     Row = k.E.Row,
+                    Kind = KindFor(k.E.Row),
                     Tier = k.E.Tier,
                     Hostile = k.Hostile,
                     SeededDay = today,
@@ -765,7 +816,11 @@ namespace SurvivorCommunity
                 if (pe != null)
                 {
                     e.Lost = false;
-                    if (pe.Key != e.Poi) ScLog.Out("enclave " + e.Id + " '" + e.Name + "': its POI's key moved from " + e.Poi + " to " + pe.Key + " (a POI pack update?)");
+                    if (pe.Key != e.Poi)
+                    {
+                        ScLog.Out("enclave " + e.Id + " '" + e.Name + "': its POI's key moved from " + e.Poi + " to " + pe.Key + " (a POI pack update?)");
+                        ScEnclavePeople.ClearSpots(e);      // E2: the home spots were in the old placement
+                    }
                     e.Poi = pe.Key;
                     e.Size = pe.Size;
                     e.PoiName = pe.Display;
@@ -788,6 +843,7 @@ namespace SurvivorCommunity
                         continue;
                     }
                     RemoveMarker(e);
+                    ScEnclavePeople.DropPeople(e);          // E2: its people's records go with it
                     All.Remove(e);
                     dropped++;
                     ScLog.Warn("enclave " + e.Id + " '" + e.Name + "': its POI " + e.Prefab + " at " + e.Poi + " is gone and no POI within "
@@ -806,6 +862,7 @@ namespace SurvivorCommunity
                 e.Tier = to.Tier;
                 e.Mode = "moved";
                 e.Lost = false;
+                ScEnclavePeople.ClearSpots(e);              // E2: new spots in the new POI when they next spawn (their kind stays)
                 moved++;
             }
             Rebuild();      // the moves count for the top-up (its spacing, and CheckForAnyPlayerHome)
@@ -938,9 +995,9 @@ namespace SurvivorCommunity
                     e.Known = true;
                     e.KnownDay = ScCommunity.Today;
                     AddMarker(e, player);
-                    ScCommunity.Tell(player, string.Format(Localization.Get("scEnclaveFound"), e.Name, e.PoiName, StandingWord(e)), e.Hostile ? "ui_denied" : "");
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scEnclaveFound"), e.Name, e.PoiName, StandingWord(e)), e.IsHostile ? "ui_denied" : "");
                     ScOutposts.NoteLedger(string.Format(Localization.Get("scEnclaveLedgerFound"), e.Name, e.PoiName));
-                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "' found at " + e.PoiName + (e.Hostile ? " (hostile)" : ""));
+                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "' found at " + e.PoiName + (e.IsHostile ? " (hostile)" : ""));
                     ScRegistry.SaveAtomic();
                 }
             }
@@ -1055,11 +1112,84 @@ namespace SurvivorCommunity
             }
         }
 
+        // ------------------------------------------------------------------ standing, hostility, a group gone (E2) ----
+
+        /// <summary>
+        /// Standing changes (E2; E4's requests will use it): clamped to EnclaveStandingMin..100, the marker re-registered when
+        /// the band changes (Neutral / Friendly / Allied - the dialog's greetings follow on the next talk), a ledger line, the
+        /// log, a save. A hostile enclave's standing still moves, but it shows and acts as hostile whatever the points.
+        /// </summary>
+        public static void AddStanding(Enclave e, int delta, string reason)
+        {
+            if (e == null || delta == 0) return;
+            int old = e.Standing;
+            string before = StandingKey(e);
+            e.Standing = Mathf.Clamp(e.Standing + delta, Math.Min(0, ScConfig.EnclaveStandingMin), 100);
+            if (e.Standing == old) return;
+            string after = StandingKey(e);
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            if (after != before && e.Known && pl != null) AddMarker(e, pl);
+            ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerStanding"), e.Name, (e.Standing > old ? "+" : "") + (e.Standing - old), StandingWord(e)));
+            ScLog.Out("enclave " + e.Id + " '" + e.Name + "': standing " + old + " -> " + e.Standing + " (" + after + ", " + reason + ")");
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>
+        /// The group turns hostile for good (E2, Q6 a: a second hit within the warning window, a kill, a threat): TurnedHostile
+        /// and HostileDay, live bodies stamped (X9 hides talk, X10 turrets shoot), the faction lookup rebuilt - after grace
+        /// seconds, so a threat's dialog can close first - the marker red, a ledger line and a tell, the log, a save. It never
+        /// improves: nothing turns it back except "sc enclave reseed". A raider enclave is hostile already.
+        /// </summary>
+        public static void TurnHostile(Enclave e, string cause, float grace = 0f)
+        {
+            if (e == null || e.IsHostile) return;
+            // E3: enlisted followers of this enclave are released here first (they would turn on the player at their side)
+            // E4: the enclave's open request is closed here
+            e.TurnedHostile = true;
+            e.HostileDay = ScCommunity.Today;
+            ScEnclavePeople.OnTurnedHostile(e, grace);
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            if (e.Known && pl != null) AddMarker(e, pl);
+            ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerHostile"), e.Name));
+            if (pl != null) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncTurnedHostile"), e.Name), "ui_denied");
+            ScLog.Out("enclave " + e.Id + " '" + e.Name + "' turned hostile for good (" + cause + ")" + (grace > 0f ? ", " + grace.ToString("0.#", CultureInfo.InvariantCulture) + " s grace" : ""));
+            ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>
+        /// A group is gone (E2: its last person died; E5: a lost siege): its bodies and records go, the marker comes off and
+        /// its POI is given back - the sleeper areas it kept clear respawn after the loot respawn wait, and claims, quests,
+        /// infestations, wild spawns and containers are allowed again once the lookups rebuild. A ledger line and a tell
+        /// ("is gone", for raiders "you wiped out"), the log, a save; then the Fallen seam (E6's refill).
+        /// </summary>
+        public static void Fall(Enclave e, string cause)
+        {
+            if (e == null || !All.Contains(e)) return;
+            World w = ScCommunity.World;
+            ScEnclavePeople.DropPeople(e);
+            RemoveMarker(e);
+            int released = Release(PoiOf(e), w);
+            All.Remove(e);
+            Rebuild();
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            if (pl != null) ScCommunity.Tell(pl, string.Format(Localization.Get(e.Hostile ? "scEncWipedOut" : "scEncGone"), e.Name), "");
+            ScOutposts.NoteLedger(string.Format(Localization.Get(e.Hostile ? "scEncLedgerWipedOut" : "scEncLedgerGone"), e.Name, e.PoiName));
+            ScLog.Out("enclave " + e.Id + " '" + e.Name + "' at " + e.PoiName + " is gone (" + cause + ")"
+                      + (released > 0 ? " - " + released + " sleeper area(s) respawn after the loot respawn wait" : ""));
+            ScRegistry.SaveAtomic();
+            Action<Enclave, string> fallen = Fallen;
+            if (fallen != null)
+            {
+                try { fallen(e, cause); }
+                catch (Exception ex) { ScLog.Once("enclave-fallen", ex); }
+            }
+        }
+
         // ------------------------------------------------------------------ console ----
 
         private static string Line(Enclave e, Vector3? from)
         {
-            return "#" + e.Id + " " + e.Name + (e.Hostile ? " [hostile]" : "") + (e.Known ? " - known" : " - not found") + " - " + e.PoiName + " (" + e.Prefab + ") T" + e.Tier
+            return "#" + e.Id + " " + e.Name + (e.Hostile ? " [hostile]" : e.TurnedHostile ? " [turned hostile]" : "") + (e.Known ? " - known" : " - not found") + " - " + e.PoiName + " (" + e.Prefab + ") T" + e.Tier
                    + " " + e.Biome + (from.HasValue ? " - " + Where(from.Value, e.Centre) : "") + " - " + e.Mode
                    + (e.Lost ? " - its POI is gone, waiting for a free one" : "");
         }
@@ -1071,7 +1201,8 @@ namespace SurvivorCommunity
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             into.Add(All.Count + " enclave(s)" + (c.EnclaveSeeded ? ", seeded day " + c.EnclaveSeedDay + " (" + c.EnclaveSeedMode + ", seed " + c.EnclaveSeed + ", target "
                      + c.EnclaveSeedCount + ")" : ", never seeded in this save") + (ScConfig.Enclaves ? "" : " - Enclaves is OFF in the config")
-                     + "; the radio can reveal one " + (c.EnclaveRadioDay > ScCommunity.Today ? "from day " + c.EnclaveRadioDay : "now (a powered radio, an unfound one in range)"));
+                     + "; the radio can reveal one " + (c.EnclaveRadioDay > ScCommunity.Today ? "from day " + c.EnclaveRadioDay : "now (a powered radio, an unfound one in range)")
+                     + "; " + ScRegistry.EncPeople.Count + " person record(s); wild NPC spawns kept off their grounds this session: " + ScEnclavePeople.WildRefused);
             foreach (Enclave e in All) into.Add("  " + Line(e, pl != null ? pl.position : (Vector3?)null));
         }
 
@@ -1081,8 +1212,10 @@ namespace SurvivorCommunity
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             int[] b = e.Box;
             Vector3 cen = e.Centre;
-            into.Add("#" + e.Id + " " + e.Name + ": " + (e.Hostile ? "hostile by nature" : "survivors") + ", standing " + e.Standing + " (" + StandingWord(e) + "), "
+            into.Add("#" + e.Id + " " + e.Name + ": " + (e.Hostile ? "hostile by nature" : e.TurnedHostile ? "survivors, hostile since day " + e.HostileDay : "survivors")
+                     + ", kind " + (e.Kind.Length > 0 ? e.Kind : "-") + ", standing " + e.Standing + " (" + StandingWord(e) + "), "
                      + (e.Known ? "known since day " + e.KnownDay : "not found yet") + ", seeded day " + e.SeededDay + " (" + e.Mode + ")");
+            into.Add("  people: " + ScEnclavePeople.Summary(e) + " (sc enclave people " + e.Id + ")");
             into.Add("  POI " + e.PoiName + " (" + e.Prefab + "), T" + e.Tier + ", row " + (e.Row.Length > 0 ? e.Row : "-") + ", biome " + e.Biome
                      + ", key " + e.Poi + ", footprint x " + b[0] + ".." + b[1] + " z " + b[2] + ".." + b[3] + " (" + e.Size.x + "x" + e.Size.z + ")"
                      + ", centre " + Mathf.RoundToInt(cen.x) + "," + Mathf.RoundToInt(cen.z) + (pl != null ? ", " + Where(pl.position, cen) + " from you" : ""));
@@ -1198,6 +1331,7 @@ namespace SurvivorCommunity
             int old = All.Count, released = 0;
             foreach (Enclave e in All)
             {
+                ScEnclavePeople.DropPeople(e);       // E2: bodies out of the world, records gone (a hostile one too: reseed is the only way back)
                 RemoveMarker(e);
                 released += Release(PoiOf(e), w);
             }

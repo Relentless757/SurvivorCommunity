@@ -30,6 +30,12 @@ namespace SurvivorCommunity
     ///                carry=f,f,f,f,f pending=n,n,n,n,n state=Active lost=-1 last=f,f,f,f,f
     ///   [enclave]    id=4 name=.. poi=x,y,z size=w,h,d prefab=.. poiname=.. biome=pine_forest row=farm tier=2 hostile=0
     ///                standing=0 known=1 knownday=6 seeded=1:new (forward-only: an older build drops the section)
+    ///                E2 adds kind=growers turned=-1 (the day it turned hostile, -1 = never) people=1 (its group was made)
+    ///   [encperson]  pid=12 enclave=4 role=leader|member state=home|dead died=-1 spot=x,y,z yaw=90 health=0.8
+    ///                ammostart=.. (ScAmmo's form), then the person as a [member] writes them (WriteMemberFields: class, name,
+    ///                look, loadout, ammo, skills, traits ...; id and born are 0, a body is never saved). Forward-only, as
+    ///                [enclave]: an older build drops the section and the encpersonid= key. A person whose enclave is
+    ///                missing is dropped (a degraded load).
     ///   [infestation] id=3 poi=x,y,z size=w,h,d prefab=.. poiname=.. tier=2 start=12 how=roll source=0 known=1 knownday=13
     ///                special=owed (none | pending:x,y,z | met:class) spread=-1 rearm=x,y,z;.. (forward-only, as [enclave])
     /// Main thread only.
@@ -48,6 +54,11 @@ namespace SurvivorCommunity
         public static readonly List<Outpost> Outposts = new List<Outpost>();
         /// <summary>Groups of survivors holed up in POIs (ScEnclaves), in seeding order.</summary>
         public static readonly List<Enclave> Enclaves = new List<Enclave>();
+        /// <summary>
+        /// The enclaves' people (ScEnclavePeople, E2), in the order they were made. Never in Members: relink, consumption,
+        /// morale and the roster walk that dictionary.
+        /// </summary>
+        public static readonly List<EncPerson> EncPeople = new List<EncPerson>();
         /// <summary>Infested POIs (ScInfestations), in the order they began.</summary>
         public static readonly List<Infestation> Infestations = new List<Infestation>();
         /// <summary>
@@ -115,7 +126,7 @@ namespace SurvivorCommunity
                 Community = new Community();
                 Members.Clear();
                 Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); Infestations.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear();
                 Cleanup.Clear();
                 Doomed.Clear();
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Warn("registry load: no save directory"); return; }
@@ -130,7 +141,7 @@ namespace SurvivorCommunity
                     Community = new Community();
                     Members.Clear();
                     Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); Infestations.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear();
                     Cleanup.Clear();
                 Doomed.Clear();
                     ok = TryLoadFile(bak);
@@ -145,7 +156,8 @@ namespace SurvivorCommunity
                 ScRunners.OnRegistryLoaded();          // a runner left in the world by a crash resumes from its snapshot
                 ScOutposts.OnRegistryChanged();
                 ScLog.Out("registry loaded: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s), " + Outposts.Count + " outpost(s), "
-                          + Enclaves.Count + " enclave(s), " + Infestations.Count + " infestation(s)" + (SaveIsNew ? " (a new save)" : "") + ", morale "
+                          + Enclaves.Count + " enclave(s) with " + EncPeople.Count + " person record(s), " + Infestations.Count + " infestation(s)"
+                          + (SaveIsNew ? " (a new save)" : "") + ", morale "
                           + Community.Morale + (Community.HasHome ? ", home " + Community.Home : ", no home yet")
                           + (degraded ? " (DEGRADED)" : ""));
             });
@@ -210,6 +222,7 @@ namespace SurvivorCommunity
                 Contact ct = null;
                 Outpost op = null;
                 Enclave en = null;
+                EncPerson ep = null;
                 Infestation inf = null;
                 int bad = 0;
                 for (int i = 1; i < lines.Length; i++)
@@ -218,13 +231,14 @@ namespace SurvivorCommunity
                     if (line.Length == 0 || line[0] == '#') continue;
                     if (line[0] == '[')
                     {
-                        Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitInfestation(ref inf);
+                        Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf);
                         section = line.Trim('[', ']').ToLowerInvariant();
                         if (section == "member") m = new Member();
                         else if (section == "prospect") p = new Prospect();
                         else if (section == "contact") ct = new Contact();
                         else if (section == "outpost") op = new Outpost();
                         else if (section == "enclave") en = new Enclave();
+                        else if (section == "encperson") ep = new EncPerson();
                         else if (section == "infestation") inf = new Infestation();
                         continue;
                     }
@@ -240,6 +254,7 @@ namespace SurvivorCommunity
                         else if (section == "contact" && ct != null) ParseContact(ct, key, val);
                         else if (section == "outpost" && op != null) ParseOutpost(op, key, val);
                         else if (section == "enclave" && en != null) ParseEnclave(en, key, val);
+                        else if (section == "encperson" && ep != null) ParsePerson(ep, key, val);
                         else if (section == "infestation" && inf != null) ParseInfestation(inf, key, val);
                         else bad++;
                     }
@@ -248,8 +263,9 @@ namespace SurvivorCommunity
                         bad++;
                     }
                 }
-                Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitInfestation(ref inf);
+                Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf);
                 if (bad > 0) { degraded = true; ScLog.Warn("registry: " + bad + " unreadable line(s) skipped in " + path); }
+                DropStrayPeople();
                 return true;
             }
             catch (Exception e)
@@ -376,7 +392,50 @@ namespace SurvivorCommunity
                     if (colon > 0) e.Mode = val.Substring(colon + 1);
                     break;
                 }
+                // E2: the group's kind, the day it turned hostile (-1 = never), whether its people were made
+                case "kind": e.Kind = val.Trim().ToLowerInvariant(); break;
+                case "turned": { int d = I(val); e.TurnedHostile = d >= 0; e.HostileDay = d; break; }
+                case "people": e.PeopleRolled = val == "1"; break;
             }
+        }
+
+        private static void CommitPerson(ref EncPerson ep)
+        {
+            if (ep != null)
+            {
+                if (ep.Id > 0 && ep.EnclaveId > 0 && !string.IsNullOrEmpty(ep.Who.Class)) EncPeople.Add(ep); else degraded = true;
+            }
+            ep = null;
+        }
+
+        /// <summary>One [encperson] line: the person's own keys, else one of the member keys the person's Member is written with.</summary>
+        private static void ParsePerson(EncPerson ep, string key, string val)
+        {
+            switch (key)
+            {
+                case "pid": ep.Id = I(val); break;
+                case "enclave": ep.EnclaveId = I(val); break;
+                case "role": ep.Role = val.Trim().ToLowerInvariant() == EncPerson.Leader ? EncPerson.Leader : EncPerson.MemberRole; break;
+                case "state": ep.State = val.Trim().ToLowerInvariant(); break;
+                case "died": ep.DiedDay = I(val); break;
+                case "spot": { Vector3i v; if (TryVec(val, out v)) { ep.Home = v; ep.HasHome = true; } break; }
+                case "yaw": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) ep.Yaw = f; break; }
+                case "health": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) ep.Health = Math.Max(0f, Math.Min(1f, f)); break; }
+                case "ammostart": ep.AmmoStart = ScAmmo.Decode(val, out ep.AmmoStartMags); break;
+                default: ParseMember(ep.Who, key, val); break;
+            }
+        }
+
+        /// <summary>A person whose enclave is not in the file (an edit, a crash between saves) is dropped: a degraded load.</summary>
+        private static void DropStrayPeople()
+        {
+            if (EncPeople.Count == 0) return;
+            var ids = new HashSet<int>();
+            foreach (Enclave e in Enclaves) ids.Add(e.Id);
+            int n = EncPeople.RemoveAll(ep => !ids.Contains(ep.EnclaveId));
+            if (n <= 0) return;
+            degraded = true;
+            ScLog.Warn("registry: " + n + " enclave person record(s) whose enclave is missing dropped");
         }
 
         private static void CommitInfestation(ref Infestation inf)
@@ -629,6 +688,8 @@ namespace SurvivorCommunity
                 case "enclaveradio": c.EnclaveRadioDay = I(val); break;
                 // infestations (I1): the id counter
                 case "infestid": c.NextInfestationId = I(val); break;
+                // enclave people (E2): the person id counter
+                case "encpersonid": c.NextEncPersonId = I(val); break;
                 case "stock":
                     foreach (string part in val.Split(','))
                     {
@@ -931,6 +992,7 @@ namespace SurvivorCommunity
                                   + c.EnclaveSeed.ToString(CultureInfo.InvariantCulture) + ":" + c.EnclaveSeedCount);
                 sb.AppendLine("enclaveradio=" + c.EnclaveRadioDay);
                 sb.AppendLine("infestid=" + c.NextInfestationId);
+                sb.AppendLine("encpersonid=" + c.NextEncPersonId);
                 var st = new StringBuilder();
                 for (int i = 0; i < ScNames.ResourceCount; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
                 sb.AppendLine("stock=" + st);
@@ -961,55 +1023,7 @@ namespace SurvivorCommunity
                 foreach (var m in Members.Values)
                 {
                     sb.AppendLine("[member]");
-                    sb.AppendLine("id=" + m.Id);
-                    sb.AppendLine("class=" + Clean(m.Class));
-                    sb.AppendLine("name=" + Clean(m.Name));
-                    sb.AppendLine("born=" + m.Born.ToString(CultureInfo.InvariantCulture));
-                    sb.AppendLine("status=" + m.Status);
-                    sb.AppendLine("post=" + Vec(m.Post));
-                    sb.AppendLine("join=" + m.JoinDay);
-                    sb.AppendLine("mood=" + m.Mood);
-                    sb.AppendLine("injured=" + (m.Injured ? 1 : 0));
-                    sb.AppendLine("ranged=" + (m.Ranged ? 1 : 0));
-                    sb.AppendLine("missing=" + m.MissingDays);
-                    var sk = new StringBuilder();
-                    for (int i = 0; i < Member.SkillCount; i++) { if (i > 0) sk.Append(','); sk.Append(ScNames.SkillKeys[i]).Append(':').Append(m.Skills[i].Level).Append(':').Append(m.Skills[i].Xp); }
-                    sb.AppendLine("skills=" + sk);
-                    sb.AppendLine("spec=" + m.Specialty + ":" + m.SpecLevel + ":" + m.SpecXp);
-                    if (m.Traits.Count > 0) sb.AppendLine("traits=" + string.Join(",", m.Traits.ToArray()));
-                    if (m.Status == MemberStatus.OnRun) sb.AppendLine("run=" + ScNames.Key(m.RunKind) + ":" + m.RunEndDay);
-                    if (m.Status == MemberStatus.Garrison) sb.AppendLine("outpost=" + m.OutpostId);
-                    if (m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.None)
-                    {
-                        sb.AppendLine("leg=" + m.RunLeg);
-                        sb.AppendLine("dest=" + Vec(m.RunDest));
-                        sb.AppendLine("destname=" + Clean(m.RunDestName));
-                        sb.AppendLine("site=" + Vec(m.RunSite));
-                        sb.AppendLine("legfrom=" + Vec(m.LegFrom));
-                        sb.AppendLine("legto=" + Vec(m.LegTo));
-                        sb.AppendLine("legt=" + m.LegStart.ToString(CultureInfo.InvariantCulture) + ":" + m.LegEnd.ToString(CultureInfo.InvariantCulture));
-                        sb.AppendLine("offline=" + (m.Offline ? 1 : 0));
-                        sb.AppendLine("carry=" + m.RunCarry);
-                        sb.AppendLine("rollpending=" + (m.RollPending ? 1 : 0));
-                        if (!string.IsNullOrEmpty(m.Snap)) sb.AppendLine("snap=" + m.Snap);   // base64url: never Clean()ed (it has no '=' or ';')
-                    }
-                    if (m.Status == MemberStatus.OnRun && m.RunDistress)
-                    {
-                        sb.AppendLine("distresspoi=" + Vec(m.RunPoi));
-                        sb.AppendLine("distressspawn=" + Vec(m.RunSpawn));
-                        sb.AppendLine("distressname=" + Clean(m.RunPoiName));
-                        sb.AppendLine("distresssafe=" + (m.RunSafe ? 1 : 0));
-                    }
-                    if (m.Look != null)
-                    {
-                        sb.AppendLine("look=" + Clean(m.Look.Encode()));
-                        sb.AppendLine("gear=" + Clean(m.Look.EncodeGear()));
-                    }
-                    if (m.Loadout != null) sb.AppendLine("loadout=" + Clean(m.Loadout.Encode()));
-                    if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11)
-                    if (m.WatchPost != Vector3i.zero)
-                        sb.AppendLine("watch=" + Vec(m.WatchPost) + ":" + m.WatchStart.ToString(CultureInfo.InvariantCulture) + ":" + m.WatchPrepaid + ":" + Vec(m.WatchHome));
-                    if (m.WatchRestUntil > 0UL) sb.AppendLine("watchrest=" + m.WatchRestUntil.ToString(CultureInfo.InvariantCulture));
+                    WriteMemberFields(sb, m);
                 }
                 foreach (var ct in Contacts)
                 {
@@ -1081,6 +1095,26 @@ namespace SurvivorCommunity
                     sb.AppendLine("known=" + (en.Known ? 1 : 0));
                     sb.AppendLine("knownday=" + en.KnownDay.ToString(CultureInfo.InvariantCulture));
                     sb.AppendLine("seeded=" + en.SeededDay + ":" + Clean(en.Mode));
+                    if (en.Kind.Length > 0) sb.AppendLine("kind=" + Clean(en.Kind));
+                    sb.AppendLine("turned=" + (en.TurnedHostile ? Math.Max(0, en.HostileDay) : -1).ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("people=" + (en.PeopleRolled ? 1 : 0));
+                }
+                foreach (var ep in EncPeople)
+                {
+                    sb.AppendLine("[encperson]");
+                    sb.AppendLine("pid=" + ep.Id);
+                    sb.AppendLine("enclave=" + ep.EnclaveId);
+                    sb.AppendLine("role=" + Clean(ep.Role));
+                    sb.AppendLine("state=" + Clean(ep.State));
+                    sb.AppendLine("died=" + ep.DiedDay.ToString(CultureInfo.InvariantCulture));
+                    if (ep.HasHome)
+                    {
+                        sb.AppendLine("spot=" + Vec(ep.Home));
+                        sb.AppendLine("yaw=" + ep.Yaw.ToString("0.#", CultureInfo.InvariantCulture));
+                    }
+                    sb.AppendLine("health=" + ep.Health.ToString("0.###", CultureInfo.InvariantCulture));
+                    if (ep.AmmoStart != null) sb.AppendLine("ammostart=" + Clean(ScAmmo.Encode(ep.AmmoStart, ep.AmmoStartMags)));
+                    WriteMemberFields(sb, ep.Who);
                 }
                 foreach (var inf in Infestations)
                 {
@@ -1164,7 +1198,7 @@ namespace SurvivorCommunity
                     Community = new Community();
                     Members.Clear();
                     Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); Infestations.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear();
                     Cleanup.Clear();
                 Doomed.Clear();
                     saveDir = null;
@@ -1175,6 +1209,63 @@ namespace SurvivorCommunity
         }
 
         // ---- helpers ----
+
+        /// <summary>
+        /// A Member's key=value lines - a [member] section's whole body, and an [encperson]'s person (E2) after its own keys -
+        /// so both sections share one field list, read back by ParseMember.
+        /// </summary>
+        private static void WriteMemberFields(StringBuilder sb, Member m)
+        {
+            sb.AppendLine("id=" + m.Id);
+            sb.AppendLine("class=" + Clean(m.Class));
+            sb.AppendLine("name=" + Clean(m.Name));
+            sb.AppendLine("born=" + m.Born.ToString(CultureInfo.InvariantCulture));
+            sb.AppendLine("status=" + m.Status);
+            sb.AppendLine("post=" + Vec(m.Post));
+            sb.AppendLine("join=" + m.JoinDay);
+            sb.AppendLine("mood=" + m.Mood);
+            sb.AppendLine("injured=" + (m.Injured ? 1 : 0));
+            sb.AppendLine("ranged=" + (m.Ranged ? 1 : 0));
+            sb.AppendLine("missing=" + m.MissingDays);
+            var sk = new StringBuilder();
+            for (int i = 0; i < Member.SkillCount; i++) { if (i > 0) sk.Append(','); sk.Append(ScNames.SkillKeys[i]).Append(':').Append(m.Skills[i].Level).Append(':').Append(m.Skills[i].Xp); }
+            sb.AppendLine("skills=" + sk);
+            sb.AppendLine("spec=" + m.Specialty + ":" + m.SpecLevel + ":" + m.SpecXp);
+            if (m.Traits.Count > 0) sb.AppendLine("traits=" + string.Join(",", m.Traits.ToArray()));
+            if (m.Status == MemberStatus.OnRun) sb.AppendLine("run=" + ScNames.Key(m.RunKind) + ":" + m.RunEndDay);
+            if (m.Status == MemberStatus.Garrison) sb.AppendLine("outpost=" + m.OutpostId);
+            if (m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.None)
+            {
+                sb.AppendLine("leg=" + m.RunLeg);
+                sb.AppendLine("dest=" + Vec(m.RunDest));
+                sb.AppendLine("destname=" + Clean(m.RunDestName));
+                sb.AppendLine("site=" + Vec(m.RunSite));
+                sb.AppendLine("legfrom=" + Vec(m.LegFrom));
+                sb.AppendLine("legto=" + Vec(m.LegTo));
+                sb.AppendLine("legt=" + m.LegStart.ToString(CultureInfo.InvariantCulture) + ":" + m.LegEnd.ToString(CultureInfo.InvariantCulture));
+                sb.AppendLine("offline=" + (m.Offline ? 1 : 0));
+                sb.AppendLine("carry=" + m.RunCarry);
+                sb.AppendLine("rollpending=" + (m.RollPending ? 1 : 0));
+                if (!string.IsNullOrEmpty(m.Snap)) sb.AppendLine("snap=" + m.Snap);   // base64url: never Clean()ed (it has no '=' or ';')
+            }
+            if (m.Status == MemberStatus.OnRun && m.RunDistress)
+            {
+                sb.AppendLine("distresspoi=" + Vec(m.RunPoi));
+                sb.AppendLine("distressspawn=" + Vec(m.RunSpawn));
+                sb.AppendLine("distressname=" + Clean(m.RunPoiName));
+                sb.AppendLine("distresssafe=" + (m.RunSafe ? 1 : 0));
+            }
+            if (m.Look != null)
+            {
+                sb.AppendLine("look=" + Clean(m.Look.Encode()));
+                sb.AppendLine("gear=" + Clean(m.Look.EncodeGear()));
+            }
+            if (m.Loadout != null) sb.AppendLine("loadout=" + Clean(m.Loadout.Encode()));
+            if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11)
+            if (m.WatchPost != Vector3i.zero)
+                sb.AppendLine("watch=" + Vec(m.WatchPost) + ":" + m.WatchStart.ToString(CultureInfo.InvariantCulture) + ":" + m.WatchPrepaid + ":" + Vec(m.WatchHome));
+            if (m.WatchRestUntil > 0UL) sb.AppendLine("watchrest=" + m.WatchRestUntil.ToString(CultureInfo.InvariantCulture));
+        }
 
         private static void OnMain(Action a)
         {

@@ -44,6 +44,7 @@ namespace SurvivorCommunity
                 ScRadio.Reset();
                 ScOutposts.Reset();
                 ScEnclaves.Reset();
+                ScEnclavePeople.Reset();
                 ScInfestations.Reset();
                 ScPoiIndex.Reset();
                 ScHomeLink.Reset();
@@ -112,6 +113,7 @@ namespace SurvivorCommunity
                 ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) =>
                 {
                     ScRunners.OnWorldShuttingDown();   // first: runners in the world go back to their snapshot before the world is saved
+                    ScEnclavePeople.OnWorldShuttingDown();   // enclave bodies recorded and taken out before the save (E2)
                     // a dead NPC's window still held by a remote player drops at the body now (the world is saved after this event)
                     if (ScCommunity.IsHost) Patches_Npc.Patch_SetDead.ReleaseAll(true);
                     ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScWeaponWarm.Reset(); ScRegistry.FlushAndReset();
@@ -348,6 +350,11 @@ namespace SurvivorCommunity
             Add(t, "BlockToolSelection::ExecuteUseAction", AccessTools.Method(typeof(BlockToolSelection), "ExecuteUseAction", new[] { typeof(ItemInventoryData), typeof(bool), typeof(PlayerActionsLocal) }));
             // Patches_Enclaves.cs - no sleeper zombies in an enclave's POI (E1; its other protections share the outposts' entries)
             Add(t, "SleeperVolume::UpdatePlayerTouched", AccessTools.Method(typeof(SleeperVolume), "UpdatePlayerTouched", new[] { typeof(World), typeof(EntityPlayer) }));
+            // E2: an enclave's containers refused while it lives; biome-spawned NPCs kept off enclave grounds (the class check
+            // shares ScLoadout's GetRandomFromGroupList entry)
+            Add(t, "TEFeatureStorage::OnBlockActivated", Patches_Enclaves.Patch_ContainerLock.Target());
+            Add(t, "SpawnManagerBiomes::SpawnUpdate", Patches_Enclaves.Patch_BiomeSpawn.Target());
+            Add(t, "World::GetRandomSpawnPositionInAreaMinMaxToPlayers", Patches_Enclaves.Patch_BiomeSpawnSpot.Target());
             // Patches_Infestations.cs - an infested POI's rooms (I1; the count, spawn points and special share the UpdatePlayerTouched
             // entry above, the feral share ScLoadout's GetRandomFromGroupList entry)
             Add(t, "SleeperVolume::UpdateSpawn", AccessTools.Method(typeof(SleeperVolume), "UpdateSpawn", new[] { typeof(World) }));

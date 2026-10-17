@@ -25,6 +25,57 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Enclave people (E2)
+
+**Built 2026-10-17, not deployed yet.** Every enclave gets a leader and 2-5 more people who live in its building: made
+the first time you come near, kept as records, spawned while you are within 150 m (once the building's chunks are
+built: at the default view distance about 90-100 m out) and gone (health and rounds kept)
+when you are 200 m away. They greet you by standing, warn you once if you hit them, turn hostile on a second hit, a
+kill or a threat, and their containers are theirs. `sc enclave list` and `sc enclave info <id>` show them;
+`sc enclave people <id>` lists each person.
+
+1. A group appears as you approach: `sc enclave list` (find a known survivor enclave; `sc enclave reveal <id>` shows
+   one), walk towards it. Within 150 m, once its chunks are built (about 90-100 m out at the default view distance), the
+   log has `enclave N 'name': the leader ... joins the group at ...`, then one
+   more line a second, `... - K of K, the group is made` on the last (3-5 people; 3-6 for raiders). The leader comes
+   first. `sc enclave people <id>` lists them, each with an entity id; `sc enclave info <id>` says "N living, led by ...,
+   N in the world" and the kind.
+2. Watch them for a day: the leader stands at one spot (`sc enclave people <id>` shows it) all day; the others walk
+   about the building and its yard and stand a while between walks; at night they idle near their spots. A zombie that
+   comes into the building is fought. None wanders off the building (nor follows a zombie more than a few metres out).
+3. Talk to the leader at each standing: at 0 the greeting is wary (Neutral). Ask "Tell me about this place." - the
+   reply names the enclave, how many they are, the building and the leader; "Something else." goes back. Then
+   `sc enclave standing <id> 40` (Friendly: a warm greeting, the marker turns green) and `75` (Allied: a welcoming one,
+   blue). The leader's rows are "Tell me about this place.", "Hand over your supplies." and "Nevermind" - no Hire, no
+   order menus, no recruit or favour rows.
+4. Talk to a member: a greeting by standing, "Where's your leader?" names the leader and says where they are from you
+   ("12 m north-east"). Saying "hire", "pick me up" or "dismiss" to them by voice is refused.
+5. Leave past 200 m (the log: `... its people went`) and come back: the same people come back (`sc enclave people`:
+   same names; same faces and weapons), no duplicates, with the health they had when they went.
+6. Save and quit next to them, then load: the same people come back from their records (the log has no
+   `removed a stale enclave body` line; if it does, it removed the copy a save kept - say so).
+7. Their containers: open a loot container in their building - refused, "That belongs to <name>." A container you
+   place there opens as usual.
+8. One hit on a member (a punch): "<name>: Watch it!" and the ledger has the standing change (-10, `sc enclave info`).
+   A shotgun blast is one hit. Hit them again within 2 minutes: "<enclave> will shoot you on sight from now on.", the
+   marker turns red, they attack you; your residents, followers and turrets fight them, and they them; you can't talk to
+   them any more. (`sc enclave hostile <id>` does the same without the hits.)
+9. A threat at another survivor enclave: "Hand over your supplies." - "You really want to go down that road?" -
+   "Forget it." goes back to the greeting; ask again, "I'm not asking." - 2-4 medium bundles land in your bag (mostly
+   food at a farm, medical at a clinic ...); about 10 seconds after the talk they turn hostile.
+10. A raider enclave: they attack on sight and have nothing to say. Pull one away by running off: once you break
+    contact they follow only a few metres past the building and go back (one still within melee reach keeps swinging
+    first, as residents do). Wipe them out: "You wiped out <name>.", the marker is gone,
+    `sc enclave list` no longer lists them, and their containers open.
+11. A death and the new leader: `sc enclave kill <id>` (the leader). The log names the new leader (the highest tier,
+    then the one made first), "... leads ... now" (tell and ledger), and the new leader walks to the old leader's spot.
+    `sc enclave kill <id> all`: "<name> is gone.", the marker comes off, the building is free (a land claim there is
+    allowed, its containers open).
+12. Wild spawns: spend a while (a day and a night) within 100 m of an enclave. No wild survivor or raider spawns in or
+    near it (zombies and animals do); `sc enclave list`'s header counts the spawns kept off.
+13. Set `Enclaves` to false in `Config/blocks.xml`, restart and load next to an enclave: no people appear and none of
+    the above applies; `sc enclave people <id>` still lists their records. Set it back: they come back.
+
 ## Infestations (I1)
 
 **Deployed 2026-10-16** (Fable review: deployable after fixes, all fixed; re-check: deployable; DLL md5

@@ -46,6 +46,12 @@
 		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" operator="not" />
 		<!-- an outpost / distress stand-in is that member too: nobody hires, orders or picks it up -->
 		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_standin" operator="not" />
+		<!-- one of an enclave's people neither (E2): they start at their own statements (the phases below), this is for a
+		     talk that ever reaches "start" all the same (a multiplayer client, where the phases' requirements are host-only) -->
+		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="%sc_enc" operator="not" />
+	</append>
+	<append xpath="/dialogs/dialog/response[@id='ShowMe']">
+		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="%sc_enc" operator="not" />
 	</append>
 
 	<append xpath="/dialogs/dialog[response[@id='Hire']]">
@@ -220,6 +226,135 @@
 		<response id="scUseHanded" text="scUseHanded">
 			<requirement type="ScHandedWeapon, SurvivorCommunity" requirementtype="Hide" />
 			<action type="ScUseHanded, SurvivorCommunity" />
+		</response>
+	</append>
+
+	<!-- Enclave people (E2, Enclaves_Plan.md 2.6; ScEnclavePeople, DialogOpsEnclaves.cs). Every player-body survivor talks
+	     through 0-XNPCCore's SdcsNPC dialog; these phases pick its first statement for an enclave's people - the first phase
+	     whose requirements all pass wins (Dialog.GetFirstStatment; no other dialog in the game or the installed mods has
+	     phases, and none replaces the first statement). The leader and the members each have a greeting by standing: wary
+	     at Neutral, warm at Friendly, welcoming at Allied. Anyone else falls through to XNPC's "start", and enclave people
+	     never reach the stranger rows (Hire, the order menus, Pickup, ShowMe, SC's recruit and favour rows): those are hidden
+	     on them besides (%sc_enc, above). A hostile enclave matches no phase, but X9 keeps its people from being talked to.
+	     Requirements and the tokens the line panel fills ({enc}, {count}, {poi}, {leader}, {where}: XUiC_ScDialogLine,
+	     ScEncDialog.Fill) are host-only. A line that will be voiced later says nothing that needs a name or a number: those
+	     sit in a sentence of their own. Rows: the leader 3 (7 once E4's requests come), members 2 (4 with E3's enlist and
+	     recruit), under the dialog's 10. Never list Hire in these statements: SC's injection keys on it. -->
+	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
+		<phase id="scEncLeaderAllied" startstatementid="scEncLeaderAllied">
+			<requirement type="ScEncRole, SurvivorCommunity" value="leader" />
+			<requirement type="ScEncStanding, SurvivorCommunity" value="allied" />
+		</phase>
+		<phase id="scEncLeaderFriendly" startstatementid="scEncLeaderFriendly">
+			<requirement type="ScEncRole, SurvivorCommunity" value="leader" />
+			<requirement type="ScEncStanding, SurvivorCommunity" value="friendly" />
+		</phase>
+		<phase id="scEncLeaderNeutral" startstatementid="scEncLeaderNeutral">
+			<requirement type="ScEncRole, SurvivorCommunity" value="leader" />
+			<requirement type="ScEncStanding, SurvivorCommunity" value="neutral" />
+		</phase>
+		<phase id="scEncMemberAllied" startstatementid="scEncMemberAllied">
+			<requirement type="ScEncRole, SurvivorCommunity" value="member" />
+			<requirement type="ScEncStanding, SurvivorCommunity" value="allied" />
+		</phase>
+		<phase id="scEncMemberFriendly" startstatementid="scEncMemberFriendly">
+			<requirement type="ScEncRole, SurvivorCommunity" value="member" />
+			<requirement type="ScEncStanding, SurvivorCommunity" value="friendly" />
+		</phase>
+		<phase id="scEncMemberNeutral" startstatementid="scEncMemberNeutral">
+			<requirement type="ScEncRole, SurvivorCommunity" value="member" />
+			<requirement type="ScEncStanding, SurvivorCommunity" value="neutral" />
+		</phase>
+
+		<!-- the leader's greetings -->
+		<statement id="scEncLeaderNeutral" text="scEncLeaderNeutral_text">
+			<response_entry id="scEncAbout" />
+			<response_entry id="scEncThreat" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncLeaderFriendly" text="scEncLeaderFriendly_text">
+			<response_entry id="scEncAbout" />
+			<response_entry id="scEncThreat" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncLeaderAllied" text="scEncLeaderAllied_text">
+			<response_entry id="scEncAbout" />
+			<response_entry id="scEncThreat" />
+			<response_entry id="done" />
+		</statement>
+		<!-- "Tell me about this place." -->
+		<statement id="scEncAboutReply" text="scEncAboutReply_text">
+			<response_entry id="scEncLeaderBackNeutral" />
+			<response_entry id="scEncLeaderBackFriendly" />
+			<response_entry id="scEncLeaderBackAllied" />
+			<response_entry id="done" />
+		</statement>
+		<!-- "Hand over your supplies." (Q6 a): a confirm step; "I'm not asking." pays out and turns them hostile for good,
+		     after EnclaveThreatGrace seconds so this closing is not a shot in the back; "Forget it." goes back to the greeting -->
+		<statement id="scEncThreatConfirm" text="scEncThreatConfirm_text">
+			<response_entry id="scEncThreatYes" />
+			<response_entry id="scEncForgetNeutral" />
+			<response_entry id="scEncForgetFriendly" />
+			<response_entry id="scEncForgetAllied" />
+		</statement>
+		<statement id="scEncThreatPaid" text="scEncThreatPaid_text">
+			<response_entry id="done" />
+		</statement>
+		<!-- the members' greetings -->
+		<statement id="scEncMemberNeutral" text="scEncMemberNeutral_text">
+			<response_entry id="scEncWhereLeader" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncMemberFriendly" text="scEncMemberFriendly_text">
+			<response_entry id="scEncWhereLeader" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncMemberAllied" text="scEncMemberAllied_text">
+			<response_entry id="scEncWhereLeader" />
+			<response_entry id="done" />
+		</statement>
+		<!-- "Where's your leader?" -->
+		<statement id="scEncWhereReply" text="scEncWhereReply_text">
+			<response_entry id="scEncMemberBackNeutral" />
+			<response_entry id="scEncMemberBackFriendly" />
+			<response_entry id="scEncMemberBackAllied" />
+			<response_entry id="done" />
+		</statement>
+
+		<response id="scEncAbout" text="scEncAbout" nextstatementid="scEncAboutReply" />
+		<response id="scEncThreat" text="scEncThreat" nextstatementid="scEncThreatConfirm" />
+		<response id="scEncThreatYes" text="scEncThreatYes" nextstatementid="scEncThreatPaid">
+			<requirement type="ScEncRole, SurvivorCommunity" requirementtype="Hide" value="leader" />
+			<action type="ScEncThreat, SurvivorCommunity" />
+		</response>
+		<response id="scEncWhereLeader" text="scEncWhereLeader" nextstatementid="scEncWhereReply" />
+		<!-- back to the greeting of the standing now: one of each three shows -->
+		<response id="scEncForgetNeutral" text="scEncForget" nextstatementid="scEncLeaderNeutral">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="neutral" />
+		</response>
+		<response id="scEncForgetFriendly" text="scEncForget" nextstatementid="scEncLeaderFriendly">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="friendly" />
+		</response>
+		<response id="scEncForgetAllied" text="scEncForget" nextstatementid="scEncLeaderAllied">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="allied" />
+		</response>
+		<response id="scEncLeaderBackNeutral" text="scEncBack" nextstatementid="scEncLeaderNeutral">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="neutral" />
+		</response>
+		<response id="scEncLeaderBackFriendly" text="scEncBack" nextstatementid="scEncLeaderFriendly">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="friendly" />
+		</response>
+		<response id="scEncLeaderBackAllied" text="scEncBack" nextstatementid="scEncLeaderAllied">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="allied" />
+		</response>
+		<response id="scEncMemberBackNeutral" text="scEncBack" nextstatementid="scEncMemberNeutral">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="neutral" />
+		</response>
+		<response id="scEncMemberBackFriendly" text="scEncBack" nextstatementid="scEncMemberFriendly">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="friendly" />
+		</response>
+		<response id="scEncMemberBackAllied" text="scEncBack" nextstatementid="scEncMemberAllied">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="allied" />
 		</response>
 	</append>
 </configs>

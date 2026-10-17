@@ -85,6 +85,24 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// Host: a body rebuilt for a person SC keeps a record of without being a member (E2's enclave people) wears that
+        /// record's profile, written over the one PostInit rolled for the new body - so it never re-rolls between visits.
+        /// After the spawn is enough: PostInit's roll reads nothing of it, and everything else reads the cvars live.
+        /// </summary>
+        public static void Stamp(Member m, EntityAlive npc)
+        {
+            if (!ScCommunity.IsHost || m == null || npc == null || npc.Buffs == null) return;
+            try
+            {
+                Write(npc.Buffs, m);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("profile-stamp", e);
+            }
+        }
+
         /// <summary>A former member: the snapshot shows their traits by name.</summary>
         public static bool Known(EntityAlive npc)
         {

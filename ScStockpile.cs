@@ -158,7 +158,10 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Bundles of one size into the box; what does not fit goes to the player, then the ground. Returns the bundles given.</summary>
+        /// <summary>
+        /// Bundles of one size into the box; what does not fit goes to the player, then the ground. No box (st null: an
+        /// enclave's threat payout, E2): the player, then the ground. Returns the bundles given.
+        /// </summary>
         public static int GiveBundles(TEFeatureStorage st, Resource r, BundleSize size, int count, EntityPlayerLocal player)
         {
             if (count <= 0) return 0;
@@ -170,7 +173,7 @@ namespace SurvivorCommunity
             {
                 int n = Math.Min(stackMax, count - given);
                 var stack = new ItemStack(iv.Clone(), n);
-                if (st.AddItem(stack)) { given += n; continue; }
+                if (st != null && st.AddItem(stack)) { given += n; continue; }
                 if (player != null && player.PlayerUI != null && player.PlayerUI.xui != null && player.PlayerUI.xui.PlayerInventory != null
                     && player.PlayerUI.xui.PlayerInventory.AddItem(stack)) { given += n; continue; }
                 if (player != null)

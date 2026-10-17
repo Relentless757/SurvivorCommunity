@@ -390,6 +390,8 @@ namespace SurvivorCommunity
         public int EnclaveRadioDay;
         /// <summary>Infestations (ScInfestations, I1): the id counter (infestid=).</summary>
         public int NextInfestationId;
+        /// <summary>Enclave people (ScEnclavePeople, E2): the person id counter (encpersonid=), one for every enclave.</summary>
+        public int NextEncPersonId;
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }

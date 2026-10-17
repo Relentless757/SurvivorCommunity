@@ -28,6 +28,79 @@ namespace UAI
     }
 
     /// <summary>
+    /// The ground a body lives on (E2): the home zone for residents (ScZone: the claim's rectangles), an enclave's POI
+    /// footprint for its people. The roam, the leash and the defence read it instead of the static zone, so one set of
+    /// actions serves both; for residents every call is exactly the ScZone call it replaced. One instance for the zone,
+    /// one per enclave (ScEnclavePeople.AreaOf), reading the enclave record's live footprint.
+    /// </summary>
+    public sealed class ScArea
+    {
+        public static readonly ScArea HomeZone = new ScArea(null);
+        private readonly Enclave enclave;
+
+        public ScArea(Enclave e) { enclave = e; }
+
+        /// <summary>The enclave whose footprint this is (null for the home zone).</summary>
+        public Enclave Enclave { get { return enclave; } }
+
+        public bool Contains(Vector3i p) { return enclave == null ? ScZone.Contains(p) : enclave.Contains(p.x, p.z); }
+
+        /// <summary>Horizontal metres outside the ground (0 inside it).</summary>
+        public float DistanceOutside(Vector3 p) { return enclave == null ? ScZone.DistanceOutside(p) : enclave.DistanceXZ(p.x, p.z); }
+
+        /// <summary>A random point of the ground (y 0): ScZone's for the zone, a cell of the footprint for an enclave.</summary>
+        public bool RandomPoint(out Vector3 p)
+        {
+            if (enclave == null) return ScZone.RandomPoint(out p);
+            Vector3i a = enclave.Poi, s = enclave.Size;
+            p = new Vector3(Random.Range(a.x, a.x + Mathf.Max(1, s.x)) + 0.5f, 0f, Random.Range(a.z, a.z + Mathf.Max(1, s.z)) + 0.5f);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Where a body belongs (E2), resolved per body for the shared actions: a member - the resident's post and the home
+    /// zone, looked up first and unchanged - or an enclave person's current body - their home spot and the enclave's
+    /// footprint (ScEnclavePeople.PersonOf: one dictionary hit). A struct: the AI asks on every decision.
+    /// </summary>
+    public struct ScHome
+    {
+        /// <summary>The member's record, or the enclave person's Member (Who).</summary>
+        public Member Member;
+        /// <summary>The enclave person; null for a member.</summary>
+        public EncPerson Person;
+        public ScArea Area;
+        /// <summary>The post's (the spot's) cell centre on its floor.</summary>
+        public Vector3 Post;
+
+        public bool IsEnclave { get { return Person != null; } }
+
+        /// <summary>False with no member with a post and no enclave person with a spot.</summary>
+        public static bool Of(EntityAlive self, out ScHome h)
+        {
+            h = default(ScHome);
+            if (self == null) return false;
+            Member m = ScRegistry.GetMember(self.entityId);
+            if (m != null)
+            {
+                if (m.Post == Vector3i.zero) return false;
+                h.Member = m;
+                h.Area = ScArea.HomeZone;
+                h.Post = ScCommunity.PostCenter(m);
+                return true;
+            }
+            EncPerson p = ScEnclavePeople.PersonOf(self);
+            if (p == null || !p.HasHome) return false;
+            h.Area = ScEnclavePeople.AreaOf(p.EnclaveId);
+            if (h.Area == null) return false;
+            h.Member = p.Who;
+            h.Person = p;
+            h.Post = p.HomeCentre;
+            return true;
+        }
+    }
+
+    /// <summary>
     /// The daytime roam. With ResidentRoamZone (round hz, the default; the user: "They should be able to walk about inside
     /// the base rather than find somewhere to stand"): a walk to a random standable floor anywhere in the home zone, then
     /// ResidentRoamPauseMin..Max real seconds standing where the walk ended, then the next walk at once (no cooldown: a gap
@@ -35,6 +108,8 @@ namespace UAI
     /// cooldown are not used, and a walk with no spot to go to is a pause too. Without it: a few blocks around the member's
     /// post, never leaving the home zone,
     /// radius="12" cooldown="45" (real seconds), and Guard walks them back to the post in between.
+    /// E2: an enclave's people (SCEnclave's ScEncRoam) roam their POI's footprint the same way, from their home spot, always
+    /// with the zone roam's walks and pauses (ScHome resolves which ground a body has; a resident's is the zone as before).
     /// </summary>
     public class UAITaskWanderHomeSC : UAITaskBase
     {
@@ -63,17 +138,18 @@ namespace UAI
             EntityAlive self = _context.Self;
             int id = self.entityId;
             pauseUntil.Remove(id);   // a pause left by a body that unloaded mid-pause (no Stop; the same id comes back)
-            Member m = ScRegistry.GetMember(id);
-            if (m == null || m.Post == Vector3i.zero) { Stop(_context); return; }
+            // a resident's post and the home zone, or an enclave person's spot and the POI's footprint (E2)
+            ScHome h;
+            if (!ScHome.Of(self, out h)) { Stop(_context); return; }
             // SCore's updateAction re-Starts a finished task on the next AI tick, before chooseAction sees the
             // consideration: a Start during the cooldown must fail without touching the cooldown.
             if (!ScRoamState.Ready(id)) { Stop(_context); return; }
 
-            Vector3 post = new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
+            Vector3 post = h.Post;
             Vector3 target = Vector3.zero;
             World w = self.world;
-            bool zone = ScConfig.ResidentRoamZone;
-            if (zone) target = ZoneTarget(self, post, w);
+            bool zone = h.IsEnclave || ScConfig.ResidentRoamZone;
+            if (zone) target = ZoneTarget(self, post, w, h.Area);
             for (int attempt = 0; !zone && attempt < 6 && target == Vector3.zero; attempt++)
             {
                 // CalcNear validates nothing - check the cell ourselves. A real floor (the M11 fix 2, STUCK_DIAG: the old
@@ -82,7 +158,7 @@ namespace UAI
                 for (int step = 0; step <= 4; step++)
                 {
                     Vector3i bp = World.worldToBlockPos(p) + new Vector3i(0, (step + 1) / 2 * (step % 2 == 0 ? 1 : -1), 0);
-                    if (!ScZone.Contains(bp)) break;
+                    if (!h.Area.Contains(bp)) break;
                     string why;
                     if (w != null && !ScCommunity.GoodPost(w, bp, false, out why)) continue;
                     target = new Vector3(bp.x + 0.5f, bp.y, bp.z + 0.5f);
@@ -133,11 +209,17 @@ namespace UAI
             if (Time.time > deadline || self.getNavigator().noPathAndNotPlanningOne() || Vector3.Distance(self.position, target) < 1.5f
                 || (self.moveHelper != null && self.moveHelper.BlockedTime > 2f))     // furniture / doorway: stop pushing
             {
-                if (ScConfig.ResidentRoamZone) { Pause(self); return; }
+                if (ZoneRoam(self)) { Pause(self); return; }
                 Stop(_context);
                 return;
             }
             self.SetLookPosition(target);
+        }
+
+        /// <summary>Roams the whole ground with pauses: residents with ResidentRoamZone, an enclave's people always (E2).</summary>
+        private static bool ZoneRoam(EntityAlive self)
+        {
+            return ScConfig.ResidentRoamZone || ScEnclavePeople.PersonOf(self) != null;
         }
 
         /// <summary>Zone roaming: the walk is over (there, blocked or out of time) - stand where it ended for a while (atLeast seconds or more).</summary>
@@ -150,19 +232,20 @@ namespace UAI
         }
 
         /// <summary>
-        /// Zone roaming: a random standable floor anywhere in the home zone, at least MinZoneStep from the body. The floor is
+        /// Zone roaming: a random standable floor anywhere in the ground (the home zone; an enclave's footprint, E2), at least
+        /// MinZoneStep from the body. The floor is
         /// looked for around the body's own level and the post's (a base has storeys), each up to two cells either way, with
         /// the post's own test (GoodPost, relaxed); then around the column's top (World.GetHeight is the highest non-air
         /// block, not the terrain), only when that is within two cells of one of those levels - a yard a step or two down or
         /// up, never a roof (the review's F3). Zero when none was found in ten tries.
         /// </summary>
-        private static Vector3 ZoneTarget(EntityAlive self, Vector3 post, World w)
+        private static Vector3 ZoneTarget(EntityAlive self, Vector3 post, World w, ScArea area)
         {
             if (w == null) return Vector3.zero;
             for (int attempt = 0; attempt < 10; attempt++)
             {
                 Vector3 p;
-                if (!ScZone.RandomPoint(out p)) return Vector3.zero;
+                if (!area.RandomPoint(out p)) return Vector3.zero;
                 float dx = p.x - self.position.x, dz = p.z - self.position.z;
                 if (dx * dx + dz * dz < MinZoneStep * MinZoneStep) continue;
                 int x = Mathf.FloorToInt(p.x), z = Mathf.FloorToInt(p.z);
@@ -175,7 +258,7 @@ namespace UAI
                     for (int step = 0; step <= 4; step++)
                     {
                         Vector3i bp = new Vector3i(x, levels[l] + (step + 1) / 2 * (step % 2 == 0 ? 1 : -1), z);
-                        if (!ScZone.Contains(bp)) break;
+                        if (!area.Contains(bp)) break;
                         string why;
                         if (!ScCommunity.GoodPost(w, bp, false, out why)) continue;
                         return new Vector3(bp.x + 0.5f, bp.y, bp.z + 0.5f);
@@ -193,7 +276,7 @@ namespace UAI
             deadlines.Remove(id);
             pauseUntil.Remove(id);
             retried.Remove(id);
-            if (ScRoamState.Active.Remove(id)) ScRoamState.NextAllowed[id] = Time.time + (ScConfig.ResidentRoamZone ? ZoneCooldown : cooldown);
+            if (ScRoamState.Active.Remove(id)) ScRoamState.NextAllowed[id] = Time.time + (ZoneRoam(self) ? ZoneCooldown : cooldown);
             self.getNavigator().clearPath();
             if (self.moveHelper != null) { self.moveHelper.Stop(); self.moveHelper.CanBreakBlocks = true; }
             base.Stop(_context);
@@ -222,6 +305,42 @@ namespace UAI
         {
             Member m = ScRegistry.GetMember(_context.Self.entityId);
             return m != null && m.Status == MemberStatus.Resident ? 1f : 0f;
+        }
+    }
+
+    /// <summary>
+    /// SCEnclave's ScIsResident (E2): 1 when the entity is the current body of one of an enclave's people, at home and with
+    /// a home spot; role="leader" or role="member" narrows it (the leader never roams: the player finds them at their spot).
+    /// One dictionary hit (ScEnclavePeople.PersonOf).
+    /// </summary>
+    public class UAIConsiderationScEncHome : UAIConsiderationBase
+    {
+        private string role;
+
+        public override void Init(Dictionary<string, string> parameters)
+        {
+            base.Init(parameters);
+            if (parameters.ContainsKey("role")) role = parameters["role"].Trim().ToLowerInvariant();
+        }
+
+        public override float GetScore(Context _context, object target)
+        {
+            EncPerson p = ScEnclavePeople.PersonOf(_context.Self);
+            if (p == null || !p.HasHome || p.State != EncPerson.StateHome) return 0f;
+            return string.IsNullOrEmpty(role) || p.Role == role ? 1f : 0f;
+        }
+    }
+
+    /// <summary>
+    /// SCEnclave's hostile-only actions (E2): 1 for a body of an enclave turned hostile whose grace is over, unless it is a
+    /// raider (a raider enclave's people carry SCRaider's own approach and investigation already).
+    /// </summary>
+    public class UAIConsiderationScEncHostile : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            EncPerson p = ScEnclavePeople.PersonOf(_context.Self);
+            return p != null && ScEnclavePeople.HostileActive(p.EnclaveId) && !ScXnpc.IsRaider(_context.Self) ? 1f : 0f;
         }
     }
 
@@ -281,7 +400,7 @@ namespace UAI
     }
 
     /// <summary>1 when the member stands within distance="4" blocks of its post (so Guard walks it home first).</summary>
-    /// <summary>1 while the member is further from their post than "distance" (the leash).</summary>
+    /// <summary>1 while the member is further from their post than "distance" (the leash); an enclave person once outside their POI + EnclaveLeashMargin (E2).</summary>
     public class UAIConsiderationScFarFromPost : UAIConsiderationBase
     {
         private float distance = 25f;
@@ -294,8 +413,11 @@ namespace UAI
 
         public override float GetScore(Context _context, object target)
         {
-            Member m = ScRegistry.GetMember(_context.Self.entityId);
-            if (m == null || m.Post == Vector3i.zero) return 0f;
+            ScHome h;
+            if (!ScHome.Of(_context.Self, out h)) return 0f;
+            // an enclave's people (E2): their whole POI and EnclaveLeashMargin round it is home - from anywhere on it
+            if (h.IsEnclave) return h.Area.DistanceOutside(_context.Self.position) > ScConfig.EnclaveLeashMargin ? 1f : 0f;
+            Member m = h.Member;
             // a live home attack (base defence D2): the leash is the defended area + LeashExtra, not the distance from the post -
             // except for a guard on watch (D3), who is leashed to the Watch post as always
             if (ScBaseAttack.WideDefence && !ScWatch.OnWatch(m)) return ScBaseAttack.InDefenceArea(_context.Self.position, ScBaseAttack.LeashExtra) ? 0f : 1f;
@@ -303,11 +425,11 @@ namespace UAI
             // roam, not a chase; outside it the post leash applies as before. Not for a guard on watch.
             if (ScConfig.ResidentRoamZone && !ScWatch.OnWatch(m)
                 && ScZone.DistanceOutside(_context.Self.position) <= ScConfig.ResidentRoamZoneMargin) return 0f;
-            Vector3 post = new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
-            return Vector3.Distance(_context.Self.position, post) > distance ? 1f : 0f;
+            return Vector3.Distance(_context.Self.position, h.Post) > distance ? 1f : 0f;
         }
     }
 
+    /// <summary>1 while the body stands within distance="4" of its post (a resident's) or home spot (an enclave person's, E2).</summary>
     public class UAIConsiderationScNearPost : UAIConsiderationBase
     {
         private float distance = 4f;
@@ -320,10 +442,9 @@ namespace UAI
 
         public override float GetScore(Context _context, object target)
         {
-            Member m = ScRegistry.GetMember(_context.Self.entityId);
-            if (m == null || m.Post == Vector3i.zero) return 0f;
-            Vector3 post = new Vector3(m.Post.x + 0.5f, m.Post.y, m.Post.z + 0.5f);
-            return Vector3.Distance(_context.Self.position, post) <= distance ? 1f : 0f;
+            ScHome h;
+            if (!ScHome.Of(_context.Self, out h)) return 0f;
+            return Vector3.Distance(_context.Self.position, h.Post) <= distance ? 1f : 0f;
         }
     }
 
@@ -349,13 +470,19 @@ namespace UAI
 
         public override float GetScore(Context _context, object target)
         {
-            Member m = ScRegistry.GetMember(_context.Self.entityId);
-            return m != null && m.Post != Vector3i.zero && AtPost(_context.Self, m, xz, dy) ? 1f : 0f;
+            ScHome h;
+            return ScHome.Of(_context.Self, out h) && AtPost(_context.Self, h.Post, xz, dy) ? 1f : 0f;
         }
 
         public static bool AtPost(EntityAlive self, Member m, float xz, float dy)
         {
-            Vector3 d = self.position - ScCommunity.PostCenter(m);
+            return AtPost(self, ScCommunity.PostCenter(m), xz, dy);
+        }
+
+        /// <summary>Within xz metres of the post's (or home spot's, E2) centre horizontally and dy of its floor.</summary>
+        public static bool AtPost(EntityAlive self, Vector3 post, float xz, float dy)
+        {
+            Vector3 d = self.position - post;
             return d.x * d.x + d.z * d.z <= xz * xz && Mathf.Abs(d.y) <= dy;
         }
     }
@@ -378,8 +505,8 @@ namespace UAI
         public override void Update(Context _context)
         {
             EntityAlive self = _context.Self;
-            Member m = ScRegistry.GetMember(self.entityId);
-            if (m == null || m.Post == Vector3i.zero || !UAIConsiderationScAtPost.AtPost(self, m, 1f, 1.5f)) { Stop(_context); return; }
+            ScHome h;
+            if (!ScHome.Of(self, out h) || !UAIConsiderationScAtPost.AtPost(self, h.Post, 1f, 1.5f)) { Stop(_context); return; }
             IEntityOrderReceiverSDX orders = ScNpc.Orders(self);
             if (orders == null) return;
             Vector3 look = orders.GuardLookPosition;
@@ -465,10 +592,14 @@ namespace UAI
         {
             EntityAlive self = _context.Self;
             Member m;
-            if (Why(self, target as EntityAlive, out m) != null) return 0f;
-            // during a home attack (base defence D2) the defence covers the whole zone + BaseAttackDefendMargin and the
-            // stray rule moves with it: StrayExtra past that area, LeashExtra - StrayExtra inside the widened leash
-            bool strayed = ScBaseAttack.WideDefence ? !ScBaseAttack.InDefenceArea(self.position, ScBaseAttack.StrayExtra)
+            EncPerson ep;
+            if (Why(self, target as EntityAlive, out m, out ep) != null) return 0f;
+            // an enclave's people (E2) stray once past their POI + EnclaveLeashMargin - StrayMarginInside, just inside their
+            // leash, as zone-roaming residents do. During a home attack (base defence D2) the defence covers the whole zone +
+            // BaseAttackDefendMargin and the stray rule moves with it: StrayExtra past that area, LeashExtra - StrayExtra inside
+            // the widened leash
+            bool strayed = ep != null ? ScEnclavePeople.AreaOf(ep.EnclaveId).DistanceOutside(self.position) > Mathf.Max(0f, ScConfig.EnclaveLeashMargin - StrayMarginInside)
+                         : ScBaseAttack.WideDefence ? !ScBaseAttack.InDefenceArea(self.position, ScBaseAttack.StrayExtra)
                          : Roams(m) ? ScZone.DistanceOutside(self.position) > Mathf.Max(0f, ScConfig.ResidentRoamZoneMargin - StrayMarginInside)
                                     : FromPost(m, self) > StrayLimit;     // m: the member Why already looked up (the re-check's R4)
             if (strayed)
@@ -494,10 +625,44 @@ namespace UAI
         public static string Why(EntityAlive self, EntityAlive t)
         {
             Member m;
+            EncPerson ep;
+            return Why(self, t, out m, out ep);
+        }
+
+        /// <summary>
+        /// Why, handing back the resident's member record (null until it has been looked up) or the enclave person (E2: their
+        /// own rule, WhyEnclave) for GetScore.
+        /// </summary>
+        private static string Why(EntityAlive self, EntityAlive t, out Member m, out EncPerson ep)
+        {
+            ep = ScEnclavePeople.PersonOf(self);
+            if (ep != null) { m = null; return WhyEnclave(self, t, ep); }
             return Why(self, t, out m);
         }
 
-        /// <summary>Why, handing back the resident's member record (null until it has been looked up) for GetScore.</summary>
+        /// <summary>
+        /// An enclave person's defence (E2, SCEnclave's ScEncDefend / ScEncDefendHold): an awake enemy (SCore's rules, as for
+        /// residents) inside the POI's footprint and within EnclaveDefendRadius of the person - they live all over it, as
+        /// zone-roaming residents do - unless the defence rests (ScDefendState: moved back in a fight, or strayed).
+        /// </summary>
+        private static string WhyEnclave(EntityAlive self, EntityAlive t, EncPerson ep)
+        {
+            int radius = ScConfig.EnclaveDefendRadius;
+            if (radius <= 0) return "off (EnclaveDefendRadius 0)";
+            if (t == null || t == self) return "no target";
+            if (t.IsDead()) return "dead";
+            if (t.IsSleeping) return "asleep";
+            if (!ep.HasHome) return "no home spot";
+            if (ScDefendState.RestLeft(self.entityId) > 0f) return "resting (moved back to the spot in a fight, or strayed)";
+            if ((t.position - self.position).sqrMagnitude > (float)radius * radius) return "beyond EnclaveDefendRadius of the person";
+            ScArea a = ScEnclavePeople.AreaOf(ep.EnclaveId);
+            if (a == null || !a.Contains(t.GetBlockPosition())) return "outside the enclave's POI";
+            if (!EntityTargetingUtilities.IsEnemy(self, t)) return "not an enemy";
+            if (global::Harmony.ZombieFeatures.InertEntity.IsInert(t)) return "inert";
+            return null;
+        }
+
+        /// <summary>The residents' rule.</summary>
         private static string Why(EntityAlive self, EntityAlive t, out Member m)
         {
             m = null;

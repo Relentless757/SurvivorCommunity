@@ -130,13 +130,17 @@ namespace SurvivorCommunity
         /// thread) gets one verdict for good - it is never live again, and a later write of the same object (the
         /// chunk-cache reload's entity stubs) must agree with the first. A live body is answered fresh: a world save
         /// snapshots it on the main thread, where the set cannot change between the two passes.
+        /// E2: an enclave's body is vetoed the same way (ScEnclavePeople.IsEnclaveBody, its own immutable set): bodies are
+        /// Dynamic, but talking to one or hitting it writes Persist, which would save it.
         /// </summary>
         public static bool VetoChunkSave(Entity e)
         {
             if ((object)e == null) return false;
-            if (e) return IsRunnerBody(e);
-            return unloadedVerdicts.GetValue(e, k => IsRunnerBody(k) ? Vetoed : NotVetoed) == Vetoed;
+            if (e) return Vetoes(e);
+            return unloadedVerdicts.GetValue(e, k => Vetoes(k) ? Vetoed : NotVetoed) == Vetoed;
         }
+
+        private static bool Vetoes(Entity e) { return IsRunnerBody(e) || ScEnclavePeople.IsEnclaveBody(e); }
 
         public static void RebuildRunnerSet()
         {
@@ -371,22 +375,32 @@ namespace SurvivorCommunity
         {
             PrefabInstance pi = Dest(m);
             if (pi == null) return C(m.RunSite);
-            Vector3i a = pi.boundingBoxPosition, sz = pi.boundingBoxSize;
-            GameRandom r = self.rand ?? w.GetGameRandom();
+            Vector3 spot;
+            return WanderSpot(w, self.rand ?? w.GetGameRandom(), pi.boundingBoxPosition, pi.boundingBoxSize, out spot) ? spot : C(m.RunSite);
+        }
+
+        /// <summary>
+        /// A ground-floor spot inside a footprint (min corner a, size sz): eight random columns, else a column on a ring just
+        /// outside it (the footprint is all roofs and rubble from there). False when neither has standable ground. A runner's
+        /// site wander, and E2's last resort for an enclave person's home spot.
+        /// </summary>
+        public static bool WanderSpot(World w, GameRandom r, Vector3i a, Vector3i sz, out Vector3 spot)
+        {
             int y;
             for (int i = 0; i < 8; i++)
             {
                 int x = a.x + 2 + r.RandomRange(0, Math.Max(1, sz.x - 4));
                 int z = a.z + 2 + r.RandomRange(0, Math.Max(1, sz.z - 4));
-                if (GroundSpot(w, x, z, out y)) return new Vector3(x + 0.5f, y, z + 0.5f);
+                if (GroundSpot(w, x, z, out y)) { spot = new Vector3(x + 0.5f, y, z + 0.5f); return true; }
             }
             // the footprint is all roofs and rubble from here: walk its edge instead
             float ang = r.RandomFloat * Mathf.PI * 2f;
             Vector3 c = new Vector3(a.x + sz.x * 0.5f, 0f, a.z + sz.z * 0.5f);
             float rad = Mathf.Max(sz.x, sz.z) * 0.5f + 3f;
             int ex = Mathf.FloorToInt(c.x + Mathf.Cos(ang) * rad), ez = Mathf.FloorToInt(c.z + Mathf.Sin(ang) * rad);
-            if (GroundSpot(w, ex, ez, out y)) return new Vector3(ex + 0.5f, y, ez + 0.5f);
-            return C(m.RunSite);
+            if (GroundSpot(w, ex, ez, out y)) { spot = new Vector3(ex + 0.5f, y, ez + 0.5f); return true; }
+            spot = Vector3.zero;
+            return false;
         }
 
         // ------------------------------------------------------------------ the 1 Hz driver ----
@@ -1067,8 +1081,8 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>The VehicleManager gate plus the 3x3 settled checks: loaded, decorated, lit, colliders built, not brand new.</summary>
-        private static bool Settled(World w, Vector3 v)
+        /// <summary>The VehicleManager gate plus the 3x3 settled checks: loaded, decorated, lit, colliders built, not brand new (E2's enclave bodies too).</summary>
+        internal static bool Settled(World w, Vector3 v)
         {
             if (!w.IsChunkAreaCollidersLoaded(v)) return false;
             int cx = World.toChunkXZ(Mathf.FloorToInt(v.x)), cz = World.toChunkXZ(Mathf.FloorToInt(v.z));
@@ -1132,7 +1146,8 @@ namespace SurvivorCommunity
             return true;
         }
 
-        private static void ClearScoreCaches(int id)
+        /// <summary>SCore's per-id caches of a body leaving the world (a runner's, an enclave person's, E2).</summary>
+        internal static void ClearScoreCaches(int id)
         {
             try
             {

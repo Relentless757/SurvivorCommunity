@@ -94,7 +94,9 @@ namespace SurvivorCommunity
             EntityAlive npc = Respondent();
             bool changed = false;
             Member member = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
-            bool show = npc != null && !npc.IsDead() && (member != null || ScTrust.Subject(npc));
+            // a member, a stranger the trust rules cover, or one of an enclave's people (E2: their profile is stamped from
+            // their record, so the card is the same on every visit; ScTrust.Subject leaves them out for their hits only)
+            bool show = npc != null && !npc.IsDead() && (member != null || ScTrust.Subject(npc) || ScEnclavePeople.IsEnclaveNpc(npc));
             if (show && (npc.entityId != shownId || shown == null))
             {
                 if (shownId >= 0 && shownId != npc.entityId) ScPortraits.Forget(shownId);
@@ -131,9 +133,11 @@ namespace SurvivorCommunity
             changed |= Set(ref moodIcon, MoodIcon(shown.Mood));
             changed |= Set(ref moodColor, MoodColor(shown.Mood));
 
-            // traits: a member's are known, and a former member's; anyone else's once their favour is done (Friendly)
+            // traits: a member's are known, and a former member's; anyone else's once their favour is done (Friendly); an
+            // enclave person's once their enclave is Friendly or better (E2)
             bool known = member != null || ScProfile.Known(npc)
-                         || (ScCommunity.LocalPlayer != null && ScTrust.Level(npc, ScCommunity.LocalPlayer) == Trust.Friendly);
+                         || (ScCommunity.LocalPlayer != null && ScTrust.Level(npc, ScCommunity.LocalPlayer) == Trust.Friendly)
+                         || ScEnclavePeople.TraitsKnown(npc);
             if (known != traitsKnown) { traitsKnown = known; changed = true; }
             for (int i = 0; i < TraitRows; i++)
             {

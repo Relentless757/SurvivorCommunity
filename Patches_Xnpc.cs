@@ -717,7 +717,8 @@ namespace SurvivorCommunity
         /// (the vanilla method is not virtual), nor does V4 override AllowActivationCommand, InitLocalActivationCommands or
         /// GetActivationText (SCore 3.2.36, decompiled). So every command is refused here for a raider body: no prompt, no
         /// radial, nothing on E. Survivors, members, traders and 0-XNPCCore's own NPCs are untouched (IsRaider: a raider
-        /// class on our body). A dead raider was already refused by vanilla (its loot is a dropped backpack).
+        /// class on our body). A dead raider was already refused by vanilla (its loot is a dropped backpack). E2: a body of an
+        /// enclave turned hostile is refused the same way (ScEnclavePeople.IsHostileBody, a synced cvar: clients agree).
         ///
         /// The trade half (2026-10-03, the user's T1: "Trade" on a member's radial made the UI vanish and left the player
         /// unable to do anything until a reload). Every SCore V4 body offers vanilla's "trade" while it is alive, but
@@ -763,7 +764,8 @@ namespace SurvivorCommunity
                     if (!__result) return;
                     if (__instance is EntityAliveSDXV4)
                     {
-                        if (ScXnpc.IsRaider(__instance))
+                        // a raider, or a body of an enclave turned hostile (E2: the synced cvar - nothing to say, a client too)
+                        if (ScXnpc.IsRaider(__instance) || ScEnclavePeople.IsHostileBody(__instance))
                         {
                             __result = false;
                             talkRefused++;
@@ -811,7 +813,9 @@ namespace SurvivorCommunity
         /// EntityNPC alone: "target strangers" on and the turret's owner its enemy (Harmony\MiniTurret\shouldIgnoreTarget.cs).
         /// These postfixes run after SCore's (Priority.Last, after its Harmony id) and only ever turn "ignore" into "shoot",
         /// for a raider body (IsRaider: SC's raider class on XNPC's body - never a member, a trader or one of 0-XNPCCore's
-        /// own NPCs), or a survivor hostile to a player (ScTrust.IsHostileToAny), that is alive, with the turret's zombie
+        /// own NPCs), a survivor hostile to a player (ScTrust.IsHostileToAny) or a body of an enclave turned hostile (E2,
+        /// ScEnclavePeople.HostileNow: once a threat's grace is over on the host; a client goes by the synced cvar), that
+        /// is alive, with the turret's zombie
         /// or enemy switch on, inside the field of view
         /// vanilla tests first, and - the junk turret's filter ends with it - within its reach and line of fire
         /// (canHitEntity). SCore's strangers rule stays, so either switch lets the turret fire; with the key off only
@@ -836,7 +840,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target))) return;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNow(_target))) return;
                     TileEntityPoweredRangedTrap te = __instance != null ? __instance.TileEntity : null;
                     if (te == null || !te.TargetZombies || !_target.IsAlive() || __instance.Cone == null) return;
                     // vanilla's own first test, unchanged: a positive dot product with the cone's forward is out of view
@@ -874,7 +878,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target))) return;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNow(_target))) return;
                     EntityTurret turret = __instance != null ? __instance.entityTurret : null;
                     if (turret == null || !turret.TargetEnemies || !_target.IsAlive() || _target.entityId == turret.entityId) return;
                     // vanilla's field of view (the cone's forward, else the controller's)...
@@ -920,7 +924,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target))) return;
+                    if (!__result || !ScConfig.RaiderTurretsAsEnemies || !(_target is EntityAliveSDXV4) || !(ScXnpc.IsRaider(_target) || ScTrust.IsHostileToAny(_target) || ScEnclavePeople.HostileNow(_target))) return;
                     TileEntityPoweredTrigger te = __instance != null ? __instance.TileEntity : null;
                     if (te == null || !te.TargetZombies || !_target.IsAlive() || __instance.Cone == null) return;
                     if (UnityEngine.Vector3.Dot(_target.position - te.ToWorldPos().ToVector3(), __instance.Cone.forward) > 0f) return;

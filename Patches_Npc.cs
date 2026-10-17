@@ -67,6 +67,8 @@ namespace SurvivorCommunity
                     if (ScXnpc.IsBody(__instance) || (ScNpc.IsV4(__instance) && ScXnpc.IsCommunity(__instance))) DropWindow(__instance);
                     if (!ScRegistry.Loaded) return;
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScRadio.StandInCvar)) { ScRadio.OnStandInDied(__instance); return; }
+                    // one of an enclave's people (E2): the person dies with the body
+                    if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScEnclavePeople.EncCvar)) { ScEnclavePeople.OnBodyDied(__instance); return; }
                     ScCommunity.OnMemberDied(__instance);
                 }
                 catch (Exception e)
@@ -311,7 +313,8 @@ namespace SurvivorCommunity
         /// The M11 fix: a reference test on __instance (was Unity's != null). The body of an unloaded chunk is written
         /// after its GameObject was destroyed, so the old test skipped the veto on every unload save and only
         /// ScRunners.OnEntityUnloaded's Delete-source backstop kept the copy from coming back. ScRunners.VetoChunkSave
-        /// also keeps the verdict for such a body fixed, so Chunk.write's count and write passes agree.
+        /// also keeps the verdict for such a body fixed, so Chunk.write's count and write passes agree. E2: an enclave's body
+        /// is vetoed the same way (VetoChunkSave asks ScEnclavePeople.IsEnclaveBody too).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_IsSavedToFile
@@ -477,6 +480,9 @@ namespace SurvivorCommunity
                     if (ScRegistry.Doomed.Contains(__instance.entityId)) { ScNpc.SendOnMission(__instance, true); return; }
                     // an outpost stand-in never comes back from a save: a fresh one spawns while the player is there
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScGarrison.StandInOutpostCvar)) { ScGarrison.Orphans.Add(__instance.entityId); return; }
+                    // nor does an enclave's body (E2: SC stamps %sc_enc after PostInit, so a body that has it here came back
+                    // from a chunk or a save - a crash, a save race): removed on the next tick
+                    if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScEnclavePeople.EncCvar)) { ScEnclavePeople.Orphans.Add(__instance.entityId); return; }
                     // an offline physical runner exists only as its snapshot: this is an old chunk copy (hidden now,
                     // removed next tick - never Doomed, the id comes back with the real runner) or a stranger who
                     // inherited the id (untouched: no spawner/Persist stamp for them)

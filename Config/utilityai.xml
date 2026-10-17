@@ -191,6 +191,99 @@
 				<consideration class="NotPathBlockedSDX, SCore" />
 			</action>
 		</ai_package>
+
+		<!-- Enclave people (E2, Enclaves_Plan.md 2.3): added at spawn to every body of an enclave, survivor or raider
+		     (ScEnclavePeople; a body is never saved, so it is never reloaded without it). SCResident action for action, aimed
+		     at the enclave's POI instead of the home zone: the shared considerations and tasks resolve per body which ground it
+		     has (UaiOps' ScHome / ScArea: a resident's post and the home zone, an enclave person's home spot and the POI's
+		     footprint) - residents behave as before. Every action is gated on ScEncHome (the current body of an enclave's
+		     person, at home, with a spot) instead of ScIsResident. They hold the Guard order at their spot (cvars written at
+		     spawn, as Station does): NPCModCore's (or, for raiders, NPCModCoreNoChat's) Guard walks them back to it. A raider
+		     enclave gets this too, so SCRaider's investigation and NPCModCoreNoChat's wander cannot pull it off its POI. -->
+		<ai_package name="SCEnclave">
+			<!-- the day roam over the POI (WanderHomeSC on the footprint, always the zone roam's walks and pauses) - never the
+			     leader, who holds their spot so the player can find them -->
+			<action name="ScEncRoam" weight="2.5" entity_filter="IsSelf">
+				<task class="WanderHomeSC, SurvivorCommunity" radius="12" cooldown="45" />
+				<consideration class="ScEncHome, SurvivorCommunity" role="member" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="EnemyNotNear, SCore" distance="30" />
+				<consideration class="ScIsDaytime, SurvivorCommunity" />
+				<consideration class="ScRoamReady, SurvivorCommunity" />
+			</action>
+			<!-- the leash: outside the POI by more than EnclaveLeashMargin (ScFarFromPost for an enclave person; "distance" is
+			     the residents'), Guard walks them back to the spot. 5.5 outranks the packs' chase, as ScReturn does. -->
+			<action name="ScEncReturn" weight="5.5" entity_filter="IsSelf">
+				<task class="Guard, SCore" />
+				<consideration class="ScEncHome, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="ScFarFromPost, SurvivorCommunity" distance="25" />
+			</action>
+			<!-- defend the POI: an awake enemy inside the footprint within EnclaveDefendRadius of the person, seen or not
+			     (ScIntruder's enclave rule), with ScDefendBase's hand-overs to the packs' attacks -->
+			<action name="ScEncDefend" weight="4" entity_filter="IsEnemy">
+				<task class="MoveToAttackTargetSDX, SCore" run="true" />
+				<consideration class="ScEncHome, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
+				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="ScIntruder, SurvivorCommunity" />
+				<consideration class="ScCannotEngage, SurvivorCommunity" />
+			</action>
+			<action name="ScEncDefendHold" weight="4" entity_filter="IsEnemy">
+				<task class="DefendHoldSC, SurvivorCommunity" />
+				<consideration class="ScEncHome, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
+				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="ScIntruder, SurvivorCommunity" />
+				<consideration class="ScHoldFire, SurvivorCommunity" />
+			</action>
+			<!-- at the spot: stand facing its way (HoldPostSC, as ScAtPost) - the leader's place all day -->
+			<action name="ScEncAtHome" weight="2.2" entity_filter="IsSelf">
+				<task class="HoldPostSC, SurvivorCommunity" />
+				<consideration class="ScEncHome, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="ScAtPost, SurvivorCommunity" xz="0.8" dy="1.2" />
+			</action>
+			<!-- the night: idle near the spot once Guard has walked them back to it -->
+			<action name="ScEncNight" weight="3" entity_filter="IsSelf">
+				<task class="IdleSDX, SCore" />
+				<consideration class="ScEncHome, SurvivorCommunity" />
+				<consideration class="HasOrder, SCore" order="Guard" />
+				<consideration class="EnemyNotNear, SCore" distance="30" />
+				<consideration class="ScIsNight, SurvivorCommunity" />
+				<consideration class="ScNearPost, SurvivorCommunity" distance="4" />
+			</action>
+			<!-- the Cowardly ($Timid, their traits) run from enemies within 15 m -->
+			<action name="ScEncFlee" weight="6" entity_filter="IsEnemy">
+				<task class="FleeFromTarget" max_distance="30" />
+				<consideration class="ScEncHome, SurvivorCommunity" />
+				<consideration class="SelfHasCVar, SCore" cvar="$Timid" value="1" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
+				<consideration class="SelfVisible" />
+			</action>
+			<!-- only for an enclave turned hostile (ScEncHostile: its grace over, not raiders - they carry SCRaider): SCRaider's
+			     ranged approach and noise investigation, so a survivor with a gun closes in; still leashed by ScEncReturn -->
+			<action name="ScEncApproach" weight="4" entity_filter="IsEnemy">
+				<task class="MoveToAttackTargetSDX, SCore" run="true" />
+				<consideration class="ScEncHostile, SurvivorCommunity" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="SelfNotHasCVar, SCore" cvar="CurrentWeaponClass" value="0" />
+				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="NotInWeaponRange, SCore" action_index="0" />
+				<consideration class="CanSeeTarget, SCore" />
+			</action>
+			<action name="ScEncInvestigate" weight="3" entity_filter="IsPlayer">
+				<task class="MoveToInvestigate, SCore" run="true" />
+				<consideration class="ScEncHostile, SurvivorCommunity" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="CanNotSeeTarget, SCore" />
+				<consideration class="CanHearTarget, SCore" />
+				<consideration class="NotPathBlockedSDX, SCore" />
+			</action>
+		</ai_package>
 	</append>
 
 	<!-- A guard on watch (D3) never backs off or walks to a melee target: on a tower either one walks them off the edge.

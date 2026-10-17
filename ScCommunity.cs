@@ -91,6 +91,8 @@ namespace SurvivorCommunity
         {
             why = null;
             if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) { why = "scNotHireable"; return false; }
+            // one of an enclave's people (E2): they stay with their group (E3 adds the enclave's own recruit path)
+            if (ScEnclavePeople.IsEnclaveNpc(npc)) { why = "scEncStays"; return false; }
             // a raider never joins (M10; belt and braces: its class is Hirable false, so the next checks refuse it too)
             if (ScXnpc.IsRaider(npc)) { why = "scNotHireable"; return false; }
             // nor one who holds a grudge against this player (ScTrust: they were hit)
@@ -157,26 +159,8 @@ namespace SurvivorCommunity
                 if (!ScZone.EnsureHome(player)) { error = "scNeedHome"; return false; }
                 ScConfig.EnsureParsed();
 
-                var m = new Member
-                {
-                    Id = npc.entityId,
-                    Class = ClassName(npc),
-                    Name = DisplayName(npc),
-                    Born = npc.WorldTimeBorn,
-                    JoinDay = Today,
-                    Mood = ScRegistry.Community.Morale
-                };
-                GameRandom rnd = npc.rand ?? GameManager.Instance.World.GetGameRandom();
-                // the traits, skills and mood the player was shown when they first talked (ScProfile), else fresh ones
-                if (!ScProfile.ApplyOnJoin(m, npc))
-                {
-                    m.Traits.AddRange(ScTraits.Roll(ScConfig.TraitsPerRecruit, rnd));
-                    ScSkills.RollStart(m, rnd, ScSkills.RecruitTier(npc));
-                }
-                m.Ranged = ScSkills.HoldsRanged(npc);
-                m.Look = ScLooks.Get(npc);          // null unless they wear the player's body
-                m.Loadout = ScLoadout.Current(npc); // their two weapons, so every body re-created for them carries the same (null for others)
-                m.Ammo = ScAmmo.Carried(npc, out m.Mags);   // and the rounds and magazines they carry for the gun (ScAmmo keeps it current every 5 s)
+                Member m = MemberFromBody(npc, ScRegistry.Community.Morale);
+                m.JoinDay = Today;
                 ScRegistry.Members[m.Id] = m;
                 ScTrust.StripOnJoin(npc);
                 // their favour quest ends with the join: one still open is waiting on "return to <name>" (completed),
@@ -218,6 +202,35 @@ namespace SurvivorCommunity
                 error = "scInternal";
                 return false;
             }
+        }
+
+        /// <summary>
+        /// The person on this body as a Member record (Join's builder; E2's enclave people are captured with it too): the
+        /// class, the class-rolled name, the birth time; the traits, skills and mood the player was shown when they first
+        /// talked (ScProfile), else fresh ones (mood: the start mood then); the look, the weapon pair and the rounds and
+        /// magazines they carry. Not in the registry: the caller files it.
+        /// </summary>
+        public static Member MemberFromBody(EntityAlive npc, int mood)
+        {
+            var m = new Member
+            {
+                Id = npc.entityId,
+                Class = ClassName(npc),
+                Name = DisplayName(npc),
+                Born = npc.WorldTimeBorn,
+                Mood = mood
+            };
+            GameRandom rnd = npc.rand ?? GameManager.Instance.World.GetGameRandom();
+            if (!ScProfile.ApplyOnJoin(m, npc))
+            {
+                m.Traits.AddRange(ScTraits.Roll(ScConfig.TraitsPerRecruit, rnd));
+                ScSkills.RollStart(m, rnd, ScSkills.RecruitTier(npc));
+            }
+            m.Ranged = ScSkills.HoldsRanged(npc);
+            m.Look = ScLooks.Get(npc);          // null unless they wear the player's body
+            m.Loadout = ScLoadout.Current(npc); // their two weapons, so every body re-created for them carries the same (null for others)
+            m.Ammo = ScAmmo.Carried(npc, out m.Mags);   // and the rounds and magazines they carry for the gun (ScAmmo keeps it current every 5 s)
+            return m;
         }
 
         // ---- stationing ----
@@ -350,34 +363,8 @@ namespace SurvivorCommunity
             try
             {
                 if (m == null || npc == null || npc.IsDead()) return;
-                // a frozen world makes no progress and needs none: the pause menu (single player stops time, this ticker
-                // runs on), or a body that did not tick since the last sample (a chunk without colliders, a long hitch)
-                if (GameManager.Instance != null && GameManager.Instance.IsPaused()) return;
-                int ticks = npc.ticksExisted;
-                if (ticks == m.LastTicks) return;
-                m.LastTicks = ticks;
+                if (!StuckSample(m, npc)) return;
                 Vector3 pos = npc.position;
-                float moved = (pos - m.LastPos).sqrMagnitude;
-                m.LastPos = pos;
-                EntityMoveHelper mh = npc.moveHelper;
-                GamePath.PathNavigate nav = npc.getNavigator();
-                // "wants to move" = a move target more than 1.5 m away (standing at the post or in melee range is not stuck)
-                bool mhFar = mh != null && mh.IsActive && (mh.moveToPos - pos).sqrMagnitude > 2.25f;
-                bool navBusy = nav != null && !nav.noPathAndNotPlanningOne();
-                bool blockedTime = mh != null && mh.BlockedTime > 1.5f;
-                bool isStuck = npc.IsStuck;
-                if (blockedTime || isStuck || ((mhFar || navBusy) && moved < 0.04f))
-                {
-                    if (m.StillSeconds == 0) m.StuckTicks0 = ticks;
-                    m.StillSeconds++;
-                    // each signal on its own, for the log line (STUCK_DIAG 5c)
-                    if (PathPending(npc)) m.SigPlan++;
-                    if (nav != null && !nav.noPath()) m.SigPath++;
-                    if (mhFar) m.SigMover++;
-                    if (blockedTime) m.SigBlocked++;
-                    if (isStuck) m.SigIsStuck++;
-                }
-                else ResetStill(m);
                 bool fighting = LiveFoe(npc, FightRange) != null;
                 float now = Time.unscaledTime;
                 if (m.StuckShift > 0 && now - m.LastStuckAt > BackoffResetSeconds) m.StuckShift = 0;
@@ -401,6 +388,44 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// One second of the watchdog's detection (the residents' Watchdog; E2's enclave people share it): false - no sample -
+        /// while the game is paused or the body did not tick since the last one, else the still count (StillSeconds and each
+        /// signal's count) goes up while it wants to move and does not, the move helper reports blocked or SCore's in-a-block
+        /// flag is set, and starts again otherwise. A frozen world makes no progress and needs none: the pause menu (single
+        /// player stops time, the ticker runs on), or a chunk without colliders, a long hitch.
+        /// </summary>
+        public static bool StuckSample(Member m, EntityAlive npc)
+        {
+            if (GameManager.Instance != null && GameManager.Instance.IsPaused()) return false;
+            int ticks = npc.ticksExisted;
+            if (ticks == m.LastTicks) return false;
+            m.LastTicks = ticks;
+            Vector3 pos = npc.position;
+            float moved = (pos - m.LastPos).sqrMagnitude;
+            m.LastPos = pos;
+            EntityMoveHelper mh = npc.moveHelper;
+            GamePath.PathNavigate nav = npc.getNavigator();
+            // "wants to move" = a move target more than 1.5 m away (standing at the post or in melee range is not stuck)
+            bool mhFar = mh != null && mh.IsActive && (mh.moveToPos - pos).sqrMagnitude > 2.25f;
+            bool navBusy = nav != null && !nav.noPathAndNotPlanningOne();
+            bool blockedTime = mh != null && mh.BlockedTime > 1.5f;
+            bool isStuck = npc.IsStuck;
+            if (blockedTime || isStuck || ((mhFar || navBusy) && moved < 0.04f))
+            {
+                if (m.StillSeconds == 0) m.StuckTicks0 = ticks;
+                m.StillSeconds++;
+                // each signal on its own, for the log line (STUCK_DIAG 5c)
+                if (PathPending(npc)) m.SigPlan++;
+                if (nav != null && !nav.noPath()) m.SigPath++;
+                if (mhFar) m.SigMover++;
+                if (blockedTime) m.SigBlocked++;
+                if (isStuck) m.SigIsStuck++;
+            }
+            else ResetStill(m);
+            return true;
+        }
+
         /// <summary>Stuck at the post: within this many metres of it horizontally (STUCK_DIAG's loop protection)...</summary>
         private const float AtPostXZ = 1f;
         /// <summary>...and this far above or below its floor (on a tub at 0.72 m, on a low terrain surface).</summary>
@@ -418,7 +443,7 @@ namespace SurvivorCommunity
             return GamePath.PathFinderThread.Instance != null && GamePath.PathFinderThread.Instance.IsCalculatingPath(npc.entityId);
         }
 
-        private static void ResetStill(Member m)
+        internal static void ResetStill(Member m)
         {
             m.StillSeconds = 0;
             m.SigPlan = m.SigPath = m.SigMover = m.SigBlocked = m.SigIsStuck = 0;
@@ -858,7 +883,7 @@ namespace SurvivorCommunity
         /// The best post in one column: the standable heights in FindStandable's order (nearest the claim's level first), the
         /// best tier any of them reaches, at the first height that reaches it. Excluded cells are skipped. False: none.
         /// </summary>
-        private static bool FindPost(World w, int x, int z, int yRef, ICollection<Vector3i> exclude, out Vector3i post, out int tier)
+        internal static bool FindPost(World w, int x, int z, int yRef, ICollection<Vector3i> exclude, out Vector3i post, out int tier)
         {
             post = Vector3i.zero;
             tier = -1;

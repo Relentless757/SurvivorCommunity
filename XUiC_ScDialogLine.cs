@@ -11,11 +11,15 @@ namespace SurvivorCommunity
     /// text for any NPC but an EntityAliveSDX (SCore already shows those), and hands each new statement to ScVoice, which
     /// plays its clip when there is one. DialogLine=false hides the line; the clips still play. Bindings are non-null
     /// from the start: they are evaluated while the XML is parsed.
+    /// E2: an enclave respondent's line has its tokens filled here ({enc}, {leader}, {count}, {poi}, ... - ScEncDialog.Fill)
+    /// once per new statement, so the statement's shared Text is never written and the voice key stays its id.
     /// </summary>
     [Preserve]
     public class XUiC_ScDialogLine : XUiController
     {
         private BaseStatement shown;
+        /// <summary>The statement's text as it was last seen (tokens unfilled): the per-frame change test.</summary>
+        private string raw = "";
         private string line = "";
         private bool visible;
 
@@ -36,6 +40,7 @@ namespace SurvivorCommunity
         private void Clear()
         {
             shown = null;
+            raw = "";
             line = "";
             visible = false;
         }
@@ -51,9 +56,10 @@ namespace SurvivorCommunity
                 EntityAlive npc = xui != null && xui.Dialog != null ? xui.Dialog.Respondent : null;
                 string text = st != null && npc != null && ScConfig.DialogLine && !ScNpc.IsSdx(npc) ? (st.Text ?? "") : "";
                 bool newStatement = !ReferenceEquals(st, shown);
-                if (!newStatement && text == line) return;
+                if (!newStatement && text == raw) return;
                 shown = st;
-                line = text;
+                raw = text;
+                line = text.IndexOf('{') >= 0 ? ScEncDialog.Fill(text, npc, ScCommunity.LocalPlayer) : text;
                 visible = line.Length > 0;
                 RefreshBindings();
                 if (newStatement && st != null && npc != null) ScVoice.OnLine(npc, dialog, st);

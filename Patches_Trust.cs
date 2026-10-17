@@ -19,6 +19,11 @@ namespace SurvivorCommunity
     ///
     /// The hit that starts it: Patch_DamageResponse, a postfix on EntityAliveSDXV4.ProcessDamageResponseLocal, which runs
     /// once on the host for every landed hit (the host's own, and a client's through NetPackageDamageEntity).
+    ///
+    /// E2: a hit on one of an enclave's people goes to the enclave's rules instead (ScEnclavePeople.OnHitBy: a warning,
+    /// then the whole enclave hostile), and the faction check also answers 0 between a body of an enclave turned hostile
+    /// and a player, one of the community or a player's companion (ScEnclavePeople.HostilePair) - residents share the
+    /// survivors' faction, so without it they would watch such a body raid the base.
     /// </summary>
     public static class Patches_Trust
     {
@@ -50,6 +55,9 @@ namespace SurvivorCommunity
             {
                 // hot: per target, per action, per AI decision, for every NPC - type tests and one dictionary hit
                 if (__result <= 0f) return;
+                // E2: a body of an enclave turned hostile against a player, one of the community or a player's companion, in
+                // either order (one volatile read while no enclave is hostile; then two cvar reads and a set hit)
+                if (ScEnclavePeople.AnyHostile && ScEnclavePeople.HostilePair(self, target)) { __result = 0f; return; }
                 EntityPlayer p = self as EntityPlayer;
                 EntityAlive npc = target;
                 if (p == null)
@@ -79,6 +87,8 @@ namespace SurvivorCommunity
                     World w = ScCommunity.World;
                     EntityPlayer p = w != null ? w.GetEntity(src.getEntityId()) as EntityPlayer : null;
                     if (p == null) return;
+                    // E2: one of an enclave's people - the enclave's warning and hostility rules, not a personal grudge
+                    if (ScEnclavePeople.OnHitBy(__instance, p)) return;
                     ScTrust.OnHitBy(__instance, p);
                 }
                 catch (Exception e)
