@@ -238,8 +238,9 @@
 	     on them besides (%sc_enc, above). A hostile enclave matches no phase, but X9 keeps its people from being talked to.
 	     Requirements and the tokens the line panel fills ({enc}, {count}, {poi}, {leader}, {where}: XUiC_ScDialogLine,
 	     ScEncDialog.Fill) are host-only. A line that will be voiced later says nothing that needs a name or a number: those
-	     sit in a sentence of their own. Rows: the leader 3 (7 once E4's requests come), members 2 (4 with E3's enlist and
-	     recruit), under the dialog's 10. Never list Hire in these statements: SC's injection keys on it. -->
+	     sit in a sentence of their own. Rows: the leader 4 with E3's trade (8 once E4's requests come), members 6 entries with
+	     E3's enlist and the three recruit variants (4 at most on screen: hidden rows take no row), under the dialog's 10.
+	     Never list Hire in these statements: SC's injection keys on it. -->
 	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
 		<phase id="scEncLeaderAllied" startstatementid="scEncLeaderAllied">
 			<requirement type="ScEncRole, SurvivorCommunity" value="leader" />
@@ -266,18 +267,21 @@
 			<requirement type="ScEncStanding, SurvivorCommunity" value="neutral" />
 		</phase>
 
-		<!-- the leader's greetings -->
+		<!-- the leader's greetings (E3: "Let's trade." first) -->
 		<statement id="scEncLeaderNeutral" text="scEncLeaderNeutral_text">
+			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
 			<response_entry id="done" />
 		</statement>
 		<statement id="scEncLeaderFriendly" text="scEncLeaderFriendly_text">
+			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
 			<response_entry id="done" />
 		</statement>
 		<statement id="scEncLeaderAllied" text="scEncLeaderAllied_text">
+			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
 			<response_entry id="done" />
@@ -300,17 +304,29 @@
 		<statement id="scEncThreatPaid" text="scEncThreatPaid_text">
 			<response_entry id="done" />
 		</statement>
-		<!-- the members' greetings -->
+		<!-- the members' greetings (E3: "Can you come with me?" and "Would you join us?", one of its three variants) -->
 		<statement id="scEncMemberNeutral" text="scEncMemberNeutral_text">
 			<response_entry id="scEncWhereLeader" />
+			<response_entry id="scEncEnlist" />
+			<response_entry id="scEncRecruitAsk" />
+			<response_entry id="scEncRecruitPoi" />
+			<response_entry id="scEncRecruitSupplies" />
 			<response_entry id="done" />
 		</statement>
 		<statement id="scEncMemberFriendly" text="scEncMemberFriendly_text">
 			<response_entry id="scEncWhereLeader" />
+			<response_entry id="scEncEnlist" />
+			<response_entry id="scEncRecruitAsk" />
+			<response_entry id="scEncRecruitPoi" />
+			<response_entry id="scEncRecruitSupplies" />
 			<response_entry id="done" />
 		</statement>
 		<statement id="scEncMemberAllied" text="scEncMemberAllied_text">
 			<response_entry id="scEncWhereLeader" />
+			<response_entry id="scEncEnlist" />
+			<response_entry id="scEncRecruitAsk" />
+			<response_entry id="scEncRecruitPoi" />
+			<response_entry id="scEncRecruitSupplies" />
 			<response_entry id="done" />
 		</statement>
 		<!-- "Where's your leader?" -->
@@ -357,4 +373,129 @@
 			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="allied" />
 		</response>
 	</append>
+
+	<!-- Trade, enlist and recruit (E3, Enclaves_Plan.md 2.7-2.9; ScEnclaveDeals, DialogOpsEnclaves.cs). The leader's "Let's
+	     trade." opens vanilla's trade window (Trader trade, as vanilla's traders: a non-hostile enclave's leader names a real
+	     trader, ScEncCanTrade). A member's "Can you come with me?" leads to the terms ({terms}: the fee and the days at the
+	     standing now) or shows greyed with the reason (one of them with you already, the follower limit, the dukes).
+	     "Would you join us?" is one of three rows: scEncRecruitAsk to the confirm ({recruitcost}) or greyed with the reason
+	     (a gate: SC's usual ones, the group still being made, the people left, the cooldown); at Neutral, before their favour
+	     is done, scEncRecruitPoi / scEncRecruitSupplies into SC's own favour statements (their favour, rolled the first time,
+	     unpinned and kept per person: ScEncFavour). SC's join rows in those statements need ScCanRecruit, which one of an
+	     enclave's people never passes, so the enclave's own join rows go in beside them. One enlisted with the player has
+	     their own statement (the phase scEncEnlisted): "Go home now." and the recruit rows (D9: a hire may join).
+	     A greyed row shows its FIRST requirement's description (DialogResponse.GetRequiredDescription) and a row's
+	     requirements stop at the first that fails: value="show" (Hide) comes first and gives the reason, then the others. -->
+	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
+		<phase id="scEncEnlisted" startstatementid="scEncEnlisted">
+			<requirement type="ScEncRole, SurvivorCommunity" value="enlisted" />
+		</phase>
+
+		<!-- one enlisted with the player ({until}: when they head home) -->
+		<statement id="scEncEnlisted" text="scEncEnlisted_text">
+			<response_entry id="scEncGoHome" />
+			<response_entry id="scEncRecruitAsk" />
+			<response_entry id="scEncRecruitPoi" />
+			<response_entry id="scEncRecruitSupplies" />
+			<response_entry id="done" />
+		</statement>
+		<!-- "Can you come with me?" -->
+		<statement id="scEncEnlistConfirm" text="scEncEnlistConfirm_text">
+			<response_entry id="scEncEnlistYes" />
+			<response_entry id="scEncForgetMemberNeutral" />
+			<response_entry id="scEncForgetMemberFriendly" />
+			<response_entry id="scEncForgetMemberAllied" />
+		</statement>
+		<!-- "Would you join us?" with nothing left to do first -->
+		<statement id="scEncRecruitConfirm" text="scEncRecruitConfirm_text">
+			<response_entry id="scEncRecruitYes" />
+			<response_entry id="scEncForgetMemberNeutral" />
+			<response_entry id="scEncForgetMemberFriendly" />
+			<response_entry id="scEncForgetMemberAllied" />
+			<response_entry id="scEncForgetEnlisted" />
+		</statement>
+
+		<response id="scEncTrade" text="scEncTrade">
+			<requirement type="ScEncCanTrade, SurvivorCommunity" requirementtype="Hide" />
+			<action type="Trader" id="trade" />
+		</response>
+		<response id="scEncEnlist" text="scEncEnlist" nextstatementid="scEncEnlistConfirm">
+			<requirement type="ScEncEnlist, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncEnlist, SurvivorCommunity" value="open" />
+		</response>
+		<!-- checked again: the fee may have left the bag since the offer -->
+		<response id="scEncEnlistYes" text="scEncEnlistYes">
+			<requirement type="ScEncEnlist, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncEnlist, SurvivorCommunity" value="open" />
+			<action type="ScEncEnlist, SurvivorCommunity" />
+		</response>
+		<response id="scEncGoHome" text="scEncGoHome">
+			<requirement type="ScEncRole, SurvivorCommunity" requirementtype="Hide" value="enlisted" />
+			<action type="ScEncGoHome, SurvivorCommunity" />
+		</response>
+		<!-- "Would you join us?": one of the three shows -->
+		<response id="scEncRecruitAsk" text="scEncRecruit" nextstatementid="scEncRecruitConfirm">
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="ask" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" value="open" />
+		</response>
+		<response id="scEncRecruitPoi" text="scEncRecruit" nextstatementid="scFavourPoi">
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="open" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="favour" />
+			<requirement type="ScEncFavour, SurvivorCommunity" requirementtype="Hide" value="poi" />
+			<action type="ScFavourBrief, SurvivorCommunity" />
+		</response>
+		<response id="scEncRecruitSupplies" text="scEncRecruit" nextstatementid="scFavourSupplies">
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="open" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="favour" />
+			<requirement type="ScEncFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
+			<action type="ScFavourBrief, SurvivorCommunity" />
+		</response>
+		<response id="scEncRecruitYes" text="scEncRecruitYes">
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="ask" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" value="open" />
+			<action type="ScEncRecruit, SurvivorCommunity" />
+		</response>
+		<!-- the enclave's join rows in SC's favour statements: the supplies handed over in the talk, the POI already cleared -->
+		<response id="scEncGiveSupplies" text="scGiveSupplies">
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="open" />
+			<requirement type="ScFavour, SurvivorCommunity" requirementtype="Hide" value="supplies" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<requirement type="ScHasFavourItems, SurvivorCommunity" requirementtype="Hide" value="any" />
+			<action type="ScTakeFavourItems, SurvivorCommunity" value="any" />
+			<action type="ScEncRecruit, SurvivorCommunity" />
+		</response>
+		<response id="scEncPoiClearedJoin" text="scPoiClearedJoin">
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncRecruit, SurvivorCommunity" requirementtype="Hide" value="open" />
+			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScEncRecruit, SurvivorCommunity" />
+		</response>
+		<!-- back to the greeting this person has now: one of the four shows -->
+		<response id="scEncForgetMemberNeutral" text="scEncForget" nextstatementid="scEncMemberNeutral">
+			<requirement type="ScEncRole, SurvivorCommunity" requirementtype="Hide" value="member" />
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="neutral" />
+		</response>
+		<response id="scEncForgetMemberFriendly" text="scEncForget" nextstatementid="scEncMemberFriendly">
+			<requirement type="ScEncRole, SurvivorCommunity" requirementtype="Hide" value="member" />
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="friendly" />
+		</response>
+		<response id="scEncForgetMemberAllied" text="scEncForget" nextstatementid="scEncMemberAllied">
+			<requirement type="ScEncRole, SurvivorCommunity" requirementtype="Hide" value="member" />
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="allied" />
+		</response>
+		<response id="scEncForgetEnlisted" text="scEncForget" nextstatementid="scEncEnlisted">
+			<requirement type="ScEncRole, SurvivorCommunity" requirementtype="Hide" value="enlisted" />
+		</response>
+	</append>
+	<insertBefore xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='scFavourSupplies']/response_entry[@id='done']">
+		<response_entry id="scEncGiveSupplies" />
+	</insertBefore>
+	<insertBefore xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='scPoiClearedReply']/response_entry[@id='scPoiLater']">
+		<response_entry id="scEncPoiClearedJoin" />
+	</insertBefore>
 </configs>

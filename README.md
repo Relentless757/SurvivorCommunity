@@ -533,8 +533,8 @@ Every enclave now has people: a leader and the rest of the group, living in thei
 - The leader greets you by your **standing**: wary at Neutral, warm at Friendly, welcoming at Allied. Ask them
   *"Tell me about this place."* (their name, how many they are, the leader, the building).
 - The others greet you the same way, and *"Where's your leader?"* tells you who leads and where they are from you.
-- None of them can be hired, picked up, dismissed, asked to join or given a favour, by dialog or by voice; trade,
-  enlisting and recruiting come in E3, requests in E4.
+- None of them can be hired, picked up or dismissed, by dialog or by voice; the leader's trade, enlisting and
+  recruiting go through their own rows (E3, below), requests come in E4.
 
 **Standing, warnings and hostility**
 - Standing is 0 at first and goes from `EnclaveStandingMin` (-30) to 100: Neutral below 30, Friendly from 30, Allied
@@ -594,8 +594,65 @@ the same fields as a member), with `encpersonid` in `[community]` and `kind`, `t
 
 **Limits:** host only - in multiplayer the host's world runs them; a dedicated server runs no SC ticker, so nobody
 appears there. Breaking containers open is not stopped. A multiplayer client does not see the enclave dialog (only
-"Nevermind"). The leader's trade, enlisting and recruiting (E3), requests (E4) and allied benefits (E6) are still to
-come.
+"Nevermind"). Requests (E4) and allied benefits (E6) are still to come.
+
+## Trade, enlist and recruit (E3)
+
+An enclave's people now deal with you: the leader trades, the others can come along for a couple of days or join your
+community for good.
+
+**Trade with the leader**
+- The leader of an enclave that is not hostile is a real trader: *"Let's see what you have to trade."* (or Trade on
+  their radial) opens vanilla's trade window. What they sell depends on the group's kind, from vanilla's own trader
+  stock and smaller than a trader's: growers food and seeds, medics medicine, militia guns and ammo, builders tools and
+  materials, a road crew fuel and vehicle parts, scavengers a bit of everything (`Config/traders.xml`).
+- Each enclave keeps **its own stock**: what you buy is gone, what you sell them stays until the restock, which comes every 3 days
+  the way vanilla traders do. It is kept when they despawn, when you reload, and when a new leader takes over.
+- **Prices by standing:** at Neutral vanilla's both ways; at Friendly they pay you 20 % more for what you sell; at
+  Allied they charge you 20 % less and pay 35 % more (`EnclaveBuy*` / `EnclaveSell*`). Your own barter perks count on
+  top. A hostile enclave does not trade.
+
+**Enlist one of them** (*"Can you come with me?"*, to anyone but the leader)
+- They follow you and fight like a hired companion for 2 days (`EnclaveEnlistDays`), for 500 dukes at Neutral, 250
+  at Friendly and nothing at Allied (`EnclaveEnlistCost*`), paid from your bag and toolbelt. There is no weekly Voice
+  Control contract: SC handles it.
+- One per enclave at a time, and they count toward your follower limit (`MaxFollowers`, 2) together with your own
+  followers. When it can't be, the row is greyed with the reason: the dukes it needs, one of them already with you,
+  or all the followers you can lead.
+- They go home when you tell them (*"Go home now."*, or Voice Control's "dismiss"), when their days are up, when their
+  enclave turns hostile (they leave you first), or when you go far enough that their body unloads (or you quit): they
+  walk back to their spot when their building is near, and otherwise walk away and are home again the next time you
+  visit. (SCore's companion window does not list them: it shows only its older body type.)
+- If they die while with you, the enclave's standing drops by 5 (`EnclaveEnlistDeathPenalty`) and the ledger says so.
+
+**Recruit one of them** (*"Would you join us?"*, to anyone but the leader, at home or with you)
+- At **Neutral** they want their own favour first, as wild survivors do (a POI to clear or supplies to bring: SC's own
+  favour statements and journal quest), and the join costs 10 standing (`EnclaveRecruitStanding`). At **Friendly** no
+  favour, 10 standing. At **Allied** no favour and no cost.
+- The enclave always keeps at least 2 people (`EnclaveRecruitMinLeft`), lets one go every 7 days
+  (`EnclaveRecruitCooldownDays`), and not while its group is still being made; your community needs a home and room.
+  The row is greyed with the reason when one of these is not met.
+- They join with the same face, name, weapons, skills and traits you saw, and leave their enclave's records for good.
+  The ledger notes who left whom.
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveTraderIdBase` (the leader's trader ids in
+`Config/traders.xml`: 200-205 - keep both in step), `EnclaveBuyNeutral`, `EnclaveBuyFriendly`, `EnclaveBuyAllied`,
+`EnclaveSellNeutral`, `EnclaveSellFriendly`, `EnclaveSellAllied`, `EnclaveEnlistCostNeutral`,
+`EnclaveEnlistCostFriendly`, `EnclaveEnlistCostAllied`, `EnclaveEnlistDays`, `EnclaveEnlistDeathPenalty`,
+`EnclaveRecruitMinLeft`, `EnclaveRecruitCooldownDays`, `EnclaveRecruitStanding`.
+
+**Console** (host): `sc enclave trade <id>` (the trader id, the leader, the stock and its last and next restock, the
+prices now), `sc enclave release <id>` (their enlisted person goes home now), and `sc enclave people <id>` now shows
+who is with you and until when, their favours, and when the next recruit can go.
+
+**Saving:** each `[enclave]` gains `stock` (the leader's trade stock) and `recruited` (the day of the last recruit);
+an enlisted person's `[encperson]` has `enlisted` (who, until when, which body) - a load always finds them home; an
+enclave person's favour is a `[prospect]` with `encp` (whose). Forward-only, as E2's; an older build would also keep a
+person saved while they were out with you (`state=enlisted`, a save from mid-enlistment) away from home for good.
+
+**Limits:** host only, as E2. A multiplayer client sees neither the dialog nor the leader's Trade, and their trade
+prices would be vanilla's. A stray hire entry can stay on the player after a crash while someone was enlisted (it is
+cleared at the next load).
 
 ## Infestations (I1)
 
@@ -1027,6 +1084,10 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `EnclaveSpawnPerTick`, `EnclaveHoldChunks`, `EnclaveDailyRestock`, `EnclaveLeashMargin`, `EnclaveDefendRadius`,
 `EnclaveStandingMin`, `EnclaveWarnPenalty`, `EnclaveWarnWindow`, `EnclaveHitDebounce`, `EnclaveThreatBundlesMin`,
 `EnclaveThreatBundlesMax`, `EnclaveThreatGrace`, `EnclaveContainerLock`, `EnclaveWildSpawnMargin` and `EnclaveKindRows`
+(commented in the block). Enclave trade, enlisting and recruiting (E3): `EnclaveTraderIdBase`, `EnclaveBuyNeutral`,
+`EnclaveBuyFriendly`, `EnclaveBuyAllied`, `EnclaveSellNeutral`, `EnclaveSellFriendly`, `EnclaveSellAllied`,
+`EnclaveEnlistCostNeutral`, `EnclaveEnlistCostFriendly`, `EnclaveEnlistCostAllied`, `EnclaveEnlistDays`,
+`EnclaveEnlistDeathPenalty`, `EnclaveRecruitMinLeft`, `EnclaveRecruitCooldownDays` and `EnclaveRecruitStanding`
 (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,

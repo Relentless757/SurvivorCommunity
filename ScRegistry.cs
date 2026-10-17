@@ -24,18 +24,21 @@ namespace SurvivorCommunity
     ///                traits=Hoarder,Hardy run=food:13 pendingunhide=0 loadout=gunBowT0PrimitiveBow,meleeWpnClubT0WoodenClub
     ///                ammo=ammoArrowStone:14 (or ammo=none: recorded, carrying nothing)
     ///   [prospect]   id=1300 class=.. name=.. favour=poi|supplies poi=x,y,z poiname=.. poisize=w,d items=food:15 done=1
-    ///                loadout=ranged,melee
+    ///                loadout=ranged,melee; E3 encp=12 (an enclave person's favour: id is then their body's, parked at load)
     ///   [contact]    id=3 class=.. label=.. poi=x,y,z poiname=.. spawn=x,y,z day=12 expire=19 loadout=ranged,melee
     ///   [outpost]    id=2 flag=x,y,z poi=x,y,z size=w,h,d prefab=.. name=.. row=grocery weight=food:1.2 tier=4 day=20
     ///                carry=f,f,f,f,f pending=n,n,n,n,n state=Active lost=-1 last=f,f,f,f,f
     ///   [enclave]    id=4 name=.. poi=x,y,z size=w,h,d prefab=.. poiname=.. biome=pine_forest row=farm tier=2 hostile=0
     ///                standing=0 known=1 knownday=6 seeded=1:new (forward-only: an older build drops the section)
     ///                E2 adds kind=growers turned=-1 (the day it turned hostile, -1 = never) people=1 (its group was made)
-    ///   [encperson]  pid=12 enclave=4 role=leader|member state=home|dead died=-1 spot=x,y,z yaw=90 health=0.8
+    ///                E3 adds stock=1:N:base64url (the leader's trade stock, TraderData.Write's N bytes) recruited=-1 (the
+    ///                day one of them last left to join the player)
+    ///   [encperson]  pid=12 enclave=4 role=leader|member state=home|dead|enlisted died=-1 spot=x,y,z yaw=90 health=0.8
     ///                ammostart=.. (ScAmmo's form), then the person as a [member] writes them (WriteMemberFields: class, name,
     ///                look, loadout, ammo, skills, traits ...; id and born are 0, a body is never saved). Forward-only, as
     ///                [enclave]: an older build drops the section and the encpersonid= key. A person whose enclave is
-    ///                missing is dropped (a degraded load).
+    ///                missing is dropped (a degraded load). E3, while enlisted: enlisted=player:until:body (entity ids and the
+    ///                world time) - a load finds them home all the same (bodies never outlive one) and clears that body's hire.
     ///   [infestation] id=3 poi=x,y,z size=w,h,d prefab=.. poiname=.. tier=2 start=12 how=roll source=0 known=1 knownday=13
     ///                special=owed (none | pending:x,y,z | met:class) spread=-1 rearm=x,y,z;.. (forward-only, as [enclave])
     /// Main thread only.
@@ -396,6 +399,9 @@ namespace SurvivorCommunity
                 case "kind": e.Kind = val.Trim().ToLowerInvariant(); break;
                 case "turned": { int d = I(val); e.TurnedHostile = d >= 0; e.HostileDay = d; break; }
                 case "people": e.PeopleRolled = val == "1"; break;
+                // E3: the leader's trade stock (packed, read back by ScEnclaveDeals.DecodeStock), the last recruit's day
+                case "stock": e.Stock = val.Trim(); break;
+                case "recruited": e.LastRecruitDay = I(val); break;
             }
         }
 
@@ -422,6 +428,16 @@ namespace SurvivorCommunity
                 case "yaw": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) ep.Yaw = f; break; }
                 case "health": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) ep.Health = Math.Max(0f, Math.Min(1f, f)); break; }
                 case "ammostart": ep.AmmoStart = ScAmmo.Decode(val, out ep.AmmoStartMags); break;
+                case "enlisted":
+                {
+                    // E3: player:until:body (OnRegistryChanged makes them home and clears that body's hire)
+                    string[] f = val.Split(':');
+                    ulong u;
+                    if (f.Length >= 1) ep.EnlistedBy = I(f[0]);
+                    if (f.Length >= 2 && ulong.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) ep.EnlistedUntil = u;
+                    if (f.Length >= 3) ep.EnlistedBody = I(f[2]);
+                    break;
+                }
                 default: ParseMember(ep.Who, key, val); break;
             }
         }
@@ -843,6 +859,7 @@ namespace SurvivorCommunity
                 case "look": { Look l = p.Look ?? new Look(); if (l.Decode(val)) p.Look = l; break; }
                 case "gear": { if (p.Look == null) p.Look = new Look(); p.Look.DecodeGear(val); break; }
                 case "loadout": p.Loadout = Loadout.Decode(val); break;
+                case "encp": p.EncPersonId = Math.Max(0, I(val)); break;     // E3: an enclave person's favour
             }
         }
 
@@ -1098,6 +1115,8 @@ namespace SurvivorCommunity
                     if (en.Kind.Length > 0) sb.AppendLine("kind=" + Clean(en.Kind));
                     sb.AppendLine("turned=" + (en.TurnedHostile ? Math.Max(0, en.HostileDay) : -1).ToString(CultureInfo.InvariantCulture));
                     sb.AppendLine("people=" + (en.PeopleRolled ? 1 : 0));
+                    if (en.Stock.Length > 0) sb.AppendLine("stock=" + en.Stock);   // base64url: never Clean()ed (it has no '=' or ';')
+                    if (en.LastRecruitDay >= 0) sb.AppendLine("recruited=" + en.LastRecruitDay.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var ep in EncPeople)
                 {
@@ -1114,6 +1133,9 @@ namespace SurvivorCommunity
                     }
                     sb.AppendLine("health=" + ep.Health.ToString("0.###", CultureInfo.InvariantCulture));
                     if (ep.AmmoStart != null) sb.AppendLine("ammostart=" + Clean(ScAmmo.Encode(ep.AmmoStart, ep.AmmoStartMags)));
+                    if (ep.Enlisted)
+                        sb.AppendLine("enlisted=" + ep.EnlistedBy.ToString(CultureInfo.InvariantCulture) + ":" + ep.EnlistedUntil.ToString(CultureInfo.InvariantCulture)
+                                      + ":" + ep.EnlistedBody.ToString(CultureInfo.InvariantCulture));
                     WriteMemberFields(sb, ep.Who);
                 }
                 foreach (var inf in Infestations)
@@ -1163,6 +1185,7 @@ namespace SurvivorCommunity
                         sb.AppendLine("gear=" + Clean(p.Look.EncodeGear()));
                     }
                     if (p.Loadout != null) sb.AppendLine("loadout=" + Clean(p.Loadout.Encode()));
+                    if (p.EncPersonId > 0) sb.AppendLine("encp=" + p.EncPersonId.ToString(CultureInfo.InvariantCulture));
                 }
 
                 string real = Path.Combine(saveDir, FileName);

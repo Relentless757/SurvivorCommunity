@@ -8,20 +8,32 @@ namespace SurvivorCommunity
     /// One of an enclave's people (E2, Enclaves_Plan.md 2.3): a registry record, never in ScRegistry.Members (relink,
     /// consumption, morale and the roster walk that dictionary). The person themself is a Member (Who) - class, name, look,
     /// weapons, ammo, skills, traits, specialty, mood - so ScSpawn.Body rebuilds them like any known survivor and E3's
-    /// recruit can hand the same record to ScCommunity.Join. Who.Id and Who.Born stay 0: a body is never saved, and the
-    /// one in the world this session is EntityId.
+    /// recruit hands the same record to the community (ScCommunity.Admit). Who.Id and Who.Born stay 0: a body is never
+    /// saved, and the one in the world this session is EntityId.
     /// </summary>
     public sealed class EncPerson
     {
         public const string Leader = "leader", MemberRole = "member";
-        /// <summary>At the enclave, or dead. A string with room for E3's enlisted and recruited.</summary>
-        public const string StateHome = "home", StateDead = "dead";
+        /// <summary>
+        /// At the enclave, dead, or (E3) enlisted: following the player for a few days (ScEnclaveDeals). An enlisted person is
+        /// alive - Living, the fall rule, the group size and the recruit minimum count them - but their body is the player's
+        /// follower, not one of the POI's: the spawn, the despawn rule, the daily restock, the spot search and succession
+        /// leave them alone. A recruited person leaves the records altogether.
+        /// </summary>
+        public const string StateHome = "home", StateDead = "dead", StateEnlisted = "enlisted";
 
         public int Id;
         public int EnclaveId;
         public string Role = MemberRole;
         public string State = StateHome;
         public int DiedDay = -1;
+        /// <summary>
+        /// E3, while enlisted: the player's entity id, the world time they go home and their body's id (a load always finds
+        /// them home; after a crash the player's hired_* for that body is cleared: ScEnclaveDeals.SyncOnce).
+        /// </summary>
+        public int EnlistedBy = -1;
+        public ulong EnlistedUntil;
+        public int EnlistedBody = -1;
         public Member Who = new Member();
         /// <summary>The home spot (the cell the body stands in) and the way they face there; unset until their first spawn.</summary>
         public Vector3i Home;
@@ -43,8 +55,19 @@ namespace SurvivorCommunity
         public bool RestockDue;
         /// <summary>Bodies that could not be built in a row (a class that is gone): skipped after a few, so the others still come.</summary>
         public int SpawnFailures;
+        /// <summary>
+        /// E3: a body walking home after the player let them go (ScEnclaveDeals.SendHome) - no watchdog until it is back on
+        /// its spot. LeaveTarget: the next point on a walk toward a POI that is out of reach (zero: straight to the spot);
+        /// LeavingSince: when the walk began (real time).
+        /// </summary>
+        public bool Leaving;
+        public Vector3 LeaveTarget;
+        public float LeavingSince;
 
         public bool IsLeader { get { return Role == Leader; } }
+        /// <summary>E3: alive - at home or enlisted with the player.</summary>
+        public bool Alive { get { return State == StateHome || State == StateEnlisted; } }
+        public bool Enlisted { get { return State == StateEnlisted; } }
         public string Name { get { return Who.Name; } }
         public Vector3 HomeCentre { get { return new Vector3(Home.x + 0.5f, Home.y, Home.z + 0.5f); } }
     }
@@ -69,6 +92,13 @@ namespace SurvivorCommunity
     /// leave the rest to come. The daily restock heals the living and refills their rounds.
     /// Also here: the hostility lookups (the faction postfix, X9, X10), the wild-spawn rule (no biome-spawned NPC within
     /// EnclaveWildSpawnMargin of a living enclave) and the container lock's owner.
+    ///
+    /// E3 (ScEnclaveDeals: trade, enlisting, recruiting) hooks the body lifecycle here: a leader's body is dressed as their
+    /// enclave's trader and its stock recorded when it goes (Dress, Unbody); an enlisted body is the player's follower, so the
+    /// tick neither despawns, watches nor counts it (ScEnclaveDeals.TickEnlisted) and a body that goes in any way ends the
+    /// enlistment (Unbody); one sent home walks back unwatched (Leaving, ScEnclaveDeals.TickLeaving); a person's favour
+    /// follows each new body (Dress, Unbody); a death while enlisted costs standing (Died); succession passes over one
+    /// enlisted (Succeed, EnsureLeader); a recruit leaves the records with their body (LeaveEnclave).
     ///
     /// Host only, main thread; the save thread's veto and the faction check read volatile snapshots rebuilt here.
     /// </summary>
@@ -182,11 +212,13 @@ namespace SurvivorCommunity
             var ids = new HashSet<int>();
             int max = 0;
             foreach (EncPerson p in ScRegistry.EncPeople) if (p.Id > max) max = p.Id;
+            int homeAgain = 0;
             foreach (EncPerson p in ScRegistry.EncPeople)
             {
                 p.EntityId = p.LastEntityId = -1;
                 p.RestockDue = false;
                 p.SpawnFailures = 0;
+                p.Leaving = false;
                 if (p.Id <= 0 || !ids.Add(p.Id))
                 {
                     int old = p.Id;
@@ -196,7 +228,17 @@ namespace SurvivorCommunity
                     ScLog.Warn("enclave person '" + p.Name + "' had a duplicate id " + old + " - now " + p.Id);
                 }
                 if (p.Id > c.NextEncPersonId) c.NextEncPersonId = p.Id;
+                // E3: no body outlives a load, so nobody is still with the player (the shutdown sent them home; a crash did not)
+                if (p.Enlisted)
+                {
+                    p.State = EncPerson.StateHome;
+                    p.EnlistedBy = -1;
+                    p.EnlistedUntil = 0;
+                    homeAgain++;
+                }
             }
+            if (homeAgain > 0) ScLog.Out("enclave people: " + homeAgain + " enlisted person(s) recorded as with the player are home again (bodies never outlive a load)");
+            ScEnclaveDeals.OnRegistryChanged();     // E3: every favour parked (no body yet), the dead's dropped
             RebuildHostile();
         }
 
@@ -291,10 +333,17 @@ namespace SurvivorCommunity
             return v;
         }
 
-        private static EntityAlive BodyOf(EncPerson p)
+        internal static EntityAlive BodyOf(EncPerson p)
         {
             World w = ScCommunity.World;
             return p != null && p.EntityId >= 0 && w != null ? ScNpc.As(ScNpc.Loaded(w, p.EntityId)) : null;
+        }
+
+        /// <summary>BodyOf, and only when it is still the body that person was given (its birth time): never a stranger that holds the id now.</summary>
+        internal static EntityAlive OwnBody(EncPerson p)
+        {
+            EntityAlive npc = BodyOf(p);
+            return npc != null && npc.WorldTimeBorn == p.EntityBorn ? npc : null;
         }
 
         public static List<EncPerson> PeopleOf(Enclave e)
@@ -304,10 +353,11 @@ namespace SurvivorCommunity
             return list;
         }
 
+        /// <summary>The living: at home, or (E3) enlisted with the player - the fall rule, the group's count and the recruit minimum.</summary>
         public static List<EncPerson> Living(Enclave e)
         {
             var list = new List<EncPerson>();
-            foreach (EncPerson p in ScRegistry.EncPeople) if (p.EnclaveId == e.Id && p.State == EncPerson.StateHome) list.Add(p);
+            foreach (EncPerson p in ScRegistry.EncPeople) if (p.EnclaveId == e.Id && p.Alive) list.Add(p);
             return list;
         }
 
@@ -334,6 +384,7 @@ namespace SurvivorCommunity
             {
                 if (!ScEnclaves.Ready || w == null || player == null || !ScRegistry.Loaded) return;
                 Hook(w);
+                ScEnclaveDeals.SyncOnce(player);        // E3: favour quests and a crashed session's hire squared with the records
                 SweepOrphans(w);
                 if (!ScConfig.Enclaves)
                 {
@@ -368,7 +419,7 @@ namespace SurvivorCommunity
         /// <summary>One enclave's second. True when a record changed and the registry wants saving.</summary>
         private static bool TickEnclave(World w, Enclave e, float t, ref int budget)
         {
-            bool changed = false;
+            bool changed = false, went = false;
             float near = NearestPlayer(w, e);
             float keep = ScConfig.EnclaveSpawnRange + ScConfig.EnclaveDespawnMargin;
             int live = 0;
@@ -386,21 +437,30 @@ namespace SurvivorCommunity
                         // an id some other entity holds now keeps that entity's caches
                         ScLog.Warn(p.Name + " of " + e.Name + ": the body (entity " + p.EntityId + ") is gone - they come back from their record");
                         Unbody(p, npc == null);
-                        changed = true;
+                        changed = went = true;
                         continue;
                     }
                     if (npc.IsDead()) continue;                                     // the SetDead postfix took it
+                    // E3: an enlisted body is the player's follower, not one of the POI's - never despawned, watched or
+                    // counted for the hold; it goes home when its days are up or the player lets it go
+                    if (p.Enlisted)
+                    {
+                        if (ScEnclaveDeals.TickEnlisted(w, e, p, npc)) changed = true;
+                        continue;
+                    }
                     if (e.Lost || (near > keep && !SeenByAny(w, npc.position)))
                     {
                         Despawn(p, npc);
-                        changed = true;
+                        changed = went = true;
                         continue;
                     }
                     live++;
+                    // E3: one walking home after the player let them go is not watched until it is back on its ground
+                    if (p.Leaving) { ScEnclaveDeals.TickLeaving(w, e, p, npc); continue; }
                     Watch(w, e, p, npc);
                 }
                 scratch.Clear();
-                if (live == 0 && changed) ScLog.Out("enclave " + e.Id + " '" + e.Name + "': its people went (no player within " + Mathf.RoundToInt(keep) + " m)");
+                if (live == 0 && went) ScLog.Out("enclave " + e.Id + " '" + e.Name + "': its people went (no player within " + Mathf.RoundToInt(keep) + " m)");
             }
             UpdateHold(e, near, live > 0);
             if (budget <= 0 || e.Lost || near > ScConfig.EnclaveSpawnRange) return changed;
@@ -443,7 +503,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Some player may see it: within NoDrawRange and inside their view cone.</summary>
-        private static bool SeenByAny(World w, Vector3 at)
+        internal static bool SeenByAny(World w, Vector3 at)
         {
             List<EntityPlayer> list = w.Players != null ? w.Players.list : null;
             if (list == null) return false;
@@ -467,7 +527,7 @@ namespace SurvivorCommunity
         /// ScRunners.Settled (3x3 chunks: loaded, decorated, lit, colliders built, not new this update) at the footprint's
         /// corners and centre, which together cover every chunk of a POI up to 80 m wide.
         /// </summary>
-        private static bool ChunksSettled(World w, Enclave e)
+        internal static bool ChunksSettled(World w, Enclave e)
         {
             int[] b = e.Box;
             Vector3 c = e.Centre;
@@ -476,7 +536,10 @@ namespace SurvivorCommunity
                    && ScRunners.Settled(w, new Vector3(b[0], 0f, b[3])) && ScRunners.Settled(w, new Vector3(b[1], 0f, b[3]));
         }
 
-        /// <summary>The next living person without a body: the leader first; one whose spot is in somebody's view waits.</summary>
+        /// <summary>
+        /// The next person at home without a body: the leader first; one whose spot is in somebody's view waits. (E3: one
+        /// enlisted with the player has their body at the player's side; their enlistment ends when it goes.)
+        /// </summary>
         private static EncPerson NextToSpawn(World w, Enclave e)
         {
             EncPerson pick = null;
@@ -671,7 +734,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// Everything a body of an enclave carries, the first one and every later one alike: never saved (Dynamic, the
         /// veto), its enclave's and person's cvars, the record's person (never a re-roll), the Guard order at the home spot,
-        /// the SCEnclave package, doors, the recorded health.
+        /// the SCEnclave package, doors, the recorded health; and (E3) a leader's trade stock, the person's favour.
         /// </summary>
         private static void Dress(Enclave e, EncPerson p, EntityAlive npc)
         {
@@ -692,11 +755,7 @@ namespace SurvivorCommunity
                 ScTraits.ApplyBuffs(p.Who, npc);
                 ScProfile.Stamp(p.Who, npc);
             }
-            // the Guard order at the spot as cvars (ScCommunity.Station's shape: buffOrderGuard's GuardHere would move the guard
-            // spot to wherever the body stands a tick later)
-            npc.Buffs.SetCustomVar("CurrentOrder", (float)EntityUtilities.Orders.Guard);
-            npc.Buffs.SetCustomVar("Guarding", 2f);
-            ScNpc.SetGuard(npc, p.HomeCentre, LookPoint(p));
+            GuardAtSpot(p, npc);
             AddPackage(npc);
             ScDoors.Enable(npc, true);
             int max = npc.GetMaxHealth();
@@ -710,6 +769,24 @@ namespace SurvivorCommunity
             ScCommunity.ResetStill(m);
             m.AwaySeconds = 0;
             m.LastPos = npc.position;
+            ScEnclaveDeals.OnDressed(e, p, npc);        // E3: a leader's trade stock; the person's favour follows the body
+        }
+
+        /// <summary>
+        /// The Guard order at their spot as cvars (ScCommunity.Station's shape: buffOrderGuard's GuardHere would move the
+        /// guard spot to wherever the body stands a tick later). Dress, and E3's walk home.
+        /// </summary>
+        internal static void GuardAtSpot(EncPerson p, EntityAlive npc)
+        {
+            GuardAt(npc, p.HomeCentre, LookPoint(p));
+        }
+
+        /// <summary>GuardAtSpot's order at any point (E3: a step of the walk toward a POI out of reach).</summary>
+        internal static void GuardAt(EntityAlive npc, Vector3 at, Vector3 look)
+        {
+            npc.Buffs.SetCustomVar("CurrentOrder", (float)EntityUtilities.Orders.Guard);
+            npc.Buffs.SetCustomVar("Guarding", 2f);
+            ScNpc.SetGuard(npc, at, look);
         }
 
         private static void AddPackage(EntityAlive npc)
@@ -744,7 +821,7 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void Despawn(EncPerson p, EntityAlive npc)
+        internal static void Despawn(EncPerson p, EntityAlive npc)
         {
             Record(p, npc);
             Remove(p, npc);
@@ -760,10 +837,15 @@ namespace SurvivorCommunity
             finally { capturingId = -1; }
         }
 
-        /// <summary>The person has no body any more (it went, died or vanished): the lookups forget it, LastEntityId keeps its id.</summary>
+        /// <summary>
+        /// The person has no body any more (it went, died or vanished): the lookups forget it, LastEntityId keeps its id. E3:
+        /// a leader's stock is recorded from it, an enlistment ends (home: the next body is built at their spot), a walk home
+        /// ends, the person's favour waits for the next body (ScEnclaveDeals.OnUnbodied).
+        /// </summary>
         private static void Unbody(EncPerson p, bool caches)
         {
             if (p.EntityId < 0) return;
+            ScEnclaveDeals.OnUnbodied(p, OwnBody(p));
             Forget(p.EntityId, caches);
             p.LastEntityId = p.EntityId;
             p.EntityId = -1;
@@ -1051,8 +1133,9 @@ namespace SurvivorCommunity
             Visit v = VisitOf(e.Id);
             List<Spot> cands = Candidates(w, e);
             var taken = new List<Vector3i>();
+            // the living's spots (E3: one enlisted with the player comes back to theirs)
             foreach (EncPerson q in ScRegistry.EncPeople)
-                if (q != p && q.EnclaveId == e.Id && q.State == EncPerson.StateHome && q.HasHome) taken.Add(q.Home);
+                if (q != p && q.EnclaveId == e.Id && q.Alive && q.HasHome) taken.Add(q.Home);
             GameRandom r = w.GetGameRandom();
             Spot s;
             if (!Pick(e, cands, p.IsLeader, taken, v.Bad, r, out s))
@@ -1204,10 +1287,13 @@ namespace SurvivorCommunity
             {
                 EncPerson p;
                 if (npc == null || !bodies.TryGetValue(npc.entityId, out p) || p.EntityBorn != npc.WorldTimeBorn) return;   // an orphan: nobody's
+                // E3: one enlisted with the player died at their side - the hire undone first, quietly (the death tells)
+                bool wasEnlisted = p.Enlisted;
+                if (wasEnlisted) ScEnclaveDeals.EndEnlist(p, npc, null, "died", false);
                 // the corpse is left to vanilla (its loot, its despawn) and stays out of every save (the veto)
                 Unbody(p, false);
                 Enclave e = ScEnclaves.ById(p.EnclaveId);
-                if (e != null) Died(e, p, npc.entityThatKilledMe, true);
+                if (e != null) Died(e, p, npc.entityThatKilledMe, true, wasEnlisted);
             }
             catch (Exception ex)
             {
@@ -1220,8 +1306,10 @@ namespace SurvivorCommunity
         /// nobody left of a group that was all made the enclave falls; a group still being made (its first bodies killed
         /// while a spot in view held the rest back) does not - the rest come, a new leader first. A kill by the player (or a
         /// companion of theirs) turns a friendly or neutral enclave hostile (Q6 a); a dead leader's place and spot go to the next.
+        /// E3: one who died enlisted with the player costs EnclaveEnlistDeathPenalty standing and says so in the ledger; a
+        /// favour they asked is off.
         /// </summary>
-        private static void Died(Enclave e, EncPerson p, EntityAlive killer, bool real)
+        private static void Died(Enclave e, EncPerson p, EntityAlive killer, bool real, bool wasEnlisted)
         {
             bool wasLeader = p.IsLeader;
             p.State = EncPerson.StateDead;
@@ -1229,8 +1317,10 @@ namespace SurvivorCommunity
             p.Health = 0f;
             p.Role = EncPerson.MemberRole;             // one leader among the living
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-            ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerDied"), p.Name, e.Name));
-            if (Near(e, pl)) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncDied"), p.Name, e.Name), "");
+            ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));
+            if (wasEnlisted || Near(e, pl)) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncDied"), p.Name, e.Name), "");
+            if (wasEnlisted && ScConfig.EnclaveEnlistDeathPenalty > 0) ScEnclaves.AddStanding(e, -ScConfig.EnclaveEnlistDeathPenalty, p.Name + " died while enlisted with the player");
+            ScEnclaveDeals.DropFavour(p, "they died");
             EntityPlayer by = KillerPlayer(killer);
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + (wasLeader ? "the leader " : "") + p.Name + " (p" + p.Id + ") died"
                       + (killer != null ? " - killed by " + ScCommunity.DisplayName(killer) + (by != null && !ReferenceEquals(by, killer) ? " (" + by.EntityName + "'s)" : "") : real ? "" : " (the console)"));
@@ -1261,19 +1351,25 @@ namespace SurvivorCommunity
             return leader > 0 && w != null ? w.GetEntity(leader) as EntityPlayer : null;
         }
 
-        /// <summary>The leader died: the living person with the highest tier (then the one made first) leads now, from the leader's spot.</summary>
+        /// <summary>
+        /// The leader died: the living person at home with the highest tier (then the one made first) leads now, from the
+        /// leader's spot, and (E3) trades with the enclave's stock. One enlisted with the player is passed over: with nobody
+        /// else at home the group has no leader until they come back (EnsureLeader). dead: null for EnsureLeader's call.
+        /// </summary>
         private static void Succeed(Enclave e, EncPerson dead, List<EncPerson> living)
         {
             EncPerson next = null;
             foreach (EncPerson q in living)
             {
+                if (q.State != EncPerson.StateHome) continue;
                 if (next == null) { next = q; continue; }
                 int tq = ScXnpc.TierOf(q.Who.Class), tn = ScXnpc.TierOf(next.Who.Class);
                 if (tq > tn || (tq == tn && q.Id < next.Id)) next = q;
             }
             if (next == null) return;
             next.Role = EncPerson.Leader;
-            if (dead.HasHome)
+            ScEnclaveDeals.OnNewLeader(e, next);
+            if (dead != null && dead.HasHome)
             {
                 next.Home = dead.Home;
                 next.Yaw = dead.Yaw;
@@ -1291,6 +1387,16 @@ namespace SurvivorCommunity
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + next.Name + " (p" + next.Id + ") leads them now");
         }
 
+        /// <summary>
+        /// E3: a group nobody leads - its leader died while the only others were out with the player - gets one from those at
+        /// home (ScEnclaveDeals.EndEnlist, when one comes back). Nothing while it has a leader or nobody is home.
+        /// </summary>
+        internal static void EnsureLeader(Enclave e)
+        {
+            if (e == null || !ScEnclaves.All.Contains(e) || LeaderOf(e) != null) return;
+            Succeed(e, null, Living(e));
+        }
+
         /// <summary>The player is near enough to hear of it: within the range the bodies are kept in.</summary>
         private static bool Near(Enclave e, EntityPlayer pl)
         {
@@ -1299,7 +1405,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// An enclave fell or was dropped (ScEnclaves.Fall, sc enclave reseed): bodies still out are taken away, its records
-        /// go, its hold and lookups with them.
+        /// go, its hold and lookups with them; (E3) one enlisted with the player is let go quietly and every favour its
+        /// people asked is off.
         /// </summary>
         public static void DropPeople(Enclave e)
         {
@@ -1308,9 +1415,12 @@ namespace SurvivorCommunity
             {
                 if (p.EnclaveId != e.Id) continue;
                 EntityAlive npc = w != null ? ScNpc.As(ScNpc.Loaded(w, p.EntityId)) : null;
+                if (p.Enlisted) ScEnclaveDeals.EndEnlist(p, npc != null && npc.WorldTimeBorn == p.EntityBorn ? npc : null, null, "their enclave is gone", false);
                 if (npc != null && !npc.IsDead()) Remove(p, npc);
                 else Unbody(p, false);
             }
+            foreach (EncPerson p in ScRegistry.EncPeople)
+                if (p.EnclaveId == e.Id) ScEnclaveDeals.DropFavour(p, "their enclave is gone");
             ScRegistry.EncPeople.RemoveAll(p => p.EnclaveId == e.Id);
             Visit v;
             if (visits.TryGetValue(e.Id, out v)) { Release(v, null); visits.Remove(e.Id); }
@@ -1318,12 +1428,48 @@ namespace SurvivorCommunity
             RebuildHostile();
         }
 
+        /// <summary>
+        /// E3's recruit (ScEnclaveDeals.Recruit): the person leaves the enclave for good - their record goes, and their body,
+        /// which joins the community, loses the enclave's cvars and AI package and leaves the lookups and the chunk-save
+        /// veto: from now on the chunk saves it as a member's. The '%' cvars are set to 0 first (a 0 reaches clients, a
+        /// removal never does) and then removed, so the host's own tests (IsEnclaveNpc: HasCustomVar) read false at once.
+        /// </summary>
+        internal static void LeaveEnclave(EncPerson p, EntityAlive npc)
+        {
+            if (npc != null)
+            {
+                string[] synced = { EncCvar, PersonCvar, HostileCvar };
+                foreach (string cv in synced)
+                {
+                    if (!npc.Buffs.HasCustomVar(cv)) continue;
+                    npc.Buffs.SetCustomVar(cv, 0f);
+                    npc.Buffs.RemoveCustomVar(cv);
+                }
+                npc.Buffs.RemoveCustomVar(ScEnclaveDeals.EnlistedCvar);
+                if (npc.AIPackages != null) npc.AIPackages.Remove(Package);
+                RemoveVeto(npc.entityId);
+                bodies.Remove(npc.entityId);
+            }
+            if (p.EntityId >= 0) bodies.Remove(p.EntityId);
+            p.EntityId = -1;
+            p.Leaving = false;
+            ScRegistry.EncPeople.Remove(p);
+        }
+
+        private static void RemoveVeto(int id)
+        {
+            if (!vetoIds.ContainsKey(id)) return;
+            var s = new Dictionary<int, KeyValuePair<int, ulong>>(vetoIds);
+            s.Remove(id);
+            vetoIds = s;
+        }
+
         // ------------------------------------------------------------------ the daily restock ----
 
         /// <summary>
-        /// ScDaily.Run (EnclaveDailyRestock): every living person back to full health and the rounds they were made with.
-        /// Idempotent, so a catch-up of several days gives the same. A body out in the world is healed now and gets its rounds
-        /// when it goes (it carries what it carries).
+        /// ScDaily.Run (EnclaveDailyRestock): every living person at home back to full health and the rounds they were made
+        /// with (E3: not one enlisted with the player - they are out with them). Idempotent, so a catch-up of several days
+        /// gives the same. A body out in the world is healed now and gets its rounds when it goes (it carries what it carries).
         /// </summary>
         public static void Daily(int day)
         {
@@ -1386,7 +1532,11 @@ namespace SurvivorCommunity
             EntityBuffs bf = e.Buffs;
             if (bf == null || e is EntityPlayer) return false;
             float id = bf.GetCustomVar(EncCvar);
-            return id > 0f && hostileActive.Contains((int)id);
+            if (id <= 0f || !hostileActive.Contains((int)id)) return false;
+            // a follower the flip released walks home first (plan 2.8: "they leave you first"): no enemy of anyone until
+            // they are back on their spot or gone (the E3 review's M1)
+            EncPerson p;
+            return !(bodies.TryGetValue(e.entityId, out p) && p.Leaving);
         }
 
         private static bool Opposes(EntityAlive e)
@@ -1592,7 +1742,7 @@ namespace SurvivorCommunity
         /// <summary>sc enclave info: one line on the people.</summary>
         public static string Summary(Enclave e)
         {
-            int all = 0, dead = 0, out_ = 0;
+            int all = 0, dead = 0, out_ = 0, enlisted = 0;
             string leader = null;
             foreach (EncPerson p in ScRegistry.EncPeople)
             {
@@ -1600,24 +1750,36 @@ namespace SurvivorCommunity
                 all++;
                 if (p.State == EncPerson.StateDead) dead++;
                 else if (p.IsLeader) leader = p.Name;
+                if (p.Enlisted) enlisted++;
                 if (p.EntityId >= 0) out_++;
             }
             if (all == 0) return "people not made yet (" + GroupSize(e) + " when a player first comes within " + ScConfig.EnclaveSpawnRange + " m)";
             return (all - dead) + " living" + (dead > 0 ? ", " + dead + " dead" : "") + (e.PeopleRolled ? "" : " (still being made: " + GroupSize(e) + " in all)")
-                   + ", led by " + (leader ?? "nobody") + ", " + out_ + " in the world";
+                   + ", led by " + (leader ?? "nobody") + ", " + out_ + " in the world" + (enlisted > 0 ? ", " + enlisted + " with you" : "");
         }
 
-        /// <summary>sc enclave people &lt;id&gt;</summary>
+        /// <summary>sc enclave people &lt;id&gt; (E3: who is enlisted, by whom and until when; the recruit cooldown)</summary>
         public static void PeopleLines(Enclave e, List<string> into)
         {
             into.Add("#" + e.Id + " " + e.Name + ": " + Summary(e));
+            int wait = ScEnclaveDeals.CooldownLeft(e);
+            into.Add("  recruiting: " + (e.IsHostile ? "never (hostile)" : !e.PeopleRolled ? "not while the group is being made" : wait > 0 ? "the next one from day "
+                     + (e.LastRecruitDay + ScConfig.EnclaveRecruitCooldownDays) + " (" + wait + " day(s))" : "open") + (e.LastRecruitDay >= 0 ? ", the last on day " + e.LastRecruitDay : "")
+                     + ", at least " + Math.Max(1, ScConfig.EnclaveRecruitMinLeft) + " stay");
+            World w = ScCommunity.World;
             foreach (EncPerson p in PeopleOf(e))
             {
                 EntityAlive npc = BodyOf(p);
+                EntityPlayer by = p.Enlisted && w != null ? w.GetEntity(p.EnlistedBy) as EntityPlayer : null;
+                Prospect fav = ScEnclaveDeals.ProspectByPerson(p.Id);
                 into.Add("  p" + p.Id + " " + (p.IsLeader ? "leader" : "member") + " " + p.Name + " (" + p.Who.Class + ") - " + p.State
                          + (p.State == EncPerson.StateDead ? " since day " + p.DiedDay : "")
+                         + (p.Enlisted ? " with " + (by != null ? by.EntityName : "entity " + p.EnlistedBy) + " until day " + GameUtils.WorldTimeToDays(p.EnlistedUntil) + " "
+                            + GameUtils.WorldTimeToHours(p.EnlistedUntil).ToString("00") + ":" + GameUtils.WorldTimeToMinutes(p.EnlistedUntil).ToString("00") : "")
+                         + (p.Leaving ? " (walking home)" : "")
                          + ", health " + Mathf.RoundToInt(p.Health * 100f) + "%, spot " + (p.HasHome ? p.Home + " yaw " + Mathf.RoundToInt(p.Yaw) : "not chosen yet")
-                         + ", " + (p.EntityId >= 0 ? "entity " + p.EntityId + (npc != null ? " at " + World.worldToBlockPos(npc.position) + ", " + npc.Health + "/" + npc.GetMaxHealth() + " hp" : "") : "no body"));
+                         + ", " + (p.EntityId >= 0 ? "entity " + p.EntityId + (npc != null ? " at " + World.worldToBlockPos(npc.position) + ", " + npc.Health + "/" + npc.GetMaxHealth() + " hp" : "") : "no body")
+                         + (fav != null ? ", favour: " + ScFavours.Describe(fav) + (fav.Done ? " (done)" : "") + " (key " + fav.Id + ")" : ""));
             }
         }
 
@@ -1695,9 +1857,12 @@ namespace SurvivorCommunity
             {
                 if (!ScEnclaves.All.Contains(e)) break;           // the last one took the enclave with them
                 EntityAlive npc = BodyOf(p);
+                // E3: one enlisted with the player dies as if at their side (the penalty too: the console tests it)
+                bool wasEnlisted = p.Enlisted;
+                if (wasEnlisted) ScEnclaveDeals.EndEnlist(p, OwnBody(p), null, "killed from the console", false);
                 if (npc != null && !npc.IsDead()) Remove(p, npc);
                 else Unbody(p, false);
-                Died(e, p, null, false);
+                Died(e, p, null, false, wasEnlisted);
                 n++;
             }
             return n + " marked dead - " + (ScEnclaves.All.Contains(e) ? Summary(e) : "the enclave is gone");

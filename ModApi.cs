@@ -45,6 +45,7 @@ namespace SurvivorCommunity
                 ScOutposts.Reset();
                 ScEnclaves.Reset();
                 ScEnclavePeople.Reset();
+                ScEnclaveDeals.Reset();
                 ScInfestations.Reset();
                 ScPoiIndex.Reset();
                 ScHomeLink.Reset();
@@ -355,6 +356,10 @@ namespace SurvivorCommunity
             Add(t, "TEFeatureStorage::OnBlockActivated", Patches_Enclaves.Patch_ContainerLock.Target());
             Add(t, "SpawnManagerBiomes::SpawnUpdate", Patches_Enclaves.Patch_BiomeSpawn.Target());
             Add(t, "World::GetRandomSpawnPositionInAreaMinMaxToPlayers", Patches_Enclaves.Patch_BiomeSpawnSpot.Target());
+            // E3: an enclave leader's trade - prices by standing, the stock recorded when the trade window closes
+            Add(t, "XUiM_Trader::GetBuyPrice", Patches_Enclaves.Patch_TradeBuyPrice.Target());
+            Add(t, "XUiM_Trader::GetSellPrice", Patches_Enclaves.Patch_TradeSellPrice.Target());
+            Add(t, "EntityTrader::OnUnlockedServer", Patches_Enclaves.Patch_TradeClosed.Target());
             // Patches_Infestations.cs - an infested POI's rooms (I1; the count, spawn points and special share the UpdatePlayerTouched
             // entry above, the feral share ScLoadout's GetRandomFromGroupList entry)
             Add(t, "SleeperVolume::UpdateSpawn", AccessTools.Method(typeof(SleeperVolume), "UpdateSpawn", new[] { typeof(World) }));

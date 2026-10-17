@@ -23,6 +23,8 @@ namespace SurvivorCommunity
         public const string TitleVar = "ScTitle";
         public const string MemberVar = "ScMember";
         public const string SuppliesVar = "ScSupplies";
+        /// <summary>E3: the enclave person a favour quest belongs to (their prospect's giver id follows each new body).</summary>
+        public const string EncPersonVar = "ScEncPerson";
 
         public static bool IsOurs(Quest q)
         {
@@ -136,6 +138,7 @@ namespace SurvivorCommunity
                 // phase 2 (return to the survivor): vanilla InteractWithNPC checks Quest.QuestGiverID
                 q.DataVariables[ObjectiveScTalkToSurvivor.NameVar] = SafeName(p.Name ?? "");
                 q.QuestGiverID = p.Id;
+                if (p.EncPersonId > 0) q.DataVariables[EncPersonVar] = p.EncPersonId.ToString();   // E3: the giver follows the person
                 q.SetPositionData(Quest.PositionDataTypes.QuestGiver, GiverPosition(p));
 
                 QuestJournal j = Journal(player);
@@ -184,6 +187,7 @@ namespace SurvivorCommunity
                 q.DataVariables[SuppliesVar] = SafeName(string.Format(Localization.Get("scQuestSuppliesWhat"), p.ItemCount,
                     Localization.Get(ScNames.LocKey(p.ItemCategory))));
                 q.QuestGiverID = p.Id;
+                if (p.EncPersonId > 0) q.DataVariables[EncPersonVar] = p.EncPersonId.ToString();   // E3: the giver follows the person
                 q.SetPositionData(Quest.PositionDataTypes.QuestGiver, GiverPosition(p));
                 QuestJournal j = Journal(player);
                 GameManager gm = GameManager.Instance;
@@ -376,6 +380,65 @@ namespace SurvivorCommunity
         public static void CloseFavour(EntityPlayer player, int prospectId, bool completed)
         {
             Close(player, FindFavour(player, prospectId), completed);
+        }
+
+        /// <summary>
+        /// E3: an enclave person's favour moved to a new key (a new body, or parked without one): the favour quests that named
+        /// the old one as their giver name the new one (InteractWithNPC reads QuestGiverID at each talk; RekeyRescue's
+        /// precedent). Every state: a completed quest's giver is history, but cheap to keep right.
+        /// </summary>
+        public static void RekeyFavour(EntityPlayer player, int oldId, int newId)
+        {
+            try
+            {
+                QuestJournal j = Journal(player);
+                if (j == null || j.quests == null) return;
+                for (int i = 0; i < j.quests.Count; i++)
+                {
+                    Quest q = j.quests[i];
+                    if (q != null && q.QuestGiverID == oldId && IsFavourQuest(q)) q.QuestGiverID = newId;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-rekeyfavour", e);
+            }
+        }
+
+        /// <summary>
+        /// E3, once a session (ScEnclaveDeals.SyncOnce): every in-progress favour quest of an enclave person (EncPersonVar)
+        /// names their prospect's key now - a save keeps the giver id of a body that is gone - and one whose prospect is gone
+        /// (the person died, joined, their enclave fell) is closed as failed. Returns how many changed.
+        /// </summary>
+        public static int SyncEnclaveFavours(EntityPlayer player)
+        {
+            int n = 0;
+            try
+            {
+                QuestJournal j = Journal(player);
+                if (j == null || j.quests == null) return 0;
+                var gone = new List<Quest>();
+                for (int i = 0; i < j.quests.Count; i++)
+                {
+                    Quest q = j.quests[i];
+                    string v;
+                    int pid;
+                    if (q == null || q.CurrentState != Quest.QuestState.InProgress || !IsFavourQuest(q) || q.DataVariables == null
+                        || !q.DataVariables.TryGetValue(EncPersonVar, out v) || !int.TryParse(v, out pid)) continue;
+                    Prospect p = ScEnclaveDeals.ProspectByPerson(pid);
+                    if (p == null) { gone.Add(q); continue; }
+                    if (q.QuestGiverID == p.Id) continue;
+                    q.QuestGiverID = p.Id;
+                    n++;
+                }
+                foreach (Quest q in gone) Close(player, q, false);
+                n += gone.Count;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-syncenc", e);
+            }
+            return n;
         }
 
         /// <summary>Closes the quest through Quest.CloseQuest (unhooks objectives) and restores the compass.</summary>

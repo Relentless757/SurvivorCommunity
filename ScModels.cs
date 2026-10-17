@@ -247,6 +247,12 @@ namespace SurvivorCommunity
         public Look Look;
         /// <summary>The two weapons they carry (ScLoadout), handed on to the member record when they join.</summary>
         public Loadout Loadout;
+        /// <summary>
+        /// E3: the enclave person this favour belongs to (0: a wild survivor's). Their body is rebuilt under a new entity id at
+        /// each spawn, so the prospect is the person's: Id (its registry key and the favour quest's giver) follows each new
+        /// body, and is parked on ScEnclaveDeals.ParkedKey while they have none (ScEnclaveDeals.RekeyFavour). Saved as encp=.
+        /// </summary>
+        public int EncPersonId;
     }
 
     public sealed class Community

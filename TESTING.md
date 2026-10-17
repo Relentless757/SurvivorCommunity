@@ -25,6 +25,71 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Enclave trade, enlist and recruit (E3)
+
+**Built 2026-10-17, not deployed yet.** A survivor enclave's leader trades through vanilla's trade window with their
+own stock and prices by standing; a member can come with you for 2 days for dukes; a member can join your community
+(their favour first at Neutral). `sc enclave trade <id>` shows the trader, the stock and the prices;
+`sc enclave people <id>` shows who is with you, their favours and the recruit cooldown; `sc enclave release <id>` sends
+an enlisted person home; `sc enclave standing <id> <points>` sets the standing (Neutral below 30, Friendly 30, Allied 70).
+
+1. Trade at Neutral: talk to a survivor enclave's leader at standing 0. The first row is "Let's see what you have to
+   trade."; it opens vanilla's trade window with stock of the group's kind (`sc enclave trade <id>`: trader 200-205 and
+   the kind; a farm's growers sell food and seeds, a clinic's medics medicine ...). Trade on the leader's radial (hold E)
+   opens it too. Members have no Trade. Note a price you know from a vanilla trader (same item, same quality): equal,
+   buying and selling.
+2. Your barter perk: with a rank of the barter perk, their prices move as a vanilla trader's do.
+3. Prices by standing: `sc enclave standing <id> 40` (Friendly) - selling to them pays 20 % more, buying is unchanged;
+   `75` (Allied) - buying costs 20 % less, selling pays 35 % more. The price shown is the price paid (check the dukes).
+4. Their stock is theirs: buy something, then leave past 200 m (they despawn) and come back - it is still gone. Save and
+   quit, load: still gone. `sc enclave kill <id>` (the leader): the new leader trades the same stock.
+5. Restock: `sc enclave trade <id>` shows the last restock; 3 days later (`settime` forward) the next trade has new
+   stock.
+6. No trade with a hostile enclave: `sc enclave hostile <id>` at another one - no Trade on the radial, no dialog. A raider
+   enclave has neither.
+7. Turn-ins stay with vanilla's traders: with a challenge reward waiting at a trader, talk to an enclave leader - their
+   dialog opens, not the turn-in window, and the camera works.
+8. Enlist at Neutral: carry 500+ dukes, ask a member "Can you come with me?" - "I could come along ... 500 dukes, and I'm
+   with you for 2 day(s)." - "Deal.": 500 dukes leave your bag, "<name> comes with you for 2 day(s).", they follow you
+   and fight. `sc enclave people <id>` shows "enlisted ... with <you> until day N hh:mm". Over the next days Voice
+   Control never asks you for money.
+9. The fee: without enough dukes the row is greyed "Needs 500 dukes". At Friendly (`standing 40`) it is 250, at Allied
+   (`standing 75`) "No charge".
+10. The limits: with one of them enlisted, another member of that enclave shows "One of them is already with you"
+    (greyed). With your followers at the limit (2 by default: community followers plus enlisted people) the row is
+    greyed "You have all the followers you can lead", and a member's Follow from the roster is refused while an enlisted
+    person fills the second place.
+11. "Go home now." to the enlisted person: "<name> heads back to <enclave>.", near their building they walk to their
+    spot; far from it they walk off towards it and are gone once out of sight, at their spot on your next visit. Voice
+    Control's spoken "dismiss" does the same ("I'll head back to my people."), and so does `sc enclave release <id>`.
+    (SCore's companion window never lists them.)
+12. Expiry: with one enlisted, `settime` forward 2 days: "<name>'s time with you is up: they head back to <enclave>."
+13. Their enclave turns hostile while one is with you (`sc enclave hostile <id>`): they leave your side first ("leaves
+    your side to go back"), then the enclave is hostile.
+14. A death while enlisted (let a zombie have them, or `sc enclave kill <id> p<pid>`): "<name> of <enclave> is dead.",
+    the ledger has "died at your side" and the standing -5.
+15. Their body goes with them enlisted (teleport far away, or save and quit): the log says they went back; on the next
+    visit they are at their spot (`sc enclave people`: home), and no leftover companion shows on your HUD.
+16. Recruit at Neutral: "Would you join us?" to a member - their favour (SC's own: a POI to clear, "Mark it", or
+    supplies, "Sure, I'll see what I can find."), with its journal quest. Leave past 200 m and come back: the favour is
+    still theirs (`sc enclave people`: "favour: ..."), and for a POI the quest's "Return to <name>" completes when you
+    talk to them. Then "Would you join us?" - "Leave my people? ... standing -10." - "Welcome to the community.": they
+    join (stationed at home, or following you home), the standing drops 10, the ledger says "<name> left <enclave> to
+    join you".
+17. Supplies: carrying what they asked for, "Would you join us?" - the favour statement has "Here are the supplies you
+    asked for." - they take them and join at once.
+18. Recruit at Friendly: no favour, -10 standing. At Allied: no favour, no cost ("... will let me go with their
+    blessing.").
+19. The gates: the leader has no recruit row; with only 2 of them alive the row is greyed "They can't spare anyone
+    else"; a second recruit within 7 days is greyed "One of them left recently: N more day(s)"; before the group is
+    fully made, "Their group is still settling in".
+20. The recruit is the same person: note the name, face, weapons, skills and traits (`sc enclave people <id>`, their
+    snapshot) before; after joining, the community window shows the same.
+21. Recruit someone who is enlisted with you ("Would you join us?" on their own statement): they join, the enclave's
+    count drops by one, and the follower place is theirs as a member.
+22. A favour across a reload: start an enclave person's favour quest, save and quit, load: the quest is still theirs
+    (its marker on them or their building; "Return to <name>" completes when you talk to them).
+
 ## Enclave people (E2)
 
 **Built 2026-10-17, not deployed yet.** Every enclave gets a leader and 2-5 more people who live in its building: made
@@ -46,8 +111,8 @@ kill or a threat, and their containers are theirs. `sc enclave list` and `sc enc
 3. Talk to the leader at each standing: at 0 the greeting is wary (Neutral). Ask "Tell me about this place." - the
    reply names the enclave, how many they are, the building and the leader; "Something else." goes back. Then
    `sc enclave standing <id> 40` (Friendly: a warm greeting, the marker turns green) and `75` (Allied: a welcoming one,
-   blue). The leader's rows are "Tell me about this place.", "Hand over your supplies." and "Nevermind" - no Hire, no
-   order menus, no recruit or favour rows.
+   blue). The leader's rows are "Tell me about this place.", "Hand over your supplies." and "Nevermind" (with E3, "Let's
+   see what you have to trade." first) - no Hire, no order menus, no recruit or favour rows.
 4. Talk to a member: a greeting by standing, "Where's your leader?" names the leader and says where they are from you
    ("12 m north-east"). Saying "hire", "pick me up" or "dismiss" to them by voice is refused.
 5. Leave past 200 m (the log: `... its people went`) and come back: the same people come back (`sc enclave people`:

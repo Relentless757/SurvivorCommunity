@@ -734,6 +734,9 @@ namespace SurvivorCommunity
         /// survivors and members, a 0-XNPCCore companion that joined (D9) and XNPC's own NPCs, all of which can only hit
         /// that throw. An NPC with a real trader_id keeps it. "talk" is untouched, so the prompt, the radial's Talk and
         /// SC's recruit/member dialogs stay. (Voice Control's trade orders open SCore's inventory, not this path.)
+        /// E3: the leader of an enclave that is not hostile names a real trader now (ScEnclaveDeals: their body's TraderData
+        /// gets their kind's trader_info), so "trade" passes for them; a hostile enclave's leader never gets one, and its
+        /// bodies are refused every command above anyway (the hostile cvar).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoTalkToRaiders
@@ -1147,6 +1150,8 @@ namespace SurvivorCommunity
         /// 0-XNPCCore's jobs dialog, which hands out turn-in quests, is on its trader_id NPCs), so for an EntityAliveSDXV4 /
         /// EntityAliveSDX with no trader (HasTrader, as X9) the lookup finds none: Talk opens the dialog, and the reward
         /// stays for a real trader. An NPC with a real trader_id, a vanilla trader and every other caller are untouched.
+        /// E3: an enclave's leader trades now (HasTrader is true for them), but vanilla's turn-ins stay with vanilla's traders:
+        /// one of an enclave's people (%sc_enc, synced) is never offered them.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoTurnInWithoutTrader
@@ -1169,7 +1174,7 @@ namespace SurvivorCommunity
                     World w = GameManager.Instance != null ? GameManager.Instance.World : null;
                     EntityTrader npc = w != null ? w.GetEntity(entityId) as EntityTrader : null;
                     if (npc == null || !(npc is EntityAliveSDXV4 || npc is EntityAliveSDX)) return;
-                    if (Patch_NoTalkToRaiders.HasTrader(npc)) return;
+                    if (Patch_NoTalkToRaiders.HasTrader(npc) && !ScEnclavePeople.IsEnclaveNpc(npc)) return;
                     __result = null;
                     turnInHidden++;
                 }

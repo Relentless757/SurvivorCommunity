@@ -84,6 +84,7 @@
     <Compile Include="ScEnclaveNames.cs" />
     <Compile Include="ScEnclaves.cs" />
     <Compile Include="ScEnclavePeople.cs" />
+    <Compile Include="ScEnclaveDeals.cs" />
     <Compile Include="DialogOpsEnclaves.cs" />
     <Compile Include="Patches_Enclaves.cs" />
     <Compile Include="ScInfestations.cs" />

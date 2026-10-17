@@ -119,6 +119,10 @@ namespace SurvivorCommunity
             bool changed = false;
             foreach (var p in ScRegistry.Prospects.Values)
             {
+                // an enclave person's favour (E3) follows the person, whose body roams or follows the player: its giver
+                // position comes from the live body or their home spot, never from here (the E3 review's L2: a registry
+                // write for every block they walk)
+                if (p.EncPersonId > 0) continue;
                 EntityAlive npc = ScNpc.As(ScNpc.Loaded(w, p.Id));
                 if (npc == null || npc.IsDead()) continue;
                 Vector3i at = npc.GetBlockPosition();

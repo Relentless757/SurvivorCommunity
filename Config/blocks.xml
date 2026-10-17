@@ -972,6 +972,32 @@
 			<property name="EnclaveWildSpawnMargin" value="40" />
 			<property name="EnclaveKindRows" value="farm:growers,clinic:medics,military:militia,police:militia,gunstore:militia,industry:builders,hardware:builders,gasstation:roadcrew,refinery:roadcrew" />
 
+			<!-- ENCLAVE TRADE, ENLISTING AND RECRUITING (E3; Enclaves_Plan.md 2.7-2.9). The leader of an enclave that is not
+			     hostile trades through vanilla's trade window, with the stock of their kind: Config/traders.xml's trader_info
+			     EnclaveTraderIdBase + 0..5 (general, growers, medics, militia, builders, roadcrew - change both together). Prices
+			     by standing: they charge EnclaveBuyNeutral / EnclaveBuyFriendly / EnclaveBuyAllied times vanilla's and pay
+			     EnclaveSellNeutral / EnclaveSellFriendly / EnclaveSellAllied times vanilla's; your barter perks apply on top.
+			     One of their people (never the leader) comes with you for EnclaveEnlistDays days for EnclaveEnlistCostNeutral /
+			     EnclaveEnlistCostFriendly / EnclaveEnlistCostAllied dukes - one per enclave, counted toward MaxFollowers - and
+			     their death meanwhile costs EnclaveEnlistDeathPenalty standing. One of them joins your community: never the
+			     leader, at least EnclaveRecruitMinLeft stay, one every EnclaveRecruitCooldownDays days; at Neutral their favour
+			     first, and EnclaveRecruitStanding standing at Neutral and Friendly (free at Allied). -->
+			<property name="EnclaveTraderIdBase" value="200" />
+			<property name="EnclaveBuyNeutral" value="1" />
+			<property name="EnclaveBuyFriendly" value="1" />
+			<property name="EnclaveBuyAllied" value="0.8" />
+			<property name="EnclaveSellNeutral" value="1" />
+			<property name="EnclaveSellFriendly" value="1.2" />
+			<property name="EnclaveSellAllied" value="1.35" />
+			<property name="EnclaveEnlistCostNeutral" value="500" />
+			<property name="EnclaveEnlistCostFriendly" value="250" />
+			<property name="EnclaveEnlistCostAllied" value="0" />
+			<property name="EnclaveEnlistDays" value="2" />
+			<property name="EnclaveEnlistDeathPenalty" value="5" />
+			<property name="EnclaveRecruitMinLeft" value="2" />
+			<property name="EnclaveRecruitCooldownDays" value="7" />
+			<property name="EnclaveRecruitStanding" value="10" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

@@ -1255,6 +1255,35 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ snapshot bytes ----
 
+        /// <summary>
+        /// "1:&lt;bytes&gt;:&lt;base64url&gt;": a blob in the registry's key=value form (no '=', ';' or line break, so it is never
+        /// Clean()ed) - the runner's snapshot, and E3's enclave trade stock (ScEnclaveDeals.EncodeStock).
+        /// </summary>
+        public static string Pack(byte[] bytes)
+        {
+            return "1:" + bytes.Length + ":" + Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        }
+
+        /// <summary>Pack's bytes back, or null: empty, another version, a length that does not match, not base64url.</summary>
+        public static byte[] Unpack(string s)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(s)) return null;
+                int a = s.IndexOf(':'), b = a < 0 ? -1 : s.IndexOf(':', a + 1);
+                if (a < 0 || b < 0 || s.Substring(0, a) != "1") return null;
+                int len = int.Parse(s.Substring(a + 1, b - a - 1));
+                string p = s.Substring(b + 1).Replace('-', '+').Replace('_', '/');
+                p = p.PadRight(p.Length + (4 - p.Length % 4) % 4, '=');
+                byte[] bytes = Convert.FromBase64String(p);
+                return bytes.Length == len ? bytes : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         public static int SnapBytes(Member m)
         {
             if (m == null || string.IsNullOrEmpty(m.Snap)) return 0;
@@ -1281,7 +1310,7 @@ namespace SurvivorCommunity
                     }
                     bytes = ms.ToArray();
                 }
-                string s = "1:" + bytes.Length + ":" + Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+                string s = Pack(bytes);
                 EntityCreationData back = Deserialize(s);
                 if (back == null || back.id != npc.entityId || back.entityClass != npc.entityClass || bytes.Length > ScConfig.RunSnapMaxBytes
                     || back.entityData == null || back.entityData.Length <= 0)
@@ -1303,14 +1332,8 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (string.IsNullOrEmpty(s)) return null;
-                int a = s.IndexOf(':'), b = a < 0 ? -1 : s.IndexOf(':', a + 1);
-                if (a < 0 || b < 0 || s.Substring(0, a) != "1") return null;
-                int len = int.Parse(s.Substring(a + 1, b - a - 1));
-                string p = s.Substring(b + 1).Replace('-', '+').Replace('_', '/');
-                p = p.PadRight(p.Length + (4 - p.Length % 4) % 4, '=');
-                byte[] bytes = Convert.FromBase64String(p);
-                if (bytes.Length != len) return null;
+                byte[] bytes = Unpack(s);
+                if (bytes == null) return null;
                 var ecd = new EntityCreationData();
                 using (var ms = new MemoryStream(bytes))
                 {

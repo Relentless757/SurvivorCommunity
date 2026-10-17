@@ -27,19 +27,44 @@ namespace SurvivorCommunity
         /// <summary>The prospect record for this NPC, rolling the favour the first time the player asks.</summary>
         public static Prospect Ensure(EntityAlive npc, EntityPlayer player)
         {
-            // never one of an enclave's people (E2): a prospect pins the body (Persist, StaticSpawner) and the favour is no way
-            // into an enclave (E3 brings its own recruit path)
-            if (npc == null || ScEnclavePeople.IsEnclaveNpc(npc)) return null;
+            if (npc == null) return null;
+            // an enclave person's favour too, once E3's enclave path rolled it (ScEnclaveDeals.EnsureFavour, kept on their
+            // current body): the favour operators below then work for them as for anyone
             Prospect p = ScRegistry.GetProspect(npc.entityId);
             if (p != null) return p;
+            // never rolled here for one of an enclave's people (E2): a prospect from here pins the body (Persist,
+            // StaticSpawner, a wait order) - E3 rolls theirs, unpinned, through their enclave's recruit path
+            if (ScEnclavePeople.IsEnclaveNpc(npc)) return null;
             ScConfig.EnsureParsed();
             p = new Prospect { Id = npc.entityId, Class = ScCommunity.ClassName(npc), Name = ScCommunity.DisplayName(npc) };
             p.Look = ScLooks.Get(npc);        // null unless they wear the player's body
             p.Loadout = ScLoadout.Current(npc);   // their two weapons (null unless they carry a pair), handed on when they join
             World w = ScCommunity.World;
-            GameRandom rnd = npc.rand ?? (w != null ? w.GetGameRandom() : null);
+            Roll(p, npc.position, npc.rand ?? (w != null ? w.GetGameRandom() : null));
+            ScRegistry.Prospects[p.Id] = p;
+            npc.Buffs.SetCustomVar("Persist", 1f);                       // a prospect must survive the chunk
+            npc.Buffs.SetCustomVar("sc_favour", (int)p.Favour);
+            npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
+            // they wait here (SCore guard order: fights what comes, walks back) so the player can find them again - unless
+            // they are the player's own hired companion (decision D9: they may join), who keeps whatever order the player
+            // gave them: a companion asked about the community mid-trip must not be left guarding the spot
+            p.NpcPos = npc.GetBlockPosition();
+            if (ScCommunity.HiredBy(npc) <= 0
+                && EntityUtilities.GetCurrentOrder(npc.entityId) != EntityUtilities.Orders.Guard && !npc.Buffs.HasBuff("buffOrderGuard")) npc.Buffs.AddBuff("buffOrderGuard");
+            ScRegistry.SaveAtomic();
+            ScLog.Out(p.Name + " asks for a favour: " + Describe(p));
+            return p;
+        }
+
+        /// <summary>
+        /// The favour a new prospect asks (Ensure's roll; E3's enclave people use it too): half the time the nearest real POI
+        /// within PoiFavourRange of 'near' to secure, else supplies from SuppliesFavours.
+        /// </summary>
+        internal static void Roll(Prospect p, Vector3 near, GameRandom rnd)
+        {
+            World w = ScCommunity.World;
             bool wantPoi = rnd == null || rnd.RandomFloat < 0.5f;
-            PrefabInstance pi = wantPoi ? ScSecurity.NearestRealPoi(npc.position, ScConfig.PoiFavourRange, w) : null;
+            PrefabInstance pi = wantPoi ? ScSecurity.NearestRealPoi(near, ScConfig.PoiFavourRange, w) : null;
             if (pi != null)
             {
                 p.Favour = FavourKind.Poi;
@@ -58,19 +83,21 @@ namespace SurvivorCommunity
                 p.ItemCategory = pick.Key;
                 p.ItemCount = Math.Max(1, pick.Value);
             }
-            ScRegistry.Prospects[p.Id] = p;
-            npc.Buffs.SetCustomVar("Persist", 1f);                       // a prospect must survive the chunk
-            npc.Buffs.SetCustomVar("sc_favour", (int)p.Favour);
-            npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);
-            // they wait here (SCore guard order: fights what comes, walks back) so the player can find them again - unless
-            // they are the player's own hired companion (decision D9: they may join), who keeps whatever order the player
-            // gave them: a companion asked about the community mid-trip must not be left guarding the spot
-            p.NpcPos = npc.GetBlockPosition();
-            if (ScCommunity.HiredBy(npc) <= 0
-                && EntityUtilities.GetCurrentOrder(npc.entityId) != EntityUtilities.Orders.Guard && !npc.Buffs.HasBuff("buffOrderGuard")) npc.Buffs.AddBuff("buffOrderGuard");
-            ScRegistry.SaveAtomic();
-            ScLog.Out(p.Name + " asks for a favour: " + Describe(p));
-            return p;
+        }
+
+        /// <summary>
+        /// The favour is done, marked so the moment its quest is past the clearing (the same dialog that completes the quest
+        /// can offer the join): the ScFavourDone requirement's test, and E3's enclave recruit's. False without a prospect.
+        /// </summary>
+        public static bool CheckDone(EntityAlive npc, EntityPlayer player, Prospect p)
+        {
+            if (p != null && !p.Done && ScQuests.FavourQuestDone(player, p.Id))
+            {
+                p.Done = true;
+                if (npc != null && npc.Buffs != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
+                ScLeadership.Count(ScLeadership.FavourEvent);
+            }
+            return p != null && p.Done;
         }
 
         /// <summary>
@@ -147,13 +174,7 @@ public class DialogRequirementScFavourDone : BaseDialogRequirement
         {
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Prospect p = npc != null ? ScRegistry.GetProspect(npc.entityId) : null;
-            if (p != null && !p.Done && ScQuests.FavourQuestDone(player, p.Id))
-            {
-                p.Done = true;                                   // the same dialog that completes the quest can offer the join
-                if (npc.Buffs != null) npc.Buffs.SetCustomVar("sc_favourDone", 1f);
-                ScLeadership.Count(ScLeadership.FavourEvent);
-            }
-            bool done = p != null && p.Done;
+            bool done = ScFavours.CheckDone(npc, player, p);
             return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !done : done;
         }
         catch (Exception e) { ScLog.Once("req-favourdone", e); return false; }

@@ -27,6 +27,9 @@ namespace SurvivorCommunity
     /// Other NPCs, including companions hired the vanilla way, keep Voice Control's billing.
     /// E2: one of an enclave's people (the %sc_enc cvar) is refused the spoken hire, pick-up and dismiss as well - they stay
     /// with their group, and SCore's Dismiss would end the Guard that holds them at their spot.
+    /// E3: one of them enlisted with the player (the sc_enlisted cvar; SC handles the fee, Q8 a) never gets a contract or a
+    /// bill either - the narrowest hook: the two billing prefixes ask for it, IsCommunityNpc stays the members' test (it also
+    /// drives the drop window, hold-fire, XNPC's levels and trust) - and the spoken dismiss sends them home (ScEnclaveDeals.GoHome).
     ///
     /// Bound by name, with no reference to the DLL: without Voice Control every patch here skips itself (Prepare), and
     /// ModApi only expects them when NPCChatComponent exists, so a changed signature shows up as a MISSING PATCH line.
@@ -143,7 +146,8 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!IsCommunityNpc(____npcEntity)) return true;
+                    // E3: one of an enclave's people enlisted with the player is not billed either
+                    if (!IsCommunityNpc(____npcEntity) && !ScEnclaveDeals.IsEnlistedBody(____npcEntity)) return true;
                     Count("contract-refused");
                     return false;
                 }
@@ -169,7 +173,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (!IsCommunityNpc(____npcEntity)) return true;
+                    if (!IsCommunityNpc(____npcEntity) && !ScEnclaveDeals.IsEnlistedBody(____npcEntity)) return true;
                     StripContract(____npcEntity);
                     return false;
                 }
@@ -197,9 +201,16 @@ namespace SurvivorCommunity
                 try
                 {
                     EntityAlive npc = __args[0] as EntityAlive;
-                    // one of an enclave's people (E2): nobody's to dismiss - SCore's Dismiss would end their Guard at their spot
+                    // one of an enclave's people (E2): nobody's to dismiss - SCore's Dismiss would end their Guard at their spot;
+                    // E3: one enlisted with the player goes home, never left as a stranger
                     if (ScEnclavePeople.IsEnclaveNpc(npc))
                     {
+                        if (ScEnclaveDeals.IsEnlistedBody(npc) && ScEnclaveDeals.GoHome(ScNpc.As(npc), "Voice Control's spoken dismiss"))
+                        {
+                            Count("dismiss-enlisted-home");
+                            __result = Localization.Get("scEncVoiceGoingHome");
+                            return false;
+                        }
                         Count("dismiss-refused-enclave");
                         __result = Localization.Get("scEncVoiceStays");
                         return false;
@@ -292,7 +303,7 @@ namespace SurvivorCommunity
                         __result = Localization.Get("scTrustNoHire");
                         return false;
                     }
-                    // one of an enclave's people (E2): not for hire (E3 brings enlisting)
+                    // one of an enclave's people (E2): not for hire - E3's enlisting goes through their dialog, SC taking the fee
                     if (ScEnclavePeople.IsEnclaveNpc(npc))
                     {
                         Count("hire-refused-enclave");

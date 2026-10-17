@@ -16,9 +16,136 @@ namespace SurvivorCommunity
     ///
     /// E2 adds: their containers are refused while they live (Patch_ContainerLock), and biome-spawned NPCs are kept off their
     /// grounds (Patch_BiomeSpawn and Patch_BiomeSpawnSpot, with the check in ScLoadout's group-pick postfix).
+    /// E3 adds the leader's trade: prices by standing (Patch_TradeBuyPrice, Patch_TradeSellPrice) and the stock recorded when
+    /// a trade window with them closes (Patch_TradeClosed).
     /// </summary>
     public static class Patches_Enclaves
     {
+        /// <summary>
+        /// E3: XUiM_Trader.GetBuyPrice - what a trader charges, for the window's labels and the purchase alike
+        /// (ItemActionEntryPurchase). Scaled by an enclave leader's standing at the outermost call only: the price of an item
+        /// with mods adds its mods' prices through the same method (ScEnclaveDeals.ScalePrice; the prefix and finalizer keep
+        /// the depth). Every other trader passes after one cvar read. Main thread (the UI).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_TradeBuyPrice
+        {
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(XUiM_Trader), "GetBuyPrice", new[] { typeof(XUi), typeof(ItemValue), typeof(int), typeof(ItemClass), typeof(int) });
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (Target() != null) return true;
+                    ScLog.Err("XUiM_Trader.GetBuyPrice(XUi, ItemValue, int, ItemClass, int) not found (game update?) - enclave leaders charge vanilla prices at every standing");
+                }
+                catch (Exception e) { ScLog.Once("enclave-bind-buyprice", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPrefix]
+            public static void Prefix() { ScEnclaveDeals.PriceEnter(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(XUi _xui, ref int __result)
+            {
+                try { ScEnclaveDeals.ScalePrice(_xui, true, ref __result); }
+                catch (Exception e) { ScLog.Once("enclave-buyprice", e); }
+            }
+
+            [HarmonyFinalizer]
+            public static Exception Finalizer(Exception __exception)
+            {
+                ScEnclaveDeals.PriceLeave();
+                return __exception;
+            }
+        }
+
+        /// <summary>E3: XUiM_Trader.GetSellPrice - what a trader pays (ItemActionEntrySell); as Patch_TradeBuyPrice.</summary>
+        [HarmonyPatch]
+        public static class Patch_TradeSellPrice
+        {
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(XUiM_Trader), "GetSellPrice", new[] { typeof(XUi), typeof(ItemValue), typeof(int), typeof(ItemClass) });
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (Target() != null) return true;
+                    ScLog.Err("XUiM_Trader.GetSellPrice(XUi, ItemValue, int, ItemClass) not found (game update?) - enclave leaders pay vanilla prices at every standing");
+                }
+                catch (Exception e) { ScLog.Once("enclave-bind-sellprice", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPrefix]
+            public static void Prefix() { ScEnclaveDeals.PriceEnter(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(XUi _xui, ref int __result)
+            {
+                try { ScEnclaveDeals.ScalePrice(_xui, false, ref __result); }
+                catch (Exception e) { ScLog.Once("enclave-sellprice", e); }
+            }
+
+            [HarmonyFinalizer]
+            public static Exception Finalizer(Exception __exception)
+            {
+                ScEnclaveDeals.PriceLeave();
+                return __exception;
+            }
+        }
+
+        /// <summary>
+        /// E3: EntityTrader.OnUnlockedServer - the lock on channel 1 (the trade window's) comes off when the window closes, after
+        /// the trade wrote into the entity's TraderData (vanilla's own SetModified there): an enclave leader's stock goes into
+        /// their enclave's record. No SCore or XNPC class overrides it. Host, main thread; anyone else passes after a channel test
+        /// and one cvar read.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_TradeClosed
+        {
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(EntityTrader), "OnUnlockedServer", new[] { typeof(int), typeof(ushort) });
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (Target() != null) return true;
+                    ScLog.Err("EntityTrader.OnUnlockedServer(int, ushort) not found (game update?) - an enclave leader's stock is recorded only when their body goes");
+                }
+                catch (Exception e) { ScLog.Once("enclave-bind-tradeclosed", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityTrader __instance, ushort _channel)
+            {
+                try { ScEnclaveDeals.OnTradeClosed(__instance, _channel); }
+                catch (Exception e) { ScLog.Once("enclave-tradeclosed", e); }
+            }
+        }
         [HarmonyPatch(typeof(SleeperVolume), nameof(SleeperVolume.UpdatePlayerTouched), new Type[] { typeof(World), typeof(EntityPlayer) })]
         public static class Patch_UpdatePlayerTouched
         {

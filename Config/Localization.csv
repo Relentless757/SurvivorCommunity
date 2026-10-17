@@ -886,6 +886,34 @@ scEncThreatPaid_text,Dialog,Statement,,,,"Fine. Take it and get out. Don't you e
 scEncWhereLeader,Dialog,Response,,,,Where's your leader?
 scEncWhereReply_text,Dialog,Statement,,,,"You'll want to talk to the one in charge, not me. {leader} is {where}."
 scEncBack,Dialog,Response,,,,Something else.
+scEncTrade,Dialog,Response,,,,Let's see what you have to trade.
+scEncEnlist,Dialog,Response,,,,Can you come with me?
+scEncEnlistConfirm_text,Dialog,Statement,,,,"I could come along and watch your back for a while. {terms}"
+scEncEnlistYes,Dialog,Response,,,,Deal.
+scEncEnlisted_text,Dialog,Statement,,,,"Right behind you. Say the word when you want me to head back. {until}"
+scEncGoHome,Dialog,Response,,,,Go home now.
+scEncRecruit,Dialog,Response,,,,Would you join us?
+scEncRecruitConfirm_text,Dialog,Statement,,,,"Leave my people? I've thought about it more than once. If you'll have me, I'm in. {recruitcost}"
+scEncRecruitYes,Dialog,Response,,,,Welcome to the community.
+scEncVoiceGoingHome,Dialog,Statement,,,,"*nods* I'll head back to my people."
+scEncTermsCost,UI,Tooltip,,,,"{0} dukes, and I'm with you for {1} day(s)."
+scEncTermsFree,UI,Tooltip,,,,"No charge, and I'm with you for {0} day(s)."
+scEncUntil,UI,Tooltip,,,,"I head home on day {0}, at {1}."
+scEncRecruitCost,UI,Tooltip,,,,"{0} won't like losing one of theirs: standing -{1}."
+scEncRecruitFree,UI,Tooltip,,,,{0} will let me go with their blessing.
+scEncNeedDukes,UI,Tooltip,,,,Needs {0} dukes
+scEncOneAlready,UI,Tooltip,,,,One of them is already with you
+scEncFollowersFull,UI,Tooltip,,,,You have all the followers you can lead
+scEncRecruitFew,UI,Tooltip,,,,They can't spare anyone else
+scEncRecruitSoon,UI,Tooltip,,,,"One of them left recently: {0} more day(s)"
+scEncRecruitSettling,UI,Tooltip,,,,Their group is still settling in
+scEncEnlistedTell,UI,Tooltip,,,,{0} comes with you for {1} day(s).
+scEncHeadsHome,UI,Tooltip,,,,{0} heads back to {1}.
+scEncEnlistOver,UI,Tooltip,,,,{0}'s time with you is up: they head back to {1}.
+scEncEnlistHostile,UI,Tooltip,,,,{0} leaves your side to go back to {1}.
+scEncEnlistGone,UI,Tooltip,,,,{0} went back to {1}.
+scEncLedgerEnlistedDied,UI,Tooltip,,,,{0} of {1} died at your side
+scEncLedgerRecruited,UI,Tooltip,,,,{0} left {1} to join you
 scInfestMarker,UI,Map,,,,Infested: {0}
 scInfestFound,UI,Tooltip,,,,"Infested: {0}. More of them, ferals, and something worse."
 scInfestRadio,UI,Tooltip,,,,"The radio picks up a warning: {0} is infested, {1}."

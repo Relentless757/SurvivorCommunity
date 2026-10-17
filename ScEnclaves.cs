@@ -34,6 +34,14 @@ namespace SurvivorCommunity
         public int HostileDay = -1;
         /// <summary>E2: its group was made (ScEnclavePeople.Generate); until then the next approach makes the rest.</summary>
         public bool PeopleRolled;
+        /// <summary>
+        /// E3: the leader's trade stock, the enclave's own whoever leads: their body's TraderData as TraderData.Write wrote it
+        /// ("1:&lt;bytes&gt;:&lt;base64url&gt;", ScEnclaveDeals.EncodeStock), taken when the body goes and when a trade window with
+        /// them closes, and a copy of it given to every leader's body. "" until their first trade (that one stocks them).
+        /// </summary>
+        public string Stock = "";
+        /// <summary>E3: the day the last of their people left to join the player (-1: never) - one every EnclaveRecruitCooldownDays.</summary>
+        public int LastRecruitDay = -1;
         /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
         public int Standing;
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
@@ -1143,7 +1151,9 @@ namespace SurvivorCommunity
         public static void TurnHostile(Enclave e, string cause, float grace = 0f)
         {
             if (e == null || e.IsHostile) return;
-            // E3: enlisted followers of this enclave are released here first (they would turn on the player at their side)
+            // E3: one of theirs enlisted with the player goes home first - released before the flip, so they never turn on
+            // the player at their side
+            ScEnclaveDeals.ReleaseEnlisted(e, "their people turned hostile");
             // E4: the enclave's open request is closed here
             e.TurnedHostile = true;
             e.HostileDay = ScCommunity.Today;

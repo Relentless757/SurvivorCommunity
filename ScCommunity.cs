@@ -85,14 +85,16 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Can this NPC be asked to join? (Host, hireable human framework NPC - SCore's legacy class or 0-XNPCCore's V4
-        /// survivors - not hired by somebody else, not a member, roster not full.)
+        /// survivors - not hired by somebody else, not a member, roster not full.) enclavePath: E3's recruit of one of an
+        /// enclave's people (ScEnclaveDeals.RecruitBlocked), which has its own gates - the only caller that passes the
+        /// enclave refusal.
         /// </summary>
-        public static bool CanRecruit(EntityAlive npc, EntityPlayer player, out string why)
+        public static bool CanRecruit(EntityAlive npc, EntityPlayer player, out string why, bool enclavePath = false)
         {
             why = null;
             if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) { why = "scNotHireable"; return false; }
-            // one of an enclave's people (E2): they stay with their group (E3 adds the enclave's own recruit path)
-            if (ScEnclavePeople.IsEnclaveNpc(npc)) { why = "scEncStays"; return false; }
+            // one of an enclave's people (E2): they stay with their group - except through the enclave's own recruit (E3)
+            if (!enclavePath && ScEnclavePeople.IsEnclaveNpc(npc)) { why = "scEncStays"; return false; }
             // a raider never joins (M10; belt and braces: its class is Hirable false, so the next checks refuse it too)
             if (ScXnpc.IsRaider(npc)) { why = "scNotHireable"; return false; }
             // nor one who holds a grudge against this player (ScTrust: they were hit)
@@ -158,8 +160,26 @@ namespace SurvivorCommunity
                 if (!CanRecruit(npc, player, out why)) { error = why; return false; }
                 if (!ScZone.EnsureHome(player)) { error = "scNeedHome"; return false; }
                 ScConfig.EnsureParsed();
+                return Admit(MemberFromBody(npc, ScRegistry.Community.Morale), npc, player, out error);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("join", e);
+                error = "scInternal";
+                return false;
+            }
+        }
 
-                Member m = MemberFromBody(npc, ScRegistry.Community.Morale);
+        /// <summary>
+        /// Join's second half, with the gates passed: this Member record - MemberFromBody's, or (E3) an enclave person's own
+        /// (ScEnclaveDeals.Recruit: the same face, skills and traits) - becomes a member on this body: the roster, a favour's
+        /// quest closed, a paid hire ended, the cvars, traits and AI package, then stationed at home or following until home.
+        /// </summary>
+        public static bool Admit(Member m, EntityAlive npc, EntityPlayerLocal player, out string error)
+        {
+            error = null;
+            try
+            {
                 m.JoinDay = Today;
                 ScRegistry.Members[m.Id] = m;
                 ScTrust.StripOnJoin(npc);
@@ -244,29 +264,7 @@ namespace SurvivorCommunity
                 EntityPlayerLocal player = LocalPlayer;
                 World w = World;
 
-                // A follower hidden for the leader's vehicle ride (SCore SendOnMission) would stay invisible
-                // for ever once the leader link is gone: un-hide before anything else.
-                if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
-
-                // detach from the party without SCore ever re-stamping it back
-                npc.Buffs.RemoveCustomVar("Leader");
-                npc.Buffs.RemoveCustomVar("Owner");
-                SphereCache.LeaderCache.Remove(npc.entityId);
-                if (player != null)
-                {
-                    if (player.Companions != null) player.Companions.Remove(npc);
-                    player.Buffs.RemoveCustomVar("hired_" + npc.entityId);
-                    EntityUtilities.CheckForDanglingHires(player.entityId);
-                }
-                // Voice Control's movement state (a formation slot, a MoveTo target, crouch) means nothing at a post, and
-                // SCore's SetCrouching honours CrouchOverride for ANY NPC, so a member told to crouch while following would
-                // crouch at home for good. The engage stance and follow distance stay for when they follow again (ScOrders).
-                ScOrders.ClearVoiceMovement(npc);
-                // SCore's SetLeader copied the player's moveSpeed (1.0) onto the follower. On 0-XNPCCore's V4 bodies that is
-                // literal metres per second, half the class's walk, so a resident would roam the base at a crawl until the
-                // next load; RestoreSpeed reads the class's MoveSpeed back. SCore's legacy class is left as it always was
-                // (it restores its own speed whenever it takes an attack target).
-                if (ScNpc.IsV4(npc)) ScNpc.RestoreSpeed(npc);
+                Detach(npc, player);
                 m.HeldOrder = EntityUtilities.Orders.Guard;
                 m.FollowIssued = 0f;
 
@@ -318,6 +316,37 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("station", e);
             }
+        }
+
+        /// <summary>
+        /// Out of the player's party for good, without SCore ever re-stamping it back - Station's detach, and (E3) the end of
+        /// an enclave person's enlistment (ScEnclaveDeals.EndEnlist). player: whose party (null: the body's side only).
+        /// </summary>
+        public static void Detach(EntityAlive npc, EntityPlayer player)
+        {
+            // A follower hidden for the leader's vehicle ride (SCore SendOnMission) would stay invisible
+            // for ever once the leader link is gone: un-hide before anything else.
+            if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
+
+            // detach from the party without SCore ever re-stamping it back
+            npc.Buffs.RemoveCustomVar("Leader");
+            npc.Buffs.RemoveCustomVar("Owner");
+            SphereCache.LeaderCache.Remove(npc.entityId);
+            if (player != null)
+            {
+                if (player.Companions != null) player.Companions.Remove(npc);
+                player.Buffs.RemoveCustomVar("hired_" + npc.entityId);
+                EntityUtilities.CheckForDanglingHires(player.entityId);
+            }
+            // Voice Control's movement state (a formation slot, a MoveTo target, crouch) means nothing at a post, and
+            // SCore's SetCrouching honours CrouchOverride for ANY NPC, so a member told to crouch while following would
+            // crouch at home for good. The engage stance and follow distance stay for when they follow again (ScOrders).
+            ScOrders.ClearVoiceMovement(npc);
+            // SCore's SetLeader copied the player's moveSpeed (1.0) onto the follower. On 0-XNPCCore's V4 bodies that is
+            // literal metres per second, half the class's walk, so a resident would roam the base at a crawl until the
+            // next load; RestoreSpeed reads the class's MoveSpeed back. SCore's legacy class is left as it always was
+            // (it restores its own speed whenever it takes an attack target).
+            if (ScNpc.IsV4(npc)) ScNpc.RestoreSpeed(npc);
         }
 
         public static Vector3 PostCenter(Member m)
@@ -984,7 +1013,8 @@ namespace SurvivorCommunity
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
             if (m.Status == MemberStatus.Garrison) { error = "scOpPostedAway"; return false; }
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
-            if (ScRegistry.FollowerCount >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
+            // E3: an enclave's people enlisted with the player count toward the limit too
+            if (ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount() >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
             if (m.Mood < 25) { error = "scRefuseMood"; return false; }
             FollowInternal(m, npc, player, MemberStatus.Following);
             ScRegistry.SaveAtomic();

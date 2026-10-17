@@ -311,7 +311,8 @@ namespace UAI
     /// <summary>
     /// SCEnclave's ScIsResident (E2): 1 when the entity is the current body of one of an enclave's people, at home and with
     /// a home spot; role="leader" or role="member" narrows it (the leader never roams: the player finds them at their spot).
-    /// One dictionary hit (ScEnclavePeople.PersonOf).
+    /// One dictionary hit (ScEnclavePeople.PersonOf). E3: 0 for one enlisted with the player (their follow order rules) and
+    /// for one walking home after it (Leaving: only the Guard order toward their spot, until they are back on it).
     /// </summary>
     public class UAIConsiderationScEncHome : UAIConsiderationBase
     {
@@ -326,7 +327,7 @@ namespace UAI
         public override float GetScore(Context _context, object target)
         {
             EncPerson p = ScEnclavePeople.PersonOf(_context.Self);
-            if (p == null || !p.HasHome || p.State != EncPerson.StateHome) return 0f;
+            if (p == null || !p.HasHome || p.State != EncPerson.StateHome || p.Leaving) return 0f;
             return string.IsNullOrEmpty(role) || p.Role == role ? 1f : 0f;
         }
     }
@@ -340,7 +341,8 @@ namespace UAI
         public override float GetScore(Context _context, object target)
         {
             EncPerson p = ScEnclavePeople.PersonOf(_context.Self);
-            return p != null && ScEnclavePeople.HostileActive(p.EnclaveId) && !ScXnpc.IsRaider(_context.Self) ? 1f : 0f;
+            // not while walking home after being released by the flip (the E3 review's M1: they leave you first)
+            return p != null && !p.Leaving && ScEnclavePeople.HostileActive(p.EnclaveId) && !ScXnpc.IsRaider(_context.Self) ? 1f : 0f;
         }
     }
 

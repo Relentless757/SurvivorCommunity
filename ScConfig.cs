@@ -537,6 +537,20 @@ namespace SurvivorCommunity
         /// <summary>EnclaveKindRows "row:kind,...": an enclave's kind by its POI's ScPoiTypes row (a row not named: general).</summary>
         public static readonly Dictionary<string, string> EnclaveKindRows = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private const string DefaultEnclaveKindRows = "farm:growers,clinic:medics,military:militia,police:militia,gunstore:militia,industry:builders,hardware:builders,gasstation:roadcrew,refinery:roadcrew";
+        // ---- enclave trade, enlisting and recruiting (ScEnclaveDeals, E3) ----
+        /// <summary>
+        /// The leader's trader_info ids (Config/traders.xml): EnclaveTraderIdBase + 0..5 for general, growers, medics, militia,
+        /// builders and roadcrew. Must match the file's ids (a missing one: that kind's leader does not trade).
+        /// </summary>
+        public static int EnclaveTraderIdBase = 200;
+        /// <summary>Price factors by standing: what they charge you (Buy) and what they pay you (Sell); your barter perks on top.</summary>
+        public static float EnclaveBuyNeutral = 1f, EnclaveBuyFriendly = 1f, EnclaveBuyAllied = 0.8f;
+        public static float EnclaveSellNeutral = 1f, EnclaveSellFriendly = 1.2f, EnclaveSellAllied = 1.35f;
+        /// <summary>Enlisting one of their people: dukes by standing, for EnclaveEnlistDays days; their death meanwhile costs EnclaveEnlistDeathPenalty standing.</summary>
+        public static int EnclaveEnlistCostNeutral = 500, EnclaveEnlistCostFriendly = 250, EnclaveEnlistCostAllied = 0;
+        public static int EnclaveEnlistDays = 2, EnclaveEnlistDeathPenalty = 5;
+        /// <summary>Recruiting: at least EnclaveRecruitMinLeft stay, one every EnclaveRecruitCooldownDays days, EnclaveRecruitStanding standing at Neutral and Friendly.</summary>
+        public static int EnclaveRecruitMinLeft = 2, EnclaveRecruitCooldownDays = 7, EnclaveRecruitStanding = 10;
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1046,6 +1060,9 @@ namespace SurvivorCommunity
             EnclaveNoPopRange = 50; EnclaveSpawnPerTick = 1; EnclaveHoldChunks = true; EnclaveDailyRestock = true; EnclaveLeashMargin = 8; EnclaveDefendRadius = 22;
             EnclaveStandingMin = -30; EnclaveWarnPenalty = 10; EnclaveWarnWindow = 120f; EnclaveHitDebounce = 1.5f; EnclaveThreatBundlesMin = 2; EnclaveThreatBundlesMax = 4;
             EnclaveThreatGrace = 10f; EnclaveContainerLock = true; EnclaveWildSpawnMargin = 40; EnclaveKindRows.Clear();
+            EnclaveTraderIdBase = 200; EnclaveBuyNeutral = 1f; EnclaveBuyFriendly = 1f; EnclaveBuyAllied = 0.8f; EnclaveSellNeutral = 1f; EnclaveSellFriendly = 1.2f;
+            EnclaveSellAllied = 1.35f; EnclaveEnlistCostNeutral = 500; EnclaveEnlistCostFriendly = 250; EnclaveEnlistCostAllied = 0; EnclaveEnlistDays = 2;
+            EnclaveEnlistDeathPenalty = 5; EnclaveRecruitMinLeft = 2; EnclaveRecruitCooldownDays = 7; EnclaveRecruitStanding = 10;
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1625,6 +1642,22 @@ namespace SurvivorCommunity
                     string kr;
                     if (p.Values.TryGetValue("EnclaveKindRows", out kr) && !string.IsNullOrEmpty(kr)) ParseKindRows(kr);
                 }
+                // enclave trade, enlisting and recruiting (E3); the id base keeps base + 5 inside the 256-slot trader list
+                ParseInt(p, "EnclaveTraderIdBase", ref EnclaveTraderIdBase, 11, 250);
+                ParseFloat(p, "EnclaveBuyNeutral", ref EnclaveBuyNeutral, 0.1f, 10f);
+                ParseFloat(p, "EnclaveBuyFriendly", ref EnclaveBuyFriendly, 0.1f, 10f);
+                ParseFloat(p, "EnclaveBuyAllied", ref EnclaveBuyAllied, 0.1f, 10f);
+                ParseFloat(p, "EnclaveSellNeutral", ref EnclaveSellNeutral, 0.1f, 10f);
+                ParseFloat(p, "EnclaveSellFriendly", ref EnclaveSellFriendly, 0.1f, 10f);
+                ParseFloat(p, "EnclaveSellAllied", ref EnclaveSellAllied, 0.1f, 10f);
+                ParseInt(p, "EnclaveEnlistCostNeutral", ref EnclaveEnlistCostNeutral, 0, 100000);
+                ParseInt(p, "EnclaveEnlistCostFriendly", ref EnclaveEnlistCostFriendly, 0, 100000);
+                ParseInt(p, "EnclaveEnlistCostAllied", ref EnclaveEnlistCostAllied, 0, 100000);
+                ParseInt(p, "EnclaveEnlistDays", ref EnclaveEnlistDays, 1, 60);
+                ParseInt(p, "EnclaveEnlistDeathPenalty", ref EnclaveEnlistDeathPenalty, 0, 100);
+                ParseInt(p, "EnclaveRecruitMinLeft", ref EnclaveRecruitMinLeft, 1, 12);
+                ParseInt(p, "EnclaveRecruitCooldownDays", ref EnclaveRecruitCooldownDays, 0, 365);
+                ParseInt(p, "EnclaveRecruitStanding", ref EnclaveRecruitStanding, 0, 100);
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -1946,6 +1979,10 @@ namespace SurvivorCommunity
                                                  + EnclaveHitDebounce.ToString("0.##", CultureInfo.InvariantCulture) + "s apart), threat " + EnclaveThreatBundlesMin + "-"
                                                  + EnclaveThreatBundlesMax + " bundles (grace " + EnclaveThreatGrace.ToString("0.#", CultureInfo.InvariantCulture) + "s), containers "
                                                  + (EnclaveContainerLock ? "locked" : "open") + ", wild spawns off " + EnclaveWildSpawnMargin + "m, " + EnclaveKindRows.Count + " kind rows" : "off")
+                          + " enclaveDeals=" + (Enclaves ? "traders " + EnclaveTraderIdBase + "-" + (EnclaveTraderIdBase + 5) + ", buy x" + F2(EnclaveBuyNeutral) + "/" + F2(EnclaveBuyFriendly) + "/"
+                                                + F2(EnclaveBuyAllied) + ", sell x" + F2(EnclaveSellNeutral) + "/" + F2(EnclaveSellFriendly) + "/" + F2(EnclaveSellAllied) + ", enlist "
+                                                + EnclaveEnlistCostNeutral + "/" + EnclaveEnlistCostFriendly + "/" + EnclaveEnlistCostAllied + " dukes for " + EnclaveEnlistDays + "d (death -"
+                                                + EnclaveEnlistDeathPenalty + "), recruit -" + EnclaveRecruitStanding + " (" + EnclaveRecruitMinLeft + " stay, every " + EnclaveRecruitCooldownDays + "d)" : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange
@@ -2151,6 +2188,9 @@ namespace SurvivorCommunity
             if (tmp < min || tmp > max) { ScLog.Warn("config " + key + "=" + tmp + " out of range [" + min + "," + max + "], keeping " + v); return; }
             v = tmp;
         }
+
+        /// <summary>A factor for the config line ("1.35"), invariant.</summary>
+        private static string F2(float f) { return f.ToString("0.##", CultureInfo.InvariantCulture); }
 
         /// <summary>
         /// RaiderShootingStars "1-2,2-4,4-6": low-high Shooting stars for tiers T1, T2, T3 (a single number is both). Anything
