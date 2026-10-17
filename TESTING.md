@@ -27,7 +27,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 
 ## Every survivor line voiced, six voices (round vo2)
 
-**Built 2026-10-17, not deployed yet.** Your ask (2026-10-17): voice all the dialogue with ElevenLabs; your picks:
+**Deployed 2026-10-17** (Fable review and re-check: deployable; DLL md5 `25e6fc49af09cc14ef68289ebfda52aa`, commit
+baf4027). Your ask (2026-10-17): voice all the dialogue with ElevenLabs; your picks:
 three voices per sex - Vane, B. Hardscrabble Oxley and David for men, Jessica, Beth and Mora for women - one take
 each. Every line a survivor says in SC's talks is voiced now (147 per voice), the enclaves' included. A line with a
 name or a number in it says only the part without them; the panel still shows the whole line. The `.txt` beside each
