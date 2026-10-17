@@ -67,7 +67,10 @@ namespace SurvivorCommunity
                     else
                     {
                         ScLog.Warn("the world day went backwards (" + c.LastDay + " -> " + day + "); resyncing the community to day " + day);
-                        ScEncRequests.OnWorldDayBack(day);     // E4: the request clock follows a real jump back (never sc day's own end)
+                        // E4/E6: the request clock and every forward-only enclave stamp follow a real jump back (never sc day's own end);
+                        // within a second of "sc day" the community's day is still the simulated one: the world went back from its own
+                        // day (the E6 review's N1)
+                        ScEnclaves.OnWorldDayBack(day, c.LastDay == SimulatedDay && SimulatedFromDay >= 0 ? SimulatedFromDay : c.LastDay);
                     }
                     SimulatedDay = -1;
                     c.LastDay = day;
@@ -387,6 +390,7 @@ namespace SurvivorCommunity
                 ScEnclavePeople.Daily(day);              // their people healed and their rounds refilled (E2)
                 ScEncRequests.Daily(day, player);        // offers lapse, accepted requests expire, the day's new requests (E4)
                 ScInfestations.Daily(day, player);       // cleared ones end, old ones may spread, the day's roll for a new one (I1)
+                ScEncAllies.Daily(day, player, summary); // allies' bundles, refills of lost enclaves, allies telling of more (E6)
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)
                 ScStockpile.DailyConsume(day, summary);

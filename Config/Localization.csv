@@ -877,7 +877,7 @@ scEncMemberNeutral_text,Dialog,Statement,,,,"Keep your hands where I can see the
 scEncMemberFriendly_text,Dialog,Statement,,,,"Hey, it's you. Good to see a friendly face out there."
 scEncMemberAllied_text,Dialog,Statement,,,,"Hey, friend! As far as I'm concerned, you're one of us."
 scEncAbout,Dialog,Response,,,,Tell me about this place.
-scEncAboutReply_text,Dialog,Statement,,,,"It's not much, but it keeps the dead out and the rain off. We're {enc}, {count} of us, holding out at {poi}. I'm {leader}, and these people are mine to look after."
+scEncAboutReply_text,Dialog,Statement,,,,"It's not much, but it keeps the dead out and the rain off. We're {enc}, {count} of us, holding out at {poi}. I'm {leader}, and these people are mine to look after. {benefit}"
 scEncThreat,Dialog,Response,,,,Hand over your supplies.
 scEncThreatConfirm_text,Dialog,Statement,,,,"You really want to go down that road? Think hard about what you're asking."
 scEncThreatYes,Dialog,Response,,,,I'm not asking.
@@ -1178,3 +1178,76 @@ scObjectiveEncInfest,UI,Quest,,,,Clear {0} by the end of day {1}
 scObjectiveEncSiege,UI,Quest,,,,Siege:
 scObjectiveEncSiegeClock,UI,Quest,,,,{0} to reach {1}
 scObjectiveEncSiegeLeft,UI,Quest,,,,{0} left
+scEncBenefit_harvest,UI,Tooltip,,,,Share of the Harvest
+scEncBenefit_pharmacy,UI,Tooltip,,,,Open Pharmacy
+scEncBenefit_munitions,UI,Tooltip,,,,Munitions Manufacture
+scEncBenefit_construction,UI,Tooltip,,,,Construction Partners
+scEncBenefit_filtration,UI,Tooltip,,,,Filtration Service
+scEncBenefit_comfort,UI,Tooltip,,,,Comfort in Numbers
+scEncBenefit_barracks,UI,Tooltip,,,,Overflow Barracks
+scEncBenefit_fightclub,UI,Tooltip,,,,Fight Club
+scEncBenefit_gunclub,UI,Tooltip,,,,Gun Safety Club
+scEncBenefit_jogging,UI,Tooltip,,,,Jogging Buddies
+scEncBenefit_scavenging,UI,Tooltip,,,,Scavenging Partners
+scEncBenefit_training,UI,Tooltip,,,,Training and Advice
+scEncBenefit_watch,UI,Tooltip,,,,Neighborhood Watch
+scEncBenefitDesc_harvest,UI,Tooltip,,,,+{0} food a day
+scEncBenefitDesc_pharmacy,UI,Tooltip,,,,+{0} medicine a day
+scEncBenefitDesc_munitions,UI,Tooltip,,,,+{0} ammo a day
+scEncBenefitDesc_construction,UI,Tooltip,,,,+{0} building materials a day
+scEncBenefitDesc_filtration,UI,Tooltip,,,,+{0} fuel a day
+scEncBenefitDesc_comfort,UI,Tooltip,,,,+{0} morale
+scEncBenefitDesc_barracks,UI,Tooltip,,,,+{0} beds for your survivors
+scEncBenefitDesc_fightclub,UI,Tooltip,,,,your survivors' Fighting XP x{0}
+scEncBenefitDesc_gunclub,UI,Tooltip,,,,your survivors' Shooting XP x{0}
+scEncBenefitDesc_jogging,UI,Tooltip,,,,your survivors' Cardio XP x{0}
+scEncBenefitDesc_scavenging,UI,Tooltip,,,,your survivors' Wits XP x{0}
+scEncBenefitDesc_training,UI,Tooltip,,,,your survivors' XP x{0} in every skill
+scEncBenefitDesc_watch,UI,Tooltip,,,,"no new infestation within {0} m of them, and those near them spread {1}% as often"
+scEncAllyDaily,UI,Tooltip,,,,- allies sent {0}
+scEncAllyGained,UI,Tooltip,,,,You and {0} are allies now: {1} ({2}).
+scEncAllyLedgerGained,UI,Tooltip,,,,allied with {0}: {1}
+scEncAllyLost,UI,Tooltip,,,,You and {0} are no longer allies: their {1} stops.
+scEncAllyLedgerLost,UI,Tooltip,,,,{0}: {1} stopped
+scEncAllyFallen,UI,Tooltip,,,,"Losing {0} hits everyone hard (morale -{1}), and their {2} is gone with them."
+scEncFriendFallen,UI,Tooltip,,,,Losing {0} hits everyone hard (morale -{1}).
+scEncAllyReveal,UI,Tooltip,,,,"Word from {0}: {1}, holed up at {2}, {3}."
+scEncAllyLedgerReveal,UI,Tooltip,,,,{0} told you of {1} at {2}
+scEncRefillRadio,UI,Tooltip,,,,"Word on the radio: a new group has settled near {0}, {1}."
+scEncRefillLedger,UI,Tooltip,,,,the radio: a new group settled near {0}
+scEncAboutBenefitAllied,Dialog,Statement,,,,"And you have our {0}, as our allies."
+scEncAboutBenefit,Dialog,Statement,,,,"Stand with us, and you'll have our {0}."
+scMoraleAllies,UI,Menu,,,,Allies
+scMoraleAlliesCount,UI,Menu,,,,Allied enclaves: {0}
+scMoraleAlliesDetail,UI,Menu,,,," ({0} allied: {1})"
+scMoraleEnclaveLost,UI,Menu,,,,Enclave lost
+scMoraleBedsAllies,UI,Menu,,,,(+{0} from allies)
+scRadioEnclavesHeader,UI,Menu,,,,Enclaves you know
+scRadioEncColName,UI,Menu,,,,Enclave
+scRadioEncColStanding,UI,Menu,,,,Standing
+scRadioEncColBenefit,UI,Menu,,,,Benefit as allies
+scRadioEncColWhere,UI,Menu,,,,Where
+scRadioEncNone,UI,Menu,,,,"None found yet. A powered radio picks one up every few days, and allies tell you of more."
+scRadioEncOff,UI,Menu,,,,Enclaves are switched off in the config.
+scRadioEncMore,UI,Menu,,,,"+{0} more, farther away"
+scRadioEncRaiders,UI,Menu,,,,raiders
+scRadioRequestsHeader,UI,Menu,,,,Their requests
+scRadioReqColEnclave,UI,Menu,,,,Enclave
+scRadioReqColWhat,UI,Menu,,,,What they need
+scRadioReqColDue,UI,Menu,,,,By
+scRadioReqNone,UI,Menu,,,,No open requests.
+scRadioReqMore,UI,Menu,,,,+{0} more
+scRadioReqAnswer,UI,Menu,,,,answer by day {0}
+scRadioReqDue,UI,Menu,,,,due by day {0}
+scRadioSiegeHeader,UI,Menu,,,,Siege calls
+scRadioSiegeNone,UI,Menu,,,,No enclave is calling for help.
+scRadioSiegeCalled,UI,Menu,,,,"{0} is under attack! {1} left to reach them, {2}."
+scRadioSiegeLive,UI,Menu,,,,"{0}: the fight is on, {1} of the dead left."
+scRadioSiegeAcked,UI,Menu,,,,You told them you're on your way.
+scRadioSiegeGo,UI,Menu,,,,On our way
+scRadioSiegeGoDone,UI,Menu,,,,They know you're coming
+scRadioSiegeCant,UI,Menu,,,,We can't come
+scRadioSiegeCantConfirm,UI,Menu,,,,Press We can't come again: they will fall without you.
+scRadioSiegeCantDone,UI,Tooltip,,,,You told {0} you can't come. They're on their own.
+scRadioSiegeGoTell,UI,Tooltip,,,,"{0} on the radio: ""Thank you! We'll hold them off as long as we can."""
+scRadioSiegeGone,UI,Tooltip,,,,That call is over.

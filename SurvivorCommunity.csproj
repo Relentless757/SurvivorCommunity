@@ -89,6 +89,7 @@
     <Compile Include="ScEncSearch.cs" />
     <Compile Include="ScEncInfest.cs" />
     <Compile Include="ScEncSiege.cs" />
+    <Compile Include="ScEncAllies.cs" />
     <Compile Include="BlockScEncRemains.cs" />
     <Compile Include="DialogOpsEnclaves.cs" />
     <Compile Include="DialogOpsEncRequests.cs" />

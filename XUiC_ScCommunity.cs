@@ -1083,7 +1083,7 @@ namespace SurvivorCommunity
             AddPart(p.Water, Localization.Get("scMoraleWater"), "ui_game_symbol_thirst");
             AddPart(p.Activity, string.Format(Localization.Get("scMoraleActivityLeft"), ScActivities.TimeLeft()), "ui_game_symbol_beer");
             AddPart(p.Meds, Localization.Get("scMoraleMeds"), "ui_game_symbol_medical");
-            AddPart(p.Beds, string.Format(Localization.Get("scMoraleBedsCount"), c.Beds, members), "ui_game_symbol_map_bed");
+            AddPart(p.Beds, string.Format(Localization.Get("scMoraleBedsCount"), ScEncAllies.TotalBeds(), members), "ui_game_symbol_map_bed");
             AddPart(p.Facilities, Localization.Get("scMoraleFacilities"), "ui_game_symbol_workbench");
             AddPart(p.Supplies, Localization.Get("scMoraleSupplies"), "ui_game_symbol_loot_sack");
             AddPart(p.Traits, Localization.Get("scMoraleTraits"), "ui_game_symbol_players");
@@ -1091,6 +1091,10 @@ namespace SurvivorCommunity
             AddPart(p.Leadership, Localization.Get("scMoraleLeadership"), "ui_game_symbol_influence");
             AddPart(p.Territory, Localization.Get("scMoraleTerritory"), "ui_game_symbol_map_town");
             AddPart(p.Defence, Localization.Get("scMoraleDefence"), "ui_game_symbol_defense");
+            // E6: the allies, an ally's Comfort in Numbers (the benefit by its name), the groups lost lately
+            AddPart(p.Allies, string.Format(Localization.Get("scMoraleAlliesCount"), ScEncAllies.AlliedCount()), "ui_game_symbol_allies");
+            AddPart(p.Comfort, Localization.Get("scEncBenefit_comfort"), "ui_game_symbol_party");
+            AddPart(p.EnclaveLost, Localization.Get("scMoraleEnclaveLost"), "ui_game_symbol_map_fortress");
             helping.Sort((a, b) => b.Value.CompareTo(a.Value));
             hurting.Sort((a, b) => a.Value.CompareTo(b.Value));
         }
@@ -1140,7 +1144,7 @@ namespace SurvivorCommunity
                     _value = string.Format(Localization.Get("scWinTitle"), c.Morale, ScMorale.MoodWord(c.Morale));
                     return true;
                 case "subtitle":
-                    _value = string.Format(Localization.Get("scWinSubtitle"), ScRegistry.Members.Count, ScConfig.MaxMembers, c.Beds, c.Facilities, c.Crops)
+                    _value = string.Format(Localization.Get("scWinSubtitle"), ScRegistry.Members.Count, ScConfig.MaxMembers, ScEncAllies.TotalBeds(), c.Facilities, c.Crops)
                              + (c.Hungry ? " - " + Localization.Get("scWinHungry") : "")
                              + (c.Thirsty ? " - " + Localization.Get("scWinThirsty") : "");
                     return true;
@@ -1357,7 +1361,7 @@ namespace SurvivorCommunity
         {
             if (!ScRegistry.Loaded) return 0;
             int m = ScRegistry.Members.Count;
-            return m == 0 ? 0 : Math.Max(0, m - ScRegistry.Community.Beds);
+            return m == 0 ? 0 : Math.Max(0, m - ScEncAllies.TotalBeds());      // E6: an ally's Overflow Barracks counts
         }
 
         /// <summary>

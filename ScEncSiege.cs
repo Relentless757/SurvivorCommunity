@@ -81,6 +81,8 @@ namespace SurvivorCommunity
         /// <summary>The objective's last words and what they were made from (it asks every frame).</summary>
         private static string statusText = "";
         private static long statusKey = long.MinValue;
+        /// <summary>E6: the siege (request id) the player answered "On our way" over the radio window; -1 none. Session only.</summary>
+        private static int acknowledged = -1;
 
         private static string Loc(string key) { return Localization.Get(key); }
 
@@ -98,6 +100,7 @@ namespace SurvivorCommunity
             pendingWhy = null;
             statusText = "";
             statusKey = long.MinValue;
+            acknowledged = -1;
         }
 
         /// <summary>The registry was (re)loaded: whatever this session spawned is squared with it on the next tick (a live siege resumes).</summary>
@@ -842,6 +845,58 @@ namespace SurvivorCommunity
             if (ScEncRequests.All.Contains(r)) ScEncRequests.Close(r, ScEncRequests.Lost, why);     // a fall that did not happen
         }
 
+        // ------------------------------------------------------------------ E6: the radio window's answers ----
+
+        /// <summary>The open siege still waiting for the player (called, not live) and its enclave, or false.</summary>
+        private static bool Answerable(out EnclaveRequest r, out Enclave e)
+        {
+            r = Open;
+            e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
+            return r != null && e != null && r.Stage == StageCalled && ScCommunity.IsHost;
+        }
+
+        /// <summary>E6: the player told them "On our way" over the radio (this session).</summary>
+        public static bool Acknowledged(EnclaveRequest r) { return r != null && r.Id == acknowledged; }
+
+        /// <summary>
+        /// E6, the radio window's "On our way": the call answered - their thanks over the radio and a log line; nothing else
+        /// changes (the clock runs on, the fight is as it would be). Only while it is called. False (and why) when it is not.
+        /// </summary>
+        public static bool OnOurWay(EntityPlayerLocal player, out string msg)
+        {
+            EnclaveRequest r;
+            Enclave e;
+            if (!Answerable(out r, out e)) { msg = Loc("scRadioSiegeGone"); return false; }
+            if (acknowledged == r.Id) { msg = Loc("scRadioSiegeAcked"); return false; }
+            acknowledged = r.Id;
+            msg = string.Format(Loc("scRadioSiegeGoTell"), e.Name);
+            if (player != null) ScCommunity.Tell(player, msg, "");
+            ScLog.Out("siege at " + e.Name + ": the player answered \"on our way\" over the radio (" + ClockText(r) + ")");
+            return true;
+        }
+
+        /// <summary>
+        /// E6, the radio window's "We can't come": the siege is lost now, through the console's "lose" path (Lose: the enclave
+        /// falls - OnFalling closes the request as lost, AfterFall infests the building - then E6's Fallen: morale, the refill).
+        /// Only while it is called. False (and why) when it is not.
+        /// </summary>
+        public static bool CantCome(EntityPlayerLocal player, out string msg)
+        {
+            EnclaveRequest r;
+            Enclave e;
+            if (!Answerable(out r, out e)) { msg = Loc("scRadioSiegeGone"); return false; }
+            string name = e.Name;
+            Lose(r, e, "the player told them over the radio they could not come");
+            msg = string.Format(Loc("scRadioSiegeCantDone"), name);
+            return true;
+        }
+
+        /// <summary>E6 (the radio window): "12:34" left to reach a called siege, "" for any other.</summary>
+        public static string Countdown(EnclaveRequest r)
+        {
+            return r != null && r.Kind == EnclaveRequest.KindSiege && r.Stage == StageCalled ? Mmss(SecondsLeft(r, ScCommunity.World)) : "";
+        }
+
         /// <summary>
         /// ScEnclaves.Fall, before anything goes: a siege still open there is lost with them (closed as "lost": no standing, the
         /// quest removed as failed, a ledger line; its attackers let go as ordinary zombies). True when it was - the building is
@@ -885,6 +940,7 @@ namespace SurvivorCommunity
             sessionReady = false;
             holdLeft = 0UL;
             settledSince = -1f;
+            if (r.Id == acknowledged) acknowledged = -1;
             if (n > 0) ScLog.Out("siege #" + r.Id + " " + outcome + ": " + n + " attacker(s) " + (outcome == ScEncRequests.Withdrawn ? "despawned" : "let go as ordinary zombies"));
         }
 

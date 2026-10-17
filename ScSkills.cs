@@ -35,7 +35,8 @@ namespace SurvivorCommunity
             SkillState st = m.Skill(s);
             if (st.Level >= Member.MaxStars) return false;
             float mult = ScTraits.XpMult(m) * (ScRegistry.Community.Morale > ScConfig.HighMoraleThreshold ? 1.5f : 1f)
-                         * ScLeadership.XpMult();                                       // SurvivorOrigins' Leadership (1 without it)
+                         * ScLeadership.XpMult()                                        // SurvivorOrigins' Leadership (1 without it)
+                         * ScEncAllies.XpMult(s);                                       // E6: an ally's club, Training and Advice (1 without)
             st.Xp += Math.Max(1, (int)Math.Round(amount * mult));
             bool gained = false;
             while (st.Level < Member.MaxStars && st.Xp >= NeededFor(st.Level + 1))
@@ -51,7 +52,7 @@ namespace SurvivorCommunity
         {
             if (m == null || amount <= 0f || m.Specialty == Specialty.None) return false;
             if (m.SpecLevel >= Member.MaxStars) return false;
-            m.SpecXp += Math.Max(1, (int)Math.Round(amount * ScTraits.XpMult(m) * ScLeadership.XpMult()));
+            m.SpecXp += Math.Max(1, (int)Math.Round(amount * ScTraits.XpMult(m) * ScLeadership.XpMult() * ScEncAllies.SpecXpMult()));   // E6: Training and Advice
             bool gained = false;
             while (m.SpecLevel < Member.MaxStars && m.SpecXp >= NeededFor(m.SpecLevel + 1))
             {

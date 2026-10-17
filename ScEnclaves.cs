@@ -52,13 +52,27 @@ namespace SurvivorCommunity
         /// home who ran ahead): the leader thanks the player for it at the next talk, once ("": nothing owed).
         /// </summary>
         public string Thanks = "";
+        /// <summary>
+        /// E6: what the group does for the player while Allied (ScEncAllies.Benefits): set by its kind (growers "harvest",
+        /// medics "pharmacy", militia "munitions", builders "construction", a road crew "filtration"), a scavengers' group
+        /// rolls one of the other eight once from the world seed and its POI; "" for raiders. Fixed and saved.
+        /// </summary>
+        public string Benefit = "";
+        /// <summary>
+        /// E6: the first day (the request clock's: ScEncRequests.Now) this group, Allied, may tell the player about one more
+        /// enclave - set EnclaveAllyRevealDays ahead each time it does (0: any day).
+        /// </summary>
+        public int AllyRevealDay;
         /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
         public int Standing;
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
         public bool Known;
         public int KnownDay = -1;
         public int SeededDay;
-        /// <summary>How it came: "new" (a new save's first start), "late" (an existing save), "top" (a raised target), "moved" (its POI went).</summary>
+        /// <summary>
+        /// How it came: "new" (a new save's first start), "late" (an existing save), "top" (a raised target), "moved" (its POI
+        /// went), "refill" (E6: a new group after a lost one).
+        /// </summary>
         public string Mode = "new";
         /// <summary>
         /// This load found neither its POI nor a free one to move to, though one may come free (Validate): kept and tried
@@ -114,6 +128,8 @@ namespace SurvivorCommunity
         /// <summary>Every marker class (nav_objects.xml): a marker is re-registered under the class of its current standing.</summary>
         private static readonly string[] NavKinds = { "neutral", "friendly", "allied", "hostile" };
         private const string Salt = "sc.enclaves.v1";
+        /// <summary>E6: the seeding mode (and Enclave.Mode) of a new group that moved in after a lost one (Refill).</summary>
+        public const string RefillMode = "refill";
         /// <summary>Prefab or POI-name words that make a likely raider den (the hostile ranking): a word of the name that starts with one.</summary>
         private static readonly string[] HostileWords = { "army", "military", "prison", "police", "fort", "junk", "scrap", "industrial", "factory", "camp" };
         private static readonly string[] DirKeys = { "scDirN", "scDirNE", "scDirE", "scDirSE", "scDirS", "scDirSW", "scDirW", "scDirNW" };
@@ -382,6 +398,7 @@ namespace SurvivorCommunity
                     else line = "none in this save yet, and EnclaveLateSeed is off - none seeded";
                 }
                 else line = Validate(w);
+                ScEncAllies.EnsureBenefits(w);      // E6: each group's benefit (seeded just now, or before E6)
                 int cleared = PreClearAll(w);
                 Rebuild();
                 markersRestored = false;
@@ -560,6 +577,15 @@ namespace SurvivorCommunity
             return Mathf.Clamp(Mathf.RoundToInt(ScConfig.EnclavesPerKm2 * km2), ScConfig.EnclaveMin, ScConfig.EnclaveMax);
         }
 
+        /// <summary>E6 (sc enclave refill): this world's target count now, -1 without a world.</summary>
+        public static int TargetNow()
+        {
+            Vector3i min, max;
+            float km2;
+            World w = ScCommunity.World;
+            return w != null && WorldExtent(w, out min, out max) ? TargetCount(min, max, out km2) : -1;
+        }
+
         /// <summary>
         /// Where the start ring and the hostile rule measure from: a late run (and a top-up) prefers the home claim; then
         /// the local player (on a new save, where they just spawned), the first spawn point, the world centre.
@@ -594,19 +620,22 @@ namespace SurvivorCommunity
         /// Plans one seeding run (nothing is saved; pois_and_seeding.md section 6): the candidates, a weighted random order
         /// (key u^(1/w) over the candidates in (x, z) order, one RNG from the run's seed), the start ring, greedy spacing
         /// relaxed 15% a pass down to EnclaveSpacingFloor, the hostiles, then each pick's name from its own stream.
+        /// E6's refill (mode "refill": the late rules, no start ring) brings its own seed, the POI of the group it replaces
+        /// (never picked again) and that group's name (never given again).
         /// </summary>
-        private static Plan MakePlan(World w, string mode, int want)
+        private static Plan MakePlan(World w, string mode, int want, int? seed = null, Vector3i? exclude = null, string avoidName = null)
         {
             Vector3i min, max;
             if (!WorldExtent(w, out min, out max)) return null;
             bool late = mode != "new";
-            var p = new Plan { Mode = mode, Late = late, Ring = mode != "top" };
+            var p = new Plan { Mode = mode, Late = late, Ring = mode != "top" && mode != RefillMode };
             p.Target = TargetCount(min, max, out p.Km2);
             p.Want = want < 0 ? p.Target : want;
             p.Width = Math.Min(max.x - min.x, max.z - min.z);
-            p.Seed = SeedFor(w, mode, ScCommunity.Today);
+            p.Seed = seed ?? SeedFor(w, mode, ScCommunity.Today);
             p.Start = StartPoint(late, min, max, out p.StartWhat);
             Rules r = RulesFor(w, late, min, max);
+            if (exclude.HasValue) r.Taken.Add(exclude.Value);      // E6: a refill never moves into the lost group's building
             var existing = ignoreExisting ? new List<Enclave>() : All;
 
             var cands = new List<Pick>();
@@ -702,6 +731,7 @@ namespace SurvivorCommunity
             // names: each its own stream (a re-rolled name changes no other), unique in the save
             var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (Enclave e in existing) if (!string.IsNullOrEmpty(e.Name)) taken.Add(e.Name);
+            if (!string.IsNullOrEmpty(avoidName)) taken.Add(avoidName);
             foreach (Pick c in p.Picks)
             {
                 GameRandom nr = GameRandomManager.Instance.CreateGameRandom(p.Seed ^ unchecked(c.E.Key.x * 73856093) ^ unchecked(c.E.Key.z * 19349663));
@@ -767,28 +797,7 @@ namespace SurvivorCommunity
             if (p == null) return "no world extent - nothing seeded";
             Community c = ScRegistry.Community;
             int today = ScCommunity.Today;
-            foreach (Pick k in p.Picks)
-            {
-                var en = new Enclave
-                {
-                    Id = ++c.NextEnclaveId,
-                    Name = k.Name,
-                    Poi = k.E.Key,
-                    Size = k.E.Size,
-                    Prefab = k.E.Prefab,
-                    PoiName = k.E.Display,
-                    Biome = k.E.Biome,
-                    Row = k.E.Row,
-                    Kind = KindFor(k.E.Row),
-                    Tier = k.E.Tier,
-                    Hostile = k.Hostile,
-                    SeededDay = today,
-                    Mode = mode
-                };
-                All.Add(en);
-                ScLog.Verbose("enclave " + en.Id + " '" + en.Name + "' at " + en.PoiName + " (" + en.Prefab + ", T" + en.Tier + ", " + en.Biome + ") " + en.Poi
-                              + (k.Hostile ? ", hostile" : "") + (k.Ring ? ", start ring" : "") + " [" + mode + "]");
-            }
+            foreach (Pick k in p.Picks) NewRecord(k, mode, today);
             if (mode == "top") c.EnclaveSeedCount = p.Target;
             else
             {
@@ -799,6 +808,65 @@ namespace SurvivorCommunity
                 c.EnclaveSeedCount = p.Target;
             }
             return Summary(p);
+        }
+
+        /// <summary>A pick made a record (Seed; E6's Refill): the next id, the POI, its kind from the row; unknown, standing 0.</summary>
+        private static Enclave NewRecord(Pick k, string mode, int today)
+        {
+            Community c = ScRegistry.Community;
+            var en = new Enclave
+            {
+                Id = ++c.NextEnclaveId,
+                Name = k.Name,
+                Poi = k.E.Key,
+                Size = k.E.Size,
+                Prefab = k.E.Prefab,
+                PoiName = k.E.Display,
+                Biome = k.E.Biome,
+                Row = k.E.Row,
+                Kind = KindFor(k.E.Row),
+                Tier = k.E.Tier,
+                Hostile = k.Hostile,
+                SeededDay = today,
+                Mode = mode
+            };
+            All.Add(en);
+            ScLog.Verbose("enclave " + en.Id + " '" + en.Name + "' at " + en.PoiName + " (" + en.Prefab + ", T" + en.Tier + ", " + en.Biome + ") " + en.Poi
+                          + (k.Hostile ? ", hostile" : "") + (k.Ring ? ", start ring" : "") + " [" + mode + "]");
+            return en;
+        }
+
+        /// <summary>
+        /// E6 (Q4 a): one new group into another POI - one pick with the late seed's rules (MakePlan "refill": nothing loaded,
+        /// nowhere near a claim, unvisited POIs preferred, spaced from the others, the hostile share kept), never the lost
+        /// group's building or name, never above the target count. Named, unknown, its benefit set, the lookups rebuilt and
+        /// its rooms kept clear; the seeding stamp is left alone. Null when none moved in: full (at the target, nothing owed)
+        /// or not (no POI fits now - try again later), and why. The caller saves.
+        /// </summary>
+        public static Enclave Refill(World w, int seed, Vector3i exclude, string lostName, out bool full, out string why)
+        {
+            full = false;
+            why = null;
+            if (w == null || !ScCommunity.IsHost) { why = "no world"; return null; }
+            if (!ScConfig.Enclaves) { why = "Enclaves is off"; return null; }
+            if (!ScPoiIndex.EnsureBuilt()) { why = "no POI list on this world"; return null; }
+            Vector3i min, max;
+            float km2;
+            if (!WorldExtent(w, out min, out max)) { why = "no world extent"; return null; }
+            int target = TargetCount(min, max, out km2);
+            if (All.Count >= target) { full = true; why = "at the target count (" + All.Count + " of " + target + ")"; return null; }
+            Plan p = MakePlan(w, RefillMode, 1, seed, exclude, lostName);
+            if (p == null || p.Picks.Count == 0)
+            {
+                why = "no POI fits (" + (p != null ? p.Candidates + " candidate(s) of " + p.Real : "no plan") + ")";
+                return null;
+            }
+            Enclave en = NewRecord(p.Picks[0], RefillMode, ScCommunity.Today);
+            ScEncAllies.EnsureBenefit(en, w);
+            Rebuild();
+            PreClear(PoiOf(en), w);
+            why = p.Candidates + " candidate(s), D " + Mathf.RoundToInt(p.D) + " m" + (p.Picks[0].Hostile ? ", hostile (the share)" : "");
+            return en;
         }
 
         /// <summary>"seeded 11 (3 hostile) for a new save on a 6144 m world, D 1019 m, nearest 714 m".</summary>
@@ -1071,6 +1139,47 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// The world's day went back from fromDay to day (ScTicker, on a real jump only: an older save, a time command - never
+        /// "sc day"'s own end; the E4 re-check's R2, E6). The one hook for every forward-only enclave stamp, so none of them
+        /// freezes until the world catches up: each keeps its remaining span, shifted back by its own clock's drop and never
+        /// below 0. The request clock's stamps (E4's open requests and cooldowns, E6's refills and ally reveals) by the request
+        /// clock's drop - from where it stood (the world's last day at the least) to the world's day; the world clock's (E1's
+        /// next radio reveal, E3's recruit cooldowns and enlistments, E5's scheduled siege call, I1's infestation ages) by the
+        /// world's. One log line; the ticker saves.
+        /// </summary>
+        public static void OnWorldDayBack(int day, int fromDay)
+        {
+            try
+            {
+                Community c = ScRegistry.Community;
+                int worldBack = Math.Max(0, fromDay - day);
+                int reqBack = Math.Max(0, Math.Max(fromDay, c.EncRequestDay) - day);
+                if (worldBack == 0 && reqBack == 0) return;
+                int requests = ScEncRequests.ShiftDays(day, reqBack);      // E4: the request clock, open requests, cooldowns
+                int allies = ScEncAllies.ShiftDays(reqBack);               // E6: queued refills, ally reveals
+                int stamps = 0, infest = 0;
+                if (worldBack > 0)
+                {
+                    ulong ticks = (ulong)worldBack * 24000UL;
+                    if (c.EnclaveRadioDay > 0) { c.EnclaveRadioDay = Math.Max(0, c.EnclaveRadioDay - worldBack); stamps++; }          // E1
+                    foreach (Enclave e in All)
+                        if (e.LastRecruitDay > 0) { e.LastRecruitDay = Math.Max(0, e.LastRecruitDay - worldBack); stamps++; }         // E3
+                    foreach (EncPerson p in ScRegistry.EncPeople)
+                        if (p.EnlistedUntil > 0UL) { p.EnlistedUntil = p.EnlistedUntil > ticks ? p.EnlistedUntil - ticks : 1UL; stamps++; }   // E3
+                    if (c.EncSiegeAt > 0UL) { c.EncSiegeAt = c.EncSiegeAt > ticks ? c.EncSiegeAt - ticks : 0UL; stamps++; }             // E5
+                    infest = ScInfestations.ShiftDays(worldBack);                                                                      // I1
+                }
+                ScLog.Out("enclaves: the world's day went back from " + fromDay + " to " + day + " - the request clock, " + requests + " open request(s), "
+                          + allies + " refill/ally-reveal stamp(s) moved back " + reqBack + " day(s); " + stamps + " world-clock stamp(s) (radio reveal, recruit cooldowns, "
+                          + "enlistments, the siege call) and " + infest + " infestation(s) moved back " + worldBack + " day(s)");
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("enclave-dayback", ex);
+            }
+        }
+
         public static string NavClassFor(Enclave e) { return NavPrefix + StandingKey(e); }
 
         /// <summary>The marker's spot: the POI's centre on the ground (the static heightmap works with the chunk unloaded).</summary>
@@ -1153,6 +1262,7 @@ namespace SurvivorCommunity
             if (after != before && e.Known && pl != null) AddMarker(e, pl);
             if (ledger) ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerStanding"), e.Name, (e.Standing > old ? "+" : "") + (e.Standing - old), StandingWord(e)));
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': standing " + old + " -> " + e.Standing + " (" + after + ", " + reason + ")");
+            if (after != before) ScEncAllies.OnBandChanged(e, before, after);      // E6: the benefit on or off, an ally's first word of another
             ScRegistry.SaveAtomic();
         }
 
@@ -1165,6 +1275,7 @@ namespace SurvivorCommunity
         public static void TurnHostile(Enclave e, string cause, float grace = 0f)
         {
             if (e == null || e.IsHostile) return;
+            string before = StandingKey(e);
             // E3: one of theirs enlisted with the player goes home first - released before the flip, so they never turn on
             // the player at their side
             ScEnclaveDeals.ReleaseEnlisted(e, "their people turned hostile");
@@ -1177,6 +1288,7 @@ namespace SurvivorCommunity
             ScOutposts.NoteLedger(string.Format(Localization.Get("scEncLedgerHostile"), e.Name));
             if (pl != null) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncTurnedHostile"), e.Name), "ui_denied");
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' turned hostile for good (" + cause + ")" + (grace > 0f ? ", " + grace.ToString("0.#", CultureInfo.InvariantCulture) + " s grace" : ""));
+            ScEncAllies.OnBandChanged(e, before, StandingKey(e));      // E6: an ally's benefit stops
             ScRegistry.SaveAtomic();
         }
 
@@ -1232,6 +1344,7 @@ namespace SurvivorCommunity
                      + c.EnclaveSeedCount + ")" : ", never seeded in this save") + (ScConfig.Enclaves ? "" : " - Enclaves is OFF in the config")
                      + "; the radio can reveal one " + (c.EnclaveRadioDay > ScCommunity.Today ? "from day " + c.EnclaveRadioDay : "now (a powered radio, an unfound one in range)")
                      + "; " + ScRegistry.EncPeople.Count + " person record(s); wild NPC spawns kept off their grounds this session: " + ScEnclavePeople.WildRefused);
+            into.Add("  " + ScEncAllies.SummaryLine());     // E6: the allies, their benefits, the refills owed
             foreach (Enclave e in All) into.Add("  " + Line(e, pl != null ? pl.position : (Vector3?)null));
         }
 
@@ -1245,6 +1358,7 @@ namespace SurvivorCommunity
                      + ", kind " + (e.Kind.Length > 0 ? e.Kind : "-") + ", standing " + e.Standing + " (" + StandingWord(e) + "), "
                      + (e.Known ? "known since day " + e.KnownDay : "not found yet") + ", seeded day " + e.SeededDay + " (" + e.Mode + ")");
             into.Add("  people: " + ScEnclavePeople.Summary(e) + " (sc enclave people " + e.Id + ")");
+            into.Add("  " + ScEncAllies.InfoLine(e));       // E6: the benefit, whether it applies, the next word of another
             into.Add("  POI " + e.PoiName + " (" + e.Prefab + "), T" + e.Tier + ", row " + (e.Row.Length > 0 ? e.Row : "-") + ", biome " + e.Biome
                      + ", key " + e.Poi + ", footprint x " + b[0] + ".." + b[1] + " z " + b[2] + ".." + b[3] + " (" + e.Size.x + "x" + e.Size.z + ")"
                      + ", centre " + Mathf.RoundToInt(cen.x) + "," + Mathf.RoundToInt(cen.z) + (pl != null ? ", " + Where(pl.position, cen) + " from you" : ""));
@@ -1369,8 +1483,12 @@ namespace SurvivorCommunity
             Community c = ScRegistry.Community;
             c.EnclaveSeeded = false;
             c.EnclaveSeedCount = 0;
+            int refills = c.EncRefills.Count;
+            c.EncRefills.Clear();       // E6: a fresh seeding owes no refills
             Rebuild();      // the old footprints must not count as homes for the new run
             string line = Seed(w, "late");
+            ScEncAllies.EnsureBenefits(w);     // E6
+            if (refills > 0) line += "; " + refills + " queued refill(s) dropped";
             int cleared = PreClearAll(w);
             Rebuild();
             RefreshMarkers(owner);

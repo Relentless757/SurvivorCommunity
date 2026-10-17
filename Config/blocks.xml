@@ -1095,6 +1095,38 @@
 			<property name="EnclaveGainInfestation" value="15" />
 			<property name="EnclaveGainSiege" value="25" />
 
+			<!-- ALLIES (E6; Enclaves_Plan.md 2.11 and 2.13). Every enclave has one benefit (State of Decay 2's names), set by
+			     its kind and kept: growers Share of the Harvest (food), medics Open Pharmacy (medicine), militia Munitions
+			     Manufacture (ammo), builders Construction Partners (building materials), a road crew Filtration Service (fuel) -
+			     each EnclaveBenefitBundles units into the stockpile at each day rollover; a scavengers' group has one of
+			     Comfort in Numbers (+EnclaveBenefitMorale morale), Overflow Barracks (+EnclaveBenefitBeds beds), Fight Club / Gun
+			     Safety Club / Jogging Buddies / Scavenging Partners (your survivors' Fighting / Shooting / Cardio / Wits XP x
+			     EnclaveBenefitClubXp), Training and Advice (every skill's XP, the specialty's too, x EnclaveBenefitTrainingXp)
+			     or Neighborhood Watch (no new infestation within EnclaveWatchRange m of them; one within that range spreads at
+			     EnclaveWatchSpread the chance). Raiders have none. A benefit works only while the enclave is Allied: let them
+			     down to Friendly and it stops until they are Allied again. Several allies' XP benefits add up (2 clubs for one
+			     skill: x3), the whole multiplier at most EnclaveBenefitXpCap. Morale: +EnclaveAllyMorale for each Allied
+			     enclave, at most EnclaveAllyMoraleCap (Comfort in Numbers is a part of its own, on top); losing a Friendly or
+			     Allied enclave (wiped out, a siege lost) costs EnclaveLostMorale, fading a point a day. A lost enclave is
+			     replaced: EnclaveRefillDays days later a new group moves into another building nobody has visited, with the
+			     late seed's rules (never above the enclave count EnclavesPerKm2 gives; no building that fits - the next day);
+			     a powered radio hears of it. An ally tells you about the enclave nearest to them that you don't know on
+			     becoming Allied, then every EnclaveAllyRevealDays days while Allied. "sc enclave refill [now]" and
+			     "sc enclave info <id>" test them. -->
+			<property name="EnclaveBenefitBundles" value="1" />
+			<property name="EnclaveBenefitMorale" value="5" />
+			<property name="EnclaveBenefitBeds" value="3" />
+			<property name="EnclaveBenefitClubXp" value="2" />
+			<property name="EnclaveBenefitTrainingXp" value="1.5" />
+			<property name="EnclaveBenefitXpCap" value="3" />
+			<property name="EnclaveWatchRange" value="500" />
+			<property name="EnclaveWatchSpread" value="0.5" />
+			<property name="EnclaveAllyMorale" value="2" />
+			<property name="EnclaveAllyMoraleCap" value="6" />
+			<property name="EnclaveLostMorale" value="5" />
+			<property name="EnclaveRefillDays" value="5" />
+			<property name="EnclaveAllyRevealDays" value="7" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

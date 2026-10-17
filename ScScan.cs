@@ -417,18 +417,19 @@ namespace SurvivorCommunity
 
         // ---- the community window's bed line ----
 
-        /// <summary>"Beds 12 for 2 survivors - 10 spare (+10 morale)", never null.</summary>
+        /// <summary>"Beds 12 for 2 survivors - 10 spare (+10 morale)", never null. E6: an ally's Overflow Barracks counts (and is named).</summary>
         public static string BedLine()
         {
             if (!ScRegistry.Loaded) return "";
-            Community c = ScRegistry.Community;
-            int m = ScRegistry.Members.Count, b = c.Beds;
+            int m = ScRegistry.Members.Count, b = ScEncAllies.TotalBeds();
             int term = ScMorale.Compute().Beds;
             string s;
             if (m == 0) s = string.Format(Localization.Get("scBedsNoMembers"), b);
             else if (b < m) s = string.Format(Localization.Get("scBedsShort"), b, m, m - b, term);
             else if (b > m) s = string.Format(Localization.Get("scBedsSpare"), b, m, b - m, term);
             else s = string.Format(Localization.Get("scBedsExact"), b, m, term);
+            int allies = ScEncAllies.ExtraBeds();
+            if (allies > 0) s += " " + string.Format(Localization.Get("scMoraleBedsAllies"), allies);
             if (LastMissing > 0) s += " - " + Localization.Get("scBedsPartial");
             return s;
         }
@@ -438,7 +439,7 @@ namespace SurvivorCommunity
             if (!ScRegistry.Loaded) return "200,200,200,255";
             int m = ScRegistry.Members.Count;
             if (m == 0) return "200,200,200,255";
-            return ScRegistry.Community.Beds < m ? "255,140,120,255" : "170,220,170,255";
+            return ScEncAllies.TotalBeds() < m ? "255,140,120,255" : "170,220,170,255";
         }
     }
 }

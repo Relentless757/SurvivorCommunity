@@ -640,13 +640,13 @@
 
 	<!-- GENERATED:BEGIN scradio (Tools/generate_radio_ui.py) -->
 	<append xpath="/windows">
-		<window name="windowScRadio" anchor="Center" pos="-380,470" width="760" height="940" depth="20" controller="SurvivorCommunity.ScRadio, SurvivorCommunity" cursor_area="true">
-			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="760" height="940"/>
+		<window name="windowScRadio" anchor="Center" pos="-692,470" width="1384" height="940" depth="20" controller="SurvivorCommunity.ScRadio, SurvivorCommunity" cursor_area="true">
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="0,0" width="1384" height="940"/>
 			<sprite depth="3" sprite="ui_game_symbol_talk" pos="52,-40" width="56" height="56" pivot="center" color="[white]"/>
-			<label depth="4" pos="92,-8" width="560" height="44" font_size="40" text="{title}" color="226,219,203,255" upper_case="true"/>
-			<label depth="4" pos="94,-52" width="560" height="24" font_size="17" text="{status}" color="206,178,120,255"/>
-			<button depth="2" name="btnClose" pos="680,-18" width="56" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-			<sprite depth="4" sprite="ui_game_symbol_x" pos="708,-42" width="24" height="24" pivot="center" color="[white]"/>
+			<label depth="4" pos="92,-8" width="1184" height="44" font_size="40" text="{title}" color="226,219,203,255" upper_case="true"/>
+			<label depth="4" pos="94,-52" width="1184" height="24" font_size="17" text="{status}" color="206,178,120,255"/>
+			<button depth="2" name="btnClose" pos="1304,-18" width="56" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+			<sprite depth="4" sprite="ui_game_symbol_x" pos="1332,-42" width="24" height="24" pivot="center" color="[white]"/>
 			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-84" width="712" height="140"/>
 			<button depth="2" name="btnDrop" pos="40,-98" width="332" height="46" sprite="scui_btn" hoversprite="{# dropready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 			<sprite depth="4" sprite="ui_game_symbol_airdrop" pos="68,-121" width="28" height="28" pivot="center" color="[white]"/>
@@ -711,6 +711,148 @@
 			<sprite depth="4" sprite="ui_game_symbol_coin" pos="542,-820" width="20" height="20" pivot="center" color="[white]"/>
 			<label depth="4" pos="556,-812" width="156" height="21" font_size="15" text_key="scRadioBarterTrade" color="{# barterready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true"/>
 			<label depth="4" pos="40,-842" width="680" height="20" font_size="13" text="{barterdesc}" color="190,182,166,255"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="760,-84" width="600" height="430"/>
+			<sprite depth="3" sprite="ui_game_symbol_allies" pos="787,-103" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="806,-93" width="538" height="24" font_size="18" text_key="scRadioEnclavesHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="776,-118" width="568" height="3"/>
+			<label depth="4" pos="776,-124" width="190" height="20" font_size="13" text_key="scRadioEncColName" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<label depth="4" pos="970,-124" width="74" height="20" font_size="13" text_key="scRadioEncColStanding" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<label depth="4" pos="1048,-124" width="162" height="20" font_size="13" text_key="scRadioEncColBenefit" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<label depth="4" pos="1214,-124" width="130" height="20" font_size="13" text_key="scRadioEncColWhere" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<rect depth="1" pos="776,-144" width="568" height="22" visible="{enc1visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc1name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc1standing}" color="{enc1standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc1benefit}" color="{enc1benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc1where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-166" width="568" height="22" visible="{enc2visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc2name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc2standing}" color="{enc2standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc2benefit}" color="{enc2benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc2where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-188" width="568" height="22" visible="{enc3visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc3name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc3standing}" color="{enc3standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc3benefit}" color="{enc3benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc3where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-210" width="568" height="22" visible="{enc4visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc4name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc4standing}" color="{enc4standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc4benefit}" color="{enc4benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc4where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-232" width="568" height="22" visible="{enc5visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc5name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc5standing}" color="{enc5standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc5benefit}" color="{enc5benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc5where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-254" width="568" height="22" visible="{enc6visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc6name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc6standing}" color="{enc6standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc6benefit}" color="{enc6benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc6where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-276" width="568" height="22" visible="{enc7visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc7name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc7standing}" color="{enc7standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc7benefit}" color="{enc7benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc7where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-298" width="568" height="22" visible="{enc8visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc8name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc8standing}" color="{enc8standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc8benefit}" color="{enc8benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc8where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-320" width="568" height="22" visible="{enc9visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc9name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc9standing}" color="{enc9standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc9benefit}" color="{enc9benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc9where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-342" width="568" height="22" visible="{enc10visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc10name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc10standing}" color="{enc10standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc10benefit}" color="{enc10benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc10where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-364" width="568" height="22" visible="{enc11visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc11name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc11standing}" color="{enc11standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc11benefit}" color="{enc11benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc11where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-386" width="568" height="22" visible="{enc12visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc12name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc12standing}" color="{enc12standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc12benefit}" color="{enc12benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc12where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-408" width="568" height="22" visible="{enc13visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc13name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc13standing}" color="{enc13standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc13benefit}" color="{enc13benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc13where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-430" width="568" height="22" visible="{enc14visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc14name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc14standing}" color="{enc14standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc14benefit}" color="{enc14benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc14where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-452" width="568" height="22" visible="{enc15visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{enc15name}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="74" height="20" font_size="14" text="{enc15standing}" color="{enc15standingcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="272,0" width="162" height="20" font_size="14" text="{enc15benefit}" color="{enc15benefitcolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="438,0" width="130" height="20" font_size="14" text="{enc15where}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<label depth="4" pos="776,-144" width="568" height="20" font_size="14" text="{encnone}" color="190,182,166,255"/>
+			<label depth="4" pos="776,-474" width="568" height="20" font_size="13" text="{encmore}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="760,-522" width="600" height="170"/>
+			<sprite depth="3" sprite="ui_game_symbol_quest" pos="787,-541" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="806,-531" width="538" height="24" font_size="18" text_key="scRadioRequestsHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="776,-556" width="568" height="3"/>
+			<label depth="4" pos="776,-562" width="190" height="20" font_size="13" text_key="scRadioReqColEnclave" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<label depth="4" pos="970,-562" width="236" height="20" font_size="13" text_key="scRadioReqColWhat" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<label depth="4" pos="1210,-562" width="134" height="20" font_size="13" text_key="scRadioReqColDue" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<rect depth="1" pos="776,-582" width="568" height="22" visible="{req1visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{req1enc}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="236" height="20" font_size="14" text="{req1what}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="434,0" width="134" height="20" font_size="14" text="{req1due}" color="{req1duecolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-604" width="568" height="22" visible="{req2visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{req2enc}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="236" height="20" font_size="14" text="{req2what}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="434,0" width="134" height="20" font_size="14" text="{req2due}" color="{req2duecolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-626" width="568" height="22" visible="{req3visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{req3enc}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="236" height="20" font_size="14" text="{req3what}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="434,0" width="134" height="20" font_size="14" text="{req3due}" color="{req3duecolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<rect depth="1" pos="776,-648" width="568" height="22" visible="{req4visible}">
+				<label depth="4" pos="0,0" width="190" height="20" font_size="14" text="{req4enc}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="194,0" width="236" height="20" font_size="14" text="{req4what}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<label depth="4" pos="434,0" width="134" height="20" font_size="14" text="{req4due}" color="{req4duecolor}" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<label depth="4" pos="776,-582" width="568" height="20" font_size="14" text="{reqnone}" color="190,182,166,255"/>
+			<label depth="4" pos="776,-670" width="568" height="20" font_size="13" text="{reqmore}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="760,-700" width="600" height="164"/>
+			<sprite depth="3" sprite="ui_game_symbol_defense" pos="787,-719" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="806,-709" width="538" height="24" font_size="18" text_key="scRadioSiegeHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="776,-734" width="568" height="3"/>
+			<label depth="4" pos="776,-740" width="568" height="50" font_size="14" text="{siegetext}" color="{siegecolor}"/>
+			<rect depth="1" pos="776,-794" width="568" height="36" visible="{siegebuttons}">
+				<button depth="2" name="btnSiegeGo" pos="0,0" width="270" height="36" sprite="scui_btn" hoversprite="{# siegegoready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<sprite depth="4" sprite="ui_game_symbol_run" pos="24,-18" width="20" height="20" pivot="center" color="[white]"/>
+				<label depth="4" pos="40,-10" width="222" height="21" font_size="15" text="{siegegolabel}" color="{# siegegoready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true" overflow="ClampContent" overflow_ellipsis="true"/>
+				<button depth="2" name="btnSiegeCant" pos="298,0" width="270" height="36" sprite="scui_btn_danger" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<label depth="4" pos="298,-10" width="270" height="21" font_size="15" text_key="scRadioSiegeCant" color="240,150,130,255" justify="center" upper_case="true"/>
+			</rect>
+			<label depth="4" pos="776,-834" width="568" height="20" font_size="13" text="{siegehint}" color="206,178,120,255" overflow="ClampContent" overflow_ellipsis="true"/>
 			<label depth="4" pos="28,-872" width="704" height="60" font_size="15" text="{message}" color="206,178,120,255"/>
 		</window>
 	</append>

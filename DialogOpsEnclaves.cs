@@ -39,7 +39,8 @@ namespace SurvivorCommunity
         /// leader, {count} how many living, {poi} the POI, {standing} the standing's word, {where} where the leader is from
         /// the player (E1's Where), {kind} the kind of group, {name} the respondent; E3's {terms} (the enlist fee and days),
         /// {until} (when one enlisted goes home) and {recruitcost} (what a recruit costs with the enclave); E4's {reqask},
-        /// {reqwait} and {reqreply} (their request: the offer, the wait, the reply to the last answer - ScEncRequests.FillTokens).
+        /// {reqwait} and {reqreply} (their request: the offer, the wait, the reply to the last answer - ScEncRequests.FillTokens);
+        /// E6's {benefit} (what they do for an ally, doing it now or once allied: ScEncAllies.AboutText).
         /// A token with no value becomes "". The statement's shared Text is never written; a line of anybody else is returned
         /// as it is.
         /// </summary>
@@ -55,6 +56,7 @@ namespace SurvivorCommunity
             if (s.IndexOf("{terms}", StringComparison.Ordinal) >= 0) s = Token(s, "{terms}", ScEnclaveDeals.TermsText(e));
             if (s.IndexOf("{until}", StringComparison.Ordinal) >= 0) s = Token(s, "{until}", ScEnclaveDeals.UntilText(p));
             if (s.IndexOf("{recruitcost}", StringComparison.Ordinal) >= 0) s = Token(s, "{recruitcost}", ScEnclaveDeals.RecruitCostText(e));
+            if (s.IndexOf("{benefit}", StringComparison.Ordinal) >= 0) s = Token(s, "{benefit}", ScEncAllies.AboutText(e));     // E6: what they do for an ally
             s = Token(s, "{enc}", e.Name);
             s = Token(s, "{leader}", leader != null ? leader.Name : "");
             s = Token(s, "{count}", s.IndexOf("{count}", StringComparison.Ordinal) >= 0 ? ScEnclavePeople.Living(e).Count.ToString() : "");

@@ -7,7 +7,7 @@ namespace SurvivorCommunity
     /// <summary>
     /// Community morale (0-100) and each survivor's mood, recomputed from the registry (State of Decay
     /// style: food days, thirst, medicine, beds, facilities, the other resources, traits, recent deaths, outposts,
-    /// the Activities' round of drinks). Morale
+    /// the Activities' round of drinks, and E6's enclaves: allies, Comfort in Numbers, a group lost). Morale
     /// drives: XP x1.5 above HighMoraleThreshold (ScSkills.AddXp), refusal to follow below mood 25
     /// (ScCommunity.Follow), and below LowMoraleThreshold for LowMoraleDays in a row the unhappiest survivor
     /// threatens to leave and does so the next day unless morale recovers. The player sees it as the
@@ -36,6 +36,12 @@ namespace SurvivorCommunity
             public int Water;
             /// <summary>Activities (round wl): the round of drinks while it lasts.</summary>
             public int Activity;
+            /// <summary>
+            /// E6 (ScEncAllies): Allies, +EnclaveAllyMorale per Allied enclave up to EnclaveAllyMoraleCap; Comfort in Numbers,
+            /// +EnclaveBenefitMorale for each such ally (past that cap); Enclave lost, the fading -EnclaveLostMorale for each
+            /// Friendly or Allied group lost (Community.EnclaveLoss).
+            /// </summary>
+            public int Allies, Comfort, EnclaveLost;
             public float FoodDays;
             /// <summary>Days the water lasts at today's use less what the wells and dew collectors add (99 = no need / more made than drunk).</summary>
             public float WaterDays;
@@ -70,7 +76,7 @@ namespace SurvivorCommunity
             foreach (var m in ScRegistry.Members.Values) if (m.Injured && c.Get(Resource.Meds) <= 0) { injuredNoMeds = true; break; }
             p.Meds = injuredNoMeds ? -10 : (c.Get(Resource.Meds) > 0 ? 5 : 0);
 
-            int deficit = members - c.Beds;
+            int deficit = members - ScEncAllies.TotalBeds();       // E6: an ally's Overflow Barracks counts
             p.Beds = members == 0 ? 0 : (deficit <= 0 ? 10 : Math.Max(-15, -5 * deficit));
 
             p.Facilities = Math.Min(15, 3 * c.Facilities);
@@ -87,6 +93,10 @@ namespace SurvivorCommunity
             p.WaterDays = shortfall > 0.01f ? c.Get(Resource.Water) / shortfall : 99f;
             if (c.Thirsty) p.Water = ScOutpostPerks.PerkActive(Resource.Water) ? Math.Max(-20, ScConfig.OutpostCisternFloor) : -20;
             p.Activity = ScActivities.MoraleBonus();
+            // E6: the allies, an ally's Comfort in Numbers, and the groups lost lately
+            p.Allies = ScEncAllies.AlliesMorale();
+            p.Comfort = ScEncAllies.ComfortMorale();
+            p.EnclaveLost = -Mathf.RoundToInt(c.EnclaveLoss);
 
             // SurvivorOrigins' Leadership (0 / 0 without it): a part of its own, and a shield that shrinks every
             // negative part toward 0 (never past it)
@@ -102,10 +112,11 @@ namespace SurvivorCommunity
                 p.Territory = ScLeadership.Shielded(p.Territory, shield);
                 p.Defence = ScLeadership.Shielded(p.Defence, shield);
                 p.Water = ScLeadership.Shielded(p.Water, shield);
+                p.EnclaveLost = ScLeadership.Shielded(p.EnclaveLost, shield);
             }
 
             int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory + p.Defence
-                        + p.Water + p.Activity;
+                        + p.Water + p.Activity + p.Allies + p.Comfort + p.EnclaveLost;
             p.Total = Mathf.Clamp(total, 0, 100);
             if (Override >= 0) p.Total = Mathf.Clamp(Override, 0, 100);
             return p;
@@ -158,7 +169,9 @@ namespace SurvivorCommunity
                   .Append(' ').Append(string.Format(Localization.Get("scMoraleWaterMade"), ScRegistry.Community.HomeWater));
             if (p.Activity != 0) sb.Append('\n').Append(Term("scMoraleActivity", p.Activity)).Append(" (").Append(ScActivities.TimeLeft()).Append(')');
             sb.Append('\n').Append(Term("scMoraleMeds", p.Meds));
-            sb.Append('\n').Append(Term("scMoraleBeds", p.Beds)).Append(' ').Append(string.Format(Localization.Get("scMoraleBedsDetail"), ScRegistry.Community.Beds, ScRegistry.Members.Count));
+            sb.Append('\n').Append(Term("scMoraleBeds", p.Beds)).Append(' ').Append(string.Format(Localization.Get("scMoraleBedsDetail"), ScEncAllies.TotalBeds(), ScRegistry.Members.Count));
+            int allyBeds = ScEncAllies.ExtraBeds();
+            if (allyBeds > 0) sb.Append(' ').Append(string.Format(Localization.Get("scMoraleBedsAllies"), allyBeds));
             sb.Append('\n').Append(Term("scMoraleFacilities", p.Facilities)).Append(" (").Append(ScRegistry.Community.Facilities).Append(')');
             sb.Append('\n').Append(Term("scMoraleSupplies", p.Supplies));
             if (p.Traits != 0) sb.Append('\n').Append(Term("scMoraleTraits", p.Traits));
@@ -166,6 +179,9 @@ namespace SurvivorCommunity
             if (p.Leadership != 0) sb.Append('\n').Append(Term("scMoraleLeadership", p.Leadership));
             if (p.Territory != 0) sb.Append('\n').Append(Term("scMoraleTerritory", p.Territory));
             if (p.Defence != 0) sb.Append('\n').Append(Term("scMoraleDefence", p.Defence));
+            if (p.Allies != 0) sb.Append('\n').Append(Term("scMoraleAllies", p.Allies)).Append(ScEncAllies.AlliesDetail());
+            if (p.Comfort != 0) sb.Append('\n').Append(Term("scEncBenefit_comfort", p.Comfort));
+            if (p.EnclaveLost != 0) sb.Append('\n').Append(Term("scMoraleEnclaveLost", p.EnclaveLost));
             return sb.ToString();
         }
 
@@ -179,6 +195,7 @@ namespace SurvivorCommunity
         {
             Community c = ScRegistry.Community;
             c.DeathPenalty = Math.Max(0f, c.DeathPenalty - ScConfig.DeathDecayPerDay);
+            c.EnclaveLoss = Math.Max(0f, c.EnclaveLoss - 1f);       // E6: a group lost fades a point a day
             int morale = Recompute();
             summary.Append(' ').Append(string.Format(Localization.Get("scDailyMorale"), morale));
 

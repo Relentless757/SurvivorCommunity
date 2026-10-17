@@ -457,36 +457,37 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// ScTicker: the world's day went back (an older save, a time command - never "sc day", whose own end is no jump). The
-        /// request clock follows it and every open request and enclave cooldown keeps its remaining span, so lapses, expiries
-        /// and rolls go on from the world's day instead of waiting for it to catch up (the E4 review's M1).
+        /// The world's day went back (an older save, a time command - never "sc day", whose own end is no jump), through the
+        /// one hook ScTicker calls (ScEnclaves.OnWorldDayBack, E6's R2: it logs). The request clock follows it to the world's
+        /// day and every open request and enclave cooldown keeps its remaining span - shifted back by the request clock's drop
+        /// (back: from where the clock stood, the world's last day at the least), so lapses, expiries and rolls go on from the
+        /// world's day instead of waiting for it to catch up (the E4 review's M1). Returns how many open requests moved.
         /// </summary>
-        public static void OnWorldDayBack(int day)
+        internal static int ShiftDays(int day, int back)
         {
+            if (back <= 0) return 0;
+            Community c = ScRegistry.Community;
+            if (c.EncRequestDay > day) c.EncRequestDay = day;
+            foreach (EnclaveRequest r in All)
+            {
+                // never below 0 (E6's R2): -1 means "not yet" for the acceptance and the due day
+                r.OfferDay = Math.Max(0, r.OfferDay - back);
+                r.LapseDay = Math.Max(0, r.LapseDay - back);
+                if (r.AcceptDay >= 0) r.AcceptDay = Math.Max(0, r.AcceptDay - back);
+                if (r.DueDay >= 0) r.DueDay = Math.Max(0, r.DueDay - back);
+            }
+            foreach (Enclave e in ScEnclaves.All) if (e.NextRequestDay > 0) e.NextRequestDay = Math.Max(0, e.NextRequestDay - back);
+            clockSaid = false;
             try
             {
-                Community c = ScRegistry.Community;
-                int back = c.EncRequestDay - day;
-                if (back <= 0) return;
-                c.EncRequestDay = day;
-                foreach (EnclaveRequest r in All)
-                {
-                    r.OfferDay -= back;
-                    r.LapseDay -= back;
-                    if (r.AcceptDay >= 0) r.AcceptDay -= back;
-                    if (r.DueDay >= 0) r.DueDay -= back;
-                }
-                foreach (Enclave e in ScEnclaves.All) if (e.NextRequestDay > 0) e.NextRequestDay = Math.Max(0, e.NextRequestDay - back);
                 EntityPlayerLocal pl = ScCommunity.LocalPlayer;
                 foreach (EnclaveRequest r in All) if (r.IsAccepted) SyncDue(QuestOf(pl, r), r);
-                clockSaid = false;
-                ScLog.Out("enclave requests: the world's day went back to " + day + " - the request clock and " + All.Count + " open request(s) moved back "
-                          + back + " day(s)");
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                ScLog.Once("encreq-dayback", e);
+                ScLog.Once("encreq-dayback", ex);      // the journal's due days only: the records moved already
             }
+            return All.Count;
         }
 
         /// <summary>

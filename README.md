@@ -214,7 +214,8 @@ NPCs but cannot manage a community (v2).
   -5 per missing bed), facilities (+3 each, campfire / workbench / forge / chemistry station / cement
   mixer, up to +15), +2 each for ammo, materials and fuel in stock, trait offsets, and recent deaths
   (`DeathPenalty` 15 each, fading `DeathDecayPerDay` 3 per day). Each survivor's **mood** is morale plus
-  their trait offset, minus 15 while injured and 10 while the community is hungry.
+  their trait offset, minus 15 while injured and 10 while the community is hungry. The enclaves add parts of their own
+  (Allies, Comfort in Numbers, Enclave lost: see **Allies (E6)**).
 - **Consequences.** Above `HighMoraleThreshold` (75) everyone earns XP half again as fast. Below
   `LowMoraleThreshold` (25) for `LowMoraleDays` (2) days in a row the unhappiest survivor threatens to
   leave (tooltip, ledger, window flag) and leaves at the next rollover unless morale is back above the
@@ -336,6 +337,8 @@ walk back.
   help means real trouble. Clear them and the run comes home safe with `RescueBonus` on the haul; ignore
   the call and the run ends the way bad runs do. If the survivor falls out there, they are dead.
 - The radio is also what outposts report in to (see **Outposts**).
+- **Enclaves (E6).** The window's right-hand column lists the enclaves you know, their open requests and a siege call
+  with *On our way* / *We can't come* (see **Allies (E6)**).
 
 All five milestones, linked storage and the radio are in. See the plan's non-goals for what v1 deliberately leaves
 out (multiplayer clients, a player-menu tab, portraits, NPC hunger, base building by survivors).
@@ -414,12 +417,34 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
 **SurvivorOrigins:** the fact `sc_outposts` and the events `sc_ev_outpost` (established) and `sc_ev_outpost_retaken` are
 published for a future Leadership release; won outpost fights count as `sc_ev_rescue`.
 
+## Enclaves at a glance
+
+You aren't the only survivors (`Enclaves_Plan.md`, milestones E1-E6). In short:
+- **On the map (E1):** groups holed up in buildings across the map, about 0.3 per km² and a quarter of them raiders.
+  You find one by going near, a powered radio picks one up every few days, and an ally tells you of more. Their
+  buildings are theirs: no zombies, no land claims, no trader quests there.
+- **Their people (E2):** a leader and the rest of the group, 3-5 people (3-6 for raiders), made the first time you come
+  near and kept as records from then on. They defend their building, and attacking them makes them hostile for good.
+- **Trade, enlist, recruit (E3):** the leader trades from the group's own stock; the others come along for a couple of
+  days or join your community - for less the better you stand with them.
+- **Requests (E4, E5):** the leader asks for supplies, a gun, a generator, a missing person found, an infestation
+  cleared, or help when the dead come over their walls. How you answer moves your **standing**: Neutral, Friendly from
+  30, Allied from 70.
+- **Allies (E6):** an Allied group does something for your community every day (its benefit), lifts morale and tells
+  you about other groups. Losing a friend hurts morale, and a new group moves in a few days after any group is lost.
+- **Infestations (I1)** are buildings the dead overran: enclaves ask you to clear them, an ally's Neighborhood Watch
+  keeps new ones away, and a building lost to a siege becomes one.
+
+The radio window's Enclaves column shows the groups you know, their requests and a siege call; `sc enclave` is the
+console for all of it. Everything is the host's, kept in `survivor_community.txt`. The sections below go milestone by
+milestone.
+
 ## Enclaves (E1: on the map)
 
 You aren't the only survivors. Other groups have holed up in buildings across the map: families, drifters, preppers
 and raiders. Each group is an **enclave**, with a name and a building of its own. This first milestone puts them on
 the map: you can find them, see them on the map, and their buildings are theirs. Their **people** are E2, the next
-section; trade, requests and sieges come in later milestones (`Enclaves_Plan.md`); the infestations are I1, below.
+section; trade (E3), requests and sieges (E4, E5) and allies (E6) follow; the infestations are I1, below.
 
 **When they appear**
 - **A new save** gets its enclaves the moment it first starts. Nothing spawns: they are records until you get near.
@@ -454,6 +479,7 @@ section; trade, requests and sieges come in later milestones (`Enclaves_Plan.md`
   and in the ledger.
 - A **powered radio** picks one up every `EnclaveRadioRevealDays` (3) days: the nearest unknown enclave within
   `EnclaveRadioRange` (2 km) of home (of you, without a home). It tells you where: "900 m north-east".
+- An **ally** tells you of the enclave nearest to them that you don't know (E6, below).
 - **Markers** (owner-only): a grey fortress for a neutral enclave, a red skull for raiders, labelled with the name and
   the standing ("The Pinefield Survivors (Neutral)"). Raiders also show on the compass within 300 m. Friendly (green)
   and Allied (blue, on the compass within 600 m) follow the standing (E2 keeps it; E4's requests earn it), and a
@@ -595,7 +621,7 @@ the same fields as a member), with `encpersonid` in `[community]` and `kind`, `t
 
 **Limits:** host only - in multiplayer the host's world runs them; a dedicated server runs no SC ticker, so nobody
 appears there. Breaking containers open is not stopped. A multiplayer client does not see the enclave dialog (only
-"Nevermind"). Allied benefits (E6) are still to come.
+"Nevermind").
 
 ## Trade, enlist and recruit (E3)
 
@@ -741,8 +767,9 @@ one runs out of time), `... clear` (withdrawn with no standing change, the coold
 **The request clock:** `sc day` simulates the next day each time it is used, but the world's day stays where it is,
 so requests keep their own day: it moves one day per `sc day` and otherwise follows the world. While it is ahead of the
 world, the world's next days pass for requests only once the world gets there (the log says so once). A world day set
-back by the console (`settime`) pulls the request clock, every open request and the journal's due days back with it
-(the log: "enclave requests: the world's day went back to N ...").
+back by the console (`settime`) pulls the request clock, every open request and the journal's due days back with it -
+and, since E6, every other enclave day stamp too (see **Allies (E6)**; the log: "enclaves: the world's day went back
+from N to M ...").
 
 **Saving:** the requests are `[encrequest]` sections in `survivor_community.txt`, with `encrequestid` and `encreqday`
 in `[community]` and `nextreq` (the cooldown) in each `[enclave]`. Forward-only, as E2's: an older build drops them.
@@ -849,6 +876,84 @@ building, or where you told them to wait).
 with their group); use *"Wait here for me."* or SCore's companion window. When the siege is lost while you are still
 near, their people's bodies are taken out of the world (the fall), not left as corpses.
 
+## Allies (E6)
+
+An enclave **Allied** with you (standing 70 or more, not hostile) now does something for your community, and how the
+enclaves fare shows in your morale.
+
+**Their benefit** - one per enclave, with State of Decay 2's names, set by the group's kind and kept for good:
+- Growers: **Share of the Harvest**, food. Medics: **Open Pharmacy**, medicine. Militia: **Munitions Manufacture**,
+  ammo. Builders: **Construction Partners**, building materials. A road crew: **Filtration Service**, fuel. Each is 1
+  unit into the stockpile at each day rollover (`EnclaveBenefitBundles`), before the day's needs are taken; the day's
+  summary says "allies sent +1 food".
+- Scavengers have one of these, rolled once (the same on every load of the save):
+  - **Comfort in Numbers:** +5 morale (`EnclaveBenefitMorale`), a morale part of its own.
+  - **Overflow Barracks:** +3 beds (`EnclaveBenefitBeds`) wherever beds count against your survivors - the beds part of
+    morale and the community window ("Beds 5 for 4 survivors ... (+3 from allies)").
+  - **Fight Club / Gun Safety Club / Jogging Buddies / Scavenging Partners:** your survivors earn twice the Fighting /
+    Shooting / Cardio / Wits XP (`EnclaveBenefitClubXp`).
+  - **Training and Advice:** half as much XP again in every skill and in the specialty (`EnclaveBenefitTrainingXp`).
+  - **Neighborhood Watch:** no new infestation within 500 m of them (`EnclaveWatchRange`) - not from the daily roll, a
+    spread or an enclave's request - and one already within that range spreads at half the chance (`EnclaveWatchSpread`).
+- Raiders have none.
+- It works only while they are Allied. Let them down and they are Friendly again (E4's losses): the benefit stops until
+  they are Allied once more. Gained or lost, a tell and a ledger line say so ("You and The X are allies now: Share of the
+  Harvest (+1 food a day).").
+- Several allies add up: two Fight Clubs make Fighting XP x3, a Fight Club and Training and Advice x2.5. The allies' XP
+  multiplier is at most x3 (`EnclaveBenefitXpCap`); traits, high morale and Leadership multiply on top as before.
+- Their leader mentions it in *"Tell me about this place."*; `sc enclave info <id>` and the radio window show it too.
+
+**Morale** (in the community window's morale parts and `sc morale`)
+- **Allies:** +2 for each Allied enclave, at most +6 (`EnclaveAllyMorale`, `EnclaveAllyMoraleCap`).
+- **Comfort in Numbers:** +5 for each such ally, on top of that.
+- **Enclave lost:** -5 (`EnclaveLostMorale`) when a Friendly or Allied enclave is lost - wiped out, or fallen to a
+  siege - fading a point a day. SurvivorOrigins' Leadership shield shrinks it like the other negative parts.
+
+**A new group where one was lost**
+- Every enclave lost, whatever the cause and raiders too, is replaced 5 days later (`EnclaveRefillDays`): a new group
+  moves into another building with the late seed's rules - nothing loaded around you, nowhere near a claim, buildings
+  nobody has visited first, spaced from the others, about a quarter raiders as before - never the building that was
+  lost, and never above the map's enclave count (`EnclavesPerKm2`). When no building fits it tries again the next day.
+- They are not found yet. With a powered radio you hear "Word on the radio: a new group has settled near X, 1200 m
+  north-east." and the ledger notes it.
+- Recruiting can never empty an enclave (E3 always leaves 2), so only a fall leaves one to fill.
+
+**Allies tell you about more**
+- On becoming Allied, and then every 7 days while Allied (`EnclaveAllyRevealDays`), an ally tells you about the enclave
+  nearest to them that you don't know, raiders included: "Word from The X: The Y, holed up at Z, 900 m north-east.", its
+  marker on the map and a ledger line. One that drops to Friendly and back within those days tells you no more.
+
+**The radio window's Enclaves column** (right of the station's own sections; the window is now 1384 wide, still narrower
+than the community window)
+- **Enclaves you know**, nearest first: the name, the standing in their markers' colours (blue Allied, green Friendly,
+  grey Neutral, red Hostile), the benefit (blue while it applies) and where. The 15 nearest; a line counts the rest.
+- **Their requests:** who, what they need, and the day to answer an offer by or to deliver by (red on the day it is due).
+- **Siege calls:** a call with its countdown ("12:34 left to reach them") and, until the fight starts, two buttons:
+  **On our way** (they thank you over the radio; nothing else changes) and **We can't come** (press it twice: the siege
+  is lost now - the enclave falls and its building is infested, as when the clock runs out). A fight already on shows
+  how many of the dead are left.
+
+**A world day set back** (`settime`, an older save): every enclave day stamp keeps the days it had left instead of
+waiting for the world to catch up - the request clock and its requests (E4), refills and ally reveals (E6), the radio's
+next reveal (E1), recruit cooldowns and enlistments (E3), the day's siege call (E5) and the infestations' ages (I1). The
+log says so in one line ("enclaves: the world's day went back from N to M ..."). Refills and ally reveals count days on
+the request clock, so `sc day` moves them as it moves requests.
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveBenefitBundles`, `EnclaveBenefitMorale`, `EnclaveBenefitBeds`,
+`EnclaveBenefitClubXp`, `EnclaveBenefitTrainingXp`, `EnclaveBenefitXpCap`, `EnclaveWatchRange`, `EnclaveWatchSpread`,
+`EnclaveAllyMorale`, `EnclaveAllyMoraleCap`, `EnclaveLostMorale`, `EnclaveRefillDays`, `EnclaveAllyRevealDays`.
+
+**Console** (host): `sc enclave info <id>` (the benefit, whether it applies, when they next tell of another),
+`sc enclave list` (a line on the allies, what they bring and the refills owed), `sc enclave refill` (the refills owed
+and their days), `sc enclave refill now` (every refill owed, now; one anyway with none owed - still never above the
+count), `sc morale` (the Allies, Comfort in Numbers and Enclave lost parts). `sc enclave standing <id> 75` makes an ally.
+
+**Saving:** each `[enclave]` gains `benefit` and `allyreveal`; `[community]` gains `encloss` (the Enclave lost part)
+and `encrefill` (the refills owed). An older build ignores the keys, and its next save drops them.
+
+**Limits:** host only, as the rest of the enclaves. The allies' bundles come with SC's day rollover, which a dedicated
+server does not run. "On our way" is remembered for the session only.
+
 ## Infestations (I1)
 
 Some buildings get overrun. An **infested** building holds about twice the zombies, more of them feral, and something
@@ -862,7 +967,8 @@ map once you know about them.
   zone, a building a trader quest has locked, one SC or you are using (a radio contact, a recruit's "secure this
   building" favour, a supply run's destination, a radio scouting mark, one of your quests in progress), one with a
   player within `InfestPlayerMargin` (50 m), or one with a room still live: nobody watches a building turn. It needs a
-  room that coming near sets off (a building of trap rooms alone is never picked).
+  room that coming near sets off (a building of trap rooms alone is never picked). Nor one within 500 m of an ally
+  keeping a Neighborhood Watch (E6), where a spread is also half as likely.
 - **The tier rises with the days** (`InfestTierByDay`): tier 1-2 in the first week, 1-3 in the second, 2-4 from day 15,
   3-5 from day 29.
 - **Close enough to matter:** a building 300-2,500 m from home (from you, before you have a home; `InfestMinDist`,
@@ -1292,7 +1398,10 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
 `InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,
-`InfestRadioRange`, `InfestPlayerMargin` and `InfestRearmPlayerRange` (commented in the block).
+`InfestRadioRange`, `InfestPlayerMargin` and `InfestRearmPlayerRange` (commented in the block). Allies (E6):
+`EnclaveBenefitBundles`, `EnclaveBenefitMorale`, `EnclaveBenefitBeds`, `EnclaveBenefitClubXp`, `EnclaveBenefitTrainingXp`,
+`EnclaveBenefitXpCap`, `EnclaveWatchRange`, `EnclaveWatchSpread`, `EnclaveAllyMorale`, `EnclaveAllyMoraleCap`,
+`EnclaveLostMorale`, `EnclaveRefillDays` and `EnclaveAllyRevealDays` (commented in the block).
 
 A full game restart is needed after editing `Config/Localization.csv`.
 

@@ -315,6 +315,8 @@ namespace SurvivorCommunity
             public readonly List<Vector3> Players = new List<Vector3>();
             /// <summary>POIs already in use: radio contacts, open POI favours, supply runs' destinations, radio scouting marks, the player's quests in progress (E1's rule).</summary>
             public readonly HashSet<Vector3i> Taken = new HashSet<Vector3i>();
+            /// <summary>E6: the allied enclaves keeping a Neighborhood Watch (ScEncAllies.WatchZones).</summary>
+            public readonly List<Enclave> Watch = new List<Enclave>();
         }
 
         private static Rules RulesFor(World w)
@@ -344,6 +346,7 @@ namespace SurvivorCommunity
                         r.Taken.Add(World.worldToBlockPos(qpos));
                 }
             }
+            ScEncAllies.WatchZones(r.Watch);        // E6: no new one near an ally keeping a Neighborhood Watch
             return r;
         }
 
@@ -374,7 +377,8 @@ namespace SurvivorCommunity
         /// keeps only the rules no test may break: sleepers that count, not already infested, never an enclave's building,
         /// the home zone or anything claimed. The roll and spread add: away from traders, not quest-locked, not in use (a
         /// radio contact, an open POI favour, a supply run, a scouting mark, a quest in progress), no player within
-        /// InfestPlayerMargin, no room live - nobody watches it turn.
+        /// InfestPlayerMargin, no room live - nobody watches it turn; and (E6) not within EnclaveWatchRange of an ally keeping
+        /// a Neighborhood Watch (the daily roll, a spread, and E5's start near an enclave alike).
         /// </summary>
         private static string Refuse(PoiEntry e, Rules r, bool forced)
         {
@@ -386,6 +390,8 @@ namespace SurvivorCommunity
             // bedrolls, claims (LandClaimUpgrade zones too), outposts and enclave footprints: the one "someone lives here" test
             if (e.Pi.CheckForAnyPlayerHome(r.W) != GameUtils.EPlayerHomeType.None) return "claimed (a land claim, a bedroll, an outpost or an enclave)";
             if (forced) return null;
+            Enclave watch = ScEncAllies.WatchedBy(r.Watch, e.X, e.Z);
+            if (watch != null) return "watched by " + watch.Name + " (Neighborhood Watch, " + ScConfig.EnclaveWatchRange + " m)";
             foreach (int[] t in r.Traders) if (ToBox(e.X, e.Z, t) < ScConfig.InfestTraderDistance) return "near a trader";
             if (e.Pi.lockInstance != null && !e.Pi.lockInstance.CheckQuestLock()) return "quest-locked";
             if (r.Taken.Contains(e.Key)) return "in use (a radio contact, a recruit's favour, a supply run, a scouting mark or one of your quests)";
@@ -1116,7 +1122,8 @@ namespace SurvivorCommunity
                     {
                         if (All.Count >= cap) break;
                         if (day - src.StartDay < ScConfig.InfestSpreadDays || src.LastSpreadDay >= day) continue;
-                        if (rnd.RandomFloat >= ScConfig.InfestSpreadChance) continue;
+                        // E6: one near an ally keeping a Neighborhood Watch spreads at EnclaveWatchSpread the chance (the same draw)
+                        if (rnd.RandomFloat >= ScConfig.InfestSpreadChance * ScEncAllies.SpreadFactor(r.Watch, src)) continue;
                         string why;
                         if (Spread(src, w, r, day, player, out why) == null) ScLog.Verbose("infestation #" + src.Id + " at " + src.PoiName + " rolled to spread: " + why);
                     }
@@ -1138,6 +1145,22 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("infest-daily", e);
             }
+        }
+
+        /// <summary>
+        /// E6's R2 (ScEnclaves.OnWorldDayBack): the world's day went back - each infestation's start and last spread day move
+        /// back as far (never below 0), so its age and the spread's once-a-day rule go on from the world's day instead of
+        /// waiting for it to catch up. Returns how many moved; the hook logs and the ticker saves.
+        /// </summary>
+        internal static int ShiftDays(int back)
+        {
+            if (back <= 0) return 0;
+            foreach (Infestation inf in All)
+            {
+                inf.StartDay = Math.Max(0, inf.StartDay - back);
+                if (inf.LastSpreadDay >= 0) inf.LastSpreadDay = Math.Max(0, inf.LastSpreadDay - back);
+            }
+            return All.Count;
         }
 
         /// <summary>

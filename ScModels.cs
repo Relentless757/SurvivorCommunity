@@ -414,6 +414,12 @@ namespace SurvivorCommunity
         /// out once their chunk is loaded.
         /// </summary>
         public readonly List<Vector3i> EncRemains = new List<Vector3i>();
+        /// <summary>
+        /// E6 (ScEncAllies): the Enclave lost morale part - EnclaveLostMorale for each Friendly or Allied group lost, fading a
+        /// point a day (encloss=); and the refills owed for lost groups, each due on a request-clock day (encrefill=).
+        /// </summary>
+        public float EnclaveLoss;
+        public readonly List<EncRefill> EncRefills = new List<EncRefill>();
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }

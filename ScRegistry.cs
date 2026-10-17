@@ -49,6 +49,9 @@ namespace SurvivorCommunity
     ///                [encperson] state=missing and [community] encsiegeat=worldtime encremains=x,y,z;.. A request whose
     ///                enclave is missing is dropped (a degraded load); one of a kind this build does not know is dropped at
     ///                OnRegistryChanged.
+    ///   E6 (ScEncAllies; keys an older build ignores): [enclave] benefit=harvest (the group's benefit) allyreveal=N (the
+    ///                request-clock day an ally may next tell of another); [community] encloss=F (the Enclave lost morale
+    ///                part) encrefill=day:x,y,z:name;.. (the refills owed: the request-clock day, the lost group's POI and name).
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -421,6 +424,9 @@ namespace SurvivorCommunity
                 case "nextreq": e.NextRequestDay = I(val); break;
                 // E5: the kind of a request done while the player was away, thanked for at the next talk
                 case "thanks": e.Thanks = val.Trim().ToLowerInvariant(); break;
+                // E6: the group's benefit (an unknown one is set again at OnGameStart), the next ally reveal's day
+                case "benefit": e.Benefit = val.Trim().ToLowerInvariant(); break;
+                case "allyreveal": e.AllyRevealDay = Math.Max(0, I(val)); break;
             }
         }
 
@@ -809,6 +815,17 @@ namespace SurvivorCommunity
                     c.EncRemains.Clear();
                     foreach (string part in val.Split(';')) { Vector3i v; if (TryVec(part, out v) && !c.EncRemains.Contains(v)) c.EncRemains.Add(v); }
                     break;
+                // E6: the Enclave lost morale part (fades a point a day), the refills owed (day:x,y,z:name;..)
+                case "encloss": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f) && !float.IsNaN(f)) c.EnclaveLoss = Math.Max(0f, Math.Min(ScEncAllies.MaxLoss, f)); break; }
+                case "encrefill":
+                    c.EncRefills.Clear();
+                    foreach (string part in val.Split(';'))
+                    {
+                        string[] f = part.Split(new[] { ':' }, 3);
+                        Vector3i v;
+                        if (f.Length >= 2 && TryVec(f[1], out v)) c.EncRefills.Add(new EncRefill { Day = Math.Max(0, I(f[0])), Poi = v, Name = f.Length > 2 ? f[2] : "" });
+                    }
+                    break;
                 case "stock":
                     foreach (string part in val.Split(','))
                     {
@@ -1122,6 +1139,17 @@ namespace SurvivorCommunity
                     foreach (Vector3i v in c.EncRemains) { if (rm.Length > 0) rm.Append(';'); rm.Append(Vec(v)); }
                     sb.AppendLine("encremains=" + rm);
                 }
+                if (c.EnclaveLoss > 0f) sb.AppendLine("encloss=" + c.EnclaveLoss.ToString("0.##", CultureInfo.InvariantCulture));
+                if (c.EncRefills.Count > 0)
+                {
+                    var rf = new StringBuilder();
+                    foreach (EncRefill r in c.EncRefills)
+                    {
+                        if (rf.Length > 0) rf.Append(';');
+                        rf.Append(r.Day.ToString(CultureInfo.InvariantCulture)).Append(':').Append(Vec(r.Poi)).Append(':').Append(Clean(r.Name));
+                    }
+                    sb.AppendLine("encrefill=" + rf);
+                }
                 var st = new StringBuilder();
                 for (int i = 0; i < ScNames.ResourceCount; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
                 sb.AppendLine("stock=" + st);
@@ -1231,6 +1259,8 @@ namespace SurvivorCommunity
                     if (en.LastRecruitDay >= 0) sb.AppendLine("recruited=" + en.LastRecruitDay.ToString(CultureInfo.InvariantCulture));
                     if (en.NextRequestDay > 0) sb.AppendLine("nextreq=" + en.NextRequestDay.ToString(CultureInfo.InvariantCulture));
                     if (en.Thanks.Length > 0) sb.AppendLine("thanks=" + Clean(en.Thanks));
+                    if (en.Benefit.Length > 0) sb.AppendLine("benefit=" + Clean(en.Benefit));
+                    if (en.AllyRevealDay > 0) sb.AppendLine("allyreveal=" + en.AllyRevealDay.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var ep in EncPeople)
                 {

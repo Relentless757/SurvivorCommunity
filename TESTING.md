@@ -25,9 +25,91 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Enclave allies (E6)
+
+**Deployed 2026-10-17**, E2-E6 together (Fable review and re-check: deployable; DLL md5 `8cb0deca59c8e46a095c04c14e2d2018`). An Allied enclave's benefit, the Allies / Comfort in Numbers / Enclave lost
+morale parts, a new group after a lost one, allies telling you of more, and the radio window's Enclaves column.
+`sc enclave list` names each ally and its benefit and the refills owed; `sc enclave info <id>` shows a group's benefit
+and whether it applies; `sc enclave standing <id> <points>` sets the standing (75: Allied, 50: Friendly); `sc morale`
+shows the parts; `sc enclave refill [now]` the refills. Use known, non-hostile enclaves (`sc enclave reveal all`).
+
+1. **The daily bundle, each kind.** For an enclave of each kind - growers, medics, militia, builders, a road crew
+   (`sc enclave info <id>`: "kind growers" and "benefit: Share of the Harvest [harvest] - +1 food a day; not until
+   they are Allied") - `sc enclave standing <id> 75`: the tell "You and <enclave> are allies now: Share of the Harvest
+   (+1 food a day).", the ledger "allied with <enclave>: Share of the Harvest"; `sc enclave info <id>` now says
+   "applies now (Allied)". `sc day`: the day's tooltip has "- allies sent +1 food" (+1 medical, ammo, building
+   material or fuel for the others) and the log "allies, day N: +1 food into the stockpile from <enclave>". The bundle
+   comes before the day's use is taken, so `sc status` shows one more than the day would have left without it.
+2. **Back to Friendly stops it.** `sc enclave standing <id> 50`: "You and <enclave> are no longer allies: their Share
+   of the Harvest stops." and a ledger line; `sc day`: no bundle from them. `sc enclave standing <id> 75` again: it is
+   back.
+3. **Morale +2 per ally, up to +6.** Make 1, 2, 3, then 4 enclaves Allied: `sc morale` shows "Allies +2", "+4", "+6",
+   "+6" ("(4 allied: ...)" with their benefits); the community window's morale parts list "Allied enclaves: 4 ... +6".
+4. **Comfort in Numbers, Overflow Barracks.** A scavengers' ally with Comfort in Numbers (`sc enclave list` shows
+   `comfort`): `sc morale` "Comfort in Numbers +5", and the part in the community window. One with Overflow Barracks
+   (`barracks`): `sc morale`'s beds line and the community window's bed line say "(+3 from allies)", the beds count 3
+   higher and the beds part follows (more members than beds before: fewer short now).
+5. **XP clubs and Training and Advice.** With a Fight Club ally, `sc xp <member> fighting 10`: `sc members` shows 20
+   more Fighting XP (more with high morale or a trait: x2 on top of those); Wits XP is unchanged by it. With Training
+   and Advice: 15 for 10 in every skill and in the specialty (`sc xp <member> spec 10`). Two clubs for one skill: x3;
+   the allies' part never goes past x3 (`EnclaveBenefitXpCap`).
+6. **Neighborhood Watch.** With a Watch ally: `sc enclave request <id> offer infestation` at that ally with no
+   infestation near it is refused ("... none can start there (no POI within 300 m of <enclave> can be infested)");
+   another enclave's offer still starts one, never within 500 m of the Watch ally; `sc infest roll` a few times
+   never picks a building within 500 m of them (`sc infest list` with `sc enclave info <id>`'s centre); `sc infest
+   spread <id>` of an infestation near them does not spread into a building within 500 m of them. Over a dozen
+   `sc day`s an infestation within 500 m of them spreads about half as often as one elsewhere. `sc infest add` still
+   works there (the console forces it).
+7. **A friend lost costs 5 morale, fading.** A Friendly enclave (`sc enclave standing <id> 40`) whose people are made
+   (go near it once, or `sc enclave spawn <id>` from close by), then
+   `sc enclave kill <id> all`: "<enclave> is gone." then "Losing <enclave> hits everyone hard (morale -5)."; `sc morale`
+   "Enclave lost -5", then -4, -3 ... a point each `sc day`. An Allied one with a benefit: "... and their <benefit> is
+   gone with them." and a ledger line. A Neutral or raider enclave lost: no morale change. With SurvivorOrigins'
+   Leadership shield the part shrinks.
+8. **A new group 5 days later.** After step 7, `sc enclave refill`: one owed, "from day N" (the request clock + 5).
+   `sc day` five times: the log "refill for '<lost>': enclave M '<new>' moved into <building> ..."; with a powered
+   radio the tell "Word on the radio: a new group has settled near <building>, <where>." and a ledger line.
+   `sc enclave list`: the new one, "not found", mode `refill`, in another building than the lost one, with its own
+   name; going there finds it (E1). At the map's enclave count (`sc enclave refill` shows "target"), a refill is
+   dropped instead (the log: "not owed any more"). `sc enclave refill now` moves every owed one in at once (one anyway
+   with none owed).
+9. **An ally tells you of one more.** With unknown enclaves left (`sc enclave hide all`, then `sc enclave reveal <id>`
+   for one that has not been Allied yet - `sc enclave info <id>` says they "tell of another at once"; standing 75 on
+   one already at 75 changes nothing): `sc enclave standing <id> 75`: "Word from <ally>: <other>, holed up at <building>, <where>." with its
+   marker on the map and a ledger line - the one nearest to the ally. `sc enclave info <id>`: "tell of another from day
+   N+7". `sc enclave standing <id> 50`, then `75` again: no second word. `sc day` seven times while Allied: the next
+   one.
+10. **"Tell me about this place."** At a non-allied survivor enclave's leader, the reply ends "Stand with us, and
+    you'll have our <benefit>."; allied: "And you have our <benefit>, as our allies."; the whole reply fits the line
+    panel's four lines. A raider or hostile leader never says it.
+11. **The radio window's Enclaves column.** Open a powered radio: the window is wider, the station's own sections on
+    the left unchanged. Right: "Enclaves you know", nearest first, with the standing in its marker's colour (blue
+    Allied, green Friendly, grey Neutral, red Hostile), the benefit (blue while it applies, "raiders" for raiders) and
+    where; more than 15 known: "+N more, farther away". "Their requests": each open request's enclave, what, and
+    "answer by day N" / "due by day N" (red on its day). No siege: "No enclave is calling for help." Check it at
+    1920x1080 and at the smallest resolution you play: nothing runs off the screen.
+12. **On our way.** `sc enclave siege <id> now`: the Siege calls panel shows "<enclave> is under attack! 14:59 left to
+    reach them, <where>." counting down, and two buttons. "On our way": the tell "<enclave> on the radio: "Thank you!
+    We'll hold them off as long as we can."", the button greys to "They know you're coming", the panel adds "You told
+    them you're on your way."; the countdown and the siege run on unchanged (step 8 of E5 still wins it). Once you get
+    there and it goes live, the panel shows "<enclave>: the fight is on, N of the dead left." and no buttons.
+13. **We can't come.** Another call: press "We can't come" once: "Press We can't come again: they will fall without
+    you."; wait 5 seconds: the hint clears and nothing happened. Press it twice: "You told <enclave> you can't come.
+    They're on their own.", then as when the clock runs out (E5 step 9): "<enclave> is gone.", the building infested,
+    the quest failed - and, Friendly or Allied, "Enclave lost -5"; a refill is owed (step 8).
+14. **A world day set back.** With a refill owed, an ally's next word, a recruit cooldown and an open request, note
+    their days and the request clock's day (`sc enclave refill`, `sc enclave info <id>`, `sc enclave people <id>`,
+    `sc enclave requests`), then `settime <day> <hour> <minute>` to two days earlier: one log line "enclaves: the
+    world's day went back from N to M - the request clock, ... moved back R day(s); ... moved back W day(s)". The
+    recruit cooldown is W (two) days earlier; the refill, the ally's next word and the request's days are R days
+    earlier, R = the request clock's day before the jump minus M (more than two after some `sc day`s, which move the
+    request clock ahead of the world) - each is as many days away as it was. `sc day`'s own end never logs it.
+15. **Saved.** Save and quit with an ally, a refill owed and an Enclave lost part; load: `sc enclave list` and
+    `sc morale` show the same (`benefit`, `allyreveal` in `[enclave]`; `encloss`, `encrefill` in `[community]`).
+
 ## Enclave requests, part 2 (E5)
 
-**Built 2026-10-17, not deployed yet.** Three more kinds: a missing survivor, an infestation to clear and a siege.
+**Deployed 2026-10-17**, E2-E6 together (Fable review and re-check: deployable; DLL md5 `8cb0deca59c8e46a095c04c14e2d2018`). Three more kinds: a missing survivor, an infestation to clear and a siege.
 `sc enclave request <id> offer missing|infestation` makes an offer now (only where it can be given:
 `sc enclave request <id>` says why not); `sc enclave request <id> fate alive|dead` fixes a missing survivor's fate
 before you get there (this session); `sc enclave siege <id>` shows the siege clock and why a call would wait;
@@ -128,7 +210,7 @@ non-hostile enclave whose people were made (go there once, or `sc enclave spawn 
 
 ## Enclave requests, part 1 (E4)
 
-**Built 2026-10-17, not deployed yet.** A known, non-hostile enclave's leader asks for a resource, a generator or a gun;
+**Deployed 2026-10-17**, E2-E6 together (Fable review and re-check: deployable; DLL md5 `8cb0deca59c8e46a095c04c14e2d2018`). A known, non-hostile enclave's leader asks for a resource, a generator or a gun;
 "What do you need?" is their first row. Standing moves with how you answer (Neutral below 30, Friendly 30, Allied 70).
 `sc enclave requests` lists the open ones; `sc enclave request <id>` shows one enclave's;
 `sc enclave request <id> offer <resource|generator|gun> [food|meds|ammo|mats|fuel] [small|medium|large] [force]` makes
@@ -204,7 +286,7 @@ from other enclaves: `sc enclave requests` tells them apart.
 
 ## Enclave trade, enlist and recruit (E3)
 
-**Built 2026-10-17, not deployed yet.** A survivor enclave's leader trades through vanilla's trade window with their
+**Deployed 2026-10-17**, E2-E6 together (Fable review and re-check: deployable; DLL md5 `8cb0deca59c8e46a095c04c14e2d2018`). A survivor enclave's leader trades through vanilla's trade window with their
 own stock and prices by standing; a member can come with you for 2 days for dukes; a member can join your community
 (their favour first at Neutral). `sc enclave trade <id>` shows the trader, the stock and the prices;
 `sc enclave people <id>` shows who is with you, their favours and the recruit cooldown; `sc enclave release <id>` sends
@@ -269,7 +351,7 @@ an enlisted person home; `sc enclave standing <id> <points>` sets the standing (
 
 ## Enclave people (E2)
 
-**Built 2026-10-17, not deployed yet.** Every enclave gets a leader and 2-5 more people who live in its building: made
+**Deployed 2026-10-17**, E2-E6 together (Fable review and re-check: deployable; DLL md5 `8cb0deca59c8e46a095c04c14e2d2018`). Every enclave gets a leader and 2-5 more people who live in its building: made
 the first time you come near, kept as records, spawned while you are within 150 m (once the building's chunks are
 built: at the default view distance about 90-100 m out) and gone (health and rounds kept)
 when you are 200 m away. They greet you by standing, warn you once if you hit them, turn hostile on a second hit, a

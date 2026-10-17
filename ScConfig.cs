@@ -633,6 +633,22 @@ namespace SurvivorCommunity
         public static float EnclaveSiegeLeaveRoll = 0.05f;
         /// <summary>Standing for E5's requests done: a survivor brought home, one found dead and told of, an infestation cleared, a siege beaten.</summary>
         public static int EnclaveGainMissingAlive = 15, EnclaveGainMissingDead = 8, EnclaveGainInfestation = 15, EnclaveGainSiege = 25;
+        // ---- allies (E6: ScEncAllies - each group's benefit while Allied, the Allies morale part, refills, allies telling of more) ----
+        /// <summary>
+        /// The benefits, while an enclave is Allied: the five resource ones add EnclaveBenefitBundles units a day; Comfort in
+        /// Numbers +EnclaveBenefitMorale morale (a part of its own); Overflow Barracks +EnclaveBenefitBeds beds; the four clubs
+        /// multiply your members' XP in their skill by EnclaveBenefitClubXp, Training and Advice every skill's by
+        /// EnclaveBenefitTrainingXp - several stack additively, the whole multiplier at most EnclaveBenefitXpCap; Neighborhood
+        /// Watch: no new infestation within EnclaveWatchRange m of them, those within it spread at EnclaveWatchSpread the chance.
+        /// </summary>
+        public static int EnclaveBenefitBundles = 1, EnclaveBenefitMorale = 5, EnclaveBenefitBeds = 3;
+        public static float EnclaveBenefitClubXp = 2f, EnclaveBenefitTrainingXp = 1.5f, EnclaveBenefitXpCap = 3f;
+        public static int EnclaveWatchRange = 500;
+        public static float EnclaveWatchSpread = 0.5f;
+        /// <summary>Morale: +EnclaveAllyMorale per Allied enclave, at most EnclaveAllyMoraleCap; -EnclaveLostMorale for a Friendly or Allied one lost, fading a point a day.</summary>
+        public static int EnclaveAllyMorale = 2, EnclaveAllyMoraleCap = 6, EnclaveLostMorale = 5;
+        /// <summary>A lost enclave's refill comes EnclaveRefillDays later; an ally tells of one more on becoming Allied, then every EnclaveAllyRevealDays.</summary>
+        public static int EnclaveRefillDays = 5, EnclaveAllyRevealDays = 7;
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1157,6 +1173,9 @@ namespace SurvivorCommunity
             EnclaveSiegePerGS = 0.12f; EnclaveSiegeMin = 4; EnclaveSiegeMax = 30; EnclaveSiegeSpawnMin = 25; EnclaveSiegeSpawnMax = 50; EnclaveSiegeSpread = 90f;
             EnclaveSiegeMinPlayerRange = 30; EnclaveSiegeNoPopRange = 50; EnclaveSiegeResumeSeconds = 15f; EnclaveSiegeLeaveRoll = 0.05f;
             EnclaveGainMissingAlive = 15; EnclaveGainMissingDead = 8; EnclaveGainInfestation = 15; EnclaveGainSiege = 25;
+            EnclaveBenefitBundles = 1; EnclaveBenefitMorale = 5; EnclaveBenefitBeds = 3; EnclaveBenefitClubXp = 2f; EnclaveBenefitTrainingXp = 1.5f;
+            EnclaveBenefitXpCap = 3f; EnclaveWatchRange = 500; EnclaveWatchSpread = 0.5f; EnclaveAllyMorale = 2; EnclaveAllyMoraleCap = 6;
+            EnclaveLostMorale = 5; EnclaveRefillDays = 5; EnclaveAllyRevealDays = 7;
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1823,6 +1842,20 @@ namespace SurvivorCommunity
                 ParseInt(p, "EnclaveGainMissingDead", ref EnclaveGainMissingDead, 0, 100);
                 ParseInt(p, "EnclaveGainInfestation", ref EnclaveGainInfestation, 0, 100);
                 ParseInt(p, "EnclaveGainSiege", ref EnclaveGainSiege, 0, 100);
+                // allies (E6)
+                ParseInt(p, "EnclaveBenefitBundles", ref EnclaveBenefitBundles, 0, 20);
+                ParseInt(p, "EnclaveBenefitMorale", ref EnclaveBenefitMorale, 0, 50);
+                ParseInt(p, "EnclaveBenefitBeds", ref EnclaveBenefitBeds, 0, 50);
+                ParseFloat(p, "EnclaveBenefitClubXp", ref EnclaveBenefitClubXp, 1f, 10f);
+                ParseFloat(p, "EnclaveBenefitTrainingXp", ref EnclaveBenefitTrainingXp, 1f, 10f);
+                ParseFloat(p, "EnclaveBenefitXpCap", ref EnclaveBenefitXpCap, 1f, 20f);
+                ParseInt(p, "EnclaveWatchRange", ref EnclaveWatchRange, 0, 5000);
+                ParseFloat(p, "EnclaveWatchSpread", ref EnclaveWatchSpread, 0f, 1f);
+                ParseInt(p, "EnclaveAllyMorale", ref EnclaveAllyMorale, 0, 50);
+                ParseInt(p, "EnclaveAllyMoraleCap", ref EnclaveAllyMoraleCap, 0, 100);
+                ParseInt(p, "EnclaveLostMorale", ref EnclaveLostMorale, 0, 30);
+                ParseInt(p, "EnclaveRefillDays", ref EnclaveRefillDays, 0, 365);
+                ParseInt(p, "EnclaveAllyRevealDays", ref EnclaveAllyRevealDays, 1, 365);
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -2163,6 +2196,11 @@ namespace SurvivorCommunity
                                                  + " at " + EnclaveSiegeSpawnMin + "-" + EnclaveSiegeSpawnMax + "m (+-" + F2(EnclaveSiegeSpread) + " deg, " + EnclaveSiegeMinPlayerRange
                                                  + "m from players, no pop-in " + EnclaveSiegeNoPopRange + "m, resume " + F2(EnclaveSiegeResumeSeconds) + "s), leave +" + F2(EnclaveSiegeLeaveRoll)
                                                  + "/person, gains +" + EnclaveGainMissingAlive + "/+" + EnclaveGainMissingDead + "/+" + EnclaveGainInfestation + "/+" + EnclaveGainSiege : "off")
+                          + " enclaveAllies=" + (Enclaves ? "bundles +" + EnclaveBenefitBundles + "/day, comfort +" + EnclaveBenefitMorale + ", beds +" + EnclaveBenefitBeds
+                                                + ", clubs x" + F2(EnclaveBenefitClubXp) + ", training x" + F2(EnclaveBenefitTrainingXp) + " (cap x" + F2(EnclaveBenefitXpCap)
+                                                + "), watch " + EnclaveWatchRange + "m (spread x" + F2(EnclaveWatchSpread) + "), morale +" + EnclaveAllyMorale + "/ally (cap "
+                                                + EnclaveAllyMoraleCap + "), lost -" + EnclaveLostMorale + ", refill after " + EnclaveRefillDays + "d, ally reveal every "
+                                                + EnclaveAllyRevealDays + "d" : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange

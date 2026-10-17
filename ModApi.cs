@@ -32,6 +32,8 @@ namespace SurvivorCommunity
                 // the overwhelmed rule reads 0-XNPCCore's private close-range state: bound now, so a rename shows at startup
                 if (ScArms.Bind()) ScLog.Out("overwhelmed rule: 0-XNPCCore's close-range swap state bound");
                 LogFeatureHashes();
+                // E6: a group lost (E2's Fall, any cause) costs morale when it was a friend, and owes a refill - once per process
+                ScEnclaves.Fallen += ScEncAllies.OnFallen;
 
                 ModEvents.GameStarting.RegisterHandler((ref ModEvents.SGameStartingData _d) =>
                 {

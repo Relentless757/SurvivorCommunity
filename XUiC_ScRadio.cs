@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Scripting;
@@ -9,6 +10,11 @@ namespace SurvivorCommunity
     /// The radio window (Config/XUi_InGame/windows.xml, group "scradio"): status, the two calls with their
     /// cooldowns, the contacts still out there and the survivors in distress. Opened by the radio block's
     /// "Use radio" command while it has power. Every binding is non-null before Init.
+    /// E6 adds the Enclaves column (Tools/generate_radio_ui.py): the enclaves the player knows, nearest first (standing in
+    /// the markers' colours, benefit - blue while it applies - and where), their open requests (what, and the day to answer
+    /// or deliver by), and
+    /// a siege call with its countdown and "On our way" / "We can't come" (pressed twice) while it is called. Its rows are
+    /// built once a second (BuildEnclaves) and bound by index; empty until the first build.
     /// </summary>
     [Preserve]
     public class XUiC_ScRadio : XUiController
@@ -18,6 +24,20 @@ namespace SurvivorCommunity
         private string message = "";
         private Resource barterGive = Resource.Food;
         private Resource barterGet = Resource.Meds;
+
+        // ---- E6: the Enclaves column (its row counts are the generator's ENC_ROWS / REQ_ROWS) ----
+        private const int EncRows = 15, ReqRows = 4;
+        /// <summary>The palette's text colours; Ally and Friend are the enclave markers' own (nav_objects.xml: sc_enclave_allied / _friendly).</summary>
+        private const string Body = "226,220,208,255", Dim = "190,182,166,255", Off = "130,124,112,255", Ally = "90,170,255,255",
+                             Friend = "140,220,120,255", Gold = "206,178,120,255", Danger = "240,150,130,255";
+        private sealed class EncRow { public string Name = "", Standing = "", StandingColor = Dim, Benefit = "", BenefitColor = Off, Where = ""; }
+        private sealed class ReqRow { public string Enc = "", What = "", Due = "", DueColor = Body; }
+        private readonly List<EncRow> encRows = new List<EncRow>();
+        private readonly List<ReqRow> reqRows = new List<ReqRow>();
+        private int encMore, reqMore, encKnown = -1;
+        /// <summary>"We can't come" asks to be pressed twice: until when the second press counts.</summary>
+        private float confirmCantUntil;
+        private string siegeHint = "";
 
         public EntityPlayerLocal Player
         {
@@ -63,6 +83,35 @@ namespace SurvivorCommunity
                     message = msg ?? "";
                     RefreshBindings();
                 });
+                // E6: a siege call answered - "On our way" (thanks, nothing else changes), "We can't come" (pressed twice: lost)
+                Hook("btnSiegeGo", () =>
+                {
+                    string msg;
+                    EntityPlayerLocal p = Player;
+                    confirmCantUntil = 0f;
+                    if (!ScEncSiege.OnOurWay(p, out msg) && p != null) p.PlayOneShot("ui_denied");
+                    siegeHint = msg ?? "";
+                    BuildEnclaves();
+                    RefreshBindings();
+                });
+                Hook("btnSiegeCant", () =>
+                {
+                    EntityPlayerLocal p = Player;
+                    float now = Time.unscaledTime;
+                    if (now > confirmCantUntil)
+                    {
+                        confirmCantUntil = now + 5f;
+                        siegeHint = Localization.Get("scRadioSiegeCantConfirm");
+                        RefreshBindings();
+                        return;
+                    }
+                    confirmCantUntil = 0f;
+                    string msg;
+                    if (!ScEncSiege.CantCome(p, out msg) && p != null) p.PlayOneShot("ui_denied");
+                    siegeHint = msg ?? "";
+                    BuildEnclaves();
+                    RefreshBindings();
+                });
             }
             catch (Exception e)
             {
@@ -93,11 +142,14 @@ namespace SurvivorCommunity
             try
             {
                 message = "";
+                siegeHint = "";
+                confirmCantUntil = 0f;
                 if (xui != null && xui.playerUI != null && xui.playerUI.CursorController != null)
                 {
                     xui.playerUI.CursorController.Locked = false;
                     xui.playerUI.CursorController.SetCursorHidden(false);
                 }
+                BuildEnclaves();
                 RefreshBindings();
             }
             catch (Exception e)
@@ -115,6 +167,12 @@ namespace SurvivorCommunity
                 float now = Time.unscaledTime;
                 if (now < nextRefresh) return;
                 nextRefresh = now + RefreshSeconds;
+                if (confirmCantUntil > 0f && now > confirmCantUntil)
+                {
+                    confirmCantUntil = 0f;      // "We can't come" was not pressed again in time
+                    siegeHint = "";
+                }
+                BuildEnclaves();
                 RefreshBindings();
             }
             catch (Exception e)
@@ -138,8 +196,22 @@ namespace SurvivorCommunity
         public override bool GetBindingValueInternal(ref string _value, string _bindingName)
         {
             string why;
+            if (RowBinding(_bindingName, ref _value)) return true;      // E6: enc<n>..., req<n>...
             switch (_bindingName)
             {
+                // ---- E6: the Enclaves column ----
+                case "encnone":
+                    _value = encKnown == 0 ? Localization.Get("scRadioEncNone") : encKnown < 0 && ScRegistry.Loaded && !ScConfig.Enclaves ? Localization.Get("scRadioEncOff") : "";
+                    return true;
+                case "encmore": _value = encMore > 0 ? string.Format(Localization.Get("scRadioEncMore"), encMore) : ""; return true;
+                case "reqnone": _value = encKnown >= 0 && reqRows.Count == 0 ? Localization.Get("scRadioReqNone") : ""; return true;
+                case "reqmore": _value = reqMore > 0 ? string.Format(Localization.Get("scRadioReqMore"), reqMore) : ""; return true;
+                case "siegetext": _value = SiegeText(); return true;
+                case "siegecolor": _value = SiegeCalled() ? Danger : Body; return true;
+                case "siegebuttons": _value = SiegeCalled().ToString(); return true;
+                case "siegegoready": _value = (SiegeCalled() && !ScEncSiege.Acknowledged(ScEncSiege.Open)).ToString(); return true;
+                case "siegegolabel": _value = Localization.Get(ScEncSiege.Acknowledged(ScEncSiege.Open) ? "scRadioSiegeGoDone" : "scRadioSiegeGo"); return true;
+                case "siegehint": _value = siegeHint ?? ""; return true;
                 case "title": _value = Localization.Get("scRadioTitle"); return true;
                 case "status":
                     _value = ScRegistry.Loaded
@@ -245,6 +317,143 @@ namespace SurvivorCommunity
                 sb.Append(string.Format(Localization.Get(m.RunSafe ? "scRadioDistressSafe" : "scRadioDistressLine"), m.Name, m.RunPoiName, until));
             }
             return sb.Length > 0 ? sb.ToString() : Localization.Get("scRadioNoDistress");
+        }
+
+        // ---- E6: the Enclaves column ----
+
+        /// <summary>
+        /// The column's rows, made again (OnOpen, once a second, after a button): the known enclaves on the map, nearest the
+        /// player first, the first EncRows of them; the open requests but a siege (it has its own panel), the soonest due first.
+        /// Nothing while the registry is not loaded or Enclaves is off (encKnown -1).
+        /// </summary>
+        private void BuildEnclaves()
+        {
+            encRows.Clear();
+            reqRows.Clear();
+            encMore = reqMore = 0;
+            encKnown = -1;
+            try
+            {
+                if (!ScRegistry.Loaded || !ScConfig.Enclaves) return;
+                EntityPlayerLocal pl = Player;
+                Vector3 from = pl != null ? pl.position : ScZone.HasHome ? new Vector3(ScZone.Home.x, ScZone.Home.y, ScZone.Home.z) : Vector3.zero;
+                var known = new List<Enclave>();
+                foreach (Enclave e in ScEnclaves.All) if (e.Known && !e.Lost) known.Add(e);
+                known.Sort((a, b) => a.DistanceXZ(from.x, from.z).CompareTo(b.DistanceXZ(from.x, from.z)));
+                encKnown = known.Count;
+                for (int i = 0; i < known.Count; i++)
+                {
+                    if (i >= EncRows) { encMore = known.Count - EncRows; break; }
+                    Enclave e = known[i];
+                    string band = ScEnclaves.StandingKey(e);
+                    var row = new EncRow
+                    {
+                        Name = e.Name,
+                        Standing = ScEnclaves.StandingWord(e),
+                        StandingColor = band == "allied" ? Ally : band == "friendly" ? Friend : band == "hostile" ? Danger : Dim,
+                        Where = ScEnclaves.Where(from, e.Centre)
+                    };
+                    if (e.Hostile) row.Benefit = Localization.Get("scRadioEncRaiders");
+                    else if (e.TurnedHostile || e.Benefit.Length == 0) row.Benefit = "-";
+                    else
+                    {
+                        row.Benefit = ScEncAllies.Name(e.Benefit);
+                        row.BenefitColor = ScEncAllies.IsAlly(e) ? Ally : Off;
+                    }
+                    encRows.Add(row);
+                }
+                int now = ScEncRequests.Now;
+                var open = new List<EnclaveRequest>();
+                foreach (EnclaveRequest r in ScEncRequests.All) if (r.Kind != EnclaveRequest.KindSiege) open.Add(r);
+                open.Sort((a, b) => DueOf(a).CompareTo(DueOf(b)));
+                for (int i = 0; i < open.Count; i++)
+                {
+                    if (i >= ReqRows) { reqMore = open.Count - ReqRows; break; }
+                    EnclaveRequest r = open[i];
+                    Enclave e = ScEnclaves.ById(r.EnclaveId);
+                    var row = new ReqRow { Enc = e != null ? e.Name : "?", What = ScEncRequests.WhatText(r) };
+                    if (r.IsAccepted)
+                    {
+                        row.Due = string.Format(Localization.Get("scRadioReqDue"), r.DueDay);
+                        row.DueColor = r.DueDay <= now ? Danger : Body;
+                    }
+                    else
+                    {
+                        row.Due = string.Format(Localization.Get("scRadioReqAnswer"), r.LapseDay);
+                        row.DueColor = Gold;
+                    }
+                    reqRows.Add(row);
+                }
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("radio-window-enclaves", ex);
+            }
+        }
+
+        /// <summary>The day a request is due by (accepted) or must be answered by (offered): the request list's order.</summary>
+        private static int DueOf(EnclaveRequest r) { return r.IsAccepted ? r.DueDay : r.LapseDay; }
+
+        /// <summary>
+        /// enc&lt;1..EncRows&gt;&lt;name|standing|standingcolor|benefit|benefitcolor|where|visible&gt; and
+        /// req&lt;1..ReqRows&gt;&lt;enc|what|due|duecolor|visible&gt;: a row of the column ("" / False past the rows built).
+        /// </summary>
+        private bool RowBinding(string name, ref string value)
+        {
+            bool enc = name.StartsWith("enc", StringComparison.Ordinal);
+            if (!enc && !name.StartsWith("req", StringComparison.Ordinal)) return false;
+            int i = 3, n = 0;
+            while (i < name.Length && i < 6 && char.IsDigit(name[i])) { n = n * 10 + (name[i] - '0'); i++; }
+            if (i == 3 || n < 1) return false;
+            string field = name.Substring(i);
+            if (enc)
+            {
+                if (n > EncRows) return false;
+                EncRow r = n <= encRows.Count ? encRows[n - 1] : null;
+                switch (field)
+                {
+                    case "visible": value = (r != null).ToString(); return true;
+                    case "name": value = r != null ? r.Name : ""; return true;
+                    case "standing": value = r != null ? r.Standing : ""; return true;
+                    case "standingcolor": value = r != null ? r.StandingColor : Dim; return true;
+                    case "benefit": value = r != null ? r.Benefit : ""; return true;
+                    case "benefitcolor": value = r != null ? r.BenefitColor : Off; return true;
+                    case "where": value = r != null ? r.Where : ""; return true;
+                }
+                return false;
+            }
+            if (n > ReqRows) return false;
+            ReqRow q = n <= reqRows.Count ? reqRows[n - 1] : null;
+            switch (field)
+            {
+                case "visible": value = (q != null).ToString(); return true;
+                case "enc": value = q != null ? q.Enc : ""; return true;
+                case "what": value = q != null ? q.What : ""; return true;
+                case "due": value = q != null ? q.Due : ""; return true;
+                case "duecolor": value = q != null ? q.DueColor : Body; return true;
+            }
+            return false;
+        }
+
+        /// <summary>A siege is open and still called (the countdown runs; the buttons show).</summary>
+        private static bool SiegeCalled()
+        {
+            EnclaveRequest r = ScEncSiege.Open;
+            return ScRegistry.Loaded && r != null && r.Stage == ScEncSiege.StageCalled;
+        }
+
+        /// <summary>The siege panel's words: none open, called (who, the countdown, where; "you told them" once answered), live (how many left).</summary>
+        private string SiegeText()
+        {
+            if (!ScRegistry.Loaded) return "";
+            EnclaveRequest r = ScEncSiege.Open;
+            Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
+            if (r == null || e == null) return Localization.Get("scRadioSiegeNone");
+            if (r.Stage != ScEncSiege.StageCalled) return string.Format(Localization.Get("scRadioSiegeLive"), e.Name, Math.Max(0, r.SiegeSize - r.SiegeKilled));
+            EntityPlayerLocal pl = Player;
+            string s = string.Format(Localization.Get("scRadioSiegeCalled"), e.Name, ScEncSiege.Countdown(r), pl != null ? ScEnclaves.Where(pl.position, e.Centre) : e.PoiName);
+            if (ScEncSiege.Acknowledged(r)) s += "\n" + Localization.Get("scRadioSiegeAcked");
+            return s;
         }
     }
 }

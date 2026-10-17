@@ -6,17 +6,24 @@ markers. Run from anywhere:  python Tools/generate_radio_ui.py
 Written by the AshfallUI session (2026-10-13, user: make the radio window look like Ashfall UI) on the
 community window's rules (Tools/generate_community_ui.py) - same palette, plates and controls:
 
-    [radio] RADIO STATION                                   [x]
+    [radio] RADIO STATION                                                                   [x]
             Powered - 2 of 3 contacts out there
-    +- [AIR DROP button] ----------+- [CALL button] ----------+
-    |  what it does / cooldown     |  what it does / cooldown |
-    +- SURVIVORS HEARD ON THE RADIO --------------------------+
-    +- SUPPLY RUNS CALLING FOR HELP --------------------------+
-    +- OUTPOSTS REPORTING IN ---------------------------------+
-    [ raiders' demand                      [PAY] [REFUSE] ]     (only while one is open)
-    +- SCOUT FOR OUTPOSTS  [food][meds][ammo][mats][fuel] ----+
-    +- BARTER  [give ..] [get ..] [TRADE] -------------------+
-    the last action's message
+    +- [AIR DROP button] ----------+- [CALL button] ----------+  +- ENCLAVES YOU KNOW -----------------------+
+    |  what it does / cooldown     |  what it does / cooldown |  | name      standing  benefit   where       |
+    +- SURVIVORS HEARD ON THE RADIO --------------------------+  | ... 15 rows, nearest first, "+N more"    |
+    +- SUPPLY RUNS CALLING FOR HELP --------------------------+  |                                          |
+    +- OUTPOSTS REPORTING IN ---------------------------------+  +- THEIR REQUESTS -------------------------+
+    [ raiders' demand                      [PAY] [REFUSE] ]     | enclave   what          answer / due by  |
+    +- SCOUT FOR OUTPOSTS  [food][meds][ammo][mats][fuel] ----+  +- SIEGE CALLS ----------------------------+
+    +- BARTER  [give ..] [get ..] [TRADE] -------------------+  | X is under attack! 12:34 to reach them   |
+    the last action's message                                    | [ON OUR WAY]          [WE CAN'T COME]    |
+
+E6 (2026-10-17) added the right-hand column, the Enclaves section: the enclaves the player knows (standing in the
+markers' colours, benefit - blue while it applies - and where), their open requests (what, and the day to answer by or
+deliver by) and a
+siege call with its countdown and two buttons (both only while it is called, before the fight). The left column is the
+window as it was; the window grew from 760 to 1384 wide - still narrower than the community window (1500), so it fits
+wherever that does.
 
 RULES THAT MATTER (the community window's, unchanged):
 - Buttons are <button> views: XUiC_ScRadio hooks each control's own OnPress (GetChildById), which a
@@ -27,7 +34,10 @@ RULES THAT MATTER (the community window's, unchanged):
   {dropready} / {callready} / {scoutready} / {barterready} bindings say which. The labels still carry
   the reason (the controller writes it into {droplabel} / {calllabel} / {scoutdesc} / {barterdesc}).
 - Control names are the controller's: btnClose, btnDrop, btnCall, btnScout<Resource>, btnBarterGive,
-  btnBarterGet, btnBarterTrade, btnDemandPay, btnDemandRefuse.
+  btnBarterGet, btnBarterTrade, btnDemandPay, btnDemandRefuse; E6's btnSiegeGo, btnSiegeCant.
+- E6's rows are bound by index: enc<1..ENC_ROWS><name|standing|standingcolor|benefit|benefitcolor|where|visible>
+  and req<1..REQ_ROWS><enc|what|due|duecolor|visible> - XUiC_ScRadio's EncRows / ReqRows must equal ENC_ROWS /
+  REQ_ROWS. Bound colours are numeric "r,g,b,a" strings.
 """
 
 import io
@@ -47,9 +57,11 @@ LEGACY = re.compile(r"\t<!-- The radio window \(.*?\t\t</window>\n\t</append>\n"
 CONTROLLER = "SurvivorCommunity.ScRadio, SurvivorCommunity"
 
 # ---------------------------------------------------------------- geometry
-WIN_W, WIN_H = 760, 940               # 940 tall: the community window is 924, a 1080p screen ~987
+LEFT_W = 760                          # the station's own column: the whole window before E6
+WIN_W, WIN_H = 1384, 940              # 940 tall: the community window is 924, a 1080p screen ~987
+COMMUNITY_W = 1500                    # the community window's width: it fits the game's resolutions, so <= it does too
 M = 24
-PW = WIN_W - 2 * M                    # a section plate's width
+PW = LEFT_W - 2 * M                   # a left section plate's width
 PAD = 16                              # a section's content inset
 CALLS_Y, CALLS_H = 84, 140
 CONTACTS_Y, CONTACTS_H = 232, 106
@@ -61,6 +73,20 @@ BARTER_Y, BARTER_H = 760, 104
 MSG_Y = 872
 HEAD_H = 38                           # a section's heading band: icon, title, rule
 LINE = 16                             # a 14-point text line
+# E6: the Enclaves column, right of the station's
+X2 = LEFT_W                           # its plates' left edge: the left plates end M before it
+RW = WIN_W - X2 - M                   # its plate width
+RIN = RW - 2 * PAD                    # its content width
+ROW_H = 22                            # one enclave or request row
+COL_H = 20                            # the column-heading row
+ENC_Y, ENC_H, ENC_ROWS = CALLS_Y, 430, 15
+REQ_Y, REQ_H, REQ_ROWS = 522, 170, 4
+SIEGE_Y, SIEGE_H = 700, 164           # its bottom level with the barter section's
+# (binding field, key of its heading, x within the row, width); the row's labels are 14-point, ellipsis past the width
+ENC_COLS = (("name", "scRadioEncColName", 0, 190), ("standing", "scRadioEncColStanding", 194, 74),
+            ("benefit", "scRadioEncColBenefit", 272, 162), ("where", "scRadioEncColWhere", 438, 130))
+REQ_COLS = (("enc", "scRadioReqColEnclave", 0, 190), ("what", "scRadioReqColWhat", 194, 236), ("due", "scRadioReqColDue", 434, 134))
+SIEGE_BW = 270                        # each siege button's width
 
 # ---------------------------------------------------------------- palette (the community window's)
 TITLE = "226,219,203,255"
@@ -112,17 +138,74 @@ def tone(ready):
     return "{# %s ? '%s' : '%s' }" % (ready, BODY, OFF)
 
 
-def section(y, h, sprite, key):
-    """A section plate with its heading band: icon, upper-case title, a rule under them."""
-    return [plate("scui_window", M, -y, PW, h),
-            icon(sprite, M + PAD + 11, -(y + 19), 22),
-            label(M + PAD + 30, -(y + 9), PW - 2 * PAD - 30, 24, 18, TITLE, key=key, extra='upper_case="true"'),
-            plate("scui_divider", M + PAD, -(y + HEAD_H - 4), PW - 2 * PAD, 3, depth=1)]
+def section(y, h, sprite, key, x=M, w=PW):
+    """A section plate with its heading band: icon, upper-case title, a rule under them (x, w: E6's right column)."""
+    return [plate("scui_window", x, -y, w, h),
+            icon(sprite, x + PAD + 11, -(y + 19), 22),
+            label(x + PAD + 30, -(y + 9), w - 2 * PAD - 30, 24, 18, TITLE, key=key, extra='upper_case="true"'),
+            plate("scui_divider", x + PAD, -(y + HEAD_H - 4), w - 2 * PAD, 3, depth=1)]
 
 
 def body(y, h, binding):
     """A section's text under its heading."""
     return label(M + PAD, -(y + HEAD_H + 2), PW - 2 * PAD, h - HEAD_H - 6, 14, BODY, text="{%s}" % binding)
+
+
+ELLIPSIS = 'overflow="ClampContent" overflow_ellipsis="true"'
+
+
+def table(y, prefix, cols, rows, none_binding, more_binding):
+    """E6: a section's rows under a heading row - one <rect> per row, shown by {<prefix><n>visible}, a 14-point label per
+    column bound {<prefix><n><field>} (a field with a colour binds {<prefix><n><field>color}); the empty text at the first
+    row, the "+N more" line under the last."""
+    x0 = X2 + PAD
+    top = y + HEAD_H + 2
+    o = [label(x0 + cx, -top, cw, COL_H, 13, DIM, key=key, extra=ELLIPSIS) for (_f, key, cx, cw) in cols]
+    first = top + COL_H
+    for n in range(1, rows + 1):
+        ry = first + (n - 1) * ROW_H
+        o.append('<rect depth="1" pos="%d,%d" width="%d" height="%d" visible="{%s%dvisible}">' % (x0, -ry, RIN, ROW_H, prefix, n))
+        for (f, _key, cx, cw) in cols:
+            colour = "{%s%d%scolor}" % (prefix, n, f) if f in COLOURED[prefix] else (DIM if f == "where" else BODY)
+            o.append("\t" + label(cx, 0, cw, ROW_H - 2, 14, colour, text="{%s%d%s}" % (prefix, n, f), extra=ELLIPSIS))
+        o.append("</rect>")
+    o.append(label(x0, -first, RIN, ROW_H - 2, 14, DIM, text="{%s}" % none_binding))
+    o.append(label(x0, -(first + rows * ROW_H), RIN, ROW_H - 2, 13, DIM, text="{%s}" % more_binding, extra=ELLIPSIS))
+    return o
+
+
+# which row fields carry a colour binding ({<prefix><n><field>color})
+COLOURED = {"enc": ("standing", "benefit"), "req": ("due",)}
+
+
+def enclaves():
+    o = section(ENC_Y, ENC_H, "ui_game_symbol_allies", "scRadioEnclavesHeader", x=X2, w=RW)
+    return o + table(ENC_Y, "enc", ENC_COLS, ENC_ROWS, "encnone", "encmore")
+
+
+def requests():
+    o = section(REQ_Y, REQ_H, "ui_game_symbol_quest", "scRadioRequestsHeader", x=X2, w=RW)
+    return o + table(REQ_Y, "req", REQ_COLS, REQ_ROWS, "reqnone", "reqmore")
+
+
+def siege():
+    """E6: the siege call - its words and countdown, "On our way" and "We can't come" while it is called, a hint line."""
+    x0 = X2 + PAD
+    ty = SIEGE_Y + HEAD_H + 2
+    by = ty + 54
+    o = section(SIEGE_Y, SIEGE_H, "ui_game_symbol_defense", "scRadioSiegeHeader", x=X2, w=RW)
+    o += [label(x0, -ty, RIN, 50, 14, "{siegecolor}", text="{siegetext}"),
+          '<rect depth="1" pos="%d,%d" width="%d" height="%d" visible="{siegebuttons}">' % (x0, -by, RIN, 36),
+          "\t" + button("btnSiegeGo", 0, 0, SIEGE_BW, 36, ready="siegegoready"),
+          "\t" + icon("ui_game_symbol_run", 24, -18, 20, depth=4),
+          "\t" + centred(40, 0, SIEGE_BW - 48, 36, 15, tone("siegegoready"), text="{siegegolabel}",
+                         extra='justify="center" upper_case="true" ' + ELLIPSIS),
+          "\t" + button("btnSiegeCant", RIN - SIEGE_BW, 0, SIEGE_BW, 36, sprite="scui_btn_danger"),
+          "\t" + centred(RIN - SIEGE_BW, 0, SIEGE_BW, 36, 15, DANGER_TEXT, key="scRadioSiegeCant",
+                         extra='justify="center" upper_case="true"'),
+          "</rect>",
+          label(x0, -(by + 40), RIN, 20, 13, GOLD, text="{siegehint}", extra=ELLIPSIS)]
+    return o
 
 
 def header():
@@ -217,6 +300,9 @@ def build():
     inner += demand()
     inner += scout()
     inner += barter()
+    inner += enclaves()                 # E6: the right-hand column
+    inner += requests()
+    inner += siege()
     inner.append(label(M + 4, -MSG_Y, PW - 8, WIN_H - MSG_Y - 8, 15, GOLD, text="{message}"))
     o += ["\t\t\t" + line for line in inner]
     o += ["\t\t</window>", "\t</append>"]
@@ -230,7 +316,9 @@ def main():
         raise SystemExit("REFUSING: %s has CRLF lines; this generator writes LF like the rest of the file." % TARGET)
     block = BEGIN + "\n" + build() + END + "\n"
     if BEGIN in text and END in text:
-        text = text.split(BEGIN)[0] + block + text.split(END)[1].lstrip("\n")
+        rest = text.split(END)[1]
+        if rest.startswith("\n"): rest = rest[1:]     # the END line's own newline (the block brings it): what follows is kept as it is
+        text = text.split(BEGIN)[0] + block + rest
     else:
         found = LEGACY.findall(text)
         if len(found) != 1:
@@ -247,7 +335,22 @@ def main():
     assert BARTER_Y + BARTER_H <= MSG_Y, "the barter section runs into the message"
     assert MSG_Y + 3 * LINE <= WIN_H, "the message runs past the window"
     assert HEAD_H + 7 * LINE <= OUTPOSTS_H, "the outposts' seven lines run past their plate"
-    print("generate_radio_ui: wrote windowScRadio %dx%d" % (WIN_W, WIN_H))
+    # E6: the right-hand column beside the left one, inside the window, its sections stacked, its rows inside their plates
+    assert M + PW + M <= X2 and X2 + RW + M == WIN_W, "the Enclaves column overlaps the station's, or misses the window's edge"
+    assert WIN_W <= COMMUNITY_W, "the window is wider than the community window (which is known to fit)"
+    right = [(ENC_Y, ENC_H), (REQ_Y, REQ_H), (SIEGE_Y, SIEGE_H)]
+    for (y0, h0), (y1, _) in zip(right, right[1:]):
+        assert y0 + h0 <= y1, "an Enclaves-column section at %d runs into the next at %d" % (y0, y1)
+    assert SIEGE_Y + SIEGE_H <= WIN_H - 8, "the siege section runs past the window"
+    for y, h, rows in [(ENC_Y, ENC_H, ENC_ROWS), (REQ_Y, REQ_H, REQ_ROWS)]:
+        assert HEAD_H + 2 + COL_H + (rows + 1) * ROW_H <= h, "the rows of the section at %d (and its +N line) run past their plate" % y
+    for cols in (ENC_COLS, REQ_COLS):
+        for (_f, _k, cx, cw) in cols: assert cx + cw <= RIN, "a column (%s) runs past the plate" % _f
+        for (a, b) in zip(cols, cols[1:]): assert a[2] + a[3] <= b[2], "columns %s and %s overlap" % (a[0], b[0])
+    assert 2 * SIEGE_BW + 8 <= RIN, "the siege buttons overlap"
+    assert SIEGE_Y + HEAD_H + 2 + 54 + 40 + 20 <= SIEGE_Y + SIEGE_H, "the siege hint runs past its plate"
+    print("generate_radio_ui: wrote windowScRadio %dx%d (Enclaves column %d wide: %d enclave rows, %d request rows)"
+          % (WIN_W, WIN_H, RW, ENC_ROWS, REQ_ROWS))
 
 
 if __name__ == "__main__":
