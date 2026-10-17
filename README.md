@@ -777,8 +777,9 @@ A request whose enclave is missing is dropped. The journal quest is the player's
 the two - a request quest whose request is gone is closed, an agreed request whose quest is missing gets it again.
 
 **Limits:** host only, as E2 - a multiplayer client sees no request rows. The request's own words are picked at
-runtime by kind and standing, so a voice pack (keyed by statement) can't voice them; they show as text in SC's line
-panel, and with `DialogLine=false` the specifics are only in the journal once you agree.
+runtime by kind and standing; since round vo2 each has its own clip, named after its Localization key, and the
+sentence of specifics after it (what, how much, by when) is text only. With `DialogLine=false` the specifics are only
+in the journal once you agree.
 
 ## Requests, part 2 (E5)
 
@@ -1324,7 +1325,9 @@ vanilla's.
   - Each survivor speaks in one voice of their sex, picked from their name, so they keep it while the voice list stays
     the same (a new voice of their sex may re-deal it).
   - A clip is named after the line's statement id (`scFavourPoi.ogg`), or `<dialog>.<statement>` for another mod's line
-    (`SdcsNPC.start.ogg`, 0-XNPCCore's greeting). A `.txt` beside it holds the words.
+    (`SdcsNPC.start.ogg`, 0-XNPCCore's greeting). An enclave request's words, picked at runtime by kind and standing,
+    are named after their Localization key (`scEncAsk_gun_friendly.ogg`). A line with a name or a number in it says
+    only the part without them; the panel shows the whole line. A `.txt` beside each clip holds the words it says.
   - `python Tools/voice_lines.py list | check | sidecars` lists the voiced lines, checks every voice folder, and writes
     the `.txt` files.
 - **Playback** goes through Voice Control's player on the NPC when Voice Control has set one up, as it does for
@@ -1332,10 +1335,14 @@ vanilla's.
   clip itself, with no lip sync. A new line replaces whatever the NPC was saying, Voice Control's own speech included;
   closing the talk stops only SC's clip. The same line from the same survivor is not spoken again within 30 seconds (it
   still shows), so going back to a talk's first menu doesn't repeat the greeting.
-- **The shipped voices** (`male_Vane`, `female_Jessica`) speak the seven lines: SC's six and 0-XNPCCore's greeting.
-  They are Vane and Jessica from the ElevenLabs Voice Library, generated with ElevenLabs (eleven_v4) on 2026-10-16 and
-  converted to mono Ogg Vorbis. A new voice is a new folder with the same file names; `Tools/voice_lines.py check`
-  shows what it still lacks.
+- **The shipped voices**, three of each sex - `male_Vane`, `male_Oxley`, `male_David`, `female_Jessica`,
+  `female_Beth`, `female_Mora` - each say all 147 lines: every survivor line in SC's talks, the enclaves' included,
+  and 0-XNPCCore's greeting. They are Vane, B. Hardscrabble Oxley, David, Jessica, Beth and Mora from the ElevenLabs
+  Voice Library, generated with ElevenLabs (eleven_v4), one take each - Vane's and Jessica's first seven lines on
+  2026-10-16, the rest on 2026-10-17 (round vo2) - and converted to mono Ogg Vorbis. A new voice is a new folder with
+  the same file names; `Tools/voice_lines.py check` shows what it still lacks.
+- **Closing the talk** stops SC's clip, except an enclave leader's answer to "Let me think about it.": it comes as a
+  tell as the talk closes, and is spoken then.
 - **Console:** `sc voice` (the switches, the player in use, the voices), `sc voice play <line> [id|name]`, `sc voice
   stop`, and `sc voice rescan`, which picks up new or replaced clips without a restart.
 

@@ -42,17 +42,18 @@ namespace SurvivorCommunity
         /// {reqwait} and {reqreply} (their request: the offer, the wait, the reply to the last answer - ScEncRequests.FillTokens);
         /// E6's {benefit} (what they do for an ally, doing it now or once allied: ScEncAllies.AboutText).
         /// A token with no value becomes "". The statement's shared Text is never written; a line of anybody else is returned
-        /// as it is.
+        /// as it is. vo2: voiceKey is the key of the request line put in (FillTokens), the name of its voice clip; else null.
         /// </summary>
-        public static string Fill(string text, EntityAlive npc, EntityPlayer player)
+        public static string Fill(string text, EntityAlive npc, EntityPlayer player, out string voiceKey)
         {
+            voiceKey = null;
             if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0 || !ScCommunity.IsHost) return text;
             EncPerson p = ScEnclavePeople.PersonOf(npc);
             Enclave e = ScEnclavePeople.EnclaveOf(p);
             if (e == null) return text;
             EncPerson leader = ScEnclavePeople.LeaderOf(e);
             string s = text;
-            if (s.IndexOf("{req", StringComparison.Ordinal) >= 0) s = ScEncRequests.FillTokens(s, e);    // E4: first - its lines carry {enc} and the like
+            if (s.IndexOf("{req", StringComparison.Ordinal) >= 0) s = ScEncRequests.FillTokens(s, e, out voiceKey);    // E4: first - its lines carry {enc} and the like
             if (s.IndexOf("{terms}", StringComparison.Ordinal) >= 0) s = Token(s, "{terms}", ScEnclaveDeals.TermsText(e));
             if (s.IndexOf("{until}", StringComparison.Ordinal) >= 0) s = Token(s, "{until}", ScEnclaveDeals.UntilText(p));
             if (s.IndexOf("{recruitcost}", StringComparison.Ordinal) >= 0) s = Token(s, "{recruitcost}", ScEnclaveDeals.RecruitCostText(e));

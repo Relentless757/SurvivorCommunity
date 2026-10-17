@@ -25,6 +25,49 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Every survivor line voiced, six voices (round vo2)
+
+**Built 2026-10-17, not deployed yet.** Your ask (2026-10-17): voice all the dialogue with ElevenLabs; your picks:
+three voices per sex - Vane, B. Hardscrabble Oxley and David for men, Jessica, Beth and Mora for women - one take
+each. Every line a survivor says in SC's talks is voiced now (147 per voice), the enclaves' included. A line with a
+name or a number in it says only the part without them; the panel still shows the whole line. The `.txt` beside each
+clip in `Resources/Voices/<voice>/` holds the words it says, and `sc voice play <key>` replays one.
+
+1. `sc voice` lists six voices - female_Beth, female_Jessica, female_Mora, male_David, male_Oxley, male_Vane - with
+   147 lines each.
+2. Talk to a few survivors of each sex: you hear more than one voice per sex. Someone you have talked to before may
+   have another voice now: adding voices re-deals some (expected, once).
+3. An enclave's leader and one of their people greet you aloud, by standing. "Tell me about this place": the leader
+   says "It's not much, but it keeps the dead out and the rain off. These people are mine to look after." - the
+   group's name, count and place are in the panel only. Ask one of their people for the leader: "You'll want to talk
+   to the one in charge, not me." aloud, where the leader is in the panel only.
+4. A leader with an offer, "What do you need?": the first sentence (by kind and standing) is spoken; the sentence after
+   it (what, how much, by when) is text only. Try a few kinds:
+   `sc enclave request <id> offer <resource|generator|gun|missing|infestation>` makes one on demand, and
+   `sc enclave request <id> accept` skips to the wait (steps 5 and 7).
+5. Accept it: their thanks ("Thank you. We'll be here." or the kind's own line) is spoken. Ask again while it is open:
+   the wait line is spoken.
+6. "Let me think about it.": the talk closes, the leader's word shows as a tell and is spoken - closing the talk does
+   not cut it off.
+7. Decline one, give one up ("I can't do it."), hand one over, and open the gun pick ("Let's see what you've got.
+   Which one can you spare?"): each line is spoken; the standing aside after a reply is text only.
+8. The two replies that guard a stale talk have no row you can press: next to a leader,
+   `sc voice play scEncReqNotCarried <leader's name>` and `sc voice play scEncReqNotCleared <leader's name>` -
+   "You don't seem to have it on you." and "That place is still crawling with them." aloud (without a name, the
+   nearest voiced survivor within 20 m says it).
+9. A leader with nothing to ask: "Nothing right now. We're managing." aloud; after a request done while you were away,
+   their thanks instead (once).
+10. Enlist one of their people: "I could come along and watch your back for a while." aloud, the fee in the panel
+    only; "Right behind you. Say the word when you want me to head back." when they join. Recruit: "Leave my
+    people? ..." aloud, the cost in the panel only.
+11. Threaten a leader: "Hand over your supplies." - "You really want to go down that road? ..." aloud; "I'm not
+    asking." - "Fine. Take it and get out. ..." aloud. This turns that enclave hostile for good: use one you can
+    spare, or a save you can drop. A missing survivor you find: their lines aloud.
+12. The 30-second rule holds for these lines too: ask "What do you need?" twice within 30 seconds - the second isn't
+    spoken.
+13. `sc voice play scEncAsk_gun_friendly` makes the nearest survivor say that line.
+14. How the new voices (Oxley, David, Beth, Mora) and the takes sound, and any line worth re-recording.
+
 ## Enclave allies (E6)
 
 **Deployed 2026-10-17**, E2-E6 together (Fable review and re-check: deployable; DLL md5 `8cb0deca59c8e46a095c04c14e2d2018`). An Allied enclave's benefit, the Allies / Comfort in Numbers / Enclave lost
@@ -519,8 +562,8 @@ lines are voiced by Vane (men) and Jessica (women), your picks from ElevenLabs' 
    SCore's older NPC type). Raiders still can't be talked to.
 8. No hitch when a line starts. The first clip of a session loads from disk.
 9. The panel covers nothing: the survivor card stays on the left, and the responses below it.
-10. `sc voice` lists female_Jessica and male_Vane with 7 lines each, and names the player in use (Voice Control's, or
-    SC's own). `sc voice play scRunPick` makes the nearest survivor say it, and `sc voice stop` stops it. A line played
+10. `sc voice` lists the voices (six with 147 lines each since round vo2), and names the player in use (Voice
+    Control's, or SC's own). `sc voice play scRunPick` makes the nearest survivor say it, and `sc voice stop` stops it. A line played
     this way counts for the 30-second rule, so test item 5 with lines the console hasn't just played.
 11. Voice Control's own speech (its greeting as you walk up, chat replies) keeps its own voice, and a dialog line cuts it
     off when it starts. Tell me whether the two voices clash.

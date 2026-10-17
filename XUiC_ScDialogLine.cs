@@ -9,10 +9,13 @@ namespace SurvivorCommunity
     /// has only the responses window, and SCore's subtitle shows a statement only for its older body type
     /// (EntityAliveSDX), so the player-body survivors' lines never reached the screen. This shows the current statement's
     /// text for any NPC but an EntityAliveSDX (SCore already shows those), and hands each new statement to ScVoice, which
-    /// plays its clip when there is one. DialogLine=false hides the line; the clips still play. Bindings are non-null
-    /// from the start: they are evaluated while the XML is parsed.
+    /// plays its clip when there is one. DialogLine=false hides the line (read at each new statement); the clips still
+    /// play, a request line's too (vo2: its tokens are filled for its key, unseen; with VoiceLines=false as well nothing
+    /// is read). Bindings are non-null from the start: they are evaluated while the XML is parsed.
     /// E2: an enclave respondent's line has its tokens filled here ({enc}, {leader}, {count}, {poi}, ... - ScEncDialog.Fill)
-    /// once per new statement, so the statement's shared Text is never written and the voice key stays its id.
+    /// once per new statement, so the statement's shared Text is never written and the voice key stays its id. vo2: a line
+    /// an enclave request picks at runtime ({reqask} and the like) comes back with its own key, which ScVoice tries first;
+    /// closing the talk stops SC's clip, but not a line said as it closes (ScVoice.SayAfterTalk).
     /// </summary>
     [Preserve]
     public class XUiC_ScDialogLine : XUiController
@@ -33,7 +36,7 @@ namespace SurvivorCommunity
         public override void OnClose()
         {
             base.OnClose();
-            ScVoice.Stop();
+            ScVoice.OnTalkClosed();
             Clear();
         }
 
@@ -54,15 +57,20 @@ namespace SurvivorCommunity
                 Dialog dialog = group != null ? group.CurrentDialog : null;
                 DialogStatement st = dialog != null ? dialog.CurrentStatement : null;
                 EntityAlive npc = xui != null && xui.Dialog != null ? xui.Dialog.Respondent : null;
-                string text = st != null && npc != null && ScConfig.DialogLine && !ScNpc.IsSdx(npc) ? (st.Text ?? "") : "";
+                // vo2: read and filled with the panel off too (DialogLine=false) while the voices are on - a request line's voice
+                // key comes from the fill; with both off nothing is read, so a fill's side effects (a thanks spent, an
+                // infestation made known) wait for a line that is shown or heard (the vo2 review's L2)
+                string text = st != null && npc != null && (ScConfig.DialogLine || ScConfig.VoiceLines) && !ScNpc.IsSdx(npc) ? (st.Text ?? "") : "";
                 bool newStatement = !ReferenceEquals(st, shown);
                 if (!newStatement && text == raw) return;
                 shown = st;
                 raw = text;
-                line = text.IndexOf('{') >= 0 ? ScEncDialog.Fill(text, npc, ScCommunity.LocalPlayer) : text;
+                string voiceKey = null;
+                line = text.IndexOf('{') >= 0 ? ScEncDialog.Fill(text, npc, ScCommunity.LocalPlayer, out voiceKey) : text;
+                if (!ScConfig.DialogLine) line = "";
                 visible = line.Length > 0;
                 RefreshBindings();
-                if (newStatement && st != null && npc != null) ScVoice.OnLine(npc, dialog, st);
+                if (newStatement && st != null && npc != null) ScVoice.OnLine(npc, dialog, st, voiceKey);
             }
             catch (Exception e)
             {

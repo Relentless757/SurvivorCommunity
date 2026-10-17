@@ -84,7 +84,8 @@ namespace SurvivorCommunity
     /// (hand it over, a gun, I can't do it). Their words are chosen by kind and band at runtime (LineKey: stem_kind_band,
     /// stem_kind, stem_band, stem) and filled into SC's line panel ({reqask}, {reqwait}, {reqreply}: ScEncDialog.Fill); the
     /// gun pick's rows through the response entry's binding (Patches_Enclaves.Patch_DialogRowText). No shared Text field
-    /// is written. Every action checks everything again: the rows were built a moment earlier.
+    /// is written. Every action checks everything again: the rows were built a moment earlier. vo2: the key of each line
+    /// picked (FillTokens' voiceKey, the reply's Key) names its voice clip (ScVoice); the specifics after it are text only.
     ///
     /// The kinds: bundles of a resource from the bag and the toolbelt covering the units with the least overpay
     /// (EnclaveGainResource; ScStockpile.IsBundle's units, removed by type and measured before and after); one item whose
@@ -149,10 +150,14 @@ namespace SurvivorCommunity
             public List<Gun> Rows = new List<Gun>();
         }
 
-        /// <summary>What the last request action left for the reply statement ({reqreply}).</summary>
+        /// <summary>
+        /// What the last request action left for the reply statement ({reqreply}): the key of its line (vo2: the name of
+        /// its voice clip) and the whole text.
+        /// </summary>
         private sealed class Reply
         {
             public int EnclaveId;
+            public string Key = "";
             public string Text = "";
         }
 
@@ -1407,31 +1412,42 @@ namespace SurvivorCommunity
         /// The line panel's request tokens (ScEncDialog.Fill): {reqask} the offer, {reqwait} the wait, {reqreply} what the
         /// last request action left. Each is a line chosen by kind and band (the part a voice can say) and a sentence with
         /// the specifics. E5's {reqnone}: "nothing right now", or the thanks they owe for a request done while the player was
-        /// away (a cleared infestation, a siege beaten, a survivor brought home: Enclave.Thanks) - once.
+        /// away (a cleared infestation, a siege beaten, a survivor brought home: Enclave.Thanks) - once. vo2: voiceKey is the
+        /// Localization key of the line put in, the name of its voice clip (ScVoice); null when there was no such token.
         /// </summary>
-        public static string FillTokens(string s, Enclave e)
+        public static string FillTokens(string s, Enclave e, out string voiceKey)
         {
-            if (s.IndexOf("{reqask}", StringComparison.Ordinal) >= 0) s = s.Replace("{reqask}", AskText(e));
-            if (s.IndexOf("{reqwait}", StringComparison.Ordinal) >= 0) s = s.Replace("{reqwait}", WaitText(e));
-            if (s.IndexOf("{reqreply}", StringComparison.Ordinal) >= 0) s = s.Replace("{reqreply}", reply != null && reply.EnclaveId == e.Id ? reply.Text : Loc("scEncReqGone"));
-            if (s.IndexOf("{reqnone}", StringComparison.Ordinal) >= 0) s = s.Replace("{reqnone}", NoneText(e));
+            voiceKey = null;
+            string key;
+            if (s.IndexOf("{reqask}", StringComparison.Ordinal) >= 0) { s = s.Replace("{reqask}", AskText(e, out key)); voiceKey = key; }
+            if (s.IndexOf("{reqwait}", StringComparison.Ordinal) >= 0) { s = s.Replace("{reqwait}", WaitText(e, out key)); voiceKey = key; }
+            if (s.IndexOf("{reqreply}", StringComparison.Ordinal) >= 0)
+            {
+                bool mine = reply != null && reply.EnclaveId == e.Id;
+                s = s.Replace("{reqreply}", mine ? reply.Text : Loc("scEncReqGone"));
+                voiceKey = mine ? reply.Key : "scEncReqGone";
+            }
+            if (s.IndexOf("{reqnone}", StringComparison.Ordinal) >= 0) { s = s.Replace("{reqnone}", NoneText(e, out key)); voiceKey = key; }
             return s;
         }
 
         /// <summary>E5: the leader with nothing to ask - their thanks for a request done while the player was away (once), else "nothing right now".</summary>
-        private static string NoneText(Enclave e)
+        private static string NoneText(Enclave e, out string key)
         {
-            if (string.IsNullOrEmpty(e.Thanks)) return Loc("scEncReqNothingLine");
-            string line = Loc(LineKey("scEncThanks", e.Thanks, ScEnclaves.StandingKey(e)));
+            key = "scEncReqNothingLine";
+            if (string.IsNullOrEmpty(e.Thanks)) return Loc(key);
+            key = LineKey("scEncThanks", e.Thanks, ScEnclaves.StandingKey(e));
+            string line = Loc(key);
             e.Thanks = "";
             ScRegistry.SaveAtomic();
             return line;
         }
 
-        private static string AskText(Enclave e)
+        private static string AskText(Enclave e, out string key)
         {
+            key = "scEncReqGone";
             EnclaveRequest r = Of(e);
-            if (r == null || !r.IsOffered) return Loc("scEncReqGone");
+            if (r == null || !r.IsOffered) return Loc(key);
             int search = Math.Max(1, ScConfig.EnclaveDueDaysSearch);
             string info;
             switch (r.Kind)
@@ -1447,13 +1463,15 @@ namespace SurvivorCommunity
                                          Math.Max(1, ScConfig.EnclaveDueDaysItems), r.LapseDay);
                     break;
             }
-            return Loc(LineKey("scEncAsk", r.Kind, ScEnclaves.StandingKey(e))) + " " + info;
+            key = LineKey("scEncAsk", r.Kind, ScEnclaves.StandingKey(e));
+            return Loc(key) + " " + info;
         }
 
-        private static string WaitText(Enclave e)
+        private static string WaitText(Enclave e, out string key)
         {
+            key = "scEncReqGone";
             EnclaveRequest r = Of(e);
-            if (r == null || !r.IsAccepted) return Loc("scEncReqGone");
+            if (r == null || !r.IsAccepted) return Loc(key);
             string info;
             switch (r.Kind)
             {
@@ -1462,12 +1480,14 @@ namespace SurvivorCommunity
                 case EnclaveRequest.KindSiege: info = ScEncSiege.WaitInfo(r); break;
                 default: info = string.Format(Loc("scEncReqWaitInfo"), WhatText(r), r.DueDay); break;
             }
-            return Loc(LineKey("scEncWait", r.Kind, ScEnclaves.StandingKey(e))) + " " + info;
+            key = LineKey("scEncWait", r.Kind, ScEnclaves.StandingKey(e));
+            return Loc(key) + " " + info;
         }
 
-        private static void SetReply(Enclave e, string text)
+        /// <summary>The reply statement's line: the words of key (vo2: the name of its voice clip), then info, the specifics.</summary>
+        private static void SetReply(Enclave e, string key, string info)
         {
-            reply = e != null ? new Reply { EnclaveId = e.Id, Text = (text ?? "").Trim() } : null;
+            reply = e != null ? new Reply { EnclaveId = e.Id, Key = key, Text = (Loc(key) + " " + (info ?? "")).Trim() } : null;
         }
 
         /// <summary>"(standing +10)" / "(standing -5)" after a reply line; "" when it did not move.</summary>
@@ -1496,10 +1516,10 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || !r.IsOffered) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (r == null || !r.IsOffered) { SetReply(e, "scEncReqGone", ""); return; }
             string band = ScEnclaves.StandingKey(e);
             if (r.Kind == EnclaveRequest.KindInfestation && ScEncInfest.IsCleared(r)) { DoneCleared(e, r, band); return; }
-            if (!Accept(r, player as EntityPlayerLocal, "the player said yes")) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (!Accept(r, player as EntityPlayerLocal, "the player said yes")) { SetReply(e, "scEncReqGone", ""); return; }
             string info;
             switch (r.Kind)
             {
@@ -1507,7 +1527,7 @@ namespace SurvivorCommunity
                 case EnclaveRequest.KindInfestation: info = string.Format(Loc("scEncReqAcceptInfoInfest"), r.TargetName, r.DueDay); break;
                 default: info = string.Format(Loc("scEncReqAcceptInfo"), WhatText(r), r.DueDay); break;
             }
-            SetReply(e, Loc(LineKey("scEncAccepted", r.Kind, band)) + " " + info);
+            SetReply(e, LineKey("scEncAccepted", r.Kind, band), info);
         }
 
         /// <summary>
@@ -1519,10 +1539,10 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || r.Kind != EnclaveRequest.KindMissing || !r.IsAccepted || r.Stage != ScEncSearch.StageSearched) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (r == null || r.Kind != EnclaveRequest.KindMissing || !r.IsAccepted || r.Stage != ScEncSearch.StageSearched) { SetReply(e, "scEncReqGone", ""); return; }
             string band = ScEnclaves.StandingKey(e);
             int moved = Close(r, Done, "the player told them", GainFor(r), ScEncSearch.PersonName(r), EventFor(r));
-            SetReply(e, Loc(LineKey("scEncFound", r.Kind, band)) + " " + Aside(moved));
+            SetReply(e, LineKey("scEncFound", r.Kind, band), Aside(moved));
         }
 
         /// <summary>
@@ -1535,15 +1555,15 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || r.Kind != EnclaveRequest.KindInfestation) { SetReply(e, Loc("scEncReqGone")); return; }
-            if (!ScEncInfest.IsCleared(r)) { SetReply(e, Loc("scEncReqNotCleared")); return; }
+            if (r == null || r.Kind != EnclaveRequest.KindInfestation) { SetReply(e, "scEncReqGone", ""); return; }
+            if (!ScEncInfest.IsCleared(r)) { SetReply(e, "scEncReqNotCleared", ""); return; }
             DoneCleared(e, r, ScEnclaves.StandingKey(e));
         }
 
         private static void DoneCleared(Enclave e, EnclaveRequest r, string band)
         {
             int moved = Close(r, Done, "the infestation was cleared already", GainFor(r), r.TargetName, EventFor(r));
-            SetReply(e, Loc(LineKey("scEncThanks", r.Kind, band)) + " " + Aside(moved));
+            SetReply(e, LineKey("scEncThanks", r.Kind, band), Aside(moved));
         }
 
         /// <summary>
@@ -1555,7 +1575,7 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || (r.Kind != EnclaveRequest.KindResource && r.Kind != EnclaveRequest.KindGenerator)) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (r == null || (r.Kind != EnclaveRequest.KindResource && r.Kind != EnclaveRequest.KindGenerator)) { SetReply(e, "scEncReqGone", ""); return; }
             EntityPlayerLocal pl = (EntityPlayerLocal)player;
             string band = ScEnclaves.StandingKey(e), what = WhatText(r);
             bool taken = false;
@@ -1585,9 +1605,9 @@ namespace SurvivorCommunity
                     }
                 }
             }
-            if (!taken) { SetReply(e, Loc("scEncReqNotCarried")); return; }
+            if (!taken) { SetReply(e, "scEncReqNotCarried", ""); return; }
             int moved = Close(r, Done, "handed over in the talk", GainFor(r), what);
-            SetReply(e, Loc(LineKey("scEncThanks", r.Kind, band)) + " " + Aside(moved));
+            SetReply(e, LineKey("scEncThanks", r.Kind, band), Aside(moved));
         }
 
         /// <summary>"Take one of these.": the pick of the guns the player carries (its rows' texts made now).</summary>
@@ -1605,17 +1625,17 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || r.Kind != EnclaveRequest.KindGun) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (r == null || r.Kind != EnclaveRequest.KindGun) { SetReply(e, "scEncReqGone", ""); return; }
             EntityAlive npc = ScFavours.CurrentNpc(player);
             GunPick p = pick;
             Gun g = p != null && npc != null && p.PlayerId == player.entityId && p.NpcId == npc.entityId && p.RequestId == r.Id && row >= 0 && row < p.Rows.Count ? p.Rows[row] : null;
             string band = ScEnclaves.StandingKey(e);
-            if (g == null || !TakeOne((EntityPlayerLocal)player, g.Belt, g.Slot, g.Value)) { SetReply(e, Loc("scEncReqNotCarried")); return; }
+            if (g == null || !TakeOne((EntityPlayerLocal)player, g.Belt, g.Slot, g.Value)) { SetReply(e, "scEncReqNotCarried", ""); return; }
             pick = null;
             ScLog.Out("enclave request #" + r.Id + ": " + g.Value.ItemClass.Name + " (T" + g.Tier + ", quality " + g.Quality + ") from the " + (g.Belt ? "toolbelt" : "bag") + " slot " + g.Slot
                       + " - " + g.Points + " point(s)");
             int moved = Close(r, Done, "a gun handed over in the talk", g.Points, string.Format(Loc("scEncReqGunWhat"), g.Name, g.Tier, g.Quality));
-            SetReply(e, Loc(LineKey("scEncThanks", r.Kind, band)) + " " + Aside(moved));
+            SetReply(e, LineKey("scEncThanks", r.Kind, band), Aside(moved));
         }
 
         /// <summary>"No, I can't help with that.": the offer declined - a failure, EnclaveLossDecline by band.</summary>
@@ -1624,24 +1644,29 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || !r.IsOffered) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (r == null || !r.IsOffered) { SetReply(e, "scEncReqGone", ""); return; }
             string band = ScEnclaves.StandingKey(e);
             // E5 (the review's N2): an infestation cleared while it was an offer is no work to refuse - it is done (the No row
             // hides then; this is a stale dialog's case)
             if (ScEncInfest.IsCleared(r)) { DoneCleared(e, r, band); return; }
             int moved = Close(r, Declined, "the player said no");
-            SetReply(e, Loc(LineKey("scEncDeclined", r.Kind, band)) + " " + Aside(moved));
+            SetReply(e, LineKey("scEncDeclined", r.Kind, band), Aside(moved));
         }
 
-        /// <summary>"Let me think about it.": nothing now (the talk closes); the leader's word, and how long the offer stands, as a tell after it.</summary>
+        /// <summary>
+        /// "Let me think about it.": nothing now (the talk closes); the leader's word, and how long the offer stands, as a
+        /// tell after it. vo2: the word is said aloud too, and the talk's close does not cut it off (ScVoice.SayAfterTalk).
+        /// </summary>
         public static void ActThink(EntityPlayer player)
         {
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r) || r == null || !r.IsOffered) return;
             EncPerson leader = ScEnclavePeople.LeaderOf(e);
-            string line = Loc(LineKey("scEncThink", r.Kind, ScEnclaves.StandingKey(e)));
+            string key = LineKey("scEncThink", r.Kind, ScEnclaves.StandingKey(e));
+            string line = Loc(key);
             ScCommunity.Tell(player, string.Format(Loc("scEncReqThinkTell"), leader != null ? leader.Name : e.Name, line, r.LapseDay), "");
+            ScVoice.SayAfterTalk(ScFavours.CurrentNpc(player), key);
             ScLog.Verbose("enclave request #" + r.Id + ": the player will think about it (the offer stands to the end of day " + r.LapseDay + ")");
         }
 
@@ -1651,10 +1676,10 @@ namespace SurvivorCommunity
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || !r.IsAccepted || !CanGiveUp(r)) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (r == null || !r.IsAccepted || !CanGiveUp(r)) { SetReply(e, "scEncReqGone", ""); return; }
             string band = ScEnclaves.StandingKey(e);
             int moved = Close(r, Failed, "the player gave it up");
-            SetReply(e, Loc(LineKey("scEncCantDo", r.Kind, band)) + " " + Aside(moved));
+            SetReply(e, LineKey("scEncCantDo", r.Kind, band), Aside(moved));
         }
 
         // ------------------------------------------------------------------ console ----

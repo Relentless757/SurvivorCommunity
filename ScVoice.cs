@@ -18,8 +18,10 @@ namespace SurvivorCommunity
     /// picked by a stable hash of their name, so they keep it while the voice list stays the same (a new voice of their
     /// sex may re-deal it). The key is the line's statement id: "&lt;dialog&gt;.&lt;statement&gt;" first, the dialog being
     /// the statement's own (SdcsNPC.start, 0-XNPCCore's greeting), then the bare statement id (SC's own lines, added to
-    /// every dialog under the same ids). A line with no clip in that voice is not voiced. A .txt beside a clip holds its
-    /// words, for whoever records it.
+    /// every dialog under the same ids). vo2: a line an enclave request picks at runtime ({reqask} and the like) is keyed by
+    /// its Localization key (scEncAsk_gun_friendly), tried before the statement's. A line with no clip in that voice is not
+    /// voiced. A .txt beside a clip holds the words it says, for whoever records it (a line with a name or a number in it
+    /// says only the part without them: Tools/voice_lines.py).
     ///
     /// Playback goes through Voice Control (1-XNPCVoiceControl.dll, bound by name, no compile reference) when it has set
     /// up its NPCAudioPlayer on that NPC, as it does for survivors near the player: the clip plays from the AudioSource its
@@ -31,8 +33,9 @@ namespace SurvivorCommunity
     /// GameObject, whose first AudioSource Voice Control's lip sync and voice relay take.
     ///
     /// One line plays at a time. A new line replaces whatever the NPC was saying, Voice Control's speech included (its
-    /// player starts a clip by stopping what it plays). Stopping - the dialog closing, an unvoiced line, sc voice stop -
-    /// stops only SC's own clip: Voice Control's player is stopped only while its AudioSource still holds that clip. The
+    /// player starts a clip by stopping what it plays). Stopping - the dialog closing (but not a line said as it closes:
+    /// SayAfterTalk), an unvoiced line, sc voice stop - stops only SC's own clip: Voice Control's player is stopped only
+    /// while its AudioSource still holds that clip. The
     /// same line from the same survivor is not spoken again within RepeatSeconds (it still shows), so returning to a
     /// talk's root or reopening the talk does not repeat the greeting. Main thread only (XUi, console).
     /// </summary>
@@ -61,6 +64,8 @@ namespace SurvivorCommunity
         private static AudioSource playingOwn;            // SC's own source, or null
         private static AudioClip playingClip;
         private static float playingUntil;
+        /// <summary>vo2: the clip playing (or loading) is a line said as the talk closes (SayAfterTalk): the close leaves it be.</summary>
+        private static bool parting;
         /// <summary>When each "&lt;entity id&gt;|&lt;key&gt;" last started playing: the repeat rule.</summary>
         private static readonly Dictionary<string, float> recent = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
 
@@ -153,20 +158,27 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The clip for this line in this voice, and the key it was found under; null when the line is not voiced. The
-        /// dialog in the key is the statement's own (a child dialog SCore opened has its own id), else the innermost open one.
+        /// The clip for this line in this voice, and the key it was found under; null when the line is not voiced. A line
+        /// picked at runtime (vo2: lineKey, an enclave request's Localization key) is looked up by that key first. Then the
+        /// statement: the dialog in the key is the statement's own (a child dialog SCore opened has its own id), else the
+        /// innermost open one.
         /// </summary>
-        private static string ClipFor(Voice v, Dialog dialog, BaseStatement st, out string key)
+        private static string ClipFor(Voice v, Dialog dialog, BaseStatement st, string lineKey, out string key)
         {
             key = null;
             if (v == null || st == null || string.IsNullOrEmpty(st.ID)) return null;
+            string path;
+            if (!string.IsNullOrEmpty(lineKey) && v.Lines.TryGetValue(lineKey, out path))
+            {
+                key = lineKey;
+                return path;
+            }
             Dialog owner = st.OwnerDialog;
             if (owner == null && dialog != null)
             {
                 owner = dialog;
                 for (int depth = 0; owner.ChildDialog != null && depth < 8; depth++) owner = owner.ChildDialog;
             }
-            string path;
             if (owner != null && !string.IsNullOrEmpty(owner.ID) && v.Lines.TryGetValue(owner.ID + "." + st.ID, out path))
             {
                 key = owner.ID + "." + st.ID;
@@ -183,15 +195,16 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ the dialog's hook ----
 
         /// <summary>
-        /// A new line is on screen (XUiC_ScDialogLine). Whatever SC was playing stops, unless this is that very line still
+        /// A new line is on screen (XUiC_ScDialogLine); lineKey is the Localization key of a line picked at runtime (vo2:
+        /// ScEncRequests' {req...} tokens), else null. Whatever SC was playing stops, unless this is that very line still
         /// being said; then this line plays when the survivor has a clip for it and has not started it in the last
         /// RepeatSeconds.
         /// </summary>
-        public static void OnLine(EntityAlive npc, Dialog dialog, BaseStatement st)
+        public static void OnLine(EntityAlive npc, Dialog dialog, BaseStatement st, string lineKey)
         {
             if (npc == null || st == null) return;
             string key = null;
-            string path = ScConfig.VoiceLines ? ClipFor(VoiceOf(npc), dialog, st, out key) : null;
+            string path = ScConfig.VoiceLines ? ClipFor(VoiceOf(npc), dialog, st, lineKey, out key) : null;
             string tag = path != null ? npc.entityId + "|" + key : null;
             if (tag != null && tag == playingTag && Time.unscaledTime < playingUntil) return;   // still saying it
             Stop();
@@ -199,6 +212,30 @@ namespace SurvivorCommunity
             float at;
             if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return;
             Play(npc, tag, path);
+        }
+
+        /// <summary>
+        /// vo2: a line said as the talk closes (an enclave leader's answer to "Let me think about it.", which comes as a
+        /// tell): it plays as a dialog line does - in the survivor's voice, under the repeat rule - and the talk's close
+        /// does not stop it (OnTalkClosed).
+        /// </summary>
+        public static void SayAfterTalk(EntityAlive npc, string key)
+        {
+            if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return;
+            Voice v = VoiceOf(npc);
+            string path;
+            if (v == null || !v.Lines.TryGetValue(key, out path)) return;
+            string tag = npc.entityId + "|" + key;
+            float at;
+            if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return;
+            Play(npc, tag, path);
+            parting = true;   // after Play: its Stop clears the flag
+        }
+
+        /// <summary>The talk closed (XUiC_ScDialogLine): SC's clip stops, unless it is a line said as the talk closes (SayAfterTalk).</summary>
+        public static void OnTalkClosed()
+        {
+            if (!parting) Stop();
         }
 
         // ------------------------------------------------------------------ playing ----
@@ -287,6 +324,7 @@ namespace SurvivorCommunity
             playingPlayer = null;
             playingOwn = null;
             playingClip = null;
+            parting = false;
         }
 
         /// <summary>Voice Control's player on this NPC, when Voice Control has set one up; null otherwise.</summary>
