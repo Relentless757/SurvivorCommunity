@@ -25,6 +25,107 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Enclave requests, part 2 (E5)
+
+**Built 2026-10-17, not deployed yet.** Three more kinds: a missing survivor, an infestation to clear and a siege.
+`sc enclave request <id> offer missing|infestation` makes an offer now (only where it can be given:
+`sc enclave request <id>` says why not); `sc enclave request <id> fate alive|dead` fixes a missing survivor's fate
+before you get there (this session); `sc enclave siege <id>` shows the siege clock and why a call would wait;
+`sc enclave siege <id> now [force]` calls one now (`force` skips the radio, the range, discovery and the blood moon);
+`... win | lose | clear` settles it. `sc enclave requests` lists everything, the siege's schedule too. Use a known,
+non-hostile enclave whose people were made (go there once, or `sc enclave spawn <id>` near it).
+
+1. **Alive, brought home.** `sc enclave request <id> offer missing`, talk to the leader: "What do you need?" shows their
+   words, then "Once you agree, I'll tell you who it is and where they were headed...". "Leave it with me.": "Thank
+   you. Bring them home if you can. It's <name>. They were headed for <building>. Find them by the end of day N." The
+   journal has "Find <name>" ("Find <name> at <building> by the end of day N") with its marker on that building, 200-800
+   m away; the person is gone from the enclave - their body vanishes at once, even in view (`sc enclave people <id>`:
+   state missing). `sc enclave request <id> fate
+   alive`, go there: once you are within 150 m and the building has loaded, the log says "<name> ... is found ALIVE";
+   they stand at an indoor spot (often among the building's own dead). Talk to them: "Please, I'm not armed..." with
+   "Your people sent me. Let's get you home." -> "Thank God. Lead the way...", the tell "<name> is following you. Get
+   them home to <enclave>.", the journal line turns to "Bring <name> home to <enclave>" and its marker moves to the
+   enclave. They follow you even with your followers full. Walk home: the moment they are inside the grounds, "<name> is
+   home safe at <enclave>.", the quest completes, +15 standing, the ledger "<enclave>: you brought <name> home (+15
+   standing)", SurvivorOrigins' "rescue" XP (100). They take up their old spot. Talk to the leader, "What do you need?":
+   their thanks ("You brought one of ours home...") once, then "Nothing right now. We're managing."
+2. **Wait here, and a reload.** As step 1 up to the follow, then talk to them again: "Wait here for me." - "<name> will
+   wait here for you."; walk on: they stay. Talk again: "Your people sent me..." and they follow again. Save and quit
+   while they follow; load: they wait where they stood when you quit, not following, and no stray hire is left on you
+   (SCore's companion list is empty of them). After a crash instead they wait where they last waited (the building, or
+   where you told them to wait), and the log says "<name> (pN) was following the player home when the game was saved".
+3. **Alive, dies on the way.** As step 1, and while they follow, let them die (zombies, or vanilla's `kill <entity id>`
+   with the id from the log's "<name> (pN, entity N) of <enclave> follows <you> home" line; not `sc enclave kill`,
+   which only takes the living):
+   "<name> of <enclave> is dead.", the quest fails, -8 standing (Neutral), the ledger "<enclave>: <name> died on the way
+   home (-8 standing)"; `sc enclave people <id>`: dead. Another run: `fate alive`, and let the building's own zombies
+   kill them before you talk to them (killing them yourself turns the enclave hostile, which withdraws the request):
+   the search turns to their remains where they fell (step 4).
+4. **Dead: remains, search, tell.** `offer missing`, accept, `fate dead`, go there: the log says "found DEAD" and a corpse
+   lies at an indoor spot. Look at it: "Someone's remains"; hold E: "Search the body". Search: "These are <name>'s
+   remains. <enclave> should hear it from you.", the journal's line turns to "Tell <enclave> about <name>" (its phase
+   2) and the marker moves to the enclave. Search again: "You've searched <name>'s remains already...". Break the
+   remains before searching (another run): they are back within seconds while you stand there. Talk to the leader:
+   "I found <name>. I'm sorry." -> "I was afraid of that..." (+8), the quest completes, the "favour" XP (60); the
+   remains are gone the next time you are there (or at once if loaded). "I can't do it." does not show once the
+   remains were searched, nor while a survivor follows you.
+5. **An existing infestation named.** `sc infest add` inside a building within 300 m of an enclave (or use one that is
+   there), then `offer infestation` at that enclave: "The dead have taken a place near us..." and "It's <building>, <n>
+   m <direction> from here...". Just hearing it puts the infestation's purple marker on the map. Accept: the journal has
+   "Clear <building>" ("Clear <building> by the end of day N") with its marker on it. Clear it (or `sc infest clear` is
+   NOT the way: that withdraws the request, see below). When I1 says "You've cleared the infestation at <building>.",
+   also "Word will reach <enclave>: <building> is clear. Talk to their leader.", the quest completes, +15, the "favour"
+   XP, the ledger "<enclave>: you cleared <building> (+15 standing)" - even when you are far from the enclave. Talk to
+   the leader: their thanks once. A second enclave near the same infestation is never given the same one.
+6. **One started for the request.** At an enclave with no infestation within 300 m: `offer infestation`: the log says
+   "infestation #N at <building> started near them for their request" (`sc infest list`: how "request"). It is within
+   300 m, never an enclave's, claimed or quest-locked building. With the infestations at their cap (`sc infest list`
+   says the cap), the offer is refused ("the infestations are at their cap").
+7. **Already cleared, on the spot.** `offer infestation`, don't accept; clear that infestation; talk to the leader: the
+   offer now shows "I already took care of it." (and neither "Leave it with me." nor "No, I can't help with that."):
+   their thanks, +15. Left unanswered past
+   its day instead, it is withdrawn with no loss. `sc infest clear <id>` on a request's infestation withdraws the request
+   (no standing change).
+8. **A siege in time, won.** A powered radio at home, a known enclave within 2 km: `sc enclave siege <id> now`: the tell
+   "<enclave> on the radio: "They're coming over the walls! Please, hurry!"", the ledger line, and a tracked journal
+   quest "Siege at <enclave>" with "Siege: 14:59 to reach <enclave>" counting down on the HUD. Go there: within 70 m
+   all of their people appear (if they were not out), "<enclave> is under attack: N of the dead are coming over the
+   walls!", the journal says "N left"; the zombies come one a second from the enclave's far side from you, never popping
+   up near you in view, and go for their people. Kill them all: "<enclave> held. You killed N of them.", the quest
+   completes, +25, the "rescue" XP; the leader thanks you at the next talk.
+9. **Too late.** `sc enclave siege <id> now` and stay away until the clock runs out (or set a short
+   `EnclaveSiegeMinutes`): "<enclave> is gone.", "The dead have overrun <building>.", the quest fails; the enclave is
+   gone from `sc enclave list`, and `sc infest list` has its building (how "siege", known, the purple marker).
+   Every one of their people dead in the fight does the same.
+10. **Leave mid-fight.** Go live (step 8), then run more than 140 m away: the horde despawns, the log rolls the hold
+    ("N of M killed, K of theirs alive: P% to hold"). Held: "<enclave> held out without you.", the quest completes, no
+    standing. Not held: as step 9.
+11. **A reload, mid-countdown and mid-fight.** Call one, wait a minute, save and quit, load: the countdown carries on
+    from where it was (not reset to 15:00). Go live, kill a few, save and quit, load: about 15 s later all of their
+    people still alive are out at once again ("... of their people back out for the fight"), then the zombies still
+    standing come back ("siege at <enclave> resumes after a load"), the "N left" count unchanged.
+12. **Pause stops the clock.** With a siege counting down, open the pause menu for a minute: the clock has not moved.
+    (A sleep through it uses it up.)
+13. **Never in the blood-moon window or during a base attack.** On blood-moon day after 10:00, `sc enclave siege <id>`
+    says it waits ("the blood moon..."), and no scheduled call fires (the log: "held back"). Earlier that day, from the
+    time the 15 minutes to answer would run past 10:00 (about 04:36 with 60-minute days, so all of 08:00-10:00), it says
+    "the blood moon's window opens ..." instead. With a base attack live (`sc attack now` at home), a siege call waits
+    ("a base attack is being fought"); and with a siege live, `sc attack status` says a call waits ("an enclave's siege
+    is being fought") and an outpost attack in reach does not spawn. Called, then reaching an enclave that lies within
+    150 m of your home zone while a base attack is live (or within 140 m of an outpost whose attack is being fought;
+    skip this when none lies that close): the log says it waits with "its clock stopped", the journal's countdown
+    stands still, and the siege comes once that attack is over. An outpost attack you walked away from holds neither a siege's call nor
+    its arrival (nor the base attack's call).
+14. **The pace.** `sc enclave reveal all`, a powered radio, then in the morning `sc day` a dozen times: each one rolls
+    the day's call again on today's clock, and about one in seven leaves "a call is due day N HH:MM" (today, between
+    08:00 and 20:00) in `sc enclave requests` - a later miss clears it again ("none scheduled"). Stop at a hit and wait
+    for that hour: the call comes, from an enclave within 2 km. In normal play the roll runs once a day, at midnight.
+15. **Nobody home but the missing one.** `offer missing`, accept, then `sc enclave kill <id> all`: the log says "nobody
+    at home is alive, but one of theirs is missing and may be", and the enclave stands. `fate alive`, find them and
+    bring them home: home safe as in step 1, and they lead the enclave now. Another run: after the kill, give the search
+    up from the console (`sc enclave request <id> fail`): within a second "<enclave> is gone." (the log: "nobody of
+    theirs is alive any more"). Found dead instead: gone as soon as you search the remains.
+
 ## Enclave requests, part 1 (E4)
 
 **Built 2026-10-17, not deployed yet.** A known, non-hostile enclave's leader asks for a resource, a generator or a gun;
@@ -211,7 +312,8 @@ kill or a threat, and their containers are theirs. `sc enclave list` and `sc enc
 11. A death and the new leader: `sc enclave kill <id>` (the leader). The log names the new leader (the highest tier,
     then the one made first), "... leads ... now" (tell and ledger), and the new leader walks to the old leader's spot.
     `sc enclave kill <id> all`: "<name> is gone.", the marker comes off, the building is free (a land claim there is
-    allowed, its containers open).
+    allowed, its containers open). (While one of theirs is missing on an E5 search and may be alive, the enclave
+    stands: a second `all` ends it.)
 12. Wild spawns: spend a while (a day and a night) within 100 m of an enclave. No wild survivor or raider spawns in or
     near it (zombies and animals do); `sc enclave list`'s header counts the spawns kept off.
 13. Set `Enclaves` to false in `Config/blocks.xml`, restart and load next to an enclave: no people appear and none of

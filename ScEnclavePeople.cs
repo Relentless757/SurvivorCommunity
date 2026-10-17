@@ -19,8 +19,12 @@ namespace SurvivorCommunity
         /// alive - Living, the fall rule, the group size and the recruit minimum count them - but their body is the player's
         /// follower, not one of the POI's: the spawn, the despawn rule, the daily restock, the spot search and succession
         /// leave them alone. A recruited person leaves the records altogether.
+        /// E5: missing - the subject of their enclave's open "missing survivor" request (ScEncSearch): not at home and not
+        /// Living (the fall rule, the group's count and the recruit minimum leave them out), their spot kept for their return;
+        /// a body of theirs is the search's (waiting where they were found, or following the player), never the POI's. They
+        /// come home (home) or are lost (dead) when the request ends.
         /// </summary>
-        public const string StateHome = "home", StateDead = "dead", StateEnlisted = "enlisted";
+        public const string StateHome = "home", StateDead = "dead", StateEnlisted = "enlisted", StateMissing = "missing";
 
         public int Id;
         public int EnclaveId;
@@ -68,6 +72,8 @@ namespace SurvivorCommunity
         /// <summary>E3: alive - at home or enlisted with the player.</summary>
         public bool Alive { get { return State == StateHome || State == StateEnlisted; } }
         public bool Enlisted { get { return State == StateEnlisted; } }
+        /// <summary>E5: the subject of a missing survivor request (ScEncSearch).</summary>
+        public bool Missing { get { return State == StateMissing; } }
         public string Name { get { return Who.Name; } }
         public Vector3 HomeCentre { get { return new Vector3(Home.x + 0.5f, Home.y, Home.z + 0.5f); } }
     }
@@ -99,6 +105,12 @@ namespace SurvivorCommunity
     /// enlistment (Unbody); one sent home walks back unwatched (Leaving, ScEnclaveDeals.TickLeaving); a person's favour
     /// follows each new body (Dress, Unbody); a death while enlisted costs standing (Died); succession passes over one
     /// enlisted (Succeed, EnsureLeader); a recruit leaves the records with their body (LeaveEnclave).
+    ///
+    /// E5 (ScEncSearch, ScEncSiege) hooks in too: a missing person's body is built by the search wherever they are found
+    /// (SpawnAt: dressed as every body, but with no spot of theirs and no SCEnclave package) and ticked by it (the tick
+    /// hands it over: ScEncSearch.TickBody); it goes as every body does (the veto, the unload capture, the shutdown), and
+    /// a body that goes or dies tells the search first (Unbody, OnBodyDied). One brought home is an enclave body again on
+    /// the spot (Rehome). The spot finder works on any POI (SpotsIn), and a siege brings everyone out at once (SpawnAll).
     ///
     /// Host only, main thread; the save thread's veto and the faction check read volatile snapshots rebuilt here.
     /// </summary>
@@ -173,7 +185,7 @@ namespace SurvivorCommunity
             public readonly HashSet<Vector3i> Bad = new HashSet<Vector3i>();
         }
 
-        private struct Spot
+        internal struct Spot
         {
             public Vector3i Pos;
             public float Yaw;
@@ -448,6 +460,13 @@ namespace SurvivorCommunity
                         if (ScEnclaveDeals.TickEnlisted(w, e, p, npc)) changed = true;
                         continue;
                     }
+                    // E5: one of theirs gone missing - the body is the search's (waiting where they were found, following the
+                    // player home, or left over from before they went): its own rules, never the POI's
+                    if (p.Missing)
+                    {
+                        if (ScEncSearch.TickBody(w, e, p, npc)) changed = true;
+                        continue;
+                    }
                     if (e.Lost || (near > keep && !SeenByAny(w, npc.position)))
                     {
                         Despawn(p, npc);
@@ -489,7 +508,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Vanilla's pop-in rule (RunNoPopInRange's idiom): within EnclaveNoPopRange and inside some player's view cone.</summary>
-        private static bool PopsInView(World w, Vector3 at)
+        internal static bool PopsInView(World w, Vector3 at)
         {
             float r = ScConfig.EnclaveNoPopRange;
             List<EntityPlayer> list = w.Players != null ? w.Players.list : null;
@@ -529,11 +548,17 @@ namespace SurvivorCommunity
         /// </summary>
         internal static bool ChunksSettled(World w, Enclave e)
         {
-            int[] b = e.Box;
-            Vector3 c = e.Centre;
-            return ScRunners.Settled(w, new Vector3(c.x, 0f, c.z))
-                   && ScRunners.Settled(w, new Vector3(b[0], 0f, b[2])) && ScRunners.Settled(w, new Vector3(b[1], 0f, b[2]))
-                   && ScRunners.Settled(w, new Vector3(b[0], 0f, b[3])) && ScRunners.Settled(w, new Vector3(b[1], 0f, b[3]));
+            return BoxSettled(w, e.Poi, e.Size);
+        }
+
+        /// <summary>ChunksSettled for any footprint (E5: the building a missing survivor is searched for): its corners and centre.</summary>
+        internal static bool BoxSettled(World w, Vector3i poi, Vector3i size)
+        {
+            int x0 = poi.x, x1 = poi.x + Math.Max(1, size.x) - 1, z0 = poi.z, z1 = poi.z + Math.Max(1, size.z) - 1;
+            float cx = poi.x + size.x * 0.5f, cz = poi.z + size.z * 0.5f;
+            return ScRunners.Settled(w, new Vector3(cx, 0f, cz))
+                   && ScRunners.Settled(w, new Vector3(x0, 0f, z0)) && ScRunners.Settled(w, new Vector3(x1, 0f, z0))
+                   && ScRunners.Settled(w, new Vector3(x0, 0f, z1)) && ScRunners.Settled(w, new Vector3(x1, 0f, z1));
         }
 
         /// <summary>
@@ -652,7 +677,7 @@ namespace SurvivorCommunity
                 e.PeopleRolled = true;
                 ScRegistry.SaveAtomic();
                 // those made died while it was still being made and it needs no more (a smaller group in the config since)
-                if (Living(e).Count == 0) ScEnclaves.Fall(e, "everyone died");
+                if (Living(e).Count == 0 && !ScEncSearch.AnyAlive(e)) ScEnclaves.Fall(e, "everyone died");     // E5: not while one missing may be alive (L1)
                 return false;
             }
             int cid = RollClass(e, have);
@@ -732,11 +757,45 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// E5: a missing person's body where the search found them (ScEncSearch): their record rebuilt (ScSpawn.Body) and
+        /// dressed as every body is - never saved, the cvars, health, the lookups and the veto - but not as one at home: no
+        /// Guard order at their spot and no SCEnclave package (the caller gives the order where they wait). Null when no body
+        /// could be made (the class is gone).
+        /// </summary>
+        internal static EntityAlive SpawnAt(World w, Enclave e, EncPerson p, Vector3 at, float yaw)
+        {
+            EntityAlive npc = null;
+            try { npc = ScSpawn.Body(w, p.Who, at + Nudge, new Vector3(0f, yaw, 0f), false); }
+            catch (Exception ex) { ScLog.Once("encpeople-spawnat-" + p.Id, ex); }
+            if (npc == null) return null;
+            Dress(e, p, npc, false);
+            return npc;
+        }
+
+        /// <summary>
+        /// E5: a body that came home with the player (ScEncSearch) becomes one of the POI's again: a spot of theirs (theirs
+        /// when it is still one, else a new one), the Guard order there, the SCEnclave package, and a leader for a group that
+        /// has none.
+        /// </summary>
+        internal static void Rehome(Enclave e, EncPerson p, EntityAlive npc)
+        {
+            World w = ScCommunity.World;
+            bool fresh;
+            if (w != null && !EnsureSpot(w, e, p, out fresh)) ScLog.Warn(p.Name + " of " + e.Name + " is home, but the POI has no spot for them - they stand where they are");
+            if (p.HasHome) GuardAtSpot(p, npc);
+            AddPackage(npc);
+            ScCommunity.ResetStill(p.Who);
+            p.Who.AwaySeconds = 0;
+            EnsureLeader(e);
+        }
+
+        /// <summary>
         /// Everything a body of an enclave carries, the first one and every later one alike: never saved (Dynamic, the
         /// veto), its enclave's and person's cvars, the record's person (never a re-roll), the Guard order at the home spot,
-        /// the SCEnclave package, doors, the recorded health; and (E3) a leader's trade stock, the person's favour.
+        /// the SCEnclave package, doors, the recorded health; and (E3) a leader's trade stock, the person's favour. E5: home
+        /// false - a missing person's body away from home (SpawnAt) - leaves out the spot's Guard order and the package.
         /// </summary>
-        private static void Dress(Enclave e, EncPerson p, EntityAlive npc)
+        private static void Dress(Enclave e, EncPerson p, EntityAlive npc, bool home = true)
         {
             npc.SetSpawnerSource(EnumSpawnerSource.Dynamic);
             npc.Buffs.SetCustomVar(EncCvar, e.Id);
@@ -755,8 +814,11 @@ namespace SurvivorCommunity
                 ScTraits.ApplyBuffs(p.Who, npc);
                 ScProfile.Stamp(p.Who, npc);
             }
-            GuardAtSpot(p, npc);
-            AddPackage(npc);
+            if (home)
+            {
+                GuardAtSpot(p, npc);
+                AddPackage(npc);
+            }
             ScDoors.Enable(npc, true);
             int max = npc.GetMaxHealth();
             if (max > 0) npc.Health = Mathf.Clamp(Mathf.RoundToInt(p.Health * max), 1, max);
@@ -789,7 +851,7 @@ namespace SurvivorCommunity
             ScNpc.SetGuard(npc, at, look);
         }
 
-        private static void AddPackage(EntityAlive npc)
+        internal static void AddPackage(EntityAlive npc)
         {
             if (npc.AIPackages == null) return;
             if (!UAI.UAIBase.AIPackages.ContainsKey(Package))
@@ -845,10 +907,31 @@ namespace SurvivorCommunity
         private static void Unbody(EncPerson p, bool caches)
         {
             if (p.EntityId < 0) return;
+            if (p.Missing) ScEncSearch.OnUnbodied(p, OwnBody(p));      // E5: one following the player waits where the body was
             ScEnclaveDeals.OnUnbodied(p, OwnBody(p));
             Forget(p.EntityId, caches);
             p.LastEntityId = p.EntityId;
             p.EntityId = -1;
+        }
+
+        /// <summary>
+        /// E5: a missing person's body is no longer theirs (they died in the record, or came home with no walk) - the lookups
+        /// forget it; it stays in the world (and in the veto: never saved) until the search removes it unseen (RemoveStray).
+        /// </summary>
+        internal static void ForgetBody(EncPerson p)
+        {
+            Unbody(p, false);
+        }
+
+        /// <summary>E5: a body nobody's any more (ForgetBody) out of the world for good, its caches with it (SweepOrphans' way).</summary>
+        internal static void RemoveStray(EntityAlive npc)
+        {
+            if (npc == null) return;
+            int id = npc.entityId;
+            Forget(id, true);
+            capturingId = id;
+            try { ScRuns.RemoveEntity(npc); }
+            finally { capturingId = -1; }
         }
 
         /// <summary>
@@ -1133,9 +1216,9 @@ namespace SurvivorCommunity
             Visit v = VisitOf(e.Id);
             List<Spot> cands = Candidates(w, e);
             var taken = new List<Vector3i>();
-            // the living's spots (E3: one enlisted with the player comes back to theirs)
+            // the living's spots (E3: one enlisted with the player comes back to theirs; E5: so does one gone missing)
             foreach (EncPerson q in ScRegistry.EncPeople)
-                if (q != p && q.EnclaveId == e.Id && q.Alive && q.HasHome) taken.Add(q.Home);
+                if (q != p && q.EnclaveId == e.Id && (q.Alive || q.Missing) && q.HasHome) taken.Add(q.Home);
             GameRandom r = w.GetGameRandom();
             Spot s;
             if (!Pick(e, cands, p.IsLeader, taken, v.Bad, r, out s))
@@ -1160,11 +1243,24 @@ namespace SurvivorCommunity
         {
             Visit v = VisitOf(e.Id);
             if (v.Spots != null) return v.Spots;
+            int want = Math.Max(GroupSize(e), PeopleOf(e).Count) + 4;
+            int fromSleepers;
+            List<Spot> list = SpotsIn(w, ScEnclaves.PoiOf(e), e.Poi, e.Size, e.Centre, want, out fromSleepers);
+            v.Spots = list;
+            ScLog.Verbose("enclave " + e.Id + " '" + e.Name + "': " + list.Count + " home spot(s) to choose from, " + fromSleepers + " of them sleeper spawn points");
+            return list;
+        }
+
+        /// <summary>
+        /// The spot candidates of a POI's footprint (poi: its key, size: its rotated size, centre: what a scanned spot faces),
+        /// its chunks loaded: Candidates' search (above), for an enclave's POI and (E5) the building a missing survivor waits in.
+        /// fromSleepers: how many are sleeper spawn points.
+        /// </summary>
+        internal static List<Spot> SpotsIn(World w, PrefabInstance pi, Vector3i poi, Vector3i size, Vector3 centre, int want, out int fromSleepers)
+        {
             var list = new List<Spot>();
             var seen = new HashSet<Vector3i>();
-            int want = Math.Max(GroupSize(e), PeopleOf(e).Count) + 4;
             string why;
-            PrefabInstance pi = ScEnclaves.PoiOf(e);
             SleeperVolume[] vols = null;
             if (pi != null) { try { vols = pi.sleeperVolumes.ToArray(); } catch (Exception) { vols = null; } }
             if (vols != null)
@@ -1176,16 +1272,16 @@ namespace SurvivorCommunity
                     for (int i = 0; i < pts.Count; i++)
                     {
                         Vector3i pos = pts[i].pos;
-                        if (!e.Contains(pos.x, pos.z) || !seen.Add(pos)) continue;
+                        if (!InFootprint(poi, size, pos.x, pos.z) || !seen.Add(pos)) continue;
                         int rank = ScCommunity.GoodPost(w, pos, true, out why) ? 0 : ScCommunity.GoodPost(w, pos, false, out why) ? 1 : -1;
                         if (rank >= 0) list.Add(new Spot { Pos = pos, Yaw = pts[i].rot, Rank = rank, Roofed = Roofed(w, pos) });
                     }
                 }
             }
-            int fromSleepers = list.Count;
+            fromSleepers = list.Count;
             if (list.Count < want)
             {
-                int x0 = e.Poi.x + 1, x1 = e.Poi.x + Math.Max(1, e.Size.x) - 2, z0 = e.Poi.z + 1, z1 = e.Poi.z + Math.Max(1, e.Size.z) - 2;
+                int x0 = poi.x + 1, x1 = poi.x + Math.Max(1, size.x) - 2, z0 = poi.z + 1, z1 = poi.z + Math.Max(1, size.z) - 2;
                 int cols = 0;
                 for (int x = x0; x <= x1 && cols < MaxScanColumns; x += ScanStep)
                 {
@@ -1196,13 +1292,17 @@ namespace SurvivorCommunity
                         Vector3i post;
                         int tier;
                         if (!ScCommunity.FindPost(w, x, z, w.GetTerrainHeight(x, z) + 1, null, out post, out tier) || tier > ScCommunity.TierRelaxed || !seen.Add(post)) continue;
-                        list.Add(new Spot { Pos = post, Yaw = FaceCentre(e, post), Rank = 2 + tier, Roofed = Roofed(w, post) });
+                        list.Add(new Spot { Pos = post, Yaw = FaceCentre(centre, post), Rank = 2 + tier, Roofed = Roofed(w, post) });
                     }
                 }
             }
-            v.Spots = list;
-            ScLog.Verbose("enclave " + e.Id + " '" + e.Name + "': " + list.Count + " home spot(s) to choose from, " + fromSleepers + " of them sleeper spawn points");
             return list;
+        }
+
+        /// <summary>Is (x, z) in the footprint (Enclave.Contains for any POI)?</summary>
+        internal static bool InFootprint(Vector3i poi, Vector3i size, int x, int z)
+        {
+            return x >= poi.x && x < poi.x + size.x && z >= poi.z && z < poi.z + size.z;
         }
 
         private static bool Pick(Enclave e, List<Spot> cands, bool leader, List<Vector3i> taken, HashSet<Vector3i> bad, GameRandom r, out Spot best)
@@ -1263,7 +1363,11 @@ namespace SurvivorCommunity
         /// <summary>The yaw that faces the footprint's centre from a spot (a column scan's spot has no authored rotation).</summary>
         private static float FaceCentre(Enclave e, Vector3i p)
         {
-            Vector3 c = e.Centre;
+            return FaceCentre(e.Centre, p);
+        }
+
+        private static float FaceCentre(Vector3 c, Vector3i p)
+        {
             float dx = c.x - (p.x + 0.5f), dz = c.z - (p.z + 0.5f);
             return dx * dx + dz * dz < 0.01f ? 0f : Mathf.Atan2(dx, dz) * Mathf.Rad2Deg;
         }
@@ -1290,10 +1394,15 @@ namespace SurvivorCommunity
                 // E3: one enlisted with the player died at their side - the hire undone first, quietly (the death tells)
                 bool wasEnlisted = p.Enlisted;
                 if (wasEnlisted) ScEnclaveDeals.EndEnlist(p, npc, null, "died", false);
+                // E5: one gone missing - found and waiting, or following the player home (the search undoes an escort's hire
+                // as the body goes: ScEncSearch.OnUnbodied); their request hears of the death after it is recorded
+                bool wasMissing = p.Missing;
+                Vector3 at = npc.position;
                 // the corpse is left to vanilla (its loot, its despawn) and stays out of every save (the veto)
                 Unbody(p, false);
                 Enclave e = ScEnclaves.ById(p.EnclaveId);
-                if (e != null) Died(e, p, npc.entityThatKilledMe, true, wasEnlisted);
+                if (e != null) Died(e, p, npc.entityThatKilledMe, true, wasEnlisted, wasMissing);
+                if (wasMissing) ScEncSearch.OnDied(p, at);
             }
             catch (Exception ex)
             {
@@ -1307,9 +1416,10 @@ namespace SurvivorCommunity
         /// while a spot in view held the rest back) does not - the rest come, a new leader first. A kill by the player (or a
         /// companion of theirs) turns a friendly or neutral enclave hostile (Q6 a); a dead leader's place and spot go to the next.
         /// E3: one who died enlisted with the player costs EnclaveEnlistDeathPenalty standing and says so in the ledger; a
-        /// favour they asked is off.
+        /// favour they asked is off. E5: one who died missing (found, or following the player home) is told wherever the
+        /// player is - they were there.
         /// </summary>
-        private static void Died(Enclave e, EncPerson p, EntityAlive killer, bool real, bool wasEnlisted)
+        private static void Died(Enclave e, EncPerson p, EntityAlive killer, bool real, bool wasEnlisted, bool wasMissing = false)
         {
             bool wasLeader = p.IsLeader;
             p.State = EncPerson.StateDead;
@@ -1318,14 +1428,18 @@ namespace SurvivorCommunity
             p.Role = EncPerson.MemberRole;             // one leader among the living
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));
-            if (wasEnlisted || Near(e, pl)) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncDied"), p.Name, e.Name), "");
+            if (wasEnlisted || wasMissing || Near(e, pl)) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncDied"), p.Name, e.Name), "");
             if (wasEnlisted && ScConfig.EnclaveEnlistDeathPenalty > 0) ScEnclaves.AddStanding(e, -ScConfig.EnclaveEnlistDeathPenalty, p.Name + " died while enlisted with the player");
             ScEnclaveDeals.DropFavour(p, "they died");
             EntityPlayer by = KillerPlayer(killer);
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + (wasLeader ? "the leader " : "") + p.Name + " (p" + p.Id + ") died"
                       + (killer != null ? " - killed by " + ScCommunity.DisplayName(killer) + (by != null && !ReferenceEquals(by, killer) ? " (" + by.EntityName + "'s)" : "") : real ? "" : " (the console)"));
             List<EncPerson> living = Living(e);
-            if (living.Count == 0)
+            // E5 (the review's L1): one of theirs missing who may be alive (not found yet, waiting, following the player home)
+            // holds the fall off; it comes once they are lost or found dead with nobody else alive (ScEncSearch.CheckFalls)
+            if (living.Count == 0 && ScEncSearch.AnyAlive(e))
+                ScLog.Out("enclave " + e.Id + " '" + e.Name + "': nobody at home is alive, but one of theirs is missing and may be - the group stands while their search goes on");
+            else if (living.Count == 0)
             {
                 if (e.PeopleRolled || PeopleOf(e).Count >= GroupSize(e))
                 {
@@ -1791,6 +1905,20 @@ namespace SurvivorCommunity
             if (!ScConfig.Enclaves) return "Enclaves is off in the config";
             if (e.Lost) return "its POI is not in this world";
             if (!ChunksSettled(w, e)) return "its POI's chunks are not loaded and settled - go nearer";
+            int made = SpawnAll(e);
+            if (!ScEnclaves.All.Contains(e)) return "nobody of the group was alive and it needs no more - the enclave is gone";
+            return made + " body(ies) built - " + Summary(e);
+        }
+
+        /// <summary>
+        /// Everyone at home in the world at once (sc enclave spawn; E5: a siege's arrival): the group made first while it is
+        /// still being made, then a body for each person at home who has none - forced, E2's pace and the view rule ignored.
+        /// The POI's chunks must be settled (-1 when they are not). Returns how many bodies were built.
+        /// </summary>
+        internal static int SpawnAll(Enclave e)
+        {
+            World w = ScCommunity.World;
+            if (w == null || e == null || e.Lost || !ChunksSettled(w, e)) return -1;
             Hook(w);
             VisitOf(e.Id).NoSpawnUntil = 0f;
             int made = 0, guard = 0;
@@ -1799,14 +1927,14 @@ namespace SurvivorCommunity
                 if (Generate(w, e, true)) made++;
                 else if (!e.PeopleRolled) break;
             }
-            if (!ScEnclaves.All.Contains(e)) return "nobody of the group was alive and it needs no more - the enclave is gone";
+            if (!ScEnclaves.All.Contains(e)) return made;
             foreach (EncPerson p in PeopleOf(e))
             {
                 if (p.State != EncPerson.StateHome || p.EntityId >= 0) continue;
                 p.SpawnFailures = 0;
                 if (Spawn(w, e, p, true)) made++;
             }
-            return made + " body(ies) built - " + Summary(e);
+            return made;
         }
 
         /// <summary>sc enclave despawn &lt;id&gt;: its bodies go now (state recorded) and stay away ConsoleDespawnSeconds.</summary>
@@ -1824,7 +1952,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// sc enclave kill &lt;id&gt; [&lt;person id&gt;|all] (no argument: the leader): marked dead, the body removed (no
-        /// corpse). "all" is the whole group: those not made yet never will be, so it always ends in the fall.
+        /// corpse). "all" is the whole group: those not made yet never will be, so it ends in the fall (E5: held off while one
+        /// of theirs is missing and may be alive - ScEncSearch.AnyAlive; a second "all", with nobody alive, forces it).
         /// </summary>
         public static string Kill(Enclave e, string arg)
         {

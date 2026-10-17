@@ -7,6 +7,8 @@ using SurvivorCommunity;
 // answer from the records and roll nothing; they run when a statement's rows are built, not every frame. Actions check
 // everything again (the rows were built a moment earlier) and leave the leader's reply for the next statement ({reqreply}).
 // Host only: a client keeps no enclave records, so on a client every requirement fails and no request row shows.
+// E5 adds the stage rows ("I found <name>. I'm sorry.", "I already took care of it.", "I can't do it." only where it can be
+// given up) and the found survivor's own talk (ScEncSearch: "Your people sent me. Let's get you home.", "Wait here for me.").
 
 // ---------------------------------------------------------------- requirements ----
 
@@ -74,6 +76,67 @@ public class DialogRequirementScEncReqGun : BaseDialogRequirement
             return ScEncRequests.PickRow(i, player, npc, r) != null;
         }
         catch (Exception e) { ScLog.Once("req-encreqgun", e); return false; }
+    }
+}
+
+/// <summary>
+/// E5: value = a comma list of stage words (ScEncRequests.StageWord: a missing survivor's "find", "follow", "return"; an
+/// infestation's "clear", "cleared"; a siege's "called", "live"), a leading "!" for none of them: the leader's open request
+/// is (or is not) at that stage. E4's kinds have no stage word - they never match a list, and always match a "!" one. Host only.
+/// </summary>
+public class DialogRequirementScEncReqStage : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            Enclave e;
+            EnclaveRequest r;
+            if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) || r == null) return false;
+            string v = (Value ?? "").Trim();
+            bool not = v.StartsWith("!", StringComparison.Ordinal);
+            bool hit = ScEncReqOps.Listed(not ? v.Substring(1) : v, ScEncRequests.StageWord(r));
+            return not ? !hit : hit;
+        }
+        catch (Exception e) { ScLog.Once("req-encreqstage", e); return false; }
+    }
+}
+
+/// <summary>E5: "I can't do it." shows - the open request is accepted and one the player may give up (ScEncRequests.CanGiveUp). Host only.</summary>
+public class DialogRequirementScEncReqCanGiveUp : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            Enclave e;
+            EnclaveRequest r;
+            return ScEncRequests.LeaderTalking(player, talkingTo, out e, out r) && ScEncRequests.CanGiveUp(r);
+        }
+        catch (Exception e) { ScLog.Once("req-encreqcangiveup", e); return false; }
+    }
+}
+
+/// <summary>
+/// E5: value="alive" | "following": the NPC is a missing survivor's body (ScEncSearch), found and waiting, or following the
+/// player home (the dialog's phases pick their statement by it). Host only, one dictionary hit and a short list scan.
+/// </summary>
+public class DialogRequirementScEncSearch : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            EntityAlive npc;
+            EncPerson p;
+            EnclaveRequest r;
+            if (!ScEncSearch.Talking(player, talkingTo, out npc, out p, out r)) return false;
+            string v = (Value ?? "").Trim().ToLowerInvariant();
+            if (v == "following") return r.Stage == ScEncSearch.StageFollowing;
+            if (v == "alive") return r.Stage == ScEncSearch.StageAlive;
+            return r.Stage == ScEncSearch.StageAlive || r.Stage == ScEncSearch.StageFollowing;
+        }
+        catch (Exception e) { ScLog.Once("req-encsearch", e); return false; }
     }
 }
 
@@ -150,6 +213,46 @@ public class DialogActionScEncReqCantDo : BaseDialogAction
     {
         try { ScEncRequests.ActCantDo(player); }
         catch (Exception e) { ScLog.Once("act-encreqcantdo", e); }
+    }
+}
+
+/// <summary>E5, "I found &lt;name&gt;. I'm sorry.": a missing survivor's search done once their remains were searched (ScEncRequests.ActFound). Host only.</summary>
+public class DialogActionScEncReqFound : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try { ScEncRequests.ActFound(player); }
+        catch (Exception e) { ScLog.Once("act-encreqfound", e); }
+    }
+}
+
+/// <summary>E5, "I already took care of it.": an infestation request whose target was cleared already, done on the spot (ScEncRequests.ActCleared). Host only.</summary>
+public class DialogActionScEncReqCleared : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try { ScEncRequests.ActCleared(player); }
+        catch (Exception e) { ScLog.Once("act-encreqcleared", e); }
+    }
+}
+
+/// <summary>E5, "Your people sent me. Let's get you home.": a missing survivor follows the player home (ScEncSearch.ActFollow). Host only.</summary>
+public class DialogActionScEncFollow : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try { ScEncSearch.ActFollow(player); }
+        catch (Exception e) { ScLog.Once("act-encfollow", e); }
+    }
+}
+
+/// <summary>E5, "Wait here for me.": a missing survivor following the player waits where they stand (ScEncSearch.ActWait). Host only.</summary>
+public class DialogActionScEncWait : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try { ScEncSearch.ActWait(player); }
+        catch (Exception e) { ScLog.Once("act-encwait", e); }
     }
 }
 

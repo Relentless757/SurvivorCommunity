@@ -47,6 +47,11 @@ namespace SurvivorCommunity
         /// closes: the day after, plus EnclaveRequestCooldownDays (0: any day).
         /// </summary>
         public int NextRequestDay;
+        /// <summary>
+        /// E5: the kind of a request done while the player was away (an infestation cleared, a siege beaten, a survivor brought
+        /// home who ran ahead): the leader thanks the player for it at the next talk, once ("": nothing owed).
+        /// </summary>
+        public string Thanks = "";
         /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
         public int Standing;
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
@@ -461,6 +466,7 @@ namespace SurvivorCommunity
             foreach (Prospect p in ScRegistry.Prospects.Values) if (p.Favour == FavourKind.Poi && !p.Done) r.Taken.Add(p.PoiPos);
             foreach (Member m in ScRegistry.Members.Values) if (ScRunners.IsPhysical(m)) r.Taken.Add(m.RunDest);
             foreach (Scout s in ScRegistry.Community.Scouts) r.Taken.Add(s.Poi);     // a radio scouting mark still on the map
+            ScEncRequests.AddTargets(r.Taken);       // E5: a missing survivor's building, an infestation an enclave asked to clear
             // the POIs the player's quests in progress lead to: an enclave there would lock a trader quest already taken out
             EntityPlayerLocal qp = ScCommunity.LocalPlayer;
             if (qp != null && qp.QuestJournal != null && qp.QuestJournal.quests != null)
@@ -1178,12 +1184,15 @@ namespace SurvivorCommunity
         /// A group is gone (E2: its last person died; E5: a lost siege): its bodies and records go, the marker comes off and
         /// its POI is given back - the sleeper areas it kept clear respawn after the loot respawn wait, and claims, quests,
         /// infestations, wild spawns and containers are allowed again once the lookups rebuild. A ledger line and a tell
-        /// ("is gone", for raiders "you wiped out"), the log, a save; then the Fallen seam (E6's refill).
+        /// ("is gone", for raiders "you wiped out"), the log, a save; then the Fallen seam (E6's refill). E5 (Q13 a): a siege
+        /// still open there is lost with them (ScEncSiege.OnFalling), and their building is infested once its record is out of
+        /// the lookups (ScEncSiege.AfterFall).
         /// </summary>
         public static void Fall(Enclave e, string cause)
         {
             if (e == null || !All.Contains(e)) return;
             World w = ScCommunity.World;
+            bool siege = ScEncSiege.OnFalling(e, cause);                          // E5: before the request is withdrawn
             ScEncRequests.Withdraw(e, "the group is gone (" + cause + ")");     // E4: before the record goes
             ScEnclavePeople.DropPeople(e);
             RemoveMarker(e);
@@ -1195,6 +1204,7 @@ namespace SurvivorCommunity
             ScOutposts.NoteLedger(string.Format(Localization.Get(e.Hostile ? "scEncLedgerWipedOut" : "scEncLedgerGone"), e.Name, e.PoiName));
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' at " + e.PoiName + " is gone (" + cause + ")"
                       + (released > 0 ? " - " + released + " sleeper area(s) respawn after the loot respawn wait" : ""));
+            if (siege) ScEncSiege.AfterFall(e);                                 // E5: the dead have their building now
             ScRegistry.SaveAtomic();
             Action<Enclave, string> fallen = Fallen;
             if (fallen != null)

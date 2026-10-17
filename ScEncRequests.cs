@@ -9,12 +9,14 @@ namespace SurvivorCommunity
     /// [encrequest] section (forward-only). Offered: the leader asks, and the offer stands to the end of LapseDay. Accepted:
     /// the player took it on - a journal quest mirrors it (QuestCode) - and it is due by the end of DueDay. A closed request
     /// leaves the records (ScEncRequests.Close), its ledger line stays. Days are the request clock's (ScEncRequests.Now:
-    /// the world's day, ahead of it only after "sc day"). E5 adds the missing survivor, the infestation and the siege; their
-    /// fields are reserved at the end (saved when set, unused by E4).
+    /// the world's day, ahead of it only after "sc day"). E5 adds the missing survivor (ScEncSearch), the infestation
+    /// (ScEncInfest) and the siege (ScEncSiege): their fields are at the end, saved when set.
     /// </summary>
     public sealed class EnclaveRequest
     {
         public const string KindResource = "resource", KindGenerator = "generator", KindGun = "gun";
+        /// <summary>E5's kinds: a missing survivor and an infestation to clear (offered as E4's are), a siege (a call: never offered).</summary>
+        public const string KindMissing = "missing", KindInfestation = "infestation", KindSiege = "siege";
         public const string StateOffered = "offered", StateAccepted = "accepted";
 
         public int Id;
@@ -33,15 +35,34 @@ namespace SurvivorCommunity
         /// <summary>The journal quest that mirrors an accepted request (Quest.QuestCode; 0: none).</summary>
         public int QuestCode;
 
-        // ---- E5's room, unused by E4: a target POI, an infestation, a person, a world-time deadline ----
+        // ---- E5: a target POI, an infestation, a person, a world-time deadline ----
         public bool HasTarget;
         public Vector3i Target;
         public int InfestationId = -1;
         public int PersonId = -1;
         public ulong Deadline;
+        /// <summary>
+        /// Where an E5 request stands: a missing survivor (ScEncSearch.Stage*: not rolled yet, alive and waiting, following the
+        /// player, dead - their remains -, the remains searched); an infestation (ScEncInfest: 0 its target live, 1 cleared
+        /// while it was still an offer); a siege (ScEncSiege: 0 called, 1 live).
+        /// </summary>
+        public int Stage;
+        /// <summary>E5: the target POI's name (the building searched, the infested one).</summary>
+        public string TargetName = "";
+        /// <summary>E5, a missing survivor: where they wait or lie (the remains) and the way they face there.</summary>
+        public bool HasSpot;
+        public Vector3i Spot;
+        public float SpotYaw;
+        /// <summary>E5, a missing survivor following the player: the player's entity id and the body's (a load ends it).</summary>
+        public int EscortBy = -1, EscortBody = -1;
+        /// <summary>E5, a siege: its size, how many came and died, and the world time it went live (0: not yet).</summary>
+        public int SiegeSize, SiegeSpawned, SiegeKilled;
+        public ulong SiegeStarted;
 
         public bool IsOffered { get { return State == StateOffered; } }
         public bool IsAccepted { get { return State == StateAccepted; } }
+        /// <summary>One of E5's kinds.</summary>
+        public bool IsE5 { get { return Kind == KindMissing || Kind == KindInfestation || Kind == KindSiege; } }
     }
 
     /// <summary>
@@ -71,13 +92,26 @@ namespace SurvivorCommunity
     /// its exact slot, worth EnclaveGunTierPoints by tier x quality (Q11). Close is the one way out: the standing change
     /// for the band at that moment (EnclaveLoss*), the journal quest closed (completed, or removed as failed),
     /// SurvivorOrigins' favour event for one done (Q16 a), a ledger line, a tell when the band changed, the log, a save.
-    /// E5 reuses it for its kinds. Host only, main thread.
+    /// E5 reuses it for its kinds: the rescue event for a survivor brought home and a siege beaten (Q16 a), the outcomes
+    /// "held" (a siege that held without the player) and "lost" (a siege lost: the enclave falls), and each kind's own
+    /// ending (ScEncSearch.OnClosed, ScEncSiege.OnClosed). Host only, main thread.
+    ///
+    /// E5 (E5_SPEC.md; Enclaves_Plan.md 2.10 kinds 4-6, Q12 a, Q13 a, Q16 a, Q17): the missing survivor (ScEncSearch) and the
+    /// infestation to clear (ScEncInfest) join the daily roll (EnclaveRequestKindWeights, only where the enclave has someone
+    /// who could go missing and a building to search, or an infestation near it), due EnclaveDueDaysSearch days after
+    /// acceptance; the siege (ScEncSiege) has its own pace and is a call, never an offer.
     /// </summary>
     public static class ScEncRequests
     {
         public const string Done = "done", Declined = "declined", Failed = "failed", Expired = "expired", Lapsed = "lapsed", Withdrawn = "withdrawn";
-        /// <summary>The kinds E4 makes (E5 adds missing, infestation, siege). A saved request of another kind is dropped at load.</summary>
-        public static readonly string[] Kinds = { EnclaveRequest.KindResource, EnclaveRequest.KindGenerator, EnclaveRequest.KindGun };
+        /// <summary>E5's siege outcomes: it held out without the player (no standing), it was lost (the enclave falls).</summary>
+        public const string HeldOut = "held", Lost = "lost";
+        /// <summary>Every kind this build keeps (E4's three, E5's three). A saved request of another kind is dropped at load.</summary>
+        public static readonly string[] Kinds = { EnclaveRequest.KindResource, EnclaveRequest.KindGenerator, EnclaveRequest.KindGun,
+                                                  EnclaveRequest.KindMissing, EnclaveRequest.KindInfestation, EnclaveRequest.KindSiege };
+        /// <summary>The kinds the daily roll offers and EnclaveRequestKindWeights names (a siege has its own pace: ScEncSiege).</summary>
+        public static readonly string[] RollKinds = { EnclaveRequest.KindResource, EnclaveRequest.KindGenerator, EnclaveRequest.KindGun,
+                                                      EnclaveRequest.KindMissing, EnclaveRequest.KindInfestation };
         /// <summary>The sizes of a resource request, by units (EnclaveRequestSizeWeights).</summary>
         public static readonly string[] Sizes = { "small", "medium", "large" };
         /// <summary>The gun pick's rows (scEncReqGun0..3): the 2 least and the 2 most valuable guns carried, or all of 4 or fewer.</summary>
@@ -156,6 +190,8 @@ namespace SurvivorCommunity
             synced = false;
             syncTries = 0;
             clockSaid = false;
+            foundRowFor = -1;
+            foundRowText = "";
         }
 
         /// <summary>
@@ -172,10 +208,14 @@ namespace SurvivorCommunity
             int max = 0;
             foreach (EnclaveRequest r in All) if (r.Id > max) max = r.Id;
             int dropped = 0;
+            bool siege = false;
             foreach (EnclaveRequest r in new List<EnclaveRequest>(All))
             {
-                if (!KnownKind(r.Kind) || (!r.IsOffered && !r.IsAccepted) || !enclaves.Add(r.EnclaveId))
+                // E5: a request its kind cannot work without (a hand-edited save) and a second siege (one at a time) go too
+                string bad = E5Fault(r, ref siege);
+                if (!KnownKind(r.Kind) || (!r.IsOffered && !r.IsAccepted) || !enclaves.Add(r.EnclaveId) || bad != null)
                 {
+                    if (bad != null) ScLog.Warn("enclave request #" + r.Id + ": " + bad);
                     All.Remove(r);
                     dropped++;
                     ScLog.Warn("enclave request #" + r.Id + " (" + r.Kind + ", " + r.State + ", enclave " + r.EnclaveId + ") is not one this build can keep - dropped");
@@ -200,6 +240,28 @@ namespace SurvivorCommunity
                 }
             }
             if (dropped > 0) ScLog.Out("enclave requests: " + dropped + " dropped at load (see above)");
+            ScEncSearch.OnRegistryChanged();     // E5: missing people squared with their requests, a following one waits again
+            ScEncSiege.OnRegistryChanged();      // E5: a live siege resumes from its counts
+        }
+
+        /// <summary>Why an E5 request cannot be kept as it was saved (null: it can). One siege at a time: the first is kept.</summary>
+        private static string E5Fault(EnclaveRequest r, ref bool siege)
+        {
+            switch (r.Kind)
+            {
+                case EnclaveRequest.KindMissing:
+                    if (r.IsAccepted && (r.PersonId <= 0 || !r.HasTarget)) return "a missing survivor's request without its person or building";
+                    return null;
+                case EnclaveRequest.KindInfestation:
+                    return r.InfestationId <= 0 || !r.HasTarget ? "an infestation request without its infestation" : null;
+                case EnclaveRequest.KindSiege:
+                    if (siege) return "a second siege (one at a time)";
+                    siege = true;
+                    if (r.IsOffered) r.State = EnclaveRequest.StateAccepted;     // a siege is a call: never an offer
+                    return r.Deadline == 0 && r.Stage == 0 ? "a siege without its deadline" : null;
+                default:
+                    return null;
+            }
         }
 
         // ------------------------------------------------------------------ lookups ----
@@ -218,6 +280,36 @@ namespace SurvivorCommunity
         {
             foreach (EnclaveRequest r in All) if (r.Id == id) return r;
             return null;
+        }
+
+        /// <summary>The open requests that count toward EnclaveRequestMaxOpen: every one but a siege (its own pace, ScEncSiege).</summary>
+        public static int OpenCount()
+        {
+            int n = 0;
+            foreach (EnclaveRequest r in All) if (r.Kind != EnclaveRequest.KindSiege) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// E5: the POIs open requests send the player to - a missing survivor's building, an infestation to clear - for the other
+        /// pickers' "in use" sets (radio contacts, supply runs, favours, scouting, the enclaves' and infestations' own rules).
+        /// </summary>
+        public static void AddTargets(ICollection<Vector3i> into)
+        {
+            foreach (EnclaveRequest r in All)
+                if (r.HasTarget && (r.Kind == EnclaveRequest.KindMissing || r.Kind == EnclaveRequest.KindInfestation)) into.Add(r.Target);
+        }
+
+        /// <summary>E5: is this POI an open request's target (AddTargets)? A short list scan.</summary>
+        public static bool IsTarget(Vector3i key)
+        {
+            List<EnclaveRequest> all = All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                EnclaveRequest r = all[i];
+                if (r.HasTarget && r.Target == key && (r.Kind == EnclaveRequest.KindMissing || r.Kind == EnclaveRequest.KindInfestation)) return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -257,7 +349,7 @@ namespace SurvivorCommunity
         /// The words a statement says, by kind and band: stem_kind_band, then stem_kind, stem_band and stem (missions 4.3's
         /// fallbacks). The first one Localization has.
         /// </summary>
-        private static string LineKey(string stem, string kind, string band)
+        internal static string LineKey(string stem, string kind, string band)
         {
             string k = stem + "_" + kind + "_" + band;
             if (Localization.Exists(k)) return k;
@@ -267,7 +359,10 @@ namespace SurvivorCommunity
             return Localization.Exists(k) ? k : stem;
         }
 
-        /// <summary>"a medium bundle of medicine", "a generator bank", "a gun": what the request asks for.</summary>
+        /// <summary>
+        /// "a medium bundle of medicine", "a generator bank", "a gun": what the request asks for; E5's "word of Mara", "clearing
+        /// the Shotgun Messiah factory", "help against a siege".
+        /// </summary>
         public static string WhatText(EnclaveRequest r)
         {
             if (r == null) return "";
@@ -276,6 +371,9 @@ namespace SurvivorCommunity
                 case EnclaveRequest.KindResource: return string.Format(Loc("scEncReqWhatResource"), SizeWord(r.Units), Loc("scEncReqRes" + r.Res));
                 case EnclaveRequest.KindGenerator: return Loc("scEncReqWhatGenerator");
                 case EnclaveRequest.KindGun: return Loc("scEncReqWhatGun");
+                case EnclaveRequest.KindMissing: return string.Format(Loc("scEncReqWhatMissing"), ScEncSearch.PersonName(r));
+                case EnclaveRequest.KindInfestation: return string.Format(Loc("scEncReqWhatInfest"), r.TargetName);
+                case EnclaveRequest.KindSiege: return Loc("scEncReqWhatSiege");
                 default: return r.Kind;
             }
         }
@@ -328,16 +426,29 @@ namespace SurvivorCommunity
                 c.EncRequestDay = d;
                 foreach (EnclaveRequest r in All.ToArray())
                 {
+                    if (!All.Contains(r)) continue;      // closed meanwhile by another's ending
                     Enclave e = ScEnclaves.ById(r.EnclaveId);
                     if (e == null || e.IsHostile || e.Lost)
                     {
                         Close(r, Withdrawn, e == null ? "the enclave is gone" : e.Lost ? "their building is not in this world" : "they are hostile");
                         continue;
                     }
+                    // E5: a siege's clock is the ticker's (ScEncSiege); an infestation that ended unseen is squared first
+                    if (r.Kind == EnclaveRequest.KindSiege) continue;
+                    if (r.Kind == EnclaveRequest.KindInfestation && ScEncInfest.Squared(r, d)) continue;
                     if (r.IsOffered && d > r.LapseDay) Close(r, Lapsed, "unanswered past day " + r.LapseDay);
-                    else if (r.IsAccepted && d > r.DueDay) Close(r, Expired, "not delivered by day " + r.DueDay);
+                    else if (r.IsAccepted && d > r.DueDay)
+                    {
+                        // E5: one found alive and on the way home with the player does not run out on the road
+                        if (r.Kind == EnclaveRequest.KindMissing && r.Stage == ScEncSearch.StageFollowing) continue;
+                        Close(r, Expired, "not delivered by day " + r.DueDay);
+                    }
                 }
-                if (d >= ScCommunity.Today) Roll(d, player);
+                if (d >= ScCommunity.Today)
+                {
+                    Roll(d, player);
+                    ScEncSiege.Daily(d, player);         // E5: the day's siege roll and its hour
+                }
             }
             catch (Exception e)
             {
@@ -380,12 +491,13 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The day's new offers: every eligible enclave in a shuffled order (a day's own seed), each rolling the chance for its
-        /// band, until EnclaveRequestMaxOpen are open across the map.
+        /// band, until EnclaveRequestMaxOpen are open across the map (a siege is not counted: E5). The kind is one this enclave
+        /// can be given (E5: someone who could go missing and a building to search; an infestation near it).
         /// </summary>
         private static void Roll(int day, EntityPlayerLocal player)
         {
             int max = Math.Max(0, ScConfig.EnclaveRequestMaxOpen);
-            if (All.Count >= max) return;
+            if (OpenCount() >= max) return;
             var cands = new List<Enclave>();
             foreach (Enclave e in ScEnclaves.All)
                 if (Eligible(e, day) == null) cands.Add(e);
@@ -403,11 +515,11 @@ namespace SurvivorCommunity
                 }
                 foreach (Enclave e in cands)
                 {
-                    if (All.Count >= max) break;
+                    if (OpenCount() >= max) break;
                     float chance = ChanceFor(e);
                     if (rnd.RandomFloat >= chance) continue;
-                    string kind = PickKind(rnd, day);
-                    if (kind == null) break;
+                    string kind = PickKind(e, rnd, day);
+                    if (kind == null) continue;
                     Offer(e, kind, day, rnd, -1, 0, player, "the day's roll (" + Mathf.RoundToInt(chance * 100f) + "%)");
                 }
             }
@@ -432,21 +544,30 @@ namespace SurvivorCommunity
             return null;
         }
 
-        /// <summary>A kind by EnclaveRequestKindWeights; generators only from day EnclaveGeneratorFromDay. Null when no kind weighs anything.</summary>
-        private static string PickKind(GameRandom rnd, int day)
+        /// <summary>
+        /// A kind by EnclaveRequestKindWeights among the ones this enclave can be given (CanOffer); generators only from day
+        /// EnclaveGeneratorFromDay. Null when none weighs anything. (E4 picked among every kind: E5's two need something the
+        /// enclave may not have, so the kinds it cannot take are left out of the draw rather than drawn and dropped.)
+        /// </summary>
+        private static string PickKind(Enclave e, GameRandom rnd, int day)
         {
+            var ok = new List<KeyValuePair<string, float>>();
             float total = 0f;
-            foreach (string k in Kinds) total += KindWeight(k, day);
+            foreach (string k in RollKinds)
+            {
+                float wt = KindWeight(k, day);
+                if (wt <= 0f || CanOffer(e, k) != null) continue;
+                ok.Add(new KeyValuePair<string, float>(k, wt));
+                total += wt;
+            }
             if (total <= 0f) return null;
             float x = rnd.RandomFloat * total;
             string last = null;
-            foreach (string k in Kinds)
+            foreach (var kv in ok)
             {
-                float wt = KindWeight(k, day);
-                if (wt <= 0f) continue;
-                last = k;
-                if (x < wt) return k;
-                x -= wt;
+                last = kv.Key;
+                if (x < kv.Value) return kv.Key;
+                x -= kv.Value;
             }
             return last;
         }
@@ -454,8 +575,25 @@ namespace SurvivorCommunity
         private static float KindWeight(string kind, int day)
         {
             if (kind == EnclaveRequest.KindGenerator && day < ScConfig.EnclaveGeneratorFromDay) return 0f;
+            if (kind == EnclaveRequest.KindInfestation && !ScConfig.Infestations) return 0f;     // E5: I1 switched off
             float wt;
             return ScConfig.EnclaveRequestKindWeights.TryGetValue(kind, out wt) ? Math.Max(0f, wt) : 0f;
+        }
+
+        /// <summary>
+        /// Why this enclave cannot be given a request of this kind now (null when it can): E4's three always can; E5's missing
+        /// survivor needs someone at home besides the leader and a building to search (ScEncSearch), the infestation one near
+        /// them or room to start one (ScEncInfest). The siege is never offered.
+        /// </summary>
+        public static string CanOffer(Enclave e, string kind)
+        {
+            switch (kind)
+            {
+                case EnclaveRequest.KindMissing: return ScEncSearch.CanOffer(e);
+                case EnclaveRequest.KindInfestation: return ScEncInfest.CanOffer(e);
+                case EnclaveRequest.KindSiege: return "a siege is a call, never an offer (sc enclave siege)";
+                default: return null;
+            }
         }
 
         /// <summary>The units a resource request asks (1 small, 2 medium, 3 large) by EnclaveRequestSizeWeights; small when none weighs anything.</summary>
@@ -493,10 +631,22 @@ namespace SurvivorCommunity
         /// <summary>
         /// A new offer from an enclave (the daily roll, or "sc enclave request offer"): the record (res &lt; 0 and units 0:
         /// rolled), the radio's announcement when one is powered (a tell and a ledger line) - otherwise the leader asks in
-        /// person - the log and a save.
+        /// person - the log and a save. E5: an infestation request names its target now (one near them, or one started for it:
+        /// ScEncInfest.PickTarget) - null when there is none; a missing survivor's person and building are picked at acceptance.
         /// </summary>
         public static EnclaveRequest Offer(Enclave e, string kind, int day, GameRandom rnd, int res, int units, EntityPlayerLocal player, string why)
         {
+            Infestation target = null;
+            if (kind == EnclaveRequest.KindInfestation)
+            {
+                string no;
+                target = ScEncInfest.PickTarget(e, player, out no);
+                if (target == null)
+                {
+                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "': no infestation request after all (" + no + ")");
+                    return null;
+                }
+            }
             Community c = ScRegistry.Community;
             var r = new EnclaveRequest
             {
@@ -512,6 +662,8 @@ namespace SurvivorCommunity
                 r.Res = res >= 0 && res < Asked ? (Resource)res : PickResource(e, rnd);
                 r.Units = units >= 1 && units <= 3 ? units : PickUnits(rnd);
             }
+            if (target != null) ScEncInfest.Name(r, target);
+            e.Thanks = "";        // E5: a thanks still owed for an earlier request is overtaken by the new one
             All.Add(r);
             bool heard = ScRadio.Online();
             if (heard)
@@ -525,11 +677,18 @@ namespace SurvivorCommunity
             return r;
         }
 
-        /// <summary>"resource: 2 meds (medium)" - the log's and the console's short form.</summary>
+        /// <summary>"resource: 2 meds (medium)" - the log's and the console's short form (E5: "missing: p12 at X (alive)", ...).</summary>
         public static string Describe(EnclaveRequest r)
         {
             if (r == null) return "-";
-            return r.Kind + (r.Kind == EnclaveRequest.KindResource ? ": " + r.Units + " " + ScNames.Key(r.Res) + " (" + Sizes[Mathf.Clamp(r.Units, 1, 3) - 1] + ")" : "");
+            switch (r.Kind)
+            {
+                case EnclaveRequest.KindResource: return r.Kind + ": " + r.Units + " " + ScNames.Key(r.Res) + " (" + Sizes[Mathf.Clamp(r.Units, 1, 3) - 1] + ")";
+                case EnclaveRequest.KindMissing: return ScEncSearch.Describe(r);
+                case EnclaveRequest.KindInfestation: return ScEncInfest.Describe(r);
+                case EnclaveRequest.KindSiege: return ScEncSiege.Describe(r);
+                default: return r.Kind;
+            }
         }
 
         // ------------------------------------------------------------------ accepting and closing ----
@@ -538,16 +697,30 @@ namespace SurvivorCommunity
         /// "Leave it with me." (and "sc enclave request accept"): due by the end of day now + EnclaveDueDaysItems - 1; the journal
         /// quest (quest_scEncRequest: the title "Help &lt;enclave&gt;", what and by when, the marker on their building) is
         /// added for the player. The record is the authority: without a journal (no player, the quest class missing) it is
-        /// accepted all the same. False when it is not an open offer.
+        /// accepted all the same. False when it is not an open offer. E5: a missing survivor's person goes missing now and
+        /// their building is picked (ScEncSearch.Prepare; withdrawn when that cannot be), an infestation's target becomes
+        /// known; both are due EnclaveDueDaysSearch days on, in their own journal quests (ScQuests.StartRequest).
         /// </summary>
         public static bool Accept(EnclaveRequest r, EntityPlayerLocal player, string why)
         {
             Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
             if (e == null || !r.IsOffered || !All.Contains(r)) return false;
             int now = Now;
+            if (r.Kind == EnclaveRequest.KindMissing)
+            {
+                // E5: the person goes missing now, and the building they were last seen at is picked
+                string no;
+                if (!ScEncSearch.Prepare(r, e, out no))
+                {
+                    Close(r, Withdrawn, "it cannot be taken on: " + no);
+                    return false;
+                }
+            }
             r.State = EnclaveRequest.StateAccepted;
             r.AcceptDay = now;
-            r.DueDay = now + Math.Max(1, ScConfig.EnclaveDueDaysItems) - 1;
+            int due = r.Kind == EnclaveRequest.KindMissing || r.Kind == EnclaveRequest.KindInfestation ? ScConfig.EnclaveDueDaysSearch : ScConfig.EnclaveDueDaysItems;
+            r.DueDay = now + Math.Max(1, due) - 1;
+            if (r.Kind == EnclaveRequest.KindInfestation) ScEncInfest.MakeKnown(r, player);     // E5: the leader told the player where
             string error = null;
             Quest q = player != null ? ScQuests.StartRequest(player, e, r, WhatText(r), out error) : null;
             r.QuestCode = q != null ? q.QuestCode : 0;
@@ -564,9 +737,12 @@ namespace SurvivorCommunity
         /// nothing for a withdrawn one or a hostile enclave), the journal quest closed (completed, or removed as failed), the
         /// enclave's cooldown, SurvivorOrigins' favour event for one done, a ledger line, a tell when the band changed (and
         /// when it lapsed or ran out), the log, a save. what: the ledger's words for what was handed over (null: the request's).
+        /// E5: ev - the Leadership event for one done (null: favour; the rescue event for a survivor brought home and a siege
+        /// beaten, Q16 a); "held" (a siege held without the player: no standing, the quest completed) and "lost" (a siege lost:
+        /// no standing - the enclave falls next) are outcomes too; each kind's own ending follows (KindClosed).
         /// Returns the standing it moved.
         /// </summary>
-        public static int Close(EnclaveRequest r, string outcome, string reason, int gain = 0, string what = null)
+        public static int Close(EnclaveRequest r, string outcome, string reason, int gain = 0, string what = null, string ev = null)
         {
             if (r == null || !All.Contains(r)) return 0;
             Enclave e = ScEnclaves.ById(r.EnclaveId);
@@ -584,7 +760,7 @@ namespace SurvivorCommunity
                 }
             }
             // the journal mirror first, while the record still names it
-            if (pl != null) CloseQuest(pl, r, outcome == Done);
+            if (pl != null) CloseQuest(pl, r, outcome == Done || outcome == HeldOut);
             All.Remove(r);
             if (pick != null && pick.RequestId == r.Id) pick = null;
             int moved = 0;
@@ -606,7 +782,8 @@ namespace SurvivorCommunity
                     if (bandChanged && !e.IsHostile) ScCommunity.Tell(pl, string.Format(Loc("scEncReqBandTell"), e.Name, ScEnclaves.StandingWord(e)), "");
                 }
             }
-            if (outcome == Done) ScLeadership.Count(ScLeadership.FavourEvent);
+            if (outcome == Done) ScLeadership.Count(ev ?? ScLeadership.FavourEvent);
+            KindClosed(r, outcome);
             ScLog.Out("enclave " + r.EnclaveId + (e != null ? " '" + e.Name + "'" : "") + ": request #" + r.Id + " (" + Describe(r) + ", " + r.State + ") " + outcome
                       + (moved != 0 ? ", standing " + (moved > 0 ? "+" : "") + moved + (e != null ? " (" + ScEnclaves.StandingKey(e) + ")" : "") : "")
                       + " - " + reason + (e != null ? "; the next one from day " + e.NextRequestDay : ""));
@@ -624,11 +801,42 @@ namespace SurvivorCommunity
             if (r != null) Close(r, Withdrawn, why);
         }
 
+        /// <summary>E5: each kind's own ending, after the record left the list (a missing survivor's person and remains, a siege's attackers).</summary>
+        private static void KindClosed(EnclaveRequest r, string outcome)
+        {
+            try
+            {
+                if (r.Kind == EnclaveRequest.KindMissing) ScEncSearch.OnClosed(r, outcome);
+                else if (r.Kind == EnclaveRequest.KindSiege) ScEncSiege.OnClosed(r, outcome);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("encreq-kindclosed", ex);
+            }
+        }
+
         private static string LedgerLine(Enclave e, EnclaveRequest r, string outcome, int moved, bool bandChanged, string what)
         {
             string delta = moved == 0 ? Loc("scEncReqLedgerNoChange")
                          : bandChanged ? string.Format(Loc("scEncReqLedgerDeltaBand"), (moved > 0 ? "+" : "") + moved, ScEnclaves.StandingWord(e))
                          : string.Format(Loc("scEncReqLedgerDelta"), (moved > 0 ? "+" : "") + moved);
+            // E5's own words for a request done, a siege held or lost
+            switch (r.Kind + ":" + outcome)
+            {
+                case EnclaveRequest.KindMissing + ":" + Done:
+                    return string.Format(Loc(r.Stage == ScEncSearch.StageSearched ? "scEncReqLedgerFound" : "scEncReqLedgerHome"), e.Name, what ?? ScEncSearch.PersonName(r), delta);
+                case EnclaveRequest.KindMissing + ":" + Failed:
+                {
+                    // one who died following the player home (a give-up leaves them missing until OnClosed)
+                    EncPerson p = ScEncSearch.PersonById(r.PersonId);
+                    if (p != null && p.State == EncPerson.StateDead) return string.Format(Loc("scEncReqLedgerDiedHome"), e.Name, p.Name, delta);
+                    break;
+                }
+                case EnclaveRequest.KindInfestation + ":" + Done: return string.Format(Loc("scEncReqLedgerCleared"), e.Name, what ?? r.TargetName, delta);
+                case EnclaveRequest.KindSiege + ":" + Done: return string.Format(Loc("scEncReqLedgerSiegeWon"), e.Name, delta);
+                case EnclaveRequest.KindSiege + ":" + HeldOut: return string.Format(Loc("scEncReqLedgerSiegeHeld"), e.Name);
+                case EnclaveRequest.KindSiege + ":" + Lost: return string.Format(Loc("scEncReqLedgerSiegeLost"), e.Name);
+            }
             switch (outcome)
             {
                 case Done: return string.Format(Loc("scEncReqLedgerDone"), e.Name, what ?? WhatText(r), delta);
@@ -640,10 +848,24 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The gain for a request done of a kind (a gun's is its own: GunPoints).</summary>
-        private static int GainFor(EnclaveRequest r)
+        /// <summary>The gain for a request done of a kind (a gun's is its own: GunPoints; E5's from EnclaveGainMissing*, ...Infestation, ...Siege).</summary>
+        internal static int GainFor(EnclaveRequest r)
         {
-            return r.Kind == EnclaveRequest.KindGenerator ? ScConfig.EnclaveGainGenerator : ScConfig.EnclaveGainResource;
+            switch (r.Kind)
+            {
+                case EnclaveRequest.KindGenerator: return ScConfig.EnclaveGainGenerator;
+                case EnclaveRequest.KindMissing: return r.Stage == ScEncSearch.StageSearched ? ScConfig.EnclaveGainMissingDead : ScConfig.EnclaveGainMissingAlive;
+                case EnclaveRequest.KindInfestation: return ScConfig.EnclaveGainInfestation;
+                case EnclaveRequest.KindSiege: return ScConfig.EnclaveGainSiege;
+                default: return ScConfig.EnclaveGainResource;
+            }
+        }
+
+        /// <summary>E5: the Leadership event for a request done (Q16 a): rescue for a survivor brought home alive and a siege beaten, else favour.</summary>
+        internal static string EventFor(EnclaveRequest r)
+        {
+            bool rescue = r.Kind == EnclaveRequest.KindSiege || (r.Kind == EnclaveRequest.KindMissing && r.Stage != ScEncSearch.StageSearched);
+            return rescue ? ScLeadership.RescueEvent : ScLeadership.FavourEvent;
         }
 
         // ------------------------------------------------------------------ the journal mirror ----
@@ -652,7 +874,7 @@ namespace SurvivorCommunity
         /// The request's journal quest in progress: by the request id it carries, else by its code - two quests added in one
         /// frame can share a vanilla code (the E4 review's L1).
         /// </summary>
-        private static Quest QuestOf(EntityPlayer player, EnclaveRequest r)
+        internal static Quest QuestOf(EntityPlayer player, EnclaveRequest r)
         {
             QuestJournal j = player != null ? player.QuestJournal : null;
             if (j == null || j.quests == null || r == null) return null;
@@ -673,20 +895,66 @@ namespace SurvivorCommunity
             if (q != null) ScQuests.CloseRequest(player, q, completed);
         }
 
-        /// <summary>ScTicker, every second: the once-a-session journal pass, as soon as the player's journal is there.</summary>
+        /// <summary>
+        /// E5: where a request's journal quest points - E4's kinds and a siege at the enclave's building; a missing survivor's
+        /// at the building searched (or, once they wait somewhere else, that spot) until they follow the player or their
+        /// remains were searched, then at the enclave; an infestation's at the infested building.
+        /// </summary>
+        public static void RequestPlace(EnclaveRequest r, Enclave e, out Vector3i at, out Vector3i size, out string name)
+        {
+            at = e.Poi;
+            size = e.Size;
+            name = e.PoiName;
+            if (r == null) return;
+            if (r.Kind == EnclaveRequest.KindMissing) ScEncSearch.Place(r, e, ref at, ref size, ref name);
+            else if (r.Kind == EnclaveRequest.KindInfestation) ScEncInfest.Place(r, ref at, ref size, ref name);
+        }
+
+        /// <summary>
+        /// E5's stage word for the journal and the dialog (ScEncReqStage): a missing survivor "find", "follow", "return"; an
+        /// infestation "clear", or "cleared" once it was cleared while still an offer; a siege "called" or "live". "" for E4's.
+        /// </summary>
+        public static string StageWord(EnclaveRequest r)
+        {
+            if (r == null) return "";
+            switch (r.Kind)
+            {
+                case EnclaveRequest.KindMissing: return r.Stage == ScEncSearch.StageFollowing ? "follow" : r.Stage == ScEncSearch.StageSearched ? "return" : "find";
+                case EnclaveRequest.KindInfestation: return r.Stage == ScEncInfest.StageCleared ? "cleared" : "clear";
+                case EnclaveRequest.KindSiege: return r.Stage == ScEncSiege.StageLive ? "live" : "called";
+                default: return "";
+            }
+        }
+
+        /// <summary>E5: the request's journal quest made to match the record after a stage change (ScQuests.ShapeRequest), when there is one.</summary>
+        internal static void Reshape(EnclaveRequest r)
+        {
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
+            Quest q = pl != null && e != null ? QuestOf(pl, r) : null;
+            if (q != null) ScQuests.ShapeRequest(q, r, e);
+        }
+
+        /// <summary>
+        /// ScTicker, every second: the once-a-session journal pass, as soon as the player's journal is there; then E5's live
+        /// parts - a missing survivor's search (the fate, the body, the remains: ScEncSearch) and the siege (the call, the clock,
+        /// the fight: ScEncSiege).
+        /// </summary>
         public static void Tick(World w, EntityPlayerLocal player)
         {
             try
             {
-                if (synced || !ScEnclaves.Ready || player == null || player.QuestJournal == null || !ScRegistry.Loaded) return;
                 // done, or tried a few seconds running while the player's record was not there to add a quest to
-                synced = SyncJournal(player) || ++syncTries >= MaxSyncTries;
+                if (!synced && ScEnclaves.Ready && player != null && player.QuestJournal != null && ScRegistry.Loaded)
+                    synced = SyncJournal(player) || ++syncTries >= MaxSyncTries;
             }
             catch (Exception e)
             {
                 synced = true;
                 ScLog.Once("encreq-tick", e);
             }
+            ScEncSearch.Tick(w, player);
+            ScEncSiege.Tick(w, player);
         }
 
         /// <summary>
@@ -724,11 +992,17 @@ namespace SurvivorCommunity
                 if (q == null || q.CurrentState != Quest.QuestState.InProgress || !ScQuests.IsRequestQuest(q)) continue;
                 EnclaveRequest r = ById(ScQuests.RequestIdOf(q));
                 Enclave e = r != null ? ScEnclaves.ById(r.EnclaveId) : null;
-                if (r == null || !r.IsAccepted || e == null || !mirrored.Add(r.Id)) { gone.Add(q); continue; }
+                // E5: a quest of another kind's class than its request's (a hand-edited save) is made again as its own
+                bool ownClass = r != null && string.Equals(q.ID, ScQuests.RequestQuestIdFor(r), StringComparison.OrdinalIgnoreCase);
+                if (r == null || !r.IsAccepted || e == null || !ownClass || !mirrored.Add(r.Id)) { gone.Add(q); continue; }
                 kept++;
                 if (r.QuestCode != q.QuestCode) { r.QuestCode = q.QuestCode; changed = true; }
-                ScQuests.FollowRequestPoi(q, e);
-                SyncDue(q, r);
+                if (r.IsE5) ScQuests.ShapeRequest(q, r, e);         // E5: its place, stage, phase and due day as the record has them
+                else
+                {
+                    ScQuests.FollowRequestPoi(q, e);
+                    SyncDue(q, r);                                  // the journal's due day follows the record (the E4 re-check's R1)
+                }
             }
             foreach (Quest q in gone) ScQuests.CloseRequest(player, q, false);
             if (ScConfig.Enclaves)
@@ -1043,6 +1317,22 @@ namespace SurvivorCommunity
         /// <summary>The request's state for the dialog: "none", "offered" or "accepted".</summary>
         public static string StateWord(EnclaveRequest r) { return r == null ? "none" : r.State; }
 
+        /// <summary>
+        /// E5: "I can't do it." shows for an accepted request the player can give up - every E4 kind, an infestation, a search
+        /// not at its end (never while the person follows the player, nor once their remains were found: then it is "I found
+        /// ..."); never a siege (E6's radio answers a siege call).
+        /// </summary>
+        public static bool CanGiveUp(EnclaveRequest r)
+        {
+            if (r == null || !r.IsAccepted) return false;
+            switch (r.Kind)
+            {
+                case EnclaveRequest.KindMissing: return r.Stage != ScEncSearch.StageFollowing && r.Stage != ScEncSearch.StageSearched;
+                case EnclaveRequest.KindSiege: return false;
+                default: return true;
+            }
+        }
+
         /// <summary>The player carries what the request asks: the units in bundles, a generator, a gun that counts.</summary>
         public static bool PlayerHas(EnclaveRequest r, EntityPlayer player)
         {
@@ -1075,40 +1365,87 @@ namespace SurvivorCommunity
             return pick != null && i < pick.Rows.Count ? pick.Rows[i] : null;
         }
 
+        /// <summary>E5: the leader's row "I found &lt;name&gt;. I'm sorry." (its words through the row's binding, as the gun pick's).</summary>
+        public const string FoundRowId = "scEncReqFound";
+        private static int foundRowFor = -1;
+        private static string foundRowText = "";
+
         /// <summary>
         /// The response entry's "response" binding (Patches_Enclaves.Patch_DialogRowText) for a row whose text starts with '{':
-        /// a gun pick row's text, made when the pick was. Every frame: one prefix test, then a list read.
+        /// a gun pick row's text, made when the pick was. Every frame: one prefix test, then a list read. E5's found row: the
+        /// person's name in it, made once per request.
         /// </summary>
         public static void FillRow(XUiC_DialogResponseEntry entry, ref string value)
         {
             if (entry == null || !entry.HasRequirement || !ScCommunity.IsHost) return;
             DialogResponse resp = entry.CurrentResponse;
             string id = resp != null ? resp.ID : null;
+            if (id == FoundRowId) { value = FoundRow(); return; }
             if (id == null || id.Length != GunRowPrefix.Length + 1 || !id.StartsWith(GunRowPrefix, StringComparison.Ordinal)) return;
             int i = id[id.Length - 1] - '0';
             GunPick p = pick;
             value = p != null && i >= 0 && i < p.Rows.Count ? p.Rows[i].Row : "";
         }
 
+        /// <summary>"I found Mara. I'm sorry." for the leader being talked to (made again only for another request).</summary>
+        private static string FoundRow()
+        {
+            Enclave e;
+            EnclaveRequest r;
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            if (pl == null || !LeaderTalking(pl, null, out e, out r) || r == null || r.Kind != EnclaveRequest.KindMissing) return "";
+            if (r.Id != foundRowFor)
+            {
+                foundRowFor = r.Id;
+                foundRowText = string.Format(Loc("scEncReqFoundRow"), ScEncSearch.PersonName(r));
+            }
+            return foundRowText;
+        }
+
         /// <summary>
         /// The line panel's request tokens (ScEncDialog.Fill): {reqask} the offer, {reqwait} the wait, {reqreply} what the
         /// last request action left. Each is a line chosen by kind and band (the part a voice can say) and a sentence with
-        /// the specifics.
+        /// the specifics. E5's {reqnone}: "nothing right now", or the thanks they owe for a request done while the player was
+        /// away (a cleared infestation, a siege beaten, a survivor brought home: Enclave.Thanks) - once.
         /// </summary>
         public static string FillTokens(string s, Enclave e)
         {
             if (s.IndexOf("{reqask}", StringComparison.Ordinal) >= 0) s = s.Replace("{reqask}", AskText(e));
             if (s.IndexOf("{reqwait}", StringComparison.Ordinal) >= 0) s = s.Replace("{reqwait}", WaitText(e));
             if (s.IndexOf("{reqreply}", StringComparison.Ordinal) >= 0) s = s.Replace("{reqreply}", reply != null && reply.EnclaveId == e.Id ? reply.Text : Loc("scEncReqGone"));
+            if (s.IndexOf("{reqnone}", StringComparison.Ordinal) >= 0) s = s.Replace("{reqnone}", NoneText(e));
             return s;
+        }
+
+        /// <summary>E5: the leader with nothing to ask - their thanks for a request done while the player was away (once), else "nothing right now".</summary>
+        private static string NoneText(Enclave e)
+        {
+            if (string.IsNullOrEmpty(e.Thanks)) return Loc("scEncReqNothingLine");
+            string line = Loc(LineKey("scEncThanks", e.Thanks, ScEnclaves.StandingKey(e)));
+            e.Thanks = "";
+            ScRegistry.SaveAtomic();
+            return line;
         }
 
         private static string AskText(Enclave e)
         {
             EnclaveRequest r = Of(e);
             if (r == null || !r.IsOffered) return Loc("scEncReqGone");
-            string info = string.Format(Loc(r.Kind == EnclaveRequest.KindResource ? "scEncReqOfferInfoRes" : "scEncReqOfferInfo"), WhatText(r),
-                                        Math.Max(1, ScConfig.EnclaveDueDaysItems), r.LapseDay);
+            int search = Math.Max(1, ScConfig.EnclaveDueDaysSearch);
+            string info;
+            switch (r.Kind)
+            {
+                // E5: who is missing is said once the player agrees (they go missing then); the infestation is named - and known now
+                case EnclaveRequest.KindMissing: info = string.Format(Loc("scEncReqOfferInfoMissing"), search, r.LapseDay); break;
+                case EnclaveRequest.KindInfestation:
+                    ScEncInfest.MakeKnown(r, ScCommunity.LocalPlayer);
+                    info = string.Format(Loc("scEncReqOfferInfoInfest"), r.TargetName, ScEncInfest.WhereText(r, e), search, r.LapseDay);
+                    break;
+                default:
+                    info = string.Format(Loc(r.Kind == EnclaveRequest.KindResource ? "scEncReqOfferInfoRes" : "scEncReqOfferInfo"), WhatText(r),
+                                         Math.Max(1, ScConfig.EnclaveDueDaysItems), r.LapseDay);
+                    break;
+            }
             return Loc(LineKey("scEncAsk", r.Kind, ScEnclaves.StandingKey(e))) + " " + info;
         }
 
@@ -1116,7 +1453,15 @@ namespace SurvivorCommunity
         {
             EnclaveRequest r = Of(e);
             if (r == null || !r.IsAccepted) return Loc("scEncReqGone");
-            return Loc(LineKey("scEncWait", r.Kind, ScEnclaves.StandingKey(e))) + " " + string.Format(Loc("scEncReqWaitInfo"), WhatText(r), r.DueDay);
+            string info;
+            switch (r.Kind)
+            {
+                case EnclaveRequest.KindMissing: info = ScEncSearch.WaitInfo(r); break;
+                case EnclaveRequest.KindInfestation: info = string.Format(Loc("scEncReqWaitInfoInfest"), r.TargetName, r.DueDay); break;
+                case EnclaveRequest.KindSiege: info = ScEncSiege.WaitInfo(r); break;
+                default: info = string.Format(Loc("scEncReqWaitInfo"), WhatText(r), r.DueDay); break;
+            }
+            return Loc(LineKey("scEncWait", r.Kind, ScEnclaves.StandingKey(e))) + " " + info;
         }
 
         private static void SetReply(Enclave e, string text)
@@ -1141,7 +1486,10 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>"Leave it with me.": the offer accepted (Accept), "Thank you. We'll be here." and by when.</summary>
+        /// <summary>
+        /// "Leave it with me.": the offer accepted (Accept), "Thank you. We'll be here." and by when. E5: a missing survivor's
+        /// reply names them and where they were last seen; an infestation already cleared is done at once instead.
+        /// </summary>
         public static void ActAccept(EntityPlayer player)
         {
             Enclave e;
@@ -1149,8 +1497,52 @@ namespace SurvivorCommunity
             if (!Acting(player, out e, out r)) return;
             if (r == null || !r.IsOffered) { SetReply(e, Loc("scEncReqGone")); return; }
             string band = ScEnclaves.StandingKey(e);
+            if (r.Kind == EnclaveRequest.KindInfestation && ScEncInfest.IsCleared(r)) { DoneCleared(e, r, band); return; }
             if (!Accept(r, player as EntityPlayerLocal, "the player said yes")) { SetReply(e, Loc("scEncReqGone")); return; }
-            SetReply(e, Loc(LineKey("scEncAccepted", r.Kind, band)) + " " + string.Format(Loc("scEncReqAcceptInfo"), WhatText(r), r.DueDay));
+            string info;
+            switch (r.Kind)
+            {
+                case EnclaveRequest.KindMissing: info = string.Format(Loc("scEncReqAcceptInfoMissing"), ScEncSearch.PersonName(r), r.TargetName, r.DueDay); break;
+                case EnclaveRequest.KindInfestation: info = string.Format(Loc("scEncReqAcceptInfoInfest"), r.TargetName, r.DueDay); break;
+                default: info = string.Format(Loc("scEncReqAcceptInfo"), WhatText(r), r.DueDay); break;
+            }
+            SetReply(e, Loc(LineKey("scEncAccepted", r.Kind, band)) + " " + info);
+        }
+
+        /// <summary>
+        /// E5, "I found &lt;name&gt;. I'm sorry." (a missing survivor whose remains the player searched): the request done
+        /// (+EnclaveGainMissingDead, SurvivorOrigins' favour event), the leader's grief by band.
+        /// </summary>
+        public static void ActFound(EntityPlayer player)
+        {
+            Enclave e;
+            EnclaveRequest r;
+            if (!Acting(player, out e, out r)) return;
+            if (r == null || r.Kind != EnclaveRequest.KindMissing || !r.IsAccepted || r.Stage != ScEncSearch.StageSearched) { SetReply(e, Loc("scEncReqGone")); return; }
+            string band = ScEnclaves.StandingKey(e);
+            int moved = Close(r, Done, "the player told them", GainFor(r), ScEncSearch.PersonName(r), EventFor(r));
+            SetReply(e, Loc(LineKey("scEncFound", r.Kind, band)) + " " + Aside(moved));
+        }
+
+        /// <summary>
+        /// E5, "I already took care of it." (an infestation request whose target the player cleared before agreeing to it):
+        /// checked again - cleared through I1's own path, or its record gone with the building reading clear - and done
+        /// (+EnclaveGainInfestation, the favour event), their thanks by band.
+        /// </summary>
+        public static void ActCleared(EntityPlayer player)
+        {
+            Enclave e;
+            EnclaveRequest r;
+            if (!Acting(player, out e, out r)) return;
+            if (r == null || r.Kind != EnclaveRequest.KindInfestation) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (!ScEncInfest.IsCleared(r)) { SetReply(e, Loc("scEncReqNotCleared")); return; }
+            DoneCleared(e, r, ScEnclaves.StandingKey(e));
+        }
+
+        private static void DoneCleared(Enclave e, EnclaveRequest r, string band)
+        {
+            int moved = Close(r, Done, "the infestation was cleared already", GainFor(r), r.TargetName, EventFor(r));
+            SetReply(e, Loc(LineKey("scEncThanks", r.Kind, band)) + " " + Aside(moved));
         }
 
         /// <summary>
@@ -1233,6 +1625,9 @@ namespace SurvivorCommunity
             if (!Acting(player, out e, out r)) return;
             if (r == null || !r.IsOffered) { SetReply(e, Loc("scEncReqGone")); return; }
             string band = ScEnclaves.StandingKey(e);
+            // E5 (the review's N2): an infestation cleared while it was an offer is no work to refuse - it is done (the No row
+            // hides then; this is a stale dialog's case)
+            if (ScEncInfest.IsCleared(r)) { DoneCleared(e, r, band); return; }
             int moved = Close(r, Declined, "the player said no");
             SetReply(e, Loc(LineKey("scEncDeclined", r.Kind, band)) + " " + Aside(moved));
         }
@@ -1249,13 +1644,13 @@ namespace SurvivorCommunity
             ScLog.Verbose("enclave request #" + r.Id + ": the player will think about it (the offer stands to the end of day " + r.LapseDay + ")");
         }
 
-        /// <summary>"I can't do it.": the accepted request failed now - EnclaveLossFail by band.</summary>
+        /// <summary>"I can't do it.": the accepted request failed now - EnclaveLossFail by band (E5: only one that can be given up, CanGiveUp).</summary>
         public static void ActCantDo(EntityPlayer player)
         {
             Enclave e;
             EnclaveRequest r;
             if (!Acting(player, out e, out r)) return;
-            if (r == null || !r.IsAccepted) { SetReply(e, Loc("scEncReqGone")); return; }
+            if (r == null || !r.IsAccepted || !CanGiveUp(r)) { SetReply(e, Loc("scEncReqGone")); return; }
             string band = ScEnclaves.StandingKey(e);
             int moved = Close(r, Failed, "the player gave it up");
             SetReply(e, Loc(LineKey("scEncCantDo", r.Kind, band)) + " " + Aside(moved));
@@ -1272,31 +1667,48 @@ namespace SurvivorCommunity
         private static string Line(EnclaveRequest r)
         {
             Enclave e = ScEnclaves.ById(r.EnclaveId);
-            return "#" + r.Id + " " + (e != null ? e.Name + " (enclave " + e.Id + ", " + ScEnclaves.StandingKey(e) + ")" : "enclave " + r.EnclaveId + " (gone)") + ": "
-                   + Describe(r) + " - " + WhatText(r) + " - "
-                   + (r.IsOffered ? "offered on day " + r.OfferDay + ", stands to the end of day " + r.LapseDay + " (" + Left(r.LapseDay) + ")"
-                                  : "accepted on day " + r.AcceptDay + ", due by the end of day " + r.DueDay + " (" + Left(r.DueDay) + "), journal quest "
-                                    + (r.QuestCode != 0 ? r.QuestCode.ToString() : "none"));
+            string head = "#" + r.Id + " " + (e != null ? e.Name + " (enclave " + e.Id + ", " + ScEnclaves.StandingKey(e) + ")" : "enclave " + r.EnclaveId + " (gone)") + ": "
+                          + Describe(r) + " - " + WhatText(r) + " - ";
+            string quest = "journal quest " + (r.QuestCode != 0 ? r.QuestCode.ToString() : "none");
+            // E5: a siege runs on its own clock, not the day's
+            if (r.Kind == EnclaveRequest.KindSiege) return head + "called on day " + r.AcceptDay + ", " + ScEncSiege.ClockText(r) + ", " + quest;
+            return head + (r.IsOffered ? "offered on day " + r.OfferDay + ", stands to the end of day " + r.LapseDay + " (" + Left(r.LapseDay) + ")"
+                                       : "accepted on day " + r.AcceptDay + ", due by the end of day " + r.DueDay + " (" + Left(r.DueDay) + "), " + quest);
         }
 
-        /// <summary>sc enclave requests: every open one.</summary>
+        /// <summary>sc enclave requests: every open one; E5: the siege clock (the day's roll, the hour of a call, a live one).</summary>
         public static void ListLines(List<string> into)
         {
             int today = ScCommunity.Today;
-            into.Add(All.Count + " open request(s) of at most " + ScConfig.EnclaveRequestMaxOpen + "; the request clock is day " + Now
+            into.Add(OpenCount() + " open request(s) of at most " + ScConfig.EnclaveRequestMaxOpen + " (a siege not counted); the request clock is day " + Now
                      + (Now > today ? " (ahead of the world's day " + today + ": sc day)" : "") + "; a day's chance " + Pct(ScConfig.EnclaveRequestChanceNeutral) + "/"
                      + Pct(ScConfig.EnclaveRequestChanceFriendly) + "/" + Pct(ScConfig.EnclaveRequestChanceAllied) + " (neutral/friendly/allied), generators from day "
-                     + ScConfig.EnclaveGeneratorFromDay);
+                     + ScConfig.EnclaveGeneratorFromDay + ", kinds " + KindsText());
+            into.Add("  " + ScEncSiege.ScheduleLine());
             foreach (EnclaveRequest r in All) into.Add("  " + Line(r));
+        }
+
+        private static string KindsText()
+        {
+            var parts = new List<string>();
+            foreach (string k in RollKinds)
+            {
+                float wt;
+                ScConfig.EnclaveRequestKindWeights.TryGetValue(k, out wt);
+                parts.Add(k + ":" + wt.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            }
+            return string.Join(",", parts.ToArray());
         }
 
         private static string Pct(float f) { return Mathf.RoundToInt(f * 100f) + "%"; }
 
         /// <summary>
         /// sc enclave request &lt;id&gt; [offer &lt;kind&gt; [resource] [size] [force] | accept | complete [points] | fail | lapse |
-        /// clear] (testing): the enclave's request, or one made or moved now. offer ignores the chance and the cooldown and
-        /// refuses at the EnclaveRequestMaxOpen cap without "force"; complete and fail apply the real outcome, standing and
-        /// journal included; clear withdraws it and the cooldown with it.
+        /// clear | fate alive|dead] (testing): the enclave's request, or one made or moved now. offer ignores the chance and the
+        /// cooldown and refuses at the EnclaveRequestMaxOpen cap without "force"; complete and fail apply the real outcome,
+        /// standing and journal included; clear withdraws it and the cooldown with it. E5: offer missing|infestation (only
+        /// where it can be given: CanOffer); a missing survivor's "fate alive|dead" settles the roll the next arrival makes; a
+        /// siege is "sc enclave siege".
         /// </summary>
         public static void Command(Enclave e, List<string> p, List<string> into)
         {
@@ -1310,7 +1722,9 @@ namespace SurvivorCommunity
                     into.Add(e.Name + " (enclave " + e.Id + ", " + ScEnclaves.StandingWord(e) + "): " + (r != null ? Line(r) : "no open request"));
                     string why = Eligible(e, Now);
                     into.Add("  the daily roll: " + (why ?? "eligible, " + Pct(ChanceFor(e)) + " a day") + (e.NextRequestDay > 0 ? "; cooldown to day " + e.NextRequestDay : "")
-                             + "; " + All.Count + " of at most " + ScConfig.EnclaveRequestMaxOpen + " open");
+                             + "; " + OpenCount() + " of at most " + ScConfig.EnclaveRequestMaxOpen + " open");
+                    into.Add("  E5: missing " + (CanOffer(e, EnclaveRequest.KindMissing) ?? "can be offered") + "; infestation "
+                             + (CanOffer(e, EnclaveRequest.KindInfestation) ?? "can be offered") + "; siege " + (ScEncSiege.WhyNot(e, pl, false) ?? "can be called"));
                     return;
                 }
                 case "offer":
@@ -1319,7 +1733,14 @@ namespace SurvivorCommunity
                     if (e.IsHostile || e.Lost) { into.Add(e.Name + " makes no requests (" + (e.IsHostile ? "hostile" : "its building is not in this world") + ")"); return; }
                     if (!e.Known) { into.Add(e.Name + " is not found yet: sc enclave reveal " + e.Id); return; }
                     string kind = p.Count > 4 ? p[4].ToLowerInvariant() : "";
-                    if (!KnownKind(kind)) { into.Add("sc enclave request " + e.Id + " offer <" + string.Join("|", Kinds) + "> [resource] [small|medium|large] [force]"); return; }
+                    if (Array.IndexOf(RollKinds, kind) < 0)
+                    {
+                        into.Add(kind == EnclaveRequest.KindSiege ? "a siege is a call, not an offer: sc enclave siege " + e.Id + " now"
+                                 : "sc enclave request " + e.Id + " offer <" + string.Join("|", RollKinds) + "> [resource] [small|medium|large] [force]");
+                        return;
+                    }
+                    string cannot = CanOffer(e, kind);
+                    if (cannot != null) { into.Add(e.Name + " cannot be given a " + kind + " request: " + cannot); return; }
                     bool force = false;
                     int res = -1, units = 0;
                     for (int i = 5; i < p.Count; i++)
@@ -1333,32 +1754,51 @@ namespace SurvivorCommunity
                         else if (ScNames.TryResource(a, out rr) && (int)rr < Asked) res = (int)rr;
                         else { into.Add("unknown argument '" + p[i] + "' (a resource: food|meds|ammo|mats|fuel; a size: small|medium|large; force)"); return; }
                     }
-                    if (All.Count >= ScConfig.EnclaveRequestMaxOpen && !force) { into.Add(All.Count + " requests are open (EnclaveRequestMaxOpen " + ScConfig.EnclaveRequestMaxOpen + "): add force to go past it"); return; }
+                    if (OpenCount() >= ScConfig.EnclaveRequestMaxOpen && !force) { into.Add(OpenCount() + " requests are open (EnclaveRequestMaxOpen " + ScConfig.EnclaveRequestMaxOpen + "): add force to go past it"); return; }
                     World w = ScCommunity.World;
                     GameRandom rnd = w != null ? w.GetGameRandom() : null;
                     r = Offer(e, kind, Now, rnd, res, units, pl, "the console");
-                    into.Add("offered: " + Line(r));
+                    into.Add(r != null ? "offered: " + Line(r) : "no offer: no infestation could be named or started near " + e.Name + " (the log says why)");
                     return;
                 }
             }
             if (r == null) { into.Add(e.Name + " has no open request (sc enclave request " + e.Id + " offer <kind>)"); return; }
+            // E5: a siege is settled through its own command
+            if (r.Kind == EnclaveRequest.KindSiege && verb != "clear") { into.Add("#" + r.Id + " is a siege: sc enclave siege " + e.Id + " [win|lose|clear]"); return; }
             switch (verb)
             {
                 case "accept":
                     if (!r.IsOffered) { into.Add("#" + r.Id + " is accepted already"); return; }
-                    Accept(r, pl, "the console");
+                    if (ScEncInfest.IsCleared(r))
+                    {
+                        // E5: as the dialog's "Leave it with me." - an infestation cleared while it was an offer is done on the spot
+                        int done = Close(r, Done, "the console (its infestation was cleared already)", GainFor(r), r.TargetName, EventFor(r));
+                        into.Add("#" + r.Id + ": its infestation was cleared already - done at once, standing " + (done >= 0 ? "+" : "") + done + " - " + e.Name + " " + e.Standing);
+                        return;
+                    }
+                    if (!Accept(r, pl, "the console")) { into.Add("#" + r.Id + " could not be accepted (the log says why)"); return; }
                     into.Add("accepted: " + Line(r));
                     return;
                 case "complete":
                 {
+                    // E5: a missing survivor whose remains lie there is "found dead" (+EnclaveGainMissingDead); else they come home alive
+                    if (r.Kind == EnclaveRequest.KindMissing && r.Stage == ScEncSearch.StageDead) r.Stage = ScEncSearch.StageSearched;
                     int gain = GainFor(r);
                     if (r.Kind == EnclaveRequest.KindGun)
                     {
                         int pts;
                         gain = p.Count > 4 && int.TryParse(p[4], out pts) ? Math.Max(0, pts) : GunPoints(1, 3);
                     }
-                    int moved = Close(r, Done, "the console", gain);
+                    int moved = Close(r, Done, "the console", gain, null, EventFor(r));
                     into.Add("#" + r.Id + " done: standing " + (moved >= 0 ? "+" : "") + moved + " - " + e.Name + " " + e.Standing + " (" + ScEnclaves.StandingWord(e) + ")");
+                    return;
+                }
+                case "fate":
+                {
+                    if (r.Kind != EnclaveRequest.KindMissing) { into.Add("#" + r.Id + " is no missing survivor's request"); return; }
+                    string f = p.Count > 4 ? p[4].ToLowerInvariant() : "";
+                    if (f != "alive" && f != "dead") { into.Add("sc enclave request " + e.Id + " fate <alive|dead>"); return; }
+                    into.Add(ScEncSearch.ForceFate(r, f == "alive"));
                     return;
                 }
                 case "fail":
@@ -1380,7 +1820,7 @@ namespace SurvivorCommunity
                     into.Add("#" + r.Id + " withdrawn, no standing change; the cooldown is cleared too");
                     return;
                 default:
-                    into.Add("sc enclave request <id> [offer <kind> [resource] [size] [force] | accept | complete [points] | fail | lapse | clear]");
+                    into.Add("sc enclave request <id> [offer <kind> [resource] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>]");
                     return;
             }
         }

@@ -1023,7 +1023,7 @@
 			<property name="EnclaveOfferLapseDays" value="3" />
 			<property name="EnclaveDueDaysItems" value="4" />
 			<property name="EnclaveGeneratorFromDay" value="10" />
-			<property name="EnclaveRequestKindWeights" value="resource:6,gun:3,generator:1" />
+			<property name="EnclaveRequestKindWeights" value="resource:6,gun:3,generator:1,missing:2,infestation:2" />
 			<property name="EnclaveRequestSizeWeights" value="small:5,medium:3,large:2" />
 			<property name="EnclaveGainResource" value="10" />
 			<property name="EnclaveGainGenerator" value="15" />
@@ -1037,6 +1037,63 @@
 			<property name="EnclaveLossDecline" value="5,5,12" />
 			<property name="EnclaveLossFail" value="8,8,15" />
 			<property name="EnclaveLossLapse" value="0,3,15" />
+
+			<!-- ENCLAVE REQUESTS, PART 2 (E5; Enclaves_Plan.md 2.10 kinds 4-6). Two more kinds join the daily roll above
+			     (EnclaveRequestKindWeights' missing and infestation), each due EnclaveDueDaysSearch days after you agree (the
+			     day you agree counts).
+			     A MISSING SURVIVOR: offered only while someone besides the leader is at home; when you agree, that person is
+			     missing, last seen at a building with sleepers EnclaveMissingMin..EnclaveMissingMax m away. The first time you get
+			     there they are alive with EnclaveMissingAlive on the day you agreed, EnclaveMissingAliveFade less each day after,
+			     never below EnclaveMissingAliveMin - alive, they wait indoors and follow you home ("Your people sent me. Let's
+			     get you home."; not counted toward MaxFollowers): +EnclaveGainMissingAlive once they are inside the enclave's
+			     grounds, and a death on the way fails it; dead, search their remains and tell the leader: +EnclaveGainMissingDead.
+			     AN INFESTATION: one within EnclaveInfestRange m of the enclave (or one started there for the request, within the
+			     infestations' own rules and cap); cleared, wherever you are: +EnclaveGainInfestation.
+			     A SIEGE (its own pace, about one a week): each day EnclaveSiegeChance that an enclave you know, not hostile, with
+			     no open request and within EnclaveSiegeRange m of you, calls over the radio at a random hour EnclaveSiegeHourMin..
+			     EnclaveSiegeHourMax - only with a powered radio at home or at an outpost, never in the blood-moon window (nor so
+			     close before it that the time to answer would still run when it opens), never while a base or outpost attack
+			     is fought. You have EnclaveSiegeMinutes real minutes (game time at the day's speed:
+			     the pause stops it, sleeping uses it up) to come within EnclaveSiegeArriveRange m. Then all of their people come
+			     out and a horde of (EnclaveSiegeBase + your gamestage x EnclaveSiegePerGS) x their people / 4 zombies,
+			     EnclaveSiegeMin..EnclaveSiegeMax, comes over the walls - one a second, EnclaveSiegeSpawnMin..EnclaveSiegeSpawnMax
+			     m beyond the grounds within EnclaveSiegeSpread degrees of their far side from you, at least
+			     EnclaveSiegeMinPlayerRange m from every player and never within EnclaveSiegeNoPopRange m in your view. All dead:
+			     +EnclaveGainSiege. Too late, or every one of them dead: the enclave falls and its building becomes an infestation.
+			     Leaving mid-fight (beyond twice the arrive range): the chance they hold is the share already killed plus
+			     EnclaveSiegeLeaveRoll for each of them alive - held earns nothing, lost falls. A fight that stalls
+			     EnclaveSiegeMaxHours game hours with no kill in the last hour is over. After a load mid-fight their people are
+			     all out again and the zombies still standing come back EnclaveSiegeResumeSeconds later. "sc enclave siege"
+			     tests it. -->
+			<property name="EnclaveDueDaysSearch" value="3" />
+			<property name="EnclaveMissingMin" value="200" />
+			<property name="EnclaveMissingMax" value="800" />
+			<property name="EnclaveMissingAlive" value="0.8" />
+			<property name="EnclaveMissingAliveFade" value="0.2" />
+			<property name="EnclaveMissingAliveMin" value="0.1" />
+			<property name="EnclaveInfestRange" value="300" />
+			<property name="EnclaveSiegeChance" value="0.15" />
+			<property name="EnclaveSiegeHourMin" value="8" />
+			<property name="EnclaveSiegeHourMax" value="20" />
+			<property name="EnclaveSiegeRange" value="2000" />
+			<property name="EnclaveSiegeMinutes" value="15" />
+			<property name="EnclaveSiegeArriveRange" value="70" />
+			<property name="EnclaveSiegeMaxHours" value="3" />
+			<property name="EnclaveSiegeBase" value="6" />
+			<property name="EnclaveSiegePerGS" value="0.12" />
+			<property name="EnclaveSiegeMin" value="4" />
+			<property name="EnclaveSiegeMax" value="30" />
+			<property name="EnclaveSiegeSpawnMin" value="25" />
+			<property name="EnclaveSiegeSpawnMax" value="50" />
+			<property name="EnclaveSiegeSpread" value="90" />
+			<property name="EnclaveSiegeMinPlayerRange" value="30" />
+			<property name="EnclaveSiegeNoPopRange" value="50" />
+			<property name="EnclaveSiegeResumeSeconds" value="15" />
+			<property name="EnclaveSiegeLeaveRoll" value="0.05" />
+			<property name="EnclaveGainMissingAlive" value="15" />
+			<property name="EnclaveGainMissingDead" value="8" />
+			<property name="EnclaveGainInfestation" value="15" />
+			<property name="EnclaveGainSiege" value="25" />
 
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
@@ -1343,6 +1400,31 @@
 			<property name="CustomIconTint" value="FFBE5A" />
 			<property name="DescriptionKey" value="scOutpostFlagDesc" />
 			<property name="SortOrder2" value="0001" />
+		</block>
+	</append>
+	<!-- E5, a missing survivor's remains (ScEncSearch, BlockScEncRemains): placed by the search where they were found dead,
+	     put back when something erased them, taken away when the search ends. "Search the body" tells the search; nothing to
+	     pick up, harvest or craft (vanilla's corpse model, single cell, standalone - no Extends: goreBlockHumanCorpse's harvest
+	     drops would come with it). -->
+	<append xpath="/blocks">
+		<block name="scEncRemains">
+			<property name="CreativeMode" value="None" />
+			<property name="Class" value="ScEncRemains, SurvivorCommunity" />
+			<property name="DescriptionKey" value="scEncRemainsDesc" />
+			<property name="CustomIcon" value="goreBlockHumanCorpse1" />
+			<property name="Material" value="Morganic" />
+			<property name="Shape" value="ModelEntity" />
+			<property name="Model" value="@:Entities/Zombies/Common/Prefabs/corpse1Prefab.prefab" />
+			<property name="ImposterExclude" value="true" />
+			<property name="ImposterDontBlock" value="true" />
+			<property name="WaterFlow" value="permitted" />
+			<property name="Collide" value="melee,bullet,arrow,rocket" />
+			<property name="IsTerrainDecoration" value="true" />
+			<property name="CanPickup" value="false" />
+			<property name="MaxDamage" value="5000" />
+			<drop event="Destroy" count="0" />
+			<drop event="Fall" count="0" prob="0" />
+			<property name="FilterTags" value="MC_building,SC_decor" />
 		</block>
 	</append>
 	<!-- BEGIN GENERATED: XnpcWeapons IZY Classic (Tools/gen_arsenal.py) -->

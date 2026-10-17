@@ -24,7 +24,10 @@ namespace SurvivorCommunity
         /// <summary>The prefab's DifficultyTier (from InfestHighTier up the rooms get InfestMultiplierHighTier).</summary>
         public int Tier;
         public int StartDay;
-        /// <summary>How it began: "roll" (the daily roll), "spread" (from Source) or "console". Later milestones add their own (a lost siege).</summary>
+        /// <summary>
+        /// How it began: "roll" (the daily roll), "spread" (from Source) or "console"; E5's "request" (started near an enclave
+        /// for its leader's request: ScInfestations.StartNear) and "siege" (an enclave lost to a siege: InfestFallen).
+        /// </summary>
         public string How = "roll";
         /// <summary>The infestation it spread from (0 = none: the daily roll or the console).</summary>
         public int Source;
@@ -330,6 +333,7 @@ namespace SurvivorCommunity
             foreach (Prospect p in ScRegistry.Prospects.Values) if (p.Favour == FavourKind.Poi && !p.Done) r.Taken.Add(p.PoiPos);
             foreach (Member m in ScRegistry.Members.Values) if (ScRunners.IsPhysical(m)) r.Taken.Add(m.RunDest);
             foreach (Scout s in ScRegistry.Community.Scouts) r.Taken.Add(s.Poi);     // a building the radio told the player to go to
+            ScEncRequests.AddTargets(r.Taken);       // E5: a missing survivor's building (an infestation request's target is infested already)
             EntityPlayerLocal qp = ScCommunity.LocalPlayer;
             if (qp != null && qp.QuestJournal != null && qp.QuestJournal.quests != null)
             {
@@ -521,6 +525,15 @@ namespace SurvivorCommunity
                 inf.KnownDay = day;
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerFound"), inf.PoiName));
             }
+            else if (how == "siege")
+            {
+                // E5: an enclave lost to a siege - the player heard the call, so the dead in its building are known at once
+                inf.Known = true;
+                inf.KnownDay = day;
+                heard = ", known (an enclave lost to a siege)";
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scInfestSiegeTell"), inf.PoiName), "ui_denied");
+                ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerSiege"), inf.PoiName));
+            }
             else if (from != null && from.Known)
             {
                 inf.Known = true;
@@ -682,7 +695,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Ends an infestation: cleared in play (a ledger line, and a tell when the player is near or knew of it), or from the
-        /// console (record and marker only; the rooms are left as they are). Saves.
+        /// console (record and marker only; the rooms are left as they are). Saves. E5: an enclave's request to clear it hears
+        /// of it here, wherever the player is (ScEncInfest.OnEnded).
         /// </summary>
         private static void End(Infestation inf, string how, EntityPlayerLocal player)
         {
@@ -698,7 +712,82 @@ namespace SurvivorCommunity
             }
             ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " ended (" + how + ") after " + Math.Max(0, ScCommunity.Today - inf.StartDay) + " day(s)"
                       + (inf.Special == SpecialState.Met ? "; its special was " + inf.SpecialClass : ""));
+            ScEncInfest.OnEnded(inf, how);
             ScRegistry.SaveAtomic();
+        }
+
+        // ------------------------------------------------------------------ E5: an enclave's request, a lost siege ----
+
+        /// <summary>
+        /// E5: why no infestation can be started near this enclave for its leader's request (null when one can): Infestations
+        /// on, the cap not reached, and a POI within EnclaveInfestRange of its footprint that the roll's own filter allows
+        /// (Refuse, not forced - a POI it refuses stays refused; only the roll's distance and tier rules are left out).
+        /// </summary>
+        public static string CanStartNear(Enclave e)
+        {
+            List<PoiEntry> cands;
+            return NearCandidates(e, out cands);
+        }
+
+        /// <summary>
+        /// E5: an infestation started near an enclave for its leader's request (how "request"): one of the POIs CanStartNear
+        /// allows, at random (the nearest without a random). Who learns of it is I1's rule (a powered radio near home); the
+        /// leader telling the player makes it known (ScEncInfest.MakeKnown). Null (and why) when none can start.
+        /// </summary>
+        public static Infestation StartNear(Enclave e, EntityPlayerLocal player, GameRandom rnd, out string why)
+        {
+            List<PoiEntry> cands;
+            why = NearCandidates(e, out cands);
+            if (why != null) return null;
+            PoiEntry pe = cands[rnd != null ? rnd.RandomRange(0, cands.Count) : 0];
+            string rooms;
+            return Infest(pe, ScCommunity.World, ScCommunity.Today, null, "request", player, out rooms);
+        }
+
+        private static string NearCandidates(Enclave e, out List<PoiEntry> cands)
+        {
+            cands = null;
+            World w = ScCommunity.World;
+            if (e == null || w == null || !ScCommunity.IsHost) return "no world";
+            if (!ScConfig.Infestations) return "Infestations is off";
+            if (!ready) return "the infestations are not loaded yet";
+            if (!ScPoiIndex.EnsureBuilt()) return "no POI list on this world";
+            int cap = TargetCap(w);
+            if (All.Count >= cap) return "the infestations are at their cap (" + All.Count + " of " + cap + ")";
+            float range = Math.Max(0f, ScConfig.EnclaveInfestRange);
+            Vector3 c = e.Centre;
+            var near = new List<PoiEntry>();
+            ScPoiIndex.Near(c.x, c.z, range + Math.Max(e.Size.x, e.Size.z), near);
+            Rules r = RulesFor(w);
+            var ok = new List<PoiEntry>();
+            foreach (PoiEntry pe in near)
+            {
+                if (pe.Key == e.Poi || e.DistanceXZ(pe.X, pe.Z) > range) continue;
+                if (Refuse(pe, r, false) == null) ok.Add(pe);
+            }
+            if (ok.Count == 0) return "no POI within " + Mathf.RoundToInt(range) + " m of " + e.Name + " can be infested";
+            cands = ok;
+            return null;
+        }
+
+        /// <summary>
+        /// E5 (Q13 a): an enclave lost to a siege (ScEnclaves.Fall, after its record left the lookups) - its building infested
+        /// at once (how "siege"), past the cap and the roll's rules as the console's start is (Refuse forced: a claim the
+        /// player put on it since still refuses), known with its marker, a tell and a ledger line. Null (and why) when not.
+        /// </summary>
+        public static Infestation InfestFallen(Enclave e, EntityPlayerLocal player, out string why)
+        {
+            why = null;
+            World w = ScCommunity.World;
+            if (e == null || w == null || !ScCommunity.IsHost) { why = "no world"; return null; }
+            if (!ScConfig.Infestations) { why = "Infestations is off"; return null; }
+            if (!ScPoiIndex.EnsureBuilt()) { why = "no POI list on this world"; return null; }
+            PoiEntry pe = ScPoiIndex.Find(e.Poi.x, e.Poi.z, e.Prefab);
+            if (pe == null) { why = "its POI is not in this world"; return null; }
+            why = Refuse(pe, RulesFor(w), true);
+            if (why != null) return null;
+            string rooms;
+            return Infest(pe, w, ScCommunity.Today, null, "siege", player, out rooms);
         }
 
         // ------------------------------------------------------------------ the spawn hooks (Patches_Infestations; main thread) ----

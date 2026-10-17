@@ -104,5 +104,73 @@
 				<property name="phase" value="1"/>
 			</objective>
 		</quest>
+
+		<!-- E5, a missing survivor's search ("Leave it with me."): "Find <name>". Phase 1, display only, "Find <name>, last seen
+		     at <POI>, by the end of day <n>" (once they follow the player, "Bring <name> home to <enclave>"), its marker on the
+		     building searched, then on the enclave; phase 2, "Tell <enclave> about <name>", only once their remains were
+		     searched (the mod moves the phase: its objectives never complete on their own). The search closes it: home safe or
+		     the leader told (Completed), never found or dead on the way (removed as failed). No ClearSleepers, Goto or
+		     RallyPoint, no InteractWithNPC: as quest_scEncRequest. -->
+		<quest id="quest_scEncSearch">
+			<property name="name_key" value="scQuestEncSearchName"/>
+			<property name="subtitle_key" value="scQuestEncSearchSubtitle"/>
+			<property name="description_key" value="scQuestEncSearchDesc"/>
+			<property name="icon" value="ui_game_symbol_search"/>
+			<property name="category_key" value="quest"/>
+			<property name="offer_key" value="scQuestEncSearchOffer"/>
+			<property name="repeatable" value="true"/>
+			<property name="shareable" value="false"/>
+			<property name="completiontype" value="AutoComplete"/>
+			<property name="completion_key" value="scQuestEncSearchCompletion"/>
+			<property name="add_to_tier_complete" value="false"/>
+			<property name="allow_remove" value="false"/>
+			<objective type="ScEncSearch, SurvivorCommunity">
+				<property name="phase" value="1"/>
+			</objective>
+			<objective type="ScEncReturn, SurvivorCommunity">
+				<property name="phase" value="2"/>
+			</objective>
+		</quest>
+
+		<!-- E5, an infestation to clear: "Clear <POI>", one display-only objective, its marker on the infested building. I1's
+		     own "cleared" path closes it (Completed); never a ClearSleepers objective - it would re-arm the rooms. -->
+		<quest id="quest_scEncInfest">
+			<property name="name_key" value="scQuestEncInfestName"/>
+			<property name="subtitle_key" value="scQuestEncInfestSubtitle"/>
+			<property name="description_key" value="scQuestEncInfestDesc"/>
+			<property name="icon" value="ui_game_symbol_zombie"/>
+			<property name="category_key" value="quest"/>
+			<property name="offer_key" value="scQuestEncInfestOffer"/>
+			<property name="repeatable" value="true"/>
+			<property name="shareable" value="false"/>
+			<property name="completiontype" value="AutoComplete"/>
+			<property name="completion_key" value="scQuestEncInfestCompletion"/>
+			<property name="add_to_tier_complete" value="false"/>
+			<property name="allow_remove" value="false"/>
+			<objective type="ScEncInfest, SurvivorCommunity">
+				<property name="phase" value="1"/>
+			</objective>
+		</quest>
+
+		<!-- E5, a siege (the radio's call): "Siege at <enclave>", one display-only objective counting down live ("mm:ss to
+		     reach <enclave>", then "<n> left": ObjectiveScEncSiege reads the registry's world-time deadline), its marker on the
+		     enclave's building, tracked at the call. Won or held (Completed), lost (removed as failed). -->
+		<quest id="quest_scEncSiege">
+			<property name="name_key" value="scQuestEncSiegeName"/>
+			<property name="subtitle_key" value="scQuestEncSiegeSubtitle"/>
+			<property name="description_key" value="scQuestEncSiegeDesc"/>
+			<property name="icon" value="ui_game_symbol_zombie"/>
+			<property name="category_key" value="quest"/>
+			<property name="offer_key" value="scQuestEncSiegeOffer"/>
+			<property name="repeatable" value="true"/>
+			<property name="shareable" value="false"/>
+			<property name="completiontype" value="AutoComplete"/>
+			<property name="completion_key" value="scQuestEncSiegeCompletion"/>
+			<property name="add_to_tier_complete" value="false"/>
+			<property name="allow_remove" value="false"/>
+			<objective type="ScEncSiege, SurvivorCommunity">
+				<property name="phase" value="1"/>
+			</objective>
+		</quest>
 	</append>
 </configs>

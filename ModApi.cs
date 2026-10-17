@@ -47,6 +47,8 @@ namespace SurvivorCommunity
                 ScEnclavePeople.Reset();
                 ScEnclaveDeals.Reset();
                 ScEncRequests.Reset();
+                ScEncSearch.Reset();
+                ScEncSiege.Reset();
                 ScInfestations.Reset();
                 ScPoiIndex.Reset();
                 ScHomeLink.Reset();

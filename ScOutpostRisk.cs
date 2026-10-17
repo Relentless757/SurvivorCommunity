@@ -102,6 +102,23 @@ namespace SurvivorCommunity
             return false;
         }
 
+        /// <summary>
+        /// An outpost attack is being fought near 'at': AnyLive's test, and that outpost's footprint within twice
+        /// RescueTriggerRange of the point (the range its fight is judged in). A fight the player walked away from stays live
+        /// in name until its AttackUntil (OutpostAttackHours) with nobody fighting it, so it must not hold what happens
+        /// elsewhere: an enclave's siege (its call and arrival) and the base attack's call (the E5 review's M1 and N5).
+        /// </summary>
+        public static bool AnyLiveNear(Vector3 at)
+        {
+            float range = ScConfig.RescueTriggerRange * 2f;
+            foreach (Outpost o in ScRegistry.Outposts)
+            {
+                Live l;
+                if (UnderAttack(o) && live.TryGetValue(o.Id, out l) && l.Spawned && ScOutposts.DistanceToBox(o, at) <= range) return true;
+            }
+            return false;
+        }
+
         /// <summary>A few words for the window / radio: under attack, damaged, raiders' demand.</summary>
         public static string Alert(Outpost o)
         {
@@ -262,8 +279,9 @@ namespace SurvivorCommunity
                     if (!l.Spawned)
                     {
                         if (w.worldTime >= o.AttackUntil) { Settle(o, player, false, "unanswered"); continue; }
-                        // one live attack at a time: an outpost next to a home being fought waits for that fight
-                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag) && !ScBaseAttack.Live) SpawnAttack(w, player, o);
+                        // one live attack at a time: an outpost next to a home (E5: or an enclave's siege) being fought waits
+                        // for that fight
+                        if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag) && !ScBaseAttack.Live && !ScEncSiege.Live) SpawnAttack(w, player, o);
                         continue;
                     }
                     if (w.worldTime >= o.AttackUntil) { Settle(o, player, true, "fought, not finished"); continue; }

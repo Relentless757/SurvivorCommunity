@@ -96,6 +96,7 @@ namespace SurvivorCommunity
                 if (ScZone.HasHome && TouchesHome(a, s)) continue;
                 if (ScOutposts.IsOutpostPoiKey(a)) continue;      // our own outposts are not favour targets
                 if (ScEnclaves.IsEnclavePoiKey(a)) continue;      // nor an enclave's building (its rooms are kept clear)
+                if (ScEncRequests.IsTarget(a)) continue;          // E5: nor where an enclave's request sends the player
                 float cx = a.x + s.x * 0.5f, cz = a.z + s.z * 0.5f;
                 float d = Mathf.Sqrt((cx - from.x) * (cx - from.x) + (cz - from.z) * (cz - from.z));
                 if (d > maxDist) continue;

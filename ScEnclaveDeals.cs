@@ -372,10 +372,7 @@ namespace SurvivorCommunity
             if (reason != null) return false;
             int cost = EnlistCost(e);
             if (cost > 0 && !PayDukes(player, cost)) { reason = string.Format(Loc("scEncNeedDukes"), cost); return false; }
-            ScCommunity.DropPath(npc);
-            ScNpc.SetLeaderAndOwner(npc.entityId, player.entityId);
-            npc.Buffs.SetCustomVar("Persist", 1f);
-            npc.Buffs.SetCustomVar(EnlistedCvar, 1f);
+            Hire(npc, player);
             int days = Math.Max(1, ScConfig.EnclaveEnlistDays);
             p.State = EncPerson.StateEnlisted;
             p.EnlistedBy = player.entityId;
@@ -402,25 +399,7 @@ namespace SurvivorCommunity
             if (p == null || !p.Enlisted) return;
             World w = ScCommunity.World;
             EntityPlayer pl = p.EnlistedBy > 0 && w != null ? w.GetEntity(p.EnlistedBy) as EntityPlayer : null;
-            int id = npc != null ? npc.entityId : p.EnlistedBody;
-            if (npc != null)
-            {
-                ScCommunity.Detach(npc, pl);
-                npc.Buffs.RemoveCustomVar(EnlistedCvar);
-                npc.SetSpawnerSource(EnumSpawnerSource.Dynamic);
-            }
-            else if (id >= 0)
-            {
-                // the body is gone: the hire on the player's side alone (SCore's CheckForDanglingHires would drop a hired_* whose
-                // entity is not loaded anyway; this ends it now)
-                SphereCache.LeaderCache.Remove(id);
-                if (pl != null)
-                {
-                    DropCompanion(pl, id);
-                    pl.Buffs.RemoveCustomVar("hired_" + id);
-                    EntityUtilities.CheckForDanglingHires(pl.entityId);
-                }
-            }
+            Unhire(npc, pl, npc != null ? npc.entityId : p.EnlistedBody);
             p.State = EncPerson.StateHome;
             p.EnlistedBy = -1;
             p.EnlistedBody = -1;
@@ -429,6 +408,51 @@ namespace SurvivorCommunity
             if (lead) ScEnclavePeople.EnsureLeader(e);
             if (tellKey != null && pl != null) ScCommunity.Tell(pl, string.Format(Loc(tellKey), p.Name, e != null ? e.Name : ""), "");
             ScLog.Out(p.Name + (e != null ? " of " + e.Name : "") + " is no longer with " + (pl != null ? pl.EntityName : "the player") + " (" + why + ")");
+        }
+
+        /// <summary>
+        /// The hire shape on a body (Enlist's; E5: a missing survivor following the player home, ScEncSearch): SC's
+        /// ScCommunity.FollowInternal shape - leader and owner (the Follow order, hired_* and the leader cache with them) and
+        /// Persist - and the enlisted cvar, which keeps Voice Control's contract and billing off it.
+        /// </summary>
+        internal static void Hire(EntityAlive npc, EntityPlayer player)
+        {
+            ScCommunity.DropPath(npc);
+            ScNpc.SetLeaderAndOwner(npc.entityId, player.entityId);
+            npc.Buffs.SetCustomVar("Persist", 1f);
+            npc.Buffs.SetCustomVar(EnlistedCvar, 1f);
+        }
+
+        /// <summary>
+        /// The hire undone (EndEnlist's; E5's escort): on the body when there is one (ScCommunity.Detach, the enlisted cvar, the
+        /// enclave's own Dynamic source back), else the player's side of it alone for the body that was hired (bodyId).
+        /// </summary>
+        internal static void Unhire(EntityAlive npc, EntityPlayer pl, int bodyId)
+        {
+            if (npc != null)
+            {
+                ScCommunity.Detach(npc, pl);
+                npc.Buffs.RemoveCustomVar(EnlistedCvar);
+                npc.SetSpawnerSource(EnumSpawnerSource.Dynamic);
+            }
+            else if (bodyId >= 0)
+            {
+                // the body is gone: the hire on the player's side alone (SCore's CheckForDanglingHires would drop a hired_* whose
+                // entity is not loaded anyway; this ends it now)
+                SphereCache.LeaderCache.Remove(bodyId);
+                if (pl != null)
+                {
+                    DropCompanion(pl, bodyId);
+                    pl.Buffs.RemoveCustomVar("hired_" + bodyId);
+                    EntityUtilities.CheckForDanglingHires(pl.entityId);
+                }
+            }
+        }
+
+        /// <summary>E5: a body a save still recorded as following the player home (ScEncSearch): its hire comes off the player at the first tick.</summary>
+        internal static void AddStaleHire(int bodyId)
+        {
+            if (bodyId >= 0 && !staleHires.Contains(bodyId)) staleHires.Add(bodyId);
         }
 
         /// <summary>A player's companion list without a body that is gone (a destroyed Unity object still has its id).</summary>
@@ -453,6 +477,15 @@ namespace SurvivorCommunity
             EndEnlist(p, npc, tellKey, why);
             World w = ScCommunity.World;
             if (npc == null || e == null || w == null || npc.IsDead()) return;
+            StartWalkHome(w, e, p, npc);
+        }
+
+        /// <summary>
+        /// The walk home (SendHome's; E5: a missing survivor whose request ended while their body was out) - not watched until
+        /// it is back on its spot (ScEnclavePeople's tick hands it to TickLeaving).
+        /// </summary>
+        internal static void StartWalkHome(World w, Enclave e, EncPerson p, EntityAlive npc)
+        {
             p.Leaving = true;
             p.LeavingSince = Time.unscaledTime;
             p.LeaveTarget = Vector3.zero;

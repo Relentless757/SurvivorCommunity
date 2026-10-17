@@ -923,7 +923,7 @@ scEncReqNone,Dialog,Response,,,,None of these.
 scEncReqNo,Dialog,Response,,,,"No, I can't help with that."
 scEncReqThink,Dialog,Response,,,,Let me think about it.
 scEncReqCantDo,Dialog,Response,,,,I can't do it.
-scEncReqNothing_text,Dialog,Statement,,,,Nothing right now. We're managing.
+scEncReqNothing_text,Dialog,Statement,,,,{reqnone}
 scEncReqOffer_text,Dialog,Statement,,,,{reqask}
 scEncReqWaiting_text,Dialog,Statement,,,,{reqwait}
 scEncReqGuns_text,Dialog,Statement,,,,Let's see what you've got. Which one can you spare?
@@ -1052,3 +1052,129 @@ scInfestLedgerFound,UI,Tooltip,,,,found an infestation at {0}
 scInfestLedgerRadio,UI,Tooltip,,,,the radio reported an infestation at {0}
 scInfestLedgerSpread,UI,Tooltip,,,,the infestation at {0} spread to {1}
 scInfestLedgerCleared,UI,Tooltip,,,,cleared the infestation at {0}
+scInfestSiegeTell,UI,Tooltip,,,,The dead have overrun {0}.
+scInfestLedgerSiege,UI,Tooltip,,,,the dead overran {0}
+scEncReqNothingLine,Dialog,Statement,,,,Nothing right now. We're managing.
+scEncReqCleared,Dialog,Response,,,,I already took care of it.
+scEncReqFound,Dialog,Response,,,,{found}
+scEncReqFoundRow,UI,Tooltip,,,,I found {0}. I'm sorry.
+scEncReqNotCleared,Dialog,Statement,,,,That place is still crawling with them.
+scEncReqSomeone,UI,Tooltip,,,,someone
+scEncReqWhatMissing,UI,Tooltip,,,,finding {0}
+scEncReqWhatInfest,UI,Tooltip,,,,clearing the infestation at {0}
+scEncReqWhatSiege,UI,Tooltip,,,,help against a siege
+scEncReqOfferInfoMissing,UI,Tooltip,,,,"Once you agree, I'll tell you who it is and where they were headed, and you'll have {0} day(s) to find them. I can wait for your answer until the end of day {1}."
+scEncReqOfferInfoInfest,UI,Tooltip,,,,"It's {0}, {1} from here. Once you agree you'll have {2} day(s) to clear it; I can wait for your answer until the end of day {3}."
+scEncReqAcceptInfoMissing,UI,Tooltip,,,,"It's {0}. They were headed for {1}. Find them by the end of day {2}."
+scEncReqAcceptInfoInfest,UI,Tooltip,,,,Clear {0} by the end of day {1}.
+scEncReqWaitInfoMissing,UI,Tooltip,,,,"Any sign of {0}? They were headed for {1}. We need to know by the end of day {2}."
+scEncReqWaitInfoFollow,UI,Tooltip,,,,"You found {0}! Get them inside, quickly."
+scEncReqWaitInfoSearched,UI,Tooltip,,,,You've been gone a while. Did you find {0}?
+scEncReqWaitInfoInfest,UI,Tooltip,,,,{0} is still crawling with them. We need it clear by the end of day {1}.
+scEncReqWaitInfoSiege,UI,Tooltip,,,,{0} of them are still out there!
+scEncReqWaitInfoSiegeCalled,UI,Tooltip,,,,"They're coming, and soon. Get ready."
+scEncReqClearedTell,UI,Tooltip,,,,"Word will reach {0}: {1} is clear. Talk to their leader."
+scEncReqLedgerHome,UI,Tooltip,,,,{0}: you brought {1} home ({2})
+scEncReqLedgerFound,UI,Tooltip,,,,{0}: you told them about {1} ({2})
+scEncReqLedgerCleared,UI,Tooltip,,,,{0}: you cleared {1} ({2})
+scEncReqLedgerSiegeWon,UI,Tooltip,,,,{0}: you broke the siege ({1})
+scEncReqLedgerSiegeHeld,UI,Tooltip,,,,{0} held out against the siege
+scEncReqLedgerSiegeLost,UI,Tooltip,,,,{0} fell to the siege
+scEncReqLedgerDiedHome,UI,Tooltip,,,,{0}: {1} died on the way home ({2})
+scEncAsk_missing_neutral,Dialog,Statement,,,,One of ours went out and hasn't come back. We can't spare anyone else to look.
+scEncAsk_missing_friendly,Dialog,Statement,,,,"One of our people is missing. You know your way around out there, so will you look for them?"
+scEncAsk_missing_allied,Dialog,Statement,,,,"Friend, one of ours never came back. I can't think of anyone I'd rather send."
+scEncAsk_infestation_neutral,Dialog,Statement,,,,"The dead have taken a place near us, and there are more of them every night. Clear it, and we'll remember."
+scEncAsk_infestation_friendly,Dialog,Statement,,,,There's a nest of them close by. Too close. Could you clear it out for us?
+scEncAsk_infestation_allied,Dialog,Statement,,,,"Friend, there's an infestation right on our doorstep. We need it gone."
+scEncWait_missing_neutral,Dialog,Statement,,,,Still no word of our missing one.
+scEncWait_missing_friendly,Dialog,Statement,,,,Any sign of them? We haven't given up.
+scEncWait_missing_allied,Dialog,Statement,,,,"Any news, friend? We're still hoping."
+scEncWait_infestation_neutral,Dialog,Statement,,,,That place is still crawling with them.
+scEncWait_infestation_friendly,Dialog,Statement,,,,We still hear them at night. Any luck clearing that place?
+scEncWait_infestation_allied,Dialog,Statement,,,,"We can still hear them at night, friend. Any luck?"
+scEncWait_siege_neutral,Dialog,Statement,,,,Don't just stand there! They're at the walls!
+scEncWait_siege_friendly,Dialog,Statement,,,,They're coming over the walls! Help us!
+scEncWait_siege_allied,Dialog,Statement,,,,"Friend, the walls won't hold! Fight with us!"
+scEncThanks_missing_neutral,Dialog,Statement,,,,You brought one of ours home. We won't forget that.
+scEncThanks_missing_friendly,Dialog,Statement,,,,You brought them home. I don't know how to thank you.
+scEncThanks_missing_allied,Dialog,Statement,,,,"You brought them back to us, friend. You came through again."
+scEncThanks_infestation_neutral,Dialog,Statement,,,,Heard you cleared that nest. The nights are quieter already.
+scEncThanks_infestation_friendly,Dialog,Statement,,,,The nest is gone. We can sleep again. Thank you.
+scEncThanks_infestation_allied,Dialog,Statement,,,,"You cleared them out, friend. The nights are ours again."
+scEncThanks_siege_neutral,Dialog,Statement,,,,You fought for us when you didn't have to. We won't forget it.
+scEncThanks_siege_friendly,Dialog,Statement,,,,We'd be dead without you. Thank you.
+scEncThanks_siege_allied,Dialog,Statement,,,,"You stood on our walls like one of us, friend. We owe you our lives."
+scEncDeclined_missing_neutral,Dialog,Statement,,,,"Figured as much. We'll look ourselves, if we can."
+scEncDeclined_missing_friendly,Dialog,Statement,,,,I understand. We'll keep hoping they find their own way back.
+scEncDeclined_missing_allied,Dialog,Statement,,,,That's not what I expected from you. We'll search on our own.
+scEncDeclined_infestation_neutral,Dialog,Statement,,,,Figured as much. We'll keep our heads down.
+scEncDeclined_infestation_friendly,Dialog,Statement,,,,I understand. We'll double the watch.
+scEncDeclined_infestation_allied,Dialog,Statement,,,,That's not what I expected from you. We'll manage somehow.
+scEncThink_missing_neutral,Dialog,Statement,,,,Don't take too long. Every day out there counts.
+scEncThink_missing_friendly,Dialog,Statement,,,,"Take your time, but they don't have much of it."
+scEncThink_missing_allied,Dialog,Statement,,,,"Sure, friend. Just don't leave it too long."
+scEncThink_infestation_neutral,Dialog,Statement,,,,Don't take too long. There are more of them every night.
+scEncThink_infestation_friendly,Dialog,Statement,,,,"Take your time, but they won't stay put."
+scEncThink_infestation_allied,Dialog,Statement,,,,"Sure, friend. We'll keep the watch doubled."
+scEncCantDo_missing_neutral,Dialog,Statement,,,,Then you shouldn't have said yes. They're still out there.
+scEncCantDo_missing_friendly,Dialog,Statement,,,,That's a shame. We'll keep hoping.
+scEncCantDo_missing_allied,Dialog,Statement,,,,"We were counting on you, friend. Somebody has to find them."
+scEncCantDo_infestation_neutral,Dialog,Statement,,,,Then you shouldn't have said yes. We'll keep our heads down.
+scEncCantDo_infestation_friendly,Dialog,Statement,,,,That's a shame. We'll double the watch.
+scEncCantDo_infestation_allied,Dialog,Statement,,,,"We were counting on you, friend. That nest isn't going anywhere."
+scEncAccepted_missing,Dialog,Statement,,,,Thank you. Bring them home if you can.
+scEncAccepted_infestation,Dialog,Statement,,,,Thank you. Be careful in there.
+scEncFound,Dialog,Statement,,,,I was afraid of that. Thank you for telling me.
+scEncFound_missing_neutral,Dialog,Statement,,,,I was afraid of that. At least now we know.
+scEncFound_missing_friendly,Dialog,Statement,,,,I was afraid of that. Thank you for telling us yourself.
+scEncFound_missing_allied,Dialog,Statement,,,,"Thank you for finding them, friend. It's better to know."
+scEncFoundAlive_text,Dialog,Statement,,,,"Please, I'm not armed. I've been hiding in here for days, waiting for somebody."
+scEncFoundGo,Dialog,Response,,,,Your people sent me. Let's get you home.
+scEncFoundGoReply_text,Dialog,Statement,,,,"Thank God. Lead the way, I'm right behind you."
+scEncFoundFollowing_text,Dialog,Statement,,,,I'm right behind you. Let's keep moving.
+scEncFoundWait,Dialog,Response,,,,Wait here for me.
+scEncFoundWaitReply_text,Dialog,Statement,,,,Don't leave me here too long.
+scEncSearchFollowTell,UI,Tooltip,,,,{0} is following you. Get them home to {1}.
+scEncSearchWaitTell,UI,Tooltip,,,,{0} will wait here for you.
+scEncSearchStopTell,UI,Tooltip,,,,{0} stopped following you and waits where they are.
+scEncSearchHomeTell,UI,Tooltip,,,,{0} is home safe at {1}.
+scEncSearchLedgerFound,UI,Tooltip,,,,found {0} of {1} dead at {2}
+scEncSearchLedgerLost,UI,Tooltip,,,,{0} of {1} was never brought home
+scEncRemains,Block,Block,,,,Remains
+scEncRemainsDesc,Block,Block,,,,Someone's remains. Searching them may tell you who they were.
+scEncRemainsText,UI,Tooltip,,,,Someone's remains
+blockcommand_scencsearch,UI,Radial blockcommand,,,,Search the body
+scEncRemainsFound,UI,Tooltip,,,,These are {0}'s remains. {1} should hear it from you.
+scEncRemainsSearched,UI,Tooltip,,,,You've searched {0}'s remains already. Tell {1}.
+scEncRemainsNothing,UI,Tooltip,,,,"Whoever this was, nobody is looking for them now."
+scEncSiegeCall,UI,Tooltip,,,,"{0} on the radio: ""They're coming over the walls! Please, hurry!"""
+scEncSiegeLedgerCall,UI,Tooltip,,,,{0} called for help against a siege
+scEncSiegeArrived,UI,Tooltip,,,,{0} is under attack: {1} of the dead are coming over the walls!
+scEncSiegeWonTell,UI,Tooltip,,,,{0} held. You killed {1} of them.
+scEncSiegeHeldTell,UI,Tooltip,,,,{0} held out without you.
+scQuestEncSearchName,UI,Quest,,,,Find a missing survivor
+scQuestEncSearchNameFmt,UI,Quest,,,,Find {0}
+scQuestEncSearchSubtitle,UI,Quest,,,,An enclave's missing survivor
+scQuestEncSearchDesc,UI,Quest,,,,"One of an enclave's people went missing. Search the building they were last seen at. If they are alive, bring them home; if not, tell their leader."
+scQuestEncSearchOffer,UI,Quest,,,,An enclave lost one of their own.
+scQuestEncSearchCompletion,UI,Quest,,,,You did what you could for them.
+scQuestEncInfestName,UI,Quest,,,,Clear an infestation
+scQuestEncInfestNameFmt,UI,Quest,,,,Clear {0}
+scQuestEncInfestSubtitle,UI,Quest,,,,An enclave's request
+scQuestEncInfestDesc,UI,Quest,,,,"The dead have overrun a building near an enclave. Clear every room of it, and the enclave will hear of it wherever you are."
+scQuestEncInfestOffer,UI,Quest,,,,An enclave wants an infestation cleared.
+scQuestEncInfestCompletion,UI,Quest,,,,The infestation is cleared.
+scQuestEncSiegeName,UI,Quest,,,,Siege
+scQuestEncSiegeNameFmt,UI,Quest,,,,Siege at {0}
+scQuestEncSiegeSubtitle,UI,Quest,,,,An enclave under attack
+scQuestEncSiegeDesc,UI,Quest,,,,"An enclave is under attack. Get there before the time runs out, then kill every one of the dead coming over their walls. If you don't make it, they won't."
+scQuestEncSiegeOffer,UI,Quest,,,,An enclave is under attack.
+scQuestEncSiegeCompletion,UI,Quest,,,,The siege is over.
+scObjectiveEncSearch,UI,Quest,,,,"Find {0} at {1} by the end of day {2}"
+scObjectiveEncSearchFollow,UI,Quest,,,,Bring {0} home to {1}
+scObjectiveEncReturn,UI,Quest,,,,Tell {0} about {1}
+scObjectiveEncInfest,UI,Quest,,,,Clear {0} by the end of day {1}
+scObjectiveEncSiege,UI,Quest,,,,Siege:
+scObjectiveEncSiegeClock,UI,Quest,,,,{0} to reach {1}
+scObjectiveEncSiegeLeft,UI,Quest,,,,{0} left

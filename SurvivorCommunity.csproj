@@ -86,6 +86,10 @@
     <Compile Include="ScEnclavePeople.cs" />
     <Compile Include="ScEnclaveDeals.cs" />
     <Compile Include="ScEncRequests.cs" />
+    <Compile Include="ScEncSearch.cs" />
+    <Compile Include="ScEncInfest.cs" />
+    <Compile Include="ScEncSiege.cs" />
+    <Compile Include="BlockScEncRemains.cs" />
     <Compile Include="DialogOpsEnclaves.cs" />
     <Compile Include="DialogOpsEncRequests.cs" />
     <Compile Include="Patches_Enclaves.cs" />

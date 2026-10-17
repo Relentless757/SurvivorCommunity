@@ -530,6 +530,7 @@
 			<response_entry id="done" />
 		</statement>
 		<statement id="scEncReqOffer" text="scEncReqOffer_text">
+			<response_entry id="scEncReqCleared" />
 			<response_entry id="scEncReqAccept" />
 			<response_entry id="scEncReqGive" />
 			<response_entry id="scEncReqGunPick" />
@@ -538,6 +539,7 @@
 			<response_entry id="done" />
 		</statement>
 		<statement id="scEncReqWaiting" text="scEncReqWaiting_text">
+			<response_entry id="scEncReqFound" />
 			<response_entry id="scEncReqGive" />
 			<response_entry id="scEncReqGunPick" />
 			<response_entry id="scEncReqCantDo" />
@@ -571,6 +573,7 @@
 		</response>
 		<response id="scEncReqAccept" text="scEncReqAccept" nextstatementid="scEncReqReply">
 			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered" />
+			<requirement type="ScEncReqStage, SurvivorCommunity" requirementtype="Hide" value="!cleared" />
 			<action type="ScEncReqAccept, SurvivorCommunity" />
 		</response>
 		<!-- the hand-over: only while you carry it (checked again when taken) -->
@@ -611,6 +614,7 @@
 		</response>
 		<response id="scEncReqNo" text="scEncReqNo" nextstatementid="scEncReqReply">
 			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered" />
+			<requirement type="ScEncReqStage, SurvivorCommunity" requirementtype="Hide" value="!cleared" />
 			<action type="ScEncReqDecline, SurvivorCommunity" />
 		</response>
 		<!-- no next statement: the talk closes; their word comes as a tell after it -->
@@ -620,7 +624,67 @@
 		</response>
 		<response id="scEncReqCantDo" text="scEncReqCantDo" nextstatementid="scEncReqReply">
 			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="accepted" />
+			<requirement type="ScEncReqCanGiveUp, SurvivorCommunity" requirementtype="Hide" />
 			<action type="ScEncReqCantDo, SurvivorCommunity" />
+		</response>
+	</append>
+
+	<!-- Requests, part 2 (E5, Enclaves_Plan.md 2.10 kinds 4-6; ScEncSearch, ScEncInfest, ScEncSiege, DialogOpsEncRequests.cs).
+	     The leader's statements above gain three rows: "I found <name>. I'm sorry." in the wait, once a missing survivor's
+	     remains were searched (ScEncReqStage "return"; its words come through the row's binding as the gun pick's do,
+	     scEncReqFoundRow); "I already took care of it." in the offer, when the infestation it names was cleared before the
+	     player agreed (ScEncReqStage "cleared" - "Leave it with me." hides then); and "I can't do it." only where a request
+	     can be given up (ScEncReqCanGiveUp: never a siege, never a search whose survivor follows the player or whose remains
+	     were searched). With nothing to ask, the leader thanks the player once for a request done while they were away
+	     ({reqnone}). A missing survivor's body has phases of its own (ScEncSearch: alive and waiting, or following the
+	     player): "Your people sent me. Let's get you home." and "Wait here for me." The E2 to E4 phases never match them (a
+	     missing person is not one of the living), so the order does not matter. A voiced line says nothing that needs a name
+	     or a number. Rows: the offer 5 at most, the wait 4, the found survivor 2. Host only; every action checks again. -->
+	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
+		<phase id="scEncFoundAlive" startstatementid="scEncFoundAlive">
+			<requirement type="ScEncSearch, SurvivorCommunity" value="alive" />
+		</phase>
+		<phase id="scEncFoundFollowing" startstatementid="scEncFoundFollowing">
+			<requirement type="ScEncSearch, SurvivorCommunity" value="following" />
+		</phase>
+
+		<!-- found alive, waiting where they hid -->
+		<statement id="scEncFoundAlive" text="scEncFoundAlive_text">
+			<response_entry id="scEncFoundGo" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncFoundGoReply" text="scEncFoundGoReply_text">
+			<response_entry id="done" />
+		</statement>
+		<!-- following the player home -->
+		<statement id="scEncFoundFollowing" text="scEncFoundFollowing_text">
+			<response_entry id="scEncFoundWait" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncFoundWaitReply" text="scEncFoundWaitReply_text">
+			<response_entry id="done" />
+		</statement>
+
+		<response id="scEncFoundGo" text="scEncFoundGo" nextstatementid="scEncFoundGoReply">
+			<requirement type="ScEncSearch, SurvivorCommunity" requirementtype="Hide" value="alive" />
+			<action type="ScEncFollow, SurvivorCommunity" />
+		</response>
+		<response id="scEncFoundWait" text="scEncFoundWait" nextstatementid="scEncFoundWaitReply">
+			<requirement type="ScEncSearch, SurvivorCommunity" requirementtype="Hide" value="following" />
+			<action type="ScEncWait, SurvivorCommunity" />
+		</response>
+		<!-- the leader's rows in E4's statements -->
+		<response id="scEncReqFound" text="scEncReqFound" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="accepted" />
+			<requirement type="ScEncReqKind, SurvivorCommunity" requirementtype="Hide" value="missing" />
+			<requirement type="ScEncReqStage, SurvivorCommunity" requirementtype="Hide" value="return" />
+			<action type="ScEncReqFound, SurvivorCommunity" />
+		</response>
+		<response id="scEncReqCleared" text="scEncReqCleared" nextstatementid="scEncReqReply">
+			<requirement type="ScEncReq, SurvivorCommunity" requirementtype="Hide" value="offered" />
+			<requirement type="ScEncReqKind, SurvivorCommunity" requirementtype="Hide" value="infestation" />
+			<requirement type="ScEncReqStage, SurvivorCommunity" requirementtype="Hide" value="cleared" />
+			<action type="ScEncReqCleared, SurvivorCommunity" />
 		</response>
 	</append>
 </configs>

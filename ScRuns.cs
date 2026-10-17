@@ -151,6 +151,7 @@ namespace SurvivorCommunity
                 foreach (var om in ScRegistry.Members.Values) if (ScRunners.IsPhysical(om)) taken.Add(om.RunDest);
                 foreach (var ct in ScRegistry.Contacts) taken.Add(ct.PoiKey);
                 foreach (var p in ScRegistry.Prospects.Values) if (p.Favour == FavourKind.Poi && !p.Done) taken.Add(p.PoiPos);
+                ScEncRequests.AddTargets(taken);     // E5: a missing survivor's building, an infestation an enclave asked to clear
                 var list = new List<PrefabInstance>();
                 dec.GetPrefabsAtXZ(home.x - max, home.x + max, home.z - max, home.z + max, list);
                 var ok = new List<KeyValuePair<float, PrefabInstance>>();

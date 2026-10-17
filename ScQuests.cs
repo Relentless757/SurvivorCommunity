@@ -31,18 +31,37 @@ namespace SurvivorCommunity
         /// </summary>
         public const string RequestQuestId = "quest_scEncRequest";
         public const string RequestVar = "ScEncRequest", RequestWhatVar = "ScEncWhat", RequestNameVar = "ScEncName", RequestDueVar = "ScEncDue";
+        /// <summary>
+        /// E5's request quests, one class per kind (E5 kinds have their own objectives): a missing survivor (phase 1 the search,
+        /// phase 2 "Return to the enclave" once the remains were searched), an infestation to clear, a siege (a live countdown).
+        /// The person's name and the search's stage word ride in RequestWhoVar and RequestStageVar.
+        /// </summary>
+        public const string SearchQuestId = "quest_scEncSearch", InfestQuestId = "quest_scEncInfest", SiegeQuestId = "quest_scEncSiege";
+        public const string RequestWhoVar = "ScEncWho", RequestStageVar = "ScEncStage";
         /// <summary>StartRequest's error when the player's record is not in yet (the journal pass tries again).</summary>
         public const string RequestJournalNotReady = "the player's journal is not ready";
 
         public static bool IsOurs(Quest q)
         {
-            return q != null && (Is(q, QuestId) || Is(q, RescueQuestId) || Is(q, SuppliesQuestId) || Is(q, RequestQuestId));
+            return q != null && (Is(q, QuestId) || Is(q, RescueQuestId) || Is(q, SuppliesQuestId) || IsRequestQuest(q));
         }
 
-        /// <summary>E4: an enclave request's quest.</summary>
+        /// <summary>E4: an enclave request's quest (E5: of any kind).</summary>
         public static bool IsRequestQuest(Quest q)
         {
-            return q != null && Is(q, RequestQuestId);
+            return q != null && (Is(q, RequestQuestId) || Is(q, SearchQuestId) || Is(q, InfestQuestId) || Is(q, SiegeQuestId));
+        }
+
+        /// <summary>The quest class a request's journal entry is made of (E4's kinds share quest_scEncRequest).</summary>
+        public static string RequestQuestIdFor(EnclaveRequest r)
+        {
+            switch (r != null ? r.Kind : "")
+            {
+                case EnclaveRequest.KindMissing: return SearchQuestId;
+                case EnclaveRequest.KindInfestation: return InfestQuestId;
+                case EnclaveRequest.KindSiege: return SiegeQuestId;
+                default: return RequestQuestId;
+            }
         }
 
         /// <summary>The request id an enclave request's quest carries (0: none).</summary>
@@ -472,6 +491,10 @@ namespace SurvivorCommunity
         /// quest_scEncRequest, "Help &lt;enclave&gt;", one display-only objective (what, to whom, by the end of which day), the
         /// marker on their building - position data set before AddQuest, as the favour quests do. The giver is the enclave
         /// (no QuestGiverID, no InteractWithNPC: their bodies are rebuilt with new ids). Null (and why) when it cannot start.
+        /// E5: each of its kinds has its own quest class (RequestQuestIdFor) and place (ScEncRequests.RequestPlace: the building
+        /// searched, the infested one, the besieged enclave), the person's name and the stage word, a code of its own (two
+        /// quests added in one frame would share vanilla's); a search whose remains were found starts in its "return" phase,
+        /// a siege is tracked at once.
         /// </summary>
         public static Quest StartRequest(EntityPlayerLocal player, Enclave e, EnclaveRequest r, string what, out string error)
         {
@@ -479,10 +502,11 @@ namespace SurvivorCommunity
             try
             {
                 if (player == null || e == null || r == null) { error = "no player, enclave or request"; return null; }
-                if (QuestClass.s_Quests == null || !QuestClass.s_Quests.ContainsKey(RequestQuestId))
+                string id = RequestQuestIdFor(r);
+                if (QuestClass.s_Quests == null || !QuestClass.s_Quests.ContainsKey(id))
                 {
-                    error = "quest class " + RequestQuestId + " is not loaded";
-                    ScLog.Once("no-request-quest", "quest class " + RequestQuestId + " is not loaded - Config/quests.xml did not apply (requests work without the journal)");
+                    error = "quest class " + id + " is not loaded";
+                    ScLog.Once("no-request-quest-" + id, "quest class " + id + " is not loaded - Config/quests.xml did not apply (requests work without the journal)");
                     return null;
                 }
                 QuestJournal j = Journal(player);
@@ -492,22 +516,33 @@ namespace SurvivorCommunity
                     error = RequestJournalNotReady;
                     return null;
                 }
-                Quest q = QuestClass.CreateQuest(RequestQuestId);
-                if (q == null) { error = "quest class " + RequestQuestId + " made no quest"; return null; }
-                q.SetPositionData(Quest.PositionDataTypes.POIPosition, new Vector3(e.Poi.x, e.Poi.y, e.Poi.z));
-                q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(Math.Max(1, e.Size.x), 1f, Math.Max(1, e.Size.z)));
+                Quest q = QuestClass.CreateQuest(id);
+                if (q == null) { error = "quest class " + id + " made no quest"; return null; }
+                Vector3i at, size;
+                string place;
+                ScEncRequests.RequestPlace(r, e, out at, out size, out place);
+                q.SetPositionData(Quest.PositionDataTypes.POIPosition, new Vector3(at.x, at.y, at.z));
+                q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(Math.Max(1, size.x), 1f, Math.Max(1, size.z)));
                 string name = SafeName(e.Name ?? "");
-                q.DataVariables[PoiNameVar] = SafeName(e.PoiName ?? "");
-                q.DataVariables[TitleVar] = string.Format(Localization.Get("scQuestEncReqNameFmt"), name);
+                q.DataVariables[PoiNameVar] = SafeName(place ?? "");
+                q.DataVariables[TitleVar] = TitleOf(r, name);
                 q.DataVariables[RequestVar] = r.Id.ToString();
                 q.DataVariables[RequestWhatVar] = SafeName(what ?? "");
                 q.DataVariables[RequestNameVar] = name;
                 q.DataVariables[RequestDueVar] = r.DueDay.ToString();
-                // a code of our own (SetupQuestCode keeps a non-zero one): vanilla's hashes the frame time, the quest id and a
-                // giver of -1, so two requests re-added in one frame would share it (the E4 review's L1)
-                q.QuestCode = ("scEncRequest_" + r.Id + "_" + Time.unscaledTime).GetHashCode();
-                if (q.QuestCode == 0) q.QuestCode = r.Id + 1;
+                if (r.IsE5)
+                {
+                    q.DataVariables[RequestWhoVar] = SafeName(ScEncSearch.PersonName(r));
+                    q.DataVariables[RequestStageVar] = ScEncRequests.StageWord(r);
+                }
+                // a code of our own for every request quest (SetupQuestCode keeps a non-zero one): vanilla's hashes the frame time,
+                // the quest id and a giver of -1, so two requests added in one frame would share it (the E4 review's L1)
+                int code = ("scEncRequest_" + r.Id + "_" + r.Kind + "_" + player.entityId + "_"
+                            + Time.unscaledTime.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).GetHashCode();
+                q.QuestCode = code != 0 ? code : 1;
                 j.AddQuest(q);
+                if (r.Kind == EnclaveRequest.KindMissing && r.Stage == ScEncSearch.StageSearched) AdvanceRequest(q);
+                if (r.Kind == EnclaveRequest.KindSiege) j.TrackedQuest = q;          // the besieged enclave's marker on screen at once
                 return q;
             }
             catch (Exception ex)
@@ -521,7 +556,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// E4: an enclave request's quest closed - completed, or removed as failed. Quest.CloseQuest's POI unlock looks the
         /// building up by its exact key and throws when no POI has it any more (an enclave that moved or lost its building):
-        /// that quest's POI data goes first (the marker is ours, NavObject, and is removed all the same).
+        /// that quest's POI data goes first (the marker is ours, NavObject, and is removed all the same). E5: a quest that
+        /// points at any other building - a missing survivor's, an infestation's, a spot where one waits - drops it too: the
+        /// unlock would take the player off a vanilla quest's lock there (QuestUnlockPOI -> RemoveQuester).
         /// </summary>
         public static void CloseRequest(EntityPlayer player, Quest q, bool completed)
         {
@@ -533,7 +570,8 @@ namespace SurvivorCommunity
                 if (q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition))
                 {
                     DynamicPrefabDecorator dpd = GameManager.Instance != null ? GameManager.Instance.GetDynamicPrefabDecorator() : null;
-                    if (dpd == null || dpd.GetPrefabFromWorldPos((int)pos.x, (int)pos.z) == null)
+                    bool foreign = !Is(q, RequestQuestId) && !ScEnclaves.IsEnclavePoiKey(World.worldToBlockPos(pos));
+                    if (foreign || dpd == null || dpd.GetPrefabFromWorldPos((int)pos.x, (int)pos.z) == null)
                     {
                         q.RemovePositionData(Quest.PositionDataTypes.POIPosition);
                         q.RemovePositionData(Quest.PositionDataTypes.POISize);
@@ -572,6 +610,79 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("quest-followrequest", ex);
             }
+        }
+
+        /// <summary>E4's title "Help &lt;enclave&gt;"; E5's "Find &lt;person&gt;", "Clear &lt;POI&gt;", "Siege at &lt;enclave&gt;".</summary>
+        private static string TitleOf(EnclaveRequest r, string enclave)
+        {
+            switch (r.Kind)
+            {
+                case EnclaveRequest.KindMissing: return string.Format(Localization.Get("scQuestEncSearchNameFmt"), SafeName(ScEncSearch.PersonName(r)));
+                case EnclaveRequest.KindInfestation: return string.Format(Localization.Get("scQuestEncInfestNameFmt"), SafeName(r.TargetName ?? ""));
+                case EnclaveRequest.KindSiege: return string.Format(Localization.Get("scQuestEncSiegeNameFmt"), enclave);
+                default: return string.Format(Localization.Get("scQuestEncReqNameFmt"), enclave);
+            }
+        }
+
+        /// <summary>
+        /// E5: an E5 request's quest made to match the record - the session's journal pass and every stage change (found,
+        /// following, lost again, the remains searched): its place (ScEncRequests.RequestPlace) and marker, the person's name,
+        /// the stage word and the due day its objective reads, the "return" phase once the remains were searched; the
+        /// objectives drawn again.
+        /// </summary>
+        public static void ShapeRequest(Quest q, EnclaveRequest r, Enclave e)
+        {
+            try
+            {
+                if (q == null || r == null || e == null || q.CurrentState != Quest.QuestState.InProgress) return;
+                Vector3i at, size;
+                string place;
+                ScEncRequests.RequestPlace(r, e, out at, out size, out place);
+                MoveRequestMarker(q, at, size, place);
+                q.DataVariables[RequestWhoVar] = SafeName(ScEncSearch.PersonName(r));
+                q.DataVariables[RequestStageVar] = ScEncRequests.StageWord(r);
+                q.DataVariables[RequestDueVar] = r.DueDay.ToString();
+                if (r.Kind == EnclaveRequest.KindMissing && r.Stage == ScEncSearch.StageSearched) AdvanceRequest(q);
+                Redraw(q);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("quest-shaperequest", ex);
+            }
+        }
+
+        /// <summary>The quest's place (POIPosition/POISize, the name its objective reads) and its marker moved there; nothing when it is there already.</summary>
+        private static void MoveRequestMarker(Quest q, Vector3i at, Vector3i size, string place)
+        {
+            var want = new Vector3(at.x, at.y, at.z);
+            Vector3 pos;
+            q.DataVariables[PoiNameVar] = SafeName(place ?? "");
+            if (q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition) && pos == want) return;
+            q.SetPositionData(Quest.PositionDataTypes.POIPosition, want);
+            q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(Math.Max(1, size.x), 1f, Math.Max(1, size.z)));
+            if (q.NavObject != null && NavObjectManager.Instance != null) NavObjectManager.Instance.UnRegisterNavObject(q.NavObject);
+            q.NavObject = null;
+            EnsureMapObject(q);
+            ScLog.Verbose("enclave request quest " + q.QuestCode + ": its marker moved to " + place + " at " + at);
+        }
+
+        /// <summary>
+        /// The quest on to its next phase (a search's "Return to the enclave"): the current phase's objectives - display only,
+        /// they never complete on their own - marked complete, then vanilla's own completion check moves the phase
+        /// (Quest.RefreshQuestCompletion -> AdvancePhase). Never past the last phase: that would complete the quest.
+        /// </summary>
+        private static void AdvanceRequest(Quest q)
+        {
+            if (q.CurrentState != Quest.QuestState.InProgress || q.QuestClass == null || q.CurrentPhase >= q.QuestClass.HighestPhase) return;
+            byte phase = q.CurrentPhase;
+            foreach (BaseObjective o in q.Objectives) if (o != null && o.Phase == phase) o.Complete = true;
+            q.RefreshQuestCompletion(QuestClass.CompletionTypes.AutoComplete, null, true);
+        }
+
+        /// <summary>Each objective's line made again (BaseObjective.CurrentValue's setter calls SetupDisplay and tells the tracker).</summary>
+        private static void Redraw(Quest q)
+        {
+            foreach (BaseObjective o in q.Objectives) if (o != null) o.CurrentValue = o.CurrentValue;
         }
 
         /// <summary>Closes the quest through Quest.CloseQuest (unhooks objectives) and restores the compass.</summary>

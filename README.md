@@ -585,7 +585,8 @@ body goes and none comes; the records stay.
 when its chunks are loaded; no view rule), `sc enclave despawn <id>` (they go, and stay away 30 s),
 `sc enclave standing <id> <points>` (greetings and the marker follow), `sc enclave hostile <id>` (no payout),
 `sc enclave kill <id> [<person id>|all]` (the leader without one: deaths, succession and a group wiped out; `all` is
-the whole group, those not made yet included).
+the whole group, those not made yet included - while one of theirs is missing on an E5 search and may be alive the
+enclave stands, and a second `all` ends it).
 `sc enclave reseed confirm` drops the people with the enclaves - the only way back from hostility.
 
 **Saving:** the people are `[encperson]` sections in `survivor_community.txt` (each with the person's own fields, then
@@ -751,6 +752,102 @@ the two - a request quest whose request is gone is closed, an agreed request who
 **Limits:** host only, as E2 - a multiplayer client sees no request rows. The request's own words are picked at
 runtime by kind and standing, so a voice pack (keyed by statement) can't voice them; they show as text in SC's line
 panel, and with `DialogLine=false` the specifics are only in the journal once you agree.
+
+## Requests, part 2 (E5)
+
+Three more things an enclave can need from you: one of their people found, an infestation cleared, and help when the
+dead come over their walls.
+
+**When they ask**
+- A **missing survivor** and an **infestation** join the daily roll above (`EnclaveRequestKindWeights`: missing 2,
+  infestation 2 next to E4's 6 / 3 / 1), each only where it can be given: someone at home besides the leader who could go
+  missing and a building to search; an infestation near them, or room for one. Once you agree you have 3 days, counting
+  today (`EnclaveDueDaysSearch`). They count toward `EnclaveRequestMaxOpen` like E4's.
+- A **siege** has its own pace (about one a week): each day 15 % (`EnclaveSiegeChance`) that one enclave calls for help
+  at a random hour between 8:00 and 20:00 (`EnclaveSiegeHourMin`, `EnclaveSiegeHourMax`) - one you have found, not
+  hostile, with no open request, within 2 km of you (`EnclaveSiegeRange`). Only with a **powered radio** at home or at an
+  outpost (no radio, no call); never in the blood-moon window (from 10:00 on its day until it ends) nor so close before
+  it that the time to answer would still be running when it opens, never while a base attack, or an outpost attack
+  where you are, is being fought - and those wait while a siege is fought. One siege at a time; it doesn't count toward
+  the open requests.
+
+**A missing survivor**
+- The leader says one of theirs went out and never came back. When you agree, they tell you who and where they were
+  headed: a building with sleepers 200-800 m away (`EnclaveMissingMin`, `EnclaveMissingMax`) - never an enclave's,
+  your home, an outpost, a claimed or infested building, or one another task already sends you to. The journal's
+  "Find <name>" points at it.
+- The first time you get near that building, it's decided whether they are still alive: 80 % on the day you agreed,
+  20 % less each day after, never below 10 % (`EnclaveMissingAlive`, `EnclaveMissingAliveFade`, `EnclaveMissingAliveMin`).
+- **Alive:** they hide indoors at one of the building's sleeper spots - often among the dead. Talk to them: *"Your
+  people sent me. Let's get you home."* and they follow you (no fee, no time limit, and they don't count toward
+  `MaxFollowers`); *"Wait here for me."* makes them stay put. Once they're inside the enclave's grounds they're home:
+  +15 standing (`EnclaveGainMissingAlive`), SurvivorOrigins' "rescue" event, and the leader thanks you at the next talk.
+  If they die on the way, the request fails (-8 / -8 / -15). If they die before you reach them, their remains lie where
+  they fell.
+- **Dead:** their remains lie in the building. *"Search the body"* - then the journal says "Tell <enclave> about
+  <name>", and the leader's row *"I found <name>. I'm sorry."* ends it: +8 (`EnclaveGainMissingDead`), the "favour" event.
+- Run out of time or give up (*"I can't do it."* - not while they follow you or once you found their remains) and
+  they're lost for good: the remains go.
+- While they may still be alive, their enclave stands even if everyone at home dies (brought home, they lead it); once
+  they are lost or found dead with nobody else left, the enclave is gone.
+
+**An infestation to clear**
+- The leader names an infestation within 300 m of their grounds (`EnclaveInfestRange`) - one that is already there,
+  or one that starts there for the request (the infestations' own rules and cap; a building they refuse stays refused -
+  and one that starts within `InfestRadioRange` of home is also reported by a powered radio, a moment before the leader
+  names it, as any new one is).
+  Hearing of it from the leader puts its purple marker on your map. The journal's "Clear <building>" points at it.
+- It's done the moment the infestation is cleared, wherever you are: +15 (`EnclaveGainInfestation`), the "favour"
+  event, a tell, and the leader thanks you at the next talk. Cleared before you agreed? *"I already took care of it."*
+  ends it on the spot (an offer you never answer is then simply withdrawn, no loss).
+
+**A siege**
+- The call: *"The X on the radio: They're coming over the walls! Please, hurry!"*, a ledger line and a tracked journal
+  quest, "Siege at The X", counting down live: "14:52 to reach The X". You have 15 real minutes
+  (`EnclaveSiegeMinutes`): it is game time at the day's speed, so pausing stops it and sleeping uses it up (with time
+  frozen in the sandbox it counts real seconds). Get there while another attack is being fought where you are (a base
+  attack next door, an outpost's) and the siege waits for it - its clock stands still until that fight is over.
+- Get within 70 m of their grounds (`EnclaveSiegeArriveRange`) and all of their people come out; the horde comes over
+  the walls from their far side from you, one a second: (6 + your gamestage x 0.12) x their people / 4 zombies, 4 to 30
+  (`EnclaveSiegeBase`, `EnclaveSiegePerGS`, `EnclaveSiegeMin`, `EnclaveSiegeMax`), 25-50 m beyond their grounds
+  (`EnclaveSiegeSpawnMin`, `EnclaveSiegeSpawnMax`) within 90 degrees of that side (`EnclaveSiegeSpread`), never closer
+  than 30 m to you (`EnclaveSiegeMinPlayerRange`) and never within 50 m in your view (`EnclaveSiegeNoPopRange`). They go
+  for the enclave's people; the people fight back, and their deaths are real. The journal counts "8 left".
+- **Won:** every one of them dead - +25 (`EnclaveGainSiege`), the "rescue" event, and the leader's thanks. A fight that
+  stalls 3 game hours (`EnclaveSiegeMaxHours`) with no kill in the last hour is over: won if you killed any.
+- **Lost:** too late, or every one of their people dead - the enclave falls and its building becomes an infestation
+  (known, with its marker).
+- **Leaving mid-fight** (beyond twice the arrive range): the horde goes, and whether they hold is rolled - the share of
+  the horde already dead plus 5 % for each of them still alive (`EnclaveSiegeLeaveRoll`). Held earns nothing (you
+  didn't see it through); not held, they fall. Dying and respawning far away counts as leaving.
+- Save and reload mid-fight: 15 seconds after the load (`EnclaveSiegeResumeSeconds`) their people still alive are all
+  out again and the zombies still standing come back; mid-countdown, the clock carries on where it was.
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveDueDaysSearch`, `EnclaveMissingMin`, `EnclaveMissingMax`,
+`EnclaveMissingAlive`, `EnclaveMissingAliveFade`, `EnclaveMissingAliveMin`, `EnclaveInfestRange`, `EnclaveSiegeChance`,
+`EnclaveSiegeHourMin`, `EnclaveSiegeHourMax`, `EnclaveSiegeRange`, `EnclaveSiegeMinutes`, `EnclaveSiegeArriveRange`,
+`EnclaveSiegeMaxHours`, `EnclaveSiegeBase`, `EnclaveSiegePerGS`, `EnclaveSiegeMin`, `EnclaveSiegeMax`,
+`EnclaveSiegeSpawnMin`, `EnclaveSiegeSpawnMax`, `EnclaveSiegeSpread`, `EnclaveSiegeMinPlayerRange`,
+`EnclaveSiegeNoPopRange`, `EnclaveSiegeResumeSeconds`, `EnclaveSiegeLeaveRoll`, `EnclaveGainMissingAlive`,
+`EnclaveGainMissingDead`, `EnclaveGainInfestation`, `EnclaveGainSiege`; and `missing`, `infestation` in
+`EnclaveRequestKindWeights`.
+
+**Console** (host): `sc enclave request <id> offer missing|infestation` (only where it can be given),
+`sc enclave request <id> fate alive|dead` (the missing survivor's fate before you get there, this session),
+`sc enclave siege <id>` (the siege clock and why a call would wait), `sc enclave siege <id> now [force]` (a call now:
+the pace ignored, the rules kept - `force` skips the radio, the range, discovery and the blood moon),
+`... win`, `... lose` (the enclave falls, its building infested), `... clear` (withdrawn: the horde despawns, no
+standing change). `sc enclave requests` shows the siege clock.
+
+**Saving:** the request's E5 fields go in its `[encrequest]` (`stage`, `targetname`, `spot`, `spotyaw`, `escort`,
+`siege`), the leader's thanks owed in `[enclave] thanks`, a missing person is `state=missing`, and `[community]` keeps
+`encsiegeat` (today's scheduled call) and `encremains` (remains still to clear from a chunk that was away). A survivor
+following you when you quit waits where they stood when you load again (after a crash: where they last waited - the
+building, or where you told them to wait).
+
+**Limits:** host only. The found survivor's escort ignores Voice Control's spoken dismiss (it answers that they stay
+with their group); use *"Wait here for me."* or SCore's companion window. When the siege is lost while you are still
+near, their people's bodies are taken out of the world (the fall), not left as corpses.
 
 ## Infestations (I1)
 

@@ -404,6 +404,16 @@ namespace SurvivorCommunity
         /// </summary>
         public int NextEncRequestId;
         public int EncRequestDay;
+        /// <summary>
+        /// E5 (ScEncSiege): the world time today's siege call is due (encsiegeat=; 0: none scheduled), set by the day's roll and
+        /// fired by the ticker.
+        /// </summary>
+        public ulong EncSiegeAt;
+        /// <summary>
+        /// E5 (ScEncSearch): a missing survivor's remains still in the world after their request closed (encremains=), taken
+        /// out once their chunk is loaded.
+        /// </summary>
+        public readonly List<Vector3i> EncRemains = new List<Vector3i>();
 
         public int Get(Resource r) { return Stock[(int)r]; }
         public void Set(Resource r, int v) { Stock[(int)r] = Math.Max(0, v); }

@@ -44,8 +44,11 @@ namespace SurvivorCommunity
     ///   [encrequest] id=3 enclave=4 kind=resource|generator|gun state=offered|accepted offered=12 lapse=14 accepted=-1 due=-1
     ///                res=meds:2 (a resource request's resource and units) quest=QuestCode (E4, ScEncRequests; forward-only, as
     ///                [enclave], with [community] encrequestid= and encreqday= and [enclave] nextreq=). E5's kinds add
-    ///                target=x,y,z infest=id person=pid deadline=worldtime. A request whose enclave is missing is dropped (a
-    ///                degraded load); one of a kind this build does not know is dropped at OnRegistryChanged.
+    ///                target=x,y,z infest=id person=pid deadline=worldtime stage=n targetname=.. spot=x,y,z spotyaw=90
+    ///                escort=player:body siege=size:spawned:killed:started (each written when set), with [enclave] thanks=kind,
+    ///                [encperson] state=missing and [community] encsiegeat=worldtime encremains=x,y,z;.. A request whose
+    ///                enclave is missing is dropped (a degraded load); one of a kind this build does not know is dropped at
+    ///                OnRegistryChanged.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -416,6 +419,8 @@ namespace SurvivorCommunity
                 case "recruited": e.LastRecruitDay = I(val); break;
                 // E4: the first day the daily roll may give them a new request
                 case "nextreq": e.NextRequestDay = I(val); break;
+                // E5: the kind of a request done while the player was away, thanked for at the next talk
+                case "thanks": e.Thanks = val.Trim().ToLowerInvariant(); break;
             }
         }
 
@@ -504,6 +509,30 @@ namespace SurvivorCommunity
                 case "infest": r.InfestationId = I(val); break;
                 case "person": r.PersonId = I(val); break;
                 case "deadline": { ulong u; if (ulong.TryParse(val.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) r.Deadline = u; break; }
+                // E5: where the request stands, the building's name, where a missing survivor waits or lies, the escort, the siege
+                case "stage": r.Stage = Clamp(I(val), 0, 9); break;
+                case "targetname": r.TargetName = val; break;
+                case "spot": { Vector3i v; if (TryVec(val, out v)) { r.Spot = v; r.HasSpot = true; } break; }
+                case "spotyaw": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) r.SpotYaw = f; break; }
+                case "escort":
+                {
+                    // player:body (a load ends the escort: OnRegistryChanged clears that body's hire)
+                    string[] f = val.Split(':');
+                    if (f.Length >= 1) r.EscortBy = I(f[0]);
+                    if (f.Length >= 2) r.EscortBody = I(f[1]);
+                    break;
+                }
+                case "siege":
+                {
+                    // size:spawned:killed:started
+                    string[] f = val.Split(':');
+                    ulong u;
+                    if (f.Length >= 1) r.SiegeSize = Math.Max(0, I(f[0]));
+                    if (f.Length >= 2) r.SiegeSpawned = Math.Max(0, I(f[1]));
+                    if (f.Length >= 3) r.SiegeKilled = Math.Max(0, I(f[2]));
+                    if (f.Length >= 4 && ulong.TryParse(f[3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) r.SiegeStarted = u;
+                    break;
+                }
             }
         }
 
@@ -774,6 +803,12 @@ namespace SurvivorCommunity
                 // enclave requests (E4): the id counter, the request clock's last day
                 case "encrequestid": c.NextEncRequestId = I(val); break;
                 case "encreqday": c.EncRequestDay = I(val); break;
+                // E5: the world time today's siege call is due (0: none), remains still to take out of the world
+                case "encsiegeat": { ulong u; if (ulong.TryParse(val.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.EncSiegeAt = u; break; }
+                case "encremains":
+                    c.EncRemains.Clear();
+                    foreach (string part in val.Split(';')) { Vector3i v; if (TryVec(part, out v) && !c.EncRemains.Contains(v)) c.EncRemains.Add(v); }
+                    break;
                 case "stock":
                     foreach (string part in val.Split(','))
                     {
@@ -1080,6 +1115,13 @@ namespace SurvivorCommunity
                 sb.AppendLine("encpersonid=" + c.NextEncPersonId);
                 sb.AppendLine("encrequestid=" + c.NextEncRequestId);
                 if (c.EncRequestDay > 0) sb.AppendLine("encreqday=" + c.EncRequestDay.ToString(CultureInfo.InvariantCulture));
+                if (c.EncSiegeAt > 0) sb.AppendLine("encsiegeat=" + c.EncSiegeAt.ToString(CultureInfo.InvariantCulture));
+                if (c.EncRemains.Count > 0)
+                {
+                    var rm = new StringBuilder();
+                    foreach (Vector3i v in c.EncRemains) { if (rm.Length > 0) rm.Append(';'); rm.Append(Vec(v)); }
+                    sb.AppendLine("encremains=" + rm);
+                }
                 var st = new StringBuilder();
                 for (int i = 0; i < ScNames.ResourceCount; i++) { if (i > 0) st.Append(','); st.Append(ScNames.ResourceKeys[i]).Append(':').Append(c.Stock[i]); }
                 sb.AppendLine("stock=" + st);
@@ -1188,6 +1230,7 @@ namespace SurvivorCommunity
                     if (en.Stock.Length > 0) sb.AppendLine("stock=" + en.Stock);   // base64url: never Clean()ed (it has no '=' or ';')
                     if (en.LastRecruitDay >= 0) sb.AppendLine("recruited=" + en.LastRecruitDay.ToString(CultureInfo.InvariantCulture));
                     if (en.NextRequestDay > 0) sb.AppendLine("nextreq=" + en.NextRequestDay.ToString(CultureInfo.InvariantCulture));
+                    if (en.Thanks.Length > 0) sb.AppendLine("thanks=" + Clean(en.Thanks));
                 }
                 foreach (var ep in EncPeople)
                 {
@@ -1226,6 +1269,19 @@ namespace SurvivorCommunity
                     if (rq.InfestationId >= 0) sb.AppendLine("infest=" + rq.InfestationId.ToString(CultureInfo.InvariantCulture));
                     if (rq.PersonId >= 0) sb.AppendLine("person=" + rq.PersonId.ToString(CultureInfo.InvariantCulture));
                     if (rq.Deadline > 0) sb.AppendLine("deadline=" + rq.Deadline.ToString(CultureInfo.InvariantCulture));
+                    // E5
+                    if (rq.Stage != 0) sb.AppendLine("stage=" + rq.Stage.ToString(CultureInfo.InvariantCulture));
+                    if (!string.IsNullOrEmpty(rq.TargetName)) sb.AppendLine("targetname=" + Clean(rq.TargetName));
+                    if (rq.HasSpot)
+                    {
+                        sb.AppendLine("spot=" + Vec(rq.Spot));
+                        sb.AppendLine("spotyaw=" + rq.SpotYaw.ToString("0.#", CultureInfo.InvariantCulture));
+                    }
+                    if (rq.EscortBy >= 0 || rq.EscortBody >= 0)
+                        sb.AppendLine("escort=" + rq.EscortBy.ToString(CultureInfo.InvariantCulture) + ":" + rq.EscortBody.ToString(CultureInfo.InvariantCulture));
+                    if (rq.SiegeSize > 0 || rq.SiegeStarted > 0)
+                        sb.AppendLine("siege=" + rq.SiegeSize.ToString(CultureInfo.InvariantCulture) + ":" + rq.SiegeSpawned.ToString(CultureInfo.InvariantCulture) + ":"
+                                      + rq.SiegeKilled.ToString(CultureInfo.InvariantCulture) + ":" + rq.SiegeStarted.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var inf in Infestations)
                 {

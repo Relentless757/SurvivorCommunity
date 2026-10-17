@@ -561,10 +561,13 @@ namespace SurvivorCommunity
         /// days (the day it is accepted counts); generator requests from day EnclaveGeneratorFromDay.
         /// </summary>
         public static int EnclaveRequestCooldownDays = 1, EnclaveOfferLapseDays = 3, EnclaveDueDaysItems = 4, EnclaveGeneratorFromDay = 10;
-        /// <summary>EnclaveRequestKindWeights "resource:6,gun:3,generator:1" and EnclaveRequestSizeWeights "small:5,medium:3,large:2" (0 = never).</summary>
+        /// <summary>
+        /// EnclaveRequestKindWeights "resource:6,gun:3,generator:1,missing:2,infestation:2" (E5 adds the last two; a siege has
+        /// its own pace) and EnclaveRequestSizeWeights "small:5,medium:3,large:2" (0 = never).
+        /// </summary>
         public static readonly Dictionary<string, float> EnclaveRequestKindWeights = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
         public static readonly Dictionary<string, float> EnclaveRequestSizeWeights = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-        private const string DefaultEnclaveRequestKindWeights = "resource:6,gun:3,generator:1";
+        private const string DefaultEnclaveRequestKindWeights = "resource:6,gun:3,generator:1,missing:2,infestation:2";
         private const string DefaultEnclaveRequestSizeWeights = "small:5,medium:3,large:2";
         /// <summary>Standing gained for a request done: a resource request (whatever its size), a generator.</summary>
         public static int EnclaveGainResource = 10, EnclaveGainGenerator = 15;
@@ -587,6 +590,49 @@ namespace SurvivorCommunity
         public static readonly int[] EnclaveLossDecline = { 5, 5, 12 };
         public static readonly int[] EnclaveLossFail = { 8, 8, 15 };
         public static readonly int[] EnclaveLossLapse = { 0, 3, 15 };
+        // ---- enclave requests, part 2 (E5: the missing survivor ScEncSearch, the infestation ScEncInfest, the siege ScEncSiege) ----
+        /// <summary>A missing survivor's or an infestation request's days, once accepted (the day it is accepted counts).</summary>
+        public static int EnclaveDueDaysSearch = 3;
+        /// <summary>
+        /// A missing survivor's building: a real POI with sleeper areas EnclaveMissingMin..EnclaveMissingMax m from the enclave
+        /// (centre to centre). Their fate is rolled when the player first gets there: alive with EnclaveMissingAlive on the day
+        /// the request was accepted, EnclaveMissingAliveFade less each day after, never below EnclaveMissingAliveMin.
+        /// </summary>
+        public static int EnclaveMissingMin = 200, EnclaveMissingMax = 800;
+        public static float EnclaveMissingAlive = 0.8f, EnclaveMissingAliveFade = 0.2f, EnclaveMissingAliveMin = 0.1f;
+        /// <summary>An infestation request names one within EnclaveInfestRange m of the enclave's footprint, or starts one there.</summary>
+        public static int EnclaveInfestRange = 300;
+        /// <summary>
+        /// The siege (Q17: about one a week): each day EnclaveSiegeChance that a known enclave that is not hostile, within
+        /// EnclaveSiegeRange m of the player and with no open request, calls for help at a random hour EnclaveSiegeHourMin..
+        /// EnclaveSiegeHourMax. The player has EnclaveSiegeMinutes real minutes (world time at the day's speed: pausing stops
+        /// it, sleeping uses it up) to come within EnclaveSiegeArriveRange m of its footprint; leaving a live siege beyond
+        /// twice that ends the fight there. A live siege with no kill for a game hour, EnclaveSiegeMaxHours after it began,
+        /// is over (the stragglers let go).
+        /// </summary>
+        public static float EnclaveSiegeChance = 0.15f;
+        public static int EnclaveSiegeHourMin = 8, EnclaveSiegeHourMax = 20;
+        public static int EnclaveSiegeRange = 2000;
+        public static float EnclaveSiegeMinutes = 15f;
+        public static int EnclaveSiegeArriveRange = 70;
+        public static float EnclaveSiegeMaxHours = 3f;
+        /// <summary>
+        /// The horde: (EnclaveSiegeBase + gamestage x EnclaveSiegePerGS) x living people / 4, EnclaveSiegeMin..EnclaveSiegeMax,
+        /// fixed at the call; one a second, EnclaveSiegeSpawnMin..EnclaveSiegeSpawnMax m beyond the footprint within
+        /// EnclaveSiegeSpread degrees of its far side from the player, at least EnclaveSiegeMinPlayerRange m from every player
+        /// and never within EnclaveSiegeNoPopRange m in a player's view. After a load the ones still standing come back
+        /// EnclaveSiegeResumeSeconds later.
+        /// </summary>
+        public static float EnclaveSiegeBase = 6f, EnclaveSiegePerGS = 0.12f;
+        public static int EnclaveSiegeMin = 4, EnclaveSiegeMax = 30;
+        public static int EnclaveSiegeSpawnMin = 25, EnclaveSiegeSpawnMax = 50;
+        public static float EnclaveSiegeSpread = 90f;
+        public static int EnclaveSiegeMinPlayerRange = 30, EnclaveSiegeNoPopRange = 50;
+        public static float EnclaveSiegeResumeSeconds = 15f;
+        /// <summary>The player leaving a live siege: the chance it holds is the share of the horde killed plus EnclaveSiegeLeaveRoll a living person.</summary>
+        public static float EnclaveSiegeLeaveRoll = 0.05f;
+        /// <summary>Standing for E5's requests done: a survivor brought home, one found dead and told of, an infestation cleared, a siege beaten.</summary>
+        public static int EnclaveGainMissingAlive = 15, EnclaveGainMissingDead = 8, EnclaveGainInfestation = 15, EnclaveGainSiege = 25;
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1105,6 +1151,12 @@ namespace SurvivorCommunity
             SetInts(EnclaveGunTierPoints, 3, 6, 10, 15, 18, 22); EnclaveGunQualityBase = 0.75f; EnclaveGunQualityStep = 0.1f; EnclaveGunPointsMin = 3;
             EnclaveGunPointsMax = 30; SetInts(EnclaveGunValueBands, 400, 1200, 3500, 7000, 12000); SetInts(EnclaveGunWorthBands, 5, 9, 14, 20);
             SetInts(EnclaveLossDecline, 5, 5, 12); SetInts(EnclaveLossFail, 8, 8, 15); SetInts(EnclaveLossLapse, 0, 3, 15);
+            EnclaveDueDaysSearch = 3; EnclaveMissingMin = 200; EnclaveMissingMax = 800; EnclaveMissingAlive = 0.8f; EnclaveMissingAliveFade = 0.2f;
+            EnclaveMissingAliveMin = 0.1f; EnclaveInfestRange = 300; EnclaveSiegeChance = 0.15f; EnclaveSiegeHourMin = 8; EnclaveSiegeHourMax = 20;
+            EnclaveSiegeRange = 2000; EnclaveSiegeMinutes = 15f; EnclaveSiegeArriveRange = 70; EnclaveSiegeMaxHours = 3f; EnclaveSiegeBase = 6f;
+            EnclaveSiegePerGS = 0.12f; EnclaveSiegeMin = 4; EnclaveSiegeMax = 30; EnclaveSiegeSpawnMin = 25; EnclaveSiegeSpawnMax = 50; EnclaveSiegeSpread = 90f;
+            EnclaveSiegeMinPlayerRange = 30; EnclaveSiegeNoPopRange = 50; EnclaveSiegeResumeSeconds = 15f; EnclaveSiegeLeaveRoll = 0.05f;
+            EnclaveGainMissingAlive = 15; EnclaveGainMissingDead = 8; EnclaveGainInfestation = 15; EnclaveGainSiege = 25;
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1155,7 +1207,7 @@ namespace SurvivorCommunity
             ParseKindWeights(DefaultEnclaveKindWeights);
             EnclavePoiExcludes.AddRange(SplitList(DefaultEnclavePoiExcludes));
             ParseKindRows(DefaultEnclaveKindRows);
-            ParseNamedWeights("EnclaveRequestKindWeights", DefaultEnclaveRequestKindWeights, ScEncRequests.Kinds, EnclaveRequestKindWeights);
+            ParseNamedWeights("EnclaveRequestKindWeights", DefaultEnclaveRequestKindWeights, ScEncRequests.RollKinds, EnclaveRequestKindWeights);
             ParseNamedWeights("EnclaveRequestSizeWeights", DefaultEnclaveRequestSizeWeights, ScEncRequests.Sizes, EnclaveRequestSizeWeights);
             ParseTierByDay(DefaultInfestTierByDay);
         }
@@ -1727,7 +1779,7 @@ namespace SurvivorCommunity
                 {
                     string rv;
                     if (p.Values.TryGetValue("EnclaveRequestKindWeights", out rv) && !string.IsNullOrEmpty(rv))
-                        ParseNamedWeights("EnclaveRequestKindWeights", rv, ScEncRequests.Kinds, EnclaveRequestKindWeights);
+                        ParseNamedWeights("EnclaveRequestKindWeights", rv, ScEncRequests.RollKinds, EnclaveRequestKindWeights);
                     if (p.Values.TryGetValue("EnclaveRequestSizeWeights", out rv) && !string.IsNullOrEmpty(rv))
                         ParseNamedWeights("EnclaveRequestSizeWeights", rv, ScEncRequests.Sizes, EnclaveRequestSizeWeights);
                     if (p.Values.TryGetValue("EnclaveGunTierPoints", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveGunTierPoints", rv, EnclaveGunTierPoints, 0, 100);
@@ -1737,6 +1789,40 @@ namespace SurvivorCommunity
                     if (p.Values.TryGetValue("EnclaveLossFail", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveLossFail", rv, EnclaveLossFail, 0, 100);
                     if (p.Values.TryGetValue("EnclaveLossLapse", out rv) && !string.IsNullOrEmpty(rv)) ParseTierInts("EnclaveLossLapse", rv, EnclaveLossLapse, 0, 100);
                 }
+                // enclave requests, part 2 (E5)
+                ParseInt(p, "EnclaveDueDaysSearch", ref EnclaveDueDaysSearch, 1, 60);
+                ParseInt(p, "EnclaveMissingMin", ref EnclaveMissingMin, 0, 20000);
+                ParseInt(p, "EnclaveMissingMax", ref EnclaveMissingMax, 0, 20000);
+                if (EnclaveMissingMax < EnclaveMissingMin) EnclaveMissingMax = EnclaveMissingMin;
+                ParseFloat(p, "EnclaveMissingAlive", ref EnclaveMissingAlive, 0f, 1f);
+                ParseFloat(p, "EnclaveMissingAliveFade", ref EnclaveMissingAliveFade, 0f, 1f);
+                ParseFloat(p, "EnclaveMissingAliveMin", ref EnclaveMissingAliveMin, 0f, 1f);
+                ParseInt(p, "EnclaveInfestRange", ref EnclaveInfestRange, 0, 5000);
+                ParseFloat(p, "EnclaveSiegeChance", ref EnclaveSiegeChance, 0f, 1f);
+                ParseInt(p, "EnclaveSiegeHourMin", ref EnclaveSiegeHourMin, 0, 23);
+                ParseInt(p, "EnclaveSiegeHourMax", ref EnclaveSiegeHourMax, 0, 23);
+                if (EnclaveSiegeHourMax < EnclaveSiegeHourMin) EnclaveSiegeHourMax = EnclaveSiegeHourMin;
+                ParseInt(p, "EnclaveSiegeRange", ref EnclaveSiegeRange, 0, 20000);
+                ParseFloat(p, "EnclaveSiegeMinutes", ref EnclaveSiegeMinutes, 1f, 600f);
+                ParseInt(p, "EnclaveSiegeArriveRange", ref EnclaveSiegeArriveRange, 10, 500);
+                ParseFloat(p, "EnclaveSiegeMaxHours", ref EnclaveSiegeMaxHours, 0.5f, 48f);
+                ParseFloat(p, "EnclaveSiegeBase", ref EnclaveSiegeBase, 0f, 200f);
+                ParseFloat(p, "EnclaveSiegePerGS", ref EnclaveSiegePerGS, 0f, 10f);
+                ParseInt(p, "EnclaveSiegeMin", ref EnclaveSiegeMin, 1, 200);
+                ParseInt(p, "EnclaveSiegeMax", ref EnclaveSiegeMax, 1, 200);
+                if (EnclaveSiegeMax < EnclaveSiegeMin) EnclaveSiegeMax = EnclaveSiegeMin;
+                ParseInt(p, "EnclaveSiegeSpawnMin", ref EnclaveSiegeSpawnMin, 1, 500);
+                ParseInt(p, "EnclaveSiegeSpawnMax", ref EnclaveSiegeSpawnMax, 2, 500);
+                if (EnclaveSiegeSpawnMax <= EnclaveSiegeSpawnMin) EnclaveSiegeSpawnMax = EnclaveSiegeSpawnMin + 1;
+                ParseFloat(p, "EnclaveSiegeSpread", ref EnclaveSiegeSpread, 0f, 180f);
+                ParseInt(p, "EnclaveSiegeMinPlayerRange", ref EnclaveSiegeMinPlayerRange, 0, 200);
+                ParseInt(p, "EnclaveSiegeNoPopRange", ref EnclaveSiegeNoPopRange, 0, 500);
+                ParseFloat(p, "EnclaveSiegeResumeSeconds", ref EnclaveSiegeResumeSeconds, 0f, 600f);
+                ParseFloat(p, "EnclaveSiegeLeaveRoll", ref EnclaveSiegeLeaveRoll, 0f, 1f);
+                ParseInt(p, "EnclaveGainMissingAlive", ref EnclaveGainMissingAlive, 0, 100);
+                ParseInt(p, "EnclaveGainMissingDead", ref EnclaveGainMissingDead, 0, 100);
+                ParseInt(p, "EnclaveGainInfestation", ref EnclaveGainInfestation, 0, 100);
+                ParseInt(p, "EnclaveGainSiege", ref EnclaveGainSiege, 0, 100);
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -2069,6 +2155,14 @@ namespace SurvivorCommunity
                                                 + string.Join(",", Array.ConvertAll(EnclaveGunTierPoints, x => x.ToString(CultureInfo.InvariantCulture))) + " x ("
                                                 + F2(EnclaveGunQualityBase) + "+" + F2(EnclaveGunQualityStep) + "q) in " + EnclaveGunPointsMin + ".." + EnclaveGunPointsMax
                                                 + ", losses no " + IntsText(EnclaveLossDecline) + " fail " + IntsText(EnclaveLossFail) + " lapse " + IntsText(EnclaveLossLapse) : "off")
+                          + " enclaveRequests2=" + (Enclaves ? "search/infestation due in " + EnclaveDueDaysSearch + "d, missing " + EnclaveMissingMin + "-" + EnclaveMissingMax
+                                                 + "m (alive " + F2(EnclaveMissingAlive) + " -" + F2(EnclaveMissingAliveFade) + "/day, min " + F2(EnclaveMissingAliveMin) + "), infestation within "
+                                                 + EnclaveInfestRange + "m, siege " + F2(EnclaveSiegeChance) + "/day at " + EnclaveSiegeHourMin + "-" + EnclaveSiegeHourMax + "h within "
+                                                 + EnclaveSiegeRange + "m, " + F2(EnclaveSiegeMinutes) + " min to come within " + EnclaveSiegeArriveRange + "m (max " + F2(EnclaveSiegeMaxHours)
+                                                 + "h live), horde (" + F2(EnclaveSiegeBase) + "+" + F2(EnclaveSiegePerGS) + "gs)xpeople/4 in " + EnclaveSiegeMin + ".." + EnclaveSiegeMax
+                                                 + " at " + EnclaveSiegeSpawnMin + "-" + EnclaveSiegeSpawnMax + "m (+-" + F2(EnclaveSiegeSpread) + " deg, " + EnclaveSiegeMinPlayerRange
+                                                 + "m from players, no pop-in " + EnclaveSiegeNoPopRange + "m, resume " + F2(EnclaveSiegeResumeSeconds) + "s), leave +" + F2(EnclaveSiegeLeaveRoll)
+                                                 + "/person, gains +" + EnclaveGainMissingAlive + "/+" + EnclaveGainMissingDead + "/+" + EnclaveGainInfestation + "/+" + EnclaveGainSiege : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange

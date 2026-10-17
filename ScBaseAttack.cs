@@ -236,7 +236,9 @@ namespace SurvivorCommunity
             if (!EntityFactory.EnemySpawnMode) return "enemy spawning is off";
             if (!forced && w.worldTime < c.AttackNotBefore) return "too soon after the last attack (not before " + Clock(c.AttackNotBefore) + ")";
             if (!forced && BloodMoonWindow(w)) return "the blood moon (no calls from 10:00 on its day until it ends at dawn)";
-            if (ScOutpostRisk.AnyLive()) return "an outpost attack is being fought";
+            // only an outpost fight where the player is: one they walked away from stays live in name for hours (the E5 review's N5)
+            if (player != null ? ScOutpostRisk.AnyLiveNear(player.position) : ScOutpostRisk.AnyLive()) return "an outpost attack is being fought";
+            if (ScEncSiege.Live) return "an enclave's siege is being fought";       // E5: one live attack at a time
             if (!forced && !Near(player) && !AwayAllowed(c))
                 return ScConfig.BaseAttacksAway ? "the defenders already fought a horde while the player was away (one per absence: the next call waits for them)"
                                                 : "the player is away from home (a call waits for them)";
@@ -397,8 +399,9 @@ namespace SurvivorCommunity
         private static void TickCalled(World w, EntityPlayerLocal player, Community c)
         {
             bool near = Near(player);
-            // the blood moon holds every arrival; an outpost being fought holds one the player would fight live
-            bool held = BloodMoonWindow(w) || (near && ScOutpostRisk.AnyLive());
+            // the blood moon holds every arrival; an outpost (E5: or an enclave's siege) being fought holds one the player
+            // would fight live
+            bool held = BloodMoonWindow(w) || (near && (ScOutpostRisk.AnyLive() || ScEncSiege.Live));
             if (c.AttackArrive == 0UL)
             {
                 // put off (the blood moon, an outpost fight, or the player away with this absence's fight had): it comes
@@ -470,8 +473,9 @@ namespace SurvivorCommunity
 
         private static void TickAway(World w, EntityPlayerLocal player, Community c, float now)
         {
-            // one live attack at a time: back from an outpost still being fought, the defenders carry on until it is over
-            if (Near(player) && !ScOutpostRisk.AnyLive()) { Join(w, player, c); return; }
+            // one live attack at a time: back from an outpost (E5: or an enclave's siege) still being fought, the defenders
+            // carry on until it is over
+            if (Near(player) && !ScOutpostRisk.AnyLive() && !ScEncSiege.Live) { Join(w, player, c); return; }
             if (w.worldTime >= c.AttackAwayEnd) { SettleAway(w, player, c, -1, "the defenders fought it alone"); return; }
             int dealt = Dealt(c, w.worldTime);
             if (dealt > c.AttackKilled)
@@ -722,7 +726,7 @@ namespace SurvivorCommunity
             try { gs = player.gameStage; } catch (Exception) { }
             string group = GroupFor(gs, rnd);
             int cls = PickClass(group, rnd);
-            EntityAlive z = ScCommunity.ClassExists(cls) ? EntityFactory.CreateEntity(cls, pos) as EntityAlive : null;
+            EntityAlive z = SpawnHordeZombie(w, cls, pos);
             if (z == null)
             {
                 if (++spawnFails >= 10)
@@ -734,12 +738,6 @@ namespace SurvivorCommunity
                 return false;
             }
             spawnFails = 0;
-            z.SetSpawnerSource(EnumSpawnerSource.Dynamic);                     // never written with the chunk
-            w.SpawnEntityInWorld(z);
-            EntityEnemy e = z as EntityEnemy;
-            if (e != null) e.IsHordeZombie = true;                             // no despawn while a player is about
-            z.bIsChunkObserver = true;                                         // its chunks stay loaded (as vanilla's hordes)
-            z.IsScoutZombie = true;                                            // its approach adds an A* line (EAIApproachSpot)
             var r = new Attacker { Steer = AIWanderingHordeSpawner.RandomPos(w.aiDirector, homeCentre, 6f) };
             z.SetInvestigatePosition(r.Steer, 6000, true);
             attackers[z.entityId] = r;
@@ -775,24 +773,52 @@ namespace SurvivorCommunity
         /// <summary>A standable block near 'at' (the home's level first, then the column's top), loaded, away from every player.</summary>
         private static bool LooseSpot(World w, Vector3 at, out Vector3 pos)
         {
+            return LooseSpot(w, at, homeCentre.y, ScConfig.BaseAttackMinPlayerRange, out pos);
+        }
+
+        /// <summary>
+        /// LooseSpot round any place (E5's siege: an enclave's): a standable block near 'at' - at refY's level first, then the
+        /// column's top - in a loaded chunk, never in a trader's area or a bedroll's dead zone, minPlayerRange from every player.
+        /// </summary>
+        internal static bool LooseSpot(World w, Vector3 at, float refY, float minPlayerRange, out Vector3 pos)
+        {
             pos = Vector3.zero;
             Vector3i b = World.worldToBlockPos(at);
             Chunk chunk = w.GetChunkFromWorldPos(b) as Chunk;
             if (chunk == null || w.IsWithinTraderArea(b)) return false;      // vanilla's own spots never come from a trader
             int top = chunk.GetHeight(World.toBlockXZ(b.x), World.toBlockXZ(b.z)) + 1;
             int y;
-            if (!ScCommunity.FindStandable(w, b.x, b.z, Mathf.RoundToInt(homeCentre.y), out y) && !ScCommunity.FindStandable(w, b.x, b.z, top, out y)) return false;
+            if (!ScCommunity.FindStandable(w, b.x, b.z, Mathf.RoundToInt(refY), out y) && !ScCommunity.FindStandable(w, b.x, b.z, top, out y)) return false;
             Vector3 p = new Vector3(b.x + 0.5f, y, b.z + 0.5f);
             if (w.isPositionInRangeOfBedrolls(p)) return false;                // ...nor from a bedroll's dead zone
-            float min = Math.Max(0, ScConfig.BaseAttackMinPlayerRange);
+            float min = Math.Max(0f, minPlayerRange);
             for (int i = 0; i < w.Players.list.Count; i++)
                 if (w.Players.list[i].GetDistanceSq(p) < min * min) return false;
             pos = p;
             return true;
         }
 
+        /// <summary>
+        /// One horde zombie of a class at a spot, flagged as every attacker is (E5's siege spawns its own this way too): Dynamic
+        /// (never written with the chunk), IsHordeZombie (no despawn while a player is about), a chunk observer (its chunks
+        /// stay loaded, as vanilla's hordes), IsScoutZombie (its approach adds an A* line, EAIApproachSpot). Null when the class
+        /// makes nothing.
+        /// </summary>
+        internal static EntityAlive SpawnHordeZombie(World w, int cls, Vector3 pos)
+        {
+            EntityAlive z = ScCommunity.ClassExists(cls) ? EntityFactory.CreateEntity(cls, pos) as EntityAlive : null;
+            if (z == null) return null;
+            z.SetSpawnerSource(EnumSpawnerSource.Dynamic);                     // never written with the chunk
+            w.SpawnEntityInWorld(z);
+            EntityEnemy e = z as EntityEnemy;
+            if (e != null) e.IsHordeZombie = true;                             // no despawn while a player is about
+            z.bIsChunkObserver = true;                                         // its chunks stay loaded (as vanilla's hordes)
+            z.IsScoutZombie = true;                                            // its approach adds an A* line (EAIApproachSpot)
+            return z;
+        }
+
         /// <summary>The entity group the gamestage list's stage names (weighted by each group's count), else DistressZombieGroup.</summary>
-        private static string GroupFor(int gs, GameRandom rnd)
+        internal static string GroupFor(int gs, GameRandom rnd)
         {
             try
             {
@@ -831,7 +857,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>An enemy within the sandbox's tier limit from the group (vanilla's own pick), else the distress group's.</summary>
-        private static int PickClass(string group, GameRandom rnd)
+        internal static int PickClass(string group, GameRandom rnd)
         {
             try
             {
@@ -960,7 +986,7 @@ namespace SurvivorCommunity
             return alive;
         }
 
-        private static void Unflag(EntityAlive z)
+        internal static void Unflag(EntityAlive z)
         {
             EntityEnemy e = z as EntityEnemy;
             if (e != null) e.IsHordeZombie = false;

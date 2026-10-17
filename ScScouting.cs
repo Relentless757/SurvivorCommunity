@@ -118,6 +118,7 @@ namespace SurvivorCommunity
                     if (!ScSecurity.IsRealPoi(pi) || !seen.Add(pi.boundingBoxPosition)) continue;
                     if (ScSecurity.OverlapsHome(pi) || ScOutposts.IsOutpostPoiKey(pi.boundingBoxPosition)) continue;
                     if (ScEnclaves.IsEnclavePoi(pi)) continue;      // an enclave's building can't be an outpost
+                    if (ScEncRequests.IsTarget(pi.boundingBoxPosition)) continue;     // E5: nor one an enclave's request sends the player to
                     PoiClass cls = ScPoiTypes.Classify(pi);
                     if (!cls.Producing || cls.Kind != "row" || cls.Row == null || cls.Row.Weight[(int)r] <= 0f) continue;
                     float d = ScOutposts.DistanceToHome(pi.boundingBoxPosition, pi.boundingBoxSize);

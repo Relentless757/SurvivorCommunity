@@ -105,6 +105,127 @@ public class ObjectiveScEncRequest : BaseObjective
     }
 }
 
+/// <summary>The E5 objectives' shared reads: a quest variable, "" when it is not there.</summary>
+internal static class ScEncObjectiveVars
+{
+    public static string Get(BaseObjective o, string key)
+    {
+        try
+        {
+            string v;
+            if (o != null && o.OwnerQuest != null && o.OwnerQuest.DataVariables != null && o.OwnerQuest.DataVariables.TryGetValue(key, out v)) return v ?? "";
+        }
+        catch (System.Exception) { }
+        return "";
+    }
+}
+
+/// <summary>
+/// E5, a missing survivor's search (quest_scEncSearch, phase 1): "Find Mara, last seen at the Shotgun Messiah factory, by the
+/// end of day 14" - once they follow the player, "Bring Mara home to Harlan's Rest" (the stage word ScEncStage). Display only:
+/// the search (ScEncSearch, ScEncRequests.Close) closes the quest.
+/// </summary>
+[Preserve]
+public class ObjectiveScEncSearch : BaseObjective
+{
+    public override void SetupDisplay()
+    {
+        string who = ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.RequestWhoVar);
+        string stage = ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.RequestStageVar);
+        if (stage == "follow")
+            base.Description = string.Format(Localization.Get("scObjectiveEncSearchFollow"), who, ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.RequestNameVar));
+        else
+            base.Description = string.Format(Localization.Get("scObjectiveEncSearch"), who, ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.PoiNameVar),
+                                             ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.RequestDueVar));
+        StatusText = "";
+    }
+
+    public override BaseObjective Clone()
+    {
+        ObjectiveScEncSearch o = new ObjectiveScEncSearch();
+        CopyValues(o);
+        return o;
+    }
+}
+
+/// <summary>
+/// E5, the search's phase 2 once their remains were searched: "Tell Harlan's Rest about Mara". Display only: the leader's "I
+/// found &lt;name&gt;. I'm sorry." closes the quest.
+/// </summary>
+[Preserve]
+public class ObjectiveScEncReturn : BaseObjective
+{
+    public override void SetupDisplay()
+    {
+        base.Description = string.Format(Localization.Get("scObjectiveEncReturn"), ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.RequestNameVar),
+                                         ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.RequestWhoVar));
+        StatusText = "";
+    }
+
+    public override BaseObjective Clone()
+    {
+        ObjectiveScEncReturn o = new ObjectiveScEncReturn();
+        CopyValues(o);
+        return o;
+    }
+}
+
+/// <summary>
+/// E5, an infestation to clear (quest_scEncInfest): "Clear the infestation at the Crack-a-Book by the end of day 14". Display
+/// only - never ClearSleepers (it would re-arm the rooms): I1's own "cleared" path closes the quest (ScEncInfest.OnEnded).
+/// </summary>
+[Preserve]
+public class ObjectiveScEncInfest : BaseObjective
+{
+    public override void SetupDisplay()
+    {
+        base.Description = string.Format(Localization.Get("scObjectiveEncInfest"), ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.PoiNameVar),
+                                         ScEncObjectiveVars.Get(this, SurvivorCommunity.ScQuests.RequestDueVar));
+        StatusText = "";
+    }
+
+    public override BaseObjective Clone()
+    {
+        ObjectiveScEncInfest o = new ObjectiveScEncInfest();
+        CopyValues(o);
+        return o;
+    }
+}
+
+/// <summary>
+/// E5, a siege (quest_scEncSiege): "Siege:" and a live count - "12:34 to reach Harlan's Rest" while it is called, "8 left" once
+/// the horde is there (ScEncSiege.StatusFor, from the registry: the deadline is world time, so the pause stops it and a load
+/// keeps it). A Time value with UpdateUI: the tracker draws the row every frame. Display only: the siege closes the quest.
+/// </summary>
+[Preserve]
+public class ObjectiveScEncSiege : BaseObjective
+{
+    public override ObjectiveValueTypes ObjectiveValueType => ObjectiveValueTypes.Time;
+
+    public override bool UpdateUI => true;
+
+    public override string StatusText
+    {
+        get
+        {
+            try { return SurvivorCommunity.ScEncSiege.StatusFor(SurvivorCommunity.ScQuests.RequestIdOf(base.OwnerQuest)); }
+            catch (System.Exception) { return ""; }
+        }
+    }
+
+    public override void SetupDisplay()
+    {
+        base.Description = Localization.Get("scObjectiveEncSiege");
+    }
+
+    public override BaseObjective Clone()
+    {
+        ObjectiveScEncSiege o = new ObjectiveScEncSiege();
+        CopyValues(o);
+        return o;
+    }
+}
+
 [Preserve]
 public class ObjectiveScTalkToSurvivor : ObjectiveInteractWithNPC
 {
