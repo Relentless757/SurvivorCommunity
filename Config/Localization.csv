@@ -1251,3 +1251,19 @@ scRadioSiegeCantConfirm,UI,Menu,,,,Press We can't come again: they will fall wit
 scRadioSiegeCantDone,UI,Tooltip,,,,You told {0} you can't come. They're on their own.
 scRadioSiegeGoTell,UI,Tooltip,,,,"{0} on the radio: ""Thank you! We'll hold them off as long as we can."""
 scRadioSiegeGone,UI,Tooltip,,,,That call is over.
+scQgRoleProspect,UI,Menu,,,,Survivor
+scQgRoleMember,UI,Menu,,,,Community survivor
+scQgRoleLeader,UI,Menu,,,,Leader of {0}
+scQgSomePlace,UI,Menu,,,,a place nearby
+scQgBioPoi,UI,Menu,,,,Wants {0} cleared before joining your community.
+scQgBioSupplies,UI,Menu,,,,Asked for {0} {1} before joining your community.
+scQgBioProspect,UI,Menu,,,,Thinking about joining your community.
+scQgBioSpec,UI,Menu,,,,"{0}, level {1}."
+scQgBioNoSpec,UI,Menu,,,,No specialty yet.
+scQgBioTraits,UI,Menu,,,,{0}.
+scQgBioStanding,UI,Menu,,,,Speaks for {0} ({1}).
+scQgBioMissing,UI,Menu,,,,{0} has gone missing.
+scQgBioInfest,UI,Menu,,,,Wants an infestation near them cleared.
+scQgBioSiege,UI,Menu,,,,Their home is under siege.
+scQgBioDeliver,UI,Menu,,,,Waiting on your help by the end of day {0}.
+scQgBioDeliverAny,UI,Menu,,,,Waiting on your help.

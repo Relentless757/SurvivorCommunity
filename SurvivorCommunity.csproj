@@ -41,6 +41,7 @@
     <Compile Include="ScCategories.cs" />
     <Compile Include="ScSecurity.cs" />
     <Compile Include="ScQuests.cs" />
+    <Compile Include="ScQuestGiverApi.cs" />
     <Compile Include="Patches_Persistence.cs" />
     <Compile Include="Patches_Npc.cs" />
     <Compile Include="Patches_Quest.cs" />

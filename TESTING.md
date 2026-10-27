@@ -25,6 +25,23 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Quest giver card for AshfallUI's Quests page (2026-10-26)
+
+`ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.
+DLL md5 `81f6c2dab9493adcdb58be9ee39beec3`.
+
+- [ ] QG-1 The log says `[AshfallUI] Quests: SurvivorCommunity quest givers linked` (not "API incomplete") the first time
+      the Quests page shows a quest.
+- [ ] QG-2 A recruit favour (secure a POI, or supplies): the card shows the survivor's portrait, name, "Survivor" and what
+      they asked for ("Wants the Crack-a-Book cleared before joining your community."). The portrait comes within a second
+      or two, also with the Community window never opened this session.
+- [ ] QG-3 The same favour after the survivor's body was rebuilt (walk away until they unload, come back): still their
+      card. A pack NPC without a look shows their portrait only once they are near and in view.
+- [ ] QG-4 An enclave request (any kind): the leader's portrait and name, "Leader of <enclave>", and a line with the
+      enclave's standing and what they need.
+- [ ] QG-5 A runner's distress rescue: the member's portrait, "Community survivor", specialty and traits.
+- [ ] QG-6 A trader's or vanilla quest: no SC card (AshfallUI shows its own).
+
 ## Every survivor line voiced, six voices (round vo2)
 
 **Deployed 2026-10-17** (Fable review and re-check: deployable; DLL md5 `25e6fc49af09cc14ef68289ebfda52aa`, commit

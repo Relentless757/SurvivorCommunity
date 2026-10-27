@@ -258,7 +258,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>The prospect a favour quest belongs to: its quest giver, else (an older POI quest) the POI.</summary>
-        private static Prospect ProspectFor(Quest q)
+        internal static Prospect ProspectFor(Quest q)
         {
             if (q == null) return null;
             Prospect byGiver = ScRegistry.GetProspect(q.QuestGiverID);
