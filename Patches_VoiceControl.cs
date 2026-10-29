@@ -444,9 +444,11 @@ namespace SurvivorCommunity
         /// leaderless one through its "wild" rule (EngageRules.ShouldEngageWild: its revenge target, an enemy within 5 m, an
         /// enemy targeting it within 15 m, or a 10 s commitment within 20 m) - so SC's raiders stopped shooting at players at
         /// range and residents and enclave people held fire until an intruder was 5 m away or hit them, which SC's base
-        /// defence and enclave sieges need. For those three (EngagesAtWill) the score is 3.2's 1 again; everyone else - a
-        /// follower, a stranger, 0-XNPCCore's own NPCs - keeps 3.4's rules, the original still runs first (its commitment
-        /// and log bookkeeping), and nothing else of XNPC's package changes.
+        /// defence and enclave sieges need. For those three (EngagesAtWill) a refusal (0) becomes 3.2's 1; a pass keeps
+        /// Voice Control's own score (StickScore, 0..1: a little under 1 for an enemy that is not the current target, so the
+        /// NPC sticks to the one it is fighting - turning that into 1 made it switch targets). Everyone else - a follower, a
+        /// stranger, 0-XNPCCore's own NPCs - keeps 3.4's rules, the original still runs first (its commitment and log
+        /// bookkeeping), and nothing else of XNPC's package changes.
         ///
         /// A postfix rather than an SC copy of SdcsNpcRangedAdvanced without MayEngage: residents and enclave people carry
         /// XNPC's packages through npcSdcsBase (decision D1), so a copy would mean a second package list per body and an
@@ -477,7 +479,7 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    if (__result == 1f) return;
+                    if (__result > 0f) return;                   // Voice Control let it fight: its stick score stands
                     EntityAlive self = _context != null ? _context.Self : null;
                     if (!EngagesAtWill(self)) return;
                     __result = 1f;

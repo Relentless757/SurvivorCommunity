@@ -429,6 +429,19 @@ namespace SurvivorCommunity
             bool gi = GridDrawsIt(c);
             bool known = GridDraws != null;                // the bridge can tell; without it keep the old fixed size
             int rows = !gi ? VanillaRows : (known ? GridRowsMax : LegacyGridRows);
+#if SC_V34
+            // 3.4: vanilla's loot refresh (XUiC_LootContainer.OnTileEntityChanged) walks the CONTAINER's grid and indexes the
+            // window's widgets with the same counter, unguarded (3.2 walked the widgets) - a view with more cells than the
+            // window has widgets throws on every write, after the write reached a box but before the cell took the drop. Only
+            // the bridge's grid (gi and known: it draws by ShowLimit, and Grid Inventory bounds that loop) may lay out more;
+            // otherwise the view never has more cells than the window's widgets (90 on vanilla's 10 x 9 grid).
+            if (!(gi && known))
+            {
+                int widgets = LootWidgets();
+                if (widgets > 0) rows = Math.Min(rows, Math.Max(1, widgets / ScLinkedContainer.Cols));
+                else if (gi) rows = Math.Min(rows, VanillaRows);           // unknown: never past vanilla's grid
+            }
+#endif
             if (ScConfig.LinkedStorageRows > 0) rows = Math.Min(rows, ScConfig.LinkedStorageRows);
             c.RowsCap = Math.Max(1, rows);
             int pool = WidgetPool();
@@ -437,6 +450,25 @@ namespace SurvivorCommunity
             c.GridDrawn = gi;
         }
 
+#if SC_V34
+        /// <summary>3.4: the looting window's item widgets (its XUiC_LootContainer's), or 0 when the window is not found.</summary>
+        private static int LootWidgets()
+        {
+            try
+            {
+                LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
+                XUiC_LootWindow lw = ui != null && ui.xui != null ? ui.xui.GetChildByType<XUiC_LootWindow>() : null;
+                XUiC_ItemStack[] w = lw != null && lw.lootContainer != null ? lw.lootContainer.GetItemStackControllers() : null;
+                return w != null ? w.Length : 0;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-lootwidgets", e);
+                return 0;
+            }
+        }
+
+#endif
         /// <summary>
         /// Is GridInventory driving the loot window? Its mod folder / ModInfo name is not fixed (it ships as
         /// "RE Inventory"), so the assembly's grid class is the test - and the bridge's hooks, when installed.

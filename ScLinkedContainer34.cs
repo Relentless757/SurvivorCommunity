@@ -211,14 +211,16 @@ namespace SurvivorCommunity
         /// A drop nothing takes: the cell is put back empty and the item comes back to the player. Vanilla's drop has moved
         /// the cell's old content (nothing) onto the cursor before it writes the cell (XUiC_ItemStack.SwapItem), so the item
         /// is no longer on the cursor; a grid that still holds it there when it writes (Grid Inventory's, on 3.2) keeps it,
-        /// and returning it as well would double it (StillOnCursor).
+        /// and returning it as well would double it (StillOnCursor). That test only runs when Grid Inventory draws the view:
+        /// vanilla's drop-one takes the item off the cursor first too (HandleDropOne), and a cursor left with as many as
+        /// were dropped (2 -> 1) would read as "still on the cursor" and the one dropped would be lost.
         /// </summary>
         private void Refuse(int _idx, string why)
         {
             ItemStack v = ItemGrid[_idx].Clone();
             SetMap(_idx, null);
             PutBack(_idx);
-            if (!StillOnCursor(v)) ReturnToPlayer(v);
+            if (!(GridDrawn && StillOnCursor(v))) ReturnToPlayer(v);
             Notify();
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
             if (p != null) ScCommunity.Tell(p, Localization.Get(why), "ui_denied");

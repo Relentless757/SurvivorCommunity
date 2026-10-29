@@ -1507,10 +1507,11 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return EquipByNameTarget(); }
 
             [HarmonyPrefix]
-            public static void Prefix(out bool __state)
+            public static void Prefix(string itemName, out bool __state)
             {
-                xnpcEquipDepth++;
-                __state = true;
+                // an empty name (bare hands) returns before XNPC saves the held gun's rounds (SdcsMagSaveHeld): X12 keeps them
+                __state = !string.IsNullOrEmpty(itemName);
+                if (__state) xnpcEquipDepth++;
             }
 
             [HarmonyFinalizer]
