@@ -509,6 +509,11 @@ namespace SurvivorCommunity
                 if (window == null || window.IsUserAccessing()) return;
                 // nor while a remote player has their copy of it open: closing it writes that copy back over every slot
                 if (IsRemoteOpen(e.entityId)) { Patches_Xnpc.Count("window-move-held"); return; }
+#if SC_V34
+                // nor while 0-XNPCCore's stock trade is open on it (3.4, D4): its write-back after a purchase would put the
+                // moved rounds back in the window (IsWindowOpen)
+                if (XnpcTradeOpen(e.entityId)) { Patches_Xnpc.Count("window-move-held-trade"); return; }
+#endif
                 ItemStack[] items = window.items;
                 if (items == null) return;
                 int moved = 0;
@@ -1087,10 +1092,33 @@ namespace SurvivorCommunity
         public static bool IsWindowOpen(int npc)
         {
             if (IsRemoteOpen(npc)) return true;
+#if SC_V34
+            // 3.4 (decision D4): 0-XNPCCore's stock trade is open on this NPC - it reads the window into the trade stock on
+            // open and, after every purchase, empties the window and writes back what is left of that stock: whatever SC put
+            // in or took out meanwhile would be undone or doubled. SC's writers wait for the trade to close, as for the window
+            if (XnpcTradeOpen(npc)) return true;
+#endif
             if (!HarvestManager.Has(npc)) return false;
             SCoreLootContainer w = HarvestManager.GetOrCreate(npc);
             return w != null && w.IsUserAccessing();
         }
+#if SC_V34
+
+        /// <summary>
+        /// 3.4 (D4): a player has 0-XNPCCore's stock trade open on this NPC - its TraderData names XNPC's stock trader
+        /// (TradeStockRules.SdcsTraderId, 64; an enclave leader's own trader is not it) and vanilla's trade lock (channel 1,
+        /// a single lock, taken when the trade window opens and released when it closes) is held. The server's lock table
+        /// is the host's alone; a client answers false (SC's writers run on the host).
+        /// </summary>
+        public static bool XnpcTradeOpen(int npc)
+        {
+            if (!ScCommunity.IsHost) return false;
+            World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+            EntityTrader t = w != null ? w.GetEntity(npc) as EntityTrader : null;
+            if (t == null || t.TraderData == null || t.TraderData.TraderID != TradeStockRules.SdcsTraderId) return false;
+            return LockManager.Instance.IsLockedServer(t, 1);
+        }
+#endif
 
         /// <summary>
         /// ModEvents.PlayerDisconnected: a player who left with a window open will never close it. A dead NPC's window

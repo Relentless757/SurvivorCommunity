@@ -345,6 +345,13 @@ namespace SurvivorCommunity
             // 3.4 (0-XNPCCore 3.4): X15 no XNPC self-heal on our bodies, X16 X12 steps aside inside XNPC's own swaps
             Add(t, "AvatarSdcsNpcController::SdcsSelfHealScan", Patches_Xnpc.SelfHealScanTarget());
             Add(t, "AvatarSdcsNpcController::SdcsEquipByName", Patches_Xnpc.EquipByNameTarget());
+            // 3.4 Stage 2: X17 creator faces only on fresh bodies, SC's way (D4); ScMedic and 0-XNPCCore's party medic (D2);
+            // no sleeper touch in an enclave's POI (D4); SCore's companion-window Dismiss is a member's Go Home (D5)
+            Add(t, "SdcsCustomLook::ApplyCharacter", Patches_Xnpc.ApplyCharacterTarget());
+            Add(t, "SdcsMedic::ApplyHealOther", ScMedic.HealOtherTarget());
+            Add(t, "SdcsMedic::Begin", ScMedic.MedicBeginTarget());
+            Add(t, "SleeperVolume::TouchGroup", Patches_Enclaves.TouchGroupTarget());
+            Add(t, "XUiC_SCoreCompanion::BtnDismiss_Controller_OnPress", Patches_VoiceControl.CompanionDismissTarget());
 #endif
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
             // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on

@@ -169,6 +169,9 @@ namespace SurvivorCommunity
             sessionClass.Clear();
             sessionSource.Clear();
             catalogueReady = false;
+#if SC_V34
+            pendingFaces.Clear();
+#endif
         }
 
         /// <summary>Forgets a despawned/purged survivor's session look (entity ids are recycled).</summary>
@@ -178,6 +181,9 @@ namespace SurvivorCommunity
             sessionClass.Remove(entityId);
             sessionSource.Remove(entityId);
             ScVanity.Forget(entityId);                 // a paint still waiting for the body to show
+#if SC_V34
+            pendingFaces.Remove(entityId);             // a creator face still waiting for the body's next frame (X17)
+#endif
         }
 
         /// <summary>Where the body's look came from when its model was built (pending / member / prospect / session / roll), or "-".</summary>
@@ -274,6 +280,66 @@ namespace SurvivorCommunity
         {
             if (look != null) session[entityId] = look;
         }
+#if SC_V34
+
+        // ---- 0-XNPCCore 3.4's character-creator faces (Patches_Xnpc X17, decision D4) ----
+
+        /// <summary>Bodies whose adopted creator face waits for their controller's next frame (X7 builds it).</summary>
+        private static readonly HashSet<int> pendingFaces = new HashSet<int>();
+
+        /// <summary>
+        /// Why this body may not take a creator face, or null when it may: a fresh body - a survivor (never a raider) whose
+        /// look ForEntity has just rolled ("roll"), with no member or prospect record, not one of the community's (sc_member,
+        /// a stand-in) and not one of an enclave's people. Every other body wears a look SC stores and restores (a member's,
+        /// a prospect's, a recruit's or a stand-in's pending look, an enclave person's, this session's) - never replaced.
+        /// </summary>
+        public static string CustomFaceRefusal(EntityAlive npc)
+        {
+            if (npc == null || !ScXnpc.IsSurvivorBody(npc)) return "not a survivor body of ours";
+            if (ScRegistry.GetMember(npc.entityId) != null) return "a member";
+            if (ScRegistry.GetProspect(npc.entityId) != null) return "a prospect";
+            if (ScXnpc.IsCommunity(npc)) return "one of the community (or a stand-in)";
+            if (ScEnclavePeople.IsEnclaveNpc(npc)) return "one of an enclave's people";
+            string source = SourceOf(npc.entityId);
+            return source == "roll" ? null : "its look is SC's (" + source + ")";
+        }
+
+        /// <summary>
+        /// A fresh body takes a character-creator face (X17): the archetype 0-XNPCCore built from the character's picks
+        /// replaces the face of its look - race, variant, hair and colour, facial hair, eyes - and keeps SC's clothes. It is
+        /// this body's look from now on (the session look, so a recruit's record stores the face it is seen with), and the
+        /// body is rebuilt on its controller's next frame (ApplyPendingFace), as 0-XNPCCore defers its own.
+        /// </summary>
+        public static bool AdoptFace(EntityAlive npc, Archetype a)
+        {
+            if (npc == null || a == null || !ScXnpc.IsBody(npc)) return false;
+            Look cur = Get(npc);
+            Look l = cur != null ? cur.Clone() : new Look();
+            l.Race = string.IsNullOrEmpty(a.Race) ? l.Race : a.Race;
+            l.Variant = a.Variant > 0 ? a.Variant : l.Variant;
+            l.Hair = a.Hair ?? "";
+            l.HairColor = a.HairColor ?? "";
+            l.Mustache = a.MustacheName ?? "";
+            l.Chops = a.ChopsName ?? "";
+            l.Beard = a.BeardName ?? "";
+            l.Eyes = string.IsNullOrEmpty(a.EyeColorName) ? l.Eyes : a.EyeColorName;
+            l.Validated = false;
+            Validate(l);
+            session[npc.entityId] = l;
+            sessionClass[npc.entityId] = ScCommunity.ClassName(npc);
+            sessionSource[npc.entityId] = "creator face";
+            pendingFaces.Add(npc.entityId);
+            return true;
+        }
+
+        /// <summary>X7, every frame for each of our bodies: builds a creator face AdoptFace left for this one (once).</summary>
+        public static void ApplyPendingFace(EntityAlive npc)
+        {
+            if (pendingFaces.Count == 0 || npc == null || !pendingFaces.Remove(npc.entityId)) return;
+            Look l;
+            if (session.TryGetValue(npc.entityId, out l) && l != null) Apply(npc, l);
+        }
+#endif
 
         // ---- rolling ----
 

@@ -38,7 +38,11 @@ namespace SurvivorCommunity
     ///   X15 AvatarSdcsNpcController.SdcsSelfHealScan          prefix   (3.4 build) XNPC's self-heal never spends our
     ///                                                                  bodies' medical items (ScMedic heals them)
     ///   X16 AvatarSdcsNpcController.SdcsEquipByName           prefix + finalizer   (3.4 build) X12 steps aside inside
-    ///                                                                  XNPC's own swaps, which keep the rounds themselves
+    ///                                                                  XNPC's own swaps, which keep the rounds themselves;
+    ///                                                                  AnyWeapon's equip of a handed weapon joins the pair
+    ///   X17 SdcsCustomLook.ApplyCharacter                     prefix   (3.4 build) a creator face only on a fresh body,
+    ///                                                                  SC's way; never over a look SC stores (D4)
+    ///   (3.4 build) X7 also builds an adopted creator face and stands aside while the hand is holstered (D8)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
     /// bound by name with a Prepare that turns the patch off when the method is gone, and listed in ModApi's
@@ -63,6 +67,10 @@ namespace SurvivorCommunity
         private static int turretTargets;
         /// <summary>The same for a motion sensor's scan.</summary>
         private static int sensorTargets;
+#if SC_V34
+        /// <summary>3.4 (D8): X7 frames SC's pose writers stood aside for a holstered hand (Voice Control's chat holster).</summary>
+        private static int holsterYields;
+#endif
 
         public static void Reset()
         {
@@ -74,6 +82,9 @@ namespace SurvivorCommunity
             ScNpc.PendingSkips = 0;
             turretTargets = 0;
             sensorTargets = 0;
+#if SC_V34
+            holsterYields = 0;
+#endif
             Patch_ModelLayer.Reset();
         }
 
@@ -97,6 +108,9 @@ namespace SurvivorCommunity
             parts.Add("pending-body-skips=" + ScNpc.PendingSkips);
             parts.Add("x10-turret-raider-target=" + turretTargets);
             parts.Add("x10-sensor-raider-target=" + sensorTargets);
+#if SC_V34
+            parts.Add("x7-holster-yield-frames=" + holsterYields);
+#endif
             return string.Join(", ", parts.ToArray());
         }
 
@@ -583,7 +597,15 @@ namespace SurvivorCommunity
                     }
                     string name = __originalMethod != null ? __originalMethod.Name : null;
                     // a melee-lead raider keeps the melee weapon it spawns with (M10-D1)
+#if SC_V34
+                    if (name == "SdcsTryWorldEntryRearm")
+                    {
+                        if (ScXnpc.IsBody(e)) SyncLastHeld(e);
+                        return ScArms.WorldEntryRearm(e);
+                    }
+#else
                     if (name == "SdcsTryWorldEntryRearm") return ScArms.WorldEntryRearm(e);
+#endif
                     if (name == "SdcsCloseRangeTick")
                     {
                         // a melee-lead raider takes its gun for a target out of reach (then this round is done)
@@ -599,6 +621,28 @@ namespace SurvivorCommunity
                     return true;
                 }
             }
+#if SC_V34
+
+            /// <summary>
+            /// 3.4 (the risk list's item 20). 0-XNPCCore 3.4's world-entry re-arm first re-equips the weapon its SdcsLastHeld
+            /// cvar names - the last one ITS equip handled - whenever that is carried and not in hand. SC puts the hand of
+            /// one of our bodies together itself when it comes into the world (X13's saved gun with its rounds and
+            /// magazine, ScLoadout's pair, ScMedic's FixLoadedHand), through SCore's swaps that never stamp that cvar, so a
+            /// stale one (a melee weapon from a close-range swap before the save, a weapon handed over since) swapped
+            /// X13's gun out again. The cvar is set to what SC put in the hand just before the re-arm runs: XNPC's
+            /// last-held step finds it in hand and stands aside, and its usual rule (a melee weapon in hand, a usable gun
+            /// carried: draw the gun) still runs. Only a weapon (a hold type of its own), never bare hands.
+            /// </summary>
+            private static void SyncLastHeld(EntityAlive e)
+            {
+                ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+                ItemClass ic = held != null && !held.IsEmpty() ? held.ItemClass : null;
+                if (ic == null || ic.HoldType == null || ic.HoldType.Value == 0 || e.Buffs == null) return;
+                if ((int)e.Buffs.GetCustomVar("SdcsLastHeld") == ic.Id) return;
+                e.Buffs.SetCustomVar("SdcsLastHeld", ic.Id);
+                Count("x5-lastheld-synced");
+            }
+#endif
         }
 
         // ------------------------------------------------------------------ X6: the melee weapon ----
@@ -670,6 +714,34 @@ namespace SurvivorCommunity
                     EntityAlive e = __instance.entity;
                     if (!ScXnpc.IsBody(e)) return;
                     updateHits++;
+#if SC_V34
+                    // 3.4 (X17): a creator face a fresh body took at spawn is built now, a frame later, as XNPC builds its own
+                    ScLooks.ApplyPendingFace(e);
+                    // 3.4 (decision D8): while the hand is holstered - Voice Control's chat holster (a dialog, trade or inventory
+                    // window open on this NPC, or its chat pause) or 0-XNPCCore's own stow, both Hand.SelectHoldingMode(Bare) -
+                    // SC's pose writers stand aside: no relax verdict applied, no carry pose re-asserted (KeepCarry would
+                    // write over a holster's), no aim. The aim pose already up is dropped once. When XNPC draws again
+                    // (the window closed and its grace ran out, or a target), they carry on from where they were.
+                    Hand hand = e.Hand;
+                    if (hand != null && hand.IsHolstered)
+                    {
+                        holsterYields++;
+                        if (!e.isEntityRemote && __instance.anim.GetBool(AvatarController.isAimingHash)) __instance._setBool(AvatarController.isAimingHash, false);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            ScRelax.Tick(__instance, e);
+                        }
+                        catch (Exception ex)
+                        {
+                            ScLog.Once("xnpc-relax", ex);
+                        }
+                        ScAim.KeepCarry(__instance, e);
+                        ScAim.Drive(__instance, e);
+                    }
+#else
                     try
                     {
                         ScRelax.Tick(__instance, e);
@@ -680,6 +752,7 @@ namespace SurvivorCommunity
                     }
                     ScAim.KeepCarry(__instance, e);
                     ScAim.Drive(__instance, e);
+#endif
                 }
                 catch (Exception ex)
                 {
@@ -796,6 +869,13 @@ namespace SurvivorCommunity
         /// E3: the leader of an enclave that is not hostile names a real trader now (ScEnclaveDeals: their body's TraderData
         /// gets their kind's trader_info), so "trade" passes for them; a hostile enclave's leader never gets one, and its
         /// bodies are refused every command above anyway (the hostile cvar).
+        /// 3.4 (decision D4, nothing to change here): 0-XNPCCore 3.4's npc_info names its stock trader (trader_id 64,
+        /// TradeStockRules.SdcsTraderId; EntityTrader.PostInit copies it into every body's TraderData), so HasTrader is true
+        /// and "trade" passes on every survivor body of ours: XNPC's per-NPC stock trade, selling what the NPC's inventory
+        /// window holds (XNPC hides it itself on a hired or owned body). Raiders and hostile bodies are still refused every
+        /// command; an enclave leader's own trader (200-205) replaces 64 when they are dressed, after PostInit, and nothing
+        /// writes 64 back; turn-ins stay hidden at 64 (X14). While such a trade is open SC's own writes to that window wait
+        /// (ScAmmo.IsWindowOpen): XNPC writes the whole window back after every purchase.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoTalkToRaiders
@@ -1406,10 +1486,20 @@ namespace SurvivorCommunity
         /// that UpdateWeapon, gave the same rounds back to the bag as loose ammo as well. So X12 is skipped inside this call
         /// (a depth counter the prefix raises and the finalizer lowers, on a throw too); it still covers SCore's own swaps,
         /// ScArms and ScLoadout.Arm, which keep no rounds anywhere.
+        ///
+        /// Stage 2 (the risk list's item 19): 0-XNPCCore 3.4's AnyWeapon equips a weapon newly handed to a follower through its
+        /// inventory window (site "any-weapon-equip") and remembers it as the weapon to come back to - beside SC's pair, which
+        /// still named the old one, so SC's own re-arms (a load, the close-range hand-back, the medic) put the old one back
+        /// and the handed one stayed in the window. After such an equip the finalizer hands it to ScArms.OnSwap, as Voice
+        /// Control's "use X" does: a member keeps it in their pair, the replaced one comes back to the leader. Outside the
+        /// equip's depth, so X12 covers OnSwap's own swaps as always; strangers, prospects and XNPC's own sites are untouched.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_XnpcEquipScope
         {
+            /// <summary>The site AnyWeapon passes (AvatarSdcsNpcController.SdcsAnyWeaponSettledChange, 0-XNPCCore 3.4.01).</summary>
+            private const string AnyWeaponSite = "any-weapon-equip";
+
             [HarmonyPrepare]
             public static bool Prepare() { return Bound(EquipByNameTarget, "AvatarSdcsNpcController.SdcsEquipByName(string, string)"); }
 
@@ -1424,9 +1514,108 @@ namespace SurvivorCommunity
             }
 
             [HarmonyFinalizer]
-            public static void Finalizer(bool __state)
+            public static void Finalizer(bool __state, Exception __exception, AvatarSDCSController __instance, string itemName, string site, bool __result)
             {
                 if (__state && xnpcEquipDepth > 0) xnpcEquipDepth--;
+                if (__exception != null || !__result || site != AnyWeaponSite || string.IsNullOrEmpty(itemName)) return;
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost) return;
+                    Count("x16-anyweapon-equip");
+                    ScArms.OnSwap(e, itemName, EntityUtilities.GetLeaderOrOwner(e.entityId) as EntityPlayer, "any-weapon");
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-anyweapon", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X17: creator faces only on fresh bodies (3.4) ----
+
+        /// <summary>X17: 0-XNPCCore 3.4's custom-character apply (SdcsCustomLook, internal static; one overload).</summary>
+        public static MethodBase ApplyCharacterTarget()
+        {
+            Type t = typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsCustomLook", false);
+            return t != null ? AccessTools.DeclaredMethod(t, "ApplyCharacter", new[] { typeof(EntityAlive), typeof(NPCSdcsCharacters.Pure.CustomCharacterRules.CustomCharacter) }) : null;
+        }
+
+        /// <summary>X17: SdcsCustomLook.BuildArchetype(Picks, EntityClass), the archetype a character's picks make (null: not bound).</summary>
+        private static MethodInfo buildArchetype;
+        private static bool buildArchetypeBound;
+
+        private static Archetype BuildCustomArchetype(NPCSdcsCharacters.Pure.CustomLookRules.Picks picks, EntityClass ec)
+        {
+            if (!buildArchetypeBound)
+            {
+                buildArchetypeBound = true;
+                Type t = typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsCustomLook", false);
+                buildArchetype = t != null ? AccessTools.DeclaredMethod(t, "BuildArchetype", new[] { typeof(NPCSdcsCharacters.Pure.CustomLookRules.Picks), typeof(EntityClass) }) : null;
+                if (buildArchetype == null || buildArchetype.ReturnType != typeof(Archetype))
+                {
+                    buildArchetype = null;
+                    ScLog.Warn("0-XNPCCore's SdcsCustomLook.BuildArchetype not found - no creator faces on the community's survivors (0-XNPCCore update?)");
+                }
+            }
+            return buildArchetype != null ? buildArchetype.Invoke(null, new object[] { picks, ec }) as Archetype : null;
+        }
+
+        /// <summary>
+        /// X17 (3.4, decision D4). 0-XNPCCore 3.4 turns a share of new survivors (Settings SdcsCustomCharacterChance, 10%) into
+        /// a character an online player made in the character creator: SdcsCustomSpawnWorldPatches, a host postfix on
+        /// World.SpawnEntityInWorld, calls ApplyCharacter for every class with a look pool and names - SC's six survivor
+        /// classes among them - which force-writes its SdcsCustom* cvars, renames the body (FirstName) and queues XNPC's whole
+        /// look applier for the next frame: the archetype, an armour set over SC's clothes, a rolled weapon (what X1b keeps
+        /// off our bodies). For our bodies it runs here instead, SC's way:
+        ///  - a fresh body (ScLooks.CustomFaceRefusal: a survivor whose look was just rolled, with no record of SC's, not the
+        ///    community's, not an enclave's) takes the character's face through ScLooks.AdoptFace - SC's clothes kept, the
+        ///    face its look from now on, so a later recruit stores and restores the face it was seen with - and the
+        ///    character's name, as XNPC would give it;
+        ///  - every other body - a member, a prospect, a recruit or stand-in spawned wearing a stored look, an enclave person,
+        ///    a raider - is refused outright: no face, no name, no cvars.
+        /// XNPC's applier never runs on one of ours and none of its custom cvars is written (XNPC's own classes keep the whole
+        /// feature). Counted per outcome.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_CustomFace
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(ApplyCharacterTarget, "SdcsCustomLook.ApplyCharacter"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return ApplyCharacterTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive npc, NPCSdcsCharacters.Pure.CustomCharacterRules.CustomCharacter c)
+            {
+                try
+                {
+                    if (npc == null || !ScXnpc.IsBody(npc)) return true;
+                    string why = ScLooks.CustomFaceRefusal(npc);
+                    if (why != null)
+                    {
+                        Count("x17-creator-face-refused");
+                        ScLog.Verbose("creator face '" + c.Name + "' refused for " + ScCommunity.DisplayName(npc) + " (id " + npc.entityId + "): " + why);
+                        return false;
+                    }
+                    Archetype a = BuildCustomArchetype(c.Picks, EntityClass.list[npc.entityClass]);
+                    if (a == null || !ScLooks.AdoptFace(npc, a))
+                    {
+                        Count("x17-creator-face-failed");
+                        return false;
+                    }
+                    EntityAliveSDXV4 v4 = npc as EntityAliveSDXV4;
+                    if (v4 != null && !string.IsNullOrEmpty(c.Name)) v4.FirstName = c.Name;
+                    Count("x17-creator-face-taken");
+                    ScLog.Verbose("creator face '" + c.Name + "' taken by stranger id " + npc.entityId + " (SC's clothes kept)");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-creatorface", ex);
+                    return false;       // never XNPC's applier on one of ours
+                }
             }
         }
 #endif

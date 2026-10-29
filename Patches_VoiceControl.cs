@@ -242,6 +242,96 @@ namespace SurvivorCommunity
                 }
             }
         }
+#if SC_V34
+
+        /// <summary>3.4 (D5): SCore 3.4's companion window (ESC, its NPC list) Dismiss button (private, on XUiC_SCoreCompanion).</summary>
+        public static MethodBase CompanionDismissTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(XUiC_SCoreCompanion), "BtnDismiss_Controller_OnPress", new[] { typeof(XUiController), typeof(int) });
+        }
+
+        /// <summary>The companion the window row shows (XUiC_SCoreCompanion.Companion, a private auto-property).</summary>
+        private static MethodInfo companionGetter;
+        private static bool companionGetterBound;
+
+        private static EntityAlive CompanionOf(XUiC_SCoreCompanion row)
+        {
+            if (!companionGetterBound)
+            {
+                companionGetterBound = true;
+                companionGetter = AccessTools.PropertyGetter(typeof(XUiC_SCoreCompanion), "Companion");
+                if (companionGetter == null) ScLog.Warn("SCore's XUiC_SCoreCompanion.Companion not found - its Dismiss button makes a member leave again (SCore update?)");
+            }
+            return companionGetter != null ? companionGetter.Invoke(row, null) as EntityAlive : null;
+        }
+
+        /// <summary>
+        /// 3.4 (decision D5). SCore 3.4's companion window lists V4 hires - our members who follow - with Follow, Stay,
+        /// Teleport and Dismiss. Dismiss runs SCore's own (ExecuteCMD "Dismiss" and buffOrderDismiss: Persist 0, Leader and
+        /// Owner zeroed), which ScTicker reads as a member leaving the community. For a member it is SC's Go Home instead,
+        /// the same as the spoken "dismiss" (Patch_VoiceDismiss) and the dialog's and community window's: ScCommunity
+        /// .ReturnHome, which walks or sends them to their post, or says why not (on a run, no home yet, too far - bring them
+        /// home first; the host's alone on a client). An outpost stand-in is refused. Every other companion keeps SCore's
+        /// Dismiss; an enlisted enclave person's already sends them home (ScEnclaveDeals reads the side door).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_CompanionDismiss
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (CompanionDismissTarget() != null) return true;
+                    ScLog.Err("XUiC_SCoreCompanion.BtnDismiss_Controller_OnPress not found (SCore update?) - its Dismiss button makes a member leave the community");
+                }
+                catch (Exception e) { ScLog.Once("vc-bind-companion-dismiss", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return CompanionDismissTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(XUiC_SCoreCompanion __instance)
+            {
+                bool ours = false;
+                try
+                {
+                    EntityAlive npc = __instance != null ? CompanionOf(__instance) : null;
+                    if (!IsCommunityNpc(npc)) return true;
+                    ours = true;
+                    EntityPlayerLocal lp = __instance.xui != null && __instance.xui.playerUI != null ? __instance.xui.playerUI.entityPlayer : null;
+                    Member m = ScRegistry.Loaded ? ScRegistry.GetMember(npc.entityId) : null;
+                    if (m == null)
+                    {
+                        Count("companion-dismiss-refused");
+                        if (lp != null) ScCommunity.Tell(lp, ScCommunity.IsHost ? Localization.Get("scVoiceStays") : Localization.Get("scHostOnly"), "ui_denied");
+                        return false;
+                    }
+                    StripContract(npc);
+                    string error = null;
+                    if (lp != null && ScCommunity.ReturnHome(m, ScNpc.As(npc) ?? npc, lp, out error))
+                    {
+                        Count("companion-dismiss-to-home");
+                        ScCommunity.Tell(lp, string.Format(Localization.Get("scStationed"), m.Name), "");
+                        if (__instance.ViewComponent != null) __instance.ViewComponent.IsVisible = false;    // as SCore's own button hides the row
+                    }
+                    else
+                    {
+                        Count("companion-dismiss-refused");
+                        if (lp != null) ScCommunity.Tell(lp, Localization.Get(error ?? "scInternal"), "ui_denied");
+                    }
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-companion-dismiss", e);
+                    return !ours;       // never fall through to SCore's Dismiss for a member
+                }
+            }
+        }
+#endif
 
         /// <summary>The spoken "pick up": refused for members (an NPC carried as an item would vanish from the roster).</summary>
         [HarmonyPatch]

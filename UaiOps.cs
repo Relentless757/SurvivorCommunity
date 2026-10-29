@@ -940,6 +940,27 @@ namespace UAI
             return ScRunners.IsPhysical(m) && !m.Offline ? 1f : 0f;
         }
     }
+#if SC_V34
+
+    /// <summary>
+    /// 3.4 (Stage 2, D1): 0 exactly when ScTravel would score - a member holding the Task order who is a physical runner in
+    /// the world (ScIsMember, HasOrder Task, ScTravelling) - else 1, for everyone else, raiders and strangers included.
+    /// 0-XNPCCore 3.4 raised SdcsNpcRangedAdvanced's MeleeApproach and BackupRanged from 4 and 3 to 5, past ScTravel (4.5),
+    /// while its MeleeAttack stays at 5: no weight puts the walk above the chase and the back-off but under the swing, so
+    /// this gate (Config/utilityai.xml, 3.4 only) takes those two out for a runner on the move, as 3.2's weights did. The
+    /// swing in reach, the shot in range and the 4 m back-off (BackupKeepDistance) still win. SCore's GetScore drops an
+    /// action on a raw 0 before the response curve, so flip_x on ScTravelling could not do this.
+    /// </summary>
+    public class UAIConsiderationScNotTravelling : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            Member m = ScRegistry.GetMember(_context.Self.entityId);
+            if (m == null || !ScRunners.IsPhysical(m) || m.Offline) return 1f;
+            return EntityUtilities.GetCurrentOrder(_context.Self.entityId) == EntityUtilities.Orders.Task ? 0f : 1f;
+        }
+    }
+#endif
 
     /// <summary>
     /// Walks a physical supply runner along its leg, one waypoint (RunWaypointSpacing) at a time: a single path

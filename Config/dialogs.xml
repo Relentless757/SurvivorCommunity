@@ -229,6 +229,16 @@
 			<action type="ScUseHanded, SurvivorCommunity" />
 		</response>
 	</append>
+	<!-- 0-XNPCCore 3.4 (game 3.4 only: its "Carried Weapons" menu exists nowhere else). Its weapon menu gained a "Carried" row
+	     first, so with ours SdcsNPC's "Weapon Classes" lists eleven rows on a ten-row reply list and "done" falls off. Its
+	     "Carried Weapons" submenu equips any weapon in the NPC's inventory window, which is what this row did (decision D6);
+	     the swap reaches ScArms through Voice Control's MutateSwapWeapon, so a member still keeps the weapon in their pair.
+	     GenericNPC's menu (seven rows, no Carried) keeps ours. -->
+	<conditional>
+		<if cond="xpath('/dialogs/dialog[@id=&quot;SdcsNPC&quot;]/statement[@id=&quot;Carried Weapons&quot;]') != null">
+			<remove xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='Weapon Classes']/response_entry[@id='scUseHanded']" />
+		</if>
+	</conditional>
 
 	<!-- Enclave people (E2, Enclaves_Plan.md 2.6; ScEnclavePeople, DialogOpsEnclaves.cs). Every player-body survivor talks
 	     through 0-XNPCCore's SdcsNPC dialog; these phases pick its first statement for an enclave's people - the first phase

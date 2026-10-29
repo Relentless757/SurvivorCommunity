@@ -34,11 +34,33 @@ namespace SurvivorCommunity
     /// (Config/entityclasses.xml sets HarvestItems to none on the survivor classes and on the raider templates). While a
     /// use is in progress XNPC's own weapon logic is held off (Patches_Xnpc X5), so its failover or close-range swap
     /// cannot take the bandage out of the hand.
+    ///
+    /// 3.4 build (decision D2, 2026-10-29). 0-XNPCCore 3.4 dropped the bleeding resistances from npcSdcsBase, so our bodies
+    /// bleed (buffInjuryBleeding, which vanilla's bleed carriers - BleedingOne, Two, BarbedWire - all start; lacerations
+    /// stay resisted), and its own self-heal is skipped on them (Patches_Xnpc X15): this file treats it. Vanilla's cloth
+    /// bandage, first aid bandage and first aid kit each stop it (RemoveBuff buffInjuryBleeding on onSelfPrimaryActionEnd,
+    /// items.xml). A bleed is bandaged with the cheapest of them when health is to spare and the body is not fighting (an
+    /// attack or revenge target); low on health, the heal item comes first, as it stops the bleed too. Every body is
+    /// stocked once with one or two cloth bandages (sc_bandagesStocked, so bodies stocked before also get them). Items
+    /// are found in the bag as well as the window: 0-XNPCCore 3.4 moves a survivor's medical items into its bag once
+    /// (its start route) and puts what it loots there. While one of its own hand sequences runs (SdcsAnimBusy: its
+    /// bandage, heal, douse or party-medic clip) no use starts here; its party medic waits for one running here; and a
+    /// body of ours that its party medic treated gets the regen speed the item's "other" effects leave at 0 on an NPC.
     /// </summary>
     public static class ScMedic
     {
         /// <summary>Items that restore health, best first. Plain bandages only stop bleeding, so they are not here.</summary>
         public static readonly string[] HealItems = { "medicalFirstAidKit", "medicalFirstAidBandage" };
+#if SC_V34
+        /// <summary>3.4 (D2): what stops a bleed, cheapest first (0-XNPCCore's own order for a bleed, MedicRules.CheapestItem).</summary>
+        public static readonly string[] BleedItems = { "medicalBandage", "medicalFirstAidBandage", "medicalFirstAidKit" };
+        /// <summary>3.4: every item a use here can put in the hand (a load finding one there gives the weapon back).</summary>
+        private static readonly string[] UseItems = { "medicalFirstAidKit", "medicalFirstAidBandage", "medicalBandage" };
+        /// <summary>The bleed every vanilla carrier starts (buffs.xml: BleedingOne, Two and BarbedWire add it).</summary>
+        private const string BleedBuff = "buffInjuryBleeding";
+        private const string BandagesStockedCvar = "sc_bandagesStocked";
+        private static int bleedsStopped, xnpcBusyWaits, xnpcHealSpeedFixed, xnpcMedicHeld;
+#endif
 
         private const float HealBelow = 0.6f;        // use something at or below this share of max health
         private const float Cooldown = 12f;          // seconds between two uses (counted from the start of one)
@@ -105,6 +127,9 @@ namespace SurvivorCommunity
             uses.Clear();
             displaced.Clear();
             Patch_NoFreeHeal.SdcsRefused = 0;
+#if SC_V34
+            bleedsStopped = xnpcBusyWaits = xnpcHealSpeedFixed = xnpcMedicHeld = 0;
+#endif
         }
 
         /// <summary>For sc xnpc: the stock flag, whether a use is in progress, and how often XNPC's own heal was refused.</summary>
@@ -113,8 +138,17 @@ namespace SurvivorCommunity
             if (e == null || e.Buffs == null) return "-";
             Use u;
             string use = uses.TryGetValue(e.entityId, out u) ? "using " + u.Item + (u.Triggered ? " (animation started)" : " (waiting for the hold pose)") : "idle";
+#if SC_V34
+            // 3.4 (D2): the cloth bandages and the bleed too; the counts take the bag in (0-XNPCCore moves medical items there)
+            return "stocked=" + (e.Buffs.GetCustomVar(StockedCvar) > 0f) + "/" + (e.Buffs.GetCustomVar(BandagesStockedCvar) > 0f) + " " + use
+                   + (e.Buffs.HasBuff(BleedBuff) ? " BLEEDING" : "") + " cloth=" + Count(e, "medicalBandage") + " bandages=" + Count(e, "medicalFirstAidBandage")
+                   + " kits=" + Count(e, "medicalFirstAidKit") + " SdcsIsHealing refused (all bodies)=" + Patch_NoFreeHeal.SdcsRefused
+                   + "; all bodies: bleeds stopped " + bleedsStopped + ", waits for XNPC's hand clips " + xnpcBusyWaits
+                   + ", XNPC medic regen fixed " + xnpcHealSpeedFixed + ", XNPC medic held for a use " + xnpcMedicHeld;
+#else
             return "stocked=" + (e.Buffs.GetCustomVar(StockedCvar) > 0f) + " " + use + " bandages=" + Count(e, "medicalFirstAidBandage")
                    + " kits=" + Count(e, "medicalFirstAidKit") + " SdcsIsHealing refused (all bodies)=" + Patch_NoFreeHeal.SdcsRefused;
+#endif
         }
 
         /// <summary>One of our XNPC bodies (ScXnpc.IsBody: a survivor class the community owns, or a raider); XNPC's other classes heal their own way.</summary>
@@ -146,6 +180,9 @@ namespace SurvivorCommunity
             // bag, never held)
             if (ScNpc.UsesWindow(e) && ScAmmo.IsWindowOpen(e.entityId)) { Patches_Xnpc.Count("window-medic-held"); return; }
             if (!e.world.IsRemote() && e.Buffs.GetCustomVar(StockedCvar) <= 0f) Stock(e);
+#if SC_V34
+            if (!e.world.IsRemote() && e.Buffs.GetCustomVar(BandagesStockedCvar) <= 0f) StockBandages(e);
+#endif
             TryHeal(e, now);
         }
 
@@ -174,6 +211,17 @@ namespace SurvivorCommunity
             ScLog.Verbose("medic: stocked " + e.entityId + " with " + bandages + " first aid bandage(s), " + kits + " kit(s)");
         }
 
+#if SC_V34
+        /// <summary>3.4 (D2): one or two cloth bandages, once per body (bodies stocked before 3.4 get them too).</summary>
+        private static void StockBandages(EntityAlive e)
+        {
+            e.Buffs.SetCustomVar(BandagesStockedCvar, 1f);
+            int n = e.world.GetGameRandom().RandomFloat < 0.5f ? 1 : 2;
+            Add(e, "medicalBandage", n);
+            ScLog.Verbose("medic: stocked " + e.entityId + " with " + n + " cloth bandage(s)");
+        }
+#endif
+
         private static void Add(EntityAlive e, string item, int count)
         {
             ItemValue iv = ItemClass.GetItem(item, true);
@@ -185,6 +233,65 @@ namespace SurvivorCommunity
         // decide
         // ---------------------------------------------------------------------------------------------------------
 
+#if SC_V34
+        /// <summary>
+        /// 3.4 (D2): the 3.2 heal below HealBelow, plus the bleed. A bleed with health to spare is stopped with the cheapest
+        /// item that stops it (BleedItems), and only out of a fight (no live attack or revenge target): a 20 s bleed costs
+        /// less than lowering the gun mid-fight for it. Low on health, the heal item comes first - a first aid bandage or
+        /// kit stops the bleed as well - and with none left a cloth bandage at least stops the bleed. A heal still working
+        /// (medicalRegHealthAmount) waits as before, but does not keep a bleed from being stopped. Nothing starts while one
+        /// of 0-XNPCCore's own hand clips runs (SdcsAnimBusy: its bandage, heal, douse or party-medic sequence holds the
+        /// hand slot this would write).
+        /// </summary>
+        private static void TryHeal(EntityAlive e, float now)
+        {
+            int max = e.GetMaxHealth();
+            if (max <= 0) return;
+            bool low = e.Health <= max * HealBelow;
+            bool bleeding = e.Buffs.HasBuff(BleedBuff);
+            if (!low && !bleeding) return;
+            if (e.emodel == null || e.emodel.IsRagdollActive || e.inventory == null) return;
+            float ready;
+            if (readyAt.TryGetValue(e.entityId, out ready) && now < ready) return;
+            if (e.GetCVar("SdcsAnimBusy") >= 0.5f) { xnpcBusyWaits++; return; }
+            bool working = e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f;    // an item is already working
+
+            string pick = null;
+            if (low && !working)
+            {
+                int missing = max - e.Health;
+                if (missing >= KitWorthMissing && Count(e, "medicalFirstAidKit") > 0) pick = "medicalFirstAidKit";
+                else if (Count(e, "medicalFirstAidBandage") > 0) pick = "medicalFirstAidBandage";
+                else if (Count(e, "medicalFirstAidKit") > 0) pick = "medicalFirstAidKit";
+            }
+            if (pick == null && bleeding && (low || !InFight(e))) pick = FirstCarried(e, BleedItems);
+            if (pick == null) return;
+            if (!TakeOne(e, pick)) return;
+            Begin(e, pick, now);
+            readyAt[e.entityId] = now + Cooldown;
+            if (bleeding)
+            {
+                bleedsStopped++;
+                ScLog.Verbose("medic: " + e.entityId + " is bleeding - " + pick);
+            }
+        }
+
+        /// <summary>A live attack or revenge target (the bleed waits: ScRelax's alert reasons, the AI-free part).</summary>
+        private static bool InFight(EntityAlive e)
+        {
+            EntityAlive t = e.GetAttackTarget();
+            if (t != null && t != e && !t.IsDead()) return true;
+            t = e.GetRevengeTarget();
+            return t != null && t != e && !t.IsDead();
+        }
+
+        /// <summary>The first of these items the body carries (window or bag), or null.</summary>
+        private static string FirstCarried(EntityAlive e, string[] items)
+        {
+            for (int i = 0; i < items.Length; i++) if (Count(e, items[i]) > 0) return items[i];
+            return null;
+        }
+#else
         private static void TryHeal(EntityAlive e, float now)
         {
             int max = e.GetMaxHealth();
@@ -204,6 +311,7 @@ namespace SurvivorCommunity
             Begin(e, pick, now);
             readyAt[e.entityId] = now + Cooldown;
         }
+#endif
 
         // ---------------------------------------------------------------------------------------------------------
         // use: item into the hand, animation, effects when it ends, weapon back
@@ -387,7 +495,11 @@ namespace SurvivorCommunity
             string item = !string.IsNullOrEmpty(savedUse) ? savedUse : hadUse ? stale.Item : null;
             ItemValue held = e.inventory.holdingItemItemValue;
             string inHand = held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : null;
+#if SC_V34
+            bool medicalInHand = inHand != null && Array.IndexOf(UseItems, inHand) >= 0;      // 3.4: the cloth bandage too (D2)
+#else
             bool medicalInHand = inHand != null && Array.IndexOf(HealItems, inHand) >= 0;
+#endif
             if (item == null && !medicalInHand) return;
             if (item != null) Add(e, item, 1);
             if (medicalInHand || item != null)
@@ -427,6 +539,60 @@ namespace SurvivorCommunity
             return ScNpc.Items(e);
         }
 
+#if SC_V34
+        /// <summary>
+        /// 3.4 (D2, bag seeding): a survivor's medical items are in its window (SC stocks them there, handed ones land
+        /// there) and, since 0-XNPCCore 3.4, in its bag too: XNPC's start route moves the window's medical items into the
+        /// bag once per body, and its looting puts them there. So a window user counts both; a raider has only its bag
+        /// (Slots). Read only - every write goes through TakeOne.
+        /// </summary>
+        private static int Count(EntityAlive e, string item)
+        {
+            int type = ItemClass.GetItem(item, true).type;
+            int n = CountIn(Slots(e), type);
+            if (ScNpc.UsesWindow(e) && e.bag != null) n += CountIn(e.bag.ItemGrid.items, type);
+            return n;
+        }
+
+        private static int CountIn(ItemStack[] slots, int type)
+        {
+            if (slots == null) return 0;
+            int n = 0;
+            for (int i = 0; i < slots.Length; i++)
+                if (slots[i] != null && !slots[i].IsEmpty() && slots[i].itemValue.type == type) n += slots[i].count;
+            return n;
+        }
+
+        /// <summary>One of the item out of the window first (ScNpc.SetItem, as on 3.2), else out of a window user's bag (Bag.SetSlot).</summary>
+        private static bool TakeOne(EntityAlive e, string item)
+        {
+            int type = ItemClass.GetItem(item, true).type;
+            ItemStack[] slots = Slots(e);
+            int i = IndexIn(slots, type);
+            if (i >= 0)
+            {
+                ItemStack s = slots[i];
+                ScNpc.SetItem(e, i, s.count > 1 ? new ItemStack(s.itemValue, s.count - 1) : ItemStack.Empty.Clone());
+                return true;
+            }
+            if (!ScNpc.UsesWindow(e) || e.bag == null) return false;
+            ItemStack[] bag = e.bag.ItemGrid.items;
+            i = IndexIn(bag, type);
+            if (i < 0) return false;
+            ItemStack b = bag[i];
+            e.bag.SetSlot(i, b.count > 1 ? new ItemStack(b.itemValue, b.count - 1) : ItemStack.Empty.Clone());
+            Patches_Xnpc.Count("medic-took-from-bag");
+            return true;
+        }
+
+        private static int IndexIn(ItemStack[] slots, int type)
+        {
+            if (slots == null) return -1;
+            for (int i = 0; i < slots.Length; i++)
+                if (slots[i] != null && !slots[i].IsEmpty() && slots[i].itemValue.type == type) return i;
+            return -1;
+        }
+#else
         private static int Count(EntityAlive e, string item)
         {
             ItemStack[] slots = Slots(e);
@@ -452,6 +618,7 @@ namespace SurvivorCommunity
             }
             return false;
         }
+#endif
 
         // ---------------------------------------------------------------------------------------------------------
         // patches
@@ -585,5 +752,112 @@ namespace SurvivorCommunity
                 }
             }
         }
+#if SC_V34
+
+        // ---------------------------------------------------------------------------------------------------------
+        // 0-XNPCCore 3.4's party medic (SdcsNpcMedic: MoveToPatientSdcs / FirstAidSdcs) on and around our bodies (D2)
+        // ---------------------------------------------------------------------------------------------------------
+
+        /// <summary>3.4: 0-XNPCCore's heal of another (SdcsMedic.ApplyHealOther(healer, patient, itemName, via), public static).</summary>
+        public static MethodBase HealOtherTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(SdcsMedic), "ApplyHealOther", new[] { typeof(EntityAlive), typeof(EntityAlive), typeof(string), typeof(string) });
+        }
+
+        /// <summary>3.4: 0-XNPCCore's start of a first-aid sequence on another (SdcsMedic.Begin, public static).</summary>
+        public static MethodBase MedicBeginTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(SdcsMedic), "Begin", new[] { typeof(EntityAlive), typeof(EntityAlive), typeof(NPCSdcsCharacters.Pure.MedicCondition), typeof(string) });
+        }
+
+        /// <summary>
+        /// 3.4 (D2). A follower of ours that 0-XNPCCore made the party medic (its leader is its patient, or anyone with the
+        /// medic role) spends one item out of its stores and fires the item's "other" effects on the patient
+        /// (onSelfSecondaryActionEnd with the item in the event): the bleed stops, the item's health is queued
+        /// (medicalRegHealthAmount), and the regen speed is set from the PATIENT's $medicRegHealthIncreaseSpeed - which only
+        /// a player's Physician perk writes - while the perk-level fallbacks to 2 read the healer's progression, which an NPC
+        /// has none of. On a player patient that is fine; on an NPC the speed stays 0 and buffHealHealth drains the queued
+        /// health without healing a point (the hole ScMedic's own ApplyEffects plugs) - an item spent for nothing, and
+        /// ScMedic's own heal held off meanwhile (a heal "working"). So when the patient is one of our bodies the speed gets
+        /// NpcRegenSpeed (2, the no-perk value). Nothing in this path is refused by Patch_NoFreeHeal: it adds no
+        /// SdcsIsHealing to anyone.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_XnpcHealOther
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (HealOtherTarget() != null) return true;
+                    ScLog.Warn("0-XNPCCore's SdcsMedic.ApplyHealOther not found - its party medic's heals on the community's bodies may not heal (0-XNPCCore update?)");
+                }
+                catch (Exception e) { ScLog.Once("medic-bind-healother", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return HealOtherTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive patient, bool __result)
+            {
+                try
+                {
+                    if (!__result || patient == null || patient.Buffs == null || !IsBody(patient)) return;
+                    if (patient.Buffs.GetCustomVar("medicalRegHealthAmount") <= 0f || patient.Buffs.GetCustomVar("medRegHealthIncSpeed") > 0f) return;
+                    patient.Buffs.SetCustomVar("medRegHealthIncSpeed", NpcRegenSpeed);
+                    xnpcHealSpeedFixed++;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("medic-healother", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 3.4 (D2): 0-XNPCCore's party medic does not start on a body of ours in the middle of a use here. Its sequence
+        /// puts the item in hand slot 0 (SdcsAnimPlayback.StartBandage) and puts back whatever was there when it began - the
+        /// medical item this file holds - so the weapon this use displaced would be lost to the hand. The other order is
+        /// TryHeal's SdcsAnimBusy wait. False out of Begin is XNPC's own refusal: the task stops and nothing is spent.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_XnpcMedicWaits
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (MedicBeginTarget() != null) return true;
+                    ScLog.Warn("0-XNPCCore's SdcsMedic.Begin not found - its party medic may start over a medical use of the community's own (0-XNPCCore update?)");
+                }
+                catch (Exception e) { ScLog.Once("medic-bind-begin", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MedicBeginTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive healer, ref bool __result)
+            {
+                try
+                {
+                    if (healer == null || !uses.ContainsKey(healer.entityId)) return true;
+                    xnpcMedicHeld++;
+                    __result = false;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("medic-xnpc-begin", ex);
+                    return true;
+                }
+            }
+        }
+#endif
     }
 }

@@ -208,6 +208,68 @@ namespace SurvivorCommunity
                 }
             }
         }
+#if SC_V34
+
+        /// <summary>
+        /// 3.4 (decision D4): SleeperVolume.TouchGroup(World, EntityPlayer, bool), the group touch every touch of a room goes
+        /// through - the player's (CheckTouching) and, since 0-XNPCCore 3.4, any of its NPC bodies' (its 1 Hz sleeper trigger,
+        /// AvatarSdcsNpcController.SdcsSleeperVolumeTouch, calls it directly with a nearby player for the spawn and with
+        /// none to wake the passive sleepers).
+        /// </summary>
+        public static MethodBase TouchGroupTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(SleeperVolume), "TouchGroup", new[] { typeof(World), typeof(EntityPlayer), typeof(bool) });
+        }
+
+        /// <summary>
+        /// 3.4 (D4): the community's and 0-XNPCCore's NPC bodies may trigger sleeper rooms everywhere but in an enclave's POI,
+        /// which stays sleeper-free (E1). A spawn touch only marks the room for the next tick, whose UpdatePlayerTouched E1
+        /// refuses above - but the wake touch rouses whatever the room's spawn map holds at once, and an NPC standing in a
+        /// room of the POI touches it every second. So a touch of an enclave POI's room keeps it cleared here, as E1 does,
+        /// and goes no further, whoever touched it (E1 kept the player's touch from doing anything else already).
+        /// Infested POIs are not enclaves: their rooms spawn through the same UpdatePlayerTouched, where Patches_Infestations
+        /// shapes them whoever touched them. Counted (sc xnpc) only when it mattered, not for every repeat touch of a player
+        /// standing in a room: enclave-sleeper-touch-cleared (the room was not clear yet), enclave-sleeper-wake-refused (a
+        /// touch with no player - 0-XNPCCore's wake).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_TouchGroup
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (TouchGroupTarget() != null) return true;
+                    ScLog.Err("SleeperVolume.TouchGroup(World, EntityPlayer, bool) not found (game update?) - an NPC can wake sleepers in an enclave's POI");
+                }
+                catch (Exception e) { ScLog.Once("enclave-bind-touchgroup", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return TouchGroupTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(SleeperVolume __instance, World _world, EntityPlayer _player)
+            {
+                try
+                {
+                    if (__instance == null || !ScEnclaves.IsEnclavePoi(__instance.PrefabInstance)) return true;
+                    bool open = !__instance.wasCleared || __instance.respawnTime != ulong.MaxValue || __instance.respawnMap.Count > 0 || __instance.isSpawning;
+                    ScEnclaves.KeepCleared(__instance, _world);
+                    if (open) Patches_Xnpc.Count("enclave-sleeper-touch-cleared");
+                    if (_player == null) Patches_Xnpc.Count("enclave-sleeper-wake-refused");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("enclave-sleeper-touchgroup", e);
+                    return true;
+                }
+            }
+        }
+#endif
 
         /// <summary>
         /// E2 (Q7 a): a POI's loot container inside a living enclave's footprint - raider or not - is refused while the enclave

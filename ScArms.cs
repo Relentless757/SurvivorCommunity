@@ -105,6 +105,10 @@ namespace SurvivorCommunity
 
         // swap-return counters for sc xnpc
         private static int swapsKept, swapsUnknown, returnedStorage, returnedInventory, returnedGround;
+#if SC_V34
+        /// <summary>3.4: dialog weapon rows Voice Control ran itself (kept from its MutateSwapWeapon, Patch_VoiceSwap).</summary>
+        private static int swapsLeftToVc;
+#endif
 
         public static void Reset()
         {
@@ -114,6 +118,9 @@ namespace SurvivorCommunity
             nextPrune = 0f;
             leadSwitches = leadBacks = leadRearmsHeld = 0;
             swapsKept = swapsUnknown = returnedStorage = returnedInventory = returnedGround = 0;
+#if SC_V34
+            swapsLeftToVc = 0;
+#endif
         }
 
         /// <summary>
@@ -622,7 +629,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// After the NPC was told to use an item (it is already in their hand, from the window): a member's handed weapon
-        /// joins the pair and the one it replaces comes back as a real item. route is "dialog" or "voice", for the log.
+        /// joins the pair and the one it replaces comes back as a real item. route is "dialog" or "voice" (3.4: also
+        /// "any-weapon", 0-XNPCCore's AnyWeapon equip of a handed weapon - Patches_Xnpc X16), for the log.
         /// </summary>
         public static void OnSwap(EntityAlive npc, string itemName, EntityPlayer player, string route)
         {
@@ -932,11 +940,25 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return DialogSwapTarget(); }
 
             [HarmonyPostfix]
+#if SC_V34
+            public static void Postfix(BaseDialogAction __instance, EntityPlayer player, bool __runOriginal)
+            {
+                try
+                {
+                    if (__instance == null || !ScCommunity.IsHost) return;
+                    // 3.4 (the risk list's item 21): Voice Control 3.4 takes 0-XNPCCore's own weapon rows (SdcsNPC's) from the
+                    // dialog action (SwapWeaponStaticRowPatch skips it and sends its SwapWeapon command, which ends in
+                    // MutateSwapWeapon): nothing was swapped yet when this runs, and Patch_VoiceSwap keeps the weapon once the
+                    // swap is made - a client's row included, now that the swap runs on the host. Only a row the action ran
+                    // itself (GenericNPC's) is kept from here.
+                    if (!__runOriginal) { swapsLeftToVc++; return; }
+#else
             public static void Postfix(BaseDialogAction __instance, EntityPlayer player)
             {
                 try
                 {
                     if (__instance == null || !ScCommunity.IsHost) return;
+#endif
                     // the same respondent lookup the action itself makes
                     LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
                     EntityAlive npc = ui != null && ui.xui != null && ui.xui.Dialog != null ? ui.xui.Dialog.Respondent as EntityAlive : null;
@@ -987,11 +1009,20 @@ namespace SurvivorCommunity
 
         public static string Report()
         {
+#if SC_V34
+            return "overwhelmed " + (ScConfig.Overwhelmed ? (bound ? "on" : bindFailed ? "OFF (0-XNPCCore state not bound)" : "on (not bound yet)") : "off")
+                   + ", " + watch.Count + " survivor(s) watched; swap returns: " + swapsKept + " kept, " + swapsUnknown + " not a survivor weapon, returned to storage "
+                   + returnedStorage + " / inventory " + returnedInventory + " / ground " + returnedGround
+                   + "; dialog rows run by Voice Control: " + swapsLeftToVc
+                   + "; melee-lead raiders: " + leadRearmsHeld + " re-arm(s) held off, " + leadSwitches + " switch(es) to the ranged weapon, " + leadBacks + " back to melee"
+                   + (bound && swapToHand == null ? " (SdcsSwapToHand missing: by hand)" : "");
+#else
             return "overwhelmed " + (ScConfig.Overwhelmed ? (bound ? "on" : bindFailed ? "OFF (0-XNPCCore state not bound)" : "on (not bound yet)") : "off")
                    + ", " + watch.Count + " survivor(s) watched; swap returns: " + swapsKept + " kept, " + swapsUnknown + " not a survivor weapon, returned to storage "
                    + returnedStorage + " / inventory " + returnedInventory + " / ground " + returnedGround
                    + "; melee-lead raiders: " + leadRearmsHeld + " re-arm(s) held off, " + leadSwitches + " switch(es) to the ranged weapon, " + leadBacks + " back to melee"
                    + (bound && swapToHand == null ? " (SdcsSwapToHand missing: by hand)" : "");
+#endif
         }
 
         /// <summary>One survivor as the overwhelmed rule sees it, for sc xnpc &lt;id&gt;.</summary>
