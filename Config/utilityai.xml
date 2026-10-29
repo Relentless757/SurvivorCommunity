@@ -308,7 +308,8 @@
 	  BackupKeepDistance 7 -> 8; new are the medic (7), the jobs and the leader's butchering (4), wild looting (1), leaving a
 	  sleeper area an enemy hunts them in (9) and the busy animation (12). SC's actions are re-ranked so each keeps the place
 	  it had among XNPC's on 3.2; XNPC's bands are not lowered, and its medic, jobs and leave-area are not gated (decision D1:
-	  a resident may leave the post to heal, a member takes job orders, the leash and Guard bring them back after).
+	  a resident may leave the post to heal, a member takes job orders, the leash and Guard bring them back after) - except
+	  that enclave people at home never take the leave-area out of their own building (ScNotEncHome; the user, 2026-10-29).
 	    ScAtPost, ScEncAtHome      2.2 -> 3.2  above Guard and Stay (3), still below the roam, the quiet night and TooClose
 	                                           close in (3.5, scaled down with the distance)
 	    ScRoam, ScEncRoam          2.5 -> 3.4  above the post (3.2) and Guard; TooClose still wins inside about 0.4 m
@@ -350,6 +351,11 @@
 			</append>
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='MeleeApproach' or @name='BackupRanged']">
 				<consideration class="ScNotTravelling, SurvivorCommunity" />
+			</append>
+			<!-- the user, 2026-10-29: enclave people hold their ground inside their home when attacked - XNPC's leave-area
+			     (9, over every fight) never walks one of them out of their own building -->
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcLeave']/action[@name='LeaveAreaSdcs']">
+				<consideration class="ScNotEncHome, SurvivorCommunity" />
 			</append>
 		</if>
 	</conditional>

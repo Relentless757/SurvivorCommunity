@@ -169,8 +169,7 @@ alive for XNPC, so it can appear twice), and the re-check's new LOW: an enemy Vo
 SC's leaderless people against 0.95 for their current target, so they may switch to it (fix: use VC's private
 `StickScore` for the override). Test steps: TESTING.md "Game 3.4 port". Install: `Port33\tools\deploy_sc34.py`.
 
-**Open (watch in game, the user's call):** XNPC's leave-area (9) is not gated, per D1. An unhired body inside a sleeper
-volume that a zombie targets leaves 30 m and avoids the building for up to 300 s - enclave people in their own POI and
-residents of a base built inside a POI included, so an enclave may empty out in a zombie fight instead of fighting it
-(E2-2). If that looks wrong, the fix is one guarded XML append: an SC consideration on `LeaveAreaSdcs` for enclave
-people and residents at their post.
+**Decided (the user, 2026-10-29): enclave people hold their ground inside their home when attacked.** XNPC's leave-area
+(9: an unhired body inside a sleeper volume that a zombie targets leaves 30 m) is gated off for enclave people at home
+by `ScNotEncHome` on `LeaveAreaSdcs` (guarded XML, 3.4 only; 3.4 DLL `bfff2469`). Everyone else keeps XNPC's rule -
+residents of a base built inside a POI included (not asked; the same one-line gate would cover them).

@@ -960,6 +960,23 @@ namespace UAI
             return EntityUtilities.GetCurrentOrder(_context.Self.entityId) == EntityUtilities.Orders.Task ? 0f : 1f;
         }
     }
+
+    /// <summary>
+    /// 3.4 (the user, 2026-10-29: "they should hold their ground inside their home if they get attacked"): 0 for one of an
+    /// enclave's people who is at home (ScEnclavePeople.PersonOf, StateHome), else 1. 0-XNPCCore 3.4's sleeper detection
+    /// sends any unhired body an enemy targets inside a sleeper volume out of it (LeaveAreaSdcs, weight 9, over every
+    /// fight); an enclave's building is one, so its people left home in every zombie fight. This gate on LeaveAreaSdcs
+    /// (Config/utilityai.xml, 3.4 only) keeps them in and fighting; the flags XNPC sets meanwhile (SdcsLeavingArea,
+    /// SdcsSleeperDetected) have no effects and run out, and its building-avoid list only steers looting.
+    /// </summary>
+    public class UAIConsiderationScNotEncHome : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            EncPerson p = ScEnclavePeople.PersonOf(_context.Self);
+            return p != null && p.State == EncPerson.StateHome ? 0f : 1f;
+        }
+    }
 #endif
 
     /// <summary>

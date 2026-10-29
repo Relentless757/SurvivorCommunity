@@ -71,9 +71,9 @@ is not ported yet. Set `DebugLogging` to true in the 3.4 install's SC `Config/bl
     one within 4 m makes them step back, then walk on.
 18. Enclave people roam their POI by day, stand at their spots, idle at night; the leader keeps their spot.
 19. Raiders: noise out of sight brings one to look; it walks back to the camp when it loses you.
-20. **Watch, not fixed:** a zombie inside an enclave's POI (or a base built in a POI) going after one of the people
-    there makes them leave the building (`LeaveAreaSdcs`) for up to 300 s. Note whether enclave people abandon their
-    home in every fight - that one is your call (PORT_34.md, Stage 2 "Open").
+20. Enclave people hold their ground: a zombie inside an enclave's building going after one of them - they stay in and
+    fight it, never walking out of their own building (`sc xnpc <name>` never shows `LeaveAreaSdcs`). A wild survivor
+    in an ordinary POI still leaves it when a zombie there targets them (XNPC's own behaviour, kept).
 21. Medic follower: hurt below half health, wait 15 s out of combat: a following member walks to you, plays the bandage
     clip and heals you; one item leaves their inventory.
 22. Job orders: a following member takes a job by voice or the wheel; stationed at home, they drop it and go to their post.
