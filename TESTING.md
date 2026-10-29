@@ -25,6 +25,120 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Game 3.4 port (stages 1-2 and the review fixes, 2026-10-29)
+
+The 3.4 build only: the install in `F:\7 Days to Die Version Control\3.4` with 0-SCore 3.4.3.826, 0-XNPCCore 3.4.01 and
+1-XNPCVoiceControl-Complete 3.4.01 (plan and decisions: `PORT_34.md`). **Test on a new world or a copy of a save**: the
+saves folder is shared with 3.2, and 3.4 converts a save it loads. The RE Inventory bridge (`zzzz_GridInv_SurvivorCommunity`)
+is not ported yet. Set `DebugLogging` to true in the 3.4 install's SC `Config/blocks.xml` for the `medic:` and
+`creator face` lines. `sc xnpc` prints every counter named below; `sc xnpc <name or id>` shows one NPC.
+
+**A. Start-up**
+
+1. Load the world. The log shows `patching: ... class(es) applied, ... off by their Prepare, none failed` and
+   `patch verification: all ... targets patched`. No `MISSING PATCH`, no `PATCH CLASS FAILED`, no `inert` line.
+2. The log has `patched SdcsCustomLook::ApplyCharacter`, `patched SdcsMedic::ApplyHealOther`, `patched SdcsMedic::Begin`,
+   `patched SleeperVolume::TouchGroup` and `patched XUiC_SCoreCompanion::BtnDismiss_Controller_OnPress`.
+3. No XML `did not apply` line for SurvivorCommunity.
+
+**B. Carried over from 3.2 (stage 1)**
+
+4. Old held gun: in a copy of a 3.2 save, a member who held a loaded gun holds the same gun with the same rounds after
+   the load.
+5. Old runner: in that copy, a member out on a physical run comes back with the same gear and rounds.
+6. Linked storage: drag an item in, drag one out, swap two, split a stack, sort, take all, move all. After each, close
+   and reopen: the boxes hold what the window showed. Nothing doubles, nothing vanishes.
+7. Linked storage, full: fill every box, then drop and drop-one into the linked window. Nothing is taken, you are told
+   the storage is full, and the item stays with you (never on the floor, never gone).
+8. Linked storage with RE Inventory (no bridge yet): the window is at most 20 rows, no `IndexOutOfRange` in the log,
+   and step 6 still passes.
+9. Hand model: a member's bandage shows in the hand while they heal and the gun comes back after; a weapon picked in
+   the dialog weapon menu shows at once.
+10. Fire at range: raiders shoot you from 30-60 m; residents shoot a zombie at the base edge as soon as it is in range;
+    enclave people shoot a zombie walking into their POI. Each keeps shooting the same target until it is down.
+11. Point formation: a follower in the Point formation opens a closed door and it shuts behind them.
+
+**C. XNPC 3.4's AI with SC's roles on top (D1)**
+
+12. Residents by day walk the home zone, stand a while, walk on (`sc xnpc <name>`: mostly `ScRoam`).
+13. At night they go back to their posts and stand quiet (`ScNightIdle`; a post on a slab: `ScAtPost`, no re-plan loop).
+14. Talking to a resident: they stop, face you, put the weapon away; after you close it they go back within seconds.
+    Standing within 4 m of a resident pauses them for 5 s now and then (Voice Control's proximity pause).
+15. Base defence: a zombie inside the base out of sight: residents walk to it (`ScDefendBase`) and fight it; one whose
+    line of fire you block holds (`ScDefendHold`) and does not back off.
+16. Leash: a resident chasing a zombie stops about 25 m past the base edge and walks home (`ScReturn`).
+17. Runner: a zombie in sight doesn't pull a runner off the route (`ScTravel`); one that reaches them is hit or shot;
+    one within 4 m makes them step back, then walk on.
+18. Enclave people roam their POI by day, stand at their spots, idle at night; the leader keeps their spot.
+19. Raiders: noise out of sight brings one to look; it walks back to the camp when it loses you.
+20. **Watch, not fixed:** a zombie inside an enclave's POI (or a base built in a POI) going after one of the people
+    there makes them leave the building (`LeaveAreaSdcs`) for up to 300 s. Note whether enclave people abandon their
+    home in every fight - that one is your call (PORT_34.md, Stage 2 "Open").
+21. Medic follower: hurt below half health, wait 15 s out of combat: a following member walks to you, plays the bandage
+    clip and heals you; one item leaves their inventory.
+22. Job orders: a following member takes a job by voice or the wheel; stationed at home, they drop it and go to their post.
+
+**D. Bleeding and SC's medic (D2)**
+
+23. A zombie claws a member until `sc xnpc <name>` shows `BLEEDING`; kill it; within seconds they bandage (log
+    `medic: <id> is bleeding - medicalBandage`) and `BLEEDING` is gone.
+24. Below 60% health and bleeding: a first aid bandage or kit first (it stops the bleed too); the health rises.
+25. Above 60% health, bleeding mid-fight: they keep fighting and bandage after.
+26. Every body gets 1-2 cloth bandages once: the medic line shows `stocked=True/True` and `cloth=1` or `2`; raiders too.
+27. XNPC moves a new survivor's medical items into its bag once; the medic line still counts them and they still heal
+    with them (`medic-took-from-bag`).
+28. A member douses fire or bandages you: SC's medic waits meanwhile (`waits for XNPC's hand clips`), the weapon is
+    back in hand after both.
+29. Party medic: give a follower the medic role, hurt another follower below half: the medic treats them and the
+    patient's health rises (`XNPC medic regen fixed`); exactly one item left the medic.
+30. While a member bandages themselves, the party medic doesn't start on them; their gun is back after.
+31. `x15-selfheal-skipped` goes up; members never lose an item without a heal.
+
+**E. Gun rate (D3)**
+
+32. Raiders and armed survivors fire at XNPC 3.4's rate, in bursts. Note if raiders feel too deadly.
+
+**F. XNPC's extras (D4)**
+
+33. A wild survivor offers Trade: their inventory window's items; buy one, it moves to you.
+34. The same at a resident; while it is open no medical use (`window-medic-held`) or ammo move
+    (`window-move-held-trade`); nothing doubles after a purchase.
+35. A following member shows no Trade.
+36. A friendly enclave's leader trades their own stock (their kind and prices); their people offer XNPC's stock trade.
+37. Raiders: no talk prompt, nothing on E, no trade.
+38. With a challenge reward waiting, talking to a survivor opens the dialog, not the turn-in window; the camera is normal.
+39. A new wild survivor is seeded once (up to 5 trade items, 2 jars of boiled water); save, reload: no second seeding;
+    a runner back from a run gets none.
+40. Creator face: make a character in the character creator and play with it; about one in ten new strangers shows
+    that face with SC's clothes and the character's name (log `creator face '<name>' taken by stranger id <id>`,
+    `sc xnpc <id>`: `source=creator face`). Recruit one: after a reload the face and name stay. The same character
+    can show up on two strangers (known, cosmetic).
+41. Members, prospects, radio recruits, stand-ins and enclave people never change face or name on reload or respawn
+    (`x17-creator-face-refused` goes up).
+42. A follower walking into an unvisited POI ahead of you wakes or spawns its sleepers; walking into an enclave's POI
+    spawns none.
+43. An infestation cleared with a follower along still brings its special and its count, and still ends.
+
+**G. Dismiss, weapon menu, holster (D5, D6, D8)**
+
+44. ESC, SCore's companion list, Dismiss on a following member: they go home ("<name> is home and settling in.") or you
+    are told why not. They never leave the community. A non-member companion is dismissed as before.
+45. A follower's "Weapon Classes" menu has ten rows ending in "done" and no "Use the weapons I gave you". A gun handed
+    through the window and picked under "Carried Weapons": they hold it, it joins their pair, the old one comes back.
+46. Talking to a member with a gun: they put it away and face you, no flicker of arms or gun; after closing they draw
+    again within a few seconds (`x7-holster-yield-frames` goes up during the talk).
+
+**H. XNPC risks**
+
+47. A better gun and its ammo put in a follower's window: they draw it about 2 s later (`x16-anyweapon-equip`); it
+    joins their pair, the old one comes back to you; after a reload they still hold it. **Watch for a bounce:** right
+    after, they draw a different weapon or go bare-handed (review M2).
+48. A member holding a gun when you save holds the same gun after the load, not their melee weapon.
+49. A weapon picked in the follower's weapon menu: one swap, the pair follows (`dialog rows run by Voice Control`); also
+    as a multiplayer client.
+50. At night in a dark base zombies may notice residents late; base defence and `sc attack` still play out.
+51. A runner on a long route still arrives; note if runners stick or walk too slowly (class walk speed is 1.5 now).
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.
