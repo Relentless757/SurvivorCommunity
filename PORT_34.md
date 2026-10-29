@@ -173,3 +173,10 @@ SC's leaderless people against 0.95 for their current target, so they may switch
 (9: an unhired body inside a sleeper volume that a zombie targets leaves 30 m) is gated off for enclave people at home
 by `ScNotEncHome` on `LeaveAreaSdcs` (guarded XML, 3.4 only; 3.4 DLL `bfff2469`). Everyone else keeps XNPC's rule -
 residents of a base built inside a POI included (not asked; the same one-line gate would cover them).
+
+### Installed (2026-10-29)
+
+Installed into the 3.4 install with the user's go-ahead (game closed): `Port33	ools\deploy_sc34.py`, HEAD da7b222,
+1928 files = the tracked files, the DLL swapped for the 3.4 build: installed = built = `bfff2469`; ilspycmd on the
+installed DLL shows PatchClassByClass, ScLinkedContainer34, ScNotTravelling, ScNotEncHome. No SC was there before
+(nothing backed up). The 3.2 game's SC untouched (`81f6c2da`). Next: the user's test, TESTING.md "Game 3.4 port".
