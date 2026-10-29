@@ -327,6 +327,11 @@ namespace SurvivorCommunity
             // A follower hidden for the leader's vehicle ride (SCore SendOnMission) would stay invisible
             // for ever once the leader link is gone: un-hide before anything else.
             if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
+#if SC_V34
+            // 3.4: 0-XNPCCore seats a follower in the leader's vehicle instead of hiding it (SendOnMission(true) ->
+            // AttachToEntity, SdcsVehicleSeatHideV4Patch); a seat would hold them for good once the leader link is gone
+            if (npc.AttachedToEntity != null) npc.Detach();
+#endif
 
             // detach from the party without SCore ever re-stamping it back
             npc.Buffs.RemoveCustomVar("Leader");

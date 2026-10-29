@@ -32,11 +32,23 @@ namespace SurvivorCommunity
         /// for ANY NPC, so a resident told to crouch while following would otherwise crouch at home for good. vcEngage and
         /// vcFollowMin stay: they are the player's preferences for when that member follows again.
         /// </summary>
+#if SC_V34
+        // 3.4: and 0-XNPCCore 3.4's job orders - a field job (SdcsLootMode 1-9: loot, harvest, mine, dig, pick, butcher,
+        // repair, base keeper; its filters), the party-medic role, a vehicle order and a remembered base - which would keep
+        // a stationed member looting or driving over their post (VCCommandRouter sets them, nothing at a post clears them)
+        public static readonly string[] VoiceMovementCvars =
+        {
+            "vcFormationDist", "vcFormationAngle", "vcMoveToActive", "vcMoveToFailed", "vcMoveToX", "vcMoveToY", "vcMoveToZ",
+            "vcTargetX", "vcTargetY", "vcTargetZ", "CrouchOverride", "$XVC_PendingCommand", "$XVC_LadderHold", "$XVC_LadderFollowMode",
+            "SdcsLootMode", "SdcsMedicRole", "SdcsVehicleOrder", "SdcsRememberBase", "SdcsMineFilter", "SdcsPickFilter"
+        };
+#else
         public static readonly string[] VoiceMovementCvars =
         {
             "vcFormationDist", "vcFormationAngle", "vcMoveToActive", "vcMoveToFailed", "vcMoveToX", "vcMoveToY", "vcMoveToZ",
             "vcTargetX", "vcTargetY", "vcTargetZ", "CrouchOverride", "$XVC_PendingCommand", "$XVC_LadderHold", "$XVC_LadderFollowMode"
         };
+#endif
 
         /// <summary>
         /// The order in the CurrentOrder cvar; false when the cvar is absent. Read here rather than through SCore's

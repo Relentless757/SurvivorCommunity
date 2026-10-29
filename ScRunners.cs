@@ -995,7 +995,13 @@ namespace SurvivorCommunity
             sw.Stop();
 
             // SCore's SetupBagItems re-appends the class BagItems on every PostInit: put the saved bag back
+#if SC_V34
+            // 3.4: the snapshot carries the bag as a blob (EntityCreationData.bagData); read into the live bag, which takes its size
+            if (!fresh && ecd.bagData != null && ecd.bagData.Length > 0 && e.bag != null)
+                StreamUtils.FromBlob(ecd.bagData, pbr => e.bag.ReadInto(pbr, StreamModeRead.Persistency));
+#else
             if (!fresh && ecd.bag != null && e.bag != null) e.bag.SetSlots(ecd.bag.Clone().GetSlots());
+#endif
             // M11 re-check R1: the window move, the saved gun's loose fallback and the loose rounds into magazines that
             // AfterPostInit left out, now on the bag that stays
             if (!fresh) ScLoadout.AfterRunnerRestore(e);
@@ -1298,14 +1304,23 @@ namespace SurvivorCommunity
             snap = null;
             try
             {
+#if SC_V34
+                // 3.4: the stream mode is named - Persistency is 3.2's false (StreamModeWrite.ToClient was true)
+                var ecd = new EntityCreationData(npc, StreamModeWrite.Persistency);
+#else
                 var ecd = new EntityCreationData(npc, false);
+#endif
                 byte[] bytes;
                 using (var ms = new MemoryStream())
                 {
                     using (PooledBinaryWriter bw = MemoryPools.poolBinaryWriter.AllocSync(false))
                     {
                         bw.SetBaseStream(ms);
+#if SC_V34
+                        ecd.write(bw, StreamModeWrite.Persistency);
+#else
                         ecd.write(bw, false);
+#endif
                         bw.Flush();
                     }
                     bytes = ms.ToArray();
@@ -1340,7 +1355,11 @@ namespace SurvivorCommunity
                     using (PooledBinaryReader br = MemoryPools.poolBinaryReader.AllocSync(false))
                     {
                         br.SetBaseStream(ms);
+#if SC_V34
+                        ecd.read(br, StreamModeRead.Persistency);      // 3.4: 3.2's false (a snapshot from 3.2 takes read's legacy branch)
+#else
                         ecd.read(br, false);
+#endif
                     }
                 }
                 return ecd;

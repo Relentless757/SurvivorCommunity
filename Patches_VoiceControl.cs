@@ -323,5 +323,82 @@ namespace SurvivorCommunity
                 }
             }
         }
+#if SC_V34
+
+        // ------------------------------------------------------------------ MayEngage (3.4) ----
+
+        /// <summary>3.4: Voice Control's engage consideration (UAI.UAIConsiderationMayEngage.GetScore(Context, object)), or null.</summary>
+        public static MethodBase MayEngageTarget()
+        {
+            Type t = ScTypes.Find("UAI.UAIConsiderationMayEngage");
+            MethodInfo m = t != null ? AccessTools.DeclaredMethod(t, "GetScore", new[] { typeof(UAI.Context), typeof(object) }) : null;
+            return m != null && m.ReturnType == typeof(float) ? m : null;
+        }
+
+        /// <summary>
+        /// SC's people who fight at will, as every leaderless NPC did on 3.2: a raider; a community member or stand-in with no
+        /// leader or owner (a resident at their post, a garrison stand-in); one of an enclave's people with none. The leader
+        /// test is 3.2 MayEngage's own (SCore's GetLeaderOrOwner).
+        /// </summary>
+        internal static bool EngagesAtWill(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null) return false;
+            if (ScXnpc.IsRaider(e)) return true;
+            if (!IsCommunityNpc(e) && !ScEnclavePeople.IsEnclaveNpc(e)) return false;
+            return EntityUtilities.GetLeaderOrOwner(e.entityId) == null;
+        }
+
+        /// <summary>
+        /// 3.4: SC's leaderless people fire at range again. Every attack and approach action of 0-XNPCCore's
+        /// SdcsNpcRangedAdvanced carries MayEngage. On 3.2 it passed any NPC without a leader (return 1); 3.4 sends a
+        /// leaderless one through its "wild" rule (EngageRules.ShouldEngageWild: its revenge target, an enemy within 5 m, an
+        /// enemy targeting it within 15 m, or a 10 s commitment within 20 m) - so SC's raiders stopped shooting at players at
+        /// range and residents and enclave people held fire until an intruder was 5 m away or hit them, which SC's base
+        /// defence and enclave sieges need. For those three (EngagesAtWill) the score is 3.2's 1 again; everyone else - a
+        /// follower, a stranger, 0-XNPCCore's own NPCs - keeps 3.4's rules, the original still runs first (its commitment
+        /// and log bookkeeping), and nothing else of XNPC's package changes.
+        ///
+        /// A postfix rather than an SC copy of SdcsNpcRangedAdvanced without MayEngage: residents and enclave people carry
+        /// XNPC's packages through npcSdcsBase (decision D1), so a copy would mean a second package list per body and an
+        /// XML fork of XNPC's actions to keep up with each release; the postfix touches the one gate. Bound by name (no
+        /// reference to Voice Control's DLL), off without it (Prepare), listed in ModApi's ExpectedTargets.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_MayEngage
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (MayEngageTarget() != null) return true;
+                    if (ChatType != null)
+                        ScLog.Err("UAIConsiderationMayEngage.GetScore(Context, object) not found (Voice Control update?) - raiders, residents and enclave people hold fire at range");
+                }
+                catch (Exception e) { ScLog.Once("vc-bind-mayengage", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MayEngageTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(UAI.Context _context, ref float __result)
+            {
+                try
+                {
+                    if (__result == 1f) return;
+                    EntityAlive self = _context != null ? _context.Self : null;
+                    if (!EngagesAtWill(self)) return;
+                    __result = 1f;
+                    Count("mayengage-pass");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-mayengage", e);
+                }
+            }
+        }
+#endif
     }
 }

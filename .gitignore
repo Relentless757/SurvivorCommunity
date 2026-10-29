@@ -1,4 +1,5 @@
 obj/
+obj34/
 bin/
 __pycache__/
 *.bak

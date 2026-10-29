@@ -27,11 +27,24 @@ namespace SurvivorCommunity
 
                 // fully qualified: SCore declares a namespace called Harmony, which shadows the type
                 var h = new HarmonyLib.Harmony(HarmonyId);
+#if SC_V34
+                // 3.4: class by class (PatchClassByClass), and nothing between here and the wiring below can end InitMod:
+                // on 3.2 one patch class whose target was gone threw out of PatchAll, every class after it stayed unpatched
+                // and the shared catch skipped the ModEvents handlers and the OnHire hook - the whole mod inert.
+                PatchClassByClass(h);
+                try { VerifyPatches(h); }
+                catch (Exception e) { ScLog.Err("patch verification failed: " + e.Message); }
+                // the overwhelmed rule reads 0-XNPCCore's private close-range state: bound now, so a rename shows at startup
+                try { if (ScArms.Bind()) ScLog.Out("overwhelmed rule: 0-XNPCCore's close-range swap state bound"); }
+                catch (Exception e) { ScLog.Err("overwhelmed rule: binding 0-XNPCCore's close-range state failed: " + e.Message); }
+                LogFeatureHashes();
+#else
                 h.PatchAll(Assembly.GetExecutingAssembly());
                 VerifyPatches(h);
                 // the overwhelmed rule reads 0-XNPCCore's private close-range state: bound now, so a rename shows at startup
                 if (ScArms.Bind()) ScLog.Out("overwhelmed rule: 0-XNPCCore's close-range swap state bound");
                 LogFeatureHashes();
+#endif
                 // E6: a group lost (E2's Fall, any cause) costs morale when it was a friend, and owes a refill - once per process
                 ScEnclaves.Fallen += ScEncAllies.OnFallen;
 
@@ -211,6 +224,46 @@ namespace SurvivorCommunity
             return ok;
         }
 
+#if SC_V34
+        /// <summary>
+        /// 3.4: Harmony's PatchAll, one patch class at a time (the same classes in the same order: Harmony's own
+        /// GetTypesFromAssembly, then CreateClassProcessor(type).Patch() for each), each in its own try. A class whose target
+        /// is gone - or whose patch method no longer binds - is logged with its exception and counted, and the classes after
+        /// it are still patched; VerifyPatches then names every expected target left unpatched (MISSING PATCH). Logs one
+        /// line: classes applied, classes whose Prepare turned them off, classes that failed.
+        /// </summary>
+        private static void PatchClassByClass(HarmonyLib.Harmony h)
+        {
+            int applied = 0, off = 0, failed = 0;
+            Type[] types;
+            try { types = AccessTools.GetTypesFromAssembly(Assembly.GetExecutingAssembly()); }
+            catch (Exception e)
+            {
+                ScLog.Err("patching: the assembly's types could not be listed - nothing is patched: " + e.Message);
+                return;
+            }
+            foreach (Type type in types)
+            {
+                if (type == null) continue;
+                try
+                {
+                    List<MethodInfo> done = h.CreateClassProcessor(type).Patch();
+                    if (done == null) continue;                  // not a patch class
+                    if (done.Count > 0) applied++;
+                    else off++;                                  // its Prepare said no (each logs why)
+                }
+                catch (Exception e)
+                {
+                    failed++;
+                    ScLog.Err("PATCH CLASS FAILED " + type.FullName + " - its patches are off for this session: " + e.Message);
+                    Log.Exception(e);
+                }
+            }
+            if (failed > 0) ScLog.Err("patching: " + applied + " class(es) applied, " + off + " off by their Prepare, " + failed + " FAILED");
+            else ScLog.Out("patching: " + applied + " class(es) applied, " + off + " off by their Prepare, none failed");
+        }
+
+#endif
         private struct Target
         {
             public string Label;
@@ -243,7 +296,12 @@ namespace SurvivorCommunity
             Add(t, "XUiC_QuestTrackerWindow::GetBindingValueInternal", AccessTools.Method(typeof(XUiC_QuestTrackerWindow), "GetBindingValueInternal", binding));
             Add(t, "XUiC_QuestDescriptionWindow::GetBindingValueInternal", AccessTools.Method(typeof(XUiC_QuestDescriptionWindow), "GetBindingValueInternal", binding));
             Add(t, "XUiC_QuestObjectivesWindow::GetBindingValueInternal", AccessTools.Method(typeof(XUiC_QuestObjectivesWindow), "GetBindingValueInternal", binding));
+#if SC_V34
+            // 3.4: StartQuest(Quest.QuestSource source, bool newQuest = true, bool notify = true) - the source is new
+            Add(t, "Quest::StartQuest", AccessTools.Method(typeof(Quest), "StartQuest", new[] { typeof(Quest.QuestSource), typeof(bool), typeof(bool) }));
+#else
             Add(t, "Quest::StartQuest", AccessTools.Method(typeof(Quest), "StartQuest", new[] { typeof(bool), typeof(bool) }));
+#endif
             Add(t, "Quest::CloseQuest", AccessTools.Method(typeof(Quest), "CloseQuest", new[] { typeof(Quest.QuestState), typeof(List<BaseReward>) }));
             Add(t, "XUiC_QuestListWindow::Update", AccessTools.Method(typeof(XUiC_QuestListWindow), "Update", new[] { typeof(float) }));
             // Patches_Menu.cs - the ESC menu entry
@@ -266,10 +324,28 @@ namespace SurvivorCommunity
             Add(t, "EntityBuffs::AddBuff", AccessTools.Method(typeof(EntityBuffs), "AddBuff", new[] { typeof(string), typeof(Vector3i), typeof(int), typeof(bool), typeof(bool), typeof(float) }));
             Add(t, "EntityAlive::UseHoldingItem", AccessTools.Method(typeof(EntityAlive), "UseHoldingItem", new[] { typeof(int), typeof(bool) }));
             Add(t, "EntityAliveSDX::ExecuteAction", AccessTools.Method(typeof(EntityAliveSDX), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
+#if SC_V34
+            // 3.4 (SCore 3.4): Write(PooledBinaryWriter, StreamModeWrite) - ScMedic's mid-use save; V4's also carries X13
+            Add(t, "EntityAliveSDX::Write", AccessTools.Method(typeof(EntityAliveSDX), "Write", new[] { typeof(PooledBinaryWriter), typeof(StreamModeWrite) }));
+            Add(t, "EntityAliveSDXV4::ExecuteAction", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
+            Add(t, "EntityAliveSDXV4::Write", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(PooledBinaryWriter), typeof(StreamModeWrite) }));
+#else
             Add(t, "EntityAliveSDX::Write", AccessTools.Method(typeof(EntityAliveSDX), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
             Add(t, "EntityAliveSDXV4::ExecuteAction", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "ExecuteAction", new[] { typeof(bool), typeof(int) }));
             Add(t, "EntityAliveSDXV4::Write", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(System.IO.BinaryWriter), typeof(bool) }));
+#endif
             Add(t, "EntityAliveSDXV4::SetModelLayer", Patches_Xnpc.Patch_ModelLayer.Target());
+#if SC_V34
+            // 3.4: the community's bodies keep 3.2's ten-slot toolbelt (Patches_Npc: the class being built, then InitInventory)
+            Add(t, "EntityFactory.CreateEntityOperation::CompleteEntity", Patches_Npc.Patch_CreatingClass.Target());
+            Add(t, "EntityAlive::InitInventory", Patches_Npc.Patch_NpcToolbelt.Target());
+            // 3.4: linked storage's shift-click and move-all (ScLinkedContainer34: 3.2's AddItem / TryStackItem logic)
+            Add(t, "TEFeatureStorage::AddItem", ScLinkedContainer.Patch_LinkedAddItem.Target());
+            Add(t, "TEFeatureStorage::TryStackItem", ScLinkedContainer.Patch_LinkedTryStackItem.Target());
+            // 3.4 (0-XNPCCore 3.4): X15 no XNPC self-heal on our bodies, X16 X12 steps aside inside XNPC's own swaps
+            Add(t, "AvatarSdcsNpcController::SdcsSelfHealScan", Patches_Xnpc.SelfHealScanTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsEquipByName", Patches_Xnpc.EquipByNameTarget());
+#endif
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
             // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on
             // SCore's V4: raiders' map markers, a swapped-out gun's rounds, the held gun across a save)
@@ -307,8 +383,12 @@ namespace SurvivorCommunity
             Add(t, "UAITaskAttackTargetEntitySDX::Update", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Update", new[] { typeof(UAI.Context) }));
             Add(t, "UAITaskAttackTargetEntitySDXV4::Start", ScAim.V4AttackTarget("Start"));
             Add(t, "UAITaskAttackTargetEntitySDXV4::Update", ScAim.V4AttackTarget("Update"));
+#if SC_V34
+            // ScAim.cs - on 3.4 the back-off task is Voice Control's (UAITaskBackupFromTargetPaced): listed with VC's below
+#else
             // ScAim.cs - the gun stays up while SCore's back-off task walks the NPC away from its target (M11 fix 2)
             Add(t, "UAITaskBackupFromTargetSDX::Update", ScAim.BackoffTarget());
+#endif
             // ScMelee.cs - SCore's in-range test with the melee weapon's real reach for our bodies (M11 fix 2)
             Add(t, "UAIConsiderationInWeaponRange::GetScore", ScMelee.InWeaponRangeTarget());
             // ScShooting.cs - the Shooting skill aims the gun: hitscan shots and launchers (round sh)
@@ -347,6 +427,14 @@ namespace SurvivorCommunity
                 Add(t, "EntityMovementActuator::TryOpenBlockingDoor", ScDoors.VcDoorTarget());
                 // ScArms.cs - Voice Control's "use X" keeps a handed weapon the same way
                 Add(t, "VCCommandRouter::MutateSwapWeapon", ScArms.VcSwapTarget());
+#if SC_V34
+                // 3.4: ScAim - the gun stays up while Voice Control's paced back-off walks the NPC away (M11 fix 2)
+                Add(t, "UAITaskBackupFromTargetPaced::Update", ScAim.BackoffTarget());
+                // 3.4: SC's leaderless raiders, residents and enclave people fight at range (3.2's MayEngage answer)
+                Add(t, "UAIConsiderationMayEngage::GetScore", Patches_VoiceControl.MayEngageTarget());
+                // 3.4: ScDoors - the Point formation's doors are shut behind a member too
+                Add(t, "EntityMovementActuator::TryOpenDoorAtBlock", ScDoors.VcPointDoorTarget());
+#endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");
             // Patches_Outposts.cs - outpost protection and the claim limit

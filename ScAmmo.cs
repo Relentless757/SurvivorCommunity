@@ -52,6 +52,9 @@ namespace SurvivorCommunity
     /// out of it, or the close would bring a moved arrow, a used bandage or a kept weapon back; an NPC that dies under a
     /// mark keeps its window until the mark ends (Patches_Npc DropWindow / Release). A mark ends with the close, the
     /// player's disconnect, a new game, or RemoteOpenStaleSeconds after the open.
+    /// The 3.4 build (SCore 3.4): SCore lets one copy out at a time (a refused request opens nothing and is not marked)
+    /// and merges a closed copy as a per-item delta on what the server holds; SC's hold-offs stay (the delta merge cannot
+    /// tell a round SC moved from one the player took).
     ///
     /// Magazines (M11, with Locked &amp; Loaded 1.4; ScMags). An NPC that carries a magazine for its gun reloads like a
     /// player; one that carries none reloads from loose rounds. So with L&amp;L loaded a gun that takes magazines is armed
@@ -473,7 +476,11 @@ namespace SurvivorCommunity
         /// <summary>Rounds of this ammo the bag still has room for: partly filled stacks and empty slots.</summary>
         private static int Room(EntityAlive e, ItemValue ammo)
         {
+#if SC_V34
+            ItemStack[] items = e.bag != null ? e.bag.ItemGrid.items : null;      // 3.4: the bag's grid (read only)
+#else
             ItemStack[] items = e.bag != null ? e.bag.GetSlots() : null;
+#endif
             int stack = Math.Max(1, ammo.ItemClass.Stacknumber.Value);
             int room = 0;
             if (items == null) return 0;
@@ -513,13 +520,23 @@ namespace SurvivorCommunity
                     if (k <= 0) continue;
                     if (!e.bag.AddItem(new ItemStack(s.itemValue.Clone(), k))) continue;
                     moved += k;
+#if SC_V34
+                    // 3.4: the window's slots are bound to its grid - emptied in place (SCore's own SetSlot), never replaced in
+                    // the array, which would cut the slot off from the grid with no change event
+                    if (k >= s.count) HarvestManager.SetSlot(items, i, null);
+#else
                     if (k >= s.count) items[i] = ItemStack.Empty.Clone();
+#endif
                     else s.count -= k;
                 }
                 int mags = MoveWindowMagazines(e, items);
                 if (moved > 0 || mags > 0)
                 {
+#if SC_V34
+                    window.Parent?.NotifyListeners();      // 3.4: SCoreLootContainer is a TEFeatureStorage; its listeners are the parent's
+#else
                     window.NotifyListeners();
+#endif
                     ScLog.Verbose("moved " + moved + " round(s) and " + mags + " magazine(s) of " + ScCommunity.DisplayName(e) + "'s from the inventory window into the bag");
                 }
             }
@@ -564,7 +581,11 @@ namespace SurvivorCommunity
                 }
                 if (!e.bag.AddItem(new ItemStack(s.itemValue.Clone(), s.count))) break;
                 moved += s.count;
+#if SC_V34
+                HarvestManager.SetSlot(items, i, null);      // 3.4: emptied in place (see MoveWindowAmmoToBag)
+#else
                 items[i] = ItemStack.Empty.Clone();
+#endif
             }
             if (moved > 0) Patches_Xnpc.Count("mags-window-to-bag");
             return moved;
@@ -668,7 +689,11 @@ namespace SurvivorCommunity
         private static int FreeBagSlots(EntityAlive e)
         {
             int n = 0;
+#if SC_V34
+            ItemStack[] slots = e.bag != null ? e.bag.ItemGrid.items : null;
+#else
             ItemStack[] slots = e.bag != null ? e.bag.GetSlots() : null;
+#endif
             if (slots != null) foreach (ItemStack s in slots) if (s == null || s.IsEmpty()) n++;
             return n;
         }
@@ -677,7 +702,11 @@ namespace SurvivorCommunity
         private static int InBag(EntityAlive e, int type)
         {
             int n = 0;
+#if SC_V34
+            ItemStack[] slots = e.bag != null ? e.bag.ItemGrid.items : null;
+#else
             ItemStack[] slots = e.bag != null ? e.bag.GetSlots() : null;
+#endif
             if (slots == null) return 0;
             foreach (ItemStack s in slots)
                 if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == type) n += s.count;
@@ -807,10 +836,23 @@ namespace SurvivorCommunity
             byte[] payload;
             using (var ms = new System.IO.MemoryStream())
             {
+#if SC_V34
+                // 3.4: ItemValue writes to the game's pooled writer only - the same bytes as 3.2's (ItemValue version 9,
+                // UTF-8 strings with a 7-bit length), so a 3.2 save's record reads back. AllocSync: this can run on the
+                // chunk-save thread.
+                using (PooledBinaryWriter w = MemoryPools.poolBinaryWriter.AllocSync(false))
+                {
+                    w.SetBaseStream(ms);
+                    ItemValue.Write(keepGun ? gun : null, w);
+                    w.Write(useItem ?? "");
+                    w.Flush();
+                }
+#else
                 var w = new System.IO.BinaryWriter(ms);
                 ItemValue.Write(keepGun ? gun : null, w);
                 w.Write(useItem ?? "");
                 w.Flush();
+#endif
                 payload = ms.ToArray();
             }
             long used = bw.BaseStream != null && bw.BaseStream.CanSeek ? bw.BaseStream.Position : 0;
@@ -859,10 +901,21 @@ namespace SurvivorCommunity
             {
                 using (var ms = new System.IO.MemoryStream(payload))
                 {
+#if SC_V34
+                    // 3.4: the pooled reader (it reads exactly what is asked, so ms.Position still marks the end of the gun)
+                    using (PooledBinaryReader r = MemoryPools.poolBinaryReader.AllocSync(false))
+                    {
+                        r.SetBaseStream(ms);
+                        iv.Read(r);
+                        string item = ms.Position < ms.Length ? r.ReadString() : "";
+                        if (item.Length > 0) useItem = item;
+                    }
+#else
                     var r = new System.IO.BinaryReader(ms);
                     iv.Read(r);
                     string item = ms.Position < ms.Length ? r.ReadString() : "";
                     if (item.Length > 0) useItem = item;
+#endif
                 }
             }
             catch (Exception ex)
@@ -928,8 +981,13 @@ namespace SurvivorCommunity
             if (emptySameGun)
             {
                 e.inventory.SetItem(e.inventory.holdingItemIdx, saved, 1);
+#if SC_V34
+                // 3.4: the slot write itself re-seats the held item (the toolbelt grid's SlotChanged -> Hand); OnUpdate and
+                // ForceHoldingItemUpdate are gone
+#else
                 e.inventory.OnUpdate();
                 e.inventory.ForceHoldingItemUpdate();
+#endif
                 gunsRestored++;
                 ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") holds its saved " + saved.ItemClass.GetItemName() + " again, " + saved.Meta + " round(s) in it");
                 return;
@@ -1137,7 +1195,21 @@ namespace SurvivorCommunity
                 try
                 {
                     if (world == null || !ScCommunity.IsHost) return;
+#if SC_V34
+                    // 3.4 (SCore 3.4): one copy out at a time - a request the server refused (somebody else, or the host's own
+                    // grid, has it open: NetPackageHarvestInventoryData.SetupInUse) opens nothing, and marking it would hold
+                    // that NPC's ammo move, medical use and weapon swap for RemoteOpenStaleSeconds. Marked only when this
+                    // player's session is the one SCore just began.
+                    int player = PlayerOf(__instance, ____playerId);
+                    if (!HarvestManager.HasRemoteSession(____npcEntityId) || HarvestManager.IsOpenByOther(____npcEntityId, player))
+                    {
+                        Patches_Xnpc.Count("window-remote-refused");
+                        return;
+                    }
+                    RemoteOpened(____npcEntityId, player);
+#else
                     RemoteOpened(____npcEntityId, PlayerOf(__instance, ____playerId));
+#endif
                 }
                 catch (Exception ex)
                 {

@@ -818,8 +818,14 @@ namespace SurvivorCommunity
             ItemStack s = items != null && slot >= 0 && slot < items.Length ? items[slot] : null;
             if (s == null || s.IsEmpty()) return;
             ItemValue iv = s.itemValue;
+#if SC_V34
+            // 3.4: the mod arrays are private; counted accessors instead
+            for (int mi = 0; mi < iv.ModificationCount; mi++) { ItemValue mod = iv.GetModification(mi); if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1)); }
+            for (int mi = 0; mi < iv.CosmeticModCount; mi++) { ItemValue mod = iv.GetCosmeticMod(mi); if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1)); }
+#else
             if (iv.Modifications != null) foreach (ItemValue mod in iv.Modifications) if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1));
             if (iv.CosmeticMods != null) foreach (ItemValue mod in iv.CosmeticMods) if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1));
+#endif
             ItemStack rest = s.Clone();
             rest.count--;
             ScNpc.SetItem(npc, slot, rest.count > 0 ? rest : ItemStack.Empty.Clone());
@@ -833,7 +839,11 @@ namespace SurvivorCommunity
         {
             ItemClass ic = ItemClass.GetItemClass(item, true);
             if (ic == null) return null;
+#if SC_V34
+            ItemStack[] belt = npc.inventory != null ? npc.inventory.ItemGrid.items : null;     // 3.4: the toolbelt's grid (read only)
+#else
             ItemStack[] belt = npc.inventory != null ? npc.inventory.GetSlots() : null;
+#endif
             if (belt != null)
                 foreach (ItemStack s in belt)
                     if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == ic.Id) { ItemValue v = s.itemValue.Clone(); v.Meta = 0; return v; }
@@ -875,9 +885,19 @@ namespace SurvivorCommunity
                 foreach (ItemStack st in items) GameManager.Instance.ItemDropServer(st, at, Vector3.zero, -1, 60f);
                 return;
             }
+#if SC_V34
+            // 3.4: a Bag is a grid (empty slots to begin with), filled through SetSlot (it clones), and the creation data carries
+            // it as a blob - SCore 3.4's own backpack drop (EntityAliveSDX.SetDead). ToClient: 3.2's true
+            var bag = new Bag(new Vector2i(Math.Max(8, items.Count), 1), XUiC_ItemStack.StackLocationTypes.LootContainer, null);
+            for (int i = 0; i < items.Count; i++) bag.SetSlot(i, items[i]);
+            var ecd = new EntityCreationData(pack, StreamModeWrite.ToClient) { entityName = Localization.Get(npc.EntityName), id = -1 };
+            ecd.bagData = StreamUtils.ToBlob(pbw => bag.Write(pbw, StreamModeWrite.ToClient));
+            GameManager.Instance.RequestToSpawnEntityServer(ecd);
+#else
             var bag = new Bag(Math.Max(8, items.Count));      // empty slots to begin with (ItemStack.CreateArray)
             for (int i = 0; i < items.Count; i++) bag.items[i] = items[i].Clone();
             GameManager.Instance.RequestToSpawnEntityServer(new EntityCreationData(pack, true) { entityName = Localization.Get(npc.EntityName), id = -1, bag = bag });
+#endif
             pack.OnEntityUnload();
         }
 

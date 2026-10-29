@@ -24,7 +24,11 @@ namespace SurvivorCommunity
         /// The storage feature of an open packing station - or of an outpost's land claim, whose box is the
         /// stockpile's door out there - or null for any other container.
         /// </summary>
+#if SC_V34
+        public static TEFeatureStorage StationOf(TEFeatureStorage te)      // 3.4: the loot window holds a TEFeatureStorage (no ITileEntityLootable)
+#else
         public static TEFeatureStorage StationOf(ITileEntityLootable te)
+#endif
         {
             try
             {
@@ -95,7 +99,11 @@ namespace SurvivorCommunity
                 if (!ScCommunity.IsHost) { message = Localization.Get("scHostOnly"); return 0; }
                 if (st == null) { message = Localization.Get("scInternal"); return 0; }
                 ScConfig.EnsureParsed();
+#if SC_V34
+                ItemStack[] items = st.ItemGrid != null ? st.ItemGrid.items : null;     // 3.4: the grid's slots, written through UpdateSlot
+#else
                 ItemStack[] items = st.items;
+#endif
                 if (items == null) { message = Localization.Get("scInternal"); return 0; }
 
                 var slots = new List<Slot>();
@@ -194,8 +202,13 @@ namespace SurvivorCommunity
             try
             {
                 if (!ScCommunity.IsHost) { message = Localization.Get("scHostOnly"); return 0; }
+#if SC_V34
+                if (st == null || st.ItemGrid == null) { message = Localization.Get("scInternal"); return 0; }
+                ItemStack[] items = st.ItemGrid.items;
+#else
                 if (st == null || st.items == null) { message = Localization.Get("scInternal"); return 0; }
                 ItemStack[] items = st.items;
+#endif
                 int moved = 0;
                 var counts = new int[ScNames.ResourceCount];
                 for (int i = 0; i < items.Length; i++)

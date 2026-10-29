@@ -1,0 +1,8 @@
+<Project>
+  <!-- The 3.4 build (ScGame=34, see SurvivorCommunity.csproj) keeps its intermediates and NuGet's restore output in obj34\,
+       apart from the 3.2 build's obj\. Set here, not in the project: MSBuild reads BaseIntermediateOutputPath before the
+       project body (warning MSB3539 otherwise). The default build sets nothing here. -->
+  <PropertyGroup Condition="'$(ScGame)'=='34'">
+    <BaseIntermediateOutputPath>obj34\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

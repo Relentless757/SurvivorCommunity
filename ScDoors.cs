@@ -380,5 +380,61 @@ namespace SurvivorCommunity
                 }
             }
         }
+#if SC_V34
+
+        /// <summary>3.4: Voice Control's door opener at a given block (EntityMovementActuator.TryOpenDoorAtBlock(Vector3i)), or null.</summary>
+        public static MethodBase VcPointDoorTarget()
+        {
+            Type t = ScTypes.Find(VcActuatorType);
+            return t != null ? AccessTools.DeclaredMethod(t, "TryOpenDoorAtBlock", new[] { typeof(Vector3i) }) : null;
+        }
+
+        /// <summary>
+        /// 3.4: the doors a member opens on the way to a Point formation spot (Voice Control 3.4's FollowLoop opens the door
+        /// at the block its path crosses: TryOpenDoorAtBlock(blockPos) - SetOpen, no close, like TryOpenBlockingDoor) are shut
+        /// behind them too: the prefix notes the block for one of ours, the postfix tracks it when the result is Opened.
+        /// Without Voice Control the patch is off (Prepare).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_VoicePointDoor
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try { return VcPointDoorTarget() != null && VcHasSelf(); }
+                catch (Exception e) { ScLog.Once("doors-vc-point-bind", e); return false; }
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return VcPointDoorTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(EntityAlive ____self, Vector3i blockPos, out Vector3i __state)
+            {
+                __state = Vector3i.invalid;
+                try
+                {
+                    if (UsesOurOpener(____self)) __state = blockPos;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("doors-vc-point-pre", e);
+                }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive ____self, object __result, Vector3i __state)
+            {
+                try
+                {
+                    if (__state != Vector3i.invalid && __result != null && __result.ToString() == "Opened") Track(____self, __state);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("doors-vc-point-post", e);
+                }
+            }
+        }
+#endif
     }
 }

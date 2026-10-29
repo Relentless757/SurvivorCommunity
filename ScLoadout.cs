@@ -1061,7 +1061,11 @@ namespace SurvivorCommunity
                 ItemClass ic = ItemClass.GetItemClass(w.Item, true);
                 if (ic == null) continue;
                 ItemValue found = null;
+#if SC_V34
+                ItemStack[] slots = e.inventory.ItemGrid.items;      // 3.4: the toolbelt's grid (read only; 10 slots on our bodies, Patches_Npc)
+#else
                 ItemStack[] slots = e.inventory.GetSlots();
+#endif
                 for (int i = 0; slots != null && i < slots.Length && found == null; i++)
                     if (slots[i] != null && !slots[i].IsEmpty() && slots[i].itemValue.type == ic.Id) found = slots[i].itemValue.Clone();
                 if (found != null) list.Add(found);

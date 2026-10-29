@@ -1045,7 +1045,11 @@ namespace SurvivorCommunity
         {
             var list = new List<Held>();
             if (pl == null) return list;
+#if SC_V34
+            ItemStack[] bag = pl.bag != null ? pl.bag.ItemGrid.items : null;      // 3.4: the bag's grid (read only)
+#else
             ItemStack[] bag = pl.bag != null ? pl.bag.GetSlots() : null;
+#endif
             if (bag != null)
                 for (int i = 0; i < bag.Length; i++)
                     if (bag[i] != null && !bag[i].IsEmpty() && bag[i].itemValue != null && bag[i].itemValue.ItemClass != null)
@@ -1053,7 +1057,11 @@ namespace SurvivorCommunity
             Inventory inv = pl.inventory;
             if (inv != null)
             {
+#if SC_V34
+                int n = Math.Min(inv.SlotCount, inv.Length);          // 3.4: the toolbelt has no hidden extra slot any more
+#else
                 int n = Math.Min(inv.PUBLIC_SLOTS, inv.GetSlotCount());
+#endif
                 for (int i = 0; i < n; i++)
                 {
                     ItemStack s = inv.GetItem(i);
@@ -1066,7 +1074,16 @@ namespace SurvivorCommunity
         /// <summary>The slot still holds that item (its type, and equal but for use and rounds: the same gun).</summary>
         private static bool Same(ItemStack s, ItemValue expect)
         {
+#if SC_V34
+            // 3.4: EqualsExceptUseTimesAndAmmo is gone; EqualsExceptUseTimesAndMeta ignores Meta for every item, where the old
+            // test ignored it only for a ranged weapon (its rounds) - so Meta is still compared for everything else
+            if (s == null || s.IsEmpty() || s.itemValue == null || expect == null || s.itemValue.type != expect.type) return false;
+            ItemClass ic = s.itemValue.ItemClass;
+            bool ranged = ic != null && ic.Actions != null && ic.Actions.Length != 0 && ic.Actions[0] is ItemActionRanged;
+            return s.itemValue.EqualsExceptUseTimesAndMeta(expect) && (ranged || s.itemValue.Meta == expect.Meta);
+#else
             return s != null && !s.IsEmpty() && s.itemValue != null && expect != null && s.itemValue.type == expect.type && s.itemValue.EqualsExceptUseTimesAndAmmo(expect);
+#endif
         }
 
         /// <summary>
@@ -1081,7 +1098,11 @@ namespace SurvivorCommunity
             if (belt)
             {
                 Inventory inv = pl.inventory;
+#if SC_V34
+                if (inv == null || slot < 0 || slot >= Math.Min(inv.SlotCount, inv.Length)) return false;
+#else
                 if (inv == null || slot < 0 || slot >= Math.Min(inv.PUBLIC_SLOTS, inv.GetSlotCount())) return false;
+#endif
                 ItemStack s = inv.GetItem(slot);
                 if (!Same(s, expect)) return false;
                 int count = s.count;
@@ -1091,6 +1112,16 @@ namespace SurvivorCommunity
                 return count > 1 ? after != null && after.count == count - 1 : after == null || after.IsEmpty();
             }
             Bag bag = pl.bag;
+#if SC_V34
+            // 3.4: the grid's slots; SetSlot always raises the slot's change event now (no notify flag)
+            ItemStack[] items = bag != null ? bag.ItemGrid.items : null;
+            if (items == null || slot < 0 || slot >= items.Length) return false;
+            ItemStack b = items[slot];
+            if (!Same(b, expect)) return false;
+            int n = b.count;
+            bag.SetSlot(slot, n > 1 ? new ItemStack(b.itemValue.Clone(), n - 1) : ItemStack.Empty.Clone());
+            ItemStack[] now = bag.ItemGrid.items;
+#else
             ItemStack[] items = bag != null ? bag.GetSlots() : null;
             if (items == null || slot < 0 || slot >= items.Length) return false;
             ItemStack b = items[slot];
@@ -1098,6 +1129,7 @@ namespace SurvivorCommunity
             int n = b.count;
             bag.SetSlot(slot, n > 1 ? new ItemStack(b.itemValue.Clone(), n - 1) : ItemStack.Empty.Clone(), true);
             ItemStack[] now = bag.GetSlots();
+#endif
             ItemStack a = now != null && slot < now.Length ? now[slot] : null;
             return n > 1 ? a != null && a.count == n - 1 : a == null || a.IsEmpty();
         }

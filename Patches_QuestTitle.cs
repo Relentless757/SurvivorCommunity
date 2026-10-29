@@ -52,16 +52,33 @@ namespace SurvivorCommunity
         public static void Finalizer_Objectives(ScQuests.TitleSwap __state) { ScQuests.TitleSwap.End(__state); }
 
         // "Quest started: ..." toast, and the POI marker once the quest is fully started (add + load path)
+        // (3.4: StartQuest(Quest.QuestSource, bool, bool) - the source is new; these bind __instance / __state only. Optional
+        // there: a later signature change skips these three, not the whole class - ModApi's MISSING PATCH line still names it)
         [HarmonyPrefix]
+#if SC_V34
+        [HarmonyOptional]
+        [HarmonyPatch(typeof(Quest), nameof(Quest.StartQuest), new Type[] { typeof(Quest.QuestSource), typeof(bool), typeof(bool) })]
+#else
         [HarmonyPatch(typeof(Quest), nameof(Quest.StartQuest), new Type[] { typeof(bool), typeof(bool) })]
+#endif
         public static void Prefix_StartQuest(Quest __instance, out ScQuests.TitleSwap __state) { __state = ScQuests.TitleSwap.Begin(__instance); }
 
         [HarmonyFinalizer]
+#if SC_V34
+        [HarmonyOptional]
+        [HarmonyPatch(typeof(Quest), nameof(Quest.StartQuest), new Type[] { typeof(Quest.QuestSource), typeof(bool), typeof(bool) })]
+#else
         [HarmonyPatch(typeof(Quest), nameof(Quest.StartQuest), new Type[] { typeof(bool), typeof(bool) })]
+#endif
         public static void Finalizer_StartQuest(ScQuests.TitleSwap __state) { ScQuests.TitleSwap.End(__state); }
 
         [HarmonyPostfix]
+#if SC_V34
+        [HarmonyOptional]
+        [HarmonyPatch(typeof(Quest), nameof(Quest.StartQuest), new Type[] { typeof(Quest.QuestSource), typeof(bool), typeof(bool) })]
+#else
         [HarmonyPatch(typeof(Quest), nameof(Quest.StartQuest), new Type[] { typeof(bool), typeof(bool) })]
+#endif
         public static void Postfix_StartQuest(Quest __instance) { ScQuests.EnsureMapObject(__instance); }
 
         // "Quest completed / failed: ..." toast

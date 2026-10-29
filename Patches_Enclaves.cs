@@ -248,7 +248,11 @@ namespace SurvivorCommunity
                 try
                 {
                     if (__instance == null || !ScCommunity.IsHost || !__instance.CommandIs(_commandName, "Search")) return true;
+#if SC_V34
+                    if (ScStorage.IsPlayerStorage(__instance) || (__instance.Parent != null && __instance.Parent.PlayerPlaced)) return true;
+#else
                     if (__instance.bPlayerStorage || (__instance.Parent != null && __instance.Parent.PlayerPlaced)) return true;
+#endif
                     Enclave e = ScEnclavePeople.ContainerOwner(_blockPos);
                     if (e == null) return true;
                     ScCommunity.Tell(_player, string.Format(Localization.Get("scEncContainer"), e.Name), "ui_denied");

@@ -59,8 +59,16 @@ namespace SurvivorCommunity
             public static IEnumerable<MethodBase> TargetMethods() { return ScNpc.Declared("SetDead", NoArgs); }
 
             [HarmonyPostfix]
+#if SC_V34
+            // 3.4: 0-XNPCCore 3.4 defers a SetDead it meets during PostInit (SdcsDeadSpawnSetDeadPatch: its prefix returns false,
+            // then it calls SetDead again) - the postfix runs on both calls, and only the one that really ran counts
+            public static void Postfix(EntityAlive __instance, bool __runOriginal)
+            {
+                if (!__runOriginal) return;
+#else
             public static void Postfix(EntityAlive __instance)
             {
+#endif
                 try
                 {
                     if (!ScCommunity.IsHost) return;
@@ -128,7 +136,11 @@ namespace SurvivorCommunity
                         foreach (ItemStack s in window.items) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
                     if (ScXnpc.IsBody(e) && e.bag != null)
                     {
+#if SC_V34
+                        foreach (ItemStack s in e.bag.ItemGrid.items) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
+#else
                         foreach (ItemStack s in e.bag.GetSlots()) if (s != null && !s.IsEmpty()) drop.Add(s.Clone());
+#endif
                         e.bag.Clear();
                     }
                     // once per raider: vanilla's Kill calls SetDead again for every hit on a body that is already dead,
@@ -181,9 +193,18 @@ namespace SurvivorCommunity
                 string className = ScCommunity.ClassExists(EntityClass.FromString("BackpackNPC")) ? "BackpackNPC" : "Backpack";
                 EntityItem pack = EntityFactory.CreateEntity(EntityClass.FromString(className), new Vector3i(at)) as EntityItem;
                 if (pack == null) return;
+#if SC_V34
+                // 3.4: a grid Bag filled through SetSlot, carried as the creation data's blob (SCore 3.4's own drop); ToClient = 3.2's true
+                Bag bag = new Bag(new Vector2i(Math.Max(drop.Count, 1), 1), XUiC_ItemStack.StackLocationTypes.LootContainer, null);
+                for (int i = 0; i < drop.Count; i++) bag.SetSlot(i, drop[i]);
+                var ecd = new EntityCreationData(pack, StreamModeWrite.ToClient) { entityName = label, id = -1 };
+                ecd.bagData = StreamUtils.ToBlob(pbw => bag.Write(pbw, StreamModeWrite.ToClient));
+                GameManager.Instance.RequestToSpawnEntityServer(ecd);
+#else
                 Bag bag = new Bag(Math.Max(drop.Count, 1));
                 for (int i = 0; i < drop.Count; i++) bag.items[i] = drop[i];
                 GameManager.Instance.RequestToSpawnEntityServer(new EntityCreationData(pack, true) { entityName = label, id = -1, bag = bag });
+#endif
                 pack.OnEntityUnload();
             }
 
@@ -504,5 +525,132 @@ namespace SurvivorCommunity
                 }
             }
         }
+#if SC_V34
+
+        // ------------------------------------------------------------------ the NPC toolbelt (3.4) ----
+
+        /// <summary>The toolbelt our bodies get on 3.4: 3.2's NPC toolbelt (Inventory.PUBLIC_SLOTS in play mode, 10).</summary>
+        public const int ToolbeltSlots = 10;
+
+        /// <summary>
+        /// The entity class EntityFactory is building on this thread (Patch_CreatingClass), 0 outside a build. A save of the
+        /// value it replaced is restored on the way out, so a build inside a build (none today) cannot leave it wrong.
+        /// </summary>
+        [ThreadStatic] private static int creatingClass;
+
+        /// <summary>
+        /// 3.4: which class is being built, for Patch_NpcToolbelt. EntityFactory.CreateEntityOperation.CompleteEntity is
+        /// where every entity is made (EntityFactory.CreateEntity and the async chunk path both end in it): it instantiates the
+        /// prefab and AddComponent's the class's type - whose Awake runs then and there, InitInventory included - and only
+        /// afterwards sets entityId and calls Init(entityClass). So inside Awake the entity does not know its class yet; the
+        /// operation does (ecd.entityClass, resolved by LoadAssets), and this prefix keeps it for the length of the call.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_CreatingClass
+        {
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(EntityFactory.CreateEntityOperation), "CompleteEntity", NoArgs);
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (Target() != null) return true;
+                    ScLog.Err("EntityFactory.CreateEntityOperation.CompleteEntity() not found (game update?) - the community's NPCs get a one-slot toolbelt: their weapon pair and raider drops break");
+                }
+                catch (Exception e) { ScLog.Once("npc-bind-creating", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(EntityFactory.CreateEntityOperation __instance, out int __state)
+            {
+                __state = creatingClass;
+                try { creatingClass = __instance != null && __instance.ecd != null ? __instance.ecd.entityClass : 0; }
+                catch (Exception) { creatingClass = 0; }
+            }
+
+            [HarmonyFinalizer]
+            public static void Finalizer(int __state)
+            {
+                creatingClass = __state;
+            }
+        }
+
+        /// <summary>
+        /// 3.4: the community's bodies keep 3.2's ten-slot toolbelt. 3.4's EntityAlive.InitInventory gives every NPC a one-slot
+        /// Inventory (only EntityPlayer and EntityBandit override it; neither SCore 3.4 nor 0-XNPCCore 3.4 does), where 3.2
+        /// gave ten. SCore's SetupStartingItems copies itemsOnEnterGame into slots 0..n and Inventory.SetItem drops a slot
+        /// that does not exist, so with one slot only the first item stayed: ScLoadout's pair (melee and ranged) lost a
+        /// weapon, its Refill wrote slots that are not there, a raider's death roll (CarriedPair) found only the gun in hand
+        /// and ScArms' carried copy fell back to a fresh weapon (no quality, no mods).
+        ///
+        /// Only for an EntityAliveSDXV4 of a class SC manages (ScXnpc.IsManagedClass: the six npcSdcsSurvivor classes the
+        /// community takes over - every one of them is SC's in an SC game, SC removes XNPC's own spawns of them - and SC's
+        /// six scRaider classes), told apart by the class Patch_CreatingClass keeps for the build: InitInventory runs from
+        /// EntityAlive.Awake, before the entity knows its class. Every other NPC keeps 3.4's one slot. The same on every
+        /// machine (the class list is config, read on clients too), so host and client agree on the toolbelt's size.
+        ///
+        /// Checked against 0-XNPCCore 3.4 and SCore 3.4 (decompiled): their weapon code writes and reads slot 0 and the held
+        /// slot (SelectedSlot, 0 on an NPC) - SCore's UpdateWeapon SetItem(0, ...), XNPC's equip and bandage SetItem(0, ...),
+        /// GetItemStack(holdingItemIdx) - and scans the whole toolbelt only to count or find items (EntityUtilities' item
+        /// stores, Voice Control's NpcHasItem / NpcRemoveItem), which is how both ran on 3.2's ten slots. Nothing assumes one.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NpcToolbelt
+        {
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(EntityAlive), "InitInventory", NoArgs);
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (Target() == null)
+                    {
+                        ScLog.Err("EntityAlive.InitInventory() not found (game update?) - the community's NPCs get a one-slot toolbelt");
+                        return false;
+                    }
+                    // an override on SCore's V4 would bypass this one (its body never calls the base we patch)
+                    if (AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "InitInventory", NoArgs) != null)
+                        ScLog.Warn("EntityAliveSDXV4 declares its own InitInventory (SCore update?) - SC's ten-slot toolbelt may not reach its bodies");
+                    return true;
+                }
+                catch (Exception e) { ScLog.Once("npc-bind-toolbelt", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive __instance)
+            {
+                try
+                {
+                    if (__instance == null || __instance.inventory != null || !(__instance is EntityAliveSDXV4)) return true;
+                    int cls = creatingClass;
+                    if (cls == 0 || !ScXnpc.IsManagedClass(cls)) return true;
+                    __instance.inventory = new Inventory(__instance, ToolbeltSlots);
+                    Patches_Xnpc.Count("toolbelt-" + ToolbeltSlots);
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("npc-toolbelt", e);
+                    return true;
+                }
+            }
+        }
+#endif
     }
 }

@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace SurvivorCommunity
 {
+    // Game 3.2 only: the ScGame=34 build compiles ScLinkedContainer34.cs in place of this file (SurvivorCommunity.csproj).
     /// <summary>
     /// Linked storage as a loot container: one virtual ITileEntityLootable whose slots are the merged
     /// stacks of every player box in the zone (ScStorage.Slots), opened in vanilla's own loot window

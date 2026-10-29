@@ -42,7 +42,12 @@ namespace SurvivorCommunity
 
         // Two more, both optional (an older bridge leaves them null and the fallbacks below apply):
         /// <summary>Does Grid Inventory draw this container (container grids on, not excluded)? null = yes whenever Grid Inventory is loaded.</summary>
+#if SC_V34
+        // 3.4: the loot window's container is a TEFeatureStorage (ITileEntityLootable is gone): the bridge's delegate is retyped
+        public static Func<TEFeatureStorage, bool> GridDraws;
+#else
         public static Func<ITileEntityLootable, bool> GridDraws;
+#endif
         /// <summary>Item widgets of the loot window's grid. Grid Inventory draws a widget only for a slot that holds
         /// something - empty cells are its scrolling cell rects - so this caps STACKS on show, not cells. null/0 = 260.</summary>
         public static Func<int> GridWidgetPool;
@@ -131,11 +136,19 @@ namespace SurvivorCommunity
                             TEFeatureStorage st = tc.GetFeature<TEFeatureStorage>();
                             if (st == null) continue;
                             if (tc.GetFeature<TEFeatureSCPacking>() != null) continue;      // the packing station is a workbench, not a store
+#if SC_V34
+                            if (!(tc.PlayerPlaced || IsPlayerStorage(st))) continue;         // world loot is not the community's
+#else
                             if (!(tc.PlayerPlaced || st.bPlayerStorage)) continue;           // world loot is not the community's
+#endif
                             Vector3i pos = tc.ToWorldPos();
                             if (area != null ? (pos.x < xMin || pos.x > xMax || pos.z < zMin || pos.z > zMax) : !ScZone.Contains(pos)) continue;
                             boxes.Add(pos);
+#if SC_V34
+                            ItemStack[] items = st.ItemGrid != null ? st.ItemGrid.items : null;   // 3.4: the grid's slots (read only)
+#else
                             ItemStack[] items = st.items;
+#endif
                             if (items == null) continue;
                             for (int k = 0; k < items.Length; k++)
                             {
@@ -198,7 +211,11 @@ namespace SurvivorCommunity
             {
                 if (s == null) return false;
                 TEFeatureStorage st = Resolve(s.Pos);
+#if SC_V34
+                if (st == null || st.ItemGrid == null || s.Index < 0 || s.Index >= st.ItemGrid.Length) return false;
+#else
                 if (st == null || st.items == null || s.Index < 0 || s.Index >= st.items.Length) return false;
+#endif
                 ItemStack v = (stack == null) ? ItemStack.Empty.Clone() : stack.Clone();
                 bool wasEmpty = s.Stack == null || s.Stack.IsEmpty();
                 st.UpdateSlot(s.Index, v);
@@ -239,7 +256,11 @@ namespace SurvivorCommunity
                 for (int b = 0; b < boxes.Count; b++)
                 {
                     TEFeatureStorage st = Resolve(boxes[b]);
+#if SC_V34
+                    if (st == null || st.ItemGrid == null) continue;
+#else
                     if (st == null || st.items == null) continue;
+#endif
                     // a full box is skipped before the footprint test packs its grid (Move-All into a base of full
                     // crates would pack every box per stack). Only "no room at all": for a box Grid Inventory leaves
                     // on vanilla slots the figure is free SLOTS, which a footprint must not be compared against.
@@ -251,9 +272,16 @@ namespace SurvivorCommunity
                         catch (Exception e) { ScLog.Once("storage-room", e); room = true; }
                         if (!room) continue;
                     }
+#if SC_V34
+                    ItemStack[] items = st.ItemGrid.items;          // 3.4: the grid's slots - read here, written through UpdateSlot
+                    for (int i = 0; i < items.Length; i++)
+                    {
+                        if (items[i] != null && !items[i].IsEmpty()) continue;
+#else
                     for (int i = 0; i < st.items.Length; i++)
                     {
                         if (st.items[i] != null && !st.items[i].IsEmpty()) continue;
+#endif
                         st.UpdateSlot(i, stack.Clone());
                         st.SetModified();
                         freeByBox.Remove(boxes[b]);
@@ -299,8 +327,13 @@ namespace SurvivorCommunity
                             // the same boxes Scan links: player-placed storage inside the zone, never the packing station
                             TileEntityComposite tc = tes.list[i] as TileEntityComposite;
                             TEFeatureStorage st = tc != null ? tc.GetFeature<TEFeatureStorage>() : null;
+#if SC_V34
+                            if (st == null || st.ItemGrid == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
+                            if (!(tc.PlayerPlaced || IsPlayerStorage(st))) continue;
+#else
                             if (st == null || st.items == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
                             if (!(tc.PlayerPlaced || st.bPlayerStorage)) continue;
+#endif
                             Vector3i pos = tc.ToWorldPos();
                             if (!ScZone.Contains(pos)) continue;
                             if (BoxHasRoomFor != null)
@@ -310,9 +343,16 @@ namespace SurvivorCommunity
                                 catch (Exception e) { ScLog.Once("storage-room", e); room = true; }
                                 if (!room) continue;
                             }
+#if SC_V34
+                            ItemStack[] items = st.ItemGrid.items;
+                            for (int k = 0; k < items.Length; k++)
+                            {
+                                if (items[k] != null && !items[k].IsEmpty()) continue;
+#else
                             for (int k = 0; k < st.items.Length; k++)
                             {
                                 if (st.items[k] != null && !st.items[k].IsEmpty()) continue;
+#endif
                                 st.UpdateSlot(k, stack.Clone());
                                 st.SetModified();
                                 freeByBox.Remove(pos);
@@ -339,8 +379,22 @@ namespace SurvivorCommunity
             return n;
         }
 
+#if SC_V34
+        /// <summary>
+        /// 3.2's TEFeatureStorage.bPlayerStorage on 3.4: a box with an owner (Parent.Owner, as 3.2's getter asked first), or one
+        /// whose stored flag says so - 3.4 keeps that flag on the grid (ItemGrid.PlayerOwned, set when a player places it).
+        /// </summary>
+        public static bool IsPlayerStorage(TEFeatureStorage st)
+        {
+            return st != null && ((st.Parent != null && st.Parent.Owner != null) || (st.ItemGrid != null && st.ItemGrid.PlayerOwned));
+        }
+
+        /// <summary>Whether Grid Inventory will draw this container: the bridge's answer, else "it is loaded".</summary>
+        public static bool GridDrawsIt(TEFeatureStorage te)
+#else
         /// <summary>Whether Grid Inventory will draw this container: the bridge's answer, else "it is loaded".</summary>
         public static bool GridDrawsIt(ITileEntityLootable te)
+#endif
         {
             if (GridDraws != null)
             {
@@ -401,6 +455,19 @@ namespace SurvivorCommunity
         /// SCore's EntityUtilities.OpenContainer with the title passed on its own: that helper hands the loot window
         /// te.lootListName as the title, so a view with a title of its own would need an unknown loot list key.
         /// </summary>
+#if SC_V34
+        private static void OpenLootWindow(EntityPlayerLocal player, ScLinkedContainer te, string title)
+        {
+            LocalPlayerUI ui = player.PlayerUI;
+            ui.windowManager.CloseAllOpenModalWindows(null, false);
+            GUIWindow window = ui.windowManager.GetWindow("looting");
+            XUiC_LootWindowGroup group = window is XUiWindowGroup ? ((XUiWindowGroup)window).Controller as XUiC_LootWindowGroup : null;
+            te.bTouched = true;                         // 3.4: the grid's touched stamp
+            // 3.4: straight in - the open timer now runs only for _firstTimeTouched (SCore's OpenContainer passes false too)
+            if (group == null) { EntityUtilities.OpenContainer(player, te); return; }
+            group.OpenLooting(title, te, false);
+        }
+#else
         private static void OpenLootWindow(EntityPlayerLocal player, ITileEntityLootable te, string title)
         {
             LocalPlayerUI ui = player.PlayerUI;
@@ -411,6 +478,7 @@ namespace SurvivorCommunity
             if (group == null) { EntityUtilities.OpenContainer(player, te); return; }
             group.OpenLooting(title, te);
         }
+#endif
         /// <summary>
         /// The block the open view is anchored on: the home claim, or (ScHomeLink) the outpost claim the player
         /// radioed from. Vanilla's loot window closes itself when the player is more than 32 m from its container's

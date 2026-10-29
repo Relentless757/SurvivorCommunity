@@ -48,7 +48,12 @@ namespace SurvivorCommunity
         /// tick adds first, and the cvars the bonus buff reads live.
         /// </summary>
         private static readonly string[] LevelBuffs = { "SdcsNpcLevelBonus", "SdcsNoWear" };
+#if SC_V34
+        // 3.4: XNPC's level tick also writes SdcsLevelHarvest (its harvest bonus, AvatarSdcsNpcController.SdcsLevelTick)
+        private static readonly string[] LevelCvars = { "SdcsNpcLevel", "SdcsLevelHealth", "SdcsLevelDamage", "SdcsLevelSpread", "SdcsLevelRegen", "SdcsLevelHarvest" };
+#else
         private static readonly string[] LevelCvars = { "SdcsNpcLevel", "SdcsLevelHealth", "SdcsLevelDamage", "SdcsLevelSpread", "SdcsLevelRegen" };
+#endif
         /// <summary>The regeneration cvar XNPC's level bonus buff reads live (0.2 HP/s per level): zeroed on raiders that keep levels.</summary>
         public const string LevelRegenCvar = "SdcsLevelRegen";
 

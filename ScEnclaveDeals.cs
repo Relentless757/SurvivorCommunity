@@ -189,12 +189,23 @@ namespace SurvivorCommunity
             {
                 using (var ms = new MemoryStream())
                 {
+#if SC_V34
+                    // 3.4: TraderData writes to the game's pooled writer only (the same bytes: TraderData version 2, UTF-8 strings)
+                    using (PooledBinaryWriter bw = MemoryPools.poolBinaryWriter.AllocSync(false))
+                    {
+                        bw.SetBaseStream(ms);
+                        d.Write(bw);
+                        bw.Flush();
+                        return ScRunners.Pack(ms.ToArray());
+                    }
+#else
                     using (var bw = new BinaryWriter(ms))
                     {
                         d.Write(bw);
                         bw.Flush();
                         return ScRunners.Pack(ms.ToArray());
                     }
+#endif
                 }
             }
             catch (Exception ex)
@@ -218,7 +229,11 @@ namespace SurvivorCommunity
                 var d = new TraderData();
                 using (var ms = new MemoryStream(bytes))
                 {
+#if SC_V34
+                    using (PooledBinaryReader br = MemoryPools.poolBinaryReader.AllocSync(false)) { br.SetBaseStream(ms); d.Read(br); }
+#else
                     using (var br = new BinaryReader(ms)) d.Read(br);
+#endif
                 }
                 d.PrimaryInventory.RemoveAll(en => en == null || en.Item == null || en.Item.IsEmpty() || en.Item.itemValue.ItemClass == null);
                 foreach (ItemStack[] g in d.TierItemGroups)

@@ -135,10 +135,18 @@ namespace SurvivorCommunity
             try
             {
                 if (player == null) return 0;
+#if SC_V34
+                // 3.4: the bag's and the toolbelt's grids (read only)
+                ItemStack[] bag = player.bag != null ? player.bag.ItemGrid.items : null;
+                if (bag != null) for (int i = 0; i < bag.Length; i++) n += Count(bag[i], r);
+                ItemStack[] belt = player.inventory != null ? player.inventory.ItemGrid.items : null;
+                if (belt != null) for (int i = 0; i < belt.Length; i++) n += Count(belt[i], r);
+#else
                 ItemStack[] bag = player.bag != null ? player.bag.GetSlots() : null;
                 if (bag != null) for (int i = 0; i < bag.Length; i++) n += Count(bag[i], r);
                 ItemStack[] belt = player.inventory != null ? player.inventory.GetSlots() : null;
                 if (belt != null) for (int i = 0; i < belt.Length; i++) n += Count(belt[i], r);
+#endif
             }
             catch (Exception e)
             {
@@ -163,7 +171,13 @@ namespace SurvivorCommunity
                 XUiM_PlayerInventory inv = (player.PlayerUI != null && player.PlayerUI.xui != null) ? player.PlayerUI.xui.PlayerInventory : null;
                 if (inv == null) return 0;
                 var take = new System.Collections.Generic.List<ItemStack>();
+#if SC_V34
+                // 3.4: copies of the grids' slot arrays (the stacks are the live ones), as 3.2's GetSlots gave the toolbelt
+                ItemStack[][] sources = { player.bag != null ? (ItemStack[])player.bag.ItemGrid.items.Clone() : null,
+                                          player.inventory != null ? (ItemStack[])player.inventory.ItemGrid.items.Clone() : null };
+#else
                 ItemStack[][] sources = { player.bag != null ? player.bag.GetSlots() : null, player.inventory != null ? player.inventory.GetSlots() : null };
+#endif
                 for (int src = 0; src < sources.Length && removed < count; src++)
                 {
                     ItemStack[] slots = sources[src];

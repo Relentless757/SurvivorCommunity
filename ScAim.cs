@@ -288,11 +288,25 @@ namespace SurvivorCommunity
             }
         }
 
+#if SC_V34
+        /// <summary>
+        /// 3.4: the back-off task of 0-XNPCCore's SdcsNpcRangedAdvanced (BackupKeepDistance, BackupRanged) is Voice Control's
+        /// own now - UAI.UAITaskBackupFromTargetPaced.Update(Context), in 1-XNPCVoiceControl.dll, bound by name - instead of
+        /// SCore's UAITaskBackupFromTargetSDX (left to the hired packages' TooClose, a step away from the leader). Null without
+        /// Voice Control.
+        /// </summary>
+        public static MethodBase BackoffTarget()
+        {
+            Type t = ScTypes.Find("UAI.UAITaskBackupFromTargetPaced");
+            return t != null ? AccessTools.DeclaredMethod(t, "Update", new[] { typeof(Context) }) : null;
+        }
+#else
         /// <summary>SCore's back-off task's Update (UAI.UAITaskBackupFromTargetSDX.Update(Context), SCore 3.2.36), or null.</summary>
         public static MethodBase BackoffTarget()
         {
             return AccessTools.DeclaredMethod(typeof(UAITaskBackupFromTargetSDX), "Update", new[] { typeof(Context) });
         }
+#endif
 
         /// <summary>
         /// The M11 fix 2, the user's decision "aim while backing off" (AIM_DIAG's optional fix): 0-XNPCCore's
@@ -313,7 +327,12 @@ namespace SurvivorCommunity
                 try
                 {
                     if (BackoffTarget() != null) return true;
+#if SC_V34
+                    if (Patches_VoiceControl.ChatType != null)
+                        ScLog.Err("UAITaskBackupFromTargetPaced.Update(Context) not found (Voice Control update?) - NPCs lower their gun while they back off");
+#else
                     ScLog.Err("UAITaskBackupFromTargetSDX.Update(Context) not found (SCore update?) - NPCs lower their gun while they back off");
+#endif
                 }
                 catch (Exception e)
                 {

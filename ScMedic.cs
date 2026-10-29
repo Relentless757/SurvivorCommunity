@@ -228,9 +228,23 @@ namespace SurvivorCommunity
             // taken first would bring the magazine back with the gun while it also sits in the bag. Nothing else touches
             // it once it leaves the slot (SetItem stores a clone of whatever goes in).
             u.Displaced = held != null && !held.IsEmpty() ? new ItemStack(held.itemValue, held.count) : ItemStack.Empty.Clone();
+#if SC_V34
+            // 3.4: a grid slot that is EMPTIED is cleared in place (ItemStack.Clear resets the slot's own ItemValue, type 0),
+            // where 3.2 swapped in a fresh one - so the weapon's own ItemValue could turn into nothing under us. A copy is
+            // kept for that case alone; L&L's emptying (Meta 0, the type kept) still reaches the weapon's own value.
+            ItemValue displacedCopy = u.Displaced.IsEmpty() ? null : u.Displaced.itemValue.Clone();
+            int displacedCount = u.Displaced.count;
+#endif
             u.EndAt = now + u.Duration + TriggerTimeout;
             uses[e.entityId] = u;
             Hold(e, u.Slot, new ItemValue(ic.Id), 1);
+#if SC_V34
+            if (displacedCopy != null && u.Displaced.itemValue.type == 0)
+            {
+                u.Displaced = new ItemStack(displacedCopy, displacedCount);
+                Patches_Xnpc.Count("medic-displaced-cleared-in-place");
+            }
+#endif
             // after the hold: an L&L gun has just been emptied in place (its magazine is in the bag), a loose one keeps its rounds
             displaced[e.entityId] = new Displaced(u.Displaced.IsEmpty() ? null : u.Displaced.itemValue, item);
             string sound;
@@ -311,8 +325,14 @@ namespace SurvivorCommunity
         {
             if (e == null || e.inventory == null) return;
             e.inventory.SetItem(slot, item, count);
+#if SC_V34
+            // 3.4: no OnUpdate / ForceHoldingItemUpdate any more - the slot write raises the toolbelt grid's SlotChanged and the
+            // inventory's Hand rebuilds the held item and its model from it (Inventory.ReconcileHeldItem is the manual nudge,
+            // left out unless the model is seen to lag)
+#else
             e.inventory.OnUpdate();
             e.inventory.ForceHoldingItemUpdate();
+#endif
         }
 
         /// <summary>
@@ -529,7 +549,12 @@ namespace SurvivorCommunity
         [HarmonyPatch]
         public static class Patch_SaveMidUse
         {
+#if SC_V34
+            // 3.4 (SCore 3.4): Write(PooledBinaryWriter _bw, StreamModeWrite _eStreamMode) on both classes
+            private static readonly Type[] Args = { typeof(PooledBinaryWriter), typeof(StreamModeWrite) };
+#else
             private static readonly Type[] Args = { typeof(System.IO.BinaryWriter), typeof(bool) };
+#endif
 
             [HarmonyPrepare]
             public static bool Prepare() { return ScNpc.Declared("Write", Args).Count > 0; }
@@ -538,8 +563,16 @@ namespace SurvivorCommunity
             public static IEnumerable<MethodBase> TargetMethods() { return ScNpc.Declared("Write", Args); }
 
             [HarmonyPrefix]
+#if SC_V34
+            public static void Prefix(EntityAlive __instance, StreamModeWrite _eStreamMode)
+            {
+                // 3.2's bNetworkWrite: everything but a Persistency write. 3.4's chunk saves and unloads, spawns sent to a
+                // client and player data write ToClient (3.2's true); ScRunners' snapshot writes Persistency (3.2's false).
+                bool bNetworkWrite = _eStreamMode != StreamModeWrite.Persistency;
+#else
             public static void Prefix(EntityAlive __instance, bool bNetworkWrite)
             {
+#endif
                 try
                 {
                     Use u;

@@ -261,19 +261,45 @@ namespace SurvivorCommunity
         {
             if (e == null) return null;
             if (UsesWindow(e)) return DeadWithoutWindow(e) ? null : HarvestManager.GetOrCreate(e.entityId).GetItems();
+#if SC_V34
+            // 3.4: the bag's grid. Its stacks are bound to their slots: read them, write through ScNpc.SetItem / AddItem
+            return e.bag != null ? e.bag.ItemGrid.items : null;
+#else
             return e.bag != null ? e.bag.GetSlots() : null;
+#endif
         }
 
         /// <summary>Adds a stack to that inventory (an NPC without a bag gets the vanilla 45-slot one first).</summary>
         public static void AddItem(EntityAlive e, ItemStack stack)
         {
             if (e == null || stack == null) return;
+#if SC_V34
+            if (UsesWindow(e))
+            {
+                if (DeadWithoutWindow(e)) return;
+                // 3.4 (SCore 3.4): a full window takes what fits and leaves the rest in the stack, returning false - where
+                // 3.2's simply lost the rest. The rest goes to the bag, else to the ground at the body (host only)
+                if (HarvestManager.AddItem(e.entityId, stack) || stack.count <= 0) return;
+                if (e.bag != null && e.bag.AddItem(stack)) return;
+                if (!ScCommunity.IsHost || GameManager.Instance == null) return;
+                GameManager.Instance.ItemDropServer(stack.Clone(), e.position + UnityEngine.Vector3.up, UnityEngine.Vector3.zero, -1, 60f);
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): the inventory window is full - " + stack.count + " "
+                              + (stack.itemValue.ItemClass != null ? stack.itemValue.ItemClass.GetItemName() : "?") + " dropped at the body");
+            }
+            else
+            {
+                // 3.4: a Bag is a grid now - 45 slots in one row, like 3.2's new Bag(45), no holder (nothing listens)
+                if (e.bag == null) e.bag = new Bag(new Vector2i(45, 1), XUiC_ItemStack.StackLocationTypes.LootContainer, null);
+                e.bag.AddItem(stack);
+            }
+#else
             if (UsesWindow(e)) { if (!DeadWithoutWindow(e)) HarvestManager.AddItem(e.entityId, stack); }
             else
             {
                 if (e.bag == null) e.bag = new Bag(45);
                 e.bag.AddItem(stack);
             }
+#endif
         }
 
         /// <summary>Replaces one slot of that inventory.</summary>

@@ -124,7 +124,11 @@ namespace SurvivorCommunity
         private void RefreshGrid(TEFeatureStorage st)
         {
             XUiC_LootWindow lw = LootWindow();
+#if SC_V34
+            if (lw != null && lw.lootContainer != null && st != null) lw.lootContainer.SetSlots(st);      // 3.4: the grid comes with the feature
+#else
             if (lw != null && lw.lootContainer != null && st != null) lw.lootContainer.SetSlots(st, st.items);
+#endif
         }
 
         private EntityPlayerLocal Player

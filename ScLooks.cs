@@ -653,7 +653,13 @@ namespace SurvivorCommunity
                 {
                     if (wantNames[slot].Length == 0) continue;
                     ItemValue iv = MakeItem(wantNames[slot], wantQuality[slot]);
+#if SC_V34
+                    // 3.4: no SetSlotItemRaw - the equipment grid's slot written directly is the same raw write (Equipment
+                    // does not listen to its grid; only SetSlotItem raises OnChanged)
+                    if (iv != null) npc.equipment.ItemGrid[slot] = new ItemStack(iv, 1);
+#else
                     if (iv != null) npc.equipment.SetSlotItemRaw(slot, iv);
+#endif
                 }
                 npc.equipment.ResetArmorGroups();
             }

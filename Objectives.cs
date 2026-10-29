@@ -33,6 +33,16 @@ public class ObjectiveScRescue : BaseObjective
         StatusText = "";
     }
 
+#if SC_V34
+    /// <summary>
+    /// 3.4: the quest analytics' parameters for this objective (BaseObjective made it abstract). Vanilla calls it from
+    /// Quest.CloseQuest and the phase advance for every objective that completed or failed, with no try around it, so a
+    /// throw here would end the close half-way. A display-only objective has nothing to report: nothing is added, and
+    /// nothing can throw.
+    /// </summary>
+    public override void InternalToParametersDictionary(ref System.Collections.Generic.Dictionary<string, object> parameters) { }
+
+#endif
     public override BaseObjective Clone()
     {
         ObjectiveScRescue o = new ObjectiveScRescue();
@@ -64,6 +74,11 @@ public class ObjectiveScBringSupplies : BaseObjective
         StatusText = "";
     }
 
+#if SC_V34
+    /// <summary>3.4: nothing for the quest analytics (see ObjectiveScRescue).</summary>
+    public override void InternalToParametersDictionary(ref System.Collections.Generic.Dictionary<string, object> parameters) { }
+
+#endif
     public override BaseObjective Clone()
     {
         ObjectiveScBringSupplies o = new ObjectiveScBringSupplies();
@@ -97,6 +112,11 @@ public class ObjectiveScEncRequest : BaseObjective
         StatusText = "";
     }
 
+#if SC_V34
+    /// <summary>3.4: nothing for the quest analytics (see ObjectiveScRescue).</summary>
+    public override void InternalToParametersDictionary(ref System.Collections.Generic.Dictionary<string, object> parameters) { }
+
+#endif
     public override BaseObjective Clone()
     {
         ObjectiveScEncRequest o = new ObjectiveScEncRequest();
@@ -140,6 +160,11 @@ public class ObjectiveScEncSearch : BaseObjective
         StatusText = "";
     }
 
+#if SC_V34
+    /// <summary>3.4: nothing for the quest analytics (see ObjectiveScRescue).</summary>
+    public override void InternalToParametersDictionary(ref System.Collections.Generic.Dictionary<string, object> parameters) { }
+
+#endif
     public override BaseObjective Clone()
     {
         ObjectiveScEncSearch o = new ObjectiveScEncSearch();
@@ -162,6 +187,11 @@ public class ObjectiveScEncReturn : BaseObjective
         StatusText = "";
     }
 
+#if SC_V34
+    /// <summary>3.4: nothing for the quest analytics (see ObjectiveScRescue).</summary>
+    public override void InternalToParametersDictionary(ref System.Collections.Generic.Dictionary<string, object> parameters) { }
+
+#endif
     public override BaseObjective Clone()
     {
         ObjectiveScEncReturn o = new ObjectiveScEncReturn();
@@ -184,6 +214,11 @@ public class ObjectiveScEncInfest : BaseObjective
         StatusText = "";
     }
 
+#if SC_V34
+    /// <summary>3.4: nothing for the quest analytics (see ObjectiveScRescue).</summary>
+    public override void InternalToParametersDictionary(ref System.Collections.Generic.Dictionary<string, object> parameters) { }
+
+#endif
     public override BaseObjective Clone()
     {
         ObjectiveScEncInfest o = new ObjectiveScEncInfest();
@@ -218,6 +253,11 @@ public class ObjectiveScEncSiege : BaseObjective
         base.Description = Localization.Get("scObjectiveEncSiege");
     }
 
+#if SC_V34
+    /// <summary>3.4: nothing for the quest analytics (see ObjectiveScRescue).</summary>
+    public override void InternalToParametersDictionary(ref System.Collections.Generic.Dictionary<string, object> parameters) { }
+
+#endif
     public override BaseObjective Clone()
     {
         ObjectiveScEncSiege o = new ObjectiveScEncSiege();
@@ -244,6 +284,22 @@ public class ObjectiveScTalkToSurvivor : ObjectiveInteractWithNPC
         StatusText = "";
     }
 
+#if SC_V34
+    /// <summary>
+    /// 3.4: vanilla's InteractWithNPC reports the NPC it was talked to (interactedEntity.npcID), which is null when the quest
+    /// closes without that talk - SC fails or abandons a favour itself - and the close would throw half-way (see
+    /// ObjectiveScRescue). Vanilla's line when there is somebody to report, nothing otherwise; never a throw.
+    /// </summary>
+    public override void InternalToParametersDictionary(ref System.Collections.Generic.Dictionary<string, object> parameters)
+    {
+        try
+        {
+            if (interactedEntity != null && parameters != null) base.InternalToParametersDictionary(ref parameters);
+        }
+        catch (System.Exception) { }
+    }
+
+#endif
     public override BaseObjective Clone()
     {
         ObjectiveScTalkToSurvivor o = new ObjectiveScTalkToSurvivor();

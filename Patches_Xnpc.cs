@@ -35,6 +35,10 @@ namespace SurvivorCommunity
     ///                                                         magazine are saved and loaded with the body (M11 review F1)
     ///   X14 QuestJournal.GetNextCompletedQuest       postfix  no quest turn-in window on an NPC body that has no trader
     ///                                                         (Talk crashed into it and left the camera zoomed)
+    ///   X15 AvatarSdcsNpcController.SdcsSelfHealScan          prefix   (3.4 build) XNPC's self-heal never spends our
+    ///                                                                  bodies' medical items (ScMedic heals them)
+    ///   X16 AvatarSdcsNpcController.SdcsEquipByName           prefix + finalizer   (3.4 build) X12 steps aside inside
+    ///                                                                  XNPC's own swaps, which keep the rounds themselves
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
     /// bound by name with a Prepare that turns the patch off when the method is gone, and listed in ModApi's
@@ -186,6 +190,22 @@ namespace SurvivorCommunity
             return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "UpdateWeapon", new[] { typeof(ItemValue), typeof(bool) });
         }
 
+#if SC_V34
+        /// <summary>
+        /// X13: SCore's V4 save, 3.4's Write(PooledBinaryWriter _bw, StreamModeWrite _eStreamMode) (ScMedic's mid-use prefix is
+        /// on it too). The BinaryWriter/bool overload is gone, so the 3.2 lookup found nothing and X13 was silently off.
+        /// </summary>
+        public static MethodBase WriteTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Write", new[] { typeof(PooledBinaryWriter), typeof(StreamModeWrite) });
+        }
+
+        /// <summary>X13: SCore's V4 load, 3.4's Read(byte _version, PooledBinaryReader _br, StreamModeRead _eStreamMode).</summary>
+        public static MethodBase ReadTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Read", new[] { typeof(byte), typeof(PooledBinaryReader), typeof(StreamModeRead) });
+        }
+#else
         /// <summary>X13: SCore's V4 save (Write(BinaryWriter _bw, bool bNetworkWrite); ScMedic's mid-use prefix is on it too).</summary>
         public static MethodBase WriteTarget()
         {
@@ -197,6 +217,7 @@ namespace SurvivorCommunity
         {
             return AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "Read", new[] { typeof(byte), typeof(System.IO.BinaryReader) });
         }
+#endif
 
         /// <summary>X14: vanilla's lookup of the next quest an NPC can take back (EntityTrader.OnLockedLocal and the turn-in window).</summary>
         public static MethodBase TurnInTarget()
@@ -297,8 +318,18 @@ namespace SurvivorCommunity
                     if (__instance.modelTransformParent != null)
                     {
                         UnityEngine.Vector3 lp = __instance.modelTransformParent.localPosition;
+#if SC_V34
+                        // 3.4: 0-XNPCCore puts its feet on the ground itself now - createModel seats the rig at
+                        // (0, SdcsModelYOffset, 0) under this parent (0.08 by default, its Settings.xml), against the same
+                        // -0.08 of the player prefab. XnpcModelY keeps its meaning (0 = feet on the ground), so the parent
+                        // goes to XnpcModelY minus that lift: -0.08 with both defaults; at 3.2's 0 the bodies floated 8 cm.
+                        float wantY = ScConfig.XnpcModelY - XnpcRigLift();
+                        if (UnityEngine.Mathf.Abs(lp.y - wantY) > 0.0005f)
+                            __instance.modelTransformParent.localPosition = new UnityEngine.Vector3(lp.x, wantY, lp.z);
+#else
                         if (UnityEngine.Mathf.Abs(lp.y - ScConfig.XnpcModelY) > 0.0005f)
                             __instance.modelTransformParent.localPosition = new UnityEngine.Vector3(lp.x, ScConfig.XnpcModelY, lp.z);
+#endif
                     }
                     ScLog.Verbose("xnpc body for " + (_ec != null ? _ec.entityClassName : "?") + " id " + e.entityId + ": " + ScLooks.Describe(look));
                 }
@@ -308,6 +339,34 @@ namespace SurvivorCommunity
                     ScLog.Once("xnpc-createmodel", ex);
                 }
             }
+#if SC_V34
+
+            /// <summary>The rig lift 0-XNPCCore 3.4 applies in createModel, read once; NaN until read.</summary>
+            private static float rigLift = float.NaN;
+
+            /// <summary>
+            /// 3.4: AvatarSdcsNpcController.SdcsModelYOffset - an internal static property of 0-XNPCCore (its Settings.xml's
+            /// SdcsModelYOffset, clamped), read by reflection the first time a body is built; 0.08 (its default) when it
+            /// cannot be read, with a log line.
+            /// </summary>
+            internal static float XnpcRigLift()
+            {
+                if (!float.IsNaN(rigLift)) return rigLift;
+                rigLift = 0.08f;
+                try
+                {
+                    PropertyInfo p = AccessTools.Property(typeof(AvatarSdcsNpcController), "SdcsModelYOffset");
+                    object v = p != null && p.GetGetMethod(true) != null && p.GetGetMethod(true).IsStatic ? p.GetValue(null, null) : null;
+                    if (v is float f) rigLift = f;
+                    else ScLog.Warn("0-XNPCCore's SdcsModelYOffset not found - the bodies' feet assume its default lift of 0.08 m");
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-riglift", ex);
+                }
+                return rigLift;
+            }
+#endif
         }
 
         /// <summary>
@@ -1027,6 +1086,64 @@ namespace SurvivorCommunity
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return UpdateWeaponTarget(); }
 
+#if SC_V34
+            /// <summary>
+            /// 3.4: the gun slot 0 held - its own ItemValue (L&amp;L empties that very one in place: Meta 0, the type kept) and a
+            /// copy taken here. A grid slot that is EMPTIED is now cleared in place too (ItemStack.Clear resets the slot's own
+            /// ItemValue to type 0), which would leave nothing to give back; then the copy speaks for the gun.
+            /// </summary>
+            public sealed class HeldGun
+            {
+                public ItemValue Live;
+                public ItemValue Copy;
+            }
+
+            [HarmonyPrefix]
+            public static void Prefix(EntityAlive __instance, out HeldGun __state)
+            {
+                __state = null;
+                try
+                {
+                    if (__instance == null || __instance.inventory == null || !ScCommunity.IsHost || !ScXnpc.IsBody(__instance)) return;
+                    // 3.4: 0-XNPCCore's own swaps (SdcsEquipByName, X16) keep the held gun's rounds themselves - in its bag
+                    // copy or its magazine table - and load them back on the next equip: returning them here as well made
+                    // them twice
+                    if (InXnpcEquip) { Count("x12-skip-xnpc-equip"); return; }
+                    if (__instance.inventory.Length <= 0) return;      // 3.4: GetItemCount() is gone (Length: the toolbelt's slots)
+                    ItemStack slot = __instance.inventory.GetItem(0);
+                    ItemValue gun = slot != null ? slot.itemValue : null;
+                    if (gun == null || gun.IsEmpty() || gun.Meta <= 0 || ScAmmo.RangedAction(gun.ItemClass) == null) return;
+                    __state = new HeldGun { Live = gun, Copy = gun.Clone() };
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-swap-rounds-pre", ex);
+                }
+            }
+
+            [HarmonyFinalizer]
+            public static void Finalizer(EntityAlive __instance, HeldGun __state)
+            {
+                if (__state == null) return;
+                try
+                {
+                    ItemStack slot = __instance.inventory.GetItem(0);
+                    ItemValue now = slot != null ? slot.itemValue : null;
+                    bool cleared = __state.Live.type == 0;                       // emptied in place: the copy is the gun
+                    if (!cleared && ReferenceEquals(now, __state.Live)) return;  // not written over: the gun is still there
+                    ItemValue gun = cleared ? __state.Copy : __state.Live;
+                    // the same gun written back still loaded (a copy of it) carries its rounds over: not a swap (L&L's rule too)
+                    if (now != null && now.type == gun.type && now.Meta > 0) return;
+                    Count(cleared ? "x12-swap-cleared-gun" : "x12-swap-loaded-gun");
+                    int n = ScAmmo.ReturnLoose(__instance, gun, "weapon swap", true);
+                    if (n > 0) ScAmmo.NoteSwapReturn(n);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-swap-rounds", ex);
+                }
+            }
+#else
             [HarmonyPrefix]
             public static void Prefix(EntityAlive __instance, out ItemValue __state)
             {
@@ -1066,6 +1183,7 @@ namespace SurvivorCommunity
                     ScLog.Once("xnpc-swap-rounds", ex);
                 }
             }
+#endif
         }
 
         // ------------------------------------------------------------------ X13: the held gun survives a save ----
@@ -1086,14 +1204,23 @@ namespace SurvivorCommunity
             [HarmonyPrepare]
             public static bool Prepare()
             {
+#if SC_V34
+                return BoundLoud(WriteTarget, "EntityAliveSDXV4.Write(PooledBinaryWriter, StreamModeWrite)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
+#else
                 return BoundLoud(WriteTarget, "EntityAliveSDXV4.Write(BinaryWriter, bool)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
+#endif
             }
 
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return WriteTarget(); }
 
             [HarmonyPostfix]
+#if SC_V34
+            // 3.4: every stream mode, as on 3.2 (chunk saves and unloads write entities as ToClient there, Chunk.cs)
+            public static void Postfix(EntityAlive __instance, PooledBinaryWriter _bw)
+#else
             public static void Postfix(EntityAlive __instance, System.IO.BinaryWriter _bw)
+#endif
             {
                 try { ScAmmo.WriteHeldGun(__instance, _bw); }
                 catch (Exception ex) { ScLog.Once("xnpc-save-held-gun", ex); }
@@ -1112,14 +1239,22 @@ namespace SurvivorCommunity
             [HarmonyPrepare]
             public static bool Prepare()
             {
+#if SC_V34
+                return BoundLoud(ReadTarget, "EntityAliveSDXV4.Read(byte, PooledBinaryReader, StreamModeRead)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
+#else
                 return BoundLoud(ReadTarget, "EntityAliveSDXV4.Read(byte, BinaryReader)", "the gun in an NPC's hand loses its rounds and its magazine whenever it is saved and loaded");
+#endif
             }
 
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return ReadTarget(); }
 
             [HarmonyPostfix]
+#if SC_V34
+            public static void Postfix(EntityAlive __instance, PooledBinaryReader _br)
+#else
             public static void Postfix(EntityAlive __instance, System.IO.BinaryReader _br)
+#endif
             {
                 try
                 {
@@ -1174,7 +1309,14 @@ namespace SurvivorCommunity
                     World w = GameManager.Instance != null ? GameManager.Instance.World : null;
                     EntityTrader npc = w != null ? w.GetEntity(entityId) as EntityTrader : null;
                     if (npc == null || !(npc is EntityAliveSDXV4 || npc is EntityAliveSDX)) return;
+#if SC_V34
+                    // 3.4: 0-XNPCCore's survivors name a trader now - its per-NPC stock trade (trader_id 64 on npcSdcsTest), which
+                    // HasTrader finds - but that trade takes no quest back: still no turn-in at them (X9's trade gating is
+                    // unchanged)
+                    if (Patch_NoTalkToRaiders.HasTrader(npc) && !IsXnpcStockTrader(npc) && !ScEnclavePeople.IsEnclaveNpc(npc)) return;
+#else
                     if (Patch_NoTalkToRaiders.HasTrader(npc) && !ScEnclavePeople.IsEnclaveNpc(npc)) return;
+#endif
                     __result = null;
                     turnInHidden++;
                 }
@@ -1183,6 +1325,110 @@ namespace SurvivorCommunity
                     ScLog.Once("xnpc-turnin", ex);
                 }
             }
+#if SC_V34
+
+            /// <summary>
+            /// 3.4: the NPC's trader is 0-XNPCCore's stock trader (TradeStockRules.SdcsTraderId, 64 - XNPC's own test,
+            /// TradeStockRules.IsOurTrader). The const is compiled in, so nothing here calls into XNPC's DLL.
+            /// </summary>
+            internal static bool IsXnpcStockTrader(EntityTrader npc)
+            {
+                return npc != null && npc.TraderData != null && npc.TraderData.TraderID == TradeStockRules.SdcsTraderId;
+            }
+#endif
         }
+#if SC_V34
+
+        // ------------------------------------------------------------------ X15: no XNPC self-heal on our bodies (3.4) ----
+
+        /// <summary>X15: 0-XNPCCore 3.4's self-heal scan (private, 1 Hz from the controller's Update).</summary>
+        public static MethodBase SelfHealScanTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsSelfHealScan", NoArgs);
+        }
+
+        /// <summary>
+        /// X15 (3.4). 0-XNPCCore 3.4 heals its NPCs in C#: SdcsSelfHealScan picks a bandage or a kit below its health
+        /// threshold or on a bleed, SPENDS it out of the NPC's stores (EntityUtilities.DecItemFromAnyStore) and only then
+        /// adds SdcsIsHealing - which ScMedic.Patch_NoFreeHeal refuses on our bodies. So every scan cost one of the medical
+        /// items SC stocked and gave no heal. Our bodies heal through ScMedic only (decision D2: SC's medic treats them,
+        /// bleeding included in Stage 2), so the scan is skipped for them; XNPC's own NPCs keep it. The method is ~50 lines
+        /// with branches (not inlined); the counter shows it runs.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoXnpcSelfHeal
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(SelfHealScanTarget, "AvatarSdcsNpcController.SdcsSelfHealScan"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SelfHealScanTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    if (__instance == null || !ScXnpc.IsBody(__instance.entity)) return true;
+                    Count("x15-selfheal-skipped");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-selfheal", ex);
+                    return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X16: XNPC's own swaps keep their rounds (3.4) ----
+
+        /// <summary>X16: 0-XNPCCore 3.4's public equip, which every one of its weapon swaps ends in.</summary>
+        public static MethodBase EquipByNameTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsEquipByName", new[] { typeof(string), typeof(string) });
+        }
+
+        /// <summary>
+        /// Depth of SdcsEquipByName calls on this thread (X16): X12 steps aside while it is above 0. ThreadStatic and a
+        /// counter, not a flag, so a nested equip (none today) cannot clear it early.
+        /// </summary>
+        [ThreadStatic] private static int xnpcEquipDepth;
+
+        /// <summary>Inside one of 0-XNPCCore's own weapon swaps (X16).</summary>
+        internal static bool InXnpcEquip { get { return xnpcEquipDepth > 0; } }
+
+        /// <summary>
+        /// X16 (3.4, decision D7). Every weapon swap 0-XNPCCore 3.4 makes - close-range melee and back, the dry failover and
+        /// its restore, the world-entry re-arm, AnyWeapon, a voice "use X" - ends in SdcsEquipByName, which first saves the
+        /// held gun's rounds (SdcsMagSaveHeld: into the gun's copy in the NPC's stores, or a per-NPC magazine table) and puts
+        /// them back on the next equip of that gun. Inside it, SCore's UpdateWeapon writes the new hand item - and X12, on
+        /// that UpdateWeapon, gave the same rounds back to the bag as loose ammo as well. So X12 is skipped inside this call
+        /// (a depth counter the prefix raises and the finalizer lowers, on a throw too); it still covers SCore's own swaps,
+        /// ScArms and ScLoadout.Arm, which keep no rounds anywhere.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_XnpcEquipScope
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(EquipByNameTarget, "AvatarSdcsNpcController.SdcsEquipByName(string, string)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return EquipByNameTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(out bool __state)
+            {
+                xnpcEquipDepth++;
+                __state = true;
+            }
+
+            [HarmonyFinalizer]
+            public static void Finalizer(bool __state)
+            {
+                if (__state && xnpcEquipDepth > 0) xnpcEquipDepth--;
+            }
+        }
+#endif
     }
 }

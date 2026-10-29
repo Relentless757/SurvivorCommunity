@@ -1,17 +1,30 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk" InitialTargets="ScGameCheck">
 
   <!-- Builds IN PLACE: the DLL lands next to ModInfo.xml, which is where the game loads it from.
        Build from this directory with: dotnet build -c Release (plus the no-dependencies flag).
        Files are listed explicitly (EnableDefaultCompileItems=false): a new .cs file that is not
-       added below is silently NOT compiled; always ilspy the deployed DLL after a build. -->
+       added below is silently NOT compiled; always ilspy the deployed DLL after a build.
+
+       (2026-10-29) One source, two builds - the ScGame property (PORT_34.md):
+         no ScGame, the default: game 3.2, in place, as above. Its DLL is byte for byte the one this
+           project always built: every 3.4 line is under #if SC_V34 (the 3.2 code kept verbatim in
+           the #else) or in a file compiled only for 3.4.
+         ScGame=34: game 3.4 (b6, with 0-SCore 3.4.3.826 and 0-XNPCCore 3.4.01) with the SC_V34 define,
+           against the 3.4 install (or -p:GameDir=...), intermediates in obj34\, written to
+           -p:OutputPath=<folder>. ScGameCheck refuses an output inside any folder named Mods (a 3.4 DLL
+           that a game loads is deployed by hand, on the usual routine) and this folder itself (its
+           SurvivorCommunity.dll is the 3.2 build, kept in git):
+           dotnet build -c Release (no-dependencies) -p:ScGame=34 -p:OutputPath=<folder outside Mods> -->
   <PropertyGroup>
+    <!-- 3.4: the 3.4 install, before the 3.2 probe below can claim the property -->
+    <GameDir Condition="'$(ScGame)'=='34' AND '$(GameDir)'==''">F:\7 Days to Die Version Control\3.4</GameDir>
     <TargetFramework>net48</TargetFramework>
     <AssemblyName>SurvivorCommunity</AssemblyName>
     <RootNamespace>SurvivorCommunity</RootNamespace>
     <LangVersion>latest</LangVersion>
     <OutputPath>.</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(ScGame)'!='34'">obj\</BaseIntermediateOutputPath>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <AssemblySearchPaths>$(AssemblySearchPaths);{RawFileName}</AssemblySearchPaths>
     <DebugType>none</DebugType>
@@ -22,6 +35,26 @@
     <GameDir Condition="'$(GameDir)'==''">F:\SteamLibrary\steamapps\common\7 Days To Die</GameDir>
     <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
   </PropertyGroup>
+
+  <!-- 3.4: the define every 3.4-only code path sits behind (its intermediates go to obj34\: Directory.Build.props) -->
+  <PropertyGroup Condition="'$(ScGame)'=='34'">
+    <DefineConstants>$(DefineConstants);SC_V34</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Before anything is built: a known ScGame, and a 3.4 build that lands neither in a Mods folder nor on
+       top of the 3.2 DLL in this folder. -->
+  <Target Name="ScGameCheck">
+    <PropertyGroup>
+      <_ScOutDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(OutputPath)').Replace('/', '\').ToLowerInvariant())</_ScOutDir>
+      <_ScProjectDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)').Replace('/', '\').ToLowerInvariant())</_ScProjectDir>
+    </PropertyGroup>
+    <Error Condition="'$(ScGame)'!='' AND '$(ScGame)'!='34'"
+           Text="ScGame is empty (game 3.2, the default) or 34 (game 3.4), not '$(ScGame)'." />
+    <Error Condition="'$(ScGame)'=='34' AND $(_ScOutDir.Contains(`\mods\`))"
+           Text="A 3.4 build (ScGame=34) never lands in a Mods folder: '$(_ScOutDir)'. Build to a folder outside Mods with -p:OutputPath=... and deploy by hand." />
+    <Error Condition="'$(ScGame)'=='34' AND '$(_ScOutDir)'=='$(_ScProjectDir)'"
+           Text="A 3.4 build (ScGame=34) needs -p:OutputPath=... : in place it would overwrite this folder's SurvivorCommunity.dll, the 3.2 build." />
+  </Target>
 
   <ItemGroup>
     <Compile Include="ModApi.cs" />
@@ -58,7 +91,9 @@
     <Compile Include="ScMorale.cs" />
     <Compile Include="ScRuns.cs" />
     <Compile Include="ScStorage.cs" />
-    <Compile Include="ScLinkedContainer.cs" />
+    <!-- linked storage: 3.4 has no ITileEntityLootable, so the 3.4 build compiles its own edition of the class -->
+    <Compile Include="ScLinkedContainer.cs" Condition="'$(ScGame)'!='34'" />
+    <Compile Include="ScLinkedContainer34.cs" Condition="'$(ScGame)'=='34'" />
     <Compile Include="XUiC_ScLinkedStrip.cs" />
     <Compile Include="ScRadio.cs" />
     <Compile Include="BlockScRadio.cs" />

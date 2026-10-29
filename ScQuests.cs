@@ -189,7 +189,13 @@ namespace SurvivorCommunity
                     error = "scQuestFailed";
                     return false;
                 }
+#if SC_V34
+                // 3.4: AddQuest names where the quest came from (StartQuest's analytics). QuestSystem, not Trader: with Trader
+                // vanilla reads the giver's NPCInfo.QuestFaction and activeQuests, which an SCore NPC (an EntityTrader) can lack.
+                j.AddQuest(q, Quest.QuestSource.QuestSystem);
+#else
                 j.AddQuest(q);
+#endif
                 ScLog.Out("secure quest started for " + p.PoiName + " at " + p.PoiPos + " (favour of " + p.Name + ")");
                 return true;
             }
@@ -237,7 +243,11 @@ namespace SurvivorCommunity
                     error = "scQuestFailed";
                     return false;
                 }
+#if SC_V34
+                j.AddQuest(q, Quest.QuestSource.QuestSystem);
+#else
                 j.AddQuest(q);
+#endif
                 ScLog.Out("supplies quest started: " + p.ItemCount + " " + p.ItemCategory + " for " + p.Name);
                 return true;
             }
@@ -351,7 +361,11 @@ namespace SurvivorCommunity
                 q.DataVariables[MemberVar] = m.Id.ToString();
                 QuestJournal j = Journal(player);
                 if (j == null) { error = "scQuestFailed"; return false; }
+#if SC_V34
+                j.AddQuest(q, Quest.QuestSource.QuestSystem);
+#else
                 j.AddQuest(q);
+#endif
                 return true;
             }
             catch (Exception e)
@@ -540,7 +554,11 @@ namespace SurvivorCommunity
                 int code = ("scEncRequest_" + r.Id + "_" + r.Kind + "_" + player.entityId + "_"
                             + Time.unscaledTime.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).GetHashCode();
                 q.QuestCode = code != 0 ? code : 1;
+#if SC_V34
+                j.AddQuest(q, Quest.QuestSource.QuestSystem);
+#else
                 j.AddQuest(q);
+#endif
                 if (r.Kind == EnclaveRequest.KindMissing && r.Stage == ScEncSearch.StageSearched) AdvanceRequest(q);
                 if (r.Kind == EnclaveRequest.KindSiege) j.TrackedQuest = q;          // the besieged enclave's marker on screen at once
                 return q;

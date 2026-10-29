@@ -46,6 +46,18 @@ namespace SurvivorCommunity
         {
         }
 
+#if SC_V34
+        // 3.4: the stream modes are top-level types (were nested in TileEntity); the same pass-through
+        public override void Write(PooledBinaryWriter _bw, StreamModeWrite _eStreamMode)
+        {
+            base.Write(_bw, _eStreamMode);
+        }
+
+        public override void Read(PooledBinaryReader _br, StreamModeRead _eStreamMode)
+        {
+            base.Read(_br, _eStreamMode);
+        }
+#else
         public override void Write(PooledBinaryWriter _bw, TileEntity.StreamModeWrite _eStreamMode)
         {
             base.Write(_bw, _eStreamMode);
@@ -55,6 +67,7 @@ namespace SurvivorCommunity
         {
             base.Read(_br, _eStreamMode);
         }
+#endif
 
         public override void InitBlockActivationCommands(Action<BlockActivationCommand, TileEntityComposite.EBlockCommandOrder, TileEntityFeatureData> _addCallback)
         {

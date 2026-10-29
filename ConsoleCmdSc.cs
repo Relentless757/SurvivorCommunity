@@ -2263,8 +2263,14 @@ namespace SurvivorCommunity
                 sb.Append("; Locked & Loaded: ").Append(mags.Length > 0 ? mags + " with the gun's own" : "no magazines (reloads from loose rounds)");
             }
             ItemStack[] window = HarvestManager.Has(e.entityId) ? ScNpc.Items(e) : null;
+#if SC_V34
+            // 3.4: the bag's and the toolbelt's grids (read only)
+            ItemStack[] bag = e.bag != null ? e.bag.ItemGrid.items : null;
+            ItemStack[] belt = e.inventory != null ? e.inventory.ItemGrid.items : null;
+#else
             ItemStack[] bag = e.bag != null ? e.bag.GetSlots() : null;
             ItemStack[] belt = e.inventory != null ? e.inventory.GetSlots() : null;
+#endif
             foreach (string name in ranged.MagazineItemNames)
             {
                 ItemValue ammo = ItemClass.GetItem(name, true);
