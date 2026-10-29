@@ -158,6 +158,17 @@ in-game steps in `research\sc34\stage2\TESTING_34_draft.md`.
 | ScRaider/ScEncApproach | 4 | 4 | now under BackupRanged 5 (XNPC's paced back-off first: its 3.4 design, kept) |
 | all | | | under medic 7, leave-area 9, busy 12 (accepted, D1); jobs 4 above the idles, but residents and enclave people have no leader, so no job, no party medic |
 
+### Stage 3: review (2026-10-29)
+
+Fable review of 15b0255..fd9d756 (`research\sc34\review\REVIEW.md`): DEPLOYABLE AFTER FIXES. Fixed in 1177b36 (3.4 DLL
+`6148a65d`, 3.2 build still `81f6c2da`): H1 linked-storage view capped to the loot window's widgets unless the bridge
+draws it; M1 MayEngage only overrides Voice Control's refusal; L1 a refused drop-one is returned on vanilla's grid; L2
+XNPC's bare-hands equip leaves X12 on. Re-check: DEPLOYABLE. Left for after the first test: M2 (AnyWeapon may bounce
+once after ScArms keeps a handed weapon - TESTING step 47), L3 (a creator face SC takes doesn't mark the character
+alive for XNPC, so it can appear twice), and the re-check's new LOW: an enemy Voice Control refuses now scores 1 for
+SC's leaderless people against 0.95 for their current target, so they may switch to it (fix: use VC's private
+`StickScore` for the override). Test steps: TESTING.md "Game 3.4 port". Install: `Port33\tools\deploy_sc34.py`.
+
 **Open (watch in game, the user's call):** XNPC's leave-area (9) is not gated, per D1. An unhired body inside a sleeper
 volume that a zombie targets leaves 30 m and avoids the building for up to 300 s - enclave people in their own POI and
 residents of a base built inside a POI included, so an enclave may empty out in a zombie fight instead of fighting it
