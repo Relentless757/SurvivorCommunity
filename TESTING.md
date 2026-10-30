@@ -30,8 +30,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 The 3.4 build only: the install in `F:\7 Days to Die Version Control\3.4` with 0-SCore 3.4.3.826, 0-XNPCCore 3.4.01 and
 1-XNPCVoiceControl-Complete 3.4.01 (plan and decisions: `PORT_34.md`). **Test on a new world or a copy of a save**: the
 saves folder is shared with 3.2, and 3.4 converts a save it loads. The RE Inventory bridge (`zzzz_GridInv_SurvivorCommunity`)
-is not ported yet. Set `DebugLogging` to true in the 3.4 install's SC `Config/blocks.xml` for the `medic:` and
-`creator face` lines. `sc xnpc` prints every counter named below; `sc xnpc <name or id>` shows one NPC.
+has a 3.4 build since round 3 (group I). Set `DebugLogging` to true in the 3.4 install's SC `Config/blocks.xml` for the
+`medic:`, `creator face` and `linked storage` lines. `sc xnpc` prints every counter named below; `sc xnpc <name or id>` shows one NPC.
 
 **A. Start-up**
 
@@ -50,8 +50,9 @@ is not ported yet. Set `DebugLogging` to true in the 3.4 install's SC `Config/bl
    and reopen: the boxes hold what the window showed. Nothing doubles, nothing vanishes.
 7. Linked storage, full: fill every box, then drop and drop-one into the linked window. Nothing is taken, you are told
    the storage is full, and the item stays with you (never on the floor, never gone).
-8. Linked storage with RE Inventory (no bridge yet): the window is at most 20 rows, no `IndexOutOfRange` in the log,
-   and step 6 still passes.
+8. Linked storage with RE Inventory: the window is at most 20 rows, no `IndexOutOfRange` in the log, and step 6 still
+   passes. (Without the bridge, RE Inventory shrinks the view to 9x4 - `container scLinkedStorage shrunk` - group I fixes
+   that.)
 9. Hand model: a member's bandage shows in the hand while they heal and the gun comes back after; a weapon picked in
    the dialog weapon menu shows at once.
 10. Fire at range: raiders shoot you from 30-60 m; residents shoot a zombie at the base edge as soon as it is in range;
@@ -138,6 +139,25 @@ is not ported yet. Set `DebugLogging` to true in the 3.4 install's SC `Config/bl
     as a multiplayer client.
 50. At night in a dark base zombies may notice residents late; base defence and `sc attack` still play out.
 51. A runner on a long route still arrives; note if runners stick or walk too slowly (class walk speed is 1.5 now).
+
+**I. Linked storage, round 3: crates first, and the RE Inventory bridge on 3.4**
+
+Your first test's 6 rifles went into the land claim block's own storage (keystoneBlock has a 7x4 store; it was the only
+box then, the crates came after). They are still there - open the land claim block's storage to see them.
+
+52. The bridge loads: the log has `[GridInv/SC] linked storage on RE Inventory 3.3+: the view keeps Survivor Community's
+    size, and a box takes a stack while it has a free slot`. Opening linked storage never logs
+    `container scLinkedStorage shrunk`.
+53. Opening linked storage logs `linked storage boxes: ...` - each box's block, position, slots and empty slots - with
+    the land claim block (`keystoneBlock`) last, and `view N cells as shown`.
+54. Crates first: with a crate in the home zone, shift-click a few rifles into linked storage. They go into the crate
+    (log `linked storage: <item> x1 into <crate block> at <pos>, slot <n>`), not the land claim block; open the crate: they
+    are there. The land claim block's storage only fills once every crate is full.
+55. Items put into a crate by hand show in linked storage on the next open, every stack; taking one out of the linked
+    window takes it out of that crate.
+56. A crate holding rifles still takes more while it has an empty slot: you are told the storage is full only when
+    every slot of every box is used. The view shows empty cells under the stacks to drop into (more than 36 cells).
+57. A member who keeps a weapon you gave them hands the old one back into a crate, not into the land claim block.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

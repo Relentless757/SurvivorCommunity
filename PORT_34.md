@@ -180,3 +180,35 @@ Installed into the 3.4 install with the user's go-ahead (game closed): `Port33\t
 1928 files = the tracked files, the DLL swapped for the 3.4 build: installed = built = `bfff2469`; ilspycmd on the
 installed DLL shows PatchClassByClass, ScLinkedContainer34, ScNotTravelling, ScNotEncHome. No SC was there before
 (nothing backed up). The 3.2 game's SC untouched (`81f6c2da`). Next: the user's test, TESTING.md "Game 3.4 port".
+
+### Round 3: linked storage and the RE Inventory bridge (2026-10-29, built, not installed)
+
+The user's first test (start-up steps passed): "linked storage doesn't distribute items to the crates" - 6 rifles
+shift-clicked in stayed in the linked view, the crates stayed empty, crate items didn't show. The 3.4 `Player.log`
+(session 22:14-23:06) explains it:
+- the view first opened with `1 box(es), 0 stack(s), 28 free` - the **land claim block's own storage** (keystoneBlock has
+  a TEFeatureStorage, `playerLandClaimStorage` 7x4, on 3.2 too). The crate was crafted a minute later, so the rifles
+  could only go there. In chunk order the claim block comes first anyway.
+- with the crates linked (`3 box(es), 31 stack(s)`), RE Inventory 3.3+ **shrank the view** to its loot list's 9x4
+  (`container scLinkedStorage shrunk from 9x14 to 9x4`, ContainerCapacity.EnsureLootable): the free band cut off.
+
+Fixes:
+- **SC (3.4 only):** a land claim block's own storage goes after every other box - Scan appends them last, DepositInZone
+  walks the crates first. The 3.2 game has the same order (a follow-up there, not this branch).
+- **SC (3.4 only), diagnostics under DebugLogging:** each deposit (`linked storage: <item> xN into <block> at <pos>, slot
+  i`), a failed one with every box's slots/empty/room, a refused cell, and the boxes at open (`linked storage boxes:`).
+- **SC (3.4 only), SizeFor:** the view's cells never exceed the loot window's widgets (RE: 182 -> 20 rows).
+- **Bridge, 3.4 build** (`My Mods\Source\zzzz_GridInv_SurvivorCommunity`, `-p:BridgeGame=34`, define
+  `GRIDINV_SC_V34`): adds `scLinkedStorage` to RE's `ContainerCapacity.NoScale`, so the view keeps SC's size; sets only
+  the view hooks. RE 3.3+ is one cell per slot (footprints overflow -> the grid grows rows), so a box's room is its
+  free slots: the 3.2 cell hooks (a 5x2 rifle = ten of a box's slot-count cells) would call a crate with empty slots
+  full (Fable round 2, H1) and are not set.
+
+Builds: SC 3.2 still `81f6c2da`, SC 3.4 `7a680c4d` (build\sc34); bridge 3.2 still `be634f59` (= the original and the
+live 3.2 copy), bridge 3.4 `41c43b91` (build\bridge34). AshfallUI's 3.3+ edition now carries SC's Home Status strip
+(AshfallUI c02cc17). Reviews: `research\sc34\review\round2` (H1: the cell hooks, fixed), `round3`: DEPLOYABLE (no
+HIGH/MEDIUM; LOWs left: the brace-less pass loop in DepositInZone, the strip's "free cells" wording that means slots on
+3.4, RE's re-bind after every shift-click logging `container opened` - not repeated opens). Test steps: TESTING.md
+group I (52-57).
+To install (game closed, the user's go-ahead): commit, `deploy_sc34.py <md5> --go`; the bridge's ModInfo.xml, README.md
+and build\bridge34 DLL into `<3.4>\Mods\zzzz_GridInv_SurvivorCommunity`; AshfallUI `python tools/deploy33.py`.

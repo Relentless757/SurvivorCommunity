@@ -218,6 +218,9 @@ namespace SurvivorCommunity
         private void Refuse(int _idx, string why)
         {
             ItemStack v = ItemGrid[_idx].Clone();
+            if (ScConfig.Verbose)
+                ScLog.Verbose("linked storage: cell " + _idx + " of " + ItemGrid.Length + " refused (" + why + ") for "
+                              + (v.itemValue != null && v.itemValue.ItemClass != null ? v.itemValue.ItemClass.GetItemName() : "?") + " x" + v.count);
             SetMap(_idx, null);
             PutBack(_idx);
             if (!(GridDrawn && StillOnCursor(v))) ReturnToPlayer(v);

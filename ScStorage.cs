@@ -121,6 +121,9 @@ namespace SurvivorCommunity
                 else ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
                 int cxMin = World.toChunkXZ(xMin), cxMax = World.toChunkXZ(xMax);
                 int czMin = World.toChunkXZ(zMin), czMax = World.toChunkXZ(zMax);
+#if SC_V34
+                var claimBoxes = new List<Vector3i>();
+#endif
                 for (int cx = cxMin; cx <= cxMax; cx++)
                 {
                     for (int cz = czMin; cz <= czMax; cz++)
@@ -143,7 +146,14 @@ namespace SurvivorCommunity
 #endif
                             Vector3i pos = tc.ToWorldPos();
                             if (area != null ? (pos.x < xMin || pos.x > xMax || pos.z < zMin || pos.z > zMax) : !ScZone.Contains(pos)) continue;
+#if SC_V34
+                            // a land claim block's own storage (keystoneBlock's 7x4) goes after every other box, so a deposit
+                            // fills the crates first and the claim block only once they are full (in chunk order it came first)
+                            if (tc.GetFeature<TEFeatureLandClaim>() != null) claimBoxes.Add(pos);
+                            else boxes.Add(pos);
+#else
                             boxes.Add(pos);
+#endif
 #if SC_V34
                             ItemStack[] items = st.ItemGrid != null ? st.ItemGrid.items : null;   // 3.4: the grid's slots (read only)
 #else
@@ -159,6 +169,9 @@ namespace SurvivorCommunity
                         }
                     }
                 }
+#if SC_V34
+                boxes.AddRange(claimBoxes);
+#endif
                 Slots.Sort(Compare);
                 return true;
             }
@@ -239,13 +252,70 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool Deposit(ItemStack stack, out Slot placed)
         {
+#if SC_V34
+            if (DepositOnce(stack, out placed)) return true;
+            // a box can gain room without the view writing to it (another player on a server): the cached
+            // "full" is a hint, so look once more with every box asked afresh
+            if (freeByBox.Count > 0)
+            {
+                freeByBox.Clear();
+                if (DepositOnce(stack, out placed)) return true;
+            }
+            // 3.4 (DebugLogging): why nothing took it - each box the view links, its block, slots and room
+            if (ScConfig.Verbose)
+                ScLog.Verbose("linked storage: no box takes " + Name(stack) + " x" + (stack != null ? stack.count : 0) + " - " + BoxesSummary(stack));
+            return false;
+#else
             if (DepositOnce(stack, out placed)) return true;
             // a box can gain room without the view writing to it (another player on a server): the cached
             // "full" is a hint, so look once more with every box asked afresh
             if (freeByBox.Count == 0) return false;
             freeByBox.Clear();
             return DepositOnce(stack, out placed);
+#endif
         }
+#if SC_V34
+
+        /// <summary>
+        /// 3.4 (DebugLogging): the boxes the view links, for the deposit log - "block at pos: N slots, M empty", plus the
+        /// bridge's free cells and its answer for this stack when the bridge sets them; "no boxes linked" without boxes.
+        /// </summary>
+        private static string BoxesSummary(ItemStack stack)
+        {
+            if (boxes.Count == 0) return "no boxes linked";
+            var sb = new System.Text.StringBuilder();
+            for (int b = 0; b < boxes.Count; b++)
+            {
+                if (b > 0) sb.Append("; ");
+                TEFeatureStorage st = Resolve(boxes[b]);
+                sb.Append(BlockNameAt(boxes[b])).Append(" at ").Append(boxes[b]);
+                if (st == null || st.ItemGrid == null) { sb.Append(": not loaded"); continue; }
+                ItemStack[] items = st.ItemGrid.items;
+                int empty = 0;
+                for (int i = 0; i < items.Length; i++) if (items[i] == null || items[i].IsEmpty()) empty++;
+                sb.Append(": ").Append(items.Length).Append(" slots, ").Append(empty).Append(" empty");
+                try
+                {
+                    if (BoxFreeCells != null) sb.Append(", ").Append(BoxFreeCells(st)).Append(" free cells");
+                    if (BoxHasRoomFor != null && stack != null) sb.Append(BoxHasRoomFor(st, stack) ? ", room for it" : ", NO room for it");
+                }
+                catch (Exception e) { sb.Append(" (bridge: ").Append(e.Message).Append(")"); }
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>3.4 (DebugLogging): the block's name at a box position, for the deposit log.</summary>
+        private static string BlockNameAt(Vector3i pos)
+        {
+            try
+            {
+                World w = ScCommunity.World;
+                BlockValue bv = w != null ? w.GetBlock(pos) : BlockValue.Air;
+                return bv.Block != null ? bv.Block.GetBlockName() : "?";
+            }
+            catch (Exception) { return "?"; }
+        }
+#endif
 
         private static bool DepositOnce(ItemStack stack, out Slot placed)
         {
@@ -288,6 +358,10 @@ namespace SurvivorCommunity
                         placed = new Slot { Pos = boxes[b], Index = i, Stack = stack.Clone() };
                         Slots.Add(placed);
                         if (FreeSlots > 0) FreeSlots--;
+#if SC_V34
+                        if (ScConfig.Verbose)
+                            ScLog.Verbose("linked storage: " + Name(stack) + " x" + stack.count + " into " + BlockNameAt(boxes[b]) + " at " + boxes[b] + ", slot " + i);
+#endif
                         return true;
                     }
                 }
@@ -315,6 +389,9 @@ namespace SurvivorCommunity
                 if (w == null || !ScZone.HasHome || stack == null || stack.IsEmpty()) return false;
                 int xMin, xMax, zMin, zMax;
                 ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
+#if SC_V34
+                for (int pass = 0; pass < 2; pass++)        // the crates, then a land claim block's own storage (as Scan orders them)
+#endif
                 for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
                 {
                     for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
@@ -330,6 +407,7 @@ namespace SurvivorCommunity
 #if SC_V34
                             if (st == null || st.ItemGrid == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
                             if (!(tc.PlayerPlaced || IsPlayerStorage(st))) continue;
+                            if ((tc.GetFeature<TEFeatureLandClaim>() != null) != (pass == 1)) continue;
 #else
                             if (st == null || st.items == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
                             if (!(tc.PlayerPlaced || st.bPlayerStorage)) continue;
@@ -432,12 +510,18 @@ namespace SurvivorCommunity
 #if SC_V34
             // 3.4: vanilla's loot refresh (XUiC_LootContainer.OnTileEntityChanged) walks the CONTAINER's grid and indexes the
             // window's widgets with the same counter, unguarded (3.2 walked the widgets) - a view with more cells than the
-            // window has widgets throws on every write, after the write reached a box but before the cell took the drop. Only
-            // the bridge's grid (gi and known: it draws by ShowLimit, and Grid Inventory bounds that loop) may lay out more;
-            // otherwise the view never has more cells than the window's widgets (90 on vanilla's 10 x 9 grid).
-            if (!(gi && known))
+            // window has widgets throws on every write, after the write reached a box but before the cell took the drop. And
+            // RE Inventory 3.3+ draws one cell per container slot with an item widget per slot (its pool of 260; 3.2's Grid
+            // Inventory drew widgets for stacks only and scrolled over empty cells), so its grid cannot draw a cell past its
+            // pool either. So on 3.4 the view never has more cells than the window's widgets, with or without the bridge
+            // (90 on vanilla's 10 x 9 grid) - nor, with the bridge, than the grid's own pool.
             {
                 int widgets = LootWidgets();
+                if (gi && known)
+                {
+                    int pool34 = WidgetPool();
+                    widgets = widgets > 0 ? Math.Min(widgets, pool34) : pool34;
+                }
                 if (widgets > 0) rows = Math.Min(rows, Math.Max(1, widgets / ScLinkedContainer.Cols));
                 else if (gi) rows = Math.Min(rows, VanillaRows);           // unknown: never past vanilla's grid
             }
@@ -569,6 +653,12 @@ namespace SurvivorCommunity
                 ScLog.Out("linked storage opened: " + Boxes + " box(es), " + LiveStacks() + " stack(s), " + FreeCells() + " free cell(s), grid " + c.GetContainerSize().x + "x" + c.GetContainerSize().y
                           + " (cap " + c.RowsCap + " rows" + (c.GridDrawn ? ", " + c.StackCap + " stacks, grid inventory" : ", vanilla grid") + "), "
                           + c.Hidden + " stack(s) and " + c.HiddenCells + " free cell(s) not shown");
+#if SC_V34
+                // 3.4 (DebugLogging): what the view links, and the size the window really shows (RE Inventory 3.3+ resizes
+                // a gridded container to its own rule unless the bridge exempts the view)
+                if (ScConfig.Verbose)
+                    ScLog.Verbose("linked storage boxes: " + BoxesSummary(null) + " | view " + c.ItemGrid.Length + " cells as shown");
+#endif
             }
             catch (Exception e)
             {
