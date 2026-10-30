@@ -292,4 +292,13 @@ Fixed after it:
   box or the player; resize-on-open when a saved size differs from loot.xml.
 
 Builds: SC 3.2 still `81f6c2da`, SC 3.4 `9ae3d333`; bridge 3.2 still `be634f59`, bridge 3.4 `9dcc08e8` (against the 3.4
-install's RE DLL `7dc5b92c`). Test steps: TESTING.md group J (58-63).
+install's RE DLL `7dc5b92c`). Test steps: TESTING.md group J (57a-63).
+
+**Installed 2026-10-30 08:28** with the user's go-ahead (game closed):
+- SC: `deploy_sc34.py`, HEAD 08d3f73, 1928 files, installed = built `9ae3d333`. The old install is in
+  `Port33\_backups\sc34_2026-10-30_082831`. Its only user edit, `DebugLogging` true in Config/blocks.xml, was copied
+  back.
+- Bridge: `build\bridge34` DLL + ModInfo.xml + README.md into `<3.4>\Mods\zzzz_GridInv_SurvivorCommunity`; installed
+  = built `9dcc08e8`. Round 3's copy is in `Port33\_backups\bridge34_2026-10-30_round3`.
+- The 3.2 game is untouched (SC `81f6c2da`, bridge `be634f59`).
+- Next: the user's test, group J.
