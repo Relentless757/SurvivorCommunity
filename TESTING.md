@@ -145,9 +145,9 @@ has a 3.4 build since round 3 (group I). Set `DebugLogging` to true in the 3.4 i
 Your first test's 6 rifles went into the land claim block's own storage (keystoneBlock has a 7x4 store; it was the only
 box then, the crates came after). They are still there - open the land claim block's storage to see them.
 
-52. The bridge loads: the log has `[GridInv/SC] linked storage on RE Inventory 3.3+: the view keeps Survivor Community's
-    size, and a box takes a stack while it has a free slot`. Opening linked storage never logs
-    `container scLinkedStorage shrunk`.
+52. The bridge loads: the log has `[GridInv/SC] linked storage on RE Inventory 3.3+: a box takes a stack only where its
+    own grid (one cell per slot) fits the footprint; the view keeps Survivor Community's size` (round 4's line; round 3
+    said "...while it has a free slot"). Opening linked storage never logs `container scLinkedStorage shrunk`.
 53. Opening linked storage logs `linked storage boxes: ...` - each box's block, position, slots and empty slots - with
     the land claim block (`keystoneBlock`) last, and `view N cells as shown`.
 54. Crates first: with a crate in the home zone, shift-click a few rifles into linked storage. They go into the crate
@@ -155,9 +155,52 @@ box then, the crates came after). They are still there - open the land claim blo
     are there. The land claim block's storage only fills once every crate is full.
 55. Items put into a crate by hand show in linked storage on the next open, every stack; taking one out of the linked
     window takes it out of that crate.
-56. A crate holding rifles still takes more while it has an empty slot: you are told the storage is full only when
-    every slot of every box is used. The view shows empty cells under the stacks to drop into (more than 36 cells).
+56. ~~A crate holding rifles still takes more while it has an empty slot~~ - replaced by step 58 (round 4: your second
+    test put every weapon into one crate and its grid grew). The view shows empty cells under the stacks to drop into.
 57. A member who keeps a weapon you gave them hands the old one back into a crate, not into the land claim block.
+
+**J. Linked storage, round 4: a crate takes only what its own grid fits (3.4)**
+
+Your second test (2026-10-30): every weapon went into ONE crate, whose grid then grew rows to show them. RE Inventory
+3.3+ lays a crate out one cell per slot and its own window takes an item only where those cells fit the footprint, but
+it never refuses a write into a CLOSED box - and linked storage writes into closed boxes. The bridge now asks each box
+what its window would answer (its slot-count grid, packed largest first): a 48-slot wooden crate holds only a few
+rifles. Your crate keeps what it has; it takes nothing more until it is back within its grid.
+
+The same log shows something worse: **round 3 DUPLICATED items on a shift-click.** Survivor Community put the rifle
+into the crate, then RE Inventory's own room check on the LINKED window said there was no room
+(`[GridInv] no grid space for gunRifleT3SniperRifle (5x2); refused`). The game then treated the shift-click as failed,
+so the rifle stayed in your backpack as well. Linked storage now decides for itself what its window takes (its boxes),
+with nothing after it to undo that. The window is also sized by the items' footprints, so it shows real free cells to
+drop into.
+
+57a. Before you test: open the crate you filled in the second test and count the weapons in it against what you put
+    in. Then look in your backpack: weapons that are in the crate AND still in your backpack were duplicated by round 3.
+    It is your save, so whether you remove the copies is up to you. Until round 4 is installed, don't shift-click into
+    linked storage.
+58. Shift-click rifles into linked storage one at a time. Each one leaves your backpack. The first crate with room takes
+    only as many as its own window can seat (open it: no extra rows, every item on the grid), then the NEXT crate gets
+    them (log `... into <crate> at <pos>`), the land claim block's storage last. The log may still show RE Inventory's
+    `[GridInv] no grid space ... refused` line just BEFORE Survivor Community's `into` line. That is RE judging the
+    linked window, which no longer decides anything: what matters is the `into` line and the rifle leaving your backpack.
+59. The over-full crate from your second test takes nothing more (`linked storage: no box takes ...` with DebugLogging lists
+    it as `0 free cells, NO room for it`). Take some weapons out of it by hand: once what is left fits its grid, it takes
+    items again.
+60. When no box's grid fits a rifle but there is still room for small items: shift-clicking a rifle says "No box has room
+    for that." and the rifle stays in your backpack (before: nothing happened and nothing was said); a small item still
+    goes in.
+61. Linked storage shows empty cells under the stacks, about as many as the strip's free cells (up to 12 rows). With a
+    crate that has room, DRAG a rifle from the backpack onto an empty part of the linked grid: it goes into a crate. When
+    no crate fits it, the drop is refused and the rifle stays on your cursor or comes back to your backpack - never two
+    of it. (Once what is stored covers more than about 20 rows of the linked grid, the empty band is cut, and a dragged
+    rifle may be refused by the grid. Shift-click and Move All still work then.)
+62. Right-click drop-one from a held stack (e.g. 20 nails) onto an empty cell of linked storage: one goes into a box, 19
+    stay on the cursor. With every box full: the drop is refused and the cursor still has all 20, and NO extra nail appears
+    in the backpack (round 4 fixed a duplicate there).
+63. Move All from the backpack into linked storage: crates fill in order; what no crate takes stays in the backpack; no
+    item ends up both in a crate and in the backpack.
+
+(The Home Status strip's vanilla supply icons are AshfallUI's to fix, in its own session - see PORT_34.md round 4.)
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

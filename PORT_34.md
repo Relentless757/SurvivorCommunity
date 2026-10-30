@@ -218,3 +218,78 @@ README.md and build\bridge34 DLL into `<3.4>\Mods\zzzz_GridInv_SurvivorCommunity
 folder, installed = built `41c43b91` (loads after SurvivorCommunity and zzzz_1_REInventory); AshfallUI 3.3+, all 2229
 files = the repo, `windows.xml` = c02cc17. Next: the user's test, TESTING.md group I (`DebugLogging` true for the
 `linked storage` lines).
+
+### Round 4: a crate takes only what its own grid fits (2026-10-30, built, not installed)
+
+The user's second test: "I put a bunch of weapons in linked storage, but they only went to one crate, which made the
+crate storage capacity bigger than it should be, rather than filling up the next available storage." Round 3 took
+Fable's round-2 H1 at its word - "on 3.4 a crate's real capacity is its slot count" - but that is only true of a CLOSED
+box: RE Inventory 3.3+ lays a box out one cell per slot and its own window lets an item in only where those cells fit
+the footprint (`XUiC_ContainerGrid.HasRoomFor`: Pack the slots into the grid's cols x rows, place the newcomer).
+`GridSpace.ContainerHasRoomFor` asks that only while the box is bound to an open grid, so linked storage's writes into
+closed boxes were never refused, and the box's window then grew rows to seat them (`growToFit`). A crate's capacity
+as the player sees it is the footprint room of its slot-count grid - 3.2's semantics, on 3.3+'s shape.
+
+Fixes:
+- **Bridge, 3.4 build:** sets `BoxHasRoomFor` and `BoxFreeCells` again, on 3.3+'s shape: `ChooseShape(ItemGrid.ContainerSize,
+  ItemGrid.Length, GridConfig.Cols, 0, 0)` (RE's `ContainerStore.Hint` is `ItemGrid.ContainerSize`), `Pack` largest
+  first, `CanFitAnywhere` (either orientation). A box whose contents already overflow its grid (the crate from the test)
+  takes nothing and counts 0 free cells. (`StackArea` was left unset in the first build. After the review it is set and
+  only sizes the view; see below.)
+- **SC (3.4 only):** a shift-click (AddItemLinked) that no box takes now says `scStorageFull` ("No box has room for
+  that."), as a drop on a cell already did. With the footprint test a free cell in the view no longer means a box takes
+  a rifle, and the silent no-op read as broken. 3.2's AddItemLinked is unchanged (equally silent there).
+- **Not here - AshfallUI's own session (user, 2026-10-30: AshfallUI is edited by its own session only):** the Home Status
+  strip's supply icons are vanilla's under the Ashfall plate (user: "missing the new Ashfall sprites for food/water/etc.").
+  Cause: SC's `windowScHomeStatus` rides the HUD's `toolbelt` group, which AshfallUI's `MenuMetal` leaves out of its icon
+  swap (`HudGroups`); every icon in it (ui_game_symbol_fork, _water, _medical, _shape_ammo, _brick, _gas, _players,
+  _noise) has a painted brass twin. Likely fix on that side: `windowScHomeStatus` in `MenuMetal.HudIconWindows`, as the
+  quest/recipe trackers are (the mood dot, `ui_game_filled_circle`, has no twin). Same on 3.2.
+
+Fable review (`research\sc34\review\round4\REVIEW_round4.md`): NOT DEPLOYABLE as first built (SC 3.4 `2c629885`, bridge
+3.4 `df993533`); the box-side change itself checked correct (shape, Pack, CanFitAnywhere = RE's Bind/HasRoomFor; free
+cells <= empty slots; the cache invalidated on every write). Its H1 was the AshfallUI line, reverted on the user's word.
+Fixed after it:
+- **H2: ROUND 3 DUPLICATED ITEMS on a shift-click into linked storage.** The game's Harmony (0_TFP_Harmony, HarmonyX,
+  `HarmonyManipulator.WritePrefixes`) calls EVERY prefix in order and ANDs the bool results. A false never skips a later
+  prefix. `ref __result` is one shared local, so the last writer wins. The order is priority (descending), then
+  first-patched first. SC's InitMod runs before RE's (load order), so at equal priority SC's AddItem prefix ran FIRST:
+  it deposited into a box, set `__result = true` and returned false. Then RE's `TEFeatureStorage_AddItem_GridSpace` gate
+  ran on the view, now one stack fuller. It found no 5x2 room, logged its refusal and set `__result = false`.
+  `XUiM_LootContainer.AddItem` then reported failure, and the backpack KEPT the rifle while the crate held a copy.
+  - Evidence: one click in the user's log (Player-prev.log 07:47:48): `linked storage: Sniper Rifle (T3) x1 into
+    cntWoodWritableCrate ..., slot 18`, then `scLinkedStorage: grid grown from 10 to 12 rows`, then `[GridInv] no grid
+    space for gunRifleT3SniperRifle (5x2); refused`. The re-check also saw `slot 9, slot 10, refused` at 07:23:06 (that
+    log has rotated out since).
+  - This fits "crate capacity bigger than it should be". The crate the user filled (48 slots, 19 stacks after the test)
+    probably holds duplicated rifles.
+  - Round 2's L2 ("SC runs first") had the order right, but its conclusion (RE's prefix is then skipped) was wrong. My
+    first reading of the log ("RE refused before SC ran") was wrong as well.
+  - The review's own fix (a), "SC first", is round 3's duplicate.
+  - Fix: SC's AddItem and TryStackItem prefixes are `[HarmonyPriority(Priority.Last)]`. They decide alone for the linked
+    view (no `__runOriginal` guard) and overwrite `__result`, so nothing writes `__result` after a deposit. RE's gate
+    still runs first and logs `no grid space ... refused` when the view looks full; with this build that line means
+    nothing.
+  - SCore's slot-tag prefix asks about the view's own block, which means nothing for a window over many boxes. Its
+    shift-click rule still applies through its XUiM_LootContainer.AddItem prefix. Its TEFeatureStorage rule is now
+    overridden for the view on Move All (LOW).
+- **(b), drag-and-drop:** RE's drop code needs free cells in the VIEW's grid. The bridge sets `StackArea` on 3.4 again
+  (`stackArea34`). SC 3.4's Rebuild sizes the view as on 3.2 (area + free band, in slots = cells on RE 3.3+) but hides
+  stacks only by COUNT (`live.Count >= MaxCells` / StackCap). So the view has the free band as real cells, and H1(c)
+  (rifles hiding stacks past 180 cells) stays fixed. Past 180 slots RE grows rows itself.
+- **M1, drop-one duplicate:** RE 3.3+ keeps the whole held stack on the cursor until `writeSlot` confirms (dropOneAt
+  writes 1 of N). `StillOnCursor` compared counts with `==`, so a refused drop-one gave 1 back to the player AND kept N on
+  the cursor. Now the same count OR a written count of 1. The re-check's M1: `>=` (the v2 build b0605da7) could keep a
+  stack that vanilla's sort moved into an unmapped cell, with every box full, off the player while the cursor held more
+  of that item.
+- Re-check (`RECHECK_round4.md`): DEPLOYABLE.
+  - Harmony reading confirmed.
+  - Only SCore and RE patch the three targets in the 3.4 install; no postfixes.
+  - The view math checks: free cells = the band while stored footprints + band stay within 180 cells. Past that the band
+    is cut, and a dragged rifle is refused by RE's drop code; shift-click and Move All still work.
+- Left: M2 (stricter than the box's window: no make-room-by-arranging; an over-full box takes nothing, though its grown
+  window would take a small item). That is conservative by design. LOWs: a refused swap can move the blocker to another
+  box or the player; resize-on-open when a saved size differs from loot.xml.
+
+Builds: SC 3.2 still `81f6c2da`, SC 3.4 `9ae3d333`; bridge 3.2 still `be634f59`, bridge 3.4 `9dcc08e8` (against the 3.4
+install's RE DLL `7dc5b92c`). Test steps: TESTING.md group J (58-63).
