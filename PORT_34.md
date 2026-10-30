@@ -210,5 +210,11 @@ live 3.2 copy), bridge 3.4 `41c43b91` (build\bridge34). AshfallUI's 3.3+ edition
 HIGH/MEDIUM; LOWs left: the brace-less pass loop in DepositInZone, the strip's "free cells" wording that means slots on
 3.4, RE's re-bind after every shift-click logging `container opened` - not repeated opens). Test steps: TESTING.md
 group I (52-57).
-To install (game closed, the user's go-ahead): commit, `deploy_sc34.py <md5> --go`; the bridge's ModInfo.xml, README.md
-and build\bridge34 DLL into `<3.4>\Mods\zzzz_GridInv_SurvivorCommunity`; AshfallUI `python tools/deploy33.py`.
+To install (game closed, the user's go-ahead): commit, `deploy_sc34.py <full md5> --go`; the bridge's ModInfo.xml,
+README.md and build\bridge34 DLL into `<3.4>\Mods\zzzz_GridInv_SurvivorCommunity`; AshfallUI `python tools/deploy33.py`.
+
+**Installed 2026-10-30** with the user's go-ahead (game closed): SC HEAD e679679, 1928 files, installed = built
+`7a680c4d` (old install in `Port33\_backups\sc34_2026-10-30_000121`; its config had no user edits); the bridge's new
+folder, installed = built `41c43b91` (loads after SurvivorCommunity and zzzz_1_REInventory); AshfallUI 3.3+, all 2229
+files = the repo, `windows.xml` = c02cc17. Next: the user's test, TESTING.md group I (`DebugLogging` true for the
+`linked storage` lines).
