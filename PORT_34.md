@@ -369,3 +369,13 @@ has no try/catch, and CompareForSort can't throw on what it sees.
 
 Builds: SC 3.2 still `81f6c2da`, SC 3.4 `cf41c40b`; bridge 3.2 still `be634f59`, bridge 3.4 `d49b0cdb`; RE `92eb9888` (3.2 byte-identical). Test
 steps: TESTING.md group K (64-73), RE's PORT33.md 32-36.
+
+**Installed 2026-10-31 08:24** with the user's go-ahead (game closed), all three together:
+- RE Inventory: `stage_reinv33.py --deploy`, port-3.3 1d73fc6, 505 files, installed = built `92eb9888`. The script deletes the
+  old folder and keeps no backup, so it was copied first to `Port33\_backups\reinv34_2026-10-31_round5`. Only the DLL differs.
+- SC: `deploy_sc34.py`, HEAD 0b7771e, 1928 files, installed = built `cf41c40b`. The old install is in
+  `Port33\_backups\sc34_2026-10-31_082438`. Its only user edit, `DebugLogging` true in Config/blocks.xml, was copied back.
+- Bridge: `build\bridge34` DLL + ModInfo.xml + README.md; installed = built `d49b0cdb`. Round 4's copy is in
+  `Port33\_backups\bridge34_2026-10-31_round4`.
+- The 3.2 game is untouched (SC `81f6c2da`, bridge `be634f59`).
+- Next: the user's test, group K.
