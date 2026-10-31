@@ -222,10 +222,9 @@ real room. This round needs Survivor Community, the bridge and RE Inventory toge
 67. Partial stacks: put part of a stack of one item in one crate and the rest in another, opening each crate directly.
     Press Sort in linked storage: they merge (with DebugLogging, log `sort merged N partial stack(s)`), the total is the
     same, and opening each crate shows the same total with no copy. Weapons and other items with quality never merge.
-68. The land claim block that Sort filled past its size keeps its items and takes nothing more (`0 free cells`) until you
-    take enough out by hand. Taking a stack from it shortens the empty cells rather than adding ones that don't work. Until
-    it is back within its size, a stack you lift out of it can't go back into it: it lands in another crate, or "No box has
-    room for that."
+68. (Replaced by step 74: the land claim block is no longer part of linked storage. The same rule still holds for any
+    crate past its size: it takes nothing more until you take enough out by hand, and a stack lifted out of it can't go
+    back into it until then.)
 69. Shift-click a small item in: the footer drops by 1 and one empty cell fills. Take it out: both come back. A rifle does
     the same by its footprint (5x2: 10 cells).
 70. The limits, which are not bugs: (a) when big items can't pack tightly, a few empty cells can sit BETWEEN them, so the
@@ -240,6 +239,34 @@ real room. This round needs Survivor Community, the bridge and RE Inventory toge
     an SMG-5 (3x2), then a spear (1x5). The crate takes the spear, the log counts 9 free cells for it (not `0 free cells`),
     linked storage keeps filling it, and opened directly it has its normal 6 rows with no extra row. (Before, the spear was
     refused with 39 of 48 cells used. A shovel is only 1x4 and never showed this.)
+
+**L. Linked storage, round 6: the land claim block is left out, and Sort doesn't grow a crate (3.4)**
+
+Your test (2026-10-31): you couldn't tell which cells belonged to the land claim block's own storage, and crates still grew
+when sorted. The land claim block is now out of linked storage completely. Its storage stays on the block as an ordinary box
+you open there, because an outpost's packing strip uses it, and removing it from the block would delete what is inside.
+The growth was RE Inventory's sort in a crate's own window. It needs Survivor Community and RE Inventory together. These
+steps replace "the land claim block last" in steps 58 and earlier.
+
+74. Open linked storage: the footer's box count leaves out the land claim block, and with DebugLogging the `linked storage
+    boxes:` line has no `keystoneBlock`. What you stored in the block is not in this window. It is still in the block: open
+    the land claim block itself and take it out.
+75. Fill your crates through linked storage until none has room: shift-click says "No box has room for that." and nothing
+    lands in the land claim block.
+76. Put something in the land claim block directly: it never shows in linked storage, and Sort or Move All there don't touch it.
+77. A member who keeps a weapon you gave them hands the old one back into a crate. With no crate room it goes to your
+    backpack, then to a bag at your feet, never into the land claim block.
+78. At an outpost: the packing strip on the outpost's claim block still works, and the outpost's storage window lists only
+    its crates. Hauled and withdrawn bundles still land in the claim block, so look for them by opening the block, not in
+    that window. With no crate at the outpost the window has one cell and says "No box has room for that."
+79. Open a nearly full crate directly and press Sort a few times: it keeps its normal rows, and the log has no `grid grown`
+    line. Sort in linked storage doesn't change any crate either. With every crate full, the linked window itself can add a
+    row (`scLinkedStorage: grid grown`). That is the view, not a crate.
+80. Pack a crate tightly by hand, close it and reopen it: same rows, nothing moved off the grid. Unlocked items may shift to
+    stay in shape. If a crate does grow, the log line now ends `(44 of 48 cells)`: a used count near or over the total is a
+    crate that really is too full. If plenty is free, send that line to the RE Inventory session.
+81. Move All from a full backpack into a base of nearly full crates: a short pause is fine, a stall of seconds is not, and
+    what no crate takes stays in the backpack.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

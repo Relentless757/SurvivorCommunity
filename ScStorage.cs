@@ -121,9 +121,6 @@ namespace SurvivorCommunity
                 else ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
                 int cxMin = World.toChunkXZ(xMin), cxMax = World.toChunkXZ(xMax);
                 int czMin = World.toChunkXZ(zMin), czMax = World.toChunkXZ(zMax);
-#if SC_V34
-                var claimBoxes = new List<Vector3i>();
-#endif
                 for (int cx = cxMin; cx <= cxMax; cx++)
                 {
                     for (int cz = czMin; cz <= czMax; cz++)
@@ -147,13 +144,13 @@ namespace SurvivorCommunity
                             Vector3i pos = tc.ToWorldPos();
                             if (area != null ? (pos.x < xMin || pos.x > xMax || pos.z < zMin || pos.z > zMax) : !ScZone.Contains(pos)) continue;
 #if SC_V34
-                            // a land claim block's own storage (keystoneBlock's 7x4) goes after every other box, so a deposit
-                            // fills the crates first and the claim block only once they are full (in chunk order it came first)
-                            if (tc.GetFeature<TEFeatureLandClaim>() != null) claimBoxes.Add(pos);
-                            else boxes.Add(pos);
-#else
-                            boxes.Add(pos);
+                            // a land claim block's own storage (keystoneBlock's 7x4) is not linked: in one grid with the crates
+                            // nothing shows which cells are its own (user, 2026-10-31). It stays on the block, opened there:
+                            // an outpost's packing strip rides it (ScStockpile.StationOf), and a saved block's items would be lost
+                            // with the feature (TileEntityComposite.read skips a payload the block no longer defines).
+                            if (tc.GetFeature<TEFeatureLandClaim>() != null) continue;
 #endif
+                            boxes.Add(pos);
 #if SC_V34
                             ItemStack[] items = st.ItemGrid != null ? st.ItemGrid.items : null;   // 3.4: the grid's slots (read only)
 #else
@@ -169,9 +166,6 @@ namespace SurvivorCommunity
                         }
                     }
                 }
-#if SC_V34
-                boxes.AddRange(claimBoxes);
-#endif
                 Slots.Sort(Compare);
                 return true;
             }
@@ -389,9 +383,6 @@ namespace SurvivorCommunity
                 if (w == null || !ScZone.HasHome || stack == null || stack.IsEmpty()) return false;
                 int xMin, xMax, zMin, zMax;
                 ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
-#if SC_V34
-                for (int pass = 0; pass < 2; pass++)        // the crates, then a land claim block's own storage (as Scan orders them)
-#endif
                 for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
                 {
                     for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
@@ -407,7 +398,7 @@ namespace SurvivorCommunity
 #if SC_V34
                             if (st == null || st.ItemGrid == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
                             if (!(tc.PlayerPlaced || IsPlayerStorage(st))) continue;
-                            if ((tc.GetFeature<TEFeatureLandClaim>() != null) != (pass == 1)) continue;
+                            if (tc.GetFeature<TEFeatureLandClaim>() != null) continue;     // not linked (Scan)
 #else
                             if (st == null || st.items == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
                             if (!(tc.PlayerPlaced || st.bPlayerStorage)) continue;

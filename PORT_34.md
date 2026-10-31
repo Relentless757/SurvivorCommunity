@@ -379,3 +379,35 @@ steps: TESTING.md group K (64-73), RE's PORT33.md 32-36.
   `Port33\_backups\bridge34_2026-10-31_round4`.
 - The 3.2 game is untouched (SC `81f6c2da`, bridge `be634f59`).
 - Next: the user's test, group K.
+
+### Round 6: the land claim block out of linked storage; Sort doesn't grow a crate (2026-10-31, built, not installed)
+
+The user, testing round 5: "I still see crates growing in size when sorting. Also, I don't think the land claim should have
+it's own storage, it's hard to determine what cells belong to the land claims own storage." Log kept at the session's
+`player_round5_test.log`. Round 5's own fix held: each box's stacks and free cells were identical before and after a Sort of
+the linked view (log :5645, :6005).
+
+- **SC (3.4 only):** the land claim block's storage is not linked. Scan skips any box with TEFeatureLandClaim, and
+  DepositInZone loses its second pass. Removing TEFeatureStorage from keystoneBlock instead was ruled out: outposts use it
+  (the packing strip, ScStockpile.StationOf, and hauled bundles, ScOutpostPerks.Unstash, both reach it through the tile
+  entity), and `TileEntityComposite.read` skips the payload of a feature the block no longer defines, so a placed block's
+  items would be lost on load (the user's holds 20 stacks). They stay in the block, opened there. scOutpostFlag extends keystoneBlock, so it is left out too. A base with no crates gets a window with 0 boxes;
+  a handed-back weapon falls through to the backpack, then a bag (ScArms.Return).
+- **RE Inventory, asked of its session:** Sort in a crate's own window grew it. A crate at `48 slots, 40 empty, 4 free cells`
+  opened at 8x6, and Sort logged `grid grown from 6 to 8 rows` BEFORE `repacked 8 item(s) after sort` (:5609-5610).
+  Second, smaller case: a hand-arranged crate growing on open (:6076). Its session's fix, port-3.3 3972921, DLL `e33a4172`, 3.2
+  byte-identical, two Fable reviews: a sort lays out once at the end, a grown grid goes back to the container's own rows if
+  everything seats, Pack ends with a bounded exact search, and the `grid grown` line gives `(44 of 48 cells)`. This reaches
+  every 3.3+ container: when one would have grown, its unlocked items can move to stay in shape.
+- **Bridge, 3.4 build:** `packed34` adds up the footprints first and reports over without a pack when they exceed the grid.
+  Pack now searches before it reports overflow, and a tight box is asked once per stack on a Move All. Past that gate a
+  refused stack can still cost one bounded search per box (about 3 ms on net8, more on Mono).
+
+Fable review (`research\sc34\review\round6\REVIEW_round6.md`): DEPLOYABLE, no HIGH or MEDIUM. Both reasons for keeping the
+storage on the block confirmed. Fixed in docs: L2, L3, L4 (TESTING 78, 79, 81), N1. Left: L1, with no crate in the zone the view
+is one cell and says "No box has room for that." rather than naming the cause (the user is told; a small change if wanted).
+N2 goes to RE's session: reconcile and RepackAfterSort measure by ItemValue, Pack by ItemStack, which differ only with stack
+footprints on.
+
+Builds: SC 3.2 still `81f6c2da`, SC 3.4 `bbe3439c`; bridge 3.2 still `be634f59`, bridge 3.4 `7e93a8f8` (against RE `e33a4172`). Test
+steps: TESTING.md group L (74-81), RE's PORT33.md 32-36.
