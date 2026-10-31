@@ -202,6 +202,45 @@ drop into.
 
 (The Home Status strip's vanilla supply icons are AshfallUI's to fix, in its own session - see PORT_34.md round 4.)
 
+**K. Linked storage, round 5: Sort leaves the boxes alone, and the grid draws only real cells (3.4)**
+
+Your test (2026-10-30): the footer's free cells and the empty cells on screen disagreed, and the footer sometimes jumped
+with nothing added. The footer was right: it is the room left in the boxes. The grid had to fill its last row, so it
+showed cells no box stood behind (2 free cells, 7 empty on screen), and RE Inventory could add whole rows. Sort was a
+real bug: it wrote each cell's new stack into whichever box slot sat behind that cell, so stacks moved between crates with
+no room check, and a box could go past its size. Sort now only merges partial stacks, and the grid draws no cell past the
+real room. This round needs Survivor Community, the bridge and RE Inventory together.
+
+64. Open linked storage: the last row simply stops where the room stops, so the empty cells on screen match the footer's
+    free cells, apart from gaps between big items (step 70). With 2 free cells and mostly small items you see 2 empty
+    cells, even if that row is otherwise unfinished.
+65. Pick up an item and hover past the last cell of a short row: nothing is drawn there, and you can't drop there.
+66. Press Sort a few times, watching the footer: the items tidy up and the footer stays the same, unless Sort merged partial
+    stacks (step 67), which frees their cells and raises it once. With DebugLogging, reopen the window before and after:
+    apart from such a merge, each box in the `linked storage boxes:` line keeps its stacks and its free cells, and no
+    `[SurvivorCommunity] linked storage: ... into ...` lines appear from the Sort.
+67. Partial stacks: put part of a stack of one item in one crate and the rest in another, opening each crate directly.
+    Press Sort in linked storage: they merge (with DebugLogging, log `sort merged N partial stack(s)`), the total is the
+    same, and opening each crate shows the same total with no copy. Weapons and other items with quality never merge.
+68. The land claim block that Sort filled past its size keeps its items and takes nothing more (`0 free cells`) until you
+    take enough out by hand. Taking a stack from it shortens the empty cells rather than adding ones that don't work. Until
+    it is back within its size, a stack you lift out of it can't go back into it: it lands in another crate, or "No box has
+    room for that."
+69. Shift-click a small item in: the footer drops by 1 and one empty cell fills. Take it out: both come back. A rifle does
+    the same by its footprint (5x2: 10 cells).
+70. The limits, which are not bugs: (a) when big items can't pack tightly, a few empty cells can sit BETWEEN them, so the
+    screen can show slightly more than the footer. The layout comes from what is stored, so Sort or reopening won't always
+    clear them. A small item still goes there if a box has room. (b) Free cells split across crates take small items but
+    can still refuse a rifle: "No box has room for that."
+    (c) Past 12 rows of empty cells the grid stops adding them; the footer still counts all the room.
+71. Type in the window's search box in linked storage, then clear it: no extra empty cells appear either way.
+72. RE Inventory on anything else: a crate opened directly, POI loot, a vehicle's storage and your backpack all look and
+    behave as before, including Sort in a crate.
+73. Mixed shapes in one empty wooden crate, through linked storage: two Sniper Rifles (5x2), an AK-47 or Auto Shotgun (4x2),
+    an SMG-5 (3x2), then a spear (1x5). The crate takes the spear, the log counts 9 free cells for it (not `0 free cells`),
+    linked storage keeps filling it, and opened directly it has its normal 6 rows with no extra row. (Before, the spear was
+    refused with 39 of 48 cells used. A shovel is only 1x4 and never showed this.)
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

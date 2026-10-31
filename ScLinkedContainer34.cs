@@ -109,9 +109,7 @@ namespace SurvivorCommunity
                 usedArea += a;
             }
             int free = ScStorage.FreeFor(GridDrawn);
-            int shown = Math.Min(free, cap - usedArea);
-            if (GridDrawn) shown = Math.Min(shown, HeadroomRows * Cols);
-            shown = Math.Max(0, shown);
+            int shown = ShownFree(usedArea, free);
             HiddenCells = free - shown;
             int cells = Mathf.Clamp(usedArea + shown, 1, cap);
             int rows = Mathf.Clamp((cells + Cols - 1) / Cols, 1, Math.Max(1, RowsCap));
@@ -134,6 +132,35 @@ namespace SurvivorCommunity
             {
                 quiet = false;
             }
+        }
+
+        /// <summary>The empty cells the view lays out for the boxes' free room: past MaxCells, or past HeadroomRows on Grid Inventory's grid, the footer still counts that room but no cell shows it.</summary>
+        private int ShownFree(int _usedArea, int _free)
+        {
+            int shown = Math.Min(_free, MaxCells - _usedArea);
+            if (GridDrawn) shown = Math.Min(shown, HeadroomRows * Cols);
+            return Math.Max(0, shown);
+        }
+
+        /// <summary>
+        /// The cells the view should have right now: its stacks' area plus the empty cells for the boxes' free room, at least
+        /// 1 because 0 = no limit (vanilla's grid). Rebuild has to give the view a whole number of rows, so its last row is
+        /// padded with cells no box stands behind: 74 cells of stacks and 2 free made 81 cells, 7 of them empty on screen, with
+        /// the footer rightly saying 2 (user, 2026-10-30). RE Inventory 3.3+ asks this on every layout (the bridge's hook) and
+        /// does not draw the cells past it. It is asked again because it moves: a stack leaving a box filled past its grid
+        /// gives back fewer cells than it held, and a deposit can tip a box over. A change with no slot change (a crate
+        /// placed while the view is open) waits for the next layout, as the view itself waits for Refresh.
+        /// </summary>
+        public int CellsNow()
+        {
+            if (!GridDrawn) return 0;
+            int cap = MaxCells;
+            int used = 0;
+            for (int i = 0; i < map.Length; i++)
+            {
+                if (map[i] != null && !map[i].Stack.IsEmpty()) used += Math.Min(ScStorage.AreaOf(map[i].Stack), cap);
+            }
+            return Math.Max(1, used + ShownFree(used, ScStorage.FreeFor(GridDrawn)));
         }
 
         private ScStorage.Slot MapAt(int _idx)
@@ -353,7 +380,119 @@ namespace SurvivorCommunity
             return (any, _itemStack != null && _itemStack.count == 0);
         }
 
-        // ---- the two prefixes ----
+        // ---- Sort (reached through Patch_LinkedSort) ----
+
+        /// <summary>
+        /// The Sort button: partial stacks of an item are merged, each write going through to its box, and no other stack
+        /// moves in any box. Vanilla's ItemGrid.Sort reorders the view's cells, then raises SlotChanged for every one, so the
+        /// mirror wrote each cell's new stack into whichever box slot stood behind that cell, with no room check: stacks were
+        /// dealt across the boxes by position, a box's free cells changed with nothing added, and a box could go past its grid
+        /// (user's log, 2026-10-30: a 28-cell land claim block holding 31 or 32, reached past Deposit's footprint test).
+        /// On Grid Inventory's grid the order vanilla would have made never showed anyway: its repack after the button (area,
+        /// then item type) decides what the player sees, and it runs on these slots as they are. Vanilla's grid shows slot
+        /// order, so there the view's own cells are sorted (SortCells).
+        /// </summary>
+        internal void SortView()
+        {
+            MergeStacks();
+            if (!GridDrawn) SortCells();
+        }
+
+        /// <summary>Vanilla's order on the view alone: the cells and the map behind them move together with the mirror off, so
+        /// each stack keeps its box slot and no box is written. The window redraws from the button's NotifyListeners.</summary>
+        private void SortCells()
+        {
+            var order = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < ItemGrid.Length; i++)
+            {
+                if (!ItemGrid[i].IsEmpty()) order.Add(i);
+            }
+            order.Sort((a, b) => ItemStackGrid.CompareForSort(ItemGrid[a], ItemGrid[b]));
+            var stacks = new ItemStack[ItemGrid.Length];
+            var slots = new ScStorage.Slot[ItemGrid.Length];
+            for (int i = 0; i < order.Count; i++)
+            {
+                stacks[i] = ItemGrid[order[i]].Clone();
+                slots[i] = MapAt(order[i]);
+            }
+            quiet = true;
+            try
+            {
+                ItemGrid.SetItems(stacks, false);
+            }
+            finally
+            {
+                quiet = false;
+            }
+            map = slots;
+        }
+
+        /// <summary>Same stacking rule as vanilla's CompactSlots (never an item with quality), plus CanStackPartlyWith's own
+        /// tests. A merge that would make the target stack's footprint bigger is left alone (RE Inventory's stack footprints
+        /// option, off by default).</summary>
+        private void MergeStacks()
+        {
+            try
+            {
+                int merged = 0;
+                for (int i = 0; i < ItemGrid.Length; i++)
+                {
+                    ScStorage.Slot to = MapAt(i);
+                    if (to == null) continue;
+                    ItemStack a = ItemGrid[i];
+                    ItemClass ic = a.IsEmpty() ? null : a.itemValue.ItemClass;
+                    if (ic == null || ic.HasQuality) continue;
+                    for (int k = i + 1; k < ItemGrid.Length; k++)
+                    {
+                        ScStorage.Slot from = MapAt(k);
+                        if (from == null) continue;
+                        ItemStack b = ItemGrid[k];
+                        int n;
+                        if (b.IsEmpty() || !a.CanStackPartlyWith(b, out n) || n <= 0) continue;
+                        if (MergeInto(i, to, k, from, n)) merged++;
+                    }
+                }
+                if (merged > 0 && ScConfig.Verbose) ScLog.Verbose("linked storage: sort merged " + merged + " partial stack(s)");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("linked-sort", e);
+            }
+        }
+
+        /// <summary>Moves _n from cell _k's stack to cell _i's, the boxes first: taken out of its box, then put in the other, and
+        /// taken back if that write fails, so a failed merge changes nothing and the view only follows what the boxes hold.</summary>
+        private bool MergeInto(int _i, ScStorage.Slot _to, int _k, ScStorage.Slot _from, int _n)
+        {
+            ItemStack more = ItemGrid[_i].Clone();
+            more.count += _n;
+            if (ScStorage.AreaOf(more) > ScStorage.AreaOf(ItemGrid[_i])) return false;
+            ItemStack was = ItemGrid[_k].Clone();
+            ItemStack less = was.Clone();
+            less.count -= _n;
+            if (less.count <= 0) less = ItemStack.Empty.Clone();
+
+            if (!ScStorage.WriteThrough(_from, less)) return false;
+            if (!ScStorage.WriteThrough(_to, more))
+            {
+                if (!ScStorage.WriteThrough(_from, was)) ScLog.Err("linked storage: a sort's merge failed and " + was.count + " item(s) could not go back into their box");
+                return false;
+            }
+            quiet = true;
+            try
+            {
+                ItemGrid.SetItem(_i, more);
+                ItemGrid.SetItem(_k, less);
+            }
+            finally
+            {
+                quiet = false;
+            }
+            if (less.IsEmpty()) SetMap(_k, null);
+            return true;
+        }
+
+        // ---- the prefixes ----
 
         /// <summary>
         /// TEFeatureStorage.AddItem(ItemStack) for linked storage only: AddItemLinked instead of the cell-first original.
@@ -432,6 +571,42 @@ namespace SurvivorCommunity
                 ScLinkedContainer c = __instance as ScLinkedContainer;
                 if (c == null) return true;
                 __result = c.TryStackItemLinked(_startIndex, _itemStack);
+                return false;
+            }
+        }
+
+        /// <summary>ItemStackGrid.Sort on the view's own grid: SortView instead (the boxes keep their stacks). Every other
+        /// grid runs vanilla's. XUiC_LootWindow's button calls this and then NotifyListeners, and RE Inventory's repack
+        /// (a postfix on the button) still tidies what the player sees.</summary>
+        [HarmonyPatch]
+        public static class Patch_LinkedSort
+        {
+            public static MethodBase Target()
+            {
+                return AccessTools.DeclaredMethod(typeof(ItemStackGrid), "Sort", Type.EmptyTypes);
+            }
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (Target() != null) return true;
+                    ScLog.Err("ItemStackGrid.Sort() not found (game update?) - Sort in linked storage moves stacks between boxes with no room check");
+                }
+                catch (Exception e) { ScLog.Once("linked-bind-sort", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Target(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(ItemStackGrid __instance)
+            {
+                ScLinkedContainer c = ScStorage.Current;
+                if (c == null || !ReferenceEquals(c.ItemGrid, __instance)) return true;
+                c.SortView();
                 return false;
             }
         }

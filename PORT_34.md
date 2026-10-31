@@ -302,3 +302,70 @@ install's RE DLL `7dc5b92c`). Test steps: TESTING.md group J (57a-63).
   = built `9dcc08e8`. Round 3's copy is in `Port33\_backups\bridge34_2026-10-30_round3`.
 - The 3.2 game is untouched (SC `81f6c2da`, bridge `be634f59`).
 - Next: the user's test, group J.
+
+### Round 5: Sort leaves the boxes alone; the grid draws only real cells (2026-10-30, built, not installed)
+
+The user, testing round 4: "Free cells sometimes changes to a different value than the cells that I see are free on
+screen." Then, of the filler cells: "I want to avoid adding cells that don't actually work, it would be confusing." The
+footer was right: it is the boxes' real room (`ScStorage.FreeCells`). The screen was wrong in three ways (log kept at the
+session's `player_round4_2147.log`):
+
+- **Filler.** Rebuild has to give the view whole rows. Screenshot at 21:42: 74 cells of stacks + 2 free = 76, rounded up to
+  9 rows = 81 cells, so 7 empty on screen against the footer's 2.
+- **Extra rows.** RE's `growToFit` adds whole rows when the view is too tight to pack (`grid grown from 9 to 12 rows`).
+- **Sort moved stacks between boxes (the real bug).** XUiC_LootWindow's button runs `te.ItemGrid.Sort()` on the view, then
+  `NotifyUnlockedSlotsChanged` raises SlotChanged for every cell, and OnViewSlotChanged wrote each cell's new stack into
+  the box slot behind that cell (`WriteThrough`, no room check). Stacks were dealt across the boxes by position.
+  - 21:45:23 to 21:45:28: one Sort, same 66 stacks, crate 3 free cells to 1, footer 50 to 48, grid 15 rows to 14.
+  - 21:42:30: the crate refused a Plaster Cast at 0 free; after a Sort it took three more with nothing removed.
+  - 21:44:53: five deposits in one tick, alphabetical, the Sort's cells with no box behind them.
+  - The land claim block (28 cells) worked out at 31-32 cells of stacks at 21:45:23: the second way a box goes past its
+    grid. RE's drag swap is not a third: it clears the slot, the cell unmaps, and the write goes through Deposit.
+  - RE's own repack (`RepackAfterSort`) was not the cause: it moves placements and never writes a slot.
+
+Fixes:
+- **SC (3.4 only):** `Patch_LinkedSort`, a prefix on `ItemStackGrid.Sort`: for the view's own grid, `MergeStacks` and no
+  vanilla sort. It merges partial stacks through WriteThrough (out of one box, into the other, undone if the second write
+  fails) and moves nothing else. What the player sees is unchanged: RE's repack orders by area, type, slot, so vanilla's
+  order never reached the screen. No more than vanilla's rule: nothing with quality; a merge that would grow the target's
+  footprint is left alone (RE's stack footprints option, off by default). Side effect, accepted: Sort no longer frees
+  room in a crate by accident.
+- **SC (3.4 only):** `CellsNow`, the stacks' area + `ShownFree`, at least 1; `ScStorage.CurrentCells` for the bridge, which
+  references no SCore and so cannot touch ScLinkedContainer.
+- **RE Inventory, by its own session on the user's word (port-3.3 3bf9871, DLL `a221f9f7`, 3.2 byte-identical,
+  its own three-round Fable review):** `ContainerLayouts.CellLimitHook`. A container grid can have fewer cells than its
+  rectangle, using the bag's void tail (GridMap.CellLimit). Asked once per layout; <= 0 or >= cols*rows = no limit; final
+  limit max(answer, last occupied cell + 1). Steps: its PORT33.md 32-36.
+- **Bridge, 3.4 build:** sets the hook to `ScStorage.CurrentCells` for `scLinkedStorage`, from its own method, so an RE
+  Inventory without the hook (MissingFieldException) keeps the padded row and the log says so. To build before RE is
+  installed: `-p:GridInvDll=...\build\reinv33\GridInventory.dll`.
+
+The footer rewording first proposed is dropped: the grid now matches the footer. What can still differ, all stated to the
+user (TESTING 70): gaps between big items (void is tail-only), room split across crates refusing a rifle, past 12 rows of
+empty cells.
+
+Fable review (`research\sc34\review\round5\REVIEW_round5.md`): DEPLOYABLE AFTER FIXES on the first build (SC 3.4 `efab580f`,
+bridge 3.4 `90edfc27`), no HIGH, no way found to lose or duplicate items. Fixed after it:
+- **M1, a near-empty crate reading as full.** RE's Pack was one first-fit pass, so for example two 5x2, a 4x2, a 3x2 and a
+  1x5 overflowed an 8x6 crate at 39 of 48 cells. The log's `48 slots, 42 empty, 0 free cells` is a state of this kind (six
+  stacks, only two of them named in the log). The crate's window would grow a row, the bridge called it over-full, and
+  the cell limit would have hidden its room too.
+  - RE Inventory, by its session (port-3.3 1d73fc6, DLL `92eb9888`): Pack retries other orders before it reports overflow.
+    A pack that fits keeps its layout; RepackAfterSort and packKeepingPins got the same retry.
+  - Bridge: `BoxHasRoomFor` packs the box's items WITH the candidate and answers overflow == 0, which is the question its
+    window answers on the next open (it packs afresh, no arrangement is kept).
+  - RE's note on the scratch map having no limit does not apply: the hook answers only for `scLinkedStorage`, never a box.
+- **M2, Sort inert on vanilla's grid.** `SortView`: on vanilla's grid `SortCells` sorts the cells and the map together with
+  the mirror off, so no box is written.
+- N3: a failed rollback logs an error. L2, L3, N4: TESTING 64, 66, 67, 70 corrected; L1 stated in 68; new step 73 for M1.
+- Left by decision: L1 (a stack lifted from an over-full box can't go back; that is the rule, pre-existing), L4 (3.2 has the
+  same Sort bug; its build stays byte-identical, a separate change if the user wants it), L5 (an empty base shows one
+  cell), N1, N2, N5.
+
+Re-check (`RECHECK_round5.md`): DEPLOYABLE, no HIGH or MEDIUM. M1 and M2 closed; 6,000 random crates replayed against the
+packer: 365 now taken that were refused (the fix), 9 now refused that were taken, all of which would have grown the crate's
+window. Its L1: TESTING 73 used a shovel (1x4), which never showed M1; now a spear (1x5) and a 4x2. Its N2 left: SortCells
+has no try/catch, and CompareForSort can't throw on what it sees.
+
+Builds: SC 3.2 still `81f6c2da`, SC 3.4 `cf41c40b`; bridge 3.2 still `be634f59`, bridge 3.4 `d49b0cdb`; RE `92eb9888` (3.2 byte-identical). Test
+steps: TESTING.md group K (64-73), RE's PORT33.md 32-36.

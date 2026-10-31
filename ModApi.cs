@@ -342,6 +342,7 @@ namespace SurvivorCommunity
             // 3.4: linked storage's shift-click and move-all (ScLinkedContainer34: 3.2's AddItem / TryStackItem logic)
             Add(t, "TEFeatureStorage::AddItem", ScLinkedContainer.Patch_LinkedAddItem.Target());
             Add(t, "TEFeatureStorage::TryStackItem", ScLinkedContainer.Patch_LinkedTryStackItem.Target());
+            Add(t, "ItemStackGrid::Sort", ScLinkedContainer.Patch_LinkedSort.Target());
             // 3.4 (0-XNPCCore 3.4): X15 no XNPC self-heal on our bodies, X16 X12 steps aside inside XNPC's own swaps
             Add(t, "AvatarSdcsNpcController::SdcsSelfHealScan", Patches_Xnpc.SelfHealScanTarget());
             Add(t, "AvatarSdcsNpcController::SdcsEquipByName", Patches_Xnpc.EquipByNameTarget());

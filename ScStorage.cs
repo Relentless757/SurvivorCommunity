@@ -566,6 +566,15 @@ namespace SurvivorCommunity
 
         /// <summary>The open container (null when the loot window shows something else or is closed).</summary>
         public static ScLinkedContainer Current;
+#if SC_V34
+
+        /// <summary>3.4: the cells the open view should draw (ScLinkedContainer.CellsNow), 0 = no limit. For the bridge, which
+        /// references no SCore and so cannot touch ScLinkedContainer, a subclass of SCore's container.</summary>
+        public static int CurrentCells()
+        {
+            return Current != null ? Current.CellsNow() : 0;
+        }
+#endif
 
         /// <summary>
         /// SCore's EntityUtilities.OpenContainer with the title passed on its own: that helper hands the loot window
