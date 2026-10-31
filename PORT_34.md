@@ -380,7 +380,7 @@ steps: TESTING.md group K (64-73), RE's PORT33.md 32-36.
 - The 3.2 game is untouched (SC `81f6c2da`, bridge `be634f59`).
 - Next: the user's test, group K.
 
-### Round 6: the land claim block out of linked storage; Sort doesn't grow a crate (2026-10-31, built, not installed)
+### Round 6: the land claim block out of linked storage; Sort doesn't grow a crate (2026-10-31, installed)
 
 The user, testing round 5: "I still see crates growing in size when sorting. Also, I don't think the land claim should have
 it's own storage, it's hard to determine what cells belong to the land claims own storage." Log kept at the session's
@@ -411,3 +411,13 @@ footprints on.
 
 Builds: SC 3.2 still `81f6c2da`, SC 3.4 `bbe3439c`; bridge 3.2 still `be634f59`, bridge 3.4 `7e93a8f8` (against RE `e33a4172`). Test
 steps: TESTING.md group L (74-81), RE's PORT33.md 32-36.
+
+**Installed 2026-10-31 10:15** with the user's go-ahead (3.4 game closed), all three together:
+- RE Inventory: `stage_reinv33.py --deploy`, port-3.3 3972921, 505 files, installed = built `e33a4172`. The old folder was copied
+  first to `Port33\_backups\reinv34_2026-10-31_round6`. Only the DLL differs.
+- SC: `deploy_sc34.py`, HEAD 90ac67d, 1928 files, installed = built `bbe3439c`. The old install is in
+  `Port33\_backups\sc34_2026-10-31_101515`. Its only user edit, `DebugLogging` true in Config/blocks.xml, was copied back.
+- Bridge: `build\bridge34` DLL + ModInfo.xml + README.md; installed = built `7e93a8f8`. Round 5's copy is in
+  `Port33\_backups\bridge34_2026-10-31_round5`.
+- The 3.2 game is untouched (SC `81f6c2da`, bridge `be634f59`).
+- Next: the user's test, group L.
