@@ -1332,6 +1332,24 @@ scEncDropMilitia,entityclasses,Entity,,,,Allied Supply Crate
 scEncDropBuilders,entityclasses,Entity,,,,Allied Supply Crate
 scEncDropRoadcrew,entityclasses,Entity,,,,Allied Supply Crate
 scEncDropGeneral,entityclasses,Entity,,,,Allied Supply Crate
+scEncRaidDemandSaid,UI,Tooltip,,,,"That outpost of yours sits on our road. Pay up, or we take it apart."
+scEncRaidDemand,UI,Tooltip,,,,They want {0} ammo and {1} food for {2} by tomorrow.
+scEncRaidRevealed,UI,Tooltip,,,,Their hideout is on your map now.
+scEncRaidDemandLine,UI,Tooltip,,,,- {0} are leaning on {1}
+scEncRaidAlertDemand,UI,Menu,,,,{2} demand {0} ammo + {1} food (answer on the radio)
+scEncRaidAlertRaid,UI,Menu,,,,RAIDED BY {1} - {0} h to get there
+scEncRaidDemandText,UI,Menu,,,,{3} want {0} ammo + {1} food for {2}
+scEncRaidPaidSaid,UI,Tooltip,,,,Smart. Nobody gets hurt. For now.
+scEncRaidPaid,UI,Tooltip,,,,{0} take their cut and leave {1} alone - for now.
+scEncRaidLedgerPaid,UI,Tooltip,,,,paid {0} for {1}
+scEncRaidRefusedSaid,UI,Tooltip,,,,Wrong answer. We're coming.
+scEncRaidRefused,UI,Tooltip,,,,You told {0} no. They are coming for {1} - {2} hours to get there.
+scEncRaidCall,UI,Tooltip,,,,{2} are hitting {0}! You have {1} hours to get there.
+scEncRaidHere,UI,Tooltip,,,,"{0}: {2} are here, {1} of them - hold the outpost!"
+scEncRaidLosses,UI,Tooltip,,,,{0} lost {1} of their people raiding {2}.
+scEncRaidLedgerLosses,UI,Tooltip,,,,{0} lost {1} raiding {2}
+scEncRaidNobody,UI,Tooltip,,,,{0} never came for {1} - they have nobody left to send.
+scEncRaidGone,UI,Tooltip,,,,{0} are gone - nobody is coming for {1}.
 scQgRoleProspect,UI,Menu,,,,Survivor
 scQgRoleMember,UI,Menu,,,,Community survivor
 scQgRoleLeader,UI,Menu,,,,Leader of {0}

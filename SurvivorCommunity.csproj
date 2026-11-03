@@ -129,6 +129,7 @@
     <Compile Include="ScEncGifts.cs" />
     <Compile Include="ScEncBarter.cs" />
     <Compile Include="ScEncCalls.cs" />
+    <Compile Include="ScEncRaids.cs" />
     <Compile Include="BlockScEncRemains.cs" />
     <Compile Include="DialogOpsEnclaves.cs" />
     <Compile Include="DialogOpsEncRequests.cs" />

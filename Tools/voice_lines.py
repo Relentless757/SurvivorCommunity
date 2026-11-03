@@ -86,7 +86,10 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
                  "scEncGiftRefuseCap", "scEncGiftRefuseSoon",     # E7: a gift refused (the thanks are scEncThanks_gift_*)
                  # E9: an ally's answers on the radio and their fighter's hello - said outside a talk (ScEncCalls shows them
                  # as tells: no playback yet, the voicing round wires it)
-                 "scEncCallFighterSaid", "scEncCallDropSaid", "scEncCallFailSaid", "scEncCallHello"]
+                 "scEncCallFighterSaid", "scEncCallDropSaid", "scEncCallFailSaid", "scEncCallHello",
+                 # E10: a raider enclave's words on the radio - its demand, paid, refused (ScEncRaids shows them as tells: text
+                 # only, the voicing round wires their playback)
+                 "scEncRaidDemandSaid", "scEncRaidPaidSaid", "scEncRaidRefusedSaid"]
 
 # ---------------------------------------------------------------------------------------------------- the V2 lines ----
 # No names or numbers, so every voice can say them. Drafts: SC_Ideas_and_Voices_Plan.md section 4.4 (2026-11-03).

@@ -20,6 +20,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc barter <give> <get>` trades once and ignores the once-a-day wait.
 - `sc enclave call <id>` shows an ally's radio calls (E9); `sc enclave call <id> fighter|drop force now` calls one at
   once, the 3-day wait ignored.
+- `sc enclave raid <id>` shows a hostile enclave's raids and how far each outpost is (E10); `sc enclave raid <id> <outpost
+  id> demand` makes their demand now, `... now` makes it and refuses it at once (the raid is called).
 
 **Time and stockpile**
 
@@ -887,6 +889,130 @@ until you have one of each race.
      Tools/voice_lines.py check` shows every voice complete; `sc voice who` by survivors of each race shows their own voice
      first with all its clips (no borrowing); listen to a greeting, a chatter line, an order reply and a taunt in each of the
      16 voices, and to a whole talk in each new voice. Note any line worth re-recording.
+
+**E10. Round 15: raider enclaves raid (3.4)**
+
+With outpost attacks on, an outpost's raider demand now comes from a named hostile enclave within 2 km of it, and the
+raid after a refusal (or a demand left unanswered past the rollover) is their own people: the faces at their den, and
+those you kill stay dead. No hostile enclave in range: no raider demand there at all. `OutpostAttacks` off turns these
+off too; the home base is never raided by them. Set up: `OutpostAttacks` true in the 3.4 install's SC `Config/blocks.xml`
+(the shipped file has it true), an active outpost (your land claim in a cleared building, `sc outpost add`; `sc outpost
+list` gives its id) and a raider enclave within 2 km of it (`sc enclave list` marks them `[hostile]`; step 201 gives the
+distances). In the steps `<name>` is the enclave's name, `<id>` its id, `<Outpost>` and `<oid>` the outpost's. The
+enclave's radio words are text only for now (a later voicing round records them). On a 60-minute day the raid call's 10
+game hours are 25 real minutes. Have 2 ammo and 2 food in the stockpile for paying (`sc give ammo 5`, `sc give food 5`).
+The ledger is the community window's.
+
+200. Load the world. The log's `config:` line has `enclaveRaids=0.04/day (turned x0.5) within 2000m, party 4, rest 3d,
+     held -1`. `sc enclave info <id>` of a raider enclave you have met has the line `[SC]   raids: 4% a day on an outpost
+     within 2000 m (<Outpost> D m), N to spare (N at home; the leader never raids), ready; now: none (request clock day
+     R)`; for one you never went near it reads `N to spare (0 at home, N not met yet; the leader never raids)`, and with
+     no outpost in range `(none of yours)`. A survivor group's says `[SC]   raids: never (they are not hostile) (request
+     clock day R)`.
+201. **How far.** `sc enclave raid <id>`: `[SC] <name> (enclave <id>, Hostile): raids: ...` as in step 200, then one line
+     per outpost you hold, `[SC]   outpost <oid> <Outpost>: D m from their building`, with ` (out of range)` after those
+     more than 2000 m away (measured from their building's edge to the outpost's). `sc enclave raid <id> <oid>` adds
+     `[SC]   outpost <oid> <Outpost>: D m from their building (raid range 2000 m); a demand now: can demand`.
+202. **A demand.** Away from the outpost, `sc enclave raid <id> <oid> demand`: `[SC] <name> demand 2 ammo + 2 food for
+     <Outpost> (answer on the radio, or sc outpost pay|refuse <oid>)` and the message `<name> on the radio: "That outpost
+     of yours sits on our road. Pay up, or we take it apart." They want 2 ammo and 2 food for <Outpost> by tomorrow.` If
+     you had not found them, the message ends ` Their hideout is on your map now.` and their red marker is on the map.
+     The log: `[SurvivorCommunity] enclave <id> '<name>' demands 2 ammo + 2 food for outpost <oid> (<Outpost>), D m from
+     their building (the console)` (plus ` - their building is on the map now`).
+203. **It names them.** At a powered radio the demand row reads `<name> want 2 ammo + 2 food for <Outpost>` and the
+     Outposts list `<Outpost> (<type>): <name> demand 2 ammo + 2 food (answer on the radio)`; the community window's
+     Outposts tab shows the same alert. `sc enclave info <id>`'s raids line ends `now: a demand on <Outpost> (outpost
+     <oid>): 2 ammo + 2 food, to answer by the rollover after day D (request clock day R)`.
+204. **One at a time.** `sc enclave raid <id> <oid> demand` again (or on another outpost in range): `[SC] refused: they
+     are leaning on <Outpost> (outpost <oid>) already`.
+205. **Pay.** Press PAY at the radio (or `sc outpost pay <oid>`): the message `<name> on the radio: "Smart. Nobody gets
+     hurt. For now." <name> take their cut and leave <Outpost> alone - for now.`, 2 ammo and 2 food fewer in the
+     stockpile, the ledger `paid <name> for <Outpost>`, the log `paid enclave <id> '<name>' for outpost <oid> (<Outpost>) -
+     they rest until day R+3`. `sc enclave info <id>`: `..., resting until day R+3 (3 day(s)); now: none`. Three `sc day`
+     later it says `ready` again; the save (after the next autosave or quit) has `raidday=<that day>` in their `[enclave]`.
+206. **The day's roll.** For a quick test set `EnclaveRaidChance` to 1, `OutpostAttackChance` to 0 and
+     `OutpostRaiderGamestage` to 0 in SC's `Config/blocks.xml` and restart. With an outpost more than two days old within
+     2000 m of a raider enclave that is ready, one `sc day` brings their demand (the message as in step 202, the log
+     ending `(the day's roll)`, and the day's summary has `- <name> are leaning on <Outpost>`). An outpost with no hostile
+     enclave within 2000 m never gets a raider demand however many `sc day`s you run (the old nameless "Raiders on the
+     radio: ..." never comes while `EnclaveRaids` is on). Put the three values back afterwards.
+207. **Refuse.** With their demand open press REFUSE (or `sc enclave raid <id> <oid> now` from more than 70 m away, which
+     makes the demand and refuses it): the message `<name> are hitting <Outpost>! You have 10 hours to get there.`, the
+     radio's (or the console's `[SC] refused at once: ...`) words `<name> on the radio: "Wrong answer. We're coming." You
+     told <name> no. They are coming for <Outpost> - 10 hours to get there.`, the attack marker on the map, the alert
+     `RAIDED BY <name> - 10 h to get there` (the radio's Outposts list, the community window). The log: `raiders attack
+     outpost <oid> (<Outpost>) - enclave <id> '<name>', security S`. Letting a demand run past the next rollover does the
+     same (the call comes with the rollover's message).
+208. **They come.** Go within 70 m of the outpost: the message `<Outpost>: <name> are here, N of them - hold the
+     outpost!` (N at most 4, and never more than they can spare); they come in round the building and shoot at you (or at
+     your stand-ins there). The log: `enclave <id> '<name>' raids outpost <oid> (<Outpost>): N of their people of N wanted
+     (attack size C, party max 4, S to spare: H at home, U not met yet)`. `sc enclave people <id>`: those N read `-
+     raiding (at <Outpost>, outpost <oid>)` with an entity; the leader is never one of them, and their names and looks are
+     the ones you saw at their den. `sc enclave info <id>`: `now: raiding <Outpost> (outpost <oid>): N in the fight, 0
+     lost`.
+209. **Hold it.** Kill them all. Each death logs `enclave <id> '<name>': <Person> (p<pid>) died - killed by <you> raiding
+     an outpost` (no ledger line per person). After the last: `<Outpost> held - your people will not forget it.`, then
+     `<name> lost N of their people raiding <Outpost>.`; the ledger `<Outpost> held against an attack` and `<name> lost N
+     raiding <Outpost>`; the log `enclave raid on outpost <oid> (<Outpost>) by '<name>' is over: won, N of theirs lost;
+     they rest until day R+3`. `sc enclave people <id>`: they are `- dead since day D`. With only the leader left, `sc
+     enclave raid <id> <oid> demand` says `[SC] refused: they have nobody to spare (the leader never raids)`.
+210. **A den you never met.** Take a raider enclave you have never been near (`sc enclave info <id>`: `people: people not
+     made yet ...`) and `sc enclave raid <id> <oid> now`, then go to the outpost. Each raider is made there: the log
+     `enclave <id> '<name>': <Person> (<class>, p<pid>) is one of the group, met away from home at X, Y, Z - K of G`, and
+     the raid line says `(N met for the first time)`. They fight as in step 208.
+211. **Leave and come back.** Kill one of them, then drive away far enough that their chunks unload (a few hundred
+     metres; `sc enclave people <id>` then shows no entity for them) and come back before the 10 hours are up: the survivors come in again, `<Outpost>: <name> are here, M of them - hold the
+     outpost!`, and the log `enclave <id> '<name>': M of the party raiding outpost <oid> (<Outpost>) are back round it`.
+     `sc enclave people <id>` meanwhile (while you are away) reads `- raiding (at <Outpost>, outpost <oid>, off the map)`.
+212. **Not finished in time.** Leave the survivors alive and `settime` past the deadline (the `raiders attack` log line's
+     time plus 10 hours). The outpost is settled as a fight you joined (`<Outpost> held on its own.` or `<Outpost> took a
+     beating: ...`), then `<name> lost 1 of their people raiding <Outpost>.`; the log `... is over: held, 1 of theirs
+     lost; ...` (or `damaged`) and `<Person> (p<pid>) of <name> heads home from the raid (the raid is over: held)` for each
+     survivor; one still in sight walks off and vanishes once nobody sees it. Now go to their den: the survivors are
+     there with the same names and looks, the one you killed is not, and the rest of the group (a leader first) is made
+     as you arrive (`sc enclave people <id>`).
+213. **Saved and loaded mid-raid.** Start a raid (step 207), let them come (step 208), kill one, save and quit, load. The
+     save has `raidenc=<id>` in the outpost's `[outpost]` and their people `state=home` (nobody is saved out raiding).
+     Back at the outpost they come again (`<Outpost>: <name> are here, ...`), the one you killed is still dead, and the
+     fight ends as in step 209.
+214. **A raid nobody came to, held.** Set `OutpostSecBase` to 200 in SC's `Config/blocks.xml` and restart (security is
+     then 100, which always holds; `sc outpost security <oid>` shows it). `sc enclave raid <id> <oid> now` from far away, stay away and `settime` past the deadline: `<Outpost>
+     held on its own.`, then `<name> lost 1 of their people raiding <Outpost>.`; the log `enclave <id> '<name>': <Person>
+     (p<pid>) died (lost raiding <Outpost>)` and `... is over: held (nobody came to fight it), 1 of theirs lost (1 as the
+     outpost held); they rest until day R+3`. For a den you never met there is nobody to die yet: the log says `enclave
+     <id> '<name>': 1 of the people not made yet lost raiding <Outpost> - the group will be made 1 smaller`, `sc enclave
+     info <id>` adds `1 lost before you met them`, and the save has `raidlost=1`. Put `OutpostSecBase` back.
+215. **Damaged or overrun: nobody of theirs dies.** Set `OutpostSecBase` to 0 (an outpost with no staff and no defences
+     is then at security 0-5: `sc outpost security <oid>`; if it holds anyway, try again), repeat step 214: `<Outpost> took
+     a beating: ...` or `<Outpost> was overrun. ...`, no "lost" line, the log `... is over: damaged (nobody came to fight
+     it), 0 of theirs lost; ...` (or `overrun`). Put `OutpostSecBase` back.
+216. **Nobody left to send.** Call a raid (`sc enclave raid <id> <oid> now`), then before you reach the outpost kill
+     every one of them but the leader (`sc enclave kill <id> p<pid>` for each, `sc enclave people <id>` lists them; a den
+     you never met: go there first so they are made). Within a second: `<name> never came for <Outpost> - they have nobody
+     left to send.`, the marker comes off, and the log `enclave raid on outpost <oid> (<Outpost>) by '<name>' is off: they
+     have nobody left to send - the raid call is off`. `sc enclave info <id>`: `0 to spare`.
+217. **Their den wiped out.** With a demand of theirs open (step 202), `sc enclave kill <id> all`: `<name> are gone -
+     nobody is coming for <Outpost>.` and `You wiped out <name>.`; the demand row is gone from the radio, the log has
+     `enclave <id> '<name>' is gone - its demand on outpost <oid> (<Outpost>) is off`, and `sc enclave refill` lists the
+     new group owed (E6). The same with a raid called but not yet come (`... its raid call on outpost ...`).
+218. **A group turned hostile.** `sc enclave hostile <id>` on a survivor group within 2000 m of an outpost: `sc enclave
+     info <id>` says `raids: 2% a day ...` (half a raider enclave's). `sc enclave raid <id> <oid> now` and go: their own
+     survivors come, shoot at you on sight and at range (they are hostile now), and those you kill are dead in `sc enclave
+     people <id>`.
+219. **A world day set back, the switches, and the home attack (the E5 review's R3).** (a) After a paid demand, `settime
+     <two days earlier> 12 0`: the log's `enclaves: the world's day went back from ...` line ends `; 1 raid rest stamp(s)
+     moved back D day(s)` (D as the request clock went back, the same number as earlier in that line), and `sc enclave
+     info <id>` shows the rest D days earlier, still as many days away. (b) Set
+     `OutpostAttacks` to false and restart: the `config:` line says `enclaveRaids=off`, `sc enclave info <id>` says
+     `raids: off (OutpostAttacks=false) (request clock day R)`, `sc enclave raid <id> <oid> demand` says `[SC] refused:
+     enclave raids are off (OutpostAttacks=false)`, and a demand or raid of theirs open in the save is dropped at the first
+     tick (the log `enclave raid on outpost <oid> (<Outpost>) by '<name>' is off: enclave raids are off
+     (OutpostAttacks=false) - ...`, no message). (c) `OutpostAttacks` true and `EnclaveRaids` false: the old nameless
+     demands come back (`Raiders on the radio: 2 ammo and 2 food by tomorrow, or they take <Outpost>.`), and `sc enclave
+     info <id>` says `raids: off (EnclaveRaids=false)`. Set both back. (d) With `BaseAttacks` on, start any outpost attack
+     (`sc outpost attack <oid>`, go there until they come), then go home (the outpost more than about 150 m away) and
+     call a home attack (`sc attack now`): the horde arrives and you fight it live - before E10 an outpost fight you walked
+     away from held the home attack's arrival (and kept the defenders fighting alone) until the outpost's deadline.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

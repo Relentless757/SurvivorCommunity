@@ -87,6 +87,16 @@ namespace SurvivorCommunity
         public ulong CallAt;
         public int CallPid;
         public ulong CallUntil;
+        /// <summary>
+        /// E10: the first day (the request clock's) this hostile group may lean on an outpost again - set EnclaveRaidRestDays
+        /// ahead when a demand of theirs is paid or a raid of theirs ends (0: any day). Saved as [enclave] raidday=N. ScEncRaids.
+        /// </summary>
+        public int RaidDay;
+        /// <summary>
+        /// E10: people an unattended raid the outpost held cost them before they were ever made (a group never met): the group
+        /// is made that many smaller (ScEnclavePeople.GroupSize). Saved as [enclave] raidlost=N. ScEncRaids.
+        /// </summary>
+        public int RaidLost;
         /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
         public int Standing;
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
@@ -1179,7 +1189,8 @@ namespace SurvivorCommunity
         /// clock's drop - from where it stood (the world's last day at the least) to the world's day; the world clock's (E1's
         /// next radio reveal, E3's recruit cooldowns and enlistments, E5's scheduled siege call, I1's infestation ages) by the
         /// world's. E7's next gift and next ally barter days are the request clock's. E9's next radio call is the request
-        /// clock's, a call's arrival and its fighter's end the world's (as E3's enlistments). One log line; the ticker saves.
+        /// clock's, a call's arrival and its fighter's end the world's (as E3's enlistments). E10's raid rest is the request
+        /// clock's. One log line; the ticker saves.
         /// </summary>
         public static void OnWorldDayBack(int day, int fromDay)
         {
@@ -1205,11 +1216,13 @@ namespace SurvivorCommunity
                     infest = ScInfestations.ShiftDays(worldBack);                                                                      // I1
                 }
                 int calls = ScEncCalls.ShiftDays(reqBack, worldBack);     // E9: the next radio call (request clock); a call's arrival and its fighter's end (world)
+                int raids = ScEncRaids.ShiftDays(reqBack);                 // E10: a raiding group's rest (request clock)
                 ScLog.Out("enclaves: the world's day went back from " + fromDay + " to " + day + " - the request clock, " + requests + " open request(s), "
                           + allies + " refill/ally-reveal stamp(s), " + gifts + " gift/barter stamp(s) moved back " + reqBack + " day(s); " + stamps
                           + " world-clock stamp(s) (radio reveal, recruit cooldowns, "
                           + "enlistments, the siege call) and " + infest + " infestation(s) moved back " + worldBack + " day(s); " + calls
-                          + " radio-call stamp(s) moved back (the next call " + reqBack + " day(s), an arrival or a fighter's end " + worldBack + " day(s))");
+                          + " radio-call stamp(s) moved back (the next call " + reqBack + " day(s), an arrival or a fighter's end " + worldBack + " day(s)); "
+                          + raids + " raid rest stamp(s) moved back " + reqBack + " day(s)");
             }
             catch (Exception ex)
             {
@@ -1398,6 +1411,7 @@ namespace SurvivorCommunity
             into.Add("  " + ScEncAllies.InfoLine(e));       // E6: the benefit, whether it applies, the next word of another
             into.Add("  " + ScEncGifts.InfoLine(e));        // E7: the next gift, the ally barter
             into.Add("  " + ScEncCalls.InfoLine(e));        // E9: the radio calls, the call that is on
+            into.Add("  " + ScEncRaids.InfoLine(e));        // E10: their raids on your outposts, the one that is on
             into.Add("  POI " + e.PoiName + " (" + e.Prefab + "), T" + e.Tier + ", row " + (e.Row.Length > 0 ? e.Row : "-") + ", biome " + e.Biome
                      + ", key " + e.Poi + ", footprint x " + b[0] + ".." + b[1] + " z " + b[2] + ".." + b[3] + " (" + e.Size.x + "x" + e.Size.z + ")"
                      + ", centre " + Mathf.RoundToInt(cen.x) + "," + Mathf.RoundToInt(cen.z) + (pl != null ? ", " + Where(pl.position, cen) + " from you" : ""));

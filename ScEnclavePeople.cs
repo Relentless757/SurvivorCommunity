@@ -23,8 +23,11 @@ namespace SurvivorCommunity
         /// Living (the fall rule, the group's count and the recruit minimum leave them out), their spot kept for their return;
         /// a body of theirs is the search's (waiting where they were found, or following the player), never the POI's. They
         /// come home (home) or are lost (dead) when the request ends.
+        /// E10: raiding - one of a hostile group's party raiding an outpost (ScEncRaids): alive (Living, the fall rule and the
+        /// group count see them), not at home (no spawn at their spot, no restock, no succession); their body is the raid's,
+        /// or none while it is off the map. Home again when the raid ends; saved as home (bodies never outlive a load).
         /// </summary>
-        public const string StateHome = "home", StateDead = "dead", StateEnlisted = "enlisted", StateMissing = "missing";
+        public const string StateHome = "home", StateDead = "dead", StateEnlisted = "enlisted", StateMissing = "missing", StateRaiding = "raiding";
 
         public int Id;
         public int EnclaveId;
@@ -69,11 +72,13 @@ namespace SurvivorCommunity
         public float LeavingSince;
 
         public bool IsLeader { get { return Role == Leader; } }
-        /// <summary>E3: alive - at home or enlisted with the player.</summary>
-        public bool Alive { get { return State == StateHome || State == StateEnlisted; } }
+        /// <summary>E3: alive - at home or enlisted with the player (E10: or out raiding an outpost).</summary>
+        public bool Alive { get { return State == StateHome || State == StateEnlisted || State == StateRaiding; } }
         public bool Enlisted { get { return State == StateEnlisted; } }
         /// <summary>E5: the subject of a missing survivor request (ScEncSearch).</summary>
         public bool Missing { get { return State == StateMissing; } }
+        /// <summary>E10: out with their group's raid party (ScEncRaids).</summary>
+        public bool Raiding { get { return State == StateRaiding; } }
         public string Name { get { return Who.Name; } }
         public Vector3 HomeCentre { get { return new Vector3(Home.x + 0.5f, Home.y, Home.z + 0.5f); } }
     }
@@ -111,6 +116,12 @@ namespace SurvivorCommunity
     /// hands it over: ScEncSearch.TickBody); it goes as every body does (the veto, the unload capture, the shutdown), and
     /// a body that goes or dies tells the search first (Unbody, OnBodyDied). One brought home is an enclave body again on
     /// the spot (Rehome). The spot finder works on any POI (SpotsIn), and a siege brings everyone out at once (SpawnAll).
+    ///
+    /// E10 (ScEncRaids) hooks in the same way: a raiding person's body is built at the outpost (SpawnAt; a group never met
+    /// makes its people there, GenerateAway) and ticked by the raid (ScEncRaids.TickBody); one that goes alive leaves them
+    /// raiding off the map, one that dies counts as the raid's loss (Unbody, Died); a group that falls mid-raid leaves a
+    /// raider's body in the fight as a plain raider (DropPeople, Abandon); an unattended raid that was held costs them a
+    /// record (KillRecord) or a place in a group not yet made (Enclave.RaidLost, GroupSize).
     ///
     /// Host only, main thread; the save thread's veto and the faction check read volatile snapshots rebuilt here.
     /// </summary>
@@ -225,7 +236,7 @@ namespace SurvivorCommunity
             var ids = new HashSet<int>();
             int max = 0;
             foreach (EncPerson p in ScRegistry.EncPeople) if (p.Id > max) max = p.Id;
-            int homeAgain = 0;
+            int homeAgain = 0, raidersHome = 0;
             foreach (EncPerson p in ScRegistry.EncPeople)
             {
                 p.EntityId = p.LastEntityId = -1;
@@ -249,8 +260,11 @@ namespace SurvivorCommunity
                     p.EnlistedUntil = 0;
                     homeAgain++;
                 }
+                // E10: nor out raiding (the save writes them home; this is for a file edited by hand)
+                if (p.Raiding) { p.State = EncPerson.StateHome; raidersHome++; }
             }
             if (homeAgain > 0) ScLog.Out("enclave people: " + homeAgain + " enlisted person(s) recorded as with the player are home again (bodies never outlive a load)");
+            if (raidersHome > 0) ScLog.Out("enclave people: " + raidersHome + " person(s) recorded as out raiding are home again (bodies never outlive a load)");
             ScEnclaveDeals.OnRegistryChanged();     // E3: every favour parked (no body yet), the dead's dropped
             RebuildHostile();
         }
@@ -366,7 +380,7 @@ namespace SurvivorCommunity
             return list;
         }
 
-        /// <summary>The living: at home, or (E3) enlisted with the player - the fall rule, the group's count and the recruit minimum.</summary>
+        /// <summary>The living: at home, or (E3) enlisted with the player, or (E10) out raiding - the fall rule, the group's count and the recruit minimum.</summary>
         public static List<EncPerson> Living(Enclave e)
         {
             var list = new List<EncPerson>();
@@ -466,6 +480,13 @@ namespace SurvivorCommunity
                     if (p.Missing)
                     {
                         if (ScEncSearch.TickBody(w, e, p, npc)) changed = true;
+                        continue;
+                    }
+                    // E10: one of a raid party at an outpost - the raid's body (its target, its walk off once the raid is over),
+                    // never despawned by distance, watched or counted for the hold while the raid is on
+                    if (p.Raiding)
+                    {
+                        if (ScEncRaids.TickBody(w, e, p, npc)) changed = true;
                         continue;
                     }
                     if (e.Lost || (near > keep && !SeenByAny(w, npc.position)))
@@ -587,7 +608,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// The group's size: the POI's footprint side between EnclaveSizeMin and EnclaveSizeMax maps onto EnclaveGroupMin..Max
         /// (a raider enclave: EnclaveRaiderGroupMin..Max), plus or minus one from a roll seeded by the world and the enclave,
-        /// clamped to the range.
+        /// clamped to the range; E10: less Enclave.RaidLost (people a held raid cost them before they were made), at least 1.
         /// </summary>
         public static int GroupSize(Enclave e)
         {
@@ -600,7 +621,8 @@ namespace SurvivorCommunity
             GameRandom r = GameRandomManager.Instance.CreateGameRandom(Seed(e, 0));
             try { n += r.RandomRange(-1, 2); }
             finally { GameRandomManager.Instance.FreeGameRandom(r); }
-            return Mathf.Clamp(n, lo, hi);
+            // E10: people an unattended raid cost them before they were ever made (ScEncRaids) are never made; the leader stays
+            return Math.Max(1, Mathf.Clamp(n, lo, hi) - Math.Max(0, e.RaidLost));
         }
 
         private static int Seed(Enclave e, int salt)
@@ -703,6 +725,22 @@ namespace SurvivorCommunity
                 ScLog.Once("encpeople-generate-" + e.Id, ex);
                 return false;
             }
+            Capture(p, npc);
+            Dress(e, p, npc);
+            if (have + 1 >= size) e.PeopleRolled = true;
+            ScRegistry.SaveAtomic();
+            ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + (p.IsLeader ? "the leader " : "") + p.Name + " (" + p.Who.Class + ", p" + p.Id + ") joins the group at "
+                      + p.Home + " - " + (have + 1) + " of " + size + (e.PeopleRolled ? ", the group is made" : ""));
+            return true;
+        }
+
+        /// <summary>
+        /// A new person's record from the stranger's body that was spawned for it (Generate; E10: GenerateAway): what it rolled -
+        /// class, name, look, weapons, rounds, profile (ScCommunity.MemberFromBody, Join's own builder), a raider's stars as its
+        /// Shooting - with a new person id, the rounds it was made with, into the records.
+        /// </summary>
+        private static void Capture(EncPerson p, EntityAlive npc)
+        {
             Member m = ScCommunity.MemberFromBody(npc, DefaultMood);
             m.Id = 0;                    // never a member and never saved: the body's id lives in EntityId for the session
             m.Born = 0;
@@ -720,12 +758,46 @@ namespace SurvivorCommunity
             p.AmmoStart = ScAmmo.Copy(m.Ammo);
             p.AmmoStartMags = m.Mags;
             ScRegistry.EncPeople.Add(p);
-            Dress(e, p, npc);
-            if (have + 1 >= size) e.PeopleRolled = true;
-            ScRegistry.SaveAtomic();
-            ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + (p.IsLeader ? "the leader " : "") + p.Name + " (" + m.Class + ", p" + p.Id + ") joins the group at "
-                      + p.Home + " - " + (have + 1) + " of " + size + (e.PeopleRolled ? ", the group is made" : ""));
-            return true;
+        }
+
+        /// <summary>
+        /// E10: one more person for a group still being made, made away from home (ScEncRaids.SpawnParty: a den never visited
+        /// raids an outpost): a stranger of the class the next one at home would have been (RollClass by the records so far, as
+        /// Generate) spawned at 'at', its record captured as Generate's, a member (the leader's place stays at home) with no spot
+        /// until their first spawn there, dressed as a body away from home (SpawnAt's). Null when no body could be made. The
+        /// caller sets their state and saves.
+        /// </summary>
+        internal static EntityAlive GenerateAway(World w, Enclave e, Vector3 at, float yaw, out EncPerson made)
+        {
+            made = null;
+            if (w == null || e == null) return null;
+            int have = 0;
+            foreach (EncPerson q in ScRegistry.EncPeople) if (q.EnclaveId == e.Id) have++;
+            int cid = RollClass(e, have);
+            if (!ScCommunity.ClassExists(cid))
+            {
+                ScLog.Once("encpeople-noclass-" + e.Id, "enclave " + e.Id + " '" + e.Name + "': no " + (e.Hostile ? "raider" : "survivor") + " class to make its people from - none made");
+                return null;
+            }
+            EntityAlive npc;
+            try
+            {
+                npc = ScSpawn.Create(cid, at + Nudge, new Vector3(0f, yaw, 0f), null);
+                if (npc == null) { ScLog.Once("encpeople-create-" + e.Id, "enclave " + e.Id + ": the factory made no body of class " + cid); return null; }
+                w.SpawnEntityInWorld(npc);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("encpeople-generateaway-" + e.Id, ex);
+                return null;
+            }
+            var p = new EncPerson { EnclaveId = e.Id, Role = EncPerson.MemberRole };
+            Capture(p, npc);
+            Dress(e, p, npc, false);
+            ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + p.Name + " (" + p.Who.Class + ", p" + p.Id + ") is one of the group, met away from home at "
+                      + World.worldToBlockPos(at) + " - " + (have + 1) + " of " + GroupSize(e));
+            made = p;
+            return npc;
         }
 
         /// <summary>
@@ -761,7 +833,7 @@ namespace SurvivorCommunity
         /// E5: a missing person's body where the search found them (ScEncSearch): their record rebuilt (ScSpawn.Body) and
         /// dressed as every body is - never saved, the cvars, health, the lookups and the veto - but not as one at home: no
         /// Guard order at their spot and no SCEnclave package (the caller gives the order where they wait). Null when no body
-        /// could be made (the class is gone).
+        /// could be made (the class is gone). E9's called fighter and E10's raiders come this way too.
         /// </summary>
         internal static EntityAlive SpawnAt(World w, Enclave e, EncPerson p, Vector3 at, float yaw)
         {
@@ -909,6 +981,7 @@ namespace SurvivorCommunity
         {
             if (p.EntityId < 0) return;
             if (p.Missing) ScEncSearch.OnUnbodied(p, OwnBody(p));      // E5: one following the player waits where the body was
+            if (p.Raiding) ScEncRaids.OnUnbodied(p, OwnBody(p));       // E10: one raiding stays with the party, off the map
             ScEnclaveDeals.OnUnbodied(p, OwnBody(p));
             Forget(p.EntityId, caches);
             p.LastEntityId = p.EntityId;
@@ -1398,11 +1471,12 @@ namespace SurvivorCommunity
                 // E5: one gone missing - found and waiting, or following the player home (the search undoes an escort's hire
                 // as the body goes: ScEncSearch.OnUnbodied); their request hears of the death after it is recorded
                 bool wasMissing = p.Missing;
+                bool wasRaiding = p.Raiding;          // E10: killed raiding an outpost - the raid counts the loss
                 Vector3 at = npc.position;
                 // the corpse is left to vanilla (its loot, its despawn) and stays out of every save (the veto)
                 Unbody(p, false);
                 Enclave e = ScEnclaves.ById(p.EnclaveId);
-                if (e != null) Died(e, p, npc.entityThatKilledMe, true, wasEnlisted, wasMissing);
+                if (e != null) Died(e, p, npc.entityThatKilledMe, true, wasEnlisted, wasMissing, wasRaiding);
                 if (wasMissing) ScEncSearch.OnDied(p, at);
             }
             catch (Exception ex)
@@ -1418,23 +1492,28 @@ namespace SurvivorCommunity
         /// companion of theirs) turns a friendly or neutral enclave hostile (Q6 a); a dead leader's place and spot go to the next.
         /// E3: one who died enlisted with the player costs EnclaveEnlistDeathPenalty standing and says so in the ledger; a
         /// favour they asked is off. E5: one who died missing (found, or following the player home) is told wherever the
-        /// player is - they were there.
+        /// player is - they were there. E10: one who died in a raid (raid: killed raiding an outpost, or lost as an unattended
+        /// raid was held) has no ledger line of their own - the raid's end writes one for its losses (ScEncRaids.OnDied counts
+        /// them); how: the log's words for a death no body and no console caused.
         /// </summary>
-        private static void Died(Enclave e, EncPerson p, EntityAlive killer, bool real, bool wasEnlisted, bool wasMissing = false)
+        private static void Died(Enclave e, EncPerson p, EntityAlive killer, bool real, bool wasEnlisted, bool wasMissing = false, bool raid = false, string how = null)
         {
             bool wasLeader = p.IsLeader;
             p.State = EncPerson.StateDead;
             p.DiedDay = ScCommunity.Today;
             p.Health = 0f;
             p.Role = EncPerson.MemberRole;             // one leader among the living
+            if (raid) ScEncRaids.OnDied(e, p);         // E10: before a fall below can end the raid
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
-            ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));
+            if (!raid) ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));
             if (wasEnlisted || wasMissing || Near(e, pl)) ScCommunity.Tell(pl, string.Format(Localization.Get("scEncDied"), p.Name, e.Name), "");
             if (wasEnlisted && ScConfig.EnclaveEnlistDeathPenalty > 0) ScEnclaves.AddStanding(e, -ScConfig.EnclaveEnlistDeathPenalty, p.Name + " died while enlisted with the player");
             ScEnclaveDeals.DropFavour(p, "they died");
             EntityPlayer by = KillerPlayer(killer);
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + (wasLeader ? "the leader " : "") + p.Name + " (p" + p.Id + ") died"
-                      + (killer != null ? " - killed by " + ScCommunity.DisplayName(killer) + (by != null && !ReferenceEquals(by, killer) ? " (" + by.EntityName + "'s)" : "") : real ? "" : " (the console)"));
+                      + (killer != null ? " - killed by " + ScCommunity.DisplayName(killer) + (by != null && !ReferenceEquals(by, killer) ? " (" + by.EntityName + "'s)" : "")
+                         : how != null ? " (" + how + ")" : real ? "" : " (the console)")
+                      + (raid && killer != null ? " raiding an outpost" : ""));
             List<EncPerson> living = Living(e);
             // E5 (the review's L1): one of theirs missing who may be alive (not found yet, waiting, following the player home)
             // holds the fall off; it comes once they are lost or found dead with nobody else alive (ScEncSearch.CheckFalls)
@@ -1521,11 +1600,13 @@ namespace SurvivorCommunity
         /// <summary>
         /// An enclave fell or was dropped (ScEnclaves.Fall, sc enclave reseed): bodies still out are taken away, its records
         /// go, its hold and lookups with them; (E3) one enlisted with the player is let go quietly and every favour its
-        /// people asked is off.
+        /// people asked is off. E10: its demand or raid on an outpost is off first, and a raider's body out raiding stays in
+        /// that fight as a plain raider (ScEncRaids.OnDenFalling, Abandon).
         /// </summary>
         public static void DropPeople(Enclave e)
         {
             World w = ScCommunity.World;
+            ScEncRaids.OnDenFalling(e);
             foreach (EncPerson p in new List<EncPerson>(bodies.Values))
             {
                 if (p.EnclaveId != e.Id) continue;
@@ -1569,6 +1650,39 @@ namespace SurvivorCommunity
             p.EntityId = -1;
             p.Leaving = false;
             ScRegistry.EncPeople.Remove(p);
+        }
+
+        /// <summary>
+        /// E10: a raider's body out raiding when its group fell (ScEncRaids.OnDenFalling) stays in the fight as a plain raider:
+        /// the enclave's cvars off (LeaveEnclave's way: 0 first, which reaches clients, then removed), no person's body any more
+        /// - but still in the chunk-save veto (never saved, as the outpost attack's own raiders are Dynamic).
+        /// </summary>
+        internal static void Abandon(EncPerson p, EntityAlive npc)
+        {
+            if (npc != null && npc.Buffs != null)
+            {
+                string[] synced = { EncCvar, PersonCvar, HostileCvar };
+                foreach (string cv in synced)
+                {
+                    if (!npc.Buffs.HasCustomVar(cv)) continue;
+                    npc.Buffs.SetCustomVar(cv, 0f);
+                    npc.Buffs.RemoveCustomVar(cv);
+                }
+            }
+            Unbody(p, false);
+        }
+
+        /// <summary>
+        /// E10: a person dies in the records only (an unattended raid the outpost held, ScEncRaids): their body, if one is out,
+        /// is taken away (no corpse), then Died's rules with the raid's ledger (one line for the raid's losses). how: the log's words.
+        /// </summary>
+        internal static void KillRecord(Enclave e, EncPerson p, string how)
+        {
+            if (e == null || p == null || !p.Alive) return;
+            EntityAlive npc = OwnBody(p);
+            if (npc != null && !npc.IsDead()) Remove(p, npc);
+            else Unbody(p, false);
+            Died(e, p, null, false, false, false, true, how);
         }
 
         private static void RemoveVeto(int id)
@@ -1857,7 +1971,7 @@ namespace SurvivorCommunity
         /// <summary>sc enclave info: one line on the people.</summary>
         public static string Summary(Enclave e)
         {
-            int all = 0, dead = 0, out_ = 0, enlisted = 0;
+            int all = 0, dead = 0, out_ = 0, enlisted = 0, raiding = 0;
             string leader = null;
             foreach (EncPerson p in ScRegistry.EncPeople)
             {
@@ -1866,11 +1980,13 @@ namespace SurvivorCommunity
                 if (p.State == EncPerson.StateDead) dead++;
                 else if (p.IsLeader) leader = p.Name;
                 if (p.Enlisted) enlisted++;
+                if (p.Raiding) raiding++;
                 if (p.EntityId >= 0) out_++;
             }
             if (all == 0) return "people not made yet (" + GroupSize(e) + " when a player first comes within " + ScConfig.EnclaveSpawnRange + " m)";
             return (all - dead) + " living" + (dead > 0 ? ", " + dead + " dead" : "") + (e.PeopleRolled ? "" : " (still being made: " + GroupSize(e) + " in all)")
-                   + ", led by " + (leader ?? "nobody") + ", " + out_ + " in the world" + (enlisted > 0 ? ", " + enlisted + " with you" : "");
+                   + ", led by " + (leader ?? "nobody") + ", " + out_ + " in the world" + (enlisted > 0 ? ", " + enlisted + " with you" : "")
+                   + (raiding > 0 ? ", " + raiding + " out raiding" : "");
         }
 
         /// <summary>sc enclave people &lt;id&gt; (E3: who is enlisted, by whom and until when; the recruit cooldown)</summary>
@@ -1892,6 +2008,7 @@ namespace SurvivorCommunity
                          + (p.Enlisted ? " with " + (by != null ? by.EntityName : "entity " + p.EnlistedBy) + " until day " + GameUtils.WorldTimeToDays(p.EnlistedUntil) + " "
                             + GameUtils.WorldTimeToHours(p.EnlistedUntil).ToString("00") + ":" + GameUtils.WorldTimeToMinutes(p.EnlistedUntil).ToString("00") : "")
                          + (p.Leaving ? " (walking home)" : "")
+                         + (p.Raiding ? " (" + ScEncRaids.WhereText(p) + ")" : "")
                          + ", health " + Mathf.RoundToInt(p.Health * 100f) + "%, spot " + (p.HasHome ? p.Home + " yaw " + Mathf.RoundToInt(p.Yaw) : "not chosen yet")
                          + ", " + (p.EntityId >= 0 ? "entity " + p.EntityId + (npc != null ? " at " + World.worldToBlockPos(npc.position) + ", " + npc.Health + "/" + npc.GetMaxHealth() + " hp" : "") : "no body")
                          + (fav != null ? ", favour: " + ScFavours.Describe(fav) + (fav.Done ? " (done)" : "") + " (key " + fav.Id + ")" : ""));
@@ -1989,10 +2106,11 @@ namespace SurvivorCommunity
                 EntityAlive npc = BodyOf(p);
                 // E3: one enlisted with the player dies as if at their side (the penalty too: the console tests it)
                 bool wasEnlisted = p.Enlisted;
+                bool wasRaiding = p.Raiding;          // E10: one out raiding dies as a loss of the raid
                 if (wasEnlisted) ScEnclaveDeals.EndEnlist(p, OwnBody(p), null, "killed from the console", false);
                 if (npc != null && !npc.IsDead()) Remove(p, npc);
                 else Unbody(p, false);
-                Died(e, p, null, false, wasEnlisted);
+                Died(e, p, null, false, wasEnlisted, false, wasRaiding);
                 n++;
             }
             return n + " marked dead - " + (ScEnclaves.All.Contains(e) ? Summary(e) : "the enclave is gone");

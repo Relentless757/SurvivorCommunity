@@ -347,7 +347,7 @@ namespace SurvivorCommunity
                 case "demandtext":
                 {
                     Outpost d = ScOutpostRisk.FirstDemand();
-                    _value = d != null ? string.Format(Localization.Get("scRadioDemandText"), d.DemandAmmo, d.DemandFood, d.Name) : "";
+                    _value = d != null ? ScOutpostRisk.DemandText(d) : "";      // E10: an enclave's demand names them
                     return true;
                 }
                 case "bartergive": _value = string.Format(Localization.Get("scBarterGive"), Math.Max(1, ScConfig.RadioBarterRate), Localization.Get(ScNames.LocKey(barterGive))); return true;
