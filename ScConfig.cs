@@ -663,6 +663,16 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool EnclaveBarter = true;
         public static int EnclaveBarterGive = 2, EnclaveBarterGet = 1, EnclaveBarterDays = 1;
+        // ---- radio commands (E9: ScEncCalls; research\ideas\DESIGN.md section 2, Q7: at a radio block only, a cooldown only) ----
+        /// <summary>
+        /// Radio calls (EnclaveCalls: the radio window's Allies panel): an Allied enclave answers one call every
+        /// EnclaveCallCooldownDays request-clock days (0: no wait). A fighter comes EnclaveCallFighterDelay game minutes later,
+        /// EnclaveCallSpawnMin..Max m from the player out of sight, and stays EnclaveCallFighterHours game hours; a supply drop
+        /// falls EnclaveDropDelay game minutes later from EnclaveDropHeight m onto open ground EnclaveDropRangeMin..Max m away.
+        /// </summary>
+        public static bool EnclaveCalls = true;
+        public static int EnclaveCallCooldownDays = 3, EnclaveCallFighterHours = 12, EnclaveCallFighterDelay = 30, EnclaveCallSpawnMin = 40, EnclaveCallSpawnMax = 90;
+        public static int EnclaveDropDelay = 20, EnclaveDropRangeMin = 20, EnclaveDropRangeMax = 50, EnclaveDropHeight = 60;
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1222,6 +1232,8 @@ namespace SurvivorCommunity
             EnclaveLostMorale = 5; EnclaveRefillDays = 5; EnclaveAllyRevealDays = 7;
             EnclaveGifts = true; EnclaveGiftStanding = 3; EnclaveGiftDays = 1; EnclaveGiftCap = 69;
             EnclaveBarter = true; EnclaveBarterGive = 2; EnclaveBarterGet = 1; EnclaveBarterDays = 1;
+            EnclaveCalls = true; EnclaveCallCooldownDays = 3; EnclaveCallFighterHours = 12; EnclaveCallFighterDelay = 30; EnclaveCallSpawnMin = 40; EnclaveCallSpawnMax = 90;
+            EnclaveDropDelay = 20; EnclaveDropRangeMin = 20; EnclaveDropRangeMax = 50; EnclaveDropHeight = 60;
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1919,6 +1931,21 @@ namespace SurvivorCommunity
                 ParseInt(p, "EnclaveBarterGive", ref EnclaveBarterGive, 1, 100);
                 ParseInt(p, "EnclaveBarterGet", ref EnclaveBarterGet, 1, 100);
                 ParseInt(p, "EnclaveBarterDays", ref EnclaveBarterDays, 0, 365);
+                // radio commands (E9)
+                bool calls = EnclaveCalls;
+                if (p.Values.ContainsKey("EnclaveCalls")) p.ParseBool("EnclaveCalls", ref calls);
+                EnclaveCalls = calls;
+                ParseInt(p, "EnclaveCallCooldownDays", ref EnclaveCallCooldownDays, 0, 365);
+                ParseInt(p, "EnclaveCallFighterHours", ref EnclaveCallFighterHours, 1, 240);
+                ParseInt(p, "EnclaveCallFighterDelay", ref EnclaveCallFighterDelay, 0, 1440);
+                ParseInt(p, "EnclaveCallSpawnMin", ref EnclaveCallSpawnMin, 10, 200);
+                ParseInt(p, "EnclaveCallSpawnMax", ref EnclaveCallSpawnMax, 10, 200);
+                if (EnclaveCallSpawnMax < EnclaveCallSpawnMin) EnclaveCallSpawnMax = EnclaveCallSpawnMin;
+                ParseInt(p, "EnclaveDropDelay", ref EnclaveDropDelay, 0, 1440);
+                ParseInt(p, "EnclaveDropRangeMin", ref EnclaveDropRangeMin, 5, 200);
+                ParseInt(p, "EnclaveDropRangeMax", ref EnclaveDropRangeMax, 5, 200);
+                if (EnclaveDropRangeMax < EnclaveDropRangeMin) EnclaveDropRangeMax = EnclaveDropRangeMin;
+                ParseInt(p, "EnclaveDropHeight", ref EnclaveDropHeight, 10, 200);
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -2295,6 +2322,9 @@ namespace SurvivorCommunity
                                                 + EnclaveAllyRevealDays + "d" : "off")
                           + " enclaveGifts=" + (Enclaves && EnclaveGifts ? "+" + EnclaveGiftStanding + " every " + EnclaveGiftDays + "d, cap " + EnclaveGiftCap : "off")
                           + " allyBarter=" + (Enclaves && EnclaveBarter ? EnclaveBarterGive + " for " + EnclaveBarterGet + " every " + EnclaveBarterDays + "d" : "off")
+                          + " enclaveCalls=" + (Enclaves && EnclaveCalls ? "every " + EnclaveCallCooldownDays + "d, fighter " + EnclaveCallFighterHours + "h after " + EnclaveCallFighterDelay
+                                                + "min at " + EnclaveCallSpawnMin + "-" + EnclaveCallSpawnMax + "m, drop after " + EnclaveDropDelay + "min at " + EnclaveDropRangeMin + "-"
+                                                + EnclaveDropRangeMax + "m from " + EnclaveDropHeight + "m up" : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange

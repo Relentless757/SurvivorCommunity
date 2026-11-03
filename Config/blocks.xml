@@ -1163,6 +1163,31 @@
 			<property name="EnclaveBarterGet" value="1" />
 			<property name="EnclaveBarterDays" value="1" />
 
+			<!-- RADIO COMMANDS (E9). With EnclaveCalls, the radio window's Allies panel calls the picked Allied enclave for
+			     help - only at a powered radio block, as the window opens. SEND A FIGHTER: the best of their people at home
+			     (never the leader; the highest class tier, then the most Fighting and Shooting stars; the leader and one more
+			     always stay home) comes EnclaveCallFighterDelay game minutes later. They turn up EnclaveCallSpawnMin to
+			     EnclaveCallSpawnMax m from you on the side of their enclave, out of sight, walk up and follow and fight with you
+			     for EnclaveCallFighterHours game hours, then head home. They are enlisted as "Can you come with me?" enlists
+			     (no fee): one per enclave, counted toward MaxFollowers, "Go home now." sends them back, and their death costs
+			     EnclaveEnlistDeathPenalty standing. SUPPLY DROP: EnclaveDropDelay game minutes later a supply crate falls by
+			     parachute from EnclaveDropHeight m onto open ground EnclaveDropRangeMin to EnclaveDropRangeMax m from you, with
+			     smoke and the air drop map marker; it holds what their kind makes and a medium bundle of their resource.
+			     Each ally answers one call every EnclaveCallCooldownDays days (0: no wait), both commands together; there is
+			     no standing cost. A call that can't come (they are no longer allies, a siege of theirs for a fighter, no spot
+			     found in 5 real minutes) is called off with the wait given back. Days here are the enclave requests' days, so
+			     "sc day" moves them. "sc enclave call <id>" tests it. -->
+			<property name="EnclaveCalls" value="true" />
+			<property name="EnclaveCallCooldownDays" value="3" />
+			<property name="EnclaveCallFighterHours" value="12" />
+			<property name="EnclaveCallFighterDelay" value="30" />
+			<property name="EnclaveCallSpawnMin" value="40" />
+			<property name="EnclaveCallSpawnMax" value="90" />
+			<property name="EnclaveDropDelay" value="20" />
+			<property name="EnclaveDropRangeMin" value="20" />
+			<property name="EnclaveDropRangeMax" value="50" />
+			<property name="EnclaveDropHeight" value="60" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

@@ -19,6 +19,9 @@ namespace SurvivorCommunity
     /// Allied enclave picked with a cycling button, nearest first, what they do for you and where; and the barter with them
     /// (ScEncBarter: Give cycles your supplies, Get is theirs - any classic one from a scavengers' group - and Trade, once a
     /// day per ally). E9's radio commands are to reuse the pick.
+    /// E9 adds the radio commands to the Allies panel, under the pick (the Enclaves list is 8 rows since): Send a fighter and
+    /// Supply drop (ScEncCalls), each greyed with the reason in its label as the station's own calls are; the hint line
+    /// shows the call that is on with that ally (on the way, with you until when) when nothing newer is to be said.
     /// </summary>
     [Preserve]
     public class XUiC_ScRadio : XUiController
@@ -29,8 +32,8 @@ namespace SurvivorCommunity
         private Resource barterGive = Resource.Food;
         private Resource barterGet = Resource.Meds;
 
-        // ---- E6: the Enclaves column (its row counts are the generator's ENC_ROWS / REQ_ROWS; E7 made room for the Allies panel) ----
-        private const int EncRows = 10, ReqRows = 3;
+        // ---- E6: the Enclaves column (its row counts are the generator's ENC_ROWS / REQ_ROWS; E7 and E9 made room for the Allies panel) ----
+        private const int EncRows = 8, ReqRows = 3;
         /// <summary>The palette's text colours; Ally and Friend are the enclave markers' own (nav_objects.xml: sc_enclave_allied / _friendly).</summary>
         private const string Body = "226,220,208,255", Dim = "190,182,166,255", Off = "130,124,112,255", Ally = "90,170,255,255",
                              Friend = "140,220,120,255", Gold = "206,178,120,255", Danger = "240,150,130,255";
@@ -159,11 +162,26 @@ namespace SurvivorCommunity
                     BuildEnclaves();
                     RefreshBindings();
                 });
+                // E9: the radio commands - a fighter, a supply drop (the call that is on then shows on the hint line)
+                Hook("btnAllyFighter", () => DoCall(ScEncCalls.Fighter));
+                Hook("btnAllyDrop", () => DoCall(ScEncCalls.Drop));
             }
             catch (Exception e)
             {
                 ScLog.Once("radio-window-init", e);
             }
+        }
+
+        /// <summary>E9: a call to the picked ally. Made: the radio's answer is told and the hint shows the call; refused: the reason, the denied sound.</summary>
+        private void DoCall(string kind)
+        {
+            string msg;
+            EntityPlayerLocal p = Player;
+            bool done = ScEncCalls.Call(PickedAlly(), kind, p, false, false, out msg);
+            if (!done && p != null) p.PlayOneShot("ui_denied");
+            allyHint = done ? "" : msg ?? "";
+            BuildEnclaves();
+            RefreshBindings();
         }
 
         private void DoScout(Resource res)
@@ -265,7 +283,18 @@ namespace SurvivorCommunity
                 case "allygetready": _value = ScEncBarter.ChoosesGet(PickedAlly()).ToString(); return true;
                 case "allytradeready": _value = ScEncBarter.CanTrade(PickedAlly(), allyGive, allyGet, out why).ToString(); return true;
                 case "allyhint": _value = AllyHint(); return true;
-                case "allyhintcolor": _value = allyHint.Length > 0 ? Gold : Dim; return true;
+                case "allyhintcolor": _value = allyHint.Length > 0 || ScEncCalls.StateText(PickedAlly()).Length > 0 ? Gold : Dim; return true;
+                // ---- E9: the radio commands (each label is the command, or why it can't be made now) ----
+                case "allycallvisible": _value = (PickedAlly() != null && ScConfig.EnclaveCalls).ToString(); return true;
+                case "allycallnone": _value = AllyCallNone(); return true;
+                case "allyfighterready": _value = ScEncCalls.CanCall(PickedAlly(), ScEncCalls.Fighter, false, out why).ToString(); return true;
+                case "allyfighterlabel":
+                    _value = ScEncCalls.CanCall(PickedAlly(), ScEncCalls.Fighter, false, out why) ? Localization.Get("scRadioAllyFighter") : why ?? "";
+                    return true;
+                case "allydropready": _value = ScEncCalls.CanCall(PickedAlly(), ScEncCalls.Drop, false, out why).ToString(); return true;
+                case "allydroplabel":
+                    _value = ScEncCalls.CanCall(PickedAlly(), ScEncCalls.Drop, false, out why) ? Localization.Get("scRadioAllyDrop") : why ?? "";
+                    return true;
                 // ---- E6: the Enclaves column ----
                 case "encnone":
                     _value = encKnown == 0 ? Localization.Get("scRadioEncNone") : encKnown < 0 && ScRegistry.Loaded && !ScConfig.Enclaves ? Localization.Get("scRadioEncOff") : "";
@@ -514,18 +543,30 @@ namespace SurvivorCommunity
             return string.IsNullOrEmpty(what) ? where : string.Format(Localization.Get("scRadioAllyState"), what, where);
         }
 
-        /// <summary>Where the barter row would be, while it is hidden: no ally yet (how to get one), or the barter switched off.</summary>
+        /// <summary>Where the barter row would be, while it is hidden: the barter switched off (E9: no ally yet is said a row higher).</summary>
         private string AllyNone()
         {
-            if (PickedAlly() == null) return ScConfig.Enclaves ? Localization.Get("scRadioAllyNoneDesc") : Localization.Get("scRadioEncOff");
+            if (PickedAlly() == null) return "";
             return ScConfig.EnclaveBarter ? "" : Localization.Get("scEncBarterOff");
         }
 
-        /// <summary>The hint line: the last ally action's words, else why the trade can't be made now, else how it works.</summary>
+        /// <summary>E9: where the commands row would be, while it is hidden: no ally yet (how to get one), or the calls switched off.</summary>
+        private string AllyCallNone()
+        {
+            if (PickedAlly() == null) return ScConfig.Enclaves ? Localization.Get("scRadioAllyNoneDesc") : Localization.Get("scRadioEncOff");
+            return ScConfig.EnclaveCalls ? "" : Localization.Get("scEncCallOff");
+        }
+
+        /// <summary>
+        /// The hint line: the last ally action's words, else (E9) the call that is on with this ally, else why the trade can't be
+        /// made now, else how it works.
+        /// </summary>
         private string AllyHint()
         {
             if (allyHint.Length > 0) return allyHint;
             Enclave a = PickedAlly();
+            string call = ScEncCalls.StateText(a);
+            if (call.Length > 0) return call;
             if (a == null || !ScConfig.EnclaveBarter) return "";
             string why;
             if (!ScEncBarter.CanTrade(a, allyGive, allyGet, out why)) return why ?? "";

@@ -10,11 +10,12 @@ community window's rules (Tools/generate_community_ui.py) - same palette, plates
             Powered - 2 of 3 contacts out there
     +- [AIR DROP button] ----------+- [CALL button] ----------+  +- ENCLAVES YOU KNOW -----------------------+
     |  what it does / cooldown     |  what it does / cooldown |  | name      standing  benefit   where       |
-    +- SURVIVORS HEARD ON THE RADIO --------------------------+  | ... 10 rows, nearest first, "+N more"    |
+    +- SURVIVORS HEARD ON THE RADIO --------------------------+  | ... 8 rows, nearest first, "+N more"     |
     +- SUPPLY RUNS CALLING FOR HELP --------------------------+  +- THEIR REQUESTS -------------------------+
     +- OUTPOSTS REPORTING IN ---------------------------------+  | enclave   what          answer / due by  |
     [ raiders' demand                      [PAY] [REFUSE] ]     +- ALLIES ---------------------------------+
     +- SCOUT FOR OUTPOSTS  [food][meds][ammo][mats][fuel] ----+  | [ally >]  benefit, where                 |
+    |                                                         |  | [SEND A FIGHTER]   [SUPPLY DROP]         |
     |                                                         |  | [give ..] [get ..] [TRADE]  hint         |
     +- BARTER  [give ..] [get ..] [TRADE] -------------------+  +- SIEGE CALLS ----------------------------+
     the last action's message                                    | X is under attack!  [ON OUR WAY] [CAN'T] |
@@ -32,8 +33,14 @@ room, the siege section lost 8 units of slack, and its bottom stays level with t
 Allied enclave with a cycling button (nearest first) and shows what they do for you and where; under it the barter with
 that ally - Give, Get (a scavengers' group only: theirs is fixed otherwise) and Trade - and a hint line. Its plates,
 buttons and icons are the same scui_* names and vanilla symbols as the rest, so AshfallUI's premium art and brass icons
-apply to it with no patch. E9 (radio commands) is to add its call buttons here, taking the room from the Enclaves list
-again (ALLY_H grows, ENC_ROWS shrinks).
+apply to it with no patch.
+
+E9 (2026-11-03, research/ideas/DESIGN.md section 2) added the radio commands' row to the Allies panel, between the pick
+and the barter: Send a fighter (the run icon) and Supply drop (the air drop icon), each half the row, each greyed with
+the reason in its label as the station's own calls are. The room came from the Enclaves list again (10 rows to 8, 44
+units): the requests and the Allies panel moved up, the panel grew from 150 to 194, and the siege section is where it
+was. Its icons are ui_game_symbol_run and _airdrop, already in this window (the siege's On our way, the air drop call),
+so AshfallUI's brass twins apply here too.
 
 RULES THAT MATTER (the community window's, unchanged):
 - Buttons are <button> views: XUiC_ScRadio hooks each control's own OnPress (GetChildById), which a
@@ -45,12 +52,14 @@ RULES THAT MATTER (the community window's, unchanged):
   the reason (the controller writes it into {droplabel} / {calllabel} / {scoutdesc} / {barterdesc}).
 - Control names are the controller's: btnClose, btnDrop, btnCall, btnScout<Resource>, btnBarterGive,
   btnBarterGet, btnBarterTrade, btnDemandPay, btnDemandRefuse; E6's btnSiegeGo, btnSiegeCant; E7's btnAllyPick,
-  btnAllyGive, btnAllyGet, btnAllyTrade.
+  btnAllyGive, btnAllyGet, btnAllyTrade; E9's btnAllyFighter, btnAllyDrop.
 - E6's rows are bound by index: enc<1..ENC_ROWS><name|standing|standingcolor|benefit|benefitcolor|where|visible>
   and req<1..REQ_ROWS><enc|what|due|duecolor|visible> - XUiC_ScRadio's EncRows / ReqRows must equal ENC_ROWS /
   REQ_ROWS. Bound colours are numeric "r,g,b,a" strings.
 - E7's Allies panel binds allyname, allystate, allypickready, allyvisible (the barter row), allynone (the words in its
   place while it is hidden), allygive, allyget, allygetready, allytradeready, allyhint and allyhintcolor.
+- E9's commands row binds allycallvisible (the row), allycallnone (the words in its place while it is hidden: no ally yet,
+  or the calls switched off), allyfighterready, allyfighterlabel, allydropready and allydroplabel.
 """
 
 import io
@@ -92,9 +101,9 @@ RW = WIN_W - X2 - M                   # its plate width
 RIN = RW - 2 * PAD                    # its content width
 ROW_H = 22                            # one enclave or request row
 COL_H = 20                            # the column-heading row
-ENC_Y, ENC_H, ENC_ROWS = CALLS_Y, 302, 10      # E7: 15 rows before the Allies panel
-REQ_Y, REQ_H, REQ_ROWS = 394, 148, 3            # E7: 4 rows before
-ALLY_Y, ALLY_H = 550, 150             # E7: the Allies panel
+ENC_Y, ENC_H, ENC_ROWS = CALLS_Y, 258, 8       # E7: 15 rows before the Allies panel; E9: 10 before its commands row
+REQ_Y, REQ_H, REQ_ROWS = 350, 148, 3            # E7: 4 rows before
+ALLY_Y, ALLY_H = 506, 194             # E7: the Allies panel (550, 150 before E9's commands row)
 SIEGE_Y, SIEGE_H = 708, 156           # its bottom level with the barter section's
 # (binding field, key of its heading, x within the row, width); the row's labels are 14-point, ellipsis past the width
 ENC_COLS = (("name", "scRadioEncColName", 0, 190), ("standing", "scRadioEncColStanding", 194, 74),
@@ -104,6 +113,7 @@ SIEGE_BW = 270                        # each siege button's width
 ALLY_PICK_W = 300                     # E7: the ally pick button
 ALLY_GIVE_W, ALLY_GET_W, ALLY_GAP = 200, 170, 10    # E7: the barter row's Give and Get, and the gap between its buttons
 ALLY_ROW = 36                         # E7: a row of the panel
+ALLY_CALL_W = 279                     # E9: each command button (Send a fighter, Supply drop): half the row
 
 # ---------------------------------------------------------------- palette (the community window's)
 TITLE = "226,219,203,255"
@@ -229,11 +239,15 @@ def allies():
     """E7: the Allies panel - the ally pick (a cycling button, nearest first; its arrow only while there is another to
     cycle to) with what they do for you and where; under it the barter with them (Give, Get, Trade: shown while an ally is
     picked and the barter is on - else {allynone} says why there) and a hint line (why not, how it works, or the last
-    trade). E9 adds the radio commands' row."""
+    trade). E9 adds the radio commands' row between the pick and the barter: Send a fighter and Supply drop, shown while an
+    ally is picked and the calls are on - else {allycallnone} says why there (no ally yet: how to get one) - each label
+    the command or why it can't be made now; the hint line also tells of the call that is on."""
     x0 = X2 + PAD
     py = ALLY_Y + HEAD_H + 2              # the pick row
-    by = py + ALLY_ROW + 6                # the barter row
+    cy = py + ALLY_ROW + 6                # E9: the commands row
+    by = cy + ALLY_ROW + 6                # the barter row
     hy = by + ALLY_ROW + 4                # the hint line
+    drop_x = ALLY_CALL_W + ALLY_GAP
     get_x = ALLY_GIVE_W + ALLY_GAP
     trade_x = get_x + ALLY_GET_W + ALLY_GAP
     trade_w = RIN - trade_x
@@ -242,6 +256,17 @@ def allies():
           centred(x0 + 10, -py, ALLY_PICK_W - 44, ALLY_ROW, 15, BODY, text="{allyname}", extra='justify="center" ' + ELLIPSIS),
           icon("ui_game_symbol_arrow_right", x0 + ALLY_PICK_W - 20, -(py + ALLY_ROW // 2), 18, depth=4, extra='visible="{allypickready}"'),
           centred(x0 + ALLY_PICK_W + 12, -py, RIN - ALLY_PICK_W - 12, ALLY_ROW, 14, DIM, text="{allystate}", extra=ELLIPSIS),
+          '<rect depth="1" pos="%d,%d" width="%d" height="%d" visible="{allycallvisible}">' % (x0, -cy, RIN, ALLY_ROW),
+          "\t" + button("btnAllyFighter", 0, 0, ALLY_CALL_W, ALLY_ROW, ready="allyfighterready"),
+          "\t" + icon("ui_game_symbol_run", 22, -(ALLY_ROW // 2), 20, depth=4),
+          "\t" + centred(36, 0, ALLY_CALL_W - 44, ALLY_ROW, 15, tone("allyfighterready"), text="{allyfighterlabel}",
+                         extra='justify="center" upper_case="true" ' + ELLIPSIS),
+          "\t" + button("btnAllyDrop", drop_x, 0, ALLY_CALL_W, ALLY_ROW, ready="allydropready"),
+          "\t" + icon("ui_game_symbol_airdrop", drop_x + 22, -(ALLY_ROW // 2), 20, depth=4),
+          "\t" + centred(drop_x + 36, 0, ALLY_CALL_W - 44, ALLY_ROW, 15, tone("allydropready"), text="{allydroplabel}",
+                         extra='justify="center" upper_case="true" ' + ELLIPSIS),
+          "</rect>",
+          label(x0, -cy, RIN, 40, 14, DIM, text="{allycallnone}"),
           '<rect depth="1" pos="%d,%d" width="%d" height="%d" visible="{allyvisible}">' % (x0, -by, RIN, ALLY_ROW),
           "\t" + button("btnAllyGive", 0, 0, ALLY_GIVE_W, ALLY_ROW),
           "\t" + centred(0, 0, ALLY_GIVE_W, ALLY_ROW, 15, BODY, text="{allygive}", extra='justify="center" ' + ELLIPSIS),
@@ -400,11 +425,12 @@ def main():
     assert 2 * SIEGE_BW + 8 <= RIN, "the siege buttons overlap"
     assert SIEGE_Y + HEAD_H + 2 + 54 + 40 + 20 <= SIEGE_Y + SIEGE_H, "the siege hint runs past its plate"
     assert SIEGE_Y + SIEGE_H == BARTER_Y + BARTER_H, "the siege section's bottom is not level with the barter section's"
-    # E7: the Allies panel's rows inside its plate, its buttons inside the column
-    assert HEAD_H + 2 + 2 * ALLY_ROW + 6 + 4 + 20 <= ALLY_H, "the Allies panel's rows run past its plate"
+    # E7: the Allies panel's rows inside its plate, its buttons inside the column; E9: its commands row too
+    assert HEAD_H + 2 + 3 * ALLY_ROW + 2 * 6 + 4 + 20 <= ALLY_H, "the Allies panel's rows run past its plate"
     assert ALLY_PICK_W + 12 < RIN and ALLY_GIVE_W + ALLY_GET_W + 2 * ALLY_GAP + 120 <= RIN, "the Allies panel's buttons run past the column"
-    print("generate_radio_ui: wrote windowScRadio %dx%d (Enclaves column %d wide: %d enclave rows, %d request rows, the Allies panel)"
-          % (WIN_W, WIN_H, RW, ENC_ROWS, REQ_ROWS))
+    assert 2 * ALLY_CALL_W + ALLY_GAP <= RIN, "the Allies panel's command buttons run past the column"
+    print("generate_radio_ui: wrote windowScRadio %dx%d (Enclaves column %d wide: %d enclave rows, %d request rows, the Allies panel "
+          "with its commands)" % (WIN_W, WIN_H, RW, ENC_ROWS, REQ_ROWS))
 
 
 if __name__ == "__main__":
