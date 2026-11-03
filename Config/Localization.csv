@@ -1054,6 +1054,8 @@ scInfestLedgerSpread,UI,Tooltip,,,,the infestation at {0} spread to {1}
 scInfestLedgerCleared,UI,Tooltip,,,,cleared the infestation at {0}
 scInfestSiegeTell,UI,Tooltip,,,,The dead have overrun {0}.
 scInfestLedgerSiege,UI,Tooltip,,,,the dead overran {0}
+scInfestNearHome,UI,Tooltip,,,,"Your people spotted the dead moving in close to home. {0} is infested, {1}."
+scInfestLedgerNearHome,UI,Tooltip,,,,your people spotted an infestation near home at {0}
 scEncReqNothingLine,Dialog,Statement,,,,Nothing right now. We're managing.
 scEncReqCleared,Dialog,Response,,,,I already took care of it.
 scEncReqFound,Dialog,Response,,,,{found}
@@ -1222,6 +1224,13 @@ scMoraleAlliesCount,UI,Menu,,,,Allied enclaves: {0}
 scMoraleAlliesDetail,UI,Menu,,,," ({0} allied: {1})"
 scMoraleEnclaveLost,UI,Menu,,,,Enclave lost
 scMoraleBedsAllies,UI,Menu,,,,(+{0} from allies)
+scMoraleNests,UI,Menu,,,,Infestations near home
+scMoraleNestsCount,UI,Menu,,,,Infestations near home: {0}
+scMoraleNestsDetail,UI,Menu,,,," ({0} within {1} m: {2}{3})"
+scMoraleNestsItem,UI,Menu,,,,{0} {1} m -{2}
+scMoraleNestsUnknown,UI,Menu,,,,a building not found yet
+scMoraleNestsNearest,UI,Menu,,,,; only the nearest {0} count
+scMoraleNestsCapped,UI,Menu,,,,; at most -{0} in all
 scRadioEnclavesHeader,UI,Menu,,,,Enclaves you know
 scRadioEncColName,UI,Menu,,,,Enclave
 scRadioEncColStanding,UI,Menu,,,,Standing

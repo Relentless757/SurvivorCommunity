@@ -595,3 +595,94 @@ installed `c0ea84c3`):
 Test steps: TESTING.md group O (94-107, after the merge with V1). Merged with V1 on `dev/ideas` (d0740bc): 3.4 DLL
 `d5979300`. Fable review of both (`research\review_v1_i2\REVIEW.md`): DEPLOYABLE, no HIGH or MEDIUM; doc findings
 LOW-1 and LOW-4 fixed. Not installed.
+
+### Round 10: infestations near home (I3) (2026-11-03, built, not reviewed, not installed)
+
+The second milestone of `research\ideas\DESIGN.md` (section 3, idea 2), with the user's decisions of 2026-11-03 over the
+design: no growth (idea 4 is dropped, so no grown weight and no `InfestHomeGrownWeight`); up to 5 nests count, for morale
+and for attention; morale is a flat cost per nest by its distance band, at most 15 in all; attention is a flat +1/h per
+nest (Q3 (a)); a nest that starts or spreads near home is known at once (Q3, yes). Branch `ms/i3` from `dev/ideas`
+`d0740bc`. **3.4 only from this round** (the user's decision): only the 3.4 DLL is built, the tracked 3.2
+`SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34` guards. Single player only.
+
+- **ScInfestations.cs.**
+  - `NearNest` (new class): an infestation near home, its metres (XZ, rounded, from the home block to the footprint:
+    `Infestation.DistanceXZ`), whether it is one of the nearest `InfestHomeMoraleNests` (`Counted`), and its band's
+    `Cost` (0 when not counted).
+  - `NearHome()`: the infestations of the `live` lookup within `InfestHomeRange` of the home block, nearest first (then
+    by id). Empty with no home, `Infestations=false` (the lookup is empty then) or `InfestHomeRange` 0. Known or not.
+    Cached until `Rebuild` (a `version` counter, also bumped by `Reset`) or the home block changes. Nothing is saved.
+  - `NestsMorale()` (the counted costs, at most `InfestHomeMoraleCap`), `NestsForAttention()` (at most
+    `InfestHomeAttentionCap`), `NestsAttention()` (times `InfestHomeAttention`), `NestsDetail()` (the breakdown's
+    words: each counted nest with its metres and cost, then `; only the nearest N count` and `; at most -N in all` when
+    they apply; an unknown nest is "a building not found yet").
+  - `SpotNearHome`: with `InfestHomeKnown`, an unknown one within range of home becomes known with a tell, "Your
+    people spotted the dead moving in close to home. <name> is infested, <D m direction>.", and a ledger line.
+    `Infest` calls it after the console, siege and spread-from-a-known-one branches and before the radio's. The log
+    line then ends `, spotted near home (<D m direction> from home)`.
+  - `SpotAllNearHome`, from `Tick` after the markers are restored: the first tick after `OnGameStart` (which re-arms
+    it), and again whenever the home block changes. It spots every unknown one near home, with the marker, the log line
+    `infestation #N at <name> is near home (<where> from home) - your people spotted it` and one save.
+  - `ListLines` (`sc infest list`): a second line `near home (within 500 m of home): N - morale -X (bands ..., the
+    nearest 5 count, at most 15), attention +Y/h (+1/h each, at most 5); spotted at once: yes`. Each nest's line ends
+    `- near home, D m: morale -C` (or `no morale (only the nearest N count)` / `no morale (past the last band)`).
+- **ScMorale.cs.** `Parts.Nests` = `-NestsMorale()` after E6's parts, shielded by Leadership with the other negative
+  parts, added to the total. `Breakdown` gets `Infestations near home -X (N within 500 m: <name> D m -C, ...)`.
+- **XUiC_ScCommunity.BuildMoraleParts.** The part `Infestations near home: N`, icon `ui_game_symbol_infection`
+  (vanilla's, in 3.4's buffs.xml).
+- **ScNoise.cs.** `Advance` adds `NestsAttention()` to each quarter-hour step's rate right after `RatePerHour`, so the
+  watch posts' cut, the blood-moon and open-attack pauses and "full stays full" apply to it as to the noise's.
+  `Breakdown` (`sc noise`) gains `nests near home: N within 500 m, +1/h attention each, at most 5 counted: +N/h`, and
+  its attention rate includes the nests (`... /h at this noise and N nest(s) near home`).
+- **ScEnclaves.Where(from, to, metres)** (new overload): the direction to the centre with a given distance, so the tell
+  says the same metres as the breakdown and the list (to the footprint, not the centre).
+- **ConsoleCmdSc.** `sc morale`'s last line ends `nestsNearHome=N`.
+- **Config** (`Config/blocks.xml`, commented; `ScConfig`, parsed and reset with the other infestation keys; the
+  `config:` line's `infestations=` part ends `near home 500m (morale 150:5,300:3,500:2 for the nearest 5, at most 15;
+  attention +1/h each for 5; known at once)`):
+  - `InfestHomeRange` 500 (0-5000; 0 = no nest is near home).
+  - `InfestHomeMoraleBands` `150:5,300:3,500:2`: metres:cost, sorted by distance. A nest costs the first band it fits,
+    and nothing past the last. An entry that is not metres:cost (metres 1-20000, cost 0-100), or that repeats a
+    distance, is skipped with a warning; if none can be read, the table is kept (`ParseHomeBands`, like
+    `InfestTierByDay`).
+  - `InfestHomeMoraleNests` 5 (0-100): the nearest that count for morale.
+  - `InfestHomeMoraleCap` 15 (0-100).
+  - `InfestHomeAttention` 1 (0-20) and `InfestHomeAttentionCap` 5 (0-100).
+  - `InfestHomeKnown` true.
+- **Localization.csv**: `scInfestNearHome`, `scInfestLedgerNearHome`, `scMoraleNests`, `scMoraleNestsCount`,
+  `scMoraleNestsDetail`, `scMoraleNestsItem`, `scMoraleNestsUnknown`, `scMoraleNestsNearest`, `scMoraleNestsCapped`.
+  New player-facing lines are text only. In the tell, the name and the distance are in a sentence of their own.
+- **Harmony targets: none new.** ModApi's expected list is unchanged, so no audit was needed.
+
+Checked offline: a net8 probe that loads the 3.4 assemblies and this DLL, with SC's Localization.csv in the game's
+dictionary (`<scratchpad>\i3probe`). The band edges are right: 150 m costs 5, 151 m 3, 500 m 2, 501 m 0. Parsing sorts
+and trims (the warning paths need Unity's Log, so they were read, not run). With nests at 120/250/420/600 m, three
+count, nearest first, costing 5/3/2: morale 10, attention 3. Moving the home re-sorts them (the 420 m one is then 460 m
+and the only one). With six nests, five count, the raw 23 is capped at 15 and attention at 5. An unknown nest shows as
+"a building not found yet". No home, range 0 or an empty lookup gives 0. `ScMorale.Compute().Nests` is -15. The text of
+`sc morale`, `sc noise` and `sc infest list` was printed and matches TESTING.
+
+Where the design was off, and the code followed the tree:
+1. **Line numbers drifted with I2.** In this tree, ScInfestations' `Infest` is at :507 (design :506), `Spread` at :577
+   (:576) and `OnGameStart` at :1014 (:1034). I1's discovery tell and ledger are in `Tick` at :1166-1175 (:1186-1195),
+   `AddMarker` is at :1196 (:1216) and `DistanceXZ` at :55-62 (the design's :53-59 starts at `Centre`). The
+   ScMorale, ScNoise, ScConfig and XUiC_ScCommunity lines matched exactly.
+2. **`sc noise`'s own rate.** The design only added a line. But `Breakdown` computes the attention rate and "full in
+   about" from `RatePerHour` alone, so it would have disagreed with `Advance`. It now adds the nests too.
+3. **The tell.** The design's "Your people spotted it: the Diner is infested, 420 m north." puts the name in the
+   sentence a voice would say, so the sentence is split. `ScEnclaves.Where` measures to the centre while the range is
+   to the footprint, so the new overload gives the footprint's metres.
+4. **"The same check runs once in OnGameStart."** At GameStartDone the tick restores the markers, and a tell needs the
+   player. So the check runs in the first tick after `OnGameStart`. It also runs again when the home block changes (an
+   addition): otherwise a moved home would count nests the player was never told about.
+5. **Unknown nests count.** The design counts every infestation within range. With `InfestHomeKnown=false`, or after
+   `sc infest hide`, one can be unknown: it still costs morale and draws attention, and the breakdown leaves its name
+   out.
+6. **`NearHome(out count, out weight, names)`** lost its weight (no growth) and returns the cached list instead.
+7. A spread from a known nest that lands near home keeps I1's spread tell and ledger line. It is known already, so it
+   is not "spotted".
+8. "Up to 5 nests count for morale" needed a key of its own (`InfestHomeMoraleNests`), because `InfestHomeAttentionCap`
+   is attention's.
+
+Build: SC 3.4 `515bc8b2` (`build\sc34_i3`), 0 errors. The 3.2 DLL was not rebuilt. Test steps: TESTING.md group I3
+(110-119). Not reviewed (Fable), not installed. The task list needs its entry.

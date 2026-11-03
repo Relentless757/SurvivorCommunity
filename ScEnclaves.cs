@@ -325,8 +325,15 @@ namespace SurvivorCommunity
         public static string Where(Vector3 from, Vector3 to)
         {
             float dx = to.x - from.x, dz = to.z - from.z;
+            return Where(from, to, Mathf.RoundToInt(Mathf.Sqrt(dx * dx + dz * dz)));
+        }
+
+        /// <summary>As Where, with the distance given (I3: to a footprint's nearest edge, the direction still to its centre).</summary>
+        public static string Where(Vector3 from, Vector3 to, int metres)
+        {
+            float dx = to.x - from.x, dz = to.z - from.z;
             int sector = Mathf.RoundToInt(Mathf.Repeat(Mathf.Atan2(dx, dz) * Mathf.Rad2Deg, 360f) / 45f) % 8;   // 0 = north (+z), 2 = east (+x)
-            return string.Format(Localization.Get("scEnclaveWhere"), Mathf.RoundToInt(Mathf.Sqrt(dx * dx + dz * dz)), Localization.Get(DirKeys[sector]));
+            return string.Format(Localization.Get("scEnclaveWhere"), metres, Localization.Get(DirKeys[sector]));
         }
 
         public static string StandingKey(Enclave e)

@@ -196,7 +196,8 @@ namespace SurvivorCommunity
             foreach (string line in ScMorale.Breakdown().Split('\n')) Output("[SC] " + line);
             Community c = ScRegistry.Community;
             Output("[SC] lowMoraleDays=" + c.LowMoraleDays + " threat=" + c.ThreatMemberId + " deathPenalty=" + c.DeathPenalty
-                   + " enclaveLoss=" + c.EnclaveLoss + " allies=" + ScEncAllies.AlliedCount() + " allyBeds=" + ScEncAllies.ExtraBeds());   // E6
+                   + " enclaveLoss=" + c.EnclaveLoss + " allies=" + ScEncAllies.AlliedCount() + " allyBeds=" + ScEncAllies.ExtraBeds()   // E6
+                   + " nestsNearHome=" + ScInfestations.NearHome().Count);                                                            // I3
         }
 
         /// <summary>sc noise [add &lt;n&gt; | clear] - the base's noise and attention (base defence D1).</summary>

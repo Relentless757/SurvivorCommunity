@@ -1095,6 +1095,8 @@ namespace SurvivorCommunity
             AddPart(p.Allies, string.Format(Localization.Get("scMoraleAlliesCount"), ScEncAllies.AlliedCount()), "ui_game_symbol_allies");
             AddPart(p.Comfort, Localization.Get("scEncBenefit_comfort"), "ui_game_symbol_party");
             AddPart(p.EnclaveLost, Localization.Get("scMoraleEnclaveLost"), "ui_game_symbol_map_fortress");
+            // I3: the infestations near home, by how many there are
+            AddPart(p.Nests, string.Format(Localization.Get("scMoraleNestsCount"), ScInfestations.NearHome().Count), "ui_game_symbol_infection");
             helping.Sort((a, b) => b.Value.CompareTo(a.Value));
             hurting.Sort((a, b) => a.Value.CompareTo(b.Value));
         }
