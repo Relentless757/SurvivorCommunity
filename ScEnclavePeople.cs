@@ -1456,6 +1456,34 @@ namespace SurvivorCommunity
             if (n > 0) ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + n + " home spot(s) cleared (its POI moved) - chosen again when they next spawn");
         }
 
+        /// <summary>
+        /// E11: a group about to move to another building (ScEncMoves, none of its bodies out): the visit's chunk hold let go and
+        /// the visit dropped (its spot candidates, failed spots and settle clock were the old building's), the AI's area cache
+        /// with it.
+        /// </summary>
+        internal static void ReleaseVisit(Enclave e)
+        {
+            Visit v;
+            if (visits.TryGetValue(e.Id, out v))
+            {
+                Release(v, "enclave " + e.Id + " '" + e.Name + "': it is moving");
+                visits.Remove(e.Id);
+            }
+            areas.Remove(e.Id);
+        }
+
+        /// <summary>
+        /// E11: after a move. A group still being made is made to the new building's size (GroupSize reads the footprint); when the
+        /// people made already fill it - some met away from home by E10's raids, none of them a leader - one of those at home
+        /// leads now (EnsureLeader), as Generate would never make one. Returns the group's size now.
+        /// </summary>
+        internal static int AfterMove(Enclave e)
+        {
+            int size = GroupSize(e);
+            if (!e.PeopleRolled && PeopleOf(e).Count >= size) EnsureLeader(e);
+            return size;
+        }
+
         // ------------------------------------------------------------------ deaths ----
 
         /// <summary>The SetDead postfix (Patches_Npc) for a body carrying %sc_enc: the person dies with it.</summary>
@@ -1503,6 +1531,7 @@ namespace SurvivorCommunity
             p.DiedDay = ScCommunity.Today;
             p.Health = 0f;
             p.Role = EncPerson.MemberRole;             // one leader among the living
+            ScEncMoves.NoteLoss(e);                    // E11: the day of their last death (request clock)
             if (raid) ScEncRaids.OnDied(e, p);         // E10: before a fall below can end the raid
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             if (!raid) ScOutposts.NoteLedger(string.Format(Localization.Get(wasEnlisted ? "scEncLedgerEnlistedDied" : "scEncLedgerDied"), p.Name, e.Name));

@@ -843,6 +843,7 @@ namespace SurvivorCommunity
             {
                 e.RaidLost += never;
                 done += never;
+                ScEncMoves.NoteLoss(e);         // E11: a loss all the same (request clock)
                 ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + never + " of the people not made yet lost raiding " + o.Name + " - the group will be made " + e.RaidLost + " smaller");
             }
             return done;

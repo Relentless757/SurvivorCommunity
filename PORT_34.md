@@ -1458,4 +1458,147 @@ installed. The task list needs its entry.
 TESTING steps changed: 208 (a den near the outpost), 211, 212, 213 (`raidlost=`, the count over a load, the held settle
 after one), 214 (the den at the deadline; `raidlost=` is the `[enclave]`'s), 218 (they close in), 219(a). Build after the
 fixes: SC 3.4 `e79dde4e5551aba918de8918e9b1b4fd` (`build\e10fix`), 0 errors (the two old CS0108 warnings). Not
+installed.
+
+### Round 16: enclaves move (E11) (2026-11-03, built, not reviewed, not installed)
+
+`research\ideas\DESIGN.md` section 8 (idea 7) and section 1 (rules), with the user's decision Q9 (as recommended): a
+Neutral or hostile group that moves drops off the map until found again, a Friendly or Allied one tells you where; both
+reasons (half its people lost, an infestation next door for 3 days) apply. Branch `ms/e11` from `dev/ideas` `4e7b63d`
+(V1, I2, I3, E7, E8, E9, V2 installed; E10 merged, under review). **3.4 only**: only the 3.4 DLL was built; the tracked
+3.2 `SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34`. Single player only, as SC.
+
+- **`ScEncMoves.cs` (new).** No Harmony patch; driven from `ScDaily.Run` and the console.
+  - The switch: `Configured` = `Enclaves && EnclaveMoves`; `On` = that and `ScEnclaves.Ready`.
+  - Reason 1, **lost** (`LostReason`): dead / total >= `EnclaveMoveLostShare` with at least one dead, where dead = the
+    dead records + `Enclave.RaidLost` (E10's held-raid losses of people never made) and total = the records (a group still
+    being made: `max(records, GroupSize)`) + `RaidLost`; the last death (`LastLossDay`: `Enclave.LossDay`, or for deaths
+    from before E11 the newest `EncPerson.DiedDay`) at least `EnclaveMoveWaitDays` request-clock days ago and after their
+    last move (`> MovedDay`: a move answers the losses before it). `NoteLoss` stamps `LossDay = ScEncRequests.Now` from
+    `ScEnclavePeople.Died` (every death: a body, the console, `KillRecord`), `ScEncSearch.MarkDead` (a missing survivor
+    lost or found dead) and `ScEncRaids.LoseHeld` (people not made yet lost to a held raid).
+  - Reason 2, **nest** (`NestReason`): an infestation within `EnclaveMoveInfestRange` m of their building, footprint to
+    footprint (`Gap`, `ScEncRaids.RangeTo`'s measure; `NestNear`, only while `Infestations` is on; a range of 0 is off),
+    for `EnclaveMoveInfestDays`: the daily pass stamps `Enclave.NestDay = Now - 1` at its first sight (so the first
+    rollover after it came is its first day; `sc day` x3 makes 3) and clears it when none is in range (`UpdateNest`).
+  - **What holds them** (`WhyHeld`), in this order: `Lost`; an open request that is not an offer (a siege is one: "a
+    siege of theirs is open (request #N)", else "they have an accepted request (#N, ...)"); a radio call on
+    (`ScEncCalls.Busy`, E9); `ScEncRaids.TargetOf` (E10: a demand, a raid called or a party out); anyone `enlisted` (E3,
+    E9's fighter), `missing` (E5) or `raiding` (E10); a player within `EnclaveSpawnRange + EnclaveDespawnMargin` m of the
+    building (`ScEnclaves.PlayerWithin`: every player); the building in loaded chunks or the local player's view distance
+    (`ScEnclaves.InView`, the late seed's `Loaded` through the new shared `LoadedBox`); a body of theirs in the world
+    (`EntityId >= 0`: one walking home).
+  - `Daily(day, player)` (from `ScDaily.Run` right after `ScInfestations.Daily`, before `ScEncAllies.Daily`): once per
+    request-clock day (`passDay`: a catch-up's later passes share the day and do nothing; `ShiftDays` resets it), each
+    group's nest stamp, then for each with a reason (lost first) and nothing holding it: `Roll` (`EnclaveMoveChance`, a
+    `GameRandom` from the world seed, salt `sc.encmoves.v1`, the enclave id and the day: one answer all day) and
+    `ScEnclaves.MoveTarget` with the pick seed (the same parts, "pick"); none fits: the log `... wants to move (...), but
+    no building fits: N building(s) 300-1500 m away, refused: ... - they try again tomorrow`. Held, or rolled to stay:
+    verbose lines only.
+  - `Move` (the pass or the console): an offered request withdrawn (`ScEncRequests.Withdraw`: no standing, the ledger
+    `<name>'s request is off`), `ScEnclavePeople.ReleaseVisit`, `ScEnclaves.MoveTo`, the stamps (`MovedDay = Now`,
+    `MovedFrom`, `MovedFromName`; `NestDay = -1`), `ScEnclaveDeals.OnMoved` (their favours' return points),
+    `ScEnclavePeople.AfterMove`; then the words. Friendly or Allied (`StandingKey`): `scEncCallRadio` with
+    `scEncMoveLostSaid` / `scEncMoveNestSaid` / `scEncMoveSaid` (the console's) and `scEncMoveTold` - `The Holdouts on the
+    radio: "We've buried too many of our own here. We're moving on." They have left Diner for Miller Farmhouse, 900 m
+    north-east.` (from home, else the player: E6's `From`) - the ledger `The Holdouts moved from Diner to Miller
+    Farmhouse`, the marker at the new building (known if it was not). Any other: unknown, marker off; when it was known,
+    `The Rabid Rats have left Junkyard - nobody knows where they went.` and the ledger `The Rabid Rats left Junkyard`;
+    never found: the log only. One log line (old and new building, prefab, tier, biome, keys, the direction, the cause,
+    told or off the map, sleeper areas released and kept clear, favours re-pointed, a group still being made's size), a save.
+  - `InfoLine` (`sc enclave info`): `moves: lost K of N (P%; 50% moves them), the last on day L[, before their move on day
+    M][, a reason from day F][ - a reason]; no infestation within 300 m | infestation #N at X D m away, next door since day
+    S (K of 3 day(s))[ - a reason]; 20% a day to move, held now: ... | nothing holds them | no reason to move (held now:
+    ...); moved on day M from <Old> <key> (request clock day R)`.
+  - `Command`: `sc enclave move <id> [sim|now]` - the line; `sim` today's reason, hold and roll, the ring's counts and
+    refusals (`MoveSearch.RefusedText`) and the pick (nothing changes); `now` moves them to that pick, the reasons and the
+    roll ignored, `WhyHeld` and `EnclaveMoves` kept (`[SC] refused: ...`).
+  - `ShiftDays(reqBack)`: `MovedDay`, `LossDay`, `NestDay` (each when set, never below 0).
+- **`ScEnclaves`.** Validate's building swap (base `:984-997`) is `TakeBuilding` (footprint, prefab, name, biome, row,
+  tier, Mode `moved`, `Lost` off, `ClearSpots`); Validate calls it (same behaviour). New for E11: `MoveSearch`;
+  `MoveTarget` (the late `RulesFor` + `Refuse`; the centre `EnclaveMoveMin..Max` from theirs through `ScPoiIndex.Near`;
+  never `MovedFrom`; `NearOtherEnclave`, `Relocation`'s `EnclaveSpacingFloor` rule; no infestation within
+  `EnclaveMoveInfestRange`; no player within spawn range + margin; weight `KindWeight`, x `EnclaveUnvisitedWeight` for a
+  building never generated, x2 for a row of their kind (`KindFor(row) == Kind`, not for "general"); `MakePlan`'s u^(1/w)
+  key over the candidates in (x, z, prefab) order); `MoveTo` (`RemoveMarker`, `TakeBuilding`, `Rebuild`, `Release(old)`,
+  `PreClear(new)`, then known with the marker, or unknown); `InView`; `PlayerWithin`; `LoadedBox` (the old `Loaded` body,
+  shared); `MarkerSpot` internal. The record gains `MovedDay`, `MovedFrom`, `MovedFromName`, `LossDay`, `NestDay`;
+  `InfoLines` a moves line; `OnWorldDayBack` calls `ScEncMoves.ShiftDays`, and its log line gains "; N move stamp(s)
+  moved back D day(s)" at the end.
+- **`ScEnclavePeople`.** `ReleaseVisit` (the hold let go, the visit and the area cache dropped); `AfterMove` (a group
+  still being made whose made people now fill the new building's `GroupSize` - E10's people met away from home, none a
+  leader - gets one through `EnsureLeader`, since `Generate` will never make one); `Died` stamps the loss.
+- **`ScEnclaveDeals.OnMoved`**: every favour of theirs (all parked: no body is out) points at the new building
+  (`Prospect.NpcPos`, which `ScQuests.GiverPosition` and `TickMarkers` read), so its return marker follows them.
+- **Records and save** (keys in the existing `[enclave]` section; an older build ignores them): `moved=day:x,y,z:name`
+  (written when `MovedDay >= 0`; split on the first two colons, as `encrefill`), `lossday=N` and `nestday=N` (each when
+  >= 0). `seeded=` keeps the mode `moved`. All three days are the request clock's, shifted by `OnWorldDayBack`.
+- **Config** (`Config/blocks.xml`, commented; `ScConfig`; the `config:` line gains `enclaveMoves=`): `EnclaveMoves` true,
+  `EnclaveMoveChance` 0.2 (0-1), `EnclaveMoveLostShare` 0.5 (0-1), `EnclaveMoveWaitDays` 2 (0-365),
+  `EnclaveMoveInfestRange` 300 (0-5000; 0 = reason 2 off), `EnclaveMoveInfestDays` 3 (1-365), `EnclaveMoveMin` 300
+  (0-20000), `EnclaveMoveMax` 1500 (50-20000, at least Min).
+- **Lines.** Every new line is text only. The three radio words (`scEncMoveLostSaid`, `scEncMoveNestSaid`,
+  `scEncMoveSaid`) have no name or number in them and are in `Tools/voice_lines.py`'s `RUNTIME_FIXED`: 163 dialog lines
+  (160 before); that list does not feed `ScVoiceLines.cs` (no `gencs`), and `check` says in step. Facts and ledger:
+  `scEncMoveTold`, `scEncMoveLeft`, `scEncMoveLedger`, `scEncMoveLedgerLeft`.
+- **UI.** None new: the radio's Enclaves list, the markers and `sc enclave list` read the records. Nothing for AshfallUI.
+- **Harmony targets: none new.**
+
+**The move rule** (asked for: "define and document it"). A group moves only when (1) a reason holds - lost or nest as
+above - and the day's roll says go, or the console says `now`; and (2) nothing holds it: its building is in this world; no
+request of theirs is accepted (an offer is withdrawn as they go; a siege is an accepted request); no E9 call of theirs is
+on; they lean on none of your outposts (an E10 demand, raid call or party); nobody of theirs is enlisted, missing or
+raiding; nobody is within `EnclaveSpawnRange + EnclaveDespawnMargin` m of the building; it is not loaded or in the
+player's view; none of their bodies is in the world. A building must be free for them (`MoveTarget`), else they stay and
+try the next day.
+
+Where the design was wrong or short, and the code followed SC or the user:
+1. **"Never while their group isn't made (`PeopleRolled`)" is dropped.** E10's raider dens are mostly never met: their
+   people are made at your outpost (`GenerateAway`) and die there, so the gate would keep exactly the dens the user named
+   ("a raider den that lost people may move too") from ever moving. A group still being made counts its full size in the
+   share, is made to the new building's size (`GroupSize` reads the footprint), and gets a leader when the people met
+   away from home already fill it (`AfterMove`).
+2. **"Waits this long after the last death" had no request-clock stamp.** `EncPerson.DiedDay` is the world's day, which
+   `sc day` does not move (section 1 wants the request clock): new `[enclave] lossday=`. Deaths from before E11 fall back
+   to `DiedDay`.
+3. **"An infestation this close, this long" had nothing to count with.** I1's `StartDay` is the world's day and says
+   nothing about how long it was next to *them*: new `[enclave] nestday=`, kept by the daily pass.
+4. **Reason 1 would hold again at the new building** (the dead stay dead), moving them every few days: a death must come
+   after their last move. Silent in the design, decided here: never back into the building they just left.
+5. **"The old key, `moved=day:x,y,z`"** is written `moved=day:x,y,z:name`: the key alone can't name the building for
+   "moved on day N from X" once it is no longer theirs.
+6. **The hook.** "After `ScEncRequests.Daily` (`SC:ScTicker.cs:391`)" (base `:392`) is after `ScInfestations.Daily`
+   (`:393`) here, so the nest reason sees the day's new and ended infestations; still before `ScEncAllies.Daily`.
+7. **"Word on the radio: The Holdouts left the Diner for the Miller farmhouse, 900 m north-east."** is their words (no
+   name or number: the voicing rule) then the facts, as E9/E10's radio lines. A group you never found moves with no word
+   at all; a Friendly one you never found (the console's standing) becomes known as it tells you.
+8. **"Out of the records"** in the never-while list has no state in SC; read as "a body of theirs in the world" (a body
+   walking home, E3). "Called (idea 1)" is the E9 call (`CallKind`); its fighter is also enlisted.
+9. **`sc enclave move <id> now` "ignores the chance"**: it ignores the reasons too (a forced move for testing, as asked);
+   what holds them still applies, and it goes where `sim` says.
+10. **"A building of their kind's rows preferred (x2)"**: not for a general group (every building with no kind row
+    would count as theirs).
+11. **Favours** (E3's recruit favour of one of their people) are silent in the design: their return markers follow the
+    group.
+12. **Line drift since the design (`a52c0b1`; this tree's base `4e7b63d`):** `ScEncRequests.Withdraw` `:805` (804);
+    `ScEnclaves.Loaded` `:600-607` (559-565); `RulesFor` `:514-550` and `Refuse` `:574-598` (472-556); `Relocation`
+    `:1018-1044` (976-1002); `Validate`'s move block `:984-997` (942-955); `Release` `:1091-1107` (1049-1065); `PreClear`
+    `:1064-1078` (1022-1036); `Rebuild` `:242-258` (207-223); markers `:1233-1293` (1195-1232); `SetKnown` `:1437`
+    (1384); `Where` `:360-372` (325); `OnWorldDayBack` `:1195-1231` (1151-1181); `ScEncAllies.MoveIn` `:531-559`, its
+    radio words `:552-557` (552-558); `ScEnclavePeople`'s `visits`/`areas` `:166-167` (154-155) and the hold's
+    `Release`/`ReleaseHolds` `:1088-1109` (1014-1037 is `Unbody`..`Forget` now); `NearestPlayer` `:519-530` (497);
+    `ScTicker`'s `ScEncRequests.Daily` `:392` (391); `ScEncRequests.Now` `:325` (324); `ParseEnclave` `:402-458`
+    (391-431); `CommitPerson` `:466-473` (433-440). `ScEncAllies.WatchZones` `:304-309` and `ScTicker`'s player test
+    `:51-52` match.
+
+Checks:
+- XML replay against the 3.4 game (`research\e11\sc_replay_e11.py`, a copy of `research\dev\sc_replay_dev.py` pointed at
+  this worktree by `research\e11\make_replay_e11.py`; out `research\e11\replay`): every SC op matches, no aborts; the
+  replayed blocks.xml has the eight `EnclaveMove*` keys (blocks 9 ops as E10's: the keys go inside the existing block).
+- `Tools/voice_lines.py check`: in step, 163 dialog lines. Localization.csv parses as 7 columns everywhere, no
+  duplicate keys.
+- The data edits (Localization, the blocks.xml block, `voice_lines.py`) are `research\e11\ed_e11_data.py` (re-run safe).
+
+Builds: SC 3.4 `1a12f9ffa9e8da5135052a248900c4ad` (`build\sc34_e11`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not
+rebuilt (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E11 (220-239). Not reviewed (Fable), not
 installed. The task list needs its entry.

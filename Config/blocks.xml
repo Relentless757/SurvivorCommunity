@@ -1270,6 +1270,28 @@
 			<property name="EnclaveRaidRestDays" value="3" />
 			<property name="EnclaveRaidLossHeld" value="1" />
 
+			<!-- ENCLAVES MOVE (E11). With EnclaveMoves and Enclaves on, a group may pack up and move to another building
+			     EnclaveMoveMin to EnclaveMoveMax m away (centre to centre) for one of two reasons: it lost EnclaveMoveLostShare of
+			     its people (from EnclaveMoveWaitDays days after the last death; a raider den counts the people a raid on your
+			     outpost cost it), or an infestation has been within EnclaveMoveInfestRange m of its building (edge to edge) for
+			     EnclaveMoveInfestDays days (a range of 0 turns this reason off). Once a reason holds it moves with
+			     EnclaveMoveChance a day. It never moves while anyone of theirs is away (with you, missing, raiding), while a
+			     request of theirs is accepted or a siege, radio call or raid of theirs is on, while anyone is within
+			     EnclaveSpawnRange + EnclaveDespawnMargin m of their building, or while it is loaded. The new building follows the
+			     late seeding's rules (nobody's, not loaded, no claim within EnclaveClaimBuffer m, not infested, not in use), at
+			     least EnclaveSpacingFloor m from every other enclave and more than EnclaveMoveInfestRange m from any infestation.
+			     A Friendly or Allied group tells you where it went; any other drops off your map until you find it again. The
+			     old building is free: its zombies come back after the loot respawn wait. Days here are the enclave requests' days,
+			     so "sc day" moves them. "sc enclave move <id> [sim|now]" tests it. -->
+			<property name="EnclaveMoves" value="true" />
+			<property name="EnclaveMoveChance" value="0.2" />
+			<property name="EnclaveMoveLostShare" value="0.5" />
+			<property name="EnclaveMoveWaitDays" value="2" />
+			<property name="EnclaveMoveInfestRange" value="300" />
+			<property name="EnclaveMoveInfestDays" value="3" />
+			<property name="EnclaveMoveMin" value="300" />
+			<property name="EnclaveMoveMax" value="1500" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

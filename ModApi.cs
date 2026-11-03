@@ -66,6 +66,7 @@ namespace SurvivorCommunity
                 ScEncSiege.Reset();
                 ScEncCalls.Reset();
                 ScEncRaids.Reset();
+                ScEncMoves.Reset();
                 ScInfestations.Reset();
                 ScSleeperCap.Reset();
                 ScPoiIndex.Reset();

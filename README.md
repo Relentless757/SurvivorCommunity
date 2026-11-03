@@ -442,6 +442,8 @@ You aren't the only survivors (`Enclaves_Plan.md`, milestones E1-E6; E7 on from 
   days each.
 - **Raider enclaves raid (E10):** with outpost attacks on, the raiders who lean on your outposts are a hostile group
   nearby, by name; their own people come, and those you kill stay dead.
+- **Enclaves move (E11):** a group that lost half its people, or has had the dead next door for days, may pack up and
+  move to another building; friends tell you where, anyone else drops off your map until you find them again.
 - **Infestations (I1)** are buildings the dead overran: enclaves ask you to clear them, an ally's Neighborhood Watch
   keeps new ones away, and a building lost to a siege becomes one.
 
@@ -599,6 +601,7 @@ thing: raiding your outposts - see **Raider enclaves raid (E10)**.)
   quests, infestations and its containers; its sleeper rooms respawn after the loot respawn wait. Wipe out raiders and
   you're told "You wiped out <name>." (While a group is still being made, the first ones dying does not end it: the
   rest still come, a new leader first.)
+- A group that has lost half its people may move away instead (see **Enclaves move (E11)**).
 
 **Their containers are theirs:** opening a loot container in their building is refused while the enclave exists -
 "That belongs to <name>." (`EnclaveContainerLock`). Containers you placed are yours as always. **Breaking a container
@@ -1081,6 +1084,63 @@ group you had not met yet), each written when set; an older build ignores them. 
 home, so after a load the raid comes back when you arrive.
 
 **Limits:** host only, single player. The radio's words are text only for now (a later voicing round records them).
+
+## Enclaves move (E11)
+
+A group doesn't have to stay where it was seeded. One that has lost people, or lives next to an infestation that won't go
+away, may pack up and move to another building 300 to 1,500 m away (`EnclaveMoveMin` / `EnclaveMoveMax`, centre to
+centre).
+
+**Why they move.** Either of two reasons, counted on the enclave requests' days (so `sc day` moves them):
+- **They lost half their people** (`EnclaveMoveLostShare` 0.5): the dead out of everyone the group had - a raider den
+  counts the people a raid on your outposts cost it, and a group you haven't met yet counts its full size. They think
+  about it from 2 days after the last death (`EnclaveMoveWaitDays`). A move answers the losses before it: only a death
+  after their last move makes them think of moving again.
+- **The dead next door:** an infestation within 300 m of their building (`EnclaveMoveInfestRange`, edge to edge; 0 turns
+  this reason off) for 3 days (`EnclaveMoveInfestDays`; the first rollover after it came is its first day). Clearing it
+  before then resets the count.
+
+Once a reason holds, they move with a 20% chance a day (`EnclaveMoveChance`).
+
+**What keeps them home.** They never move while anyone of theirs is away (enlisted with you, an ally's fighter, missing,
+out raiding), while a request of theirs is accepted (an offered one is just withdrawn as they go, with no loss), while a
+siege, a radio call or a raid of theirs is on, while anyone is within 200 m of their building (`EnclaveSpawnRange` +
+`EnclaveDespawnMargin`), or while it is loaded or within your view distance - you never see a group vanish or appear.
+
+**Where they go.** A building the late seeding would take: nobody's, not loaded, no claim within `EnclaveClaimBuffer`, not
+infested, not an outpost, not in use; at least `EnclaveSpacingFloor` from every other group, more than 300 m from any
+infestation, nobody within 200 m, never the building they just left. Buildings nobody has been in are preferred
+(`EnclaveUnvisitedWeight`), and so are those of their own kind (farms for growers, and so on). The pick is drawn from
+the world seed, the group and the day. If nothing fits they stay and try again the next day.
+
+**What you see.**
+- A **Friendly or Allied** group tells you over the radio: *The Holdouts on the radio: "We've buried too many of our own
+  here. We're moving on." They have left Diner for Miller Farmhouse, 900 m north-east.* (from your home, or from you
+  without one). Their marker moves, and the ledger says "The Holdouts moved from Diner to Miller Farmhouse".
+- A **Neutral or hostile** group just drops off the map: *The Rabid Rats have left Junkyard - nobody knows where they
+  went.* (only if you knew them; the ledger says "The Rabid Rats left Junkyard"). Find them again by going near, by the
+  radio, or through an ally.
+- Their old building is free again: its loot opens, it can be claimed or infested, and its zombies come back after the
+  loot respawn wait, as when a group falls.
+- They keep everything else: name (even one that names the old building), people (with new spots in the new building),
+  kind, standing, benefit, trade stock and thanks owed. A favour one of them asked of you now points at the new
+  building. A raider den's raids reach from its new home.
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveMoves`, `EnclaveMoveChance`, `EnclaveMoveLostShare`,
+`EnclaveMoveWaitDays`, `EnclaveMoveInfestRange`, `EnclaveMoveInfestDays`, `EnclaveMoveMin`, `EnclaveMoveMax`. Moves also
+need `Enclaves`.
+
+**Console** (host): `sc enclave move <id>` (both reasons, the chance, what holds them now, their last move),
+`sc enclave move <id> sim` (today's reason, the day's roll and the building they would go to - nothing changes),
+`sc enclave move <id> now` (they move at once, to that building: the reasons and the roll ignored, what keeps them home
+still applies); `sc enclave info <id>` has a moves line ("moved on day N from X").
+
+**Saving:** each `[enclave]` gains `moved` (the day they last moved and the building they left), `lossday` (the day of
+their last death) and `nestday` (the day an infestation has been next door since), each written when set; an older build
+ignores them. `seeded=` keeps the mode `moved`.
+
+**Limits:** host only, single player. A move is a jump, not a walk (bands on the road may carry it later). Their radio
+words are text only for now.
 
 ## Infestations (I1)
 
@@ -1624,7 +1684,9 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `EnclaveGunPointsMin`, `EnclaveGunPointsMax`, `EnclaveGunValueBands`, `EnclaveGunWorthBands`, `EnclaveLossDecline`,
 `EnclaveLossFail` and `EnclaveLossLapse` (commented in the block). Raider enclaves raid (E10): `EnclaveRaids`,
 `EnclaveRaidRange`, `EnclaveRaidChance`, `EnclaveRaidTurnedFactor`, `EnclaveRaidPartyMax`, `EnclaveRaidRestDays` and
-`EnclaveRaidLossHeld` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
+`EnclaveRaidLossHeld` (commented in the block). Enclaves move (E11): `EnclaveMoves`, `EnclaveMoveChance`,
+`EnclaveMoveLostShare`, `EnclaveMoveWaitDays`, `EnclaveMoveInfestRange`, `EnclaveMoveInfestDays`, `EnclaveMoveMin` and
+`EnclaveMoveMax` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
 `InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,

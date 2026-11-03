@@ -1350,6 +1350,13 @@ scEncRaidLosses,UI,Tooltip,,,,{0} lost {1} of their people raiding {2}.
 scEncRaidLedgerLosses,UI,Tooltip,,,,{0} lost {1} raiding {2}
 scEncRaidNobody,UI,Tooltip,,,,{0} never came for {1} - they have nobody left to send.
 scEncRaidGone,UI,Tooltip,,,,{0} are gone - nobody is coming for {1}.
+scEncMoveLostSaid,UI,Tooltip,,,,We've buried too many of our own here. We're moving on.
+scEncMoveNestSaid,UI,Tooltip,,,,The dead next door aren't going anywhere. So we are.
+scEncMoveSaid,UI,Tooltip,,,,We're packing up. Time to find somewhere safer.
+scEncMoveTold,UI,Tooltip,,,,"They have left {0} for {1}, {2}."
+scEncMoveLeft,UI,Tooltip,,,,{0} have left {1} - nobody knows where they went.
+scEncMoveLedger,UI,Tooltip,,,,{0} moved from {1} to {2}
+scEncMoveLedgerLeft,UI,Tooltip,,,,{0} left {1}
 scQgRoleProspect,UI,Menu,,,,Survivor
 scQgRoleMember,UI,Menu,,,,Community survivor
 scQgRoleLeader,UI,Menu,,,,Leader of {0}

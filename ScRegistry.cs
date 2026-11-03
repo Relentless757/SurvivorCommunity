@@ -62,6 +62,10 @@ namespace SurvivorCommunity
     ///                request-clock day they may raid again) raidlost=N (people a held raid cost them before they were made),
     ///                each written when set. A person out raiding is written state=home (bodies never outlive a load, and an
     ///                older build knows no other state for them).
+    ///   E11 (ScEncMoves; keys an older build ignores): [enclave] moved=day:x,y,z:name (the request-clock day they last moved
+    ///                of their own accord, the building they left and its name; seeded= keeps the mode "moved"), lossday=N (the
+    ///                request-clock day of their last death) and nestday=N (the request-clock day an infestation has been next
+    ///                door since), each written when set.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -462,6 +466,20 @@ namespace SurvivorCommunity
                 // E10: the day they may raid again (request clock); people a held raid cost them before they were made
                 case "raidday": e.RaidDay = Math.Max(0, I(val)); break;
                 case "raidlost": e.RaidLost = Math.Max(0, I(val)); break;
+                // E11: their last move of their own accord (day:x,y,z:name - the request-clock day, the building they left), the day
+                // of their last death and the day an infestation has been next door since (request clock)
+                case "moved":
+                {
+                    string[] f = val.Split(new[] { ':' }, 3);
+                    Vector3i v;
+                    if (f.Length < 2 || !TryVec(f[1], out v)) break;
+                    e.MovedDay = Math.Max(0, I(f[0]));
+                    e.MovedFrom = v;
+                    e.MovedFromName = f.Length > 2 ? f[2] : "";
+                    break;
+                }
+                case "lossday": e.LossDay = Math.Max(0, I(val)); break;
+                case "nestday": e.NestDay = Math.Max(0, I(val)); break;
             }
         }
 
@@ -1306,6 +1324,10 @@ namespace SurvivorCommunity
                                       + ":" + en.CallUntil.ToString(CultureInfo.InvariantCulture));
                     if (en.RaidDay > 0) sb.AppendLine("raidday=" + en.RaidDay.ToString(CultureInfo.InvariantCulture));
                     if (en.RaidLost > 0) sb.AppendLine("raidlost=" + en.RaidLost.ToString(CultureInfo.InvariantCulture));
+                    if (en.MovedDay >= 0)
+                        sb.AppendLine("moved=" + en.MovedDay.ToString(CultureInfo.InvariantCulture) + ":" + Vec(en.MovedFrom) + ":" + Clean(en.MovedFromName));
+                    if (en.LossDay >= 0) sb.AppendLine("lossday=" + en.LossDay.ToString(CultureInfo.InvariantCulture));
+                    if (en.NestDay >= 0) sb.AppendLine("nestday=" + en.NestDay.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var ep in EncPeople)
                 {
