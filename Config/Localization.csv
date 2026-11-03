@@ -896,6 +896,7 @@ scEncRecruit,Dialog,Response,,,,Would you join us?
 scEncRecruitConfirm_text,Dialog,Statement,,,,"Leave my people? I've thought about it more than once. If you'll have me, I'm in. {recruitcost}"
 scEncRecruitYes,Dialog,Response,,,,Welcome to the community.
 scEncVoiceGoingHome,Dialog,Statement,,,,"*nods* I'll head back to my people."
+scVoiceNoTradeHostile,Dialog,Statement,,,,"*glares* I'm not trading with you. Get lost."
 scEncTermsCost,UI,Tooltip,,,,"{0} dukes, and I'm with you for {1} day(s)."
 scEncTermsFree,UI,Tooltip,,,,"No charge, and I'm with you for {0} day(s)."
 scEncUntil,UI,Tooltip,,,,"I head home on day {0}, at {1}."

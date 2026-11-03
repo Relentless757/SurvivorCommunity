@@ -462,6 +462,14 @@
 			     until SC's next line. Other NPCs, and these outside a talk, keep Voice Control as before. "sc voice gate"
 			     shows what is held and how many lines were kept quiet. -->
 			<property name="MuteVcInTalk" value="true" />
+			<!-- E8. VoiceEnclaveContext: when you speak to one of an enclave's people through Voice Control (push-to-talk or
+			     typed @ chat), its LLM is told what they know of their group: its name, how many they are and where they
+			     live, whether they lead it, how the group stands with you, its open request and by when, an ally's benefit,
+			     when one enlisted with you goes home. They talk about it, and send you to the talk menu for any deal. A
+			     hostile group's people are told to refuse to talk. Single player (the host) only; other NPCs are untouched.
+			     Whatever this says, a hostile enclave's people, raiders and survivors with a grudge always refuse Voice
+			     Control's spoken "trade". "sc voice context" prints what the nearest of them would be told. -->
+			<property name="VoiceEnclaveContext" value="true" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:

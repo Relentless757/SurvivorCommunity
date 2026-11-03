@@ -1427,6 +1427,14 @@ vanilla's.
   not played on yours while you talk to that survivor. `sc voice gate` shows whom Voice Control is held on and how many
   of its lines were kept quiet; `sc voice sayline [line] [seconds]` gives the nearest survivor one of 0-XNPCCore's
   say-lines through Voice Control after a delay (`ammo.dry`, 5 s), to try it with a talk open.
+- **Voice Control's chat knows the enclave (E8, `VoiceEnclaveContext`).** Talk to one of an enclave's people through Voice
+  Control's LLM (push-to-talk or `@` chat) and they know their group: its name, how many they are and where they live,
+  whether they lead it and who does, how the group stands with you, its open request and by when, an ally's benefit, and
+  for one enlisted with you, when they go home. They talk about it but strike no deals by chat: for trading, requests or
+  joining they send you to the talk menu. The people of a group you turned hostile refuse to talk, and they and survivors
+  with a grudge refuse Voice Control's spoken "trade" too (raiders never chat: Voice Control's `no_voice`). Leaders are told to speak as
+  leaders, though Voice Control may still give one a young or nervous voice. Single player only; other NPCs are untouched.
+  `sc voice context [id|name]` prints what one of them is told.
 - **Console:** `sc voice` (the switches, the player in use, the voices, the voice gate), `sc voice play <line> [id|name]`,
   `sc voice stop`, `sc voice rescan`, which picks up new or replaced clips without a restart, `sc voice gate` and
   `sc voice sayline [line] [seconds]`.
@@ -1464,7 +1472,7 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds`, `OverwhelmedSustainSeconds`,
 `OverwhelmedGunSeconds`, `MeleePacing`, `MeleePacingRaiders`, `MeleeReach`, `MeleeReachMargin`, `ShootingSkill`, `ShootingRangePerStar`,
 `ShootingEngageMult`, `ShootingEngageMin`, `ShootingHitRadius`, `ShootingAimChest`, `ShootingDefaultStars`, `RaiderShootingStars`, the dialog
-line and voices `DialogLine`, `VoiceLines`, `MuteVcInTalk` (`AmmoPerRangedDay` is no longer charged; the
+line and voices `DialogLine`, `VoiceLines`, `MuteVcInTalk`, `VoiceEnclaveContext` (`AmmoPerRangedDay` is no longer charged; the
 outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features. Enclaves (E1):
 `Enclaves`, `EnclavesPerKm2`, `EnclaveMin`, `EnclaveMax`, `EnclaveSpacingMin`, `EnclaveSpacingFactor`, `EnclaveSpacingFloor`,

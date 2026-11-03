@@ -789,3 +789,114 @@ Checks:
 Builds: SC 3.4 `d80f006dd5a4f4fb9a5c220336835416` (`build\sc34_e7`), 0 errors (the two old CS0108 warnings). The
 3.2 DLL was not rebuilt (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group "Round 11 (E7)" (120-139).
 Not reviewed (Fable), not installed. The task list needs its entry.
+
+### Round 12: Voice Control's chat knows the enclave (E8) (2026-11-03, built, not reviewed, not installed)
+
+Milestone E8 of `research\ideas\DESIGN.md` (section 11, side findings 1-2 in section 15). Branch `ms/e8` from `dev/ideas`
+`d0740bc`. The user's decisions: single player (the host) only, no NetPackage; a hostile enclave's people refuse the spoken
+trade and the prompt makes them refuse to talk (chat is never blocked); only the 3.4 DLL is built. The code is shared (no
+`SC_V34`): both targets and the field it writes are the same in 3.2's Voice Control.
+
+What Voice Control sends, checked against `research\sc34\xnpc\decomp34\vc` (the design's citations) and the installed
+3.4 `1-XNPCVoiceControl.dll` (md5 `c30399c1`: ilspycmd and a Cecil member dump). Push-to-talk, `@` chat and `vc talk` end in
+`NPCChatComponent.ProcessPlayerMessage` (:1832). Phrase triggers come first and never reach the LLM. The rest starts the
+chat coroutine with `BuildStreamingSystemPrompt()` (:2129, :2138-2145: the cached `BuildSystemPrompt` of :1597-1614 plus
+the action tags). The coroutine adds the RAG block, the sense block, the player's name, the tenure line and "Remember:
+your own name is X." (:560-584), then calls `LLMService.SendStreamingChatRequest` (:588), its only caller. That builds the
+request body synchronously (LLMService.cs:517) before its `Task.Run`. Nothing in the prompt says anything about groups.
+
+- **ScVoiceContext.cs (new).** `For(npc, out what)` builds the paragraph per message from the records, on the host
+  (`ScCommunity.IsHost`, `ScRegistry.Loaded`, `Enclaves`, `ScEnclaves.Ready`), for a body in `ScEnclavePeople.PersonOf`
+  that is alive or missing, of an enclave in this world. English and short (about 100-150 tokens):
+  - who they are: "the leader of X" or "one of X ... led by Y", the living count (`Living`), the building (`PoiName`), one
+    line for what their kind lives on; a leader also gets "Speak with a leader's authority.";
+  - the standing as a word with what it means (never the points); Allied adds the benefit (`ScEncAllies.Name`,
+    `Describe`);
+  - the open request (`ScEncRequests.Of`, `WhatText`, `DueDay`, `Now`), worded per kind and state (see 3 below);
+  - enlisted: about how many hours (days from 48 h) until they go home; a missing survivor's own body: lost and waiting,
+    or (following the player) that their group sent the player;
+  - the rule: they may talk about all this, but deals (trade, giving, requests, leaving the group) only in the talk menu,
+    and they never claim one.
+  - A hostile group (`Enclave.IsHostile`) gets only two sentences: refuse to talk, a short warning to leave, nothing about
+    the group.
+- **Patches_VoiceControl.cs, E8 section.** Both bound by name like the other Voice Control patches (Prepare false without
+  Voice Control or on a changed signature, with an `ScLog.Err` line when Voice Control is there; try/catch + `ScLog.Once`),
+  both in ModApi's Voice Control block, outside `#if SC_V34`:
+  - `Patch_VoiceEnclaveContext`, a prefix on `XNPCVoiceControl.LLMService.SendStreamingChatRequest(int npcId, string
+    systemPrompt, List<ChatMessage> conversationHistory, string playerMessage, CancellationToken interruptToken,
+    Action<string> onChunk, Action<string> onComplete, Action<string> onError, VcTrace e2e = null)`, public instance
+    void, one overload (VC34 LLMService.cs:509; the installed DLL's decompile :521; 3.2 identical). `Prefix(int __0, ref
+    string __1)`, by index (Prepare checks parameter 0 is int and 1 string): the paragraph is appended after a blank
+    line while `VoiceEnclaveContext` is on. Counts `voice-context-added` and `voice-context-hostile`.
+  - `Patch_VoiceTradeHostile`, a prefix on `XNPCVoiceControl.PhraseTriggerHandler.OpenTraderInventory(EntityAlive npc,
+    EntityPlayer player, string npcName, string dialogText)`, private instance, returns string (VC34 :424, its trader-id-64
+    branch :432; the installed DLL's decompile :432; 3.2 :448 without that branch), bound with the existing `OrderArgs` like
+    Dismiss, Pickup and Hire. `ScVoiceContext.TradeRefusal`: the hostile cvar (`IsHostileBody`), an enclave that
+    `IsHostile`, a raider (`ScXnpc.IsRaider`), a grudge (`ScTrust.IsHostileTo`), the same set as the talk prompt's refusal
+    (X9). Refused: `__result` is `scVoiceNoTradeHostile` ("*glares* I'm not trading with you. Get lost.", a new Localization
+    row), also written to the handler's `ActionSubtitleOverride` (a string field, bound by reflection once) so the subtitle
+    matches. Counts `voice-trade-refused` and logs `voice trade refused: <name> (<id>) won't trade by voice - <why>`.
+- **Config:** `VoiceEnclaveContext` (true) in Config/blocks.xml after `MuteVcInTalk`, commented. The `config:` line gains
+  `voiceEnclaveContext=`. The trade refusal has no switch (a side-door guard like Dismiss, Pickup and Hire).
+- **Console:** `sc voice context [id|name]` prints the paragraph for that NPC (or the nearest of an enclave's people within
+  20 m), with the log's summary and its length. `sc xnpc` shows the three counters. With `DebugLogging`, each request logs
+  `voice context: <name> (<id>), <role> of '<enclave>', <standing>[, enlisted][, missing], request <kind> <state>|none -
+  <n> characters added to Voice Control's chat prompt` (a hostile one: `<role> of '<enclave>', hostile - ...`).
+
+The paragraph for a Neutral leader of growers, five living at Miller Farmhouse, with an offered request (one line in the
+prompt, wrapped here):
+
+```
+[YOUR GROUP] You are the leader of The Pinefield Survivors, 5 survivors living at Miller Farmhouse. You grow food. Speak
+with a leader's authority. Your group's standing with this survivor: Neutral - you don't know them well and stay careful.
+Your group needs a medium bundle of medicine and means to ask this survivor for it. You may talk about all this, but in
+this conversation you cannot trade, give or take anything, accept or settle requests, or leave your group: for that they
+must talk with you in person (the talk menu). Never claim you did.
+```
+
+Once taken on, the request sentence reads "This survivor agreed to bring your group a medium bundle of medicine by the end
+of day 14 (today is day 12)." A hostile group's member gets:
+
+```
+[YOUR GROUP] You belong to a group that is hostile to this survivor. Refuse to talk with them: answer only with a short
+warning to leave, and never help them, trade with them or tell them anything about your group.
+```
+
+Where the design was wrong or short, and the code followed the game:
+1. **The design's paragraph starts "You are Mara, ...".** Voice Control already says "Your name is X" and ends with
+   "Remember: your own name is X", X being its own name for the body (`GetNPCName`: the entity name at `Initialize`). A
+   second name from SC's record could contradict it, so the paragraph names nobody but the leader and a missing person.
+2. **Standing as "Friendly (45 of 100)" through `StandingWord`.** `StandingWord` is a Localization lookup, and the points
+   are a game number the NPC wouldn't think in. The paragraph has the English word and what it means, no points.
+3. **An offered request is told as the group knows it, not with the talk's text.** The talk's builders have side effects:
+   `AskText` names an offered infestation's building and makes it known (`ScEncInfest.MakeKnown`), and `NoneText` spends
+   the group's thanks and saves. So the chat says only that a building near them is taken, or that one of theirs hasn't
+   come back (who is picked only at acceptance), and never a missing survivor's fate (the player finds that out first).
+   `UntilText` is the enlisted person's own first-person line with a clock time; the paragraph gives hours or days left.
+4. **"Your people sent this survivor to bring you home" for a missing survivor found alive** only holds once they follow
+   the player. A found survivor still waiting doesn't know who the player is, so they are told they are lost and waiting.
+5. **The hostile voice trade is wider than the design says.** `OpenTraderInventory` is also one of the commands Voice
+   Control lets through while a leaderless NPC is in combat (`IsCombatPassableCommand`, NPCChatComponent.cs:2513), so a
+   hostile body shooting at you still opened 0-XNPCCore's trade (chat in combat is ignored by Voice Control: `... is wild
+   and in combat - ignoring message`). And Voice Control shows the trigger's own reply as the subtitle unless
+   `ActionSubtitleOverride` is set (ExecuteMatch, PhraseTriggerHandler.cs:1059-1070), so a refusal that only sets
+   `__result` speaks SC's line under "Take a look at my wares." The new prefix sets both. **The existing Dismiss, Pickup
+   and Hire refusals have that mismatch** (SC's line spoken, Voice Control's reply as the subtitle): not changed here,
+   worth a small follow-up.
+6. **Raiders never reach Voice Control.** SC's raider classes (a raider enclave's people included) carry `no_voice`, which
+   `ChatTargetRules.IsChatTarget` refuses before anything else, so the design's hostile variant covers groups turned
+   hostile in play. `TradeRefusal` still lists raiders in case that tag goes.
+7. **Side finding 2 (a leader's personality) is not fixed: no simple, safe fix.** `NPCChatComponent.SetPersonality`
+   (public, :1621-1629) renames the NPC to the personality's `<Name>` ("War Veteran", "Young Survivor": every shipped
+   personality has one), keeps the TTS voice the audio player was built with at `Initialize` (:1423-1428), and
+   `PersonalityManager` keys its stable pick by name (`_assignedPersonalities`), so it would have to be redone on every new
+   component. Choosing the personality before `Initialize` means writing that private dictionary by reflection at the
+   right moment. Done instead: the leader's paragraph says "Speak with a leader's authority.", which the LLM reads after
+   the personality's traits. A "teenager" leader keeps that personality's voice.
+
+Checked: both targets, their parameter types, return types and static-ness, and the `ActionSubtitleOverride` field (string,
+instance) in the installed 3.4 DLL (Cecil via HarmonyAudit `members`) and the 3.2 one (`10bd7658`, the same); the
+citations above in `decomp34`. Expected targets: two more than before (3.4 with Voice Control: 128 on this branch alone).
+
+Builds: SC 3.4 `4ba72fc3` (`build\sc34_e8`), 0 errors. The 3.2 DLL is not rebuilt (the user's decision today). Test steps:
+TESTING.md group R (140-149). Not reviewed (Fable), not installed. The task list needs its entry.
