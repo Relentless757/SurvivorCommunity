@@ -24,6 +24,9 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   id> demand` makes their demand now, `... now` makes it and refuses it at once (the raid is called).
 - `sc enclave move <id>` shows why a group might move and what keeps it home (E11); `sc enclave move <id> sim` names the
   building it would go to today, `... now` moves it there at once (what keeps it home still applies).
+- `sc enclave join <id>` shows whether a whole group would join you and why not (E12); `sc enclave join <id> sim` names
+  who would come, `... now` joins them at once; `sc enclave arrivals` lists everyone on the way to you, `... now` makes
+  them due at once (they still turn up only while you're home).
 
 **Time and stockpile**
 
@@ -1121,6 +1124,99 @@ Set `DebugLogging` true for the `would move ... but stays` lines.
 239. **The switch.** Set `EnclaveMoves` to false and restart: the `config:` line says `enclaveMoves=off`, `sc enclave info
      <id>` says `moves: off (EnclaveMoves=false) (request clock day R)`, `sc enclave move <id> now` says `[SC] refused:
      enclave moves are off (EnclaveMoves=false)`, and no `sc day` moves anyone. Set it back.
+
+**E12. Round 17: a whole enclave joins you (3.4)**
+
+The leader of an Allied group at standing 90 or more asks "Would your people join ours?" - only when your community has
+room for all of them (`MaxMembers`, 12); otherwise the row isn't there at all. They all join, the leader too, bring 2 units
+each of their resource to the stockpile, make their own way and turn up at home 6 game hours later at the earliest, while
+you are there. Their group is gone (no morale lost, a new group still moves in elsewhere later) and their building is
+free. In the steps `<name>` is the group's name, `<id>` its id, `<Leader>` its leader, `<Poi>` its building, `N` how many
+of them are alive, `U` what they bring (`2 x N` of their resource: `10 food` for 5 growers; a general group's is split,
+`2 food, 2 medicine, 2 ammo, 2 building materials, 2 fuel`), `K` your members and `R` the request clock's day. Their
+words are text only for now. Take a group you have met (its people made: `sc enclave people <id>` lists them).
+
+240. Load the world. The log's `config:` line has `enclaveJoin=allied 90+, 2 unit(s) each, own way after 6h`. `sc enclave
+     info <id>` of a Friendly group has the line `[SC]   join: N would come, room for M more (K of 12 members); standing S
+     (Friendly, 90 and Allied needed); not offered: they are not Allied (Friendly, standing S); they'd bring U and make
+     their own way (6 h)`; of a hostile group, `[SC]   join: never (they are hostile)`.
+241. **Not offered below 90.** `sc enclave standing <id> 75` (Allied). Talk to their leader: the greeting has no "Would
+     your people join ours?". `sc enclave join <id>`: `[SC] <name> (enclave <id>, Allied): join: ...; not offered: standing
+     75 is below 90; ...`.
+242. **Not offered without room.** Set `MaxMembers` in the 3.4 install's SC `Config/blocks.xml` to K + N - 1 and restart.
+     `sc enclave standing <id> 90`: still no row, and `sc enclave join <id>` says `not offered: your community has room for
+     N-1 more, they are N (MaxMembers K+N-1)`. Set `MaxMembers` to K + N (or back to 12) and restart.
+243. **Offered.** At standing 90 with room, the leader's greeting has `Would your people join ours?` between `Tell me about
+     this place.` and `Hand over your supplies.`. `sc enclave join <id>`: `...; offered; ...`.
+244. **The confirm.** Pick it: the leader says `All of us? We've talked about it more than once. If you'll have us, we're
+     yours, and we'll bring what we have. N of them, bringing U. They make their own way to your home.` The rows are
+     `Welcome to the community.` and `Forget it.` (back to the greeting).
+245. **Greyed: one of theirs with you.** Ask one of them "Can you come with me?" and enlist them. Back at the leader the row
+     is greyed: `Would your people join ours? (Not while <Name> is out with you)`. Tell them "Go home now.": it opens again
+     at once (the enlistment ends as they turn for home).
+246. **Greyed: a request.** `sc enclave request <id> offer resource`: greyed `(Not while you owe them an answer)`; `sc enclave
+     request <id> accept`: `(Not while they wait on your help)`; `sc enclave request <id> clear` opens it again.
+247. **Greyed: a radio call.** `sc enclave call <id> drop force`: greyed `(Not while their radio call is on)`; `sc enclave
+     call <id> cancel` opens it again.
+248. **They join.** Note the stockpile (`sc status`'s `stock:` line), then "Welcome to the community.". The talk closes with
+     the message `<Leader>: "Then it's settled. We'll pack what we can carry and make our own way to you." <name> joined
+     your community: N people, bringing U. Their building is empty: claim it for an outpost before the dead return (D
+     days).` (D is `LootRespawnDays`; with it off: `Their building is empty: claim it for an outpost.`). The stockpile has U
+     more. The leader and the others out walk off toward your home and are gone once you look away (never vanishing in
+     front of you). Their marker is gone and `sc enclave list` no longer lists them. The ledger: `<name> joined you: N
+     people` (an ally with a benefit also `<name>: <Benefit> stopped`). The log: `enclave <id> '<name>' at <Poi> is gone
+     (joined) - S sleeper area(s) respawn after the loot respawn wait` (the part from ` - ` only when S > 0), `enclave <id>
+     '<name>' gone (joined, allied): no morale lost; a new group moves in from day R+5 on the request clock (1 refill(s)
+     owed)` (the count is every refill owed) and `enclave <id> '<name>':
+     <name> joined your community (the dialog): N people - <Leader> (leader), ...; N on their own way, at home from day D,
+     HH:MM (6 h; W walk off now); they brought U; the group is gone, their building <Poi> is free (S sleeper area(s) respawn
+     after the loot respawn wait)`.
+249. **No loss, a refill owed.** `sc enclave list`'s `allies:` line has one ally fewer, no `enclave lost` part from them (only
+     one from an earlier loss, if any) and `refills owed 1 (the first from day R+5)`. The community window's morale has no
+     Enclave lost part from them.
+250. **On the way.** The community window lists each of them at the end with `On the way` (brownish rows); one selected says
+     `On the way from <name>`, their mood is the community's. `Follow me` says `Still on the way - they turn up when you're
+     next home.` (denied sound); there are no supply-run buttons, and an outpost's Assign doesn't list them (it shows those
+     at base). The window says `K+N of 12 survivors`, and its beds count them (they need beds and eat from today). `sc status`: `(residents ..., following ..., on run ..., on the way N)`. `sc members`: each `<key> <Name>
+     (<class>) Arriving post x, y, z ... - on the way from <name> (enclave <id>, x, y, z), at home from day D, HH:MM (in
+     H:MM)` (the key is a large number, 2147483xxx).
+251. **Never missing.** Away from home, `sc day` three times: they stay on the way - no `marked missing`, no `has not been
+     seen ... - removed` line - and the daily line counts them among the members.
+252. **They turn up at home.** Go home before their time: nobody comes; `sc enclave arrivals`: `[SC] N on the way to you;
+     you are home: they turn up one a second, out of sight at the edge of the zone` and a line each, `... at home from day
+     D, HH:MM (in H:MM)`. Wait for the time (or `sc enclave arrivals now`: `[SC] N on the way to you - all due now; you are
+     home: ...`): one a second they appear out of your sight at the edge of the zone, on the side facing `<Poi>` (if you
+     watch that side for a minute, on any side), and walk to their posts. For each: the message `<Name> has arrived from
+     <name> and is settling in.`; the log `<Name> (from <name>) turned up at home at x, y, z, M m from the claim, as entity
+     E (was key 2147483xxx) - stationed, their post x, y, z` (the last one's ends `; the last of <name>`), and with the last
+     the ledger `the last of <name> arrived`. The window then says `At base` for them and their orders work.
+253. **Not while you're away.** Join another group, `sc enclave arrivals now` from far from home: `[SC] N on the way to you -
+     all due now; you are not home: they turn up once you are`, each `..., due - they turn up while you're home`; nobody
+     turns up until you are home.
+254. **Saved and loaded.** Join a group, then save and quit before they arrive: `survivor_community.txt` has for each a
+     `[member]` with `id=2147483xxx`, `status=Resident` and `arrive=<world time>:<enclave id>:<x,y,z>:<name>`. Load: the
+     window still says `On the way`, nobody is marked missing, and they turn up when due while you're home (step 252).
+255. **A world day set back.** With people on the way, `settime <two days earlier> 12 0`: the log's `enclaves: the world's
+     day went back from ...` line ends `; N arrival stamp(s) moved back 2 day(s)`, and `sc enclave arrivals` shows their
+     times two days earlier.
+256. **Following instead.** Set `EnclaveJoinArrive` to `follow` and restart: the `config:` line says `enclaveJoin=allied 90+,
+     2 unit(s) each, follow`. Join another Allied group at 90 from its building: the confirm ends `They follow you home.`;
+     the message starts `<Leader>: "Then it's settled. Lead the way - we're right behind you."`; all of them follow you
+     (more than `MaxFollowers` is fine), the window says `Heading home`, and at home each is stationed (`<Name> is home and
+     settling in.`). The log's line says `N following you home`. Set it back to `own`.
+257. **The old building.** Go to `<Poi>`: nobody there, its containers open (no `That belongs to <name>.`), you can place an
+     outpost flag or a land claim, and its zombie rooms respawn after the loot respawn wait. Five request-clock days later
+     (`sc day` five times) a new group moves in elsewhere, never into `<Poi>`.
+258. **The console.** On an Allied group at 90 with room, `sc enclave join <id> sim` prints `[SC] <name> (enclave <id>,
+     Allied): join: ...`, `[SC]   the row: open: Would your people join ours?`, `[SC]   who would come: <Leader> (leader)
+     [body out], ...` (`[body out]` for those in the world now) and `[SC]   they'd bring U; they'd make their own way, at
+     home from day D, HH:MM; B body(ies) out would walk off`; nothing changes. On a Friendly group the row line is `[SC]
+     the row: not offered (they are not Allied (Friendly, standing S))`. `sc enclave join <id> now` (from anywhere) joins
+     them as in step 248 (the log's line says `(the console)`) and prints that line; `now force` joins a Friendly group
+     too (room and the rest still apply); on a hostile group it says `[SC] refused: they are hostile`.
+259. **The switch.** Set `EnclaveJoin` to false and restart: the `config:` line says `enclaveJoin=off`, no leader offers it,
+     `sc enclave info <id>` says `join: off (EnclaveJoin=false)` and `sc enclave join <id> now` says `[SC] refused: the join
+     is off (EnclaveJoin=false)`. Set it back.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

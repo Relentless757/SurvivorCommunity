@@ -444,6 +444,8 @@ You aren't the only survivors (`Enclaves_Plan.md`, milestones E1-E6; E7 on from 
   nearby, by name; their own people come, and those you kill stay dead.
 - **Enclaves move (E11):** a group that lost half its people, or has had the dead next door for days, may pack up and
   move to another building; friends tell you where, anyone else drops off your map until you find them again.
+- **A whole enclave joins (E12):** a close ally (standing 90) asks to join your community, all of them, when you have room;
+  they make their own way to your home and their building is free for an outpost.
 - **Infestations (I1)** are buildings the dead overran: enclaves ask you to clear them, an ally's Neighborhood Watch
   keeps new ones away, and a building lost to a siege becomes one.
 
@@ -1137,6 +1139,58 @@ ignores them. `seeded=` keeps the mode `moved`.
 **Limits:** host only, single player. A move is a jump, not a walk (bands on the road may carry it later). Their radio
 words are text only for now.
 
+## A whole enclave joins (E12)
+
+A group you have stood by long enough may decide to throw in with you - all of them.
+
+**When it's offered.** The leader of an **Allied** group at standing **90** or more (`EnclaveJoinStanding`) asks "Would
+your people join ours?" - but only when your community has room for every one of them under `MaxMembers` (12), the same
+limit that stops one recruit: the members you have (counting those still on the way to you) and all of theirs, the leader
+too. Without the room, or below 90, the row isn't there at all. It is greyed with the reason while:
+- one of theirs is out with you, missing or away ("Not while Mara is out with you");
+- a request of theirs is open ("Not while you owe them an answer", "Not while they wait on your help"), a siege too;
+- a radio call of theirs is on;
+- their group is still settling in, or you have no home yet.
+
+The confirm says what it means: *All of us? We've talked about it more than once. If you'll have us, we're yours, and
+we'll bring what we have. 5 of them, bringing 10 food. They make their own way to your home.*
+
+**"Welcome to the community."**
+- Everyone joins: the same faces, names, weapons, rounds, skills, traits and specialties. A favour one of them asked of
+  you closes.
+- Each brings 2 units (`EnclaveJoinBundles`) of the group's resource to the stockpile (growers food, medics medicine, and
+  so on; a general group's is split across the five classic resources).
+- The talk closes on the leader's answer and the facts: *Mara: "Then it's settled. We'll pack what we can carry and make our own
+  way to you." The Holdouts joined your community: 5 people, bringing 10 food. Their building is empty: claim it for an
+  outpost before the dead return (7 days).*
+- The group is gone: its marker comes off and its building is free - claim it, make it an outpost, loot it - until its
+  zombies come back after the loot respawn wait. You lose no morale over it (they're yours now), an ally's benefit ends
+  with them, and a new group still moves in somewhere else a few days later (`EnclaveRefillDays`).
+
+**How they come.** With `EnclaveJoinArrive` `own` (the default) they make their own way: those standing around walk off
+toward your home and are gone once you look away, and each of them turns up at home from 6 game hours later
+(`EnclaveJoinArriveHours`) **while you are there** - out of sight at the edge of your land claim, on the side facing their
+old building, then they walk to a post. Until then the community window lists them as **On the way** ("On the way from
+The Holdouts"): they already eat and need a bed and count toward your members and morale, but take no orders, runs,
+postings or watches, never go missing and never threaten to leave. With `follow` they follow you home instead (more than
+`MaxFollowers` is fine) and are stationed when you get there.
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveJoin`, `EnclaveJoinStanding`, `EnclaveJoinBundles`,
+`EnclaveJoinArrive`, `EnclaveJoinArriveHours`. Joining also needs `Enclaves`.
+
+**Console** (host): `sc enclave join <id>` (who would come, the room, the standing, whether the row shows and why not),
+`sc enclave join <id> sim` (the row as the leader would show it, who would come and how - nothing changes),
+`sc enclave join <id> now [force]` (they join at once, every rule kept; `force` skips the Allied and standing rule only),
+`sc enclave arrivals` (everyone on the way to you and when they can turn up), `sc enclave arrivals now` (all of them due
+at once - they still need you home); `sc enclave info <id>` has a join line.
+
+**Saving:** someone on the way is a `[member]` with `arrive=` (when they can turn up, the group they left and its
+building's centre, its name), written as a resident: an older build sees a resident with no body (missing - "Call back"
+brings them). A world day set back moves their time back with it.
+
+**Limits:** host only, single player. Their words are text only for now. Someone on the way has no body: if their
+character class leaves the game they can't turn up (`sc enclave arrivals` says so).
+
 ## Infestations (I1)
 
 Some buildings get overrun. An **infested** building holds about twice the zombies, more of them feral, and something
@@ -1681,7 +1735,8 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `EnclaveRaidRange`, `EnclaveRaidChance`, `EnclaveRaidTurnedFactor`, `EnclaveRaidPartyMax`, `EnclaveRaidRestDays` and
 `EnclaveRaidLossHeld` (commented in the block). Enclaves move (E11): `EnclaveMoves`, `EnclaveMoveChance`,
 `EnclaveMoveLostShare`, `EnclaveMoveWaitDays`, `EnclaveMoveInfestRange`, `EnclaveMoveInfestDays`, `EnclaveMoveMin` and
-`EnclaveMoveMax` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
+`EnclaveMoveMax` (commented in the block). A whole enclave joins (E12): `EnclaveJoin`, `EnclaveJoinStanding`,
+`EnclaveJoinBundles`, `EnclaveJoinArrive` and `EnclaveJoinArriveHours` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
 `InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,

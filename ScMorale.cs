@@ -238,6 +238,7 @@ namespace SurvivorCommunity
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     if (ScRunners.IsPhysical(m)) continue;            // out on a run: they cannot pack up and leave from there
+                    if (m.Status == MemberStatus.Arriving) continue;  // nor before they have even arrived (E12, ScEncJoin)
                     if (worst == null || m.Mood < worst.Mood) worst = m;
                 }
                 if (worst != null)
@@ -291,6 +292,7 @@ namespace SurvivorCommunity
                 case MemberStatus.PendingStation: return Localization.Get("scStatusPending") + (held.Length > 0 ? " (" + held + ")" : "");
                 case MemberStatus.OnRun: return Localization.Get("scStatusOnRun");
                 case MemberStatus.Garrison: return Localization.Get("scStatusPosted");
+                case MemberStatus.Arriving: return Localization.Get("scStatusArriving");     // E12: on the way to the base
                 default: return Localization.Get("scStatusResident");
             }
         }

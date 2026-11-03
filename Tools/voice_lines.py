@@ -73,6 +73,8 @@ SPOKEN = {
     "scEncEnlisted": "Right behind you. Say the word when you want me to head back.",
     "scEncEnlistConfirm": "I could come along and watch your back for a while.",
     "scEncRecruitConfirm": "Leave my people? I've thought about it more than once. If you'll have me, I'm in.",
+    # E12: the whole group's answer to "Would your people join ours?" ({joinfacts}: how many, what they bring, how they come)
+    "scEncJoinConfirm": "All of us? We've talked about it more than once. If you'll have us, we're yours, and we'll bring what we have.",
 }
 
 # Statements that hold only a line picked at runtime ({reqask}, {reqwait}, {reqreply}, {reqnone}; E7's {giftreply}): no
@@ -92,7 +94,10 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
                  "scEncRaidDemandSaid", "scEncRaidPaidSaid", "scEncRaidRefusedSaid",
                  # E11: a Friendly or Allied group's words on the radio as it moves - lost too many, the dead next door,
                  # the console's (ScEncMoves shows them as tells: text only, the voicing round wires their playback)
-                 "scEncMoveLostSaid", "scEncMoveNestSaid", "scEncMoveSaid"]
+                 "scEncMoveLostSaid", "scEncMoveNestSaid", "scEncMoveSaid",
+                 # E12: a leader whose whole group joins you, after "Welcome to the community." - making their own way, or
+                 # following you (ScEncJoin shows them as a tell as the talk closes: text only, the voicing round wires playback)
+                 "scEncJoinSaid", "scEncJoinSaidFollow"]
 
 # ---------------------------------------------------------------------------------------------------- the V2 lines ----
 # No names or numbers, so every voice can say them. Drafts: SC_Ideas_and_Voices_Plan.md section 4.4 (2026-11-03).

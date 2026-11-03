@@ -114,6 +114,7 @@ namespace SurvivorCommunity
                 ScSiege.Tick(w, player);              // a blood moon passed with the player away besieges the base
                 ScWatch.Tick(w, player);              // watch posts: shifts, the zone scan, a guard's call-outs and marker
                 ScMissing.Tick(w, player);            // residents whose body is gone from the world (Call back)
+                ScEncJoin.Tick(w, player);            // a whole enclave that joined: their bodies walk off, each turns up at home when due (E12)
             }
             catch (Exception e)
             {
@@ -177,6 +178,8 @@ namespace SurvivorCommunity
             foreach (var kv in ScRegistry.Members)
             {
                 Member m = kv.Value;
+                // E12: one of a whole enclave still on the way has no body until they turn up (ScEncJoin); their key is no entity's
+                if (m.Status == MemberStatus.Arriving) continue;
                 // every member every second: forcing a body a chunk just queued built it inside this frame (the hitch)
                 EntityAlive npc = ScNpc.As(ScNpc.Loaded(w, m.Id));
                 if (npc == null)
@@ -366,6 +369,7 @@ namespace SurvivorCommunity
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     if (ScRunners.IsPhysical(m)) continue;     // a runner out of range has no entity by design
+                    if (m.Status == MemberStatus.Arriving) continue;    // nor has one still on the way to the base (E12, ScEncJoin)
                     // a follower left holding a spot far out (a voice "stay", "guard", a patrol - ScOrders) is unloaded by
                     // design too, for as long as the player stays away: never counted missing. Only an old save's record
                     // of a class that no longer exists still runs out (M9).

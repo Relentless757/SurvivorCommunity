@@ -610,8 +610,11 @@ namespace SurvivorCommunity
             ScEnclavePeople.GuardAt(npc, next, d.sqrMagnitude > 0.01f ? next + d.normalized * 4f : next + Vector3.forward);
         }
 
-        /// <summary>A point up to LeaveStep m from 'from' toward 'to' in a loaded chunk, on the terrain (shorter steps when the far one is not loaded).</summary>
-        private static bool StepToward(World w, Vector3 from, Vector3 to, out Vector3 at)
+        /// <summary>
+        /// A point up to LeaveStep m from 'from' toward 'to' in a loaded chunk, on the terrain (shorter steps when the far one is
+        /// not loaded). E12: a husk walking off toward the player's home steps the same way (ScEncJoin).
+        /// </summary>
+        internal static bool StepToward(World w, Vector3 from, Vector3 to, out Vector3 at)
         {
             at = from;
             Vector3 d = to - from;

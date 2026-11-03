@@ -15,7 +15,14 @@ namespace SurvivorCommunity
         /// physical run: walking to a POI and back (ScRunners), in the world near the player, a snapshot further out.</summary>
         OnRun,
         /// <summary>Posted to an outpost (ScGarrison): hidden and parked at home like a runner, OutpostId says where.</summary>
-        Garrison
+        Garrison,
+        /// <summary>
+        /// E12 (ScEncJoin): one of a whole enclave that joined, making their own way to the base - no body until they turn
+        /// up at home (ArriveAt), keyed by ScEncJoin.Key meanwhile. A member all the same (they eat, need a bed, count for
+        /// morale and the roster), but no orders, runs, postings or watches, and never missing. Saved as Resident with
+        /// arrive= (an older build has a resident with no body: missing, and "Call back" brings them).
+        /// </summary>
+        Arriving
     }
 
     /// <summary>Where a physical runner is in the trip (None = the legacy hidden-at-home run).</summary>
@@ -215,6 +222,15 @@ namespace SurvivorCommunity
         public int WatchPrepaid;
         /// <summary>No new shift before this world time: the rest after a full shift (saved as watchrest=).</summary>
         public ulong WatchRestUntil;
+        /// <summary>
+        /// E12, while Arriving (ScEncJoin): the world time they may turn up at home from, the enclave they came from (its id
+        /// and the centre of its building - the side of the base they come in on) and its name. Saved as
+        /// arrive=at:enclave:x,y,z:name, a key older builds ignore.
+        /// </summary>
+        public ulong ArriveAt;
+        public int ArriveEnclave;
+        public Vector3i ArriveFrom;
+        public string ArriveName = "";
 
         public SkillState Skill(Skill s) { return Skills[(int)s]; }
 

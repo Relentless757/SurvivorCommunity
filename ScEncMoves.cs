@@ -24,7 +24,8 @@ namespace SurvivorCommunity
     /// What holds a group where it is (WhyHeld; the design's "never while", made exact): their building is not in this world;
     /// a request of theirs that is accepted (a siege is one - an offered request holds nothing: it is withdrawn, no loss, as they
     /// go); a radio call of theirs that is on (E9); a demand, raid call or raid party of theirs on one of your outposts (E10);
-    /// anyone of theirs away - enlisted with you (E3, E9's fighter), missing (E5) or raiding (E10); a player within
+    /// anyone of theirs away - enlisted with you (E3, E9's fighter), missing (E5) or raiding (E10), or on the way to join you
+    /// (E12: a whole-group join cut short leaves the rest standing); a player within
     /// EnclaveSpawnRange + EnclaveDespawnMargin m of their building; their building in loaded chunks or the player's view
     /// distance (the late seed's "loaded"); any body of theirs in the world. A group still being made may move (E10's raider
     /// dens are mostly never met): it is made to the new building's size.
@@ -244,6 +245,9 @@ namespace SurvivorCommunity
             }
             if (enlisted + missing + raiding > 0)
                 return "people of theirs are away (" + enlisted + " enlisted, " + missing + " missing, " + raiding + " raiding)";
+            // E12: people who left them to join you and are still on the way (a join cut short: the rest stand) come from here
+            int joining = ScEncJoin.ArrivingFrom(e);
+            if (joining > 0) return joining + " who left them to join you are still on the way";
             float keep = ScConfig.EnclaveSpawnRange + ScConfig.EnclaveDespawnMargin;
             if (ScEnclaves.PlayerWithin(w, e.Poi, e.Size, keep)) return "a player is within " + Mathf.RoundToInt(keep) + " m of their building";
             if (ScEnclaves.InView(e)) return "their building is in loaded chunks or within your view distance";

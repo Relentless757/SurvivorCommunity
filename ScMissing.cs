@@ -49,7 +49,7 @@ namespace SurvivorCommunity
                 bool atHome = ScZone.HasHome && ScZone.Contains(player.GetBlockPosition());
                 foreach (var m in ScRegistry.Members.Values)
                 {
-                    // followers, runners and posted members are hidden or away by design
+                    // followers, runners and posted members are hidden or away by design (E12: and one still on the way, Arriving)
                     if (m.Status != MemberStatus.Resident) { Clear(m.Id); continue; }
                     if (ScNpc.HasBody(w, m.Id)) { Clear(m.Id); told.Remove(m.Id); continue; }    // being built counts, unforced
                     if (!atHome || !PostSettled(w, m.Post)) { absentSince.Remove(m.Id); continue; }
@@ -98,6 +98,7 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 if (m == null || w == null) { error = "scInternal"; return false; }
                 if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }      // a runner out of range has no body by design
+                if (m.Status == MemberStatus.Arriving) { error = "scEncJoinOnTheWay"; return false; }     // E12: still on the way - they turn up at home
                 if (ScNpc.IsFramework(w.GetEntity(m.Id))) { error = "scMissingNotMissing"; return false; }
                 if (!force && !IsMissing(m)) { error = "scMissingNotYet"; return false; }
                 if (!ScZone.IsLoaded(m.Post)) { error = "scNotLoaded"; return false; }

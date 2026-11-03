@@ -75,9 +75,11 @@ namespace SurvivorCommunity
         {
             World w = World;
             if (w == null) return null;
-            // an offline physical runner has no entity: whatever holds the id is a stale copy or a stranger
+            // an offline physical runner has no entity: whatever holds the id is a stale copy or a stranger; nor has one of a
+            // whole enclave still on the way (E12, ScEncJoin: their key is no entity's)
             Member m = ScRegistry.GetMember(id);
             if (m != null && ScRunners.IsPhysical(m) && m.Offline) return null;
+            if (m != null && m.Status == MemberStatus.Arriving) return null;
             return ScNpc.As(ScNpc.Loaded(w, id));       // a body still being built is not forced (ScNpc.IsPending)
         }
 
@@ -174,8 +176,9 @@ namespace SurvivorCommunity
         /// Join's second half, with the gates passed: this Member record - MemberFromBody's, or (E3) an enclave person's own
         /// (ScEnclaveDeals.Recruit: the same face, skills and traits) - becomes a member on this body: the roster, a favour's
         /// quest closed, a paid hire ended, the cvars, traits and AI package, then stationed at home or following until home.
+        /// tell: false - no "joined" tooltip (E12: a whole enclave joining has one tell for all of them, ScEncJoin).
         /// </summary>
-        public static bool Admit(Member m, EntityAlive npc, EntityPlayerLocal player, out string error)
+        public static bool Admit(Member m, EntityAlive npc, EntityPlayerLocal player, out string error, bool tell = true)
         {
             error = null;
             try
@@ -213,7 +216,7 @@ namespace SurvivorCommunity
                 ScRegistry.SaveAtomic();
                 ScLog.Out(m.Name + " (" + m.Class + ", id " + m.Id + ") joined the community: traits [" + string.Join(",", m.Traits.ToArray())
                           + "] specialty " + m.Specialty + (home ? " - stationed" : " - following until home"));
-                Tell(player, string.Format(Localization.Get(home ? "scJoined" : "scJoinedFollow"), m.Name), "");
+                if (tell) Tell(player, string.Format(Localization.Get(home ? "scJoined" : "scJoinedFollow"), m.Name), "");
                 return true;
             }
             catch (Exception e)
@@ -1108,7 +1111,7 @@ namespace SurvivorCommunity
                     ScProfile.Store(m, npc);          // the snapshot shows who they are now (and a re-join brings it)
                     CleanupStale(npc);
                 }
-                else ScRegistry.Cleanup.Add(m.Id);
+                else if (m.Status != MemberStatus.Arriving) ScRegistry.Cleanup.Add(m.Id);    // E12: one still on the way never had a body under their key
                 if (player != null)
                 {
                     player.Buffs.RemoveCustomVar("hired_" + m.Id);

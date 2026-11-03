@@ -131,6 +131,7 @@
     <Compile Include="ScEncCalls.cs" />
     <Compile Include="ScEncRaids.cs" />
     <Compile Include="ScEncMoves.cs" />
+    <Compile Include="ScEncJoin.cs" />
     <Compile Include="BlockScEncRemains.cs" />
     <Compile Include="DialogOpsEnclaves.cs" />
     <Compile Include="DialogOpsEncRequests.cs" />
