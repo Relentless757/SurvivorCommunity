@@ -434,3 +434,11 @@ reset on the spot. 3.2 has no ForceUpdate: the first update came a frame later, 
   the favour quest (`QuestId`) has a ClearSleepers objective; the other AddQuest sites add quests that never subscribe.
 
 Builds: SC 3.2 still `81f6c2da`, SC 3.4 `c0ea84c3`. Test step: TESTING.md group M (82).
+
+Reviewed with LandClaimUpgrade's port (`research\lcbu33\review\REVIEW.md`): the fix is correct and complete. Its L4 (the
+favour quest on an already-cleared POI) does not apply: the quest only advances to phase 2 (ScTalkToSurvivor) and stays
+in progress, so its position records stay valid.
+
+**Installed 2026-11-02 22:08** with the user's go-ahead (3.4 game closed): `deploy_sc34.py`, HEAD 8b560f8, 1928 files,
+installed = built `c0ea84c3`. The old install is in `Port33\_backups\sc34_2026-11-02_220821`; only the round 7 files
+differ from it. `DebugLogging` true copied back. The 3.2 game is untouched (`81f6c2da`).
