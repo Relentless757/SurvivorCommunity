@@ -1460,12 +1460,13 @@ after one), 214 (the den at the deadline; `raidlost=` is the `[enclave]`'s), 218
 fixes: SC 3.4 `e79dde4e5551aba918de8918e9b1b4fd` (`build\e10fix`), 0 errors (the two old CS0108 warnings). Not
 installed.
 
-### Round 16: enclaves move (E11) (2026-11-03, built, not reviewed, not installed)
+### Round 16: enclaves move (E11) (2026-11-03, built, reviewed (Fable: deployable), review fixes in, not installed)
 
 `research\ideas\DESIGN.md` section 8 (idea 7) and section 1 (rules), with the user's decision Q9 (as recommended): a
 Neutral or hostile group that moves drops off the map until found again, a Friendly or Allied one tells you where; both
 reasons (half its people lost, an infestation next door for 3 days) apply. Branch `ms/e11` from `dev/ideas` `4e7b63d`
-(V1, I2, I3, E7, E8, E9, V2 installed; E10 merged, under review). **3.4 only**: only the 3.4 DLL was built; the tracked
+(V1, I2, I3, E7, E8, E9, V2 installed; E10 merged, its review fixes - round 15's note - came in with the merge of
+`ms/e11` into `dev/ideas`, `64aaddf`). **3.4 only**: only the 3.4 DLL was built; the tracked
 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34`. Single player only, as SC.
 
 - **`ScEncMoves.cs` (new).** No Harmony patch; driven from `ScDaily.Run` and the console.
@@ -1599,6 +1600,44 @@ Checks:
   duplicate keys.
 - The data edits (Localization, the blocks.xml block, `voice_lines.py`) are `research\e11\ed_e11_data.py` (re-run safe).
 
-Builds: SC 3.4 `1a12f9ffa9e8da5135052a248900c4ad` (`build\sc34_e11`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not
+Builds: SC 3.4 `1a12f9ffa9e8da5135052a248900c4ad` (`build\sc34_e11`), 0 errors (the two old CS0108 warnings); the merge
+with round 15's review fixes (`64aaddf`) builds to `056c228d2f4c4d9fc98935bb682363bf`. The 3.2 DLL was not
 rebuilt (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E11 (220-239). Not reviewed (Fable), not
 installed. The task list needs its entry.
+
+**E11 Fable review** (`research\review_e11\REVIEW.md`, of the merge `64aaddf`: round 15's fixes and E11): DEPLOYABLE, no
+HIGH, no MEDIUM. Fixed:
+- **L1, a raid nobody could leave for unseen settled as unattended.** With everyone who could come in the player's view
+  at their den (`SpawnParty`'s -1), the raid stalled to its deadline and settled as one nobody came to: no attended
+  bonus, `(nobody came to fight it)`, `LoseHeld`. `ScOutpostRisk.Live.Waited` (session) is set when the -1 comes - the
+  player is there, as `SpawnAttack` runs only within `RescueTriggerRange` - and cleared by `StartAttack` and `Settle`. A
+  deadline that finds it set with the player still within `RescueTriggerRange` settles it attended and held: `Guarded`
+  is `Outcome`'s held result without the roll (half the win bonus; the tell `Diner held - your people will not forget
+  it.`, not `held on its own` - the player was there; the ledger `Diner held against an attack`; the log `outpost N
+  (Diner) held (they never came out while you were there)`), then `ScEncRaids.End` with `waited`: no `LoseHeld`, and the
+  end line `... is over: held (they never came out while you were there), 0 of theirs lost; ...`. No pop-in placement.
+- **L2, an upgraded save's old deaths started moves.** `LastLossDay` and its `DiedDay` fallback are gone: reason 1 needs
+  `Enclave.LossDay`, a death since E11 is installed. A group that had lost half before moves for it only after one more
+  death; its moves line says `..., all from before enclave moves came - no reason until one more dies`. README and the
+  TESTING E11 note say so; deviation 2's "Deaths from before E11 fall back to `DiedDay`" no longer holds.
+- **L3, a death on the day of the move was ignored.** `Enclave.MovedDead`, their dead (`Losses`) at the move, is a field
+  of `moved=day:x,y,z:dead:name` (the name stays last, as it may hold ':'; the field is left out while not known), and
+  "after their last move" is `dead > MovedDead`. A `moved=day:x,y,z:name` from the first E11 build loads with
+  `MovedDead` -1 and keeps the day test; the first E11 build reading the new line takes `dead:name` as the name (the
+  console's "moved on day N from" only).
+- **L4, an ally named a group in the breath it dropped off the map.** `ScEncAllies.RevealFor` (the daily pass and a new
+  ally's word at once) skips a group with `MovedDay` == the request-clock day; the ally stays due and can name them on a
+  later day.
+- **N3:** README and `ScEncMoves`' summary: "the first rollover that finds it there counts as its first day" (a daily
+  roll's infestation is found by the rollover that makes it). **N7:** this round's header and base line no longer say
+  E10 is under review; the merged build is recorded under Builds.
+- Left: N1, N2, N4, N5, N6, N8.
+- Seen, left: in a catch-up of two or more world days in one tick (a `settime` jump ahead), every pass has the same
+  request-clock day, and `ScEnclaves.Daily`'s radio reveal for a later day runs after an earlier day's moves pass, so it
+  can name a group that moved a moment before, as L4's ally did. Rarer than L4 (a jump of days, the radio's reveal due,
+  that group the nearest unknown within 2 km of home); L4's skip there would also hold the radio back a whole `sc day`,
+  as the radio runs before `ScEncRequests.Daily` moves the clock.
+TESTING steps changed: 208 (the deadline with them in view), 220 (a group with no dead), the E11 group's note (L2), 228
+(points to 229), 229 (a death on the day of the move), 230 (no ally word on the day they moved), 236
+(`moved=R:x,y,z:K:<Old>`, the older line). Build after the fixes: SC 3.4 `2af1b31275e44fa78a0908cecc26da79`
+(`build\e11fix`), 0 errors (the two old CS0108 warnings). Not installed.

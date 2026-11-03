@@ -98,13 +98,15 @@ namespace SurvivorCommunity
         /// </summary>
         public int RaidLost;
         /// <summary>
-        /// E11: the request-clock day they last moved of their own accord (-1: never) and the building they left (its key and
-        /// name). Saved as [enclave] moved=day:x,y,z:name. ScEncMoves.
+        /// E11: the request-clock day they last moved of their own accord (-1: never), the building they left (its key and
+        /// name) and their dead then (ScEncMoves.Losses; -1: not known, a move an older build saved). Saved as [enclave]
+        /// moved=day:x,y,z:dead:name. ScEncMoves.
         /// </summary>
         public int MovedDay = -1;
         public Vector3i MovedFrom;
         public string MovedFromName = "";
-        /// <summary>E11: the request-clock day of their last death (-1: none since E11 came). Saved as [enclave] lossday=N. ScEncMoves.</summary>
+        public int MovedDead = -1;
+        /// <summary>E11: the request-clock day of their last death (-1: none since E11 came - older deaths start no move). Saved as [enclave] lossday=N. ScEncMoves.</summary>
         public int LossDay = -1;
         /// <summary>
         /// E11: the request-clock day an infestation has been within EnclaveMoveInfestRange m of their building since, as the daily

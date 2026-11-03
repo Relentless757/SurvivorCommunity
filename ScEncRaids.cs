@@ -37,9 +37,10 @@ namespace SurvivorCommunity
     /// End (ScOutpostRisk.Won / Settle): survivors home (a body out walks off), the group rests EnclaveRaidRestDays, and an
     /// unattended raid the outpost held costs them EnclaveRaidLossHeld of the party they would have sent (records first, then
     /// people not made yet: Enclave.RaidLost) - unless the player fought it before a reload (its losses kept); damaged or
-    /// overrun, none of them die. A raid whose group can no longer send anyone is called off; a group that falls
-    /// (ScEnclavePeople.DropPeople) drops its demand and its call, and a party out fights on as plain raiders (OnDenFalling);
-    /// switching any of the three off calls an open one off.
+    /// overrun, none of them die. One that never came out, those who could in view at their den, while the player stood at
+    /// the outpost to its deadline is held as one the player attended (the E11 review's L1). A raid whose group can no longer
+    /// send anyone is called off; a group that falls (ScEnclavePeople.DropPeople) drops its demand and its call, and a party
+    /// out fights on as plain raiders (OnDenFalling); switching any of the three off calls an open one off.
     ///
     /// Session state is the party only. The records persist: Outpost.RaidEnclave and RaidLost ([outpost] raidenc=,
     /// raidlost=), Enclave.RaidDay and RaidLost ([enclave] raidday=, raidlost=). A raiding person is saved as home (bodies
@@ -447,7 +448,8 @@ namespace SurvivorCommunity
         /// it where nobody sees it go, the review's M1, and one in view stays), then new people made at the outpost while the
         /// group has places left (GenerateAway). Each is raiding, its body in ids with the attack's target. Returns how many came
         /// (0: nobody - the caller calls the raid off; -1: nobody yet, as those who could come are in view at home or their
-        /// bodies still being built - the caller tries again the next second).
+        /// bodies still being built - the caller tries again the next second, and its deadline with the player still there is
+        /// a hold the player attended).
         /// </summary>
         internal static int SpawnParty(World w, EntityPlayerLocal player, Outpost o, int count, EntityAlive target, List<int> ids)
         {
@@ -752,10 +754,12 @@ namespace SurvivorCommunity
         /// ScOutpostRisk.Won (result "won") and Settle (held, damaged or overrun; attended when their party was out): the raid is
         /// over. Unattended and held, the party they would have sent loses EnclaveRaidLossHeld (LoseHeld) - unless some of
         /// theirs already died fighting the player there before a reload (Outpost.RaidLost: that fight was its cost, the
-        /// review's L2); otherwise those killed died in the fight. Survivors home (a body out walks off), the group rests, one
-        /// tell and ledger line for their losses (Outpost.RaidLost, saved), the log. Nothing for a nameless raid. The caller saves.
+        /// review's L2); otherwise those killed died in the fight. Waited (attended, held): nobody came out while the player
+        /// stood at the outpost - those who could were in view at their den (SpawnParty's -1; the E11 review's L1). Survivors
+        /// home (a body out walks off), the group rests, one tell and ledger line for their losses (Outpost.RaidLost, saved),
+        /// the log. Nothing for a nameless raid. The caller saves.
         /// </summary>
-        internal static void End(Outpost o, EntityPlayerLocal player, bool attended, string result)
+        internal static void End(Outpost o, EntityPlayerLocal player, bool attended, string result, bool waited = false)
         {
             if (o == null) return;
             Party party;
@@ -791,7 +795,8 @@ namespace SurvivorCommunity
             bool standing = e != null && ScEnclaves.All.Contains(e);
             if (standing) Rest(e);
             TellLosses(player, name, lost, o);
-            ScLog.Out("enclave raid on outpost " + o.Id + " (" + o.Name + ") by '" + name + "' is over: " + result + (attended ? "" : fought ? " (nobody came back to fight it)" : " (nobody came to fight it)")
+            ScLog.Out("enclave raid on outpost " + o.Id + " (" + o.Name + ") by '" + name + "' is over: " + result
+                      + (attended ? (waited ? " (they never came out while you were there)" : "") : fought ? " (nobody came back to fight it)" : " (nobody came to fight it)")
                       + ", " + lost + " of theirs lost" + (held > 0 ? " (" + held + " as the outpost held)" : "") + (standing ? "; they rest until day " + e.RaidDay : ""));
         }
 

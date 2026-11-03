@@ -1062,7 +1062,9 @@ raiding Diner." If you drive off before it is over and come back in time, the su
 the survivors head home (they fight on while you're in sight and are gone once you're not) and the group rests. A raid
 you never came to is settled on the outpost's security as before: held, it costs them a person
 (`EnclaveRaidLossHeld`; not when you fought it before a reload - those you killed were its cost); damaged or overrun,
-nobody of theirs dies. Losses add up - a group with only its leader left
+nobody of theirs dies. If everyone who could come stays in your sight at their den until the time is up, nobody comes:
+with you still at the outpost it holds, as a raid you were at, and nobody of theirs is lost for it. Losses add up - a
+group with only its leader left
 can't raid, and wiping out their den ends their raids (a new group moves in later, as for any lost enclave). A group
 that can no longer send anyone, or is gone, never comes ("The Rabid Rats never came for Diner - they have nobody left
 to send.", "The Rabid Rats are gone - nobody is coming for Diner."). The home base is never raided by them (it has its
@@ -1095,10 +1097,11 @@ centre).
 - **They lost half their people** (`EnclaveMoveLostShare` 0.5): the dead out of everyone the group had - a raider den
   counts the people a raid on your outposts cost it, and a group you haven't met yet counts its full size. They think
   about it from 2 days after the last death (`EnclaveMoveWaitDays`). A move answers the losses before it: only a death
-  after their last move makes them think of moving again.
+  after their last move (even later that day) makes them think of moving again. On a save from before this version,
+  the deaths before it start no move: a group that had already lost half moves for it only after one more death.
 - **The dead next door:** an infestation within 300 m of their building (`EnclaveMoveInfestRange`, edge to edge; 0 turns
-  this reason off) for 3 days (`EnclaveMoveInfestDays`; the first rollover after it came is its first day). Clearing it
-  before then resets the count.
+  this reason off) for 3 days (`EnclaveMoveInfestDays`; the first rollover that finds it there counts as its first day).
+  Clearing it before then resets the count.
 
 Once a reason holds, they move with a 20% chance a day (`EnclaveMoveChance`).
 
@@ -1119,7 +1122,7 @@ the world seed, the group and the day. If nothing fits they stay and try again t
   without one). Their marker moves, and the ledger says "The Holdouts moved from Diner to Miller Farmhouse".
 - A **Neutral or hostile** group just drops off the map: *The Rabid Rats have left Junkyard - nobody knows where they
   went.* (only if you knew them; the ledger says "The Rabid Rats left Junkyard"). Find them again by going near, by the
-  radio, or through an ally.
+  radio, or through an ally (not on the day they left).
 - Their old building is free again: its loot opens, it can be claimed or infested, and its zombies come back after the
   loot respawn wait, as when a group falls.
 - They keep everything else: name (even one that names the old building), people (with new spots in the new building),
@@ -1135,9 +1138,9 @@ need `Enclaves`.
 `sc enclave move <id> now` (they move at once, to that building: the reasons and the roll ignored, what keeps them home
 still applies); `sc enclave info <id>` has a moves line ("moved on day N from X").
 
-**Saving:** each `[enclave]` gains `moved` (the day they last moved and the building they left), `lossday` (the day of
-their last death) and `nestday` (the day an infestation has been next door since), each written when set; an older build
-ignores them. `seeded=` keeps the mode `moved`.
+**Saving:** each `[enclave]` gains `moved` (the day they last moved, the building they left and their dead then),
+`lossday` (the day of their last death) and `nestday` (the day an infestation has been next door since), each written
+when set; an older build ignores them. `seeded=` keeps the mode `moved`.
 
 **Limits:** host only, single player. A move is a jump, not a walk (bands on the road may carry it later). Their radio
 words are text only for now.

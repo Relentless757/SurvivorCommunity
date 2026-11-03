@@ -12,11 +12,12 @@ namespace SurvivorCommunity
     /// The reasons, on the request clock (ScEncRequests.Now: "sc day" moves them):
     ///   lost   at least EnclaveMoveLostShare of the group is dead - the dead records, and the people E10's held raids cost a
     ///          group before it was made (Enclave.RaidLost), out of its records (a group still being made: its full size) and
-    ///          those - EnclaveMoveWaitDays or more after the last death (Enclave.LossDay, stamped at every death), and that
-    ///          death after their last move (a move answers the losses before it);
+    ///          those - EnclaveMoveWaitDays or more after the last death (Enclave.LossDay, stamped at every death: deaths from
+    ///          before E11 start no move, the E11 review's L2), and a death since their last move (more dead than then,
+    ///          Enclave.MovedDead: a move answers the losses before it);
     ///   nest   an infestation within EnclaveMoveInfestRange m of their building (footprint to footprint, while Infestations is
     ///          on) for EnclaveMoveInfestDays days. The daily pass keeps the stamp (Enclave.NestDay): at its first sight the day
-    ///          before the pass (so the first rollover after it came counts as its first day), cleared when none is in range.
+    ///          before the pass (so the first rollover that finds it counts as its first day), cleared when none is in range.
     /// Once a reason holds and nothing holds them (WhyHeld), the daily pass (Daily, ScDaily.Run after the infestations) rolls
     /// EnclaveMoveChance and picks the building (ScEnclaves.MoveTarget), both from the world seed, the group and the day. No
     /// building fits: they stay and try again the next day.
@@ -36,8 +37,8 @@ namespace SurvivorCommunity
     /// approach, the radio, an ally - E6), with "X have left Y" when you knew them. They keep their id, name, kind, nature,
     /// benefit, standing, trade stock, thanks owed and their dead.
     ///
-    /// Saved: [enclave] moved=day:x,y,z:name, lossday=N, nestday=N (ScRegistry; shifted by ScEnclaves.OnWorldDayBack). Host
-    /// only, main thread; no Harmony patch.
+    /// Saved: [enclave] moved=day:x,y,z:dead:name, lossday=N, nestday=N (ScRegistry; the days shifted by
+    /// ScEnclaves.OnWorldDayBack). Host only, main thread; no Harmony patch.
     /// </summary>
     public static class ScEncMoves
     {
@@ -98,17 +99,12 @@ namespace SurvivorCommunity
             dead += raidLost;
         }
 
-        /// <summary>The day of their last death: Enclave.LossDay, or for deaths from before E11 the newest dead record's day (-1: none).</summary>
-        public static int LastLossDay(Enclave e)
-        {
-            if (e.LossDay >= 0) return e.LossDay;
-            int last = -1;
-            foreach (EncPerson p in ScRegistry.EncPeople)
-                if (p.EnclaveId == e.Id && p.State == EncPerson.StateDead && p.DiedDay > last) last = p.DiedDay;
-            return last;
-        }
-
-        /// <summary>Reason 1 (see the class): true when it holds; text: its state for the console.</summary>
+        /// <summary>
+        /// Reason 1 (see the class): true when it holds; text: its state for the console. The last death is Enclave.LossDay only:
+        /// deaths from before E11 (no stamp) start no move - a group that had lost half by then moves for it after one more (the
+        /// E11 review's L2). "Since their last move" counts the dead, not the day (Enclave.MovedDead): a death later on the day
+        /// they moved counts (L3; a move an older build saved, its dead not known, still goes by the day).
+        /// </summary>
         public static bool LostReason(Enclave e, int now, out string text)
         {
             int dead, total;
@@ -119,15 +115,16 @@ namespace SurvivorCommunity
               .Append(" moves them)");
             if (dead <= 0) { text = sb.ToString(); return false; }
             bool enough = share + 0.0001f >= ScConfig.EnclaveMoveLostShare;
-            int last = LastLossDay(e);
+            int last = e.LossDay;
             if (last >= 0) sb.Append(", the last on day ").Append(last);
-            bool before = e.MovedDay >= 0 && last <= e.MovedDay;
+            else sb.Append(", all from before enclave moves came").Append(enough ? " - no reason until one more dies" : "");
+            bool before = last >= 0 && e.MovedDay >= 0 && (e.MovedDead >= 0 ? dead <= e.MovedDead : last <= e.MovedDay);
             if (before) sb.Append(", before their move on day ").Append(e.MovedDay);
-            int from = last >= 0 ? last + Math.Max(0, ScConfig.EnclaveMoveWaitDays) : 0;
-            bool waiting = enough && !before && now < from;
+            int from = last + Math.Max(0, ScConfig.EnclaveMoveWaitDays);
+            bool waiting = enough && last >= 0 && !before && now < from;
             if (waiting) sb.Append(", a reason from day ").Append(from);
             text = sb.ToString();
-            return enough && !before && !waiting;
+            return enough && last >= 0 && !before && !waiting;
         }
 
         // ------------------------------------------------------------------ reason 2: the dead next door ----
@@ -353,9 +350,12 @@ namespace SurvivorCommunity
             ScEnclavePeople.ReleaseVisit(e);
             int cleared;
             int released = ScEnclaves.MoveTo(e, to, told, player, out cleared);
+            int dead, total;
+            Losses(e, out dead, out total);
             e.MovedDay = now;
             e.MovedFrom = oldKey;
             e.MovedFromName = oldName;
+            e.MovedDead = dead;         // a death after this counts, even later today (the E11 review's L3)
             e.NestDay = -1;
             int favours = ScEnclaveDeals.OnMoved(e, World.worldToBlockPos(ScEnclaves.MarkerSpot(e)));
             int size = ScEnclavePeople.AfterMove(e);

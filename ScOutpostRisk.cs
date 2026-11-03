@@ -37,6 +37,8 @@ namespace SurvivorCommunity
             public bool Spawned;
             public readonly List<int> Ids = new List<int>();
             public bool BloodMoonHere;
+            /// <summary>E10: an enclave's raid found nobody who could come yet with the player there (ScEncRaids.SpawnParty's -1; the E11 review's L1).</summary>
+            public bool Waited;
         }
 
         private static readonly Dictionary<int, Live> live = new Dictionary<int, Live>();
@@ -247,6 +249,7 @@ namespace SurvivorCommunity
             o.AttackHeard = radio;
             Live l = L(o);
             l.Spawned = false;
+            l.Waited = false;
             l.Ids.Clear();
             if (radio) AddMarker(o, player);
             Enclave by = raiders ? ScEncRaids.EnclaveOf(o) : null;
@@ -338,7 +341,14 @@ namespace SurvivorCommunity
                     Live l = L(o);
                     if (!l.Spawned)
                     {
-                        if (w.worldTime >= o.AttackUntil) { Settle(o, player, false, "unanswered"); continue; }
+                        if (w.worldTime >= o.AttackUntil)
+                        {
+                            // E10 (the E11 review's L1): an enclave's raid that never came out while you stood here - those who
+                            // could come in view at their den - is one you attended, and held
+                            if (l.Waited && d <= ScConfig.RescueTriggerRange) Settle(o, player, true, "they never came out while you were there", true);
+                            else Settle(o, player, false, "unanswered");
+                            continue;
+                        }
                         // one live attack at a time: an outpost next to a home (E5: or an enclave's siege) being fought waits
                         // for that fight
                         if (d <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(o.Flag) && !ScBaseAttack.Live && !ScEncSiege.Live) SpawnAttack(w, player, o);
@@ -441,10 +451,10 @@ namespace SurvivorCommunity
                 {
                     // E10: an enclave's raid - their own people come (ScEncRaids.SpawnParty); with nobody left to send, it is off.
                     // The enclaves still being validated (the first seconds of a session), or those who could come in view at
-                    // their den or still being built there (SpawnParty's -1): the next second
+                    // their den or still being built there (SpawnParty's -1): the next second (Waited: the deadline holds it)
                     if (!ScEnclaves.Ready) { l.Spawned = false; return; }
                     int came = ScEncRaids.SpawnParty(w, player, o, count, target, l.Ids);
-                    if (came < 0) { l.Spawned = false; l.Ids.Clear(); return; }
+                    if (came < 0) { l.Spawned = false; l.Ids.Clear(); l.Waited = true; return; }
                     if (came == 0)
                     {
                         l.Spawned = false;
@@ -507,20 +517,38 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
         }
 
-        /// <summary>The deadline passed: settled on security (a fight the player joined never ends worse than damaged).</summary>
-        private static void Settle(Outpost o, EntityPlayerLocal player, bool attended, string why)
+        /// <summary>
+        /// The deadline passed: settled on security (a fight the player joined never ends worse than damaged). Waited (E10, the
+        /// E11 review's L1): an enclave's raid that never came out while the player stood there is held, no roll (Guarded).
+        /// </summary>
+        private static void Settle(Outpost o, EntityPlayerLocal player, bool attended, string why, bool waited = false)
         {
             o.AttackUntil = 0;
             L(o).Spawned = false;
+            L(o).Waited = false;
             L(o).Ids.Clear();
             RemoveMarker(o);
-            string result = Outcome(o, player, attended ? ScConfig.OutpostAttendedBonus : 0, attended, why);
+            string result = waited ? Guarded(o, player, why) : Outcome(o, player, attended ? ScConfig.OutpostAttendedBonus : 0, attended, why);
             if (o.AttackRaiders && o.RaidEnclave > 0)
             {
                 // E10: an enclave's raid - held unattended, it costs them people; their party home, their rest
-                ScEncRaids.End(o, player, attended, result);
+                ScEncRaids.End(o, player, attended, result, waited);
                 ScRegistry.SaveAtomic();
             }
+        }
+
+        /// <summary>
+        /// E10, the E11 review's L1: held with the player there and nobody come to fight (an enclave's raid whose people stayed
+        /// in view at their den, Live.Waited) - Outcome's held result without its roll, told as a hold the player was at.
+        /// </summary>
+        private static string Guarded(Outpost o, EntityPlayerLocal player, string why)
+        {
+            o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus * 0.5f);
+            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeld"), o.Name), "");
+            ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
+            ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held (" + why + ")");
+            ScRegistry.SaveAtomic();
+            return HeldResult;
         }
 
         /// <summary>The end of a blood moon: every outpost the player did not stand at rolls, a little harder.</summary>

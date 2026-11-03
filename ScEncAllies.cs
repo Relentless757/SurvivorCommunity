@@ -389,8 +389,9 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// An ally tells the player about the enclave nearest to them that the player does not know (raiders too, not one off the
-        /// map): E1's discovery (known, its marker - SetKnown saves), a tell and a ledger line, and its next word
-        /// EnclaveAllyRevealDays later. With none left to tell of it stays due: the next day's pass asks again. True when it told.
+        /// map, not one that moved off the map this request-clock day - E11's pass runs just before: the E11 review's L4): E1's
+        /// discovery (known, its marker - SetKnown saves), a tell and a ledger line, and its next word EnclaveAllyRevealDays
+        /// later. With none left to tell of it stays due: the next day's pass asks again. True when it told.
         /// </summary>
         private static bool RevealFor(Enclave ally, int now, EntityPlayerLocal player)
         {
@@ -399,7 +400,7 @@ namespace SurvivorCommunity
             float bestD = float.MaxValue;
             foreach (Enclave e in ScEnclaves.All)
             {
-                if (e == ally || e.Known || e.Lost) continue;
+                if (e == ally || e.Known || e.Lost || e.MovedDay == now) continue;
                 Vector3 c = e.Centre;
                 float dx = c.x - a.x, dz = c.z - a.z, d = dx * dx + dz * dz;
                 if (d < bestD) { bestD = d; best = e; }

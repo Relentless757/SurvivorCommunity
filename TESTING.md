@@ -957,7 +957,12 @@ The ledger is the community window's.
      m, in front of you) stays home (`; K stayed home, in view`). If that leaves nobody to come, the log says once
      `enclave <id> '<name>' raids outpost <oid> (<Outpost>): nobody yet (K in view at home) - tried again each second` and
      they come the second you look away - never `<name> never came for <Outpost> - they have nobody left to send.` while
-     `sc enclave info <id>` shows people to spare.
+     `sc enclave info <id>` shows people to spare. Keep them in view instead and, standing there, `settime` past the
+     deadline (the `raiders attack` log line's time plus 10 hours): `<Outpost> held - your people will not forget it.`
+     (never `held on its own`, `took a beating` or a `lost` line), the ledger `<Outpost> held against an attack`, and the
+     log `outpost <oid> (<Outpost>) held (they never came out while you were there)` then `enclave raid on outpost <oid>
+     (<Outpost>) by '<name>' is over: held (they never came out while you were there), 0 of theirs lost; they rest until
+     day R+3` - not `(nobody came to fight it)`, and nobody of theirs dies for it (the E11 review's L1).
 209. **Hold it.** Kill them all. Each death logs `enclave <id> '<name>': <Person> (p<pid>) died - killed by <you> raiding
      an outpost` (no ledger line per person). After the last: `<Outpost> held - your people will not forget it.`, then
      `<name> lost N of their people raiding <Outpost>.`; the ledger `<Outpost> held against an attack` and `<name> lost N
@@ -1045,13 +1050,16 @@ call or raid of theirs is on. Days are the requests' clock, so `sc day` moves th
 enclave's name, `<id>` its id, `<Old>` and `<New>` the buildings, `R` the request clock's day (each moves line ends
 `(request clock day R)`), `D m <dir>` a distance and direction like `900 m north-east`. "Far away" means at least 500 m
 from both buildings (beyond your view distance); a vehicle or `teleport` helps. The radio words are text only for now.
-Set `DebugLogging` true for the `would move ... but stays` lines.
+Set `DebugLogging` true for the `would move ... but stays` lines. On a save from before E11 the deaths before it start
+no move (the review's L2): a group that had already lost half reads `lost K of N (P%; 50% moves them), all from before
+enclave moves came - no reason until one more dies` and moves for it only after one more death, so kill people in these
+steps after installing.
 
 220. Load the world. The log's `config:` line has `enclaveMoves=0.2/day once lost 0.5 (2d after) or a nest within 300m for
-     3d, to 300-1500m`. `sc enclave info <id>` of any group has the line `[SC]   moves: lost 0 of N (0%; 50% moves them); no
-     infestation within 300 m; no reason to move (held now: ...) (request clock day R)` (the held part only while
-     something holds them: near them it says `a player is within 200 m of their building`). A group whose people are not
-     made yet counts its full size (N as `people: people not made yet (N when ...)`).
+     3d, to 300-1500m`. `sc enclave info <id>` of a group with no dead has the line `[SC]   moves: lost 0 of N (0%; 50%
+     moves them); no infestation within 300 m; no reason to move (held now: ...) (request clock day R)` (the held part
+     only while something holds them: near them it says `a player is within 200 m of their building`). A group whose
+     people are not made yet counts its full size (N as `people: people not made yet (N when ...)`).
 221. **The ring.** Anywhere, `sc enclave move <id> sim` prints four lines: `[SC] <name> (enclave <id>, <Band>): moves:
      ...` (as step 220), `[SC]   today (request clock day R): no reason holds; held: ...; the day's roll says stay (20%)`
      (`nothing holds them` when nothing does; `says go` on a day the roll would move them), `[SC]   N building(s) 300-1500 m
@@ -1091,14 +1099,20 @@ Set `DebugLogging` true for the `would move ... but stays` lines.
      moves them), the last on day R0, before their move on day R; ...; no reason to move` - no second move. Kill one more
      of them at `<New>` (more than half still dead), go far away, `sc day` twice: `... - a reason` again. `sim`'s pick is
      never `<Old>` (it is counted as `the building they left` among the refused when no other rule refuses it first).
+     (A death on the day of the move counts too: step 229.)
 229. **A Neutral group drops off the map.** Take a known Neutral group (`sc enclave standing <id> 10`, `sc enclave reveal
      <id>`), make its people and kill half, go far away, `sc day` twice, `sc enclave move <id> sim` (note the pick),
      `sc enclave move <id> now`: the message `<name> have left <Old> - nobody knows where they went.`, `[SC] <name> moved
      from <Old> to <New> - off the map until found again`, their marker gone, the ledger `<name> left <Old>`; `sc
-     enclave info <id>`: `not found yet`. The log says `off the map until found again (neutral, was known)`.
+     enclave info <id>`: `not found yet`. The log says `off the map until found again (neutral, was known)`. Then, before
+     any `sc day`, `sc enclave kill <id> p<pid>` one more of them: a death on the day of the move counts (the review's
+     L3), and their moves line reads `lost K+1 of N (...), the last on day R, a reason from day R+2; ...` (R the move's
+     day), with no `before their move on day R`.
 230. **Found again.** Go within 150 m of `<New>`: `You've found <name>, holed up at <New> (Neutral).` and the marker is
      back. (Or wait: a powered radio picks up the nearest unknown group within 2 km of home every 3 days, and an ally
-     tells you of the unknown group nearest to them.)
+     tells you of the unknown group nearest to them - never of one on the day it moved: with `EnclaveMoveChance` at 1
+     (step 235), an Allied group whose word is due and the moved one nearest to them, the `sc day` that moves them brings
+     no `Word from <ally>: <name>, ...` line, the review's L4.)
 231. **A group you never found.** Do step 229, but `sc enclave hide <id>` before `now` (`[SC] 1 enclave(s) hidden again,
      markers off`): no message and no ledger line as they move; only the log, `... off the map until found again
      (neutral, never found)`.
@@ -1127,9 +1141,11 @@ Set `DebugLogging` true for the `would move ... but stays` lines.
      a reason and nothing holding it moves at the next `sc day` (as in step 225 or 229; its log line has `- the day's roll
      (100%), C candidate(s) of N;` where step 225's has `- the console;`). With you near them it stays (with `DebugLogging`: `enclave <id> '<name>' would move
      (they lost too many of their people) but stays: a player is within 200 m of their building`). Put it back to 0.2.
-236. **Saved and loaded.** After a move, save and quit: their `[enclave]` has `moved=R:x,y,z:<Old>` and `seeded=X:moved`,
-     plus `lossday=R0` (after a death) and `nestday=R1` (with an infestation next door) when set. Load: the moves line and
-     the marker are as before, and their people spawn at the new building.
+236. **Saved and loaded.** After a move, save and quit: their `[enclave]` has `moved=R:x,y,z:K:<Old>` (K their dead at the
+     move) and `seeded=X:moved`, plus `lossday=R0` (after a death) and `nestday=R1` (with an infestation next door) when
+     set. Load: the moves line and the marker are as before, and their people spawn at the new building. A
+     `moved=R:x,y,z:<Old>` line the first E11 build wrote still loads (their dead then not known: a death after day R
+     counts).
 237. **A world day set back.** After a move, `settime <two days earlier> 12 0`: the log's `enclaves: the world's day went
      back from ...` line ends `; N move stamp(s) moved back D day(s)` (D as for the raid rest stamps in the same line), and
      `sc enclave info <id>` shows the move, last death and nest days D earlier.
