@@ -1188,6 +1188,28 @@
 			<property name="EnclaveDropRangeMax" value="50" />
 			<property name="EnclaveDropHeight" value="60" />
 
+			<!-- RAIDER ENCLAVES RAID (E10). With OutpostAttacks (off, it turns these off too), EnclaveRaids and Enclaves on,
+			     the raider demands on your outposts come from a named group: the nearest hostile enclave within
+			     EnclaveRaidRange m of the outpost (building to building) that has someone to spare (the leader never raids), is
+			     not leaning on another outpost and is past its rest. A raider enclave asks with EnclaveRaidChance a day, a group
+			     that turned hostile with that times EnclaveRaidTurnedFactor; with no such group in range there are no raider
+			     demands there at all. The price, the day to answer by, the gamestage gate (OutpostRaiderGamestage) and a new
+			     outpost's two quiet days are as before, and the demand puts their hideout on your map. Refuse it, or don't
+			     answer by the next rollover, and their own people raid the outpost: at most EnclaveRaidPartyMax of them, the
+			     faces you see at their den (a group you never met is made right there), and those you kill are dead for good.
+			     After they are paid, or after a raid, they rest EnclaveRaidRestDays days. A raid nobody answered that the
+			     outpost held costs them EnclaveRaidLossHeld people; damaged or overrun, none. Wipe out their den and its raids
+			     end (a new group moves in later). EnclaveRaids=false brings back the old nameless raider demands
+			     (OutpostRaiderChance). Days here are the enclave requests' days, so "sc day" moves them. "sc enclave raid <id>"
+			     tests it. The home base is never raided by them. -->
+			<property name="EnclaveRaids" value="true" />
+			<property name="EnclaveRaidRange" value="2000" />
+			<property name="EnclaveRaidChance" value="0.04" />
+			<property name="EnclaveRaidTurnedFactor" value="0.5" />
+			<property name="EnclaveRaidPartyMax" value="4" />
+			<property name="EnclaveRaidRestDays" value="3" />
+			<property name="EnclaveRaidLossHeld" value="1" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

@@ -57,6 +57,10 @@ namespace SurvivorCommunity
     ///   E9 (ScEncCalls; keys an older build ignores): [enclave] callday=N (the request-clock day an ally answers another radio
     ///                call) call=kind:at:pid:until (the call that is on: fighter or drop, the world time it arrives, the
     ///                fighter's person, the world time they go home once they came - 0 before), each written when set.
+    ///   E10 (ScEncRaids; keys an older build ignores): [outpost] raidenc=N (the hostile enclave behind its open raider demand or
+    ///                raid) and [enclave] raidday=N (the request-clock day they may raid again) raidlost=N (people a held raid cost
+    ///                them before they were made), each written when set. A person out raiding is written state=home (bodies never
+    ///                outlive a load, and an older build knows no other state for them).
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -381,6 +385,8 @@ namespace SurvivorCommunity
                 case "produced": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) o.Produced = Math.Max(0f, f); break; }
                 case "levelday": o.LevelDay = I(val); break;
                 case "visit": o.LastVisitDay = I(val); break;
+                // E10: the hostile enclave behind the open raider demand or raid
+                case "raidenc": { int id = I(val); o.RaidEnclave = id > 0 ? id : -1; break; }
             }
         }
 
@@ -451,6 +457,9 @@ namespace SurvivorCommunity
                     e.CallUntil = kind == ScEncCalls.Fighter ? until : 0UL;
                     break;
                 }
+                // E10: the day they may raid again (request clock); people a held raid cost them before they were made
+                case "raidday": e.RaidDay = Math.Max(0, I(val)); break;
+                case "raidlost": e.RaidLost = Math.Max(0, I(val)); break;
             }
         }
 
@@ -1258,6 +1267,7 @@ namespace SurvivorCommunity
                     sb.AppendLine("produced=" + o.Produced.ToString("0.##", CultureInfo.InvariantCulture));
                     sb.AppendLine("levelday=" + o.LevelDay);
                     sb.AppendLine("visit=" + o.LastVisitDay);
+                    if (o.RaidEnclave > 0) sb.AppendLine("raidenc=" + o.RaidEnclave.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var en in Enclaves)
                 {
@@ -1291,6 +1301,8 @@ namespace SurvivorCommunity
                     if (en.CallKind.Length > 0)
                         sb.AppendLine("call=" + Clean(en.CallKind) + ":" + en.CallAt.ToString(CultureInfo.InvariantCulture) + ":" + en.CallPid.ToString(CultureInfo.InvariantCulture)
                                       + ":" + en.CallUntil.ToString(CultureInfo.InvariantCulture));
+                    if (en.RaidDay > 0) sb.AppendLine("raidday=" + en.RaidDay.ToString(CultureInfo.InvariantCulture));
+                    if (en.RaidLost > 0) sb.AppendLine("raidlost=" + en.RaidLost.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var ep in EncPeople)
                 {
@@ -1298,7 +1310,8 @@ namespace SurvivorCommunity
                     sb.AppendLine("pid=" + ep.Id);
                     sb.AppendLine("enclave=" + ep.EnclaveId);
                     sb.AppendLine("role=" + Clean(ep.Role));
-                    sb.AppendLine("state=" + Clean(ep.State));
+                    // E10: one out raiding is home in the file (bodies never outlive a load; an older build knows no "raiding")
+                    sb.AppendLine("state=" + Clean(ep.Raiding ? EncPerson.StateHome : ep.State));
                     sb.AppendLine("died=" + ep.DiedDay.ToString(CultureInfo.InvariantCulture));
                     if (ep.HasHome)
                     {

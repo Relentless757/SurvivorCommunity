@@ -400,8 +400,9 @@ namespace SurvivorCommunity
         {
             bool near = Near(player);
             // the blood moon holds every arrival; an outpost (E5: or an enclave's siege) being fought holds one the player
-            // would fight live
-            bool held = BloodMoonWindow(w) || (near && (ScOutpostRisk.AnyLive() || ScEncSiege.Live));
+            // would fight live - only an outpost fight where the player is (E10, the E5 review's R3: one they walked away from
+            // stays live in name until its deadline, AnyLiveNear's N5)
+            bool held = BloodMoonWindow(w) || (near && (ScOutpostRisk.AnyLiveNear(player.position) || ScEncSiege.Live));
             if (c.AttackArrive == 0UL)
             {
                 // put off (the blood moon, an outpost fight, or the player away with this absence's fight had): it comes
@@ -474,8 +475,8 @@ namespace SurvivorCommunity
         private static void TickAway(World w, EntityPlayerLocal player, Community c, float now)
         {
             // one live attack at a time: back from an outpost (E5: or an enclave's siege) still being fought, the defenders
-            // carry on until it is over
-            if (Near(player) && !ScOutpostRisk.AnyLive() && !ScEncSiege.Live) { Join(w, player, c); return; }
+            // carry on until it is over - an outpost fight only where the player is (E10, the E5 review's R3: AnyLiveNear)
+            if (Near(player) && !ScOutpostRisk.AnyLiveNear(player.position) && !ScEncSiege.Live) { Join(w, player, c); return; }
             if (w.worldTime >= c.AttackAwayEnd) { SettleAway(w, player, c, -1, "the defenders fought it alone"); return; }
             int dealt = Dealt(c, w.worldTime);
             if (dealt > c.AttackKilled)

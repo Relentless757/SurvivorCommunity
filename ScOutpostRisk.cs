@@ -20,13 +20,17 @@ namespace SurvivorCommunity
     ///   Siege      at the end of a blood moon every outpost rolls the same, unless the player stood there.
     ///   Neglect    an unstaffed outpost unvisited for OutpostNeglectDays gets one sleeper area re-armed.
     ///   Raiders    past OutpostRaiderGamestage, raiders may demand supplies for an outpost: pay on the radio, or
-    ///              refuse (or ignore until the next rollover) and they attack it.
+    ///              refuse (or ignore until the next rollover) and they attack it. E10 (ScEncRaids, with EnclaveRaids): the
+    ///              demand and the raid are a hostile enclave's in range (Outpost.RaidEnclave), its own people come, and
+    ///              with none in range there is no raider demand.
     ///   Good news  a cache too big to carry: bundles wait at the outpost for the player (the claim's box).
     /// Host only. Attack entities and blood-moon presence are session state; everything else persists.
     /// </summary>
     public static class ScOutpostRisk
     {
         public const string AttackNav = "sc_outpost_attack";
+        /// <summary>Outcome's results (E10: ScEncRaids.End reads them).</summary>
+        internal const string HeldResult = "held", DamagedResult = "damaged", OverrunResult = "overrun";
 
         private sealed class Live
         {
@@ -56,6 +60,7 @@ namespace SurvivorCommunity
             live.Clear();
             markers.Clear();
             markersRestored = false;
+            ScEncRaids.OnRegistryChanged();      // E10: no raid party is out after a load
         }
 
         private static Live L(Outpost o)
@@ -119,20 +124,39 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>A few words for the window / radio: under attack, damaged, raiders' demand.</summary>
+        /// <summary>Game hours (rounded up) left until an open attack's deadline.</summary>
+        internal static int HoursLeft(Outpost o)
+        {
+            World w = ScCommunity.World;
+            ulong now = w != null ? w.worldTime : 0UL;
+            return o != null && o.AttackUntil > now ? (int)((o.AttackUntil - now + 999UL) / 1000UL) : 0;
+        }
+
+        /// <summary>A few words for the window / radio: under attack, damaged, raiders' demand (E10: naming the enclave behind it).</summary>
         public static string Alert(Outpost o)
         {
             if (o == null) return "";
-            World w = ScCommunity.World;
+            Enclave raiders = ScEncRaids.EnclaveOf(o);
             if (UnderAttack(o) && o.AttackHeard)
             {
-                ulong now = w != null ? w.worldTime : 0UL;
-                int hours = o.AttackUntil > now ? (int)((o.AttackUntil - now + 999UL) / 1000UL) : 0;
+                int hours = HoursLeft(o);
+                if (o.AttackRaiders && raiders != null) return string.Format(Localization.Get("scEncRaidAlertRaid"), hours, raiders.Name);
                 return string.Format(Localization.Get(o.AttackRaiders ? "scRiskAlertRaid" : "scRiskAlertAttack"), hours);
             }
-            if (HasDemand(o)) return string.Format(Localization.Get("scRiskAlertDemand"), o.DemandAmmo, o.DemandFood);
+            if (HasDemand(o))
+                return raiders != null ? string.Format(Localization.Get("scEncRaidAlertDemand"), o.DemandAmmo, o.DemandFood, raiders.Name)
+                                       : string.Format(Localization.Get("scRiskAlertDemand"), o.DemandAmmo, o.DemandFood);
             if (DamagedNow(o)) return string.Format(Localization.Get("scRiskAlertDamaged"), o.DamagedUntil + 1);
             return "";
+        }
+
+        /// <summary>The radio window's demand row (E10: the enclave behind it named).</summary>
+        public static string DemandText(Outpost o)
+        {
+            if (o == null) return "";
+            Enclave raiders = ScEncRaids.EnclaveOf(o);
+            return raiders != null ? string.Format(Localization.Get("scEncRaidDemandText"), o.DemandAmmo, o.DemandFood, o.Name, raiders.Name)
+                                   : string.Format(Localization.Get("scRadioDemandText"), o.DemandAmmo, o.DemandFood, o.Name);
         }
 
         // ------------------------------------------------------------------ the day ----
@@ -152,11 +176,13 @@ namespace SurvivorCommunity
                 {
                     if (!o.Holding) continue;
                     o.SecBonus = Math.Max(0f, o.SecBonus - ScConfig.OutpostSecBonusFade);
-                    // an unpaid demand runs out: the raiders come (with the risk features off it simply lapses)
+                    // an unpaid demand runs out: the raiders come (with the risk features off it simply lapses). E10: an
+                    // enclave's demand comes only while that group can still raid
                     if (HasDemand(o) && day > o.DemandUntil)
                     {
                         o.DemandUntil = -1;
-                        if (ScConfig.OutpostAttacks) StartAttack(o, true, player, radio);
+                        if (ScConfig.OutpostAttacks && ScEncRaids.MayCome(o, player)) StartAttack(o, true, player, radio);
+                        else o.RaidEnclave = -1;
                     }
                     if (o.State != OutpostState.Active) continue;
 
@@ -165,16 +191,31 @@ namespace SurvivorCommunity
                     if (day - o.Day < 2) continue;                   // a fresh outpost gets a couple of quiet days
 
                     if (!UnderAttack(o) && Roll(rnd) < AttackChance(o)) { StartAttack(o, false, player, radio); continue; }
-                    if (!UnderAttack(o) && !HasDemand(o) && gs >= ScConfig.OutpostRaiderGamestage && Roll(rnd) < ScConfig.OutpostRaiderChance)
+                    if (!UnderAttack(o) && !HasDemand(o) && gs >= ScConfig.OutpostRaiderGamestage)
                     {
-                        o.DemandUntil = day;                          // answer before the next rollover
-                        o.DemandAmmo = ScConfig.OutpostDemandAmmo;
-                        o.DemandFood = ScConfig.OutpostDemandFood;
-                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDemand"), o.DemandAmmo, o.DemandFood, o.Name), "ui_denied");
-                        if (summary.Length > 0) summary.Append(' ');
-                        summary.Append(string.Format(Localization.Get("scRiskDemandLine"), o.Name));
-                        ScLog.Out("raiders demand " + o.DemandAmmo + " ammo + " + o.DemandFood + " food for outpost " + o.Id + " (" + o.Name + ")");
-                        continue;
+                        if (ScEncRaids.Configured)
+                        {
+                            // E10: the nearest hostile enclave in range that can raid rolls its chance; with none in range,
+                            // no raider demand at all (the nameless roll below is replaced; a world still starting skips it)
+                            Enclave raider = ScEncRaids.On ? ScEncRaids.RaiderFor(o) : null;
+                            if (raider != null && Roll(rnd) < ScEncRaids.ChanceFor(raider))
+                            {
+                                ScEncRaids.Demand(o, raider, day, player, summary, "the day's roll");
+                                continue;
+                            }
+                        }
+                        else if (Roll(rnd) < ScConfig.OutpostRaiderChance)
+                        {
+                            o.DemandUntil = day;                          // answer before the next rollover
+                            o.DemandAmmo = ScConfig.OutpostDemandAmmo;
+                            o.DemandFood = ScConfig.OutpostDemandFood;
+                            o.RaidEnclave = -1;
+                            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDemand"), o.DemandAmmo, o.DemandFood, o.Name), "ui_denied");
+                            if (summary.Length > 0) summary.Append(' ');
+                            summary.Append(string.Format(Localization.Get("scRiskDemandLine"), o.Name));
+                            ScLog.Out("raiders demand " + o.DemandAmmo + " ammo + " + o.DemandFood + " food for outpost " + o.Id + " (" + o.Name + ")");
+                            continue;
+                        }
                     }
                     int quiet = Math.Max(Math.Max(o.LastVisitDay, o.NeglectDay), o.Day);
                     if (ScGarrison.StaffCount(o) == 0 && day - quiet >= Math.Max(1, ScConfig.OutpostNeglectDays))
@@ -195,11 +236,12 @@ namespace SurvivorCommunity
             return Mathf.Clamp(c, 0f, 0.5f);
         }
 
-        /// <summary>An attack call: the deadline, the marker, and (radio on) the call itself.</summary>
+        /// <summary>An attack call: the deadline, the marker, and (radio on) the call itself (E10: an enclave's raid names them).</summary>
         public static void StartAttack(Outpost o, bool raiders, EntityPlayerLocal player, bool radio)
         {
             World w = ScCommunity.World;
             if (w == null || o == null) return;
+            ScEncRaids.OnAttackStart(o);        // E10: a raid party still out there goes home first
             o.AttackUntil = w.worldTime + (ulong)Mathf.Max(1, ScConfig.OutpostAttackHours) * 1000UL;
             o.AttackRaiders = raiders;
             o.AttackHeard = radio;
@@ -207,10 +249,27 @@ namespace SurvivorCommunity
             l.Spawned = false;
             l.Ids.Clear();
             if (radio) AddMarker(o, player);
+            Enclave by = raiders ? ScEncRaids.EnclaveOf(o) : null;
             if (player != null && radio)
-                ScCommunity.Tell(player, string.Format(Localization.Get(raiders ? "scRiskRaidCall" : "scRiskAttackCall"), o.Name, ScConfig.OutpostAttackHours), "ui_denied");
-            ScLog.Out((raiders ? "raiders attack" : "attack on") + " outpost " + o.Id + " (" + o.Name + "), security " + Security(o) + (radio ? "" : " - the radio is silent, nobody heard"));
+                ScCommunity.Tell(player, by != null ? string.Format(Localization.Get("scEncRaidCall"), o.Name, ScConfig.OutpostAttackHours, by.Name)
+                                                    : string.Format(Localization.Get(raiders ? "scRiskRaidCall" : "scRiskAttackCall"), o.Name, ScConfig.OutpostAttackHours), "ui_denied");
+            ScLog.Out((raiders ? "raiders attack" : "attack on") + " outpost " + o.Id + " (" + o.Name + ")" + (by != null ? " - enclave " + by.Id + " '" + by.Name + "'" : "")
+                      + ", security " + Security(o) + (radio ? "" : " - the radio is silent, nobody heard"));
             ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>E10: an open attack called off with no outcome (ScEncRaids: the enclave behind a raid can't come): no deadline, no fight, no marker.</summary>
+        internal static void CallOff(Outpost o)
+        {
+            if (o == null) return;
+            o.AttackUntil = 0;
+            Live l;
+            if (live.TryGetValue(o.Id, out l))
+            {
+                l.Spawned = false;
+                l.Ids.Clear();
+            }
+            RemoveMarker(o);
         }
 
         private static void GoodNews(Outpost o, EntityPlayerLocal player, bool radio, GameRandom rnd, StringBuilder summary)
@@ -264,6 +323,7 @@ namespace SurvivorCommunity
                     markersRestored = true;
                     foreach (Outpost o in ScRegistry.Outposts) if (UnderAttack(o) && o.AttackHeard) AddMarker(o, player);
                 }
+                ScEncRaids.Tick(w, player);        // E10: enclave demands and raids squared with their groups (off, gone, nobody left)
                 bool bm = false;
                 try { bm = w.aiDirector != null && w.aiDirector.BloodMoonComponent != null && w.aiDirector.BloodMoonComponent.BloodMoonActive; }
                 catch (Exception) { }
@@ -293,7 +353,10 @@ namespace SurvivorCommunity
                         EntityAlive a = w.GetEntity(id) as EntityAlive;
                         if (a != null && !a.IsDead()) { anyAlive = true; break; }
                     }
-                    if (!anyAlive) Won(o, player);
+                    if (anyAlive) continue;
+                    // E10: an enclave's raiders whose bodies went alive (an unload) come back round the outpost before it is won
+                    if (o.AttackRaiders && o.RaidEnclave > 0 && ScEncRaids.Regroup(w, player, o, l.Ids) > 0) continue;
+                    Won(o, player);
                 }
                 if (wasBloodMoon && !bm && ScConfig.OutpostAttacks) Siege(player);
                 wasBloodMoon = bm;
@@ -310,6 +373,34 @@ namespace SurvivorCommunity
             try { gs = player != null ? player.gameStage : 0; } catch (Exception) { }
             float n = (ScConfig.OutpostAttackBase + gs * ScConfig.OutpostAttackPerGamestage) * (1f + 0.1f * o.Tier) * ScOutpostPerks.ModeRisk(o);
             return Mathf.Clamp(Mathf.RoundToInt(n), 2, Math.Max(2, ScConfig.OutpostAttackMax));
+        }
+
+        /// <summary>E10: the attack's size (ScEncRaids: the party an unattended raid would have sent).</summary>
+        internal static int AttackerCountFor(Outpost o, EntityPlayerLocal player) { return AttackerCount(o, player); }
+
+        /// <summary>How far out round the POI's centre the attackers come in (at least 12 m; half the POI's wider side + 6).</summary>
+        internal static float Reach(Outpost o) { return Mathf.Max(12f, Mathf.Max(o.Size.x, o.Size.z) * 0.5f + 6f); }
+
+        /// <summary>A standable spot on the attackers' ring: a random bearing, reach to reach + 7 m out, at the flag's level (SpotNear).</summary>
+        internal static Vector3 RingSpot(World w, Outpost o, GameRandom rnd, float reach)
+        {
+            Vector3 c = o.Centre;
+            float ang = rnd.RandomFloat * Mathf.PI * 2f;
+            float dist = reach + rnd.RandomRange(0, 8);
+            Vector3i at = new Vector3i(Mathf.RoundToInt(c.x + Mathf.Cos(ang) * dist), o.Flag.y, Mathf.RoundToInt(c.z + Mathf.Sin(ang) * dist));
+            return ScRadio.SpotNear(w, at, 3);
+        }
+
+        /// <summary>The first live stand-in of the outpost's staff (whoever holds it, the attackers' target), or null.</summary>
+        internal static EntityAlive StandIn(World w, Outpost o)
+        {
+            if (w == null || o == null) return null;
+            foreach (Member m in ScGarrison.Staff(o))
+            {
+                EntityAlive s = m.StandInId >= 0 ? w.GetEntity(m.StandInId) as EntityAlive : null;
+                if (s != null && !s.IsDead()) return s;
+            }
+            return null;
         }
 
         /// <summary>
@@ -342,14 +433,27 @@ namespace SurvivorCommunity
                 GameRandom rnd = w.GetGameRandom();
                 int band = RaiderBand(player);
                 string group = o.AttackRaiders ? "raider classes T" + (band + 1) : ScConfig.DistressZombieGroup;
-                Vector3 c = o.Centre;
                 int count = AttackerCount(o, player);
-                float reach = Mathf.Max(12f, Mathf.Max(o.Size.x, o.Size.z) * 0.5f + 6f);
-                EntityAlive target = null;
-                foreach (Member m in ScGarrison.Staff(o))
+                float reach = Reach(o);
+                EntityAlive target = StandIn(w, o);
+                Enclave by = o.AttackRaiders ? ScEncRaids.EnclaveOf(o) : null;
+                if (by != null && ScEncRaids.Configured)
                 {
-                    EntityAlive s = m.StandInId >= 0 ? w.GetEntity(m.StandInId) as EntityAlive : null;
-                    if (s != null && !s.IsDead()) { target = s; break; }
+                    // E10: an enclave's raid - their own people come (ScEncRaids.SpawnParty); with nobody left to send, it is off.
+                    // The enclaves still being validated (the first seconds of a session): the next second
+                    if (!ScEnclaves.Ready) { l.Spawned = false; return; }
+                    int came = ScEncRaids.SpawnParty(w, player, o, count, target, l.Ids);
+                    if (came <= 0)
+                    {
+                        l.Spawned = false;
+                        l.Ids.Clear();
+                        ScEncRaids.NobodyCame(o, by, player);
+                        ScRegistry.SaveAtomic();
+                        return;
+                    }
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scEncRaidHere"), o.Name, came, by.Name), "ui_denied");
+                    ScLog.Out("attack at outpost " + o.Id + " (" + o.Name + "): " + came + " of enclave " + by.Id + " '" + by.Name + "'");
+                    return;
                 }
                 for (int i = 0; i < count; i++)
                 {
@@ -361,10 +465,7 @@ namespace SurvivorCommunity
                     }
                     else cls = EntityGroups.GetRandomFromGroup(group, ref lastClass, rnd);
                     if (!ScCommunity.ClassExists(cls)) continue;              // ids are string hashes: negative is fine
-                    float ang = rnd.RandomFloat * Mathf.PI * 2f;
-                    float dist = reach + rnd.RandomRange(0, 8);
-                    Vector3i at = new Vector3i(Mathf.RoundToInt(c.x + Mathf.Cos(ang) * dist), o.Flag.y, Mathf.RoundToInt(c.z + Mathf.Sin(ang) * dist));
-                    Vector3 pos = ScRadio.SpotNear(w, at, 3);
+                    Vector3 pos = RingSpot(w, o, rnd, reach);
                     EntityAlive a = EntityFactory.CreateEntity(cls, pos) as EntityAlive;
                     if (a == null) continue;
                     w.SpawnEntityInWorld(a);
@@ -400,6 +501,7 @@ namespace SurvivorCommunity
             if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeld"), o.Name), "");
             ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
             ScLog.Out("outpost " + o.Id + " (" + o.Name + ") held against the attack");
+            if (o.AttackRaiders) ScEncRaids.End(o, player, true, "won");       // E10: an enclave's raid - their losses, the rest home
             ScRegistry.SaveAtomic();
         }
 
@@ -410,7 +512,13 @@ namespace SurvivorCommunity
             L(o).Spawned = false;
             L(o).Ids.Clear();
             RemoveMarker(o);
-            Outcome(o, player, attended ? ScConfig.OutpostAttendedBonus : 0, attended, why);
+            string result = Outcome(o, player, attended ? ScConfig.OutpostAttendedBonus : 0, attended, why);
+            if (o.AttackRaiders && o.RaidEnclave > 0)
+            {
+                // E10: an enclave's raid - held unattended, it costs them people; their party home, their rest
+                ScEncRaids.End(o, player, attended, result);
+                ScRegistry.SaveAtomic();
+            }
         }
 
         /// <summary>The end of a blood moon: every outpost the player did not stand at rolls, a little harder.</summary>
@@ -432,14 +540,17 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void Outcome(Outpost o, EntityPlayerLocal player, int bonus, bool attended, string why)
+        /// <summary>Settled on security: held, damaged or overrun (the result, HeldResult / DamagedResult / OverrunResult; E10 reads it).</summary>
+        private static string Outcome(Outpost o, EntityPlayerLocal player, int bonus, bool attended, string why)
         {
             World w = ScCommunity.World;
             GameRandom rnd = w != null ? w.GetGameRandom() : null;
             int sec = Mathf.Clamp(Security(o) + bonus, 0, 100);
             int roll = rnd != null ? rnd.RandomRange(0, 100) : UnityEngine.Random.Range(0, 100);
+            string result;
             if (roll < sec)
             {
+                result = HeldResult;
                 o.SecBonus = Math.Min(ScConfig.OutpostSecBonusMax, o.SecBonus + ScConfig.OutpostSecWinBonus * 0.5f);
                 if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskHeldAlone"), o.Name), "");
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerHeld"), o.Name));
@@ -447,6 +558,7 @@ namespace SurvivorCommunity
             }
             else if (attended || roll < sec + ScConfig.OutpostDamageBand || !HasSleepers(o))
             {
+                result = DamagedResult;
                 o.DamagedUntil = ScCommunity.Today + Math.Max(1, ScConfig.OutpostDamagedDays);   // that many rollovers yield nothing
                 if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDamaged"), o.Name, ScConfig.OutpostDamagedDays, ScConfig.OutpostRepairMats), "ui_denied");
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerDamaged"), o.Name));
@@ -454,10 +566,12 @@ namespace SurvivorCommunity
             }
             else
             {
+                result = OverrunResult;
                 Overrun(o, player);
                 ScLog.Out("outpost " + o.Id + " (" + o.Name + ") OVERRUN (" + why + ", roll " + roll + ", security " + sec + ")");
             }
             ScRegistry.SaveAtomic();
+            return result;
         }
 
         private static bool HasSleepers(Outpost o)
@@ -503,9 +617,10 @@ namespace SurvivorCommunity
             c.Add(Resource.Ammo, -o.DemandAmmo);
             c.Add(Resource.Food, -o.DemandFood);
             o.DemandUntil = -1;
-            ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerPaid"), o.Name));
+            string theirs = ScEncRaids.OnPaid(o);          // E10: an enclave's demand - its ledger line, their rest, their words
+            if (theirs == null) ScOutposts.NoteLedger(string.Format(Localization.Get("scRiskLedgerPaid"), o.Name));
             ScRegistry.SaveAtomic();
-            message = string.Format(Localization.Get("scRiskPaid"), o.Name);
+            message = theirs ?? string.Format(Localization.Get("scRiskPaid"), o.Name);
             ScLog.Out("paid the raiders for outpost " + o.Id + " (" + o.Name + ")");
             return true;
         }
@@ -516,7 +631,7 @@ namespace SurvivorCommunity
             if (o == null || !HasDemand(o)) { message = Localization.Get("scRiskNoDemand"); return false; }
             o.DemandUntil = -1;
             StartAttack(o, true, player, true);
-            message = string.Format(Localization.Get("scRiskRefused"), o.Name, ScConfig.OutpostAttackHours);
+            message = ScEncRaids.RefusedText(o) ?? string.Format(Localization.Get("scRiskRefused"), o.Name, ScConfig.OutpostAttackHours);
             return true;
         }
 
@@ -546,6 +661,7 @@ namespace SurvivorCommunity
         public static void Forget(Outpost o)
         {
             if (o == null) return;
+            ScEncRaids.OnOutpostGone(o);        // E10: a raid party out there goes home, their demand or raid is off
             RemoveMarker(o);
             live.Remove(o.Id);
             o.AttackUntil = 0;

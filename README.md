@@ -410,7 +410,8 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
   - **overrun:** the sleepers are back, and the staff come home hurt. Nobody dies in a fight you did not attend.
 - Blood moons roll every outpost you were not standing at.
 - Neglected outposts get squatters.
-- Past gamestage 30, raiders may demand supplies.
+- Past gamestage 30, raiders may demand supplies. Since E10 the raiders are a hostile enclave within 2 km of the outpost,
+  and their own people raid it (see **Raider enclaves raid (E10)**); with no hostile enclave in range, nobody demands.
 - Good-news caches (on by default) leave bundles in the claim's box.
 
 **Console:** `sc poi [near r | classify prefab | census]`,
@@ -439,6 +440,8 @@ You aren't the only survivors (`Enclaves_Plan.md`, milestones E1-E6; E7 on from 
   supplies with your allies over the radio, once a day each.
 - **Radio commands (E9):** call an ally from the radio for a fighter who stays half a day or a supply drop, once every 3
   days each.
+- **Raider enclaves raid (E10):** with outpost attacks on, the raiders who lean on your outposts are a hostile group
+  nearby, by name; their own people come, and those you kill stay dead.
 - **Infestations (I1)** are buildings the dead overran: enclaves ask you to clear them, an ally's Neighborhood Watch
   keeps new ones away, and a building lost to a siege becomes one.
 
@@ -585,7 +588,8 @@ Every enclave now has people: a leader and the rest of the group, living in thei
   like a raider, and investigates noise, but never leaves its building for long. Nothing makes them friendly again.
 
 **Raider enclaves** are raiders: they attack on sight, have nothing to say, and stay home - noise or a chase does not
-pull them off their building. Hitting them changes nothing; they are hostile already.
+pull them off their building. Hitting them changes nothing; they are hostile already. (Since E10 they leave home for one
+thing: raiding your outposts - see **Raider enclaves raid (E10)**.)
 
 **Deaths, the leader, a group wiped out**
 - Deaths are real. Whoever dies (to zombies, raiders or you) is dead for good; their body is left with its loot. You
@@ -1024,6 +1028,54 @@ ignored; now: it comes at once), `sc enclave call <id> cancel`; `sc enclave info
 each `[enclave]` gains `callday` and `call` (written when set; an older build ignores them). Limits: host only, single
 player; like any enlisted person, a fighter left behind when their chunk unloads (you drove off) goes home and the call
 ends.
+
+## Raider enclaves raid (E10)
+
+With outpost attacks on (`OutpostAttacks`; off, it turns these off too), the raiders who demand supplies for an outpost
+are a named group, and the raid that follows is their own people.
+
+**Who demands.** At each rollover, an active outpost past its first two days (and you past gamestage 30,
+`OutpostRaiderGamestage`) may hear from the nearest hostile enclave within 2 km of it (`EnclaveRaidRange`, building to
+building) - a raider enclave, or a group you turned hostile - that has someone to spare (the leader never raids), is not
+already leaning on another outpost of yours and is not resting. A raider enclave asks with a 4% chance a day
+(`EnclaveRaidChance`), a group that turned hostile with half that (`EnclaveRaidTurnedFactor`). **With no hostile enclave
+in range, no raider ever demands anything there.** The demand is the old one (2 ammo and 2 food, `OutpostDemandAmmo` /
+`OutpostDemandFood`, by the next rollover), now with a name: *The Rabid Rats on the radio: "That outpost of yours sits on
+our road. Pay up, or we take it apart." They want 2 ammo and 2 food for Diner by tomorrow.* If you didn't know where they
+were, their hideout goes on your map. The radio window's demand row ("The Rabid Rats want 2 ammo + 2 food for Diner") and
+the outposts lists ("The Rabid Rats demand 2 ammo + 2 food (answer on the radio)", "RAIDED BY The Rabid Rats - 9 h to
+get there") name them too.
+
+**Pay** and they leave it alone and rest 3 days (`EnclaveRaidRestDays`, the requests' clock). **Refuse**, or let the
+rollover pass, and they raid it: you have `OutpostAttackHours` to get there, as before.
+
+**The raid.** When you arrive, their own people come in round the outpost - as many as an outpost attack would bring,
+at most 4 (`EnclaveRaidPartyMax`) and never more than they can spare: the strongest of those at home first (the faces
+you see at their den), and, for a group you have never met, new people made right there, who are at their den when you
+first go. Those you kill are dead for good. The outpost holds once they are all dead, and you hear "The Rabid Rats lost
+3 of their people raiding Diner." If you drive off before it is over and come back in time, the survivors come back too. When it is over the survivors head home (they walk off and vanish out of sight) and the group rests. A raid you
+never came to is settled on the outpost's security as before: held, it costs them a person
+(`EnclaveRaidLossHeld`); damaged or overrun, nobody of theirs dies. Losses add up - a group with only its leader left
+can't raid, and wiping out their den ends their raids (a new group moves in later, as for any lost enclave). A group
+that can no longer send anyone, or is gone, never comes ("The Rabid Rats never came for Diner - they have nobody left
+to send.", "The Rabid Rats are gone - nobody is coming for Diner."). The home base is never raided by them (it has its
+hordes).
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveRaids` (false brings back the old nameless raider demands,
+`OutpostRaiderChance`), `EnclaveRaidRange`, `EnclaveRaidChance`, `EnclaveRaidTurnedFactor`, `EnclaveRaidPartyMax`,
+`EnclaveRaidRestDays`, `EnclaveRaidLossHeld`. Enclave raids also need `Enclaves` and `OutpostAttacks`.
+
+**Console** (host): `sc enclave raid <id>` (their raids: the chance, the outposts in range, who they can spare, their
+rest, the raid that is on; then each outpost's distance), `sc enclave raid <id> <outpost id>` (that outpost, and whether
+a demand can be made now), `sc enclave raid <id> <outpost id> demand` (a demand now: the day's roll and their rest
+ignored), `sc enclave raid <id> <outpost id> now` (a demand refused at once: the raid is called); `sc enclave info <id>`
+has a raids line, `sc enclave people <id>` marks who is out raiding. `sc outpost demand <id>` still makes a nameless one.
+
+**Saving:** each `[outpost]` gains `raidenc` (the group behind its demand or raid) and each `[enclave]` `raidday` (when
+they may raid again) and `raidlost` (people a held raid cost a group you had not met yet), each written when set; an
+older build ignores them. Someone out raiding is saved as at home, so after a load the raid comes back when you arrive.
+
+**Limits:** host only, single player. The radio's words are text only for now (a later voicing round records them).
 
 ## Infestations (I1)
 
@@ -1519,7 +1571,9 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `EnclaveDueDaysItems`, `EnclaveGeneratorFromDay`, `EnclaveRequestKindWeights`, `EnclaveRequestSizeWeights`,
 `EnclaveGainResource`, `EnclaveGainGenerator`, `EnclaveGunTierPoints`, `EnclaveGunQualityBase`, `EnclaveGunQualityStep`,
 `EnclaveGunPointsMin`, `EnclaveGunPointsMax`, `EnclaveGunValueBands`, `EnclaveGunWorthBands`, `EnclaveLossDecline`,
-`EnclaveLossFail` and `EnclaveLossLapse` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
+`EnclaveLossFail` and `EnclaveLossLapse` (commented in the block). Raider enclaves raid (E10): `EnclaveRaids`,
+`EnclaveRaidRange`, `EnclaveRaidChance`, `EnclaveRaidTurnedFactor`, `EnclaveRaidPartyMax`, `EnclaveRaidRestDays` and
+`EnclaveRaidLossHeld` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
 `InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,

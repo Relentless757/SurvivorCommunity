@@ -75,6 +75,11 @@ namespace SurvivorCommunity
         public float SecBonus;
         public int DemandUntil = -1;
         public int DemandAmmo, DemandFood;
+        /// <summary>
+        /// E10: the hostile enclave behind the open raider demand or raid (-1: a nameless one, or none) - its people come
+        /// (ScEncRaids). Saved as [outpost] raidenc=N while set.
+        /// </summary>
+        public int RaidEnclave = -1;
 
         /// <summary>The POI footprint as an inclusive box {xMin, xMax, zMin, zMax}.</summary>
         public int[] Box { get { return new[] { Poi.x, Poi.x + Math.Max(1, Size.x) - 1, Poi.z, Poi.z + Math.Max(1, Size.z) - 1 }; } }

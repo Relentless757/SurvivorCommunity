@@ -1064,3 +1064,151 @@ Checks:
 Builds: SC 3.4 `b7e9a8408d61434c8dc0491a3ecf3466` (`build\sc34_e9`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
 (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E9 (150-169). Not reviewed (Fable), not installed. The
 task list needs its entry.
+
+### Round 15: raider enclaves raid (E10) (2026-11-03, built, not reviewed, not installed)
+
+`research\ideas\DESIGN.md` section 4 (idea 3) and section 1 (rules), side finding 4 (the E5 review's R3), with the user's
+decisions: the raiders are the hostile enclave's own people and their deaths count (Q8 a); **`OutpostAttacks` off turns
+enclave raids off too** (the design had them on regardless); no raider demands where no hostile enclave is in range; a
+group that turned hostile raids at half the rate; no raids on the home base. Branch `ms/e10` from `dev/ideas` `9246239`
+(V1, I2, I3, E7, E8, E9). **3.4 only**: only the 3.4 DLL was built; the tracked 3.2 `SurvivorCommunity.dll` is untouched,
+and the new code has no `SC_V34`. Single player only, as SC. (Round 14 is V2's.)
+
+- **`ScEncRaids.cs` (new).** No Harmony patch; driven from `ScOutpostRisk` (its daily roll, its 1 Hz tick, the attack's
+  spawn and end) and from `ScEnclavePeople`'s body lifecycle.
+  - The switch: `Configured` = `OutpostAttacks && EnclaveRaids && Enclaves`; `On` = that and `ScEnclaves.Ready`.
+  - Who: `RaiderFor(o)` - the nearest hostile enclave (`IsHostile`: a raider enclave or one turned hostile) within
+    `EnclaveRaidRange` of the outpost, footprint to footprint (`RangeTo`, box to box), that passes `WhyNot`: not `Lost`,
+    not leaning on another outpost already (`TargetOf`: an open demand, a raid called, or a party out), past its rest
+    (`Enclave.RaidDay` > request clock), and with someone to spare (`Spare`: the living non-leaders at home, plus - a group
+    still being made - `GroupSize - records - 1` places, one kept for a leader while no living leader is at home).
+    `ChanceFor`: `EnclaveRaidChance`, x `EnclaveRaidTurnedFactor` for a group turned hostile.
+  - `ScOutpostRisk.Daily`: where the nameless roll was (`SC:ScOutpostRisk.cs:168-178` at the base), with `Configured` the
+    enclave roll replaces it; no group in range, no demand; a world still starting (`!Ready`) skips the roll. With
+    `EnclaveRaids` false (or `Enclaves` false) the nameless roll is as before. The quiet days, the gamestage gate and the
+    zombie attack roll before it are unchanged.
+  - `Demand`: the old price and day (`DemandUntil` = the rollover's day, `OutpostDemandAmmo/Food`), `Outpost.RaidEnclave`
+    stamped, their building revealed when unknown (`ScEnclaves.SetKnown`), one tell - their words, then the facts:
+    `The X on the radio: "That outpost of yours sits on our road. Pay up, or we take it apart." They want 2 ammo and 2 food
+    for Diner by tomorrow.` (+ `Their hideout is on your map now.`), the summary's `- The X are leaning on Diner`, the log,
+    a save.
+  - Paid (`ScOutpostRisk.PayDemand` -> `OnPaid`): their words, their rest (`EnclaveRaidRestDays`, request clock), the
+    ledger `paid The X for Diner`, the stamp off. Refused (`RefuseDemand`) or run out (`Daily`): the raid call is
+    `StartAttack` as before, its tell and log naming them; a demand that runs out while they can no longer come
+    (`MayCome`: raids off, the group gone or lost, nobody to spare) brings no raid.
+  - The raid (`ScOutpostRisk.SpawnAttack`, the player within `RescueTriggerRange` as before): `SpawnParty` - min(the
+    attack's size `AttackerCount`, `EnclaveRaidPartyMax`, `Spare`) people on the attack's ring (`RingSpot`, the old
+    placement split out), the strongest at home first (class tier, then Fighting + Shooting stars, then id: E9's rank;
+    never the leader, never one whose body is out or still being built) through `ScEnclavePeople.SpawnAt`, then - a group
+    never met - new people made there (`ScEnclavePeople.GenerateAway`). Each is `raiding`, its body in the fight's id list
+    with the attack's target (a stand-in, else the player). Nobody could come: the raid is called off ("The X never came
+    for Diner - they have nobody left to send."). The tell `Diner: The X are here, 3 of them - hold the outpost!`.
+  - `TickBody` (from `ScEnclavePeople.TickEnclave`): while the raid is on, a body with no live attack target is given one
+    again every 5 s (a stand-in, else the player while within twice `RescueTriggerRange` of the outpost: the fight's judging
+    range). Otherwise it is home: the `SCEnclave` package and E3's walk home (`ScEnclaveDeals.StartWalkHome`), gone once
+    out of sight.
+  - `Regroup` (`ScOutpostRisk.Tick`, before a raid is judged won): party people raiding with no body - theirs went alive
+    (an unload, the shutdown) - come back on the ring ("... are here, 2 of them ..."), so driving off until they unload is
+    no win.
+  - `End` (`Won`: "won"; `Settle`: `Outcome`'s result, now returned): survivors home (bodies walk off), the group rests,
+    one tell and ledger line for its losses (`The X lost 3 of their people raiding Diner.` / `The X lost 3 raiding Diner`).
+    Unattended (no party out) and held: `EnclaveRaidLossHeld` of the party they would have sent die - non-leaders at home
+    without a body, at random (`ScEnclavePeople.KillRecord`), then places not made yet (`Enclave.RaidLost`). Damaged or
+    overrun: nobody of theirs dies.
+  - `Tick` (1 Hz, `ScOutpostRisk.Tick`): an open demand or raid is called off when raids are switched off (no tell), the
+    group is gone or lost ("The X are gone - nobody is coming for Diner."), or a raid not yet out has nobody to send; a
+    stamp with nothing open is cleared; every 10 s a raiding person with no live party goes home (a safety net).
+  - `OnDenFalling` (`ScEnclavePeople.DropPeople`, before the records go: a fall, `sc enclave reseed`): the demand dropped
+    and a raid not yet out called off, with the tell; a party out: its losses told, and each raider-class body of it stays
+    in the fight as a plain raider (`ScEnclavePeople.Abandon`: the enclave cvars off, still in the chunk-save veto); other
+    bodies (a turned-hostile group's survivors, friendly without their group) go with the group as before.
+  - `OnOutpostGone` (`ScOutpostRisk.Forget`: lost or disbanded) and `OnAttackStart` (`StartAttack`: a second call over a
+    party still out): the party goes home.
+- **`ScEnclavePeople`.** `EncPerson.StateRaiding` / `Raiding`; `Alive` includes it (the fall rule, `Living`, the spot
+  reservation see them; `NextToSpawn`, `SpawnAll`, the restock, `Succeed` and `LeaderOf` still want `StateHome`, so a
+  raider is never spawned at home, restocked or made leader). `TickEnclave`: a `raiding` branch beside the enlisted and
+  missing ones (`SC:ScEnclavePeople.cs:458-469`) hands the body to `ScEncRaids.TickBody` - never despawned by distance,
+  watched or counted for the hold. `Unbody` tells `ScEncRaids.OnUnbodied` (a body that died: nothing; one that went alive:
+  the person stays raiding, off the map). `OnBodyDied` and the console's `Kill` pass `raid` to `Died`, which counts the
+  loss (`ScEncRaids.OnDied`, before a fall can end the raid) and writes no per-person ledger line (the raid's end writes
+  one); `Died` gains `how` for the log ("died (lost raiding Diner)"). `Generate`'s record capture is split out
+  (`Capture`), shared with the new `GenerateAway` (the class `RollClass` gives the next record, as `Generate`; a member,
+  no spot; dressed as `SpawnAt`'s). `GroupSize` is less `Enclave.RaidLost` (at least 1). `Abandon`, `KillRecord` (new,
+  internal). `DropPeople` calls `ScEncRaids.OnDenFalling` first. `OnRegistryChanged` turns a `raiding` record home (a
+  hand-edited file: the save never writes one). `Summary` adds ", N out raiding"; `PeopleLines` adds "(at Diner, outpost
+  2)" / "(..., off the map)".
+- **The E5 review's R3** (side finding 4): `ScBaseAttack.TickCalled`'s arrival hold and `TickAway`'s join test read
+  `ScOutpostRisk.AnyLiveNear(player.position)` instead of `AnyLive()` (base `SC:ScBaseAttack.cs:404, 478`; both callers
+  run with a player), as `WhyNoCall` (`:240`) already did: an outpost fight the player walked away from, live in name
+  until its deadline, no longer holds the home attack's arrival or keeps the defenders fighting alone.
+- **UI.** `ScOutpostRisk.Alert` names them (`The X demand 2 ammo + 2 food (answer on the radio)`, `RAIDED BY The X - 9 h to
+  get there`: the radio's Outposts list, the community window's Outposts tab), and the radio's demand row is
+  `ScOutpostRisk.DemandText` (`The X want 2 ammo + 2 food for Diner`; `XUiC_ScRadio` `demandtext`). No window layout
+  changed, no generator run, nothing for AshfallUI.
+- **Records and save** (keys in existing sections; an older build ignores them): `[outpost] raidenc=N`
+  (`Outpost.RaidEnclave`, -1 none), `[enclave] raidday=N` (`Enclave.RaidDay`, request clock) and `raidlost=N`
+  (`Enclave.RaidLost`), each written when set. A raiding person is written `state=home`: a load turns them home anyway
+  (bodies never outlive one), and an older build, which knows no `raiding`, would count them neither alive nor at home.
+  `ScEnclaves.OnWorldDayBack` shifts `RaidDay` by the request clock's drop (`ScEncRaids.ShiftDays`); its log line gains
+  "; N raid rest stamp(s) moved back D day(s)" at the end.
+- **Config** (`Config/blocks.xml`, commented; `ScConfig`; the `config:` line gains `enclaveRaids=`): `EnclaveRaids` true,
+  `EnclaveRaidRange` 2000 (50-10000), `EnclaveRaidChance` 0.04 (0-1), `EnclaveRaidTurnedFactor` 0.5 (0-1),
+  `EnclaveRaidPartyMax` 4 (1-16), `EnclaveRaidRestDays` 3 (0-365), `EnclaveRaidLossHeld` 1 (0-16).
+- **Console:** `sc enclave raid <id> [<outpost id> [demand|now]]` (`ScEncRaids.Command`; `demand` ignores the roll, the
+  rest, the gamestage and the quiet days, keeps the range; `now` refuses it at once); `sc enclave info <id>` gains a
+  `raids: ...` line. `sc outpost demand <id>` clears the stamp (a nameless demand, as before).
+- **Lines.** Every new line is text only. The group's radio words have no name or number in them
+  (`scEncRaidDemandSaid`, `scEncRaidPaidSaid`, `scEncRaidRefusedSaid`), shown through E9's `scEncCallRadio`
+  (`{0} on the radio: "{1}"`), and are in `Tools/voice_lines.py`'s `RUNTIME_FIXED`: 160 lines, no problems (157 before).
+  Nothing in `ScVoice.cs` or `Patches_VoiceControl.cs` was touched.
+- **Harmony targets: none new.**
+
+Where the design was wrong or short, and the code followed SC or the user:
+1. **`EnclaveRaids` "on even with `OutpostAttacks` off" (design table, Q8 and Interactions) is replaced by the user's
+   decision:** enclave raids need `OutpostAttacks`; an open one is called off when it is switched off. The design's test
+   outline step 1 ("Turn `OutpostAttacks` off") no longer applies.
+2. **`[encperson] state=raiding raid=` is not written.** The design itself says a load turns `raiding` back to home, so
+   saving it buys nothing, and an older build reading `state=raiding` would hold that person neither alive nor at home
+   (never spawned, left out of the fall rule). They are written `state=home`; the outpost's `raidenc` and the attack's
+   deadline carry the raid over a load.
+3. **"The leader never raids" needs a place kept in a group never met.** The design's spare rule for an unvisited den
+   (`GroupSize - records > 0`) would let a raid make the whole group out of members, leaving it with no leader place;
+   the rule here keeps one (`GroupSize - records - 1` while no living leader is at home), so `Generate` still makes a
+   leader when the player first comes.
+4. **A held unattended raid on a den never met has no record to kill.** The design's "of the party die (records)" is
+   kept for made people; with none, the loss comes off the people not made yet (`Enclave.RaidLost`, `[enclave]
+   raidlost=`, `GroupSize`), so the loss still counts.
+5. **"When the den falls mid-raid, its bodies lose the enclave cvars and stay as plain Dynamic raiders"** holds only for
+   raider classes: a turned-hostile group's survivor bodies are hostile only through their group (the `%sc_enchostile`
+   cvar and `HostilePair`), so without it they would stand in the fight as friendly survivors the player must kill to
+   win; they go with the group, as `DropPeople` did. A fall mid-raid from deaths alone needs the raiders dead too (they
+   count as alive), so it is mostly the console's.
+6. **`TickEnclave`'s "re-asserted (`SetAttackTarget`, as `:372`)"**: `:372` is `ScOutpostRisk`'s `SetAttackTarget`
+   (the design lists it among `ScEnclavePeople` lines). Re-asserting every second would be a packet a second per body and
+   (with V2) a taunt each time: it is given again only when the body has no live target, every 5 s at most.
+7. **Silent in the design, decided here:** the demand reveals their building when unknown (otherwise a name with no
+   place); a group leans on one outpost at a time; they rest after a paid demand and after a call-off too, not only
+   after a raid; a body that went alive mid-raid stays raiding off the map and comes back before the fight is judged
+   (`Regroup`); a raid whose group can't send anyone when the player arrives, or before, is called off with no
+   outcome; the party's target is re-given only while the player is in the fight's judging range.
+8. **Line drift since the design (`a52c0b1`; this tree at `9246239`):** `ScEnclaves.OnWorldDayBack` `:1184-1218` (was
+   1151-1181); `ParseEnclave` `:396-455` and `CommitPerson` `:457-464` (391-431, 433-440); `ScEncRequests.Now` `:325`
+   (324); `ScTicker`'s `ScDaily.Run` `:359-411` and its player test `:52` (358-410, 51-52); `Patch_MayEngage` `:461-494`
+   (458-493). Every `ScOutpostRisk.cs` and `ScEnclavePeople.cs` line the design cites matched exactly at the base
+   (`ScOutpostRisk.cs:70-84, 111-120, 123-136, 141-188, 165, 168-178, 199-214, 284, 290-296, 307-313, 335-389, 345-367,
+   372, 391-404, 407-461, 493-521, 546`; `ScEnclavePeople.cs:73, 243-251, 458-469, 617, 665-728, 765-773, 798, 907,
+   1388-1411, 1422, 1525-1543`).
+
+Checks:
+- XML replay against the 3.4 game (`research\e10\sc_replay_e10.py`, a copy of `research\dev\sc_replay_dev.py` pointed at
+  this worktree by `research\e10\make_replay_e10.py`; out `research\e10\replay`): every SC op matches, no aborts; the
+  replayed blocks.xml has the seven `EnclaveRaid*` keys. Op counts as E9's (blocks 9 ops: the keys go inside the existing
+  config block).
+- HarmonyAudit (`research\e10\audit34_e10_*`): 3.4 OK=150, DYNAMIC_UNRESOLVED=15, patch rows identical to E9's
+  (`research\e9\audit34_e9_patches.csv`), the refs file the same.
+- `Tools/voice_lines.py check`: no problems, 160 lines.
+- The data edits (Localization, the blocks.xml block, `voice_lines.py`) are `research\e10\ed_e10_data.py` (re-run safe).
+
+Builds: SC 3.4 `f90c5373e710682b5692aa50f8bdad23` (`build\sc34_e10`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not
+rebuilt (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E10 (200-219). Not reviewed (Fable), not
+installed. The task list needs its entry.
