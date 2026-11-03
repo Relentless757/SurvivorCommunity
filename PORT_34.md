@@ -592,4 +592,6 @@ installed `c0ea84c3`):
   DYNAMIC_UNRESOLVED as before (a TargetMethod the json doesn't describe).
 - Against the baselines, one OK row more in each (the new postfix) and the same non-OK rows.
 
-Test steps: TESTING.md group O (90-103). Not reviewed (Fable), not installed. The task list needs its entry.
+Test steps: TESTING.md group O (94-107, after the merge with V1). Merged with V1 on `dev/ideas` (d0740bc): 3.4 DLL
+`d5979300`. Fable review of both (`research\review_v1_i2\REVIEW.md`): DEPLOYABLE, no HIGH or MEDIUM; doc findings
+LOW-1 and LOW-4 fixed. Not installed.

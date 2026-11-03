@@ -1357,7 +1357,8 @@ vanilla's.
 - **Voice Control keeps quiet during the talk (V1, `MuteVcInTalk`).** While you talk to one of the community's survivors,
   and while SC's line still plays on them, 0-XNPCCore's Voice Control does not speak on that survivor: no walk-up or
   follower greeting, say-line ("I'm out of ammo.") or order ack lands over SC's line, nothing it had queued before the
-  talk plays on, and its HUD subtitle is hidden as the talk opens (a sentence already playing then is cut by SC's line,
+  talk plays over it (a queued sentence its own watchdog releases after the talk has closed can still play then, after
+  SC's line), and its HUD subtitle is hidden as the talk opens (a sentence already playing then is cut by SC's line,
   or ends by itself when that line has no recording). Voice Control's calls still finish as if spoken, so it greets and
   chats normally once the talk is over, and SC never flushes its speech queue (that could block every NPC's greeting for
   the session). Speak to the survivor through Voice Control during the talk (push-to-talk, typed chat, or "What are you
