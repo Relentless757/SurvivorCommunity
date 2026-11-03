@@ -391,6 +391,7 @@ namespace SurvivorCommunity
                 ScEnclavePeople.Daily(day);              // their people healed and their rounds refilled (E2)
                 ScEncRequests.Daily(day, player);        // offers lapse, accepted requests expire, the day's new requests (E4)
                 ScInfestations.Daily(day, player);       // cleared ones end, old ones may spread, the day's roll for a new one (I1)
+                ScEncMoves.Daily(day, player);           // a group that lost people, or has the dead next door, may move (E11)
                 ScEncAllies.Daily(day, player, summary); // allies' bundles, refills of lost enclaves, allies telling of more (E6)
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)

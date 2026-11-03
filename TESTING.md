@@ -22,6 +22,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
   once, the 3-day wait ignored.
 - `sc enclave raid <id>` shows a hostile enclave's raids and how far each outpost is (E10); `sc enclave raid <id> <outpost
   id> demand` makes their demand now, `... now` makes it and refuses it at once (the raid is called).
+- `sc enclave move <id>` shows why a group might move and what keeps it home (E11); `sc enclave move <id> sim` names the
+  building it would go to today, `... now` moves it there at once (what keeps it home still applies).
 
 **Time and stockpile**
 
@@ -1013,6 +1015,112 @@ The ledger is the community window's.
      (`sc outpost attack <oid>`, go there until they come), then go home (the outpost more than about 150 m away) and
      call a home attack (`sc attack now`): the horde arrives and you fight it live - before E10 an outpost fight you walked
      away from held the home attack's arrival (and kept the defenders fighting alone) until the outpost's deadline.
+
+**E11. Round 16: enclaves move (3.4)**
+
+A group that has lost half its people, or has had an infestation within 300 m of its building for 3 days, may move to
+another building 300-1500 m away with a 20% chance a day. A Friendly or Allied group tells you where (its marker moves);
+a Neutral or hostile one drops off the map until you find it again. They never move while anyone is within 200 m of their
+building, while it is loaded or in your view, while anyone of theirs is away, or while a request (accepted), siege, radio
+call or raid of theirs is on. Days are the requests' clock, so `sc day` moves them. In the steps `<name>` is the
+enclave's name, `<id>` its id, `<Old>` and `<New>` the buildings, `R` the request clock's day (each moves line ends
+`(request clock day R)`), `D m <dir>` a distance and direction like `900 m north-east`. "Far away" means at least 500 m
+from both buildings (beyond your view distance); a vehicle or `teleport` helps. The radio words are text only for now.
+Set `DebugLogging` true for the `would move ... but stays` lines.
+
+220. Load the world. The log's `config:` line has `enclaveMoves=0.2/day once lost 0.5 (2d after) or a nest within 300m for
+     3d, to 300-1500m`. `sc enclave info <id>` of any group has the line `[SC]   moves: lost 0 of N (0%; 50% moves them); no
+     infestation within 300 m; no reason to move (held now: ...) (request clock day R)` (the held part only while
+     something holds them: near them it says `a player is within 200 m of their building`). A group whose people are not
+     made yet counts its full size (N as `people: people not made yet (N when ...)`).
+221. **The ring.** Anywhere, `sc enclave move <id> sim` prints four lines: `[SC] <name> (enclave <id>, <Band>): moves:
+     ...` (as step 220), `[SC]   today (request clock day R): no reason holds; held: ...; the day's roll says stay (20%)`
+     (`nothing holds them` when nothing does; `says go` on a day the roll would move them), `[SC]   N building(s) 300-1500 m
+     from theirs, C candidate(s); refused: ...` (counts by reason, such as `loaded`, `near a claim`, `near another enclave`,
+     `near an infestation`, `a player near`, `tier`, `size`) and `[SC]   the pick: <New> (<prefab>) T<t> <biome>, row
+     <row> <key> - D m <dir> from their building` (or `[SC]   no building fits - they would stay and try again the next
+     day`). Nothing changes: `sim` again the same day names the same building.
+222. **Lost half: the count.** Make a group Friendly (`sc enclave standing <id> 40`), go to them so their people are made
+     (`sc enclave people <id>` lists them, `p<pid>`), and kill half of them, never the last (`sc enclave kill <id> p<pid>`
+     each). `sc enclave info <id>`: `moves: lost K of N (P%; 50% moves them), the last on day R, a reason from day R+2;
+     ...; no reason to move (held now: a player is within 200 m of their building)`.
+223. **Lost half: the wait.** Go far away and `sc day` twice. `sc enclave move <id>`: `lost K of N (P%; 50% moves them), the
+     last on day R - a reason; no infestation within 300 m; 20% a day to move, nothing holds them`. (If the day's roll moved
+     them already - one `sc day` in five does - you get step 225's message instead; go on from there.)
+224. **Held near them.** Walk back toward them. Within 200 m of their building `sc enclave move <id> now` says `[SC] refused:
+     a player is within 200 m of their building`; a little farther (inside your view distance) `[SC] refused: their building
+     is in loaded chunks or within your view distance`. Nothing moved.
+225. **A friend moves.** Far away again, `sc enclave move <id> sim` names the pick; `sc enclave move <id> now` moves them
+     there: the message `<name> on the radio: "We've buried too many of our own here. We're moving on." They have left <Old>
+     for <New>, D m <dir>.` (D and the direction from your home, or from you without one), `[SC] <name> moved from <Old> to
+     <New> - known: their marker is there`; on the map their Friendly marker is at `<New>` and gone from `<Old>`;
+     the ledger `<name> moved from <Old> to <New>`. The log: `enclave <id> '<name>': N home spot(s) cleared (its POI
+     moved) - chosen again when they next spawn` and `enclave <id> '<name>' moved (they lost too many of their people) from
+     <Old> (<prefab>) <key> to <New> (<prefab>, T<t>, <biome>) <key>, D m <dir> - the console; told (friendly), their
+     marker moved; S sleeper area(s) at the old building respawn after the loot respawn wait, C kept clear at the new
+     one`. `sc enclave info <id>`: the header ends `seeded day X (moved)`, the POI line is the new building, and the
+     moves line ends `; moved on day R from <Old> <key> (request clock day R)`. `sc enclave list`: their line ends `-
+     moved`.
+226. **The same people, a new home.** Go to `<New>`: the same people come out (names, looks, the leader), standing in
+     new spots inside the new building, and no zombie sleepers wake in it. Their leader's trade has the same stock and
+     prices; `sc enclave info <id>` keeps their kind, benefit, standing and dead. If one of them had asked you a favour
+     (at Neutral, "Would you join us?"), its quest marker now points at `<New>`.
+227. **The old building is free.** Go to `<Old>`: its containers open (no `That belongs to <name>.`), you can place a land
+     claim or an outpost flag there, and its zombie rooms respawn once the loot respawn wait has passed (`settime` ahead
+     by `LootRespawnDays` days, or wait).
+228. **Not again for the old losses.** After step 225, `sc day` three times: the moves line reads `lost K of N (P%; 50%
+     moves them), the last on day R0, before their move on day R; ...; no reason to move` - no second move. Kill one more
+     of them at `<New>` (more than half still dead), go far away, `sc day` twice: `... - a reason` again. `sim`'s pick is
+     never `<Old>` (it is counted as `the building they left` among the refused when no other rule refuses it first).
+229. **A Neutral group drops off the map.** Take a known Neutral group (`sc enclave standing <id> 10`, `sc enclave reveal
+     <id>`), make its people and kill half, go far away, `sc day` twice, `sc enclave move <id> sim` (note the pick),
+     `sc enclave move <id> now`: the message `<name> have left <Old> - nobody knows where they went.`, `[SC] <name> moved
+     from <Old> to <New> - off the map until found again`, their marker gone, the ledger `<name> left <Old>`; `sc
+     enclave info <id>`: `not found yet`. The log says `off the map until found again (neutral, was known)`.
+230. **Found again.** Go within 150 m of `<New>`: `You've found <name>, holed up at <New> (Neutral).` and the marker is
+     back. (Or wait: a powered radio picks up the nearest unknown group within 2 km of home every 3 days, and an ally
+     tells you of the unknown group nearest to them.)
+231. **A group you never found.** Do step 229, but `sc enclave hide <id>` before `now` (`[SC] 1 enclave(s) hidden again,
+     markers off`): no message and no ledger line as they move; only the log, `... off the map until found again
+     (neutral, never found)`.
+232. **A raider den moves.** A raider enclave that lost half its people (an E10 raid on your outpost, or `sc enclave
+     kill`), with no demand or raid of theirs open: `sc day` twice far away, then `now`: if you knew it, `<name> have left
+     <Old> - nobody knows where they went.` and its red marker is gone; `sc enclave raid <id>` shows the outposts'
+     distances from the new building. A den you never met (its people partly made at your outpost) moves too: the moves
+     line counts its full size (`lost K of N`), and at `<New>` the rest of the group is made as you arrive.
+233. **The dead next door.** At a POI within 300 m of a group's building (not the building itself), `sc infest add` (stand
+     in it) or `sc infest add <x> <z>`. Go far away. After one `sc day`: `infestation #N at <POI> D m away, next door since
+     day R-1 (1 of 3 day(s))`; after the third: `(3 of 3 day(s)) - a reason` and `20% a day to move, ...`. `sim`: `a reason
+     holds (the dead next door)`; `now` (a Friendly group): `<name> on the radio: "The dead next door aren't going
+     anywhere. So we are." They have left <Old> for <New>, D m <dir>.` The new building is never within 300 m of an
+     infestation (`near an infestation` among the refused). `sc infest clear <N>` before the third day: the next `sc day`
+     reads `no infestation within 300 m` and the count starts again.
+234. **What keeps them home.** On a group with a reason (step 223) and far away, each of these makes `sc enclave move <id>
+     now` say `[SC] refused: ...` and keeps them home on the day's roll: (a) `sc enclave request <id> offer resource`, then
+     `sc enclave request <id> accept`: `they have an accepted request (#N, resource: ...)`; (b) `sc enclave siege <id> now
+     force`: `a siege of theirs is open (request #N)` (`sc enclave siege <id> clear` after); (c) an Allied group, `sc
+     enclave call <id> fighter force`: `a radio call of theirs is on (fighter)`; (d) one of them enlisted with you ("Can you
+     come with me?"): `people of theirs are away (1 enlisted, 0 missing, 0 raiding)`; (e) a hostile den with a demand on
+     your outpost (`sc enclave raid <id> <oid> demand`): `they are leaning on <Outpost> (outpost <oid>)`. With an offered
+     request only (no accept), `now` moves them and withdraws it: the log `request #N (..., offered) withdrawn - they moved
+     away` and the ledger `<name>'s request is off`, no standing lost.
+235. **The day's roll.** Set `EnclaveMoveChance` to 1 in the 3.4 install's SC `Config/blocks.xml` and restart. A group with
+     a reason and nothing holding it moves at the next `sc day` (as in step 225 or 229; its log line has `- the day's roll
+     (100%), C candidate(s) of N;` where step 225's has `- the console;`). With you near them it stays (with `DebugLogging`: `enclave <id> '<name>' would move
+     (they lost too many of their people) but stays: a player is within 200 m of their building`). Put it back to 0.2.
+236. **Saved and loaded.** After a move, save and quit: their `[enclave]` has `moved=R:x,y,z:<Old>` and `seeded=X:moved`,
+     plus `lossday=R0` (after a death) and `nestday=R1` (with an infestation next door) when set. Load: the moves line and
+     the marker are as before, and their people spawn at the new building.
+237. **A world day set back.** After a move, `settime <two days earlier> 12 0`: the log's `enclaves: the world's day went
+     back from ...` line ends `; N move stamp(s) moved back D day(s)` (D as for the raid rest stamps in the same line), and
+     `sc enclave info <id>` shows the move, last death and nest days D earlier.
+238. **No building fits.** Set `EnclaveMoveMin` to 1490 and `EnclaveMoveMax` to 1500 and restart. `sim` says `no building
+     fits - they would stay and try again the next day` (or names one, if a building happens to stand in that ring); `now`
+     says `[SC] refused: no building fits (N building(s) 1490-1500 m away, refused: ...)`. With the chance at 1 the daily
+     log says `... wants to move (...), but no building fits: ... - they try again tomorrow`. Put both back.
+239. **The switch.** Set `EnclaveMoves` to false and restart: the `config:` line says `enclaveMoves=off`, `sc enclave info
+     <id>` says `moves: off (EnclaveMoves=false) (request clock day R)`, `sc enclave move <id> now` says `[SC] refused:
+     enclave moves are off (EnclaveMoves=false)`, and no `sc day` moves anyone. Set it back.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

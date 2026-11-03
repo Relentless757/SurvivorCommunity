@@ -683,6 +683,16 @@ namespace SurvivorCommunity
         public static bool EnclaveRaids = true;
         public static int EnclaveRaidRange = 2000, EnclaveRaidPartyMax = 4, EnclaveRaidRestDays = 3, EnclaveRaidLossHeld = 1;
         public static float EnclaveRaidChance = 0.04f, EnclaveRaidTurnedFactor = 0.5f;
+        // ---- enclaves move (E11: ScEncMoves; research\ideas\DESIGN.md section 8, Q9) ----
+        /// <summary>
+        /// Enclave moves (EnclaveMoves, with Enclaves): a group that lost EnclaveMoveLostShare of its people (EnclaveMoveWaitDays
+        /// after the last death), or has had an infestation within EnclaveMoveInfestRange m for EnclaveMoveInfestDays days, rolls
+        /// EnclaveMoveChance a day to move to another building EnclaveMoveMin..EnclaveMoveMax m away (centre to centre). Days are
+        /// the request clock's.
+        /// </summary>
+        public static bool EnclaveMoves = true;
+        public static float EnclaveMoveChance = 0.2f, EnclaveMoveLostShare = 0.5f;
+        public static int EnclaveMoveWaitDays = 2, EnclaveMoveInfestRange = 300, EnclaveMoveInfestDays = 3, EnclaveMoveMin = 300, EnclaveMoveMax = 1500;
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1246,6 +1256,8 @@ namespace SurvivorCommunity
             EnclaveCalls = true; EnclaveCallCooldownDays = 3; EnclaveCallFighterHours = 12; EnclaveCallFighterDelay = 30; EnclaveCallSpawnMin = 40; EnclaveCallSpawnMax = 90;
             EnclaveDropDelay = 20; EnclaveDropRangeMin = 20; EnclaveDropRangeMax = 50; EnclaveDropHeight = 60;
             EnclaveRaids = true; EnclaveRaidRange = 2000; EnclaveRaidChance = 0.04f; EnclaveRaidTurnedFactor = 0.5f; EnclaveRaidPartyMax = 4; EnclaveRaidRestDays = 3; EnclaveRaidLossHeld = 1;
+            EnclaveMoves = true; EnclaveMoveChance = 0.2f; EnclaveMoveLostShare = 0.5f; EnclaveMoveWaitDays = 2; EnclaveMoveInfestRange = 300; EnclaveMoveInfestDays = 3;
+            EnclaveMoveMin = 300; EnclaveMoveMax = 1500;
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1968,6 +1980,18 @@ namespace SurvivorCommunity
                 ParseInt(p, "EnclaveRaidPartyMax", ref EnclaveRaidPartyMax, 1, 16);
                 ParseInt(p, "EnclaveRaidRestDays", ref EnclaveRaidRestDays, 0, 365);
                 ParseInt(p, "EnclaveRaidLossHeld", ref EnclaveRaidLossHeld, 0, 16);
+                // enclaves move (E11)
+                bool moves = EnclaveMoves;
+                if (p.Values.ContainsKey("EnclaveMoves")) p.ParseBool("EnclaveMoves", ref moves);
+                EnclaveMoves = moves;
+                ParseFloat(p, "EnclaveMoveChance", ref EnclaveMoveChance, 0f, 1f);
+                ParseFloat(p, "EnclaveMoveLostShare", ref EnclaveMoveLostShare, 0f, 1f);
+                ParseInt(p, "EnclaveMoveWaitDays", ref EnclaveMoveWaitDays, 0, 365);
+                ParseInt(p, "EnclaveMoveInfestRange", ref EnclaveMoveInfestRange, 0, 5000);
+                ParseInt(p, "EnclaveMoveInfestDays", ref EnclaveMoveInfestDays, 1, 365);
+                ParseInt(p, "EnclaveMoveMin", ref EnclaveMoveMin, 0, 20000);
+                ParseInt(p, "EnclaveMoveMax", ref EnclaveMoveMax, 50, 20000);
+                if (EnclaveMoveMax < EnclaveMoveMin) EnclaveMoveMax = EnclaveMoveMin;
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -2350,6 +2374,9 @@ namespace SurvivorCommunity
                                                 + EnclaveDropRangeMax + "m from " + EnclaveDropHeight + "m up" : "off")
                           + " enclaveRaids=" + (OutpostAttacks && EnclaveRaids && Enclaves ? F2(EnclaveRaidChance) + "/day (turned x" + F2(EnclaveRaidTurnedFactor) + ") within "
                                                 + EnclaveRaidRange + "m, party " + EnclaveRaidPartyMax + ", rest " + EnclaveRaidRestDays + "d, held -" + EnclaveRaidLossHeld : "off")
+                          + " enclaveMoves=" + (Enclaves && EnclaveMoves ? F2(EnclaveMoveChance) + "/day once lost " + F2(EnclaveMoveLostShare) + " (" + EnclaveMoveWaitDays
+                                                + "d after) or a nest within " + EnclaveMoveInfestRange + "m for " + EnclaveMoveInfestDays + "d, to " + EnclaveMoveMin + "-"
+                                                + EnclaveMoveMax + "m" : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange

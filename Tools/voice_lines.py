@@ -89,7 +89,10 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
                  "scEncCallFighterSaid", "scEncCallDropSaid", "scEncCallFailSaid", "scEncCallHello",
                  # E10: a raider enclave's words on the radio - its demand, paid, refused (ScEncRaids shows them as tells: text
                  # only, the voicing round wires their playback)
-                 "scEncRaidDemandSaid", "scEncRaidPaidSaid", "scEncRaidRefusedSaid"]
+                 "scEncRaidDemandSaid", "scEncRaidPaidSaid", "scEncRaidRefusedSaid",
+                 # E11: a Friendly or Allied group's words on the radio as it moves - lost too many, the dead next door,
+                 # the console's (ScEncMoves shows them as tells: text only, the voicing round wires their playback)
+                 "scEncMoveLostSaid", "scEncMoveNestSaid", "scEncMoveSaid"]
 
 # ---------------------------------------------------------------------------------------------------- the V2 lines ----
 # No names or numbers, so every voice can say them. Drafts: SC_Ideas_and_Voices_Plan.md section 4.4 (2026-11-03).

@@ -984,6 +984,7 @@ namespace SurvivorCommunity
             p.DiedDay = ScCommunity.Today;
             p.Health = 0f;
             p.Role = EncPerson.MemberRole;
+            ScEncMoves.NoteLoss(ScEnclaves.ById(p.EnclaveId));      // E11: the day of their last death (request clock)
             ScEnclaveDeals.DropFavour(p, "they are dead");
             fallChecks.Add(p.EnclaveId);
         }

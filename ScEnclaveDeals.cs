@@ -875,6 +875,26 @@ namespace SurvivorCommunity
             if (pl != null) ScQuests.RekeyFavour(pl, old, key);
         }
 
+        /// <summary>
+        /// E11: their group moved to another building (ScEncMoves - none of their bodies is out, so every favour of theirs is
+        /// parked): each favour's return point (Prospect.NpcPos: ScQuests.GiverPosition, the quest marker TickMarkers moves) goes
+        /// to the new building; their next body there takes the favour as before (OnDressed). Returns how many.
+        /// </summary>
+        internal static int OnMoved(Enclave e, Vector3i at)
+        {
+            if (e == null) return 0;
+            int n = 0;
+            foreach (EncPerson p in ScRegistry.EncPeople)
+            {
+                if (p.EnclaveId != e.Id) continue;
+                Prospect pr = ProspectByPerson(p.Id);
+                if (pr == null) continue;
+                pr.NpcPos = at;
+                n++;
+            }
+            return n;
+        }
+
         /// <summary>The person's favour is off (they died, their enclave is gone): its quest closed as failed, the prospect dropped.</summary>
         public static void DropFavour(EncPerson p, string why)
         {

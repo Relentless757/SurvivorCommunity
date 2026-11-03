@@ -97,6 +97,20 @@ namespace SurvivorCommunity
         /// is made that many smaller (ScEnclavePeople.GroupSize). Saved as [enclave] raidlost=N. ScEncRaids.
         /// </summary>
         public int RaidLost;
+        /// <summary>
+        /// E11: the request-clock day they last moved of their own accord (-1: never) and the building they left (its key and
+        /// name). Saved as [enclave] moved=day:x,y,z:name. ScEncMoves.
+        /// </summary>
+        public int MovedDay = -1;
+        public Vector3i MovedFrom;
+        public string MovedFromName = "";
+        /// <summary>E11: the request-clock day of their last death (-1: none since E11 came). Saved as [enclave] lossday=N. ScEncMoves.</summary>
+        public int LossDay = -1;
+        /// <summary>
+        /// E11: the request-clock day an infestation has been within EnclaveMoveInfestRange m of their building since, as the daily
+        /// pass counts it (-1: none). Saved as [enclave] nestday=N. ScEncMoves.
+        /// </summary>
+        public int NestDay = -1;
         /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
         public int Standing;
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
@@ -105,7 +119,7 @@ namespace SurvivorCommunity
         public int SeededDay;
         /// <summary>
         /// How it came: "new" (a new save's first start), "late" (an existing save), "top" (a raised target), "moved" (its POI
-        /// went), "refill" (E6: a new group after a lost one).
+        /// went; E11: or it moved of its own accord), "refill" (E6: a new group after a lost one).
         /// </summary>
         public string Mode = "new";
         /// <summary>
@@ -154,7 +168,8 @@ namespace SurvivorCommunity
     /// POIs nobody has visited preferred); on every later load each enclave's POI is found again (or the
     /// enclave moves to the nearest free one) and a raised target is topped up. Everything is drawn from the world seed in
     /// (x, z) order, so a save always gets the same enclaves from the same POIs. Host only, main thread; the lookups the
-    /// patches use read volatile arrays rebuilt here (the ScOutposts pattern).
+    /// patches use read volatile arrays rebuilt here (the ScOutposts pattern). E11 (ScEncMoves) moves a group of its own
+    /// accord through the same building swap as Validate's (TakeBuilding: MoveTarget, MoveTo).
     /// </summary>
     public static class ScEnclaves
     {
@@ -600,10 +615,26 @@ namespace SurvivorCommunity
         /// <summary>Any corner or the centre of the footprint in a loaded chunk, or the footprint within the player's view: someone would see the enclave appear.</summary>
         private static bool Loaded(PoiEntry e, Rules r)
         {
-            int ax = e.Key.x, az = e.Key.z, bx = e.Key.x + Math.Max(1, e.Size.x) - 1, bz = e.Key.z + Math.Max(1, e.Size.z) - 1;
+            return LoadedBox(e.Key, e.Size, e.X, e.Z, r.HasPlayer, r.Player, r.PlayerRange);
+        }
+
+        private static bool LoadedBox(Vector3i key, Vector3i size, float cx, float cz, bool hasPlayer, Vector3 player, float range)
+        {
+            int ax = key.x, az = key.z, bx = key.x + Math.Max(1, size.x) - 1, bz = key.z + Math.Max(1, size.z) - 1;
             if (ScZone.IsLoaded(new Vector3i(ax, 0, az)) || ScZone.IsLoaded(new Vector3i(bx, 0, az)) || ScZone.IsLoaded(new Vector3i(ax, 0, bz))
-                || ScZone.IsLoaded(new Vector3i(bx, 0, bz)) || ScZone.IsLoaded(new Vector3i((int)e.X, 0, (int)e.Z))) return true;
-            return r.HasPlayer && ToBox(r.Player.x, r.Player.z, new[] { ax, bx, az, bz }) < r.PlayerRange;
+                || ScZone.IsLoaded(new Vector3i(bx, 0, bz)) || ScZone.IsLoaded(new Vector3i((int)cx, 0, (int)cz))) return true;
+            return hasPlayer && ToBox(player.x, player.z, new[] { ax, bx, az, bz }) < range;
+        }
+
+        /// <summary>
+        /// E11 (ScEncMoves): the enclave's building is in loaded chunks or within the local player's view distance - the late
+        /// seed's "loaded" rule (Loaded) for the building a group would leave: someone could see them go.
+        /// </summary>
+        internal static bool InView(Enclave e)
+        {
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            Vector3 c = e.Centre;
+            return LoadedBox(e.Poi, e.Size, c.x, c.z, pl != null, pl != null ? pl.position : Vector3.zero, (GameUtils.GetViewDistance() + 1) * 16f);
         }
 
         private static bool WorldExtent(World w, out Vector3i min, out Vector3i max)
@@ -984,16 +1015,7 @@ namespace SurvivorCommunity
                 ScLog.Out("enclave " + e.Id + " '" + e.Name + "': its POI " + e.Prefab + " at " + e.Poi + " is gone - moved to " + to.Display + " (" + to.Prefab + ") " + to.Key);
                 r.Enclaves.Remove(e.Poi);
                 r.Enclaves.Add(to.Key);
-                e.Poi = to.Key;
-                e.Size = to.Size;
-                e.Prefab = to.Prefab;
-                e.PoiName = to.Display;
-                e.Biome = to.Biome;
-                e.Row = to.Row;
-                e.Tier = to.Tier;
-                e.Mode = "moved";
-                e.Lost = false;
-                ScEnclavePeople.ClearSpots(e);              // E2: new spots in the new POI when they next spawn (their kind stays)
+                TakeBuilding(e, to);
                 moved++;
             }
             Rebuild();      // the moves count for the top-up (its spacing, and CheckForAnyPlayerHome)
@@ -1041,6 +1063,180 @@ namespace SurvivorCommunity
                 if (!close) return pe;
             }
             return null;
+        }
+
+        /// <summary>
+        /// The group takes another building (Validate: its POI is gone; E11's ScEncMoves: of its own accord): the footprint,
+        /// prefab, name, biome, row and tier - Mode "moved", on the map again - and its people's spots are chosen again in the
+        /// new one when they next spawn (E2). Everything else stays: id, name, kind, nature, standing, stock, thanks, the dead.
+        /// </summary>
+        private static void TakeBuilding(Enclave e, PoiEntry to)
+        {
+            e.Poi = to.Key;
+            e.Size = to.Size;
+            e.Prefab = to.Prefab;
+            e.PoiName = to.Display;
+            e.Biome = to.Biome;
+            e.Row = to.Row;
+            e.Tier = to.Tier;
+            e.Mode = "moved";
+            e.Lost = false;
+            ScEnclavePeople.ClearSpots(e);              // E2: new spots in the new POI when they next spawn (their kind stays)
+        }
+
+        // ------------------------------------------------------------------ moves of their own accord (E11) ----
+
+        /// <summary>E11: what MoveTarget saw - the buildings in the move ring, the candidates left, why the rest were refused.</summary>
+        internal sealed class MoveSearch
+        {
+            public int InRing, Candidates;
+            public readonly Dictionary<string, int> Refused = new Dictionary<string, int>();
+
+            public void Note(string why)
+            {
+                int n;
+                Refused.TryGetValue(why, out n);
+                Refused[why] = n + 1;
+            }
+
+            /// <summary>"loaded 2, near a claim 1, tier 7" (by reason, ordinal), or "none".</summary>
+            public string RefusedText()
+            {
+                var l = new List<string>();
+                foreach (var kv in Refused) l.Add(kv.Key + " " + kv.Value);
+                l.Sort(StringComparer.Ordinal);
+                return l.Count > 0 ? string.Join(", ", l.ToArray()) : "none";
+            }
+        }
+
+        /// <summary>
+        /// E11 (ScEncMoves): the building a group moving of its own accord goes to, or null. The late seed's filter (RulesFor
+        /// late, Refuse: sleepers, tier, size, district, name, edge, traders, spawn points, no other enclave, not infested, not an
+        /// outpost, not home, not in use, nobody's home, no claim within EnclaveClaimBuffer, nothing loaded or in the player's
+        /// view); its centre EnclaveMoveMin..EnclaveMoveMax m from theirs; never the building they left last; at least
+        /// EnclaveSpacingFloor m from every other enclave's centre (Relocation's rule); no infestation within
+        /// EnclaveMoveInfestRange m of its footprint; no player within EnclaveSpawnRange + EnclaveDespawnMargin m of it.
+        /// Weighted as the late seed weighs (the district; a building never
+        /// generated in this save x EnclaveUnvisitedWeight), x2 for one their kind's rows make (EnclaveKindRows; a general group
+        /// has none); one weighted draw (the key u^(1/w), as MakePlan's) over the candidates in (x, z) order from the seed.
+        /// </summary>
+        internal static PoiEntry MoveTarget(Enclave e, int seed, MoveSearch s)
+        {
+            World w = ScCommunity.World;
+            Vector3i min, max;
+            if (w == null || e == null || !ScPoiIndex.Built || !WorldExtent(w, out min, out max)) return null;
+            Rules r = RulesFor(w, true, min, max);
+            Vector3 c = e.Centre;
+            var near = new List<PoiEntry>();
+            ScPoiIndex.Near(c.x, c.z, ScConfig.EnclaveMoveMax, near);
+            float floor2 = ScConfig.EnclaveSpacingFloor * (float)ScConfig.EnclaveSpacingFloor;
+            float keep = ScConfig.EnclaveSpawnRange + ScConfig.EnclaveDespawnMargin;
+            bool ownRows = e.Kind.Length > 0 && e.Kind != "general";
+            var cands = new List<Pick>();
+            foreach (PoiEntry pe in near)
+            {
+                if (Dist(pe.X, pe.Z, c.x, c.z) < ScConfig.EnclaveMoveMin) continue;
+                s.InRing++;
+                string why = Refuse(pe, r);
+                if (why == null && e.MovedDay >= 0 && pe.Key == e.MovedFrom) why = "the building they left";
+                if (why == null && NearOtherEnclave(e, pe, floor2)) why = "near another enclave";
+                if (why == null && ScEncMoves.NestNear(pe.Key, pe.Size) != null) why = "near an infestation";
+                if (why == null && PlayerWithin(w, pe.Key, pe.Size, keep)) why = "a player near";
+                float weight = 0f;
+                if (why == null)
+                {
+                    weight = KindWeight(pe);
+                    if (pe.Pi.sleeperVolumes.Count == 0) weight *= ScConfig.EnclaveUnvisitedWeight;
+                    if (ownRows && KindFor(pe.Row) == e.Kind) weight *= 2f;
+                    if (weight <= 0f) why = "weight";
+                }
+                if (why != null) { s.Note(why); continue; }
+                cands.Add(new Pick { E = pe, Weight = weight });
+            }
+            s.Candidates = cands.Count;
+            if (cands.Count == 0) return null;
+            cands.Sort((a, b) =>
+            {
+                int k = a.E.Key.x.CompareTo(b.E.Key.x);
+                if (k != 0) return k;
+                k = a.E.Key.z.CompareTo(b.E.Key.z);
+                return k != 0 ? k : string.CompareOrdinal(a.E.Prefab, b.E.Prefab);
+            });
+            GameRandom rng = GameRandomManager.Instance.CreateGameRandom(seed);
+            try
+            {
+                Pick best = null;
+                double bestKey = -1.0;
+                foreach (Pick k in cands)
+                {
+                    double key = Math.Pow(rng.RandomDouble, 1.0 / k.Weight);
+                    if (key > bestKey) { bestKey = key; best = k; }
+                }
+                return best != null ? best.E : null;
+            }
+            finally
+            {
+                GameRandomManager.Instance.FreeGameRandom(rng);
+            }
+        }
+
+        /// <summary>Another living enclave's centre within EnclaveSpacingFloor m of the POI's (Relocation's rule; the group itself left out).</summary>
+        private static bool NearOtherEnclave(Enclave self, PoiEntry pe, float floor2)
+        {
+            foreach (Enclave o in All)
+            {
+                if (o == self || o.Lost) continue;
+                Vector3 oc = o.Centre;
+                float dx = oc.x - pe.X, dz = oc.z - pe.Z;
+                if (dx * dx + dz * dz < floor2) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Any player within range m (XZ) of the footprint (every player: NearestPlayer's rule).</summary>
+        internal static bool PlayerWithin(World w, Vector3i key, Vector3i size, float range)
+        {
+            List<EntityPlayer> list = w != null && w.Players != null ? w.Players.list : null;
+            if (list == null) return false;
+            int[] b = { key.x, key.x + Math.Max(1, size.x) - 1, key.z, key.z + Math.Max(1, size.z) - 1 };
+            for (int i = 0; i < list.Count; i++)
+            {
+                EntityPlayer p = list[i];
+                if (p != null && ToBox(p.position.x, p.position.z, b) <= range) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// E11 (ScEncMoves): the group moves to another building now - Validate's move (TakeBuilding) of a group whose POI is
+        /// still there: the old building's marker off, the new one's footprint, prefab, name, biome, row and tier taken (Mode
+        /// "moved"), the lookups rebuilt (the old building's loot, claims, quests, infestations and wild spawns allowed again; the
+        /// new one protected), the rooms they kept clear at the old one given back their respawn (Release: after the loot
+        /// respawn wait, as for a group that fell) and the new one's generated rooms kept clear (PreClear). told: known, the
+        /// marker at the new building; otherwise unknown and off the map until found again. Returns the sleeper areas released;
+        /// cleared: those kept clear at the new building. The caller saves.
+        /// </summary>
+        internal static int MoveTo(Enclave e, PoiEntry to, bool told, EntityPlayer owner, out int cleared)
+        {
+            World w = ScCommunity.World;
+            PrefabInstance old = PoiOf(e);
+            RemoveMarker(e);
+            TakeBuilding(e, to);
+            Rebuild();
+            int released = Release(old, w);
+            cleared = PreClear(to.Pi, w);
+            if (told)
+            {
+                if (!e.Known) { e.Known = true; e.KnownDay = ScCommunity.Today; }
+                if (owner != null) AddMarker(e, owner);
+                else markersRestored = false;       // the next tick puts it on
+            }
+            else
+            {
+                e.Known = false;
+                e.KnownDay = -1;
+            }
+            return released;
         }
 
         // ------------------------------------------------------------------ sleeper areas ----
@@ -1190,7 +1386,8 @@ namespace SurvivorCommunity
         /// next radio reveal, E3's recruit cooldowns and enlistments, E5's scheduled siege call, I1's infestation ages) by the
         /// world's. E7's next gift and next ally barter days are the request clock's. E9's next radio call is the request
         /// clock's, a call's arrival and its fighter's end the world's (as E3's enlistments). E10's raid rest is the request
-        /// clock's. One log line; the ticker saves.
+        /// clock's. E11's move stamps (the day they last moved, their last death, an infestation next door since) are the
+        /// request clock's. One log line; the ticker saves.
         /// </summary>
         public static void OnWorldDayBack(int day, int fromDay)
         {
@@ -1217,12 +1414,13 @@ namespace SurvivorCommunity
                 }
                 int calls = ScEncCalls.ShiftDays(reqBack, worldBack);     // E9: the next radio call (request clock); a call's arrival and its fighter's end (world)
                 int raids = ScEncRaids.ShiftDays(reqBack);                 // E10: a raiding group's rest (request clock)
+                int moves = ScEncMoves.ShiftDays(reqBack);                 // E11: the last move, the last death, a nest next door since (request clock)
                 ScLog.Out("enclaves: the world's day went back from " + fromDay + " to " + day + " - the request clock, " + requests + " open request(s), "
                           + allies + " refill/ally-reveal stamp(s), " + gifts + " gift/barter stamp(s) moved back " + reqBack + " day(s); " + stamps
                           + " world-clock stamp(s) (radio reveal, recruit cooldowns, "
                           + "enlistments, the siege call) and " + infest + " infestation(s) moved back " + worldBack + " day(s); " + calls
                           + " radio-call stamp(s) moved back (the next call " + reqBack + " day(s), an arrival or a fighter's end " + worldBack + " day(s)); "
-                          + raids + " raid rest stamp(s) moved back " + reqBack + " day(s)");
+                          + raids + " raid rest stamp(s) moved back " + reqBack + " day(s); " + moves + " move stamp(s) moved back " + reqBack + " day(s)");
             }
             catch (Exception ex)
             {
@@ -1232,8 +1430,8 @@ namespace SurvivorCommunity
 
         public static string NavClassFor(Enclave e) { return NavPrefix + StandingKey(e); }
 
-        /// <summary>The marker's spot: the POI's centre on the ground (the static heightmap works with the chunk unloaded).</summary>
-        private static Vector3 MarkerSpot(Enclave e)
+        /// <summary>The marker's spot: the POI's centre on the ground (the static heightmap works with the chunk unloaded). E11: a moved group's favours point there.</summary>
+        internal static Vector3 MarkerSpot(Enclave e)
         {
             Vector3 c = e.Centre;
             World w = ScCommunity.World;
@@ -1412,6 +1610,7 @@ namespace SurvivorCommunity
             into.Add("  " + ScEncGifts.InfoLine(e));        // E7: the next gift, the ally barter
             into.Add("  " + ScEncCalls.InfoLine(e));        // E9: the radio calls, the call that is on
             into.Add("  " + ScEncRaids.InfoLine(e));        // E10: their raids on your outposts, the one that is on
+            into.Add("  " + ScEncMoves.InfoLine(e));        // E11: why they might move, what holds them, where they came from
             into.Add("  POI " + e.PoiName + " (" + e.Prefab + "), T" + e.Tier + ", row " + (e.Row.Length > 0 ? e.Row : "-") + ", biome " + e.Biome
                      + ", key " + e.Poi + ", footprint x " + b[0] + ".." + b[1] + " z " + b[2] + ".." + b[3] + " (" + e.Size.x + "x" + e.Size.z + ")"
                      + ", centre " + Mathf.RoundToInt(cen.x) + "," + Mathf.RoundToInt(cen.z) + (pl != null ? ", " + Where(pl.position, cen) + " from you" : ""));
