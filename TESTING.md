@@ -814,8 +814,8 @@ until you have one of each race.
      (`<name>: <words>`) and they turn to you. A wall between you: nothing until you can see them. The same resident
      doesn't meet-greet again today (`sc voice barks`: `... met`); the next in-game day they do.
 179. **The walk-up greeting (debug).** Two minutes after a resident's greeting, stand within 3 m and look at them: a
-     `walk-up greeting (member)` line. Look away (more than about 25 degrees): nothing. It doesn't repeat within two
-     minutes.
+     `walk-up greeting (member)` line. Look away (more than about 25 degrees), or stand behind a wall from them: nothing.
+     It doesn't repeat within two minutes. A member back from a run the same day doesn't meet-greet you again.
 180. **The right words for who they are (debug).** A wild stranger: `greet.stranger`. A prospect (a survivor you have a
      favour for): `greet.recruit`. A member following you: `greet.follower`. One of a Neutral enclave's people:
      `greet.enclave`. A member enlisted from an enclave and following you: `greet.follower`. Nobody greets who is hostile to
@@ -834,7 +834,8 @@ until you have one of each race.
      within 15 m who could chat now ...` when none is near).
 184. **Raider spots you (debug).** `sc spawn hostile` about 25 m away and let it see you: `voice bark (silent, no
      recording): <raider> (<id>) taunt (spot): taunt.spot.<n> in <voice>: "<words>"` and the subtitle `<raider>: <words>`.
-     Break line of sight and come back within 20 s: no second spot line.
+     Break line of sight and come back within 20 s (even after its `taunt (lost)`): no second spot line; after more than
+     20 s without you as its target it spots you again.
 185. **Hit, retreat, dying (debug).** Shoot the raider: about 4 hits in 10 draw `taunt (hit)`, never more than one per 15 s
      from that raider. Bring it under 30% health: `taunt (retreat)` once ("Fall back!" or "Pull out!"). Kill it: `taunt
      (dying)` once - not again for every hit on the body.
@@ -842,7 +843,8 @@ until you have one of each race.
      `taunt (lost)`. Make a noise near raiders that can't see you (fire a gun behind a wall): one goes to look and says
      `taunt (search)` (or `taunt (lost)` when its look is blocked). Watch a raider camp from out of their sight within
      40 m for two or three minutes: roughly once a minute one of them mutters (`taunt (idle)`).
-187. **Killed (debug).** Let a raider kill you: `taunt (killed)` from your killer (once; the respawn doesn't repeat it).
+187. **Killed (debug).** Let a raider kill you with two or three raiders on you: `taunt (killed)` from your killer only
+     (once; the other raiders say nothing, and the respawn doesn't repeat it).
 188. **Pacing (debug).** Three raiders spot you at once: their taunts come at least 3 s apart (`RaiderTauntGlobalCooldown`),
      each raider at most every 15 s; a raider's death is said at once.
 189. **sc voice taunt.** By a raider: `sc voice taunt spot` (debug off): `... taunt.spot has no recording in <voice> -
@@ -875,7 +877,9 @@ until you have one of each race.
      `ack.swapweapon.1.ogg` and `ack.setformation.1.ogg`, rescan. "Follow me" by voice: SC's clip (`vc swapped ack`). A
      weapon swap by voice ("use your knife"): the generic reply, its words in the subtitle bar ("Switching." etc.). A
      formation on the wheel: the generic formation reply. A refused order (a stranger told "follow me"): Voice Control's
-     refusal, or SC's `vc.leaderless.<n>` clip if you gave it one.
+     refusal, or SC's `vc.leaderless.<n>` clip if you gave it one. The cut reply (the review's M1): push-to-talk "follow
+     me" and open their talk within a second, so the talk's first line cuts SC's reply; close the talk: the follower
+     follows and greets as usual (not stuck in Voice Control's chat pause), and push-to-talk still answers.
 198. **Raider taunts with recordings (stand-in or real).** Give a male voice `taunt.spot.1.ogg`, `taunt.hit.1.ogg` and
      `taunt.dying.1.ogg`, rescan, spawn male raiders until `sc voice who` shows one in that voice (or its borrowed one):
      the taunts play from the raider (no lip sync), audible to about 40 m, with their words in the subtitle bar.

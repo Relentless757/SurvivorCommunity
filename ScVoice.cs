@@ -88,6 +88,49 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, KeyValuePair<string, List<Voice>>> chains = new Dictionary<int, KeyValuePair<string, List<Voice>>>();
         /// <summary>V2: when each NPC's bark ends (Time.unscaledTime), by entity id.</summary>
         private static readonly Dictionary<int, float> barkUntil = new Dictionary<int, float>();
+        /// <summary>
+        /// V2 review M1: a Voice Control callback SC took over (SubstituteSpeech's onComplete) whose clip still plays, by
+        /// entity id. It runs once: at the clip's end (Voice Control's own call, or SC's timer at its length + 0.25 s when
+        /// Voice Control's coroutine went stale), or at once when another SC clip starts on that NPC and would cut it.
+        /// </summary>
+        private static readonly Dictionary<int, OnceCallback> pendingDone = new Dictionary<int, OnceCallback>();
+
+        /// <summary>V2 review M1: a callback that runs at most once, whoever calls it first.</summary>
+        private sealed class OnceCallback
+        {
+            private Action action;
+            public readonly int Npc;
+
+            public OnceCallback(int npc, Action a)
+            {
+                Npc = npc;
+                action = a;
+            }
+
+            /// <summary>Not run yet.</summary>
+            public bool Pending { get { return action != null; } }
+
+            public void Run()
+            {
+                Action a = action;
+                if (a == null) return;
+                action = null;
+                OnceCallback cur;
+                if (pendingDone.TryGetValue(Npc, out cur) && ReferenceEquals(cur, this)) pendingDone.Remove(Npc);
+                try { a(); }
+                catch (Exception e) { ScLog.Once("voice-vc-callback", e); }
+            }
+        }
+
+        /// <summary>
+        /// V2 review M1: the Voice Control callback still waiting on this NPC's SC clip runs now - another SC clip is about
+        /// to start on them (Voice Control's PlayClipFile stops what plays, and its coroutine would never call it).
+        /// </summary>
+        private static void FinishPending(int entityId)
+        {
+            OnceCallback pending;
+            if (pendingDone.TryGetValue(entityId, out pending)) pending.Run();
+        }
 
         // the line playing now
         private static int token;                         // bumped by every play and stop: a load that finishes late checks it
@@ -642,6 +685,7 @@ namespace SurvivorCommunity
             voices = null;
             chains.Clear();
             barkUntil.Clear();
+            pendingDone.Clear();
             ScBarks.Reset();
             ScGreetings.Reset();
             ScTaunts.Reset();
@@ -707,6 +751,7 @@ namespace SurvivorCommunity
                 {
                     if (my != token || clip == null) return;   // superseded meanwhile, or did not load (logged by the cache)
                     if (npc == null || npc.IsDead()) return;    // Unity null: gone while the clip loaded
+                    FinishPending(id);                          // M1: a bark's taken-over callback, before this line cuts it
                     Component player = forVc ? VcPlayer(npc) : null;
                     AudioClip on = player != null ? PlayOnVc(player, path, clip, null) : null;
                     if (on != null)
@@ -995,6 +1040,11 @@ namespace SurvivorCommunity
         {
             if (npc == null || string.IsNullOrEmpty(path)) { onComplete?.Invoke(); return; }
             int id = npc.entityId;
+            // M1 (V2 review): a taken-over Voice Control callback runs exactly once - Voice Control's own call at the clip's
+            // end, SC's timer at its length + 0.25 s when that call never comes (the clip cut: Voice Control's coroutine is
+            // stale then), or FinishPending when another SC clip starts on this NPC first; and at once when nothing plays
+            OnceCallback done = onComplete != null ? new OnceCallback(id, onComplete) : null;
+            FinishPending(id);                               // the one waiting on an earlier clip: this bark replaces it
             barkUntil[id] = Time.unscaledTime + 1f;          // while it loads: a second bark on them waits
             bool forVc = lipSync && VcPlayer(npc) != null;   // decompressed for Voice Control's lip sync, else compressed
             ScClipCache.Get(path, !forVc, clip =>
@@ -1007,18 +1057,23 @@ namespace SurvivorCommunity
                         barkUntil.Remove(id);
                         return;
                     }
+                    FinishPending(id);                       // an earlier bark's callback, before this clip cuts it
                     Component player = forVc ? VcPlayer(npc) : null;
-                    AudioClip on = player != null ? PlayOnVc(player, path, clip, onComplete) : null;
-                    if (on != null) handed = true;
-                    else
+                    AudioClip on = player != null ? PlayOnVc(player, path, clip, done != null ? (Action)done.Run : null) : null;
+                    if (on == null)
                     {
                         AudioSource src = OwnSource(npc);
                         src.clip = clip;
                         src.Play();
-                        if (onComplete != null)
+                    }
+                    if (done != null)
+                    {
+                        GameManager gm = GameManager.Instance;
+                        if (gm != null)
                         {
-                            GameManager gm = GameManager.Instance;
-                            if (gm != null) { gm.StartCoroutine(After(clip.length, onComplete)); handed = true; }
+                            gm.StartCoroutine(After(clip.length + (on != null ? 0.25f : 0f), done.Run));
+                            if (done.Pending) pendingDone[id] = done;    // Voice Control may have called it already (a dead NPC)
+                            handed = true;
                         }
                     }
                     ScClipCache.MarkPlaying(clip);
@@ -1031,11 +1086,7 @@ namespace SurvivorCommunity
                 }
                 finally
                 {
-                    if (!handed && onComplete != null)
-                    {
-                        try { onComplete(); }
-                        catch (Exception e) { ScLog.Once("voice-bark-complete", e); }
-                    }
+                    if (!handed && done != null) done.Run();
                 }
             });
         }

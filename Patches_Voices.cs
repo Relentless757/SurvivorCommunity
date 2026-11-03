@@ -47,7 +47,7 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>Spot, and killed when the old target was a dead player.</summary>
+        /// <summary>Spot (a raider takes a living player as its target).</summary>
         [HarmonyPatch]
         public static class Patch_TauntTarget
         {

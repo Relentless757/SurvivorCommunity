@@ -307,13 +307,14 @@ namespace SurvivorCommunity
                 Count("vc busy " + Group(p.Key));
                 return false;
             }
+            // the clip first: a Voice Control callback still waiting on this NPC (it may clear the subtitle) runs inside
+            ScVoice.PlayBark(npc, p.Path, true, false, null, null);
             string caption = trigger == null && !string.IsNullOrWhiteSpace(localizedSubtitle) ? localizedSubtitle : p.Words;
             if (ShowsText(npc)) Subtitle(npc.EntityName, caption, 8f);
             lastKey[FamilyOf(p.Key)] = p.Key;
             Count("vc swapped " + Group(p.Key));
             ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") " + what + ": SC's " + p.Key + " in " + p.Voice
                           + " instead of Voice Control's speech");
-            ScVoice.PlayBark(npc, p.Path, true, false, null, null);
             return true;
         }
 
@@ -348,13 +349,14 @@ namespace SurvivorCommunity
                 Count("vc busy " + Group(p.Key));
                 return false;
             }
+            // Voice Control's onComplete goes with the clip and runs exactly once (ScVoice.PlayBark, the V2 review's M1)
+            ScVoice.PlayBark(npc, p.Path, true, false, null, onComplete);
             // the caller showed its own words already; a generic ack says other words
             if (generic && ShowsText(npc)) Subtitle(npc.EntityName, p.Words, 8f);
             lastKey[FamilyOf(p.Key)] = p.Key;
             Count("vc swapped " + Group(p.Key));
             ScLog.Verbose("voice barks: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") \"" + text + "\": SC's " + p.Key + " in " + p.Voice
                           + " instead of Voice Control's speech");
-            ScVoice.PlayBark(npc, p.Path, true, false, null, onComplete);
             return true;
         }
 

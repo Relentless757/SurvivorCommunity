@@ -11,7 +11,8 @@ namespace SurvivorCommunity
     /// their race and sex, dealt by name and id). Clip-only (VoiceBarkDebug: a silent one is shown and logged). Single
     /// player, so no network relay. Keys taunt.&lt;event&gt;.&lt;n&gt;:
     ///  - spot: a raider takes a living player as its attack target and hadn't had one for SpotForgetSeconds (postfix on
-    ///    EntityAlive.SetAttackTarget, the previous target kept by its prefix - Patches_Voices);
+    ///    EntityAlive.SetAttackTarget, the previous target kept by its prefix - Patches_Voices; LastHadPlayer, refreshed
+    ///    every second while it holds a player, decides it - a lost line in between doesn't shorten the 20 s);
     ///  - search: SCore's MoveToInvestigate starts on a raider not fighting a player (its Start postfix: SC's
     ///    ScRaiderInvestigate goes to a noise);
     ///  - lost: SCore gives up an investigation (EntityAlive.PlayGiveUpSound postfix), or a raider that had a player as its
@@ -19,8 +20,8 @@ namespace SurvivorCommunity
     ///    EntityAlive.OnUpdateLive clearing the field directly);
     ///  - hit: a player's landed hit (Patches_Trust's ProcessDamageResponseLocal postfix), with RaiderTauntHitChance;
     ///  - retreat: instead of that, once, when the hit leaves the raider under RaiderTauntRetreatHealth of its health;
-    ///  - killed: the raider killed the local player (EntityAlive.AwardKill postfix on the dying player), or its target
-    ///    left it as a dead player (the SetAttackTarget postfix): once in KillRepeatSeconds;
+    ///  - killed: the raider that killed the local player (EntityAlive.AwardKill postfix on the dying player names it),
+    ///    once in KillRepeatSeconds - only the killer (the V2 review's L2: the other raiders whose target was you stay quiet);
     ///  - idle: every RaiderTauntIdleSeconds or so (randomised) one raider near you with nobody to fight mutters;
     ///  - dying: the raider's death (Patches_Npc's SetDead postfix), once.
     /// Only within RaiderTauntRange of the local player. Pacing: one raider at most every RaiderTauntCooldown (dying,
@@ -74,7 +75,7 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ hooks (Patches_Voices, Patches_Trust, Patches_Npc) ----
 
-        /// <summary>EntityAlive.SetAttackTarget's postfix, when the target changed: spot, or killed (the old target a dead player).</summary>
+        /// <summary>EntityAlive.SetAttackTarget's postfix, when the target changed: spot (killed is AwardKill's: OnKilledPlayer).</summary>
         public static void OnTargetChanged(EntityAlive self, EntityAlive was, EntityAlive now)
         {
             if (!ScConfig.RaiderTaunts || self == null || !ScXnpc.IsRaider(self) || self.IsDead()) return;
@@ -83,18 +84,15 @@ namespace SurvivorCommunity
             EntityPlayer np = now as EntityPlayer;
             if (np != null && !np.IsDead())
             {
-                bool fresh = !s.Engaged || t - s.LastHadPlayer > SpotForgetSeconds;
+                bool fresh = t - s.LastHadPlayer > SpotForgetSeconds;    // L1: no player target for 20 s, lost line or not
                 s.Engaged = true;
                 s.LastHadPlayer = t;
                 if (fresh) Fire(self, Spot, s, false, false);
                 return;
             }
+            // the old target a dead player: no lost line for them (the killer's taunt comes from AwardKill, OnKilledPlayer)
             EntityPlayer wp = was as EntityPlayer;
-            if (wp != null && wp.IsDead() && t - s.KilledAt >= KillRepeatSeconds)
-            {
-                s.Engaged = false;
-                if (Fire(self, Killed, s, true, false)) s.KilledAt = t;
-            }
+            if (wp != null && wp.IsDead()) s.Engaged = false;
         }
 
         /// <summary>EntityAlive.AwardKill's postfix on the dying local player: their killer, a raider, taunts.</summary>

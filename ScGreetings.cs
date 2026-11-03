@@ -14,7 +14,10 @@ namespace SurvivorCommunity
     /// people). Nobody hostile to you greets (a grudge, a hostile enclave), nor an outpost stand-in, a runner or a missing
     /// enclave person (Voice Control's greeting stays theirs).
     ///  - "Meet": the first time each in-game day a survivor within ScGreetMeetRange (12 m) is in your line of sight.
-    ///  - "Walk-up": within ScGreetWalkUpRange (3 m) while you look at them, at most every ScGreetWalkUpSeconds (120 s).
+    ///  - "Walk-up": within ScGreetWalkUpRange (3 m) while you look at them and see them, at most every
+    ///    ScGreetWalkUpSeconds (120 s).
+    ///  - Both remembered by person (PersonKey: a member's name, an enclave person's id, else the entity id), so a member
+    ///    re-created the same day (back from a run, sc restore) doesn't meet-greet you again.
     ///  - Never while they or you are in a fight (a live foe of theirs within 30 m), while a talk is open, while they are
     ///    already saying something; one greeting at a time, ScGreetGapSeconds (6 s) apart, the nearest first.
     ///  - Only where their voice has a clip of that greeting (VoiceBarkDebug: a silent one is shown and logged). The
@@ -34,10 +37,10 @@ namespace SurvivorCommunity
         private const float LookDot = 0.9f;
 
         private static float nextTick, nextChatter = -1f, lastSpoke = -999f;
-        /// <summary>The world day each survivor last greeted you on a "meet", by entity id.</summary>
-        private static readonly Dictionary<int, int> metDay = new Dictionary<int, int>();
-        /// <summary>When each survivor last greeted you (real time), by entity id.</summary>
-        private static readonly Dictionary<int, float> greetedAt = new Dictionary<int, float>();
+        /// <summary>The world day each survivor last greeted you on a "meet", by person (PersonKey).</summary>
+        private static readonly Dictionary<string, int> metDay = new Dictionary<string, int>(StringComparer.Ordinal);
+        /// <summary>When each survivor last greeted you (real time), by person (PersonKey).</summary>
+        private static readonly Dictionary<string, float> greetedAt = new Dictionary<string, float>(StringComparer.Ordinal);
         private static readonly System.Random rnd = new System.Random();
         private static readonly List<EntityAlive> pool = new List<EntityAlive>();
         private static int greetings, chatters;
@@ -134,8 +137,9 @@ namespace SurvivorCommunity
                 // the cheap tests first: a walk-up (close, looked at, not greeted lately) or a meet still due today
                 float at;
                 int d;
-                bool walkUp = sq <= walk2 && (!greetedAt.TryGetValue(npc.entityId, out at) || now - at >= ScConfig.ScGreetWalkUpSeconds) && LooksAt(lp, npc);
-                bool meetDue = !walkUp && (!metDay.TryGetValue(npc.entityId, out d) || d != day);
+                string who = PersonKey(npc);
+                bool walkUp = sq <= walk2 && (!greetedAt.TryGetValue(who, out at) || now - at >= ScConfig.ScGreetWalkUpSeconds) && LooksAt(lp, npc);
+                bool meetDue = !walkUp && (!metDay.TryGetValue(who, out d) || d != day);
                 if (!walkUp && !meetDue) continue;
                 // a walk-up wins over a meet; then the nearest
                 if (best != null && bestHow == "walk-up" && !walkUp) continue;
@@ -143,7 +147,7 @@ namespace SurvivorCommunity
                 string rel = Relation(npc, lp);
                 if (rel == null || ScVoice.Holds(npc) || ScVoice.Busy(npc) || ScCommunity.LiveFoe(npc, FightRange) != null) continue;
                 if (!ScConfig.VoiceBarkDebug && !ScBarks.HasClip(npc, "greet." + rel)) continue;
-                if (!walkUp && !Sees(w, lp, npc)) continue;          // the raycast last
+                if (!Sees(w, lp, npc)) continue;                      // the raycast last (a walk-up too: N4, not through a wall)
                 string how = walkUp ? "walk-up" : "meet";
                 best = npc;
                 bestRel = rel;
@@ -151,7 +155,23 @@ namespace SurvivorCommunity
                 bestSq = sq;
             }
             if (best == null) return;
-            if (Greet(best, lp, bestRel, bestHow)) metDay[best.entityId] = day;
+            if (Greet(best, lp, bestRel, bestHow)) metDay[PersonKey(best)] = day;
+        }
+
+        /// <summary>
+        /// Who the greeting memory is about (the V2 review's N1): a member by name (a re-created member's body has a new
+        /// entity id), one of an enclave's people by their person id, anyone else by entity id.
+        /// </summary>
+        private static string PersonKey(EntityAlive npc)
+        {
+            Member m = ScRegistry.GetMember(npc.entityId);
+            if (m != null && !string.IsNullOrEmpty(m.Name)) return "m:" + m.Name;
+            if (ScEnclavePeople.IsEnclaveNpc(npc))
+            {
+                EncPerson p = ScEnclavePeople.PersonOf(npc);
+                if (p != null) return "enc:" + p.Id;
+            }
+            return "e:" + npc.entityId;
         }
 
         private static bool Greet(EntityAlive npc, EntityPlayerLocal lp, string rel, string how)
@@ -159,7 +179,7 @@ namespace SurvivorCommunity
             bool said = ScBarks.Say(npc, "greet." + rel, how + " greeting (" + rel + ")", true, false, lp);
             if (!said) return false;
             float now = Time.unscaledTime;
-            greetedAt[npc.entityId] = now;
+            greetedAt[PersonKey(npc)] = now;
             lastSpoke = now;
             greetings++;
             return true;

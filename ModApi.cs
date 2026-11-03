@@ -467,7 +467,7 @@ namespace SurvivorCommunity
 #endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");
-            // Patches_Voices.cs (V2) - raider taunts: a new target (spot, killed), the player's death, an investigation given up
+            // Patches_Voices.cs (V2) - raider taunts: a new target (spot), the player's death (killed), an investigation given up
             // (lost) or started (search); the hit and the death share the ProcessDamageResponseLocal and SetDead entries above
             Add(t, "EntityAlive::SetAttackTarget", Patches_Voices.SetAttackTargetTarget());
             Add(t, "EntityAlive::AwardKill", Patches_Voices.AwardKillTarget());

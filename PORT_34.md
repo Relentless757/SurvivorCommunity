@@ -1072,7 +1072,7 @@ session only); L2, a person no body can be made for was picked for every call (`
 notes the hint line gives them whole). Left: L3 (a call stuck by a repeating exception: `sc enclave call <id> cancel`),
 the NITs.
 
-### Round 14: voices by race, SC's greetings, chatter, XNPCCore lines and raider taunts (V2) (2026-11-03, built, not reviewed, not installed)
+### Round 14: voices by race, SC's greetings, chatter, XNPCCore lines and raider taunts (V2) (2026-11-03, built, reviewed (Fable: deployable), review fixes in, not installed)
 
 Milestone V2 of `SC_Ideas_and_Voices_Plan.md` (section 4, decisions in section 5: 16 voices, two per race and sex; the
 reduced XNPCCore set; Native voices designed later), research `research\voices\REPORT.md` sections 2-5. Branch `ms/v2`
@@ -1119,7 +1119,8 @@ in the new code; the 3.2 DLL is not rebuilt).
 - **SC's greetings (ScGreetings.cs, REPORT 4 (b)).** A tick for the local player (twice a second, from `ScBarks.Tick` on
   `ModEvents.GameUpdate`), host, never while SC's talk window is open. "Meet": the first time each in-game day a survivor
   within `ScGreetMeetRange` (12 m) is in line of sight (a block raycast head to head); "walk-up": within
-  `ScGreetWalkUpRange` (3 m) and looked at (25 degrees), at most every `ScGreetWalkUpSeconds` (120 s); a walk-up first,
+  `ScGreetWalkUpRange` (3 m), looked at (25 degrees) and in line of sight, at most every `ScGreetWalkUpSeconds` (120 s),
+  both remembered by person (a member's name, an enclave person's id, else the entity id); a walk-up first,
   then the nearest; not when they have a live foe within 30 m (`ScCommunity.LiveFoe`) or are already speaking; one
   greeting per `ScGreetGapSeconds` (6 s). `Relation`: `greet.member` (a Resident), `greet.follower` (a member Following or
   PendingStation, an enlisted enclave person, a hire of this player), `greet.enclave` (one of an enclave's people, not
@@ -1152,7 +1153,8 @@ in the new code; the 3.2 DLL is not rebuilt).
     `PhraseTriggerHandler.LastMatchedTriggerName` is that type **and** the words are one of that trigger's own replies
     (`GetLastMatchedTrigger()`, internal, `.Responses`, emotes stripped as `ExecuteMatch` does) - a refusal or an
     action's own answer in other words stays Voice Control's. SC's clip gets Voice Control's `onComplete`, so its queue
-    and `_isWaitingForResponse` end as after its sentence; a generic ack also replaces the caption.
+    and `_isWaitingForResponse` end as after its sentence - exactly once, even when the clip is cut (see the review note
+    below); a generic ack also replaces the caption.
   - Neither substitutes while Voice Control is speaking on that NPC: `SpeakStreaming` would first `StopSpeaking` its own
     queue, which SC never does (REPORT 1.5). `EnqueueSpeech` is **not** hooked: in Voice Control 3.4 it carries only the
     LLM's streamed chunks (NPCChatComponent.cs:131, :606), never a fixed line. Billing lines are not voiced. Dynamic text
@@ -1163,10 +1165,10 @@ in the new code; the 3.2 DLL is not rebuilt).
     V4 `new` method calls it, EntityAliveSDXV4.cs:788, and the UAI tasks call it on `EntityAlive`), the old `attackTarget`
     (field :709) kept by its prefix (`__state`). The postfix returns on a reference compare when the target is unchanged
     (the common case; 51 callers in 3.4) and on a type test for anything but `EntityAliveSDXV4`. A living player as the new
-    target spots only when the raider had no player target for 20 s (UAI tasks drop and retake targets);
-  - killed: the same postfix with the old target a dead player, and a postfix on `EntityAlive.AwardKill(EntityAlive
-    killer)` (:5403, the victim's own call from `OnEntityDeath` :5451; players don't override it) on the local player:
-    once per raider in 30 s;
+    target spots only when the raider had no player target for 20 s (UAI tasks drop and retake targets; a lost line in
+    between doesn't shorten it), and never more often than the raider's 15 s cooldown;
+  - killed: a postfix on `EntityAlive.AwardKill(EntityAlive killer)` (:5403, the victim's own call from `OnEntityDeath`
+    :5451; players don't override it) on the local player: only the killer, once in 30 s;
   - lost: postfix `EntityAlive.PlayGiveUpSound()` (:5482; SCore's `MoveToInvestigate.Update` when blocked), and the tick:
     a raider that had a player target and has had none for 8 s (the target also times out in `OnUpdateLive`, which
     writes the field directly, :3436-3446 - no hook sees that);
@@ -1209,12 +1211,13 @@ The V2 lines, per voice (`python -I Tools/voice_lines.py cost`):
 | ack | `ack.<actiontype>[.<param>].<n>`, 151 verbatim + 6 generic `ack.swapweapon.<n>` + 6 generic `ack.setformation.<n>` | 163 | 3,366 (146 lines / 3,087 unique) |
 | vc | `vc.<id>`, no billing | 40 | 1,258 |
 | **V2 total** | | **298** | **6,861** |
-| the talk's lines (existing, `dialog`) | | 153 | 8,464 |
-| **full set** | | **451** | **15,325** |
+| the talk's lines (`dialog`, with E7's and E9's) | | 157 | 8,613 |
+| **full set** | | **455** | **15,474** |
 
-Still to record: each White voice 6,861 (V2) + 282 (E7's six gift lines); each of the twelve new voices 15,325; all
-sixteen 212,472 characters (about as many ElevenLabs credits; less if identical words are recorded once - 17 ack lines
-repeat another's words).
+Still to record (`cost` on `dev/ideas` after the V2 merge): each White voice 7,292 - the 6,861 of V2 plus 10 talk lines /
+431 characters (E7's six gift lines and E9's `scEncCallFighterSaid`, `scEncCallDropSaid`, `scEncCallFailSaid`,
+`scEncCallHello`); each of the twelve new voices 15,474; all sixteen 214,856 characters (about as many ElevenLabs
+credits; less if identical words are recorded once - 17 ack lines and 5 talk lines repeat another's words).
 
 Checked: every new Harmony target and parameter name with HarmonyAudit against the installed 3.4 game, SCore 3.4.3.826
 and Voice Control 3.4.01 (`1-XNPCVoiceControl.dll` md5 `c30399c1`): `audit34_v2` with the stage 1 targets file (3.4
@@ -1236,4 +1239,25 @@ For the merge: `dev/ideas` has E9 since this branch started (`9246239`); both to
 PORT_34 and TESTING (group S there, T here): text conflicts only. E9's radio answers stay tells (its own note).
 
 Builds: SC 3.4 `9b2fdd13` (`build\sc34_v2`), 0 errors. The 3.2 DLL is not rebuilt. Test steps: TESTING.md group T
-(170-199). Not reviewed (Fable), not installed. The task list needs its entry.
+(170-199).
+
+**V2 Fable review** (`research\review_v2\REVIEW.md`: deployable; one MEDIUM, three LOW, five NIT), fixed on `dev/ideas`:
+- **M1, a taken-over Voice Control callback could be lost.** `SubstituteSpeech` hands Voice Control's `onComplete` to SC's
+  clip; Voice Control's `WaitForClipFinishNoDestroy` drops it when the clip is cut (its playback token goes stale on any
+  `Stop`), e.g. by SC's own talk line or a late-loading SC greeting, leaving that NPC "waiting for a response" (chat pause
+  held, no greetings). Now `ScVoice.PlayBark` wraps it in a run-once guard (`OnceCallback`), hands that to Voice Control and
+  also arms SC's own timer at the clip's length + 0.25 s (the own-source branch: at its length), and keeps it pending per
+  NPC: the talk's `Play` and every new bark on that NPC run a pending one first (`FinishPending`, before the cut and
+  before a new caption shows), so it runs exactly once whatever ends the clip; nothing played: at once. Checked the other
+  places SC holds a Voice Control callback: V1's gate invokes each swallowed one at once; `SubstituteAck`'s target has none;
+  SC's own `PlayClipFile` calls for the talk pass none - `SubstituteSpeech` was the only one.
+- **L1:** spot is `t - LastHadPlayer > SpotForgetSeconds` (20 s) only; a lost line in between no longer re-arms it.
+- **L2:** killed comes only from the killer (AwardKill); the target-change branch no longer taunts (it just ends the
+  engagement, so the dead player gets no lost line either).
+- **L3:** the cost table and "still to record" above are `dev/ideas`'s after the merge.
+- **N1:** the greeting's meet/walk-up memory is by person (`ScGreetings.PersonKey`), so a member re-created the same day
+  doesn't meet-greet again. **N4:** the walk-up needs line of sight too.
+- Left: N2 (`barkUntil` pruned only per world: bounded by entity ids seen), N3 (`PlayOnVc` could report a stale clip if
+  the NPC dies within the same frame), N5 (a late-loading SC greeting can cut a Voice Control sentence that started during
+  the load; its drain watchdog moves on, nothing wedges).
+Build after the fixes: SC 3.4 `9d2c4bee` (`build\sc34_dev`), 0 errors. Not installed. The task list needs its entry.
