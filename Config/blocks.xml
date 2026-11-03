@@ -1292,6 +1292,23 @@
 			<property name="EnclaveMoveMin" value="300" />
 			<property name="EnclaveMoveMax" value="1500" />
 
+			<!-- WHOLE-ENCLAVE JOIN (E12). With EnclaveJoin and Enclaves on, the leader of an Allied group at EnclaveJoinStanding
+			     standing or more asks "Would your people join ours?" - only when your community has room for every one of them
+			     under MaxMembers; otherwise the row isn't there at all. It is greyed while one of theirs is with you, missing or
+			     away, while a request or radio call of theirs is open, while their group is still being made, or while you have no
+			     home. They all join, the leader too: the same people, weapons, skills and traits. Each brings EnclaveJoinBundles
+			     units of their group's resource to the stockpile (a general group's split across food, medicine, ammo, materials
+			     and fuel). EnclaveJoinArrive "own": they make their own way and turn up at your home from EnclaveJoinArriveHours
+			     game hours later, while you are there (on the way they eat and need a bed, but take no orders); "follow": they
+			     follow you home. Their group is gone with no morale lost, its building is free to claim (its zombies come back
+			     after the loot respawn wait), and a new group still moves in elsewhere after EnclaveRefillDays.
+			     "sc enclave join <id> [sim|now [force]]" and "sc enclave arrivals [now]" test it. -->
+			<property name="EnclaveJoin" value="true" />
+			<property name="EnclaveJoinStanding" value="90" />
+			<property name="EnclaveJoinBundles" value="2" />
+			<property name="EnclaveJoinArrive" value="own" />
+			<property name="EnclaveJoinArriveHours" value="6" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

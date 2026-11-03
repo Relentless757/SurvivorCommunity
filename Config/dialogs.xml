@@ -250,8 +250,9 @@
 	     Requirements and the tokens the line panel fills ({enc}, {count}, {poi}, {leader}, {where}: XUiC_ScDialogLine,
 	     ScEncDialog.Fill) are host-only. A line that will be voiced later says nothing that needs a name or a number: those
 	     sit in a sentence of their own. Rows: the leader 8 entries with E3's trade, E4's three "What do you need?"
-	     variants and E7's gift row (6 on screen: hidden rows take no row), members 6 entries with E3's enlist and the three
-	     recruit variants (4 at most on screen), under the dialog's 10.
+	     variants and E7's gift row (6 on screen: hidden rows take no row) - 9 at Allied with E12's "Would your people join
+	     ours?" (7 on screen) - members 6 entries with E3's enlist and the three recruit variants (4 at most on screen), under
+	     the dialog's 10.
 	     Never list Hire in these statements: SC's injection keys on it. -->
 	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
 		<phase id="scEncLeaderAllied" startstatementid="scEncLeaderAllied">
@@ -308,6 +309,7 @@
 			<response_entry id="scEncGift" />
 			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
+			<response_entry id="scEncJoinAsk" />
 			<response_entry id="scEncThreat" />
 			<response_entry id="done" />
 		</statement>
@@ -764,6 +766,33 @@
 		</response>
 		<response id="scEncGiftNeverAllied" text="scEncGiftNever" nextstatementid="scEncLeaderAllied">
 			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="allied" />
+		</response>
+	</append>
+
+	<!-- Whole-enclave join (E12, research/ideas/DESIGN.md section 9 with the user's Q10; ScEncJoin, DialogOpsEnclaves.cs). The
+	     Allied leader's greeting gains "Would your people join ours?" (ScEncJoin: value="show" first - its description is the
+	     greyed row's words - then "open"). It is offered only at EnclaveJoinStanding standing or more with room in your
+	     community for every one of them (MaxMembers): otherwise it does not show at all. Greyed with the reason - "Not while
+	     Mara is out with you", "Not while you owe them an answer" - while one of theirs is with you, missing or away, a request
+	     or radio call of theirs is open, their group is still being made, or you have no home. It leads to the confirm
+	     ({joinfacts}: how many come, what they bring, how they come); "Welcome to the community." (checked again) joins them
+	     all and closes the talk, the leader's words and the facts in one tell after it; "Forget it." goes back to the greeting.
+	     A voiced line says nothing that needs a name or a number. Rows: the confirm 2. Host only. -->
+	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
+		<statement id="scEncJoinConfirm" text="scEncJoinConfirm_text">
+			<response_entry id="scEncJoinYes" />
+			<response_entry id="scEncForgetAllied" />
+		</statement>
+
+		<response id="scEncJoinAsk" text="scEncJoinAsk" nextstatementid="scEncJoinConfirm">
+			<requirement type="ScEncJoin, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncJoin, SurvivorCommunity" value="open" />
+		</response>
+		<!-- no next statement: the talk closes; their word comes as a tell after it -->
+		<response id="scEncJoinYes" text="scEncRecruitYes">
+			<requirement type="ScEncJoin, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncJoin, SurvivorCommunity" value="open" />
+			<action type="ScEncJoin, SurvivorCommunity" />
 		</response>
 	</append>
 </configs>

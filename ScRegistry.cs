@@ -66,6 +66,10 @@ namespace SurvivorCommunity
     ///                moved of their own accord, the building they left, their dead then - left out when not known - and the
     ///                building's name; seeded= keeps the mode "moved"), lossday=N (the request-clock day of their last death)
     ///                and nestday=N (the request-clock day an infestation has been next door since), each written when set.
+    ///   E12 (ScEncJoin; a key an older build ignores): [member] arrive=at:enclave:x,y,z:name (one of a whole enclave that joined,
+    ///                still on the way: the world time they may turn up at home from, the group they left - its id and its
+    ///                building's centre - and its name), written only for them, with status=Resident: an older build has a resident
+    ///                with no body (missing; "Call back" brings them). Their id is ScEncJoin.Key until a body is made for them.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -704,6 +708,8 @@ namespace SurvivorCommunity
         {
             if (m != null)
             {
+                // E12: a member written as a resident with arrive= is still on the way (ScEncJoin)
+                if (m.ArriveAt > 0UL && m.Status == MemberStatus.Resident) m.Status = MemberStatus.Arriving;
                 if (m.Id > 0) Members[m.Id] = m; else degraded = true;
                 m = null;
             }
@@ -1004,6 +1010,19 @@ namespace SurvivorCommunity
                     break;
                 }
                 case "watchrest": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) m.WatchRestUntil = u; break; }
+                case "arrive":
+                {
+                    // E12: at : enclave : x,y,z : name (split on the first three colons; the name may hold more); Commit makes them Arriving
+                    string[] f = val.Split(new[] { ':' }, 4);
+                    ulong at;
+                    Vector3i from;
+                    if (f.Length < 3 || !ulong.TryParse(f[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out at) || !TryVec(f[2], out from)) break;
+                    m.ArriveAt = Math.Max(1UL, at);
+                    m.ArriveEnclave = I(f[1]);
+                    m.ArriveFrom = from;
+                    m.ArriveName = f.Length > 3 ? f[3] : "";
+                    break;
+                }
             }
         }
 
@@ -1491,7 +1510,9 @@ namespace SurvivorCommunity
             sb.AppendLine("class=" + Clean(m.Class));
             sb.AppendLine("name=" + Clean(m.Name));
             sb.AppendLine("born=" + m.Born.ToString(CultureInfo.InvariantCulture));
-            sb.AppendLine("status=" + m.Status);
+            // E12: one on the way is written a resident (an older build knows no Arriving: a resident with no body is missing
+            // there, and "Call back" brings them) with arrive= below, which makes them Arriving again here
+            sb.AppendLine("status=" + (m.Status == MemberStatus.Arriving ? MemberStatus.Resident : m.Status));
             sb.AppendLine("post=" + Vec(m.Post));
             sb.AppendLine("join=" + m.JoinDay);
             sb.AppendLine("mood=" + m.Mood);
@@ -1536,6 +1557,9 @@ namespace SurvivorCommunity
             if (m.WatchPost != Vector3i.zero)
                 sb.AppendLine("watch=" + Vec(m.WatchPost) + ":" + m.WatchStart.ToString(CultureInfo.InvariantCulture) + ":" + m.WatchPrepaid + ":" + Vec(m.WatchHome));
             if (m.WatchRestUntil > 0UL) sb.AppendLine("watchrest=" + m.WatchRestUntil.ToString(CultureInfo.InvariantCulture));
+            if (m.Status == MemberStatus.Arriving)
+                sb.AppendLine("arrive=" + Math.Max(1UL, m.ArriveAt).ToString(CultureInfo.InvariantCulture) + ":" + m.ArriveEnclave.ToString(CultureInfo.InvariantCulture) + ":"
+                              + Vec(m.ArriveFrom) + ":" + Clean(m.ArriveName));
         }
 
         private static void OnMain(Action a)

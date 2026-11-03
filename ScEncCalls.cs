@@ -156,8 +156,9 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Whether this call can be made now, and why not: off, no ally, not an ally (force: any group that is not hostile),
-        /// no radio, a call of theirs not over yet, a siege, the cooldown (force ignores it); a fighter also needs nobody of
-        /// theirs with the player, room among the followers and somebody to spare (people met). why is the panel's words.
+        /// no radio, a call of theirs not over yet, a siege, people of theirs on the way to join you (E12), the cooldown (force
+        /// ignores it); a fighter also needs nobody of theirs with the player, room among the followers and somebody to spare
+        /// (people met). why is the panel's words.
         /// </summary>
         public static bool CanCall(Enclave e, string kind, bool force, out string why)
         {
@@ -175,6 +176,8 @@ namespace SurvivorCommunity
                 return false;
             }
             if (UnderSiege(e)) { why = Loc("scEncCallSiege"); return false; }
+            // E12: people of theirs on the way to join you (a whole-group join cut short: the rest stand) - they are packing up
+            if (ScEncJoin.ArrivingFrom(e) > 0) { why = Loc("scEncJoinCallArriving"); return false; }
             int left = DaysLeft(e);
             if (!force && left > 0) { why = string.Format(Loc("scEncCallWait"), left); return false; }
             if (kind == Fighter)

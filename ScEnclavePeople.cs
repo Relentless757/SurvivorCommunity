@@ -123,6 +123,10 @@ namespace SurvivorCommunity
     /// raider's body in the fight as a plain raider (DropPeople, Abandon); an unattended raid that was held costs them a
     /// record (KillRecord) or a place in a group not yet made (Enclave.RaidLost, GroupSize).
     ///
+    /// E12 (ScEncJoin): a whole group joins the player. Every person leaves the records (LeaveEnclave); a body of theirs out
+    /// now either joins with them (EnclaveJoinArrive follow: E3's recruit shape) or walks off toward the player's home as a
+    /// husk (Husk: no person's any more, still vetoed) and goes once nobody sees it. The group then ends (ScEnclaves.Disband).
+    ///
     /// Host only, main thread; the save thread's veto and the faction check read volatile snapshots rebuilt here.
     /// </summary>
     public static class ScEnclavePeople
@@ -1702,6 +1706,18 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// E12: the body of a person who joined the player's community with their whole group and makes their own way there
+        /// (ScEncJoin): no person's body any more (the lookups forget it, Unbody) and the SCEnclave package off, so it walks
+        /// where ScEncJoin steers it; its enclave cvars and the chunk-save veto stay - the stranger rows stay hidden on it, it is
+        /// never saved, and one a crash brings back is swept as an orphan. ScEncJoin removes it once nobody sees it.
+        /// </summary>
+        internal static void Husk(EncPerson p, EntityAlive npc)
+        {
+            if (npc != null && npc.AIPackages != null) npc.AIPackages.Remove(Package);
+            Unbody(p, false);
+        }
+
+        /// <summary>
         /// E10: a person dies in the records only (an unattended raid the outpost held, ScEncRaids): their body, if one is out,
         /// is taken away (no corpse), then Died's rules with the raid's ledger (one line for the raid's losses). how: the log's words.
         /// </summary>
@@ -2012,10 +2028,13 @@ namespace SurvivorCommunity
                 if (p.Raiding) raiding++;
                 if (p.EntityId >= 0) out_++;
             }
-            if (all == 0) return "people not made yet (" + GroupSize(e) + " when a player first comes within " + ScConfig.EnclaveSpawnRange + " m)";
+            // E12: people who left them to join you and are still on the way (a join cut short: the rest stand)
+            int joining = ScEncJoin.ArrivingFrom(e);
+            if (all == 0) return "people not made yet (" + GroupSize(e) + " when a player first comes within " + ScConfig.EnclaveSpawnRange + " m)"
+                                 + (joining > 0 ? ", " + joining + " on the way to join you" : "");
             return (all - dead) + " living" + (dead > 0 ? ", " + dead + " dead" : "") + (e.PeopleRolled ? "" : " (still being made: " + GroupSize(e) + " in all)")
                    + ", led by " + (leader ?? "nobody") + ", " + out_ + " in the world" + (enlisted > 0 ? ", " + enlisted + " with you" : "")
-                   + (raiding > 0 ? ", " + raiding + " out raiding" : "");
+                   + (raiding > 0 ? ", " + raiding + " out raiding" : "") + (joining > 0 ? ", " + joining + " on the way to join you" : "");
         }
 
         /// <summary>sc enclave people &lt;id&gt; (E3: who is enlisted, by whom and until when; the recruit cooldown)</summary>

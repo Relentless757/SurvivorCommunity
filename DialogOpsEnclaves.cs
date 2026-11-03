@@ -5,7 +5,8 @@ using SurvivorCommunity;
 // resolves to the GLOBAL class DialogRequirementScEncRole, so the operators live outside the namespace. They find the
 // person through the NPC the dialog passes (talkingTo: phases get the dialog's CurrentOwner) or else the player's
 // CurrentNPC cvar, then ScEnclavePeople's body lookup - one dictionary hit. Host only: a client keeps no enclave records.
-// E3 adds trade, enlisting and recruiting (ScEnclaveDeals); E7 the leader's gift rows (ScEncGifts, at the end of this file).
+// E3 adds trade, enlisting and recruiting (ScEnclaveDeals); E7 the leader's gift rows (ScEncGifts) and E12 the whole group's
+// join (ScEncJoin), both at the end of this file.
 // A row's greyed text is its FIRST requirement's description
 // (DialogResponse.GetRequiredDescription), and a row's requirements stop at the first that fails (XUiC_DialogResponseEntry):
 // so a row that can grey with a reason lists value="show" (Hide) first, whose description is the reason, then value="open".
@@ -42,7 +43,8 @@ namespace SurvivorCommunity
         /// {until} (when one enlisted goes home) and {recruitcost} (what a recruit costs with the enclave); E4's {reqask},
         /// {reqwait} and {reqreply} (their request: the offer, the wait, the reply to the last answer - ScEncRequests.FillTokens);
         /// E6's {benefit} (what they do for an ally, doing it now or once allied: ScEncAllies.AboutText); E7's {giftreply} (the
-        /// leader's answer to a gift: ScEncGifts.FillReply).
+        /// leader's answer to a gift: ScEncGifts.FillReply); E12's {joinfacts} (how many would join, what they bring and how
+        /// they come: ScEncJoin.FactsText).
         /// A token with no value becomes "". The statement's shared Text is never written; a line of anybody else is returned
         /// as it is. vo2: voiceKey is the key of the request line put in (FillTokens), the name of its voice clip; else null.
         /// </summary>
@@ -61,6 +63,7 @@ namespace SurvivorCommunity
             if (s.IndexOf("{until}", StringComparison.Ordinal) >= 0) s = Token(s, "{until}", ScEnclaveDeals.UntilText(p));
             if (s.IndexOf("{recruitcost}", StringComparison.Ordinal) >= 0) s = Token(s, "{recruitcost}", ScEnclaveDeals.RecruitCostText(e));
             if (s.IndexOf("{benefit}", StringComparison.Ordinal) >= 0) s = Token(s, "{benefit}", ScEncAllies.AboutText(e));     // E6: what they do for an ally
+            if (s.IndexOf("{joinfacts}", StringComparison.Ordinal) >= 0) s = Token(s, "{joinfacts}", ScEncJoin.FactsText(e));   // E12: who comes, what they bring
             s = Token(s, "{enc}", e.Name);
             s = Token(s, "{leader}", leader != null ? leader.Name : "");
             s = Token(s, "{count}", s.IndexOf("{count}", StringComparison.Ordinal) >= 0 ? ScEnclavePeople.Living(e).Count.ToString() : "");
@@ -415,5 +418,69 @@ public class DialogActionScEncGift : BaseDialogAction
             if (int.TryParse((Value ?? "").Trim(), out i)) ScEncGifts.ActGive(player, i);
         }
         catch (Exception e) { ScLog.Once("act-encgift", e); }
+    }
+}
+
+// ---------------------------------------------------------------- E12: the whole group joins (ScEncJoin) ----
+
+/// <summary>
+/// E12, "Would your people join ours?": value="show" - the leader at home of an Allied group at EnclaveJoinStanding or more,
+/// with room in the community for all of them (ScEncJoin.Shown: never offered otherwise; put it first: its description is
+/// the greyed row's words, "Would your people join ours? (Not while Mara is out with you)"); value="open" - they can come now
+/// (nobody of theirs away, no request or radio call of theirs open, their group made, a home: ScEncJoin.Blocked). Host only.
+/// </summary>
+public class DialogRequirementScEncJoin : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            Enclave e;
+            EnclaveRequest r;
+            if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r)) return false;
+            string v = (Value ?? "").Trim().ToLowerInvariant();
+            if (v == "show") return ScEncJoin.Shown(e);
+            if (v == "open") return ScEncJoin.Blocked(e, player) == null;
+            return false;
+        }
+        catch (Exception e) { ScLog.Once("req-encjoin", e); return false; }
+    }
+
+    private string why = "";
+    private int whyEnc = -1;
+    private float whyAt = -10f;
+
+    public override string GetRequiredDescription(EntityPlayer player)
+    {
+        try
+        {
+            Enclave e;
+            EnclaveRequest r;
+            if (!ScEncRequests.LeaderTalking(player, null, out e, out r)) return "";
+            // the response binding asks every frame while the row shows greyed: worked out again at most twice a second, or for
+            // another enclave (a walk over the people and the members)
+            float t = UnityEngine.Time.unscaledTime;
+            if (e.Id == whyEnc && t - whyAt < 0.5f) return why;
+            whyEnc = e.Id;
+            whyAt = t;
+            why = ScEncJoin.WhyText(e, player);
+            return why;
+        }
+        catch (Exception e) { ScLog.Once("req-encjoin-why", e); return ""; }
+    }
+}
+
+/// <summary>E12, "Welcome to the community.": the whole group joins, everything checked again (ScEncJoin.Join); the reason when not. Host only.</summary>
+public class DialogActionScEncJoin : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try
+        {
+            if (!ScCommunity.IsHost) return;
+            string reason;
+            if (!ScEncJoin.Join(player as EntityPlayerLocal, ScFavours.CurrentNpc(player), out reason)) ScCommunity.Tell(player, reason, "ui_denied");
+        }
+        catch (Exception e) { ScLog.Once("act-encjoin", e); }
     }
 }

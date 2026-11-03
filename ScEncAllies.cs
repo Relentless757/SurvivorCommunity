@@ -468,7 +468,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// ScEnclaves.Fallen, after Fall's save (any cause: wiped out, a siege lost). A Friendly or Allied group lost costs
         /// EnclaveLostMorale (the Enclave lost part, fading a point a day) - an ally's benefit goes with them (a tell; the
-        /// ledger line when it had one) - and a new group is owed EnclaveRefillDays later on the request clock (Q4 a). Saves.
+        /// ledger line when it had one) - and a new group is owed EnclaveRefillDays later on the request clock (Q4 a). E12: a
+        /// group that joined the player whole (ScEnclaves.CauseJoined, Disband) costs no morale - they are the player's people
+        /// now - and the join tells; an ally's benefit still ends (the ledger line), and the refill is still owed. Saves.
         /// </summary>
         public static void OnFallen(Enclave e, string cause)
         {
@@ -477,7 +479,9 @@ namespace SurvivorCommunity
                 if (e == null || !ScRegistry.Loaded) return;
                 Community c = ScRegistry.Community;
                 string band = ScEnclaves.StandingKey(e);
-                int loss = band == "friendly" || band == "allied" ? Math.Max(0, ScConfig.EnclaveLostMorale) : 0;
+                bool joined = cause == ScEnclaves.CauseJoined;
+                int loss = !joined && (band == "friendly" || band == "allied") ? Math.Max(0, ScConfig.EnclaveLostMorale) : 0;
+                if (joined && band == "allied" && e.Benefit.Length > 0) ScOutposts.NoteLedger(string.Format(Loc("scEncAllyLedgerLost"), e.Name, Name(e.Benefit)));
                 if (loss > 0)
                 {
                     c.EnclaveLoss = Math.Min(MaxLoss, c.EnclaveLoss + loss);
@@ -490,8 +494,8 @@ namespace SurvivorCommunity
                 }
                 int day = ScEncRequests.Now + Math.Max(0, ScConfig.EnclaveRefillDays);
                 c.EncRefills.Add(new EncRefill { Day = day, Poi = e.Poi, Name = e.Name });
-                ScLog.Out("enclave " + e.Id + " '" + e.Name + "' lost (" + cause + ", " + band + ")"
-                          + (loss > 0 ? ": morale -" + loss + " (the Enclave lost part now -" + F(c.EnclaveLoss) + ")" : "")
+                ScLog.Out("enclave " + e.Id + " '" + e.Name + "' " + (joined ? "gone" : "lost") + " (" + cause + ", " + band + ")"
+                          + (loss > 0 ? ": morale -" + loss + " (the Enclave lost part now -" + F(c.EnclaveLoss) + ")" : joined ? ": no morale lost" : "")
                           + "; a new group moves in from day " + day + " on the request clock (" + c.EncRefills.Count + " refill(s) owed)");
                 ScRegistry.SaveAtomic();
             }

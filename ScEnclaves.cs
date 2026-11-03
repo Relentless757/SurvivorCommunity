@@ -181,6 +181,8 @@ namespace SurvivorCommunity
         private const string Salt = "sc.enclaves.v1";
         /// <summary>E6: the seeding mode (and Enclave.Mode) of a new group that moved in after a lost one (Refill).</summary>
         public const string RefillMode = "refill";
+        /// <summary>E12: the cause Disband gives Fallen for a group that joined the player's community whole (ScEncJoin).</summary>
+        public const string CauseJoined = "joined";
         /// <summary>Prefab or POI-name words that make a likely raider den (the hostile ranking): a word of the name that starts with one.</summary>
         private static readonly string[] HostileWords = { "army", "military", "prison", "police", "fort", "junk", "scrap", "industrial", "factory", "camp" };
         private static readonly string[] DirKeys = { "scDirN", "scDirNE", "scDirE", "scDirSE", "scDirS", "scDirSW", "scDirW", "scDirNW" };
@@ -188,8 +190,8 @@ namespace SurvivorCommunity
         public static readonly string[] Kinds = { "growers", "medics", "militia", "builders", "roadcrew", "general" };
 
         /// <summary>
-        /// E6's seam: an enclave fell (Fall: wiped out, or E5's lost siege) - its record is gone and its POI free again. The
-        /// refill of lost enclaves hooks in here. Main thread, after the save.
+        /// E6's seam: an enclave fell (Fall: wiped out, or E5's lost siege; E12's Disband: it joined the player, CauseJoined) -
+        /// its record is gone and its POI free again. The refill of lost enclaves hooks in here. Main thread, after the save.
         /// </summary>
         public static event Action<Enclave, string> Fallen;
 
@@ -1389,7 +1391,8 @@ namespace SurvivorCommunity
         /// world's. E7's next gift and next ally barter days are the request clock's. E9's next radio call is the request
         /// clock's, a call's arrival and its fighter's end the world's (as E3's enlistments). E10's raid rest is the request
         /// clock's. E11's move stamps (the day they last moved, their last death, an infestation next door since) are the
-        /// request clock's. One log line; the ticker saves.
+        /// request clock's. E12's arrivals (when a member on the way may turn up at home) are the world's. One log line; the
+        /// ticker saves.
         /// </summary>
         public static void OnWorldDayBack(int day, int fromDay)
         {
@@ -1417,12 +1420,14 @@ namespace SurvivorCommunity
                 int calls = ScEncCalls.ShiftDays(reqBack, worldBack);     // E9: the next radio call (request clock); a call's arrival and its fighter's end (world)
                 int raids = ScEncRaids.ShiftDays(reqBack);                 // E10: a raiding group's rest (request clock)
                 int moves = ScEncMoves.ShiftDays(reqBack);                 // E11: the last move, the last death, a nest next door since (request clock)
+                int arrivals = ScEncJoin.ShiftDays(worldBack);             // E12: members on the way, when they may turn up at home (world clock)
                 ScLog.Out("enclaves: the world's day went back from " + fromDay + " to " + day + " - the request clock, " + requests + " open request(s), "
                           + allies + " refill/ally-reveal stamp(s), " + gifts + " gift/barter stamp(s) moved back " + reqBack + " day(s); " + stamps
                           + " world-clock stamp(s) (radio reveal, recruit cooldowns, "
                           + "enlistments, the siege call) and " + infest + " infestation(s) moved back " + worldBack + " day(s); " + calls
                           + " radio-call stamp(s) moved back (the next call " + reqBack + " day(s), an arrival or a fighter's end " + worldBack + " day(s)); "
-                          + raids + " raid rest stamp(s) moved back " + reqBack + " day(s); " + moves + " move stamp(s) moved back " + reqBack + " day(s)");
+                          + raids + " raid rest stamp(s) moved back " + reqBack + " day(s); " + moves + " move stamp(s) moved back " + reqBack + " day(s); "
+                          + arrivals + " arrival stamp(s) moved back " + worldBack + " day(s)");
             }
             catch (Exception ex)
             {
@@ -1576,6 +1581,36 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// E12: a group that joined the player's community whole (ScEncJoin; its people have left the records already) ends as
+        /// Fall ends a group, without Fall's tell and ledger line (the join has its own) and without a siege (none may be open):
+        /// an open request withdrawn, the hold, lookups and favours dropped (DropPeople), the marker off, the building given back
+        /// - its sleeper areas respawn after the loot respawn wait, and claims, outposts and infestations are allowed there
+        /// again once the lookups rebuild - the log, a save, then the Fallen seam with the cause (CauseJoined: E6 owes a refill,
+        /// with no Enclave-lost morale). Returns the sleeper areas given back.
+        /// </summary>
+        public static int Disband(Enclave e, string cause)
+        {
+            if (e == null || !All.Contains(e)) return 0;
+            World w = ScCommunity.World;
+            ScEncRequests.Withdraw(e, "the group is gone (" + cause + ")");
+            ScEnclavePeople.DropPeople(e);
+            RemoveMarker(e);
+            int released = Release(PoiOf(e), w);
+            All.Remove(e);
+            Rebuild();
+            ScLog.Out("enclave " + e.Id + " '" + e.Name + "' at " + e.PoiName + " is gone (" + cause + ")"
+                      + (released > 0 ? " - " + released + " sleeper area(s) respawn after the loot respawn wait" : ""));
+            ScRegistry.SaveAtomic();
+            Action<Enclave, string> fallen = Fallen;
+            if (fallen != null)
+            {
+                try { fallen(e, cause); }
+                catch (Exception ex) { ScLog.Once("enclave-fallen", ex); }
+            }
+            return released;
+        }
+
         // ------------------------------------------------------------------ console ----
 
         private static string Line(Enclave e, Vector3? from)
@@ -1613,6 +1648,7 @@ namespace SurvivorCommunity
             into.Add("  " + ScEncCalls.InfoLine(e));        // E9: the radio calls, the call that is on
             into.Add("  " + ScEncRaids.InfoLine(e));        // E10: their raids on your outposts, the one that is on
             into.Add("  " + ScEncMoves.InfoLine(e));        // E11: why they might move, what holds them, where they came from
+            into.Add("  " + ScEncJoin.InfoLine(e));         // E12: whether the whole group would join you, and why not
             into.Add("  POI " + e.PoiName + " (" + e.Prefab + "), T" + e.Tier + ", row " + (e.Row.Length > 0 ? e.Row : "-") + ", biome " + e.Biome
                      + ", key " + e.Poi + ", footprint x " + b[0] + ".." + b[1] + " z " + b[2] + ".." + b[3] + " (" + e.Size.x + "x" + e.Size.z + ")"
                      + ", centre " + Mathf.RoundToInt(cen.x) + "," + Mathf.RoundToInt(cen.z) + (pl != null ? ", " + Where(pl.position, cen) + " from you" : ""));

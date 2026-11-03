@@ -693,6 +693,16 @@ namespace SurvivorCommunity
         public static bool EnclaveMoves = true;
         public static float EnclaveMoveChance = 0.2f, EnclaveMoveLostShare = 0.5f;
         public static int EnclaveMoveWaitDays = 2, EnclaveMoveInfestRange = 300, EnclaveMoveInfestDays = 3, EnclaveMoveMin = 300, EnclaveMoveMax = 1500;
+        // ---- whole-enclave join (E12: ScEncJoin; research\ideas\DESIGN.md section 9, Q10) ----
+        /// <summary>
+        /// Whole-enclave join (EnclaveJoin, with Enclaves): an Allied leader at EnclaveJoinStanding standing or more offers their
+        /// whole group when the community has room for all of them (MaxMembers). Each person brings EnclaveJoinBundles units of
+        /// the group's resource to the stockpile. EnclaveJoinArrive "own": they make their own way and turn up at home from
+        /// EnclaveJoinArriveHours game hours later, while the player is there; "follow": they follow the player home.
+        /// </summary>
+        public static bool EnclaveJoin = true;
+        public static int EnclaveJoinStanding = 90, EnclaveJoinBundles = 2, EnclaveJoinArriveHours = 6;
+        public static string EnclaveJoinArrive = "own";
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1258,6 +1268,7 @@ namespace SurvivorCommunity
             EnclaveRaids = true; EnclaveRaidRange = 2000; EnclaveRaidChance = 0.04f; EnclaveRaidTurnedFactor = 0.5f; EnclaveRaidPartyMax = 4; EnclaveRaidRestDays = 3; EnclaveRaidLossHeld = 1;
             EnclaveMoves = true; EnclaveMoveChance = 0.2f; EnclaveMoveLostShare = 0.5f; EnclaveMoveWaitDays = 2; EnclaveMoveInfestRange = 300; EnclaveMoveInfestDays = 3;
             EnclaveMoveMin = 300; EnclaveMoveMax = 1500;
+            EnclaveJoin = true; EnclaveJoinStanding = 90; EnclaveJoinBundles = 2; EnclaveJoinArriveHours = 6; EnclaveJoinArrive = "own";
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1992,6 +2003,20 @@ namespace SurvivorCommunity
                 ParseInt(p, "EnclaveMoveMin", ref EnclaveMoveMin, 0, 20000);
                 ParseInt(p, "EnclaveMoveMax", ref EnclaveMoveMax, 50, 20000);
                 if (EnclaveMoveMax < EnclaveMoveMin) EnclaveMoveMax = EnclaveMoveMin;
+                // whole-enclave join (E12)
+                bool join = EnclaveJoin;
+                if (p.Values.ContainsKey("EnclaveJoin")) p.ParseBool("EnclaveJoin", ref join);
+                EnclaveJoin = join;
+                ParseInt(p, "EnclaveJoinStanding", ref EnclaveJoinStanding, 70, 100);
+                ParseInt(p, "EnclaveJoinBundles", ref EnclaveJoinBundles, 0, 20);
+                ParseInt(p, "EnclaveJoinArriveHours", ref EnclaveJoinArriveHours, 0, 240);
+                string arrive;
+                if (p.Values.TryGetValue("EnclaveJoinArrive", out arrive) && !string.IsNullOrEmpty(arrive))
+                {
+                    arrive = arrive.Trim().ToLowerInvariant();
+                    if (arrive == "own" || arrive == "follow") EnclaveJoinArrive = arrive;
+                    else ScLog.Warn("config: EnclaveJoinArrive '" + arrive + "' is not own or follow - using " + EnclaveJoinArrive);
+                }
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -2377,6 +2402,8 @@ namespace SurvivorCommunity
                           + " enclaveMoves=" + (Enclaves && EnclaveMoves ? F2(EnclaveMoveChance) + "/day once lost " + F2(EnclaveMoveLostShare) + " (" + EnclaveMoveWaitDays
                                                 + "d after) or a nest within " + EnclaveMoveInfestRange + "m for " + EnclaveMoveInfestDays + "d, to " + EnclaveMoveMin + "-"
                                                 + EnclaveMoveMax + "m" : "off")
+                          + " enclaveJoin=" + (Enclaves && EnclaveJoin ? "allied " + EnclaveJoinStanding + "+, " + EnclaveJoinBundles + " unit(s) each, "
+                                               + (EnclaveJoinArrive == "follow" ? "follow" : "own way after " + EnclaveJoinArriveHours + "h") : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange

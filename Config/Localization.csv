@@ -1357,6 +1357,32 @@ scEncMoveTold,UI,Tooltip,,,,"They have left {0} for {1}, {2}."
 scEncMoveLeft,UI,Tooltip,,,,{0} have left {1} - nobody knows where they went.
 scEncMoveLedger,UI,Tooltip,,,,{0} moved from {1} to {2}
 scEncMoveLedgerLeft,UI,Tooltip,,,,{0} left {1}
+scEncJoinAsk,Dialog,Response,,,,Would your people join ours?
+scEncJoinConfirm_text,Dialog,Statement,,,,"All of us? We've talked about it more than once. If you'll have us, we're yours, and we'll bring what we have. {joinfacts}"
+scEncJoinFactsOwn,UI,Tooltip,,,,"{0} of them, bringing {1}. They make their own way to your home."
+scEncJoinFactsFollow,UI,Tooltip,,,,"{0} of them, bringing {1}. They follow you home."
+scEncJoinBringsNothing,UI,Tooltip,,,,only what they carry
+scEncJoinWhy,UI,Tooltip,,,,{0} ({1})
+scEncJoinWhyWithYou,UI,Tooltip,,,,Not while {0} is out with you
+scEncJoinWhyMissing,UI,Tooltip,,,,Not while {0} is missing
+scEncJoinWhyAway,UI,Tooltip,,,,Not while {0} is away
+scEncJoinWhyAnswer,UI,Tooltip,,,,Not while you owe them an answer
+scEncJoinWhyRequest,UI,Tooltip,,,,Not while they wait on your help
+scEncJoinWhyCall,UI,Tooltip,,,,Not while their radio call is on
+scEncJoinWhyHome,UI,Tooltip,,,,Not until you have a home for them
+scEncJoinSaid,UI,Tooltip,,,,Then it's settled. We'll pack what we can carry and make our own way to you.
+scEncJoinSaidFollow,UI,Tooltip,,,,Then it's settled. Lead the way - we're right behind you.
+scEncJoinTold,UI,Tooltip,,,,"{0} joined your community: {1} people, bringing {2}."
+scEncJoinBuilding,UI,Tooltip,,,,Their building is empty: claim it for an outpost before the dead return ({0} days).
+scEncJoinBuildingFree,UI,Tooltip,,,,Their building is empty: claim it for an outpost.
+scEncJoinLedger,UI,Tooltip,,,,{0} joined you: {1} people
+scEncJoinArrived,UI,Tooltip,,,,{0} has arrived from {1} and is settling in.
+scEncJoinLedgerArrived,UI,Tooltip,,,,the last of {0} arrived
+scEncJoinOnTheWay,UI,Tooltip,,,,Still on the way - they turn up when you're next home.
+scEncJoinCallArriving,UI,Tooltip,,,,Their people are on the way to you
+scStArriving,UI,Menu,,,,On the way
+scStArrivingFrom,UI,Menu,,,,On the way from {0}
+scStatusArriving,UI,Menu,,,,on the way to you
 scQgRoleProspect,UI,Menu,,,,Survivor
 scQgRoleMember,UI,Menu,,,,Community survivor
 scQgRoleLeader,UI,Menu,,,,Leader of {0}

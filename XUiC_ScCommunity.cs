@@ -983,6 +983,14 @@ namespace SurvivorCommunity
             if (m == null || p == null) return;
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
+            if (m.Status == MemberStatus.Arriving)
+            {
+                // E12: still on the way (ScEncJoin) - no orders until they turn up at home
+                message = Localization.Get("scEncJoinOnTheWay");
+                p.PlayOneShot("ui_denied");
+                RefreshBindingsSelfAndChildren();
+                return;
+            }
             if (ScMissing.IsMissing(m))
             {
                 // the body is gone from the world: respawn them at their post from their record
@@ -1029,7 +1037,8 @@ namespace SurvivorCommunity
             if (m == null || p == null) return;
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             string err;
-            if (npc == null) err = "scNotLoaded";
+            if (m.Status == MemberStatus.Arriving) err = "scEncJoinOnTheWay";      // E12: still on the way
+            else if (npc == null) err = "scNotLoaded";
             else if (ScCommunity.ReturnHome(m, npc, p, out err)) message = string.Format(Localization.Get("scStationed"), m.Name);
             if (err != null) { message = Localization.Get(err); p.PlayOneShot("ui_denied"); }
             Refresh();
@@ -1295,8 +1304,10 @@ namespace SurvivorCommunity
                         ? Localization.Get("scWinHome") : Localization.Get("scWinFollow");
                     return true;
                 case "followcolor":
-                    _value = sel != null && sel.Status == MemberStatus.OnRun
-                             && !(ScRunners.IsPhysical(sel) && (sel.RunLeg == RunLeg.Outbound || (sel.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(sel))))
+                    // greyed: a runner that can't be called back, one still on the way (E12)
+                    _value = sel != null && ((sel.Status == MemberStatus.OnRun
+                             && !(ScRunners.IsPhysical(sel) && (sel.RunLeg == RunLeg.Outbound || (sel.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(sel)))))
+                             || sel.Status == MemberStatus.Arriving)
                         ? "70,70,70,255" : "50,80,120,255";
                     return true;
                 case "homevisible":
@@ -1485,13 +1496,17 @@ namespace SurvivorCommunity
             return !string.IsNullOrEmpty(trait) && traitIcons.TryGetValue(trait, out s) ? s : "ui_game_symbol_perk";   // the trait buffs' own icon
         }
 
-        /// <summary>"At base", "Following", "Following (holding)", "Heading home", "Supply run - back day 14" (row: "Supply run - day 14"), "+ Injured".</summary>
+        /// <summary>
+        /// "At base", "Following", "Following (holding)", "Heading home", "Supply run - back day 14" (row: "Supply run - day 14"),
+        /// "On the way from The Holdouts" (row: "On the way"; E12), "+ Injured".
+        /// </summary>
         public static string StatusText(Member m, bool brief)
         {
             if (m == null) return "";
             string s;
             switch (m.Status)
             {
+                case MemberStatus.Arriving: s = ScEncJoin.StatusText(m, brief); break;     // E12: a whole enclave's, still on the way
                 case MemberStatus.Following: s = Localization.Get("scStFollowing"); break;
                 case MemberStatus.PendingStation: s = Localization.Get("scStHeadingHome"); break;
                 case MemberStatus.OnRun: s = ScRuns.ShortStatus(m, brief); break;
@@ -1579,6 +1594,7 @@ namespace SurvivorCommunity
                 case MemberStatus.PendingStation: return selected ? "110,150,200,255" : "80,110,150,255";
                 case MemberStatus.OnRun: return selected ? "150,150,150,255" : "100,100,100,255";
                 case MemberStatus.Garrison: return selected ? "180,150,100,255" : "130,105,70,255";
+                case MemberStatus.Arriving: return selected ? "160,150,120,255" : "115,105,80,255";     // E12: on the way
                 default: return selected ? "120,180,120,255" : "85,130,85,255";
             }
         }

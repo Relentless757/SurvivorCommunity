@@ -1641,3 +1641,176 @@ TESTING steps changed: 208 (the deadline with them in view), 220 (a group with n
 (points to 229), 229 (a death on the day of the move), 230 (no ally word on the day they moved), 236
 (`moved=R:x,y,z:K:<Old>`, the older line). Build after the fixes: SC 3.4 `2af1b31275e44fa78a0908cecc26da79`
 (`build\e11fix`), 0 errors (the two old CS0108 warnings). Not installed.
+
+### Round 17: a whole enclave joins (E12) (2026-11-03, built, not reviewed, not installed)
+
+`research\ideas\DESIGN.md` section 9 (idea 8) and section 1 (rules), with the user's decision Q10 (as recommended, plus one
+rule): they make their own way and turn up at home when you're next there; the gate is Allied, standing 90 and room for
+everyone - **when the community has no room for all of them the option is not offered at all**; a refill is still owed and
+there is no Enclave-lost morale. Branch `ms/e12` from E11's `bef80a8`. **3.4 only**: only the 3.4 DLL was built; the
+tracked 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34`. Single player only, as SC.
+
+- **`ScEncJoin.cs` (new).** No Harmony patch; driven from the dialog, `ScTicker` (after `ScMissing.Tick`) and the console.
+  - The switch: `Configured` = `Enclaves && EnclaveJoin`. Arrivals go on with it off (nobody is stranded on the way).
+  - **Offered** (`HiddenWhy` null; the dialog's `show`): not hostile, not lost, `StandingKey` allied and `Standing >=
+    EnclaveJoinStanding`, and **room**: `Coming(e) <= RoomLeft()` - the living (plus, a group still being made, its places
+    not made yet) against `MaxMembers - Members.Count` (members on the way count). Otherwise the row is not there; the
+    console names why (`they are not Allied (Friendly, standing 45)`, `standing 75 is below 90`, `your community has room
+    for 3 more, they are 5 (MaxMembers 12)`).
+  - **Greyed** (`Blocked`; the dialog's `open`, its words `WhyText`: `Would your people join ours? (Not while Mara is out
+    with you)`), in this order: one of theirs enlisted (E3, E9's fighter: `Not while {0} is out with you`), missing (E5:
+    `Not while {0} is missing`) or raiding (E10: `Not while {0} is away`); a request of theirs (offered: `Not while you owe
+    them an answer`; accepted, a siege too: `Not while they wait on your help`); a radio call of theirs on (E9: `Not while
+    their radio call is on`); the group still being made (E3's `Their group is still settling in`); no home (`Not until you
+    have a home for them`).
+  - The confirm (`scEncJoinConfirm`, `{joinfacts}` = `FactsText`): `All of us? We've talked about it more than once. If
+    you'll have us, we're yours, and we'll bring what we have. 5 of them, bringing 10 food. They make their own way to your
+    home.` (`... They follow you home.` with `follow`).
+  - **`Join`** (`DialogActionScEncJoin`): the leader at home, every gate again, then **`JoinNow`**: with `EnclaveJoinArrive`
+    `follow`, `ScEnclavePeople.SpawnAll` first (needs their building's chunks settled). Each living person, in a try/catch:
+    their favour closed (`ScQuests.CloseFavour`, completed if done), then
+    - `follow` with a body: E3's recruit shape (`JoinFollowing`: the body's id and birth, pair, rounds, ranged;
+      `LeaveEnclave`; `ScCommunity.Admit(..., tell: false)` - following until home); a failed `Admit` leaves them a
+      stranger, as the recruit's does;
+    - otherwise (`own`, or no body to follow with) **`JoinArriving`**: their own record becomes a member on the way -
+      `MemberStatus.Arriving`, keyed `Key(p)` = `int.MaxValue - p.Id`, `Born` 0, the community's mood, `JoinDay` today,
+      `ArriveAt` = now + `EnclaveJoinArriveHours` x 1000 ticks, `ArriveEnclave`, `ArriveFrom` (their building's centre),
+      `ArriveName`; a post chosen now (`ChoosePost`; Station checks it again on arrival); a body out gives its pair and rounds
+      first and becomes a **husk** (`ScEnclavePeople.Husk`); then they leave the records (`LeaveEnclave(p, null)`).
+    The leader's body gives up the group's trade stock (`DropStock`: following, the class's own trader - 3.4's 64 - with an
+    empty stock; a husk, no trader, so X9's trade half refuses "trade").
+    Then the stockpile: `EnclaveJoinBundles` units a person of their kind's resource (`ScEncRequests.OwnResource`; a
+    general group's split across the classic five in turn). With nobody left, **`ScEnclaves.Disband(e, CauseJoined)`**.
+    One tell - `<Leader>: "Then it's settled. We'll pack what we can carry and make our own way to you." The Holdouts joined
+    your community: 5 people, bringing 10 food. Their building is empty: claim it for an outpost before the dead return (7
+    days).` (`LootRespawnDays`; off: `... claim it for an outpost.`; follow: `"Then it's settled. Lead the way - we're right
+    behind you."`), the ledger `The Holdouts joined you: 5 people`, one log line, a save. A person whose join throws stays,
+    and the group stands with whoever is left.
+  - **Husks** (session only): a body of someone who makes their own way walks toward the player's home in E3's 40 m steps
+    (`ScEnclaveDeals.StepToward`, now internal; the Guard order at each point, again when reached or after 15 s) and is
+    removed (`ScEnclavePeople.RemoveStray`) the first second nobody sees it (`SeenByAny`). It is no person's body, keeps the
+    enclave cvars (the stranger rows stay hidden) and the chunk-save veto (never saved; a crash's copy is an orphan).
+  - **The arrival** (`Tick`, 1 Hz): with the player inside the zone and `HomeLoaded`, the member on the way due first
+    (`ArriveAt` reached; the one made first among equals) is made at a spot (`ArriveSpot`): up to 8 lines a second from the
+    claim within 35 degrees of their old building (any side after 60 s of searching), each to the zone's edge (one block in,
+    at most 30 m from the claim: Station moves a body more than 40 m from its post, so they walk); `ScRunners.GroundSpot`,
+    in the zone, `ScRunners.Settled`, not `SeenByAny`. `ScSpawn.Body` (class, look, pair, rounds, name) facing the claim,
+    `Rekey` (the key to the body's id; the threat id follows; nothing doomed: no body ever had the key), ScMissing.Restore's
+    shape (StaticSpawner, Persist, cvars, traits, AI package), `ScCommunity.Station`. The tell `Mara has arrived from The
+    Holdouts and is settling in.`, the last of a group the ledger `the last of The Holdouts arrived`, the log, a save. A
+    member whose class is gone can't turn up (logged once a session, listed by `sc enclave arrivals`).
+- **A member on the way** is a member - they eat, need a bed and count for morale and the roster - but has no body:
+  - `ScTicker.Relink` and `ScDaily.Run`'s missing count skip them; `ScCommunity.FindNpc` returns null for them;
+    `ScMissing` (residents only), `ScNoise`'s resident count, the base-defence and siege resident counts, runs, postings and
+    watches (all `== Resident`) and specialty work (`IsHome`) leave them out by their status;
+  - `ScMorale.Daily` never picks them to threaten to leave; `ScMissing.Restore` refuses them (`Still on the way - they turn
+    up when you're next home.`); `ScCommunity.Leave` queues no cleanup for their key;
+  - the community window: `On the way` (row), `On the way from The Holdouts` (detail; `ScEncJoin.StatusText`), a brownish
+    row, greyed Follow; Follow and Home say `Still on the way - ...`; Leave still works. `ScMorale.StatusText`: `on the
+    way to you`.
+  - The away-state gates of the earlier milestones know them (a group stands with people on the way only after a join cut
+    short): E11 `ScEncMoves.WhyHeld` `N who left them to join you are still on the way`; E9 `ScEncCalls.CanCall` `Their
+    people are on the way to you`; E10 `ScEncRaids.WhyNot` as E11; `ScEnclavePeople.Summary` `, N on the way to join you`.
+- **`ScEnclaves`.** `CauseJoined`; `Disband(e, cause)` - Fall without its tell, ledger and siege handling: the request
+  withdrawn, `DropPeople`, the marker off, `Release` (sleeper areas respawn after the loot respawn wait), out of the
+  lookups, the log, a save, `Fallen`. `OnWorldDayBack` calls `ScEncJoin.ShiftDays(worldBack)` (the world's clock, as E3's
+  enlistments: never to 0); its log line gains `; N arrival stamp(s) moved back D day(s)` at the end. `InfoLines` a join line.
+- **`ScEncAllies.OnFallen`**: with `CauseJoined` no Enclave-lost morale and no "losing ... hits everyone hard" tell; an
+  ally's benefit ledger line (`<name>: <Benefit> stopped`); the refill still owed. Its log reads `gone (joined, allied): no
+  morale lost; ...`.
+- **`ScEnclavePeople`**: `Husk` (Unbody, the SCEnclave package off); `Summary` counts people on the way.
+- **`ScCommunity.Admit`** gains `tell = true` (false: no per-person "joined" tooltip).
+- **Records and save** (a key an older build ignores): `[member] arrive=at:enclave:x,y,z:name`, only for a member on the
+  way, whose `status=` is written `Resident`; `Commit` makes a resident with `arrive=` Arriving again. An older build sees a
+  resident with no body under a key no entity has: missing once their post is loaded, and "Call back" respawns them (their
+  post was chosen at the join for that).
+- **Config** (`Config/blocks.xml`, commented; `ScConfig`; the `config:` line gains `enclaveJoin=`): `EnclaveJoin` true,
+  `EnclaveJoinStanding` 90 (70-100), `EnclaveJoinBundles` 2 (0-20), `EnclaveJoinArrive` own (own|follow; anything else
+  warns), `EnclaveJoinArriveHours` 6 (0-240).
+- **Dialog** (`Config/dialogs.xml`): `scEncJoinAsk` in the Allied leader greeting (9 entries, 7 on screen), the confirm
+  `scEncJoinConfirm` (`scEncJoinYes` - the text `scEncRecruitYes`, "Welcome to the community." - and E2's
+  `scEncForgetAllied`); `DialogRequirementScEncJoin` (`show` / `open`, the reason cached twice a second as E7's) and
+  `DialogActionScEncJoin`; `ScEncDialog.Fill`'s `{joinfacts}`.
+- **Console:** `sc enclave join <id> [sim|now [force]]` (`ScEncJoin.Command`: the line; sim - the row as shown, who would
+  come and whose body is out, what they'd bring and how; now - the join, every gate kept, `force` skipping only Allied and
+  the standing); `sc enclave arrivals [now]` (everyone on the way and when; now - all due at once); `sc enclave info` a
+  `join:` line; `sc status` `, on the way N`; `sc members` their arrival text.
+- **Lines.** The confirm (`scEncJoinConfirm`: its spoken part in `Tools/voice_lines.py`'s `SPOKEN`, `{joinfacts}` shown
+  only) and the leader's two answers (`scEncJoinSaid`, `scEncJoinSaidFollow`, in `RUNTIME_FIXED`, shown as a tell through
+  E9's `scEncCallSays`) have no name or number in them: 166 dialog lines (163 before), no problems; the list does not feed
+  `ScVoiceLines.cs` (no `gencs`; `check` says in step). Nothing in `ScVoice.cs` or `Patches_VoiceControl.cs` was touched.
+- **UI.** No window layout changed, no generator run, nothing for AshfallUI (it reads SC's bindings).
+- **Harmony targets: none new.**
+
+**The rule** (asked for: "the rule as built"). The Allied leader offers it only at standing 90+ with room for all of them
+under `MaxMembers`; it is greyed while one of theirs is away, a request or radio call of theirs is open, their group is
+still being made, or there is no home. On "Welcome to the community." every living person joins (the leader too) and the
+group ends (refill owed, no morale lost, the building free). With `own` each is on the way - a member without a body,
+due `EnclaveJoinArriveHours` later - and turns up at home only while the player is there and the zone is loaded, one a
+second, out of sight at the zone's edge facing the old building; nothing ends the wait but the arrival (or dismissing them
+from the window); a reload keeps it (`arrive=`), a world day set back shifts it.
+
+Where the design was wrong or short, and the code followed SC or the user:
+1. **Allied, 90 and the room hide the row instead of greying it** (the user's rule for the room, the caller's for all
+   three); the design's "Needs Allied, standing 90" and "Your community has room for 3 more, they're 5" became console
+   words (`HiddenWhy`). The other reasons still grey it.
+2. **"Room" is `MaxMembers`, not beds.** The plan's Q10 says "beds for everyone", but beds in SC are only a morale term
+   (`ScMorale`: a deficit costs morale; `ScCommunity.CanRecruit` never reads them); the roster's one hard limit is
+   `MaxMembers` (`scRosterFull`), which the design's formula used. Members on the way count; a group still being made counts
+   its places not made yet.
+3. **"Arriving" is a member status (`MemberStatus.Arriving`), not an `ArriveAt` on a resident.** Every `== Resident` gate
+   (runs, postings, watches, ScMissing, the defence, siege and noise counts) leaves them out by construction, which the
+   design's list (`ScMissing`, the missing count, `ScNoise`, the window) did not cover; Relink, FindNpc, the missing count,
+   the threat pick, Restore and Leave needed a line each. It is saved as a resident plus `arrive=` (E10's "raiding is
+   written home" idea) so an older build degrades to a missing resident.
+4. **The key.** The design kept the old body's id until the arrival; a person may have no body out at the join, and an
+   entity id can come back after a crash, when Relink would drop a member whose id a stranger holds. A member on the way is
+   keyed `int.MaxValue - person id` (E3's `ParkedKey` idea) with or without a body, and their old body is a husk, never the
+   member's.
+5. **The walk off.** "Despawn the body once nobody sees it (it walks off first, `StartWalkHome`'s steering toward home)":
+   `StartWalkHome` steers toward the enclave's own spot; a husk is steered toward the player's home with E3's
+   `StepToward`, keeps the enclave cvars and the save veto, and goes the first second nobody sees it.
+6. **The spot.** `ScRadio.SpotNear` searches round one point; "the edge of the zone, on the side facing the old enclave"
+   needed a line search (`ArriveSpot`), capped at 30 m from the claim because `Station` moves a body more than 40 m from its
+   post (they should walk in); never in sight (E9's `SeenByAny`, E9's 35 degrees and 60 s for the side).
+7. **A crash mid-join.** The design leaned on `Admit` saving per person; with `own` the join saves once at its end (a crash
+   before it leaves the group whole), with `follow` Admit's per-person saves remain. A person whose join throws stays and
+   the group stands smaller (`Disband` only with nobody left) - the one way the E9/E10/E11 gates can meet people on the way.
+8. **SurvivorOrigins.** "One Leadership 'recruit' event per person, as one recruit sends today": a recruit sends none
+   (`ScLeadership` counts favours, rescues, outposts and defences), so the join sends none.
+9. **The dialog.** `scEncJoinAsk` is in the Allied greeting only (it never shows at Neutral or Friendly; the other two keep
+   their 10-row room); the yes row reuses `scEncRecruitYes`'s words. The confirm's "All five of us. We'd bring what we have:
+   10 food." has a number: the words come first, the facts after (`{joinfacts}`), as every line since E4.
+10. **One tell, not two.** The joined line and "Their building is empty ..." follow the leader's words in one tell (E10's
+    demand tell does the same), the days being `LootRespawnDays`.
+11. **The console.** `sc enclave join <id> [force]` became `[sim|now [force]]` (as E11's move), and `sc enclave arrivals
+    [now]` was added: after the join the group has no id to address its people by.
+12. **Silent in the design, decided here:** a group still being made greys the row (E3's "still settling in"); the follow
+    mode's bodies need the building's chunks settled (`SpawnAll`), anyone without one comes on their own; arrivals go on
+    with `EnclaveJoin` switched off; a member on the way can be dismissed from the window; a member whose class leaves the
+    game stays on the way (they can't be made); `EnclaveJoinStanding` is 70-100 (Allied begins at 70); the leader - whom E3
+    never recruits - leaves the group's trade stock behind (`DropStock`).
+13. **Line drift since the design (`a52c0b1`; this tree's base `bef80a8`):** `ScEnclaveDeals.Recruit` `:780-823` (769-812),
+    its Member build `:792-802` (781-791); `ScEnclavePeople.LeaveEnclave` `:1662-1682` (1551-1571), `SpawnAll` `:2065`
+    (1918); `ScEnclaves.Fall` `:1551-1575` (1303-1327); `ScRegistry.Members` `:76` (63); `ScTicker`'s `ScMissing.Tick`
+    `:116` (115), `ScDaily.Run`'s missing count `:366-376` (365-375); `ScMissing.Tick` `:41-68`, its resident test `:53`
+    (52-60); `ScNoise`'s resident count `:155` (154). `ScCommunity.Admit` `:178-225`, `FollowInternal` `:1029-1039`,
+    `ScEncAllies.OnFallen` `:472-501`, `ScSpawn.Body` `:93`, `ScRadio.SpotNear` `:498`, `ScMissing.Restore`'s re-key
+    `:106-127` and `ScConfig.MaxMembers` `:82` match.
+
+Checks:
+- XML replay against the 3.4 game (`research\e12\sc_replay_e12.py`, a copy of `research\dev\sc_replay_dev.py` pointed at
+  this worktree by `research\e12\make_replay_e12.py`; out `research\e12\replay`): every SC op matches, no aborts; dialogs 15
+  ops (E11's 14 + the new append), blocks 9 as E11's (the keys go inside the existing block). The merged dialogs.xml has
+  `scEncJoinAsk` in `scEncLeaderAllied` before `scEncThreat`, the confirm and both responses; blocks.xml the five
+  `EnclaveJoin*` keys.
+- HarmonyAudit (`research\e12\audit34_e12_*`; E11's build `1a12f9ff` audited the same way, `audit34_base_e11_*`): 3.4 OK=150,
+  DYNAMIC_UNRESOLVED=23 in both (V2's Voice Control targets since round 14), the patch rows identical, the refs files the
+  same.
+- `Tools/voice_lines.py check`: no problems, 166 dialog lines, `ScVoiceLines.cs` in step. Localization.csv parses as 7
+  columns everywhere (1401 rows), no duplicate keys. LF, no BOM, in every file touched.
+- The data edits (Localization, the blocks.xml block, `voice_lines.py`) are `research\e12\ed_e12_data.py` (re-run safe).
+
+Builds: SC 3.4 `9f16253e574e83053978318c18025f9c` (`build\sc34_e12`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
+(`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E12 (240-259). Not reviewed (Fable), not installed. The
+task list needs its entry.

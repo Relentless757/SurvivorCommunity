@@ -171,7 +171,10 @@ namespace SurvivorCommunity
             o.RaidLost = 0;
         }
 
-        /// <summary>Why this group can't lean on an outpost now (null: it can). force: their rest ignored (the console).</summary>
+        /// <summary>
+        /// Why this group can't lean on an outpost now (null: it can): raids off, not hostile, lost, leaning on one already,
+        /// people of theirs on the way to join you (E12), their rest (force ignores it: the console), nobody to spare.
+        /// </summary>
         public static string WhyNot(Enclave e, bool force)
         {
             if (!On) return "enclave raids are off (" + OffWhy() + ")";
@@ -180,6 +183,9 @@ namespace SurvivorCommunity
             if (e.Lost) return "their building is not in this world";
             Outpost busy = TargetOf(e);
             if (busy != null) return "they are leaning on " + busy.Name + " (outpost " + busy.Id + ") already";
+            // E12: people of theirs on the way to join you (a whole-group join cut short, then the rest turned): no raid meanwhile
+            int joining = ScEncJoin.ArrivingFrom(e);
+            if (joining > 0) return joining + " who left them to join you are still on the way";
             int left = DaysLeft(e);
             if (!force && left > 0) return "they rest after their last raid until day " + e.RaidDay + " (" + left + " day(s))";
             if (Spare(e) <= 0) return "they have nobody to spare (the leader never raids)";
