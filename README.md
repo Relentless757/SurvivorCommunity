@@ -1343,8 +1343,21 @@ vanilla's.
   the same file names; `Tools/voice_lines.py check` shows what it still lacks.
 - **Closing the talk** stops SC's clip, except an enclave leader's answer to "Let me think about it.": it comes as a
   tell as the talk closes, and is spoken then.
-- **Console:** `sc voice` (the switches, the player in use, the voices), `sc voice play <line> [id|name]`, `sc voice
-  stop`, and `sc voice rescan`, which picks up new or replaced clips without a restart.
+- **Voice Control keeps quiet during the talk (V1, `MuteVcInTalk`).** While you talk to one of the community's survivors,
+  and while SC's line still plays on them, 0-XNPCCore's Voice Control does not speak on that survivor: no walk-up or
+  follower greeting, say-line ("I'm out of ammo.") or order ack lands over SC's line, nothing it had queued before the
+  talk plays on, and its HUD subtitle is hidden as the talk opens (a sentence already playing then is cut by SC's line,
+  or ends by itself when that line has no recording). Voice Control's calls still finish as if spoken, so it greets and
+  chats normally once the talk is over, and SC never flushes its speech queue (that could block every NPC's greeting for
+  the session). Speak to the survivor through Voice Control during the talk (push-to-talk, typed chat, or "What are you
+  carrying?" on 3.4) and they answer through it until SC's next recorded line. Other NPCs, and SC's survivors outside a
+  talk, are untouched. In multiplayer each machine holds its own talk: a line relayed from another player's machine is
+  not played on yours while you talk to that survivor. `sc voice gate` shows whom Voice Control is held on and how many
+  of its lines were kept quiet; `sc voice sayline [line] [seconds]` gives the nearest survivor one of 0-XNPCCore's
+  say-lines through Voice Control after a delay (`ammo.dry`, 5 s), to try it with a talk open.
+- **Console:** `sc voice` (the switches, the player in use, the voices, the voice gate), `sc voice play <line> [id|name]`,
+  `sc voice stop`, `sc voice rescan`, which picks up new or replaced clips without a restart, `sc voice gate` and
+  `sc voice sayline [line] [seconds]`.
 
 ## With SurvivorOrigins: the Leadership skill
 
@@ -1379,7 +1392,7 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds`, `OverwhelmedSustainSeconds`,
 `OverwhelmedGunSeconds`, `MeleePacing`, `MeleePacingRaiders`, `MeleeReach`, `MeleeReachMargin`, `ShootingSkill`, `ShootingRangePerStar`,
 `ShootingEngageMult`, `ShootingEngageMin`, `ShootingHitRadius`, `ShootingAimChest`, `ShootingDefaultStars`, `RaiderShootingStars`, the dialog
-line and voices `DialogLine`, `VoiceLines` (`AmmoPerRangedDay` is no longer charged; the
+line and voices `DialogLine`, `VoiceLines`, `MuteVcInTalk` (`AmmoPerRangedDay` is no longer charged; the
 outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features. Enclaves (E1):
 `Enclaves`, `EnclavesPerKm2`, `EnclaveMin`, `EnclaveMax`, `EnclaveSpacingMin`, `EnclaveSpacingFactor`, `EnclaveSpacingFloor`,
@@ -1427,7 +1440,7 @@ A full game restart is needed after editing `Config/Localization.csv`.
 - NPC cvars (`sc_member`, `sc_owner`, `sc_cardio` ...) mirror the registry so XML can read them; a cvar of
   exactly 0 is never saved by the game, so "false" is always -1 or absent.
 - Harmony targets: every one is listed in `ModApi.ExpectedTargets` and checked at startup (`patch verification:
-  all 104 targets patched` with Voice Control loaded, 97 without; a `MISSING PATCH` line names one that did not
+  all 111 targets patched` with Voice Control loaded, 97 without (the 3.4 build: 126 and 108); a `MISSING PATCH` line names one that did not
   bind). Among them
   `PersistentPlayerList.ReadXML/Write(string)` (registry load/save), the SCore NPC classes' `SetDead` (deaths) and
   `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests, outposts and

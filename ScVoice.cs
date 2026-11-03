@@ -38,6 +38,13 @@ namespace SurvivorCommunity
     /// while its AudioSource still holds that clip. The
     /// same line from the same survivor is not spoken again within RepeatSeconds (it still shows), so returning to a
     /// talk's root or reopening the talk does not repeat the greeting. Main thread only (XUi, console).
+    ///
+    /// V1, the voice gate (Patches_VoiceControl, REPORT 1.5 B): while SC's talk is open on one of the community's survivors,
+    /// or SC's line still plays on them, Voice Control keeps quiet on that NPC (HoldsVoice; MuteVcInTalk). Its greetings, say-
+    /// lines and acks are skipped and every sentence it had queued is swallowed with its callback invoked, so its queue,
+    /// greeting-busy flag and waiting state end as after a played line. When the player speaks to that NPC through Voice
+    /// Control during the talk (push-to-talk, typed chat, the dialog's "What are you carrying?"), the NPC answers through
+    /// Voice Control until SC's next line on them (the answer pass). Other NPCs, and these outside a talk, are untouched.
     /// </summary>
     public static class ScVoice
     {
@@ -78,6 +85,20 @@ namespace SurvivorCommunity
         private static readonly Dictionary<string, AudioClip> ownClips = new Dictionary<string, AudioClip>(StringComparer.OrdinalIgnoreCase);
         /// <summary>Every path SC has handed Voice Control's loader, which caches clips by path for the session (sc voice rescan).</summary>
         private static readonly HashSet<string> vcPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // V1: the voice gate's state. The clip's end is kept on Environment.TickCount, not a Unity clock: HoldsVoice uses no Unity API.
+        /// <summary>True only around SC's own PlayClipFile call (StartVc): the gate lets that one through.</summary>
+        public static bool SelfCall;
+        private static int talkingTo = -1;               // the NPC SC's talk is open on (XUiC_ScDialogLine), or -1
+        private static int playingEntity = -1;           // the NPC SC's clip plays on, until playingUntilMs; -1 after a Stop
+        private static int playingUntilMs;
+        private static int answerNpc = -1;               // the answer pass: the player spoke to this NPC through Voice Control
+        private static readonly object gateLock = new object();
+        private static readonly Dictionary<string, int> swallowedBy = new Dictionary<string, int>(StringComparer.Ordinal);
+        private static int swallowedTotal, letThrough;
+        private static bool subBound;
+        private static PropertyInfo pSubInstance;
+        private static MethodInfo mClearSub;
 
         // ------------------------------------------------------------------ voices ----
 
@@ -232,10 +253,241 @@ namespace SurvivorCommunity
             parting = true;   // after Play: its Stop clears the flag
         }
 
-        /// <summary>The talk closed (XUiC_ScDialogLine): SC's clip stops, unless it is a line said as the talk closes (SayAfterTalk).</summary>
+        /// <summary>
+        /// The talk closed (XUiC_ScDialogLine): SC's clip stops, unless it is a line said as the talk closes (SayAfterTalk).
+        /// V1: the gate lets go of the NPC, except while that parting line plays; the answer pass ends with the talk.
+        /// </summary>
         public static void OnTalkClosed()
         {
+            talkingTo = -1;
+            answerNpc = -1;
             if (!parting) Stop();
+        }
+
+        // ------------------------------------------------------------------ V1: the voice gate ----
+
+        /// <summary>
+        /// V1: the talk is open on this NPC (XUiC_ScDialogLine.Update, every frame its Respondent is known). A new talk ends
+        /// an earlier answer pass, and on one of the community's survivors hides Voice Control's HUD subtitle once.
+        /// </summary>
+        public static void TalkOn(EntityAlive npc)
+        {
+            int id = npc != null ? npc.entityId : -1;
+            if (id == talkingTo) return;
+            talkingTo = id;
+            answerNpc = -1;
+            if (id >= 0 && ScConfig.MuteVcInTalk && ScXnpc.IsSurvivorBody(npc)) ClearVcSubtitle();
+        }
+
+        /// <summary>Why SC holds this NPC's voice ("talk open", "SC line playing"), or null. Ignores the answer pass.</summary>
+        private static string HeldWhy(EntityAlive npc)
+        {
+            if ((object)npc == null || !ScConfig.MuteVcInTalk) return null;
+            int id = npc.entityId;
+            string why = id == talkingTo ? "talk open" : id == playingEntity && ClipMsLeft() > 0 ? "SC line playing" : null;
+            return why != null && ScXnpc.IsSurvivorBody(npc) ? why : null;
+        }
+
+        private static int ClipMsLeft()
+        {
+            return playingEntity < 0 ? 0 : unchecked(playingUntilMs - Environment.TickCount);
+        }
+
+        /// <summary>
+        /// V1: Voice Control keeps quiet on this NPC: one of the community's survivors (on the player body), MuteVcInTalk on,
+        /// and SC's talk open on them or SC's line still playing on them - unless the player spoke to them through Voice
+        /// Control since SC's last line (the answer pass).
+        /// </summary>
+        public static bool HoldsVoice(EntityAlive npc)
+        {
+            return HeldWhy(npc) != null && npc.entityId != answerNpc;
+        }
+
+        /// <summary>A cheap first test on an entity id (the MP relay's prefix asks before it looks the entity up).</summary>
+        public static bool MayHold(int entityId)
+        {
+            return entityId >= 0 && (entityId == talkingTo || entityId == playingEntity);
+        }
+
+        /// <summary>
+        /// V1, the gate's question at each of Voice Control's sinks: true = swallow this call (counted, and one Verbose line
+        /// naming the NPC and the sink). A call let through by the answer pass is counted too.
+        /// </summary>
+        public static bool Swallow(EntityAlive npc, string sink, string what)
+        {
+            string why = HeldWhy(npc);
+            if (why == null) return false;
+            int total;
+            lock (gateLock)
+            {
+                if (npc.entityId == answerNpc)
+                {
+                    letThrough++;
+                    return false;
+                }
+                int n;
+                swallowedBy.TryGetValue(sink, out n);
+                swallowedBy[sink] = n + 1;
+                total = ++swallowedTotal;
+            }
+            ScLog.Verbose("voice gate: kept Voice Control quiet on " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + "): " + what
+                          + " at " + sink + " (" + why + "), " + total + " this session");
+            return true;
+        }
+
+        /// <summary>
+        /// V1: the player spoke to this NPC through Voice Control (NPCChatComponent.ProcessPlayerMessage: push-to-talk, typed
+        /// chat): it answers through Voice Control until SC's next line on it, the talk's close, or a new talk.
+        /// </summary>
+        public static void PlayerSpoke(EntityAlive npc, string how)
+        {
+            if ((object)npc == null || !ScXnpc.IsSurvivorBody(npc)) return;   // another NPC never takes the pass from the one you talk to
+            bool held = HeldWhy(npc) != null;
+            answerNpc = npc.entityId;
+            if (held) ScLog.Verbose("voice gate: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") answers through Voice Control until SC's next line (" + how + ")");
+        }
+
+        /// <summary>V1: the player asked Voice Control something from the open talk (a dialog row Voice Control answers): the pass for that talk's NPC.</summary>
+        public static void PlayerAskedInTalk(string how)
+        {
+            if (talkingTo < 0) return;
+            World w = ScCommunity.World;
+            EntityAlive npc = w != null ? w.GetEntity(talkingTo) as EntityAlive : null;
+            if (npc != null) PlayerSpoke(npc, how);
+        }
+
+        /// <summary>V1: hides Voice Control's HUD subtitle (SubtitleManager.Instance.ClearSubtitle(), bound by name).</summary>
+        private static void ClearVcSubtitle()
+        {
+            try
+            {
+                if (!subBound)
+                {
+                    subBound = true;
+                    Type t = ScTypes.Find("XNPCVoiceControl.UI.SubtitleManager");
+                    pSubInstance = t != null ? t.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static) : null;
+                    mClearSub = t != null ? t.GetMethod("ClearSubtitle", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null) : null;
+                    if (t != null && (pSubInstance == null || mClearSub == null))
+                        ScLog.Once("voice-gate-subtitle-bind", "voice gate: Voice Control's SubtitleManager.Instance / ClearSubtitle() not found - its HUD subtitle is not hidden as a talk opens (Voice Control update?)");
+                }
+                if (pSubInstance == null || mClearSub == null) return;
+                object mgr = pSubInstance.GetValue(null, null);
+                if (mgr != null) mClearSub.Invoke(mgr, null);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-gate-subtitle", e);
+            }
+        }
+
+        /// <summary>
+        /// V1 test aid (sc voice sayline): after some seconds this survivor is given one of 0-XNPCCore's say-lines, the way
+        /// XNPCCore gives it - its "XNPCCore.SayLine" hook, which Voice Control 3.4 installs - or, without the hook (Voice
+        /// Control 3.2 has none), through SubtitleManager.AcknowledgeCommand with the line's words. So the gate can be watched
+        /// with a talk open (run it, close the console, open the talk before it fires).
+        /// </summary>
+        public static string SayLineLater(EntityAlive npc, string line, float seconds)
+        {
+            GameManager gm = GameManager.Instance;
+            if (npc == null || gm == null) return "no survivor";
+            gm.StartCoroutine(SayLineAfter(npc, line, seconds));
+            return ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") is given the say-line " + line + " in "
+                   + seconds.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " s";
+        }
+
+        private static IEnumerator SayLineAfter(EntityAlive npc, string line, float seconds)
+        {
+            if (seconds > 0f) yield return new WaitForSeconds(seconds);
+            SayLineNow(npc, line);
+        }
+
+        private static void SayLineNow(EntityAlive npc, string line)
+        {
+            try
+            {
+                if (npc == null || npc.IsDead()) return;   // Unity null: gone meanwhile
+                bool held = HoldsVoice(npc);
+                string how;
+                var hook = AppDomain.CurrentDomain.GetData("XNPCCore.SayLine") as Action<EntityAlive, string>;
+                if (hook != null)
+                {
+                    how = "0-XNPCCore's say-line hook";
+                    hook(npc, line);
+                }
+                else
+                {
+                    MethodBase ack = Patches_VoiceControl.AckTarget();
+                    if (ack == null)
+                    {
+                        ScLog.Out("voice gate test: no say-line hook and no Voice Control - nothing said");
+                        return;
+                    }
+                    how = "Voice Control's AcknowledgeCommand";
+                    var args = new object[ack.GetParameters().Length];   // trigger, trace (and 3.4's subtitle) stay null
+                    args[0] = npc;
+                    args[2] = line == "ammo.dry" ? "I'm out of ammo." : line;
+                    ack.Invoke(null, args);
+                }
+                ScLog.Out("voice gate test: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") was given the say-line " + line + " through " + how
+                          + (held ? " - held: Voice Control stays quiet" : " - not held: Voice Control says it"));
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-gate-sayline", e);
+            }
+        }
+
+        /// <summary>V1: per world (ModApi, GameStarting): no talk, no clip, no pass, counters at zero.</summary>
+        public static void Reset()
+        {
+            SelfCall = false;
+            talkingTo = -1;
+            playingEntity = -1;
+            answerNpc = -1;
+            lock (gateLock)
+            {
+                swallowedBy.Clear();
+                swallowedTotal = 0;
+                letThrough = 0;
+            }
+        }
+
+        private static string NameOf(int entityId)
+        {
+            World w = ScCommunity.World;
+            EntityAlive e = w != null ? w.GetEntity(entityId) as EntityAlive : null;
+            return (e != null ? ScCommunity.DisplayName(e) : "entity") + " (" + entityId + ")";
+        }
+
+        /// <summary>sc voice gate: the switch, the NPC held and why, the answer pass, and the session's counters.</summary>
+        public static string GateStatus()
+        {
+            var sb = new StringBuilder();
+            sb.Append("MuteVcInTalk=").Append(ScConfig.MuteVcInTalk).Append("; talk open on ");
+            if (talkingTo < 0) sb.Append("nobody");
+            else
+            {
+                World w = ScCommunity.World;
+                Entity e = w != null ? w.GetEntity(talkingTo) : null;
+                sb.Append(NameOf(talkingTo)).Append(e != null && ScXnpc.IsSurvivorBody(e) ? " (held)" : " (not one of the community's survivors: not held)");
+            }
+            int left = ClipMsLeft();
+            sb.Append("; SC line playing on ").Append(left > 0 ? NameOf(playingEntity) + " for " + (left / 1000f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s more" : "nobody");
+            sb.Append("; answer pass: ").Append(answerNpc >= 0 ? NameOf(answerNpc) : "nobody");
+            lock (gateLock)
+            {
+                sb.Append("; swallowed this session: ").Append(swallowedTotal);
+                if (swallowedBy.Count > 0)
+                {
+                    var keys = new List<string>(swallowedBy.Keys);
+                    keys.Sort(StringComparer.Ordinal);
+                    sb.Append(" (");
+                    for (int i = 0; i < keys.Count; i++) sb.Append(i > 0 ? ", " : "").Append(keys[i]).Append('=').Append(swallowedBy[keys[i]]);
+                    sb.Append(')');
+                }
+                sb.Append("; let through by the answer pass: ").Append(letThrough);
+            }
+            return sb.ToString();
         }
 
         // ------------------------------------------------------------------ playing ----
@@ -243,6 +495,13 @@ namespace SurvivorCommunity
         private static void Play(EntityAlive npc, string tag, string path)
         {
             Stop();
+            // V1: SC's new line on this NPC ends the answer pass - Voice Control's answer still queued is swallowed from here
+            if (answerNpc == npc.entityId)
+            {
+                answerNpc = -1;
+                ScLog.Verbose("voice gate: SC's line on " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") ends the answer pass");
+            }
+            int id = npc.entityId;
             int my = token;
             Component player = VcPlayer(npc);
             if (player != null)
@@ -254,7 +513,7 @@ namespace SurvivorCommunity
                     vcPaths.Add(path);
                     Action<AudioClip> ready = clip =>
                     {
-                        try { if (my == token) StartVc(player, entry, tag, path, clip); }
+                        try { if (my == token) StartVc(player, entry, id, tag, path, clip); }
                         catch (Exception e) { ScLog.Once("voice-vc-play", e); }
                     };
                     mGetClip.Invoke(null, new object[] { entry, ready });
@@ -268,7 +527,7 @@ namespace SurvivorCommunity
             StartOwn(npc, tag, path, my);
         }
 
-        private static void StartVc(Component player, object entry, string tag, string path, AudioClip clip)
+        private static void StartVc(Component player, object entry, int entityId, string tag, string path, AudioClip clip)
         {
             if (clip == null)
             {
@@ -276,17 +535,21 @@ namespace SurvivorCommunity
                 return;
             }
             if (player == null) return;   // Unity null: the NPC went away while the clip loaded
-            mPlayClipFile.Invoke(player, new object[] { entry, null });
+            SelfCall = true;              // V1: the gate's PlayClipFile prefix lets SC's own call through
+            try { mPlayClipFile.Invoke(player, new object[] { entry, null }); }
+            finally { SelfCall = false; }
             playingPlayer = player;
-            Started(tag, clip);
+            Started(entityId, tag, clip);
         }
 
-        /// <summary>A clip started: what Stop and the repeat rule read.</summary>
-        private static void Started(string tag, AudioClip clip)
+        /// <summary>A clip started: what Stop, the repeat rule and (V1) the voice gate read.</summary>
+        private static void Started(int entityId, string tag, AudioClip clip)
         {
             playingTag = tag;
             playingClip = clip;
             playingUntil = Time.unscaledTime + clip.length;
+            playingEntity = entityId;
+            playingUntilMs = unchecked(Environment.TickCount + (int)(clip.length * 1000f) + 250);   // + a little for the start
             if (recent.Count >= RecentMax)
             {
                 var old = new List<string>();
@@ -324,6 +587,7 @@ namespace SurvivorCommunity
             playingPlayer = null;
             playingOwn = null;
             playingClip = null;
+            playingEntity = -1;
             parting = false;
         }
 
@@ -446,7 +710,7 @@ namespace SurvivorCommunity
             src.clip = clip;
             src.Play();
             playingOwn = src;
-            Started(tag, clip);
+            Started(npc.entityId, tag, clip);
         }
 
         // ------------------------------------------------------------------ console ----

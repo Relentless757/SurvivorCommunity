@@ -442,3 +442,71 @@ in progress, so its position records stay valid.
 **Installed 2026-11-02 22:08** with the user's go-ahead (3.4 game closed): `deploy_sc34.py`, HEAD 8b560f8, 1928 files,
 installed = built `c0ea84c3`. The old install is in `Port33\_backups\sc34_2026-11-02_220821`; only the round 7 files
 differ from it. `DebugLogging` true copied back. The 3.2 game is untouched (`81f6c2da`).
+
+### Round 8: VC no longer talks over SC's lines (V1) (2026-11-03, built, not installed)
+
+The user: Voice Control's speech cut off SC's voiced dialogue lines on SC's survivors, sometimes more than once in one
+line. Research: `research\voices\REPORT.md` 1.1-1.6 and 5. Every Voice Control sound on an NPC goes through one
+`NPCAudioPlayer` with one AudioSource, the one SC's clip plays on, and nothing in Voice Control looks at the open dialog.
+The walk-up greeting (LLM text, synthesized 1-4 s after the trigger, so it often lands just after the talk opened), a
+follower's re-greet after 300 s and XNPCCore's say-lines (3.4) all reach it. `SpeakStreaming` starts with `StopSpeaking`
+whenever the player is playing, so a new line cuts SC's clip at once. A greeting that was already playing keeps its queue:
+after a watchdog (the cut sentence's length + 3 s) the next sentence plays over SC's clip, so a two-sentence greeting could
+cut SC twice. 3.2 is the same, without say-lines and with NPC-to-NPC chat able to pick the NPC you are talking to.
+
+- **SC (both builds): the voice gate, REPORT 1.5 B.** `ScVoice.HoldsVoice(npc)`: one of the community's survivors
+  (`ScXnpc.IsSurvivorBody`), `MuteVcInTalk` (new key in Config/blocks.xml, default true), and SC's talk open on them
+  (`XUiC_ScDialogLine.Update` -> `ScVoice.TalkOn`, cleared in `OnTalkClosed`) or SC's clip still playing on them (the
+  entity is now kept with the clip's end; `Stop` clears it). Prefixes in `Patches_VoiceControl`, bound by name like the
+  other Voice Control patches (Prepare off without Voice Control or on a changed signature or parameter name, every
+  target in ModApi's Voice Control block), each in try/catch + `ScLog.Once`:
+  - `NPCAudioPlayer.OnWavBytesReady(byte[], VcTrace, Action, bool)` (private): every TTS sentence ends here, those queued
+    or prefetched before the talk opened included. Held: `onComplete` invoked, original skipped (no clip, no MP relay).
+  - `NPCAudioPlayer.PlayClipFile(ClipEntry, Action)`: the same, except SC's own call (`ScVoice.SelfCall` set around it).
+  - `NPCAudioPlayer.SpeakStreaming(string, bool, Action, VcTrace, bool)`: **added to REPORT 1.5 B**. Its entry
+    `StopSpeaking` would cut SC's clip before the first sentence even reached OnWavBytesReady. Held: `onComplete`
+    invoked, skipped. Every Voice Control caller sets its own state before the call and clears it in the callback
+    (greeting busy flag, phrase-trigger waiting state) or passes an empty one, so a callback on the spot is safe.
+  - `NetPackageNPCVoice.PlayVoiceLocally(int, byte[], float)` (private static): another machine's relayed TTS.
+  - `NPCChatComponent.PlayProactiveGreeting(string, string, bool)` and `SubtitleManager.AcknowledgeCommand` (3.4:
+    `(EntityAlive, PhraseTrigger, string, VcTrace, string)`; 3.2: no last string, bound under `#if SC_V34`): skipped
+    whole, so no HUD subtitle over SC's line panel and no synthesis. Checked state-neutral: the greeting sets
+    `s_proactiveGreetingBusy` only inside, together with the callback that clears it, returns at once when
+    `_isWaitingForResponse`, and nothing subscribes to its speech events. Everything TriggerProactiveGreeting stamps
+    (cooldown, greeted player, the 20 m reset, the buffered text) is set before the call, as for a played greeting, so
+    the greeting is used up rather than retried after the talk. AcknowledgeCommand is static and keeps no state.
+  - Voice Control's HUD subtitle is cleared once as a talk opens on one of SC's survivors (`SubtitleManager.Instance
+    .ClearSubtitle()` by reflection), for a greeting that was already showing.
+- **The answer pass, instead of REPORT's IsWaitingForResponse.** Voice Control clears `_isWaitingForResponse` before
+  the answer reaches the sinks: on the first streamed LLM chunk (NPCChatComponent.cs:117,594), and in HandleLLMResponse
+  before its SpeakStreaming (:2150). So that test would let the first words through and swallow the rest. Instead a
+  prefix on `NPCChatComponent.ProcessPlayerMessage(string, EntityPlayer, bool, Action<string>, VcTrace)` (push-to-talk,
+  typed chat, VC's console chat; a player and non-blank words) lets that NPC speak through Voice Control. The pass ends
+  at SC's next recorded line on them (`ScVoice.Play`), the talk's close, or a new talk. 3.4 only:
+  `DialogActionSayCarrying.PerformAction(EntityPlayer)`. Without it, the dialog's "What are you carrying?" row (answered
+  with a say-line through AcknowledgeCommand) would go silent during the talk.
+- SC never calls Voice Control's `StopSpeaking` (it drops the queue without onAllDone and can stick
+  `s_proactiveGreetingBusy` for every NPC); every swallowed call has its callback invoked.
+- Console: `sc voice` prints a second line, `[SC] voice gate: ...`, also `sc voice gate` on its own: `MuteVcInTalk`, the NPC
+  held and why, the answer pass, lines swallowed this session by sink, and calls let through by the pass. With
+  `DebugLogging` each swallowed call logs `voice gate: kept Voice Control quiet on <name> (<id>): <what> at <sink> (<why>),
+  <n> this session`. Test aid: `sc voice sayline [line] [seconds]` gives the nearest survivor an XNPCCore say-line after
+  a delay, through XNPCCore's own `XNPCCore.SayLine` hook (3.4), or AcknowledgeCommand where there is none (3.2).
+- Left as they are: `NPCAudioPlayer.Speak(string, Action, VcTrace, bool)` (no Voice Control caller; its sentence still
+  meets the OnWavBytesReady gate). The direct playback in `ProcessVoiceInputAsync` (no caller). `AbortConversation`'s
+  StopSpeaking (only during the player's own VC exchange). Squad-keyword push-to-talk acks ("squad, follow"): they go
+  to AcknowledgeCommand without ProcessPlayerMessage, so during a talk with a squad member they are kept quiet. A
+  Voice Control sentence already playing when the talk opens finishes when SC's first line has no recording (SC's clip
+  replaces it at once otherwise, as before). In MP the pass is per machine. When SC's clip cuts a Voice Control
+  sentence, Voice Control logs its own watchdog warning once and goes on; that was already so before V1.
+
+Checked: every target against the decompiles (`research\voices\work\vc34`, `vc32`) and the installed DLLs (ilspycmd:
+3.4 `1-XNPCVoiceControl.dll` md5 `c30399c1`, 3.2 `10bd7658`); a net8 reflection probe that loads each game's
+assemblies with SCore, XNPCCore and Voice Control: all targets bind (7 on 3.2, 8 on 3.4), every Prepare is true, every
+injected prefix parameter names a real parameter or field of the right type. Harmony audit (`research\v1\audit34_*`,
+`audit32_*`) against the round 7 DLLs (`research\v1\base34`, `base32`): only the new gate rows differ, all
+DYNAMIC_UNRESOLVED (by-name targets, outside the audit's table). Expected targets: 3.2 111 with Voice Control (97
+without), 3.4 126 (108).
+
+Builds: SC 3.2 `2bed708b` (was `81f6c2da`), SC 3.4 `682e52d4`. Test steps: TESTING.md group N (83-93). Not reviewed,
+not installed.

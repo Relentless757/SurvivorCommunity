@@ -455,6 +455,13 @@
 			     lists the voices; "sc voice play <line>" plays one on the nearest survivor. -->
 			<property name="DialogLine" value="true" />
 			<property name="VoiceLines" value="true" />
+			<!-- V1. MuteVcInTalk: while you talk to one of the community's survivors, and while SC's line still plays on
+			     them, Voice Control keeps quiet on that survivor: no walk-up greeting, say-line or ack over SC's line, and
+			     nothing it had queued plays (its HUD subtitle is hidden as the talk opens). Speak to them through Voice
+			     Control during the talk (push-to-talk, typed chat, "What are you carrying?") and they answer through it
+			     until SC's next line. Other NPCs, and these outside a talk, keep Voice Control as before. "sc voice gate"
+			     shows what is held and how many lines were kept quiet. -->
+			<property name="MuteVcInTalk" value="true" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:

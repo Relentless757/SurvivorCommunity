@@ -277,6 +277,70 @@ journal, so SC's guard missed its own new favour quest and vanilla reset the POI
     stay empty, and only the rooms you haven't cleared get sleeper markers. With DebugLogging the log has
     `suppressed the quest POI re-arm at ... (favour quest)` just before `secure quest started for ...`.
 
+**N. Round 8 (V1): Voice Control no longer talks over SC's lines (3.4; the 3.2 build too)**
+
+Your report: Voice Control's speech cut off SC's recorded lines, sometimes twice in one line. Now, while you talk to one
+of the community's survivors, and while SC's line still plays on them, Voice Control keeps quiet on that survivor
+(`MuteVcInTalk`, Config/blocks.xml). Its greetings and say-lines are dropped, and nothing it had queued plays. Speak to
+the survivor through Voice Control yourself and they answer. Play with Voice Control's TTS and LLM on as usual and
+`DebugLogging` true for the `voice gate:` lines. `sc voice gate` shows the gate at any moment. The 3.2 build has the
+same gate; 3.2's Voice Control has no say-lines and no "What are you carrying?" row (steps 87 and 89 are 3.4 only, but
+87 can still be checked there with `sc voice sayline`).
+
+83. Start-up: the log has `patched NPCAudioPlayer::OnWavBytesReady`, `patched NPCAudioPlayer::PlayClipFile`, `patched
+    NPCAudioPlayer::SpeakStreaming`, `patched NetPackageNPCVoice::PlayVoiceLocally`, `patched
+    NPCChatComponent::PlayProactiveGreeting`, `patched SubtitleManager::AcknowledgeCommand`, `patched
+    NPCChatComponent::ProcessPlayerMessage` and `patched DialogActionSayCarrying::PerformAction`, then `patch
+    verification: all 126 targets patched` (3.2: no DialogActionSayCarrying line, `all 111 targets patched`). No line
+    starting `voice gate:` with "not found". `sc voice` prints a second line beginning `[SC] voice gate:
+    MuteVcInTalk=True; talk open on nobody`.
+84. Walk-up greeting: start more than 10 m from a survivor with a voice (a stranger or a resident), walk up and open the
+    talk as soon as the prompt shows. SC's line plays to its end. If Voice Control had started its greeting, its voice
+    stops when SC's line starts and its subtitle bar goes away as the talk opens. Nothing of the greeting comes back
+    while the talk is open, not even a few seconds later. Before, the next sentence came back over SC's line. With
+    DebugLogging the log has `voice gate: kept Voice Control quiet on <name> (<id>): a greeting at PlayProactiveGreeting
+    (talk open), 1 this session` for a greeting that came after the talk opened, or `...: a TTS sentence at
+    OnWavBytesReady (talk open), ...` for the rest of one that had already started. Voice Control may log its own
+    `[TTS] Playback-finished callback never fired - watchdog timeout` once. That is expected. Its greeting chance is
+    per survivor, so try three or four survivors.
+85. Close the talk, walk more than 20 m away, wait a minute and walk back: the same survivor greets you through Voice
+    Control again, voice and subtitle. Other survivors, and any Voice Control NPC that isn't one of the community's
+    survivors, keep greeting you for the rest of the session. If greetings stop everywhere, Voice Control's greeting
+    flag got stuck: send the log.
+86. Follower re-greet: have a member follow you and stay near them for more than 5 minutes without talking to them
+    through Voice Control. Then open a talk with them: SC's line plays whole, with no Voice Control greeting, voice or
+    subtitle, while the talk is open.
+87. Say-line during a talk: stand next to a survivor and run `sc voice sayline` in the console (F1). It answers `[SC]
+    voice: <name> (<id>) is given the say-line ammo.dry in 5 s`. Close the console and open the talk with that survivor
+    within 5 seconds. You don't hear "I'm out of ammo." and its subtitle doesn't show. The log has `voice gate test:
+    <name> (<id>) was given the say-line ammo.dry through 0-XNPCCore's say-line hook - held: Voice Control stays quiet`.
+    With DebugLogging it also has `voice gate: kept Voice Control quiet on <name> (<id>): an ack or say-line at
+    AcknowledgeCommand (talk open), ...`. Control: run it again without opening the talk. They say "I'm out of ammo."
+    with its subtitle, and the line ends `- not held: Voice Control says it`. On 3.2 the line reads `through Voice
+    Control's AcknowledgeCommand`.
+88. Push-to-talk during a talk: open a talk with a survivor. While it is open, hold Voice Control's push-to-talk key and
+    ask them something, or type to them with `@`. They answer through Voice Control, the whole answer, voice and
+    subtitle. With DebugLogging: `voice gate: <name> (<id>) answers through Voice Control until SC's next line (the
+    player spoke to them)`. Then pick a response that has a recorded line: SC's line plays, and anything left of the
+    answer stops (`voice gate: SC's line on <name> (<id>) ends the answer pass`). If push-to-talk does nothing at all
+    with the dialog open, Voice Control doesn't listen during a dialog: note it. That is not the gate.
+89. "What are you carrying?": with a follower, open the talk, go to the weapon menu, then "Carried Weapons", then "What
+    are you carrying?". They say what is in their bag, voice and subtitle, as before
+    (`... answers through Voice Control until SC's next line (the player asked what they carry)`).
+90. Outside a talk nothing changes: survivors greet you, say their say-lines and answer push-to-talk as before. During a
+    talk with one survivor, a second survivor standing nearby (or any Voice Control NPC that isn't one of the
+    community's survivors) can still greet you or talk through Voice Control. Only the one you talk to is quiet.
+91. A line said as the talk closes: an enclave leader's answer to "Let me think about it." plays to its end after the
+    talk closes, with no Voice Control voice over it. Within a second or two after it ends, Voice Control can speak on
+    them again.
+92. `sc voice gate` after the steps above, with no talk open: `talk open on nobody; SC line playing on nobody; answer pass:
+    nobody; swallowed this session: <n> (...)`. The brackets count the lines kept quiet by where they were stopped, for
+    example `AcknowledgeCommand=1, OnWavBytesReady=2, PlayProactiveGreeting=1`. During a talk the same line says `talk
+    open on <name> (<id>) (held)`.
+93. Multiplayer (if you test it): as a client, talk to a survivor while the host stands next to them. A greeting Voice
+    Control gives the host is not played on your machine during your talk (DebugLogging, client log: `...: a relayed
+    TTS sentence at PlayVoiceLocally (talk open), ...`). The host still hears it. Each machine holds only its own talk.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

@@ -492,5 +492,328 @@ namespace SurvivorCommunity
             }
         }
 #endif
+
+        // ------------------------------------------------------------------ V1: the voice gate ----
+        //
+        // While SC's talk is open on one of the community's survivors, or SC's line still plays on them, Voice Control keeps
+        // quiet on that NPC (ScVoice.HoldsVoice, MuteVcInTalk; Port33\research\voices\REPORT.md 1.5 B). Every one of its
+        // utterances and its queued sentences is refused at the sinks it reaches - with the call's own callback invoked, so
+        // its speech queue drains, onAllDone fires, s_proactiveGreetingBusy and _isWaitingForResponse clear as after a played
+        // line. SC never calls Voice Control's StopSpeaking (it drops the queue without onAllDone and can wedge the greeting
+        // flag for every NPC). The prefixes, all bound by name with the exact 3.4 / 3.2 signatures (identical but for
+        // AcknowledgeCommand), off by Prepare without Voice Control or on a changed signature (ModApi then logs MISSING PATCH):
+        //  - NPCAudioPlayer.OnWavBytesReady(byte[], VcTrace, Action, bool), private: every TTS sentence ends here, queued or
+        //    prefetched before the talk opened included;
+        //  - NPCAudioPlayer.PlayClipFile(ClipEntry, Action): clip personalities - SC's own call (ScVoice.SelfCall) passes;
+        //  - NPCAudioPlayer.SpeakStreaming(string, bool, Action, VcTrace, bool): Voice Control's every new TTS line; it starts
+        //    with StopSpeaking whenever the player is playing, which would cut SC's clip before the sentence even reached
+        //    OnWavBytesReady (NPCAudioPlayer.cs:933-936), so it is refused at the door;
+        //  - NetPackageNPCVoice.PlayVoiceLocally(int, byte[], float), private static: another machine's relayed TTS (MP);
+        //  - NPCChatComponent.PlayProactiveGreeting(string, string, bool) and SubtitleManager.AcknowledgeCommand: no VC HUD
+        //    subtitle over SC's line panel. Skipping either leaves Voice Control's state exactly as before the call: the
+        //    greeting sets s_proactiveGreetingBusy only inside, together with the callback that clears it, never touches
+        //    _isWaitingForResponse, and has no subscribers to its speech events; AcknowledgeCommand is static and stateless.
+        // The answer pass (the player speaking to that NPC through Voice Control during the talk): a prefix on
+        // NPCChatComponent.ProcessPlayerMessage (push-to-talk, typed chat) and, 3.4 only, DialogActionSayCarrying.PerformAction
+        // (the dialog's "What are you carrying?" row, answered with a say-line). Not IsWaitingForResponse: Voice Control
+        // clears it before the answer reaches the sinks (on the first streamed chunk, and in HandleLLMResponse before its
+        // SpeakStreaming), so it would let the first words through and swallow the rest.
+
+        public static Type AudioPlayerType { get { return ScTypes.Find("XNPCVoiceControl.TTS.NPCAudioPlayer"); } }
+        private static Type TraceType { get { return ScTypes.Find("XNPCVoiceControl.Core.Pure.VcTrace"); } }
+        private static Type ClipEntryType { get { return ScTypes.Find("XNPCVoiceControl.Core.ClipEntry"); } }
+        private static Type PhraseTriggerType { get { return ScTypes.Find("XNPCVoiceControl.PhraseTrigger"); } }
+
+        private static MethodBase Returning(MethodInfo m, Type ret, bool isStatic)
+        {
+            return m != null && m.ReturnType == ret && m.IsStatic == isStatic ? m : null;
+        }
+
+        /// <summary>NPCAudioPlayer.OnWavBytesReady(byte[] wavBytes, VcTrace e2e, Action onComplete, bool isAck), private.</summary>
+        public static MethodBase WavReadyTarget()
+        {
+            Type t = AudioPlayerType, tr = TraceType;
+            if (t == null || tr == null) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "OnWavBytesReady", new[] { typeof(byte[]), tr, typeof(Action), typeof(bool) }), typeof(void), false);
+        }
+
+        /// <summary>NPCAudioPlayer.PlayClipFile(ClipEntry entry, Action onComplete).</summary>
+        public static MethodBase PlayClipFileTarget()
+        {
+            Type t = AudioPlayerType, ce = ClipEntryType;
+            if (t == null || ce == null) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "PlayClipFile", new[] { ce, typeof(Action) }), typeof(void), false);
+        }
+
+        /// <summary>NPCAudioPlayer.SpeakStreaming(string text, bool cacheEligible, Action onComplete, VcTrace e2e, bool isAck).</summary>
+        public static MethodBase SpeakStreamingTarget()
+        {
+            Type t = AudioPlayerType, tr = TraceType;
+            if (t == null || tr == null) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "SpeakStreaming", new[] { typeof(string), typeof(bool), typeof(Action), tr, typeof(bool) }), typeof(void), false);
+        }
+
+        /// <summary>NetPackageNPCVoice.PlayVoiceLocally(int npcEntityId, byte[] wavData, float volume), private static.</summary>
+        public static MethodBase RelayTarget()
+        {
+            Type t = ScTypes.Find("XNPCVoiceControl.NetPackageNPCVoice");
+            if (t == null) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "PlayVoiceLocally", new[] { typeof(int), typeof(byte[]), typeof(float) }), typeof(void), true);
+        }
+
+        /// <summary>NPCChatComponent.PlayProactiveGreeting(string greeting, string localizedSubtitle, bool showSubtitle).</summary>
+        public static MethodBase GreetingTarget()
+        {
+            Type t = ChatType;
+            if (t == null) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "PlayProactiveGreeting", new[] { typeof(string), typeof(string), typeof(bool) }), typeof(void), false);
+        }
+
+        /// <summary>
+        /// SubtitleManager.AcknowledgeCommand, static: 3.4 (EntityAlive npc, PhraseTrigger trigger, string fallbackText,
+        /// VcTrace e2e, string localizedSubtitle); 3.2 (Voice Control 3.2.06) has no localizedSubtitle.
+        /// </summary>
+        public static MethodBase AckTarget()
+        {
+            Type t = ScTypes.Find("XNPCVoiceControl.UI.SubtitleManager"), pt = PhraseTriggerType, tr = TraceType;
+            if (t == null || pt == null || tr == null) return null;
+#if SC_V34
+            Type[] args = { typeof(EntityAlive), pt, typeof(string), tr, typeof(string) };
+#else
+            Type[] args = { typeof(EntityAlive), pt, typeof(string), tr };
+#endif
+            return Returning(AccessTools.DeclaredMethod(t, "AcknowledgeCommand", args), typeof(void), true);
+        }
+
+        /// <summary>NPCChatComponent.ProcessPlayerMessage(string playerMessage, EntityPlayer player, bool usedName, Action&lt;string&gt; onComplete, VcTrace e2e).</summary>
+        public static MethodBase PlayerMessageTarget()
+        {
+            Type t = ChatType, tr = TraceType;
+            if (t == null || tr == null) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "ProcessPlayerMessage", new[] { typeof(string), typeof(EntityPlayer), typeof(bool), typeof(Action<string>), tr }), typeof(void), false);
+        }
+
+        /// <summary>The gate can bind: the target, every parameter the prefix takes by name, and the _npcEntity field it reads.</summary>
+        private static bool Bindable(MethodBase m, string label, Type npcFieldOn, params string[] paramNames)
+        {
+            try
+            {
+                if (m == null)
+                {
+                    if (ChatType != null) ScLog.Err("voice gate: " + label + " not found (Voice Control update?) - Voice Control can talk over SC's line there");
+                    return false;
+                }
+                ParameterInfo[] ps = m.GetParameters();
+                foreach (string name in paramNames)
+                {
+                    bool found = false;
+                    foreach (ParameterInfo p in ps) if (p.Name == name) { found = true; break; }
+                    if (!found)
+                    {
+                        ScLog.Err("voice gate: " + label + " has no parameter '" + name + "' (Voice Control update?) - not patched");
+                        return false;
+                    }
+                }
+                if (npcFieldOn != null)
+                {
+                    FieldInfo f = AccessTools.Field(npcFieldOn, "_npcEntity");
+                    if (f == null || f.FieldType != typeof(EntityAlive))
+                    {
+                        ScLog.Err("voice gate: " + npcFieldOn.Name + "._npcEntity not found (Voice Control update?) - " + label + " not patched");
+                        return false;
+                    }
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("vc-gate-bind-" + label, e);
+                return false;
+            }
+        }
+
+        /// <summary>The gate's common body: true runs Voice Control's call; false swallows it, its callback invoked first.</summary>
+        private static bool Pass(EntityAlive npc, string sink, string what, Action callback)
+        {
+            bool swallow;
+            try { swallow = ScVoice.Swallow(npc, sink, what); }
+            catch (Exception e)
+            {
+                ScLog.Once("vc-gate-" + sink, e);
+                return true;
+            }
+            if (!swallow) return true;
+            // the call still completes: Voice Control's queue moves on, its greeting-busy flag and waiting state clear
+            try { if (callback != null) callback(); }
+            catch (Exception e) { ScLog.Once("vc-gate-callback-" + sink, e); }
+            return false;
+        }
+
+        [HarmonyPatch]
+        public static class Patch_GateWavReady
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(WavReadyTarget(), "NPCAudioPlayer.OnWavBytesReady", AudioPlayerType, "onComplete"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return WavReadyTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive ____npcEntity, Action onComplete)
+            {
+                return Pass(____npcEntity, "OnWavBytesReady", "a TTS sentence", onComplete);
+            }
+        }
+
+        [HarmonyPatch]
+        public static class Patch_GatePlayClipFile
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(PlayClipFileTarget(), "NPCAudioPlayer.PlayClipFile", AudioPlayerType, "onComplete"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return PlayClipFileTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive ____npcEntity, Action onComplete)
+            {
+                if (ScVoice.SelfCall) return true;      // SC's own line
+                return Pass(____npcEntity, "PlayClipFile", "a voice clip", onComplete);
+            }
+        }
+
+        [HarmonyPatch]
+        public static class Patch_GateSpeakStreaming
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(SpeakStreamingTarget(), "NPCAudioPlayer.SpeakStreaming", AudioPlayerType, "onComplete", "isAck"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SpeakStreamingTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive ____npcEntity, Action onComplete, bool isAck)
+            {
+                return Pass(____npcEntity, "SpeakStreaming", isAck ? "a spoken ack" : "a TTS line", onComplete);
+            }
+        }
+
+        [HarmonyPatch]
+        public static class Patch_GateRelay
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(RelayTarget(), "NetPackageNPCVoice.PlayVoiceLocally", null, "npcEntityId"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return RelayTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(int npcEntityId)
+            {
+                try
+                {
+                    if (!ScVoice.MayHold(npcEntityId)) return true;
+                    World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+                    EntityAlive npc = w != null ? w.GetEntity(npcEntityId) as EntityAlive : null;
+                    return !ScVoice.Swallow(npc, "PlayVoiceLocally", "a relayed TTS sentence");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-gate-relay", e);
+                    return true;
+                }
+            }
+        }
+
+        [HarmonyPatch]
+        public static class Patch_GateGreeting
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return HasNpcField() && Bindable(GreetingTarget(), "NPCChatComponent.PlayProactiveGreeting", null, "showSubtitle"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return GreetingTarget(); }
+
+            /// <summary>Skipped whole: no HUD subtitle, no synthesis. State as before the call (see the section's note).</summary>
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive ____npcEntity, bool showSubtitle)
+            {
+                return Pass(____npcEntity, "PlayProactiveGreeting", showSubtitle ? "a greeting" : "an NPC-to-NPC line", null);
+            }
+        }
+
+        [HarmonyPatch]
+        public static class Patch_GateAck
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(AckTarget(), "SubtitleManager.AcknowledgeCommand", null, "npc"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return AckTarget(); }
+
+            /// <summary>Say-lines (ammo.dry and the rest), order acks and refusals: skipped whole, HUD subtitle and speech.</summary>
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive npc)
+            {
+                return Pass(npc, "AcknowledgeCommand", "an ack or say-line", null);
+            }
+        }
+
+        /// <summary>The answer pass: the player spoke to this NPC through Voice Control (push-to-talk, typed chat).</summary>
+        [HarmonyPatch]
+        public static class Patch_GatePlayerMessage
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return HasNpcField() && Bindable(PlayerMessageTarget(), "NPCChatComponent.ProcessPlayerMessage", null, "playerMessage", "player"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return PlayerMessageTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(EntityAlive ____npcEntity, string playerMessage, EntityPlayer player)
+            {
+                try
+                {
+                    if (player == null || string.IsNullOrEmpty(playerMessage) || playerMessage.Trim().Length == 0) return;
+                    ScVoice.PlayerSpoke(____npcEntity, "the player spoke to them");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-gate-message", e);
+                }
+            }
+        }
+#if SC_V34
+
+        /// <summary>
+        /// 3.4: DialogActionSayCarrying.PerformAction(EntityPlayer player) - 0-XNPCCore's "What are you carrying?" row (action
+        /// type SayCarrying, 1-XNPCVoiceControl; Voice Control 3.4 only), answered with a say-line through AcknowledgeCommand.
+        /// Global namespace; only Voice Control's own type counts.
+        /// </summary>
+        public static MethodBase SayCarryingTarget()
+        {
+            Type chat = ChatType, t = ScTypes.Find("DialogActionSayCarrying");
+            if (chat == null || t == null || t.Assembly != chat.Assembly) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "PerformAction", new[] { typeof(EntityPlayer) }), typeof(void), false);
+        }
+
+        /// <summary>The answer pass, 3.4: the player picked "What are you carrying?" in the open talk.</summary>
+        [HarmonyPatch]
+        public static class Patch_GateSayCarrying
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(SayCarryingTarget(), "DialogActionSayCarrying.PerformAction", null); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SayCarryingTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix()
+            {
+                try { ScVoice.PlayerAskedInTalk("the player asked what they carry"); }
+                catch (Exception e) { ScLog.Once("vc-gate-saycarrying", e); }
+            }
+        }
+#endif
     }
 }

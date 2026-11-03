@@ -868,6 +868,8 @@ namespace SurvivorCommunity
         public static bool DialogLine = true;
         /// <summary>A survivor's line plays as a recorded clip when Resources/Voices has one in their voice.</summary>
         public static bool VoiceLines = true;
+        /// <summary>V1: while SC's talk is open on one of the community's survivors, or SC's line still plays on them, Voice Control keeps quiet on them (ScVoice.HoldsVoice).</summary>
+        public static bool MuteVcInTalk = true;
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
@@ -1065,6 +1067,7 @@ namespace SurvivorCommunity
             ParseRaiderShooting("1-2,2-4,4-6");
             DialogLine = true;
             VoiceLines = true;
+            MuteVcInTalk = true;
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
@@ -1981,6 +1984,9 @@ namespace SurvivorCommunity
                 bool voiceLines = VoiceLines;
                 if (p.Values.ContainsKey("VoiceLines")) p.ParseBool("VoiceLines", ref voiceLines);
                 VoiceLines = voiceLines;
+                bool muteVc = MuteVcInTalk;
+                if (p.Values.ContainsKey("MuteVcInTalk")) p.ParseBool("MuteVcInTalk", ref muteVc);
+                MuteVcInTalk = muteVc;
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
@@ -2129,7 +2135,7 @@ namespace SurvivorCommunity
                                             + ShootingHitRadius + "m" + (ShootingAimChest ? " chest" : " head") + " default " + ShootingDefaultStars + " raiders "
                                             + RaiderShootingStars[0, 0] + "-" + RaiderShootingStars[0, 1] + "/" + RaiderShootingStars[1, 0] + "-" + RaiderShootingStars[1, 1]
                                             + "/" + RaiderShootingStars[2, 0] + "-" + RaiderShootingStars[2, 1] : "off")
-                          + " dialogLine=" + DialogLine + " voiceLines=" + VoiceLines
+                          + " dialogLine=" + DialogLine + " voiceLines=" + VoiceLines + " muteVcInTalk=" + MuteVcInTalk
                           + " getUp=" + (XnpcBodyGetUp ? (XnpcGetUpGuard ? "guarded" : "unguarded") + (XnpcGetUpTrace ? "+trace" : "") : "off")
                           + " relax=" + (XnpcRelax ? "after " + XnpcRelaxCalmSeconds + "s, " + (XnpcRelaxRange > 0f ? XnpcRelaxRange + "m" : "sight range")
                                                      + (XnpcRelaxHideWeapon ? ", weapon hidden" : ", weapon shown") + (XnpcRelaxRaiders ? ", raiders too" : ", not raiders") : "off")

@@ -84,6 +84,7 @@ namespace SurvivorCommunity
                 ScLoadout.Reset();
                 ScMedic.Reset();
                 Patches_VoiceControl.Reset();
+                ScVoice.Reset();
                 ScXnpc.Reset();
                 Patches_Xnpc.Reset();
                 ScAmmo.Reset();
@@ -435,6 +436,15 @@ namespace SurvivorCommunity
                 Add(t, "EntityMovementActuator::TryOpenBlockingDoor", ScDoors.VcDoorTarget());
                 // ScArms.cs - Voice Control's "use X" keeps a handed weapon the same way
                 Add(t, "VCCommandRouter::MutateSwapWeapon", ScArms.VcSwapTarget());
+                // Patches_VoiceControl.cs (V1) - the voice gate: Voice Control keeps quiet on a survivor while SC's talk is open
+                // on them or SC's line plays; the player's own words through Voice Control open the answer pass
+                Add(t, "NPCAudioPlayer::OnWavBytesReady", Patches_VoiceControl.WavReadyTarget());
+                Add(t, "NPCAudioPlayer::PlayClipFile", Patches_VoiceControl.PlayClipFileTarget());
+                Add(t, "NPCAudioPlayer::SpeakStreaming", Patches_VoiceControl.SpeakStreamingTarget());
+                Add(t, "NetPackageNPCVoice::PlayVoiceLocally", Patches_VoiceControl.RelayTarget());
+                Add(t, "NPCChatComponent::PlayProactiveGreeting", Patches_VoiceControl.GreetingTarget());
+                Add(t, "SubtitleManager::AcknowledgeCommand", Patches_VoiceControl.AckTarget());
+                Add(t, "NPCChatComponent::ProcessPlayerMessage", Patches_VoiceControl.PlayerMessageTarget());
 #if SC_V34
                 // 3.4: ScAim - the gun stays up while Voice Control's paced back-off walks the NPC away (M11 fix 2)
                 Add(t, "UAITaskBackupFromTargetPaced::Update", ScAim.BackoffTarget());
@@ -442,6 +452,8 @@ namespace SurvivorCommunity
                 Add(t, "UAIConsiderationMayEngage::GetScore", Patches_VoiceControl.MayEngageTarget());
                 // 3.4: ScDoors - the Point formation's doors are shut behind a member too
                 Add(t, "EntityMovementActuator::TryOpenDoorAtBlock", ScDoors.VcPointDoorTarget());
+                // 3.4 (V1): the dialog's "What are you carrying?" row opens the voice gate's answer pass
+                Add(t, "DialogActionSayCarrying::PerformAction", Patches_VoiceControl.SayCarryingTarget());
 #endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");

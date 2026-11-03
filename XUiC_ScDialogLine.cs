@@ -16,6 +16,8 @@ namespace SurvivorCommunity
     /// once per new statement, so the statement's shared Text is never written and the voice key stays its id. vo2: a line
     /// an enclave request picks at runtime ({reqask} and the like) comes back with its own key, which ScVoice tries first;
     /// closing the talk stops SC's clip, but not a line said as it closes (ScVoice.SayAfterTalk).
+    /// V1: each frame it tells ScVoice whom the talk is open on (TalkOn), and its close ends that (OnTalkClosed): while the
+    /// talk is open on one of the community's survivors, Voice Control keeps quiet on them (ScVoice.HoldsVoice).
     /// </summary>
     [Preserve]
     public class XUiC_ScDialogLine : XUiController
@@ -57,6 +59,8 @@ namespace SurvivorCommunity
                 Dialog dialog = group != null ? group.CurrentDialog : null;
                 DialogStatement st = dialog != null ? dialog.CurrentStatement : null;
                 EntityAlive npc = xui != null && xui.Dialog != null ? xui.Dialog.Respondent : null;
+                // V1: the voice gate holds Voice Control on this NPC while the talk is open (ScVoice.HoldsVoice; OnClose lets go)
+                ScVoice.TalkOn(npc);
                 // vo2: read and filled with the panel off too (DialogLine=false) while the voices are on - a request line's voice
                 // key comes from the fill; with both off nothing is read, so a fill's side effects (a thanks spent, an
                 // infestation made known) wait for a line that is shown or heard (the vo2 review's L2)
