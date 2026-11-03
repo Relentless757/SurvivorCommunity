@@ -182,7 +182,7 @@ namespace SurvivorCommunity
                     {
                         o.DemandUntil = -1;
                         if (ScConfig.OutpostAttacks && ScEncRaids.MayCome(o, player)) StartAttack(o, true, player, radio);
-                        else o.RaidEnclave = -1;
+                        else ScEncRaids.Unstamp(o);
                     }
                     if (o.State != OutpostState.Active) continue;
 
@@ -209,7 +209,7 @@ namespace SurvivorCommunity
                             o.DemandUntil = day;                          // answer before the next rollover
                             o.DemandAmmo = ScConfig.OutpostDemandAmmo;
                             o.DemandFood = ScConfig.OutpostDemandFood;
-                            o.RaidEnclave = -1;
+                            ScEncRaids.Unstamp(o);
                             if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRiskDemand"), o.DemandAmmo, o.DemandFood, o.Name), "ui_denied");
                             if (summary.Length > 0) summary.Append(' ');
                             summary.Append(string.Format(Localization.Get("scRiskDemandLine"), o.Name));
@@ -440,10 +440,12 @@ namespace SurvivorCommunity
                 if (by != null && ScEncRaids.Configured)
                 {
                     // E10: an enclave's raid - their own people come (ScEncRaids.SpawnParty); with nobody left to send, it is off.
-                    // The enclaves still being validated (the first seconds of a session): the next second
+                    // The enclaves still being validated (the first seconds of a session), or those who could come in view at
+                    // their den or still being built there (SpawnParty's -1): the next second
                     if (!ScEnclaves.Ready) { l.Spawned = false; return; }
                     int came = ScEncRaids.SpawnParty(w, player, o, count, target, l.Ids);
-                    if (came <= 0)
+                    if (came < 0) { l.Spawned = false; l.Ids.Clear(); return; }
+                    if (came == 0)
                     {
                         l.Spawned = false;
                         l.Ids.Clear();

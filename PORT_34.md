@@ -1273,7 +1273,7 @@ Config/blocks.xml (it gained keys, so the old file was not copied back). Oxley's
 voices are under their new names. No new recordings yet: the new lines are silent and SC's greetings stay off until a
 voice has the clip. Test steps: TESTING.md groups N, O, I3, E7, R, E9, T (83-199).
 
-### Round 15: raider enclaves raid (E10) (2026-11-03, built, not reviewed, not installed)
+### Round 15: raider enclaves raid (E10) (2026-11-03, built, reviewed (Fable: deployable after fixes), review fixes in, not installed)
 
 `research\ideas\DESIGN.md` section 4 (idea 3) and section 1 (rules), side finding 4 (the E5 review's R3), with the user's
 decisions: the raiders are the hostile enclave's own people and their deaths count (Q8 a); **`OutpostAttacks` off turns
@@ -1419,4 +1419,43 @@ Checks:
 
 Builds: SC 3.4 `f90c5373e710682b5692aa50f8bdad23` (`build\sc34_e10`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not
 rebuilt (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E10 (200-219). Not reviewed (Fable), not
+installed. The task list needs its entry.
+
+**E10 Fable review** (`research\review_e10\REVIEW.md`): DEPLOYABLE AFTER FIXES, no HIGH. Fixed:
+- **M1, a den near the outpost never raided.** Its people are out at home while the player is at the outpost, and
+  `SpawnParty` skipped everyone with a body, so the raid was called off as "nobody left to send". Now the people picked
+  (ranked first, as before) whose own body is out at home and not seen (`SeenByAny`) leave it (`ScEnclavePeople.Despawn`:
+  health and rounds recorded) and are placed; one in view stays home. The raid line adds `; N left their building for
+  it` / `; K stayed home, in view`. When that leaves nobody - or the only ones have a body still being built -
+  `SpawnParty` returns -1 and `SpawnAttack` tries again the next second (logged once a raid: `nobody yet (K in view at
+  home) - tried again each second`) instead of calling the raid off. `Regroup` needs nothing: raiding is only given with
+  a raid body (`Join`), and E2 never builds a raiding person a body at home (`NextToSpawn` wants `StateHome`).
+- **M2, a turned-hostile group's survivors stood on the ring.** `Place` (so `Regroup` too) and the `GenerateAway` path give
+  a body of a group with `Enclave.TurnedHostile` the `SCEnclave` package (`ScEncRaids.Hostile`, E9's fighter's way,
+  `ScEncCalls.cs:405`): its `ScEncApproach` / `ScEncInvestigate` act through `ScEncHostile`, which leaves raider classes
+  out; away from home every other action of it scores 0 (`ScEncHome`).
+- **L1:** the raid's loss count is `Outpost.RaidLost` (`[outpost] raidlost=N`, written only with `raidenc`; 0 from an
+  older save), counted in `OnDied` and read by `End`, `OnDenFalling` and the console's `now:` (a raid called after a load
+  shows `..., 1 lost`). It is cleared wherever the stamp is (`ScEncRaids.Unstamp`, also in `ScOutpostRisk.Daily` and `sc
+  outpost demand`) and when a demand is made. `Party` stays session only, without its `Lost`.
+- **L2:** `End` skips `LoseHeld` for an unattended, held raid with `RaidLost > 0` (a fight before a reload) and logs why
+  (`... held with nobody there at its end, but N of theirs died fighting there before a reload - no more are lost for the
+  hold`); the end line then says `(nobody came back to fight it)`. That the reload still costs the attended bonus is
+  pre-E10 and left.
+- **L3:** `LoseHeld`'s pool takes a non-leader at home whose own body is out where nobody sees it (`KillRecord` removes it,
+  no corpse); a seen one stays out.
+- **L4:** README and TESTING 212: they fight on while you're in sight and are gone once you're not.
+- **N1:** `OnUnbodied` logs only for a person a party still holds, and `OnDenFalling` drops the party before it abandons
+  the bodies, so neither an abandoned raider nor a turned-hostile survivor taken with the group logs "off the map".
+- **N3, N6:** TESTING 219(a) (the stamp count is per enclave) and 211 (`no body`).
+- **Found besides:** the losses were told only by `End` and `OnDenFalling`'s party branch, so a raid called off with kills
+  behind it (a party out when the switches go off or the group is lost; after a reload, nobody left or nobody came) or
+  an outpost lost mid-raid dropped them - no tell and no ledger line, as `Died` writes none for a raid death. `CallOff`,
+  `OnOutpostGone` and `OnDenFalling`'s no-party branch now tell `RaidLost` too (nothing at 0, so 216, 217 and 219(b) are
+  unchanged). Still there, console only: `sc enclave kill` on a raiding person with a body logs the verbose "off the map"
+  line before the death.
+- Left: N2, N4, N5.
+TESTING steps changed: 208 (a den near the outpost), 211, 212, 213 (`raidlost=`, the count over a load, the held settle
+after one), 214 (the den at the deadline; `raidlost=` is the `[enclave]`'s), 218 (they close in), 219(a). Build after the
+fixes: SC 3.4 `e79dde4e5551aba918de8918e9b1b4fd` (`build\e10fix`), 0 errors (the two old CS0108 warnings). Not
 installed. The task list needs its entry.

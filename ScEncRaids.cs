@@ -22,26 +22,29 @@ namespace SurvivorCommunity
     /// the next rollover: the raid is called as before (ScOutpostRisk.StartAttack, OutpostAttackHours to get there).
     ///
     /// The raiders are their own people (SpawnParty, when the player arrives: ScOutpostRisk.SpawnAttack): min(the attack's
-    /// size, EnclaveRaidPartyMax, those to spare), the strongest at home first (never the leader, never one whose body is out
-    /// at home), then - a group never met - new people made at the outpost as E2 makes them at home
-    /// (ScEnclavePeople.GenerateAway: their records and faces; no spot until their first spawn at home). Each body is
-    /// ScEnclavePeople.SpawnAt's (dressed as every body: never saved, the enclave's cvars, the record's health) and each person
+    /// size, EnclaveRaidPartyMax, those to spare), the strongest at home first (never the leader; one whose body is out at
+    /// home leaves it where nobody sees it go, one in view stays), then - a group never met - new people made at the outpost
+    /// as E2 makes them at home (ScEnclavePeople.GenerateAway: their records and faces; no spot until their first spawn at
+    /// home). Each body is ScEnclavePeople.SpawnAt's (dressed as every body: never saved, the enclave's cvars, the record's
+    /// health; a turned-hostile group's also the SCEnclave package, whose approach brings its survivors in) and each person
     /// is "raiding" (EncPerson.StateRaiding): alive - the fall rule, Living and the group count see them - but not at home.
     /// E2's tick hands the body here (TickBody: its target given again while the raid is on; once it is over, home, and the
-    /// body walks off and goes once out of sight). Those killed are dead for good (E2's Died); their losses are counted here
-    /// and told once, at the end ("The X lost 3 people raiding Diner."). A body that goes alive (an unload, the shutdown)
-    /// leaves its person raiding off the map, and Regroup brings them back round the outpost before the fight is judged won.
+    /// body walks off and goes once out of sight). Those killed are dead for good (E2's Died); their losses are counted on
+    /// the outpost (Outpost.RaidLost: a reload keeps them) and told once, when the raid ends however it ends ("The X lost 3
+    /// people raiding Diner."). A body that goes alive (an unload, the shutdown) leaves its person raiding off the map, and
+    /// Regroup brings them back round the outpost before the fight is judged won.
     ///
     /// End (ScOutpostRisk.Won / Settle): survivors home (a body out walks off), the group rests EnclaveRaidRestDays, and an
     /// unattended raid the outpost held costs them EnclaveRaidLossHeld of the party they would have sent (records first, then
-    /// people not made yet: Enclave.RaidLost); damaged or overrun, none of them die. A raid whose group can no longer send
-    /// anyone is called off; a group that falls (ScEnclavePeople.DropPeople) drops its demand and its call, and a party out
-    /// fights on as plain raiders (OnDenFalling); switching any of the three off calls an open one off.
+    /// people not made yet: Enclave.RaidLost) - unless the player fought it before a reload (its losses kept); damaged or
+    /// overrun, none of them die. A raid whose group can no longer send anyone is called off; a group that falls
+    /// (ScEnclavePeople.DropPeople) drops its demand and its call, and a party out fights on as plain raiders (OnDenFalling);
+    /// switching any of the three off calls an open one off.
     ///
-    /// Session state is the party only. The records persist: Outpost.RaidEnclave ([outpost] raidenc=), Enclave.RaidDay and
-    /// RaidLost ([enclave] raidday=, raidlost=). A raiding person is saved as home (bodies never outlive a load), so an older
-    /// build reads them right, and after a load the party is picked again when the player arrives. Host only, main thread; no
-    /// Harmony patch.
+    /// Session state is the party only. The records persist: Outpost.RaidEnclave and RaidLost ([outpost] raidenc=,
+    /// raidlost=), Enclave.RaidDay and RaidLost ([enclave] raidday=, raidlost=). A raiding person is saved as home (bodies
+    /// never outlive a load), so an older build reads them right, and after a load the party is picked again when the player
+    /// arrives. Host only, main thread; no Harmony patch.
     /// </summary>
     public static class ScEncRaids
     {
@@ -52,13 +55,12 @@ namespace SurvivorCommunity
         /// <summary>How often (real seconds) a raiding person left without a party is looked for.</summary>
         private const float SweepSeconds = 10f;
 
-        /// <summary>A raid party out this session: who went (person ids, the dead among them) and how many of them died.</summary>
+        /// <summary>A raid party out this session: who went (person ids, the dead among them). Their losses are the outpost's (Outpost.RaidLost).</summary>
         private sealed class Party
         {
             public int OutpostId, EnclaveId;
             public string EnclaveName = "";
             public readonly List<int> Pids = new List<int>();
-            public int Lost;
         }
 
         /// <summary>Outpost id -> the party raiding it (session only).</summary>
@@ -161,6 +163,13 @@ namespace SurvivorCommunity
             return o != null && o.RaidEnclave > 0 ? ScEnclaves.ById(o.RaidEnclave) : null;
         }
 
+        /// <summary>The stamp off: no group behind the outpost's demand or raid, and no losses of one counted there (Outpost.RaidLost).</summary>
+        internal static void Unstamp(Outpost o)
+        {
+            o.RaidEnclave = -1;
+            o.RaidLost = 0;
+        }
+
         /// <summary>Why this group can't lean on an outpost now (null: it can). force: their rest ignored (the console).</summary>
         public static string WhyNot(Enclave e, bool force)
         {
@@ -224,6 +233,7 @@ namespace SurvivorCommunity
             o.DemandAmmo = ScConfig.OutpostDemandAmmo;
             o.DemandFood = ScConfig.OutpostDemandFood;
             o.RaidEnclave = e.Id;
+            o.RaidLost = 0;
             bool revealed = !e.Known && player != null && ScEnclaves.SetKnown(e, true, player) > 0;
             if (player != null)
                 ScCommunity.Tell(player, Radio(e, "scEncRaidDemandSaid") + " " + string.Format(Loc("scEncRaidDemand"), o.DemandAmmo, o.DemandFood, o.Name)
@@ -242,7 +252,7 @@ namespace SurvivorCommunity
         internal static string OnPaid(Outpost o)
         {
             Enclave e = EnclaveOf(o);
-            o.RaidEnclave = -1;
+            Unstamp(o);
             if (e == null) return null;
             Rest(e);
             ScOutposts.NoteLedger(string.Format(Loc("scEncRaidLedgerPaid"), e.Name, o.Name));
@@ -265,7 +275,7 @@ namespace SurvivorCommunity
             else if (!e.IsHostile) why = "they are not hostile";
             else if (Spare(e) <= 0) { why = "they have nobody left to send"; tell = "scEncRaidNobody"; }
             if (why == null) return true;
-            o.RaidEnclave = -1;
+            Unstamp(o);
             Rest(e);
             if (tell != null && player != null && e != null) ScCommunity.Tell(player, string.Format(Loc(tell), e.Name, o.Name), "");
             ScLog.Out("the demand on outpost " + o.Id + " (" + o.Name + ") ran out, but no raid comes: " + why);
@@ -300,7 +310,7 @@ namespace SurvivorCommunity
                     {
                         bool spawned = parties.ContainsKey(o.Id);
                         bool demand = ScOutpostRisk.HasDemand(o), raid = ScOutpostRisk.UnderAttack(o) && o.AttackRaiders;
-                        if (!demand && !raid && !spawned) { o.RaidEnclave = -1; changed = true; continue; }
+                        if (!demand && !raid && !spawned) { Unstamp(o); changed = true; continue; }
                         Enclave e = ScEnclaves.ById(o.RaidEnclave);
                         string why = null, tell = null;
                         if (!Configured) why = "enclave raids are off (" + OffWhy() + ")";
@@ -337,7 +347,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// A demand or raid off before its end: the demand dropped, a party out sent home (bodies walk off), the call off (no
-        /// outcome), the stamp off, the group resting; tellKey ({0} the group, {1} the outpost) or null; the log. The caller saves.
+        /// outcome), the stamp off, the group resting; tellKey ({0} the group, {1} the outpost) or null; the losses of a raid
+        /// already fought (Outpost.RaidLost) told as at its end; the log. The caller saves.
         /// </summary>
         private static void CallOff(Outpost o, Enclave e, EntityPlayerLocal player, string why, string tellKey)
         {
@@ -345,6 +356,7 @@ namespace SurvivorCommunity
             parties.TryGetValue(o.Id, out party);
             string name = e != null ? e.Name : party != null ? party.EnclaveName : "";
             bool demand = ScOutpostRisk.HasDemand(o), raid = ScOutpostRisk.UnderAttack(o) && o.AttackRaiders;
+            int lost = o.RaidLost;
             if (demand) o.DemandUntil = -1;
             if (party != null)
             {
@@ -352,11 +364,12 @@ namespace SurvivorCommunity
                 parties.Remove(o.Id);
             }
             if (raid) ScOutpostRisk.CallOff(o);
-            o.RaidEnclave = -1;
+            Unstamp(o);
             Rest(e);
             if (tellKey != null && player != null && name.Length > 0) ScCommunity.Tell(player, string.Format(Loc(tellKey), name, o.Name), "");
+            TellLosses(player, name, lost, o);
             ScLog.Out("enclave raid on outpost " + o.Id + " (" + o.Name + ") by '" + name + "' is off: " + why + (demand ? " - the demand is dropped" : "")
-                      + (raid ? " - the raid call is off" : "") + (party != null ? " - the party goes home" : ""));
+                      + (raid ? " - the raid call is off" : "") + (party != null ? " - the party goes home" : "") + (lost > 0 ? " - " + lost + " of theirs lost in it" : ""));
         }
 
         /// <summary>ScOutpostRisk.SpawnAttack: the player is there, but nobody of theirs could come (none left, no body could be made): the raid is off. The caller saves.</summary>
@@ -397,7 +410,19 @@ namespace SurvivorCommunity
         private static EntityAlive Place(World w, Enclave e, EncPerson p, Outpost o, GameRandom r, float reach)
         {
             Vector3 pos = ScOutpostRisk.RingSpot(w, o, r, reach);
-            return ScEnclavePeople.SpawnAt(w, e, p, pos, Face(pos, o.Centre));
+            EntityAlive npc = ScEnclavePeople.SpawnAt(w, e, p, pos, Face(pos, o.Centre));
+            if (npc != null) Hostile(e, npc);
+            return npc;
+        }
+
+        /// <summary>
+        /// A body of a group turned hostile gets the SCEnclave package (E9's fighter's way, ScEncCalls): its ScEncApproach and
+        /// ScEncInvestigate (ScEncHostile) bring a survivor with a gun in - XNPC's own ranged package only shoots and backs
+        /// off. Away from home every other action of it scores 0 (ScEncHome). Raider classes carry SCRaider's approach already.
+        /// </summary>
+        private static void Hostile(Enclave e, EntityAlive npc)
+        {
+            if (e.TurnedHostile) ScEnclavePeople.AddPackage(npc);
         }
 
         /// <summary>One of the party: raiding, in its list, the body in the fight's list with its target.</summary>
@@ -417,9 +442,12 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// ScOutpostRisk.SpawnAttack, the player arrived at an enclave's raid: min(count, EnclaveRaidPartyMax, those to spare)
-        /// of their people round the outpost - those at home first (the strongest; never the leader, never one whose body is out
-        /// or still being built), then new people made at the outpost while the group has places left (GenerateAway). Each is
-        /// raiding, its body in ids with the attack's target. Returns how many came (0: nobody - the caller calls the raid off).
+        /// of their people round the outpost - those at home first (the strongest; never the leader, never one whose body is
+        /// still being built; one whose body is out at home - a den near the outpost, the player within its spawn range - leaves
+        /// it where nobody sees it go, the review's M1, and one in view stays), then new people made at the outpost while the
+        /// group has places left (GenerateAway). Each is raiding, its body in ids with the attack's target. Returns how many came
+        /// (0: nobody - the caller calls the raid off; -1: nobody yet, as those who could come are in view at home or their
+        /// bodies still being built - the caller tries again the next second).
         /// </summary>
         internal static int SpawnParty(World w, EntityPlayerLocal player, Outpost o, int count, EntityAlive target, List<int> ids)
         {
@@ -439,12 +467,13 @@ namespace SurvivorCommunity
             GameRandom r = w.GetGameRandom();
             float reach = ScOutpostRisk.Reach(o);
             if (target == null) target = player;
-            int made = 0, fresh = 0;
+            int made = 0, fresh = 0, moved = 0, seen = 0, busy = 0;
             scratch.Clear();
             foreach (EncPerson p in ScRegistry.EncPeople)
             {
-                if (p.EnclaveId != e.Id || p.State != EncPerson.StateHome || p.IsLeader || p.EntityId >= 0) continue;
-                if (p.LastEntityId >= 0 && ScNpc.IsPending(w, p.LastEntityId)) continue;      // a copy of their last body still being built
+                if (p.EnclaveId != e.Id || p.State != EncPerson.StateHome || p.IsLeader) continue;
+                if (p.EntityId >= 0 && ScNpc.IsPending(w, p.EntityId)) { busy++; continue; }                               // their body at home still being built
+                if (p.EntityId < 0 && p.LastEntityId >= 0 && ScNpc.IsPending(w, p.LastEntityId)) { busy++; continue; }    // a copy of their last body still being built
                 scratch.Add(p);
             }
             scratch.Sort(Rank);
@@ -453,10 +482,21 @@ namespace SurvivorCommunity
             foreach (EncPerson p in picked)
             {
                 if (made >= want) break;
+                bool left = false;
+                if (p.EntityId >= 0)
+                {
+                    // their body is out at home: it goes first (its health and rounds recorded), unless someone may see it go
+                    EntityAlive own = ScEnclavePeople.OwnBody(p);
+                    if (own == null || own.IsDead()) { busy++; continue; }      // gone or dying: their tick squares it first
+                    if (ScEnclavePeople.SeenByAny(w, own.position)) { seen++; continue; }
+                    ScEnclavePeople.Despawn(p, own);
+                    left = true;
+                }
                 EntityAlive npc = Place(w, e, p, o, r, reach);
                 if (npc == null) continue;
                 Join(party, p, npc, target, ids);
                 made++;
+                if (left) moved++;
             }
             int guard = 0;
             while (made < want && guard++ < 16)
@@ -468,21 +508,33 @@ namespace SurvivorCommunity
                 EncPerson np;
                 EntityAlive npc = ScEnclavePeople.GenerateAway(w, e, pos, Face(pos, o.Centre), out np);
                 if (npc == null || np == null) break;
+                Hostile(e, npc);
                 Join(party, np, npc, target, ids);
                 made++;
                 fresh++;
             }
+            if (made == 0 && seen + busy > 0)
+            {
+                // nobody came only because those who could are in view at home or their bodies are still being built: not
+                // "nobody left to send" - the next second (logged once a raid)
+                ScLog.OnceOut("encraids-wait-" + o.Id + "-" + o.AttackUntil, "enclave " + e.Id + " '" + e.Name + "' raids outpost " + o.Id + " (" + o.Name + "): nobody yet ("
+                              + (seen > 0 ? seen + " in view at home" : "") + (seen > 0 && busy > 0 ? ", " : "") + (busy > 0 ? busy + " with a body still being built" : "")
+                              + ") - tried again each second");
+                return -1;
+            }
             if (made > 0) parties[o.Id] = party;
-            if (fresh > 0) ScRegistry.SaveAtomic();
+            if (fresh > 0 || moved > 0) ScRegistry.SaveAtomic();
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "' raids outpost " + o.Id + " (" + o.Name + "): " + made + " of their people" + (fresh > 0 ? " (" + fresh + " met for the first time)" : "")
                       + " of " + want + " wanted (attack size " + count + ", party max " + Math.Max(1, ScConfig.EnclaveRaidPartyMax) + ", " + spare + " to spare: " + home + " at home, "
-                      + unmade + " not met yet)");
+                      + unmade + " not met yet)" + (moved > 0 ? "; " + moved + " left their building for it" : "") + (seen > 0 ? "; " + seen + " stayed home, in view" : ""));
             return made;
         }
 
         /// <summary>
         /// ScOutpostRisk.Tick, before a raid's fight is judged won: the party's people who are raiding with no body (theirs
-        /// went alive - an unload, the shutdown) come back round the outpost. Returns how many; a tell when any did.
+        /// went alive - an unload, the shutdown) come back round the outpost. One raiding with a body is in the fight already:
+        /// raiding comes only with a raid body (Join), and E2 never builds a body at home for a raiding person (NextToSpawn
+        /// wants StateHome). Returns how many; a tell when any did.
         /// </summary>
         internal static int Regroup(World w, EntityPlayerLocal player, Outpost o, List<int> ids)
         {
@@ -586,22 +638,35 @@ namespace SurvivorCommunity
         /// <summary>
         /// ScEnclavePeople.Unbody, for a raiding person: a body that died leaves the rest to the death (OnDied); one that went
         /// alive (an unload, the shutdown, gone from the world) leaves them raiding off the map until the raid ends or Regroup.
+        /// One no party holds any more (its group fell: OnDenFalling) is just gone.
         /// </summary>
         internal static void OnUnbodied(EncPerson p, EntityAlive own)
         {
             if (own != null) nextAssert.Remove(own.entityId);
             if (own != null && own.IsDead()) return;
+            if (!InParty(p.Id)) return;
             ScLog.Verbose(p.Name + " (p" + p.Id + ") of enclave " + p.EnclaveId + " is off the map with their raid party");
         }
 
-        /// <summary>ScEnclavePeople.Died, for one who died raiding: their party's loss (told at the raid's end).</summary>
+        private static bool InParty(int pid)
+        {
+            foreach (Party party in parties.Values) if (party.Pids.Contains(pid)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// ScEnclavePeople.Died, for one who died raiding: a loss of the raid on their party's outpost (Outpost.RaidLost, saved:
+        /// a reload mid-raid keeps it; told when the raid ends). The caller saves.
+        /// </summary>
         internal static void OnDied(Enclave e, EncPerson p)
         {
             foreach (Party party in parties.Values)
             {
                 if (!party.Pids.Contains(p.Id)) continue;
-                party.Lost++;
-                ScLog.Verbose("enclave raid on outpost " + party.OutpostId + ": " + p.Name + " of " + party.EnclaveName + " died - " + party.Lost + " lost so far");
+                Outpost o = ScOutposts.ById(party.OutpostId);
+                if (o == null || o.RaidEnclave != party.EnclaveId) return;
+                o.RaidLost++;
+                ScLog.Verbose("enclave raid on outpost " + party.OutpostId + ": " + p.Name + " of " + party.EnclaveName + " died - " + o.RaidLost + " lost so far");
                 return;
             }
         }
@@ -609,8 +674,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// ScEnclavePeople.DropPeople, before a group's records go (it fell; sc enclave reseed): its demand is dropped and a raid
         /// not yet out called off ("The X are gone ..."); a party out fights on as plain raiders - a raider's body loses the
-        /// enclave's cvars and stays in the fight (ScEnclavePeople.Abandon), any other goes with the group - and its losses
-        /// are told. The stamps come off. The caller saves.
+        /// enclave's cvars and stays in the fight (ScEnclavePeople.Abandon), any other goes with the group - and the raid's
+        /// losses (Outpost.RaidLost, also those of a fight before a reload) are told. The stamps come off. The caller saves.
         /// </summary>
         internal static void OnDenFalling(Enclave e)
         {
@@ -622,6 +687,7 @@ namespace SurvivorCommunity
                 Party party;
                 if (parties.TryGetValue(o.Id, out party))
                 {
+                    parties.Remove(o.Id);          // first: a body abandoned below is no party's any more (OnUnbodied)
                     int kept = 0;
                     foreach (int pid in party.Pids)
                     {
@@ -632,9 +698,8 @@ namespace SurvivorCommunity
                         ScEnclavePeople.Abandon(p, npc);
                         kept++;
                     }
-                    parties.Remove(o.Id);
-                    TellLosses(pl, party.EnclaveName, party.Lost, o);
-                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "' is gone while raiding outpost " + o.Id + " (" + o.Name + "): " + party.Lost + " of theirs lost, "
+                    TellLosses(pl, party.EnclaveName, o.RaidLost, o);
+                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "' is gone while raiding outpost " + o.Id + " (" + o.Name + "): " + o.RaidLost + " of theirs lost, "
                               + kept + " fight on as plain raiders");
                 }
                 else
@@ -643,9 +708,11 @@ namespace SurvivorCommunity
                     if (demand) o.DemandUntil = -1;
                     if (raid) ScOutpostRisk.CallOff(o);
                     if ((demand || raid) && pl != null) ScCommunity.Tell(pl, string.Format(Loc("scEncRaidGone"), e.Name, o.Name), "");
-                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "' is gone - " + (raid ? "its raid call on " : demand ? "its demand on " : "its stamp on ") + "outpost " + o.Id + " (" + o.Name + ") is off");
+                    if (raid) TellLosses(pl, e.Name, o.RaidLost, o);           // a raid fought before a reload
+                    ScLog.Out("enclave " + e.Id + " '" + e.Name + "' is gone - " + (raid ? "its raid call on " : demand ? "its demand on " : "its stamp on ") + "outpost " + o.Id + " (" + o.Name + ") is off"
+                              + (o.RaidLost > 0 ? " (" + o.RaidLost + " of theirs lost in it)" : ""));
                 }
-                o.RaidEnclave = -1;
+                Unstamp(o);
             }
         }
 
@@ -658,7 +725,7 @@ namespace SurvivorCommunity
             parties.Remove(o.Id);
         }
 
-        /// <summary>ScOutpostRisk.Forget (the outpost was lost or disbanded): a party out goes home, the group rests, the stamp off.</summary>
+        /// <summary>ScOutpostRisk.Forget (the outpost was lost or disbanded): a party out goes home, the group rests, the raid's losses are told, the stamp off.</summary>
         internal static void OnOutpostGone(Outpost o)
         {
             if (o == null) return;
@@ -672,18 +739,21 @@ namespace SurvivorCommunity
                 parties.Remove(o.Id);
             }
             Rest(e);
+            if (o.RaidEnclave > 0) TellLosses(ScCommunity.LocalPlayer, e != null ? e.Name : had ? party.EnclaveName : "", o.RaidLost, o);
             if (o.RaidEnclave > 0 || had)
-                ScLog.Out("outpost " + o.Id + " (" + o.Name + ") is gone - " + (e != null ? "'" + e.Name + "'" : "the group") + (had ? " go home from their raid" : " drop their demand or raid"));
-            o.RaidEnclave = -1;
+                ScLog.Out("outpost " + o.Id + " (" + o.Name + ") is gone - " + (e != null ? "'" + e.Name + "'" : "the group") + (had ? " go home from their raid" : " drop their demand or raid")
+                          + (o.RaidLost > 0 ? " (" + o.RaidLost + " of theirs lost in it)" : ""));
+            Unstamp(o);
         }
 
         // ------------------------------------------------------------------ the end ----
 
         /// <summary>
         /// ScOutpostRisk.Won (result "won") and Settle (held, damaged or overrun; attended when their party was out): the raid is
-        /// over. Unattended and held, the party they would have sent loses EnclaveRaidLossHeld (LoseHeld); otherwise those
-        /// killed died in the fight. Survivors home (a body out walks off), the group rests, one tell and ledger line for their
-        /// losses, the log. Nothing for a nameless raid. The caller saves.
+        /// over. Unattended and held, the party they would have sent loses EnclaveRaidLossHeld (LoseHeld) - unless some of
+        /// theirs already died fighting the player there before a reload (Outpost.RaidLost: that fight was its cost, the
+        /// review's L2); otherwise those killed died in the fight. Survivors home (a body out walks off), the group rests, one
+        /// tell and ledger line for their losses (Outpost.RaidLost, saved), the log. Nothing for a nameless raid. The caller saves.
         /// </summary>
         internal static void End(Outpost o, EntityPlayerLocal player, bool attended, string result)
         {
@@ -701,21 +771,28 @@ namespace SurvivorCommunity
             }
             Enclave e = ScEnclaves.ById(o.RaidEnclave);
             string name = e != null ? e.Name : had ? party.EnclaveName : "";
-            int lost = had ? party.Lost : 0;
-            o.RaidEnclave = -1;          // first: a fall the losses below cause finds no raid of theirs open
+            int lost = o.RaidLost;
+            Unstamp(o);                  // first: a fall the losses below cause finds no raid of theirs open
             if (had)
             {
                 SendPartyHome(party, e, "the raid is over: " + result);
                 parties.Remove(o.Id);
             }
             int held = 0;
-            if (!attended && result == ScOutpostRisk.HeldResult && e != null) held = LoseHeld(e, o, player);
+            bool fought = lost > 0;      // unattended: some of theirs died fighting the player there before a reload
+            if (!attended && result == ScOutpostRisk.HeldResult && e != null)
+            {
+                if (fought)
+                    ScLog.Out("enclave raid on outpost " + o.Id + " (" + o.Name + ") by '" + name + "': held with nobody there at its end, but " + lost
+                              + " of theirs died fighting there before a reload - no more are lost for the hold");
+                else held = LoseHeld(e, o, player);
+            }
             lost += held;
             bool standing = e != null && ScEnclaves.All.Contains(e);
             if (standing) Rest(e);
             TellLosses(player, name, lost, o);
-            ScLog.Out("enclave raid on outpost " + o.Id + " (" + o.Name + ") by '" + name + "' is over: " + result + (attended ? "" : " (nobody came to fight it)") + ", "
-                      + lost + " of theirs lost" + (held > 0 ? " (" + held + " as the outpost held)" : "") + (standing ? "; they rest until day " + e.RaidDay : ""));
+            ScLog.Out("enclave raid on outpost " + o.Id + " (" + o.Name + ") by '" + name + "' is over: " + result + (attended ? "" : fought ? " (nobody came back to fight it)" : " (nobody came to fight it)")
+                      + ", " + lost + " of theirs lost" + (held > 0 ? " (" + held + " as the outpost held)" : "") + (standing ? "; they rest until day " + e.RaidDay : ""));
         }
 
         private static void TellLosses(EntityPlayerLocal player, string name, int lost, Outpost o)
@@ -727,9 +804,10 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// An unattended raid the outpost held: EnclaveRaidLossHeld of the party they would have sent (min(attack size,
-        /// EnclaveRaidPartyMax, those to spare)) die - picked at random among the non-leaders at home whose body is not out
-        /// (records: ScEnclavePeople.KillRecord), the rest from the people not made yet (Enclave.RaidLost: the group is made that
-        /// many smaller). Returns how many.
+        /// EnclaveRaidPartyMax, those to spare)) die - records first (ScEnclavePeople.KillRecord), at random among the
+        /// non-leaders at home whose body is not out or is out where nobody sees it (the player at their den: KillRecord takes
+        /// it away, no corpse; one in view stays - the review's L3), then the people not made yet (Enclave.RaidLost: the group is
+        /// made that many smaller). Returns how many.
         /// </summary>
         private static int LoseHeld(Enclave e, Outpost o, EntityPlayerLocal player)
         {
@@ -742,7 +820,15 @@ namespace SurvivorCommunity
             GameRandom r = w != null ? w.GetGameRandom() : null;
             var pool = new List<EncPerson>();
             foreach (EncPerson p in ScRegistry.EncPeople)
-                if (p.EnclaveId == e.Id && p.State == EncPerson.StateHome && !p.IsLeader && p.EntityId < 0) pool.Add(p);
+            {
+                if (p.EnclaveId != e.Id || p.State != EncPerson.StateHome || p.IsLeader) continue;
+                if (p.EntityId >= 0)
+                {
+                    EntityAlive own = ScEnclavePeople.OwnBody(p);
+                    if (own == null || own.IsDead() || w == null || ScEnclavePeople.SeenByAny(w, own.position)) continue;
+                }
+                pool.Add(p);
+            }
             int done = 0;
             while (done < n && pool.Count > 0 && ScEnclaves.All.Contains(e))
             {
@@ -797,10 +883,10 @@ namespace SurvivorCommunity
                     if (p == null || !p.Raiding) continue;
                     if (p.EntityId >= 0) inFight++; else off++;
                 }
-                return "raiding " + o.Name + " (outpost " + o.Id + "): " + inFight + " in the fight" + (off > 0 ? ", " + off + " off the map" : "") + ", " + party.Lost + " lost";
+                return "raiding " + o.Name + " (outpost " + o.Id + "): " + inFight + " in the fight" + (off > 0 ? ", " + off + " off the map" : "") + ", " + o.RaidLost + " lost";
             }
             if (ScOutpostRisk.UnderAttack(o) && o.AttackRaiders)
-                return "a raid on " + o.Name + " (outpost " + o.Id + ") is called, " + ScOutpostRisk.HoursLeft(o) + " h to get there";
+                return "a raid on " + o.Name + " (outpost " + o.Id + ") is called, " + ScOutpostRisk.HoursLeft(o) + " h to get there" + (o.RaidLost > 0 ? ", " + o.RaidLost + " lost" : "");
             return "a demand on " + o.Name + " (outpost " + o.Id + "): " + o.DemandAmmo + " ammo + " + o.DemandFood + " food, to answer by the rollover after day " + o.DemandUntil;
         }
 

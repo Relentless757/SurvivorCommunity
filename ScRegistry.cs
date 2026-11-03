@@ -58,9 +58,10 @@ namespace SurvivorCommunity
     ///                call) call=kind:at:pid:until (the call that is on: fighter or drop, the world time it arrives, the
     ///                fighter's person, the world time they go home once they came - 0 before), each written when set.
     ///   E10 (ScEncRaids; keys an older build ignores): [outpost] raidenc=N (the hostile enclave behind its open raider demand or
-    ///                raid) and [enclave] raidday=N (the request-clock day they may raid again) raidlost=N (people a held raid cost
-    ///                them before they were made), each written when set. A person out raiding is written state=home (bodies never
-    ///                outlive a load, and an older build knows no other state for them).
+    ///                raid) raidlost=N (how many of them died raiding it so far; with raidenc only) and [enclave] raidday=N (the
+    ///                request-clock day they may raid again) raidlost=N (people a held raid cost them before they were made),
+    ///                each written when set. A person out raiding is written state=home (bodies never outlive a load, and an
+    ///                older build knows no other state for them).
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -385,8 +386,9 @@ namespace SurvivorCommunity
                 case "produced": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) o.Produced = Math.Max(0f, f); break; }
                 case "levelday": o.LevelDay = I(val); break;
                 case "visit": o.LastVisitDay = I(val); break;
-                // E10: the hostile enclave behind the open raider demand or raid
+                // E10: the hostile enclave behind the open raider demand or raid, and how many of them died raiding it so far
                 case "raidenc": { int id = I(val); o.RaidEnclave = id > 0 ? id : -1; break; }
+                case "raidlost": o.RaidLost = Math.Max(0, I(val)); break;
             }
         }
 
@@ -1268,6 +1270,7 @@ namespace SurvivorCommunity
                     sb.AppendLine("levelday=" + o.LevelDay);
                     sb.AppendLine("visit=" + o.LastVisitDay);
                     if (o.RaidEnclave > 0) sb.AppendLine("raidenc=" + o.RaidEnclave.ToString(CultureInfo.InvariantCulture));
+                    if (o.RaidEnclave > 0 && o.RaidLost > 0) sb.AppendLine("raidlost=" + o.RaidLost.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var en in Enclaves)
                 {

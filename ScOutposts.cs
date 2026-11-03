@@ -80,6 +80,11 @@ namespace SurvivorCommunity
         /// (ScEncRaids). Saved as [outpost] raidenc=N while set.
         /// </summary>
         public int RaidEnclave = -1;
+        /// <summary>
+        /// E10: how many of that group died raiding it so far (told when the raid ends; 0 with no raid of theirs open). Saved
+        /// as [outpost] raidlost=N while set, so a reload mid-raid keeps the count (the E10 review's L1).
+        /// </summary>
+        public int RaidLost;
 
         /// <summary>The POI footprint as an inclusive box {xMin, xMax, zMin, zMax}.</summary>
         public int[] Box { get { return new[] { Poi.x, Poi.x + Math.Max(1, Size.x) - 1, Poi.z, Poi.z + Math.Max(1, Size.z) - 1 }; } }

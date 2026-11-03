@@ -1051,11 +1051,15 @@ rollover pass, and they raid it: you have `OutpostAttackHours` to get there, as 
 
 **The raid.** When you arrive, their own people come in round the outpost - as many as an outpost attack would bring,
 at most 4 (`EnclaveRaidPartyMax`) and never more than they can spare: the strongest of those at home first (the faces
-you see at their den), and, for a group you have never met, new people made right there, who are at their den when you
-first go. Those you kill are dead for good. The outpost holds once they are all dead, and you hear "The Rabid Rats lost
-3 of their people raiding Diner." If you drive off before it is over and come back in time, the survivors come back too. When it is over the survivors head home (they walk off and vanish out of sight) and the group rests. A raid you
-never came to is settled on the outpost's security as before: held, it costs them a person
-(`EnclaveRaidLossHeld`); damaged or overrun, nobody of theirs dies. Losses add up - a group with only its leader left
+you see at their den; from a den near the outpost, whoever you can't see there leaves it for the raid), and, for a group
+you have never met, new people made right there, who are at their den when you first go. A group you turned hostile
+sends its survivors, who close in on you as raiders do. Those you kill are dead for good, and the count of them is kept
+over a save and load. The outpost holds once they are all dead, and you hear "The Rabid Rats lost 3 of their people
+raiding Diner." If you drive off before it is over and come back in time, the survivors come back too. When it is over
+the survivors head home (they fight on while you're in sight and are gone once you're not) and the group rests. A raid
+you never came to is settled on the outpost's security as before: held, it costs them a person
+(`EnclaveRaidLossHeld`; not when you fought it before a reload - those you killed were its cost); damaged or overrun,
+nobody of theirs dies. Losses add up - a group with only its leader left
 can't raid, and wiping out their den ends their raids (a new group moves in later, as for any lost enclave). A group
 that can no longer send anyone, or is gone, never comes ("The Rabid Rats never came for Diner - they have nobody left
 to send.", "The Rabid Rats are gone - nobody is coming for Diner."). The home base is never raided by them (it has its
@@ -1071,9 +1075,10 @@ a demand can be made now), `sc enclave raid <id> <outpost id> demand` (a demand 
 ignored), `sc enclave raid <id> <outpost id> now` (a demand refused at once: the raid is called); `sc enclave info <id>`
 has a raids line, `sc enclave people <id>` marks who is out raiding. `sc outpost demand <id>` still makes a nameless one.
 
-**Saving:** each `[outpost]` gains `raidenc` (the group behind its demand or raid) and each `[enclave]` `raidday` (when
-they may raid again) and `raidlost` (people a held raid cost a group you had not met yet), each written when set; an
-older build ignores them. Someone out raiding is saved as at home, so after a load the raid comes back when you arrive.
+**Saving:** each `[outpost]` gains `raidenc` (the group behind its demand or raid) and `raidlost` (how many of them died
+raiding it so far) and each `[enclave]` `raidday` (when they may raid again) and `raidlost` (people a held raid cost a
+group you had not met yet), each written when set; an older build ignores them. Someone out raiding is saved as at
+home, so after a load the raid comes back when you arrive.
 
 **Limits:** host only, single player. The radio's words are text only for now (a later voicing round records them).
 

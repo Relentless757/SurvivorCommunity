@@ -1838,7 +1838,7 @@ namespace SurvivorCommunity
                     Outpost o = OutpostArg(p);
                     if (o == null) return;
                     o.DemandUntil = ScCommunity.Today; o.DemandAmmo = ScConfig.OutpostDemandAmmo; o.DemandFood = ScConfig.OutpostDemandFood;
-                    o.RaidEnclave = -1;      // E10: a nameless demand (sc enclave raid <id> <outpost id> demand makes an enclave's)
+                    ScEncRaids.Unstamp(o);      // E10: a nameless demand (sc enclave raid <id> <outpost id> demand makes an enclave's)
                     ScRegistry.SaveAtomic();
                     Output("[SC] raiders demand " + o.DemandAmmo + " ammo + " + o.DemandFood + " food for " + o.Name + " (answer on the radio, or sc outpost pay|refuse " + o.Id + ")");
                     return;

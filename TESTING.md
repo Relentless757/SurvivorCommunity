@@ -949,7 +949,13 @@ The ledger is the community window's.
      (attack size C, party max 4, S to spare: H at home, U not met yet)`. `sc enclave people <id>`: those N read `-
      raiding (at <Outpost>, outpost <oid>)` with an entity; the leader is never one of them, and their names and looks are
      the ones you saw at their den. `sc enclave info <id>`: `now: raiding <Outpost> (outpost <oid>): N in the fight, 0
-     lost`.
+     lost`. **A den near the outpost** (its building within about 150 m of where you stand at the outpost, so its people
+     are out at home while you are there; the review's M1): they raid too. Those out of your sight leave their building
+     for it (the raid line ends `; M left their building for it`, and at their den they are gone); one in view (within 90
+     m, in front of you) stays home (`; K stayed home, in view`). If that leaves nobody to come, the log says once
+     `enclave <id> '<name>' raids outpost <oid> (<Outpost>): nobody yet (K in view at home) - tried again each second` and
+     they come the second you look away - never `<name> never came for <Outpost> - they have nobody left to send.` while
+     `sc enclave info <id>` shows people to spare.
 209. **Hold it.** Kill them all. Each death logs `enclave <id> '<name>': <Person> (p<pid>) died - killed by <you> raiding
      an outpost` (no ledger line per person). After the last: `<Outpost> held - your people will not forget it.`, then
      `<name> lost N of their people raiding <Outpost>.`; the ledger `<Outpost> held against an attack` and `<name> lost N
@@ -961,27 +967,37 @@ The ledger is the community window's.
      `enclave <id> '<name>': <Person> (<class>, p<pid>) is one of the group, met away from home at X, Y, Z - K of G`, and
      the raid line says `(N met for the first time)`. They fight as in step 208.
 211. **Leave and come back.** Kill one of them, then drive away far enough that their chunks unload (a few hundred
-     metres; `sc enclave people <id>` then shows no entity for them) and come back before the 10 hours are up: the survivors come in again, `<Outpost>: <name> are here, M of them - hold the
+     metres; `sc enclave people <id>` then shows `no body` for them) and come back before the 10 hours are up: the survivors come in again, `<Outpost>: <name> are here, M of them - hold the
      outpost!`, and the log `enclave <id> '<name>': M of the party raiding outpost <oid> (<Outpost>) are back round it`.
      `sc enclave people <id>` meanwhile (while you are away) reads `- raiding (at <Outpost>, outpost <oid>, off the map)`.
 212. **Not finished in time.** Leave the survivors alive and `settime` past the deadline (the `raiders attack` log line's
      time plus 10 hours). The outpost is settled as a fight you joined (`<Outpost> held on its own.` or `<Outpost> took a
      beating: ...`), then `<name> lost 1 of their people raiding <Outpost>.`; the log `... is over: held, 1 of theirs
      lost; ...` (or `damaged`) and `<Person> (p<pid>) of <name> heads home from the raid (the raid is over: held)` for each
-     survivor; one still in sight walks off and vanishes once nobody sees it. Now go to their den: the survivors are
+     survivor; they fight on while you are in sight and are gone once you are not. Now go to their den: the survivors are
      there with the same names and looks, the one you killed is not, and the rest of the group (a leader first) is made
      as you arrive (`sc enclave people <id>`).
 213. **Saved and loaded mid-raid.** Start a raid (step 207), let them come (step 208), kill one, save and quit, load. The
-     save has `raidenc=<id>` in the outpost's `[outpost]` and their people `state=home` (nobody is saved out raiding).
-     Back at the outpost they come again (`<Outpost>: <name> are here, ...`), the one you killed is still dead, and the
-     fight ends as in step 209.
+     save has `raidenc=<id>` and `raidlost=1` in the outpost's `[outpost]` and their people `state=home` (nobody is
+     saved out raiding); `sc enclave info <id>` after the load has `now: a raid on <Outpost> (outpost <oid>) is called, H
+     h to get there, 1 lost`. Back at the outpost they come again (`<Outpost>: <name> are here, ...`), the one you killed
+     is still dead, and the fight ends as in step 209, the one from before the load counted too (`<name> lost N of their
+     people raiding <Outpost>.`, N all you killed). Again, but after the load stay away and `settime` past the deadline
+     with an outpost that holds (`OutpostSecBase` 200 as in step 214): `<Outpost> held on its own.` and `<name> lost 1 of
+     their people raiding <Outpost>.` (the one you killed, nobody more); the log `enclave raid on outpost <oid>
+     (<Outpost>) by '<name>': held with nobody there at its end, but 1 of theirs died fighting there before a reload - no
+     more are lost for the hold`, then `... is over: held (nobody came back to fight it), 1 of theirs lost; they rest until
+     day R+3`, and no `died (lost raiding <Outpost>)` line.
 214. **A raid nobody came to, held.** Set `OutpostSecBase` to 200 in SC's `Config/blocks.xml` and restart (security is
      then 100, which always holds; `sc outpost security <oid>` shows it). `sc enclave raid <id> <oid> now` from far away, stay away and `settime` past the deadline: `<Outpost>
      held on its own.`, then `<name> lost 1 of their people raiding <Outpost>.`; the log `enclave <id> '<name>': <Person>
      (p<pid>) died (lost raiding <Outpost>)` and `... is over: held (nobody came to fight it), 1 of theirs lost (1 as the
      outpost held); they rest until day R+3`. For a den you never met there is nobody to die yet: the log says `enclave
      <id> '<name>': 1 of the people not made yet lost raiding <Outpost> - the group will be made 1 smaller`, `sc enclave
-     info <id>` adds `1 lost before you met them`, and the save has `raidlost=1`. Put `OutpostSecBase` back.
+     info <id>` adds `1 lost before you met them`, and the save has `raidlost=1` in their `[enclave]`. Once more, standing
+     in their den at the deadline (a den you have met, its people out round you) with your back to one of them: someone
+     still dies - a body you are not looking at vanishes (no corpse) and the same lines come, `1 of theirs lost (1 as the
+     outpost held)`; one in front of you within 90 m never goes that way. Put `OutpostSecBase` back.
 215. **Damaged or overrun: nobody of theirs dies.** Set `OutpostSecBase` to 0 (an outpost with no staff and no defences
      is then at security 0-5: `sc outpost security <oid>`; if it holds anyway, try again), repeat step 214: `<Outpost> took
      a beating: ...` or `<Outpost> was overrun. ...`, no "lost" line, the log `... is over: damaged (nobody came to fight
@@ -997,11 +1013,14 @@ The ledger is the community window's.
      new group owed (E6). The same with a raid called but not yet come (`... its raid call on outpost ...`).
 218. **A group turned hostile.** `sc enclave hostile <id>` on a survivor group within 2000 m of an outpost: `sc enclave
      info <id>` says `raids: 2% a day ...` (half a raider enclave's). `sc enclave raid <id> <oid> now` and go: their own
-     survivors come, shoot at you on sight and at range (they are hostile now), and those you kill are dead in `sc enclave
-     people <id>`.
+     survivors come, shoot at you on sight and at range (they are hostile now) and close in - out of their gun's reach
+     they walk toward you, into the building after you, and come to your noise when they can't see you (`sc xnpc <entity
+     id>`, the id from `sc enclave people <id>`: `uai: action=ScEncApproach` or `ScEncInvestigate`); the review's M2:
+     before, they stood on the ring. Those you kill are dead in `sc enclave people <id>`.
 219. **A world day set back, the switches, and the home attack (the E5 review's R3).** (a) After a paid demand, `settime
-     <two days earlier> 12 0`: the log's `enclaves: the world's day went back from ...` line ends `; 1 raid rest stamp(s)
-     moved back D day(s)` (D as the request clock went back, the same number as earlier in that line), and `sc enclave
+     <two days earlier> 12 0`: the log's `enclaves: the world's day went back from ...` line ends `; N raid rest stamp(s)
+     moved back D day(s)` (N counts enclaves, every group with a rest stamp - past or not - so 1 if theirs is the only
+     one; D as the request clock went back, the same number as earlier in that line), and `sc enclave
      info <id>` shows the rest D days earlier, still as many days away. (b) Set
      `OutpostAttacks` to false and restart: the `config:` line says `enclaveRaids=off`, `sc enclave info <id>` says
      `raids: off (OutpostAttacks=false) (request clock day R)`, `sc enclave raid <id> <oid> demand` says `[SC] refused:
