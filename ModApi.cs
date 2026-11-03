@@ -130,6 +130,7 @@ namespace SurvivorCommunity
                 {
                     ScTicker.OnGameUpdate();
                     ScWeaponWarm.Update();             // NPC weapon models in the background (round wp)
+                    ScBarks.Tick();                    // V2: SC's greetings, chatter and raider taunts (each paces itself)
                 });
                 ModEvents.WorldShuttingDown.RegisterHandler((ref ModEvents.SWorldShuttingDownData _d) =>
                 {
@@ -446,6 +447,9 @@ namespace SurvivorCommunity
                 Add(t, "NPCChatComponent::PlayProactiveGreeting", Patches_VoiceControl.GreetingTarget());
                 Add(t, "SubtitleManager::AcknowledgeCommand", Patches_VoiceControl.AckTarget());
                 Add(t, "NPCChatComponent::ProcessPlayerMessage", Patches_VoiceControl.PlayerMessageTarget());
+                // Patches_VoiceControl.cs (V2) - SC greets its survivors itself where it has the clip; XNPCCore's say-lines and
+                // Voice Control's acks and fixed lines in SC's voices share the AcknowledgeCommand and SpeakStreaming entries above
+                Add(t, "NPCChatComponent::TriggerProactiveGreeting", Patches_VoiceControl.TriggerGreetingTarget());
                 // Patches_VoiceControl.cs (E8) - Voice Control's LLM chat knows the enclave; a hostile enclave's people refuse
                 // the spoken trade
                 Add(t, "LLMService::SendStreamingChatRequest", Patches_VoiceControl.ChatRequestTarget());
@@ -462,6 +466,12 @@ namespace SurvivorCommunity
 #endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");
+            // Patches_Voices.cs (V2) - raider taunts: a new target (spot, killed), the player's death, an investigation given up
+            // (lost) or started (search); the hit and the death share the ProcessDamageResponseLocal and SetDead entries above
+            Add(t, "EntityAlive::SetAttackTarget", Patches_Voices.SetAttackTargetTarget());
+            Add(t, "EntityAlive::AwardKill", Patches_Voices.AwardKillTarget());
+            Add(t, "EntityAlive::PlayGiveUpSound", Patches_Voices.GiveUpTarget());
+            Add(t, "UAITaskMoveToInvestigate::Start", Patches_Voices.InvestigateTarget());
             // Patches_Outposts.cs - outpost protection and the claim limit
             Add(t, "GameUtils::CheckForAnyPlayerHome", AccessTools.Method(typeof(GameUtils), "CheckForAnyPlayerHome", new[] { typeof(World), typeof(Vector3i), typeof(Vector3i) }));
             Add(t, "PersistentPlayerList::RemoveExtraLandClaims", AccessTools.Method(typeof(PersistentPlayerList), "RemoveExtraLandClaims", new[] { typeof(PersistentPlayerData) }));

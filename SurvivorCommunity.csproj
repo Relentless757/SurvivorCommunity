@@ -160,6 +160,13 @@
     <Compile Include="ScVanity.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
+    <Compile Include="ScVoiceLines.cs" />
+    <Compile Include="ScClipCache.cs" />
+    <Compile Include="ScBarks.cs" />
+    <Compile Include="ScGreetings.cs" />
+    <Compile Include="ScTaunts.cs" />
+    <Compile Include="Patches_Voices.cs" />
+    <Compile Include="ScConfigVoices.cs" />
     <Compile Include="ScVoiceContext.cs" />
     <Compile Include="XUiC_ScDialogLine.cs" />
     <Compile Include="BlockScGuardTower.cs" />

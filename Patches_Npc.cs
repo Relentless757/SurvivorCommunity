@@ -72,6 +72,12 @@ namespace SurvivorCommunity
                 try
                 {
                     if (!ScCommunity.IsHost) return;
+                    // V2: a raider's last words (ScTaunts: once, though SetDead runs again for every hit on the body)
+                    if (ScXnpc.IsRaider(__instance))
+                    {
+                        try { ScTaunts.OnDied(__instance); }
+                        catch (Exception ex) { ScLog.Once("voice-taunt-died", ex); }
+                    }
                     if (ScXnpc.IsBody(__instance) || (ScNpc.IsV4(__instance) && ScXnpc.IsCommunity(__instance))) DropWindow(__instance);
                     if (!ScRegistry.Loaded) return;
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScRadio.StandInCvar)) { ScRadio.OnStandInDied(__instance); return; }

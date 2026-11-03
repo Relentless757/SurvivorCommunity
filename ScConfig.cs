@@ -73,9 +73,9 @@ namespace SurvivorCommunity
 
     /// <summary>
     /// All tunables, read from the block "ConfigSurvivorCommunity" in Config/blocks.xml once per world.
-    /// Defaults are valid before the first parse so nothing depends on ordering.
+    /// Defaults are valid before the first parse so nothing depends on ordering. V2's voice keys: ScConfigVoices.cs.
     /// </summary>
-    public static class ScConfig
+    public static partial class ScConfig
     {
         public const string BlockName = "ConfigSurvivorCommunity";
 
@@ -1109,6 +1109,7 @@ namespace SurvivorCommunity
             VoiceLines = true;
             MuteVcInTalk = true;
             VoiceEnclaveContext = true;
+            ResetVoices();                         // V2 (ScConfigVoices.cs)
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
@@ -2073,6 +2074,7 @@ namespace SurvivorCommunity
                 bool voiceContext = VoiceEnclaveContext;
                 if (p.Values.ContainsKey("VoiceEnclaveContext")) p.ParseBool("VoiceEnclaveContext", ref voiceContext);
                 VoiceEnclaveContext = voiceContext;
+                ParseVoices(p);                    // V2 (ScConfigVoices.cs)
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
@@ -2315,6 +2317,7 @@ namespace SurvivorCommunity
                           + " paints=body " + SurvivorBodyPaintChance + "/" + RaiderBodyPaintChance + " of " + SurvivorBodyPaints.Count + "/" + RaiderBodyPaints.Count
                           + ", face " + SurvivorFacePaintChance + "/" + RaiderFacePaintChance + " of " + SurvivorFacePaints.Count + "/" + RaiderFacePaints.Count
                           + ", tattoo " + SurvivorTattooChance + "/" + RaiderTattooChance + " of " + SurvivorTattoos.Count + "/" + RaiderTattoos.Count + " " + TattooMode);
+                ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
             }
             catch (Exception e)
             {
