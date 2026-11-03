@@ -341,6 +341,83 @@ same gate; 3.2's Voice Control has no say-lines and no "What are you carrying?" 
     Control gives the host is not played on your machine during your talk (DebugLogging, client log: `...: a relayed
     TTS sentence at PlayVoiceLocally (talk open), ...`). The host still hears it. Each machine holds only its own talk.
 
+**O. Round 9: the zombie-cap fix (I2; the 3.4 game first, the same code builds for 3.2)**
+
+The game spawns a sleeper room's zombies only while fewer than `MaxSpawnedZombies` x 2.1 enemies are about, counted over
+the whole world (about 134 by default). Vanilla closes a room you enter while it is full as cleared with nobody spawned,
+and never respawns it; a room the cap cuts short closes early, and an infested room loses its special first. These steps
+force the cap with `sg MaxSpawnedZombies 0` (nothing can spawn, so no zombies are needed). Before the first one, note
+your value with `gg MaxSpawnedZombies` (64 by default) and put it back with `sg MaxSpawnedZombies 64` (or yours) after each
+step. A tick here is world time: 1000 ticks is one game hour, 2.5 real minutes on the default 60-minute day. "Near a room"
+means within 8 m of it for a cleared room (vanilla's own rule), and within about 14 m for a room that is spawning.
+Vanilla's `sleeper list` (inside a POI) shows each room of it with `clear...` and `respawnIn ...`.
+
+94. Load the world. The log's `config:` line has `sleeperCap=retry after 1000 ticks, pause at most 3000 ticks (infested
+    rooms)`. `sc sleepers` prints `zombie-cap fix (I2): SleeperCapFix on (...), SleeperCapPause on (...)`, then
+    `now: N enemies, limit 134.4 (MaxSpawnedZombies 64 x 2.1) - sleepers can spawn`, then `this session: 0 room(s) the cap
+    closed empty given a retry, ...`.
+95. **A room closed by the cap comes back.** Go to a POI you haven't fought through (not infested, not an enclave's) and
+    `sg MaxSpawnedZombies 0`. Walk into a room: nothing spawns. The log has vanilla's `SleeperVolume X, Y, Z: None spawned,
+    canSpawn False, respawnCnt 0`, then `[SurvivorCommunity] sleeper cap: room at X, Y, Z in <POI name> closed with nobody
+    spawned at the enemy cap (0 enemies, limit 0) - due again in 1000 ticks` (the same X, Y, Z). `sc sleepers` says `AT THE
+    CAP: no sleeper spawns` and `1 room(s) the cap closed empty given a retry`. `sleeper list` shows that room `clearTrue`
+    with `respawnIn` about `01:00:00`, which stays there while you stand near it.
+96. `sg MaxSpawnedZombies 64`. Stay in the room: still nothing spawns (vanilla keeps a cleared room quiet while you are
+    near it). Leave the building, at least 20 m from that room, for one game hour, then walk back: as you come near it the
+    room spawns (vanilla's `SleeperVolume X, Y, Z: Spawning ...` lines), at spawn points out of your sight. Before this
+    fix that room stayed empty for good.
+97. **Rooms saved broken by an older build are repaired.** Set `SleeperCapFix` to false in SC's `Config/blocks.xml`,
+    restart the game and load. With `sg MaxSpawnedZombies 0`, walk into one room each of TWO POIs you haven't fought: the
+    vanilla `None spawned` line comes, but no `sleeper cap:` line. `sg MaxSpawnedZombies 64`, save and quit. Set
+    `SleeperCapFix` back to true, restart and load. `sc sleepers scan` lists both rooms: `2 room(s) in 2 POI(s) closed empty
+    by the enemy cap and never due again; E room(s) of enclave buildings, kept clear by the enclaves, left alone - sc
+    sleepers repair makes them due now` (E: your enclaves' rooms), then a line for each, nearest first, `<POI name>
+    (<prefab>) room at X, Y, Z: rolled N at gamestage G - 120 m north-east`. (An old save can list more: rooms the cap
+    closed before you had this build. A room
+    whose spawn points are all built over looks the same and is listed too; it rolls once and closes empty again with
+    vanilla's `canSpawn True`.)
+98. Walk to the first room: as you come near it the log says `[SurvivorCommunity] sleeper cap: room at X, Y, Z in <POI
+    name> was closed empty by the enemy cap before - repaired, it spawns now` and it spawns at once. `sc sleepers` counts
+    `1 repaired as a player came near`, and `sc sleepers scan` lists only the second room.
+99. `sc sleepers repair` says `[SC] 1 room(s) in 1 POI(s) made due now: each spawns the next time a player comes near it;
+    E room(s) of enclave buildings left alone` (the log has the same line after `sleeper cap: `, ending `(console)`).
+    `sc sleepers scan` now says `0 room(s) ...`. Walk to the second room: it spawns as you come near it (no `repaired` line:
+    it was already due).
+100. **An infested room waits for the cap.** Stand in a POI you haven't fought, `sc infest add`, then
+    `sg MaxSpawnedZombies 0`. Walk into a room: nothing spawns, and the log says `[SurvivorCommunity] sleeper cap:
+    infested room at X, Y, Z in <POI name> paused at 0 of N - the enemy cap is full (0 enemies, limit 0); it waits while a
+    player is near, at most 3000 ticks`. When this room got the special, the line before it is I1's `... the room at X, Y,
+    Z brings the special (...)`. `sc sleepers` shows `paused now: room at X, Y, Z in <POI name> - 0 of N spawned, T of 3000
+    ticks`, T going up. No `None spawned` line for that room.
+101. `sg MaxSpawnedZombies 64`. Within a second the log says `sleeper cap: infested room at X, Y, Z in <POI name> goes on
+    from 0 of N after T ticks at the cap`, and the room fills up with all N, the special too when it was this room (I1's
+    `its special came - ...`). `sc sleepers`: `1 went on`.
+102. (Optional, the count varies.) Pause the next room as in step 100, then `sg MaxSpawnedZombies 1`: the room goes on, a
+    few spawn, and it pauses again with `paused at K of N`. The game recounts enemies only once a second, so K varies; if
+    the room fills before the count catches up, try a bigger room. `sg MaxSpawnedZombies 64`: the rest come.
+103. **Walking away ends the wait.** `sg MaxSpawnedZombies 0` and pause another room of the infested building. Walk out
+    of the building, at least 20 m from that room. The log says `sleeper cap: infested room at X, Y, Z in <POI name> -
+    nobody near it any more, vanilla closes it at 0 of N`, then vanilla's `None spawned, canSpawn False` line and step 95's
+    `... closed with nobody spawned at the enemy cap ... - due again in 1000 ticks`. When the special was this room's,
+    I1's `the room at X, Y, Z finished without its special - the next fresh room owes it` follows. Then
+    `sg MaxSpawnedZombies 64`, stay away one game hour and come back: the room spawns (`sc infest info <id>` shows where
+    the special stands).
+104. **The wait has a limit.** `sg MaxSpawnedZombies 0`, pause one more room and stay in it (or within about 14 m of it)
+     for 3 game hours (7.5 real minutes on a 60-minute day): the log says `sleeper cap: infested room at X, Y, Z in <POI
+     name> waited 3000 ticks at the cap - vanilla closes it at 0 of N` (or a few ticks more), then the `None spawned` line
+     and step 95's retry line. `sc sleepers`: `1 timed out`. `sg MaxSpawnedZombies 64`.
+105. **Enclaves are never touched.** `sc sleepers scan` never lists an enclave building's room; its first line counts
+     them as `N room(s) of enclave buildings, kept clear by the enclaves, left alone`. After `sc sleepers repair`, walk
+     through an enclave's building: no zombies, and no `sleeper cap:` line for its rooms.
+106. **Quests see what vanilla showed.** Take a trader quest to clear a POI. At the POI, before going in,
+     `sg MaxSpawnedZombies 0`, then go through every room: nothing spawns, each room logs step 95's retry line, and the
+     quest's room markers go and its clear objective completes, as vanilla's would. `sg MaxSpawnedZombies 64`: the POI's
+     rooms spawn when you come back after a game hour, as never-fought rooms.
+107. (Optional) **A claimed building stays quiet, as vanilla's.** In a POI inside your land claim, a room the cap closed
+     gets step 95's retry line, but after `sg MaxSpawnedZombies 64` and an hour away it does not spawn: vanilla holds a
+     cleared room in a claim (and SC's outposts) quiet. (A claimed room saved broken by an older build is listed by
+     `sc sleepers scan` with `, claimed`, and `sc sleepers repair` leaves it quiet the same way.)
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

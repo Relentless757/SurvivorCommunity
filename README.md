@@ -1003,6 +1003,17 @@ spawning anything because too many zombies were about (vanilla's enemy cap) does
 back. A room whose own roll came out empty does count, as vanilla's clear quests count it. A trap room is the exception both ways: once cleared (or closed empty) it counts as cleared unless its door or
 switch sets it off again.
 
+**The zombie-cap fix (I2, every building).** The game spawns a sleeper room only while fewer than `MaxSpawnedZombies` x
+2.1 enemies are about, counted over the whole world (about 134 by default). Vanilla closes a room you enter while it is
+full as cleared with nobody spawned and never respawns it, and a room the cap cuts short closes early. Now such an empty
+room is due again about a game hour later (`SleeperCapFix`, `SleeperCapRetryTicks` 1000) and spawns the next time you
+come near it after that; one an older build saved that way is repaired the first time you come near it. In an
+infested building a room the cap cuts short waits while you are near it, at most about 3 game hours
+(`SleeperCapPause`, `SleeperCapPauseMaxTicks` 3000), and goes on once zombies die off, so the special still comes;
+with nobody near, or after the wait, it closes as vanilla's. Enclave buildings are never touched. Nothing is saved, and
+it works on a dedicated server (it runs where the rooms spawn). `sc sleepers` shows what it did, `sc sleepers scan`
+lists the rooms still waiting for a repair, and `sc sleepers repair` makes them due now.
+
 **Seeing them** (an infestation shows on the map only once you know about it)
 - Come within `InfestDiscoverRange` (150 m) of it: "Infested: X. More of them, ferals, and something worse."
 - A **powered radio** reports a new one within `InfestRadioRange` (2 km) of home (of you, without a home), and where:
@@ -1418,7 +1429,8 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
 `InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,
-`InfestRadioRange`, `InfestPlayerMargin` and `InfestRearmPlayerRange` (commented in the block). Allies (E6):
+`InfestRadioRange`, `InfestPlayerMargin` and `InfestRearmPlayerRange` (commented in the block). The zombie-cap fix
+(I2): `SleeperCapFix`, `SleeperCapRetryTicks`, `SleeperCapPause` and `SleeperCapPauseMaxTicks`. Allies (E6):
 `EnclaveBenefitBundles`, `EnclaveBenefitMorale`, `EnclaveBenefitBeds`, `EnclaveBenefitClubXp`, `EnclaveBenefitTrainingXp`,
 `EnclaveBenefitXpCap`, `EnclaveWatchRange`, `EnclaveWatchSpread`, `EnclaveAllyMorale`, `EnclaveAllyMoraleCap`,
 `EnclaveLostMorale`, `EnclaveRefillDays` and `EnclaveAllyRevealDays` (commented in the block).
@@ -1446,7 +1458,8 @@ A full game restart is needed after editing `Config/Localization.csv`.
   `PostInit` (re-pin the spawner source), `SleeperEventData.Update` (no POI re-arm for favour quests, outposts and
   enclaves), `SleeperVolume.UpdatePlayerTouched` (no sleepers in an enclave's building; an infested building's count,
   spawn points and special), `SleeperVolume.UpdateSpawn`, `Spawn` and `ClearedUpdate` (an infested room's spawn step,
-  its special, and the clear check; the feral share rides the `EntityGroups.GetRandomFromGroupList` postfix),
+  its special, and the clear check; the feral share rides the `EntityGroups.GetRandomFromGroupList` postfix; the
+  zombie-cap fix rides UpdateSpawn and UpdatePlayerTouched),
   `TEFeatureStorage.OnBlockActivated` (an enclave's containers), `SpawnManagerBiomes.SpawnUpdate` and
   `World.GetRandomSpawnPositionInAreaMinMaxToPlayers` (no wild NPCs on an enclave's grounds, with the group-pick
   postfix), the two turrets'

@@ -130,6 +130,7 @@
     <Compile Include="DialogOpsEnclaves.cs" />
     <Compile Include="DialogOpsEncRequests.cs" />
     <Compile Include="Patches_Enclaves.cs" />
+    <Compile Include="ScSleeperCap.cs" />
     <Compile Include="ScInfestations.cs" />
     <Compile Include="Patches_Infestations.cs" />
     <Compile Include="ScHomeLink.cs" />
