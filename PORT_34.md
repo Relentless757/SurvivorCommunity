@@ -1261,3 +1261,14 @@ Builds: SC 3.4 `9b2fdd13` (`build\sc34_v2`), 0 errors. The 3.2 DLL is not rebuil
   the NPC dies within the same frame), N5 (a late-loading SC greeting can cut a Voice Control sentence that started during
   the load; its drain watchdog moves on, nothing wedges).
 Build after the fixes: SC 3.4 `9d2c4bee` (`build\sc34_dev`), 0 errors. Not installed. The task list needs its entry.
+
+### Rounds 8-14 installed (2026-11-03 17:41)
+
+With the user's go-ahead (3.4 game closed): V1 (voice gate), I2 (zombie-cap fix), I3 (nests near home), E7 (gifts + ally
+barter), E8 (voice chat context), E9 (radio commands), V2 (voices by race, greetings, chatter, XNPCCore lines, raider
+taunts), each Fable-reviewed DEPLOYABLE with its fixes and re-checks (`research\review_*`). port-3.4 fast-forwarded to
+`dev/ideas` dcfe120; `deploy_sc34.py`: 1352 files, installed = built `9d2c4bee`. The old install is in
+`Port33\_backups\sc34_2026-11-03_174134` (round 7's `c0ea84c3`); the user's `DebugLogging` true set again in the new
+Config/blocks.xml (it gained keys, so the old file was not copied back). Oxley's and Mora's folders are gone; the four kept
+voices are under their new names. No new recordings yet: the new lines are silent and SC's greetings stay off until a
+voice has the clip. Test steps: TESTING.md groups N, O, I3, E7, R, E9, T (83-199).
