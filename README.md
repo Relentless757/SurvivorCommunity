@@ -340,6 +340,8 @@ walk back.
 - The radio is also what outposts report in to (see **Outposts**).
 - **Enclaves (E6).** The window's right-hand column lists the enclaves you know, their open requests and a siege call
   with *On our way* / *We can't come* (see **Allies (E6)**).
+- **Allies (E7).** Its Allies panel trades supplies with an Allied enclave, once a day each (see **Gifts and ally barter
+  (E7)**).
 
 All five milestones, linked storage and the radio are in. See the plan's non-goals for what v1 deliberately leaves
 out (multiplayer clients, a player-menu tab, portraits, NPC hunger, base building by survivors).
@@ -420,7 +422,7 @@ published for a future Leadership release; won outpost fights count as `sc_ev_re
 
 ## Enclaves at a glance
 
-You aren't the only survivors (`Enclaves_Plan.md`, milestones E1-E6). In short:
+You aren't the only survivors (`Enclaves_Plan.md`, milestones E1-E6; E7 on from the ideas' DESIGN.md). In short:
 - **On the map (E1):** groups holed up in buildings across the map, about 0.3 per km² and a quarter of them raiders.
   You find one by going near, a powered radio picks one up every few days, and an ally tells you of more. Their
   buildings are theirs: no zombies, no land claims, no trader quests there.
@@ -433,12 +435,14 @@ You aren't the only survivors (`Enclaves_Plan.md`, milestones E1-E6). In short:
   30, Allied from 70.
 - **Allies (E6):** an Allied group does something for your community every day (its benefit), lifts morale and tells
   you about other groups. Losing a friend hurts morale, and a new group moves in a few days after any group is lost.
+- **Gifts and ally barter (E7):** hand a leader a bundle for a little standing, once a day, up to Friendly; trade
+  supplies with your allies over the radio, once a day each.
 - **Infestations (I1)** are buildings the dead overran: enclaves ask you to clear them, an ally's Neighborhood Watch
   keeps new ones away, and a building lost to a siege becomes one.
 
-The radio window's Enclaves column shows the groups you know, their requests and a siege call; `sc enclave` is the
-console for all of it. Everything is the host's, kept in `survivor_community.txt`. The sections below go milestone by
-milestone.
+The radio window's Enclaves column shows the groups you know, their requests, your allies' barter and a siege call;
+`sc enclave` is the console for all of it. Everything is the host's, kept in `survivor_community.txt`. The sections
+below go milestone by milestone.
 
 ## Enclaves (E1: on the map)
 
@@ -928,8 +932,10 @@ enclaves fare shows in your morale.
 **The radio window's Enclaves column** (right of the station's own sections; the window is now 1384 wide, still narrower
 than the community window)
 - **Enclaves you know**, nearest first: the name, the standing in their markers' colours (blue Allied, green Friendly,
-  grey Neutral, red Hostile), the benefit (blue while it applies) and where. The 15 nearest; a line counts the rest.
+  grey Neutral, red Hostile), the benefit (blue while it applies) and where. The 10 nearest (15 before E7's Allies
+  panel); a line counts the rest.
 - **Their requests:** who, what they need, and the day to answer an offer by or to deliver by (red on the day it is due).
+  The 3 soonest (4 before E7).
 - **Siege calls:** a call with its countdown ("12:34 left to reach them") and, until the fight starts, two buttons:
   **On our way** (they thank you over the radio; nothing else changes) and **We can't come** (press it twice: the siege
   is lost now - the enclave falls and its building is infested, as when the clock runs out). A fight already on shows
@@ -955,6 +961,44 @@ and `encrefill` (the refills owed). An older build ignores the keys, and its nex
 
 **Limits:** host only, as the rest of the enclaves. The allies' bundles come with SC's day rollover, which a dedicated
 server does not run. "On our way" is remembered for the session only.
+
+## Gifts and ally barter (E7)
+
+**Gifts.** An enclave leader's greeting has *"I brought you something."* It lists up to four bundles you carry, the
+smallest of each resource ("A medium bundle of medicine"; the ones they don't live on first, then their own, then
+luxuries), and the one you pick is theirs: +3 standing whatever its size (`EnclaveGiftStanding`), the leader's thanks by
+standing with "(standing +3)", and a ledger line ("gift to The X: a medium bundle of medicine (+3 standing)"). One gift
+per enclave a day (`EnclaveGiftDays`, on the requests' clock, so `sc day` moves it). A gift never lifts standing past 69
+(`EnclaveGiftCap`; 100 for no cap): gifts can win a group to Friendly or mend a falling-out, but an alliance still takes
+their requests. The row greys with the reason: "Come back tomorrow.", "You aren't carrying any bundles." or, at the cap,
+"They'd rather you helped with what they need." Any SC bundle counts, an open request's resource too (its own
+hand-over row stays separate). `EnclaveGifts=false` hides the row.
+
+**Ally barter.** The radio window has an **Allies** panel between the requests and the siege calls. Its first button
+picks one of your Allied enclaves, nearest first (press it for the next), with what they do for you and where. Under it,
+**Give** cycles through what you send from the stockpile (food, medical, ammo, materials, fuel or water), **Get** shows
+what they make (growers food, medics medical, militia ammo, builders materials, a road crew fuel; a scavengers' group
+lets you pick any of those five), and **Trade** swaps 2 of yours for 1 of theirs (`EnclaveBarterGive`,
+`EnclaveBarterGet`): "Traded 2 ammo for 1 food with The X." and a ledger line. Once a day per ally
+(`EnclaveBarterDays`, the requests' clock); only Allied groups trade ("Only allies trade this way." when one drops to
+Friendly while the window is open). The radio's own barter (3 for 1 with anyone, once a day) stays as it was. The radio
+window still opens only at a powered radio block. To make room the Enclaves list shows the 10 nearest and the requests
+3; E9's radio commands will add their buttons to the same panel.
+
+**Config** (`Config/blocks.xml`, commented there): `EnclaveGifts`, `EnclaveGiftStanding`, `EnclaveGiftDays`,
+`EnclaveGiftCap`, `EnclaveBarter`, `EnclaveBarterGive`, `EnclaveBarterGet`, `EnclaveBarterDays`.
+
+**Console** (host): `sc enclave gift <id>` (the gift state, the leader's row now and the rows you would see),
+`sc enclave gift <id> give <res> [small|medium|large] [force]` (a gift as if handed over, no bundle needed; `force`
+skips the day's wait, never the cap), `sc enclave barter <id>` (what they trade and when), `sc enclave barter <id>
+<give> [get]` (one trade now, the day's wait ignored as `sc barter` does). `sc enclave info <id>` has a gifts and
+barter line.
+
+**Saving:** each `[enclave]` gains `gift` and `barter` (the requests' day the next one is taken), written when set. An
+older build ignores them, and its next save drops them. A world day set back moves them back with the other request-
+clock stamps.
+
+**Limits:** host only, as the rest of the enclaves; single player is what SC supports.
 
 ## Infestations (I1)
 
@@ -1450,7 +1494,9 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 (I2): `SleeperCapFix`, `SleeperCapRetryTicks`, `SleeperCapPause` and `SleeperCapPauseMaxTicks`. Allies (E6):
 `EnclaveBenefitBundles`, `EnclaveBenefitMorale`, `EnclaveBenefitBeds`, `EnclaveBenefitClubXp`, `EnclaveBenefitTrainingXp`,
 `EnclaveBenefitXpCap`, `EnclaveWatchRange`, `EnclaveWatchSpread`, `EnclaveAllyMorale`, `EnclaveAllyMoraleCap`,
-`EnclaveLostMorale`, `EnclaveRefillDays` and `EnclaveAllyRevealDays` (commented in the block).
+`EnclaveLostMorale`, `EnclaveRefillDays` and `EnclaveAllyRevealDays` (commented in the block). Gifts and ally barter
+(E7): `EnclaveGifts`, `EnclaveGiftStanding`, `EnclaveGiftDays`, `EnclaveGiftCap`, `EnclaveBarter`, `EnclaveBarterGive`,
+`EnclaveBarterGet` and `EnclaveBarterDays` (commented in the block).
 
 A full game restart is needed after editing `Config/Localization.csv`.
 

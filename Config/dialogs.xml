@@ -249,9 +249,9 @@
 	     on them besides (%sc_enc, above). A hostile enclave matches no phase, but X9 keeps its people from being talked to.
 	     Requirements and the tokens the line panel fills ({enc}, {count}, {poi}, {leader}, {where}: XUiC_ScDialogLine,
 	     ScEncDialog.Fill) are host-only. A line that will be voiced later says nothing that needs a name or a number: those
-	     sit in a sentence of their own. Rows: the leader 7 entries with E3's trade and E4's three "What do you need?"
-	     variants (5 on screen: hidden rows take no row), members 6 entries with E3's enlist and the three recruit variants
-	     (4 at most on screen), under the dialog's 10.
+	     sit in a sentence of their own. Rows: the leader 8 entries with E3's trade, E4's three "What do you need?"
+	     variants and E7's gift row (6 on screen: hidden rows take no row), members 6 entries with E3's enlist and the three
+	     recruit variants (4 at most on screen), under the dialog's 10.
 	     Never list Hire in these statements: SC's injection keys on it. -->
 	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
 		<phase id="scEncLeaderAllied" startstatementid="scEncLeaderAllied">
@@ -279,11 +279,13 @@
 			<requirement type="ScEncStanding, SurvivorCommunity" value="neutral" />
 		</phase>
 
-		<!-- the leader's greetings (E4: "What do you need?" first - one of its three rows, by their request; E3: "Let's trade.") -->
+		<!-- the leader's greetings (E4: "What do you need?" first - one of its three rows, by their request; E7: "I brought you
+		     something."; E3: "Let's trade.") -->
 		<statement id="scEncLeaderNeutral" text="scEncLeaderNeutral_text">
 			<response_entry id="scEncReqAskNone" />
 			<response_entry id="scEncReqAskOffered" />
 			<response_entry id="scEncReqAskAccepted" />
+			<response_entry id="scEncGift" />
 			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
@@ -293,6 +295,7 @@
 			<response_entry id="scEncReqAskNone" />
 			<response_entry id="scEncReqAskOffered" />
 			<response_entry id="scEncReqAskAccepted" />
+			<response_entry id="scEncGift" />
 			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
@@ -302,6 +305,7 @@
 			<response_entry id="scEncReqAskNone" />
 			<response_entry id="scEncReqAskOffered" />
 			<response_entry id="scEncReqAskAccepted" />
+			<response_entry id="scEncGift" />
 			<response_entry id="scEncTrade" />
 			<response_entry id="scEncAbout" />
 			<response_entry id="scEncThreat" />
@@ -696,6 +700,70 @@
 			<requirement type="ScEncReqKind, SurvivorCommunity" requirementtype="Hide" value="infestation" />
 			<requirement type="ScEncReqStage, SurvivorCommunity" requirementtype="Hide" value="cleared" />
 			<action type="ScEncReqCleared, SurvivorCommunity" />
+		</response>
+	</append>
+
+	<!-- Gifts (E7, research/ideas/DESIGN.md section 6; ScEncGifts, DialogOpsEnclaves.cs). The leader's greeting gains "I
+	     brought you something." (ScEncGift: value="show" first - its description is the greyed row's words - then "open"):
+	     greyed with the reason when gifts can't be given now - "They'd rather you helped with what they need." at
+	     EnclaveGiftCap standing (69: gifts never make an ally), "Come back tomorrow." within EnclaveGiftDays of the last one
+	     (the request clock), "You aren't carrying any bundles." It leads to the pick (ScEncGiftList builds it): one row per
+	     resource carried, its smallest bundle - "A medium bundle of medicine" - at most four (scEncGift0..3, their words
+	     through the row's binding as the gun pick's, "{gift}"), the ones the group doesn't live on first, then their own,
+	     then luxuries; "Never mind." back to the greeting by band; done. A row hands that bundle over (checked again) for
+	     +EnclaveGiftStanding whatever its size, never past the cap, and lands on scEncGiftReply ({giftreply}: the leader's
+	     thanks by band, "(standing +3)"; or a refusal when the rules changed meanwhile). Rows: the pick 6 at most. A voiced
+	     line says nothing that needs a name or a number. Host only; every action checks everything again. -->
+	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
+		<statement id="scEncGiftPick" text="scEncGiftPick_text">
+			<response_entry id="scEncGift0" />
+			<response_entry id="scEncGift1" />
+			<response_entry id="scEncGift2" />
+			<response_entry id="scEncGift3" />
+			<response_entry id="scEncGiftNeverNeutral" />
+			<response_entry id="scEncGiftNeverFriendly" />
+			<response_entry id="scEncGiftNeverAllied" />
+			<response_entry id="done" />
+		</statement>
+		<statement id="scEncGiftReply" text="scEncGiftReply_text">
+			<response_entry id="scEncLeaderBackNeutral" />
+			<response_entry id="scEncLeaderBackFriendly" />
+			<response_entry id="scEncLeaderBackAllied" />
+			<response_entry id="done" />
+		</statement>
+
+		<!-- "I brought you something.": shown to the leader of an enclave that is not hostile while gifts are on; greyed with
+		     the reason, or open -->
+		<response id="scEncGift" text="scEncGift" nextstatementid="scEncGiftPick">
+			<requirement type="ScEncGift, SurvivorCommunity" requirementtype="Hide" value="show" />
+			<requirement type="ScEncGift, SurvivorCommunity" value="open" />
+			<action type="ScEncGiftList, SurvivorCommunity" />
+		</response>
+		<response id="scEncGift0" text="scEncGiftRow" nextstatementid="scEncGiftReply">
+			<requirement type="ScEncGiftRow, SurvivorCommunity" requirementtype="Hide" value="0" />
+			<action type="ScEncGift, SurvivorCommunity" value="0" />
+		</response>
+		<response id="scEncGift1" text="scEncGiftRow" nextstatementid="scEncGiftReply">
+			<requirement type="ScEncGiftRow, SurvivorCommunity" requirementtype="Hide" value="1" />
+			<action type="ScEncGift, SurvivorCommunity" value="1" />
+		</response>
+		<response id="scEncGift2" text="scEncGiftRow" nextstatementid="scEncGiftReply">
+			<requirement type="ScEncGiftRow, SurvivorCommunity" requirementtype="Hide" value="2" />
+			<action type="ScEncGift, SurvivorCommunity" value="2" />
+		</response>
+		<response id="scEncGift3" text="scEncGiftRow" nextstatementid="scEncGiftReply">
+			<requirement type="ScEncGiftRow, SurvivorCommunity" requirementtype="Hide" value="3" />
+			<action type="ScEncGift, SurvivorCommunity" value="3" />
+		</response>
+		<!-- "Never mind.": back to the greeting of the standing now, one of the three shows -->
+		<response id="scEncGiftNeverNeutral" text="scEncGiftNever" nextstatementid="scEncLeaderNeutral">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="neutral" />
+		</response>
+		<response id="scEncGiftNeverFriendly" text="scEncGiftNever" nextstatementid="scEncLeaderFriendly">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="friendly" />
+		</response>
+		<response id="scEncGiftNeverAllied" text="scEncGiftNever" nextstatementid="scEncLeaderAllied">
+			<requirement type="ScEncStanding, SurvivorCommunity" requirementtype="Hide" value="allied" />
 		</response>
 	</append>
 </configs>

@@ -5,7 +5,8 @@ using SurvivorCommunity;
 // resolves to the GLOBAL class DialogRequirementScEncRole, so the operators live outside the namespace. They find the
 // person through the NPC the dialog passes (talkingTo: phases get the dialog's CurrentOwner) or else the player's
 // CurrentNPC cvar, then ScEnclavePeople's body lookup - one dictionary hit. Host only: a client keeps no enclave records.
-// E3 adds trade, enlisting and recruiting (ScEnclaveDeals). A row's greyed text is its FIRST requirement's description
+// E3 adds trade, enlisting and recruiting (ScEnclaveDeals); E7 the leader's gift rows (ScEncGifts, at the end of this file).
+// A row's greyed text is its FIRST requirement's description
 // (DialogResponse.GetRequiredDescription), and a row's requirements stop at the first that fails (XUiC_DialogResponseEntry):
 // so a row that can grey with a reason lists value="show" (Hide) first, whose description is the reason, then value="open".
 
@@ -40,7 +41,8 @@ namespace SurvivorCommunity
         /// the player (E1's Where), {kind} the kind of group, {name} the respondent; E3's {terms} (the enlist fee and days),
         /// {until} (when one enlisted goes home) and {recruitcost} (what a recruit costs with the enclave); E4's {reqask},
         /// {reqwait} and {reqreply} (their request: the offer, the wait, the reply to the last answer - ScEncRequests.FillTokens);
-        /// E6's {benefit} (what they do for an ally, doing it now or once allied: ScEncAllies.AboutText).
+        /// E6's {benefit} (what they do for an ally, doing it now or once allied: ScEncAllies.AboutText); E7's {giftreply} (the
+        /// leader's answer to a gift: ScEncGifts.FillReply).
         /// A token with no value becomes "". The statement's shared Text is never written; a line of anybody else is returned
         /// as it is. vo2: voiceKey is the key of the request line put in (FillTokens), the name of its voice clip; else null.
         /// </summary>
@@ -54,6 +56,7 @@ namespace SurvivorCommunity
             EncPerson leader = ScEnclavePeople.LeaderOf(e);
             string s = text;
             if (s.IndexOf("{req", StringComparison.Ordinal) >= 0) s = ScEncRequests.FillTokens(s, e, out voiceKey);    // E4: first - its lines carry {enc} and the like
+            if (s.IndexOf("{giftreply}", StringComparison.Ordinal) >= 0) s = ScEncGifts.FillReply(s, e, out voiceKey);  // E7: a gift's reply
             if (s.IndexOf("{terms}", StringComparison.Ordinal) >= 0) s = Token(s, "{terms}", ScEnclaveDeals.TermsText(e));
             if (s.IndexOf("{until}", StringComparison.Ordinal) >= 0) s = Token(s, "{until}", ScEnclaveDeals.UntilText(p));
             if (s.IndexOf("{recruitcost}", StringComparison.Ordinal) >= 0) s = Token(s, "{recruitcost}", ScEnclaveDeals.RecruitCostText(e));
@@ -321,5 +324,96 @@ public class DialogActionScEncRecruit : BaseDialogAction
             if (!ScEnclaveDeals.Recruit(player as EntityPlayerLocal, ScFavours.CurrentNpc(player), out reason)) ScCommunity.Tell(player, reason, "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-encrecruit", e); }
+    }
+}
+
+// ---------------------------------------------------------------- E7: gifts (ScEncGifts) ----
+
+/// <summary>
+/// E7, "I brought you something.": value="show" - the leader at home, of an enclave that is not hostile, with gifts on (put it
+/// first: its description is the greyed row's words, "I brought you something. (Come back tomorrow.)"); value="open" - a gift
+/// can be given now (under EnclaveGiftCap, past the day's wait, a bundle carried: ScEncGifts.Blocked). Host only.
+/// </summary>
+public class DialogRequirementScEncGift : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            Enclave e;
+            EnclaveRequest r;
+            if (!ScEncRequests.LeaderTalking(player, talkingTo, out e, out r)) return false;
+            string v = (Value ?? "").Trim().ToLowerInvariant();
+            if (v == "show") return ScEncGifts.Shown(e);
+            if (v == "open") return ScEncGifts.Blocked(e, player) == null;
+            return false;
+        }
+        catch (Exception e) { ScLog.Once("req-encgift", e); return false; }
+    }
+
+    private string why = "";
+    private int whyNpc = -1;
+    private float whyAt = -10f;
+
+    public override string GetRequiredDescription(EntityPlayer player)
+    {
+        try
+        {
+            Enclave e;
+            EnclaveRequest r;
+            if (!ScEncRequests.LeaderTalking(player, null, out e, out r)) return "";
+            // the response binding asks every frame while the row shows greyed: worked out again at most twice a second, or
+            // for another enclave (a bag scan per resource)
+            int id = e.Id;
+            float t = UnityEngine.Time.unscaledTime;
+            if (id == whyNpc && t - whyAt < 0.5f) return why;
+            whyNpc = id;
+            whyAt = t;
+            why = ScEncGifts.WhyText(e, player);
+            return why;
+        }
+        catch (Exception e) { ScLog.Once("req-encgift-why", e); return ""; }
+    }
+}
+
+/// <summary>E7: value="0".."3": the gift pick on screen has that row (ScEncGiftList made it just before). Host only.</summary>
+public class DialogRequirementScEncGiftRow : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            Enclave e;
+            EnclaveRequest r;
+            int i;
+            if (!int.TryParse((Value ?? "").Trim(), out i) || !ScEncRequests.LeaderTalking(player, talkingTo, out e, out r)) return false;
+            EntityAlive npc = talkingTo != null ? (EntityAlive)talkingTo : ScFavours.CurrentNpc(player);
+            return ScEncGifts.PickRow(i, player, npc, e) != null;
+        }
+        catch (Exception e) { ScLog.Once("req-encgiftrow", e); return false; }
+    }
+}
+
+/// <summary>E7, "I brought you something.": the pick of the bundles carried, at most four rows (ScEncGifts.ActList). Host only.</summary>
+public class DialogActionScEncGiftList : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try { ScEncGifts.ActList(player); }
+        catch (Exception e) { ScLog.Once("act-encgiftlist", e); }
+    }
+}
+
+/// <summary>E7, value="0".."3": that row's bundle handed over as a gift, checked again (ScEncGifts.ActGive). Host only.</summary>
+public class DialogActionScEncGift : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try
+        {
+            int i;
+            if (int.TryParse((Value ?? "").Trim(), out i)) ScEncGifts.ActGive(player, i);
+        }
+        catch (Exception e) { ScLog.Once("act-encgift", e); }
     }
 }

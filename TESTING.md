@@ -493,6 +493,96 @@ for steps 112-113: a manned post cuts the attention gain.
      counts: `sc morale` lists it as `a building not found yet D m -C`, without its name. Set the key back to true.
      With SurvivorOrigins' Leadership skill, its shield shrinks the part as it shrinks the other losses: the
      `Infestations near home` total is smaller than the costs in its brackets add up to.
+**Round 11 (E7): gifts and ally barter (3.4)**
+
+An enclave leader takes a bundle as a gift: +3 standing whatever its size, once a day per enclave, never above 69 (so a
+gift never makes an ally). The radio window's new **Allies** panel trades with your allies: 2 of your supplies for 1 of
+theirs, once a day per ally. Use known, non-hostile enclaves (`sc enclave reveal all`); `sc enclave info <id>` shows
+the kind, the standing and (new) a gifts and barter line; `sc enclave standing <id> <points>` sets the standing (75:
+Allied). Bundles: `giveself scBundleMedsMedium 1 1 true` puts one in your bag (any of
+`scBundle<Food|Meds|Ammo|Materials|Fuel|Water|Luxury><Small|Medium|Large>`). `sc day` moves both once-a-day rules (they
+count on the requests' clock). The leader's new lines are text only for now (a later voicing round records them).
+The ledger is the community window's.
+
+120. Load the world. The log's `config:` line has `enclaveGifts=+3 every 1d, cap 69 allyBarter=2 for 1 every 1d`.
+     `sc enclave info <id>` of a Neutral militia group has the line `  gifts: +3 now (EnclaveGiftStanding 3, cap 69), they
+     take one today; ally barter: 2 of yours for 1 ammo, only while Allied, they trade today (request clock day N)`.
+121. **The row.** Carry a small food bundle and a medium medical bundle and talk to a Neutral leader that is not a growers'
+     or a medics' group: under "What do you need?" there is **I brought you something.** Pick it: the leader says
+     "Oh? Let's see what you've got.", and the rows are "A small bundle of food", "A medium bundle of medicine",
+     "Never mind." and the done row. "Never mind." goes back to the greeting.
+122. **Hand one over.** Pick "A medium bundle of medicine": it leaves your bag, and the leader says "Huh. I didn't expect
+     that from a stranger. Thank you. (standing +3)". `sc enclave info <id>`: standing 3 more. The ledger: `gift to
+     <enclave>: a medium bundle of medicine (+3 standing)`. The log: `[SurvivorCommunity] enclave <id> '<enclave>': a gift
+     from the meds bundles, Medium (2 unit(s))`, then `... standing S -> S+3 (neutral, a gift: a medium bundle of medicine)`
+     and `... a gift (a medium bundle of medicine, handed over in the talk) - standing S -> S+3 (neutral); the next gift
+     from day N+1 (request clock day N)`.
+123. **Once a day.** "Something else." back to the greeting: the row is greyed, **I brought you something. (Come back
+     tomorrow.)**, and can't be picked. `sc day`, talk again: it is open again.
+124. **Four rows at most, the smallest first, theirs after.** At a growers' group (`sc enclave info <id>`: kind growers),
+     carry a large and a small food bundle, a medical, an ammo, a materials and a luxury bundle: the pick shows four rows
+     - medicine, ammo, building materials, then "A small bundle of food" (their own, after the others; the small one, not
+     the large); the luxury bundle is the fifth and isn't listed. Give the food row: the small bundle goes, the large
+     stays. With only food and luxuries on you, the rows are food, then luxuries ("A <size> bundle of luxuries").
+125. **Nothing to give.** Drop every bundle: the row reads **I brought you something. (You aren't carrying any
+     bundles.)**, greyed.
+126. **The cap.** `sc enclave standing <id> 68`, then a gift: "(standing +1)", standing 69, the ledger `(+1 standing)`,
+     and the log line ends `(friendly, capped at 69); the next gift from day ...`. After `sc day` the row reads **I brought
+     you something. (They'd rather you helped with what they need.)**, greyed, and stays so.
+127. **A gift that wins them over.** `sc enclave standing <id> 28`, then a gift: standing 31, the tell "<enclave> is now
+     Friendly.", the marker green, the ledger `(+3 standing, now Friendly)`, and the thanks "That's kind of you. We'll put
+     it to good use. (standing +3)". A standing below 0 (after a declined request) climbs 3 a gift too.
+128. **Allies take none.** `sc enclave standing <id> 75`: the row is greyed "(They'd rather you helped with what they
+     need.)". A raider or hostile group can't be talked to, as before.
+129. **Console.** `sc enclave gift <id>` prints `[SC] <enclave> (enclave <id>, Neutral, standing S): gifts: ...`, then
+     `[SC]   the leader's row now: open` (or `greyed - Come back tomorrow.` and the like) and one `[SC]   row: ...` line
+     per row you would see (or `[SC]   you carry no bundles`). `sc enclave gift <id> give food medium` (no bundle needed)
+     answers `[SC] gift to <enclave>: a medium bundle of food - standing +3 -> S (Neutral); the next from day N+1`; again
+     the same day: `[SC] <enclave> takes no gift until day N+1 (request clock day N): add force to give one anyway`;
+     with `force` at the end it is given. At 69: `[SC] <enclave> takes no gift: standing 69 is at the cap (EnclaveGiftCap
+     69)`.
+130. **The radio window, no allies yet.** Open a powered radio. The right column is Enclaves you know (10 rows now, then
+     "+N more, farther away"), Their requests (3 rows, then "+N more"), **Allies**, Siege calls. With no ally, the Allies
+     button says "No allies yet" (no arrow, no hover plate) and under it: "Help an enclave until they are your allies
+     (standing 70): each ally trades with you here, once a day." Nothing overlaps at 1920x1080 or at the smallest
+     resolution you play; the Siege calls panel ends level with the Barter section on the left. With AshfallUI the new
+     panel has the same plates and brass icons as the rest of the window.
+131. **An ally in the panel.** `sc enclave standing <id> 75` on a militia group and `sc give food 10`, then open the
+     radio: the Allies button names them; beside it "Munitions Manufacture, <distance> m <direction>". Under it: "Give 2
+     food", "Get 1 ammo" (no hover plate: a militia trades ammo only), TRADE, and the hint "Once a day. Click Give to pick
+     what you send." Give cycles medical, building material, fuel, water, food - never ammo.
+132. **Trade.** With "Give 2 food": TRADE. The hint turns gold: "Traded 2 food for 1 ammo with <enclave>." `sc status`:
+     food 2 less, ammo 1 more. The ledger: `radio barter with <enclave>: 2 food for 1 ammo`. The log: `[SurvivorCommunity]
+     ally barter with enclave <id> '<enclave>': 2 food for 1 ammo; the next from day N+1 (request clock day N)`. The
+     radio's own Barter section on the left is not used up by it.
+133. **Once a day per ally.** TRADE is greyed now; press Give: the hint says "They traded with you already - try again
+     in 1 day(s)." and TRADE plays the denied sound. Close the window, `sc day`, open it: TRADE works again.
+134. **What can't be given.** On a day you haven't traded with them, Give fuel with no fuel in the stockpile
+     (`sc status`): the hint "The trade takes 2 fuel -
+     the stockpile has 0." and TRADE greyed. Luxuries are never offered on Give.
+135. **A scavengers' ally.** `sc enclave standing <id> 75` on a group of kind general (`sc enclave info <id>`): Get has a
+     hover plate and cycles food, medical, ammo, building material, fuel; Give skips whatever Get is; the hint "Once a
+     day. Click Give and Get to pick what you trade."
+136. **Two allies.** With two allies the Allies button has an arrow; each press picks the next, nearest first, and the
+     text beside it follows. Each has its own day: trade with one, then pick the other: it still trades.
+137. **An ally let down while the window is open.** With an ally picked, open the console over the radio window (F1),
+     `sc enclave standing <id> 50`, close the console: within a second TRADE greys, the hint says "Only allies trade
+     this way." and the text beside the button reads "Friendly, <where>". (If the console closed the radio window,
+     only the next part can be seen.) Close the radio and open it again: they are no longer in the pick (with no other
+     ally: "No allies yet").
+138. **Saved, and a world day set back.** After a gift and a trade the same day, save and quit, then load: the gift row
+     is still greyed and TRADE still greyed; the save's `[enclave]` has `gift=N+1` and `barter=N+1`. Then
+     `settime <two days earlier> 12 0`: the log's `enclaves: the world's day went back from ...` line counts `G
+     gift/barter stamp(s) moved back R day(s)` (G: every gift and trade day set so far; R as in the Allies (E6)
+     group's step 14), and `sc enclave info <id>` shows the gift's and the trade's next day R days earlier: still one
+     day away.
+139. **Console, and switching them off.** `sc enclave barter <id>` prints `[SC] <enclave> (enclave <id>, Allied): ally
+     barter: 2 of yours for 1 ammo, ... (request clock day N)` and `[SC]   2 food for 1 ammo now: can trade; the stockpile
+     has F food` (or the reason). `sc enclave barter <id> meds` trades at once, the day's wait ignored: `[SC] Traded 2
+     medical for 1 ammo with <enclave>.`; at a Friendly group: `[SC] refused: Only allies trade this way.` Set
+     `EnclaveGifts` and `EnclaveBarter` to false in SC's `Config/blocks.xml` and restart: the leader has no gift row, the
+     Allies panel still picks an ally but says "Ally barter is turned off in the config." where the trade row was, and
+     the `config:` line says `enclaveGifts=off allyBarter=off`. Set them back.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

@@ -63,6 +63,16 @@ namespace SurvivorCommunity
         /// enclave - set EnclaveAllyRevealDays ahead each time it does (0: any day).
         /// </summary>
         public int AllyRevealDay;
+        /// <summary>
+        /// E7: the first day (the request clock's: ScEncRequests.Now) the leader takes another gift from the player - set
+        /// EnclaveGiftDays ahead by each one (0: any day). ScEncGifts.
+        /// </summary>
+        public int GiftDay;
+        /// <summary>
+        /// E7: the first day (the request clock's) this group, Allied, trades over the radio again - set EnclaveBarterDays ahead
+        /// by each trade (0: any day). ScEncBarter.
+        /// </summary>
+        public int BarterDay;
         /// <summary>Standing points: Neutral below 30 (down to EnclaveStandingMin), Friendly 30-69, Allied 70 and up.</summary>
         public int Standing;
         /// <summary>Discovered: its marker shows. KnownDay = the day it was found (-1 = not yet).</summary>
@@ -1153,7 +1163,7 @@ namespace SurvivorCommunity
         /// below 0. The request clock's stamps (E4's open requests and cooldowns, E6's refills and ally reveals) by the request
         /// clock's drop - from where it stood (the world's last day at the least) to the world's day; the world clock's (E1's
         /// next radio reveal, E3's recruit cooldowns and enlistments, E5's scheduled siege call, I1's infestation ages) by the
-        /// world's. One log line; the ticker saves.
+        /// world's. E7's next gift and next ally barter days are the request clock's. One log line; the ticker saves.
         /// </summary>
         public static void OnWorldDayBack(int day, int fromDay)
         {
@@ -1165,6 +1175,7 @@ namespace SurvivorCommunity
                 if (worldBack == 0 && reqBack == 0) return;
                 int requests = ScEncRequests.ShiftDays(day, reqBack);      // E4: the request clock, open requests, cooldowns
                 int allies = ScEncAllies.ShiftDays(reqBack);               // E6: queued refills, ally reveals
+                int gifts = ScEncGifts.ShiftDays(reqBack);                 // E7: the next gift and the next ally barter
                 int stamps = 0, infest = 0;
                 if (worldBack > 0)
                 {
@@ -1178,7 +1189,8 @@ namespace SurvivorCommunity
                     infest = ScInfestations.ShiftDays(worldBack);                                                                      // I1
                 }
                 ScLog.Out("enclaves: the world's day went back from " + fromDay + " to " + day + " - the request clock, " + requests + " open request(s), "
-                          + allies + " refill/ally-reveal stamp(s) moved back " + reqBack + " day(s); " + stamps + " world-clock stamp(s) (radio reveal, recruit cooldowns, "
+                          + allies + " refill/ally-reveal stamp(s), " + gifts + " gift/barter stamp(s) moved back " + reqBack + " day(s); " + stamps
+                          + " world-clock stamp(s) (radio reveal, recruit cooldowns, "
                           + "enlistments, the siege call) and " + infest + " infestation(s) moved back " + worldBack + " day(s)");
             }
             catch (Exception ex)
@@ -1366,6 +1378,7 @@ namespace SurvivorCommunity
                      + (e.Known ? "known since day " + e.KnownDay : "not found yet") + ", seeded day " + e.SeededDay + " (" + e.Mode + ")");
             into.Add("  people: " + ScEnclavePeople.Summary(e) + " (sc enclave people " + e.Id + ")");
             into.Add("  " + ScEncAllies.InfoLine(e));       // E6: the benefit, whether it applies, the next word of another
+            into.Add("  " + ScEncGifts.InfoLine(e));        // E7: the next gift, the ally barter
             into.Add("  POI " + e.PoiName + " (" + e.Prefab + "), T" + e.Tier + ", row " + (e.Row.Length > 0 ? e.Row : "-") + ", biome " + e.Biome
                      + ", key " + e.Poi + ", footprint x " + b[0] + ".." + b[1] + " z " + b[2] + ".." + b[3] + " (" + e.Size.x + "x" + e.Size.z + ")"
                      + ", centre " + Mathf.RoundToInt(cen.x) + "," + Mathf.RoundToInt(cen.z) + (pl != null ? ", " + Where(pl.position, cen) + " from you" : ""));

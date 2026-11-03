@@ -1134,6 +1134,27 @@
 			<property name="EnclaveRefillDays" value="5" />
 			<property name="EnclaveAllyRevealDays" value="7" />
 
+			<!-- GIFTS AND ALLY BARTER (E7). GIFTS: with EnclaveGifts, an enclave leader's greeting has "I brought you
+			     something.": hand over any SC bundle you carry (any resource and size, luxuries too; the pick lists the
+			     smallest of each resource, at most four) for +EnclaveGiftStanding standing whatever its size, one gift per
+			     enclave every EnclaveGiftDays days (0: no wait). A gift never lifts standing above EnclaveGiftCap: at 69 gifts
+			     can win a group to Friendly and mend a falling-out, but an alliance (70) still takes their requests; 100 for
+			     no cap. ALLY BARTER: with EnclaveBarter, the radio window's Allies panel trades EnclaveBarterGive units of a
+			     supply from your stockpile (food, medical, ammo, materials, fuel or water) for EnclaveBarterGet of an ally's
+			     own (growers food, medics medical, militia ammo, builders materials, a road crew fuel; a scavengers' group any
+			     of those five), one trade per ally every EnclaveBarterDays days (0: no wait). Only Allied enclaves trade, and
+			     only at a powered radio. The radio's own barter (RadioBarterRate for 1 with anyone, once a day) stays as it
+			     is. Days here are the enclave requests' days, so "sc day" moves them. "sc enclave gift <id>" and
+			     "sc enclave barter <id>" test them. -->
+			<property name="EnclaveGifts" value="true" />
+			<property name="EnclaveGiftStanding" value="3" />
+			<property name="EnclaveGiftDays" value="1" />
+			<property name="EnclaveGiftCap" value="69" />
+			<property name="EnclaveBarter" value="true" />
+			<property name="EnclaveBarterGive" value="2" />
+			<property name="EnclaveBarterGet" value="1" />
+			<property name="EnclaveBarterDays" value="1" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

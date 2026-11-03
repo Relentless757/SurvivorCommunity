@@ -1260,6 +1260,40 @@ scRadioSiegeCantConfirm,UI,Menu,,,,Press We can't come again: they will fall wit
 scRadioSiegeCantDone,UI,Tooltip,,,,You told {0} you can't come. They're on their own.
 scRadioSiegeGoTell,UI,Tooltip,,,,"{0} on the radio: ""Thank you! We'll hold them off as long as we can."""
 scRadioSiegeGone,UI,Tooltip,,,,That call is over.
+scEncGift,Dialog,Response,,,,I brought you something.
+scEncGiftRow,Dialog,Response,,,,{gift}
+scEncGiftNever,Dialog,Response,,,,Never mind.
+scEncGiftPick_text,Dialog,Statement,,,,"Oh? Let's see what you've got."
+scEncGiftReply_text,Dialog,Statement,,,,{giftreply}
+scEncThanks_gift_neutral,Dialog,Statement,,,,Huh. I didn't expect that from a stranger. Thank you.
+scEncThanks_gift_friendly,Dialog,Statement,,,,That's kind of you. We'll put it to good use.
+scEncThanks_gift_allied,Dialog,Statement,,,,"You didn't have to, friend. Thank you."
+scEncGiftRefuseCap,Dialog,Statement,,,,"Keep it. What we need from you is help with what we ask for."
+scEncGiftRefuseSoon,Dialog,Statement,,,,You've already been generous. Keep that for another day.
+scEncGiftWhy,UI,Tooltip,,,,{0} ({1})
+scEncGiftWhyCap,UI,Tooltip,,,,They'd rather you helped with what they need.
+scEncGiftWhyTomorrow,UI,Tooltip,,,,Come back tomorrow.
+scEncGiftWhyDays,UI,Tooltip,,,,Come back in {0} days.
+scEncGiftWhyNone,UI,Tooltip,,,,You aren't carrying any bundles.
+scEncGiftWhyOff,UI,Tooltip,,,,They take no gifts.
+scEncGiftRowText,UI,Tooltip,,,,A {0} bundle of {1}
+scEncGiftLedger,UI,Tooltip,,,,gift to {0}: {1} ({2})
+scEncReqResWater,UI,Tooltip,,,,water
+scEncReqResLuxury,UI,Tooltip,,,,luxuries
+scEncBarterOff,UI,Tooltip,,,,Ally barter is turned off in the config.
+scEncBarterNoAlly,UI,Tooltip,,,,No allies yet.
+scEncBarterNotAlly,UI,Tooltip,,,,Only allies trade this way.
+scEncBarterNotTheirs,UI,Tooltip,,,,{0} has no {1} to trade.
+scEncBarterWait,UI,Tooltip,,,,They traded with you already - try again in {0} day(s).
+scEncBarterDone,UI,Tooltip,,,,Traded {0} {1} for {2} {3} with {4}.
+scEncBarterLedger,UI,Tooltip,,,,radio barter with {0}: {1} {2} for {3} {4}
+scRadioAlliesHeader,UI,Menu,,,,Allies
+scRadioAllyNone,UI,Menu,,,,No allies yet
+scRadioAllyNoneDesc,UI,Menu,,,,"Help an enclave until they are your allies (standing 70): each ally trades with you here, once a day."
+scRadioAllyState,UI,Menu,,,,"{0}, {1}"
+scRadioAllyGet,UI,Menu,,,,Get {0} {1}
+scRadioAllyBarterDesc,UI,Menu,,,,Once a day. Click Give to pick what you send.
+scRadioAllyBarterDescAny,UI,Menu,,,,Once a day. Click Give and Get to pick what you trade.
 scQgRoleProspect,UI,Menu,,,,Survivor
 scQgRoleMember,UI,Menu,,,,Community survivor
 scQgRoleLeader,UI,Menu,,,,Leader of {0}

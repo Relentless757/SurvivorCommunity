@@ -52,6 +52,8 @@ namespace SurvivorCommunity
     ///   E6 (ScEncAllies; keys an older build ignores): [enclave] benefit=harvest (the group's benefit) allyreveal=N (the
     ///                request-clock day an ally may next tell of another); [community] encloss=F (the Enclave lost morale
     ///                part) encrefill=day:x,y,z:name;.. (the refills owed: the request-clock day, the lost group's POI and name).
+    ///   E7 (ScEncGifts, ScEncBarter; keys an older build ignores): [enclave] gift=N (the request-clock day the leader takes
+    ///                another gift) barter=N (the request-clock day an ally trades over the radio again), each written when set.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -427,6 +429,9 @@ namespace SurvivorCommunity
                 // E6: the group's benefit (an unknown one is set again at OnGameStart), the next ally reveal's day
                 case "benefit": e.Benefit = val.Trim().ToLowerInvariant(); break;
                 case "allyreveal": e.AllyRevealDay = Math.Max(0, I(val)); break;
+                // E7: the next gift's day, the next ally barter's day (request clock)
+                case "gift": e.GiftDay = Math.Max(0, I(val)); break;
+                case "barter": e.BarterDay = Math.Max(0, I(val)); break;
             }
         }
 
@@ -1261,6 +1266,8 @@ namespace SurvivorCommunity
                     if (en.Thanks.Length > 0) sb.AppendLine("thanks=" + Clean(en.Thanks));
                     if (en.Benefit.Length > 0) sb.AppendLine("benefit=" + Clean(en.Benefit));
                     if (en.AllyRevealDay > 0) sb.AppendLine("allyreveal=" + en.AllyRevealDay.ToString(CultureInfo.InvariantCulture));
+                    if (en.GiftDay > 0) sb.AppendLine("gift=" + en.GiftDay.ToString(CultureInfo.InvariantCulture));
+                    if (en.BarterDay > 0) sb.AppendLine("barter=" + en.BarterDay.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var ep in EncPeople)
                 {

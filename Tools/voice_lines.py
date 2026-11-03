@@ -41,13 +41,15 @@ SPOKEN = {
     "scEncRecruitConfirm": "Leave my people? I've thought about it more than once. If you'll have me, I'm in.",
 }
 
-# Statements that hold only a line picked at runtime ({reqask}, {reqwait}, {reqreply}, {reqnone}): no clip of their own.
-RUNTIME_STATEMENTS = {"scEncReqNothing", "scEncReqOffer", "scEncReqWaiting", "scEncReqReply"}
+# Statements that hold only a line picked at runtime ({reqask}, {reqwait}, {reqreply}, {reqnone}; E7's {giftreply}): no
+# clip of their own.
+RUNTIME_STATEMENTS = {"scEncReqNothing", "scEncReqOffer", "scEncReqWaiting", "scEncReqReply", "scEncGiftReply"}
 # ScEncRequests' runtime lines: every Localization key of these stems (the stem itself, or stem_...) whose row is a dialog
 # statement (a UI key named alike is no line), and the fixed ones.
 RUNTIME_FAMILIES = ["scEncAsk", "scEncWait", "scEncAccepted", "scEncFound", "scEncThanks", "scEncDeclined", "scEncThink",
                     "scEncCantDo"]
-RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "scEncReqNotCarried"]
+RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "scEncReqNotCarried",
+                 "scEncGiftRefuseCap", "scEncGiftRefuseSoon"]     # E7: a gift refused (the thanks are scEncThanks_gift_*)
 
 
 def localization():
