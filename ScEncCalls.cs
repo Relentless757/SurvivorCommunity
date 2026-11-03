@@ -65,6 +65,9 @@ namespace SurvivorCommunity
             public int Body = -1;
             public float CameAt;
             public bool Greeted;
+            /// <summary>The call was made with the console's force: it may stay pending for a group that is not an ally
+            /// (session only: after a load the normal rule applies again).</summary>
+            public bool Forced;
         }
 
         private static readonly Dictionary<int, Session> sessions = new Dictionary<int, Session>();
@@ -145,7 +148,7 @@ namespace SurvivorCommunity
             {
                 if (p.EnclaveId != e.Id || p.State != EncPerson.StateHome) continue;
                 home++;
-                if (p.IsLeader) continue;
+                if (p.IsLeader || p.SpawnFailures >= ScEnclavePeople.MaxSpawnFailures) continue;   // no body can be made for them
                 if (best == null || Better(p, best)) best = p;
             }
             return home >= HomeAtLeast ? best : null;
@@ -236,6 +239,7 @@ namespace SurvivorCommunity
             e.CallUntil = 0UL;
             e.CallDay = ScEncRequests.Now + Math.Max(0, ScConfig.EnclaveCallCooldownDays);
             sessions.Remove(e.Id);
+            if (force) SessionOf(e.Id).Forced = true;
             message = fighter ? string.Format(Loc("scEncCallFighterOnWay"), p.Name, TimeText(delay)) : string.Format(Loc("scEncCallDropOnWay"), TimeText(delay));
             if (player != null) ScCommunity.Tell(player, Radio(e, fighter ? "scEncCallFighterSaid" : "scEncCallDropSaid") + " " + message, "");
             ScLog.Out("radio call to enclave " + e.Id + " '" + e.Name + "': " + (fighter ? "a fighter, " + p.Name + " (p" + p.Id + ", " + p.Who.Class + ")" : "a supply drop")
@@ -282,12 +286,12 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Why a pending call can't go on, or null: calls or enclaves off, the ally gone or no longer one, a siege (a fighter).</summary>
-        private static string PendingBlocked(Enclave e)
+        private static string PendingBlocked(Enclave e, bool forced)
         {
             if (!ScConfig.Enclaves || !ScConfig.EnclaveCalls) return "radio calls are off";
             if (e.Lost) return "their building is gone";
             if (e.IsHostile) return "they turned hostile";
-            if (!ScEncAllies.IsAlly(e)) return "they are no longer your allies (" + ScEnclaves.StandingKey(e) + ")";
+            if (!forced && !ScEncAllies.IsAlly(e)) return "they are no longer your allies (" + ScEnclaves.StandingKey(e) + ")";
             if (e.CallKind == Fighter && UnderSiege(e)) return "they are under siege";
             return null;
         }
@@ -339,7 +343,7 @@ namespace SurvivorCommunity
             if (e.CallKind != Fighter && e.CallKind != Drop) { Clear(e); return true; }
             Session s = SessionOf(e.Id);
             if (Live(e)) return TickLive(w, player, e, s, now);
-            string why = PendingBlocked(e);
+            string why = PendingBlocked(e, s.Forced);
             if (why != null) { Cancel(e, player, why); return true; }
             if (w.worldTime < e.CallAt) return false;
             if (player.IsDead()) { s.SearchSince = -1f; return false; }      // they wait until the player is back
@@ -393,6 +397,7 @@ namespace SurvivorCommunity
                 npc = ScEnclavePeople.SpawnAt(w, e, p, pos, yaw);
                 if (npc == null)
                 {
+                    p.SpawnFailures++;      // as ScEnclavePeople counts its own; the next call picks somebody else
                     if (resume) { ClearLive(e, player, "no body could be made for " + p.Name + " (class " + p.Who.Class + ")", true); return true; }
                     Fail(e, player, "no body could be made for " + p.Name + " (class " + p.Who.Class + ")");
                     return true;

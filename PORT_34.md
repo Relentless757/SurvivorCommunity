@@ -1065,6 +1065,13 @@ Builds: SC 3.4 `b7e9a8408d61434c8dc0491a3ecf3466` (`build\sc34_e9`), 0 errors (t
 (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E9 (150-169). Not reviewed (Fable), not installed. The
 task list needs its entry.
 
+**E9 Fable review** (`research\review_e9\REVIEW.md`): DEPLOYABLE, no HIGH. Fixed: M1, the console's `force` let a call
+to a group that isn't an ally start but cancelled it a second later (a forced call now stays pending: `Session.Forced`,
+session only); L2, a person no body can be made for was picked for every call (`PickFighter` skips
+`SpawnFailures >= MaxSpawnFailures`, and a failed spawn counts); L1, long reasons cut short on the buttons (TESTING 165
+notes the hint line gives them whole). Left: L3 (a call stuck by a repeating exception: `sc enclave call <id> cancel`),
+the NITs.
+
 ### Round 14: voices by race, SC's greetings, chatter, XNPCCore lines and raider taunts (V2) (2026-11-03, built, not reviewed, not installed)
 
 Milestone V2 of `SC_Ideas_and_Voices_Plan.md` (section 4, decisions in section 5: 16 voices, two per race and sex; the

@@ -135,7 +135,8 @@ namespace SurvivorCommunity
         /// <summary>The watchdog's far rule: further than this past the leash (EnclaveLeashMargin) for FarSeconds, a body is moved home.</summary>
         private const float FarExtra = 14f;
         private const int FarSeconds = 90;
-        private const int MaxStuckShift = 5, MaxSpawnFailures = 3;
+        private const int MaxStuckShift = 5;
+        internal const int MaxSpawnFailures = 3;
         /// <summary>How long "sc enclave despawn" keeps them away while the player stays near.</summary>
         private const float ConsoleDespawnSeconds = 30f;
         private const int DefaultMood = 50;

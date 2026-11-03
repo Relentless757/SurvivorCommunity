@@ -738,7 +738,8 @@ The ledger is the community window's.
 165. **Followers.** On a day the ally answers: with two followers already (`MaxFollowers` 2: community members on
      Follow, or one of another enclave enlisted), SEND A FIGHTER reads **YOU HAVE ALL THE FOLLOWERS YOU CAN LEAD**;
      SUPPLY DROP is still ready. With one of the ally's people enlisted in person ("Can you come with me?"): **<NAME> IS
-     WITH YOU ALREADY** on SEND A FIGHTER.
+     WITH YOU ALREADY** on SEND A FIGHTER. A long reason can be cut short on the button; press it and the line under the
+     panel gives it whole.
 166. **Nobody to spare.** At an ally with 3 people at home, `sc enclave call <id>` says `3 at home`. Kill one member
      (`sc enclave kill <id> p<pid>`, not the leader): `who would go: nobody; 2 at home (...)`, `fighter now: They have
      nobody to spare`, and the button says so.
