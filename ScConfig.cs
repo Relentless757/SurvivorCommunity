@@ -686,6 +686,17 @@ namespace SurvivorCommunity
         /// </summary>
         public static int InfestDiscoverRange = 150, InfestRadioRange = 2000, InfestPlayerMargin = 50, InfestRearmPlayerRange = 100;
         private const string DefaultInfestTierByDay = "1:1-2,8:1-3,15:2-4,29:3-5";
+        // ---- the zombie-cap fix (ScSleeperCap, I2: sleeper rooms the enemy cap closed empty or cut short) ----
+        /// <summary>
+        /// Layers A and C, every POI: a room the enemy cap closed with nobody spawned is due again SleeperCapRetryTicks later
+        /// (vanilla's own "player inside" wait is 1000, about a game hour), and one saved that way before is repaired as a
+        /// player comes near it.
+        /// </summary>
+        public static bool SleeperCapFix = true;
+        public static int SleeperCapRetryTicks = 1000;
+        /// <summary>Layer B, infested rooms only: a room the cap cuts short waits while a player is near, at most SleeperCapPauseMaxTicks.</summary>
+        public static bool SleeperCapPause = true;
+        public static int SleeperCapPauseMaxTicks = 3000;
         // ---- survivors and raiders wearing the player's body (0-XNPCCore's survivors, ScXnpc; SC's scRaider* classes) ----
         /// <summary>No longer used: it was the chance a radio contact is a player-body survivor rather than a pack NPC,
         /// and pack NPCs no longer spawn at all (every contact is now one of ours). Still parsed so old configs load.</summary>
@@ -1180,6 +1191,7 @@ namespace SurvivorCommunity
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
             InfestDiscoverRange = 150; InfestRadioRange = 2000; InfestPlayerMargin = 50; InfestRearmPlayerRange = 100;
+            SleeperCapFix = true; SleeperCapRetryTicks = 1000; SleeperCapPause = true; SleeperCapPauseMaxTicks = 3000;
             ScPoiTypes.LoadDefaults();
             Defaults();
         }
@@ -1889,6 +1901,16 @@ namespace SurvivorCommunity
                 ParseInt(p, "InfestRadioRange", ref InfestRadioRange, 0, 20000);
                 ParseInt(p, "InfestPlayerMargin", ref InfestPlayerMargin, 0, 5000);
                 ParseInt(p, "InfestRearmPlayerRange", ref InfestRearmPlayerRange, 0, 5000);
+                bool capFix = SleeperCapFix;
+                if (p.Values.ContainsKey("SleeperCapFix")) p.ParseBool("SleeperCapFix", ref capFix);
+                SleeperCapFix = capFix;
+                // at least 100: a retry due within a tick or two would be due again before Touch pushes it, and a room at the
+                // cap would roll and close every few ticks while a player stands near it
+                ParseInt(p, "SleeperCapRetryTicks", ref SleeperCapRetryTicks, 100, 240000);
+                bool capPause = SleeperCapPause;
+                if (p.Values.ContainsKey("SleeperCapPause")) p.ParseBool("SleeperCapPause", ref capPause);
+                SleeperCapPause = capPause;
+                ParseInt(p, "SleeperCapPauseMaxTicks", ref SleeperCapPauseMaxTicks, 0, 240000);
                 ScPoiTypes.Parse(p);
                 ParseFloat(p, "SurvivorLookChance", ref SurvivorLookChance, 0f, 1f);
                 bool friendlyFire = CommunityFriendlyFire;
@@ -2211,6 +2233,8 @@ namespace SurvivorCommunity
                                                 + InfestFeralShare.ToString("0.##", CultureInfo.InvariantCulture) + ", special "
                                                 + (InfestSpecial ? "radiated below gs " + InfestSpecialRadiatedBelowGS : "off") + ", discover " + InfestDiscoverRange + "m, radio "
                                                 + InfestRadioRange + "m, margin " + InfestPlayerMargin + "m, re-arm " + InfestRearmPlayerRange + "m" : "off")
+                          + " sleeperCap=" + (SleeperCapFix ? "retry after " + SleeperCapRetryTicks + " ticks" : "off") + ", pause "
+                                           + (SleeperCapPause && SleeperCapPauseMaxTicks > 0 ? "at most " + SleeperCapPauseMaxTicks + " ticks (infested rooms)" : "off")
                           + " looks=excluded " + SurvivorExcludeSkins.Count + " skins/" + SurvivorExcludeEyes.Count + " eyes/" + SurvivorExcludeHairs.Count
                           + " hairs, dyed hair F" + SurvivorDyedHairChanceFemale + "/M" + SurvivorDyedHairChanceMale + " of " + SurvivorDyedHairColors.Count
                           + " paints=body " + SurvivorBodyPaintChance + "/" + RaiderBodyPaintChance + " of " + SurvivorBodyPaints.Count + "/" + RaiderBodyPaints.Count

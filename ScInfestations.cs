@@ -245,10 +245,11 @@ namespace SurvivorCommunity
         /// A trigger room (flags &amp; 7 = Trigger) rolls only when its trigger fires - a door opened, a switch pressed - never
         /// on approach: CheckTouching skips one with no sleepers tracked (IsTriggerAndNoRespawn, V:SleeperVolume.cs:302-313,
         /// :657), so once cleared it comes back only if its trigger fires again, which a door left open or broken never does.
+        /// (ScSleeperCap's, shared with I2.)
         /// </summary>
         private static bool IsTriggerRoom(SleeperVolume v)
         {
-            return (v.flags & 7) == (int)SleeperVolume.ETriggerType.Trigger;
+            return ScSleeperCap.IsTriggerRoom(v);
         }
 
         /// <summary>XZ distance from a point to an inclusive box {xMin, xMax, zMin, zMax} (0 inside it).</summary>
@@ -592,28 +593,14 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ clearing ----
 
-        /// <summary>
-        /// A room vanilla closed with nobody spawned while it has spawn points and something to roll at its gamestage: the
-        /// enemy cap was full when it started (infestations.md 1.5), so it was never fought. A room whose group has no stage at
-        /// its gamestage, or that rolls nothing (its max is 0, or a min-0 roll came out 0), is empty by design and counts as
-        /// cleared; so does a trigger room, which approaching it would never roll again.
-        /// </summary>
-        private static bool Unfought(SleeperVolume v)
-        {
-            if (!v.wasCleared || v.numSpawned != 0 || v.respawnMap.Count > 0 || v.isSpawning || v.spawnCountMax <= 0 || IsTriggerRoom(v)) return false;
-            if (v.spawnPointList == null || v.spawnPointList.Count == 0) return false;
-            // a room whose roll came out 0 (spawnCountMin 0) keeps no GroupCount: empty by design, as vanilla's clear quest
-            // counts it (SleeperEventData drops any wasCleared room); the cap and blocked spawn points leave the roll there
-            if (Rolled(v) <= 0) return false;
-            GameStageGroup g = GameStageGroup.TryGet(v.groupName ?? "") ?? GameStageGroup.TryGet(GameStageGroup.cDefaultGroupName);
-            return g != null && g.spawner != null && g.spawner.GetStage(v.gameStage) != null;
-        }
+        // A room the enemy cap closed with nobody spawned (unfought): ScSleeperCap.Unfought since I2, shared with the
+        // zombie-cap fix, which gives such a room a retry as it closes (layer A).
 
         /// <summary>
         /// The rooms that still owe a roll with the infestation on, made due (again, DueTime): each room it re-armed that is
         /// not due within the player-inside wait (a world saved before the registry - a crash - or a roll while Infestations
-        /// was off; a room Touch is pushing is left to it), and each unfought one. A re-armed room no longer in the world is
-        /// forgotten. Returns how many are unfought.
+        /// was off; a room Touch is pushing is left to it), and each unfought one (I2's retry, when it has one, is brought
+        /// forward). A re-armed room no longer in the world is forgotten. Returns how many are unfought.
         /// </summary>
         private static int DueAgain(Infestation inf, PrefabInstance pi, World w)
         {
@@ -626,7 +613,7 @@ namespace SurvivorCommunity
             {
                 if (v == null || v.isQuestExclude || !v.wasCleared || v.isSpawning || v.respawnMap.Count > 0) continue;
                 bool rearmed = inf.Rearmed.Contains(v.BoxMin);
-                if (!rearmed && !Unfought(v)) continue;
+                if (!rearmed && !ScSleeperCap.Unfought(v)) continue;
                 if (!rearmed) unfought++;
                 if (v.respawnTime <= now + PlayerInsideDelay) continue;
                 if (at == 0) at = DueTime(PlayerNear(pi, w), w);
@@ -854,20 +841,13 @@ namespace SurvivorCommunity
             if (state == 2) MaybeHost(v, pi, inf, w);
         }
 
-        /// <summary>How many the room's roll will spawn in all (every GroupCount of it).</summary>
-        private static int Rolled(SleeperVolume v)
-        {
-            List<SleeperVolume.GroupCount> l = v.groupCountList;
-            int total = 0;
-            if (l != null) for (int i = 0; i < l.Count; i++) total += l[i].count;
-            return total;
-        }
+        // How many the room's roll will spawn in all: ScSleeperCap.Rolled since I2 (its pause waits while it is above numSpawned).
 
         private static void CapRoom(SleeperVolume v)
         {
             List<SleeperVolume.GroupCount> l = v.groupCountList;
             if (l == null || l.Count == 0) return;
-            int total = Rolled(v);
+            int total = ScSleeperCap.Rolled(v);
             int cap = Math.Max(RoomCap, (int)v.spawnCountMax);
             if (total <= cap) return;
             // from the last entry back (a script room holds several), until the room is under the cap
@@ -922,7 +902,7 @@ namespace SurvivorCommunity
                 inf.SpecialHost = Vector3i.zero;
             }
             if (inf.Special != SpecialState.Owed || !Eligible(v) || !v.isSpawning) return;
-            if (Rolled(v) + 1 >= byte.MaxValue) return;     // only a prefab's own huge room: the world saves its counts as bytes
+            if (ScSleeperCap.Rolled(v) + 1 >= byte.MaxValue) return;     // only a prefab's own huge room: the world saves its counts as bytes
             ulong now = w.worldTime;
             int left = 1;
             foreach (SleeperVolume u in rooms) if (u != null && u != v && Eligible(u) && Unspawned(u, now)) left++;
@@ -1302,7 +1282,7 @@ namespace SurvivorCommunity
                 if (v == null) continue;
                 made++;
                 if (IsTriggerRoom(v)) triggers++;
-                if (!v.isQuestExclude && !inf.Rearmed.Contains(v.BoxMin) && Unfought(v)) unfought++;     // read only: Evaluate makes them due
+                if (!v.isQuestExclude && !inf.Rearmed.Contains(v.BoxMin) && ScSleeperCap.Unfought(v)) unfought++;     // read only: Evaluate makes them due
                 if (v.wasCleared) cleared++;
                 if (v.wasCleared && now >= v.respawnTime) due++;
                 if (v.isSpawning) spawning++;

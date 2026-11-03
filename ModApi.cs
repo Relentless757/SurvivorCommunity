@@ -65,6 +65,7 @@ namespace SurvivorCommunity
                 ScEncSearch.Reset();
                 ScEncSiege.Reset();
                 ScInfestations.Reset();
+                ScSleeperCap.Reset();
                 ScPoiIndex.Reset();
                 ScHomeLink.Reset();
                 ScHomeHold.Reset();
@@ -464,7 +465,8 @@ namespace SurvivorCommunity
             // E4: the gun pick's rows - their text through the response entry's binding (the shared Text is never written)
             Add(t, "XUiC_DialogResponseEntry::GetBindingValueInternal", Patches_Enclaves.Patch_DialogRowText.Target());
             // Patches_Infestations.cs - an infested POI's rooms (I1; the count, spawn points and special share the UpdatePlayerTouched
-            // entry above, the feral share ScLoadout's GetRandomFromGroupList entry)
+            // entry above, the feral share ScLoadout's GetRandomFromGroupList entry). I2's zombie-cap fix (ScSleeperCap) rides the
+            // UpdateSpawn entry (layer A's postfix, layer B's hold) and the UpdatePlayerTouched one (layer C's repair).
             Add(t, "SleeperVolume::UpdateSpawn", AccessTools.Method(typeof(SleeperVolume), "UpdateSpawn", new[] { typeof(World) }));
             Add(t, "SleeperVolume::Spawn", AccessTools.Method(typeof(SleeperVolume), "Spawn", new[] { typeof(World), typeof(int), typeof(int), typeof(BlockSleeper) }));
             Add(t, "SleeperVolume::ClearedUpdate", AccessTools.Method(typeof(SleeperVolume), "ClearedUpdate", new[] { typeof(World) }));

@@ -13,6 +13,8 @@ Research (evidence, decompiles, tools) in `F:\7daystodie mods 2026\Port33\resear
 - **One source, two builds.** `-p:ScGame=34` compiles against the 3.4 install with `SC_V34` defined; the default build
   stays the 3.2 one and its DLL stays **byte-identical** to the shipping `81f6c2da`. A 3.4 build is written outside any
   Mods folder until it is deployed to the 3.4 install on the usual routine (game closed, backup, md5/IL check).
+  (This ends with the feature milestones of `research\ideas\DESIGN.md`: from I2, round 9, shared code changes both DLLs
+  (its Q1). The live 3.2 game gets a build only when the user says.)
 - Work on branch `port-3.4` in the worktree `F:\7daystodie mods 2026\Port33\SurvivorCommunity`; `main` and the live 3.2
   mod are never touched. Merge to `main` once the 3.2 build is proven unchanged.
 - Fable review before every deploy; test steps in `TESTING.md` and the task list (t15).
@@ -442,3 +444,84 @@ in progress, so its position records stay valid.
 **Installed 2026-11-02 22:08** with the user's go-ahead (3.4 game closed): `deploy_sc34.py`, HEAD 8b560f8, 1928 files,
 installed = built `c0ea84c3`. The old install is in `Port33\_backups\sc34_2026-11-02_220821`; only the round 7 files
 differ from it. `DebugLogging` true copied back. The 3.2 game is untouched (`81f6c2da`).
+
+### Round 9: the zombie-cap fix (I2) (2026-11-03, built, not reviewed, not installed)
+
+The first milestone of `research\ideas\DESIGN.md` (section 12; Q2 (a): layers A and C for every POI, B for infested rooms
+only). Branch `ms/i2` from port-3.4 `a52c0b1`. The same code in both builds, no `SC_V34`: vanilla's SleeperVolume is the
+same on 3.2 and 3.4 apart from its Read/Write stream types (3.2 lines are the 3.4 line + 1). From this round the 3.2 DLL
+changes too (Q1).
+
+The quirk, checked line by line in the V34 and V32 decompiles. `UpdateSpawn` (V34:941) reads `AIDirector.CanSpawn(2.1f)`
+(V34:948; EnemyCount < MaxSpawnedZombies x 2.1, about 134 at the default 64, AIDirector.cs:181-184), and new spawns sit
+behind it (V34:1013). A room whose step meets a full cap before anything spawned closes with `wasCleared` and "None
+spawned, canSpawn False" (V34:1087-1100). Nothing on that path sets a respawn time, so it stays `ulong.MaxValue` (V34:199,
+Reset :494): Touch and CheckTrigger only raise it (:745, :773), and UpdatePlayerTouched returns at once for a cleared room
+not due (:554). The room is empty until a quest, a chunk reset, `sleeper r` or a POI reset calls DespawnAndReset. A room
+cut short closes through ClearedUpdate (:1099) on a normal timer, and an infested room's special, appended last
+(ScInfestations.MaybeHost), is what it drops. The enemy count is recounted every 20 ticks (GameStateManager.cs:143-165).
+
+- **ScSleeperCap.cs (new).** `Unfought`, `Rolled` and `IsTriggerRoom` moved here from ScInfestations, which calls them
+  (DueAgain, InfoLines, CapRoom, MaybeHost). `NeverDue` is the saved signature: wasCleared, respawnTime never, nothing
+  spawned or tracked.
+  - **Layer A, `AfterClose`** (UpdateSpawn's new postfix, for a room that stopped spawning in that call): closed empty,
+    never due, the cap still full (the same frame and count vanilla's step read), `Unfought`, not an enclave's. It sets
+    `respawnTime = now + SleeperCapRetryTicks`, vanilla's own due path. Touch keeps pushing it while a player stays near,
+    and the first touch after it Resets and rolls the room. An outpost's or claimed room stays held by CheckTrigger's claim
+    push (V34:769-777), as vanilla's.
+  - **Layer B, `Hold`** (UpdateSpawn's prefix, now a bool prefix). It holds only a call where vanilla would run a step
+    (spawnDelay down to 1). The room must be infested and not an enclave's. It must have spawn points, no restore list and
+    no script running, and more rolled than spawned, with a stage for the next group at its gamestage. The cap must be
+    full and a player (not a spectator) inside vanilla's spawned-room box, BoxMin - unpadding to BoxMax + unpadding with
+    CheckTouching's +0.8 y (V34:147, 755-757). A held step sets spawnDelay 2, vanilla's own pace. The hold ends when the cap
+    frees ("goes on"), nobody is near, or after SleeperCapPauseMaxTicks; then vanilla closes the room and layer A takes
+    over. Pauses are a session `Dictionary<SleeperVolume, Pause>`. A pause not checked for 200 world ticks is stale, since
+    the room was reset and rolled since (a quest's DespawnAndReset leaves no call to clear it).
+  - **Layer C, `OnTouch`** (first in Patches_Infestations' UpdatePlayerTouched prefix, before I1's BeforeRoll). A room
+    with the signature that is `Unfought` and not an enclave's gets `respawnTime = now`, and vanilla resets and rolls it in
+    the same call (V34:558-561). It runs once per room per session and needs `ScRegistry.Loaded`, which brings the enclave
+    list.
+  - **Console `sc sleepers [status | scan | repair]`.** Status shows the switches, the enemy count against the limit and
+    the session's counters (retries, repairs on touch and from the console, pauses: went on, timed out, nobody near), plus
+    every room paused now. Scan lists every never-due unfought room of ScPoiIndex's POIs, nearest first and at most 30
+    lines; it counts claimed ones and the enclave rooms it leaves alone. Repair makes those due now.
+- **Config** (`Config/blocks.xml`, commented): `SleeperCapFix` true, `SleeperCapRetryTicks` 1000 (100-240000),
+  `SleeperCapPause` true, `SleeperCapPauseMaxTicks` 3000 (0-240000; 0 = no pause). The `config:` line gains `sleeperCap=`.
+- **Harmony targets: none new.** Both were already patched and in ModApi's expected list:
+  - `SleeperVolume.UpdateSpawn(World)`, `public void UpdateSpawn(World _world)`, V34:941, V32:942. It has a bool prefix
+    (`out bool __state`), the new postfix (`bool __state`) and I1's finalizer.
+  - `SleeperVolume.UpdatePlayerTouched(World, EntityPlayer)`, `public void UpdatePlayerTouched(World _world, EntityPlayer
+    _playerTouched)`, V34:552, V32:553. It has I1's prefix (layer C first in it) and postfix, and E1's prefix.
+- **Other mods.** No installed mod patches UpdateSpawn, so the new bool prefix skips nothing anyone else expects. I
+  searched every DLL under the 3.4 install's and the 3.2 game's `Mods` for the string, as ASCII and UTF-16.
+  - Only SC has it. Ark's `UpdateSpawns` and SimpleSleepMod's `UpdateSpawnOnBedPlacement` are their own names.
+  - On SleeperVolume, SCore (both installs) postfixes ClearedUpdate (its event) and AddEnemyToWorld.
+  - ZombieAIOverhaul (the same DLL in both, and its source) patches Touch (a prefix on the wake touch only, setActive true,
+    so never the respawn push A relies on), OnTriggered, CheckNoise and AddEnemyToWorld.
+  - XNPCCore 3.4 calls TouchGroup and patches nothing there; POIInjector patches World.SetupSleeperVolumes.
+
+Where the design was wrong or short, and the code followed the game:
+1. **Layer C as written repeats.** `Unfought` cannot tell a cap-closed room from one whose spawn points are all blocked
+   (FindSpawnIndex -1, World.CanSleeperSpawnAtPos), which closes the same way with "canSpawn True". A player standing near
+   one touches it every couple of ticks, and a repair on every touch would reset and re-roll it each time. Hence once per
+   room per session.
+2. **"UpdateSpawn runs at most twice a tick (V34:409)" is not so.** `TickSpawnCount < 2` caps spawns per tick, not calls.
+   Every spawning room's UpdateSpawn is called each tick while fewer than two spawns have happened, and vanilla runs a step
+   every other call. So Hold decides only on a step call and keeps vanilla's pace.
+3. **Layer B gained a condition:** the next group must have a stage at the room's gamestage. Without one vanilla closes
+   the room with the cap free too, and a pause would only delay that.
+4. **SleeperCapRetryTicks has a floor of 100.** A retry due before the next touch could push it would let a room at the
+   cap roll and close every few ticks.
+5. Trigger rooms stay out, as the design says (`Unfought`), so a trap room the cap closed at its trigger still never comes
+   back. A trigger fires only from its block, and I1 counts such rooms cleared.
+
+Builds: SC 3.2 `48797d89` (in place; was `81f6c2da`), SC 3.4 `3f921e50` (`build\sc34_i2`), both 0 errors.
+
+HarmonyAudit (`research\i2\audit32_*`, `audit34_*`; the baselines `base32_*`, `base34_*` from `81f6c2da` and the
+installed `c0ea84c3`):
+- Every SleeperVolume row is OK on 3.2 and 3.4 in both DLLs: UpdateSpawn's prefix, postfix and finalizer, Spawn,
+  ClearedUpdate, UpdatePlayerTouched (three patches), and CheckForAnyPlayerHome. The one exception is 3.4's TouchGroup,
+  DYNAMIC_UNRESOLVED as before (a TargetMethod the json doesn't describe).
+- Against the baselines, one OK row more in each (the new postfix) and the same non-OK rows.
+
+Test steps: TESTING.md group O (90-103). Not reviewed (Fable), not installed. The task list needs its entry.

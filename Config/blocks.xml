@@ -1168,6 +1168,22 @@
 			<property name="InfestPlayerMargin" value="50" />
 			<property name="InfestRearmPlayerRange" value="100" />
 
+			<!-- THE ZOMBIE-CAP FIX (I2). The game spawns a sleeper room's zombies only while fewer than MaxSpawnedZombies x 2.1
+			     enemies are about, counted over the whole world (about 134 by default). A room you enter while it is full
+			     closes as cleared with nobody spawned, and vanilla never respawns it; a room it cuts short closes early. With
+			     SleeperCapFix (every POI), such an empty room is due again SleeperCapRetryTicks later (1000 = about a game hour,
+			     vanilla's own wait while you stand in a cleared room): it spawns the next time you come near it after that. A
+			     room saved that way by an older build is repaired the first time you come near it. With SleeperCapPause (only
+			     infested buildings), a room the cap cuts short waits while a player is near it - at most
+			     SleeperCapPauseMaxTicks (3000 = about 3 game hours) - and goes on from where it stopped once zombies die off,
+			     so the infestation's special still comes; with nobody near, or after the wait, it closes as vanilla's. Enclave
+			     buildings are never touched. "sc sleepers" shows what it did, "sc sleepers scan" lists the rooms still
+			     waiting for a repair, "sc sleepers repair" makes them due now. -->
+			<property name="SleeperCapFix" value="true" />
+			<property name="SleeperCapRetryTicks" value="1000" />
+			<property name="SleeperCapPause" value="true" />
+			<property name="SleeperCapPauseMaxTicks" value="3000" />
+
 			<!-- Outpost types: row id = "yields | prefab-name words | localized-name words | theme tags". A word ending in
 			     * is a prefix, a word with a space a phrase; otherwise a name token must equal the word (or word + s).
 			     Resolution: the prefab's own SCOutpost property > OutpostPrefabs > OutpostExclude > theme tags > prefab
