@@ -168,8 +168,8 @@ namespace SurvivorCommunity
             public ItemStack Stack;
         }
 
-        /// <summary>Bundles of one resource by size (units: Large 3, Medium 2, Small 1, the old one-size bundle 1).</summary>
-        private struct Bundles
+        /// <summary>Bundles of one resource by size (units: Large 3, Medium 2, Small 1, the old one-size bundle 1). E7's gifts use it too.</summary>
+        internal struct Bundles
         {
             public int Large, Medium, Small, Legacy;
             public int Units { get { return Large * 3 + Medium * 2 + Small + Legacy; } }
@@ -197,6 +197,7 @@ namespace SurvivorCommunity
             clockSaid = false;
             foundRowFor = -1;
             foundRowText = "";
+            ScEncGifts.Reset();      // E7: the gift pick and the gift reply
         }
 
         /// <summary>
@@ -383,13 +384,13 @@ namespace SurvivorCommunity
             }
         }
 
-        private static string SizeWord(int units)
+        internal static string SizeWord(int units)
         {
             return Loc(units >= 3 ? "scBundleSizeLarge" : units == 2 ? "scBundleSizeMedium" : "scBundleSizeSmall");
         }
 
-        /// <summary>The resource a kind of group lives on (they never ask for it), or -1 for one that lives on anything.</summary>
-        private static int OwnResource(string kind)
+        /// <summary>The resource a kind of group lives on (they never ask for it; E7's gift rows list it after the others), or -1 for one that lives on anything.</summary>
+        internal static int OwnResource(string kind)
         {
             switch (kind)
             {
@@ -1141,8 +1142,8 @@ namespace SurvivorCommunity
 
         // ---- a resource request: bundles ----
 
-        /// <summary>The bundles of a resource the player carries, by size.</summary>
-        private static Bundles Carried(EntityPlayerLocal pl, Resource res)
+        /// <summary>The bundles of a resource the player carries, by size (E7: the gift rows).</summary>
+        internal static Bundles Carried(EntityPlayerLocal pl, Resource res)
         {
             var b = new Bundles();
             string legacy = ScNames.BundleItem(res);
@@ -1190,9 +1191,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// The chosen bundles out of the bag and the toolbelt (XUiM_PlayerInventory.RemoveItems by type: bundles have no mods),
         /// measured per type before and after as ScCategories measures; when any came up short, whatever left is given back
-        /// and nothing counts.
+        /// and nothing counts. E7: a gift's one bundle.
         /// </summary>
-        private static bool TakeBundles(EntityPlayerLocal pl, Resource res, Bundles take)
+        internal static bool TakeBundles(EntityPlayerLocal pl, Resource res, Bundles take)
         {
             XUiM_PlayerInventory inv = InventoryOf(pl);
             if (inv == null) return false;
@@ -1411,7 +1412,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// The response entry's "response" binding (Patches_Enclaves.Patch_DialogRowText) for a row whose text starts with '{':
         /// a gun pick row's text, made when the pick was. Every frame: one prefix test, then a list read. E5's found row: the
-        /// person's name in it, made once per request.
+        /// person's name in it, made once per request. E7's gift rows: theirs, made when the gift pick was (ScEncGifts.FillRow).
         /// </summary>
         public static void FillRow(XUiC_DialogResponseEntry entry, ref string value)
         {
@@ -1419,6 +1420,7 @@ namespace SurvivorCommunity
             DialogResponse resp = entry.CurrentResponse;
             string id = resp != null ? resp.ID : null;
             if (id == FoundRowId) { value = FoundRow(); return; }
+            if (ScEncGifts.FillRow(id, ref value)) return;      // E7: a gift row (scEncGift0..3)
             if (id == null || id.Length != GunRowPrefix.Length + 1 || !id.StartsWith(GunRowPrefix, StringComparison.Ordinal)) return;
             int i = id[id.Length - 1] - '0';
             GunPick p = pick;
@@ -1522,8 +1524,8 @@ namespace SurvivorCommunity
             reply = e != null ? new Reply { EnclaveId = e.Id, Key = key, Text = (Loc(key) + " " + (info ?? "")).Trim() } : null;
         }
 
-        /// <summary>"(standing +10)" / "(standing -5)" after a reply line; "" when it did not move.</summary>
-        private static string Aside(int moved)
+        /// <summary>"(standing +10)" / "(standing -5)" after a reply line; "" when it did not move (E7: a gift's reply too).</summary>
+        internal static string Aside(int moved)
         {
             return moved > 0 ? string.Format(Loc("scEncReqStandingUp"), moved) : moved < 0 ? string.Format(Loc("scEncReqStandingDown"), -moved) : "";
         }

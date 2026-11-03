@@ -152,7 +152,8 @@ namespace SurvivorCommunity
         /// E4, the gun pick's rows (scEncReqGun0..3): a response's Text is the shared, parsed-once "{gun}", so each row's words
         /// ("Pistol (T1, quality 3): small thanks") come through the entry's "response" binding instead - never written into the
         /// dialog. XUiC_DialogResponseEntry declares its own override; no installed mod patches it (E4_REPORT.md). It runs every
-        /// frame for every visible row: a first-character test, then the binding name, then (ours only) a list read.
+        /// frame for every visible row: a first-character test, then the binding name, then (ours only) a list read. E5's
+        /// found row and E7's gift rows (scEncGift0..3, "{gift}": ScEncGifts.FillRow) come the same way.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_DialogRowText

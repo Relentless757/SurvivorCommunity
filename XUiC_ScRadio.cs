@@ -15,6 +15,10 @@ namespace SurvivorCommunity
     /// or deliver by), and
     /// a siege call with its countdown and "On our way" / "We can't come" (pressed twice) while it is called. Its rows are
     /// built once a second (BuildEnclaves) and bound by index; empty until the first build.
+    /// E7 adds the Allies panel above the siege calls (the column's Enclaves list is 10 rows, its requests 3 since): one
+    /// Allied enclave picked with a cycling button, nearest first, what they do for you and where; and the barter with them
+    /// (ScEncBarter: Give cycles your supplies, Get is theirs - any classic one from a scavengers' group - and Trade, once a
+    /// day per ally). E9's radio commands are to reuse the pick.
     /// </summary>
     [Preserve]
     public class XUiC_ScRadio : XUiController
@@ -25,8 +29,8 @@ namespace SurvivorCommunity
         private Resource barterGive = Resource.Food;
         private Resource barterGet = Resource.Meds;
 
-        // ---- E6: the Enclaves column (its row counts are the generator's ENC_ROWS / REQ_ROWS) ----
-        private const int EncRows = 15, ReqRows = 4;
+        // ---- E6: the Enclaves column (its row counts are the generator's ENC_ROWS / REQ_ROWS; E7 made room for the Allies panel) ----
+        private const int EncRows = 10, ReqRows = 3;
         /// <summary>The palette's text colours; Ally and Friend are the enclave markers' own (nav_objects.xml: sc_enclave_allied / _friendly).</summary>
         private const string Body = "226,220,208,255", Dim = "190,182,166,255", Off = "130,124,112,255", Ally = "90,170,255,255",
                              Friend = "140,220,120,255", Gold = "206,178,120,255", Danger = "240,150,130,255";
@@ -38,6 +42,18 @@ namespace SurvivorCommunity
         /// <summary>"We can't come" asks to be pressed twice: until when the second press counts.</summary>
         private float confirmCantUntil;
         private string siegeHint = "";
+
+        // ---- E7: the Allies panel (the generator's allies()): an Allied enclave picked, nearest first, and the barter with them ----
+        // Every field is set here, not in Init: the bindings are read while the XML is parsed (xui-gotchas).
+        private readonly List<Enclave> allies = new List<Enclave>();
+        /// <summary>
+        /// The picked ally's enclave id (-1: none). While the window stays open it stays picked even if they stop being Allied,
+        /// so the trade greys with the reason; the next open drops it.
+        /// </summary>
+        private int allyId = -1;
+        private Resource allyGive = Resource.Food, allyGet = Resource.Meds;
+        /// <summary>The last ally action's words (the trade, or why not) on the hint line, until the next press or open.</summary>
+        private string allyHint = "";
 
         public EntityPlayerLocal Player
         {
@@ -112,6 +128,37 @@ namespace SurvivorCommunity
                     BuildEnclaves();
                     RefreshBindings();
                 });
+                // E7: the Allies panel - the next ally (nearest first), what you give, what you get (a scavengers' group), the trade
+                Hook("btnAllyPick", () =>
+                {
+                    if (allies.Count > 1) PickAlly(allies[(IndexOfAlly() + 1) % allies.Count]);
+                    allyHint = "";
+                    RefreshBindings();
+                });
+                Hook("btnAllyGive", () =>
+                {
+                    allyGive = ScEncBarter.NextGive(allyGive, allyGet);
+                    allyHint = "";
+                    RefreshBindings();
+                });
+                Hook("btnAllyGet", () =>
+                {
+                    Enclave a = PickedAlly();
+                    if (a == null || !ScEncBarter.ChoosesGet(a)) return;
+                    allyGet = ScEncBarter.NextGet(a, allyGet);
+                    allyGive = ScEncBarter.FixGive(allyGive, allyGet);
+                    allyHint = "";
+                    RefreshBindings();
+                });
+                Hook("btnAllyTrade", () =>
+                {
+                    string msg;
+                    EntityPlayerLocal p = Player;
+                    if (!ScEncBarter.Trade(PickedAlly(), allyGive, allyGet, p, out msg) && p != null) p.PlayOneShot("ui_denied");
+                    allyHint = msg ?? "";
+                    BuildEnclaves();
+                    RefreshBindings();
+                });
             }
             catch (Exception e)
             {
@@ -144,6 +191,10 @@ namespace SurvivorCommunity
                 message = "";
                 siegeHint = "";
                 confirmCantUntil = 0f;
+                // E7: an ally picked last time stays picked while they are still Allied
+                allyHint = "";
+                Enclave was = allyId >= 0 ? ScEnclaves.ById(allyId) : null;
+                if (was == null || !ScEncAllies.IsAlly(was)) allyId = -1;
                 if (xui != null && xui.playerUI != null && xui.playerUI.CursorController != null)
                 {
                     xui.playerUI.CursorController.Locked = false;
@@ -199,6 +250,22 @@ namespace SurvivorCommunity
             if (RowBinding(_bindingName, ref _value)) return true;      // E6: enc<n>..., req<n>...
             switch (_bindingName)
             {
+                // ---- E7: the Allies panel ----
+                case "allyname": { Enclave a = PickedAlly(); _value = a != null ? a.Name : Localization.Get("scRadioAllyNone"); return true; }
+                case "allystate": _value = AllyState(); return true;
+                case "allypickready": _value = (allies.Count > 1).ToString(); return true;
+                case "allyvisible": _value = (PickedAlly() != null && ScConfig.EnclaveBarter).ToString(); return true;
+                case "allynone": _value = AllyNone(); return true;
+                case "allygive":
+                    _value = string.Format(Localization.Get("scBarterGive"), Math.Max(1, ScConfig.EnclaveBarterGive), Localization.Get(ScNames.LocKey(allyGive)));
+                    return true;
+                case "allyget":
+                    _value = string.Format(Localization.Get("scRadioAllyGet"), Math.Max(1, ScConfig.EnclaveBarterGet), Localization.Get(ScNames.LocKey(allyGet)));
+                    return true;
+                case "allygetready": _value = ScEncBarter.ChoosesGet(PickedAlly()).ToString(); return true;
+                case "allytradeready": _value = ScEncBarter.CanTrade(PickedAlly(), allyGive, allyGet, out why).ToString(); return true;
+                case "allyhint": _value = AllyHint(); return true;
+                case "allyhintcolor": _value = allyHint.Length > 0 ? Gold : Dim; return true;
                 // ---- E6: the Enclaves column ----
                 case "encnone":
                     _value = encKnown == 0 ? Localization.Get("scRadioEncNone") : encKnown < 0 && ScRegistry.Loaded && !ScConfig.Enclaves ? Localization.Get("scRadioEncOff") : "";
@@ -330,6 +397,7 @@ namespace SurvivorCommunity
         {
             encRows.Clear();
             reqRows.Clear();
+            allies.Clear();
             encMore = reqMore = 0;
             encKnown = -1;
             try
@@ -384,11 +452,84 @@ namespace SurvivorCommunity
                     }
                     reqRows.Add(row);
                 }
+                BuildAllies(from);       // E7
             }
             catch (Exception ex)
             {
                 ScLog.Once("radio-window-enclaves", ex);
             }
+        }
+
+        // ---- E7: the Allies panel ----
+
+        /// <summary>
+        /// The pick's list (BuildEnclaves): the allies, nearest first, plus the ally picked earlier while this window is open
+        /// even if no longer Allied (the trade greys "Only allies trade this way."). Nothing picked yet: the nearest.
+        /// </summary>
+        private void BuildAllies(Vector3 from)
+        {
+            ScEncBarter.Allies(from, allies);
+            if (allyId >= 0 && IndexOfAlly() < 0)
+            {
+                Enclave was = ScEnclaves.ById(allyId);
+                if (was != null && !was.Lost && !was.IsHostile)
+                {
+                    allies.Add(was);
+                    allies.Sort((a, b) => a.DistanceXZ(from.x, from.z).CompareTo(b.DistanceXZ(from.x, from.z)));
+                }
+                else allyId = -1;
+            }
+            if (allyId < 0 && allies.Count > 0) PickAlly(allies[0]);
+        }
+
+        private int IndexOfAlly()
+        {
+            for (int i = 0; i < allies.Count; i++) if (allies[i].Id == allyId) return i;
+            return -1;
+        }
+
+        /// <summary>The picked ally, or null (none, or not in the list).</summary>
+        private Enclave PickedAlly()
+        {
+            int i = IndexOfAlly();
+            return i >= 0 ? allies[i] : null;
+        }
+
+        /// <summary>A new ally picked: Get starts on their resource (food for a scavengers' group), Give on one that differs.</summary>
+        private void PickAlly(Enclave a)
+        {
+            allyId = a.Id;
+            allyGet = ScEncBarter.DefaultGet(a);
+            allyGive = ScEncBarter.FixGive(allyGive, allyGet);
+        }
+
+        /// <summary>"Munitions Manufacture, 900 m north-east": what they do for you as allies (their standing if no longer), and where.</summary>
+        private string AllyState()
+        {
+            Enclave a = PickedAlly();
+            if (a == null) return "";
+            EntityPlayerLocal pl = Player;
+            string where = pl != null ? ScEnclaves.Where(pl.position, a.Centre) : a.PoiName;
+            string what = ScEncAllies.IsAlly(a) ? ScEncAllies.Name(a.Benefit) : ScEnclaves.StandingWord(a);
+            return string.IsNullOrEmpty(what) ? where : string.Format(Localization.Get("scRadioAllyState"), what, where);
+        }
+
+        /// <summary>Where the barter row would be, while it is hidden: no ally yet (how to get one), or the barter switched off.</summary>
+        private string AllyNone()
+        {
+            if (PickedAlly() == null) return ScConfig.Enclaves ? Localization.Get("scRadioAllyNoneDesc") : Localization.Get("scRadioEncOff");
+            return ScConfig.EnclaveBarter ? "" : Localization.Get("scEncBarterOff");
+        }
+
+        /// <summary>The hint line: the last ally action's words, else why the trade can't be made now, else how it works.</summary>
+        private string AllyHint()
+        {
+            if (allyHint.Length > 0) return allyHint;
+            Enclave a = PickedAlly();
+            if (a == null || !ScConfig.EnclaveBarter) return "";
+            string why;
+            if (!ScEncBarter.CanTrade(a, allyGive, allyGet, out why)) return why ?? "";
+            return Localization.Get(ScEncBarter.ChoosesGet(a) ? "scRadioAllyBarterDescAny" : "scRadioAllyBarterDesc");
         }
 
         /// <summary>The day a request is due by (accepted) or must be answered by (offered): the request list's order.</summary>

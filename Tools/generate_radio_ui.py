@@ -10,13 +10,14 @@ community window's rules (Tools/generate_community_ui.py) - same palette, plates
             Powered - 2 of 3 contacts out there
     +- [AIR DROP button] ----------+- [CALL button] ----------+  +- ENCLAVES YOU KNOW -----------------------+
     |  what it does / cooldown     |  what it does / cooldown |  | name      standing  benefit   where       |
-    +- SURVIVORS HEARD ON THE RADIO --------------------------+  | ... 15 rows, nearest first, "+N more"    |
-    +- SUPPLY RUNS CALLING FOR HELP --------------------------+  |                                          |
-    +- OUTPOSTS REPORTING IN ---------------------------------+  +- THEIR REQUESTS -------------------------+
-    [ raiders' demand                      [PAY] [REFUSE] ]     | enclave   what          answer / due by  |
-    +- SCOUT FOR OUTPOSTS  [food][meds][ammo][mats][fuel] ----+  +- SIEGE CALLS ----------------------------+
-    +- BARTER  [give ..] [get ..] [TRADE] -------------------+  | X is under attack! 12:34 to reach them   |
-    the last action's message                                    | [ON OUR WAY]          [WE CAN'T COME]    |
+    +- SURVIVORS HEARD ON THE RADIO --------------------------+  | ... 10 rows, nearest first, "+N more"    |
+    +- SUPPLY RUNS CALLING FOR HELP --------------------------+  +- THEIR REQUESTS -------------------------+
+    +- OUTPOSTS REPORTING IN ---------------------------------+  | enclave   what          answer / due by  |
+    [ raiders' demand                      [PAY] [REFUSE] ]     +- ALLIES ---------------------------------+
+    +- SCOUT FOR OUTPOSTS  [food][meds][ammo][mats][fuel] ----+  | [ally >]  benefit, where                 |
+    |                                                         |  | [give ..] [get ..] [TRADE]  hint         |
+    +- BARTER  [give ..] [get ..] [TRADE] -------------------+  +- SIEGE CALLS ----------------------------+
+    the last action's message                                    | X is under attack!  [ON OUR WAY] [CAN'T] |
 
 E6 (2026-10-17) added the right-hand column, the Enclaves section: the enclaves the player knows (standing in the
 markers' colours, benefit - blue while it applies - and where), their open requests (what, and the day to answer by or
@@ -24,6 +25,15 @@ deliver by) and a
 siege call with its countdown and two buttons (both only while it is called, before the fight). The left column is the
 window as it was; the window grew from 760 to 1384 wide - still narrower than the community window (1500), so it fits
 wherever that does.
+
+E7 (2026-11-03, research/ideas/DESIGN.md sections 2 and 7) added the Allies panel between the requests and the siege
+calls, as the design's layout plan says: the Enclaves list went from 15 rows to 10 and the requests from 4 to 3 to make
+room, the siege section lost 8 units of slack, and its bottom stays level with the barter section's. The panel picks one
+Allied enclave with a cycling button (nearest first) and shows what they do for you and where; under it the barter with
+that ally - Give, Get (a scavengers' group only: theirs is fixed otherwise) and Trade - and a hint line. Its plates,
+buttons and icons are the same scui_* names and vanilla symbols as the rest, so AshfallUI's premium art and brass icons
+apply to it with no patch. E9 (radio commands) is to add its call buttons here, taking the room from the Enclaves list
+again (ALLY_H grows, ENC_ROWS shrinks).
 
 RULES THAT MATTER (the community window's, unchanged):
 - Buttons are <button> views: XUiC_ScRadio hooks each control's own OnPress (GetChildById), which a
@@ -34,10 +44,13 @@ RULES THAT MATTER (the community window's, unchanged):
   {dropready} / {callready} / {scoutready} / {barterready} bindings say which. The labels still carry
   the reason (the controller writes it into {droplabel} / {calllabel} / {scoutdesc} / {barterdesc}).
 - Control names are the controller's: btnClose, btnDrop, btnCall, btnScout<Resource>, btnBarterGive,
-  btnBarterGet, btnBarterTrade, btnDemandPay, btnDemandRefuse; E6's btnSiegeGo, btnSiegeCant.
+  btnBarterGet, btnBarterTrade, btnDemandPay, btnDemandRefuse; E6's btnSiegeGo, btnSiegeCant; E7's btnAllyPick,
+  btnAllyGive, btnAllyGet, btnAllyTrade.
 - E6's rows are bound by index: enc<1..ENC_ROWS><name|standing|standingcolor|benefit|benefitcolor|where|visible>
   and req<1..REQ_ROWS><enc|what|due|duecolor|visible> - XUiC_ScRadio's EncRows / ReqRows must equal ENC_ROWS /
   REQ_ROWS. Bound colours are numeric "r,g,b,a" strings.
+- E7's Allies panel binds allyname, allystate, allypickready, allyvisible (the barter row), allynone (the words in its
+  place while it is hidden), allygive, allyget, allygetready, allytradeready, allyhint and allyhintcolor.
 """
 
 import io
@@ -79,14 +92,18 @@ RW = WIN_W - X2 - M                   # its plate width
 RIN = RW - 2 * PAD                    # its content width
 ROW_H = 22                            # one enclave or request row
 COL_H = 20                            # the column-heading row
-ENC_Y, ENC_H, ENC_ROWS = CALLS_Y, 430, 15
-REQ_Y, REQ_H, REQ_ROWS = 522, 170, 4
-SIEGE_Y, SIEGE_H = 700, 164           # its bottom level with the barter section's
+ENC_Y, ENC_H, ENC_ROWS = CALLS_Y, 302, 10      # E7: 15 rows before the Allies panel
+REQ_Y, REQ_H, REQ_ROWS = 394, 148, 3            # E7: 4 rows before
+ALLY_Y, ALLY_H = 550, 150             # E7: the Allies panel
+SIEGE_Y, SIEGE_H = 708, 156           # its bottom level with the barter section's
 # (binding field, key of its heading, x within the row, width); the row's labels are 14-point, ellipsis past the width
 ENC_COLS = (("name", "scRadioEncColName", 0, 190), ("standing", "scRadioEncColStanding", 194, 74),
             ("benefit", "scRadioEncColBenefit", 272, 162), ("where", "scRadioEncColWhere", 438, 130))
 REQ_COLS = (("enc", "scRadioReqColEnclave", 0, 190), ("what", "scRadioReqColWhat", 194, 236), ("due", "scRadioReqColDue", 434, 134))
 SIEGE_BW = 270                        # each siege button's width
+ALLY_PICK_W = 300                     # E7: the ally pick button
+ALLY_GIVE_W, ALLY_GET_W, ALLY_GAP = 200, 170, 10    # E7: the barter row's Give and Get, and the gap between its buttons
+ALLY_ROW = 36                         # E7: a row of the panel
 
 # ---------------------------------------------------------------- palette (the community window's)
 TITLE = "226,219,203,255"
@@ -208,6 +225,38 @@ def siege():
     return o
 
 
+def allies():
+    """E7: the Allies panel - the ally pick (a cycling button, nearest first; its arrow only while there is another to
+    cycle to) with what they do for you and where; under it the barter with them (Give, Get, Trade: shown while an ally is
+    picked and the barter is on - else {allynone} says why there) and a hint line (why not, how it works, or the last
+    trade). E9 adds the radio commands' row."""
+    x0 = X2 + PAD
+    py = ALLY_Y + HEAD_H + 2              # the pick row
+    by = py + ALLY_ROW + 6                # the barter row
+    hy = by + ALLY_ROW + 4                # the hint line
+    get_x = ALLY_GIVE_W + ALLY_GAP
+    trade_x = get_x + ALLY_GET_W + ALLY_GAP
+    trade_w = RIN - trade_x
+    o = section(ALLY_Y, ALLY_H, "ui_game_symbol_map_trader", "scRadioAlliesHeader", x=X2, w=RW)
+    o += [button("btnAllyPick", x0, -py, ALLY_PICK_W, ALLY_ROW, ready="allypickready"),
+          centred(x0 + 10, -py, ALLY_PICK_W - 44, ALLY_ROW, 15, BODY, text="{allyname}", extra='justify="center" ' + ELLIPSIS),
+          icon("ui_game_symbol_arrow_right", x0 + ALLY_PICK_W - 20, -(py + ALLY_ROW // 2), 18, depth=4, extra='visible="{allypickready}"'),
+          centred(x0 + ALLY_PICK_W + 12, -py, RIN - ALLY_PICK_W - 12, ALLY_ROW, 14, DIM, text="{allystate}", extra=ELLIPSIS),
+          '<rect depth="1" pos="%d,%d" width="%d" height="%d" visible="{allyvisible}">' % (x0, -by, RIN, ALLY_ROW),
+          "\t" + button("btnAllyGive", 0, 0, ALLY_GIVE_W, ALLY_ROW),
+          "\t" + centred(0, 0, ALLY_GIVE_W, ALLY_ROW, 15, BODY, text="{allygive}", extra='justify="center" ' + ELLIPSIS),
+          "\t" + button("btnAllyGet", get_x, 0, ALLY_GET_W, ALLY_ROW, ready="allygetready"),
+          "\t" + centred(get_x, 0, ALLY_GET_W, ALLY_ROW, 15, BODY, text="{allyget}", extra='justify="center" ' + ELLIPSIS),
+          "\t" + button("btnAllyTrade", trade_x, 0, trade_w, ALLY_ROW, ready="allytradeready"),
+          "\t" + icon("ui_game_symbol_coin", trade_x + 22, -(ALLY_ROW // 2), 20, depth=4),
+          "\t" + centred(trade_x + 36, 0, trade_w - 44, ALLY_ROW, 15, tone("allytradeready"), key="scRadioBarterTrade",
+                         extra='justify="center" upper_case="true"'),
+          "</rect>",
+          label(x0, -by, RIN, 40, 14, DIM, text="{allynone}"),
+          label(x0, -hy, RIN, 20, 13, "{allyhintcolor}", text="{allyhint}", extra=ELLIPSIS)]
+    return o
+
+
 def header():
     return [icon("ui_game_symbol_talk", 52, -40, 56),
             label(92, -8, WIN_W - 200, 44, 40, TITLE, text="{title}", extra='upper_case="true"'),
@@ -302,6 +351,7 @@ def build():
     inner += barter()
     inner += enclaves()                 # E6: the right-hand column
     inner += requests()
+    inner += allies()                   # E7
     inner += siege()
     inner.append(label(M + 4, -MSG_Y, PW - 8, WIN_H - MSG_Y - 8, 15, GOLD, text="{message}"))
     o += ["\t\t\t" + line for line in inner]
@@ -338,7 +388,7 @@ def main():
     # E6: the right-hand column beside the left one, inside the window, its sections stacked, its rows inside their plates
     assert M + PW + M <= X2 and X2 + RW + M == WIN_W, "the Enclaves column overlaps the station's, or misses the window's edge"
     assert WIN_W <= COMMUNITY_W, "the window is wider than the community window (which is known to fit)"
-    right = [(ENC_Y, ENC_H), (REQ_Y, REQ_H), (SIEGE_Y, SIEGE_H)]
+    right = [(ENC_Y, ENC_H), (REQ_Y, REQ_H), (ALLY_Y, ALLY_H), (SIEGE_Y, SIEGE_H)]
     for (y0, h0), (y1, _) in zip(right, right[1:]):
         assert y0 + h0 <= y1, "an Enclaves-column section at %d runs into the next at %d" % (y0, y1)
     assert SIEGE_Y + SIEGE_H <= WIN_H - 8, "the siege section runs past the window"
@@ -349,7 +399,11 @@ def main():
         for (a, b) in zip(cols, cols[1:]): assert a[2] + a[3] <= b[2], "columns %s and %s overlap" % (a[0], b[0])
     assert 2 * SIEGE_BW + 8 <= RIN, "the siege buttons overlap"
     assert SIEGE_Y + HEAD_H + 2 + 54 + 40 + 20 <= SIEGE_Y + SIEGE_H, "the siege hint runs past its plate"
-    print("generate_radio_ui: wrote windowScRadio %dx%d (Enclaves column %d wide: %d enclave rows, %d request rows)"
+    assert SIEGE_Y + SIEGE_H == BARTER_Y + BARTER_H, "the siege section's bottom is not level with the barter section's"
+    # E7: the Allies panel's rows inside its plate, its buttons inside the column
+    assert HEAD_H + 2 + 2 * ALLY_ROW + 6 + 4 + 20 <= ALLY_H, "the Allies panel's rows run past its plate"
+    assert ALLY_PICK_W + 12 < RIN and ALLY_GIVE_W + ALLY_GET_W + 2 * ALLY_GAP + 120 <= RIN, "the Allies panel's buttons run past the column"
+    print("generate_radio_ui: wrote windowScRadio %dx%d (Enclaves column %d wide: %d enclave rows, %d request rows, the Allies panel)"
           % (WIN_W, WIN_H, RW, ENC_ROWS, REQ_ROWS))
 
 

@@ -593,3 +593,106 @@ installed `c0ea84c3`):
 - Against the baselines, one OK row more in each (the new postfix) and the same non-OK rows.
 
 Test steps: TESTING.md group O (90-103). Not reviewed (Fable), not installed. The task list needs its entry.
+
+### Round 11: gifts and ally barter (E7) (2026-11-03, built, not reviewed, not installed)
+
+`research\ideas\DESIGN.md` sections 6 (idea 5, gifts) and 7 (idea 6, enclave barter), with the user's answers: Q5 yes
+(+3 standing for any bundle, once a day per enclave, never above 69, so gifts alone never make an ally), Q6 yes (2 of
+yours for 1 of their own resource, once a day per ally), Q7 (b) for now: the radio window opens only at a radio block,
+so there is no Radio button in the community window. Branch `ms/e7` from `dev/ideas` `d0740bc`. **3.4 only** (the user,
+today): only the 3.4 DLL was built; the tracked 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no
+`SC_V34` (nothing in it differs between the games). Single player only, as SC.
+
+- **Gifts, `ScEncGifts.cs` (new).** The leader's three greetings gain `scEncGift` "I brought you something." after "What
+  do you need?" (8 entries, 6 on screen). Its first requirement `ScEncGift value="show"` (Hide: gifts on, the leader at
+  home of an enclave that is not hostile and on the map) gives the greyed row's words, then `value="open"`
+  (`ScEncGifts.Blocked`: at `EnclaveGiftCap` first, then the day's wait, then nothing carried). A greyed row shows only
+  its first requirement's description (`XUiC_DialogResponseEntry` "response" binding ->
+  `DialogResponse.GetRequiredDescription`, V34), so it reads "I brought you something. (Come back tomorrow.)", worked out
+  at most twice a second per enclave as E3's enlist reason is. The row's action `ScEncGiftList` builds the pick;
+  `scEncGiftPick` lists `scEncGift0..3` (`ScEncGiftRow value=i`, Hide), one row per resource carried, its smallest bundle
+  (an old one-size bundle, then small, medium, large), the resources the group doesn't live on first
+  (`ScEncRequests.OwnResource`, now internal), then theirs, then luxuries. The rows' words, "A medium bundle of
+  medicine", come through E4's row-text postfix (`Patch_DialogRowText` -> `ScEncRequests.FillRow` -> `ScEncGifts.FillRow`
+  for the `scEncGift<digit>` ids; their Text is "{gift}"). "Never mind." goes back to the greeting by band (three rows,
+  the `scEncForget*` pattern); done.
+  - A row's action `ScEncGift value=i` (`ActGive`) checks everything again, then takes exactly that bundle
+    (`ScEncRequests.Carried` + `TakeBundles`, now internal with their `Bundles` struct: a short take is given back), and
+    `Apply`: `GiftDay` = request clock + `EnclaveGiftDays`, `AddStanding(e, GainNow, .., ledger: false)` (the clamp, the
+    marker on a band change, E6's `OnBandChanged`), its own ledger line "gift to The X: a medium bundle of medicine (+3
+    standing)" (", now Friendly" on a band change, E4's `scEncReqLedgerDelta*` words), E4's band tell, the log, a save.
+    `GainNow` = min(`EnclaveGiftStanding`, `EnclaveGiftCap` - standing), so 68 + a gift is 69.
+  - `scEncGiftReply` ({giftreply}, `ScEncDialog.Fill` -> `ScEncGifts.FillReply`): the thanks by band through E4's
+    `LineKey` ("scEncThanks", "gift", band: `scEncThanks_gift_neutral/_friendly/_allied`) plus `Aside`'s "(standing +3)";
+    a refusal when the rules changed since the rows were built (`scEncGiftRefuseCap`, `scEncGiftRefuseSoon`) or E4's
+    `scEncReqNotCarried`. Text only: `Tools/voice_lines.py` lists the six new lines (the pick's line, three thanks, two
+    refusals; `scEncGiftReply` is a runtime statement, the refusals are in `RUNTIME_FIXED`, the thanks are in E4's
+    `scEncThanks` family), so the voicing round finds them: 153 lines, no problems. None of them says a name or a number.
+- **Ally barter, `ScEncBarter.cs` (new), modelled on `ScBarter`.** `TheirResource(e)` = `ScEncAllies.ResourceOf(
+  ForKind(e.Kind))` (growers food ... a road crew fuel); a scavengers' (`general`) group has -1, and the player picks any of
+  the five classic ones. Give is any of `ScBarter.Kinds` (the five and water) but what you get. `CanTrade` in order: host,
+  `Enclaves` and `EnclaveBarter` on, an ally picked, `ScEncAllies.IsAlly`, `ScRadio.Usable()`, theirs, the pair, the day
+  (`BarterDay` > request clock), the stockpile. `Trade`: stockpile -`EnclaveBarterGive` / +`EnclaveBarterGet`, `BarterDay` =
+  request clock + `EnclaveBarterDays`, ledger "radio barter with The X: 2 ammo for 1 food", the log, a save. The radio's own
+  barter (`ScBarter`, world day) is unchanged.
+- **The radio window's Allies panel** (`Tools/generate_radio_ui.py` `allies()`, `XUiC_ScRadio`). The right column as the
+  design planned: Enclaves 15 -> 10 rows (84-386), requests 4 -> 3 (394-542), **Allies** 550-700, siege 708-864 (was
+  700-864: 8 units of its slack, so its bottom stays level with the barter section's; the generator now asserts that).
+  `EncRows`/`ReqRows` 10/3. The panel: `btnAllyPick` (the ally's name, an arrow while there is another to cycle to;
+  allies nearest the player first) with `{allystate}` "Munitions Manufacture, 900 m north-east" beside it; a row shown by
+  `{allyvisible}` with `btnAllyGive` ("Give 2 ammo", reusing `scBarterGive`), `btnAllyGet` ("Get 1 food"; cycles only for a
+  scavengers' group, `{allygetready}`) and `btnAllyTrade` (`{allytradeready}`, the coin icon); `{allynone}` in its place
+  while it is hidden (no ally yet: how to get one; or `EnclaveBarter=false`); a hint line `{allyhint}` / `{allyhintcolor}`
+  (gold: the last trade or refusal; dim: why not now, or how it works). A picked ally that stops being Allied stays picked
+  while the window is open, so the trade greys "Only allies trade this way."; the next open drops it. Every new field is
+  set at its declaration (bindings are read while the XML parses). E9 is to add its call buttons to this panel (grow
+  `ALLY_H`, shrink `ENC_ROWS`); the design's `allytradewhy` is the shared `allyhint`.
+- **AshfallUI:** nothing in AshfallUI targets `windowScRadio` - no xpath in the 3.4 install's
+  `zzzzz_AshfallUI\Config\XUi_InGame\*.xml` (the only SC patch there is the Home Status strip, `windowScHomeStatus`), and
+  none in its generators (`tools\make_community.py` reads SC's windows.xml for the strip only). It restyles the radio
+  window through the atlas: `scui_*` plates under SC's names (`make_community.NAMES`) and brass twins for every
+  `ui_game_symbol_*` (`MenuMetal`, by sprite name in code). The panel uses only `scui_window`, `scui_divider`, `scui_btn`,
+  `scui_btn_hover` and `ui_game_symbol_map_trader`, `_arrow_right`, `_coin` (all three have `ashfall_brass_` twins in the
+  3.4 install's atlas), so it takes AshfallUI's look with no change there. Nothing was renamed: the window, its
+  controller, every older control and binding keep their names; only `enc11..15*` and `req4*` are gone.
+- **Records and save.** `Enclave.GiftDay` (`gift=N`) and `Enclave.BarterDay` (`barter=N`) in `[enclave]`, written when set,
+  request-clock days (keys an older build ignores). `ScEnclaves.OnWorldDayBack` shifts both by the request clock's drop
+  (`ScEncGifts.ShiftDays`); its log line gains "N gift/barter stamp(s)".
+- **Config** (`Config/blocks.xml`, commented; `ScConfig`, the `config:` line gains `enclaveGifts=` and `allyBarter=`):
+  `EnclaveGifts` true, `EnclaveGiftStanding` 3 (0-100), `EnclaveGiftDays` 1 (0-365, 0 = no wait), `EnclaveGiftCap` 69
+  (0-100), `EnclaveBarter` true, `EnclaveBarterGive` 2 (1-100), `EnclaveBarterGet` 1 (1-100), `EnclaveBarterDays` 1
+  (0-365).
+- **Console:** `sc enclave gift <id> [give <res> [small|medium|large] [force]]`, `sc enclave barter <id> [<give>
+  [get]]`; `sc enclave info <id>` gains a `gifts: ...; ally barter: ...` line.
+- **Harmony targets: none new.** The row words ride E4's existing `XUiC_DialogResponseEntry.GetBindingValueInternal`
+  postfix.
+
+Where the design was wrong or short, and the code followed SC:
+1. **The barter's resource is by kind, not by benefit.** `ScEncAllies.ResourceOf` (`SC:ScEncAllies.cs:97-108`) maps a
+   *benefit*; a group's resource is `ResourceOf(ForKind(kind))` (`:83-94`). For the five resource kinds that is the same
+   thing, and a scavengers' group, whose rolled benefit has no resource, gets -1 (the player's pick), as the design meant.
+   The code's name for scavengers is `general` (`ScEnclaves.Kinds`).
+2. **The right column's arithmetic.** 10 enclave rows (302) + 3 request rows (148) + a 150 Allies panel + the siege's 164,
+   with the 8-unit gaps, end at 872, not 864. The siege section had 10 units of slack (it needs 154), so it is 156 now and
+   the column still ends level with the barter section.
+3. **The greyed reason replaces the row's words.** Vanilla shows only the first requirement's description on a greyed row,
+   so "Come back tomorrow." alone would read as the player's line; the row reads "I brought you something. (Come back
+   tomorrow.)" instead.
+4. **The allied thanks** (`scEncThanks_gift_allied`) can only be heard with `EnclaveGiftCap` 70 or more: at the default 69
+   an ally's row is always greyed at the cap.
+5. `Choose` (`SC:ScEncRequests.cs:1166`) is not needed (a gift is one bundle); `SizeWord`, `OwnResource` and `Aside`
+   became internal too, besides `Carried`, `TakeBundles` and their `Bundles` struct. `EncRows`/`ReqRows` are at
+   `XUiC_ScRadio.cs:29`, not 28. Every other SC line the design cites for E7 matched `d0740bc`.
+
+Checks:
+- XML replay against the 3.4 game (`research\e7\tools\sc_replay_e7.py`, a copy pointed at this worktree; the base
+  `d0740bc` replayed the same way from `research\e7\base_tree`): every SC op matches, no aborts; the only difference is
+  dialogs.xml's one new append (13 -> 14 ops, all matched). `research\e7\tools\check_dialogs.py` on the patched SdcsNPC
+  dialog: every response entry names a response, every next statement exists, and all 53 SC dialog operator classes
+  are in the built DLL. The radio window's 126 bindings all answer in `XUiC_ScRadio`, and its 19 buttons are all hooked.
+- HarmonyAudit (`research\e7\audit34_e7_*`, the base `audit34_base_*` from `d0740bc` built the same way): 3.4 OK=150,
+  DYNAMIC_UNRESOLVED=13 in both; the rows differ only in Patches_Enclaves.cs line numbers (one comment line).
+
+Builds: SC 3.4 `d80f006dd5a4f4fb9a5c220336835416` (`build\sc34_e7`), 0 errors (the two old CS0108 warnings). The
+3.2 DLL was not rebuilt (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group "Round 11 (E7)" (120-139).
+Not reviewed (Fable), not installed. The task list needs its entry.

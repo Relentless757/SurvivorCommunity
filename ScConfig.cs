@@ -649,6 +649,20 @@ namespace SurvivorCommunity
         public static int EnclaveAllyMorale = 2, EnclaveAllyMoraleCap = 6, EnclaveLostMorale = 5;
         /// <summary>A lost enclave's refill comes EnclaveRefillDays later; an ally tells of one more on becoming Allied, then every EnclaveAllyRevealDays.</summary>
         public static int EnclaveRefillDays = 5, EnclaveAllyRevealDays = 7;
+        // ---- gifts and ally barter (E7: ScEncGifts, ScEncBarter; research\ideas\DESIGN.md sections 6-7, Q5, Q6) ----
+        /// <summary>
+        /// Gifts (EnclaveGifts: the leader's "I brought you something." row): any SC bundle, +EnclaveGiftStanding standing
+        /// whatever its size, one every EnclaveGiftDays request-clock days per enclave (0: no wait), never lifting standing
+        /// above EnclaveGiftCap (69: gifts can win a group to Friendly but never make an ally; 100: no cap).
+        /// </summary>
+        public static bool EnclaveGifts = true;
+        public static int EnclaveGiftStanding = 3, EnclaveGiftDays = 1, EnclaveGiftCap = 69;
+        /// <summary>
+        /// Ally barter (EnclaveBarter: the radio window's Allies panel): EnclaveBarterGive units of your stockpile for
+        /// EnclaveBarterGet of the ally's own resource, one trade every EnclaveBarterDays request-clock days per ally (0: no wait).
+        /// </summary>
+        public static bool EnclaveBarter = true;
+        public static int EnclaveBarterGive = 2, EnclaveBarterGet = 1, EnclaveBarterDays = 1;
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1190,6 +1204,8 @@ namespace SurvivorCommunity
             EnclaveBenefitBundles = 1; EnclaveBenefitMorale = 5; EnclaveBenefitBeds = 3; EnclaveBenefitClubXp = 2f; EnclaveBenefitTrainingXp = 1.5f;
             EnclaveBenefitXpCap = 3f; EnclaveWatchRange = 500; EnclaveWatchSpread = 0.5f; EnclaveAllyMorale = 2; EnclaveAllyMoraleCap = 6;
             EnclaveLostMorale = 5; EnclaveRefillDays = 5; EnclaveAllyRevealDays = 7;
+            EnclaveGifts = true; EnclaveGiftStanding = 3; EnclaveGiftDays = 1; EnclaveGiftCap = 69;
+            EnclaveBarter = true; EnclaveBarterGive = 2; EnclaveBarterGet = 1; EnclaveBarterDays = 1;
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -1871,6 +1887,19 @@ namespace SurvivorCommunity
                 ParseInt(p, "EnclaveLostMorale", ref EnclaveLostMorale, 0, 30);
                 ParseInt(p, "EnclaveRefillDays", ref EnclaveRefillDays, 0, 365);
                 ParseInt(p, "EnclaveAllyRevealDays", ref EnclaveAllyRevealDays, 1, 365);
+                // gifts and ally barter (E7)
+                bool gifts = EnclaveGifts;
+                if (p.Values.ContainsKey("EnclaveGifts")) p.ParseBool("EnclaveGifts", ref gifts);
+                EnclaveGifts = gifts;
+                ParseInt(p, "EnclaveGiftStanding", ref EnclaveGiftStanding, 0, 100);
+                ParseInt(p, "EnclaveGiftDays", ref EnclaveGiftDays, 0, 365);
+                ParseInt(p, "EnclaveGiftCap", ref EnclaveGiftCap, 0, 100);
+                bool barter = EnclaveBarter;
+                if (p.Values.ContainsKey("EnclaveBarter")) p.ParseBool("EnclaveBarter", ref barter);
+                EnclaveBarter = barter;
+                ParseInt(p, "EnclaveBarterGive", ref EnclaveBarterGive, 1, 100);
+                ParseInt(p, "EnclaveBarterGet", ref EnclaveBarterGet, 1, 100);
+                ParseInt(p, "EnclaveBarterDays", ref EnclaveBarterDays, 0, 365);
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -2229,6 +2258,8 @@ namespace SurvivorCommunity
                                                 + "), watch " + EnclaveWatchRange + "m (spread x" + F2(EnclaveWatchSpread) + "), morale +" + EnclaveAllyMorale + "/ally (cap "
                                                 + EnclaveAllyMoraleCap + "), lost -" + EnclaveLostMorale + ", refill after " + EnclaveRefillDays + "d, ally reveal every "
                                                 + EnclaveAllyRevealDays + "d" : "off")
+                          + " enclaveGifts=" + (Enclaves && EnclaveGifts ? "+" + EnclaveGiftStanding + " every " + EnclaveGiftDays + "d, cap " + EnclaveGiftCap : "off")
+                          + " allyBarter=" + (Enclaves && EnclaveBarter ? EnclaveBarterGive + " for " + EnclaveBarterGet + " every " + EnclaveBarterDays + "d" : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange
