@@ -106,6 +106,7 @@ namespace SurvivorCommunity
                 ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
                 ScEnclavePeople.Tick(w, player);      // their people: made, spawned near a player, gone when none is, the watchdog (E2)
                 ScEncRequests.Tick(w, player);        // their requests: the journal squared with the records once a session (E4)
+                ScEncCalls.Tick(w, player);           // allies' radio calls: a fighter's arrival and return after a load, a supply drop (E9)
                 ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
                 ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges

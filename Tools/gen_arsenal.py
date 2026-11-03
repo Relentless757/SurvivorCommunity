@@ -8,6 +8,8 @@
 #   Config/entityclasses.xml   (whole file)   RAIDER_CLASSES: two templates + scRaider{Male,Female}T{1,2,3} (M10)
 #                                             + XNPC_SURVIVOR_OPS: the hand-written ops that make 0-XNPCCore's own
 #                                             survivors ours (XNPCCore migration M3), emitted after the classes
+#                                             + ENCLAVE_DROP_CLASSES: E9's supply crates scEncDrop<Kind> (an ally's
+#                                             radio drop), emitted last
 #   Config/entitygroups.xml    (whole file)   our own survivor groups (0-XNPCCore's survivors by band) and raider
 #                                             groups (SC's raider classes by band); and the pack NPCs swapped out of the
 #                                             framework's groups (W0)
@@ -175,6 +177,36 @@ def xnpc_survivor_ops():
                                 "armor": "%g" % (WORN_ARMOR_SCALE - 1.0),
                                 "male_names": NAMES[("s", True)], "female_names": NAMES[("s", False)]}
 
+# E9 (research/ideas/DESIGN.md section 2, radio commands): the supply crate an Allied enclave drops when the player calls
+# it on the radio, one class per kind of group (ScEnclaves.Kinds; ScEncCalls.CrateClass names them, Config/loot.xml holds
+# their containers). Hand-written like XNPC_SURVIVOR_OPS: this script rewrites the whole entityclasses.xml, and the game
+# reads entity classes only from Config/entityclasses.xml. Vanilla's air drop crate is the base (VANILLA_CRATE).
+ENCLAVE_DROP_KINDS = ["Growers", "Medics", "Militia", "Builders", "Roadcrew", "General"]
+VANILLA_CRATE = "sc_General"
+ENCLAVE_DROP_HEAD = """
+\t<!-- HAND-WRITTEN BLOCK, emitted verbatim by Tools/gen_arsenal.py (ENCLAVE_DROP_CLASSES): edit it there, not here.
+
+\t     E9's supply crates (research/ideas/DESIGN.md section 2, radio commands): an Allied enclave called on the radio
+\t     drops one of these near the player, the class of its kind of group (ScEncCalls.CrateClass). Each is vanilla's air
+\t     drop crate (%(base)s: EntitySupplyCrate, its parachute, smoke and supply_drop map marker) with its own LootList,
+\t     the container of the same name in Config/loot.xml: what that kind makes and a medium bundle of their resource.
+\t     The DLL spawns it and registers it with the air drop director as vanilla's own crates are. -->
+\t<append xpath="/entity_classes">
+"""
+ENCLAVE_DROP_XML = """\t\t<entity_class name="%(name)s" extends="%(base)s">
+\t\t\t<property name="LootList" value="%(name)s"/>
+\t\t</entity_class>
+"""
+
+
+def enclave_drop_classes():
+    out = [ENCLAVE_DROP_HEAD % {"base": VANILLA_CRATE}]
+    for k in ENCLAVE_DROP_KINDS:
+        out.append(ENCLAVE_DROP_XML % {"name": "scEncDrop" + k, "base": VANILLA_CRATE})
+    out.append("\t</append>\n")
+    return "".join(out)
+
+
 # M10 (DESIGN_M10_RAIDERS.md 2.1): SurvivorCommunity's raiders, hostile EntityAliveSDXV4 classes on 0-XNPCCore's player
 # body. Keep in step with ScXnpc.DefaultRaiderClasses in the DLL and XnpcRaiderClasses in Config/blocks.xml. The tier
 # (T1..T3) is the band the class stands for: it caps the weapons the DLL rolls (with the gamestage) and picks the
@@ -340,6 +372,9 @@ out.append("\t</append>\n")
 for n in XNPC_SURVIVORS:                          # the ops below would silently match nothing for a renamed class
     if cls(n) is None: raise SystemExit("XNPC survivor class %s is not in 0-XNPCCore's entityclasses.xml - update XNPC_SURVIVORS" % n)
 out.append(xnpc_survivor_ops())
+if not ET.parse(os.path.join(VAN, "entityclasses.xml")).getroot().xpath("//entity_class[@name=$n]", n=VANILLA_CRATE):
+    raise SystemExit("the vanilla supply crate %s is not in entityclasses.xml - update VANILLA_CRATE" % VANILLA_CRATE)
+out.append(enclave_drop_classes())
 out.append("</configs>\n")
 io.open(os.path.join(MOD, "entityclasses.xml"), "w", encoding="utf-8", newline="\n").write("".join(out))
 

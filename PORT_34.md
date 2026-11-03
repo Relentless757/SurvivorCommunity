@@ -900,3 +900,167 @@ citations above in `decomp34`. Expected targets: two more than before (3.4 with 
 
 Builds: SC 3.4 `4ba72fc3` (`build\sc34_e8`), 0 errors. The 3.2 DLL is not rebuilt (the user's decision today). Test steps:
 TESTING.md group R (140-149). Not reviewed (Fable), not installed. The task list needs its entry.
+
+### Round 13: radio commands (E9) (2026-11-03, built, not reviewed, not installed)
+
+`research\ideas\DESIGN.md` section 2 (idea 1, call an ally) and section 1 (rules), with the user's decisions: calls are made
+only at a radio block, in the radio window as it opens today - no Radio button in the community window and no remote
+calling (handheld radios come later), so every "remote Radio button" part of the design is dropped; the cost is a
+cooldown only (Q7 a: 3 days per ally, no standing cost). Branch `ms/e9` from `dev/ideas` `8b8cc8a` (V1, I2, I3, E7, E8).
+**3.4 only**: only the 3.4 DLL was built, the tracked 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no
+`SC_V34` (the air drop calls it makes are the same on 3.2: `V32:AIDirectorAirDropComponent.cs:243, 280, 319`). Single
+player only, as SC.
+
+- **`ScEncCalls.cs` (new).** The two commands, one call record per ally (`Enclave.Call*`), driven by `ScEncCalls.Tick`
+  from `ScTicker` right after `ScEncRequests.Tick`. No Harmony patch.
+  - `CanCall(e, kind, force, out why)` in order: host; `Enclaves` and `EnclaveCalls`; an ally picked; `ScEncAllies.IsAlly`
+    (`force`: any group that is not hostile or lost); `ScRadio.Usable()`; no call of theirs on (pending: "Mara is on the
+    way" / "Their supplies are on the way"; live: "Mara is with you already"); no siege of theirs open
+    (`ScEncSiege.Open.EnclaveId`); the cooldown (`CallDay` > request clock, "Next call in 3 day(s)"; `force` skips it).
+    A fighter also needs nobody of theirs enlisted (`EnlistedOf`), room among the followers (`FollowerCount +
+    EnlistedCount < MaxFollowers`, E3's `scEncFollowersFull`) and `PickFighter` (else "They have nobody to spare", or
+    "You haven't met their people yet" while no person record exists).
+  - `PickFighter`: the living at home who is not the leader with the highest `ScXnpc.TierOf` class tier, then the most
+    Fighting + Shooting stars, then the lowest person id - and only while at least 3 are at home, so the leader and one
+    more stay. Enlisted (E3) and missing (E5) people are not at home.
+  - `Call`: `CallKind`, `CallAt` = now + `EnclaveCallFighterDelay` / `EnclaveDropDelay` game minutes (1000 ticks an hour;
+    the console's `now`: at once), `CallPid`, `CallUntil` 0; `CallDay` = request clock + `EnclaveCallCooldownDays`. The
+    tell is the ally's words and the facts in separate sentences, `The X on the radio: "We hear you. Help is coming."
+    Mara should reach you in about 0:30.`; the log, a save.
+  - The fighter's arrival (`ArriveFighter`): at `CallAt`, with the player alive (dead: it waits). The person is picked
+    again when the one picked can no longer go. One of theirs enlisted meanwhile, or the followers full, calls it off. A
+    body of theirs already out (the player is near their building) is hired where it stands. Otherwise a spot
+    `EnclaveCallSpawnMin..Max` m from the player within 35 degrees of the line toward their enclave's centre
+    (`ScBaseAttack.LooseSpot` at the player's level, at least 0.8 x the minimum from any player; not
+    `ScEnclavePeople.SeenByAny`; `ScRunners.Settled`), 16 tries a second, any side after 60 s; the body is
+    `ScEnclavePeople.SpawnAt` (dressed, vetoed from chunk saves, no spot order) plus the `SCEnclave` package (`AddPackage`,
+    as every body at home has, so one that walks all the way home behaves as one there). Then `Join`:
+    `ScEnclaveDeals.EnlistBody` until now + `EnclaveCallFighterHours`, `CallUntil` set (the call is live), the tell
+    "Mara of The X is coming to join you, 60 m north-east.", the ledger "The X sent Mara to help you", the log. Within
+    8 m of the player (in the first 4 minutes) they say `Mara: "Heard you needed a hand. I'm with you."`.
+  - A live call ends when the enlistment it made has (`TickLive`: the person no longer enlisted with that body) - E3's
+    time-up, "Go home now.", Voice Control's dismiss, a side door, hostility (`ReleaseEnlisted`), a death (E3's
+    `EnclaveEnlistDeathPenalty`), a recruit, an unloaded chunk: no refund, only the log.
+  - The supply drop (`ArriveDrop`): an open column `EnclaveDropRangeMin..Max` m from the player, any side (`DropSpot`,
+    24 tries a second): loaded, `World.GetHeight` at most the terrain + 1 (a plant) there and in its 8 neighbours, which
+    lie within 2 blocks of its terrain, no water at the top, not a trader's area - `ScRunners.GroundSpot`'s idea. The
+    crate is `EntityFactory.CreateEntity(<class>, ground + EnclaveDropHeight (at most 250), random yaw)`,
+    `World.SpawnEntityInWorld`, then `AIDirectorAirDropComponent.AddSupplyCrate(int)`, `SetSupplyCratePosition(int,
+    Vector3i)` and `RefreshCrates()`, as `SpawnSupplyCrate` registers its own (V34:255-277) without its random class,
+    its chunk observer and its eviction of the oldest of 12. The tell "Look up: supplies from The X are coming down near
+    you.", the ledger "The X dropped supplies near you", the log; the record is cleared (the crate is vanilla's from
+    there: saved with its chunk and in the director's list).
+  - A pending call is called off with the cooldown refunded (`CallDay` 0; the tell "The X can't answer your call after
+    all.") when calls or enclaves are switched off, their building is lost, they turn hostile, they are no longer
+    Allied, or (a fighter) a siege of theirs opens; and fails, refunded, with their words `The X on the radio: "We
+    couldn't get through to you. Call again when you can."` after 300 s without a spot or open column. `sc enclave call
+    <id> cancel` calls one off by hand.
+  - **After a load** (bodies never outlive one: the shutdown's `DespawnEnclave` ends the enlistment, and a load records
+    every enlisted person as home, `SC:ScEnclavePeople.cs:243-251`): a pending call goes on as before; a live one
+    (`CallUntil` > 0) brings the same person back near the player 15 s after the world is up (`ResumeSeconds`, a const:
+    the `EnclaveSiegeResumeSeconds` idea), any side at once, until the same `CallUntil` ("Mara of The X is back with you,
+    ..."; no ledger line, no hello). Their time ran out meanwhile, or they can't come (dead, gone, no room, no spot in
+    300 s: "Mara couldn't find you and went back to The X."): the call ends.
+- **`ScEnclaveDeals.EnlistBody(p, npc, player, until)` (new, internal)**, split out of `Enlist` (`SC:ScEnclaveDeals.cs:379-404`
+  at `8b8cc8a`): `Hire`, the record enlisted (by, body, until), no walk home, `ResetStill`. `Enlist` keeps its fee, save,
+  tell and log around it, unchanged in effect.
+- **The radio window** (`Tools/generate_radio_ui.py`, `XUiC_ScRadio`). The generator reproduced the committed block byte
+  for byte before the change. The Allies panel gains a commands row between the pick and the barter row: `btnAllyFighter`
+  (`ui_game_symbol_run`) and `btnAllyDrop` (`ui_game_symbol_airdrop`), 279 wide each, shown by `{allycallvisible}`; their
+  labels `{allyfighterlabel}` / `{allydroplabel}` are the command or the reason it can't be made (as the station's own
+  drop and call labels), dimmed and without the hover plate by `{allyfighterready}` / `{allydropready}`; `{allycallnone}`
+  in the row's place while it is hidden (no ally yet: E7's how-to line, moved up from the barter row; or "Radio calls to
+  allies are turned off in the config."). `{allynone}` now only says the barter is off. The hint line shows the call that
+  is on with the picked ally (`ScEncCalls.StateText`: "Mara should reach you in about 0:25.", "Mara is almost here.",
+  "Mara is with you until day 12, 22:30.", "Mara is on the way back to you.", the drop's) in gold when no newer action
+  has words. Room: Enclaves 10 -> 8 rows (84-342), requests 350-498, Allies 506-700 (194, was 150), siege 708-864
+  unchanged; `EncRows` 8. 118 bindings, all answered (`research\e9\check_radio_bindings.py`), 21 buttons, all hooked.
+- **AshfallUI: nothing new needed.** Both new icons are already in this window (`_run` on the siege's On our way,
+  `_airdrop` on the air drop call) and have `ashfall_brass_` twins in the 3.4 install's
+  `zzzzz_AshfallUI\UIAtlases\UIAtlas`; the plates are the same `scui_btn` / `scui_btn_hover`. The crate's loot window is
+  vanilla's.
+- **The crates** (`Config/entityclasses.xml`, `Config/loot.xml`). `scEncDrop<Growers|Medics|Militia|Builders|Roadcrew|
+  General>` extend vanilla's `sc_General` (EntitySupplyCrate, its parachute, smoke and `supply_drop` NavObject) with their
+  own `LootList` (`ScEncCalls.CrateClass` by `Enclave.Kind`; an unknown kind is General; a class that did not apply falls
+  back to `sc_General` with one log line). entityclasses.xml is written whole by `Tools/gen_arsenal.py`, so the block is
+  its new `ENCLAVE_DROP_CLASSES` (emitted after `XNPC_SURVIVOR_OPS`; the generator stops if the vanilla crate class is
+  gone). Run on a scratch copy of this tree's Config (`research\e9\gen_check`, `SC_GEN_CONFIG`), the generator rewrote
+  entityclasses.xml with exactly the new block, entitygroups.xml and spawning.xml byte for byte, and moved two blocks in
+  blocks.xml and Localization.csv, as at the base: only entityclasses.xml was copied back. loot.xml appends, after every
+  vanilla group, one `count="all"` group per kind (`groupScEncDrop<Kind>`: militia 3 x `groupAmmoPileMed`, medics 3 x
+  `groupMedicalPileMed`, growers 3 x `groupFoodPileMed` and 4-8 `drinkJarBoiledWater`, builders 2 x
+  `groupConstructionCrate`, a road crew 2 x `groupPassNGas`, scavengers one of each plus `groupScEncDropGeneralBundle`,
+  a weighted pick of the five Medium bundles), each with the Medium bundle of their resource, then the containers
+  `scEncDrop<Kind>` (8x4, count 1, destroy on close, the air drop's sounds) that roll them. Localization: "Allied Supply
+  Crate" for the six classes.
+- **Records and save.** `Enclave.CallDay` (`callday=N`, request clock) and the call (`call=kind:at:pid:until`: fighter or
+  drop, the arrival's world time, the person, the fighter's end world time - 0 until they came) in `[enclave]`, each
+  written when set (keys an older build ignores; an unknown kind is dropped at the load). `ScEnclaves.OnWorldDayBack`
+  shifts `CallDay` by the request clock's drop and `CallAt` / `CallUntil` by the world's (`ScEncCalls.ShiftDays`; an end
+  never reaches 0, which means "not come yet", as E3's `EnlistedUntil` never does); its log line gains "; N radio-call
+  stamp(s) moved back (...)" at the end, so the earlier parts read as before.
+- **Config** (`Config/blocks.xml`, commented; `ScConfig`, the `config:` line gains `enclaveCalls=`): `EnclaveCalls` true,
+  `EnclaveCallCooldownDays` 3 (0-365), `EnclaveCallFighterHours` 12 (1-240), `EnclaveCallFighterDelay` 30 game minutes
+  (0-1440), `EnclaveCallSpawnMin` / `Max` 40 / 90 (10-200, max raised to min), `EnclaveDropDelay` 20 (0-1440),
+  `EnclaveDropRangeMin` / `Max` 20 / 50 (5-200), `EnclaveDropHeight` 60 (10-200).
+- **Console:** `sc enclave call <id>` (the calls' line, who would go and why, whether each can be made now), `sc enclave
+  call <id> fighter|drop [force] [now]`, `sc enclave call <id> cancel`; `sc enclave info <id>` gains a `radio calls: ...`
+  line.
+- **Lines.** Every new line is text only. The ally's words and the fighter's hello have no name or number in them
+  (`scEncCallFighterSaid`, `scEncCallDropSaid`, `scEncCallFailSaid`, `scEncCallHello`), shown through `scEncCallRadio`
+  (`{0} on the radio: "{1}"`) and `scEncCallSays`, and are in `Tools/voice_lines.py`'s `RUNTIME_FIXED`: 157 lines, no
+  problems (153 before). They are said outside a talk, so nothing plays them yet: the voicing round has to wire their
+  playback (the hello could use `ScVoice.SayAfterTalk` on the fighter; the radio's words have no body to speak from).
+  Nothing in `ScVoice.cs`, `Patches_VoiceControl.cs` or V2's tooling was touched.
+- **Harmony targets: none new.**
+
+Where the design was wrong or short, and the code followed SC or the game:
+1. **The user's decisions replace the design's Q7 recommendation:** no Radio button in the community window, no
+   `ScRadio.Online()` remote path, and no `EnclaveCallStanding` key (cooldown only).
+2. **"Never in view" needs more than `PopsInView`.** `ScEnclavePeople.PopsInView` (`:511`) only refuses spots within
+   `EnclaveNoPopRange` (50 m), so a 40-90 m spot in plain view would pass beyond 50 m. The fighter's spot uses
+   `SeenByAny` (`:525`: within 90 m and in a view cone), which covers the whole ring.
+3. **`SetSupplyCratePosition` is needed for more than the landing.** `AddSupplyCrate(int)` (V34:318-329) registers the
+   crate at `Vector3i.zero` without an observer; until it lands (its `OnUpdateEntity` sets the position,
+   `V34:EntitySupplyCrate.cs:227-237`), a save and load would put the director's `supply_drop` marker at 0,0,0
+   (`RefreshCrates` on `Read`). Without `AddSupplyCrate` the landing itself warns too ("Supply crate N not in the list,
+   can't set position", V34:242-253), besides `RemoveSupplyCrate`'s warning when it is broken. `RefreshCrates()` is called
+   as `SpawnSupplyCrate` does.
+4. **A lootcontainer can't be `count="all"`** (`V34:LootFromXml.cs:394-397` parses only min,max for a container; only a
+   group takes "all", `:332-341`), so each crate rolls one new `count="all"` group. New groups must follow the groups they
+   use (the parser is single-pass, `:147-168`): they are appended at the end, each container after its group.
+   `research\e9\check_loot_order.py` walks the replayed loot.xml in order: 0 problems, every item exists.
+5. **The crate classes don't go into Config/entityclasses.xml by hand:** `Tools/gen_arsenal.py` writes that file whole.
+6. **`EnlistBody` takes no `why`**: each caller logs and tells in its own words.
+7. **`call=kind:at:pid:until` needs "not come yet":** `until` is 0 until the fighter came, set at the arrival (a
+   late spot or a dead player delays it), so a load can tell a pending call from a live one.
+8. **The panel's room.** E7 made the 150-unit Allies panel; the commands row takes 42 more, from the Enclaves list (10 ->
+   8 rows), as E7's generator note planned. The design's other names hold: `btnAllyPick`, `btnAllyFighter`,
+   `btnAllyDrop`, `allyname`, `allystate`, `allyfighterready`, `allydropready`, `allyhint`; the labels and the row's
+   visibility are new bindings.
+9. **Silent in the design, decided here:** a body of theirs already out is hired where it stands; one of theirs enlisted
+   in person meanwhile, or full followers, calls a pending fighter off (refunded); a siege that opens calls a pending
+   fighter off but not a drop; the greyed reasons are ordered so a call that is on names itself ("Mara is with you
+   already") before the cooldown; E3's "You have all the followers you can lead" is reused for the followers' reason;
+   the ledger's drop line says "near you", not a place name.
+10. **Line drift since the design (`a52c0b1`; this tree at `8b8cc8a`):** `Enclave.Centre` `:105` (was 95);
+    `OnWorldDayBack` `:1168` and its `EnlistedUntil` shift `:1187` (were 1151, 1169); the E6 config parse `:1895-1908`
+    (was 1852-1867); `ScEncRequests.Now` `:325` (324); `ScRadio.Open`'s host test `:811` (810); `Patch_VoiceDismiss`
+    `:192` (189); `ParseEnclave` `:393-436` and `CommitPerson` `:438` (391-431, 433); `ScTicker`'s player test `:52`
+    (51-52); the radio generator's layout `:95-98` (82-90, and E7 changed it); `EncRows` `XUiC_ScRadio.cs:33` (28); SC's
+    loot.xml groups `:29-65`. Every other SC and vanilla line the design cites for E9 matched: `BlockScRadio.cs:80`,
+    `ScRadio.cs:73-92, 800-804, 806-822`, `ScEncAllies.cs:195-198`, `ScEnclaveDeals.cs:362-372, 379-404, 433-439,
+    489-510, 523-533, 540-547`, `ScEnclavePeople.cs:243-251, 511, 765-773, 1432, 1525-1543`, `ScBaseAttack.cs:783`,
+    `ScRunners.cs:337-344`, `ScConfig.cs:631`, `ScTicker.cs:108`; V34 `AIDirectorAirDropComponent.cs:220-240, 242-253,
+    255-277, 318-328`, `EntitySupplyCrate.cs:125-138, 149-156, 318-321`; V32 `:243, 319`.
+
+Checks:
+- XML replay against the 3.4 game (`research\e9\sc_replay_e9.py`, a copy of `research\dev\sc_replay_dev.py` pointed at this
+  worktree; out `research\e9\replay`): every SC op matches, no aborts; entityclasses 8 ops, loot 33 (one more each), the
+  rest as at the base. The merged entityclasses.xml has the six classes extending `sc_General`, each LootList a container.
+- HarmonyAudit (`research\e9\audit34_e9_*`; the base `8b8cc8a` built the same way, `audit34_base_*`): 3.4 OK=150,
+  DYNAMIC_UNRESOLVED=15 in both, patch rows identical, no new unresolved member reference (the refs files are the same).
+
+Builds: SC 3.4 `b7e9a8408d61434c8dc0491a3ecf3466` (`build\sc34_e9`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
+(`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E9 (150-169). Not reviewed (Fable), not installed. The
+task list needs its entry.

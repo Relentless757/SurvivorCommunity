@@ -18,6 +18,8 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc radio` lists the remembered radios and their live power.
 - `sc scout <res>` scouts for a resource and ignores the once-a-day wait.
 - `sc barter <give> <get>` trades once and ignores the once-a-day wait.
+- `sc enclave call <id>` shows an ally's radio calls (E9); `sc enclave call <id> fighter|drop force now` calls one at
+  once, the 3-day wait ignored.
 
 **Time and stockpile**
 
@@ -542,8 +544,8 @@ The ledger is the community window's.
      the same day: `[SC] <enclave> takes no gift until day N+1 (request clock day N): add force to give one anyway`;
      with `force` at the end it is given. At 69: `[SC] <enclave> takes no gift: standing 69 is at the cap (EnclaveGiftCap
      69)`.
-130. **The radio window, no allies yet.** Open a powered radio. The right column is Enclaves you know (10 rows now, then
-     "+N more, farther away"), Their requests (3 rows, then "+N more"), **Allies**, Siege calls. With no ally, the Allies
+130. **The radio window, no allies yet.** Open a powered radio. The right column is Enclaves you know (10 rows; 8 since
+     E9, step 151; then "+N more, farther away"), Their requests (3 rows, then "+N more"), **Allies**, Siege calls. With no ally, the Allies
      button says "No allies yet" (no arrow, no hover plate) and under it: "Help an enclave until they are your allies
      (standing 70): each ally trades with you here, once a day." Nothing overlaps at 1920x1080 or at the smallest
      resolution you play; the Siege calls panel ends level with the Barter section on the left. With AshfallUI the new
@@ -644,6 +646,121 @@ sentence with "trade", "buy", "sell" or "shop" in it) never reach the LLM, so wo
      before. Then set `VoiceEnclaveContext` to false in SC's `Config/blocks.xml` and restart: a leader no longer knows
      their group by chat (no `voice context:` line; `sc voice context` ends `(VoiceEnclaveContext is off: not sent):`),
      and step 148's refusal still happens.
+
+**E9. Round 13: radio commands (3.4)**
+
+At a powered radio block, the radio window's **Allies** panel has two new buttons under the ally pick: **Send a fighter**
+(one of their people comes about half a game hour later, follows you and fights for 12 game hours, then heads home) and
+**Supply drop** (a crate falls by parachute near you about 20 game minutes later). Each ally answers one call every 3
+days, both buttons together, on the requests' clock (`sc day` moves it); there is no standing cost. Use an Allied
+enclave whose people you have met (go within about 150 m of their building once): `sc enclave reveal all`, then
+`sc enclave standing <id> 75`. `sc enclave people <id>` lists their people with their `p<id>`s; `sc enclave call <id>`
+shows the calls, who would go and whether each call can be made now. The radio window still opens only at a powered
+radio block (a home radio, or an outpost's relay). The ally's answers and the fighter's hello are text only for now (a
+later voicing round records them). On a 60-minute day a game hour is 2.5 real minutes: 30 game minutes are 75 seconds.
+The ledger is the community window's.
+
+150. Load the world. The log's `config:` line has `enclaveCalls=every 3d, fighter 12h after 30min at 40-90m, drop after
+     20min at 20-50m from 60m up`. `sc enclave info <id>` of an Allied militia group has the line `[SC]   radio calls: a
+     fighter for 12 h or a supply drop (scEncDropMilitia), they answer today; the call now: none (request clock day N)`;
+     a Friendly group's has `, only while Allied` after its crate class (a growers' group `scEncDropGrowers`, and so on).
+151. **The panel.** Open a powered radio. The right column is Enclaves you know (**8 rows** now, then "+N more, farther
+     away"), Their requests (3), Allies (taller than before), Siege calls (where it was, its bottom level with the Barter
+     section on the left). With no ally the Allies button says "No allies yet" and under it: "Help an enclave until they
+     are your allies (standing 70): each ally trades with you here, once a day." With an ally picked there are two
+     buttons under the pick: **SEND A FIGHTER** (a running figure) and **SUPPLY DROP** (the air drop symbol), then the
+     barter row (Give, Get, Trade) and the hint line. Nothing overlaps at 1920x1080 or at the smallest resolution you
+     play. With AshfallUI the buttons have the same plates and brass icons as the rest of the window.
+152. **Who would go.** `sc enclave call <id>` prints:
+     `[SC] <enclave> (enclave <id>, Allied): radio calls: a fighter for 12 h or a supply drop (scEncDrop<Kind>), they
+     answer today; the call now: none (request clock day N)`,
+     `[SC]   who would go: <Name> (p<pid>, <class>, tier <t>, fighting <f> + shooting <s> stars); <n> at home (3 needed:
+     the leader and one more stay)`, `[SC]   fighter now: can call` and `[SC]   supply drop now: can call`. The one named
+     is never the leader (`sc enclave people <id>`), and is the highest tier among the others. For an ally whose people
+     you have never met: `who would go: nobody; 0 at home (...)` and `fighter now: You haven't met their people yet`,
+     which is also what the greyed button says.
+153. **Send a fighter.** At the radio, press SEND A FIGHTER. The message: `<enclave> on the radio: "We hear you. Help
+     is coming." <Name> should reach you in about 0:30.` Both buttons grey to **<NAME> IS ON THE WAY**, and the hint line
+     (gold) counts down: `<Name> should reach you in about 0:29.` The log: `[SurvivorCommunity] radio call to enclave
+     <id> '<enclave>': a fighter, <Name> (p<pid>, <class>), arriving in 0:30 (world time T); their next call from day
+     N+3 (request clock day N)`.
+154. **They come.** Close the window and wait about 75 seconds. The message: `<Name> of <enclave> is coming to join
+     you, D m <direction>.`, D between 40 and 90, on the side of their building, never right in front of you. The log:
+     `... <Name> (p<pid>, entity E) came to <you> - spawned D m away at X, Y, Z, on their side; with them until day N,
+     HH:MM` (12 game hours on). The ledger: `<enclave> sent <Name> to help you`. They walk up, and within 8 m:
+     `<Name>: "Heard you needed a hand. I'm with you."` They follow you and fight as an enlisted person does (E3).
+     `sc enclave people <id>`: their line reads `- enlisted with <you> until day N HH:MM`. (Standing by the ally's
+     building instead? Their body there is hired where it stands: the log says `hired where they stood, D m away`.)
+155. **While they're with you.** At the radio both buttons read **<NAME> IS WITH YOU ALREADY**, and the hint `<Name> is
+     with you until day N, HH:MM.` `sc enclave call <id>`: `the call now: a fighter, <Name> (p<pid>), with you until day
+     N, HH:MM (entity E)` and `fighter now: <Name> is with you already`. They count toward your followers (MaxFollowers).
+156. **Their time is up.** `settime` to a time after the one in step 154's log (the same day and later, or the next day).
+     The message: `<Name>'s time with you is up: they head back to <enclave>.` They walk away and vanish once out of sight.
+     The log: `<Name> of <enclave> is no longer with <you> (their days with the player are up)`, then `radio call to
+     enclave <id> '<enclave>' is over: <Name> - their time with you ended`. At the radio the buttons read **NEXT CALL IN
+     3 DAY(S)** (fewer if days went by); `sc enclave call <id>`: `the call now: none`, `fighter now: Next call in 3
+     day(s)`.
+157. **The wait.** Run `sc day` until the request clock (`sc enclave info <id>`'s last part) reaches the day in step 153's
+     log: the buttons are ready again. The save (after the next autosave or quit) has `callday=<that day>` in the
+     ally's `[enclave]`.
+158. **Sent home early.** `sc enclave call <id> fighter force now` (force skips the wait, now the half hour): `[SC]
+     called <enclave>: <Name> should reach you in about 0:00.`, and they come within a few seconds as in step 154. Talk
+     to them: "Go home now." The message `<Name> heads back to <enclave>.`; the log `... (the player sent them home)` and
+     `... is over: <Name> - their time with you ended`. Voice Control's spoken dismiss does the same.
+159. **A death costs standing.** `sc enclave call <id> fighter force now`; once they have come, `sc enclave kill <id>
+     p<pid>`: `[SC] 1 marked dead - ...`, the message `<Name> of <enclave> is dead.`, the ledger `<Name> of <enclave>
+     died at your side`, standing 5 lower (`sc enclave info <id>`; from 75 they stay Allied at 70), and the log `... is
+     over: <Name> - they died`.
+160. **Supply drop.** `sc day` until the ally answers again (or add `force` below). At the radio press SUPPLY DROP: the
+     message `<enclave> on the radio: "We hear you. Watch the sky." Their supplies come down near you in about 0:20.`;
+     both buttons read **THEIR SUPPLIES ARE ON THE WAY**; the hint counts down. About 50 seconds later: `Look up:
+     supplies from <enclave> are coming down near you.` A crate with a parachute falls 20-50 m from you onto open
+     ground (no roof, tree or water), smokes where it lands, and the air drop marker is on the map and compass. The
+     ledger: `<enclave> dropped supplies near you`. The log: `radio call to enclave <id> '<enclave>': a supply crate
+     (scEncDropMilitia, entity E) falls from Y onto X, Y, Z, D m from <you>`, and no `Supply crate E not in the list`
+     warning when it lands.
+161. **What's in it.** The crate is an "Allied Supply Crate". A militia one holds ammunition (three medium ammo piles'
+     worth) and a Medium ammo bundle. Try the others with `sc enclave standing <id> 75` and `sc enclave call <id> drop
+     force now`: medics medicine and a Medium medical bundle; growers food, drinks, 4-8 jars of water and a Medium food
+     bundle; builders building supplies and a Medium materials bundle; a road crew gas, car parts and a Medium fuel
+     bundle; scavengers (kind general) one pile of each and one Medium bundle of any of the five. Break one with a
+     weapon: no `Attempted to remove supply crate cache` warning in the log.
+162. **One call at a time.** Call a fighter. `sc enclave call <id> drop force` answers `[SC] refused: <Name> is on the
+     way`. `sc enclave call <id> cancel`: `[SC] the call to <enclave> is off (the cooldown refunded: they answer today)`,
+     the message `<enclave> can't answer your call after all.`, and the buttons are ready again.
+163. **No longer allies before they come.** Call a fighter, then (console over the window, or with it closed)
+     `sc enclave standing <id> 50`: within a second `<enclave> can't answer your call after all.`, and the log `radio
+     call to enclave <id> '<enclave>' (fighter) is off: they are no longer your allies (friendly) - the cooldown is
+     refunded`. `sc enclave call <id>`: `..., only while Allied, they answer today; the call now: none`. Set them back
+     to 75.
+164. **A siege.** `sc enclave siege <id> now force` on the ally: both buttons read **THEY'RE UNDER SIEGE**. A fighter on
+     the way when a siege is called is called off (`... (fighter) is off: they are under siege - ...`); a supply drop
+     still comes. `sc enclave siege <id> clear` afterwards.
+165. **Followers.** On a day the ally answers: with two followers already (`MaxFollowers` 2: community members on
+     Follow, or one of another enclave enlisted), SEND A FIGHTER reads **YOU HAVE ALL THE FOLLOWERS YOU CAN LEAD**;
+     SUPPLY DROP is still ready. With one of the ally's people enlisted in person ("Can you come with me?"): **<NAME> IS
+     WITH YOU ALREADY** on SEND A FIGHTER.
+166. **Nobody to spare.** At an ally with 3 people at home, `sc enclave call <id>` says `3 at home`. Kill one member
+     (`sc enclave kill <id> p<pid>`, not the leader): `who would go: nobody; 2 at home (...)`, `fighter now: They have
+     nobody to spare`, and the button says so.
+167. **Saved and loaded.** (a) Call a fighter, save and quit before they come, load: `sc enclave call <id>` still says
+     `arriving in ...` and they come as in step 154. (b) With a fighter out, save and quit (E3 sends them home as the
+     world closes), load: about 15 seconds after the world is up, `<Name> of <enclave> is back with you, D m
+     <direction>.` (no ledger line), and the log `... is back with <you> - spawned D m away at X, Y, Z; with them until
+     day N, HH:MM`, the same end as before. The save holds `call=fighter:<at>:<pid>:<until>` (until not 0) while they
+     are out. If their time ran out meanwhile, the log says `... is over: <Name> - their time with you was up by the
+     time the world was back` instead and nobody comes.
+168. (Optional) **No way through.** Die while a call is on its way: nothing comes until you respawn, then it comes near
+     you. Call a drop and stand where there is no open ground 20-50 m around (deep in a city block): after 5 real minutes
+     `<enclave> on the radio: "We couldn't get through to you. Call again when you can."`, the log `... (drop) failed: no
+     open ground within 20-50 m in 300 s - the cooldown is refunded`, and the buttons are ready again.
+169. **A world day set back, and switching it off.** After a call, `settime <two days earlier> 12 0`: the log's
+     `enclaves: the world's day went back from ...` line ends `; C radio-call stamp(s) moved back (the next call R
+     day(s), an arrival or a fighter's end W day(s))`, and `sc enclave info <id>` shows the next call R days earlier,
+     still as many days away. Then set `EnclaveCalls` to false in SC's `Config/blocks.xml` and restart: the Allies panel
+     says "Radio calls to allies are turned off in the config." where the buttons were, the `config:` line says
+     `enclaveCalls=off`, `sc enclave info <id>` says `radio calls: off (EnclaveCalls=false) (request clock day N)`, and a
+     call still on its way is called off at the first tick (`... is off: radio calls are off - ...`). Set it back.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

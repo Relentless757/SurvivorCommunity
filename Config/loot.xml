@@ -104,4 +104,70 @@
 		<item name="scBundleMaterialsMedium" count="1"/>
 		<item name="scBundleFuelMedium" count="1"/>
 	</append>
+
+	<!-- E9: the supply crates an Allied enclave drops when called on the radio (ScEncCalls; the crates are the entity
+	     classes scEncDrop<Kind> in entityclasses.xml, whose LootList names these containers). A crate is the air drop's
+	     own: 8x4, one roll, it breaks open when closed. Its roll is a count="all" group (every entry spawns; the piles'
+	     own odds apply inside them): medium piles of what the kind makes - militia ammo, medics medicine, growers food
+	     and water, builders building supplies, a road crew fuel and car parts, scavengers one pile of each - and one
+	     Medium bundle of their resource for the stockpile (scavengers: one of the five classic ones). The groups are new,
+	     so they are appended after every vanilla group they use, and each container after its group: the loot parser is
+	     single-pass, in document order. -->
+	<append xpath="/lootcontainers">
+		<lootgroup name="groupScEncDropGrowers" count="all">
+			<item group="groupFoodPileMed" count="3"/>
+			<item name="drinkJarBoiledWater" count="4,8"/>
+			<item name="scBundleFoodMedium" count="1"/>
+		</lootgroup>
+		<lootgroup name="groupScEncDropMedics" count="all">
+			<item group="groupMedicalPileMed" count="3"/>
+			<item name="scBundleMedsMedium" count="1"/>
+		</lootgroup>
+		<lootgroup name="groupScEncDropMilitia" count="all">
+			<item group="groupAmmoPileMed" count="3"/>
+			<item name="scBundleAmmoMedium" count="1"/>
+		</lootgroup>
+		<lootgroup name="groupScEncDropBuilders" count="all">
+			<item group="groupConstructionCrate" count="2"/>
+			<item name="scBundleMaterialsMedium" count="1"/>
+		</lootgroup>
+		<lootgroup name="groupScEncDropRoadcrew" count="all">
+			<item group="groupPassNGas" count="2"/>
+			<item name="scBundleFuelMedium" count="1"/>
+		</lootgroup>
+		<!-- a scavengers' bundle: one of the five, weighted alike -->
+		<lootgroup name="groupScEncDropGeneralBundle">
+			<item name="scBundleFoodMedium" count="1"/>
+			<item name="scBundleMedsMedium" count="1"/>
+			<item name="scBundleAmmoMedium" count="1"/>
+			<item name="scBundleMaterialsMedium" count="1"/>
+			<item name="scBundleFuelMedium" count="1"/>
+		</lootgroup>
+		<lootgroup name="groupScEncDropGeneral" count="all">
+			<item group="groupFoodPileMed" count="1"/>
+			<item group="groupMedicalPileMed" count="1"/>
+			<item group="groupAmmoPileMed" count="1"/>
+			<item group="groupConstructionCrate" count="1"/>
+			<item group="groupPassNGas" count="1"/>
+			<item group="groupScEncDropGeneralBundle" count="1"/>
+		</lootgroup>
+		<lootcontainer name="scEncDropGrowers" count="1" size="8,4" destroy_on_close="true" sound_open="SupplyDrops/open_supply_crate" sound_close="SupplyDrops/close_supply_crate" loot_quality_template="qualBaseTemplate">
+			<item group="groupScEncDropGrowers"/>
+		</lootcontainer>
+		<lootcontainer name="scEncDropMedics" count="1" size="8,4" destroy_on_close="true" sound_open="SupplyDrops/open_supply_crate" sound_close="SupplyDrops/close_supply_crate" loot_quality_template="qualBaseTemplate">
+			<item group="groupScEncDropMedics"/>
+		</lootcontainer>
+		<lootcontainer name="scEncDropMilitia" count="1" size="8,4" destroy_on_close="true" sound_open="SupplyDrops/open_supply_crate" sound_close="SupplyDrops/close_supply_crate" loot_quality_template="qualBaseTemplate">
+			<item group="groupScEncDropMilitia"/>
+		</lootcontainer>
+		<lootcontainer name="scEncDropBuilders" count="1" size="8,4" destroy_on_close="true" sound_open="SupplyDrops/open_supply_crate" sound_close="SupplyDrops/close_supply_crate" loot_quality_template="qualBaseTemplate">
+			<item group="groupScEncDropBuilders"/>
+		</lootcontainer>
+		<lootcontainer name="scEncDropRoadcrew" count="1" size="8,4" destroy_on_close="true" sound_open="SupplyDrops/open_supply_crate" sound_close="SupplyDrops/close_supply_crate" loot_quality_template="qualBaseTemplate">
+			<item group="groupScEncDropRoadcrew"/>
+		</lootcontainer>
+		<lootcontainer name="scEncDropGeneral" count="1" size="8,4" destroy_on_close="true" sound_open="SupplyDrops/open_supply_crate" sound_close="SupplyDrops/close_supply_crate" loot_quality_template="qualBaseTemplate">
+			<item group="groupScEncDropGeneral"/>
+		</lootcontainer>
+	</append>
 </configs>

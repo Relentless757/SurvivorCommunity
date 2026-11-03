@@ -160,4 +160,32 @@
 	     random one when the entity is made; a known survivor's body then gets the registry name (ScSpawn). -->
 	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3']/property[@name='Names']/@value">Alex,Ben,Carl,Dan,Eli,Frank,Gus,Hank,Ivan,Jack,Kyle,Leo,Mike,Nate,Owen,Pete,Ray,Sam,Tom,Vic,Walt,Zack,Abe,Bill,Cole,Dave,Ed,Fred,Glen,Hal,Ike,Joe,Ken,Luke,Max,Ned,Otis,Paul,Rob,Seth,Ty,Vern,Wes,Zeke</set>
 	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/property[@name='Names']/@value">Amy,Beth,Cara,Dana,Erin,Faye,Gina,Holly,Iris,Jess,Kate,Lena,Mia,Nora,Opal,Pam,Rose,Sara,Tess,Val,Wren,Zoe</set>
+
+	<!-- HAND-WRITTEN BLOCK, emitted verbatim by Tools/gen_arsenal.py (ENCLAVE_DROP_CLASSES): edit it there, not here.
+
+	     E9's supply crates (research/ideas/DESIGN.md section 2, radio commands): an Allied enclave called on the radio
+	     drops one of these near the player, the class of its kind of group (ScEncCalls.CrateClass). Each is vanilla's air
+	     drop crate (sc_General: EntitySupplyCrate, its parachute, smoke and supply_drop map marker) with its own LootList,
+	     the container of the same name in Config/loot.xml: what that kind makes and a medium bundle of their resource.
+	     The DLL spawns it and registers it with the air drop director as vanilla's own crates are. -->
+	<append xpath="/entity_classes">
+		<entity_class name="scEncDropGrowers" extends="sc_General">
+			<property name="LootList" value="scEncDropGrowers"/>
+		</entity_class>
+		<entity_class name="scEncDropMedics" extends="sc_General">
+			<property name="LootList" value="scEncDropMedics"/>
+		</entity_class>
+		<entity_class name="scEncDropMilitia" extends="sc_General">
+			<property name="LootList" value="scEncDropMilitia"/>
+		</entity_class>
+		<entity_class name="scEncDropBuilders" extends="sc_General">
+			<property name="LootList" value="scEncDropBuilders"/>
+		</entity_class>
+		<entity_class name="scEncDropRoadcrew" extends="sc_General">
+			<property name="LootList" value="scEncDropRoadcrew"/>
+		</entity_class>
+		<entity_class name="scEncDropGeneral" extends="sc_General">
+			<property name="LootList" value="scEncDropGeneral"/>
+		</entity_class>
+	</append>
 </configs>

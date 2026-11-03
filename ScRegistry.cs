@@ -54,6 +54,9 @@ namespace SurvivorCommunity
     ///                part) encrefill=day:x,y,z:name;.. (the refills owed: the request-clock day, the lost group's POI and name).
     ///   E7 (ScEncGifts, ScEncBarter; keys an older build ignores): [enclave] gift=N (the request-clock day the leader takes
     ///                another gift) barter=N (the request-clock day an ally trades over the radio again), each written when set.
+    ///   E9 (ScEncCalls; keys an older build ignores): [enclave] callday=N (the request-clock day an ally answers another radio
+    ///                call) call=kind:at:pid:until (the call that is on: fighter or drop, the world time it arrives, the
+    ///                fighter's person, the world time they go home once they came - 0 before), each written when set.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -432,6 +435,22 @@ namespace SurvivorCommunity
                 // E7: the next gift's day, the next ally barter's day (request clock)
                 case "gift": e.GiftDay = Math.Max(0, I(val)); break;
                 case "barter": e.BarterDay = Math.Max(0, I(val)); break;
+                // E9: the next radio call's day (request clock); the call that is on: kind:at:pid:until (an unknown kind is dropped)
+                case "callday": e.CallDay = Math.Max(0, I(val)); break;
+                case "call":
+                {
+                    string[] f = val.Split(':');
+                    string kind = f[0].Trim().ToLowerInvariant();
+                    ulong at = 0UL, until = 0UL;
+                    if (f.Length < 4 || (kind != ScEncCalls.Fighter && kind != ScEncCalls.Drop)
+                        || !ulong.TryParse(f[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out at)
+                        || !ulong.TryParse(f[3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out until)) break;
+                    e.CallKind = kind;
+                    e.CallAt = at;
+                    e.CallPid = I(f[2]);
+                    e.CallUntil = kind == ScEncCalls.Fighter ? until : 0UL;
+                    break;
+                }
             }
         }
 
@@ -1268,6 +1287,10 @@ namespace SurvivorCommunity
                     if (en.AllyRevealDay > 0) sb.AppendLine("allyreveal=" + en.AllyRevealDay.ToString(CultureInfo.InvariantCulture));
                     if (en.GiftDay > 0) sb.AppendLine("gift=" + en.GiftDay.ToString(CultureInfo.InvariantCulture));
                     if (en.BarterDay > 0) sb.AppendLine("barter=" + en.BarterDay.ToString(CultureInfo.InvariantCulture));
+                    if (en.CallDay > 0) sb.AppendLine("callday=" + en.CallDay.ToString(CultureInfo.InvariantCulture));
+                    if (en.CallKind.Length > 0)
+                        sb.AppendLine("call=" + Clean(en.CallKind) + ":" + en.CallAt.ToString(CultureInfo.InvariantCulture) + ":" + en.CallPid.ToString(CultureInfo.InvariantCulture)
+                                      + ":" + en.CallUntil.ToString(CultureInfo.InvariantCulture));
                 }
                 foreach (var ep in EncPeople)
                 {

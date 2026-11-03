@@ -1295,6 +1295,43 @@ scRadioAllyState,UI,Menu,,,,"{0}, {1}"
 scRadioAllyGet,UI,Menu,,,,Get {0} {1}
 scRadioAllyBarterDesc,UI,Menu,,,,Once a day. Click Give to pick what you send.
 scRadioAllyBarterDescAny,UI,Menu,,,,Once a day. Click Give and Get to pick what you trade.
+scEncCallOff,UI,Tooltip,,,,Radio calls to allies are turned off in the config.
+scEncCallNotAlly,UI,Tooltip,,,,Only allies answer a call
+scEncCallWait,UI,Tooltip,,,,Next call in {0} day(s)
+scEncCallBusyFighter,UI,Tooltip,,,,{0} is on the way
+scEncCallBusyDrop,UI,Tooltip,,,,Their supplies are on the way
+scEncCallWithYou,UI,Tooltip,,,,{0} is with you already
+scEncCallSiege,UI,Tooltip,,,,They're under siege
+scEncCallNobody,UI,Tooltip,,,,They have nobody to spare
+scEncCallNotMet,UI,Tooltip,,,,You haven't met their people yet
+scEncCallRadio,UI,Tooltip,,,,"{0} on the radio: ""{1}"""
+scEncCallSays,UI,Tooltip,,,,"{0}: ""{1}"""
+scEncCallFighterSaid,UI,Tooltip,,,,We hear you. Help is coming.
+scEncCallDropSaid,UI,Tooltip,,,,We hear you. Watch the sky.
+scEncCallFailSaid,UI,Tooltip,,,,We couldn't get through to you. Call again when you can.
+scEncCallHello,UI,Tooltip,,,,Heard you needed a hand. I'm with you.
+scEncCallFighterOnWay,UI,Tooltip,,,,{0} should reach you in about {1}.
+scEncCallFighterNear,UI,Tooltip,,,,{0} is almost here.
+scEncCallFighterWith,UI,Tooltip,,,,{0} is with you until {1}.
+scEncCallFighterBack,UI,Tooltip,,,,{0} is on the way back to you.
+scEncCallDropOnWay,UI,Tooltip,,,,Their supplies come down near you in about {0}.
+scEncCallDropNear,UI,Tooltip,,,,Their supplies are almost here.
+scEncCallClock,UI,Tooltip,,,,"day {0}, {1}"
+scEncCallArrived,UI,Tooltip,,,,"{0} of {1} is coming to join you, {2}."
+scEncCallReturned,UI,Tooltip,,,,"{0} of {1} is back with you, {2}."
+scEncCallDropFalling,UI,Tooltip,,,,Look up: supplies from {0} are coming down near you.
+scEncCallCancelled,UI,Tooltip,,,,{0} can't answer your call after all.
+scEncCallLost,UI,Tooltip,,,,{0} couldn't find you and went back to {1}.
+scEncCallLedgerFighter,UI,Tooltip,,,,{0} sent {1} to help you
+scEncCallLedgerDrop,UI,Tooltip,,,,{0} dropped supplies near you
+scRadioAllyFighter,UI,Menu,,,,Send a fighter
+scRadioAllyDrop,UI,Menu,,,,Supply drop
+scEncDropGrowers,entityclasses,Entity,,,,Allied Supply Crate
+scEncDropMedics,entityclasses,Entity,,,,Allied Supply Crate
+scEncDropMilitia,entityclasses,Entity,,,,Allied Supply Crate
+scEncDropBuilders,entityclasses,Entity,,,,Allied Supply Crate
+scEncDropRoadcrew,entityclasses,Entity,,,,Allied Supply Crate
+scEncDropGeneral,entityclasses,Entity,,,,Allied Supply Crate
 scQgRoleProspect,UI,Menu,,,,Survivor
 scQgRoleMember,UI,Menu,,,,Community survivor
 scQgRoleLeader,UI,Menu,,,,Leader of {0}

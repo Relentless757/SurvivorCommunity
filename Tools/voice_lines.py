@@ -49,7 +49,10 @@ RUNTIME_STATEMENTS = {"scEncReqNothing", "scEncReqOffer", "scEncReqWaiting", "sc
 RUNTIME_FAMILIES = ["scEncAsk", "scEncWait", "scEncAccepted", "scEncFound", "scEncThanks", "scEncDeclined", "scEncThink",
                     "scEncCantDo"]
 RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "scEncReqNotCarried",
-                 "scEncGiftRefuseCap", "scEncGiftRefuseSoon"]     # E7: a gift refused (the thanks are scEncThanks_gift_*)
+                 "scEncGiftRefuseCap", "scEncGiftRefuseSoon",     # E7: a gift refused (the thanks are scEncThanks_gift_*)
+                 # E9: an ally's answers on the radio and their fighter's hello - said outside a talk (ScEncCalls shows them
+                 # as tells: no playback yet, the voicing round wires it)
+                 "scEncCallFighterSaid", "scEncCallDropSaid", "scEncCallFailSaid", "scEncCallHello"]
 
 
 def localization():

@@ -30,7 +30,8 @@ namespace SurvivorCommunity
     /// the flip) or the body going (an unload, the shutdown: back home). Going home: ScCommunity.Detach, then the walk - to
     /// their spot while their POI is within EnclaveSpawnRange and loaded, else away toward it until nobody sees them (E2's
     /// despawn rule then takes the body; they are at their spot next time). A death while enlisted costs
-    /// EnclaveEnlistDeathPenalty standing.
+    /// EnclaveEnlistDeathPenalty standing. E9: a fighter an ally sends over the radio (ScEncCalls) is enlisted the same way
+    /// (EnlistBody, no fee, for EnclaveCallFighterHours), so every rule here holds for them too.
     ///
     /// Recruiting (Q9 a). "Would you join us?" to a member, at home or enlisted: never the leader, the enclave keeps
     /// EnclaveRecruitMinLeft living, one every EnclaveRecruitCooldownDays, and SC's usual gates (CanRecruit's enclave path,
@@ -387,20 +388,30 @@ namespace SurvivorCommunity
             if (reason != null) return false;
             int cost = EnlistCost(e);
             if (cost > 0 && !PayDukes(player, cost)) { reason = string.Format(Loc("scEncNeedDukes"), cost); return false; }
-            Hire(npc, player);
             int days = Math.Max(1, ScConfig.EnclaveEnlistDays);
-            p.State = EncPerson.StateEnlisted;
-            p.EnlistedBy = player.entityId;
-            p.EnlistedBody = npc.entityId;
-            p.EnlistedUntil = w.worldTime + (ulong)days * 24000UL;
-            p.Leaving = false;
-            p.LeaveTarget = Vector3.zero;
-            ScCommunity.ResetStill(p.Who);
+            EnlistBody(p, npc, player, w.worldTime + (ulong)days * 24000UL);
             ScRegistry.SaveAtomic();
             ScCommunity.Tell(player, string.Format(Loc("scEncEnlistedTell"), p.Name, days), "");
             ScLog.Out("enclave " + e.Id + " '" + e.Name + "': " + p.Name + " (p" + p.Id + ", entity " + npc.entityId + ") enlisted with " + player.EntityName + " for "
                       + days + " day(s), " + cost + " dukes (" + ScEnclaves.StandingKey(e) + ") - home on day " + GameUtils.WorldTimeToDays(p.EnlistedUntil));
             return true;
+        }
+
+        /// <summary>
+        /// The enlistment itself (Enlist's, after its fee; E9: a fighter an ally sent over the radio, ScEncCalls): SC's hire
+        /// shape on the body (Hire) and the record enlisted with the player until that world time - their body, no walk home.
+        /// The caller saves, tells and logs.
+        /// </summary>
+        internal static void EnlistBody(EncPerson p, EntityAlive npc, EntityPlayer player, ulong until)
+        {
+            Hire(npc, player);
+            p.State = EncPerson.StateEnlisted;
+            p.EnlistedBy = player.entityId;
+            p.EnlistedBody = npc.entityId;
+            p.EnlistedUntil = until;
+            p.Leaving = false;
+            p.LeaveTarget = Vector3.zero;
+            ScCommunity.ResetStill(p.Who);
         }
 
         /// <summary>

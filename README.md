@@ -341,7 +341,7 @@ walk back.
 - **Enclaves (E6).** The window's right-hand column lists the enclaves you know, their open requests and a siege call
   with *On our way* / *We can't come* (see **Allies (E6)**).
 - **Allies (E7).** Its Allies panel trades supplies with an Allied enclave, once a day each (see **Gifts and ally barter
-  (E7)**).
+  (E7)**), and (E9) calls one for a fighter or a supply drop (see **Radio commands (E9)**).
 
 All five milestones, linked storage and the radio are in. See the plan's non-goals for what v1 deliberately leaves
 out (multiplayer clients, a player-menu tab, portraits, NPC hunger, base building by survivors).
@@ -437,6 +437,8 @@ You aren't the only survivors (`Enclaves_Plan.md`, milestones E1-E6; E7 on from 
   you about other groups. Losing a friend hurts morale, and a new group moves in a few days after any group is lost.
 - **Gifts and ally barter (E7):** hand a leader a bundle for a little standing, once a day, up to Friendly; trade
   supplies with your allies over the radio, once a day each.
+- **Radio commands (E9):** call an ally from the radio for a fighter who stays half a day or a supply drop, once every 3
+  days each.
 - **Infestations (I1)** are buildings the dead overran: enclaves ask you to clear them, an ally's Neighborhood Watch
   keeps new ones away, and a building lost to a siege becomes one.
 
@@ -932,8 +934,8 @@ enclaves fare shows in your morale.
 **The radio window's Enclaves column** (right of the station's own sections; the window is now 1384 wide, still narrower
 than the community window)
 - **Enclaves you know**, nearest first: the name, the standing in their markers' colours (blue Allied, green Friendly,
-  grey Neutral, red Hostile), the benefit (blue while it applies) and where. The 10 nearest (15 before E7's Allies
-  panel); a line counts the rest.
+  grey Neutral, red Hostile), the benefit (blue while it applies) and where. The 8 nearest (15 before E7's Allies
+  panel, 10 before E9's radio commands); a line counts the rest.
 - **Their requests:** who, what they need, and the day to answer an offer by or to deliver by (red on the day it is due).
   The 3 soonest (4 before E7).
 - **Siege calls:** a call with its countdown ("12:34 left to reach them") and, until the fight starts, two buttons:
@@ -982,8 +984,8 @@ lets you pick any of those five), and **Trade** swaps 2 of yours for 1 of theirs
 `EnclaveBarterGet`): "Traded 2 ammo for 1 food with The X." and a ledger line. Once a day per ally
 (`EnclaveBarterDays`, the requests' clock); only Allied groups trade ("Only allies trade this way." when one drops to
 Friendly while the window is open). The radio's own barter (3 for 1 with anyone, once a day) stays as it was. The radio
-window still opens only at a powered radio block. To make room the Enclaves list shows the 10 nearest and the requests
-3; E9's radio commands will add their buttons to the same panel.
+window still opens only at a powered radio block. To make room the Enclaves list shows the 10 nearest (8 since E9) and
+the requests 3; E9's radio commands added their buttons to the same panel.
 
 **Config** (`Config/blocks.xml`, commented there): `EnclaveGifts`, `EnclaveGiftStanding`, `EnclaveGiftDays`,
 `EnclaveGiftCap`, `EnclaveBarter`, `EnclaveBarterGive`, `EnclaveBarterGet`, `EnclaveBarterDays`.
@@ -999,6 +1001,29 @@ older build ignores them, and its next save drops them. A world day set back mov
 clock stamps.
 
 **Limits:** host only, as the rest of the enclaves; single player is what SC supports.
+
+## Radio commands (E9)
+
+The radio window's **Allies** panel has two more buttons for the picked ally. **Send a fighter**: about half a game hour
+later (`EnclaveCallFighterDelay`) the best of their people at home - never the leader, and the leader and one more always
+stay - turns up 40-90 m from you on their building's side, out of sight (`EnclaveCallSpawnMin`/`Max`), walks up and
+follows and fights with you for 12 game hours (`EnclaveCallFighterHours`), then heads home. They are enlisted as with
+"Can you come with me?", without the fee: one per enclave, counted toward your followers, "Go home now." sends them back,
+and their death costs the group 5 standing. **Supply drop**: about 20 game minutes later (`EnclaveDropDelay`) a supply
+crate falls by parachute onto open ground 20-50 m from you (`EnclaveDropRangeMin`/`Max`, from `EnclaveDropHeight`), with
+smoke and the air drop marker. It holds what their kind makes (militia ammo, medics medicine, growers food and water,
+builders building supplies, a road crew fuel and car parts, scavengers a bit of each) and a medium bundle of their
+resource. Each ally answers one call every 3 days (`EnclaveCallCooldownDays`, the requests' clock), both buttons
+together, and there is no standing cost; a greyed button says why ("Next call in 2 day(s)", "Mara is with you already",
+"They're under siege", ...). A call that can't come (they stop being allies, a siege of theirs for a fighter, no place
+found near you within 5 real minutes) is called off and the wait given back. Calls are made only at a radio block, as the
+window opens; a save and load keeps a call on its way, and a fighter who was with you comes back about 15 seconds after
+the world is up. `EnclaveCalls=false` turns it off. Console (host): `sc enclave call <id>` (the calls, who would go, and
+whether each can be made now), `sc enclave call <id> fighter|drop [force] [now]` (force: the wait and the Allied rule
+ignored; now: it comes at once), `sc enclave call <id> cancel`; `sc enclave info <id>` has a radio calls line. Saving:
+each `[enclave]` gains `callday` and `call` (written when set; an older build ignores them). Limits: host only, single
+player; like any enlisted person, a fighter left behind when their chunk unloads (you drove off) goes home and the call
+ends.
 
 ## Infestations (I1)
 
