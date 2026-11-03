@@ -298,7 +298,7 @@ namespace SurvivorCommunity
               .Append(") + events ").Append(F(c.NoiseEvents)).Append(" (half-life ").Append(F(ScConfig.NoiseHalfLifeHours)).Append(" h)\n");
             // I3: the nests near home add a flat term, as Advance does
             float nests = ScConfig.Infestations ? ScInfestations.NestsAttention() : 0f;
-            if (ScConfig.Infestations)
+            if (ScConfig.Infestations && ScConfig.InfestHomeRange > 0)
             {
                 int near = ScInfestations.NearHome().Count;
                 sb.Append("nests near home: ").Append(near).Append(" within ").Append(ScConfig.InfestHomeRange).Append(" m, +").Append(F(ScConfig.InfestHomeAttention))

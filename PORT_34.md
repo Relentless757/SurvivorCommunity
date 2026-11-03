@@ -896,7 +896,7 @@ Where the design was wrong or short, and the code followed the game:
 
 Checked: both targets, their parameter types, return types and static-ness, and the `ActionSubtitleOverride` field (string,
 instance) in the installed 3.4 DLL (Cecil via HarmonyAudit `members`) and the 3.2 one (`10bd7658`, the same); the
-citations above in `decomp34`. Expected targets: two more than before (3.4 with Voice Control: 128 on this branch alone).
+citations above in `decomp34`. Expected targets: two more than before (3.4 with Voice Control: 128, also on dev/ideas with V1 to E8, since I2, I3 and E7 add none).
 
 Builds: SC 3.4 `4ba72fc3` (`build\sc34_e8`), 0 errors. The 3.2 DLL is not rebuilt (the user's decision today). Test steps:
 TESTING.md group R (140-149). Not reviewed (Fable), not installed. The task list needs its entry.

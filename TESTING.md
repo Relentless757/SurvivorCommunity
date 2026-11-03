@@ -597,8 +597,7 @@ own way: judge what they say, not the exact words. Voice Control's own phrases (
 sentence with "trade", "buy", "sell" or "shop" in it) never reach the LLM, so word chat questions around them.
 
 140. Start-up: the log has `patched LLMService::SendStreamingChatRequest` and `patched PhraseTriggerHandler::OpenTraderInventory`,
-     and `patch verification: all ... targets patched` counts two more than the build before E8 (128 on this branch
-     alone). The `config:` line has `voiceEnclaveContext=True`. No line starting `voice context:` or `voice trade:` with
+     and `patch verification: all ... targets patched` counts two more than the build before E8 (128 on dev/ideas with V1 to E8: I2, I3 and E7 add none). The `config:` line has `voiceEnclaveContext=True`. No line starting `voice context:` or `voice trade:` with
      "not found".
 141. **A Neutral leader with a request.** Pick a Neutral enclave you've found: `sc enclave standing <id> 10`, then
      `sc enclave request <id> offer resource meds medium` (use `food` for a group of medics). Stand by the leader and run
