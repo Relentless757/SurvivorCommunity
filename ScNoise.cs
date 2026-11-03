@@ -15,7 +15,8 @@ namespace SurvivorCommunity
     ///               in the zone (AIDirector.NotifyActivity: burning stations, torches, the player's gunfire, explosions,
     ///               block destruction) at vanilla's own strength, and NPC gunfire, which vanilla never hears (its sound
     ///               path forwards players only), at the gun's own heat. Events fade with NoiseHalfLifeHours.
-    ///   attention = 0-100. Each game hour it gains (noise - NoiseNoticeable) x AttentionPerNoiseHour and loses
+    ///   attention = 0-100. Each game hour it gains (noise - NoiseNoticeable) x AttentionPerNoiseHour, plus (I3) a flat
+    ///               InfestHomeAttention for each infestation near home (at most InfestHomeAttentionCap), and loses
     ///               AttentionDecayPerHour; it gains nothing while the blood moon is up or a home attack is open (the
     ///               fight's own gunfire never calls the next horde). At 100 ScBaseAttack calls a horde (D2); until it
     ///               can (the player away, the 2-day gap, the blood moon, an outpost fight) a full meter stays full.
@@ -172,11 +173,13 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Game hours pass: the event noise fades and attention integrates the noise, in quarter-hour steps (a long sleep or
-        /// a time jump is one call). A step uses the event noise's average over the step.
+        /// a time jump is one call). A step uses the event noise's average over the step. (I3) The nests near home add their
+        /// flat term to each step's rate before the watch posts' cut and the pauses, so those hold it as they hold the noise's.
         /// </summary>
         private static void Advance(Community c, float hours)
         {
             float steady = Steady();
+            float nests = ScInfestations.NestsAttention();
             bool attack = ScBaseAttack.Open;
             // manned watch posts (base defence D3): each cuts the gain by WatchAttentionCut, at most WatchAttentionCutMax
             float watch = ScWatch.AttentionFactor();
@@ -191,7 +194,7 @@ namespace SurvivorCommunity
                 float avgEvents = c.NoiseEvents * (1f - keep) / (lambda * dt);
                 c.NoiseEvents *= keep;
                 if (c.NoiseEvents < 0.01f) c.NoiseEvents = 0f;
-                float rate = RatePerHour(steady + avgEvents);
+                float rate = RatePerHour(steady + avgEvents) + nests;
                 if (rate > 0f) rate *= watch;
                 if ((bloodMoon || attack) && rate > 0f) rate = 0f;   // the dead are busy (the blood moon, or here already): nothing gained
                 // full is full until a horde is called (D2: the call waits for the player, the gap, the blood moon)
@@ -293,7 +296,15 @@ namespace SurvivorCommunity
               .Append(", running generators ").Append(steadyGenerators).Append(" x").Append(F(ScConfig.NoisePerGenerator))
               .Append(", workstations ").Append(c.Facilities).Append(" x").Append(F(ScConfig.NoisePerFacility))
               .Append(") + events ").Append(F(c.NoiseEvents)).Append(" (half-life ").Append(F(ScConfig.NoiseHalfLifeHours)).Append(" h)\n");
-            float rate = RatePerHour(cur);
+            // I3: the nests near home add a flat term, as Advance does
+            float nests = ScConfig.Infestations ? ScInfestations.NestsAttention() : 0f;
+            if (ScConfig.Infestations)
+            {
+                int near = ScInfestations.NearHome().Count;
+                sb.Append("nests near home: ").Append(near).Append(" within ").Append(ScConfig.InfestHomeRange).Append(" m, +").Append(F(ScConfig.InfestHomeAttention))
+                  .Append("/h attention each, at most ").Append(ScConfig.InfestHomeAttentionCap).Append(" counted: +").Append(F(nests)).Append("/h\n");
+            }
+            float rate = RatePerHour(cur) + nests;
             float watch = ScWatch.AttentionFactor();
             if (rate > 0f) rate *= watch;
             sb.Append("attention ").Append(F(c.Attention)).Append("% (");
@@ -303,6 +314,7 @@ namespace SurvivorCommunity
             else
             {
                 sb.Append(rate >= 0f ? "+" : "").Append(rate.ToString("0.##", CultureInfo.InvariantCulture)).Append("/h at this noise");
+                if (nests > 0f) sb.Append(" and ").Append(ScInfestations.NestsForAttention()).Append(" nest(s) near home");
                 if (rate > 0f && c.Attention < 100f) sb.Append(", full in about ").Append(F((100f - c.Attention) / rate)).Append(" h");
             }
             if (watch < 1f) sb.Append("; gain x").Append(watch.ToString("0.##", CultureInfo.InvariantCulture)).Append(" for ").Append(ScWatch.Manned()).Append(" manned watch post(s)");

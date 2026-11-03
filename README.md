@@ -215,7 +215,8 @@ NPCs but cannot manage a community (v2).
   mixer, up to +15), +2 each for ammo, materials and fuel in stock, trait offsets, and recent deaths
   (`DeathPenalty` 15 each, fading `DeathDecayPerDay` 3 per day). Each survivor's **mood** is morale plus
   their trait offset, minus 15 while injured and 10 while the community is hungry. The enclaves add parts of their own
-  (Allies, Comfort in Numbers, Enclave lost: see **Allies (E6)**).
+  (Allies, Comfort in Numbers, Enclave lost: see **Allies (E6)**), and so do infestations near home (see **Infestations
+  (I1)**, *Near home*).
 - **Consequences.** Above `HighMoraleThreshold` (75) everyone earns XP half again as fast. Below
   `LowMoraleThreshold` (25) for `LowMoraleDays` (2) days in a row the unhappiest survivor threatens to
   leave (tooltip, ledger, window flag) and leaves at the next rollover unless morale is back above the
@@ -1021,12 +1022,27 @@ lists the rooms still waiting for a repair, and `sc sleepers repair` makes them 
 - A spread from one you know about is known too: "The infestation at X has spread to Y."
 - **Marker** (owner-only): a purple infection symbol labelled "Infested: X", on the map, and on the compass within 300 m.
 
+**Near home (I3).** An infestation within 500 m of your home's land claim block (`InfestHomeRange`, measured flat to the
+building's nearest edge) is a nest near home. Your people spot one the moment it starts or spreads there
+(`InfestHomeKnown`): its marker, "Your people spotted the dead moving in close to home. X is infested, 420 m north." and
+a ledger line; on loading a save, and when you move your home, any one already that close that you didn't know of is
+spotted the same way. Each nest costs morale by its distance (`InfestHomeMoraleBands`: 5 within 150 m, 3 to 300 m, 2 to
+500 m), the nearest 5 counted (`InfestHomeMoraleNests`), at most 15 in all (`InfestHomeMoraleCap`): the morale part
+"Infestations near home", which SurvivorOrigins' Leadership shields like the other losses. Each also draws the dead: +1
+attention a game hour (`InfestHomeAttention`), at most 5 nests counted (`InfestHomeAttentionCap`), so a quiet base
+(-2 an hour) holds steady with two nests and fills with three or more; manned watch posts cut it, and the blood moon
+and an open attack pause it, as they do the noise's. Clear a nest and both go at once. Nothing is saved: the nests are
+counted from the infestations. `sc morale` names each nest with its distance and cost, `sc noise` and `sc infest list`
+show them too.
+
 **Config** (`Config/blocks.xml`, commented there): the switch `Infestations`; how often and how many
 `InfestDailyChance`, `InfestPerKm2`, `InfestMin`, `InfestMax`; spread `InfestSpreadDays`, `InfestSpreadChance`,
 `InfestSpreadRange`; which buildings `InfestTraderDistance`, `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`,
 `InfestTierByDay`, `InfestPlayerMargin`; inside `InfestMultiplier`, `InfestMultiplierHighTier`, `InfestHighTier` (the
 multipliers go from 1 to 4), `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`,
-`InfestRearmPlayerRange`; seeing them `InfestDiscoverRange`, `InfestRadioRange`.
+`InfestRearmPlayerRange`; seeing them `InfestDiscoverRange`, `InfestRadioRange`; near home `InfestHomeRange`,
+`InfestHomeMoraleBands`, `InfestHomeMoraleNests`, `InfestHomeMoraleCap`, `InfestHomeAttention`,
+`InfestHomeAttentionCap`, `InfestHomeKnown`.
 
 **Console** (host only): `sc infest [list]` (each one's building, tier, start day and age, whether you know of it, its
 special and where it is from you), `sc infest info <id>` (the record and the building's rooms: generated, cleared,

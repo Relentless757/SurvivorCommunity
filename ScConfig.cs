@@ -686,6 +686,19 @@ namespace SurvivorCommunity
         /// </summary>
         public static int InfestDiscoverRange = 150, InfestRadioRange = 2000, InfestPlayerMargin = 50, InfestRearmPlayerRange = 100;
         private const string DefaultInfestTierByDay = "1:1-2,8:1-3,15:2-4,29:3-5";
+        // ---- infestations near home (ScInfestations.NearHome, I3) ----
+        /// <summary>
+        /// A nest is near home within InfestHomeRange m of the home block (XZ, to its footprint; 0 = none is). Morale: each of the
+        /// nearest InfestHomeMoraleNests costs its distance band's points (InfestHomeMoraleBands), at most InfestHomeMoraleCap in
+        /// all. Attention: +InfestHomeAttention a game hour for each, at most InfestHomeAttentionCap counted. With InfestHomeKnown
+        /// one that starts or spreads near home is known at once (and those of a save, once a session and when the home moves).
+        /// </summary>
+        public static int InfestHomeRange = 500, InfestHomeMoraleCap = 15, InfestHomeMoraleNests = 5, InfestHomeAttentionCap = 5;
+        public static float InfestHomeAttention = 1f;
+        public static bool InfestHomeKnown = true;
+        /// <summary>InfestHomeMoraleBands "metres:cost,...", sorted by distance: {metres, cost} - a nest at most that far costs that much (the first band it fits; past the last, 0).</summary>
+        public static readonly List<int[]> InfestHomeMoraleBands = new List<int[]>();
+        private const string DefaultInfestHomeMoraleBands = "150:5,300:3,500:2";
         // ---- the zombie-cap fix (ScSleeperCap, I2: sleeper rooms the enemy cap closed empty or cut short) ----
         /// <summary>
         /// Layers A and C, every POI: a room the enemy cap closed with nobody spawned is due again SleeperCapRetryTicks later
@@ -1194,6 +1207,8 @@ namespace SurvivorCommunity
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
             InfestDiscoverRange = 150; InfestRadioRange = 2000; InfestPlayerMargin = 50; InfestRearmPlayerRange = 100;
+            InfestHomeRange = 500; InfestHomeMoraleCap = 15; InfestHomeMoraleNests = 5; InfestHomeAttention = 1f; InfestHomeAttentionCap = 5;
+            InfestHomeKnown = true; InfestHomeMoraleBands.Clear();
             SleeperCapFix = true; SleeperCapRetryTicks = 1000; SleeperCapPause = true; SleeperCapPauseMaxTicks = 3000;
             ScPoiTypes.LoadDefaults();
             Defaults();
@@ -1244,6 +1259,7 @@ namespace SurvivorCommunity
             ParseNamedWeights("EnclaveRequestKindWeights", DefaultEnclaveRequestKindWeights, ScEncRequests.RollKinds, EnclaveRequestKindWeights);
             ParseNamedWeights("EnclaveRequestSizeWeights", DefaultEnclaveRequestSizeWeights, ScEncRequests.Sizes, EnclaveRequestSizeWeights);
             ParseTierByDay(DefaultInfestTierByDay);
+            ParseHomeBands(DefaultInfestHomeMoraleBands);
         }
 
         /// <summary>A fixed-size array's defaults (Reset): as many values as it holds.</summary>
@@ -1904,6 +1920,19 @@ namespace SurvivorCommunity
                 ParseInt(p, "InfestRadioRange", ref InfestRadioRange, 0, 20000);
                 ParseInt(p, "InfestPlayerMargin", ref InfestPlayerMargin, 0, 5000);
                 ParseInt(p, "InfestRearmPlayerRange", ref InfestRearmPlayerRange, 0, 5000);
+                // I3: infestations near home
+                ParseInt(p, "InfestHomeRange", ref InfestHomeRange, 0, 5000);
+                {
+                    string hb;
+                    if (p.Values.TryGetValue("InfestHomeMoraleBands", out hb) && !string.IsNullOrEmpty(hb)) ParseHomeBands(hb);
+                }
+                ParseInt(p, "InfestHomeMoraleCap", ref InfestHomeMoraleCap, 0, 100);
+                ParseInt(p, "InfestHomeMoraleNests", ref InfestHomeMoraleNests, 0, 100);
+                ParseFloat(p, "InfestHomeAttention", ref InfestHomeAttention, 0f, 20f);
+                ParseInt(p, "InfestHomeAttentionCap", ref InfestHomeAttentionCap, 0, 100);
+                bool homeKnown = InfestHomeKnown;
+                if (p.Values.ContainsKey("InfestHomeKnown")) p.ParseBool("InfestHomeKnown", ref homeKnown);
+                InfestHomeKnown = homeKnown;
                 bool capFix = SleeperCapFix;
                 if (p.Values.ContainsKey("SleeperCapFix")) p.ParseBool("SleeperCapFix", ref capFix);
                 SleeperCapFix = capFix;
@@ -2238,7 +2267,10 @@ namespace SurvivorCommunity
                                                 + InfestMultiplierHighTier.ToString("0.##", CultureInfo.InvariantCulture) + "), feral "
                                                 + InfestFeralShare.ToString("0.##", CultureInfo.InvariantCulture) + ", special "
                                                 + (InfestSpecial ? "radiated below gs " + InfestSpecialRadiatedBelowGS : "off") + ", discover " + InfestDiscoverRange + "m, radio "
-                                                + InfestRadioRange + "m, margin " + InfestPlayerMargin + "m, re-arm " + InfestRearmPlayerRange + "m" : "off")
+                                                + InfestRadioRange + "m, margin " + InfestPlayerMargin + "m, re-arm " + InfestRearmPlayerRange + "m, near home "
+                                                + InfestHomeRange + "m (morale " + HomeBandsText() + " for the nearest " + InfestHomeMoraleNests + ", at most "
+                                                + InfestHomeMoraleCap + "; attention +" + F2(InfestHomeAttention) + "/h each for " + InfestHomeAttentionCap
+                                                + "; known " + (InfestHomeKnown ? "at once" : "as usual") + ")" : "off")
                           + " sleeperCap=" + (SleeperCapFix ? "retry after " + SleeperCapRetryTicks + " ticks" : "off") + ", pause "
                                            + (SleeperCapPause && SleeperCapPauseMaxTicks > 0 ? "at most " + SleeperCapPauseMaxTicks + " ticks (infested rooms)" : "off")
                           + " looks=excluded " + SurvivorExcludeSkins.Count + " skins/" + SurvivorExcludeEyes.Count + " eyes/" + SurvivorExcludeHairs.Count
@@ -2395,6 +2427,52 @@ namespace SurvivorCommunity
         {
             var parts = new List<string>();
             foreach (int[] e in InfestTierByDay) parts.Add(e[0] + ":" + e[1] + "-" + e[2]);
+            return string.Join(",", parts.ToArray());
+        }
+
+        /// <summary>
+        /// InfestHomeMoraleBands "150:5,300:3,500:2" (I3): replaces the table, sorted by distance. An entry that is not metres:cost
+        /// (metres 1 to 20000, a cost of 0 to 100) or repeats a distance is skipped with a warning; none readable keeps the table.
+        /// </summary>
+        private static void ParseHomeBands(string s)
+        {
+            var parsed = new List<int[]>();
+            foreach (string part in SplitList(s))
+            {
+                int c = part.IndexOf(':');
+                int metres, cost;
+                if (c <= 0 || !int.TryParse(part.Substring(0, c).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out metres)
+                    || !int.TryParse(part.Substring(c + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out cost)
+                    || metres < 1 || metres > 20000 || cost < 0 || cost > 100)
+                {
+                    ScLog.Warn("config InfestHomeMoraleBands entry '" + part + "' is not metres:cost (metres 1 to 20000, a cost of 0 to 100) - skipped");
+                    continue;
+                }
+                if (parsed.Exists(b => b[0] == metres))
+                {
+                    ScLog.Warn("config InfestHomeMoraleBands entry '" + part + "' repeats " + metres + " m - skipped");
+                    continue;
+                }
+                parsed.Add(new[] { metres, cost });
+            }
+            if (parsed.Count == 0) { ScLog.Warn("config InfestHomeMoraleBands '" + s + "' names no metres:cost - kept"); return; }
+            parsed.Sort((a, b) => a[0].CompareTo(b[0]));
+            InfestHomeMoraleBands.Clear();
+            InfestHomeMoraleBands.AddRange(parsed);
+        }
+
+        /// <summary>I3: the morale points a nest this many metres from home costs: the first band it fits (nearest first), 0 past the last.</summary>
+        public static int InfestHomeCost(int metres)
+        {
+            for (int i = 0; i < InfestHomeMoraleBands.Count; i++) if (metres <= InfestHomeMoraleBands[i][0]) return InfestHomeMoraleBands[i][1];
+            return 0;
+        }
+
+        /// <summary>"150:5,300:3,500:2" for the config line and the console.</summary>
+        public static string HomeBandsText()
+        {
+            var parts = new List<string>();
+            foreach (int[] e in InfestHomeMoraleBands) parts.Add(e[0] + ":" + e[1]);
             return string.Join(",", parts.ToArray());
         }
 

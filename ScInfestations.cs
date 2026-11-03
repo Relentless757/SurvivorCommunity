@@ -62,6 +62,18 @@ namespace SurvivorCommunity
         }
     }
 
+    /// <summary>I3: an infestation near home (ScInfestations.NearHome) - how far its footprint is from the home block, and what it costs morale.</summary>
+    public sealed class NearNest
+    {
+        public Infestation Inf;
+        /// <summary>Metres (XZ, rounded) from the home block to its footprint.</summary>
+        public int Metres;
+        /// <summary>One of the nearest InfestHomeMoraleNests: it costs morale (its band's Cost); the rest still draw attention.</summary>
+        public bool Counted;
+        /// <summary>Its distance band's morale points (ScConfig.InfestHomeCost) when Counted, else 0. The total is capped (NestsMorale).</summary>
+        public int Cost;
+    }
+
     /// <summary>
     /// Infestations, milestone I1 (I1_SPEC.md, Enclaves_Plan.md 2.12-2.13, research infestations.md): POIs overrun by more
     /// and worse zombies, kept as registry records.
@@ -131,6 +143,17 @@ namespace SurvivorCommunity
         /// again): saved by the next tick, not in the middle of a spawn (or with the world, where no tick runs).
         /// </summary>
         private static bool dirty;
+        /// <summary>
+        /// I3: the lookups' version (Rebuild counts it up), and what the near-home list was made for - that version and the
+        /// home block: a change to either rebuilds it.
+        /// </summary>
+        private static int version, nearVersion = -1;
+        private static bool nearHasHome;
+        private static Vector3i nearHome;
+        private static readonly List<NearNest> near = new List<NearNest>();
+        /// <summary>I3: the home block the tick last spotted nests near (homeChecked false: not yet this session).</summary>
+        private static bool homeChecked;
+        private static Vector3i homeCheckedAt;
 
         public static List<Infestation> All { get { return ScRegistry.Infestations; } }
 
@@ -148,6 +171,10 @@ namespace SurvivorCommunity
             tagged.Clear();
             ferals.Clear();
             dirty = false;
+            version++;
+            nearVersion = -1;
+            near.Clear();
+            homeChecked = false;
         }
 
         /// <summary>The registry was (re)loaded or reset (ScOutposts.OnRegistryChanged): ids squared, lookups rebuilt, markers restored on the next tick.</summary>
@@ -190,6 +217,7 @@ namespace SurvivorCommunity
             }
             live = l.ToArray();
             keys = k.ToArray();
+            version++;          // I3: the near-home list is made again
         }
 
         // ------------------------------------------------------------------ queries ----
@@ -302,6 +330,134 @@ namespace SurvivorCommunity
                 case SpecialState.Met: return "came (" + inf.SpecialClass + ")";
                 default: return "none";
             }
+        }
+
+        // ------------------------------------------------------------------ near home (I3) ----
+
+        /// <summary>
+        /// I3: the infestations within InfestHomeRange m of the home block (XZ, to the footprint), nearest first - empty with no
+        /// home, Infestations off or InfestHomeRange 0. Every one draws attention; the nearest InfestHomeMoraleNests cost morale.
+        /// Known or not: the dead are there either way (the breakdown leaves an unknown one's name out). Derived, never saved;
+        /// cached until the lookups change (Rebuild) or the home block does. Read only; main thread.
+        /// </summary>
+        public static List<NearNest> NearHome()
+        {
+            Community c = ScRegistry.Community;
+            if (nearVersion == version && nearHasHome == c.HasHome && nearHome == c.Home) return near;
+            ScConfig.EnsureParsed();
+            nearVersion = version;
+            nearHasHome = c.HasHome;
+            nearHome = c.Home;
+            near.Clear();
+            Infestation[] l = live;
+            if (!c.HasHome || ScConfig.InfestHomeRange <= 0 || l.Length == 0) return near;
+            Vector3i h = c.Home;
+            for (int i = 0; i < l.Length; i++)
+            {
+                int m = Mathf.RoundToInt(l[i].DistanceXZ(h.x, h.z));
+                if (m <= ScConfig.InfestHomeRange) near.Add(new NearNest { Inf = l[i], Metres = m });
+            }
+            near.Sort((a, b) => a.Metres != b.Metres ? a.Metres.CompareTo(b.Metres) : a.Inf.Id.CompareTo(b.Inf.Id));
+            for (int i = 0; i < near.Count; i++)
+            {
+                near[i].Counted = i < ScConfig.InfestHomeMoraleNests;
+                near[i].Cost = near[i].Counted ? ScConfig.InfestHomeCost(near[i].Metres) : 0;
+            }
+            return near;
+        }
+
+        /// <summary>I3: the morale the nests near home cost, as a positive number: the counted ones' bands, at most InfestHomeMoraleCap.</summary>
+        public static int NestsMorale()
+        {
+            int sum = 0;
+            foreach (NearNest n in NearHome()) sum += n.Cost;
+            return Math.Min(Math.Max(0, ScConfig.InfestHomeMoraleCap), sum);
+        }
+
+        /// <summary>I3: the nests near home that draw attention - all of them, at most InfestHomeAttentionCap.</summary>
+        public static int NestsForAttention()
+        {
+            return Math.Min(Math.Max(0, ScConfig.InfestHomeAttentionCap), NearHome().Count);
+        }
+
+        /// <summary>I3: the attention a game hour the nests near home add (ScNoise.Advance, before the watch posts' cut and the pauses).</summary>
+        public static float NestsAttention()
+        {
+            return NestsForAttention() * Math.Max(0f, ScConfig.InfestHomeAttention);
+        }
+
+        /// <summary>
+        /// I3: the morale breakdown's words after the part, " (3 within 500 m: Diner 120 m -5, ...)": each counted nest with its
+        /// distance and its band's cost, then the nearest-only and the cap notes when they apply ("" with none near home).
+        /// </summary>
+        public static string NestsDetail()
+        {
+            List<NearNest> l = NearHome();
+            if (l.Count == 0) return "";
+            var items = new List<string>();
+            int sum = 0;
+            foreach (NearNest n in l)
+            {
+                if (!n.Counted) continue;
+                sum += n.Cost;
+                items.Add(string.Format(Localization.Get("scMoraleNestsItem"), n.Inf.Known ? n.Inf.PoiName : Localization.Get("scMoraleNestsUnknown"), n.Metres, n.Cost));
+            }
+            string notes = "";
+            if (items.Count < l.Count) notes += string.Format(Localization.Get("scMoraleNestsNearest"), items.Count);
+            int cap = Math.Max(0, ScConfig.InfestHomeMoraleCap);
+            if (sum > cap) notes += string.Format(Localization.Get("scMoraleNestsCapped"), cap);
+            return string.Format(Localization.Get("scMoraleNestsDetail"), l.Count, ScConfig.InfestHomeRange, string.Join(", ", items.ToArray()), notes);
+        }
+
+        /// <summary>The near-home entry of this infestation, or null.</summary>
+        private static NearNest NearOf(Infestation inf)
+        {
+            foreach (NearNest n in NearHome()) if (n.Inf == inf) return n;
+            return null;
+        }
+
+        /// <summary>
+        /// I3: with InfestHomeKnown, an unknown infestation within InfestHomeRange m of the home block is spotted by your people:
+        /// known now, a tell with where it is from home and a ledger line. The caller adds the marker, logs and saves. False
+        /// (nothing changed) when it is known already or not near home. where: "420 m north" (to the footprint).
+        /// </summary>
+        private static bool SpotNearHome(Infestation inf, int day, EntityPlayerLocal player, out string where)
+        {
+            where = null;
+            if (inf == null || inf.Known || !ScConfig.InfestHomeKnown || !ScZone.HasHome || ScConfig.InfestHomeRange <= 0) return false;
+            Vector3i h = ScZone.Home;
+            int m = Mathf.RoundToInt(inf.DistanceXZ(h.x, h.z));
+            if (m > ScConfig.InfestHomeRange) return false;
+            inf.Known = true;
+            inf.KnownDay = day;
+            where = ScEnclaves.Where(new Vector3(h.x, h.y, h.z), inf.Centre, m);
+            if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scInfestNearHome"), inf.PoiName, where), "ui_denied");
+            ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerNearHome"), inf.PoiName));
+            return true;
+        }
+
+        /// <summary>
+        /// I3, ScInfestations.Tick: once a session (the first tick after OnGameStart) and again whenever the home block changes,
+        /// every infestation already near home is spotted (SpotNearHome) - those of a save, one that began before there was a
+        /// home, or before the home moved. Returns how many.
+        /// </summary>
+        private static int SpotAllNearHome(EntityPlayerLocal player)
+        {
+            if (!ScConfig.InfestHomeKnown || !ScZone.HasHome) return 0;
+            if (homeChecked && homeCheckedAt == ScZone.Home) return 0;
+            homeChecked = true;
+            homeCheckedAt = ScZone.Home;
+            int n = 0, day = ScCommunity.Today;
+            foreach (Infestation inf in All)
+            {
+                string where;
+                if (!SpotNearHome(inf, day, player, out where)) continue;
+                AddMarker(inf, player);
+                ScLog.Out("infestation #" + inf.Id + " at " + inf.PoiName + " is near home (" + where + " from home) - your people spotted it");
+                n++;
+            }
+            if (n > 0) ScRegistry.SaveAtomic();
+            return n;
         }
 
         // ------------------------------------------------------------------ which POIs ----
@@ -501,8 +657,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// Starts an infestation (the roll, a spread, the console): the record (the special owed when InfestSpecial is on
         /// and the sandbox's max enemy tier reaches radiated), the lookups, the re-arm, then who learns of it - the console
-        /// and a spread from a known one are known; otherwise a powered radio reports it within InfestRadioRange of home.
-        /// Saves; one log line. Main thread.
+        /// and a spread from a known one are known; otherwise (I3) your people spot one within InfestHomeRange of home
+        /// (InfestHomeKnown), else a powered radio reports it within InfestRadioRange of home. Saves; one log line. Main thread.
         /// </summary>
         private static Infestation Infest(PoiEntry pe, World w, int day, Infestation from, string how, EntityPlayerLocal player, out string rooms)
         {
@@ -525,7 +681,7 @@ namespace SurvivorCommunity
             int due, reset, left;
             Rearm(inf, pe.Pi, w, out due, out reset, out left);
             rooms = due + " cleared room(s) due again, " + reset + " reset" + (left > 0 ? ", " + left + " left as they are (a player within " + ScConfig.InfestRearmPlayerRange + " m)" : "");
-            string heard = "";
+            string heard = "", spotted;
             if (how == "console")
             {
                 inf.Known = true;
@@ -548,6 +704,10 @@ namespace SurvivorCommunity
                 heard = ", known (spread from a known one)";
                 if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scInfestSpread"), from.PoiName, inf.PoiName), "");
                 ScOutposts.NoteLedger(string.Format(Localization.Get("scInfestLedgerSpread"), from.PoiName, inf.PoiName));
+            }
+            else if (SpotNearHome(inf, day, player, out spotted))
+            {
+                heard = ", spotted near home (" + spotted + " from home)";      // I3: before the radio, which would also hear it
             }
             else
             {
@@ -1009,7 +1169,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// GameStartDone (host, after the enclaves): every infestation's POI is found again by (x, z) and prefab. One whose
         /// POI is gone is dropped (not worth moving), as is one on an enclave's POI (a hand-edited registry) or a second one on
-        /// the same POI. Nothing is seeded. Lookups rebuilt; one log line.
+        /// the same POI. Nothing is seeded. Lookups rebuilt; one log line. (I3) The first tick after it, which has the player
+        /// for the tells, spots the ones near home (SpotAllNearHome).
         /// </summary>
         public static void OnGameStart()
         {
@@ -1069,6 +1230,7 @@ namespace SurvivorCommunity
             finally
             {
                 ready = true;
+                homeChecked = false;        // I3: the next tick spots the ones near home
             }
         }
 
@@ -1144,8 +1306,8 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// ScTicker, every second: a change the spawn hooks made is saved; markers back after a load; an unknown infestation
-        /// within InfestDiscoverRange of its POI is found.
+        /// ScTicker, every second: a change the spawn hooks made is saved; markers back after a load; (I3) the ones near home
+        /// spotted, once a session and when the home moves; an unknown infestation within InfestDiscoverRange of its POI is found.
         /// </summary>
         public static void Tick(World w, EntityPlayerLocal player)
         {
@@ -1162,6 +1324,7 @@ namespace SurvivorCommunity
                     markersRestored = true;
                     RefreshMarkers(player);
                 }
+                SpotAllNearHome(player);      // I3: once a session and when the home moves (cheap otherwise)
                 Vector3 at = player.position;
                 foreach (Infestation inf in All)
                 {
@@ -1256,7 +1419,27 @@ namespace SurvivorCommunity
             World w = ScCommunity.World;
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             into.Add(All.Count + " infestation(s), at most " + TargetCap(w) + " on this world" + (ScConfig.Infestations ? "" : " - Infestations is OFF in the config"));
-            foreach (Infestation inf in All) into.Add("  " + Line(inf, pl != null ? pl.position : (Vector3?)null));
+            if (ScConfig.Infestations) into.Add(NearHomeLine());
+            foreach (Infestation inf in All)
+            {
+                NearNest n = NearOf(inf);
+                string cost = n == null ? "" : !n.Counted ? "no morale (only the nearest " + ScConfig.InfestHomeMoraleNests + " count)"
+                            : n.Cost > 0 ? "morale -" + n.Cost : "no morale (past the last band)";
+                into.Add("  " + Line(inf, pl != null ? pl.position : (Vector3?)null) + (n == null ? "" : " - near home, " + n.Metres + " m: " + cost));
+            }
+        }
+
+        /// <summary>I3: sc infest list's summary of the nests near home, and what they cost.</summary>
+        private static string NearHomeLine()
+        {
+            if (!ScZone.HasHome) return "near home: no community home yet - nothing counts";
+            if (ScConfig.InfestHomeRange <= 0) return "near home: off (InfestHomeRange=0)";
+            List<NearNest> l = NearHome();
+            int morale = NestsMorale();
+            return "near home (within " + ScConfig.InfestHomeRange + " m of home): " + l.Count + " - morale " + (morale > 0 ? "-" + morale : "0") + " (bands " + ScConfig.HomeBandsText()
+                   + ", the nearest " + ScConfig.InfestHomeMoraleNests + " count, at most " + ScConfig.InfestHomeMoraleCap + "), attention +"
+                   + NestsAttention().ToString("0.##", CultureInfo.InvariantCulture) + "/h (+" + ScConfig.InfestHomeAttention.ToString("0.##", CultureInfo.InvariantCulture)
+                   + "/h each, at most " + ScConfig.InfestHomeAttentionCap + "); spotted at once: " + (ScConfig.InfestHomeKnown ? "yes" : "no (InfestHomeKnown=false)");
         }
 
         /// <summary>sc infest info &lt;id&gt;</summary>

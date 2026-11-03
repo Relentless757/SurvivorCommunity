@@ -7,7 +7,7 @@ namespace SurvivorCommunity
     /// <summary>
     /// Community morale (0-100) and each survivor's mood, recomputed from the registry (State of Decay
     /// style: food days, thirst, medicine, beds, facilities, the other resources, traits, recent deaths, outposts,
-    /// the Activities' round of drinks, and E6's enclaves: allies, Comfort in Numbers, a group lost). Morale
+    /// the Activities' round of drinks, E6's enclaves: allies, Comfort in Numbers, a group lost; I3's infestations near home). Morale
     /// drives: XP x1.5 above HighMoraleThreshold (ScSkills.AddXp), refusal to follow below mood 25
     /// (ScCommunity.Follow), and below LowMoraleThreshold for LowMoraleDays in a row the unhappiest survivor
     /// threatens to leave and does so the next day unless morale recovers. The player sees it as the
@@ -42,6 +42,11 @@ namespace SurvivorCommunity
             /// Friendly or Allied group lost (Community.EnclaveLoss).
             /// </summary>
             public int Allies, Comfort, EnclaveLost;
+            /// <summary>
+            /// I3, infestations near home (ScInfestations.NearHome): minus each of the nearest InfestHomeMoraleNests nests' distance
+            /// band cost (InfestHomeMoraleBands), at most InfestHomeMoraleCap in all; 0 with no home.
+            /// </summary>
+            public int Nests;
             public float FoodDays;
             /// <summary>Days the water lasts at today's use less what the wells and dew collectors add (99 = no need / more made than drunk).</summary>
             public float WaterDays;
@@ -97,6 +102,7 @@ namespace SurvivorCommunity
             p.Allies = ScEncAllies.AlliesMorale();
             p.Comfort = ScEncAllies.ComfortMorale();
             p.EnclaveLost = -Mathf.RoundToInt(c.EnclaveLoss);
+            p.Nests = -ScInfestations.NestsMorale();             // I3: the infestations near home
 
             // SurvivorOrigins' Leadership (0 / 0 without it): a part of its own, and a shield that shrinks every
             // negative part toward 0 (never past it)
@@ -113,10 +119,11 @@ namespace SurvivorCommunity
                 p.Defence = ScLeadership.Shielded(p.Defence, shield);
                 p.Water = ScLeadership.Shielded(p.Water, shield);
                 p.EnclaveLost = ScLeadership.Shielded(p.EnclaveLost, shield);
+                p.Nests = ScLeadership.Shielded(p.Nests, shield);
             }
 
             int total = 50 + p.Food + p.Meds + p.Beds + p.Facilities + p.Supplies + p.Traits + p.Deaths + p.Leadership + p.Territory + p.Defence
-                        + p.Water + p.Activity + p.Allies + p.Comfort + p.EnclaveLost;
+                        + p.Water + p.Activity + p.Allies + p.Comfort + p.EnclaveLost + p.Nests;
             p.Total = Mathf.Clamp(total, 0, 100);
             if (Override >= 0) p.Total = Mathf.Clamp(Override, 0, 100);
             return p;
@@ -182,6 +189,7 @@ namespace SurvivorCommunity
             if (p.Allies != 0) sb.Append('\n').Append(Term("scMoraleAllies", p.Allies)).Append(ScEncAllies.AlliesDetail());
             if (p.Comfort != 0) sb.Append('\n').Append(Term("scEncBenefit_comfort", p.Comfort));
             if (p.EnclaveLost != 0) sb.Append('\n').Append(Term("scMoraleEnclaveLost", p.EnclaveLost));
+            if (p.Nests != 0) sb.Append('\n').Append(Term("scMoraleNests", p.Nests)).Append(ScInfestations.NestsDetail());    // I3
             return sb.ToString();
         }
 

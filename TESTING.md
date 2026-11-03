@@ -418,6 +418,82 @@ Vanilla's `sleeper list` (inside a POI) shows each room of it with `clear...` an
      cleared room in a claim (and SC's outposts) quiet. (A claimed room saved broken by an older build is listed by
      `sc sleepers scan` with `, claimed`, and `sc sleepers repair` leaves it quiet the same way.)
 
+**I3. Round 10: infestations near home (3.4)**
+
+An infestation within 500 m of your home's land claim block (measured flat to the building's nearest edge) is a nest
+near home. Each one costs morale by its distance: 5 within 150 m, 3 up to 300 m, 2 up to 500 m. Only the nearest 5
+count, and the total is at most 15. Each one also draws the dead to the base: +1 attention a game hour, at most 5 nests
+counted. Your people spot one the moment it starts or spreads there. Test on a world where you have a community home
+(`sc status` shows `home=` with the claim block's position) and several POIs within 500 m of it. `sc infest add`
+infests the POI you stand in (`sc infest add <x> <z>`: the one at x z, from anywhere), and `sc infest clear <id>` ends
+one again (the record only). D below is the distance `sc infest list` prints for a nest. Leave the watch posts unmanned
+for steps 112-113: a manned post cuts the attention gain.
+
+110. Load the world. Inside its `infestations=` part, the log's `config:` line has `near home 500m (morale
+     150:5,300:3,500:2 for the nearest 5, at most 15; attention +1/h each for 5; known at once)`. With no infestation near
+     home yet: the second line of `sc infest list` is `[SC] near home (within 500 m of home): 0 - morale 0 (bands
+     150:5,300:3,500:2, the nearest 5 count, at most 15), attention +0/h (+1/h each, at most 5); spotted at once: yes`,
+     and `sc noise` prints `[SC] nests near home: 0 within 500 m, +1/h attention each, at most 5 counted: +0/h`.
+     `sc morale` has no `Infestations near home` line, and its last line ends `nestsNearHome=0`. Note the rate on
+     `sc noise`'s `attention` line (at a quiet base, `-2/h at this noise`).
+111. **One nest, 300-500 m out.** Stand in a POI 300-500 m from the claim block and run `sc infest add` (`[SC] #N <name>
+     (T<t>) infested and known: ...`). `sc infest list`: the second line now reads `... : 1 - morale -2 (...),
+     attention +1/h (...)`, and that infestation's line ends `- near home, D m: morale -2`. If D is 300 or less it says
+     `morale -3` (or `morale -5` at 150 or less): clear it and pick another POI. `sc morale` has the line `[SC]
+     Infestations near home -2 (1 within 500 m: <name> D m -2)`, the morale on its first line is 2 lower than before
+     (unless something else changed), and the last line ends `nestsNearHome=1`. Within 5 seconds the morale icon in the
+     buff bar drops by 2. In the community window, the morale parts show `Infestations near home: 1` with `-2` and the
+     infection icon. The window lists only the 4 parts that hurt most, so it can be missing when 4 others hurt more.
+112. **Attention.** `sc noise`: `[SC] nests near home: 1 within 500 m, +1/h attention each, at most 5 counted: +1/h`.
+     The rate on the `attention` line is exactly 1 higher than at step 110, followed by `and 1 nest(s) near home` (at
+     a quiet base: `(-1/h at this noise and 1 nest(s) near home)`).
+113. **Distance bands, nearest first.** Add two more nests: one 151-300 m from the claim block, and one within 150 m.
+     The 150 m one must be outside your home zone, since `sc infest add` refuses the zone with `refused: <name> - your
+     home zone`. `sc morale`: `[SC] Infestations near home -10 (3 within 500 m: <A> D1 m -5, <B> D2 m -3, <C> D3 m -2)`,
+     nearest first. `sc noise`: `3 within 500 m, ... counted: +3/h`. At a quiet base the attention line says `(+1/h at
+     this noise and 3 nest(s) near home, full in about N h)`. Run `sc attention 99` and wait one game hour near home
+     (2.5 real minutes on a 60-minute day). `sc noise` then shows `attention 100%`, and the log has `[SurvivorCommunity]
+     base attention reached 100% (noise X); a horde is called when nothing holds it back (sc attack status)`. A horde
+     then comes as in base defence D2; `sc attack end` sends it away.
+114. **Clearing one.** `sc infest clear <id>` the nest within 150 m (`[SC] 1 infestation(s) ended - records and
+     markers only, the rooms are left as they are`). Right away, `sc morale` shows `Infestations near home -5 (2 within
+     500 m: <B> D2 m -3, <C> D3 m -2)` and `sc noise` shows `2 within 500 m, ... counted: +2/h`. Clearing a nest by
+     fighting through all its rooms does the same, from `You've cleared the infestation at <name>.` on.
+115. **Spotted as it spreads near home.** Pick a nest from the steps above that is more than 150 m from you, with
+     another POI within 300 m of it that is within 500 m of home and more than 50 m from you. Run `sc infest hide <id>`
+     (`[SC] 1 infestation(s) hidden again, markers off`), then `sc infest spread <id>`. The console says `[SC] #<id>
+     spread to #M <name> (T<t>), known`. The message `Your people spotted the dead moving in close to home. <name> is
+     infested, D m <direction>.` shows, with D as `sc infest list` gives it. The new nest's marker shows on the map. `sc
+     status` lists `[SC] ledger: day N: your people spotted an infestation near home at <name>`. The log's line for
+     the new infestation ends `[spread from #<id>]: ...; special <...>, spotted near home (D m <direction> from home)`.
+     If the spread lands more than 500 m from home, you get the radio's report or nothing instead: clear the new one and
+     try another nest. A spread from a nest you know keeps I1's own message, `The infestation at <A> has spread to
+     <B>.`
+116. **Spotted after loading.** Run `sc infest hide <id>` on a nest near home that is more than 150 m from you, save,
+     quit to the menu and load the world again. Shortly after the world loads, the message `Your people spotted the dead
+     moving in close to home. <name> is infested, D m <direction>.` shows and its marker is back. After the
+     `infestations: ... loaded` line, the log has `[SurvivorCommunity] infestation #<id> at <name> is near home (D m
+     <direction> from home) - your people spotted it`. `sc infest list` shows it `- known` again.
+117. (Optional) **Moving home.** Place a second land claim more than 500 m from the first. On its radial, pick `Set as
+     community home`. `sc morale` loses the `Infestations near home` line (`nestsNearHome=0`), `sc noise` shows
+     `0 within 500 m`, and the morale icon goes up by the part. Set the first claim as home again: the part comes back.
+     Any nest near it that you didn't know about is spotted then, with step 116's message and log line.
+118. **The caps and the bands come from the config.** Quit. In SC's `Config/blocks.xml`, set `InfestHomeMoraleNests` to
+     2, `InfestHomeMoraleCap` to 4, `InfestHomeAttentionCap` to 2 and `InfestHomeMoraleBands` to `150:5,abc,300:3,300:4`.
+     Start and load, with three nests near home at different distances as in step 113. The log has two warnings:
+     `[SurvivorCommunity] config InfestHomeMoraleBands entry 'abc' is not metres:cost (metres 1 to 20000, a cost of 0 to
+     100) - skipped` and `[SurvivorCommunity] config InfestHomeMoraleBands entry '300:4' repeats 300 m - skipped`. The
+     `config:` line says `near home 500m (morale 150:5,300:3 for the nearest 2, at most 4; attention +1/h each for 2;
+     known at once)`. `sc morale`: `[SC] Infestations near home -4 (3 within 500 m: <A> D1 m -5, <B> D2 m -3; only the
+     nearest 2 count; at most -4 in all)`. In `sc infest list` the farthest one's line ends `- near home, D3 m: no morale
+     (only the nearest 2 count)`. `sc noise`: `3 within 500 m, +1/h attention each, at most 2 counted: +2/h`. Afterwards
+     put the four keys back to `5`, `15`, `5` and `150:5,300:3,500:2`.
+119. (Optional) **Unknown nests, and Leadership.** Quit, set `InfestHomeKnown` to false, start and load. `sc infest
+     hide` a nest near home that is more than 150 m from you, then save and reload. No message comes, but the nest still
+     counts: `sc morale` lists it as `a building not found yet D m -C`, without its name. Set the key back to true.
+     With SurvivorOrigins' Leadership skill, its shield shrinks the part as it shrinks the other losses: the
+     `Infestations near home` total is smaller than the costs in its brackets add up to.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

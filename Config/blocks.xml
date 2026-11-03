@@ -1175,6 +1175,26 @@
 			<property name="InfestPlayerMargin" value="50" />
 			<property name="InfestRearmPlayerRange" value="100" />
 
+			<!-- INFESTATIONS NEAR HOME (I3). An infestation whose building is within InfestHomeRange m of your home's land
+			     claim block (measured flat, to the nearest edge of the building; 0 switches this off) is a nest near home.
+			     Morale: each of the nearest InfestHomeMoraleNests costs the points of the first distance band it fits in
+			     InfestHomeMoraleBands (metres:cost, nearest band first: within 150 m 5, to 300 m 3, to 500 m 2; past the last
+			     band 0), at most InfestHomeMoraleCap in all - the "Infestations near home" morale part, which SurvivorOrigins'
+			     Leadership shields like the other losses. Attention: each nest adds InfestHomeAttention a game hour to the
+			     dead's attention at home, at most InfestHomeAttentionCap nests counted, so a quiet base (-2 an hour) holds
+			     steady with two and fills with three or more; manned watch posts cut it, and the blood moon and an open
+			     attack pause it, as they do the noise's. With InfestHomeKnown your people spot one that starts or spreads near
+			     home at once (its marker, a message and a ledger line), and on loading, or when the home moves, every one
+			     already near home. Nothing is saved: the nests are counted from the infestations. "sc infest list",
+			     "sc morale" and "sc noise" show them. -->
+			<property name="InfestHomeRange" value="500" />
+			<property name="InfestHomeMoraleBands" value="150:5,300:3,500:2" />
+			<property name="InfestHomeMoraleNests" value="5" />
+			<property name="InfestHomeMoraleCap" value="15" />
+			<property name="InfestHomeAttention" value="1" />
+			<property name="InfestHomeAttentionCap" value="5" />
+			<property name="InfestHomeKnown" value="true" />
+
 			<!-- THE ZOMBIE-CAP FIX (I2). The game spawns a sleeper room's zombies only while fewer than MaxSpawnedZombies x 2.1
 			     enemies are about, counted over the whole world (about 134 by default). A room you enter while it is full
 			     closes as cleared with nobody spawned, and vanilla never respawns it; a room it cuts short closes early. With
