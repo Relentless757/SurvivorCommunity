@@ -421,3 +421,16 @@ steps: TESTING.md group L (74-81), RE's PORT33.md 32-36.
   `Port33\_backups\bridge34_2026-10-31_round5`.
 - The 3.2 game is untouched (SC `81f6c2da`, bridge `be634f59`).
 - Next: the user's test, group L.
+
+### Round 7: a POI favour no longer re-arms the POI as it starts (2026-11-02, built, not installed)
+
+Found while porting LandClaimUpgrade (its PORT_33.md). On 3.3+ `Quest.StartQuest` calls `QuestEventManager.ForceUpdate()`
+for a new quest, and `QuestJournal.AddQuest` adds the quest to `quests` only after StartQuest returns. ClearSleepers subscribes
+in StartQuest, so the first `SleeperEventData.Update`, vanilla's POI re-arm (`DespawnAndReset` on every sleeper volume), runs
+inside AddQuest. `ScQuests.IsOurPoi` looked only in the journal, missed the new favour quest, and the POI's cleared rooms were
+reset on the spot. 3.2 has no ForceUpdate: the first update came a frame later, with the quest in the journal.
+
+- **SC (3.4 only):** `ScQuests.Start` holds the quest in `beingAdded` around `AddQuest`, and `IsOurPoi` checks it first. Only
+  the favour quest (`QuestId`) has a ClearSleepers objective; the other AddQuest sites add quests that never subscribe.
+
+Builds: SC 3.2 still `81f6c2da`, SC 3.4 `c0ea84c3`. Test step: TESTING.md group M (82).

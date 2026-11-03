@@ -151,6 +151,9 @@ namespace SurvivorCommunity
                 World w = ScCommunity.World;
                 if (w == null) return false;
                 Vector3i key = World.worldToBlockPos(poiPosition);
+#if SC_V34
+                if (IsBeingAdded(key)) return true;
+#endif
                 List<EntityPlayerLocal> locals = w.GetLocalPlayers();
                 if (locals == null) return false;
                 for (int i = 0; i < locals.Count; i++) if (Find(locals[i], key) != null) return true;
@@ -161,6 +164,23 @@ namespace SurvivorCommunity
             }
             return false;
         }
+
+#if SC_V34
+        /// <summary>
+        /// 3.4: Quest.StartQuest calls QuestEventManager.ForceUpdate() for a new quest, so the POI re-arm (the first
+        /// SleeperEventData.Update after ClearSleepers subscribes) runs INSIDE QuestJournal.AddQuest, before the journal
+        /// holds the quest, where Find cannot see it. Start() holds the quest here for that call. Main thread only.
+        /// </summary>
+        private static Quest beingAdded;
+
+        private static bool IsBeingAdded(Vector3i poiKey)
+        {
+            Quest q = beingAdded;
+            if (q == null || !string.Equals(q.ID, QuestId, StringComparison.OrdinalIgnoreCase)) return false;
+            Vector3 pos;
+            return q.GetPositionData(out pos, Quest.PositionDataTypes.POIPosition) && World.worldToBlockPos(pos) == poiKey;
+        }
+#endif
 
         public static bool Start(EntityPlayerLocal player, Prospect p, out string error)
         {
@@ -192,7 +212,15 @@ namespace SurvivorCommunity
 #if SC_V34
                 // 3.4: AddQuest names where the quest came from (StartQuest's analytics). QuestSystem, not Trader: with Trader
                 // vanilla reads the giver's NPCInfo.QuestFaction and activeQuests, which an SCore NPC (an EntityTrader) can lack.
-                j.AddQuest(q, Quest.QuestSource.QuestSystem);
+                beingAdded = q;
+                try
+                {
+                    j.AddQuest(q, Quest.QuestSource.QuestSystem);
+                }
+                finally
+                {
+                    beingAdded = null;
+                }
 #else
                 j.AddQuest(q);
 #endif

@@ -268,6 +268,15 @@ steps replace "the land claim block last" in steps 58 and earlier.
 81. Move All from a full backpack into a base of nearly full crates: a short pause is fine, a stall of seconds is not, and
     what no crate takes stays in the backpack.
 
+**M. Round 7: a POI favour no longer re-arms the POI when it starts (3.4)**
+
+Found while porting LandClaimUpgrade: on 3.4 a new quest's start runs the quest manager once before the quest is in your
+journal, so SC's guard missed its own new favour quest and vanilla reset the POI's sleeper rooms on the spot.
+
+82. Clear SOME rooms of a POI, then take a survivor's POI favour for that POI (the "secure" quest). The rooms you cleared
+    stay empty, and only the rooms you haven't cleared get sleeper markers. With DebugLogging the log has
+    `suppressed the quest POI re-arm at ... (favour quest)` just before `secure quest started for ...`.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.
