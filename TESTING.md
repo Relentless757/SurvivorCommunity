@@ -418,6 +418,66 @@ Vanilla's `sleeper list` (inside a POI) shows each room of it with `clear...` an
      cleared room in a claim (and SC's outposts) quiet. (A claimed room saved broken by an older build is listed by
      `sc sleepers scan` with `, claimed`, and `sc sleepers repair` leaves it quiet the same way.)
 
+**R. Round 12 (E8): Voice Control's chat knows the enclave (3.4)**
+
+When you talk to one of an enclave's people through Voice Control's LLM (push-to-talk, or typed chat with `@`), SC adds a
+short paragraph to Voice Control's prompt: who they are in their group, how the group stands with you, its open request,
+and that deals are made only in the talk menu. A hostile group's people are told to refuse to talk, and Voice Control's
+spoken "trade" is refused by them. Single player. Play with Voice Control's TTS and LLM on and `DebugLogging` true for the
+`voice context:` lines. `sc enclave list` gives the ids; `sc voice context [id|name]` prints what the nearest of an
+enclave's people (or that one) is told right now, so each step can be checked before you speak. The LLM words things its
+own way: judge what they say, not the exact words. Voice Control's own phrases (its trade phrase "let's trade", or a
+sentence with "trade", "buy", "sell" or "shop" in it) never reach the LLM, so word chat questions around them.
+
+140. Start-up: the log has `patched LLMService::SendStreamingChatRequest` and `patched PhraseTriggerHandler::OpenTraderInventory`,
+     and `patch verification: all ... targets patched` counts two more than the build before E8 (128 on this branch
+     alone). The `config:` line has `voiceEnclaveContext=True`. No line starting `voice context:` or `voice trade:` with
+     "not found".
+141. **A Neutral leader with a request.** Pick a Neutral enclave you've found: `sc enclave standing <id> 10`, then
+     `sc enclave request <id> offer resource meds medium` (use `food` for a group of medics). Stand by the leader and run
+     `sc voice context`: `[SC] voice context: <name> (<id>), leader of '<enclave>', neutral, request resource offered, <n>
+     characters:`, then the paragraph, starting `[YOUR GROUP] You are the leader of <enclave>, <N> survivors living at
+     <building>.` Push-to-talk: "What's your group called, and how many of you are there?" They name the group, about
+     how many they are and where they live. "What do you need?": they need medicine and want to ask you for it, and they
+     are careful with you. The log has `[SurvivorCommunity] voice context: <name> (<id>), leader of '<enclave>', neutral,
+     request resource offered - <n> characters added to Voice Control's chat prompt`.
+142. **No deals by chat.** Still by voice: "Could we make a deal for some of your supplies?" and "Hand me some food, will
+     you?". They don't pretend to hand anything over or agree a deal; they point you to talking with them properly (the
+     talk menu). No item arrives, no window opens.
+143. **The request and its day.** Open the talk, "What do you need?", "Leave it with me." Close it and ask by voice "When
+     do you need the medicine by?". They name the day from the talk's "by the end of day N" (the paragraph also says
+     `(today is day M)`, so they may say "in two days"). `sc voice context`: `..., neutral, request resource accepted, ...`.
+144. **A Friendly member.** `sc enclave standing <id> 45`. Ask one of the members (not the leader) "Who's in charge here?":
+     they name their leader. "How do you feel about me?": they like you. `sc voice context <member id>`: `member of
+     '<enclave>', friendly, ...`, and the paragraph has `led by <leader>` and no "Speak with a leader's authority."
+145. **An Allied leader.** `sc enclave standing <id> 80`. Ask the leader "What does your group do for us?": they name their
+     benefit (for growers "Share of the Harvest", a bundle of food a day). The paragraph has `Allied - you trust them, and
+     your group gives them its <benefit> (<what it does>).`
+146. **An enlisted member.** In a member's talk, "Can you come with me?", "Deal.". Walk off with them and ask "When do you
+     have to go back?": about two days (`EnclaveEnlistDays` 2), less later on. `sc voice context <their id>`: `...,
+     enlisted, ...` and `You are travelling with this survivor for about 2 more days, then you go home to your group.`
+     (Under two days left it counts hours.) They still follow, wait and guard on Voice Control's orders as before.
+147. **A hostile group refuses to talk.** Use an enclave you don't need: in the leader's talk, "Hand over your
+     supplies.", "I'm not asking.". You have 10 seconds (`EnclaveThreatGrace`) before they open fire: at once, by voice,
+     "Hello, who are you?". They answer with a short warning to leave and tell you nothing about their group. The log has
+     `voice context: <name> (<id>), leader of '<enclave>', hostile - <n> characters added to Voice Control's chat prompt`;
+     `sc voice context` shows `..., hostile, ...` and the two-sentence paragraph `[YOUR GROUP] You belong to a group that
+     is hostile to this survivor. ...`. Once they are fighting you, Voice Control itself ignores chat with them
+     (`[NPCVoiceControl] <name> is wild and in combat - ignoring message: "..."`): that is Voice Control's rule, not SC's.
+148. **No voice trade with them.** To one of that hostile group (fighting you or not: Voice Control lets its trade phrase
+     through in combat; god mode helps), say "let's trade": no trade window opens, and they say and show `I'm not trading
+     with you. Get lost.` (before, 0-XNPCCore's trade window opened and the subtitle read "Take a look at my wares." or
+     another of its replies). The log has `[SurvivorCommunity] voice trade refused: <name> (<id>) won't trade by voice -
+     their enclave turned hostile to you`. `sc xnpc` counts `voice-trade-refused=1` (and `voice-context-added`,
+     `voice-context-hostile` for the steps above). Raiders, a raider enclave's people included, carry Voice Control's
+     `no_voice` tag and never chat at all, so they can't be tried.
+149. **Everyone else is unchanged.** Talk by voice to a stranger survivor and to one of the community's members: no
+     `voice context:` line, and `sc voice context <their id>` says `[SC] voice context: <name> (<id>) is not one of an
+     enclave's people - Voice Control's chat gets nothing from SC`. "let's trade" to a stranger opens their trade as
+     before. Then set `VoiceEnclaveContext` to false in SC's `Config/blocks.xml` and restart: a leader no longer knows
+     their group by chat (no `voice context:` line; `sc voice context` ends `(VoiceEnclaveContext is off: not sent):`),
+     and step 148's refusal still happens.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

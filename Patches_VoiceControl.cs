@@ -30,6 +30,8 @@ namespace SurvivorCommunity
     /// E3: one of them enlisted with the player (the sc_enlisted cvar; SC handles the fee, Q8 a) never gets a contract or a
     /// bill either - the narrowest hook: the two billing prefixes ask for it, IsCommunityNpc stays the members' test (it also
     /// drives the drop window, hold-fire, XNPC's levels and trust) - and the spoken dismiss sends them home (ScEnclaveDeals.GoHome).
+    /// E8: Voice Control's LLM chat with one of an enclave's people carries what they know of their group (ScVoiceContext), and
+    /// the spoken "trade" is refused by a hostile enclave's people, raiders and survivors with a grudge (the section at the end).
     ///
     /// Bound by name, with no reference to the DLL: without Voice Control every patch here skips itself (Prepare), and
     /// ModApi only expects them when NPCChatComponent exists, so a changed signature shows up as a MISSING PATCH line.
@@ -815,5 +817,161 @@ namespace SurvivorCommunity
             }
         }
 #endif
+
+        // ------------------------------------------------------------------ E8: voice chat context ----
+        //
+        // Voice Control's LLM chat knows the enclave an NPC belongs to (research\ideas\DESIGN.md section 11; ScVoiceContext).
+        // Its system prompt is VC's cached BuildSystemPrompt (built at Initialize, so it could not carry a standing that
+        // changes), its action-tag list, then per message the RAG memories, the sense block and the player's name, and goes
+        // out in LLMService.SendStreamingChatRequest - called only from NPCChatComponent's chat coroutine on the main thread
+        // (3.4 NPCChatComponent.cs:588), which builds the request body synchronously before its Task.Run (LLMService.cs:517).
+        // So a prefix there, with the NPC's entity id (argument 0) and the prompt (argument 1, by ref), adds SC's paragraph to
+        // that one request. Injected by index, the parameters' names don't matter. VoiceEnclaveContext switches it off.
+        // The spoken trade: PhraseTriggerHandler.OpenTraderInventory (private), Voice Control's "trade" phrase - also reached
+        // from its OpenInventory phrase on a trader - is let through its leaderless gate (PhraseTriggerHandler.cs:1051) and
+        // on 3.4 opens 0-XNPCCore's stock trade for any unhired body with trader id 64 (:432), which every survivor body has
+        // on 3.4, without asking AllowActivationCommand - even in a fight: it is one of the commands Voice Control lets
+        // through while a leaderless NPC is in combat (NPCChatComponent.IsCombatPassableCommand). So the talk prompt's
+        // refusal (X9) does not reach it. A prefix refuses it for the NPCs whose talk prompt is refused
+        // (ScVoiceContext.TradeRefusal) with a spoken line, set as the subtitle too (ActionSubtitleOverride: ExecuteMatch
+        // shows the trigger's own reply - "Take a look at my wares." - otherwise).
+        // Both bound by name with the exact signatures (3.4 and 3.2 alike), off by Prepare without Voice Control or on a
+        // changed signature (ModApi then logs MISSING PATCH).
+
+        public static Type LlmServiceType { get { return ScTypes.Find("XNPCVoiceControl.LLMService"); } }
+        private static Type ChatMessageType { get { return ScTypes.Find("XNPCVoiceControl.ChatMessage"); } }
+
+        /// <summary>
+        /// LLMService.SendStreamingChatRequest(int npcId, string systemPrompt, List&lt;ChatMessage&gt; conversationHistory, string
+        /// playerMessage, CancellationToken interruptToken, Action&lt;string&gt; onChunk, Action&lt;string&gt; onComplete,
+        /// Action&lt;string&gt; onError, VcTrace e2e = null), public instance void.
+        /// </summary>
+        public static MethodBase ChatRequestTarget()
+        {
+            Type t = LlmServiceType, cm = ChatMessageType, tr = TraceType;
+            if (t == null || cm == null || tr == null) return null;
+            Type[] args = { typeof(int), typeof(string), typeof(List<>).MakeGenericType(cm), typeof(string), typeof(System.Threading.CancellationToken),
+                            typeof(Action<string>), typeof(Action<string>), typeof(Action<string>), tr };
+            return Returning(AccessTools.DeclaredMethod(t, "SendStreamingChatRequest", args), typeof(void), false);
+        }
+
+        /// <summary>PhraseTriggerHandler.OpenTraderInventory(EntityAlive npc, EntityPlayer player, string npcName, string dialogText), private, string.</summary>
+        public static MethodBase TradeTarget()
+        {
+            Type t = TriggerType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "OpenTraderInventory", OrderArgs), typeof(string), false) : null;
+        }
+
+        /// <summary>The handler's subtitle for the action just run (ExecuteMatch shows it instead of the trigger's own reply).</summary>
+        private static FieldInfo subtitleField;
+        private static bool subtitleFieldBound;
+
+        private static void SetActionSubtitle(object handler, string text)
+        {
+            if (!subtitleFieldBound)
+            {
+                subtitleFieldBound = true;
+                Type t = TriggerType;
+                FieldInfo f = t != null ? AccessTools.Field(t, "ActionSubtitleOverride") : null;
+                subtitleField = f != null && f.FieldType == typeof(string) && !f.IsStatic ? f : null;
+                if (subtitleField == null) ScLog.Warn("voice trade: PhraseTriggerHandler.ActionSubtitleOverride not found (Voice Control update?) - a refused trade shows Voice Control's own reply as its subtitle");
+            }
+            if (subtitleField != null && handler != null) subtitleField.SetValue(handler, text);
+        }
+
+        /// <summary>E8: every LLM chat request with one of an enclave's people carries what they know of their group.</summary>
+        [HarmonyPatch]
+        public static class Patch_VoiceEnclaveContext
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    MethodBase m = ChatRequestTarget();
+                    if (m == null)
+                    {
+                        if (ChatType != null) ScLog.Err("voice context: LLMService.SendStreamingChatRequest not found (Voice Control update?) - Voice Control's chat does not know the enclaves");
+                        return false;
+                    }
+                    ParameterInfo[] ps = m.GetParameters();
+                    if (ps.Length < 2 || ps[0].ParameterType != typeof(int) || ps[1].ParameterType != typeof(string)) return false;
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-bind-context", e);
+                    return false;
+                }
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return ChatRequestTarget(); }
+
+            /// <summary>__0 the NPC's entity id, __1 the system prompt (by index: the names don't matter).</summary>
+            [HarmonyPrefix]
+            public static void Prefix(int __0, ref string __1)
+            {
+                try
+                {
+                    if (!ScConfig.VoiceEnclaveContext) return;
+                    World w = ScCommunity.World;
+                    EntityAlive npc = w != null ? w.GetEntity(__0) as EntityAlive : null;
+                    string what;
+                    string add = ScVoiceContext.For(npc, out what);
+                    if (string.IsNullOrEmpty(add)) return;
+                    __1 = (__1 ?? "") + "\n\n" + add;
+                    Count(what != null && what.EndsWith(", hostile", StringComparison.Ordinal) ? "voice-context-hostile" : "voice-context-added");
+                    ScLog.Verbose("voice context: " + ScCommunity.DisplayName(npc) + " (" + __0 + "), " + what + " - " + add.Length
+                                  + " characters added to Voice Control's chat prompt");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-context", e);
+                }
+            }
+        }
+
+        /// <summary>E8: the spoken "trade" is refused by the NPCs whose talk prompt is refused (a hostile enclave's people above all).</summary>
+        [HarmonyPatch]
+        public static class Patch_VoiceTradeHostile
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (TradeTarget() != null) return true;
+                    if (ChatType != null) ScLog.Err("voice trade: PhraseTriggerHandler.OpenTraderInventory not found (Voice Control update?) - a hostile enclave's people can be traded with by voice");
+                }
+                catch (Exception e) { ScLog.Once("vc-bind-trade", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return TradeTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(object __instance, object[] __args, ref string __result)
+            {
+                try
+                {
+                    EntityAlive npc = __args[0] as EntityAlive;
+                    string why = ScVoiceContext.TradeRefusal(npc, __args[1] as EntityPlayer);
+                    if (why == null) return true;
+                    string line = Localization.Get("scVoiceNoTradeHostile");
+                    __result = line;
+                    SetActionSubtitle(__instance, line);
+                    Count("voice-trade-refused");
+                    ScLog.Out("voice trade refused: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") won't trade by voice - " + why);
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-trade", e);
+                    return true;
+                }
+            }
+        }
     }
 }

@@ -158,6 +158,7 @@
     <Compile Include="ScVanity.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
+    <Compile Include="ScVoiceContext.cs" />
     <Compile Include="XUiC_ScDialogLine.cs" />
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />

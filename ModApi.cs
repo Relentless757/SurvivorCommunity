@@ -446,6 +446,10 @@ namespace SurvivorCommunity
                 Add(t, "NPCChatComponent::PlayProactiveGreeting", Patches_VoiceControl.GreetingTarget());
                 Add(t, "SubtitleManager::AcknowledgeCommand", Patches_VoiceControl.AckTarget());
                 Add(t, "NPCChatComponent::ProcessPlayerMessage", Patches_VoiceControl.PlayerMessageTarget());
+                // Patches_VoiceControl.cs (E8) - Voice Control's LLM chat knows the enclave; a hostile enclave's people refuse
+                // the spoken trade
+                Add(t, "LLMService::SendStreamingChatRequest", Patches_VoiceControl.ChatRequestTarget());
+                Add(t, "PhraseTriggerHandler::OpenTraderInventory", Patches_VoiceControl.TradeTarget());
 #if SC_V34
                 // 3.4: ScAim - the gun stays up while Voice Control's paced back-off walks the NPC away (M11 fix 2)
                 Add(t, "UAITaskBackupFromTargetPaced::Update", ScAim.BackoffTarget());

@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds]], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name]], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
@@ -638,7 +638,8 @@ namespace SurvivorCommunity
         /// clips play without a restart. V1: sc voice gate - whom the voice gate holds Voice Control on, the answer pass,
         /// and how many of Voice Control's lines it kept quiet this session (also the second line of plain sc voice); sc voice
         /// sayline [line] [seconds] - the nearest survivor (20 m) is given 0-XNPCCore's say-line (ammo.dry, 5 s by default)
-        /// through Voice Control after that delay, to watch the gate with a talk open.
+        /// through Voice Control after that delay, to watch the gate with a talk open. E8: sc voice context [id|name] - the
+        /// paragraph Voice Control's chat is given for one of an enclave's people (that one, or the nearest within 20 m).
         /// </summary>
         private static void VoiceCmd(List<string> p)
         {
@@ -658,6 +659,19 @@ namespace SurvivorCommunity
                 Output("[SC] voice: " + ScVoice.SayLineLater(near, line, secs));
                 return;
             }
+            if (a == "context")
+            {
+                // E8: what Voice Control's chat is told about one of an enclave's people (that one, or the nearest within 20 m)
+                EntityAlive npc = p.Count > 2 ? FindBodyNpc(p[2]) : NearestEnclaveBody(20f);
+                if (npc == null) { Output("[SC] voice context: " + (p.Count > 2 ? "no NPC matches " + p[2] : "none of an enclave's people within 20 m")); return; }
+                string what;
+                string text = ScVoiceContext.For(npc, out what);
+                string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
+                if (text == null) { Output("[SC] voice context: " + who + " is not one of an enclave's people - Voice Control's chat gets nothing from SC"); return; }
+                Output("[SC] voice context: " + who + ", " + what + ", " + text.Length + " characters" + (ScConfig.VoiceEnclaveContext ? "" : " (VoiceEnclaveContext is off: not sent)") + ":");
+                Output(text);
+                return;
+            }
             if (a == "stop") { ScVoice.Stop(); Output("[SC] voice: stopped"); return; }
             if (a == "rescan") { Output("[SC] voice: " + ScVoice.Rescan()); return; }
             if (a == "play" && p.Count > 2)
@@ -673,7 +687,26 @@ namespace SurvivorCommunity
                 Output("[SC] voice: " + ScVoice.PlayLine(npc, p[2]));
                 return;
             }
-            Output("[SC] voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds]]");
+            Output("[SC] voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name]]");
+        }
+
+        /// <summary>E8: the nearest living body of an enclave's people within r metres of the local player, or null.</summary>
+        private static EntityAlive NearestEnclaveBody(float r)
+        {
+            World w = ScCommunity.World;
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            if (w == null || lp == null) return null;
+            EntityAlive best = null;
+            float bestSq = r * r;
+            List<Entity> list = w.Entities.list;
+            for (int i = 0; i < list.Count; i++)
+            {
+                EntityAlive e = list[i] as EntityAlive;
+                if (e == null || e.IsDead() || ScEnclavePeople.PersonOf(e) == null) continue;
+                float sq = (e.position - lp.position).sqrMagnitude;
+                if (sq < bestSq) { best = e; bestSq = sq; }
+            }
+            return best;
         }
 
         /// <summary>sc skills sim [T1|T2|T3] [n] - n new survivors' starting skills per class tier (all three without a tier).</summary>
