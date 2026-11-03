@@ -13,10 +13,15 @@ namespace SurvivorCommunity
     /// Voiced dialogue (the voice test, 2026-10-16; Enclaves_Plan.md section 6, Q1): when one of the community's survivors
     /// says a dialog line, its recorded clip plays if the mod ships one for that line in that survivor's voice.
     ///
-    /// Clips are Resources/Voices/&lt;male|female&gt;_&lt;Name&gt;/&lt;key&gt;.ogg, mono Ogg Vorbis. Every survivor on the
-    /// player body (ScXnpc.IsSurvivorBody: recruits, radio contacts, members, stand-ins) speaks in one voice of their sex,
-    /// picked by a stable hash of their name, so they keep it while the voice list stays the same (a new voice of their
-    /// sex may re-deal it). The key is the line's statement id: "&lt;dialog&gt;.&lt;statement&gt;" first, the dialog being
+    /// Clips are Resources/Voices/&lt;male|female&gt;_&lt;Race&gt;_&lt;Name&gt;/&lt;key&gt;.ogg, mono Ogg Vorbis. V2: the voices are a
+    /// table (ScConfig.Voices: two per race and sex, White, Black, Asian, Native; a folder may not exist yet). Every survivor
+    /// on the player body (ScXnpc.IsSurvivorBody: recruits, radio contacts, members, stand-ins) and every raider
+    /// (ScXnpc.IsRaider) speaks in one of the two voices of their race and sex - the body's own (EModelSDCS.Archetype: for
+    /// SC's bodies the look SC applied), else SC's saved look (ScLooks.Get), else the class's sex - picked by a stable hash
+    /// of their name (a raider's name and id), so they keep it while the table stays the same. While that voice has no clip
+    /// for a line, the other voice of their race and sex says it, then any recorded voice of their sex, in an order stable
+    /// for that person (Chain): survivors keep talking while a race's recordings don't exist yet. VoiceByRace=false deals
+    /// among every recorded voice of the sex, as before V2. The key is the line's statement id: "&lt;dialog&gt;.&lt;statement&gt;" first, the dialog being
     /// the statement's own (SdcsNPC.start, 0-XNPCCore's greeting), then the bare statement id (SC's own lines, added to
     /// every dialog under the same ids). vo2: a line an enclave request picks at runtime ({reqask} and the like) is keyed by
     /// its Localization key (scEncAsk_gun_friendly), tried before the statement's. A line with no clip in that voice is not
@@ -25,8 +30,9 @@ namespace SurvivorCommunity
     ///
     /// Playback goes through Voice Control (1-XNPCVoiceControl.dll, bound by name, no compile reference) when it has set
     /// up its NPCAudioPlayer on that NPC, as it does for survivors near the player: the clip plays from the AudioSource its
-    /// face lip sync reads, at its own volume and range (modconfig TTS Volume, MinDistance, MaxDistance). Voice Control's
-    /// cached loader (VoiceClipLoader) loads the clip first, so PlayClipFile starts it at once. SC never sets that player up
+    /// face lip sync reads, at its own volume and range (modconfig TTS Volume, MinDistance, MaxDistance). V2: SC loads the
+    /// clip itself (ScClipCache: compressed, least recently used dropped) and hands it to PlayClipFile through Voice
+    /// Control's loader cache for that one call (PlayOnVc), so Voice Control never keeps SC's clips. SC never sets that player up
     /// itself: Voice Control's chat component carries a personality, billing and door rules it applies only to its own
     /// chat targets. Without the player (Voice Control's TTS off or not running, or not set up yet) SC loads the clip itself
     /// and plays it from its own AudioSource on a child of the NPC, with no lip sync. The child keeps it off the NPC's own
@@ -45,6 +51,11 @@ namespace SurvivorCommunity
     /// greeting-busy flag and waiting state end as after a played line. When the player speaks to that NPC through Voice
     /// Control during the talk (push-to-talk, typed chat, the dialog's "What are you carrying?"), the NPC answers through
     /// Voice Control until SC's next line on them (the answer pass). Other NPCs, and these outside a talk, are untouched.
+    ///
+    /// V2, barks (ScBarks: greetings, chatter, raider taunts, XNPCCore's lines in SC's voices): PlayBark plays a clip on an
+    /// NPC outside the talk's one-line slot - it never stops the talk's line, and the gate does not hold Voice Control for
+    /// it. A survivor's bark goes through Voice Control's player when there is one (lip sync), a raider's always from SC's
+    /// own source on a child. Holds(npc) - the talk open on them, or SC's talk line still playing on them - keeps barks off them.
     /// </summary>
     public static class ScVoice
     {
@@ -55,14 +66,28 @@ namespace SurvivorCommunity
         private const string OwnChild = "ScVoice";
         private const float OwnVolume = 0.8f, OwnMinDistance = 2f, OwnMaxDistance = 40f;   // Voice Control's defaults
 
-        private sealed class Voice
+        /// <summary>The races the voice table knows (SDCSDataUtils' list: the only race= values in vanilla and XNPCCore archetypes).</summary>
+        public static readonly string[] Races = { "White", "Black", "Asian", "Native" };
+
+        internal sealed class Voice
         {
+            /// <summary>The folder name: male_White_Vane.</summary>
             public string Name;
             public bool Male;
+            /// <summary>One of Races, or "" for an old &lt;sex&gt;_&lt;Name&gt; folder (any race: only a fallback).</summary>
+            public string Race = "";
+            /// <summary>In the config's voice table (else a folder found on disk only).</summary>
+            public bool Listed;
+            public bool OnDisk;
             public readonly Dictionary<string, string> Lines = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            public bool Recorded { get { return Lines.Count > 0; } }
         }
 
         private static List<Voice> voices;               // null until scanned
+        /// <summary>V2: each NPC's voice chain, by entity id, with the (sex|race|seed) it was built for.</summary>
+        private static readonly Dictionary<int, KeyValuePair<string, List<Voice>>> chains = new Dictionary<int, KeyValuePair<string, List<Voice>>>();
+        /// <summary>V2: when each NPC's bark ends (Time.unscaledTime), by entity id.</summary>
+        private static readonly Dictionary<int, float> barkUntil = new Dictionary<int, float>();
 
         // the line playing now
         private static int token;                         // bumped by every play and stop: a load that finishes late checks it
@@ -82,12 +107,17 @@ namespace SurvivorCommunity
         private static MethodInfo mGetClip, mPlayClipFile, mStop;
         private static FieldInfo fPath, fSource;
 
-        private static readonly Dictionary<string, AudioClip> ownClips = new Dictionary<string, AudioClip>(StringComparer.OrdinalIgnoreCase);
-        /// <summary>Every path SC has handed Voice Control's loader, which caches clips by path for the session (sc voice rescan).</summary>
+        /// <summary>Every path SC has let Voice Control's loader load itself (only when its cache could not be seeded): it keeps them for the session (sc voice rescan).</summary>
         private static readonly HashSet<string> vcPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // V2: Voice Control's loader cache (VoiceClipLoader._cache / _lock), seeded for one PlayClipFile call (PlayOnVc)
+        private static bool vcCacheBound;
+        private static Dictionary<string, AudioClip> vcCache;
+        private static object vcCacheLock;
+        // V2: the player's busy state (NPCAudioPlayer._isPlaying / _draining): a bark never starts over Voice Control's speech
+        private static FieldInfo fIsPlaying, fDraining;
 
         // V1: the voice gate's state. The clip's end is kept on Environment.TickCount, not a Unity clock: HoldsVoice uses no Unity API.
-        /// <summary>True only around SC's own PlayClipFile call (StartVc): the gate lets that one through.</summary>
+        /// <summary>True only around SC's own PlayClipFile call (PlayOnVc): the gate lets that one through.</summary>
         public static bool SelfCall;
         private static int talkingTo = -1;               // the NPC SC's talk is open on (XUiC_ScDialogLine), or -1
         private static int playingEntity = -1;           // the NPC SC's clip plays on, until playingUntilMs; -1 after a Stop
@@ -102,72 +132,216 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ voices ----
 
+        /// <summary>
+        /// The voice table (ScConfig.Voices, in its order; a voice whose folder doesn't exist yet has no lines), then any
+        /// other folder on disk named &lt;male|female&gt;_&lt;Race&gt;_&lt;Name&gt; (or the old &lt;male|female&gt;_&lt;Name&gt;, raceless).
+        /// Scanned once per world (and by sc voice rescan).
+        /// </summary>
         private static List<Voice> Voices()
         {
             if (voices != null) return voices;
             var list = new List<Voice>();
+            var byName = new Dictionary<string, Voice>(StringComparer.OrdinalIgnoreCase);
             try
             {
+                if (!ScConfig.Parsed && ThreadManager.IsMainThread()) ScConfig.EnsureParsed();
+                foreach (string n in ScConfig.Voices)
+                {
+                    Voice v = ParseName(n);
+                    if (v == null)
+                    {
+                        ScLog.Once("voice-table-" + n, "voice: Voices lists '" + n + "', which is not <male|female>_<Race>_<Name> with a race of " + string.Join("/", Races) + " - left out");
+                        continue;
+                    }
+                    if (byName.ContainsKey(v.Name)) continue;
+                    v.Listed = true;
+                    list.Add(v);
+                    byName[v.Name] = v;
+                }
                 Mod mod = ModManager.GetMod("SurvivorCommunity");
                 string root = mod != null ? Path.Combine(Path.Combine(mod.Path, "Resources"), Folder) : null;
+                var extra = new List<Voice>();
                 if (root != null && Directory.Exists(root))
                 {
                     foreach (string dir in Directory.GetDirectories(root))
                     {
                         string name = Path.GetFileName(dir);
-                        int us = name.IndexOf('_');
-                        string sex = us > 0 ? name.Substring(0, us) : "";
-                        bool male;
-                        if (sex.Equals("male", StringComparison.OrdinalIgnoreCase)) male = true;
-                        else if (sex.Equals("female", StringComparison.OrdinalIgnoreCase)) male = false;
-                        else
+                        Voice v;
+                        if (!byName.TryGetValue(name, out v))
                         {
-                            ScLog.Once("voice-folder-" + name, "voice: Resources/Voices/" + name + " is not named male_<Name> or female_<Name> - skipped");
-                            continue;
+                            v = ParseName(name);
+                            if (v == null)
+                            {
+                                ScLog.Once("voice-folder-" + name, "voice: Resources/Voices/" + name + " is not named <male|female>_<Race>_<Name> - skipped");
+                                continue;
+                            }
+                            extra.Add(v);
+                            byName[v.Name] = v;
                         }
-                        var v = new Voice { Name = name, Male = male };
+                        v.OnDisk = true;
                         foreach (string f in Directory.GetFiles(dir, "*.ogg")) v.Lines[Path.GetFileNameWithoutExtension(f)] = f;
-                        if (v.Lines.Count > 0) list.Add(v);
                     }
                 }
-                list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                extra.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                list.AddRange(extra);
             }
             catch (Exception e)
             {
                 ScLog.Once("voice-scan", e);
             }
             voices = list;
+            chains.Clear();
             ScLog.Out("voice: " + Describe());
             return voices;
         }
 
-        /// <summary>The voices found, for the log and the console: "female_Jessica (7 lines), male_Vane (7 lines)".</summary>
+        /// <summary>A voice from its folder name: &lt;male|female&gt;_&lt;Race&gt;_&lt;Name&gt;, or the old &lt;male|female&gt;_&lt;Name&gt; (raceless); null when it is neither.</summary>
+        private static Voice ParseName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            name = name.Trim();
+            int us = name.IndexOf('_');
+            if (us <= 0 || us == name.Length - 1) return null;
+            string sex = name.Substring(0, us);
+            bool male;
+            if (sex.Equals("male", StringComparison.OrdinalIgnoreCase)) male = true;
+            else if (sex.Equals("female", StringComparison.OrdinalIgnoreCase)) male = false;
+            else return null;
+            string rest = name.Substring(us + 1);
+            int us2 = rest.IndexOf('_');
+            string race = "";
+            if (us2 > 0 && us2 < rest.Length - 1)
+            {
+                race = CanonRace(rest.Substring(0, us2));
+                if (race == null) return null;             // a third part that is no race: a typo, not an old name
+            }
+            return new Voice { Name = name, Male = male, Race = race };
+        }
+
+        /// <summary>White, Black, Asian or Native (any case), as the table spells it; null for anything else.</summary>
+        public static string CanonRace(string race)
+        {
+            if (string.IsNullOrEmpty(race)) return null;
+            foreach (string r in Races) if (r.Equals(race.Trim(), StringComparison.OrdinalIgnoreCase)) return r;
+            return null;
+        }
+
+        /// <summary>The voices found, for the log and the console: the recorded ones with their lines, and how many of the table have none yet.</summary>
         public static string Describe()
         {
             List<Voice> all = voices;
             if (all == null) return "not scanned yet";
-            if (all.Count == 0) return "no voices in Resources/" + Folder;
+            if (all.Count == 0) return "no voices (Voices is empty and Resources/" + Folder + " has none)";
             var sb = new StringBuilder();
+            int silent = 0;
             foreach (Voice v in all)
             {
+                if (!v.Recorded) { silent++; continue; }
                 if (sb.Length > 0) sb.Append(", ");
-                sb.Append(v.Name).Append(" (").Append(v.Lines.Count).Append(v.Lines.Count == 1 ? " line)" : " lines)");
+                sb.Append(v.Name).Append(" (").Append(v.Lines.Count).Append(v.Lines.Count == 1 ? " line" : " lines").Append(v.Listed ? ")" : ", not in Voices)");
             }
+            if (sb.Length == 0) sb.Append("none recorded");
+            if (silent > 0) sb.Append("; ").Append(silent).Append(silent == 1 ? " voice" : " voices").Append(" of the table with no recordings yet");
             return sb.ToString();
         }
 
-        /// <summary>The voice this survivor speaks in, or null: not one of the community's survivors, or no voice of their sex.</summary>
-        private static Voice VoiceOf(EntityAlive npc)
+        /// <summary>
+        /// V2: the race and sex a voice is picked for: the body's own archetype (for SC's bodies the look SC applied), else
+        /// SC's saved look (a re-created body's, ScLooks.Get), else the class's sex with no race. from: model, look or class.
+        /// </summary>
+        public static void RaceAndSex(EntityAlive npc, out string race, out bool male, out string from)
         {
-            if (npc == null || !ScXnpc.IsSurvivorBody(npc)) return null;
+            race = null;
+            male = true;
+            from = "class";
+            bool sexKnown = false;
+            try
+            {
+                EModelSDCS m = npc != null ? npc.emodel as EModelSDCS : null;
+                Archetype a = m != null ? m.Archetype : null;
+                if (a != null)
+                {
+                    male = a.IsMale;
+                    sexKnown = true;
+                    from = "model";
+                    race = CanonRace(a.Race);
+                    if (race != null) return;
+                }
+                Look l = npc != null ? ScLooks.Get(npc) : null;
+                if (l != null)
+                {
+                    if (!sexKnown) male = l.Male;
+                    sexKnown = true;
+                    race = CanonRace(l.Race);
+                    if (race != null) { from = "look"; return; }
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-race", e);
+            }
+            if (!sexKnown) male = ScLooks.ClassIsMale(ScCommunity.ClassName(npc));
+        }
+
+        /// <summary>V2: the name a voice is dealt by: a survivor's name; a raider's name and entity id (raiders share names).</summary>
+        private static string Seed(EntityAlive npc, bool raider)
+        {
+            return ScCommunity.DisplayName(npc) + (raider ? "#" + npc.entityId : "");
+        }
+
+        /// <summary>
+        /// V2: the voices this NPC speaks in, first choice first (empty: none of their sex at all; null: not one of SC's
+        /// survivors or raiders). By race (VoiceByRace and a race known): the two voices of their race and sex, the one
+        /// their name picks first; then every other recorded voice of their sex, in an order their name sets (so one person
+        /// borrows the same voice for every line). Otherwise every recorded voice of their sex, the one their name picks
+        /// first (the pre-V2 deal). Cached per entity while their sex, race and name stay the same.
+        /// </summary>
+        internal static List<Voice> Chain(EntityAlive npc)
+        {
+            if (npc == null) return null;
+            bool raider = ScXnpc.IsRaider(npc);
+            if (!raider && !ScXnpc.IsSurvivorBody(npc)) return null;
+            string race, from;
+            bool male;
+            RaceAndSex(npc, out race, out male, out from);
+            string seed = Seed(npc, raider);
             List<Voice> all = Voices();
-            bool male = ScLooks.ClassIsMale(ScCommunity.ClassName(npc));
-            int n = 0;
-            foreach (Voice v in all) if (v.Male == male) n++;
-            if (n == 0) return null;
-            int pick = (int)(Fnv(ScCommunity.DisplayName(npc)) % (uint)n);
-            foreach (Voice v in all) if (v.Male == male && pick-- == 0) return v;
-            return null;
+            string sig = (male ? "M" : "F") + "|" + (race ?? "") + "|" + seed + "|" + ScConfig.VoiceByRace;
+            KeyValuePair<string, List<Voice>> cached;
+            if (chains.TryGetValue(npc.entityId, out cached) && cached.Key == sig) return cached.Value;
+            List<Voice> chain = ChainFor(all, male, race, seed);
+            if (chains.Count > 512) chains.Clear();
+            chains[npc.entityId] = new KeyValuePair<string, List<Voice>>(sig, chain);
+            return chain;
+        }
+
+        private static List<Voice> ChainFor(List<Voice> all, bool male, string race, string seed)
+        {
+            var chain = new List<Voice>();
+            if (ScConfig.VoiceByRace && race != null)
+            {
+                var pool = new List<Voice>();
+                foreach (Voice v in all) if (v.Listed && v.Male == male && v.Race == race) pool.Add(v);
+                if (pool.Count > 0)
+                {
+                    int first = (int)(Fnv(seed) % (uint)pool.Count);
+                    for (int i = 0; i < pool.Count; i++) chain.Add(pool[(first + i) % pool.Count]);
+                }
+            }
+            var rest = new List<Voice>();
+            foreach (Voice v in all) if (v.Male == male && v.Recorded && !chain.Contains(v)) rest.Add(v);
+            if (chain.Count == 0)
+            {
+                // the pre-V2 deal: every recorded voice of the sex by name, the one the name picks first
+                rest.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                if (rest.Count == 0) return chain;
+                int pick = (int)(Fnv(seed) % (uint)rest.Count);
+                for (int i = 0; i < rest.Count; i++) chain.Add(rest[(pick + i) % rest.Count]);
+                return chain;
+            }
+            rest.Sort((a, b) => Fnv(seed + "|" + a.Name).CompareTo(Fnv(seed + "|" + b.Name)));
+            chain.AddRange(rest);
+            return chain;
         }
 
         /// <summary>FNV-1a: a stable string hash (string.GetHashCode is not stable across runtimes).</summary>
@@ -179,36 +353,42 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The clip for this line in this voice, and the key it was found under; null when the line is not voiced. A line
-        /// picked at runtime (vo2: lineKey, an enclave request's Localization key) is looked up by that key first. Then the
-        /// statement: the dialog in the key is the statement's own (a child dialog SCore opened has its own id), else the
-        /// innermost open one.
+        /// The clip for this line in this NPC's voices (the first voice of the chain that has it), the key it was found
+        /// under and that voice; null when the line is not voiced. A line picked at runtime (vo2: lineKey, an enclave
+        /// request's Localization key) is looked up by that key first. Then the statement: the dialog in the key is the
+        /// statement's own (a child dialog SCore opened has its own id), else the innermost open one.
         /// </summary>
-        private static string ClipFor(Voice v, Dialog dialog, BaseStatement st, string lineKey, out string key)
+        private static string ClipFor(List<Voice> chain, Dialog dialog, BaseStatement st, string lineKey, out string key, out Voice used)
         {
             key = null;
-            if (v == null || st == null || string.IsNullOrEmpty(st.ID)) return null;
-            string path;
-            if (!string.IsNullOrEmpty(lineKey) && v.Lines.TryGetValue(lineKey, out path))
-            {
-                key = lineKey;
-                return path;
-            }
+            used = null;
+            if (chain == null || chain.Count == 0 || st == null || string.IsNullOrEmpty(st.ID)) return null;
             Dialog owner = st.OwnerDialog;
             if (owner == null && dialog != null)
             {
                 owner = dialog;
                 for (int depth = 0; owner.ChildDialog != null && depth < 8; depth++) owner = owner.ChildDialog;
             }
-            if (owner != null && !string.IsNullOrEmpty(owner.ID) && v.Lines.TryGetValue(owner.ID + "." + st.ID, out path))
+            string ownKey = owner != null && !string.IsNullOrEmpty(owner.ID) ? owner.ID + "." + st.ID : null;
+            foreach (Voice v in chain)
             {
-                key = owner.ID + "." + st.ID;
-                return path;
+                string path;
+                if (!string.IsNullOrEmpty(lineKey) && v.Lines.TryGetValue(lineKey, out path)) { key = lineKey; used = v; return path; }
+                if (ownKey != null && v.Lines.TryGetValue(ownKey, out path)) { key = ownKey; used = v; return path; }
+                if (v.Lines.TryGetValue(st.ID, out path)) { key = st.ID; used = v; return path; }
             }
-            if (v.Lines.TryGetValue(st.ID, out path))
+            return null;
+        }
+
+        /// <summary>V2: the first voice of the chain with a clip for any of these keys, and those keys in it (null: none has one).</summary>
+        internal static Voice FirstWith(List<Voice> chain, IList<string> keys, List<string> found)
+        {
+            found.Clear();
+            if (chain == null || keys == null) return null;
+            foreach (Voice v in chain)
             {
-                key = st.ID;
-                return path;
+                foreach (string k in keys) if (v.Lines.ContainsKey(k)) found.Add(k);
+                if (found.Count > 0) return v;
             }
             return null;
         }
@@ -225,7 +405,8 @@ namespace SurvivorCommunity
         {
             if (npc == null || st == null) return;
             string key = null;
-            string path = ScConfig.VoiceLines ? ClipFor(VoiceOf(npc), dialog, st, lineKey, out key) : null;
+            Voice used;
+            string path = ScConfig.VoiceLines ? ClipFor(TalkChain(npc), dialog, st, lineKey, out key, out used) : null;
             string tag = path != null ? npc.entityId + "|" + key : null;
             if (tag != null && tag == playingTag && Time.unscaledTime < playingUntil) return;   // still saying it
             Stop();
@@ -243,7 +424,8 @@ namespace SurvivorCommunity
         public static void SayAfterTalk(EntityAlive npc, string key)
         {
             if (npc == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return;
-            Voice v = VoiceOf(npc);
+            var found = new List<string>();
+            Voice v = FirstWith(TalkChain(npc), new[] { key }, found);
             string path;
             if (v == null || !v.Lines.TryGetValue(key, out path)) return;
             string tag = npc.entityId + "|" + key;
@@ -251,6 +433,12 @@ namespace SurvivorCommunity
             if (recent.TryGetValue(tag, out at) && Time.unscaledTime - at < RepeatSeconds) return;
             Play(npc, tag, path);
             parting = true;   // after Play: its Stop clears the flag
+        }
+
+        /// <summary>The voices a talk's line is said in: one of the community's survivors only (a raider is never talked to).</summary>
+        private static List<Voice> TalkChain(EntityAlive npc)
+        {
+            return npc != null && ScXnpc.IsSurvivorBody(npc) ? Chain(npc) : null;
         }
 
         /// <summary>
@@ -450,6 +638,13 @@ namespace SurvivorCommunity
                 swallowedTotal = 0;
                 letThrough = 0;
             }
+            // V2: the voice table is read again for the new world's config; barks, greetings and taunts start over
+            voices = null;
+            chains.Clear();
+            barkUntil.Clear();
+            ScBarks.Reset();
+            ScGreetings.Reset();
+            ScTaunts.Reset();
         }
 
         private static string NameOf(int entityId)
@@ -503,43 +698,30 @@ namespace SurvivorCommunity
             }
             int id = npc.entityId;
             int my = token;
-            Component player = VcPlayer(npc);
-            if (player != null)
+            // V2: SC loads the clip (ScClipCache, LRU) and then plays it through Voice Control's player where there is one -
+            // decompressed for that player's lip sync, compressed for SC's own source
+            bool forVc = VcPlayer(npc) != null;
+            ScClipCache.Get(path, !forVc, clip =>
             {
                 try
                 {
-                    object entry = Activator.CreateInstance(tEntry);
-                    fPath.SetValue(entry, path);
-                    vcPaths.Add(path);
-                    Action<AudioClip> ready = clip =>
+                    if (my != token || clip == null) return;   // superseded meanwhile, or did not load (logged by the cache)
+                    if (npc == null || npc.IsDead()) return;    // Unity null: gone while the clip loaded
+                    Component player = forVc ? VcPlayer(npc) : null;
+                    AudioClip on = player != null ? PlayOnVc(player, path, clip, null) : null;
+                    if (on != null)
                     {
-                        try { if (my == token) StartVc(player, entry, id, tag, path, clip); }
-                        catch (Exception e) { ScLog.Once("voice-vc-play", e); }
-                    };
-                    mGetClip.Invoke(null, new object[] { entry, ready });
-                    return;
+                        playingPlayer = player;
+                        Started(id, tag, on);
+                    }
+                    else PlayOwn(npc, tag, clip);
+                    ScClipCache.MarkPlaying(clip);
                 }
                 catch (Exception e)
                 {
-                    ScLog.Once("voice-vc", e);   // fall through to SC's own source
+                    ScLog.Once("voice-play", e);
                 }
-            }
-            StartOwn(npc, tag, path, my);
-        }
-
-        private static void StartVc(Component player, object entry, int entityId, string tag, string path, AudioClip clip)
-        {
-            if (clip == null)
-            {
-                ScLog.Once("voice-load-" + path, "voice: " + path + " did not load (Voice Control's loader)");
-                return;
-            }
-            if (player == null) return;   // Unity null: the NPC went away while the clip loaded
-            SelfCall = true;              // V1: the gate's PlayClipFile prefix lets SC's own call through
-            try { mPlayClipFile.Invoke(player, new object[] { entry, null }); }
-            finally { SelfCall = false; }
-            playingPlayer = player;
-            Started(entityId, tag, clip);
+            });
         }
 
         /// <summary>A clip started: what Stop, the repeat rule and (V1) the voice gate read.</summary>
@@ -577,7 +759,7 @@ namespace SurvivorCommunity
                     else ours = Time.unscaledTime < playingUntil;
                     if (ours) mStop.Invoke(playingPlayer, null);
                 }
-                if (playingOwn != null) playingOwn.Stop();
+                if (playingOwn != null && (object)playingOwn.clip == (object)playingClip) playingOwn.Stop();
             }
             catch (Exception e)
             {
@@ -625,6 +807,13 @@ namespace SurvivorCommunity
                     tPlayer = null;
                     return false;
                 }
+                // V2: its busy state (a bark never starts over Voice Control's speech) and its loader cache (PlayOnVc)
+                FieldInfo f = tPlayer.GetField("_isPlaying", BindingFlags.NonPublic | BindingFlags.Instance);
+                fIsPlaying = f != null && f.FieldType == typeof(bool) ? f : null;
+                f = tPlayer.GetField("_draining", BindingFlags.NonPublic | BindingFlags.Instance);
+                fDraining = f != null && f.FieldType == typeof(bool) ? f : null;
+                if (fIsPlaying == null || fDraining == null)
+                    ScLog.Warn("voice: Voice Control's NPCAudioPlayer._isPlaying / _draining not found (Voice Control update?) - SC's barks may start over its speech");
                 ScLog.Out("voice: clips play through Voice Control's player where it has one (lip sync)"
                           + (fSource == null ? "; its AudioSource is not readable, so a stop trusts the clip's length" : ""));
                 return true;
@@ -637,53 +826,102 @@ namespace SurvivorCommunity
             }
         }
 
-        // ------------------------------------------------------------------ SC's own source (no Voice Control player) ----
-
-        private static void StartOwn(EntityAlive npc, string tag, string path, int my)
+        /// <summary>V2: Voice Control's loader cache (VoiceClipLoader._cache, _lock), bound once; false when it has changed.</summary>
+        private static bool BindVcCache()
         {
-            AudioClip clip;
-            if (ownClips.TryGetValue(path, out clip) && clip != null)
-            {
-                PlayOwn(npc, tag, clip);
-                return;
-            }
-            GameManager gm = GameManager.Instance;
-            if (gm == null) return;
-            gm.StartCoroutine(LoadOwn(path, loaded =>
-            {
-                if (loaded == null) return;
-                ownClips[path] = loaded;
-                if (my == token) PlayOwn(npc, tag, loaded);
-            }));
-        }
-
-        private static IEnumerator LoadOwn(string path, Action<AudioClip> done)
-        {
-            UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(new Uri(path).AbsoluteUri, AudioType.OGGVORBIS);
+            if (vcCacheBound) return vcCache != null;
+            vcCacheBound = true;
             try
             {
-                yield return req.SendWebRequest();
-                AudioClip clip = null;
-                try
+                Type tLoader = ScTypes.Find("XNPCVoiceControl.Core.VoiceClipLoader");
+                FieldInfo fCache = tLoader != null ? tLoader.GetField("_cache", BindingFlags.NonPublic | BindingFlags.Static) : null;
+                FieldInfo fLock = tLoader != null ? tLoader.GetField("_lock", BindingFlags.NonPublic | BindingFlags.Static) : null;
+                vcCache = fCache != null ? fCache.GetValue(null) as Dictionary<string, AudioClip> : null;
+                vcCacheLock = fLock != null ? fLock.GetValue(null) : null;
+                if (vcCache == null || vcCacheLock == null)
                 {
-                    if (req.result == UnityWebRequest.Result.Success) clip = DownloadHandlerAudioClip.GetContent(req);
-                    else ScLog.Once("voice-load-" + path, "voice: " + path + " did not load: " + req.error);
-                    done(clip);
-                }
-                catch (Exception e)
-                {
-                    ScLog.Once("voice-own", e);
+                    vcCache = null;
+                    if (tLoader != null)
+                        ScLog.Warn("voice: Voice Control's VoiceClipLoader._cache / _lock not found (Voice Control update?) - SC's clips played through its player stay in its cache for the session");
                 }
             }
-            finally
+            catch (Exception e)
             {
-                req.Dispose();
+                vcCache = null;
+                ScLog.Once("voice-bind-cache", e);
             }
+            return vcCache != null;
         }
 
-        private static void PlayOwn(EntityAlive npc, string tag, AudioClip clip)
+        /// <summary>
+        /// V2: plays a clip SC loaded on Voice Control's player (lip sync, its volume and range): the clip goes into Voice
+        /// Control's loader cache under its path for the one PlayClipFile call - which then finds it and starts it at once,
+        /// inside the call - and comes out again, so Voice Control never keeps SC's clips. Without that cache (a changed
+        /// Voice Control) its loader loads the file itself and keeps it (vcPaths, sc voice rescan). V1: SelfCall lets the
+        /// call through the gate. onComplete: Voice Control calls it when the clip ends (or at once when it cannot play).
+        /// Returns the clip now on the player's source (the cache's own copy when Voice Control already had one), or null
+        /// when nothing was handed over.
+        /// </summary>
+        private static AudioClip PlayOnVc(Component player, string path, AudioClip clip, Action onComplete)
         {
-            if (npc == null || npc.IsDead()) return;   // Unity null: gone while the clip loaded
+            if (player == null || clip == null || !BindVc()) return null;
+            object entry = Activator.CreateInstance(tEntry);
+            fPath.SetValue(entry, path);
+            bool seeded = false;
+            if (BindVcCache())
+            {
+                lock (vcCacheLock)
+                {
+                    if (!vcCache.ContainsKey(path))
+                    {
+                        vcCache[path] = clip;
+                        seeded = true;
+                    }
+                }
+            }
+            else vcPaths.Add(path);
+            SelfCall = true;              // V1: the gate's PlayClipFile prefix lets SC's own call through
+            try { mPlayClipFile.Invoke(player, new object[] { entry, onComplete }); }
+            finally
+            {
+                SelfCall = false;
+                if (seeded)
+                {
+                    lock (vcCacheLock)
+                    {
+                        AudioClip c;
+                        if (vcCache.TryGetValue(path, out c) && (object)c == (object)clip) vcCache.Remove(path);
+                    }
+                }
+            }
+            // started inside the call from the cache (ours or Voice Control's own copy); without the cache its loader is still
+            // loading the file, which plays as long as ours
+            if (!BindVcCache()) return clip;
+            AudioSource src = fSource != null ? fSource.GetValue(player) as AudioSource : null;
+            return src != null && src.clip != null ? src.clip : clip;
+        }
+
+        /// <summary>V2: Voice Control is saying something on this player (a clip, a sentence, or a queue still draining).</summary>
+        private static bool VcBusy(Component player)
+        {
+            try
+            {
+                if (player == null) return false;
+                if (fIsPlaying != null && (bool)fIsPlaying.GetValue(player)) return true;
+                if (fDraining != null && (bool)fDraining.GetValue(player)) return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-busy", e);
+            }
+            return false;
+        }
+
+        // ------------------------------------------------------------------ SC's own source (no Voice Control player) ----
+
+        /// <summary>SC's own AudioSource on a child of the NPC (Voice Control's lip sync and relay take the root's first one).</summary>
+        private static AudioSource OwnSource(EntityAlive npc)
+        {
             Transform t = npc.transform.Find(OwnChild);
             GameObject go;
             if (t != null) go = t.gameObject;
@@ -707,21 +945,118 @@ namespace SurvivorCommunity
                 src.bypassReverbZones = true;
             }
             src.volume = OwnVolume;
+            return src;
+        }
+
+        private static void PlayOwn(EntityAlive npc, string tag, AudioClip clip)
+        {
+            if (npc == null || npc.IsDead()) return;   // Unity null: gone while the clip loaded
+            AudioSource src = OwnSource(npc);
             src.clip = clip;
             src.Play();
             playingOwn = src;
             Started(npc.entityId, tag, clip);
         }
 
+        // ------------------------------------------------------------------ V2: barks ----
+
+        /// <summary>V2: the talk is open on this NPC, or SC's talk line still plays on them: no bark on them.</summary>
+        public static bool Holds(EntityAlive npc)
+        {
+            if ((object)npc == null) return false;
+            int id = npc.entityId;
+            return id == talkingTo || (id == playingEntity && ClipMsLeft() > 0);
+        }
+
+        /// <summary>V2: SC's talk window is open (on anyone).</summary>
+        public static bool TalkOpen { get { return talkingTo >= 0; } }
+
+        /// <summary>V2: a bark of SC's is still playing on this NPC, or Voice Control is saying something on them.</summary>
+        public static bool Busy(EntityAlive npc)
+        {
+            if ((object)npc == null) return false;
+            float until;
+            if (barkUntil.TryGetValue(npc.entityId, out until) && Time.unscaledTime < until) return true;
+            return VcBusy(VcPlayer(npc));
+        }
+
+        /// <summary>V2: Voice Control is saying something on this NPC.</summary>
+        public static bool VcBusy(EntityAlive npc)
+        {
+            return VcBusy(VcPlayer(npc));
+        }
+
+        /// <summary>
+        /// V2: plays a bark's clip on an NPC: through Voice Control's player on it when lipSync and it has one (a survivor
+        /// near the player), else from SC's own source on a child (a raider, or no player). allowDead: a dying raider's
+        /// last words. started gets the clip once it plays; onComplete runs when it ends, or at once when it cannot play.
+        /// </summary>
+        internal static void PlayBark(EntityAlive npc, string path, bool lipSync, bool allowDead, Action<AudioClip> started, Action onComplete)
+        {
+            if (npc == null || string.IsNullOrEmpty(path)) { onComplete?.Invoke(); return; }
+            int id = npc.entityId;
+            barkUntil[id] = Time.unscaledTime + 1f;          // while it loads: a second bark on them waits
+            bool forVc = lipSync && VcPlayer(npc) != null;   // decompressed for Voice Control's lip sync, else compressed
+            ScClipCache.Get(path, !forVc, clip =>
+            {
+                bool handed = false;
+                try
+                {
+                    if (clip == null || npc == null || (!allowDead && npc.IsDead()) || npc.transform == null)
+                    {
+                        barkUntil.Remove(id);
+                        return;
+                    }
+                    Component player = forVc ? VcPlayer(npc) : null;
+                    AudioClip on = player != null ? PlayOnVc(player, path, clip, onComplete) : null;
+                    if (on != null) handed = true;
+                    else
+                    {
+                        AudioSource src = OwnSource(npc);
+                        src.clip = clip;
+                        src.Play();
+                        if (onComplete != null)
+                        {
+                            GameManager gm = GameManager.Instance;
+                            if (gm != null) { gm.StartCoroutine(After(clip.length, onComplete)); handed = true; }
+                        }
+                    }
+                    ScClipCache.MarkPlaying(clip);
+                    barkUntil[id] = Time.unscaledTime + clip.length;
+                    started?.Invoke(clip);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("voice-bark-play", e);
+                }
+                finally
+                {
+                    if (!handed && onComplete != null)
+                    {
+                        try { onComplete(); }
+                        catch (Exception e) { ScLog.Once("voice-bark-complete", e); }
+                    }
+                }
+            });
+        }
+
+        private static IEnumerator After(float seconds, Action then)
+        {
+            yield return new WaitForSeconds(seconds);
+            try { then(); }
+            catch (Exception e) { ScLog.Once("voice-bark-after", e); }
+        }
+
         // ------------------------------------------------------------------ console ----
 
-        /// <summary>sc voice: the switches, the player in use and the voices found.</summary>
+        /// <summary>sc voice: the switches, the player in use, the voices found and the clip cache.</summary>
         public static string Status()
         {
             Voices();
             bool vc = BindVc();
-            return "DialogLine=" + ScConfig.DialogLine + " VoiceLines=" + ScConfig.VoiceLines + "; player: "
-                   + (vc ? "Voice Control's where it has one (lip sync), else SC's own" : "SC's own (no lip sync)") + "; voices: " + Describe();
+            return "DialogLine=" + ScConfig.DialogLine + " VoiceLines=" + ScConfig.VoiceLines + " VoiceByRace=" + ScConfig.VoiceByRace + "; player: "
+                   + (vc ? "Voice Control's where it has one (lip sync), else SC's own" : "SC's own (no lip sync)") + "; voices: " + Describe()
+                   + "; clips: " + ScClipCache.Describe();
         }
 
         /// <summary>sc voice rescan: read Resources/Voices again and forget loaded clips, so new or replaced files play without a restart.</summary>
@@ -729,22 +1064,18 @@ namespace SurvivorCommunity
         {
             Stop();
             voices = null;
-            ownClips.Clear();
+            chains.Clear();
+            int cleared = ScClipCache.Clear();
             recent.Clear();
             int dropped = 0;
             try
             {
-                // Voice Control caches clips by path for the session: drop the ones SC loaded so a replaced file reloads
-                Type tLoader = ScTypes.Find("XNPCVoiceControl.Core.VoiceClipLoader");
-                FieldInfo fCache = tLoader != null ? tLoader.GetField("_cache", BindingFlags.NonPublic | BindingFlags.Static) : null;
-                FieldInfo fLock = tLoader != null ? tLoader.GetField("_lock", BindingFlags.NonPublic | BindingFlags.Static) : null;
-                var cache = fCache != null ? fCache.GetValue(null) as Dictionary<string, AudioClip> : null;
-                object gate = fLock != null ? fLock.GetValue(null) : null;
-                if (cache != null && gate != null)
+                // Voice Control caches clips by path for the session: drop the ones its loader loaded for SC so a replaced file reloads
+                if (BindVcCache())
                 {
-                    lock (gate)
+                    lock (vcCacheLock)
                     {
-                        foreach (string k in vcPaths) if (cache.Remove(k)) dropped++;
+                        foreach (string k in vcPaths) if (vcCache.Remove(k)) dropped++;
                     }
                 }
                 vcPaths.Clear();
@@ -754,19 +1085,22 @@ namespace SurvivorCommunity
                 ScLog.Once("voice-rescan", e);
             }
             Voices();
-            return Describe() + (dropped > 0 ? "; " + dropped + " cached clip(s) dropped from Voice Control" : "");
+            return Describe() + "; " + cleared + " loaded clip(s) forgotten" + (dropped > 0 ? "; " + dropped + " cached clip(s) dropped from Voice Control" : "");
         }
 
-        /// <summary>sc voice play: this survivor says this line now, repeat rule or not (the key is a clip's name).</summary>
+        /// <summary>sc voice play: this survivor says this line now, repeat rule or not (the key is a clip's name), in the first voice of their chain that has it.</summary>
         public static string PlayLine(EntityAlive npc, string key)
         {
             if (npc == null) return "no survivor";
-            Voice v = VoiceOf(npc);
-            if (v == null) return ScCommunity.DisplayName(npc) + " has no voice (not one of the community's survivors, or no voice of their sex)";
+            List<Voice> chain = TalkChain(npc);
+            if (chain == null || chain.Count == 0) return ScCommunity.DisplayName(npc) + " has no voice (not one of the community's survivors, or no voice of their sex)";
+            var found = new List<string>();
+            Voice v = FirstWith(chain, new[] { key }, found);
             string path;
-            if (!v.Lines.TryGetValue(key, out path)) return v.Name + " has no line " + key + " (it has: " + string.Join(", ", new List<string>(v.Lines.Keys).ToArray()) + ")";
+            if (v == null || !v.Lines.TryGetValue(key, out path))
+                return "none of " + ScCommunity.DisplayName(npc) + "'s voices (" + Names(chain, 4) + ") has a line " + key;
             Play(npc, npc.entityId + "|" + key, path);
-            return ScCommunity.DisplayName(npc) + " says " + key + " in " + v.Name;
+            return ScCommunity.DisplayName(npc) + " says " + key + " in " + v.Name + (v == chain[0] ? "" : " (their own voice, " + chain[0].Name + ", has no clip for it)");
         }
 
         /// <summary>The nearest survivor with a voice within r metres of a point, for sc voice play without a name.</summary>
@@ -782,9 +1116,63 @@ namespace SurvivorCommunity
                 EntityAlive e = list[i] as EntityAlive;
                 if (e == null || e.IsDead() || !ScXnpc.IsSurvivorBody(e)) continue;
                 float sq = (e.position - at).sqrMagnitude;
-                if (sq < bestSq && VoiceOf(e) != null) { best = e; bestSq = sq; }
+                if (sq >= bestSq) continue;
+                List<Voice> chain = Chain(e);
+                if (chain != null && chain.Count > 0) { best = e; bestSq = sq; }
             }
             return best;
+        }
+
+        private static string Names(List<Voice> chain, int max)
+        {
+            var sb = new StringBuilder();
+            for (int i = 0; i < chain.Count && i < max; i++) sb.Append(i > 0 ? ", " : "").Append(chain[i].Name);
+            if (chain.Count > max) sb.Append(", ...");
+            return sb.ToString();
+        }
+
+        /// <summary>V2, sc voice who: how this NPC's voice is chosen, the chain, and which bark families it can say.</summary>
+        public static List<string> Who(EntityAlive npc)
+        {
+            var o = new List<string>();
+            if (npc == null) { o.Add("no NPC"); return o; }
+            bool raider = ScXnpc.IsRaider(npc);
+            string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
+            if (!raider && !ScXnpc.IsSurvivorBody(npc))
+            {
+                o.Add(who + " is not one of the community's survivors or SC's raiders - SC gives them no voice");
+                return o;
+            }
+            string race, from;
+            bool male;
+            RaceAndSex(npc, out race, out male, out from);
+            List<Voice> chain = Chain(npc);
+            o.Add(who + ", " + (raider ? "raider" : "survivor") + ": " + (race ?? "race unknown") + " " + (male ? "male" : "female") + " (from the "
+                  + (from == "model" ? "body's archetype" : from == "look" ? "saved look" : "class name") + "), VoiceByRace " + (ScConfig.VoiceByRace ? "on" : "off")
+                  + (raider ? ", dealt by name and id" : ", dealt by name"));
+            if (chain == null || chain.Count == 0) { o.Add("  no voice of their sex in the table or on disk"); return o; }
+            var sb = new StringBuilder("  voice: ");
+            for (int i = 0; i < chain.Count; i++)
+            {
+                Voice v = chain[i];
+                if (i == 1) sb.Append(" | then ");
+                else if (i > 1) sb.Append(", ");
+                sb.Append(v.Name).Append(" (").Append(v.Recorded ? v.Lines.Count + " clips" : v.OnDisk ? "no clips yet" : "no folder yet").Append(')');
+            }
+            o.Add(sb.ToString());
+            Voice talk = null;
+            foreach (Voice v in chain) if (v.Recorded) { talk = v; break; }
+            o.Add("  " + (raider ? "taunts" : "talk lines") + " come from the first voice above with the line's clip"
+                  + (talk == null ? ": none has any clip yet - silent" : talk == chain[0] ? "" : ": their own voice has none yet, so " + talk.Name + " speaks for now"));
+            o.Add("  " + ScBarks.FamilyReport(npc, chain, raider));
+            return o;
+        }
+
+        /// <summary>V2: the family report's lookups (ScBarks): does a voice have this clip, and its path.</summary>
+        internal static bool HasClip(Voice v, string key, out string path)
+        {
+            path = null;
+            return v != null && v.Lines.TryGetValue(key, out path);
         }
     }
 }

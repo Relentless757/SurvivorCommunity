@@ -1417,26 +1417,38 @@ vanilla's.
   shows in a panel above the responses, for every NPC but SCore's older type (`DialogLine`; `windowScDialogLine` in the
   vanilla dialog group, `XUiC_ScDialogLine`).
 - **Voices.** The community's survivors (recruits, radio contacts, members, stand-ins) speak a line when the mod has a
-  recording of it: `Resources/Voices/<male|female>_<Name>/<line>.ogg`, mono Ogg Vorbis (`VoiceLines`, `ScVoice`).
-  - Each survivor speaks in one voice of their sex, picked from their name, so they keep it while the voice list stays
-    the same (a new voice of their sex may re-deal it).
+  recording of it: `Resources/Voices/<male|female>_<Race>_<Name>/<line>.ogg`, mono Ogg Vorbis (`VoiceLines`, `ScVoice`).
+  - **By race and sex (V2, `VoiceByRace`).** The voices are a table of sixteen, two for each race (White, Black, Asian,
+    Native) and sex (`Voices` in `Config/blocks.xml`). Each survivor - and each raider, for its taunts - speaks in one
+    of the two voices of their race and sex, read from their body (SC's look), picked from their name, so they keep it
+    while the table stays the same. While that voice has no recording of a line, the other voice of their race and sex
+    says it, then any recorded voice of their sex, always the same one for that person: everyone keeps talking while a
+    race's recordings are still to come. `VoiceByRace` false deals among every recorded voice of the sex, as before.
   - A clip is named after the line's statement id (`scFavourPoi.ogg`), or `<dialog>.<statement>` for another mod's line
     (`SdcsNPC.start.ogg`, 0-XNPCCore's greeting). An enclave request's words, picked at runtime by kind and standing,
     are named after their Localization key (`scEncAsk_gun_friendly.ogg`). A line with a name or a number in it says
     only the part without them; the panel shows the whole line. A `.txt` beside each clip holds the words it says.
-  - `python Tools/voice_lines.py list | check | sidecars` lists the voiced lines, checks every voice folder, and writes
-    the `.txt` files.
+  - `python -I Tools/voice_lines.py list | check | cost | sidecars | gencs` lists the voiced lines (`--new` only V2's,
+    `--family greet,taunt` one family at a time, `--voice <folder>` only what that voice still lacks, `--tsv` for a
+    script), checks every voice of the table and every folder family by family, counts the characters to record per
+    voice, writes the `.txt` files, and writes `ScVoiceLines.cs` (V2's lines for the game) from its list.
 - **Playback** goes through Voice Control's player on the NPC when Voice Control has set one up, as it does for
   survivors near you: its face lip sync, and its TTS volume and range from its `modconfig.xml`. Otherwise SC plays the
   clip itself, with no lip sync. A new line replaces whatever the NPC was saying, Voice Control's own speech included;
   closing the talk stops only SC's clip. The same line from the same survivor is not spoken again within 30 seconds (it
-  still shows), so going back to a talk's first menu doesn't repeat the greeting.
-- **The shipped voices**, three of each sex - `male_Vane`, `male_Oxley`, `male_David`, `female_Jessica`,
-  `female_Beth`, `female_Mora` - each say all 147 lines: every survivor line in SC's talks, the enclaves' included,
-  and 0-XNPCCore's greeting. They are Vane, B. Hardscrabble Oxley, David, Jessica, Beth and Mora from the ElevenLabs
-  Voice Library, generated with ElevenLabs (eleven_v4), one take each - Vane's and Jessica's first seven lines on
-  2026-10-16, the rest on 2026-10-17 (round vo2) - and converted to mono Ogg Vorbis. A new voice is a new folder with
-  the same file names; `Tools/voice_lines.py check` shows what it still lacks.
+  still shows), so going back to a talk's first menu doesn't repeat the greeting. SC loads its clips itself and keeps
+  at most `VoiceClipCache` (48) of them, the least recently used dropped first (compressed for its own source,
+  decompressed for Voice Control's lip sync, which reads the samples); Voice Control never keeps them.
+- **The shipped voices** are the four White ones, `male_White_Vane`, `male_White_David`, `female_White_Jessica` and
+  `female_White_Beth`: each says 147 lines, every survivor line in SC's talks up to E6, the enclaves' included, and
+  0-XNPCCore's greeting. They are Vane, David, Jessica and Beth from the ElevenLabs Voice Library, generated with
+  ElevenLabs (eleven_v4), one take each - Vane's and Jessica's first seven lines on 2026-10-16, the rest on 2026-10-17
+  (round vo2) - and converted to mono Ogg Vorbis. Oxley and Mora are retired (V2). The rest of the table has no
+  recordings yet: Black `male_Black_Nate`, `male_Black_Desmond`, `female_Black_Tiffany`, `female_Black_Rene`; Asian
+  `male_Asian_Jasper`, `male_Asian_Julian`, `female_Asian_Layla`, `female_Asian_Jess` (the "Jessica NYC" voice);
+  Native four voices still to be designed (`male_Native_NativeM1`, `...M2`, `female_Native_NativeF1`, `...F2` until
+  they have names - rename them in `Voices`). A new voice is a new folder with the same file names;
+  `Tools/voice_lines.py check` shows what it still lacks and `cost` what it costs to record.
 - **Closing the talk** stops SC's clip, except an enclave leader's answer to "Let me think about it.": it comes as a
   tell as the talk closes, and is spoken then.
 - **Voice Control keeps quiet during the talk (V1, `MuteVcInTalk`).** While you talk to one of the community's survivors,
@@ -1460,9 +1472,39 @@ vanilla's.
   with a grudge refuse Voice Control's spoken "trade" too (raiders never chat: Voice Control's `no_voice`). Leaders are told to speak as
   leaders, though Voice Control may still give one a young or nervous voice. Single player only; other NPCs are untouched.
   `sc voice context [id|name]` prints what one of them is told.
-- **Console:** `sc voice` (the switches, the player in use, the voices, the voice gate), `sc voice play <line> [id|name]`,
-  `sc voice stop`, `sc voice rescan`, which picks up new or replaced clips without a restart, `sc voice gate` and
-  `sc voice sayline [line] [seconds]`.
+- **SC's greetings (V2, `ScGreetings`).** The community's survivors greet you in their own recorded voice, with a line
+  that fits who they are to you: a stranger ("Easy now. I'm not looking for trouble."), a recruit, a member at home
+  ("Welcome home, boss."), a follower, one of an enclave's people. A survivor greets you the first time each in-game
+  day you see them within 12 m (`ScGreetMeetRange`), and when you walk up within 3 m and look at them, at most every
+  two minutes each (`ScGreetWalkUpRange`, `ScGreetWalkUpSeconds`); never in a fight or a talk, one at a time
+  (`ScGreetGapSeconds`); they turn to you and the words show in Voice Control's subtitle bar. Only where their voice
+  has a recording of that greeting - and then Voice Control's own walk-up greeting is skipped for them. Without a
+  recording, Voice Control greets them exactly as before. Nobody hostile to you greets, nor an outpost stand-in or a
+  runner.
+- **Chatter (V2, `ScChatter`).** Every minute and a half or so (`ScChatterSeconds`, `ScChatterChance`), one resident at
+  home within 15 m of you says something to nobody in particular ("Somebody check the traps."): recorded lines only,
+  one speaker at a time.
+- **0-XNPCCore's lines in SC's voices (V2, `ScBarks`).** Where Voice Control is about to speak one of 0-XNPCCore's job
+  lines ("I'm out of ammo."), an order reply ("Right behind you."; one generic set of replies for every weapon swap and
+  every formation instead of one per weapon or side) or one of its own fixed lines ("I don't take orders from just
+  anyone. Hire me first."), and SC has that line recorded in the survivor's voice, SC's recording plays instead,
+  through Voice Control's player (lip sync). Without a recording, or while Voice Control is already saying something
+  on them, Voice Control speaks as before. Its AI's free speech stays its text-to-speech. Billing lines are not voiced.
+- **Raider taunts (V2, `RaiderTaunts`).** Raiders call out when they spot you ("Fresh meat!"), go to look at a noise,
+  lose you, are hit, kill you, die, and once when badly hurt ("Fall back!"), and now and then mutter when nobody is
+  about. SC plays them from the raider itself (no lip sync), recorded lines only, within 40 m of you
+  (`RaiderTauntRange`); one raider at most every 15 s and any two taunts 3 s apart (`RaiderTauntCooldown`,
+  `RaiderTauntGlobalCooldown`), so a band doesn't all shout at once.
+- **Test aid (`VoiceBarkDebug`).** With it on, a greeting, chatter line or taunt that has no recording yet still shows
+  its words and logs `voice bark (silent, no recording): ...`, so the triggers can be watched before the recordings
+  exist (Voice Control still greets where SC has no recording).
+- **Console:** `sc voice` (the switches, the player in use, the voices, the clip cache, the voice gate),
+  `sc voice play <line> [id|name]`, `sc voice stop`, `sc voice rescan`, which picks up new or replaced clips without a
+  restart, `sc voice gate` and `sc voice sayline [line] [seconds]`. V2: `sc voice who [id|name]` (race and sex, the
+  chosen voice and its fallbacks, which greetings, taunts and XNPCCore lines they can say), `sc voice greet [id|name]`,
+  `sc voice chatter [id|name]`, `sc voice taunt <spot|search|lost|hit|killed|idle|dying|retreat> [id|name]`,
+  `sc voice barks` (the switches and this session's counts) and `sc voice line <words>` (which of SC's lines Voice
+  Control's words are, and whether the nearest survivor has it recorded).
 
 ## With SurvivorOrigins: the Leadership skill
 
@@ -1497,7 +1539,11 @@ specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `Mel
 `OverwhelmedStarsPerStep`, `OverwhelmedStrangers`, `OverwhelmedHoldSeconds`, `OverwhelmedSustainSeconds`,
 `OverwhelmedGunSeconds`, `MeleePacing`, `MeleePacingRaiders`, `MeleeReach`, `MeleeReachMargin`, `ShootingSkill`, `ShootingRangePerStar`,
 `ShootingEngageMult`, `ShootingEngageMin`, `ShootingHitRadius`, `ShootingAimChest`, `ShootingDefaultStars`, `RaiderShootingStars`, the dialog
-line and voices `DialogLine`, `VoiceLines`, `MuteVcInTalk`, `VoiceEnclaveContext` (`AmmoPerRangedDay` is no longer charged; the
+line and voices `DialogLine`, `VoiceLines`, `MuteVcInTalk`, `VoiceEnclaveContext`, V2's `VoiceByRace`, `Voices`, `ScGreetings`,
+`ScGreetMeetRange`, `ScGreetWalkUpRange`, `ScGreetWalkUpSeconds`, `ScGreetGapSeconds`, `ScChatter`, `ScChatterSeconds`,
+`ScChatterChance`, `ScChatterRange`, `ScBarks`, `RaiderTaunts`, `RaiderTauntCooldown`, `RaiderTauntGlobalCooldown`,
+`RaiderTauntIdleSeconds`, `RaiderTauntHitChance`, `RaiderTauntRange`, `RaiderTauntRetreatHealth`, `VoiceBarkSubtitles`,
+`VoiceBarkDebug`, `VoiceClipCache` (`AmmoPerRangedDay` is no longer charged; the
 outposts only use it to guess which resource runs out first). Outposts: every `Outpost*` and `Radio*` property in the block
 (commented there), the `OutpostRows` / `OutpostPrefabs` tables, and `OutpostAttacks` for the risk features. Enclaves (E1):
 `Enclaves`, `EnclavesPerKm2`, `EnclaveMin`, `EnclaveMax`, `EnclaveSpacingMin`, `EnclaveSpacingFactor`, `EnclaveSpacingFloor`,

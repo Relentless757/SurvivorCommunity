@@ -761,6 +761,128 @@ The ledger is the community window's.
      `enclaveCalls=off`, `sc enclave info <id>` says `radio calls: off (EnclaveCalls=false) (request clock day N)`, and a
      call still on its way is called off at the first tick (`... is off: radio calls are off - ...`). Set it back.
 
+**T. Round 14 (V2): voices by race, SC's greetings, chatter, XNPCCore lines and raider taunts (3.4)**
+
+Every survivor and raider now speaks in one of the two voices of their race and sex (16 voices in all, `Voices` in
+`Config/blocks.xml`); SC greets you itself, members at home chatter, 0-XNPCCore's and Voice Control's lines play SC's
+recording where it has one, and raiders taunt. **No new recordings exist yet**: only the four White voices
+(`male_White_Vane`, `male_White_David`, `female_White_Jessica`, `female_White_Beth`, renamed from `male_Vane` and so on;
+Oxley and Mora are gone) have the 147 talk lines, and nobody has a greeting, chatter line, taunt or XNPCCore line. So
+greetings, chatter and taunts are silent today, and Voice Control greets and speaks exactly as before. Steps 170-194 test
+what works now: the choice of voice, the fallback to a recorded voice, the triggers (`VoiceBarkDebug` makes a line with no
+recording show its words and log `voice bark (silent, no recording): ...`), the console, and that Voice Control is
+untouched. Steps 195-199 need recordings; 195-198 can be tried today with **stand-in clips**: copy any recorded `.ogg` of a
+voice under the line's key name (and its `.txt`, with the words) into that voice's folder in the 3.4 install's
+`Mods\SurvivorCommunity\Resources\Voices\`, then `sc voice rescan`. Remove them afterwards. Play with Voice Control's TTS
+and LLM on and `DebugLogging` true. `sc look <id|name>` shows a survivor's race; `sc spawn [male|female]` makes strangers
+until you have one of each race.
+
+170. Start-up: the log has `patched NPCChatComponent::TriggerProactiveGreeting`, `patched EntityAlive::SetAttackTarget`,
+     `patched EntityAlive::AwardKill`, `patched EntityAlive::PlayGiveUpSound` and `patched UAITaskMoveToInvestigate::Start`,
+     and `patch verification: all ... targets patched` counts five more than the build before V2 (133 on this branch
+     alone). A second config line: `config: voices voiceByRace=True voices=16 greetings=meet 12m, walk-up 3m every 120s,
+     gap 6s chatter=every 90s at 0.5 within 15m barks=True taunts=cooldown 15s/3s, idle ~60s, hit 0.4, retreat below 0.3,
+     within 40m subtitles=True debug=False clipCache=48`. No line starting `voice barks: Voice Control has changed`, no
+     `not found (game or SCore update?)`.
+171. `sc voice`: `voices: male_White_Vane (147 lines), male_White_David (147 lines), female_White_Jessica (147 lines),
+     female_White_Beth (147 lines); 12 voices of the table with no recordings yet` (the table's order) and
+     `clips: 0 clip(s) loaded (...)`. The log has the same `voice: ...` line once.
+172. **A White survivor.** Stand by one and `sc voice who`: `<name> (<id>), survivor: White male (from the body's
+     archetype), VoiceByRace on, dealt by name`, then `voice: male_White_<A> (147 clips) | then male_White_<B> (147 clips)`,
+     `talk lines come from the first voice above with the line's clip`, and `greetings and chatter: greet.stranger silent,
+     ... chatter silent; xn 0/23; ack 0/163; vc 0/40`. Their talk lines play in voice A, as before V2.
+173. **A survivor of another race.** One who is Black (or Asian, or Native - `sc look` shows it): `sc voice who` shows
+     `Black female (from the body's archetype)`, `voice: female_Black_<X> (no folder yet) | then female_Black_<Y> (no
+     folder yet), female_White_<J> (147 clips), female_White_<B> (147 clips)` and `their own voice has none yet, so
+     female_White_<J> speaks for now`. Open their talk: every line plays, all in that same White voice.
+174. **Each person keeps their voice.** Two or three survivors of the same race and sex: each shows one of the two voices
+     of their race first (some one, some the other) and borrows one White voice; ask `sc voice who` twice, and again after
+     a save and reload: the same chain each time. A member re-created by the community (back from a run, `sc restore`)
+     has the same chain (from their saved look).
+175. **A raider.** `sc spawn hostile` and `sc voice who <its id>`: `raider: ... dealt by name and id`, its voice chain by its
+     race and sex, and `taunts: taunt.spot silent, ... taunt.retreat silent`.
+176. **VoiceByRace off.** Set `VoiceByRace` to false, restart: `sc voice who` lists only recorded voices of their sex (the
+     pre-V2 deal, e.g. `female_White_Beth (147 clips) | then female_White_Jessica (147 clips)`) and no race pool. The
+     talk still plays. Set it back to true.
+177. **Voice Control greets as before.** With `VoiceBarkDebug` false: walk up to a stranger survivor and to a resident.
+     Voice Control's own walk-up greeting (its subtitle bar, its TTS) happens as before V2; SC says nothing. `sc xnpc` has
+     no `greeting-sc-instead` count; `sc voice barks` shows `greetings on (0 this session, 0 met)`.
+178. **The meet greeting (debug).** Set `VoiceBarkDebug` to true and restart. Start more than 12 m from a resident at home
+     with a clear view and walk closer: within 12 m the log has `voice bark (silent, no recording): <name> (<id>) meet
+     greeting (member): greet.member.<n> in male_White_<A>: "<words>"`, the words show in Voice Control's subtitle bar
+     (`<name>: <words>`) and they turn to you. A wall between you: nothing until you can see them. The same resident
+     doesn't meet-greet again today (`sc voice barks`: `... met`); the next in-game day they do.
+179. **The walk-up greeting (debug).** Two minutes after a resident's greeting, stand within 3 m and look at them: a
+     `walk-up greeting (member)` line. Look away (more than about 25 degrees): nothing. It doesn't repeat within two
+     minutes.
+180. **The right words for who they are (debug).** A wild stranger: `greet.stranger`. A prospect (a survivor you have a
+     favour for): `greet.recruit`. A member following you: `greet.follower`. One of a Neutral enclave's people:
+     `greet.enclave`. A member enlisted from an enclave and following you: `greet.follower`. Nobody greets who is hostile to
+     you (hit a stranger until they turn on you) or one of a hostile enclave; an outpost stand-in and a member on a run
+     never greet (Voice Control's greeting stays theirs).
+181. **One at a time, never in a fight or a talk (debug).** Come home to several residents: the greetings come one by one,
+     at least 6 s apart (`ScGreetGapSeconds`), the nearest first. During a zombie attack on the base the fighting residents
+     don't greet. With a talk open (any NPC) nobody greets; the greetings resume when it closes.
+182. **sc voice greet.** With debug off, by a resident: `[SC] voice greet: <name> (<id>) (member): greet.member has no
+     recording in male_White_<A> - silent, and Voice Control greets them as before (VoiceBarkDebug shows a silent one)`.
+     With debug on: `... says greet.member.<n> (silent: no recording, VoiceBarkDebug): "<words>"` and the subtitle.
+     `sc voice greet <raider id>`: `... is not one of the community's survivors - SC greets only those`.
+183. **Chatter (debug).** Stand among residents at home for three or four minutes: about every 90 s, half the time, one
+     of them within 15 m says a chatter line (`chatter at home: chatter.<n>` in the log, the words in the subtitle bar),
+     never two at once, never during a fight or a talk. `sc voice chatter` makes one say a line now (`no resident at home
+     within 15 m who could chat now ...` when none is near).
+184. **Raider spots you (debug).** `sc spawn hostile` about 25 m away and let it see you: `voice bark (silent, no
+     recording): <raider> (<id>) taunt (spot): taunt.spot.<n> in <voice>: "<words>"` and the subtitle `<raider>: <words>`.
+     Break line of sight and come back within 20 s: no second spot line.
+185. **Hit, retreat, dying (debug).** Shoot the raider: about 4 hits in 10 draw `taunt (hit)`, never more than one per 15 s
+     from that raider. Bring it under 30% health: `taunt (retreat)` once ("Fall back!" or "Pull out!"). Kill it: `taunt
+     (dying)` once - not again for every hit on the body.
+186. **Lost, search, idle (debug).** Let a raider chase you, then hide well out of sight: about 8 s after it has no target,
+     `taunt (lost)`. Make a noise near raiders that can't see you (fire a gun behind a wall): one goes to look and says
+     `taunt (search)` (or `taunt (lost)` when its look is blocked). Watch a raider camp from out of their sight within
+     40 m for two or three minutes: roughly once a minute one of them mutters (`taunt (idle)`).
+187. **Killed (debug).** Let a raider kill you: `taunt (killed)` from your killer (once; the respawn doesn't repeat it).
+188. **Pacing (debug).** Three raiders spot you at once: their taunts come at least 3 s apart (`RaiderTauntGlobalCooldown`),
+     each raider at most every 15 s; a raider's death is said at once.
+189. **sc voice taunt.** By a raider: `sc voice taunt spot` (debug off): `... taunt.spot has no recording in <voice> -
+     silent (VoiceBarkDebug shows a silent one)`; debug on: `... says taunt.spot.<n> (silent: no recording, VoiceBarkDebug):
+     "<words>"`. `sc voice taunt shout`: the list of events. `sc voice barks`: `taunts on (spot=..., ...)`. Set
+     `VoiceBarkDebug` back to false.
+190. **XNPCCore's lines stay Voice Control's.** Away from any talk, `sc voice sayline ammo.dry 0` by a member: Voice
+     Control says "I'm out of ammo." in its TTS voice as before. The log has `voice barks: <name> (<id>) line "I'm out of
+     ammo." -> xn.ammo.dry: no recording - Voice Control says it`; `sc voice barks` counts `vc kept xn=1`.
+191. **Orders stay Voice Control's.** Tell a follower "follow me" by voice and give a formation and a weapon swap on the
+     wheel: Voice Control's replies as before; `sc voice barks` counts `vc kept ack=...`. `sc voice line Right behind you.`
+     prints `"Right behind you." is ack.followplayer.3, ack.setfollowdistance.1.2; <name>: no recording (Voice Control says
+     it)`; `sc voice line Knife ready.`: `... is none of SC's lines - Voice Control would say it itself`.
+192. **V1 and E8 unchanged.** Repeat group N's steps 84 and 87 (a walk-up greeting and a say-line with the talk open):
+     Voice Control stays quiet during the talk. `sc voice context` (group R) prints as before.
+193. **Clips and memory.** Talk through ten or so lines with a survivor Voice Control has a player on (near you): `sc voice`
+     shows `clips: <n> clip(s) loaded (... 0 compressed, <n> decompressed for lip sync ...)`; the face moves with the
+     words; no error about `GetData` or compressed audio in the log. `sc voice rescan`: `<n> loaded clip(s) forgotten`.
+194. **The cache's limit.** Set `VoiceClipCache` to 8 and restart; talk through more than 8 lines: `sc voice barks` shows at
+     most 8 clips loaded and `dropped` above 0; each line still plays. Set it back to 48.
+195. **A greeting with a recording (stand-in or real).** Give the resident's voice (`sc voice who`) a `greet.member.1.ogg`
+     (and `greet.member.1.txt`), `sc voice rescan`. Meet them (step 178 with debug off): SC's clip plays from them with lip
+     sync, their words in the subtitle bar, they turn to you; Voice Control's own greeting no longer comes for them (`sc
+     xnpc`: `greeting-sc-instead` counts). A stranger with no greeting clip in their voices is still greeted by Voice Control.
+196. **A say-line in SC's voice (stand-in or real).** Give that voice `xn.ammo.dry.ogg`, rescan, `sc voice sayline ammo.dry
+     0` by them: SC's clip plays with lip sync, the subtitle `I'm out of ammo.` (or your language's), no TTS; `sc voice
+     barks`: `vc swapped xn=1`. With a talk open on them (`sc voice sayline ammo.dry 5`, open the talk): nothing plays
+     (V1's gate).
+197. **Order replies in SC's voice (stand-in or real).** Give the follower's voice `ack.followplayer.1.ogg` to `.3`,
+     `ack.swapweapon.1.ogg` and `ack.setformation.1.ogg`, rescan. "Follow me" by voice: SC's clip (`vc swapped ack`). A
+     weapon swap by voice ("use your knife"): the generic reply, its words in the subtitle bar ("Switching." etc.). A
+     formation on the wheel: the generic formation reply. A refused order (a stranger told "follow me"): Voice Control's
+     refusal, or SC's `vc.leaderless.<n>` clip if you gave it one.
+198. **Raider taunts with recordings (stand-in or real).** Give a male voice `taunt.spot.1.ogg`, `taunt.hit.1.ogg` and
+     `taunt.dying.1.ogg`, rescan, spawn male raiders until `sc voice who` shows one in that voice (or its borrowed one):
+     the taunts play from the raider (no lip sync), audible to about 40 m, with their words in the subtitle bar.
+199. **The recorded voices (needs the ElevenLabs round).** With the new recordings installed: `python -I
+     Tools/voice_lines.py check` shows every voice complete; `sc voice who` by survivors of each race shows their own voice
+     first with all its clips (no borrowing); listen to a greeting, a chatter line, an order reply and a taunt in each of the
+     16 voices, and to a whole talk in each new voice. Note any line worth re-recording.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

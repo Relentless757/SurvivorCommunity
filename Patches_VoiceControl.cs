@@ -818,6 +818,117 @@ namespace SurvivorCommunity
         }
 #endif
 
+        // ------------------------------------------------------------------ V2: SC's greetings, XNPCCore's lines in SC's voices ----
+        //
+        // research\voices\REPORT.md 2.2 and 4 (b). Three prefixes, bound by name with the exact 3.4 signatures (Prepare false
+        // without Voice Control or on a changed signature; ModApi then logs MISSING PATCH), each try/catch + ScLog.Once
+        // letting Voice Control run on any error:
+        //  - NPCChatComponent.TriggerProactiveGreeting(EntityPlayer player), public instance void (VC34 NPCChatComponent.cs
+        //    :1296): skipped for one of the community's survivors SC greets itself (ScGreetings.OwnsGreeting: their voice has
+        //    a clip of their greeting). Skipping it whole leaves Voice Control's state as if its chance roll had failed (its
+        //    cooldown, contact and LLM call all live inside), so it greets them again once SC's clip is gone.
+        //  - SubtitleManager.AcknowledgeCommand (V1's AckTarget): say-lines, wheel and voice orders, refusals in SC's voice
+        //    (ScBarks.SubstituteAck); skipped whole when SC plays its clip, as V1's gate does - it is static and stateless.
+        //  - NPCAudioPlayer.SpeakStreaming (V1's SpeakStreamingTarget): Voice Control's fixed lines and the chat path's acks
+        //    by their words (ScBarks.SubstituteSpeech); SC's clip gets Voice Control's onComplete, so its queue and waiting
+        //    state end as after its own sentence.
+        // The two shared with V1's gate run after it (Priority.Low; every prefix runs, Harmony ANDs their answers) and leave a
+        // call the gate swallowed alone (__runOriginal false). Neither substitutes while Voice Control is saying something on
+        // that NPC: SpeakStreaming would stop its own queue first, which SC never does (REPORT 1.5). EnqueueSpeech is not
+        // hooked: in Voice Control 3.4 it carries only the LLM's streamed chunks (NPCChatComponent.cs:131, :606), never a
+        // fixed line.
+
+        /// <summary>NPCChatComponent.TriggerProactiveGreeting(EntityPlayer player), public instance void.</summary>
+        public static MethodBase TriggerGreetingTarget()
+        {
+            Type t = ChatType;
+            if (t == null) return null;
+            return Returning(AccessTools.DeclaredMethod(t, "TriggerProactiveGreeting", new[] { typeof(EntityPlayer) }), typeof(void), false);
+        }
+
+        /// <summary>V2: Voice Control's walk-up greeting is skipped where SC greets the survivor itself.</summary>
+        [HarmonyPatch]
+        public static class Patch_ScGreetsInstead
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return HasNpcField() && Bindable(TriggerGreetingTarget(), "NPCChatComponent.TriggerProactiveGreeting", null, "player"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return TriggerGreetingTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive ____npcEntity, EntityPlayer player)
+            {
+                try
+                {
+                    if (!ScGreetings.OwnsGreeting(____npcEntity, player)) return true;
+                    Count("greeting-sc-instead");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-sc-greets", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>V2: a say-line, order ack or refusal SC has recorded in that survivor's voice plays SC's clip instead.</summary>
+        [HarmonyPatch]
+        public static class Patch_ScAck
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(AckTarget(), "SubtitleManager.AcknowledgeCommand", null, "npc", "trigger", "fallbackText"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return AckTarget(); }
+
+            /// <summary>__args: npc, trigger, fallbackText, e2e, localizedSubtitle (3.4).</summary>
+            [HarmonyPrefix]
+            [HarmonyPriority(Priority.Low)]
+            public static bool Prefix(object[] __args, bool __runOriginal)
+            {
+                if (!__runOriginal) return true;           // V1's gate swallowed it
+                try
+                {
+                    string sub = __args.Length > 4 ? __args[4] as string : null;
+                    return !ScBarks.SubstituteAck(__args[0] as EntityAlive, __args[1], __args[2] as string, sub);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-sc-ack", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>V2: a fixed line or chat-path ack SC has recorded in that survivor's voice plays SC's clip instead, with Voice Control's onComplete.</summary>
+        [HarmonyPatch]
+        public static class Patch_ScSpeech
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bindable(SpeakStreamingTarget(), "NPCAudioPlayer.SpeakStreaming", AudioPlayerType, "text", "onComplete", "isAck"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SpeakStreamingTarget(); }
+
+            [HarmonyPrefix]
+            [HarmonyPriority(Priority.Low)]
+            public static bool Prefix(EntityAlive ____npcEntity, string text, Action onComplete, bool isAck, bool __runOriginal)
+            {
+                if (!__runOriginal) return true;           // V1's gate swallowed it (and called onComplete)
+                try
+                {
+                    return !ScBarks.SubstituteSpeech(____npcEntity, text, onComplete, isAck);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-sc-speech", e);
+                    return true;
+                }
+            }
+        }
+
         // ------------------------------------------------------------------ E8: voice chat context ----
         //
         // Voice Control's LLM chat knows the enclave an NPC belongs to (research\ideas\DESIGN.md section 11; ScVoiceContext).

@@ -87,6 +87,8 @@ namespace SurvivorCommunity
                     World w = ScCommunity.World;
                     EntityPlayer p = w != null ? w.GetEntity(src.getEntityId()) as EntityPlayer : null;
                     if (p == null) return;
+                    // V2: a raider's hit or retreat taunt (ScTaunts; raiders only, never stops the rules below)
+                    if (ScXnpc.IsRaider(__instance)) ScTaunts.OnHitBy(__instance, p);
                     // E2: one of an enclave's people - the enclave's warning and hostility rules, not a personal grudge
                     if (ScEnclavePeople.OnHitBy(__instance, p)) return;
                     ScTrust.OnHitBy(__instance, p);

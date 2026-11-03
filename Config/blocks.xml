@@ -448,7 +448,8 @@
 			<!-- The dialog line and voiced lines (the voice test, 2026-10-16). DialogLine: the NPC's line shows above the
 			     dialog's responses (vanilla shows only the responses; SCore's subtitle covers only its older body type).
 			     VoiceLines: a survivor's line plays as a recorded clip when Resources/Voices has one in their voice. The
-			     folders are male_<Name> and female_<Name>; each survivor keeps one voice of their sex; a clip is named after
+			     folders are <male|female>_<Race>_<Name> (the Voices list below, V2); each survivor keeps one voice of their
+			     race and sex; a clip is named after
 			     the line's statement id (scFavourPoi.ogg; SdcsNPC.start.ogg for 0-XNPCCore's greeting). Clips play through
 			     Voice Control's player where Voice Control has set one up for that NPC (lip sync, its TTS volume and
 			     range), else from SC's own. "sc voice"
@@ -470,6 +471,65 @@
 			     Whatever this says, a hostile enclave's people, raiders and survivors with a grudge always refuse Voice
 			     Control's spoken "trade". "sc voice context" prints what the nearest of them would be told. -->
 			<property name="VoiceEnclaveContext" value="true" />
+			<!-- V2, voices by race and sex. VoiceByRace: every survivor and raider speaks in one of the two voices of their race
+			     and sex (White, Black, Asian, Native, from their body: SC's look), picked by their name. While that voice has
+			     no recording of a line, the other voice of their race and sex says it, then any recorded voice of their sex
+			     (so everyone keeps talking while a race's recordings are still to come). false: any recorded voice of their
+			     sex, as before.
+			     Voices: the voice table, two per race and sex, folder names under Resources/Voices
+			     (<male|female>_<Race>_<Name>); a folder may not exist yet. Renaming a voice here re-deals nobody else.
+			     "sc voice who" shows how the nearest survivor's or raider's voice is chosen. -->
+			<property name="VoiceByRace" value="true" />
+			<property name="Voices" value="male_White_Vane,male_White_David,female_White_Jessica,female_White_Beth,male_Black_Nate,male_Black_Desmond,female_Black_Tiffany,female_Black_Rene,male_Asian_Jasper,male_Asian_Julian,female_Asian_Layla,female_Asian_Jess,male_Native_NativeM1,male_Native_NativeM2,female_Native_NativeF1,female_Native_NativeF2" />
+			<!-- V2, SC's greetings. ScGreetings: the community's survivors greet you in their own recorded voice - the first
+			     time each in-game day you see one within ScGreetMeetRange metres ("meet"), and when you walk up within
+			     ScGreetWalkUpRange metres and look at them, at most every ScGreetWalkUpSeconds per survivor ("walk-up").
+			     The line fits who they are to you: a stranger, a recruit, a member at home, a follower, one of an enclave's
+			     people. Never in a fight or a talk; one at a time, ScGreetGapSeconds apart. Only where their voice has a
+			     recording of that greeting - then Voice Control's own walk-up greeting is skipped for them; without one,
+			     Voice Control greets them as before. "sc voice greet" makes the nearest one greet you now. -->
+			<property name="ScGreetings" value="true" />
+			<property name="ScGreetMeetRange" value="12" />
+			<property name="ScGreetWalkUpRange" value="3" />
+			<property name="ScGreetWalkUpSeconds" value="120" />
+			<property name="ScGreetGapSeconds" value="6" />
+			<!-- V2, chatter. ScChatter: every ScChatterSeconds or so (real seconds, a quarter either way), with
+			     ScChatterChance, one resident at home within ScChatterRange metres of you says something to nobody in
+			     particular - only lines with a recording, one speaker at a time, never in a fight or a talk.
+			     "sc voice chatter" makes one say a line now. -->
+			<property name="ScChatter" value="true" />
+			<property name="ScChatterSeconds" value="90" />
+			<property name="ScChatterChance" value="0.5" />
+			<property name="ScChatterRange" value="15" />
+			<!-- V2, 0-XNPCCore's lines in SC's voices. ScBarks: where Voice Control is about to speak one of 0-XNPCCore's job
+			     lines ("I'm out of ammo."), an order reply ("Right behind you.", one generic reply for every weapon swap and
+			     every formation) or one of its own fixed lines, and SC has that line recorded in the survivor's voice, SC's
+			     recording plays instead, through Voice Control's player (lip sync). Without a recording Voice Control speaks
+			     as before. Never while Voice Control is already saying something on them, never during a talk with them.
+			     "sc voice line <words>" says which line Voice Control's words are. -->
+			<property name="ScBarks" value="true" />
+			<!-- V2, raider taunts. RaiderTaunts: raiders call out when they spot you, go to look at a noise, lose you, are hit
+			     (RaiderTauntHitChance), kill you, die, and once when badly hurt (under RaiderTauntRetreatHealth of their
+			     health), and now and then mutter when nobody is about (every RaiderTauntIdleSeconds or so, one of them) -
+			     only lines with a recording, only within RaiderTauntRange metres of you. One raider at most every
+			     RaiderTauntCooldown seconds, any two taunts RaiderTauntGlobalCooldown seconds apart (a death passes both, a
+			     kill or the retreat their own), so a band doesn't all shout at once. "sc voice taunt <event>" makes the
+			     nearest raider taunt now. -->
+			<property name="RaiderTaunts" value="true" />
+			<property name="RaiderTauntCooldown" value="15" />
+			<property name="RaiderTauntGlobalCooldown" value="3" />
+			<property name="RaiderTauntIdleSeconds" value="60" />
+			<property name="RaiderTauntHitChance" value="0.4" />
+			<property name="RaiderTauntRange" value="40" />
+			<property name="RaiderTauntRetreatHealth" value="0.3" />
+			<!-- V2. VoiceBarkSubtitles: the words of SC's greetings, chatter and taunts show in Voice Control's subtitle bar
+			     (where Voice Control shows that NPC's text). VoiceBarkDebug: a test aid - a greeting, chatter line or taunt
+			     with no recording still shows its words and logs "voice bark (silent, no recording): ..." (Voice Control
+			     still greets where SC has no recording). VoiceClipCache: how many of SC's clips stay loaded (compressed);
+			     the least recently used goes first. "sc voice barks" shows the switches and this session's counts. -->
+			<property name="VoiceBarkSubtitles" value="true" />
+			<property name="VoiceBarkDebug" value="false" />
+			<property name="VoiceClipCache" value="48" />
 			<!-- 0-XNPCCore 3.2's own survivors that the community takes over: they get SurvivorCommunity's looks, names,
 			     half armor protection, item-only healing and aim pose instead of 0-XNPCCore's presets. The XML that
 			     strips their preset look (Config/entityclasses.xml, written by Tools/gen_arsenal.py) names the same six:
