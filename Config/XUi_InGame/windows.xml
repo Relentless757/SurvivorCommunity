@@ -83,6 +83,64 @@
 		<simplebutton name="btnScCommunity" depth="3" width="250" height="46" caption_key="xuiScCommunity" font_size="34" visible="{# !is_prefab_editor}"/>
 	</insertAfter>
 
+	<!-- The Community tab (W1, round 19): the community window is a page of the player menu, its tab standing apart on a
+	     plate of its own LEFT of the tab bar - not one of the bar's tabs, as Creative hangs off AshfallUI's bar on the right.
+	     - A tab is any ButtonSelectable under windowPagingHeader (XUiC_WindowSelector binds them depth-first, nested ones
+	       too), and pressing one opens the window group named like it, case-insensitive: ScCommunity opens "sccommunity"
+	       (xui.xml; its controller XUiC_ScPageGroup keeps the bar open with the page). So the selector lights it, titles the
+	       bar "Community" (Localization "xui" + the name) and pages to it with the bumpers, as it does Creative.
+	     - One rect, scCommunityTab, holds the plate and the tab, at negative x: every bar starts at the header's x=0 and
+	       SurvivorOrigins (after SC: absolute setattributes by vanilla name and style) and AshfallUI (last: removes the
+	       header's direct sprite and label children and the vanilla iconbuttons by name, re-lays the window out and appends
+	       its rect tabs) touch nothing in it, so it stays 4 units left of whichever bar is there. Nothing in AshfallUI needs
+	       to change.
+	     - Its look: vanilla's strip (black ui_game_header_fill border, light grey fill, the iconbutton) for vanilla and
+	       SurvivorOrigins; with AshfallUI the copy of its Creative plate and tab (tools/make_nav.py's _tab: ashfall_hud_panel,
+	       the bar's tab width - 145 with SurvivorOrigins, 137 without - icon and name centred), so it matches there.
+	     - Appended, so last in vanilla's document: the selector's Init default stays Crafting (buttons[0]); the bumpers'
+	       cycle reads left to right either way. AshfallUI's own tabs come after it, so there it is buttons[0].
+	     - LB_Icon (gamepad, pivot Right at -8) moves left of the plate; AshfallUI sets it back to -8 for its own bar, where
+	       it sits on this plate as its RB_Icon does on Creative's.
+	     - Hidden in the prefab editor, as the ESC menu entry (the tab too: the selector skips only a hidden button). -->
+	<conditional>
+		<if cond="mod_loaded('zzzzz_AshfallUI') and mod_loaded('SurvivorOrigins')">
+			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scCommunityTab" depth="0" pos="-155,0" width="151" height="44" visible="{# !is_prefab_editor}">
+					<sprite depth="0" name="scTabPlate" sprite="ashfall_hud_panel" type="sliced" color="[white]" pos="0,0" width="151" height="44"/>
+					<rect name="ScCommunity" controller="ButtonSelectable" pos="3,-3" width="145" height="38" depth="2" on_press="true" on_hover="true" sound="[paging_click]" sound_play_on_hover="[default_hover]" snap="false" gamepad_selectable="false" visible="{# !is_prefab_editor}">
+						<sprite depth="1" name="chosen" sprite="ui_game_select_row" type="sliced" color="[white]" width="145" height="38" visible="{% btn_selected }"/>
+						<sprite depth="1" name="hover" sprite="ashfall_btn_hover" type="sliced" color="[white]" width="145" height="38" visible="{% btn_hovered and !btn_selected }"/>
+						<sprite depth="3" name="icon" sprite="ui_game_symbol_map_cabin" color="{% btn_selected ? color(232,163,60,255) : (btn_hovered ? color(255,255,255,255) : color(200,196,186,255)) }" width="22" height="22" pos="31,-19" pivot="center" foregroundlayer="true"/>
+						<label depth="3" name="name" text_key="xuiScCommunity" font_size="20" upper_case="true" color="{% (btn_selected or btn_hovered) ? color(255,255,255,255) : color(200,196,186,255) }" pos="49,-20" width="92" height="26" pivot="left" justify="left"/>
+					</rect>
+				</rect>
+			</append>
+		</if>
+		<if cond="mod_loaded('zzzzz_AshfallUI')">
+			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scCommunityTab" depth="0" pos="-147,0" width="143" height="44" visible="{# !is_prefab_editor}">
+					<sprite depth="0" name="scTabPlate" sprite="ashfall_hud_panel" type="sliced" color="[white]" pos="0,0" width="143" height="44"/>
+					<rect name="ScCommunity" controller="ButtonSelectable" pos="3,-3" width="137" height="38" depth="2" on_press="true" on_hover="true" sound="[paging_click]" sound_play_on_hover="[default_hover]" snap="false" gamepad_selectable="false" visible="{# !is_prefab_editor}">
+						<sprite depth="1" name="chosen" sprite="ui_game_select_row" type="sliced" color="[white]" width="137" height="38" visible="{% btn_selected }"/>
+						<sprite depth="1" name="hover" sprite="ashfall_btn_hover" type="sliced" color="[white]" width="137" height="38" visible="{% btn_hovered and !btn_selected }"/>
+						<sprite depth="3" name="icon" sprite="ui_game_symbol_map_cabin" color="{% btn_selected ? color(232,163,60,255) : (btn_hovered ? color(255,255,255,255) : color(200,196,186,255)) }" width="22" height="22" pos="27,-19" pivot="center" foregroundlayer="true"/>
+						<label depth="3" name="name" text_key="xuiScCommunity" font_size="20" upper_case="true" color="{% (btn_selected or btn_hovered) ? color(255,255,255,255) : color(200,196,186,255) }" pos="45,-20" width="88" height="26" pivot="left" justify="left"/>
+					</rect>
+				</rect>
+			</append>
+		</if>
+		<else>
+			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scCommunityTab" depth="0" pos="-56,0" width="52" height="43" visible="{# !is_prefab_editor}">
+					<sprite depth="0" name="scTabBorder" sprite="ui_game_header_fill" type="sliced" color="[black]" pos="0,0" width="52" height="43"/>
+					<sprite depth="1" name="scTabFill" sprite="ui_game_header_fill" type="sliced" color="[lightGrey]" pos="3,-3" width="46" height="37"/>
+					<iconbutton pos="26,-21" depth="3" selectable="true" collider_scale="1.5" name="ScCommunity" sprite="ui_game_symbol_map_cabin" tooltip_key="xuiScCommunity" snap="false" gamepad_selectable="false" visible="{# !is_prefab_editor}"/>
+				</rect>
+			</append>
+			<setattribute xpath="/windows/window[@name='windowPagingHeader']/gamepad_icon[@name='LB_Icon']" name="pos">-64,-20</setattribute>
+		</else>
+	</conditional>
+
 	<!-- GENERATED:BEGIN sccommunity (Tools/generate_community_ui.py) -->
 	<!-- The community window, GENERATED by Tools/generate_community_ui.py - edit that, not this. Opened by
 	     ScCommunity.OpenWindow (ESC menu entry, land claim radial, member dialog). anchor="Center" still

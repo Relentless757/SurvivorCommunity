@@ -1253,6 +1253,52 @@ words are text only for now. Take a group you have met (its people made: `sc enc
      `sc enclave info <id>` says `join: off (EnclaveJoin=false)` and `sc enclave join <id> now` says `[SC] refused: the join
      is off (EnclaveJoin=false)`. Set it back.
 
+**W1. Round 19: the Community tab on the player menu (3.4)**
+
+The community window is a page of the player menu now. Its tab stands apart on a small plate of its own just left of the
+tab bar (Crafting, Character, Map, ...), the way Creative hangs off AshfallUI's bar on the right; the bar stays over the
+window while it shows and goes with it. SC alone lays the tab out for all four setups, nothing in AshfallUI or
+SurvivorOrigins changed: steps 290-295 and 299 run on the 3.4 install as it is (SurvivorOrigins and AshfallUI installed),
+296-298 with mod folders moved out of the 3.4 install's `Mods` - **on a new throwaway world** (never load a save with a mod
+it was made with missing) - and put back afterwards. Open the player menu with Tab (its radial's Crafting). Throughout,
+the log must never show `[SurvivorCommunity] community window: the tab bar has no Community tab (windowPagingHeader has
+no visible ScCommunity) - the window opens on its own, without the bar`.
+
+290. **Start-up.** Load the world. No XML `did not apply` line for SurvivorCommunity.
+291. **The tab, AshfallUI with SurvivorOrigins.** Open the player menu. Left of AshfallUI's bar, a few pixels from its left
+     end, stands a plate of the same kind as Creative's (AshfallUI's HUD tray plate, as tall as the bar) holding one tab, a
+     cabin icon and `COMMUNITY`, as wide as the bar's own tabs and in their light grey. Hovered, it gets the bar's hover
+     plate and turns white. The bar itself is unchanged: Crafting first ... Players last, nothing of SC's on it.
+292. **Clicking it.** Click `COMMUNITY`: the community window opens under the bar; the Community tab is raised (the chosen
+     plate, its icon amber, its name white) and no tab on the bar is lit; the Crafting page is gone. Click Character: the
+     character page, Character lit, the Community tab plain again. Click `COMMUNITY` again: the community window again.
+     Click it once more while the window shows: nothing changes, it stays open.
+293. **Closing.** Open the window from the tab, then its X: the window and the bar close together, nothing of either left
+     on screen. Open it from the tab and press Escape: the same. Open it from the tab and click `OPEN STORAGE`: the storage
+     window opens without the bar.
+294. **Every opener brings the bar.** Each of these opens the community window under the bar with the Community tab
+     raised: the ESC menu's `Community`; the land claim block's radial `Community`; a member's `Let's talk about the
+     community.` (the talk closes); an outpost flag's radial `Outpost` (the window on its `OUTPOSTS` tab, that outpost
+     selected); a Watch post's radial `Assign guard` (the residents, `Pick a guard for Watch post 1 (...).` in the list
+     header; picking one closes the window and the bar).
+295. **Gamepad.** With a controller, on the community window: RB opens Crafting; LB opens the right-most tab (Players, or
+     Creative when creative is on). On Crafting, LB opens the community window. The LB button icon left of the bar sits on
+     the Community plate, as RB's does on Creative's.
+296. **AshfallUI alone.** Move `SurvivorOrigins` out and start the throwaway world: AshfallUI's narrower bar (no Schematic
+     Tree or Collections), the Community plate the same few pixels left of it and its tab as wide as the bar's (a little
+     narrower than in 291). Steps 291-292 hold.
+297. **SurvivorOrigins alone.** Put `SurvivorOrigins` back and move `zzzzz_AshfallUI` out: vanilla's look, SurvivorOrigins'
+     wider bar (Schematic Tree and Collections after Skills). A few pixels left of its left end, a small plate in the
+     strip's own look (black edge, light grey inside) holds a cabin icon; its tooltip is `Community` and it grows when
+     hovered, as the bar's icons do. Clicked: the community window opens, the cabin icon takes the selected colour, no
+     icon on the bar is lit and the title plate in the middle reads `COMMUNITY`. Click Crafting: `CRAFTING`, Crafting's
+     icon lit, the cabin plain. With a controller the LB icon sits left of the Community plate, not on it.
+298. **Vanilla.** Move `SurvivorOrigins` out as well (both out): the same as 297 on vanilla's narrower bar (no Schematic
+     Tree or Collections), the plate the same few pixels left of it. Put both mods back.
+299. **Nothing left behind.** Back on the install as it is: open the community window from the tab and close it, then
+     open the player menu with Tab: Crafting opens with its own tab lit, not Community. Do the same after opening the
+     window from a member's talk: the talk does not come back, the toolbelt is there and you can move.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

@@ -1814,3 +1814,123 @@ Checks:
 Builds: SC 3.4 `9f16253e574e83053978318c18025f9c` (`build\sc34_e12`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
 (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E12 (240-259). Not reviewed (Fable), not installed. The
 task list needs its entry.
+
+### Round 19: the Community tab (W1) (2026-11-03, built, not reviewed, not installed)
+
+The user's decisions (2026-11-03): the community window is reached from an extra tab to the LEFT of the player menu's tabs
+(Crafting, Character, ...); and, after a first proposal put it inside the bar: **"For the tab, it wouldn't be part of the
+main bar. It would be similar to the creative menu tab (it's separate from the rest). Shouldn't require any work from
+AshfallUI."** So the tab stands apart on a plate of its own just left of the bar, as Creative hangs off AshfallUI's bar
+on the right, and SC alone makes it look and work right with vanilla's bar, SurvivorOrigins' and AshfallUI's (with or
+without SurvivorOrigins). No new hotkey; radio commands stay at the radio. Research: `research\w1\TAB_RESEARCH.md` (its
+claims checked against the 3.4 files; its proposal 1 - an iconbutton inside the bar, gated off under AshfallUI, with a
+hand-over to AshfallUI's session - is what the user's second decision replaced). Branch `ms/w1` from `11315a3`. **3.4
+only**: only the 3.4 DLL was built, the tracked 3.2 `SurvivorCommunity.dll` is untouched, the new code has no `SC_V34`.
+
+- **The tab (`Config/XUi_InGame/windows.xml`).** One `rect` named `scCommunityTab`, appended to `windowPagingHeader`
+  (controller `XUiC_WindowSelector`), holding the plate and the tab, at negative x so its right edge is 4 units left of the
+  header's x=0, where every setup's bar starts. A `<conditional>` picks the look:
+  - `mod_loaded('zzzzz_AshfallUI') and mod_loaded('SurvivorOrigins')`: AshfallUI's Creative plate and tab copied from its
+    generator (`tools/make_nav.py` `_bar`/`_tab`, read only): `ashfall_hud_panel` 151x44, a `rect` named `ScCommunity`
+    with `controller="ButtonSelectable"` 145x38 at 3,-3 (the bar's tab width with SurvivorOrigins), `chosen`
+    (`ui_game_select_row`) and `hover` (`ashfall_btn_hover`) plates on `{% btn_selected }` / `{% btn_hovered and
+    !btn_selected }`, the icon `ui_game_symbol_map_cabin` (the community window's own title icon) 22x22 at 31,-19 in
+    AshfallUI's amber / white / warm grey, the label `xuiScCommunity` at 49,-20, 92 wide, font 20, upper case - make_nav's
+    centring for a 9-letter name (`content_w` 22 + 7 + round(9 x 8.4) = 105);
+  - `mod_loaded('zzzzz_AshfallUI')`: the same at AshfallUI's plain bar's tab width, 137 (plate 143x44, icon 27,-19, label
+    45,-20, 88 wide);
+  - otherwise (vanilla, SurvivorOrigins): vanilla's strip in small - `scTabBorder` (`ui_game_header_fill`, `[black]`, 52x43)
+    and `scTabFill` (`ui_game_header_fill`, `[lightGrey]`, 46x37 at 3,-3), the paging styles' sprites and colours written
+    out (not `style=`: SurvivorOrigins selects sprites by style) - and vanilla's tab, an `iconbutton` named `ScCommunity`
+    (`selectable="true"`, `collider_scale="1.5"`, `snap`/`gamepad_selectable` false, tooltip `xuiScCommunity`) at 26,-21;
+    `LB_Icon` (gamepad, pivot Right) moves from -8,-20 to -64,-20, left of the plate.
+  Rect, plate and tab are hidden in the prefab editor (`visible="{# !is_prefab_editor}"`, as the ESC entry; on the tab
+  itself too, because the selector only skips a button whose own view is hidden).
+
+  Where it lands (header x; the screen's centre is the header's pos + x):
+
+  | setup | header window (pos, size) | the bar | Community plate | tab |
+  |---|---|---|---|---|
+  | vanilla | -300,-9; 600x43 | 0..600 | -56..-4, 52x43 (screen -356..-304) | icon centre -30,-21 |
+  | SurvivorOrigins | -375,-9; 750x43 | 0..750 | -56..-4 (screen -431..-379) | as vanilla |
+  | AshfallUI | -488,-9; 977x44 | plate 0..977 | -147..-4, 143x44 (screen -635..-492) | 137x38 at -144,-3 |
+  | AshfallUI + SurvivorOrigins | -663,-9; 1327x44 | plate 0..1327 | -155..-4, 151x44 (screen -818..-667) | 145x38 at -152,-3 |
+
+  The 4-unit gap is AshfallUI's own for Creative (`cx = bar_w + 4`).
+- **The page group (`Config/XUi_InGame/xui.xml`, `XUiC_ScPageGroup.cs` new).** The `sccommunity` group gets
+  `controller="SurvivorCommunity.ScPageGroup, SurvivorCommunity"` (still no actionset). OnOpen: if the bar has a usable
+  Community tab (`Tab`: `buttonsByName["sccommunity"]`, visible and enabled), `SetSelected("sccommunity")` **then**
+  `Open("windowpaging", false)` - the bar's OnOpen opens the selected tab's page modally (`OpenSelectedWindow`), and a
+  stale selection (the last page, Crafting at the start) would open that page and close this one; vanilla's groups open
+  the bar first only because the selector opens them after selecting them. Without a usable tab (prefab editor, XML not
+  applied) the window opens alone, logging once `community window: the tab bar has no Community tab (windowPagingHeader has
+  no visible ScCommunity) - the window opens on its own, without the bar`. OnClose: `Close("windowpaging")`, as vanilla's
+  pages (a tab press reopens it with the next page; Escape and the X leave it closed).
+- **The openers (`ScCommunity.OpenWindow`).** The ESC menu entry (`Patches_Menu`), the land claim radial `Community`
+  (`TEFeatureSCCommunity`), the dialog action (`DialogActionScOpenCommunity`), the Watch post's `Assign guard`
+  (`ScWatch.OpenAssign`, `PendingWatch`) and the outpost radial (`OpenOutposts`, `PendingOutpost`) all call it, unchanged.
+  With the tab it calls `XUiC_WindowSelector.OpenSelectorAndWindow(player, "sccommunity")`: other modal windows close (the
+  ESC menu, the NPC dialog - as it closed under the old modal open), the tab is selected, the bar opens and opens the
+  page. Its two traps are guarded: it shuts the page when it already shows (toggle), so an open window is left alone; it
+  does nothing for a dead player, so neither does OpenWindow (vanilla's tabs too). In both cases the pending Watch pick /
+  outpost is cleared, so it cannot carry over to the next opening. Without a usable tab: the old `Open("sccommunity",
+  true)`. Opening from a dialog: the action runs inside the dialog's response press; the dialog closes first, its OnClose
+  reopens the toolbelt, then the bar and the page open; the dialog's `RefreshDialog` afterwards finds no statement
+  (`scCommunity` has no next one) and its `Close("dialog")` is a no-op.
+- **`XUiC_ScCommunity.Close()`** (the X, `OPEN STORAGE`, a Watch pick) closes `windowpaging` after the page too (the page
+  group already does; this covers a layout that drops the controller).
+- **No AshfallUI change is needed.** Its patches remove the header's direct `sprite` and `label` children and the vanilla
+  and SurvivorOrigins iconbuttons by name, re-lay the header out (pos, size, `RB_Icon`, `LB_Icon`) and append their own
+  rect tabs; none reaches an element nested in `scCommunityTab`, and its bar still starts at the header's x=0. Its
+  runtime code (`src`, read only) never touches the header. SurvivorOrigins' patches select by vanilla name and style, and
+  its header is wider to the right only. The replay below shows both mods' ops matching exactly as with SC absent.
+
+Decisions:
+1. **A tab of the selector, not a stand-alone button.** `XUiC_WindowSelector.SetSelected` with a name no tab has does
+   nothing (`buttonsByName.TryGetValue` fails): the old tab stays lit, the title plate keeps its page's name
+   (`SelectedNameLocalized`), and opening the bar would open that page modally over ours. Being a `ButtonSelectable`
+   under the header (the selector binds them depth-first, nested ones too: `XUiController.GetChildControllers`) gives the
+   lit tab, nothing else lit, the title `COMMUNITY` in vanilla's plate and bumper paging for free - as Creative, which is a
+   tab of the selector in vanilla and AshfallUI, only placed apart. Separate is the look, not the plumbing.
+2. **Inside `windowPagingHeader`, not a window of its own in `windowpaging`.** Every setup's bar starts at the header's
+   x=0, so one constant negative x places it beside any bar with no runtime positioning; a separate window would have to
+   read the header's position after every re-layout and handle the selection itself (decision 1).
+3. **Document order: appended.** With vanilla's and SurvivorOrigins' bars it is the last tab, so `Init`'s default
+   selection (`buttons[0]`) stays Crafting; with AshfallUI its rect tabs come after ours, so ours is `buttons[0]` there.
+   Either way the bumpers' cycle reads left to right (LB from Crafting comes here, RB from here goes to Crafting, RB from
+   the right end wraps to here). The default only matters to code that opens the bar without selecting a page first; no
+   vanilla, AshfallUI or SC path does (they go through `OpenSelectorAndWindow` or select first).
+4. **AshfallUI's tab widths are copied, not read.** SC patches before AshfallUI, so an `xpath()` guard cannot see its bar.
+   If its generator ever changes the tab width, SC's tab keeps 137/145 and still stands 4 units left of the bar (its right
+   edge is fixed).
+5. **The gamepad LB icon with AshfallUI** stays where AshfallUI puts it (-8,-22, after SC's patch), on the Community
+   plate - as its RB icon sits on Creative's plate. Without AshfallUI SC moves it left of the plate.
+6. **A dead player** gets no window from any opener, as vanilla's tabs refuse (before W1 the ESC entry opened it).
+
+Checks:
+- Build: `dotnet build -c Release --no-dependencies -p:ScGame=34 "-p:OutputPath=F:\7daystodie mods 2026\Port33\build\sc34_w1\\"`,
+  0 errors (the two old CS0108 warnings).
+- HarmonyAudit (`research\w1\audit34_w1_*`): no new or changed patch; 3.4 OK=150, DYNAMIC_UNRESOLVED=23, the patch rows,
+  reflection and unresolved-refs files identical to E12's (`research\e12\audit34_e12_*`), so the new references
+  (`XUiC_WindowSelector.OpenSelectorAndWindow`, `buttonsByName`, `SetSelected`) resolve.
+- XML replay against 3.4 (`research\w1\sc_replay_w1.py`, made by `make_replay_w1.py` from `research\dev\sc_replay_dev.py`:
+  SC pointed at this worktree, plus `WITH=` to apply 3.4-install mods after SC and `NO_SC=1`; out `research\w1\replay\`),
+  four setups - SC alone, `WITH=SurvivorOrigins`, `WITH=zzzzz_AshfallUI`, both - and the last three again without SC.
+  `research\w1\check_tab_w1.py` (output `check_tab_w1.txt`): every SC op matches in every setup (157 / 157 / 156 / 156; SC's
+  windows.xml 10 ops without AshfallUI, 9 with: one conditional branch has no LB_Icon op), no aborts; SurvivorOrigins'
+  1486 ops match exactly as without SC; AshfallUI's 2218 / 2319 all match, the 22 that differ from the run without SC are
+  its `mod_loaded('SurvivorCommunity')` Home Status block (16) and broad selectors that also reach SC's older elements
+  (`searchInput`, the packing strip's labels, every `window_group`'s `stack_panel_padding`) - none touches the tab, and the
+  `sccommunity` group keeps its controller. The merged header in each setup is the table above; its tabs in document order:
+  vanilla `Crafting ... Creative, ScCommunity`, SurvivorOrigins `... Skills, SchematicTree, Collections, ... Creative,
+  ScCommunity`, AshfallUI (both) `ScCommunity, Crafting, ... Creative`.
+- LF, no BOM in every file touched.
+
+Only in game (TESTING.md group W1, steps 290-299): the look - the small plate beside each bar, the gap, the AshfallUI
+plate against Creative's; **clicks and hover at negative x**, outside the header window's own rect (NGUI windows don't
+clip - only `XUiV_Panel` sets clipping - and AshfallUI's Creative tab already sits outside its window's width on the
+right, but neither has been seen working here); that a bar title and a lit tab follow every opener; the gamepad paging;
+the dialog opener's close order.
+
+Builds: SC 3.4 `1e2a2b1279af718bef3b872416af6518` (`build\sc34_w1`), 0 errors (the two old CS0108 warnings). The 3.2 DLL
+was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not installed. The task list needs its entry.

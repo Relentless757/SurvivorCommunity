@@ -1289,7 +1289,6 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Opens the community window for the local player (window group registered by Config/XUi_InGame).</summary>
         /// <summary>The community window on its Outposts tab, with one outpost selected (id &gt; 0) or none.</summary>
         public static void OpenOutposts(EntityPlayerLocal player, int outpostId)
         {
@@ -1297,18 +1296,39 @@ namespace SurvivorCommunity
             OpenWindow(player);
         }
 
+        /// <summary>
+        /// Opens the community window for the local player (window group registered by Config/XUi_InGame) - every opener's
+        /// way in: the ESC menu entry, the land claim radial, a member's dialog, a Watch post's "Assign guard", OpenOutposts.
+        /// W1: with the player menu's Community tab there it goes through the tab bar as vanilla's pages do
+        /// (XUiC_WindowSelector.OpenSelectorAndWindow: other modal windows close - the ESC menu, an NPC dialog -, the tab is
+        /// selected, the bar opens and opens the page; XUiC_ScPageGroup keeps the bar with it). That call would shut the page
+        /// instead when it already shows, and does nothing for a dead player: an open window is left as it is, and a dead
+        /// player gets nothing either way (as vanilla's tabs). Without the tab (XUiC_ScPageGroup.Tab) it opens on its own.
+        /// </summary>
         public static void OpenWindow(EntityPlayerLocal player)
         {
             try
             {
                 if (player == null || player.PlayerUI == null || player.PlayerUI.windowManager == null) return;
+                GUIWindowManager wm = player.PlayerUI.windowManager;
                 GUIWindow win;
-                if (!player.PlayerUI.windowManager.TryGetWindow(WindowGroup, out win))
+                if (!wm.TryGetWindow(WindowGroup, out win))
                 {
                     Tell(player, Localization.Get("scNoWindow"), "ui_denied");
                     return;
                 }
-                player.PlayerUI.windowManager.Open(WindowGroup, true);
+                if (player.IsDead() || wm.IsWindowOpen(WindowGroup))
+                {
+                    // not opened now (its OnOpen has run or won't): a Watch pick or an outpost asked for here must not
+                    // carry over to the next opening
+                    XUiC_ScCommunity.PendingOutpost = 0;
+                    XUiC_ScCommunity.PendingWatch = Vector3i.zero;
+                    return;
+                }
+                if (XUiC_ScPageGroup.Tab(XUiC_ScPageGroup.Selector(player.PlayerUI.xui)) != null)
+                    XUiC_WindowSelector.OpenSelectorAndWindow(player, WindowGroup);
+                else
+                    wm.Open(WindowGroup, true);
             }
             catch (Exception e)
             {

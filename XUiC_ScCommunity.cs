@@ -10,8 +10,9 @@ namespace SurvivorCommunity
     /// <summary>
     /// The community window (Config/XUi_InGame/windows.xml, group "sccommunity"): the stockpile, the member list
     /// (search, filter, pages, portraits), the selected survivor (health, mood, skills, specialty, traits, orders)
-    /// and community morale with what helps and hurts it. Opened by ScCommunity.OpenWindow from the ESC menu
-    /// entry, the land claim radial and a member's dialog.
+    /// and community morale with what helps and hurts it. A page of the player menu since W1: the Community tab left of
+    /// the tab bar opens it, and ScCommunity.OpenWindow does from the ESC menu entry, the land claim radial and a
+    /// member's dialog (the group's XUiC_ScPageGroup keeps the bar over it).
     ///
     /// The bindings serve two layouts: the original window and the AshfallUI layout (spec
     /// sc_community_window_spec.md). Controls the XML may not have (searchInput, btnFilter, btnRun, the portrait
@@ -266,12 +267,20 @@ namespace SurvivorCommunity
                    && xui.playerUI.windowManager.IsWindowOpen(ScCommunity.WindowGroup);
         }
 
+        /// <summary>
+        /// The window's own close (its X; Open storage): the page and the player menu's tab bar over it (W1). The group's
+        /// XUiC_ScPageGroup closes the bar with the page already; closing it here too keeps the bar from staying up alone
+        /// should a layout drop that controller.
+        /// </summary>
         private void Close()
         {
             try
             {
                 if (xui != null && xui.playerUI != null && xui.playerUI.windowManager != null)
+                {
                     xui.playerUI.windowManager.Close(ScCommunity.WindowGroup);
+                    xui.playerUI.windowManager.Close(XUiC_ScPageGroup.PagingGroup);
+                }
             }
             catch (Exception e)
             {
