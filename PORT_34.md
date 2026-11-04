@@ -2172,3 +2172,12 @@ joins) and W1 (the Community tab), each Fable-reviewed DEPLOYABLE with its fixes
 Config/blocks.xml. Nate's first 16 clips are held back until his set is complete (a voice with a few clips would switch
 voices mid-talk); the twelve new voices stay silent until their rounds. E13a (bands, round 18) is built, not reviewed, not
 installed. Test steps: TESTING.md groups E10, E11, E12, W1 (200-259, 290-299).
+
+### Round 18 installed (2026-11-03 22:22)
+
+With the user's go-ahead (3.4 game closed): E13a (bands on the road: drifters and raider bands), Fable-reviewed DEPLOYABLE
+AFTER FIXES, fixed (`53d74ed`), re-checked DEPLOYABLE and its two nits fixed (`080bd7e`). port-3.4 fast-forwarded to
+`dev/ideas` 080bd7e; `deploy_sc34.py`: 3606 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf`. The old install is in
+`Port33\_backups\sc34_2026-11-03_222206` (rounds 15-17 and 19's `0b5626ce`); the user's `DebugLogging` true set again in the
+new Config/blocks.xml. The band leader's two told lines and the five new band dialog lines are text only until the idea-menu
+voicing round. Test steps: TESTING.md group E13a (260-289).
