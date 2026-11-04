@@ -1231,14 +1231,16 @@ and walks on unseen.
 **Met.** Once you see them, or come within 30 m, you are told - *Drifters on the road, heading for Miller Farmhouse.* or
 *Raiders on the road, heading for Miller Farmhouse - they shoot on sight!* - the ledger notes it, and a map marker
 follows them while they travel: grey for drifters, red for raiders (on the compass too within 200 m). It goes when they
-arrive or are all dead. At their destination they go once nobody sees them.
+arrive or are all dead. At their destination - or as near to it as the ground lets them get, when it is a fenced yard
+or water - they go once nobody sees them.
 
 **Drifters talk.** "Easy. We're just passing through." **"Where are you headed?"** - *Somewhere with walls and a roof, if
 it's still standing. They are heading for Miller Farmhouse, 900 m north-east.* **"Stay safe."** And **"Come to our
 place."** when you have a home with room for every one of them under `MaxMembers` (those on the way to you count) -
-without that room the row isn't there. A band that trusts you says yes; one that doesn't yet says yes with 60%
-(`BandJoinChance`) - one roll per band, so asking again gets the same answer (*That's kind. But we don't know you, and
-we've been burned before. We'll keep walking.*). While you talk to one of them the whole band waits.
+without that room, or while they are fighting off the dead, the row isn't there. A band that trusts you says yes; one
+that doesn't yet says yes with 60% (`BandJoinChance`) - one roll per band, so asking again gets the same answer (*That's
+kind. But we don't know you, and we've been burned before. We'll keep walking.*). While you talk to one of them the
+whole band waits.
 
 **"Welcome to the community."** They join as E12's groups do. Every one of them alive becomes a member on the way, the
 same face, name, weapons, rounds, skills and traits; those standing there walk off toward your home and are gone once you
@@ -1249,11 +1251,13 @@ community: 3 people. They make their own way to your home.* The band is gone fro
 
 **Trouble.** 30% of drifter bands (`BandTroubleChance`) have 4 zombies (`BandTroubleZombies`, your gamestage's mix) on
 them when you meet them. Kill one of those zombies (you or a follower of yours) and they trust you: *Mara: "You came when
-it counted. We won't forget that." They trust you now.* - and "Come to our place." gets a yes.
+it counted. We won't forget that." They trust you now.* - and "Come to our place." gets a yes. Walk away from the fight
+and its zombies that nobody sees are gone; any left (in view, or once the dead have killed them all) are ordinary zombies
+from then on.
 
 **Hurt them and they remember.** Hit one of a drifter band, or kill one, and the whole band turns on you for good
-(*Their whole band is against you now.*, the same rule as a wild survivor's): they attack on sight, won't talk and never
-join.
+(*Their whole band is against you now.* - any hit of yours counts, as with a wild survivor): they attack on sight, won't
+talk and never join.
 
 **Raiders** are SC's raider classes at your gamestage's tier and attack on sight: once one of them sees you within 60 m
 the whole crew comes for you until you are 180 m from all of them. They need no switch of their own (`BandRaiderShare`

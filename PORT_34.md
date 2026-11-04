@@ -1825,7 +1825,7 @@ a join cut short shrinks reason 1's total, held by `WhyHeld` until the arrivals 
 `ScEnclaveDeals.ParkedKey` in a different table; N6 `ArriveSpot`'s zone tests, bounded). N4: the merged tree's build is
 recorded at the install.
 
-### Round 18: bands on the road - drifters and raider bands (E13a) (2026-11-03, built, not reviewed, not installed)
+### Round 18: bands on the road - drifters and raider bands (E13a) (2026-11-03, built, reviewed (Fable: deployable after fixes), review fixes in, not installed)
 
 `research\ideas\DESIGN.md` section 10 (idea 9) and section 1 (rules), with the user's decisions (Q12 as recommended:
 drifters and raider bands first, the rest later; single player only; `OutpostAttacks` off also turns off enclave raids -
@@ -1981,6 +1981,46 @@ Checks:
 Builds: SC 3.4 `04e6ad3d8e1fa729c3dcbf3eb7036ea0` (`build\sc34_e13a`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
 (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E13a (260-289). Not reviewed (Fable), not installed. The
 task list needs its entry.
+
+**E13a Fable review** (`research\review_e13a\REVIEW.md`, of the merge `151e6a4`: E13a with rounds 15-17 and 19):
+DEPLOYABLE AFTER FIXES, no HIGH. Fixed: M1, the trouble's zombies kept the base attack's flags (`IsHordeZombie`, chunk
+observer, scout) when the fight ended any way but by their deaths. `EndTrouble` lets them go first (`ReleaseTrouble`):
+one alive that nobody sees (`SeenByAny`) is despawned, as the base attack's abandoned fight; one in view, or a corpse,
+is `ScBaseAttack.Unflag`ged and left to vanilla's despawn and its chunk. `TickTrouble` unflags each corpse as it counts
+it (the base attack's `Watch` does the same), and `End` calls `EndTrouble(.., "the band is gone")` when `Trouble == 2`
+instead of clearing the list, so walking away, the stuck despawn, `Destroyed`, `sc band clear`, the daily end and a join
+all release them; the cut-short log line gains ` - its zombies: G despawned unseen, L let go`. `Destroyed` only unflags:
+it runs inside the SetDead postfix, where the zombie that killed the last of them may be mid-attack, and removing it
+there would null its move helper and navigator under it (`EntityAlive.OnEntityUnload`). Across a save and quit: the
+shutdown's `DespawnAll` -> `Despawn` -> `EndTrouble` releases them before the world is saved; a live trouble zombie is
+`Dynamic` and never written (`EntityEnemy.IsSavedToFile`); a corpse is written, but both flags are runtime fields
+(`IsHordeZombie` is never saved, `bIsChunkObserver` is re-read from the class in `InitCommon`); `Trouble` 2 loads as 3.
+`Bands` is read once per world (`ScConfig.Reset` at GameStarting), so "switched off mid-fight" is a restart, which the
+load covers. L1: `Patch_DamageResponse` calls `ScBands.OnHitBy` after E2's hook and ahead of ScTrust's (the same patch
+method, no new target): any band body returns true; a drifter band's first hit calls `TurnOn` and saves.
+`ScTrust.Subject` leaves `IsBandNpc` out - no `Persist`, no `buffOrderWander`, no `scTrustHostile` tell - and
+`TickOnline`'s `IsHostileTo` loop is gone. The talk's snapshot card (`XUiC_ScSnapshot`), which showed band bodies only
+through `Subject`, now names drifter band bodies itself. L2: `Despawn` skips a body the game is still building and keeps
+its `EntityId` (TickBand's loop takes it once it is built, and the despawn rule runs again); `DespawnAll` keeps such an
+entry in `bodies` rather than clearing them all (with Bands off the next tick's `DespawnAll` takes it); `End`, `JoinNow`
+and `sc band kill`, which drop the person for good, hand it to `Orphans` (`SweepWhenBuilt`); both orphan sweeps, the
+bands' and E2's `ScEnclavePeople.SweepOrphans`, keep a pending id for a later tick, and E2's `DespawnEnclave` skips a
+pending body as `Despawn` does (its `DespawnAll` runs every tick while one is left). Found while fixing it: neither L2
+case arises in 3.4 as written - SC's bodies are built in place (`ScSpawn` -> `World.SpawnEntityInWorld`; only chunk
+loads, sleeper volumes and a client's net spawns queue on `EntityAsyncManager`), and a chunk copy's PostInit runs inside
+`EntityCreateHandle.TryComplete` after `IsCompleted` is set, the entity entering the world in the same call - so these
+are guards against a future change, not a behaviour change. L3: chose an arrival watch over snapping `ToAt` (at trip
+time its chunk is rarely loaded, and a standable cell inside a walled yard is still out of reach): within `ArriveNear`
+34 m of the end (`ArriveReach` plus `NextWaypoint`'s 24 m sidestep), walking and not fighting, a leader no nearer by 2 m
+in 30 s has arrived, watched or not; `ToAt` becomes where they stand, so they hold there (`... arrived at <To> (as near
+as they can get, D m off) - they go once nobody sees them`). The watch restarts with camp, a talk and each new body. N4:
+`HiddenWhy` says `they are fighting` while `Trouble == 2`, which hides the row and refuses `Join`. N1, N2: TESTING
+260/286 say "has", 280 says SC stops sending them past 180 m. Left: N3, N5, N6, N7.
+TESTING steps changed: 260, 275 (no join row mid-fight), 277 (the released zombies; `sc band clear` mid-fight), 278 (one
+tell), 280, 284 (an end they can't reach), 286 (the trouble's zombies over a save). Build after the fixes: SC 3.4
+`7946f83d7297067b2dc89dd94047fe8e` (`build\e13afix`), 0 errors (the two old CS0108 warnings); HarmonyAudit
+(`research\e13a\audit34_e13afix_*`): 3.4 OK=150, DYNAMIC_UNRESOLVED=23 (V2's Voice Control targets, as every round since
+14), the patch rows and refs identical to E13a's but for source lines. Not installed.
 
 ### Round 19: the Community tab (W1) (2026-11-03, built, reviewed (Fable: deployable), LOW-1/3 fixed, not installed)
 

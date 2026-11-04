@@ -24,6 +24,9 @@ namespace SurvivorCommunity
     /// then the whole enclave hostile), and the faction check also answers 0 between a body of an enclave turned hostile
     /// and a player, one of the community or a player's companion (ScEnclavePeople.HostilePair) - residents share the
     /// survivors' faction, so without it they would watch such a body raid the base.
+    ///
+    /// E13a: a hit on one of a band's people goes to the band's rule (ScBands.OnHitBy: a drifter band turns as a whole);
+    /// ScTrust.Subject leaves band bodies out, so they never carry a wild survivor's own grudge.
     /// </summary>
     public static class Patches_Trust
     {
@@ -91,6 +94,8 @@ namespace SurvivorCommunity
                     if (ScXnpc.IsRaider(__instance)) ScTaunts.OnHitBy(__instance, p);
                     // E2: one of an enclave's people - the enclave's warning and hostility rules, not a personal grudge
                     if (ScEnclavePeople.OnHitBy(__instance, p)) return;
+                    // E13a: one of a band's people - the whole drifter band turns, not a wild survivor's grudge
+                    if (ScBands.OnHitBy(__instance, p)) return;
                     ScTrust.OnHitBy(__instance, p);
                 }
                 catch (Exception e)

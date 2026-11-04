@@ -1036,6 +1036,7 @@ namespace SurvivorCommunity
             foreach (EncPerson p in new List<EncPerson>(bodies.Values))
             {
                 if (e != null && p.EnclaveId != e.Id) continue;
+                if (w != null && ScNpc.IsPending(w, p.EntityId)) continue;      // still being built: kept, a later tick takes it once it is
                 EntityAlive npc = w != null ? ScNpc.As(ScNpc.Loaded(w, p.EntityId)) : null;
                 if (npc != null && !npc.IsDead()) { Despawn(p, npc); n++; }
                 else Unbody(p, false);
@@ -1183,13 +1184,21 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// A body of ours never comes back from a save (it is never written), but after a crash or a save race one can: the
-        /// PostInit postfix sees %sc_enc on a body we did not just build (ours get the cvar after PostInit) and it goes.
+        /// PostInit postfix sees %sc_enc on a body we did not just build (ours get the cvar after PostInit) and it goes. An
+        /// id the game is still building stays in Orphans for a later tick.
         /// </summary>
         private static void SweepOrphans(World w)
         {
             if (Orphans.Count == 0) return;
+            List<int> keep = null;
             foreach (int id in Orphans)
             {
+                if (ScNpc.IsPending(w, id))
+                {
+                    if (keep == null) keep = new List<int>();
+                    keep.Add(id);           // swept once it is built
+                    continue;
+                }
                 EntityAlive s = ScNpc.As(ScNpc.Loaded(w, id));
                 if (s == null) continue;
                 EncPerson p;
@@ -1199,6 +1208,7 @@ namespace SurvivorCommunity
                 ScLog.Out("removed a stale enclave body (entity " + id + ", enclave " + (int)s.Buffs.GetCustomVar(EncCvar) + ") that a chunk or a save brought back");
             }
             Orphans.Clear();
+            if (keep != null) foreach (int id in keep) Orphans.Add(id);
         }
 
         // ------------------------------------------------------------------ the watchdog ----

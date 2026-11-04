@@ -94,9 +94,11 @@ namespace SurvivorCommunity
             EntityAlive npc = Respondent();
             bool changed = false;
             Member member = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
-            // a member, a stranger the trust rules cover, or one of an enclave's people (E2: their profile is stamped from
-            // their record, so the card is the same on every visit; ScTrust.Subject leaves them out for their hits only)
-            bool show = npc != null && !npc.IsDead() && (member != null || ScTrust.Subject(npc) || ScEnclavePeople.IsEnclaveNpc(npc));
+            // a member, a stranger the trust rules cover, or one of an enclave's or a drifter band's people (E2, E13a: their
+            // profile is stamped from their record, so the card is the same on every visit; ScTrust.Subject leaves them out
+            // for their hits only)
+            bool show = npc != null && !npc.IsDead() && (member != null || ScTrust.Subject(npc) || ScEnclavePeople.IsEnclaveNpc(npc)
+                                                         || (ScBands.IsBandNpc(npc) && !ScXnpc.IsRaider(npc)));
             if (show && (npc.entityId != shownId || shown == null))
             {
                 if (shownId >= 0 && shownId != npc.entityId) ScPortraits.Forget(shownId);

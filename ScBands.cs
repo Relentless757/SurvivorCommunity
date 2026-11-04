@@ -64,6 +64,9 @@ namespace SurvivorCommunity
         /// <summary>The stuck watch: where the leader last made progress, and since when (real time; -1: not watching).</summary>
         public Vector3 ProgressPos;
         public float ProgressSince = -1f;
+        /// <summary>The arrival watch near the end: the leader's nearest to ToAt so far (metres), and since when (real time; -1: not watching).</summary>
+        public float GoalBest;
+        public float GoalBestAt = -1f;
         /// <summary>Camping now (their camp spots given round CampAt).</summary>
         public bool Camped;
         public Vector3 CampAt;
@@ -151,8 +154,9 @@ namespace SurvivorCommunity
     /// with room for all of them, "Come to our place." - they say yes when they trust the player, else by their own roll
     /// (BandJoinChance, the same each time asked), and join through E12's path: each a member on the way (ScEncJoin.OnTheWay),
     /// their bodies walking off toward home (husks), turning up at home after the time it takes to walk there. Drifters met in
-    /// trouble have BandTroubleZombies zombies on them; a player who kills one of those earns their trust and a thanks. A hit
-    /// (ScTrust's rule for any wild survivor) or a kill by the player turns the whole drifter band against the player.
+    /// trouble have BandTroubleZombies zombies on them; a player who kills one of those earns their trust and a thanks; however
+    /// the trouble ends, its zombies are let go. A hit by the player (OnHitBy, Patches_Trust's hook, ahead of ScTrust's
+    /// wild-survivor rule, which leaves band bodies out) or a kill turns the whole drifter band against the player.
     ///
     /// Deaths are real. A band whose people are all dead is destroyed (a tell near it, a ledger line once met) and gone; one
     /// that arrives is gone too. Host only, main thread, single player; the save thread's veto reads a volatile snapshot.
@@ -168,6 +172,12 @@ namespace SurvivorCommunity
         private const float ZoneMargin = 30f;
         /// <summary>The leader counts as at a point (the bend, the destination) within these many metres.</summary>
         private const float ViaReached = 20f, ArriveReach = 10f;
+        /// <summary>
+        /// The end the ground keeps them from (ToAt is a heightmap point, never checked: a fenced yard, a wreck, water): within
+        /// ArriveNear of it (ArriveReach plus NextWaypoint's 24 m sidestep) and no nearer by ArriveGainMetres in
+        /// ArriveStallSeconds while walking, they are there.
+        /// </summary>
+        private const float ArriveNear = 34f, ArriveGainMetres = 2f, ArriveStallSeconds = 30f;
         /// <summary>The leader's next walk point when within this of the last, or this many real seconds after it.</summary>
         private const float StepReached = 4f, ResteerSeconds = 15f;
         /// <summary>The stuck watch: less than StuckMetres in StuckSeconds while walking; then no bodies for StuckRespawnSeconds.</summary>
@@ -902,8 +912,8 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The second of a band with bodies out: the despawn rule, hostility, being met, the rest of their bodies, trouble,
-        /// raiders' aim, the walk.
+        /// The second of a band with bodies out: the despawn rule, being met, the rest of their bodies, trouble, the aim of
+        /// raiders (and drifters against the player), the walk. A hit turns drifters at once (OnHitBy).
         /// </summary>
         private static bool TickOnline(World w, EntityPlayerLocal player, Band b, List<KeyValuePair<BandPerson, EntityAlive>> live, float t, ulong now, ref int budget)
         {
@@ -934,10 +944,6 @@ namespace SurvivorCommunity
                 if (b.Arrived) End(b, "arrived at " + b.ToName);
                 return true;
             }
-            // drifters: a hit on one of them (ScTrust's rule for a wild survivor) is the whole band's grudge
-            if (!b.IsRaiders && b.Trust >= 0)
-                foreach (var kv in live)
-                    if (ScTrust.IsHostileTo(kv.Value, player)) { TurnOn(b, player, "one of them was hit"); changed = true; break; }
             if (!b.Known)
             {
                 bool met = seen;
@@ -968,7 +974,7 @@ namespace SurvivorCommunity
                     b.Halted = true;
                     foreach (var kv in live) ScEnclavePeople.GuardAt(kv.Value, kv.Value.position, kv.Value.position + kv.Value.GetLookVector() * 4f);
                 }
-                b.ProgressSince = -1f;
+                b.ProgressSince = b.GoalBestAt = -1f;
                 return changed;
             }
             if (b.Halted) { b.Halted = false; b.SteeredAt = -1f; b.Camped = false; }
@@ -1233,7 +1239,7 @@ namespace SurvivorCommunity
             ScEnclavePeople.GuardAt(npc, spot, spot + Vector3.forward);
             b.SteeredAt = -1f;          // the walk is given again once they are all out
             b.Camped = false;
-            b.ProgressSince = -1f;
+            b.ProgressSince = b.GoalBestAt = -1f;
         }
 
         /// <summary>ScTrust's grudge on a body (both cvars): it attacks that player on sight, and has no talk prompt for them.</summary>
@@ -1283,14 +1289,19 @@ namespace SurvivorCommunity
             catch (Exception e) { ScLog.Once("bands-harvest", e); }
         }
 
-        /// <summary>Every body of the band out of the world (state recorded), the walk re-planned from 'from'. The caller saves.</summary>
+        /// <summary>
+        /// Every body of the band out of the world (state recorded), the walk re-planned from 'from'; a trouble on ends (its
+        /// zombies let go). A body the game is still building (ScNpc.IsPending) keeps its EntityId: TickBand's loop takes it
+        /// once it is built and the rule that sent the others runs again - never left untracked, never built twice. The
+        /// caller saves.
+        /// </summary>
         private static int Despawn(Band b, Vector3 from, ulong now, string why)
         {
             int n = 0;
             World w = ScCommunity.World;
             foreach (BandPerson p in PeopleOf(b))
             {
-                if (p.EntityId < 0) continue;
+                if (p.EntityId < 0 || (w != null && ScNpc.IsPending(w, p.EntityId))) continue;
                 EntityAlive npc = w != null ? ScNpc.As(ScNpc.Loaded(w, p.EntityId)) : null;
                 if (npc != null && npc.WorldTimeBorn == p.EntityBorn && !npc.IsDead()) { Record(p, npc); Remove(p, npc); n++; }
                 else Unbody(p, false);
@@ -1314,7 +1325,12 @@ namespace SurvivorCommunity
                 EntityAlive lead = LeadBody(b);
                 if (lead != null || HasBodyIds(b)) n += Despawn(b, lead != null ? lead.position : Where(b), now, why);
             }
-            bodies.Clear();
+            // what Despawn left is a body still being built (taken once it is: its band's tick, or with Bands off the next
+            // DespawnAll); any other entry is stale
+            var stale = new List<int>();
+            foreach (KeyValuePair<int, BandPerson> kv in bodies)
+                if (kv.Value.EntityId != kv.Key || w == null || !ScNpc.IsPending(w, kv.Key)) stale.Add(kv.Key);
+            foreach (int id in stale) bodies.Remove(id);
             if (n > 0)
             {
                 ScRegistry.SaveAtomic();
@@ -1391,12 +1407,23 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>A body of ours never comes back from a save (it is never written), but after a crash one can: it goes.</summary>
+        /// <summary>
+        /// A body of ours never comes back from a save (it is never written), but after a crash one can: it goes. So does a
+        /// body End, JoinNow or the console's kill let go of while it was still being built (SweepWhenBuilt). An id the game
+        /// is still building stays in Orphans for a later tick.
+        /// </summary>
         private static void SweepOrphans(World w)
         {
             if (Orphans.Count == 0) return;
+            List<int> keep = null;
             foreach (int id in Orphans)
             {
+                if (ScNpc.IsPending(w, id))
+                {
+                    if (keep == null) keep = new List<int>();
+                    keep.Add(id);           // swept once it is built
+                    continue;
+                }
                 EntityAlive s = ScNpc.As(ScNpc.Loaded(w, id));
                 if (s == null) continue;
                 BandPerson p;
@@ -1406,15 +1433,29 @@ namespace SurvivorCommunity
                 ScLog.Out("removed a stale band body (entity " + id + ", band " + (int)s.Buffs.GetCustomVar(BandCvar) + ") that a chunk or a save brought back");
             }
             Orphans.Clear();
+            if (keep != null) foreach (int id in keep) Orphans.Add(id);
+        }
+
+        /// <summary>
+        /// A body a person is done with for good (End, JoinNow, the console's kill) that the game is still building
+        /// (ScNpc.IsPending): the person forgets it and the orphan sweep removes it once it is built. True when it was.
+        /// </summary>
+        private static bool SweepWhenBuilt(World w, BandPerson p)
+        {
+            if (w == null || p.EntityId < 0 || !ScNpc.IsPending(w, p.EntityId)) return false;
+            Orphans.Add(p.EntityId);
+            Unbody(p, false);
+            return true;
         }
 
         // ------------------------------------------------------------------ the walk with bodies ----
 
         /// <summary>
-        /// Their walk, once a second: at night the camp (each at a spot round where the leader stopped); at the destination they
-        /// hold; else the leader's next point (ScRunners.NextWaypoint, else E3's StepToward) when the last is reached or after
-        /// ResteerSeconds, the others in file behind it. The stuck watch (no progress in StuckSeconds while walking and not
-        /// fighting: unseen, they go and walk on unseen) and the stragglers (put back in file, unseen). True when a record changed.
+        /// Their walk, once a second: at night the camp (each at a spot round where the leader stopped); at the destination
+        /// (within ArriveReach of it, or as near as the ground lets them: ArriveStalled) they hold; else the leader's next point
+        /// (ScRunners.NextWaypoint, else E3's StepToward) when the last is reached or after ResteerSeconds, the others in file
+        /// behind it. The stuck watch (no progress in StuckSeconds while walking and not fighting: unseen, they go and walk on
+        /// unseen) and the stragglers (put back in file, unseen). True when a record changed.
         /// </summary>
         private static bool Steer(World w, Band b, EntityAlive lead, List<KeyValuePair<BandPerson, EntityAlive>> live, float t, ulong now)
         {
@@ -1431,7 +1472,7 @@ namespace SurvivorCommunity
                 }
                 b.Camped = true;
                 b.SteeredAt = t;
-                b.ProgressSince = -1f;
+                b.ProgressSince = b.GoalBestAt = -1f;
                 for (int k = 0; k < n; k++)
                 {
                     Vector3 spot;
@@ -1444,15 +1485,20 @@ namespace SurvivorCommunity
             bool changed = false;
             if (b.HasVia && ScRunners.XZ(lp, V(b.Via)) <= ViaReached) { b.HasVia = false; changed = true; }
             Vector3 goal = b.HasVia ? V(b.Via) : V(b.ToAt);
-            if (!b.Arrived && !b.HasVia && ScRunners.XZ(lp, goal) <= ArriveReach)
+            bool fighting = Fighting(live);
+            float toGoal = ScRunners.XZ(lp, goal);
+            if (!b.Arrived && !b.HasVia && (toGoal <= ArriveReach || ArriveStalled(b, toGoal, fighting, t)))
             {
+                bool there = toGoal <= ArriveReach;
+                if (!there) b.ToAt = B(lp);         // short of an end they can't reach: their end is where the leader stands (they hold there)
                 b.Arrived = true;
                 b.SteeredAt = -1f;
                 RemoveMarker(b);
-                ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + ") arrived at " + b.ToName + " - they go once nobody sees them");
+                ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + ") arrived at " + b.ToName
+                          + (there ? "" : " (as near as they can get, " + Mathf.RoundToInt(toGoal) + " m off)") + " - they go once nobody sees them");
                 return true;
             }
-            if (!b.Arrived && Stuck(w, b, lead, live, t)) return true;
+            if (!b.Arrived && Stuck(w, b, lead, live, fighting, t)) return true;
             if (b.SteeredAt >= 0f && t - b.SteeredAt < ResteerSeconds && (b.Arrived || ScRunners.XZ(lp, b.Target) > StepReached)) return changed;
             if (b.SteeredAt < 0f) foreach (var kv in live) ScCommunity.DropPath(kv.Value);
             Vector3 next;
@@ -1485,19 +1531,42 @@ namespace SurvivorCommunity
             return changed;
         }
 
+        /// <summary>Any of them has a live attack target (a fight holds the stuck and arrival watches).</summary>
+        private static bool Fighting(List<KeyValuePair<BandPerson, EntityAlive>> live)
+        {
+            foreach (var kv in live)
+            {
+                EntityAlive at = kv.Value.GetAttackTarget();
+                if (at != null && !at.IsDead()) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The arrival watch on the leader near the end, walking and not fighting: within ArriveNear of it and no nearer by
+        /// ArriveGainMetres in ArriveStallSeconds - the end is somewhere the ground keeps them from, and they are as near as
+        /// they get. Watched or not: the stuck watch waits for nobody looking, and a leader circling the end moves enough to
+        /// never count as stuck.
+        /// </summary>
+        private static bool ArriveStalled(Band b, float toGoal, bool fighting, float t)
+        {
+            if (toGoal > ArriveNear || fighting) { b.GoalBestAt = -1f; return false; }
+            if (b.GoalBestAt < 0f || toGoal < b.GoalBest - ArriveGainMetres)
+            {
+                b.GoalBest = toGoal;
+                b.GoalBestAt = t;
+                return false;
+            }
+            return t - b.GoalBestAt >= ArriveStallSeconds;
+        }
+
         /// <summary>
         /// The stuck watch on the leader while walking (not fighting): less than StuckMetres in StuckSeconds. Unseen, the band goes
         /// and walks on unseen (no bodies for StuckRespawnSeconds); seen, it waits. True when the bodies went.
         /// </summary>
-        private static bool Stuck(World w, Band b, EntityAlive lead, List<KeyValuePair<BandPerson, EntityAlive>> live, float t)
+        private static bool Stuck(World w, Band b, EntityAlive lead, List<KeyValuePair<BandPerson, EntityAlive>> live, bool fighting, float t)
         {
             Vector3 lp = lead.position;
-            bool fighting = false;
-            foreach (var kv in live)
-            {
-                EntityAlive at = kv.Value.GetAttackTarget();
-                if (at != null && !at.IsDead()) { fighting = true; break; }
-            }
             if (b.ProgressSince < 0f || fighting || ScRunners.XZ(lp, b.ProgressPos) >= StuckMetres)
             {
                 b.ProgressPos = lp;
@@ -1560,6 +1629,24 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Patches_Trust's hit hook, for a player's landed hit (host; never the killing blow - the death has its own rule), ahead
+        /// of ScTrust's: a band body's hit is the band's (ScTrust.Subject leaves band bodies out, so no wild survivor's grudge,
+        /// Persist or Wander order on it, and one tell). A drifter band's first one turns the whole band (TurnOn); raiders, a
+        /// band already against the player, a husk walking off to the player's home or a stale copy: nothing. True for any
+        /// band body (handled here, whatever the outcome).
+        /// </summary>
+        public static bool OnHitBy(EntityAlive npc, EntityPlayer player)
+        {
+            if (!IsBandNpc(npc)) return false;
+            BandPerson p = PersonOf(npc);
+            Band b = p != null ? ById(p.BandId) : null;
+            if (b == null || player == null || b.IsRaiders || b.Trust < 0) return true;
+            TurnOn(b, player, "one of them was hit");
+            ScRegistry.SaveAtomic();
+            return true;
+        }
+
+        /// <summary>
         /// Drifters turn on the player (a hit on one of them, a kill): against the player for good, every body of theirs holding
         /// ScTrust's grudge (it attacks on sight; no talk), "Come to our place." never offered. A tell, the log.
         /// </summary>
@@ -1583,7 +1670,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Drifters met in trouble: BandTroubleZombies zombies of the gamestage's mix (the base attack's pick) come TroubleMin..Max m
-        /// from them, on the side away from the player, each on one of them. Once.
+        /// from them, on the side away from the player, each on one of them. Once. They carry the base attack's flags
+        /// (SpawnHordeZombie), which every end of the trouble takes back (TickTrouble's dead, ReleaseTrouble's rest).
         /// </summary>
         private static void StartTrouble(World w, EntityPlayerLocal player, Band b, List<KeyValuePair<BandPerson, EntityAlive>> live)
         {
@@ -1634,6 +1722,7 @@ namespace SurvivorCommunity
                 if (z.IsDead())
                 {
                     if (KillerPlayer(z.entityThatKilledMe) != null) b.Helped++;
+                    ScBaseAttack.Unflag(z);         // the corpse lingers a while: it keeps no chunks loaded (as the base attack's)
                     b.TroubleIds.RemoveAt(i);
                     continue;
                 }
@@ -1648,16 +1737,19 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The trouble is over: with the player's help (a kill), drifters still alive trust the player - their thanks, then the
-        /// facts, as a tell when near; a ledger line. Without it, or cut short (why: they went off the map), only the log.
+        /// facts, as a tell when near; a ledger line. Without it, or cut short (why: they went off the map, the band is gone),
+        /// only the log; a cut-short fight's zombies still standing are let go first (ReleaseTrouble; despawn: the unseen go).
         /// </summary>
-        private static void EndTrouble(Band b, EntityPlayerLocal player, string why)
+        private static void EndTrouble(Band b, EntityPlayerLocal player, string why, bool despawn = true)
         {
             b.Trouble = 3;
-            b.TroubleIds.Clear();
+            int gone, left;
+            ReleaseTrouble(b, despawn, out gone, out left);
             List<BandPerson> living = Living(b);
             if (why != null || living.Count == 0)
             {
-                ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + "): their trouble is over (" + (why ?? "nobody of them is left") + ")");
+                ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + "): their trouble is over (" + (why ?? "nobody of them is left") + ")"
+                          + (gone + left > 0 ? " - its zombies: " + gone + " despawned unseen, " + left + " let go" : ""));
                 return;
             }
             if (b.Helped <= 0 || b.Trust < 0)
@@ -1671,6 +1763,36 @@ namespace SurvivorCommunity
                 ScCommunity.Tell(player, string.Format(Loc("scEncCallSays"), lead.Name, Loc("scBandThanksSaid")) + " " + Loc("scBandTrustNow"), "");
             ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerHelped"), DisplayName(b)));
             ScLog.Out("band " + b.Id + " (drifters, " + DisplayName(b) + "): you helped them fight off the dead (" + b.Helped + " killed by you) - they trust you now");
+        }
+
+        /// <summary>
+        /// The trouble's zombies, let go however the fight ends (SpawnHordeZombie gave them the base attack's flags: never
+        /// despawned while a player is about, their chunks held, a scout's A* line): with despawn, one alive that nobody sees
+        /// goes (Despawned, as the base attack's abandoned fight); the rest - in view, a corpse, or every one without despawn -
+        /// stay as ordinary zombies (ScBaseAttack.Unflag: vanilla's despawn and the chunk take them). gone / left: how many
+        /// went, how many alive were let go.
+        /// </summary>
+        private static void ReleaseTrouble(Band b, bool despawn, out int gone, out int left)
+        {
+            gone = left = 0;
+            World w = ScCommunity.World;
+            if (w != null)
+            {
+                foreach (int id in b.TroubleIds)
+                {
+                    EntityAlive z = w.GetEntity(id) as EntityAlive;
+                    if (z == null) continue;
+                    if (despawn && !z.IsDead() && !ScEnclavePeople.SeenByAny(w, z.position))
+                    {
+                        w.RemoveEntity(id, EnumRemoveEntityReason.Despawned);
+                        gone++;
+                        continue;
+                    }
+                    ScBaseAttack.Unflag(z);
+                    if (!z.IsDead()) left++;
+                }
+            }
+            b.TroubleIds.Clear();
         }
 
         /// <summary>The player behind a kill: the player, or the player a companion follows (its Leader / Owner cvar).</summary>
@@ -1745,31 +1867,38 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
         }
 
-        /// <summary>Everybody of theirs is dead: a tell when the player is near them, a ledger line once met, the end.</summary>
+        /// <summary>
+        /// Everybody of theirs is dead: a tell when the player is near them, a ledger line once met, the end. Called from a
+        /// death (the SetDead postfix), where the zombie that killed the last of them may be mid-attack - removing it would
+        /// null its move helper and navigator under it (EntityAlive.OnEntityUnload) - so a trouble on is only let go, not
+        /// despawned.
+        /// </summary>
         private static void Destroyed(Band b, EntityPlayer by)
         {
             EntityPlayerLocal pl = ScCommunity.LocalPlayer;
             bool near = pl != null && ScRunners.XZ(Where(b), pl.position) <= ScConfig.BandDespawnRange;
             if (near) ScCommunity.Tell(pl, string.Format(Loc("scBandGone"), KindWord(b), DestText(b)), "");
             if (b.Known || near) ScOutposts.NoteLedger(string.Format(Loc("scBandLedgerGone"), KindWord(b), DestText(b)));
-            End(b, "destroyed" + (by != null ? " (the last killed by " + by.EntityName + ")" : ""));
+            End(b, "destroyed" + (by != null ? " (the last killed by " + by.EntityName + ")" : ""), false);
         }
 
         /// <summary>
         /// The band ends (arrived, destroyed, joined the player, gone from the area, the console): bodies still out go (not the
-        /// corpses), the marker, the trouble, its records; the log, a save.
+        /// corpses; one still being built is swept once it is), the marker, the trouble (its zombies let go: EndTrouble -
+        /// despawnTrouble: the unseen go), its records; the log, a save.
         /// </summary>
-        private static void End(Band b, string cause)
+        private static void End(Band b, string cause, bool despawnTrouble = true)
         {
+            World w = ScCommunity.World;
             foreach (BandPerson p in PeopleOf(b))
             {
-                if (p.EntityId < 0) continue;
+                if (p.EntityId < 0 || SweepWhenBuilt(w, p)) continue;
                 EntityAlive npc = BodyOf(p);
                 if (npc != null && !npc.IsDead()) Remove(p, npc);
                 else Unbody(p, false);
             }
             RemoveMarker(b);
-            b.TroubleIds.Clear();
+            if (b.Trouble == 2) EndTrouble(b, ScCommunity.LocalPlayer, "the band is gone", despawnTrouble);
             ScRegistry.BandPeople.RemoveAll(p => p.BandId == b.Id);
             ScRegistry.Bands.Remove(b);
             ScLog.Out("band " + b.Id + " (" + b.Kind + ", " + DisplayName(b) + ", from " + b.FromName + " for " + DestText(b) + ") is gone: " + cause);
@@ -1869,7 +1998,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Why "Come to our place." is not offered (console words), or null when it is: bands off, not drifters, against the
-        /// player, nobody alive, no home, no room for all of them under MaxMembers (members on the way count: ScEncJoin.RoomLeft).
+        /// player, in the middle of their trouble's fight, nobody alive, no home, no room for all of them under MaxMembers
+        /// (members on the way count: ScEncJoin.RoomLeft).
         /// </summary>
         public static string HiddenWhy(Band b, EntityPlayer player)
         {
@@ -1877,6 +2007,7 @@ namespace SurvivorCommunity
             if (b == null) return "no such band";
             if (b.IsRaiders) return "they are raiders";
             if (b.Trust < 0) return "they are against you";
+            if (b.Trouble == 2) return "they are fighting";
             int coming = Coming(b), room = ScEncJoin.RoomLeft();
             if (coming <= 0) return "nobody of theirs is alive";
             if (player != null ? !ScZone.EnsureHome(player) : !ScZone.HasHome) return "you have no home";
@@ -1986,7 +2117,7 @@ namespace SurvivorCommunity
                 try
                 {
                     Member m = p.Who;
-                    EntityAlive body = BodyOf(p);
+                    EntityAlive body = SweepWhenBuilt(w, p) ? null : BodyOf(p);      // one still being built: swept once it is, no husk
                     if (body != null && !body.IsDead())
                     {
                         Loadout lo = ScLoadout.Current(body);
@@ -2311,10 +2442,11 @@ namespace SurvivorCommunity
                 if (targets.Count == 0) return "no living person bp" + pid + " in band " + b.Id;
             }
             int n = 0;
+            World w = ScCommunity.World;
             foreach (BandPerson q in targets)
             {
                 if (!ScRegistry.Bands.Contains(b)) break;
-                EntityAlive npc = BodyOf(q);
+                EntityAlive npc = SweepWhenBuilt(w, q) ? null : BodyOf(q);
                 if (npc != null && !npc.IsDead()) Remove(q, npc);
                 else Unbody(q, false);
                 Died(b, q, null, "the console");

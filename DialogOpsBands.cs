@@ -29,9 +29,9 @@ public class DialogRequirementScBand : BaseDialogRequirement
 }
 
 /// <summary>
-/// "Come to our place.": value="yes" - offered (ScBands.HiddenWhy: drifters, not against you, a home with room for all of
-/// them) and they say yes (they trust you, or their own answer: ScBands.Accepts); "no" - offered and they say no (the same
-/// each time asked). Never offered otherwise: neither row shows. Host only.
+/// "Come to our place.": value="yes" - offered (ScBands.HiddenWhy: drifters, not against you, not in their trouble's fight,
+/// a home with room for all of them) and they say yes (they trust you, or their own answer: ScBands.Accepts); "no" - offered
+/// and they say no (the same each time asked). Never offered otherwise: neither row shows. Host only.
 /// </summary>
 public class DialogRequirementScBandCome : BaseDialogRequirement
 {

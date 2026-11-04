@@ -1269,8 +1269,8 @@ messages are text only. Lines marked `DebugLogging` need it on.
 
 260. Load the world. The log's `config:` line has `bands=0.5/day up to 3, raiders 0.35, 2-4 people, trips 1000-3000m
      within 600m of home, 250m/h, camp 22-6h, bodies 100/180m (no pop-in 50m), trouble 0.3 x4, join 0.6`, the `registry
-     loaded:` line ends `, 0 band(s) on the road`, and `sc band` prints `[SC] 0 band(s) on the road (BandMax 3; 50% a day,
-     raiders 35%)`.
+     loaded:` line has `, 0 band(s) on the road` (before its morale and home), and `sc band` prints `[SC] 0 band(s) on
+     the road (BandMax 3; 50% a day, raiders 35%)`.
 261. **The day's roll.** `sc day` until a band sets out (about every other day): the log's `band <id> (drifters, N people)
      sets out (the day's roll, day R) from <From> x, y, z for <Dest> x, y, z, L m, passing P m from home; on the road from
      day D, HH:MM at 250 m/h, there by day D, HH:MM` (`raiders` for a raider band; `, zombies on them when met` after `N
@@ -1348,19 +1348,26 @@ messages are text only. Lines marked `DebugLogging` need it on.
      <From> for <Dest>: ...`. Once all of them are out and you are within 130 m of the leader, 4 zombies of your gamestage's
      mix come 14-24 m from them on the side away from you (not in view within 50 m) and go for them; they fight back. The log
      `band <id> (drifters, <name>) is in trouble: 4 zombie(s) of '<group>' on them at x, y, z`; `sc band info <id>`:
-     `trouble: on (Z zombie(s) left, H killed by you)`.
+     `trust: wary; trouble: on (Z zombie(s) left, H killed by you); come to our place: not offered (they are fighting)
+     (their roll J against 0.60)`. Talk to one of them during the fight: the greeting has no `Come to our place.` (it is
+     back once the fight is over, as step 269 says).
 276. **Help them.** Kill at least one of those zombies (or let a follower of yours): when the last of them is dead, the
      message `<Leader>: "You came when it counted. We won't forget that." They trust you now.`, the ledger `You helped
      <name> fight off the dead` and the log `band <id> (drifters, <name>): you helped them fight off the dead (H killed by
      you) - they trust you now`. They greet you with `You again. ...` and say yes to `Come to our place.`.
 277. **No help.** Another trouble band; keep back and don't touch the zombies: the log `band <id> (drifters, <name>): they
      fought off the dead without your help` and `info`'s `trust: wary; trouble: over`. Instead walk more than 180 m away
-     during the fight: the log `band <id> (drifters, <name>): their trouble is over (they went off the map)`, then the
-     bodies-went line (step 282); the zombies stay.
-278. **Hit one.** Hit one of a drifter band (a new one): the message `Their whole band is against you now.` (denied sound)
-     and the log `band <id> (drifters, <name>) turned on <player> (one of them was hit)`; all of them attack you, none will
-     talk, and `info` says `trust: against you; ...; come to our place: not offered (they are against you) (their roll ...)`.
-     `sc band trust <id>`: `[SC] refused: band <id> are against you (for good)`.
+     during the fight: the log `band <id> (drifters, <name>): their trouble is over (they went off the map) - its zombies:
+     G despawned unseen, 0 let go` (G: those still standing; from 180 m away you see none), then the bodies-went line (step
+     282); go back: the zombies are gone. On a third trouble band, `sc band clear <id>` mid-fight with some of the zombies
+     in view: the log `band <id> (drifters, <name>): their trouble is over (the band is gone) - its zombies: G despawned
+     unseen, L let go` before `... is gone: cleared (the console)`; the L you can see stay as ordinary zombies (they
+     despawn as any zombie does once you are away), the others are gone.
+278. **Hit one.** Hit one of a drifter band (a new one): the message `Their whole band is against you now.` (denied sound),
+     only that one (never a wild survivor's `<Name> won't forget that - they're hostile to you now.`), and the log `band
+     <id> (drifters, <name>) turned on <player> (one of them was hit)`; all of them attack you at once (the one you hit
+     does not wander off first), none will talk, and `info` says `trust: against you; ...; come to our place: not offered
+     (they are against you) (their roll ...)`. `sc band trust <id>`: `[SC] refused: band <id> are against you (for good)`.
 279. **A death.** On another drifter band, `sc band kill <id>` (the leader): `[SC] 1 marked dead - N-1 of band <id> alive`;
      the leader's body goes (no corpse), the message `<Leader> is dead.` and the log `band <id> (drifters, <name>): the
      leader <Leader> (bp<pid>) died (the console)` and `band <id>: <Name> (bp<pid2>) leads them now` (the highest tier of
@@ -1371,8 +1378,9 @@ messages are text only. Lines marked `DebugLogging` need it on.
      <Dest> - they shoot on sight!` (denied sound), the ledger `You ran into raiders heading for <Dest>`, a red backpack on
      the map and on the compass within 200 m (`Raiders, heading for <Dest>`). Once one sees you within 60 m: the log `band
      <id> (raiders, <Leader>'s crew): <Name> saw <player> - they attack`, and all of them come for you (`info`: `[SC]
-     raiders: they attack on sight (attacking you now)`). None of them talks. Get more than 180 m from all of them: they
-     stop, and their bodies go once you can't see them.
+     raiders: they attack on sight (attacking you now)`). None of them talks. Get more than 180 m from all of them: SC
+     stops sending them at you (any that still sees you may keep after you on its own), and their bodies go once you
+     can't see them.
 281. **Destroyed.** Kill them all: each death logs `band <id> (raiders, <name>): <Name> (bp<pid>) died - killed by
      <player>` (`the leader ` before the leader's name); with the last, the message `The raiders heading for <Dest> are all
      dead.`, the ledger `The raiders heading for <Dest> are dead` and the log `band <id> (raiders, <name>, from <From> for
@@ -1393,18 +1401,23 @@ messages are text only. Lines marked `DebugLogging` need it on.
      `band <id> (drifters, <name>, from <From> for <Dest>) is gone: arrived at <To> (the console moved them on)`. Walking
      with another band to its end (`advance` until `L` is under 150, then go to them): the log `band <id> (drifters,
      <name>) arrived at <To> - they go once nobody sees them` and the marker goes; they stand there, and once you look away
-     `... N body(ies) went (arrived, out of sight) at x, y, z` and `... is gone: arrived at <To>`. A band heading for a
-     group's building does not join the group (that is E13b).
+     `... N body(ies) went (arrived, out of sight) at x, y, z` and `... is gone: arrived at <To>`. When their end is
+     somewhere they can't stand (a fenced yard, a wreck, water), they get as near as they can, and within about 34 m of it,
+     30 s after they last got nearer, the log says `band <id> (drifters, <name>) arrived at <To> (as near as they can
+     get, D m off) - they go once nobody sees them`, the marker goes and they stand where the leader stopped - also while
+     you watch them. A band heading for a group's building does not join the group (that is E13b).
 285. **Old trips end.** A band you never meet: `sc day` four times; the log `band <id> (drifters, drifters, from <From> for
      <Dest>) is gone: on the road since day S - gone from the area` (never while its bodies are out).
 286. **Saved and loaded.** With a met band's bodies out, save and quit. `survivor_community.txt`: `[community]` has
      `bandid=` and `bandpersonid=`; there is a `[band]` per band (`id=`, `kind=`, `name=`, `size=`, `made=`, `from=`,
      `fromname=`, `to=`, `toname=`, `toat=`, `at=`, `depart=`, `day=`, `known=`, `knownday=`, `seed=`, and `toenc=`, `via=`,
      `trust=`, `trouble=` when they apply) and a `[bandperson]` per person (`pid=`, `band=`, `role=leader` or `member`,
-     `state=alive` or `dead`, `died=`, `health=`, then the member keys). Load: the `registry loaded:` line ends `, B band(s)
+     `state=alive` or `dead`, `died=`, `health=`, then the member keys). Load: the `registry loaded:` line has `, B band(s)
      on the road`, the marker is back and the bodies come back once where they were (`info` shows one entity each). A stray
      copy from a chunk is removed: `removed a stale band body (entity E, band <id>) that a chunk or a save brought back`. A
-     trouble fight on at the save is over after the load (`trouble: over`).
+     trouble fight on at the save is over after the load (`trouble: over`) and its zombies are not there: the quit's log
+     has `band <id> (drifters, <name>): their trouble is over (they went off the map) - its zombies: G despawned unseen, L
+     let go`, and a living zombie of it is never saved.
 287. **A world day set back.** With a band on the road, `settime <two days earlier> 12 0`: the log's `enclaves: the world's
      day went back from ...` line ends `; S band stamp(s) moved back (a walk 2 day(s), a trip's age R2 day(s))`, and `sc
      band info` still has them walking, not setting out two days ahead.
