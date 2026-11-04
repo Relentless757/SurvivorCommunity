@@ -1736,3 +1736,160 @@ Checks:
 Builds: SC 3.4 `9f16253e574e83053978318c18025f9c` (`build\sc34_e12`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
 (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E12 (240-259). Not reviewed (Fable), not installed. The
 task list needs its entry.
+
+### Round 18: bands on the road - drifters and raider bands (E13a) (2026-11-03, built, not reviewed, not installed)
+
+`research\ideas\DESIGN.md` section 10 (idea 9) and section 1 (rules), with the user's decisions (Q12 as recommended:
+drifters and raider bands first, the rest later; single player only; `OutpostAttacks` off also turns off enclave raids -
+for bands, decided below). Branch `ms/e13a` from E12's `ecb7c7b`. **3.4 only**: only the 3.4 DLL was built; the tracked
+3.2 `SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34`. Single player only, as SC.
+
+- **`ScBands.cs` (new).** No new Harmony patch; driven from `ScTicker` (1 Hz, after `ScEnclavePeople.Tick`), `ScDaily.Run`
+  (after `ScEncMoves.Daily`), the existing SetDead and PostInit postfixes, the dialog and the console.
+  - **Records.** `Band` (id, kind `drifters`/`raiders`, name, size, the two buildings and their names, the destination's
+    enclave, the walk - `At` where the stretch began, `Depart` the world time it began, `Via` the bend while ahead, `ToAt`
+    the end - the request-clock start day, met and the day, the seed, trust -1/0/1, trouble 0 none/1 owed/2 on/3 over,
+    arrived) and `BandPerson` (id, band, role, state, the day they died, health, `Who` - a `Member` as E2's `EncPerson`
+    holds one). `ScRegistry.Bands` / `BandPeople`; band people are never `EncPeople` or `Members`.
+  - **The day's roll** (`Daily`, once per request-clock day): a trip older than 3 request-clock days ends (never while its
+    bodies are out); then, `Bands` on and fewer than `BandMax`, `BandDailyChance` for a new band - raiders with
+    `BandRaiderShare`, `BandSizeMin..Max` people, trouble owed with `BandTroubleChance` (drifters) - setting out 0-3 h after
+    the rollover. **`PickTrip`**: buildings from `ScPoiIndex.Near` within `BandPassRange + BandTripMax` of home (the player
+    without one); up to 1500 random pairs `BandTripMin..Max` apart whose line passes within `BandPassRange`; `Refuse`:
+    infested, an outpost, overlapping home, claimed (`CheckForAnyPlayerHome`), a start within `BandDespawnRange` of a
+    player, an enclave as a start, as an end anything but a non-hostile enclave for drifters or a hostile one for raiders.
+    The ends are just outside each footprint; a line through the home zone (a circle round the claim's bounds + 30 m)
+    bends at one point outside it.
+  - **The walk.** Nothing walks unloaded: the virtual place is `Along(route, walked)`, walked = the non-camp world ticks
+    since `Depart` x `BandMetresPerHour` (`WalkTicks` leaves out `BandCampFrom..To`). A band at the end with no bodies
+    ends ("arrived at <To>"). When bodies go, the walk starts again where the leader was (`Replan`: `At` there, `Depart`
+    now, a bend behind them dropped); when the first body comes, the stretch is re-anchored at the virtual place
+    (`GoOnline`) so the clock never counts twice.
+  - **Bodies** (`TickBand`/`TickOnline`): with no body out, one comes when a player is within `BandSpawnRange` of the
+    virtual place, the spot settled for a full tick, not `FightNear` (a live base attack near the player, an outpost
+    fight, any enclave siege, the blood moon), at most one a second across all bands; the rest come one a second while a
+    player is within `BandDespawnRange`, in file behind the leader (their slots), never within `BandNoPopRange` in a
+    player's view. First time: E2's `Generate` shape - a class from `scSurvivorGroupGS*` / `scRaiderGroupGS*` at
+    `ScLoadout.GamestageTier` (`RollClass`), a stranger spawned (`ScSpawn.Create`) and captured into the record (name,
+    look, pair, rounds, profile; a raider's stars as their Shooting); later: `ScSpawn.Body` from the record. Each body: `Dynamic`, `%sc_band` = band id,
+    doors, the record's health, the chunk-save veto (`ScRunners.Vetoes` gains `ScBands.IsBandBody`), raiders their
+    stars, a band against the player ScTrust's grudge. They go (recorded, removed) when nobody sees them (`SeenByAny`)
+    and no player is within `BandDespawnRange`, or (arrived) nobody sees them; an unload or the world's shutdown records
+    and removes them; a body gone another way comes back from its record (a warning); a copy brought back by a chunk or a
+    save is swept (`%sc_band` at PostInit, as E2's orphans).
+  - **Steering** (E3's walk): the leader's next point (`ScRunners.NextWaypoint`, else `ScEnclaveDeals.StepToward`) by
+    XNPC's Guard order (`ScEnclavePeople.GuardAt`), again when reached or after 15 s; the others at file slots behind it;
+    a straggler more than 50 m back, unseen, is put back in file. Camp (and the wait before setting out): each at a slot
+    in a circle round where the leader stopped. Stuck - the leader under 3 m in 60 s, walking, not fighting, nobody
+    looking - the bodies go and the walk goes on unseen (no bodies for 90 s). Arrived: they hold at the end and go once
+    unseen, ending the band. A talk with one of them holds the whole band where it stands (the dialog's `Respondent`).
+  - **Met** (`MarkKnown`): seen, or a body within 30 m: known, the tell, the ledger, the marker (`sc_band_drifters` grey,
+    map only; `sc_band_raiders` red, compass within 200 m; owner-only), which follows them every 5 s (moved 10 m) - from
+    their bodies or the virtual place - and goes on arrival, the end or a load (restored on the next tick).
+  - **Drifters.** A hit (ScTrust's `IsHostileTo` on any body: the wild survivor's "hostile for good") or a kill by the
+    player or a follower turns the whole band (`Trust` -1, every body the grudge, later bodies too); a band against the
+    player is engaged as raiders are. **Trouble** (owed, the band whole, the player within `BandSpawnRange` + 30 m):
+    `BandTroubleZombies` zombies of the base attack's gamestage group (`ScBaseAttack.GroupFor` / `PickClass` /
+    `SpawnHordeZombie`) 14-24 m from them away from the player, never popping in in view, each on one of them, re-aimed
+    every 5 s. Over when none is left: a kill by the player or a follower (`KillerPlayer`) makes them trust the player
+    (`Trust` 1; the leader's thanks and "They trust you now." as one tell, a ledger line); the bodies going cuts it short.
+  - **Raiders** (`Engage`): once one sees the player within 60 m, every body takes the player as its attack target
+    (again every 5 s to any with none) until the player is beyond `BandDespawnRange` of all of them.
+  - **Deaths** (`OnBodyDied`, from the SetDead postfix before E2's): the person is dead (the corpse and its loot are
+    vanilla's); a dead leader's role passes to the highest tier of the living; a drifter's death near the player is
+    told; with nobody left the band is destroyed (a tell when near, a ledger line once met) and ends.
+  - **"Come to our place."** (`HiddenWhy` null): drifters, not against the player, someone alive, a home, and room for all
+    of the living under `MaxMembers` (`ScEncJoin.RoomLeft`: members on the way count) - otherwise the row isn't there.
+    The answer: yes when they trust the player, else their own roll from the seed against `BandJoinChance` (the same
+    every time). **`JoinNow`**: each living person becomes a member on the way through E12's path
+    (`ScEncJoin.OnTheWay`, factored out of `JoinArriving`): keyed `int.MaxValue - 0x1000000 - person id`, `ArriveEnclave`
+    the band's id negated, `ArriveName` the band's name, `ArriveFrom` where they are, due after the walk to the home at
+    `BandMetresPerHour` (an hour at least); a body out gives its pair and rounds first and walks off as an E12 husk
+    (`ScEncJoin.AddHusk`, factored out); one tell (the leader's word, then the facts), the ledger, the log; the band ends.
+  - **The dialog** (`DialogOpsBands.cs`, global `DialogRequirementScBand` / `ScBandCome`, `DialogActionScBandJoin`):
+    phases `scBandTrusted` / `scBandDrifter` in `SdcsNPC`; the greeting, "Where are you headed?" (`{bandwhere}`), "Come
+    to our place." as two rows (yes: the confirm with `{bandjoinfacts}`; no: their refusal), "Stay safe."; the yes row
+    reuses `scEncRecruitYes`, the back rows `scEncBack` / `scEncForget`. `ScEncDialog.Fill` hands a band respondent's
+    line to `ScBands.Fill`. The stranger rows (the Hire append and the ShowMe append) hide on `%sc_band`.
+- **Elsewhere.** `ScCommunity.CanRecruit` refuses band bodies (`scEncStays`); `DialogOps.Ensure` makes no prospect of one;
+  Voice Control's spoken hire, pick-up and dismiss refuse them with the enclave lines, and they fight at will
+  (`Patch_MayEngage`). `ScEncJoin.WhenText` names `band N` for a negative `ArriveEnclave`. `ScEnclaves.OnWorldDayBack`
+  shifts `Depart` (world clock) and the start day (request clock). `ModApi`: `Reset` at GameStarting,
+  `OnWorldShuttingDown` after E2's. `ScOutposts.OnRegistryChanged` calls `ScBands.OnRegistryChanged` (ids squared, no
+  body known, markers restored). `ScConfig`: 18 keys, the `config:` part `bands=...`.
+- **The E9-E12 gates.** Band people are neither `EncPeople` nor enclave members, and a member on the way from a band has
+  a negative `ArriveEnclave`, which no enclave id matches: E9's `CanCall`, E10's `WhyNot`, E11's `WhyHeld`, E12's
+  `Blocked` and the info lines never see them. `RoomLeft` counts them as members on the way, as it should.
+- **Save.** Two forward-only sections (`ScRegistry` doc comment): `[band]` `id kind name size made from fromname to toname
+  toenc toat at depart via day known knownday seed trust trouble arrived`, `[bandperson]` `pid band role state died
+  health` + the member keys (`WriteMemberFields`); `bandid=` / `bandpersonid=` in `[community]`. An older build counts the
+  lines as unreadable (a "degraded" load, which only holds off its portrait pruning) and drops them at its next save. A
+  person whose band is missing is dropped (a warning). Trouble on (2) is written as over (3): its zombies are not saved.
+
+**Design deviations** (each with its reason):
+1. **`BandMetresPerHour` 250, not 1500.** At 1500 a band crosses the whole 600 m pass window in about 25 game minutes and
+   is 3000 m on in 2 hours: you would almost never meet one, and bodies (which walk at about 240 m a game hour on a
+   60-minute day) could not keep up with their own virtual place, so every despawn/respawn would jump them. 250 matches
+   the bodies' pace; a trip still takes under a game day.
+2. **The walk's record.** The design's `leg=start:end:from:to state=travel|camp` became `at`, `depart`, `via`, `toat`
+   (the place is derived from the clock, camp hours left out, so no `state`); `role=leader|member` (not `lead`); `name`,
+   `size`, `made`, `fromname`, `toenc`, `day`, `knownday`, `trust`, `trouble`, `arrived` added. A trouble fight is saved
+   as over.
+3. **Two clocks.** The walk is on world time (as the design's legs); the day's roll, a trip's age and the 3-day end are on
+   the request clock (as every daily since E4), so `sc day` rolls and `sc band advance` walks.
+4. **Arrivals end at the tick, not at the daily.** A band reaching its end ends then (with no bodies) or once nobody sees
+   them (with bodies). The daily only ends trips older than 3 request-clock days (`MaxTripDays`, a safety net for a band
+   held by camp hours or a stuck walk; never while its bodies are out).
+5. **No SC utility-AI package on band bodies.** The design's risk list says band bodies need SC's package as enclave
+   bodies have `SCEnclave`: that package's actions are anchored to an enclave's footprint and home spot (its leash and
+   defence), which a band doesn't have. The bodies keep XNPC 3.4's own packages and walk by the Guard order, as E3's
+   leaving people and E12's husks already do on 3.4; drifters fight at will (`Patch_MayEngage`), raiders by their class.
+   Untested in game.
+6. **A separate cvar and records.** `%sc_band` (not `%sc_enc`) and `BandPerson` (not `EncPerson`): an enclave person is
+   tied to an enclave everywhere (E3-E12's gates, leash, defence, standing); a band person in those lists would need a
+   guard in each.
+7. **"Come to our place."'s answer.** The design says they join "as a group (the same path as idea 8)" and that helping
+   "earns their trust" without saying what trust does. Built: a trusting band always says yes; an untrusting one rolls
+   once (`BandJoinChance`, new, 0.6), the same answer every time. Help = a kill of one of the trouble's zombies by the
+   player or a follower; the thanks line is the leader's word plus "They trust you now.".
+8. **The join's path.** E12's arriving path, always "own way" (`EnclaveJoinArrive` `follow` is E12's only), no bundles to
+   the stockpile (a band carries nothing), due after the walk to the home at the band's pace (an hour at least) rather
+   than `EnclaveJoinArriveHours`; a band's people are told apart by a negative `ArriveEnclave` and their own key range.
+9. **Hostile drifters.** Not in the design: a hit (ScTrust's wild-survivor rule) or a kill turns the whole band against
+   the player for good - they attack on sight, no talk, no join.
+10. **Raider bands and `OutpostAttacks`.** The user's decision ties enclave raids to `OutpostAttacks`; raider bands do not
+    follow it. They never target outposts or the home, only whoever they meet on the road; their switch is `Bands` and
+    `BandRaiderShare` 0 (documented in the blocks.xml comment and the README).
+11. **Ends.** Nobody sets out from an enclave (errands are E13b's); drifters may head for a non-hostile enclave's building,
+    raiders for a hostile one (the design names only drifters). On arrival E13a just ends the band.
+12. **The bend.** One via point on a circle round the zone's bounds plus 30 m, pushed out until neither half crosses it.
+13. **Fights hold off new bodies** in the design's spirit and a bit wider: a live base attack near the player, an outpost
+    fight, any enclave siege and the blood moon.
+14. **Raiders passing a friendly enclave.** No new code: E2's defence already fights an enemy inside the footprint within
+    `EnclaveDefendRadius` (raider classes are enemies by faction), and routes never start at an enclave.
+15. **A talk holds the band** (not in the design): otherwise the person you talk to walks away mid-sentence.
+16. **The console.** `sc band list|info|spawn [drifters|raiders] [trouble]|here <id>|advance <id> [hours]|kill <id>
+    [<person id>|all]|clear <id|all>|trust <id>|roll`: `here` takes a band id (the design's had none), `spawn` sets a band
+    on a real trip 140 m from the player walking through them; `advance`, `kill`, `trust` and `roll` added for testing.
+17. **Voices.** The five new dialog statements are V2 lines (`voice_lines.py`: the two with tokens speak their token-free
+    part); the two tells said in the leader's word (`scBandThanksSaid`, `scBandJoinSaid`) are runtime-fixed lines, text
+    only until the voicing round wires their playback (as E12's).
+
+Checks:
+- XML replay against the 3.4 game (`research\e13a\sc_replay_e13a.py`, made by `research\e13a\make_replay_e13a.py`; out
+  `research\e13a\replay`): every SC op matches, no aborts; dialogs 16 ops (E12's 15 + the band append), blocks 9 as E12's
+  (the keys go inside the existing block), nav_objects 1. The merged dialogs.xml has phases `scBandTrusted` and
+  `scBandDrifter`, the 4 Hire and 4 ShowMe rows hidden on `%sc_band`; blocks.xml the 18 `Band*` keys; nav_objects.xml
+  both classes.
+- HarmonyAudit (`research\e13a\audit34_e13a_*`, compared with E12's `research\e12\audit34_e12_*` by
+  `research\e13a\cmp_audit.py`): 3.4 OK=150, DYNAMIC_UNRESOLVED=23 in both, the 174 patch rows identical but for source
+  lines; the refs gain one row, `ScBands::RollClass`'s generic `DictionarySave.TryGetValue` - the same false positive as
+  `ScEnclavePeople::RollClass`'s.
+- `Tools/voice_lines.py check`: no problems, 173 dialog lines (166 + 7), `ScVoiceLines.cs` in step. Localization.csv
+  parses as 7 columns everywhere (1431 rows), no duplicate keys. LF, no BOM, in every file touched
+  (`research\e13a\check_data.py`).
+- The data edits (Localization, the blocks.xml block, `voice_lines.py`) are `research\e13a\ed_e13a_data.py` (re-run safe).
+
+Builds: SC 3.4 `04e6ad3d8e1fa729c3dcbf3eb7036ea0` (`build\sc34_e13a`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
+(`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E13a (260-289). Not reviewed (Fable), not installed. The
+task list needs its entry.

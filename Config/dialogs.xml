@@ -50,9 +50,12 @@
 		<!-- one of an enclave's people neither (E2): they start at their own statements (the phases below), this is for a
 		     talk that ever reaches "start" all the same (a multiplayer client, where the phases' requirements are host-only) -->
 		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="%sc_enc" operator="not" />
+		<!-- nor one of a band on the road (E13a): drifters start at their own statements too (the band phases at the end) -->
+		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="%sc_band" operator="not" />
 	</append>
 	<append xpath="/dialogs/dialog/response[@id='ShowMe']">
 		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="%sc_enc" operator="not" />
+		<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="%sc_band" operator="not" />
 	</append>
 
 	<append xpath="/dialogs/dialog[response[@id='Hire']]">
@@ -793,6 +796,81 @@
 			<requirement type="ScEncJoin, SurvivorCommunity" requirementtype="Hide" value="show" />
 			<requirement type="ScEncJoin, SurvivorCommunity" value="open" />
 			<action type="ScEncJoin, SurvivorCommunity" />
+		</response>
+	</append>
+
+	<!-- Bands on the road (E13a, research/ideas/DESIGN.md section 10 with the user's Q12; ScBands, DialogOpsBands.cs). A drifter
+	     band's people talk through 0-XNPCCore's SdcsNPC too: these phases pick their first statement (after E2's, which never
+	     match one of a band) - a greeting by how far they trust you: wary, or grateful once you helped them fight off the dead.
+	     "Where are you headed?" answers in words with no name or number, then the facts ({bandwhere}: where they head, how far
+	     and which way from you). "Come to our place." shows only when it is on offer - drifters not against you, and you have
+	     a home with room for every one of them (MaxMembers) - and is one of two rows (ScBandCome): they say yes (they trust
+	     you, or their own answer, BandJoinChance) and the confirm follows ({bandjoinfacts}: how many, and that they make their
+	     own way), or they say no, the same each time you ask. "Welcome to the community." (checked again) joins them all and
+	     closes the talk, their word and the facts in one tell after it. "Stay safe." ends the talk. Raider bands never talk
+	     (X9), nor drifters you hit (ScTrust's grudge). The stranger rows are hidden on band bodies (%sc_band, above). Rows:
+	     the greetings 4 entries, 3 on screen at most. Host only. -->
+	<append xpath="/dialogs/dialog[@id='SdcsNPC']">
+		<phase id="scBandTrusted" startstatementid="scBandGreetTrusted">
+			<requirement type="ScBand, SurvivorCommunity" value="trusted" />
+		</phase>
+		<phase id="scBandDrifter" startstatementid="scBandGreet">
+			<requirement type="ScBand, SurvivorCommunity" value="drifter" />
+		</phase>
+
+		<statement id="scBandGreet" text="scBandGreet_text">
+			<response_entry id="scBandWhere" />
+			<response_entry id="scBandCome" />
+			<response_entry id="scBandComeNo" />
+			<response_entry id="scBandBye" />
+		</statement>
+		<statement id="scBandGreetTrusted" text="scBandGreetTrusted_text">
+			<response_entry id="scBandWhere" />
+			<response_entry id="scBandCome" />
+			<response_entry id="scBandComeNo" />
+			<response_entry id="scBandBye" />
+		</statement>
+		<!-- "Where are you headed?" -->
+		<statement id="scBandWhereReply" text="scBandWhereReply_text">
+			<response_entry id="scBandBackWary" />
+			<response_entry id="scBandBackTrusted" />
+			<response_entry id="scBandBye" />
+		</statement>
+		<!-- "Come to our place.": yes, the confirm; no, their refusal -->
+		<statement id="scBandComeConfirm" text="scBandComeConfirm_text">
+			<response_entry id="scBandComeYes" />
+			<response_entry id="scBandForgetWary" />
+			<response_entry id="scBandForgetTrusted" />
+		</statement>
+		<statement id="scBandComeRefuse" text="scBandComeRefuse_text">
+			<response_entry id="scBandBye" />
+		</statement>
+
+		<response id="scBandWhere" text="scBandWhere" nextstatementid="scBandWhereReply" />
+		<response id="scBandCome" text="scBandCome" nextstatementid="scBandComeConfirm">
+			<requirement type="ScBandCome, SurvivorCommunity" requirementtype="Hide" value="yes" />
+		</response>
+		<response id="scBandComeNo" text="scBandCome" nextstatementid="scBandComeRefuse">
+			<requirement type="ScBandCome, SurvivorCommunity" requirementtype="Hide" value="no" />
+		</response>
+		<!-- no next statement: the talk closes ("Stay safe."; the join, their word coming as a tell after it) -->
+		<response id="scBandBye" text="scBandBye" />
+		<response id="scBandComeYes" text="scEncRecruitYes">
+			<requirement type="ScBandCome, SurvivorCommunity" requirementtype="Hide" value="yes" />
+			<action type="ScBandJoin, SurvivorCommunity" />
+		</response>
+		<!-- back to the greeting they give now: one of each two shows -->
+		<response id="scBandBackWary" text="scEncBack" nextstatementid="scBandGreet">
+			<requirement type="ScBand, SurvivorCommunity" requirementtype="Hide" value="wary" />
+		</response>
+		<response id="scBandBackTrusted" text="scEncBack" nextstatementid="scBandGreetTrusted">
+			<requirement type="ScBand, SurvivorCommunity" requirementtype="Hide" value="trusted" />
+		</response>
+		<response id="scBandForgetWary" text="scEncForget" nextstatementid="scBandGreet">
+			<requirement type="ScBand, SurvivorCommunity" requirementtype="Hide" value="wary" />
+		</response>
+		<response id="scBandForgetTrusted" text="scEncForget" nextstatementid="scBandGreetTrusted">
+			<requirement type="ScBand, SurvivorCommunity" requirementtype="Hide" value="trusted" />
 		</response>
 	</append>
 </configs>

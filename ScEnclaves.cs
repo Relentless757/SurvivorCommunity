@@ -1389,8 +1389,8 @@ namespace SurvivorCommunity
         /// world's. E7's next gift and next ally barter days are the request clock's. E9's next radio call is the request
         /// clock's, a call's arrival and its fighter's end the world's (as E3's enlistments). E10's raid rest is the request
         /// clock's. E11's move stamps (the day they last moved, their last death, an infestation next door since) are the
-        /// request clock's. E12's arrivals (when a member on the way may turn up at home) are the world's. One log line; the
-        /// ticker saves.
+        /// request clock's. E12's arrivals (when a member on the way may turn up at home) are the world's. E13a's bands: a walk's
+        /// start (Depart) is the world's, a trip's start day the request clock's. One log line; the ticker saves.
         /// </summary>
         public static void OnWorldDayBack(int day, int fromDay)
         {
@@ -1419,13 +1419,15 @@ namespace SurvivorCommunity
                 int raids = ScEncRaids.ShiftDays(reqBack);                 // E10: a raiding group's rest (request clock)
                 int moves = ScEncMoves.ShiftDays(reqBack);                 // E11: the last move, the last death, a nest next door since (request clock)
                 int arrivals = ScEncJoin.ShiftDays(worldBack);             // E12: members on the way, when they may turn up at home (world clock)
+                int bands = ScBands.ShiftDays(reqBack, worldBack);         // E13a: a band's walk (world clock) and its trip's age (request clock)
                 ScLog.Out("enclaves: the world's day went back from " + fromDay + " to " + day + " - the request clock, " + requests + " open request(s), "
                           + allies + " refill/ally-reveal stamp(s), " + gifts + " gift/barter stamp(s) moved back " + reqBack + " day(s); " + stamps
                           + " world-clock stamp(s) (radio reveal, recruit cooldowns, "
                           + "enlistments, the siege call) and " + infest + " infestation(s) moved back " + worldBack + " day(s); " + calls
                           + " radio-call stamp(s) moved back (the next call " + reqBack + " day(s), an arrival or a fighter's end " + worldBack + " day(s)); "
                           + raids + " raid rest stamp(s) moved back " + reqBack + " day(s); " + moves + " move stamp(s) moved back " + reqBack + " day(s); "
-                          + arrivals + " arrival stamp(s) moved back " + worldBack + " day(s)");
+                          + arrivals + " arrival stamp(s) moved back " + worldBack + " day(s); " + bands + " band stamp(s) moved back (a walk " + worldBack
+                          + " day(s), a trip's age " + reqBack + " day(s))");
             }
             catch (Exception ex)
             {

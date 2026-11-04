@@ -1191,6 +1191,88 @@ brings them). A world day set back moves their time back with it.
 **Limits:** host only, single player. Their words are text only for now. Someone on the way has no body: if their
 character class leaves the game they can't turn up (`sc enclave arrivals` says so).
 
+## Bands on the road (E13a)
+
+Not everyone out there has walls. Now and then a few people walk past your part of the map: **drifters** looking for
+somewhere to live, or a **raider** crew.
+
+**Where they come from.** At each day rollover there is a 50% chance (`BandDailyChance`) that a new band sets out, while
+fewer than 3 (`BandMax`) are on the road; 35% of them (`BandRaiderShare`) are raiders. A band is 2-4 people
+(`BandSizeMin`, `BandSizeMax`) walking between two real buildings 1000-3000 m apart (`BandTripMin`, `BandTripMax`) on a
+line that passes within 600 m (`BandPassRange`) of your home - of you, without one - and bends round your home zone,
+never through it. Nobody sets out from an enclave, an outpost, an infested or claimed building, your home or a building
+you stand near; drifters may head for a friendly enclave's building, raiders for a raider den (E13a only ends them
+there). They set out up to three hours after the rollover, walk 250 m a game hour (`BandMetresPerHour`, about a body's
+walking pace on a 60-minute day) and camp from 22:00 to 06:00 (`BandCampFrom`, `BandCampTo`). A band still on the road 3
+days later is gone from the area.
+
+**Bodies only near you.** Nothing walks the map unloaded: where a band is comes from the clock. Their bodies come once you
+are within 100 m (`BandSpawnRange`) of that spot - one a second, never popping in within 50 m in front of you
+(`BandNoPopRange`), and not while a base attack, an attack on an outpost, a siege or a blood moon is on - and go when
+nobody is within 180 m (`BandDespawnRange`) and nobody looks; then they walk on unseen from where they were. The first
+time they come their people are made for good: the same faces, names, gear, skills and traits every time you meet them
+again. They walk in file behind the leader, stand round a camp at night, and a band stuck on the way goes (out of sight)
+and walks on unseen.
+
+**Met.** Once you see them, or come within 30 m, you are told - *Drifters on the road, heading for Miller Farmhouse.* or
+*Raiders on the road, heading for Miller Farmhouse - they shoot on sight!* - the ledger notes it, and a map marker
+follows them while they travel: grey for drifters, red for raiders (on the compass too within 200 m). It goes when they
+arrive or are all dead. At their destination they go once nobody sees them.
+
+**Drifters talk.** "Easy. We're just passing through." **"Where are you headed?"** - *Somewhere with walls and a roof, if
+it's still standing. They are heading for Miller Farmhouse, 900 m north-east.* **"Stay safe."** And **"Come to our
+place."** when you have a home with room for every one of them under `MaxMembers` (those on the way to you count) -
+without that room the row isn't there. A band that trusts you says yes; one that doesn't yet says yes with 60%
+(`BandJoinChance`) - one roll per band, so asking again gets the same answer (*That's kind. But we don't know you, and
+we've been burned before. We'll keep walking.*). While you talk to one of them the whole band waits.
+
+**"Welcome to the community."** They join as E12's groups do. Every one of them alive becomes a member on the way, the
+same face, name, weapons, rounds, skills and traits; those standing there walk off toward your home and are gone once you
+look away, and each turns up at home **while you are there**, from the time it takes to walk there at the band's pace (an
+hour at least). Until then the community window lists them as **On the way** ("On the way from Mara's band"). The talk
+closes on *Mara: "Then we'll see you there. We know how to keep out of trouble on the way." Mara's band joined your
+community: 3 people. They make their own way to your home.* The band is gone from the map.
+
+**Trouble.** 30% of drifter bands (`BandTroubleChance`) have 4 zombies (`BandTroubleZombies`, your gamestage's mix) on
+them when you meet them. Kill one of those zombies (you or a follower of yours) and they trust you: *Mara: "You came when
+it counted. We won't forget that." They trust you now.* - and "Come to our place." gets a yes.
+
+**Hurt them and they remember.** Hit one of a drifter band, or kill one, and the whole band turns on you for good
+(*Their whole band is against you now.*, the same rule as a wild survivor's): they attack on sight, won't talk and never
+join.
+
+**Raiders** are SC's raider classes at your gamestage's tier and attack on sight: once one of them sees you within 60 m
+the whole crew comes for you until you are 180 m from all of them. They need no switch of their own (`BandRaiderShare`
+0: no raider bands). `OutpostAttacks` has no say: they never go for your outposts or your home, only for whoever they
+meet on the road.
+
+**Deaths are real.** A band person killed stays dead (the corpse and its loot are vanilla's); a dead leader's lead passes
+to the strongest of the rest; a band all dead is gone (*The drifters heading for Miller Farmhouse are all dead.*).
+
+**Config** (`Config/blocks.xml`, commented there): `Bands`, `BandDailyChance`, `BandMax`, `BandRaiderShare`,
+`BandSizeMin`, `BandSizeMax`, `BandTripMin`, `BandTripMax`, `BandPassRange`, `BandMetresPerHour`, `BandCampFrom`,
+`BandCampTo`, `BandSpawnRange`, `BandDespawnRange`, `BandNoPopRange`, `BandTroubleChance`, `BandTroubleZombies`,
+`BandJoinChance`. `Bands` false takes every band body out of the world and stops new bands (the records stay).
+
+**Console** (host): `sc band list` (every band on the road: who, from where to where, how far from you, walking, camped
+or setting out, met or not), `sc band info <id>` (the route, where they are and when they get there, trust, trouble, the
+join and each person), `sc band spawn [drifters|raiders] [trouble]` (a new band on a real trip past you, put on the road
+140 m away and walking through you), `sc band here <id>` (the same for a band on the road), `sc band advance <id>
+[hours]` (they walk on that many hours unseen), `sc band kill <id> [<person id>|all]` (the leader, one person or all of
+them marked dead), `sc band clear <id|all>` (gone, nobody dies), `sc band trust <id>` (drifters trust you),
+`sc band roll` (the day's roll now, the chance ignored).
+
+**Saving:** two new sections, `[band]` (the trip, the walk as a start point, a set-out time and a bend, met, trust,
+trouble) and `[bandperson]` (role, alive or dead, health, then the person as a `[member]` is written), and `bandid=` /
+`bandpersonid=` in `[community]`. An older build counts the new lines as unreadable, loads the rest and drops the bands at
+its next save. A drifter on the way to you is a `[member]` with E12's `arrive=`. A fight with the dead that is on when
+you save is over when you load (its zombies are not saved). A world day set back moves their walk and their trip's age
+back with it.
+
+**Limits:** host only, single player. A band never reaches its destination as anything more than an end: drifters don't
+move into the enclave they head for and raiders don't join the den (E13b's errands are the next step). The new dialog
+lines are written for V2's voices but have no clips yet; their tells are text only.
+
 ## Infestations (I1)
 
 Some buildings get overrun. An **infested** building holds about twice the zombies, more of them feral, and something
@@ -1736,7 +1818,10 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `EnclaveRaidLossHeld` (commented in the block). Enclaves move (E11): `EnclaveMoves`, `EnclaveMoveChance`,
 `EnclaveMoveLostShare`, `EnclaveMoveWaitDays`, `EnclaveMoveInfestRange`, `EnclaveMoveInfestDays`, `EnclaveMoveMin` and
 `EnclaveMoveMax` (commented in the block). A whole enclave joins (E12): `EnclaveJoin`, `EnclaveJoinStanding`,
-`EnclaveJoinBundles`, `EnclaveJoinArrive` and `EnclaveJoinArriveHours` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
+`EnclaveJoinBundles`, `EnclaveJoinArrive` and `EnclaveJoinArriveHours` (commented in the block). Bands on the road
+(E13a): `Bands`, `BandDailyChance`, `BandMax`, `BandRaiderShare`, `BandSizeMin`, `BandSizeMax`, `BandTripMin`,
+`BandTripMax`, `BandPassRange`, `BandMetresPerHour`, `BandCampFrom`, `BandCampTo`, `BandSpawnRange`, `BandDespawnRange`,
+`BandNoPopRange`, `BandTroubleChance`, `BandTroubleZombies` and `BandJoinChance` (commented in the block). Infestations (I1): `Infestations`, `InfestDailyChance`, `InfestPerKm2`,
 `InfestMin`, `InfestMax`, `InfestSpreadDays`, `InfestSpreadChance`, `InfestSpreadRange`, `InfestTraderDistance`,
 `InfestMinDist`, `InfestMaxDist`, `InfestOutsideWeight`, `InfestTierByDay`, `InfestMultiplier`, `InfestMultiplierHighTier`,
 `InfestHighTier`, `InfestFeralShare`, `InfestSpecial`, `InfestSpecialRadiatedBelowGS`, `InfestDiscoverRange`,

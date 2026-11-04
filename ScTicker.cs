@@ -105,6 +105,7 @@ namespace SurvivorCommunity
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
                 ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
                 ScEnclavePeople.Tick(w, player);      // their people: made, spawned near a player, gone when none is, the watchdog (E2)
+                ScBands.Tick(w, player);              // bands on the road: bodies near a player, their walk, camp, trouble, markers (E13a)
                 ScEncRequests.Tick(w, player);        // their requests: the journal squared with the records once a session (E4)
                 ScEncCalls.Tick(w, player);           // allies' radio calls: a fighter's arrival and return after a load, a supply drop (E9)
                 ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
@@ -396,6 +397,7 @@ namespace SurvivorCommunity
                 ScEncRequests.Daily(day, player);        // offers lapse, accepted requests expire, the day's new requests (E4)
                 ScInfestations.Daily(day, player);       // cleared ones end, old ones may spread, the day's roll for a new one (I1)
                 ScEncMoves.Daily(day, player);           // a group that lost people, or has the dead next door, may move (E11)
+                ScBands.Daily(day, player);              // old trips end, the day's roll for a new band on the road (E13a)
                 ScEncAllies.Daily(day, player, summary); // allies' bundles, refills of lost enclaves, allies telling of more (E6)
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)

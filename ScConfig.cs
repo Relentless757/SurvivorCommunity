@@ -703,6 +703,20 @@ namespace SurvivorCommunity
         public static bool EnclaveJoin = true;
         public static int EnclaveJoinStanding = 90, EnclaveJoinBundles = 2, EnclaveJoinArriveHours = 6;
         public static string EnclaveJoinArrive = "own";
+        // ---- bands on the road (E13a: ScBands; research\ideas\DESIGN.md section 10, Q12) ----
+        /// <summary>
+        /// Bands on the road (Bands): a rollover rolls BandDailyChance for a new band while fewer than BandMax are out - raiders
+        /// with BandRaiderShare, else drifters - of BandSizeMin..BandSizeMax people, between two buildings BandTripMin..BandTripMax
+        /// m apart on a line within BandPassRange m of home (of the player without one). They walk BandMetresPerHour a game hour,
+        /// camp from BandCampFrom to BandCampTo, have bodies within BandSpawnRange m of a player (gone beyond BandDespawnRange,
+        /// out of sight; never popping in within BandNoPopRange in view). BandTroubleChance of drifter bands have
+        /// BandTroubleZombies zombies on them when met; an untrusting drifter band says yes to "Come to our place." with
+        /// BandJoinChance (one that was helped always does). Raider bands need no other switch (BandRaiderShare 0: none).
+        /// </summary>
+        public static bool Bands = true;
+        public static float BandDailyChance = 0.5f, BandRaiderShare = 0.35f, BandTroubleChance = 0.3f, BandJoinChance = 0.6f;
+        public static int BandMax = 3, BandSizeMin = 2, BandSizeMax = 4, BandTripMin = 1000, BandTripMax = 3000, BandPassRange = 600, BandMetresPerHour = 250;
+        public static int BandCampFrom = 22, BandCampTo = 6, BandSpawnRange = 100, BandDespawnRange = 180, BandNoPopRange = 50, BandTroubleZombies = 4;
         // ---- infestations (ScInfestations, I1: POIs overrun by more and worse zombies) ----
         /// <summary>The master switch: the daily roll, spread, the spawn changes and the markers (off: the records are kept, nothing acts).</summary>
         public static bool Infestations = true;
@@ -1269,6 +1283,9 @@ namespace SurvivorCommunity
             EnclaveMoves = true; EnclaveMoveChance = 0.2f; EnclaveMoveLostShare = 0.5f; EnclaveMoveWaitDays = 2; EnclaveMoveInfestRange = 300; EnclaveMoveInfestDays = 3;
             EnclaveMoveMin = 300; EnclaveMoveMax = 1500;
             EnclaveJoin = true; EnclaveJoinStanding = 90; EnclaveJoinBundles = 2; EnclaveJoinArriveHours = 6; EnclaveJoinArrive = "own";
+            Bands = true; BandDailyChance = 0.5f; BandMax = 3; BandRaiderShare = 0.35f; BandSizeMin = 2; BandSizeMax = 4; BandTripMin = 1000; BandTripMax = 3000;
+            BandPassRange = 600; BandMetresPerHour = 250; BandCampFrom = 22; BandCampTo = 6; BandSpawnRange = 100; BandDespawnRange = 180; BandNoPopRange = 50;
+            BandTroubleChance = 0.3f; BandTroubleZombies = 4; BandJoinChance = 0.6f;
             Infestations = true; InfestDailyChance = 0.4f; InfestPerKm2 = 0.2f; InfestMin = 2; InfestMax = 30; InfestSpreadDays = 3; InfestSpreadChance = 0.3f;
             InfestSpreadRange = 300; InfestTraderDistance = 150; InfestMinDist = 300; InfestMaxDist = 2500; InfestOutsideWeight = 0.1f; InfestTierByDay.Clear();
             InfestMultiplier = 2f; InfestMultiplierHighTier = 1.5f; InfestHighTier = 4; InfestFeralShare = 0.35f; InfestSpecial = true; InfestSpecialRadiatedBelowGS = 50;
@@ -2017,6 +2034,30 @@ namespace SurvivorCommunity
                     if (arrive == "own" || arrive == "follow") EnclaveJoinArrive = arrive;
                     else ScLog.Warn("config: EnclaveJoinArrive '" + arrive + "' is not own or follow - using " + EnclaveJoinArrive);
                 }
+                // bands on the road (E13a)
+                bool bands = Bands;
+                if (p.Values.ContainsKey("Bands")) p.ParseBool("Bands", ref bands);
+                Bands = bands;
+                ParseFloat(p, "BandDailyChance", ref BandDailyChance, 0f, 1f);
+                ParseInt(p, "BandMax", ref BandMax, 0, 20);
+                ParseFloat(p, "BandRaiderShare", ref BandRaiderShare, 0f, 1f);
+                ParseInt(p, "BandSizeMin", ref BandSizeMin, 1, 8);
+                ParseInt(p, "BandSizeMax", ref BandSizeMax, 1, 8);
+                if (BandSizeMax < BandSizeMin) BandSizeMax = BandSizeMin;
+                ParseInt(p, "BandTripMin", ref BandTripMin, 100, 20000);
+                ParseInt(p, "BandTripMax", ref BandTripMax, 100, 20000);
+                if (BandTripMax < BandTripMin) BandTripMax = BandTripMin;
+                ParseInt(p, "BandPassRange", ref BandPassRange, 50, 5000);
+                ParseInt(p, "BandMetresPerHour", ref BandMetresPerHour, 20, 5000);
+                ParseInt(p, "BandCampFrom", ref BandCampFrom, 0, 24);
+                ParseInt(p, "BandCampTo", ref BandCampTo, 0, 24);
+                ParseInt(p, "BandSpawnRange", ref BandSpawnRange, 30, 300);
+                ParseInt(p, "BandDespawnRange", ref BandDespawnRange, 40, 600);
+                if (BandDespawnRange < BandSpawnRange + 20) BandDespawnRange = BandSpawnRange + 20;
+                ParseInt(p, "BandNoPopRange", ref BandNoPopRange, 0, 200);
+                ParseFloat(p, "BandTroubleChance", ref BandTroubleChance, 0f, 1f);
+                ParseInt(p, "BandTroubleZombies", ref BandTroubleZombies, 0, 20);
+                ParseFloat(p, "BandJoinChance", ref BandJoinChance, 0f, 1f);
                 bool infest = Infestations;
                 if (p.Values.ContainsKey("Infestations")) p.ParseBool("Infestations", ref infest);
                 Infestations = infest;
@@ -2404,6 +2445,10 @@ namespace SurvivorCommunity
                                                 + EnclaveMoveMax + "m" : "off")
                           + " enclaveJoin=" + (Enclaves && EnclaveJoin ? "allied " + EnclaveJoinStanding + "+, " + EnclaveJoinBundles + " unit(s) each, "
                                                + (EnclaveJoinArrive == "follow" ? "follow" : "own way after " + EnclaveJoinArriveHours + "h") : "off")
+                          + " bands=" + (Bands ? F2(BandDailyChance) + "/day up to " + BandMax + ", raiders " + F2(BandRaiderShare) + ", " + BandSizeMin + "-" + BandSizeMax
+                                         + " people, trips " + BandTripMin + "-" + BandTripMax + "m within " + BandPassRange + "m of home, " + BandMetresPerHour + "m/h, camp "
+                                         + BandCampFrom + "-" + BandCampTo + "h, bodies " + BandSpawnRange + "/" + BandDespawnRange + "m (no pop-in " + BandNoPopRange
+                                         + "m), trouble " + F2(BandTroubleChance) + " x" + BandTroubleZombies + ", join " + F2(BandJoinChance) : "off")
                           + " infestations=" + (Infestations ? InfestDailyChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day, cap "
                                                 + InfestPerKm2.ToString("0.##", CultureInfo.InvariantCulture) + "/km2 (" + InfestMin + ".." + InfestMax + "), spread "
                                                 + InfestSpreadChance.ToString("0.##", CultureInfo.InvariantCulture) + "/day after " + InfestSpreadDays + "d within " + InfestSpreadRange

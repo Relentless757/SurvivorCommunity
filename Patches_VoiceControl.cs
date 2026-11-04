@@ -32,6 +32,8 @@ namespace SurvivorCommunity
     /// drives the drop window, hold-fire, XNPC's levels and trust) - and the spoken dismiss sends them home (ScEnclaveDeals.GoHome).
     /// E8: Voice Control's LLM chat with one of an enclave's people carries what they know of their group (ScVoiceContext), and
     /// the spoken "trade" is refused by a hostile enclave's people, raiders and survivors with a grudge (the section at the end).
+    /// E13a: one of a band on the road (the %sc_band cvar) is refused the spoken hire, pick-up and dismiss as an enclave's people
+    /// are, and fights at will (Patch_MayEngage).
     ///
     /// Bound by name, with no reference to the DLL: without Voice Control every patch here skips itself (Prepare), and
     /// ModApi only expects them when NPCChatComponent exists, so a changed signature shows up as a MISSING PATCH line.
@@ -217,6 +219,13 @@ namespace SurvivorCommunity
                         __result = Localization.Get("scEncVoiceStays");
                         return false;
                     }
+                    // E13a: one of a band on the road is nobody's to dismiss either (SCore's Dismiss would end the Guard that walks them)
+                    if (ScBands.IsBandNpc(npc))
+                    {
+                        Count("dismiss-refused-enclave");
+                        __result = Localization.Get("scEncVoiceStays");
+                        return false;
+                    }
                     if (!IsCommunityNpc(npc)) return true;
                     Count("dismiss-to-home");
                     StripContract(npc);
@@ -351,8 +360,8 @@ namespace SurvivorCommunity
                 try
                 {
                     EntityAlive npc = __args[0] as EntityAlive;
-                    // one of an enclave's people (E2): they stay with their group
-                    if (ScEnclavePeople.IsEnclaveNpc(npc))
+                    // one of an enclave's people (E2): they stay with their group; E13a: so does one of a band on the road
+                    if (ScEnclavePeople.IsEnclaveNpc(npc) || ScBands.IsBandNpc(npc))
                     {
                         Count("pickup-refused-enclave");
                         __result = Localization.Get("scEncVoiceStays");
@@ -395,8 +404,9 @@ namespace SurvivorCommunity
                         __result = Localization.Get("scTrustNoHire");
                         return false;
                     }
-                    // one of an enclave's people (E2): not for hire - E3's enlisting goes through their dialog, SC taking the fee
-                    if (ScEnclavePeople.IsEnclaveNpc(npc))
+                    // one of an enclave's people (E2): not for hire - E3's enlisting goes through their dialog, SC taking the fee;
+                    // E13a: nor one of a band on the road (a body never saved: they come as a band, "Come to our place.")
+                    if (ScEnclavePeople.IsEnclaveNpc(npc) || ScBands.IsBandNpc(npc))
                     {
                         Count("hire-refused-enclave");
                         __result = Localization.Get("scEncVoiceNoHire");
@@ -429,14 +439,15 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// SC's people who fight at will, as every leaderless NPC did on 3.2: a raider; a community member or stand-in with no
-        /// leader or owner (a resident at their post, a garrison stand-in); one of an enclave's people with none. The leader
+        /// leader or owner (a resident at their post, a garrison stand-in); one of an enclave's people with none; E13a: one of a
+        /// band on the road (drifters fight off what comes at them on the way, the trouble's zombies first of all). The leader
         /// test is 3.2 MayEngage's own (SCore's GetLeaderOrOwner).
         /// </summary>
         internal static bool EngagesAtWill(EntityAlive e)
         {
             if (e == null || e.Buffs == null) return false;
             if (ScXnpc.IsRaider(e)) return true;
-            if (!IsCommunityNpc(e) && !ScEnclavePeople.IsEnclaveNpc(e)) return false;
+            if (!IsCommunityNpc(e) && !ScEnclavePeople.IsEnclaveNpc(e) && !ScBands.IsBandNpc(e)) return false;
             return EntityUtilities.GetLeaderOrOwner(e.entityId) == null;
         }
 

@@ -44,7 +44,7 @@ namespace SurvivorCommunity
         /// {reqwait} and {reqreply} (their request: the offer, the wait, the reply to the last answer - ScEncRequests.FillTokens);
         /// E6's {benefit} (what they do for an ally, doing it now or once allied: ScEncAllies.AboutText); E7's {giftreply} (the
         /// leader's answer to a gift: ScEncGifts.FillReply); E12's {joinfacts} (how many would join, what they bring and how
-        /// they come: ScEncJoin.FactsText).
+        /// they come: ScEncJoin.FactsText). E13a: a band respondent's line goes to ScBands.Fill instead.
         /// A token with no value becomes "". The statement's shared Text is never written; a line of anybody else is returned
         /// as it is. vo2: voiceKey is the key of the request line put in (FillTokens), the name of its voice clip; else null.
         /// </summary>
@@ -54,7 +54,7 @@ namespace SurvivorCommunity
             if (string.IsNullOrEmpty(text) || text.IndexOf('{') < 0 || !ScCommunity.IsHost) return text;
             EncPerson p = ScEnclavePeople.PersonOf(npc);
             Enclave e = ScEnclavePeople.EnclaveOf(p);
-            if (e == null) return text;
+            if (e == null) return ScBands.Fill(text, npc, player);          // E13a: one of a drifter band ({bandwhere}, {bandjoinfacts})
             EncPerson leader = ScEnclavePeople.LeaderOf(e);
             string s = text;
             if (s.IndexOf("{req", StringComparison.Ordinal) >= 0) s = ScEncRequests.FillTokens(s, e, out voiceKey);    // E4: first - its lines carry {enc} and the like

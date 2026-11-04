@@ -69,6 +69,15 @@ namespace SurvivorCommunity
     ///                still on the way: the world time they may turn up at home from, the group they left - its id and its
     ///                building's centre - and its name), written only for them, with status=Resident: an older build has a resident
     ///                with no body (missing; "Call back" brings them). Their id is ScEncJoin.Key until a body is made for them.
+    ///   E13a (ScBands; two forward-only sections, as [enclave]: an older build counts their lines as unreadable, loads the rest
+    ///                - a "degraded" load, which only holds off its portrait pruning - and drops them at its next save):
+    ///   [band]       id=3 kind=drifters|raiders name=.. size=4 made=1 from=x,y,z fromname=.. to=x,y,z toname=.. toenc=N
+    ///                toat=x,y,z at=x,y,z depart=worldtime via=x,y,z (only while ahead) day=N (request clock) known=1 knownday=N
+    ///                seed=N trust=-1|0|1 trouble=0|1|3 arrived=1 (the walk is derived from at, depart, via and toat: ScBands)
+    ///   [bandperson] pid=7 band=3 role=leader|member state=alive|dead died=-1 health=0.9, then the person as a [member] writes
+    ///                them (WriteMemberFields, id and born 0). A person whose band is missing is dropped (a degraded load).
+    ///                [community] gains bandid= and bandpersonid= (keys an older build ignores). A drifter who took up "Come to
+    ///                our place." is a [member] on the way (E12's arrive=, the enclave part the band's id negated).
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -94,6 +103,10 @@ namespace SurvivorCommunity
         public static readonly List<Infestation> Infestations = new List<Infestation>();
         /// <summary>The enclaves' open requests (ScEncRequests, E4), at most one per enclave, in the order they were offered.</summary>
         public static readonly List<EnclaveRequest> EncRequests = new List<EnclaveRequest>();
+        /// <summary>Bands on the road (ScBands, E13a), in the order they set out.</summary>
+        public static readonly List<Band> Bands = new List<Band>();
+        /// <summary>The bands' people (ScBands, E13a), in the order they were made. Never in Members, as EncPeople.</summary>
+        public static readonly List<BandPerson> BandPeople = new List<BandPerson>();
         /// <summary>
         /// Set by the PersistentPlayerList.ReadXML postfix before Load: the save has no main.ttw yet, so this is its first
         /// start (World.LoadWorld creates the file later in the same startup). ScEnclaves seeds a new save from it.
@@ -159,7 +172,7 @@ namespace SurvivorCommunity
                 Community = new Community();
                 Members.Clear();
                 Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear(); Bands.Clear(); BandPeople.Clear();
                 Cleanup.Clear();
                 Doomed.Clear();
                 if (string.IsNullOrEmpty(saveDir)) { ScLog.Warn("registry load: no save directory"); return; }
@@ -174,7 +187,7 @@ namespace SurvivorCommunity
                     Community = new Community();
                     Members.Clear();
                     Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear(); Bands.Clear(); BandPeople.Clear();
                     Cleanup.Clear();
                 Doomed.Clear();
                     ok = TryLoadFile(bak);
@@ -190,7 +203,7 @@ namespace SurvivorCommunity
                 ScOutposts.OnRegistryChanged();
                 ScLog.Out("registry loaded: " + Members.Count + " member(s), " + Prospects.Count + " prospect(s), " + Outposts.Count + " outpost(s), "
                           + Enclaves.Count + " enclave(s) with " + EncPeople.Count + " person record(s) and " + EncRequests.Count + " open request(s), "
-                          + Infestations.Count + " infestation(s)"
+                          + Infestations.Count + " infestation(s), " + Bands.Count + " band(s) on the road"
                           + (SaveIsNew ? " (a new save)" : "") + ", morale "
                           + Community.Morale + (Community.HasHome ? ", home " + Community.Home : ", no home yet")
                           + (degraded ? " (DEGRADED)" : ""));
@@ -259,6 +272,8 @@ namespace SurvivorCommunity
                 EncPerson ep = null;
                 Infestation inf = null;
                 EnclaveRequest rq = null;
+                Band bd = null;
+                BandPerson bp = null;
                 int bad = 0;
                 for (int i = 1; i < lines.Length; i++)
                 {
@@ -267,6 +282,7 @@ namespace SurvivorCommunity
                     if (line[0] == '[')
                     {
                         Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf); CommitRequest(ref rq);
+                        CommitBand(ref bd); CommitBandPerson(ref bp);
                         section = line.Trim('[', ']').ToLowerInvariant();
                         if (section == "member") m = new Member();
                         else if (section == "prospect") p = new Prospect();
@@ -276,6 +292,8 @@ namespace SurvivorCommunity
                         else if (section == "encperson") ep = new EncPerson();
                         else if (section == "infestation") inf = new Infestation();
                         else if (section == "encrequest") rq = new EnclaveRequest();
+                        else if (section == "band") bd = new Band();
+                        else if (section == "bandperson") bp = new BandPerson();
                         continue;
                     }
                     int eq = line.IndexOf('=');
@@ -293,6 +311,8 @@ namespace SurvivorCommunity
                         else if (section == "encperson" && ep != null) ParsePerson(ep, key, val);
                         else if (section == "infestation" && inf != null) ParseInfestation(inf, key, val);
                         else if (section == "encrequest" && rq != null) ParseRequest(rq, key, val);
+                        else if (section == "band" && bd != null) ParseBand(bd, key, val);
+                        else if (section == "bandperson" && bp != null) ParseBandPerson(bp, key, val);
                         else bad++;
                     }
                     catch (Exception)
@@ -301,9 +321,11 @@ namespace SurvivorCommunity
                     }
                 }
                 Commit(ref m, ref p); CommitContact(ref ct); CommitOutpost(ref op); CommitEnclave(ref en); CommitPerson(ref ep); CommitInfestation(ref inf); CommitRequest(ref rq);
+                CommitBand(ref bd); CommitBandPerson(ref bp);
                 if (bad > 0) { degraded = true; ScLog.Warn("registry: " + bad + " unreadable line(s) skipped in " + path); }
                 DropStrayPeople();
                 DropStrayRequests();
+                DropStrayBandPeople();
                 return true;
             }
             catch (Exception e)
@@ -609,6 +631,80 @@ namespace SurvivorCommunity
             ScLog.Warn("registry: " + n + " enclave request record(s) whose enclave is missing dropped");
         }
 
+        private static void CommitBand(ref Band bd)
+        {
+            if (bd != null)
+            {
+                if (bd.Id > 0 && bd.Size > 0 && (bd.Kind == Band.Drifters || bd.Kind == Band.Raiders)) Bands.Add(bd); else degraded = true;
+            }
+            bd = null;
+        }
+
+        /// <summary>One [band] line (E13a, ScBands): the trip, the walk (at, depart, via, toat), meeting, trust, trouble.</summary>
+        private static void ParseBand(Band b, string key, string val)
+        {
+            switch (key)
+            {
+                case "id": b.Id = I(val); break;
+                case "kind": b.Kind = val.Trim().ToLowerInvariant(); break;
+                case "name": b.Name = val; break;
+                case "size": b.Size = Clamp(I(val), 0, 16); break;
+                case "made": b.PeopleMade = val == "1"; break;
+                case "from": { Vector3i v; if (TryVec(val, out v)) b.From = v; break; }
+                case "fromname": b.FromName = val; break;
+                case "to": { Vector3i v; if (TryVec(val, out v)) b.To = v; break; }
+                case "toname": b.ToName = val; break;
+                case "toenc": b.ToEnclave = Math.Max(0, I(val)); break;
+                case "toat": { Vector3i v; if (TryVec(val, out v)) b.ToAt = v; break; }
+                case "at": { Vector3i v; if (TryVec(val, out v)) b.At = v; break; }
+                case "depart": { ulong u; if (ulong.TryParse(val.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) b.Depart = u; break; }
+                case "via": { Vector3i v; if (TryVec(val, out v)) { b.Via = v; b.HasVia = true; } break; }
+                case "day": b.StartDay = Math.Max(0, I(val)); break;
+                case "known": b.Known = val == "1"; break;
+                case "knownday": b.KnownDay = I(val); break;
+                case "seed": b.Seed = I(val); break;
+                case "trust": b.Trust = Clamp(I(val), -1, 1); break;
+                case "trouble": b.Trouble = Clamp(I(val), 0, 3); break;
+                case "arrived": b.Arrived = val == "1"; break;
+            }
+        }
+
+        private static void CommitBandPerson(ref BandPerson bp)
+        {
+            if (bp != null)
+            {
+                if (bp.Id > 0 && bp.BandId > 0 && !string.IsNullOrEmpty(bp.Who.Class)) BandPeople.Add(bp); else degraded = true;
+            }
+            bp = null;
+        }
+
+        /// <summary>One [bandperson] line (E13a): the person's own keys, else one of the member keys the person's Member is written with.</summary>
+        private static void ParseBandPerson(BandPerson bp, string key, string val)
+        {
+            switch (key)
+            {
+                case "pid": bp.Id = I(val); break;
+                case "band": bp.BandId = I(val); break;
+                case "role": bp.Role = val.Trim().ToLowerInvariant() == BandPerson.Leader ? BandPerson.Leader : BandPerson.MemberRole; break;
+                case "state": bp.State = val.Trim().ToLowerInvariant() == BandPerson.StateDead ? BandPerson.StateDead : BandPerson.StateAlive; break;
+                case "died": bp.DiedDay = I(val); break;
+                case "health": { float f; if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out f)) bp.Health = Math.Max(0f, Math.Min(1f, f)); break; }
+                default: ParseMember(bp.Who, key, val); break;
+            }
+        }
+
+        /// <summary>A band person whose band is not in the file is dropped: a degraded load.</summary>
+        private static void DropStrayBandPeople()
+        {
+            if (BandPeople.Count == 0) return;
+            var ids = new HashSet<int>();
+            foreach (Band b in Bands) ids.Add(b.Id);
+            int n = BandPeople.RemoveAll(bp => !ids.Contains(bp.BandId));
+            if (n <= 0) return;
+            degraded = true;
+            ScLog.Warn("registry: " + n + " band person record(s) whose band is missing dropped");
+        }
+
         private static void CommitInfestation(ref Infestation inf)
         {
             if (inf != null)
@@ -863,6 +959,9 @@ namespace SurvivorCommunity
                 case "infestid": c.NextInfestationId = I(val); break;
                 // enclave people (E2): the person id counter
                 case "encpersonid": c.NextEncPersonId = I(val); break;
+                // bands on the road (E13a): the band and band person id counters
+                case "bandid": c.NextBandId = Math.Max(0, I(val)); break;
+                case "bandpersonid": c.NextBandPersonId = Math.Max(0, I(val)); break;
                 // enclave requests (E4): the id counter, the request clock's last day
                 case "encrequestid": c.NextEncRequestId = I(val); break;
                 case "encreqday": c.EncRequestDay = I(val); break;
@@ -1200,6 +1299,8 @@ namespace SurvivorCommunity
                 sb.AppendLine("enclaveradio=" + c.EnclaveRadioDay);
                 sb.AppendLine("infestid=" + c.NextInfestationId);
                 sb.AppendLine("encpersonid=" + c.NextEncPersonId);
+                if (c.NextBandId > 0) sb.AppendLine("bandid=" + c.NextBandId.ToString(CultureInfo.InvariantCulture));
+                if (c.NextBandPersonId > 0) sb.AppendLine("bandpersonid=" + c.NextBandPersonId.ToString(CultureInfo.InvariantCulture));
                 sb.AppendLine("encrequestid=" + c.NextEncRequestId);
                 if (c.EncRequestDay > 0) sb.AppendLine("encreqday=" + c.EncRequestDay.ToString(CultureInfo.InvariantCulture));
                 if (c.EncSiegeAt > 0) sb.AppendLine("encsiegeat=" + c.EncSiegeAt.ToString(CultureInfo.InvariantCulture));
@@ -1421,6 +1522,44 @@ namespace SurvivorCommunity
                         sb.AppendLine("rearm=" + ra);
                     }
                 }
+                // E13a: bands on the road and their people (forward-only sections)
+                foreach (var bd in Bands)
+                {
+                    sb.AppendLine("[band]");
+                    sb.AppendLine("id=" + bd.Id.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("kind=" + Clean(bd.Kind));
+                    if (bd.Name.Length > 0) sb.AppendLine("name=" + Clean(bd.Name));
+                    sb.AppendLine("size=" + bd.Size.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("made=" + (bd.PeopleMade ? 1 : 0));
+                    sb.AppendLine("from=" + Vec(bd.From));
+                    sb.AppendLine("fromname=" + Clean(bd.FromName));
+                    sb.AppendLine("to=" + Vec(bd.To));
+                    sb.AppendLine("toname=" + Clean(bd.ToName));
+                    if (bd.ToEnclave > 0) sb.AppendLine("toenc=" + bd.ToEnclave.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("toat=" + Vec(bd.ToAt));
+                    sb.AppendLine("at=" + Vec(bd.At));
+                    sb.AppendLine("depart=" + bd.Depart.ToString(CultureInfo.InvariantCulture));
+                    if (bd.HasVia) sb.AppendLine("via=" + Vec(bd.Via));
+                    sb.AppendLine("day=" + bd.StartDay.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("known=" + (bd.Known ? 1 : 0));
+                    if (bd.KnownDay >= 0) sb.AppendLine("knownday=" + bd.KnownDay.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("seed=" + bd.Seed.ToString(CultureInfo.InvariantCulture));
+                    if (bd.Trust != 0) sb.AppendLine("trust=" + bd.Trust.ToString(CultureInfo.InvariantCulture));
+                    // a fight that is on (2) never outlives a load: its zombies are not saved
+                    if (bd.Trouble != 0) sb.AppendLine("trouble=" + (bd.Trouble == 2 ? 3 : bd.Trouble).ToString(CultureInfo.InvariantCulture));
+                    if (bd.Arrived) sb.AppendLine("arrived=1");
+                }
+                foreach (var bp in BandPeople)
+                {
+                    sb.AppendLine("[bandperson]");
+                    sb.AppendLine("pid=" + bp.Id.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("band=" + bp.BandId.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("role=" + Clean(bp.Role));
+                    sb.AppendLine("state=" + Clean(bp.State));
+                    sb.AppendLine("died=" + bp.DiedDay.ToString(CultureInfo.InvariantCulture));
+                    sb.AppendLine("health=" + bp.Health.ToString("0.###", CultureInfo.InvariantCulture));
+                    WriteMemberFields(sb, bp.Who);
+                }
                 foreach (var p in Prospects.Values)
                 {
                     sb.AppendLine("[prospect]");
@@ -1480,7 +1619,7 @@ namespace SurvivorCommunity
                     Community = new Community();
                     Members.Clear();
                     Prospects.Clear();
-                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear();
+                Contacts.Clear(); Outposts.Clear(); Enclaves.Clear(); EncPeople.Clear(); Infestations.Clear(); EncRequests.Clear(); Bands.Clear(); BandPeople.Clear();
                     Cleanup.Clear();
                 Doomed.Clear();
                     saveDir = null;
@@ -1493,8 +1632,8 @@ namespace SurvivorCommunity
         // ---- helpers ----
 
         /// <summary>
-        /// A Member's key=value lines - a [member] section's whole body, and an [encperson]'s person (E2) after its own keys -
-        /// so both sections share one field list, read back by ParseMember.
+        /// A Member's key=value lines - a [member] section's whole body, and an [encperson]'s person (E2) or a [bandperson]'s
+        /// (E13a) after its own keys - so the sections share one field list, read back by ParseMember.
         /// </summary>
         private static void WriteMemberFields(StringBuilder sb, Member m)
         {

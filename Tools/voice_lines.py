@@ -75,6 +75,10 @@ SPOKEN = {
     "scEncRecruitConfirm": "Leave my people? I've thought about it more than once. If you'll have me, I'm in.",
     # E12: the whole group's answer to "Would your people join ours?" ({joinfacts}: how many, what they bring, how they come)
     "scEncJoinConfirm": "All of us? We've talked about it more than once. If you'll have us, we're yours, and we'll bring what we have.",
+    # E13a: a drifter band's answers - where they head ({bandwhere}: the place, how far, which way), and "Come to our place."
+    # said yes to ({bandjoinfacts}: how many, and that they make their own way)
+    "scBandWhereReply": "Somewhere with walls and a roof, if it's still standing.",
+    "scBandComeConfirm": "You'd take in strangers off the road? All of us? Then we'll come, and gladly.",
 }
 
 # Statements that hold only a line picked at runtime ({reqask}, {reqwait}, {reqreply}, {reqnone}; E7's {giftreply}): no
@@ -97,7 +101,10 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
                  "scEncMoveLostSaid", "scEncMoveNestSaid", "scEncMoveSaid",
                  # E12: a leader whose whole group joins you, after "Welcome to the community." - making their own way, or
                  # following you (ScEncJoin shows them as a tell as the talk closes: text only, the voicing round wires playback)
-                 "scEncJoinSaid", "scEncJoinSaidFollow"]
+                 "scEncJoinSaid", "scEncJoinSaidFollow",
+                 # E13a: drifters you helped fight off the dead, and a drifter band's answer as it joins you (ScBands shows them
+                 # as tells: text only, the voicing round wires their playback)
+                 "scBandThanksSaid", "scBandJoinSaid"]
 
 # ---------------------------------------------------------------------------------------------------- the V2 lines ----
 # No names or numbers, so every voice can say them. Drafts: SC_Ideas_and_Voices_Plan.md section 4.4 (2026-11-03).

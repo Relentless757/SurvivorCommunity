@@ -1383,6 +1383,36 @@ scEncJoinCallArriving,UI,Tooltip,,,,Their people are on the way to you
 scStArriving,UI,Menu,,,,On the way
 scStArrivingFrom,UI,Menu,,,,On the way from {0}
 scStatusArriving,UI,Menu,,,,on the way to you
+scBandWhere,Dialog,Response,,,,Where are you headed?
+scBandCome,Dialog,Response,,,,Come to our place.
+scBandBye,Dialog,Response,,,,Stay safe.
+scBandGreet_text,Dialog,Statement,,,,Easy. We're just passing through.
+scBandGreetTrusted_text,Dialog,Statement,,,,"You again. We owe you for back there, and we don't forget."
+scBandWhereReply_text,Dialog,Statement,,,,"Somewhere with walls and a roof, if it's still standing. {bandwhere}"
+scBandComeConfirm_text,Dialog,Statement,,,,"You'd take in strangers off the road? All of us? Then we'll come, and gladly. {bandjoinfacts}"
+scBandComeRefuse_text,Dialog,Statement,,,,"That's kind. But we don't know you, and we've been burned before. We'll keep walking."
+scBandWhereFacts,UI,Tooltip,,,,"They are heading for {0}, {1}."
+scBandWhereEnclave,UI,Tooltip,,,,{0} at {1}
+scBandJoinFacts,UI,Tooltip,,,,{0} of them. They make their own way to your home.
+scBandName,UI,Tooltip,,,,{0}'s band
+scBandNameRaiders,UI,Tooltip,,,,{0}'s crew
+scBandKindDrifters,UI,Tooltip,,,,drifters
+scBandKindRaiders,UI,Tooltip,,,,raiders
+scBandSeenDrifters,UI,Tooltip,,,,"Drifters on the road, heading for {0}."
+scBandSeenRaiders,UI,Tooltip,,,,"Raiders on the road, heading for {0} - they shoot on sight!"
+scBandLedgerDrifters,UI,Tooltip,,,,You met drifters heading for {0}
+scBandLedgerRaiders,UI,Tooltip,,,,You ran into raiders heading for {0}
+scBandMarkerDrifters,UI,Tooltip,,,,"Drifters, heading for {0}"
+scBandMarkerRaiders,UI,Tooltip,,,,"Raiders, heading for {0}"
+scBandThanksSaid,UI,Tooltip,,,,You came when it counted. We won't forget that.
+scBandTrustNow,UI,Tooltip,,,,They trust you now.
+scBandLedgerHelped,UI,Tooltip,,,,You helped {0} fight off the dead
+scBandTurned,UI,Tooltip,,,,Their whole band is against you now.
+scBandDied,UI,Tooltip,,,,{0} is dead.
+scBandGone,UI,Tooltip,,,,The {0} heading for {1} are all dead.
+scBandLedgerGone,UI,Tooltip,,,,The {0} heading for {1} are dead
+scBandJoinSaid,UI,Tooltip,,,,Then we'll see you there. We know how to keep out of trouble on the way.
+scBandJoinTold,UI,Tooltip,,,,{0} joined your community: {1} people. They make their own way to your home.
 scQgRoleProspect,UI,Menu,,,,Survivor
 scQgRoleMember,UI,Menu,,,,Community survivor
 scQgRoleLeader,UI,Menu,,,,Leader of {0}

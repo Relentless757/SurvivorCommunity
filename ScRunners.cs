@@ -140,7 +140,8 @@ namespace SurvivorCommunity
             return unloadedVerdicts.GetValue(e, k => Vetoes(k) ? Vetoed : NotVetoed) == Vetoed;
         }
 
-        private static bool Vetoes(Entity e) { return IsRunnerBody(e) || ScEnclavePeople.IsEnclaveBody(e); }
+        /// <summary>A runner's body, an enclave person's (E2) or a band's (E13a, ScBands.IsBandBody: Dynamic, never written either).</summary>
+        private static bool Vetoes(Entity e) { return IsRunnerBody(e) || ScEnclavePeople.IsEnclaveBody(e) || ScBands.IsBandBody(e); }
 
         public static void RebuildRunnerSet()
         {
