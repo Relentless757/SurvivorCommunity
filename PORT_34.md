@@ -1954,3 +1954,15 @@ selector's `Init` default (`buttons[0]`) is now `ScCommunity`; it only matters t
 directly with the bar closed before the selector was ever used - vanilla 3.4 has none, AshfallUI's pages use the
 vanilla pattern. Left: NIT-1 (under AshfallUI the gamepad LB icon sits over the tail of COMMUNITY, as its RB icon
 over Creative's), NIT-2 (`Close()` closes `windowpaging` a second time: a no-op).
+
+### Rounds 15-17 and 19 installed (2026-11-03 21:20)
+
+With the user's go-ahead (3.4 game closed): E10 (raider enclaves raid outposts), E11 (enclaves move), E12 (a whole enclave
+joins) and W1 (the Community tab), each Fable-reviewed DEPLOYABLE with its fixes and re-checks (`research\review_e10`,
+`review_e11`, `review_e12`, `review_w1`), and round vo3's first day of clips: 992 new lines for the four White voices
+(Vane 420, David 430, Jessica 440, Beth 290 of 461 lines). port-3.4 fast-forwarded to `dev/ideas` f2c3064;
+`deploy_sc34.py`: 3604 files, installed = built `0b5626cefce49f510898fd64ace18ece`. The old install is in
+`Port33\_backups\sc34_2026-11-03_212011` (rounds 8-14's `9d2c4bee`); the user's `DebugLogging` true set again in the new
+Config/blocks.xml. Nate's first 16 clips are held back until his set is complete (a voice with a few clips would switch
+voices mid-talk); the twelve new voices stay silent until their rounds. E13a (bands, round 18) is built, not reviewed, not
+installed. Test steps: TESTING.md groups E10, E11, E12, W1 (200-259, 290-299).
