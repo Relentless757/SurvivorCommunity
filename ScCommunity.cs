@@ -1329,6 +1329,12 @@ namespace SurvivorCommunity
                     XUiC_WindowSelector.OpenSelectorAndWindow(player, WindowGroup);
                 else
                     wm.Open(WindowGroup, true);
+                if (!wm.IsWindowOpen(WindowGroup))
+                {
+                    // W1 review LOW-3: nothing opened after all (the HUD fully off) - the asks must not wait for the next opening
+                    XUiC_ScCommunity.PendingOutpost = 0;
+                    XUiC_ScCommunity.PendingWatch = Vector3i.zero;
+                }
             }
             catch (Exception e)
             {

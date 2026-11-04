@@ -1825,7 +1825,7 @@ a join cut short shrinks reason 1's total, held by `WhyHeld` until the arrivals 
 `ScEnclaveDeals.ParkedKey` in a different table; N6 `ArriveSpot`'s zone tests, bounded). N4: the merged tree's build is
 recorded at the install.
 
-### Round 19: the Community tab (W1) (2026-11-03, built, not reviewed, not installed)
+### Round 19: the Community tab (W1) (2026-11-03, built, reviewed (Fable: deployable), LOW-1/3 fixed, not installed)
 
 The user's decisions (2026-11-03): the community window is reached from an extra tab to the LEFT of the player menu's tabs
 (Crafting, Character, ...); and, after a first proposal put it inside the bar: **"For the tab, it wouldn't be part of the
@@ -1944,3 +1944,13 @@ the dialog opener's close order.
 
 Builds: SC 3.4 `1e2a2b1279af718bef3b872416af6518` (`build\sc34_w1`), 0 errors (the two old CS0108 warnings). The 3.2 DLL
 was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not installed. The task list needs its entry.
+
+**W1 Fable review** (`research\review_w1\REVIEW.md`, of `5d1b6c1`): DEPLOYABLE, no HIGH, no MEDIUM. Fixed: LOW-1, the
+ESC menu's Community entry closed the menu for a dead player and then opened nothing - it now does nothing while the
+player is dead (`Patches_Menu`); LOW-3, a Watch pick or an outpost asked for stayed armed when nothing opened after all
+(the HUD fully off: `openInternal` refuses) - `OpenWindow` clears them when the group is not open after the call (an
+open is synchronous: `IsWindowOpen` counts `windowsToOpen`, whose `OnOpen` has run). LOW-2, noted: under AshfallUI the
+selector's `Init` default (`buttons[0]`) is now `ScCommunity`; it only matters to code that opens a page group
+directly with the bar closed before the selector was ever used - vanilla 3.4 has none, AshfallUI's pages use the
+vanilla pattern. Left: NIT-1 (under AshfallUI the gamepad LB icon sits over the tail of COMMUNITY, as its RB icon
+over Creative's), NIT-2 (`Close()` closes `windowpaging` a second time: a no-op).

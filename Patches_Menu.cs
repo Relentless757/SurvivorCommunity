@@ -29,9 +29,11 @@ namespace SurvivorCommunity
                     {
                         try
                         {
+                            EntityPlayerLocal player = __instance.xui.playerUI.entityPlayer;
+                            if (player == null || player.IsDead()) return;     // W1 review LOW-1: OpenWindow opens nothing for the dead, so the menu stays
                             GUIWindowManager wm = __instance.xui.playerUI.windowManager;
                             wm.Close(__instance.windowGroup);
-                            ScCommunity.OpenWindow(__instance.xui.playerUI.entityPlayer);
+                            ScCommunity.OpenWindow(player);
                         }
                         catch (Exception e) { ScLog.Once("menu-press", e); }
                     };
