@@ -132,9 +132,11 @@
     <Compile Include="ScEncRaids.cs" />
     <Compile Include="ScEncMoves.cs" />
     <Compile Include="ScEncJoin.cs" />
+    <Compile Include="ScBands.cs" />
     <Compile Include="BlockScEncRemains.cs" />
     <Compile Include="DialogOpsEnclaves.cs" />
     <Compile Include="DialogOpsEncRequests.cs" />
+    <Compile Include="DialogOpsBands.cs" />
     <Compile Include="Patches_Enclaves.cs" />
     <Compile Include="ScSleeperCap.cs" />
     <Compile Include="ScInfestations.cs" />

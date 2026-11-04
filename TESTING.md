@@ -27,6 +27,9 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc enclave join <id>` shows whether a whole group would join you and why not (E12); `sc enclave join <id> sim` names
   who would come, `... now` joins them at once; `sc enclave arrivals` lists everyone on the way to you, `... now` makes
   them due at once (they still turn up only while you're home).
+- `sc band` lists the bands on the road (E13a) and `sc band info <id>` shows one; `sc band spawn [drifters|raiders]
+  [trouble]` sets a new one on the road 140 m from you, walking through you; `sc band here <id>`, `advance <id> [hours]`,
+  `kill <id> [<person id>|all]`, `clear <id|all>`, `trust <id>` and `roll` test the rest.
 
 **Time and stockpile**
 
@@ -1252,6 +1255,171 @@ words are text only for now. Take a group you have met (its people made: `sc enc
 259. **The switch.** Set `EnclaveJoin` to false and restart: the `config:` line says `enclaveJoin=off`, no leader offers it,
      `sc enclave info <id>` says `join: off (EnclaveJoin=false)` and `sc enclave join <id> now` says `[SC] refused: the join
      is off (EnclaveJoin=false)`. Set it back.
+
+**E13a. Round 18: bands on the road (3.4)**
+
+Small bands walk between buildings past your home: drifters (survivors looking for somewhere to live) and raider crews.
+Where a band is comes from the clock; its bodies come only within 100 m of you and go once nobody is within 180 m and
+nobody looks. Drifters talk and may join you ("Come to our place."); raiders attack on sight. In the steps `<id>` is the
+band's id, `<name>` its name (`<Leader>'s band` for drifters, `<Leader>'s crew` for raiders, from the first time their
+people are made; `drifters` / `raiders` before), `<Leader>` its leader, `<From>` the building they set out from, `<To>` the
+one they head for, `<Dest>` how it is named to you (`<To>`, or `<Group> at <To>` when an enclave holds it), `N` how many of
+them are alive, `<player>` your name, `R` the request clock's day. The new dialog lines have no voice clips yet; the
+messages are text only. Lines marked `DebugLogging` need it on.
+
+260. Load the world. The log's `config:` line has `bands=0.5/day up to 3, raiders 0.35, 2-4 people, trips 1000-3000m
+     within 600m of home, 250m/h, camp 22-6h, bodies 100/180m (no pop-in 50m), trouble 0.3 x4, join 0.6`, the `registry
+     loaded:` line ends `, 0 band(s) on the road`, and `sc band` prints `[SC] 0 band(s) on the road (BandMax 3; 50% a day,
+     raiders 35%)`.
+261. **The day's roll.** `sc day` until a band sets out (about every other day): the log's `band <id> (drifters, N people)
+     sets out (the day's roll, day R) from <From> x, y, z for <Dest> x, y, z, L m, passing P m from home; on the road from
+     day D, HH:MM at 250 m/h, there by day D, HH:MM` (`raiders` for a raider band; `, zombies on them when met` after `N
+     people` for about a third of drifter bands; ` bending round the home zone at x, y, z` after `L m` when the straight line
+     would cross your zone - the point is outside it). P is at most 600, `<From>` and `<To>` are 1000-3000 m apart, the
+     set-out time is within three hours of the rollover, and `<From>` is never an enclave's building, an outpost, an infested
+     or claimed building or your home. A drifter band's `<Dest>` may be a Friendly or Allied group's (`<Group> at <To>`), a
+     raider band's a raider den's. A day with no band logs nothing (`DebugLogging`: `bands: no new band today (day R, 50% a
+     day)`).
+262. **Roll now, and the cap.** `sc band roll` rolls at once, the chance ignored: `[SC] band <id> (drifters, N people) sets
+     out from <From> for <Dest>` (the log line says `(the console's roll)`). With 3 bands on the road it prints `[SC] BandMax
+     3 bands are on the road already`. With no route it prints `[SC] no trip: no pair of buildings 1000-3000 m apart passes
+     within 600 m (S to set out from, E to head for)`.
+263. **The list.** `sc band list`: `[SC] B band(s) on the road (BandMax 3; 50% a day, raiders 35%)` and a line each, `[SC]
+     #<id> drifters - N people not met yet; <From> -> <Dest>; D m <direction> from you, walking; not met` (`setting out at day
+     D, HH:MM` before they set out, `camped` from 22:00 to 06:00). `sc band info <id>`: `[SC] #<id> drifters - drifters (on
+     the road since day R on the request clock)`, `[SC]   route: <From> x, y, z -> <Dest> x, y, z; now at x, y, z (D m
+     <direction> from you), L m to go (the walk counted from x, y, z); walking (camp 22-6h) at 250 m/h, there by day D,
+     HH:MM` (` by the bend round your home at x, y, z` before `; now` with a bend), `[SC]   met: not yet; 0 in the world`,
+     `[SC]   trust: wary; trouble: none; come to our place: ...` and `[SC]   N people, not met yet (made the first time you
+     come within 100 m)`. A real minute later `now at` has moved about 100 m along the route and `L` is about 100 less (250
+     m a game hour on a 60-minute day).
+264. **Set on the road past you.** `sc band spawn drifters`: `[SC] band <id> (drifters, N people), from <From> for <Dest>:
+     on the road at x, y, z, 140 m <direction> of you, walking through you to <Dest>`. They come toward you; within about
+     half a minute they are within 100 m and their bodies come one a second, never popping in in front of you within 50 m,
+     the leader first. The log, for each, `band <id> (drifters, <Leader>'s band): the leader <Leader> (<class>, bp<pid>) is
+     one of them, met at x, y, z - 1 of N` (the others without `the leader `; the last one's ends `- N of N, the band is
+     made`). They are survivor classes at your gamestage's tier, with their own names, looks and weapons.
+265. **Met.** The first time you see one of them (or come within 30 m): the message `Drifters on the road, heading for
+     <Dest>.`, the ledger `You met drifters heading for <Dest>` and the log `band <id> (drifters, <Leader>'s band) met on the
+     road at x, y, z, heading for <Dest>`. The map has a grey backpack where they are (`Drifters, heading for <Dest>`) that
+     follows them every few seconds; there is none on the compass. `sc band info <id>`: `[SC]   met: yes (day K), marked; N
+     in the world`.
+266. **They walk.** They walk in file behind the leader along the route, through you and on toward `<Dest>`, round what
+     is in the way; one who falls far behind out of sight is put back in file (`DebugLogging`: `<Name> of band <id> fell
+     behind - put back in file`). They never go for you or your followers. Voice Control can't take them: a spoken hire gets
+     `*shakes head* My place is here, with my people.`, a pick-up or a dismiss `*shakes head* I'm staying right here with my
+     people.`.
+267. **Talk.** Talk to one of them: the greeting is `Easy. We're just passing through.` with `Where are you headed?`, `Come
+     to our place.` (only as step 269 says) and `Stay safe.`, and none of XNPC's stranger rows (hire, orders, "Show me ...").
+     While the talk is open the whole band stands where it is; as it closes they walk on. `Stay safe.` closes it.
+268. **Where are you headed?** `Somewhere with walls and a roof, if it's still standing. They are heading for <Dest>, D m
+     <direction>.` (from where you stand), with `Something else.` (back to the greeting) and `Stay safe.`.
+269. **Not offered.** With no home the greeting has no `Come to our place.`, and `sc band info <id>` says `come to our place:
+     not offered (you have no home) (their roll J against 0.60)`. With a home, set `MaxMembers` in the 3.4 install's SC
+     `Config/blocks.xml` to K + N - 1 (K your members, those on the way to you counted) and restart: still no row, and `not
+     offered (your community has room for N-1 more, they are N (MaxMembers K+N-1))`. Set it back and restart.
+270. **Their own answer.** With a home with room, `sc band info <id>`: `come to our place: offered, they'd say yes (their
+     roll J against 0.60)` (or `no`; J stays the same for the band). On a no, `Come to our place.` gets `That's kind. But we
+     don't know you, and we've been burned before. We'll keep walking.` with only `Stay safe.`, and asking again gets the
+     same. `sc band trust <id>`: `[SC] band <id> trust you now - "Come to our place." gets a yes while it is offered` (the
+     log: `band <id> (drifters, <name>) trust you now (the console)`); talk again: the greeting is `You again. We owe you for
+     back there, and we don't forget.` and `info` says `trust: they trust you; trouble: none; come to our place: offered,
+     they'd say yes (they trust you)`.
+271. **The confirm.** On a yes: `You'd take in strangers off the road? All of us? Then we'll come, and gladly. N of them.
+     They make their own way to your home.` with `Welcome to the community.` and `Forget it.` (back to the greeting).
+272. **They join.** `Welcome to the community.`: the talk closes with the message `<Leader>: "Then we'll see you there. We
+     know how to keep out of trouble on the way." <name> joined your community: N people. They make their own way to your
+     home.`; the ledger `<name> joined you: N people`; the log `<name> (band <id>) joined your community (the dialog): N
+     people - <Leader> (leader), <Name>, ...; on their own way, at home from day D, HH:MM (H:MM; W walk off now)` (W of them
+     out in the world) and `band <id> (drifters, <name>, from <From> for <Dest>) is gone: joined you`. Their marker goes and `sc band list` no longer has
+     them. They walk off toward your home and vanish once you look away (never in front of you). H:MM is the walk from
+     where they were to your home at 250 m an hour, one hour at the least.
+273. **On the way.** The community window lists each with `On the way`, one selected `On the way from <name>`; they count
+     toward `MaxMembers`. `sc members`: each `<key> <Name> (<class>) Arriving ... - on the way from <name> (band <id>, x, y,
+     z), at home from day D, HH:MM (in H:MM)` (the key is 2130706xxx); `sc enclave arrivals` lists them the same way. No
+     enclave's rows or console are held by them: `sc enclave join <id>`, `sc enclave call <id>` and `sc enclave move <id>`
+     of any group never name them.
+274. **They turn up at home.** As in E12's step 252: home after their time, one a second out of sight at the zone's edge on
+     the side facing where they were; for each the message `<Name> has arrived from <name> and is settling in.` and the log
+     `<Name> (from <name>) turned up at home at x, y, z, M m from the claim, as entity E (was key 2130706xxx) - stationed,
+     their post x, y, z` (the last one's ends `; the last of <name>`), and with the last the ledger `the last of <name>
+     arrived`. They keep the names, looks and weapons they had on the road.
+275. **Trouble.** `sc band spawn drifters trouble`: `[SC] band <id> (drifters, N people, zombies on them when met), from
+     <From> for <Dest>: ...`. Once all of them are out and you are within 130 m of the leader, 4 zombies of your gamestage's
+     mix come 14-24 m from them on the side away from you (not in view within 50 m) and go for them; they fight back. The log
+     `band <id> (drifters, <name>) is in trouble: 4 zombie(s) of '<group>' on them at x, y, z`; `sc band info <id>`:
+     `trouble: on (Z zombie(s) left, H killed by you)`.
+276. **Help them.** Kill at least one of those zombies (or let a follower of yours): when the last of them is dead, the
+     message `<Leader>: "You came when it counted. We won't forget that." They trust you now.`, the ledger `You helped
+     <name> fight off the dead` and the log `band <id> (drifters, <name>): you helped them fight off the dead (H killed by
+     you) - they trust you now`. They greet you with `You again. ...` and say yes to `Come to our place.`.
+277. **No help.** Another trouble band; keep back and don't touch the zombies: the log `band <id> (drifters, <name>): they
+     fought off the dead without your help` and `info`'s `trust: wary; trouble: over`. Instead walk more than 180 m away
+     during the fight: the log `band <id> (drifters, <name>): their trouble is over (they went off the map)`, then the
+     bodies-went line (step 282); the zombies stay.
+278. **Hit one.** Hit one of a drifter band (a new one): the message `Their whole band is against you now.` (denied sound)
+     and the log `band <id> (drifters, <name>) turned on <player> (one of them was hit)`; all of them attack you, none will
+     talk, and `info` says `trust: against you; ...; come to our place: not offered (they are against you) (their roll ...)`.
+     `sc band trust <id>`: `[SC] refused: band <id> are against you (for good)`.
+279. **A death.** On another drifter band, `sc band kill <id>` (the leader): `[SC] 1 marked dead - N-1 of band <id> alive`;
+     the leader's body goes (no corpse), the message `<Leader> is dead.` and the log `band <id> (drifters, <name>): the
+     leader <Leader> (bp<pid>) died (the console)` and `band <id>: <Name> (bp<pid2>) leads them now` (the highest tier of
+     the rest). `info` has `bp<pid> member <Leader> (<class>) - dead since day D, health 0%, no body`; the band keeps its
+     name. One killed by a zombie logs `... died - killed by <killer>` and the band does not turn on you.
+280. **Raiders.** `sc band spawn raiders`: `[SC] band <id> (raiders, N people), from <From> for <Dest>: on the road at ...`.
+     They are SC's raider classes (`info` lists them). When you see them: the message `Raiders on the road, heading for
+     <Dest> - they shoot on sight!` (denied sound), the ledger `You ran into raiders heading for <Dest>`, a red backpack on
+     the map and on the compass within 200 m (`Raiders, heading for <Dest>`). Once one sees you within 60 m: the log `band
+     <id> (raiders, <Leader>'s crew): <Name> saw <player> - they attack`, and all of them come for you (`info`: `[SC]
+     raiders: they attack on sight (attacking you now)`). None of them talks. Get more than 180 m from all of them: they
+     stop, and their bodies go once you can't see them.
+281. **Destroyed.** Kill them all: each death logs `band <id> (raiders, <name>): <Name> (bp<pid>) died - killed by
+     <player>` (`the leader ` before the leader's name); with the last, the message `The raiders heading for <Dest> are all
+     dead.`, the ledger `The raiders heading for <Dest> are dead` and the log `band <id> (raiders, <name>, from <From> for
+     <Dest>) is gone: destroyed (the last killed by <player>)`. The marker goes and `sc band list` no longer has them; their
+     corpses and loot stay as any NPC's. `sc band kill <id> all` on a drifter band near you: `[SC] N marked dead - band <id>
+     is gone`, the message `The drifters heading for <Dest> are all dead.` and the log's `... is gone: destroyed`.
+282. **Away and back.** With a met drifter band's bodies out, go more than 180 m away and look away: the log `band <id>
+     (drifters, <name>): N body(ies) went (no player within 180 m) at x, y, z - they walk on unseen`; `info`'s `now at`
+     keeps moving along the route (`0 in the world`). `sc band advance <id> 2`: `[SC] band <id> moved on 2 h (500 m) to x,
+     y, z, L m to go`. Go where `info` says (or `sc band here <id>`): the same people come back - the same names, looks and
+     `bp` ids, no new `is one of them` lines (`DebugLogging`: `band <id>: <Name> (bp<pid>) is in the world at x, y, z
+     (entity E)`), with the health they left with.
+283. **Camp.** With a band's bodies out, `settime` to 21:55 of the same day: at 22:00 they stop and stand round where the
+     leader was (`sc band list`: `camped`; `DebugLogging`: `band <id> camps for the night at x, y, z`), and at 06:00 they walk
+     on. `sc band here <id>` at night ends ` - it is camp time (22-6h): they wait there for the morning`, and they do. Away
+     from them at night `info`'s `now at` doesn't move until 06:00.
+284. **Arrival.** `sc band advance <id> 100`: `[SC] band <id> moved on 100 h - they arrived at <To> and are gone`; the log
+     `band <id> (drifters, <name>, from <From> for <Dest>) is gone: arrived at <To> (the console moved them on)`. Walking
+     with another band to its end (`advance` until `L` is under 150, then go to them): the log `band <id> (drifters,
+     <name>) arrived at <To> - they go once nobody sees them` and the marker goes; they stand there, and once you look away
+     `... N body(ies) went (arrived, out of sight) at x, y, z` and `... is gone: arrived at <To>`. A band heading for a
+     group's building does not join the group (that is E13b).
+285. **Old trips end.** A band you never meet: `sc day` four times; the log `band <id> (drifters, drifters, from <From> for
+     <Dest>) is gone: on the road since day S - gone from the area` (never while its bodies are out).
+286. **Saved and loaded.** With a met band's bodies out, save and quit. `survivor_community.txt`: `[community]` has
+     `bandid=` and `bandpersonid=`; there is a `[band]` per band (`id=`, `kind=`, `name=`, `size=`, `made=`, `from=`,
+     `fromname=`, `to=`, `toname=`, `toat=`, `at=`, `depart=`, `day=`, `known=`, `knownday=`, `seed=`, and `toenc=`, `via=`,
+     `trust=`, `trouble=` when they apply) and a `[bandperson]` per person (`pid=`, `band=`, `role=leader` or `member`,
+     `state=alive` or `dead`, `died=`, `health=`, then the member keys). Load: the `registry loaded:` line ends `, B band(s)
+     on the road`, the marker is back and the bodies come back once where they were (`info` shows one entity each). A stray
+     copy from a chunk is removed: `removed a stale band body (entity E, band <id>) that a chunk or a save brought back`. A
+     trouble fight on at the save is over after the load (`trouble: over`).
+287. **A world day set back.** With a band on the road, `settime <two days earlier> 12 0`: the log's `enclaves: the world's
+     day went back from ...` line ends `; S band stamp(s) moved back (a walk 2 day(s), a trip's age R2 day(s))`, and `sc
+     band info` still has them walking, not setting out two days ahead.
+288. **Not during a fight.** During a blood moon (or a live attack on your home or an outpost near you, or an enclave's
+     siege), `sc band here <id>`: no bodies come (`sc band list` has no `in the world`) until it is over; bodies already
+     out stay.
+289. **The console and the switch.** `sc band info` says `[SC] give a band id (sc band list)`, `sc band info 999` `[SC] no
+     band 999`, `sc band kill <id>` on a band not met yet `[SC] their people are not made yet (come within 100 m of them, or
+     sc band here <id>)`, `sc band trust <id>` on raiders `[SC] refused: band <id> are raiders`, `sc band clear <id>` `[SC]
+     band <id> cleared - gone from the map` (the log `... is gone: cleared (the console)`), `sc band clear all` `[SC] B
+     band(s) cleared`, and `sc band foo` the usage `[SC] sc band [list | info <id> | spawn [drifters|raiders] [trouble] |
+     here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll]`. Set `Bands` to
+     false and restart: the `config:` line says `bands=off`, no band gets bodies or a marker, `sc band list` says `(BandMax
+     3; Bands=false)`, `sc band roll` `[SC] bands are off (Bands=false)` and `sc band spawn` `[SC] refused: bands are off
+     (Bands=false)`; the records stay. Set it back: the bands are there again.
 
 **W1. Round 19: the Community tab on the player menu (3.4)**
 

@@ -81,6 +81,8 @@ namespace SurvivorCommunity
                     if (ScXnpc.IsBody(__instance) || (ScNpc.IsV4(__instance) && ScXnpc.IsCommunity(__instance))) DropWindow(__instance);
                     if (!ScRegistry.Loaded) return;
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScRadio.StandInCvar)) { ScRadio.OnStandInDied(__instance); return; }
+                    // one of a band on the road (E13a): the person dies with the body
+                    if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScBands.BandCvar)) { ScBands.OnBodyDied(__instance); return; }
                     // one of an enclave's people (E2): the person dies with the body
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScEnclavePeople.EncCvar)) { ScEnclavePeople.OnBodyDied(__instance); return; }
                     ScCommunity.OnMemberDied(__instance);
@@ -510,6 +512,8 @@ namespace SurvivorCommunity
                     // nor does an enclave's body (E2: SC stamps %sc_enc after PostInit, so a body that has it here came back
                     // from a chunk or a save - a crash, a save race): removed on the next tick
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScEnclavePeople.EncCvar)) { ScEnclavePeople.Orphans.Add(__instance.entityId); return; }
+                    // nor a band's (E13a: %sc_band, stamped after PostInit the same way)
+                    if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScBands.BandCvar)) { ScBands.Orphans.Add(__instance.entityId); return; }
                     // an offline physical runner exists only as its snapshot: this is an old chunk copy (hidden now,
                     // removed next tick - never Doomed, the id comes back with the real runner) or a stranger who
                     // inherited the id (untouched: no spawner/Persist stamp for them)

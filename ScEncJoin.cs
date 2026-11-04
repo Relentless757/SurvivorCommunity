@@ -47,6 +47,10 @@ namespace SurvivorCommunity
     /// building's centre, the side they come in on - and its name) with status=Resident, so an older build has a resident with
     /// no body (missing, and "Call back" brings them); shifted by ScEnclaves.OnWorldDayBack (the world's clock). Host only,
     /// main thread, single player (ScCommunity.LocalPlayer); no Harmony patch.
+    ///
+    /// E13a (ScBands): a drifter band that takes up "Come to our place." joins the same way - each a member on the way
+    /// (OnTheWay; ArriveEnclave is the band's id negated, so no enclave's gate or count ever meets them), their bodies husks
+    /// (AddHusk) - and turns up through the arrival here.
     /// </summary>
     public static class ScEncJoin
     {
@@ -376,8 +380,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// "own" (or no body to follow with): a body out gives its pair and rounds and walks off as a husk; then the person's own
-        /// record is a member on the way - keyed by Key, Arriving, due at 'at', from this group (its id, centre and name) - and
-        /// leaves the enclave's records in the same step, and a post is chosen (so an older build's "Call back" has one).
+        /// record is a member on the way - keyed by Key, Arriving, due at 'at', from this group (its id, centre and name), a post
+        /// chosen (OnTheWay) - and leaves the enclave's records in the same step.
         /// </summary>
         private static void JoinArriving(World w, Enclave e, EncPerson p, EntityAlive body, ulong at, Vector3 centre)
         {
@@ -390,23 +394,34 @@ namespace SurvivorCommunity
                 m.Ranged = ScSkills.HoldsRanged(body);
                 if (p.IsLeader) DropStock(body, false);
                 ScEnclavePeople.Husk(p, body);
-                husks.Add(new Husk { Id = body.entityId, Born = body.WorldTimeBorn, Name = p.Name, Next = body.position });
+                AddHusk(body, p.Name);
             }
-            m.Id = Key(p);
+            OnTheWay(w, m, Key(p), at, e.Id, centre, e.Name);
+            ScEnclavePeople.LeaveEnclave(p, null);
+        }
+
+        /// <summary>
+        /// A member on the way (the join's own record; E13a: a drifter band's people too, ScBands - their group's id there is the
+        /// band's negated, so no enclave's gate ever counts them): keyed by key, Arriving, due at 'at', from 'from', the side they
+        /// come in on (centre, a point toward where they set out) and the group's name; into the members, and a post chosen now
+        /// (so an older build's "Call back" has one).
+        /// </summary>
+        internal static void OnTheWay(World w, Member m, int key, ulong at, int from, Vector3 centre, string name)
+        {
+            m.Id = key;
             m.Born = 0;
             m.Mood = ScRegistry.Community.Morale;
             m.JoinDay = ScCommunity.Today;
             m.Status = MemberStatus.Arriving;
             m.ArriveAt = at;
-            m.ArriveEnclave = e.Id;
+            m.ArriveEnclave = from;
             m.ArriveFrom = new Vector3i(Mathf.FloorToInt(centre.x), Mathf.FloorToInt(centre.y), Mathf.FloorToInt(centre.z));
-            m.ArriveName = e.Name;
+            m.ArriveName = name ?? "";
             m.MissingDays = 0;
             ScCommunity.ResetStill(m);
             m.AwaySeconds = 0;
             m.StuckShift = 0;
             ScRegistry.Members[m.Id] = m;
-            ScEnclavePeople.LeaveEnclave(p, null);
             try
             {
                 if (ScZone.HasHome && (m.Post == Vector3i.zero || !ScZone.Contains(m.Post)))
@@ -423,6 +438,16 @@ namespace SurvivorCommunity
         }
 
         // ------------------------------------------------------------------ the bodies walking off ----
+
+        /// <summary>
+        /// A body that is nobody's any more walks off toward the player's home and goes once nobody sees it: the join's own
+        /// (JoinArriving), and E13a's drifters who took up "Come to our place." (ScBands: still in its chunk-save veto).
+        /// </summary>
+        internal static void AddHusk(EntityAlive body, string name)
+        {
+            if (body == null) return;
+            husks.Add(new Husk { Id = body.entityId, Born = body.WorldTimeBorn, Name = name ?? "", Next = body.position });
+        }
 
         private static bool HomePoint(out Vector3 home)
         {
@@ -659,7 +684,9 @@ namespace SurvivorCommunity
             if (m == null || m.Status != MemberStatus.Arriving) return "";
             World w = ScCommunity.World;
             ulong now = w != null ? w.worldTime : 0UL;
-            string from = "on the way from " + (m.ArriveName.Length > 0 ? m.ArriveName : "?") + " (enclave " + m.ArriveEnclave + ", " + m.ArriveFrom + ")";
+            // E13a: a drifter band's people carry the band's id negated
+            string from = "on the way from " + (m.ArriveName.Length > 0 ? m.ArriveName : "?") + " (" + (m.ArriveEnclave < 0 ? "band " + (-m.ArriveEnclave) : "enclave " + m.ArriveEnclave)
+                          + ", " + m.ArriveFrom + ")";
             if (noBody.Contains(m.Id)) return from + ", no body can be made for them (class " + m.Class + ")";
             if (m.ArriveAt > now) return from + ", at home from " + Clock(m.ArriveAt) + " (in " + ScEncCalls.TimeText(m.ArriveAt - now) + ")";
             return from + ", due - they turn up while you're home";

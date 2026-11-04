@@ -414,6 +414,9 @@ namespace SurvivorCommunity
         public int NextInfestationId;
         /// <summary>Enclave people (ScEnclavePeople, E2): the person id counter (encpersonid=), one for every enclave.</summary>
         public int NextEncPersonId;
+        /// <summary>Bands on the road (ScBands, E13a): the band and band person id counters (bandid=, bandpersonid=).</summary>
+        public int NextBandId;
+        public int NextBandPersonId;
         /// <summary>
         /// Enclave requests (ScEncRequests, E4): the id counter (encrequestid=), and the request clock - the last day the
         /// request pass ran (encreqday=; ahead of the world's day only after "sc day").

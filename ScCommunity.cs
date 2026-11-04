@@ -97,6 +97,8 @@ namespace SurvivorCommunity
             if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ScRadio.StandInCvar)) { why = "scNotHireable"; return false; }
             // one of an enclave's people (E2): they stay with their group - except through the enclave's own recruit (E3)
             if (!enclavePath && ScEnclavePeople.IsEnclaveNpc(npc)) { why = "scEncStays"; return false; }
+            // one of a band on the road (E13a): they come as a band or not at all ("Come to our place.", ScBands)
+            if (ScBands.IsBandNpc(npc)) { why = "scEncStays"; return false; }
             // a raider never joins (M10; belt and braces: its class is Hirable false, so the next checks refuse it too)
             if (ScXnpc.IsRaider(npc)) { why = "scNotHireable"; return false; }
             // nor one who holds a grudge against this player (ScTrust: they were hit)

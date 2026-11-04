@@ -1309,6 +1309,43 @@
 			<property name="EnclaveJoinArrive" value="own" />
 			<property name="EnclaveJoinArriveHours" value="6" />
 
+			<!-- BANDS ON THE ROAD (E13a). With Bands on, each day rollover rolls BandDailyChance for a new band while fewer than
+			     BandMax are on the road: raiders with BandRaiderShare, else drifters (survivors looking for somewhere to live),
+			     BandSizeMin..BandSizeMax people, walking between two real buildings BandTripMin..BandTripMax m apart on a line that
+			     passes within BandPassRange m of your home (of you, without one) - bent round your home zone, never through it. A
+			     drifter band may head for a friendly enclave's building, raiders for a raider den. They walk BandMetresPerHour metres
+			     a game hour (about a body's walking pace on a 60-minute day) and camp from BandCampFrom to BandCampTo o'clock.
+			     Nothing walks the map unloaded: where they are is worked out from the clock, and their bodies come only within
+			     BandSpawnRange m of you (never popping in within BandNoPopRange m in front of you) and go once you are BandDespawnRange
+			     m away and not looking. Seen, a band gets a map marker (drifters grey, raiders red) while it travels.
+			     Raider bands attack on sight. They need no other switch (BandRaiderShare 0: no raider bands; OutpostAttacks has no say
+			     - they never go for your outposts or your home, only for whoever they meet on the road). Drifters talk: "Where are you
+			     headed?", "Stay safe." and, with a home with room for all of them (MaxMembers), "Come to our place." - a band that
+			     trusts you says yes, one that doesn't yet says yes with BandJoinChance (the same answer each time you ask). They join
+			     as E12's groups do: on their own way, turning up at home after the time it takes to walk there. BandTroubleChance of
+			     drifter bands have BandTroubleZombies zombies on them when you meet them: kill one of those and they trust you. Hit
+			     one of them, or kill one, and the whole band turns on you. Deaths are real: a band all dead is gone.
+			     "sc band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id>
+			     [<person id>|all] | clear <id|all> | trust <id> | roll]" tests it. -->
+			<property name="Bands" value="true" />
+			<property name="BandDailyChance" value="0.5" />
+			<property name="BandMax" value="3" />
+			<property name="BandRaiderShare" value="0.35" />
+			<property name="BandSizeMin" value="2" />
+			<property name="BandSizeMax" value="4" />
+			<property name="BandTripMin" value="1000" />
+			<property name="BandTripMax" value="3000" />
+			<property name="BandPassRange" value="600" />
+			<property name="BandMetresPerHour" value="250" />
+			<property name="BandCampFrom" value="22" />
+			<property name="BandCampTo" value="6" />
+			<property name="BandSpawnRange" value="100" />
+			<property name="BandDespawnRange" value="180" />
+			<property name="BandNoPopRange" value="50" />
+			<property name="BandTroubleChance" value="0.3" />
+			<property name="BandTroubleZombies" value="4" />
+			<property name="BandJoinChance" value="0.6" />
+
 			<!-- INFESTATIONS (I1; Enclaves_Plan.md 2.12). At each day rollover there is a chance of InfestDailyChance that a POI
 			     becomes infested: a real POI with sleepers, at least InfestTraderDistance m from a trader, not claimed (a land
 			     claim, a bedroll, an outpost), not an enclave's, not your home zone, not quest-locked, not in use (a radio

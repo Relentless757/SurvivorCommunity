@@ -257,5 +257,35 @@
 				<property name="offset" value="0,0,0" />
 			</compass_settings>
 		</nav_object_class>
+		<!-- Bands on the road (ScBands, E13a): owner-only, shown once met and moved with them while they travel (the label says
+		     who and where to); gone when they arrive or are destroyed. Drifters grey, map only; raiders red, on the compass too
+		     within 200 m. -->
+		<nav_object_class name="sc_band_drifters">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_backpack"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="170,170,170,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+		</nav_object_class>
+		<nav_object_class name="sc_band_raiders">
+			<property name="requirement_type" value="IsOwner" />
+			<map_settings>
+				<property name="sprite_name" value="ui_game_symbol_backpack"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="-1"/>
+				<property name="color" value="240,70,60,255"/>
+				<property name="offset" value="0,0,0" />
+			</map_settings>
+			<compass_settings>
+				<property name="sprite_name" value="ui_game_symbol_backpack"/>
+				<property name="min_distance" value="0"/>
+				<property name="max_distance" value="200"/>
+				<property name="color" value="240,70,60,255"/>
+				<property name="offset" value="0,0,0" />
+			</compass_settings>
+		</nav_object_class>
 	</append>
 </configs>

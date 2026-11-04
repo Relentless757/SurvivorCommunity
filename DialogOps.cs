@@ -35,6 +35,8 @@ namespace SurvivorCommunity
             // never rolled here for one of an enclave's people (E2): a prospect from here pins the body (Persist,
             // StaticSpawner, a wait order) - E3 rolls theirs, unpinned, through their enclave's recruit path
             if (ScEnclavePeople.IsEnclaveNpc(npc)) return null;
+            // nor for one of a band on the road (E13a): a prospect would pin a body that is never saved
+            if (ScBands.IsBandNpc(npc)) return null;
             ScConfig.EnsureParsed();
             p = new Prospect { Id = npc.entityId, Class = ScCommunity.ClassName(npc), Name = ScCommunity.DisplayName(npc) };
             p.Look = ScLooks.Get(npc);        // null unless they wear the player's body
