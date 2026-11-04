@@ -2022,6 +2022,15 @@ tell), 280, 284 (an end they can't reach), 286 (the trouble's zombies over a sav
 (`research\e13a\audit34_e13afix_*`): 3.4 OK=150, DYNAMIC_UNRESOLVED=23 (V2's Voice Control targets, as every round since
 14), the patch rows and refs identical to E13a's but for source lines. Not installed.
 
+**E13a re-check** (`research\review_e13a\RECHECK.md`, of `53d74ed`): DEPLOYABLE; M1, L1-L3, N1, N2, N4 fixed, the L2
+guards confirmed inert in 3.4 (SC spawns in place: `SpawnEntityInWorld` is synchronous) and the always-taken branches
+line for line the old code. Fixed after it: NIT-A, the ticker runs on real time through an ESC pause, so a pause of
+`ArriveStallSeconds` near the end made a band "arrive" short - `Steer` now starts the stuck and arrival watches again
+while the game is paused; NIT-B, the watches were the band's, not the leader body's - a new leader starts them again.
+Left: NIT-C (`sc band kill all` lets the trouble's zombies go rather than despawning the unseen: they become ordinary
+zombies), NIT-D (`here`/`advance` mid-fight log "they went off the map"), NIT-E (a `SweepWhenBuilt` id's sweep wording,
+unreachable in 3.4).
+
 ### Round 19: the Community tab (W1) (2026-11-03, built, reviewed (Fable: deployable), LOW-1/3 fixed, not installed)
 
 The user's decisions (2026-11-03): the community window is reached from an extra tab to the LEFT of the player menu's tabs

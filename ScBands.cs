@@ -1485,6 +1485,13 @@ namespace SurvivorCommunity
             bool changed = false;
             if (b.HasVia && ScRunners.XZ(lp, V(b.Via)) <= ViaReached) { b.HasVia = false; changed = true; }
             Vector3 goal = b.HasVia ? V(b.Via) : V(b.ToAt);
+            if (GameManager.Instance != null && GameManager.Instance.IsPaused())
+            {
+                // real time runs on through an ESC pause (the ticker is on unscaledTime): the stuck and arrival watches start
+                // again after it, so a pause near the end is never taken for a stall (E13a re-check NIT-A)
+                b.ProgressSince = b.GoalBestAt = -1f;
+                return changed;
+            }
             bool fighting = Fighting(live);
             float toGoal = ScRunners.XZ(lp, goal);
             if (!b.Arrived && !b.HasVia && (toGoal <= ArriveReach || ArriveStalled(b, toGoal, fighting, t)))
@@ -1857,6 +1864,7 @@ namespace SurvivorCommunity
                     if (tq > tn || (tq == tn && q.Id < next.Id)) next = q;
                 }
                 next.Role = BandPerson.Leader;
+                b.ProgressSince = b.GoalBestAt = -1f;       // the watches follow the leader's body: a new one starts them again (E13a re-check NIT-B)
                 ScLog.Out("band " + b.Id + ": " + next.Name + " (bp" + next.Id + ") leads them now");
             }
             if (!b.IsRaiders)
