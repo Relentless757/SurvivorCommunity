@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <configs>
-	<!-- The community window's standalone modal group, opened from C# (ScCommunity.OpenWindow) by the
-	     ESC menu entry, the land claim radial and a member's dialog. No controller attribute, and
-	     deliberately NO actionset attribute: actionset="false" leaves such a group unclickable. -->
+	<!-- The community window's modal group, a page of the player menu since W1: the Community tab left of the tab bar
+	     (windows.xml) opens it, and so does C# (ScCommunity.OpenWindow) from the ESC menu entry, the land claim radial
+	     and a member's dialog. Its controller XUiC_ScPageGroup keeps the tab bar ("windowpaging") open while it shows,
+	     as vanilla's page groups do. Deliberately NO actionset attribute: actionset="false" leaves such a group
+	     unclickable. -->
 	<append xpath="/xui">
-		<window_group name="sccommunity" close_compass_on_open="true">
+		<window_group name="sccommunity" controller="SurvivorCommunity.ScPageGroup, SurvivorCommunity" close_compass_on_open="true">
 			<window name="windowScCommunity"/>
 		</window_group>
 		<window_group name="scradio" close_compass_on_open="true">

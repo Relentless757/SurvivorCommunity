@@ -176,6 +176,7 @@
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />
+    <Compile Include="XUiC_ScPageGroup.cs" />
     <Compile Include="Patches_Menu.cs" />
     <Compile Include="XUiC_ScPackingStrip.cs" />
     <Compile Include="ConsoleCmdSc.cs" />

@@ -222,8 +222,14 @@ NPCs but cannot manage a community (v2).
   leave (tooltip, ledger, window flag) and leaves at the next rollover unless morale is back above the
   line. A survivor whose mood is under 25 refuses to follow you.
 - **HUD.** A morale icon with the number sits in your buff bar while the community has members.
-- **The community window** opens from the ESC menu (**Community**, under SCore's entries), the land
-  claim block's radial **Community**, and a member's dialog (*Let's talk about the community*). Left:
+- **The community window** is a page of the player menu (3.4, round 19): open the menu (Crafting,
+  Character, Map, ...) and click the **Community** tab, which stands apart on a small plate of its own just
+  left of the tab bar (as Creative hangs off AshfallUI's bar on the right). The bar stays over the window,
+  titled Community, with that tab lit; another tab switches page, and the gamepad bumpers page to it too. It
+  also opens - with the bar - from the ESC menu (**Community**, under SCore's entries), the land claim block's
+  radial **Community**, and a member's dialog (*Let's talk about the community*); closing it (X, Escape)
+  closes the bar. The tab looks like vanilla's strip, or with AshfallUI like its tabs, and fits beside
+  SurvivorOrigins' wider bar - SC alone does this, nothing in AshfallUI or SurvivorOrigins changes. Left:
   one row per survivor (status, mood, skills, specialty; injured rows are red) with paging; morale
   breakdown, recent days and the stockpile under it. Right: the selected survivor's skills, specialty,
   traits and flags, and the orders **Follow me** / **Go home** / **Ask to leave** (press twice).
