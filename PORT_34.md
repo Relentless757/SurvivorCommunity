@@ -1642,7 +1642,7 @@ TESTING steps changed: 208 (the deadline with them in view), 220 (a group with n
 (`moved=R:x,y,z:K:<Old>`, the older line). Build after the fixes: SC 3.4 `2af1b31275e44fa78a0908cecc26da79`
 (`build\e11fix`), 0 errors (the two old CS0108 warnings). Not installed.
 
-### Round 17: a whole enclave joins (E12) (2026-11-03, built, not reviewed, not installed)
+### Round 17: a whole enclave joins (E12) (2026-11-03, built, reviewed (Fable: deployable), L1 fixed, not installed)
 
 `research\ideas\DESIGN.md` section 9 (idea 8) and section 1 (rules), with the user's decision Q10 (as recommended, plus one
 rule): they make their own way and turn up at home when you're next there; the gate is Allied, standing 90 and room for
@@ -1814,6 +1814,16 @@ Checks:
 Builds: SC 3.4 `9f16253e574e83053978318c18025f9c` (`build\sc34_e12`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
 (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E12 (240-259). Not reviewed (Fable), not installed. The
 task list needs its entry.
+
+**E12 Fable review** (`research\review_e12\REVIEW.md`, of the merge `11315a3`: round 16's review fixes and E12):
+DEPLOYABLE, no HIGH, no MEDIUM; the E11 fixes all correct. Fixed: L1, an arrival spot at the zone's edge opposite the
+person's post could be more than 40 m from it (up to `ArriveReach` + `PostRadius` x 1.4), and `ScCommunity.Station`
+would then put them straight onto the post instead of letting them walk in: `ScEncJoin.ArriveSpot` skips a spot more
+than `PostReach` (38 m) from their post. Left: the NITs (N1 an old-shape `moved=` name starting with digits and ':' -
+only the never-installed first E11 build wrote it; N2 a raid stalled on `Waited` and then left settles unanswered; N3
+a join cut short shrinks reason 1's total, held by `WhyHeld` until the arrivals are home; N5 `ScEncJoin.Key` equals
+`ScEnclaveDeals.ParkedKey` in a different table; N6 `ArriveSpot`'s zone tests, bounded). N4: the merged tree's build is
+recorded at the install.
 
 ### Round 19: the Community tab (W1) (2026-11-03, built, not reviewed, not installed)
 

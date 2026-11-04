@@ -53,6 +53,12 @@ namespace SurvivorCommunity
         public const string ArriveOwn = "own", ArriveFollow = "follow";
         /// <summary>The arrival spot is at most this many metres from the claim: Station moves a body more than 40 m from its post.</summary>
         private const float ArriveReach = 30f;
+        /// <summary>
+        /// The farthest an arrival spot may be from the person's post: ScCommunity.Station puts a resident more than 40 m
+        /// from it straight onto it, so a spot at the zone's edge opposite their post (up to ArriveReach + PostRadius) would
+        /// skip the walk in.
+        /// </summary>
+        private const float PostReach = 38f;
         /// <summary>The spot is searched on the side they came from, within this many degrees of it, then on any side.</summary>
         private const float SideSpread = 35f, AnySideSeconds = 60f;
         private const int SpotTries = 8;
@@ -552,6 +558,7 @@ namespace SurvivorCommunity
                 if (!ScRunners.GroundSpot(w, x, z, out y)) continue;
                 Vector3 at = new Vector3(x + 0.5f, y, z + 0.5f);
                 if (!ScZone.Contains(new Vector3i(x, y, z)) || !ScRunners.Settled(w, at) || ScEnclavePeople.SeenByAny(w, at)) continue;
+                if (m.Post != Vector3i.zero && Vector3.Distance(at, ScCommunity.PostCenter(m)) > PostReach) continue;   // E12 review L1
                 spot = at;
                 return true;
             }
