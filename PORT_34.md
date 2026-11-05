@@ -2181,3 +2181,13 @@ AFTER FIXES, fixed (`53d74ed`), re-checked DEPLOYABLE and its two nits fixed (`0
 `Port33\_backups\sc34_2026-11-03_222206` (rounds 15-17 and 19's `0b5626ce`); the user's `DebugLogging` true set again in the
 new Config/blocks.xml. The band leader's two told lines and the five new band dialog lines are text only until the idea-menu
 voicing round. Test steps: TESTING.md group E13a (260-289).
+
+### Voices vo3 day 2 installed (2026-11-04 19:50)
+
+With the user's go-ahead (3.4 game closed): round vo3's second day of clips (`9ef2043`, clips and sidecars only, no code
+change): the White voices complete (Vane, David, Jessica, Beth) and Nate's whole set, 458 of the 471 lines each - the 13
+left are the idea-menu dialog lines from E11 on, for their own voicing round. port-3.4 fast-forwarded to `dev/ideas`
+9ef2043; `deploy_sc34.py`: 4827 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf` (unchanged). The old install
+is in `Port33\_backups\sc34_2026-11-04_195058`; the user's `DebugLogging` true set again in the new Config/blocks.xml.
+Desmond's first 266 clips are held back until his set is complete; the other ten new voices stay silent until their
+days.
