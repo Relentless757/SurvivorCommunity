@@ -2191,3 +2191,12 @@ left are the idea-menu dialog lines from E11 on, for their own voicing round. po
 is in `Port33\_backups\sc34_2026-11-04_195058`; the user's `DebugLogging` true set again in the new Config/blocks.xml.
 Desmond's first 266 clips are held back until his set is complete; the other ten new voices stay silent until their
 days.
+
+### Voices vo3 day 3 installed (2026-11-05 15:16)
+
+With the user's go-ahead (3.4 game closed): round vo3's third day of clips (`1ef065e`, clips and sidecars only, no code
+change): Desmond's and Tiffany's whole sets, 458 of the 471 lines each (the 13 left are the idea-menu dialog lines from
+E11 on). Seven voices are complete now: Vane, David, Jessica, Beth, Nate, Desmond, Tiffany. port-3.4 fast-forwarded to
+`dev/ideas` 1ef065e; `deploy_sc34.py`: 6685 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf` (unchanged). The
+old install is in `Port33\_backups\sc34_2026-11-05_151651`; the user's `DebugLogging` true set again in the new
+Config/blocks.xml. Rene's first 340 clips are held back until her set is complete.
