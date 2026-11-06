@@ -1482,17 +1482,20 @@ no visible ScCommunity) - the window opens on its own, without the bar`.
 
 **X1. Round 20: NPCCore 3.4.02 compatibility (3.4)**
 
-Built 2026-11-05 on branch `ms/x1` (SC 3.4 DLL `d977d9a6a12ee2f0197d4aca4996d66b`, `Port33\build\sc34_x1`), **not
-installed**: these steps wait for the install. For 0-XNPCCore 3.4.02 and Vanity Vault 3.3.0, both already in the 3.4
+Built 2026-11-05 on branch `ms/x1` (SC 3.4 DLL `cbedf29e9f55af5202722b5b6a27da62`, `Port33\build\sc34_x1`; steps
+315-319 are the second part of the round), **not installed**: these steps wait for the install. For 0-XNPCCore 3.4.02 and Vanity Vault 3.3.0, both already in the 3.4
 install. What changed: 0-XNPCCore's own bandits, character-creator survivors and pickpocket get their look, armour, weapon,
 bag, bandages and names back (SC's takeover of the six survivor classes had cascaded onto them); SC's survivors and raiders
 aim by their Shooting stars alone again (0-XNPCCore 3.4.02's new level-based spread is skipped on them); Voice Control's
-renamed voice relay is found again; Vanity Vault 3.3's paints and tattoos are back on SC's people. The spawn menu is F6
+renamed voice relay is found again; Vanity Vault 3.3's paints and tattoos are back on SC's people. Your calls: members
+take no ammo from your chests (only from the community's stockpile), get all of your Charismatic Nature, and are never
+on a Voice Control contract. The spawn menu is F6
 (turn debug mode on with `dm` first); the bandits are hostile, so god mode (`god`) helps.
 
-300. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, two more than the build
-     before (none `MISSING`; in particular no `MISSING PATCH` naming `SdcsAimTick`, `SdcsBanditAimTick` or
-     `NetPackageVCVoiceRelay::PlayVoiceLocally`, and no `0-XNPCCore method ... not found` warning). No XML `did not apply`
+300. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, five more than the build
+     before (none `MISSING`; in particular no `MISSING PATCH` naming `SdcsAimTick`, `SdcsBanditAimTick`,
+     `SdcsAmmoRestockTick`, `SeedContract`, `HandleBillingResponse` or `NetPackageVCVoiceRelay::PlayVoiceLocally`, and no
+     `0-XNPCCore method ... not found` warning). No XML `did not apply`
      line for SurvivorCommunity; ten new `Xpath conditional on file: entityclasses.xml` lines, each followed by an `Xpath
      matches:` line, are expected (the guards of the new ops). The `config:` line has `xnpcAimSpread=-1`. The Vanity Vault line reads `Vanity Vault 3.3.0:
      paints and tattoos on survivors - it knows ... body paints, ... face paints, ... tattoo variants, face/body/hand tattoo
@@ -1546,6 +1549,28 @@ renamed voice relay is found again; Vanity Vault 3.3's paints and tattoos are ba
 314. **(Multiplayer only, optional) the voice relay.** On a listen server with a joined client and Voice Control's voices
      on: while the client has SC's talk open with a member, Voice Control's spoken lines from that member do not play on
      the client (SC's line plays). The start-up of step 300 already shows the hook is bound.
+315. **Members take no ammo from your chests.** Inside your land claim, with a member following you who carries a gun:
+     open their inventory and take out their spare rounds for it, leaving less than one magazine. Put 300 rounds of that
+     ammo in an unlocked chest of yours within 10 m, and note the count. Stay 2 minutes: the chest still holds 300 (SC's
+     own resupply from the community's stockpile may still top them up - that is fine). `sc xnpc` (no id): the `0-XNPCCore
+     survivor hooks` line has `x20-member-base-restock-skipped-frames=` growing fast (every frame per member).
+316. **Others still do.** Do the same with a survivor you hire the 0-XNPCCore way who is not a member (F6 `npcSdcsXyth`,
+     talk, Hire): within about half a minute the chest count drops, she takes up to 120 rounds (with `DebugLogging` and
+     0-XNPCCore's verbose logging on, the log says `[SDCS-AMMO] ... restocked ... from the base`).
+317. **Charismatic Nature on members.** Give yourself points (`giveselfskillpoints 40`) and raise Charismatic Nature
+     (Intellect; rank 1 needs Intellect 5, rank 2 Intellect 7, rank 3 Intellect 8) to rank 1, then 2, then 3. With a
+     member following you, `sc xnpc <their id>` shows a `leadership:` line: at rank 1 `SdcsNpcLeadership=True SdcsLeadRegen=0.5`; at rank 2 also `SdcsLeadDamage=0.2`; at rank 3 also
+     `SdcsLeadResist=0.1`, and `Owner=` your entity id. Hurt the member a little (a zombie hit) and let them stand without
+     using a bandage: their health creeps back (about half a point a second at rank 1) - the only regen they have besides
+     items. A member stationed at home (Owner=0) shows zeroes: 0-XNPCCore gives the perk to hires (followers) only.
+318. **Posts hold.** With a few residents at home, guards on Watch posts and a nearby enclave's people at their spots: over
+     a few minutes none of them walks off their post or steps aside to make room for another (0-XNPCCore 3.4.02's guard
+     patrol and spacing only act on NPCs with a leader). For contrast, give a following member "Guard and return" on
+     0-XNPCCore's order wheel: that one walks out to random spots within 6 m and back (0-XNPCCore's own feature for hires).
+319. **Members never owe.** With Voice Control's chat on, talk to a following member by voice or chat and say "pay", then
+     "yes": no money leaves your inventory, no billing prompt appears, and `sc xnpc <their id>` shows `Retainer*=none`.
+     `sc xnpc` (no id), `voice control: ... intercepted:` shows `contract-refused` (Voice Control's contract start, as
+     before) and never a contract on a member; `billing-reply-refused` only if an old contract was still on them.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

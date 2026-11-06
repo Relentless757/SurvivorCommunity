@@ -46,6 +46,8 @@ namespace SurvivorCommunity
     ///                                                                  spread on our bodies: SC's Shooting stars aim them
     ///   X19 AvatarSdcsNpcController.SdcsBanditAimTick         prefix   (3.4 build, 0-XNPCCore 3.4.02) XNPC's bandit spread
     ///                                                                  never widens SC's raiders (they carry the bandit tag)
+    ///   X20 AvatarSdcsNpcController.SdcsAmmoRestockTick       prefix   (3.4 build, 0-XNPCCore 3.4.02) no ammo from the
+    ///                                                                  player's chests for members: SC's stockpile only
     ///   (3.4 build) X7 also builds an adopted creator face and stands aside while the hand is holstered (D8)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
@@ -74,6 +76,8 @@ namespace SurvivorCommunity
 #if SC_V34
         /// <summary>3.4 (D8): X7 frames SC's pose writers stood aside for a holstered hand (Voice Control's chat holster).</summary>
         private static int holsterYields;
+        /// <summary>3.4 X1: X20 runs every frame for every body: the frames a member's base restock was skipped.</summary>
+        private static int restockSkips;
 #endif
 
         public static void Reset()
@@ -88,6 +92,7 @@ namespace SurvivorCommunity
             sensorTargets = 0;
 #if SC_V34
             holsterYields = 0;
+            restockSkips = 0;
 #endif
             Patch_ModelLayer.Reset();
         }
@@ -114,6 +119,7 @@ namespace SurvivorCommunity
             parts.Add("x10-sensor-raider-target=" + sensorTargets);
 #if SC_V34
             parts.Add("x7-holster-yield-frames=" + holsterYields);
+            parts.Add("x20-member-base-restock-skipped-frames=" + restockSkips);
 #endif
             return string.Join(", ", parts.ToArray());
         }
@@ -1736,6 +1742,51 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-banditaim", ex);
+                    return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X20: members' ammo comes from SC's stockpile (3.4.02) ----
+
+        /// <summary>X20: 0-XNPCCore 3.4.02's base ammo restock (private, every frame from the controller's Update, self-throttled).</summary>
+        public static MethodBase RestockTickTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsAmmoRestockTick", NoArgs);
+        }
+
+        /// <summary>
+        /// X20 (3.4, 0-XNPCCore 3.4.02; the user's call: block it for members). 0-XNPCCore's new restock tops a survivor with an
+        /// Owner (its OwnedByCvar: the Owner cvar, which SCore and ScNpc.SetLeaderAndOwner write on a member who follows the player)
+        /// up to Settings.xml Ammo/RestockTarget (120) rounds for her gun from the player's broadcast containers in the claims and
+        /// unlocked chests within 15 m (SdcsAmmoRestockTake, its only caller this tick). Community members and outpost stand-ins
+        /// (ScXnpc.IsCommunity, the member test the billing hooks use) are resupplied by SC alone, from the community's
+        /// stockpile at home or at an outpost (ScAmmo), so the tick is skipped for them; everyone else - strangers, XNPC's own
+        /// hires, an enclave's enlisted people - keeps it. The tick runs on every frame (it throttles itself to
+        /// Ammo/CheckSeconds), so the counter is a plain one. ~340 bytes of IL: not inlined.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoMemberBaseRestock
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(RestockTickTarget, "AvatarSdcsNpcController.SdcsAmmoRestockTick"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return RestockTickTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (e == null || !ScXnpc.IsCommunity(e)) return true;
+                    restockSkips++;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-restock", ex);
                     return true;
                 }
             }

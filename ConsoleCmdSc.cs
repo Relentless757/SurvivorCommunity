@@ -2188,6 +2188,13 @@ namespace SurvivorCommunity
                   .Append(e.Buffs.HasCustomVar(Patches_Xnpc.BanditSpreadCvar) ? e.Buffs.GetCustomVar(Patches_Xnpc.BanditSpreadCvar).ToString("0.###") : "-")
                   .Append(" hipSpreadMult=").Append(hiv != null && !hiv.IsEmpty() ? EffectManager.GetValue(PassiveEffects.SpreadMultiplierHip, hiv, 1f, e).ToString("0.###") : "-")
                   .Append(" (SC holds ").Append(ScConfig.XnpcAimSpread.ToString("0.###")).Append(" on its bodies)");
+                // round X1: 0-XNPCCore 3.4.02's Charismatic Nature on a hire (SdcsLeadershipTick: needs the Owner cvar and the
+                // leader in the world; SC leaves it to 0-XNPCCore)
+                sb.Append("\n  leadership: SdcsNpcLeadership=").Append(e.Buffs.HasBuff("SdcsNpcLeadership"))
+                  .Append(" SdcsLeadRegen=").Append(e.Buffs.GetCustomVar("SdcsLeadRegen").ToString("0.###"))
+                  .Append(" SdcsLeadDamage=").Append(e.Buffs.GetCustomVar("SdcsLeadDamage").ToString("0.###"))
+                  .Append(" SdcsLeadResist=").Append(e.Buffs.GetCustomVar("SdcsLeadResist").ToString("0.###"))
+                  .Append(" Owner=").Append(e.Buffs.GetCustomVar("Owner").ToString("0"));
 #endif
                 sb.Append("\n  buffs:");
                 foreach (string b in XnpcBuffs) sb.Append(' ').Append(b).Append('=').Append(e.Buffs.HasBuff(b));

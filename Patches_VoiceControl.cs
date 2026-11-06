@@ -15,7 +15,10 @@ namespace SurvivorCommunity
     /// when it falls due (CheckBillingReactor, every 2 s) and, unpaid after the grace days, runs SCore's Dismiss - which
     /// this mod reads as the member leaving. Its modconfig has rates but no off switch, and the no_voice tag that
     /// exempts an NPC also silences it. So, for members and their outpost stand-ins:
-    ///  - no contract is ever seeded (MaybeStampHireDay skipped);
+    ///  - no contract is ever seeded (MaybeStampHireDay skipped; 3.4 X1: Voice Control 3.4.02's SeedContract too, which
+    ///    today only MaybeStampHireDay calls - a guard in case another path ever does);
+    ///  - (3.4 X1) a player's reply to a billing prompt ("pay", "yes", "no") never reaches HandleBillingResponse, the only
+    ///    caller of TryDeductPayment, for a member;
     ///  - the reactor is skipped and an old contract stripped, which covers one seeded before they joined;
     ///  - the contract cvars are stripped when someone joins (ScCommunity.StampCvars) and at every relink (ScTicker),
     ///    so nothing lingers in the save;
@@ -40,8 +43,13 @@ namespace SurvivorCommunity
     /// </summary>
     public static class Patches_VoiceControl
     {
+        /// <summary>
+        /// Voice Control's contract cvars (BillingContractRules.ContractCvars). RetainerLeader is new in 3.4.02 (the leader
+        /// the contract was made with, which carries it across sessions); an older Voice Control never writes it.
+        /// </summary>
         public static readonly string[] ContractCvars =
-            { "RetainerWeek", "RetainerNextDueDay", "RetainerGraceDay", "RetainerAwaitingApproval", "RetainerPromptDay", "RetainerEarnings" };
+            { "RetainerWeek", "RetainerNextDueDay", "RetainerGraceDay", "RetainerAwaitingApproval", "RetainerPromptDay", "RetainerEarnings",
+              "RetainerLeader" };
 
         /// <summary>Counters for sc xnpc. Main thread only.</summary>
         private static readonly Dictionary<string, int> counts = new Dictionary<string, int>();
@@ -60,6 +68,22 @@ namespace SurvivorCommunity
             Type t = ChatType;
             return t != null ? AccessTools.DeclaredMethod(t, "CheckBillingReactor", new Type[0]) : null;
         }
+
+#if SC_V34
+        /// <summary>X1: NPCChatComponent.SeedContract(), private (Voice Control 3.4.02; not in 3.4.01).</summary>
+        public static MethodBase SeedTarget()
+        {
+            Type t = ChatType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "SeedContract", new Type[0]), typeof(void), false) : null;
+        }
+
+        /// <summary>X1: NPCChatComponent.HandleBillingResponse(bool accepted), private: the player's answer to a bill.</summary>
+        public static MethodBase BillingReplyTarget()
+        {
+            Type t = ChatType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "HandleBillingResponse", new[] { typeof(bool) }), typeof(void), false) : null;
+        }
+#endif
 
         private static readonly Type[] OrderArgs = { typeof(EntityAlive), typeof(EntityPlayer), typeof(string), typeof(string) };
 
@@ -188,6 +212,79 @@ namespace SurvivorCommunity
                 }
             }
         }
+
+#if SC_V34
+        /// <summary>
+        /// X1 (Voice Control 3.4.02). 3.4.02 split the contract's writes out of MaybeStampHireDay into SeedContract (which also
+        /// writes the new RetainerLeader). Its only caller today is MaybeStampHireDay, which Patch_NoHireContract already
+        /// skips for these NPCs (TryReadLeaderFromSCore, at chat start and on every player message, calls MaybeStampHireDay,
+        /// as in 3.4.01), so this is a guard: should another path ever seed a contract, members, outpost stand-ins and E3's
+        /// enlisted people still get none, and any they carry is stripped. Other NPCs keep their contracts.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoContractSeed
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                if (SeedTarget() != null && HasNpcField()) return true;
+                return false;   // Voice Control before 3.4.02 has no SeedContract: MaybeStampHireDay (skipped) seeds there
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SeedTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive ____npcEntity)
+            {
+                try
+                {
+                    if (!IsCommunityNpc(____npcEntity) && !ScEnclaveDeals.IsEnlistedBody(____npcEntity)) return true;
+                    StripContract(____npcEntity);
+                    Count("contract-seed-refused");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-seed", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// X1. Voice Control's HandleBillingResponse - the player's "pay" / "yes" / "no" to a bill (ProcessPlayerMessage takes a
+        /// message as one only while the NPC carries RetainerNextDueDay; 3.4.02 adds "pay" in the grace days) and the only
+        /// caller of TryDeductPayment - never runs for a member, a stand-in or an enlisted person, so no path can take money
+        /// for one, even in the 2 s before Patch_NoBilling strips a contract left from before they joined; it strips it here.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoBillingReply
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return BillingReplyTarget() != null && HasNpcField(); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BillingReplyTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive ____npcEntity)
+            {
+                try
+                {
+                    if (!IsCommunityNpc(____npcEntity) && !ScEnclaveDeals.IsEnlistedBody(____npcEntity)) return true;
+                    StripContract(____npcEntity);
+                    Count("billing-reply-refused");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-billing-reply", e);
+                    return true;
+                }
+            }
+        }
+#endif
 
         /// <summary>The spoken "dismiss": a member goes home, never out of the community.</summary>
         [HarmonyPatch]

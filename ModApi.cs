@@ -361,6 +361,8 @@ namespace SurvivorCommunity
             // 3.4 X1 (0-XNPCCore 3.4.02): X18 no level-based aim spread on our bodies, X19 no bandit spread on SC's raiders
             Add(t, "AvatarSdcsNpcController::SdcsAimTick", Patches_Xnpc.AimTickTarget());
             Add(t, "AvatarSdcsNpcController::SdcsBanditAimTick", Patches_Xnpc.BanditAimTickTarget());
+            // X20: no base ammo restock from the player's chests for members (SC's stockpile only)
+            Add(t, "AvatarSdcsNpcController::SdcsAmmoRestockTick", Patches_Xnpc.RestockTickTarget());
             Add(t, "SdcsMedic::ApplyHealOther", ScMedic.HealOtherTarget());
             Add(t, "SdcsMedic::Begin", ScMedic.MedicBeginTarget());
             Add(t, "SleeperVolume::TouchGroup", Patches_Enclaves.TouchGroupTarget());
@@ -440,6 +442,11 @@ namespace SurvivorCommunity
             {
                 Add(t, "NPCChatComponent::MaybeStampHireDay", Patches_VoiceControl.StampTarget());
                 Add(t, "NPCChatComponent::CheckBillingReactor", Patches_VoiceControl.ReactorTarget());
+#if SC_V34
+                // X1 (Voice Control 3.4.02): no contract seeded (SeedContract, a guard) and no reply to a bill taken, for members
+                Add(t, "NPCChatComponent::SeedContract", Patches_VoiceControl.SeedTarget());
+                Add(t, "NPCChatComponent::HandleBillingResponse", Patches_VoiceControl.BillingReplyTarget());
+#endif
                 Add(t, "PhraseTriggerHandler::Dismiss", Patches_VoiceControl.DismissTarget());
                 Add(t, "PhraseTriggerHandler::Pickup", Patches_VoiceControl.PickupTarget());
                 Add(t, "PhraseTriggerHandler::Hire", Patches_VoiceControl.HireTarget());

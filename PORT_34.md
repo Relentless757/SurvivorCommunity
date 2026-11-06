@@ -2267,6 +2267,53 @@ only**: only the 3.4 DLL was built; the tracked 3.2 `SurvivorCommunity.dll` is u
   roll skips it; a stored look with it shows no tattoo. Rolls unchanged (3.3 allows a face, three body and a hand tattoo at
   once: a possible later feature). The hair pre-fill stays checked against 3.2.0 only, so 3.3.0 does its own lookup.
 
+**Second part: the user's calls on the triage (2026-11-05, same branch).**
+- **X20: members take no ammo from the player's chests (Patches_Xnpc.cs:1752-1793, `Patch_NoMemberBaseRestock`).** 3.4.02's
+  `AvatarSdcsNpcController.SdcsAmmoRestockTick` (private, ~340 bytes of IL, every frame from `Update` on the owner, throttled
+  to `<Ammo><RestockCheckSeconds>`; `SdcsAmmoRestockTake` is its only caller) tops a survivor with an `Owner` cvar up to
+  `<RestockTarget>` 120 rounds from broadcast storage in the claims and unlocked chests within 15 m. It is skipped for
+  `ScXnpc.IsCommunity` (members and outpost stand-ins, the billing hooks' test), who are resupplied only from the
+  community's stockpile (ScAmmo); strangers, 0-XNPCCore's own hires and enlisted enclave people keep it. Plain counter
+  `x20-member-base-restock-skipped-frames` (per frame), in ModApi's ExpectedTargets.
+- **Charismatic Nature: nothing in SC defeats it, no change.** `SdcsLeadershipTick` (not patched by SC; it runs after the
+  level tick X3 skips, as its own call in `Update`) needs `Owner` > 0 and a loaded leader (`GetLeaderOrOwner`), reads his
+  `perkCharismaticNature` level and, when the rank changes, writes `SdcsLeadRegen` (rank 1+, 0.5/s), `SdcsLeadDamage`
+  (rank 2+, 0.2) and `SdcsLeadResist` (rank 3+, 0.1) and adds `SdcsNpcLeadership` (`HealthChangeOT base_add`,
+  `EntityDamage` / melee `BlockDamage perc_add`, `GeneralDamageResist base_add`). Checked against SC: ScMedic's AddBuff
+  prefix refuses only `SdcsIsHealing` and `IsHealing` (ScMedic.cs:652-668); `StripLevels` removes only `SdcsNpcLevelBonus`,
+  `SdcsNoWear` and the `SdcsLevel*` cvars (ScXnpc.cs:50-55, 330-333), X3's regen zeroing is `SdcsLevelRegen` on raiders
+  that keep levels; SC writes no `HealthChangeOT` (ScMedic's "already working" test is `medicalRegHealthAmount`,
+  ScMedic.cs:257, 302), and its damage buffs are perc_add too (Config/buffs.xml:11-54), which add to the leadership's.
+  So a following member gets all three ranks. A resident does not: `ScCommunity.Station` detaches a member
+  (`Detach` removes `Leader` and `Owner`, ScCommunity.cs:342-343), so 0-XNPCCore does not count them as a hire - its
+  own scope (hires only), not something SC blocks; giving residents the perk would mean SC writing the cvars itself.
+  `sc xnpc <id>` has a `leadership:` line (ConsoleCmdSc.cs:2193).
+- **Pay: members stay off contracts (Patches_VoiceControl.cs:46-52, 225-290).** Correction to the triage below: Voice
+  Control 3.4.02's `SeedContract` is called only from `MaybeStampHireDay` (`TryReadLeaderFromSCore` calls
+  `MaybeStampHireDay` at its four sites, as in 3.4.01), so SC's existing skip (Patch_NoHireContract, :164) still stops every
+  seeding; the triage line misread a FindStr listing. What was missing: `RetainerLeader`, new in 3.4.02, is now in
+  `ContractCvars`, so `StripContract` (the join, every relink, the reactor skip) takes it off too. Added as guards:
+  `Patch_NoContractSeed` (SeedContract skipped and the contract stripped for members, stand-ins and enlisted people, should
+  another path ever seed one) and `Patch_NoBillingReply` (`HandleBillingResponse`, the only caller of `TryDeductPayment`:
+  a "pay" / "yes" / "no" never pays for one of them, even in the 2 s before Patch_NoBilling, :191, strips an old
+  contract). `ProcessPlayerMessage` takes a message as a bill reply only while `RetainerNextDueDay` is set
+  (`BillingContractRules.ClassifyReply`), and there is no contract UI in 0-XNPCCore's XUi or dialogs: billing is Voice
+  Control's prompt (`CheckBillingReactor`, skipped) and reply only. Counters `contract-seed-refused`,
+  `billing-reply-refused`.
+- **Guard: no change needed.** 3.4.02's three new guard behaviours all need a leader: the patrol (`SdcsGuardPatrol.NextLeg`:
+  order 9, loot mode 0, `Leader` > 0), the walk around a workstation (`SdcsStationStay.WanderStation` /
+  `CraftRules.WandersAtStation`: `Leader` > 0) and the spacing (`SdcsGuardSpread.Tick`: `Guarding` >= 0.5, order 2 or 9,
+  loot mode 0, and a `Leader` or `Owner` id; the others it makes room for must share that leader). Without one,
+  `UAITaskGuardSdcs` runs SCore's `UAITaskGuard` unchanged (its Start/Update fall through to the base). SC's residents,
+  Watch guards and garrison stand-ins are posted through `ScCommunity.Station` (ScWatch.cs:561, ScGarrison.cs:169), which
+  first detaches them (no `Leader`, no `Owner`) and then writes the Guard cvars (ScCommunity.cs:308-309); enclave people
+  are held by `ScEnclavePeople.GuardAt` (ScEnclavePeople.cs:924-929) with no leader, and enlisted ones lose theirs when the
+  enlistment ends (`Detach`, ScEnclaveDeals.cs:460). So nothing new moves them or fights SC's post logic. A following member
+  given 0-XNPCCore's own Guard order does patrol: that is its feature for hires, not an SC post.
+- **X19 confirmed:** it targets `SdcsBanditAimTick` alone (Patches_Xnpc.cs:1643); its prefix skips only that method's body,
+  and `SdcsBanditTick` goes on to its `SdcsPlayerDamage` write (IL: the call at IL_002c, then `get_BanditPlayerDamage`,
+  `PlayerDamageCVar`, `SetCustomVar`). SC patches nothing else there (no `SdcsBanditTick` or `SdcsPlayerDamage` in SC).
+
 Checks:
 - **XML replay** (`research\sc34\xml\tools\sc_replay.py` copied to scratch with the SC tree selectable; SCore, 0-XNPCCore,
   Voice Control, SC on the 3.4 install's vanilla entityclasses.xml): 0-XNPCCore 82/82 ops, SC 14/14 (+10 conditionals: six
@@ -2278,35 +2325,33 @@ Checks:
   Before: no look applier, -0.5, `none`, `none`, SC's names. SC's own survivor classes (e.g. `npcSdcsSurvivorMaleT1`,
   `FemaleT3`): unchanged - no look applier, -0.5, `none`, `none`, SC's names; the remove / append / set ops matched 6, 6, 6,
   6, 3, 3 nodes, all on the six.
-- **HarmonyAudit** of the built DLL (`dynamic_targets34.json` copy with the three new targets): 3.4 OK=153, no param
-  issues; X18 `private Void AvatarSdcsNpcController::SdcsAimTick()` (caller `Update`), X19 `SdcsBanditAimTick()` (caller
+- **HarmonyAudit** of the built DLL (`dynamic_targets34.json` copy with the new targets and the two billing ones): 3.4
+  OK=156, no param issues; X20 `private Void AvatarSdcsNpcController::SdcsAmmoRestockTick()` (caller `Update`),
+  `NPCChatComponent::SeedContract()` (caller `MaybeStampHireDay`), `HandleBillingResponse(Boolean)` (caller
+  `ProcessPlayerMessage`), `MaybeStampHireDay(Entity)` (caller `TryReadLeaderFromSCore`); X18 `private Void AvatarSdcsNpcController::SdcsAimTick()` (caller `Update`), X19 `SdcsBanditAimTick()` (caller
   `SdcsBanditTick`), the relay `static private Void NetPackageVCVoiceRelay::PlayVoiceLocally(Int32, Byte[], Single)`.
   Vanity Vault 3.3.0's signatures checked by Cecil metadata; the DLL's ten-argument `Action` binds to System.Core, which the game has.
 
-Only in game (TESTING.md group X1, steps 300-314): the bandits', the creator survivor's and the pickpocket's look, weapon
+Only in game (TESTING.md group X1, steps 300-319): the bandits', the creator survivor's and the pickpocket's look, weapon
 and names; SC's survivors unchanged; the `aim spread:` line and the counters; the stars deciding hits again; Vanity Vault
-3.3's tattoos by part and the paints; the relay in multiplayer.
+3.3's tattoos by part and the paints; the relay in multiplayer; no chest ammo for members (others keep it); Charismatic
+Nature on a following member; posts holding; no pay for members.
 
-0-XNPCCore 3.4.02's changelog against what SC drives (not fixed here; for later rounds):
+0-XNPCCore 3.4.02's changelog against what SC drives (as first triaged; the second part above settled the restock,
+leadership, pay and guard items):
 - Looks: `SdcsSpawnAmmoCount` and the look roll are only read by `SdcsLookApplier` (removed from the six and refused by
   X1b): no change. 3.4.02's "survivors aim at the chest of people" matches SC's chest aim (ScShooting.cs:217-219).
-- **Ammo restock at the base: needs a change (the user's call).** `SdcsAmmoRestockTick` (gated on the `Owner` cvar, which
+- **Ammo restock at the base: done (X20, the user's call: block it for members).** `SdcsAmmoRestockTick` (gated on the `Owner` cvar, which
   SC writes on members, ScNpc.cs:377) tops a member up to 120 rounds from the player's broadcast containers and unlocked
   chests within 15 m, beside SC's own stockpile resupply (ScAmmo.cs:13-40): free ammo past SC's accounting. An X18-style
   skip for `IsBody` would end it. "Choose a survivor's ammo" (E > Ammo...) on members: check it against X12/X16
   (Patches_Xnpc.cs:1162, 1502) and ScAmmo's refill type.
-- **Pay/contracts: needs a small change.** Voice Control 3.4.02's `TryReadLeaderFromSCore` (chat start, every player
-  message) now calls `SeedContract` itself, past SC's `MaybeStampHireDay` skip (Patches_VoiceControl.cs:140); billing is
-  still blocked (Patch_NoBilling strips the contract every 2 s, Patches_VoiceControl.cs:167), but the contract is re-seeded
-  each chat and its new `RetainerLeader` cvar is not in `ContractCvars` (Patches_VoiceControl.cs:43-44), so it stays in
-  saves. Skip `SeedContract` for members too and add `RetainerLeader`.
-- **Healing: needs a decision.** Charismatic Nature reaches hires (`SdcsLeadershipTick`, also on `Owner`): rank 1+ gives
-  members `HealthChangeOT` regen through `SdcsNpcLeadership`, against items-only healing (D7, ScMedic.cs:31). Self-heal
-  stays off (X15, Patches_Xnpc.cs:1443).
-- **Guard/patrol: needs a check, likely a change.** SC posts members with `CurrentOrder` Guard (ScCommunity.cs:308-309);
-  3.4.02's `GuardSdcs` task now walks a hired NPC with that order (and loot mode 0) to random spots within
-  `GuardPatrolMetres` 6 m of the post (`SdcsGuardPatrol.NextLeg`), and `SdcsGuardSpread` steps later guards of the same spot
-  aside: watch and tower posts (ScWatch.cs:666 re-asserts the post) may wander or fight it.
+- **Pay/contracts: done (see above; the first triage was wrong about the seeding).** `SeedContract` is reached only through
+  `MaybeStampHireDay`, which SC already skips; `RetainerLeader` was missing from `ContractCvars`; two guard hooks added.
+- **Healing: decided (the user: all of Charismatic Nature for members).** It reaches following members untouched (see
+  above); self-heal stays off (X15, Patches_Xnpc.cs:1443).
+- **Guard/patrol: checked, no change (see above).** The patrol, the station walk and the spacing all need a leader; SC's
+  posted residents, guards, stand-ins and enclave people have none.
 - Levels/XP: SC strips levels and Progression on members and raiders (Patches_Xnpc.cs:472, ScXnpc.cs:334); the new XP from
   harvesting, repairs and crafting and the XP multiplier need no change (check the log for errors from them on members);
   "E > Your progress" shows nothing useful for members.
@@ -2323,5 +2368,6 @@ and names; SC's survivors unchanged; the `aim spread:` line and the counters; th
 - Bandits: SC's raiders are `bandit`-tagged, so 3.4.02's bandit player damage (half by default) applies to them; kept (the
   user's call); `SdcsKeepTarget`, the bandits' AI package and loot are class XML SC's raiders don't use.
 
-Builds: SC 3.4 `d977d9a6a12ee2f0197d4aca4996d66b` (`build\sc34_x1`), 0 errors (the two old CS0108 warnings). The 3.2 DLL
-was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not installed.
+Builds: SC 3.4 `cbedf29e9f55af5202722b5b6a27da62` (`build\sc34_x1`; the first part alone was `d977d9a6`), 0 errors
+(the two old CS0108 warnings). The 3.2 DLL was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not
+installed.
