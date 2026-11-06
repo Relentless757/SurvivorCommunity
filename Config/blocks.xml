@@ -477,6 +477,41 @@
 			     Whatever this says, a hostile enclave's people, raiders and survivors with a grudge always refuse Voice
 			     Control's spoken "trade". "sc voice context" prints what the nearest of them would be told. -->
 			<property name="VoiceEnclaveContext" value="true" />
+			<!-- C1 (round 22; game 3.4 with 0-XNPCCore 3.4.02 - the 3.2 build reads none of these). Community members craft through
+			     0-XNPCCore's crafting (E > Craft...), their specialty stars deciding their skills, followers and residents alike.
+			     CraftSkillsEnabled: a member's crafting skills are her specialty's (CraftSkills<Specialty>, progression.xml
+			     crafting_skill names) at round(max level x (stars / 7) ^ CraftLevelCurve) - 1 = proportional: a 7-star cook has
+			     craftingFood 100, a 3-star one 43, a 1-star one 14 ("sc craft table" prints them all) - and every other skill in
+			     these lists at 0, which the game reads as 1: the level-1 recipes a fresh player has. 0-XNPCCore's own learning by
+			     crafting and its XP stay off for members (strangers and its own hires keep theirs). A member starts with her
+			     specialty's 0-XNPCCore roles (CraftRoles<Specialty>: cook, blacksmith, chemist, crafter - which stations she may
+			     use; none = no role); after that your changes on the order wheel's Roles page, by voice or in the Community tab are
+			     kept. A craft whose recipe belongs to one of her specialty's skills pays CraftSpecXpPerCraft specialty XP, with no
+			     daily cap. false: none of it - members have no crafting skills (only the open recipes), as before.
+			     Work shifts (WorkShiftsEnabled): a resident crafts at home too - talk to her inside the base, "I have work for
+			     you." (stand at the station: its tab lists the stations within 5 m of you), or the Community tab's Work > Call to
+			     work, and she walks over. She goes back to her post WorkIdleSeconds after her last job (at once at night), or
+			     WorkCallSeconds after a call without an order. WorkDepositOutput: what she makes on a shift moves from her
+			     inventory window into the home crates. "sc craft <name>" shows a member's skills, roles, shift and XP. -->
+			<property name="CraftSkillsEnabled" value="true" />
+			<property name="CraftSkillsMedicine" value="craftingMedical" />
+			<property name="CraftSkillsCooking" value="craftingFood" />
+			<property name="CraftSkillsMechanics" value="craftingWorkstations,craftingVehicles,craftingTraps,craftingRobotics" />
+			<property name="CraftSkillsGardening" value="craftingSeeds" />
+			<property name="CraftSkillsChemistry" value="craftingExplosives,craftingMedical,craftingElectrician" />
+			<property name="CraftSkillsCraftsmanship" value="craftingArmor,craftingBackpack,craftingBlades,craftingBows,craftingClubs,craftingHandguns,craftingHarvestingTools,craftingKnuckles,craftingMachineGuns,craftingRepairTools,craftingRifles,craftingSalvageTools,craftingShotguns,craftingSledgehammers,craftingSpears" />
+			<property name="CraftRolesMedicine" value="cook,chemist" />
+			<property name="CraftRolesCooking" value="cook" />
+			<property name="CraftRolesMechanics" value="blacksmith,crafter,chemist" />
+			<property name="CraftRolesGardening" value="none" />
+			<property name="CraftRolesChemistry" value="chemist,crafter" />
+			<property name="CraftRolesCraftsmanship" value="crafter" />
+			<property name="CraftLevelCurve" value="1" />
+			<property name="CraftSpecXpPerCraft" value="0.5" />
+			<property name="WorkShiftsEnabled" value="true" />
+			<property name="WorkIdleSeconds" value="90" />
+			<property name="WorkCallSeconds" value="180" />
+			<property name="WorkDepositOutput" value="true" />
 			<!-- V2, voices by race and sex. VoiceByRace: every survivor and raider speaks in one of the two voices of their race
 			     and sex (White, Black, Asian, Native, from their body: SC's look), picked by their name. While that voice has
 			     no recording of a line, the other voice of their race and sex says it, then any recorded voice of their sex

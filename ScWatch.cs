@@ -464,6 +464,9 @@ namespace SurvivorCommunity
         public static bool Assign(Vector3i post, Member m, EntityPlayerLocal player, out string error)
         {
             if (!CanAssign(post, m, out error)) return false;
+#if SC_V34
+            ScWork.EndFor(m, "posted on watch");   // C1: off the work shift first (the watch post replaces the craft spot)
+#endif
             try
             {
                 Community c = ScRegistry.Community;

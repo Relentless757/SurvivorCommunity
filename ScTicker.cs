@@ -87,6 +87,9 @@ namespace SurvivorCommunity
 
                 Relink(w, player);
                 ScAmmo.Tick(w);                       // every 5 s: each member's ammo into the record; resupply in the base / at an outpost
+#if SC_V34
+                ScWork.Sweep(player);                 // C1: work shifts whose member left, moved on or unloaded are dropped
+#endif
                 ScDoors.Tick(w, player);              // shut the doors members opened once they are through
                 ScRunners.Tick(w, player);            // physical supply runs: walk, capture out of range, re-create near the player
                 TrackProspects(w);
@@ -248,6 +251,10 @@ namespace SurvivorCommunity
                 {
                     case MemberStatus.Resident:
                         if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);   // never a hidden resident
+#if SC_V34
+                        // C1: on a work shift she has an owner and a craft spot on purpose - ScWork ticks her instead of the rules below
+                        if (ScWork.Resident(m, npc, player)) break;
+#endif
                         if (EntityUtilities.GetCurrentOrder(m.Id) != EntityUtilities.Orders.Guard
                             || EntityUtilities.GetLeaderOrOwner(m.Id) != null)
                         {
@@ -289,7 +296,13 @@ namespace SurvivorCommunity
                         // until the NPC has been seen on it, a Guard still on them is the favour wait or the old station,
                         // which leaves the member guarding a spot they were never told to hold - that one is SC's, not the
                         // player's, and repaired
+#if SC_V34
+                        // C1: a 0-XNPCCore job order (craft, loot here ...) writes Guard too - never SC's leftover
+                        bool ownGuard = m.FollowIssued > 0f && now - m.FollowIssued < FollowConfirmSeconds && order == EntityUtilities.Orders.Guard
+                                        && npc.Buffs.GetCustomVar("SdcsLootMode") == 0f;
+#else
                         bool ownGuard = m.FollowIssued > 0f && now - m.FollowIssued < FollowConfirmSeconds && order == EntityUtilities.Orders.Guard;
+#endif
                         if (EntityUtilities.GetLeaderOrOwner(m.Id) == null)
                         {
                             // the leader id went stale (relog?): re-link, but a held voice order stays held

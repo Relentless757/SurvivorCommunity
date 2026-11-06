@@ -119,6 +119,10 @@ namespace SurvivorCommunity
                 // the newer layout's controls: optional, the original window has none of them
                 HookOptional("btnRun", OnRunToggle);
                 HookOptional("btnFilter", OnFilterCycle);
+                // C1: the work-and-roles row (3.4: the generated window has it; the 3.2 build never shows it)
+                HookOptional("btnWorkMenu", OnWorkMenu);
+                HookOptional("btnWork", OnWork);
+                for (int i = 0; i < RoleButtons.Length; i++) { int role = i; HookOptional("btnRole" + RoleButtons[i], () => OnRole(role)); }
                 // the Outposts tab (optional: an older windows.xml has none of it)
                 opRows = GetChildrenByType<XUiC_ScOutpostRow>();
                 if (opRows != null) for (int i = 0; i < opRows.Length; i++) opRows[i].Bind(this);
@@ -181,6 +185,7 @@ namespace SurvivorCommunity
                 message = "";
                 confirmLeaveUntil = 0f;
                 runPicking = false;
+                workPickingId = -1;
                 opPage = 0;
                 opMessage = "";
                 confirmDisbandUntil = 0f;
@@ -410,7 +415,77 @@ namespace SurvivorCommunity
                 }
             }
             runPicking = !runPicking;
+            if (runPicking) workPickingId = -1;      // C1: one picker at a time
             RefreshBindingsSelfAndChildren();
+        }
+
+        // ---- C1: work shifts and crafting roles (3.4: ScWork, ScCraft; the 3.2 build answers the bindings, never shows the row) ----
+
+        private static readonly string[] RoleButtons = { "Cook", "Smith", "Chemist", "Crafter" };
+        /// <summary>The member whose work-and-roles row is open (-1: none); it closes when another one is selected.</summary>
+        private int workPickingId = -1;
+
+        private bool WorkOpen { get { return workPickingId >= 0 && workPickingId == selectedId; } }
+
+        private void OnWorkMenu()
+        {
+            Member m = Selected;
+            if (m == null) return;
+            workPickingId = WorkOpen ? -1 : m.Id;
+            if (WorkOpen) runPicking = false;
+            RefreshBindingsSelfAndChildren();
+        }
+
+        /// <summary>Call to work (a resident at home walks over to you) or End work (back to her post).</summary>
+        private void OnWork()
+        {
+#if SC_V34
+            Member m = Selected;
+            EntityPlayerLocal p = Player;
+            if (m == null || p == null || !WorkOpen) return;
+            string msg;
+            bool ok;
+            ScWork.CallOrEnd(m, p, out msg, out ok);
+            message = msg ?? "";
+            if (!ok) p.PlayOneShot("ui_denied");
+            workPickingId = -1;                      // the message shows where the row was
+            Refresh();
+#endif
+        }
+
+        /// <summary>A role toggle: 0-XNPCCore's role cvar on the body, as the order wheel's Roles page writes it.</summary>
+        private void OnRole(int role)
+        {
+#if SC_V34
+            Member m = Selected;
+            EntityPlayerLocal p = Player;
+            if (m == null || p == null || !WorkOpen) return;
+            string msg;
+            if (!ScCraft.ToggleRole(m, role, out msg)) p.PlayOneShot("ui_denied");
+            message = msg ?? "";
+            RefreshBindingsSelfAndChildren();
+#endif
+        }
+
+        /// <summary>The row's bindings. Always a string (bindings are read while the XML is parsed, before a world exists).</summary>
+        private bool WorkBinding(string name, Member sel, ref string value)
+        {
+            switch (name)
+            {
+                case "workmenuvisible": case "workmenulabel": case "workpicking": case "msgvisible": case "worklabel": case "workcolor":
+                case "role0color": case "role1color": case "role2color": case "role3color":
+                    break;
+                default:
+                    return false;
+            }
+#if SC_V34
+            value = ScWork.UiValue(name, sel, runPicking, WorkOpen) ?? "";
+#else
+            value = name == "msgvisible" ? (!runPicking).ToString()
+                  : name == "workmenuvisible" || name == "workpicking" ? "False"
+                  : name.EndsWith("color", StringComparison.Ordinal) ? "140,134,124,255" : "";
+#endif
+            return true;
         }
 
         // ---- the Outposts tab ----
@@ -1157,6 +1232,7 @@ namespace SurvivorCommunity
             if (OutpostBinding(_bindingName, ref _value)) return true;
             if (StaffBinding(_bindingName, OutpostSelected, ref _value)) return true;
             if (ActivityBinding(_bindingName, ref _value)) return true;
+            if (WorkBinding(_bindingName, sel, ref _value)) return true;     // C1
             switch (_bindingName)
             {
                 // ---- the original layout ----

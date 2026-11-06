@@ -1171,6 +1171,9 @@ namespace SurvivorCommunity
             MuteVcInTalk = true;
             VoiceEnclaveContext = true;
             ResetVoices();                         // V2 (ScConfigVoices.cs)
+#if SC_V34
+            ResetCraft();                          // C1 (ScConfigCraft.cs)
+#endif
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
             XnpcBodyGetUp = true;
@@ -2221,6 +2224,9 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("VoiceEnclaveContext")) p.ParseBool("VoiceEnclaveContext", ref voiceContext);
                 VoiceEnclaveContext = voiceContext;
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
+#if SC_V34
+                ParseCraft(p);                     // C1 (ScConfigCraft.cs)
+#endif
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
                 XnpcBodyGetUp = xnpcGetUp;
@@ -2479,6 +2485,9 @@ namespace SurvivorCommunity
                           + ", face " + SurvivorFacePaintChance + "/" + RaiderFacePaintChance + " of " + SurvivorFacePaints.Count + "/" + RaiderFacePaints.Count
                           + ", tattoo " + SurvivorTattooChance + "/" + RaiderTattooChance + " of " + SurvivorTattoos.Count + "/" + RaiderTattoos.Count + " " + TattooMode);
                 ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
+#if SC_V34
+                ScLog.Out("config: crafting " + CraftLine());   // C1 (ScConfigCraft.cs)
+#endif
             }
             catch (Exception e)
             {

@@ -135,6 +135,9 @@ namespace SurvivorCommunity
         public static bool Post(Member m, EntityAlive npc, Outpost o, EntityPlayerLocal player, out string error)
         {
             if (!CanPost(m, npc, o, out error)) return false;
+#if SC_V34
+            ScWork.EndFor(m, "posted to an outpost");   // C1: off the work shift first
+#endif
             try
             {
                 m.Status = MemberStatus.Garrison;

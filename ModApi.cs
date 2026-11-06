@@ -369,6 +369,14 @@ namespace SurvivorCommunity
             Add(t, "SdcsMedic::Begin", ScMedic.MedicBeginTarget());
             Add(t, "SleeperVolume::TouchGroup", Patches_Enclaves.TouchGroupTarget());
             Add(t, "XUiC_SCoreCompanion::BtnDismiss_Controller_OnPress", Patches_VoiceControl.CompanionDismissTarget());
+            // C1 (round 22): members craft by their stars - C1a/C1b no 0-XNPCCore XP or role learning on members; C1c-C1e SC's XP per
+            // craft (backpack, station, a station's list when the player opens it); C1f a shift's job ends where she is
+            Add(t, "SdcsNpcXp::Pay", Patches_Craft.PayTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsCountCrafts", Patches_Craft.CountCraftsTarget());
+            Add(t, "SdcsCraft::PayXp", Patches_Craft.BackpackPayTarget());
+            Add(t, "SdcsStationCraft::PayXp", Patches_Craft.StationPayTarget());
+            Add(t, "TileEntityWorkstation::CheckForCraftComplete", Patches_Craft.CraftCompleteTarget());
+            Add(t, "SdcsLootHere::Finish", Patches_Craft.LootFinishTarget());
 #endif
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
             // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on

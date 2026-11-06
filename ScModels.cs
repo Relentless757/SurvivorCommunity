@@ -231,6 +231,16 @@ namespace SurvivorCommunity
         public int ArriveEnclave;
         public Vector3i ArriveFrom;
         public string ArriveName = "";
+#if SC_V34
+        /// <summary>
+        /// C1 (ScCraft): her 0-XNPCCore crafting roles as a mask (1 cook, 2 blacksmith, 4 chemist, 8 crafter; -1 = never stamped),
+        /// the specialty they were set for (a change re-applies its defaults), and the specialty XP her crafts earned that is not a
+        /// whole point yet. Saved as craftroles=mask:Specialty and craftxp=, keys older builds ignore.
+        /// </summary>
+        public int CraftRoles = -1;
+        public Specialty CraftRolesFor = Specialty.None;
+        public float CraftXpCarry;
+#endif
 
         public SkillState Skill(Skill s) { return Skills[(int)s]; }
 

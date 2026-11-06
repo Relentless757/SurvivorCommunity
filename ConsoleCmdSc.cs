@@ -105,6 +105,9 @@ namespace SurvivorCommunity
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
+#if SC_V34
+                    case "craft": ScCraft.ConsoleCmd(_params, Output); break;   // C1: craft [table | <id|name> [spec <Specialty> | end]]
+#endif
                     case "trust": TrustCmd(_params); break;
                     case "home": Home(); break;
                     case "dump": Dump(); break;

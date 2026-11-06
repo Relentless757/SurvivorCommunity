@@ -1109,6 +1109,22 @@ namespace SurvivorCommunity
                     break;
                 }
                 case "watchrest": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) m.WatchRestUntil = u; break; }
+#if SC_V34
+                case "craftroles":
+                {
+                    // C1: mask:Specialty (ScCraft.SyncRoles)
+                    string[] f = val.Split(':');
+                    Specialty rs;
+                    if (f.Length == 2 && ScNames.TrySpecialty(f[1], out rs)) { m.CraftRoles = Clamp(I(f[0]), 0, 15); m.CraftRolesFor = rs; }
+                    break;
+                }
+                case "craftxp":
+                {
+                    float cx;
+                    if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out cx)) m.CraftXpCarry = Math.Max(0f, Math.Min(1000f, cx));
+                    break;
+                }
+#endif
                 case "arrive":
                 {
                     // E12: at : enclave : x,y,z : name (split on the first three colons; the name may hold more); Commit makes them Arriving
@@ -1696,6 +1712,10 @@ namespace SurvivorCommunity
             if (m.WatchPost != Vector3i.zero)
                 sb.AppendLine("watch=" + Vec(m.WatchPost) + ":" + m.WatchStart.ToString(CultureInfo.InvariantCulture) + ":" + m.WatchPrepaid + ":" + Vec(m.WatchHome));
             if (m.WatchRestUntil > 0UL) sb.AppendLine("watchrest=" + m.WatchRestUntil.ToString(CultureInfo.InvariantCulture));
+#if SC_V34
+            if (m.CraftRoles >= 0) sb.AppendLine("craftroles=" + m.CraftRoles + ":" + m.CraftRolesFor);              // C1 (ScCraft)
+            if (m.CraftXpCarry > 0f) sb.AppendLine("craftxp=" + m.CraftXpCarry.ToString("0.###", CultureInfo.InvariantCulture));
+#endif
             if (m.Status == MemberStatus.Arriving)
                 sb.AppendLine("arrive=" + Math.Max(1UL, m.ArriveAt).ToString(CultureInfo.InvariantCulture) + ":" + m.ArriveEnclave.ToString(CultureInfo.InvariantCulture) + ":"
                               + Vec(m.ArriveFrom) + ":" + Clean(m.ArriveName));

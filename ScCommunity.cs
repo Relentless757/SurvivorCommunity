@@ -270,6 +270,9 @@ namespace SurvivorCommunity
                 World w = World;
 
                 Detach(npc, player);
+#if SC_V34
+                ScWork.Forget(m.Id, npc);          // C1: any stationing path ends a work shift
+#endif
                 m.HeldOrder = EntityUtilities.Orders.Guard;
                 m.FollowIssued = 0f;
 
@@ -1026,6 +1029,9 @@ namespace SurvivorCommunity
             // E3: an enclave's people enlisted with the player count toward the limit too
             if (ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount() >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
             if (m.Mood < 25) { error = "scRefuseMood"; return false; }
+#if SC_V34
+            ScWork.EndFor(m, "asked to follow");   // C1: off the work shift first (her job dropped, unmade items refunded)
+#endif
             FollowInternal(m, npc, player, MemberStatus.Following);
             ScRegistry.SaveAtomic();
             return true;
@@ -1104,6 +1110,9 @@ namespace SurvivorCommunity
             try
             {
                 ScGarrison.RemoveStandIn(m);          // a posted member leaving takes their stand-in with them
+#if SC_V34
+                ScWork.EndFor(m, "leaving");          // C1: off the work shift first
+#endif
                 if (m.Status == MemberStatus.OnRun && m.RunDistress) ScRadio.EndDistress(World, LocalPlayer, m);   // no orphaned rescue quest
                 m.Snap = null;
                 EntityAlive npc = FindNpc(m.Id);
@@ -1161,6 +1170,9 @@ namespace SurvivorCommunity
                 npc.Buffs.AddBuff(OrderDismissBuff);       // zeroes Leader/Owner, wander
                 if (ScNpc.IsV4(npc)) ScNpc.RestoreSpeed(npc);   // a follower's leader speed (SetLeader copies it) must not outlive the membership
                 ScWatch.Unboost(npc);                           // nor a guard's raised sight (base defence D3)
+#if SC_V34
+                ScCraft.OnLeft(npc);                            // C1: 0-XNPCCore's own Progression next time she is hired; no role mark, no shift
+#endif
                 npc.Buffs.RemoveCustomVar("Leader");
                 npc.Buffs.RemoveCustomVar("Owner");
                 npc.SetSpawnerSource(EnumSpawnerSource.Biome);

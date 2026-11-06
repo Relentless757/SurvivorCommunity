@@ -676,6 +676,29 @@ scWatchErrBlocked,UI,Tooltip,,,,There's no room to stand on {3} (two blocks of a
 scWatchErrShape,UI,Tooltip,,,,"{3} has no flat top to stand on - use the cube, or a plate or catwalk turned upside down."
 scWatchShapeWarn,UI,Tooltip,,,,"{3} is in place, but a guard can't stand on this shape - use the cube, or a plate or catwalk turned upside down."
 scWatchBusy,UI,Tooltip,,,,They're on watch - relieve them at their watch post first.
+scWork,Dialog,Response,,,,I have work for you.
+scWorkEnd,Dialog,Response,,,,That's all for now.
+scWorkEndSaid,UI,Tooltip,,,,All right. I'll head back to my post.
+scWorkCallSaid,UI,Tooltip,,,,On my way.
+scWorkComing,UI,Tooltip,,,,{0} is coming to work. Wait at the station and talk to them there.
+scWorkBack,UI,Tooltip,,,,{0} goes back to their post.
+scWorkCratesFull,UI,Tooltip,,,,The home crates are full - what {0} makes stays in their inventory.
+scWorkOff,UI,Tooltip,,,,Work shifts are switched off (WorkShiftsEnabled).
+scWorkAlready,UI,Tooltip,,,,They're already at work.
+scWorkNotResident,UI,Tooltip,,,,Only someone at home can be called to work.
+scWorkCantCraft,UI,Tooltip,,,,They can't take craft orders.
+scWorkNotHome,UI,Tooltip,,,,You both need to be inside the base.
+scCraftStar,UI,Tooltip,,,,{0} learns from the work: {1} is now {2} stars.
+scRoleOn,UI,Tooltip,,,,{0} takes the {1} role.
+scRoleOff,UI,Tooltip,,,,{0} drops the {1} role.
+scUiWorkMenu,UI,Menu,,,,Work and roles
+scUiWorkClose,UI,Menu,,,,Close
+scUiWorkCall,UI,Menu,,,,Call to work
+scUiWorkEnd,UI,Menu,,,,End work
+scUiRoleCook,UI,Menu,,,,Cook
+scUiRoleSmith,UI,Menu,,,,Smith
+scUiRoleChemist,UI,Menu,,,,Chemist
+scUiRoleCrafter,UI,Menu,,,,Crafter
 scUiWatchPick,UI,Menu,,,,Pick a guard for {0}.
 scStOnWatch,UI,Menu,,,,On watch
 scStOnWatchLong,UI,Menu,,,,On watch at {0} - {1} h left

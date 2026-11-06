@@ -243,6 +243,45 @@
 		</if>
 	</conditional>
 
+	<!-- C1 (round 22; game 3.4 with 0-XNPCCore 3.4.02 only: its "Craft Categories" statement exists nowhere else). A resident's
+	     work shift (ScWork): "I have work for you." puts her on one - the Owner link that 0-XNPCCore's craft order needs - and
+	     opens 0-XNPCCore's own Craft menu (its CraftMenuOpen, then its Craft Categories statement: the station tabs list the
+	     stations within 5 m of you, so talk to her at the station; elsewhere she offers what she can make from her pack).
+	     ScCanWork: a resident at home, you inside the base too, not on watch, a body that takes job orders, shifts on. On a
+	     shift she shows 0-XNPCCore's Weapon / Craft / Progress / Ammo / Show me rows (the Owner link) and "That's all for
+	     now." ends it; supply runs and "Ask to leave" wait until it is over. Row budget (the dialog shows ten): the members'
+	     Command Menu holds only "done" (every order in it is hidden on members), so it goes; a follower then sees 10 rows, a
+	     resident on a shift 9 (each one more with the debug menu's Admin row). -->
+	<conditional>
+		<if cond="xpath('/dialogs/dialog[@id=&quot;SdcsNPC&quot;]/statement[@id=&quot;Craft Categories&quot;]') != null">
+			<insertAfter xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='start']/response_entry[@id='scFollow']">
+				<response_entry id="scWork" />
+				<response_entry id="scWorkEnd" />
+			</insertAfter>
+			<append xpath="/dialogs/dialog[@id='SdcsNPC']">
+				<response id="scWork" text="scWork" nextstatementid="Craft Categories">
+					<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
+					<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_following" operator="not" />
+					<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_onrun" operator="not" />
+					<requirement type="ScCanWork, SurvivorCommunity" requirementtype="Hide" />
+					<action type="ScWorkStart, SurvivorCommunity" />
+					<action type="CraftMenuOpen, 1-XNPCVoiceControl" />
+				</response>
+				<response id="scWorkEnd" text="scWorkEnd">
+					<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
+					<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_shift" value="1" />
+					<action type="ScWorkEnd, SurvivorCommunity" />
+				</response>
+			</append>
+			<append xpath="/dialogs/dialog[@id='SdcsNPC']/response[@id='Command Menu']">
+				<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" operator="not" />
+			</append>
+			<append xpath="/dialogs/dialog[@id='SdcsNPC']/response[@id='scRun' or @id='scLeave']">
+				<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_shift" operator="not" />
+			</append>
+		</if>
+	</conditional>
+
 	<!-- Enclave people (E2, Enclaves_Plan.md 2.6; ScEnclavePeople, DialogOpsEnclaves.cs). Every player-body survivor talks
 	     through 0-XNPCCore's SdcsNPC dialog; these phases pick its first statement for an enclave's people - the first phase
 	     whose requirements all pass wins (Dialog.GetFirstStatment; no other dialog in the game or the installed mods has

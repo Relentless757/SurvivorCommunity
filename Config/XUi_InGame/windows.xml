@@ -485,6 +485,8 @@
 						</rect>
 						<label depth="4" pos="24,-580" width="240" height="24" font_size="22" text_key="scUiOrders" color="226,219,203,255" upper_case="true"/>
 						<label depth="4" pos="264,-583" width="272" height="20" font_size="15" text="{runheader}" color="190,182,166,255" justify="right" visible="{runpicking}"/>
+						<button depth="2" name="btnWorkMenu" pos="386,-578" width="150" height="24" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" visible="{workmenuvisible}"/>
+						<label depth="4" pos="386,-583" width="150" height="19" font_size="13" text="{workmenulabel}" color="226,220,208,255" justify="center" upper_case="true" visible="{workmenuvisible}"/>
 						<button depth="2" name="btnFollow" pos="24,-606" width="165" height="40" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 						<label depth="4" pos="24,-617" width="165" height="24" font_size="18" text="{followlabel}" color="226,220,208,255" justify="center" upper_case="true"/>
 						<button depth="2" name="btnRun" pos="197,-606" width="165" height="40" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -506,7 +508,19 @@
 							<button depth="2" name="btnRunFuel" pos="454,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 							<label depth="4" pos="454,-664" width="80" height="19" font_size="13" text_key="scRunFuel" color="226,220,208,255" justify="center" upper_case="true"/>
 						</rect>
-						<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{message}" color="226,220,208,255" visible="{# runpicking ? 'false' : 'true' }"/>
+						<rect depth="1" visible="{workpicking}">
+							<button depth="2" name="btnRoleCook" pos="24,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="24,-664" width="80" height="19" font_size="13" text_key="scUiRoleCook" color="{role0color}" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRoleSmith" pos="110,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="110,-664" width="80" height="19" font_size="13" text_key="scUiRoleSmith" color="{role1color}" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRoleChemist" pos="196,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="196,-664" width="80" height="19" font_size="13" text_key="scUiRoleChemist" color="{role2color}" justify="center" upper_case="true"/>
+							<button depth="2" name="btnRoleCrafter" pos="282,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="282,-664" width="80" height="19" font_size="13" text_key="scUiRoleCrafter" color="{role3color}" justify="center" upper_case="true"/>
+							<button depth="2" name="btnWork" pos="368,-654" width="168" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+							<label depth="4" pos="368,-664" width="168" height="19" font_size="13" text="{worklabel}" color="{workcolor}" justify="center" upper_case="true"/>
+						</rect>
+						<label depth="4" pos="24,-656" width="512" height="32" font_size="15" text="{message}" color="226,220,208,255" visible="{msgvisible}"/>
 					</rect>
 				</rect>
 				<rect depth="0" name="outpostDetail" pos="0,0" width="560" height="696" visible="{taboutposts}">

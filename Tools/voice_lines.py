@@ -104,7 +104,11 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
                  "scEncJoinSaid", "scEncJoinSaidFollow",
                  # E13a: drifters you helped fight off the dead, and a drifter band's answer as it joins you (ScBands shows them
                  # as tells: text only, the voicing round wires their playback)
-                 "scBandThanksSaid", "scBandJoinSaid"]
+                 "scBandThanksSaid", "scBandJoinSaid",
+                 # C1: a resident's words on a work shift - "That's all for now." answered as the talk closes (ScVoice.SayAfterTalk
+                 # plays it once recorded), and "Call to work" from the Community tab (a tell: text only, the voicing round wires
+                 # its playback)
+                 "scWorkEndSaid", "scWorkCallSaid"]
 
 # ---------------------------------------------------------------------------------------------------- the V2 lines ----
 # No names or numbers, so every voice can say them. Drafts: SC_Ideas_and_Voices_Plan.md section 4.4 (2026-11-03).
