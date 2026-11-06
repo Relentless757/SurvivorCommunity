@@ -48,6 +48,9 @@ namespace SurvivorCommunity
     ///                                                                  never widens SC's raiders (they carry the bandit tag)
     ///   X20 AvatarSdcsNpcController.SdcsAmmoRestockTick       prefix   (3.4 build, 0-XNPCCore 3.4.02) no ammo from the
     ///                                                                  player's chests for members: SC's stockpile only
+    ///   X21 AvatarSdcsNpcController.SdcsLeadershipTick        postfix  (3.4 build, 0-XNPCCore 3.4.02) the player's Charismatic
+    ///                                                                  Nature on members who are not hires (residents,
+    ///                                                                  guards, stand-ins), as 0-XNPCCore gives it to a hire
     ///   (3.4 build) X7 also builds an adopted creator face and stands aside while the hand is holstered (D8)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
@@ -1788,6 +1791,138 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("xnpc-restock", ex);
                     return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X21: Charismatic Nature on every member (3.4.02) ----
+
+        /// <summary>X21: 0-XNPCCore 3.4.02's leadership tick (private, 1 Hz from the controller's Update, owner side, alive).</summary>
+        public static MethodBase LeadershipTickTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsLeadershipTick", NoArgs);
+        }
+
+        /// <summary>The buff and cvars 0-XNPCCore's leadership tick writes (SdcsNpcLeadership in its buffs.xml reads the cvars live).</summary>
+        public const string LeadBuff = "SdcsNpcLeadership", LeadRegenCvar = "SdcsLeadRegen", LeadDamageCvar = "SdcsLeadDamage", LeadResistCvar = "SdcsLeadResist";
+        /// <summary>X21's mark on a body whose leadership values SC wrote (so they are taken off again when it stops being ours).</summary>
+        public const string LeadMarkCvar = "sc_leadres";
+
+        /// <summary>0-XNPCCore's own Settings.xml Leadership values (its private static getters: read once, clamped, defaulted).</summary>
+        private static Func<float> leadRegenPerSecond, leadDamageBonus, leadDamageResist;
+
+        private static Func<float> SettingGetter(string name)
+        {
+            MethodInfo m = AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), name, NoArgs);
+            return m != null && m.IsStatic && m.ReturnType == typeof(float) ? (Func<float>)Delegate.CreateDelegate(typeof(Func<float>), m) : null;
+        }
+
+        private static bool BindLeadershipSettings()
+        {
+            try
+            {
+                leadRegenPerSecond = SettingGetter("get_LeadershipRegenPerSecond");
+                leadDamageBonus = SettingGetter("get_LeadershipDamageBonus");
+                leadDamageResist = SettingGetter("get_LeadershipDamageResist");
+                if (leadRegenPerSecond != null && leadDamageBonus != null && leadDamageResist != null) return true;
+                ScLog.Warn("0-XNPCCore's Leadership settings getters not found - no Charismatic Nature on residents (0-XNPCCore update?)");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("xnpc-bind-leadership", e);
+            }
+            return false;
+        }
+
+        /// <summary>0-XNPCCore's rank for a leader: LeadershipRules.Rank over his perkCharismaticNature calculated level (0: none in the world).</summary>
+        private static int LeadRank(EntityPlayer leader)
+        {
+            float level = 0f;
+            if (leader != null && leader.Progression != null)
+            {
+                ProgressionValue pv = leader.Progression.GetProgressionValue(NPCSdcsCharacters.Pure.LeadershipRules.PerkName);
+                level = pv != null ? pv.GetCalculatedLevel(leader) : 0f;
+            }
+            return NPCSdcsCharacters.Pure.LeadershipRules.Rank(leader != null, level);
+        }
+
+        /// <summary>Sets a cvar when it differs (0-XNPCCore writes them only when the rank changes); true when it wrote.</summary>
+        private static bool SetIfDifferent(EntityBuffs b, string cvar, float value)
+        {
+            if (b.GetCustomVar(cvar) == value) return false;
+            b.SetCustomVar(cvar, value);
+            return true;
+        }
+
+        /// <summary>
+        /// X21 (3.4, 0-XNPCCore 3.4.02; the user's call: Charismatic Nature applies to every community member). 0-XNPCCore's
+        /// SdcsLeadershipTick gives the perk to a hire only: OwnedByCvar (the Owner cvar) and a leader in the world
+        /// (EntityUtilities.GetLeaderOrOwner as an EntityPlayer), whose perkCharismaticNature calculated level makes the rank
+        /// (LeadershipRules.Rank: 0 with no leader, else the level, at most 5); on a change of rank it writes SdcsLeadRegen
+        /// (rank 1+, Settings.xml Leadership RegenPerSecond), SdcsLeadDamage (rank 2+, DamageBonus), SdcsLeadResist (rank 3+,
+        /// DamageResist) and adds the SdcsNpcLeadership buff that reads them, unless the rank is 0 and the buff is not there.
+        /// SC's residents, Watch guards and stand-ins have no Owner (ScCommunity.Station detaches them), so they got nothing.
+        ///
+        /// This postfix does the same for a member or stand-in (ScXnpc.IsCommunity) with no Owner, with the community's player
+        /// (ScCommunity.LocalPlayer: none while no player is in the world, rank 0) as the leader, and 0-XNPCCore's own rules
+        /// (LeadershipRules) and settings (its getters) - so the values are exactly a hire's. A member with an Owner (following)
+        /// is left to 0-XNPCCore. It runs right after 0-XNPCCore's tick, which writes zeros once when a follower becomes a
+        /// resident (its rank goes to 0) and then nothing while its rank stays 0, so the values written here stand; when the
+        /// member follows again 0-XNPCCore's tick sees its rank change and writes its own. Values are written only when they
+        /// differ. A body this wrote for that is no longer a member (and has no Owner) gets the zeros 0-XNPCCore's own tick
+        /// would have left, since that tick no longer writes for it. Non-members are never touched.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_MemberLeadership
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(LeadershipTickTarget, "AvatarSdcsNpcController.SdcsLeadershipTick") && BindLeadershipSettings(); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return LeadershipTickTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    EntityBuffs b = e != null ? e.Buffs : null;
+                    if (b == null) return;
+                    bool owned = b.GetCustomVar("Owner") > 0f;   // 0-XNPCCore's OwnedByCvar: a hire, its own path
+                    if (owned || !ScXnpc.IsCommunity(e))
+                    {
+                        if (!b.HasCustomVar(LeadMarkCvar)) return;
+                        b.RemoveCustomVar(LeadMarkCvar);
+                        // following again: 0-XNPCCore's tick (just run) wrote the hire's values when its rank came back above 0
+                        // (it was 0 the whole time it saw a resident); at rank 0 it wrote nothing, so ours are taken off.
+                        // Left the community (no Owner): the zeros 0-XNPCCore's tick leaves on a body without a leader.
+                        if (owned && LeadRank(EntityUtilities.GetLeaderOrOwner(e.entityId) as EntityPlayer) > 0) return;
+                        if (SetIfDifferent(b, LeadRegenCvar, 0f) | SetIfDifferent(b, LeadDamageCvar, 0f) | SetIfDifferent(b, LeadResistCvar, 0f))
+                            Count("x21-leadership-cleared");
+                        return;
+                    }
+                    int rank = LeadRank(ScCommunity.LocalPlayer);
+                    bool hasBuff = b.HasBuff(LeadBuff);
+                    if (rank == 0 && !hasBuff) return;           // as 0-XNPCCore: nothing on, nothing to take off
+                    b.SetCustomVar(LeadMarkCvar, 1f);
+                    bool wrote = SetIfDifferent(b, LeadRegenCvar, NPCSdcsCharacters.Pure.LeadershipRules.Regen(rank, leadRegenPerSecond()));
+                    wrote |= SetIfDifferent(b, LeadDamageCvar, NPCSdcsCharacters.Pure.LeadershipRules.Damage(rank, leadDamageBonus()));
+                    wrote |= SetIfDifferent(b, LeadResistCvar, NPCSdcsCharacters.Pure.LeadershipRules.Resist(rank, leadDamageResist()));
+                    if (!hasBuff)
+                    {
+                        b.AddBuff(LeadBuff, -1, true, false, -1f);
+                        wrote = true;
+                    }
+                    if (wrote)
+                    {
+                        Count("x21-resident-leadership-set");
+                        ScLog.Verbose(ScCommunity.DisplayName(e) + ": Charismatic Nature rank " + rank + " (as a resident member)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-leadership", ex);
                 }
             }
         }

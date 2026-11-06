@@ -363,6 +363,8 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsBanditAimTick", Patches_Xnpc.BanditAimTickTarget());
             // X20: no base ammo restock from the player's chests for members (SC's stockpile only)
             Add(t, "AvatarSdcsNpcController::SdcsAmmoRestockTick", Patches_Xnpc.RestockTickTarget());
+            // X21: the player's Charismatic Nature on members who are not hires (residents, guards, stand-ins)
+            Add(t, "AvatarSdcsNpcController::SdcsLeadershipTick", Patches_Xnpc.LeadershipTickTarget());
             Add(t, "SdcsMedic::ApplyHealOther", ScMedic.HealOtherTarget());
             Add(t, "SdcsMedic::Begin", ScMedic.MedicBeginTarget());
             Add(t, "SleeperVolume::TouchGroup", Patches_Enclaves.TouchGroupTarget());

@@ -1482,19 +1482,20 @@ no visible ScCommunity) - the window opens on its own, without the bar`.
 
 **X1. Round 20: NPCCore 3.4.02 compatibility (3.4)**
 
-Built 2026-11-05 on branch `ms/x1` (SC 3.4 DLL `cbedf29e9f55af5202722b5b6a27da62`, `Port33\build\sc34_x1`; steps
+Built 2026-11-05 on branch `ms/x1` (SC 3.4 DLL `92fee5b0980d855f5b4c9712e354e4dd`, `Port33\build\sc34_x1`; steps
 315-319 are the second part of the round), **not installed**: these steps wait for the install. For 0-XNPCCore 3.4.02 and Vanity Vault 3.3.0, both already in the 3.4
 install. What changed: 0-XNPCCore's own bandits, character-creator survivors and pickpocket get their look, armour, weapon,
 bag, bandages and names back (SC's takeover of the six survivor classes had cascaded onto them); SC's survivors and raiders
 aim by their Shooting stars alone again (0-XNPCCore 3.4.02's new level-based spread is skipped on them); Voice Control's
 renamed voice relay is found again; Vanity Vault 3.3's paints and tattoos are back on SC's people. Your calls: members
-take no ammo from your chests (only from the community's stockpile), get all of your Charismatic Nature, and are never
+take no ammo from your chests (only from the community's stockpile), all get all of your Charismatic Nature (residents
+too), and are never
 on a Voice Control contract. The spawn menu is F6
 (turn debug mode on with `dm` first); the bandits are hostile, so god mode (`god`) helps.
 
-300. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, five more than the build
+300. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, six more than the build
      before (none `MISSING`; in particular no `MISSING PATCH` naming `SdcsAimTick`, `SdcsBanditAimTick`,
-     `SdcsAmmoRestockTick`, `SeedContract`, `HandleBillingResponse` or `NetPackageVCVoiceRelay::PlayVoiceLocally`, and no
+     `SdcsAmmoRestockTick`, `SdcsLeadershipTick`, `SeedContract`, `HandleBillingResponse` or `NetPackageVCVoiceRelay::PlayVoiceLocally`, and no
      `0-XNPCCore method ... not found` warning). No XML `did not apply`
      line for SurvivorCommunity; ten new `Xpath conditional on file: entityclasses.xml` lines, each followed by an `Xpath
      matches:` line, are expected (the guards of the new ops). The `config:` line has `xnpcAimSpread=-1`. The Vanity Vault line reads `Vanity Vault 3.3.0:
@@ -1562,7 +1563,14 @@ on a Voice Control contract. The spawn menu is F6
      member following you, `sc xnpc <their id>` shows a `leadership:` line: at rank 1 `SdcsNpcLeadership=True SdcsLeadRegen=0.5`; at rank 2 also `SdcsLeadDamage=0.2`; at rank 3 also
      `SdcsLeadResist=0.1`, and `Owner=` your entity id. Hurt the member a little (a zombie hit) and let them stand without
      using a bandage: their health creeps back (about half a point a second at rank 1) - the only regen they have besides
-     items. A member stationed at home (Owner=0) shows zeroes: 0-XNPCCore gives the perk to hires (followers) only.
+     items.
+317a. **Residents get it too.** Send that member home (they become a resident at their post): within a second or two
+     `sc xnpc <id>` shows `Owner=0 byScAsResident=True` and the same `leadership:` values as when they followed; hurt,
+     they regain health the same way. A guard on a Watch post and an outpost stand-in show the same. Lower the perk (or
+     respec) and the values drop to match within a second; at rank 0 they read 0. Bring the member back to follow you:
+     `byScAsResident=False`, the values stay (now 0-XNPCCore's own), never doubled (`sc xnpc` counts
+     `x21-resident-leadership-set` only for residents). A survivor who is not a member (a stranger, an 0-XNPCCore hire)
+     never shows `byScAsResident=True`.
 318. **Posts hold.** With a few residents at home, guards on Watch posts and a nearby enclave's people at their spots: over
      a few minutes none of them walks off their post or steps aside to make room for another (0-XNPCCore 3.4.02's guard
      patrol and spacing only act on NPCs with a leader). For contrast, give a following member "Guard and return" on

@@ -2194,7 +2194,8 @@ namespace SurvivorCommunity
                   .Append(" SdcsLeadRegen=").Append(e.Buffs.GetCustomVar("SdcsLeadRegen").ToString("0.###"))
                   .Append(" SdcsLeadDamage=").Append(e.Buffs.GetCustomVar("SdcsLeadDamage").ToString("0.###"))
                   .Append(" SdcsLeadResist=").Append(e.Buffs.GetCustomVar("SdcsLeadResist").ToString("0.###"))
-                  .Append(" Owner=").Append(e.Buffs.GetCustomVar("Owner").ToString("0"));
+                  .Append(" Owner=").Append(e.Buffs.GetCustomVar("Owner").ToString("0"))
+                  .Append(" byScAsResident=").Append(e.Buffs.HasCustomVar(Patches_Xnpc.LeadMarkCvar));
 #endif
                 sb.Append("\n  buffs:");
                 foreach (string b in XnpcBuffs) sb.Append(' ').Append(b).Append('=').Append(e.Buffs.HasBuff(b));
