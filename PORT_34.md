@@ -2822,3 +2822,12 @@ With the user's go-ahead (3.4 game closed): round 23 (W2, wild raiders while ano
 deployable). port-3.4 fast-forwarded to `ms/w2` 372a433; `deploy_sc34.py`: 6692 files, installed = built
 `b89f03de7f6415810d1c1ace79406aa2`. The old install is in `Port33\_backups\sc34_2026-11-05_224742`; the user's
 `DebugLogging` true set again. Untested in game: TESTING W2 (420-434), with X1, R1 and C1 from the installs before.
+
+### Voices vo3 day 4 installed (2026-11-06 12:38)
+
+With the user's go-ahead (3.4 game closed): round vo3's fourth day of clips (`bb11813`, clips and sidecars only, no code
+change): Rene's and Jasper's whole sets, 458 of the 473 lines each (the 15 left are the idea-menu dialog lines from E11 on,
+C1's two work-shift lines among them). Nine voices are complete now: Vane, David, Jessica, Beth, Nate, Desmond, Tiffany,
+Rene, Jasper. port-3.4 fast-forwarded to `dev/ideas` bb11813; `deploy_sc34.py`: 8568 files, installed = built
+`b89f03de7f6415810d1c1ace79406aa2` (unchanged). The old install is in `Port33\_backups\sc34_2026-11-06_123809`; the user's
+`DebugLogging` true set again. Julian's first 375 clips are held back until his set is complete.
