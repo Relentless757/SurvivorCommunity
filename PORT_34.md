@@ -2201,7 +2201,7 @@ E11 on). Seven voices are complete now: Vane, David, Jessica, Beth, Nate, Desmon
 old install is in `Port33\_backups\sc34_2026-11-05_151651`; the user's `DebugLogging` true set again in the new
 Config/blocks.xml. Rene's first 340 clips are held back until her set is complete.
 
-### Round 20: NPCCore 3.4.02 compatibility (X1) (2026-11-05, built, not reviewed, not installed)
+### Round 20: NPCCore 3.4.02 compatibility (X1) (2026-11-05, built, reviewed (Fable: deployable), MEDIUM fixed, not installed)
 
 The user updated the 3.4 install to 0-XNPCCore 3.4.02 (`NPCSdcsCharacters.dll` and `1-XNPCVoiceControl.dll` both in
 `Mods\0-XNPCCore` now; SCore 3.4.3.826 unchanged) and, during the round, asked to get Vanity Vault's paints and tattoos
@@ -2386,5 +2386,12 @@ leadership, pay and guard items):
 
 Builds: SC 3.4 `92fee5b0980d855f5b4c9712e354e4dd` (`build\sc34_x1`; the first part alone was `d977d9a6`, the second
 `cbedf29e`), 0 errors
+
+Fable review (scratchpad `x1\REVIEW_FABLE.md`): DEPLOYABLE. MEDIUM fixed: X18 held `SdcsAimSpread` at -1 even with
+`ShootingSkill` off, when ScShooting adds no error (ScShooting.Applies), so every SC body would have shot with no spread
+at all; X18 and X19 now step aside (XNPC's own ticks run) while `ShootingSkill` is off (counters `x18-aim-tick-xnpc-skill-off`,
+`x19-bandit-aim-xnpc-skill-off`). LOW, left: another `SpreadMultiplierHip` perc_add (a gun mod) sums with -1 (SC hands out
+no modded guns); a member with a stale contract swallows one yes/no/pay line; gen_arsenal's `ser()` removes comments while
+iterating. Build after the fix: SC 3.4 `5d9db05e05d047dcf0de82cc261581f5`, 0 errors.
 (the two old CS0108 warnings). The 3.2 DLL was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not
 installed.

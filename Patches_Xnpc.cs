@@ -1702,6 +1702,9 @@ namespace SurvivorCommunity
                 {
                     EntityAlive e = __instance != null ? __instance.entity : null;
                     if (e == null || !ScXnpc.IsBody(e)) return true;
+                    // Fable review X1 (MEDIUM): only while the stars aim them (ScShooting.Applies is gated on ShootingSkill);
+                    // with the skill off a held -1 would leave these bodies with no spread at all, so XNPC's own tick decides
+                    if (!ScConfig.ShootingSkill) { Count("x18-aim-tick-xnpc-skill-off"); return true; }
                     Count("x18-aim-tick-skipped");
                     if (HoldCvar(e.Buffs, AimSpreadCvar, ScConfig.XnpcAimSpread)) Count("x18-aim-spread-held");
                     return false;
@@ -1738,6 +1741,7 @@ namespace SurvivorCommunity
                 {
                     EntityAlive e = __instance != null ? __instance.entity : null;
                     if (e == null || !ScXnpc.IsBody(e)) return true;
+                    if (!ScConfig.ShootingSkill) { Count("x19-bandit-aim-xnpc-skill-off"); return true; }   // as X18
                     Count("x19-bandit-aim-skipped");
                     if (HoldCvar(e.Buffs, BanditSpreadCvar, 0f)) Count("x19-bandit-spread-removed");
                     return false;
