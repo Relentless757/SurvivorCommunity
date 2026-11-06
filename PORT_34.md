@@ -2385,7 +2385,7 @@ leadership, pay and guard items):
   user's call); `SdcsKeepTarget`, the bandits' AI package and loot are class XML SC's raiders don't use.
 
 Builds: SC 3.4 `92fee5b0980d855f5b4c9712e354e4dd` (`build\sc34_x1`; the first part alone was `d977d9a6`, the second
-`cbedf29e`), 0 errors
+`cbedf29e`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt (`SurvivorCommunity.dll` unchanged).
 
 Fable review (scratchpad `x1\REVIEW_FABLE.md`): DEPLOYABLE. MEDIUM fixed: X18 held `SdcsAimSpread` at -1 even with
 `ShootingSkill` off, when ScShooting adds no error (ScShooting.Applies), so every SC body would have shot with no spread
@@ -2393,8 +2393,6 @@ at all; X18 and X19 now step aside (XNPC's own ticks run) while `ShootingSkill` 
 `x19-bandit-aim-xnpc-skill-off`). LOW, left: another `SpreadMultiplierHip` perc_add (a gun mod) sums with -1 (SC hands out
 no modded guns); a member with a stale contract swallows one yes/no/pay line; gen_arsenal's `ser()` removes comments while
 iterating. Build after the fix: SC 3.4 `5d9db05e05d047dcf0de82cc261581f5`, 0 errors.
-(the two old CS0108 warnings). The 3.2 DLL was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not
-installed.
 
 ### Round 20 installed (2026-11-05 20:29)
 
