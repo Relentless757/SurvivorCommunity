@@ -2395,3 +2395,11 @@ no modded guns); a member with a stale contract swallows one yes/no/pay line; ge
 iterating. Build after the fix: SC 3.4 `5d9db05e05d047dcf0de82cc261581f5`, 0 errors.
 (the two old CS0108 warnings). The 3.2 DLL was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not
 installed.
+
+### Round 20 installed (2026-11-05 20:29)
+
+With the user's go-ahead (3.4 game closed): round 20, NPCCore 3.4.02 and Vanity Vault 3.3.0 compatibility (X1,
+`ms/x1` up to the review fix `2dfd177`). port-3.4 fast-forwarded to `ms/x1` 2dfd177; `deploy_sc34.py`: 6685 files,
+installed = built `5d9db05e05d047dcf0de82cc261581f5`. The old install is in `Port33\_backups\sc34_2026-11-05_202931`;
+the user's `DebugLogging` true set again in the new Config/blocks.xml. Untested in game: TESTING X1 (300-319).
+Rounds 21 (R1, raiders as NPCCore bandits) and 22 (C1, community crafting) are being built on top of X1.
