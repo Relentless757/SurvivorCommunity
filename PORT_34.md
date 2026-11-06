@@ -162,7 +162,7 @@ in-game steps in `research\sc34\stage2\TESTING_34_draft.md`.
 
 ### Stage 3: review (2026-10-29)
 
-Fable review of 15b0255..fd9d756 (`research\sc34\review\REVIEW.md`): DEPLOYABLE AFTER FIXES. Fixed in 1177b36 (3.4 DLL
+Fable review of 9298c8f..c5126c3 (`research\sc34\review\REVIEW.md`): DEPLOYABLE AFTER FIXES. Fixed in 7c3831d (3.4 DLL
 `6148a65d`, 3.2 build still `81f6c2da`): H1 linked-storage view capped to the loot window's widgets unless the bridge
 draws it; M1 MayEngage only overrides Voice Control's refusal; L1 a refused drop-one is returned on vanilla's grid; L2
 XNPC's bare-hands equip leaves X12 on. Re-check: DEPLOYABLE. Left for after the first test: M2 (AnyWeapon may bounce
@@ -178,7 +178,7 @@ residents of a base built inside a POI included (not asked; the same one-line ga
 
 ### Installed (2026-10-29)
 
-Installed into the 3.4 install with the user's go-ahead (game closed): `Port33\tools\deploy_sc34.py`, HEAD da7b222,
+Installed into the 3.4 install with the user's go-ahead (game closed): `Port33\tools\deploy_sc34.py`, HEAD b62e57a,
 1928 files = the tracked files, the DLL swapped for the 3.4 build: installed = built = `bfff2469`; ilspycmd on the
 installed DLL shows PatchClassByClass, ScLinkedContainer34, ScNotTravelling, ScNotEncHome. No SC was there before
 (nothing backed up). The 3.2 game's SC untouched (`81f6c2da`). Next: the user's test, TESTING.md "Game 3.4 port".
@@ -215,7 +215,7 @@ group I (52-57).
 To install (game closed, the user's go-ahead): commit, `deploy_sc34.py <full md5> --go`; the bridge's ModInfo.xml,
 README.md and build\bridge34 DLL into `<3.4>\Mods\zzzz_GridInv_SurvivorCommunity`; AshfallUI `python tools/deploy33.py`.
 
-**Installed 2026-10-30** with the user's go-ahead (game closed): SC HEAD e679679, 1928 files, installed = built
+**Installed 2026-10-30** with the user's go-ahead (game closed): SC HEAD fd261a0, 1928 files, installed = built
 `7a680c4d` (old install in `Port33\_backups\sc34_2026-10-30_000121`; its config had no user edits); the bridge's new
 folder, installed = built `41c43b91` (loads after SurvivorCommunity and zzzz_1_REInventory); AshfallUI 3.3+, all 2229
 files = the repo, `windows.xml` = c02cc17. Next: the user's test, TESTING.md group I (`DebugLogging` true for the
@@ -297,7 +297,7 @@ Builds: SC 3.2 still `81f6c2da`, SC 3.4 `9ae3d333`; bridge 3.2 still `be634f59`,
 install's RE DLL `7dc5b92c`). Test steps: TESTING.md group J (57a-63).
 
 **Installed 2026-10-30 08:28** with the user's go-ahead (game closed):
-- SC: `deploy_sc34.py`, HEAD 08d3f73, 1928 files, installed = built `9ae3d333`. The old install is in
+- SC: `deploy_sc34.py`, HEAD a69944a, 1928 files, installed = built `9ae3d333`. The old install is in
   `Port33\_backups\sc34_2026-10-30_082831`. Its only user edit, `DebugLogging` true in Config/blocks.xml, was copied
   back.
 - Bridge: `build\bridge34` DLL + ModInfo.xml + README.md into `<3.4>\Mods\zzzz_GridInv_SurvivorCommunity`; installed
@@ -375,7 +375,7 @@ steps: TESTING.md group K (64-73), RE's PORT33.md 32-36.
 **Installed 2026-10-31 08:24** with the user's go-ahead (game closed), all three together:
 - RE Inventory: `stage_reinv33.py --deploy`, port-3.3 1d73fc6, 505 files, installed = built `92eb9888`. The script deletes the
   old folder and keeps no backup, so it was copied first to `Port33\_backups\reinv34_2026-10-31_round5`. Only the DLL differs.
-- SC: `deploy_sc34.py`, HEAD 0b7771e, 1928 files, installed = built `cf41c40b`. The old install is in
+- SC: `deploy_sc34.py`, HEAD 2cbc006, 1928 files, installed = built `cf41c40b`. The old install is in
   `Port33\_backups\sc34_2026-10-31_082438`. Its only user edit, `DebugLogging` true in Config/blocks.xml, was copied back.
 - Bridge: `build\bridge34` DLL + ModInfo.xml + README.md; installed = built `d49b0cdb`. Round 4's copy is in
   `Port33\_backups\bridge34_2026-10-31_round4`.
@@ -417,7 +417,7 @@ steps: TESTING.md group L (74-81), RE's PORT33.md 32-36.
 **Installed 2026-10-31 10:15** with the user's go-ahead (3.4 game closed), all three together:
 - RE Inventory: `stage_reinv33.py --deploy`, port-3.3 3972921, 505 files, installed = built `e33a4172`. The old folder was copied
   first to `Port33\_backups\reinv34_2026-10-31_round6`. Only the DLL differs.
-- SC: `deploy_sc34.py`, HEAD 90ac67d, 1928 files, installed = built `bbe3439c`. The old install is in
+- SC: `deploy_sc34.py`, HEAD 07dc3c8, 1928 files, installed = built `bbe3439c`. The old install is in
   `Port33\_backups\sc34_2026-10-31_101515`. Its only user edit, `DebugLogging` true in Config/blocks.xml, was copied back.
 - Bridge: `build\bridge34` DLL + ModInfo.xml + README.md; installed = built `7e93a8f8`. Round 5's copy is in
   `Port33\_backups\bridge34_2026-10-31_round5`.
@@ -441,7 +441,7 @@ Reviewed with LandClaimUpgrade's port (`research\lcbu33\review\REVIEW.md`): the 
 favour quest on an already-cleared POI) does not apply: the quest only advances to phase 2 (ScTalkToSurvivor) and stays
 in progress, so its position records stay valid.
 
-**Installed 2026-11-02 22:08** with the user's go-ahead (3.4 game closed): `deploy_sc34.py`, HEAD 8b560f8, 1928 files,
+**Installed 2026-11-02 22:08** with the user's go-ahead (3.4 game closed): `deploy_sc34.py`, HEAD b9091d6, 1928 files,
 installed = built `c0ea84c3`. The old install is in `Port33\_backups\sc34_2026-11-02_220821`; only the round 7 files
 differ from it. `DebugLogging` true copied back. The 3.2 game is untouched (`81f6c2da`).
 
@@ -516,7 +516,7 @@ not installed.
 ### Round 9: the zombie-cap fix (I2) (2026-11-03, built, not reviewed, not installed)
 
 The first milestone of `research\ideas\DESIGN.md` (section 12; Q2 (a): layers A and C for every POI, B for infested rooms
-only). Branch `ms/i2` from port-3.4 `a52c0b1`. The same code in both builds, no `SC_V34`: vanilla's SleeperVolume is the
+only). Branch `ms/i2` from port-3.4 `6cdc099`. The same code in both builds, no `SC_V34`: vanilla's SleeperVolume is the
 same on 3.2 and 3.4 apart from its Read/Write stream types (3.2 lines are the 3.4 line + 1). From this round the 3.2 DLL
 changes too (Q1).
 
@@ -592,7 +592,7 @@ installed `c0ea84c3`):
   DYNAMIC_UNRESOLVED as before (a TargetMethod the json doesn't describe).
 - Against the baselines, one OK row more in each (the new postfix) and the same non-OK rows.
 
-Test steps: TESTING.md group O (94-107, after the merge with V1). Merged with V1 on `dev/ideas` (d0740bc): 3.4 DLL
+Test steps: TESTING.md group O (94-107, after the merge with V1). Merged with V1 on `dev/ideas` (c2461ff): 3.4 DLL
 `d5979300`. Fable review of both (`research\review_v1_i2\REVIEW.md`): DEPLOYABLE, no HIGH or MEDIUM; doc findings
 LOW-1 and LOW-4 fixed. Not installed.
 
@@ -602,7 +602,7 @@ The second milestone of `research\ideas\DESIGN.md` (section 3, idea 2), with the
 design: no growth (idea 4 is dropped, so no grown weight and no `InfestHomeGrownWeight`); up to 5 nests count, for morale
 and for attention; morale is a flat cost per nest by its distance band, at most 15 in all; attention is a flat +1/h per
 nest (Q3 (a)); a nest that starts or spreads near home is known at once (Q3, yes). Branch `ms/i3` from `dev/ideas`
-`d0740bc`. **3.4 only from this round** (the user's decision): only the 3.4 DLL is built, the tracked 3.2
+`c2461ff`. **3.4 only from this round** (the user's decision): only the 3.4 DLL is built, the tracked 3.2
 `SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34` guards. Single player only.
 
 - **ScInfestations.cs.**
@@ -692,7 +692,7 @@ Build: SC 3.4 `515bc8b2` (`build\sc34_i3`), 0 errors. The 3.2 DLL was not rebuil
 `research\ideas\DESIGN.md` sections 6 (idea 5, gifts) and 7 (idea 6, enclave barter), with the user's answers: Q5 yes
 (+3 standing for any bundle, once a day per enclave, never above 69, so gifts alone never make an ally), Q6 yes (2 of
 yours for 1 of their own resource, once a day per ally), Q7 (b) for now: the radio window opens only at a radio block,
-so there is no Radio button in the community window. Branch `ms/e7` from `dev/ideas` `d0740bc`. **3.4 only** (the user,
+so there is no Radio button in the community window. Branch `ms/e7` from `dev/ideas` `c2461ff`. **3.4 only** (the user,
 today): only the 3.4 DLL was built; the tracked 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no
 `SC_V34` (nothing in it differs between the games). Single player only, as SC.
 
@@ -775,15 +775,15 @@ Where the design was wrong or short, and the code followed SC:
    an ally's row is always greyed at the cap.
 5. `Choose` (`SC:ScEncRequests.cs:1166`) is not needed (a gift is one bundle); `SizeWord`, `OwnResource` and `Aside`
    became internal too, besides `Carried`, `TakeBundles` and their `Bundles` struct. `EncRows`/`ReqRows` are at
-   `XUiC_ScRadio.cs:29`, not 28. Every other SC line the design cites for E7 matched `d0740bc`.
+   `XUiC_ScRadio.cs:29`, not 28. Every other SC line the design cites for E7 matched `c2461ff`.
 
 Checks:
 - XML replay against the 3.4 game (`research\e7\tools\sc_replay_e7.py`, a copy pointed at this worktree; the base
-  `d0740bc` replayed the same way from `research\e7\base_tree`): every SC op matches, no aborts; the only difference is
+  `c2461ff` replayed the same way from `research\e7\base_tree`): every SC op matches, no aborts; the only difference is
   dialogs.xml's one new append (13 -> 14 ops, all matched). `research\e7\tools\check_dialogs.py` on the patched SdcsNPC
   dialog: every response entry names a response, every next statement exists, and all 53 SC dialog operator classes
   are in the built DLL. The radio window's 126 bindings all answer in `XUiC_ScRadio`, and its 19 buttons are all hooked.
-- HarmonyAudit (`research\e7\audit34_e7_*`, the base `audit34_base_*` from `d0740bc` built the same way): 3.4 OK=150,
+- HarmonyAudit (`research\e7\audit34_e7_*`, the base `audit34_base_*` from `c2461ff` built the same way): 3.4 OK=150,
   DYNAMIC_UNRESOLVED=13 in both; the rows differ only in Patches_Enclaves.cs line numbers (one comment line).
 
 Builds: SC 3.4 `d80f006dd5a4f4fb9a5c220336835416` (`build\sc34_e7`), 0 errors (the two old CS0108 warnings). The
@@ -793,7 +793,7 @@ Not reviewed (Fable), not installed. The task list needs its entry.
 ### Round 12: Voice Control's chat knows the enclave (E8) (2026-11-03, built, not reviewed, not installed)
 
 Milestone E8 of `research\ideas\DESIGN.md` (section 11, side findings 1-2 in section 15). Branch `ms/e8` from `dev/ideas`
-`d0740bc`. The user's decisions: single player (the host) only, no NetPackage; a hostile enclave's people refuse the spoken
+`c2461ff`. The user's decisions: single player (the host) only, no NetPackage; a hostile enclave's people refuse the spoken
 trade and the prompt makes them refuse to talk (chat is never blocked); only the 3.4 DLL is built. The code is shared (no
 `SC_V34`): both targets and the field it writes are the same in 3.2's Voice Control.
 
@@ -906,7 +906,7 @@ TESTING.md group R (140-149). Not reviewed (Fable), not installed. The task list
 `research\ideas\DESIGN.md` section 2 (idea 1, call an ally) and section 1 (rules), with the user's decisions: calls are made
 only at a radio block, in the radio window as it opens today - no Radio button in the community window and no remote
 calling (handheld radios come later), so every "remote Radio button" part of the design is dropped; the cost is a
-cooldown only (Q7 a: 3 days per ally, no standing cost). Branch `ms/e9` from `dev/ideas` `8b8cc8a` (V1, I2, I3, E7, E8).
+cooldown only (Q7 a: 3 days per ally, no standing cost). Branch `ms/e9` from `dev/ideas` `4eafb07` (V1, I2, I3, E7, E8).
 **3.4 only**: only the 3.4 DLL was built, the tracked 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no
 `SC_V34` (the air drop calls it makes are the same on 3.2: `V32:AIDirectorAirDropComponent.cs:243, 280, 319`). Single
 player only, as SC.
@@ -962,7 +962,7 @@ player only, as SC.
     ..."; no ledger line, no hello). Their time ran out meanwhile, or they can't come (dead, gone, no room, no spot in
     300 s: "Mara couldn't find you and went back to The X."): the call ends.
 - **`ScEnclaveDeals.EnlistBody(p, npc, player, until)` (new, internal)**, split out of `Enlist` (`SC:ScEnclaveDeals.cs:379-404`
-  at `8b8cc8a`): `Hire`, the record enlisted (by, body, until), no walk home, `ResetStill`. `Enlist` keeps its fee, save,
+  at `4eafb07`): `Hire`, the record enlisted (by, body, until), no walk home, `ResetStill`. `Enlist` keeps its fee, save,
   tell and log around it, unchanged in effect.
 - **The radio window** (`Tools/generate_radio_ui.py`, `XUiC_ScRadio`). The generator reproduced the committed block byte
   for byte before the change. The Allies panel gains a commands row between the pick and the barter row: `btnAllyFighter`
@@ -1043,7 +1043,7 @@ Where the design was wrong or short, and the code followed SC or the game:
    fighter off but not a drop; the greyed reasons are ordered so a call that is on names itself ("Mara is with you
    already") before the cooldown; E3's "You have all the followers you can lead" is reused for the followers' reason;
    the ledger's drop line says "near you", not a place name.
-10. **Line drift since the design (`a52c0b1`; this tree at `8b8cc8a`):** `Enclave.Centre` `:105` (was 95);
+10. **Line drift since the design (`6cdc099`; this tree at `4eafb07`):** `Enclave.Centre` `:105` (was 95);
     `OnWorldDayBack` `:1168` and its `EnlistedUntil` shift `:1187` (were 1151, 1169); the E6 config parse `:1895-1908`
     (was 1852-1867); `ScEncRequests.Now` `:325` (324); `ScRadio.Open`'s host test `:811` (810); `Patch_VoiceDismiss`
     `:192` (189); `ParseEnclave` `:393-436` and `CommitPerson` `:438` (391-431, 433); `ScTicker`'s player test `:52`
@@ -1058,7 +1058,7 @@ Checks:
 - XML replay against the 3.4 game (`research\e9\sc_replay_e9.py`, a copy of `research\dev\sc_replay_dev.py` pointed at this
   worktree; out `research\e9\replay`): every SC op matches, no aborts; entityclasses 8 ops, loot 33 (one more each), the
   rest as at the base. The merged entityclasses.xml has the six classes extending `sc_General`, each LootList a container.
-- HarmonyAudit (`research\e9\audit34_e9_*`; the base `8b8cc8a` built the same way, `audit34_base_*`): 3.4 OK=150,
+- HarmonyAudit (`research\e9\audit34_e9_*`; the base `4eafb07` built the same way, `audit34_base_*`): 3.4 OK=150,
   DYNAMIC_UNRESOLVED=15 in both, patch rows identical, no new unresolved member reference (the refs files are the same).
 
 Builds: SC 3.4 `b7e9a8408d61434c8dc0491a3ecf3466` (`build\sc34_e9`), 0 errors (the two old CS0108 warnings). The 3.2 DLL was not rebuilt
@@ -1076,7 +1076,7 @@ the NITs.
 
 Milestone V2 of `SC_Ideas_and_Voices_Plan.md` (section 4, decisions in section 5: 16 voices, two per race and sex; the
 reduced XNPCCore set; Native voices designed later), research `research\voices\REPORT.md` sections 2-5. Branch `ms/v2`
-from `dev/ideas` `8b8cc8a` (V1's gate and E8 in). Code only: no audio is generated in this round (the recordings come
+from `dev/ideas` `4eafb07` (V1's gate and E8 in). Code only: no audio is generated in this round (the recordings come
 through ElevenLabs later), so every new line is silent until its clip exists. Single player, 3.4 only (no `SC_V34` guards
 in the new code; the 3.2 DLL is not rebuilt).
 
@@ -1234,7 +1234,7 @@ Not verified (needs the game; TESTING.md group T, 170-199): the triggers' feel (
 target), that the seeded cache really starts the clip inside `PlayClipFile` in play, lip sync on SC's decompressed
 clips, the compressed load on raiders, and everything with a recording (195-198 can use stand-in clips).
 
-For the merge: `dev/ideas` has E9 since this branch started (`9246239`); both touch `Tools/voice_lines.py`'s
+For the merge: `dev/ideas` has E9 since this branch started (`af153a0`); both touch `Tools/voice_lines.py`'s
 `RUNTIME_FIXED` neighbourhood, ConsoleCmdSc's description line, `ScConfig.cs`, `Config/blocks.xml`, ModApi, README,
 PORT_34 and TESTING (group S there, T here): text conflicts only. E9's radio answers stay tells (its own note).
 
@@ -1267,7 +1267,7 @@ Build after the fixes: SC 3.4 `9d2c4bee` (`build\sc34_dev`), 0 errors. Not insta
 With the user's go-ahead (3.4 game closed): V1 (voice gate), I2 (zombie-cap fix), I3 (nests near home), E7 (gifts + ally
 barter), E8 (voice chat context), E9 (radio commands), V2 (voices by race, greetings, chatter, XNPCCore lines, raider
 taunts), each Fable-reviewed DEPLOYABLE with its fixes and re-checks (`research\review_*`). port-3.4 fast-forwarded to
-`dev/ideas` dcfe120; `deploy_sc34.py`: 1352 files, installed = built `9d2c4bee`. The old install is in
+`dev/ideas` b5d774b; `deploy_sc34.py`: 1352 files, installed = built `9d2c4bee`. The old install is in
 `Port33\_backups\sc34_2026-11-03_174134` (round 7's `c0ea84c3`); the user's `DebugLogging` true set again in the new
 Config/blocks.xml (it gained keys, so the old file was not copied back). Oxley's and Mora's folders are gone; the four kept
 voices are under their new names. No new recordings yet: the new lines are silent and SC's greetings stay off until a
@@ -1278,7 +1278,7 @@ voice has the clip. Test steps: TESTING.md groups N, O, I3, E7, R, E9, T (83-199
 `research\ideas\DESIGN.md` section 4 (idea 3) and section 1 (rules), side finding 4 (the E5 review's R3), with the user's
 decisions: the raiders are the hostile enclave's own people and their deaths count (Q8 a); **`OutpostAttacks` off turns
 enclave raids off too** (the design had them on regardless); no raider demands where no hostile enclave is in range; a
-group that turned hostile raids at half the rate; no raids on the home base. Branch `ms/e10` from `dev/ideas` `9246239`
+group that turned hostile raids at half the rate; no raids on the home base. Branch `ms/e10` from `dev/ideas` `af153a0`
 (V1, I2, I3, E7, E8, E9). **3.4 only**: only the 3.4 DLL was built; the tracked 3.2 `SurvivorCommunity.dll` is untouched,
 and the new code has no `SC_V34`. Single player only, as SC. (Round 14 is V2's.)
 
@@ -1399,7 +1399,7 @@ Where the design was wrong or short, and the code followed SC or the user:
    after a raid; a body that went alive mid-raid stays raiding off the map and comes back before the fight is judged
    (`Regroup`); a raid whose group can't send anyone when the player arrives, or before, is called off with no
    outcome; the party's target is re-given only while the player is in the fight's judging range.
-8. **Line drift since the design (`a52c0b1`; this tree at `9246239`):** `ScEnclaves.OnWorldDayBack` `:1184-1218` (was
+8. **Line drift since the design (`6cdc099`; this tree at `af153a0`):** `ScEnclaves.OnWorldDayBack` `:1184-1218` (was
    1151-1181); `ParseEnclave` `:396-455` and `CommitPerson` `:457-464` (391-431, 433-440); `ScEncRequests.Now` `:325`
    (324); `ScTicker`'s `ScDaily.Run` `:359-411` and its player test `:52` (358-410, 51-52); `Patch_MayEngage` `:461-494`
    (458-493). Every `ScOutpostRisk.cs` and `ScEnclavePeople.cs` line the design cites matched exactly at the base
@@ -1464,9 +1464,9 @@ installed.
 
 `research\ideas\DESIGN.md` section 8 (idea 7) and section 1 (rules), with the user's decision Q9 (as recommended): a
 Neutral or hostile group that moves drops off the map until found again, a Friendly or Allied one tells you where; both
-reasons (half its people lost, an infestation next door for 3 days) apply. Branch `ms/e11` from `dev/ideas` `4e7b63d`
+reasons (half its people lost, an infestation next door for 3 days) apply. Branch `ms/e11` from `dev/ideas` `e3a9303`
 (V1, I2, I3, E7, E8, E9, V2 installed; E10 merged, its review fixes - round 15's note - came in with the merge of
-`ms/e11` into `dev/ideas`, `64aaddf`). **3.4 only**: only the 3.4 DLL was built; the tracked
+`ms/e11` into `dev/ideas`, `14e0767`). **3.4 only**: only the 3.4 DLL was built; the tracked
 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34`. Single player only, as SC.
 
 - **`ScEncMoves.cs` (new).** No Harmony patch; driven from `ScDaily.Run` and the console.
@@ -1581,7 +1581,7 @@ Where the design was wrong or short, and the code followed SC or the user:
     would count as theirs).
 11. **Favours** (E3's recruit favour of one of their people) are silent in the design: their return markers follow the
     group.
-12. **Line drift since the design (`a52c0b1`; this tree's base `4e7b63d`):** `ScEncRequests.Withdraw` `:805` (804);
+12. **Line drift since the design (`6cdc099`; this tree's base `e3a9303`):** `ScEncRequests.Withdraw` `:805` (804);
     `ScEnclaves.Loaded` `:600-607` (559-565); `RulesFor` `:514-550` and `Refuse` `:574-598` (472-556); `Relocation`
     `:1018-1044` (976-1002); `Validate`'s move block `:984-997` (942-955); `Release` `:1091-1107` (1049-1065); `PreClear`
     `:1064-1078` (1022-1036); `Rebuild` `:242-258` (207-223); markers `:1233-1293` (1195-1232); `SetKnown` `:1437`
@@ -1601,11 +1601,11 @@ Checks:
 - The data edits (Localization, the blocks.xml block, `voice_lines.py`) are `research\e11\ed_e11_data.py` (re-run safe).
 
 Builds: SC 3.4 `1a12f9ffa9e8da5135052a248900c4ad` (`build\sc34_e11`), 0 errors (the two old CS0108 warnings); the merge
-with round 15's review fixes (`64aaddf`) builds to `056c228d2f4c4d9fc98935bb682363bf`. The 3.2 DLL was not
+with round 15's review fixes (`14e0767`) builds to `056c228d2f4c4d9fc98935bb682363bf`. The 3.2 DLL was not
 rebuilt (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E11 (220-239). Not reviewed (Fable), not
 installed. The task list needs its entry.
 
-**E11 Fable review** (`research\review_e11\REVIEW.md`, of the merge `64aaddf`: round 15's fixes and E11): DEPLOYABLE, no
+**E11 Fable review** (`research\review_e11\REVIEW.md`, of the merge `14e0767`: round 15's fixes and E11): DEPLOYABLE, no
 HIGH, no MEDIUM. Fixed:
 - **L1, a raid nobody could leave for unseen settled as unattended.** With everyone who could come in the player's view
   at their den (`SpawnParty`'s -1), the raid stalled to its deadline and settled as one nobody came to: no attended
@@ -1647,7 +1647,7 @@ TESTING steps changed: 208 (the deadline with them in view), 220 (a group with n
 `research\ideas\DESIGN.md` section 9 (idea 8) and section 1 (rules), with the user's decision Q10 (as recommended, plus one
 rule): they make their own way and turn up at home when you're next there; the gate is Allied, standing 90 and room for
 everyone - **when the community has no room for all of them the option is not offered at all**; a refill is still owed and
-there is no Enclave-lost morale. Branch `ms/e12` from E11's `bef80a8`. **3.4 only**: only the 3.4 DLL was built; the
+there is no Enclave-lost morale. Branch `ms/e12` from E11's `2706904`. **3.4 only**: only the 3.4 DLL was built; the
 tracked 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34`. Single player only, as SC.
 
 - **`ScEncJoin.cs` (new).** No Harmony patch; driven from the dialog, `ScTicker` (after `ScMissing.Tick`) and the console.
@@ -1790,7 +1790,7 @@ Where the design was wrong or short, and the code followed SC or the user:
     with `EnclaveJoin` switched off; a member on the way can be dismissed from the window; a member whose class leaves the
     game stays on the way (they can't be made); `EnclaveJoinStanding` is 70-100 (Allied begins at 70); the leader - whom E3
     never recruits - leaves the group's trade stock behind (`DropStock`).
-13. **Line drift since the design (`a52c0b1`; this tree's base `bef80a8`):** `ScEnclaveDeals.Recruit` `:780-823` (769-812),
+13. **Line drift since the design (`6cdc099`; this tree's base `2706904`):** `ScEnclaveDeals.Recruit` `:780-823` (769-812),
     its Member build `:792-802` (781-791); `ScEnclavePeople.LeaveEnclave` `:1662-1682` (1551-1571), `SpawnAll` `:2065`
     (1918); `ScEnclaves.Fall` `:1551-1575` (1303-1327); `ScRegistry.Members` `:76` (63); `ScTicker`'s `ScMissing.Tick`
     `:116` (115), `ScDaily.Run`'s missing count `:366-376` (365-375); `ScMissing.Tick` `:41-68`, its resident test `:53`
@@ -1815,7 +1815,7 @@ Builds: SC 3.4 `9f16253e574e83053978318c18025f9c` (`build\sc34_e12`), 0 errors (
 (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E12 (240-259). Not reviewed (Fable), not installed. The
 task list needs its entry.
 
-**E12 Fable review** (`research\review_e12\REVIEW.md`, of the merge `11315a3`: round 16's review fixes and E12):
+**E12 Fable review** (`research\review_e12\REVIEW.md`, of the merge `61ad135`: round 16's review fixes and E12):
 DEPLOYABLE, no HIGH, no MEDIUM; the E11 fixes all correct. Fixed: L1, an arrival spot at the zone's edge opposite the
 person's post could be more than 40 m from it (up to `ArriveReach` + `PostRadius` x 1.4), and `ScCommunity.Station`
 would then put them straight onto the post instead of letting them walk in: `ScEncJoin.ArriveSpot` skips a spot more
@@ -1829,7 +1829,7 @@ recorded at the install.
 
 `research\ideas\DESIGN.md` section 10 (idea 9) and section 1 (rules), with the user's decisions (Q12 as recommended:
 drifters and raider bands first, the rest later; single player only; `OutpostAttacks` off also turns off enclave raids -
-for bands, decided below). Branch `ms/e13a` from E12's `ecb7c7b`. **3.4 only**: only the 3.4 DLL was built; the tracked
+for bands, decided below). Branch `ms/e13a` from E12's `16ee149`. **3.4 only**: only the 3.4 DLL was built; the tracked
 3.2 `SurvivorCommunity.dll` is untouched, and the new code has no `SC_V34`. Single player only, as SC.
 
 - **`ScBands.cs` (new).** No new Harmony patch; driven from `ScTicker` (1 Hz, after `ScEnclavePeople.Tick`), `ScDaily.Run`
@@ -1982,7 +1982,7 @@ Builds: SC 3.4 `04e6ad3d8e1fa729c3dcbf3eb7036ea0` (`build\sc34_e13a`), 0 errors 
 (`SurvivorCommunity.dll` unchanged). Test steps: TESTING.md group E13a (260-289). Not reviewed (Fable), not installed. The
 task list needs its entry.
 
-**E13a Fable review** (`research\review_e13a\REVIEW.md`, of the merge `151e6a4`: E13a with rounds 15-17 and 19):
+**E13a Fable review** (`research\review_e13a\REVIEW.md`, of the merge `1b69218`: E13a with rounds 15-17 and 19):
 DEPLOYABLE AFTER FIXES, no HIGH. Fixed: M1, the trouble's zombies kept the base attack's flags (`IsHordeZombie`, chunk
 observer, scout) when the fight ended any way but by their deaths. `EndTrouble` lets them go first (`ReleaseTrouble`):
 one alive that nobody sees (`SeenByAny`) is despawned, as the base attack's abandoned fight; one in view, or a corpse,
@@ -2022,7 +2022,7 @@ tell), 280, 284 (an end they can't reach), 286 (the trouble's zombies over a sav
 (`research\e13a\audit34_e13afix_*`): 3.4 OK=150, DYNAMIC_UNRESOLVED=23 (V2's Voice Control targets, as every round since
 14), the patch rows and refs identical to E13a's but for source lines. Not installed.
 
-**E13a re-check** (`research\review_e13a\RECHECK.md`, of `53d74ed`): DEPLOYABLE; M1, L1-L3, N1, N2, N4 fixed, the L2
+**E13a re-check** (`research\review_e13a\RECHECK.md`, of `d963c61`): DEPLOYABLE; M1, L1-L3, N1, N2, N4 fixed, the L2
 guards confirmed inert in 3.4 (SC spawns in place: `SpawnEntityInWorld` is synchronous) and the always-taken branches
 line for line the old code. Fixed after it: NIT-A, the ticker runs on real time through an ESC pause, so a pause of
 `ArriveStallSeconds` near the end made a band "arrive" short - `Steer` now starts the stuck and arrival watches again
@@ -2040,7 +2040,7 @@ AshfallUI."** So the tab stands apart on a plate of its own just left of the bar
 on the right, and SC alone makes it look and work right with vanilla's bar, SurvivorOrigins' and AshfallUI's (with or
 without SurvivorOrigins). No new hotkey; radio commands stay at the radio. Research: `research\w1\TAB_RESEARCH.md` (its
 claims checked against the 3.4 files; its proposal 1 - an iconbutton inside the bar, gated off under AshfallUI, with a
-hand-over to AshfallUI's session - is what the user's second decision replaced). Branch `ms/w1` from `11315a3`. **3.4
+hand-over to AshfallUI's session - is what the user's second decision replaced). Branch `ms/w1` from `61ad135`. **3.4
 only**: only the 3.4 DLL was built, the tracked 3.2 `SurvivorCommunity.dll` is untouched, the new code has no `SC_V34`.
 
 - **The tab (`Config/XUi_InGame/windows.xml`).** One `rect` named `scCommunityTab`, appended to `windowPagingHeader`
@@ -2151,7 +2151,7 @@ the dialog opener's close order.
 Builds: SC 3.4 `1e2a2b1279af718bef3b872416af6518` (`build\sc34_w1`), 0 errors (the two old CS0108 warnings). The 3.2 DLL
 was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not installed. The task list needs its entry.
 
-**W1 Fable review** (`research\review_w1\REVIEW.md`, of `5d1b6c1`): DEPLOYABLE, no HIGH, no MEDIUM. Fixed: LOW-1, the
+**W1 Fable review** (`research\review_w1\REVIEW.md`, of `e2ae6e6`): DEPLOYABLE, no HIGH, no MEDIUM. Fixed: LOW-1, the
 ESC menu's Community entry closed the menu for a dead player and then opened nothing - it now does nothing while the
 player is dead (`Patches_Menu`); LOW-3, a Watch pick or an outpost asked for stayed armed when nothing opened after all
 (the HUD fully off: `openInternal` refuses) - `OpenWindow` clears them when the group is not open after the call (an
@@ -2166,7 +2166,7 @@ over Creative's), NIT-2 (`Close()` closes `windowpaging` a second time: a no-op)
 With the user's go-ahead (3.4 game closed): E10 (raider enclaves raid outposts), E11 (enclaves move), E12 (a whole enclave
 joins) and W1 (the Community tab), each Fable-reviewed DEPLOYABLE with its fixes and re-checks (`research\review_e10`,
 `review_e11`, `review_e12`, `review_w1`), and round vo3's first day of clips: 992 new lines for the four White voices
-(Vane 420, David 430, Jessica 440, Beth 290 of 461 lines). port-3.4 fast-forwarded to `dev/ideas` f2c3064;
+(Vane 420, David 430, Jessica 440, Beth 290 of 461 lines). port-3.4 fast-forwarded to `dev/ideas` 34c4f33;
 `deploy_sc34.py`: 3604 files, installed = built `0b5626cefce49f510898fd64ace18ece`. The old install is in
 `Port33\_backups\sc34_2026-11-03_212011` (rounds 8-14's `9d2c4bee`); the user's `DebugLogging` true set again in the new
 Config/blocks.xml. Nate's first 16 clips are held back until his set is complete (a voice with a few clips would switch
@@ -2176,28 +2176,28 @@ installed. Test steps: TESTING.md groups E10, E11, E12, W1 (200-259, 290-299).
 ### Round 18 installed (2026-11-03 22:22)
 
 With the user's go-ahead (3.4 game closed): E13a (bands on the road: drifters and raider bands), Fable-reviewed DEPLOYABLE
-AFTER FIXES, fixed (`53d74ed`), re-checked DEPLOYABLE and its two nits fixed (`080bd7e`). port-3.4 fast-forwarded to
-`dev/ideas` 080bd7e; `deploy_sc34.py`: 3606 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf`. The old install is in
+AFTER FIXES, fixed (`d963c61`), re-checked DEPLOYABLE and its two nits fixed (`742e74f`). port-3.4 fast-forwarded to
+`dev/ideas` 742e74f; `deploy_sc34.py`: 3606 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf`. The old install is in
 `Port33\_backups\sc34_2026-11-03_222206` (rounds 15-17 and 19's `0b5626ce`); the user's `DebugLogging` true set again in the
 new Config/blocks.xml. The band leader's two told lines and the five new band dialog lines are text only until the idea-menu
 voicing round. Test steps: TESTING.md group E13a (260-289).
 
 ### Voices vo3 day 2 installed (2026-11-04 19:50)
 
-With the user's go-ahead (3.4 game closed): round vo3's second day of clips (`9ef2043`, clips and sidecars only, no code
+With the user's go-ahead (3.4 game closed): round vo3's second day of clips (`313d6eb`, clips and sidecars only, no code
 change): the White voices complete (Vane, David, Jessica, Beth) and Nate's whole set, 458 of the 471 lines each - the 13
 left are the idea-menu dialog lines from E11 on, for their own voicing round. port-3.4 fast-forwarded to `dev/ideas`
-9ef2043; `deploy_sc34.py`: 4827 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf` (unchanged). The old install
+313d6eb; `deploy_sc34.py`: 4827 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf` (unchanged). The old install
 is in `Port33\_backups\sc34_2026-11-04_195058`; the user's `DebugLogging` true set again in the new Config/blocks.xml.
 Desmond's first 266 clips are held back until his set is complete; the other ten new voices stay silent until their
 days.
 
 ### Voices vo3 day 3 installed (2026-11-05 15:16)
 
-With the user's go-ahead (3.4 game closed): round vo3's third day of clips (`1ef065e`, clips and sidecars only, no code
+With the user's go-ahead (3.4 game closed): round vo3's third day of clips (`f0949ce`, clips and sidecars only, no code
 change): Desmond's and Tiffany's whole sets, 458 of the 471 lines each (the 13 left are the idea-menu dialog lines from
 E11 on). Seven voices are complete now: Vane, David, Jessica, Beth, Nate, Desmond, Tiffany. port-3.4 fast-forwarded to
-`dev/ideas` 1ef065e; `deploy_sc34.py`: 6685 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf` (unchanged). The
+`dev/ideas` f0949ce; `deploy_sc34.py`: 6685 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf` (unchanged). The
 old install is in `Port33\_backups\sc34_2026-11-05_151651`; the user's `DebugLogging` true set again in the new
 Config/blocks.xml. Rene's first 340 clips are held back until her set is complete.
 
@@ -2205,7 +2205,7 @@ Config/blocks.xml. Rene's first 340 clips are held back until her set is complet
 
 The user updated the 3.4 install to 0-XNPCCore 3.4.02 (`NPCSdcsCharacters.dll` and `1-XNPCVoiceControl.dll` both in
 `Mods\0-XNPCCore` now; SCore 3.4.3.826 unchanged) and, during the round, asked to get Vanity Vault's paints and tattoos
-working again (Vanity Vault 3.3.0 in the same install). Branch `ms/x1` from `5b8fac9`, worktree `Port33\wt\sc-x1`. **3.4
+working again (Vanity Vault 3.3.0 in the same install). Branch `ms/x1` from `232c66a`, worktree `Port33\wt\sc-x1`. **3.4
 only**: only the 3.4 DLL was built; the tracked 3.2 `SurvivorCommunity.dll` is untouched.
 
 - **0-XNPCCore's own children of the six survivor classes get back what SC takes (`Tools/gen_arsenal.py`
@@ -2397,7 +2397,7 @@ iterating. Build after the fix: SC 3.4 `5d9db05e05d047dcf0de82cc261581f5`, 0 err
 ### Round 20 installed (2026-11-05 20:29)
 
 With the user's go-ahead (3.4 game closed): round 20, NPCCore 3.4.02 and Vanity Vault 3.3.0 compatibility (X1,
-`ms/x1` up to the review fix `2dfd177`). port-3.4 fast-forwarded to `ms/x1` 2dfd177; `deploy_sc34.py`: 6685 files,
+`ms/x1` up to the review fix `9449cd1`). port-3.4 fast-forwarded to `ms/x1` 9449cd1; `deploy_sc34.py`: 6685 files,
 installed = built `5d9db05e05d047dcf0de82cc261581f5`. The old install is in `Port33\_backups\sc34_2026-11-05_202931`;
 the user's `DebugLogging` true set again in the new Config/blocks.xml. Untested in game: TESTING X1 (300-319).
 Rounds 21 (R1, raiders as NPCCore bandits) and 22 (C1, community crafting) are being built on top of X1.
@@ -2408,7 +2408,7 @@ Design: `DESIGN_R1_BANDITS.md` (scratch r1); the user took every recommendation 
 bag by tier, Q4 SC's chase speeds, Q5 0-XNPCCore's 60 rounds, Q6 the same weapon on a re-made body, Q7 IZY guns with SC's
 ammo, Q8 no trade stock or water on raiders, Q9 no overwhelmed rule on raiders, Q10 the HoldEngaged gate, Q11 the bandits'
 look trigger (done by X1), Q12 the old raider code kept for 3.2 / an older 0-XNPCCore, Q13 the dead blocks.xml keys kept
-and commented, Q14 a kit melee by tier). Branch `ms/r1` from X1's `6d95028`, worktree `Port33\wt\sc-r1`. **3.4 only**: all
+and commented, Q14 a kit melee by tier). Branch `ms/r1` from X1's `fb172eb`, worktree `Port33\wt\sc-r1`. **3.4 only**: all
 new C# is `#if SC_V34` (the 3.2 build is byte-identical to X1's, `5a8deaef`), the XML is a conditional on 0-XNPCCore's
 bandits, and the C# acts only on classes carrying SC's marker property.
 
@@ -2494,7 +2494,7 @@ Checks:
 Builds: SC 3.4 `29f1f4bd69cf526530e5c64e3caada5e` (`build\sc34_r1`), 0 errors (the two old CS0108 warnings); the 3.2
 build (scratch only) byte-identical to X1's. The tracked `SurvivorCommunity.dll` unchanged.
 
-**Review (Fable, scratch `r1\REVIEW_FABLE.md`): DEPLOYABLE; fixed on top of the port-3.4 merge (`a000b8d`):**
+**Review (Fable, scratch `r1\REVIEW_FABLE.md`): DEPLOYABLE; fixed on top of the port-3.4 merge (`f5fdafa`):**
 - M1: X1c's prefix kept the gear-only call and SC's step after it (`After`) in one try under one log key, so after one
   `After` failure every later raider's went silent (no `sc_rWeapon`, a window left in HarvestManager, no IZY ammo, no XP
   cvar). Now each has its own try, log key and counter (`x1c-gear-only-failed`, `x1c-after-failed`; ScBandits.cs
@@ -2524,7 +2524,7 @@ non-members untouched); 0.5 specialty XP per counted craft, no daily cap; roles 
 changes kept; residents in the same round; a resident's shift output goes from her inventory window into the home crates.
 Two corrections to the design: 0-XNPCCore's base ammo top-up is already X20's (it tests `ScXnpc.IsCommunity`, so it covers a
 resident on a shift too) - no second prefix; and nothing goes to the AshfallUI session: the community window is SC's own
-generated layout for every setup (below). Branch `ms/c1` from `6d95028` (X1), worktree `Port33\wt\sc-c1`. **3.4 only**: the
+generated layout for every setup (below). Branch `ms/c1` from `fb172eb` (X1), worktree `Port33\wt\sc-c1`. **3.4 only**: the
 new files are compiled for 3.4 alone (their own `ItemGroup Condition="'$(ScGame)'=='34'"` in the csproj) and every hook in a
 shared file is under `SC_V34`, except the Community tab's bindings (answered by both builds; the 3.2 build never shows the
 row). The tracked 3.2 `SurvivorCommunity.dll` is untouched; a 3.2 build to a scratch folder compiles (0 errors).
@@ -2650,7 +2650,7 @@ owner-only resident (a companion marker, `hired_<id>` on the player, collision n
 
 Builds: SC 3.4 `fb9ce3cd25ada5418947b249cf7ddc46` (`build\sc34_c1`), 0 errors - superseded by the review build below.
 
-**C1 Fable review** (`scratchpad c1\REVIEW_FABLE.md`, of `54a0c3f`, the merge of port-3.4 `c6a6f79`): DEPLOYABLE AFTER FIXES.
+**C1 Fable review** (`scratchpad c1\REVIEW_FABLE.md`, of `eb4d235`, the merge of port-3.4 `74e1a21`): DEPLOYABLE AFTER FIXES.
 Fixed:
 - HIGH-1, a shift's end leaked 0-XNPCCore's craft order and what it held: `Detach` took `SdcsLootMode` off, and only 0-XNPCCore's
   own task and station paths (which need mode 10) clear `SdcsCraftJob`, so a backpack order (or a station order on the way)
@@ -2690,11 +2690,11 @@ Builds: SC 3.4 `dc9f4eb32eb4ced03fec0c22dfebcecc` (`build\sc34_c1`), 0 errors. R
 ### Rounds 21 and 22 installed (2026-11-05 21:50)
 
 With the user's go-ahead (3.4 game closed): round 21 (R1, raiders as 0-XNPCCore 3.4.02's bandits; Fable: deployable,
-fixes in 36687a4) and round 22 (C1, community crafting; Fable: deployable after fixes, fixes in 391a91f), merged for one
-install on `ms/int` (merge fc6ea97; a merge-only Fable check: deployable, its doc LOW fixed in e05b586). Merged 3.4 build
+fixes in 97421cd) and round 22 (C1, community crafting; Fable: deployable after fixes, fixes in c2ab760), merged for one
+install on `ms/int` (merge e7e9d0d; a merge-only Fable check: deployable, its doc LOW fixed in 4456b21). Merged 3.4 build
 `89c78016d0a64f311eafc8376a940234` (`build\sc34_int`), 0 errors; HarmonyAudit2 3.4 OK=168 (C1's 167 + R1's X1c), 0 param
 issues; XML replay of every SC op on the 3.4 install: all match (utilityai 20, entityclasses 16, dialogs 20). port-3.4
-fast-forwarded to `ms/int` e05b586; `deploy_sc34.py`: 6691 files, installed = built `89c78016`. The old install is in
+fast-forwarded to `ms/int` 4456b21; `deploy_sc34.py`: 6691 files, installed = built `89c78016`. The old install is in
 `Port33\_backups\sc34_2026-11-05_215032`; the user's `DebugLogging` true set again. Untested in game: TESTING R1
 (330-347) and C1 (370-409), and X1 (300-319) from the install before.
 
@@ -2713,9 +2713,9 @@ on SpawnUpdate in the 3.4 install: 0-SCore's cave prefix (feature-gated, returns
 **The user's decision:** "Implement the fix" - SC's own raider entries spawn with vanilla's odds and rules when ANOTHER mod
 turned the enemy spawns off; never when the update arrives with them off (the game's setting); every other enemy group
 stays off; nothing names WalkerSim2; a config key; logs and counters; the enclave-grounds rule still applies; wild
-survivors unchanged. Branch `ms/w2` from `52b5458`, worktree `Port33\wt\sc-w2`. **3.4 only**: the new file is in its own
+survivors unchanged. Branch `ms/w2` from `9c0768a`, worktree `Port33\wt\sc-w2`. **3.4 only**: the new file is in its own
 `ScGame=34` ItemGroup and the shared-file edits are under `SC_V34`; the 3.2 build to a scratch folder is byte-identical
-to the same build of `52b5458` (`8c4a257e`); the tracked `SurvivorCommunity.dll` untouched.
+to the same build of `9c0768a` (`8c4a257e`); the tracked `SurvivorCommunity.dll` untouched.
 
 **Mechanism (`ScWildRaiders.cs`).**
 - **Detection, generic** (:271, :292): `Patch_Arrive` - a prefix at `Priority.First` (800), before every other prefix -
@@ -2786,7 +2786,7 @@ to the same build of `52b5458` (`8c4a257e`); the tracked `SurvivorCommunity.dll`
   animal count overrides - in every install, not only beside WalkerSim2. Rejected.
 
 **Checks.**
-- Build 0 errors (the two old CS0108 warnings); the 3.2 build byte-identical to `52b5458`'s (`8c4a257e`).
+- Build 0 errors (the two old CS0108 warnings); the 3.2 build byte-identical to `9c0768a`'s (`8c4a257e`).
 - **The transpiler on the real IL** (scratch `w2\harness`, net8 against the 3.4 Assembly-CSharp and 0Harmony): Harmony's
   own `GetOriginalInstructions` cannot run outside the game (MonoMod's `ReflectionHelper..cctor` MethodAccessException,
   as noted in test-tooling), so the IL was decoded by reflection with the operands resolved through the module, as
@@ -2819,15 +2819,24 @@ Builds: SC 3.4 `b89f03de7f6415810d1c1ace79406aa2` (`build\sc34_w2`), 0 errors. N
 ### Round 23 installed (2026-11-05 22:47)
 
 With the user's go-ahead (3.4 game closed): round 23 (W2, wild raiders while another mod turns biome enemies off; Fable:
-deployable). port-3.4 fast-forwarded to `ms/w2` 372a433; `deploy_sc34.py`: 6692 files, installed = built
+deployable). port-3.4 fast-forwarded to `ms/w2` 9f9a6a3; `deploy_sc34.py`: 6692 files, installed = built
 `b89f03de7f6415810d1c1ace79406aa2`. The old install is in `Port33\_backups\sc34_2026-11-05_224742`; the user's
 `DebugLogging` true set again. Untested in game: TESTING W2 (420-434), with X1, R1 and C1 from the installs before.
 
 ### Voices vo3 day 4 installed (2026-11-06 12:38)
 
-With the user's go-ahead (3.4 game closed): round vo3's fourth day of clips (`bb11813`, clips and sidecars only, no code
+With the user's go-ahead (3.4 game closed): round vo3's fourth day of clips (`b474fd4`, clips and sidecars only, no code
 change): Rene's and Jasper's whole sets, 458 of the 473 lines each (the 15 left are the idea-menu dialog lines from E11 on,
 C1's two work-shift lines among them). Nine voices are complete now: Vane, David, Jessica, Beth, Nate, Desmond, Tiffany,
-Rene, Jasper. port-3.4 fast-forwarded to `dev/ideas` bb11813; `deploy_sc34.py`: 8568 files, installed = built
+Rene, Jasper. port-3.4 fast-forwarded to `dev/ideas` b474fd4; `deploy_sc34.py`: 8568 files, installed = built
 `b89f03de7f6415810d1c1ace79406aa2` (unchanged). The old install is in `Port33\_backups\sc34_2026-11-06_123809`; the user's
 `DebugLogging` true set again. Julian's first 375 clips are held back until his set is complete.
+
+### History rewritten for the public repo (2026-11-06)
+
+The user made the repository public. Before that, every commit's author and committer email was changed to the GitHub
+no-reply address (names, dates, files and trees unchanged; 141 commits on all 20 branches), so every commit hash
+changed. Commit hashes quoted in this file and in TESTING.md were remapped to the new ones (78 references), as were six
+quoted in commit messages. DLL md5s are not commit hashes and did not change. The pre-rewrite history is kept in
+`Port33\_backups\SurvivorCommunity_pre_email_rewrite_2026-11-06.bundle` (old -> new map beside it,
+`..._map.tsv`). This repository's `user.email` is now the no-reply address.

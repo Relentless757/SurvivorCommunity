@@ -1895,7 +1895,7 @@ DLL md5 `81f6c2dab9493adcdb58be9ee39beec3`.
 ## Every survivor line voiced, six voices (round vo2)
 
 **Deployed 2026-10-17** (Fable review and re-check: deployable; DLL md5 `25e6fc49af09cc14ef68289ebfda52aa`, commit
-baf4027). Your ask (2026-10-17): voice all the dialogue with ElevenLabs; your picks:
+1c9a114). Your ask (2026-10-17): voice all the dialogue with ElevenLabs; your picks:
 three voices per sex - Vane, B. Hardscrabble Oxley and David for men, Jessica, Beth and Mora for women - one take
 each. Every line a survivor says in SC's talks is voiced now (147 per voice), the enclaves' included. A line with a
 name or a number in it says only the part without them; the panel still shows the whole line. The `.txt` beside each
@@ -4202,7 +4202,7 @@ Before you start: `sc r` below means `sc raiders 40`, `sc x <id>` means `sc xnpc
 
 ## The XNPCCore migration (M0-M9): start here
 
-Done 2026-10-01 in one session (commits 6acc639 M0, 380a707 M1, 3fbc851 R1, 3bc52db R2, 9fa29e3 R3, b1ee630 R4).
+Done 2026-10-01 in one session (commits e74be39 M0, 8c6b518 M1, d731d1f R1, 0ee436d R2, 123a622 R3, b3edf10 R4).
 SurvivorCommunity now runs on 0-XNPCCore 3.2.06's own survivors (`npcSdcsSurvivor{Male,Female}T1-T3`); its own
 survivor classes are gone (raiders stay `scRaider*`). **Start a new game** - old saves' members can't be found (the
 log says "this save predates the XNPCCore migration"). Each round's own rows follow below (round 4 first, M0 last).
@@ -4753,7 +4753,7 @@ of the two in the hand; `sc spawn [hostile] <weapon> <second weapon>` spawns wit
 
 ## Weapons task W1 (build sc_w1b): visible aiming
 
-**Deployed 2026-10-01** (DLL md5 ace5b130, commit 0562d4d). Not yet tested in game. Survivors and raiders with the player's body shoulder their gun while they
+**Deployed 2026-10-01** (DLL md5 ace5b130, commit 4a11bbe). Not yet tested in game. Survivors and raiders with the player's body shoulder their gun while they
 shoot and lower it about 2 s after the last shot. Bows draw before each release. It is only a pose: their accuracy and
 critical hits are unchanged. Settings in Config/blocks.xml: `SurvivorAimPose`, `SurvivorAimVisualOnly`,
 `SurvivorAimHoldSeconds`. Already proven live before the code (2026-10-01, DevLink): the `IsAiming` flag shoulders the
