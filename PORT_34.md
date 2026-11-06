@@ -2815,3 +2815,10 @@ enemies simply on (TESTING 426); a future off-switch at Priority.Last is not see
 lag `spawn requested` when a chunk unloads (TESTING 427).
 
 Builds: SC 3.4 `b89f03de7f6415810d1c1ace79406aa2` (`build\sc34_w2`), 0 errors. Not installed.
+
+### Round 23 installed (2026-11-05 22:47)
+
+With the user's go-ahead (3.4 game closed): round 23 (W2, wild raiders while another mod turns biome enemies off; Fable:
+deployable). port-3.4 fast-forwarded to `ms/w2` 372a433; `deploy_sc34.py`: 6692 files, installed = built
+`b89f03de7f6415810d1c1ace79406aa2`. The old install is in `Port33\_backups\sc34_2026-11-05_224742`; the user's
+`DebugLogging` true set again. Untested in game: TESTING W2 (420-434), with X1, R1 and C1 from the installs before.
