@@ -1899,6 +1899,28 @@ namespace SurvivorCommunity
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return LeadershipTickTarget(); }
 
+            /// <summary>
+            /// C1 (review #3): a resident on a work shift has the Owner cvar only for 0-XNPCCore's crafting (ScWork.ShiftOwned, a
+            /// reload's leftover link too): 0-XNPCCore's tick is skipped for her, so its own rank (sdcsLeadRank) stays the resident's
+            /// 0 and writes nothing when the link comes and goes, and the postfix below keeps the resident's values throughout.
+            /// </summary>
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (!ScWork.ShiftOwned(e)) return true;
+                    Count("x21-shift-npccore-tick-skipped");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-leadership-pre", ex);
+                    return true;
+                }
+            }
+
             [HarmonyPostfix]
             public static void Postfix(AvatarSDCSController __instance)
             {
@@ -1907,7 +1929,8 @@ namespace SurvivorCommunity
                     EntityAlive e = __instance != null ? __instance.entity : null;
                     EntityBuffs b = e != null ? e.Buffs : null;
                     if (b == null) return;
-                    bool owned = b.GetCustomVar("Owner") > 0f;   // 0-XNPCCore's OwnedByCvar: a hire, its own path
+                    // 0-XNPCCore's OwnedByCvar: a hire, its own path - but not a resident's work-shift link (C1, ScWork.ShiftOwned)
+                    bool owned = b.GetCustomVar("Owner") > 0f && !ScWork.ShiftOwned(e);
                     if (owned || !ScXnpc.IsCommunity(e))
                     {
                         if (!b.HasCustomVar(LeadMarkCvar)) return;

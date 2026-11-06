@@ -387,7 +387,12 @@ namespace SurvivorCommunity
                     if (e.Buffs.HasBuff(LevelBuffs[i])) e.Buffs.RemoveBuff(LevelBuffs[i]);
                 for (int i = 0; i < LevelCvars.Length; i++)
                     if (e.Buffs.HasCustomVar(LevelCvars[i])) e.Buffs.RemoveCustomVar(LevelCvars[i]);
+#if SC_V34
+                // C1: a member's crafting skills live in an SC-owned Progression (kept, made when missing; ScCraft writes its levels)
+                if (!ScCraft.OwnsProgression(e)) e.Progression = null;
+#else
                 e.Progression = null;
+#endif
             }
             catch (Exception ex)
             {

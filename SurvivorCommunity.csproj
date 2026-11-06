@@ -271,4 +271,12 @@
     </Reference>
   </ItemGroup>
 
+  <!-- C1 (round 22): community crafting on 0-XNPCCore 3.4.02 - 3.4 only (the 3.2 build compiles none of it) -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScConfigCraft.cs" />
+    <Compile Include="ScCraft.cs" />
+    <Compile Include="ScWork.cs" />
+    <Compile Include="Patches_Craft.cs" />
+  </ItemGroup>
+
 </Project>

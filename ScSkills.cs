@@ -202,6 +202,9 @@ namespace SurvivorCommunity
             npc.Buffs.SetCustomVar("sc_speed", SpeedBonus(m));
             npc.Buffs.SetCustomVar("sc_hp", HealthBonus(m));
             if (BuffManager.GetBuff(BuffName) != null && !npc.Buffs.HasBuff(BuffName)) npc.Buffs.AddBuff(BuffName);
+#if SC_V34
+            ScCraft.Apply(m, npc);   // C1: crafting skills from the specialty stars, 0-XNPCCore's roles stamped once
+#endif
         }
 
         /// <summary>Hungry / injured status buffs follow the registry (both are defined in buffs.xml with real penalties).</summary>

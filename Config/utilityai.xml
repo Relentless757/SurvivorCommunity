@@ -375,4 +375,20 @@
 			</append>
 		</if>
 	</conditional>
+
+	<!--
+	  C1 (round 22; 0-XNPCCore 3.4 only, the same guard): a resident on a work shift (ScWork) crafts through 0-XNPCCore's craft
+	  order, which pins her with the Guard order at the craft spot (buffSdcsCraftHere) and runs CraftSdcsHere (4). SC's resident
+	  roam (3.4), leash (5.5: it would drag her home from a station more than 25 m from her post), at-post (3.2) and quiet night
+	  (3.6) all outrank 0-XNPCCore's Guard (3) and would walk her off it; ScNotOnShift (1 unless on a shift) keeps them out for
+	  the shift. Her defence (5.2) and the Cowardly flee (6) stay: she fights for the base, then 0-XNPCCore's Guard brings her
+	  back to the station and the item goes on.
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcCore&quot;]') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']/action[@name='ScRoam' or @name='ScReturn' or @name='ScAtPost' or @name='ScNightIdle']">
+				<consideration class="ScNotOnShift, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
 </configs>

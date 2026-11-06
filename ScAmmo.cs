@@ -521,6 +521,9 @@ namespace SurvivorCommunity
                 {
                     ItemStack s = items[i];
                     if (s == null || s.IsEmpty() || s.itemValue.ItemClass == null || !IsAmmo(s.itemValue.ItemClass)) continue;
+#if SC_V34
+                    if (!ScCraft.MovesToBag(e, s.itemValue.ItemClass)) continue;   // C1: crafted / found rounds stay for the player
+#endif
                     int k = Math.Min(s.count, Room(e, s.itemValue));
                     if (k <= 0) continue;
                     if (!e.bag.AddItem(new ItemStack(s.itemValue.Clone(), k))) continue;

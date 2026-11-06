@@ -155,6 +155,9 @@ namespace SurvivorCommunity
                 sb.Append(" formation=").Append(npc.Buffs.GetCustomVar("vcFormationDist").ToString("0.#")).Append("m@").Append(npc.Buffs.GetCustomVar("vcFormationAngle").ToString("0"));
             if (npc.Buffs.GetCustomVar("vcMoveToActive") > 0f) sb.Append(" moveTo=active");
             if (npc.Buffs.GetCustomVar("CrouchOverride") >= 1f) sb.Append(" crouched");
+#if SC_V34
+            if (npc.Buffs.GetCustomVar("SdcsLootMode") > 0f) sb.Append(" job=").Append(npc.Buffs.GetCustomVar("SdcsLootMode").ToString("0"));   // C1: 10 = crafting
+#endif
             return sb.ToString();
         }
     }

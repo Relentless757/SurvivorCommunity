@@ -45,6 +45,9 @@ namespace SurvivorCommunity
             // luxuries are not fetched (round wl): the dialog and the window never offer it, the console could
             if (kind == Resource.Luxury) { error = "scRunNoLuxury"; return false; }
             if (!CanSend(m, npc, out error)) return false;
+#if SC_V34
+            ScWork.EndFor(m, "sent on a supply run");   // C1: off the work shift first
+#endif
             if (ScConfig.PhysicalRuns && player != null && player.ChunkObserver != null)
             {
                 World pw = ScCommunity.World;

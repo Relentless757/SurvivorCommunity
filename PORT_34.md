@@ -2510,3 +2510,179 @@ build (scratch only) byte-identical to X1's. The tracked `SurvivorCommunity.dll`
   gated and may pull a walking band member aside (TESTING 340 says what to watch).
 Rebuilt: SC 3.4 `e1858e5e6651d939bfe285ab0cd13cae` (`build\sc34_r1`), 0 errors; the 3.2 build still byte-identical to
 X1's (`5a8deaef`). HarmonyAudit again: 3.4 OK=158, no param issues, X1c's target unchanged. Not installed.
+
+### Round 22: community crafting (C1) (2026-11-05, built, reviewed (Fable: deployable after fixes), fixes in, not installed)
+
+Community members craft through 0-XNPCCore 3.4.02's own crafting (E > Craft..., its station tabs, counts, roles and craft
+job), with SC's specialty stars deciding their skills - followers, and residents on a work shift. Design
+`scratchpad c1\DESIGN_C1_CRAFTING.md` (revision 2); the user's calls (binding): the mapping (Cooking: craftingFood, Cook;
+Medicine: craftingMedical, Cook + Chemist; Gardening: craftingSeeds, no role; Chemistry: craftingExplosives, craftingMedical,
+craftingElectrician, Chemist + Crafter, not Blacksmith; Mechanics: craftingWorkstations, craftingVehicles, craftingTraps,
+craftingRobotics, Blacksmith + Crafter + Chemist; Craftsmanship: the 15 armour, backpack, weapon and tool skills, Crafter);
+stars only (level = round(max level x stars / 7), every other managed skill 0; 0-XNPCCore's learning and XP off for members,
+non-members untouched); 0.5 specialty XP per counted craft, no daily cap; roles set once per body, the player's later
+changes kept; residents in the same round; a resident's shift output goes from her inventory window into the home crates.
+Two corrections to the design: 0-XNPCCore's base ammo top-up is already X20's (it tests `ScXnpc.IsCommunity`, so it covers a
+resident on a shift too) - no second prefix; and nothing goes to the AshfallUI session: the community window is SC's own
+generated layout for every setup (below). Branch `ms/c1` from `6d95028` (X1), worktree `Port33\wt\sc-c1`. **3.4 only**: the
+new files are compiled for 3.4 alone (their own `ItemGroup Condition="'$(ScGame)'=='34'"` in the csproj) and every hook in a
+shared file is under `SC_V34`, except the Community tab's bindings (answered by both builds; the 3.2 build never shows the
+row). The tracked 3.2 `SurvivorCommunity.dll` is untouched; a 3.2 build to a scratch folder compiles (0 errors).
+
+- **Levels (`ScCraft.cs`, `ScCraftMath`).** `ScXnpc.StripLevels` (X3's once-a-second strip, the join stamp, a respawn) keeps a
+  member's `Progression` (`ScCraft.OwnsProgression`: a member - the registry under that entity id - with crafting on; made when
+  missing) and nulls everyone else's as before (stand-ins, raiders, strangers). `ScCraft.Apply`, at the end of
+  `ScSkills.StampCvars` (every relink second, join, a star, `sc xp`), sets each skill of her specialty to
+  `ScCraftMath.Level(max level, stars, 7, CraftLevelCurve)` (half up; the max level read from the loaded `ProgressionClass`)
+  and every other managed skill (the union of the six lists: all 24 vanilla crafting skills) to 0, which the game reads as
+  min level 1 - she keeps the level-1 recipes a fresh player has. Written only where it differs (the setter clears the
+  calculated-level cache). Only on the member's own body: `StampCvars` also dresses outpost and distress stand-ins, enclave
+  people and band people in a record's skills, and none of them gets a Progression or roles. SCore V4 saves the Progression
+  with the body; SC rewrites it on load (vanilla logs `Progression Read <npc>, new` as SCore restores it - expected).
+- **No 0-XNPCCore learning on members (`Patches_Craft.cs`).** C1a, prefix `SdcsNpcXp.Pay(EntityAlive, int, string)`
+  (0-XNPCCore's one XP payer: kill, craft, harvest, repair): refused for a member (`__result` false). C1b, prefix
+  `AvatarSdcsNpcController.SdcsCountCrafts(EntityAlive, string, int)` (static internal; its learn-by-crafting counters and
+  `SdcsRaiseRoleSkills`): skipped for a member. `SdcsRestoreCraftSkills` needs nothing (its only caller is the level tick X3
+  skips).
+- **Roles.** `ScCraft.SyncRoles` (in `Apply`): a body without `sc_craftRoles` gets the registry's mask, else the specialty's
+  defaults (`CraftRoles<Specialty>`), written as Voice Control's `MutateRole` writes them (`SetCustomVar(cvar, 1, true, set,
+  true)`; 0 off), then the mark; a marked body is the truth and its mask is mirrored into the registry (`craftroles=mask:
+  Specialty`), so the wheel's Roles page, voice and the Community tab's toggles are kept and a re-created body gets them back;
+  a specialty change (`sc craft <name> spec ...`) re-applies that specialty's defaults once. `CleanupStale` nulls the
+  Progression and drops the mark (a former member starts 0-XNPCCore's ladder again).
+- **XP per craft.** A craft counts when its recipe belongs to one of her specialty's skills: the recipe's `Recipe.tags` (which
+  hold its own name whenever it has a tags attribute - what the game's own unlock and tier checks test) meet a
+  `RecipeTagUnlocked` or `CraftingTier` passive (tags set, not inverted) of that skill; indexed once per world. Each counted
+  craft adds `CraftSpecXpPerCraft` (0.5) to a carry (`craftxp=`); whole points go through `ScSkills.AddSpecialtyXp` (traits,
+  Leadership, allies; stops at 7 stars); a star re-stamps at once and says `<name> learns from the work: Cooking is now 3
+  stars.` Hooks: C1c postfix `SdcsCraft.PayXp(EntityAlive, Recipe)` (a backpack item, once per item); C1d prefix
+  `SdcsStationCraft.PayXp(EntityAlive, TileEntityWorkstation)` (internal type, found through `SdcsCraft`'s assembly): every
+  entry of the station's `CraftCompleteList` under her id counted as `max(1, items / recipe.count)` crafts before 0-XNPCCore's
+  own pass removes it (its XP refused by C1a); C1e postfix `TileEntityWorkstation.CheckForCraftComplete(EntityPlayerLocal)`
+  (the player opens a station): entries under any member's id - made while she was unloaded or after a reload - are paid and
+  taken off, so each counts once and none stays on the list for ever (host only).
+- **Work shifts (`ScWork.cs`, option b2: an Owner link).** Every 0-XNPCCore leader check crafting needs goes through SCore's
+  `GetLeaderOrOwner`, which falls back on the `Owner` cvar, so a shift writes only that (and the player's `EntityID`, as
+  `ScNpc.SetLeaderAndOwner`'s V4 branch does), drops SCore's leader cache, sets `sc_shift` and the spot she holds on her Guard
+  order (where she stands; the player's block when called). Status stays Resident (home duties, daily bonuses, the base's
+  defence, no follower slot). Start: the dialog row `scWork` "I have work for you." (`ScCanWork`: a resident, body and player
+  inside the home zone, not on watch, 0-XNPCCore's body with its `SdcsNpcLoot` work package, shifts on; actions
+  `ScWorkStart` then 0-XNPCCore's `CraftMenuOpen`, next statement its `Craft Categories`), or the Community tab's Call to
+  work (she walks over; tell `<name>: "On my way."`). The ticker's Resident branch hands her to `ScWork.Resident` first (no
+  re-station for the owner, no post check, self-heal or watchdog); a stale `sc_shift` (after a reload) is taken off there. The
+  shift ends: no order WorkCallSeconds (180) after the start; WorkIdleSeconds (90) after her last job, at once at night; "That's
+  all for now." (`scWorkEnd`, tell `<name>: "All right. I'll head back to my post."`, `ScVoice.SayAfterTalk` once recorded);
+  the tab's End work; any order other than Guard with no job running (a voice Follow); the Owner link gone; a watch posting -
+  then `ScCommunity.Station` (Detach: Owner, cache, 0-XNPCCore's job and its refund; back to her post; SCore's companion
+  marker unregistered). Follow, a supply run, an outpost posting, a watch posting and Leave end it first without the walk
+  (`ScWork.EndFor`, `Detach` only); `Station` forgets a shift itself; `ScWork.Sweep` (ticker, 1 Hz) drops one whose member left,
+  moved on or unloaded (and the player's `hired_<id>` that SCore's V4 leader component writes while the link stands). Shifts
+  live in memory: after a reload the Owner cvar makes the unchanged resident rule station her. Output: what she made on the
+  shift (a ledger fed by C1c-C1e: item type and count) moves from her inventory window into the home crates
+  (`ScStorage.DepositInZone`) every 5 s and at the end, never while her window is open (host, remote, 0-XNPCCore's trade);
+  what does not fit stays, with one tooltip.
+- **AI (`Config/utilityai.xml`, a second block under the same 0-XNPCCore guard).** `ScNotOnShift` (`UaiOps`-style, in
+  `ScWork.cs`) appended to SCResident's `ScRoam`, `ScReturn`, `ScAtPost` and `ScNightIdle`, so 0-XNPCCore's Guard (3) holds
+  her at the craft spot and `CraftSdcsHere` (4) runs; the defence (5.2) and the Cowardly flee (6) stay. `EngagesAtWill`
+  (`Patches_VoiceControl`) treats a member on a shift as leaderless (she fights at will as a resident). C1f, prefix
+  `SdcsLootHere.Finish(EntityAlive, string, string)`: for a member on a shift a job ends where she is (`SdcsLootMode.Clear` +
+  `SdcsSayLine.Say`, as the station branch does) - no Follow order, no teleport to a player 40 m away.
+- **Dialog (`Config/dialogs.xml`, guarded on 0-XNPCCore's `Craft Categories`).** `scWork` / `scWorkEnd` after `scFollow` in
+  SdcsNPC's start; `Command Menu` hidden on members (every row in it is already hidden on them: it held only "done"); `scRun`
+  and `scLeave` hidden while `sc_shift`. Replayed start statement (SCore + 0-XNPCCore + Voice Control + SC): a follower 10 rows
+  (scCommunity, scGoHome, scRun, scLeave, Weapon, Craft, Progress, Ammo, Show me, done), a resident 6 (with scWork), a resident on
+  a shift 9 (scCommunity, scFollow, scWorkEnd, Weapon, Craft, Progress, Ammo, Show me, done), each +1 with `dm`'s Admin row; a
+  hired stranger unchanged (Command Menu stays).
+- **The Community tab (`Tools/generate_community_ui.py` -> `Config/XUi_InGame/windows.xml`, `XUiC_ScCommunity.cs`).** The
+  window is SC's one generated layout for vanilla, SurvivorOrigins and AshfallUI (AshfallUI only reskins its `scui_*` sprites;
+  none of its ops reaches the window's new elements). A **Work and roles** button (`btnWorkMenu`, on the ORDERS heading,
+  hidden while the run picker's heading is there) opens a row in the run picker's place: `btnRoleCook` / `Smith` /
+  `Chemist` / `Crafter` (0-XNPCCore's role cvars on the loaded body, lit when on: `{role0color}..{role3color}`) and `btnWork`
+  (Call to work / End work, `{worklabel}`, `{workcolor}`); the message line under the pickers is `{msgvisible}`. Hooked with
+  `HookOptional`. Needed because the order wheel lists only Leader hires, so a resident's roles can't be changed there.
+- **Small fixes.** The ticker's `ownGuard` (5 s after SC's own Follow) ignores a Guard while `SdcsLootMode` is set, so a
+  craft order right after "Follow me" is not undone; `ScAmmo.MoveWindowAmmoToBag` moves only ammo her pair's gun or bow or the
+  gun in her hand fires (`ScCraft.MovesToBag`), so crafted or found rounds stay in her window for the player; `ScOrders.Describe`
+  shows `job=<SdcsLootMode>`.
+- **Config (`Config/blocks.xml`, after VoiceEnclaveContext; `ScConfigCraft.cs`, a partial of ScConfig as the voices).**
+  `CraftSkillsEnabled`, `CraftSkills<Specialty>`, `CraftRoles<Specialty>` (`none` allowed), `CraftLevelCurve` (1),
+  `CraftSpecXpPerCraft` (0.5), `WorkShiftsEnabled`, `WorkIdleSeconds` (90), `WorkCallSeconds` (180), `WorkDepositOutput`; a
+  `config: crafting ...` line. Registry: `craftroles=` and `craftxp=` (keys older builds ignore). Console: `sc craft`, `sc craft
+  table`, `sc craft <id|name> [spec <Specialty> | end]` (the description line of `sc` is not changed, to keep the R1 merge
+  easy). Localization: 23 rows after the watch rows; the two NPC lines (`scWorkEndSaid`, `scWorkCallSaid`) are in
+  `Tools/voice_lines.py`'s `RUNTIME_FIXED` (no clip yet).
+
+Not done (design 3.7, optional): E > Your progress still shows 0-XNPCCore's own level and craft counters for members. The
+design's per-entity cache in front of the level loop was left out (24 dictionary reads per member a second, written only on a
+difference).
+
+Checks:
+- Build: `dotnet build -c Release --no-dependencies -p:ScGame=34 "-p:OutputPath=F:\7daystodie mods 2026\Port33\build\sc34_c1\\"`,
+  0 errors (the two old CS0108 warnings). The default (3.2) build to a scratch folder: 0 errors; the tracked DLL unchanged
+  (`c4ad303a`).
+- HarmonyAudit (`research\sc34\game_api\tools\HarmonyAudit2`, with the 3.4 install's SCore and 0-XNPCCore 3.4.02 DLLs; X1's
+  dynamic targets plus the six; `scratchpad c1\audit\`): 3.4 OK=163 (X1 157 + 6), 0 param issues; C1a `static public Boolean
+  SdcsNpcXp::Pay(EntityAlive npc, Int32 exp, String source)` (5 callers), C1b `static internal Void
+  AvatarSdcsNpcController::SdcsCountCrafts(EntityAlive npc, String area, Int32 crafts)` (caller `SdcsStationCraft::CountMade`),
+  C1c `static public Int32 SdcsCraft::PayXp(EntityAlive npc, Recipe r)` (caller `SdcsCraft::Finish`), C1d `static private Void
+  SdcsStationCraft::PayXp(EntityAlive npc, TileEntityWorkstation te)` (caller `SdcsStationCraft::Tick`), C1e `public Void
+  TileEntityWorkstation::CheckForCraftComplete(EntityPlayerLocal player)` (caller `XUiC_WorkstationWindowGroup::OnOpen`), C1f
+  `static public Void SdcsLootHere::Finish(EntityAlive npc, String lineId, String reason)` (11 callers). The new member
+  references all resolve on 3.4. All six in ModApi's ExpectedTargets; each Prepare off with one warning when its target is gone.
+- Stars to levels, from the built DLL's own `ScCraftMath.Level` (loaded with reflection) and 3.4 vanilla `progression.xml`'s max
+  levels (no installed mod changes those 24): Food (100) 14/43/71/100 at 1/3/5/7 stars, Medical (75) 11/32/54/75, Seeds (20)
+  3/9/14/20, the 100s 14/43/71/100, the 75s 11/32/54/75, RepairTools (50) 7/21/36/50; every vanilla crafting skill is in a
+  specialty. Curve 1.5 gives Food 5 at 1 star.
+- Recipe index (`scratchpad c1\py\index_check.py`, the same rule on vanilla 3.4): 262 recipe names belong to a managed skill;
+  Cooking 37, Medicine 8, Gardening 12, Chemistry 49, Mechanics 45, Craftsmanship 119; boiled water, charred meat, the cloth
+  bandage, forged iron, 9 mm ball and gunpowder belong to none (no XP).
+- XML replay (`scratchpad c1\rp\sc_replay_c1.py`: X1's with `WITH=`): SC's dialogs 20/20 ops match (4 new: the insertAfter 1, the
+  append 1, Command Menu 1, scRun/scLeave 2), utilityai 19/19 (the new append on exactly ScRoam, ScReturn, ScAtPost and
+  ScNightIdle - 4 nodes, nowhere else), blocks 9/9; the start statement's rows above. Windows with SurvivorOrigins and AshfallUI:
+  every op of every mod matches as on X1's tree (AshfallUI 1412/1412), the merged community window differs from X1's only by
+  C1's elements, and what AshfallUI changes in it (the search box) is the same with and without C1.
+- `Tools/voice_lines.py check`: in step; the two new lines listed as no clip yet in every voice.
+- LF, no BOM added, in every file touched.
+
+Only in game (TESTING.md group C1, steps 370-409): everything above in play - the Craft menu's lists by stars, XP, roles kept,
+the shift's walk, work, idle and return, the deposit, the interruptions, the reload, the rows, SCore's behaviour on an
+owner-only resident (a companion marker, `hired_<id>` on the player, collision near the player) and the vehicle ride.
+
+Builds: SC 3.4 `fb9ce3cd25ada5418947b249cf7ddc46` (`build\sc34_c1`), 0 errors - superseded by the review build below.
+
+**C1 Fable review** (`scratchpad c1\REVIEW_FABLE.md`, of `54a0c3f`, the merge of port-3.4 `c6a6f79`): DEPLOYABLE AFTER FIXES.
+Fixed:
+- HIGH-1, a shift's end leaked 0-XNPCCore's craft order and what it held: `Detach` took `SdcsLootMode` off, and only 0-XNPCCore's
+  own task and station paths (which need mode 10) clear `SdcsCraftJob`, so a backpack order (or a station order on the way)
+  stayed with its ingredients and the next shift read it as work and never idled out. `ScWork.DropJob` (`SdcsCraftJob.Clear`)
+  now runs in `ScCommunity.Detach` before the cvars go (a shift's end, Go home, any stationing, `EndFor`) and in
+  `ScCraft.OnLeft` (Leave), and the shift tick clears an order whose mode is gone; working = a craft order under mode 10, or
+  another 0-XNPCCore job. IL: `Clear` removes the order from `s_orders` first (a second Clear, or 0-XNPCCore's own later,
+  finds nothing: no double refund), `SdcsCraft.Refund` gives back every `Order.Held` cost and empties it (a backpack item's
+  ingredients), and `AtStation` calls `SdcsStationCraft.Cancel` (the queue's unmade items back); a station order not at its
+  station holds nothing (its materials leave her stores only in `QueueAt`, which sets `AtStation`).
+- MEDIUM-2, a reload's leftover link: the stale branch of `ScWork.Resident` also clears `SdcsLootMode`, removes
+  `buffSdcsCraftHere` and drops the order; C1f now keeps any resident member in place when a job ends (on a shift or not), so
+  0-XNPCCore's craft task ending that order before the ticker stations her gives no Follow order or teleport.
+- MEDIUM-3, the Owner cvar is 0-XNPCCore's second hire gate (`OwnedByCvar`): `ScWork.ShiftOwned` (a resident member with the
+  Owner cvar: a shift, or a reload's leftover) - X21 treats her as not owned and a new prefix on `SdcsLeadershipTick` skips
+  0-XNPCCore's tick for her, so its `sdcsLeadRank` stays the resident's 0 and X21's values stand with no gap or double when
+  the link comes and goes; C1g, prefixes on `SdcsAnyWeaponTick` (skipped), `SdcsAnyWeaponMenuListing` (empty) and
+  `SdcsTryWorldEntryMelee` (false) for her. `SdcsChooseMeleeFallback` needs nothing new: X6 already answers the pair's melee for
+  every SC body, and the world-entry melee is the only owner-gated caller left.
+- LOW-5: `ScWork.DropMarker` (SCore's companion marker unregistered once no link is left) in `End`, `Forget` (after any
+  `Station`: Go home, a reload's stationing) and `Sweep`. LOW-6: craft XP marks the registry dirty; `ScCraft.FlushXp` saves at a
+  star, at a shift's end and at most every 30 s from `ScWork.Sweep` (the shutdown save covers the rest). LOW-7: when
+  `ScWorkStart` refuses, the talk closes on the reason (`windowManager.Close("dialog")`) instead of showing an empty Craft
+  Categories.
+- R1 merge: `ScCraft.MovesToBag` now applies to members only (stand-ins and raiders keep the old rule: all ammo to the bag);
+  `OwnsProgression` stays member-only.
+Left as notes: LOW-4 (a death mid-shift: SCore's own "has died" tooltip for an NPC with a leader, beside SC's) and LOW-8
+(`CraftsOf` uses the first recipe of that name's count; vanilla merges entries by item across crafters - design-accepted).
+Checks after the fixes: build 0 errors; HarmonyAudit2 3.4 OK=167 (163 + C1g's three + X21's prefix), 0 param issues, all nine C1
+targets plus `SdcsLeadershipTick` in ModApi's ExpectedTargets; the XML replay on the merged tree unchanged (dialogs 20/20,
+utilityai 19/19 with `ScNotOnShift` on exactly the four actions, blocks 9/9, windows with SurvivorOrigins and AshfallUI all ops
+matching); the 3.2 build to a scratch folder 0 errors, the tracked DLL unchanged. TESTING steps 396 and 402 changed, 406-409
+new.
+
+Builds: SC 3.4 `dc9f4eb32eb4ced03fec0c22dfebcecc` (`build\sc34_c1`), 0 errors. Reviewed (Fable), fixes in, not installed.

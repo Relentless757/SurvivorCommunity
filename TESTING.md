@@ -1666,6 +1666,152 @@ for step 345 before installing.
      `sc xnpc <id>`: `managed=False`, no `bandit raider:` line. Killed, each drops its plain loot bag.
 347. **SC's survivors are unchanged.** As X1 305: `sc spawn male` / `sc spawn female`: SC's look and names, talk as before.
 
+**C1. Round 22: community crafting (3.4)**
+
+Built 2026-11-05 on branch `ms/c1` (SC 3.4 DLL `dc9f4eb32eb4ced03fec0c22dfebcecc`, with the Fable review's fixes; `Port33\build\sc34_c1`), **not installed**: these steps wait for
+the install. Members craft through 0-XNPCCore 3.4.02's own crafting (E > Craft..., its station tabs, counts and roles) with
+their specialty stars as their skills; residents too, on a work shift. Your calls: the mapping (Cooking: food, Cook role;
+Medicine: medical, Cook + Chemist; Gardening: seeds, no role; Chemistry: explosives, medical, electrical, Chemist + Crafter;
+Mechanics: workstations, vehicles, traps, robotics, Blacksmith + Crafter + Chemist; Craftsmanship: armour, backpacks,
+weapons, tools, Crafter), stars only (level = round(max level x stars / 7), every other skill at its lowest), 0.5 specialty
+XP per craft of a recipe of her specialty with no daily cap, roles set once per body and your changes kept, and what a
+resident makes on a shift goes into the home crates. Test on a new world or a copy. Set `DebugLogging` to true in the 3.4
+install's SC `Config/blocks.xml` for the `made ... specialty XP` and `job done on her shift` lines. Helpers: `sc craft`
+(the hooks' counters and the shifts), `sc craft table`, `sc craft <name>` (her skills against her stars, what she can make,
+her roles, her shift, this session's crafts and XP), `sc craft <name> spec <Specialty>` (a test aid: change her specialty)
+and `sc craft <name> end` (end her shift); `sc xp <name> spec <n>` adds specialty XP (stars at 25, 60, 120, 220, 360, 550;
+traits and Leadership multiply it, so check `sc craft <name>`). Have a land claim with a campfire (with a grill and a cooking
+pot), a forge, a workbench and a chemistry station, crates of materials, and members of several specialties; the F6 spawn menu
+needs `dm`.
+
+370. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, nine more than the build before
+     (none `MISSING`; no `crafting: ... not found - that SurvivorCommunity patch is off`); `patched SdcsNpcXp::Pay`,
+     `patched AvatarSdcsNpcController::SdcsCountCrafts`, `patched SdcsCraft::PayXp`, `patched SdcsStationCraft::PayXp`,
+     `patched TileEntityWorkstation::CheckForCraftComplete`, `patched SdcsLootHere::Finish`,
+     `patched AvatarSdcsNpcController::SdcsAnyWeaponTick`, `patched AvatarSdcsNpcController::SdcsAnyWeaponMenuListing` and
+     `patched AvatarSdcsNpcController::SdcsTryWorldEntryMelee`. A `config: crafting
+     craftSkills=on curve 1 xp 0.5/craft [Medicine=craftingMedical/cook+chemist Cooking=craftingFood/cook ...]
+     workShifts=on idle 90s call 180s deposit True` line. Once a member is loaded: `crafting: 24 crafting skills managed on
+     members (Medicine: Medical/75; Cooking: Food/100; ...)` and no `crafting: not a crafting skill in progression.xml`
+     warning. No XML `did not apply` line for SurvivorCommunity. On a save made with this build, one vanilla warning
+     `Progression Read <member>, new` per member body as it loads is expected (SCore loads the crafting skills SC keeps on
+     them).
+371. **The table.** `sc craft table`: every specialty's skills with `1*=.. 3*=.. 5*=.. 7*=..`, e.g. `craftingFood [1*=14
+     3*=43 5*=71 7*=100]`, `craftingMedical [1*=11 3*=32 5*=54 7*=75]`, `craftingSeeds [1*=3 3*=9 5*=14 7*=20]`,
+     `craftingRepairTools [1*=7 3*=21 5*=36 7*=50]` (what the build computed offline from vanilla's max levels).
+372. **Roles stamped once.** On the first load of an old save: each loaded member logs `<name>: crafting roles cook (stamped
+     on this body)` (her specialty's roles; a Gardener `none`). `sc craft <name>`: `roles: body cook (stamped), registry
+     cook for Cooking, Cooking's defaults cook`. Follow with a Cook: her name on the E prompt carries 0-XNPCCore's role title
+     (`<name> - Cook` or similar) and the order wheel's Roles page shows Cook on.
+373. **A new member** joins (any way): the roles line appears in the log within a second, and `sc craft <name>` shows them.
+374. **Levels: a Cook at 1 star, following.** Follow, stand at the campfire, E > Craft...: the Campfire tab lists corn on the
+     cob, baked potato, cornbread, grilled meat, boiled meat, bacon and eggs, pumpkin bread, blueberry pie (her 14) and not meat
+     stew, hobo stew or fish tacos. `sc craft <name>`: `craftingFood 14 (calc 14)/100 want 14`, `outside the specialty: 23
+     skills, 0 above 0`, `can make now ...: 15 of 37`. `sc xp <name> spec 60` (3 stars): within a second `sc craft` shows
+     `craftingFood 43`; Craft... again lists meat stew, hobo stew and fish tacos too.
+375. **Other specialties.** The same with a Medic at the chemistry station (first aid kit only from 5 stars: `sc xp <name>
+     spec 220`), a Mechanic at the forge (anvil from 3 stars) and the workbench (minibike parts from 3), a Chemist at the
+     workbench (pipe bomb at 1 star) and a Craftsman at the workbench (armour at quality 1 at 1 star, quality 3 at 3 stars).
+376. **Outside her specialty.** A 7-star Cook at the workbench (give her the Crafter role on the wheel first): only open and
+     level-1 items - a pipe pistol yes, a hunting rifle no.
+377. **Backpack XP.** A Gardener (following), anywhere: Craft... > cotton seeds x4. `sc craft <name>`: `this session: 4
+     craft(s) (4 backpack ...), 4 counted, ..., specialty XP paid 2` (more with traits or Leadership). A Cook making a cloth
+     bandage from her pack (an open recipe): `not counted` grows, no XP.
+378. **Station XP, no cap.** A Cook queues 10 corn on the cob at the campfire and stays: XP rises as they finish, 5 for the 10 (at
+     multiplier 1: traits and Leadership change it); queue 30 more: 15 more. `sc craft` (no name): `c1d-station-entry=` grows; `c1a-npccore-xp-refused=` grows too.
+379. **A star from crafting.** `sc xp` a member to a point or two below her next star, then craft: the tooltip `<name> learns
+     from the work: Cooking is now 3 stars.`, and the new recipes are there at once.
+380. **0-XNPCCore does not train her.** After 378, `sc craft <name>`: the levels are still those of her stars and
+     `NPCCore's own counters SdcsCraftsCook=0 SdcsCraftsBlacksmith=0 ...`; `sc craft` shows `c1b-role-learning-refused=`
+     above 0. Her "Your progress" page still shows 0-XNPCCore's own level and 0 crafts (not SC's stars: not changed).
+381. **Your role changes are kept.** Following Mechanic: order wheel > Roles: Chemist off. Within a second the log says
+     `<name>: crafting roles now blacksmith+crafter (changed in game - kept)`. Go home, save, quit, reload, Follow again:
+     still off (`sc craft <name>`: registry `blacksmith+crafter`).
+382. **Craft right after "Follow me".** Tell a resident "Follow me" and at once Craft... at a station: she keeps crafting; the
+     log has no `following but the order is Guard - re-applying Follow` line for her (`now holds the order Guard (... job=10)`
+     is fine). Then "Go home": she leaves the station and the unmade items' ingredients come back.
+383. **Crafted ammo stays in her window.** A follower with the Crafter role crafts 9 mm ball rounds at the workbench: they stay
+     in "Show me your inventory" for a minute and more. Rounds for her own gun handed over through the window still go into
+     her bag within 5 s. `sc craft`: `c1-window-ammo-kept=` grows while the 9 mm rounds sit there (if 9 mm is not her gun's).
+384. **Others unchanged.** Hire a survivor who is not a member (F6 `npcSdcsXyth`, Hire), give her Cook on the wheel, craft 20
+     at a campfire: her "Your progress" page shows 0-XNPCCore's own `Cook skill ...: 20 / ... crafts` as before, and `sc
+     craft` counters do not move for her.
+385. **Leaving.** A member leaves (Ask to leave). `sc xnpc <her id>` shows `Progression=null` within a second; hire her as a
+     plain companion: 0-XNPCCore's own level and craft ladder start from scratch.
+386. **A reload mid-queue (followers).** A Mechanic (3 stars) queues 5 anvils at the forge; save and quit while it runs;
+     reload; wait until they would be done; open the forge yourself: the log says `a station's list held .. x anvil made by
+     <name> - paid to her now` once, `sc craft <name>` shows the XP; opening the forge again adds nothing.
+
+Residents on a work shift:
+
+387. **Talk at the station.** Stand at the campfire next to a resident Cook (not following): E shows "I have work for you."
+     (and no "Command Menu"). Pick it: 0-XNPCCore's Craft menu opens with the Campfire tab. Order 5 corn on the cob: she
+     kneels at the campfire and makes them, says she's done, waits about a minute and a half, then walks back to her post
+     with the tooltip `<name> goes back to their post.` The log: `<name> starts a work shift (talked to) ...`, later
+     `<name>'s work shift ends (done) after .. s, 1 job(s), 5 item(s) made, 5 put in the crates`. The corn is in the base's
+     crates (linked storage) and not in "Show me your inventory".
+388. **Call from the tab.** Open the Community tab, pick a resident Mechanic, press **Work and roles** (on the ORDERS line),
+     then **Call to work**: the message `<name> is coming to work. Wait at the station and talk to them there.`, the tooltip
+     `<name>: "On my way."`, and she walks to you across the base. Stand at the forge; E on her: 0-XNPCCore's Craft... row is
+     there (and "That's all for now."); order an anvil (3 stars): it goes into the crates.
+389. **A backpack shift.** Talk to a resident Gardener anywhere in the base: "I have work for you." offers seeds; order 4
+     cotton: +2 XP (`sc craft <name>`), she does not follow you or teleport to you, the seeds go into the crates, and she goes
+     home after the wait.
+390. **An ignored call.** "Call to work" and never order: after about 3 minutes she walks back to her post (`... ends (no
+     order in 180 s)`).
+391. **"That's all for now."** Mid-queue at the workbench (a Craftsman): pick "That's all for now.": the tooltip `<name>: "All
+     right. I'll head back to my post."`, she walks home, and the unmade items' ingredients come back.
+392. **SC leaves her alone.** Through a whole shift the log has no `re-applying the resident station` line for her; she does
+     not roam off, walk back to her post or stand at it while she works. `sc craft <name>`: `shift: Working for .. s ...
+     (sc_shift=1 Owner=<your id> Leader=0 SdcsLootMode=10)`.
+393. **A fight.** A zombie walks into the base during a shift: she fights it (or flees if Cowardly), then goes back to the
+     station and finishes the order.
+394. **Night.** Start a shift at 23:00: she works; when the order is done she goes home at once (`... ends (done, and it is
+     night)`).
+395. **You go away.** Queue 20 at the forge, drive 1 km away for an in-game hour, come back: she is at her post (or still
+     working if the base stayed loaded); the forge holds what was made; open it: her XP for them is added once (386's line).
+396. **A reload mid-shift.** Save and quit during a shift, best mid-order and with you more than 40 m from her after the load;
+     reload: she is back at her post within a few seconds and never walks to you or appears beside you on the way; `sc craft
+     <name>`: `shift: none (sc_shift=- Owner=0 ... SdcsLootMode=0)`; `sc craft` (no name): `stale sc_shift cleared 1`; E on
+     her shows "I have work for you." again, not "That's all for now."
+397. **Interruptions.** During a shift: "Follow me" -> `... ends (asked to follow)` and she follows; a supply run -> `(sent
+     on a supply run)`; assign her to a Watch post -> `(posted on watch)`; post her at an outpost -> `(posted to an outpost)`.
+     Each time the craft order is dropped and its ingredients come back.
+398. **A vehicle.** During a shift, get into a vehicle inside the base: she does not board it.
+399. **Roles in the tab.** On a resident Mechanic: Work and roles: COOK grey, SMITH, CHEMIST and CRAFTER lit. Press CHEMIST:
+     it goes grey (`sc craft <name>`: body `blacksmith+crafter`); call her to the chemistry station: Craft... has no
+     Chemistry station tab. Press it again: lit; the gas can is listed (3 stars).
+400. **Rows.** Talk to a follower: 10 rows at most (`dm` off), "Show me your inventory" and "Nevermind" visible, no "Command
+     Menu". Talk to a resident on a shift: Community, Follow me, That's all for now., Weapon, Craft..., Your progress,
+     Ammo..., Show me your inventory, Nevermind - 9 rows (no supply run, no Ask to leave until the shift is over).
+401. **Full crates.** With the home crates full, a resident on a shift makes something: the tooltip `The home crates are full
+     - what <name> makes stays in their inventory.` once; the items wait in "Show me your inventory" (open during the shift).
+402. **A marker.** During a shift she may show a coloured companion marker on the map and compass (SCore's, for the owner
+     link): it goes when the shift ends, and after a reload's stationing (396). A follower you send home loses hers too.
+403. **SurvivorOrigins.** With SurvivorOrigins: a 7-star Craftsman still cannot make SO's schematic-gated T1+ weapons and
+     tools (SO's design), but her pipe weapons and other T0 items come at quality 6.
+404. **Pose.** While she kneels at a station her arms and weapon look like 0-XNPCCore's own rummage (SC's relaxed or aiming
+     pose does not fight it).
+405. **Switched off.** Set `CraftSkillsEnabled` to false (and `WorkShiftsEnabled` to false) and restart: `sc craft <name>`
+     shows `Progression NONE`, Craft... lists only open recipes, crafts pay no XP, and "I have work for you." does not appear.
+     Put them back.
+406. **A backpack order cut short gives its materials back.** A resident away from the stations: "I have work for you.", order 5
+     of something she makes from her pack (a Gardener's cotton seeds, or cloth bandages), and after 2 are done say "That's all
+     for now.": the materials for the 3 not made are back in her inventory (or a chest of yours nearby), not gone; `sc craft`
+     (no name): `craft orders dropped 1`. Call her to work again the next day and give no order: she still goes home after
+     about 3 minutes by herself; give one: she goes home about 90 s after it is done.
+407. **Go home mid-order (a follower).** A following member orders 5 from her pack (or at a station she has not reached yet),
+     then "Go home" before they are done: the materials for the unmade ones come back, no later `[SDCS-CRAFT]` line for her,
+     and `craft orders dropped` goes up by one. The same when a member leaves the community mid-order.
+408. **Charismatic Nature through a shift.** With the perk at rank 1 or more: `sc xnpc <a resident>` before, during and after a
+     shift shows the same `leadership:` values and `byScAsResident=True` throughout (never a moment at 0); `sc xnpc` (no id)
+     counts `x21-shift-npccore-tick-skipped`, rising during the shift and not after it.
+409. **No weapon from her pack on a shift.** Hand a resident on a shift a weapon through "Show me your inventory": she does not
+     take it into her hands (as a resident would not); Weapon > Carried Weapons lists nothing for her; `sc craft`:
+     `c1g-anyweapon-tick-skipped-frames` grows during the shift. A follower given a weapon the same way still equips it and
+     keeps it in her pair. While crafts pay XP the registry is saved about every 30 s (and at a star and at a shift's end), not
+     on every point: `sc craft` shows `XP saves` rising slowly.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

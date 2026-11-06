@@ -37,6 +37,10 @@ RULES THAT MATTER:
   (btnAct1..4, plain buttons) and the selected activity with its do-button (btnActDo); the morale panel stays.
   Wrappers that switch tabs are depth 0, so every depth inside them is what it was before the tabs existed (XUi
   depth is cumulative).
+- C1 (round 22, 3.4): btnWorkMenu on the ORDERS heading opens the work-and-roles row in the run picker's place (the two never
+  show together; {msgvisible} hides the message under either): btnRoleCook / Smith / Chemist / Crafter toggle 0-XNPCCore's
+  crafting roles ({role0color}..{role3color} lit when on) and btnWork calls a resident to work or ends her shift
+  ({worklabel}, {workcolor}). The 3.2 build answers the bindings and never shows the button.
 """
 
 import io
@@ -111,6 +115,12 @@ NETS = (("ui_game_symbol_map_town", "scUiNetSlots", "netslots", None),
         ("ui_game_symbol_brick", "scUiNetCosts", "netcosts", None),
         ("ui_game_symbol_wrench", "scUiNetStatus", "netstate", "netstatecolor"))
 HOW = ("scUiOpHow1", "scUiOpHow2", "scUiOpHow3")
+# C1 (round 22): the work-and-roles row - 0-XNPCCore's four crafting roles (button, label key, colour binding: lit when on)
+# and the shift's Call to work / End work; a small button on the ORDERS heading (btnWorkMenu) opens it in the run picker's place
+ROLE_BUTTONS = (("btnRoleCook", "scUiRoleCook", "role0color"), ("btnRoleSmith", "scUiRoleSmith", "role1color"),
+                ("btnRoleChemist", "scUiRoleChemist", "role2color"), ("btnRoleCrafter", "scUiRoleCrafter", "role3color"))
+ROLE_W = 80                           # each role toggle; btnWork takes the rest of the row
+WORK_MENU_W, WORK_MENU_Y, WORK_MENU_H = 150, 578, 24
 ACT_ROWS = 4                          # activity rows on the Activities tab (ScActivities.All, XUiC_ScCommunity.ActivitySlots)
 OP_ACTIONS = (("btnOpTrack", "optracklabel", BODY, False), ("btnOpAssign", "opassignlabel", BODY, False),
               ("btnOpUpgrade", "opupgradelabel", "{opupgradecolor}", False), ("btnOpDisband", "opdisbandlabel", DANGER_TEXT, True))
@@ -382,6 +392,10 @@ def member_detail():
     bw = (tw - 16) // 3
     o += ["\t\t" + label(24, -580, 240, 24, 22, TITLE, key="scUiOrders", extra='upper_case="true"'),
           "\t\t" + label(264, -583, tw - 240, 20, 15, DIM, text="{runheader}", extra='justify="right" visible="{runpicking}"'),
+          # C1: opens the work-and-roles row (hidden while the run picker is open: its heading sits here)
+          "\t\t" + button("btnWorkMenu", 24 + tw - WORK_MENU_W, -WORK_MENU_Y, WORK_MENU_W, WORK_MENU_H, extra='visible="{workmenuvisible}"'),
+          "\t\t" + centred(24 + tw - WORK_MENU_W, -WORK_MENU_Y, WORK_MENU_W, WORK_MENU_H, 13, BODY, text="{workmenulabel}",
+                           extra='justify="center" upper_case="true" visible="{workmenuvisible}"'),
           "\t\t" + button("btnFollow", 24, -ORDER_Y, bw, ORDER_H),
           "\t\t" + centred(24, -ORDER_Y, bw, ORDER_H, 18, BODY, text="{followlabel}", extra='justify="center" upper_case="true"'),
           "\t\t" + button("btnRun", 32 + bw, -ORDER_Y, bw, ORDER_H),
@@ -400,9 +414,19 @@ def member_detail():
         x = 24 + k * (rw + 6)
         o += ["\t\t\t" + button(name, x, -RUN_Y, rw, RUN_H),
               "\t\t\t" + centred(x, -RUN_Y, rw, RUN_H, 13, BODY, key=key, extra='justify="center" upper_case="true"')]
-    o += ["\t\t</rect>",
-          "\t\t" + label(24, -(RUN_Y + 2), tw, 32, 15, BODY, text="{message}",
-                         extra="visible=\"{# runpicking ? 'false' : 'true' }\""),
+    o.append("\t\t</rect>")
+    # C1: the work-and-roles row in the run picker's place: four role toggles (lit when on) and Call to work / End work
+    o.append('\t\t<rect depth="1" visible="{workpicking}">')
+    for k, (name, key, binding) in enumerate(ROLE_BUTTONS):
+        x = 24 + k * (ROLE_W + 6)
+        o += ["\t\t\t" + button(name, x, -RUN_Y, ROLE_W, RUN_H),
+              "\t\t\t" + centred(x, -RUN_Y, ROLE_W, RUN_H, 13, "{%s}" % binding, key=key, extra='justify="center" upper_case="true"')]
+    wx = 24 + len(ROLE_BUTTONS) * (ROLE_W + 6)
+    ww = tw - len(ROLE_BUTTONS) * (ROLE_W + 6)
+    o += ["\t\t\t" + button("btnWork", wx, -RUN_Y, ww, RUN_H),
+          "\t\t\t" + centred(wx, -RUN_Y, ww, RUN_H, 13, "{workcolor}", text="{worklabel}", extra='justify="center" upper_case="true"'),
+          "\t\t</rect>",
+          "\t\t" + label(24, -(RUN_Y + 2), tw, 32, 15, BODY, text="{message}", extra='visible="{msgvisible}"'),
           "\t</rect>"]
     return o
 
@@ -597,6 +621,9 @@ def main():
     assert STAFF_TOP + 3 * (STAFF_H + STAFF_GAP) <= NET_TOP - 36, "the garrison runs into the network heading"
     assert NET_TOP + len(NETS) * (NET_H + NET_GAP) <= 578, "the network rows run into the orders (heading at 580)"
     assert RUN_Y + RUN_H <= PAN_H - 4, "the orders run past the detail panel"
+    assert WORK_MENU_Y + WORK_MENU_H <= ORDER_Y - 2, "the work button runs into the order buttons"
+    assert TRAIT_TOP + 3 * (TRAIT_H + TRAIT_GAP) <= WORK_MENU_Y, "the traits run into the work button"
+    assert len(ROLE_BUTTONS) * (ROLE_W + 6) + 120 <= DET_W - 48, "no room left for the work button"
     assert FOOT_Y + 28 <= WIN_H, "the footer runs past the window"
 
 

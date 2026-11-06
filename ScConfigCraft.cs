@@ -1,0 +1,105 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+
+namespace SurvivorCommunity
+{
+    /// <summary>
+    /// C1 (round 22, 3.4 build only): the config keys of community crafting - members craft through 0-XNPCCore 3.4.02's
+    /// crafting with their specialty stars as their skills (ScCraft), residents on a work shift (ScWork). Kept apart from
+    /// ScConfig.cs's long lists, as ScConfigVoices. Config/blocks.xml, block ConfigSurvivorCommunity, after
+    /// VoiceEnclaveContext; each key is commented there. ResetCraft also clears ScCraft's, ScWork's and Patches_Craft's
+    /// per-world state (ScConfig.Reset runs at GameStarting).
+    /// </summary>
+    public static partial class ScConfig
+    {
+        /// <summary>Members' crafting skills come from their specialty stars, kept in an SC-owned Progression (false: the old null Progression, no crafting skills, no craft XP).</summary>
+        public static bool CraftSkillsEnabled = true;
+        /// <summary>Per specialty (Specialty - 1): the game's crafting skills (progression.xml names) its stars stand for.</summary>
+        public static readonly List<string>[] CraftSkills = NewLists(ScCraftMath.DefaultSkills);
+        /// <summary>Per specialty (Specialty - 1): the 0-XNPCCore roles (cook, blacksmith, chemist, crafter) a member starts with.</summary>
+        public static readonly List<string>[] CraftRoles = NewLists(ScCraftMath.DefaultRoles);
+        /// <summary>level = round(max level x (stars / 7) ^ CraftLevelCurve); 1 = proportional.</summary>
+        public static float CraftLevelCurve = 1f;
+        /// <summary>Specialty XP per counted craft (a recipe one of her specialty's skills unlocks or tiers); no daily cap.</summary>
+        public static float CraftSpecXpPerCraft = 0.5f;
+        /// <summary>Residents can be put on a work shift (the "I have work for you." row, the Community tab's Call to work).</summary>
+        public static bool WorkShiftsEnabled = true;
+        /// <summary>After her last job of the shift, real seconds (game time running) before she goes back to her post.</summary>
+        public static int WorkIdleSeconds = 90;
+        /// <summary>Called to work and never given an order: real seconds before she goes back to her post.</summary>
+        public static int WorkCallSeconds = 180;
+        /// <summary>What she makes on a shift goes from her inventory window into the community's home crates (linked storage).</summary>
+        public static bool WorkDepositOutput = true;
+        /// <summary>Bumped by every parse: ScCraft re-resolves its skill lists when it changes.</summary>
+        public static int CraftStamp;
+
+        private static List<string>[] NewLists(string[] defaults)
+        {
+            var a = new List<string>[defaults.Length];
+            for (int i = 0; i < defaults.Length; i++) a[i] = new List<string>(SplitCraftList(defaults[i]));
+            return a;
+        }
+
+        private static IEnumerable<string> SplitCraftList(string s)
+        {
+            if (string.IsNullOrEmpty(s)) yield break;
+            foreach (string part in s.Split(','))
+            {
+                string t = part.Trim();
+                if (t.Length > 0) yield return t;
+            }
+        }
+
+        private static void ResetCraft()
+        {
+            CraftSkillsEnabled = true;
+            for (int i = 0; i < CraftSkills.Length; i++) { CraftSkills[i].Clear(); CraftSkills[i].AddRange(SplitCraftList(ScCraftMath.DefaultSkills[i])); }
+            for (int i = 0; i < CraftRoles.Length; i++) { CraftRoles[i].Clear(); CraftRoles[i].AddRange(SplitCraftList(ScCraftMath.DefaultRoles[i])); }
+            CraftLevelCurve = 1f;
+            CraftSpecXpPerCraft = 0.5f;
+            WorkShiftsEnabled = true;
+            WorkIdleSeconds = 90;
+            WorkCallSeconds = 180;
+            WorkDepositOutput = true;
+            CraftStamp++;
+            // the per-world state of the feature: a new world starts with none of it
+            ScCraft.Reset();
+            ScWork.Reset();
+            Patches_Craft.Reset();
+        }
+
+        private static void ParseCraft(DynamicProperties p)
+        {
+            string v;
+            if (p.Values.TryGetValue("CraftSkillsEnabled", out v) && !string.IsNullOrEmpty(v)) CraftSkillsEnabled = StringParsers.ParseBool(v);
+            for (int i = 0; i < ScCraftMath.SpecialtyNames.Length; i++)
+            {
+                if (p.Values.TryGetValue("CraftSkills" + ScCraftMath.SpecialtyNames[i], out v)) { CraftSkills[i].Clear(); CraftSkills[i].AddRange(SplitCraftList(v)); }
+                if (p.Values.TryGetValue("CraftRoles" + ScCraftMath.SpecialtyNames[i], out v))
+                {
+                    CraftRoles[i].Clear();
+                    if (!string.Equals((v ?? "").Trim(), "none", StringComparison.OrdinalIgnoreCase)) CraftRoles[i].AddRange(SplitCraftList(v));   // "none" = no role
+                }
+            }
+            ParseFloat(p, "CraftLevelCurve", ref CraftLevelCurve, 0.25f, 4f);
+            ParseFloat(p, "CraftSpecXpPerCraft", ref CraftSpecXpPerCraft, 0f, 10f);
+            if (p.Values.TryGetValue("WorkShiftsEnabled", out v) && !string.IsNullOrEmpty(v)) WorkShiftsEnabled = StringParsers.ParseBool(v);
+            ParseInt(p, "WorkIdleSeconds", ref WorkIdleSeconds, 10, 3600);
+            ParseInt(p, "WorkCallSeconds", ref WorkCallSeconds, 10, 3600);
+            if (p.Values.TryGetValue("WorkDepositOutput", out v) && !string.IsNullOrEmpty(v)) WorkDepositOutput = StringParsers.ParseBool(v);
+            CraftStamp++;
+        }
+
+        /// <summary>The config line's crafting part.</summary>
+        private static string CraftLine()
+        {
+            var parts = new List<string>();
+            for (int i = 0; i < ScCraftMath.SpecialtyNames.Length; i++)
+                parts.Add(ScCraftMath.SpecialtyNames[i] + "=" + string.Join("+", CraftSkills[i].ToArray()) + "/" + (CraftRoles[i].Count > 0 ? string.Join("+", CraftRoles[i].ToArray()) : "-"));
+            return "craftSkills=" + (CraftSkillsEnabled ? "on curve " + CraftLevelCurve.ToString("0.##", CultureInfo.InvariantCulture)
+                                                         + " xp " + CraftSpecXpPerCraft.ToString("0.##", CultureInfo.InvariantCulture) + "/craft [" + string.Join(" ", parts.ToArray()) + "]" : "off")
+                   + " workShifts=" + (WorkShiftsEnabled ? "on idle " + WorkIdleSeconds + "s call " + WorkCallSeconds + "s deposit " + WorkDepositOutput : "off");
+        }
+    }
+}

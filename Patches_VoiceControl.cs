@@ -545,7 +545,8 @@ namespace SurvivorCommunity
             if (e == null || e.Buffs == null) return false;
             if (ScXnpc.IsRaider(e)) return true;
             if (!IsCommunityNpc(e) && !ScEnclavePeople.IsEnclaveNpc(e) && !ScBands.IsBandNpc(e)) return false;
-            return EntityUtilities.GetLeaderOrOwner(e.entityId) == null;
+            // C1: a resident on a work shift has an owner (the player) only for 0-XNPCCore's crafting - still a resident in a fight
+            return EntityUtilities.GetLeaderOrOwner(e.entityId) == null || ScWork.OnShift(e.entityId);
         }
 
         /// <summary>
