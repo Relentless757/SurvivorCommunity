@@ -1,19 +1,53 @@
 import io, os, csv, re, ast
 from lxml import etree as ET
-G = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
+G32 = r"F:\SteamLibrary\steamapps\common\7 Days To Die"
+# SC_GEN_GAME replays another game install's vanilla Config and packs (the same switch gen_arsenal.py reads; round R1)
+G = os.environ.get("SC_GEN_GAME") or G32
 # SC_GEN_CONFIG checks a staged copy of Config (the same switch gen_arsenal.py writes to)
-SC = os.environ.get("SC_GEN_CONFIG") or G + r"\Mods\SurvivorCommunity\Config"
+SC = os.environ.get("SC_GEN_CONFIG") or G32 + r"\Mods\SurvivorCommunity\Config"
 # SC_GEN_XNPC replays against another 0-XNPCCore Config (the same switch gen_arsenal.py reads)
 XNPC = os.environ.get("SC_GEN_XNPC") or G + r"\Mods\0-XNPCCore\Config"
+# Round R1: conditionals are evaluated as the game does - mod_loaded() against SC_VERIFY_MODS (comma-separated mod names;
+# e.g. "IGP_Classic,Combat_Sandbox_FLTR" for the IZY Classic branch), xpath() against the document as patched so far -
+# instead of every branch being applied (the R1 block replaces the old raiders only where 0-XNPCCore has its bandits)
+LOADED_MODS = set(x.strip() for x in (os.environ.get("SC_VERIFY_MODS") or "").split(",") if x.strip()) | {"0-SCore", "0-XNPCCore", "SurvivorCommunity"}
 def load(p): return ET.parse(p)
+def cond_true(doc, cond):
+    """SC's conditional forms: terms joined by 'and' / 'or' (no brackets), each mod_loaded('X') or xpath('...') == / != null."""
+    def term(t):
+        t = t.strip()
+        m = re.match(r"^mod_loaded\('([^']*)'\)$", t)
+        if m: return m.group(1) in LOADED_MODS
+        m = re.match(r"^mod_loaded\('([^']*)'\)\s*(==|!=)\s*(true|false)$", t, re.I)
+        if m: return ((m.group(1) in LOADED_MODS) == (m.group(3).lower() == "true")) == (m.group(2) == "==")
+        m = re.match(r"^xpath\('(.*)'\)\s*(==|!=)\s*null$", t)
+        if m:
+            hit = len(doc.xpath(m.group(1).replace("&quot;", '"'))) > 0
+            return hit if m.group(2) == "!=" else not hit
+        raise SystemExit("verify: a conditional form this script does not know: %r" % t)
+    def split(s, word):
+        """s split at the word, outside single-quoted strings (an xpath() argument has its own 'or' and 'and')."""
+        parts, cur, q, i = [], "", False, 0
+        while i < len(s):
+            if s[i] == "'": q = not q
+            if not q and re.match(r"\s+%s\s+" % word, s[i:]):
+                m = re.match(r"\s+%s\s+" % word, s[i:])
+                parts.append(cur); cur = ""; i += m.end(); continue
+            cur += s[i]; i += 1
+        return parts + [cur]
+    return any(all(term(a) for a in split(o, "and")) for o in split(cond, "or"))
 def apply(doc, patchfile, label):
     p = ET.parse(patchfile).getroot(); ok = miss = 0
     def walk(node):
         nonlocal ok, miss
         for op in node:
             if not isinstance(op.tag, str): continue
-            if op.tag in ("conditional", "if", "else"):
-                walk(op); continue
+            if op.tag == "conditional":
+                for br in op:
+                    if not isinstance(br.tag, str): continue
+                    if br.tag == "else" or (br.tag == "if" and cond_true(doc, br.get("cond") or "")):
+                        walk(br); break
+                continue
             xp = op.get("xpath")
             if not xp: continue
             try: targets = doc.xpath(xp)
@@ -63,13 +97,19 @@ raiders = _gen_const("RAIDERS") or []
 # XNPCCore migration (decision D11): SurvivorCommunity defines raiders only; its survivors are 0-XNPCCore's own
 # npcSdcsSurvivor classes (XNPC_SURVIVORS in gen_arsenal.py), checked further down. M10: the raiders are six classes on
 # 0-XNPCCore's player body (RAIDERS), on two templates; the old per-weapon scRaider<Sex><Weapon> classes are gone.
-leaves = [n for n in names if n.startswith("scRaider") and "Template" not in n]
-templates = [n for n in names if n.startswith("scRaider") and "Template" in n]
+bandit_parent = _gen_const("BANDIT_PARENT") or {}
+bandit_template = _gen_const("BANDIT_TEMPLATE") or {}
+leaves = [n for n in names if n.startswith("scRaider") and n in raiders]
+templates = [n for n in names if n.startswith("scRaider") and n not in raiders]
+# round R1: with 0-XNPCCore's bandits the six leaves are their children (gen_arsenal.py bandit_block), else the old ones
+bandit_mode = bool(bandit_parent) and all(names.get(b) is not None for b in bandit_parent.values())
+print("  raiders: %s" % ("children of 0-XNPCCore's bandits (round R1)" if bandit_mode else "the old templates (no 0-XNPCCore bandits here)"))
 legacy = [n for n in names if n.startswith("scSurvivor")]
 if legacy: errors.append("D11: %d scSurvivor classes still defined e.g. %s" % (len(legacy), legacy[0]))
 if len(raiders) != 6: errors.append("gen_arsenal.py RAIDERS: %d classes, want 6" % len(raiders))
 if sorted(leaves) != sorted(raiders): errors.append("raider leaves %s are not gen_arsenal.py's RAIDERS (an old scRaider<Sex><Weapon> class left?)" % sorted(set(leaves) ^ set(raiders))[:5])
-if len(templates) != 2: errors.append("%d raider templates, want 2 (one per sex): %s" % (len(templates), templates[:4]))
+want_templates = sorted((bandit_template if bandit_mode else (_gen_const("RAIDER_TEMPLATE") or {})).values())
+if sorted(templates) != want_templates: errors.append("raider templates %s, want %s (one per sex)" % (sorted(templates), want_templates))
 def chain(n):
     seen = []
     while n:
@@ -122,7 +162,55 @@ if os.path.exists(_loadout_cs):
     elif m_.group(1) != raider_xp: errors.append("ScLoadout.RaiderXpCvar %r is not gen_arsenal.py's RAIDER_XP_CVAR %r" % (m_.group(1), raider_xp))
     else: print("  kill XP cvar %s matches ScLoadout.RaiderXpCvar" % raider_xp)
 else: print("  note: no ScLoadout.cs next to Tools - RAIDER_XP_CVAR not compared with the DLL's constant")
-for n in leaves:
+def effective_groups(n):
+    """Every effect group along the chain (MinEffectController walks the parents' elements): (owner, group element)."""
+    return [(c, g_) for c in chain(n) for g_ in names[c].xpath("effect_group")]
+def check_bandit_leaf(n):
+    """Round R1: a raider leaf on 0-XNPCCore's bandit (gen_arsenal.py bandit_block); its weapon list is checked further down."""
+    male = "Female" not in n
+    ch = chain(n)
+    if len(ch) < 3 or ch[1] != bandit_template.get(male) or ch[2] != bandit_parent.get(male):
+        errors.append("%s: chain %s, want %s > %s" % (n, " > ".join(ch), bandit_template.get(male), bandit_parent.get(male))); return
+    doc_order = {e.get("name"): i for i, e in enumerate(ec.getroot().iter("entity_class"))}
+    if any(doc_order.get(c, -1) > doc_order[n] for c in ch[1:]): errors.append(n + ": a parent comes after it in the document (the game throws)")
+    for k, want in (("Faction", "bandits"), ("IsEnemyEntity", "true"), ("Hirable", "false"), ("ScBanditRaider", "true"), ("SdcsLookArchetypes", ""),
+                    ("BagItems", "none"), ("HarvestItems", "none"), ("Titles", "Raider"), ("IsQuestGiver", "false"), ("UserSpawnType", "Menu")):
+        if resolved(n, k) != want: errors.append("%s: %s is %r, want %r" % (n, k, resolved(n, k), want))
+    if "EntityAliveSDXV4" not in (resolved(n, "Class") or ""): errors.append("%s: Class %s, want EntityAliveSDXV4" % (n, resolved(n, "Class")))
+    pk = [x.strip() for x in (resolved(n, "AIPackages") or "").split(",") if x.strip()]
+    if "SdcsBanditCombat" not in pk: errors.append("%s: AIPackages %s lack SdcsBanditCombat" % (n, pk))
+    for x in pk:
+        if x not in packages: errors.append("%s: AI package %s is not defined (utilityai replay)" % (n, x))
+    tags = set((resolved(n, "Tags") or "").split(","))
+    for t in ("npc", "human", "bandit", "no_voice", "male" if male else "female"):
+        if t not in tags: errors.append("%s: Tags lack %s" % (n, t))
+    if (resolved(n, "IsMale") == "true") != male: errors.append(n + ": IsMale does not match the name")
+    look = [c for c, g_ in effective_groups(n) if g_.get("name") == "SDCS Look"]
+    if len(look) != 1: errors.append("%s: %d 'SDCS Look' groups along the chain (%s), want exactly 1 (from the bandit)" % (n, len(look), look))
+    pdr = sum(float(pe.get("value")) for c, g_ in effective_groups(n) for pe in g_.xpath("passive_effect[@name='PhysicalDamageResist' and @operation='perc_add' and not(@tags)]"))
+    if abs(pdr - (-0.5)) > 1e-6: errors.append("%s: PhysicalDamageResist perc_add adds up to %g, want -0.5 (SC's half protection)" % (n, pdr))
+    lm = [pe.get("value") for g_ in chain_groups(n, "SurvivorCommunity raider") for pe in g_.xpath("passive_effect[@name='LandMineImmunity']")]
+    if lm != ["0"]: errors.append("%s: LandMineImmunity in the raider group is %s, want one base_set 0" % (n, lm))
+    xpe = [(pe.get("operation"), pe.get("value")) for c, g_ in effective_groups(n) for pe in g_.xpath("passive_effect[@name='ExperienceGain']")]
+    if xpe != [("perc_add", "@%s" % raider_xp)]: errors.append("%s: ExperienceGain passives %s, want only perc_add @%s" % (n, xpe, raider_xp))
+    if resolved(n, "ExperienceGain") != "600": errors.append("%s: ExperienceGain %s, want 600" % (n, resolved(n, "ExperienceGain")))
+    if resolved(n, "NavObject") != raider_nav: errors.append("%s: NavObject %r, want %r" % (n, resolved(n, "NavObject"), raider_nav))
+    if resolved(n, "Archetype") not in archetypes: errors.append("%s: Archetype %s is not a vanilla archetype (EModelSdcsNpc builds no model)" % (n, resolved(n, "Archetype")))
+    if resolved(n, "NPCID") not in npc_ids: errors.append("%s: NPCID %s has no npc_info" % (n, resolved(n, "NPCID")))
+    if names[n].xpath("property[@name='Names']/@value") != [gen_names.get(("r", male))]: errors.append(n + ": Names is not SC's raider pool")
+    m_ = re.search(r"T([123])$", n)
+    tier = int(m_.group(1)) if m_ else 0
+    if resolved(n, "SdcsArmorTier") != str(tier): errors.append("%s: SdcsArmorTier %s, want %d" % (n, resolved(n, "SdcsArmorTier"), tier))
+    kit = (_gen_const("BANDIT_KIT") or {}).get(tier)
+    for mode in ("GameModeSurvival", "GameModeSurvivalSP", "GameModeSurvivalMP"):
+        if resolved(n, mode, "ItemsOnEnterGame") != kit: errors.append("%s: ItemsOnEnterGame %s is %s, want the kit %s" % (n, mode, resolved(n, mode, "ItemsOnEnterGame"), kit))
+    bag = (_gen_const("BANDIT_LOOT_BAG") or {}).get(tier) or "EntityLootContainerRegular"
+    if resolved(n, "LootDropEntityClass") != bag: errors.append("%s: LootDropEntityClass %s, want %s" % (n, resolved(n, "LootDropEntityClass"), bag))
+    if resolved(n, "LootDropProb") != "1": errors.append("%s: LootDropProb %s, want 0-XNPCCore's 1" % (n, resolved(n, "LootDropProb")))
+    cnt[("hostile-bandit", tier)] += 1
+for n in (leaves if bandit_mode else []):
+    check_bandit_leaf(n)
+for n in (leaves if not bandit_mode else []):
     male = "Female" not in n
     cls = resolved(n, "Class") or ""
     if "EntityAliveSDXV4" not in cls: errors.append("%s: Class %s, want EntityAliveSDXV4 (0-XNPCCore's body)" % (n, cls))
@@ -362,6 +450,56 @@ else:
         if "gunRifleT1HuntingRifle']/property[@name='Tags']/@value\" delim=\",\" op=\"add\">T1,weapon,ranged</csv>" not in itx:
             errors.append("items.xml: the IZY Hunting Rifle tag fix is missing")
 
+
+# Round R1: the bandit raiders' weapon lists (0-XNPCCore rolls one entry, uniformly; duplicates are the weights). Each must be
+# the generated list in Tools/raider_weapon_lists.txt (a saved raider keeps its entry's index: lists only grow at the end,
+# which gen_arsenal.py enforces against that file), hold only items that exist and that 0-XNPCCore's spawn-ammo table knows
+# (IZY's guns excepted: the DLL grants theirs), carry the kit melee, and come within a point of SC's family shares.
+if bandit_mode:
+    print("raider weapon lists (round R1, %s)" % ("with IZY Classic" if {"IGP_Classic", "Combat_Sandbox_FLTR"} <= LOADED_MODS else "vanilla"))
+    variant = "izy" if {"IGP_Classic", "Combat_Sandbox_FLTR"} <= LOADED_MODS else "vanilla"
+    snap_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "raider_weapon_lists.txt")
+    snap = {}
+    if os.path.isfile(snap_path):
+        for ln in io.open(snap_path, encoding="utf-8").read().splitlines():
+            parts = ln.split("\t")
+            if len(parts) == 3 and not ln.startswith("#"): snap[(parts[0], parts[1])] = parts[2].split(",")
+    else: errors.append("no Tools/raider_weapon_lists.txt (gen_arsenal.py writes it)")
+    npc_ammo = _gen_const("NPCCORE_WEAPON_AMMO") or {}
+    npc_melee = set(_gen_const("NPCCORE_MELEE") or [])
+    ranged_share = _gen_const("BANDIT_RANGED_SHARE") or ()
+    fire_share = _gen_const("BANDIT_FIREARM_SHARE") or ()
+    kits = _gen_const("BANDIT_KIT") or {}
+    fam_of = dict((c[0], c[1]) for c in cat)
+    izy_fams = dict((r[0], r[1]) for r in (rows if mb else []))
+    for n in leaves:
+        lst = [x.strip() for x in (resolved(n, "SdcsWeapons") or "").split(",") if x.strip()]
+        want = snap.get((n, variant))
+        if want is None: errors.append("%s: no %s list in raider_weapon_lists.txt" % (n, variant))
+        elif lst[:len(want)] != want: errors.append("%s: its SdcsWeapons does not start with its generated %s list (raider_weapon_lists.txt)" % (n, variant))
+        elif lst != want: errors.append("%s: its SdcsWeapons is longer than its generated %s list - regenerate" % (n, variant))
+        if variant == "izy" and snap.get((n, "vanilla")) and lst[:len(snap[(n, "vanilla")])] != snap[(n, "vanilla")]:
+            errors.append("%s: the IZY list does not start with the vanilla list (an IZY Classic install or removal would move every saved raider's weapon)" % n)
+        tier = int(n[-1])
+        if kits.get(tier) not in lst: errors.append("%s: its kit melee %s is not in its list" % (n, kits.get(tier)))
+        fams = Counter()
+        for x in lst:
+            f = fam_of.get(x) or izy_fams.get(x)
+            if f is None: errors.append("%s: list item %s is no XnpcWeapons weapon" % (n, x)); continue
+            fams[f] += 1
+            if x.startswith("IZY"):
+                if izy and x not in izy: errors.append("%s: list item %s is not in IGP_Classic" % (n, x))
+                continue
+            if x not in items: errors.append("%s: list item %s does not exist" % (n, x))
+            if f == "melee" and x not in npc_melee: errors.append("%s: melee item %s is not in 0-XNPCCore's melee set" % (n, x))
+            if f != "melee" and x not in npc_ammo: errors.append("%s: %s is not in 0-XNPCCore's ammo table - it would spawn with no ammo" % (n, x))
+        b = tier - 1
+        target = {"melee": 1 - ranged_share[b], "bow": ranged_share[b] * (1 - fire_share[b]), "firearm": ranged_share[b] * fire_share[b]} if ranged_share else {}
+        got = {f: fams[f] / float(max(1, len(lst))) for f in ("melee", "bow", "firearm")}
+        off = max(abs(got[f] - target[f]) for f in target) if target else 0
+        if off > 0.0105: errors.append("%s: family shares %s are more than a point off SC's odds %s" % (n, got, target))
+        print("  %-18s %4d entries: %s (SC's odds %s)%s" % (n, len(lst), " ".join("%s %.1f%%" % (f, 100 * got[f]) for f in ("melee", "bow", "firearm")),
+              "/".join("%.1f%%" % (100 * target[f]) for f in ("melee", "bow", "firearm")), ", IZY %d" % sum(1 for x in lst if x.startswith("IZY")) if variant == "izy" else ""))
 
 xsc = (cfg.xpath("property[@name='XnpcSurvivorClasses']/@value") if cfg is not None else []) or [""]
 if [x.strip() for x in xsc[0].split(",") if x.strip()] != list(xnpc_survivors):

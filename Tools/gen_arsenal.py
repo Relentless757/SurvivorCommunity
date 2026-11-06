@@ -10,6 +10,8 @@
 #                                             survivors ours (XNPCCore migration M3), emitted after the classes
 #                                             + xnpc_child_ops: what those take, given back to 0-XNPCCore's own classes
 #                                             that extend the six (round X1, from its entityclasses.xml)
+#                                             + bandit_block: with 0-XNPCCore's bandits (3.4.02), the same six raider
+#                                             classes as thin children of them, and their weapon lists (round R1)
 #                                             + ENCLAVE_DROP_CLASSES: E9's supply crates scEncDrop<Kind> (an ally's
 #                                             radio drop), emitted last
 #   Config/entitygroups.xml    (whole file)   our own survivor groups (0-XNPCCore's survivors by band) and raider
@@ -23,6 +25,7 @@
 #   Config/blocks.xml          (marked block) XnpcWeapons: the vanilla weapons the DLL arms survivors and raiders with
 #   Config/Localization.csv    (managed rows) the raider class names (the old scSurvivor, scRaider<Sex><Weapon> and
 #                                             NPCSC item rows are dropped)
+#   Tools/raider_weapon_lists.txt  (R1)       the raider weapon lists as generated: a list may only grow at its end
 #
 # Facts this relies on (all checked in the 3.2 decompile or the installed XML):
 #  * entity classes: effect groups inherit down the extends chain (MinEffectController); ItemsOnEnterGame is a class
@@ -453,9 +456,9 @@ child_ops, xnpc_children = xnpc_child_ops()
 out.append(child_ops)
 if not ET.parse(os.path.join(VAN, "entityclasses.xml")).getroot().xpath("//entity_class[@name=$n]", n=VANILLA_CRATE):
     raise SystemExit("the vanilla supply crate %s is not in entityclasses.xml - update VANILLA_CRATE" % VANILLA_CRATE)
-out.append(enclave_drop_classes())
-out.append("</configs>\n")
-io.open(os.path.join(MOD, "entityclasses.xml"), "w", encoding="utf-8", newline="\n").write("".join(out))
+# round R1: the raider-bandit block (bandit_block, below) needs the weapon tables built further down, so the file is
+# finished and written there, after them: the old raiders, the survivor ops, X1's child ops, R1's block, E9's crates
+ec_out = out
 
 # ------------------------------------------------------------------------------------------------------------
 # entity groups + biome spawning: our own layer, which is what the framework's own guide asks add-ons to do
@@ -950,6 +953,284 @@ src = src.replace("</configs>", "".join(iz) + "</configs>")
 io.open(bp, "w", encoding="utf-8", newline="\n").write(src)
 
 # ------------------------------------------------------------------------------------------------------------
+# Round R1 (0-XNPCCore 3.4.02; research DESIGN_R1_BANDITS.md, the user's answers: every recommendation): SC's raiders as
+# thin children of 0-XNPCCore's bandits, inside a conditional on those bandits, so the 3.2 game and an 0-XNPCCore without
+# them keep the old raiders above. Per sex a template on the bandit of that sex (npcSdcsBanditMelee is male,
+# npcSdcsBanditRanged female: the body, sound bank, mass and sex tag are the class's) and the same six leaf names. From
+# the bandit, unredeclared so 0-XNPCCore's updates flow through: Class, model, controller, Faction, Hirable,
+# IsEnemyEntity, AIPackages (SdcsNpcCore, SdcsBanditCombat), Tags (bandit, no_voice, the sex), ExperienceGain,
+# SdcsSpawnAmmo / SdcsSpawnAmmoCount (60 rounds, Q5), SdcsCustomCharacters false, LootDropProb, the T1 loot bag,
+# SdcsKeepTarget, npcSdcsBase's player-damage and bandit-aim groups, and its look trigger (SDCS Look, which X1's child ops
+# above give back to the bandits; the leaves inherit it, so it is never declared twice). SC's on the templates: the marker
+# the DLL gates on (BANDIT_MARKER, ScXnpc.IsBanditRaider), an empty look pool (the fail-safe: 0-XNPCCore's full look
+# applier stops at its empty-pool check before it touches the name, archetype or armour should the DLL's re-route to its
+# gear-only half not bind), the raider title, map markers, no bag stock, no inventory window, SC's chase speeds (Q4), SC's
+# worn armor scale and the raider group (no landmine immunity, the kill XP bonus by weapon, Q2). On the leaves: SC's
+# raider names, the tier's armor tier (0-XNPCCore's bandit spread reads it; SC skips that spread, X19), the tier's weapon
+# list (below), the tier's kit melee (Q14) and loot bag colour (Q3).
+#
+# The weapon list (SdcsWeapons): 0-XNPCCore rolls one entry per raider, uniformly (WeaponRollRules.PickWeaponIndex: 1 +
+# Mix(entity id, 31806) % length), and keeps the 1-based index in the SdcsWeapon cvar, saved with the raider. Weights are
+# duplicate entries: SC's raider odds when R1 was made (Q1(a), BANDIT_*_SHARE), each weapon of a family by ScLoadout's
+# own weights (its group's band weight split over the family's weapons of that group), every weapon SC could roll at
+# that tier at least once, BANDIT_LIST_SIZE entries. With IZY Classic (and Combat Sandbox) a nested conditional sets the
+# same list plus a suffix: the smallest one that brings every family's share and the IZY guns' share within one point of
+# SC's odds with that pack (an IZY gun whose odds round to no entry at a tier is in the next tier's list). Because the
+# index is saved, a list may only ever grow at its end: BANDIT_SNAPSHOT holds the lists as they were generated, and a
+# regenerated list that does not start with its snapshot stops this script (the DLL's sc_rWeapon guard re-finds a saved
+# raider's weapon anyway, but the guard is the second line). 0-XNPCCore grants its spawn ammo only for the guns its own
+# table names (NPCCORE_WEAPON_AMMO): every vanilla list item must be in it or be melee; IZY's guns are not, and the DLL
+# grants theirs (Q7).
+# ------------------------------------------------------------------------------------------------------------
+BANDIT_PARENT = {True: "npcSdcsBanditMelee", False: "npcSdcsBanditRanged"}
+BANDIT_TEMPLATE = {True: "scRaiderBanditMale", False: "scRaiderBanditFemale"}
+BANDIT_MARKER = "ScBanditRaider"                     # ScXnpc.BanditMarker in the DLL
+BANDIT_KIT = {1: "meleeWpnClubT0WoodenClub", 2: "meleeWpnClubT1BaseballBat", 3: "meleeWpnBladeT3Machete"}   # Q14
+BANDIT_LOOT_BAG = {1: None, 2: "EntityLootContainerStrong", 3: "EntityLootContainerBoss"}                   # Q3 (T1: the bandit's own)
+# Q1(a): blocks.xml's RaiderRangedShare 0.3,0.4,0.5, RaiderFirearmChance 0.12 and RaiderFirearmChanceT3 0.85 when R1 was
+# made - a ranged weapon at 30/40/50% by tier, of those a firearm at 12/12/85% (else a bow or crossbow), the rest melee
+BANDIT_RANGED_SHARE = (0.3, 0.4, 0.5)
+BANDIT_FIREARM_SHARE = (0.12, 0.12, 0.85)
+BANDIT_LIST_SIZE = 200
+BANDIT_SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "raider_weapon_lists.txt")
+BANDIT_ARMOR_GROUP = "SurvivorCommunity raider worn armor scale"
+# 0-XNPCCore 3.4.02's own weapon table (NPCSdcsCharacters.Pure.WeaponRollRules..cctor, read from its IL: s_ammoByWeapon and
+# s_meleeWeapons). A gun it names gets SdcsSpawnAmmoCount rounds of that ammo when it is rolled; a melee weapon needs none.
+NPCCORE_WEAPON_AMMO = {
+    "gunHandgunT0PipePistol": "ammo9mmBulletBall", "gunShotgunT0PipeShotgun": "ammoShotgunShell",
+    "gunRifleT0PipeRifle": "ammo762mmBulletBall", "gunMGT0PipeMachineGun": "ammo762mmBulletBall",
+    "gunHandgunT1Pistol": "ammo9mmBulletBall", "gunBowT0PrimitiveBow": "ammoArrowStone", "gunBowT1WoodenBow": "ammoArrowStone",
+    "gunBowT1IronCrossbow": "ammoCrossbowBoltStone", "gunMGT1AK47": "ammo762mmBulletBall", "gunRifleT1HuntingRifle": "ammo762mmBulletBall",
+    "gunShotgunT1DoubleBarrel": "ammoShotgunShell", "gunHandgunT2Magnum44": "ammo44MagnumBulletBall",
+    "gunRifleT2LeverActionRifle": "ammo762mmBulletBall", "gunShotgunT2PumpShotgun": "ammoShotgunShell",
+    "gunMGT2TacticalAR": "ammo762mmBulletBall", "gunHandgunT3SMG5": "ammo9mmBulletBall", "gunHandgunT3DesertVulture": "ammo44MagnumBulletBall",
+    "gunRifleT3SniperRifle": "ammo762mmBulletBall", "gunShotgunT3AutoShotgun": "ammoShotgunShell", "gunMGT3M60": "ammo762mmBulletBall",
+    "gunBowT3CompoundBow": "ammoArrowStone", "gunBowT3CompoundCrossbow": "ammoCrossbowBoltStone",
+}
+NPCCORE_MELEE = ["meleeWpnClubT0WoodenClub", "meleeWpnBladeT0BoneKnife", "meleeWpnSpearT0StoneSpear", "meleeWpnSledgeT0StoneSledgehammer",
+                 "meleeWpnKnucklesT0LeatherKnuckles", "meleeWpnBatonT0PipeBaton", "meleeWpnBladeT1HuntingKnife", "meleeWpnClubT1BaseballBat",
+                 "meleeWpnSpearT1IronSpear", "meleeWpnKnucklesT1IronKnuckles", "meleeWpnSledgeT1IronSledgehammer", "meleeToolAxeT1IronFireaxe",
+                 "meleeWpnBatonT2StunBaton", "meleeToolAxeT2SteelAxe", "meleeWpnBladeT3Machete", "meleeWpnClubT3SteelClub",
+                 "meleeWpnKnucklesT3SteelKnuckles", "meleeWpnSledgeT3SteelSledgehammer", "meleeWpnSpearT3SteelSpear"]
+BANDIT_FAMILIES = ("melee", "bow", "firearm")
+
+def bandit_shares(band):
+    r, f = BANDIT_RANGED_SHARE[band], BANDIT_FIREARM_SHARE[band]
+    return {"melee": 1.0 - r, "bow": r * (1.0 - f), "firearm": r * f}
+
+def bandit_probs(rows, band):
+    """rows: (item, family, bands, group), the table's order. Each weapon's odds at this band: its family's share times its
+    weight in the family, ScLoadout.Weapon.Weight's: its group's band weight split over the family's weapons of that group
+    that weigh anything at the band."""
+    w = {}
+    for item, fam, bands, grp in rows:
+        if bands[band] <= 0: continue
+        pool = sum(1 for i2, f2, b2, g2 in rows if f2 == fam and g2 == grp and b2[band] > 0)
+        w[item] = (fam, bands[band] / pool)
+    sh, p = bandit_shares(band), {}
+    for fam in BANDIT_FAMILIES:
+        tot = sum(x for f, x in w.values() if f == fam)
+        if tot <= 0: raise SystemExit("R1: no %s weapon at band %d for the raider lists" % (fam, band))
+        for item, (f, x) in w.items():
+            if f == fam: p[item] = sh[fam] * x / tot
+    return p
+
+def bandit_counts(p, total, start=None):
+    """Entries per weapon for a list of this length: start's counts kept (the list it extends), every weapon of p at least
+    one when there is no start, the rest by the largest shortfall against p (the table's order breaks a tie)."""
+    c = dict(start) if start else {k: max(1, int(p[k] * total)) for k in p}
+    for k in p: c.setdefault(k, 0)
+    if sum(c.values()) > total: raise SystemExit("R1: %d entries do not fit a list of %d" % (sum(c.values()), total))
+    while sum(c.values()) < total:
+        k = max(p, key=lambda x: p[x] * total - c[x])
+        c[k] += 1
+    return c
+
+def bandit_family_error(c, fam_of, band):
+    tot = float(sum(c.values()))
+    sh = bandit_shares(band)
+    return max(abs(sum(v for k, v in c.items() if fam_of[k] == f) / tot - sh[f]) for f in BANDIT_FAMILIES)
+
+def bandit_entries(c, order, minus=None):
+    out = []
+    for k in order:
+        out += [k] * (c.get(k, 0) - (minus.get(k, 0) if minus else 0))
+    return out
+
+van_rows = [(item, fam, list(TIER_BANDS[name_tier(item)]), "T%d" % name_tier(item)) for item, fam, tier, token in XNPC_WEAPONS]
+izy_fam = dict((x[0], x[1]) for x in IZY_WEAPONS)
+izy_rows4 = [(item, izy_fam[item], list(IZY_BANDS[t]), "T%d" % t) for item, value, t in izy_rows]
+fam_of = dict((r[0], r[1]) for r in van_rows + izy_rows4)
+for item, fam, bands, grp in van_rows:                   # 0-XNPCCore grants spawn ammo by its own table (Q5)
+    if fam == "melee" and item not in NPCCORE_MELEE: raise SystemExit("R1: melee weapon %s is not in 0-XNPCCore's melee set" % item)
+    if fam != "melee" and item not in NPCCORE_WEAPON_AMMO: raise SystemExit("R1: %s is not in 0-XNPCCore's ammo table - it would roll with no ammo" % item)
+    if fam != "melee" and NPCCORE_WEAPON_AMMO[item] != (vprop(vitem(item), "Magazine_items", "Action0") or "").split(",")[0].strip():
+        raise SystemExit("R1: 0-XNPCCore's ammo for %s (%s) is not its first magazine item" % (item, NPCCORE_WEAPON_AMMO[item]))
+bandit_lists, bandit_stats = {}, {}
+for tier in (1, 2, 3):
+    band = tier - 1
+    pv = bandit_probs(van_rows, band)
+    cv = bandit_counts(pv, BANDIT_LIST_SIZE)
+    vlist = bandit_entries(cv, [r[0] for r in van_rows])
+    if BANDIT_KIT[tier] not in vlist: raise SystemExit("R1: the T%d kit %s is not in the T%d list" % (tier, BANDIT_KIT[tier], tier))
+    pa = bandit_probs(van_rows + izy_rows4, band)
+    izy_target = sum(v for k, v in pa.items() if k.startswith("IZY"))
+    for m_ in range(BANDIT_LIST_SIZE, 12 * BANDIT_LIST_SIZE):
+        ca = bandit_counts(pa, m_, cv)
+        izy_got = sum(v for k, v in ca.items() if k.startswith("IZY")) / float(m_)
+        if bandit_family_error(ca, fam_of, band) <= 0.01 and abs(izy_got - izy_target) <= 0.01: break
+    else:
+        raise SystemExit("R1: no IZY suffix up to %d entries meets the shares at T%d" % (12 * BANDIT_LIST_SIZE, tier))
+    suffix = bandit_entries(ca, [r[0] for r in van_rows + izy_rows4], cv)
+    bandit_stats[tier] = (cv, ca, izy_target)
+    for male in (True, False):
+        n = raider(male, tier)
+        bandit_lists[(n, "vanilla")] = vlist
+        bandit_lists[(n, "izy")] = vlist + suffix
+
+def bandit_snapshot(lists):
+    """The append-only rule against BANDIT_SNAPSHOT (class, variant, list per line); writes the file when a list is new or longer."""
+    old = {}
+    if os.path.isfile(BANDIT_SNAPSHOT):
+        for ln in io.open(BANDIT_SNAPSHOT, encoding="utf-8").read().splitlines():
+            if not ln.strip() or ln.startswith("#"): continue
+            parts = ln.split("\t")
+            if len(parts) != 3: raise SystemExit("R1: %s: unreadable line %r" % (BANDIT_SNAPSHOT, ln[:80]))
+            old[(parts[0], parts[1])] = parts[2].split(",")
+    for key, o in old.items():
+        new = lists.get(key)
+        if new is None: raise SystemExit("R1: %s %s list is in %s but no longer generated - saved raiders index it" % (key[0], key[1], BANDIT_SNAPSHOT))
+        if new[:len(o)] != o:
+            bad = next((i for i in range(min(len(o), len(new))) if new[i] != o[i]), min(len(o), len(new)))
+            raise SystemExit("R1: the %s %s weapon list no longer starts with the generated one in %s (entry %d: %s, was %s) - saved raiders "
+                             "keep the index of their weapon (SdcsWeapon), so a list may only grow at its end"
+                             % (key[0], key[1], os.path.basename(BANDIT_SNAPSHOT), bad + 1, new[bad] if bad < len(new) else "(none)", o[bad] if bad < len(o) else "(none)"))
+    if any(old.get(k) != v for k, v in lists.items()):
+        head = ("# Tools/gen_arsenal.py (round R1): the raiders' SdcsWeapons lists as generated. A saved raider keeps the 1-based index\n"
+                "# of its weapon in its class's list (0-XNPCCore's SdcsWeapon cvar), so these lists may only grow at their end: the\n"
+                "# generator stops when a list it makes does not start with the one here. class, variant (vanilla; izy = with IZY\n"
+                "# Classic), entries; tab-separated.\n")
+        io.open(BANDIT_SNAPSHOT, "w", encoding="utf-8", newline="\n").write(
+            head + "".join("%s\t%s\t%s\n" % (k[0], k[1], ",".join(v)) for k, v in sorted(lists.items())))
+        return "written"
+    return "unchanged"
+for tier in (1, 2, 3):
+    for male in (True, False):
+        n = raider(male, tier)
+        if bandit_lists[(n, "izy")][:len(bandit_lists[(n, "vanilla")])] != bandit_lists[(n, "vanilla")]:
+            raise SystemExit("R1: %s's IZY list does not start with its vanilla list" % n)
+bandit_snap = bandit_snapshot(bandit_lists)
+
+# the classes the block names must exist where the game will look for them
+for male in (True, False):
+    b = cls(BANDIT_PARENT[male])
+    if b is None: raise SystemExit("R1: 0-XNPCCore has no %s - update BANDIT_PARENT" % BANDIT_PARENT[male])
+    if b.get("extends") not in XNPC_SURVIVORS: raise SystemExit("R1: %s no longer extends one of the six survivor classes (X1's child ops give it its look trigger)" % BANDIT_PARENT[male])
+    if (class_prop(BANDIT_PARENT[male], "IsMale") or "true").lower() != ("true" if male else "false"):
+        raise SystemExit("R1: %s is not %s - BANDIT_PARENT pairs the sexes wrong" % (BANDIT_PARENT[male], "male" if male else "female"))
+van_classes = ET.parse(os.path.join(VAN, "entityclasses.xml")).getroot()
+for bag in BANDIT_LOOT_BAG.values():
+    if bag and not van_classes.xpath("//entity_class[@name=$n]", n=bag): raise SystemExit("R1: loot bag class %s is not vanilla" % bag)
+for kit in BANDIT_KIT.values():
+    if vitem(kit) is None: raise SystemExit("R1: kit melee %s is not a vanilla item" % kit)
+
+BANDIT_HEAD = """
+\t<!-- GENERATED by Tools/gen_arsenal.py (round R1, bandit_block): edit it there, not here.
+
+\t     With 0-XNPCCore's bandits (3.4.02 and later; never on game 3.2), SurvivorCommunity's raiders are thin children of
+\t     them: the six raider classes above go and come back with the same names on a template per sex,
+\t       %(tm)s on %(pm)s (male),
+\t       %(tf)s on %(pf)s (female).
+\t     The bandit gives the body, faction, AI, tags, kill XP, spawn ammo (60 rounds), loot bag and its look trigger
+\t     (SDCS Look, which the block above gives back to the bandits): the DLL routes that trigger to 0-XNPCCore's
+\t     gear-only half (the weapon roll, the ammo, the weapon in the bag, the hand) and keeps SC's look, name and Shooting
+\t     stars (%(marker)s marks these classes). The empty look pool is the fail-safe: should that re-route not
+\t     bind, 0-XNPCCore's applier stops there, before the name, archetype and armour. SC's: the raider title, map
+\t     markers, no bag stock, no inventory window, SC's chase speeds, worn armor at half protection, no landmine
+\t     immunity, kill XP raised by weapon (the cvar %(xp)s).
+\t     Per tier: SC's raider names, the armor tier, the loot bag (T1 plain, T2 blue, T3 red), the kit melee
+\t       %(kits)s,
+\t     and the weapon list 0-XNPCCore rolls one entry of. Duplicates are the weights: SC's raider odds, ranged
+\t     %(ranged)s by tier, of those firearms %(fire)s, else bows and crossbows, the rest melee. A saved raider keeps
+\t     its entry's index, so these lists only ever grow at their end (Tools/raider_weapon_lists.txt). With IZY Classic
+\t     the same lists continue with its guns (and the entries that keep the shares). -->
+\t<conditional>
+\t\t<if cond="%(cond)s">
+\t\t\t<remove xpath="/entity_classes/entity_class[%(old)s]"/>
+\t\t\t<append xpath="/entity_classes">
+"""
+BANDIT_TEMPLATE_XML = """\t\t\t\t<entity_class name="%(name)s" extends="%(base)s">
+\t\t\t\t\t<property name="UserSpawnType" value="None"/>
+\t\t\t\t\t<property name="%(marker)s" value="true"/>
+\t\t\t\t\t<property name="SdcsLookArchetypes" value=""/>
+\t\t\t\t\t<property name="IsQuestGiver" value="false"/>
+\t\t\t\t\t<property name="Titles" value="Raider"/>
+\t\t\t\t\t<property name="NavObject" value="%(nav)s"/>
+\t\t\t\t\t<property name="BagItems" value="none"/>
+\t\t\t\t\t<property name="HarvestItems" value="none"/>
+\t\t\t\t\t<property name="MoveSpeed" value="1.6"/>
+\t\t\t\t\t<property name="MoveSpeedAggro" value="2.9, 3.1"/>
+\t\t\t\t\t<property name="MoveSpeedPanic" value="2.9"/>
+\t\t\t\t\t<effect_group name="%(armor_group)s">
+\t\t\t\t\t\t<passive_effect name="PhysicalDamageResist" operation="perc_add" value="%(armor)s"/>
+\t\t\t\t\t</effect_group>
+\t\t\t\t\t<effect_group name="SurvivorCommunity raider">
+\t\t\t\t\t\t<passive_effect name="LandMineImmunity" operation="base_set" value="0"/>
+\t\t\t\t\t\t<passive_effect name="ExperienceGain" operation="perc_add" value="@%(xp)s"/>
+\t\t\t\t\t</effect_group>
+\t\t\t\t</entity_class>
+"""
+BANDIT_LEAF_XML = """\t\t\t\t<entity_class name="%(name)s" extends="%(template)s">
+\t\t\t\t\t<property name="UserSpawnType" value="Menu"/>
+\t\t\t\t\t<property name="Names" value="%(names)s"/>
+\t\t\t\t\t<property name="SdcsArmorTier" value="%(tier)d"/>
+\t\t\t\t\t<property class="ItemsOnEnterGame">
+\t\t\t\t\t\t<property name="GameModeSurvival" value="%(kit)s"/>
+\t\t\t\t\t\t<property name="GameModeSurvivalSP" value="%(kit)s"/>
+\t\t\t\t\t\t<property name="GameModeSurvivalMP" value="%(kit)s"/>
+\t\t\t\t\t</property>
+%(loot)s\t\t\t\t\t<property name="SdcsWeapons" value="%(weapons)s"/>
+\t\t\t\t</entity_class>
+"""
+
+def bandit_block():
+    def q(x): return x.replace("'", "&quot;")
+    xp_m = "/entity_classes/entity_class[@name='%s']/@name" % BANDIT_PARENT[True]
+    xp_f = "/entity_classes/entity_class[@name='%s']/@name" % BANDIT_PARENT[False]
+    old = " or ".join("@name='%s'" % n for n in [RAIDER_TEMPLATE[True], RAIDER_TEMPLATE[False]] + RAIDERS)
+    out = [BANDIT_HEAD % {"tm": BANDIT_TEMPLATE[True], "pm": BANDIT_PARENT[True], "tf": BANDIT_TEMPLATE[False], "pf": BANDIT_PARENT[False],
+                          "marker": BANDIT_MARKER, "xp": RAIDER_XP_CVAR, "old": old,
+                          "kits": ", ".join(BANDIT_KIT[t] for t in (1, 2, 3)),
+                          "ranged": "/".join("%g%%" % (100 * x) for x in BANDIT_RANGED_SHARE),
+                          "fire": "/".join("%g%%" % (100 * x) for x in BANDIT_FIREARM_SHARE),
+                          "cond": "xpath('%s') != null and xpath('%s') != null" % (q(xp_m), q(xp_f))}]
+    for male in (True, False):
+        out.append(BANDIT_TEMPLATE_XML % {"name": BANDIT_TEMPLATE[male], "base": BANDIT_PARENT[male], "marker": BANDIT_MARKER,
+                                          "nav": RAIDER_NAV_OBJECT, "armor_group": BANDIT_ARMOR_GROUP,
+                                          "armor": "%g" % (WORN_ARMOR_SCALE - 1.0), "xp": RAIDER_XP_CVAR})
+        for tier in (1, 2, 3):
+            n = raider(male, tier)
+            bag = BANDIT_LOOT_BAG[tier]
+            out.append(BANDIT_LEAF_XML % {"name": n, "template": BANDIT_TEMPLATE[male], "names": NAMES[("r", male)], "tier": tier,
+                                          "kit": BANDIT_KIT[tier], "weapons": ",".join(bandit_lists[(n, "vanilla")]),
+                                          "loot": ('\t\t\t\t\t<property name="LootDropEntityClass" value="%s"/>\n' % bag) if bag else ""})
+    out.append("\t\t\t</append>\n")
+    out.append("\t\t\t<!-- with IZY Classic: the same lists, its guns (and the entries that keep the shares) at the end -->\n")
+    out.append('\t\t\t<conditional>\n\t\t\t\t<if cond="%s">\n' % IZY_COND)
+    for male in (True, False):
+        for tier in (1, 2, 3):
+            n = raider(male, tier)
+            out.append("\t\t\t\t\t<set xpath=\"/entity_classes/entity_class[@name='%s']/property[@name='SdcsWeapons']/@value\">%s</set>\n"
+                       % (n, ",".join(bandit_lists[(n, "izy")])))
+    out.append("\t\t\t\t</if>\n\t\t\t</conditional>\n\t\t</if>\n\t</conditional>\n")
+    return "".join(out)
+
+ec_out.append(bandit_block())
+ec_out.append(enclave_drop_classes())
+ec_out.append("</configs>\n")
+io.open(os.path.join(MOD, "entityclasses.xml"), "w", encoding="utf-8", newline="\n").write("".join(ec_out))
+
+# ------------------------------------------------------------------------------------------------------------
 # Localization.csv: a row for every leaf class, managed by key
 # ------------------------------------------------------------------------------------------------------------
 lp = os.path.join(MOD, "Localization.csv")
@@ -974,6 +1255,17 @@ io.open(lp, "w", encoding="utf-8", newline="").write(nl.join(kept + rows) + nl)
 print("classes: %d raider leaves + %d templates (M10, on 0-XNPCCore's body)" % (len(RAIDERS), len(RAIDER_TEMPLATE)))
 print("X1: 0-XNPCCore's children of the six survivor classes given back their parents' look, bag, meds and names: %d (%s)"
       % (len(xnpc_children), ", ".join(xnpc_children) or "none"))
+for tier in (1, 2, 3):
+    cv, ca, izy_target = bandit_stats[tier]
+    def fam_pct(c):
+        tot = float(sum(c.values()))
+        return " ".join("%s %.1f%%" % (f, 100.0 * sum(v for k, v in c.items() if fam_of[k] == f) / tot) for f in BANDIT_FAMILIES)
+    sh = bandit_shares(tier - 1)
+    print("R1: T%d raider list %d entries (%s; SC's odds %s), with IZY Classic %d (%s; IZY %.1f%%, SC's %.1f%%; %d of %d IZY guns)"
+          % (tier, sum(cv.values()), fam_pct(cv), " ".join("%s %.1f%%" % (f, 100 * sh[f]) for f in BANDIT_FAMILIES), sum(ca.values()), fam_pct(ca),
+             100.0 * sum(v for k, v in ca.items() if k.startswith("IZY")) / sum(ca.values()), 100 * izy_target,
+             sum(1 for k, v in ca.items() if k.startswith("IZY") and v > 0), sum(1 for k in ca if k.startswith("IZY"))))
+print("R1: weapon list snapshot (Tools/%s) %s" % (os.path.basename(BANDIT_SNAPSHOT), bandit_snap))
 print("survivor weapons (XnpcWeapons): %d (%s)" % (len(XNPC_WEAPONS), ", ".join(
     "%s %d" % (f, sum(1 for x in XNPC_WEAPONS if x[1] == f)) for f in ("melee", "bow", "firearm"))))
 print("IZY Classic weapons (optional block): %d (%s)%s" % (len(izy_rows), ", ".join("T%d %d" % (k, sum(1 for r in izy_rows if r[2] == k)) for k in sorted(IZY_BANDS)),

@@ -103,6 +103,7 @@
     <Compile Include="Patches_Sdcs.cs" />
     <Compile Include="ScAim.cs" />
     <Compile Include="ScLoadout.cs" />
+    <Compile Include="ScBandits.cs" />
     <Compile Include="ScAmmo.cs" />
     <Compile Include="ScMags.cs" />
     <Compile Include="ScArms.cs" />

@@ -529,6 +529,8 @@ namespace SurvivorCommunity
         /// gamestage tier. Each weapon given fixes that kind of its pair (an item, its short name, or melee / bow / firearm
         /// for one of that family); the kind not given is rolled at the class's tier cap. A raider's lead is rolled
         /// (RaiderRangedShare) unless ranged-lead / melee-lead fixes it. Saved with the world (Persist, StaticSpawner).
+        /// 3.4 with 0-XNPCCore's bandits (round R1): a raider carries ONE weapon from its class's list, which must hold the
+        /// one named (a family word picks one of that family from the list), and no lead (BanditWeapon).
         /// </summary>
         private static void Spawn(List<string> p)
         {
@@ -600,6 +602,11 @@ namespace SurvivorCommunity
                                : "[SC] no 0-XNPCCore survivor class of that sex is loaded (XnpcSurvivorClasses in Config/blocks.xml)");
                 return;
             }
+#if SC_V34
+            // round R1: a raider on 0-XNPCCore's bandits carries one weapon from its class's list (0-XNPCCore's roll when none
+            // is named), and its kit melee; no lead
+            if (hostile && ScXnpc.IsBanditRaiderClass(EntityClass.FromString(cls)) && !BanditWeapon(p, cls, rnd, ref fix)) return;
+#endif
             Vector3 fwd = player.GetForwardVector(); fwd.y = 0f;
             if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
             fwd.Normalize();
@@ -619,6 +626,44 @@ namespace SurvivorCommunity
             Output("[SC] spawned " + (hostile ? "raider " : "") + cls + " (" + (pair != null ? pair.ToString() : "no pair") + ", tier " + ScLoadout.TierCap(cls) + ") id " + npc.entityId
                    + " '" + ScCommunity.DisplayName(npc) + "': " + ScLooks.Describe(look));
         }
+
+#if SC_V34
+        /// <summary>
+        /// Round R1, sc spawn hostile on a bandit-raider class: the weapon named (an item, its short name, or a family word -
+        /// melee, bow, firearm/gun - for a random one of that family from the class's list; meleeonly alone: a random melee
+        /// entry) must be in the class's SdcsWeapons list; at most one weapon; no lead words. fix becomes that one weapon
+        /// (ScBandits.BeforePostInit sets it as the index). False, with the reason printed, when it cannot be.
+        /// </summary>
+        private static bool BanditWeapon(List<string> p, string cls, GameRandom rnd, ref Loadout fix)
+        {
+            int cid = EntityClass.FromString(cls);
+            if (fix.Lead != Loadout.LeadNone) { Output("[SC] " + cls + " is one of 0-XNPCCore's bandits' children: it carries one weapon, no lead (leave out ranged-lead / melee-lead)"); return false; }
+            if (fix.HasRanged && fix.Melee != null) { Output("[SC] " + cls + " carries one weapon (and its kit melee): name one of " + fix.Ranged + " and " + fix.Melee); return false; }
+            string family = null;
+            foreach (string a in p)
+            {
+                string k = a.ToLowerInvariant();
+                if (k == "melee" || k == "bow" || k == "firearm" || k == "gun") family = k == "gun" ? "firearm" : k;
+            }
+            string item = fix.HasRanged ? fix.Ranged : fix.Melee;
+            if (family != null) item = ScBandits.RandomOf(cid, family, rnd);
+            else if (item == null && Loadout.IsNoRanged(fix.Ranged)) item = ScBandits.RandomOf(cid, "melee", rnd);
+            if (item == null && (family != null || fix.Ranged != null || fix.Melee != null))
+            {
+                Output("[SC] " + cls + "'s weapon list has no " + (family ?? "melee") + " weapon");
+                return false;
+            }
+            if (item == null) { fix = new Loadout(); return true; }                   // nothing named: 0-XNPCCore rolls
+            if (ScBandits.IndexOf(cid, item) <= 0)
+            {
+                Output("[SC] " + item + " is not in " + cls + "'s weapon list (sc loadout sim raider counts the lists; another tier, T1/T2/T3, may carry it)");
+                return false;
+            }
+            bool ranged = ScAmmo.RangedAction(ItemClass.GetItemClass(item, true)) != null;
+            fix = ranged ? new Loadout(item, null) : new Loadout(Loadout.NoRanged, item);
+            return true;
+        }
+#endif
 
         private static bool IsArmorSet(string name)
         {
@@ -2167,6 +2212,10 @@ namespace SurvivorCommunity
                   .Append(" CurrentWeaponClass=").Append(e.Buffs.HasCustomVar("CurrentWeaponClass") ? e.Buffs.GetCustomVar("CurrentWeaponClass").ToString() : "-")
                   .Append(" SdcsReloading=").Append(e.Buffs.GetCustomVar("SdcsReloading"))
                   .Append(" SdcsLastMelee=").Append(e.Buffs.HasCustomVar("SdcsLastMelee") ? ItemName((int)e.Buffs.GetCustomVar("SdcsLastMelee")) : "-");
+#if SC_V34
+                // round R1: a raider on 0-XNPCCore's bandits - its rolled entry, kit, index guard, window and pre-marks
+                if (ScXnpc.IsBanditRaider(e)) sb.Append("\n  ").Append(ScBandits.Describe(e));
+#endif
             }
             sb.Append("\n  ammo: ").Append(XnpcAmmo(e, held));
             if (ScRegistry.Loaded) sb.Append("\n  resupply: ").Append(ScAmmo.Describe(e));
@@ -2476,7 +2525,11 @@ namespace SurvivorCommunity
                        + " holding " + (held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : "nothing")
                        + " " + ScArms.LeadState(e) + " hp " + e.Health + "/" + e.GetMaxHealth() + " at " + dist.ToString("0.#") + " m speed " + e.GetVelocityPerSecond().magnitude.ToString("0.0") + " m/s"
                        + " killXp " + ScLoadout.KillXp(e) + " (" + ScLoadout.RaiderXpCvar + " " + (e.Buffs != null ? e.Buffs.GetCustomVar(ScLoadout.RaiderXpCvar).ToString("0.##") : "-") + ")"
-                       + " marker " + (e.NavObject != null ? "on" : "off") + (e.IsSleeper ? " (sleeper)" : ""));
+                       + " marker " + (e.NavObject != null ? "on" : "off") + (e.IsSleeper ? " (sleeper)" : "")
+#if SC_V34
+                       + (ScXnpc.IsBanditRaider(e) ? " - " + ScBandits.Describe(e) : "")
+#endif
+                       );
             }
             Output("[SC] " + n + " raider(s) within " + r + " m" + (dead > 0 ? " (" + dead + " dead)" : ""));
         }

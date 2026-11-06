@@ -11,7 +11,10 @@ namespace SurvivorCommunity
     /// classes that only these bodies need (X8-X13). The numbering is the migration design's (section 1.2).
     ///
     ///   X1  EModelSdcsNpc.createModel        prefix   the body is built from SC's look, not XNPC's preset archetype
-    ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces)
+    ///   X1b MinEventActionSdcsApplyLook      prefix   XNPC's look applier never reaches one of ours (belt and braces);
+    ///                                                 (3.4, round R1) a bandit raider goes through to X1c
+    ///   X1c SdcsLookApplier.Apply            prefix   (3.4 build, round R1; ScBandits.Patch_GearOnly) a bandit raider gets the
+    ///                                                 applier's gear-only half: 0-XNPCCore's weapon roll, ammo and hand
     ///   X2  EModelSdcsNpc.GenerateMeshes     postfix  eyes re-rooted on the head after every build (and hit colliders)
     ///   X3  AvatarSdcsNpcController.SdcsLevelTick                    prefix   no XNPC kill levels on members and stand-ins (D8)
     ///                                                                         nor on raiders (M10-D3); postfix: no regen
@@ -419,7 +422,12 @@ namespace SurvivorCommunity
                 {
                     if (__instance == null || __instance.targets == null) return;
                     // the list is rebuilt by CanExecute before every Execute, so trimming it here touches nothing else
+#if SC_V34
+                    // round R1: a bandit raider goes through - X1c (ScBandits.Patch_GearOnly) gives it the applier's gear-only half
+                    int removed = __instance.targets.RemoveAll(t => ScXnpc.IsBody(t) && !ScXnpc.IsBanditRaider(t));
+#else
                     int removed = __instance.targets.RemoveAll(t => ScXnpc.IsBody(t));
+#endif
                     for (int i = 0; i < removed; i++) Count("x1b-applier-blocked");
                 }
                 catch (Exception ex)
@@ -496,7 +504,13 @@ namespace SurvivorCommunity
                     EntityAlive e = __instance != null ? __instance.entity : null;
                     if (e == null || !ScXnpc.HasXnpcLevels(e)) return true;
                     bool community = ScXnpc.IsCommunity(e);
+#if SC_V34
+                    // round R1: a bandit raider never takes XNPC's day levels, whatever RaiderXnpcLevels says (that key is
+                    // for the old raiders)
+                    if (!community && !(ScXnpc.IsRaider(e) && (!ScConfig.RaiderXnpcLevels || ScXnpc.IsBanditRaider(e)))) return true;
+#else
                     if (!community && !(ScXnpc.IsRaider(e) && !ScConfig.RaiderXnpcLevels)) return true;
+#endif
                     ScXnpc.StripLevels(e);
                     Count(community ? "x3-levels-off" : "x3-raider-levels-off");
                     return false;

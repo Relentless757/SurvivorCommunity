@@ -255,7 +255,10 @@ namespace SurvivorCommunity
         /// HarvestManager container, once created, is written to its own save file for good (HarvestManager persists every
         /// container it holds), which for unsaved wild or raid raiders would leak one entry per raider. The bag is saved
         /// with the entity (when it is saved at all) and emptied into the death backpack (Patches_Npc). So ScMedic's stock
-        /// and use, and a console give, go to a raider's bag, and no HarvestManager.GetOrCreate ever runs for one.
+        /// and use, and a console give, go to a raider's bag, and SC itself never creates a window for one. 0-XNPCCore does
+        /// (on 3.4): its trade stock and water seeding and, for a raider on its bandits (round R1), its spawn-ammo grant
+        /// put things in one; for those raiders SC pre-marks the first two as done, moves the ammo into the bag and drops
+        /// the emptied window (ScBandits), and the death drop removes any window left.
         /// </summary>
         public static ItemStack[] Items(EntityAlive e)
         {

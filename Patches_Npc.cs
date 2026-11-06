@@ -78,6 +78,11 @@ namespace SurvivorCommunity
                         try { ScTaunts.OnDied(__instance); }
                         catch (Exception ex) { ScLog.Once("voice-taunt-died", ex); }
                     }
+#if SC_V34
+                    // round R1 (decision 3): a bandit raider's loot is 0-XNPCCore's loot bag alone - its bag is discarded, no backpack
+                    if (ScXnpc.IsBanditRaider(__instance)) ScBandits.OnDied(__instance);
+                    else
+#endif
                     if (ScXnpc.IsBody(__instance) || (ScNpc.IsV4(__instance) && ScXnpc.IsCommunity(__instance))) DropWindow(__instance);
                     if (!ScRegistry.Loaded) return;
                     if (__instance.Buffs != null && __instance.Buffs.HasCustomVar(ScRadio.StandInCvar)) { ScRadio.OnStandInDied(__instance); return; }

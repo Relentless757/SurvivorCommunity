@@ -172,6 +172,9 @@ namespace SurvivorCommunity
             Pending = null;
             xnpcWeapons = null;
             sources.Clear();
+#if SC_V34
+            ScBandits.Reset();
+#endif
         }
 
         // ---- catalogue ----
@@ -363,6 +366,10 @@ namespace SurvivorCommunity
             // not behind any switch: the class's own list (XNPC's pipe pistol, and a full 9 mm stack refilled on every
             // load) has to go
             if (!ScNpc.IsV4(e)) return;
+#if SC_V34
+            // round R1: a bandit raider carries no pair - 0-XNPCCore rolls its one weapon (ScBandits), its class kit stays
+            if (ScXnpc.IsBanditRaiderClass(e.entityClass)) { ScBandits.BeforePostInit(e, pending); return; }
+#endif
             Loadout x = ResolveXnpc(e, cls, pending, ScXnpc.IsRaiderClass(cls));
             if (x != null) Rewrite(e, cls, XnpcOrder(x));
         }
@@ -758,6 +765,10 @@ namespace SurvivorCommunity
                 if (raider) SetRaiderXp(e);              // every PostInit, before the seeded raider returns below
                 if (runnerRestore) return;               // the rest: AfterRunnerRestore, on the bag the runner keeps
                 ScAmmo.MoveWindowAmmoToBag(e);           // a no-op without a window (raiders never have one)
+#if SC_V34
+                // round R1: a bandit raider's ammo is 0-XNPCCore's spawn grant (ScBandits seeds a weapon SC set itself)
+                if (raider && ScXnpc.IsBanditRaiderClass(e.entityClass)) { ScBandits.AfterPostInit(e); ScAmmo.LoadLoose(e); return; }
+#endif
                 SeedAmmo(e, raider);
                 ScAmmo.LoadLoose(e);                     // once at load (M11): loose rounds of a magazine gun into its magazines
             }
@@ -780,6 +791,9 @@ namespace SurvivorCommunity
                 if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost || e.Buffs == null) return;
                 ScAmmo.FlushDeferredLoose(e);
                 ScAmmo.MoveWindowAmmoToBag(e);
+#if SC_V34
+                if (!ScXnpc.IsBanditRaider(e))           // round R1: never a starting stack of SC's for a bandit raider
+#endif
                 SeedAmmo(e, ScXnpc.IsRaider(e));
                 ScAmmo.LoadLoose(e);
             }
@@ -901,11 +915,34 @@ namespace SurvivorCommunity
             if (e == null) return null;
             string cls = ScCommunity.ClassName(e);
             if (!IsBodyClass(cls)) return null;
+#if SC_V34
+            // round R1: a bandit raider's one weapon (rolled, or about to be: ScBandits.Weapon) as a pair - a gun or bow with
+            // the kit melee beside it, or a melee weapon alone
+            if (ScXnpc.IsBanditRaiderClass(e.entityClass))
+            {
+                Loadout b = ScBandits.Current(e);
+                if (b == null) return null;
+                Validate(b, true);
+                return b.Ranged != null || b.Melee != null ? b : null;
+            }
+#endif
             Loadout l = FromCvars(e);
             if (l == null) return null;
             Validate(l, ScXnpc.IsRaiderClass(cls));
             return l;
         }
+#if SC_V34
+
+        /// <summary>Round R1: SC's item hash (the loadout cvars' and ScBandits' index guard).</summary>
+        internal static float HashOf(string token) { return Hash(token); }
+
+        /// <summary>Round R1: melee, bow or firearm - the catalogue's family, else from the item itself; null for no weapon.</summary>
+        internal static string FamilyOf(string item)
+        {
+            Weapon w = Find(item);
+            return w != null ? w.Family : FamilyOfItem(item);
+        }
+#endif
 
         /// <summary>
         /// The melee weapon of a managed body's pair while it can still hold it (SCore's FindWeapon: it is on its item
@@ -916,6 +953,9 @@ namespace SurvivorCommunity
         {
             EntityAliveSDXV4 v = e as EntityAliveSDXV4;
             if (v == null || !ScXnpc.IsBody(e)) return null;
+#if SC_V34
+            if (ScXnpc.IsBanditRaider(e)) return null;     // round R1: 0-XNPCCore's own choice, the first melee item it carries (the kit)
+#endif
             Loadout l = Current(e);
             if (l == null || l.Melee == null) return null;
             return v.FindWeapon(l.Melee) ? l.Melee : null;
@@ -935,6 +975,17 @@ namespace SurvivorCommunity
             if (!IsBodyClass(cls)) { why = "not one of the community's 0-XNPCCore survivors or SC's raiders"; return false; }
             if (ScMedic.IsUsing(e.entityId)) { why = "busy using a medical item"; return false; }
             if (!ScNpc.IsV4(e)) { why = cls + " is not an EntityAliveSDXV4"; return false; }
+#if SC_V34
+            // round R1: a bandit raider carries one weapon from its class's list, no pair and no lead
+            if (ScXnpc.IsBanditRaiderClass(e.entityClass))
+            {
+                if (change.Lead != Loadout.LeadNone) { why = "a raider on 0-XNPCCore's bandits has no lead weapon: it carries one weapon (and its kit melee)"; return false; }
+                string item = change.HasRanged ? change.Ranged : change.Melee;
+                if (item == null) { why = "name one weapon from its class's list"; return false; }
+                sources[e.entityId] = "console";
+                return ScBandits.SetWeapon(e, item, freshAmmo, out why);
+            }
+#endif
             bool raider = ScXnpc.IsRaiderClass(cls);
             Loadout l = Current(e) ?? ResolveXnpc(e, cls, null, raider);
             if (l == null) { why = "no weapons loaded for " + cls; return false; }
@@ -1018,6 +1069,9 @@ namespace SurvivorCommunity
             foreach (ItemStack st in e.itemsOnEnterGame)
                 if (st != null && st.itemValue != null && st.itemValue.ItemClass != null
                     && string.Equals(st.itemValue.ItemClass.GetItemName(), StackName(w.Item), StringComparison.OrdinalIgnoreCase)) { iv = st.itemValue.Clone(); break; }
+#if SC_V34
+            if (iv == null && ScXnpc.IsBanditRaider(e)) iv = ScBandits.Carried(e, w.Item);   // round R1: its rolled weapon is in the bag
+#endif
             if (iv == null) { why = w.Item + " is not on the NPC's item list"; return false; }
             if (!ScNpc.UpdateWeapon(e, iv, true)) ScMedic.Hold(e, e.inventory.holdingItemIdx, iv, 1);
             if (!ScXnpc.IsBody(e)) SetWeaponClass(e);
@@ -1137,6 +1191,9 @@ namespace SurvivorCommunity
                 if (raider) sb.Append(" lead ").Append(Loadout.LeadName(l.Lead));
                 sb.Append(" tier ").Append(TierCap(cls)).Append(", starting ammo given ").Append(e.Buffs != null && e.Buffs.GetCustomVar(AmmoSeededCvar) > 0f);
             }
+#if SC_V34
+            if (ScXnpc.IsBanditRaider(e)) sb.Append("\n[SC]    ").Append(ScBandits.Describe(e));
+#endif
             ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
             sb.Append("\n[SC]    holding ").Append(held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : "nothing")
               .Append(" (slot ").Append(e.inventory != null ? e.inventory.holdingItemIdx : -1).Append(") CurrentWeaponClass=")
@@ -1172,6 +1229,9 @@ namespace SurvivorCommunity
             var rangedLead = new int[3];
             var perTier = new int[3];
             if (Catalogue().Count == 0) return "[SC] no weapons in XnpcWeapons (Config/blocks.xml)";
+#if SC_V34
+            if (raider && ScXnpc.BanditRaidersLoaded()) return ScBandits.Simulate();   // round R1: their class lists, counted
+#endif
             for (int i = 0; i < n; i++)
             {
                 int t = classTier >= 0 ? classTier : raider ? i % 3 : 2;

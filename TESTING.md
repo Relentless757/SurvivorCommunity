@@ -1580,6 +1580,90 @@ on a Voice Control contract. The spawn menu is F6
      `sc xnpc` (no id), `voice control: ... intercepted:` shows `contract-refused` (Voice Control's contract start, as
      before) and never a contract on a member; `billing-reply-refused` only if an old contract was still on them.
 
+**R1. Round 21: raiders as 0-XNPCCore's bandits (3.4)**
+
+Built 2026-11-05 on branch `ms/r1`, on top of X1 (SC 3.4 DLL `29f1f4bd69cf526530e5c64e3caada5e`, `Port33\build\sc34_r1`),
+**not installed**: these steps wait for the install (with X1's review fixes merged). Game 3.4 with 0-XNPCCore 3.4.02. What
+changed: SC's six raider classes are now children of 0-XNPCCore's bandits (men on `npcSdcsBanditMelee`, women on
+`npcSdcsBanditRanged`). 0-XNPCCore arms each raider with ONE weapon rolled from its class's list (SC's odds: a gun or bow
+30/40/50% by tier, of those a firearm 12/12/85%, the rest melee), 60 rounds for a gun or bow, plus the tier's kit melee
+for close range (T1 a wooden club, T2 a baseball bat, T3 a machete); it runs their fight, drops its zombie loot bag at
+death (T1 plain, T2 blue, T3 red) and applies its damage-to-players setting. SC keeps the look (clothes, Vanity Vault
+paints and tattoos), names, Shooting stars, healing, spawning, dens, bands, raids, taunts and markers. No lead weapon,
+no SC backpack, no Locked & Loaded magazines and no day levels on raiders any more. Set `DebugLogging` to true in the 3.4
+install's SC `Config/blocks.xml`. `sc xnpc` (no id) prints the counters named below on its `hooks:` line; `sc xnpc <id>`
+shows one raider, with a `bandit raider:` line. Keep a copy of a 3.4 save that has raiders in it (from an earlier build)
+for step 345 before installing.
+
+330. **Start-up.** Load the world. In the log: `patched SdcsLookApplier::Apply` and `patch verification: all ... targets
+     patched` (one more than with X1 alone), none `MISSING`, no `0-XNPCCore method SdcsLookApplier... not found` warning, no
+     XML `did not apply` line for SurvivorCommunity. Expected new lines: `Xpath conditional on file: entityclasses.xml`
+     followed by `Match: name="npcSdcsBanditMelee"`, then the same for `npcSdcsBanditRanged`, and one for utilityai.xml
+     with `Match: name="HoldEngaged"`.
+331. **Spawn and look.** `sc spawn hostile male T1` three times, `sc spawn hostile female T1` three times, then the same
+     at T2 and T3. Each wears SC's raider clothes for its tier (never 0-XNPCCore's whole preset armour set), has an SC
+     raider name (Rook, Scab, Vex, ... / Ash, Blaze, Crow, ...) with "the Raider", and attacks you. The console line names
+     its weapon and kit (e.g. `(gunBowT1WoodenBow + meleeWpnClubT0WoodenClub, tier 0)` or `(none + meleeWpnSpearT0StoneSpear,
+     ...)`). `sc xnpc <its id>` a second later: `bandit raider: SdcsWeapon=<n>/200 weapon=<that item> kit=<the tier's kit>
+     hashGuard=ok window=False stock/water marked=True/True`, and it holds that weapon. `sc xnpc`: `x1c-raider-gear-only`
+     counts one per raider; with `DebugLogging` the log says `raider <id> (scRaider...) rolled <item> (entry <n> of 200)`.
+     The log must NOT say `[SDCS-LOOK] class scRaider... has no SdcsLookArchetypes pool` (that means X1c is off).
+332. **Weapon and ammo.** A raider with a gun or bow, before it fires: `sc xnpc <id>`'s `ammo:` line shows 60 rounds
+     (arrows, bolts) of its ammo between its magazine and its stores, the `bandit raider:` line `window=False` (the rounds
+     were moved into the bag); `sc xnpc` counts `x1c-window-removed`. A melee raider holds its rolled weapon (a spear, a sledge, knuckles, ...) and has no ammo.
+333. **The mix.** `sc loadout sim raider`: one line per class - T1 `200 entries, melee 69.0% bow 27.0% firearm 4.0%`, T2
+     60.0/35.0/5.0, T3 50.0/8.0/42.0 (with IZY Classic installed: 241, 316 and 766 entries, `IZY 3`, `8`, `262`). Spawn
+     about ten of each sex at T1 (`sc spawn hostile male T1`, ...): about a third carry a bow or (rarely) a gun, men and
+     women alike - female brawlers and male archers both turn up.
+334. **Named weapons.** `sc spawn hostile female T1 club`: she holds a wooden club. `sc spawn hostile male T1 PipePistol`:
+     he holds a pipe pistol and has 60 9 mm rounds. `sc spawn hostile male T3 firearm`: a random gun from the T3 list.
+     `sc spawn hostile male T1 M60`: refused, `... is not in scRaiderMaleT1's weapon list`. `sc spawn hostile male T1
+     ranged-lead`: refused (no lead). `sc spawn hostile male T1 club PipePistol`: refused (one weapon). `sc xnpc` counts
+     `r1-known-weapon-set` and `r1-known-weapon-seeded`.
+335. **sc loadout.** On a T1 raider: `sc loadout <id> gunBowT1WoodenBow`: it takes a wooden bow and has 60 arrows in its
+     bag; `sc loadout <id> gunMGT3M60`: refused, not in its list.
+336. **Fight.** A ranged raider shoots you, swaps to its kit melee when you are within about 3 m and back to the gun when
+     you back off; one out of ammo fights with the kit melee. A melee raider closes in. Raiders fight zombies too. You take
+     less damage from them than from 0-XNPCCore's own settings at 1: type `sdcsbandit` to see its damage setting (0.5 by
+     default) - raiders are listed among the bandits it applies to.
+337. **Death and the loot bag.** Kill a T1, a T2 and a T3 raider: each drops one zombie loot bag - T1 the plain one, T2
+     the blue (Strong) one, T3 the red (Boss) one with better loot - and no SC backpack; the bag's chance is the world's
+     loot bag drop setting (at 100% always). Kill XP still follows the weapon (a melee raider 600, a T3 gun raider up to
+     1398; `sc raiders` shows `killXp` before you kill it). `sc xnpc` counts `raider-death-discard` once per raider.
+338. **Vanity Vault on raiders.** `sc spawn hostile` a dozen times: some come with tattoos and face paints (35% / 10% / 6%
+     body paint), as in X1 313. `sc paint <raider id> face Sonja_Joker`: the paint shows on the raider. Save and reload: it
+     keeps its paints, clothes, name and weapon.
+339. **A raider den.** Go to a raider enclave (`sc enclave list`, a red skull on the map): its people hold their spots,
+     defend the building and chase you within its grounds, then go back. Note three of them and their weapons (`sc
+     raiders 60`). Leave until they despawn (past `EnclaveSpawnRange` plus the margin), come back: same names, looks and
+     weapons; `sc xnpc` counts `r1-known-weapon-set` for each re-made body (their records carry the weapon). The leader
+     and people of a survivor enclave are unchanged (not raiders).
+340. **A band on the road.** `sc band spawn raiders` (walking through you from 140 m). Before they see you: they keep
+     walking past zombies and do not stop to face something 30-40 m away (`sc xnpc <one of them>`'s `uai:` line never shows
+     `HoldEngaged` while the band walks); once one sees you, the whole band attacks; they taunt on spotting you and
+     searching, as before.
+341. **An enclave raid.** With outpost attacks on and an outpost within 2 km of a raider den: `sc enclave raid <den id>
+     <outpost id> now`: the raiders come for the outpost's stand-in or you and keep that target; each carries the weapon
+     their record has.
+342. **Save and load mid-fight.** `sc spawn hostile male T2 Rifle` (an AK-47), let it fire part of a magazine at you from
+     cover, then save and quit while it is loaded with fewer than a full magazine. Reload: same look, name and gun; `sc xnpc
+     <id>`: the rounds are not lost (gun plus bag about what they were) and no new 60 came (the log has no `rolled` line for
+     it, `x1c-raider-gear-only` counts again).
+343. **Levels and aim.** A few in-game days later (`settime` forward, not `settime day`), `sc xnpc <raider id>`: the
+     `levels:` line all `-`, `aim spread: SdcsAimSpread=-1 SdcsBanditSpread=-`; `sc xnpc` counts `x3-raider-levels-off`
+     (even with `RaiderXnpcLevels` set to true).
+344. **IZY Classic.** With IGP_Classic and Combat Sandbox installed (they are in the 3.4 install): `sc spawn hostile male T3
+     AKM`: he holds IZY's AKM and has 60 rounds of its ammo in his bag, and fires; `sc xnpc` counts `x1c-unmapped-ammo`.
+     0-XNPCCore logs one warning `[SDCS-WEAPON] class scRaiderMaleT3: rolled weapon 'IZY...'` once a T3 raider rolls an
+     IZY gun by itself (expected: its table has no IZY ammo; SC gives it).
+345. **An old save.** Load the copy of a 3.4 save that has raiders from an earlier build (keep the original): no errors;
+     they keep their look and name and now carry one 0-XNPCCore-rolled weapon with its ammo (plus whatever ammo and meds
+     their bag held). `sc xnpc` counts `r1-old-raider-migrated`; `sc xnpc <id>` shows `sc_loadout_r/m=0/0` and no lead.
+346. **0-XNPCCore's own bandits are unchanged.** F6 (`dm` first): `npcSdcsBanditMelee` and `npcSdcsBanditRanged` look,
+     arm and name themselves as in X1 301 and 302 (0-XNPCCore's armour set and names, the ranged one with 60 pipe rounds);
+     `sc xnpc <id>`: `managed=False`, no `bandit raider:` line. Killed, each drops its plain loot bag.
+347. **SC's survivors are unchanged.** As X1 305: `sc spawn male` / `sc spawn female`: SC's look and names, talk as before.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

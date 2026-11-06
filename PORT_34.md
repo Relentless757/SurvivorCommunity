@@ -2388,3 +2388,96 @@ Builds: SC 3.4 `92fee5b0980d855f5b4c9712e354e4dd` (`build\sc34_x1`; the first pa
 `cbedf29e`), 0 errors
 (the two old CS0108 warnings). The 3.2 DLL was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not
 installed.
+
+### Round 21: raiders as NPCCore bandits (R1) (2026-11-05, built, not reviewed, not installed)
+
+Design: `DESIGN_R1_BANDITS.md` (scratch r1); the user took every recommendation (Q1 SC's odds, Q2 kill XP by weapon, Q3 loot
+bag by tier, Q4 SC's chase speeds, Q5 0-XNPCCore's 60 rounds, Q6 the same weapon on a re-made body, Q7 IZY guns with SC's
+ammo, Q8 no trade stock or water on raiders, Q9 no overwhelmed rule on raiders, Q10 the HoldEngaged gate, Q11 the bandits'
+look trigger (done by X1), Q12 the old raider code kept for 3.2 / an older 0-XNPCCore, Q13 the dead blocks.xml keys kept
+and commented, Q14 a kit melee by tier). Branch `ms/r1` from X1's `6d95028`, worktree `Port33\wt\sc-r1`. **3.4 only**: all
+new C# is `#if SC_V34` (the 3.2 build is byte-identical to X1's, `5a8deaef`), the XML is a conditional on 0-XNPCCore's
+bandits, and the C# acts only on classes carrying SC's marker property.
+
+- **Classes (`Tools/gen_arsenal.py` `bandit_block`, its R1 section; `Config/entityclasses.xml`'s R1 block).** With
+  `npcSdcsBanditMelee` and `npcSdcsBanditRanged` present, the old templates and leaves are removed and the same six leaf
+  names come back on `scRaiderBanditMale` (on the melee bandit, male) and `scRaiderBanditFemale` (on the ranged bandit,
+  female). From the bandit: class, model, faction, AI (`SdcsNpcCore, SdcsBanditCombat`), tags, XP 600, spawn ammo 60, loot
+  bag, `SdcsKeepTarget`, npcSdcsBase's player-damage and bandit-aim groups, and `SDCS Look`, which X1's child ops already
+  give back to the bandits, so R1 does not add it (the replay shows exactly one look trigger on every leaf). Templates:
+  `ScBanditRaider` (the marker), `SdcsLookArchetypes ""` (the fail-safe), the Raider title, SC's map markers, `BagItems` /
+  `HarvestItems` none, SC's speeds, a worn-armor group under a name of its own (`SurvivorCommunity raider worn armor
+  scale`; -0.5 + the bandits' +0.5 undo + -0.5 = -0.5, as before) and the raider group (no landmine immunity,
+  `@sc_raiderXp`). Leaves: SC's raider names, `SdcsArmorTier` 1-3, the kit (`ItemsOnEnterGame`, all three modes: club /
+  baseball bat / machete), T2 `EntityLootContainerStrong`, T3 `EntityLootContainerBoss`, and `SdcsWeapons`.
+- **Weapon lists.** 0-XNPCCore rolls one entry uniformly (`1 + Mix(id, 31806) % length`), so weights are duplicates:
+  SC's odds when R1 was made (ranged 30/40/50%, of those firearms 12/12/85%), each weapon by ScLoadout's own weight (its
+  group's band weight split over its family's weapons of that group), every weapon SC could roll at that tier at least
+  once, 200 entries: T1 melee 69.0 / bow 27.0 / firearm 4.0% (SC's 70 / 26.4 / 3.6), T2 60 / 35 / 5 (60 / 35.2 / 4.8), T3
+  50 / 8 / 42 (50 / 7.5 / 42.5). **Deviation:** with IZY Classic the list is the vanilla one plus a suffix of IZY guns
+  AND the extra vanilla entries that keep the family shares within a point of SC's odds with that pack (IZY guns alone
+  appended would have roughly doubled the T1/T2 firearm share): 241 / 316 / 766 entries, IZY 1.2 / 2.5 / 34.2% (SC's 1.9 /
+  3.4 / 35.2%); an IZY gun whose odds round to no entry at T1 or T2 (10 of 13, 12 of 20) is in the next tier's list. The
+  lists are frozen by saves (the `SdcsWeapon` index): `Tools/raider_weapon_lists.txt` holds them, and the generator stops
+  when a list it makes does not start with its snapshot (tested on a scratch copy: a swapped entry and a shortened list
+  both stop it; a rerun leaves entityclasses.xml byte-identical). The generator also checks every vanilla list item
+  against 0-XNPCCore's own ammo / melee table (`NPCCORE_WEAPON_AMMO`, `NPCCORE_MELEE`, copied from the IL of
+  `WeaponRollRules..cctor`) and each ammo against the gun's first magazine item.
+- **X1c (`ScBandits.cs` `Patch_GearOnly`, :475).** A prefix on 0-XNPCCore's internal `SdcsLookApplier.Apply(Entity)`
+  (bound by name; `ApplyGearOnly(Entity, EntityAlive)`, private, kept as a MethodInfo): for a bandit raider it invokes
+  `ApplyGearOnly` (the weapon section with the same seed: the roll, spawn ammo into the window, one copy into the bag,
+  the hand) and skips the rest (name, archetype, armour; the skipped method's default result 0 is `ApplyOutcome.Done`, so
+  the drain does not retry). Then, host: the rolled item's hash into `sc_rWeapon`, an unmapped gun's ammo (IZY: its first
+  magazine item, the class's spawn count), the window emptied into the bag and dropped from HarvestManager, the kill XP
+  bonus. Prepare false with one warning when either method is gone (the empty pool then stops 0-XNPCCore's applier: kit
+  melee only, and `MISSING PATCH` names Apply); `SdcsLookApplier::Apply` is in ModApi's ExpectedTargets (`ApplyGearOnly` is
+  invoked, not patched, so it is not listed there). X1b (Patches_Xnpc.cs:426) now lets bandit raiders through to it.
+- **ScXnpc** `IsBanditRaiderClass` / `IsBanditRaider` / `BanditRaidersLoaded` (ScXnpc.cs:193-226; the marker, cached
+  under a lock per world). **ScBandits** (new file): the class list as 0-XNPCCore parses it; the weapon (`SdcsWeapon`, or
+  before the roll 0-XNPCCore's own `PickWeaponIndex` prediction, so a record taken right after the spawn -
+  ScEnclavePeople.Capture, ScBands.Capture - names it); the raider as a Loadout (gun or bow + kit, or melee-only);
+  PostInit (stock and water pre-marked; the old raiders' cvars `sc_loadout_r/m`, `sc_raiderLead`, `sc_ammoSeeded`,
+  `sc_pairDropped` taken off once; a pending weapon - a record's or the console's - set as the index with `sc_rSeed`, then
+  seeded in the bag with its spawn ammo; else the `sc_rWeapon` guard re-finds a moved weapon or clears a gone one); the
+  death discard; `sc loadout`; the console helpers.
+- **SC's raider code stands aside for bandit raiders** (the old classes unchanged): ScLoadout BeforePostInit (:370: no
+  pair, the kit stays), AfterPostInit (:769: no SC starting ammo), Current (:919), XnpcMelee (:957: 0-XNPCCore's own melee
+  choice), Set (:979: one weapon from the list, no lead), Arm (:1073: the bag's copy), Describe, Simulate (:1233: the lists
+  counted); X3 (Patches_Xnpc.cs:508: no day levels whatever `RaiderXnpcLevels` says); ScArms.CloseRange (:182, Q9);
+  Patches_Npc SetDead (:82: `ScBandits.OnDied` - a medical use ended, the bag cleared, a window removed, no backpack).
+- **Q10 (`Config/utilityai.xml`, a new conditional; `UaiOps.cs` `ScNotBandWalking`, :982):** 0 on SdcsBanditCombat's
+  HoldEngaged for a band body whose band has not engaged the player (walking or camped), else 1.
+- **Console:** `sc spawn hostile` on a bandit-raider class takes one weapon from the class's list (a family word picks one
+  from it, `meleeonly` alone a random melee entry) and refuses a lead word or two weapons (ConsoleCmdSc.cs BanditWeapon);
+  `sc xnpc <id>` and `sc raiders` show a `bandit raider:` line; counters `x1c-raider-gear-only`, `x1c-window-removed`,
+  `x1c-unmapped-ammo`, `raider-death-discard`, `r1-stock-water-premarked`, `r1-old-raider-migrated`, `r1-known-weapon-set`,
+  `r1-known-weapon-not-in-list`, `r1-known-weapon-seeded`, `r1-index-moved`, `r1-index-cleared`.
+- **Docs:** blocks.xml's raider comment (which keys go dead with the bandits), README's raider section, ScNpc's window
+  comment, TESTING group R1 (330-347).
+
+Checks:
+- **XML replay** (X1's replay copied to scratch `r1\replay`, `ONLY_CFG` entityclasses / utilityai / items / blocks;
+  `effective_r1.py` = X1's effective view plus property classes): on the 3.4 install SC's entityclasses 16/16 ops (the
+  remove matched the 8 old classes), utilityai 19/19 (the HoldEngaged append 1 node), no aborts. Every leaf: chain leaf >
+  template > bandit > survivor T1 > npcSdcsBase(Female), parents before children, `SDCS Look` once (from the bandit),
+  AIPackages `SdcsNpcCore, SdcsBanditCombat`, faction bandits, Tags with the sex and `bandit,no_voice`,
+  PhysicalDamageResist -0.5, LandMineImmunity only SC's 0, ExperienceGain only `@sc_raiderXp`, the kit in all three modes,
+  the loot bag by tier, 200-entry lists; with `IGP_Classic` and `Combat_Sandbox_FLTR` loaded the six IZY sets match 1 each
+  (241 / 316 / 766). The bandits, the six survivors, the creator survivors, the pickpocket and both bases are identical to
+  X1's replay; the bandits against a no-SC replay differ only as X1 left them (the same values, the armor -0.5 + 0.5). On
+  the 3.2 install both conditionals are false and the patched entityclasses.xml and utilityai.xml are byte-identical to
+  X1's.
+- **verify_arsenal.py** (now evaluates conditionals - `mod_loaded` against `SC_VERIFY_MODS`, `xpath()` against the
+  document - instead of applying every branch, takes `SC_GEN_GAME`, and checks the bandit leaves and their lists: the
+  snapshot prefix, family shares within a point, every item exists, vanilla items in 0-XNPCCore's table, the kit in the
+  list): 0 errors on 3.4 (vanilla and IZY) and on the 3.2 install (the old raiders).
+- **HarmonyAudit** (`dynamic_targets34_r1.json` = X1's plus Patch_GearOnly): 3.4 OK=158 (X1 157), no param issues;
+  `static internal SdcsLookApplier/ApplyOutcome SdcsLookApplier::Apply(Entity entity)`, caller
+  `AvatarSdcsNpcController::SdcsDrainDeferredLookApply`. Cecil metadata of the installed 3.4.02 DLL: `ApplyGearOnly(Entity
+  entity, EntityAlive alive)` private static; `ApplyOutcome` Done=0, RemoteCvarsMissing=1; `WeaponRollRules`
+  `PickWeaponIndex`, `AmmoForWeapon`, `AmmoUnmapped`, `ResolveSpawnAmmoGrant`, `ResolveSpawnAmmoCount(bool, string, out
+  bool)` public static (the audit's reference scan resolves them on 3.4). ilspycmd of the built DLL shows the prefix.
+
+Builds: SC 3.4 `29f1f4bd69cf526530e5c64e3caada5e` (`build\sc34_r1`), 0 errors (the two old CS0108 warnings); the 3.2
+build (scratch only) byte-identical to X1's. The tracked `SurvivorCommunity.dll` unchanged. Not reviewed (Fable), not
+installed; merge X1's review fixes before installing.

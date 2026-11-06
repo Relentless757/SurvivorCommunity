@@ -653,7 +653,17 @@
 			     strangers" makes a turret or sensor react to them (survivors and traders are never affected).
 			     RaiderGearSets: the vanilla armor sets raiders dress in (empty: SurvivorGearSets).
 			     Not a key: killing a raider pays 600 XP, more for a better ranged weapon (a bow 798 or 1002, a firearm
-			     900, 1200 or 1398 by tier), and a sleeper raider shows the clear-quest dot like a zombie. -->
+			     900, 1200 or 1398 by tier), and a sleeper raider shows the clear-quest dot like a zombie.
+			     Game 3.4 with 0-XNPCCore's bandits (3.4.02 and later, round R1): the raiders are children of those bandits
+			     and 0-XNPCCore arms them - ONE weapon each, rolled from its class's weapon list (SC's odds: ranged 30/40/50%
+			     by tier, of those firearms 12/12/85%; Tools/gen_arsenal.py writes the lists), 60 rounds for a gun, the kit
+			     melee (club, baseball bat, machete by tier) up close, 0-XNPCCore's loot bag at death (plain, blue, red by
+			     tier) instead of a backpack, and its damage-to-players setting (sdcsbandit). There, RaiderRangedShare,
+			     RaiderLeadRangedDist, RaiderLeadRangedSeconds, RaiderFirearmChance, RaiderMeleeOnlyChance,
+			     RaiderFirearmChanceT3, RaiderSpawnAmmo, RaiderSpawnArrows, RaiderXnpcLevels, RaiderLevelRegen and
+			     RaiderWeaponDropChance do nothing (3.2 only, or an 0-XNPCCore without bandits; raiders never get day
+			     levels there); XnpcRaiderClasses, RaiderVanillaDoors, RaiderTurretsAsEnemies, RaiderGearSets and the kill XP
+			     above still apply. -->
 			<property name="XnpcRaiderClasses" value="scRaiderMaleT1,scRaiderMaleT2,scRaiderMaleT3,scRaiderFemaleT1,scRaiderFemaleT2,scRaiderFemaleT3" />
 			<property name="RaiderRangedShare" value="0.3,0.4,0.5" />
 			<property name="RaiderLeadRangedDist" value="8" />

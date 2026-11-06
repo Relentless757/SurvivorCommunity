@@ -359,4 +359,20 @@
 			</append>
 		</if>
 	</conditional>
+
+	<!--
+	  Round R1 (0-XNPCCore 3.4.02's bandits; SC's raiders are their children there, Config/entityclasses.xml): a band of
+	  raiders on the road keeps walking. The bandits' HoldEngaged (3.5) stands, faces and targets any enemy within 40 m,
+	  seen or not (SCore's utility AI scores every entity in see range), and beats Guard (3), the order a band walks by
+	  (ScBands), so a band near zombies or an unseen player stopped and locked on. ScNotBandWalking is 0 for one of a
+	  band's bodies while the band has not engaged the player, else 1 (everyone else: raiders in a den, wild raiders,
+	  0-XNPCCore's own bandits). Their shot, swing and approach of what they see still run. Only where the action exists.
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsBanditCombat&quot;]/action[@name=&quot;HoldEngaged&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsBanditCombat']/action[@name='HoldEngaged']">
+				<consideration class="ScNotBandWalking, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
 </configs>

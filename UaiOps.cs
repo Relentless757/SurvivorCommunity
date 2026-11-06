@@ -977,6 +977,25 @@ namespace UAI
             return p != null && p.State == EncPerson.StateHome ? 0f : 1f;
         }
     }
+
+    /// <summary>
+    /// 3.4, round R1 (Q10): 0 for one of a band's bodies (ScBands.PersonOf) while its band has not engaged the player
+    /// (Band.Engaged), else 1 - everyone else, a band that is attacking, raiders in a den or the wild, 0-XNPCCore's own
+    /// bandits. On 0-XNPCCore 3.4.02's SdcsBanditCombat HoldEngaged (Config/utilityai.xml, only where that action exists):
+    /// it stands, faces and targets any enemy within 40 m, seen or not, at 3.5, over the Guard order (3) a band walks by
+    /// (ScBands), so a band of raiders, SC's raiders being bandits' children there, stopped on the road for a zombie or an
+    /// unseen player. Their shot, swing and approach of what they see are not gated.
+    /// </summary>
+    public class UAIConsiderationScNotBandWalking : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            BandPerson p = ScBands.PersonOf(_context.Self);
+            if (p == null) return 1f;
+            Band b = ScBands.ById(p.BandId);
+            return b != null && !b.Engaged ? 0f : 1f;
+        }
+    }
 #endif
 
     /// <summary>

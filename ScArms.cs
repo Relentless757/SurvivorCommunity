@@ -178,6 +178,9 @@ namespace SurvivorCommunity
             try
             {
                 if (e == null || e.isEntityRemote || e.inventory == null || !ScXnpc.IsBody(e)) return true;
+#if SC_V34
+                if (ScXnpc.IsBanditRaider(e)) return true;   // round R1 (Q9): a bandit raider swaps up close by 0-XNPCCore's rule alone
+#endif
                 AvatarSdcsNpcController c = ctrl as AvatarSdcsNpcController;
                 if (c == null || !Bind()) return true;
                 float now = Time.time;

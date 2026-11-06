@@ -83,6 +83,9 @@ namespace SurvivorCommunity
             survivors = null;
             raiders = null;
             followPackages.Clear();
+#if SC_V34
+            lock (banditClasses) banditClasses.Clear();
+#endif
         }
 
         /// <summary>Never filled: what Managed answers off the main thread before the set exists.</summary>
@@ -168,6 +171,59 @@ namespace SurvivorCommunity
         {
             return IsBody(e) && IsRaiderClass(e.entityClass);
         }
+#if SC_V34
+
+        /// <summary>
+        /// Round R1 (3.4 build): the class property that marks SC's raider classes made as children of 0-XNPCCore 3.4.02's bandits
+        /// (Tools/gen_arsenal.py BANDIT_MARKER, on the two templates scRaiderBandit{Male,Female}). Only the 3.4 game with an
+        /// 0-XNPCCore that has those bandits makes them (an XML conditional); everywhere else the raider classes are the
+        /// old templates' and carry no marker.
+        /// </summary>
+        public const string BanditMarker = "ScBanditRaider";
+
+        /// <summary>Raider class id -> carries BanditMarker (EntityClass properties are fixed once the XML is loaded). Per world.</summary>
+        private static readonly Dictionary<int, bool> banditClasses = new Dictionary<int, bool>();
+
+        /// <summary>
+        /// Round R1: one of SC's raider classes made on 0-XNPCCore's bandits (BanditMarker): NPCCore rolls its weapon and
+        /// ammo (Patches_Xnpc X1c), drops its loot bag and runs its fight; SC's raider code for the old classes (the pair,
+        /// the lead, the backpack) stands aside for it. Thread-safe: the answer is cached under a lock, and an unknown class
+        /// (EntityClass.list not loaded yet) is not cached.
+        /// </summary>
+        public static bool IsBanditRaiderClass(int entityClass)
+        {
+            if (!IsRaiderClass(entityClass)) return false;
+            lock (banditClasses)
+            {
+                bool marked;
+                if (banditClasses.TryGetValue(entityClass, out marked)) return marked;
+                EntityClass ec;
+                if (EntityClass.list == null || !EntityClass.list.TryGetValue(entityClass, out ec) || ec == null || ec.Properties == null) return false;
+                string v;
+                marked = ec.Properties.Values.TryGetValue(BanditMarker, out v) && string.Equals((v ?? "").Trim(), "true", StringComparison.OrdinalIgnoreCase);
+                banditClasses[entityClass] = marked;
+                return marked;
+            }
+        }
+
+        /// <summary>A raider of a bandit-raider class on XNPC's body (IsRaider and IsBanditRaiderClass).</summary>
+        public static bool IsBanditRaider(Entity e)
+        {
+            return (object)e != null && IsRaider(e) && IsBanditRaiderClass(e.entityClass);
+        }
+
+        /// <summary>Are SC's raiders bandit raiders in this world (the first configured raider class that exists carries the marker)?</summary>
+        public static bool BanditRaidersLoaded()
+        {
+            foreach (string c in ScConfig.XnpcRaiderClasses)
+            {
+                if (string.IsNullOrEmpty(c)) continue;
+                int id = EntityClass.FromString(c.Trim());
+                if (ScCommunity.ClassExists(id)) return IsBanditRaiderClass(id);
+            }
+            return false;
+        }
+#endif
 
         /// <summary>One of the community's 0-XNPCCore survivors on XNPC's body (IsBody and a survivor class).</summary>
         public static bool IsSurvivorBody(Entity e)

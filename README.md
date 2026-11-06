@@ -1448,6 +1448,17 @@ vanilla's.
   they shot the old raiders: the powered auto turret with "target zombies" on, the junk turret and junk sledge with
   "target enemies" on, and a motion sensor set to "target zombies" trips on them (`RaiderTurretsAsEnemies`; false
   leaves only "target strangers", and survivors, members and traders are never affected). A raider spawned as a sleeper shows the red dot of a clear quest, like a zombie.
+- **Game 3.4 with 0-XNPCCore's bandits (3.4.02 and later, round R1): raiders are 0-XNPCCore's bandits underneath.** The
+  same six classes become thin children of 0-XNPCCore's `npcSdcsBanditMelee` (men) and `npcSdcsBanditRanged` (women),
+  so 0-XNPCCore's bandit fighting AI, faction, spawn ammo, loot bag and damage-to-players setting (`sdcsbandit`) are
+  theirs and follow 0-XNPCCore's updates. This mod keeps their look (its faces, raider clothes and Vanity Vault paints
+  and tattoos), names, Shooting stars, healing, title, map markers, chase speeds, half armor protection, kill XP by
+  weapon, and all of its spawning, dens, bands, raids and taunts. Each carries **one** weapon, rolled by 0-XNPCCore
+  from its class's list - this mod's odds by tier: a gun or bow 30/40/50% (of those a firearm 12/12/85%), else a melee
+  weapon - with 60 rounds for a gun, plus its tier's kit melee for close range (a club, a baseball bat, a machete). A
+  dead raider drops 0-XNPCCore's zombie loot bag (plain, blue or red by tier), no backpack. A den's or band's raider
+  made again carries the same weapon. No lead weapon, no `SCRaider` package and no `RaiderXnpcLevels` there (see the
+  raider keys in `Config/blocks.xml`); the 3.2 game, and a 3.4 game with an older 0-XNPCCore, keep the raiders above.
 - The raider classes, the spawn groups, the `XnpcWeapons` list and their names are **generated** by
   `Tools/gen_arsenal.py` from one table; edit the table and rerun it rather than the XML. `Tools/verify_arsenal.py`
   replays the framework's and this mod's patches and checks every class, AI package, archetype, spawn-group entry,
