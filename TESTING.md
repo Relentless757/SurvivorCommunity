@@ -1684,7 +1684,7 @@ traits and Leadership multiply it, so check `sc craft <name>`). Have a land clai
 pot), a forge, a workbench and a chemistry station, crates of materials, and members of several specialties; the F6 spawn menu
 needs `dm`.
 
-370. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, nine more than the build before
+370. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, ten more than X1's build (C1's nine and R1's one, test 330)
      (none `MISSING`; no `crafting: ... not found - that SurvivorCommunity patch is off`); `patched SdcsNpcXp::Pay`,
      `patched AvatarSdcsNpcController::SdcsCountCrafts`, `patched SdcsCraft::PayXp`, `patched SdcsStationCraft::PayXp`,
      `patched TileEntityWorkstation::CheckForCraftComplete`, `patched SdcsLootHere::Finish`,
