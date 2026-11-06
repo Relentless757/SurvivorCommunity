@@ -2686,3 +2686,14 @@ matching); the 3.2 build to a scratch folder 0 errors, the tracked DLL unchanged
 new.
 
 Builds: SC 3.4 `dc9f4eb32eb4ced03fec0c22dfebcecc` (`build\sc34_c1`), 0 errors. Reviewed (Fable), fixes in, not installed.
+
+### Rounds 21 and 22 installed (2026-11-05 21:50)
+
+With the user's go-ahead (3.4 game closed): round 21 (R1, raiders as 0-XNPCCore 3.4.02's bandits; Fable: deployable,
+fixes in 36687a4) and round 22 (C1, community crafting; Fable: deployable after fixes, fixes in 391a91f), merged for one
+install on `ms/int` (merge fc6ea97; a merge-only Fable check: deployable, its doc LOW fixed in e05b586). Merged 3.4 build
+`89c78016d0a64f311eafc8376a940234` (`build\sc34_int`), 0 errors; HarmonyAudit2 3.4 OK=168 (C1's 167 + R1's X1c), 0 param
+issues; XML replay of every SC op on the 3.4 install: all match (utilityai 20, entityclasses 16, dialogs 20). port-3.4
+fast-forwarded to `ms/int` e05b586; `deploy_sc34.py`: 6691 files, installed = built `89c78016`. The old install is in
+`Port33\_backups\sc34_2026-11-05_215032`; the user's `DebugLogging` true set again. Untested in game: TESTING R1
+(330-347) and C1 (370-409), and X1 (300-319) from the install before.
