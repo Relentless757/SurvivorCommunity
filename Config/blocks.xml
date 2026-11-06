@@ -714,6 +714,15 @@
 			<property name="RaiderWeaponDropChance" value="0.25" />
 			<property name="RaiderVanillaDoors" value="false" />
 			<property name="RaiderTurretsAsEnemies" value="true" />
+			<!-- WildRaidersDespiteMods (game 3.4): your wild raiders (spawning.xml's scRaiderWild, scRaiderTown and
+			     scRaiderCity entries, by day and by night) keep turning up when another mod, such as WalkerSim2, switches off
+			     the game's enemy biome spawns to place its own zombies. SurvivorCommunity then runs the game's own biome spawn
+			     step once more for those entries alone, on the game's rules for enemies: the same odds (4% a roll), counts,
+			     respawn delays, day and night, places and spawn distance, and the enemy cap. Every other enemy stays off, so
+			     the zombies still come only from that mod. false: the raiders stay off with them. Nothing changes without such
+			     a mod, and with the game's enemy spawning off (or during a blood moon) no raider spawns either way.
+			     sc raiders wild shows the counts. -->
+			<property name="WildRaidersDespiteMods" value="true" />
 			<property name="RaiderGearSets" value="Raider,Biker,Enforcer,Assassin,Rogue,Commando,Nomad,Scavenger,Primitive" />
 
 			<property name="DebugLogging" value="false" />

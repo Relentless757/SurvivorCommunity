@@ -1812,6 +1812,67 @@ Residents on a work shift:
      keeps it in her pair. While crafts pay XP the registry is saved about every 30 s (and at a star and at a shift's end), not
      on every point: `sc craft` shows `XP saves` rising slowly.
 
+**W2. Round 23: wild raiders when another mod turns biome enemies off (3.4)**
+
+Built 2026-11-05 on branch `ms/w2` (SC 3.4 DLL `b89f03de7f6415810d1c1ace79406aa2`, `Port33\build\sc34_w2`), **not
+reviewed, not installed**: these steps wait for the install. WalkerSim2 switches off the game's enemy biome spawns to
+place its own zombies, and that took SC's wild raiders (spawning.xml's scRaiderWild, scRaiderTown and scRaiderCity
+entries, by day and by night) with them: none had spawned in your 3.4 games. Now, when another mod has turned the enemy
+biome spawns off, SC runs the game's own biome spawn step once more for its raider entries alone, on the game's rules for
+enemies: 4% a roll, at most one roll per entry per 80 m area per game day (maxcount 1, respawn delay 1 day), the right
+time of day and kind of place, at least 28 m from you and out of your view within 50 m, not over the enemy cap, not in a
+blood moon. Every other enemy stays off (WalkerSim2 keeps the zombies); animals and SC's wild survivors are untouched. Key
+`WildRaidersDespiteMods` (default true) in the 3.4 install's SC `Config/blocks.xml`. Set `DebugLogging` to true there for
+the `wild raider (W2):` lines. `sc raiders wild` prints the counters; plain `sc raiders` ends with a one-line summary.
+WalkerSim2 is in the 3.4 install; keep it enabled for 420-430. Test on a new world or a copy.
+
+420. **Start-up.** Load the world. In the log: `wild raiders (W2): vanilla's SpawnUpdate copied for SC's raider entries -
+     built (time-of-day gates 2/2, enemy check 1/1, roll 1/1, spawn 1/1)`; `patching: ... none failed`; `patch verification:
+     all ... targets patched` (the same count as the install before: W2 adds no target); the `config:` line has
+     `wildDespiteMods=True`. No `wild raiders (W2): ... NOT BUILT` or `copying SpawnManagerBiomes.SpawnUpdate failed` error.
+421. **WalkerSim2 seen.** Walk around for a minute. The log has, once: `wild raiders (W2): another mod turned the game's enemy
+     biome spawns off (SpawnManagerBiomes.SpawnUpdate arrived with them on and was handed them off) - SC's wild raider entries
+     spawn on their own, on the game's rules for enemies (sc raiders wild)`. `sc raiders wild`, second line: `biome updates N:
+     arrived with enemies on N, of those handed to the game with them off (another mod) N` (the last two equal, or nearly).
+     `sc raiders` ends with `wild raiders (W2, sc raiders wild): the enemy biome spawns were off by another mod in ...`.
+422. **Wilderness by day.** Away from towns, walk or drive through the forest for an in-game hour or two. `sc raiders wild`:
+     `raider passes run` above 0; the `by entry` line lists `scRaiderWildDay` with its considered count rising (more when you
+     move on to new ground: each 80 m area rolls an entry at most once a day); `scRaiderTown*` and `scRaiderCity*` stay low or
+     absent there.
+423. **Wilderness at night.** The same after dark: `scRaiderWildNight` rises, `scRaiderWildDay` no longer does.
+424. **Towns.** In a town's commercial or industrial blocks (not a city centre), by day and at night: `scRaiderTownDay` /
+     `scRaiderTownNight` rise.
+425. **City centres.** Downtown, by day and at night: `scRaiderCityDay` / `scRaiderCityNight` rise.
+426. **The odds.** After 422-425, `rolled` is above 0 and nearly all rolls are `none` (about 96 in 100: a raider is rare on
+     the real odds - a few game days of travel for one). If one appears, 427's checks apply to it.
+427. **A raider spawned this way (test aid).** To see one quickly, in the 3.4 install's SC `Config/entitygroups.xml` change
+     `<e n="none" p="96.00"/>` to `p="0"` in the three `scRaiderGroupGS` groups and restart (every roll is then a raider;
+     bands and raider enclaves roll from the same groups, so expect more of those too). Explore the wilderness by day: within
+     a few in-game minutes a raider turns up 28 m or more from you (never in your view closer than 50 m). The log: `wild raider (W2): scRaider...T1
+     #<id> at (x, y, z) from scRaiderWildDay in <biome> by day - another mod has the game's enemy biome spawns off`.
+     `sc raiders` lists it with its `bandit raider:` line: SC's clothes (a raider gear set), an SC raider name, its one weapon
+     from 0-XNPCCore's list and the kit melee; it is hostile and fights you; killed, it drops 0-XNPCCore's loot bag and pays
+     the raider kill XP. `sc raiders wild`: `spawn requested` and `spawned` rise together. **Put `96.00` back afterwards.**
+428. **Zombies still WalkerSim2's.** Through 422-427, zombies keep coming the WalkerSim2 way (its roaming groups, at its
+     density): no more than before this build. Every `wild raider (W2):` line names an `scRaider` class, never a zombie, and
+     `sc raiders wild`'s `spawned` equals the number of those lines.
+429. **Enclave grounds.** With the test aid on, stand within 40 m of a living enclave's buildings for an in-game hour:
+     `sc raiders wild`: `refused near an enclave` rises, and the log has `wild spawn of scRaider... refused: within 40 m of an
+     enclave`; no raider spawns there.
+430. **Wild survivors unchanged.** SC's wild survivors keep turning up as before (same places, same rate as in your last
+     sessions on this install); none of them is named in a `wild raider (W2):` line.
+431. **Key off.** Set `WildRaidersDespiteMods` to false and restart: the config line has `wildDespiteMods=False`; the log line
+     of 421 ends `WildRaidersDespiteMods is false: SC's wild raiders stay off with them`; `sc raiders wild`: `raider passes
+     run 0`, `key off` rising; no `wild raider (W2):` line even with the test aid. Put it back to true.
+432. **The game's enemy spawning off.** In a test world started with enemy spawning off: `sc raiders wild`: `arrived with
+     enemies on 0`, `handed ... off (another mod) 0`, `raider passes run 0`; no raider spawns from the wilds (with the test aid
+     too).
+433. **Blood moon and the enemy cap.** During a blood moon (or with many zombies around you): `enemy cap or blood moon`
+     rises and `raider passes run` does not; no `wild raider (W2):` line during the blood moon.
+434. **Without WalkerSim2 (optional, your call).** With WalkerSim2's folder moved out of the 3.4 install's Mods: `sc raiders
+     wild`: `handed to the game with them off (another mod) 0`, `raider passes run 0`; zombies and SC's raiders spawn from the
+     game's own biome spawns as they did before WalkerSim2. Put WalkerSim2 back.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

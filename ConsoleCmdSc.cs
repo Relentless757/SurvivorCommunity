@@ -2493,10 +2493,21 @@ namespace SurvivorCommunity
         /// and how many, M11; never resupplied), its XNPC level, its
         /// attack and revenge targets, vanilla's door flag, what it holds, the lead rule's state, its health, distance and
         /// speed, what killing it pays (kill XP from the pair, round 3) and its map marker (sleeper or not). The M10 probes
-        /// read this line.
+        /// read this line. 3.4 (W2): then one line on SC's wild raider entries while another mod has the game's enemy biome
+        /// spawns off; sc raiders wild prints every W2 counter instead (ScWildRaiders.Lines).
         /// </summary>
         private static void RaidersCmd(List<string> p)
         {
+#if SC_V34
+            // W2: sc raiders wild - SC's wild raider entries while another mod has the game's enemy biome spawns off
+            if (p.Count >= 2 && p[1].Equals("wild", StringComparison.OrdinalIgnoreCase))
+            {
+                var wild = new List<string>();
+                ScWildRaiders.Lines(wild);
+                foreach (string l in wild) Output("[SC] " + l);
+                return;
+            }
+#endif
             World w = ScCommunity.World;
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
             if (w == null || player == null) { Output("[SC] no world / player"); return; }
@@ -2535,6 +2546,9 @@ namespace SurvivorCommunity
                        );
             }
             Output("[SC] " + n + " raider(s) within " + r + " m" + (dead > 0 ? " (" + dead + " dead)" : ""));
+#if SC_V34
+            Output("[SC] " + ScWildRaiders.Summary());
+#endif
         }
 
         /// <summary>An item type id as its name (XNPC keeps SdcsLastMelee as one), or the number when it is no item.</summary>

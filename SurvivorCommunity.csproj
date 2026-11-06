@@ -279,4 +279,9 @@
     <Compile Include="Patches_Craft.cs" />
   </ItemGroup>
 
+  <!-- W2 (round 23): SC's wild raiders when another mod turns the game's enemy biome spawns off - 3.4 only -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScWildRaiders.cs" />
+  </ItemGroup>
+
 </Project>

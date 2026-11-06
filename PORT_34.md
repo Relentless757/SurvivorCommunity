@@ -2697,3 +2697,112 @@ issues; XML replay of every SC op on the 3.4 install: all match (utilityai 20, e
 fast-forwarded to `ms/int` e05b586; `deploy_sc34.py`: 6691 files, installed = built `89c78016`. The old install is in
 `Port33\_backups\sc34_2026-11-05_215032`; the user's `DebugLogging` true set again. Untested in game: TESTING R1
 (330-347) and C1 (370-409), and X1 (300-319) from the install before.
+
+### Round 23: wild raiders when another mod turns biome enemies off (W2) (2026-11-05, built, not reviewed, not installed)
+
+**The problem (verified).** `SpawnManagerBiomes.SpawnUpdate(string, bool _isSpawnEnemy, ChunkAreaBiomeSpawnData)` (3.4
+decompile; World's tick passes `GameStats IsSpawnEnemies`) skips an enemy group unless `_isSpawnEnemy`
+(`if (!flag2 || _isSpawnEnemy)`, `flag2 = EntityGroups.IsEnemyGroup(name)` = entry 0's `bIsEnemyEntity`). WalkerSim2
+2.0.5's `WalkerSim.BiomeSpawnerHook` (`[HarmonyPatch(SpawnManagerBiomes, SpawnUpdate)]`, no priority = Normal) is, by
+Cecil, `if (!_isSpawnEnemy) return; _isSpawnEnemy = false;` - every update, so SC's raider entries (spawning.xml
+`scRaiderWild/Town/City` Day/Night, maxcount 1, respawndelay 1 day, groups `scRaiderGroupGS01/50/100`: 2 + 2 raiders and
+96 none, enemy groups because entry 0 is a raider) never spawn. WalkerSim never spawns them itself either: its class pick
+(`SpawnManager.IsEntityClassAllowed`) takes only Zombie-flagged classes and hostile Animal-flagged ones. The other mods
+on SpawnUpdate in the 3.4 install: 0-SCore's cave prefix (feature-gated, returns true) and SC's own Patch_BiomeSpawn.
+
+**The user's decision:** "Implement the fix" - SC's own raider entries spawn with vanilla's odds and rules when ANOTHER mod
+turned the enemy spawns off; never when the update arrives with them off (the game's setting); every other enemy group
+stays off; nothing names WalkerSim2; a config key; logs and counters; the enclave-grounds rule still applies; wild
+survivors unchanged. Branch `ms/w2` from `52b5458`, worktree `Port33\wt\sc-w2`. **3.4 only**: the new file is in its own
+`ScGame=34` ItemGroup and the shared-file edits are under `SC_V34`; the 3.2 build to a scratch folder is byte-identical
+to the same build of `52b5458` (`8c4a257e`); the tracked `SurvivorCommunity.dll` untouched.
+
+**Mechanism (`ScWildRaiders.cs`).**
+- **Detection, generic** (:271, :292): `Patch_Arrive` - a prefix at `Priority.First` (800), before every other prefix -
+  notes what the update ARRIVED with; `Patch_Pass`'s prefix at `Priority.Last` (0), after the others (WalkerSim's is
+  400; every prefix runs and a `ref` change is seen by the later ones), notes what is HANDED to the game. Arrived on and
+  handed off = another mod turned them off. The update itself is left exactly as that mod leaves it: animals and SC's
+  wild survivors keep the animal distance (48 m) and the animal cap, as now.
+- **The raider pass** (`Patch_Pass.Postfix` :308 -> `AfterUpdate` :323): only then, unless the update was skipped
+  outright (`__runOriginal` false: a mod that stops biome spawns altogether stays obeyed), the key is false, or no SC
+  raider entry could be picked in that area now (`MayPick` :366, read-only and conservative: time of day, the entry's POI
+  bit once known, a free slot or a run-out respawn delay) or vanilla's own enemy gates would turn enemies off
+  (`AIDirector.CanSpawn()` - the enemy cap, which counts WalkerSim's zombies - or a blood moon): it runs `PassCopy`
+  (:157) - vanilla's SpawnUpdate a second time, `_isSpawnEnemy = true`, inside SC's biome-spawn flag
+  (`ScEnclavePeople.Begin/EndBiomeSpawn`), so the enclave-grounds rule (FilterWild in ScLoadout's GetRandomFromGroupList
+  postfix) and the class-by-gamestage swap apply to its roll.
+- **The copy** (`Build` :115, at InitMod after PatchClassByClass; ModApi.cs:39) is a Harmony 2.13 reverse patch
+  (`ReversePatchType.Original`: vanilla's unpatched IL) with `PassTranspiler` (:168), four same-stack swaps, each
+  counted - anything but 2/1/1/1 throws and the copy stays unbuilt (an error line; the pass never runs):
+  the two `ldfld BiomeSpawnEntityGroupData::daytime` in the group loop -> `PassDaytime` (:197); `call
+  EntityGroups::IsEnemyGroup` -> `PassIsEnemy` (counts "considered"); `call GetRandomFromGroup` -> `PassRoll`; `callvirt
+  Chunk::SpawnEntityAsync` -> `PassSpawn` (vanilla's call plus one verbose line once the body exists).
+- **Why it cannot re-enable another enemy group.** In 3.4's IL the loop body is: POI bit (`groupsEnabledFlags`, read),
+  then the two time-of-day loads (IL_032c/IL_0335), then IsEnemyGroup, and only after that `GetDelayWorldTime`,
+  `ResetRespawn`, `CanSpawn` (IL_036f-IL_03c0). `PassDaytime` answers `(EDaytime)(-1)` - neither Any nor Day nor Night -
+  for every entry that is not one of SC's raider entries (`EntriesOf` :389: group name `scRaiderGroupGS*` AND an enemy
+  group; a non-enemy one is the game's own update's), so the loop moves on before it reads or writes that entry's
+  per-area counts and delays, exactly as for an entry of the other time of day. The roll and the spawn happen only for
+  the picked entry. Without WalkerSim (arrived = handed) nothing runs.
+- **Same rules as vanilla for the raider entries**, by being vanilla's code: the 28 m enemy distance and view-cone
+  check, the 4x2.5x4 crowding check, POI tags (`checkedPOITags`, computed as the main update would), the 5-entry window
+  from a random start, `ModifySpawnCountByGameDifficulty`, `ResetRespawn` (respawn delay x0.9-1.1, day/night count
+  overrides), `DecMaxCount` on "none", `IncCount`, `OnEntitySpawned` (`SetSpawnerSource(Biome)`, so a despawn or kill
+  counts down as for any biome spawn), the player's safe zone (`DelayAllEnemySpawningUntil` is enemy-only, so it holds
+  these groups too). **One deliberate difference, the re-roll memory:** vanilla's `GetRandomFromGroup` re-rolls (up to 3
+  times) a roll equal to the previous biome roll anywhere (`lastClassId`): after a "none" a raider roll is about 11.5%,
+  after a zombie or animal 4%. With WalkerSim's zombies gone from that sequence, "none" (SC's survivor groups are 94%
+  none) would lead far more often than in the game the odds were set for; `PassRoll` (:225) rolls with a fresh memory
+  (-1, which no roll returns), i.e. exactly the group's 4%, and neither reads nor writes the manager's memory, so SC's
+  wild survivors roll exactly as before. (A one-line change makes it read the manager's memory instead, if the user
+  prefers vanilla's mechanism over the set odds.)
+- **Config**: `WildRaidersDespiteMods` (default true; ScConfig.cs:1051, Reset :1221, parse :2295, the config line's
+  `wildDespiteMods=`; Config/blocks.xml after `RaiderTurretsAsEnemies`, commented). **Console**: `sc raiders wild` - the
+  key, the copy's state, the game's enemy-spawn stat, updates seen / arrived with enemies on / handed off by another mod
+  (and when first), passes run and why not, raider entries considered / rolled (none, refused near an enclave) / spawn
+  requested / spawned, and per entry id (`scRaiderWildDay 12/3/0`, ...); `sc raiders` ends with a one-line summary.
+  Logs: `wild raiders (W2): vanilla's SpawnUpdate copied ... built (...)` at start-up; once per world `another mod
+  turned the game's enemy biome spawns off ...`; verbose `wild raider (W2): <class> #<id> at <pos> from <entry> in
+  <biome> by day|at night ...` per raider spawned this way. Counters reset per world (ModApi GameStarting).
+
+**Rejected, with evidence:**
+- **Restoring `_isSpawnEnemy` in the same update** (a Last prefix setting it back to true, with a filter): the spawn spot
+  is chosen BEFORE the group (`GetRandomSpawnPositionInAreaMinMaxToPlayers(area, _isSpawnEnemy ? 28 : 48, ...)`), and
+  `_isSpawnEnemy` true also skips the animal-cap return (`if (!_isSpawnEnemy && AnimalCount >= MaxSpawnedAnimals)
+  return`). So every animal and every SC wild survivor of such an update would spawn from 28 m instead of 48 and past
+  the animal cap (survivors must stay unchanged), or - with non-enemy groups filtered too - those updates could spawn no
+  animal or survivor at all. A second, raider-only pass keeps the update as it was.
+- **A transpiler on the live SpawnUpdate plus a re-entrant call:** works, but every mod's prefixes and postfixes on
+  SpawnUpdate (WalkerSim's included) would run twice per pass and SC's own hooks would need a recursion guard; the
+  private copy touches no other mod's path. (The installed 0-SCore 3.4 ships a reverse patch too,
+  `ReplicateMovementSpeedsPatch/Patch`, so the mechanism is already loaded on this Harmony.)
+- **XML only - SC's raider groups as non-enemy groups.** `none` as entry 0 crashes: `addEntity` stores "none" as class
+  0, and `IsEnemyGroup` does `EntityClass.list[list[0].entityClassId].bIsEnemyEntity` on a `DictionarySave` that returns
+  null for a missing key - a NullReferenceException in every SpawnUpdate that reaches the group, in `ResetRespawn` with a
+  count override, and in `DelayAllEnemySpawningUntil` (every area at a player's respawn). A non-enemy class at p=0 as
+  entry 0 would work (`GetRandomFromGroupList` skips p=0), but then the raiders would: spawn on the animal rules (48 m,
+  blocked whenever the animal cap is reached), ignore the enemy cap and blood moons, spawn with the game's enemy
+  spawning OFF (no `_isSpawnEnemy` gate, no `ModifySpawnCountByGameDifficulty`), ignore the player's safe zone, take the
+  animal count overrides - in every install, not only beside WalkerSim2. Rejected.
+
+**Checks.**
+- Build 0 errors (the two old CS0108 warnings); the 3.2 build byte-identical to `52b5458`'s (`8c4a257e`).
+- **The transpiler on the real IL** (scratch `w2\harness`, net8 against the 3.4 Assembly-CSharp and 0Harmony): Harmony's
+  own `GetOriginalInstructions` cannot run outside the game (MonoMod's `ReflectionHelper..cctor` MethodAccessException,
+  as noted in test-tooling), so the IL was decoded by reflection with the operands resolved through the module, as
+  Harmony's reader does: 441 instructions, exactly 5 swapped (indices 296, 299 daytime; 304 IsEnemyGroup; 402 the roll;
+  439 the spawn), labels kept; two mutants (one daytime load gone; a second roll) both throw. The full reverse patch
+  (MonoMod) runs only in the game: TESTING 420 checks its start-up line.
+- **HarmonyAudit2** (`scratch w2\dynamic_targets34_w2.json` = int's plus the two W2 classes): 3.4 OK=171 (168 + 3:
+  `Patch_Arrive.Prefix`, `Patch_Pass.Prefix`, `Patch_Pass.Postfix`), DYNAMIC_UNRESOLVED=22 (unchanged), 0 param issues;
+  the reference scan adds only the known generic `DictionarySave` false positives. No new ExpectedTargets entry:
+  SpawnUpdate is listed (distinct targets), and the reverse patch patches nothing.
+- **XML replay** (int's replay pointed at `wt\sc-w2`, `ONLY_CFG=blocks`): SC's blocks 9/9, no aborts; the patched
+  `ConfigSurvivorCommunity` has `WildRaidersDespiteMods` = true right after `RaiderTurretsAsEnemies`.
+- ilspycmd of the built DLL: `ScWildRaiders` with `[HarmonyPriority(800)]` / `[HarmonyPriority(0)]`, the
+  `Harmony.ReversePatch` call, `[MethodImpl(NoInlining)]` on PassCopy; ModApi calls `Build` and `Reset`; `sc raiders` the
+  summary.
+
+Not checked: anything in game (the user runs TESTING W2, 420-434). Not reviewed.
+
+Builds: SC 3.4 `b89f03de7f6415810d1c1ace79406aa2` (`build\sc34_w2`), 0 errors. Not installed.

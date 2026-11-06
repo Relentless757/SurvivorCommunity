@@ -34,6 +34,9 @@ namespace SurvivorCommunity
                 PatchClassByClass(h);
                 try { VerifyPatches(h); }
                 catch (Exception e) { ScLog.Err("patch verification failed: " + e.Message); }
+                // W2: the copy of vanilla's biome spawn step that SC's wild raiders get when another mod turns the game's
+                // enemy biome spawns off (a reverse patch; logs and stays off on any surprise)
+                ScWildRaiders.Build();
                 // the overwhelmed rule reads 0-XNPCCore's private close-range state: bound now, so a rename shows at startup
                 try { if (ScArms.Bind()) ScLog.Out("overwhelmed rule: 0-XNPCCore's close-range swap state bound"); }
                 catch (Exception e) { ScLog.Err("overwhelmed rule: binding 0-XNPCCore's close-range state failed: " + e.Message); }
@@ -69,6 +72,9 @@ namespace SurvivorCommunity
                 ScEncMoves.Reset();
                 ScEncJoin.Reset();
                 ScBands.Reset();
+#if SC_V34
+                ScWildRaiders.Reset();                 // W2: its counters and entry cache
+#endif
                 ScInfestations.Reset();
                 ScSleeperCap.Reset();
                 ScPoiIndex.Reset();
@@ -514,7 +520,8 @@ namespace SurvivorCommunity
             // Patches_Enclaves.cs - no sleeper zombies in an enclave's POI (E1; its other protections share the outposts' entries)
             Add(t, "SleeperVolume::UpdatePlayerTouched", AccessTools.Method(typeof(SleeperVolume), "UpdatePlayerTouched", new[] { typeof(World), typeof(EntityPlayer) }));
             // E2: an enclave's containers refused while it lives; biome-spawned NPCs kept off enclave grounds (the class check
-            // shares ScLoadout's GetRandomFromGroupList entry)
+            // shares ScLoadout's GetRandomFromGroupList entry). 3.4's W2 (ScWildRaiders: Patch_Arrive, Patch_Pass) shares the
+            // SpawnUpdate entry; its copy of SpawnUpdate is a reverse patch, which patches nothing
             Add(t, "TEFeatureStorage::OnBlockActivated", Patches_Enclaves.Patch_ContainerLock.Target());
             Add(t, "SpawnManagerBiomes::SpawnUpdate", Patches_Enclaves.Patch_BiomeSpawn.Target());
             Add(t, "World::GetRandomSpawnPositionInAreaMinMaxToPlayers", Patches_Enclaves.Patch_BiomeSpawnSpot.Target());

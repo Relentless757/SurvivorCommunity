@@ -1039,6 +1039,17 @@ namespace SurvivorCommunity
         /// take with "target strangers" on (vanilla's and SCore's rule, which stays either way).
         /// </summary>
         public static bool RaiderTurretsAsEnemies = true;
+#if SC_V34
+        /// <summary>
+        /// W2 (round 23, 3.4): SC's wild raider entries (spawning.xml's scRaiderWild/Town/City Day/Night, groups
+        /// scRaiderGroupGS01/50/100) keep spawning when another mod - WalkerSim2, or any mod doing the same - turns the game's
+        /// enemy biome spawns off to place its own zombies: SurvivorCommunity runs the game's own biome spawn step once more for
+        /// those entries alone, on the game's rules for enemies (ScWildRaiders). Every other enemy group stays off. False: they
+        /// stay off with the rest. Nothing changes when no mod turns them off; with the game's enemy spawning off no raider
+        /// spawns either way.
+        /// </summary>
+        public static bool WildRaidersDespiteMods = true;
+#endif
         /// <summary>The vanilla armor sets raiders roll their clothes from (M10-D7); empty = SurvivorGearSets.</summary>
         public static readonly List<string> RaiderGearSets = new List<string>();
         public static int TraitsPerRecruit = 2;
@@ -1206,6 +1217,9 @@ namespace SurvivorCommunity
             RaiderWeaponDropChance = 0.25f;
             RaiderVanillaDoors = false;
             RaiderTurretsAsEnemies = true;
+#if SC_V34
+            WildRaidersDespiteMods = true;         // W2 (ScWildRaiders.cs)
+#endif
             RaiderGearSets.Clear();
             OutpostMinDistance = 150;
             OutpostMax = 4;
@@ -2277,6 +2291,11 @@ namespace SurvivorCommunity
                 bool raiderTurrets = RaiderTurretsAsEnemies;
                 if (p.Values.ContainsKey("RaiderTurretsAsEnemies")) p.ParseBool("RaiderTurretsAsEnemies", ref raiderTurrets);
                 RaiderTurretsAsEnemies = raiderTurrets;
+#if SC_V34
+                bool wildRaiders = WildRaidersDespiteMods;   // W2 (ScWildRaiders.cs)
+                if (p.Values.ContainsKey("WildRaidersDespiteMods")) p.ParseBool("WildRaidersDespiteMods", ref wildRaiders);
+                WildRaidersDespiteMods = wildRaiders;
+#endif
                 bool verbose = Verbose;
                 if (p.Values.ContainsKey("DebugLogging")) p.ParseBool("DebugLogging", ref verbose);
                 Verbose = verbose;
@@ -2385,6 +2404,9 @@ namespace SurvivorCommunity
                           + " firearm " + RaiderFirearmChance + " ammo " + RaiderSpawnAmmo + "/" + RaiderSpawnArrows
                           + " levels=" + (RaiderXnpcLevels ? (RaiderLevelRegen ? "on" : "on, no regen") : "off") + " drop " + RaiderWeaponDropChance
                           + " vanillaDoors=" + RaiderVanillaDoors + " turretsAsEnemies=" + RaiderTurretsAsEnemies
+#if SC_V34
+                          + " wildDespiteMods=" + WildRaidersDespiteMods   // W2
+#endif
                           + " gearSets=" + (RaiderGearSets.Count > 0 ? RaiderGearSets.Count.ToString() : "survivors'")
                           + " outfits=" + Outfits.Count + " (share " + SurvivorOutfitShare.ToString("0.##", CultureInfo.InvariantCulture) + "/" + RaiderOutfitShare.ToString("0.##", CultureInfo.InvariantCulture) + ")"
                           + " gearQuality=" + string.Join(",", Array.ConvertAll(GearQualityByTier, q => q[0] + "-" + q[1]))
