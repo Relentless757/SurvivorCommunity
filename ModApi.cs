@@ -365,8 +365,10 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsAmmoRestockTick", Patches_Xnpc.RestockTickTarget());
             // X21: the player's Charismatic Nature on members who are not hires (residents, guards, stand-ins)
             Add(t, "AvatarSdcsNpcController::SdcsLeadershipTick", Patches_Xnpc.LeadershipTickTarget());
-            // round R1: X1c a bandit raider gets 0-XNPCCore's gear-only look apply (its weapon roll), never the rest
-            Add(t, "SdcsLookApplier::Apply", ScBandits.ApplyTarget());
+            // round R1: X1c a bandit raider gets 0-XNPCCore's gear-only look apply (its weapon roll), never the rest. Listed
+            // only while 0-XNPCCore has both methods (review L3: an 0-XNPCCore without its bandits stays quiet; a missing
+            // method is warned about when the first bandit raider is made, ScBandits.WarnIfUnbound)
+            if (ScBandits.Bindable()) Add(t, "SdcsLookApplier::Apply", ScBandits.ApplyTarget());
             Add(t, "SdcsMedic::ApplyHealOther", ScMedic.HealOtherTarget());
             Add(t, "SdcsMedic::Begin", ScMedic.MedicBeginTarget());
             Add(t, "SleeperVolume::TouchGroup", Patches_Enclaves.TouchGroupTarget());

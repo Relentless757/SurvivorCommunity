@@ -55,6 +55,7 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             lock (lists) lists.Clear();
+            refused.Clear();
         }
 
         // ------------------------------------------------------------------ the class's list ----
@@ -201,6 +202,7 @@ namespace SurvivorCommunity
         /// </summary>
         public static void BeforePostInit(EntityAlive e, Loadout pending)
         {
+            WarnIfUnbound();
             if (e == null || e.Buffs == null || !ScCommunity.IsHost) return;
             foreach (string mark in SeededMarks)
             {
@@ -218,7 +220,10 @@ namespace SurvivorCommunity
             }
             if (pending != null)
             {
-                string want = pending.HasRanged && IndexOf(e.entityClass, pending.Ranged) > 0 ? pending.Ranged : pending.Melee;
+                // the R1 review's L2: a ranged weapon no longer in the list (IZY Classic removed) is not replaced by the melee
+                // weapon beside it (the kit, always listed - the body would be melee-only on every re-make while the record
+                // kept the gun): 0-XNPCCore rolls (FixIndex below), and ScSpawn.Body points the record at the roll
+                string want = pending.HasRanged ? pending.Ranged : pending.Melee;
                 int idx = IndexOf(e.entityClass, want);
                 if (idx > 0)
                 {
@@ -229,7 +234,8 @@ namespace SurvivorCommunity
                     return;
                 }
                 Patches_Xnpc.Count("r1-known-weapon-not-in-list");
-                ScLog.Verbose("raider " + e.entityId + " (" + ScCommunity.ClassName(e) + "): " + pending + " is not in its class's weapon list - 0-XNPCCore rolls one");
+                refused.Add(e.entityId);
+                ScLog.Verbose("raider " + e.entityId + " (" + ScCommunity.ClassName(e) + "): " + pending + " is not in its class's weapon list - 0-XNPCCore rolls one, and its record follows");
             }
             FixIndex(e);
         }
@@ -460,6 +466,39 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Both X1c methods exist in the loaded 0-XNPCCore (ModApi's ExpectedTargets lists Apply only then: patching runs
+        /// before the XML is loaded, so whether bandit raiders exist is not known yet; WarnIfUnbound covers the rest).
+        /// </summary>
+        public static bool Bindable()
+        {
+            try { return ApplyTarget() != null && GearOnlyMethod() != null; }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>
+        /// The first bandit raider made with X1c off (the R1 review's L3): one warning, once there are bandit raiders to be
+        /// without their rolled weapon. An 0-XNPCCore without the bandits makes none, so it stays quiet.
+        /// </summary>
+        private static void WarnIfUnbound()
+        {
+            if (Patch_GearOnly.Bound) return;
+            ScLog.Once("bandit-gearonly-unbound", (Patch_GearOnly.Missing ?? "SdcsLookApplier's gear-only re-route is off")
+                       + " - SC's raiders on 0-XNPCCore's bandits get no rolled weapon, only their kit melee (0-XNPCCore update?)");
+        }
+
+        /// <summary>
+        /// Bodies whose known weapon (a record's) was not in their class's list, so 0-XNPCCore rolls a new one (the R1
+        /// review's L2): ScSpawn.Body takes the id back and points the record at the new weapon. Main thread.
+        /// </summary>
+        private static readonly HashSet<int> refused = new HashSet<int>();
+
+        /// <summary>True once for a body whose record weapon was refused (BeforePostInit): its record should follow the roll.</summary>
+        public static bool TakeRefused(int entityId)
+        {
+            return refused.Remove(entityId);
+        }
+
+        /// <summary>
         /// X1c (round R1). 0-XNPCCore's look trigger on a bandit raider (MinEventActionSdcsApplyLook, which X1b now lets
         /// through for these classes) queues its look applier; the queue's drain (AvatarSdcsNpcController
         /// .SdcsDrainDeferredLookApply, every Update) calls SdcsLookApplier.Apply for it. For a bandit raider this prefix
@@ -467,14 +506,21 @@ namespace SurvivorCommunity
         /// skips the rest: the name roll, the archetype and the armour set (SC's look, name and clothes stay). The skipped
         /// Apply returns ApplyOutcome 0 (Done, the default result), so the drain does not retry. After it, on the host, SC
         /// empties the window into the bag and grants an unmapped gun's ammo (After). Everyone else: 0-XNPCCore's Apply.
-        /// Bound by name like the other 0-XNPCCore targets: should either method be gone, the patch is off with one warning
-        /// and the bandit raiders' empty look pool stops 0-XNPCCore's full applier before it changes anything (they keep
-        /// their kit melee; the MISSING PATCH line names Apply). Apply is far too big to inline; the counter shows it runs.
+        /// Bound by name like the other 0-XNPCCore targets: should either method be gone, the patch is off and the bandit
+        /// raiders' empty look pool stops 0-XNPCCore's full applier before it changes anything (they keep their kit melee).
+        /// That is reported only where it matters (the R1 review's L3): the warning when the first bandit raider is made
+        /// (WarnIfUnbound - an 0-XNPCCore without its bandits has no bandit raiders and stays quiet), and ModApi lists Apply
+        /// as an expected target only while both methods exist (Bindable). Apply is far too big to inline; the counter shows
+        /// it runs.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_GearOnly
         {
             private static MethodInfo gearOnly;
+            /// <summary>Prepare found both methods (the patch is on).</summary>
+            internal static bool Bound;
+            /// <summary>What Prepare missed, for WarnIfUnbound (null while bound or before Prepare).</summary>
+            internal static string Missing;
 
             [HarmonyPrepare]
             public static bool Prepare()
@@ -483,38 +529,54 @@ namespace SurvivorCommunity
                 {
                     MethodBase apply = ApplyTarget();
                     gearOnly = GearOnlyMethod();
-                    if (apply != null && gearOnly != null) return true;
-                    ScLog.Warn("0-XNPCCore method " + (apply == null ? "SdcsLookApplier.Apply(Entity)" : "SdcsLookApplier.ApplyGearOnly(Entity, EntityAlive)")
-                               + " not found - SC's bandit raiders get no rolled weapon, only their kit melee (0-XNPCCore update?)");
+                    Bound = apply != null && gearOnly != null;
+                    Missing = Bound ? null : "0-XNPCCore method " + (apply == null ? "SdcsLookApplier.Apply(Entity)" : "SdcsLookApplier.ApplyGearOnly(Entity, EntityAlive)") + " not found";
                 }
                 catch (Exception e)
                 {
-                    ScLog.Once("xnpc-bind-gearonly", e);
+                    Bound = false;
+                    Missing = "binding 0-XNPCCore's SdcsLookApplier failed (" + e.GetType().Name + ": " + e.Message + ")";
                 }
-                return false;
+                return Bound;
             }
 
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return ApplyTarget(); }
 
+            /// <summary>
+            /// The R1 review's M1: the gear-only call and SC's step after it each in its own try, each failure counted
+            /// (x1c-gear-only-failed, x1c-after-failed) and logged under its own key, so one failing After does not hide the
+            /// next one's. A bandit raider never gets 0-XNPCCore's whole applier: false either way (outcome Done).
+            /// </summary>
             [HarmonyPrefix]
             public static bool Prefix(Entity __0)
             {
                 EntityAlive alive = __0 as EntityAlive;
+                int before = 0;
                 try
                 {
                     if (alive == null || !ScXnpc.IsBanditRaider(alive)) return true;
-                    int before = Index(alive);
+                    before = Index(alive);
                     gearOnly.Invoke(null, new object[] { __0, alive });
                     Patches_Xnpc.Count("x1c-raider-gear-only");
-                    if (!alive.isEntityRemote && ScCommunity.IsHost) After(alive, before);
-                    return false;
                 }
                 catch (Exception ex)
                 {
+                    Patches_Xnpc.Count("x1c-gear-only-failed");
                     ScLog.Once("xnpc-gearonly", ex);
                     return false;           // never 0-XNPCCore's whole applier on one of SC's raiders
                 }
+                if (alive.isEntityRemote || !ScCommunity.IsHost) return false;
+                try
+                {
+                    After(alive, before);
+                }
+                catch (Exception ex)
+                {
+                    Patches_Xnpc.Count("x1c-after-failed");
+                    ScLog.Once("xnpc-gearonly-after", ex);
+                }
+                return false;
             }
 
             /// <summary>

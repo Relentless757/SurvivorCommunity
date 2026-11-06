@@ -1582,7 +1582,7 @@ on a Voice Control contract. The spawn menu is F6
 
 **R1. Round 21: raiders as 0-XNPCCore's bandits (3.4)**
 
-Built 2026-11-05 on branch `ms/r1`, on top of X1 (SC 3.4 DLL `29f1f4bd69cf526530e5c64e3caada5e`, `Port33\build\sc34_r1`),
+Built 2026-11-05 on branch `ms/r1`, on top of X1 (SC 3.4 DLL `e1858e5e6651d939bfe285ab0cd13cae` with the review fixes, `Port33\build\sc34_r1`),
 **not installed**: these steps wait for the install (with X1's review fixes merged). Game 3.4 with 0-XNPCCore 3.4.02. What
 changed: SC's six raider classes are now children of 0-XNPCCore's bandits (men on `npcSdcsBanditMelee`, women on
 `npcSdcsBanditRanged`). 0-XNPCCore arms each raider with ONE weapon rolled from its class's list (SC's odds: a gun or bow
@@ -1641,7 +1641,9 @@ for step 345 before installing.
 340. **A band on the road.** `sc band spawn raiders` (walking through you from 140 m). Before they see you: they keep
      walking past zombies and do not stop to face something 30-40 m away (`sc xnpc <one of them>`'s `uai:` line never shows
      `HoldEngaged` while the band walks); once one sees you, the whole band attacks; they taunt on spotting you and
-     searching, as before.
+     searching, as before. Watch for (the review's note, not gated): a walking raider leaving the band for a noise it
+     hears (`BanditListen`) or to search for a zombie it fought (`BanditSeek`) - if one does, tell me which (the `uai:`
+     line names the action).
 341. **An enclave raid.** With outpost attacks on and an outpost within 2 km of a raider den: `sc enclave raid <den id>
      <outpost id> now`: the raiders come for the outpost's stand-in or you and keep that target; each carries the weapon
      their record has.

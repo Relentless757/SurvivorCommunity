@@ -98,6 +98,14 @@ namespace SurvivorCommunity
             if (e == null) return null;
             w.SpawnEntityInWorld(e);
             Identify(e, m, community);
+#if SC_V34
+            // round R1 (review L2): a raider whose record weapon left its class's list rolls a new one - the record follows it
+            if (ScBandits.TakeRefused(e.entityId))
+            {
+                Loadout lo = ScLoadout.Current(e);
+                if (lo != null) m.Loadout = lo;
+            }
+#endif
             return e;
         }
     }

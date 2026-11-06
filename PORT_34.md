@@ -2402,7 +2402,7 @@ installed = built `5d9db05e05d047dcf0de82cc261581f5`. The old install is in `Por
 the user's `DebugLogging` true set again in the new Config/blocks.xml. Untested in game: TESTING X1 (300-319).
 Rounds 21 (R1, raiders as NPCCore bandits) and 22 (C1, community crafting) are being built on top of X1.
 
-### Round 21: raiders as NPCCore bandits (R1) (2026-11-05, built, not reviewed, not installed)
+### Round 21: raiders as NPCCore bandits (R1) (2026-11-05, built, reviewed (Fable: deployable), review fixes in, not installed)
 
 Design: `DESIGN_R1_BANDITS.md` (scratch r1); the user took every recommendation (Q1 SC's odds, Q2 kill XP by weapon, Q3 loot
 bag by tier, Q4 SC's chase speeds, Q5 0-XNPCCore's 60 rounds, Q6 the same weapon on a re-made body, Q7 IZY guns with SC's
@@ -2492,5 +2492,21 @@ Checks:
   bool)` public static (the audit's reference scan resolves them on 3.4). ilspycmd of the built DLL shows the prefix.
 
 Builds: SC 3.4 `29f1f4bd69cf526530e5c64e3caada5e` (`build\sc34_r1`), 0 errors (the two old CS0108 warnings); the 3.2
-build (scratch only) byte-identical to X1's. The tracked `SurvivorCommunity.dll` unchanged. Not reviewed (Fable), not
-installed; merge X1's review fixes before installing.
+build (scratch only) byte-identical to X1's. The tracked `SurvivorCommunity.dll` unchanged.
+
+**Review (Fable, scratch `r1\REVIEW_FABLE.md`): DEPLOYABLE; fixed on top of the port-3.4 merge (`a000b8d`):**
+- M1: X1c's prefix kept the gear-only call and SC's step after it (`After`) in one try under one log key, so after one
+  `After` failure every later raider's went silent (no `sc_rWeapon`, a window left in HarvestManager, no IZY ammo, no XP
+  cvar). Now each has its own try, log key and counter (`x1c-gear-only-failed`, `x1c-after-failed`; ScBandits.cs
+  Patch_GearOnly.Prefix); still false either way (never 0-XNPCCore's whole applier).
+- L2: a record whose gun has left its class's list (IZY Classic removed) no longer falls back to its melee weapon (the
+  kit: melee-only on every re-make while the record kept the gun). 0-XNPCCore rolls (FixIndex,
+  `r1-known-weapon-not-in-list`), and ScSpawn.Body points the record at the roll (`ScBandits.TakeRefused`).
+- L3: on an 0-XNPCCore without its bandits the DLL no longer warns about `SdcsLookApplier` or prints `MISSING PATCH
+  SdcsLookApplier::Apply`: ModApi lists it only while both methods exist (`ScBandits.Bindable`), and a missing method
+  is warned about once, when the first bandit raider is made (`WarnIfUnbound`; patching runs before the XML, so the
+  bandits' presence is not known at Prepare).
+- Left as they are (LOW): `sc loadout` on a raider leaves its old weapon's bag copy; `BanditListen` / `BanditSeek` are not
+  gated and may pull a walking band member aside (TESTING 340 says what to watch).
+Rebuilt: SC 3.4 `e1858e5e6651d939bfe285ab0cd13cae` (`build\sc34_r1`), 0 errors; the 3.2 build still byte-identical to
+X1's (`5a8deaef`). HarmonyAudit again: 3.4 OK=158, no param issues, X1c's target unchanged. Not installed.
