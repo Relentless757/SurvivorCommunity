@@ -94,7 +94,11 @@ namespace SurvivorCommunity
             public int Crafts, Counted, NotCounted, XpPaid, Backpack, Station, Swept, Stars;
         }
         private static readonly Dictionary<int, Stats> stats = new Dictionary<int, Stats>();
-        private static int levelWrites, progressionsMade, roleStamps, roleMirrors;
+        private static int levelWrites, progressionsMade, roleStamps, roleMirrors, xpSaves;
+        /// <summary>Review #6: craft XP waiting for a registry save (a star saves at once; else FlushXp on the ticker's cadence).</summary>
+        private static bool xpDirty;
+        private static float xpSavedAt;
+        private const float FlushSeconds = 30f;
 
         public static void Reset()
         {
@@ -105,7 +109,9 @@ namespace SurvivorCommunity
             recipeIndex = null;
             indexedRecipes = 0;
             stats.Clear();
-            levelWrites = progressionsMade = roleStamps = roleMirrors = 0;
+            levelWrites = progressionsMade = roleStamps = roleMirrors = xpSaves = 0;
+            xpDirty = false;
+            xpSavedAt = 0f;
         }
 
         private static int SpecIndex(Specialty s)
@@ -426,7 +432,7 @@ namespace SurvivorCommunity
                 int whole = (int)Math.Floor(m.CraftXpCarry + 0.0001f);
                 ScLog.Verbose(m.Name + " made " + crafts + " x " + recipeName + " (" + where + "): +" + add.ToString("0.##", CultureInfo.InvariantCulture)
                               + " " + m.Specialty + " XP, carry " + m.CraftXpCarry.ToString("0.##", CultureInfo.InvariantCulture));
-                if (whole <= 0) return;           // saved with the registry's next save
+                if (whole <= 0) { xpDirty = true; return; }     // the carry: saved with the next flush
                 m.CraftXpCarry = Math.Max(0f, m.CraftXpCarry - whole);
                 int before = m.SpecXp;
                 bool gained = ScSkills.AddSpecialtyXp(m, whole);
@@ -438,12 +444,25 @@ namespace SurvivorCommunity
                     ScCommunity.Tell(ScCommunity.LocalPlayer, string.Format(Localization.Get("scCraftStar"), m.Name,
                                      Localization.Get(ScNames.LocKey(m.Specialty)), m.SpecLevel), "");
                 }
-                ScRegistry.SaveAtomic();
+                xpDirty = true;
+                FlushXp(gained);                  // a star at once, else at most every FlushSeconds (a 30-item queue was 15 writes)
             }
             catch (Exception e)
             {
                 ScLog.Once("craft-xp", e);
             }
+        }
+
+        /// <summary>Saves the registry when craft XP is waiting: now, or when FlushSeconds have passed (ScWork.Sweep, 1 Hz).</summary>
+        public static void FlushXp(bool now)
+        {
+            if (!xpDirty) return;
+            float t = Time.unscaledTime;
+            if (!now && t - xpSavedAt < FlushSeconds) return;
+            xpDirty = false;
+            xpSavedAt = t;
+            xpSaves++;
+            ScRegistry.SaveAtomic();
         }
 
         // ------------------------------------------------------------------ leaving, ammo ----
@@ -454,6 +473,7 @@ namespace SurvivorCommunity
             if (npc == null || npc.Buffs == null) return;
             try
             {
+                ScWork.DropJob(npc, "left the community");     // review #1: CleanupStale takes SdcsLootMode off, the order would stay
                 if (ScXnpc.HasXnpcLevels(npc)) npc.Progression = null;
                 npc.Buffs.RemoveCustomVar(RolesMarkCvar);
                 ScWork.Forget(npc.entityId, npc);
@@ -472,6 +492,7 @@ namespace SurvivorCommunity
         public static bool MovesToBag(EntityAlive e, ItemClass ammo)
         {
             if (e == null || ammo == null) return true;
+            if (ScRegistry.GetMember(e.entityId) == null) return true;       // members only: stand-ins, raiders keep the old rule
             if (Fires(ScAmmo.PairGun(e), ammo)) return true;
             ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
             if (held != null && !held.IsEmpty() && Fires(held.ItemClass, ammo)) return true;
@@ -533,7 +554,7 @@ namespace SurvivorCommunity
                 {
                     output("[SC] craft table | craft <id|name> [spec <Specialty> | end] - " + ScConfig_Line());
                     output("[SC] crafting hooks: " + Patches_Craft.Report() + "; levels written " + levelWrites + ", Progressions made " + progressionsMade
-                           + ", role stamps " + roleStamps + ", role changes kept " + roleMirrors + "; " + ScWork.Summary());
+                           + ", role stamps " + roleStamps + ", role changes kept " + roleMirrors + ", XP saves " + xpSaves + "; " + ScWork.Summary());
                     return;
                 }
                 if (p[1].Equals("table", StringComparison.OrdinalIgnoreCase))

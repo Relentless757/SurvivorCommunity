@@ -1582,7 +1582,7 @@ on a Voice Control contract. The spawn menu is F6
 
 **C1. Round 22: community crafting (3.4)**
 
-Built 2026-11-05 on branch `ms/c1` (SC 3.4 DLL `fb9ce3cd25ada5418947b249cf7ddc46`, `Port33\build\sc34_c1`), **not installed**: these steps wait for
+Built 2026-11-05 on branch `ms/c1` (SC 3.4 DLL `dc9f4eb32eb4ced03fec0c22dfebcecc`, with the Fable review's fixes; `Port33\build\sc34_c1`), **not installed**: these steps wait for
 the install. Members craft through 0-XNPCCore 3.4.02's own crafting (E > Craft..., its station tabs, counts and roles) with
 their specialty stars as their skills; residents too, on a work shift. Your calls: the mapping (Cooking: food, Cook role;
 Medicine: medical, Cook + Chemist; Gardening: seeds, no role; Chemistry: explosives, medical, electrical, Chemist + Crafter;
@@ -1598,10 +1598,12 @@ traits and Leadership multiply it, so check `sc craft <name>`). Have a land clai
 pot), a forge, a workbench and a chemistry station, crates of materials, and members of several specialties; the F6 spawn menu
 needs `dm`.
 
-370. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, six more than the build before
+370. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, nine more than the build before
      (none `MISSING`; no `crafting: ... not found - that SurvivorCommunity patch is off`); `patched SdcsNpcXp::Pay`,
      `patched AvatarSdcsNpcController::SdcsCountCrafts`, `patched SdcsCraft::PayXp`, `patched SdcsStationCraft::PayXp`,
-     `patched TileEntityWorkstation::CheckForCraftComplete` and `patched SdcsLootHere::Finish`. A `config: crafting
+     `patched TileEntityWorkstation::CheckForCraftComplete`, `patched SdcsLootHere::Finish`,
+     `patched AvatarSdcsNpcController::SdcsAnyWeaponTick`, `patched AvatarSdcsNpcController::SdcsAnyWeaponMenuListing` and
+     `patched AvatarSdcsNpcController::SdcsTryWorldEntryMelee`. A `config: crafting
      craftSkills=on curve 1 xp 0.5/craft [Medicine=craftingMedical/cook+chemist Cooking=craftingFood/cook ...]
      workShifts=on idle 90s call 180s deposit True` line. Once a member is loaded: `crafting: 24 crafting skills managed on
      members (Medicine: Medical/75; Cooking: Food/100; ...)` and no `crafting: not a crafting skill in progression.xml`
@@ -1682,8 +1684,10 @@ Residents on a work shift:
      night)`).
 395. **You go away.** Queue 20 at the forge, drive 1 km away for an in-game hour, come back: she is at her post (or still
      working if the base stayed loaded); the forge holds what was made; open it: her XP for them is added once (386's line).
-396. **A reload mid-shift.** Save and quit during a shift, reload: she is back at her post within a few seconds; `sc craft
-     <name>`: `shift: none (sc_shift=- Owner=0 ...)`; E on her shows "I have work for you." again, not "That's all for now."
+396. **A reload mid-shift.** Save and quit during a shift, best mid-order and with you more than 40 m from her after the load;
+     reload: she is back at her post within a few seconds and never walks to you or appears beside you on the way; `sc craft
+     <name>`: `shift: none (sc_shift=- Owner=0 ... SdcsLootMode=0)`; `sc craft` (no name): `stale sc_shift cleared 1`; E on
+     her shows "I have work for you." again, not "That's all for now."
 397. **Interruptions.** During a shift: "Follow me" -> `... ends (asked to follow)` and she follows; a supply run -> `(sent
      on a supply run)`; assign her to a Watch post -> `(posted on watch)`; post her at an outpost -> `(posted to an outpost)`.
      Each time the craft order is dropped and its ingredients come back.
@@ -1697,7 +1701,7 @@ Residents on a work shift:
 401. **Full crates.** With the home crates full, a resident on a shift makes something: the tooltip `The home crates are full
      - what <name> makes stays in their inventory.` once; the items wait in "Show me your inventory" (open during the shift).
 402. **A marker.** During a shift she may show a coloured companion marker on the map and compass (SCore's, for the owner
-     link): it goes when the shift ends.
+     link): it goes when the shift ends, and after a reload's stationing (396). A follower you send home loses hers too.
 403. **SurvivorOrigins.** With SurvivorOrigins: a 7-star Craftsman still cannot make SO's schematic-gated T1+ weapons and
      tools (SO's design), but her pipe weapons and other T0 items come at quality 6.
 404. **Pose.** While she kneels at a station her arms and weapon look like 0-XNPCCore's own rummage (SC's relaxed or aiming
@@ -1705,6 +1709,22 @@ Residents on a work shift:
 405. **Switched off.** Set `CraftSkillsEnabled` to false (and `WorkShiftsEnabled` to false) and restart: `sc craft <name>`
      shows `Progression NONE`, Craft... lists only open recipes, crafts pay no XP, and "I have work for you." does not appear.
      Put them back.
+406. **A backpack order cut short gives its materials back.** A resident away from the stations: "I have work for you.", order 5
+     of something she makes from her pack (a Gardener's cotton seeds, or cloth bandages), and after 2 are done say "That's all
+     for now.": the materials for the 3 not made are back in her inventory (or a chest of yours nearby), not gone; `sc craft`
+     (no name): `craft orders dropped 1`. Call her to work again the next day and give no order: she still goes home after
+     about 3 minutes by herself; give one: she goes home about 90 s after it is done.
+407. **Go home mid-order (a follower).** A following member orders 5 from her pack (or at a station she has not reached yet),
+     then "Go home" before they are done: the materials for the unmade ones come back, no later `[SDCS-CRAFT]` line for her,
+     and `craft orders dropped` goes up by one. The same when a member leaves the community mid-order.
+408. **Charismatic Nature through a shift.** With the perk at rank 1 or more: `sc xnpc <a resident>` before, during and after a
+     shift shows the same `leadership:` values and `byScAsResident=True` throughout (never a moment at 0); `sc xnpc` (no id)
+     counts `x21-shift-npccore-tick-skipped`, rising during the shift and not after it.
+409. **No weapon from her pack on a shift.** Hand a resident on a shift a weapon through "Show me your inventory": she does not
+     take it into her hands (as a resident would not); Weapon > Carried Weapons lists nothing for her; `sc craft`:
+     `c1g-anyweapon-tick-skipped-frames` grows during the shift. A follower given a weapon the same way still equips it and
+     keeps it in her pair. While crafts pay XP the registry is saved about every 30 s (and at a star and at a shift's end), not
+     on every point: `sc craft` shows `XP saves` rising slowly.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

@@ -50,13 +50,13 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Shift> shifts = new Dictionary<int, Shift>();
         private static readonly List<int> scratch = new List<int>();
-        private static int starts, ends, staleCleared, depositedTotal;
+        private static int starts, ends, staleCleared, depositedTotal, jobsDropped, refused;
         private static readonly Dictionary<string, int> endReasons = new Dictionary<string, int>();
 
         public static void Reset()
         {
             shifts.Clear();
-            starts = ends = staleCleared = depositedTotal = 0;
+            starts = ends = staleCleared = depositedTotal = jobsDropped = refused = 0;
             endReasons.Clear();
         }
 
@@ -141,12 +141,12 @@ namespace SurvivorCommunity
                 {
                     if (s != null) Deposit(m, npc, s, true);
                     npc.Buffs.RemoveCustomVar(ShiftCvar);
-                    if (station) ScCommunity.Station(m, npc);
+                    if (station) ScCommunity.Station(m, npc);       // Detach drops her craft order first (DropJob)
                     else ScCommunity.Detach(npc, ScCommunity.LocalPlayer);
-                    EntityAliveSDXV4 v4 = npc as EntityAliveSDXV4;
-                    if (v4 != null) v4.HandleNavObject();          // SCore drew a hire marker for the owner link: it goes with it
+                    DropMarker(npc);                                // SCore drew a hire marker for the owner link: it goes with it
                 }
                 else DropHireMark(m.Id);
+                ScCraft.FlushXp(true);                              // the shift's XP is saved with its end (review #6)
                 ends++;
                 int n;
                 endReasons.TryGetValue(reason ?? "?", out n);
@@ -176,6 +176,7 @@ namespace SurvivorCommunity
         {
             if (shifts.Remove(memberId)) ScLog.Verbose("work shift of " + memberId + " forgotten (stationed or cleaned up)");
             if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ShiftCvar)) npc.Buffs.RemoveCustomVar(ShiftCvar);
+            DropMarker(npc);       // review #5: after Station's Detach (Go home, a reload's leftover link) the companion marker goes too
         }
 
         // ------------------------------------------------------------------ the ticker ----
@@ -189,7 +190,17 @@ namespace SurvivorCommunity
             Shift s;
             if (m == null || npc == null || !shifts.TryGetValue(m.Id, out s))
             {
-                if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ShiftCvar)) { npc.Buffs.RemoveCustomVar(ShiftCvar); staleCleared++; }
+                if (npc != null && npc.Buffs != null && npc.Buffs.HasCustomVar(ShiftCvar))
+                {
+                    // review #2: a reload ended the shift (in memory) but the body kept its job state - 0-XNPCCore's craft-here
+                    // mode and buff - beside the Owner cvar the resident rule now removes: they go too, so its craft task cannot
+                    // pick it up again (C1f keeps a resident's ended job where she is meanwhile)
+                    npc.Buffs.RemoveCustomVar(ShiftCvar);
+                    SdcsLootMode.Clear(npc);
+                    if (npc.Buffs.HasBuff(SdcsLootMode.EnableCraftHereBuff)) npc.Buffs.RemoveBuff(SdcsLootMode.EnableCraftHereBuff);
+                    DropJob(npc, "a shift a reload ended");
+                    staleCleared++;
+                }
                 return false;
             }
             try
@@ -215,7 +226,11 @@ namespace SurvivorCommunity
                 End(m, npc, "given the order " + order, true);
                 return;
             }
-            bool working = mode != 0 || SdcsCraftJob.Get(m.Id) != null;
+            // review #1: a craft order whose mode is gone (it would never end by itself) is cleared, its holdings refunded;
+            // working = a craft order under the craft-here mode, or another 0-XNPCCore job (loot, harvest ... by voice)
+            bool hasJob = SdcsCraftJob.Get(m.Id) != null;
+            if (hasJob && mode != 10) { DropJob(npc, "its job mode is gone"); hasJob = false; }
+            bool working = mode == 10 ? hasJob : mode != 0;
             if (working)
             {
                 if (s.Phase != Phase.Working) { s.Phase = Phase.Working; s.PhaseSince = now; s.Jobs++; ScLog.Verbose(m.Name + ": at work (job " + s.Jobs + ", mode " + mode + ")"); }
@@ -253,6 +268,7 @@ namespace SurvivorCommunity
         /// </summary>
         public static void Sweep(EntityPlayerLocal player)
         {
+            ScCraft.FlushXp(false);   // review #6: craft XP is saved here at most every FlushSeconds, not on every point
             if (shifts.Count == 0) return;
             scratch.Clear();
             scratch.AddRange(shifts.Keys);
@@ -266,11 +282,63 @@ namespace SurvivorCommunity
                 if (npc != null && npc.Buffs != null)
                 {
                     npc.Buffs.RemoveCustomVar(ShiftCvar);
-                    if (m != null && m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation) ScCommunity.Detach(npc, player);
+                    if (m != null && m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)
+                    {
+                        ScCommunity.Detach(npc, player);
+                        DropMarker(npc);
+                    }
                 }
                 else if (m == null || (m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)) DropHireMark(id);
                 ends++;
                 ScLog.Out("work shift of " + (m != null ? m.Name : id.ToString()) + " dropped (" + why + ")");
+            }
+        }
+
+        /// <summary>
+        /// Review #1: 0-XNPCCore's craft order (SdcsCraftJob, in memory) is cleared only from its own task and station paths, and
+        /// those need SdcsLootMode 10 - which Detach (ScOrders.ClearVoiceMovement) takes off. So whenever SC detaches a loaded member
+        /// (a shift's end, Go home, any stationing, Leave) the order is cleared here first: SdcsCraftJob.Clear takes it out of its
+        /// table before it refunds (a second Clear, or 0-XNPCCore's own later, finds nothing: no double refund), gives back the
+        /// ingredients a backpack item holds (SdcsCraft.Refund over Order.Held) and, at a station, cancels her queue
+        /// (SdcsStationCraft.Cancel: the unmade items' ingredients back). A station order not at its station yet holds nothing.
+        /// </summary>
+        public static void DropJob(EntityAlive npc, string why)
+        {
+            try
+            {
+                if (npc == null || SdcsCraftJob.Get(npc.entityId) == null) return;
+                SdcsCraftJob.Clear(npc.entityId);
+                jobsDropped++;
+                ScLog.Verbose(ScCommunity.DisplayName(npc) + ": 0-XNPCCore's craft order dropped (" + why + ") - what it held goes back");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("work-dropjob", e);
+            }
+        }
+
+        /// <summary>
+        /// Review #3: an owner link that is no hire - a resident member with the Owner cvar (on a shift, or one a reload left
+        /// before the ticker stations her). X21 and the any-weapon guards (Patches_Craft C1g) treat her as the resident she is.
+        /// </summary>
+        public static bool ShiftOwned(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null || e.Buffs.GetCustomVar("Owner") <= 0f) return false;
+            Member m = ScRegistry.GetMember(e.entityId);
+            return m != null && m.Status == MemberStatus.Resident;
+        }
+
+        /// <summary>Review #5: SCore's V4 leader component drew a companion marker for the owner link; with no link it goes.</summary>
+        public static void DropMarker(EntityAlive npc)
+        {
+            try
+            {
+                EntityAliveSDXV4 v4 = npc as EntityAliveSDXV4;
+                if (v4 != null && v4.NavObject != null && EntityUtilities.GetLeaderOrOwner(v4.entityId) == null) v4.HandleNavObject();
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("work-dropmarker", e);
             }
         }
 
@@ -417,12 +485,14 @@ namespace SurvivorCommunity
                    + "; craft order " + (SdcsCraftJob.Get(m.Id) != null ? "yes" : "no");
         }
 
+        internal static void NoteRefused() { refused++; }
+
         public static string Summary()
         {
             var parts = new List<string>();
             foreach (var kv in endReasons) parts.Add(kv.Key + " " + kv.Value);
             return "work shifts: " + shifts.Count + " now, " + starts + " started, " + ends + " ended (" + string.Join(", ", parts.ToArray()) + "), stale sc_shift cleared "
-                   + staleCleared + ", items put in the crates " + depositedTotal;
+                   + staleCleared + ", items put in the crates " + depositedTotal + ", craft orders dropped " + jobsDropped + ", talk starts refused " + refused;
         }
     }
 }
@@ -457,7 +527,12 @@ public class DialogActionScWorkStart : BaseDialogAction
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || m == null) return;
             string err;
-            if (!ScWork.Start(m, npc, lp, false, out err)) ScCommunity.Tell(player, Localization.Get(err ?? "scInternal"), "ui_denied");
+            if (ScWork.Start(m, npc, lp, false, out err)) return;
+            // review #7: the response's next statement (0-XNPCCore's Craft Categories) would open with nothing in it - the talk
+            // closes on the reason instead (the dialog's own refresh then finds the window shut, as for "Community")
+            ScWork.NoteRefused();
+            ScCommunity.Tell(player, Localization.Get(err ?? "scInternal"), "ui_denied");
+            if (lp.PlayerUI != null && lp.PlayerUI.windowManager != null) lp.PlayerUI.windowManager.Close("dialog");
         }
         catch (Exception e) { ScLog.Once("act-workstart", e); }
     }

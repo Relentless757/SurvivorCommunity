@@ -339,6 +339,9 @@ namespace SurvivorCommunity
             // 3.4: 0-XNPCCore seats a follower in the leader's vehicle instead of hiding it (SendOnMission(true) ->
             // AttachToEntity, SdcsVehicleSeatHideV4Patch); a seat would hold them for good once the leader link is gone
             if (npc.AttachedToEntity != null) npc.Detach();
+            // C1 review #1: 0-XNPCCore's craft order (in memory) is cleared and refunded before ClearVoiceMovement below takes its
+            // mode off - after that nothing of 0-XNPCCore's ever clears it (a shift's end, Go home, any stationing)
+            ScWork.DropJob(npc, "detached");
 #endif
 
             // detach from the party without SCore ever re-stamping it back

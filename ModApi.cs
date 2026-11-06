@@ -377,6 +377,10 @@ namespace SurvivorCommunity
             Add(t, "SdcsStationCraft::PayXp", Patches_Craft.StationPayTarget());
             Add(t, "TileEntityWorkstation::CheckForCraftComplete", Patches_Craft.CraftCompleteTarget());
             Add(t, "SdcsLootHere::Finish", Patches_Craft.LootFinishTarget());
+            // C1g (review #3): 0-XNPCCore's owner-gated weapon picks skip a resident on a work shift
+            Add(t, "AvatarSdcsNpcController::SdcsAnyWeaponTick", Patches_Craft.AnyWeaponTickTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsAnyWeaponMenuListing", Patches_Craft.AnyWeaponListingTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsTryWorldEntryMelee", Patches_Craft.WorldEntryMeleeTarget());
 #endif
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
             // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on

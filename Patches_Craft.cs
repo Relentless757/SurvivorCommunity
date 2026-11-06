@@ -18,8 +18,14 @@ namespace SurvivorCommunity
     ///   C1e TileEntityWorkstation.CheckForCraftComplete(EntityPlayerLocal) postfix the player opens a station: items a member made
     ///                                                                              there while unloaded or after a reload are paid and
     ///                                                                              taken off its list
-    ///   C1f SdcsLootHere.Finish(EntityAlive, string, string)              prefix   a member on a work shift stays where she is when a
-    ///                                                                              job ends (no Follow order, no teleport to the player)
+    ///   C1f SdcsLootHere.Finish(EntityAlive, string, string)              prefix   a resident member (on a work shift, or with a link a
+    ///                                                                              reload left) stays where she is when a job ends (no
+    ///                                                                              Follow order, no teleport to the player)
+    ///   C1g AvatarSdcsNpcController.SdcsAnyWeaponTick / SdcsAnyWeaponMenuListing(EntityAlive) / SdcsTryWorldEntryMelee(EntityAlive,
+    ///       ItemValue)                                                    prefixes 0-XNPCCore's owner-gated weapon picks (its Owner cvar
+    ///                                                                              test) never re-arm a resident on a shift from her
+    ///                                                                              stores: she is a resident, SC drives her weapons
+    ///                                                                              (review #3; its melee fallback is X6's already)
     ///
     /// As Patches_Xnpc: every target DECLARED on the named type and bound by name (SdcsStationCraft is internal: found through
     /// SdcsCraft's assembly), a Prepare that turns the patch off with one warning when it is gone, ModApi's ExpectedTargets lists
@@ -30,7 +36,11 @@ namespace SurvivorCommunity
     {
         private static readonly Dictionary<string, int> hits = new Dictionary<string, int>();
 
-        public static void Reset() { hits.Clear(); }
+        public static void Reset()
+        {
+            hits.Clear();
+            anyWeaponSkips = listingSkips = worldEntrySkips = 0;
+        }
 
         internal static void Count(string what)
         {
@@ -45,7 +55,10 @@ namespace SurvivorCommunity
             keys.Sort(StringComparer.Ordinal);
             var parts = new List<string>();
             foreach (string k in keys) parts.Add(k + "=" + hits[k]);
-            return parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "none yet";
+            parts.Add("c1g-anyweapon-tick-skipped-frames=" + anyWeaponSkips);
+            parts.Add("c1g-anyweapon-listing-empty=" + listingSkips);
+            parts.Add("c1g-worldentry-melee-skipped=" + worldEntrySkips);
+            return string.Join(", ", parts.ToArray());
         }
 
         // ------------------------------------------------------------------ targets ----
@@ -81,6 +94,24 @@ namespace SurvivorCommunity
         {
             return AccessTools.DeclaredMethod(typeof(SdcsLootHere), "Finish", new[] { typeof(EntityAlive), typeof(string), typeof(string) });
         }
+
+        public static MethodBase AnyWeaponTickTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsAnyWeaponTick", new Type[0]);
+        }
+
+        public static MethodBase AnyWeaponListingTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsAnyWeaponMenuListing", new[] { typeof(EntityAlive) });
+        }
+
+        public static MethodBase WorldEntryMeleeTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsTryWorldEntryMelee", new[] { typeof(EntityAlive), typeof(ItemValue) });
+        }
+
+        /// <summary>C1g runs every frame per body (the any-weapon tick): plain counters, read by Report.</summary>
+        private static int anyWeaponSkips, listingSkips, worldEntrySkips;
 
         /// <summary>A Prepare's lookup, in its own method so a missing DLL is a caught exception and an inert patch (CLAUDE.md #5).</summary>
         private static bool Bound(Func<MethodBase> target, string label)
@@ -295,9 +326,10 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// C1f. 0-XNPCCore ends a job away from a station (a backpack craft, a loot or harvest job) with the Follow order,
-        /// buffOrderFollow and a teleport to her leader beyond 40 m. A member on a work shift (ScWork) has no leader to follow: she
-        /// stays where she is, exactly as after a station job (its AtStation branch is the same Clear + Say), and the shift's idle
-        /// timer sends her home.
+        /// buffOrderFollow and a teleport to her leader beyond 40 m. A resident member has no leader to follow - on a work shift
+        /// (ScWork), or with the Owner cvar and craft-here state a reload left (review #2: 0-XNPCCore's craft task may end that
+        /// order before SC's ticker stations her): she stays where she is, exactly as after a station job (its AtStation branch
+        /// is the same Clear + Say); the shift's idle timer, or the resident rule, sends her home.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_ShiftJobEnd
@@ -314,16 +346,111 @@ namespace SurvivorCommunity
                 try
                 {
                     Member m = MemberOf(npc);
-                    if (m == null || npc.Buffs == null || !ScWork.OnShift(m.Id)) return true;
+                    if (m == null || npc.Buffs == null || m.Status != MemberStatus.Resident) return true;
                     SdcsLootMode.Clear(npc);
                     SdcsSayLine.Say(npc, lineId);
                     Count("c1f-shift-job-ended-in-place");
-                    ScLog.Verbose(m.Name + ": job done on her shift (" + reason + ") - stays at her spot");
+                    ScLog.Verbose(m.Name + ": job done as a resident (" + reason + ") - stays at her spot");
                     return false;
                 }
                 catch (Exception e)
                 {
                     ScLog.Once("craft-lootfinish", e);
+                    return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ C1g: no owner-gated re-arm of a resident (review #3) ----
+
+        /// <summary>
+        /// C1g. 0-XNPCCore's any-weapon tick (every frame from Update, self-throttled) equips a weapon newly found in a hire's stores;
+        /// its gate is the Owner cvar (SdcsNpcRelation.OwnedByCvar), which a work shift writes. A resident on a shift (ScWork.ShiftOwned:
+        /// a resident member with the Owner cvar - a reload's leftover too) is skipped, as she is without the link. Followers keep it
+        /// (X16 joins what it equips to the pair).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_ShiftNoAnyWeapon
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(AnyWeaponTickTarget, "AvatarSdcsNpcController.SdcsAnyWeaponTick()"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return AnyWeaponTickTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (!ScWork.ShiftOwned(e)) return true;
+                    anyWeaponSkips++;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("craft-anyweapon", ex);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>C1g. The "Carried Weapons" listing (Voice Control's AnyWeaponBridge): empty for a resident on a shift, as for an NPC with no owner.</summary>
+        [HarmonyPatch]
+        public static class Patch_ShiftNoAnyWeaponListing
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(AnyWeaponListingTarget, "AvatarSdcsNpcController.SdcsAnyWeaponMenuListing(EntityAlive)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return AnyWeaponListingTarget(); }
+
+            /// <summary>__0 is the entity argument (bound by position: the controller also has an "entity" field).</summary>
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive __0, ref List<string> __result)
+            {
+                try
+                {
+                    if (!ScWork.ShiftOwned(__0)) return true;
+                    listingSkips++;
+                    __result = new List<string>();
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("craft-anyweapon-listing", ex);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// C1g. The world-entry re-arm's melee step (from SdcsTryWorldEntryRearm, X5's gate) is owner-gated too: a resident whose
+        /// body comes into the world with a reload's leftover link keeps the hand SC put together (X13, ScLoadout), as without it.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_ShiftNoWorldEntryMelee
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(WorldEntryMeleeTarget, "AvatarSdcsNpcController.SdcsTryWorldEntryMelee(EntityAlive, ItemValue)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return WorldEntryMeleeTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive __0, ref bool __result)
+            {
+                try
+                {
+                    if (!ScWork.ShiftOwned(__0)) return true;
+                    worldEntrySkips++;
+                    __result = false;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("craft-worldentry", ex);
                     return true;
                 }
             }
