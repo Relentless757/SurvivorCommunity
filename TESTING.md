@@ -1844,7 +1844,9 @@ WalkerSim2 is in the 3.4 install; keep it enabled for 420-430. Test on a new wor
      `scRaiderTownNight` rise.
 425. **City centres.** Downtown, by day and at night: `scRaiderCityDay` / `scRaiderCityNight` rise.
 426. **The odds.** After 422-425, `rolled` is above 0 and nearly all rolls are `none` (about 96 in 100: a raider is rare on
-     the real odds - a few game days of travel for one). If one appears, 427's checks apply to it.
+     the real odds - a few game days of travel for one). If one appears, 427's checks apply to it. (Fable review W2 LOW-1:
+     no zombie entry can pre-empt a raider entry in SC's pass, so each matching raider entry gets its daily roll: expect about
+     4% x the 1-2 raider entries that match a spot, per 80 m area per day - a little more often than with enemies simply on.)
 427. **A raider spawned this way (test aid).** To see one quickly, in the 3.4 install's SC `Config/entitygroups.xml` change
      `<e n="none" p="96.00"/>` to `p="0"` in the three `scRaiderGroupGS` groups and restart (every roll is then a raider;
      bands and raider enclaves roll from the same groups, so expect more of those too). Explore the wilderness by day: within
@@ -1852,7 +1854,7 @@ WalkerSim2 is in the 3.4 install; keep it enabled for 420-430. Test on a new wor
      #<id> at (x, y, z) from scRaiderWildDay in <biome> by day - another mod has the game's enemy biome spawns off`.
      `sc raiders` lists it with its `bandit raider:` line: SC's clothes (a raider gear set), an SC raider name, its one weapon
      from 0-XNPCCore's list and the kit melee; it is hostile and fights you; killed, it drops 0-XNPCCore's loot bag and pays
-     the raider kill XP. `sc raiders wild`: `spawn requested` and `spawned` rise together. **Put `96.00` back afterwards.**
+     the raider kill XP. `sc raiders wild`: `spawn requested` and `spawned` rise together (`spawned` can lag by one when the chunk unloads before the spawn lands). **Put `96.00` back afterwards.**
 428. **Zombies still WalkerSim2's.** Through 422-427, zombies keep coming the WalkerSim2 way (its roaming groups, at its
      density): no more than before this build. Every `wild raider (W2):` line names an `scRaider` class, never a zombie, and
      `sc raiders wild`'s `spawned` equals the number of those lines.

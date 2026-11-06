@@ -2698,7 +2698,7 @@ fast-forwarded to `ms/int` e05b586; `deploy_sc34.py`: 6691 files, installed = bu
 `Port33\_backups\sc34_2026-11-05_215032`; the user's `DebugLogging` true set again. Untested in game: TESTING R1
 (330-347) and C1 (370-409), and X1 (300-319) from the install before.
 
-### Round 23: wild raiders when another mod turns biome enemies off (W2) (2026-11-05, built, not reviewed, not installed)
+### Round 23: wild raiders when another mod turns biome enemies off (W2) (2026-11-05, built, reviewed (Fable: deployable), not installed)
 
 **The problem (verified).** `SpawnManagerBiomes.SpawnUpdate(string, bool _isSpawnEnemy, ChunkAreaBiomeSpawnData)` (3.4
 decompile; World's tick passes `GameStats IsSpawnEnemies`) skips an enemy group unless `_isSpawnEnemy`
@@ -2803,6 +2803,15 @@ to the same build of `52b5458` (`8c4a257e`); the tracked `SurvivorCommunity.dll`
   `Harmony.ReversePatch` call, `[MethodImpl(NoInlining)]` on PassCopy; ModApi calls `Build` and `Reset`; `sc raiders` the
   summary.
 
-Not checked: anything in game (the user runs TESTING W2, 420-434). Not reviewed.
+Not checked: anything in game (the user runs TESTING W2, 420-434).
+
+Fable review (scratchpad `w2\REVIEW_FABLE.md`): DEPLOYABLE, no HIGH or MEDIUM. It re-read the 3.4 IL of the loop (the two
+daytime reads come before any count/delay read or write of an entry, so the copy can only touch SC's raider entries),
+checked that SC's enclave-grounds filter and gamestage swap still apply (the pass runs inside Begin/EndBiomeSpawn and the
+spot postfix fires on the copy's call), and scanned every managed DLL in the 3.4 Mods tree for SpawnUpdate patches (only
+WalkerSim2's prefix, SCore's cave prefix that never writes `_isSpawnEnemy`, and SC). LOWs, documented, no code change: each
+matching raider entry gets its daily roll (no zombie entry can pre-empt it), so raiders come a little more often than with
+enemies simply on (TESTING 426); a future off-switch at Priority.Last is not seen (only `handed off 0` tells); `spawned` can
+lag `spawn requested` when a chunk unloads (TESTING 427).
 
 Builds: SC 3.4 `b89f03de7f6415810d1c1ace79406aa2` (`build\sc34_w2`), 0 errors. Not installed.
