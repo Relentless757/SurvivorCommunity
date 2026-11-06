@@ -445,6 +445,12 @@
 			<property name="ShootingAimChest" value="true" />
 			<property name="ShootingDefaultStars" value="2" />
 			<property name="RaiderShootingStars" value="1-2,2-4,4-6" />
+			<!-- XnpcAimSpread (3.4, round X1): 0-XNPCCore 3.4.02 widens an NPC's hip spread by its kill level (its aim tick
+			     writes the SdcsAimSpread cvar); SC skips that tick on its own survivors and raiders and holds the cvar at this
+			     value instead. -1 = the gun adds no spread of its own, so the Shooting stars above alone decide where a shot
+			     goes (as before 3.4.02); 0 = no cvar, which is a player's hip-fire spread with that gun (for most guns wider
+			     than 0-XNPCCore's level 1). Between -1 and 2. XNPC's bandit spread setting never applies to SC's raiders. -->
+			<property name="XnpcAimSpread" value="-1" />
 			<!-- The dialog line and voiced lines (the voice test, 2026-10-16). DialogLine: the NPC's line shows above the
 			     dialog's responses (vanilla shows only the responses; SCore's subtitle covers only its older body type).
 			     VoiceLines: a survivor's line plays as a recorded clip when Resources/Voices has one in their voice. The

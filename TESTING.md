@@ -1480,6 +1480,73 @@ no visible ScCommunity) - the window opens on its own, without the bar`.
      open the player menu with Tab: Crafting opens with its own tab lit, not Community. Do the same after opening the
      window from a member's talk: the talk does not come back, the toolbelt is there and you can move.
 
+**X1. Round 20: NPCCore 3.4.02 compatibility (3.4)**
+
+Built 2026-11-05 on branch `ms/x1` (SC 3.4 DLL `d977d9a6a12ee2f0197d4aca4996d66b`, `Port33\build\sc34_x1`), **not
+installed**: these steps wait for the install. For 0-XNPCCore 3.4.02 and Vanity Vault 3.3.0, both already in the 3.4
+install. What changed: 0-XNPCCore's own bandits, character-creator survivors and pickpocket get their look, armour, weapon,
+bag, bandages and names back (SC's takeover of the six survivor classes had cascaded onto them); SC's survivors and raiders
+aim by their Shooting stars alone again (0-XNPCCore 3.4.02's new level-based spread is skipped on them); Voice Control's
+renamed voice relay is found again; Vanity Vault 3.3's paints and tattoos are back on SC's people. The spawn menu is F6
+(turn debug mode on with `dm` first); the bandits are hostile, so god mode (`god`) helps.
+
+300. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, two more than the build
+     before (none `MISSING`; in particular no `MISSING PATCH` naming `SdcsAimTick`, `SdcsBanditAimTick` or
+     `NetPackageVCVoiceRelay::PlayVoiceLocally`, and no `0-XNPCCore method ... not found` warning). No XML `did not apply`
+     line for SurvivorCommunity; ten new `Xpath conditional on file: entityclasses.xml` lines, each followed by an `Xpath
+     matches:` line, are expected (the guards of the new ops). The `config:` line has `xnpcAimSpread=-1`. The Vanity Vault line reads `Vanity Vault 3.3.0:
+     paints and tattoos on survivors - it knows ... body paints, ... face paints, ... tattoo variants, face/body/hand tattoo
+     slots (bound in ... ms); not found there (skipped): Tribal 01 - Full` (Vanity Vault 3.3 split that tattoo into Face,
+     Body and Hands; the lists still name it). It must NOT say `Vanity Vault 3.3.0 is loaded but its paint code has moved`.
+301. **0-XNPCCore's ranged bandit.** F6, spawn `npcSdcsBanditRanged` 15-20 m away. She wears a whole armour set (not
+     underwear, not SC's clothes), holds a pipe pistol or a pipe rifle and shoots at you. Her name (health bar on, or
+     `sc xnpc <her id>`'s `name:` line) is one of 0-XNPCCore's: Alice, Angela, Ashley, Audrey, Bianca, Celeste, Crystal,
+     Daisy, Diana, Emily, Erica, Evelyn - never one of SC's (Amy, Beth, Cara, ...). `sc xnpc <id>`: `managed=False
+     xnpcBody=False`; once she has held her gun a second, its `aim spread:` line shows `SdcsAimSpread=` some value other
+     than -1 and `SdcsBanditSpread=0` (0-XNPCCore's own aim, untouched).
+302. **0-XNPCCore's melee bandit.** F6, spawn `npcSdcsBanditMelee`: a whole armour set, a melee weapon and no gun; a name
+     from 0-XNPCCore's list (Austin, Bradley, Caleb, Cedric, Charles, Daniel, David, Dylan, Edward, Eric, Evan, Felix, Gavin),
+     never SC's (Alex, Ben, Carl, ...). Killed, each bandit drops 0-XNPCCore's zombie loot bag as before.
+303. **A character-creator survivor.** Have a character made in the character creator (the main menu's). F6, spawn
+     `npcSdcsCustomMale` (or `npcSdcsCustomFemale` for a female character), or type `sdcscustom spawn <character name>`: she
+     has that character's face, hair and eye colour, is dressed, and carries the character's name. `sc xnpc <id>`:
+     `managed=False`. Leave and come back (or save and reload): face and name stay.
+304. **The pickpocket.** F6, spawn `npcSdcsPickpocket`: dressed, with a name from 0-XNPCCore's female T1 list (301).
+305. **SC's own survivors are unchanged.** `sc spawn male` and `sc spawn female` a few times (or F6
+     `npcSdcsSurvivorMaleT1` ... `npcSdcsSurvivorFemaleT3`): each wears SC's look (SC's clothes, never 0-XNPCCore's
+     whole preset armour set), has a name from SC's lists (Alex, Ben, Carl, ... / Amy, Beth, Cara, ...), and `sc xnpc <id>`
+     shows `managed=True` and a `look: source=` of SC's. Talking to one is SC's talk, as before.
+306. **SC's people hold no level spread.** `sc spawn male T3 Rifle` (a stranger with an AK-47), then `sc xnpc <its id>`
+     after a second or two: its `aim spread:` line reads `SdcsAimSpread=-1 SdcsBanditSpread=- hipSpreadMult=0 (SC holds -1
+     on its bodies)`. `sc xnpc` (no id): the `0-XNPCCore survivor hooks` line has `x18-aim-tick-skipped=` growing by about
+     one a second per SC survivor or raider near you, and `x18-aim-spread-held=` at least 1.
+307. **SC's raiders.** `sc spawn hostile male T2 Rifle ranged-lead`, then `sc xnpc <its id>`: the same `aim spread:` line
+     as 306 (`SdcsBanditSpread=-`, never a number); `x19-bandit-aim-skipped=` grows by about one a second per SC raider.
+     The raider still hurts you as 0-XNPCCore's bandits do (its player damage setting, `sdcsbandit` shows it, is kept).
+308. **Shooting by the stars again.** Repeat steps 2 and 3 of "Shooting skill aims the gun (round sh)" below: a 1-2 star
+     member misses most shots at 15-20 m and hits nearly every one at 5 m; a member with 5+ Shooting stars hits reliably
+     at 20-30 m (watch the bullet impacts on the wall behind the zombie). A shotgun's pellets land close together, as before
+     3.4.02.
+309. **(Optional, to compare) a player's hip spread.** Set `XnpcAimSpread` to `0` in Config/blocks.xml and restart: the
+     `config:` line says `xnpcAimSpread=0`; `sc xnpc <id>` on an SC shooter shows `SdcsAimSpread=- ... hipSpreadMult=1`;
+     their shots now spread like a player firing from the hip (a 5+ star member misses far more at 20-30 m). Set it back
+     to `-1` and restart. Tell me if you prefer something in between (any value from -1 to 0).
+310. **0-XNPCCore's other survivors keep its aim.** F6, spawn `npcSdcsXyth` (an AK-47): `sc xnpc <id>` shows
+     `managed=False` and, a second after it holds the gun, `SdcsAimSpread=` some value other than -1.
+311. **Vanity Vault 3.3 tattoos, by part.** On a nearby SC survivor: `sc paint <id> tattoo Maori 03/Black Orchid`: a
+     tattoo on the face only. `sc paint <id> tattoo Arm Dragon 01/Black Orchid`: on the arm, the face clean. `sc paint <id>
+     tattoo Hand Cat 01/Black Orchid`: on the hand. `sc paint <id> tattoo Yakuza/Black Orchid`: on the face AND the body.
+     Each shows at once, the rest of them (hair, eyes, clothes) unchanged; `sc paint <id> none` takes it off.
+312. **Paints again.** `sc paint <id> face Sonja_Furiosa` on a survivor: the face paint shows. On a man, `sc paint <id>
+     body Sonja_Broken_Full_M` (its set brings the Broken face paint); on a woman, `body Sonja_Clean_Vanilla_Full_F`. Then
+     `tattoo Star 01` on top: the tattoo shows over the paint. `sc xnpc` counts `paints=` rising.
+313. **Rolled ones.** `sc spawn hostile` a dozen times (raiders: 35% a tattoo, 10% a face paint, 6% a body paint): some
+     come with tattoos (on the face, arms, legs, back or hands by shape) and some with face paints. Save and reload: a
+     painted raider still nearby keeps them.
+314. **(Multiplayer only, optional) the voice relay.** On a listen server with a joined client and Voice Control's voices
+     on: while the client has SC's talk open with a member, Voice Control's spoken lines from that member do not play on
+     the client (SC's line plays). The start-up of step 300 already shows the hook is bound.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

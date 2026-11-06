@@ -2178,6 +2178,17 @@ namespace SurvivorCommunity
                 sb.Append("\n  levels:");
                 foreach (string c in XnpcLevelCvars) sb.Append(' ').Append(c).Append('=').Append(e.Buffs.HasCustomVar(c) ? e.Buffs.GetCustomVar(c).ToString("0.###") : "-");
                 sb.Append(" Progression=").Append(e.Progression != null ? "level " + e.Progression.Level : "null");
+#if SC_V34
+                // round X1 (0-XNPCCore 3.4.02): the hip-spread cvars XNPC's aim ticks write (X18/X19 hold them on our bodies)
+                // and the hip spread multiplier the game reads for the held item now (0 = the gun adds no spread)
+                ItemValue hiv = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+                sb.Append("\n  aim spread: ").Append(Patches_Xnpc.AimSpreadCvar).Append('=')
+                  .Append(e.Buffs.HasCustomVar(Patches_Xnpc.AimSpreadCvar) ? e.Buffs.GetCustomVar(Patches_Xnpc.AimSpreadCvar).ToString("0.###") : "-")
+                  .Append(' ').Append(Patches_Xnpc.BanditSpreadCvar).Append('=')
+                  .Append(e.Buffs.HasCustomVar(Patches_Xnpc.BanditSpreadCvar) ? e.Buffs.GetCustomVar(Patches_Xnpc.BanditSpreadCvar).ToString("0.###") : "-")
+                  .Append(" hipSpreadMult=").Append(hiv != null && !hiv.IsEmpty() ? EffectManager.GetValue(PassiveEffects.SpreadMultiplierHip, hiv, 1f, e).ToString("0.###") : "-")
+                  .Append(" (SC holds ").Append(ScConfig.XnpcAimSpread.ToString("0.###")).Append(" on its bodies)");
+#endif
                 sb.Append("\n  buffs:");
                 foreach (string b in XnpcBuffs) sb.Append(' ').Append(b).Append('=').Append(e.Buffs.HasBuff(b));
                 sb.Append("\n  orders:");

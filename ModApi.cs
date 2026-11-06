@@ -358,6 +358,9 @@ namespace SurvivorCommunity
             // 3.4 Stage 2: X17 creator faces only on fresh bodies, SC's way (D4); ScMedic and 0-XNPCCore's party medic (D2);
             // no sleeper touch in an enclave's POI (D4); SCore's companion-window Dismiss is a member's Go Home (D5)
             Add(t, "SdcsCustomLook::ApplyCharacter", Patches_Xnpc.ApplyCharacterTarget());
+            // 3.4 X1 (0-XNPCCore 3.4.02): X18 no level-based aim spread on our bodies, X19 no bandit spread on SC's raiders
+            Add(t, "AvatarSdcsNpcController::SdcsAimTick", Patches_Xnpc.AimTickTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsBanditAimTick", Patches_Xnpc.BanditAimTickTarget());
             Add(t, "SdcsMedic::ApplyHealOther", ScMedic.HealOtherTarget());
             Add(t, "SdcsMedic::Begin", ScMedic.MedicBeginTarget());
             Add(t, "SleeperVolume::TouchGroup", Patches_Enclaves.TouchGroupTarget());
@@ -449,7 +452,7 @@ namespace SurvivorCommunity
                 Add(t, "NPCAudioPlayer::OnWavBytesReady", Patches_VoiceControl.WavReadyTarget());
                 Add(t, "NPCAudioPlayer::PlayClipFile", Patches_VoiceControl.PlayClipFileTarget());
                 Add(t, "NPCAudioPlayer::SpeakStreaming", Patches_VoiceControl.SpeakStreamingTarget());
-                Add(t, "NetPackageNPCVoice::PlayVoiceLocally", Patches_VoiceControl.RelayTarget());
+                Add(t, "NetPackageVCVoiceRelay::PlayVoiceLocally", Patches_VoiceControl.RelayTarget());   // NetPackageNPCVoice before Voice Control 3.4.02
                 Add(t, "NPCChatComponent::PlayProactiveGreeting", Patches_VoiceControl.GreetingTarget());
                 Add(t, "SubtitleManager::AcknowledgeCommand", Patches_VoiceControl.AckTarget());
                 Add(t, "NPCChatComponent::ProcessPlayerMessage", Patches_VoiceControl.PlayerMessageTarget());

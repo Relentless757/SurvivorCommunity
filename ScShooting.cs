@@ -11,7 +11,9 @@ namespace SurvivorCommunity
     /// at twice the range). Before this every NPC with the player's body was an aimbot: SCore's attack task points the look
     /// ray from its head straight at the target's head in the same call that fires (UAITaskAttackTargetEntitySDX.Update,
     /// SetLookPosition), the shot is a hitscan ray, and 0-XNPCCore's SdcsNpcAccuracy cuts a standing NPC's spread to
-    /// 0.02-0.07 degrees (research: scratchpad mig\aim_research.md).
+    /// 0.02-0.07 degrees (research: scratchpad mig\aim_research.md). 0-XNPCCore 3.4.02 made its NPCs shoot like players, at a
+    /// spread its kill level sets; on our bodies Patches_Xnpc X18/X19 skip that and hold the gun's own spread at nothing
+    /// (ScConfig.XnpcAimSpread -1), so the error below is again the only one.
     ///
     /// Accuracy. Each shooter has a hit range of ShootingRangePerStar (5 m) per Shooting star - 5 m at 1 star, 35 m at 7 -
     /// and an aim error on every shot: a uniform disc that measures ShootingHitRadius (0.25 m, a torso's half-width) at

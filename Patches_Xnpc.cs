@@ -42,6 +42,10 @@ namespace SurvivorCommunity
     ///                                                                  AnyWeapon's equip of a handed weapon joins the pair
     ///   X17 SdcsCustomLook.ApplyCharacter                     prefix   (3.4 build) a creator face only on a fresh body,
     ///                                                                  SC's way; never over a look SC stores (D4)
+    ///   X18 AvatarSdcsNpcController.SdcsAimTick               prefix   (3.4 build, 0-XNPCCore 3.4.02) no level-based aim
+    ///                                                                  spread on our bodies: SC's Shooting stars aim them
+    ///   X19 AvatarSdcsNpcController.SdcsBanditAimTick         prefix   (3.4 build, 0-XNPCCore 3.4.02) XNPC's bandit spread
+    ///                                                                  never widens SC's raiders (they carry the bandit tag)
     ///   (3.4 build) X7 also builds an adopted creator face and stands aside while the hand is holstered (D8)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
@@ -1616,6 +1620,123 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("xnpc-creatorface", ex);
                     return false;       // never XNPC's applier on one of ours
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X18/X19: SC's stars alone aim our bodies (3.4.02) ----
+
+        /// <summary>XNPC's aim spread cvar (0-XNPCCore 3.4.02): npcSdcsBase's SdcsNpcAccuracy adds it to the hip spread (perc_add).</summary>
+        public const string AimSpreadCvar = "SdcsAimSpread";
+        /// <summary>XNPC's bandit spread cvar (3.4.02): npcSdcsBase's SdcsBanditAim adds it to the hip spread (perc_add).</summary>
+        public const string BanditSpreadCvar = "SdcsBanditSpread";
+
+        /// <summary>X18: 0-XNPCCore 3.4.02's aim tick (private, 1 Hz from the controller's Update, after SdcsLevelTick).</summary>
+        public static MethodBase AimTickTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsAimTick", NoArgs);
+        }
+
+        /// <summary>X19: 0-XNPCCore 3.4.02's bandit aim tick (private, from SdcsBanditTick, before the bandit player-damage write).</summary>
+        public static MethodBase BanditAimTickTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsBanditAimTick", NoArgs);
+        }
+
+        /// <summary>
+        /// Holds a hip-spread cvar on one of our bodies at the given value: 0 = the cvar is taken off (an unset cvar reads 0),
+        /// else written when it differs. True when something changed. Server / owner side, as XNPC's own ticks.
+        /// </summary>
+        private static bool HoldCvar(EntityBuffs b, string cvar, float value)
+        {
+            if (b == null) return false;
+            if (value == 0f)
+            {
+                if (!b.HasCustomVar(cvar)) return false;
+                b.RemoveCustomVar(cvar);
+                return true;
+            }
+            if (b.HasCustomVar(cvar) && b.GetCustomVar(cvar) == value) return false;
+            b.SetCustomVar(cvar, value);
+            return true;
+        }
+
+        /// <summary>
+        /// X18 (3.4, 0-XNPCCore 3.4.02; the user's call: SC's NPCs keep SC's Shooting-star accuracy only). 3.4.02 made its NPCs
+        /// shoot like players: npcSdcsBase's SdcsNpcAccuracy now sets the player's stance bases (hip spread multiplier 1) plus
+        /// SpreadMultiplierHip perc_add @SdcsAimSpread, which SdcsAimTick writes once a second from the held gun and the NPC's
+        /// level: the gun's aimed spread x NpcLevelRules.AimErrorFactor (3 at level 1 down to 1 at the top level, Settings.xml
+        /// Progression AimErrorAtLevel1 / AtMaxLevel) minus its hip spread. SC takes the level cvar off its members and raiders
+        /// (D8, RaiderXnpcLevels), so every one of them shot at level 1's spread, under SC's own aim error (ScShooting). Before
+        /// 3.4.02 the gun's spread on these bodies was small and SC's stars decided alone.
+        ///
+        /// For our bodies (ScXnpc.IsBody: SC's survivor classes, strangers included, and SC's raiders) the tick is skipped and
+        /// SdcsAimSpread held at ScConfig.XnpcAimSpread instead: -1 by default, which zeroes the hip multiplier, so the gun adds
+        /// no spread of its own and the Shooting stars alone place the shot (their bodies never aim down sights: ScAim keeps
+        /// AimingGun false, so the hip spread is the one that counts); 0 leaves the cvar off, which is a player's hip-fire spread
+        /// with that gun (wider than level 1's for most guns: an AK 2.8 degrees against level 1's 1.85). Every other XNPC NPC
+        /// keeps XNPC's tick. The method is ~450 bytes of IL (not inlined); the counter shows it runs.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoXnpcAimTick
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(AimTickTarget, "AvatarSdcsNpcController.SdcsAimTick"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return AimTickTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (e == null || !ScXnpc.IsBody(e)) return true;
+                    Count("x18-aim-tick-skipped");
+                    if (HoldCvar(e.Buffs, AimSpreadCvar, ScConfig.XnpcAimSpread)) Count("x18-aim-spread-held");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-aimtick", ex);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// X19 (3.4, 0-XNPCCore 3.4.02). XNPC's bandit tick runs for every class tagged bandit (IsBanditClass), SC's raiders
+        /// among them (RAIDER_TAGS in Tools/gen_arsenal.py), and its SdcsBanditAimTick writes SdcsBanditSpread once per body from
+        /// Settings.xml Bandits SpreadByTier and the class's SdcsArmorTier: an extra hip spread (perc_add) for bandits. On our
+        /// bodies it is skipped and the cvar kept off, so that setting never widens SC's raiders (their stars aim them, X18).
+        /// Only the aim half: SdcsBanditTick's player-damage write (SdcsPlayerDamage) still runs, after this call, for SC's
+        /// raiders too (the user's call: NPCCore's damage setting stays). XNPC's own bandits keep both. ~150 bytes of IL.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoXnpcBanditAim
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(BanditAimTickTarget, "AvatarSdcsNpcController.SdcsBanditAimTick"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BanditAimTickTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (e == null || !ScXnpc.IsBody(e)) return true;
+                    Count("x19-bandit-aim-skipped");
+                    if (HoldCvar(e.Buffs, BanditSpreadCvar, 0f)) Count("x19-bandit-spread-removed");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-banditaim", ex);
+                    return true;
                 }
             }
         }

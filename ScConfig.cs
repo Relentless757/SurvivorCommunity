@@ -955,6 +955,12 @@ namespace SurvivorCommunity
         public static int ShootingDefaultStars = 2;
         /// <summary>A raider's Shooting stars by tier (T1, T2, T3): low and high, rolled at spawn.</summary>
         public static readonly int[,] RaiderShootingStars = { { 1, 2 }, { 2, 4 }, { 4, 6 } };
+        /// <summary>
+        /// 3.4 (round X1, 0-XNPCCore 3.4.02): the SdcsAimSpread SC holds on its bodies in place of XNPC's level-based aim tick
+        /// (Patches_Xnpc X18), a perc_add on their hip spread. -1: the gun adds no spread of its own (the Shooting stars alone);
+        /// 0: the cvar is left off (a player's hip-fire spread with that gun).
+        /// </summary>
+        public static float XnpcAimSpread = -1f;
         // ---- the dialog line and voiced lines (XUiC_ScDialogLine, ScVoice; the voice test, 2026-10-16) ----
         /// <summary>The NPC's line shows above the dialog's responses (vanilla shows only the responses).</summary>
         public static bool DialogLine = true;
@@ -1159,6 +1165,7 @@ namespace SurvivorCommunity
             ShootingAimChest = true;
             ShootingDefaultStars = 2;
             ParseRaiderShooting("1-2,2-4,4-6");
+            XnpcAimSpread = -1f;
             DialogLine = true;
             VoiceLines = true;
             MuteVcInTalk = true;
@@ -2200,6 +2207,7 @@ namespace SurvivorCommunity
                 ParseInt(p, "ShootingDefaultStars", ref ShootingDefaultStars, 1, 7);
                 string raiderShooting;
                 if (p.Values.TryGetValue("RaiderShootingStars", out raiderShooting) && !string.IsNullOrEmpty(raiderShooting)) ParseRaiderShooting(raiderShooting);
+                ParseFloat(p, "XnpcAimSpread", ref XnpcAimSpread, -1f, 2f);
                 bool dialogLine = DialogLine;
                 if (p.Values.ContainsKey("DialogLine")) p.ParseBool("DialogLine", ref dialogLine);
                 DialogLine = dialogLine;
@@ -2361,6 +2369,7 @@ namespace SurvivorCommunity
                                             + ShootingHitRadius + "m" + (ShootingAimChest ? " chest" : " head") + " default " + ShootingDefaultStars + " raiders "
                                             + RaiderShootingStars[0, 0] + "-" + RaiderShootingStars[0, 1] + "/" + RaiderShootingStars[1, 0] + "-" + RaiderShootingStars[1, 1]
                                             + "/" + RaiderShootingStars[2, 0] + "-" + RaiderShootingStars[2, 1] : "off")
+                          + " xnpcAimSpread=" + XnpcAimSpread
                           + " dialogLine=" + DialogLine + " voiceLines=" + VoiceLines + " muteVcInTalk=" + MuteVcInTalk + " voiceEnclaveContext=" + VoiceEnclaveContext
                           + " getUp=" + (XnpcBodyGetUp ? (XnpcGetUpGuard ? "guarded" : "unguarded") + (XnpcGetUpTrace ? "+trace" : "") : "off")
                           + " relax=" + (XnpcRelax ? "after " + XnpcRelaxCalmSeconds + "s, " + (XnpcRelaxRange > 0f ? XnpcRelaxRange + "m" : "sight range")

@@ -521,7 +521,8 @@ namespace SurvivorCommunity
         //  - NPCAudioPlayer.SpeakStreaming(string, bool, Action, VcTrace, bool): Voice Control's every new TTS line; it starts
         //    with StopSpeaking whenever the player is playing, which would cut SC's clip before the sentence even reached
         //    OnWavBytesReady (NPCAudioPlayer.cs:933-936), so it is refused at the door;
-        //  - NetPackageNPCVoice.PlayVoiceLocally(int, byte[], float), private static: another machine's relayed TTS (MP);
+        //  - NetPackageVCVoiceRelay.PlayVoiceLocally(int, byte[], float), private static (NetPackageNPCVoice before Voice Control
+        //    3.4.02; both names are tried): another machine's relayed TTS (MP);
         //  - NPCChatComponent.PlayProactiveGreeting(string, string, bool) and SubtitleManager.AcknowledgeCommand: no VC HUD
         //    subtitle over SC's line panel. Skipping either leaves Voice Control's state exactly as before the call: the
         //    greeting sets s_proactiveGreetingBusy only inside, together with the callback that clears it, never touches
@@ -566,13 +567,25 @@ namespace SurvivorCommunity
             return Returning(AccessTools.DeclaredMethod(t, "SpeakStreaming", new[] { typeof(string), typeof(bool), typeof(Action), tr, typeof(bool) }), typeof(void), false);
         }
 
-        /// <summary>NetPackageNPCVoice.PlayVoiceLocally(int npcEntityId, byte[] wavData, float volume), private static.</summary>
+        /// <summary>
+        /// The relay's PlayVoiceLocally(int npcEntityId, byte[] wavData, float volume), private static: on
+        /// NetPackageVCVoiceRelay since Voice Control 3.4.02 (the class was renamed; method and parameters the same), on
+        /// NetPackageNPCVoice before it. The new name first.
+        /// </summary>
         public static MethodBase RelayTarget()
         {
-            Type t = ScTypes.Find("XNPCVoiceControl.NetPackageNPCVoice");
-            if (t == null) return null;
-            return Returning(AccessTools.DeclaredMethod(t, "PlayVoiceLocally", new[] { typeof(int), typeof(byte[]), typeof(float) }), typeof(void), true);
+            foreach (string name in RelayTypes)
+            {
+                Type t = ScTypes.Find(name);
+                if (t == null) continue;
+                MethodBase m = Returning(AccessTools.DeclaredMethod(t, "PlayVoiceLocally", new[] { typeof(int), typeof(byte[]), typeof(float) }), typeof(void), true);
+                if (m != null) return m;
+            }
+            return null;
         }
+
+        /// <summary>The relay package's class: Voice Control 3.4.02's name, then the one before it.</summary>
+        private static readonly string[] RelayTypes = { "XNPCVoiceControl.NetPackageVCVoiceRelay", "XNPCVoiceControl.NetPackageNPCVoice" };
 
         /// <summary>NPCChatComponent.PlayProactiveGreeting(string greeting, string localizedSubtitle, bool showSubtitle).</summary>
         public static MethodBase GreetingTarget()
@@ -715,7 +728,7 @@ namespace SurvivorCommunity
         public static class Patch_GateRelay
         {
             [HarmonyPrepare]
-            public static bool Prepare() { return Bindable(RelayTarget(), "NetPackageNPCVoice.PlayVoiceLocally", null, "npcEntityId"); }
+            public static bool Prepare() { return Bindable(RelayTarget(), "NetPackageVCVoiceRelay.PlayVoiceLocally (NetPackageNPCVoice before 3.4.02)", null, "npcEntityId"); }
 
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return RelayTarget(); }

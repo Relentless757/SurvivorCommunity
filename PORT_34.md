@@ -2200,3 +2200,128 @@ E11 on). Seven voices are complete now: Vane, David, Jessica, Beth, Nate, Desmon
 `dev/ideas` 1ef065e; `deploy_sc34.py`: 6685 files, installed = built `1321ea8f5367d1035c58fef05d4afaaf` (unchanged). The
 old install is in `Port33\_backups\sc34_2026-11-05_151651`; the user's `DebugLogging` true set again in the new
 Config/blocks.xml. Rene's first 340 clips are held back until her set is complete.
+
+### Round 20: NPCCore 3.4.02 compatibility (X1) (2026-11-05, built, not reviewed, not installed)
+
+The user updated the 3.4 install to 0-XNPCCore 3.4.02 (`NPCSdcsCharacters.dll` and `1-XNPCVoiceControl.dll` both in
+`Mods\0-XNPCCore` now; SCore 3.4.3.826 unchanged) and, during the round, asked to get Vanity Vault's paints and tattoos
+working again (Vanity Vault 3.3.0 in the same install). Branch `ms/x1` from `5b8fac9`, worktree `Port33\wt\sc-x1`. **3.4
+only**: only the 3.4 DLL was built; the tracked 3.2 `SurvivorCommunity.dll` is untouched.
+
+- **0-XNPCCore's own children of the six survivor classes get back what SC takes (`Tools/gen_arsenal.py`
+  `xnpc_child_ops`, emitted into `Config/entityclasses.xml` after `XNPC_SURVIVOR_OPS`).** Entity classes inherit properties
+  (`EntityClass.CopyFrom`) and effect groups (`MinEffectController.ParseXml` walking the parent elements of the patched
+  document) down `extends`, so SC's takeover of `npcSdcsSurvivor{Male,Female}T{1,2,3}` - no `SDCS Look` group, `BagItems` /
+  `HarvestItems` `none`, SC's `Names`, SC's worn armor scale - cascaded onto 3.4.02's `npcSdcsCustomMale/Female`,
+  `npcSdcsBanditMelee/Ranged` and `npcSdcsPickpocket`, which the DLL leaves to 0-XNPCCore (ScXnpc: the six exact classes).
+  They spawned with no look, armour or weapon roll, an empty bag, no bandages and SC's names. Now every class whose
+  `@extends` is one of the six (the xpath is built from `XNPC_SURVIVORS`) gets back, each only where it declares none of
+  its own: the parent's `SDCS Look` group as 0-XNPCCore defines it, the parent's own `BagItems`, `HarvestItems` and `Names`
+  (all read from 0-XNPCCore's entityclasses.xml at generation; the generator stops when a parent does not declare exactly
+  one of each, since SC's own `set` would then miss it too), and `SurvivorCommunity worn armor scale undone` (`PhysicalDamageResist
+  perc_add +0.5` against the inherited -0.5: `PassiveEffect.ModValue` adds every perc_add into one multiplier, and
+  `AddEffectGroup`'s extends-suppression only touches base_set / perc_set, so they cancel). Each op sits in an `xpath()`
+  conditional on its own target, so the four `Names` ops of the childless T2/T3 parents are skipped quietly instead of
+  logging `did not apply`. Selected at load, so a child a mod loading before SC adds is covered; one loading after SC is
+  not. New `SC_GEN_GAME` (default the 3.2 install) points VAN, IGP_Classic and Combat Sandbox at another game; the output
+  never follows it. Regenerated with `SC_GEN_GAME`=3.4 install, `SC_GEN_XNPC`=its 0-XNPCCore Config, `SC_GEN_CONFIG`=this
+  tree's Config: entityclasses.xml gained exactly the new block (65 lines, 0 removed). The run also rewrote three files
+  the same way a run on the unmodified generator does (checked first, on a scratch copy): blocks.xml and
+  Localization.csv only move a block (as at E9), and entitygroups.xml's W0 lists for 0-XNPCCore's six biome groups
+  (`npcFriendlyCoreGroupGS*`, `npcHarleyGroupGS*`) would take 3.4.02's new `none` weights (97 -> 197 and the like) - those
+  groups' spawn entries are removed by SC (spawning.xml), so nothing changes in game; all three were restored, left for a
+  later regenerate. SC's own six-class ops still match only the six (replay below).
+- **SC's survivors and raiders aim by their Shooting stars alone again (Patches_Xnpc X18, X19; `ScConfig.XnpcAimSpread`).**
+  3.4.02's `AvatarSdcsNpcController.SdcsAimTick` (private, 446 bytes of IL, 1 Hz from `Update` after `SdcsLevelTick`, owner
+  only) writes `SdcsAimSpread` = the gun's aimed spread x `NpcLevelRules.AimErrorFactor` (3 at level 1 to 1 at the top) -
+  its hip spread, and npcSdcsBase's `SdcsNpcAccuracy` (now the player's stance bases, hip 1) adds it as
+  `SpreadMultiplierHip perc_add @SdcsAimSpread`. SC strips the level from members and raiders, so they all shot at level
+  1's spread under SC's own aim error. X18 skips the tick for `ScXnpc.IsBody` and holds the cvar at `XnpcAimSpread`, **-1
+  by default, not 0 as the round's brief said**: an absent cvar is not "near zero" in 3.4.02 but a player's hip-fire
+  spread (`ItemActionRanged.updateAccuracy` reads `SpreadMultiplierHip` while `AimingGun` is false, which ScAim keeps for
+  our bodies): an AK-47 2.8 degrees before the noise, a hunting rifle 5, a sniper rifle 6, wider than level 1 (1.85, 1.2,
+  1.08) and far wider than 3.4.01's, which 0-XNPCCore's changelog puts at "6 to 30 times less than a player aiming".
+  -1 zeroes the hip multiplier, so the gun adds nothing and the stars place every shot, as before 3.4.02 (a shotgun's
+  pellets fly together, as they nearly did then). 0 gives the hip spread; anything between is allowed (-1..2). X19 skips
+  `SdcsBanditAimTick` (147 bytes, from `SdcsBanditTick`; SC's raiders carry the `bandit` tag `IsBanditClass` tests) and
+  keeps `SdcsBanditSpread` off our bodies; the rest of `SdcsBanditTick`, the `SdcsPlayerDamage` write, still runs (the
+  user's call). Both bound by name with `Bound` (Prepare false + one warning when missing), in ModApi's ExpectedTargets,
+  counted (`x18-aim-tick-skipped`, `x18-aim-spread-held`, `x19-bandit-aim-skipped`, `x19-bandit-spread-removed`).
+  `sc xnpc <id>` has a new `aim spread:` line (both cvars, the held item's hip multiplier, SC's value).
+- **Voice Control's relay (`Patches_VoiceControl.RelayTarget`).** 3.4.02 renamed `NetPackageNPCVoice` to
+  `NetPackageVCVoiceRelay` (same private static `PlayVoiceLocally(int npcEntityId, byte[] wavData, float volume)`, 130 bytes
+  of IL, called from its `ProcessPackage`); the new name is tried first, then the old one. ModApi's label follows.
+- **Vanity Vault 3.3.0 (`ScVanity.Bind`, `Apply`).** `TattooMakeupManager.ApplyCosmetics` went from (renderers, lipstick,
+  eyeshadow, tattoo, nails, isMale) to (renderers, lipstick, eyeshadow, face tattoo, body tattoo 1-3, hand tattoo, nails,
+  isMale), so the 6-parameter lookup failed and `ok` turned everything off: no paints or tattoos on anyone. Bind takes the
+  10-parameter overload, else the 3.2 one. In 3.3 each slot draws only its own part of a tattoo (face: `AssetHead`, body:
+  `AssetBody`, hand: `AssetHands`, read from the variant's `MaleDef` / `FemaleDef` `CosmeticDefinition`; a slot given a tattoo with
+  no part there would get its tint over no texture), so the look's one tattoo goes into each slot it has a part for (Yakuza: face and
+  body 1), "None" elsewhere; nothing for a sex the tattoo has no version for. Those fields are bound at Bind and required
+  like the rest. Unchanged in 3.3 (metadata): `ApplyFacepaint` / `ApplyBodypaint (SkinnedMeshRenderer[], string, bool)`,
+  `BodypaintRegistry` / `FacepaintRegistry.KnownGroups` (Dictionary of string to a group with public `HasMale` / `HasFemale`),
+  `TattooMakeupRegistry.KnownTattoos` (string to `CosmeticVariant`) and its id format `Shape (Ink) [Blend|Vivid]`. Checked
+  against every Sonja XML of the 3.4 install (`scratchpad x1\vv_check.py`, 3.3's ParseXml rules): every configured body
+  paint, face paint and ink still exists and fits the same sexes; one tattoo is gone, `Tribal 01 - Full` (3.3 has `Tribal
+  01 - Face`, `- Body`, `- Hands`), in both tattoo lists: Bind's existing "not found there (skipped)" note names it and the
+  roll skips it; a stored look with it shows no tattoo. Rolls unchanged (3.3 allows a face, three body and a hand tattoo at
+  once: a possible later feature). The hair pre-fill stays checked against 3.2.0 only, so 3.3.0 does its own lookup.
+
+Checks:
+- **XML replay** (`research\sc34\xml\tools\sc_replay.py` copied to scratch with the SC tree selectable; SCore, 0-XNPCCore,
+  Voice Control, SC on the 3.4 install's vanilla entityclasses.xml): 0-XNPCCore 82/82 ops, SC 14/14 (+10 conditionals: six
+  true, the four T2/T3 `Names` false). Effective classes (properties walked down `extends`, effect groups with
+  `AddEffectGroup`'s order and suppression): all five children now have `SDCS Look` (`SdcsApplyLook` on
+  `onSelfFirstSpawn`), PhysicalDamageResist perc_add -0.5 + 0.5 = 0, `BagItems` 0-XNPCCore's
+  (`gunHandgunT0PipePistol,meleeWpnClubT0WoodenClub`; the melee bandit keeps her own `meleeWpnClubT0WoodenClub`),
+  `HarvestItems` `medicalFirstAidBandage=5`, `Names` their parent's 0-XNPCCore list - identical to a replay without SC.
+  Before: no look applier, -0.5, `none`, `none`, SC's names. SC's own survivor classes (e.g. `npcSdcsSurvivorMaleT1`,
+  `FemaleT3`): unchanged - no look applier, -0.5, `none`, `none`, SC's names; the remove / append / set ops matched 6, 6, 6,
+  6, 3, 3 nodes, all on the six.
+- **HarmonyAudit** of the built DLL (`dynamic_targets34.json` copy with the three new targets): 3.4 OK=153, no param
+  issues; X18 `private Void AvatarSdcsNpcController::SdcsAimTick()` (caller `Update`), X19 `SdcsBanditAimTick()` (caller
+  `SdcsBanditTick`), the relay `static private Void NetPackageVCVoiceRelay::PlayVoiceLocally(Int32, Byte[], Single)`.
+  Vanity Vault 3.3.0's signatures checked by Cecil metadata; the DLL's ten-argument `Action` binds to System.Core, which the game has.
+
+Only in game (TESTING.md group X1, steps 300-314): the bandits', the creator survivor's and the pickpocket's look, weapon
+and names; SC's survivors unchanged; the `aim spread:` line and the counters; the stars deciding hits again; Vanity Vault
+3.3's tattoos by part and the paints; the relay in multiplayer.
+
+0-XNPCCore 3.4.02's changelog against what SC drives (not fixed here; for later rounds):
+- Looks: `SdcsSpawnAmmoCount` and the look roll are only read by `SdcsLookApplier` (removed from the six and refused by
+  X1b): no change. 3.4.02's "survivors aim at the chest of people" matches SC's chest aim (ScShooting.cs:217-219).
+- **Ammo restock at the base: needs a change (the user's call).** `SdcsAmmoRestockTick` (gated on the `Owner` cvar, which
+  SC writes on members, ScNpc.cs:377) tops a member up to 120 rounds from the player's broadcast containers and unlocked
+  chests within 15 m, beside SC's own stockpile resupply (ScAmmo.cs:13-40): free ammo past SC's accounting. An X18-style
+  skip for `IsBody` would end it. "Choose a survivor's ammo" (E > Ammo...) on members: check it against X12/X16
+  (Patches_Xnpc.cs:1162, 1502) and ScAmmo's refill type.
+- **Pay/contracts: needs a small change.** Voice Control 3.4.02's `TryReadLeaderFromSCore` (chat start, every player
+  message) now calls `SeedContract` itself, past SC's `MaybeStampHireDay` skip (Patches_VoiceControl.cs:140); billing is
+  still blocked (Patch_NoBilling strips the contract every 2 s, Patches_VoiceControl.cs:167), but the contract is re-seeded
+  each chat and its new `RetainerLeader` cvar is not in `ContractCvars` (Patches_VoiceControl.cs:43-44), so it stays in
+  saves. Skip `SeedContract` for members too and add `RetainerLeader`.
+- **Healing: needs a decision.** Charismatic Nature reaches hires (`SdcsLeadershipTick`, also on `Owner`): rank 1+ gives
+  members `HealthChangeOT` regen through `SdcsNpcLeadership`, against items-only healing (D7, ScMedic.cs:31). Self-heal
+  stays off (X15, Patches_Xnpc.cs:1443).
+- **Guard/patrol: needs a check, likely a change.** SC posts members with `CurrentOrder` Guard (ScCommunity.cs:308-309);
+  3.4.02's `GuardSdcs` task now walks a hired NPC with that order (and loot mode 0) to random spots within
+  `GuardPatrolMetres` 6 m of the post (`SdcsGuardPatrol.NextLeg`), and `SdcsGuardSpread` steps later guards of the same spot
+  aside: watch and tower posts (ScWatch.cs:666 re-asserts the post) may wander or fight it.
+- Levels/XP: SC strips levels and Progression on members and raiders (Patches_Xnpc.cs:472, ScXnpc.cs:334); the new XP from
+  harvesting, repairs and crafting and the XP multiplier need no change (check the log for errors from them on members);
+  "E > Your progress" shows nothing useful for members.
+- Crafting/roles: **needs a decision**: E > Craft... and the Roles page (Cook, Blacksmith, Chemist, Crafter) are offered on hired
+  survivors, so presumably on members (not checked): that crafting uses her pack and the base's chests and would run beside
+  SC's residents' activities; hide them for members or let them be.
+- Trade/selling: wild survivors now buy meds and ammo from the player with their own coins (`SdcsStockSeedFrame`): D4 kept
+  XNPC's stock trade for SC's strangers (PORT_34 D4), so no change; what they buy lands in the stores SC's ammo and medic
+  count (ScAmmo.cs:152).
+- Voice: the relay rename (fixed here); caption keys per voice folder concern Voice Control's packs, not SC's clips: no
+  change.
+- Pickup: a survivor with anything in her pack can no longer be picked up; members carry SC's ammo and meds there and SC
+  already refuses their pickup (Patches_VoiceControl.cs:349): no change.
+- Bandits: SC's raiders are `bandit`-tagged, so 3.4.02's bandit player damage (half by default) applies to them; kept (the
+  user's call); `SdcsKeepTarget`, the bandits' AI package and loot are class XML SC's raiders don't use.
+
+Builds: SC 3.4 `d977d9a6a12ee2f0197d4aca4996d66b` (`build\sc34_x1`), 0 errors (the two old CS0108 warnings). The 3.2 DLL
+was not rebuilt (`SurvivorCommunity.dll` unchanged). Not reviewed (Fable), not installed.

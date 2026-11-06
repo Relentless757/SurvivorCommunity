@@ -18,8 +18,10 @@ namespace SurvivorCommunity
     /// Vanity Vault's player code gates on EntityPlayer and never touches an NPC; the helpers used here only look at
     /// renderer and material names, and cache what they load per paint, shared with the player. A body paint is a whole
     /// skin with light skin baked in, so it comes with its face paint as a set ("body:face" in the config lists); a face
-    /// paint can also come alone; one tattoo at most (Vanity Vault cannot stack them), applied last so it sits on top of a
-    /// paint. Never loads Vanity Vault's bundles itself: a bundle held open would break Vanity Vault's own loads.
+    /// paint can also come alone; one tattoo at most (Vanity Vault 3.2 could not stack them; 3.3.0 can wear a face, three
+    /// body and a hand tattoo at once, which SC does not roll yet: the one tattoo goes into each 3.3 slot it has a part for),
+    /// applied last so it sits on top of a paint. Never loads Vanity Vault's bundles itself: a bundle held open would break
+    /// Vanity Vault's own loads.
     /// Research: scratchpad mig\nf\vv_paint_research.md.
     ///
     /// Bound at world start (Warm, from GameStartDone, inside the loading screen) through ScTypes: the first binding of
@@ -30,7 +32,16 @@ namespace SurvivorCommunity
     {
         private static bool tried, ok;
         private static Action<SkinnedMeshRenderer[], string, bool> applyFace, applyBody;
+        /// <summary>Vanity Vault 3.2's ApplyCosmetics: lipstick, eyeshadow, ONE tattoo, nails.</summary>
         private static Action<SkinnedMeshRenderer[], string, string, string, string, bool> applyCosmetics;
+        /// <summary>
+        /// Vanity Vault 3.3's: lipstick, eyeshadow, a face tattoo, three body tattoos, a hand tattoo, nails. Each tattoo slot
+        /// draws only its own part of a tattoo (the face slot its head texture, a body slot its body texture, the hand slot
+        /// its hands texture), so a tattoo goes into the slots it has parts for (TattooSlots).
+        /// </summary>
+        private static Action<SkinnedMeshRenderer[], string, string, string, string, string, string, string, string, bool> applyCosmetics33;
+        /// <summary>3.3: a tattoo variant's MaleDef / FemaleDef and a definition's AssetHead / AssetBody / AssetHands.</summary>
+        private static FieldInfo tatMaleDef, tatFemaleDef, tatHead, tatBody, tatHands;
         private static IDictionary bodyGroups, faceGroups, tattoos;
         private static string version = "?";
         /// <summary>
@@ -130,10 +141,15 @@ namespace SurvivorCommunity
                 Type smrs = typeof(SkinnedMeshRenderer[]), s = typeof(string), b = typeof(bool);
                 MethodInfo mf = AccessTools.DeclaredMethod(fm, "ApplyFacepaint", new[] { smrs, s, b });
                 MethodInfo mb = AccessTools.DeclaredMethod(bm, "ApplyBodypaint", new[] { smrs, s, b });
-                MethodInfo mt = AccessTools.DeclaredMethod(tm, "ApplyCosmetics", new[] { smrs, s, s, s, s, b });
+                // Vanity Vault 3.3.0 split the one tattoo into face, three body and hand slots (10 parameters); 3.2's had 6
+                MethodInfo mt33 = AccessTools.DeclaredMethod(tm, "ApplyCosmetics", new[] { smrs, s, s, s, s, s, s, s, s, b });
+                MethodInfo mt = mt33 == null ? AccessTools.DeclaredMethod(tm, "ApplyCosmetics", new[] { smrs, s, s, s, s, b }) : null;
                 if (mf != null && mf.IsStatic) applyFace = (Action<SkinnedMeshRenderer[], string, bool>)Delegate.CreateDelegate(typeof(Action<SkinnedMeshRenderer[], string, bool>), mf);
                 if (mb != null && mb.IsStatic) applyBody = (Action<SkinnedMeshRenderer[], string, bool>)Delegate.CreateDelegate(typeof(Action<SkinnedMeshRenderer[], string, bool>), mb);
-                if (mt != null && mt.IsStatic)
+                if (mt33 != null && mt33.IsStatic)
+                    applyCosmetics33 = (Action<SkinnedMeshRenderer[], string, string, string, string, string, string, string, string, bool>)Delegate.CreateDelegate(
+                        typeof(Action<SkinnedMeshRenderer[], string, string, string, string, string, string, string, string, bool>), mt33);
+                else if (mt != null && mt.IsStatic)
                     applyCosmetics = (Action<SkinnedMeshRenderer[], string, string, string, string, bool>)Delegate.CreateDelegate(
                         typeof(Action<SkinnedMeshRenderer[], string, string, string, string, bool>), mt);
                 bodyGroups = Registry("Sonja.VanityVault.BodypaintRegistry", "KnownGroups");
@@ -141,11 +157,12 @@ namespace SurvivorCommunity
                 tattoos = Registry("Sonja.VanityVault.TattooMakeupRegistry", "KnownTattoos");
                 Mod vv = ModManager.GetModForAssembly(fm.Assembly);   // its ModInfo version (the assembly says 1.0.0.0)
                 version = vv != null && !string.IsNullOrEmpty(vv.VersionString) ? vv.VersionString : fm.Assembly.GetName().Version.ToString();
-                ok = applyFace != null && applyBody != null && applyCosmetics != null && bodyGroups != null && faceGroups != null && tattoos != null;
+                bool tattooSlots = applyCosmetics != null || (applyCosmetics33 != null && BindTattooSlots());
+                ok = applyFace != null && applyBody != null && tattooSlots && bodyGroups != null && faceGroups != null && tattoos != null;
                 if (!ok) { ScLog.Warn("Vanity Vault " + version + " is loaded but its paint code has moved - no paints or tattoos on survivors (Vanity Vault update?)"); return; }
                 string unknown = Unknown();
                 ScLog.Out("Vanity Vault " + version + ": paints and tattoos on survivors - it knows " + bodyGroups.Count + " body paints, " + faceGroups.Count
-                          + " face paints, " + tattoos.Count + " tattoo variants (bound in "
+                          + " face paints, " + tattoos.Count + " tattoo variants" + (applyCosmetics33 != null ? ", face/body/hand tattoo slots" : ", one tattoo slot") + " (bound in "
                           + clock.Elapsed.TotalMilliseconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " ms)" + unknown);
             }
             catch (Exception e)
@@ -153,6 +170,45 @@ namespace SurvivorCommunity
                 ok = false;
                 ScLog.Once("vanity-bind", e);
             }
+        }
+
+        /// <summary>
+        /// Vanity Vault 3.3: the fields that say which parts a tattoo has - its variant's MaleDef / FemaleDef (CosmeticVariant,
+        /// the registry's value type) and their AssetHead / AssetBody / AssetHands (CosmeticDefinition). False when any is gone.
+        /// </summary>
+        private static bool BindTattooSlots()
+        {
+            Type reg = ScTypes.Find("Sonja.VanityVault.TattooMakeupRegistry");
+            FieldInfo known = reg != null ? AccessTools.Field(reg, "KnownTattoos") : null;
+            Type dict = known != null ? known.FieldType : null;
+            Type variant = dict != null && dict.IsGenericType && dict.GetGenericArguments().Length == 2 ? dict.GetGenericArguments()[1] : null;
+            tatMaleDef = variant != null ? AccessTools.Field(variant, "MaleDef") : null;
+            tatFemaleDef = variant != null ? AccessTools.Field(variant, "FemaleDef") : null;
+            Type def = tatMaleDef != null ? tatMaleDef.FieldType : null;
+            tatHead = def != null ? AccessTools.Field(def, "AssetHead") : null;
+            tatBody = def != null ? AccessTools.Field(def, "AssetBody") : null;
+            tatHands = def != null ? AccessTools.Field(def, "AssetHands") : null;
+            bool found = tatFemaleDef != null && tatFemaleDef.FieldType == def && tatHead != null && tatBody != null && tatHands != null
+                         && tatHead.FieldType == typeof(string) && tatBody.FieldType == typeof(string) && tatHands.FieldType == typeof(string);
+            if (!found) ScLog.Warn("Vanity Vault " + version + ": its tattoo parts (MaleDef/FemaleDef, AssetHead/AssetBody/AssetHands) were not found");
+            return found;
+        }
+
+        /// <summary>
+        /// Vanity Vault 3.3's slots for one tattoo on this sex: the face slot when it has a head part, the first body slot when
+        /// it has a body part, the hand slot when it has a hands part ("None" otherwise; Yakuza has head and body parts). False
+        /// when the tattoo has no version for this sex (Vanity Vault would draw nothing) or no part at all.
+        /// </summary>
+        private static bool TattooSlots(string tattoo, bool male, out string face, out string body, out string hand)
+        {
+            face = body = hand = "None";
+            object variant = tattoos != null && tattoos.Contains(tattoo) ? tattoos[tattoo] : null;
+            object def = variant != null ? (male ? tatMaleDef : tatFemaleDef).GetValue(variant) : null;
+            if (def == null) return false;
+            if (!string.IsNullOrEmpty(tatHead.GetValue(def) as string)) face = tattoo;
+            if (!string.IsNullOrEmpty(tatBody.GetValue(def) as string)) body = tattoo;
+            if (!string.IsNullOrEmpty(tatHands.GetValue(def) as string)) hand = tattoo;
+            return face != "None" || body != "None" || hand != "None";
         }
 
         private static IDictionary Registry(string type, string field)
@@ -308,7 +364,13 @@ namespace SurvivorCommunity
                 string face = Key(faceGroups, look.FacePaint), body = Key(bodyGroups, look.BodyPaint), tattoo = StoredTattoo(look.Tattoo);
                 if (face != null) applyFace(smrs, face, male);
                 if (body != null) applyBody(smrs, body, male);
-                if (tattoo != null) applyCosmetics(smrs, "None", "None", tattoo, "None", male);
+                if (tattoo == null) return;
+                if (applyCosmetics33 == null) { applyCosmetics(smrs, "None", "None", tattoo, "None", male); return; }
+                // Vanity Vault 3.3: the look's one tattoo into each slot it has a part for, "None" in the rest (no lipstick,
+                // eyeshadow, second or third body tattoo, nails)
+                string tf, tb, th;
+                if (TattooSlots(tattoo, male, out tf, out tb, out th))
+                    applyCosmetics33(smrs, "None", "None", tf, tb, "None", "None", th, "None", male);
             }
             catch (Exception e)
             {
