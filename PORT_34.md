@@ -2930,3 +2930,12 @@ With the user's go-ahead (3.4 game closed): round 24 (H1, residents frozen by 0-
 both LOWs fixed in b4bf258). port-3.4 fast-forwarded to `ms/h1` b4bf258; `deploy_sc34.py`: 8568 files, installed = built
 `4d2269afb1786723cdb8d759adb85113`. The old install is in `Port33\_backups\sc34_2026-11-06_224402`; the user's
 `DebugLogging` true set again. Untested in game: TESTING H1 (440-452).
+
+### Voices vo3 day 5 installed (2026-11-07 13:56)
+
+With the user's go-ahead (3.4 game closed): round vo3's fifth day of clips (`821fce2`, clips and sidecars only, no code
+change): Julian's, Layla's and Jess's whole sets, 458 of the 473 lines each (the 15 left are the idea-menu dialog lines
+from E11 on). Twelve voices are complete now: the four White, four Black and four Asian voices. port-3.4 fast-forwarded to
+`dev/ideas` 821fce2; `deploy_sc34.py`: 11361 files, installed = built `4d2269afb1786723cdb8d759adb85113` (unchanged). The
+old install is in `Port33\_backups\sc34_2026-11-07_135613`; the user's `DebugLogging` true set again. NativeM1's first
+76 clips are held back until his set is complete.
