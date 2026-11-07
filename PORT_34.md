@@ -2841,7 +2841,7 @@ quoted in commit messages. DLL md5s are not commit hashes and did not change. Th
 `Port33\_backups\SurvivorCommunity_pre_email_rewrite_2026-11-06.bundle` (old -> new map beside it,
 `..._map.tsv`). This repository's `user.email` is now the no-reply address.
 
-### Round 24: residents frozen by HoldEngaged (H1) (2026-11-06, built, not reviewed, not installed)
+### Round 24: residents frozen by HoldEngaged (H1) (2026-11-06, built, reviewed (Fable: deployable), LOWs fixed, not installed)
 
 **The report:** "A community member is stuck in the HoldEngaged action. He's targeting zombies he can't see that are far
 from the base. He doesn't move or try to attack." Branch `ms/h1` from `d2302f4`, worktree `Port33\wt\sc-h1`. **3.4 only**:
@@ -2914,4 +2914,12 @@ Left as decided (not changed): a resident shooting at a zombie he SEES outside t
 (the roam or the post takes the pause, as before 0-XNPCCore 3.4.02); outpost stand-ins and enclave people walking home keep
 0-XNPCCore's hold. Not checked: anything in game (TESTING H1, 440-452).
 
-Builds: SC 3.4 `b1207ab2c993882784b843173dbe684f` (`build\sc34_h1`), 0 errors. Not reviewed, not installed.
+Builds: SC 3.4 `b1207ab2c993882784b843173dbe684f` (`build\sc34_h1`), 0 errors.
+
+Fable review (scratchpad `h1\REVIEW_FABLE.md`): DEPLOYABLE. It compared the IL of the installed and the built DLL
+(ScIntruder.GetScore and WhyEnclave identical, the residents' rule only gains the hold check), replayed the XML on the 3.4
+install (both HoldEngaged actions end with ScHoldEngagedHome, exactly once) and the 3.2 install (all three conditionals
+false), and confirmed the class name resolves. Both LOWs fixed: a Resident with no post yet (a runner flipped to Resident
+before the relink's Station) keeps 0-XNPCCore's rule (`HomeBody` needs `m.Post`), and a sleeping or dead target's refusal
+no longer spends the once-per-body verbose line. Rebuilt: SC 3.4 `4d2269afb1786723cdb8d759adb85113`, 0 errors. Not
+installed.

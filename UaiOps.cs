@@ -1069,6 +1069,8 @@ namespace UAI
             string why;
             if (!HomeBody(self, t, out why)) return 1f;
             if (why == null) { letThrough++; return 1f; }
+            // Fable review H1 LOW 2: a sleeper's or a corpse's refusal is not spent on the diagnostics (the once-per-body line)
+            if (t == null || t.IsDead() || t.IsSleeping) return 0f;
             heldOff++;
             lastSelf = self.entityId;
             lastTarget = t != null ? t.entityId : -1;
@@ -1100,7 +1102,9 @@ namespace UAI
                 return true;
             }
             Member m = ScRegistry.GetMember(self.entityId);
-            if (m == null || m.Status != MemberStatus.Resident) return false;
+            // Fable review H1 LOW 1: a Resident with no post yet (a runner flipped to Resident before the relink's Station)
+            // keeps 0-XNPCCore's rule, as SC's own home actions (ScHome.Of) ignore such a member too
+            if (m == null || m.Status != MemberStatus.Resident || m.Post == Vector3i.zero) return false;
             why = UAIConsiderationScIntruder.HoldWhy(self, t, null);
             return true;
         }
