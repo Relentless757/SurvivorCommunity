@@ -2923,3 +2923,10 @@ false), and confirmed the class name resolves. Both LOWs fixed: a Resident with 
 before the relink's Station) keeps 0-XNPCCore's rule (`HomeBody` needs `m.Post`), and a sleeping or dead target's refusal
 no longer spends the once-per-body verbose line. Rebuilt: SC 3.4 `4d2269afb1786723cdb8d759adb85113`, 0 errors. Not
 installed.
+
+### Round 24 installed (2026-11-06 22:44)
+
+With the user's go-ahead (3.4 game closed): round 24 (H1, residents frozen by 0-XNPCCore's HoldEngaged; Fable: deployable,
+both LOWs fixed in b4bf258). port-3.4 fast-forwarded to `ms/h1` b4bf258; `deploy_sc34.py`: 8568 files, installed = built
+`4d2269afb1786723cdb8d759adb85113`. The old install is in `Port33\_backups\sc34_2026-11-06_224402`; the user's
+`DebugLogging` true set again. Untested in game: TESTING H1 (440-452).
