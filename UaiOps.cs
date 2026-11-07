@@ -664,8 +664,33 @@ namespace UAI
             return null;
         }
 
+#if SC_V34
+        /// <summary>
+        /// H1 (round 24, UAIConsiderationScHoldEngagedHome): is t an intruder for this home body - the defence's own rule, read
+        /// only (GetScore's stray rest is never written from here). An enclave person: WhyEnclave unchanged. A resident: the
+        /// residents' rule with one difference, hold: a guard on watch is not excluded, since 0-XNPCCore's HoldEngaged only turns
+        /// him to face the intruder and never walks him off the Watch post (the exclusion is about the defence's walk). Null
+        /// for an intruder, else why not.
+        /// </summary>
+        public static string HoldWhy(EntityAlive self, EntityAlive t, EncPerson ep)
+        {
+            if (ep != null) return WhyEnclave(self, t, ep);
+            Member m;
+            return Why(self, t, out m, true);
+        }
+
+        /// <summary>The residents' rule as the defence asks it (a guard on watch never walks to an intruder).</summary>
+        private static string Why(EntityAlive self, EntityAlive t, out Member m)
+        {
+            return Why(self, t, out m, false);
+        }
+
+        /// <summary>The residents' rule; hold (H1's HoldWhy only) skips the watch exclusion and nothing else.</summary>
+        private static string Why(EntityAlive self, EntityAlive t, out Member m, bool hold)
+#else
         /// <summary>The residents' rule.</summary>
         private static string Why(EntityAlive self, EntityAlive t, out Member m)
+#endif
         {
             m = null;
             int radius = ScConfig.DefendBaseRadius;
@@ -676,7 +701,11 @@ namespace UAI
             m = ScRegistry.GetMember(self.entityId);
             if (m == null || m.Status != MemberStatus.Resident || m.Post == Vector3i.zero) return "not a resident at a post";
             // a guard on watch (base defence D3) shoots from the post and never walks to an intruder, a live attack or not
+#if SC_V34
+            if (!hold && ScWatch.OnWatch(m)) return "on watch (stays at the Watch post)";
+#else
             if (ScWatch.OnWatch(m)) return "on watch (stays at the Watch post)";
+#endif
             if (ScDefendState.RestLeft(self.entityId) > 0f) return "resting (moved back to the post in a fight, or strayed)";
             if (ScBaseAttack.WideDefence)
             {
@@ -994,6 +1023,107 @@ namespace UAI
             if (p == null) return 1f;
             Band b = ScBands.ById(p.BandId);
             return b != null && !b.Engaged ? 0f : 1f;
+        }
+    }
+
+    /// <summary>
+    /// 3.4, round 24 (H1): 0-XNPCCore 3.4.02's HoldEngaged (SdcsNpcRangedAdvanced at 4, SdcsBanditCombat at 3.5; its task
+    /// HoldEngagedSdcs) stands the NPC facing any enemy within 40 m - seen or not: no CanSeeTarget, and SCore's UAI scores
+    /// every entity in the see box - makes it the attack target for 1200 ticks, and never ends by itself (only when the
+    /// target dies or another action wins). Every home action of SC's people scores less (ScAtPost / ScEncAtHome 3.2, ScRoam /
+    /// ScEncRoam 3.4, ScNightIdle / ScEncNight 3.6, 0-XNPCCore's Guard 3), and nothing that would replace it scores for an
+    /// enemy outside the base (the shot wants CanSeeTarget, the defence ScIntruder), so a resident froze facing zombies
+    /// behind the walls 20-40 m out. On SC's home bodies - a resident (Status Resident: at the post, on watch or on a work
+    /// shift) and an enclave's person at home (ScEncHome's test) - this is 1 only for an INTRUDER by the defence's own rule
+    /// (UAIConsiderationScIntruder.HoldWhy, read only: the rule ScDefendBase / ScEncDefend ask, with the watch exclusion
+    /// skipped for a guard on watch, who is only turned, never walked), else 0. Everyone else - followers, runners, outpost
+    /// stand-ins, prospects, strangers, plain 0-XNPCCore hires and bandits, SC's bands (R1's ScNotBandWalking stays) and
+    /// den raiders - 1: 0-XNPCCore's rule unchanged. Appended LAST to both actions (Config/utilityai.xml, only where they
+    /// exist), so MayEngage (it stamps 0-XNPCCore's combat linger) and TargetDistance run first, as before, and this only
+    /// runs for an enemy within 40 m. For any other NPC it costs two dictionary reads (the enclave body lookup, then the
+    /// registry: the order ScIntruder resolves a body in). Counters and the last refusal: sc xnpc (Report); per NPC and
+    /// foe: sc xnpc &lt;id&gt; (Describe); a verbose line the first time a body is held off.
+    /// </summary>
+    public class UAIConsiderationScHoldEngagedHome : UAIConsiderationBase
+    {
+        private static long heldOff, letThrough;
+        private static int lastSelf = -1, lastTarget = -1;
+        private static string lastWhy;
+        private static float lastDist, lastTime;
+        /// <summary>Bodies the verbose line was written for (once per body per world).</summary>
+        private static readonly HashSet<int> logged = new HashSet<int>();
+
+        public static void Reset()
+        {
+            heldOff = letThrough = 0;
+            lastSelf = lastTarget = -1;
+            lastWhy = null;
+            lastDist = lastTime = 0f;
+            logged.Clear();
+        }
+
+        public override float GetScore(Context _context, object target)
+        {
+            EntityAlive self = _context.Self;
+            EntityAlive t = target as EntityAlive;
+            string why;
+            if (!HomeBody(self, t, out why)) return 1f;
+            if (why == null) { letThrough++; return 1f; }
+            heldOff++;
+            lastSelf = self.entityId;
+            lastTarget = t != null ? t.entityId : -1;
+            lastWhy = why;
+            lastDist = t != null ? self.GetDistance(t) : -1f;
+            lastTime = Time.time;
+            if (ScConfig.Verbose && logged.Add(self.entityId))
+                ScLog.Verbose("H1: " + ScCommunity.DisplayName(self) + " (" + self.entityId + ") does not stand and face "
+                              + (t != null ? t.EntityName + " (" + t.entityId + ") at " + lastDist.ToString("0.#") + " m" : "its target")
+                              + " - 0-XNPCCore's HoldEngaged held off on SC's home bodies for all but intruders: " + why
+                              + " (once per body; sc xnpc counts them)");
+            return 0f;
+        }
+
+        /// <summary>
+        /// False when self is not one of SC's home bodies (0-XNPCCore's HoldEngaged unchanged); else true, with why null for
+        /// an intruder (the hold may score) or why it is not one. Read only.
+        /// </summary>
+        public static bool HomeBody(EntityAlive self, EntityAlive t, out string why)
+        {
+            why = null;
+            if (self == null) return false;
+            EncPerson ep = ScEnclavePeople.PersonOf(self);
+            if (ep != null)
+            {
+                // ScEncHome's own test (no role): the current body of an enclave's person, at home, with a spot, not walking home
+                if (!ep.HasHome || ep.State != EncPerson.StateHome || ep.Leaving) return false;
+                why = UAIConsiderationScIntruder.HoldWhy(self, t, ep);
+                return true;
+            }
+            Member m = ScRegistry.GetMember(self.entityId);
+            if (m == null || m.Status != MemberStatus.Resident) return false;
+            why = UAIConsiderationScIntruder.HoldWhy(self, t, null);
+            return true;
+        }
+
+        /// <summary>sc xnpc's line: the counters since the world loaded and the last refusal.</summary>
+        public static string Report()
+        {
+            string s = "home bodies held off " + heldOff + " time(s), let through for an intruder " + letThrough + " time(s)";
+            if (lastSelf < 0) return s + "; none held off yet";
+            World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+            EntityAlive a = w != null ? w.GetEntity(lastSelf) as EntityAlive : null;
+            EntityAlive b = w != null && lastTarget >= 0 ? w.GetEntity(lastTarget) as EntityAlive : null;
+            return s + "; last: " + (a != null ? ScCommunity.DisplayName(a) : "?") + " (" + lastSelf + ") on "
+                   + (b != null ? b.EntityName : "?") + " (" + lastTarget + ") at " + lastDist.ToString("0.#") + " m - " + lastWhy
+                   + ", " + (Time.time - lastTime).ToString("0") + " s ago";
+        }
+
+        /// <summary>sc xnpc &lt;id&gt;'s verdict for one NPC and foe (read only).</summary>
+        public static string Describe(EntityAlive self, EntityAlive foe)
+        {
+            string why;
+            if (!HomeBody(self, foe, out why)) return "not an SC home body - 0-XNPCCore's rule (any enemy within 40 m)";
+            return why == null ? "an intruder - may hold on it" : "held off - " + why;
         }
     }
 #endif

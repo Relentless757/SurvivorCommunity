@@ -1875,6 +1875,75 @@ WalkerSim2 is in the 3.4 install; keep it enabled for 420-430. Test on a new wor
      wild`: `handed to the game with them off (another mod) 0`, `raider passes run 0`; zombies and SC's raiders spawn from the
      game's own biome spawns as they did before WalkerSim2. Put WalkerSim2 back.
 
+**H1. Round 24: residents frozen by 0-XNPCCore's HoldEngaged (3.4)**
+
+Built 2026-11-06 on branch `ms/h1` (SC 3.4 DLL `b1207ab2c993882784b843173dbe684f`, `Port33\build\sc34_h1`), **not
+reviewed, not installed**: these steps wait for the install. Your report: a community member stood still in the HoldEngaged
+action, facing zombies he could not see far outside the base, neither moving nor attacking. 0-XNPCCore 3.4.02's HoldEngaged
+(its "never idle mid-fight" action) stands an NPC facing any enemy within 40 m, seen or not, and never stops by itself; it
+outranked everything a resident does at home, so any zombie behind the walls froze him. Now SC's people at home - residents
+(at their post, on watch or on a work shift) and an enclave's people at home (survivors and raiders) - hold only for an
+**intruder**, by the base defence's own rule: an awake enemy inside the home zone (an enclave: its POI) within
+`DefendBaseRadius` (22 m; an enclave person: `EnclaveDefendRadius`, 22 m) of them (of the post for a guard on watch, the
+whole zone and its margin during a home attack). Everyone else - followers, strangers, 0-XNPCCore's own hires, survivors and
+bandits, SC's bands on the road - is unchanged. Their shots and the base defence are untouched. Set `DebugLogging` to true in
+the 3.4 install's SC `Config/blocks.xml` for the `H1:` lines. `sc xnpc` prints the counters (`0-XNPCCore's HoldEngaged on
+SC's home bodies (H1, intruders only): home bodies held off N time(s), let through for an intruder N time(s); last: ...`);
+`sc xnpc <name or id>`'s `uai:` line ends with the verdict for that NPC and its foe (`HoldEngaged (H1): held off - outside
+the home zone`, `an intruder - may hold on it` or `not an SC home body - 0-XNPCCore's rule`). Test on a new world or a copy;
+spawn zombies with F6 (`dm` first); a walled base with residents who carry guns.
+
+440. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched` with the same count as the
+     install before (H1 adds no patch); no XML `did not apply` line for SurvivorCommunity. `sc xnpc`: `home bodies held off 0
+     time(s), let through for an intruder 0 time(s); none held off yet`.
+441. **Your report: zombies outside the walls.** By day, put 2-3 zombies 20-40 m outside the base behind the walls (where the
+     residents cannot see them; stay inside yourself so they keep to the walls). Every resident keeps roaming the base or
+     standing at the post; none stands still facing a wall for more than a moment. `sc xnpc <a resident>`: `action=` is
+     `ScRoam`, `ScAtPost` or `Guard`, never `HoldEngaged`, and the `uai:` line ends `HoldEngaged (H1): held off - outside the
+     home zone` (or `beyond DefendBaseRadius of the resident`). `sc xnpc`: `held off` rising, `last: <name> (<id>) on <zombie>
+     (<id>) at 2x-3x m - outside the home zone, .. s ago`. The log, once for each resident held off: `H1: <name> (<id>) does
+     not stand and face <zombie> (<id>) at .. m - 0-XNPCCore's HoldEngaged held off on SC's home bodies for all but
+     intruders: outside the home zone (once per body; sc xnpc counts them)`.
+442. **The same at night.** After dark with the zombies still outside: the residents walk to their posts and stand there (the
+     quiet night), not facing the walls.
+443. **An intruder is engaged and held.** Let one zombie into the base (open the gate, or spawn it inside the claim within
+     22 m of a resident). The resident goes after it (`action=ScDefendBase`) or shoots it; between shots - a reload, or the
+     zombie out of sight for a moment - he stands facing it (`action=HoldEngaged`, its target that zombie; the `uai:` line
+     `HoldEngaged (H1): an intruder - may hold on it`) instead of wandering off; `sc xnpc`: `let through for an intruder`
+     rising. Once it is dead he goes back to roaming.
+444. **A guard on watch.** A resident on a Watch post over the wall, zombies 20-40 m outside: he stays on the post, facing the
+     post's way, and shoots the ones he sees (between shots he may turn back to the post's way, as before 0-XNPCCore
+     3.4.02); never a long stare at one he cannot see. A zombie inside the base within 22 m of his post: he turns to face it
+     and holds (`HoldEngaged (H1): an intruder - may hold on it`), and never leaves the post for it.
+445. **A work shift.** A resident crafting on a work shift (C1, TESTING 387) with zombies outside the walls: she keeps crafting
+     (or stands at the station between items), never facing the wall; `sc xnpc <her>`: `held off - ...`. A zombie walked in
+     close to her: she fights it (443) and then goes back to the station.
+446. **A follower holds as 0-XNPCCore designed.** Tell a resident "Follow me" and stand outside the base near zombies she
+     cannot see (behind a building, 20-40 m away): she may stop and face them, as before this build (0-XNPCCore's design,
+     with its engage stance); `sc xnpc <her>`: `HoldEngaged (H1): not an SC home body - 0-XNPCCore's rule (any enemy within
+     40 m)`. Same for a stranger survivor and a plain 0-XNPCCore hire (F6 `npcSdcsXyth`).
+447. **An enclave at home (survivors).** At a friendly enclave's POI (`sc enclave list`, `sc enclave people <id>`), spawn
+     zombies 20-40 m outside its POI (the whole lot, not only the buildings) where its people cannot see them: they keep
+     roaming the POI and standing at their spots, not facing the walls; `sc xnpc <a person's id>`: `held off - outside the
+     enclave's POI` (or `beyond EnclaveDefendRadius of the person`). A zombie walked onto the lot: they fight it and hold
+     between shots.
+448. **An enclave at home (raiders).** The same at a raider enclave (0-XNPCCore bandit bodies, its bandit HoldEngaged at 3.5):
+     not frozen by zombies outside; `sc xnpc <id>`: `held off - ...`. You are not an intruder either while you stay off
+     their lot: unseen, they no longer stand facing you through the walls - they listen for you (0-XNPCCore's
+     BanditListen) or keep their spots; seen, they shoot and close in as before.
+449. **Bands unchanged.** A raider band on the road (R1, TESTING 340: `sc band spawn raiders`) still walks past zombies and
+     an unseen you (R1's gate); a band that has engaged you still holds on you between shots. `sc xnpc <id>`: `not an SC
+     home body`.
+450. **0-XNPCCore's own NPCs unchanged.** F6 `npcSdcsBanditRanged` or a wild 0-XNPCCore survivor near zombies it cannot see
+     within 40 m still stands facing them; `sc xnpc <id>`: `not an SC home body - 0-XNPCCore's rule`.
+451. **A home attack.** During a live home attack (`sc attack now`): residents hold on attackers just outside the walls (the
+     zone + `BaseAttackDefendMargin` counts as home then: `an intruder - may hold on it`), not on zombies farther out
+     (`held off - outside the zone + BaseAttackDefendMargin (a home attack is live)`).
+452. **The base defence unchanged.** A zombie inside the base out of a resident's sight: he walks to it (`ScDefendBase`) as
+     before (TESTING 15 and the M11 defence steps). A resident whose walk strays past the limit rests (`(rests .. s more)`
+     on the `uai:` line): meanwhile `HoldEngaged (H1): held off - resting (moved back to the post in a fight, or strayed)`
+     and Guard walks him home, then the defence goes on.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

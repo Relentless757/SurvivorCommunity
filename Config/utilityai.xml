@@ -391,4 +391,31 @@
 			</append>
 		</if>
 	</conditional>
+
+	<!--
+	  Round 24 (H1; 0-XNPCCore 3.4.02 and later, only where each action exists): 0-XNPCCore's HoldEngaged - SdcsNpcRangedAdvanced
+	  at 4, SdcsBanditCombat at 3.5 - stands the NPC facing any enemy within 40 m, seen or not, and never ends by itself. It
+	  outranks every home action of SC's people (the post and the spot 3.2, the roams 3.4, the quiet nights 3.6, Guard 3), and
+	  for an enemy outside the base nothing replaces it (the shot needs sight, the defence an intruder), so a resident stood
+	  frozen facing zombies behind the walls. ScHoldEngagedHome is 1 for SC's home bodies (a resident: at the post, on watch
+	  or on a work shift; an enclave's person at home) only when the target is an intruder by the base and enclave defence's
+	  own rule (ScIntruder: an awake enemy inside the home zone or the enclave's footprint within the defend radius), else 0;
+	  for everyone else - followers, strangers, plain 0-XNPCCore hires and bandits, SC's bands - it is 1. Appended last, after
+	  0-XNPCCore's MayEngage and TargetDistance (and R1's ScNotBandWalking), which still run first. Their shots, the defence
+	  and the bands' gate are untouched.
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;HoldEngaged&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='HoldEngaged']">
+				<consideration class="ScHoldEngagedHome, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsBanditCombat&quot;]/action[@name=&quot;HoldEngaged&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsBanditCombat']/action[@name='HoldEngaged']">
+				<consideration class="ScHoldEngagedHome, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
 </configs>

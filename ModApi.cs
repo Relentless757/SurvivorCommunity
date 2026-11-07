@@ -74,6 +74,7 @@ namespace SurvivorCommunity
                 ScBands.Reset();
 #if SC_V34
                 ScWildRaiders.Reset();                 // W2: its counters and entry cache
+                UAI.UAIConsiderationScHoldEngagedHome.Reset();   // H1: its counters and the once-per-body log set
 #endif
                 ScInfestations.Reset();
                 ScSleeperCap.Reset();

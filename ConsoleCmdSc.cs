@@ -2141,6 +2141,9 @@ namespace SurvivorCommunity
             Output("[SC] shooting skill: " + ScShooting.Report());
             Output("[SC] get-ups: " + Patches_Sdcs.GetUp.Report());
             Output("[SC] relaxed (arms down, weapon hidden): " + ScRelax.Report());
+#if SC_V34
+            Output("[SC] 0-XNPCCore's HoldEngaged on SC's home bodies (H1, intruders only): " + UAI.UAIConsiderationScHoldEngagedHome.Report());
+#endif
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
             if (w == null) return;
             int ours = 0, contracts = 0, theirs = 0, managed = 0, raiders = 0;
@@ -2393,6 +2396,10 @@ namespace SurvivorCommunity
                   .Append(", engage=").Append(verdict == UAI.ScEngage.Verdict.Approach ? "approach (ScDefendBase)"
                                               : verdict == UAI.ScEngage.Verdict.Hold ? "hold (ScDefendHold)" : "hand over (the pack's attack)")
                   .Append(" - ").Append(engageWhy);
+#if SC_V34
+                // H1: whether 0-XNPCCore's HoldEngaged may stand and face this foe
+                sb.Append("; HoldEngaged (H1): ").Append(UAI.UAIConsiderationScHoldEngagedHome.Describe(e, foe));
+#endif
                 if (fromPost >= 0f)
                 {
                     sb.Append("; ").Append(fromPost.ToString("0.#")).Append(" m from its post");

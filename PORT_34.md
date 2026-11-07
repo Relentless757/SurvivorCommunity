@@ -2840,3 +2840,78 @@ changed. Commit hashes quoted in this file and in TESTING.md were remapped to th
 quoted in commit messages. DLL md5s are not commit hashes and did not change. The pre-rewrite history is kept in
 `Port33\_backups\SurvivorCommunity_pre_email_rewrite_2026-11-06.bundle` (old -> new map beside it,
 `..._map.tsv`). This repository's `user.email` is now the no-reply address.
+
+### Round 24: residents frozen by HoldEngaged (H1) (2026-11-06, built, not reviewed, not installed)
+
+**The report:** "A community member is stuck in the HoldEngaged action. He's targeting zombies he can't see that are far
+from the base. He doesn't move or try to attack." Branch `ms/h1` from `d2302f4`, worktree `Port33\wt\sc-h1`. **3.4 only**:
+the new C# is under `SC_V34` and the XML is two conditionals on 0-XNPCCore's HoldEngaged actions.
+
+**The cause (verified).** 0-XNPCCore 3.4.02 (`Config/utilityai.xml`) added `HoldEngaged` to `SdcsNpcRangedAdvanced` (weight
+4: `SelfNotHasBuff`, `MayEngage`, `TargetDistance` flip 0-40 threshold) and to `SdcsBanditCombat` (3.5: `SelfNotHasBuff`,
+`TargetDistance` 0-40; SC's raiders are its bandits' children since R1, and R1 appended `ScNotBandWalking`); both packages
+are `entity_filter="IsEnemy"`, neither action asks for sight. Its task, by Cecil IL of the installed
+`NPCSdcsCharacters.dll` (`UAI.UAITaskHoldEngagedSdcs`): `Start` sets the look at the target's head, `RotateTo(head, 30,
+30)`, `SleeperSupressLivingSounds = false` and `SetAttackTarget(target, 1200)`; `Update` re-aims (`RotateTo(belly, 45,
+30)`); it stops only for a null or dead target. `MayEngage.GetScore` (Voice Control) is `MayFight` -> on a pass
+`CombatLingerState.Stamp(self, time)` -> `StickScore`, and SC's own `Patch_MayEngage` turns its refusal into 1 for
+residents and enclave people (`EngagesAtWill`, 3.2's answer), so for them the hold scored for any enemy within 40 m. SCore's
+`UAIAction_GetScore` prefix fails an action on the first raw 0, in order. Every home action of SC's people is lower (ScAtPost
+/ ScEncAtHome 3.2, ScRoam / ScEncRoam 3.4, ScNightIdle / ScEncNight 3.6, 0-XNPCCore's Guard 3), and nothing that would
+replace it scores for an enemy outside the base: the shot needs `CanSeeTarget` and range, `ScDefendBase` / `ScEncDefend`
+(5.2) need `ScIntruder`. So any enemy within 40 m, unseen and outside the base, froze a resident or an enclave person at home.
+
+**The fix (the decision as given).** `UAIConsiderationScHoldEngagedHome` (UaiOps.cs:1047, `ScHoldEngagedHome,
+SurvivorCommunity`), appended LAST to both HoldEngaged actions (Config/utilityai.xml:395-420, two conditionals, each only
+where its action exists, after R1's block), so `MayEngage` (and its linger stamp), `TargetDistance` and R1's gate run first
+as before and this runs only for an enemy within 40 m:
+- **Home bodies** (`HomeBody`, :1090), resolved in ScIntruder's own order: one of an enclave's people (`ScEnclavePeople.PersonOf`)
+  counts when ScEncHome's test passes (a home spot, state home, not walking home) - survivors and raiders alike; else a
+  member (`ScRegistry.GetMember`) with Status Resident - at the post, on watch, or on a C1 work shift (her status stays
+  Resident; she keeps the base's defence, so she keeps its intruder rule too). For them the score is 1 only for an
+  intruder, else 0. For everyone else (followers, PendingStation, runners, outpost stand-ins, prospects, strangers, plain
+  0-XNPCCore hires, survivors and bandits, SC's bands and den raiders) it is 1: 0-XNPCCore's rule unchanged. Cost for a
+  non-home NPC: two dictionary reads.
+- **Intruder = the defence's rule, read only** (`UAIConsiderationScIntruder.HoldWhy`, :675): an enclave person -
+  `WhyEnclave` unchanged (awake enemy inside the footprint within EnclaveDefendRadius of the person, not resting); a
+  resident - the residents' `Why` (awake enemy, not inert, inside the home zone within DefendBaseRadius of the resident with
+  zone roaming / of the post without, the whole zone + BaseAttackDefendMargin during a home attack, not while the defence
+  rests) with ONE difference, the `hold` flag (:689, :705): a guard on watch is not excluded, since the hold only turns him
+  to face the intruder and never walks him off the Watch post (the exclusion is about the defence's walk); his radius is
+  from his Watch post (`m.Post` is the watch cell). `DefendBaseRadius` / `EnclaveDefendRadius` 0 (the defence off) means
+  no intruders, so no hold for home bodies.
+- **ScIntruder's state is not touched.** The only state the defence keeps is `ScDefendState.RestUntil`; `ScIntruder.GetScore`
+  writes it (the stray rest) and `Why` / `WhyEnclave` only read it (`RestLeft`). The new class never calls `GetScore`:
+  `HoldWhy` calls `WhyEnclave` or `Why(..., hold: true)`. The old `Why(self, t, out m)` is now a one-line wrapper calling
+  `Why(self, t, out m, false)`, whose body is the old one plus `!hold &&` before the watch test.
+- **Diagnostics:** `sc xnpc` adds `0-XNPCCore's HoldEngaged on SC's home bodies (H1, intruders only): home bodies held off N
+  time(s), let through for an intruder N time(s); last: <name> (<id>) on <target> (<id>) at .. m - <why>, .. s ago`
+  (ConsoleCmdSc.cs:2145); `sc xnpc <id>`'s `uai:` line ends with `HoldEngaged (H1): ...` for its foe (:2401); a verbose
+  `H1: <name> ... does not stand and face ...` line once per body per world; counters reset at GameStarting (ModApi.cs:77).
+
+**Checks.**
+- Build 0 errors (the two old CS0108 warnings). The 3.2 build to a scratch folder is byte-identical to W2's 3.2 build of
+  the same code (`8c4a257e`; no `.cs`/`.csproj`/`.props` change between `9f9a6a3` and `d2302f4`); the tracked
+  `SurvivorCommunity.dll` untouched. The 3.4 build of `d2302f4` (stash) is `b89f03de`, the installed DLL.
+- **The defence is unchanged, by IL** (FindStr dumps of both 3.4 builds, offsets and labels normalised, scratch
+  `h1\il_intruder_diff.txt`): `ScIntruder.GetScore` (64 instructions), the dispatching `Why(.., out m, out ep)`, `Why(self,
+  t)` and `WhyEnclave` (81) are identical; the residents' rule differs only by `ldarg.3; brtrue.s` before the watch test
+  (and the preceding branch landing on it); the 3-argument `Why` is `ldc.i4.0` + call. The callers of
+  `ScDefendState.Rest` are the same set as in the installed build (`ScIntruder.GetScore`, the two watchdogs' `Unstick`), and
+  `HoldWhy` / `HomeBody` call nothing that writes state.
+- **XML replay** (int's replay pointed at `wt\sc-h1`, scratch `h1\replay`): on the 3.4 install SC's utilityai 22/22 ops
+  matched (20 before), no aborts; all five utilityai conditionals true. Every other patched config is identical to the
+  replay of `d2302f4`; utilityai differs only by the two appended considerations. Effective (scratch `h1\effective_h1.txt`):
+  `SdcsNpcRangedAdvanced/HoldEngaged` (4) = `SelfNotHasBuff`, `MayEngage`, `TargetDistance`, `ScHoldEngagedHome`;
+  `SdcsBanditCombat/HoldEngaged` (3.5) = `SelfNotHasBuff`, `TargetDistance`, `ScNotBandWalking`, `ScHoldEngagedHome`; no
+  other HoldEngaged action exists. On the 3.2 install (0-XNPCCore 3.2.06, no HoldEngaged) every patched config is identical
+  to the replay of `d2302f4`.
+- **HarmonyAudit2** (W2's `dynamic_targets34_w2.json`): 3.4 OK=171, DYNAMIC_UNRESOLVED=22, 0 param issues - as installed
+  (H1 adds no patch); the reference scan is identical to W2's.
+- ilspycmd of the built DLL: the new class, `HoldWhy` and both `Why` overloads; the GameStarting handler calls `Reset`.
+
+Left as decided (not changed): a resident shooting at a zombie he SEES outside the base is not held between its shots
+(the roam or the post takes the pause, as before 0-XNPCCore 3.4.02); outpost stand-ins and enclave people walking home keep
+0-XNPCCore's hold. Not checked: anything in game (TESTING H1, 440-452).
+
+Builds: SC 3.4 `b1207ab2c993882784b843173dbe684f` (`build\sc34_h1`), 0 errors. Not reviewed, not installed.
