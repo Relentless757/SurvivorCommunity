@@ -240,6 +240,14 @@ namespace SurvivorCommunity
         public int CraftRoles = -1;
         public Specialty CraftRolesFor = Specialty.None;
         public float CraftXpCarry;
+        /// <summary>
+        /// R2 (ScHandheld, ScRadioTalk), while OnRun: the runner carries a handheld radio - snapshot when the run starts and
+        /// whenever their body is seen, so it is known while the body is unloaded - and the moments of this run already said on
+        /// it (RadioTalk bits, each said at most once). Saved as runradio=1 and runtalk=N, each written when set (keys older
+        /// builds ignore); cleared when the run ends.
+        /// </summary>
+        public bool RunRadio;
+        public int RunTalk;
 #endif
 
         public SkillState Skill(Skill s) { return Skills[(int)s]; }

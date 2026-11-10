@@ -65,6 +65,10 @@ namespace SurvivorCommunity
                 m.RunDistress = false;
                 m.RunSafe = false;
                 m.EventSpawned = false;
+#if SC_V34
+                m.RunTalk = 0;
+                ScHandheld.NoteCarried(m, npc, "sent on a hidden run");   // R2: a radio of theirs lets them call for help (decision 5)
+#endif
                 World rw = ScCommunity.World;
                 bool distress = ScRadio.RollDistress(m, player, rw != null ? rw.GetGameRandom() : null);
                 ScRegistry.SaveAtomic();
@@ -105,6 +109,10 @@ namespace SurvivorCommunity
                 m.StandInId = -1;
                 m.EventZombies.Clear();
                 m.Offline = false;
+#if SC_V34
+                m.RunTalk = 0;
+                ScHandheld.NoteCarried(m, npc, "set off on a supply run");   // R2: talks on the radio, may radio for help, can be called home
+#endif
                 if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);
                 ScRunners.ApplyTravelOrder(npc);
                 ScNpc.RestoreSpeed(npc);
@@ -283,6 +291,10 @@ namespace SurvivorCommunity
                     if (SpecialtyFor(kind) == m.Specialty) ScSkills.AddSpecialtyXp(m, 3f);
                     m.Status = MemberStatus.Resident;
                     m.RunEndDay = -1;
+#if SC_V34
+                    m.RunRadio = false;     // R2: the run's radio state ends with it
+                    m.RunTalk = 0;
+#endif
                     // the entity: un-hide and re-station now when loaded; the relink does it when it next loads
                     EntityAlive npc = ScCommunity.FindNpc(m.Id);
                     if (npc != null)
@@ -299,6 +311,10 @@ namespace SurvivorCommunity
                     ScLog.Once("run-resolve", e);
                     m.Status = MemberStatus.Resident;
                     m.RunEndDay = -1;
+#if SC_V34
+                    m.RunRadio = false;
+                    m.RunTalk = 0;
+#endif
                 }
             }
         }

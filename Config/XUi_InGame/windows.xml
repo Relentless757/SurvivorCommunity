@@ -101,10 +101,25 @@
 	       cycle reads left to right either way. AshfallUI's own tabs come after it, so there it is buttons[0].
 	     - LB_Icon (gamepad, pivot Right at -8) moves left of the plate; AshfallUI sets it back to -8 for its own bar, where
 	       it sits on this plate as its RB_Icon does on Creative's.
-	     - Hidden in the prefab editor, as the ESC menu entry (the tab too: the selector skips only a hidden button). -->
+	     - Hidden in the prefab editor, as the ESC menu entry (the tab too: the selector skips only a hidden button).
+	     R2 (round 27): the Radio tab, scRadioTab, comes first in each append - LEFT of the Community plate, 4 units apart,
+	     in the same look (vanilla's strip; AshfallUI's plate at its bar's tab width, the name centered as make_nav does) -
+	     and before it in the selector's order (the bumpers read left to right). Its controller XUiC_ScRadioTab shows rect
+	     and tab ({scradiotab}) only while the player carries a handheld radio; pressing it opens "scradio", the radio
+	     station's window, over the handheld. Vanilla's look moves LB_Icon left of it while it shows (lb_shown / lb_hidden);
+	     AshfallUI's leave the icon where AshfallUI puts it. -->
 	<conditional>
 		<if cond="mod_loaded('zzzzz_AshfallUI') and mod_loaded('SurvivorOrigins')">
 			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scRadioTab" controller="SurvivorCommunity.ScRadioTab, SurvivorCommunity" depth="0" pos="-310,0" width="151" height="44" visible="{scradiotab}">
+					<sprite depth="0" name="scRadioTabPlate" sprite="ashfall_hud_panel" type="sliced" color="[white]" pos="0,0" width="151" height="44"/>
+					<rect name="ScRadio" controller="ButtonSelectable" pos="3,-3" width="145" height="38" depth="2" on_press="true" on_hover="true" sound="[paging_click]" sound_play_on_hover="[default_hover]" snap="false" gamepad_selectable="false" visible="{scradiotab}">
+						<sprite depth="1" name="chosen" sprite="ui_game_select_row" type="sliced" color="[white]" width="145" height="38" visible="{% btn_selected }"/>
+						<sprite depth="1" name="hover" sprite="ashfall_btn_hover" type="sliced" color="[white]" width="145" height="38" visible="{% btn_hovered and !btn_selected }"/>
+						<sprite depth="3" name="icon" sprite="ui_game_symbol_talk" color="{% btn_selected ? color(232,163,60,255) : (btn_hovered ? color(255,255,255,255) : color(200,196,186,255)) }" width="22" height="22" pos="48,-19" pivot="center" foregroundlayer="true"/>
+						<label depth="3" name="name" text_key="xuiScRadio" font_size="20" upper_case="true" color="{% (btn_selected or btn_hovered) ? color(255,255,255,255) : color(200,196,186,255) }" pos="66,-20" width="75" height="26" pivot="left" justify="left"/>
+					</rect>
+				</rect>
 				<rect name="scCommunityTab" depth="0" pos="-155,0" width="151" height="44" visible="{# !is_prefab_editor}">
 					<sprite depth="0" name="scTabPlate" sprite="ashfall_hud_panel" type="sliced" color="[white]" pos="0,0" width="151" height="44"/>
 					<rect name="ScCommunity" controller="ButtonSelectable" pos="3,-3" width="145" height="38" depth="2" on_press="true" on_hover="true" sound="[paging_click]" sound_play_on_hover="[default_hover]" snap="false" gamepad_selectable="false" visible="{# !is_prefab_editor}">
@@ -118,6 +133,15 @@
 		</if>
 		<if cond="mod_loaded('zzzzz_AshfallUI')">
 			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scRadioTab" controller="SurvivorCommunity.ScRadioTab, SurvivorCommunity" depth="0" pos="-294,0" width="143" height="44" visible="{scradiotab}">
+					<sprite depth="0" name="scRadioTabPlate" sprite="ashfall_hud_panel" type="sliced" color="[white]" pos="0,0" width="143" height="44"/>
+					<rect name="ScRadio" controller="ButtonSelectable" pos="3,-3" width="137" height="38" depth="2" on_press="true" on_hover="true" sound="[paging_click]" sound_play_on_hover="[default_hover]" snap="false" gamepad_selectable="false" visible="{scradiotab}">
+						<sprite depth="1" name="chosen" sprite="ui_game_select_row" type="sliced" color="[white]" width="137" height="38" visible="{% btn_selected }"/>
+						<sprite depth="1" name="hover" sprite="ashfall_btn_hover" type="sliced" color="[white]" width="137" height="38" visible="{% btn_hovered and !btn_selected }"/>
+						<sprite depth="3" name="icon" sprite="ui_game_symbol_talk" color="{% btn_selected ? color(232,163,60,255) : (btn_hovered ? color(255,255,255,255) : color(200,196,186,255)) }" width="22" height="22" pos="44,-19" pivot="center" foregroundlayer="true"/>
+						<label depth="3" name="name" text_key="xuiScRadio" font_size="20" upper_case="true" color="{% (btn_selected or btn_hovered) ? color(255,255,255,255) : color(200,196,186,255) }" pos="62,-20" width="71" height="26" pivot="left" justify="left"/>
+					</rect>
+				</rect>
 				<rect name="scCommunityTab" depth="0" pos="-147,0" width="143" height="44" visible="{# !is_prefab_editor}">
 					<sprite depth="0" name="scTabPlate" sprite="ashfall_hud_panel" type="sliced" color="[white]" pos="0,0" width="143" height="44"/>
 					<rect name="ScCommunity" controller="ButtonSelectable" pos="3,-3" width="137" height="38" depth="2" on_press="true" on_hover="true" sound="[paging_click]" sound_play_on_hover="[default_hover]" snap="false" gamepad_selectable="false" visible="{# !is_prefab_editor}">
@@ -131,6 +155,11 @@
 		</if>
 		<else>
 			<append xpath="/windows/window[@name='windowPagingHeader']">
+				<rect name="scRadioTab" controller="SurvivorCommunity.ScRadioTab, SurvivorCommunity" depth="0" pos="-112,0" width="52" height="43" visible="{scradiotab}" lb_shown="-120,-20" lb_hidden="-64,-20">
+					<sprite depth="0" name="scRadioTabBorder" sprite="ui_game_header_fill" type="sliced" color="[black]" pos="0,0" width="52" height="43"/>
+					<sprite depth="1" name="scRadioTabFill" sprite="ui_game_header_fill" type="sliced" color="[lightGrey]" pos="3,-3" width="46" height="37"/>
+					<iconbutton pos="26,-21" depth="3" selectable="true" collider_scale="1.5" name="ScRadio" sprite="ui_game_symbol_talk" tooltip_key="xuiScRadio" snap="false" gamepad_selectable="false" visible="{scradiotab}"/>
+				</rect>
 				<rect name="scCommunityTab" depth="0" pos="-56,0" width="52" height="43" visible="{# !is_prefab_editor}">
 					<sprite depth="0" name="scTabBorder" sprite="ui_game_header_fill" type="sliced" color="[black]" pos="0,0" width="52" height="43"/>
 					<sprite depth="1" name="scTabFill" sprite="ui_game_header_fill" type="sliced" color="[lightGrey]" pos="3,-3" width="46" height="37"/>
@@ -719,25 +748,35 @@
 			<label depth="4" pos="94,-52" width="1184" height="24" font_size="17" text="{status}" color="206,178,120,255"/>
 			<button depth="2" name="btnClose" pos="1304,-18" width="56" height="48" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 			<sprite depth="4" sprite="ui_game_symbol_x" pos="1332,-42" width="24" height="24" pivot="center" color="[white]"/>
-			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-84" width="712" height="140"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-84" width="712" height="124"/>
 			<button depth="2" name="btnDrop" pos="40,-98" width="332" height="46" sprite="scui_btn" hoversprite="{# dropready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 			<sprite depth="4" sprite="ui_game_symbol_airdrop" pos="68,-121" width="28" height="28" pivot="center" color="[white]"/>
 			<label depth="4" pos="90,-112" width="274" height="23" font_size="17" text="{droplabel}" color="{# dropready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true" overflow="ClampContent" overflow_ellipsis="true"/>
-			<label depth="4" pos="42,-154" width="328" height="64" font_size="14" text="{dropdesc}" color="190,182,166,255"/>
+			<label depth="4" pos="42,-154" width="328" height="48" font_size="14" text="{dropdesc}" color="190,182,166,255"/>
 			<button depth="2" name="btnCall" pos="388,-98" width="332" height="46" sprite="scui_btn" hoversprite="{# callready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 			<sprite depth="4" sprite="ui_game_symbol_players" pos="416,-121" width="28" height="28" pivot="center" color="[white]"/>
 			<label depth="4" pos="438,-112" width="274" height="23" font_size="17" text="{calllabel}" color="{# callready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true" overflow="ClampContent" overflow_ellipsis="true"/>
-			<label depth="4" pos="390,-154" width="328" height="64" font_size="14" text="{calldesc}" color="190,182,166,255"/>
-			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-232" width="712" height="106"/>
-			<sprite depth="3" sprite="ui_game_symbol_talk" pos="51,-251" width="22" height="22" pivot="center" color="[white]"/>
-			<label depth="4" pos="70,-241" width="650" height="24" font_size="18" text_key="scRadioContactsHeader" color="226,219,203,255" upper_case="true"/>
-			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-266" width="680" height="3"/>
-			<label depth="4" pos="40,-272" width="680" height="62" font_size="14" text="{contacts}" color="226,220,208,255"/>
-			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-346" width="712" height="90"/>
-			<sprite depth="3" sprite="ui_game_symbol_map_waypoint_set" pos="51,-365" width="22" height="22" pivot="center" color="[white]"/>
-			<label depth="4" pos="70,-355" width="650" height="24" font_size="18" text_key="scRadioDistressHeader" color="226,219,203,255" upper_case="true"/>
-			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-380" width="680" height="3"/>
-			<label depth="4" pos="40,-386" width="680" height="46" font_size="14" text="{distress}" color="226,220,208,255"/>
+			<label depth="4" pos="390,-154" width="328" height="48" font_size="14" text="{calldesc}" color="190,182,166,255"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-216" width="712" height="96"/>
+			<sprite depth="3" sprite="ui_game_symbol_talk" pos="51,-235" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="70,-225" width="650" height="24" font_size="18" text_key="scRadioContactsHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-250" width="680" height="3"/>
+			<label depth="4" pos="40,-256" width="680" height="52" font_size="14" text="{contacts}" color="226,220,208,255"/>
+			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-320" width="712" height="118"/>
+			<sprite depth="3" sprite="ui_game_symbol_map_waypoint_set" pos="51,-339" width="22" height="22" pivot="center" color="[white]"/>
+			<label depth="4" pos="70,-329" width="650" height="24" font_size="18" text_key="scRadioRunsHeader" color="226,219,203,255" upper_case="true"/>
+			<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="40,-354" width="680" height="3"/>
+			<rect depth="1" pos="40,-360" width="680" height="36" visible="{runvisible}">
+				<button depth="2" name="btnRunPick" pos="0,0" width="200" height="36" sprite="scui_btn" hoversprite="{# runpickready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<label depth="4" pos="10,-10" width="156" height="21" font_size="15" text="{runname}" color="226,220,208,255" justify="center" overflow="ClampContent" overflow_ellipsis="true"/>
+				<sprite depth="4" sprite="ui_game_symbol_arrow_right" pos="180,-18" width="18" height="18" pivot="center" color="[white]" visible="{runpickready}"/>
+				<label depth="4" pos="210,-11" width="270" height="20" font_size="14" text="{runstate}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true"/>
+				<button depth="2" name="btnRunRecall" pos="490,0" width="190" height="36" sprite="scui_btn" hoversprite="{# runrecallready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<sprite depth="4" sprite="ui_game_symbol_run" pos="512,-18" width="20" height="20" pivot="center" color="[white]"/>
+				<label depth="4" pos="526,-10" width="146" height="21" font_size="15" text="{runrecalllabel}" color="{# runrecallready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true" overflow="ClampContent" overflow_ellipsis="true"/>
+			</rect>
+			<label depth="4" pos="40,-360" width="680" height="40" font_size="14" text="{runnone}" color="190,182,166,255"/>
+			<label depth="4" pos="40,-400" width="680" height="34" font_size="14" text="{distress}" color="226,220,208,255"/>
 			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-444" width="712" height="150"/>
 			<sprite depth="3" sprite="ui_game_symbol_map_town" pos="51,-463" width="22" height="22" pivot="center" color="[white]"/>
 			<label depth="4" pos="70,-453" width="650" height="24" font_size="18" text_key="scRadioOutpostsHeader" color="226,219,203,255" upper_case="true"/>
@@ -746,10 +785,10 @@
 			<rect depth="1" pos="24,-600" width="712" height="40" visible="{demandvisible}">
 				<sprite depth="0" sprite="scui_btn_danger" type="sliced" color="[white]" pos="0,0" width="712" height="40"/>
 				<label depth="4" pos="16,-12" width="424" height="21" font_size="15" text="{demandtext}" color="240,150,130,255"/>
-				<button depth="2" name="btnDemandPay" pos="448,-5" width="120" height="30" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-				<label depth="4" pos="448,-12" width="120" height="21" font_size="15" text_key="scRadioDemandPay" color="226,220,208,255" justify="center" upper_case="true"/>
-				<button depth="2" name="btnDemandRefuse" pos="576,-5" width="120" height="30" sprite="scui_btn_danger" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-				<label depth="4" pos="576,-12" width="120" height="21" font_size="15" text_key="scRadioDemandRefuse" color="240,150,130,255" justify="center" upper_case="true"/>
+				<button depth="2" name="btnDemandPay" pos="448,-5" width="120" height="30" sprite="scui_btn" hoversprite="{# demandready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<label depth="4" pos="448,-12" width="120" height="21" font_size="15" text_key="scRadioDemandPay" color="{# demandready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true"/>
+				<button depth="2" name="btnDemandRefuse" pos="576,-5" width="120" height="30" sprite="scui_btn_danger" hoversprite="{# demandready ? 'scui_btn_hover' : 'scui_btn_danger' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<label depth="4" pos="576,-12" width="120" height="21" font_size="15" text_key="scRadioDemandRefuse" color="{# demandready ? '240,150,130,255' : '130,124,112,255' }" justify="center" upper_case="true"/>
 			</rect>
 			<sprite depth="0" sprite="scui_window" type="sliced" color="[white]" pos="24,-648" width="712" height="104"/>
 			<sprite depth="3" sprite="ui_game_symbol_search" pos="51,-667" width="22" height="22" pivot="center" color="[white]"/>
@@ -902,8 +941,8 @@
 				<button depth="2" name="btnSiegeGo" pos="0,0" width="270" height="36" sprite="scui_btn" hoversprite="{# siegegoready ? 'scui_btn_hover' : 'scui_btn' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
 				<sprite depth="4" sprite="ui_game_symbol_run" pos="24,-18" width="20" height="20" pivot="center" color="[white]"/>
 				<label depth="4" pos="40,-10" width="222" height="21" font_size="15" text="{siegegolabel}" color="{# siegegoready ? '226,220,208,255' : '130,124,112,255' }" justify="center" upper_case="true" overflow="ClampContent" overflow_ellipsis="true"/>
-				<button depth="2" name="btnSiegeCant" pos="298,0" width="270" height="36" sprite="scui_btn_danger" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-				<label depth="4" pos="298,-10" width="270" height="21" font_size="15" text_key="scRadioSiegeCant" color="240,150,130,255" justify="center" upper_case="true"/>
+				<button depth="2" name="btnSiegeCant" pos="298,0" width="270" height="36" sprite="scui_btn_danger" hoversprite="{# siegecantready ? 'scui_btn_hover' : 'scui_btn_danger' }" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+				<label depth="4" pos="298,-10" width="270" height="21" font_size="15" text_key="scRadioSiegeCant" color="{# siegecantready ? '240,150,130,255' : '130,124,112,255' }" justify="center" upper_case="true"/>
 			</rect>
 			<label depth="4" pos="776,-842" width="568" height="20" font_size="13" text="{siegehint}" color="206,178,120,255" overflow="ClampContent" overflow_ellipsis="true"/>
 			<label depth="4" pos="28,-872" width="704" height="60" font_size="15" text="{message}" color="206,178,120,255"/>

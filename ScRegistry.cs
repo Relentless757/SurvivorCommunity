@@ -79,6 +79,8 @@ namespace SurvivorCommunity
     ///                them (WriteMemberFields, id and born 0). A person whose band is missing is dropped (a degraded load).
     ///                [community] gains bandid= and bandpersonid= (keys an older build ignores). A drifter who took up "Come to
     ///                our place." is a [member] on the way (E12's arrive=, the enclave part the band's id negated).
+    ///   R2 (ScHandheld, ScRadioTalk; 3.4 build, keys an older build ignores): [member] runradio=1 (the runner carries a handheld
+    ///                radio) runtalk=N (the RadioTalk moments said on it this run), each written while OnRun and set.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -1131,6 +1133,8 @@ namespace SurvivorCommunity
                     if (float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out cx)) m.CraftXpCarry = Math.Max(0f, Math.Min(1000f, cx));
                     break;
                 }
+                case "runradio": m.RunRadio = val == "1"; break;                       // R2 (ScHandheld)
+                case "runtalk": m.RunTalk = Math.Max(0, I(val)); break;                 // R2 (ScRadioTalk)
 #endif
                 case "arrive":
                 {
@@ -1723,6 +1727,8 @@ namespace SurvivorCommunity
 #if SC_V34
             if (m.CraftRoles >= 0) sb.AppendLine("craftroles=" + m.CraftRoles + ":" + m.CraftRolesFor);              // C1 (ScCraft)
             if (m.CraftXpCarry > 0f) sb.AppendLine("craftxp=" + m.CraftXpCarry.ToString("0.###", CultureInfo.InvariantCulture));
+            if (m.Status == MemberStatus.OnRun && m.RunRadio) sb.AppendLine("runradio=1");                         // R2 (ScHandheld)
+            if (m.Status == MemberStatus.OnRun && m.RunTalk != 0) sb.AppendLine("runtalk=" + m.RunTalk);            // R2 (ScRadioTalk)
 #endif
             if (m.Status == MemberStatus.Arriving)
                 sb.AppendLine("arrive=" + Math.Max(1UL, m.ArriveAt).ToString(CultureInfo.InvariantCulture) + ":" + m.ArriveEnclave.ToString(CultureInfo.InvariantCulture) + ":"

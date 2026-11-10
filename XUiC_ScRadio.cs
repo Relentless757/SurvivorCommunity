@@ -22,6 +22,14 @@ namespace SurvivorCommunity
     /// E9 adds the radio commands to the Allies panel, under the pick (the Enclaves list is 8 rows since): Send a fighter and
     /// Supply drop (ScEncCalls), each greyed with the reason in its label as the station's own calls are; the hint line
     /// shows the call that is on with that ally (on the way, with you until when) when nothing newer is to be said.
+    /// R2 (round 27, 3.4 build) - the handheld radio: opened from the Radio tab (XUiC_ScRadioTab) the window is "remote" and
+    /// relays through a powered radio station at home (ScRadio.Online); with none it opens and says so (the status line and
+    /// the message), and every control that needs the station is grayed with "Home station offline" and refused when pressed
+    /// (StationControls). Opened at a radio block (ScRadio.Open sets ScRadio.OpeningAtBlock around its open) it works as
+    /// before. The left column's distress section became Supply runs: a runner pick (by name, the first with a radio first)
+    /// with where they are, and Call home (decision 6) - ScRunners.Recall for a physical runner who carries a radio, not
+    /// pinned down and not on the way home already; they answer on the radio (ScRadioTalk.OnRecalled). It needs no station:
+    /// radio to radio. Remote and the handheld gone from the inventory, the window closes.
     /// </summary>
     [Preserve]
     public class XUiC_ScRadio : XUiController
@@ -57,6 +65,22 @@ namespace SurvivorCommunity
         private Resource allyGive = Resource.Food, allyGet = Resource.Meds;
         /// <summary>The last ally action's words (the trade, or why not) on the hint line, until the next press or open.</summary>
         private string allyHint = "";
+#if SC_V34
+
+        // ---- R2 (round 27): the handheld radio. Every field is set here, not in Init (bindings are read while the XML is parsed) ----
+        /// <summary>Opened over a handheld radio (the Radio tab), not at a radio block: the station's controls relay through a powered station at home.</summary>
+        private bool remote;
+        /// <summary>The runners out now, by name: the Supply runs section's pick (rebuilt on open and once a second).</summary>
+        private readonly List<Member> runners = new List<Member>();
+        /// <summary>The picked runner's member id; -1 or gone: the first who carries a radio, else the first.</summary>
+        private int runId = -1;
+        /// <summary>The controls that act through the station: refused while remote with the home station offline (Hook).</summary>
+        private static readonly HashSet<string> StationControls = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "btnDrop", "btnCall", "btnScoutFood", "btnScoutMeds", "btnScoutAmmo", "btnScoutMaterials", "btnScoutFuel", "btnBarterTrade",
+            "btnDemandPay", "btnDemandRefuse", "btnSiegeGo", "btnSiegeCant", "btnAllyTrade", "btnAllyFighter", "btnAllyDrop"
+        };
+#endif
 
         public EntityPlayerLocal Player
         {
@@ -165,6 +189,15 @@ namespace SurvivorCommunity
                 // E9: the radio commands - a fighter, a supply drop (the call that is on then shows on the hint line)
                 Hook("btnAllyFighter", () => DoCall(ScEncCalls.Fighter));
                 Hook("btnAllyDrop", () => DoCall(ScEncCalls.Drop));
+#if SC_V34
+                // R2: the Supply runs section - the next runner (by name), and Call home over the radio (decision 6)
+                Hook("btnRunPick", () =>
+                {
+                    if (runners.Count > 1) runId = runners[(IndexOfRunner() + 1) % runners.Count].Id;
+                    RefreshBindings();
+                });
+                Hook("btnRunRecall", DoRecall);
+#endif
             }
             catch (Exception e)
             {
@@ -198,8 +231,141 @@ namespace SurvivorCommunity
         {
             XUiController c = GetChildById(id);
             if (c == null) { ScLog.Err("radio window: no control named '" + id + "' in windows.xml"); return; }
+#if SC_V34
+            // R2: a control that acts through the station is refused while remote with the home station offline
+            bool station = StationControls.Contains(id);
+            c.OnPress += (s, m) =>
+            {
+                if (m != -1) return;
+                if (station && !StationUp()) { RefuseOffline(); return; }
+                action();
+            };
+#else
             c.OnPress += (s, m) => { if (m == -1) action(); };
+#endif
         }
+#if SC_V34
+
+        // ---- R2 (round 27): the handheld radio ----
+
+        /// <summary>The station can act: at a radio block (its power was checked as it opened), or remote with a powered station at home.</summary>
+        private bool StationUp() { return !remote || ScRadio.Online(); }
+
+        private void RefuseOffline()
+        {
+            EntityPlayerLocal p = Player;
+            if (p != null) p.PlayOneShot("ui_denied");
+            message = Localization.Get("scRadioRemoteOffline");
+            RefreshBindings();
+        }
+
+        /// <summary>The runners out now, by name; the pick kept while they are still out, else the first with a radio, else the first.</summary>
+        private void BuildRunners()
+        {
+            runners.Clear();
+            try
+            {
+                if (!ScRegistry.Loaded) return;
+                foreach (Member m in ScRegistry.Members.Values) if (m.Status == MemberStatus.OnRun) runners.Add(m);
+                runners.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                if (IndexOfRunner() >= 0) return;
+                runId = -1;
+                foreach (Member m in runners) if (m.RunRadio) { runId = m.Id; break; }
+                if (runId < 0 && runners.Count > 0) runId = runners[0].Id;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("radio-window-runners", e);
+            }
+        }
+
+        private int IndexOfRunner()
+        {
+            for (int i = 0; i < runners.Count; i++) if (runners[i].Id == runId) return i;
+            return -1;
+        }
+
+        private Member PickedRunner()
+        {
+            int i = IndexOfRunner();
+            return i >= 0 ? runners[i] : null;
+        }
+
+        /// <summary>Decision 6: the picked runner told to come home - ScRunners.Recall, then their answer on the radio.</summary>
+        private void DoRecall()
+        {
+            EntityPlayerLocal p = Player;
+            Member m = PickedRunner();
+            string why;
+            if (!ScRadioTalk.CanRecall(m, out why))
+            {
+                if (p != null) p.PlayOneShot("ui_denied");
+                message = why ?? "";
+                RefreshBindings();
+                return;
+            }
+            string err;
+            if (ScRunners.Recall(m, p, out err))
+            {
+                message = string.Format(Localization.Get("scRunRecalled"), m.Name);
+                ScRadioTalk.OnRecalled(m, p);
+                ScRegistry.SaveAtomic();
+                ScLog.Out(m.Name + " was called home over the radio" + (remote ? " (handheld)" : ""));
+            }
+            else
+            {
+                if (p != null) p.PlayOneShot("ui_denied");
+                message = Localization.Get(err ?? "scInternal");
+            }
+            BuildRunners();
+            RefreshBindings();
+        }
+
+        /// <summary>
+        /// R2's bindings, asked before the rest: the Supply runs section, the two controls R2 gave a ready binding, the remote
+        /// title and status line - and, while remote with the home station offline, every station control grayed with the reason.
+        /// </summary>
+        private bool R2Binding(string name, ref string value)
+        {
+            string why;
+            switch (name)
+            {
+                case "runvisible": value = (runners.Count > 0).ToString(); return true;
+                case "runnone": value = runners.Count == 0 && ScRegistry.Loaded ? Localization.Get("scRadioRunNone") : ""; return true;
+                case "runname": { Member m = PickedRunner(); value = m != null ? m.Name : ""; return true; }
+                case "runpickready": value = (runners.Count > 1).ToString(); return true;
+                case "runstate": { Member m = PickedRunner(); value = m != null ? ScRuns.StatusLine(m) : ""; return true; }
+                case "runrecallready": value = ScRadioTalk.CanRecall(PickedRunner(), out why).ToString(); return true;
+                case "runrecalllabel": value = ScRadioTalk.CanRecall(PickedRunner(), out why) ? Localization.Get("scRadioRunRecall") : why ?? ""; return true;
+                case "demandready": value = StationUp().ToString(); return true;
+                case "siegecantready": value = (SiegeCalled() && StationUp()).ToString(); return true;
+                case "title": value = Localization.Get(remote ? "scRadioTitleRemote" : "scRadioTitle"); return true;
+                case "status":
+                    if (!remote) return false;                                     // the station's own line
+                    value = ScRegistry.Loaded
+                        ? string.Format(Localization.Get("scRadioStatusRemote"), Localization.Get(ScRadio.Online() ? "scRadioOnline" : "scRadioRemoteDown"),
+                                        ScRegistry.Contacts.Count, ScConfig.RadioMaxContacts)
+                        : "";
+                    return true;
+            }
+            if (StationUp()) return false;
+            switch (name)
+            {
+                case "dropready": case "callready": case "scoutready": case "barterready":
+                case "allyfighterready": case "allydropready": case "allytradeready": case "siegegoready":
+                    value = "False";
+                    return true;
+                case "droplabel": case "calllabel": case "allyfighterlabel": case "allydroplabel": case "scoutdesc": case "barterdesc":
+                    value = Localization.Get("scRadioRemoteOfflineShort");
+                    return true;
+                case "dropcolor": case "callcolor": case "bartercolor": case "scoutcolor":
+                    value = "70,70,70,255";
+                    return true;
+                // allyhint stays its own: a call that is on still shows, and a trade's reason is already "no power" (ScRadio.Usable)
+            }
+            return false;
+        }
+#endif
 
         public override void OnOpen()
         {
@@ -218,6 +384,18 @@ namespace SurvivorCommunity
                     xui.playerUI.CursorController.Locked = false;
                     xui.playerUI.CursorController.SetCursorHidden(false);
                 }
+#if SC_V34
+                // R2: at a radio block (ScRadio.Open) or over a handheld radio (the Radio tab): remote relays through the home station
+                remote = !ScRadio.OpeningAtBlock;
+                if (remote)
+                {
+                    ScRadio.CurrentRadio = null;                   // no block in reach: ScRadio.Usable is the home station's power alone
+                    bool up = ScRadio.Online();
+                    ScHandheld.Count(up ? "remote opens" : "remote opens, home station offline");
+                    if (!up) message = Localization.Get("scRadioRemoteOffline");
+                }
+                BuildRunners();
+#endif
                 BuildEnclaves();
                 RefreshBindings();
             }
@@ -241,6 +419,16 @@ namespace SurvivorCommunity
                     confirmCantUntil = 0f;      // "We can't come" was not pressed again in time
                     siegeHint = "";
                 }
+#if SC_V34
+                // R2: remote, and the handheld radio is no longer carried (dropped, used up by a console command): the link is gone
+                if (remote && !ScHandheld.Carries(Player))
+                {
+                    ScLog.Out("radio window: the handheld radio is no longer carried - closing the remote window");
+                    Close();
+                    return;
+                }
+                BuildRunners();
+#endif
                 BuildEnclaves();
                 RefreshBindings();
             }
@@ -254,7 +442,14 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (xui != null && xui.playerUI != null && xui.playerUI.windowManager != null) xui.playerUI.windowManager.Close(ScRadio.WindowGroup);
+                if (xui != null && xui.playerUI != null && xui.playerUI.windowManager != null)
+                {
+                    xui.playerUI.windowManager.Close(ScRadio.WindowGroup);
+#if SC_V34
+                    // R2: as a page of the player menu the tab bar goes with it (the page group does too: a no-op then)
+                    xui.playerUI.windowManager.Close(XUiC_ScPageGroup.PagingGroup);
+#endif
+                }
             }
             catch (Exception e)
             {
@@ -266,6 +461,11 @@ namespace SurvivorCommunity
         {
             string why;
             if (RowBinding(_bindingName, ref _value)) return true;      // E6: enc<n>..., req<n>...
+#if SC_V34
+            if (R2Binding(_bindingName, ref _value)) return true;       // R2: Supply runs, remote mode
+#else
+            if (R2Fallback(_bindingName, ref _value)) return true;      // R2's markup in a 3.2 build: no Supply runs row, the controls as before
+#endif
             switch (_bindingName)
             {
                 // ---- E7: the Allies panel ----
@@ -365,6 +565,24 @@ namespace SurvivorCommunity
             }
         }
 
+#if !SC_V34
+        /// <summary>
+        /// R2's markup (Tools/generate_radio_ui.py) is shared by both builds: a 3.2 build answers its bindings so no NCalc
+        /// expression meets an unknown name - the Supply runs row hidden, the demand and siege buttons as they were.
+        /// </summary>
+        private static bool R2Fallback(string name, ref string value)
+        {
+            switch (name)
+            {
+                case "runvisible": case "runpickready": case "runrecallready": value = "False"; return true;
+                case "runnone": case "runname": case "runstate": case "runrecalllabel": value = ""; return true;
+                case "demandready": value = "True"; return true;
+                case "siegecantready": value = SiegeCalled().ToString(); return true;
+            }
+            return false;
+        }
+
+#endif
         private static string ContactsText()
         {
             if (!ScRegistry.Loaded) return "";

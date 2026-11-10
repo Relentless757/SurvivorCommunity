@@ -240,7 +240,7 @@ scStorageRefresh,UI,Menu,,,,Refresh
 scStorageFull,UI,Menu,,,,No box has room for that.
 scStorageMore,UI,Menu,,,,"{0} stack(s) more than the grid can show"
 scRadioStation,Block,Block,,,,Radio Station
-scRadioStationDesc,Block,Block,,,,"A powered ham radio for the community. Request an air drop (the sandbox air drop frequency is its cooldown in days; with this mod drops only come when asked), call for survivors in need of a home, and hear from your own survivors when a supply run goes wrong."
+scRadioStationDesc,Block,Block,,,,"A powered ham radio for the community. Request an air drop (the sandbox air drop frequency is its cooldown in days; with this mod drops only come when asked), call for survivors in need of a home, and hear from your own survivors on supply runs who carry a handheld radio. A handheld radio reaches this station from anywhere while it has power."
 scRadioUse,UI,Tooltip,,,,Use the radio
 scRadioTitle,UI,Menu,,,,Radio Station
 scRadioStatus,UI,Menu,,,,"{0} - {1} of {2} contacts out there"
@@ -1456,3 +1456,33 @@ scQgBioInfest,UI,Menu,,,,Wants an infestation near them cleared.
 scQgBioSiege,UI,Menu,,,,Their home is under siege.
 scQgBioDeliver,UI,Menu,,,,Waiting on your help by the end of day {0}.
 scQgBioDeliverAny,UI,Menu,,,,Waiting on your help.
+scHandheldRadio,Item,Item,,,,Handheld Radio
+scHandheldRadioDesc,Item,Item,,,,"A battered two-way radio. Keep it anywhere in your backpack or toolbelt and the Radio tab opens your community's radio station from anywhere - but only while a radio station at home has power: the station does the talking. Put one in a member's inventory before a supply run and they radio in from the road: how it is going, a call for help when trouble finds them, and you can call them home."
+xuiScRadio,UI,Menu,,,,Radio
+scRadioTitleRemote,UI,Menu,,,,Handheld Radio
+scRadioStatusRemote,UI,Menu,,,,Over your handheld - the home station: {0} - {1} of {2} contacts out there
+scRadioRemoteDown,UI,Menu,,,,"Offline, no power"
+scRadioRemoteOffline,UI,Tooltip,,,,"Your home radio station has no power, so it can't relay for you. Only your runners who carry a radio can hear you."
+scRadioRemoteOfflineShort,UI,Menu,,,,Home station offline
+scRadioRunsHeader,UI,Menu,,,,Supply runs on the radio
+scRadioRunNone,UI,Menu,,,,No one is out on a supply run.
+scRadioRunRecall,UI,Menu,,,,Call home
+scRadioRunNoRadio,UI,Menu,,,,No radio with them
+scRadioRunNoRoute,UI,Menu,,,,Out of reach on this run
+scRadioRunPinnedShort,UI,Menu,,,,Pinned down - help them
+scRadioRunHeadingShort,UI,Menu,,,,Already heading home
+scRadioRunTalk,UI,Tooltip,,,,"{0} on the radio: ""{1}"""
+scRadioRunOut_1Said,UI,Tooltip,,,,Heading out now. I'll check in when I get there.
+scRadioRunOut_2Said,UI,Tooltip,,,,On my way. Keep the channel open.
+scRadioRunArrived_1Said,UI,Tooltip,,,,I'm here. Going in to look around.
+scRadioRunArrived_2Said,UI,Tooltip,,,,Made it to the spot. Starting the search.
+scRadioRunFound_1Said,UI,Tooltip,,,,Good haul over here. Packing it up now.
+scRadioRunFound_2Said,UI,Tooltip,,,,Found what we needed. This trip was worth it.
+scRadioRunEmpty_1Said,UI,Tooltip,,,,Place is picked clean. Not much to bring back.
+scRadioRunEmpty_2Said,UI,Tooltip,,,,Slim pickings out here. Sorry.
+scRadioRunTrouble_1Said,UI,Tooltip,,,,I've got company! I need help out here!
+scRadioRunTrouble_2Said,UI,Tooltip,,,,They've got me pinned down! Anyone hear me?
+scRadioRunHome_1Said,UI,Tooltip,,,,Done here. Heading back home.
+scRadioRunHome_2Said,UI,Tooltip,,,,Starting back now. Save me some dinner.
+scRadioRunNear_1Said,UI,Tooltip,,,,"Almost home. Don't shoot, it's me."
+scRadioRecallAck_1Said,UI,Tooltip,,,,Copy that. Cutting it short and heading home.

@@ -101,6 +101,9 @@ namespace SurvivorCommunity
                 ScMorale.SyncHud(player);
                 ScLeadership.Publish(player);          // sc_followers / sc_inzone / sc_morale_high for SurvivorOrigins' Leadership
                 ScRadio.Tick(w, player);
+#if SC_V34
+                ScRadioTalk.Tick(w, player);          // R2: runners with a handheld radio - leaving home, leaving the site, the next line on the radio
+#endif
                 ScOutposts.Tick(w, player);           // radio report-in stamp, claim check, markers (every 10 s)
                 ScHomeLink.Tick(player);              // an outpost's door into the home storage: load, open, release
                 ScHomeHold.Tick(w);                   // the home zone held loaded while a player is near (round hz)

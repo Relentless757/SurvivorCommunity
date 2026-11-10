@@ -12,6 +12,9 @@ beside it holding the words it says (for whoever records it):
      have no clip of their own.
    A line with a name or a number in it ({tokens}) says only its token-free part (SPOKEN); SC's line panel shows the
    whole line.
+   R2 (round 27): the radio lines (family "radio", RADIO), what a runner who carries a handheld radio says on it during a
+   supply run (ScRadioTalk) - keyed scRadioRun<Moment>_<n> / scRadioRecallAck_1, their words (the caption) in
+   Localization.csv's <key>Said row. They play through SC's radio source with the radio effect, never in a talk.
 2. The V2 lines ("new"), grouped in families so a recording round can run one family at a time (NEW, in this order):
    - greet    SC's own greetings, greet.<stranger|recruit|member|follower|enclave>.<n> (ScGreetings);
    - chatter  members at home talking to nobody in particular, chatter.<n> (ScGreetings);
@@ -27,8 +30,8 @@ beside it holding the words it says (for whoever records it):
 The voices are Config/blocks.xml's Voices list (two per race and sex), plus any other folder on disk.
 
     python -I Tools/voice_lines.py list [--new] [--family F[,F]] [--voice FOLDER] [--tsv]
-        every line's key and the words it says; --new only the V2 lines; --family only those families (dialog, greet,
-        chatter, taunt, xn, ack, vc); --voice only the lines that voice has no clip for yet; --tsv key<TAB>words
+        every line's key and the words it says; --new only the V2 lines; --family only those families (dialog, radio,
+        greet, chatter, taunt, xn, ack, vc); --voice only the lines that voice has no clip for yet; --tsv key<TAB>words
     python -I Tools/voice_lines.py check [--keys]
         the lines (a token with no spoken part, a key used twice), ScVoiceLines.cs, then per voice: the lines with no
         clip yet, family by family, and clips no line uses (--keys also lists the keys of a voice with no folder yet)
@@ -109,6 +112,13 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
                  # plays it once recorded), and "Call to work" from the Community tab (a tell: text only, the voicing round wires
                  # its playback)
                  "scWorkEndSaid", "scWorkCallSaid"]
+
+# R2 (round 27, research_radio_DESIGN_R2.md): a runner's words on the handheld radio (ScRadioTalk's moments: setting out,
+# arriving, a good or a poor haul, trouble, heading home, almost home, a recall answered). The clip is <key>.ogg; the words
+# are Localization.csv's <key>Said row (the caption). Family "radio", recorded in a round of its own (vo3).
+RADIO = ["scRadioRunOut_1", "scRadioRunOut_2", "scRadioRunArrived_1", "scRadioRunArrived_2", "scRadioRunFound_1",
+         "scRadioRunFound_2", "scRadioRunEmpty_1", "scRadioRunEmpty_2", "scRadioRunTrouble_1", "scRadioRunTrouble_2",
+         "scRadioRunHome_1", "scRadioRunHome_2", "scRadioRunNear_1", "scRadioRecallAck_1"]
 
 # ---------------------------------------------------------------------------------------------------- the V2 lines ----
 # No names or numbers, so every voice can say them. Drafts: SC_Ideas_and_Voices_Plan.md section 4.4 (2026-11-03).
@@ -450,7 +460,8 @@ VC = [
 ]
 
 NEW = [("greet", GREET), ("chatter", CHATTER), ("taunt", TAUNT), ("xn", XN), ("ack", ACK), ("vc", VC)]
-FAMILIES = ["dialog"] + [f for f, _ in NEW]
+FAMILIES = ["dialog", "radio"] + [f for f, _ in NEW]
+NOT_V2 = ("dialog", "radio")          # the families --new and cost's "new (V2)" leave out
 
 
 # ------------------------------------------------------------------------------------------------------- the lines ----
@@ -507,6 +518,23 @@ def lines(problems):
     return out
 
 
+def radio_lines(problems):
+    """R2: key -> the words said, for every radio line (RADIO), from Localization.csv's <key>Said rows."""
+    words = english()
+    out = {}
+    for k in RADIO:
+        said = words.get(k + "Said")
+        if said is None:
+            problems.append("no Localization row %sSaid for the radio line %s" % (k, k))
+        elif "{" in said:
+            problems.append("%sSaid has a token: %s" % (k, said))
+        elif k in out:
+            problems.append("%s is two lines" % k)
+        else:
+            out[k] = said
+    return out
+
+
 def new_lines(problems):
     """key -> (family, words) for every V2 line, in family order. A key used twice, or with a token, goes to problems."""
     out = {}
@@ -524,8 +552,13 @@ def new_lines(problems):
 
 
 def every_line(problems):
-    """key -> (family, words): the dialog lines, then the V2 lines."""
+    """key -> (family, words): the dialog lines, the radio lines (R2), then the V2 lines."""
     out = {k: ("dialog", v) for k, v in lines(problems).items()}
+    for k, v in radio_lines(problems).items():
+        if k in out:
+            problems.append("%s is both a dialog line and a radio line" % k)
+        else:
+            out[k] = ("radio", v)
     for k, v in new_lines(problems).items():
         if k in out:
             problems.append("%s is both a dialog line and a V2 line" % k)
@@ -675,7 +708,7 @@ def pick(every, args):
         have = clips(voice) or set()
     out = []
     for k, (fam, t) in every.items():
-        if new_only and fam == "dialog":
+        if new_only and fam in NOT_V2:
             continue
         if fams and fam not in fams:
             continue
@@ -767,22 +800,21 @@ def cmd_cost(every, problems):
         rows.append((fam, len(ts), sum(len(t) for t in ts), len(uniq), sum(len(t) for t in uniq)))
     for fam, n, c, un, uc in rows:
         print("  %-10s %6d %7d   %d/%d" % (fam, n, c, un, uc))
-    new_n = sum(r[1] for r in rows if r[0] != "dialog")
-    new_c = sum(r[2] for r in rows if r[0] != "dialog")
-    dia = [r for r in rows if r[0] == "dialog"][0]
+    new_n = sum(r[1] for r in rows if r[0] not in NOT_V2)
+    new_c = sum(r[2] for r in rows if r[0] not in NOT_V2)
     print("  %-10s %6d %7d" % ("new (V2)", new_n, new_c))
-    print("  %-10s %6d %7d" % ("full set", new_n + dia[1], new_c + dia[2]))
+    print("  %-10s %6d %7d" % ("full set", sum(r[1] for r in rows), sum(r[2] for r in rows)))
     print("Still to record, per voice (from the folders):")
     all_c = 0
     for d in all_voices():
         have = clips(d) or set()
         miss = [(k, f, t) for k, (f, t) in every.items() if k not in have]
-        mn = sum(1 for _, f, _ in miss if f != "dialog")
-        mc = sum(len(t) for _, f, t in miss if f != "dialog")
-        dn = sum(1 for _, f, _ in miss if f == "dialog")
-        dc = sum(len(t) for _, f, t in miss if f == "dialog")
+        mn = sum(1 for _, f, _ in miss if f not in NOT_V2)
+        mc = sum(len(t) for _, f, t in miss if f not in NOT_V2)
+        dn = sum(1 for _, f, _ in miss if f in NOT_V2)
+        dc = sum(len(t) for _, f, t in miss if f in NOT_V2)
         all_c += mc + dc
-        print("  %-26s new %3d lines %6d chars, dialog %3d lines %6d chars, total %6d%s"
+        print("  %-26s new %3d lines %6d chars, dialog+radio %3d lines %6d chars, total %6d%s"
               % (d, mn, mc, dn, dc, mc + dc, "" if clips(d) is not None else "  (no folder yet)"))
     print("All voices together: %d characters" % all_c)
 

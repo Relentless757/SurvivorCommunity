@@ -11,6 +11,12 @@
 	       V4 body never checks them on activation).
 	     - Traps: allow_buy writes AllowSell (not used here); a duplicate id throws (vanilla uses 1-10, XNPCCore's 60-63 are
 	       commented out); the list has 256 slots; no override markups, so the player's barter perks still apply. -->
+	<!-- R2 (round 27): traders stock a handheld radio now and then - vanilla's traderElectrical group, which every trader
+	     (and the builders' enclave stock below) draws a handful of unique entries from; prob 0.35 within that. The item must
+	     load first (Config/items.xml): TradersFromXml throws on an item it does not know. -->
+	<append xpath="/traders/trader_item_groups/trader_item_group[@name='traderElectrical']">
+		<item name="scHandheldRadio" count="1" prob="0.35"/>
+	</append>
 	<append xpath="/traders">
 		<!-- 200 general: a bit of everything a scavenging group finds -->
 		<trader_info id="200" reset_interval="3">

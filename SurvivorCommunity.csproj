@@ -286,4 +286,12 @@
     <Compile Include="ScWildRaiders.cs" />
   </ItemGroup>
 
+  <!-- R2 (round 27): the handheld radio - the Radio tab, runners' talk on the radio, distress needing a radio, recall by radio - 3.4 only -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScConfigRadio.cs" />
+    <Compile Include="ScHandheld.cs" />
+    <Compile Include="ScRadioTalk.cs" />
+    <Compile Include="XUiC_ScRadioTab.cs" />
+  </ItemGroup>
+
 </Project>

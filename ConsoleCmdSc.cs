@@ -63,7 +63,11 @@ namespace SurvivorCommunity
                     case "band": case "bands": BandCmd(_params); break;
                     case "infest": case "infestation": case "infestations": InfestCmd(_params); break;
                     case "sleepers": case "sleeper": SleepersCmd(_params); break;
+#if SC_V34
+                    case "radio": if (!HandheldCmd(_params)) RadioCmd(); break;   // R2: radio [give <member> | talk <member> <moment>]
+#else
                     case "radio": RadioCmd(); break;
+#endif
                     case "restore":
                     {
                         // a resident whose body is gone (or just unloaded - the console does not wait for the check)
@@ -2070,7 +2074,49 @@ namespace SurvivorCommunity
                        + ", power item " + (item == null ? "none (not wired?)" : (item.IsPowered ? "POWERED" : "unpowered") + " (" + item.GetType().Name + ")")
                        + (ScZone.IsLoaded(v) ? ", loaded" : ", unloaded"));
             }
+#if SC_V34
+            // R2: the handheld radio - yours, the tab, every runner's radio and moments said, the queue, this session's counters
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            Output("[SC] handheld radio: item " + (ScHandheld.Item() != null ? ScHandheld.ItemName : "MISSING (items.xml did not apply)") + "; you carry one: "
+                   + ScHandheld.Carries(pl) + "; Radio tab " + (XUiC_ScRadioTab.Wanted(pl != null && pl.PlayerUI != null ? pl.PlayerUI.xui : null) ? "shown" : "hidden")
+                   + " (HandheldRadioTab=" + ScConfig.HandheldRadioTab + "); the home station " + (ScRadio.Online() ? "has power" : "is OFFLINE")
+                   + "; DistressNeedsRadio=" + ScConfig.DistressNeedsRadio + ", RunnerRadioTalk=" + ScConfig.RunnerRadioTalk);
+            int outCount = 0;
+            foreach (Member m in ScRegistry.Members.Values)
+            {
+                if (m.Status != MemberStatus.OnRun) continue;
+                outCount++;
+                Output("[SC]   runner " + m.Id + " " + m.Name + " (" + (ScRunners.IsPhysical(m) ? m.RunLeg + (m.Offline ? " offline" : " online") : "hidden run") + "): "
+                       + ScRadioTalk.Describe(m));
+            }
+            if (outCount == 0) Output("[SC]   no runner out");
+            Output("[SC] radio talk: " + ScRadioTalk.QueueState() + "; counters: " + ScHandheld.Counters());
+            Output("[SC] sc radio give <member> (a handheld radio into their inventory) | sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall> (says it now)");
+#endif
         }
+#if SC_V34
+
+        /// <summary>R2: sc radio give &lt;member&gt; | sc radio talk &lt;member&gt; &lt;moment&gt;. False: not one of these (the radio status prints).</summary>
+        private static bool HandheldCmd(List<string> p)
+        {
+            string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "";
+            if (verb != "give" && verb != "talk") return false;
+            Member m = p.Count >= 3 ? FindMember(p[2]) : null;
+            if (m == null) { Output("[SC] sc radio " + verb + " <member id|name>" + (verb == "talk" ? " <out|arrived|found|empty|trouble|home|near|recall>" : "")); return true; }
+            if (verb == "give")
+            {
+                string err = ScHandheld.GiveTo(m);
+                Output("[SC] " + (err == null ? m.Name + " has a handheld radio in their inventory now" : "refused: " + err));
+                return true;
+            }
+            RadioTalk ev;
+            if (p.Count < 4 || !ScRadioTalk.TryEvent(p[3], out ev)) { Output("[SC] sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall>"); return true; }
+            string said = ScRadioTalk.Say(m, ev, ScCommunity.LocalPlayer, true);
+            ScRegistry.SaveAtomic();
+            Output("[SC] " + m.Name + " " + ev + ": " + said);
+            return true;
+        }
+#endif
 
         private static void Distress(List<string> p)
         {
