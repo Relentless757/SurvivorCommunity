@@ -3042,6 +3042,11 @@ TESTING X2 (460-475).
   grenade, pipe bomb or molotov can throw it (0-XNPCCore's ThrowExplosive 6.5 in SdcsNpcRangedAdvanced, with its land-claim
   and friend checks).
 
+**Fable re-check of the fixes (35cc292, 98f1792): DEPLOYABLE**, one cosmetic LOW left as is: on an 0-XNPCCore before
+3.4.03, AddBooks stops at its first target, so the two of its targets that do not need 3.4.03 (vanilla's magazine level
+action, Voice Control's Cancel) log "patched an unlisted method" (log noise only; the README requires 3.4.03). Final DLL
+`192a01b0505409e72db0fc792deec111` (`build\sc34_x2`).
+
 ### Round 25b: crafting with 0-XNPCCore 3.4.03 (X2c) (2026-11-09, built, not reviewed, not installed)
 
 Branch `ms/x2c` from `ms/x2` `a2cac4d` (X2's re-bound hooks), worktree `Port33\wt\sc-x2c`. **3.4 only**: the C# is in the
