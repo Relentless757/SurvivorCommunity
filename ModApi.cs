@@ -372,6 +372,8 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsAmmoRestockTick", Patches_Xnpc.RestockTickTarget());
             // X21: the player's Charismatic Nature on members who are not hires (residents, guards, stand-ins)
             Add(t, "AvatarSdcsNpcController::SdcsLeadershipTick", Patches_Xnpc.LeadershipTickTarget());
+            // X22 (0-XNPCCore 3.4.03): SC's raiders say no bandit target line, they taunt in their own voice
+            Add(t, "AvatarSdcsNpcController::SdcsBanditLineOnNewTarget", Patches_Xnpc.BanditLineTarget());
             // round R1: X1c a bandit raider gets 0-XNPCCore's gear-only look apply (its weapon roll), never the rest. Listed
             // only while 0-XNPCCore has both methods (review L3: an 0-XNPCCore without its bandits stays quiet; a missing
             // method is warned about when the first bandit raider is made, ScBandits.WarnIfUnbound)
@@ -471,6 +473,8 @@ namespace SurvivorCommunity
                 // X1 (Voice Control 3.4.02): no contract seeded (SeedContract, a guard) and no reply to a bill taken, for members
                 Add(t, "NPCChatComponent::SeedContract", Patches_VoiceControl.SeedTarget());
                 Add(t, "NPCChatComponent::HandleBillingResponse", Patches_VoiceControl.BillingReplyTarget());
+                // X2 (Voice Control 3.4.03 takes the money before HandleBillingResponse): nothing deducted for members
+                Add(t, "NPCChatComponent::TryDeductPayment", Patches_VoiceControl.DeductTarget());
 #endif
                 Add(t, "PhraseTriggerHandler::Dismiss", Patches_VoiceControl.DismissTarget());
                 Add(t, "PhraseTriggerHandler::Pickup", Patches_VoiceControl.PickupTarget());

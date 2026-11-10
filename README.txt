@@ -12,8 +12,8 @@ THIS IS A TEST BUILD. Expect bugs. Please use a new save made for testing, not a
 Requirements
 ------------
 - 7 Days to Die 3.4 (this build is for 3.4 only).
-- 0-SCore 3.4.3 or newer.
-- 0-XNPCCore 3.4.02 (its Voice Control DLL is included in the 0-XNPCCore folder).
+- 0-SCore 3.4.14 or newer.
+- 0-XNPCCore 3.4.03 (its Voice Control DLL is included in the 0-XNPCCore folder).
 - Easy Anti-Cheat off (this is a Harmony mod).
 - Single player only for now.
 

@@ -17,8 +17,9 @@ namespace SurvivorCommunity
     /// exempts an NPC also silences it. So, for members and their outpost stand-ins:
     ///  - no contract is ever seeded (MaybeStampHireDay skipped; 3.4 X1: Voice Control 3.4.02's SeedContract too, which
     ///    today only MaybeStampHireDay calls - a guard in case another path ever does);
-    ///  - (3.4 X1) a player's reply to a billing prompt ("pay", "yes", "no") never reaches HandleBillingResponse, the only
-    ///    caller of TryDeductPayment, for a member;
+    ///  - (3.4 X1) a player's reply to a billing prompt ("pay", "yes", "no") never reaches HandleBillingResponse for a
+    ///    member, and (X2) TryDeductPayment takes nothing from the leader for one - Voice Control 3.4.03 deducts before
+    ///    HandleBillingResponse runs;
     ///  - the reactor is skipped and an old contract stripped, which covers one seeded before they joined;
     ///  - the contract cvars are stripped when someone joins (ScCommunity.StampCvars) and at every relink (ScTicker),
     ///    so nothing lingers in the save;
@@ -77,11 +78,27 @@ namespace SurvivorCommunity
             return t != null ? Returning(AccessTools.DeclaredMethod(t, "SeedContract", new Type[0]), typeof(void), false) : null;
         }
 
-        /// <summary>X1: NPCChatComponent.HandleBillingResponse(bool accepted), private: the player's answer to a bill.</summary>
+        /// <summary>
+        /// X1: NPCChatComponent.HandleBillingResponse, private: the player's answer to a bill. (bool accepted, bool paid) since
+        /// Voice Control 3.4.03 (X2), (bool accepted) before it. The new shape first.
+        /// </summary>
         public static MethodBase BillingReplyTarget()
         {
             Type t = ChatType;
-            return t != null ? Returning(AccessTools.DeclaredMethod(t, "HandleBillingResponse", new[] { typeof(bool) }), typeof(void), false) : null;
+            if (t == null) return null;
+            return FirstReturning(t, "HandleBillingResponse", typeof(void), false,
+                new[] { typeof(bool), typeof(bool) }, new[] { typeof(bool) });
+        }
+
+        /// <summary>
+        /// X2: NPCChatComponent.TryDeductPayment(), private bool: the one place Voice Control takes the leader's money. Since
+        /// 3.4.03 it runs BEFORE HandleBillingResponse (SettleBillingReply, and a client's routed answer), so the reply
+        /// prefix alone no longer keeps a member from being charged.
+        /// </summary>
+        public static MethodBase DeductTarget()
+        {
+            Type t = ChatType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "TryDeductPayment", new Type[0]), typeof(bool), false) : null;
         }
 #endif
 
@@ -280,6 +297,40 @@ namespace SurvivorCommunity
                 catch (Exception e)
                 {
                     ScLog.Once("vc-billing-reply", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// X2. Voice Control 3.4.03 takes the money (TryDeductPayment) before HandleBillingResponse, in SettleBillingReply and
+        /// in a client's routed answer, so the guard sits on the deduction itself: for a member, a stand-in or an enlisted
+        /// person it takes nothing, answers "not paid" and strips the contract. On 3.4.01/02 the reply prefix above already
+        /// keeps this from running for them.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_NoBillingDeduct
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return DeductTarget() != null && HasNpcField(); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return DeductTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive ____npcEntity, ref bool __result)
+            {
+                try
+                {
+                    if (!IsCommunityNpc(____npcEntity) && !ScEnclaveDeals.IsEnlistedBody(____npcEntity)) return true;
+                    StripContract(____npcEntity);
+                    Count("billing-deduct-refused");
+                    __result = false;
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-billing-deduct", e);
                     return true;
                 }
             }
@@ -612,7 +663,9 @@ namespace SurvivorCommunity
         // its speech queue drains, onAllDone fires, s_proactiveGreetingBusy and _isWaitingForResponse clear as after a played
         // line. SC never calls Voice Control's StopSpeaking (it drops the queue without onAllDone and can wedge the greeting
         // flag for every NPC). The prefixes, all bound by name with the exact 3.4 / 3.2 signatures (identical but for
-        // AcknowledgeCommand), off by Prepare without Voice Control or on a changed signature (ModApi then logs MISSING PATCH):
+        // AcknowledgeCommand; X2: Voice Control 3.4.03 appended a parameter to four of them, and each target tries the 3.4.03
+        // shape first, then the one before - FirstReturning), off by Prepare without Voice Control or on a changed signature
+        // (ModApi then logs MISSING PATCH):
         //  - NPCAudioPlayer.OnWavBytesReady(byte[], VcTrace, Action, bool), private: every TTS sentence ends here, queued or
         //    prefetched before the talk opened included;
         //  - NPCAudioPlayer.PlayClipFile(ClipEntry, Action): clip personalities - SC's own call (ScVoice.SelfCall) passes;
@@ -641,12 +694,32 @@ namespace SurvivorCommunity
             return m != null && m.ReturnType == ret && m.IsStatic == isStatic ? m : null;
         }
 
-        /// <summary>NPCAudioPlayer.OnWavBytesReady(byte[] wavBytes, VcTrace e2e, Action onComplete, bool isAck), private.</summary>
+        /// <summary>
+        /// X2: the first of several exact signatures that exists. Voice Control 3.4.03 appended a parameter to five of the
+        /// methods SC hooks here (isReply, cacheEligible, lineId, paid); the newest shape goes first, the one before it after.
+        /// Every prefix takes its parameters by name, and each of those names is in both shapes.
+        /// </summary>
+        private static MethodBase FirstReturning(Type t, string name, Type ret, bool isStatic, params Type[][] shapes)
+        {
+            foreach (Type[] shape in shapes)
+            {
+                MethodBase m = Returning(AccessTools.DeclaredMethod(t, name, shape), ret, isStatic);
+                if (m != null) return m;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// NPCAudioPlayer.OnWavBytesReady(byte[] wavBytes, VcTrace e2e, Action onComplete, bool isAck, bool isReply), private;
+        /// no isReply before Voice Control 3.4.03.
+        /// </summary>
         public static MethodBase WavReadyTarget()
         {
             Type t = AudioPlayerType, tr = TraceType;
             if (t == null || tr == null) return null;
-            return Returning(AccessTools.DeclaredMethod(t, "OnWavBytesReady", new[] { typeof(byte[]), tr, typeof(Action), typeof(bool) }), typeof(void), false);
+            return FirstReturning(t, "OnWavBytesReady", typeof(void), false,
+                new[] { typeof(byte[]), tr, typeof(Action), typeof(bool), typeof(bool) },
+                new[] { typeof(byte[]), tr, typeof(Action), typeof(bool) });
         }
 
         /// <summary>NPCAudioPlayer.PlayClipFile(ClipEntry entry, Action onComplete).</summary>
@@ -657,12 +730,17 @@ namespace SurvivorCommunity
             return Returning(AccessTools.DeclaredMethod(t, "PlayClipFile", new[] { ce, typeof(Action) }), typeof(void), false);
         }
 
-        /// <summary>NPCAudioPlayer.SpeakStreaming(string text, bool cacheEligible, Action onComplete, VcTrace e2e, bool isAck).</summary>
+        /// <summary>
+        /// NPCAudioPlayer.SpeakStreaming(string text, bool cacheEligible, Action onComplete, VcTrace e2e, bool isAck,
+        /// bool isReply); no isReply before Voice Control 3.4.03.
+        /// </summary>
         public static MethodBase SpeakStreamingTarget()
         {
             Type t = AudioPlayerType, tr = TraceType;
             if (t == null || tr == null) return null;
-            return Returning(AccessTools.DeclaredMethod(t, "SpeakStreaming", new[] { typeof(string), typeof(bool), typeof(Action), tr, typeof(bool) }), typeof(void), false);
+            return FirstReturning(t, "SpeakStreaming", typeof(void), false,
+                new[] { typeof(string), typeof(bool), typeof(Action), tr, typeof(bool), typeof(bool) },
+                new[] { typeof(string), typeof(bool), typeof(Action), tr, typeof(bool) });
         }
 
         /// <summary>
@@ -685,28 +763,36 @@ namespace SurvivorCommunity
         /// <summary>The relay package's class: Voice Control 3.4.02's name, then the one before it.</summary>
         private static readonly string[] RelayTypes = { "XNPCVoiceControl.NetPackageVCVoiceRelay", "XNPCVoiceControl.NetPackageNPCVoice" };
 
-        /// <summary>NPCChatComponent.PlayProactiveGreeting(string greeting, string localizedSubtitle, bool showSubtitle).</summary>
+        /// <summary>
+        /// NPCChatComponent.PlayProactiveGreeting(string greeting, string localizedSubtitle, bool showSubtitle, bool
+        /// cacheEligible); no cacheEligible before Voice Control 3.4.03.
+        /// </summary>
         public static MethodBase GreetingTarget()
         {
             Type t = ChatType;
             if (t == null) return null;
-            return Returning(AccessTools.DeclaredMethod(t, "PlayProactiveGreeting", new[] { typeof(string), typeof(string), typeof(bool) }), typeof(void), false);
+            return FirstReturning(t, "PlayProactiveGreeting", typeof(void), false,
+                new[] { typeof(string), typeof(string), typeof(bool), typeof(bool) },
+                new[] { typeof(string), typeof(string), typeof(bool) });
         }
 
         /// <summary>
-        /// SubtitleManager.AcknowledgeCommand, static: 3.4 (EntityAlive npc, PhraseTrigger trigger, string fallbackText,
-        /// VcTrace e2e, string localizedSubtitle); 3.2 (Voice Control 3.2.06) has no localizedSubtitle.
+        /// SubtitleManager.AcknowledgeCommand, static: Voice Control 3.4.03 (EntityAlive npc, PhraseTrigger trigger, string
+        /// fallbackText, VcTrace e2e, string localizedSubtitle, string lineId); 3.4.01/02 have no lineId; 3.2 (Voice Control
+        /// 3.2.06) has no localizedSubtitle either. Patch_ScAck reads localizedSubtitle at __args[4], the same in both 3.4 shapes.
         /// </summary>
         public static MethodBase AckTarget()
         {
             Type t = ScTypes.Find("XNPCVoiceControl.UI.SubtitleManager"), pt = PhraseTriggerType, tr = TraceType;
             if (t == null || pt == null || tr == null) return null;
 #if SC_V34
-            Type[] args = { typeof(EntityAlive), pt, typeof(string), tr, typeof(string) };
+            return FirstReturning(t, "AcknowledgeCommand", typeof(void), true,
+                new[] { typeof(EntityAlive), pt, typeof(string), tr, typeof(string), typeof(string) },
+                new[] { typeof(EntityAlive), pt, typeof(string), tr, typeof(string) });
 #else
             Type[] args = { typeof(EntityAlive), pt, typeof(string), tr };
-#endif
             return Returning(AccessTools.DeclaredMethod(t, "AcknowledgeCommand", args), typeof(void), true);
+#endif
         }
 
         /// <summary>NPCChatComponent.ProcessPlayerMessage(string playerMessage, EntityPlayer player, bool usedName, Action&lt;string&gt; onComplete, VcTrace e2e).</summary>

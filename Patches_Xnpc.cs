@@ -54,6 +54,8 @@ namespace SurvivorCommunity
     ///   X21 AvatarSdcsNpcController.SdcsLeadershipTick        postfix  (3.4 build, 0-XNPCCore 3.4.02) the player's Charismatic
     ///                                                                  Nature on members who are not hires (residents,
     ///                                                                  guards, stand-ins), as 0-XNPCCore gives it to a hire
+    ///   X22 AvatarSdcsNpcController.SdcsBanditLineOnNewTarget prefix   (3.4 build, 0-XNPCCore 3.4.03) no bandit target line
+    ///                                                                  from SC's raiders: they taunt in their own voice
     ///   (3.4 build) X7 also builds an adopted creator face and stands aside while the hand is holstered (D8)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
@@ -174,9 +176,14 @@ namespace SurvivorCommunity
             return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsTryWorldEntryRearm", new[] { typeof(ItemValue) });
         }
 
+        /// <summary>
+        /// SdcsChooseMeleeFallback(EntityAlive entity, bool preferThrust) since 0-XNPCCore 3.4.03 (X2), (EntityAlive entity)
+        /// before it. The new shape first.
+        /// </summary>
         public static MethodBase MeleeFallbackTarget()
         {
-            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsChooseMeleeFallback", new[] { typeof(EntityAlive) });
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsChooseMeleeFallback", new[] { typeof(EntityAlive), typeof(bool) })
+                ?? AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsChooseMeleeFallback", new[] { typeof(EntityAlive) });
         }
 
         public static MethodBase UpdateTarget()
@@ -682,6 +689,9 @@ namespace SurvivorCommunity
         /// answer is always the pair's melee weapon while SCore's FindWeapon still accepts it; when it does not (or the
         /// body has no pair yet) XNPC's own choice runs. The method has loops and is far too big to be inlined, and the
         /// counters show it runs.
+        /// X2: 0-XNPCCore 3.4.03 added preferThrust, true when a swing is blocked (bars, a narrow opening): XNPC then reaches
+        /// for a carried thrust weapon (spear, knife, knuckles) that can stab through. That call is left to XNPC, which falls
+        /// back to the kit's first melee weapon - the pair's - when the body carries none.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_MeleeFallback
@@ -692,13 +702,17 @@ namespace SurvivorCommunity
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return MeleeFallbackTarget(); }
 
-            /// <summary>__0 is the entity argument (bound by position: the controller also has an "entity" field).</summary>
+            /// <summary>
+            /// __0 is the entity argument (bound by position: the controller also has an "entity" field). __args[1] is
+            /// preferThrust on 0-XNPCCore 3.4.03; the older shape has one argument.
+            /// </summary>
             [HarmonyPrefix]
-            public static bool Prefix(EntityAlive __0, ref string __result)
+            public static bool Prefix(EntityAlive __0, object[] __args, ref string __result)
             {
                 try
                 {
                     if (__0 == null || !ScXnpc.IsBody(__0)) return true;
+                    if (__args != null && __args.Length > 1 && __args[1] is bool thrust && thrust) { Count("x6-thrust-xnpc"); return true; }
                     string melee = ScLoadout.XnpcMelee(__0);
                     if (melee == null) { Count("x6-xnpc-choice"); return true; }
                     Count("x6-pair-melee");
@@ -1964,6 +1978,51 @@ namespace SurvivorCommunity
                 catch (Exception ex)
                 {
                     ScLog.Once("xnpc-leadership", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X22: the bandit target line (3.4.03) ----
+
+        /// <summary>
+        /// X22: 0-XNPCCore 3.4.03's SdcsBanditLineOnNewTarget(EntityAlive target), internal: a bandit that locks onto a person
+        /// says a line (say-line "bandit.target": Voice Control speaks a combat line from the NPC's personality in a TTS voice,
+        /// with a caption), at most once a minute per bandit and once in 10 s per group. Not in 3.4.02.
+        /// </summary>
+        public static MethodBase BanditLineTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsBanditLineOnNewTarget", new[] { typeof(EntityAlive) });
+        }
+
+        /// <summary>
+        /// X22. SC's raiders carry the bandit tag, so 3.4.03 gave them its target line too - in a Voice Control TTS voice, on
+        /// top of SC's own taunt for the same moment (Patches_Voices.Patch_TauntTarget, in the raider's recorded SC voice). One
+        /// of SC's raiders says nothing here while RaiderTaunts is on; with it off (or with no Voice Control), 0-XNPCCore's line
+        /// is theirs again. 0-XNPCCore's own bandits are untouched.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_BanditLine
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(BanditLineTarget, "AvatarSdcsNpcController.SdcsBanditLineOnNewTarget"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BanditLineTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(AvatarSDCSController __instance)
+            {
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (e == null || !ScConfig.RaiderTaunts || !ScXnpc.IsRaider(e)) return true;
+                    Count("x22-bandit-line-sc-taunts");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-banditline", ex);
+                    return true;
                 }
             }
         }
