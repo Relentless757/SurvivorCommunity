@@ -67,6 +67,7 @@ namespace SurvivorCommunity
                 m.EventSpawned = false;
 #if SC_V34
                 m.RunTalk = 0;
+                m.RunRadio = false;                                        // a fresh snapshot (the re-check's LOW-3)
                 ScHandheld.NoteCarried(m, npc, "sent on a hidden run");   // R2: a radio of theirs lets them call for help (decision 5)
 #endif
                 World rw = ScCommunity.World;
@@ -111,6 +112,7 @@ namespace SurvivorCommunity
                 m.Offline = false;
 #if SC_V34
                 m.RunTalk = 0;
+                m.RunRadio = false;                                        // a fresh snapshot (the re-check's LOW-3)
                 ScHandheld.NoteCarried(m, npc, "set off on a supply run");   // R2: talks on the radio, may radio for help, can be called home
 #endif
                 if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);

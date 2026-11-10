@@ -25,8 +25,13 @@ namespace SurvivorCommunity
         private static ItemValue value;                    // the item, once found (null: not looked up yet, or not loaded)
         private static float nextLookup;
         private static readonly Dictionary<string, int> counts = new Dictionary<string, int>(StringComparer.Ordinal);
-        /// <summary>The review's L2: a member's run of reads that found no radio after one was noted (member id -> reads).</summary>
-        private static readonly Dictionary<int, int> misses = new Dictionary<int, int>();
+        /// <summary>
+        /// The review's L2: when a read first found no radio after one was noted (member id -> Time.time). A second "no radio"
+        /// read at least MissSpan seconds later takes it off the record (the re-check's LOW-1: reads can come 5 s apart, or
+        /// closer at an unload).
+        /// </summary>
+        private static readonly Dictionary<int, float> misses = new Dictionary<int, float>();
+        private const float MissSpan = 8f;
 
         /// <summary>Per world (ScConfig.Reset at GameStarting): the item is looked up again, the counters start over.</summary>
         public static void Reset()
@@ -124,11 +129,10 @@ namespace SurvivorCommunity
             else if (m.RunRadio)
             {
                 // the review's L2: a body just restored, its SCore window store not back yet, reads as "no radio" - one read is
-                // not enough to take a noted radio off the record; two in a row are (10 s apart while the body is here)
-                int n;
-                misses.TryGetValue(m.Id, out n);
-                misses[m.Id] = ++n;
-                if (n < 2) return false;
+                // not enough to take a noted radio off the record; a second at least MissSpan seconds after the first is
+                float first, now = Time.time;
+                if (!misses.TryGetValue(m.Id, out first)) { misses[m.Id] = now; return false; }
+                if (now - first < MissSpan) return false;
                 misses.Remove(m.Id);
             }
             if (has == m.RunRadio) return false;

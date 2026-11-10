@@ -1103,8 +1103,10 @@ namespace SurvivorCommunity
             {
                 // out on a physical run: turn round now
 #if SC_V34
-                // R2 (user, 2026-11-09): only over their radio, or in person
-                if (!ScHandheld.WindowRecallAllowed(m, p))
+                // R2 (user, 2026-11-09): only over their radio, or in person - asked only of a runner the recall could turn round,
+                // so pinned down / already heading home keep their own refusals (the re-check's LOW-2)
+                bool turnable = m.RunLeg == RunLeg.Outbound || (m.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(m));
+                if (turnable && !ScHandheld.WindowRecallAllowed(m, p))
                 {
                     message = string.Format(Localization.Get("scRecallNoRadio"), m.Name);
                     ScHandheld.Count("window recall refused: runner has no radio");

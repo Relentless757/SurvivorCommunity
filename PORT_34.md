@@ -3479,3 +3479,13 @@ whose body is gone and the outposts' "Recall home" are unchanged; so is the talk
 
 Builds after the fixes: SC 3.4 `fed31b5e0daa75a52689fb46267b4594` (`build\sc34_p2r2`), 0 errors; the 3.2 configuration
 compiles (scratch). Not installed. TESTING 560-562.
+
+**Fable re-check of da7bf45: DEPLOYABLE**, four LOW; three closed in the next commit:
+- LOW-1: the two "no radio" reads could come under 5 s apart (the 5 s tick, an unload): a noted radio now leaves the record
+  only on a second "no radio" read at least 8 s after the first (`ScHandheld.MissSpan`).
+- LOW-2: the window's no-radio refusal came before "pinned down" / "heading home": asked only of a runner the recall could
+  turn round now.
+- LOW-3: both run starts set `RunRadio` false before their snapshot, not relying on every run end clearing it.
+- LOW-4 accepted: a line from before a world reset that throws afterwards holds the new world's queue for CaptionSeconds.
+- Noted for the user: a recall over the runner's radio needs only the runner's radio (the decision as worded), not the
+  player's handheld or a powered station; "Copy that." plays either way.
