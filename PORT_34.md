@@ -3489,3 +3489,22 @@ compiles (scratch). Not installed. TESTING 560-562.
 - LOW-4 accepted: a line from before a world reset that throws afterwards holds the new world's queue for CaptionSeconds.
 - Noted for the user: a recall over the runner's radio needs only the runner's radio (the decision as worded), not the
   player's handheld or a powered station; "Copy that." plays either way.
+
+Fable glance at a3e535f: **DEPLOYABLE**. Two new LOWs, left for the next round (the reviewed build was installed as is):
+- LOW-A: `ScHandheld.NoteCarried`'s `misses` uses `Time.time` while the 5 s cadence runs on `Time.unscaledTime`; paused
+  (timeScale 0) a gone radio stays on the record until unpause (errs safe). Use `Time.unscaledTime`.
+- LOW-B: no upper bound on a first miss's age: a miss from long ago makes one fresh flaky read the confirming second (self-
+  heals on the next 5 s read with the store back). Treat an entry older than ~20 s as a fresh first miss.
+- Cosmetic: `RecallNeedsRadio` (the gray button) lacks the `turnable` guard, so a pinned or inbound runner without a radio is
+  grayed "for want of a radio" while the click names pinned / heading home (refused either way).
+
+### Rounds 26 + 27 installed (2026-11-10 00:02)
+
+With the user's go-ahead (3.4 game closed): round 26 (P2: no mood refusals, a death fades in 3 days, packing station from
+the backpack, no clearly female hairstyles on men, at most 3 enclave calls for help a world day), round 27 (R2: the handheld
+radio, its icon, the Radio tab, runners on the radio, distress needs a radio, Call home; the window's runner recall needs
+a radio) and voices vo3 day 6 (NativeM1 and NativeM2 complete). Fable: NOT DEPLOYABLE (H1, fixed) -> re-check DEPLOYABLE
+(LOWs fixed) -> glance DEPLOYABLE. port-3.4 fast-forwarded to `ms/p2` a3e535f; `deploy_sc34.py`: 13231 files, installed =
+built `c0ac2ed2c0a2eef4f19524e386c7159a`. The old install is in `Port33\_backups\sc34_2026-11-10_000212`; the user's
+`DebugLogging` true set again. Untested in game: TESTING P2 (500-511), R2 (520-562); the radio lines are not recorded yet
+(captions alone until vo3's next days).
