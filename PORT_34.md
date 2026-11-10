@@ -3167,3 +3167,11 @@ still open (SC's V1 gate swallows Voice Control's voice on a member in a talk - 
 same as 0-XNPCCore's own line would); that the craft window repaints at once after `Relist`.
 
 Builds: SC 3.4 `50a1c71c9e7ca6ed83b5e52936ae2ed4` (`build\sc34_x2c`), 0 errors. Not reviewed, not installed.
+
+### Round 25 installed (2026-11-09 22:10)
+
+With the user's go-ahead (3.4 game closed): round 25 (X2, NPCCore 3.4.03 / SCore 3.4.14) and round 25b (X2c, crafting);
+Fable review DEPLOYABLE, review fixes 35cc292 and 98f1792, re-check DEPLOYABLE. port-3.4 fast-forwarded to `ms/x2` f81f5fb;
+`deploy_sc34.py`: 11363 files, installed = built `192a01b0505409e72db0fc792deec111`. The old install is in
+`Port33\_backups\sc34_2026-11-09_221022`; the user's `DebugLogging` true set again. Untested in game: TESTING X2 (460-475)
+and X2c (480-499).
