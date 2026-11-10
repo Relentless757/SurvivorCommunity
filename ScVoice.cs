@@ -423,6 +423,43 @@ namespace SurvivorCommunity
             return null;
         }
 
+#if SC_V34
+        /// <summary>
+        /// R2 (ScRadioTalk): this line's clip in a member's voices, and the voice that has it; null when none of their voices
+        /// has it (or VoiceLines is off). Their body's own chain while it is loaded; else one built from their record - the
+        /// look's sex and race (the class's sex without one) and their name, as Chain deals it - so a runner far away keeps
+        /// the voice they talk in at home.
+        /// </summary>
+        internal static string MemberClip(Member m, string key, out string voice)
+        {
+            voice = null;
+            if (m == null || string.IsNullOrEmpty(key) || !ScConfig.VoiceLines) return null;
+            try
+            {
+                List<Voice> chain;
+                EntityAlive npc = ScCommunity.FindNpc(m.Id);
+                if (npc != null && ScXnpc.IsSurvivorBody(npc)) chain = Chain(npc);
+                else
+                {
+                    bool male = m.Look != null ? m.Look.Male : ScLooks.ClassIsMale(m.Class);
+                    string race = m.Look != null ? CanonRace(m.Look.Race) : null;
+                    chain = ChainFor(Voices(), male, race, m.Name ?? "");
+                }
+                if (chain == null) return null;
+                foreach (Voice v in chain)
+                {
+                    string path;
+                    if (v.Lines.TryGetValue(key, out path)) { voice = v.Name; return path; }
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("voice-member-clip", e);
+            }
+            return null;
+        }
+#endif
+
         /// <summary>V2: the first voice of the chain with a clip for any of these keys, and those keys in it (null: none has one).</summary>
         internal static Voice FirstWith(List<Voice> chain, IList<string> keys, List<string> found)
         {

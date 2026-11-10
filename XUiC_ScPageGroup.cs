@@ -22,6 +22,9 @@ namespace SurvivorCommunity
     ///     own, as before W1.
     /// The tab is a ButtonSelectable named ScCommunity on its own plate left of the bar (Config/XUi_InGame/windows.xml), so
     /// the selector lights it, titles the bar "Community" and pages to it like any other tab.
+    /// R2 (round 27, 3.4 build): the radio station's group "scradio" has this controller too - the page is the group's own
+    /// name, its tab the Radio tab left of the Community plate (XUiC_ScRadioTab), shown only while the player carries a
+    /// handheld radio. Without it (the window opened at a radio block) the radio window opens alone, as before.
     /// </summary>
     [Preserve]
     public class XUiC_ScPageGroup : XUiController
@@ -34,6 +37,23 @@ namespace SurvivorCommunity
             base.OnOpen();
             try
             {
+#if SC_V34
+                // R2: the radio station's window ("scradio") is a page too, its tab the Radio tab (XUiC_ScRadioTab), shown only
+                // while a handheld radio is carried - so its look is made current first (the bar may have been closed since).
+                // Without the tab (no handheld: the window opened at a radio block) it opens on its own, as before R2, unlogged.
+                string page = windowGroup != null && !string.IsNullOrEmpty(windowGroup.Id) ? windowGroup.Id : ScCommunity.WindowGroup;
+                bool radio = string.Equals(page, ScRadio.WindowGroup, StringComparison.OrdinalIgnoreCase);
+                if (radio) XUiC_ScRadioTab.RefreshNow();
+                XUiC_WindowSelector selector = Selector(xui);
+                if (Tab(selector, page) == null)
+                {
+                    if (!radio)
+                        ScLog.OnceOut("community-tab-none", "community window: the tab bar has no Community tab (windowPagingHeader has no "
+                                      + "visible ScCommunity) - the window opens on its own, without the bar");
+                    return;
+                }
+                selector.SetSelected(page);
+#else
                 XUiC_WindowSelector selector = Selector(xui);
                 if (Tab(selector) == null)
                 {
@@ -43,6 +63,7 @@ namespace SurvivorCommunity
                 }
                 // select first: the bar's OnOpen opens the selected tab's page, and this page is already opening (IsWindowOpen)
                 selector.SetSelected(ScCommunity.WindowGroup);
+#endif
                 xui.playerUI.windowManager.Open(PagingGroup, false);
             }
             catch (Exception e)
@@ -80,10 +101,23 @@ namespace SurvivorCommunity
         /// </summary>
         public static XUiC_ButtonSelectable Tab(XUiC_WindowSelector selector)
         {
+#if SC_V34
+            return Tab(selector, ScCommunity.WindowGroup);
+        }
+
+        /// <summary>R2: a page's tab by its window group's name (sccommunity, scradio), as Tab(selector) for the Community tab.</summary>
+        public static XUiC_ButtonSelectable Tab(XUiC_WindowSelector selector, string page)
+        {
+            if (selector == null || selector.buttonsByName == null || string.IsNullOrEmpty(page)) return null;
+            XUiC_ButtonSelectable tab;
+            if (!selector.buttonsByName.TryGetValue(page, out tab) || tab == null || tab.ViewComponent == null) return null;
+            return tab.ViewComponent.IsVisible && tab.ViewComponent.Enabled ? tab : null;
+#else
             if (selector == null || selector.buttonsByName == null) return null;
             XUiC_ButtonSelectable tab;
             if (!selector.buttonsByName.TryGetValue(ScCommunity.WindowGroup, out tab) || tab == null || tab.ViewComponent == null) return null;
             return tab.ViewComponent.IsVisible && tab.ViewComponent.Enabled ? tab : null;
+#endif
         }
     }
 }

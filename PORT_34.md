@@ -3175,3 +3175,235 @@ Fable review DEPLOYABLE, review fixes 35cc292 and 98f1792, re-check DEPLOYABLE. 
 `deploy_sc34.py`: 11363 files, installed = built `192a01b0505409e72db0fc792deec111`. The old install is in
 `Port33\_backups\sc34_2026-11-09_221022`; the user's `DebugLogging` true set again. Untested in game: TESTING X2 (460-475)
 and X2c (480-499).
+
+### Round 27: the handheld radio (R2) (2026-11-09, built, not reviewed, not installed)
+
+The user's request: a handheld radio item; with it in the inventory the radio station's menu opens remotely, from a new tab left
+of the Community tab; a member given one talks to the player during supply runs, sounding like a radio. The spec with the
+user's six decisions, the 14 voice lines and the open points: `research_radio_DESIGN_R2.md` (committed with the round). It
+replaces the 2026-11-03 decision "radio commands only at a radio block (handheld radios later)". Branch `ms/radio` from
+`ms/p2` `cc9f68a`, worktree `Port33\wt\sc-radio`. **3.4 only**: four new files compiled only for 3.4 (`ScHandheld.cs`,
+`ScRadioTalk.cs`, `XUiC_ScRadioTab.cs`, `ScConfigRadio.cs`; their own `ItemGroup` in the csproj) and every hook in a shared
+file under `SC_V34`; the XML is shared, so a 3.2 build answers the radio window's new bindings with neutral values
+(`XUiC_ScRadio.R2Fallback`). The tracked 3.2 `SurvivorCommunity.dll` is untouched.
+
+**The user's decisions (2026-11-09).** 1. Tab only, LEFT of the Community tab, shown while a handheld radio is anywhere in the
+bag or toolbelt; no use action, no radial. 2. The handheld opens the station's window (all its pages) from anywhere, but only
+while a station at home has power; without one the window says the home station is offline. 3. A workbench recipe, rare loot
+(electronics containers, raiders) and traders now and then. 4. A runner who carries a radio talks during a supply run - new
+lines, their own SC voice as a radio (band-limited, grit, a squelch in and out), 2D wherever the player is, a caption naming
+them; the caption alone until recorded; heard while the player carries a handheld. 5. Distress needs the runner's radio; the
+call lands with the player's handheld or a powered home station. 6. From the radio window (remote or at the station) a runner
+with a radio can be told to come home (ScRunners.Recall).
+
+**The item and where it comes from.**
+- `scHandheldRadio` (`Config/items.xml:204-227`): a stack of 1, group Science (the workbench's Science category),
+  EconomicValue 400, the resource sack mesh, `MelectricParts`, `DescriptionKey scHandheldRadioDesc`. **Placeholder icon**:
+  `CustomIcon radioHam` (vanilla's ham radio, the station's own icon) tinted `ffd890` (warm gold; the station's is blue-white) -
+  SC ships no item icon atlas (`UIAtlases` holds only `UIAtlas`), every SC item uses a vanilla icon; the final icon comes from the
+  concept sheets the user is picking.
+- Recipe (`Config/recipes.xml:16-23`): workbench, 60 s - 3 electrical parts, 2 mechanical parts, 5 polymer scrap, 2 duct tape;
+  the station (15 forged iron, 6 / 4 / 10, 120 s) about halved with no iron frame, taped together: it relays through the
+  station rather than replacing it.
+- Loot (`Config/loot.xml:69-74`): vanilla's `groupElectricalDevices` gains it at `veryLow` (its battery and generator banks' odds)
+  - a weighted group rolled by Working Stiffs crates (`groupWorkingStiffs04`), garages (`groupGarage02`), Mo' Power shelves and
+  crates (`groupMoPowerShelves01`, `groupMoPower04`) and construction crates (`groupConstructionCrate02`). An item into an
+  existing group: the single-pass group order does not apply.
+- Traders (`Config/traders.xml:14-19`): vanilla's `traderElectrical` gains it at `prob 0.35`; traders 1, 2, 6, 7, 8, 9 and the
+  builders' enclave stock (204) draw a handful of unique entries from that group, so it shows now and then. The item loads before
+  the traders (TradersFromXml throws on an unknown item).
+- SC's raiders (`ScHandheld.OnRaiderDied`, ScHandheld.cs:147; called once per raider from `ScBandits.OnDied`, ScBandits.cs:469):
+  with `RaiderRadioChance` (0.04) a radio drops where the raider died, in a backpack of its own labeled with their name (the 3.4
+  backpack drop `Patches_Npc.DropBackpack` makes, written out: a one-slot grid Bag as the creation data's blob, `BackpackNPC`
+  when it exists). Not in their loot bag: on 3.4 a raider's bag is 0-XNPCCore's `LootDropEntityClass`, vanilla's zombie bag
+  (`EntityLootContainerRegular` / `Strong` / `Boss`, `zPack*` lists) that every enemy shares, and `Config/entityclasses.xml`
+  is written whole by `Tools/gen_arsenal.py`.
+
+**The Radio tab (decisions 1, 2; `Config/XUi_InGame/windows.xml:104-171`, `XUiC_ScRadioTab.cs` new).** W1's way, one more
+plate: a rect `scRadioTab` (controller `SurvivorCommunity.ScRadioTab, SurvivorCommunity`) put FIRST into each of W1's three
+appends to `windowPagingHeader`, so it stands 4 units left of the Community plate in the same look and comes right before
+ScCommunity in the selector's tab order (the bumpers still read left to right). It holds a plate and a tab named `ScRadio` (the
+selector opens the window group "scradio", case-insensitive, and titles the bar `xuiScRadio`, "Radio"); its icon is the radio
+window's own title icon, `ui_game_symbol_talk`.
+
+| setup | Community plate | Radio plate | Radio tab |
+|---|---|---|---|
+| vanilla, SurvivorOrigins | -56..-4 (52x43) | -112..-60 (52x43): vanilla's strip in small | iconbutton at 26,-21, tooltip `Radio` |
+| AshfallUI | -147..-4 (143x44) | -294..-151 (143x44), `ashfall_hud_panel` | 137x38, icon 44,-19, `RADIO` 62,-20 (71 wide) |
+| AshfallUI + SurvivorOrigins | -155..-4 (151x44) | -310..-159 (151x44) | 145x38, icon 48,-19, `RADIO` 66,-20 (75 wide) |
+
+The AshfallUI label is centered as make_nav does (`content_w` 22 + 7 + round(5 x 8.4) = 71). Rect and tab bind
+`visible="{scradiotab}"`, answered by the rect's own controller (both bindings register there: the nearest controller that
+answers, read before Init - its `shown` is false until the first look). `XUiC_ScRadioTab` looks as the bar opens (OnOpen, before
+its own binding refresh), every 0.5 s while it is open (Update: `ScHandheld.Carries`, two vanilla item counts, no allocation)
+and when the radio page group asks (`RefreshNow`); a change refreshes its bindings, so the selector's paging skips a hidden
+tab as it skips any. Shown only for the host (SC is single player), never in the prefab editor, with `HandheldRadioTab` on.
+Vanilla's look also moves the gamepad LB icon left of the Radio plate while it shows (`lb_shown="-120,-20"` /
+`lb_hidden="-64,-20"`, custom rect attributes the view leaves in `CustomAttributes`); AshfallUI's looks give none, and the icon
+stays where AshfallUI puts it. No AshfallUI change.
+
+**The page (`Config/XUi_InGame/xui.xml:12-15`, `XUiC_ScPageGroup.cs:35-73, 102-123`).** The `scradio` group gets W1's controller
+`SurvivorCommunity.ScPageGroup, SurvivorCommunity`, which now takes the page from its own group's name (`windowGroup.Id`) and,
+for the radio, makes the tab's look current first (`XUiC_ScRadioTab.RefreshNow`: the bar may have been closed since the radio
+left the bag). With the tab it selects it and opens the bar, as for Community; without one (no handheld - the window opened at
+a block) the radio window opens on its own as before, unlogged. `Tab(selector, page)` is the old `Tab` by name.
+
+**Remote mode (decision 2; `ScRadio.Open`, ScRadio.cs:842-849; `XUiC_ScRadio`).** `ScRadio.Open` (the block's "Use radio") sets
+`ScRadio.OpeningAtBlock` around its own window open (synchronous); `XUiC_ScRadio.OnOpen` (:392) reads it: opened any other way
+(the Radio tab) the window is remote - `CurrentRadio` cleared, so `ScRadio.Usable` is the home station's power alone (the
+E9 calls', E7 barter's and scouting's own checks). `StationUp` (:252) = at a block, or `ScRadio.Online()` (a powered station in
+the home zone, by tile entity or the power graph). Remote with the station down: the status line `Over your handheld - the
+home station: Offline, no power - N of M contacts out there`, the title `HANDHELD RADIO`, the gold message `Your home radio
+station has no power, so it can't relay for you. Only your runners who carry a radio can hear you.`; every control in
+`StationControls` (:78: Air drop, Call, the five scouts, Trade, the demand's Pay / Refuse, the siege's On our way / We can't
+come, the ally's Trade, Send a fighter, Supply drop) reads `HOME STATION OFFLINE` grayed (`R2Binding`, :328) and is refused in
+`Hook` (the denied sound and that message). The lists (contacts, outposts, enclaves, requests, distress) stay. A remote window
+whose handheld left the inventory closes (Update). `XUiC_ScRadio.Close` closes the bar too (W1's backup).
+
+**Runner talk (decision 4; `ScRadioTalk.cs` new).** The moments (`RadioTalk`, a [Flags] enum, `Member.RunTalk` bits), each said
+at most once a run:
+
+| moment | keys | where it fires |
+|---|---|---|
+| Out | `scRadioRunOut_1/2` | physical, Outbound, 60 m (`OutRange`) from their post - `ScRadioTalk.Tick` |
+| Arrived | `scRadioRunArrived_1/2` | physical, `ScRunners.EnterSite` (ScRunners.cs:673), unless they radio for help there |
+| Found / Empty | `scRadioRunFound_1/2` / `scRadioRunEmpty_1/2` | physical, `ScRunners.LeaveSite` (:687): carry >= RunYieldBase is Found; not after a rescue (you were there) or a failed distress (hurt) |
+| Trouble | `scRadioRunTrouble_1/2` | any run, `ScRadio.ForceDistress` (ScRadio.cs:563, :591) |
+| Home | `scRadioRunHome_1/2` | physical, Inbound, 40 m (`HomeRange`) from the site - `ScRadioTalk.Tick` |
+| Near | `scRadioRunNear_1` | physical, `ScRunners.EnterBack` (:699), the gate where the haul counts |
+| RecallAck | `scRadioRecallAck_1` | told to come home from the radio window |
+
+A recall marks Found, Empty and Home said (ScRunners.cs:898, :908), so the way home brings only Near. `Say` (ScRadioTalk.cs:153)
+spends the moment, then says it only when `RunnerRadioTalk`, the runner carries a radio, the player carries a handheld (not for
+RecallAck: heard on whichever radio sent it) and is alive, and the runner's body is not within 30 m of the player
+(`InPersonRange`: they would just talk; hidden runs skip this). Lines queue (at most 8) and play one at a time from `Tick`
+(ScTicker, once a second; ScTicker.cs:105).
+
+**The voice and the radio sound.** `ScVoice.MemberClip` (ScVoice.cs:433): the key's clip in the member's voices - their body's
+chain when it is loaded, else one built from the record (the look's sex and race, the class's sex without one, the name: the
+deal `Chain` makes), so a runner far away keeps their voice. With a clip: `ScClipCache.Get(path, compressed)` and a coroutine on
+SC's own source - a GameObject `ScRadioVoice` with a 2D AudioSource (spatialBlend 0: the same wherever the player stands or
+faces), an `AudioHighPassFilter` at 450 Hz, an `AudioLowPassFilter` at 3200 Hz and an `AudioDistortionFilter` at 0.3, a burst of
+generated noise with crackle before the line (0.18 s) and after it (0.12 s) through the same filters; `RunnerRadioEffect` false
+bypasses the filters and the squelch, `RunnerRadioVolume` sets the level. The clip asset is the same one the talk plays; the
+filters belong to this source only, so in person nothing changes. The caption is a tell, `<name> on the radio: "<words>"`
+(`scRadioRunTalk`; the words `<key>Said`), shown as the voice starts, alone without a recording (held 4 s in the queue). Not
+Voice Control's player (no body near, no lip sync to drive) nor its subtitle bar (its rule needs an NPC).
+
+**Distress needs a radio (decision 5; `ScRadio.RollDistress`, ScRadio.cs:525-533; `ScHandheld.DistressAllowed`,
+ScHandheld.cs:130).** With `DistressNeedsRadio` (default) a runner rolls `RadioDistressChance` only while carrying a radio, and only
+when the player carries a handheld or `ScRadio.Online()`; false: the old rule (any runner, a powered home station). The console's
+`sc distress` still forces a call (ForceDistress is not gated).
+
+**The carried radio while the body is unloaded.** `Member.RunRadio` (ScModels.cs:243-250): `ScHandheld.NoteCarried` snapshots
+`NpcCarries` (their SCore inventory window when they use one - never created here -, their bag, their toolbelt) when a run
+starts (`ScRuns.Send` ScRuns.cs:70 for a hidden run, `SendPhysical` :114), every 5 s while the body is online
+(`ScRunners.OnlineTick` :516, `Session.NextRadioCheck`), and at each capture (`GoOffline` :1174, the unload capture :1240);
+cleared with the run (`ClearRun` :749, `ScRuns.Resolve` :295).
+
+**Recall by radio (decision 6; `XUiC_ScRadio.DoRecall` :295, `ScRadioTalk.CanRecall` ScRadioTalk.cs:236).** The left column's
+distress section became `SUPPLY RUNS ON THE RADIO` (`Tools/generate_radio_ui.py` `runs()` :349): a row with the runner pick
+(`btnRunPick`, by name, the first with a radio picked first; its arrow while there is another), where they are
+(`ScRuns.StatusLine`) and `btnRunRecall` - `CALL HOME`, or why not, grayed: `NO RADIO WITH THEM`, `OUT OF REACH ON THIS RUN`
+(a hidden run has no route), `PINNED DOWN - HELP THEM`, `ALREADY HEADING HOME` - with `No one is out on a supply run.` in
+the row's place while nobody is out; the distress lines under it as before. Pressed: `ScRunners.Recall` (the community window's
+own), the message `<name> turns for home.`, `ScRadioTalk.OnRecalled` (RecallAck, the counter), a save. It needs no station:
+radio to radio. The community window's Recall (any physical runner, no radio, from anywhere) is unchanged - **open point for the
+user**: gate it on a radio too?
+- The room: the calls' plate 140 -> 124 (their descriptions keep three lines: `CALLS_H - 76 >= 3 x LINE`), the contacts' 106 ->
+  96 (three lines, `RadioMaxContacts`' default), the section 90 -> 118 (`CALLS_Y 84`, `CONTACTS_Y 216`, `DISTRESS_Y 320`; the
+  outposts at 444 and everything under them where they were). The demand's Pay / Refuse and the siege's "We can't come" gained
+  ready bindings (`demandready`, `siegecantready`, the new `danger_tone`) so every station control grays out alike. 127 bindings,
+  all answered; 23 buttons, all hooked (E9's `check_radio_bindings.py`). The generator reproduced the committed block byte
+  for byte before the change; its new asserts hold.
+
+**Save and load (`ScRegistry.cs:1129-1130, 1722-1723`; the format note :82).** `[member] runradio=1` and `runtalk=N`, each
+written while OnRun and set; an older build ignores them; an old save loads with neither (a runner already out is noted when
+next seen).
+
+**The voice tooling (`Tools/voice_lines.py`).** `RADIO` (:119): the 14 keys, family `radio` (`--family radio`), their words read
+from Localization's `<key>Said` rows (`radio_lines` :521; a missing row or a token is a PROBLEM); `--new` and `cost`'s "new
+(V2)" leave dialog and radio out (`NOT_V2` :464). `list --family radio`: 14 lines, 545 characters; `check`: no PROBLEM,
+ScVoiceLines.cs in step (298 V2 lines; the radio lines are not V2 barks), every voice `radio 0/14`. Nothing recorded.
+
+**Localization (`Config/Localization.csv`, 30 rows at the end).** The item and its description (the station needed for the
+station's functions; a member carrying one radios in from supply runs), `xuiScRadio`, the remote title, status and offline
+words, the Supply runs section's, `scRadioRunTalk` and the 14 `<key>Said` captions; `scRadioStationDesc` now says the station
+hears runners who carry a handheld radio, and that a handheld reaches it from anywhere while it has power.
+
+**Config** (`ScConfigRadio.cs`, its own partial block; `Config/blocks.xml:247-267`, after RescueBonus; the line `config: handheld
+radio ...`): `HandheldRadioTab` true, `RunnerRadioTalk` true, `RunnerRadioVolume` 0.8 (0-1), `RunnerRadioEffect` true,
+`DistressNeedsRadio` true, `RaiderRadioChance` 0.04 (0-1). `ScConfig.cs` gains only the three calls (:1221, :2313, :2589).
+
+**Console and counters.** `sc radio` (ConsoleCmdSc.cs:2077-2120) adds: the item (or MISSING), `you carry one`, the tab shown or
+hidden, the home station's power, the two switches; each runner's `radio` / `no radio` and the moments said; the queue; the
+session's counters (`ScHandheld.Counters`): `remote opens`, `remote opens, home station offline`, `talk said: voiced`, `talk
+said: caption alone`, `talk said: caption alone (clip did not load)`, `talk unheard: you carry no radio`, `talk unsaid: runner
+has no radio`, `talk unsaid: in person`, `talk off`, `distress roll skipped: runner has no radio`, `distress roll skipped: no
+station or handheld to hear it`, `recalled by radio`, `raider dropped a handheld radio`. `sc radio give <member>` puts a radio in
+their inventory (a test aid); `sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall>` says a moment now
+(any runner, said or not, heard or not). Log lines: `<name> carries a handheld radio (set off on a supply run)` (on a change),
+`<name> on the radio (Out): scRadioRunOut_1 - no recording, the caption alone` (or `in <voice>`), `<name> was called home over
+the radio (handheld)`, `raider <name> (<id>) dropped a handheld radio at x, y, z`, `radio window: the handheld radio is no longer
+carried - closing the remote window`; Verbose: `<name>'s radio moment Out went unheard ...`, `radio tab: shown ...`.
+
+**Harmony targets: none new** (no patch; `ModApi.cs ExpectedTargets()` unchanged). `ModApi.cs:155`: `ScRadioTalk.Reset()` as the
+world shuts down (no line left playing into the menu).
+
+Where the spec left a choice (decided here):
+1. **The moments and where they fire** (the table): Out and Home are places on the route, checked once a second for physical
+   runners with a radio (offline too, from the virtual position); Found or Empty by the haul against `RunYieldBase` (an average
+   runner's), since a physical run's yield has no dice; Near at the gate; Arrived replaced by Trouble when they call for help.
+2. **Hidden ("at home") runs** have no route: only Trouble (at their send, as their distress call always was).
+3. **A moment passes unsaid** without the player's handheld, the runner's radio, or with the runner within 30 m (in person);
+   it is spent all the same (a radio picked up later does not replay old news).
+4. **The carried radio**: the window, the bag or the toolbelt; snapshot at the start, every 5 s online, at every capture (the
+   spec's "when the run starts and when the body is next seen").
+5. **The radio effect**: SC's own 2D source with Unity's filters and a generated squelch - no per-clip DSP, no file per voice,
+   the in-person clip untouched.
+6. **Captions are tells** (as E9's radio words), not Voice Control's subtitle bar.
+7. **Recall needs no station** (radio to radio), and the community window's Recall stays as it was (open point above).
+8. **Remote with the station down**: the station's controls gray out and refuse; the lists, the runners and Call home stay.
+9. **At a block with a handheld** the window is a page too: the bar and the lit Radio tab, the title `RADIO STATION`.
+10. **A remote window closes** when the handheld leaves the inventory.
+11. **The raiders' radio** in a backpack of its own (above); loot `veryLow` in `groupElectricalDevices`; traders 0.35 in
+    `traderElectrical`; the recipe numbers above.
+12. **The voice keys**: the clip is `<key>.ogg`, the caption Localization's `<key>Said` (the spec's wording), a family of their
+    own in the tooling.
+13. **The radio window's room** from the calls' and contacts' slack, not a taller window (940 is already the most a 1080 UI
+    with the bar takes).
+
+Checks:
+- Build 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a `--no-incremental` rebuild to a scratch
+  folder); the 3.2 build to a scratch folder compiles; `SurvivorCommunity.dll` untouched.
+- FindStr (`scratchpad\findstr\out\FindStr.exe`) on the built DLL: `scradiotab` in `XUiC_ScRadioTab.GetBindingValueInternal`,
+  `lb_shown` in its `Init`, `scRadioRunTalk` in `ScRadioTalk.Caption`, `runradio=1` in `ScRegistry.WriteMemberFields`,
+  `scRadioRemoteOffline` in `XUiC_ScRadio.OnOpen` and `RefuseOffline`; calls: `DistressAllowed` from `ScRadio.RollDistress`,
+  `ScRadioTalk.Say` from `ForceDistress` (both branches), `EnterSite`, `EnterBack`; `NoteCarried` from `ScRuns.Send`,
+  `SendPhysical`, `ScRunners.OnlineTick`, `GoOffline`, `OnEntityUnloaded`; `OnRaiderDied` from `ScBandits.OnDied`; `RefreshNow`
+  from `XUiC_ScPageGroup.OnOpen`; `MemberClip` from `Say`; `OnLeftSite` from `LeaveSite`; `OnRecalled` from `DoRecall`;
+  `R2Binding` from `GetBindingValueInternal`; `ResetRadio` / `ParseRadio` from `ScConfig.Reset` / `EnsureParsed`.
+- HarmonyAudit (scratch `r2\audit`): the patch rows identical to P2's build (`build\sc34_p2`; 3.4 OK=149, DYNAMIC_UNRESOLVED=57,
+  NO_OVERLOAD_MATCH=1, as before); the refs file adds only the new 3.4 code's members, "3.2-missing 3.4-ok", and one
+  `ObservableDictionary<string,object>.TryGetValue` reported 3.4-missing - the tool's generic-instance blind spot (the base
+  has 55 such rows, ModEvents' `RegisterHandler` among them).
+- XML replay against the 3.4 install (scratch `r2\sc_replay_radio.py`: the X2 replay pointed at this worktree, plus W1's `WITH=`
+  and `DIR_<mod>` for a mod folder elsewhere - SurvivorOrigins from the 3.2 install, read only): every SC op matches in all four
+  setups (197 / 197 / 196 / 196), no aborts; items 2 ops, loot 34, traders 2 (one more each), the rest as at the base. With
+  the base commit's Config (`git archive cc9f68a`) AshfallUI's and SurvivorOrigins' ops match exactly as with R2 (0 differ);
+  against the runs without SC, SurvivorOrigins' 1486 ops identical and AshfallUI's 22 differences are W1's (its Home Status
+  block, `searchInput`, `[lightGrey]` labels, `stack_panel_padding`). `r2\check_tab_radio.py` (`check_tab_radio.txt`): the
+  table above in each setup, scRadioTab right before scCommunityTab, the tabs in document order `... Creative, ScRadio,
+  ScCommunity` (vanilla, SurvivorOrigins) and `ScRadio, ScCommunity, Crafting, ...` (AshfallUI), both groups on
+  `ScPageGroup`, the item, recipe (every ingredient an item), loot and trader entries merged. 0 problems.
+- Localization: 1488 rows of 7 cells, no duplicate key, every key the new code asks for present. LF, no BOM in every file
+  touched; windows.xml regenerated by the generator only.
+
+Only in game (TESTING.md group R2, steps 520-559): the tab's look beside each bar, its click and hover at negative x, the
+half-second appear and disappear, the bar and the lit tab from both openers, the gamepad paging and the LB icon; remote mode's
+grayed controls and refusals; the runners' moments on real runs (online and offline), the in-person rule, a save and load mid-run;
+the radio sound (with a borrowed clip: nothing is recorded yet) and that the same clip in person is unchanged; the distress
+rule; recall; the raiders' backpack; the item, recipe, loot and trader stock.
+
+Builds: SC 3.4 `6f15ecec761d5ecc888ef8861c250675` (`build\sc34_radio`), 0 errors. The 3.2 DLL was not rebuilt. Not reviewed
+(Fable), not installed. The task list needs its entry.

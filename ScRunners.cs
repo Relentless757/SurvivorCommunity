@@ -72,6 +72,10 @@ namespace SurvivorCommunity
             /// <summary>The watchdog's last sample: its real time and the body's ticksExisted (the M11 fix 2: frozen time is not stuck time).</summary>
             public float WatchAt = -1f;
             public int WatchTicks = -1;
+#if SC_V34
+            /// <summary>R2: when the online body is next looked at for a handheld radio (ScHandheld.NoteCarried).</summary>
+            public float NextRadioCheck;
+#endif
         }
 
         public static Session S(int id)
@@ -508,6 +512,14 @@ namespace SurvivorCommunity
             }
             s.LastTickPos = npc.position;
             s.LastTickTime = t;
+#if SC_V34
+            // R2: whether they carry a handheld radio, every 5 s while the body is here (the record answers while it is not)
+            if (t >= s.NextRadioCheck)
+            {
+                s.NextRadioCheck = t + 5f;
+                if (ScHandheld.NoteCarried(m, npc, "seen on the run")) ScRegistry.SaveAtomic();
+            }
+#endif
 
             switch (m.RunLeg)
             {
@@ -657,6 +669,9 @@ namespace SurvivorCommunity
             // distress is rolled on arrival - never with the player standing right there (that is an escort, not a radio call)
             bool escorted = player != null && XZ(player.position, at) <= ScConfig.RescueTriggerRange;
             if (!escorted && ScRadio.RollDistress(m, player, w != null ? w.GetGameRandom() : null)) BeginLeg(m, RunLeg.AtSite, at, at, now);   // re-timed to RunDistressHours
+#if SC_V34
+            if (!m.RunDistress) ScRadioTalk.Say(m, RadioTalk.Arrived, player, false);       // R2 (a distress call said its own line)
+#endif
             ScLog.Out(m.Name + " reached " + m.RunDestName + (m.Offline ? " (offline)" : "") + (m.RunDistress ? " - and radios for help" : ""));
             ScRegistry.SaveAtomic();
         }
@@ -668,6 +683,11 @@ namespace SurvivorCommunity
             m.RunCarry = rescued ? Mathf.RoundToInt(y * ScConfig.RescueBonus) : y;
             m.RollPending = !rescued;
             BeginLeg(m, RunLeg.Inbound, at, GatePoint(m, at, player), now);
+#if SC_V34
+            // R2: a good haul or a poor one on the radio - not after a rescue (you were there) or a failed distress call (hurt);
+            // a recall marked both as said already
+            if (!rescued && !m.Injured) ScRadioTalk.OnLeftSite(m, player);
+#endif
             ScLog.Out(m.Name + " leaves " + m.RunDestName + " with " + m.RunCarry + " " + m.RunKind + (rescued ? " (rescued)" : ""));
             ScRegistry.SaveAtomic();
         }
@@ -675,6 +695,9 @@ namespace SurvivorCommunity
         /// <summary>At the gate: the haul counts now, whether or not the player is home to see it.</summary>
         private static void EnterBack(EntityPlayerLocal player, Member m, ulong now)
         {
+#if SC_V34
+            ScRadioTalk.Say(m, RadioTalk.Near, player, false);                                  // R2: "Almost home."
+#endif
             bool visited = m.RunSite != Vector3i.zero;                                          // recalled before reaching the site: nothing found, nothing learnt
             if (visited)
             {
@@ -722,6 +745,10 @@ namespace SurvivorCommunity
             m.RunDistress = false;
             m.RunSafe = false;
             m.EventSpawned = false;
+#if SC_V34
+            m.RunRadio = false;                                                                 // R2: the run's radio state ends with it
+            m.RunTalk = 0;
+#endif
             sessions.Remove(m.Id);
         }
 
@@ -867,6 +894,9 @@ namespace SurvivorCommunity
             switch (m.RunLeg)
             {
                 case RunLeg.Outbound:
+#if SC_V34
+                    ScRadioTalk.Mark(m, RadioTalk.Out | RadioTalk.Found | RadioTalk.Empty | RadioTalk.Home);   // R2: turned round, nothing more to report on the way
+#endif
                     m.RunCarry = 0;
                     m.RollPending = false;
                     BeginLeg(m, RunLeg.Inbound, at, GatePoint(m, at, player), now);
@@ -874,6 +904,9 @@ namespace SurvivorCommunity
                 case RunLeg.AtSite:
                 {
                     if (Pinned(m)) { error = "scRunPinned"; return false; }
+#if SC_V34
+                    ScRadioTalk.Mark(m, RadioTalk.Found | RadioTalk.Empty | RadioTalk.Home);   // R2: LeaveSite below says no haul line
+#endif
                     float span = m.LegEnd > m.LegStart ? m.LegEnd - m.LegStart : 1f;
                     float share = Mathf.Clamp01((float)(now - Math.Min(now, m.LegStart)) / span);
                     LeaveSite(player, m, at, now, m.RunSafe, share);
@@ -1137,6 +1170,9 @@ namespace SurvivorCommunity
             string snap;
             if (TryCapture(npc, out snap)) m.Snap = snap;
             else if (!forced || string.IsNullOrEmpty(m.Snap)) { ScLog.Warn(m.Name + ": snapshot failed - staying in the world (" + why + ")"); return false; }
+#if SC_V34
+            ScHandheld.NoteCarried(m, npc, "went offline");                                   // R2: the record answers until the body is back
+#endif
             ReplanFrom(m, npc.position, w.worldTime);
             m.Offline = true;
             Session s = S(id);
@@ -1200,6 +1236,9 @@ namespace SurvivorCommunity
                 string snap;
                 if (TryCapture(npc, out snap)) m.Snap = snap;
                 else ScLog.Warn(m.Name + ": capture at unload failed - keeping the previous snapshot");
+#if SC_V34
+                ScHandheld.NoteCarried(m, npc, "captured at an unload");                     // R2: the record answers until the body is back
+#endif
                 ulong now = npc.world != null ? npc.world.worldTime : 0UL;
                 Vector3 from = fell ? (s.HasGoodPos ? s.LastGoodPos : VirtualPos(m, now)) : npc.position;
                 ReplanFrom(m, from, now);

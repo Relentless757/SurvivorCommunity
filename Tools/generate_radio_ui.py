@@ -11,7 +11,9 @@ community window's rules (Tools/generate_community_ui.py) - same palette, plates
     +- [AIR DROP button] ----------+- [CALL button] ----------+  +- ENCLAVES YOU KNOW -----------------------+
     |  what it does / cooldown     |  what it does / cooldown |  | name      standing  benefit   where       |
     +- SURVIVORS HEARD ON THE RADIO --------------------------+  | ... 8 rows, nearest first, "+N more"     |
-    +- SUPPLY RUNS CALLING FOR HELP --------------------------+  +- THEIR REQUESTS -------------------------+
+    +- SUPPLY RUNS ON THE RADIO ------------------------------+  +- THEIR REQUESTS -------------------------+
+    |  [runner >]  where they are        [CALL HOME]          |  |                                          |
+    |  who is calling for help                                |  |                                          |
     +- OUTPOSTS REPORTING IN ---------------------------------+  | enclave   what          answer / due by  |
     [ raiders' demand                      [PAY] [REFUSE] ]     +- ALLIES ---------------------------------+
     +- SCOUT FOR OUTPOSTS  [food][meds][ammo][mats][fuel] ----+  | [ally >]  benefit, where                 |
@@ -42,6 +44,17 @@ units): the requests and the Allies panel moved up, the panel grew from 150 to 1
 was. Its icons are ui_game_symbol_run and _airdrop, already in this window (the siege's On our way, the air drop call),
 so AshfallUI's brass twins apply here too.
 
+R2 (2026-11-09, round 27, research_radio_DESIGN_R2.md): the handheld radio opens this window from anywhere ("remote", the
+Radio tab), relayed through a powered station at home. The distress section became SUPPLY RUNS ON THE RADIO: a row with the
+runner pick (a cycling button, by name; its arrow only while there is another), where they are (ScRuns.StatusLine) and Call
+home (decision 6: a physical runner who carries a radio, not pinned down, not on the way home already - else the reason in
+its label, grayed), {runnone} in the row's place while nobody is out, and under it the distress lines as before. The room
+came from the slack under the calls' descriptions (140 to 124: three lines each) and the contacts' list (106 to 96: three
+contacts, RadioMaxContacts' default); the outposts and everything under them are where they were. The demand's Pay /
+Refuse and the siege's "We can't come" gained ready bindings ({demandready}, {siegecantready}), so the station's controls
+all gray out alike while the window is remote with the home station offline. Its new icon spots reuse this window's
+ui_game_symbol_run and _arrow_right, so AshfallUI's brass twins apply here too.
+
 RULES THAT MATTER (the community window's, unchanged):
 - Buttons are <button> views: XUiC_ScRadio hooks each control's own OnPress (GetChildById), which a
   simplebutton's clickable child never raises. Each is a scui_btn plate with a label (and icon) over it.
@@ -60,6 +73,9 @@ RULES THAT MATTER (the community window's, unchanged):
   place while it is hidden), allygive, allyget, allygetready, allytradeready, allyhint and allyhintcolor.
 - E9's commands row binds allycallvisible (the row), allycallnone (the words in its place while it is hidden: no ally yet,
   or the calls switched off), allyfighterready, allyfighterlabel, allydropready and allydroplabel.
+- R2's Supply runs row binds runvisible (the row), runnone (the words in its place while it is hidden), runname,
+  runpickready, runstate, runrecallready and runrecalllabel; its controls are btnRunPick and btnRunRecall. The demand's
+  buttons bind demandready, the siege's "We can't come" siegecantready.
 """
 
 import io
@@ -85,9 +101,9 @@ COMMUNITY_W = 1500                    # the community window's width: it fits th
 M = 24
 PW = LEFT_W - 2 * M                   # a left section plate's width
 PAD = 16                              # a section's content inset
-CALLS_Y, CALLS_H = 84, 140
-CONTACTS_Y, CONTACTS_H = 232, 106
-DISTRESS_Y, DISTRESS_H = 346, 90
+CALLS_Y, CALLS_H = 84, 124             # R2: 140 before (its descriptions keep three lines)
+CONTACTS_Y, CONTACTS_H = 216, 96       # R2: 232, 106 before (three contacts, RadioMaxContacts' default)
+DISTRESS_Y, DISTRESS_H = 320, 118      # R2: Supply runs on the radio (346, 90 before: the distress lines alone)
 OUTPOSTS_Y, OUTPOSTS_H = 444, 150
 DEMAND_Y, DEMAND_H = 600, 40
 SCOUT_Y, SCOUT_H = 648, 104
@@ -114,6 +130,7 @@ ALLY_PICK_W = 300                     # E7: the ally pick button
 ALLY_GIVE_W, ALLY_GET_W, ALLY_GAP = 200, 170, 10    # E7: the barter row's Give and Get, and the gap between its buttons
 ALLY_ROW = 36                         # E7: a row of the panel
 ALLY_CALL_W = 279                     # E9: each command button (Send a fighter, Supply drop): half the row
+RUN_PICK_W, RUN_CALL_W, RUN_ROW = 200, 190, 36   # R2: the Supply runs row - the runner pick, Call home, the row's height
 
 # ---------------------------------------------------------------- palette (the community window's)
 TITLE = "226,219,203,255"
@@ -163,6 +180,11 @@ def button(name, x, y, w, h, ready=None, sprite="scui_btn", hover="scui_btn_hove
 def tone(ready):
     """A control label's colour: body text when it can act, dimmed when it cannot."""
     return "{# %s ? '%s' : '%s' }" % (ready, BODY, OFF)
+
+
+def danger_tone(ready):
+    """R2: a danger control's label color: its red when it can act, dimmed when it cannot."""
+    return "{# %s ? '%s' : '%s' }" % (ready, DANGER_TEXT, OFF)
 
 
 def section(y, h, sprite, key, x=M, w=PW):
@@ -227,8 +249,8 @@ def siege():
           "\t" + icon("ui_game_symbol_run", 24, -18, 20, depth=4),
           "\t" + centred(40, 0, SIEGE_BW - 48, 36, 15, tone("siegegoready"), text="{siegegolabel}",
                          extra='justify="center" upper_case="true" ' + ELLIPSIS),
-          "\t" + button("btnSiegeCant", RIN - SIEGE_BW, 0, SIEGE_BW, 36, sprite="scui_btn_danger"),
-          "\t" + centred(RIN - SIEGE_BW, 0, SIEGE_BW, 36, 15, DANGER_TEXT, key="scRadioSiegeCant",
+          "\t" + button("btnSiegeCant", RIN - SIEGE_BW, 0, SIEGE_BW, 36, ready="siegecantready", sprite="scui_btn_danger"),
+          "\t" + centred(RIN - SIEGE_BW, 0, SIEGE_BW, 36, 15, danger_tone("siegecantready"), key="scRadioSiegeCant",
                          extra='justify="center" upper_case="true"'),
           "</rect>",
           label(x0, -(by + 40), RIN, 20, 13, GOLD, text="{siegehint}", extra=ELLIPSIS)]
@@ -315,13 +337,40 @@ def demand():
     return ['<rect depth="1" pos="%d,%d" width="%d" height="%d" visible="{demandvisible}">' % (M, -DEMAND_Y, PW, DEMAND_H),
             "\t" + plate("scui_btn_danger", 0, 0, PW, DEMAND_H),
             "\t" + centred(PAD, 0, PW - 2 * bw - 3 * PAD, DEMAND_H, 15, DANGER_TEXT, text="{demandtext}"),
-            "\t" + button("btnDemandPay", PW - 2 * bw - PAD - 8, -5, bw, DEMAND_H - 10),
-            "\t" + centred(PW - 2 * bw - PAD - 8, -5, bw, DEMAND_H - 10, 15, BODY, key="scRadioDemandPay",
+            "\t" + button("btnDemandPay", PW - 2 * bw - PAD - 8, -5, bw, DEMAND_H - 10, ready="demandready"),
+            "\t" + centred(PW - 2 * bw - PAD - 8, -5, bw, DEMAND_H - 10, 15, tone("demandready"), key="scRadioDemandPay",
                            extra='justify="center" upper_case="true"'),
-            "\t" + button("btnDemandRefuse", PW - bw - PAD, -5, bw, DEMAND_H - 10, sprite="scui_btn_danger"),
-            "\t" + centred(PW - bw - PAD, -5, bw, DEMAND_H - 10, 15, DANGER_TEXT, key="scRadioDemandRefuse",
+            "\t" + button("btnDemandRefuse", PW - bw - PAD, -5, bw, DEMAND_H - 10, ready="demandready", sprite="scui_btn_danger"),
+            "\t" + centred(PW - bw - PAD, -5, bw, DEMAND_H - 10, 15, danger_tone("demandready"), key="scRadioDemandRefuse",
                            extra='justify="center" upper_case="true"'),
             "</rect>"]
+
+
+def runs():
+    """R2: SUPPLY RUNS ON THE RADIO (the distress section before) - a row: the runner pick (a cycling button, by name; its arrow
+    only while there is another), where they are, Call home (its label the command or why not, grayed by {runrecallready});
+    {runnone} in the row's place while nobody is out; under it the distress lines, as the section had them."""
+    x0 = M + PAD
+    cw = PW - 2 * PAD                       # the content width
+    ry = DISTRESS_Y + HEAD_H + 2            # the row
+    call_x = cw - RUN_CALL_W
+    state_x = RUN_PICK_W + 10
+    state_w = call_x - 10 - state_x
+    ty = ry + RUN_ROW + 4                   # the distress lines
+    o = section(DISTRESS_Y, DISTRESS_H, "ui_game_symbol_map_waypoint_set", "scRadioRunsHeader")
+    o += ['<rect depth="1" pos="%d,%d" width="%d" height="%d" visible="{runvisible}">' % (x0, -ry, cw, RUN_ROW),
+          "\t" + button("btnRunPick", 0, 0, RUN_PICK_W, RUN_ROW, ready="runpickready"),
+          "\t" + centred(10, 0, RUN_PICK_W - 44, RUN_ROW, 15, BODY, text="{runname}", extra='justify="center" ' + ELLIPSIS),
+          "\t" + icon("ui_game_symbol_arrow_right", RUN_PICK_W - 20, -(RUN_ROW // 2), 18, depth=4, extra='visible="{runpickready}"'),
+          "\t" + centred(state_x, 0, state_w, RUN_ROW, 14, DIM, text="{runstate}", extra=ELLIPSIS),
+          "\t" + button("btnRunRecall", call_x, 0, RUN_CALL_W, RUN_ROW, ready="runrecallready"),
+          "\t" + icon("ui_game_symbol_run", call_x + 22, -(RUN_ROW // 2), 20, depth=4),
+          "\t" + centred(call_x + 36, 0, RUN_CALL_W - 44, RUN_ROW, 15, tone("runrecallready"), text="{runrecalllabel}",
+                         extra='justify="center" upper_case="true" ' + ELLIPSIS),
+          "</rect>",
+          label(x0, -ry, cw, 40, 14, DIM, text="{runnone}"),
+          label(x0, -ty, cw, DISTRESS_Y + DISTRESS_H - 4 - ty, 14, BODY, text="{distress}")]
+    return o
 
 
 def scout():
@@ -367,8 +416,7 @@ def build():
     inner += calls()
     inner += section(CONTACTS_Y, CONTACTS_H, "ui_game_symbol_talk", "scRadioContactsHeader")
     inner.append(body(CONTACTS_Y, CONTACTS_H, "contacts"))
-    inner += section(DISTRESS_Y, DISTRESS_H, "ui_game_symbol_map_waypoint_set", "scRadioDistressHeader")
-    inner.append(body(DISTRESS_Y, DISTRESS_H, "distress"))
+    inner += runs()                     # R2: Supply runs on the radio (the distress lines under its row)
     inner += section(OUTPOSTS_Y, OUTPOSTS_H, "ui_game_symbol_map_town", "scRadioOutpostsHeader")
     inner.append(body(OUTPOSTS_Y, OUTPOSTS_H, "outposts"))
     inner += demand()
@@ -410,6 +458,11 @@ def main():
     assert BARTER_Y + BARTER_H <= MSG_Y, "the barter section runs into the message"
     assert MSG_Y + 3 * LINE <= WIN_H, "the message runs past the window"
     assert HEAD_H + 7 * LINE <= OUTPOSTS_H, "the outposts' seven lines run past their plate"
+    # R2: the calls keep three lines of description, the contacts three, Supply runs its row and two distress lines
+    assert CALLS_H - 14 - 56 - 6 >= 3 * LINE, "the calls' descriptions lose their third line"
+    assert CONTACTS_H - HEAD_H - 6 >= 3 * LINE, "the contacts' three lines run past their plate"
+    assert HEAD_H + 2 + RUN_ROW + 4 + 2 * LINE + 4 <= DISTRESS_H, "the Supply runs row and two distress lines run past the plate"
+    assert RUN_PICK_W + 10 + 160 + 10 + RUN_CALL_W <= PW - 2 * PAD, "the Supply runs row leaves too little room for where they are"
     # E6: the right-hand column beside the left one, inside the window, its sections stacked, its rows inside their plates
     assert M + PW + M <= X2 and X2 + RW + M == WIN_W, "the Enclaves column overlaps the station's, or misses the window's edge"
     assert WIN_W <= COMMUNITY_W, "the window is wider than the community window (which is known to fit)"
@@ -430,7 +483,7 @@ def main():
     assert ALLY_PICK_W + 12 < RIN and ALLY_GIVE_W + ALLY_GET_W + 2 * ALLY_GAP + 120 <= RIN, "the Allies panel's buttons run past the column"
     assert 2 * ALLY_CALL_W + ALLY_GAP <= RIN, "the Allies panel's command buttons run past the column"
     print("generate_radio_ui: wrote windowScRadio %dx%d (Enclaves column %d wide: %d enclave rows, %d request rows, the Allies panel "
-          "with its commands)" % (WIN_W, WIN_H, RW, ENC_ROWS, REQ_ROWS))
+          "with its commands; Supply runs with Call home)" % (WIN_W, WIN_H, RW, ENC_ROWS, REQ_ROWS))
 
 
 if __name__ == "__main__":

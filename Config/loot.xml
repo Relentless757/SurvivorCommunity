@@ -66,6 +66,13 @@
 	<append xpath="/lootcontainers/lootgroup[@name='groupToolbox']"><item name="scBundleMaterialsSmall" count="1" prob="0.03" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupRollingToolbox']"><item name="scBundleMaterialsSmall" count="1" prob="0.05" force_prob="true"/></append>
 
+	<!-- R2 (round 27): the handheld radio, rare in electrical loot - vanilla's groupElectricalDevices (Mo' Power shelves and
+	     crates, Working Stiffs crates, garages, construction crates), a weighted pick group: veryLow, as its battery and
+	     generator banks. Only an item goes into an existing group, so the single-pass ordering does not apply. SC's raiders
+	     drop one now and then in code (RaiderRadioChance): their loot bag is 0-XNPCCore's zombie-style one, shared by every
+	     enemy. -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupElectricalDevices']"><item name="scHandheldRadio" loot_prob_template="veryLow"/></append>
+
 	<!-- air drops (the radio calls them in): each of the five classic resources rolls on its own, a Medium at 26%
 	     (it was 1-2 bundles at 35%) -->
 	<append xpath="/lootcontainers/lootgroup[@name='groupAirDrop']">

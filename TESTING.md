@@ -2089,6 +2089,142 @@ Magazine, Armored Up. Hand them to her through "Show me your inventory". Test on
      is unchanged (e.g. Food 43/100). A plain 0-XNPCCore hire's page is unchanged (`Cook skill N: x / y crafts`). `sc craft`:
      `c1o-progress-role-row=` above 0.
 
+**R2. Round 27: the handheld radio (3.4)**
+
+Built 2026-11-09 on branch `ms/radio` (SC 3.4 DLL `6f15ecec761d5ecc888ef8861c250675`, `Port33\build\sc34_radio`), **not
+reviewed, not installed**: these steps wait for the install. Your decisions (2026-11-09): a **Handheld Radio** item. Carried
+anywhere in your backpack or toolbelt, it shows a **Radio** tab left of the Community tab that opens the radio station's window
+from anywhere - relayed through a radio station at home with power; without one the window opens and says so. A member who
+carries one talks to you on it during a supply run (when you carry one too), can radio for help (only with a radio now), and can
+be called home from the radio window. Helpers: `sc radio` (your radio, the tab, the home station, each runner's radio and what
+they said, this session's counts), `sc radio give <name>` (a radio into a member's inventory), `sc radio talk <name>
+<out|arrived|found|empty|trouble|home|near|recall>` (a line now), `sc run <name> <food|...>` / `sc run <name> skip` /
+`sc run <name> offline` (drive a run), `sc distress <name>`. A radio: the creative menu (search "radio": Handheld Radio) or the
+workbench. None of the 14 radio lines is recorded yet: you see the words alone, except in steps 551-552, which borrow a clip.
+Set `DebugLogging` to true for the Verbose lines. Test on a new world or a copy; 555 needs mod folders moved out on a
+throwaway world, as W1's 296-298.
+
+520. **Start-up.** Load the world. The log: `config: handheld radio handheldTab=True runnerTalk=volume 0.8, radio effect
+     distress=runner's radio raiderDrop=0.04`; `patch verification: all ... targets patched` with the same count as before
+     this build (no new patch); no XML `did not apply` line for SurvivorCommunity.
+521. **The item.** The creative menu has `Handheld Radio`: for now the ham radio icon tinted gold (a placeholder). Its
+     description says it opens the radio station from anywhere only while a station at home has power, and that a member who
+     carries one radios in from supply runs. At a workbench, in the Science category: Handheld Radio, 3 electrical parts, 2
+     mechanical parts, 5 polymer scrap, 2 duct tape, 1:00. Craft one.
+522. **No radio, no tab.** With no Handheld Radio anywhere on you, open the player menu (Tab): only W1's Community plate left of
+     the bar. `sc radio`: `you carry one: False; Radio tab hidden`.
+523. **The tab.** Put the radio in your backpack and open the player menu: a second plate stands left of the Community plate,
+     the same few pixels apart and in the same look (with AshfallUI and SurvivorOrigins: AshfallUI's plate, a speech-bubble
+     icon and `RADIO`, as wide as `COMMUNITY`). Hovered, it lights as Community does. Move the radio to the toolbelt: the tab
+     stays. `sc radio`: `you carry one: True; Radio tab shown`.
+524. **It comes and goes.** With the player menu open on Crafting, drag the radio out of the inventory onto the ground: within
+     half a second the Radio plate is gone (Community stays where it was). Pick the radio up: the plate is back.
+525. **Over the handheld, station powered.** With a powered radio station at home (`sc radio`: `the home station has power`),
+     click `RADIO` anywhere in the world: the radio window opens under the bar, the Radio tab raised (chosen plate, amber icon),
+     no other tab lit, the bar's title `RADIO` (vanilla's look). The window's title is `HANDHELD RADIO`, the line under it `Over
+     your handheld - the home station: Powered - N of 3 contacts out there`. Air drop, Call, scouting and barter work as at
+     the station. `sc radio` counters: `remote opens=1`.
+526. **Paging.** On the radio page click `COMMUNITY`: the community window, Community raised; click `RADIO`: the radio window
+     again. The X, or Escape: the window and the bar close together, nothing left on screen.
+527. **Station offline.** Cut the station's power and open the Radio tab: the window opens; the line under the title reads
+     `... the home station: Offline, no power ...`; at the bottom, in gold: `Your home radio station has no power, so it can't
+     relay for you. Only your runners who carry a radio can hear you.` Air drop, Call and the allies' Send a fighter / Supply
+     drop read `HOME STATION OFFLINE`, dim, no hover plate; the five scout buttons and the barter's Trade are dim with `Home
+     station offline` on the line under them; a raiders' demand's Pay / Refuse and a siege call's buttons (if one is open) are
+     dim. Press any of them: the denied sound and that message, nothing else happens. The lists (contacts, outposts,
+     enclaves) still show. `sc radio`: `remote opens, home station offline=1`.
+528. **Power back.** With that window open, power the station again: within a second or two the controls light up and the line
+     says `Powered`.
+529. **At the station without a handheld.** Drop the radio, go to the station, `Use radio`: the window opens on its own (no
+     bar), titled `RADIO STATION`, everything as before this build. The log has no `community window: the tab bar has no
+     Community tab` line.
+530. **At the station with a handheld.** Carry the radio and `Use radio` at the station: the window opens under the bar with the
+     Radio tab raised, titled `RADIO STATION` (you are at the station), its line as before (`Powered - ...`). Click Crafting,
+     then `RADIO`: now `HANDHELD RADIO`.
+531. **Supply runs section.** The left column's third section is `SUPPLY RUNS ON THE RADIO`. With nobody out: `No one is out
+     on a supply run.` and under it `No one in trouble.` The two sections above it (the calls, the contacts) and the outposts
+     below read in full - no description or contact cut off.
+532. **A member with a radio.** A resident at home: "Show me your inventory", drag a Handheld Radio in (or `sc radio give
+     <name>`). Send them for food (talk, or `sc run <name> food`). The log: `<name> carries a handheld radio (set off on a supply
+     run)`. `sc radio`: `runner <id> <name> (Outbound online): radio, said: nothing yet`.
+533. **Setting out.** Carry a radio yourself and stay at home. When they are about 60 m out: the message `<name> on the radio:
+     "Heading out now. I'll check in when I get there."` (or `"On my way. Keep the channel open."`); the log `<name> on the
+     radio (Out): scRadioRunOut_1 - no recording, the caption alone`. `sc radio`: `said: Out`, counters `talk said: caption
+     alone=1`.
+534. **The runner in the radio window.** Open the Radio tab: the Supply runs row shows `<name>` on the left button, then where
+     they are (`Walking to <POI> for Food - N m out, back around day D`), then `CALL HOME`, lit. Leave it for now.
+535. **At the site.** `sc run <name> skip` (they go offline and the walk ends): within a second or two `"I'm here. Going in to
+     look around."` (or `"Made it to the spot. Starting the search."`). `sc radio`: `(AtSite offline): radio, said:
+     Out,Arrived`. (About one run in three they radio for help there instead - `RadioDistressChance` 0.35: that is step 547's
+     line; send another run, or set the chance to 0 for 535-545.)
+536. **The haul and the way back.** `sc run <name> skip` again: `"Good haul over here. Packing it up now."` (or `"Found what we
+     needed. This trip was worth it."`) - a haul of at least 2, the base yield; a runner who brings less (a poor trait) says
+     `"Place is picked clean. Not much to bring back."` or `"Slim pickings out here. Sorry."`. About 10 seconds later (40 m
+     from the site): `"Done here. Heading back home."` (or `"Starting back now. Save me some dinner."`).
+537. **Almost home.** `sc run <name> skip` once more (or wait): at the gate near home `"Almost home. Don't shoot, it's me."`,
+     then the usual `<name> is back with N food bundle(s).` If you stand within about 30 m of them when they get there (the body
+     in the world), the radio stays silent - they talk to you in person - and `sc radio` counts `talk unsaid: in person`.
+538. **Once a run.** After the run nothing more is said; send them again: `sc radio` shows `said: nothing yet` and the lines come
+     again, each at most once.
+539. **Unheard without your radio.** Send a runner with a radio while you carry none: no radio messages at all; `sc radio`
+     counts `talk unheard: you carry no radio`. Picking a radio up later does not replay them.
+540. **A runner without a radio.** Send one who carries none: no radio messages even with your radio; `sc radio`: `no radio`,
+     counters `talk unsaid: runner has no radio` grow at the site and the gate.
+541. **Far away.** Walk well away from home (or `sc run <name> offline`) so the runner's body leaves the world: the moments still
+     come on time from their virtual walk. Come back near them: their body returns, still carrying the radio (`sc radio`:
+     `radio`).
+542. **Save and load mid-run.** Quit to the menu and load again while a runner with a radio is out and has said Out: `sc radio`
+     shows `radio, said: Out` as before; the save's `survivor_community.txt` has `runradio=1` and `runtalk=1` under their
+     `[member]`. The rest of the run says only what it had not said.
+543. **Call home by radio.** A runner with a radio on the way out or searching the site: Radio tab (or the station), press
+     `CALL HOME`: at the bottom `<name> turns for home.`, then `<name> on the radio: "Copy that. Cutting it short and heading
+     home."`; the log `<name> was called home over the radio (handheld)`; `sc radio` counters `recalled by radio=1`. On the
+     way back they say only `"Almost home. ..."` - no haul line, no "heading back". Called home at the site, they bring part of
+     the haul; on the way out, none (`... turned back before reaching ...`).
+544. **Call home grayed.** With two or more runners out, the arrow on the name button cycles them. A runner without a radio:
+     `NO RADIO WITH THEM`, dim; one pinned down after a call for help: `PINNED DOWN - HELP THEM`; one on the way back: `ALREADY
+     HEADING HOME`; on a run with no route (`PhysicalRuns` false): `OUT OF REACH ON THIS RUN`. Pressing a dim one: the denied
+     sound and the reason at the bottom.
+545. **Call home with the station down.** Remote with the home station unpowered (527): `CALL HOME` still works (radio to radio).
+546. **Distress needs a radio.** Set `RadioDistressChance` to 1 and restart. Send a runner **without** a radio: at the site they
+     never call for help; `sc radio` counts `distress roll skipped: runner has no radio=1`.
+547. **With a radio and you listening.** A runner with a radio, you carrying one, the home station unpowered: at the site
+     `<name> radios for help from <POI>, about N m away!`, the rescue quest, then `<name> on the radio: "I've got company! I
+     need help out here!"` (or `"They've got me pinned down! Anyone hear me?"`) - and no "I'm here" line. The Supply runs row
+     shows them pinned.
+548. **Nobody to hear.** A runner with a radio, you without one and the station unpowered: no call (`distress roll skipped: no
+     station or handheld to hear it`). Power the station, still no radio on you: the call comes (the message, the quest) but
+     not their words (`talk unheard`).
+549. **The old rule.** `DistressNeedsRadio` false (restart): any runner calls while a station at home has power, as before this
+     build. Put `RadioDistressChance` back to 0.35 and `DistressNeedsRadio` to true.
+550. **A raider's radio.** `RaiderRadioChance` 1 (restart). Kill one of SC's raiders: besides their loot bag, a backpack named
+     after the raider lies there with one Handheld Radio. The log: `raider <name> (<id>) dropped a handheld radio at ...`;
+     `sc radio`: `raider dropped a handheld radio=1`. Put it back to 0.04 (about one raider in 25).
+551. **The radio sound.** `sc voice who` next to a member shows their voice (e.g. `male_White_Vane`). In the 3.4 install's
+     `Mods\SurvivorCommunity\Resources\Voices\<that voice>\` copy any clip (say `greet.member.1.ogg`) to `scRadioRunOut_1.ogg`
+     and to `scRadioRunOut_2.ogg`, then `sc voice rescan`. `sc radio talk <name> out`: a short burst of static, the line thin
+     and a little crunchy like a cheap walkie-talkie, then a click of static; equally loud wherever you stand or look; the
+     message shows as the voice starts. The log: `... (Out): scRadioRunOut_1 in male_White_Vane`; counters `talk said:
+     voiced`. Then talk to that member in person: their greeting sounds as it always did (no static, from their mouth).
+552. **The plain sound.** `RunnerRadioEffect` false (restart), `sc radio talk <name> out`: the clip clean, no static, still the
+     same wherever you are. `RunnerRadioVolume` 0.3: quieter. Put both back, delete the two copied clips, `sc voice rescan`.
+553. **Gamepad.** With a controller and a radio, on the community window LB opens the radio page, and RB from the radio page
+     opens Community. Without a radio LB from Community goes to the bar's right end, as in W1 (the hidden Radio tab skipped).
+554. **The LB icon (vanilla's look).** With SurvivorOrigins or vanilla's bar (AshfallUI moved out, 555): with a controller,
+     the LB icon sits left of the Radio plate while it shows and left of the Community plate while it doesn't. With AshfallUI it
+     stays where AshfallUI puts it.
+555. **The other looks.** On the throwaway world, as W1's 296-298: AshfallUI alone - the Radio plate the same few pixels left
+     of the Community plate, its tab as wide as COMMUNITY's (a little narrower than in 523); SurvivorOrigins alone - vanilla's
+     strip in small, a speech-bubble icon, tooltip `Radio`, it grows when hovered; clicked, the title plate in the middle reads
+     `RADIO` and no bar icon is lit; vanilla (both out) - the same on vanilla's narrower bar. Put both mods back.
+556. **Loot and traders.** Now and then: an electrical shelf or crate (a Mo' Power store, a Working Stiffs crate, a garage) holds a
+     Handheld Radio, and a trader's stock lists one. Only note when you see one; nothing to force.
+557. **Switched off.** `HandheldRadioTab` false (restart): no Radio tab even with a radio (`sc radio`: `Radio tab hidden`), and the
+     station opens only at its block. `RunnerRadioTalk` false: runners with radios say nothing (`talk off`). Put both back.
+558. **Nothing left behind.** After using the Radio tab, open the player menu with Tab: Crafting opens with its own tab lit, not
+     Radio. Quit to the main menu while a radio line plays: nothing keeps playing in the menu.
+559. **A host's tab only.** (If you ever join a 3.4 game as a client: no Radio tab there, as SC runs on the host only.)
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

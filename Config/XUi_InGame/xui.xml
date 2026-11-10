@@ -9,7 +9,10 @@
 		<window_group name="sccommunity" controller="SurvivorCommunity.ScPageGroup, SurvivorCommunity" close_compass_on_open="true">
 			<window name="windowScCommunity"/>
 		</window_group>
-		<window_group name="scradio" close_compass_on_open="true">
+		<!-- R2 (round 27): the radio station's window is a page of the player menu too - the Radio tab (windows.xml), shown
+		     while a handheld radio is carried, opens it from anywhere; the same controller keeps the tab bar with it. Opened at
+		     a radio block without a handheld (no tab) it opens on its own, as before. -->
+		<window_group name="scradio" controller="SurvivorCommunity.ScPageGroup, SurvivorCommunity" close_compass_on_open="true">
 			<window name="windowScRadio"/>
 		</window_group>
 	</append>

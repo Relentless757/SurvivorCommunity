@@ -201,6 +201,31 @@
 			<property name="Tags" value="scbundle,scluxury,scbundlelarge"/>
 		</item>
 	</append>
+	<!-- R2 (round 27): the handheld radio. It works by being carried, anywhere in the bag or the toolbelt (no use action):
+	     the Radio tab shows left of the Community tab and opens the radio station's window from anywhere, relayed through a
+	     radio station at home with power (XUiC_ScRadioTab, XUiC_ScRadio). Put in a member's inventory, it lets them talk to
+	     you during a supply run, radio for help and be called home (ScRadioTalk, ScHandheld). Made at a workbench
+	     (recipes.xml), found now and then in electrical loot (loot.xml), sold now and then by traders (traders.xml), dropped
+	     by SC's raiders now and then (RaiderRadioChance). The icon is a PLACEHOLDER - vanilla's ham radio, tinted warm - until
+	     the final one is picked from the concept sheets. -->
+	<append xpath="/items">
+		<item name="scHandheldRadio">
+			<property name="Tags" value="schandheldradio"/>
+			<property name="CreativeMode" value="Player"/>
+			<property name="HoldType" value="45"/>
+			<property name="Meshfile" value="@:Other/Items/Misc/sackPrefab.prefab"/>
+			<property name="DropMeshfile" value="@:Other/Items/Misc/sack_droppedPrefab.prefab"/>
+			<property name="Material" value="MelectricParts"/>
+			<property name="Stacknumber" value="1"/>
+			<property name="EconomicValue" value="400"/>
+			<property name="Group" value="Science"/>
+			<property name="DescriptionKey" value="scHandheldRadioDesc"/>
+			<property name="CustomIcon" value="radioHam"/>
+			<property name="CustomIconTint" value="ffd890"/>
+			<property name="SoundPickup" value="parts_grab"/>
+			<property name="SoundPlace" value="parts_place"/>
+		</item>
+	</append>
 	<!-- IZY Classic's replacement Hunting Rifle (IGP_Classic with Combat Sandbox, unless Disable_VRP) lost vanilla's
 	     T1,weapon,ranged tags, so 0-XNPCCore took it for a melee weapon and survivors and raiders carrying one walked up
 	     and clubbed with it (found 2026-10-08). The add skips any tag it already has. -->

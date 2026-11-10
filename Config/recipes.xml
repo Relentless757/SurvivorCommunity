@@ -13,6 +13,14 @@
 			<ingredient name="resourceMechanicalParts" count="4"/>
 			<ingredient name="resourceScrapPolymers" count="10"/>
 		</recipe>
+		<!-- R2 (round 27): the handheld radio - about half the station's electronics, no iron frame, taped together; it relays
+		     through the station rather than replacing it -->
+		<recipe name="scHandheldRadio" count="1" craft_time="60" craft_area="workbench" tags="workbenchCrafting">
+			<ingredient name="resourceElectricParts" count="3"/>
+			<ingredient name="resourceMechanicalParts" count="2"/>
+			<ingredient name="resourceScrapPolymers" count="5"/>
+			<ingredient name="resourceDuctTape" count="2"/>
+		</recipe>
 	</append>
 	<!-- The Watch post (base defence D3): cheap, crafted in the backpack. Since 2026-10-07 it is the shape family's helper
 	     (any shape from the shape menu); the old cube scWatchPost is no longer crafted. -->

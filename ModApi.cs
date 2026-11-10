@@ -151,6 +151,9 @@ namespace SurvivorCommunity
                     ScBands.OnWorldShuttingDown();           // band bodies the same, their walk re-planned from where they were (E13a)
                     // a dead NPC's window still held by a remote player drops at the body now (the world is saved after this event)
                     if (ScCommunity.IsHost) Patches_Npc.Patch_SetDead.ReleaseAll(true);
+#if SC_V34
+                    ScRadioTalk.Reset();                     // R2: no runner's line left playing or queued into the menu
+#endif
                     ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScWeaponWarm.Reset(); ScRegistry.FlushAndReset();
                 });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });

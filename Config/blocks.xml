@@ -244,6 +244,27 @@
 			<property name="DistressZombiesMax" value="24" />
 			<property name="DistressZombieGroup" value="ZombiesAll" />
 			<property name="RescueBonus" value="1.25" />
+			<!-- R2, the handheld radio (game 3.4; item scHandheldRadio: a workbench recipe, rare in electrical loot, now and then
+			     at traders). HandheldRadioTab: while you carry one (anywhere in the backpack or toolbelt) a Radio tab shows left
+			     of the Community tab and opens the radio station's window from anywhere - relayed through a radio station at home
+			     with power; without one the window opens and says so, the station's controls grayed. Calling a runner home from
+			     its Supply runs section needs no station (radio to radio). false: no tab.
+			     RunnerRadioTalk: a member who carries one (put it in their inventory) talks to you on it during a supply run -
+			     setting out, at the site, a good or a poor haul, trouble, heading back, almost home, a recall answered - each at
+			     most once a run, heard only while you carry a handheld too; their own voice through a radio (RunnerRadioVolume,
+			     0-1; RunnerRadioEffect: band-limited with a squelch in and out, false: the plain recording), the words as a
+			     message; until their voice has the line recorded, the message alone.
+			     DistressNeedsRadio: a runner radios for help (RadioDistressChance) only while carrying a radio, and the call
+			     lands when you carry a handheld or a station at home has power. false: any runner, while a station at home has
+			     power, as before.
+			     RaiderRadioChance: one of SC's raiders drops a handheld radio where it dies, in a backpack of its own.
+			     "sc radio" shows it all: your radio, the tab, each runner's radio and what they said, this session's counts. -->
+			<property name="HandheldRadioTab" value="true" />
+			<property name="RunnerRadioTalk" value="true" />
+			<property name="RunnerRadioVolume" value="0.8" />
+			<property name="RunnerRadioEffect" value="true" />
+			<property name="DistressNeedsRadio" value="true" />
+			<property name="RaiderRadioChance" value="0.04" />
 
 			<!-- Survivors and raiders wearing the player's body: the community's survivors are 0-XNPCCore's own
 			     survivor classes (XnpcSurvivorClasses below), the raiders SurvivorCommunity's six scRaider{Male,Female}T1-T3

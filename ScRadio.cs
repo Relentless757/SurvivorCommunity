@@ -31,6 +31,9 @@ namespace SurvivorCommunity
     ///              powered): a rescue quest marks the POI they are pinned at; when the player gets there a
     ///              stand-in of the survivor and a gamestage- and skill-scaled pack of zombies spawn around
     ///              it. Clear them and the run comes home safe with a bonus; ignore them and it ends badly.
+    ///              R2 (3.4): only a runner carrying a handheld radio calls, and the call needs the player's handheld or a
+    ///              powered station at home to land (ScHandheld.DistressAllowed); the window opens over a handheld too
+    ///              (the Radio tab: "remote", relayed through the home station - XUiC_ScRadio).
     ///   Outposts - radios inside the home zone are remembered in the registry; ScOutposts.RadioOnlineAnywhere
     ///              reads their power from the power graph, so establishing and the daily report-in work from afar.
     /// Host only. Contacts, cooldowns and distress runs persist in the registry.
@@ -61,6 +64,9 @@ namespace SurvivorCommunity
             nextTick = 0f;
             DropRequested = false;
             CurrentRadio = null;
+#if SC_V34
+            OpeningAtBlock = false;
+#endif
         }
 
         public static void NoteRadio(Vector3i pos)
@@ -518,7 +524,13 @@ namespace SurvivorCommunity
         /// <summary>Called from ScRuns.Send: does this run turn into a radio distress call?</summary>
         public static bool RollDistress(Member m, EntityPlayerLocal player, GameRandom rnd)
         {
+#if SC_V34
+            // R2 (decision 5): only a runner carrying a radio, and only with someone to hear it - the player's handheld or a
+            // powered station at home (ScHandheld.DistressAllowed; DistressNeedsRadio=false: the rule above's old one)
+            if (m == null || !ScHandheld.DistressAllowed(m, player)) return false;
+#else
             if (m == null || !Online()) return false;
+#endif
             float roll = rnd != null ? rnd.RandomFloat : UnityEngine.Random.value;
             if (roll >= ScConfig.RadioDistressChance) return false;
             return ForceDistress(m, player, rnd);
@@ -547,6 +559,9 @@ namespace SurvivorCommunity
                     if (dpi != null) ScQuests.StartRescue(player, m, dpi, out perr);
                     ScCommunity.Tell(player, string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite))), "ui_denied");
                     ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunSite + " (on a physical run)" + (perr != null ? " (quest: " + perr + ")" : ""));
+#if SC_V34
+                    ScRadioTalk.Say(m, RadioTalk.Trouble, player, false);                     // R2: their own words on the radio
+#endif
                     return true;
                 }
                 // sometimes the runner holes up at one of our outposts, where the defenses are
@@ -572,6 +587,9 @@ namespace SurvivorCommunity
                 ScQuests.StartRescue(player, m, pi, out err);
                 ScCommunity.Tell(player, string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(centre)), "ui_denied");
                 ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunPoi + (err != null ? " (quest: " + err + ")" : ""));
+#if SC_V34
+                ScRadioTalk.Say(m, RadioTalk.Trouble, player, false);                         // R2: their own words on the radio
+#endif
                 return true;
             }
             catch (Exception e)
@@ -795,6 +813,13 @@ namespace SurvivorCommunity
 
         /// <summary>The radio block the window was last opened at (a relay out at an outpost counts too).</summary>
         public static Vector3i? CurrentRadio;
+#if SC_V34
+        /// <summary>
+        /// R2: true only inside Open's own window open - the window is at a radio block. Opened any other way (the Radio tab,
+        /// over a handheld radio) it is "remote": it relays through a powered station at home (XUiC_ScRadio).
+        /// </summary>
+        public static bool OpeningAtBlock;
+#endif
 
         /// <summary>A home radio with power, or the radio the window is open at.</summary>
         public static bool Usable()
@@ -814,7 +839,14 @@ namespace SurvivorCommunity
                 if (!IsPoweredAt(w, pos)) { ScCommunity.Tell(player, Localization.Get("scRadioNoPower"), "ui_denied"); return; }
                 GUIWindow win;
                 if (!player.PlayerUI.windowManager.TryGetWindow(WindowGroup, out win)) { ScCommunity.Tell(player, Localization.Get("scNoWindow"), "ui_denied"); return; }
+#if SC_V34
+                // R2: the window reads this in its OnOpen (an open is synchronous): at the station, not over a handheld radio
+                OpeningAtBlock = true;
+                try { player.PlayerUI.windowManager.Open(WindowGroup, true); }
+                finally { OpeningAtBlock = false; }
+#else
                 player.PlayerUI.windowManager.Open(WindowGroup, true);
+#endif
             }
             catch (Exception e)
             {

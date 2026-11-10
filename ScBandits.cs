@@ -466,6 +466,7 @@ namespace SurvivorCommunity
             {
                 e.Buffs.SetCustomVar(DiscardedCvar, 1f);
                 Patches_Xnpc.Count("raider-death-discard");
+                ScHandheld.OnRaiderDied(e);         // R2: now and then a handheld radio, in a backpack of its own (once per raider)
             }
         }
 
