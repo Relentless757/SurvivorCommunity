@@ -50,13 +50,13 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Shift> shifts = new Dictionary<int, Shift>();
         private static readonly List<int> scratch = new List<int>();
-        private static int starts, ends, staleCleared, depositedTotal, jobsDropped, refused;
+        private static int starts, ends, staleCleared, depositedTotal, jobsDropped, refused, windowCancels;
         private static readonly Dictionary<string, int> endReasons = new Dictionary<string, int>();
 
         public static void Reset()
         {
             shifts.Clear();
-            starts = ends = staleCleared = depositedTotal = jobsDropped = refused = 0;
+            starts = ends = staleCleared = depositedTotal = jobsDropped = refused = windowCancels = 0;
             endReasons.Clear();
         }
 
@@ -221,6 +221,8 @@ namespace SurvivorCommunity
             if (ScWatch.OnWatch(m)) { End(m, npc, "posted on watch", true); return; }
             int mode = SdcsLootMode.Mode(npc);
             EntityUtilities.Orders order;
+            // any order but Guard ends the shift (a voice Follow, a Stay ...). X2c: the craft window's Cancel, which Voice Control
+            // sends as a Stay, never gets here for a shift - Patches_Craft C1n drops only the job (CancelJobOnShift)
             if (mode == 0 && ScOrders.TryCurrent(npc, out order) && order != EntityUtilities.Orders.Guard)
             {
                 End(m, npc, "given the order " + order, true);
@@ -299,8 +301,10 @@ namespace SurvivorCommunity
         /// those need SdcsLootMode 10 - which Detach (ScOrders.ClearVoiceMovement) takes off. So whenever SC detaches a loaded member
         /// (a shift's end, Go home, any stationing, Leave) the order is cleared here first: SdcsCraftJob.Clear takes it out of its
         /// table before it refunds (a second Clear, or 0-XNPCCore's own later, finds nothing: no double refund), gives back the
-        /// ingredients a backpack item holds (SdcsCraft.Refund over Order.Held) and, at a station, cancels her queue
-        /// (SdcsStationCraft.Cancel: the unmade items' ingredients back). A station order not at its station yet holds nothing.
+        /// ingredients a backpack item holds (SdcsCraft.Refund over Order.Held) and, for a station order, cancels it
+        /// (SdcsStationCraft.Cancel: the unmade items' ingredients back). X2c: since 0-XNPCCore 3.4.03 a station order takes its
+        /// ingredients when it is given (SdcsStationCraft.QueueAt sets AtStation and holds them as PendingQueue while she walks
+        /// there, AwaitsArrival); Cancel gives those back through RefundPending, so an order dropped on the way refunds too.
         /// </summary>
         public static void DropJob(EntityAlive npc, string why)
         {
@@ -314,6 +318,56 @@ namespace SurvivorCommunity
             catch (Exception e)
             {
                 ScLog.Once("work-dropjob", e);
+            }
+        }
+
+        /// <summary>
+        /// X2c, finding 5 (Patches_Craft C1n): the craft window's Cancel on a resident on a shift. Voice Control's Cancel sends
+        /// VCCommand.Stay (MutateStay: buffOrderStay, the job mode cleared), and Tick ends the whole shift on any order but
+        /// Guard. Here only the job goes, as Stay would take it: the order dropped and refunded (DropJob), the job mode cleared
+        /// (SdcsLootMode.Clear, as MutateStay). Her Guard order at the craft spot stays, so the shift goes on: Idle, then home
+        /// WorkIdleSeconds later unless she is given another order. False when she is not on a shift (Voice Control's Stay then).
+        /// </summary>
+        public static bool CancelJobOnShift(Member m, EntityAlive npc)
+        {
+            if (m == null || npc == null || npc.Buffs == null || !OnShift(m.Id)) return false;
+            DropJob(npc, "the craft window's Cancel");
+            SdcsLootMode.Clear(npc);
+            windowCancels++;
+            ScLog.Out(m.Name + ": the craft window's Cancel ends her job, not her work shift");
+            return true;
+        }
+
+        // Voice Control's XUiC_NpcCraftWindow.Open(EntityPlayerLocal, EntityAlive), bound once per session (finding 9)
+        private static bool openBound;
+        private static System.Reflection.MethodInfo mOpenWindow;
+
+        /// <summary>
+        /// X2c, finding 9: the dialog's "I have work for you." opens 0-XNPCCore's craft window itself, only once Start put her on
+        /// the shift. It used to be the response's second action (Voice Control's CraftMenuOpen), which ran after a refused start
+        /// too: ScWorkStart had closed the talk, CraftMenuOpen fell back on the dialog's owner and opened a window with no listing
+        /// (she has no owner link for its order router). The same call CraftMenuOpen makes for a local player with a UI.
+        /// </summary>
+        public static bool OpenCraftWindow(EntityPlayerLocal player, EntityAlive npc)
+        {
+            try
+            {
+                if (!openBound)
+                {
+                    openBound = true;
+                    Type t = ScTypes.Find("XUiC_NpcCraftWindow");
+                    mOpenWindow = t != null ? HarmonyLib.AccessTools.DeclaredMethod(t, "Open", new[] { typeof(EntityPlayerLocal), typeof(EntityAlive) }) : null;
+                    if (mOpenWindow == null)
+                        ScLog.Warn("work shifts: Voice Control's XUiC_NpcCraftWindow.Open(EntityPlayerLocal, EntityAlive) not found - \"I have work for you.\" starts the shift without the craft window (use her Craft... row)");
+                }
+                if (mOpenWindow == null || player == null || npc == null) return false;
+                mOpenWindow.Invoke(null, new object[] { player, npc });
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("work-openwindow", e);
+                return false;
             }
         }
 
@@ -492,7 +546,8 @@ namespace SurvivorCommunity
             var parts = new List<string>();
             foreach (var kv in endReasons) parts.Add(kv.Key + " " + kv.Value);
             return "work shifts: " + shifts.Count + " now, " + starts + " started, " + ends + " ended (" + string.Join(", ", parts.ToArray()) + "), stale sc_shift cleared "
-                   + staleCleared + ", items put in the crates " + depositedTotal + ", craft orders dropped " + jobsDropped + ", talk starts refused " + refused;
+                   + staleCleared + ", items put in the crates " + depositedTotal + ", craft orders dropped " + jobsDropped + ", talk starts refused " + refused
+                   + ", window cancels kept on the shift " + windowCancels;
         }
     }
 }
@@ -515,7 +570,11 @@ public class DialogRequirementScCanWork : BaseDialogRequirement
     }
 }
 
-/// <summary>C1: "I have work for you." - the shift starts where she stands; the response's next action opens 0-XNPCCore's Craft menu.</summary>
+/// <summary>
+/// C1: "I have work for you." - the shift starts where she stands and 0-XNPCCore's craft window opens. X2c (finding 9): the
+/// window is opened here, only when the shift started (it was the response's second action, Voice Control's CraftMenuOpen,
+/// which also ran after a refusal and opened a dead window).
+/// </summary>
 public class DialogActionScWorkStart : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -527,7 +586,11 @@ public class DialogActionScWorkStart : BaseDialogAction
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || m == null) return;
             string err;
-            if (ScWork.Start(m, npc, lp, false, out err)) return;
+            if (ScWork.Start(m, npc, lp, false, out err))
+            {
+                ScWork.OpenCraftWindow(lp, npc);
+                return;
+            }
             // review #7: the response's next statement (0-XNPCCore's Craft Categories) would open with nothing in it - the talk
             // closes on the reason instead (the dialog's own refresh then finds the window shut, as for "Community")
             ScWork.NoteRefused();

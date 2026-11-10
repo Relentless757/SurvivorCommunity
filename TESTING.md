@@ -1944,6 +1944,94 @@ spawn zombies with F6 (`dm` first); a walled base with residents who carry guns.
      on the `uai:` line): meanwhile `HoldEngaged (H1): held off - resting (moved back to the post in a fight, or strayed)`
      and Guard walks him home, then the defence goes on.
 
+**X2c. Round 25b: crafting with 0-XNPCCore 3.4.03 (3.4)**
+
+Built 2026-11-09 on branch `ms/x2c` (SC 3.4 DLL `50a1c71c9e7ca6ed83b5e52936ae2ed4`, `Port33\build\sc34_x2c`), **not
+reviewed, not installed**: these steps wait for the install, with 0-XNPCCore 3.4.03. 0-XNPCCore 3.4.03 lets an NPC read
+books (E > "Read...", or "read your books" by voice). On a member, a crafting magazine was used up for a level SC set back to
+her stars a second later. Your decision: **magazines become training.** A crafting magazine for a skill of her specialty gives
+her specialty XP toward her next star (`CraftSpecXpPerMagazineLevel`, 10 per magazine); magazines for other skills, and all of
+them once her specialty has 7 stars, are listed "(won't help her)" and never used up; schematics teach their recipe as
+0-XNPCCore intends. Also: the craft window's Cancel no longer ends a resident's work shift, a refused "I have work for you."
+no longer opens an empty craft window, a follower's first page fits on the screen again ("Ask to leave" moved off it while she
+follows), and "Your progress" no longer shows a craft ladder that never moves on a member. Set `DebugLogging` to true in the
+3.4 install's SC `Config/blocks.xml` for the per-book lines. Helpers: `sc craft` (the hooks' counters, the shifts, the books
+line), `sc craft <name>` (her stars, XP, next star, levels), `sc xp <name> spec <n>` (adds specialty XP; stars at 25, 60, 120,
+220, 360, 550). Traits, Leadership and an ally's Training multiply the XP a magazine gives (as for crafts): compare `sc craft
+<name>` before and after rather than expecting exactly 10. Magazines from the creative menu (`dm`, search "magazine"): Home
+Cooking Weekly (Food), Medical Journal, Southern Farming (Seeds), Forge Ahead (Workstations), Vehicle Adventures, Handgun
+Magazine, Armored Up. Hand them to her through "Show me your inventory". Test on a new world or a copy.
+
+480. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, eight more than X2's build
+     (`patched SdcsBooks::List`, `SdcsBooks::Teaches`, `SdcsBooks::Order`, `MinEventActionAddProgressionLevel::Execute`,
+     `SdcsBooks::Learned`, `SdcsSayLine::Say`, `SdcsProgress::List`, `XUiC_NpcCraftWindow::CancelJob`); the `config: crafting`
+     line has `0.5/craft 10/magazine level`; no XML `did not apply` line for SurvivorCommunity.
+481. **Her Read page.** A following Cook (any stars below 7): give her 2 Home Cooking Weekly, 1 Handgun Magazine and 1 Southern
+     Farming. E > Read...: Home Cooking Weekly reads normally; Handgun Magazine and Southern Farming are grey with "(won't help
+     her)" (not "(at max)", not "(needs the ... role)"). `sc craft`: `c1h-magazine-row-useful=` and
+     `c1h-magazine-row-wont-help=` above 0.
+482. **One magazine.** Pick Home Cooking Weekly: she reads it (the reading pose), one copy is gone from her inventory, and the
+     tooltip says `<name> studies 1 magazine(s): +10 Cooking XP (.. / .. toward the next star).` The log: `<name> read 1
+     crafting magazine(s) as training (one book): +10 Cooking XP, now .. (.. stars)`. `sc craft <name>`: the XP went up by
+     the same amount, and `craftingFood` is still the level of her stars (`want` = the level). She never says "My Food is at
+     level .. now." and the log has no `[SDCS-BOOK] ... changed nothing` warning. (Her own line, "Good practice. I'm getting
+     better at this.", is held while the talk is open, like Voice Control's other lines: the tooltip is the sign there.)
+483. **A magazine that won't help.** Pick Handgun Magazine: the subtitle `<name>: Handgun Magazine (won't help her)`, nothing is
+     read, and it stays in her inventory. Southern Farming the same.
+484. **Read them all, by voice.** Give her 2 more Home Cooking Weekly. Say (push-to-talk) or type in chat
+     `@<name> read your books`: she reads the cooking magazines only, says "I read 2 books." (with one, "Good practice. I'm
+     getting better at this."), and the tooltip sums them (`studies 2 magazine(s): +20 ...`); Handgun Magazine and Southern
+     Farming are still in her inventory. `sc craft`: `c1k-magazine-xp-paid=` grows by one per magazine, `books: N magazine(s)
+     read as training`.
+485. **A star from reading.** `sc xp <name> spec` to 5 XP below her next star (`sc craft <name>` shows `next star at`), then
+     read one Home Cooking Weekly: the tooltip `<name> learns from the reading: Cooking is now N stars.`; her Craft... window
+     lists the new recipes at once; `sc craft <name>`: `craftingFood` at the new star's level.
+486. **At 7 stars.** `sc xp <name> spec 550`: on her Read page every magazine is grey "(won't help her)" (picking one only
+     shows that subtitle), "read your books" gets "I have nothing new to read.", and nothing is used up.
+487. **Reading all stops at the seventh star.** Bring a Cook to 6 stars and 15 XP short of 7 (`sc craft <name>`), give her 6
+     Home Cooking Weekly and say "read your books": she reads until she reaches 7 stars (2 at multiplier 1, maybe 1 with a
+     learning trait), the star tooltip shows, and the rest stay in her inventory. `sc craft`: `c1i-magazine-read-refused=` grew
+     by 1.
+488. **Other specialties.** A Mechanic: Forge Ahead and Vehicle Adventures read (useful), Home Cooking Weekly is grey. A
+     Chemist: Medical Journal reads. A Gardener: Southern Farming reads. A member without a specialty: every magazine grey.
+489. **Schematics as before.** Give a member a schematic for something her stars do not reach yet (the creative menu, search
+     "schematic": e.g. a T1 pistol for a 1-star Craftsman). Read... lists it as readable; reading it: "Now I know how to make
+     ..." and Craft... offers it from then on; no `c1k-` counter moves.
+490. **A resident on a shift reads too.** "I have work for you." to a resident Cook, give her a Home Cooking Weekly through
+     "Show me your inventory": E shows "Read..."; reading pays her as in 482.
+491. **Strangers and you unchanged.** Hire a survivor who is not a member (F6 `npcSdcsXyth`, Hire) and give her a Handgun
+     Magazine: she reads it and says "My <skill> is at level N now." (0-XNPCCore's own rule); `sc craft` counters do not
+     move. Read a magazine yourself: your skill goes up as always, and no `c1k-` counter moves.
+492. **Switched off.** Set `CraftSpecXpPerMagazineLevel` to 0 and restart: a member's magazines are all grey and none is used
+     up; `sc craft` says `(CraftSpecXpPerMagazineLevel 0: magazines help no member)`. Put it back to 10.
+493. **Cancel keeps the shift.** "I have work for you." to a resident Cook at the campfire; order 10 corn on the cob. While she
+     works, E > Craft... and press **Cancel**: the job line reads "Not crafting", the unmade corn's ingredients come back, and
+     she stays at the campfire - she does not walk home. The log: `<name>: the craft window's Cancel ends her job, not her
+     work shift`; `sc craft <name>`: `shift: Idle ...` (not `none`); `sc craft`: `c1n-window-cancel-kept-shift=1` and `window
+     cancels kept on the shift 1`. Order again: she works. With no new order she goes back to her post about 90 s after the
+     Cancel (`... ends (done)`).
+494. **Cancel on a follower is unchanged.** A following member crafts at a station; Cancel: the job ends and she stays where
+     she is (Voice Control's Stay, as before this build); `c1n-window-cancel-kept-shift` does not move.
+495. **Other orders still end a shift.** A resident on a shift told "stay here" by voice (or Follow me): the shift ends as
+     before (`... ends (given the order ...)` or `(asked to follow)`).
+496. **A station order dropped on the way.** A resident on a shift, a station 3-4 m away: order 5 of something there and press
+     Cancel (or "That's all for now.") before she reaches it: the ingredients come back (the log: `[SDCS-CRAFT] ... gave back
+     the ingredients for ... she never queued`).
+497. **No empty craft window.** "I have work for you." on a resident still opens the craft window as before (the log:
+     `<name> starts a work shift (talked to)`), with her recipes listed. A refused start is hard to cause on
+     purpose - the row only shows while she can start - but if one happens (the tooltip gives the reason, e.g. "You both need
+     to be inside the base."): the talk closes and **no** craft window opens; `sc craft`: `talk starts refused` grows.
+498. **The first page fits.** Talk to a follower (`dm` off): 10 rows - Community, Go back home, I need you to go find
+     supplies, Weapon, Craft..., Read..., Your progress, Ammo..., Show me your inventory, Nevermind - "Nevermind." is there
+     and "It is time for you to leave the community." is not. The Community tab's **Leave** (press twice) still lets her go.
+     A resident at home: 6 rows, Ask to leave among them. A resident on a shift: Community, Follow me, That's all for now.,
+     Weapon, Craft..., Read..., Your progress, Ammo..., Show me your inventory, Nevermind (10).
+499. **"Your progress".** A following 3-star Cook > Your progress: `Cook skill 43 (from 3-star Cooking): 0 crafts` (no "/ 10
+     crafts" ladder); a Mechanic shows one such row per role (Blacksmith, Crafter, Chemist) with `from N-star Mechanics` where
+     the level is her stars'; a role whose skills are not her specialty's reads just `... skill 0: 0 crafts`. "Her skills..."
+     is unchanged (e.g. Food 43/100). A plain 0-XNPCCore hire's page is unchanged (`Cook skill N: x / y crafts`). `sc craft`:
+     `c1o-progress-role-row=` above 0.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

@@ -689,6 +689,10 @@ scWorkNotResident,UI,Tooltip,,,,Only someone at home can be called to work.
 scWorkCantCraft,UI,Tooltip,,,,They can't take craft orders.
 scWorkNotHome,UI,Tooltip,,,,You both need to be inside the base.
 scCraftStar,UI,Tooltip,,,,{0} learns from the work: {1} is now {2} stars.
+scBookTrained,UI,Tooltip,,,,{0} studies {1} magazine(s): +{2} {3} XP ({4} / {5} toward the next star).
+scBookStar,UI,Tooltip,,,,{0} learns from the reading: {1} is now {2} stars.
+scBookPracticeSaid,UI,Tooltip,,,,Good practice. I'm getting better at this.
+scProgressFromStars,UI,Dialog,,,,from {0}-star {1}
 scRoleOn,UI,Tooltip,,,,{0} takes the {1} role.
 scRoleOff,UI,Tooltip,,,,{0} drops the {1} role.
 scUiWorkMenu,UI,Menu,,,,Work and roles

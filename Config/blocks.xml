@@ -508,6 +508,13 @@
 			<property name="CraftRolesCraftsmanship" value="crafter" />
 			<property name="CraftLevelCurve" value="1" />
 			<property name="CraftSpecXpPerCraft" value="0.5" />
+			<!-- X2c (round 25b; 0-XNPCCore 3.4.03's books). Schematics teach a member their recipe as 0-XNPCCore intends. A crafting
+			     magazine is training: one for a skill of her specialty (CraftSkills<Specialty> above) gives her
+			     CraftSpecXpPerMagazineLevel specialty XP per crafting level it would have granted (the game's Magazine Points
+			     setting, 1 by default: 10 XP a magazine, against stars at 25, 60, 120, 220, 360 and 550 XP) - her levels stay her
+			     stars'. Magazines for other skills, and every magazine once her specialty has 7 stars, are listed "won't help
+			     her" on her Read... page and are never used up. 0: no magazine helps a member. "sc craft" counts the reads. -->
+			<property name="CraftSpecXpPerMagazineLevel" value="10" />
 			<property name="WorkShiftsEnabled" value="true" />
 			<property name="WorkIdleSeconds" value="90" />
 			<property name="WorkCallSeconds" value="180" />

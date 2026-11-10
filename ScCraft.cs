@@ -231,6 +231,35 @@ namespace SurvivorCommunity
             return si >= 0 && (SkillsOf(recipeName) & specMask[si]) != 0UL;
         }
 
+        /// <summary>
+        /// X2c: is this crafting skill (progression.xml name) one of the specialty's (CraftSkills&lt;Specialty&gt;)? ScBooks' test
+        /// for a magazine that trains her.
+        /// </summary>
+        public static bool InSpecialty(Specialty s, string skill)
+        {
+            int si = SpecIndex(s);
+            if (si < 0 || string.IsNullOrEmpty(skill) || !Resolve()) return false;
+            foreach (ProgressionClass pc in specSkills[si])
+                if (string.Equals(pc.Name, skill, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// X2c: does this level come from her specialty stars - the level one of her specialty's skills has on her body now
+        /// (SetLevels wrote it from her stars)? The Progress page's role rows (Patches_Craft C1o) say so only then.
+        /// </summary>
+        public static bool IsStarLevel(Member m, EntityAlive npc, int level)
+        {
+            int si = m != null ? SpecIndex(m.Specialty) : -1;
+            if (si < 0 || level <= 0 || npc == null || npc.Progression == null || !Resolve()) return false;
+            foreach (ProgressionClass pc in specSkills[si])
+            {
+                ProgressionValue pv = npc.Progression.GetProgressionValue(pc.Name);
+                if (pv != null && pv.Level == level) return true;
+            }
+            return false;
+        }
+
         /// <summary>A managed skill's level at this many stars (the loaded max level, the config's curve).</summary>
         public static int LevelFor(ProgressionClass pc, int stars)
         {
@@ -465,6 +494,37 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
         }
 
+        // ------------------------------------------------------------------ the Progress page (X2c) ----
+
+        /// <summary>
+        /// X2c, C1o (SdcsProgress.List's postfix): "Your progress" on a member. 0-XNPCCore 3.4.03's role rows show the role's
+        /// level (CraftSkillRules.ShownLevel: the highest of its skills on her - her stars') beside its learn-by-crafting ladder,
+        /// "Cook skill 43: 0 / 10 crafts", a ladder that never moves on a member (C1b). Each becomes "Cook skill 43 (from 3-star
+        /// Cooking): 0 crafts": the level, where it comes from when one of her specialty's skills has it (IsStarLevel), and no
+        /// next step (-1: Voice Control's "skillmax" format, as at a role's top). The words are Voice Control's
+        /// (ProgressRules.Lines on the viewer's side); only the row's values change, and its four comma-separated fields stay
+        /// four. The level, XP, quality, roles and "Her skills..." rows stay 0-XNPCCore's.
+        /// </summary>
+        public static void ProgressRows(EntityAlive npc, List<string> rows)
+        {
+            if (rows == null || npc == null || !ScConfig.CraftSkillsEnabled || !ScXnpc.HasXnpcLevels(npc)) return;
+            Member m = ScRegistry.GetMember(npc.entityId);
+            if (m == null) return;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                string key, value;
+                if (!ProgressRules.TryParse(rows[i], out key, out value) || key != ProgressRules.SkillKey) continue;
+                string[] f = value.Split(',');
+                int level;
+                if (f.Length != 4 || !int.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out level)) continue;
+                string shown = f[1];
+                if (IsStarLevel(m, npc, level))
+                    shown += " (" + string.Format(Localization.Get("scProgressFromStars"), m.SpecLevel, Localization.Get(ScNames.LocKey(m.Specialty))).Replace(",", "") + ")";
+                rows[i] = ProgressRules.TextRow(ProgressRules.SkillKey, f[0] + "," + shown + "," + f[2] + ",-1");
+                Patches_Craft.Count("c1o-progress-role-row");
+            }
+        }
+
         // ------------------------------------------------------------------ leaving, ammo ----
 
         /// <summary>ScCommunity.CleanupStale: a former member gets 0-XNPCCore's own Progression when someone next hires her.</summary>
@@ -554,7 +614,8 @@ namespace SurvivorCommunity
                 {
                     output("[SC] craft table | craft <id|name> [spec <Specialty> | end] - " + ScConfig_Line());
                     output("[SC] crafting hooks: " + Patches_Craft.Report() + "; levels written " + levelWrites + ", Progressions made " + progressionsMade
-                           + ", role stamps " + roleStamps + ", role changes kept " + roleMirrors + ", XP saves " + xpSaves + "; " + ScWork.Summary());
+                           + ", role stamps " + roleStamps + ", role changes kept " + roleMirrors + ", XP saves " + xpSaves + "; " + ScWork.Summary()
+                           + "; " + ScBooks.Summary());
                     return;
                 }
                 if (p[1].Equals("table", StringComparison.OrdinalIgnoreCase))

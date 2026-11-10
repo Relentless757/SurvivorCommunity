@@ -23,6 +23,12 @@ namespace SurvivorCommunity
         public static float CraftLevelCurve = 1f;
         /// <summary>Specialty XP per counted craft (a recipe one of her specialty's skills unlocks or tiers); no daily cap.</summary>
         public static float CraftSpecXpPerCraft = 0.5f;
+        /// <summary>
+        /// X2c (round 25b, 0-XNPCCore 3.4.03's books): specialty XP a member gets when she reads a crafting magazine of her
+        /// specialty, per crafting level the magazine would have granted (the sandbox's Magazine Points, 1 by default; the
+        /// level stays her stars'). 0: magazines never help a member (all listed as "won't help her", none used up).
+        /// </summary>
+        public static float CraftSpecXpPerMagazineLevel = 10f;
         /// <summary>Residents can be put on a work shift (the "I have work for you." row, the Community tab's Call to work).</summary>
         public static bool WorkShiftsEnabled = true;
         /// <summary>After her last job of the shift, real seconds (game time running) before she goes back to her post.</summary>
@@ -58,6 +64,7 @@ namespace SurvivorCommunity
             for (int i = 0; i < CraftRoles.Length; i++) { CraftRoles[i].Clear(); CraftRoles[i].AddRange(SplitCraftList(ScCraftMath.DefaultRoles[i])); }
             CraftLevelCurve = 1f;
             CraftSpecXpPerCraft = 0.5f;
+            CraftSpecXpPerMagazineLevel = 10f;
             WorkShiftsEnabled = true;
             WorkIdleSeconds = 90;
             WorkCallSeconds = 180;
@@ -66,6 +73,7 @@ namespace SurvivorCommunity
             // the per-world state of the feature: a new world starts with none of it
             ScCraft.Reset();
             ScWork.Reset();
+            ScBooks.Reset();
             Patches_Craft.Reset();
         }
 
@@ -84,6 +92,7 @@ namespace SurvivorCommunity
             }
             ParseFloat(p, "CraftLevelCurve", ref CraftLevelCurve, 0.25f, 4f);
             ParseFloat(p, "CraftSpecXpPerCraft", ref CraftSpecXpPerCraft, 0f, 10f);
+            ParseFloat(p, "CraftSpecXpPerMagazineLevel", ref CraftSpecXpPerMagazineLevel, 0f, 550f);
             if (p.Values.TryGetValue("WorkShiftsEnabled", out v) && !string.IsNullOrEmpty(v)) WorkShiftsEnabled = StringParsers.ParseBool(v);
             ParseInt(p, "WorkIdleSeconds", ref WorkIdleSeconds, 10, 3600);
             ParseInt(p, "WorkCallSeconds", ref WorkCallSeconds, 10, 3600);
@@ -98,7 +107,8 @@ namespace SurvivorCommunity
             for (int i = 0; i < ScCraftMath.SpecialtyNames.Length; i++)
                 parts.Add(ScCraftMath.SpecialtyNames[i] + "=" + string.Join("+", CraftSkills[i].ToArray()) + "/" + (CraftRoles[i].Count > 0 ? string.Join("+", CraftRoles[i].ToArray()) : "-"));
             return "craftSkills=" + (CraftSkillsEnabled ? "on curve " + CraftLevelCurve.ToString("0.##", CultureInfo.InvariantCulture)
-                                                         + " xp " + CraftSpecXpPerCraft.ToString("0.##", CultureInfo.InvariantCulture) + "/craft [" + string.Join(" ", parts.ToArray()) + "]" : "off")
+                                                         + " xp " + CraftSpecXpPerCraft.ToString("0.##", CultureInfo.InvariantCulture) + "/craft "
+                                                         + CraftSpecXpPerMagazineLevel.ToString("0.##", CultureInfo.InvariantCulture) + "/magazine level [" + string.Join(" ", parts.ToArray()) + "]" : "off")
                    + " workShifts=" + (WorkShiftsEnabled ? "on idle " + WorkIdleSeconds + "s call " + WorkCallSeconds + "s deposit " + WorkDepositOutput : "off");
         }
     }

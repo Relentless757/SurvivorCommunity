@@ -27,6 +27,23 @@ namespace SurvivorCommunity
     ///                                                                              stores: she is a resident, SC drives her weapons
     ///                                                                              (review #3; its melee fallback is X6's already)
     ///
+    /// X2c (round 25b, 0-XNPCCore 3.4.03): its books, its craft window and its Progress page on members (ScBooks, ScWork, ScCraft).
+    ///   C1h SdcsBooks.List(EntityAlive)                                   postfix  a member's magazine rows: useful when it trains her
+    ///                                                                              specialty, else "won't help her" (NoUse)
+    ///   C1i SdcsBooks.Teaches(EntityAlive, Info) (private)                postfix  the same rule at 0-XNPCCore's own gate: a single
+    ///                                                                              read refused, ReadAll stops (never used up)
+    ///   C1j SdcsBooks.Order(EntityAlive, string)                          prefix + finalizer  a member's read order: the context
+    ///                                                                              C1k/C1l act in, one tooltip and a save at its end
+    ///   C1k MinEventActionAddProgressionLevel.Execute(MinEventParams)     prefix + postfix  (vanilla) the book's crafting level is
+    ///                                                                              put back, specialty XP paid instead
+    ///   C1l SdcsBooks.Learned(EntityAlive, Info, List, List) (private)    prefix   that read's line: SC's training line, not a
+    ///                                                                              level SC resets
+    ///   C1m SdcsSayLine.Say(EntityAlive, string)                          prefix   SC's training line said through Voice Control
+    ///   C1n XUiC_NpcCraftWindow.CancelJob() (Voice Control, private)      prefix   Cancel on a resident's work shift drops the job
+    ///                                                                              only, the shift goes on (followers: its Stay)
+    ///   C1o SdcsProgress.List(EntityAlive)                                postfix  "Your progress": a member's role rows show her
+    ///                                                                              star level, no craft ladder
+    ///
     /// As Patches_Xnpc: every target DECLARED on the named type and bound by name (SdcsStationCraft is internal: found through
     /// SdcsCraft's assembly), a Prepare that turns the patch off with one warning when it is gone, ModApi's ExpectedTargets lists
     /// them, and each counts its hits (sc craft) - a renamed PayXp would otherwise stop station XP silently. Non-members are never
@@ -108,6 +125,67 @@ namespace SurvivorCommunity
         public static MethodBase WorldEntryMeleeTarget()
         {
             return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsTryWorldEntryMelee", new[] { typeof(EntityAlive), typeof(ItemValue) });
+        }
+
+        // X2c (round 25b): 0-XNPCCore 3.4.03's books (SdcsBooks, public; Teaches and Learned are private and take its private
+        // nested Info class), its say-line seam, its Progress page, vanilla's magazine action, Voice Control's craft window
+
+        /// <summary>A target whose return type is not the one the patch reads (__result) is not bound.</summary>
+        private static MethodBase Returning(MethodInfo m, Type ret)
+        {
+            return m != null && m.ReturnType == ret ? m : null;
+        }
+
+        /// <summary>SdcsBooks.Info, the private class Teaches and Learned take (its public field Item: the book's ItemClass).</summary>
+        public static Type BookInfoType()
+        {
+            return typeof(SdcsBooks).GetNestedType("Info", BindingFlags.NonPublic);
+        }
+
+        public static MethodBase BookListTarget()
+        {
+            return Returning(AccessTools.DeclaredMethod(typeof(SdcsBooks), "List", new[] { typeof(EntityAlive) }), typeof(List<string>));
+        }
+
+        public static MethodBase BookTeachesTarget()
+        {
+            Type info = BookInfoType();
+            return info != null ? Returning(AccessTools.DeclaredMethod(typeof(SdcsBooks), "Teaches", new[] { typeof(EntityAlive), info }), typeof(bool)) : null;
+        }
+
+        public static MethodBase BookOrderTarget()
+        {
+            return Returning(AccessTools.DeclaredMethod(typeof(SdcsBooks), "Order", new[] { typeof(EntityAlive), typeof(string) }), typeof(string));
+        }
+
+        public static MethodBase BookLearnedTarget()
+        {
+            Type info = BookInfoType();
+            return info != null ? Returning(AccessTools.DeclaredMethod(typeof(SdcsBooks), "Learned", new[] { typeof(EntityAlive), info, typeof(List<string>), typeof(List<int>) }), typeof(string)) : null;
+        }
+
+        public static MethodBase SayLineTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(SdcsSayLine), "Say", new[] { typeof(EntityAlive), typeof(string) });
+        }
+
+        public static MethodBase MagazineLevelTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(MinEventActionAddProgressionLevel), "Execute", new[] { typeof(MinEventParams) });
+        }
+
+        public static MethodBase ProgressListTarget()
+        {
+            return Returning(AccessTools.DeclaredMethod(typeof(SdcsProgress), "List", new[] { typeof(EntityAlive) }), typeof(List<string>));
+        }
+
+        /// <summary>Voice Control's craft window (no namespace), by name: SC has no compile-time reference to Voice Control.</summary>
+        public static Type CraftWindowType { get { return ScTypes.Find("XUiC_NpcCraftWindow"); } }
+
+        public static MethodBase CraftCancelTarget()
+        {
+            Type t = CraftWindowType;
+            return t != null ? AccessTools.DeclaredMethod(t, "CancelJob", new Type[0]) : null;
         }
 
         /// <summary>C1g runs every frame per body (the any-weapon tick): plain counters, read by Report.</summary>
@@ -452,6 +530,295 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("craft-worldentry", ex);
                     return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ C1h-C1m (X2c): magazines become training ----
+        // Positional arguments (__0, __1): 0-XNPCCore's parameter names are not part of its contract; the targets are bound by
+        // exact signature. The rule and its bookkeeping are ScBooks'.
+
+        /// <summary>C1h. The rows of the "Read..." page, the router's single-read refusal and ReadAll's pick all come from List.</summary>
+        [HarmonyPatch]
+        public static class Patch_BookRows
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(BookListTarget, "SdcsBooks.List(EntityAlive)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BookListTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0, List<string> __result)
+            {
+                try
+                {
+                    ScBooks.RewriteRows(__0, __result);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-book-rows", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// C1i. 0-XNPCCore's own gate, under every read: a single read refuses (its "book.nothing" line) and ReadAll's loop over
+        /// one book's copies stops when a magazine no longer trains her - at her seventh star mid-loop too. Never makes a book
+        /// readable that 0-XNPCCore refuses.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_BookTeaches
+        {
+            private static FieldInfo fItem;
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                if (!Bound(BookTeachesTarget, "SdcsBooks.Teaches(EntityAlive, Info)")) return false;
+                fItem = AccessTools.Field(BookInfoType(), "Item");
+                if (fItem != null && fItem.FieldType == typeof(ItemClass)) return true;
+                ScLog.Warn("crafting: SdcsBooks.Info.Item (ItemClass) not found - that SurvivorCommunity patch is off (0-XNPCCore update?)");
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BookTeachesTarget(); }
+
+            /// <summary>__1 is SdcsBooks.Info (private): taken as object, its Item read through the bound field.</summary>
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0, object __1, ref bool __result)
+            {
+                if (!__result || __1 == null) return;
+                try
+                {
+                    if (!ScBooks.Teaches(__0, fItem.GetValue(__1) as ItemClass)) __result = false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-book-teaches", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// C1j. Every read - the "Read..." page, the voice's "read your books" (read:*), Voice Control's router - is one Order call
+        /// on the host: the context C1k and C1l act in opens here for a member and always closes (a finalizer, so a throw in
+        /// 0-XNPCCore cannot leave it open), with the tooltip and the registry save.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_BookOrder
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(BookOrderTarget, "SdcsBooks.Order(EntityAlive, string)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BookOrderTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(EntityAlive __0, string __1)
+            {
+                try
+                {
+                    ScBooks.Begin(__0, __1);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-book-order", e);
+                }
+            }
+
+            [HarmonyFinalizer]
+            public static void Finalizer()
+            {
+                try
+                {
+                    ScBooks.End();
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-book-order-end", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// C1k (vanilla). The magazine's AddProgressionLevel, fired by 0-XNPCCore's SdcsBooks.Fire: within a member's read order,
+        /// for the book's own crafting action with her as a target, her level is read before and put back after (her stars set
+        /// it), and her specialty XP is paid. Everyone else - the player's own magazines included - never gets past the context's
+        /// null check.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_MagazineLevel
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(MagazineLevelTarget, "MinEventActionAddProgressionLevel.Execute(MinEventParams)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MagazineLevelTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(MinEventActionAddProgressionLevel __instance, MinEventParams __0, out ScBooks.LevelState __state)
+            {
+                __state = null;
+                try
+                {
+                    __state = ScBooks.BeforeLevel(__instance, __0);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-book-level", e);
+                }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(ScBooks.LevelState __state)
+            {
+                if (__state == null) return;
+                try
+                {
+                    ScBooks.AfterLevel(__state);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-book-pay", e);
+                }
+            }
+        }
+
+        /// <summary>C1l. The line for a read that trained her (the level SC put back would read "it changed nothing", with a warning).</summary>
+        [HarmonyPatch]
+        public static class Patch_BookLine
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(BookLearnedTarget, "SdcsBooks.Learned(EntityAlive, Info, List<string>, List<int>)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BookLearnedTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive __0, ref string __result)
+            {
+                try
+                {
+                    string line;
+                    if (!ScBooks.TrainingLine(__0, out line)) return true;
+                    __result = line;
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-book-line", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>C1m. 0-XNPCCore's one say-line seam (Order's single read, ReadAll's "only line"): SC's training line id is SC's to say.</summary>
+        [HarmonyPatch]
+        public static class Patch_BookSay
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(SayLineTarget, "SdcsSayLine.Say(EntityAlive, string)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SayLineTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive __0, string __1)
+            {
+                try
+                {
+                    return !ScBooks.SayTraining(__0, __1);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-book-say", e);
+                    return !string.Equals(__1, ScBooks.TrainLineId, StringComparison.Ordinal);   // never Voice Control's "unknown line id"
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ C1n (X2c): Cancel keeps the work shift ----
+
+        /// <summary>
+        /// C1n (finding 5). The craft window's Cancel (Voice Control's XUiC_NpcCraftWindow.CancelJob, a private instance method of
+        /// its UI) sends VCCommand.Stay, and ScWork.Tick ends a shift on any order but Guard. Chosen over a Stay rule in Tick:
+        ///  - it catches exactly the button whose meaning is "drop this job", and nothing else: a voice "stay here" or the order
+        ///    wheel's Stay on a resident at work still ends the shift as documented (C1), and a follower's Cancel is Voice
+        ///    Control's own Stay;
+        ///  - her Guard order at the craft spot (buffSdcsCraftHere wrote it) stays, so the shift's own rule needs no exception and
+        ///    the next craft order starts from the same state as the first; a Stay rule would leave her on buffOrderStay instead;
+        ///  - the refund happens at once (ScWork.DropJob, as Tick's review #1 path would a second later) and the window relists.
+        /// The window is UI on the machine that opened it; shifts exist on the host only (ScWork.Start needs the host's local
+        /// player), which is where a shift's window is. Anyone not on a shift: the original runs.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_CraftWindowCancel
+        {
+            private static FieldInfo fNpcId;
+            private static MethodInfo mRelist;
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                if (CraftWindowType == null) return false;                // no Voice Control: nothing to patch, nothing to warn about
+                if (!Bound(CraftCancelTarget, "XUiC_NpcCraftWindow.CancelJob()")) return false;
+                fNpcId = AccessTools.Field(CraftWindowType, "s_npcId");
+                mRelist = AccessTools.Method(CraftWindowType, "Relist", new[] { typeof(EntityPlayerLocal), typeof(EntityAlive) });
+                if (fNpcId != null && fNpcId.FieldType == typeof(int) && fNpcId.IsStatic) return true;
+                ScLog.Warn("crafting: XUiC_NpcCraftWindow.s_npcId not found - that SurvivorCommunity patch is off (Voice Control update?)");
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return CraftCancelTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(XUiController __instance)
+            {
+                try
+                {
+                    int id = (int)fNpcId.GetValue(null);
+                    World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+                    EntityAlive npc = w != null && id > 0 ? w.GetEntity(id) as EntityAlive : null;
+                    Member m = MemberOf(npc);
+                    if (m == null || !ScWork.CancelJobOnShift(m, npc)) return true;
+                    Count("c1n-window-cancel-kept-shift");
+                    EntityPlayerLocal player = __instance != null && __instance.xui != null && __instance.xui.playerUI != null ? __instance.xui.playerUI.entityPlayer : null;
+                    if (mRelist != null && player != null) mRelist.Invoke(__instance, new object[] { player, npc });
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-window-cancel", e);
+                    return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ C1o (X2c): the Progress page ----
+
+        /// <summary>C1o (finding 3). "Your progress" rows (host side; a client gets them through Voice Control's net package): ScCraft.ProgressRows.</summary>
+        [HarmonyPatch]
+        public static class Patch_ProgressRows
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(ProgressListTarget, "SdcsProgress.List(EntityAlive)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return ProgressListTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0, List<string> __result)
+            {
+                try
+                {
+                    ScCraft.ProgressRows(__0, __result);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-progress-rows", e);
                 }
             }
         }
