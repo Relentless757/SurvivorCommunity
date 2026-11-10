@@ -434,6 +434,12 @@ namespace SurvivorCommunity
         public int NextEncRequestId;
         public int EncRequestDay;
         /// <summary>
+        /// P2 (user, 2026-11-09: "Maximum requests for help should be limited to 3 per day"): the world's day the calls for help
+        /// were last counted on and how many came that day - offers and siege calls (encoffers=day:n; EnclaveRequestMaxPerDay).
+        /// </summary>
+        public int EncOfferDay;
+        public int EncOffersToday;
+        /// <summary>
         /// E5 (ScEncSiege): the world time today's siege call is due (encsiegeat=; 0: none scheduled), set by the day's roll and
         /// fired by the ticker.
         /// </summary>

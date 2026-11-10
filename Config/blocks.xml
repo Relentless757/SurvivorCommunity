@@ -1175,6 +1175,9 @@
 			<property name="EnclaveRequestChanceFriendly" value="0.45" />
 			<property name="EnclaveRequestChanceAllied" value="0.2" />
 			<property name="EnclaveRequestMaxOpen" value="3" />
+			<!-- EnclaveRequestMaxPerDay: new calls for help on one world day, offers and siege calls together (a siege's call
+			     is held back once the day has had this many). -->
+			<property name="EnclaveRequestMaxPerDay" value="3" />
 			<property name="EnclaveRequestCooldownDays" value="1" />
 			<property name="EnclaveOfferLapseDays" value="3" />
 			<property name="EnclaveDueDaysItems" value="4" />

@@ -569,6 +569,12 @@ namespace SurvivorCommunity
         public static float EnclaveRequestChanceNeutral = 0.35f, EnclaveRequestChanceFriendly = 0.45f, EnclaveRequestChanceAllied = 0.2f;
         public static int EnclaveRequestMaxOpen = 3;
         /// <summary>
+        /// P2 (user, 2026-11-09: "Maximum requests for help should be limited to 3 per day, that way the player still has
+        /// decisions to make"): new calls for help - offers and siege calls together - on one world day. "sc day" does not
+        /// make a new world day, so it no longer brings more than this many either; the console's "force" goes past it.
+        /// </summary>
+        public static int EnclaveRequestMaxPerDay = 3;
+        /// <summary>
         /// Days: an enclave rests EnclaveRequestCooldownDays whole days after the day its last request closed; an offer stands
         /// EnclaveOfferLapseDays days (the day it is made counts); an accepted item or gun request is due in EnclaveDueDaysItems
         /// days (the day it is accepted counts); generator requests from day EnclaveGeneratorFromDay.
@@ -1321,6 +1327,7 @@ namespace SurvivorCommunity
             EnclaveSellAllied = 1.35f; EnclaveEnlistCostNeutral = 500; EnclaveEnlistCostFriendly = 250; EnclaveEnlistCostAllied = 0; EnclaveEnlistDays = 2;
             EnclaveEnlistDeathPenalty = 5; EnclaveRecruitMinLeft = 2; EnclaveRecruitCooldownDays = 7; EnclaveRecruitStanding = 10;
             EnclaveRequestChanceNeutral = 0.35f; EnclaveRequestChanceFriendly = 0.45f; EnclaveRequestChanceAllied = 0.2f; EnclaveRequestMaxOpen = 3;
+            EnclaveRequestMaxPerDay = 3;   // P2
             EnclaveRequestCooldownDays = 1; EnclaveOfferLapseDays = 3; EnclaveDueDaysItems = 4; EnclaveGeneratorFromDay = 10;
             EnclaveRequestKindWeights.Clear(); EnclaveRequestSizeWeights.Clear(); EnclaveGainResource = 10; EnclaveGainGenerator = 15;
             SetInts(EnclaveGunTierPoints, 3, 6, 10, 15, 18, 22); EnclaveGunQualityBase = 0.75f; EnclaveGunQualityStep = 0.1f; EnclaveGunPointsMin = 3;
@@ -1991,6 +1998,7 @@ namespace SurvivorCommunity
                 ParseFloat(p, "EnclaveRequestChanceFriendly", ref EnclaveRequestChanceFriendly, 0f, 1f);
                 ParseFloat(p, "EnclaveRequestChanceAllied", ref EnclaveRequestChanceAllied, 0f, 1f);
                 ParseInt(p, "EnclaveRequestMaxOpen", ref EnclaveRequestMaxOpen, 0, 100);
+                ParseInt(p, "EnclaveRequestMaxPerDay", ref EnclaveRequestMaxPerDay, 0, 100);   // P2
                 ParseInt(p, "EnclaveRequestCooldownDays", ref EnclaveRequestCooldownDays, 0, 365);
                 ParseInt(p, "EnclaveOfferLapseDays", ref EnclaveOfferLapseDays, 1, 60);
                 ParseInt(p, "EnclaveDueDaysItems", ref EnclaveDueDaysItems, 1, 60);
@@ -2526,7 +2534,7 @@ namespace SurvivorCommunity
                                                 + EnclaveEnlistCostNeutral + "/" + EnclaveEnlistCostFriendly + "/" + EnclaveEnlistCostAllied + " dukes for " + EnclaveEnlistDays + "d (death -"
                                                 + EnclaveEnlistDeathPenalty + "), recruit -" + EnclaveRecruitStanding + " (" + EnclaveRecruitMinLeft + " stay, every " + EnclaveRecruitCooldownDays + "d)" : "off")
                           + " enclaveRequests=" + (Enclaves ? F2(EnclaveRequestChanceNeutral) + "/" + F2(EnclaveRequestChanceFriendly) + "/" + F2(EnclaveRequestChanceAllied)
-                                                + " a day, " + EnclaveRequestMaxOpen + " open, cooldown " + EnclaveRequestCooldownDays + "d, offers stand " + EnclaveOfferLapseDays
+                                                + " a day, " + EnclaveRequestMaxOpen + " open, " + EnclaveRequestMaxPerDay + " new a day, cooldown " + EnclaveRequestCooldownDays + "d, offers stand " + EnclaveOfferLapseDays
                                                 + "d, due in " + EnclaveDueDaysItems + "d, generators from day " + EnclaveGeneratorFromDay + ", kinds " + WeightsText(EnclaveRequestKindWeights)
                                                 + ", sizes " + WeightsText(EnclaveRequestSizeWeights) + ", gains +" + EnclaveGainResource + "/+" + EnclaveGainGenerator + "/guns "
                                                 + string.Join(",", Array.ConvertAll(EnclaveGunTierPoints, x => x.ToString(CultureInfo.InvariantCulture))) + " x ("

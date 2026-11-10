@@ -971,6 +971,13 @@ namespace SurvivorCommunity
                 // enclave requests (E4): the id counter, the request clock's last day
                 case "encrequestid": c.NextEncRequestId = I(val); break;
                 case "encreqday": c.EncRequestDay = I(val); break;
+                // P2: the world's day of the last call for help and how many came that day
+                case "encoffers":
+                {
+                    string[] dn = val.Split(':');
+                    if (dn.Length == 2) { c.EncOfferDay = I(dn[0]); c.EncOffersToday = Math.Max(0, I(dn[1])); }
+                    break;
+                }
                 // E5: the world time today's siege call is due (0: none), remains still to take out of the world
                 case "encsiegeat": { ulong u; if (ulong.TryParse(val.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) c.EncSiegeAt = u; break; }
                 case "encremains":
@@ -1325,6 +1332,7 @@ namespace SurvivorCommunity
                 if (c.NextBandPersonId > 0) sb.AppendLine("bandpersonid=" + c.NextBandPersonId.ToString(CultureInfo.InvariantCulture));
                 sb.AppendLine("encrequestid=" + c.NextEncRequestId);
                 if (c.EncRequestDay > 0) sb.AppendLine("encreqday=" + c.EncRequestDay.ToString(CultureInfo.InvariantCulture));
+                if (c.EncOffersToday > 0) sb.AppendLine("encoffers=" + c.EncOfferDay.ToString(CultureInfo.InvariantCulture) + ":" + c.EncOffersToday.ToString(CultureInfo.InvariantCulture));   // P2
                 if (c.EncSiegeAt > 0) sb.AppendLine("encsiegeat=" + c.EncSiegeAt.ToString(CultureInfo.InvariantCulture));
                 if (c.EncRemains.Count > 0)
                 {

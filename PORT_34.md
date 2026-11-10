@@ -3195,3 +3195,19 @@ Branch `ms/p2` (worktree `wt\sc-p2`). The user's list after pre.1, with their an
   `ScLooks.Roll` (and its fallback list), and `ScLooks.Validate` swaps a stored man's excluded hair for an allowed one
   picked by a stable hash of the look's race, variant, hair color, eyes and beard (the same man gets the same new style on
   every load until it is saved).
+- **Enclave requests** ("it triggered for every enclave"; "because I ran sc enclaves reveal all, every non-hostile enclave had
+  a request on day 3 (about 10)"; "Maximum requests for help should be limited to 3 per day"). An Opus read-only investigation
+  (source, the installed DLL decompiled, the Playtest34SC save): the record cap held - at most `EnclaveRequestMaxOpen` (3)
+  offers open plus one siege, and only `Offer`/`ScEncSiege.Call` make a record; no screen shows a request without one. That
+  save's `encrequestid=6` at day 5 means 6 requests were ever made there, and its ledger shows `sc day` used on world day 4.
+  Most likely what was seen: `sc day` makes a new request-clock day and a new roll each time, while the tells and the ledger
+  carry the world's day - offers that lapse are refilled by the next roll, so a run of `sc day` walks through every
+  eligible enclave (`reveal all` makes them all eligible at once) with every message stamped the same day. Also a siege
+  could add a fourth call on a day of 3 offers. Fix: `EnclaveRequestMaxPerDay` (default 3) counts new calls for help on the
+  **world's** day, offers and siege calls together (`Community.EncOfferDay/EncOffersToday`, saved as `encoffers=day:n`;
+  `ScEncRequests.NewToday/DayFull/CountNew`). `Roll` stops at it, `ScEncSiege.WhyNot` holds a call back at it (not when
+  forced), the console's `offer` refuses at it without `force`, and `sc enclave requests` shows the count. Each roll logs
+  `enclave requests: request day N's roll (world day W) - K open of M, N new today of P, E enclave(s) could ask`, so the next
+  report can be checked in the log. `sc day` no longer brings more than 3 in one world day (older E4/E5 test steps note it).
+
+TESTING P2 (500-511).

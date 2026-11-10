@@ -288,6 +288,28 @@ namespace SurvivorCommunity
             return null;
         }
 
+        /// <summary>P2: the calls for help (offers and siege calls) made on the world's day today - EnclaveRequestMaxPerDay's count.</summary>
+        public static int NewToday()
+        {
+            Community c = ScRegistry.Community;
+            return c.EncOfferDay == ScCommunity.Today ? c.EncOffersToday : 0;
+        }
+
+        /// <summary>P2: today has had EnclaveRequestMaxPerDay calls for help - no new offer or siege call until the next world day.</summary>
+        public static bool DayFull()
+        {
+            return NewToday() >= Math.Max(0, ScConfig.EnclaveRequestMaxPerDay);
+        }
+
+        /// <summary>P2: one more call for help on the world's day today (Offer, ScEncSiege.Call; the console's forced ones too).</summary>
+        internal static void CountNew()
+        {
+            Community c = ScRegistry.Community;
+            int today = ScCommunity.Today;
+            if (c.EncOfferDay != today) { c.EncOfferDay = today; c.EncOffersToday = 0; }
+            c.EncOffersToday++;
+        }
+
         /// <summary>The open requests that count toward EnclaveRequestMaxOpen: every one but a siege (its own pace, ScEncSiege).</summary>
         public static int OpenCount()
         {
@@ -498,16 +520,19 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The day's new offers: every eligible enclave in a shuffled order (a day's own seed), each rolling the chance for its
-        /// band, until EnclaveRequestMaxOpen are open across the map (a siege is not counted: E5). The kind is one this enclave
-        /// can be given (E5: someone who could go missing and a building to search; an infestation near it).
+        /// band, until EnclaveRequestMaxOpen are open across the map (a siege is not counted: E5) or the world's day has had
+        /// EnclaveRequestMaxPerDay calls for help (P2: offers and siege calls together). The kind is one this enclave can be given
+        /// (E5: someone who could go missing and a building to search; an infestation near it). P2: one log line per roll.
         /// </summary>
         private static void Roll(int day, EntityPlayerLocal player)
         {
             int max = Math.Max(0, ScConfig.EnclaveRequestMaxOpen);
-            if (OpenCount() >= max) return;
             var cands = new List<Enclave>();
             foreach (Enclave e in ScEnclaves.All)
                 if (Eligible(e, day) == null) cands.Add(e);
+            ScLog.Out("enclave requests: request day " + day + "'s roll (world day " + ScCommunity.Today + ") - " + OpenCount() + " open of " + max + ", "
+                      + NewToday() + " new today of " + ScConfig.EnclaveRequestMaxPerDay + ", " + cands.Count + " enclave(s) could ask");
+            if (OpenCount() >= max || DayFull()) return;
             if (cands.Count == 0) return;
             World w = ScCommunity.World;
             GameRandom rnd = GameRandomManager.Instance.CreateGameRandom((w != null ? w.Seed : 0) ^ Salt.GetStableHashCode() ^ unchecked(day * 19349663));
@@ -522,7 +547,7 @@ namespace SurvivorCommunity
                 }
                 foreach (Enclave e in cands)
                 {
-                    if (OpenCount() >= max) break;
+                    if (OpenCount() >= max || DayFull()) break;
                     float chance = ChanceFor(e);
                     if (rnd.RandomFloat >= chance) continue;
                     string kind = PickKind(e, rnd, day);
@@ -672,6 +697,7 @@ namespace SurvivorCommunity
             if (target != null) ScEncInfest.Name(r, target);
             e.Thanks = "";        // E5: a thanks still owed for an earlier request is overtaken by the new one
             All.Add(r);
+            CountNew();           // P2: EnclaveRequestMaxPerDay
             bool heard = ScRadio.Online();
             if (heard)
             {
@@ -1740,7 +1766,8 @@ namespace SurvivorCommunity
         public static void ListLines(List<string> into)
         {
             int today = ScCommunity.Today;
-            into.Add(OpenCount() + " open request(s) of at most " + ScConfig.EnclaveRequestMaxOpen + " (a siege not counted); the request clock is day " + Now
+            into.Add(OpenCount() + " open request(s) of at most " + ScConfig.EnclaveRequestMaxOpen + " (a siege not counted), " + NewToday() + " new call(s) for help today of at most "
+                     + ScConfig.EnclaveRequestMaxPerDay + " (sieges counted); the request clock is day " + Now
                      + (Now > today ? " (ahead of the world's day " + today + ": sc day)" : "") + "; a day's chance " + Pct(ScConfig.EnclaveRequestChanceNeutral) + "/"
                      + Pct(ScConfig.EnclaveRequestChanceFriendly) + "/" + Pct(ScConfig.EnclaveRequestChanceAllied) + " (neutral/friendly/allied), generators from day "
                      + ScConfig.EnclaveGeneratorFromDay + ", kinds " + KindsText());
@@ -1815,6 +1842,7 @@ namespace SurvivorCommunity
                         else { into.Add("unknown argument '" + p[i] + "' (a resource: food|meds|ammo|mats|fuel; a size: small|medium|large; force)"); return; }
                     }
                     if (OpenCount() >= ScConfig.EnclaveRequestMaxOpen && !force) { into.Add(OpenCount() + " requests are open (EnclaveRequestMaxOpen " + ScConfig.EnclaveRequestMaxOpen + "): add force to go past it"); return; }
+                    if (DayFull() && !force) { into.Add(NewToday() + " calls for help today already (EnclaveRequestMaxPerDay " + ScConfig.EnclaveRequestMaxPerDay + "): add force to go past it"); return; }   // P2
                     World w = ScCommunity.World;
                     GameRandom rnd = w != null ? w.GetGameRandom() : null;
                     r = Offer(e, kind, Now, rnd, res, units, pl, "the console");

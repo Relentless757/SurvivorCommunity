@@ -2095,7 +2095,8 @@ Built 2026-11-09 on branch `ms/p2`, **not reviewed, not installed**: these steps
 death in the community too punishing: members refused to follow you, go on runs, take a watch post or staff an outpost
 while their mood was under 25, which one death could cause, and the penalty took 5 days to fade. Your decisions: members
 never refuse orders (a future hidden trait may let some refuse under bad conditions), and a death's penalty is gone in
-about 3 days. The packing station is crafted from the backpack. Men no longer get the clearly female hairstyles.
+about 3 days. The packing station is crafted from the backpack. Men no longer get the clearly female hairstyles. At most 3
+new calls for help from enclaves (offers and siege calls together) come on one world day.
 
 500. **A death doesn't stop orders.** With 3+ members, `sc morale 10` (a session-only override): tell a member "Follow me",
      send one on a supply run, put one on a watch post and staff an outpost: all four obey; no "They refuse - morale is too
@@ -2115,6 +2116,21 @@ about 3 days. The packing station is crafted from the backpack. Men no longer ge
 506. **The list is yours.** `SurvivorExcludeHairsMale` in `Config/blocks.xml` (default
      `ponytail,pixie_cut,midpart_karen_messy`): empty it and restart, and new men can get those styles again (stored men keep
      what they have).
+507. **Three calls for help a day.** `sc enclave reveal all` with a powered radio at home. `sc enclave requests` shows
+     `0 new call(s) for help today of at most 3`. Run `sc day` about six times without leaving the world day: at most three
+     "... is asking for help" messages come that world day, however many enclaves there are. The log has one line per roll,
+     `enclave requests: request day N's roll (world day W) - K open of 3, M new today of 3, E enclave(s) could ask`, and once
+     M is 3 no more offers come. Sleep to the next world day: new offers can come again (never more than 3 open).
+508. **A siege counts.** On a world day that has had 3 calls: `sc enclave siege <id> now` answers `... calls no siege: 3 calls
+     for help today already (EnclaveRequestMaxPerDay 3)`; with `force` it is called. A siege the day's roll scheduled after
+     3 offers is held back (the log: `siege: a call is due but held back (3 calls for help today already ...)`, then
+     `... never came ... - none today`).
+509. **The console.** `sc enclave request <id> offer resource` on a full day: `3 calls for help today already
+     (EnclaveRequestMaxPerDay 3): add force to go past it`; with `force` the offer is made and counted (`4 new ... today`).
+510. **Kept in the save.** After 2 calls on a day, save, quit and reload the same day: `sc enclave requests` still says `2 new
+     call(s) for help today`.
+511. **Older steps.** Steps that bring several days of requests with `sc day` (E4's and E5's) now stop at 3 a world day:
+     sleep to the next day between them, or raise `EnclaveRequestMaxPerDay` while testing.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

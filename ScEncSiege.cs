@@ -280,6 +280,9 @@ namespace SurvivorCommunity
                 string bm = WindowAhead(w);
                 if (bm != null) return bm;
                 if (!ScRadio.Online()) return "no powered radio at home or at an outpost to hear the call";
+                // P2: a siege is a call for help too - none once the day has had EnclaveRequestMaxPerDay
+                if (ScEncRequests.DayFull())
+                    return ScEncRequests.NewToday() + " calls for help today already (EnclaveRequestMaxPerDay " + ScConfig.EnclaveRequestMaxPerDay + ")";
             }
             if (e == null) return null;
             if (e.Lost) return "its building is not in this world";
@@ -355,6 +358,7 @@ namespace SurvivorCommunity
                 SiegeSize = Size(e, player)
             };
             ScRegistry.EncRequests.Add(r);
+            ScEncRequests.CountNew();     // P2: EnclaveRequestMaxPerDay
             e.Thanks = "";
             attackers.Clear();
             sessionReady = false;
