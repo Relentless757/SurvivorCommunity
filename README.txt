@@ -21,11 +21,25 @@ Requirements
 Install
 -------
 1. Install 0-SCore and 0-XNPCCore first.
-2. Extract this zip into your 7 Days to Die "Mods" folder, so you get Mods\SurvivorCommunity\ModInfo.xml.
+2. Extract this zip into your 7 Days to Die "Mods" folder, so you get Mods\SurvivorCommunity\ModInfo.xml and
+   Mods\LandClaimUpgrade\ModInfo.xml.
 3. Start a NEW game.
 
 Do not remove the mod from a save that used it. It adds blocks (radio station, guard tower, watch post, packing station),
 and loading that save without the mod can damage the chunks those blocks are in.
+
+
+Included: Upgradable Land Claim Block
+-------------------------------------
+The zip has a second mod folder, LandClaimUpgrade, made to pair with Survivor Community: your community lives inside your
+land claim, and this lets the claim grow to take in the buildings around it.
+- Hold E on your own land claim block and pick "Claim Menu". It lists the POIs next to your claim. Clear a POI of its
+  sleepers, then claim it (the price scales with its size). "Start secure quest" marks what is left inside. With no POI
+  in reach, "Expand into open ground" grows the claim 1.5x instead.
+- Locked doors inside your claim become yours when you try them. Cleared POIs get a green check mark on the map.
+- Settings are in Mods\LandClaimUpgrade\Config\blocks.xml.
+It is optional: delete the LandClaimUpgrade folder before you start the game if you don't want it. Taken out of a save
+later, its claims shrink back to the usual 41x41.
 
 
 Works with (optional)
