@@ -1975,7 +1975,8 @@ Cowardly members only flee by SC's rules, and a guard on watch is not walked off
 466. **A den holds its spots.** At a raider den or raider enclave (`sc enclave list`), approach from outside: the raiders
      shoot from where they stand and walk back to their spots; step inside the den and they come at you (SC's home
      defence).
-467. **Throwables by tier.** Spawn about ten raiders of each tier (`sc spawn hostile`, or at T3 gamestage) and look in
+467. **Throwables by tier.** Spawn about ten NEW raiders of each tier (a raider saved under 3.4.03 before this round keeps
+     the two pipe bombs it got then: `x2-throw-already-carried`) (`sc spawn hostile`, or at T3 gamestage) and look in
      `sc xnpc`: `x2-throw-thrownAmmoMolotovCocktail`, `x2-throw-thrownAmmoPipeBomb`, `x2-throw-thrownGrenade` and
      `x2-throw-none` - about a quarter of tier 1 raiders get a molotov and nothing else, about half of tier 2 carry
      something, most tier 3 carry one (mostly grenades).
@@ -1997,7 +1998,8 @@ Cowardly members only flee by SC's rules, and a guard on watch is not walked off
 474. **Armed at the post.** Tell a follower "put your weapon away", station her at home, save and reload: she stands her
      post with her weapon.
 475. **A swing blocked by bars.** A member with a spear or knife in her bag, a zombie behind bars or a fence: she switches
-     to the thrust weapon to stab through (`x6-thrust-xnpc` goes up); in the open she keeps her paired melee weapon.
+     to the thrust weapon to stab through (`x6-thrust-xnpc` goes up); in the open she keeps her paired melee weapon. A
+     member with no thrust weapon at the same bars keeps her paired melee weapon (`x6-thrust-none-pair`), never bare hands.
 
 **X2c. Round 25b: crafting with 0-XNPCCore 3.4.03 (3.4)**
 

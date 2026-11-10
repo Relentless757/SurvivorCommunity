@@ -2961,7 +2961,8 @@ before: `Patches_VoiceControl.FirstReturning`, `Patches_Xnpc.MeleeFallbackTarget
   Patch_ScAck's `__args[4]` is still localizedSubtitle), `NPCChatComponent.HandleBillingResponse` (+`paid`). So V1's voice
   gate and V2's recorded replies for Voice Control's acks and fixed lines were off on 3.4.03.
 - 0-XNPCCore: `AvatarSdcsNpcController.SdcsChooseMeleeFallback` (+`preferThrust`, true when a swing is blocked by bars:
-  it reaches for a carried spear/knife/knuckles). X6 leaves that call to 0-XNPCCore (`x6-thrust-xnpc`).
+  it reaches for a carried spear/knife/knuckles). X6 leaves that call to 0-XNPCCore when the body carries a thrust
+  weapon (`x6-thrust-xnpc`), else answers the pair's melee weapon as for any call (`x6-thrust-none-pair`; review finding 1).
 - A names-and-signatures sweep of every by-name lookup in SC against both decompiles found no other change.
 
 **Billing.** Voice Control 3.4.03 deducts in `TryDeductPayment` BEFORE `HandleBillingResponse` (`SettleBillingReply`,
@@ -3020,7 +3021,26 @@ and a client's routed answer), so X1's reply guard no longer kept a member from 
 `RaiderThrowT1`-`T3` (blocks.xml, after WildRaidersDespiteMods). README: 0-SCore 3.4.14+, 0-XNPCCore 3.4.03.
 **Checks:** XML replay against the installed 3.4.14 / 3.4.03 configs: every SC op matches (utilityai 25/25, entitygroups
 56/56, spawning 6/6), the three new conditionals land; the built DLL holds every new prefix/postfix (Cecil). Test steps:
-TESTING X2 (460-479).
+TESTING X2 (460-475).
+
+**Fable review (2026-11-09): DEPLOYABLE**, no HIGH, one MEDIUM; fixed in the commit after the merge:
+- MEDIUM 1: X6's preferThrust call with no thrust weapon carried fell through to 0-XNPCCore's last melee / first kit melee
+  / bare hands, not the pair's. Now X6 asks 0-XNPCCore's own `SdcsCarriedThrustWeapon` (a cached delegate): carried ->
+  0-XNPCCore answers it; none -> the pair's melee weapon.
+- LOW 2: the regenerated spawning.xml remove list had dropped 3.4.02's FriendlyCore/Harley groups (3.4.03 no longer spawns
+  them); gen_arsenal keeps them as a legacy tail, so the file is right on either version (12 groups).
+- LOW 3: ExpectedTargets' X2c lines name 3.4.03 types; moved into `AddBooks` (NoInlining) inside a try, so an older
+  0-XNPCCore warns once instead of failing the whole verification.
+- LOW 5: an empty `RaiderThrowT<n>` counts as none; an item that is missing or not one of 0-XNPCCore's throwables
+  (`ThrowRules.IsThrowable`) is warned about once and not given.
+- LOW 6: the craft window's Cancel on a shift with no job does nothing extra (the window's own HasJob guard).
+- LOW 7: a magazine pays once per read even with several level actions for her specialty (`c1k-magazine-extra-action`).
+- LOW 8: SC's training say-line goes to Voice Control without a line id (its gesture/job-line/network handlers know none).
+- LOW 9: docs (these numbers, the X6 note, TESTING 467 says "new raiders").
+- Accepted: (4) a band body is rebuilt from its record on every re-make and rolls its throwable afresh (bodies are never
+  saved; storing the roll on the record is not worth it). Not in the diff, for the user: a following member who carries a
+  grenade, pipe bomb or molotov can throw it (0-XNPCCore's ThrowExplosive 6.5 in SdcsNpcRangedAdvanced, with its land-claim
+  and friend checks).
 
 ### Round 25b: crafting with 0-XNPCCore 3.4.03 (X2c) (2026-11-09, built, not reviewed, not installed)
 

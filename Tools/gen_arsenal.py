@@ -683,6 +683,12 @@ for grp in ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot().iter("enti
     if not new or new[0][0] == "none": raise SystemExit("W0: %s would be empty or 'none'-first" % gname)
     w0_swap[gname] = tuple(new)
 if not w0_spawns or not w0_swap: raise SystemExit("W0: found no framework pack groups - did 0-XNPCCore change?")
+# X2 (Fable review, finding 2): biome spawn groups an older 0-XNPCCore still spawns (3.4.02 and before: its sample cast's
+# FriendlyCore and Harley groups) stay in the remove list, so the generated file is right on either version; a name the
+# installed version no longer spawns costs nothing in the xpath
+for gname in ("npcFriendlyCoreGroupGS01", "npcFriendlyCoreGroupGS50", "npcFriendlyCoreGroupGS100",
+              "npcHarleyGroupGS01", "npcHarleyGroupGS50", "npcHarleyGroupGS100"):
+    if gname not in w0_spawns: w0_spawns.append(gname)
 w0_swap_sets = {}                                 # identical replacement lists share one remove + append
 for gname in sorted(w0_swap): w0_swap_sets.setdefault(w0_swap[gname], []).append(gname)
 w0_drop_sets = {}

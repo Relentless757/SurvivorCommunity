@@ -184,6 +184,31 @@ namespace SurvivorCommunity
         /// SdcsChooseMeleeFallback(EntityAlive entity, bool preferThrust) since 0-XNPCCore 3.4.03 (X2), (EntityAlive entity)
         /// before it. The new shape first.
         /// </summary>
+        private static Func<EntityAlive, string> carriedThrust;
+        private static bool carriedThrustBound;
+
+        /// <summary>
+        /// X2 (review finding 1): 0-XNPCCore 3.4.03's private static SdcsCarriedThrustWeapon(EntityAlive) - the carried thrust
+        /// weapon its preferThrust call answers first, or null. known is false when the method is not there (then X6 leaves
+        /// the preferThrust call to 0-XNPCCore, as before this fix).
+        /// </summary>
+        internal static string CarriedThrust(EntityAlive e, out bool known)
+        {
+            if (!carriedThrustBound)
+            {
+                carriedThrustBound = true;
+                try
+                {
+                    MethodInfo m = AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsCarriedThrustWeapon", new[] { typeof(EntityAlive) });
+                    if (m != null && m.IsStatic && m.ReturnType == typeof(string))
+                        carriedThrust = (Func<EntityAlive, string>)Delegate.CreateDelegate(typeof(Func<EntityAlive, string>), m);
+                }
+                catch (Exception ex) { ScLog.Once("xnpc-carriedthrust-bind", ex); }
+            }
+            known = carriedThrust != null;
+            return known ? carriedThrust(e) : null;
+        }
+
         public static MethodBase MeleeFallbackTarget()
         {
             return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsChooseMeleeFallback", new[] { typeof(EntityAlive), typeof(bool) })
@@ -694,8 +719,9 @@ namespace SurvivorCommunity
         /// body has no pair yet) XNPC's own choice runs. The method has loops and is far too big to be inlined, and the
         /// counters show it runs.
         /// X2: 0-XNPCCore 3.4.03 added preferThrust, true when a swing is blocked (bars, a narrow opening): XNPC then reaches
-        /// for a carried thrust weapon (spear, knife, knuckles) that can stab through. That call is left to XNPC, which falls
-        /// back to the kit's first melee weapon - the pair's - when the body carries none.
+        /// for a carried thrust weapon (spear, knife, knuckles) that can stab through. When the body carries one, that call is
+        /// XNPC's (its first answer is that weapon). When it carries none, XNPC would fall through to the last melee weapon,
+        /// the kit's first or bare hands (Fable review X2, finding 1), so the pair's melee weapon is answered as for any call.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_MeleeFallback
@@ -716,7 +742,13 @@ namespace SurvivorCommunity
                 try
                 {
                     if (__0 == null || !ScXnpc.IsBody(__0)) return true;
-                    if (__args != null && __args.Length > 1 && __args[1] is bool thrust && thrust) { Count("x6-thrust-xnpc"); return true; }
+                    if (__args != null && __args.Length > 1 && __args[1] is bool thrust && thrust)
+                    {
+                        bool known;
+                        string carried = CarriedThrust(__0, out known);
+                        if (!known || carried != null) { Count("x6-thrust-xnpc"); return true; }
+                        Count("x6-thrust-none-pair");
+                    }
                     string melee = ScLoadout.XnpcMelee(__0);
                     if (melee == null) { Count("x6-xnpc-choice"); return true; }
                     Count("x6-pair-melee");

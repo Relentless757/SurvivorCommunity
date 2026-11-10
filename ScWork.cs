@@ -331,6 +331,7 @@ namespace SurvivorCommunity
         public static bool CancelJobOnShift(Member m, EntityAlive npc)
         {
             if (m == null || npc == null || npc.Buffs == null || !OnShift(m.Id)) return false;
+            if (SdcsCraftJob.Get(m.Id) == null) return true;   // review finding 6: nothing to cancel (the window's own guard)
             DropJob(npc, "the craft window's Cancel");
             SdcsLootMode.Clear(npc);
             windowCancels++;

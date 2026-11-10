@@ -291,6 +291,22 @@ namespace SurvivorCommunity
             list.Add(new Target { Label = label, Method = m });
         }
 
+        /// <summary>X2c's targets (0-XNPCCore 3.4.03 only); a separate method so a missing type fails here, not in ExpectedTargets.</summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void AddBooks(List<Target> t)
+        {
+#if SC_V34
+            Add(t, "SdcsBooks::List", Patches_Craft.BookListTarget());
+            Add(t, "SdcsBooks::Teaches", Patches_Craft.BookTeachesTarget());
+            Add(t, "SdcsBooks::Order", Patches_Craft.BookOrderTarget());
+            Add(t, "MinEventActionAddProgressionLevel::Execute", Patches_Craft.MagazineLevelTarget());
+            Add(t, "SdcsBooks::Learned", Patches_Craft.BookLearnedTarget());
+            Add(t, "SdcsSayLine::Say", Patches_Craft.SayLineTarget());
+            Add(t, "SdcsProgress::List", Patches_Craft.ProgressListTarget());
+            if (Patches_Craft.CraftWindowType != null) Add(t, "XUiC_NpcCraftWindow::CancelJob", Patches_Craft.CraftCancelTarget());
+#endif
+        }
+
         private static List<Target> ExpectedTargets()
         {
             var t = new List<Target>();
@@ -400,14 +416,10 @@ namespace SurvivorCommunity
             // X2c (round 25b, 0-XNPCCore 3.4.03): C1h-C1m crafting magazines train a member's specialty (her rows, 0-XNPCCore's
             // gate, the read order's context, vanilla's level action, the line and its say-line seam); C1o "Your progress" role
             // rows; C1n the craft window's Cancel keeps a resident's work shift (Voice Control's window: only when it is loaded)
-            Add(t, "SdcsBooks::List", Patches_Craft.BookListTarget());
-            Add(t, "SdcsBooks::Teaches", Patches_Craft.BookTeachesTarget());
-            Add(t, "SdcsBooks::Order", Patches_Craft.BookOrderTarget());
-            Add(t, "MinEventActionAddProgressionLevel::Execute", Patches_Craft.MagazineLevelTarget());
-            Add(t, "SdcsBooks::Learned", Patches_Craft.BookLearnedTarget());
-            Add(t, "SdcsSayLine::Say", Patches_Craft.SayLineTarget());
-            Add(t, "SdcsProgress::List", Patches_Craft.ProgressListTarget());
-            if (Patches_Craft.CraftWindowType != null) Add(t, "XUiC_NpcCraftWindow::CancelJob", Patches_Craft.CraftCancelTarget());
+            // (Fable review X2, finding 3: the lookups name 3.4.03's types; an older 0-XNPCCore throws a type load here, which
+            // would end the whole verification - caught, warned once, and the rest of the list still checked)
+            try { AddBooks(t); }
+            catch (Exception e) { ScLog.Warn("patch verification: 0-XNPCCore 3.4.03's books and progress page are not there (" + e.GetType().Name + ") - the X2c crafting patches are off (0-XNPCCore before 3.4.03?)"); }
 #endif
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
             // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on

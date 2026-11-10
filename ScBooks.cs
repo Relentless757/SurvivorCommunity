@@ -259,12 +259,17 @@ namespace SurvivorCommunity
                 Patches_Craft.Count("c1k-magazine-level-undone");
                 return;
             }
-            if (!ReferenceEquals(r.LastValue, s.Value))
+            // 0-XNPCCore reads a clone of the stack's value per book: one per magazine read. A magazine with more than one level
+            // action for her specialty pays once (Fable review X2, finding 7); its other actions are only put back.
+            if (ReferenceEquals(r.LastValue, s.Value))
             {
-                r.LastValue = s.Value;     // 0-XNPCCore reads a clone of the stack's value per book: one per magazine read
-                r.Magazines++;
-                magazinesRead++;
+                r.Undone++;
+                Patches_Craft.Count("c1k-magazine-extra-action");
+                return;
             }
+            r.LastValue = s.Value;
+            r.Magazines++;
+            magazinesRead++;
             int before = m.SpecXp, star = m.SpecLevel;
             bool gained = ScSkills.AddSpecialtyXp(m, s.Nominal * ScConfig.CraftSpecXpPerMagazineLevel);
             int got = m.SpecXp - before;
@@ -301,7 +306,9 @@ namespace SurvivorCommunity
             MethodInfo say = SayMethod();
             if (npc != null && say != null)
             {
-                say.Invoke(null, new object[] { npc, Localization.Get("scBookPracticeSaid"), TrainLineId });
+                // no line id (Fable review X2, finding 8): Voice Control routes a say-line's id to its gesture, job-line and network
+                // handlers, none of which knows SC's; the caption falls back to the words either way
+                say.Invoke(null, new object[] { npc, Localization.Get("scBookPracticeSaid"), null });
                 Patches_Craft.Count("c1m-training-line-said");
             }
             return true;

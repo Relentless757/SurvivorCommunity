@@ -62,6 +62,7 @@ namespace SurvivorCommunity
         {
             lock (lists) lists.Clear();
             refused.Clear();
+            warnedThrow.Clear();
         }
 
         // ------------------------------------------------------------------ the class's list ----
@@ -321,10 +322,17 @@ namespace SurvivorCommunity
                 float chance = ScConfig.RaiderThrowChanceFor(tier);
                 if (chance <= 0f || UnityEngine.Random.value >= chance) { Patches_Xnpc.Count("x2-throw-none"); return; }
                 string item = PickThrowable(ScConfig.RaiderThrowItemsFor(tier));
-                ItemValue iv = item != null ? ItemClass.GetItem(item, false) : null;
+                if (item == null) { Patches_Xnpc.Count("x2-throw-none"); return; }     // an empty RaiderThrowT list: nothing
+                ItemValue iv = ItemClass.GetItem(item, false);
                 if (iv == null || iv.IsEmpty())
                 {
-                    ScLog.Once("x2-throw-item-" + item, new Exception("RaiderThrowT" + (tier + 1) + ": no item '" + item + "' in items.xml - that raider throws nothing"));
+                    if (warnedThrow.Add(item)) ScLog.Warn("RaiderThrowT" + (tier + 1) + ": no item '" + item + "' in items.xml - that raider throws nothing");
+                    return;
+                }
+                // review finding 5b: 0-XNPCCore throws only what its ThrowRules know; anything else would sit in the bag unused
+                if (!NPCSdcsCharacters.Pure.ThrowRules.IsThrowable(item))
+                {
+                    if (warnedThrow.Add(item)) ScLog.Warn("RaiderThrowT" + (tier + 1) + ": '" + item + "' is not one of 0-XNPCCore's throwables (molotov, pipe bomb, grenade, contact grenade, timed charge) - not given");
                     return;
                 }
                 if (e.bag == null || !e.bag.AddItem(new ItemStack(iv, 1))) { Patches_Xnpc.Count("x2-throw-bag-full"); return; }
@@ -336,6 +344,9 @@ namespace SurvivorCommunity
                 ScLog.Once("bandit-throwable", ex);
             }
         }
+
+        /// <summary>X2: items already warned about (a missing or unthrowable RaiderThrowT entry), once a session each.</summary>
+        private static readonly HashSet<string> warnedThrow = new HashSet<string>();
 
         /// <summary>X2: one item by weight from "item:weight,item:weight" (a bare item weighs 1); null when nothing weighs.</summary>
         private static string PickThrowable(string spec)
