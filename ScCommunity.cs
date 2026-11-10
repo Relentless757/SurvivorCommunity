@@ -1031,7 +1031,7 @@ namespace SurvivorCommunity
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
             // E3: an enclave's people enlisted with the player count toward the limit too
             if (ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount() >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
-            if (m.Mood < 25) { error = "scRefuseMood"; return false; }
+            if (ScConfig.RefusesForMood(m)) { error = "scRefuseMood"; return false; }   // P2: never by default
 #if SC_V34
             ScWork.EndFor(m, "asked to follow");   // C1: off the work shift first (her job dropped, unmade items refunded)
 #endif

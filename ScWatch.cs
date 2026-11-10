@@ -413,7 +413,7 @@ namespace SurvivorCommunity
             if (OnWatch(m)) { error = "scWatchElsewhere"; return false; }
             if (m.Status != MemberStatus.Resident || ScMissing.IsMissing(m)) { error = "scWatchNotHome"; return false; }
             if (m.Injured) { error = "scWatchInjured"; return false; }
-            if (m.Mood < 25) { error = "scRefuseMood"; return false; }
+            if (ScConfig.RefusesForMood(m)) { error = "scRefuseMood"; return false; }   // P2: never by default
             if (m.WatchRestUntil > Now) { error = "scWatchResting"; return false; }
             if (ScRegistry.Community.Get(Resource.Ammo) < Math.Max(0, ScConfig.WatchShiftAmmo)) { error = "scWatchNoAmmo"; return false; }
             World w = ScCommunity.World;

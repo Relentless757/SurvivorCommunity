@@ -456,7 +456,7 @@ public class DialogActionScUseHanded : BaseDialogAction
     }
 }
 
-/// <summary>Member order: follow the player (refused below mood 25 or when the party is full).</summary>
+/// <summary>Member order: follow the player (refused when the party is full, or below RefuseOrdersBelowMood when that is set).</summary>
 public class DialogActionScFollow : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)

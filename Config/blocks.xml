@@ -147,10 +147,13 @@
 			     inside the 25 m leash. -->
 			<property name="DefendBaseRadius" value="22" />
 			<!-- morale: 50 + food days + medicine + beds + facilities + supplies + traits - recent deaths (each death
-			     costs DeathPenalty, fading DeathDecayPerDay per day). Below LowMoraleThreshold for LowMoraleDays days
-			     the unhappiest survivor threatens to leave and does so the next day; above HighMoraleThreshold XP x1.5. -->
+			     costs DeathPenalty, fading DeathDecayPerDay per day: 15 at 5 a day is gone in 3 days). Below
+			     LowMoraleThreshold for LowMoraleDays days the unhappiest survivor threatens to leave and does so the next
+			     day; above HighMoraleThreshold XP x1.5. RefuseOrdersBelowMood: members refuse to follow, go on a run, take a
+			     watch post or staff an outpost while their mood is under it; 0 = they never refuse. -->
 			<property name="DeathPenalty" value="15" />
-			<property name="DeathDecayPerDay" value="3" />
+			<property name="DeathDecayPerDay" value="5" />
+			<property name="RefuseOrdersBelowMood" value="0" />
 			<property name="LowMoraleThreshold" value="25" />
 			<property name="HighMoraleThreshold" value="75" />
 			<!-- supply runs: RunYieldBase bundles x (1 + RunYieldPerWitsStar per Wits star) x specialist bonus (Mechanics for
@@ -314,6 +317,9 @@
 			<property name="SurvivorExcludeSkins" value="Obsidian,Ash,Mutant Green,Demon Red,Orchid,Brimstone,Cobalt,Amethyst,Ember" />
 			<property name="SurvivorExcludeEyes" value="Sonja_RedEyes_01,Sonja_Underworld,Sonja_YellowEyes_01,Sonja_Bullseye,Sonja_Smiley,Sonja_Blackeyes,Sonja_Eyes_AllScaryBlack,Sonja_Eyes_Emission_Red,Sonja_Eyes_TEST" />
 			<property name="SurvivorExcludeHairs" value="" />
+			<!-- SurvivorExcludeHairsMale: hairstyles never given to men (the game offers all of them to both sexes); a man
+			     already wearing one gets another. -->
+			<property name="SurvivorExcludeHairsMale" value="ponytail,pixie_cut,midpart_karen_messy" />
 			<property name="SurvivorDyedHairColors" value="11 Yellow,12 Orange,13 Redder,14 Redder1,15 Pink,16 Pink 1,17 Blue,18 Blue 1,19 Blue 2,20 Purple,21 Purple1,22 Purple 2,23 Green,24 Green 1" />
 			<property name="SurvivorDyedHairChanceFemale" value="0.06" />
 			<property name="SurvivorDyedHairChanceMale" value="0.005" />

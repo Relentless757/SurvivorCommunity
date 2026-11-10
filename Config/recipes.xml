@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <configs>
 	<append xpath="/recipes">
-		<recipe name="scPackingStation" count="1" craft_time="60" craft_area="workbench" tags="workbenchCrafting">
+		<!-- P2 (user, 2026-11-09): crafted from the backpack, no workbench -->
+		<recipe name="scPackingStation" count="1" craft_time="60">
 			<ingredient name="resourceWood" count="30"/>
 			<ingredient name="resourceForgedIron" count="5"/>
 			<ingredient name="resourceDuctTape" count="2"/>

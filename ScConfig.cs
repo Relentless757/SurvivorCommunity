@@ -185,7 +185,20 @@ namespace SurvivorCommunity
         public static int DefendBaseRadius = 22;
         // ---- morale ----
         public static float DeathPenalty = 15f;
-        public static float DeathDecayPerDay = 3f;
+        /// <summary>P2 (user, 2026-11-09): a death's penalty is gone in about 3 days (15 -> 10 -> 5 -> 0); was 3 a day.</summary>
+        public static float DeathDecayPerDay = 5f;
+        /// <summary>
+        /// P2 (user, 2026-11-09: "Members shouldn't refuse orders. A future hidden trait system would give them a chance to
+        /// refuse under bad conditions."): members refuse to follow, go on a run, take a watch post or staff an outpost while
+        /// their mood is under this. 0 = never (the default); it was a fixed 25, which one death could reach.
+        /// </summary>
+        public static int RefuseOrdersBelowMood = 0;
+
+        /// <summary>P2: does this member refuse an order for their mood (RefuseOrdersBelowMood; never at 0)?</summary>
+        public static bool RefusesForMood(Member m)
+        {
+            return m != null && RefuseOrdersBelowMood > 0 && m.Mood < RefuseOrdersBelowMood;
+        }
         public static int LowMoraleThreshold = 25;
         public static int HighMoraleThreshold = 75;
         // ---- physical supply runs (ScRunners) ----
@@ -818,6 +831,13 @@ namespace SurvivorCommunity
         public static readonly List<string> SurvivorExcludeSkins = new List<string>();
         public static readonly List<string> SurvivorExcludeEyes = new List<string>();
         public static readonly List<string> SurvivorExcludeHairs = new List<string>();
+        /// <summary>
+        /// P2 (user, 2026-11-09: male NPCs with female hairstyles): the game offers all 20 hairstyles to both sexes; these are
+        /// never rolled for a man, and a stored man's look with one is given another (ScLooks.Validate). "Only the clearly
+        /// female ones".
+        /// </summary>
+        public static readonly List<string> SurvivorExcludeHairsMale = new List<string>(DefaultExcludeHairsMale);
+        public static readonly string[] DefaultExcludeHairsMale = { "ponytail", "pixie_cut", "midpart_karen_messy" };
         /// <summary>The dyed hair colours, rolled only with SurvivorDyedHairChance (female / male); the rest are natural.</summary>
         public static readonly List<string> SurvivorDyedHairColors = new List<string>();
         public static float SurvivorDyedHairChanceFemale = 0.06f;
@@ -1139,6 +1159,7 @@ namespace SurvivorCommunity
             SurvivorExcludeSkins.Clear();
             SurvivorExcludeEyes.Clear();
             SurvivorExcludeHairs.Clear();
+            SurvivorExcludeHairsMale.Clear(); SurvivorExcludeHairsMale.AddRange(DefaultExcludeHairsMale);   // P2
             SurvivorDyedHairColors.Clear();
             SurvivorDyedHairChanceFemale = 0.06f;
             SurvivorDyedHairChanceMale = 0.005f;
@@ -1567,6 +1588,7 @@ namespace SurvivorCommunity
                 ParseInt(p, "DefendBaseRadius", ref DefendBaseRadius, 0, 23);
                 ParseFloat(p, "DeathPenalty", ref DeathPenalty, 0f, 100f);
                 ParseFloat(p, "DeathDecayPerDay", ref DeathDecayPerDay, 0f, 100f);
+                ParseInt(p, "RefuseOrdersBelowMood", ref RefuseOrdersBelowMood, 0, 100);   // P2
                 ParseInt(p, "LowMoraleThreshold", ref LowMoraleThreshold, 0, 100);
                 ParseInt(p, "HighMoraleThreshold", ref HighMoraleThreshold, 0, 100);
                 ParseInt(p, "RunDays", ref RunDays, 1, 30);
@@ -2378,6 +2400,7 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("SurvivorExcludeSkins", out s)) { SurvivorExcludeSkins.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeSkins.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("SurvivorExcludeEyes", out s)) { SurvivorExcludeEyes.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeEyes.AddRange(SplitList(s)); }
                 if (p.Values.TryGetValue("SurvivorExcludeHairs", out s)) { SurvivorExcludeHairs.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeHairs.AddRange(SplitList(s)); }
+                if (p.Values.TryGetValue("SurvivorExcludeHairsMale", out s)) { SurvivorExcludeHairsMale.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorExcludeHairsMale.AddRange(SplitList(s)); }   // P2
                 if (p.Values.TryGetValue("SurvivorDyedHairColors", out s)) { SurvivorDyedHairColors.Clear(); if (!string.IsNullOrEmpty(s)) SurvivorDyedHairColors.AddRange(SplitList(s)); }
                 // paints: an empty list = none of that kind
                 ParseList(p, "SurvivorBodyPaints", SurvivorBodyPaints);

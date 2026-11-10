@@ -220,7 +220,8 @@ NPCs but cannot manage a community (v2).
 - **Consequences.** Above `HighMoraleThreshold` (75) everyone earns XP half again as fast. Below
   `LowMoraleThreshold` (25) for `LowMoraleDays` (2) days in a row the unhappiest survivor threatens to
   leave (tooltip, ledger, window flag) and leaves at the next rollover unless morale is back above the
-  line. A survivor whose mood is under 25 refuses to follow you.
+  line. Members never refuse an order for their mood (`RefuseOrdersBelowMood`, 0 by default); a death's
+  penalty fades in 3 days.
 - **HUD.** A morale icon with the number sits in your buff bar while the community has members.
 - **The community window** is a page of the player menu (3.4, round 19): open the menu (Crafting,
   Character, Map, ...) and click the **Community** tab, which stands apart on a small plate of its own just

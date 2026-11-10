@@ -364,6 +364,31 @@ namespace SurvivorCommunity
             return list[rnd != null ? rnd.RandomRange(0, list.Count) : 0];
         }
 
+        /// <summary>P2: FallbackHairs without the styles men are not given (SurvivorExcludeHairsMale, SurvivorExcludeHairs).</summary>
+        private static string[] MaleFallbackHairs()
+        {
+            var l = Allowed(Allowed(new List<string>(FallbackHairs), ScConfig.SurvivorExcludeHairs), ScConfig.SurvivorExcludeHairsMale);
+            return l != null && l.Count > 0 ? l.ToArray() : FallbackHairs;
+        }
+
+        /// <summary>
+        /// P2: a man's stored hair that is now excluded (SurvivorExcludeHairsMale) is swapped for an allowed one, picked from
+        /// the look's own other parts so the same person gets the same new hair on every load (and keeps it once saved).
+        /// </summary>
+        private static void FixMaleHair(Look look)
+        {
+            if (look == null || !look.Male || string.IsNullOrEmpty(look.Hair) || !ScConfig.Listed(ScConfig.SurvivorExcludeHairsMale, look.Hair)) return;
+            List<string> ok = null;
+            try { ok = Allowed(Allowed(SDCSDataUtils.GetHairNames(true, SDCSDataUtils.HairTypes.Hair), ScConfig.SurvivorExcludeHairs), ScConfig.SurvivorExcludeHairsMale); }
+            catch (Exception e) { ScLog.Once("looks-malehair-list", e); }
+            string[] pool = ok != null && ok.Count > 0 ? ok.ToArray() : MaleFallbackHairs();
+            string seed = (look.Race ?? "") + "|" + look.Variant + "|" + (look.HairColor ?? "") + "|" + (look.Eyes ?? "") + "|" + (look.Beard ?? "");
+            int h = seed.GetStableHashCode();
+            string was = look.Hair;
+            look.Hair = pool[(h & 0x7fffffff) % pool.Length];
+            ScLog.Verbose("look: a man's hair " + was + " is no longer given to men - " + look.Hair + " instead");
+        }
+
         /// <summary>A new list of the names not on the exclude list (null in, null out - Pick then uses its fallback).</summary>
         private static List<string> Allowed(List<string> names, List<string> exclude)
         {
@@ -399,6 +424,7 @@ namespace SurvivorCommunity
                     look.Race = Pick(rnd, races, FallbackRaces);
                     variants = SDCSDataUtils.GetVariantList(male, look.Race);
                     hairs = Allowed(SDCSDataUtils.GetHairNames(male, SDCSDataUtils.HairTypes.Hair), ScConfig.SurvivorExcludeHairs);
+                    if (male) hairs = Allowed(hairs, ScConfig.SurvivorExcludeHairsMale);   // P2: no clearly female styles on men
                     eyes = Allowed(SDCSDataUtils.GetEyeColorNames(), ScConfig.SurvivorExcludeEyes);
                     colors = new List<string>();
                     foreach (var hc in SDCSDataUtils.GetHairColorNames()) if (!string.IsNullOrEmpty(hc.PrefabName)) colors.Add(hc.PrefabName);
@@ -420,7 +446,7 @@ namespace SurvivorCommunity
                 int v;
                 string vs = Pick(rnd, variants, new[] { "1", "2", "3", "4" });
                 look.Variant = int.TryParse(vs, out v) ? Math.Max(1, v) : 1;
-                look.Hair = Chance(rnd) < ScConfig.SurvivorBaldChance ? "" : Pick(rnd, hairs, FallbackHairs);
+                look.Hair = Chance(rnd) < ScConfig.SurvivorBaldChance ? "" : Pick(rnd, hairs, male ? MaleFallbackHairs() : FallbackHairs);
                 look.HairColor = Pick(rnd, colors, FallbackHairColors);
                 look.Eyes = Pick(rnd, eyes, FallbackEyes);
                 if (male)
@@ -649,6 +675,7 @@ namespace SurvivorCommunity
             if (look == null || look.Validated) return;
             try
             {
+                FixMaleHair(look);      // P2
                 if (!SDCSUtils.BasePartsExist(look.ToArchetype()))
                 {
                     ScLog.Warn("look " + look.Encode() + " has no body assets - using the default face");

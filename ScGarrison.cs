@@ -127,7 +127,7 @@ namespace SurvivorCommunity
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
             if (npc == null) { error = "scNotLoaded"; return false; }
             if (m.Injured) { error = "scOpPostInjured"; return false; }
-            if (m.Mood < 25) { error = "scRefuseMood"; return false; }
+            if (ScConfig.RefusesForMood(m)) { error = "scRefuseMood"; return false; }   // P2: never by default
             if (StaffCount(o) >= StaffCap(o)) { error = "scOpPostFull"; return false; }
             return true;
         }

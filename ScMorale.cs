@@ -8,7 +8,7 @@ namespace SurvivorCommunity
     /// Community morale (0-100) and each survivor's mood, recomputed from the registry (State of Decay
     /// style: food days, thirst, medicine, beds, facilities, the other resources, traits, recent deaths, outposts,
     /// the Activities' round of drinks, E6's enclaves: allies, Comfort in Numbers, a group lost; I3's infestations near home). Morale
-    /// drives: XP x1.5 above HighMoraleThreshold (ScSkills.AddXp), refusal to follow below mood 25
+    /// drives: XP x1.5 above HighMoraleThreshold (ScSkills.AddXp), (P2) no refusal of orders by default (RefuseOrdersBelowMood)
     /// (ScCommunity.Follow), and below LowMoraleThreshold for LowMoraleDays in a row the unhappiest survivor
     /// threatens to leave and does so the next day unless morale recovers. The player sees it as the
     /// buffSCMorale HUD icon (cvar sc_morale) while the community has members.
