@@ -2939,3 +2939,83 @@ from E11 on). Twelve voices are complete now: the four White, four Black and fou
 `dev/ideas` 821fce2; `deploy_sc34.py`: 11361 files, installed = built `4d2269afb1786723cdb8d759adb85113` (unchanged). The
 old install is in `Port33\_backups\sc34_2026-11-07_135613`; the user's `DebugLogging` true set again. NativeM1's first
 76 clips are held back until his set is complete.
+
+### Round 25: NPCCore 3.4.03 and SCore 3.4.14 (X2) (2026-11-09, built, not reviewed, not installed)
+
+**The update.** The user installed 0-SCore **3.4.14.1542** (from 3.4.3.826) and 0-XNPCCore **3.4.03** (the later of two
+3.4.03 zips, `NPCSdcsCharacters.dll` md5 4b7c579e, `1-XNPCVoiceControl.dll` 9928e0d6; it needs SCore 3.4.14). Branch
+`ms/x2` from port-3.4 `9989f09`, worktree `Port33\wt\sc-x2`; the crafting half is `ms/x2c` (round 25b). Both
+versions were decompiled (ilspycmd) into the session scratch and diffed; two Opus agents read the AI/bandit and the
+crafting changes against SC (their findings: scratch `x2\findings_ai.md`, `x2\findings_craft.md`), and the claims this
+round acts on were re-read in the decompile. SCore's changes touch nothing SC relies on (its UAI target filters are now
+cached per entity - SC uses only SCore's stateless IsSelf/IsEnemy/IsLeader/IsPlayer; HasOrder now takes a list; new
+opt-in Quest Rescue, POI Outposts and POI variants). The 19:52 session on the new versions logged no exception; SC's
+own check logged `patch verification: 143 ok, 6 MISSING of 149`.
+
+**Six hooks lost their target** (all a trailing parameter; every target now tries the 3.4.03 shape first, then the one
+before: `Patches_VoiceControl.FirstReturning`, `Patches_Xnpc.MeleeFallbackTarget`):
+- Voice Control: `NPCAudioPlayer.OnWavBytesReady` (+`isReply`), `NPCAudioPlayer.SpeakStreaming` (+`isReply`),
+  `NPCChatComponent.PlayProactiveGreeting` (+`cacheEligible`), `SubtitleManager.AcknowledgeCommand` (+`lineId`;
+  Patch_ScAck's `__args[4]` is still localizedSubtitle), `NPCChatComponent.HandleBillingResponse` (+`paid`). So V1's voice
+  gate and V2's recorded replies for Voice Control's acks and fixed lines were off on 3.4.03.
+- 0-XNPCCore: `AvatarSdcsNpcController.SdcsChooseMeleeFallback` (+`preferThrust`, true when a swing is blocked by bars:
+  it reaches for a carried spear/knife/knuckles). X6 leaves that call to 0-XNPCCore (`x6-thrust-xnpc`).
+- A names-and-signatures sweep of every by-name lookup in SC against both decompiles found no other change.
+
+**Billing.** Voice Control 3.4.03 deducts in `TryDeductPayment` BEFORE `HandleBillingResponse` (`SettleBillingReply`,
+and a client's routed answer), so X1's reply guard no longer kept a member from being charged. New
+`Patch_NoBillingDeduct` (prefix): for a member, stand-in or enlisted person nothing is taken, the contract is stripped
+(`billing-deduct-refused`).
+
+**Raiders (0-XNPCCore's bandits are SC raiders' parents since R1):**
+- X22 `SdcsBanditLineOnNewTarget` prefix: 3.4.03's bandit target line (`bandit.target`, a TTS combat line from the
+  personality, with a caption) is skipped for SC's raiders while `RaiderTaunts` is on - they already taunt on sight in
+  their recorded voice (`x22-bandit-line-sc-taunts`).
+- X23 `SdcsPostRead` postfix: 3.4.03 makes any bandit on Guard/Stay with a guard position a **posted** bandit
+  (`BanditPostRules.Posted`: no approach, back-off, listen or seek; PostReturn 4 walks it back within 1.5 m). A band's
+  bodies hold Guard at the leader's next walk point (ScBands, re-given every 15 s), so an engaged band never attacked.
+  Band bodies are cleared to "not posted" (`x23-band-not-posted`). User 2026-11-09: **den and raider-enclave raiders keep
+  the posted rules** (they hold their spots; ScEncDefend still takes them to an intruder inside).
+- **Throwables by tier** (user 2026-11-09: tier 1 a chance of one molotov; tier 2 a higher chance, pipe bombs and grenades
+  added; tier 3 a high chance of grenades, medium of pipe bombs, low of molotovs). 0-XNPCCore grants from the class
+  (`SdcsThrowables`), so SC raiders got them by sex (2 pipe bombs on every female via the ranged template). Now
+  `ScBandits.BeforePostInit` pre-marks `SdcsThrowSeeded` with the stock/water marks, and `AfterPostInit` rolls once per
+  body (`sc_rThrow`): `RaiderThrowChance` 0.25 / 0.45 / 0.7 to carry one, then `RaiderThrowT1-T3` by weight (T1
+  molotov; T2 molotov 50 / pipe bomb 25 / grenade 25; T3 grenade 60 / pipe bomb 30 / molotov 10), into the bag (a bandit
+  raider keeps no window; 0-XNPCCore's throw supply reads every store). A body already carrying one gets none.
+  Counters `x2-throw-<item>`, `x2-throw-none`, `x2-throw-bag-full`, `x2-throw-already-carried`.
+- Death-bag weapon quality (3.4.03's `SdcsBanditLoot`): the T2/T3 leaves set `SdcsDropQuality` 2-3 / 3-4 like
+  0-XNPCCore's own tiers (T1 inherits 1-2). `Tools/gen_arsenal.py` `DROP_QUALITY`.
+- **0-XNPCCore's bandits no longer roam** (user 2026-11-09): 3.4.03 added biome spawns `dn/nnSdcsBandit01-03` on
+  `npcSdcsBanditGroupT1-T3`. gen_arsenal now treats its bandits (EntityAliveSDXV4 + bandit tag) as human pack NPCs
+  mapped to SC's raider of the same tier (`is_sdcs_bandit`, `sdcs_bandit_tier`), leaves its own bandit groups
+  (`npcSdcsBandit*`, the all-sentry POI guard groups) as they are, and removes their biome spawn entries. Regenerated
+  with `SC_GEN_GAME`=3.4 install: spawning.xml's remove gains the three groups (burnt_forest 32 -> 28 spawn lines, under
+  the 32-bit cap); entitygroups.xml's W0 lists follow 3.4.03's groups (its bandit sleeper groups now hold only its
+  tiered bandits by gamestage, so SC's raiders there are T1 at GS01/50, T2 at GS100/200, T3 at GS400/800; same 253
+  groups touched); entityclasses.xml gains the four DropQuality lines and the child list in the comment. blocks.xml and
+  Localization.csv were rewritten with the usual block move only, and restored.
+
+**AI (0-XNPCCore 3.4.03's utilityai.xml):**
+- X24 `UAI.UAIConsiderationSdcsLineOfFire.GetScore` postfix: RangedMeleeAttack now gates on SdcsLineOfFire + SdcsSeesShot
+  (the gun's full range) instead of SCore's InWeaponRange, where round sh's engage cap lives (ScMelee). The same rule
+  here: over `ScShooting.RangedCap` it scores 0 unless the target is shooting at it (`x24-line-of-fire-capped`, plus
+  round sh's capped / return-fire counters).
+- 3.4.03 turned SdcsNpcCore's **Flee** back on (weight 9: $Timid, 15 m, sight; no Stay, watch or home gate). SC writes
+  $Timid for its Cowardly people, so a coward on watch, a parked runner or an enclave's person at home would run. New
+  marker `sc_timid` (ScTraits, beside $Timid) and `UAIConsiderationScNotScTimid` appended to that Flee: SC's cowards keep
+  SC's own gated ScFlee/ScEncFlee only, as before 3.4.03; 0-XNPCCore's own timid survivors keep its Flee.
+- `ScNotOnWatch` appended to SdcsCover's TakeCover (6) and to SdcsNpcRangedAdvanced's HoldEngaged (whose 3.4.03 task
+  walks to cover up to 6 m from the post and opens doors): a guard on watch stays on the post. H1's gate still binds.
+- `SdcsHolsteredByOrder` (3.4.03: "put your weapon away" kept through a save) joins `ScOrders.VoiceMovementCvars`, so a
+  stationed member is armed at the post.
+- Left as is (FYI): UAI decisions now every 0.6 s (`SdcsUaiPacePatch`); ScEngage's mirror of the attack gates; the close-
+  range tick's new swaps (break tool, thrust weapon); followers board the player's vehicle and guard the death bag;
+  bandits no longer trigger sleeper rooms; the 12 new sentry groups are 0-XNPCCore's POI guard blocks'.
+
+**New ExpectedTargets:** `NPCChatComponent::TryDeductPayment`, `AvatarSdcsNpcController::SdcsBanditLineOnNewTarget`,
+`::SdcsPostRead`, `UAIConsiderationSdcsLineOfFire::GetScore` (149 -> 153 before round 25b). **Config:** `RaiderThrowChance`,
+`RaiderThrowT1`-`T3` (blocks.xml, after WildRaidersDespiteMods). README: 0-SCore 3.4.14+, 0-XNPCCore 3.4.03.
+**Checks:** XML replay against the installed 3.4.14 / 3.4.03 configs: every SC op matches (utilityai 25/25, entitygroups
+56/56, spawning 6/6), the three new conditionals land; the built DLL holds every new prefix/postfix (Cecil). Test steps:
+TESTING X2 (460-479).

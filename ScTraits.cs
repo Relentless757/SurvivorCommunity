@@ -118,8 +118,19 @@ namespace SurvivorCommunity
                 string buff = ResolveBuff(m.Traits[i], out exists);
                 if (exists && !npc.Buffs.HasBuff(buff)) npc.Buffs.AddBuff(buff);
             }
-            if (IsTimid(m) && npc.Buffs.GetCustomVar("$Timid") < 1f) npc.Buffs.SetCustomVar("$Timid", 1f);
+            if (IsTimid(m))
+            {
+                if (npc.Buffs.GetCustomVar("$Timid") < 1f) npc.Buffs.SetCustomVar("$Timid", 1f);
+                if (npc.Buffs.GetCustomVar(ScTimidCvar) < 1f) npc.Buffs.SetCustomVar(ScTimidCvar, 1f);   // X2
+            }
         }
+
+        /// <summary>
+        /// X2 (0-XNPCCore 3.4.03): marks a body whose $Timid SC wrote. 0-XNPCCore's own Flee (SdcsNpcCore, weight 9) is live
+        /// again and reads $Timid with no Stay, watch or home gate; UAIConsiderationScNotScTimid keeps it off these bodies,
+        /// whose flight is SC's ScFlee / ScEncFlee.
+        /// </summary>
+        public const string ScTimidCvar = "sc_timid";
 
         public static void RemoveBuffs(Member m, EntityAlive npc)
         {
@@ -130,6 +141,7 @@ namespace SurvivorCommunity
                 if (npc.Buffs.HasBuff(buff)) npc.Buffs.RemoveBuff(buff);
             }
             if (npc.Buffs.HasCustomVar("$Timid")) npc.Buffs.RemoveCustomVar("$Timid");
+            if (npc.Buffs.HasCustomVar(ScTimidCvar)) npc.Buffs.RemoveCustomVar(ScTimidCvar);
         }
 
         /// <summary>Removes every trait buff the config knows about (for an entity whose record is gone).</summary>
@@ -142,6 +154,7 @@ namespace SurvivorCommunity
                 if (npc.Buffs.HasBuff(buff)) npc.Buffs.RemoveBuff(buff);
             }
             if (npc.Buffs.HasCustomVar("$Timid")) npc.Buffs.RemoveCustomVar("$Timid");
+            if (npc.Buffs.HasCustomVar(ScTimidCvar)) npc.Buffs.RemoveCustomVar(ScTimidCvar);
         }
 
         /// <summary>Localized trait name ("scTrait&lt;Name&gt;", falling back to the raw name).</summary>

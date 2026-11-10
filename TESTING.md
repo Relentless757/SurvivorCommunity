@@ -1944,6 +1944,61 @@ spawn zombies with F6 (`dm` first); a walled base with residents who carry guns.
      on the `uai:` line): meanwhile `HoldEngaged (H1): held off - resting (moved back to the post in a fight, or strayed)`
      and Guard walks him home, then the defence goes on.
 
+**X2. Round 25: NPCCore 3.4.03 and SCore 3.4.14 (3.4)**
+
+Built 2026-11-09 on branch `ms/x2` (with round 25b's crafting fixes, `ms/x2c`), **not reviewed, not installed**: these
+steps wait for the install. Game 3.4 with 0-SCore 3.4.14 and 0-XNPCCore 3.4.03. Six of SC's hooks lost their target in the
+update (SC's own voices over Voice Control's lines, Voice Control kept quiet during SC's talk, the melee weapon choice);
+they are back. A member can no longer be charged by Voice Control's billing. SC's raiders don't say 0-XNPCCore's new TTS
+line on spotting you, raider bands attack again (3.4.03 made them stand at their walk point), raiders carry one thrown
+explosive by tier (your odds), 0-XNPCCore's own bandits no longer roam the biomes, the Shooting stars cap the shot again,
+Cowardly members only flee by SC's rules, and a guard on watch is not walked off the post. Set `DebugLogging` true in the
+3.4 install's SC `Config/blocks.xml`. `sc xnpc` prints every counter named below. A new world or a copy; `dm` for F6.
+
+460. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched` (no `MISSING`), no
+     `voice gate: ... not found` lines, and no `did not apply` line for SurvivorCommunity. `config:` lines show
+     `throws 0.25/0.45/0.7`.
+461. **SC's voice for Voice Control's replies.** Order a member who has an SC voice (a White, Black or Asian voice) with
+     the order wheel (`;`): Follow, Stay, Come here. The reply is their recorded SC voice with its caption, not the TTS
+     voice. `sc voice barks` counts it.
+462. **Voice Control keeps quiet during SC's talk.** Open SC's talk with a member and let their line play; Voice Control
+     does not speak over it (no second voice, no second subtitle). Push-to-talk a question to them during the talk: they
+     answer after SC's line.
+463. **No bill for members.** Tell a member "pay" or "yes" by voice (or type it in chat): no money leaves your inventory,
+     no "Much obliged" line. A companion you hired the vanilla way (not a member) still bills as before.
+464. **Raiders taunt once.** `sc spawn hostile` about 25 m away and let it see you: you hear SC's taunt in the raider's
+     recorded voice (or nothing, for a voice not recorded yet), never a second TTS combat line with a caption. `sc xnpc`:
+     `x22-bandit-line-sc-taunts` goes up.
+465. **A band attacks.** `sc band spawn raiders` on a road near you, then let it see you: the raiders close in, back off
+     and fight as before; they don't stand at one spot shooting from 1.5 m around it. `sc xnpc`: `x23-band-not-posted`
+     goes up.
+466. **A den holds its spots.** At a raider den or raider enclave (`sc enclave list`), approach from outside: the raiders
+     shoot from where they stand and walk back to their spots; step inside the den and they come at you (SC's home
+     defence).
+467. **Throwables by tier.** Spawn about ten raiders of each tier (`sc spawn hostile`, or at T3 gamestage) and look in
+     `sc xnpc`: `x2-throw-thrownAmmoMolotovCocktail`, `x2-throw-thrownAmmoPipeBomb`, `x2-throw-thrownGrenade` and
+     `x2-throw-none` - about a quarter of tier 1 raiders get a molotov and nothing else, about half of tier 2 carry
+     something, most tier 3 carry one (mostly grenades).
+468. **They throw.** Stand with two or three NPCs or zombies near you in front of raiders that carry one: a raider throws
+     at the group (0-XNPCCore's throw). A raider's explosive is gone when it dies (not in its bag).
+469. **Death-bag quality.** Kill tier 2 and tier 3 raiders until a bag holds a whole weapon: quality 2-3 at tier 2, 3-4
+     at tier 3.
+470. **No roaming 0-XNPCCore bandits.** Travel the biomes for an in-game day (WalkerSim2 off for this step if you can):
+     every wild raider is one of SC's (`sc raiders` lists them); no 0-XNPCCore bandit (npcSdcsBandit...) turns up.
+     POI sleeper raiders are SC's raiders, tier by gamestage.
+471. **Shooting stars cap the shot.** As round sh step 2: a 1-2 star member with a gun does not open fire at a zombie 25-30
+     m away; at 10 m she does. `sc xnpc`: `x24-line-of-fire-capped` goes up. A raider shooting at her from 30 m is
+     answered (return fire).
+472. **Cowards flee by SC's rules.** Give a member the Cowardly trait (or recruit one): a zombie at 10 m makes her run, but
+     not while on watch on a tower, and not on Stay. An enclave's Cowardly person at home stays home. `sc xnpc <her id>`'s
+     `uai:` line never shows `Flee`, only `ScFlee` / `ScEncFlee`.
+473. **A guard on watch stays up.** A resident on a watch post, raiders shooting at the base from outside: he shoots from
+     the post and never walks down to cover (`uai:` never `TakeCover` or a `HoldEngaged` walk).
+474. **Armed at the post.** Tell a follower "put your weapon away", station her at home, save and reload: she stands her
+     post with her weapon.
+475. **A swing blocked by bars.** A member with a spear or knife in her bag, a zombie behind bars or a fence: she switches
+     to the thrust weapon to stab through (`x6-thrust-xnpc` goes up); in the open she keeps her paired melee weapon.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

@@ -1041,6 +1041,19 @@ namespace SurvivorCommunity
         public static bool RaiderTurretsAsEnemies = true;
 #if SC_V34
         /// <summary>
+        /// X2 (round 25, 0-XNPCCore 3.4.03): a bandit raider's odds of carrying one thrown explosive, per tier (T1..T3), and
+        /// the item, by weight, per tier ("item:weight,item:weight"). Rolled once per body (ScBandits.RollThrowable).
+        /// </summary>
+        public static readonly float[] RaiderThrowChance = { 0.25f, 0.45f, 0.7f };
+        /// <summary>Declared before RaiderThrowItems: static fields initialize in the order they are written.</summary>
+        private static readonly string[] DefaultThrowItems =
+        {
+            "thrownAmmoMolotovCocktail:1",
+            "thrownAmmoMolotovCocktail:50,thrownAmmoPipeBomb:25,thrownGrenade:25",
+            "thrownGrenade:60,thrownAmmoPipeBomb:30,thrownAmmoMolotovCocktail:10",
+        };
+        public static readonly string[] RaiderThrowItems = (string[])DefaultThrowItems.Clone();
+        /// <summary>
         /// W2 (round 23, 3.4): SC's wild raider entries (spawning.xml's scRaiderWild/Town/City Day/Night, groups
         /// scRaiderGroupGS01/50/100) keep spawning when another mod - WalkerSim2, or any mod doing the same - turns the game's
         /// enemy biome spawns off to place its own zombies: SurvivorCommunity runs the game's own biome spawn step once more for
@@ -1218,6 +1231,8 @@ namespace SurvivorCommunity
             RaiderVanillaDoors = false;
             RaiderTurretsAsEnemies = true;
 #if SC_V34
+            RaiderThrowChance[0] = 0.25f; RaiderThrowChance[1] = 0.45f; RaiderThrowChance[2] = 0.7f;   // X2
+            for (int i = 0; i < RaiderThrowItems.Length; i++) RaiderThrowItems[i] = DefaultThrowItems[i];
             WildRaidersDespiteMods = true;         // W2 (ScWildRaiders.cs)
 #endif
             RaiderGearSets.Clear();
@@ -1402,6 +1417,38 @@ namespace SurvivorCommunity
         {
             return RaiderRangedShare[Math.Max(0, Math.Min(RaiderRangedShare.Length - 1, tier))];
         }
+#if SC_V34
+
+        /// <summary>X2: RaiderThrowChance for a class tier (0..2 = T1..T3, ScXnpc.TierOf).</summary>
+        public static float RaiderThrowChanceFor(int tier)
+        {
+            return RaiderThrowChance[Math.Max(0, Math.Min(RaiderThrowChance.Length - 1, tier))];
+        }
+
+        /// <summary>X2: RaiderThrowT1-T3 for a class tier.</summary>
+        public static string RaiderThrowItemsFor(int tier)
+        {
+            return RaiderThrowItems[Math.Max(0, Math.Min(RaiderThrowItems.Length - 1, tier))];
+        }
+
+        /// <summary>X2: a per-tier list of three floats in [0,1] ("0.25,0.45,0.7"); a short list repeats its last entry.</summary>
+        private static void ParseTierFloats(string key, string s, float[] into)
+        {
+            string[] parts = s.Split(',');
+            float last = -1f;
+            for (int i = 0; i < into.Length; i++)
+            {
+                float v;
+                if (i < parts.Length && float.TryParse(parts[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out v))
+                {
+                    if (v < 0f || v > 1f) { ScLog.Warn("config " + key + " entry " + v + " out of range [0,1], keeping " + into[i]); continue; }
+                    into[i] = last = v;
+                }
+                else if (i >= parts.Length && last >= 0f) into[i] = last;
+                else ScLog.Warn("config " + key + " '" + s + "': entry " + (i + 1) + " unreadable, keeping " + into[i]);
+            }
+        }
+#endif
 
         /// <summary>The armor sets a raider's clothes are rolled from: RaiderGearSets, or SurvivorGearSets when that is empty.</summary>
         public static List<string> GearSetsFor(bool raider)
@@ -2292,6 +2339,10 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("RaiderTurretsAsEnemies")) p.ParseBool("RaiderTurretsAsEnemies", ref raiderTurrets);
                 RaiderTurretsAsEnemies = raiderTurrets;
 #if SC_V34
+                string throwS;                       // X2 (the shared 's' is declared further down)
+                if (p.Values.TryGetValue("RaiderThrowChance", out throwS) && !string.IsNullOrEmpty(throwS)) ParseTierFloats("RaiderThrowChance", throwS, RaiderThrowChance);
+                for (int i = 0; i < RaiderThrowItems.Length; i++)
+                    if (p.Values.TryGetValue("RaiderThrowT" + (i + 1), out throwS) && throwS != null) RaiderThrowItems[i] = throwS.Trim();
                 bool wildRaiders = WildRaidersDespiteMods;   // W2 (ScWildRaiders.cs)
                 if (p.Values.ContainsKey("WildRaidersDespiteMods")) p.ParseBool("WildRaidersDespiteMods", ref wildRaiders);
                 WildRaidersDespiteMods = wildRaiders;
@@ -2405,6 +2456,7 @@ namespace SurvivorCommunity
                           + " levels=" + (RaiderXnpcLevels ? (RaiderLevelRegen ? "on" : "on, no regen") : "off") + " drop " + RaiderWeaponDropChance
                           + " vanillaDoors=" + RaiderVanillaDoors + " turretsAsEnemies=" + RaiderTurretsAsEnemies
 #if SC_V34
+                          + " throws " + string.Join("/", Array.ConvertAll(RaiderThrowChance, x => x.ToString("0.##", CultureInfo.InvariantCulture)))   // X2
                           + " wildDespiteMods=" + WildRaidersDespiteMods   // W2
 #endif
                           + " gearSets=" + (RaiderGearSets.Count > 0 ? RaiderGearSets.Count.ToString() : "survivors'")

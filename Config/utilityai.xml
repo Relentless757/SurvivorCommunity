@@ -418,4 +418,35 @@
 			</append>
 		</if>
 	</conditional>
+
+	<!--
+	  Round 25 (X2; 0-XNPCCore 3.4.03, only where each action exists).
+	  - SdcsNpcCore's Flee (weight 9: $Timid, 15 m, sight) is live again in 3.4.03, with no Stay, watch or home gate and
+	    above every SC action: a coward on a watch tower, a parked runner or an enclave's person at home would run.
+	    ScNotScTimid is 0 for the bodies whose $Timid SC wrote (sc_timid), whose flight stays SC's gated ScFlee / ScEncFlee;
+	    0-XNPCCore's own timid survivors keep this Flee.
+	  - SdcsCover's TakeCover (6) and HoldEngaged's new retake walk (3.4.03: to cover up to 6 m from the guard post, through
+	    doors) never take a guard on watch off the post: ScNotOnWatch (self only, as both actions allow).
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcCore&quot;]/action[@name=&quot;Flee&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcCore']/action[@name='Flee']">
+				<consideration class="ScNotScTimid, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsCover&quot;]/action[@name=&quot;TakeCover&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsCover']/action[@name='TakeCover']">
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;HoldEngaged&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='HoldEngaged']">
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
 </configs>

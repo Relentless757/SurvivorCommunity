@@ -532,6 +532,13 @@ PLACES = [("Wild", "Day",   "GS01",  None,                    "commercial,indust
 # SC's raider class (M10-D9; the raider's own weapons are then rolled by the DLL at that tier's cap). Its own biome
 # spawns of them stay removed (D10): ours call them.
 # Any other EntityAliveSDXV4 class in a group (none today) stops the generator, to be mapped by hand.
+#
+# Round X2 (0-XNPCCore 3.4.03): its own bandits (EntityAliveSDXV4 with the bandit tag: npcSdcsBandit{Melee,Ranged} at
+# tier 1, npcSdcsBandit{Male,Female}T2/T3, the sentries) now fill the framework's bandit sleeper groups (npcBandits*,
+# npcDuke*, npcWhisperers*, npcHarley*) by tier and roam the biomes through npcSdcsBanditGroupT1-T3. In a group W0
+# swaps they become SC's raider of the same tier, both sexes, as a pack NPC does. Its own bandit groups stay as they
+# are - npcSdcsBandit* (its biome tiers and their mates) and the sentry groups behind its POI guard spawn blocks - but
+# their biome <spawn> entries are removed: SC's raiders stay the only roaming raiders (the user's call, 2026-11-09).
 # ------------------------------------------------------------------------------------------------------------
 CLASS_INDEX = {}                                  # name -> element; the framework's definition wins over vanilla's
 for root in (xnpc_classes, ET.parse(os.path.join(VAN, "entityclasses.xml")).getroot()):
@@ -594,9 +601,25 @@ def is_pack_animal(name):
     """An NPC-framework animal (the NPC fox rides npcAnimalMeleeTemplate): dropped, never swapped."""
     return any(re.match(r"^npcAnimal", n) for n in class_chain(name))
 
+def is_sdcs_bandit(name):
+    """X2: one of 0-XNPCCore's own bandits (3.4.02+): an EntityAliveSDXV4 class with the bandit tag."""
+    return is_v4_npc(name) and "bandit" in [t.strip() for t in (class_prop(name, "Tags") or "").split(",")]
+
+def sdcs_bandit_tier(name):
+    """X2: its tier from the class name (npcSdcsBandit*T2 / *T3); the tier-1 classes carry none."""
+    m = re.search(r"T([23])$", name)
+    return int(m.group(1)) if m else 1
+
+def is_sdcs_bandit_group(gname, names):
+    """X2: one of 0-XNPCCore's own bandit groups, left as they are: its biome tiers and their mates (npcSdcsBandit*)
+    and the sentry groups its POI guard spawn blocks call (every member a sentry)."""
+    if gname.startswith("npcSdcsBandit"): return True
+    return bool(names) and all(is_sdcs_bandit(n) and "Sentry" in n for n in names)
+
 def swap_kind(name):
     """'human' (swap for ours), 'animal' (drop), or stop: a human pack NPC with no known framework weapon, or an
-    0-XNPCCore V4 class we do not own, would otherwise lose its share silently."""
+    0-XNPCCore V4 class we do not own, would otherwise lose its share silently. X2: 0-XNPCCore's own bandits are human."""
+    if is_sdcs_bandit(name): return "human"
     if is_v4_npc(name): raise SystemExit("W0: 0-XNPCCore class %s is in a spawn group and is not one of XNPC_SURVIVORS - map it by hand" % name)
     if framework_cat(name): return "human"
     if is_pack_animal(name): return "animal"
@@ -618,6 +641,10 @@ for grp in ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot().iter("enti
     # the group itself is left as it is (nothing else spawns it)
     if gname in xnpc_spawn_groups and any(n in XNPC_SURVIVORS for n, _ in ents) and gname not in w0_spawns:
         w0_spawns.append(gname)
+    # X2: the same for its own bandits' biome spawns; its own bandit groups stay as they are
+    if gname in xnpc_spawn_groups and any(is_sdcs_bandit(n) for n, _ in ents) and gname not in w0_spawns:
+        w0_spawns.append(gname)
+    if is_sdcs_bandit_group(gname, [n for n, _ in ents]): continue
     if not pack: continue
     if (grp.text or "").strip(): raise SystemExit("W0: %s holds flat-text entries - not handled" % gname)
     if any(e.tag != "e" for e in kids): raise SystemExit("W0: %s has non-<e> entries - not handled" % gname)
@@ -631,7 +658,7 @@ for grp in ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot().iter("enti
         w0_spawns.append(gname)
     # the group's side, not each NPC's: the framework files its one friendly Harley (npcHarleyKnife, an
     # EntityAliveSDX) among the bandits, and a survivor has no place in a bandit camp
-    bandits = sum(1 for n in humans if "EntityNPCBandit" in (class_prop(n, "Class") or ""))
+    bandits = sum(1 for n in humans if "EntityNPCBandit" in (class_prop(n, "Class") or "") or is_sdcs_bandit(n))
     hostile = bandits * 2 >= len(humans)
     if 0 < bandits < len(humans) and min(bandits, len(humans) - bandits) * 4 > len(humans):
         raise SystemExit("W0: %s mixes %d bandits with %d friendlies - pick its side by hand" % (gname, bandits, len(humans) - bandits))
@@ -644,7 +671,7 @@ for grp in ET.parse(os.path.join(XNPC, "entitygroups.xml")).getroot().iter("enti
         elif swap_kind(n) == "animal":
             subs = []                             # a pack animal inside a human group: dropped
         else:                                     # the class of its weapon's tier, the group's side (M10-D9)
-            tier = TOKEN_TIER[BASE_TOKEN[framework_cat(n)]] + 1
+            tier = sdcs_bandit_tier(n) if is_sdcs_bandit(n) else TOKEN_TIER[BASE_TOKEN[framework_cat(n)]] + 1
             subs = [((raider if hostile else xnpc_survivor)(male, tier), p / 2.0) for male in (True, False)]
         for sn, sp in subs:
             if sn != "none" and is_pack_npc(sn): raise SystemExit("W0: %s still holds pack NPC %s" % (gname, sn))
@@ -987,6 +1014,9 @@ BANDIT_TEMPLATE = {True: "scRaiderBanditMale", False: "scRaiderBanditFemale"}
 BANDIT_MARKER = "ScBanditRaider"                     # ScXnpc.BanditMarker in the DLL
 BANDIT_KIT = {1: "meleeWpnClubT0WoodenClub", 2: "meleeWpnClubT1BaseballBat", 3: "meleeWpnBladeT3Machete"}   # Q14
 BANDIT_LOOT_BAG = {1: None, 2: "EntityLootContainerStrong", 3: "EntityLootContainerBoss"}                   # Q3 (T1: the bandit's own)
+# X2 (0-XNPCCore 3.4.03): a dead bandit's bag holds its weapon or the weapon's parts half the time, a whole weapon at
+# SdcsDropQuality - 1-2 on the tier-1 bandits SC's templates extend, 2-3 and 3-4 on 0-XNPCCore's own tier 2 and 3 bandits
+DROP_QUALITY = {1: None, 2: "2-3", 3: "3-4"}
 # Q1(a): blocks.xml's RaiderRangedShare 0.3,0.4,0.5, RaiderFirearmChance 0.12 and RaiderFirearmChanceT3 0.85 when R1 was
 # made - a ranged weapon at 30/40/50% by tier, of those a firearm at 12/12/85% (else a bow or crossbow), the rest melee
 BANDIT_RANGED_SHARE = (0.3, 0.4, 0.5)
@@ -1189,7 +1219,7 @@ BANDIT_LEAF_XML = """\t\t\t\t<entity_class name="%(name)s" extends="%(template)s
 \t\t\t\t\t\t<property name="GameModeSurvivalSP" value="%(kit)s"/>
 \t\t\t\t\t\t<property name="GameModeSurvivalMP" value="%(kit)s"/>
 \t\t\t\t\t</property>
-%(loot)s\t\t\t\t\t<property name="SdcsWeapons" value="%(weapons)s"/>
+%(loot)s%(drop)s\t\t\t\t\t<property name="SdcsWeapons" value="%(weapons)s"/>
 \t\t\t\t</entity_class>
 """
 
@@ -1213,7 +1243,8 @@ def bandit_block():
             bag = BANDIT_LOOT_BAG[tier]
             out.append(BANDIT_LEAF_XML % {"name": n, "template": BANDIT_TEMPLATE[male], "names": NAMES[("r", male)], "tier": tier,
                                           "kit": BANDIT_KIT[tier], "weapons": ",".join(bandit_lists[(n, "vanilla")]),
-                                          "loot": ('\t\t\t\t\t<property name="LootDropEntityClass" value="%s"/>\n' % bag) if bag else ""})
+                                          "loot": ('\t\t\t\t\t<property name="LootDropEntityClass" value="%s"/>\n' % bag) if bag else "",
+                                          "drop": ('\t\t\t\t\t<property name="SdcsDropQuality" value="%s"/>\n' % DROP_QUALITY[tier]) if DROP_QUALITY[tier] else ""})
     out.append("\t\t\t</append>\n")
     out.append("\t\t\t<!-- with IZY Classic: the same lists, its guns (and the entries that keep the shares) at the end -->\n")
     out.append('\t\t\t<conditional>\n\t\t\t\t<if cond="%s">\n' % IZY_COND)

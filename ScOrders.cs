@@ -35,12 +35,15 @@ namespace SurvivorCommunity
 #if SC_V34
         // 3.4: and 0-XNPCCore 3.4's job orders - a field job (SdcsLootMode 1-9: loot, harvest, mine, dig, pick, butcher,
         // repair, base keeper; its filters), the party-medic role, a vehicle order and a remembered base - which would keep
-        // a stationed member looting or driving over their post (VCCommandRouter sets them, nothing at a post clears them)
+        // a stationed member looting or driving over their post (VCCommandRouter sets them, nothing at a post clears them).
+        // X2 (0-XNPCCore 3.4.03): SdcsHolsteredByOrder, "put your weapon away" kept through a save (the world-entry re-arm
+        // leaves the hand bare while it is set; only Voice Control's dismiss clears it), so a resident is armed at the post
         public static readonly string[] VoiceMovementCvars =
         {
             "vcFormationDist", "vcFormationAngle", "vcMoveToActive", "vcMoveToFailed", "vcMoveToX", "vcMoveToY", "vcMoveToZ",
             "vcTargetX", "vcTargetY", "vcTargetZ", "CrouchOverride", "$XVC_PendingCommand", "$XVC_LadderHold", "$XVC_LadderFollowMode",
-            "SdcsLootMode", "SdcsMedicRole", "SdcsVehicleOrder", "SdcsRememberBase", "SdcsMineFilter", "SdcsPickFilter"
+            "SdcsLootMode", "SdcsMedicRole", "SdcsVehicleOrder", "SdcsRememberBase", "SdcsMineFilter", "SdcsPickFilter",
+            "SdcsHolsteredByOrder"
         };
 #else
         public static readonly string[] VoiceMovementCvars =

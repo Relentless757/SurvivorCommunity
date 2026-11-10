@@ -68,48 +68,70 @@
 	     raider class. 0-XNPCCore's own survivors are ours and stay where its groups list them. Groups that also hold
 	     vanilla animals only lose the pack NPC. 240 groups swapped, 13 trimmed. -->
 
-	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS01' or @name='npcBanditsAllGroupGS100' or @name='npcBanditsAllGroupGS50' or @name='npcDecoTrapGroupGS01' or @name='npcDecoTrapGroupGS100' or @name='npcDecoTrapGroupGS50' or @name='npcDukeAllGroupGS01' or @name='npcDukeAllGroupGS100' or @name='npcDukeAllGroupGS50' or @name='npcEnemyAllGroupGS01' or @name='npcEnemyAllGroupGS100' or @name='npcEnemyAllGroupGS50' or @name='npcFantasyAllGroupGS01' or @name='npcFantasyAllGroupGS100' or @name='npcFantasyAllGroupGS50' or @name='npcMechAllGroupGS01' or @name='npcMechAllGroupGS100' or @name='npcMechAllGroupGS50' or @name='npcWhisperersAllGroupGS01' or @name='npcWhisperersAllGroupGS100' or @name='npcWhisperersAllGroupGS50']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS01' or @name='npcBanditsAllGroupGS100' or @name='npcBanditsAllGroupGS50' or @name='npcDecoTrapGroupGS01' or @name='npcDecoTrapGroupGS100' or @name='npcDecoTrapGroupGS50' or @name='npcDukeAllGroupGS01' or @name='npcDukeAllGroupGS100' or @name='npcDukeAllGroupGS50' or @name='npcEnemyAllGroupGS01' or @name='npcEnemyAllGroupGS100' or @name='npcEnemyAllGroupGS50' or @name='npcFantasyAllGroupGS01' or @name='npcFantasyAllGroupGS100' or @name='npcFantasyAllGroupGS50' or @name='npcMechAllGroupGS01' or @name='npcMechAllGroupGS100' or @name='npcMechAllGroupGS50' or @name='npcWhisperersAllGroupGS01' or @name='npcWhisperersAllGroupGS100' or @name='npcWhisperersAllGroupGS50']">
-		<e n="scRaiderMaleT1" p="0.0045"/>
-		<e n="scRaiderFemaleT1" p="0.0045"/>
-		<e n="scRaiderMaleT3" p="0.0025"/>
-		<e n="scRaiderFemaleT3" p="0.0025"/>
-		<e n="scRaiderMaleT2" p="0.0005"/>
-		<e n="scRaiderFemaleT2" p="0.0005"/>
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS01' or @name='npcBanditsAllGroupGS50' or @name='npcDecoTrapGroupGS01' or @name='npcDecoTrapGroupGS50' or @name='npcDukeAllGroupGS01' or @name='npcDukeAllGroupGS50' or @name='npcEnemyAllGroupGS01' or @name='npcEnemyAllGroupGS50' or @name='npcFantasyAllGroupGS01' or @name='npcFantasyAllGroupGS50' or @name='npcMechAllGroupGS01' or @name='npcMechAllGroupGS50' or @name='npcWhisperersAllGroupGS01' or @name='npcWhisperersAllGroupGS50']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS01' or @name='npcBanditsAllGroupGS50' or @name='npcDecoTrapGroupGS01' or @name='npcDecoTrapGroupGS50' or @name='npcDukeAllGroupGS01' or @name='npcDukeAllGroupGS50' or @name='npcEnemyAllGroupGS01' or @name='npcEnemyAllGroupGS50' or @name='npcFantasyAllGroupGS01' or @name='npcFantasyAllGroupGS50' or @name='npcMechAllGroupGS01' or @name='npcMechAllGroupGS50' or @name='npcWhisperersAllGroupGS01' or @name='npcWhisperersAllGroupGS50']">
+		<e n="scRaiderMaleT1" p="0.0075"/>
+		<e n="scRaiderFemaleT1" p="0.0075"/>
 	</append>
 
-	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS200' or @name='npcBanditsAllGroupGS400' or @name='npcBanditsAllGroupGS800' or @name='npcDecoTrapGroupGS200' or @name='npcDecoTrapGroupGS400' or @name='npcDecoTrapGroupGS800' or @name='npcDukeAllGroupGS200' or @name='npcDukeAllGroupGS400' or @name='npcDukeAllGroupGS800' or @name='npcEnemyAllGroupGS200' or @name='npcEnemyAllGroupGS400' or @name='npcEnemyAllGroupGS800' or @name='npcFantasyAllGroupGS200' or @name='npcFantasyAllGroupGS400' or @name='npcFantasyAllGroupGS800' or @name='npcMechAllGroupGS200' or @name='npcMechAllGroupGS400' or @name='npcMechAllGroupGS800' or @name='npcWhisperersAllGroupGS200' or @name='npcWhisperersAllGroupGS400' or @name='npcWhisperersAllGroupGS800']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS200' or @name='npcBanditsAllGroupGS400' or @name='npcBanditsAllGroupGS800' or @name='npcDecoTrapGroupGS200' or @name='npcDecoTrapGroupGS400' or @name='npcDecoTrapGroupGS800' or @name='npcDukeAllGroupGS200' or @name='npcDukeAllGroupGS400' or @name='npcDukeAllGroupGS800' or @name='npcEnemyAllGroupGS200' or @name='npcEnemyAllGroupGS400' or @name='npcEnemyAllGroupGS800' or @name='npcFantasyAllGroupGS200' or @name='npcFantasyAllGroupGS400' or @name='npcFantasyAllGroupGS800' or @name='npcMechAllGroupGS200' or @name='npcMechAllGroupGS400' or @name='npcMechAllGroupGS800' or @name='npcWhisperersAllGroupGS200' or @name='npcWhisperersAllGroupGS400' or @name='npcWhisperersAllGroupGS800']">
-		<e n="scRaiderMaleT1" p="0.0055"/>
-		<e n="scRaiderFemaleT1" p="0.0055"/>
-		<e n="scRaiderMaleT3" p="0.005"/>
-		<e n="scRaiderFemaleT3" p="0.005"/>
-		<e n="scRaiderMaleT2" p="0.001"/>
-		<e n="scRaiderFemaleT2" p="0.001"/>
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS100' or @name='npcDecoTrapGroupGS100' or @name='npcDukeAllGroupGS100' or @name='npcEnemyAllGroupGS100' or @name='npcFantasyAllGroupGS100' or @name='npcMechAllGroupGS100' or @name='npcWhisperersAllGroupGS100']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS100' or @name='npcDecoTrapGroupGS100' or @name='npcDukeAllGroupGS100' or @name='npcEnemyAllGroupGS100' or @name='npcFantasyAllGroupGS100' or @name='npcMechAllGroupGS100' or @name='npcWhisperersAllGroupGS100']">
+		<e n="scRaiderMaleT2" p="0.0075"/>
+		<e n="scRaiderFemaleT2" p="0.0075"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS200' or @name='npcDecoTrapGroupGS200' or @name='npcDukeAllGroupGS200' or @name='npcEnemyAllGroupGS200' or @name='npcFantasyAllGroupGS200' or @name='npcMechAllGroupGS200' or @name='npcWhisperersAllGroupGS200']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS200' or @name='npcDecoTrapGroupGS200' or @name='npcDukeAllGroupGS200' or @name='npcEnemyAllGroupGS200' or @name='npcFantasyAllGroupGS200' or @name='npcMechAllGroupGS200' or @name='npcWhisperersAllGroupGS200']">
+		<e n="scRaiderMaleT2" p="0.0115"/>
+		<e n="scRaiderFemaleT2" p="0.0115"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS400' or @name='npcBanditsAllGroupGS800' or @name='npcDecoTrapGroupGS400' or @name='npcDecoTrapGroupGS800' or @name='npcDukeAllGroupGS400' or @name='npcDukeAllGroupGS800' or @name='npcEnemyAllGroupGS400' or @name='npcEnemyAllGroupGS800' or @name='npcFantasyAllGroupGS400' or @name='npcFantasyAllGroupGS800' or @name='npcMechAllGroupGS400' or @name='npcMechAllGroupGS800' or @name='npcWhisperersAllGroupGS400' or @name='npcWhisperersAllGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsAllGroupGS400' or @name='npcBanditsAllGroupGS800' or @name='npcDecoTrapGroupGS400' or @name='npcDecoTrapGroupGS800' or @name='npcDukeAllGroupGS400' or @name='npcDukeAllGroupGS800' or @name='npcEnemyAllGroupGS400' or @name='npcEnemyAllGroupGS800' or @name='npcFantasyAllGroupGS400' or @name='npcFantasyAllGroupGS800' or @name='npcMechAllGroupGS400' or @name='npcMechAllGroupGS800' or @name='npcWhisperersAllGroupGS400' or @name='npcWhisperersAllGroupGS800']">
+		<e n="scRaiderMaleT3" p="0.0115"/>
+		<e n="scRaiderFemaleT3" p="0.0115"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsBossGroupGS01' or @name='npcBanditsBossGroupGS100' or @name='npcBanditsBossGroupGS200' or @name='npcBanditsBossGroupGS400' or @name='npcBanditsBossGroupGS50' or @name='npcBanditsBossGroupGS800' or @name='npcDukeBossGroupGS01' or @name='npcDukeBossGroupGS100' or @name='npcDukeBossGroupGS200' or @name='npcDukeBossGroupGS400' or @name='npcDukeBossGroupGS50' or @name='npcDukeBossGroupGS800' or @name='npcEnemyBossGroupGS01' or @name='npcEnemyBossGroupGS100' or @name='npcEnemyBossGroupGS200' or @name='npcEnemyBossGroupGS400' or @name='npcEnemyBossGroupGS50' or @name='npcEnemyBossGroupGS800' or @name='npcFantasyBossGroupGS01' or @name='npcFantasyBossGroupGS100' or @name='npcFantasyBossGroupGS200' or @name='npcFantasyBossGroupGS400' or @name='npcFantasyBossGroupGS50' or @name='npcFantasyBossGroupGS800' or @name='npcMechBossGroupGS01' or @name='npcMechBossGroupGS100' or @name='npcMechBossGroupGS200' or @name='npcMechBossGroupGS400' or @name='npcMechBossGroupGS50' or @name='npcMechBossGroupGS800' or @name='npcWhisperersBossGroupGS01' or @name='npcWhisperersBossGroupGS100' or @name='npcWhisperersBossGroupGS200' or @name='npcWhisperersBossGroupGS400' or @name='npcWhisperersBossGroupGS50' or @name='npcWhisperersBossGroupGS800']/*"/>
 	<append xpath="/entitygroups/entitygroup[@name='npcBanditsBossGroupGS01' or @name='npcBanditsBossGroupGS100' or @name='npcBanditsBossGroupGS200' or @name='npcBanditsBossGroupGS400' or @name='npcBanditsBossGroupGS50' or @name='npcBanditsBossGroupGS800' or @name='npcDukeBossGroupGS01' or @name='npcDukeBossGroupGS100' or @name='npcDukeBossGroupGS200' or @name='npcDukeBossGroupGS400' or @name='npcDukeBossGroupGS50' or @name='npcDukeBossGroupGS800' or @name='npcEnemyBossGroupGS01' or @name='npcEnemyBossGroupGS100' or @name='npcEnemyBossGroupGS200' or @name='npcEnemyBossGroupGS400' or @name='npcEnemyBossGroupGS50' or @name='npcEnemyBossGroupGS800' or @name='npcFantasyBossGroupGS01' or @name='npcFantasyBossGroupGS100' or @name='npcFantasyBossGroupGS200' or @name='npcFantasyBossGroupGS400' or @name='npcFantasyBossGroupGS50' or @name='npcFantasyBossGroupGS800' or @name='npcMechBossGroupGS01' or @name='npcMechBossGroupGS100' or @name='npcMechBossGroupGS200' or @name='npcMechBossGroupGS400' or @name='npcMechBossGroupGS50' or @name='npcMechBossGroupGS800' or @name='npcWhisperersBossGroupGS01' or @name='npcWhisperersBossGroupGS100' or @name='npcWhisperersBossGroupGS200' or @name='npcWhisperersBossGroupGS400' or @name='npcWhisperersBossGroupGS50' or @name='npcWhisperersBossGroupGS800']">
-		<e n="scRaiderMaleT3" p="0.0055"/>
-		<e n="scRaiderFemaleT3" p="0.0055"/>
-		<e n="scRaiderMaleT2" p="0.001"/>
-		<e n="scRaiderFemaleT2" p="0.001"/>
+		<e n="scRaiderMaleT3" p="0.0065"/>
+		<e n="scRaiderFemaleT3" p="0.0065"/>
 	</append>
 
-	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsMeleeGroupGS01' or @name='npcBanditsMeleeGroupGS100' or @name='npcBanditsMeleeGroupGS200' or @name='npcBanditsMeleeGroupGS400' or @name='npcBanditsMeleeGroupGS50' or @name='npcBanditsMeleeGroupGS800' or @name='npcDukeMeleeGroupGS01' or @name='npcDukeMeleeGroupGS100' or @name='npcDukeMeleeGroupGS200' or @name='npcDukeMeleeGroupGS400' or @name='npcDukeMeleeGroupGS50' or @name='npcDukeMeleeGroupGS800' or @name='npcEnemyMeleeGroupGS01' or @name='npcEnemyMeleeGroupGS100' or @name='npcEnemyMeleeGroupGS200' or @name='npcEnemyMeleeGroupGS400' or @name='npcEnemyMeleeGroupGS50' or @name='npcEnemyMeleeGroupGS800' or @name='npcFantasyMeleeGroupGS01' or @name='npcFantasyMeleeGroupGS100' or @name='npcFantasyMeleeGroupGS200' or @name='npcFantasyMeleeGroupGS400' or @name='npcFantasyMeleeGroupGS50' or @name='npcFantasyMeleeGroupGS800' or @name='npcMechMeleeGroupGS01' or @name='npcMechMeleeGroupGS100' or @name='npcMechMeleeGroupGS200' or @name='npcMechMeleeGroupGS400' or @name='npcMechMeleeGroupGS50' or @name='npcMechMeleeGroupGS800' or @name='npcWhisperersMeleeGroupGS01' or @name='npcWhisperersMeleeGroupGS100' or @name='npcWhisperersMeleeGroupGS200' or @name='npcWhisperersMeleeGroupGS400' or @name='npcWhisperersMeleeGroupGS50' or @name='npcWhisperersMeleeGroupGS800']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcBanditsMeleeGroupGS01' or @name='npcBanditsMeleeGroupGS100' or @name='npcBanditsMeleeGroupGS200' or @name='npcBanditsMeleeGroupGS400' or @name='npcBanditsMeleeGroupGS50' or @name='npcBanditsMeleeGroupGS800' or @name='npcDukeMeleeGroupGS01' or @name='npcDukeMeleeGroupGS100' or @name='npcDukeMeleeGroupGS200' or @name='npcDukeMeleeGroupGS400' or @name='npcDukeMeleeGroupGS50' or @name='npcDukeMeleeGroupGS800' or @name='npcEnemyMeleeGroupGS01' or @name='npcEnemyMeleeGroupGS100' or @name='npcEnemyMeleeGroupGS200' or @name='npcEnemyMeleeGroupGS400' or @name='npcEnemyMeleeGroupGS50' or @name='npcEnemyMeleeGroupGS800' or @name='npcFantasyMeleeGroupGS01' or @name='npcFantasyMeleeGroupGS100' or @name='npcFantasyMeleeGroupGS200' or @name='npcFantasyMeleeGroupGS400' or @name='npcFantasyMeleeGroupGS50' or @name='npcFantasyMeleeGroupGS800' or @name='npcMechMeleeGroupGS01' or @name='npcMechMeleeGroupGS100' or @name='npcMechMeleeGroupGS200' or @name='npcMechMeleeGroupGS400' or @name='npcMechMeleeGroupGS50' or @name='npcMechMeleeGroupGS800' or @name='npcWhisperersMeleeGroupGS01' or @name='npcWhisperersMeleeGroupGS100' or @name='npcWhisperersMeleeGroupGS200' or @name='npcWhisperersMeleeGroupGS400' or @name='npcWhisperersMeleeGroupGS50' or @name='npcWhisperersMeleeGroupGS800']">
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsMeleeGroupGS01' or @name='npcBanditsMeleeGroupGS50' or @name='npcDukeMeleeGroupGS01' or @name='npcDukeMeleeGroupGS50' or @name='npcEnemyMeleeGroupGS01' or @name='npcEnemyMeleeGroupGS50' or @name='npcFantasyMeleeGroupGS01' or @name='npcFantasyMeleeGroupGS50' or @name='npcMechMeleeGroupGS01' or @name='npcMechMeleeGroupGS50' or @name='npcWhisperersMeleeGroupGS01' or @name='npcWhisperersMeleeGroupGS50']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsMeleeGroupGS01' or @name='npcBanditsMeleeGroupGS50' or @name='npcDukeMeleeGroupGS01' or @name='npcDukeMeleeGroupGS50' or @name='npcEnemyMeleeGroupGS01' or @name='npcEnemyMeleeGroupGS50' or @name='npcFantasyMeleeGroupGS01' or @name='npcFantasyMeleeGroupGS50' or @name='npcMechMeleeGroupGS01' or @name='npcMechMeleeGroupGS50' or @name='npcWhisperersMeleeGroupGS01' or @name='npcWhisperersMeleeGroupGS50']">
 		<e n="scRaiderMaleT1" p="0.0035"/>
 		<e n="scRaiderFemaleT1" p="0.0035"/>
 	</append>
 
-	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsRangedGroupGS01' or @name='npcBanditsRangedGroupGS100' or @name='npcBanditsRangedGroupGS200' or @name='npcBanditsRangedGroupGS400' or @name='npcBanditsRangedGroupGS50' or @name='npcBanditsRangedGroupGS800' or @name='npcDukeRangedGroupGS01' or @name='npcDukeRangedGroupGS100' or @name='npcDukeRangedGroupGS200' or @name='npcDukeRangedGroupGS400' or @name='npcDukeRangedGroupGS50' or @name='npcDukeRangedGroupGS800' or @name='npcEnemyRangedGroupGS01' or @name='npcEnemyRangedGroupGS100' or @name='npcEnemyRangedGroupGS200' or @name='npcEnemyRangedGroupGS400' or @name='npcEnemyRangedGroupGS50' or @name='npcEnemyRangedGroupGS800' or @name='npcFantasyRangedGroupGS01' or @name='npcFantasyRangedGroupGS100' or @name='npcFantasyRangedGroupGS200' or @name='npcFantasyRangedGroupGS400' or @name='npcFantasyRangedGroupGS50' or @name='npcFantasyRangedGroupGS800' or @name='npcMechRangedGroupGS01' or @name='npcMechRangedGroupGS100' or @name='npcMechRangedGroupGS200' or @name='npcMechRangedGroupGS400' or @name='npcMechRangedGroupGS50' or @name='npcMechRangedGroupGS800' or @name='npcWhisperersRangedGroupGS01' or @name='npcWhisperersRangedGroupGS100' or @name='npcWhisperersRangedGroupGS200' or @name='npcWhisperersRangedGroupGS400' or @name='npcWhisperersRangedGroupGS50' or @name='npcWhisperersRangedGroupGS800']/*"/>
-	<append xpath="/entitygroups/entitygroup[@name='npcBanditsRangedGroupGS01' or @name='npcBanditsRangedGroupGS100' or @name='npcBanditsRangedGroupGS200' or @name='npcBanditsRangedGroupGS400' or @name='npcBanditsRangedGroupGS50' or @name='npcBanditsRangedGroupGS800' or @name='npcDukeRangedGroupGS01' or @name='npcDukeRangedGroupGS100' or @name='npcDukeRangedGroupGS200' or @name='npcDukeRangedGroupGS400' or @name='npcDukeRangedGroupGS50' or @name='npcDukeRangedGroupGS800' or @name='npcEnemyRangedGroupGS01' or @name='npcEnemyRangedGroupGS100' or @name='npcEnemyRangedGroupGS200' or @name='npcEnemyRangedGroupGS400' or @name='npcEnemyRangedGroupGS50' or @name='npcEnemyRangedGroupGS800' or @name='npcFantasyRangedGroupGS01' or @name='npcFantasyRangedGroupGS100' or @name='npcFantasyRangedGroupGS200' or @name='npcFantasyRangedGroupGS400' or @name='npcFantasyRangedGroupGS50' or @name='npcFantasyRangedGroupGS800' or @name='npcMechRangedGroupGS01' or @name='npcMechRangedGroupGS100' or @name='npcMechRangedGroupGS200' or @name='npcMechRangedGroupGS400' or @name='npcMechRangedGroupGS50' or @name='npcMechRangedGroupGS800' or @name='npcWhisperersRangedGroupGS01' or @name='npcWhisperersRangedGroupGS100' or @name='npcWhisperersRangedGroupGS200' or @name='npcWhisperersRangedGroupGS400' or @name='npcWhisperersRangedGroupGS50' or @name='npcWhisperersRangedGroupGS800']">
-		<e n="scRaiderMaleT1" p="0.002"/>
-		<e n="scRaiderFemaleT1" p="0.002"/>
-		<e n="scRaiderMaleT3" p="0.005"/>
-		<e n="scRaiderFemaleT3" p="0.005"/>
-		<e n="scRaiderMaleT2" p="0.001"/>
-		<e n="scRaiderFemaleT2" p="0.001"/>
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsMeleeGroupGS100' or @name='npcBanditsMeleeGroupGS200' or @name='npcDukeMeleeGroupGS100' or @name='npcDukeMeleeGroupGS200' or @name='npcEnemyMeleeGroupGS100' or @name='npcEnemyMeleeGroupGS200' or @name='npcFantasyMeleeGroupGS100' or @name='npcFantasyMeleeGroupGS200' or @name='npcMechMeleeGroupGS100' or @name='npcMechMeleeGroupGS200' or @name='npcWhisperersMeleeGroupGS100' or @name='npcWhisperersMeleeGroupGS200']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsMeleeGroupGS100' or @name='npcBanditsMeleeGroupGS200' or @name='npcDukeMeleeGroupGS100' or @name='npcDukeMeleeGroupGS200' or @name='npcEnemyMeleeGroupGS100' or @name='npcEnemyMeleeGroupGS200' or @name='npcFantasyMeleeGroupGS100' or @name='npcFantasyMeleeGroupGS200' or @name='npcMechMeleeGroupGS100' or @name='npcMechMeleeGroupGS200' or @name='npcWhisperersMeleeGroupGS100' or @name='npcWhisperersMeleeGroupGS200']">
+		<e n="scRaiderMaleT2" p="0.0035"/>
+		<e n="scRaiderFemaleT2" p="0.0035"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsMeleeGroupGS400' or @name='npcBanditsMeleeGroupGS800' or @name='npcDukeMeleeGroupGS400' or @name='npcDukeMeleeGroupGS800' or @name='npcEnemyMeleeGroupGS400' or @name='npcEnemyMeleeGroupGS800' or @name='npcFantasyMeleeGroupGS400' or @name='npcFantasyMeleeGroupGS800' or @name='npcMechMeleeGroupGS400' or @name='npcMechMeleeGroupGS800' or @name='npcWhisperersMeleeGroupGS400' or @name='npcWhisperersMeleeGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsMeleeGroupGS400' or @name='npcBanditsMeleeGroupGS800' or @name='npcDukeMeleeGroupGS400' or @name='npcDukeMeleeGroupGS800' or @name='npcEnemyMeleeGroupGS400' or @name='npcEnemyMeleeGroupGS800' or @name='npcFantasyMeleeGroupGS400' or @name='npcFantasyMeleeGroupGS800' or @name='npcMechMeleeGroupGS400' or @name='npcMechMeleeGroupGS800' or @name='npcWhisperersMeleeGroupGS400' or @name='npcWhisperersMeleeGroupGS800']">
+		<e n="scRaiderMaleT3" p="0.0035"/>
+		<e n="scRaiderFemaleT3" p="0.0035"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsRangedGroupGS01' or @name='npcBanditsRangedGroupGS50' or @name='npcDukeRangedGroupGS01' or @name='npcDukeRangedGroupGS50' or @name='npcEnemyRangedGroupGS01' or @name='npcEnemyRangedGroupGS50' or @name='npcFantasyRangedGroupGS01' or @name='npcFantasyRangedGroupGS50' or @name='npcMechRangedGroupGS01' or @name='npcMechRangedGroupGS50' or @name='npcWhisperersRangedGroupGS01' or @name='npcWhisperersRangedGroupGS50']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsRangedGroupGS01' or @name='npcBanditsRangedGroupGS50' or @name='npcDukeRangedGroupGS01' or @name='npcDukeRangedGroupGS50' or @name='npcEnemyRangedGroupGS01' or @name='npcEnemyRangedGroupGS50' or @name='npcFantasyRangedGroupGS01' or @name='npcFantasyRangedGroupGS50' or @name='npcMechRangedGroupGS01' or @name='npcMechRangedGroupGS50' or @name='npcWhisperersRangedGroupGS01' or @name='npcWhisperersRangedGroupGS50']">
+		<e n="scRaiderMaleT1" p="0.008"/>
+		<e n="scRaiderFemaleT1" p="0.008"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsRangedGroupGS100' or @name='npcBanditsRangedGroupGS200' or @name='npcDukeRangedGroupGS100' or @name='npcDukeRangedGroupGS200' or @name='npcEnemyRangedGroupGS100' or @name='npcEnemyRangedGroupGS200' or @name='npcFantasyRangedGroupGS100' or @name='npcFantasyRangedGroupGS200' or @name='npcMechRangedGroupGS100' or @name='npcMechRangedGroupGS200' or @name='npcWhisperersRangedGroupGS100' or @name='npcWhisperersRangedGroupGS200']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsRangedGroupGS100' or @name='npcBanditsRangedGroupGS200' or @name='npcDukeRangedGroupGS100' or @name='npcDukeRangedGroupGS200' or @name='npcEnemyRangedGroupGS100' or @name='npcEnemyRangedGroupGS200' or @name='npcFantasyRangedGroupGS100' or @name='npcFantasyRangedGroupGS200' or @name='npcMechRangedGroupGS100' or @name='npcMechRangedGroupGS200' or @name='npcWhisperersRangedGroupGS100' or @name='npcWhisperersRangedGroupGS200']">
+		<e n="scRaiderMaleT2" p="0.008"/>
+		<e n="scRaiderFemaleT2" p="0.008"/>
+	</append>
+
+	<remove xpath="/entitygroups/entitygroup[@name='npcBanditsRangedGroupGS400' or @name='npcBanditsRangedGroupGS800' or @name='npcDukeRangedGroupGS400' or @name='npcDukeRangedGroupGS800' or @name='npcEnemyRangedGroupGS400' or @name='npcEnemyRangedGroupGS800' or @name='npcFantasyRangedGroupGS400' or @name='npcFantasyRangedGroupGS800' or @name='npcMechRangedGroupGS400' or @name='npcMechRangedGroupGS800' or @name='npcWhisperersRangedGroupGS400' or @name='npcWhisperersRangedGroupGS800']/*"/>
+	<append xpath="/entitygroups/entitygroup[@name='npcBanditsRangedGroupGS400' or @name='npcBanditsRangedGroupGS800' or @name='npcDukeRangedGroupGS400' or @name='npcDukeRangedGroupGS800' or @name='npcEnemyRangedGroupGS400' or @name='npcEnemyRangedGroupGS800' or @name='npcFantasyRangedGroupGS400' or @name='npcFantasyRangedGroupGS800' or @name='npcMechRangedGroupGS400' or @name='npcMechRangedGroupGS800' or @name='npcWhisperersRangedGroupGS400' or @name='npcWhisperersRangedGroupGS800']">
+		<e n="scRaiderMaleT3" p="0.008"/>
+		<e n="scRaiderFemaleT3" p="0.008"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcDecoRescueGroupGS01' or @name='npcDecoRescueGroupGS100' or @name='npcDecoRescueGroupGS50' or @name='npcWhiteriverAllGroupGS01' or @name='npcWhiteriverAllGroupGS100' or @name='npcWhiteriverAllGroupGS50']/*"/>
@@ -157,7 +179,7 @@
 		<e n="npcSdcsSurvivorMaleT1" p="1.15"/>
 		<e n="npcSdcsSurvivorFemaleT1" p="1.15"/>
 		<e n="animalFox" p="0.4"/>
-		<e n="none" p="97"/>
+		<e n="none" p="197"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyCoreGroupGS100']/*"/>
@@ -169,7 +191,7 @@
 		<e n="npcSdcsSurvivorMaleT2" p="0.2"/>
 		<e n="npcSdcsSurvivorFemaleT2" p="0.2"/>
 		<e n="animalJeerkoa" p="0.3"/>
-		<e n="none" p="97"/>
+		<e n="none" p="197.1"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcFriendlyCoreGroupGS50']/*"/>
@@ -178,34 +200,28 @@
 		<e n="npcSdcsSurvivorFemaleT1" p="1.25"/>
 		<e n="npcSdcsSurvivorMaleT2" p="0.05"/>
 		<e n="npcSdcsSurvivorFemaleT2" p="0.05"/>
-		<e n="none" p="97"/>
+		<e n="none" p="197"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcHarleyGroupGS01']/*"/>
 	<append xpath="/entitygroups/entitygroup[@name='npcHarleyGroupGS01']">
 		<e n="scRaiderMaleT1" p="0.5"/>
 		<e n="scRaiderFemaleT1" p="0.5"/>
-		<e n="none" p="99"/>
+		<e n="none" p="199"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcHarleyGroupGS100']/*"/>
 	<append xpath="/entitygroups/entitygroup[@name='npcHarleyGroupGS100']">
-		<e n="scRaiderMaleT3" p="1.375"/>
-		<e n="scRaiderFemaleT3" p="1.375"/>
-		<e n="scRaiderMaleT1" p="0.375"/>
-		<e n="scRaiderFemaleT1" p="0.375"/>
-		<e n="scRaiderMaleT2" p="0.125"/>
-		<e n="scRaiderFemaleT2" p="0.125"/>
-		<e n="none" p="96"/>
+		<e n="scRaiderMaleT2" p="1.875"/>
+		<e n="scRaiderFemaleT2" p="1.875"/>
+		<e n="none" p="195.75"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcHarleyGroupGS50']/*"/>
 	<append xpath="/entitygroups/entitygroup[@name='npcHarleyGroupGS50']">
-		<e n="scRaiderMaleT1" p="1.25"/>
-		<e n="scRaiderFemaleT1" p="1.25"/>
-		<e n="scRaiderMaleT2" p="0.125"/>
-		<e n="scRaiderFemaleT2" p="0.125"/>
-		<e n="none" p="97"/>
+		<e n="scRaiderMaleT1" p="1.375"/>
+		<e n="scRaiderFemaleT1" p="1.375"/>
+		<e n="none" p="196.75"/>
 	</append>
 
 	<remove xpath="/entitygroups/entitygroup[@name='npcMilitaryBossGroupGS01' or @name='npcMilitaryBossGroupGS100' or @name='npcMilitaryBossGroupGS200' or @name='npcMilitaryBossGroupGS400' or @name='npcMilitaryBossGroupGS50' or @name='npcMilitaryBossGroupGS800' or @name='npcVaultBossGroupGS01' or @name='npcVaultBossGroupGS100' or @name='npcVaultBossGroupGS200' or @name='npcVaultBossGroupGS400' or @name='npcVaultBossGroupGS50' or @name='npcVaultBossGroupGS800']/*"/>

@@ -44,8 +44,14 @@ namespace SurvivorCommunity
         public const string SeedCvar = "sc_rSeed";
         /// <summary>A dead bandit raider's bag was discarded (the death is counted once; SetDead runs again on every hit).</summary>
         public const string DiscardedCvar = "sc_rDiscarded";
-        /// <summary>0-XNPCCore's once-per-NPC marks for its trade stock and boiled water (SdcsStockSeedFrame, SdcsWaterSeedFrame).</summary>
-        private static readonly string[] SeededMarks = { "SdcsStockSeeded", "SdcsWaterSeeded" };
+        /// <summary>
+        /// 0-XNPCCore's once-per-NPC marks for its trade stock and boiled water (SdcsStockSeedFrame, SdcsWaterSeedFrame) and,
+        /// since 0-XNPCCore 3.4.03 (round X2), its thrown explosives (SdcsThrowSeedFrame: the class's SdcsThrowables, which
+        /// SC's raiders inherit by sex - 2 pipe bombs on every female). SC rolls a raider's throwable itself (RollThrowable).
+        /// </summary>
+        private static readonly string[] SeededMarks = { "SdcsStockSeeded", "SdcsWaterSeeded", "SdcsThrowSeeded" };
+        /// <summary>X2: SC rolled this raider's thrown explosive (value 1), once per body.</summary>
+        public const string ThrowCvar = "sc_rThrow";
         /// <summary>The old raiders' cvars (the pair, the lead, the starting ammo, the pair's drop roll), taken off once.</summary>
         private static readonly string[] OldRaiderCvars = { ScLoadout.RangedCvar, ScLoadout.MeleeCvar, ScLoadout.LeadCvar, ScLoadout.AmmoSeededCvar, "sc_pairDropped" };
 
@@ -289,7 +295,98 @@ namespace SurvivorCommunity
                     ScLog.Verbose("raider " + e.entityId + ": its known weapon " + w + " seeded in the bag with " + n + " round(s)");
                 }
             }
+            RollThrowable(e);
             DropWindow(e);
+        }
+
+        // ------------------------------------------------------------------ X2: thrown explosives ----
+
+        /// <summary>
+        /// X2 (0-XNPCCore 3.4.03; the user's odds, 2026-11-09). 0-XNPCCore's bandits throw explosives at groups
+        /// (ThrowExplosive, from what the body carries: SdcsThrowSupply reads every store, the bag included). Its own grant
+        /// comes from the class (SdcsThrowables), which BeforePostInit marks as done for SC's raiders (SeededMarks). Here,
+        /// once per body (ThrowCvar), SC rolls one by the raider's tier: RaiderThrowChance[tier] to carry one at all, then
+        /// the item by the weights in RaiderThrowT1-T3 (default: tier 1 a molotov only; tier 2 adds pipe bombs and grenades;
+        /// tier 3 mostly grenades, some pipe bombs, few molotovs). It goes in the bag: a bandit raider keeps no inventory
+        /// window (DropWindow). A body that already carries a throwable (one made under 3.4.03 before this round) gets none.
+        /// </summary>
+        private static void RollThrowable(EntityAlive e)
+        {
+            try
+            {
+                if (e.Buffs.GetCustomVar(ThrowCvar) > 0f) return;
+                e.Buffs.SetCustomVar(ThrowCvar, 1f, false);
+                if (CarriesThrowable(e)) { Patches_Xnpc.Count("x2-throw-already-carried"); return; }
+                int tier = ScXnpc.TierOf(ScCommunity.ClassName(e));
+                float chance = ScConfig.RaiderThrowChanceFor(tier);
+                if (chance <= 0f || UnityEngine.Random.value >= chance) { Patches_Xnpc.Count("x2-throw-none"); return; }
+                string item = PickThrowable(ScConfig.RaiderThrowItemsFor(tier));
+                ItemValue iv = item != null ? ItemClass.GetItem(item, false) : null;
+                if (iv == null || iv.IsEmpty())
+                {
+                    ScLog.Once("x2-throw-item-" + item, new Exception("RaiderThrowT" + (tier + 1) + ": no item '" + item + "' in items.xml - that raider throws nothing"));
+                    return;
+                }
+                if (e.bag == null || !e.bag.AddItem(new ItemStack(iv, 1))) { Patches_Xnpc.Count("x2-throw-bag-full"); return; }
+                Patches_Xnpc.Count("x2-throw-" + item);
+                ScLog.Verbose("raider " + e.entityId + " (" + ScCommunity.ClassName(e) + "): carries a " + item);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("bandit-throwable", ex);
+            }
+        }
+
+        /// <summary>X2: one item by weight from "item:weight,item:weight" (a bare item weighs 1); null when nothing weighs.</summary>
+        private static string PickThrowable(string spec)
+        {
+            if (string.IsNullOrEmpty(spec)) return null;
+            var items = new List<string>();
+            var weights = new List<float>();
+            float total = 0f;
+            foreach (string part in spec.Split(','))
+            {
+                string p = part.Trim();
+                if (p.Length == 0) continue;
+                int colon = p.IndexOf(':');
+                string name = colon < 0 ? p : p.Substring(0, colon).Trim();
+                float w = 1f;
+                if (colon >= 0 && !float.TryParse(p.Substring(colon + 1).Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out w)) w = 0f;
+                if (name.Length == 0 || w <= 0f) continue;
+                items.Add(name);
+                weights.Add(w);
+                total += w;
+            }
+            if (total <= 0f) return null;
+            float r = UnityEngine.Random.value * total;
+            for (int i = 0; i < items.Count; i++)
+            {
+                r -= weights[i];
+                if (r < 0f) return items[i];
+            }
+            return items[items.Count - 1];
+        }
+
+        /// <summary>X2: the body already carries a thrown explosive 0-XNPCCore throws (its ThrowRules), in any store.</summary>
+        private static bool CarriesThrowable(EntityAlive e)
+        {
+            if (e.itemsOnEnterGame != null)
+                foreach (ItemStack st in e.itemsOnEnterGame)
+                    if (IsThrowable(st)) return true;
+            ItemStack[] bag = e.bag != null ? e.bag.ItemGrid.items : null;
+            for (int i = 0; bag != null && i < bag.Length; i++) if (IsThrowable(bag[i])) return true;
+            if (HarvestManager.Has(e.entityId))
+            {
+                SCoreLootContainer w = HarvestManager.GetOrCreate(e.entityId);
+                if (w != null && w.items != null) foreach (ItemStack st in w.items) if (IsThrowable(st)) return true;
+            }
+            return false;
+        }
+
+        private static bool IsThrowable(ItemStack st)
+        {
+            if (st == null || st.IsEmpty() || st.itemValue == null || st.itemValue.ItemClass == null) return false;
+            return NPCSdcsCharacters.Pure.ThrowRules.IsThrowable(st.itemValue.ItemClass.GetItemName());
         }
 
         /// <summary>

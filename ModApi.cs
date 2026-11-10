@@ -374,6 +374,9 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsLeadershipTick", Patches_Xnpc.LeadershipTickTarget());
             // X22 (0-XNPCCore 3.4.03): SC's raiders say no bandit target line, they taunt in their own voice
             Add(t, "AvatarSdcsNpcController::SdcsBanditLineOnNewTarget", Patches_Xnpc.BanditLineTarget());
+            // X23: a band's raider is never a posted bandit; X24: the Shooting-star engage cap on 0-XNPCCore's new shot gate
+            Add(t, "AvatarSdcsNpcController::SdcsPostRead", Patches_Xnpc.PostReadTarget());
+            Add(t, "UAIConsiderationSdcsLineOfFire::GetScore", Patches_Xnpc.LineOfFireTarget());
             // round R1: X1c a bandit raider gets 0-XNPCCore's gear-only look apply (its weapon roll), never the rest. Listed
             // only while 0-XNPCCore has both methods (review L3: an 0-XNPCCore without its bandits stays quiet; a missing
             // method is warned about when the first bandit raider is made, ScBandits.WarnIfUnbound)

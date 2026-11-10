@@ -361,6 +361,22 @@ namespace UAI
     }
 
     /// <summary>
+    /// Round X2 (0-XNPCCore 3.4.03): 0 for a body whose $Timid SC wrote (ScTraits.ScTimidCvar: a member or stand-in, a
+    /// runner or garrison body, an enclave's person, a band body), 1 for every other NPC. Appended to 0-XNPCCore's
+    /// SdcsNpcCore Flee (weight 9: $Timid, 15 m, sight - no Stay, watch or home gate, and above every SC action), which
+    /// 3.4.03 turned back on: SC's cowards keep SC's own ScFlee / ScEncFlee (weight 6, gated on Stay, the watch and the
+    /// enclave's home) as their only flight, as before 3.4.03; 0-XNPCCore's own timid survivors keep its Flee.
+    /// </summary>
+    public class UAIConsiderationScNotScTimid : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            EntityAlive self = _context.Self;
+            return self != null && self.Buffs != null && self.Buffs.GetCustomVar(ScTraits.ScTimidCvar) > 0f ? 0f : 1f;
+        }
+    }
+
+    /// <summary>
     /// 1 when none of the entity's AI packages has 0-XNPCCore's DynamicFollow (ScXnpc.HasDynamicFollow). SC's own two
     /// follow actions are the fallback for such a member only: wherever DynamicFollow exists - every 0-XNPCCore NPC,
     /// through NPCModNPCHired - its follow and formations replace SC's (decision D6), and SC's actions, at 4 and 4.2,

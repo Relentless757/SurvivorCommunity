@@ -56,6 +56,10 @@ namespace SurvivorCommunity
     ///                                                                  guards, stand-ins), as 0-XNPCCore gives it to a hire
     ///   X22 AvatarSdcsNpcController.SdcsBanditLineOnNewTarget prefix   (3.4 build, 0-XNPCCore 3.4.03) no bandit target line
     ///                                                                  from SC's raiders: they taunt in their own voice
+    ///   X23 AvatarSdcsNpcController.SdcsPostRead              postfix  (3.4 build, 0-XNPCCore 3.4.03) a band's raider is never
+    ///                                                                  a "posted" bandit (its Guard is a walk point)
+    ///   X24 UAI.UAIConsiderationSdcsLineOfFire.GetScore       postfix  (3.4 build, 0-XNPCCore 3.4.03) the Shooting-star engage
+    ///                                                                  cap on 0-XNPCCore's new shot gate (round sh)
     ///   (3.4 build) X7 also builds an adopted creator face and stands aside while the hand is holstered (D8)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
@@ -2023,6 +2027,118 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("xnpc-banditline", ex);
                     return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X23: a band is never posted (3.4.03) ----
+
+        /// <summary>
+        /// X23: 0-XNPCCore 3.4.03's SdcsPostRead(), private, the one place a body's "posted" state is worked out (refreshed
+        /// every 0.5 s through SdcsPostedNow; every posted rule reads it: SdcsNotPosted, SdcsHuntsTarget, PostReturn,
+        /// PatrollingBandit, the cover leash). Not in 3.4.02.
+        /// </summary>
+        public static MethodBase PostReadTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsPostRead", NoArgs);
+        }
+
+        /// <summary>
+        /// X23. 3.4.03 treats any bandit-tagged body on the Guard or Stay order with a guard position as a posted sentry: no
+        /// approach, back-off, listen or seek, and PostReturn (weight 4) walks it back within 1.5 m of the post. A band's
+        /// raider holds Guard at the leader's next walk point (ScBands, re-given every 15 s, a fight included), so an engaged
+        /// band stood still and never attacked. For a band body the state is cleared after 0-XNPCCore works it out: it fights
+        /// as in 3.4.02. A den's or raider enclave's raiders keep the posted rules (the user's call, 2026-11-09: they hold
+        /// their spots; SC's home defence still takes them to an intruder inside).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_BandNotPosted
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return Bound(PostReadTarget, "AvatarSdcsNpcController.SdcsPostRead")
+                       && AccessTools.Field(typeof(AvatarSdcsNpcController), "sdcsPostState") != null
+                       && AccessTools.Field(typeof(AvatarSdcsNpcController), "sdcsPostPatrols") != null;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return PostReadTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(AvatarSDCSController __instance, ref int ___sdcsPostState, ref bool ___sdcsPostPatrols)
+            {
+                try
+                {
+                    if (___sdcsPostState != 1) return;
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (e == null || !ScBands.IsBandNpc(e)) return;
+                    ___sdcsPostState = 0;
+                    ___sdcsPostPatrols = false;
+                    Count("x23-band-not-posted");
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-bandpost", ex);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X24: the Shooting cap on the new shot gate (3.4.03) ----
+
+        /// <summary>
+        /// X24: 0-XNPCCore 3.4.03's UAI.UAIConsiderationSdcsLineOfFire.GetScore(Context, object), by name (the type is not in
+        /// 3.4.02). 3.4.03's RangedMeleeAttack in SdcsNpcRangedAdvanced and SdcsBanditCombat gates on it (and SdcsSeesShot)
+        /// instead of SCore's InWeaponRange; its range is the held gun's full range.
+        /// </summary>
+        public static MethodBase LineOfFireTarget()
+        {
+            Type t = ScTypes.Find("UAI.UAIConsiderationSdcsLineOfFire");
+            if (t == null) return null;
+            MethodInfo m = AccessTools.DeclaredMethod(t, "GetScore", new[] { typeof(UAI.Context), typeof(object) });
+            return m != null && m.ReturnType == typeof(float) ? m : null;
+        }
+
+        /// <summary>
+        /// X24. Round sh's engage cap (ScShooting.RangedCap: how far a shooter's Shooting stars let it open fire) lives in
+        /// ScMelee's postfix on SCore's InWeaponRange, which 3.4.03 took off the shot's path: every SC body fired out to its
+        /// gun's full range. The same rule here, for the held gun (action 0): over the cap it scores 0, unless the target is
+        /// shooting at it (ScShooting.ReturnsFire, answered out to the gun's range). Counted with round sh's counters.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_LineOfFireCap
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                if (LineOfFireTarget() != null) return true;
+                ScLog.Warn("0-XNPCCore UAIConsiderationSdcsLineOfFire.GetScore not found - the Shooting engage cap stays on SCore's InWeaponRange only (0-XNPCCore before 3.4.03?)");
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return LineOfFireTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(UAI.Context _context, object _target, ref float __result)
+            {
+                try
+                {
+                    if (__result <= 0f) return;
+                    EntityAlive self = _context != null ? _context.Self : null;
+                    if (self == null || self.isEntityRemote || !ScXnpc.IsBody(self)) return;
+                    float cap = ScShooting.RangedCap(self, 0);
+                    if (cap < 0f) return;
+                    EntityAlive t = UAI.UAIUtils.ConvertToEntityAlive(_target);
+                    if (t == null || self.GetDistance(t) <= cap) return;
+                    if (ScShooting.ReturnsFire(self, t)) { ScShooting.CountReturnFire(); return; }
+                    __result = 0f;
+                    ScShooting.CountCapped();
+                    Count("x24-line-of-fire-capped");
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-lineoffire", ex);
                 }
             }
         }

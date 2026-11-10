@@ -723,6 +723,14 @@
 			     a mod, and with the game's enemy spawning off (or during a blood moon) no raider spawns either way.
 			     sc raiders wild shows the counts. -->
 			<property name="WildRaidersDespiteMods" value="true" />
+			<!-- RaiderThrowChance (game 3.4, 0-XNPCCore 3.4.03): a raider's odds of carrying one thrown explosive, for tier 1,
+			     2 and 3, rolled once when it is made. RaiderThrowT1-T3: which one, by weight ("item:weight", comma separated).
+			     It is thrown at groups the way 0-XNPCCore's own bandits throw theirs (they break blocks, land claim or not);
+			     what a raider still carries when it dies is lost with it. 0 for a tier: those raiders throw nothing. -->
+			<property name="RaiderThrowChance" value="0.25,0.45,0.7" />
+			<property name="RaiderThrowT1" value="thrownAmmoMolotovCocktail:1" />
+			<property name="RaiderThrowT2" value="thrownAmmoMolotovCocktail:50,thrownAmmoPipeBomb:25,thrownGrenade:25" />
+			<property name="RaiderThrowT3" value="thrownGrenade:60,thrownAmmoPipeBomb:30,thrownAmmoMolotovCocktail:10" />
 			<property name="RaiderGearSets" value="Raider,Biker,Enforcer,Assassin,Rogue,Commando,Nomad,Scavenger,Primitive" />
 
 			<property name="DebugLogging" value="false" />
