@@ -3175,3 +3175,23 @@ Fable review DEPLOYABLE, review fixes 35cc292 and 98f1792, re-check DEPLOYABLE. 
 `deploy_sc34.py`: 11363 files, installed = built `192a01b0505409e72db0fc792deec111`. The old install is in
 `Port33\_backups\sc34_2026-11-09_221022`; the user's `DebugLogging` true set again. Untested in game: TESTING X2 (460-475)
 and X2c (480-499).
+
+### Round 26: testers' feedback (P2) (2026-11-09, built, not reviewed, not installed)
+
+Branch `ms/p2` (worktree `wt\sc-p2`). The user's list after pre.1, with their answers (2026-11-09):
+
+- **Morale after a death** ("a death in the community was too punishing, preventing members from following the player or
+  doing anything"; "Members shouldn't refuse orders. A future hidden trait system would give them a chance to refuse under
+  bad conditions."; "about 3 days and the penalty is gone"). Members refused four orders under mood 25 (ScCommunity Follow,
+  ScRuns, ScWatch, ScGarrison - each `if (m.Mood < 25)`), and one death (DeathPenalty 15) could reach that. The four gates
+  now ask `ScConfig.RefusesForMood(m)`: `RefuseOrdersBelowMood` (blocks.xml), default 0 = never. `DeathDecayPerDay` 3 -> 5:
+  a death's 15 is gone on the third rollover (15 -> 10 -> 5 -> 0). Nothing else gates on mood: the low-morale departure
+  (LowMoraleThreshold for LowMoraleDays days) is unchanged.
+- **Packing station from the backpack**: `scPackingStation`'s recipe loses `craft_area="workbench"` and
+  `tags="workbenchCrafting"`.
+- **Men with women's hairstyles**. Vanilla's `sdcs.xml` (data.unity3d's `sdcs` TextAsset) offers all 20 hairstyles to both
+  sexes, so `SDCSDataUtils.GetHairNames(male, Hair)` never filtered anything. "Only the clearly female ones":
+  `SurvivorExcludeHairsMale` (default `ponytail,pixie_cut,midpart_karen_messy`) is taken out of a man's pool in
+  `ScLooks.Roll` (and its fallback list), and `ScLooks.Validate` swaps a stored man's excluded hair for an allowed one
+  picked by a stable hash of the look's race, variant, hair color, eyes and beard (the same man gets the same new style on
+  every load until it is saved).

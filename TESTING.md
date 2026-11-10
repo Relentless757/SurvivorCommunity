@@ -2089,6 +2089,33 @@ Magazine, Armored Up. Hand them to her through "Show me your inventory". Test on
      is unchanged (e.g. Food 43/100). A plain 0-XNPCCore hire's page is unchanged (`Cook skill N: x / y crafts`). `sc craft`:
      `c1o-progress-role-row=` above 0.
 
+**P2. Round 26: testers' feedback - morale, packing station, men's hair, enclave requests (3.4)**
+
+Built 2026-11-09 on branch `ms/p2`, **not reviewed, not installed**: these steps wait for the install. A tester found one
+death in the community too punishing: members refused to follow you, go on runs, take a watch post or staff an outpost
+while their mood was under 25, which one death could cause, and the penalty took 5 days to fade. Your decisions: members
+never refuse orders (a future hidden trait may let some refuse under bad conditions), and a death's penalty is gone in
+about 3 days. The packing station is crafted from the backpack. Men no longer get the clearly female hairstyles.
+
+500. **A death doesn't stop orders.** With 3+ members, `sc morale 10` (a session-only override): tell a member "Follow me",
+     send one on a supply run, put one on a watch post and staff an outpost: all four obey; no "They refuse - morale is too
+     low." tooltip. `sc morale -1` clears the override.
+501. **A death fades in 3 days.** Let a member die (leave one to zombies). `sc morale`: `deathPenalty=15` and the breakdown
+     shows Deaths -15. Sleep through the day rollovers: 10, 5, then 0 on the third (the daily summary's morale climbs back
+     each day). Two deaths on one day: 30, 25, ... gone after 6 days.
+502. **Refusal can be switched back on.** In `Config/blocks.xml` set `RefuseOrdersBelowMood` to 25 and restart: with
+     `sc morale 10` a member refuses to follow ("They refuse - morale is too low."), as before this build. Put it back to 0.
+503. **Packing station from the backpack.** Open the crafting menu in the backpack (no workbench near), search "packing": the
+     Packing Station is listed and crafts (60 s) from your inventory's ingredients.
+504. **New men's hair.** Spawn or meet 15+ new male survivors and raiders (F6, or roam): none wears a ponytail, the pixie
+     cut or the messy middle part. Women still get every style.
+505. **Existing men re-styled once.** In a save from before this build with a male member wearing one of the three styles:
+     after loading he has another hairstyle (the log with `DebugLogging` true: `look: a man's hair <old> is no longer given
+     to men - <new> instead`). Save, quit, reload: he keeps the new style, and the log line doesn't repeat for him.
+506. **The list is yours.** `SurvivorExcludeHairsMale` in `Config/blocks.xml` (default
+     `ponytail,pixie_cut,midpart_karen_messy`): empty it and restart, and new men can get those styles again (stored men keep
+     what they have).
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.
