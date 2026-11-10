@@ -328,10 +328,12 @@ namespace SurvivorCommunity
         /// (SdcsLootMode.Clear, as MutateStay). Her Guard order at the craft spot stays, so the shift goes on: Idle, then home
         /// WorkIdleSeconds later unless she is given another order. False when she is not on a shift (Voice Control's Stay then).
         /// </summary>
-        public static bool CancelJobOnShift(Member m, EntityAlive npc)
+        public static bool CancelJobOnShift(Member m, EntityAlive npc, out bool dropped)
         {
+            dropped = false;
             if (m == null || npc == null || npc.Buffs == null || !OnShift(m.Id)) return false;
             if (SdcsCraftJob.Get(m.Id) == null) return true;   // review finding 6: nothing to cancel (the window's own guard)
+            dropped = true;
             DropJob(npc, "the craft window's Cancel");
             SdcsLootMode.Clear(npc);
             windowCancels++;

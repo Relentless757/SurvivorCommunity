@@ -783,7 +783,9 @@ namespace SurvivorCommunity
                     World w = GameManager.Instance != null ? GameManager.Instance.World : null;
                     EntityAlive npc = w != null && id > 0 ? w.GetEntity(id) as EntityAlive : null;
                     Member m = MemberOf(npc);
-                    if (m == null || !ScWork.CancelJobOnShift(m, npc)) return true;
+                    bool dropped;
+                    if (m == null || !ScWork.CancelJobOnShift(m, npc, out dropped)) return true;
+                    if (!dropped) return false;                // on a shift with no job: nothing to cancel, nothing counted
                     Count("c1n-window-cancel-kept-shift");
                     EntityPlayerLocal player = __instance != null && __instance.xui != null && __instance.xui.playerUI != null ? __instance.xui.playerUI.entityPlayer : null;
                     if (mRelist != null && player != null) mRelist.Invoke(__instance, new object[] { player, npc });
