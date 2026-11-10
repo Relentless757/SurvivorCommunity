@@ -816,6 +816,16 @@ namespace SurvivorCommunity
             Refresh();
         }
 
+        /// <summary>R2: a runner the window cannot turn round for want of a radio (grayed; the click says why).</summary>
+        private bool RecallNeedsRadio(Member m)
+        {
+#if SC_V34
+            return m != null && m.Status == MemberStatus.OnRun && ScRunners.IsPhysical(m) && !ScHandheld.WindowRecallAllowed(m, ScCommunity.LocalPlayer);
+#else
+            return false;
+#endif
+        }
+
         private void OnStaffRecall(int slot)
         {
             Outpost o = OutpostSelected;
@@ -1092,8 +1102,26 @@ namespace SurvivorCommunity
             if (ScRunners.IsPhysical(m))
             {
                 // out on a physical run: turn round now
+#if SC_V34
+                // R2 (user, 2026-11-09): only over their radio, or in person
+                if (!ScHandheld.WindowRecallAllowed(m, p))
+                {
+                    message = string.Format(Localization.Get("scRecallNoRadio"), m.Name);
+                    ScHandheld.Count("window recall refused: runner has no radio");
+                    p.PlayOneShot("ui_denied");
+                    Refresh();
+                    return;
+                }
+                bool byRadio = m.RunRadio && !ScRadioTalk.InPerson(m, p);
+#endif
                 string rerr;
-                if (ScRunners.Recall(m, p, out rerr)) message = string.Format(Localization.Get("scRunRecalled"), m.Name);
+                if (ScRunners.Recall(m, p, out rerr))
+                {
+                    message = string.Format(Localization.Get("scRunRecalled"), m.Name);
+#if SC_V34
+                    if (byRadio) { ScRadioTalk.OnRecalled(m, p); ScRegistry.SaveAtomic(); }      // R2: "Copy that." on the radio
+#endif
+                }
                 else { message = Localization.Get(rerr ?? "scInternal"); p.PlayOneShot("ui_denied"); }
                 Refresh();
                 return;
@@ -1392,7 +1420,7 @@ namespace SurvivorCommunity
                     // greyed: a runner that can't be called back, one still on the way (E12)
                     _value = sel != null && ((sel.Status == MemberStatus.OnRun
                              && !(ScRunners.IsPhysical(sel) && (sel.RunLeg == RunLeg.Outbound || (sel.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(sel)))))
-                             || sel.Status == MemberStatus.Arriving)
+                             || sel.Status == MemberStatus.Arriving || RecallNeedsRadio(sel))
                         ? "70,70,70,255" : "50,80,120,255";
                     return true;
                 case "homevisible":

@@ -1468,6 +1468,7 @@ scRadioRunsHeader,UI,Menu,,,,Supply runs on the radio
 scRadioRunNone,UI,Menu,,,,No one is out on a supply run.
 scRadioRunRecall,UI,Menu,,,,Call home
 scRadioRunNoRadio,UI,Menu,,,,No radio with them
+scRecallNoRadio,UI,Tooltip,,,,"{0} has no radio with them, so you can't call them home from here."
 scRadioRunNoRoute,UI,Menu,,,,Out of reach on this run
 scRadioRunPinnedShort,UI,Menu,,,,Pinned down - help them
 scRadioRunHeadingShort,UI,Menu,,,,Already heading home

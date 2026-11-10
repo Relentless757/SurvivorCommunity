@@ -2268,6 +2268,16 @@ throwaway world, as W1's 296-298.
 558. **Nothing left behind.** After using the Radio tab, open the player menu with Tab: Crafting opens with its own tab lit, not
      Radio. Quit to the main menu while a radio line plays: nothing keeps playing in the menu.
 559. **A host's tab only.** (If you ever join a 3.4 game as a client: no Radio tab there, as SC runs on the host only.)
+560. **Recall from the community window needs a radio.** Send a member WITHOUT a radio on a supply run. Once they are well
+     away, select them in the community window: "Recall home" is gray, and clicking it says "<name> has no radio with them, so
+     you can't call them home from here." Catch up with them on the road (within about 30 m): the button turns blue and the
+     recall works ("<name> turns for home."). A member WITH a radio can be recalled from anywhere, and you hear "Copy that.
+     Cutting it short and heading home." (or its caption). "Call back" for a missing member and "Recall home" for outpost
+     staff work as before. `sc radio` counts `window recall refused: runner has no radio`.
+561. **The station with a handheld.** Open the radio station at its block while carrying a handheld: the tab bar shows. Tab
+     to Community and back to Radio: the window still works, now as the remote one (relayed through the powered station).
+562. **Switched back.** Set `WindowRecallNeedsRadio` to false and restart: any runner can be recalled from the window again.
+     Put it back to true.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

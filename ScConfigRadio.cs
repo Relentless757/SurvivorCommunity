@@ -24,6 +24,11 @@ namespace SurvivorCommunity
         public static bool DistressNeedsRadio = true;
         /// <summary>The chance one of SC's raiders drops a handheld radio where it dies.</summary>
         public static float RaiderRadioChance = 0.04f;
+        /// <summary>
+        /// The community window's "Recall home" for a member on a supply run works only while they carry a radio, or in person
+        /// (user, 2026-11-09). false: any runner, as before R2.
+        /// </summary>
+        public static bool WindowRecallNeedsRadio = true;
 
         private static void ResetRadio()
         {
@@ -33,6 +38,7 @@ namespace SurvivorCommunity
             RunnerRadioEffect = true;
             DistressNeedsRadio = true;
             RaiderRadioChance = 0.04f;
+            WindowRecallNeedsRadio = true;
             // the per-world state of the feature: a new world starts with none of it
             ScHandheld.Reset();
             ScRadioTalk.Reset();
@@ -46,6 +52,7 @@ namespace SurvivorCommunity
             ParseBoolKey(p, "RunnerRadioEffect", ref RunnerRadioEffect);
             ParseBoolKey(p, "DistressNeedsRadio", ref DistressNeedsRadio);
             ParseFloat(p, "RaiderRadioChance", ref RaiderRadioChance, 0f, 1f);
+            ParseBoolKey(p, "WindowRecallNeedsRadio", ref WindowRecallNeedsRadio);
         }
 
         /// <summary>The config line's handheld radio part.</summary>
@@ -54,7 +61,8 @@ namespace SurvivorCommunity
             Func<float, string> f = x => x.ToString("0.##", CultureInfo.InvariantCulture);
             return "handheldTab=" + HandheldRadioTab
                    + " runnerTalk=" + (RunnerRadioTalk ? "volume " + f(RunnerRadioVolume) + (RunnerRadioEffect ? ", radio effect" : ", plain") : "off")
-                   + " distress=" + (DistressNeedsRadio ? "runner's radio" : "any runner") + " raiderDrop=" + f(RaiderRadioChance);
+                   + " distress=" + (DistressNeedsRadio ? "runner's radio" : "any runner") + " raiderDrop=" + f(RaiderRadioChance)
+                   + " windowRecall=" + (WindowRecallNeedsRadio ? "runner's radio or in person" : "any runner");
         }
     }
 }

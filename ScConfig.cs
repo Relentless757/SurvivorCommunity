@@ -842,8 +842,10 @@ namespace SurvivorCommunity
         /// never rolled for a man, and a stored man's look with one is given another (ScLooks.Validate). "Only the clearly
         /// female ones".
         /// </summary>
-        public static readonly List<string> SurvivorExcludeHairsMale = new List<string>(DefaultExcludeHairsMale);
+        /// <remarks>Declared first: static fields initialize in text order (the review's H1 - the other way round the list was
+        /// built from a null array and ScConfig's type initializer threw).</remarks>
         public static readonly string[] DefaultExcludeHairsMale = { "ponytail", "pixie_cut", "midpart_karen_messy" };
+        public static readonly List<string> SurvivorExcludeHairsMale = new List<string>(DefaultExcludeHairsMale);
         /// <summary>The dyed hair colours, rolled only with SurvivorDyedHairChance (female / male); the rest are natural.</summary>
         public static readonly List<string> SurvivorDyedHairColors = new List<string>();
         public static float SurvivorDyedHairChanceFemale = 0.06f;

@@ -25,6 +25,8 @@ namespace SurvivorCommunity
         private static ItemValue value;                    // the item, once found (null: not looked up yet, or not loaded)
         private static float nextLookup;
         private static readonly Dictionary<string, int> counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        /// <summary>The review's L2: a member's run of reads that found no radio after one was noted (member id -> reads).</summary>
+        private static readonly Dictionary<int, int> misses = new Dictionary<int, int>();
 
         /// <summary>Per world (ScConfig.Reset at GameStarting): the item is looked up again, the counters start over.</summary>
         public static void Reset()
@@ -32,6 +34,7 @@ namespace SurvivorCommunity
             value = null;
             nextLookup = 0f;
             counts.Clear();
+            misses.Clear();
         }
 
         /// <summary>The item, or null while items.xml has none (looked up again every 10 s; logged once in a loaded world).</summary>
@@ -115,11 +118,35 @@ namespace SurvivorCommunity
         public static bool NoteCarried(Member m, EntityAlive npc, string when)
         {
             if (m == null || npc == null) return false;
+            if (Item() == null) return false;           // the item not looked up yet: nothing can be told (the review's L2)
             bool has = NpcCarries(npc);
+            if (has) misses.Remove(m.Id);
+            else if (m.RunRadio)
+            {
+                // the review's L2: a body just restored, its SCore window store not back yet, reads as "no radio" - one read is
+                // not enough to take a noted radio off the record; two in a row are (10 s apart while the body is here)
+                int n;
+                misses.TryGetValue(m.Id, out n);
+                misses[m.Id] = ++n;
+                if (n < 2) return false;
+                misses.Remove(m.Id);
+            }
             if (has == m.RunRadio) return false;
             m.RunRadio = has;
             ScLog.Out(m.Name + (has ? " carries a handheld radio" : " carries no handheld radio any more") + " (" + when + ")");
             return true;
+        }
+
+        /// <summary>
+        /// R2 (user, 2026-11-09, "Radio needed"): may the community window turn this supply runner round? Over their radio
+        /// (Member.RunRadio) or in person (their body within ScRadioTalk.InPersonRange of the player); WindowRecallNeedsRadio
+        /// false: any runner, as before R2. The "Call back" of a member whose body is gone and the outposts' recall are not
+        /// runs and do not come here. Also asked by the window's button color on every refresh, so it counts nothing.
+        /// </summary>
+        public static bool WindowRecallAllowed(Member m, EntityPlayerLocal player)
+        {
+            if (m == null || !ScConfig.WindowRecallNeedsRadio) return true;
+            return m.RunRadio || ScRadioTalk.InPerson(m, player);
         }
 
         /// <summary>

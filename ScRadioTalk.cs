@@ -188,10 +188,11 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>A physical runner's body within InPersonRange of the player: they would just talk.</summary>
-        private static bool InPerson(Member m, EntityPlayerLocal player)
+        /// <summary>A physical runner's body within InPersonRange of the player: they would just talk (and the community window
+        /// may turn them round without a radio: ScHandheld.WindowRecallAllowed).</summary>
+        internal static bool InPerson(Member m, EntityPlayerLocal player)
         {
-            if (!ScRunners.IsPhysical(m) || m.Offline) return false;
+            if (player == null || !ScRunners.IsPhysical(m) || m.Offline) return false;
             EntityAlive body = ScCommunity.FindNpc(m.Id);
             return body != null && ScRunners.XZ(body.position, player.position) <= InPersonRange;
         }
@@ -276,7 +277,7 @@ namespace SurvivorCommunity
                     ScHandheld.Count("talk said: voiced");
                     bool effect = ScConfig.RunnerRadioEffect;
                     busyUntil = Time.unscaledTime + clip.length + (effect ? 0.6f : 0.3f) + 30f;   // the coroutine lowers it when the line ends
-                    GameManager.Instance.StartCoroutine(PlayLine(clip, Mathf.Clamp01(ScConfig.RunnerRadioVolume), effect, my));
+                    GameManager.Instance.StartCoroutine(Guarded(PlayLine(clip, Mathf.Clamp01(ScConfig.RunnerRadioVolume), effect, my)));
                 }
                 catch (Exception e)
                 {
@@ -290,6 +291,30 @@ namespace SurvivorCommunity
         {
             if (player == null) return;
             ScCommunity.Tell(player, string.Format(Localization.Get("scRadioRunTalk"), line.Name, line.Words), "");
+        }
+
+        /// <summary>
+        /// The review's L1: a line's coroutine that throws is stopped by Unity, and the queue would wait out its 30 s guard. Each
+        /// step runs inside a try here (a yield cannot sit in one): an exception is logged once and frees the queue.
+        /// </summary>
+        private static IEnumerator Guarded(IEnumerator inner)
+        {
+            while (true)
+            {
+                object current;
+                try
+                {
+                    if (!inner.MoveNext()) yield break;
+                    current = inner.Current;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("radio-talk-line", e);
+                    busyUntil = Time.unscaledTime + CaptionSeconds;
+                    yield break;
+                }
+                yield return current;
+            }
         }
 
         /// <summary>The line on the radio's source: a squelch in, the voice, a squelch out (the plain voice without the effect).</summary>

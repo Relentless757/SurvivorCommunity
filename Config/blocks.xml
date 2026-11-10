@@ -264,6 +264,9 @@
 			<property name="RunnerRadioVolume" value="0.8" />
 			<property name="RunnerRadioEffect" value="true" />
 			<property name="DistressNeedsRadio" value="true" />
+			<!-- WindowRecallNeedsRadio: the community window's "Recall home" turns a member round on a supply run only while
+			     they carry a radio, or when you are with them. false: any runner, as before. -->
+			<property name="WindowRecallNeedsRadio" value="true" />
 			<property name="RaiderRadioChance" value="0.04" />
 
 			<!-- Survivors and raiders wearing the player's body: the community's survivors are 0-XNPCCore's own

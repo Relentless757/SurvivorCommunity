@@ -3445,3 +3445,37 @@ rule; recall; the raiders' backpack; the item, recipe, loot and trader stock.
 
 Builds: SC 3.4 `6f15ecec761d5ecc888ef8861c250675` (`build\sc34_radio`), 0 errors. The 3.2 DLL was not rebuilt. Not reviewed
 (Fable), not installed. The task list needs its entry.
+
+### Rounds 26 + 27 merged, reviewed and fixed (2026-11-09)
+
+`ms/radio` (with the icon commit: the user's pick, sheet B's middle radio, SC's first `UIAtlases/ItemIconAtlas` icon) and
+dev/ideas (voices vo3 day 6) merged into `ms/p2`; only PORT_34.md and TESTING.md conflicted (both sections kept). Combined
+build `41ed731b`; XML replay of the combined tree (scratch `p2\sc_replay_p2r.py`): SC 197/197 on 3.4 alone, 196/196 with
+AshfallUI (2279/2279), no aborts.
+
+**Fable review: NOT DEPLOYABLE**, one HIGH, no MEDIUM, four LOW:
+- **HIGH 1 (P2's hair config):** `SurvivorExcludeHairsMale = new List<string>(DefaultExcludeHairsMale)` was declared above
+  `DefaultExcludeHairsMale`; static fields initialize in text order, so the list was built from null and `ScConfig`'s type
+  initializer threw - every touch of ScConfig a TypeInitializationException, the whole mod dead at load (the same trap as
+  X2's DefaultThrowItems). Fixed by declaring the array first; the built DLL's `.cctor` now stores it at IL_11f4 before the
+  list reads it at IL_11f9. A scan of every static constructor in the dump (scratch `p2\cctor_order.py`: a same-class
+  `ldsfld` before its `stsfld`) finds this one in the old build and none in the new.
+- LOW 1: a radio line's coroutine that threw left the queue waiting its 30 s guard: `ScRadioTalk.Guarded` runs each step in a
+  try, logs once and frees the queue.
+- LOW 2: one read of a restored body whose SCore window store is not back yet could take a noted radio off the record (the
+  runner silent, no recall): `ScHandheld.NoteCarried` now needs two "no radio" reads in a row (10 s apart) to clear it, and
+  reads nothing while the item is not looked up yet.
+- LOW 3 (noted, by design): at the station block with a handheld carried the tab bar shows; tabbing away and back makes the
+  window remote (`CurrentRadio` null). TESTING 561.
+- LOW 4 (noted, by design): with `DistressNeedsRadio` an existing save gets no distress calls until runners are given radios;
+  a runner already out at load reads "no radio" until the body is seen.
+
+**User decision (2026-11-09), the community window's "Recall home" for a supply runner:** "Radio needed". It turns a runner
+round only while they carry a radio or when the player is with them (`ScRadioTalk.InPersonRange`, 30 m):
+`ScHandheld.WindowRecallAllowed`, `WindowRecallNeedsRadio` (blocks.xml, default true; false = any runner, as before). The
+button is grayed otherwise and a click says `scRecallNoRadio` ("<name> has no radio with them, so you can't call them home
+from here."); a recall over the radio plays the runner's "Copy that." (`ScRadioTalk.OnRecalled`). "Call back" for a member
+whose body is gone and the outposts' "Recall home" are unchanged; so is the talk's in-person recall.
+
+Builds after the fixes: SC 3.4 `fed31b5e0daa75a52689fb46267b4594` (`build\sc34_p2r2`), 0 errors; the 3.2 configuration
+compiles (scratch). Not installed. TESTING 560-562.
