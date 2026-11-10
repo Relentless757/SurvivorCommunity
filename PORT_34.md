@@ -3198,10 +3198,12 @@ with a radio can be told to come home (ScRunners.Recall).
 
 **The item and where it comes from.**
 - `scHandheldRadio` (`Config/items.xml:204-227`): a stack of 1, group Science (the workbench's Science category),
-  EconomicValue 400, the resource sack mesh, `MelectricParts`, `DescriptionKey scHandheldRadioDesc`. **Placeholder icon**:
-  `CustomIcon radioHam` (vanilla's ham radio, the station's own icon) tinted `ffd890` (warm gold; the station's is blue-white) -
-  SC ships no item icon atlas (`UIAtlases` holds only `UIAtlas`), every SC item uses a vanilla icon; the final icon comes from the
-  concept sheets the user is picking.
+  EconomicValue 400, the resource sack mesh, `MelectricParts`, `DescriptionKey scHandheldRadioDesc`. **Icon**: SC's first
+  item icon, `UIAtlases/ItemIconAtlas/scHandheldRadio.png` (160x160, transparent; found by the item's name, so no
+  `CustomIcon`) - the user's pick from the GPT concept sheets (2026-11-09: sheet B, the middle radio, a dark walkie-talkie
+  patched with duct tape), cut by Roadworthy's make_icons.py rules (scratch `radio_icon\cut_radio.py`; the sheet's ground is
+  a flat gray 190, keyed by distance, the anti-aliased rim peeled 2 px). It replaced the build's placeholder (vanilla's
+  `radioHam` tinted `ffd890`).
 - Recipe (`Config/recipes.xml:16-23`): workbench, 60 s - 3 electrical parts, 2 mechanical parts, 5 polymer scrap, 2 duct tape;
   the station (15 forged iron, 6 / 4 / 10, 120 s) about halved with no iron frame, taped together: it relays through the
   station rather than replacing it.

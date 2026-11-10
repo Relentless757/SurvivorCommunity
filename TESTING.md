@@ -2107,7 +2107,8 @@ throwaway world, as W1's 296-298.
 520. **Start-up.** Load the world. The log: `config: handheld radio handheldTab=True runnerTalk=volume 0.8, radio effect
      distress=runner's radio raiderDrop=0.04`; `patch verification: all ... targets patched` with the same count as before
      this build (no new patch); no XML `did not apply` line for SurvivorCommunity.
-521. **The item.** The creative menu has `Handheld Radio`: for now the ham radio icon tinted gold (a placeholder). Its
+521. **The item.** The creative menu has `Handheld Radio` with its own icon (a dark walkie-talkie patched with duct tape; no
+     white or gray fringe on the dark slot, in the toolbelt or the bag). Its
      description says it opens the radio station from anywhere only while a station at home has power, and that a member who
      carries one radios in from supply runs. At a workbench, in the Science category: Handheld Radio, 3 electrical parts, 2
      mechanical parts, 5 polymer scrap, 2 duct tape, 1:00. Craft one.
