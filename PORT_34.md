@@ -2592,7 +2592,9 @@ row). The tracked 3.2 `SurvivorCommunity.dll` is untouched; a 3.2 build to a scr
   and `scLeave` hidden while `sc_shift`. Replayed start statement (SCore + 0-XNPCCore + Voice Control + SC): a follower 10 rows
   (scCommunity, scGoHome, scRun, scLeave, Weapon, Craft, Progress, Ammo, Show me, done), a resident 6 (with scWork), a resident on
   a shift 9 (scCommunity, scFollow, scWorkEnd, Weapon, Craft, Progress, Ammo, Show me, done), each +1 with `dm`'s Admin row; a
-  hired stranger unchanged (Command Menu stays).
+  hired stranger unchanged (Command Menu stays). (Round 25b, X2c: those are 0-XNPCCore 3.4.02's counts. 3.4.03's "Read..." row
+  made a follower 11 and a resident on a shift 10; with `scLeave` hidden while following, a follower is 10 again - scCommunity,
+  scGoHome, scRun, Weapon, Craft, Read, Progress, Ammo, Show me, done - and a resident on a shift 10 with Read; see round 25b.)
 - **The Community tab (`Tools/generate_community_ui.py` -> `Config/XUi_InGame/windows.xml`, `XUiC_ScCommunity.cs`).** The
   window is SC's one generated layout for vanilla, SurvivorOrigins and AshfallUI (AshfallUI only reskins its `scui_*` sprites;
   none of its ops reaches the window's new elements). A **Work and roles** button (`btnWorkMenu`, on the ORDERS heading,
@@ -3019,3 +3021,124 @@ and a client's routed answer), so X1's reply guard no longer kept a member from 
 **Checks:** XML replay against the installed 3.4.14 / 3.4.03 configs: every SC op matches (utilityai 25/25, entitygroups
 56/56, spawning 6/6), the three new conditionals land; the built DLL holds every new prefix/postfix (Cecil). Test steps:
 TESTING X2 (460-479).
+
+### Round 25b: crafting with 0-XNPCCore 3.4.03 (X2c) (2026-11-09, built, not reviewed, not installed)
+
+Branch `ms/x2c` from `ms/x2` `a2cac4d` (X2's re-bound hooks), worktree `Port33\wt\sc-x2c`. **3.4 only**: the C# is in the
+3.4-only files (`ScBooks.cs` new, `Patches_Craft.cs`, `ScCraft.cs`, `ScWork.cs`, `ScConfigCraft.cs`) and `ModApi.cs`'s `SC_V34`
+block; the XML is guarded on 0-XNPCCore's own statements. The 3.2 build compiles none of it.
+
+**What 0-XNPCCore 3.4.03 changed for community crafting** (the audit, scratch `x2\findings_craft.md`; decompiles of 3.4.02 and
+3.4.03):
+- **Books (new `SdcsBooks`).** A "Read..." row (`Read Books Menu`: a leader's - the Owner link counts -, the sdcsnpc tag,
+  `NPCCanCraft`), the voice's "read your books" (`read:*`) and the order router all end in `SdcsBooks.Order`. A schematic sets a
+  recipe cvar (SC never touches those: it unlocks above her stars, as 0-XNPCCore intends). A crafting magazine runs vanilla's
+  `MinEventActionAddProgressionLevel` on her Progression - SC's, rewritten from her stars every second
+  (`ScCraft.SetLevels`) - so the book was used up, she said "My Food is at level 15 now." and the level was gone a second later.
+  Usefulness came from her roles (`SkillHelps`), and every skill below its max counted, so magazines of other specialties were
+  offered and used up too.
+- **"Your progress".** Its role rows (`SdcsAddCraftSkillRows`) show the role's level - now the highest of its skills, her stars'
+  (`CraftSkillRules.ShownLevel`) - beside a learn-by-crafting ladder that never moves on a member (C1b): "Cook skill 43: 0 / 10
+  crafts". "Her skills..." shows SC's levels correctly.
+- **The craft window.** Voice Control's XUi window replaced the dialog's craft statements. Its Cancel sends `VCCommand.Stay`
+  (`MutateStay`: `buffOrderStay`, the job mode cleared), and `ScWork.Tick` ended a resident's whole work shift on it. Station
+  orders now take their ingredients when given (`QueueAt`: `PendingQueue` while she walks there); `DropJob` still refunds them
+  (`SdcsCraftJob.Clear` -> `SdcsStationCraft.Cancel` -> `RefundPending`). A home station (her last one, within 60 m of her)
+  serves when no station of the kind is within 5 m of the leader.
+- **The dialog.** The Read row made a following member's start page 11 rows on the dialog's 10 ("Nevermind." cut), a resident
+  on a shift 10. A refused "I have work for you." closed the talk, then the response's second action (`CraftMenuOpen`) fell back
+  on the dialog's owner and opened a dead window.
+
+**The decision (the user, 2026-11-09): "Magazines become training."** Schematics unchanged. A crafting magazine of her specialty
+gives specialty XP toward her next star; one for any other skill is "won't help her" and never used up; at 7 stars all of them
+are. Every member (followers, residents), crafting on.
+
+**The fixes.**
+- **Books (C1h-C1m; `ScBooks.cs`, patches `Patches_Craft.cs:536-740`).** `ScBooks.Scan` (:94) tells a magazine the way
+  `SdcsBooks.InfoOf` does (an `AddProgressionLevel` on a crafting skill among its `onSelfPrimaryActionEnd` effects, no
+  `SetProgressionLevel`); `Trains` (:135): `CraftSpecXpPerMagazineLevel` above 0, her specialty below 7 stars, and one of its
+  skills her specialty's (`ScCraft.InSpecialty`, ScCraft.cs:238) and below its max level on her - 0-XNPCCore's own
+  AnySkillBelowMax for that skill, so a read SC calls useful is never refused.
+  - C1h, postfix `SdcsBooks.List(EntityAlive)`: a member's magazine rows become `Useful` or `NoUse` ("won't help her", greyed),
+    by `BookRules.UseRow`; Voice Control's router refuses a greyed row's single read (`BookReadRefusal`: "book.nothing"), ReadAll
+    reads only useful rows. Schematic and perk book rows stay 0-XNPCCore's.
+  - C1i, postfix private `SdcsBooks.Teaches(EntityAlive, Info)` (the Info taken as object, its `Item` field bound in Prepare):
+    the same rule at 0-XNPCCore's own gate, under every read - ReadAll's loop over one book's copies stops when a magazine no
+    longer trains her, at her seventh star mid-loop too. It only ever turns true into false.
+  - C1j, prefix + finalizer `SdcsBooks.Order(EntityAlive, string)`: a member's read order opens the context the next two act in
+    (static, main thread; the finalizer always closes it), and at its end one tooltip (`scBookTrained`: magazines, XP, XP toward
+    the next star; or `scBookStar`), `StampCvars` on a new star and one registry save.
+  - C1k, prefix + postfix vanilla `MinEventActionAddProgressionLevel.Execute(MinEventParams)`: only inside a member's read order,
+    only for one of the book's own crafting actions (`_params.ItemValue`'s scanned action instances) with her as a target - her
+    level is read before and put back after (her stars set it), and a magazine that trains her pays `CraftSpecXpPerMagazineLevel`
+    x the levels vanilla would have added (its own count: the sandbox's Magazine Points for a level-1 crafting action) through
+    `ScSkills.AddSpecialtyXp` (traits, Leadership, an ally's Training multiply it). The player and everyone else stop at the
+    context's null check.
+  - C1l, prefix private `SdcsBooks.Learned(...)`: for a read that paid, the line is `ScBooks.TrainLineId` (`sc.book.train`),
+    not "My Food is at level 15 now." (a level SC resets) nor, with the level put back, "I already know what that one teaches."
+    and 0-XNPCCore's "it changed nothing" warning.
+  - C1m, prefix `SdcsSayLine.Say(EntityAlive, string)`: that id is said as SC's own line `scBookPracticeSaid` ("Good practice.
+    I'm getting better at this.") through Voice Control's `SubtitleManager.SayToEarshot` (bound by name; its subtitle and TTS,
+    the V1 voice gate as for its own lines). ReadAll of one book says it; of several, Voice Control's "I read N books." stays.
+- **Cancel keeps the shift (C1n, prefix Voice Control's private `XUiC_NpcCraftWindow.CancelJob()`, Patches_Craft.cs:757;
+  `ScWork.CancelJobOnShift`, ScWork.cs:331).** For a resident on a work shift only: `DropJob` (refund, station queue
+  cancelled) and `SdcsLootMode.Clear` (as `MutateStay`), then the window's own `Relist`; her Guard order at the craft spot stays,
+  so the shift goes Idle and ends WorkIdleSeconds later as after a finished job. Followers and strangers: Voice Control's Stay.
+  Chosen over a Stay rule in `ScWork.Tick` (justified in the patch's comment): it catches exactly the button that means "drop
+  this job" - a voice "stay" or the wheel's Stay still ends a shift as documented -, leaves her on SC's Guard instead of
+  `buffOrderStay`, and refunds at once. Tick's comment (ScWork.cs:224) says so.
+- **No dead window (finding 9; ScWork.cs:351, :591; dialogs.xml).** `scWork` no longer carries `CraftMenuOpen`;
+  `DialogActionScWorkStart` opens the window (`XUiC_NpcCraftWindow.Open(EntityPlayerLocal, EntityAlive)`, bound by name, the
+  call `CraftMenuOpen` makes) only when `ScWork.Start` succeeded. Without the method: one warning, the shift starts without it.
+- **Start page rows (dialogs.xml:290).** A new conditional on 0-XNPCCore's `Read Books Menu` response hides `scLeave` while
+  `sc_following`: "Ask to leave" is the rarest row on a follower's page, the Community tab's Leave does the same (her dialog's
+  first row opens the tab), and her dialog offers it again once she is home. Members keep "Read...". The C1 row-budget
+  comment (dialogs.xml:246-261) and round 22's paragraph above are updated.
+- **"Your progress" (C1o, postfix `SdcsProgress.List(EntityAlive)`, Patches_Craft.cs:804; `ScCraft.ProgressRows`,
+  ScCraft.cs:508).** A member's role rows keep the level and get where it comes from when one of her specialty's skills has it
+  (`IsStarLevel`, :251) and no ladder: "Cook skill 43 (from 3-star Cooking): 0 crafts" (`scProgressFromStars`; Voice Control's
+  `skillmax` format, the row's four fields kept). The level, XP, quality, roles and "Her skills..." rows are untouched.
+- **Stale text.** `ScWork.DropJob`'s comment (ScWork.cs:305: station orders hold their ingredients from the order on) and the
+  dialog hint (dialogs.xml:249-251: the window, the 5 m tabs, the 60 m home station).
+
+**Config.** `CraftSpecXpPerMagazineLevel` (default 10, 0..550; `ScConfigCraft.cs`, `Config/blocks.xml:511`, in the `config:
+crafting` line as `10/magazine level`): with the default Magazine Points of 1, one magazine is 10 XP against stars at 25, 60,
+120, 220, 360 and 550 - 55 magazines from 1 to 7 stars, before multipliers. 0: no magazine helps a member.
+
+**Counters** (`sc craft`, no name). The hooks line: `c1h-magazine-row-useful`, `c1h-magazine-row-wont-help` (rows listed),
+`c1i-magazine-read-refused` (0-XNPCCore's gate refused a member's magazine inside a read), `c1k-magazine-xp-paid`,
+`c1k-magazine-level-undone` (a level put back with no XP: a read that should have been refused, warned once per order),
+`c1l-training-line`, `c1m-training-line-said`, `c1n-window-cancel-kept-shift`, `c1o-progress-role-row`; the shifts' summary
+ends `window cancels kept on the shift N`; a new `books: N magazine(s) read as training, N specialty XP paid, N star(s) gained`.
+Log: `<name> read N crafting magazine(s) as training (...): +X <Specialty> XP, now Y (Z stars)` per read order;
+`<name>: the craft window's Cancel ends her job, not her work shift`.
+
+**ExpectedTargets** (ModApi.cs:397-407, a block after C1g's): `SdcsBooks::List`, `SdcsBooks::Teaches`, `SdcsBooks::Order`,
+`MinEventActionAddProgressionLevel::Execute`, `SdcsBooks::Learned`, `SdcsSayLine::Say`, `SdcsProgress::List`, and
+`XUiC_NpcCraftWindow::CancelJob` while Voice Control is loaded: 8 more than X2's build.
+
+**Checks.**
+- Build 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a `--no-incremental` rebuild); the 3.2 build
+  to a scratch folder compiles; the tracked `SurvivorCommunity.dll` untouched.
+- FindStr on the built DLL: every counter string in its method (`ScBooks.RewriteRows`, `Teaches`, `AfterLevel`,
+  `TrainingLine`, `SayTraining`, `ScCraft.ProgressRows`, `Patch_CraftWindowCancel.Prefix`), the eight patch classes with their
+  Prepare / TargetMethod and their argument names (`__0`, `__1`, `__instance`, `__state`, `__result`).
+- The targets against the installed 3.4.03 DLLs (Cecil): `SdcsBooks.Teaches(EntityAlive, SdcsBooks/Info)` and `Learned(...,
+  List<string>, List<int>)` private static, `Order(EntityAlive, string)` and `List(EntityAlive)` public static with the return
+  types bound, `SdcsSayLine.Say(EntityAlive, string)`, `SdcsProgress.List(EntityAlive)`; Voice Control's
+  `XUiC_NpcCraftWindow.CancelJob()` (instance, private: `Npc()`, the listing's `HasJob`, `VCCommandRouter.Execute(..., 2)`),
+  `Relist(EntityPlayerLocal, EntityAlive)`, `Open(EntityPlayerLocal, EntityAlive)` public static, the static `s_npcId`, and
+  `XNPCVoiceControl.UI.SubtitleManager.SayToEarshot(EntityAlive, string, string)` public static.
+- **Dialog replay** (the audit's `craftaudit\replay_dialogs.py` with a case counter, scratch `x2c\rows.py`; SCore 3.4.14 +
+  0-XNPCCore 3.4.03 + SC): before - a follower 11, a resident on a shift 10; after - a follower 10 (scCommunity, scGoHome,
+  scRun, Weapon, Craft, Read, Progress, Ammo, Show me, done), a resident 6 (scCommunity, scFollow, scWork, scRun, scLeave,
+  done), a resident on a shift 10 (scCommunity, scFollow, scWorkEnd, Weapon, Craft, Read, Progress, Ammo, Show me, done), a
+  hired stranger 9 as before; each +1 with `dm`'s Admin row. `scWork`'s actions: `ScWorkStart` only. SC's dialogs 21/21 ops
+  matched. With 0-XNPCCore 3.4.02 the new conditional is false: a follower 10 with scLeave, a resident on a shift 9, as before.
+
+**Not checked:** anything in game (TESTING X2c, 480-499). Statically unproven: that Harmony hands the private `Info` to an
+`object` argument (the usual Harmony rule for a non-public reference type); that `SayToEarshot` speaks while the talk is
+still open (SC's V1 gate swallows Voice Control's voice on a member in a talk - the line then shows only as the tooltip, the
+same as 0-XNPCCore's own line would); that the craft window repaints at once after `Relist`.
+
+Builds: SC 3.4 `50a1c71c9e7ca6ed83b5e52936ae2ed4` (`build\sc34_x2c`), 0 errors. Not reviewed, not installed.

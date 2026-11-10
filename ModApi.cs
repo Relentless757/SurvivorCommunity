@@ -397,6 +397,17 @@ namespace SurvivorCommunity
             Add(t, "AvatarSdcsNpcController::SdcsAnyWeaponTick", Patches_Craft.AnyWeaponTickTarget());
             Add(t, "AvatarSdcsNpcController::SdcsAnyWeaponMenuListing", Patches_Craft.AnyWeaponListingTarget());
             Add(t, "AvatarSdcsNpcController::SdcsTryWorldEntryMelee", Patches_Craft.WorldEntryMeleeTarget());
+            // X2c (round 25b, 0-XNPCCore 3.4.03): C1h-C1m crafting magazines train a member's specialty (her rows, 0-XNPCCore's
+            // gate, the read order's context, vanilla's level action, the line and its say-line seam); C1o "Your progress" role
+            // rows; C1n the craft window's Cancel keeps a resident's work shift (Voice Control's window: only when it is loaded)
+            Add(t, "SdcsBooks::List", Patches_Craft.BookListTarget());
+            Add(t, "SdcsBooks::Teaches", Patches_Craft.BookTeachesTarget());
+            Add(t, "SdcsBooks::Order", Patches_Craft.BookOrderTarget());
+            Add(t, "MinEventActionAddProgressionLevel::Execute", Patches_Craft.MagazineLevelTarget());
+            Add(t, "SdcsBooks::Learned", Patches_Craft.BookLearnedTarget());
+            Add(t, "SdcsSayLine::Say", Patches_Craft.SayLineTarget());
+            Add(t, "SdcsProgress::List", Patches_Craft.ProgressListTarget());
+            if (Patches_Craft.CraftWindowType != null) Add(t, "XUiC_NpcCraftWindow::CancelJob", Patches_Craft.CraftCancelTarget());
 #endif
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
             // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on

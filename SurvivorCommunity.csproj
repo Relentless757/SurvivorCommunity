@@ -277,6 +277,8 @@
     <Compile Include="ScCraft.cs" />
     <Compile Include="ScWork.cs" />
     <Compile Include="Patches_Craft.cs" />
+    <!-- X2c (round 25b): 0-XNPCCore 3.4.03's crafting magazines train a member's specialty -->
+    <Compile Include="ScBooks.cs" />
   </ItemGroup>
 
   <!-- W2 (round 23): SC's wild raiders when another mod turns the game's enemy biome spawns off - 3.4 only -->
