@@ -560,6 +560,23 @@
 			<property name="WorkIdleSeconds" value="90" />
 			<property name="WorkCallSeconds" value="180" />
 			<property name="WorkDepositOutput" value="true" />
+			<!-- Round 29a (J29; game 3.4 with 0-XNPCCore 3.4.04 - the 3.2 build reads none of these). 0-XNPCCore's jobs on members.
+			     Residents do home jobs only (Jobs and gear > Jobs, from her talk at home): Chop wood, Pick plants / crops, Butcher,
+			     Base repair, Combat repair and Craft; Follow + loot, Loot here, Mine and Dig clay are a follower's jobs - a resident
+			     says to take her along. WorkDepositOutput (above) also moves what she gathers on a home job (wood, crops, meat ...)
+			     into the home crates as she works, and a full pack is emptied there so the job carries on.
+			     MemberWorkKit: the tools every member carries beside their weapon pair, so 0-XNPCCore's jobs find one - by default
+			     0-XNPCCore's own survivors' kit (stone axe: wood, repairs, butchering; stone shovel: clay; bone knife: butchering).
+			     A better tool you hand over through Show me your inventory is used first. Kit tools are never used as weapons.
+			     Item names, comma separated; empty or none = no kit (then hand tools over yourself). Existing members get it the
+			     next time their body loads. RepairDutyIdleMinutes: a Base repair or Combat repair duty ends after this many
+			     minutes with nothing she can repair (1-240; at night at once), and she goes back to her post. At its start she
+			     tells you what is missing (a repair tool, the materials for a damaged block). ReplantCrops: a member who picks a
+			     ripe crop of your farm (Pick crops) replants the plot with a seed of that crop from her inventory or the home
+			     crates; with no seed the plot stays empty. false: the plot stays empty. -->
+			<property name="MemberWorkKit" value="meleeToolRepairT0StoneAxe,meleeToolShovelT0StoneShovel,meleeWpnBladeT0BoneKnife" />
+			<property name="RepairDutyIdleMinutes" value="5" />
+			<property name="ReplantCrops" value="true" />
 			<!-- V2, voices by race and sex. VoiceByRace: every survivor and raider speaks in one of the two voices of their race
 			     and sex (White, Black, Asian, Native, from their body: SC's look), picked by their name. While that voice has
 			     no recording of a line, the other voice of their race and sex says it, then any recorded voice of their sex

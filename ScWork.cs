@@ -35,6 +35,13 @@ namespace SurvivorCommunity
     ///    the Owner link and 0-XNPCCore's job (unmade items' ingredients come back), and she walks back to her post. Follow, a run,
     ///    an outpost posting and Leave end it first without the walk (EndFor). Shifts live in memory only: after a reload the body's
     ///    Owner cvar makes the resident rule station her.
+    ///  - Round 29a (J29, the user's decisions of 2026-11-11): home jobs only for residents - Chop wood, Pick, Butcher, Base repair,
+    ///    Combat repair and Craft; Follow + loot, Loot here, Mine and Dig clay are refused (ScJobs; a field job that slips through
+    ///    is taken back here). What she gathers on a home job is noted (ScJobs' WindowAdd hook, NoteGathered) and goes to the
+    ///    crates with what she makes, a full pack is emptied there and the job carries on (ResumeAfterFullPack, from C1f). Base
+    ///    repair and Combat repair (modes 8, 9) are a duty (DutyTick): what is missing is said at its start, it ends after
+    ///    RepairDutyIdleMinutes with nothing she can repair (at once at night), and the residents' stuck rescue may act on her
+    ///    meanwhile (AllowsWatchdog, round 29b's hook).
     /// </summary>
     public static class ScWork
     {
@@ -58,18 +65,31 @@ namespace SurvivorCommunity
             public float Started, PhaseSince, NextDeposit;
             /// <summary>Round 28, Talk only (real time): when the hold started, and when a talk window on her was last seen open.</summary>
             public float TalkSince, TalkSeen;
+            /// <summary>Round 29a (round 28's Fable glance, LOW A): the TalkCapSeconds cap's own clock - restarted while the talk with her is open.</summary>
+            public float CapSince;
             public Phase Phase;
             public bool Called;
             public int Jobs, Deposited, Crafts;
             public bool SaidFull;
             /// <summary>Item type -> how many of what she made on this shift are still to go to the crates.</summary>
             public readonly Dictionary<int, int> Made = new Dictionary<int, int>();
+            /// <summary>Round 29a (J29): what she gathered on home jobs (ledgered with Made), pack-full resumes, the full pack said.</summary>
+            public int Gathered, Resumes;
+            public bool SaidPackFull;
+            /// <summary>Round 29a: on a Base repair / Combat repair duty (job mode 8 or 9), its mode, and its clocks (game time).</summary>
+            public bool Duty;
+            public int DutyMode;
+            public float DutyStart, DutyIdleSince, NextDutyCheck;
+            public bool DutyChecked;
+            /// <summary>Round 29a: the last check's answer, for the console ("can repair", "nothing damaged" ...).</summary>
+            public string DutyState = "";
         }
 
         private static readonly Dictionary<int, Shift> shifts = new Dictionary<int, Shift>();
         private static readonly List<int> scratch = new List<int>();
         private static int starts, ends, staleCleared, depositedTotal, jobsDropped, windowCancels;
         private static int talkStarts, talkPromoted, talkEnds, talkSkipped;
+        private static int gatheredTotal, packResumes, packEnds, fieldJobsTaken, dutiesStarted, dutyIdleEnds;
         private static bool talkGroupsLogged;
         private static readonly Dictionary<string, int> endReasons = new Dictionary<string, int>();
 
@@ -78,8 +98,10 @@ namespace SurvivorCommunity
             shifts.Clear();
             starts = ends = staleCleared = depositedTotal = jobsDropped = windowCancels = 0;
             talkStarts = talkPromoted = talkEnds = talkSkipped = 0;
+            gatheredTotal = packResumes = packEnds = fieldJobsTaken = dutiesStarted = dutyIdleEnds = 0;
             talkGroupsLogged = false;
             endReasons.Clear();
+            ScJobs.Reset();
         }
 
         /// <summary>On a shift or a talk hold (round 28): the Owner link stands, and every shift rule (the ticker hand-off, the UAI
@@ -210,7 +232,7 @@ namespace SurvivorCommunity
                 SphereCache.LeaderCache.Remove(npc.entityId);
                 ScCommunity.ApplyPost(npc, EntityUtilities.CenterPosition(npc.position));
                 float now = Time.time, real = Time.unscaledTime;
-                shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Talk, TalkSince = real, TalkSeen = real };
+                shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Talk, TalkSince = real, TalkSeen = real, CapSince = real };
                 talkStarts++;
                 LogTalkGroupsOnce(player);
                 ScLog.Verbose(m.Name + ": talk hold - linked to you while the talk and its windows are open (at " + npc.GetBlockPosition() + ")");
@@ -308,15 +330,24 @@ namespace SurvivorCommunity
                 End(m, npc, "the talk is over", true, false);
                 return;
             }
-            if (real - s.TalkSince < TalkCapSeconds) return;
+            if (real - s.CapSince < TalkCapSeconds) return;
             EntityPlayerLocal player = ScCommunity.LocalPlayer;
             LocalPlayerUI ui = player != null ? player.PlayerUI : null;
             GUIWindowManager wm = ui != null ? ui.windowManager : null;
-            if (DialogWithHer(ui, wm, npc)) return;           // review L1: never under an open talk with her
-            // review L1: a craft window, wheel or her inventory still open on her would be left without the link
+            // review L1: never under an open talk with her. Round 29a (round 28's Fable glance, LOW A): the cap's clock starts
+            // again while the talk is open, so a window picked from a long talk (Craft..., her inventory, the wheel) gets the
+            // whole cap (its own clock: TalkSince stays the talk's start, for the log and sc craft)
+            if (DialogWithHer(ui, wm, npc)) { s.CapSince = real; return; }
+            // review L1: a craft window, wheel or her inventory still open on her would be left without the link. Round 29a (LOW B):
+            // only her windows - the craft window and the wheel while the player's CurrentNPC is her, the looting window while it
+            // shows her inventory
             if (wm != null)
-                foreach (string g in new[] { CraftGroup, WheelGroup, LootGroup })
-                    if (wm.IsWindowOpen(g)) wm.Close(g);
+            {
+                bool hers = player != null && player.Buffs != null && (int)player.Buffs.GetCustomVar("CurrentNPC") == npc.entityId;
+                if (hers && wm.IsWindowOpen(CraftGroup)) wm.Close(CraftGroup);
+                if (hers && wm.IsWindowOpen(WheelGroup)) wm.Close(WheelGroup);
+                if (wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc)) wm.Close(LootGroup);
+            }
             End(m, npc, "the talk hold's " + (int)TalkCapSeconds + " s cap", true, false);
         }
 
@@ -441,6 +472,18 @@ namespace SurvivorCommunity
             if (npc.Buffs.GetCustomVar("Owner") <= 0f) { End(m, npc, "the owner link is gone", true); return; }
             if (ScWatch.OnWatch(m)) { End(m, npc, "posted on watch", true); return; }
             int mode = SdcsLootMode.Mode(npc);
+            // round 29a (J29, the user's decision 2): residents do home jobs only. A field job that got past ScJobs' refusals (a
+            // save from before this round, another caller) is taken back: Follow + loot ends the shift (it told her to follow),
+            // Loot here, Mine and Dig clay leave her without a job (Idle, then home; a talk hold just goes on)
+            if (ScJobs.IsFieldJob(mode))
+            {
+                SdcsLootMode.Clear(npc);
+                fieldJobsTaken++;
+                ScJobs.TellFieldJob(m, npc, mode);
+                ScLog.Out(m.Name + ": job mode " + mode + " is a follower's job - taken back on her shift");
+                if (mode == 1) { End(m, npc, "Follow + loot is a follower's job", true, false); return; }
+                mode = 0;
+            }
             EntityUtilities.Orders order;
             // any order but Guard ends the shift (a voice Follow, a Stay ...) and a talk hold (round 28). X2c: the craft window's
             // Cancel, which Voice Control sends as a Stay, never gets here for a shift - Patches_Craft C1n drops only the job
@@ -474,6 +517,9 @@ namespace SurvivorCommunity
                 s.Phase = Phase.Idle;
                 s.PhaseSince = now;
             }
+            // round 29a (J29): Base repair and Combat repair never end by themselves - a duty with its own end
+            if (mode == 8 || mode == 9) { if (DutyTick(m, npc, s, mode, now)) return; }
+            else if (s.Duty) { s.Duty = false; s.DutyState = ""; }
             World w = ScCommunity.World;
             if (s.Phase == Phase.Called && now - s.PhaseSince >= Math.Max(10, ScConfig.WorkCallSeconds))
             {
@@ -496,13 +542,84 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>Round 29a: a repair duty's first look comes this long after it starts (0-XNPCCore registers the duty on its first tick).</summary>
+        private const float DutyFirstCheckSeconds = 6f;
+        /// <summary>Round 29a: then the duty asks 0-XNPCCore's own test this often (its repairable answer is cached for as long).</summary>
+        private const float DutyCheckSeconds = 5f;
+
+        /// <summary>
+        /// Round 29a (J29): Base repair / Combat repair as a duty. 0-XNPCCore's base keeper never ends either mode, repairs only
+        /// with a repair tool and materials it can reach, and does nothing without them, without a line or a log (its task never
+        /// starts). Every DutyCheckSeconds its own test (ScJobs.RepairCheck: UAITaskBaseKeepSdcs.Repairable and PickRepairTool)
+        /// says whether there is anything she can repair now. The first look (DutyFirstCheckSeconds after the start, once
+        /// 0-XNPCCore has registered the duty) tells the player what is missing - a repair tool, the materials or the skill for a
+        /// damaged block - or that nothing is damaged yet. With nothing she can repair the duty ends after RepairDutyIdleMinutes,
+        /// at once at night, through End: she walks back to her post and SC's night routine takes over. True when it ended the
+        /// shift.
+        /// </summary>
+        private static bool DutyTick(Member m, EntityAlive npc, Shift s, int mode, float now)
+        {
+            if (!s.Duty || s.DutyMode != mode)
+            {
+                s.Duty = true;
+                s.DutyMode = mode;
+                s.DutyStart = now;
+                s.DutyIdleSince = now;
+                s.DutyChecked = false;
+                s.NextDutyCheck = now + DutyFirstCheckSeconds;
+                s.DutyState = "starting";
+                dutiesStarted++;
+                ScLog.Out(m.Name + " starts a " + (mode == 9 ? "Combat repair" : "Base repair") + " duty at " + npc.GetBlockPosition() + " - it ends after "
+                          + ScConfig.RepairDutyIdleMinutes + " min with nothing she can repair (at once at night)");
+                return false;
+            }
+            if (now < s.NextDutyCheck) return false;
+            s.NextDutyCheck = now + DutyCheckSeconds;
+            ScJobs.RepairFacts f = ScJobs.RepairCheck(npc);
+            s.DutyState = f.State;
+            World w = ScCommunity.World;
+            bool night = w != null && !w.IsDaytime();
+            if (!s.DutyChecked)
+            {
+                s.DutyChecked = true;
+                ScJobs.TellDutyStart(m, f, night);
+            }
+            if (f.CanRepair) { s.DutyIdleSince = now; return false; }
+            if (!night && now - s.DutyIdleSince < ScConfig.RepairDutyIdleMinutes * 60f) return false;
+            dutyIdleEnds++;
+            End(m, npc, night ? "nothing to repair, and it is night (" + f.State + ")" : "nothing to repair for " + ScConfig.RepairDutyIdleMinutes + " min (" + f.State + ")", true);
+            return true;
+        }
+
+        /// <summary>
+        /// Round 29a (J29), the hook for round 29b's residents' no-progress stuck rescue (ScCommunity's watchdog): may it act on
+        /// this member now? True when she is on no shift or talk hold (the resident rules, as ever) and during a Base repair /
+        /// Combat repair duty (she walks about the base to her repairs - the wreck findings' item c); false while a talk, a craft
+        /// or any other job holds her at her spot on purpose.
+        /// </summary>
+        public static bool AllowsWatchdog(Member m)
+        {
+            Shift s;
+            if (m == null || !shifts.TryGetValue(m.Id, out s)) return true;
+            return s.Duty;
+        }
+
+        /// <summary>Round 29a: on a Base repair / Combat repair duty (job mode 8 or 9 on a work shift).</summary>
+        public static bool OnDuty(int memberId)
+        {
+            Shift s;
+            return shifts.TryGetValue(memberId, out s) && s.Duty;
+        }
+
         /// <summary>
         /// ScTicker, once a second: a shift whose member left, died, is no longer a resident (a path that did not end it) or whose
         /// body unloaded is dropped - 0-XNPCCore forgets an unloaded body's order, and the resident rule stations her when she loads.
+        /// Round 29a: ScJobs' own second (replanting, the work kit's once-per-body check) runs from here first.
         /// </summary>
         public static void Sweep(EntityPlayerLocal player)
         {
             ScCraft.FlushXp(false);   // review #6: craft XP is saved here at most every FlushSeconds, not on every point
+            ScJobs.Tick(player);
             if (shifts.Count == 0) return;
             scratch.Clear();
             scratch.AddRange(shifts.Keys);
@@ -633,9 +750,37 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round 29a (J29, the user's decision 3): ScJobs' hook on 0-XNPCCore's SdcsStores.WindowAdd - what she put in her
+        /// inventory window on a home job (job modes 2-7: wood, crops and plants, meat ...) while on a work shift is owed to the
+        /// home crates, on the same ledger as what she makes (Deposit moves it every DepositSeconds). On a talk hold too: the
+        /// job's first payouts can come before Tick has made the hold a shift (and End deposits a hold's ledger as well).
+        /// </summary>
+        public static void NoteGathered(int memberId, int itemType, int count)
+        {
+            Shift s;
+            if (itemType <= 0 || count <= 0 || !shifts.TryGetValue(memberId, out s)) return;
+            int n;
+            s.Made.TryGetValue(itemType, out n);
+            s.Made[itemType] = n + count;
+            s.Gathered += count;
+            gatheredTotal += count;
+        }
+
+        /// <summary>Round 29a: one of the ledger's items left her window another way (a seed she replanted with): no longer owed.</summary>
+        public static void Unnote(int memberId, int itemType, int count)
+        {
+            Shift s;
+            int n;
+            if (count <= 0 || !shifts.TryGetValue(memberId, out s) || !s.Made.TryGetValue(itemType, out n) || n <= 0) return;
+            s.Made[itemType] = Math.Max(0, n - count);
+        }
+
+        /// <summary>
         /// Q4 (a): from her inventory window into the home zone's linked storage, only what she made on this shift (the ledger), so
         /// her gear, ammo and meds stay. Never while her window is open (on the host's screen, a remote player's, 0-XNPCCore's stock
-        /// trade); what does not fit stays in the window.
+        /// trade); what does not fit stays in the window. Round 29a: what she gathered on a home job too (NoteGathered), and onto
+        /// the crates' stacks of the same item first (ScStorage.TopUpInZone), so a job that brings a few logs at a time does not
+        /// take a new slot every DepositSeconds.
         /// </summary>
         private static void Deposit(Member m, EntityAlive npc, Shift s, bool final)
         {
@@ -653,13 +798,19 @@ namespace SurvivorCommunity
                 int owed;
                 if (!s.Made.TryGetValue(st.itemValue.type, out owed) || owed <= 0) continue;
                 int k = Math.Min(st.count, owed);
-                Vector3i box;
-                if (!ScStorage.DepositInZone(new ItemStack(st.itemValue.Clone(), k), out box)) { full = true; break; }
-                s.Made[st.itemValue.type] = owed - k;
-                moved += k;
+                int put = ScStorage.TopUpInZone(new ItemStack(st.itemValue.Clone(), k));
+                if (put < k)
+                {
+                    Vector3i box;
+                    if (ScStorage.DepositInZone(new ItemStack(st.itemValue.Clone(), k - put), out box)) put = k;
+                    else full = true;
+                }
+                if (put <= 0) break;
+                s.Made[st.itemValue.type] = owed - put;
+                moved += put;
                 // 3.4: the window's slots are bound to its grid - emptied in place, never replaced (ScAmmo's rule)
-                if (k >= st.count) HarvestManager.SetSlot(items, i, null);
-                else st.count -= k;
+                if (put >= st.count) HarvestManager.SetSlot(items, i, null);
+                else st.count -= put;
             }
             if (moved > 0)
             {
@@ -673,6 +824,44 @@ namespace SurvivorCommunity
                 s.SaidFull = true;
                 ScCommunity.Tell(ScCommunity.LocalPlayer, string.Format(Localization.Get("scWorkCratesFull"), m.Name), "");
             }
+        }
+
+        /// <summary>
+        /// Round 29a (J29, the user's decision 3: "when her pack fills she drops it off and carries on"). Patches_Craft's C1f asks
+        /// this when 0-XNPCCore ends a resident's job for a full pack ("loot.full"; it has paused the job, MarkFull, and would
+        /// end that pause on its next tick for want of a Follow order). On a work shift with a home job (modes 2-7) what she
+        /// gathered goes to the crates now; with room for 0-XNPCCore's own resume rule (LootResumeFreeSlots free slots) the
+        /// pause is cleared and the job mode, her Guard order and its pin stay, so she carries on (true: C1f skips the end).
+        /// False - the job ends as before - when the crates take too little (they are full, or her pack is full of her own
+        /// things), said to the player once a shift.
+        /// </summary>
+        public static bool ResumeAfterFullPack(Member m, EntityAlive npc)
+        {
+            Shift s;
+            if (!ScConfig.WorkDepositOutput || m == null || npc == null || npc.Buffs == null || !shifts.TryGetValue(m.Id, out s) || s.Phase == Phase.Talk) return false;
+            int mode = SdcsLootMode.Mode(npc);
+            if (mode < 2 || mode > 7) return false;
+            int before = s.Deposited;
+            Deposit(m, npc, s, false);
+            int free = ScJobs.WindowFreeSlots(npc), need = ScJobs.ResumeFreeSlots();
+            if (free < need)
+            {
+                packEnds++;
+                ScLog.Out(m.Name + "'s pack is full (job mode " + mode + "): " + (s.Deposited - before) + " item(s) to the home crates, " + free + " free slot(s) of "
+                          + need + " needed - the job ends");
+                if (!s.SaidPackFull)
+                {
+                    s.SaidPackFull = true;
+                    ScCommunity.Tell(ScCommunity.LocalPlayer, string.Format(Localization.Get("scWorkPackFull"), m.Name), "");
+                }
+                return false;
+            }
+            SdcsLootMode.ClearPaused(npc);
+            if (npc.Buffs.GetCustomVar("SdcsLootFull") >= 1f) npc.Buffs.SetCustomVar("SdcsLootFull", 0f);
+            s.Resumes++;
+            packResumes++;
+            ScLog.Out(m.Name + "'s pack was full: " + (s.Deposited - before) + " item(s) to the home crates, back to work (job mode " + mode + ", " + free + " free slots)");
+            return true;
         }
 
         // ------------------------------------------------------------------ the Community tab ----
@@ -749,7 +938,10 @@ namespace SurvivorCommunity
                 return "Talk (round 28's talk hold) for " + (int)(Time.unscaledTime - s.TalkSince) + " s, a talk window last seen open " + (int)(Time.unscaledTime - s.TalkSeen)
                        + " s ago" + cvar;
             return s.Phase + " for " + (int)(now - s.PhaseSince) + " s (shift " + (int)(now - s.Started) + " s, " + (s.Called ? "called" : "talked to") + "), jobs " + s.Jobs
-                   + ", made " + s.Crafts + ", in the crates " + s.Deposited + ", still owed to the crates [" + made + "]" + cvar
+                   + ", made " + s.Crafts + ", gathered " + s.Gathered + ", in the crates " + s.Deposited + ", still owed to the crates [" + made + "]"
+                   + (s.Resumes > 0 ? ", pack emptied and back to work " + s.Resumes + "x" : "")
+                   + (s.Duty ? "; " + (s.DutyMode == 9 ? "Combat" : "Base") + " repair duty for " + (int)(now - s.DutyStart) + " s, nothing to repair for "
+                               + (int)(now - s.DutyIdleSince) + " s of " + ScConfig.RepairDutyIdleMinutes * 60 + " (" + s.DutyState + ")" : "") + cvar
                    + "; craft order " + (SdcsCraftJob.Get(m.Id) != null ? "yes" : "no");
         }
 
@@ -760,7 +952,10 @@ namespace SurvivorCommunity
             return "work shifts: " + shifts.Count + " now, " + starts + " started, " + ends + " ended (" + string.Join(", ", parts.ToArray()) + "), stale sc_shift cleared "
                    + staleCleared + ", items put in the crates " + depositedTotal + ", craft orders dropped " + jobsDropped
                    + ", window cancels kept on the shift " + windowCancels + "; talk holds: " + talkStarts + " started, " + talkPromoted + " became a work shift, "
-                   + talkEnds + " ended, " + talkSkipped + " not started (a resident who could not be held)";
+                   + talkEnds + " ended, " + talkSkipped + " not started (a resident who could not be held)"
+                   + "; home jobs (round 29a): gathered " + gatheredTotal + ", pack emptied and back to work " + packResumes + ", pack full and ended " + packEnds
+                   + ", field jobs taken back " + fieldJobsTaken + ", repair duties " + dutiesStarted + " started, " + dutyIdleEnds + " ended with nothing to repair; "
+                   + ScJobs.Report();
         }
     }
 }

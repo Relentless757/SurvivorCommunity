@@ -427,6 +427,12 @@ namespace SurvivorCommunity
             // people (with or without Voice Control: any caller)
             Add(t, "XUiC_DialogWindowGroup::OnOpen", Patches_Craft.TalkOpenTarget());
             Add(t, "EntitySyncUtils::Collect", Patches_VoiceControl.CollectTarget());
+            // round 29a (J29): a home job's output noted for the crates; a picked crop replanted; the work kit never a fighting
+            // weapon (the thrust and block-breaker picks; the Carried weapons listing shares C1g's entry above)
+            Add(t, "SdcsStores::WindowAdd", ScJobs.WindowAddTarget());
+            Add(t, "UAITaskHarvestSdcs::PickPlant", ScJobs.PickPlantTarget());
+            Add(t, "AvatarSdcsNpcController::SdcsCarriedThrustWeapon", ScJobs.ThrustTarget());
+            Add(t, "SdcsMeleeReach::BestBreaker", ScJobs.BreakerTarget());
 #endif
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
             // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on
@@ -550,6 +556,12 @@ namespace SurvivorCommunity
                     Add(t, "HerRingPage::Open", Patches_VoiceControl.HerRingOpenTarget());
                 }
                 Add(t, "PhraseTriggerHandler::OpenInventoryRouted", Patches_VoiceControl.InventoryRoutedTarget());
+                // round 29a (J29): field jobs refused for residents (the job order, the spoken "loot"); squad orders and the order
+                // wheel's roster leave residents out
+                Add(t, "VCCommandRouter::MutateLoot", ScJobs.MutateLootTarget());
+                Add(t, "PhraseTriggerHandler::Loot", ScJobs.VoiceLootTarget());
+                Add(t, "XNPCVoiceControlMod::GetHiredRoster", ScJobs.RosterTarget());
+                Add(t, "VCCommandRouter::ExecuteForSquad", ScJobs.SquadTarget());
 #endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");

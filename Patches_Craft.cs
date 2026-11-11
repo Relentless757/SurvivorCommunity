@@ -20,7 +20,9 @@ namespace SurvivorCommunity
     ///                                                                              taken off its list
     ///   C1f SdcsLootHere.Finish(EntityAlive, string, string)              prefix   a resident member (on a work shift, or with a link a
     ///                                                                              reload left) stays where she is when a job ends (no
-    ///                                                                              Follow order, no teleport to the player)
+    ///                                                                              Follow order, no teleport to the player); round
+    ///                                                                              29a: a full pack on a home job goes to the crates
+    ///                                                                              and the job carries on (ScWork.ResumeAfterFullPack)
     ///   C1g AvatarSdcsNpcController.SdcsAnyWeaponTick / SdcsAnyWeaponMenuListing(EntityAlive) / SdcsTryWorldEntryMelee(EntityAlive,
     ///       ItemValue)                                                    prefixes 0-XNPCCore's owner-gated weapon picks (its Owner cvar
     ///                                                                              test) never re-arm a resident on a shift from her
@@ -436,6 +438,13 @@ namespace SurvivorCommunity
                 {
                     Member m = MemberOf(npc);
                     if (m == null || npc.Buffs == null || m.Status != MemberStatus.Resident) return true;
+                    // round 29a (J29, the user's decision 3): a full pack on a home job - what she gathered goes to the home
+                    // crates and she carries on (ScWork.ResumeAfterFullPack); the job ends as before when that frees too little
+                    if (lineId == "loot.full" && ScWork.ResumeAfterFullPack(m, npc))
+                    {
+                        Count("c1f-pack-full-resumed");
+                        return false;
+                    }
                     SdcsLootMode.Clear(npc);
                     SdcsSayLine.Say(npc, lineId);
                     Count("c1f-shift-job-ended-in-place");

@@ -2329,7 +2329,8 @@ hooks:` counters, and the `dialog pager:` line). Test on a new world or a copy; 
      her page has "That's all for now.". Then talk to her, Craft... and close it WITHOUT an order: 2 s later `shift: none`
      (it used to stay `Called` for 3 minutes).
 577. **A job makes a shift.** Talk to a resident, Jobs and gear > Jobs > a loot or harvest job: `starts a work shift (from the
-     talk)`; she does the job and goes home after it as on any shift.
+     talk)`; she does the job and goes home after it as on any shift. (Round 29a: residents refuse the loot jobs, Mine and Dig
+     clay - use Wood, Pick or Butcher; J29 604-608.)
 578. **No link where it can't hold.** Talk to a resident from outside the base (or stand outside it while she is inside), to a
      resident on watch, and with `TalkHold` false (restart): 6 rows - Community, Follow me, supply run, Show me your inventory
      (SC's own row: it opens her inventory), Ask to leave, Nevermind; no Craft..., no Jobs and gear; `sc craft <name>`:
@@ -2361,6 +2362,81 @@ hooks:` counters, and the `dialog pager:` line). Test on a new world or a copy; 
      disappears and stays hidden; post one to an outpost the same. (The new seat guard - a body leaves a vehicle seat before
      SC hides it, the log `... leaves the vehicle seat before being hidden` - cannot be reached in normal play: only a resident
      is hidden, and a resident is never seated. Note the line if it ever shows.)
+
+**J29. Round 29a: 0-XNPCCore's jobs on members - the work kit, home jobs, output into the crates, replanting (3.4)**
+
+Members carry 0-XNPCCore's work tools (stone axe, stone shovel, bone knife) beside their weapon pair and never fight with them;
+residents do home jobs only (Chop wood, Pick, Butcher, Base repair, Combat repair, Craft) and refuse Follow + loot, Loot here, Mine
+and Dig clay; what a resident gathers goes into the home crates as she works, and a full pack is emptied there; a picked crop is
+replanted; Base repair / Combat repair tell you what is missing and end by themselves; squad orders and the order wheel leave
+residents out; a runner keeps her inventory across a re-key. Set `DebugLogging` true (SC) and 0-XNPCCore's `VerboseLogging` true
+(`Mods\0-XNPCCore\Config\Settings.xml`) for the `[SDCS-HARVEST/LOOT/BUTCHER/BASEKEEP]` lines. Helpers: `sc craft` and `sc craft
+<name>` before and after each test, `sc loadout <name>` (the item list), `sc scan` (crops). Jobs: talk to a resident at home >
+Jobs and gear > Jobs. Test on a new world or a copy; `dm` for the creative menu.
+
+600. **Start-up.** Load the world. In the log: `patch verification: all ... targets patched`, eight more than round 28's
+     (`SdcsStores::WindowAdd`, `UAITaskHarvestSdcs::PickPlant`, `AvatarSdcsNpcController::SdcsCarriedThrustWeapon`,
+     `SdcsMeleeReach::BestBreaker`, `VCCommandRouter::MutateLoot`, `PhraseTriggerHandler::Loot`,
+     `XNPCVoiceControlMod::GetHiredRoster`, `VCCommandRouter::ExecuteForSquad`); the `config: crafting` line ends `workKit=
+     meleeToolRepairT0StoneAxe+meleeToolShovelT0StoneShovel+meleeWpnBladeT0BoneKnife repairDutyIdle=5min replantCrops=True`.
+601. **The kit on existing members.** `sc loadout <name>` on a member: `item list:` is her melee weapon, her ranged weapon (if
+     any), then the stone axe, stone shovel and bone knife. On a prospect, a stranger and a raider: the pair only. Recruit a
+     stranger: within 5 s `sc loadout` shows the kit (DebugLogging: `... work kit given`).
+602. **Kit tools never fight.** A follower whose melee is a club: E > Jobs and gear > Weapons > Carried: no stone axe, shovel
+     or bone knife. Say "use the bone knife": she keeps her club, the tooltip `*shakes head* That Bone Knife is for work, not for
+     fighting...` (`sc craft`: `kit-tool-not-a-weapon-voice`). Fight a zombie through bars or a fence: she never pulls the bone
+     knife (`kit-thrust-replaced` may grow). Hand her a hunting knife through Show me your inventory: that one she may stab with.
+603. **Saved mid-job.** A follower chopping wood with the kit axe (no tool handed): save and quit mid-swing, reload: she holds
+     her club or gun, not the stone axe; the job (if it goes on) takes the axe again.
+604. **Wood at home.** Resident, trees within 30 m: Jobs > Wood with nothing handed over: she chops with the stone axe
+     (`starts a work shift (from the talk) ... (job mode 3)`); `sc craft <name>`: `gathered` and `in the crates` grow; the wood
+     lands in the home crates on one stack (topped up, not a new slot every few seconds). She goes home about 90 s after the last
+     tree (`work shift ends (done)`).
+605. **Better tool first.** Put a fire axe in her inventory (Show me your inventory), then Wood again: she swings the fire axe
+     (VerboseLogging: `[SDCS-HARVEST] ... start ... tool=meleeToolAxeT1IronFireaxe`).
+606. **Field jobs refused.** On a resident: Jobs > Mine, Dig clay, Loot here and Follow + loot, each: the tooltip `<name>:
+     "*shakes head* That's work for out there, not at home. Take me along, and I'll do it."` (Follow + loot: `... I look after
+     the base. Take me along, and I'll loot for you out there.`), no job (`sc craft <name>`: `SdcsLootMode=0`), the job she was
+     doing before goes on; `sc craft`: `field-job-refused-4/5/2/1`. Say "loot" to her: her answer is the Follow + loot line
+     (`field-job-refused-voice`). On a follower all four work as before.
+607. **Pick crops and replant.** Ripe crops (corn, potatoes ...) within 30 m and some seeds in the crates: Jobs > Pick crops.
+     Each picked plot gets a stage-1 seedling at once (VerboseLogging: `replanting: <name> replanted plantedCorn1 at ... (the seed
+     from her inventory)` or `... home crates`); food and the spare seeds go into the crates. `sc scan`: `crops` unchanged
+     afterwards. With no seeds in her inventory or the crates (and none from the harvest): the plot stays empty (`replant-no-seed`)
+     and `crops` drops by one per plot. `ReplantCrops` false (restart): every plot stays empty.
+608. **Butcher.** Kill a chicken or rabbit inside the base: Jobs > Butcher: she butchers with the kit's bone knife, the meat goes
+     into the crates.
+609. **Full pack.** Fill her inventory to fewer than 5 free slots with junk, then Wood: when it fills, the log `<name>'s pack was
+     full: N item(s) to the home crates, back to work (job mode 3, ...)` and she keeps chopping (`c1f-pack-full-resumed`). Fill the
+     crates too: `<name>'s pack is full (job mode 3): ... - the job ends` and the tooltip `<name>'s pack is full, and the home
+     crates can't take enough of it ...` once.
+610. **Base repair.** Damage a wood block inside your claim, put wood in an unlocked chest within 15 m of where you stand:
+     Jobs > Base Repair: `<name> starts a Base repair duty at ...`; she repairs it. With nothing more to repair, about 5 min later
+     `work shift ends (nothing to repair for 5 min (nothing damaged))` and she walks home; given at night with nothing damaged, she
+     goes home at once. `sc craft <name>` meanwhile: `Base repair duty for N s, nothing to repair for N s of 300 (<state>)`.
+611. **What is missing.** Damage a cobblestone block with no cobblestone in reach: a few seconds after Base Repair the tooltip
+     `<name> can't repair the Cobblestone Block: put its materials in an unlocked chest within 15 m ...`. Nothing damaged by day:
+     `<name> finds nothing to repair yet and keeps watch over the base for up to 5 minutes.` With `MemberWorkKit` empty (restart)
+     and no tool handed over: `<name> has no repair tool for the repair duty ...`. Put the kit back.
+612. **Combat repair.** `sc attack now`, then Jobs > Combat Repair on a resident inside the claim (wood in a chest within 15 m):
+     she repairs the newest hits first, during the fight too, and ends 5 min after the last thing she could repair.
+613. **Squad orders.** A resident on a work shift (any home job) and a follower: open the order wheel (semicolon) and Shift+click
+     Follow: only the follower follows; the resident keeps working (`roster-residents-left-out`). Say the squad word with "follow
+     me": the same (`squad-residents-left-out`). With only residents linked the wheel says no one is near. Jobs and gear on the
+     resident still opens her page, and its jobs still reach her.
+614. **A runner's inventory.** Put a bandage in a resident's inventory, send her on a physical supply run, and get her
+     re-created under a new id (the log `<name>: entity id A -> B`): `<name>'s inventory window came with them to entity B: 1
+     item(s)`; back home Show me your inventory has the bandage. An offline death (`RunDeathShare` 1 for the test, restart):
+     `<name> died on the road - what their inventory window held is lost with them: 1x Bandage` and the tooltip `What <name> had
+     in their inventory is lost with them: ...`.
+615. **Long talks.** Keep a talk with a resident open for 11 minutes, then pick Show me your inventory: her inventory stays open
+     and the hold goes on (it used to be shut on the next second). Close everything: 2 s later `shift: none`.
+616. **Other jobs on residents (unchanged, by design).** Come here on a resident (from the ring) does nothing but her nod; Guard
+     and return makes her stand at your block and go home later (no patrol); the Medic role you give her during a talk is gone once
+     the talk ends.
+617. **Followers unchanged.** A follower in a forest with nothing handed over: Wood works with the kit axe; on a full pack she
+     comes back and resumes after you empty her inventory (0-XNPCCore's own pause); her harvest stays in her inventory (not the
+     crates).
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

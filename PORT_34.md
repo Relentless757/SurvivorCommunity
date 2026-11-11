@@ -3760,3 +3760,236 @@ the talk link, Craft... for every member, the dialog pager) with its review fixe
 glance DEPLOYABLE (2 LOW, logged above). port-3.4 fast-forwarded to `ms/x3` 18d56c5; `deploy_sc34.py`: 13232 files, installed =
 built `88100e47fe5206a777912c12439933fd`. The old install is in `Port33\_backups\sc34_2026-11-10_225130`; the user's
 `DebugLogging` true set again. Untested in game: TESTING X3 (570-586), and still P2 (500-511) and R2 (520-562).
+
+### Round 29a: NPCCore jobs on members (J29) (2026-11-11, built, not reviewed, not installed)
+
+Branch `ms/j29` from port-3.4 `2475f88`, worktree `Port33\wt\sc-j29`, built beside round 29b (`wt\sc-m29`: movement - the
+wreck-aware posts, the residents' stuck rescue, runners calling for help, `sc` output in the log), whose areas this round
+stays out of. Read first: the read-only job audit (session scratch `x3\jobs\audit_jobs.md` with `agentA_loot_butcher.md` and
+`agentB_vc_commands.md`) and the wreck findings' "Base repair on an SC member". **3.4 only**: one new file, `ScJobs.cs` (in the C1
+ItemGroup), and every hook in a shared file under `SC_V34`; the 3.2 configuration compiles with its code paths as they were; the
+tracked 3.2 `SurvivorCommunity.dll` is untouched.
+
+**The user's decisions (2026-11-11), as given:**
+1. **"Give the work kit"**: members (SC's survivors only, never raiders) get 0-XNPCCore's own work tools alongside their weapon
+   pair - default `meleeToolRepairT0StoneAxe,meleeToolShovelT0StoneShovel,meleeWpnBladeT0BoneKnife` (0-XNPCCore
+   `entityclasses.xml:4759`) - configurable in blocks.xml (empty = none); "the tools are never used as fighting weapons", "better
+   tools the player hands over are used first (0-XNPCCore checks her bag/window before the kit)", "existing members get the kit
+   too (on the next PostInit/rewrite)".
+2. **"Home jobs only for residents (for now)"**: residents (talk link / work shift) may be given Chop wood (3), Pick (6),
+   Butcher (7), Base repair (8), Combat repair (9), Craft (10); Mine (4), Dig clay (5), Loot here (2) and Follow + loot (1) "are
+   refused for residents with a friendly line saying to take them along (they stay for followers)"; Follow + loot refused for
+   residents everywhere (the ring, the wheel, the voice "loot" phrase). "Mine/dig clay will eventually be a new runner option"
+   (below: a future idea, not built).
+3. **"Output into the crates"**: what a member gathers on a home job (modes 2-7) "is moved to the community's crates by
+   `ScWork.Deposit` as she works, like crafted items; when her pack fills she drops it off and carries on (resume the job instead
+   of ending it)".
+4. **"Replant after picking"**: "when a member picks a ripe crop on the player's farm (Pick, mode 6), she replants that plot with
+   a seed of the same crop (from the harvest or SC's crates); no seed -> the plot stays empty. Keep SC's crop counting right."
+
+**The work kit (decision 1; `ScLoadout.cs:706-716` Rewrite, `:741-856` the kit block, `:886` AfterPostInit; `ScConfigCraft.cs:51-62`).**
+- `Rewrite` appends `WorkKitFor(e, cls)` after the pair: MemberWorkKit's items that exist (an unknown name is left out with one
+  log line), for a survivor class (never a raider class; bandit raiders return before Rewrite) whose entity id has a member
+  record. So the item list is `[melee, ranged, stone axe, stone shovel, bone knife]` (a kit item the pair already has is not
+  repeated): the pair keeps the first places - SCore's fallback weapon (`_defaultWeapon`, the first entry; `ScNpc.cs:258`) and X6's
+  melee fallback stay the pair's melee weapon. SCore's PostInit fills the toolbelt from it (10 slots, Patches_Npc), and its
+  FindWeapon accepts a kit tool, which is what lets 0-XNPCCore equip one for a job.
+- 0-XNPCCore reads the kit through its Kit store segment (`SdcsStores`, `itemsOnEnterGame`) and looks in her bag, loot container
+  and inventory window first (harvest `PickTool`, butcher, `PickRepairTool`; never the toolbelt), so a tool handed over through
+  Show me your inventory is used before the kit (the user's "better tools first", 0-XNPCCore's own order).
+- Existing members: every PostInit rewrites the list (a load, a re-create under the member's id). A body that became a member after
+  its PostInit (a recruit) or was re-created under a new id (ScRunners.Rekey) gets it from `ScJobs.KitTick` (`ScJobs.cs:778`, every
+  5 s, once per member and session: `ScLoadout.EnsureWorkKit` `:820` rewrites the list and refills the toolbelt as SCore does). A
+  body that is no member any more loses the kit at its next PostInit.
+- **Never a fighting weapon.** `ScLoadout.IsKitOnly(e, item)` (`:789`): a MemberWorkKit item on her list that is not her pair's
+  melee or ranged weapon and has no copy in her window or bag (a tool the player handed over is hers). Every place that could put
+  one in her hand for a fight asks it:
+  - `ScJobs.Patch_KitThrust` (`ScJobs.cs:658`), postfix on 0-XNPCCore's private static `SdcsCarriedThrustWeapon(EntityAlive)`: it
+    walks the kit first, so with bars between her and a zombie she would stab with the bone knife (both callers: the direct swap
+    in `SdcsCloseRangeTick` and the preferThrust branch of `SdcsChooseMeleeFallback`, X6's `CarriedThrust` included). A kit-only
+    answer becomes the next thrust weapon in 0-XNPCCore's own order - bag, then window, by its own style rule (`SdcsMeleeStyle.For`,
+    internal, bound by name) - or none (X6 then answers the pair's melee weapon).
+  - `ScJobs.Patch_KitBreaker` (`:698`), postfix on `SdcsMeleeReach.BestBreaker(EntityAlive, BlockValue)` (private static): the item
+    it breaks a block in its way with during close melee, toolbelt included (the stone shovel on earth). A kit-only answer becomes
+    the best of the rest by 0-XNPCCore's own rule (the highest block damage above 0), or none.
+  - `ScJobs.Patch_KitListing` (`:744`), postfix on `SdcsAnyWeaponMenuListing(EntityAlive)` (Carried weapons): kit-only names left
+    out (C1g's prefix still empties it for a resident on a shift).
+  - `ScArms.OnSwap` (`ScArms.cs:652-656`): told to use a kit-only tool (the weapon menu's row, a spoken "use the bone knife",
+    0-XNPCCore's AnyWeapon falling back on the kit - X16): `ScJobs.KitToolRefused` (`ScJobs.cs:585`) puts the pair's melee weapon
+    back in hand, logs it, and for a swap the player asked for says `scKitToolNotWeapon`.
+  - `ScLoadout.KitOutOfHand` (`ScLoadout.cs:847`, from AfterPostInit after ScMedic.FixLoadedHand): a body saved mid-job holding a
+    kit tool comes back holding it (SCore re-equips the saved hand item by name, which the list makes legal) - the pair's melee
+    weapon instead (X5 then syncs XNPC's last-held to it; a job that goes on takes its tool again).
+- The audit's reader list, each checked: `ScLoadout.cs` Rewrite's equality test (pair + kit), Set's old count and Refill (the kit
+  slots refilled, beyond them emptied), Arm (finds the pair by name), Describe (prints the kit); `ScNpc.cs:258` (first entry = the
+  pair's melee); `ScAmmo.cs:202` (a gun's stored magazine, by type: no tool is a gun); `Patches_Xnpc.cs:721` X6 (the pair's melee
+  while FindWeapon accepts it; its thrust branch through Patch_KitThrust); SCore's FindWeapon (accepts the kit - the job equips -
+  and decides nothing); X16 (OnSwap above); the re-arms - the world-entry candidates are guns only (`SdcsTryAddRearmCandidate`),
+  its melee step asks X6, `ScLoadout.Arm` takes the pair by name; the medic - ScMedic gives back whatever it displaced (mid-job:
+  the job's tool, which the job wants), FixLoadedHand + KitOutOfHand at load. 0-XNPCCore itself never fights with the stone axe
+  or shovel (`AnyWeaponRules.IsJobOnlyTool`) and puts its own job tool away when a job stops (`RestoreWeapon`). The toolbelt is
+  never dropped on death (Patches_Npc drops the window and bag), so the kit is no loot.
+
+**Home jobs only for residents (decision 2; `ScJobs.cs:123-263`, `ScWork.cs:475-487`).**
+- `ScJobs.Patch_FieldJobOrder` (`:203`), prefix on Voice Control's internal static `VCCommandRouter.MutateLoot(EntityAlive, string)`
+  - the one place the Jobs page (ring and talk), the order wheel and a routed voice order set a job: the argument's mode by
+  MutateLoot's own tests in its own order (`ModeOfArg`: anything unmatched is Follow + loot, as there); 1, 2, 4 or 5 on a member
+  whose status is Resident is refused before Voice Control clears her current job, her line as a tooltip (`scJobResidentFollowLoot`
+  for Follow + loot, `scJobResidentField` for the others), a log line. Followers and everyone else: Voice Control's own.
+- `ScJobs.Patch_FieldJobVoice` (`:236`), prefix on `PhraseTriggerHandler.Loot` (private; the spoken "loot", which calls
+  `SdcsLootMode.Enable` itself): her refusal is the phrase's answer.
+- The backstop in `ScWork.Tick`: a field job that slips through (a save from before, another caller) is taken back - Follow + loot
+  ends the shift (it told her to follow), the others leave her without a job (Idle, then home) - with the same line.
+- What a resident still sees: the wheel's own acknowledgement (a nod and the job's label) comes before the refusal, which the
+  tooltip then gives. Hiding the four sockets for residents was not done (Voice Control's page data).
+
+**Output into the crates (decision 3; `ScJobs.cs:264-365`, `ScWork.cs:753-865`, `ScStorage.cs:442-543`, `Patches_Craft.cs:441-447`).**
+- `ScJobs.Patch_JobOutput` (`:280`), prefix + postfix on 0-XNPCCore's `SdcsStores.WindowAdd(int, ItemStack)` (on its internal
+  `SdcsStores`; every harvest, butcher and loot payout ends there): for a member on a work shift in job mode 2-7 (a talk hold
+  too: the job's first payouts can come before ScWork's once-a-second tick has made it a shift), what it added (the count before
+  minus what did not fit) is noted on the shift's ledger, `ScWork.NoteGathered` (`:758`) -
+  the same ledger as what she makes, so `Deposit` moves it every 5 s and at the shift's end. Craft output (mode 10) keeps its own
+  hooks; her gear, ammo, meds and anything handed over stay.
+- `Deposit` now tops up the crates' stacks of the same item first (`ScStorage.TopUpInZone`, `:482`: plain stackable items, the
+  boxes DepositInZone uses, up to the stack size), then an empty slot as before - a job brings a few logs every few seconds, which
+  otherwise took a new crate slot every 5 s.
+- **A full pack**: 0-XNPCCore pauses the job (`MarkFull`) and ends it (`Finish("loot.full")`), and its pause ends on the next tick
+  for want of a Follow order. C1f (`Patches_Craft.cs:441-447`) now asks `ScWork.ResumeAfterFullPack` (`ScWork.cs:838`) first: on a
+  work shift in modes 2-7 with WorkDepositOutput on, what she gathered goes to the crates now; with 0-XNPCCore's own resume room
+  (`LootResumeFreeSlots`, 5, read by name) the pause is cleared (`SdcsLootMode.ClearPaused`, `SdcsLootFull` 0) and the job mode,
+  her Guard order and its pin stay - she carries on (`<name>'s pack was full: N item(s) to the home crates, back to work`).
+  Otherwise the job ends as before and `scWorkPackFull` is said once a shift (crates full, or her pack full of her own things).
+
+**Replanting (decision 4; `ScJobs.cs:366-577`).**
+- `ScJobs.Patch_PickReplant` (`:406`), prefix + postfix on 0-XNPCCore's private `UAITaskHarvestSdcs.PickPlant(Context, Run)` (one
+  pick; `Run` is its private nested class, read as object, its `Target` field by name): a member's pick on a crop of the player's
+  farm (`planted*3HarvestPlayer`, what "Pick crops" picks) that leaves the cell air or another block queues the plot.
+- `ReplantTick` (from ScWork.Sweep, once a second, a second later): the cell must be air (a crop the player planted meanwhile is
+  left alone); the seed is `<crop>1` for `<crop>3HarvestPlayer` (vanilla's naming, a `BlockPlantGrowing` that is an item), else the
+  first of the crop's Harvest or Destroy drops that is one; the game's own `CanPlaceBlockAt` (light, soil, room); one seed taken
+  from her inventory window (the harvest; off the shift's ledger, `ScWork.Unnote`) unless someone has it open, else from the home
+  crates (`ScStorage.TakeOneInZone`, `:515`); then `SetBlockRPC` with the crop's rotation - its growth tick starts as a player's
+  planting does. No seed: the plot stays empty (counted, a verbose line).
+- SC's crop count (`ScScan.cs:24, 408-414`) counts every living `planted*` model block, a seed among them: a replanted plot keeps
+  the farm's count, an empty one lowers it by one. Nothing in ScScan changed.
+
+**Base repair / Combat repair as a duty (`ScWork.cs:521, 545-612`; `ScJobs.cs:797-934`).** 0-XNPCCore's base keeper never ends
+modes 8 or 9 and fails silently without a tool or materials (its task never starts; the audit's #3). `ScWork.DutyTick`:
+- the duty starts with the mode on a work shift (`<name> starts a Base repair duty at ... - it ends after 5 min with nothing she
+  can repair`);
+- its first look 6 s later (0-XNPCCore registers the duty on its first tick) and every 5 s after it asks 0-XNPCCore's own test,
+  `ScJobs.RepairCheck` (`:860`): `UAITaskBaseKeepSdcs.Repairable(EntityAlive, float, float)` (internal; its `RepairableFacts`:
+  can repair, damaged count, material / skill / other failures, a sample block) and `PickRepairTool` (bag, loot container, window,
+  then the kit), both bound by name with their exact signatures; without them the damage tracker alone (public
+  `SdcsBaseDamageTracker.Targets`);
+- the first look tells the player what is missing, once (`TellDutyStart` `:920`): no repair tool (`scDutyNoTool`), the materials
+  for a damaged block (`scDutyNoMaterials`, with 0-XNPCCore's chest reach, 15 m), the skill (`scDutyNoSkill`), another reason
+  (`scDutyCantRepair`), or nothing damaged yet (`scDutyNothing`, by day); nothing when she can repair or when there is no claim
+  (0-XNPCCore's own "no base here" and C1f end that);
+- with nothing she can repair for `RepairDutyIdleMinutes` (5) the shift ends (`work shift ends (nothing to repair for 5 min
+  (...))`), at night at once - End stations her and SC's night routine takes over; a fault in the check keeps the duty.
+- **The stuck rescue during a duty**: `ScWork.AllowsWatchdog(Member)` (`ScWork.cs:600`) - true when she is on no shift or talk
+  hold and during a repair duty, false while a talk, a craft or another job holds her at her spot on purpose (`ScWork.OnDuty(int)`
+  too). **For round 29b**: ScTicker hands a member on a shift to `ScWork.Resident` and skips the rest of the resident branch, the
+  watchdog included; the residents' no-progress rescue should run for a member on a shift when `ScWork.AllowsWatchdog(m)` (3.4
+  only, `#if SC_V34`). This round changes nothing in ScTicker or ScCommunity.
+
+**Squad orders never reach a resident (the audit's #5; `ScJobs.cs:936-1044`).**
+- `ScJobs.Patch_RosterNoResidents` (`:992`), postfix on Voice Control's internal static `XNPCVoiceControlMod.GetHiredRoster
+  (EntityPlayer)` - the order wheel's roster (its targets, default target, target cycling, Shift+click squad) and the looked-at
+  pick: the community's residents (linked by a talk or a shift they count as hired) are left out, but the one the wheel is being
+  opened on from her ring or "Jobs and gear" (`XUiC_VCFormationRadial._preferTargetOnce`, read by name: a wheel locked on someone
+  not in the roster closes). With only residents linked the root wheel says no one is near, as without them.
+- `ScJobs.Patch_SquadNoResidents` (`:1016`), prefix on `VCCommandRouter.ExecuteForSquad(int, int, List<EntityAlive>, VCCommand,
+  string)` (the spoken squad keyword): residents taken out of the list; none left - nothing to do.
+
+**A runner's inventory window (`ScRunners.cs:1101-1108` Rekey, `:817-825` DieOffline; `ScJobs.cs:1046-1118`).**
+- `ScJobs.CarryWindow` (`ScJobs.cs:1057`): when a member comes back under a new id (a runner re-created, a missing resident called back) her SCore
+  window (HarvestManager's container by entity id) comes with her - its stacks into the new body's window, what does not fit into
+  the home crates, the old container dropped; a loss (no room anywhere) is a warning. As before only while no entity holds the
+  old id. A fresh body (ScSpawn, `fresh`) was given the rounds of her pair gun that her ammo record counts - every store, the
+  window included (`ScAmmo.RestoreRecorded`) - so the window's stacks of that ammo stay behind instead of coming twice (SC moves
+  ammo and magazines out of the window into the bag whenever it closes, so there are seldom any).
+- `ScJobs.LoseWindow` (**the choice made here**): a runner who dies on the road out of sight has no body to drop a backpack from
+  and her last place is not loaded, so what her window held is lost with her, as her bag and toolbelt are - but said: a log line
+  listing it and the tooltip `scRunWindowLost` beside the death.
+
+**Round 28's Fable glance LOWs (`ScWork.cs:331-350`).** LOW A: the talk cap's clock restarts in the deferral branch while the talk
+with her is open (its own field, `CapSince`, so `TalkSince` stays the talk's start for the log and `sc craft`). LOW B: the cap's
+close loop closes the craft window and the wheel only while the player's `CurrentNPC` is her, the looting window only while it
+shows her inventory (`LootBoundTo`).
+
+**Documented, unchanged (the audit's LOW 8).**
+- The Medic role is dropped for a resident when a talk ends: ScCommunity.Station -> Detach -> `ScOrders.VoiceMovementCvars`
+  clears `SdcsMedicRole` (with the job cvars). It holds for a follower until she is stationed.
+- Guard and return has no patrol for a resident: 0-XNPCCore's patrol legs need `HiredByCvar` (`SdcsGuardPatrol.cs:23`); she
+  stands at the player's block, idles out and goes home.
+- Come here does nothing on a resident: C1f swallows 0-XNPCCore's Finish (no Follow, no teleport); she says the acknowledgement.
+  (Come here and Order wheel are follower rows since round 28.)
+- Field jobs (Loot here, Mine, Dig clay, Follow + loot) are follower jobs.
+- **Future idea (the user's, not built)**: mining and digging clay as a new supply-runner option.
+
+**Config** (`ScConfigCraft.cs:51-62, 96-99, 130-136`; `Config/blocks.xml:563-579`, after WorkDepositOutput): `MemberWorkKit`
+(the default above; empty or `none` = no kit), `RepairDutyIdleMinutes` 5 (1-240), `ReplantCrops` true; WorkDepositOutput's comment
+now covers home-job output. The `config: crafting` line gains `workKit=... repairDutyIdle=5min replantCrops=True`.
+
+**ExpectedTargets** (`ModApi.cs:430-435, 559-564`): eight more - `SdcsStores::WindowAdd`, `UAITaskHarvestSdcs::PickPlant`,
+`AvatarSdcsNpcController::SdcsCarriedThrustWeapon`, `SdcsMeleeReach::BestBreaker`; with Voice Control `VCCommandRouter::MutateLoot`,
+`PhraseTriggerHandler::Loot`, `XNPCVoiceControlMod::GetHiredRoster`, `VCCommandRouter::ExecuteForSquad` (Patch_KitListing shares
+C1g's `SdcsAnyWeaponMenuListing` entry).
+
+**Console and counters.** `sc craft` (the work shifts' line) ends with `home jobs (round 29a): gathered N, pack emptied and back to
+work N, pack full and ended N, field jobs taken back N, repair duties N started, N ended with nothing to repair; jobs: ...`
+(ScJobs' counters: `field-job-refused-<mode>`, `field-job-refused-voice`, `output-noted`, `crop-picked`, `replanted-from-window|crates`,
+`replant-no-seed`, `replant-cannot-place`, `kit-thrust-replaced`, `kit-breaker-replaced`, `kit-listing-hidden`,
+`kit-tool-not-a-weapon-<route>`, `kit-given-late`, `duty-told-...`, `roster-residents-left-out`, `squad-residents-left-out`,
+`runner-window-carried`, `runner-window-lost`). `sc craft <name>`: `gathered N`, `pack emptied and back to work Nx`, and on a
+duty `Base repair duty for N s, nothing to repair for N s of 300 (<state>)`. `sc craft`'s `crafting hooks:` line gains `c1f-pack-full-resumed`.
+
+**Where the brief left a choice (decided here):**
+1. The kit goes to members only, by their record at PostInit, plus a once-per-body check for recruits and re-keyed bodies; a
+   kit tool the player hands over (a copy in the window or bag) is hers to use as she likes, a kit item that is her pair's weapon
+   stays her weapon.
+2. Kit tools stay in the toolbelt (SCore puts them there; 0-XNPCCore's own survivors carry them so) and the fight picks are
+   guarded instead; a tool told to fight with is refused with the pair's melee weapon back in hand.
+3. Field jobs are refused at Voice Control's MutateLoot (before it clears her current job) and the spoken "loot", not hidden on
+   the wheel; ScWork takes back one that slips through.
+4. Home-job output shares the craft ledger and WorkDepositOutput; a full pack is emptied without walking to a crate (the deposit
+   is the same instant move as for crafted items); crate stacks are topped up first.
+5. Replanting for any member (resident or follower) picking the player's crops, the seed from her window first, then the crates.
+6. The repair duty's idle end and night end go by 0-XNPCCore's own repairable test (no tool, no materials and nothing damaged all
+   count as nothing she can repair); RepairDutyIdleMinutes defaults to 5.
+7. The watchdog hook is a query (`AllowsWatchdog`) for round 29b to call; nothing in ScTicker changed.
+8. Squad orders and the wheel's roster leave every resident out (not only working ones: an unlinked resident is in no roster
+   anyway), but the one the wheel opens on.
+9. A runner who dies offline loses her window's contents, said and logged.
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_j29`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build to a scratch folder); the 3.2 configuration builds to a scratch folder with 0 errors.
+- `cctor_order.py` on the ilspy IL dump: 138 static constructors, 0 reads before store.
+- IL of the built DLL (scratch `x3\j29\il_where.py`): the new keys in their methods (`scJobResidentFollowLoot` / `scJobResidentField`
+  in `ScJobs.FieldJobLine`, `scKitToolNotWeapon` in `KitToolRefused`, `scWorkPackFull` in `ScWork.ResumeAfterFullPack`, the five
+  `scDuty*` in `TellDutyStart`, `scRunWindowLost` in `LoseWindow`, the three config keys in `ScConfig.ParseCraft`); the calls -
+  `CarryWindow` from `ScRunners.Rekey`, `LoseWindow` from `DieOffline`, `KitToolRefused` from `ScArms.OnSwap`,
+  `ResumeAfterFullPack` from C1f's `Patch_ShiftJobEnd.Prefix`, `ScJobs.Tick` from `ScWork.Sweep`, `KitOutOfHand` from
+  `AfterPostInit`, `WorkKitFor` from `Rewrite`, `TopUpInZone` from `Deposit`, `DutyTick` and the field-job backstop from
+  `ScWork.Tick`, `NoteGathered` from `Patch_JobOutput.Postfix`, `TakeOneInZone` / `Unnote` from `TakeSeed`, `EnsureWorkKit` from
+  `KitTick`; `CapSince` in `StartTalk` and `TalkTick`; the eight ExpectedTargets.
+- HarmonyAudit (the round 28 copy against the installed 3.4.04 DLLs; dynamic targets `x3\j29\dyn_j29.json` = round 28's + these
+  nine classes): 229 patch rows; 3.4 OK=191 (round 28: 180 - the eleven new patch methods all OK with their exact signatures),
+  DYNAMIC_UNRESOLVED=36 and NO_OVERLOAD_MATCH=2 as before; param issues 0 (`__0`/`__1`/`__2`, `ref string __result`, `long __state`,
+  `object __1` for the private `Run`). The refs file adds one `FastTags<TagGroup.Global>.Parse` "3.4-missing" - the tool's
+  generic-instance blind spot (the same call is in 3.4 code that runs).
+- XML replay (scratch `x3\j29\sc_replay_j29.py`: round 28's pointed at this worktree; installed 3.4 deps): every SC op matches, no
+  aborts - the same counts as round 28 (only new properties inside the config block); with `WITH=zzzzz_AshfallUI` the same and
+  AshfallUI's own 1335/1335. The three keys land in the merged `blocks.xml`.
+- Localization: 1504 rows of 7 cells, no duplicate key (12 new rows); every file touched LF, no BOM.
+
+**Not checked (in game only, TESTING J29 600-617):** the kit in the toolbelt and 0-XNPCCore equipping it for each job; that no
+fight takes a kit tool (bars, a block in the way, the menus, a save mid-job); the refusals' lines on the wheel and by voice; the
+output reaching the crates and the crate stacks topped up; the full-pack resume; replanting (placement, growth, the seed sources);
+the repair duty's lines and ends; the roster with residents linked and "Jobs and gear" still opening on a resident; a runner's
+window across a re-key; the talk cap LOWs (only past 600 s).
+
+Builds: SC 3.4 `fd2ca638ba84896bdfd67b3a3cdb346f` (`build\sc34_j29`), 0 errors. Not reviewed, not installed.

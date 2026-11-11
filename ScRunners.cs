@@ -816,7 +816,12 @@ namespace SurvivorCommunity
             ScRegistry.Doomed.Add(id);
             ScLooks.Forget(id);
             World w = ScCommunity.World;
+#if SC_V34
+            // round 29a (J29): what her inventory window held is lost with her on the road - said and logged, not silent
+            ScJobs.LoseWindow(w, m, id, player);
+#else
             try { if (w == null || w.GetEntity(id) == null) HarvestManager.Remove(id); } catch (Exception e) { ScLog.Once("runner-harvest", e); }
+#endif
             sessions.Remove(id);
             RebuildRunnerSet();
             ScRegistry.SaveAtomic();
@@ -1095,7 +1100,12 @@ namespace SurvivorCommunity
             ScQuests.RekeyRescue(player, oldId, m.Id);
             Session s;
             if (sessions.TryGetValue(oldId, out s)) { sessions.Remove(oldId); sessions[m.Id] = s; }
+#if SC_V34
+            // round 29a (J29): her SCore inventory window (HarvestManager's container, keyed by the entity id) comes with her
+            ScJobs.CarryWindow(w, m, oldId, e, fresh);
+#else
             try { if (w.GetEntity(oldId) == null) HarvestManager.Remove(oldId); } catch (Exception ex) { ScLog.Once("runner-harvest", ex); }
+#endif
             ScLog.Warn(m.Name + ": entity id " + oldId + " -> " + m.Id + (fresh ? " (fresh body)" : " (the old id is taken by another entity)"));
         }
 

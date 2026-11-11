@@ -42,8 +42,24 @@ namespace SurvivorCommunity
         public static int WorkIdleSeconds = 90;
         /// <summary>Called to work and never given an order: real seconds before she goes back to her post.</summary>
         public static int WorkCallSeconds = 180;
-        /// <summary>What she makes on a shift goes from her inventory window into the community's home crates (linked storage).</summary>
+        /// <summary>
+        /// What she makes on a shift goes from her inventory window into the community's home crates (linked storage). Round 29a
+        /// (J29, the user's decision 3): what she gathers on a home job (wood, crops, meat ...) too, and a full pack is emptied
+        /// into the crates so the job carries on.
+        /// </summary>
         public static bool WorkDepositOutput = true;
+        /// <summary>
+        /// Round 29a (J29, the user's decision 1): the work kit every member carries beside their weapon pair - 0-XNPCCore's own
+        /// work tools (its survivors' spawn kit), so its jobs (Chop wood, Butcher, Base repair ...) find a tool. Item names;
+        /// empty or "none" = no kit. A better tool handed over through her inventory is used first (0-XNPCCore looks in her
+        /// stores before the kit); a kit tool is never her fighting weapon (ScLoadout.IsKitOnly).
+        /// </summary>
+        public const string DefaultMemberWorkKit = "meleeToolRepairT0StoneAxe,meleeToolShovelT0StoneShovel,meleeWpnBladeT0BoneKnife";
+        public static readonly List<string> MemberWorkKit = new List<string>(SplitCraftList(DefaultMemberWorkKit));
+        /// <summary>Round 29a (J29): a Base repair / Combat repair duty ends after this many minutes (game time running) with nothing she can repair.</summary>
+        public static int RepairDutyIdleMinutes = 5;
+        /// <summary>Round 29a (J29, the user's decision 4): a member who picks a ripe crop on the player's farm replants the plot with a seed of that crop.</summary>
+        public static bool ReplantCrops = true;
         /// <summary>Bumped by every parse: ScCraft re-resolves its skill lists when it changes.</summary>
         public static int CraftStamp;
 
@@ -77,6 +93,10 @@ namespace SurvivorCommunity
             WorkIdleSeconds = 90;
             WorkCallSeconds = 180;
             WorkDepositOutput = true;
+            MemberWorkKit.Clear();
+            MemberWorkKit.AddRange(SplitCraftList(DefaultMemberWorkKit));
+            RepairDutyIdleMinutes = 5;
+            ReplantCrops = true;
             CraftStamp++;
             // the per-world state of the feature: a new world starts with none of it
             ScCraft.Reset();
@@ -106,6 +126,14 @@ namespace SurvivorCommunity
             ParseInt(p, "WorkIdleSeconds", ref WorkIdleSeconds, 10, 3600);
             ParseInt(p, "WorkCallSeconds", ref WorkCallSeconds, 10, 3600);
             if (p.Values.TryGetValue("WorkDepositOutput", out v) && !string.IsNullOrEmpty(v)) WorkDepositOutput = StringParsers.ParseBool(v);
+            // round 29a (J29): the members' work kit ("none" or empty = no kit), the repair duty's idle end, the replanting
+            if (p.Values.TryGetValue("MemberWorkKit", out v))
+            {
+                MemberWorkKit.Clear();
+                if (!string.Equals((v ?? "").Trim(), "none", StringComparison.OrdinalIgnoreCase)) MemberWorkKit.AddRange(SplitCraftList(v));
+            }
+            ParseInt(p, "RepairDutyIdleMinutes", ref RepairDutyIdleMinutes, 1, 240);
+            if (p.Values.TryGetValue("ReplantCrops", out v) && !string.IsNullOrEmpty(v)) ReplantCrops = StringParsers.ParseBool(v);
             CraftStamp++;
         }
 
@@ -119,7 +147,9 @@ namespace SurvivorCommunity
                                                          + " xp " + CraftSpecXpPerCraft.ToString("0.##", CultureInfo.InvariantCulture) + "/craft "
                                                          + CraftSpecXpPerMagazineLevel.ToString("0.##", CultureInfo.InvariantCulture) + "/magazine level [" + string.Join(" ", parts.ToArray()) + "]" : "off")
                    + " workShifts=" + (WorkShiftsEnabled ? "on idle " + WorkIdleSeconds + "s call " + WorkCallSeconds + "s deposit " + WorkDepositOutput : "off")
-                   + " talkHold=" + (TalkHold && WorkShiftsEnabled ? "on" : "off");
+                   + " talkHold=" + (TalkHold && WorkShiftsEnabled ? "on" : "off")
+                   + " workKit=" + (MemberWorkKit.Count > 0 ? string.Join("+", MemberWorkKit.ToArray()) : "none")
+                   + " repairDutyIdle=" + RepairDutyIdleMinutes + "min replantCrops=" + ReplantCrops;
         }
     }
 }

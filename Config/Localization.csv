@@ -1490,3 +1490,15 @@ scRadioRecallAck_1Said,UI,Tooltip,,,,Copy that. Cutting it short and heading hom
 scDialogPage,UI,Menu,,,,{0}/{1}
 scVoiceNoTradeMember,Dialog,Statement,,,,"*smiles* We don't trade - we're one community. If you need something of mine, just ask to see my inventory."
 scVoiceNoPackNow,Dialog,Statement,,,,*shakes head* Not now. Ask me again back home.
+scJobResidentFollowLoot,Dialog,Statement,,,,"*shakes head* I look after the base. Take me along, and I'll loot for you out there."
+scJobResidentField,Dialog,Statement,,,,"*shakes head* That's work for out there, not at home. Take me along, and I'll do it."
+scKitToolNotWeapon,Dialog,Statement,,,,"*shakes head* That {0} is for work, not for fighting. I'll stick with my own weapon."
+scWorkPackFull,UI,Tooltip,,,,"{0}'s pack is full, and the home crates can't take enough of it - {0} stops that job. Make room in the crates or in their inventory."
+scDutyNoTool,UI,Tooltip,,,,"{0} has no repair tool for the repair duty - give them a stone axe, claw hammer or nail gun through Show me your inventory."
+scDutyNoMaterials,UI,Tooltip,,,,"{0} can't repair the {1}: put its materials in an unlocked chest within {2} m of where you gave the job, or in their inventory."
+scDutyNoSkill,UI,Tooltip,,,,{0} doesn't know how to repair the {1} yet.
+scDutyCantRepair,UI,Tooltip,,,,{0} can't repair the {1} from where they are.
+scDutyNothing,UI,Tooltip,,,,{0} finds nothing to repair yet and keeps watch over the base for up to {1} minutes.
+scDutyBlockSomething,UI,Tooltip,,,,damaged block
+scDutyBlockHole,UI,Tooltip,,,,missing block
+scRunWindowLost,UI,Tooltip,,,,What {0} had in their inventory is lost with them: {1}.
