@@ -449,4 +449,18 @@
 			</append>
 		</if>
 	</conditional>
+
+	<!--
+	  Round 28 (X3; 0-XNPCCore 3.4.04, only where the action exists). SdcsNpcRangedAdvanced's ClearShot (5.5) now steps a gun
+	  holder aside for ANY friendly who cannot kneel in her line of fire (SdcsBodyInLine), not only her leader - so a guard on
+	  watch walked off her post (a tower's edge) whenever you crossed her line. ScNotOnWatch (self only) keeps her on the post;
+	  everyone else steps aside as 0-XNPCCore means. (Kneeling allies, 3.4.04's other change, are left as they are: TESTING X3.)
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;ClearShot&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='ClearShot']">
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
 </configs>

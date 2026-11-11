@@ -13,7 +13,7 @@ Requirements
 ------------
 - 7 Days to Die 3.4 (this build is for 3.4 only).
 - 0-SCore 3.4.14 or newer.
-- 0-XNPCCore 3.4.03 (its Voice Control DLL is included in the 0-XNPCCore folder).
+- 0-XNPCCore 3.4.04 with its Voice Control 3.4.04 (the Voice Control DLL is included in the 0-XNPCCore folder).
 - Easy Anti-Cheat off (this is a Harmony mod).
 - Single player only for now.
 
@@ -57,8 +57,10 @@ Getting started
 - Talk to a survivor and pick "I could use someone like you in my community." They ask a favor first; once it is done
   they join for free.
 - The community window opens from the ESC menu (Community), from the land claim's radial menu, and from its own tab.
-- Followers and residents can craft through 0-XNPCCore's crafting. Talk to a resident at home and pick
-  "I have work for you." to give them a work shift. Their specialty stars decide what they can make.
+- Followers and residents can craft through 0-XNPCCore's crafting. Talk to a resident at home (both of you inside
+  the base) and pick "Craft..."; an order starts their work shift. Their specialty stars decide what they can make.
+- A talk page with more rows than the window shows splits into pages: roll the mouse wheel over the rows, push the
+  gamepad's right stick, or click the arrows beside the "1/2" at the top right. "Nevermind." is on every page.
 
 
 Reporting bugs

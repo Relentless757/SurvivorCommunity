@@ -2181,6 +2181,7 @@ namespace SurvivorCommunity
             Output("[SC] voice control: " + (Patches_VoiceControl.ChatType != null ? "loaded" : "not loaded") + " - intercepted: " + Patches_VoiceControl.Report());
             Output("[SC] body hooks that met another player-body NPC (0-XNPCCore's own classes) and stepped aside: " + Patches_Sdcs.ForeignReport());
             Output("[SC] 0-XNPCCore survivor hooks (Patches_Xnpc): " + Patches_Xnpc.Report());
+            Output("[SC] " + ScDialogPager.Report());           // round 28 (X3): the talk page's pager
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] melee: " + ScMelee.Report());

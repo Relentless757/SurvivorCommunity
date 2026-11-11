@@ -1742,7 +1742,7 @@ needs `dm`.
      reload; wait until they would be done; open the forge yourself: the log says `a station's list held .. x anvil made by
      <name> - paid to her now` once, `sc craft <name>` shows the XP; opening the forge again adds nothing.
 
-Residents on a work shift:
+Residents on a work shift (round 28: "I have work for you." below is now Craft..., shown while you talk to her - X3 574-577):
 
 387. **Talk at the station.** Stand at the campfire next to a resident Cook (not following): E shows "I have work for you."
      (and no "Command Menu"). Pick it: 0-XNPCCore's Craft menu opens with the Campfire tab. Order 5 corn on the cob: she
@@ -2005,7 +2005,9 @@ Cowardly members only flee by SC's rules, and a guard on watch is not walked off
 
 Built 2026-11-09 on branch `ms/x2c` (SC 3.4 DLL `50a1c71c9e7ca6ed83b5e52936ae2ed4`, `Port33\build\sc34_x2c`), **not
 reviewed, not installed**: these steps wait for the install, with 0-XNPCCore 3.4.03. 0-XNPCCore 3.4.03 lets an NPC read
-books (E > "Read...", or "read your books" by voice). On a member, a crafting magazine was used up for a level SC set back to
+books (E > "Read..."; with 0-XNPCCore 3.4.04 E > "Jobs and gear" > Read, or hold E > Read; or "read your books" by voice).
+(Round 28: with 3.4.04 a step's "E > Read..." is E > Jobs and gear > Read, "Your progress" is Jobs and gear > Progress, and
+"I have work for you." is gone - talk to the resident and pick Craft..., X3 574-577.) On a member, a crafting magazine was used up for a level SC set back to
 her stars a second later. Your decision: **magazines become training.** A crafting magazine for a skill of her specialty gives
 her specialty XP toward her next star (`CraftSpecXpPerMagazineLevel`, 10 per magazine); magazines for other skills, and all of
 them once her specialty has 7 stars, are listed "(won't help her)" and never used up; schematics teach their recipe as
@@ -2024,7 +2026,7 @@ Magazine, Armored Up. Hand them to her through "Show me your inventory". Test on
      `SdcsBooks::Learned`, `SdcsSayLine::Say`, `SdcsProgress::List`, `XUiC_NpcCraftWindow::CancelJob`); the `config: crafting`
      line has `0.5/craft 10/magazine level`; no XML `did not apply` line for SurvivorCommunity.
 481. **Her Read page.** A following Cook (any stars below 7): give her 2 Home Cooking Weekly, 1 Handgun Magazine and 1 Southern
-     Farming. E > Read...: Home Cooking Weekly reads normally; Handgun Magazine and Southern Farming are grey with "(won't help
+     Farming. E > Jobs and gear > Read (3.4.03: E > Read...): Home Cooking Weekly reads normally; Handgun Magazine and Southern Farming are grey with "(won't help
      her)" (not "(at max)", not "(needs the ... role)"). `sc craft`: `c1h-magazine-row-useful=` and
      `c1h-magazine-row-wont-help=` above 0.
 482. **One magazine.** Pick Home Cooking Weekly: she reads it (the reading pose), one copy is gone from her inventory, and the
@@ -2054,14 +2056,16 @@ Magazine, Armored Up. Hand them to her through "Show me your inventory". Test on
 489. **Schematics as before.** Give a member a schematic for something her stars do not reach yet (the creative menu, search
      "schematic": e.g. a T1 pistol for a 1-star Craftsman). Read... lists it as readable; reading it: "Now I know how to make
      ..." and Craft... offers it from then on; no `c1k-` counter moves.
-490. **A resident on a shift reads too.** "I have work for you." to a resident Cook, give her a Home Cooking Weekly through
-     "Show me your inventory": E shows "Read..."; reading pays her as in 482.
+490. **A resident at home reads too.** Talk to a resident Cook at home (round 28's talk link; before it "I have work for
+     you."), give her a Home Cooking Weekly through "Show me your inventory": Jobs and gear > Read lists it (3.4.03: E shows
+     "Read..."); reading pays her as in 482.
 491. **Strangers and you unchanged.** Hire a survivor who is not a member (F6 `npcSdcsXyth`, Hire) and give her a Handgun
      Magazine: she reads it and says "My <skill> is at level N now." (0-XNPCCore's own rule); `sc craft` counters do not
      move. Read a magazine yourself: your skill goes up as always, and no `c1k-` counter moves.
 492. **Switched off.** Set `CraftSpecXpPerMagazineLevel` to 0 and restart: a member's magazines are all grey and none is used
      up; `sc craft` says `(CraftSpecXpPerMagazineLevel 0: magazines help no member)`. Put it back to 10.
-493. **Cancel keeps the shift.** "I have work for you." to a resident Cook at the campfire; order 10 corn on the cob. While she
+493. **Cancel keeps the shift.** Talk to a resident Cook at the campfire, Craft... (round 28; before it "I have work for
+     you."); order 10 corn on the cob. While she
      works, E > Craft... and press **Cancel**: the job line reads "Not crafting", the unmade corn's ingredients come back, and
      she stays at the campfire - she does not walk home. The log: `<name>: the craft window's Cancel ends her job, not her
      work shift`; `sc craft <name>`: `shift: Idle ...` (not `none`); `sc craft`: `c1n-window-cancel-kept-shift=1` and `window
@@ -2074,16 +2078,14 @@ Magazine, Armored Up. Hand them to her through "Show me your inventory". Test on
 496. **A station order dropped on the way.** A resident on a shift, a station 3-4 m away: order 5 of something there and press
      Cancel (or "That's all for now.") before she reaches it: the ingredients come back (the log: `[SDCS-CRAFT] ... gave back
      the ingredients for ... she never queued`).
-497. **No empty craft window.** "I have work for you." on a resident still opens the craft window as before (the log:
-     `<name> starts a work shift (talked to)`), with her recipes listed. A refused start is hard to cause on
-     purpose - the row only shows while she can start - but if one happens (the tooltip gives the reason, e.g. "You both need
-     to be inside the base."): the talk closes and **no** craft window opens; `sc craft`: `talk starts refused` grows.
-498. **The first page fits.** Talk to a follower (`dm` off): 10 rows - Community, Go back home, I need you to go find
+497. **No empty craft window.** (Round 28: "I have work for you." is gone; Craft... shows only while she is linked to you,
+     so its window always has her order router - X3 574-577.)
+498. **The first page fits.** (0-XNPCCore 3.4.03 only; with 3.4.04 and round 28: X3 579.) Talk to a follower (`dm` off): 10 rows - Community, Go back home, I need you to go find
      supplies, Weapon, Craft..., Read..., Your progress, Ammo..., Show me your inventory, Nevermind - "Nevermind." is there
      and "It is time for you to leave the community." is not. The Community tab's **Leave** (press twice) still lets her go.
      A resident at home: 6 rows, Ask to leave among them. A resident on a shift: Community, Follow me, That's all for now.,
      Weapon, Craft..., Read..., Your progress, Ammo..., Show me your inventory, Nevermind (10).
-499. **"Your progress".** A following 3-star Cook > Your progress: `Cook skill 43 (from 3-star Cooking): 0 crafts` (no "/ 10
+499. **"Your progress".** A following 3-star Cook > Jobs and gear > Progress (3.4.03: Your progress): `Cook skill 43 (from 3-star Cooking): 0 crafts` (no "/ 10
      crafts" ladder); a Mechanic shows one such row per role (Blacksmith, Crafter, Chemist) with `from N-star Mechanics` where
      the level is her stars'; a role whose skills are not her specialty's reads just `... skill 0: 0 crafts`. "Her skills..."
      is unchanged (e.g. Food 43/100). A plain 0-XNPCCore hire's page is unchanged (`Cook skill N: x / y crafts`). `sc craft`:
@@ -2278,6 +2280,87 @@ throwaway world, as W1's 296-298.
      to Community and back to Radio: the window still works, now as the remote one (relayed through the powered station).
 562. **Switched back.** Set `WindowRecallNeedsRadio` to false and restart: any runner can be recalled from the window again.
      Put it back to true.
+
+**X3. Round 28: NPCCore 3.4.04 and the talk page (3.4)**
+
+Built 2026-11-10 on branch `ms/x3` (SC 3.4 DLL `32474de4161592a304e5ad242fe095d1`, `Port33\build\sc34_x3`), **not reviewed, not installed**: these
+steps wait for the install, with 0-SCore 3.4.14 and 0-XNPCCore / Voice Control 3.4.04. Your decisions (2026-11-10): talking to
+a resident at home links her to you while the talk or a window opened from it is open (the dialog, her craft window, her
+inventory, the order wheel / her hold-E ring), so 0-XNPCCore's own Craft..., Jobs and gear and Show me your inventory work for
+her; the link ends quietly 2 s after the last of them closes, and a craft or a job turns it into a normal work shift. "I have
+work for you." is gone ("Craft..." for every member). 3.4.04's layout stays (Weapons, Read and Progress under "Jobs and
+gear"). A page with more rows than the window shows splits into pages, "Nevermind." last on every page. Also: no Trade on any
+member or stand-in (the radial and by voice), no "Pick me up" on members, stand-ins, enclave or band people, "Come here" and
+"Order wheel" only on followers, "Ask to leave" back on a follower's page (last before Nevermind), no supply run offered to a
+follower, a guard on watch no longer steps off her post to clear a shot. Set `DebugLogging` to true in the 3.4 install's SC
+`Config/blocks.xml` for the talk link's lines. Helpers: `sc craft <name>` (its `shift:` line shows `Talk ...` while she is
+linked), `sc craft` (the shifts' line ends with `talk holds: ...`), `sc xnpc` (the `voice control:` and `0-XNPCCore survivor
+hooks:` counters, and the `dialog pager:` line). Test on a new world or a copy; `dm` for F6 and the creative menu.
+
+570. **Start-up.** Load the world. In the log: `dialog pager: anchored on DialogStatement.GetResponses() in
+     XUiC_DialogResponseList.Update`; `patch verification: all ... targets patched`, nine more than R2's build (`patched
+     XUiC_DialogResponseList::Update`, `::Init`, `::OnOpen`, `XUiC_DialogWindowGroup::OnOpen`, `EntitySyncUtils::Collect`,
+     `NpcPickup::TryPickup`, `Entity::UpdateActivationCommands`, `HerRingPage::Open`, `PhraseTriggerHandler::OpenInventoryRouted`);
+     the `config:` line has `dialogPager=True`, the `config: crafting` line ends `talkHold=on`. After the first talk with a
+     resident: `talk hold: a talk links a resident while one of these is open on her: dialog, NpcCraftGroup,
+     VCFormationRadialGroup, looting` (no `NOT FOUND`).
+571. **No Trade on the radial.** Look at a resident at home, a follower, a resident on watch, a runner met on the road and an
+     outpost stand-in, and hold E: no Trade on any of them. `sc xnpc`: `x9-member-trade-refused` grows. A stranger (F6
+     `npcSdcsXyth`) still offers Trade.
+572. **No Trade by voice.** Say (push-to-talk) or type `@<name> trade` to a resident at home and to a follower: no trade window,
+     she answers "*smiles* We don't trade - we're one community. If you need something of mine, just ask to see my inventory."
+     (`voice-trade-refused-member`). `@<name> show me your inventory`: her inventory opens (resident and follower;
+     `voice-inventory-member`). The same to a runner met on the road: "*shakes head* Not now. Ask me again back home."
+573. **No Pick me up.** Hold E on a follower: the ring has no "Pick me up" (Inventory, Weapons and the rest are there). E >
+     Jobs and gear on her: no "Pick me up" on that page either (`ring-page-pickup-hidden`). The same on a resident at home
+     while you talk to her (E > Jobs and gear) and on an enclave person enlisted with you (E3). By voice "pick me up": "I'll
+     walk, thanks." as before. A hired stranger still has Pick me up.
+574. **The talk link.** Inside the base, talk to a resident at home: 8 rows - Community, Follow me, I need you to go find
+     supplies, Show me your inventory, Craft..., Jobs and gear, It is time for you to leave the community. (Ask to leave),
+     Nevermind. `sc craft <name>` (from the console with the talk open is fine): `shift: Talk ...`. Press Nevermind: about 2 s
+     later `shift: none` and she walks back to her post; the log (DebugLogging): `<name>'s talk hold ends (the talk is over)`.
+     Talk to her again: the same 8 rows every time.
+575. **Its windows hold it.** Talk to her, then Show me your inventory: while her inventory is open `sc craft <name>` still
+     says `Talk`; close it: 2 s later `none`. The same with Craft... (no order), Jobs and gear (the wheel page open), and from
+     Jobs and gear > Weapons or Read (her dialog opens again at that page).
+576. **A craft makes a shift; no 3-minute leftover.** Talk to a resident Cook at the campfire, Craft..., order 5 corn on the
+     cob: the log `<name> starts a work shift (from the talk) ...`, `sc craft <name>`: `shift: Working`. Close the window: she
+     keeps working, then goes back to her post about 90 s after the last item (`... work shift ends (done)`); while she works
+     her page has "That's all for now.". Then talk to her, Craft... and close it WITHOUT an order: 2 s later `shift: none`
+     (it used to stay `Called` for 3 minutes).
+577. **A job makes a shift.** Talk to a resident, Jobs and gear > Jobs > a loot or harvest job: `starts a work shift (from the
+     talk)`; she does the job and goes home after it as on any shift.
+578. **No link where it can't hold.** Talk to a resident from outside the base (or stand outside it while she is inside), to a
+     resident on watch, and with `TalkHold` false (restart): 6 rows - Community, Follow me, supply run, Show me your inventory
+     (SC's own row: it opens her inventory), Ask to leave, Nevermind; no Craft..., no Jobs and gear; `sc craft <name>`:
+     `shift: none`. (`sc craft`: `talk holds: ... not started` grows for the first two.) Put `TalkHold` back to true.
+579. **Rows per state.** A follower: 9 rows - Community, Go back home, Come here, Show me your inventory, Craft..., Order wheel,
+     Jobs and gear, Ask to leave, Nevermind (no supply run; Ask to leave is back, last before Nevermind). A resident on a work
+     shift: 7 - Community, Follow me, That's all for now., Show me, Craft..., Jobs and gear, Nevermind. A runner met on the road:
+     4 - Community, Head home, Ask to leave, Nevermind. An outpost stand-in: Nevermind only. A hired stranger: Come here and
+     Order wheel are there.
+580. **Follower verbs.** On a follower Come here and Order wheel work as 0-XNPCCore's; on a resident (talk linked or on a
+     shift) neither row shows.
+581. **The pager.** Give a follower one weapon of each kind (a knife, a club, a sledgehammer, a pistol, a rifle, a shotgun, a
+     bow) through Show me your inventory, then E > Jobs and gear > Weapons: `1/2` with two arrows at the top right of the
+     response window; page 1 - Carried..., Ammo..., Blades ... Others (9 rows) and Nevermind; roll the wheel down (toward you)
+     over the rows: page 2 - Use Player Hands, Nevermind (`2/2`, the right arrow dimmed). Wheel up: page 1. The arrows do the
+     same. "Nevermind." closes the talk from either page, and Use Player Hands (cut before this round) works.
+582. **Gamepad.** With a controller in the same menu: the right stick right/left flips the pages (the paging click), and the
+     cursor lands on the first row of the new page.
+583. **Pages that fit are untouched.** The follower's start page (9 rows) and a trader's talk show no `1/2` and behave as
+     before. `DialogPager` false (restart): the weapon menu shows its first 10 rows only (Use Player Hands cut, no
+     indicator); put it back. With AshfallUI and without it, the indicator sits at the top right, clear of the name.
+584. **A guard on watch holds for a clear shot.** A resident on a watch post on a tower, zombies outside: walk through her line
+     of fire. She does not step aside off the post (`sc xnpc <her id>`'s `uai:` line never shows `ClearShot`); a follower in
+     the same spot still steps aside.
+585. **Kneeling (watch only).** In a fight at 15 m or more, members with guns kneel for a few seconds when an ally stands in a
+     shot's line (0-XNPCCore 3.4.04). Watch guards on parapets: if a guard on watch kneels behind the wall and loses her shot,
+     note it (a fix would keep guards on watch out of the kneel).
+586. **Hidden runs stay hidden.** Send a resident on a hidden supply run (no POI in range, or `PhysicalRuns` false): she
+     disappears and stays hidden; post one to an outpost the same. (The new seat guard - a body leaves a vehicle seat before
+     SC hides it, the log `... leaves the vehicle seat before being hidden` - cannot be reached in normal play: only a resident
+     is hidden, and a resident is never seated. Note the line if it ever shows.)
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

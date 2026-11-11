@@ -998,6 +998,12 @@ namespace SurvivorCommunity
         public static bool MuteVcInTalk = true;
         /// <summary>E8: Voice Control's LLM chat with one of an enclave's people carries what they know of their group (ScVoiceContext).</summary>
         public static bool VoiceEnclaveContext = true;
+        /// <summary>
+        /// Round 28 (X3): a talk page with more rows than the dialog window's slots splits into pages (ScDialogPager): the
+        /// mouse wheel, the gamepad's right stick and the indicator's arrows switch them, "Nevermind." last on every page.
+        /// Read at every refresh. false: vanilla's list (the rows past the window's last slot are not shown).
+        /// </summary>
+        public static bool DialogPager = true;
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
@@ -1223,6 +1229,7 @@ namespace SurvivorCommunity
             VoiceLines = true;
             MuteVcInTalk = true;
             VoiceEnclaveContext = true;
+            DialogPager = true;
             ResetVoices();                         // V2 (ScConfigVoices.cs)
 #if SC_V34
             ResetCraft();                          // C1 (ScConfigCraft.cs)
@@ -2317,6 +2324,9 @@ namespace SurvivorCommunity
                 bool voiceContext = VoiceEnclaveContext;
                 if (p.Values.ContainsKey("VoiceEnclaveContext")) p.ParseBool("VoiceEnclaveContext", ref voiceContext);
                 VoiceEnclaveContext = voiceContext;
+                bool dialogPager = DialogPager;
+                if (p.Values.ContainsKey("DialogPager")) p.ParseBool("DialogPager", ref dialogPager);
+                DialogPager = dialogPager;
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
 #if SC_V34
                 ParseCraft(p);                     // C1 (ScConfigCraft.cs)
@@ -2481,7 +2491,7 @@ namespace SurvivorCommunity
                                             + RaiderShootingStars[0, 0] + "-" + RaiderShootingStars[0, 1] + "/" + RaiderShootingStars[1, 0] + "-" + RaiderShootingStars[1, 1]
                                             + "/" + RaiderShootingStars[2, 0] + "-" + RaiderShootingStars[2, 1] : "off")
                           + " xnpcAimSpread=" + XnpcAimSpread
-                          + " dialogLine=" + DialogLine + " voiceLines=" + VoiceLines + " muteVcInTalk=" + MuteVcInTalk + " voiceEnclaveContext=" + VoiceEnclaveContext
+                          + " dialogLine=" + DialogLine + " voiceLines=" + VoiceLines + " muteVcInTalk=" + MuteVcInTalk + " voiceEnclaveContext=" + VoiceEnclaveContext + " dialogPager=" + DialogPager
                           + " getUp=" + (XnpcBodyGetUp ? (XnpcGetUpGuard ? "guarded" : "unguarded") + (XnpcGetUpTrace ? "+trace" : "") : "off")
                           + " relax=" + (XnpcRelax ? "after " + XnpcRelaxCalmSeconds + "s, " + (XnpcRelaxRange > 0f ? XnpcRelaxRange + "m" : "sight range")
                                                      + (XnpcRelaxHideWeapon ? ", weapon hidden" : ", weapon shown") + (XnpcRelaxRaiders ? ", raiders too" : ", not raiders") : "off")

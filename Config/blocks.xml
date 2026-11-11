@@ -507,6 +507,11 @@
 			     Whatever this says, a hostile enclave's people, raiders and survivors with a grudge always refuse Voice
 			     Control's spoken "trade". "sc voice context" prints what the nearest of them would be told. -->
 			<property name="VoiceEnclaveContext" value="true" />
+			<!-- Round 28 (X3). DialogPager: a talk page (any dialog's) with more rows than the dialog window shows (10) splits
+			     into pages instead of dropping its last rows: roll the mouse wheel over the rows, push the gamepad's right stick
+			     left or right, or click the arrows beside the "1/2" at the window's top right. "Nevermind." stays the last row of
+			     every page. A page that fits is unchanged. false: the game's own list (only the first 10 rows). -->
+			<property name="DialogPager" value="true" />
 			<!-- C1 (round 22; game 3.4 with 0-XNPCCore 3.4.02 - the 3.2 build reads none of these). Community members craft through
 			     0-XNPCCore's crafting (E > Craft...), their specialty stars deciding their skills, followers and residents alike.
 			     CraftSkillsEnabled: a member's crafting skills are her specialty's (CraftSkills<Specialty>, progression.xml
@@ -518,11 +523,16 @@
 			     use; none = no role); after that your changes on the order wheel's Roles page, by voice or in the Community tab are
 			     kept. A craft whose recipe belongs to one of her specialty's skills pays CraftSpecXpPerCraft specialty XP, with no
 			     daily cap. false: none of it - members have no crafting skills (only the open recipes), as before.
-			     Work shifts (WorkShiftsEnabled): a resident crafts at home too - talk to her inside the base, "I have work for
-			     you." (stand at the station: its tab lists the stations within 5 m of you), or the Community tab's Work > Call to
-			     work, and she walks over. She goes back to her post WorkIdleSeconds after her last job (at once at night), or
+			     Work shifts (WorkShiftsEnabled): a resident crafts at home too - talk to her inside the base and pick Craft...
+			     (stand at the station: its tab lists the stations within 5 m of you), or the Community tab's Work > Call to work,
+			     and she walks over. She goes back to her post WorkIdleSeconds after her last job (at once at night), or
 			     WorkCallSeconds after a call without an order. WorkDepositOutput: what she makes on a shift moves from her
-			     inventory window into the home crates. "sc craft <name>" shows a member's skills, roles, shift and XP. -->
+			     inventory window into the home crates. "sc craft <name>" shows a member's skills, roles, shift and XP.
+			     TalkHold (round 28): while you talk to a resident at home (both of you inside the base, she is not on watch) she
+			     is linked to you as on a work shift, so 0-XNPCCore's Craft..., Jobs and gear and Show me your inventory show and
+			     work for her; the link lasts while the talk, her craft window, her inventory, the order wheel or her hold-E ring
+			     is open and ends 2 s after the last of them closes (she walks back to her post). A craft order or a job given
+			     meanwhile turns it into a work shift. false: no link while talking (residents then have no Craft... row). -->
 			<property name="CraftSkillsEnabled" value="true" />
 			<property name="CraftSkillsMedicine" value="craftingMedical" />
 			<property name="CraftSkillsCooking" value="craftingFood" />
@@ -546,6 +556,7 @@
 			     her" on her Read... page and are never used up. 0: no magazine helps a member. "sc craft" counts the reads. -->
 			<property name="CraftSpecXpPerMagazineLevel" value="10" />
 			<property name="WorkShiftsEnabled" value="true" />
+			<property name="TalkHold" value="true" />
 			<property name="WorkIdleSeconds" value="90" />
 			<property name="WorkCallSeconds" value="180" />
 			<property name="WorkDepositOutput" value="true" />

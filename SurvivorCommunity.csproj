@@ -176,6 +176,8 @@
     <Compile Include="ScConfigVoices.cs" />
     <Compile Include="ScVoiceContext.cs" />
     <Compile Include="XUiC_ScDialogLine.cs" />
+    <!-- round 28 (X3): the talk page's pager (both games: vanilla's response list is the same in 3.2 and 3.4) -->
+    <Compile Include="ScDialogPager.cs" />
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />

@@ -14,9 +14,18 @@ namespace SurvivorCommunity
     /// resident to the player through the Owner cvar alone (no Leader: 0-XNPCCore's hire-only behaviours, SCore's SetLeader
     /// side effects and Voice Control's hire roster never start), and 0-XNPCCore's tested craft job runs unchanged.
     ///
-    ///  - Start: the dialog's "I have work for you." (she waits where she stands, the Craft... menu opens) or the Community tab's
-    ///    "Call to work" (she walks to the player's block on her Guard order). Status stays Resident: she keeps her home duties,
-    ///    the daily bonuses and the base's defence, and takes no follower slot. The body carries sc_shift = 1 for the dialog.
+    ///  - Start: a craft order or a job given while you talk to her (round 28: the talk hold below turns into a shift) or the
+    ///    Community tab's "Call to work" (she walks to the player's block on her Guard order). Status stays Resident: she keeps
+    ///    her home duties, the daily bonuses and the base's defence, and takes no follower slot. The body carries sc_shift = 1
+    ///    for the dialog.
+    ///  - Round 28 (X3, the user's decision 1, 2026-11-10: "talk link"): talking to a resident at home links her to the
+    ///    player the same way, in a fourth phase, Talk (StartTalk, from Patches_Craft's dialog-open postfix): the Owner link
+    ///    and a Guard spot where she stands, no sc_shift (so "That's all for now." stays hidden and the supply run and "Ask to
+    ///    leave" stay offered). 0-XNPCCore's hired rows (Craft..., Jobs and gear, Show me your inventory) need that link. It
+    ///    lasts while the talk or a window opened from it is open (TalkOpen) and ends quietly TalkGraceSeconds after the last
+    ///    of them closed (she walks back to her post), or TalkCapSeconds at the latest; a craft order or a job given meanwhile
+    ///    makes it an ordinary shift (Promote). This replaced the dialog's "I have work for you." (decision 2: "Craft..." for
+    ///    every member) and with it the Called phase's 3-minute leftover after the craft window was closed without an order.
     ///  - While on it: the resident ticker hands her to Tick instead of re-stationing her (she has an owner) or self-healing her post;
     ///    SC's roam, leash, at-post and quiet-night actions stand down (ScNotOnShift, Config/utilityai.xml), so 0-XNPCCore's Guard
     ///    holds her at the craft spot and its CraftSdcsHere runs; her defence and flight stay on. What she makes (Patches_Craft's
@@ -35,11 +44,20 @@ namespace SurvivorCommunity
         /// <summary>0-XNPCCore's work package (Voice Control's JobOrderRules.WorkPackage): without it she takes no job order.</summary>
         private const string WorkPackage = "SdcsNpcLoot";
 
-        private enum Phase { Called, Working, Idle }
+        private enum Phase { Called, Working, Idle, Talk }
+
+        /// <summary>Round 28: a talk hold ends this many real seconds after the last talk window closed (the ring's close-and-reopen hop fits).</summary>
+        private const float TalkGraceSeconds = 2f;
+        /// <summary>Round 28: whatever TalkOpen says, a talk hold ends after this many real seconds (a window group another mod renamed).</summary>
+        private const float TalkCapSeconds = 600f;
+        /// <summary>Round 28: the window groups a talk with her can open (vanilla's dialog and looting, Voice Control's craft window and wheel).</summary>
+        private const string DialogGroup = "dialog", CraftGroup = "NpcCraftGroup", WheelGroup = "VCFormationRadialGroup", LootGroup = "looting";
 
         private sealed class Shift
         {
             public float Started, PhaseSince, NextDeposit;
+            /// <summary>Round 28, Talk only (real time): when the hold started, and when a talk window on her was last seen open.</summary>
+            public float TalkSince, TalkSeen;
             public Phase Phase;
             public bool Called;
             public int Jobs, Deposited, Crafts;
@@ -50,17 +68,33 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<int, Shift> shifts = new Dictionary<int, Shift>();
         private static readonly List<int> scratch = new List<int>();
-        private static int starts, ends, staleCleared, depositedTotal, jobsDropped, refused, windowCancels;
+        private static int starts, ends, staleCleared, depositedTotal, jobsDropped, windowCancels;
+        private static int talkStarts, talkPromoted, talkEnds, talkSkipped;
+        private static bool talkGroupsLogged;
         private static readonly Dictionary<string, int> endReasons = new Dictionary<string, int>();
 
         public static void Reset()
         {
             shifts.Clear();
-            starts = ends = staleCleared = depositedTotal = jobsDropped = refused = windowCancels = 0;
+            starts = ends = staleCleared = depositedTotal = jobsDropped = windowCancels = 0;
+            talkStarts = talkPromoted = talkEnds = talkSkipped = 0;
+            talkGroupsLogged = false;
             endReasons.Clear();
         }
 
+        /// <summary>On a shift or a talk hold (round 28): the Owner link stands, and every shift rule (the ticker hand-off, the UAI
+        /// stand-downs, EngagesAtWill, ShiftOwned, EndFor) applies.</summary>
         public static bool OnShift(int memberId) { return shifts.ContainsKey(memberId); }
+
+        /// <summary>Round 28: on a talk hold - the link of a talk, not yet a work shift.</summary>
+        public static bool InTalk(int memberId)
+        {
+            Shift s;
+            return shifts.TryGetValue(memberId, out s) && s.Phase == Phase.Talk;
+        }
+
+        /// <summary>On a real work shift (the Community tab's Work button): a talk hold does not count.</summary>
+        public static bool OnWorkShift(int memberId) { return OnShift(memberId) && !InTalk(memberId); }
 
         public static int Count { get { return shifts.Count; } }
 
@@ -73,7 +107,7 @@ namespace SurvivorCommunity
             if (!ScConfig.WorkShiftsEnabled) { error = "scWorkOff"; return false; }
             if (!ScCommunity.IsHost) { error = "scHostOnly"; return false; }
             if (m == null || player == null) { error = "scInternal"; return false; }
-            if (OnShift(m.Id)) { error = "scWorkAlready"; return false; }
+            if (OnWorkShift(m.Id)) { error = "scWorkAlready"; return false; }
             if (m.Status != MemberStatus.Resident) { error = "scWorkNotResident"; return false; }
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }
             if (npc == null || npc.IsDead() || npc.Buffs == null) { error = "scNotLoaded"; return false; }
@@ -99,6 +133,13 @@ namespace SurvivorCommunity
         public static bool Start(Member m, EntityAlive npc, EntityPlayerLocal player, bool call, out string error)
         {
             if (!CanStart(m, npc, player, out error)) return false;
+            // round 28: a talk hold (the Community tab opened from her talk) gives way to the call - the link is written again below
+            if (InTalk(m.Id))
+            {
+                shifts.Remove(m.Id);
+                talkEnds++;
+                ScLog.Verbose(m.Name + "'s talk hold gives way to a call to work");
+            }
             try
             {
                 npc.Buffs.SetCustomVar("Owner", player.entityId);
@@ -122,6 +163,156 @@ namespace SurvivorCommunity
             }
         }
 
+        // ------------------------------------------------------------------ the talk hold (round 28) ----
+
+        /// <summary>
+        /// Round 28 (X3): can a talk link her now? A resident at home, not on a shift or on watch, loaded and alive, both of you
+        /// inside the home zone (CanStart's rules but the work package: Craft... keeps its own NPCCanCraft), TalkHold and
+        /// WorkShiftsEnabled on, the host. why: null when she simply needs none (already on a shift), else the reason, for the log.
+        /// </summary>
+        public static bool CanHold(Member m, EntityAlive npc, EntityPlayer player, out string why)
+        {
+            why = null;
+            if (m == null || npc == null || player == null) { why = "no member, body or player"; return false; }
+            if (m.Status != MemberStatus.Resident) { why = "not a resident at home (" + m.Status + ")"; return false; }
+            if (OnShift(m.Id)) return false;                                                    // linked already (a shift, a hold)
+            if (!ScConfig.TalkHold || !ScConfig.WorkShiftsEnabled) { why = "TalkHold or WorkShiftsEnabled is off"; return false; }
+            if (!ScCommunity.IsHost) { why = "not the host"; return false; }
+            if (ScWatch.OnWatch(m)) { why = "on watch"; return false; }
+            if (npc.IsDead() || npc.Buffs == null) { why = "no live body"; return false; }
+            if (!ScZone.HasHome || !ScZone.Contains(npc.GetBlockPosition()) || !ScZone.Contains(player.GetBlockPosition())) { why = "you or she outside the home zone"; return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// Round 28 (X3): the talk hold. Patches_Craft's postfix on XUiC_DialogWindowGroup.OnOpen calls this as a talk with a
+        /// member opens (her rows are filled on the list's next Update, so they see the link). The cvars Start writes - Owner,
+        /// the player's EntityID, SCore's leader cache dropped - and a Guard spot where she stands (SC's roam and leash stand
+        /// down on a shift: she stays while you talk), but no sc_shift. No log line but a verbose one: it is every talk.
+        /// </summary>
+        public static bool StartTalk(Member m, EntityAlive npc, EntityPlayerLocal player)
+        {
+            string why;
+            if (!CanHold(m, npc, player, out why))
+            {
+                if (why != null && m != null && m.Status == MemberStatus.Resident)
+                {
+                    talkSkipped++;
+                    ScLog.Verbose((m != null ? m.Name : "?") + ": no talk hold - " + why);
+                }
+                return false;
+            }
+            try
+            {
+                npc.Buffs.SetCustomVar("Owner", player.entityId);
+                player.Buffs.SetCustomVar("EntityID", player.entityId);
+                SphereCache.LeaderCache.Remove(npc.entityId);
+                ScCommunity.ApplyPost(npc, EntityUtilities.CenterPosition(npc.position));
+                float now = Time.time, real = Time.unscaledTime;
+                shifts[m.Id] = new Shift { Started = now, PhaseSince = now, NextDeposit = now + DepositSeconds, Phase = Phase.Talk, TalkSince = real, TalkSeen = real };
+                talkStarts++;
+                LogTalkGroupsOnce(player);
+                ScLog.Verbose(m.Name + ": talk hold - linked to you while the talk and its windows are open (at " + npc.GetBlockPosition() + ")");
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("work-talk-start", e);
+                return false;
+            }
+        }
+
+        /// <summary>The window groups TalkOpen watches, once a session: a group another mod renamed would leave a hold to its cap.</summary>
+        private static void LogTalkGroupsOnce(EntityPlayerLocal player)
+        {
+            if (talkGroupsLogged) return;
+            talkGroupsLogged = true;
+            try
+            {
+                GUIWindowManager wm = player != null && player.PlayerUI != null ? player.PlayerUI.windowManager : null;
+                if (wm == null) return;
+                var missing = new List<string>();
+                foreach (string g in new[] { DialogGroup, CraftGroup, WheelGroup, LootGroup })
+                    if (wm.GetWindow(g) == null) missing.Add(g);
+                string line = "talk hold: a talk links a resident while one of these is open on her: " + DialogGroup + ", " + CraftGroup + ", " + WheelGroup + ", " + LootGroup;
+                if (missing.Count == 0) ScLog.Out(line);
+                else ScLog.Warn(line + " - NOT FOUND: " + string.Join(", ", missing.ToArray()) + " (Voice Control not loaded, or renamed: those windows do not hold the link)");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("work-talk-groups", e);
+            }
+        }
+
+        /// <summary>
+        /// Round 28: is a talk with her, or a window opened from it, open on the host's screen? The dialog with her as its
+        /// respondent; or, while the player's CurrentNPC cvar is her (SCore sets it at every talk, Voice Control's hold-E ring
+        /// too): Voice Control's craft window, the order wheel / her hold-E ring page, or the looting window bound to her SCore
+        /// inventory (HarvestManager's container: "Show me your inventory", the ring's Inventory).
+        /// </summary>
+        private static bool TalkOpen(EntityAlive npc)
+        {
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            LocalPlayerUI ui = player != null ? player.PlayerUI : null;
+            GUIWindowManager wm = ui != null ? ui.windowManager : null;
+            if (wm == null || npc == null) return false;
+            if (wm.IsWindowOpen(DialogGroup))
+            {
+                EntityNPC r = ui.xui != null && ui.xui.Dialog != null ? ui.xui.Dialog.Respondent : null;
+                if (r != null && r.entityId == npc.entityId) return true;
+            }
+            if (player.Buffs == null || (int)player.Buffs.GetCustomVar("CurrentNPC") != npc.entityId) return false;
+            if (wm.IsWindowOpen(CraftGroup) || wm.IsWindowOpen(WheelGroup)) return true;
+            return wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc);
+        }
+
+        /// <summary>The looting window shows her SCore inventory (Voice Control's own test: the group's or its loot window's te).</summary>
+        private static bool LootBoundTo(GUIWindowManager wm, EntityAlive npc)
+        {
+            try
+            {
+                if (!HarvestManager.Has(npc.entityId)) return false;
+                XUiWindowGroup g = wm.GetWindow(LootGroup) as XUiWindowGroup;
+                XUiC_LootWindowGroup lg = g != null ? g.Controller as XUiC_LootWindowGroup : null;
+                if (lg == null) return false;
+                TEFeatureStorage bound = lg.lootWindow != null && lg.lootWindow.te != null ? lg.lootWindow.te : lg.te;
+                return bound != null && ReferenceEquals(bound, HarvestManager.GetOrCreate(npc.entityId));
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("work-talk-loot", e);
+                return false;
+            }
+        }
+
+        /// <summary>Round 28: Tick, a talk hold with no job yet - it holds while TalkOpen, then ends quietly (she walks back to her post).</summary>
+        private static void TalkTick(Member m, EntityAlive npc, Shift s)
+        {
+            float real = Time.unscaledTime;
+            if (TalkOpen(npc)) s.TalkSeen = real;
+            else if (real - s.TalkSeen >= TalkGraceSeconds)
+            {
+                End(m, npc, "the talk is over", true, false);
+                return;
+            }
+            if (real - s.TalkSince >= TalkCapSeconds) End(m, npc, "the talk hold's " + (int)TalkCapSeconds + " s cap", true, false);
+        }
+
+        /// <summary>Round 28: her first craft order or job of a talk hold makes it a work shift (from here on today's rules).</summary>
+        private static void Promote(Member m, EntityAlive npc, Shift s, int mode)
+        {
+            float now = Time.time;
+            npc.Buffs.SetCustomVar(ShiftCvar, 1f);
+            s.Phase = Phase.Working;
+            s.Started = now;
+            s.PhaseSince = now;
+            s.Jobs++;
+            starts++;
+            talkPromoted++;
+            ScLog.Out(m.Name + " starts a work shift (from the talk) at " + npc.GetBlockPosition() + " - " + m.Specialty + " " + m.SpecLevel
+                      + " stars, roles " + ScCraft.MaskText(ScCraft.ReadMask(npc)) + " (job mode " + mode + ")");
+        }
+
         // ------------------------------------------------------------------ end ----
 
         /// <summary>
@@ -135,6 +326,7 @@ namespace SurvivorCommunity
             Shift s;
             shifts.TryGetValue(m.Id, out s);
             shifts.Remove(m.Id);
+            bool talk = s != null && s.Phase == Phase.Talk;     // round 28: a talk hold ends quietly (no tell, a verbose line)
             try
             {
                 if (npc != null && npc.Buffs != null && !npc.IsDead())
@@ -147,6 +339,12 @@ namespace SurvivorCommunity
                 }
                 else DropHireMark(m.Id);
                 ScCraft.FlushXp(true);                              // the shift's XP is saved with its end (review #6)
+                if (talk)
+                {
+                    talkEnds++;
+                    ScLog.Verbose(m.Name + "'s talk hold ends (" + reason + ") after " + (int)(Time.unscaledTime - s.TalkSince) + " s");
+                    return;
+                }
                 ends++;
                 int n;
                 endReasons.TryGetValue(reason ?? "?", out n);
@@ -163,7 +361,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Follow, a supply run, an outpost posting, a watch posting and Leave: a member on a shift comes off it first (her job
-        /// dropped, unmade items refunded) without the walk back to her post - the verb moves her on itself.
+        /// dropped, unmade items refunded) without the walk back to her post - the verb moves her on itself. A talk hold too
+        /// (round 28: "Follow me", the supply run and "Ask to leave" are picked in the talk that holds her).
         /// </summary>
         public static void EndFor(Member m, string verb)
         {
@@ -221,8 +420,9 @@ namespace SurvivorCommunity
             if (ScWatch.OnWatch(m)) { End(m, npc, "posted on watch", true); return; }
             int mode = SdcsLootMode.Mode(npc);
             EntityUtilities.Orders order;
-            // any order but Guard ends the shift (a voice Follow, a Stay ...). X2c: the craft window's Cancel, which Voice Control
-            // sends as a Stay, never gets here for a shift - Patches_Craft C1n drops only the job (CancelJobOnShift)
+            // any order but Guard ends the shift (a voice Follow, a Stay ...) and a talk hold (round 28). X2c: the craft window's
+            // Cancel, which Voice Control sends as a Stay, never gets here for a shift - Patches_Craft C1n drops only the job
+            // (CancelJobOnShift)
             if (mode == 0 && ScOrders.TryCurrent(npc, out order) && order != EntityUtilities.Orders.Guard)
             {
                 End(m, npc, "given the order " + order, true);
@@ -233,6 +433,16 @@ namespace SurvivorCommunity
             bool hasJob = SdcsCraftJob.Get(m.Id) != null;
             if (hasJob && mode != 10) { DropJob(npc, "its job mode is gone"); hasJob = false; }
             bool working = mode == 10 ? hasJob : mode != 0;
+            // round 28 (X3): a talk hold becomes a work shift with her first craft order or job; until then it lasts while the talk is open
+            if (s.Phase == Phase.Talk)
+            {
+                if (!working)
+                {
+                    TalkTick(m, npc, s);
+                    return;
+                }
+                Promote(m, npc, s, mode);
+            }
             if (working)
             {
                 if (s.Phase != Phase.Working) { s.Phase = Phase.Working; s.PhaseSince = now; s.Jobs++; ScLog.Verbose(m.Name + ": at work (job " + s.Jobs + ", mode " + mode + ")"); }
@@ -279,6 +489,8 @@ namespace SurvivorCommunity
                 Member m = ScRegistry.GetMember(id);
                 EntityAlive npc = m != null ? ScCommunity.FindNpc(id) : null;
                 if (m != null && m.Status == MemberStatus.Resident && npc != null) continue;
+                Shift gone;
+                bool talk = shifts.TryGetValue(id, out gone) && gone.Phase == Phase.Talk;
                 shifts.Remove(id);
                 string why = m == null ? "no longer a member" : m.Status != MemberStatus.Resident ? "now " + m.Status : "her body unloaded";
                 if (npc != null && npc.Buffs != null)
@@ -291,6 +503,12 @@ namespace SurvivorCommunity
                     }
                 }
                 else if (m == null || (m.Status != MemberStatus.Following && m.Status != MemberStatus.PendingStation)) DropHireMark(id);
+                if (talk)
+                {
+                    talkEnds++;
+                    ScLog.Verbose("talk hold of " + (m != null ? m.Name : id.ToString()) + " dropped (" + why + ")");
+                    continue;
+                }
                 ends++;
                 ScLog.Out("work shift of " + (m != null ? m.Name : id.ToString()) + " dropped (" + why + ")");
             }
@@ -327,6 +545,7 @@ namespace SurvivorCommunity
         /// Guard. Here only the job goes, as Stay would take it: the order dropped and refunded (DropJob), the job mode cleared
         /// (SdcsLootMode.Clear, as MutateStay). Her Guard order at the craft spot stays, so the shift goes on: Idle, then home
         /// WorkIdleSeconds later unless she is given another order. False when she is not on a shift (Voice Control's Stay then).
+        /// Round 28: on a talk hold she has no job yet: nothing to cancel, and no Stay either (she stays linked while you talk).
         /// </summary>
         public static bool CancelJobOnShift(Member m, EntityAlive npc, out bool dropped)
         {
@@ -339,39 +558,6 @@ namespace SurvivorCommunity
             windowCancels++;
             ScLog.Out(m.Name + ": the craft window's Cancel ends her job, not her work shift");
             return true;
-        }
-
-        // Voice Control's XUiC_NpcCraftWindow.Open(EntityPlayerLocal, EntityAlive), bound once per session (finding 9)
-        private static bool openBound;
-        private static System.Reflection.MethodInfo mOpenWindow;
-
-        /// <summary>
-        /// X2c, finding 9: the dialog's "I have work for you." opens 0-XNPCCore's craft window itself, only once Start put her on
-        /// the shift. It used to be the response's second action (Voice Control's CraftMenuOpen), which ran after a refused start
-        /// too: ScWorkStart had closed the talk, CraftMenuOpen fell back on the dialog's owner and opened a window with no listing
-        /// (she has no owner link for its order router). The same call CraftMenuOpen makes for a local player with a UI.
-        /// </summary>
-        public static bool OpenCraftWindow(EntityPlayerLocal player, EntityAlive npc)
-        {
-            try
-            {
-                if (!openBound)
-                {
-                    openBound = true;
-                    Type t = ScTypes.Find("XUiC_NpcCraftWindow");
-                    mOpenWindow = t != null ? HarmonyLib.AccessTools.DeclaredMethod(t, "Open", new[] { typeof(EntityPlayerLocal), typeof(EntityAlive) }) : null;
-                    if (mOpenWindow == null)
-                        ScLog.Warn("work shifts: Voice Control's XUiC_NpcCraftWindow.Open(EntityPlayerLocal, EntityAlive) not found - \"I have work for you.\" starts the shift without the craft window (use her Craft... row)");
-                }
-                if (mOpenWindow == null || player == null || npc == null) return false;
-                mOpenWindow.Invoke(null, new object[] { player, npc });
-                return true;
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("work-openwindow", e);
-                return false;
-            }
         }
 
         /// <summary>
@@ -475,7 +661,7 @@ namespace SurvivorCommunity
             ok = false;
             message = "";
             if (m == null || player == null) return;
-            if (OnShift(m.Id))
+            if (OnWorkShift(m.Id))
             {
                 End(m, ScCommunity.FindNpc(m.Id), "ended from the Community tab", true, false);
                 message = string.Format(Localization.Get("scWorkBack"), m.Name);
@@ -501,11 +687,11 @@ namespace SurvivorCommunity
                 case "workmenulabel": return Localization.Get(workOpen && sel != null ? "scUiWorkClose" : "scUiWorkMenu");
                 case "workpicking": return (workOpen && sel != null && !runPicking).ToString();
                 case "msgvisible": return (!runPicking && !(workOpen && sel != null)).ToString();
-                case "worklabel": return Localization.Get(sel != null && OnShift(sel.Id) ? "scUiWorkEnd" : "scUiWorkCall");
+                case "worklabel": return Localization.Get(sel != null && OnWorkShift(sel.Id) ? "scUiWorkEnd" : "scUiWorkCall");
                 case "workcolor":
                 {
                     if (sel == null) return Dim;
-                    if (OnShift(sel.Id)) return Body;
+                    if (OnWorkShift(sel.Id)) return Body;
                     string why;
                     return CanStart(sel, ScCommunity.FindNpc(sel.Id), ScCommunity.LocalPlayer, out why) ? Body : Dim;
                 }
@@ -537,72 +723,30 @@ namespace SurvivorCommunity
                 ItemClass ic = ItemClass.GetForId(kv.Key);
                 made.Append(made.Length > 0 ? ", " : "").Append(ic != null ? ic.GetItemName() : kv.Key.ToString()).Append(" x").Append(kv.Value);
             }
+            if (s.Phase == Phase.Talk)
+                return "Talk (round 28's talk hold) for " + (int)(Time.unscaledTime - s.TalkSince) + " s, a talk window last seen open " + (int)(Time.unscaledTime - s.TalkSeen)
+                       + " s ago" + cvar;
             return s.Phase + " for " + (int)(now - s.PhaseSince) + " s (shift " + (int)(now - s.Started) + " s, " + (s.Called ? "called" : "talked to") + "), jobs " + s.Jobs
                    + ", made " + s.Crafts + ", in the crates " + s.Deposited + ", still owed to the crates [" + made + "]" + cvar
                    + "; craft order " + (SdcsCraftJob.Get(m.Id) != null ? "yes" : "no");
         }
-
-        internal static void NoteRefused() { refused++; }
 
         public static string Summary()
         {
             var parts = new List<string>();
             foreach (var kv in endReasons) parts.Add(kv.Key + " " + kv.Value);
             return "work shifts: " + shifts.Count + " now, " + starts + " started, " + ends + " ended (" + string.Join(", ", parts.ToArray()) + "), stale sc_shift cleared "
-                   + staleCleared + ", items put in the crates " + depositedTotal + ", craft orders dropped " + jobsDropped + ", talk starts refused " + refused
-                   + ", window cancels kept on the shift " + windowCancels;
+                   + staleCleared + ", items put in the crates " + depositedTotal + ", craft orders dropped " + jobsDropped
+                   + ", window cancels kept on the shift " + windowCancels + "; talk holds: " + talkStarts + " started, " + talkPromoted + " became a work shift, "
+                   + talkEnds + " ended, " + talkSkipped + " not started (a resident who could not be held)";
         }
     }
 }
 
 // ---------------------------------------------------------------- dialog operators (global, as DialogOps.cs) ----
 
-/// <summary>C1: the NPC is a resident who can start a work shift now (ScWork.CanStart).</summary>
-public class DialogRequirementScCanWork : BaseDialogRequirement
-{
-    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
-    {
-        try
-        {
-            EntityAlive npc = ScFavours.CurrentNpc(player);
-            Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
-            string why;
-            return m != null && ScWork.CanStart(m, npc, player, out why);
-        }
-        catch (Exception e) { ScLog.Once("req-canwork", e); return false; }
-    }
-}
-
-/// <summary>
-/// C1: "I have work for you." - the shift starts where she stands and 0-XNPCCore's craft window opens. X2c (finding 9): the
-/// window is opened here, only when the shift started (it was the response's second action, Voice Control's CraftMenuOpen,
-/// which also ran after a refusal and opened a dead window).
-/// </summary>
-public class DialogActionScWorkStart : BaseDialogAction
-{
-    public override void PerformAction(EntityPlayer player)
-    {
-        try
-        {
-            EntityPlayerLocal lp = player as EntityPlayerLocal;
-            EntityAlive npc = ScFavours.CurrentNpc(player);
-            Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
-            if (lp == null || m == null) return;
-            string err;
-            if (ScWork.Start(m, npc, lp, false, out err))
-            {
-                ScWork.OpenCraftWindow(lp, npc);
-                return;
-            }
-            // review #7: the response's next statement (0-XNPCCore's Craft Categories) would open with nothing in it - the talk
-            // closes on the reason instead (the dialog's own refresh then finds the window shut, as for "Community")
-            ScWork.NoteRefused();
-            ScCommunity.Tell(player, Localization.Get(err ?? "scInternal"), "ui_denied");
-            if (lp.PlayerUI != null && lp.PlayerUI.windowManager != null) lp.PlayerUI.windowManager.Close("dialog");
-        }
-        catch (Exception e) { ScLog.Once("act-workstart", e); }
-    }
-}
+// Round 28 (X3, decision 2): "I have work for you." (ScCanWork / ScWorkStart) is gone - 0-XNPCCore's Craft... serves every
+// member, a resident through the talk hold (ScWork.StartTalk); a craft order given there makes the work shift (ScWork.Promote).
 
 /// <summary>C1: "That's all for now." - the shift ends, she says so as the talk closes and walks back to her post.</summary>
 public class DialogActionScWorkEnd : BaseDialogAction

@@ -29,8 +29,15 @@ namespace SurvivorCommunity
         /// level stays her stars'). 0: magazines never help a member (all listed as "won't help her", none used up).
         /// </summary>
         public static float CraftSpecXpPerMagazineLevel = 10f;
-        /// <summary>Residents can be put on a work shift (the "I have work for you." row, the Community tab's Call to work).</summary>
+        /// <summary>Residents can be put on a work shift (a craft order or a job from her talk - round 28 -, the Community tab's Call to work).</summary>
         public static bool WorkShiftsEnabled = true;
+        /// <summary>
+        /// Round 28 (X3, the talk link): talking to a resident at home inside the base links her to you (the work shift's Owner
+        /// link, ScWork's Talk phase) while the talk or a window opened from it is open, so 0-XNPCCore's rows (Craft..., Jobs and
+        /// gear, Show me your inventory) show and work; it ends 2 s after the last of them closes, or becomes a work shift when
+        /// she is given a craft or a job. Needs WorkShiftsEnabled. false: no link at talk (no Craft... on residents).
+        /// </summary>
+        public static bool TalkHold = true;
         /// <summary>After her last job of the shift, real seconds (game time running) before she goes back to her post.</summary>
         public static int WorkIdleSeconds = 90;
         /// <summary>Called to work and never given an order: real seconds before she goes back to her post.</summary>
@@ -66,6 +73,7 @@ namespace SurvivorCommunity
             CraftSpecXpPerCraft = 0.5f;
             CraftSpecXpPerMagazineLevel = 10f;
             WorkShiftsEnabled = true;
+            TalkHold = true;
             WorkIdleSeconds = 90;
             WorkCallSeconds = 180;
             WorkDepositOutput = true;
@@ -94,6 +102,7 @@ namespace SurvivorCommunity
             ParseFloat(p, "CraftSpecXpPerCraft", ref CraftSpecXpPerCraft, 0f, 10f);
             ParseFloat(p, "CraftSpecXpPerMagazineLevel", ref CraftSpecXpPerMagazineLevel, 0f, 550f);
             if (p.Values.TryGetValue("WorkShiftsEnabled", out v) && !string.IsNullOrEmpty(v)) WorkShiftsEnabled = StringParsers.ParseBool(v);
+            if (p.Values.TryGetValue("TalkHold", out v) && !string.IsNullOrEmpty(v)) TalkHold = StringParsers.ParseBool(v);
             ParseInt(p, "WorkIdleSeconds", ref WorkIdleSeconds, 10, 3600);
             ParseInt(p, "WorkCallSeconds", ref WorkCallSeconds, 10, 3600);
             if (p.Values.TryGetValue("WorkDepositOutput", out v) && !string.IsNullOrEmpty(v)) WorkDepositOutput = StringParsers.ParseBool(v);
@@ -109,7 +118,8 @@ namespace SurvivorCommunity
             return "craftSkills=" + (CraftSkillsEnabled ? "on curve " + CraftLevelCurve.ToString("0.##", CultureInfo.InvariantCulture)
                                                          + " xp " + CraftSpecXpPerCraft.ToString("0.##", CultureInfo.InvariantCulture) + "/craft "
                                                          + CraftSpecXpPerMagazineLevel.ToString("0.##", CultureInfo.InvariantCulture) + "/magazine level [" + string.Join(" ", parts.ToArray()) + "]" : "off")
-                   + " workShifts=" + (WorkShiftsEnabled ? "on idle " + WorkIdleSeconds + "s call " + WorkCallSeconds + "s deposit " + WorkDepositOutput : "off");
+                   + " workShifts=" + (WorkShiftsEnabled ? "on idle " + WorkIdleSeconds + "s call " + WorkCallSeconds + "s deposit " + WorkDepositOutput : "off")
+                   + " talkHold=" + (TalkHold && WorkShiftsEnabled ? "on" : "off");
         }
     }
 }

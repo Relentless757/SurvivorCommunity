@@ -166,15 +166,46 @@ namespace SurvivorCommunity
         /// <summary>
         /// SCore's hide (scale 0, invisible, ignored by AI, onMission=1) or un-hide. It does not stop the entity
         /// ticking. Both classes implement it identically; nothing happens to anything else.
+        /// C4 (round 28, 3.4): a body hidden while seated in a vehicle leaves the seat first. 0-XNPCCore 3.4 seats a follower
+        /// instead of hiding her (its SendOnMission(true) prefix: a seated body is not hidden at all, a leader in a vehicle
+        /// boards her), and 3.4.04 undoes any hide on a seated body every frame - so a member SC hides for a supply run, an
+        /// outpost posting or a stale copy would stay in the seat, or flicker back.
         /// </summary>
         public static void SendOnMission(EntityAlive e, bool send)
         {
+#if SC_V34
+            if (send && e != null) LeaveSeat(e);
+#endif
             EntityAliveSDX sdx = e as EntityAliveSDX;
             if (sdx != null) { sdx.SendOnMission(send); return; }
             EntityAliveSDXV4 v4 = e as EntityAliveSDXV4;
             if (v4 != null) v4.SendOnMission(send);
         }
 
+#if SC_V34
+        /// <summary>
+        /// C4 (round 28): out of a vehicle seat before SC hides the body (findings_x3 C4), and 0-XNPCCore's board request
+        /// (SdcsVehicleOrder) dropped, so its hide prefix neither keeps her seated nor boards her. Every SC caller parks the body on
+        /// Stay first (ScRuns.Park), which ends 0-XNPCCore's auto-boarding (it follows the Follow order).
+        /// </summary>
+        private static void LeaveSeat(EntityAlive e)
+        {
+            try
+            {
+                if (e.AttachedToEntity != null)
+                {
+                    ScLog.Verbose(ScCommunity.DisplayName(e) + " (" + e.entityId + ") leaves the vehicle seat before being hidden");
+                    e.Detach();
+                }
+                if (e.Buffs != null && e.Buffs.GetCustomVar("SdcsVehicleOrder") != 0f) e.Buffs.SetCustomVar("SdcsVehicleOrder", 0f);
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("npc-leave-seat", ex);
+            }
+        }
+
+#endif
         /// <summary>Resets move speed to the class's own (IEntityAliveSDX.RestoreSpeed).</summary>
         public static void RestoreSpeed(EntityAlive e)
         {

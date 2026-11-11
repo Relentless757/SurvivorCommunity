@@ -557,3 +557,28 @@ public class DialogActionScOpenCommunity : BaseDialogAction
         ScCommunity.OpenWindow(player as EntityPlayerLocal);
     }
 }
+
+/// <summary>
+/// Round 28 (X3): 0-XNPCCore 3.4.04's "Come here" and "Order wheel" are a follower's verbs (the user's decision, 2026-11-10).
+/// True for any NPC that is none of SC's people (a hired stranger keeps them) and for a member who follows the player
+/// (sc_following = 1: Following or PendingStation); false for a member who is not following - on a resident, Come here pulls
+/// her off her post and the wheel's orders end her talk or shift - and never for an outpost stand-in, one of an enclave's
+/// people or one of a band on the road. An OR the cvar requirements cannot say. Reads the body's cvars (any machine).
+/// </summary>
+public class DialogRequirementScFollowerVerb : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+        try
+        {
+            EntityAlive npc = talkingTo;
+            if (npc == null && player != null && player.Buffs != null && player.Buffs.HasCustomVar("CurrentNPC"))
+                npc = ScCommunity.World != null ? ScCommunity.World.GetEntity((int)player.Buffs.GetCustomVar("CurrentNPC")) as EntityAlive : null;
+            if (npc == null || npc.Buffs == null) return true;
+            if (npc.Buffs.HasCustomVar(ScRadio.StandInCvar) || ScEnclavePeople.IsEnclaveNpc(npc) || ScBands.IsBandNpc(npc)) return false;
+            if (!npc.Buffs.HasCustomVar("sc_member")) return true;
+            return npc.Buffs.GetCustomVar("sc_following") > 0f;
+        }
+        catch (Exception e) { ScLog.Once("req-followerverb", e); return true; }
+    }
+}

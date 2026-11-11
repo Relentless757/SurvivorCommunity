@@ -5,7 +5,7 @@ have **skills and traits**, share a **morale** that reflects how well the base i
 from a **stockpile of resource bundles**, and can be sent out or taken along.
 
 **Requires** `0-SCore` and `0-XNPCCore` (the mod stays inert, with an error in the log, when either is
-missing). Works with any NPC character pack built on the XNPCCore templates. Optional: `LandClaimUpgrade`
+missing). On game 3.4: `0-SCore` 3.4.14 or newer and `0-XNPCCore` 3.4.04 with its Voice Control 3.4.04. Works with any NPC character pack built on the XNPCCore templates. Optional: `LandClaimUpgrade`
 (the community then lives in the upgraded claim zone instead of the plain 41x41 square).
 Harmony mod: EAC must be off. **Single player / host only in this version** - a remote player sees the
 NPCs but cannot manage a community (v2).
@@ -1694,6 +1694,17 @@ vanilla's.
   for its older body type, so the player-body survivors' lines never reached the screen. The NPC's current line now
   shows in a panel above the responses, for every NPC but SCore's older type (`DialogLine`; `windowScDialogLine` in the
   vanilla dialog group, `XUiC_ScDialogLine`).
+- **Long talk pages (round 28, `DialogPager`).** A talk page with more rows than the dialog window shows (10) splits
+  into pages instead of losing its last rows: the mouse wheel over the rows, the gamepad's right stick or the arrows
+  beside the "1/2" at the window's top right switch pages, and "Nevermind." is the last row of every page. Any dialog,
+  not only the survivors'; a page that fits is unchanged (`ScDialogPager`, a transpiler on the game's response list).
+- **The talk page on game 3.4 (round 28, 0-XNPCCore 3.4.04).** Talking to a resident at home (both of you inside the base,
+  she not on watch) links her to you while the talk, her craft window, her inventory or her hold-E ring is open
+  (`TalkHold`), so 0-XNPCCore's own Craft..., Jobs and gear and Show me your inventory work for her; a craft order or a job
+  makes it a work shift, otherwise the link ends 2 s after the last of those windows closed. "Come here" and "Order
+  wheel" are a follower's; "Ask to leave" is the last row before "Nevermind." for everyone; no supply run is offered to a
+  follower. Members and stand-ins never offer Trade (the radial or by voice) and are never picked up as an item
+  (0-XNPCCore 3.4.04's "Pick me up" on the hold-E ring).
 - **Voices.** The community's survivors (recruits, radio contacts, members, stand-ins) speak a line when the mod has a
   recording of it: `Resources/Voices/<male|female>_<Race>_<Name>/<line>.ogg`, mono Ogg Vorbis (`VoiceLines`, `ScVoice`).
   - **By race and sex (V2, `VoiceByRace`).** The voices are a table of sixteen, two for each race (White, Black, Asian,

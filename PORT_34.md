@@ -3508,3 +3508,226 @@ a radio) and voices vo3 day 6 (NativeM1 and NativeM2 complete). Fable: NOT DEPLO
 built `c0ac2ed2c0a2eef4f19524e386c7159a`. The old install is in `Port33\_backups\sc34_2026-11-10_000212`; the user's
 `DebugLogging` true set again. Untested in game: TESTING P2 (500-511), R2 (520-562); the radio lines are not recorded yet
 (captions alone until vo3's next days).
+
+### Round 28: NPCCore 3.4.04 and the talk page (X3) (2026-11-10, built, not reviewed, not installed)
+
+**The update.** The user installed 0-XNPCCore and Voice Control **3.4.04** (DLLs dated 2026-11-10 21:14; 0-SCore 3.4.14
+unchanged). Branch `ms/x3` from port-3.4 `96f6a27`, worktree `Port33\wt\sc-x3`. Two read-only investigations came first
+(session scratch `x3\findings_x3.md`: what 3.4.04 changed against SC, the Trade bug's cause; `x3\design_talk_pages.md`: the
+talk page, the hold, the pager). 3.4.04 moved Weapons, Read, Your progress and Ammo off the Press-E page into the Hold-E ring
+("Jobs and gear" opens it on her) and added Come here, Order wheel, Jobs and gear and a Dismiss confirm; its ring got a
+"Pick me up" that bypassed SC's guard; ClearShot widened; allies kneel. SC's own patch targets did not change (HarmonyAudit:
+3.4.04 = 3.4.03 but two "body changed").
+
+**The user's decisions (2026-11-10), as given:**
+1. **Talk link** (design option A): "talking to a resident at home links her to the player (the work shift's owner link, a
+   new "Talk" phase) while the talk or its menus are open (dialog, craft window, looting/inventory window, order wheel /
+   hold-E ring); the link ends quietly 2 s after the last of them closes. Giving her a craft or a job turns it into a normal
+   work shift. This also removes the 3-minute leftover shift after closing the craft window."
+2. **Only "Craft..."**: "drop SC's "I have work for you." row; NPCCore's "Craft..." serves every member".
+3. **Keep 3.4.04's layout**: "no direct Weapons / Read / Your progress rows (they stay under "Jobs and gear")".
+4. **Pager**: "a talk page with more rows than the window's slots splits into pages; mouse wheel (and gamepad right stick /
+   vanilla paging if it works in the modal dialog) switches pages; a small "1/2" indicator; "Nevermind." (response id
+   `done`) pinned as the last row on EVERY page. It acts only when rows overflow (pages that fit are untouched) and on every
+   dialog (not only NPCs)." Off switch `DialogPager` (default true), try/catch fallback to vanilla, fail-loud error when the
+   transpiler's anchor is missing.
+5. The design's defaults: "Ask to leave" back on a follower's page, last before Nevermind; no supply-run row on followers;
+   Come here and Order wheel only for followers (never stand-ins, enclave or band NPCs); no "Show me your inventory" for a
+   member on a supply run unless a runner's haul is shown not to come from her bag.
+
+**The talk link (decision 1; `ScWork.cs`, 3.4 only).** A fourth shift phase, `Talk` (`ScWork.cs:47-60`), so every piece of
+the shift machinery applies unchanged: the ticker's hand-off (`ScWork.Resident`), the UAI stand-downs (`ScNotOnShift`),
+`EngagesAtWill`, `ShiftOwned` (X21, C1g), C1n's Cancel, `EndFor` from Follow / a run / an outpost / a watch / Leave.
+- Start: `Patch_TalkHold` (X3a, `Patches_Craft.cs:826`), a postfix on vanilla `XUiC_DialogWindowGroup.OnOpen()` - after
+  OnOpen set the dialog and marked the response list dirty, which fills on its next Update, so 0-XNPCCore's `Leader, SCore`
+  rows see the link (SCore's DialogRequirementLeader reads GetLeaderOrOwner, which falls back on the Owner cvar). The ring's
+  jump into her dialog (Weapons, Read, Progress) passes here too. `ScWork.StartTalk` (`:193`) writes what `Start` writes -
+  `Owner` = player, the player's `EntityID`, SCore's leader cache dropped, a Guard spot where she stands - but no `sc_shift`
+  (so "That's all for now." stays hidden and the supply run and "Ask to leave" stay offered). `CanHold` (`:173`): `TalkHold`
+  and `WorkShiftsEnabled` on, the host, a Resident not on a shift or on watch, a live body, both of you inside the home zone
+  (CanStart's rules but the work package; Craft... keeps its own `NPCCanCraft`).
+- Hold: `TalkOpen` (`:253`) - the dialog open with her as its respondent; or, while the player's `CurrentNPC` cvar is her
+  (SCore sets it at every talk, Voice Control's ring too), `NpcCraftGroup` (Voice Control's craft window) or
+  `VCFormationRadialGroup` (the order wheel / her ring page) open, or `looting` open and bound to her SCore inventory
+  (`LootBoundTo` `:270`: the loot window group's te, as Voice Control's own test, against `HarvestManager.GetOrCreate(id)`).
+  The groups are checked once a session (`LogTalkGroupsOnce`: `talk hold: ...`, a warning naming any missing one).
+- End or promote (`Tick` `:437`, `TalkTick` `:289`, `Promote` `:302`): any order but Guard ends it as it ends a shift; a craft
+  order or any 0-XNPCCore job (`working`, as today) makes it a work shift - `sc_shift` set, `<name> starts a work shift (from
+  the talk) ...`, from there today's Working / Idle rules; else it ends `TalkGraceSeconds` (2, real time) after a talk window
+  was last seen open, or after `TalkCapSeconds` (600) whatever TalkOpen says, through `End(..., station: true, tell: false)`:
+  Detach drops the link, she walks back to her post. A talk hold logs only Verbose lines and has its own counters
+  (`talk holds: N started, N became a work shift, N ended, N not started` in `sc craft`).
+- The Community tab: `OnWorkShift` (`:97`, a shift that is not a hold) drives Work > Call / End work; `Start` replaces a hold
+  (the tab opened from her talk). `CanStart` refuses only a real shift.
+- The Called phase stays for Call to work only, so closing the craft window without an order leaves no 3-minute shift: the
+  hold ends 2 s later.
+
+**Only "Craft..." (decision 2).** `scWork` ("I have work for you.") is gone from `Config/dialogs.xml` with its operators
+`ScCanWork` / `ScWorkStart` and `ScWork.OpenCraftWindow` (`ScWork.cs:748` says so); 0-XNPCCore's "Craft..." serves every
+member - a resident through the hold, a craft order on it starting the shift. `scWorkEnd` stays. The unused Localization
+row `scWork` is left. **Decision 3**: nothing added; Weapons, Read and Progress stay under "Jobs and gear".
+
+**The pager (decision 4; `ScDialogPager.cs` new, compiled for both games).** Vanilla's `XUiC_DialogResponseList` (identical
+in the 3.2 and 3.4 decompiles) fills its 10 `response_entry` slots in order and drops the rest.
+- P1 `Patch_PagerAnchor` (`:250`), a transpiler on `Update(float)`: right after its only `callvirt
+  DialogStatement::GetResponses()` (IL_0036 in 3.2 and 3.4, matched by MethodInfo) it inserts `ldarg.0; call
+  ScDialogPager.Page(List<BaseResponseEntry>, XUiC_DialogResponseList)` - stack-neutral, after every mod's GetResponses
+  postfix (Voice Control's injected rows included). Found other than once: `ScLog.Err("dialog pager: ... the pager is OFF ...")`
+  and the IL unchanged; found: `dialog pager: anchored on ...`.
+- `Page` (`:102`): the window's slot count from `entryList`, never hardcoded; when the statement has more entries than slots,
+  vanilla's own fill rules (`Hidden` `:173`: the first failing requirement decides; a missing response and a repeated
+  UniqueID take no slot; a grayed row takes one) give the visible rows; if they fit, vanilla's list as it was; else pages of
+  `slots - 1` rows plus "Nevermind." (pinned when the last visible row's id is `done`; otherwise plain pages of `slots`). A new
+  statement object starts on page 1, a refresh of the same one keeps its page (clamped). `DialogPager` read at every call;
+  any exception: logged once, vanilla's list.
+- P2 `Patch_PagerWheel` (Init postfix): every row's OnScroll pages (the rows' template already has the `scroll` style); a 0.12
+  s real-time gap per flip; NGUI's positive delta (wheel away from you) is back a page. P3 `Patch_PagerOpen` (OnOpen
+  postfix): page 1. P4 `Patch_PagerStick` (Update postfix): while paged and not on keyboard and mouse, vanilla's
+  `XUi.HandlePaging` (the right stick, its repeat timing and paging sound; right = next).
+- `XUiC_ScDialogPager` (`:357`) and `Config/XUi_InGame/windows.xml:1016` (appended to `windowResponses`): `1/2`
+  (`scDialogPage` `{0}/{1}`) between two arrows (`ui_game_symbol_arrow_left/right`, dimmed on the first / last page), top right
+  at 611,-4 (the name sits at 12,-6, the rows start at -46), shown while paged; the rect takes the wheel too. No state of its
+  own (it refreshes its bindings when the list's version changes); without it the wheel and the stick still page.
+- 0-XNPCCore 3.4.04's own `Weapon Classes` (11 rows with all seven weapon kinds; "Use Player Hands" and "Nevermind." were cut)
+  now pages: 9 + Nevermind, then Use Player Hands + Nevermind.
+
+**The rows (the design's defaults; `Config/dialogs.xml`, `DialogOps.cs:568`).**
+- "Ask to leave" (`scLeave`) left the block after Hire and goes before `done` in every statement listing Hire
+  (`dialogs.xml:38`; GenericNPC, GenericNPCAnimal and SdcsNPC start: checked last-before-done). X2c's conditional that hid it
+  while following is gone (it only made room).
+- `scRun` gets `sc_following` not (`:193`): `ScRuns.CanSend` refused every non-resident.
+- 3.4.04 only (a conditional on the `OrderWheel` response): `ComeHere` and `OrderWheel` get the new requirement
+  `ScFollowerVerb` (true for anyone who is none of SC's people and for a member with `sc_following`; false for a member not
+  following and always for a stand-in, an enclave person or a band person); `JobsAndGear` gets the stand-in / `%sc_enc` /
+  `%sc_band` hides of the hire rows.
+- `scShowMe` (inside C1's conditional, after `ShowMe`): 0-XNPCCore's text `SdcsNPC_ShowMe`, `sc_member`, `Leader` not, and
+  `sc_onrun` not; SCore's `ExecuteCommandSDX OpenInventory` (needs no leader). So a guard on watch and a resident when no
+  hold could start can still open her pack. **The runner question:** a runner's haul is NOT taken from her bag - it is a number
+  (`Member.RunCarry`, set in `ScRunners.LeaveSite`, credited to the stockpile at the gate by `ScRegistry.Community.Add` in
+  `EnterBack`). But "Show me your inventory" opens her SCore inventory window, `HarvestManager`'s container keyed by entity
+  id, which is not part of a runner's snapshot (only the bag and toolbelt are, `ScRunners` re-create) and is dropped when she is
+  re-created under a new id (`ScRunners.Rekey`, `DieOffline`: `HarvestManager.Remove`). Items moved into it on the road could
+  be lost, so runners stay without it (decision made here; the voice phrase follows the same rule, below).
+- C1's comment rewritten (the hold, the rows, the per-state counts); the members' `Command Menu` hide is now its own
+  conditional on 0-XNPCCore 3.4.02/3.4.03's start row (3.4.04 lists none: the old append was inert, N1); the weapon menu
+  comments mention the pager.
+
+**B1: no "Pick me up" on SC's people (`Patches_VoiceControl.cs:592-873`, 3.4 only).** `PickupRefusal` (`:606`): a member or a
+stand-in (`IsCommunityNpc`, line `scVoiceWalk`), an enclave person (enlisted too) or a band person (`scEncVoiceStays`).
+- `Patch_NoCollect` (`:658`): SCore's `EntitySyncUtils.Collect(int, int)`, prefix at `Priority.First`, any caller and any
+  machine: skipped for them, SC's line as a tooltip to that player (`<name>: "..."`, ui_denied), `collect-refused`, a log line.
+- `Patch_RingPickup` (`:702`): Voice Control's internal `NpcPickup.TryPickup(EntityAlive, EntityPlayer)`, prefix: answers its
+  internal enum `PickupResult.Refused` (bound by name in Prepare; `ref object __result`, which the game's Harmony boxes and
+  unboxes for a value-type return - checked in its `HarmonyManipulator`), so the ring says nothing of its own; SC's line.
+- `Patch_RingNoPickupEntry` (`:760`): a postfix on vanilla `Entity.UpdateActivationCommands(EntityPlayerLocal)` at
+  `Priority.Last` (after Voice Control's own postfix, which enables its ring entries): `vcpickup` disabled for them, the
+  call's answer recomputed. `Patch_HerRingNoPickup` (`:813`): postfix on `HerRingPage.Open(int, int)` ("Jobs and gear"'s
+  page): `vcpickup` dropped from its parallel `_entries` / `_sockets` arrays.
+- The voice phrase is Patch_VoicePickup's, as before.
+
+**The Trade bug (findings_x3; `Patches_Xnpc.cs:1010-1024`, `Patches_VoiceControl.cs:1483-1556, 1655`).** Not a 3.4.04 change:
+since the port every body has trader 64 (npcSdcsTest), X9 refused only a body with no trader, and 0-XNPCCore hides trade
+only with the Leader or Owner cvar, which SC strips from a resident at home, a runner and a stand-in - so Trade showed there
+and sold the member's pack.
+- X9 (`Patch_NoTalkToRaiders`): "trade" refused for every community member (any state) and stand-in (`ScXnpc.IsCommunity`),
+  whatever the trader id (`x9-member-trade-refused`); the radial asks the same method again before it acts. The D4 note is
+  corrected. (Shared code: on 3.2 those bodies had no trader anyway.)
+- The spoken trade (`Patch_VoiceTradeHostile`): a member or stand-in goes to `MemberTrade` (`:1530`) before the hostile
+  checks. Voice Control's "show me your inventory" reaches the same `OpenTraderInventory` on a trader body (its
+  `OpenInventoryRouted` redirect), so `Patch_VoiceInventoryAsked` (`:1498`, prefix + finalizer on that private method) marks
+  the inventory phrase while it runs. Trade phrase: refused with `scVoiceNoTradeMember` ("*smiles* We don't trade - we're one
+  community. If you need something of mine, just ask to see my inventory."; `voice-trade-refused-member`). Inventory phrase:
+  SCore's OpenInventory opened by SC (`voice-inventory-member`) for a member not on a run - where Voice Control would have
+  opened the stock trade for a leaderless one - and `scVoiceNoPackNow` ("*shakes head* Not now. Ask me again back home.") for
+  a runner or a stand-in.
+
+**C2 (`Config/utilityai.xml:453-465`).** A conditional append of `ScNotOnWatch` to `SdcsNpcRangedAdvanced/action[ClearShot]`
+(3.4.04's ClearShot steps aside for any friendly in the line that cannot kneel). The bandits' new ClearShot is left (SC raiders
+stepping aside for each other is 0-XNPCCore's behavior). **C3** (kneeling): no change; TESTING X3 585 watches guards on
+parapets. **C4 (`ScNpc.cs:177, 191`).** `ScNpc.SendOnMission(e, true)` first calls `LeaveSeat` (3.4): `Detach()` from a vehicle
+seat and `SdcsVehicleOrder` cleared, so 0-XNPCCore's SendOnMission prefix neither keeps a seated body unhidden nor boards
+her, and its per-frame "undo a hide on a seated body" never sees one. Every SC hide goes through it (runs, outposts, the
+ticker's re-hide, stale copies); no normal path hides a seated body today (only residents are hidden), so this is a guard.
+**N1**: dialogs.xml's stale C1 / X2c comments rewritten (above); TESTING X2c's "E > Read..." / "Your progress" / "I have work
+for you." steps (481, 490, 493, 497-499, C1's 387 note) point at 3.4.04's "Jobs and gear" ring and round 28.
+**README**: 0-XNPCCore 3.4.04 with Voice Control 3.4.04 (README.txt, README.md), Craft... for residents, the pager.
+
+**Config** (`ScConfig.cs:1006`, shared; `ScConfigCraft.cs:40`, 3.4; `Config/blocks.xml:510-514, 531-559`): `DialogPager` true,
+`TalkHold` true (needs WorkShiftsEnabled). The `config:` line gains `dialogPager=`, `config: crafting` gains `talkHold=`.
+
+**ExpectedTargets** (`ModApi.cs`): nine more - shared `XUiC_DialogResponseList::Update` (P1 + P4), `::Init`, `::OnOpen`;
+3.4 `XUiC_DialogWindowGroup::OnOpen` (X3a) and `EntitySyncUtils::Collect` (any Voice Control); with Voice Control's hold-E
+ring (`HoldERingTable` present) `NpcPickup::TryPickup`, `Entity::UpdateActivationCommands`, `HerRingPage::Open`; with Voice
+Control `PhraseTriggerHandler::OpenInventoryRouted`.
+
+**Console and counters.** `sc xnpc`: `dialog pager: on, anchored, N paged refresh(es), N flip(s), N failure(s)`; the Voice
+Control line gains `collect-refused`, `ring-pickup-refused`, `ring-page-pickup-hidden`, `ring-pickup-entry-hidden-calls` (per
+UpdateActivationCommands call), `voice-trade-refused-member`, `voice-inventory-member(-refused)`; the 0-XNPCCore line
+`x9-member-trade-refused`. `sc craft`: `x3a-talk-hold-started`, the talk holds; `sc craft <name>`: `shift: Talk (round 28's
+talk hold) for N s, a talk window last seen open N s ago`.
+
+**The rows each member state gets** (simulated: scratch `x3\r28\rows_r28.py` replays vanilla 3.4 + 0-XNPCCore + this
+worktree's dialogs.xml cumulatively, conditionals included, and applies each state's cvars, link and requirement answers;
+`rows_304.txt`, `rows_303.txt`; 0 xpath misses with either 0-XNPCCore):
+
+| state | 0-XNPCCore 3.4.04 (installed) | with 3.4.03's dialogs |
+|---|---|---|
+| resident at home, talk link | 8: Community, Follow me, supply run, Show me your inventory, Craft..., Jobs and gear, Ask to leave, Nevermind | 11 -> 2 pages: p1 Community, Follow me, supply run, Weapon Menu, Craft..., Read..., Your progress, Ammo..., Show me + Nevermind; p2 Ask to leave + Nevermind |
+| resident at home, no link (you or she outside the base, `TalkHold` off) | 6: Community, Follow me, supply run, Show me (SC's), Ask to leave, Nevermind | same |
+| resident on a work shift | 7: Community, Follow me, That's all for now., Show me, Craft..., Jobs and gear, Nevermind | 10: ... Weapon Menu, Craft..., Read..., Your progress, Ammo..., Show me, Nevermind |
+| resident on watch | 6: Community, Follow me, supply run (refuses: relieve them first), Show me (SC's), Ask to leave, Nevermind | same |
+| follower / pending station | 9: Community, Go back home, Come here, Show me, Craft..., Order wheel, Jobs and gear, Ask to leave, Nevermind | 10: Community, Go back home, Weapon Menu, Craft..., Read..., Your progress, Ammo..., Show me, Ask to leave, Nevermind |
+| runner met on the road | 4: Community, Head home, Ask to leave, Nevermind | same |
+| outpost / distress stand-in | 1: Nevermind | same |
+| hired stranger | 9: (join row), Dismiss, Follow me, Come here, Show me, Craft..., Order wheel, Jobs and gear, Nevermind | 10 (0-XNPCCore's own) |
+| a follower's Weapon Classes, all seven kinds | 11 -> 2 pages: p1 Carried, Ammo..., Blades, Clubs, Heavy, Pistols, Rifles, Shotguns, Others + Nevermind; p2 Use Player Hands + Nevermind | 10 |
+
+(An enclave person who reaches `start` - a multiplayer client - sees Nevermind; one enlisted with the player sees
+0-XNPCCore's Craft... too, as before this round.)
+
+**Where the brief left a choice (decided here):**
+1. The hold starts on a dialog open only (the talk, or the ring's jump into her dialog), not on a bare hold-E: the ring alone
+   is not a talk, and without the link its entries stay disabled for a resident, as before.
+2. A held resident stands where she was talked to and walks back to her post when the hold ends (Station; it teleports only
+   beyond 40 m); a roaming resident therefore ends up at her post rather than where she roamed.
+3. The looting window counts only while it shows her SCore inventory; the craft window and the wheel count while her
+   `CurrentNPC` is set; a 10-minute cap guards against a window group another mod renamed.
+4. Runners get no "Show me your inventory" (above), by talk or by voice; stand-ins neither.
+5. The spoken inventory phrase on a member opens her inventory through SCore (not the stock trade it reached before); on a
+   follower that is what Voice Control did itself.
+6. Pick me up refused on every enclave person (not only enlisted ones) and band person, as the voice guard already did.
+7. The pager is compiled for both games (the class and the XUi are the same in 3.2), ScFollowerVerb too; everything else is
+   3.4 only. The tracked 3.2 DLL is untouched.
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_x3`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build to a scratch folder); the 3.2 configuration builds to a scratch folder with 0 errors.
+- `cctor_order.py` on the ilspy IL dump of the built DLL: 136 static constructors, 0 reads before store.
+- IL of the built DLL: the new strings (`dialog pager: anchored on`, `scDialogPage`, `scVoiceNoTradeMember`, `scVoiceNoPackNow`,
+  `x9-member-trade-refused`, `x3a-talk-hold-started`, `starts a work shift (from the talk)`, `the talk is over`, `"vcpickup"`,
+  `SdcsVehicleOrder`, the counters) in their methods; `DialogRequirementScFollowerVerb` and `XUiC_ScDialogPager` present;
+  `DialogRequirementScCanWork` / `DialogActionScWorkStart` gone.
+- The anchor: `DialogStatement::GetResponses()` occurs once in `XUiC_DialogResponseList.Update` in both 3.2's and 3.4's
+  Assembly-CSharp (Cecil; IL_0036 in 3.4).
+- HarmonyAudit (a copy pointed at the installed 3.4.04 NPCSdcsCharacters / Voice Control, scratch `x3\r28\HA304`; dynamic
+  targets `x3\r28\dyn_r28.json` = W2's list + this round's six): 218 patch rows; 3.4 OK=180, DYNAMIC_UNRESOLVED=36 (the
+  X2/X2c targets the list does not name, as in the X3 audit), NO_OVERLOAD_MATCH=2 (the old SdcsChooseMeleeFallback fallback);
+  param issues 0. All eleven new patch methods resolve on 3.4 with their parameters (`__0`, `__1`, `__instance`, `ref object
+  __result` on the enum return, `ref bool __result`).
+- XML replay (scratch `x3\r28\sc_replay_r28.py`: x3's replay pointed at this worktree; installed 3.4 deps): every SC op
+  matches, no aborts - dialogs 23/23 (21 before: +1 the insertBefore of "Ask to leave", +2 the 3.4.04 conditional, -1 X2c's
+  append; in C1 scShowMe's insertAfter replaced the Command Menu append, now a conditional that is false on 3.4.04), utilityai 26/26 (+ClearShot), XUi windows 11/11 (+the pager); with
+  `WITH=zzzzz_AshfallUI` the same (windows 10/10: the radio tab's AshfallUI branch, as in round 27) and AshfallUI's own
+  1335/1335; the pager rect lands in `windowResponses` in both. Conditionals: C1's and 3.4.04's OrderWheel true, the Command
+  Menu one false (3.4.04).
+- Localization: 1492 rows of 7 cells, no duplicate key; every file touched LF, no BOM where there was none.
+
+**Not checked (in game only, TESTING X3 570-586):** that the right stick pages inside the modal dialog (HandlePaging's gate
+looked open in the decompile); the wheel over the rows and over the indicator; the indicator's place beside AshfallUI's name
+label; that VC's DialogMenuRefresh pages keep their page; that 0-XNPCCore's rows see the link on the first fill (the postfix
+runs before the list's Update in the decompile); the hold's side effects (SCore's companion marker and Voice Control's hire
+title while talking - shifts already had them); that `XUiC_LootWindowGroup`'s te is set for SCore's OpenContainer with RE
+Inventory installed; Voice Control taking `PickupResult.Refused` from a prefix; that the 3.4.04 ring's entries vanish for an
+enlisted enclave person; the seat guard (no normal path reaches it).
+
+Builds: SC 3.4 `32474de4161592a304e5ad242fe095d1` (`build\sc34_x3`), 0 errors. Not reviewed, not installed.

@@ -79,6 +79,8 @@ namespace SurvivorCommunity
         private static int talkRefused;
         /// <summary>X9's trade half: the frames a body with no trader was refused its "Trade" command.</summary>
         private static int tradeRefused;
+        /// <summary>Round 28: "trade" refused on a member or a stand-in (any state, any trader id).</summary>
+        private static int memberTradeRefused;
         /// <summary>X14: the times a finished quest was kept back from a body with no trader (once per Talk).</summary>
         private static int turnInHidden;
         /// <summary>X10 runs every frame a turret looks at a raider: a plain counter of the times it was made a target.</summary>
@@ -98,6 +100,7 @@ namespace SurvivorCommunity
             updateHits = 0;
             talkRefused = 0;
             tradeRefused = 0;
+            memberTradeRefused = 0;
             turnInHidden = 0;
             ScNpc.PendingSkips = 0;
             turretTargets = 0;
@@ -125,6 +128,7 @@ namespace SurvivorCommunity
             parts.Add("x7-update=" + updateHits);
             parts.Add("x9-raider-talk-refused=" + talkRefused);
             parts.Add("x9-no-trader-trade-refused=" + tradeRefused);
+            parts.Add("x9-member-trade-refused=" + memberTradeRefused);
             parts.Add("x14-no-trader-turnin-hidden=" + turnInHidden);
             parts.Add("pending-body-skips=" + ScNpc.PendingSkips);
             parts.Add("x10-turret-raider-target=" + turretTargets);
@@ -946,13 +950,17 @@ namespace SurvivorCommunity
         /// E3: the leader of an enclave that is not hostile names a real trader now (ScEnclaveDeals: their body's TraderData
         /// gets their kind's trader_info), so "trade" passes for them; a hostile enclave's leader never gets one, and its
         /// bodies are refused every command above anyway (the hostile cvar).
-        /// 3.4 (decision D4, nothing to change here): 0-XNPCCore 3.4's npc_info names its stock trader (trader_id 64,
-        /// TradeStockRules.SdcsTraderId; EntityTrader.PostInit copies it into every body's TraderData), so HasTrader is true
-        /// and "trade" passes on every survivor body of ours: XNPC's per-NPC stock trade, selling what the NPC's inventory
-        /// window holds (XNPC hides it itself on a hired or owned body). Raiders and hostile bodies are still refused every
-        /// command; an enclave leader's own trader (200-205) replaces 64 when they are dressed, after PostInit, and nothing
-        /// writes 64 back; turn-ins stay hidden at 64 (X14). While such a trade is open SC's own writes to that window wait
-        /// (ScAmmo.IsWindowOpen): XNPC writes the whole window back after every purchase.
+        /// 3.4 (decision D4): 0-XNPCCore 3.4's npc_info names its stock trader (trader_id 64, TradeStockRules.SdcsTraderId;
+        /// EntityTrader.PostInit copies it into every body's TraderData), so HasTrader is true and "trade" passes on the
+        /// survivor bodies of strangers: XNPC's per-NPC stock trade, selling what the NPC's inventory window holds. Raiders and
+        /// hostile bodies are still refused every command; an enclave leader's own trader (200-205) replaces 64 when they are
+        /// dressed, after PostInit, and nothing writes 64 back; turn-ins stay hidden at 64 (X14). While such a trade is open SC's
+        /// own writes to that window wait (ScAmmo.IsWindowOpen): XNPC writes the whole window back after every purchase.
+        /// Round 28 (the Trade bug, findings_x3): D4's note assumed XNPC hides the trade on our members - it does only on a body
+        /// with the Leader or Owner cvar (SdcsHiredTradeHidePatch), and SC strips both from a resident at home, a runner and a
+        /// stand-in, so "Trade" showed on them and sold the member's pack. Now "trade" is refused for every community member
+        /// (any state) and stand-in (ScXnpc.IsCommunity), whatever its trader id - the radial hides it and its activation is
+        /// refused (the radial asks again before it acts); the spoken trade has its own member line (Patches_VoiceControl).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoTalkToRaiders
@@ -999,10 +1007,19 @@ namespace SurvivorCommunity
                         talkRefused++;
                         return;
                     }
-                    if (__instance.CommandIs(_commandName, EntityTrader.CommandTrade) && !HasTrader(__instance))
+                    if (__instance.CommandIs(_commandName, EntityTrader.CommandTrade))
                     {
-                        __result = false;
-                        tradeRefused++;
+                        // round 28: never on one of the community or a stand-in, in any state (the trade would sell her pack)
+                        if (ScXnpc.IsCommunity(__instance))
+                        {
+                            __result = false;
+                            memberTradeRefused++;
+                        }
+                        else if (!HasTrader(__instance))
+                        {
+                            __result = false;
+                            tradeRefused++;
+                        }
                     }
                 }
                 catch (Exception ex)

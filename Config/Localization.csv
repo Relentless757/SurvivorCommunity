@@ -1487,3 +1487,6 @@ scRadioRunHome_1Said,UI,Tooltip,,,,Done here. Heading back home.
 scRadioRunHome_2Said,UI,Tooltip,,,,Starting back now. Save me some dinner.
 scRadioRunNear_1Said,UI,Tooltip,,,,"Almost home. Don't shoot, it's me."
 scRadioRecallAck_1Said,UI,Tooltip,,,,Copy that. Cutting it short and heading home.
+scDialogPage,UI,Menu,,,,{0}/{1}
+scVoiceNoTradeMember,Dialog,Statement,,,,"*smiles* We don't trade - we're one community. If you need something of mine, just ask to see my inventory."
+scVoiceNoPackNow,Dialog,Statement,,,,*shakes head* Not now. Ask me again back home.

@@ -35,7 +35,10 @@ namespace SurvivorCommunity
     /// bill either - the narrowest hook: the two billing prefixes ask for it, IsCommunityNpc stays the members' test (it also
     /// drives the drop window, hold-fire, XNPC's levels and trust) - and the spoken dismiss sends them home (ScEnclaveDeals.GoHome).
     /// E8: Voice Control's LLM chat with one of an enclave's people carries what they know of their group (ScVoiceContext), and
-    /// the spoken "trade" is refused by a hostile enclave's people, raiders and survivors with a grudge (the section at the end).
+    /// the spoken "trade" is refused by a hostile enclave's people, raiders and survivors with a grudge (the section at the end);
+    /// round 28 (3.4): by every member and stand-in too, with their own friendly line (MemberTrade).
+    /// Round 28 (B1, 3.4): no "Pick me up" from Voice Control 3.4.04's hold-E ring on members, stand-ins, enclave or band people
+    /// (SCore's Collect, Voice Control's TryPickup, the ring's entry and "Jobs and gear"'s page).
     /// E13a: one of a band on the road (the %sc_band cvar) is refused the spoken hire, pick-up and dismiss as an enclave's people
     /// are, and fights at will (Patch_MayEngage).
     ///
@@ -136,6 +139,10 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             counts.Clear();
+#if SC_V34
+            ringEntryHidden = 0;
+            inventoryAsked = 0;
+#endif
         }
 
         private static void Count(string what)
@@ -148,11 +155,18 @@ namespace SurvivorCommunity
         public static string Report()
         {
             if (ChatType == null) return "Voice Control not loaded";
+#if SC_V34
+            if (counts.Count == 0 && ringEntryHidden == 0) return "nothing intercepted yet";
+#else
             if (counts.Count == 0) return "nothing intercepted yet";
+#endif
             var keys = new List<string>(counts.Keys);
             keys.Sort(StringComparer.Ordinal);
             var parts = new List<string>();
             foreach (string k in keys) parts.Add(k + "=" + counts[k]);
+#if SC_V34
+            if (ringEntryHidden > 0) parts.Add("ring-pickup-entry-hidden-calls=" + ringEntryHidden);   // B1: per UpdateActivationCommands call
+#endif
             return string.Join(", ", parts.ToArray());
         }
 
@@ -574,6 +588,289 @@ namespace SurvivorCommunity
             }
         }
 #if SC_V34
+
+        // ------------------------------------------------------------------ B1 (round 28): no "Pick me up" on SC's people ----
+        //
+        // 0-XNPCCore / Voice Control 3.4.04 put "Pick me up" (vcpickup) on the hold-E ring and on her "Jobs and gear" page, both
+        // calling NpcPickup.TryPickup directly - past Patch_VoicePickup above (the spoken phrase only) and past the dialog's
+        // hidden Pickup row. TryPickup ends in SCore's EntitySyncUtils.Collect, which turns the body into an item and removes
+        // the entity: a member, a stand-in or an enlisted enclave person would vanish while SC's registry still lists them.
+        // Three layers: SCore's Collect refuses them first of all (any caller, any machine, Priority.First); Voice Control's
+        // TryPickup answers Refused for them with SC's line (its ring then says nothing of its own); the ring and the page never
+        // offer the entry for them (UpdateActivationCommands after Voice Control's own postfix; HerRingPage.Open's list).
+
+        /// <summary>
+        /// Round 28 (B1): who is never picked up as an item - a member or a stand-in (IsCommunityNpc), one of an enclave's people
+        /// (enlisted with the player too) or of a band on the road. The Localization key of what they say; null for anyone else.
+        /// </summary>
+        internal static string PickupRefusal(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null) return null;
+            if (IsCommunityNpc(e)) return "scVoiceWalk";
+            if (ScEnclavePeople.IsEnclaveNpc(e) || ScBands.IsBandNpc(e)) return "scEncVoiceStays";
+            return null;
+        }
+
+        private static void TellPickupRefused(EntityPlayer player, EntityAlive npc, string key)
+        {
+            if (player == null || npc == null) return;
+            ScCommunity.Tell(player, string.Format(Localization.Get("scEncCallSays"), ScCommunity.DisplayName(npc), Localization.Get(key)), "ui_denied");
+        }
+
+        /// <summary>The hold-E ring's pick-up entry (HoldERingTable.Entries: "vcpickup", gate Pack).</summary>
+        private const string RingPickupId = "vcpickup";
+        private static int ringEntryHidden;
+
+        public static Type NpcPickupType { get { return ScTypes.Find("XNPCVoiceControl.Core.NpcPickup"); } }
+        public static Type HerRingType { get { return ScTypes.Find("XNPCVoiceControl.Harmony.HerRingPage"); } }
+        /// <summary>Voice Control 3.4.04's hold-E ring (its table): the ring patches are expected only with it.</summary>
+        public static bool HasHoldERing { get { return ScTypes.Find("XNPCVoiceControl.Core.Pure.HoldERingTable") != null; } }
+
+        /// <summary>SCore's EntitySyncUtils.Collect(int entityId, int playerId), public static void.</summary>
+        public static MethodBase CollectTarget()
+        {
+            return Returning(AccessTools.DeclaredMethod(typeof(EntitySyncUtils), "Collect", new[] { typeof(int), typeof(int) }), typeof(void), true);
+        }
+
+        /// <summary>NpcPickup.TryPickup(EntityAlive npc, EntityPlayer player), internal static, returning its internal enum PickupResult.</summary>
+        public static MethodBase TryPickupTarget()
+        {
+            Type t = NpcPickupType;
+            MethodInfo m = t != null ? AccessTools.DeclaredMethod(t, "TryPickup", new[] { typeof(EntityAlive), typeof(EntityPlayer) }) : null;
+            return m != null && m.IsStatic && m.ReturnType.IsEnum ? m : null;
+        }
+
+        /// <summary>vanilla's Entity.UpdateActivationCommands(EntityPlayerLocal), public bool (Voice Control's ring entries are enabled in its postfix).</summary>
+        public static MethodBase ActivationTarget()
+        {
+            return Returning(AccessTools.DeclaredMethod(typeof(Entity), "UpdateActivationCommands", new[] { typeof(EntityPlayerLocal) }), typeof(bool), false);
+        }
+
+        /// <summary>HerRingPage.Open(int playerEntityId, int npcEntityId), public void on an internal class ("Jobs and gear"'s page).</summary>
+        public static MethodBase HerRingOpenTarget()
+        {
+            Type t = HerRingType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "Open", new[] { typeof(int), typeof(int) }), typeof(void), false) : null;
+        }
+
+        /// <summary>B1, first layer: SCore's Collect - whoever calls it, on any machine (a client's request reaches the server's too).</summary>
+        [HarmonyPatch]
+        public static class Patch_NoCollect
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (CollectTarget() != null) return true;
+                    ScLog.Err("pick-up guard: SCore's EntitySyncUtils.Collect(int, int) not found (SCore update?) - a member could be picked up as an item from the hold-E ring");
+                }
+                catch (Exception e) { ScLog.Once("vc-bind-collect", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return CollectTarget(); }
+
+            /// <summary>__0 the NPC's entity id, __1 the player's.</summary>
+            [HarmonyPrefix]
+            [HarmonyPriority(Priority.First)]
+            public static bool Prefix(int __0, int __1)
+            {
+                try
+                {
+                    World w = ScCommunity.World;
+                    EntityAlive npc = w != null ? w.GetEntity(__0) as EntityAlive : null;
+                    string key = PickupRefusal(npc);
+                    if (key == null) return true;
+                    Count("collect-refused");
+                    TellPickupRefused(w.GetEntity(__1) as EntityPlayer, npc, key);
+                    ScLog.Out("pick-up refused: " + ScCommunity.DisplayName(npc) + " (" + npc.entityId + ") is " + (key == "scVoiceWalk" ? "one of the community" : "one of an enclave or a band")
+                              + " - SCore's Collect skipped");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-collect", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>B1, second layer: Voice Control's pick-up (the ring, the page) answers Refused for SC's people, with SC's line.</summary>
+        [HarmonyPatch]
+        public static class Patch_RingPickup
+        {
+            /// <summary>PickupResult.Refused, boxed (the enum is internal: read by name in Prepare).</summary>
+            private static object refused;
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    MethodInfo m = TryPickupTarget() as MethodInfo;
+                    if (m == null)
+                    {
+                        if (ChatType != null && HasHoldERing) ScLog.Err("pick-up guard: Voice Control's NpcPickup.TryPickup(EntityAlive, EntityPlayer) not found (Voice Control update?) - SCore's Collect still refuses SC's people, silently");
+                        return false;
+                    }
+                    refused = Enum.Parse(m.ReturnType, "Refused");
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-bind-trypickup", e);
+                    return false;
+                }
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return TryPickupTarget(); }
+
+            /// <summary>__0 the NPC, __1 the player; the result by ref as object (a value-type return: Harmony boxes and unboxes it).</summary>
+            [HarmonyPrefix]
+            [HarmonyPriority(Priority.First)]
+            public static bool Prefix(EntityAlive __0, EntityPlayer __1, ref object __result)
+            {
+                try
+                {
+                    string key = PickupRefusal(__0);
+                    if (key == null) return true;
+                    __result = refused;
+                    Count("ring-pickup-refused");
+                    TellPickupRefused(__1, __0, key);
+                    ScLog.Out("pick-up refused: " + ScCommunity.DisplayName(__0) + " (" + __0.entityId + ") - Voice Control's Pick me up answered Refused");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-trypickup", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// B1, third layer: the hold-E ring (vanilla's activation radial; Voice Control enables its entries in its own postfix on
+        /// UpdateActivationCommands) shows no "Pick me up" on SC's people - this postfix runs after Voice Control's (Priority.Last)
+        /// and disables that one entry, the call's answer (any entry enabled) recomputed.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_RingNoPickupEntry
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (!HasHoldERing) return false;            // Voice Control before 3.4.04: no ring entry to hide
+                    if (ActivationTarget() != null) return true;
+                    ScLog.Err("pick-up guard: Entity.UpdateActivationCommands(EntityPlayerLocal) not found (game update?) - the hold-E ring lists Pick me up on SC's people (picking it is refused)");
+                }
+                catch (Exception e) { ScLog.Once("vc-bind-activation", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return ActivationTarget(); }
+
+            [HarmonyPostfix]
+            [HarmonyPriority(Priority.Last)]
+            public static void Postfix(Entity __instance, ref bool __result)
+            {
+                try
+                {
+                    EntityTrader npc = __instance as EntityTrader;
+                    if (npc == null || PickupRefusal(npc) == null) return;
+                    EntityActivationCommand[] cmds = __instance.GetActivationCommands();
+                    if (cmds == null) return;
+                    bool changed = false, any = false;
+                    for (int i = 0; i < cmds.Length; i++)
+                    {
+                        if (cmds[i].enabled && string.Equals(cmds[i].commandId, RingPickupId, StringComparison.Ordinal))
+                        {
+                            EntityActivationCommand c = cmds[i];
+                            c.enabled = false;
+                            cmds[i] = c;
+                            changed = true;
+                        }
+                        any |= cmds[i].enabled;
+                    }
+                    if (!changed) return;
+                    __result = any;
+                    ringEntryHidden++;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-ring-entry", e);
+                }
+            }
+        }
+
+        /// <summary>B1: "Jobs and gear"'s page (HerRingPage, the order wheel locked on her) lists no "Pick me up" for SC's people.</summary>
+        [HarmonyPatch]
+        public static class Patch_HerRingNoPickup
+        {
+            private static FieldInfo fSockets, fEntries, fCommandId;
+
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    Type t = HerRingType;
+                    if (HerRingOpenTarget() == null)
+                    {
+                        if (ChatType != null && HasHoldERing) ScLog.Err("pick-up guard: Voice Control's HerRingPage.Open(int, int) not found (Voice Control update?) - Jobs and gear lists Pick me up on SC's people (picking it is refused)");
+                        return false;
+                    }
+                    fSockets = AccessTools.Field(t, "_sockets");
+                    fEntries = AccessTools.Field(t, "_entries");
+                    Type entry = fEntries != null && fEntries.FieldType.IsArray ? fEntries.FieldType.GetElementType() : null;
+                    fCommandId = entry != null ? AccessTools.Field(entry, "CommandId") : null;
+                    if (fSockets != null && fSockets.FieldType.IsArray && fCommandId != null && fCommandId.FieldType == typeof(string)) return true;
+                    ScLog.Err("pick-up guard: HerRingPage's _sockets / _entries / HoldERingEntry.CommandId not found (Voice Control update?) - Jobs and gear lists Pick me up on SC's people (picking it is refused)");
+                }
+                catch (Exception e) { ScLog.Once("vc-bind-herring", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return HerRingOpenTarget(); }
+
+            /// <summary>__1 the NPC's entity id; the two parallel arrays lose the entry together (Commit indexes both alike).</summary>
+            [HarmonyPostfix]
+            public static void Postfix(object __instance, int __1)
+            {
+                try
+                {
+                    World w = ScCommunity.World;
+                    EntityAlive npc = w != null ? w.GetEntity(__1) as EntityAlive : null;
+                    if (__instance == null || PickupRefusal(npc) == null) return;
+                    Array entries = fEntries.GetValue(__instance) as Array, sockets = fSockets.GetValue(__instance) as Array;
+                    if (entries == null || sockets == null || entries.Length != sockets.Length) return;
+                    var keep = new List<int>(entries.Length);
+                    for (int i = 0; i < entries.Length; i++)
+                        if (!string.Equals(fCommandId.GetValue(entries.GetValue(i)) as string, RingPickupId, StringComparison.Ordinal)) keep.Add(i);
+                    if (keep.Count == entries.Length) return;
+                    Array e2 = Array.CreateInstance(entries.GetType().GetElementType(), keep.Count);
+                    Array s2 = Array.CreateInstance(sockets.GetType().GetElementType(), keep.Count);
+                    for (int k = 0; k < keep.Count; k++)
+                    {
+                        e2.SetValue(entries.GetValue(keep[k]), k);
+                        s2.SetValue(sockets.GetValue(keep[k]), k);
+                    }
+                    fEntries.SetValue(__instance, e2);
+                    fSockets.SetValue(__instance, s2);
+                    Count("ring-page-pickup-hidden");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-herring", e);
+                }
+            }
+        }
 
         // ------------------------------------------------------------------ MayEngage (3.4) ----
 
@@ -1180,6 +1477,83 @@ namespace SurvivorCommunity
             Type t = TriggerType;
             return t != null ? Returning(AccessTools.DeclaredMethod(t, "OpenTraderInventory", OrderArgs), typeof(string), false) : null;
         }
+#if SC_V34
+
+        /// <summary>PhraseTriggerHandler.OpenInventoryRouted(EntityAlive, EntityPlayer, string, string), private string: the inventory phrase.</summary>
+        public static MethodBase InventoryRoutedTarget()
+        {
+            Type t = TriggerType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "OpenInventoryRouted", OrderArgs), typeof(string), false) : null;
+        }
+
+        /// <summary>Above 0 while Voice Control's inventory phrase runs: on a trader body it redirects to OpenTraderInventory (round 28).</summary>
+        private static int inventoryAsked;
+
+        /// <summary>
+        /// Round 28 (the Trade bug): Voice Control's "show me your inventory" phrase on a trader body - every survivor body -
+        /// goes through OpenTraderInventory too (OpenInventoryRouted's redirect), so the trade prefix below must know which phrase
+        /// it is: this marks the inventory phrase while it runs (a finalizer: the mark goes on any exit).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_VoiceInventoryAsked
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                try
+                {
+                    if (InventoryRoutedTarget() != null) return true;
+                    if (ChatType != null) ScLog.Warn("voice trade: PhraseTriggerHandler.OpenInventoryRouted not found (Voice Control update?) - \"show me your inventory\" by voice is refused on members like the trade");
+                }
+                catch (Exception e) { ScLog.Once("vc-bind-inventory", e); }
+                return false;
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return InventoryRoutedTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix() { inventoryAsked++; }
+
+            [HarmonyFinalizer]
+            public static void Finalizer() { if (inventoryAsked > 0) inventoryAsked--; }
+        }
+
+        /// <summary>
+        /// Round 28 (the Trade bug, findings_x3): a member or a stand-in never trades by voice, in any state. Voice Control opens
+        /// 0-XNPCCore's stock trade (selling her pack) for a trader-64 body with no player leader - a resident at home, a runner,
+        /// a stand-in - and her inventory for one with a leader. The trade phrase is refused with a friendly line
+        /// (scVoiceNoTradeMember); the inventory phrase (redirected here on her trader body) opens her SCore inventory - the
+        /// talk's "Show me your inventory" - for a member who is not out on a run, and "not now" (scVoiceNoPackNow) for a runner
+        /// or a stand-in, as the talk offers it to neither. False: the original is skipped.
+        /// </summary>
+        private static bool MemberTrade(object handler, EntityAlive npc, EntityPlayer player, string dialogText, ref string result)
+        {
+            string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";
+            if (inventoryAsked > 0)
+            {
+                bool away = npc.Buffs.HasCustomVar(ScRunners.OnRunCvar) || !npc.Buffs.HasCustomVar("sc_member");
+                if (!away && player != null && EntityUtilities.ExecuteCMD(npc.entityId, "OpenInventory", player))
+                {
+                    result = dialogText ?? "*opens inventory*";
+                    Count("voice-inventory-member");
+                    return false;
+                }
+                string later = Localization.Get("scVoiceNoPackNow");
+                result = later;
+                SetActionSubtitle(handler, later);
+                Count("voice-inventory-member-refused");
+                ScLog.Out("voice inventory refused: " + who + " - " + (away ? "a runner or a stand-in" : "SCore's OpenInventory failed"));
+                return false;
+            }
+            string line = Localization.Get("scVoiceNoTradeMember");
+            result = line;
+            SetActionSubtitle(handler, line);
+            Count("voice-trade-refused-member");
+            ScLog.Out("voice trade refused: " + who + " is one of the community - members and stand-ins never trade");
+            return false;
+        }
+#endif
 
         /// <summary>The handler's subtitle for the action just run (ExecuteMatch shows it instead of the trigger's own reply).</summary>
         private static FieldInfo subtitleField;
@@ -1276,6 +1650,10 @@ namespace SurvivorCommunity
                 try
                 {
                     EntityAlive npc = __args[0] as EntityAlive;
+#if SC_V34
+                    // round 28 (the Trade bug): members and stand-ins, in any state - their own line, not the hostile one
+                    if (IsCommunityNpc(npc)) return MemberTrade(__instance, npc, __args[1] as EntityPlayer, __args[3] as string, ref __result);
+#endif
                     string why = ScVoiceContext.TradeRefusal(npc, __args[1] as EntityPlayer);
                     if (why == null) return true;
                     string line = Localization.Get("scVoiceNoTradeHostile");

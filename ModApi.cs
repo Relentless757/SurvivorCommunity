@@ -423,6 +423,10 @@ namespace SurvivorCommunity
             // would end the whole verification - caught, warned once, and the rest of the list still checked)
             try { AddBooks(t); }
             catch (Exception e) { ScLog.Warn("patch verification: 0-XNPCCore 3.4.03's books and progress page are not there (" + e.GetType().Name + ") - the X2c crafting patches are off (0-XNPCCore before 3.4.03?)"); }
+            // round 28 (X3): X3a the talk hold (a talk links a resident at home); B1's first layer, SCore's Collect refusing SC's
+            // people (with or without Voice Control: any caller)
+            Add(t, "XUiC_DialogWindowGroup::OnOpen", Patches_Craft.TalkOpenTarget());
+            Add(t, "EntitySyncUtils::Collect", Patches_VoiceControl.CollectTarget());
 #endif
             // Patches_Xnpc.cs - the classes SC drives on 0-XNPCCore's body (declared on XNPC's own types; X9 and X10 on
             // vanilla's: no talk prompt on a raider, turrets and motion sensors take raiders as enemies; X11-X13 on
@@ -537,6 +541,15 @@ namespace SurvivorCommunity
                 Add(t, "EntityMovementActuator::TryOpenDoorAtBlock", ScDoors.VcPointDoorTarget());
                 // 3.4 (V1): the dialog's "What are you carrying?" row opens the voice gate's answer pass
                 Add(t, "DialogActionSayCarrying::PerformAction", Patches_VoiceControl.SayCarryingTarget());
+                // round 28 (X3): B1 - Voice Control 3.4.04's hold-E ring never picks up SC's people (its pick-up answers Refused, the
+                // ring's entry and "Jobs and gear"'s page drop it); the spoken inventory phrase is told apart from the trade
+                if (Patches_VoiceControl.HasHoldERing)
+                {
+                    Add(t, "NpcPickup::TryPickup", Patches_VoiceControl.TryPickupTarget());
+                    Add(t, "Entity::UpdateActivationCommands", Patches_VoiceControl.ActivationTarget());
+                    Add(t, "HerRingPage::Open", Patches_VoiceControl.HerRingOpenTarget());
+                }
+                Add(t, "PhraseTriggerHandler::OpenInventoryRouted", Patches_VoiceControl.InventoryRoutedTarget());
 #endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");
@@ -565,6 +578,11 @@ namespace SurvivorCommunity
             Add(t, "EntityTrader::OnUnlockedServer", Patches_Enclaves.Patch_TradeClosed.Target());
             // E4: the gun pick's rows - their text through the response entry's binding (the shared Text is never written)
             Add(t, "XUiC_DialogResponseEntry::GetBindingValueInternal", Patches_Enclaves.Patch_DialogRowText.Target());
+            // round 28 (X3): the talk page's pager (ScDialogPager) - P1's transpiler and P4's stick on Update, P2's wheel on Init,
+            // P3's page 1 on OnOpen
+            Add(t, "XUiC_DialogResponseList::Update", AccessTools.DeclaredMethod(typeof(XUiC_DialogResponseList), "Update", new[] { typeof(float) }));
+            Add(t, "XUiC_DialogResponseList::Init", AccessTools.DeclaredMethod(typeof(XUiC_DialogResponseList), "Init", new Type[0]));
+            Add(t, "XUiC_DialogResponseList::OnOpen", AccessTools.DeclaredMethod(typeof(XUiC_DialogResponseList), "OnOpen", new Type[0]));
             // Patches_Infestations.cs - an infested POI's rooms (I1; the count, spawn points and special share the UpdatePlayerTouched
             // entry above, the feral share ScLoadout's GetRandomFromGroupList entry). I2's zombie-cap fix (ScSleeperCap) rides the
             // UpdateSpawn entry (layer A's postfix, layer B's hold) and the UpdatePlayerTouched one (layer C's repair).

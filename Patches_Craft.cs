@@ -44,6 +44,11 @@ namespace SurvivorCommunity
     ///   C1o SdcsProgress.List(EntityAlive)                                postfix  "Your progress": a member's role rows show her
     ///                                                                              star level, no craft ladder
     ///
+    /// X3 (round 28, 0-XNPCCore 3.4.04; vanilla's dialog window).
+    ///   X3a XUiC_DialogWindowGroup.OnOpen()                               postfix  a talk with a resident at home links her to the
+    ///                                                                              player while it lasts (ScWork.StartTalk: the talk
+    ///                                                                              hold, the user's decision 1)
+    ///
     /// As Patches_Xnpc: every target DECLARED on the named type and bound by name (SdcsStationCraft is internal: found through
     /// SdcsCraft's assembly), a Prepare that turns the patch off with one warning when it is gone, ModApi's ExpectedTargets lists
     /// them, and each counts its hits (sc craft) - a renamed PayXp would otherwise stop station XP silently. Non-members are never
@@ -186,6 +191,12 @@ namespace SurvivorCommunity
         {
             Type t = CraftWindowType;
             return t != null ? AccessTools.DeclaredMethod(t, "CancelJob", new Type[0]) : null;
+        }
+
+        /// <summary>X3a: vanilla's XUiC_DialogWindowGroup.OnOpen() (public override, declared there).</summary>
+        public static MethodBase TalkOpenTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(XUiC_DialogWindowGroup), "OnOpen", new Type[0]);
         }
 
         /// <summary>C1g runs every frame per body (the any-weapon tick): plain counters, read by Report.</summary>
@@ -795,6 +806,46 @@ namespace SurvivorCommunity
                 {
                     ScLog.Once("craft-window-cancel", e);
                     return true;
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ X3a (round 28): the talk hold ----
+
+        /// <summary>
+        /// X3a (the user's decision 1, 2026-11-10). As a talk opens on a resident at home, ScWork.StartTalk links her to the
+        /// player (the work shift's Owner link in its Talk phase), so 0-XNPCCore 3.4.04's hired rows - each gated on SCore's
+        /// Leader requirement, which accepts the leader or the owner - show and work for her: Craft... (decision 2: the members'
+        /// only craft row), Jobs and gear, Show me your inventory. A postfix: OnOpen has set the dialog and its statement and
+        /// marked the response list dirty, which fills on its next Update - after this, so it sees the link (SCore's leader cache
+        /// is dropped with it). Also the hold-E ring's jump into her dialog (Weapons, Read, Progress) opens here. The hold's end
+        /// (2 s after the last talk window closed) and its turn into a shift are ScWork.Tick's. Host only (CanHold); a member who
+        /// is not a resident at home, or is on a shift already, is left as she is.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_TalkHold
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(TalkOpenTarget, "XUiC_DialogWindowGroup.OnOpen()"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return TalkOpenTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(XUiC_DialogWindowGroup __instance)
+            {
+                try
+                {
+                    XUi xui = __instance != null ? __instance.xui : null;
+                    EntityNPC npc = xui != null && xui.Dialog != null ? xui.Dialog.Respondent : null;
+                    EntityPlayerLocal player = xui != null && xui.playerUI != null ? xui.playerUI.entityPlayer : null;
+                    Member m = MemberOf(npc);
+                    if (m == null || player == null) return;
+                    if (ScWork.StartTalk(m, npc, player)) Count("x3a-talk-hold-started");
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-talk-hold", e);
                 }
             }
         }
