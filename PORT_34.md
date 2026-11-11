@@ -4233,3 +4233,31 @@ the job taking its tool again), Combat repair through a night's waves, the ledge
 deferred kit check on a busy recruit.
 
 Builds: SC 3.4 `596f8abe9bb54d89503c9a72c69b6a17` (`build\sc34_r29b`), 0 errors. Not installed.
+
+Fable glance at eef76a0 (the fixes above): **DEPLOYABLE**. No new HIGH or MEDIUM; three new LOWs, left for the next round (the
+reviewed build was installed as is):
+- **LOW 1 (`ScJobs.cs:869-878`, `900-927`):** a per-target swap while a foe lingers 15-30 m away. 0-XNPCCore's job actions are
+  gated by `SdcsEnemyNotNear distance="15"`, while `KitFoe` takes `LiveFoe` within `FightRange` (30 m) or a live attack or revenge
+  target at any range. A melee-only member chopping wood with a zombie stuck behind a wall 20 m off as her target gets her weapon
+  back after each tree and the axe again at the next `Start`: two draws and one non-verbose `ScLog.Out` line per tree while the
+  foe lives. Fix: limit `KitFoe` to about 15 m (or to her UAI action target), or make the line Verbose.
+- **LOW 2 (`ScWork.cs:858-878`, from `:812`):** `TrimLedger` can drop crafted entries noted before the items reach her window.
+  (a) `Patch_StationSweep` (`Patches_Craft.cs:401`) notes them when the player opens a station, while they are still in its
+  output; with the station open 5 s or more, `Deposit` runs, finds none and trims the entry, and `MoveOut` later puts them in her
+  window with nothing owed. (b) `Patch_StationCraft`'s prefix notes every finished item but `MoveOut` moves only what fits; the
+  rest is trimmed. Effect: a few crafted items stay in her window instead of the crates; nothing is lost or duplicated.
+  Gathering and backpack crafts are noted after the window add and are unaffected.
+- **LOW 3 (`ScLoadout.cs:832`):** a pair whose kit check never resolves (`done` stays false) is re-checked every 5 s and bumps
+  `kit-check-deferred` each time. Cheap; it only skews the counter.
+
+### Round 29 installed (2026-11-11 02:09)
+
+With the user's go-ahead (3.4 game closed; a first try at 01:5x was refused by `deploy_sc34.py` while the game ran, nothing
+changed): round 29 (J29: NPCCore jobs on members - the work kit, home jobs, output into the crates, replant; M29: wreck-aware
+spots, the residents' no-progress rescue, runners calling when attacked, `sc` console output in the log) with its review fixes
+and voices vo3 days 7-8 (14 voices complete; NativeF1 and NativeF2 held back). Fable: review DEPLOYABLE (2 MEDIUM, 9 LOW;
+fixed) -> glance DEPLOYABLE (3 LOW, logged above). port-3.4 fast-forwarded to `ms/r29` 4aa1552; `deploy_sc34.py`: 13838 files,
+installed = built `596f8abe9bb54d89503c9a72c69b6a17`. The old install is in `Port33\_backups\sc34_2026-11-11_020906`; the
+user's `DebugLogging` true set again. Checked in the install: `Resources/Voices` holds the 14 voices; `MemberWorkKit` and
+`RunnerCallsWhenAttacked` present. Untested in game: TESTING J29 (600-622) and M29 (650-673), and still X3 (570-586), P2
+(500-511) and R2 (520-562). The separate Wreck Path Fix modlet (installed 2026-11-11) covers the vanilla path grid under wrecks.
