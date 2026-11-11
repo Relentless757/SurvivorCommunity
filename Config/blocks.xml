@@ -140,6 +140,21 @@
 			     to give, the wait doubles each time, up to 32 times this, and is back to normal after ten quiet minutes.
 			     `sc repost <member>` gives a new post by hand. -->
 			<property name="StuckSeconds" value="12" />
+			<!-- round 29b, the stuck rescue. A truck wreck (an oversized block) fills only one cell of the block data, so its hull
+			     read as open ground: no roam spot, post or enclave home is ever in or right beside one now (the log names it,
+			     "in or beside <block>"), and a post already there is replaced when its chunk loads.
+			     RoamNoProgressSeconds: a roam walk that gets no 1 m closer to its spot, nor 1 m further along its path, in this
+			     many seconds ends (pushing at a wreck's hull or sidestepping against it), and that body is not sent to the spot,
+			     or next to it, for RoamUnreachableMinutes. 0: off.
+			     StuckNoGain: the watchdog above also counts a survivor who keeps trying to move but gains no meter toward where
+			     they are going in twice StuckSeconds of trying, across walks and pauses (the same fight multipliers and wait).
+			     StuckSeenWaitSeconds: a survivor the watchdog would move back waits while you look toward them or their post -
+			     the path is dropped so they try again - and goes when you look away, or after this many seconds anyway. 0: at
+			     once, in your sight, as before. A new post is given without waiting. -->
+			<property name="RoamNoProgressSeconds" value="8" />
+			<property name="RoamUnreachableMinutes" value="5" />
+			<property name="StuckNoGain" value="true" />
+			<property name="StuckSeenWaitSeconds" value="60" />
 			<!-- defend the base: a stationed survivor goes after any awake enemy inside the home zone within this many metres
 			     of its post - also one it cannot see from there - fights it and walks back (SCResident's ScDefendBase in
 			     Config/utilityai.xml). Sleepers stay asleep, Cowardly members stay put, followers, runners and outpost
@@ -268,6 +283,12 @@
 			     they carry a radio, or when you are with them. false: any runner, as before. -->
 			<property name="WindowRecallNeedsRadio" value="true" />
 			<property name="RaiderRadioChance" value="0.04" />
+			<!-- RunnerCallsWhenAttacked (round 29b): a runner who carries a radio and is hurt by a raider or a zombie, on the road
+			     or at the site, radios for help once a run - their trouble line on the radio, a message saying where they are,
+			     and a map marker on them while the fight lasts (gone when it is over, or when they die). They fight or flee as
+			     always; you can go and help. Not without their radio, not with you within 30 m of them, and only when the call
+			     can be heard: you carry a handheld or a radio station at home has power. false: no such call. -->
+			<property name="RunnerCallsWhenAttacked" value="true" />
 
 			<!-- Survivors and raiders wearing the player's body: the community's survivors are 0-XNPCCore's own
 			     survivor classes (XnpcSurvivorClasses below), the raiders SurvivorCommunity's six scRaider{Male,Female}T1-T3

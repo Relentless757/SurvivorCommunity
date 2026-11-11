@@ -2438,6 +2438,92 @@ Jobs and gear > Jobs. Test on a new world or a copy; `dm` for the creative menu.
      comes back and resumes after you empty her inventory (0-XNPCCore's own pause); her harvest stays in her inventory (not the
      crates).
 
+**M29. Round 29b: wreck-aware spots, residents' stuck rescue, runners call when attacked, console in the log (3.4)**
+
+Built 2026-11-11 on branch `ms/m29` (SC 3.4 DLL `a47c0da5c8ae7249851d18a67505eb40`, `Port33\build\sc34_m29`), **not reviewed,
+not installed**: these steps wait for the install, with 0-SCore 3.4.14 and 0-XNPCCore / Voice Control 3.4.04. Your decisions
+(2026-11-10/11): residents never get a roam spot, a post or a home inside or right beside a truck wreck (any oversized block); a
+resident who keeps trying to move without getting anywhere is rescued even when they jitter instead of standing still, and the
+move back waits until you look away (or a minute); a runner who carries a radio and is hurt by a raider or a zombie radios for
+help once a run, with a message saying where they are and a map marker while the fight lasts; and the `sc` console's answers
+go into the log as well. Set `DebugLogging` to true in the 3.4 install's SC `Config/blocks.xml` for the roam's lines. Helpers:
+`sc xnpc <id|name>` (its `post:` line: the post's verdicts, `no gain N s`, a held move back, `roam spots out of reach`), `sc xnpc`
+(`stuck rescue (round 29b): ...` counters), `sc radio` (`runners' calls when attacked ...` and the counters), `sc radio give
+<name>`, `sc run <name> <food|...>`, `sc radio attacked <name> [force]`. Your Wreck Path Fix modlet removes the vanilla cause of
+the wedge (bodies path through the ground under a wreck); for 655-657 move it out of the Mods folder on a throwaway copy, then
+put it back. Test on a new world or a copy; `dm` for F6 and the creative menu.
+
+650. **Start-up.** Load the world. The log: `config: stuck rescue roamNoProgress=8 s, unreachable 5 min noGain=24 s seenWait=60
+     s`, and the `config: handheld radio ...` line ends `callsWhenAttacked=True`; `patch verification: all ... targets patched`
+     with the same count as round 28 (no new patch); no XML `did not apply` line for SurvivorCommunity.
+651. **Console in the log, once in F1.** Run `sc xnpc` in the F1 console: each line shows once there (not twice). Quit and open
+     the log: `[SC console] > sc xnpc (2026-...T..:..:..)`, then every line of the answer as `[SC console] [SC] ...`. The same
+     for `sc radio`, `sc status`.
+652. **A post in a wreck is replaced on load.** In the base, place a truck wreck (creative menu, search "truck" or "pickup":
+     one of the car wreck blocks) so its body covers or touches a resident's post (`sc xnpc <id>`'s `post:` line names the post
+     cell; F3 shows where you stand). `sc xnpc <id>`: `strict NO (in or beside <the wreck's block> at x, y, z), relaxed NO (in or
+     beside ...)`. Save, quit and load: the log `<name>'s post ... cannot be used (the post is in or beside ..., checked on load) -
+     new post ...`; she walks to a spot clear of the wreck.
+653. **No spot by a wreck.** With a wreck inside the home zone, watch the residents roam by day for a while (or keep checking
+     `sc xnpc <id>` on a few): no one walks to a spot inside the wreck or right beside it, and no new post (`sc repost <name>` a
+     few times) lands within one block of it.
+654. **Enclave homes too.** Optional: an enclave POI with a car wreck - its people's home spots (`sc enclave people <id>`) are
+     never inside or right beside one.
+655. **The roam gives up on a spot it cannot reach.** (Wreck Path Fix out, a truck wreck in the base.) Watch a resident who
+     tries to walk through or into the wreck: within about 8 s of pushing or sidestepping against it she stops, stands a while
+     and walks somewhere else; the log (DebugLogging): `<name>: roam walk to x, y, z ended - no 1 m gain in 8 s (N m left); not
+     sent there again for 5 min`; `sc xnpc <id>`: `roam spots out of reach: x y z (N min)`. A long walk round a building (away
+     from the spot for a while) is NOT ended this way.
+656. **The watchdog catches a jittering body.** (Wreck Path Fix out.) A resident wedged against or inside the wreck, pushing and
+     pausing again and again: within about half a minute of trying the log has `<name> was stuck (no 1 m gain toward the path's
+     end in 24 s of trying) - moved back to the post ...` (its details include `no gain 24 s`), as long as you were looking away.
+     Looking right at her: `<name> is stuck (...) but you are looking that way - the path is dropped, and the move back waits
+     until you look away (at most 60 s)`; turn round: a moment later she is at her post. Keep looking for a minute instead:
+     `... is still stuck after 60 s in your sight - moved back anyway`. `sc xnpc`'s `stuck rescue` counters show which.
+657. **The old rule back.** `StuckSeenWaitSeconds` 0 (restart): a stuck resident is moved back at once, in sight, as before.
+     `StuckNoGain` false and `RoamNoProgressSeconds` 0: the `config: stuck rescue` line says `off` for both and steps 655-656 do
+     not happen. Put them back (60, true, 8).
+658. **No false alarms.** Over an in-game day with Wreck Path Fix back in: no `stuck` line for residents walking round the base,
+     going to their posts at night, fighting an intruder (the base defense) or standing in front of you while you block a
+     doorway for a few seconds. Note any `no 1 m gain` line with its details.
+659. **Work shifts unchanged for now.** A resident on a work shift (Craft..., an order): the watchdog leaves her alone as before
+     (`sc xnpc <id>`'s post line shows `still 0 s`, `no gain 0 s`). After round 29a's merge a Base repair shift gets the rescue:
+     the line then ends `(on a work shift: the job's spot kept)`.
+660. **A runner calls when attacked.** Give a member a radio (`sc radio give <name>`), carry a handheld yourself and send her on
+     a supply run (`sc run <name> food`). Follow at more than 30 m, or wait, until zombies hit her on the road (F6 a few zombies
+     near her). At the first hit: the message `<name> radios for help: under attack on the way to <site>, about N m <direction>
+     of home! Marked on your map.`, her line `<name> on the radio: "I've got company! I need help out here!"` (or "They've got
+     me pinned down! Anyone hear me?"; the words alone until recorded), and an orange quest marker on her - on the map ("<name>
+     - under attack"), the compass and on screen with its distance - that moves with her. The log: `<name> radios for help:
+     attacked by <zombie> (<class>, <id>) Outbound (on the way to <site>) at x, y, z, N m <dir> of home - marked on the map; the
+     line: queued scRadioRunTrouble_...`.
+661. **At the site.** The same while she searches the site: `under attack at <site>`. On the way home: `on the way home from
+     <site>`.
+662. **The fight ends, the marker goes.** Kill the zombies (or let her shake them off): about 30 s after the last hit with no
+     enemy within 30 m of her, the marker is gone; the log `<name>'s call for help is over: the fight is over (after N s) - the
+     marker is off the map`. `sc radio`: `runners' calls when attacked on, 0 open`.
+663. **She dies.** Let the zombies kill a runner whose call is open: her death message as always, the marker gone within a
+     second, the log `... call for help is over: <name> died ...`.
+664. **Once a run.** After a call ended, she is hit again on the same run: no second call (`sc radio` counter `attack call
+     skipped: called once this run`). Save and load mid-run, then a hit: still none. Her next run can call again.
+665. **No call without her radio, beside you, or unheard.** A runner without a radio: no call (`... runner has no radio`). You
+     within 30 m of her when she is hit: no call (`... you are with them`). No handheld on you and no powered radio station at
+     home: no call (`... no station or handheld to hear it`). No handheld but a powered station: the message and the marker
+     come, her line does not (`talk unheard: you carry no radio`).
+666. **Not during a distress call.** `sc distress <name>` on a runner at the site, then let the event's zombies hit her: no
+     second call (`... radioed for help already (distress)`); the rescue quest as before.
+667. **Your own hits.** Hit your own runner: no call (the trust rules as before).
+668. **Out of range.** With her call open, run far away until she leaves the world: the call ends (`... is out of range now (the
+     fight cannot be followed there)`), the marker goes.
+669. **The console aid.** `sc radio attacked <name>` with every rule met: the call as in 660 (attacked by "nobody (a console
+     test)" or the nearest enemy); again while it is open: `no call: <name>'s call is open already - its fight goes on`; again
+     after it ended: `no call: <name> called for help once this run already`; `sc radio attacked <name> force` (after it ended):
+     the call again whatever the rules.
+670. **Switched off.** `RunnerCallsWhenAttacked` false (restart): no calls (`attack call off`). Put it back to true.
+671. **Hostile animals and raiders.** A wolf or a zombie dog hitting her calls too, and so do SC's raiders (the log names them
+     `raider <name> (...)`).
+672. **AshfallUI.** With AshfallUI the message shows in its tell area and the marker on its map as on vanilla's.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

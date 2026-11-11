@@ -1502,3 +1502,9 @@ scDutyNothing,UI,Tooltip,,,,{0} finds nothing to repair yet and keeps watch over
 scDutyBlockSomething,UI,Tooltip,,,,damaged block
 scDutyBlockHole,UI,Tooltip,,,,missing block
 scRunWindowLost,UI,Tooltip,,,,What {0} had in their inventory is lost with them: {1}.
+scRunnerAttacked,UI,Tooltip,,,,"{0} radios for help: under attack {1}, about {2} m {3} of home! Marked on your map."
+scRunnerAttackedOut,UI,Tooltip,,,,on the way to {0}
+scRunnerAttackedSite,UI,Tooltip,,,,at {0}
+scRunnerAttackedHome,UI,Tooltip,,,,on the way home from {0}
+scRunnerAttackedBack,UI,Tooltip,,,,near the base
+scRunnerAttackedMarker,UI,Menu,,,,{0} - under attack

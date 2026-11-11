@@ -12,10 +12,29 @@ namespace SurvivorCommunity
         public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
-        private static void Output(string s) { SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s); }
+        /// <summary>
+        /// One line of the command's answer: to whoever ran it (the F1 console, telnet, the web console), and (round 29b) into
+        /// the log file, "[SC console] ...", so a result can be read from Player.log afterwards. The log copy goes through
+        /// Log.WriteLine, vanilla's log-only path (the "GamePref." lines, getsandboxoptions' LogOnly): it writes the file but
+        /// raises no log callback, so the F1 console - which shows every Log.Out line through Log.LogCallbacks - and a
+        /// dedicated server's telnet log feed do not show the line twice.
+        /// </summary>
+        private static void Output(string s)
+        {
+            SingletonMonoBehaviour<SdtdConsole>.Instance.Output(s);
+            ToLog(s);
+        }
+
+        private static void ToLog(string s)
+        {
+            try { Log.WriteLine("[SC console] " + s); }
+            catch (Exception) { }   // never let the log copy cost the answer
+        }
 
         public override void Execute(List<string> _params, CommandSenderInfo _senderInfo)
         {
+            // round 29b: which command the [SC console] lines below answer, and when (the log-only lines carry no timestamp)
+            ToLog("> sc " + (_params != null ? string.Join(" ", _params.ToArray()) : "") + " (" + DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + ")");
             try
             {
                 string sub = _params.Count > 0 ? _params[0].ToLowerInvariant() : "status";
@@ -64,7 +83,7 @@ namespace SurvivorCommunity
                     case "infest": case "infestation": case "infestations": InfestCmd(_params); break;
                     case "sleepers": case "sleeper": SleepersCmd(_params); break;
 #if SC_V34
-                    case "radio": if (!HandheldCmd(_params)) RadioCmd(); break;   // R2: radio [give <member> | talk <member> <moment>]
+                    case "radio": if (!HandheldCmd(_params)) RadioCmd(); break;   // R2: radio [give <member> | talk <member> <moment> | attacked <member> [force] (29b)]
 #else
                     case "radio": RadioCmd(); break;
 #endif
@@ -2091,22 +2110,33 @@ namespace SurvivorCommunity
             }
             if (outCount == 0) Output("[SC]   no runner out");
             Output("[SC] radio talk: " + ScRadioTalk.QueueState() + "; counters: " + ScHandheld.Counters());
-            Output("[SC] sc radio give <member> (a handheld radio into their inventory) | sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall> (says it now)");
+            Output("[SC] runners' " + ScRunnerCall.Describe());      // round 29b
+            Output("[SC] sc radio give <member> (a handheld radio into their inventory) | sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall> (says it now)"
+                   + " | sc radio attacked <member> [force] (their call for help as if a zombie hurt them now; force: whatever the rules)");
 #endif
         }
 #if SC_V34
 
-        /// <summary>R2: sc radio give &lt;member&gt; | sc radio talk &lt;member&gt; &lt;moment&gt;. False: not one of these (the radio status prints).</summary>
+        /// <summary>R2: sc radio give &lt;member&gt; | sc radio talk &lt;member&gt; &lt;moment&gt; | (round 29b) sc radio attacked &lt;member&gt; [force].
+        /// False: not one of these (the radio status prints).</summary>
         private static bool HandheldCmd(List<string> p)
         {
             string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "";
-            if (verb != "give" && verb != "talk") return false;
+            if (verb != "give" && verb != "talk" && verb != "attacked") return false;
             Member m = p.Count >= 3 ? FindMember(p[2]) : null;
-            if (m == null) { Output("[SC] sc radio " + verb + " <member id|name>" + (verb == "talk" ? " <out|arrived|found|empty|trouble|home|near|recall>" : "")); return true; }
+            if (m == null) { Output("[SC] sc radio " + verb + " <member id|name>" + (verb == "talk" ? " <out|arrived|found|empty|trouble|home|near|recall>" : verb == "attacked" ? " [force]" : "")); return true; }
             if (verb == "give")
             {
                 string err = ScHandheld.GiveTo(m);
                 Output("[SC] " + (err == null ? m.Name + " has a handheld radio in their inventory now" : "refused: " + err));
+                return true;
+            }
+            if (verb == "attacked")
+            {
+                // round 29b: the runner's call for help as a zombie's hit would bring it (force: whatever the rules)
+                bool force = p.Count >= 4 && p[3].Equals("force", StringComparison.OrdinalIgnoreCase);
+                string why = ScRunnerCall.Test(m, force);
+                Output("[SC] " + (why == null ? m.Name + " radios for help (the message, the marker" + (force ? ", the line said again" : "") + ") - sc radio shows the call" : "no call: " + why));
                 return true;
             }
             RadioTalk ev;
@@ -2182,6 +2212,7 @@ namespace SurvivorCommunity
             Output("[SC] body hooks that met another player-body NPC (0-XNPCCore's own classes) and stepped aside: " + Patches_Sdcs.ForeignReport());
             Output("[SC] 0-XNPCCore survivor hooks (Patches_Xnpc): " + Patches_Xnpc.Report());
             Output("[SC] " + ScDialogPager.Report());           // round 28 (X3): the talk page's pager
+            Output("[SC] stuck rescue (round 29b): " + ScStuck.Counters());
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] melee: " + ScMelee.Report());

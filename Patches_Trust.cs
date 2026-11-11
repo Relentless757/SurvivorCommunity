@@ -27,6 +27,9 @@ namespace SurvivorCommunity
     ///
     /// E13a: a hit on one of a band's people goes to the band's rule (ScBands.OnHitBy: a drifter band turns as a whole);
     /// ScTrust.Subject leaves band bodies out, so they never carry a wild survivor's own grudge.
+    ///
+    /// Round 29b (3.4): the same postfix shows ScRunnerCall every landed hit first, so a supply runner with a handheld radio
+    /// hurt by a raider or a zombie radios for help (its own tests: a runner's body, an enemy's hit).
     /// </summary>
     public static class Patches_Trust
     {
@@ -85,6 +88,11 @@ namespace SurvivorCommunity
                     if (!ScCommunity.IsHost || __instance == null || _dmResponse.Fatal) return;
                     DamageSource src = _dmResponse.Source;
                     if (src == null || src.BuffClass != null) return;   // a bleed or other effect over time: the hit that caused it counted
+#if SC_V34
+                    // round 29b: a runner with a handheld radio hurt by a raider or a zombie calls for help (ScRunnerCall; never a
+                    // player's hit - those go on to the rules below)
+                    ScRunnerCall.OnHit(__instance, src);
+#endif
                     // a turret's or a dart trap's hit names its owner as the attacker, with the turret as the creator
                     if (src.CreatorEntityId != -1 && src.CreatorEntityId != src.getEntityId()) return;
                     World w = ScCommunity.World;

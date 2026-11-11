@@ -3993,3 +3993,159 @@ the repair duty's lines and ends; the roster with residents linked and "Jobs and
 window across a re-key; the talk cap LOWs (only past 600 s).
 
 Builds: SC 3.4 `fd2ca638ba84896bdfd67b3a3cdb346f` (`build\sc34_j29`), 0 errors. Not reviewed, not installed.
+
+### Round 29b: wreck-aware spots, residents' stuck rescue, runners call when attacked, console in the log (M29) (2026-11-11, built, not reviewed, not installed)
+
+Branch `ms/m29` from port-3.4 `2475f88`, worktree `Port33\wt\sc-m29`. Built beside round 29a (`ms/j29`, `wt\sc-j29`: 0-XNPCCore
+jobs on members), which owns `ScWork.cs`, `ScLoadout.cs`, the job/kit code and `ScRunners.Rekey`; none of them is touched here.
+The source is an Opus read-only investigation of Walt, wedged at a truck wreck (session scratch `x3\wreck\findings_wreck.md`):
+vanilla's path grid misses the ground under a wreck whenever `Origin.y` is not 0 (`AstarVoxelGrid.CheckHeights` compares a Unity
+height with a world height), SC's spot test reads the block data only (an oversized block exists there only at its origin cell),
+and the residents' watchdog never saw a body pushed back and forth against a hull (too fast for "still", and every roam pause
+reset the count).
+
+**The user's decisions (2026-11-10/11):** 1. wreck-aware spots (the findings' option b); 2. the residents' no-progress stuck
+rescue (option c); 3. "Call when attacked": a runner who carries a radio radios for help when actually attacked; 4. `sc` console
+output mirrored to the log (`sc xnpc` was not in the log). Option a (marking wreck cells in the path grid) is not SC's: the user's
+standalone modlet "Wreck Path Fix" now fixes vanilla's grid under wrecks for every creature.
+
+**1. Wreck-aware spots (`ScStuck.cs:37-87`, `ScCommunity.cs:932-950, 994-1020, 643-646`; both games).**
+- `ScStuck.NearOversized` asks vanilla's `MultiBlockManager.Instance.TryGetOversizedBlock` (public, locked, per-chunk bins:
+  POI-placed and player-placed oversized blocks, from `multiblocks.7dt` and `Chunk.SetBlock`; not world-gen decorations - only
+  burnt maples) for the cell and its 8 neighbors at feet and head height. The same method exists in 3.2 and 3.4 (decompiles
+  :1069), so this is shared code.
+- `GoodPost` (strict and relaxed) fails after its floor test with `why = "in or beside <block> at <origin>"`. It is the test of
+  roam spots (`UaiOps.cs` radius roam and `ZoneTarget`), posts (`ChoosePost`/`FindPost`, `Station`'s `ValidPost`), the post check
+  on load (`CheckPostOnce` -> `Repost`), `Unstick`'s post check, enclave homes (`ScEnclavePeople` :1288, :1364, :1382) and the
+  missing survivors' spots (`ScEncSearch`).
+- `FindPost` never offers a cell inside a hull (it reads as air, so `Standable` passed it); a cell beside one gets the last
+  tier, `TierStandable` (its name now ends "or beside a wreck"), as a spot on furniture does.
+- `RoomGone` (`!Standable` or inside an oversized block) replaces `!Standable` in `Unstick` and `Repost`: a post inside a hull takes
+  any fresh spot, so an existing post in a wreck is re-chosen by the post check on load even when only a poor spot is left.
+
+**2. Residents' stuck rescue (`ScStuck.cs`, `ScCommunity.cs:415-448, 457-488, 518-559`, `UaiOps.cs:119-323`; both games).**
+- **The roam** (`UAITaskWanderHomeSC`): each walk's progress is a `ScStuck.Progress` - the straight distance to the spot at the
+  last gain and the path left to walk at the last gain (`PathLeft`: body to the current path point, then point to point; a
+  re-plan sets a new mark without counting as a gain). A gain is 1 m closer OR 1 m less of the same path left, so a detour round
+  a wall still gains while a body pushing at a hull or sidestepping against it gains on neither. No gain in
+  `RoamNoProgressSeconds` (8) ends the walk as a blocked one does (pause, or Stop off the zone roam) and `ScStuck.MarkUnreachable`
+  remembers the spot for that body (entity id) for `RoamUnreachableMinutes` (5): the spot and the cells beside it (one across,
+  two up or down) are not picked again (`ScStuck.Unreachable` in both target searches). Verbose line `<name>: roam walk to x, y, z
+  ended - no 1 m gain in 8 s (N m left); not sent there again for 5 min`.
+- **The watchdog** (`StuckSample` -> `ScStuck.SampleGain`, once per sampled second, never paused): while the body wants to move
+  (the move helper aiming more than 1.5 m off, or a path, or one being planned) it counts the seconds without a gain toward its
+  goal (the path's end, else the move helper's target), across walks and pauses; a new goal (2 m away from the old) is a new mark,
+  not a gain; a second with no goal yet does not count; a gain, arriving (1.5 m), 90 sampled seconds without wanting to move or a
+  cure (`Unstick`, `Repost`: `ResetGain`) start it again. `Watchdog` calls `2 x` the still rule's limit of it stuck (24 s; the
+  fight multipliers and the back-off included): `no 1 m gain toward the path's end in N s of trying`, into the existing `Stuck`
+  (at the post: `Repost`; three moves back: `Repost`; else `Unstick`). `StuckNoGain` false turns the rule off. Its state is per
+  `Member` in a `ConditionalWeakTable` (no new `Member` fields - `ScModels.cs` untouched), and enclave people's `StuckSample` keeps
+  it too, unused by their watchdog.
+- **Out of sight** (`ScStuck.MayTeleport`, asked by `Stuck` right before `Unstick`): a move back waits while the player looks toward
+  the body or its post (`Unseen`: neither point in vanilla's `IsInViewCone` - the player's 180 degrees - at any distance; ScRunners'
+  skip-ahead also wants 40 m, which a resident at home rarely has). The first held verdict drops the path (the AI plans again)
+  and logs `<name> is stuck (...) but you are looking that way - the path is dropped, and the move back waits until you look away
+  (at most 60 s)`; while held, `Stuck` asks only the wait (no second `Repost`, no back-off each second); it goes when the player
+  looks away or after `StuckSeenWaitSeconds` (60; `... is still stuck after 60 s in your sight - moved back anyway`); 0 = at once,
+  in sight, as before. A hold whose verdict lapses while the no-gain count is still running (the dropped path restarts the still
+  count) resumes within 60 s instead of starting its wait again; a real gain drops it (`NoVerdict`). A new post (`Repost`) moves
+  nobody and never waits.
+- **Work shifts (3.4):** `ScTicker` now calls `ScStuck.OnShift` after `ScWork.Resident` ticked a shift. It runs `Watchdog(m, npc,
+  onShift: true)` only where `ScStuck.WatchdogDuringShift(m)` says so - a private stub that returns false, commented
+  `// round 29a: replace with ScWork.AllowsWatchdog(m) after the merge` (29a defines `AllowsWatchdog`, e.g. true for Base/Combat
+  repair duty). On a shift: no far rule, no new post, the at-post and repeat `Repost`s skipped (a rescue that keeps coming back
+  raises `StuckShift`), and `Unstick(..., onShift: true)` moves the body to the post without `ApplyPost` (the job's Guard spot
+  stays; the line ends `(on a work shift: the job's spot kept)`). Until then a shift resets the counts each second (nothing
+  stale when it ends).
+- Console: `sc xnpc <id>`'s `post:` line adds `no gain N s (mark M m, path left P m)`, a held move back and `roam spots out of
+  reach: ...`; the stuck line's details add the same; `sc xnpc` has `stuck rescue (round 29b): ...` counters (`roam walk ended:
+  no 1 m gain`, `move back held: you were watching`, `move back held, then done out of sight`, `move back held, then not
+  needed`, `move back in sight after the wait`).
+
+**3. A runner calls for help when attacked (`ScRunnerCall.cs` new, 3.4 only, in R2's ItemGroup; `Patches_Trust.cs:91-95`).**
+- The hit: `Patches_Trust.Patch_DamageResponse` (V4's `ProcessDamageResponseLocal` postfix: every landed hit, host only) shows
+  `ScRunnerCall.OnHit` each hit after its killing-blow and bleed returns and before its player-only rules. No new Harmony target.
+- Who: a member on a physical run (`ScRunners.IsPhysical`, not offline: any leg, the road or the site), hurt by a raider or a
+  zombie - every vanilla `EntityEnemy` (zombies, zombie dogs and vultures, and the hostile animals: decided here, they hurt as
+  much), SC's raiders and any framework NPC that is her enemy (0-XNPCCore's bandits); never a player.
+- Rules (`Make`): `RunnerCallsWhenAttacked` (`ScConfigRadio.cs`, default true); not during a distress call; once a run - the
+  Trouble moment (`Member.RunTalk`, saved: a reload brings no second call, and a distress call later in the run says no second
+  line); her radio (`RunRadio`); the player not within `ScRadioTalk.InPersonRange` (30 m); the call heard - the reach part of
+  `ScHandheld.DistressAllowed` (`ScRadio.Online()` or the player's handheld). A hit that brings no call quiets that runner's hits
+  for 10 s (no rescan and count per hit).
+- The call: `ScRadioTalk.Say(m, RadioTalk.Trouble, ...)` (her voice as a radio, the caption alone until recorded; only heard with
+  the player's handheld, as every radio line - with a powered station alone the message and marker come, the line is unheard);
+  the message `scRunnerAttacked` "<name> radios for help: under attack <on the way to X | at X | on the way home from X | near the
+  base>, about N m <direction> of home! Marked on your map." (`ui_denied`); and vanilla's `quest` map object on her - the class the
+  rescue quest's marker uses, placed as `ScQuests.EnsureMapObject` places it (owner-only, by position a quarter block up, the
+  recycled fields cleared, never a quest's own object), named "<name> - under attack", moved with her each second (1.5 m).
+  Log: `<name> radios for help: attacked by <who> (<class>, <id>) <leg> (<where>) at x, y, z, N m <dir> of home - marked on the
+  map; the line: <Say's answer>`.
+- The end (`Tick`, from `ScTicker` beside `ScRadioTalk.Tick`; decided here): the fight is over (no hit for 30 s and no live enemy
+  within `FightRange` - `ScCommunity.LiveFoe`), she died or left, her run ended, or her body left the world (offline: the fight
+  cannot be followed there); and the world (`ResetRadio`, the world shutdown in `ModApi.cs:156`). The marker comes off (only while
+  it is still ours: registered and named so), and the log says `<name>'s call for help is over: <why> (after N s) - the marker is
+  off the map`. No message at the end (her death has its own). She fights or flees by her own rules; nothing spawns, no quest.
+- Console: `sc radio` adds `runners' calls when attacked on, N open; <name> (attacked by ..., N s ago, last hit N s ago, marker at
+  x, y, z)`; `sc radio attacked <member> [force]` makes the call as a zombie's hit would (every rule; `force`: whatever the rules,
+  the line said again). Counters in `sc radio`'s list: `attack call made`, `attack call ended`, `attack call off`, `attack call
+  skipped: runner has no radio | you are with them | no station or handheld to hear it | called once this run | radioed for help
+  already (distress)`.
+- Localization: six rows (`scRunnerAttacked`, `...Out`, `...Site`, `...Home`, `...Back`, `...Marker`).
+
+**4. `sc` console output in the log (`ConsoleCmdSc.cs:15-38`; both games).** Vanilla's F1 console (`GUIWindowConsole`) subscribes
+to `Log.LogCallbacks` and shows every `Log.Out` line, and a dedicated server feeds the same callbacks to telnet, so logging each
+line with `Log.Out` would show it twice. Chosen: `Output` still answers through `SdtdConsole.Output` and also writes
+`[SC console] <line>` with `Log.WriteLine` - LogLibrary's log-only path (the file, no callbacks), the one vanilla uses for the
+`GamePref.` lines and `getsandboxoptions`' LogOnly mode. Those lines carry no timestamp, so each command starts with `[SC console]
+> sc <args> (yyyy-MM-ddTHH:mm:ss)`. `Log.WriteLine` is public in both games' LogLibrary.
+
+**Config** (`ScConfigStuck.cs` new, shared, ScConfigVoices' pattern - `ResetStuck` / `ParseStuck` / `StuckLine` from
+`ScConfig.Reset` :1234, `EnsureParsed` :2332, the line `config: stuck rescue ...` :2609; `ScConfigRadio.cs`; `Config/blocks.xml`
+after StuckSeconds and after RaiderRadioChance, each commented): `RoamNoProgressSeconds` 8 (0 off), `RoamUnreachableMinutes` 5,
+`StuckNoGain` true, `StuckSeenWaitSeconds` 60 (0: in sight at once), `RunnerCallsWhenAttacked` true (3.4; the `config: handheld
+radio` line ends `callsWhenAttacked=`).
+
+Where the brief left a choice (decided here):
+1. "Beside" is the 8 neighbors at feet and head height; a cell inside a hull is never a spot at all, one beside it only the last
+   tier.
+2. A gain is 1 m closer in a straight line OR 1 m less of the same path left (both the roam and the watchdog), so detours do not
+   count as stuck; the remembered spot covers the cells beside it.
+3. The watchdog's no-gain count runs across walks and pauses (a roam pause no longer resets it), resetting after 90 s without
+   trying to move.
+4. "Not watching" = neither the body nor its post in the player's view cone (the player's 180 degrees), at any distance; "a long
+   time" = `StuckSeenWaitSeconds`, 60 s, for every watchdog teleport (not only the new signal's).
+5. On a shift (once 29a enables it) the move back goes to the post and keeps the job's Guard spot.
+6. Attackers: every `EntityEnemy` (hostile animals included), SC's raiders, enemy framework NPCs.
+7. The call ends with the fight (30 s quiet and no live enemy near), her death, the run's end or her leaving the world; marker
+   off, a log line, no message. Session only.
+8. Console lines in the log through `Log.WriteLine` (log only), with a timestamped header per command.
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_m29`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build to a scratch folder); the 3.2 configuration to a scratch folder, 0 errors; the tracked 3.2
+  `SurvivorCommunity.dll` untouched (`c4ad303a...`).
+- `cctor_order.py` on the ilspy IL dumps: 3.4 139 static constructors, 3.2 126, 0 reads before store in either.
+- FindStr on the built DLL: `ScRunnerCall.OnHit` from `Patch_DamageResponse.Postfix` (IL_0036, after the Fatal and BuffClass
+  returns, before the creator check); `ScStuck.OnShift` from `ScTicker.Relink`; `WatchdogDuringShift` from `OnShift`;
+  `SampleGain` from `StuckSample`; `MayTeleport` from `Stuck` (twice); `NearOversized` from `GoodPost` and `FindPost`;
+  `InsideOversized` from `RoomGone`; `TryGetOversizedBlock` from `ScStuck.Oversized`; `Unreachable` from the roam's `Start` and
+  `ZoneTarget`; `MarkUnreachable` from `NoProgress` (from `Update`); `Log.WriteLine` from `ConsoleCmdSc.ToLog` (from `Output`
+  and `Execute`); `ResetStuck` / `ParseStuck` from `ScConfig.Reset` / `EnsureParsed`; the strings `in or beside ` (GoodPost),
+  `[SC console] `, `scRunnerAttacked` (Make), `RunnerCallsWhenAttacked` (ParseRadio), `StuckSeenWaitSeconds` (ParseStuck).
+  The 3.2 build has no `ScRunnerCall`, `OnShift` or `WatchdogDuringShift`.
+- Harmony: no new target, `ModApi.cs ExpectedTargets()` unchanged (the hit rides on the existing V4 postfix).
+- XML replay (scratch `m29\sc_replay_m29.py`: r28's pointed at this worktree; installed 3.4 deps): every SC op matches, no aborts,
+  the same counts as round 28 (blocks 9/9, dialogs 23/23, utilityai 26/26, windows 11/11 ...); with `WITH=zzzzz_AshfallUI` the
+  same (windows 10/10) and AshfallUI's own 1335/1335. The five new keys land in the merged block.
+- Localization: 1498 rows of 7 cells, no duplicate key, every key the new code asks for present; every file touched LF, no BOM.
+
+**Not checked (in game only, TESTING M29 650-672):** that `TryGetOversizedBlock` has a POI wreck's data by the time the post check
+on load runs; the no-gain and roam rules on real wrecks (with Wreck Path Fix out of the Mods folder, since it removes the cause)
+and their false positives (detours, a player in a doorway, the base defense's chases); the view-cone rule's feel; that
+`Log.WriteLine` lines reach the 3.4 log file (vanilla's `GamePref.` lines do); that V4's `ProcessDamageResponseLocal` sees a
+zombie's and a raider's hits on a runner on the road; the quest marker on a runner (map, compass, on screen) and its removal; the
+shift path (inert until 29a's merge).
+
+Builds: SC 3.4 `a47c0da5c8ae7249851d18a67505eb40` (`build\sc34_m29`), 0 errors. The 3.2 DLL was not rebuilt. Not reviewed, not
+installed.
