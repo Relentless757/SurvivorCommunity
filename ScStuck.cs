@@ -427,8 +427,8 @@ namespace SurvivorCommunity
             ScCommunity.Watchdog(m, npc, true);
         }
 
-        // round 29a: replace with ScWork.AllowsWatchdog(m) after the merge
-        private static bool WatchdogDuringShift(Member m) { return false; }
+        // round 29 merge: 29a's hook - the stuck rescue runs on a shift only during a Base/Combat repair duty
+        private static bool WatchdogDuringShift(Member m) { return ScWork.AllowsWatchdog(m); }
 #endif
 
         // ------------------------------------------------------------------ counters and reset ----
