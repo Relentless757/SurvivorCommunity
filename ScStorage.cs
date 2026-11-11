@@ -439,6 +439,108 @@ namespace SurvivorCommunity
                 return false;
             }
         }
+#if SC_V34
+
+        /// <summary>
+        /// Round 29a (J29): the boxes DepositInZone fills - player-placed storage inside the home zone, loaded, never the packing
+        /// station or a land claim block's own storage - with their positions.
+        /// </summary>
+        private static IEnumerable<KeyValuePair<Vector3i, TEFeatureStorage>> ZoneBoxes()
+        {
+            World w = ScCommunity.World;
+            if (w == null || !ScZone.HasHome) yield break;
+            int xMin, xMax, zMin, zMax;
+            ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
+            for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
+            {
+                for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
+                {
+                    Chunk chunk = w.GetChunkSync(cx, cz) as Chunk;
+                    var tes = chunk != null ? chunk.tileEntities : null;
+                    if (tes == null || tes.list == null) continue;
+                    for (int i = 0; i < tes.list.Count; i++)
+                    {
+                        TileEntityComposite tc = tes.list[i] as TileEntityComposite;
+                        TEFeatureStorage st = tc != null ? tc.GetFeature<TEFeatureStorage>() : null;
+                        if (st == null || st.ItemGrid == null || tc.GetFeature<TEFeatureSCPacking>() != null) continue;
+                        if (!(tc.PlayerPlaced || IsPlayerStorage(st))) continue;
+                        if (tc.GetFeature<TEFeatureLandClaim>() != null) continue;
+                        Vector3i pos = tc.ToWorldPos();
+                        if (!ScZone.Contains(pos)) continue;
+                        yield return new KeyValuePair<Vector3i, TEFeatureStorage>(pos, st);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Round 29a (J29): adds what it can of a plain stackable item (no quality) onto stacks of the same item already in the
+        /// home zone's linked storage, up to its stack size, so a member's home job - a few logs or a piece of meat every few
+        /// seconds - fills one crate stack instead of a new slot each time. Returns how many went in; the rest is the caller's
+        /// (DepositInZone, into an empty slot). Takes nothing from the stack passed.
+        /// </summary>
+        public static int TopUpInZone(ItemStack stack)
+        {
+            try
+            {
+                if (stack == null || stack.IsEmpty() || stack.itemValue == null) return 0;
+                ItemClass ic = ItemClass.GetForId(stack.itemValue.type);
+                if (ic == null || !ic.CanStack() || ic.HasQuality) return 0;
+                int max = Math.Max(1, ic.Stacknumber.Value), left = stack.count;
+                foreach (KeyValuePair<Vector3i, TEFeatureStorage> b in ZoneBoxes())
+                {
+                    ItemStack[] items = b.Value.ItemGrid.items;
+                    for (int k = 0; k < items.Length && left > 0; k++)
+                    {
+                        ItemStack s = items[k];
+                        if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.type != stack.itemValue.type || s.count >= max) continue;
+                        int add = Math.Min(left, max - s.count);
+                        b.Value.UpdateSlot(k, new ItemStack(s.itemValue.Clone(), s.count + add));
+                        b.Value.SetModified();
+                        freeByBox.Remove(b.Key);
+                        left -= add;
+                    }
+                    if (left <= 0) break;
+                }
+                return stack.count - left;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-topup-zone", e);
+                return 0;
+            }
+        }
+
+        /// <summary>Round 29a (J29): takes one item of this type out of the home zone's linked storage (a member's seed to replant a crop). True when one was taken.</summary>
+        public static bool TakeOneInZone(int type, out Vector3i box)
+        {
+            box = Vector3i.zero;
+            try
+            {
+                if (type <= 0) return false;
+                foreach (KeyValuePair<Vector3i, TEFeatureStorage> b in ZoneBoxes())
+                {
+                    ItemStack[] items = b.Value.ItemGrid.items;
+                    for (int k = 0; k < items.Length; k++)
+                    {
+                        ItemStack s = items[k];
+                        if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.type != type) continue;
+                        b.Value.UpdateSlot(k, s.count > 1 ? new ItemStack(s.itemValue.Clone(), s.count - 1) : ItemStack.Empty.Clone());
+                        b.Value.SetModified();
+                        freeByBox.Remove(b.Key);
+                        box = b.Key;
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-take-zone", e);
+                return false;
+            }
+        }
+#endif
 
         /// <summary>Stacks that still hold something (takes leave empty entries until the next scan).</summary>
         public static int LiveStacks()

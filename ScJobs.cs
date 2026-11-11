@@ -1,0 +1,1134 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using HarmonyLib;
+using NPCSdcsCharacters.Pure;
+using UAI;
+using UnityEngine;
+
+namespace SurvivorCommunity
+{
+    /// <summary>
+    /// Round 29a (J29, 3.4 only): 0-XNPCCore's jobs on the community's members - the user's decisions of 2026-11-11 and the
+    /// job audit's fixes (session scratch x3\jobs\audit_jobs.md). ScWork keeps the shift side (the ledger, the full pack, the
+    /// repair duty); ScLoadout the work kit itself. Here, each with its own counter (sc craft, the home jobs part):
+    ///
+    ///  - Home jobs only for residents (decision 2). Chop wood (3), Pick (6), Butcher (7), Base repair (8), Combat repair (9)
+    ///    and Craft (10) are a resident's; Follow + loot (1), Loot here (2), Mine (4) and Dig clay (5) are refused with a
+    ///    friendly line that says to take her along: Voice Control's job order (VCCommandRouter.MutateLoot: the Jobs page,
+    ///    the order wheel, a routed voice order) and its spoken "loot" phrase (PhraseTriggerHandler.Loot, which sets
+    ///    Follow + loot straight away). Followers keep every job. ScWork.Tick takes back a field job that slips through.
+    ///  - Output into the crates (decision 3): a postfix on 0-XNPCCore's SdcsStores.WindowAdd notes what a member on a work
+    ///    shift puts in her inventory window on a home job (modes 2-7); ScWork.Deposit moves it to the crates with what she
+    ///    makes.
+    ///  - Replanting (decision 4): when a member picks a ripe crop of the player's farm (a planted*3HarvestPlayer block, Pick
+    ///    mode 6) and the plot is left empty, she replants it with that crop's seed - from her inventory window (the harvest)
+    ///    or the home crates; with no seed the plot stays empty. ScScan counts a seed as a living crop, so the farm's count
+    ///    only drops when no seed was found.
+    ///  - The work kit is never a fighting weapon (decision 1): 0-XNPCCore's thrust pick (a stab through bars), its
+    ///    block-breaker pick in a fight and the Carried weapons listing leave a kit-only tool out (ScLoadout.IsKitOnly);
+    ///    ScArms.OnSwap puts the pair's melee weapon back when a swap put one in her hand (KitToolRefused); ScLoadout's
+    ///    AfterPostInit when a save did.
+    ///  - Repair duty facts: 0-XNPCCore's own test of what she can repair (UAITaskBaseKeepSdcs.Repairable, PickRepairTool)
+    ///    for ScWork.DutyTick, and what she says is missing at a duty's start.
+    ///  - Squad orders never reach a resident: Voice Control's roster (XNPCVoiceControlMod.GetHiredRoster: the order wheel's
+    ///    targets, its default target, Shift+click) and its spoken squad orders (VCCommandRouter.ExecuteForSquad) leave the
+    ///    community's residents out - but the one a wheel is being opened on from her own ring or "Jobs and gear".
+    ///  - A runner's inventory window: carried to her new entity id (ScRunners.Rekey) and, when she dies on the road with no
+    ///    body, lost with her, said and logged (ScRunners' DieOffline).
+    ///
+    /// Every 0-XNPCCore and Voice Control target is bound by name and exact signature (internal and private ones through
+    /// their assembly), each Prepare turns its patch off with one warning when it is gone, and ModApi's ExpectedTargets lists
+    /// them. Positional arguments (__0, __1): their parameter names are not part of their contract.
+    /// </summary>
+    public static class ScJobs
+    {
+        private static readonly Dictionary<string, int> hits = new Dictionary<string, int>();
+
+        internal static void Count(string what)
+        {
+            int n;
+            hits.TryGetValue(what, out n);
+            hits[what] = n + 1;
+        }
+
+        public static void Reset()
+        {
+            hits.Clear();
+            replants.Clear();
+            seedOf.Clear();
+            kitChecked.Clear();
+            nextKitCheck = 0f;
+        }
+
+        /// <summary>The counters for sc craft (the work shifts' line).</summary>
+        public static string Report()
+        {
+            var keys = new List<string>(hits.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            var parts = new List<string>();
+            foreach (string k in keys) parts.Add(k + "=" + hits[k]);
+            return "jobs: " + (parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "nothing yet") + (replants.Count > 0 ? ", replants waiting " + replants.Count : "");
+        }
+
+        /// <summary>The 0-XNPCCore assembly (NPCSdcsCharacters.dll): its internal types are looked up here.</summary>
+        private static Assembly Xnpc { get { return typeof(AvatarSdcsNpcController).Assembly; } }
+
+        private static bool Bound(Func<MethodBase> target, string label)
+        {
+            try
+            {
+                if (target() != null) return true;
+                ScLog.Warn("0-XNPCCore method " + label + " not found - that SurvivorCommunity job patch (round 29a) is off (0-XNPCCore update?)");
+            }
+            catch (Exception e) { ScLog.Once("jobs-bind-" + label, e); }
+            return false;
+        }
+
+        /// <summary>The same for a Voice Control target: quiet without Voice Control, a warning with it.</summary>
+        private static bool BoundVc(Func<MethodBase> target, string label)
+        {
+            try
+            {
+                if (target() != null) return true;
+                if (Patches_VoiceControl.ChatType != null) ScLog.Warn("Voice Control method " + label + " not found - that SurvivorCommunity job patch (round 29a) is off (Voice Control update?)");
+            }
+            catch (Exception e) { ScLog.Once("jobs-bind-" + label, e); }
+            return false;
+        }
+
+        private static MethodInfo Returning(MethodInfo m, Type ret, bool isStatic)
+        {
+            return m != null && m.ReturnType == ret && m.IsStatic == isStatic ? m : null;
+        }
+
+        private static FastTags<TagGroup.Global> meleeTag;
+        private static bool meleeTagParsed;
+
+        private static FastTags<TagGroup.Global> MeleeTag
+        {
+            get
+            {
+                if (!meleeTagParsed) { meleeTag = FastTags<TagGroup.Global>.Parse("melee"); meleeTagParsed = true; }
+                return meleeTag;
+            }
+        }
+
+        private static string ItemLabel(string item)
+        {
+            ItemClass ic = ItemClass.GetItemClass(item, true);
+            return ic != null ? ic.GetLocalizedItemName() : item;
+        }
+
+        // ================================================================== home jobs only for residents (decision 2) ====
+
+        /// <summary>A follower's job, refused for residents: Follow + loot (1), Loot here (2), Mine (4), Dig clay (5).</summary>
+        public static bool IsFieldJob(int mode) { return mode == 1 || mode == 2 || mode == 4 || mode == 5; }
+
+        /// <summary>
+        /// The job mode Voice Control's MutateLoot sets for this argument, by its own tests in its own order: craft:..., harvest,
+        /// mine..., plants / crops, clay, butcher, the repairs (baserepair, combatrepair, repair), here - and anything else
+        /// (the empty argument of the Jobs page's "Follow + loot" among it) is Follow + loot.
+        /// </summary>
+        private static int ModeOfArg(string arg)
+        {
+            if (arg != null && arg.StartsWith("craft:", StringComparison.Ordinal)) return 10;
+            if (string.Equals(arg, "harvest", StringComparison.OrdinalIgnoreCase)) return 3;
+            if (LootJobRules.MineFilterFromArg(arg) >= 0) return 4;
+            if (LootJobRules.PickFilterFromArg(arg) >= 0) return 6;
+            if (string.Equals(arg, "clay", StringComparison.OrdinalIgnoreCase)) return 5;
+            if (string.Equals(arg, "butcher", StringComparison.OrdinalIgnoreCase)) return 7;
+            if (string.Equals(arg, "combatrepair", StringComparison.OrdinalIgnoreCase)) return 9;
+            if (string.Equals(arg, "baserepair", StringComparison.OrdinalIgnoreCase) || string.Equals(arg, "repair", StringComparison.OrdinalIgnoreCase)) return 8;
+            if (string.Equals(arg, "here", StringComparison.OrdinalIgnoreCase)) return 2;
+            return 1;
+        }
+
+        private static string ModeName(int mode)
+        {
+            switch (mode)
+            {
+                case 1: return "Follow + loot";
+                case 2: return "Loot here";
+                case 4: return "Mine";
+                case 5: return "Dig clay";
+                default: return "job mode " + mode;
+            }
+        }
+
+        /// <summary>One of the community's members who is a resident (at home, on a talk hold, a work shift or a watch) - null for anyone else.</summary>
+        private static Member Resident(EntityAlive npc)
+        {
+            if (npc == null || !ScRegistry.Loaded) return null;
+            Member m = ScRegistry.GetMember(npc.entityId);
+            return m != null && m.Status == MemberStatus.Resident ? m : null;
+        }
+
+        /// <summary>Her line for a field job: Follow + loot has its own.</summary>
+        private static string FieldJobLine(int mode)
+        {
+            return Localization.Get(mode == 1 ? "scJobResidentFollowLoot" : "scJobResidentField");
+        }
+
+        /// <summary>The refusal as a tooltip in her words (the order wheel and the Jobs page; ScWork's take-back).</summary>
+        public static void TellFieldJob(Member m, EntityAlive npc, int mode)
+        {
+            EntityPlayerLocal p = ScCommunity.LocalPlayer;
+            if (p == null || m == null) return;
+            ScCommunity.Tell(p, string.Format(Localization.Get("scEncCallSays"), m.Name, FieldJobLine(mode)), "ui_denied");
+        }
+
+        public static Type RouterType { get { return ScTypes.Find("XNPCVoiceControl.Net.VCCommandRouter"); } }
+
+        /// <summary>Voice Control's job order: VCCommandRouter.MutateLoot(EntityAlive npc, string arg), internal static void.</summary>
+        public static MethodBase MutateLootTarget()
+        {
+            Type t = RouterType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "MutateLoot", new[] { typeof(EntityAlive), typeof(string) }), typeof(void), true) : null;
+        }
+
+        /// <summary>Voice Control's spoken "loot": PhraseTriggerHandler.Loot(EntityAlive, EntityPlayer, string npcName, string dialogText), private, returning her answer.</summary>
+        public static MethodBase VoiceLootTarget()
+        {
+            Type t = Patches_VoiceControl.TriggerType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "Loot", new[] { typeof(EntityAlive), typeof(EntityPlayer), typeof(string), typeof(string) }), typeof(string), false) : null;
+        }
+
+        /// <summary>
+        /// J29 (decision 2): a field job given to a resident - from the Jobs page of her ring or talk, the order wheel or a routed
+        /// voice order - is refused before Voice Control clears her current job, with her line as a tooltip. Followers, stand-ins
+        /// and everyone else: Voice Control's own.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_FieldJobOrder
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return BoundVc(MutateLootTarget, "VCCommandRouter.MutateLoot(EntityAlive, string)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MutateLootTarget(); }
+
+            /// <summary>__0 the NPC, __1 the job's argument ("" = Follow + loot).</summary>
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive __0, string __1)
+            {
+                try
+                {
+                    int mode = ModeOfArg(__1);
+                    if (!IsFieldJob(mode)) return true;
+                    Member m = Resident(__0);
+                    if (m == null) return true;
+                    Count("field-job-refused-" + mode);
+                    TellFieldJob(m, __0, mode);
+                    ScLog.Out(m.Name + " was given " + ModeName(mode) + " - a follower's job, refused for a resident (take her along for it)");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("jobs-field-order", e);
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>J29 (decision 2): the spoken "loot" (Follow + loot) on a resident - her refusal is the phrase's answer.</summary>
+        [HarmonyPatch]
+        public static class Patch_FieldJobVoice
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return BoundVc(VoiceLootTarget, "PhraseTriggerHandler.Loot(EntityAlive, EntityPlayer, string, string)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return VoiceLootTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive __0, ref string __result)
+            {
+                try
+                {
+                    Member m = Resident(__0);
+                    if (m == null) return true;
+                    Count("field-job-refused-voice");
+                    __result = FieldJobLine(1);
+                    ScLog.Out(m.Name + " was told to loot by voice - Follow + loot is a follower's job, refused for a resident");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("jobs-field-voice", e);
+                    return true;
+                }
+            }
+        }
+
+        // ================================================================== output into the crates (decision 3) ====
+
+        /// <summary>0-XNPCCore's SdcsStores.WindowAdd(int entityId, ItemStack stack) on its internal SdcsStores: returns what did not fit.</summary>
+        public static MethodBase WindowAddTarget()
+        {
+            Type t = Xnpc.GetType("SdcsStores", false);
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "WindowAdd", new[] { typeof(int), typeof(ItemStack) }), typeof(int), true) : null;
+        }
+
+        /// <summary>
+        /// J29 (decision 3): whatever 0-XNPCCore puts in a member's inventory window on a home job (harvest and butcher payouts,
+        /// HarvestPayout; loot) while she is on a work shift in job mode 2-7 is noted on the shift's ledger (ScWork.NoteGathered),
+        /// so ScWork.Deposit moves it to the crates. A talk hold counts too: the job's first payouts can come before ScWork's
+        /// once-a-second tick has made the hold a shift. Craft output (mode 10) has its own ledger hooks.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_JobOutput
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(WindowAddTarget, "SdcsStores.WindowAdd(int, ItemStack)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return WindowAddTarget(); }
+
+            /// <summary>The item and count before the call (WindowAdd lowers a stack's count to what did not fit).</summary>
+            [HarmonyPrefix]
+            public static void Prefix(int __0, ItemStack __1, out long __state)
+            {
+                __state = 0;
+                try
+                {
+                    if (__1 == null || __1.IsEmpty() || __1.itemValue == null || !ScWork.OnShift(__0)) return;
+                    World w = ScCommunity.World;
+                    EntityAlive npc = w != null ? w.GetEntity(__0) as EntityAlive : null;
+                    int mode = SdcsLootMode.Mode(npc);
+                    if (mode < 2 || mode > 7) return;
+                    __state = ((long)__1.itemValue.type << 32) | (uint)__1.count;
+                }
+                catch (Exception e) { ScLog.Once("jobs-output-pre", e); }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(int __0, int __result, long __state)
+            {
+                if (__state == 0) return;
+                try
+                {
+                    int type = (int)(__state >> 32), count = (int)(__state & 0xFFFFFFFFL), added = count - Math.Max(0, __result);
+                    if (added <= 0) return;
+                    ScWork.NoteGathered(__0, type, added);
+                    Count("output-noted");
+                }
+                catch (Exception e) { ScLog.Once("jobs-output", e); }
+            }
+        }
+
+        /// <summary>Free slots of her inventory window (int.MaxValue without one, as 0-XNPCCore's own pause counts).</summary>
+        public static int WindowFreeSlots(EntityAlive npc)
+        {
+            if (npc == null || !HarvestManager.Has(npc.entityId)) return int.MaxValue;
+            ItemStack[] items = HarvestManager.GetOrCreate(npc.entityId).items;
+            if (items == null) return int.MaxValue;
+            int n = 0;
+            foreach (ItemStack s in items) if (s == null || s.IsEmpty()) n++;
+            return n;
+        }
+
+        private static PropertyInfo resumeSlots, chestReach;
+        private static bool settingsBound;
+
+        private static void BindSettings()
+        {
+            if (settingsBound) return;
+            settingsBound = true;
+            try
+            {
+                resumeSlots = AccessTools.Property(typeof(AvatarSdcsNpcController), "LootResumeFreeSlots");
+                if (resumeSlots != null && (resumeSlots.PropertyType != typeof(int) || resumeSlots.GetGetMethod(true) == null || !resumeSlots.GetGetMethod(true).IsStatic)) resumeSlots = null;
+                chestReach = AccessTools.Property(typeof(AvatarSdcsNpcController), "BaseKeeperChestReachMetres");
+                if (chestReach != null && (chestReach.PropertyType != typeof(float) || chestReach.GetGetMethod(true) == null || !chestReach.GetGetMethod(true).IsStatic)) chestReach = null;
+            }
+            catch (Exception e) { ScLog.Once("jobs-bind-settings", e); }
+        }
+
+        /// <summary>0-XNPCCore's own resume rule: free window slots a paused job waits for (Settings.xml, 5 by default).</summary>
+        public static int ResumeFreeSlots()
+        {
+            BindSettings();
+            try { if (resumeSlots != null) return Math.Max(1, (int)resumeSlots.GetValue(null, null)); }
+            catch (Exception e) { ScLog.Once("jobs-resume-slots", e); }
+            return 5;
+        }
+
+        /// <summary>How far from a repair duty's pin 0-XNPCCore takes materials from chests (Settings.xml, 15 m by default).</summary>
+        private static float ChestReach()
+        {
+            BindSettings();
+            try { if (chestReach != null) return (float)chestReach.GetValue(null, null); }
+            catch (Exception e) { ScLog.Once("jobs-chest-reach", e); }
+            return 15f;
+        }
+
+        // ================================================================== replanting (decision 4) ====
+
+        private sealed class Picked
+        {
+            public Vector3i Pos;
+            public BlockValue Crop;
+            public int MemberId;
+            public float Due;
+            public int Tries;
+        }
+
+        private static readonly List<Picked> replants = new List<Picked>();
+        private static readonly Dictionary<int, string> seedOf = new Dictionary<int, string>();
+        private const string PlayerCropSuffix = "3HarvestPlayer";
+
+        private static Type harvestRunType;
+        private static FieldInfo runTarget;
+
+        /// <summary>0-XNPCCore's UAITaskHarvestSdcs.PickPlant(Context, Run): one pick of a plant (mode 6), private; Run is its private nested class.</summary>
+        public static MethodBase PickPlantTarget()
+        {
+            if (harvestRunType == null) harvestRunType = typeof(UAITaskHarvestSdcs).GetNestedType("Run", BindingFlags.NonPublic);
+            if (harvestRunType == null) return null;
+            if (runTarget == null) runTarget = AccessTools.Field(harvestRunType, "Target");
+            if (runTarget == null || runTarget.FieldType != typeof(Vector3i)) return null;
+            return Returning(AccessTools.DeclaredMethod(typeof(UAITaskHarvestSdcs), "PickPlant", new[] { typeof(UAI.Context), harvestRunType }), typeof(bool), false);
+        }
+
+        /// <summary>A crop of the player's farm (vanilla's planted*3HarvestPlayer: what 0-XNPCCore's "Pick crops" picks).</summary>
+        private static bool IsPlayerCrop(Block b)
+        {
+            string n = b != null ? b.GetBlockName() : null;
+            return n != null && n.StartsWith("planted", StringComparison.OrdinalIgnoreCase) && n.EndsWith(PlayerCropSuffix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// J29 (decision 4): a pick by a member on a ripe crop of the player's farm that leaves the plot empty queues the plot to
+        /// be replanted (Tick, a second later: the block change has landed by then).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_PickReplant
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(PickPlantTarget, "UAITaskHarvestSdcs.PickPlant(Context, Run)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return PickPlantTarget(); }
+
+            /// <summary>__0 the UAI context, __1 the run (its private type: as object).</summary>
+            [HarmonyPrefix]
+            public static void Prefix(UAI.Context __0, object __1, out object __state)
+            {
+                __state = null;
+                try
+                {
+                    if (!ScConfig.ReplantCrops || __0 == null || __1 == null || runTarget == null) return;
+                    EntityAlive self = __0.Self;
+                    if (self == null || self.world == null || !ScXnpc.IsBody(self) || !ScRegistry.Loaded) return;
+                    Member m = ScRegistry.GetMember(self.entityId);
+                    if (m == null) return;
+                    Vector3i pos = (Vector3i)runTarget.GetValue(__1);
+                    BlockValue bv = self.world.GetBlock(pos);
+                    if (bv.isair || bv.ischild || !IsPlayerCrop(bv.Block)) return;
+                    __state = new Picked { Pos = pos, Crop = bv, MemberId = m.Id };
+                }
+                catch (Exception e) { ScLog.Once("jobs-pick-pre", e); }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(UAI.Context __0, object __state)
+            {
+                Picked p = __state as Picked;
+                if (p == null) return;
+                try
+                {
+                    EntityAlive self = __0 != null ? __0.Self : null;
+                    if (self == null || self.world == null) return;
+                    BlockValue now = self.world.GetBlock(p.Pos);
+                    if (!now.isair && now.type == p.Crop.type) return;                  // still standing: more picks to come
+                    foreach (Picked q in replants) if (q.Pos == p.Pos) return;
+                    p.Due = Time.time + 1f;
+                    replants.Add(p);
+                    Count("crop-picked");
+                }
+                catch (Exception e) { ScLog.Once("jobs-pick", e); }
+            }
+        }
+
+        /// <summary>
+        /// The seed a crop of the player's farm grows from: vanilla's plantedX1 for plantedX3HarvestPlayer, else the first item
+        /// its Harvest or Destroy drops name that is a growing plant (BlockPlantGrowing). Null when there is none. Cached.
+        /// </summary>
+        private static string SeedFor(Block crop)
+        {
+            if (crop == null) return null;
+            string seed;
+            if (seedOf.TryGetValue(crop.blockID, out seed)) return seed;
+            seed = null;
+            string name = crop.GetBlockName();
+            if (name.EndsWith(PlayerCropSuffix, StringComparison.OrdinalIgnoreCase))
+            {
+                string guess = name.Substring(0, name.Length - PlayerCropSuffix.Length) + "1";
+                if (Block.GetBlockByName(guess, true) is BlockPlantGrowing && ItemClass.GetItemClass(guess, true) != null) seed = Block.GetBlockByName(guess, true).GetBlockName();
+            }
+            if (seed == null && crop.itemsToDrop != null)
+            {
+                foreach (EnumDropEvent ev in new[] { EnumDropEvent.Harvest, EnumDropEvent.Destroy })
+                {
+                    List<Block.SItemDropProb> drops;
+                    if (seed != null || !crop.itemsToDrop.TryGetValue(ev, out drops) || drops == null) continue;
+                    foreach (Block.SItemDropProb d in drops)
+                    {
+                        if (string.IsNullOrEmpty(d.name) || !(Block.GetBlockByName(d.name, true) is BlockPlantGrowing) || ItemClass.GetItemClass(d.name, true) == null) continue;
+                        seed = d.name;
+                        break;
+                    }
+                }
+            }
+            seedOf[crop.blockID] = seed;
+            if (seed == null) ScLog.Once("jobs-noseed-" + name, "replanting: no seed found for the crop " + name + " - a picked plot of it stays empty");
+            return seed;
+        }
+
+        /// <summary>
+        /// One seed of this type for the member's replanting: from her inventory window first (the harvest - and off the
+        /// shift's ledger), unless someone has it open, else from the home crates. "window", "crates" or null (none).
+        /// </summary>
+        private static string TakeSeed(int memberId, int type)
+        {
+            if (HarvestManager.Has(memberId))
+            {
+                SCoreLootContainer window = HarvestManager.GetOrCreate(memberId);
+                ItemStack[] items = window != null ? window.items : null;
+                if (items != null && !window.IsUserAccessing() && !ScAmmo.IsRemoteOpen(memberId) && !ScAmmo.XnpcTradeOpen(memberId))
+                {
+                    for (int i = 0; i < items.Length; i++)
+                    {
+                        ItemStack s = items[i];
+                        if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.type != type) continue;
+                        // 3.4: the window's slots are bound to its grid - written in place (HarvestManager.SetSlot clones)
+                        HarvestManager.SetSlot(items, i, s.count > 1 ? new ItemStack(s.itemValue.Clone(), s.count - 1) : null);
+                        window.Parent?.NotifyListeners();
+                        ScWork.Unnote(memberId, type, 1);
+                        return "window";
+                    }
+                }
+            }
+            Vector3i box;
+            return ScStorage.TakeOneInZone(type, out box) ? "crates" : null;
+        }
+
+        /// <summary>Tick: the plots due to be replanted.</summary>
+        private static void ReplantTick(World w)
+        {
+            if (replants.Count == 0) return;
+            float now = Time.time;
+            for (int i = replants.Count - 1; i >= 0; i--)
+            {
+                Picked p = replants[i];
+                if (now < p.Due) continue;
+                try
+                {
+                    if (w == null || w.GetChunkFromWorldPos(p.Pos) == null) { replants.RemoveAt(i); Count("replant-plot-unloaded"); continue; }
+                    BlockValue cur = w.GetBlock(p.Pos);
+                    if (!cur.isair)
+                    {
+                        // the change not seen yet (a second try), or something stands there now (the player planted it, a crop grew back)
+                        if (cur.type == p.Crop.type && ++p.Tries < 3) { p.Due = now + 1f; continue; }
+                        replants.RemoveAt(i);
+                        Count("replant-plot-taken");
+                        continue;
+                    }
+                    replants.RemoveAt(i);
+                    Replant(w, p);
+                }
+                catch (Exception e)
+                {
+                    replants.RemoveAt(i);
+                    ScLog.Once("jobs-replant", e);
+                }
+            }
+        }
+
+        private static void Replant(World w, Picked p)
+        {
+            Member m = ScRegistry.GetMember(p.MemberId);
+            string who = m != null ? m.Name : "a member (" + p.MemberId + ")";
+            string cropName = p.Crop.Block != null ? p.Crop.Block.GetBlockName() : "?";
+            string seedName = SeedFor(p.Crop.Block);
+            if (seedName == null) { Count("replant-no-seed-known"); return; }
+            BlockValue seed = Block.GetBlockValue(seedName, true);
+            ItemClass seedItem = ItemClass.GetItemClass(seedName, true);
+            if (seed.isair || seed.Block == null || seedItem == null) { Count("replant-no-seed-known"); return; }
+            seed.rotation = p.Crop.rotation;
+            if (!seed.Block.CanPlaceBlockAt(w, p.Pos, seed))
+            {
+                Count("replant-cannot-place");
+                ScLog.Verbose("replanting: " + who + " cannot plant " + seedName + " at " + p.Pos + " (the game refuses the spot: light, soil or room) - the plot stays empty");
+                return;
+            }
+            string from = TakeSeed(p.MemberId, seedItem.Id);
+            if (from == null)
+            {
+                Count("replant-no-seed");
+                ScLog.Verbose("replanting: " + who + " picked " + cropName + " at " + p.Pos + " but has no " + seedName + " (her inventory, the home crates) - the plot stays empty");
+                return;
+            }
+            w.SetBlockRPC(p.Pos, seed);
+            Count("replanted-from-" + from);
+            ScLog.Verbose("replanting: " + who + " replanted " + seedName + " at " + p.Pos + " (the seed from " + (from == "window" ? "her inventory" : "the home crates") + ")");
+        }
+
+        // ================================================================== the work kit is never a fighting weapon (decision 1) ====
+
+        /// <summary>
+        /// ScArms.OnSwap: a member was told to fight with a work-kit tool she carries only as her kit (the weapon menu, a spoken
+        /// "use ...", or 0-XNPCCore's AnyWeapon falling back on the kit): the pair's melee weapon goes back in her hand. Said to
+        /// the player for a swap they asked for (dialog, voice), not for AnyWeapon's own fallback.
+        /// </summary>
+        public static void KitToolRefused(EntityAlive npc, Member m, string tool, EntityPlayer player, string route)
+        {
+            try
+            {
+                string why;
+                bool armed = ScLoadout.Arm(npc, false, out why);
+                Loadout l = ScLoadout.Current(npc);
+                Count("kit-tool-not-a-weapon-" + route);
+                ScLog.Out(m.Name + " was told to fight with the work kit's " + tool + " (" + route + ") - kit tools are for jobs: "
+                          + (armed ? "the " + (l != null ? l.Melee : "melee weapon") + " back in hand" : "could not re-arm (" + why + ")"));
+                if (player != null && route != "any-weapon")
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scEncCallSays"), m.Name, string.Format(Localization.Get("scKitToolNotWeapon"), ItemLabel(tool))), "ui_denied");
+            }
+            catch (Exception e) { ScLog.Once("jobs-kit-refused", e); }
+        }
+
+        /// <summary>0-XNPCCore's private static SdcsCarriedThrustWeapon(EntityAlive): the thrust weapon it stabs with when a swing is blocked.</summary>
+        public static MethodBase ThrustTarget()
+        {
+            return Returning(AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsCarriedThrustWeapon", new[] { typeof(EntityAlive) }), typeof(string), true);
+        }
+
+        /// <summary>0-XNPCCore's SdcsMeleeReach.BestBreaker(EntityAlive, BlockValue), private static: the item it breaks a block in its way with.</summary>
+        public static MethodBase BreakerTarget()
+        {
+            return Returning(AccessTools.DeclaredMethod(typeof(SdcsMeleeReach), "BestBreaker", new[] { typeof(EntityAlive), typeof(BlockValue) }), typeof(string), true);
+        }
+
+        private static Func<ItemClass, MeleeStyleRules.MeleeStyle> meleeStyle;
+        private static bool meleeStyleBound;
+
+        /// <summary>0-XNPCCore's internal SdcsMeleeStyle.For(ItemClass): swing or thrust (its own cached rule). Null when not there.</summary>
+        private static Func<ItemClass, MeleeStyleRules.MeleeStyle> MeleeStyle()
+        {
+            if (meleeStyleBound) return meleeStyle;
+            meleeStyleBound = true;
+            try
+            {
+                Type t = Xnpc.GetType("SdcsMeleeStyle", false);
+                MethodInfo mi = t != null ? AccessTools.DeclaredMethod(t, "For", new[] { typeof(ItemClass) }) : null;
+                if (mi != null && mi.IsStatic && mi.ReturnType == typeof(MeleeStyleRules.MeleeStyle))
+                    meleeStyle = (Func<ItemClass, MeleeStyleRules.MeleeStyle>)Delegate.CreateDelegate(typeof(Func<ItemClass, MeleeStyleRules.MeleeStyle>), mi);
+                else ScLog.Warn("0-XNPCCore's SdcsMeleeStyle.For(ItemClass) not found - a member blocked by bars stabs with no handed thrust weapon in place of a work-kit knife (0-XNPCCore update?)");
+            }
+            catch (Exception e) { ScLog.Once("jobs-bind-meleestyle", e); }
+            return meleeStyle;
+        }
+
+        /// <summary>A melee item 0-XNPCCore would fight with: tagged melee, not a job-only tool, its first action no repair.</summary>
+        private static bool FightingMelee(ItemClass ic)
+        {
+            return ic != null && ic.HasAnyTags(MeleeTag) && !AnyWeaponRules.IsJobOnlyTool(ic.GetItemName())
+                   && !(ic.Actions != null && ic.Actions.Length > 0 && ic.Actions[0] is ItemActionRepair) && ic.Actions != null && ic.Actions.Length > 0;
+        }
+
+        /// <summary>Her bag's and inventory window's stacks, in 0-XNPCCore's store order (bag before window).</summary>
+        private static IEnumerable<ItemStack> BagThenWindow(EntityAlive e)
+        {
+            ItemStack[] b = e.bag != null ? e.bag.ItemGrid.items : null;
+            if (b != null) foreach (ItemStack s in b) if (s != null && !s.IsEmpty() && s.itemValue != null) yield return s;
+            if (HarvestManager.Has(e.entityId))
+            {
+                ItemStack[] w = HarvestManager.GetOrCreate(e.entityId).items;
+                if (w != null) foreach (ItemStack s in w) if (s != null && !s.IsEmpty() && s.itemValue != null) yield return s;
+            }
+        }
+
+        /// <summary>
+        /// J29: 0-XNPCCore's thrust pick walks the kit first, so a member with the work kit would stab through bars with its
+        /// bone knife. A kit-only answer is replaced by the next thrust weapon 0-XNPCCore's order gives - one handed over into
+        /// her bag or window - or none (X6 then answers the pair's melee weapon; the direct swap does not happen).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_KitThrust
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(ThrustTarget, "AvatarSdcsNpcController.SdcsCarriedThrustWeapon(EntityAlive)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return ThrustTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0, ref string __result)
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(__result) || !ScXnpc.IsBody(__0) || !ScLoadout.IsKitOnly(__0, __result)) return;
+                    string kit = __result;
+                    __result = null;
+                    Func<ItemClass, MeleeStyleRules.MeleeStyle> style = MeleeStyle();
+                    if (style != null)
+                    {
+                        foreach (ItemStack s in BagThenWindow(__0))
+                        {
+                            ItemClass ic = s.itemValue.ItemClass;
+                            if (!FightingMelee(ic) || ScLoadout.IsKitOnly(__0, ic.GetItemName()) || style(ic) != MeleeStyleRules.MeleeStyle.Thrust) continue;
+                            __result = ic.GetItemName();
+                            break;
+                        }
+                    }
+                    Count("kit-thrust-replaced");
+                    ScLog.Verbose(ScCommunity.DisplayName(__0) + ": no stab with the work kit's " + kit + " - " + (__result ?? "none (the pair's melee weapon)"));
+                }
+                catch (Exception e) { ScLog.Once("jobs-kit-thrust", e); }
+            }
+        }
+
+        /// <summary>
+        /// J29: in a fight 0-XNPCCore breaks a block in her way with her best block-breaking melee item, toolbelt included - with
+        /// the work kit there, the stone shovel. A kit-only answer is replaced by the best of the rest (0-XNPCCore's own rule:
+        /// the highest block damage above 0), or none.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_KitBreaker
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(BreakerTarget, "SdcsMeleeReach.BestBreaker(EntityAlive, BlockValue)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return BreakerTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0, BlockValue __1, ref string __result)
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(__result) || !ScXnpc.IsBody(__0) || !ScLoadout.IsKitOnly(__0, __result)) return;
+                    string kit = __result, best = null;
+                    float bestDamage = 0f;
+                    var stores = new List<ItemStack>();
+                    ItemStack[] belt = __0.inventory != null ? __0.inventory.ItemGrid.items : null;
+                    if (belt != null) foreach (ItemStack s in belt) if (s != null && !s.IsEmpty() && s.itemValue != null) stores.Add(s);
+                    stores.AddRange(BagThenWindow(__0));
+                    foreach (ItemStack s in stores)
+                    {
+                        ItemClass ic = s.itemValue.ItemClass;
+                        if (ic == null || !ic.HasAnyTags(MeleeTag) || ic.Actions == null || ic.Actions.Length == 0 || ic.Actions[0] is ItemActionRepair) continue;
+                        if (ScLoadout.IsKitOnly(__0, ic.GetItemName())) continue;
+                        float dmg = 0f;
+                        ItemActionDynamic dyn = ic.Actions[0] as ItemActionDynamic;
+                        ItemActionAttack atk = ic.Actions[0] as ItemActionAttack;
+                        if (dyn != null) dmg = dyn.GetDamageBlock(s.itemValue, __1, __0);
+                        else if (atk != null) dmg = atk.GetDamageBlock(s.itemValue, __1, __0);
+                        if (dmg > 0f && dmg > bestDamage) { bestDamage = dmg; best = ic.GetItemName(); }
+                    }
+                    __result = best;
+                    Count("kit-breaker-replaced");
+                    ScLog.Verbose(ScCommunity.DisplayName(__0) + ": no block breaking with the work kit's " + kit + " - " + (best ?? "none"));
+                }
+                catch (Exception e) { ScLog.Once("jobs-kit-breaker", e); }
+            }
+        }
+
+        /// <summary>
+        /// J29: the "Carried weapons" listing (Voice Control's weapon menu, 0-XNPCCore's SdcsAnyWeaponMenuListing) walks the kit
+        /// too: a kit-only tool is not offered as a weapon. A copy handed over into her window stays (it is hers to use).
+        /// C1g's prefix on the same method empties the listing for a resident on a shift first.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_KitListing
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(Patches_Craft.AnyWeaponListingTarget, "AvatarSdcsNpcController.SdcsAnyWeaponMenuListing(EntityAlive)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return Patches_Craft.AnyWeaponListingTarget(); }
+
+            /// <summary>__0 is the entity argument (bound by position: the controller also has an "entity" field).</summary>
+            [HarmonyPostfix]
+            public static void Postfix(EntityAlive __0, List<string> __result)
+            {
+                try
+                {
+                    if (__result == null || __result.Count == 0 || !ScXnpc.IsBody(__0)) return;
+                    int n = __result.RemoveAll(x => ScLoadout.IsKitOnly(__0, x));
+                    if (n > 0) Count("kit-listing-hidden");
+                }
+                catch (Exception e) { ScLog.Once("jobs-kit-listing", e); }
+            }
+        }
+
+        // ================================================================== the work kit on every member's body ====
+
+        /// <summary>Member ids whose body has had its work kit checked this session (EnsureWorkKit).</summary>
+        private static readonly HashSet<int> kitChecked = new HashSet<int>();
+        private static float nextKitCheck;
+        private const float KitCheckSeconds = 5f;
+
+        /// <summary>
+        /// Every KitCheckSeconds: each member's loaded body not checked yet gets the pair + work kit item list
+        /// (ScLoadout.EnsureWorkKit) - a recruit who joined after their PostInit, a body re-created under a new id. A body's
+        /// own PostInit (a load, a re-create under the member's id) writes it anyway.
+        /// </summary>
+        private static void KitTick()
+        {
+            float now = Time.time;
+            if (now < nextKitCheck || !ScRegistry.Loaded) return;
+            nextKitCheck = now + KitCheckSeconds;
+            foreach (Member m in ScRegistry.Members.Values)
+            {
+                if (m == null || kitChecked.Contains(m.Id)) continue;
+                EntityAlive npc = ScCommunity.FindNpc(m.Id);
+                if (npc == null || npc.IsDead()) continue;
+                kitChecked.Add(m.Id);
+                try
+                {
+                    if (ScLoadout.EnsureWorkKit(npc)) Count("kit-given-late");
+                }
+                catch (Exception e) { ScLog.Once("jobs-kit-ensure", e); }
+            }
+        }
+
+        // ================================================================== Base repair / Combat repair: what she can repair ====
+
+        /// <summary>What 0-XNPCCore's base keeper can do for her now (RepairCheck), for ScWork's duty.</summary>
+        public struct RepairFacts
+        {
+            /// <summary>0-XNPCCore's own test was read (false: the damage tracker alone, its tool and materials unknown).</summary>
+            public bool Known;
+            public bool Tool;
+            public bool CanRepair;
+            public bool Registered;
+            public int Claims, Damaged, MaterialFails, SkillFails, OtherFails;
+            public string SampleBlock, SampleReason;
+            public string State;
+        }
+
+        private static MethodInfo repairable, pickRepairTool;
+        private static FieldInfo fAny, fDamaged, fSkill, fOther, fMaterial, fSampleBlock, fSampleReason;
+        private static bool repairBound, repairBindFailed;
+
+        /// <summary>UAITaskBaseKeepSdcs' internal static Repairable(EntityAlive, float, float) and PickRepairTool(EntityAlive, out float, out float, out string).</summary>
+        private static bool BindRepair()
+        {
+            if (repairBound) return true;
+            if (repairBindFailed) return false;
+            try
+            {
+                const BindingFlags S = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+                Type t = typeof(UAITaskBaseKeepSdcs);
+                repairable = t.GetMethod("Repairable", S, null, new[] { typeof(EntityAlive), typeof(float), typeof(float) }, null);
+                pickRepairTool = t.GetMethod("PickRepairTool", S, null, new[] { typeof(EntityAlive), typeof(float).MakeByRefType(), typeof(float).MakeByRefType(), typeof(string).MakeByRefType() }, null);
+                Type facts = repairable != null ? repairable.ReturnType : null;
+                if (facts == null || !facts.IsValueType || pickRepairTool == null || pickRepairTool.ReturnType != typeof(string)) throw new MissingMethodException("UAITaskBaseKeepSdcs", "Repairable / PickRepairTool");
+                fAny = Field(facts, "Any", typeof(bool));
+                fDamaged = Field(facts, "Damaged", typeof(int));
+                fSkill = Field(facts, "SkillFails", typeof(int));
+                fOther = Field(facts, "OtherFails", typeof(int));
+                fMaterial = Field(facts, "MaterialFails", typeof(int));
+                fSampleBlock = Field(facts, "SampleBlock", typeof(string));
+                fSampleReason = Field(facts, "SampleReason", typeof(string));
+                repairBound = true;
+                return true;
+            }
+            catch (Exception e)
+            {
+                repairBindFailed = true;
+                ScLog.Warn("0-XNPCCore's repair test (UAITaskBaseKeepSdcs.Repairable / PickRepairTool) could not be bound (" + e.Message
+                           + ") - a repair duty goes by the damage it tracks alone and says nothing about a missing tool or materials (0-XNPCCore update?)");
+                return false;
+            }
+        }
+
+        private static FieldInfo Field(Type t, string name, Type type)
+        {
+            FieldInfo f = AccessTools.Field(t, name);
+            if (f == null || f.FieldType != type) throw new MissingFieldException(t.Name, name);
+            return f;
+        }
+
+        /// <summary>
+        /// What she can repair now, by 0-XNPCCore's own test: Repairable (damaged blocks of the duty's claims, and whether one of
+        /// them is affordable with her tool and the materials in reach) and PickRepairTool (her bag, loot container, window,
+        /// then the kit). On an error the duty is kept (CanRepair true): it never ends for a fault of ours.
+        /// </summary>
+        public static RepairFacts RepairCheck(EntityAlive npc)
+        {
+            var f = new RepairFacts();
+            try
+            {
+                f.Registered = SdcsBaseDamageTracker.IsRegistered(npc.entityId);
+                f.Claims = f.Registered ? SdcsBaseDamageTracker.RegisteredClaimCount(npc.entityId) : 0;
+                if (BindRepair())
+                {
+                    object[] args = { npc, 0f, 0f, null };
+                    f.Tool = pickRepairTool.Invoke(null, args) is string;
+                    object facts = repairable.Invoke(null, new object[] { npc, 4f, Time.time });
+                    f.CanRepair = (bool)fAny.GetValue(facts);
+                    f.Damaged = (int)fDamaged.GetValue(facts);
+                    f.SkillFails = (int)fSkill.GetValue(facts);
+                    f.OtherFails = (int)fOther.GetValue(facts);
+                    f.MaterialFails = (int)fMaterial.GetValue(facts);
+                    f.SampleBlock = fSampleBlock.GetValue(facts) as string;
+                    f.SampleReason = fSampleReason.GetValue(facts) as string;
+                    f.Known = true;
+                }
+                else
+                {
+                    var list = new List<RepairTargetRules.RepairTarget>();
+                    f.Damaged = SdcsBaseDamageTracker.Targets(npc.entityId, SdcsLootMode.Mode(npc), npc.position, list, 1);
+                    f.CanRepair = f.Damaged > 0;
+                    f.Tool = true;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("jobs-repair-check", e);
+                f.CanRepair = true;
+                f.State = "check failed";
+                return f;
+            }
+            f.State = !f.Known ? (f.Damaged > 0 ? "damage tracked" : "nothing damaged") + " (tool and materials unknown)"
+                      : !f.Tool ? "no repair tool"
+                      : f.Registered && f.Claims == 0 ? "no land claim near"
+                      : f.CanRepair ? "can repair (" + f.Damaged + " damaged)"
+                      : f.Damaged == 0 ? "nothing damaged"
+                      : f.MaterialFails > 0 ? "no materials in reach (" + (f.SampleBlock ?? "?") + ")"
+                      : f.SkillFails > 0 ? "not skilled enough (" + (f.SampleBlock ?? "?") + ")"
+                      : "cannot repair the damage (" + (f.SampleReason ?? "?") + ")";
+            return f;
+        }
+
+        private static string BlockLabel(string block)
+        {
+            if (string.IsNullOrEmpty(block)) return Localization.Get("scDutyBlockSomething");
+            if (block == "hole") return Localization.Get("scDutyBlockHole");
+            Block b = Block.GetBlockByName(block, true);
+            return b != null ? b.GetLocalizedBlockName() : block;
+        }
+
+        /// <summary>
+        /// The repair duty's first look (ScWork.DutyTick): what is missing, said once - no repair tool, the materials or the
+        /// skill for a damaged block - or that nothing is damaged yet (by day: she keeps watch until the duty's idle end).
+        /// Nothing when she can repair, without a land claim (0-XNPCCore says so itself and ends the job) or with the test unread.
+        /// </summary>
+        public static void TellDutyStart(Member m, RepairFacts f, bool night)
+        {
+            EntityPlayerLocal p = ScCommunity.LocalPlayer;
+            if (p == null || m == null || !f.Known || (f.Registered && f.Claims == 0) || f.CanRepair) return;
+            string text;
+            if (!f.Tool) text = string.Format(Localization.Get("scDutyNoTool"), m.Name);
+            else if (f.Damaged > 0 && f.MaterialFails > 0) text = string.Format(Localization.Get("scDutyNoMaterials"), m.Name, BlockLabel(f.SampleBlock), ChestReach().ToString("0"));
+            else if (f.Damaged > 0 && f.SkillFails > 0) text = string.Format(Localization.Get("scDutyNoSkill"), m.Name, BlockLabel(f.SampleBlock));
+            else if (f.Damaged > 0) text = string.Format(Localization.Get("scDutyCantRepair"), m.Name, BlockLabel(f.SampleBlock));
+            else if (night) return;                                  // she goes home at once: ScWork's end says so
+            else text = string.Format(Localization.Get("scDutyNothing"), m.Name, ScConfig.RepairDutyIdleMinutes);
+            Count("duty-told-" + (f.Tool ? (f.Damaged > 0 ? "cannot" : "nothing") : "notool"));
+            ScCommunity.Tell(p, text, "");
+            ScLog.Out(m.Name + "'s repair duty: " + f.State);
+        }
+
+        // ================================================================== squad orders never reach a resident ====
+
+        public static Type VcModType { get { return ScTypes.Find("XNPCVoiceControl.XNPCVoiceControlMod"); } }
+
+        /// <summary>XNPCVoiceControlMod.GetHiredRoster(EntityPlayer), internal static: the order wheel's roster (its targets, the squad).</summary>
+        public static MethodBase RosterTarget()
+        {
+            Type t = VcModType;
+            return t != null ? Returning(AccessTools.DeclaredMethod(t, "GetHiredRoster", new[] { typeof(EntityPlayer) }), typeof(List<EntityAlive>), true) : null;
+        }
+
+        /// <summary>VCCommandRouter.ExecuteForSquad(int, int, List&lt;EntityAlive&gt; roster, VCCommand, string), internal static: the spoken squad order.</summary>
+        public static MethodBase SquadTarget()
+        {
+            Type t = RouterType;
+            if (t == null) return null;
+            foreach (MethodInfo mi in AccessTools.GetDeclaredMethods(t))
+            {
+                if (mi.Name != "ExecuteForSquad" || !mi.IsStatic || mi.ReturnType != typeof(void)) continue;
+                ParameterInfo[] ps = mi.GetParameters();
+                if (ps.Length == 5 && ps[0].ParameterType == typeof(int) && ps[1].ParameterType == typeof(int) && ps[2].ParameterType == typeof(List<EntityAlive>)
+                    && ps[3].ParameterType.IsEnum && ps[4].ParameterType == typeof(string)) return mi;
+            }
+            return null;
+        }
+
+        private static FieldInfo preferTarget;
+        private static bool preferTargetBound;
+
+        /// <summary>The entity the order wheel is being opened on (XUiC_VCFormationRadial._preferTargetOnce: her ring, "Jobs and gear"), else -1.</summary>
+        private static int WheelOpeningOn()
+        {
+            if (!preferTargetBound)
+            {
+                preferTargetBound = true;
+                try
+                {
+                    Type t = ScTypes.Find("XUiC_VCFormationRadial");
+                    FieldInfo f = t != null ? AccessTools.Field(t, "_preferTargetOnce") : null;
+                    preferTarget = f != null && f.IsStatic && f.FieldType == typeof(int) ? f : null;
+                    if (preferTarget == null && Patches_VoiceControl.ChatType != null)
+                        ScLog.Warn("Voice Control's XUiC_VCFormationRadial._preferTargetOnce not found - the order wheel opened on a resident from her ring may close at once (Voice Control update?)");
+                }
+                catch (Exception e) { ScLog.Once("jobs-bind-prefer", e); }
+            }
+            try { return preferTarget != null ? (int)preferTarget.GetValue(null) : -1; }
+            catch (Exception) { return -1; }
+        }
+
+        /// <summary>
+        /// J29 (the audit's #5): the order wheel's roster leaves the community's residents out - linked by a talk or a work shift
+        /// they count as hired for Voice Control, so the wheel's default target, its target cycling and a Shift+click squad
+        /// order reached them, and any order but Guard ends a resident's shift. The one resident the wheel is being opened on
+        /// (her hold-E ring, "Jobs and gear": Voice Control closes a wheel locked on someone not in the roster) stays.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_RosterNoResidents
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return BoundVc(RosterTarget, "XNPCVoiceControlMod.GetHiredRoster(EntityPlayer)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return RosterTarget(); }
+
+            [HarmonyPostfix]
+            public static void Postfix(List<EntityAlive> __result)
+            {
+                try
+                {
+                    if (__result == null || __result.Count == 0 || !ScRegistry.Loaded) return;
+                    int keep = WheelOpeningOn();
+                    int n = __result.RemoveAll(e => e != null && e.entityId != keep && Resident(e) != null);
+                    if (n > 0) Count("roster-residents-left-out");
+                }
+                catch (Exception e) { ScLog.Once("jobs-roster", e); }
+            }
+        }
+
+        /// <summary>J29: a spoken squad order ("everyone, follow me") leaves the community's residents out too.</summary>
+        [HarmonyPatch]
+        public static class Patch_SquadNoResidents
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return BoundVc(SquadTarget, "VCCommandRouter.ExecuteForSquad(int, int, List<EntityAlive>, VCCommand, string)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SquadTarget(); }
+
+            /// <summary>__2 the roster (a list Voice Control builds for this order): residents taken out; none left - nothing to do.</summary>
+            [HarmonyPrefix]
+            public static bool Prefix(List<EntityAlive> __2)
+            {
+                try
+                {
+                    if (__2 == null || __2.Count == 0 || !ScRegistry.Loaded) return true;
+                    int n = __2.RemoveAll(e => e != null && Resident(e) != null);
+                    if (n == 0) return true;
+                    Count("squad-residents-left-out");
+                    if (__2.Count > 0) return true;
+                    ScLog.Verbose("squad order: only residents in the roster - nobody given it");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("jobs-squad", e);
+                    return true;
+                }
+            }
+        }
+
+        // ================================================================== a runner's inventory window ====
+
+        /// <summary>
+        /// ScRunners.Rekey (a runner re-created under a new id, a missing resident called back): her SCore inventory window -
+        /// HarvestManager's container, keyed by entity id - comes with her: its stacks into the new body's window, anything
+        /// that does not fit into the home crates, the old container dropped. Only while no entity holds the old id (as
+        /// before: an id another entity now uses keeps its window). A fresh body (ScSpawn) was given the rounds of her pair
+        /// gun her ammo record counts - every store, the window included (ScAmmo.RestoreRecorded) - so those stacks stay
+        /// behind rather than come twice (SC moves ammo out of the window into the bag whenever it is closed anyway). Logged;
+        /// a loss (no room anywhere) is a warning.
+        /// </summary>
+        public static void CarryWindow(World w, Member m, int oldId, EntityAlive e, bool fresh)
+        {
+            try
+            {
+                if (w == null || e == null || w.GetEntity(oldId) != null || !HarvestManager.Has(oldId)) return;
+                ItemStack[] items = HarvestManager.GetOrCreate(oldId).items;
+                int moved = 0, toCrates = 0, recorded = 0;
+                var lost = new List<string>();
+                var ammo = new HashSet<int>();
+                ItemActionRanged gun = fresh ? ScAmmo.RangedAction(ScAmmo.PairGun(e)) : null;
+                if (gun != null && gun.MagazineItemNames != null)
+                    foreach (string a in gun.MagazineItemNames) { ItemClass ac = ItemClass.GetItemClass(a, true); if (ac != null) ammo.Add(ac.Id); }
+                if (items != null)
+                {
+                    foreach (ItemStack s in items)
+                    {
+                        if (s == null || s.IsEmpty() || s.itemValue == null) continue;
+                        if (ammo.Contains(s.itemValue.type)) { recorded += s.count; continue; }
+                        ItemStack c = s.Clone();
+                        if (HarvestManager.AddItem(e.entityId, c)) { moved += s.count; continue; }
+                        moved += s.count - c.count;                                    // AddItem left what did not fit in c
+                        Vector3i box;
+                        if (ScStorage.DepositInZone(c, out box)) toCrates += c.count;
+                        else lost.Add(c.count + "x " + ItemLabel(c.itemValue.ItemClass != null ? c.itemValue.ItemClass.GetItemName() : "?"));
+                    }
+                }
+                HarvestManager.Remove(oldId);
+                Count("runner-window-carried");
+                if (moved + toCrates + recorded > 0 || lost.Count > 0)
+                    ScLog.Out(m.Name + "'s inventory window came with them to entity " + e.entityId + ": " + moved + " item(s)"
+                              + (toCrates > 0 ? ", " + toCrates + " that did not fit into the home crates" : "")
+                              + (recorded > 0 ? ", " + recorded + " round(s) of their gun left behind (the fresh body got their ammo record)" : ""));
+                if (lost.Count > 0) ScLog.Warn(m.Name + "'s inventory window: no room for " + string.Join(", ", lost.ToArray()) + " in the new body or the home crates - lost");
+            }
+            catch (Exception ex) { ScLog.Once("runner-harvest", ex); }
+        }
+
+        /// <summary>
+        /// ScRunners' DieOffline: a runner who dies on the road, out of the player's sight, has no body to drop a backpack from
+        /// and her last place is not loaded, so what her inventory window held is lost with her - as her bag and toolbelt are.
+        /// Not silently: logged, and told to the player beside the death. Only while no entity holds the id (as before).
+        /// </summary>
+        public static void LoseWindow(World w, Member m, int id, EntityPlayer player)
+        {
+            try
+            {
+                if (w != null && w.GetEntity(id) != null) return;
+                if (!HarvestManager.Has(id)) return;
+                ItemStack[] items = HarvestManager.GetOrCreate(id).items;
+                var lost = new List<string>();
+                if (items != null)
+                    foreach (ItemStack s in items)
+                        if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.ItemClass != null) lost.Add(s.count + "x " + ItemLabel(s.itemValue.ItemClass.GetItemName()));
+                HarvestManager.Remove(id);
+                if (lost.Count == 0) return;
+                Count("runner-window-lost");
+                string list = string.Join(", ", lost.ToArray());
+                ScLog.Out(m.Name + " died on the road - what their inventory window held is lost with them: " + list);
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRunWindowLost"), m.Name, list), "");
+            }
+            catch (Exception ex) { ScLog.Once("runner-harvest", ex); }
+        }
+
+        // ================================================================== the second ====
+
+        /// <summary>ScWork.Sweep, once a second (ScTicker): the plots to replant, the work kit's once-per-body check.</summary>
+        public static void Tick(EntityPlayerLocal player)
+        {
+            if (!ScCommunity.IsHost) return;
+            try
+            {
+                ReplantTick(ScCommunity.World);
+                KitTick();
+            }
+            catch (Exception e) { ScLog.Once("jobs-tick", e); }
+        }
+    }
+}

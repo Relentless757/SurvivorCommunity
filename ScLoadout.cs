@@ -698,13 +698,21 @@ namespace SurvivorCommunity
             return l.HasRanged || l.Melee != null ? l : null;
         }
 
-        /// <summary>Rewrites itemsOnEnterGame to the weapons' items, in order. Unchanged when it already is.</summary>
+        /// <summary>
+        /// Rewrites itemsOnEnterGame to the weapons' items, in order. Unchanged when it already is. Round 29a (J29, 3.4): a
+        /// member's work kit follows the pair (WorkKitFor), so the pair keeps the first places (SCore's fallback weapon is
+        /// the first entry, X6's melee fallback the pair's melee) and a body that is no member loses a kit it had.
+        /// </summary>
         private static bool Rewrite(EntityAlive e, string cls, List<Weapon> order)
         {
             if (order == null || order.Exists(x => x == null)) return false;
             var want = new List<string>();
             foreach (Weapon w in order)
                 if (!want.Exists(x => string.Equals(StackName(x), StackName(w.Item), StringComparison.OrdinalIgnoreCase))) want.Add(w.Item);
+#if SC_V34
+            foreach (string k in WorkKitFor(e, cls))
+                if (!want.Exists(x => string.Equals(StackName(x), k, StringComparison.OrdinalIgnoreCase))) want.Add(k);
+#endif
             List<ItemStack> have = e.itemsOnEnterGame;
             if (have == null) return false;
             if (have.Count == want.Count)
@@ -730,6 +738,122 @@ namespace SurvivorCommunity
             have.AddRange(stacks);
             return true;
         }
+#if SC_V34
+
+        // ---- the members' work kit (round 29a, J29: the user's decision 1, 2026-11-11) ----
+        //
+        // "Give the work kit": a member carries 0-XNPCCore's own work tools beside the weapon pair (MemberWorkKit, by default
+        // its survivors' spawn kit - stone axe, stone shovel, bone knife), so its jobs find a tool. 0-XNPCCore reads the kit
+        // through itemsOnEnterGame (SdcsStores' Kit segment) and looks in her bag, loot container and inventory window first,
+        // so a better tool the player hands over is used before the kit. SCore copies the list into her toolbelt and its
+        // FindWeapon accepts anything on it, which lets 0-XNPCCore equip a kit tool for a job. A kit tool is never a fighting
+        // weapon: every place that could put one in her hand for a fight asks IsKitOnly (ScJobs' thrust, block-breaker and
+        // carried-weapons guards, ScArms.OnSwap for the dialog's, the voice's and AnyWeapon's swaps, KitOutOfHand at load).
+        // Members only (SC's survivors, never raiders, strangers or prospects); a body gets it at its PostInit (Rewrite) or,
+        // for one that became a member since or was re-created under a new id, from ScJobs' once-per-body check (EnsureWorkKit).
+
+        private static readonly List<string> noKit = new List<string>();
+
+        /// <summary>
+        /// The work kit items this body should carry after its pair: MemberWorkKit's items that exist, for one of the community's
+        /// 0-XNPCCore survivors (a survivor class, never a raider) who is a member; empty for everyone else.
+        /// </summary>
+        private static List<string> WorkKitFor(EntityAlive e, string cls)
+        {
+            if (e == null || ScConfig.MemberWorkKit.Count == 0 || !ScXnpc.IsSurvivorClass(cls) || ScXnpc.IsRaiderClass(cls)) return noKit;
+            if (!ScRegistry.Loaded || ScRegistry.GetMember(e.entityId) == null) return noKit;
+            var list = new List<string>();
+            foreach (string item in ScConfig.MemberWorkKit)
+            {
+                ItemClass ic = ItemClass.GetItemClass(item, true);
+                if (ic == null) { ScLog.Once("loadout-kit-item-" + item, "MemberWorkKit: no item " + item + " - left out of the members' work kit"); continue; }
+                string name = ic.GetItemName();
+                if (!list.Exists(x => string.Equals(x, name, StringComparison.OrdinalIgnoreCase))) list.Add(name);
+            }
+            return list;
+        }
+
+        /// <summary>Is this item one of MemberWorkKit's (by name)?</summary>
+        public static bool IsWorkKitItem(string item)
+        {
+            if (string.IsNullOrEmpty(item)) return false;
+            foreach (string k in ScConfig.MemberWorkKit) if (string.Equals(k, item, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// A work-kit tool this body carries only as its kit: one of MemberWorkKit, on its item list, not the pair's melee or
+        /// ranged weapon (a member whose rolled melee is the bone knife fights with it), and no copy of it in her inventory
+        /// window or bag (a tool the player handed over is hers to use as she likes). Never a fighting weapon.
+        /// </summary>
+        public static bool IsKitOnly(EntityAlive e, string item)
+        {
+            if (e == null || e.itemsOnEnterGame == null || !IsWorkKitItem(item)) return false;
+            bool listed = false;
+            foreach (ItemStack st in e.itemsOnEnterGame)
+                if (st != null && st.itemValue != null && st.itemValue.ItemClass != null && string.Equals(st.itemValue.ItemClass.GetItemName(), item, StringComparison.OrdinalIgnoreCase)) { listed = true; break; }
+            if (!listed) return false;
+            Loadout l = Current(e);
+            if (l != null && (string.Equals(l.Melee, item, StringComparison.OrdinalIgnoreCase) || string.Equals(l.Ranged, item, StringComparison.OrdinalIgnoreCase))) return false;
+            ItemClass ic = ItemClass.GetItemClass(item, true);
+            return ic != null && !Handed(e, ic.Id);
+        }
+
+        /// <summary>A copy of this item in her inventory window or bag (what the player handed over).</summary>
+        private static bool Handed(EntityAlive e, int type)
+        {
+            if (HarvestManager.Has(e.entityId))
+            {
+                ItemStack[] w = HarvestManager.GetOrCreate(e.entityId).items;
+                if (w != null) foreach (ItemStack s in w) if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == type) return true;
+            }
+            ItemStack[] b = e.bag != null ? e.bag.ItemGrid.items : null;
+            if (b != null) foreach (ItemStack s in b) if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == type) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// ScJobs' once-per-body check: the item list of a member's body carries exactly the pair and the work kit (a body that
+        /// became a member after its PostInit, or one re-created under a new id, gets the kit now; one that is no member any
+        /// more loses it), the toolbelt refilled as SCore's PostInit fills it. True when it changed.
+        /// </summary>
+        public static bool EnsureWorkKit(EntityAlive e)
+        {
+            if (e == null || e.itemsOnEnterGame == null || e.inventory == null || !ScNpc.IsV4(e) || ScMedic.IsUsing(e.entityId)) return false;
+            string cls = ScCommunity.ClassName(e);
+            if (!IsBodyClass(cls) || ScXnpc.IsBanditRaiderClass(e.entityClass)) return false;
+            Loadout l = Current(e);
+            if (l == null || l.Melee == null) return false;
+            int before = e.itemsOnEnterGame.Count;
+            if (!Rewrite(e, cls, XnpcOrder(l))) return false;
+            Refill(e, before);
+            ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): work kit " + (e.itemsOnEnterGame.Count > before ? "given" : "taken off")
+                          + " - item list now " + ItemListText(e));
+            return true;
+        }
+
+        private static string ItemListText(EntityAlive e)
+        {
+            var names = new List<string>();
+            foreach (ItemStack st in e.itemsOnEnterGame) names.Add(st != null && st.itemValue != null && st.itemValue.ItemClass != null ? st.itemValue.ItemClass.GetItemName() : "?");
+            return string.Join(", ", names.ToArray());
+        }
+
+        /// <summary>
+        /// AfterPostInit: a body saved holding a kit tool (a job in progress) comes back holding it - SCore's load re-equips the
+        /// saved hand item by name, which the kit on its item list makes legal. The pair's melee weapon goes in the hand instead
+        /// (0-XNPCCore's world-entry re-arm then draws the gun by its own rules; a job that goes on takes its tool again).
+        /// </summary>
+        private static void KitOutOfHand(EntityAlive e)
+        {
+            ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            string inHand = held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : null;
+            if (inHand == null || !IsKitOnly(e, inHand)) return;
+            string why;
+            if (Arm(e, false, out why)) ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") loaded holding the work kit's " + inHand + " - the pair's melee weapon back in hand");
+            else ScLog.Warn(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") loaded holding the work kit's " + inHand + " and could not be re-armed: " + why);
+        }
+#endif
 
         // ---- ammo (survivors: decision D3; raiders: M10-D2) ----
 
@@ -758,6 +882,9 @@ namespace SurvivorCommunity
                 bool runnerRestore = ScRunners.Restoring;
                 // saved while bandaging: the item back into its inventory, the weapon back into the hand (re-check)
                 ScMedic.FixLoadedHand(e);
+#if SC_V34
+                KitOutOfHand(e);                         // round 29a (J29): saved mid-job holding a work-kit tool: the pair's melee instead
+#endif
                 // the gun it held when it was saved (review F1, X13): before the window move and the arming, so their
                 // guards see the real gun (each unloads a loose-loaded gun before magazines arrive)
                 ScAmmo.RestoreHeldGun(e, runnerRestore);

@@ -649,6 +649,11 @@ namespace SurvivorCommunity
                 if (cur == null) return;
                 if (string.Equals(cur.Ranged, token, StringComparison.OrdinalIgnoreCase) || string.Equals(cur.Melee, token, StringComparison.OrdinalIgnoreCase)) return;
                 int slot = WindowSlot(npc, ic.Id);
+#if SC_V34
+                // round 29a (J29): a work-kit tool she was told to fight with (the weapon menu, "use the bone knife", AnyWeapon's
+                // fallback) goes back in the kit and the pair's melee weapon in the hand - kit tools are for jobs only
+                if (slot < 0 && ScLoadout.IsKitOnly(npc, token)) { ScJobs.KitToolRefused(npc, m, token, player, route); return; }
+#endif
                 if (slot < 0) return;                        // not handed over through the window: nothing to keep
                 // somebody has this window open (ScAmmo.IsWindowOpen): a remote player's copy, written back over every slot
                 // when they close it, would put the weapon back in the window while it is also in the pair, and the host's
