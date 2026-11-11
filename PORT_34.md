@@ -3745,3 +3745,18 @@ Builds: SC 3.4 `32474de4161592a304e5ad242fe095d1` (`build\sc34_x3`), 0 errors. N
 - L7 (noted): the pager rect is appended to `windowResponses` unconditionally and names `XUiC_ScDialogPager`, which the tracked
   3.2 DLL (2026-11-03) lacks: rebuild the 3.2 DLL before any 3.2 deploy of this Config.
 Build after the fixes: SC 3.4 `88100e47fe5206a777912c12439933fd` (`build\sc34_x3b`); the 3.2 configuration compiles.
+
+Fable glance at 18d56c5: **DEPLOYABLE**. Two new LOWs in the cap path, left for the next round (the reviewed build was installed):
+- LOW A: `TalkSince` doesn't move while the cap is deferred under an open talk, so after a talk open 10+ minutes, a window picked
+  from it (Craft, inventory, the wheel) is shut on the next tick and the hold ends. Fix: reset `TalkSince` in the deferral branch.
+- LOW B: the cap's close loop doesn't check the window is hers (only reachable past 600 s); close the looting window only if
+  `LootBoundTo`, the craft window and wheel only if `CurrentNPC` is her. Harmless otherwise (the normal close path).
+- To look at in game: whether Voice Control's craft window reopens the dialog with her on close.
+
+### Round 28 installed (2026-11-10 22:51)
+
+With the user's go-ahead (3.4 game closed): round 28 (X3: 0-XNPCCore / Voice Control 3.4.04, no Trade or Pick me up on SC's people,
+the talk link, Craft... for every member, the dialog pager) with its review fixes. Fable: review DEPLOYABLE (7 LOW; 5 fixed) ->
+glance DEPLOYABLE (2 LOW, logged above). port-3.4 fast-forwarded to `ms/x3` 18d56c5; `deploy_sc34.py`: 13232 files, installed =
+built `88100e47fe5206a777912c12439933fd`. The old install is in `Port33\_backups\sc34_2026-11-10_225130`; the user's
+`DebugLogging` true set again. Untested in game: TESTING X3 (570-586), and still P2 (500-511) and R2 (520-562).
