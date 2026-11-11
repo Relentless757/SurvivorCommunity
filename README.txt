@@ -59,6 +59,13 @@ Getting started
 - The community window opens from the ESC menu (Community), from the land claim's radial menu, and from its own tab.
 - Followers and residents can craft through 0-XNPCCore's crafting. Talk to a resident at home (both of you inside
   the base) and pick "Craft..."; an order starts their work shift. Their specialty stars decide what they can make.
+- Residents also do 0-XNPCCore's home jobs (Chop wood, Pick, Butcher, Base repair, Combat repair) through "Jobs and
+  gear". Every member carries a work kit for them (stone axe, stone shovel, bone knife) and never fights with it. What a
+  resident gathers goes into the crates at home, and crops they pick are replanted. Mining and digging clay are not home
+  jobs.
+- A handheld radio (workbench, rare loot, traders) opens the home radio station's window from anywhere while the station
+  has power: a tab left of the Community tab shows while one is in your bag or toolbelt. A runner who carries a radio
+  talks to you during supply runs, calls for help when attacked, and can be told to come home.
 - A talk page with more rows than the window shows splits into pages: roll the mouse wheel over the rows, push the
   gamepad's right stick, or click the arrows beside the "1/2" at the top right. "Nevermind." is on every page.
 
