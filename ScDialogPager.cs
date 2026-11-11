@@ -111,6 +111,7 @@ namespace SurvivorCommunity
                 {
                     s.Statement = st;
                     s.Page = 0;                            // a new statement starts on page 1
+                    s.Version++;                           // review L2: the indicator repaints for it
                 }
                 int slots = ui.entryList != null ? ui.entryList.Count : 0;   // the window's slots (10 in vanilla's XUi), never hardcoded
                 if (!ScConfig.DialogPager || slots < 2 || all.Count <= slots) return Single(s, all);

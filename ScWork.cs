@@ -180,6 +180,7 @@ namespace SurvivorCommunity
             if (!ScCommunity.IsHost) { why = "not the host"; return false; }
             if (ScWatch.OnWatch(m)) { why = "on watch"; return false; }
             if (npc.IsDead() || npc.Buffs == null) { why = "no live body"; return false; }
+            if (!ScXnpc.HasXnpcLevels(npc)) { why = "not a 0-XNPCCore body"; return false; }   // review L3
             if (!ScZone.HasHome || !ScZone.Contains(npc.GetBlockPosition()) || !ScZone.Contains(player.GetBlockPosition())) { why = "you or she outside the home zone"; return false; }
             return true;
         }
@@ -252,18 +253,30 @@ namespace SurvivorCommunity
         /// </summary>
         private static bool TalkOpen(EntityAlive npc)
         {
-            EntityPlayerLocal player = ScCommunity.LocalPlayer;
-            LocalPlayerUI ui = player != null ? player.PlayerUI : null;
-            GUIWindowManager wm = ui != null ? ui.windowManager : null;
-            if (wm == null || npc == null) return false;
-            if (wm.IsWindowOpen(DialogGroup))
+            try
             {
-                EntityNPC r = ui.xui != null && ui.xui.Dialog != null ? ui.xui.Dialog.Respondent : null;
-                if (r != null && r.entityId == npc.entityId) return true;
+                EntityPlayerLocal player = ScCommunity.LocalPlayer;
+                LocalPlayerUI ui = player != null ? player.PlayerUI : null;
+                GUIWindowManager wm = ui != null ? ui.windowManager : null;
+                if (wm == null || npc == null) return false;
+                if (DialogWithHer(ui, wm, npc)) return true;
+                if (player.Buffs == null || (int)player.Buffs.GetCustomVar("CurrentNPC") != npc.entityId) return false;
+                if (wm.IsWindowOpen(CraftGroup) || wm.IsWindowOpen(WheelGroup)) return true;
+                return wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc);
             }
-            if (player.Buffs == null || (int)player.Buffs.GetCustomVar("CurrentNPC") != npc.entityId) return false;
-            if (wm.IsWindowOpen(CraftGroup) || wm.IsWindowOpen(WheelGroup)) return true;
-            return wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc);
+            catch (Exception e)
+            {
+                ScLog.Once("work-talk-open", e);    // review L5: a throw here must not stop the grace and the cap
+                return false;
+            }
+        }
+
+        /// <summary>Round 28: the talk window is open with her as the respondent.</summary>
+        private static bool DialogWithHer(LocalPlayerUI ui, GUIWindowManager wm, EntityAlive npc)
+        {
+            if (ui == null || wm == null || npc == null || !wm.IsWindowOpen(DialogGroup)) return false;
+            EntityNPC r = ui.xui != null && ui.xui.Dialog != null ? ui.xui.Dialog.Respondent : null;
+            return r != null && r.entityId == npc.entityId;
         }
 
         /// <summary>The looting window shows her SCore inventory (Voice Control's own test: the group's or its loot window's te).</summary>
@@ -295,7 +308,16 @@ namespace SurvivorCommunity
                 End(m, npc, "the talk is over", true, false);
                 return;
             }
-            if (real - s.TalkSince >= TalkCapSeconds) End(m, npc, "the talk hold's " + (int)TalkCapSeconds + " s cap", true, false);
+            if (real - s.TalkSince < TalkCapSeconds) return;
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            LocalPlayerUI ui = player != null ? player.PlayerUI : null;
+            GUIWindowManager wm = ui != null ? ui.windowManager : null;
+            if (DialogWithHer(ui, wm, npc)) return;           // review L1: never under an open talk with her
+            // review L1: a craft window, wheel or her inventory still open on her would be left without the link
+            if (wm != null)
+                foreach (string g in new[] { CraftGroup, WheelGroup, LootGroup })
+                    if (wm.IsWindowOpen(g)) wm.Close(g);
+            End(m, npc, "the talk hold's " + (int)TalkCapSeconds + " s cap", true, false);
         }
 
         /// <summary>Round 28: her first craft order or job of a talk hold makes it a work shift (from here on today's rules).</summary>
@@ -333,7 +355,7 @@ namespace SurvivorCommunity
                 {
                     if (s != null) Deposit(m, npc, s, true);
                     npc.Buffs.RemoveCustomVar(ShiftCvar);
-                    if (station) ScCommunity.Station(m, npc);       // Detach drops her craft order first (DropJob)
+                    if (station) ScCommunity.Station(m, npc, !talk);   // Detach drops her craft order first (DropJob); review L6: no teleport after a talk
                     else ScCommunity.Detach(npc, ScCommunity.LocalPlayer);
                     DropMarker(npc);                                // SCore drew a hire marker for the owner link: it goes with it
                 }

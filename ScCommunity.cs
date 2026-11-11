@@ -260,8 +260,9 @@ namespace SurvivorCommunity
 
         // ---- stationing ----
 
-        /// <summary>Makes the member a resident at their post (the FarmHere shape). The entity must be loaded.</summary>
-        public static void Station(Member m, EntityAlive npc)
+        /// <summary>Makes the member a resident at their post (the FarmHere shape). The entity must be loaded. teleport false
+        /// (round 28 review L6, a talk hold's end in front of the player): she walks back however far the post is.</summary>
+        public static void Station(Member m, EntityAlive npc, bool teleport = true)
         {
             if (m == null || npc == null) return;
             try
@@ -299,7 +300,7 @@ namespace SurvivorCommunity
                 }
                 if (ScZone.IsLoaded(m.Post)) m.PostChecked = true;      // validated just now (CheckPostOnce)
                 Vector3 post = PostCenter(m);
-                if (Vector3.Distance(npc.position, post) > 40f && ScZone.IsLoaded(m.Post))
+                if (teleport && Vector3.Distance(npc.position, post) > 40f && ScZone.IsLoaded(m.Post))
                 {
                     npc.SetPosition(post, true);
                 }

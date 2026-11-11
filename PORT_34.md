@@ -3731,3 +3731,17 @@ Inventory installed; Voice Control taking `PickupResult.Refused` from a prefix; 
 enlisted enclave person; the seat guard (no normal path reaches it).
 
 Builds: SC 3.4 `32474de4161592a304e5ad242fe095d1` (`build\sc34_x3`), 0 errors. Not reviewed, not installed.
+
+**Fable review of eb71d47: DEPLOYABLE**, no HIGH or MEDIUM; it rebuilt the DLL (same md5) and re-ran the replay. Seven LOW:
+- L1: the 600 s cap could end a hold under a still-open talk (stale rows; Craft... then opens with no link). Now the cap never
+  fires while the talk with her is open, and when it does end a hold it closes the craft window, wheel and her inventory first.
+- L2: a new statement reset the page without bumping the indicator's version ("2/2" until the first flip): bumped.
+- L3: `CanHold` lost the 0-XNPCCore body test with the work-package test: only `ScXnpc.HasXnpcLevels` bodies get the link.
+- L4 (accepted): the craft window and wheel count for her while the player's `CurrentNPC` is still her (never cleared after a
+  talk; the ring's Wheel/Inventory don't set it) - a wheel opened within 2 s for someone else holds her until it closes.
+- L5: `TalkOpen` runs inside its own try (a throw no longer stops the grace and the cap).
+- L6: a hold's end went through `Station`, which teleports beyond 40 m: `Station(m, npc, teleport: false)` for talk ends, so she
+  walks back.
+- L7 (noted): the pager rect is appended to `windowResponses` unconditionally and names `XUiC_ScDialogPager`, which the tracked
+  3.2 DLL (2026-11-03) lacks: rebuild the 3.2 DLL before any 3.2 deploy of this Config.
+Build after the fixes: SC 3.4 `88100e47fe5206a777912c12439933fd` (`build\sc34_x3b`); the 3.2 configuration compiles.
