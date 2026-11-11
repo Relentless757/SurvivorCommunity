@@ -182,6 +182,7 @@ namespace SurvivorCommunity
                         if (m != null && m.Status == MemberStatus.Resident)
                         {
                             m.Status = MemberStatus.Following;
+                            ScStuck.ResetGain(m);   // round 29 review L5: no held move back outlives the status
                             // SCore's hire sets the follow order itself, but the cvar can lag a tick; the ticker
                             // reconciles it either way. Recorded because this silently changes a member's state.
                             ScLog.Warn(m.Name + " was hired through the vanilla popup - treated as Follow (order now "

@@ -4149,3 +4149,87 @@ shift path (inert until 29a's merge).
 
 Builds: SC 3.4 `a47c0da5c8ae7249851d18a67505eb40` (`build\sc34_m29`), 0 errors. The 3.2 DLL was not rebuilt. Not reviewed, not
 installed.
+
+### Fable review of round 29 (2026-11-11, fixes built on `ms/r29`, not installed)
+
+Fable reviewed `2475f88..29a2659` (rounds 29a and 29b merged, with the merge's `ScWork.AllowsWatchdog` hook): **DEPLOYABLE**,
+two MEDIUM and nine LOW. Fixed here (all 3.4-only code except L5, which is shared):
+
+- **M1 (`ScWork.DutyTick`, `ScWork.cs:590-610`):** Combat repair (mode 9) ended itself at night when nothing was damaged -
+  exactly when it is wanted, before a horde and between its waves. A Combat repair duty now never ends at night (`night` is
+  false for it), and while it has a live foe near (`ScCommunity.LiveFoe` within `FightRange`) its idle clock starts again
+  (the console state ends `, a foe near`): only `RepairDutyIdleMinutes` of quiet with nothing to repair end it. Base repair
+  (mode 8) keeps its night end. Its first look says `scDutyNothing` ("keeps watch ... up to 5 minutes") at night too
+  (`TellDutyStart` gets night false). The start line and the `RepairDutyIdleMinutes` comment in `Config/blocks.xml` say so.
+- **M2 (`ScJobs.KitFightTick` / `KitFightOne`, `ScJobs.cs:889-929`, from `ScJobs.Tick` :1279 in its own try):** 0-XNPCCore keeps
+  a job's tool in her hand between its targets (the harvest and butcher tasks' `KeepTool`), and its close-range swap only starts
+  from a ranged weapon, so a zombie that reached her between two trees was fought with the stone axe. Once a second, for every
+  member: held item a kit-only tool (`ScLoadout.IsWorkKitItem`, then `IsKitOnly`), no run of `UAITaskHarvestSdcs` /
+  `UAITaskButcherSdcs` going on (`HasActiveRun`, public) and none of 0-XNPCCore's job tasks (harvest, butcher, base keeper) as
+  her executing UAI task (`JobTaskRunning`: then she is working, and those tasks put her weapon back themselves when they stop),
+  and a live foe (`KitFoe`: `LiveFoe` within `FightRange`, else a live attack or revenge target at any range). Then her weapon
+  goes back: when a job set it aside (`UAITaskHarvestSdcs.HoldsJobTool`, public) through 0-XNPCCore's own internal static
+  `UAITaskHarvestSdcs.RestoreWeapon(EntityAlive)` (bound once by name and exact signature, `RestoreWeaponMethod` :822; a
+  missing one warns once) - the weapon she held before the tool, equipped by `SdcsEquipByName` at once; else the pair's melee
+  weapon (`ArmPairMelee`, below). The job takes its tool again when its next run starts (`EquipTool` in its `Start`). At most
+  every 3 s per member (`KitFightRetrySeconds`); log `<name> held the work kit's <tool> with a foe near (<foe> at N m) - <how>:
+  <weapon> in hand`, counters `kit-tool-put-away-for-a-fight` / `kit-tool-in-a-fight-not-re-armed`. Checked against the real
+  3.4.04 `NPCSdcsCharacters.dll` (md5 `4807dce3...`, ilspycmd): `internal static void RestoreWeapon(EntityAlive self)` (removes
+  `_prevWeapon`, `SdcsForceChatDraw` + `SdcsEquipByName(..., "harvest-end")`), `public static bool HoldsJobTool(int)`,
+  `HasActiveRun(int)` on both tasks; the base keeper's `Stop` always calls `RestoreWeapon`, so between repairs it never keeps a
+  tool. TESTING J29 618.
+- **L1 (`ScJobs.KitToolRefused` :594, `ScJobs.ArmPairMelee` :842; reached from `ScArms.cs:655`):** after a refused kit tool the
+  pair's melee weapon is armed and 0-XNPCCore is told through its public `AnyWeaponBridge.AnyWeaponNoteEquipped(npc, melee)`
+  (`ScLoadout.XnpcMelee`), so `sdcsHeldWeaponRemembered` no longer holds the tool for a close-range exit or a failover to put
+  back. `KitFightTick`'s fallback uses the same path. TESTING 621.
+- **L2 (`ScJobs.KitTick` :798, `ScLoadout.EnsureWorkKit(EntityAlive, out bool done)` :823):** a body goes into `kitChecked` only
+  when `EnsureWorkKit` got past its guards: `done` is false while it is not set up, bandaging (`ScMedic.IsUsing`) or its pair is
+  not resolved (no loadout, no melee, or a weapon `XnpcOrder` cannot find), true once checked or for a body that never takes a
+  kit (no V4, not a body class, a bandit raider). A deferred check counts `kit-check-deferred`; a fault is not retried. TESTING 622.
+- **L3 (`ScStorage.TopUpInZone`, `ScStorage.cs:483-515`):** `count` and `left` live outside the try, `left` goes down right after
+  each `UpdateSlot`, and the catch returns `count - left`: a fault part way reports what already went in, so `Deposit` never puts
+  it in twice.
+- **L4 (`ScWork.TrimLedger` :858, from `Deposit` :812):** the ledger could outlive items the player took out of her window, and
+  later items of that kind (repair materials handed over) were swept to the crates. Whenever `Deposit` runs with the window
+  closed (every 5 s, so at most 5 s after the player closes it) every ledger entry is clamped to her window's count of that item
+  first; entries at 0 go; `sc craft`'s summary counts `ledger items no longer in a window`. Safe for crafting too: the backpack
+  craft notes its item after putting it in the window, and a station's output is noted (`PayXp`) and moved to the window
+  (`MoveOut`) in the same call; what never fits there is not hers to deposit anyway. Not covered (documented): taking her
+  gathered items out and handing over as many of the same item in one visit to her window. TESTING 620.
+- **L5 (`ScStuck.ResetGain`):** a move back held while the player watched could survive a status change and teleport her in
+  sight later. `ResetGain` now runs in `ScCommunity.Station` (:324, every way home), `FollowInternal` (:1121, Follow and
+  heading-home), the vanilla hire popup (`ModApi.cs:185`), both run starts (`ScRuns.cs:61`, :102), an outpost posting
+  (`ScGarrison.cs:144`), and a repair duty's start (`ScWork.cs:579`, with `ResetStill`). TESTING M29 673.
+- **L9 (`ScJobs.Patch_RosterNoResidents`, :1147, :1156):** Voice Control asks for the roster on every game update
+  (`SquadStanceDisplay.OnGameUpdate`), so `roster-residents-left-out` counted every frame; it now counts once per change of how
+  many residents were left out (`rosterLastLeftOut`, reset with the session).
+
+Documented only (TESTING notes beside the steps they touch):
+- **L6:** a duty's stuck rescue moves her to the home post, not the job's pin: a damaged block she cannot path to gives a loop
+  (walk to it, moved home, walk back), slowed by the rescue's back-off until the duty's idle end (TESTING 610).
+- **L7:** with Locked & Loaded, magazines a re-created runner carried in her inventory window may come twice - the carried
+  window and `ScAmmo.RestoreMagazines`' record (rare; TESTING 614).
+- **L8:** the roam's no-progress rule may now and then end a long detour whose path is re-planned part way; the spot is then
+  skipped for 5 min (low consequence; TESTING 655).
+- A spoken squad order's answer can still come from a resident: Voice Control's answer is the named or targeted NPC's
+  (`ExecuteForSquad`'s `ackResponderId`, picked before the order reaches the squad), while only the followers act on it
+  (TESTING 613).
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_r29b`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build to a scratch folder); the 3.2 configuration to a scratch folder, 0 errors; the tracked 3.2
+  `SurvivorCommunity.dll` untouched (`c4ad303a...`).
+- `cctor_order.py` on the ilspy IL dumps: 3.4 141 static constructors, 3.2 126, 0 reads before store in either (the new
+  statics - `kitFightNext`, `rosterLastLeftOut`, `inWindow`, `ledgerKeys` - read no other static).
+- The built 3.4 DLL calls `[NPCSdcsCharacters]AnyWeaponBridge::AnyWeaponNoteEquipped`, `UAITaskButcherSdcs::HasActiveRun`,
+  `UAITaskHarvestSdcs::HoldsJobTool` and holds the string `RestoreWeapon`; `ScStuck::ResetGain` is called from the new sites in
+  both builds; the 3.2 build has no `KitFightTick`.
+- Harmony: no new target (`RestoreWeapon` is invoked, not patched), `ModApi.cs ExpectedTargets()` unchanged.
+- XML replay (scratch `x3\r29_checks.py`): SC 201/201 on 3.4 alone, 200/200 with AshfallUI (its own 2279/2279), no aborts.
+- Every file touched LF, no BOM; no new localization key.
+
+**Not checked (in game only, TESTING J29 610-622, M29 673):** the fight switch's feel (a job's tool, a zombie between targets,
+the job taking its tool again), Combat repair through a night's waves, the ledger trim after the player empties her window, the
+deferred kit check on a busy recruit.
+
+Builds: SC 3.4 `596f8abe9bb54d89503c9a72c69b6a17` (`build\sc34_r29b`), 0 errors. Not installed.

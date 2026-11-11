@@ -2414,21 +2414,30 @@ Jobs and gear > Jobs. Test on a new world or a copy; `dm` for the creative menu.
      Jobs > Base Repair: `<name> starts a Base repair duty at ...`; she repairs it. With nothing more to repair, about 5 min later
      `work shift ends (nothing to repair for 5 min (nothing damaged))` and she walks home; given at night with nothing damaged, she
      goes home at once. `sc craft <name>` meanwhile: `Base repair duty for N s, nothing to repair for N s of 300 (<state>)`.
+     Known (round 29 review L6, not fixed): the duty's stuck rescue moves her to her home post, not to the job's spot, so a
+     damaged block she cannot path to gives a loop - she walks to it, is moved home, walks back - slowed by the rescue's back-off
+     (24 s, 48 s ...) until the duty's idle end.
 611. **What is missing.** Damage a cobblestone block with no cobblestone in reach: a few seconds after Base Repair the tooltip
      `<name> can't repair the Cobblestone Block: put its materials in an unlocked chest within 15 m ...`. Nothing damaged by day:
      `<name> finds nothing to repair yet and keeps watch over the base for up to 5 minutes.` With `MemberWorkKit` empty (restart)
      and no tool handed over: `<name> has no repair tool for the repair duty ...`. Put the kit back.
 612. **Combat repair.** `sc attack now`, then Jobs > Combat Repair on a resident inside the claim (wood in a chest within 15 m):
-     she repairs the newest hits first, during the fight too, and ends 5 min after the last thing she could repair.
+     she repairs the newest hits first, during the fight too, and ends 5 min after the last thing she could repair and the last
+     foe near her (round 29 review M1: see 619 for the night).
 613. **Squad orders.** A resident on a work shift (any home job) and a follower: open the order wheel (semicolon) and Shift+click
      Follow: only the follower follows; the resident keeps working (`roster-residents-left-out`). Say the squad word with "follow
      me": the same (`squad-residents-left-out`). With only residents linked the wheel says no one is near. Jobs and gear on the
-     resident still opens her page, and its jobs still reach her.
+     resident still opens her page, and its jobs still reach her. `roster-residents-left-out` now grows once each time the number
+     of residents left out changes, not on every frame (round 29 review L9). Known (round 29 review, not fixed): the spoken
+     squad order's answer ("On my way!") can still come from a resident - Voice Control's answer is the named or targeted NPC's,
+     picked before the order reaches the squad - while only the followers act on it.
 614. **A runner's inventory.** Put a bandage in a resident's inventory, send her on a physical supply run, and get her
      re-created under a new id (the log `<name>: entity id A -> B`): `<name>'s inventory window came with them to entity B: 1
      item(s)`; back home Show me your inventory has the bandage. An offline death (`RunDeathShare` 1 for the test, restart):
      `<name> died on the road - what their inventory window held is lost with them: 1x Bandage` and the tooltip `What <name> had
-     in their inventory is lost with them: ...`.
+     in their inventory is lost with them: ...`. Known (round 29 review L7, rare, not fixed): with Locked & Loaded, magazines a
+     re-created runner carried in her inventory window may come twice (the carried window and ScAmmo.RestoreMagazines' record) -
+     note it if her magazine count grows after a re-key.
 615. **Long talks.** Keep a talk with a resident open for 11 minutes, then pick Show me your inventory: her inventory stays open
      and the hold goes on (it used to be shut on the next second). Close everything: 2 s later `shift: none`.
 616. **Other jobs on residents (unchanged, by design).** Come here on a resident (from the ring) does nothing but her nod; Guard
@@ -2437,6 +2446,30 @@ Jobs and gear > Jobs. Test on a new world or a copy; `dm` for the creative menu.
 617. **Followers unchanged.** A follower in a forest with nothing handed over: Wood works with the kit axe; on a full pack she
      comes back and resumes after you empty her inventory (0-XNPCCore's own pause); her harvest stays in her inventory (not the
      crates).
+618. **Attacked mid-job: she switches to her weapon (round 29 review M2).** A resident (or a follower) chopping wood with the kit
+     axe, nothing handed over: let a zombie reach her (F6 one nearby) while she walks from one tree to the next. Within about a
+     second of it going for her she holds her own weapon again, not the stone axe, and fights with it; the log `<name> held the
+     work kit's meleeToolRepairT0StoneAxe with a foe near (<zombie> at N m) - 0-XNPCCore's job put her weapon back: <weapon> in
+     hand`; `sc craft`: `kit-tool-put-away-for-a-fight`. Once the zombie is dead the job goes on and takes the axe again at its
+     next tree. While she is swinging at a tree nothing of ours steps in (0-XNPCCore's own fight choice stops the job and puts
+     her weapon back). The same with Butcher and the bone knife. `kit-tool-in-a-fight-not-re-armed` should stay at 0.
+619. **Combat repair by night (round 29 review M1).** Jobs > Combat Repair at night with nothing damaged: she stays on the duty
+     (`<name> finds nothing to repair yet and keeps watch over the base for up to 5 minutes.`, no `work shift ends`); `sc attack
+     now` a while later: she repairs the hits during the fight. `sc craft <name>` while a zombie is at her: `nothing to repair
+     for 0 s of 300 (..., a foe near)`. About 5 min after the last repair and the last foe: `work shift ends (nothing to repair
+     for 5 min (...))`. Base Repair given at night with nothing damaged still goes home at once.
+620. **Gathered items taken out are no longer owed (round 29 review L4).** Fill the home crates so they take no wood, then Jobs >
+     Wood: the wood stays in her inventory (`sc craft <name>`: `still owed to the crates [resourceWood xN]`). Take all the wood
+     out through Show me your inventory and close it: within 5 s `still owed to the crates []` (DebugLogging: `<name>: N item(s)
+     on the work shift's ledger are no longer in her inventory window (taken out or used) - no longer owed to the crates`; `sc
+     craft`: `ledger items no longer in a window N`). Empty a crate, switch her to Base Repair and hand her wood as repair
+     material: it stays in her inventory, not swept to the crates. Known limit: taking the wood out and putting as much back in
+     one visit to her inventory still sends that many to the crates.
+621. **A kit tool refused is not remembered (round 29 review L1).** A follower with a gun and a club: say "use the bone knife":
+     she ends with the club (602). Then let her fight zombies for a while, up close and at range, and run her gun dry once: she
+     never ends up holding the bone knife (0-XNPCCore's close-range and dry-gun swaps put back the club, which it was told of).
+622. **The kit for a busy recruit (round 29 review L2, optional).** Recruit a stranger while they bandage themselves: `sc craft`
+     may show `kit-check-deferred` growing for a few seconds; once the bandage is done `sc loadout <name>` has the kit.
 
 **M29. Round 29b: wreck-aware spots, residents' stuck rescue, runners call when attacked, console in the log (3.4)**
 
@@ -2473,7 +2506,8 @@ put it back. Test on a new world or a copy; `dm` for F6 and the creative menu.
      tries to walk through or into the wreck: within about 8 s of pushing or sidestepping against it she stops, stands a while
      and walks somewhere else; the log (DebugLogging): `<name>: roam walk to x, y, z ended - no 1 m gain in 8 s (N m left); not
      sent there again for 5 min`; `sc xnpc <id>`: `roam spots out of reach: x y z (N min)`. A long walk round a building (away
-     from the spot for a while) is NOT ended this way.
+     from the spot for a while) is NOT ended this way. Known (round 29 review L8, low consequence, not fixed): a long detour
+     whose path is re-planned part way can still be ended this way now and then - the spot is then skipped for 5 min.
 656. **The watchdog catches a jittering body.** (Wreck Path Fix out.) A resident wedged against or inside the wreck, pushing and
      pausing again and again: within about half a minute of trying the log has `<name> was stuck (no 1 m gain toward the path's
      end in 24 s of trying) - moved back to the post ...` (its details include `no gain 24 s`), as long as you were looking away.
@@ -2523,6 +2557,9 @@ put it back. Test on a new world or a copy; `dm` for F6 and the creative menu.
 671. **Hostile animals and raiders.** A wolf or a zombie dog hitting her calls too, and so do SC's raiders (the log names them
      `raider <name> (...)`).
 672. **AshfallUI.** With AshfallUI the message shows in its tell area and the marker on its map as on vanilla's.
+673. **A held move back ends with her status (round 29 review L5).** While a move back is held (656: you looking at her), tell her
+     to follow you (or send her on a run, or give her a Base Repair duty): `sc xnpc <id>`'s post line no longer shows `move back
+     held`, and when she is a resident at home again she is not moved to her post in front of you a moment later.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

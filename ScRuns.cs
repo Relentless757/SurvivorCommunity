@@ -58,6 +58,7 @@ namespace SurvivorCommunity
             try
             {
                 m.Status = MemberStatus.OnRun;
+                ScStuck.ResetGain(m);   // round 29 review L5: no held move back outlives the status
                 m.RunKind = kind;
                 m.RunEndDay = ScCommunity.Today + Math.Max(1, ScConfig.RunDays);
                 Park(npc);
@@ -98,6 +99,7 @@ namespace SurvivorCommunity
             {
                 ulong now = w.worldTime;
                 m.Status = MemberStatus.OnRun;
+                ScStuck.ResetGain(m);   // round 29 review L5
                 m.RunKind = kind;
                 m.RunDest = dest.boundingBoxPosition;
                 m.RunDestName = ScSecurity.DisplayName(dest);

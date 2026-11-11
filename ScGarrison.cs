@@ -141,6 +141,7 @@ namespace SurvivorCommunity
             try
             {
                 m.Status = MemberStatus.Garrison;
+                ScStuck.ResetGain(m);   // round 29 review L5: no held move back outlives the status
                 m.OutpostId = o.Id;
                 ScRuns.Park(npc);
                 ScNpc.SendOnMission(npc, true);

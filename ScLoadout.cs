@@ -748,7 +748,8 @@ namespace SurvivorCommunity
         // so a better tool the player hands over is used before the kit. SCore copies the list into her toolbelt and its
         // FindWeapon accepts anything on it, which lets 0-XNPCCore equip a kit tool for a job. A kit tool is never a fighting
         // weapon: every place that could put one in her hand for a fight asks IsKitOnly (ScJobs' thrust, block-breaker and
-        // carried-weapons guards, ScArms.OnSwap for the dialog's, the voice's and AnyWeapon's swaps, KitOutOfHand at load).
+        // carried-weapons guards, ScArms.OnSwap for the dialog's, the voice's and AnyWeapon's swaps, KitOutOfHand at load, and
+        // ScJobs.KitFightTick for a tool a job kept in her hand when a fight comes - round 29 review M2).
         // Members only (SC's survivors, never raiders, strangers or prospects); a body gets it at its PostInit (Rewrite) or,
         // for one that became a member since or was re-created under a new id, from ScJobs' once-per-body check (EnsureWorkKit).
 
@@ -815,17 +816,23 @@ namespace SurvivorCommunity
         /// <summary>
         /// ScJobs' once-per-body check: the item list of a member's body carries exactly the pair and the work kit (a body that
         /// became a member after its PostInit, or one re-created under a new id, gets the kit now; one that is no member any
-        /// more loses it), the toolbelt refilled as SCore's PostInit fills it. True when it changed.
+        /// more loses it), the toolbelt refilled as SCore's PostInit fills it. True when it changed. done (round 29 review L2):
+        /// false while the body cannot be checked yet - not set up, bandaging (ScMedic), its pair not resolved - so ScJobs asks
+        /// again later; true once it was checked, or it never takes a kit (no V4 body, not a body class, a bandit raider).
         /// </summary>
-        public static bool EnsureWorkKit(EntityAlive e)
+        public static bool EnsureWorkKit(EntityAlive e, out bool done)
         {
-            if (e == null || e.itemsOnEnterGame == null || e.inventory == null || !ScNpc.IsV4(e) || ScMedic.IsUsing(e.entityId)) return false;
+            done = false;
+            if (e == null || e.itemsOnEnterGame == null || e.inventory == null || ScMedic.IsUsing(e.entityId)) return false;
+            done = true;
+            if (!ScNpc.IsV4(e)) return false;
             string cls = ScCommunity.ClassName(e);
             if (!IsBodyClass(cls) || ScXnpc.IsBanditRaiderClass(e.entityClass)) return false;
             Loadout l = Current(e);
-            if (l == null || l.Melee == null) return false;
+            List<Weapon> order = l != null && l.Melee != null ? XnpcOrder(l) : null;
+            if (order == null || order.Exists(x => x == null)) { done = false; return false; }
             int before = e.itemsOnEnterGame.Count;
-            if (!Rewrite(e, cls, XnpcOrder(l))) return false;
+            if (!Rewrite(e, cls, order)) return false;
             Refill(e, before);
             ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): work kit " + (e.itemsOnEnterGame.Count > before ? "given" : "taken off")
                           + " - item list now " + ItemListText(e));

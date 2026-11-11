@@ -28,7 +28,8 @@ namespace SurvivorCommunity
     ///  - The work kit is never a fighting weapon (decision 1): 0-XNPCCore's thrust pick (a stab through bars), its
     ///    block-breaker pick in a fight and the Carried weapons listing leave a kit-only tool out (ScLoadout.IsKitOnly);
     ///    ScArms.OnSwap puts the pair's melee weapon back when a swap put one in her hand (KitToolRefused); ScLoadout's
-    ///    AfterPostInit when a save did.
+    ///    AfterPostInit when a save did; and (round 29 review M2) KitFightTick when a job kept its tool in her hand between
+    ///    targets and a fight comes.
     ///  - Repair duty facts: 0-XNPCCore's own test of what she can repair (UAITaskBaseKeepSdcs.Repairable, PickRepairTool)
     ///    for ScWork.DutyTick, and what she says is missing at a duty's start.
     ///  - Squad orders never reach a resident: Voice Control's roster (XNPCVoiceControlMod.GetHiredRoster: the order wheel's
@@ -59,6 +60,8 @@ namespace SurvivorCommunity
             seedOf.Clear();
             kitChecked.Clear();
             nextKitCheck = 0f;
+            kitFightNext.Clear();
+            rosterLastLeftOut = -1;
         }
 
         /// <summary>The counters for sc craft (the work shifts' line).</summary>
@@ -579,15 +582,16 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// ScArms.OnSwap: a member was told to fight with a work-kit tool she carries only as her kit (the weapon menu, a spoken
-        /// "use ...", or 0-XNPCCore's AnyWeapon falling back on the kit): the pair's melee weapon goes back in her hand. Said to
-        /// the player for a swap they asked for (dialog, voice), not for AnyWeapon's own fallback.
+        /// "use ...", or 0-XNPCCore's AnyWeapon falling back on the kit): the pair's melee weapon goes back in her hand, and
+        /// (round 29 review L1) 0-XNPCCore is told so, so it does not remember the tool and put it back on a restore
+        /// (ArmPairMelee). Said to the player for a swap they asked for (dialog, voice), not for AnyWeapon's own fallback.
         /// </summary>
         public static void KitToolRefused(EntityAlive npc, Member m, string tool, EntityPlayer player, string route)
         {
             try
             {
                 string why;
-                bool armed = ScLoadout.Arm(npc, false, out why);
+                bool armed = ArmPairMelee(npc, out why);
                 Loadout l = ScLoadout.Current(npc);
                 Count("kit-tool-not-a-weapon-" + route);
                 ScLog.Out(m.Name + " was told to fight with the work kit's " + tool + " (" + route + ") - kit tools are for jobs: "
@@ -773,7 +777,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// Every KitCheckSeconds: each member's loaded body not checked yet gets the pair + work kit item list
         /// (ScLoadout.EnsureWorkKit) - a recruit who joined after their PostInit, a body re-created under a new id. A body's
-        /// own PostInit (a load, a re-create under the member's id) writes it anyway.
+        /// own PostInit (a load, a re-create under the member's id) writes it anyway. Round 29 review L2: a body counts as
+        /// checked only once EnsureWorkKit got past its guards (done) - one bandaging or with its pair not resolved yet at
+        /// that tick is asked again at the next.
         /// </summary>
         private static void KitTick()
         {
@@ -785,13 +791,141 @@ namespace SurvivorCommunity
                 if (m == null || kitChecked.Contains(m.Id)) continue;
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
                 if (npc == null || npc.IsDead()) continue;
-                kitChecked.Add(m.Id);
                 try
                 {
-                    if (ScLoadout.EnsureWorkKit(npc)) Count("kit-given-late");
+                    bool done;
+                    if (ScLoadout.EnsureWorkKit(npc, out done)) Count("kit-given-late");
+                    if (done) kitChecked.Add(m.Id);
+                    else Count("kit-check-deferred");
                 }
-                catch (Exception e) { ScLog.Once("jobs-kit-ensure", e); }
+                catch (Exception e)
+                {
+                    kitChecked.Add(m.Id);                 // a fault is not retried every KitCheckSeconds
+                    ScLog.Once("jobs-kit-ensure", e);
+                }
             }
+        }
+
+        // ================================================================== a kit tool in hand when a fight comes (review M2) ====
+
+        /// <summary>Per member id: the Time.time before which KitFightTick does not try her again.</summary>
+        private static readonly Dictionary<int, float> kitFightNext = new Dictionary<int, float>();
+        private const float KitFightRetrySeconds = 3f;
+        private static MethodInfo restoreWeapon;
+        private static bool restoreWeaponBound;
+
+        /// <summary>
+        /// 0-XNPCCore's internal static UAITaskHarvestSdcs.RestoreWeapon(EntityAlive) (3.4.04): the weapon a job set aside
+        /// (its _prevWeapon, shared by the harvest, butcher and base-keeper tasks) back in her hand. Null when gone - warned once,
+        /// and KitFightTick re-arms through SC's own Arm instead.
+        /// </summary>
+        private static MethodInfo RestoreWeaponMethod()
+        {
+            if (restoreWeaponBound) return restoreWeapon;
+            restoreWeaponBound = true;
+            try
+            {
+                MethodInfo mi = AccessTools.DeclaredMethod(typeof(UAITaskHarvestSdcs), "RestoreWeapon", new[] { typeof(EntityAlive) });
+                restoreWeapon = mi != null && mi.IsStatic && mi.ReturnType == typeof(void) ? mi : null;
+                if (restoreWeapon == null)
+                    ScLog.Warn("0-XNPCCore's UAITaskHarvestSdcs.RestoreWeapon(EntityAlive) not found - a member holding a work-kit tool when a fight comes gets the pair's melee weapon instead of the weapon her job set aside (0-XNPCCore update?)");
+            }
+            catch (Exception e) { ScLog.Once("jobs-bind-restore", e); }
+            return restoreWeapon;
+        }
+
+        /// <summary>
+        /// Round 29 review L1: the pair's melee weapon in her hand (ScLoadout.Arm), and 0-XNPCCore told so through its public
+        /// AnyWeaponBridge.AnyWeaponNoteEquipped - its remembered weapon (sdcsHeldWeaponRemembered), which a close-range exit or
+        /// a failover puts back, would otherwise still be the kit tool. False with why when she could not be armed.
+        /// </summary>
+        private static bool ArmPairMelee(EntityAlive npc, out string why)
+        {
+            if (!ScLoadout.Arm(npc, false, out why)) return false;
+            string melee = ScLoadout.XnpcMelee(npc);
+            if (!string.IsNullOrEmpty(melee) && !ScLoadout.IsKitOnly(npc, melee)) AnyWeaponBridge.AnyWeaponNoteEquipped(npc, melee);
+            return true;
+        }
+
+        private static string HeldName(EntityAlive npc)
+        {
+            ItemValue held = npc != null && npc.inventory != null ? npc.inventory.holdingItemItemValue : null;
+            return held != null && !held.IsEmpty() && held.ItemClass != null ? held.ItemClass.GetItemName() : null;
+        }
+
+        /// <summary>
+        /// One of 0-XNPCCore's job tasks (harvest, butcher, the base keeper) runs as her current UAI task: she is working, and
+        /// the task owns her hand (each puts her weapon back itself when it stops).
+        /// </summary>
+        private static bool JobTaskRunning(EntityAlive npc)
+        {
+            UAI.Context ctx = npc.utilityAIContext;
+            if (ctx == null || !ctx.ActionData.Executing) return false;
+            UAITaskBase t = ctx.ActionData.CurrentTask;
+            return t is UAITaskHarvestSdcs || t is UAITaskButcherSdcs || t is UAITaskBaseKeepSdcs;
+        }
+
+        /// <summary>A live foe she is busy with: LiveFoe within FightRange, else a live attack or revenge target at any range.</summary>
+        private static EntityAlive KitFoe(EntityAlive npc)
+        {
+            EntityAlive t = ScCommunity.LiveFoe(npc, ScCommunity.FightRange);
+            if (t != null) return t;
+            t = npc.GetAttackTarget();
+            if (t != null && t != npc && !t.IsDead()) return t;
+            t = npc.GetRevengeTarget();
+            return t != null && t != npc && !t.IsDead() ? t : null;
+        }
+
+        /// <summary>
+        /// Round 29 review M2: 0-XNPCCore keeps a job's tool in her hand between its targets (the harvest and butcher tasks'
+        /// KeepTool) and its close-range swap only starts from a ranged weapon, so a zombie that reached her between two trees
+        /// was fought with the stone axe. Once a second (Tick): a member whose held item is a kit-only tool
+        /// (ScLoadout.IsKitOnly), with no run of 0-XNPCCore's harvest or butcher task going on and none of its job tasks as her
+        /// current UAI task (then she is working, not fighting), while she has a live foe (KitFoe), gets her weapon back -
+        /// 0-XNPCCore's own RestoreWeapon when a job set it aside (the weapon she held before the tool), else the pair's melee
+        /// weapon (ArmPairMelee). The job takes its tool again when its next run starts (UAITaskHarvestSdcs.EquipTool). At most
+        /// every KitFightRetrySeconds per member; logged and counted.
+        /// </summary>
+        private static void KitFightTick()
+        {
+            if (!ScRegistry.Loaded || ScConfig.MemberWorkKit.Count == 0) return;
+            float now = Time.time;
+            foreach (Member m in ScRegistry.Members.Values)
+            {
+                if (m == null) continue;
+                try { KitFightOne(m, now); }
+                catch (Exception e) { ScLog.Once("jobs-kit-fight-one", e); }
+            }
+        }
+
+        private static void KitFightOne(Member m, float now)
+        {
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
+            if (npc == null || npc.IsDead() || npc.isEntityRemote || npc.inventory == null) return;
+            string tool = HeldName(npc);
+            if (tool == null || !ScLoadout.IsWorkKitItem(tool)) return;
+            float next;
+            if (kitFightNext.TryGetValue(m.Id, out next) && now < next) return;
+            int id = npc.entityId;
+            if (UAITaskHarvestSdcs.HasActiveRun(id) || UAITaskButcherSdcs.HasActiveRun(id) || JobTaskRunning(npc)) return;
+            EntityAlive foe = KitFoe(npc);
+            if (foe == null || !ScLoadout.IsKitOnly(npc, tool)) return;
+            kitFightNext[m.Id] = now + KitFightRetrySeconds;
+            string how, why = null;
+            MethodInfo restore = UAITaskHarvestSdcs.HoldsJobTool(id) ? RestoreWeaponMethod() : null;
+            if (restore != null)
+            {
+                restore.Invoke(null, new object[] { npc });
+                how = "0-XNPCCore's job put her weapon back";
+            }
+            else how = ArmPairMelee(npc, out why) ? "the pair's melee weapon" : null;
+            string inHand = HeldName(npc);
+            bool ok = how != null && (inHand == null || !ScLoadout.IsKitOnly(npc, inHand));
+            Count(ok ? "kit-tool-put-away-for-a-fight" : "kit-tool-in-a-fight-not-re-armed");
+            string foeText = ScCommunity.DisplayName(foe) + " at " + Vector3.Distance(npc.position, foe.position).ToString("0") + " m";
+            if (ok) ScLog.Out(m.Name + " held the work kit's " + tool + " with a foe near (" + foeText + ") - " + how + ": " + (inHand ?? "empty hands") + " in hand");
+            else ScLog.Out(m.Name + " holds the work kit's " + tool + " with a foe near (" + foeText + ") and could not be re-armed ("
+                           + (why ?? "still holds " + (inHand ?? "nothing")) + ") - tried again in " + KitFightRetrySeconds.ToString("0") + " s");
         }
 
         // ================================================================== Base repair / Combat repair: what she can repair ====
@@ -914,8 +1048,9 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The repair duty's first look (ScWork.DutyTick): what is missing, said once - no repair tool, the materials or the
-        /// skill for a damaged block - or that nothing is damaged yet (by day: she keeps watch until the duty's idle end).
-        /// Nothing when she can repair, without a land claim (0-XNPCCore says so itself and ends the job) or with the test unread.
+        /// skill for a damaged block - or that nothing is damaged yet (by day, or on a Combat repair duty at any hour - review
+        /// M1: night is false for it - she keeps watch until the duty's idle end). Nothing when she can repair, without a land
+        /// claim (0-XNPCCore says so itself and ends the job) or with the test unread.
         /// </summary>
         public static void TellDutyStart(Member m, RepairFacts f, bool night)
         {
@@ -1005,11 +1140,20 @@ namespace SurvivorCommunity
                     if (__result == null || __result.Count == 0 || !ScRegistry.Loaded) return;
                     int keep = WheelOpeningOn();
                     int n = __result.RemoveAll(e => e != null && e.entityId != keep && Resident(e) != null);
-                    if (n > 0) Count("roster-residents-left-out");
+                    // review L9: Voice Control asks for the roster on every game update (SquadStanceDisplay.OnGameUpdate), so
+                    // the counter goes up once per change of how many were left out, not once per call
+                    if (n != rosterLastLeftOut)
+                    {
+                        rosterLastLeftOut = n;
+                        if (n > 0) Count("roster-residents-left-out");
+                    }
                 }
                 catch (Exception e) { ScLog.Once("jobs-roster", e); }
             }
         }
+
+        /// <summary>Review L9: how many residents the roster's last call left out (-1: none yet), so the counter moves once per change.</summary>
+        private static int rosterLastLeftOut = -1;
 
         /// <summary>J29: a spoken squad order ("everyone, follow me") leaves the community's residents out too.</summary>
         [HarmonyPatch]
@@ -1119,7 +1263,10 @@ namespace SurvivorCommunity
 
         // ================================================================== the second ====
 
-        /// <summary>ScWork.Sweep, once a second (ScTicker): the plots to replant, the work kit's once-per-body check.</summary>
+        /// <summary>
+        /// ScWork.Sweep, once a second (ScTicker): the plots to replant, the work kit's once-per-body check, and (review M2) a
+        /// kit tool put away when a fight comes (KitFightTick, on its own: a fault in the others does not skip it).
+        /// </summary>
         public static void Tick(EntityPlayerLocal player)
         {
             if (!ScCommunity.IsHost) return;
@@ -1129,6 +1276,8 @@ namespace SurvivorCommunity
                 KitTick();
             }
             catch (Exception e) { ScLog.Once("jobs-tick", e); }
+            try { KitFightTick(); }
+            catch (Exception e) { ScLog.Once("jobs-kit-fight", e); }
         }
     }
 }

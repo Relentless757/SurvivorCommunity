@@ -591,7 +591,8 @@
 			     A better tool you hand over through Show me your inventory is used first. Kit tools are never used as weapons.
 			     Item names, comma separated; empty or none = no kit (then hand tools over yourself). Existing members get it the
 			     next time their body loads. RepairDutyIdleMinutes: a Base repair or Combat repair duty ends after this many
-			     minutes with nothing she can repair (1-240; at night at once), and she goes back to her post. At its start she
+			     minutes with nothing she can repair (1-240; Base repair at night at once; Combat repair never at night, and not
+			     while a foe is near her), and she goes back to her post. At its start she
 			     tells you what is missing (a repair tool, the materials for a damaged block). ReplantCrops: a member who picks a
 			     ripe crop of your farm (Pick crops) replants the plot with a seed of that crop from her inventory or the home
 			     crates; with no seed the plot stays empty. false: the plot stays empty. -->

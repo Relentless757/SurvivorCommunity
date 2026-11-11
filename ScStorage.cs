@@ -477,16 +477,19 @@ namespace SurvivorCommunity
         /// Round 29a (J29): adds what it can of a plain stackable item (no quality) onto stacks of the same item already in the
         /// home zone's linked storage, up to its stack size, so a member's home job - a few logs or a piece of meat every few
         /// seconds - fills one crate stack instead of a new slot each time. Returns how many went in; the rest is the caller's
-        /// (DepositInZone, into an empty slot). Takes nothing from the stack passed.
+        /// (DepositInZone, into an empty slot). Takes nothing from the stack passed. Round 29 review L3: a fault part way still
+        /// returns what already went in (each top-up counted the moment its slot is written), so the caller never puts it in twice.
         /// </summary>
         public static int TopUpInZone(ItemStack stack)
         {
+            int count = 0, left = 0;
             try
             {
                 if (stack == null || stack.IsEmpty() || stack.itemValue == null) return 0;
                 ItemClass ic = ItemClass.GetForId(stack.itemValue.type);
                 if (ic == null || !ic.CanStack() || ic.HasQuality) return 0;
-                int max = Math.Max(1, ic.Stacknumber.Value), left = stack.count;
+                int max = Math.Max(1, ic.Stacknumber.Value);
+                count = left = stack.count;
                 foreach (KeyValuePair<Vector3i, TEFeatureStorage> b in ZoneBoxes())
                 {
                     ItemStack[] items = b.Value.ItemGrid.items;
@@ -496,18 +499,18 @@ namespace SurvivorCommunity
                         if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.type != stack.itemValue.type || s.count >= max) continue;
                         int add = Math.Min(left, max - s.count);
                         b.Value.UpdateSlot(k, new ItemStack(s.itemValue.Clone(), s.count + add));
+                        left -= add;
                         b.Value.SetModified();
                         freeByBox.Remove(b.Key);
-                        left -= add;
                     }
                     if (left <= 0) break;
                 }
-                return stack.count - left;
+                return count - left;
             }
             catch (Exception e)
             {
                 ScLog.Once("storage-topup-zone", e);
-                return 0;
+                return count - left;
             }
         }
 

@@ -319,6 +319,9 @@ namespace SurvivorCommunity
                 ApplyAiPackage(npc);
                 m.Status = MemberStatus.Resident;
                 m.MissingDays = 0;
+                // round 29 review L5: the watchdog's no-gain count and a move back held while the player watched start again,
+                // so a stale held move cannot teleport her in sight later
+                ScStuck.ResetGain(m);
                 ScLog.Verbose(m.Name + " stationed at " + m.Post);
             }
             catch (Exception e)
@@ -1115,6 +1118,7 @@ namespace SurvivorCommunity
             ScNpc.SetLeaderAndOwner(npc.entityId, player.entityId);   // Follow order, hired_*, cache, StaticSpawner, Owner
             npc.Buffs.SetCustomVar("Persist", 1f);
             m.Status = status;
+            ScStuck.ResetGain(m);              // round 29 review L5: no held move back outlives the status
             // SCore's Follow lands a tick later (buffOrderFollow): until the ticker sees it, a Guard still on the NPC is the
             // favour wait or the old station, not a voice order (ScTicker.Relink)
             m.HeldOrder = EntityUtilities.Orders.Follow;

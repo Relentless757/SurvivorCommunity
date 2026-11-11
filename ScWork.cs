@@ -40,8 +40,9 @@ namespace SurvivorCommunity
     ///    is taken back here). What she gathers on a home job is noted (ScJobs' WindowAdd hook, NoteGathered) and goes to the
     ///    crates with what she makes, a full pack is emptied there and the job carries on (ResumeAfterFullPack, from C1f). Base
     ///    repair and Combat repair (modes 8, 9) are a duty (DutyTick): what is missing is said at its start, it ends after
-    ///    RepairDutyIdleMinutes with nothing she can repair (at once at night), and the residents' stuck rescue may act on her
-    ///    meanwhile (AllowsWatchdog, round 29b's hook).
+    ///    RepairDutyIdleMinutes with nothing she can repair (Base repair at once at night; Combat repair never at night and not
+    ///    while a foe is near - review M1), and the residents' stuck rescue may act on her meanwhile (AllowsWatchdog, round 29b's
+    ///    hook).
     /// </summary>
     public static class ScWork
     {
@@ -90,6 +91,10 @@ namespace SurvivorCommunity
         private static int starts, ends, staleCleared, depositedTotal, jobsDropped, windowCancels;
         private static int talkStarts, talkPromoted, talkEnds, talkSkipped;
         private static int gatheredTotal, packResumes, packEnds, fieldJobsTaken, dutiesStarted, dutyIdleEnds;
+        /// <summary>Round 29 review L4: ledger items no longer in her window (TrimLedger), and its scratch tables.</summary>
+        private static int ledgerTrimmed;
+        private static readonly Dictionary<int, int> inWindow = new Dictionary<int, int>();
+        private static readonly List<int> ledgerKeys = new List<int>();
         private static bool talkGroupsLogged;
         private static readonly Dictionary<string, int> endReasons = new Dictionary<string, int>();
 
@@ -99,6 +104,7 @@ namespace SurvivorCommunity
             starts = ends = staleCleared = depositedTotal = jobsDropped = windowCancels = 0;
             talkStarts = talkPromoted = talkEnds = talkSkipped = 0;
             gatheredTotal = packResumes = packEnds = fieldJobsTaken = dutiesStarted = dutyIdleEnds = 0;
+            ledgerTrimmed = 0;
             talkGroupsLogged = false;
             endReasons.Clear();
             ScJobs.Reset();
@@ -554,8 +560,9 @@ namespace SurvivorCommunity
         /// says whether there is anything she can repair now. The first look (DutyFirstCheckSeconds after the start, once
         /// 0-XNPCCore has registered the duty) tells the player what is missing - a repair tool, the materials or the skill for a
         /// damaged block - or that nothing is damaged yet. With nothing she can repair the duty ends after RepairDutyIdleMinutes,
-        /// at once at night, through End: she walks back to her post and SC's night routine takes over. True when it ended the
-        /// shift.
+        /// a Base repair duty at once at night, through End: she walks back to her post and SC's night routine takes over. A
+        /// Combat repair duty (review M1) never ends at night, and a live foe near her keeps its idle clock at 0. True when it
+        /// ended the shift.
         /// </summary>
         private static bool DutyTick(Member m, EntityAlive npc, Shift s, int mode, float now)
         {
@@ -569,8 +576,10 @@ namespace SurvivorCommunity
                 s.NextDutyCheck = now + DutyFirstCheckSeconds;
                 s.DutyState = "starting";
                 dutiesStarted++;
+                ScStuck.ResetGain(m);   // round 29 review L5: the duty's stuck rescue starts with no held move back from before it
+                ScCommunity.ResetStill(m);
                 ScLog.Out(m.Name + " starts a " + (mode == 9 ? "Combat repair" : "Base repair") + " duty at " + npc.GetBlockPosition() + " - it ends after "
-                          + ScConfig.RepairDutyIdleMinutes + " min with nothing she can repair (at once at night)");
+                          + ScConfig.RepairDutyIdleMinutes + " min with nothing she can repair" + (mode == 9 ? " and no foe near (not at once at night)" : " (at once at night)"));
                 return false;
             }
             if (now < s.NextDutyCheck) return false;
@@ -578,13 +587,23 @@ namespace SurvivorCommunity
             ScJobs.RepairFacts f = ScJobs.RepairCheck(npc);
             s.DutyState = f.State;
             World w = ScCommunity.World;
-            bool night = w != null && !w.IsDaytime();
+            // round 29 review M1: Combat repair is for the fights - before a horde and between its waves nothing is damaged
+            // yet, so it never ends at night (Base repair still does), and while she has a live foe near (LiveFoe within
+            // FightRange) its idle clock starts again: only RepairDutyIdleMinutes of quiet with nothing to repair end it
+            bool combat = mode == 9;
+            bool night = !combat && w != null && !w.IsDaytime();
             if (!s.DutyChecked)
             {
                 s.DutyChecked = true;
                 ScJobs.TellDutyStart(m, f, night);
             }
             if (f.CanRepair) { s.DutyIdleSince = now; return false; }
+            if (combat && ScCommunity.LiveFoe(npc, ScCommunity.FightRange) != null)
+            {
+                s.DutyIdleSince = now;
+                s.DutyState = f.State + ", a foe near";
+                return false;
+            }
             if (!night && now - s.DutyIdleSince < ScConfig.RepairDutyIdleMinutes * 60f) return false;
             dutyIdleEnds++;
             End(m, npc, night ? "nothing to repair, and it is night (" + f.State + ")" : "nothing to repair for " + ScConfig.RepairDutyIdleMinutes + " min (" + f.State + ")", true);
@@ -780,7 +799,8 @@ namespace SurvivorCommunity
         /// her gear, ammo and meds stay. Never while her window is open (on the host's screen, a remote player's, 0-XNPCCore's stock
         /// trade); what does not fit stays in the window. Round 29a: what she gathered on a home job too (NoteGathered), and onto
         /// the crates' stacks of the same item first (ScStorage.TopUpInZone), so a job that brings a few logs at a time does not
-        /// take a new slot every DepositSeconds.
+        /// take a new slot every DepositSeconds. Round 29 review L4: the ledger is trimmed to what the window holds first
+        /// (TrimLedger).
         /// </summary>
         private static void Deposit(Member m, EntityAlive npc, Shift s, bool final)
         {
@@ -789,6 +809,7 @@ namespace SurvivorCommunity
             if (window == null || window.IsUserAccessing() || ScAmmo.IsRemoteOpen(npc.entityId) || ScAmmo.XnpcTradeOpen(npc.entityId)) return;
             ItemStack[] items = window.items;
             if (items == null) return;
+            TrimLedger(m, s, items);
             int moved = 0;
             bool full = false;
             for (int i = 0; i < items.Length && !full; i++)
@@ -824,6 +845,41 @@ namespace SurvivorCommunity
                 s.SaidFull = true;
                 ScCommunity.Tell(ScCommunity.LocalPlayer, string.Format(Localization.Get("scWorkCratesFull"), m.Name), "");
             }
+        }
+
+        /// <summary>
+        /// Round 29 review L4: the ledger never owes more of an item than her inventory window holds. Whatever left the window
+        /// another way - the player took it out, she used it (repair materials, a seed), a station's output that never fit in -
+        /// is no longer owed, so items of that kind handed over later (repair materials for a duty) are not swept to the crates.
+        /// Deposit runs it whenever the window is closed, so the first Deposit after the player closes it (at most DepositSeconds
+        /// later) trims what they took. Entries at 0 go. Not covered: taking her gathered items out and handing over as many of
+        /// the same item in one visit to her window (PORT_34, round 29 review).
+        /// </summary>
+        private static void TrimLedger(Member m, Shift s, ItemStack[] items)
+        {
+            inWindow.Clear();
+            for (int i = 0; i < items.Length; i++)
+            {
+                ItemStack st = items[i];
+                if (st == null || st.IsEmpty() || st.itemValue == null) continue;
+                int n;
+                inWindow.TryGetValue(st.itemValue.type, out n);
+                inWindow[st.itemValue.type] = n + st.count;
+            }
+            ledgerKeys.Clear();
+            ledgerKeys.AddRange(s.Made.Keys);
+            int trimmed = 0;
+            foreach (int type in ledgerKeys)
+            {
+                int owed = s.Made[type], have;
+                inWindow.TryGetValue(type, out have);
+                if (owed > have) trimmed += owed - have;
+                if (owed <= 0 || have <= 0) s.Made.Remove(type);
+                else if (owed > have) s.Made[type] = have;
+            }
+            if (trimmed <= 0) return;
+            ledgerTrimmed += trimmed;
+            ScLog.Verbose(m.Name + ": " + trimmed + " item(s) on the work shift's ledger are no longer in her inventory window (taken out or used) - no longer owed to the crates");
         }
 
         /// <summary>
@@ -954,7 +1010,8 @@ namespace SurvivorCommunity
                    + ", window cancels kept on the shift " + windowCancels + "; talk holds: " + talkStarts + " started, " + talkPromoted + " became a work shift, "
                    + talkEnds + " ended, " + talkSkipped + " not started (a resident who could not be held)"
                    + "; home jobs (round 29a): gathered " + gatheredTotal + ", pack emptied and back to work " + packResumes + ", pack full and ended " + packEnds
-                   + ", field jobs taken back " + fieldJobsTaken + ", repair duties " + dutiesStarted + " started, " + dutyIdleEnds + " ended with nothing to repair; "
+                   + ", field jobs taken back " + fieldJobsTaken + ", repair duties " + dutiesStarted + " started, " + dutyIdleEnds + " ended with nothing to repair"
+                   + ", ledger items no longer in a window " + ledgerTrimmed + "; "
                    + ScJobs.Report();
         }
     }
