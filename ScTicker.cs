@@ -103,6 +103,7 @@ namespace SurvivorCommunity
                 ScRadio.Tick(w, player);
 #if SC_V34
                 ScRadioTalk.Tick(w, player);          // R2: runners with a handheld radio - leaving home, leaving the site, the next line on the radio
+                ScRunnerCall.Tick(w, player);         // round 29b: a runner's call for help when attacked - the marker follows them, the call ends with the fight
 #endif
                 ScOutposts.Tick(w, player);           // radio report-in stamp, claim check, markers (every 10 s)
                 ScHomeLink.Tick(player);              // an outpost's door into the home storage: load, open, release
@@ -255,8 +256,9 @@ namespace SurvivorCommunity
                     case MemberStatus.Resident:
                         if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);   // never a hidden resident
 #if SC_V34
-                        // C1: on a work shift she has an owner and a craft spot on purpose - ScWork ticks her instead of the rules below
-                        if (ScWork.Resident(m, npc, player)) break;
+                        // C1: on a work shift she has an owner and a craft spot on purpose - ScWork ticks her instead of the rules below;
+                        // round 29b: the stuck rescue still runs where her job allows it (ScStuck.OnShift)
+                        if (ScWork.Resident(m, npc, player)) { ScStuck.OnShift(m, npc); break; }
 #endif
                         if (EntityUtilities.GetCurrentOrder(m.Id) != EntityUtilities.Orders.Guard
                             || EntityUtilities.GetLeaderOrOwner(m.Id) != null)

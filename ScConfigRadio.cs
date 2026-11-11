@@ -5,8 +5,8 @@ namespace SurvivorCommunity
 {
     /// <summary>
     /// R2 (round 27, 3.4 build only): the config keys of the handheld radio - the Radio tab (XUiC_ScRadioTab), runners who
-    /// carry a radio talking to you on it (ScRadioTalk), the distress rule (ScHandheld.DistressAllowed) and the raiders' drop
-    /// (ScHandheld.OnRaiderDied). Kept apart from ScConfig.cs's long lists, as ScConfigVoices and ScConfigCraft. Config/blocks.xml,
+    /// carry a radio talking to you on it (ScRadioTalk), the distress rule (ScHandheld.DistressAllowed), the raiders' drop
+    /// (ScHandheld.OnRaiderDied) and, since round 29b, a runner's call for help when attacked (ScRunnerCall). Kept apart from ScConfig.cs's long lists, as ScConfigVoices and ScConfigCraft. Config/blocks.xml,
     /// block ConfigSurvivorCommunity, after RescueBonus (the radio station's keys); each key is commented there. ResetRadio also
     /// clears ScHandheld's and ScRadioTalk's per-world state (ScConfig.Reset runs at GameStarting).
     /// </summary>
@@ -29,6 +29,11 @@ namespace SurvivorCommunity
         /// (user, 2026-11-09). false: any runner, as before R2.
         /// </summary>
         public static bool WindowRecallNeedsRadio = true;
+        /// <summary>
+        /// Round 29b (the user, 2026-11-11: "Call when attacked"): a runner carrying a radio radios for help once a run when a
+        /// raider or a zombie hurts them - their Trouble line, where they are, a map marker while the fight lasts (ScRunnerCall).
+        /// </summary>
+        public static bool RunnerCallsWhenAttacked = true;
 
         private static void ResetRadio()
         {
@@ -39,9 +44,11 @@ namespace SurvivorCommunity
             DistressNeedsRadio = true;
             RaiderRadioChance = 0.04f;
             WindowRecallNeedsRadio = true;
+            RunnerCallsWhenAttacked = true;
             // the per-world state of the feature: a new world starts with none of it
             ScHandheld.Reset();
             ScRadioTalk.Reset();
+            ScRunnerCall.Reset();
         }
 
         private static void ParseRadio(DynamicProperties p)
@@ -53,6 +60,7 @@ namespace SurvivorCommunity
             ParseBoolKey(p, "DistressNeedsRadio", ref DistressNeedsRadio);
             ParseFloat(p, "RaiderRadioChance", ref RaiderRadioChance, 0f, 1f);
             ParseBoolKey(p, "WindowRecallNeedsRadio", ref WindowRecallNeedsRadio);
+            ParseBoolKey(p, "RunnerCallsWhenAttacked", ref RunnerCallsWhenAttacked);
         }
 
         /// <summary>The config line's handheld radio part.</summary>
@@ -62,7 +70,8 @@ namespace SurvivorCommunity
             return "handheldTab=" + HandheldRadioTab
                    + " runnerTalk=" + (RunnerRadioTalk ? "volume " + f(RunnerRadioVolume) + (RunnerRadioEffect ? ", radio effect" : ", plain") : "off")
                    + " distress=" + (DistressNeedsRadio ? "runner's radio" : "any runner") + " raiderDrop=" + f(RaiderRadioChance)
-                   + " windowRecall=" + (WindowRecallNeedsRadio ? "runner's radio or in person" : "any runner");
+                   + " windowRecall=" + (WindowRecallNeedsRadio ? "runner's radio or in person" : "any runner")
+                   + " callsWhenAttacked=" + RunnerCallsWhenAttacked;
         }
     }
 }

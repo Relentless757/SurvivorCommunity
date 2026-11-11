@@ -403,8 +403,16 @@ namespace SurvivorCommunity
         /// one moved back RepeatCount times within RepeatWindowSeconds (Repost); with no better post the limit backs off
         /// (StuckShift: 24 s, 48 s ... up to 32 x StuckSeconds) until BackoffResetSeconds pass without a stuck verdict.
         /// The log line names the signal that counted and where the body stood (StuckDiag).
+        ///
+        /// Round 29b (M29, the wreck findings' option c): a body pushed back and forth against a truck wreck's hull moves too
+        /// fast to count as still, and the roam's pauses reset the still count, so it pushed, paused and pushed again for
+        /// good. Also stuck now: wanting to move with no 1 m gain toward the path's end in 2 x StuckSeconds of trying, across
+        /// walks and pauses (ScStuck.SampleGain; StuckNoGain; the fight multipliers and the back-off apply as above). And a
+        /// move back waits while the player looks toward the body or the post, at most StuckSeenWaitSeconds (ScStuck.MayTeleport;
+        /// a Repost moves nobody and does not wait). onShift (3.4, ScStuck.OnShift, a work shift whose job allows the rescue):
+        /// no far rule, no new post, and the move back keeps the job's Guard spot.
         /// </summary>
-        public static void Watchdog(Member m, EntityAlive npc)
+        public static void Watchdog(Member m, EntityAlive npc, bool onShift = false)
         {
             try
             {
@@ -418,15 +426,20 @@ namespace SurvivorCommunity
                 // StuckSeconds, and the whole defended area (+ LeashExtra) counts as near the post
                 bool wide = ScBaseAttack.WideDefence;
                 int stuckLimit = (fighting ? ScConfig.StuckSeconds * (wide ? 5 : 3) : ScConfig.StuckSeconds) << m.StuckShift;
+                // round 29b: the no-gain rule waits twice as long as the still rule
+                int gainLimit = stuckLimit * 2;
                 float farLimit = ScConfig.PostRadius * 3 + 12;
                 if (fighting) farLimit = Mathf.Max(farLimit, ScConfig.DefendBaseRadius + 14f);
                 float away = Vector3.Distance(pos, PostCenter(m));
                 // zone roaming (round hz): anywhere in the home zone (+ ResidentRoamZoneMargin) is near enough - the far rule
                 // only counts outside it, so a resident walking the base is never teleported back to the post
                 bool homeGround = ScConfig.ResidentRoamZone && ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin;
-                if (away > farLimit && !(wide && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra)) && !homeGround) m.AwaySeconds++; else m.AwaySeconds = 0;
-                if (m.StillSeconds >= stuckLimit) Stuck(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting, now);
-                else if (m.AwaySeconds >= 90) Stuck(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s" + (fighting ? ", fighting" : ""), fighting, now);
+                if (away > farLimit && !(wide && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra)) && !homeGround && !onShift) m.AwaySeconds++; else m.AwaySeconds = 0;
+                int noGain = ScConfig.StuckNoGain ? ScStuck.GainSeconds(m) : 0;
+                if (m.StillSeconds >= stuckLimit) Stuck(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting, now, onShift);
+                else if (noGain >= gainLimit) Stuck(m, npc, "no 1 m gain toward the path's end in " + noGain + " s of trying" + (fighting ? ", fighting" : ""), fighting, now, onShift);
+                else if (m.AwaySeconds >= 90) Stuck(m, npc, (int)away + " m from the post for " + m.AwaySeconds + " s" + (fighting ? ", fighting" : ""), fighting, now, onShift);
+                else ScStuck.NoVerdict(m);
             }
             catch (Exception e)
             {
@@ -457,6 +470,8 @@ namespace SurvivorCommunity
             bool navBusy = nav != null && !nav.noPathAndNotPlanningOne();
             bool blockedTime = mh != null && mh.BlockedTime > 1.5f;
             bool isStuck = npc.IsStuck;
+            // round 29b: the seconds it tries to move without getting 1 m closer to where it is going (ScStuck; Watchdog's no-gain rule)
+            ScStuck.SampleGain(m, npc, pos, mh, nav, mhFar || navBusy);
             if (blockedTime || isStuck || ((mhFar || navBusy) && moved < 0.04f))
             {
                 if (m.StillSeconds == 0) m.StuckTicks0 = ticks;
@@ -500,11 +515,28 @@ namespace SurvivorCommunity
         /// give, the back-off), and so does the RepeatCount-th move back within RepeatWindowSeconds (with none to give, it is
         /// moved back as before, the limit backed off). Everything else - a fight included - is the old cure, Unstick.
         /// </summary>
-        private static void Stuck(Member m, EntityAlive npc, string why, bool fighting, float now)
+        private static void Stuck(Member m, EntityAlive npc, string why, bool fighting, float now, bool onShift = false)
         {
+            // round 29b: a move back already held while the player watches only waits for them to look away (no second
+            // Repost, no back-off each second meanwhile)
+            if (ScStuck.Held(m))
+            {
+                if (!ScStuck.MayTeleport(m, npc, PostCenter(m), why)) return;
+                m.LastStuckAt = now;
+                m.UnstickTimes.Add(now);
+                Unstick(m, npc, why, fighting, StuckDiag(m, npc), onShift);
+                return;
+            }
             m.LastStuckAt = now;
             string diag = StuckDiag(m, npc);
-            if (!fighting)
+            if (onShift)
+            {
+                // a work shift (3.4): the post is not where she is meant to be, so no new post - a rescue that keeps coming
+                // back backs off as a repost with no spot to give does
+                for (int i = m.UnstickTimes.Count - 1; i >= 0; i--) if (now - m.UnstickTimes[i] > RepeatWindowSeconds) m.UnstickTimes.RemoveAt(i);
+                if (m.UnstickTimes.Count >= RepeatCount - 1 && m.StuckShift < MaxStuckShift) m.StuckShift++;
+            }
+            else if (!fighting)
             {
                 Vector3 pos = npc.position;
                 float xz = XZ(pos, PostCenter(m)), dy = pos.y - m.Post.y;
@@ -520,8 +552,10 @@ namespace SurvivorCommunity
                     && Repost(m, npc, RepeatCount + " moves back to the same post within " + (RepeatWindowSeconds / 60f).ToString("0", Inv) + " min (" + why + ")", diag, true))
                     return;
             }
+            // round 29b: the teleport only out of the player's sight, or after StuckSeenWaitSeconds
+            if (!ScStuck.MayTeleport(m, npc, PostCenter(m), why)) return;
             m.UnstickTimes.Add(now);
-            Unstick(m, npc, why, fighting, diag);
+            Unstick(m, npc, why, fighting, diag, onShift);
         }
 
         private static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
@@ -565,13 +599,15 @@ namespace SurvivorCommunity
         /// straight back; a wedge with no enemy about leaves the defence alone. A post that is no real post any more (built
         /// over, its floor gone, or never one) is replaced first when a better spot exists (the M11 fix 2: GoodPost, not the
         /// old "two air cells over anything"); any path request still pending goes with the path (DropPath), so it cannot
-        /// survive the teleport. diag: the watchdog's details (StuckDiag), appended to the log line.
+        /// survive the teleport. diag: the watchdog's details (StuckDiag), appended to the log line. onShift (round 29b, 3.4: a
+        /// work shift whose job allows the rescue): the body goes to the post, but the Guard spot stays the job's.
         /// </summary>
-        public static void Unstick(Member m, EntityAlive npc, string why, bool fighting, string diag = null)
+        public static void Unstick(Member m, EntityAlive npc, string why, bool fighting, string diag = null, bool onShift = false)
         {
             World w = World;
             if (w == null) return;
             ResetStill(m);
+            ScStuck.ResetGain(m);
             m.AwaySeconds = 0;
             string bad;
             if (ScZone.IsLoaded(m.Post) && !GoodPost(w, m.Post, false, out bad))
@@ -579,9 +615,9 @@ namespace SurvivorCommunity
                 m.BadPosts.Add(m.Post);
                 int tier;
                 Vector3i fresh = ChoosePost(w.GetGameRandom(), m.BadPosts, out tier);
-                // a real floor; or anything at all when the post has no room to stand any more (built over): never a
-                // teleport into a block
-                if (fresh != Vector3i.zero && (tier <= TierRelaxed || !Standable(w, m.Post.x, m.Post.y, m.Post.z)))
+                // a real floor; or anything at all when the post has no room to stand any more (built over, or inside a
+                // wreck's hull - round 29b): never a teleport into a block
+                if (fresh != Vector3i.zero && (tier <= TierRelaxed || RoomGone(w, m.Post)))
                 {
                     ScLog.Out(m.Name + "'s post " + m.Post + " is " + bad + " - new post " + fresh + " (" + TierName(tier) + ")");
                     m.Post = fresh;
@@ -591,12 +627,22 @@ namespace SurvivorCommunity
             DropPath(npc);
             npc.SetPosition(target, true);
             m.LastPos = target;
-            ApplyPost(npc, target);
+            if (!onShift) ApplyPost(npc, target);
             UAI.ScRoamState.NextAllowed[npc.entityId] = UnityEngine.Time.time + 30f;
             // an intruder it could not reach would pull it straight back to the same spot: the defence pauses a while
             // (what it sees it still fights)
             if (fighting) UAI.ScDefendState.Rest(npc.entityId, DefendRestSeconds);
-            ScLog.Out(m.Name + " was stuck (" + why + ") - moved back to the post " + m.Post + (diag != null ? " [" + diag + "]" : ""));
+            ScLog.Out(m.Name + " was stuck (" + why + ") - moved back to the post " + m.Post + (onShift ? " (on a work shift: the job's spot kept)" : "")
+                      + (diag != null ? " [" + diag + "]" : ""));
+        }
+
+        /// <summary>
+        /// No room to stand at this post any more: built over (Standable fails), or (round 29b) the cell is inside an oversized
+        /// block's hull - a truck wreck's other cells read as air. Then any spot at all beats it.
+        /// </summary>
+        private static bool RoomGone(World w, Vector3i p)
+        {
+            return !Standable(w, p.x, p.y, p.z) || ScStuck.InsideOversized(p);
         }
 
         /// <summary>
@@ -618,10 +664,11 @@ namespace SurvivorCommunity
             int tier;
             Vector3i fresh = ChoosePost(npc.rand ?? w.GetGameRandom(), m.BadPosts, out tier);
             ResetStill(m);
+            ScStuck.ResetGain(m);
             m.AwaySeconds = 0;
             string details = diag != null ? " [" + diag + "]" : "";
-            // only a real floor - or anything at all when the old post has no room to stand any more (built over)
-            bool oldGone = old != Vector3i.zero && ScZone.IsLoaded(old) && !Standable(w, old.x, old.y, old.z);
+            // only a real floor - or anything at all when the old post has no room to stand any more (built over, inside a wreck)
+            bool oldGone = old != Vector3i.zero && ScZone.IsLoaded(old) && RoomGone(w, old);
             if (fresh == Vector3i.zero || (tier > TierRelaxed && !oldGone))
             {
                 if (!backOff)
@@ -697,7 +744,8 @@ namespace SurvivorCommunity
         {
             var sb = new System.Text.StringBuilder();
             sb.Append(m.StillSeconds).Append(" s counted: navPlanning ").Append(m.SigPlan).Append(", navPath ").Append(m.SigPath)
-              .Append(", moveHelperFar ").Append(m.SigMover).Append(", blockedTime ").Append(m.SigBlocked).Append(", isStuck ").Append(m.SigIsStuck).Append("; ");
+              .Append(", moveHelperFar ").Append(m.SigMover).Append(", blockedTime ").Append(m.SigBlocked).Append(", isStuck ").Append(m.SigIsStuck)
+              .Append("; ").Append(ScStuck.GainLine(m)).Append("; ");
             sb.Append(PostLine(m, npc)).Append("; ").Append(NavLine(npc))
               .Append("; entity ticks +").Append(npc.ticksExisted - m.StuckTicks0)
               .Append("; paused=").Append(GameManager.Instance != null && GameManager.Instance.IsPaused() ? "T" : "F");
@@ -742,9 +790,11 @@ namespace SurvivorCommunity
             else sb.Append(" (chunk not loaded)");
             sb.Append("; ").Append(PostLine(m, npc))
               .Append("; watchdog: still ").Append(m.StillSeconds).Append(" s (plan ").Append(m.SigPlan).Append(", path ").Append(m.SigPath).Append(", mh ").Append(m.SigMover)
-              .Append(", blocked ").Append(m.SigBlocked).Append(", isStuck ").Append(m.SigIsStuck).Append("), away ").Append(m.AwaySeconds).Append(" s, ")
+              .Append(", blocked ").Append(m.SigBlocked).Append(", isStuck ").Append(m.SigIsStuck).Append("), ").Append(ScStuck.GainLine(m))
+              .Append(", away ").Append(m.AwaySeconds).Append(" s, ")
               .Append(m.UnstickTimes.Count).Append(" move(s) back lately, limit x").Append(1 << m.StuckShift).Append(", checked on load=").Append(m.PostChecked)
-              .Append(", not again: ").Append(m.BadPosts.Count > 0 ? string.Join(" ", ToStrings(m.BadPosts)) : "-");
+              .Append(", not again: ").Append(m.BadPosts.Count > 0 ? string.Join(" ", ToStrings(m.BadPosts)) : "-")
+              .Append("; roam spots out of reach: ").Append(ScStuck.UnreachableLine(npc.entityId));
             return sb.ToString();
         }
 
@@ -809,7 +859,7 @@ namespace SurvivorCommunity
             {
                 case TierStrict: return "an open spot on a real floor";
                 case TierRelaxed: return "a real floor, but cramped or next to furniture";
-                case TierStandable: return "only standable: on furniture or a part block";
+                case TierStandable: return "only standable: on furniture or a part block, or beside a wreck";
                 case TierUnloaded: return "unchecked: its chunk is not loaded";
                 default: return "none";
             }
@@ -874,14 +924,26 @@ namespace SurvivorCommunity
         /// cells around it (at its feet or its head), and at least MinOpenNeighbours of them open - two air cells over a real
         /// floor - so a post is not wedged between furniture or against a wall in a closet. why: the first reason it fails
         /// (e.g. "on decoClawFootBathTub"), null when it is good.
+        /// Round 29b (M29, the wreck findings' option b), both: no oversized block - a truck wreck, a big vehicle prop - in the
+        /// cell or its 8 neighbors at feet or head height (ScStuck.NearOversized): such a block exists in the block data only
+        /// at its origin cell, so the rest of its hull reads as air and passed every test above. why: "in or beside
+        /// &lt;block&gt; at &lt;its origin&gt;". This covers roam spots, posts, the post check on load, Unstick and enclave homes.
         /// </summary>
         public static bool GoodPost(World w, Vector3i p, bool strict, out string why)
+        {
+            return GoodPost(w, p, strict, true, out why);
+        }
+
+        /// <summary>GoodPost; wrecks false: the oversized blocks are left to the caller (FindPost asks first).</summary>
+        private static bool GoodPost(World w, Vector3i p, bool strict, bool wrecks, out string why)
         {
             why = null;
             if (w == null) { why = "no world"; return false; }
             if (!Standable(w, p.x, p.y, p.z)) { why = "no room to stand (two air cells over a floor)"; return false; }
             BlockValue floor = w.GetBlock(new Vector3i(p.x, p.y - 1, p.z));
             if (!SolidFloor(floor)) { why = "on " + BlockName(floor); return false; }
+            string wreck;
+            if (wrecks && ScStuck.NearOversized(p, out wreck)) { why = "in or beside " + wreck; return false; }
             if (!strict) return true;
             int open = 0;
             for (int dx = -1; dx <= 1; dx++)
@@ -942,8 +1004,15 @@ namespace SurvivorCommunity
                     if (!Standable(w, x, y, z)) continue;
                     Vector3i p = new Vector3i(x, y, z);
                     if (exclude != null && exclude.Contains(p)) continue;
+                    // round 29b: never a cell inside an oversized block's hull (it reads as air); one beside it only as the
+                    // last resort, as a spot on furniture is
+                    string wreck;
+                    bool inWreck;
+                    bool nearWreck = ScStuck.NearOversized(p, out wreck, out inWreck);
+                    if (inWreck) continue;
                     string why;
-                    int t = GoodPost(w, p, true, out why) ? TierStrict : SolidFloor(w.GetBlock(new Vector3i(x, y - 1, z))) ? TierRelaxed : TierStandable;
+                    int t = nearWreck ? TierStandable
+                          : GoodPost(w, p, true, false, out why) ? TierStrict : SolidFloor(w.GetBlock(new Vector3i(x, y - 1, z))) ? TierRelaxed : TierStandable;
                     if (tier < 0 || t < tier) { tier = t; post = p; }
                     if (tier == TierStrict) return true;
                 }

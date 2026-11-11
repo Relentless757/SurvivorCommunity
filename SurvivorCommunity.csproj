@@ -178,6 +178,9 @@
     <Compile Include="XUiC_ScDialogLine.cs" />
     <!-- round 28 (X3): the talk page's pager (both games: vanilla's response list is the same in 3.2 and 3.4) -->
     <Compile Include="ScDialogPager.cs" />
+    <!-- round 29b (M29): wreck-aware spots and the residents' stuck rescue (both games) -->
+    <Compile Include="ScStuck.cs" />
+    <Compile Include="ScConfigStuck.cs" />
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />
@@ -293,6 +296,8 @@
     <Compile Include="ScConfigRadio.cs" />
     <Compile Include="ScHandheld.cs" />
     <Compile Include="ScRadioTalk.cs" />
+    <!-- round 29b (M29): a runner carrying a radio calls for help when attacked -->
+    <Compile Include="ScRunnerCall.cs" />
     <Compile Include="XUiC_ScRadioTab.cs" />
   </ItemGroup>
 

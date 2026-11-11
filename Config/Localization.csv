@@ -1490,3 +1490,9 @@ scRadioRecallAck_1Said,UI,Tooltip,,,,Copy that. Cutting it short and heading hom
 scDialogPage,UI,Menu,,,,{0}/{1}
 scVoiceNoTradeMember,Dialog,Statement,,,,"*smiles* We don't trade - we're one community. If you need something of mine, just ask to see my inventory."
 scVoiceNoPackNow,Dialog,Statement,,,,*shakes head* Not now. Ask me again back home.
+scRunnerAttacked,UI,Tooltip,,,,"{0} radios for help: under attack {1}, about {2} m {3} of home! Marked on your map."
+scRunnerAttackedOut,UI,Tooltip,,,,on the way to {0}
+scRunnerAttackedSite,UI,Tooltip,,,,at {0}
+scRunnerAttackedHome,UI,Tooltip,,,,on the way home from {0}
+scRunnerAttackedBack,UI,Tooltip,,,,near the base
+scRunnerAttackedMarker,UI,Menu,,,,{0} - under attack

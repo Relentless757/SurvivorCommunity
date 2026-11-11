@@ -1231,6 +1231,7 @@ namespace SurvivorCommunity
             VoiceEnclaveContext = true;
             DialogPager = true;
             ResetVoices();                         // V2 (ScConfigVoices.cs)
+            ResetStuck();                          // round 29b (ScConfigStuck.cs)
 #if SC_V34
             ResetCraft();                          // C1 (ScConfigCraft.cs)
             ResetRadio();                          // R2 (ScConfigRadio.cs)
@@ -2328,6 +2329,7 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("DialogPager")) p.ParseBool("DialogPager", ref dialogPager);
                 DialogPager = dialogPager;
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
+                ParseStuck(p);                     // round 29b (ScConfigStuck.cs)
 #if SC_V34
                 ParseCraft(p);                     // C1 (ScConfigCraft.cs)
                 ParseRadio(p);                     // R2 (ScConfigRadio.cs)
@@ -2604,6 +2606,7 @@ namespace SurvivorCommunity
                           + ", face " + SurvivorFacePaintChance + "/" + RaiderFacePaintChance + " of " + SurvivorFacePaints.Count + "/" + RaiderFacePaints.Count
                           + ", tattoo " + SurvivorTattooChance + "/" + RaiderTattooChance + " of " + SurvivorTattoos.Count + "/" + RaiderTattoos.Count + " " + TattooMode);
                 ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
+                ScLog.Out("config: stuck rescue " + StuckLine());   // round 29b (ScConfigStuck.cs)
 #if SC_V34
                 ScLog.Out("config: crafting " + CraftLine());   // C1 (ScConfigCraft.cs)
                 ScLog.Out("config: handheld radio " + RadioLine());   // R2 (ScConfigRadio.cs)

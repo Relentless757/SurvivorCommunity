@@ -110,6 +110,11 @@ namespace UAI
     /// radius="12" cooldown="45" (real seconds), and Guard walks them back to the post in between.
     /// E2: an enclave's people (SCEnclave's ScEncRoam) roam their POI's footprint the same way, from their home spot, always
     /// with the zone roam's walks and pauses (ScHome resolves which ground a body has; a resident's is the zone as before).
+    /// Round 29b (M29, the wreck findings' option c): a walk that gets no 1 m closer to its spot, and no 1 m further along its
+    /// path, in RoamNoProgressSeconds (8 s; a body jittering against a wreck's hull is neither blocked 2 s nor out of time;
+    /// ScStuck.Progress) ends as a blocked one does, and
+    /// the spot goes on the body's unreachable list for RoamUnreachableMinutes (ScStuck.MarkUnreachable): it is not picked
+    /// again, nor a spot beside it.
     /// </summary>
     public class UAITaskWanderHomeSC : UAITaskBase
     {
@@ -119,6 +124,8 @@ namespace UAI
         private readonly Dictionary<int, float> deadlines = new Dictionary<int, float>();
         private readonly Dictionary<int, float> pauseUntil = new Dictionary<int, float>();
         private readonly HashSet<int> retried = new HashSet<int>();
+        // round 29b: each walk's progress (NoProgress)
+        private readonly Dictionary<int, ScStuck.Progress> walks = new Dictionary<int, ScStuck.Progress>();
         private const float MaxSeconds = 20f;   // of walking before giving up on a target (real time - ticks are frame-rate bound)
         private const float MaxZoneSeconds = 90f;   // zone roaming: the walk's limit grows with the distance, up to this
         private const float RetryBackoff = 5f;  // when no target could be found
@@ -159,6 +166,7 @@ namespace UAI
                 {
                     Vector3i bp = World.worldToBlockPos(p) + new Vector3i(0, (step + 1) / 2 * (step % 2 == 0 ? 1 : -1), 0);
                     if (!h.Area.Contains(bp)) break;
+                    if (ScStuck.Unreachable(id, bp)) continue;      // round 29b: not reached lately
                     string why;
                     if (w != null && !ScCommunity.GoodPost(w, bp, false, out why)) continue;
                     target = new Vector3(bp.x + 0.5f, bp.y, bp.z + 0.5f);
@@ -181,6 +189,7 @@ namespace UAI
 
             targets[id] = target;
             deadlines[id] = Time.time + (zone ? Mathf.Clamp(Vector3.Distance(self.position, target) * 1.2f + 8f, MaxSeconds, MaxZoneSeconds) : MaxSeconds);
+            walks[id] = new ScStuck.Progress();
             ScRoamState.Active.Add(id);
             self.moveHelper.CanBreakBlocks = false;
             self.FindPath(target, self.GetMoveSpeed(), false, null);
@@ -213,7 +222,34 @@ namespace UAI
                 Stop(_context);
                 return;
             }
+            // round 29b: no 1 m closer in RoamNoProgressSeconds - pushing at a wreck's hull, or sidestepping against it: the
+            // walk ends as a blocked one does, and the spot is not picked again for a while
+            if (NoProgress(self, target))
+            {
+                if (ZoneRoam(self)) { Pause(self); return; }
+                Stop(_context);
+                return;
+            }
             self.SetLookPosition(target);
+        }
+
+        /// <summary>
+        /// Round 29b: true (the spot marked unreachable) after RoamNoProgressSeconds of walking without a 1 m gain - 1 m closer
+        /// to the spot, or 1 m less of the path left to walk (a detour round a wall gains on its path while it leads away).
+        /// </summary>
+        private bool NoProgress(EntityAlive self, Vector3 target)
+        {
+            float limit = ScConfig.RoamNoProgressSeconds;
+            if (limit <= 0f) return false;
+            int id = self.entityId;
+            ScStuck.Progress p;
+            if (!walks.TryGetValue(id, out p)) { p = new ScStuck.Progress(); walks[id] = p; }
+            float now = Time.time;
+            float d = Vector3.Distance(self.position, target);
+            if (p.Gained(self, d)) { p.GainAt = now; return false; }
+            if (now - p.GainAt < limit) return false;
+            ScStuck.MarkUnreachable(self, target, d);
+            return true;
         }
 
         /// <summary>Roams the whole ground with pauses: residents with ResidentRoamZone, an enclave's people always (E2).</summary>
@@ -228,6 +264,7 @@ namespace UAI
             float lo = Mathf.Max(0f, ScConfig.ResidentRoamPauseMin), hi = Mathf.Max(lo, ScConfig.ResidentRoamPauseMax);
             pauseUntil[self.entityId] = Time.time + Mathf.Max(atLeast, Random.Range(lo, hi));
             targets.Remove(self.entityId);
+            walks.Remove(self.entityId);
             ScCommunity.DropPath(self);   // the path, a request still in the path finder (F5) and the move helper
         }
 
@@ -259,6 +296,7 @@ namespace UAI
                     {
                         Vector3i bp = new Vector3i(x, levels[l] + (step + 1) / 2 * (step % 2 == 0 ? 1 : -1), z);
                         if (!area.Contains(bp)) break;
+                        if (ScStuck.Unreachable(self.entityId, bp)) continue;      // round 29b: not reached lately
                         string why;
                         if (!ScCommunity.GoodPost(w, bp, false, out why)) continue;
                         return new Vector3(bp.x + 0.5f, bp.y, bp.z + 0.5f);
@@ -276,6 +314,7 @@ namespace UAI
             deadlines.Remove(id);
             pauseUntil.Remove(id);
             retried.Remove(id);
+            walks.Remove(id);
             if (ScRoamState.Active.Remove(id)) ScRoamState.NextAllowed[id] = Time.time + (ZoneRoam(self) ? ZoneCooldown : cooldown);
             self.getNavigator().clearPath();
             if (self.moveHelper != null) { self.moveHelper.Stop(); self.moveHelper.CanBreakBlocks = true; }

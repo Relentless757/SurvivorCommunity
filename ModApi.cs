@@ -153,6 +153,7 @@ namespace SurvivorCommunity
                     if (ScCommunity.IsHost) Patches_Npc.Patch_SetDead.ReleaseAll(true);
 #if SC_V34
                     ScRadioTalk.Reset();                     // R2: no runner's line left playing or queued into the menu
+                    ScRunnerCall.Reset();                    // round 29b: no runner's call for help (or its marker) into the next world
 #endif
                     ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScWeaponWarm.Reset(); ScRegistry.FlushAndReset();
                 });
