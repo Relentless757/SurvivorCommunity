@@ -150,8 +150,9 @@ namespace SurvivorCommunity
     /// per-weapon raider classes, their class scans and the branches for SC's own player body (an exact EModelSDCS)
     /// went with the model shim in M10 round 2.
     /// Round 31: natural hair colors follow the skin - a mid or a dark skin (ScConfig.SurvivorMidSkins / SurvivorDarkSkins)
-    /// rolls only its group's natural colors (NaturalFor), and a stored look with a natural color its skin no longer allows is
-    /// given an allowed one as it is validated (FixHairColor, as P2's FixMaleHair); dyed colors and creator faces are left be.
+    /// rolls only its group's natural colors (NaturalPick), gray and white at their share of all natural colors on every skin,
+    /// and a stored look with a natural color its skin no longer allows is given an allowed one of the same age as it is
+    /// validated (FixHairColor, as P2's FixMaleHair); dyed colors and creator faces are left be.
     /// </summary>
     public static class ScLooks
     {
@@ -448,11 +449,12 @@ namespace SurvivorCommunity
                     foreach (var hc in SDCSDataUtils.GetHairColorNames()) if (!string.IsNullOrEmpty(hc.PrefabName)) colors.Add(hc.PrefabName);
                     // dyed colours are rare, rarer still on men: pick from the dyed or the natural ones (the natural
                     // ones also when no dyed colour is left to pick). Round 31: the natural ones the rolled skin allows
-                    // (NaturalFor: a mid or a dark skin's group list); a dyed color is open to every skin
+                    // (NaturalPick: a mid or a dark skin's group list), gray and white at today's share; a dyed color is
+                    // open to every skin
                     bool dyed = Chance(rnd) < (male ? ScConfig.SurvivorDyedHairChanceMale : ScConfig.SurvivorDyedHairChanceFemale);
                     List<string> all = colors;
                     colors = dyed ? all.FindAll(c => ScConfig.Listed(ScConfig.SurvivorDyedHairColors, c)) : null;
-                    if (colors == null || colors.Count == 0) colors = NaturalFor(look.Race, Allowed(all, ScConfig.SurvivorDyedHairColors));
+                    if (colors == null || colors.Count == 0) colors = NaturalPick(look.Race, Allowed(all, ScConfig.SurvivorDyedHairColors), rnd);
                     if (male)
                     {
                         must = SDCSDataUtils.GetHairNames(true, SDCSDataUtils.HairTypes.Mustache);
@@ -467,7 +469,7 @@ namespace SurvivorCommunity
                 look.Variant = int.TryParse(vs, out v) ? Math.Max(1, v) : 1;
                 look.Hair = Chance(rnd) < ScConfig.SurvivorBaldChance ? "" : Pick(rnd, hairs, male ? MaleFallbackHairs() : FallbackHairs);
                 // the game's list unreadable: the fallback's natural colors, filtered for the skin as well (round 31)
-                look.HairColor = colors != null && colors.Count > 0 ? Pick(rnd, colors, null) : Pick(rnd, null, NaturalFallback(look.Race));
+                look.HairColor = colors != null && colors.Count > 0 ? Pick(rnd, colors, null) : Pick(rnd, null, NaturalFallback(look.Race, rnd));
                 look.Eyes = Pick(rnd, eyes, FallbackEyes);
                 if (male)
                 {
@@ -746,14 +748,59 @@ namespace SurvivorCommunity
             return natural;
         }
 
-        /// <summary>NaturalIn for a roll, with the log line (once per group) when a group's list leaves no color.</summary>
-        private static List<string> NaturalFor(string race, List<string> natural)
+        /// <summary>Round 31 refinement: a natural color that reads as age (SurvivorGrayHairColors: 07 Gray, 08 White).</summary>
+        internal static bool IsGrayHair(string color)
         {
+            return ScConfig.Listed(ScConfig.SurvivorGrayHairColors, color);
+        }
+
+        /// <summary>
+        /// Round 31 refinement, pure: how often a natural roll is gray or white - the gray colors' share of ALL the natural
+        /// colors (today 2 of 10 = 0.2), so a group that drops the young-looking blonds and reds keeps gray and white as common
+        /// as before rather than 2 in 5. 0 with no natural color.
+        /// </summary>
+        internal static float GrayShare(List<string> natural)
+        {
+            if (natural == null || natural.Count == 0) return 0f;
+            int gray = 0;
+            foreach (string c in natural) if (IsGrayHair(c)) gray++;
+            return (float)gray / natural.Count;
+        }
+
+        /// <summary>
+        /// Round 31 refinement, pure: the gray colors of this pool (gray) or the others; when that half is empty, the other half;
+        /// when both are, the pool as it is.
+        /// </summary>
+        internal static List<string> AgePool(List<string> pool, bool gray)
+        {
+            if (pool == null || pool.Count == 0) return pool;
+            List<string> old = pool.FindAll(IsGrayHair), young = pool.FindAll(c => !IsGrayHair(c));
+            List<string> pick = gray ? old : young;
+            if (pick.Count == 0) pick = gray ? young : old;
+            return pick.Count > 0 ? pick : pool;
+        }
+
+        /// <summary>
+        /// Round 31 refinement, pure: the colors a natural roll picks from, given its random number r (0..1): the skin's allowed
+        /// natural colors (NaturalIn), their gray half when r is below GrayShare of all the natural colors, else the rest
+        /// (AgePool). Every skin, light ones too: for them it changes nothing (each natural color stays 1 in 10).
+        /// </summary>
+        internal static List<string> NaturalPool(string race, List<string> natural, float r, out string group, out bool fellBack)
+        {
+            List<string> pool = NaturalIn(race, natural, out group, out fellBack);
+            if (pool == null || pool.Count == 0) return pool;
+            return AgePool(pool, r < GrayShare(natural));
+        }
+
+        /// <summary>NaturalPool for a roll (one random draw when there is a natural color), with the log line (once per group) when a group's list leaves no color.</summary>
+        private static List<string> NaturalPick(string race, List<string> natural, GameRandom rnd)
+        {
+            if (natural == null || natural.Count == 0) return natural;
             string group;
             bool fellBack;
-            List<string> keep = NaturalIn(race, natural, out group, out fellBack);
+            List<string> pool = NaturalPool(race, natural, Chance(rnd), out group, out fellBack);
             if (fellBack) WarnEmptyGroup(group);
-            return keep;
+            return pool;
         }
 
         private static void WarnEmptyGroup(string group)
@@ -763,9 +810,9 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Roll's fallback when the game's color list cannot be read: FallbackHairColors' natural ones, for this skin.</summary>
-        private static string[] NaturalFallback(string race)
+        private static string[] NaturalFallback(string race, GameRandom rnd)
         {
-            List<string> l = NaturalFor(race, Allowed(new List<string>(FallbackHairColors), ScConfig.SurvivorDyedHairColors));
+            List<string> l = NaturalPick(race, Allowed(new List<string>(FallbackHairColors), ScConfig.SurvivorDyedHairColors), rnd);
             return l != null && l.Count > 0 ? l.ToArray() : FallbackHairColors;
         }
 
@@ -800,7 +847,9 @@ namespace SurvivorCommunity
         /// ones (not the game's: left alone), a skin whose group allows any color or whose list leaves none (NaturalIn), or a
         /// color the group allows. The new one is picked from the group's colors by a stable hash of the look itself (FNV-1a of
         /// its sex, skin, variant, hair, color, eyes and beard), so the same person gets the same color on every load until the
-        /// corrected look is saved.
+        /// corrected look is saved. Refinement: from the colors of the same age - a young-looking color (not
+        /// SurvivorGrayHairColors) only ever becomes another young-looking one, never gray or white (none allowed: kept); a gray
+        /// one (fixed only when a custom list drops it) a gray one the group allows, else any it allows.
         /// </summary>
         internal static string FixedHairColor(Look look, List<string> natural)
         {
@@ -810,9 +859,16 @@ namespace SurvivorCommunity
             bool fellBack;
             List<string> pool = NaturalIn(look.Race, natural, out group, out fellBack);
             if (group == null || fellBack || pool == null || pool.Count == 0 || HasColor(pool, look.HairColor)) return null;
+            bool wasGray = IsGrayHair(look.HairColor);
+            List<string> same = pool.FindAll(c => IsGrayHair(c) == wasGray);
+            if (same.Count == 0)
+            {
+                if (!wasGray) return null;      // a young-looking color is never turned gray or white
+                same = pool;
+            }
             string seed = (look.Male ? "M" : "F") + "|" + (look.Race ?? "") + "|" + look.Variant + "|" + (look.Hair ?? "") + "|" + look.HairColor
                           + "|" + (look.Eyes ?? "") + "|" + (look.Beard ?? "");
-            return pool[(int)(ScVoice.Fnv(seed) % (uint)pool.Count)];
+            return same[(int)(ScVoice.Fnv(seed) % (uint)same.Count)];
         }
 
         /// <summary>

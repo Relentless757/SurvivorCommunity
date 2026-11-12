@@ -1133,11 +1133,12 @@ Weapons**. They keep it in place of their weapon of that kind.
   from wilder designs.
 - **Hair color follows skin tone.** Survivors and raiders with a medium skin tone (Honey, Golden Peach, Sand, Taupe, Caramel,
   Bronze; without Vanity Vault, Asian and Native) never get natural blond or red hair; darker tones (Chestnut, Umber,
-  Espresso; without Vanity Vault, Black) also never get light brown. Lighter tones can have any natural color. Dyed colors
-  (pink, blue, green and so on) still turn up now and then on anyone.
+  Espresso; without Vanity Vault, Black) also never get light brown. Lighter tones can have any natural color. Gray and white
+  hair stay as common as before on every skin, about 1 in 5. Dyed colors (pink, blue, green and so on) still turn up now and
+  then on anyone.
 - **People you already know are fixed too.** A survivor whose natural hair color does not fit their skin gets a fitting one
-  the next time they load (always the same one for that person); the rest of their look stays. Dyed hair is left alone, and
-  so is a face that came from 0-XNPCCore's character creator.
+  the next time they load (always the same one for that person, and never gray or white in place of a young-looking color);
+  the rest of their look stays. Dyed hair is left alone, and so is a face that came from 0-XNPCCore's character creator.
 
 ---
 
@@ -1364,6 +1365,7 @@ These are the ones you are most likely to change. The file has many more.
 | `VoiceRaceBySkin` | Vanity Vault's 15 natural tones | Which race's voices each skin tone speaks in, as `Tone:Race` (`Honey:Asian`); a tone may name two races |
 | `SurvivorMidSkins` / `SurvivorMidSkinHairColors` | Honey ... Bronze, Asian, Native / 03 LightBrown to 08 White | Medium skin tones and the natural hair colors they can have |
 | `SurvivorDarkSkins` / `SurvivorDarkSkinHairColors` | Chestnut, Umber, Espresso, Black / 04 Brown to 08 White | Dark skin tones and the natural hair colors they can have |
+| `SurvivorGrayHairColors` | 07 Gray, 08 White | Hair colors that read as age: they stay at their usual share (1 in 5) on every skin |
 
 ### Raiders, outposts and the world
 

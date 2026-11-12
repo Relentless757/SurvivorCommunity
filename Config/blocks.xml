@@ -394,11 +394,16 @@
 			     names. Dyed colors (SurvivorDyedHairColors) stay open to every skin at the same rare chance. A survivor already
 			     met whose natural color their skin no longer allows gets an allowed one when they next load (the log says
 			     "looks: <name> (<id>) hair color <old> -> <new>"); a dyed color and a 0-XNPCCore creator character's face are
-			     left as they are. A color list that leaves no color: that group gets every natural color (logged once). -->
+			     left as they are. A color list that leaves no color: that group gets every natural color (logged once).
+			     SurvivorGrayHairColors: the natural colors that read as age. On every skin a new survivor or raider gets one of
+			     them as often as they make up all the natural colors (2 of 10 = 1 in 5, as before), the rest of the time one of
+			     the other colors the skin allows; and a survivor already met is never moved from a young-looking color to one of
+			     these. Empty = no split by age. -->
 			<property name="SurvivorMidSkins" value="Honey,Golden Peach,Sand,Taupe,Caramel,Bronze,Asian,Native" />
 			<property name="SurvivorMidSkinHairColors" value="03 LightBrown,04 Brown,05 DarkBrown,06 Black,07 Gray,08 White" />
 			<property name="SurvivorDarkSkins" value="Chestnut,Umber,Espresso,Black" />
 			<property name="SurvivorDarkSkinHairColors" value="04 Brown,05 DarkBrown,06 Black,07 Gray,08 White" />
+			<property name="SurvivorGrayHairColors" value="07 Gray,08 White" />
 			<!-- Vanity Vault paints and tattoos on new survivors and raiders (only with Vanity Vault installed; a survivor
 			     already met keeps their look). Chances per new survivor / raider: a body paint set, else a face paint alone,
 			     and a tattoo (one at most). Lists are Vanity Vault's names, comma separated, empty = none of that kind:

@@ -4638,7 +4638,7 @@ Where the brief left a choice (decided here):
   wild) `09 Red -> 08 White`; Nora (Umber, `Playtest34SC`'s Clyde's Band) `01 Blond -> 05 DarkBrown`; Jack (Bronze, an enclave
   person in `NavezganePlus\Playtest12`) `09 Red -> 04 Brown`; prospects Nate (Sand, `sCMigrationTest2`) `09 Red -> 03 LightBrown`
   and Alex (Golden Peach, `Test24OCT\Playtest1`) `09 Red -> 04 Brown`; 17 dyed colors left alone (on every kind of skin); no
-  vanilla-race look needed a fix.
+  vanilla-race look needed a fix. (The first build's colors: the refinement below changes the picks.)
 - XML replay (scratch `x3\r31_checks.py`: round 30's pointed at this worktree): SC 201/201 on 3.4 alone, 200/200 with AshfallUI
   (its own 2279/2279), no aborts; the five keys land in the merged block.
 - Every file touched LF, no BOM; no localization key (log, console and docs only).
@@ -4648,4 +4648,52 @@ a batch of new NPCs with no natural blond or red on medium or dark skin; the `lo
 body, its portrait, and a member's record saved with it; that Vanity Vault's hair tint follows the corrected `HairColor` on a
 body rebuild; a creator face keeping its color across a save; the settings changed; a game without Vanity Vault.
 
-Builds: SC 3.4 `b0b403a3e727a3e8dc32075a1b810689` (`build\sc34_r31`), 0 errors. Not installed.
+**Refinement before review: gray and white at today's share (the coordinator, 2026-11-12).** The first build picked a
+natural color uniformly from the group's allowed ones, and both groups keep `07 Gray` and `08 White`, so gray or white would
+have been 2 in 5 on dark skins and 2 in 6 on medium ones against 2 in 10 today (still 2 in 10 on light skins); and the fix
+did the same - the log's Espresso man `09 Red -> 08 White`. Gray and white read as age, so a group that drops the young
+blonds and reds must not make its people older.
+- **New setting `SurvivorGrayHairColors`** (`ScConfigSkins.cs`, default `07 Gray,08 White`; reset, parsed and in the `config:
+  skins` line, which now ends `gray 2 color(s) at their share`; blocks.xml after `SurvivorDarkSkinHairColors`, the hair
+  comment extended): the natural colors that read as age. Empty = no split by age (a uniform pick, as the first build).
+- **Roll** (`ScLooks.NaturalPick` -> `NaturalPool`, pure): one more random draw r on the natural path; the share is
+  `GrayShare` = the gray colors' share of ALL the natural colors (the game's list without the dyed ones: 2 of 10 = 0.2,
+  computed from the lists, so it follows them); r below it picks from the gray colors the skin allows, else from its allowed
+  non-gray ones (`AgePool`); an empty half falls back to the other, both empty to the allowed pool (itself all natural colors
+  when a group's list leaves none, logged once as before). Every skin takes the same rule: a light skin's pick is unchanged
+  (each natural color 1 in 10). `NaturalFor` became `NaturalPick` (and `NaturalFallback` takes the random source).
+- **The fix** (`FixedHairColor`): the new color comes from the group's allowed colors of the same age as the old one, by the
+  same hash. A young-looking color only ever becomes another young-looking one - with none allowed (a custom list of gray
+  only) the look is kept, never turned gray; an old gray color is allowed in both default groups and so never fixed (with a
+  custom list that drops gray it goes to an allowed gray one, else any allowed one).
+- **Docs:** README section 15 (gray and white about 1 in 5 on every skin; a fixed person never turns gray) and the settings
+  row; TESTING 710 and 718 updated (Nora now `01 Blond -> 06 Black`), new 725 (about 1 in 5 in a batch of 30; fixes never
+  gray).
+
+**Checks after the refinement.**
+- Builds: 3.4 (`build\sc34_r31`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build to a scratch folder); 3.2 (`build\sc32_r31_scratch`) 0 errors; the tracked 3.2 DLL untouched
+  (`c4ad303a...`).
+- `cctor_order.py`: 3.4 142 static constructors, 3.2 127, 0 reads before store. IL, both builds: `NaturalPick` called from
+  `Roll` and `NaturalFallback`, `NaturalPool` -> `AgePool` / `GrayShare`; `NaturalFor` gone; `FixedHairColor` tests
+  `IsGrayHair(look.HairColor)` (decompiled build).
+- The harness (`r31\harness`, the built 3.4 DLL): 74 checks, 0 failed - the 49 before (the Espresso man now also "never
+  gray") and: the default gray list; `GrayShare` 0.2 of the game's 10, 0.25 of a list of 8 with 2 gray, 0 of none; `AgePool`
+  on the dark pool (gray `07,08` / young `04,05,06`) and both fallbacks; `NaturalPool` at r 0.1 / 0.5 (Espresso), 0.19 /
+  0.2 (Sand, the boundary), Ivory's 8 young / 2 gray; a simulated roll (r, then a uniform pick, 200000 each) on 10 skins:
+  gray or white 0.198-0.201 everywhere (a uniform pick over the allowed colors would have given 0.400 dark, 0.333 medium,
+  0.200 light), dark `04`/`05`/`06` about 0.267 each and `07`/`08` 0.100, medium `03`-`06` 0.200 each, light every color
+  0.100, nothing outside the allowed colors; a fix sweep over every medium and dark skin (default lists and vanilla), each
+  banned young-looking color, variants 1-30, both sexes: 3120 fixes, 0 to gray or white, 0 outside the group, 0 left; an old
+  gray color never fixed; a dark list of gray only keeps a red Espresso man; a dark list without gray moves an old gray to an
+  allowed color; an empty gray list gives share 0 and no split.
+- The replay of the user's 68 looks: voices as above; hair, 5 fixed, none to gray or white - the log's Espresso man (id 245)
+  `09 Red -> 05 DarkBrown`; Nora (Umber) `01 Blond -> 06 Black`; Jack (Bronze) `09 Red -> 06 Black`; Nate (Sand) `09 Red ->
+  05 DarkBrown`; Alex (Golden Peach) `09 Red -> 04 Brown`; 17 dyed colors and every old gray or white (6 looks) left alone.
+- XML replay (`x3\r31_checks.py`): SC 201/201 alone, 200/200 with AshfallUI (2279/2279), no aborts; `SurvivorGrayHairColors`
+  lands in the merged block.
+- Every file touched LF, no BOM.
+
+**Not checked (in game, TESTING 725):** the share seen in a real batch; the fixed colors on the bodies.
+
+Builds: SC 3.4 `a15146a3717d64e5fa2558fc87caee65` (`build\sc34_r31`), 0 errors. Not installed.

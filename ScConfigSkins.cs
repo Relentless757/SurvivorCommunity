@@ -8,7 +8,8 @@ namespace SurvivorCommunity
     /// ScConfigNames. With Vanity Vault a body's race is one of its skin tones (Alabaster ... Espresso), not one of the voice
     /// table's four races: VoiceRaceBySkin maps each tone to the race whose voices it speaks in (ScVoice.RaceFor). And the
     /// natural hair colors follow the skin: a mid or a dark skin is rolled (and an existing look corrected to) only the natural
-    /// colors its group allows (ScLooks.NaturalFor, ScLooks.FixHairColor); dyed colors stay open to every skin. Config/
+    /// colors its group allows (ScLooks.NaturalPick, ScLooks.FixHairColor), gray and white (SurvivorGrayHairColors) kept at
+    /// their share of all the natural colors; dyed colors stay open to every skin. Config/
     /// blocks.xml, block ConfigSurvivorCommunity: VoiceRaceBySkin after Voices, the hair keys after SurvivorDyedHairChanceMale;
     /// each key is commented there. Both games.
     /// </summary>
@@ -42,6 +43,13 @@ namespace SurvivorCommunity
         /// <summary>The natural hair colors a dark skin may have.</summary>
         public static readonly string[] DefaultDarkSkinHairColors = { "04 Brown", "05 DarkBrown", "06 Black", "07 Gray", "08 White" };
         public static readonly List<string> SurvivorDarkSkinHairColors = new List<string>(DefaultDarkSkinHairColors);
+        /// <summary>
+        /// Round 31 refinement: the natural hair colors that read as age. A natural roll is gray or white as often as these are
+        /// among all the natural colors (2 of 10: 0.2, as before round 31, on every skin), and a fixed look never turns from a
+        /// young-looking color to one of these (ScLooks.NaturalPool, ScLooks.FixedHairColor). Empty: no split by age.
+        /// </summary>
+        public static readonly string[] DefaultGrayHairColors = { "07 Gray", "08 White" };
+        public static readonly List<string> SurvivorGrayHairColors = new List<string>(DefaultGrayHairColors);
 
         private static void ResetSkins()
         {
@@ -51,6 +59,7 @@ namespace SurvivorCommunity
             SurvivorMidSkinHairColors.Clear(); SurvivorMidSkinHairColors.AddRange(DefaultMidSkinHairColors);
             SurvivorDarkSkins.Clear(); SurvivorDarkSkins.AddRange(DefaultDarkSkins);
             SurvivorDarkSkinHairColors.Clear(); SurvivorDarkSkinHairColors.AddRange(DefaultDarkSkinHairColors);
+            SurvivorGrayHairColors.Clear(); SurvivorGrayHairColors.AddRange(DefaultGrayHairColors);
         }
 
         private static void ParseSkins(DynamicProperties p)
@@ -73,11 +82,12 @@ namespace SurvivorCommunity
                 }
             }
             // an empty list is meaningful for these: no skin in that group / the group's skins keep every natural color
-            // (an empty color list falls back to all of them, logged once: ScLooks.NaturalFor)
+            // (an empty color list falls back to all of them, logged once: ScLooks.NaturalPick)
             ParseList(p, "SurvivorMidSkins", SurvivorMidSkins);
             ParseList(p, "SurvivorMidSkinHairColors", SurvivorMidSkinHairColors);
             ParseList(p, "SurvivorDarkSkins", SurvivorDarkSkins);
             ParseList(p, "SurvivorDarkSkinHairColors", SurvivorDarkSkinHairColors);
+            ParseList(p, "SurvivorGrayHairColors", SurvivorGrayHairColors);   // empty: no split by age
         }
 
         /// <summary>A new map from a VoiceRaceBySkin value (the field's initializer: the defaults, which have no problems).</summary>
@@ -141,7 +151,7 @@ namespace SurvivorCommunity
         {
             return "voice races for " + VoiceRaceBySkin.Count + " skin tone(s); natural hair colors: mid " + SurvivorMidSkins.Count + " skin(s) -> "
                    + SurvivorMidSkinHairColors.Count + " color(s), dark " + SurvivorDarkSkins.Count + " skin(s) -> " + SurvivorDarkSkinHairColors.Count
-                   + " color(s), every other skin all of them";
+                   + " color(s), every other skin all of them; gray " + SurvivorGrayHairColors.Count + " color(s) at their share";
         }
     }
 }
