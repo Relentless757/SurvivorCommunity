@@ -934,7 +934,7 @@
 			<property name="OutpostHaulBase" value="2" />
 			<property name="OutpostHaulPerLevel" value="2" />
 			<property name="OutpostStashMax" value="30" />
-			<!-- Outposts v2, risk (OutpostAttacks, off by default): security rating, attack calls (fight there or it is settled
+			<!-- Outposts v2, risk (OutpostAttacks, on by default): security rating, attack calls (fight there or it is settled
 			     on security: hold / damaged / overrun), blood-moon sieges, neglect reinfestation, raider demands. Good-news
 			     caches (OutpostGoodNews) are on by default. See ScOutpostRisk.cs for every term. -->
 			<property name="OutpostAttacks" value="true" />
@@ -1406,7 +1406,7 @@
 			<property name="EnclaveDropRangeMax" value="50" />
 			<property name="EnclaveDropHeight" value="60" />
 
-			<!-- RAIDER ENCLAVES RAID (E10). With OutpostAttacks (off, it turns these off too), EnclaveRaids and Enclaves on,
+			<!-- RAIDER ENCLAVES RAID (E10). With OutpostAttacks (switching it off turns these off too), EnclaveRaids and Enclaves on,
 			     the raider demands on your outposts come from a named group: the nearest hostile enclave within
 			     EnclaveRaidRange m of the outpost (building to building) that has someone to spare (the leader never raids), is
 			     not leaning on another outpost and is past its rest. A raider enclave asks with EnclaveRaidChance a day, a group

@@ -407,7 +407,7 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
 - It lists every outpost and answers raiders.
 - Staffed outposts sometimes draw survivors in, and runs in distress sometimes hole up at an outpost.
 
-**Risk** (`OutpostAttacks`, off by default)
+**Risk** (`OutpostAttacks`, on by default)
 - Each outpost has a **security** rating from its staff, tier, your visits, ammo, the defenses you built
   (spikes, wire, traps, turrets) and fights won.
 - **Attack calls** give you `OutpostAttackHours` to get there and fight.
