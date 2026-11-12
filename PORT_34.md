@@ -4494,3 +4494,15 @@ reset`). TESTING 701. The glance found the rest sound (no saved body returned; `
 delegate after the flush or into the next world; no double return; feature off changes nothing; M1, L1, L2, L5 as asked).
 
 Builds: SC 3.4 `dcf4e1a9754482553035316f0f5a276b` (`build\sc34_r30`), 0 errors. Not installed.
+
+### Round 30 installed (2026-11-11 22:42)
+
+With the user's go-ahead (3.4 game closed): round 30 (S30: streamer names - viewers' names from a text file onto new
+survivors, off by default; the `OutpostAttacks` code fallback on, matching the user's "on by default"). Fable: review
+DEPLOYABLE (2 MEDIUM, 6 LOW; fixed in 5fc51f1) -> glance NOT DEPLOYABLE (the stale used-name cache; fixed in 1619db9 exactly
+as the glance prescribed: `usedSet = null` after every change to the list, three stores confirmed in the built DLL's IL; no
+third pass). port-3.4 fast-forwarded to `ms/r30` 1619db9; `deploy_sc34.py`: 13843 files, installed = built
+`dcf4e1a9754482553035316f0f5a276b`. The old install is in `Port33\_backups\sc34_2026-11-11_224229`; the user's
+`DebugLogging` true set again. Checked in the install: the three `StreamerNames*` settings (StreamerNames false), 14 voices,
+README.txt / CONSOLE_COMMANDS.txt with the streamer names section. Untested in game: TESTING S30 (680-701), and still J29
+(600-622), M29 (650-673), X3 (570-586), P2 (500-511), R2 (520-562).
