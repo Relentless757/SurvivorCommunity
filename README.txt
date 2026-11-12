@@ -161,6 +161,34 @@ stamina, mood (a face and a word), their traits, the four skills and their speci
 rolled the first time you talk to them and they bring exactly that profile when they join. Their traits read ???? until
 their favor is done.
 
+Streamer names
+~~~~~~~~~~~~~~
+
+For streamers: put your viewers' names in a text file and SC gives them to the new survivors it makes, so your viewers
+turn up in the game as people you can meet and recruit. It is off by default.
+
+- Switch it on: set "StreamerNames" to "true" in SC's settings (section 20) and restart the game.
+- The file: "%APPDATA%\7DaysToDie\SurvivorCommunity\StreamerNames.txt", outside the mod folder, so it survives mod
+  updates. SC makes it, with a short explanation at the top, the first time you load a world with the switch on.
+  "StreamerNamesFile" can name another file (a full path such as "C:\Stream\viewers.txt").
+- The format: one name per line. Add the sex after a comma when it matters: "Sarah, female" or "Mike, male" ("f" and "m"
+  work too). A name without one can go to anyone. Lines starting with "#" are notes, and blank lines are skipped. A name
+  keeps letters, digits, spaces and "_ - . '" (anything else is dropped) and is cut at 32 characters; the same name
+  twice counts once.
+- Who gets them: each new survivor SC makes takes the next unused name in the file's order (put your favorites first)
+  that fits their sex: wild survivors, radio contacts, enclave people (leaders too) and drifter bands. With
+  "StreamerNamesFor" you choose "survivors" (the default), "raiders" (SC's wild raiders, raider enclaves and bands, and
+  outpost raids; they show as "Name the Raider") or "all".
+- Once per save: a name given out is recorded in your save and never given again there, even after that survivor dies.
+  The exception: the game keeps only the NPCs you have met, so when an NPC you never met disappears (you leave its area,
+  or it despawns), its name goes back on the list for a later survivor. When no fitting name is left, new survivors get
+  their normal names.
+- Nobody is renamed: people already in your world keep their names, and a viewer you recruit keeps the name for life,
+  through saves, reloads and the area unloading.
+- Mid-stream edits: SC reads the file again when it changes, so names you add while you play go to the next new
+  survivor. "sc names" in the console (F1) shows the list and how many names are used and left, "sc names test" the next
+  names in line.
+
 
 4. Your members
 ---------------
@@ -1323,6 +1351,9 @@ Community
   they see)
 - MembersOpenOwnerLockedDoors = true: Members open your locked doors
 - MembersOpenHatches = true: Members open hatches and drawbridges
+- StreamerNames = false: Give your viewers' names from a text file to the new survivors SC makes (section 3)
+- StreamerNamesFile = StreamerNames.txt: The names file, in "%APPDATA%\7DaysToDie\SurvivorCommunity\" (or a full path)
+- StreamerNamesFor = survivors: Who gets the names: "survivors", "raiders" or "all"
 - DebugLogging = false: More detail in the log for bug reports
 
 Needs and morale
