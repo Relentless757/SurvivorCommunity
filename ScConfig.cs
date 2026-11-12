@@ -1233,6 +1233,7 @@ namespace SurvivorCommunity
             ResetVoices();                         // V2 (ScConfigVoices.cs)
             ResetStuck();                          // round 29b (ScConfigStuck.cs)
             ResetNames();                          // round 30 (ScConfigNames.cs): streamer names
+            ResetSkins();                          // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
             ResetCraft();                          // C1 (ScConfigCraft.cs)
             ResetRadio();                          // R2 (ScConfigRadio.cs)
@@ -2332,6 +2333,7 @@ namespace SurvivorCommunity
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
                 ParseStuck(p);                     // round 29b (ScConfigStuck.cs)
                 ParseNames(p);                     // round 30 (ScConfigNames.cs): streamer names
+                ParseSkins(p);                     // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
                 ParseCraft(p);                     // C1 (ScConfigCraft.cs)
                 ParseRadio(p);                     // R2 (ScConfigRadio.cs)
@@ -2610,6 +2612,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
                 ScLog.Out("config: stuck rescue " + StuckLine());   // round 29b (ScConfigStuck.cs)
                 ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)
+                ScLog.Out("config: skins " + SkinsLine());   // round 31 (ScConfigSkins.cs)
 #if SC_V34
                 ScLog.Out("config: crafting " + CraftLine());   // C1 (ScConfigCraft.cs)
                 ScLog.Out("config: handheld radio " + RadioLine());   // R2 (ScConfigRadio.cs)

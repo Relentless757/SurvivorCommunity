@@ -4516,3 +4516,136 @@ port-3.4 fast-forwarded to dev/ideas a3d28b5 (voice files only; the code is roun
 installed = the unchanged build `dcf4e1a9754482553035316f0f5a276b`. The old install is in
 `Port33\_backups\sc34_2026-11-12_165918`; the user's `DebugLogging` true set again. Untested in game: the two Native women's
 voices (any NativeF1/F2 survivor now speaks in her own voice).
+
+### Round 31: skin-matched voices and hair (V31) (2026-11-12, built, not installed)
+
+Branch `ms/r31` from port-3.4 `70115a3` (the installed state: round 30 and all 16 voices), worktree `Port33\wt\sc-r31`. **The
+user's spec (approved 2026-11-12):** with Vanity Vault (the user has it) a body's SDCS race is one of its skin tones, not
+White/Black/Asian/Native, so `ScVoice.RaceAndSex` found no race and every Vanity Vault NPC was dealt a voice from all voices of
+its sex; and `ScLooks.Roll` rolled the hair color from every natural color whatever the skin (the user's log: an Espresso man
+with `09 Red`; "blonde looks wrong on darker NPCs"). Now each tone maps to a voice race (`VoiceRaceBySkin`), natural hair colors
+follow the skin (`SurvivorMidSkins` / `SurvivorDarkSkins` and their color lists), dyed colors stay open to everyone at the same
+rare chance, and NPCs SC already keeps a look for are corrected as round 26's men's hair fix (P2) corrects theirs.
+
+**What was found (verified).**
+- **The tones.** Vanity Vault 3.4's `Patch_SDCSDataUtils_GetRaceList` (its own DLL, ilspycmd; not one of the never-decompile
+  DLLs) replaces the race list outright with 24 tones: 15 natural - Alabaster, Porcelain, Ivory, Warm Ivory, Cool Beige, Warm
+  Beige, Honey, Golden Peach, Sand, Taupe, Caramel, Bronze, Chestnut, Umber, Espresso - and 9 tinted (Obsidian, Ash, Mutant
+  Green, Demon Red, Orchid, Brimstone, Cobalt, Amethyst, Ember: exactly `SurvivorExcludeSkins`). Its `Config/Localization.csv`
+  `xuiRace<tone>` keys list the same 24 in the same order, and so does the 3.2 install's Vanity Vault. No natural tone is missing
+  from the brief's list, so the default map is the brief's, unchanged.
+- **The hair colors.** The game's `sdcs` TextAsset (what `SDCSDataUtils.Load` reads; taken out of 3.4's `data.unity3d` with
+  UnityPy, read-only, scratch `r31\sdcs_dump.py`): 24 colors in order, `01 Blond`, `02 Dark Blond`, `03 LightBrown`, `04 Brown`,
+  `05 DarkBrown`, `06 Black`, `07 Gray`, `08 White`, `09 Red`, `10 Red 1` (natural) and `11 Yellow` ... `24 Green 1` (exactly
+  `SurvivorDyedHairColors`); its races are only White/Black/Asian/Native. Vanity Vault adds no hair color: its one use of
+  `SDCSDataUtils.HairColorDictionary` is a read (`CustomLoader.ApplySmartColor`), and `SonjaHairs.xml` registers styles only.
+  `ScLooks.FallbackHairColors` is the same ten natural colors in the same order.
+- **The voice cache.** `ScVoice.chains` is per entity id with the signature sex|race|seed|VoiceByRace (`ScVoice.cs:390-395`), race
+  being RaceAndSex's result - now the mapped race - so a body whose race changes gets a new chain; it is emptied per world
+  (`ScVoice.Reset`) and by `sc voice rescan`, and nothing persists a voice choice (no voice key in the registry). An NPC met
+  before this round is dealt from its mapped race at its first line after loading.
+- **How P2's fix reaches the body (the path followed here).** `ScLooks.Validate` runs `FixMaleHair` on the look in place, once
+  per look per session (`Look.Validated`). `ForEntity`, from X1's createModel prefix (`Patches_Xnpc.cs:371`), validates the look
+  it resolved before `__instance.archetype = look.ToArchetype()` (:381), so the first build already wears the fix. A member's or
+  a prospect's look there is the record's own object (sources member / prospect), so the registry saves the fix. A body re-made
+  from a record (`ScSpawn.Create` -> `Pending = look.Clone()`; `ScRunners`'s snapshot) gets a copy: the fix lands on the copy,
+  and the record itself is corrected only where it is validated - a member by the relink (`ScLooks.Sync` when the session look
+  is not the record's, from `ScTicker.cs:251`), a member's portrait (`ScPortraits.PrepareLook`) and AshfallUI's quest card
+  (`ScQuestGiverApi`'s stand-in shares the record's look). An enclave's or a band's person's record (`m.Look = m.Look.Clone()`,
+  `ScEnclavePeople.cs:751`, `ScBands.cs:1197`) keeps the old color and is fixed again, to the same color, whenever a body is made
+  from it.
+
+**Voices (`ScVoice.cs`).** `RaceFor` (:301, pure): one of the four races as it is (never remapped), else the tone's entry in
+`ScConfig.VoiceRaceBySkin` (case-insensitive), a tone with several races picking one by `Fnv(seed + "|race")`, the NPC's voice
+seed (`Seed`: a survivor's name, a raider's name and id), so they keep it; null for a tone not in the map (any voice of the sex,
+as before). `RaceAndSex` (:320) gains the seed and an `out skin` (the tone, mapped or not; null for a vanilla race) and uses
+`RaceFor` for the archetype's race and then the saved look's; an unmapped tone is logged once per world (`voice: skin tone 'X'
+is not in VoiceRaceBySkin - ...`, `unmappedSkins`, only with VoiceByRace on; a set, so `Chain`, which runs often, builds no
+string per call). `Chain` (:378) reads `Voices()` first (it parses the config when nothing has yet) and passes its seed;
+`MemberClip` (3.4, the radio) maps the record's tone the same way with the member's name; `Fnv` is now internal (ScLooks uses
+it). `sc voice who` adds `SkinNote` (:1304): `(from the body's archetype; skin Espresso -> Black (VoiceRaceBySkin))`, `... (one
+of Asian/White by name, VoiceRaceBySkin)` or `...; skin Foo is not in VoiceRaceBySkin: any voice of their sex`.
+
+**Hair (`ScLooks.cs`).** `AllowedHairColors` (:724): `SurvivorDarkSkinHairColors` for a skin on `SurvivorDarkSkins` (asked
+first), `SurvivorMidSkinHairColors` for one on `SurvivorMidSkins`, null (every natural color) for any other skin - names through
+`ScConfig.Listed`, so case-insensitive with `*` prefixes. `NaturalIn` (:737, pure): the natural colors the group allows, in the
+game's order, or all of them when the group allows any or its list leaves none (`fellBack`; `NaturalFor` :750 logs that once
+per group). `Roll` (:455, :470): a dyed roll as before; otherwise `NaturalFor(look.Race, natural)`, and the fallback when the
+game's list is unreadable is `FallbackHairColors`' natural ones filtered the same way (`NaturalFallback`); the number of random
+draws is unchanged.
+
+**Existing NPCs (`ScLooks.cs`).** `Validate` (:698) runs `FixHairColor` (:823) after P2's `FixMaleHair` and after the White/01
+fallback, so the skin it judges is the final one; `Validate` takes an optional entity and name for the log line (`ForEntity`
+:272 passes the record's name - a member's, a prospect's, or `PendingName`, which `ScSpawn.Create` and `ScRunners` now set with
+`Pending` for a known survivor; `Sync` and `Apply` pass the body; the portrait passes `Name (id)`). `FixHairColor` parses the
+config first (as `Roll` does), then `FixedHairColor` (:805, pure) decides: nothing for a creator face, no color, a dyed color, a
+color that is not one of the game's natural ones, a skin whose group allows any color (or whose list leaves none), or a color
+the group allows; otherwise a color from the group's natural colors by FNV-1a of the look itself (sex, skin, variant, hair,
+color, eyes, beard), the same every load until the record is saved. One line per swap: `looks: <name> (<id>) hair color <old>
+-> <new> (skin <tone>)`. It covers every look that comes through `ForEntity`: members, prospects, enclave and band people,
+raiders, re-made bodies, `sc spawn` and radio contacts.
+
+**Creator faces stay theirs.** `AdoptFace` (X17, 3.4) marks the look `CreatorFace` (:343) before validating it, so the
+character's hair color is never corrected. The mark is saved with the look so a recruit keeps it across loads: `Look.Encode`
+adds the three paint fields (empty when unpainted) and a 13th field `C` for a creator face only (every other look encodes as
+before, portrait keys included); `Decode` reads it back; `Clone` copies it; `Describe` (`sc xnpc`, the DebugLogging body line)
+ends `(creator face)`; `sc look`'s new face has no mark. An older build reads such a look as before (it stops at field 12) and
+drops the mark at its next save.
+
+**Config** (`ScConfigSkins.cs` new, shared, ScConfigNames' pattern - `ResetSkins` / `ParseSkins` / `SkinsLine` from
+`ScConfig.Reset` :1236, `EnsureParsed` :2336 and the line `config: skins ...` :2615; the csproj's shared ItemGroup; blocks.xml,
+each commented): `VoiceRaceBySkin` after `Voices` (:649), the brief's 15 tones; `SurvivorMidSkins` `Honey,Golden Peach,Sand,
+Taupe,Caramel,Bronze,Asian,Native`, `SurvivorMidSkinHairColors` `03 LightBrown,04 Brown,05 DarkBrown,06 Black,07 Gray,08 White`,
+`SurvivorDarkSkins` `Chestnut,Umber,Espresso,Black`, `SurvivorDarkSkinHairColors` `04 Brown,05 DarkBrown,06 Black,07 Gray,08
+White`, after `SurvivorDyedHairChanceMale` (:398-401). `ParseSkinRaces` (pure, also the field initializer's - the defaults
+parse without a problem): `Tone:Race` or `Tone:Race|Race`, a tone named twice taking the later entry; an entry with no `:` or
+no tone, a tone that is one of the four races, or no known race is skipped with a warning, an unknown race in a list is left
+out with one. A value with no readable entry keeps the defaults (warned); an empty value empties the map.
+
+Where the brief left a choice (decided here):
+1. Creator faces are recognized across loads by the saved `C` mark (the alternative, a session flag, would have let a recruited
+   creator character's color be "corrected" at the next load).
+2. Only colors the game has as natural are judged: an unknown color is left alone, as a dyed one is.
+3. The new color's hash is FNV-1a (`ScVoice.Fnv`), not P2's `GetStableHashCode`, so the offline replay below computes the very
+   color the game will.
+4. The color fix runs after the race is final (after `Validate`'s White/01 fallback); P2's hair fix keeps its place before it.
+5. The unmapped-tone line is Out-level, once per tone per world, and only with `VoiceByRace` on (without it the race does not
+   matter).
+6. README section 16's "14 voices are recorded" (stale since vo3 day 9) now says all 16 are.
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_r31`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build to a scratch folder); the 3.2 configuration (`build\sc32_r31_scratch`) 0 errors; the tracked 3.2
+  `SurvivorCommunity.dll` untouched (`c4ad303a...`).
+- `cctor_order.py` on the ilspy IL dumps: 3.4 142 static constructors, 3.2 127 (no new class), 0 reads before store.
+- IL call sites, both builds: `SkinRaces` from `ScConfig..cctor`; `ResetSkins` / `ParseSkins` / `SkinsLine` from `Reset` /
+  `EnsureParsed`; `RaceFor` from `RaceAndSex` (and `MemberClip`, 3.4 only); `RaceAndSex` from `Chain` and `Who`; `SkinNote`
+  from `Who`; `FixHairColor` from `Validate` only, after `FixMaleHair` and the two `BasePartsExist` calls (the decompiled build);
+  `NaturalFor` from `Roll` and `NaturalFallback`; `PendingName` stored by `ScSpawn.Create`, the runner's re-create, `ForEntity`
+  and `Reset`, read by `ForEntity`; `CreatorFace` stored by `AdoptFace` (3.4 only, before its `Validate`), `Decode`, `Clone`.
+- The parsers and the rules on the built 3.4 DLL (a .NET 8 console, scratch `r31\harness`, by reflection; ScConfig's type
+  initializer runs there, not under .NET Framework - `String.Split(char, StringSplitOptions)`): 49 checks, 0 failed - the
+  default map (15 tones, 0 problems, each as listed), `honey:asian|WHITE`, a vanilla race as a tone, no colon, no tone, an
+  unknown race, a duplicate race, an empty value, spaces and a tone named twice; `RaceFor` on tones (any case), vanilla races,
+  a tinted tone and ""; a two-race tone stable per seed and split 6/6 over 12 names; the groups of 10 skins; the dark, mid and
+  light pools; the fix on an Espresso man with `09 Red` (-> `08 White`, the same twice), a dyed color, an allowed color, a light
+  skin, an Umber woman with `01 Blond`, a creator face, vanilla Black, Asian (fixed and kept), an unknown color, no color;
+  the creator mark's encode/decode and every other look encoding as before; an emptied dark list falling back.
+- **The replay of the user's real looks** (`r31\extract_looks.py`: the 6 `xnpc body for` lines of the 3.4 `Player.log` /
+  `Player-prev.log` and the 62 `look=` lines of every save's `survivor_community.txt`, through the built DLL): 68 looks. Voices:
+  21 vanilla races as before; 47 Vanity Vault tones, 43 now mapped (18 White, 6 Asian, 11 Native, 8 Black), 4 tinted ones from
+  an old 3.2 save (Cobalt, Ember, Orchid x2) unmapped - any voice, as before. Hair: 5 fixed - the log's Espresso man (id 245,
+  wild) `09 Red -> 08 White`; Nora (Umber, `Playtest34SC`'s Clyde's Band) `01 Blond -> 05 DarkBrown`; Jack (Bronze, an enclave
+  person in `NavezganePlus\Playtest12`) `09 Red -> 04 Brown`; prospects Nate (Sand, `sCMigrationTest2`) `09 Red -> 03 LightBrown`
+  and Alex (Golden Peach, `Test24OCT\Playtest1`) `09 Red -> 04 Brown`; 17 dyed colors left alone (on every kind of skin); no
+  vanilla-race look needed a fix.
+- XML replay (scratch `x3\r31_checks.py`: round 30's pointed at this worktree): SC 201/201 on 3.4 alone, 200/200 with AshfallUI
+  (its own 2279/2279), no aborts; the five keys land in the merged block.
+- Every file touched LF, no BOM; no localization key (log, console and docs only).
+
+**Not checked (in game only, TESTING V31 710-724):** the voices heard (each tone in its race's voices, raiders' taunts, the radio);
+a batch of new NPCs with no natural blond or red on medium or dark skin; the `looks:` line and the new color on a known NPC's
+body, its portrait, and a member's record saved with it; that Vanity Vault's hair tint follows the corrected `HairColor` on a
+body rebuild; a creator face keeping its color across a save; the settings changed; a game without Vanity Vault.
+
+Builds: SC 3.4 `b0b403a3e727a3e8dc32075a1b810689` (`build\sc34_r31`), 0 errors. Not installed.

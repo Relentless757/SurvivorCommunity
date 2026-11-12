@@ -20,7 +20,9 @@ namespace SurvivorCommunity
     /// SC's bodies the look SC applied), else SC's saved look (ScLooks.Get), else the class's sex - picked by a stable hash
     /// of their name (a raider's name and id), so they keep it while the table stays the same. While that voice has no clip
     /// for a line, the other voice of their race and sex says it, then any recorded voice of their sex, in an order stable
-    /// for that person (Chain): survivors keep talking while a race's recordings don't exist yet. VoiceByRace=false deals
+    /// for that person (Chain): survivors keep talking while a race's recordings don't exist yet. Round 31: with Vanity Vault
+    /// a body's race is one of its skin tones (Espresso, Honey ...), which ScConfig.VoiceRaceBySkin maps to one of the four
+    /// races (RaceFor); a tone not in the map gets no race, so any voice of the sex, as before. VoiceByRace=false deals
     /// among every recorded voice of the sex, as before V2. The key is the line's statement id: "&lt;dialog&gt;.&lt;statement&gt;" first, the dialog being
     /// the statement's own (SdcsNPC.start, 0-XNPCCore's greeting), then the bare statement id (SC's own lines, added to
     /// every dialog under the same ids). vo2: a line an enclave request picks at runtime ({reqask} and the like) is keyed by
@@ -84,6 +86,8 @@ namespace SurvivorCommunity
         }
 
         private static List<Voice> voices;               // null until scanned
+        /// <summary>Round 31: the skin tones logged as missing from VoiceRaceBySkin this world (RaceAndSex), case-insensitive.</summary>
+        private static readonly HashSet<string> unmappedSkins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         /// <summary>V2: each NPC's voice chain, by entity id, with the (sex|race|seed) it was built for.</summary>
         private static readonly Dictionary<int, KeyValuePair<string, List<Voice>>> chains = new Dictionary<int, KeyValuePair<string, List<Voice>>>();
         /// <summary>V2: when each NPC's bark ends (Time.unscaledTime), by entity id.</summary>
@@ -289,15 +293,38 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round 31: the voice race of a body's race or skin tone - one of Races as it is (White, Black, Asian, Native: never
+        /// remapped), else the race ScConfig.VoiceRaceBySkin gives that tone (Vanity Vault's: "Espresso" -> Black); a tone
+        /// with several races picks one by a stable hash of seed, the NPC's voice seed, so they keep it. Null when it is
+        /// neither (mapped false): a tone not in the map speaks in any voice of its sex, as before. Pure: no logging.
+        /// </summary>
+        internal static string RaceFor(string raceOrSkin, string seed, out bool mapped)
+        {
+            mapped = false;
+            if (string.IsNullOrEmpty(raceOrSkin)) return null;
+            string race = CanonRace(raceOrSkin);
+            if (race != null) return race;
+            string[] to;
+            if (!ScConfig.VoiceRaceBySkin.TryGetValue(raceOrSkin.Trim(), out to) || to == null || to.Length == 0) return null;
+            mapped = true;
+            return to.Length == 1 ? to[0] : to[(int)(Fnv((seed ?? "") + "|race") % (uint)to.Length)];
+        }
+
+        /// <summary>
         /// V2: the race and sex a voice is picked for: the body's own archetype (for SC's bodies the look SC applied), else
         /// SC's saved look (a re-created body's, ScLooks.Get), else the class's sex with no race. from: model, look or class.
+        /// Round 31: a race that is a skin tone (Vanity Vault's) goes through VoiceRaceBySkin (RaceFor, by seed - the NPC's
+        /// voice seed, Seed); skin is that tone (null for one of the four races), mapped or not. A tone not in the map is
+        /// logged once and gives no race (any voice of the sex).
         /// </summary>
-        public static void RaceAndSex(EntityAlive npc, out string race, out bool male, out string from)
+        public static void RaceAndSex(EntityAlive npc, string seed, out string race, out bool male, out string from, out string skin)
         {
             race = null;
             male = true;
             from = "class";
+            skin = null;
             bool sexKnown = false;
+            bool mapped;
             try
             {
                 EModelSDCS m = npc != null ? npc.emodel as EModelSDCS : null;
@@ -307,7 +334,8 @@ namespace SurvivorCommunity
                     male = a.IsMale;
                     sexKnown = true;
                     from = "model";
-                    race = CanonRace(a.Race);
+                    race = RaceFor(a.Race, seed, out mapped);
+                    if (CanonRace(a.Race) == null && !string.IsNullOrEmpty(a.Race)) skin = a.Race.Trim();
                     if (race != null) return;
                 }
                 Look l = npc != null ? ScLooks.Get(npc) : null;
@@ -315,9 +343,17 @@ namespace SurvivorCommunity
                 {
                     if (!sexKnown) male = l.Male;
                     sexKnown = true;
-                    race = CanonRace(l.Race);
-                    if (race != null) { from = "look"; return; }
+                    race = RaceFor(l.Race, seed, out mapped);
+                    if (race != null)
+                    {
+                        from = "look";
+                        skin = CanonRace(l.Race) == null ? l.Race.Trim() : null;
+                        return;
+                    }
+                    if (skin == null && !string.IsNullOrEmpty(l.Race)) skin = l.Race.Trim();
                 }
+                if (skin != null && ScConfig.VoiceByRace && unmappedSkins.Add(skin))   // once per tone per world (Chain runs often: no string built per call)
+                    ScLog.Out("voice: skin tone '" + skin + "' is not in VoiceRaceBySkin - NPCs of this skin speak in any voice of their sex");
             }
             catch (Exception e)
             {
@@ -344,11 +380,13 @@ namespace SurvivorCommunity
             if (npc == null) return null;
             bool raider = ScXnpc.IsRaider(npc);
             if (!raider && !ScXnpc.IsSurvivorBody(npc)) return null;
-            string race, from;
+            string race, from, skin;
             bool male;
-            RaceAndSex(npc, out race, out male, out from);
+            List<Voice> all = Voices();     // first: it parses the config when nothing has yet (round 31: VoiceRaceBySkin is read next)
             string seed = Seed(npc, raider);
-            List<Voice> all = Voices();
+            RaceAndSex(npc, seed, out race, out male, out from, out skin);
+            // round 31: race is the voice race after VoiceRaceBySkin, so a body whose tone now maps to a race (an NPC met before
+            // the map) gets a new signature and its chain is built again
             string sig = (male ? "M" : "F") + "|" + (race ?? "") + "|" + seed + "|" + ScConfig.VoiceByRace;
             KeyValuePair<string, List<Voice>> cached;
             if (chains.TryGetValue(npc.entityId, out cached) && cached.Key == sig) return cached.Value;
@@ -387,8 +425,8 @@ namespace SurvivorCommunity
             return chain;
         }
 
-        /// <summary>FNV-1a: a stable string hash (string.GetHashCode is not stable across runtimes).</summary>
-        private static uint Fnv(string s)
+        /// <summary>FNV-1a: a stable string hash (string.GetHashCode is not stable across runtimes). Round 31: ScLooks' hair color fix uses it too.</summary>
+        internal static uint Fnv(string s)
         {
             uint h = 2166136261u;
             if (s != null) foreach (char c in s) { h ^= c; h *= 16777619u; }
@@ -441,9 +479,11 @@ namespace SurvivorCommunity
                 if (npc != null && ScXnpc.IsSurvivorBody(npc)) chain = Chain(npc);
                 else
                 {
+                    List<Voice> all = Voices();     // first: it parses the config when nothing has yet
                     bool male = m.Look != null ? m.Look.Male : ScLooks.ClassIsMale(m.Class);
-                    string race = m.Look != null ? CanonRace(m.Look.Race) : null;
-                    chain = ChainFor(Voices(), male, race, m.Name ?? "");
+                    bool mapped;
+                    string race = m.Look != null ? RaceFor(m.Look.Race, m.Name ?? "", out mapped) : null;   // round 31: a skin tone too
+                    chain = ChainFor(all, male, race, m.Name ?? "");
                 }
                 if (chain == null) return null;
                 foreach (Voice v in chain)
@@ -721,6 +761,7 @@ namespace SurvivorCommunity
             // V2: the voice table is read again for the new world's config; barks, greetings and taunts start over
             voices = null;
             chains.Clear();
+            unmappedSkins.Clear();   // round 31: the new world's config may map them
             barkUntil.Clear();
             pendingDone.Clear();
             ScBarks.Reset();
@@ -1231,13 +1272,13 @@ namespace SurvivorCommunity
                 o.Add(who + " is not one of the community's survivors or SC's raiders - SC gives them no voice");
                 return o;
             }
-            string race, from;
+            string race, from, skin;
             bool male;
-            RaceAndSex(npc, out race, out male, out from);
+            RaceAndSex(npc, Seed(npc, raider), out race, out male, out from, out skin);
             List<Voice> chain = Chain(npc);
             o.Add(who + ", " + (raider ? "raider" : "survivor") + ": " + (race ?? "race unknown") + " " + (male ? "male" : "female") + " (from the "
-                  + (from == "model" ? "body's archetype" : from == "look" ? "saved look" : "class name") + "), VoiceByRace " + (ScConfig.VoiceByRace ? "on" : "off")
-                  + (raider ? ", dealt by name and id" : ", dealt by name"));
+                  + (from == "model" ? "body's archetype" : from == "look" ? "saved look" : "class name") + SkinNote(skin, race) + "), VoiceByRace "
+                  + (ScConfig.VoiceByRace ? "on" : "off") + (raider ? ", dealt by name and id" : ", dealt by name"));
             if (chain == null || chain.Count == 0) { o.Add("  no voice of their sex in the table or on disk"); return o; }
             var sb = new StringBuilder("  voice: ");
             for (int i = 0; i < chain.Count; i++)
@@ -1254,6 +1295,19 @@ namespace SurvivorCommunity
                   + (talk == null ? ": none has any clip yet - silent" : talk == chain[0] ? "" : ": their own voice has none yet, so " + talk.Name + " speaks for now"));
             o.Add("  " + ScBarks.FamilyReport(npc, chain, raider));
             return o;
+        }
+
+        /// <summary>
+        /// Round 31, sc voice who: "; skin Espresso -> Black (VoiceRaceBySkin)", "; skin Honey -> Asian (one of Asian/White by
+        /// name, VoiceRaceBySkin)", or "; skin Foo is not in VoiceRaceBySkin: any voice of their sex"; "" for a vanilla race.
+        /// </summary>
+        private static string SkinNote(string skin, string race)
+        {
+            if (string.IsNullOrEmpty(skin)) return "";
+            string[] to;
+            if (race == null || !ScConfig.VoiceRaceBySkin.TryGetValue(skin, out to) || to == null || to.Length == 0)
+                return "; skin " + skin + " is not in VoiceRaceBySkin: any voice of their sex";
+            return "; skin " + skin + " -> " + race + (to.Length > 1 ? " (one of " + string.Join("/", to) + " by name, VoiceRaceBySkin)" : " (VoiceRaceBySkin)");
         }
 
         /// <summary>V2: the family report's lookups (ScBarks): does a voice have this clip, and its path.</summary>

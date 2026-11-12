@@ -34,13 +34,19 @@ namespace SurvivorCommunity
         public string BodyPaint = "";
         public string FacePaint = "";
         public string Tattoo = "";
+        /// <summary>
+        /// Round 31: the face is a 0-XNPCCore character-creator character's (X17, ScLooks.AdoptFace), not one SC rolled - SC
+        /// leaves its hair color alone (ScLooks.FixHairColor). Saved with the look (Encode's 13th field "C"), so a recruit
+        /// keeps it; sc look's new face clears it.
+        /// </summary>
+        public bool CreatorFace;
 
         public bool HasPaint { get { return !string.IsNullOrEmpty(BodyPaint) || !string.IsNullOrEmpty(FacePaint) || !string.IsNullOrEmpty(Tattoo); } }
 
         public Look Clone()
         {
             var l = new Look { Male = Male, Race = Race, Variant = Variant, Hair = Hair, HairColor = HairColor, Mustache = Mustache, Chops = Chops, Beard = Beard, Eyes = Eyes, Validated = Validated,
-                              BodyPaint = BodyPaint, FacePaint = FacePaint, Tattoo = Tattoo };
+                              BodyPaint = BodyPaint, FacePaint = FacePaint, Tattoo = Tattoo, CreatorFace = CreatorFace };
             for (int i = 0; i < 4; i++) { l.Gear[i] = Gear[i]; l.Quality[i] = Quality[i]; }
             return l;
         }
@@ -63,12 +69,15 @@ namespace SurvivorCommunity
         /// <summary>
         /// "M|White|2|buzzcut|06 Black|1||3|Blue05" - no '=', ';' or newlines, so the registry's Clean() leaves it alone.
         /// Paints add "|body|face|tattoo" only when there are any: an unpainted look reads as before (older builds and
-        /// portrait keys alike), and an older build reading a painted one stops at the eyes.
+        /// portrait keys alike), and an older build reading a painted one stops at the eyes. Round 31: a creator face adds the
+        /// three paint fields (empty when unpainted) and "|C"; every other look reads as before, and an older build reading
+        /// one ignores the 13th field (and drops it at its next save).
         /// </summary>
         public string Encode()
         {
             string s = string.Join("|", new[] { Male ? "M" : "F", Race ?? "", Variant.ToString(CultureInfo.InvariantCulture), Hair ?? "", HairColor ?? "", Mustache ?? "", Chops ?? "", Beard ?? "", Eyes ?? "" });
-            return HasPaint ? s + "|" + (BodyPaint ?? "") + "|" + (FacePaint ?? "") + "|" + (Tattoo ?? "") : s;
+            if (HasPaint || CreatorFace) s += "|" + (BodyPaint ?? "") + "|" + (FacePaint ?? "") + "|" + (Tattoo ?? "");
+            return CreatorFace ? s + "|C" : s;
         }
 
         /// <summary>Fills this look from Encode()'s format; unknown/short input leaves the current values.</summary>
@@ -89,6 +98,7 @@ namespace SurvivorCommunity
             BodyPaint = p.Length > 9 ? p[9].Trim() : "";
             FacePaint = p.Length > 10 ? p[10].Trim() : "";
             Tattoo = p.Length > 11 ? p[11].Trim() : "";
+            CreatorFace = p.Length > 12 && string.Equals(p[12].Trim(), "C", StringComparison.OrdinalIgnoreCase);   // round 31
             if (string.IsNullOrEmpty(Race)) Race = "White";
             Validated = false;
             return true;
@@ -139,6 +149,9 @@ namespace SurvivorCommunity
     /// ScXnpc.IsRaider) and are built the same way, their clothes rolled from RaiderGearSets (M10-D7). The old
     /// per-weapon raider classes, their class scans and the branches for SC's own player body (an exact EModelSDCS)
     /// went with the model shim in M10 round 2.
+    /// Round 31: natural hair colors follow the skin - a mid or a dark skin (ScConfig.SurvivorMidSkins / SurvivorDarkSkins)
+    /// rolls only its group's natural colors (NaturalFor), and a stored look with a natural color its skin no longer allows is
+    /// given an allowed one as it is validated (FixHairColor, as P2's FixMaleHair); dyed colors and creator faces are left be.
     /// </summary>
     public static class ScLooks
     {
@@ -148,6 +161,8 @@ namespace SurvivorCommunity
 
         /// <summary>Consumed by the next player-body entity that initialises (set right before EntityFactory.CreateEntity).</summary>
         public static Look Pending;
+        /// <summary>Round 31: the name of the known survivor whose look Pending is (ScSpawn.Create, ScRunners), for the hair color fix's log line; null for a stranger.</summary>
+        public static string PendingName;
         /// <summary>Looks of survivors that have no registry record (yet), by entity id. Session only.</summary>
         private static readonly Dictionary<int, Look> session = new Dictionary<int, Look>();
         /// <summary>The entity class each session look was rolled for (an id can be reused by a stranger).</summary>
@@ -165,6 +180,7 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             Pending = null;
+            PendingName = null;
             session.Clear();
             sessionClass.Clear();
             sessionSource.Clear();
@@ -226,18 +242,19 @@ namespace SurvivorCommunity
         {
             Look look = null;
             string source = "roll";
+            string name = null;     // round 31: whose look it is, for the hair color fix's log line (null: the body's own name)
             try
             {
                 string cls = e != null ? ScCommunity.ClassName(e as EntityAlive) : "";
-                if (Pending != null) { look = Pending; Pending = null; source = "pending"; }
+                if (Pending != null) { look = Pending; name = PendingName; Pending = null; PendingName = null; source = "pending"; }
                 if (look == null && e != null)
                 {
                     Member m = ScRegistry.GetMember(e.entityId);
-                    if (m != null && m.Look != null && (string.IsNullOrEmpty(m.Class) || string.Equals(m.Class, cls, StringComparison.OrdinalIgnoreCase))) { look = m.Look; source = "member"; }
+                    if (m != null && m.Look != null && (string.IsNullOrEmpty(m.Class) || string.Equals(m.Class, cls, StringComparison.OrdinalIgnoreCase))) { look = m.Look; name = m.Name; source = "member"; }
                     if (look == null)
                     {
                         Prospect p = ScRegistry.GetProspect(e.entityId);
-                        if (p != null && p.Look != null && (string.IsNullOrEmpty(p.Class) || string.Equals(p.Class, cls, StringComparison.OrdinalIgnoreCase))) { look = p.Look; source = "prospect"; }
+                        if (p != null && p.Look != null && (string.IsNullOrEmpty(p.Class) || string.Equals(p.Class, cls, StringComparison.OrdinalIgnoreCase))) { look = p.Look; name = p.Name; source = "prospect"; }
                     }
                     if (look == null && session.TryGetValue(e.entityId, out look))
                     {
@@ -252,7 +269,7 @@ namespace SurvivorCommunity
                     World w = ScCommunity.World;
                     look = Roll(ClassIsMale(cls), w != null ? w.GetGameRandom() : null, true, ScXnpc.IsRaiderClass(cls), ScLoadout.TierCap(cls));
                 }
-                Validate(look);
+                Validate(look, e, name);    // P2's hair and round 31's hair color fixes land here, before the body is built (X1)
                 if (e != null) { session[e.entityId] = look; sessionClass[e.entityId] = cls; sessionSource[e.entityId] = source; }
             }
             catch (Exception ex)
@@ -323,6 +340,7 @@ namespace SurvivorCommunity
             l.Chops = a.ChopsName ?? "";
             l.Beard = a.BeardName ?? "";
             l.Eyes = string.IsNullOrEmpty(a.EyeColorName) ? l.Eyes : a.EyeColorName;
+            l.CreatorFace = true;   // round 31: the creator's hair color is theirs, never corrected for the skin
             l.Validated = false;
             Validate(l);
             session[npc.entityId] = l;
@@ -429,11 +447,12 @@ namespace SurvivorCommunity
                     colors = new List<string>();
                     foreach (var hc in SDCSDataUtils.GetHairColorNames()) if (!string.IsNullOrEmpty(hc.PrefabName)) colors.Add(hc.PrefabName);
                     // dyed colours are rare, rarer still on men: pick from the dyed or the natural ones (the natural
-                    // ones also when no dyed colour is left to pick)
+                    // ones also when no dyed colour is left to pick). Round 31: the natural ones the rolled skin allows
+                    // (NaturalFor: a mid or a dark skin's group list); a dyed color is open to every skin
                     bool dyed = Chance(rnd) < (male ? ScConfig.SurvivorDyedHairChanceMale : ScConfig.SurvivorDyedHairChanceFemale);
                     List<string> all = colors;
                     colors = dyed ? all.FindAll(c => ScConfig.Listed(ScConfig.SurvivorDyedHairColors, c)) : null;
-                    if (colors == null || colors.Count == 0) colors = Allowed(all, ScConfig.SurvivorDyedHairColors);
+                    if (colors == null || colors.Count == 0) colors = NaturalFor(look.Race, Allowed(all, ScConfig.SurvivorDyedHairColors));
                     if (male)
                     {
                         must = SDCSDataUtils.GetHairNames(true, SDCSDataUtils.HairTypes.Mustache);
@@ -447,7 +466,8 @@ namespace SurvivorCommunity
                 string vs = Pick(rnd, variants, new[] { "1", "2", "3", "4" });
                 look.Variant = int.TryParse(vs, out v) ? Math.Max(1, v) : 1;
                 look.Hair = Chance(rnd) < ScConfig.SurvivorBaldChance ? "" : Pick(rnd, hairs, male ? MaleFallbackHairs() : FallbackHairs);
-                look.HairColor = Pick(rnd, colors, FallbackHairColors);
+                // the game's list unreadable: the fallback's natural colors, filtered for the skin as well (round 31)
+                look.HairColor = colors != null && colors.Count > 0 ? Pick(rnd, colors, null) : Pick(rnd, null, NaturalFallback(look.Race));
                 look.Eyes = Pick(rnd, eyes, FallbackEyes);
                 if (male)
                 {
@@ -669,8 +689,13 @@ namespace SurvivorCommunity
             return any;
         }
 
-        /// <summary>The base body and head assets must exist or the body builder silently produces nothing.</summary>
-        public static void Validate(Look look)
+        /// <summary>
+        /// The base body and head assets must exist or the body builder silently produces nothing. Also corrects a stored
+        /// look to today's rules, in place, once per look per session: P2's men's hair (FixMaleHair) and round 31's natural
+        /// hair color for the skin (FixHairColor, after the race is final). e / name only name the NPC in the hair color fix's
+        /// log line (name: whose look it is; null = the body's own name; without e, name is used as it is).
+        /// </summary>
+        public static void Validate(Look look, Entity e = null, string name = null)
         {
             if (look == null || look.Validated) return;
             try
@@ -683,9 +708,146 @@ namespace SurvivorCommunity
                     look.Variant = 1;
                     if (!SDCSUtils.BasePartsExist(look.ToArchetype())) ScLog.Err("the default player body (White/01) is missing too - player-body survivors will be invisible");
                 }
+                FixHairColor(look, e, name);    // round 31
                 look.Validated = true;      // a thrown check is retried on the next use
             }
-            catch (Exception e) { ScLog.Once("looks-validate", e); }
+            catch (Exception ex) { ScLog.Once("looks-validate", ex); }
+        }
+
+        // ---- round 31: natural hair colors by skin ----
+
+        /// <summary>
+        /// Round 31: the natural hair colors a skin's group allows - SurvivorDarkSkinHairColors for a skin on SurvivorDarkSkins
+        /// (asked first), SurvivorMidSkinHairColors for one on SurvivorMidSkins; null for every other skin (all natural
+        /// colors: the light tones, vanilla's White, a skin in neither list). group: "dark", "mid" or null.
+        /// </summary>
+        internal static List<string> AllowedHairColors(string race, out string group)
+        {
+            group = null;
+            if (string.IsNullOrEmpty(race)) return null;
+            if (ScConfig.Listed(ScConfig.SurvivorDarkSkins, race.Trim())) { group = "dark"; return ScConfig.SurvivorDarkSkinHairColors; }
+            if (ScConfig.Listed(ScConfig.SurvivorMidSkins, race.Trim())) { group = "mid"; return ScConfig.SurvivorMidSkinHairColors; }
+            return null;
+        }
+
+        /// <summary>
+        /// Round 31, pure: of these natural colors (no dyed one), the ones this skin may have (AllowedHairColors), in their own
+        /// order. All of them when the skin's group allows any color, or when the group's list leaves none of them (fellBack).
+        /// </summary>
+        internal static List<string> NaturalIn(string race, List<string> natural, out string group, out bool fellBack)
+        {
+            fellBack = false;
+            List<string> allow = AllowedHairColors(race, out group);
+            if (natural == null || natural.Count == 0 || allow == null) return natural;
+            var keep = new List<string>(natural.Count);
+            foreach (string c in natural) if (ScConfig.Listed(allow, c)) keep.Add(c);
+            if (keep.Count > 0) return keep;
+            fellBack = true;
+            return natural;
+        }
+
+        /// <summary>NaturalIn for a roll, with the log line (once per group) when a group's list leaves no color.</summary>
+        private static List<string> NaturalFor(string race, List<string> natural)
+        {
+            string group;
+            bool fellBack;
+            List<string> keep = NaturalIn(race, natural, out group, out fellBack);
+            if (fellBack) WarnEmptyGroup(group);
+            return keep;
+        }
+
+        private static void WarnEmptyGroup(string group)
+        {
+            string key = group == "dark" ? "SurvivorDarkSkinHairColors" : "SurvivorMidSkinHairColors";
+            ScLog.Once("looks-haircolor-empty-" + group, "looks: " + key + " leaves none of the game's natural hair colors - skins of that group get any natural color");
+        }
+
+        /// <summary>Roll's fallback when the game's color list cannot be read: FallbackHairColors' natural ones, for this skin.</summary>
+        private static string[] NaturalFallback(string race)
+        {
+            List<string> l = NaturalFor(race, Allowed(new List<string>(FallbackHairColors), ScConfig.SurvivorDyedHairColors));
+            return l != null && l.Count > 0 ? l.ToArray() : FallbackHairColors;
+        }
+
+        /// <summary>
+        /// Round 31: the game's natural hair colors - its list (SDCSDataUtils, the game's order: 01 Blond ... 24 Green 1 in 3.2
+        /// and 3.4; Vanity Vault adds none) without SurvivorDyedHairColors; FallbackHairColors' when the list cannot be read
+        /// (the same ten natural ones, 01 Blond ... 10 Red 1, in the same order).
+        /// </summary>
+        private static List<string> NaturalColors()
+        {
+            var all = new List<string>();
+            try
+            {
+                EnsureCatalogue();
+                foreach (var hc in SDCSDataUtils.GetHairColorNames()) if (!string.IsNullOrEmpty(hc.PrefabName)) all.Add(hc.PrefabName);
+            }
+            catch (Exception e) { ScLog.Once("looks-haircolor-list", e); }
+            if (all.Count == 0) all.AddRange(FallbackHairColors);
+            return Allowed(all, ScConfig.SurvivorDyedHairColors);
+        }
+
+        private static bool HasColor(List<string> list, string color)
+        {
+            if (list == null || string.IsNullOrEmpty(color)) return false;
+            foreach (string c in list) if (string.Equals(c, color, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Round 31, pure: the natural hair color a stored look gets instead of its own, or null when it keeps it - a creator
+        /// face (X17: the character's own), no color, a dyed one (any skin may have it), a color that is not one of these natural
+        /// ones (not the game's: left alone), a skin whose group allows any color or whose list leaves none (NaturalIn), or a
+        /// color the group allows. The new one is picked from the group's colors by a stable hash of the look itself (FNV-1a of
+        /// its sex, skin, variant, hair, color, eyes and beard), so the same person gets the same color on every load until the
+        /// corrected look is saved.
+        /// </summary>
+        internal static string FixedHairColor(Look look, List<string> natural)
+        {
+            if (look == null || look.CreatorFace || string.IsNullOrEmpty(look.HairColor) || natural == null) return null;
+            if (ScConfig.Listed(ScConfig.SurvivorDyedHairColors, look.HairColor) || !HasColor(natural, look.HairColor)) return null;
+            string group;
+            bool fellBack;
+            List<string> pool = NaturalIn(look.Race, natural, out group, out fellBack);
+            if (group == null || fellBack || pool == null || pool.Count == 0 || HasColor(pool, look.HairColor)) return null;
+            string seed = (look.Male ? "M" : "F") + "|" + (look.Race ?? "") + "|" + look.Variant + "|" + (look.Hair ?? "") + "|" + look.HairColor
+                          + "|" + (look.Eyes ?? "") + "|" + (look.Beard ?? "");
+            return pool[(int)(ScVoice.Fnv(seed) % (uint)pool.Count)];
+        }
+
+        /// <summary>
+        /// Round 31 (mirrors P2's FixMaleHair, from Validate): a stored look whose natural hair color its skin no longer allows
+        /// (a mid or a dark skin: AllowedHairColors) is given an allowed one (FixedHairColor), in place - the body is built from
+        /// it (ForEntity, X1) and a member's or prospect's record saves it. One log line per swap.
+        /// </summary>
+        private static void FixHairColor(Look look, Entity e, string name)
+        {
+            string group;
+            if (look == null || look.CreatorFace || string.IsNullOrEmpty(look.HairColor)) return;
+            ScConfig.EnsureParsed();    // as Roll does: the groups are the config's before a stored look is changed for good
+            if (AllowedHairColors(look.Race, out group) == null) return;
+            List<string> natural = NaturalColors();
+            bool fellBack;
+            NaturalIn(look.Race, natural, out group, out fellBack);
+            if (fellBack) { WarnEmptyGroup(group); return; }
+            string to = FixedHairColor(look, natural);
+            if (to == null) return;
+            string was = look.HairColor;
+            look.HairColor = to;
+            ScLog.Out("looks: " + Label(e, name) + " hair color " + was + " -> " + to + " (skin " + look.Race + ")");
+        }
+
+        /// <summary>"Name (id)" for a log line: name, else the body's own name; without a body, name as it is.</summary>
+        private static string Label(Entity e, string name)
+        {
+            string n = name;
+            if (string.IsNullOrEmpty(n) && e is EntityAlive)
+            {
+                try { n = ScCommunity.DisplayName((EntityAlive)e); }
+                catch (Exception) { n = null; }
+            }
+            if (string.IsNullOrEmpty(n)) n = "a stored look";
+            return e != null ? n + " (" + e.entityId + ")" : n;
         }
 
         // ---- gear on the entity ----
@@ -834,7 +996,7 @@ namespace SurvivorCommunity
             try
             {
                 look.Male = m.isMale;               // the rig and animator are per sex: never flip it on a live entity
-                Validate(look);
+                Validate(look, npc);
                 m.archetype = look.ToArchetype();
                 session[npc.entityId] = look;
                 if (!SyncGear(npc, look)) Rebuild(npc);
@@ -861,7 +1023,7 @@ namespace SurvivorCommunity
                 if (em != null)
                 {
                     m.Look.Male = em.isMale;
-                    Validate(m.Look);
+                    Validate(m.Look, npc, m.Name);
                     em.archetype = m.Look.ToArchetype();
                     if (!SyncGear(npc, m.Look)) Rebuild(npc);
                 }
@@ -942,6 +1104,7 @@ namespace SurvivorCommunity
             sb.Append(" eyes ").Append(l.Eyes ?? "");
             sb.Append(" gear [").Append(l.EncodeGear()).Append(']');
             if (l.HasPaint) sb.Append(' ').Append(DescribePaints(l));
+            if (l.CreatorFace) sb.Append(" (creator face)");   // round 31
             return sb.ToString();
         }
 

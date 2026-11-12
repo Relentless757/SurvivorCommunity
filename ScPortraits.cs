@@ -534,7 +534,7 @@ namespace SurvivorCommunity
                 // disagree, and the survivor classes - the community's 0-XNPCCore survivors (npcSdcsSurvivorFemaleT2 and
                 // so on) - carry the sex in their name
                 if (ScXnpc.IsSurvivorClass(m.Class)) m.Look.Male = ScLooks.ClassIsMale(m.Class);
-                ScLooks.Validate(m.Look);                    // base body/head assets exist, else White/01 (ScLooks.cs:499-514)
+                ScLooks.Validate(m.Look, null, m.Name + " (" + m.Id + ")");   // base body/head assets exist, else White/01; round 31's hair color fix names them
                 BuildLookRig(m.Look, ref rig, ref cat);
                 Stage st = EnsureStage();
                 rig.transform.SetParent(st.Root, false);

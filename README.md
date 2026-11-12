@@ -61,7 +61,8 @@ This is a test build. Expect bugs, and please play it on a new save made for tes
 ### Works with (optional)
 
 - **Locked & Loaded:** survivors and raiders use magazines.
-- **Sonja's Vanity Vault 3.3:** body paints, face paints and tattoos on survivors and raiders.
+- **Sonja's Vanity Vault 3.3:** body paints, face paints and tattoos on survivors and raiders; its skin tones get matching
+  voices and hair colors (sections 15 and 16).
 - **WalkerSim2:** wild raiders still spawn while WalkerSim2 handles the zombies.
 - **IZY Classic** (with its Combat Sandbox): its guns show up in NPC weapon rolls.
 
@@ -1130,6 +1131,13 @@ Weapons**. They keep it in place of their weapon of that kind.
   outfit from a supported armor pack, if installed.
 - **With Vanity Vault:** a few survivors have a body paint (1%), a face paint (2%) or a tattoo (15%); raiders far more often,
   from wilder designs.
+- **Hair color follows skin tone.** Survivors and raiders with a medium skin tone (Honey, Golden Peach, Sand, Taupe, Caramel,
+  Bronze; without Vanity Vault, Asian and Native) never get natural blond or red hair; darker tones (Chestnut, Umber,
+  Espresso; without Vanity Vault, Black) also never get light brown. Lighter tones can have any natural color. Dyed colors
+  (pink, blue, green and so on) still turn up now and then on anyone.
+- **People you already know are fixed too.** A survivor whose natural hair color does not fit their skin gets a fitting one
+  the next time they load (always the same one for that person); the rest of their look stays. Dyed hair is left alone, and
+  so is a face that came from 0-XNPCCore's character creator.
 
 ---
 
@@ -1143,8 +1151,11 @@ When you talk to a survivor, **their line shows in a panel above your responses*
 
 - Survivors speak their talk lines in **recorded voices** (generated with ElevenLabs). There are **16 voices**, two for each
   race (White, Black, Asian, Native) and sex. Each survivor keeps one voice of their race and sex.
-- **14 voices are recorded.** The two Native women's voices are not recorded yet: they speak with another woman's voice
-  until then.
+- **All 16 voices are recorded.**
+- **With Vanity Vault,** skin tones replace the four races, so each tone speaks with the voices of one race: the light tones
+  (Alabaster to Warm Beige) White; Honey and Golden Peach Asian; Sand, Taupe, Caramel and Bronze Native; Chestnut, Umber and
+  Espresso Black. Survivors you have already met switch to a voice that fits their skin the next time they load. The
+  setting is `VoiceRaceBySkin` (section 20); a tone can be given two races, and each person then keeps one of them.
 - Lines with a name or a number in them say only the part without it; the panel shows the whole line.
 - A few of the newest lines (for example the training line after reading a magazine, and refusals about the work kit,
   field jobs and trading) are text only for now.
@@ -1350,6 +1361,9 @@ These are the ones you are most likely to change. The file has many more.
 | `ScGreetings` / `ScChatter` | true / true | Greetings and residents' chatter |
 | `RaiderTaunts` | true | Raider taunts |
 | `MuteVcInTalk` | true | Voice Control stays quiet during SC's talks |
+| `VoiceRaceBySkin` | Vanity Vault's 15 natural tones | Which race's voices each skin tone speaks in, as `Tone:Race` (`Honey:Asian`); a tone may name two races |
+| `SurvivorMidSkins` / `SurvivorMidSkinHairColors` | Honey ... Bronze, Asian, Native / 03 LightBrown to 08 White | Medium skin tones and the natural hair colors they can have |
+| `SurvivorDarkSkins` / `SurvivorDarkSkinHairColors` | Chestnut, Umber, Espresso, Black / 04 Brown to 08 White | Dark skin tones and the natural hair colors they can have |
 
 ### Raiders, outposts and the world
 

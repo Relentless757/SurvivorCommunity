@@ -63,7 +63,7 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (look != null) ScLooks.Pending = look.Clone();
+                if (look != null) { ScLooks.Pending = look.Clone(); ScLooks.PendingName = known != null ? known.Name : null; }   // round 31: the name for a hair color fix's log line
                 if (loadout != null) ScLoadout.Pending = loadout.Clone();
                 if (known != null) { ScAmmo.PendingKnown = true; ScAmmo.PendingRecord = ScAmmo.Copy(known.Ammo); ScAmmo.PendingMags = known.Mags; }
                 EntityAlive e = ScNpc.As(EntityFactory.CreateEntity(classId, at, rotation));
@@ -77,6 +77,7 @@ namespace SurvivorCommunity
             finally
             {
                 ScLooks.Pending = null;
+                ScLooks.PendingName = null;
                 ScLoadout.Pending = null;
                 ScAmmo.PendingKnown = false;
                 ScAmmo.PendingRecord = null;

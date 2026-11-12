@@ -184,6 +184,8 @@
     <!-- round 30 (S30): streamer names - a list of viewers' names for the new survivors SC makes (both games) -->
     <Compile Include="ScStreamerNames.cs" />
     <Compile Include="ScConfigNames.cs" />
+    <!-- round 31 (V31): skin-matched voices and hair colors - Vanity Vault's skin tones mapped to voice races (both games) -->
+    <Compile Include="ScConfigSkins.cs" />
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />

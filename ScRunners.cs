@@ -1007,7 +1007,7 @@ namespace SurvivorCommunity
                 if (fresh) e = ScSpawn.Create(cid, spot + new Vector3(0f, 0.002f, 0f), rot, m.Look, m.Loadout, m);   // their recorded ammo too (ScAmmo)
                 else
                 {
-                    if (newId && m.Look != null) ScLooks.Pending = m.Look.Clone();
+                    if (newId && m.Look != null) { ScLooks.Pending = m.Look.Clone(); ScLooks.PendingName = m.Name; }   // round 31: the name for a hair color fix's log line
                     if (newId && m.Loadout != null) ScLoadout.Pending = m.Loadout.Clone();
                     ecd.pos = spot + new Vector3(0f, 0.002f, 0f);                               // VehicleManager nudges y the same way
                     ecd.rot = rot;
@@ -1031,6 +1031,7 @@ namespace SurvivorCommunity
             {
                 RecreatingId = -1;
                 ScLooks.Pending = null;
+                ScLooks.PendingName = null;
                 ScLoadout.Pending = null;
             }
             sw.Stop();

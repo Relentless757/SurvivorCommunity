@@ -2661,6 +2661,72 @@ that option, to make test survivors.
      `sc names test` now offers "Alice" first, with "Beth" still used. The next new woman (`sc spawn female`, or a wild one)
      takes "Alice", never "Beth", while B is alive.
 
+**V31. Round 31: skin-matched voices and hair colors (both games; test on 3.4)**
+
+Built 2026-11-12 on branch `ms/r31` (SC 3.4 DLL `b0b403a3e727a3e8dc32075a1b810689`, `Port33\build\sc34_r31`), **not
+installed**: these steps wait for the install. Your spec (2026-11-12): with Vanity Vault a survivor's race is one of its skin
+tones, and SC knew voices only for White, Black, Asian and Native, so every Vanity Vault survivor spoke in any voice of their
+sex; and natural blond or red hair turned up on dark skin. Now each tone speaks with one race's voices (`VoiceRaceBySkin`):
+Alabaster, Porcelain, Ivory, Warm Ivory, Cool Beige, Warm Beige White; Honey, Golden Peach Asian; Sand, Taupe, Caramel, Bronze
+Native; Chestnut, Umber, Espresso Black. Medium skins (Honey, Golden Peach, Sand, Taupe, Caramel, Bronze; vanilla Asian, Native)
+get only the natural colors 03 LightBrown to 08 White, dark skins (Chestnut, Umber, Espresso; vanilla Black) only 04 Brown to
+08 White; light skins any natural color; dyed colors (11 Yellow to 24 Green 1) stay rare and open to everyone. Survivors you
+already know are corrected when they load. Helpers: `sc voice who [id|name]`, `sc spawn [hostile] [male|female]`, `sc xnpc
+<id|name>` (its look line names the skin and the hair color), `sc look <id|name>`. Set `DebugLogging` to true: every body built
+logs `xnpc body for <class> id <id>: <sex> <skin>/<variant> hair <style> (<color>) ...`, the easiest way to read a batch.
+
+710. **The settings load.** The log at load has `config: skins voice races for 15 skin tone(s); natural hair colors: mid 8
+     skin(s) -> 6 color(s), dark 4 skin(s) -> 5 color(s), every other skin all of them`, and no `config VoiceRaceBySkin:` warning.
+     The install's `Config/blocks.xml` has `VoiceRaceBySkin` under `Voices`, and the four `Survivor...Skin...` keys under
+     `SurvivorDyedHairChanceMale`, each with its comment.
+711. **Dark tones speak with Black voices.** Spawn survivors (`sc spawn male`, `sc spawn female`) until one is Espresso, Umber or
+     Chestnut (the DebugLogging line, or `sc xnpc <id>`). `sc voice who <id>`: `Black male (from the body's archetype; skin
+     Espresso -> Black (VoiceRaceBySkin))`, and the chain starts with `male_Black_Nate` or `male_Black_Desmond` (a woman:
+     `female_Black_Tiffany` or `female_Black_Rene`). Talk to them: their lines play in that voice.
+712. **Honey and Golden Peach speak with Asian voices** (`male_Asian_Jasper` / `male_Asian_Julian`, `female_Asian_Layla` /
+     `female_Asian_Jess`); `sc voice who` shows `skin Honey -> Asian (VoiceRaceBySkin)`.
+713. **Sand, Taupe, Caramel and Bronze speak with Native voices** (`male_Native_NativeM1` / `NativeM2`, `female_Native_NativeF1`
+     / `NativeF2`).
+714. **The light tones speak with White voices** (Alabaster, Porcelain, Ivory, Warm Ivory, Cool Beige, Warm Beige: `Vane` /
+     `David`, `Jessica` / `Beth`).
+715. **Raiders too.** `sc spawn hostile` until one has a dark tone: `sc voice who <id>` says `raider: Black ...`, `dealt by name
+     and id`, and its taunts play in a Black voice.
+716. **No natural blond or red on medium or dark skin.** Spawn a batch of 20 or more (`sc spawn`, both sexes) and read the
+     DebugLogging lines: no `01 Blond`, `02 Dark Blond`, `09 Red` or `10 Red 1` on Honey, Golden Peach, Sand, Taupe, Caramel or
+     Bronze; none of those and no `03 LightBrown` on Chestnut, Umber or Espresso; the light tones show every natural color.
+     Wild survivors, enclave people (`sc enclave spawn <id>` near a group never made) and band people the same.
+717. **Dyed colors are still possible on anyone.** Set `SurvivorDyedHairChanceFemale` to `1` (restart) and `sc spawn female` a
+     few times: every new woman has a dyed color (11 to 24), dark and medium skins included. Put it back to `0.06`.
+718. **People you already know get a fitting color.** Load a save made with the installed build that has someone of a medium or
+     dark skin with blond or red hair (from the user's saves: in `Napiho Mountains\Playtest34SC`, Nora of Clyde's Band, Umber
+     with `01 Blond`). When their body is made, the log has `looks: Nora (<id>) hair color 01 Blond -> 05 DarkBrown (skin Umber)`
+     and she shows dark brown hair. Save, quit, load: the same color again. A member or a prospect keeps it (their record saves
+     it, so no `looks:` line the next time); an enclave's or a band's person gets the same line and the same color each time
+     they are made again. A member's portrait in the community window shows the new color.
+719. **People you already met switch to a fitting voice.** In the same kind of save, a member or prospect with a Vanity Vault
+     tone (in `Napiho Mountains\Playtest34RW`, Val, Chestnut): before this build she spoke in any woman's voice; now `sc voice
+     who Val` shows `skin Chestnut -> Black` and her talk lines, greetings and (3.4) radio lines play in `female_Black_Tiffany`
+     or `female_Black_Rene`.
+720. **Dyed hair is left alone.** Someone you already know with a dyed color on a medium or dark skin keeps it: no `looks:` line
+     for them.
+721. **A creator face keeps its hair color (optional).** With 0-XNPCCore's character-creator characters about (its
+     `SdcsCustomCharacterChance`), a fresh survivor that takes a creator's face keeps that character's hair color, even blond on
+     a dark tone; `sc xnpc <id>`'s look line ends with `(creator face)`. Recruit them, save, quit and load: still `(creator
+     face)`, the same color, no `looks:` line for them.
+722. **The settings change things.** (Restart after each change; put the defaults back after.) `VoiceRaceBySkin` set to
+     `Alabaster:White`: an Espresso survivor's `sc voice who` says `race unknown male (...; skin Espresso is not in
+     VoiceRaceBySkin: any voice of their sex)`, and the log has `voice: skin tone 'Espresso' is not in VoiceRaceBySkin - ...`
+     once. `Honey:Asian|White`: Honey survivors split between Asian and White voices (`one of Asian/White by name`), and each
+     keeps theirs after a reload. An entry `Foo`: the warning `config VoiceRaceBySkin: entry 'Foo' is not Tone:Race - skipped`.
+     `SurvivorDarkSkinHairColors` set to empty: the log has `looks: SurvivorDarkSkinHairColors leaves none of the game's natural
+     hair colors - ...` once, and dark skins get any natural color.
+723. **`sc look` follows the rule.** `sc look <id>` on a survivor a few times: whenever the new face has a medium or dark tone,
+     its natural hair color is one that tone allows.
+724. **Without Vanity Vault (optional).** A copy of the game without `LittleRedSonja_VanityVault`, a new world: survivors are
+     White, Black, Asian and Native as before; `sc voice who` shows no `skin` note and the voices as before. New Asian and Native
+     survivors never have natural blond or red hair, Black ones also never light brown; White ones any. No `voice: skin tone`
+     line.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.
