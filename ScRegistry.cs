@@ -81,6 +81,8 @@ namespace SurvivorCommunity
     ///                our place." is a [member] on the way (E12's arrive=, the enclave part the band's id negated).
     ///   R2 (ScHandheld, ScRadioTalk; 3.4 build, keys an older build ignores): [member] runradio=1 (the runner carries a handheld
     ///                radio) runtalk=N (the RadioTalk moments said on it this run), each written while OnRun and set.
+    ///   Round 30 (ScStreamerNames; both games, a key an older build ignores and drops at its next save): [community]
+    ///                streamname=Sarah, one line for each streamer name given out in this save, in the order given.
     /// Main thread only.
     /// </summary>
     public static class ScRegistry
@@ -1023,6 +1025,10 @@ namespace SurvivorCommunity
                 case "doomed":
                     foreach (string part in val.Split(',')) { int id = I(part); if (id > 0) Doomed.Add(id); }
                     break;
+                // round 30: a streamer name given out in this save (ScStreamerNames), one line each, in the order given
+                case "streamname":
+                    if (val.Length > 0) c.StreamerNamesUsed.Add(val);
+                    break;
             }
         }
 
@@ -1381,6 +1387,13 @@ namespace SurvivorCommunity
                     var dm = new StringBuilder();
                     foreach (int id in Doomed) { if (dm.Length > 0) dm.Append(','); dm.Append(id); }
                     sb.AppendLine("doomed=" + dm);
+                }
+                // round 30: the streamer names given out in this save, one line each (ScStreamerNames cleans a name of every
+                // separator first, so Clean() is only a guard here)
+                foreach (string n in c.StreamerNamesUsed)
+                {
+                    string sn = Clean(n);
+                    if (sn.Length > 0) sb.AppendLine("streamname=" + sn);
                 }
                 foreach (var m in Members.Values)
                 {

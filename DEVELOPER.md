@@ -1872,7 +1872,9 @@ and `EnclaveRadioRange` (commented in the block). Enclave people (E2): `EnclaveG
 `EnclaveBenefitXpCap`, `EnclaveWatchRange`, `EnclaveWatchSpread`, `EnclaveAllyMorale`, `EnclaveAllyMoraleCap`,
 `EnclaveLostMorale`, `EnclaveRefillDays` and `EnclaveAllyRevealDays` (commented in the block). Gifts and ally barter
 (E7): `EnclaveGifts`, `EnclaveGiftStanding`, `EnclaveGiftDays`, `EnclaveGiftCap`, `EnclaveBarter`, `EnclaveBarterGive`,
-`EnclaveBarterGet` and `EnclaveBarterDays` (commented in the block).
+`EnclaveBarterGet` and `EnclaveBarterDays` (commented in the block). Streamer names (round 30, `ScStreamerNames.cs`,
+`ScConfigNames.cs`): `StreamerNames`, `StreamerNamesFile` and `StreamerNamesFor` (commented in the block; the round's
+entry in `PORT_34.md` has the hook and the rules).
 
 A full game restart is needed after editing `Config/Localization.csv`.
 

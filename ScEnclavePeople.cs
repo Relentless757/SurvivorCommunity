@@ -720,7 +720,7 @@ namespace SurvivorCommunity
             try
             {
                 // a stranger: PostInit rolls the look, the weapon pair, the ammo and (a survivor) the profile, as for a wild spawn
-                npc = ScSpawn.Create(cid, p.HomeCentre + Nudge, new Vector3(0f, p.Yaw, 0f), null);
+                npc = ScSpawn.Create(cid, p.HomeCentre + Nudge, new Vector3(0f, p.Yaw, 0f), null, kind: e.Hostile ? "raider enclave" : "enclave");
                 if (npc == null) { ScLog.Once("encpeople-create-" + e.Id, "enclave " + e.Id + ": the factory made no body of class " + cid); return false; }
                 w.SpawnEntityInWorld(npc);
             }
@@ -786,7 +786,7 @@ namespace SurvivorCommunity
             EntityAlive npc;
             try
             {
-                npc = ScSpawn.Create(cid, at + Nudge, new Vector3(0f, yaw, 0f), null);
+                npc = ScSpawn.Create(cid, at + Nudge, new Vector3(0f, yaw, 0f), null, kind: e.Hostile ? "raider enclave" : "enclave");
                 if (npc == null) { ScLog.Once("encpeople-create-" + e.Id, "enclave " + e.Id + ": the factory made no body of class " + cid); return null; }
                 w.SpawnEntityInWorld(npc);
             }

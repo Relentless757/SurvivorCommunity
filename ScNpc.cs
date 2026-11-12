@@ -152,6 +152,20 @@ namespace SurvivorCommunity
             if (v4 != null) { v4.FirstName = first; v4.Title = title; }
         }
 
+        /// <summary>
+        /// Round 30 (streamer names): the first name only. The title the class rolled stays (SC's raiders are "... the Raider"):
+        /// SCore 3.4.14 saves the first name with the body (V4's "identity" section) and rolls the title again from the class at
+        /// every load, so changing only the first name shows the same name before and after a reload. False for anything else.
+        /// </summary>
+        public static bool SetFirstName(EntityAlive e, string first)
+        {
+            EntityAliveSDX sdx = e as EntityAliveSDX;
+            if (sdx != null) { sdx.FirstName = first; return true; }
+            EntityAliveSDXV4 v4 = e as EntityAliveSDXV4;
+            if (v4 != null) { v4.FirstName = first; return true; }
+            return false;
+        }
+
         // ------------------------------------------------------------------ hiding (missions) ----
 
         /// <summary>SCore's own test: the onMission cvar is 1. False for anything that is not a framework NPC.</summary>

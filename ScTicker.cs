@@ -123,6 +123,7 @@ namespace SurvivorCommunity
                 ScWatch.Tick(w, player);              // watch posts: shifts, the zone scan, a guard's call-outs and marker
                 ScMissing.Tick(w, player);            // residents whose body is gone from the world (Call back)
                 ScEncJoin.Tick(w, player);            // a whole enclave that joined: their bodies walk off, each turns up at home when due (E12)
+                ScStreamerNames.Tick();               // round 30: the streamer names given in the last second into the save
             }
             catch (Exception e)
             {

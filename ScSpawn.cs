@@ -55,15 +55,24 @@ namespace SurvivorCommunity
         /// rounds their record says they carry (ScAmmo), never a new survivor's starting stack; null for a genuinely new
         /// survivor (a radio walk-in, a console spawn). Null when the class does not make an SCore NPC. The pending values
         /// are always cleared again, so a failed creation cannot hand them to the next body built.
+        /// Round 30 (streamer names): the body is marked for ScStreamerNames before the caller spawns it - a known survivor's
+        /// keeps its name (Identify gives it the record's), a new one's may take a list name when it is spawned, kind (the log's
+        /// word: "enclave", "drifter band", "radio contact" ...) saying what SC made it for.
         /// </summary>
-        public static EntityAlive Create(int classId, Vector3 at, Vector3 rotation, Look look, Loadout loadout = null, Member known = null)
+        public static EntityAlive Create(int classId, Vector3 at, Vector3 rotation, Look look, Loadout loadout = null, Member known = null, string kind = null)
         {
             try
             {
                 if (look != null) ScLooks.Pending = look.Clone();
                 if (loadout != null) ScLoadout.Pending = loadout.Clone();
                 if (known != null) { ScAmmo.PendingKnown = true; ScAmmo.PendingRecord = ScAmmo.Copy(known.Ammo); ScAmmo.PendingMags = known.Mags; }
-                return ScNpc.As(EntityFactory.CreateEntity(classId, at, rotation));
+                EntityAlive e = ScNpc.As(EntityFactory.CreateEntity(classId, at, rotation));
+                if (e != null)
+                {
+                    if (known != null) ScStreamerNames.Keep(e);
+                    else ScStreamerNames.New(e, kind);
+                }
+                return e;
             }
             finally
             {

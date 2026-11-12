@@ -42,6 +42,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc morale [n]` | Morale breakdown; `n` overrides it for the session (`-1` clears). |
 | `sc spawn [hostile] [male\|female] [T1\|T2\|T3] [weapon]` | A survivor stranger, or a raider, in front of you. [CHEAT] |
 | `sc recruit <id\|name>` | Join a loaded survivor to the community without the favor. [CHEAT] |
+| `sc names` / `sc names test` | Streamer names: the list file, names given and left; the next names in line. [READ] |
 | `sc xnpc [id\|name]` | Counters for all NPC hooks, or one NPC in full detail (AI, weapons, orders). Main bug-report probe. [READ] |
 | `sc craft [<name>]` | Crafting/work-shift status for the community or one member. [READ] |
 | `sc enclave list` / `reveal all` | List enclaves (settlements of other survivors); reveal them on the map. |
@@ -157,6 +158,29 @@ Example: `sc scout meds`
 ## 3. Recruiting and trust
 
 See `sc recruit`, `sc trust`, `sc spawn` (strangers to recruit) and `sc look`, all above or in section 13.
+
+### `sc names` [READ]
+
+Streamer names (README section 3: your viewers' names from a text file for the new survivors SC makes). Prints whether
+the feature is on (`StreamerNames`) and for whom (`StreamerNamesFor`), the names file's full path, how many names it holds
+(for a woman, for a man, for anyone, and the lines skipped or cut), how many were given in this save and how many are
+left, this session's counts (given, kept their own name, not for this setting, no fitting name left) and the last names
+given with the NPC's class, kind and entity id. Not to be confused with `sc enclave names` (sample enclave group names).
+
+### `sc names reload` [READ]
+
+Reads the names file again now and prints its summary. You rarely need it: SC reads the file again by itself whenever it
+has changed, the next time a name is needed.
+
+### `sc names test [n] [male|female]` [READ]
+
+The next `n` names (default 5, at most 100) a woman and a man would get, in order, without giving them out. `male` or
+`female` shows one side only. Works with the feature off too, to check a list before a stream.
+
+### `sc names reset` [HOST] [CHEAT]
+
+Clears the save's record of the names given out, so every name on the list can be given again in this save (for
+testing). NPCs that already have a name from the list keep it.
 
 ## 4. Runs and runners
 

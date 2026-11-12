@@ -106,6 +106,23 @@
 			<property name="PoiFavourRange" value="300" />
 			<property name="TraitsPerRecruit" value="2" />
 
+			<!-- STREAMER NAMES (round 30). A streamer's viewers in the game: SC gives the names in a text file to the new
+			     survivors it makes, so they turn up as people you can recruit. Each name is given once per save (recorded in
+			     the save, never given again there even after that NPC dies; sc names reset clears the record), in the file's
+			     order, to a body of the right sex. NPCs that already exist never change name, and members keep theirs for life.
+			     StreamerNames: the switch (false: every NPC keeps its normal name). -->
+			<property name="StreamerNames" value="false" />
+			<!-- StreamerNamesFile: the list. A relative path is read from the SurvivorCommunity folder in the game's user data
+			     folder (%APPDATA%\7DaysToDie\SurvivorCommunity\), so the list survives mod updates; a full path (C:\...) is
+			     used as it is. With StreamerNames true and no file there, SC makes it with a short header explaining the
+			     format: one name per line, an optional sex after a comma ("Sarah, female", "Mike, male", or f / m), # for a
+			     note. The file is read again when it changes, so names can be added mid-stream (sc names shows the list). -->
+			<property name="StreamerNamesFile" value="StreamerNames.txt" />
+			<!-- StreamerNamesFor: which new bodies take a list name. survivors: every non-hostile survivor SC makes (wild
+			     survivors, radio contacts, enclave people and leaders, drifter bands, sc spawn); raiders: SC's hostile ones
+			     (wild raiders, raider enclaves, raider bands, outpost raids, sc spawn hostile); all: both. -->
+			<property name="StreamerNamesFor" value="survivors" />
+
 			<!-- skill effects: bonus fraction per star above the first (Fighting: melee damage, Shooting: ranged
 			     damage, Cardio: run/walk speed and max health), read by buffSCSkills through NPC cvars -->
 			<property name="MeleePerStar" value="0.10" />

@@ -417,6 +417,11 @@ namespace SurvivorCommunity
         /// <summary>What happened at home while the player was away with no working radio, told when they are back (ScDefence.News).</summary>
         public readonly List<string> AwayNews = new List<string>();
         /// <summary>
+        /// Streamer names (ScStreamerNames, round 30): every list name given out in this save, in the order given (streamname=,
+        /// one line each). Never given again here, even after that NPC died; sc names reset clears it.
+        /// </summary>
+        public readonly List<string> StreamerNamesUsed = new List<string>();
+        /// <summary>
         /// Enclaves (ScEnclaves, E1): the id counter; the seeding stamp enclaveseed=1:day:mode:seed:count (absent = never
         /// seeded in this save: a new save gets its world-start seed, an existing one the late seed; count = the target that
         /// run aimed at, which a raised config tops up); and the day the radio may next reveal one (enclaveradio=).

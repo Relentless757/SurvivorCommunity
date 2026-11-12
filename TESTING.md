@@ -2561,6 +2561,83 @@ put it back. Test on a new world or a copy; `dm` for F6 and the creative menu.
      to follow you (or send her on a run, or give her a Base Repair duty): `sc xnpc <id>`'s post line no longer shows `move back
      held`, and when she is a resident at home again she is not moved to her post in front of you a moment later.
 
+**S30. Round 30: streamer names (both games; test on 3.4)**
+
+Built 2026-11-11 on branch `ms/r30` (SC 3.4 DLL `1d63d71637a12beac7ff645b5931aa79`, `Port33\build\sc34_r30`), **not reviewed,
+not installed**: these steps wait for the install. Your spec (2026-11-11): a streamer pastes viewers' names into a text file
+and SC gives them to the new survivors it makes, in the file's order and matched to the body's sex, each name once per save;
+NPCs that already exist never change name. The file: `%APPDATA%\7DaysToDie\SurvivorCommunity\StreamerNames.txt`. Also in this
+round, nothing to test: `OutpostAttacks`' fallback in the code is now true, as `Config/blocks.xml` already said. Helpers:
+`sc names`, `sc names test [n] [male|female]`, `sc names reload`, `sc names reset`, `sc spawn [hostile] [male|female]`,
+`sc enclave list` / `spawn <id>` / `people <id>`, `sc band spawn [drifters|raiders]` / `info <id>`, `sc recruit <name>`. Set
+`DebugLogging` to true for the "placed back from its item" line (696). Test on a new world or a copy; `dm` for F6.
+
+680. **Off by default.** As installed (`StreamerNames` false): the log has `config: streamer names off` and no other `streamer
+     names:` line all session; nothing is made in `%APPDATA%\7DaysToDie\SurvivorCommunity`; survivors have their usual names.
+     `sc names`: `streamer names: OFF (StreamerNames false in Config/blocks.xml): no body is renamed` and the file `not there - it
+     is made when StreamerNames is true and a world starts`. `sc dump`'s config line has `streamerNames=off`. Start-up: `patched
+     World::SpawnEntityInWorld`, `patch verification: all ... targets patched` (one more than round 29), no `MISSING PATCH`, no
+     `PATCH CLASS FAILED`, no XML `did not apply` line for SurvivorCommunity.
+681. **Switched on: the file is made.** Set `StreamerNames` to `true` in the install's SC `Config/blocks.xml`, restart, load. The
+     log: `config: streamer names on, for survivors, file StreamerNames.txt`, `streamer names: on, for survivors, the list
+     C:\Users\<you>\AppData\Roaming\7DaysToDie\SurvivorCommunity\StreamerNames.txt`, `streamer names: made ... - put your
+     viewers' names in it, one per line`, `streamer names: read ...: 0 name(s): ...`. Open the file: a commented header (one
+     name per line, the sex after a comma, once per save, read again when it changes, examples). `sc names`: `ON ... for
+     survivors`, the full path, `0 name(s)`; `sc dump`: `streamerNames=survivors`.
+682. **An empty list.** With only the header in the file, `sc spawn female`: she keeps a usual name, and the log has one warning
+     `streamer names: the list has no names (...) - new NPCs keep their normal names ...`. `sc spawn` again: no second warning.
+683. **Names added mid-game.** Without quitting, add these lines to the file and save it: `Sarah, female`, `Mike, male`, `Alex`,
+     `jordan, F`, `sarah` (a duplicate), `[TTV]Bob=;:`, `# a note`, an empty line, `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij` (36
+     letters). `sc names`: the file `read HH:MM:SS` (just now), `6 name(s): 2 for a woman, 1 for a man, 3 for anyone; 1
+     duplicate(s) skipped; 1 cut at 32 characters`, `given in this save: 0`. `sc names test`: `for a woman: Sarah, Alex, jordan,
+     TTVBob, ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef` and `for a man: Mike, Alex, TTVBob, ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef - and then none
+     left`.
+684. **sc spawn takes the next name, by sex.** `sc spawn female`: the spawn line says `'Sarah'`, the log `streamer names: Sarah ->
+     npcSdcsSurvivorFemaleT1/sc spawn <id>` (the tier may differ); the name over her head and in the talk window is exactly
+     `Sarah`. `sc spawn male`: `Mike`. `sc spawn male` again: `Alex` (no sex given: anyone). `sc names`: `given in this save: 3`
+     and `last given:` the three, newest first.
+685. **Wild survivors.** Roam the wilderness until a wild survivor spawns: the log `streamer names: <name> ->
+     npcSdcsSurvivor...T./wild <id>`; talk to them: the snapshot card and the talk show that name. A survivor that was in the
+     world before you switched the feature on keeps their old name.
+686. **A radio contact.** At a powered radio station, **Call for survivors**, then go to the marker: the contact standing there has
+     the next list name (`... -> npcSdcsSurvivor.../radio contact <id>`), and the message as you arrive names them so.
+687. **Enclave people, the leader too.** An enclave whose people were never made (`sc enclave list`; one you never went near):
+     stand by it and `sc enclave spawn <id>`. Each new person takes a list name, the leader first (`... /enclave <id>`); `sc enclave
+     people <id>` lists them by those names. A raider enclave's people do not (the setting is `survivors`).
+688. **A drifter band.** `sc band spawn drifters` and meet them: each new person takes a list name (`... /drifter band <id>`), and
+     the band is named after its leader (`sc band info <id>`). A raider band (`sc band spawn raiders`) does not.
+689. **By sex, and the list running out.** Keep spawning women (`sc spawn female`) until no woman's name is left: the next woman
+     keeps a usual name and the log has one warning `streamer names: no unused name left for a woman (...)`, while `sc spawn
+     male` still takes a man's or an anyone name as long as one is left. Add a woman's name to the file and save: the next woman
+     takes it.
+690. **Once per save.** Kill `Sarah` (from 684). `sc names test female`: Sarah is not offered. Save, quit to the menu, load:
+     `sc names` still counts her in `given in this save`, and `sc names test` still skips her (the save's `survivor_community.txt`
+     has a `streamname=Sarah` line).
+691. **Names survive a save, a reload and an unloaded area.** A wild survivor and an `sc spawn` survivor with list names: save,
+     quit to the menu, load: the same names, and no new `streamer names:` line for them. Walk 300 m or more away (their chunks
+     unload) and come back: the same names; `sc names`' `kept their own name` count went up.
+692. **Enclave and band people come back with their names.** Leave an enclave's range and come back (its people are made again
+     from their records): the same names, no new `streamer names:` line. The same for a band you leave and meet again.
+693. **A recruited viewer.** Recruit one of them (`sc recruit <name>`, or through their favor): `sc members` and the community
+     window show the list name; save and reload; send them on a run (`sc run <name> food`) and let them come back: the same name.
+694. **reload and reset.** `sc names reload`: `read again - <path> (read HH:MM:SS)` and the summary. `sc names reset`: `the used
+     list is cleared (N name(s))`; `sc names test` offers Sarah again; the NPCs that have list names keep them; the next new
+     survivor takes the first fitting name again.
+695. **For raiders.** `StreamerNamesFor` `raiders` (restart): `sc spawn female` keeps a usual name (`sc names`: `not for this
+     setting: 1`); `sc spawn hostile female` takes the next woman's name and shows as `<name> the Raider`, the log `... ->
+     scRaiderFemaleT./sc spawn hostile <id>`. A wild raider takes one too (`/wild`). Save and reload: still `<name> the Raider`.
+     `all`: both take names. Put it back to `survivors`.
+696. **Placed back from an item (optional).** A hired wild survivor with a list name, picked up into her item (Voice Control's
+     pick-up or SCore's) and placed again: the same name, no new `streamer names:` line (DebugLogging: `... comes in as
+     StaticSpawner (an NPC placed back from its item?) - keeps its name`).
+697. **A creator face keeps the viewer's name (optional).** With 0-XNPCCore's character-creator characters about (its
+     `SdcsCustomCharacterChance`), a fresh survivor that takes a creator's face keeps the list name; `sc xnpc`'s counters show
+     `x17-creator-name-kept-streamer-name`.
+698. **Another file.** `StreamerNamesFile` set to a full path (for example `C:\Temp\viewers.txt`), restart: `sc names` shows that
+     path, and with no file there it is made there.
+699. **Off again.** `StreamerNames` false (restart): NPCs that already have list names keep them (they are in the save), new
+     survivors get usual names, `sc names` says OFF, and the log has no `streamer names:` line.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

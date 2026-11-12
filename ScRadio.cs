@@ -483,7 +483,7 @@ namespace SurvivorCommunity
                 // a survivor wearing one of our looks rolls their face and clothes here; the model consumes it while it
                 // is built (Patches_Xnpc X1)
                 Look look = ScSpawn.IsSurvivorBodyClass(ct.Class) ? ScLooks.Roll(ScLooks.ClassIsMale(ct.Class), w.GetGameRandom(), true, false, ScLoadout.TierCap(ct.Class)) : null;
-                EntityAlive npc = ScSpawn.Create(cid, pos, Vector3.zero, look, ct.Loadout);
+                EntityAlive npc = ScSpawn.Create(cid, pos, Vector3.zero, look, ct.Loadout, kind: "radio contact");
                 if (npc == null) { ScLog.Warn("radio contact class " + ct.Class + " is not an SCore NPC class - dropped"); return true; }
                 w.SpawnEntityInWorld(npc);
                 npc.SetSpawnerSource(EnumSpawnerSource.StaticSpawner);

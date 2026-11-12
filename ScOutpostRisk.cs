@@ -480,6 +480,7 @@ namespace SurvivorCommunity
                     Vector3 pos = RingSpot(w, o, rnd, reach);
                     EntityAlive a = EntityFactory.CreateEntity(cls, pos) as EntityAlive;
                     if (a == null) continue;
+                    if (o.AttackRaiders) ScStreamerNames.New(a, "outpost raid");   // round 30: the log's word for a list name it may take
                     w.SpawnEntityInWorld(a);
                     a.SetSpawnerSource(EnumSpawnerSource.Dynamic);             // never written with the chunk
                     a.SetAttackTarget(target != null ? target : player, 1200);

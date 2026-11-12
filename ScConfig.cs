@@ -441,7 +441,7 @@ namespace SurvivorCommunity
         public static int GuardTowerCut = 2;
         // ---- outposts v2: risk (ScOutpostRisk) ----
         /// <summary>Master switch for the risk features (attacks, sieges, neglect, raider demands).</summary>
-        public static bool OutpostAttacks = false;
+        public static bool OutpostAttacks = true;
         /// <summary>Good-news caches: bundles waiting at an outpost for the player.</summary>
         public static bool OutpostGoodNews = true;
         public static float OutpostGoodNewsChance = 0.04f;
@@ -1232,6 +1232,7 @@ namespace SurvivorCommunity
             DialogPager = true;
             ResetVoices();                         // V2 (ScConfigVoices.cs)
             ResetStuck();                          // round 29b (ScConfigStuck.cs)
+            ResetNames();                          // round 30 (ScConfigNames.cs): streamer names
 #if SC_V34
             ResetCraft();                          // C1 (ScConfigCraft.cs)
             ResetRadio();                          // R2 (ScConfigRadio.cs)
@@ -1324,7 +1325,7 @@ namespace SurvivorCommunity
             BaseDefencePerBlock = 1f; BaseDefenceBlockCap = 20f; BaseDefenceNoAmmo = 15f; BaseDefenceMorale = 5f;
             BaseDefenceBigFrom = 20f; BaseDefenceBigPer = 1f; BaseDefenceBigCap = 15f;
             GuardTowerGhost = "glow"; GuardTowerFill = 3; GuardTowerCut = 2;
-            OutpostAttacks = false; OutpostGoodNews = true; OutpostGoodNewsChance = 0.04f; OutpostSecBase = 35; OutpostSecPerStaffer = 8; OutpostSecPerCombatStar = 2; OutpostSecPerTier = 4; OutpostSecVisited = 5; OutpostSecNoAmmo = 10; OutpostSecPerDefense = 2; OutpostSecDefenseCap = 30; OutpostSecBonusFade = 1f; OutpostSecWinBonus = 10f; OutpostSecBonusMax = 30f; OutpostAttackChance = 0.08f; OutpostAttackHours = 10; OutpostAttackBase = 3f; OutpostAttackPerGamestage = 0.04f; OutpostAttackMax = 16; OutpostAttendedBonus = 20; OutpostDamageBand = 35; OutpostDamagedDays = 2; OutpostRepairMats = 2; OutpostSiegePenalty = 15; OutpostWinMorale = 4f; OutpostNeglectDays = 10; OutpostRaiderGamestage = 30; OutpostRaiderChance = 0.03f; OutpostDemandAmmo = 2; OutpostDemandFood = 2;
+            OutpostAttacks = true; OutpostGoodNews = true; OutpostGoodNewsChance = 0.04f; OutpostSecBase = 35; OutpostSecPerStaffer = 8; OutpostSecPerCombatStar = 2; OutpostSecPerTier = 4; OutpostSecVisited = 5; OutpostSecNoAmmo = 10; OutpostSecPerDefense = 2; OutpostSecDefenseCap = 30; OutpostSecBonusFade = 1f; OutpostSecWinBonus = 10f; OutpostSecBonusMax = 30f; OutpostAttackChance = 0.08f; OutpostAttackHours = 10; OutpostAttackBase = 3f; OutpostAttackPerGamestage = 0.04f; OutpostAttackMax = 16; OutpostAttendedBonus = 20; OutpostDamageBand = 35; OutpostDamagedDays = 2; OutpostRepairMats = 2; OutpostSiegePenalty = 15; OutpostWinMorale = 4f; OutpostNeglectDays = 10; OutpostRaiderGamestage = 30; OutpostRaiderChance = 0.03f; OutpostDemandAmmo = 2; OutpostDemandFood = 2;
             Enclaves = true; EnclavesPerKm2 = 0.3f; EnclaveMin = 4; EnclaveMax = 36; EnclaveSpacingMin = 500; EnclaveSpacingFactor = 0.55f; EnclaveSpacingFloor = 300;
             EnclaveHostileShare = 0.25f; EnclaveHostileMinStart = 1200; EnclaveStartRing = 2; EnclaveStartRingMin = 400; EnclaveStartRingMax = 1500; EnclaveStartRingSpacing = 600;
             EnclaveTierMin = 1; EnclaveTierMax = 4; EnclaveSizeMin = 20; EnclaveSizeMax = 80; EnclaveTraderDistance = 300; EnclaveSpawnDistance = 300; EnclaveEdgeDistance = 300;
@@ -2330,6 +2331,7 @@ namespace SurvivorCommunity
                 DialogPager = dialogPager;
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
                 ParseStuck(p);                     // round 29b (ScConfigStuck.cs)
+                ParseNames(p);                     // round 30 (ScConfigNames.cs): streamer names
 #if SC_V34
                 ParseCraft(p);                     // C1 (ScConfigCraft.cs)
                 ParseRadio(p);                     // R2 (ScConfigRadio.cs)
@@ -2607,6 +2609,7 @@ namespace SurvivorCommunity
                           + ", tattoo " + SurvivorTattooChance + "/" + RaiderTattooChance + " of " + SurvivorTattoos.Count + "/" + RaiderTattoos.Count + " " + TattooMode);
                 ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
                 ScLog.Out("config: stuck rescue " + StuckLine());   // round 29b (ScConfigStuck.cs)
+                ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)
 #if SC_V34
                 ScLog.Out("config: crafting " + CraftLine());   // C1 (ScConfigCraft.cs)
                 ScLog.Out("config: handheld radio " + RadioLine());   // R2 (ScConfigRadio.cs)

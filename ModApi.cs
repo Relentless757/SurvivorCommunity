@@ -137,6 +137,8 @@ namespace SurvivorCommunity
                     if (ScCommunity.IsHost) ScEnclaves.OnGameStart();
                     // infestations (I1): each one's POI found again - after the enclaves, so none is left on an enclave's POI
                     if (ScCommunity.IsHost) ScInfestations.OnGameStart();
+                    // streamer names (round 30): the list read (made with its header when the switch is on and it is missing)
+                    if (ScCommunity.IsHost) ScStreamerNames.OnGameStart();
                 });
                 ModEvents.GameUpdate.RegisterHandler((ref ModEvents.SGameUpdateData _d) =>
                 {
@@ -461,6 +463,9 @@ namespace SurvivorCommunity
             Add(t, "EntityAliveSDXV4::Read", Patches_Xnpc.ReadTarget());
             // X14: no quest turn-in window on an NPC body that has no trader
             Add(t, "QuestJournal::GetNextCompletedQuest", Patches_Xnpc.TurnInTarget());
+            // ScStreamerNames.cs (round 30) - a new body of SC's takes a streamer name as it comes into the world; a body read
+            // from a save keeps its own (its prefix shares the EntityAliveSDXV4::Read entry above)
+            Add(t, "World::SpawnEntityInWorld", ScStreamerNames.SpawnTarget());
             // ScVanity.cs - Vanity Vault paints and tattoos on our bodies after every build (inert without Vanity Vault)
             Add(t, "SDCSUtils::CreateVizTP", Patches_Vanity.Patch_CreateVizTP.Target());
             Add(t, "EModelSDCS::SetVisible", Patches_Vanity.Patch_SetVisible.Target());

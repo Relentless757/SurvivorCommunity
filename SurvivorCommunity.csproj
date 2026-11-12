@@ -181,6 +181,9 @@
     <!-- round 29b (M29): wreck-aware spots and the residents' stuck rescue (both games) -->
     <Compile Include="ScStuck.cs" />
     <Compile Include="ScConfigStuck.cs" />
+    <!-- round 30 (S30): streamer names - a list of viewers' names for the new survivors SC makes (both games) -->
+    <Compile Include="ScStreamerNames.cs" />
+    <Compile Include="ScConfigNames.cs" />
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />

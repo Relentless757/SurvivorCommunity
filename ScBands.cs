@@ -1168,7 +1168,7 @@ namespace SurvivorCommunity
             EntityAlive npc;
             try
             {
-                npc = ScSpawn.Create(cid, spot + Nudge, new Vector3(0f, yaw, 0f), null);
+                npc = ScSpawn.Create(cid, spot + Nudge, new Vector3(0f, yaw, 0f), null, kind: b.IsRaiders ? "raider band" : "drifter band");
                 if (npc == null) { ScLog.Once("bands-create-" + b.Id, "band " + b.Id + ": the factory made no body of class " + cid); return false; }
                 w.SpawnEntityInWorld(npc);
             }
