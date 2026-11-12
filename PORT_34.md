@@ -4506,3 +4506,13 @@ third pass). port-3.4 fast-forwarded to `ms/r30` 1619db9; `deploy_sc34.py`: 1384
 `DebugLogging` true set again. Checked in the install: the three `StreamerNames*` settings (StreamerNames false), 14 voices,
 README.txt / CONSOLE_COMMANDS.txt with the streamer names section. Untested in game: TESTING S30 (680-701), and still J29
 (600-622), M29 (650-673), X3 (570-586), P2 (500-511), R2 (520-562).
+
+### Voices vo3 day 9 installed (2026-11-12 16:59)
+
+With the user's go-ahead (3.4 game closed): voices vo3 day 9 - the last 108 lines (NativeF1 35, NativeF2 73; probe first,
+0 failed, no cap), converted (gains -5.7..+2.9 dB, no limiter) and placed in full: all 16 voices now speak all 487 lines
+(`Tools/voice_lines.py check`: 487 of 487 for every voice, in every group), so no voice falls back to another any more.
+port-3.4 fast-forwarded to dev/ideas a3d28b5 (voice files only; the code is round 30's); `deploy_sc34.py`: 15791 files,
+installed = the unchanged build `dcf4e1a9754482553035316f0f5a276b`. The old install is in
+`Port33\_backups\sc34_2026-11-12_165918`; the user's `DebugLogging` true set again. Untested in game: the two Native women's
+voices (any NativeF1/F2 survivor now speaks in her own voice).
