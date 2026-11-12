@@ -330,6 +330,7 @@ namespace SurvivorCommunity
             }
             if (!ScNpc.SetFirstName(e, en.Name)) return;
             ScRegistry.Community.StreamerNamesUsed.Add(en.Name);
+            usedSet = null;                             // glance M: the used set is rebuilt after every change to the list
             given[e.entityId] = new Given { Body = e, Name = en.Name, Kind = kind };
             Hook(ScCommunity.World);                    // review M2: its leaving the world is watched
             countGiven++;
@@ -430,6 +431,7 @@ namespace SurvivorCommunity
                 used.RemoveAt(i);
                 break;
             }
+            usedSet = null;                             // glance M: a give then a return leaves the count as it was - never trust it
             warnedFemale = warnedMale = false;          // a name is free again: a later run-out warns again
             saveDue = true;
             countReturned++;
@@ -821,6 +823,7 @@ namespace SurvivorCommunity
                         List<string> used = ScRegistry.Community.StreamerNamesUsed;
                         int n = used.Count;
                         used.Clear();
+                        usedSet = null;
                         given.Clear();                  // the names on NPCs now are not tracked any more: nothing comes back twice
                         warnedEmpty = warnedFemale = warnedMale = false;
                         saveDue = false;

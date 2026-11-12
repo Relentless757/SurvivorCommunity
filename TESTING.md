@@ -2654,6 +2654,12 @@ that option, to make test survivors.
      whose body goes (`an enclave's or a band's record holds it`), `sc spawn` and radio contacts (`saved with the world`).
      Save and quit with an unmet named survivor nearby: the log has `<name> returned (<id> not saved with the world)`, and
      after loading, `sc names test` offers the name again.
+701. **A returned name is not given twice (round 30 glance).** Put three unused women's names at the top of the list (say Alice,
+     Beth, Cara, in that order; `sc names reset` first if needed). Find two wild women in a row (685): the first takes "Alice"
+     (call her A), the second "Beth" (B); `sc names` shows both under "last given". Talk to B (she is now kept with the world, so
+     "Beth" stays used) and do NOT talk to A. Walk 300 m or more away until A's chunk unloads: the log has `Alice returned`.
+     `sc names test` now offers "Alice" first, with "Beth" still used. The next new woman (`sc spawn female`, or a wild one)
+     takes "Alice", never "Beth", while B is alive.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

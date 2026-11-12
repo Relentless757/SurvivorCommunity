@@ -4486,4 +4486,11 @@ one despawns and at a save-and-quit; that a met survivor, a dead one and an encl
 creator face on a reload. Known, not covered: a named NPC that is not hired (no Leader, no Persist) but is taken out of the world
 alive into an item by some other mod's path would give its name back while it lives on in the item.
 
-Builds: SC 3.4 `2e45337268b9e0b27b67a9281ad1c65d` (`build\sc34_r30`), 0 errors. Not installed.
+**Fable glance at 5fc51f1: NOT DEPLOYABLE (one MEDIUM, fixed here).** `Used()` rebuilt its case-insensitive set only when the
+used list's count changed; `Give` added and `Return` removed without touching the cache, so one give and one return between two
+picks left the count as it was and the stale set was trusted: a returned "Alice" stayed "used" while the live "Bob" read as free,
+and the next body took "Bob" a second time. Fixed: `usedSet = null` after every change to the list (`Give`, `Return`, `sc names
+reset`). TESTING 701. The glance found the rest sound (no saved body returned; `IsSavedToFile` safe inside the unload event; no
+delegate after the flush or into the next world; no double return; feature off changes nothing; M1, L1, L2, L5 as asked).
+
+Builds: SC 3.4 `dcf4e1a9754482553035316f0f5a276b` (`build\sc34_r30`), 0 errors. Not installed.
