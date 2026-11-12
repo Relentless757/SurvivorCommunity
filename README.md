@@ -1138,7 +1138,9 @@ Weapons**. They keep it in place of their weapon of that kind.
   then on anyone.
 - **People you already know are fixed too.** A survivor whose natural hair color does not fit their skin gets a fitting one
   the next time they load (always the same one for that person, and never gray or white in place of a young-looking color);
-  the rest of their look stays. Dyed hair is left alone, and so is a face that came from 0-XNPCCore's character creator.
+  the rest of their look stays. Dyed hair is left alone, and so is a face that came from 0-XNPCCore's character creator
+  (one taken on with this version or later: a creator face a survivor took on before it is not recognized, and its hair
+  color can be changed like anyone else's).
 
 ---
 

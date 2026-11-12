@@ -648,7 +648,7 @@
 			<!-- Round 31, VoiceRaceBySkin: with Vanity Vault a body's race is one of its skin tones, not White/Black/Asian/
 			     Native, so each tone is mapped to the race whose voices it speaks in: a comma list of Tone:Race (tone names
 			     case-insensitive). A tone may list several races, Honey:Asian|White - each NPC of that tone then keeps one,
-			     picked by their name. A tone not listed (or an empty value) speaks in any voice of its sex, logged once per
+			     picked by their name (a raider's name and id). A tone not listed (or an empty value) speaks in any voice of its sex, logged once per
 			     tone. The four vanilla races are never remapped. NPCs already met switch to a matching voice when they next
 			     load; "sc voice who" shows the tone and the race it maps to. -->
 			<property name="VoiceRaceBySkin" value="Alabaster:White,Porcelain:White,Ivory:White,Warm Ivory:White,Cool Beige:White,Warm Beige:White,Honey:Asian,Golden Peach:Asian,Sand:Native,Taupe:Native,Caramel:Native,Bronze:Native,Chestnut:Black,Umber:Black,Espresso:Black" />

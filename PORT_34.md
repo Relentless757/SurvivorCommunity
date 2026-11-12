@@ -4696,4 +4696,18 @@ blonds and reds must not make its people older.
 
 **Not checked (in game, TESTING 725):** the share seen in a real batch; the fixed colors on the bodies.
 
+**Review of round 31 (Opus: Fable was over its usage limit; the user's rule).** `git diff 70115a3 8671324`, the built DLL
+decompiled: **DEPLOYABLE**, no HIGH or MEDIUM, four LOW:
+- L1: a creator face taken on under an earlier build has no `C` mark, so its hair color can be "fixed" (and an older build
+  re-saving drops the mark). The user's only custom SDCS profile ("Eli", Alabaster) is never fixed. Documented here, in
+  README section 15 and TESTING 721; an optional repair (X17's refusal path marking a matching record) is for the next round.
+- L2 (next round): enclave and band records are never corrected, so the same `looks:` line is logged each time such a
+  person's body is made (consistent, log noise only). Fix: validate the record in `ScSpawn.Create` before `Clone()`.
+- L3: the blocks.xml `VoiceRaceBySkin` comment now says "their name (a raider's name and id)". Left for the next round (a
+  source edit would change the reviewed DLL's PDB id): `ScLooks.cs:451`'s "colour" and this entry's first-build references
+  to `NaturalFor` and old line numbers (the refinement part supersedes them).
+- L4 (next round): `MemberClip` seeds a multi-race tone's pick with the record's name, `Chain` with the body's display
+  name; only matters for a multi-race tone (none by default) when the two differ.
+The doc changes above touch no source; the reviewed DLL is the one to install.
+
 Builds: SC 3.4 `a15146a3717d64e5fa2558fc87caee65` (`build\sc34_r31`), 0 errors. Not installed.

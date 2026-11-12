@@ -2713,7 +2713,8 @@ logs `xnpc body for <class> id <id>: <sex> <skin>/<variant> hair <style> (<color
 721. **A creator face keeps its hair color (optional).** With 0-XNPCCore's character-creator characters about (its
      `SdcsCustomCharacterChance`), a fresh survivor that takes a creator's face keeps that character's hair color, even blond on
      a dark tone; `sc xnpc <id>`'s look line ends with `(creator face)`. Recruit them, save, quit and load: still `(creator
-     face)`, the same color, no `looks:` line for them.
+     face)`, the same color, no `looks:` line for them. (Known, review L1: a creator face taken on under an earlier build has
+     no mark, so its hair color can be changed like any other look's; and an older build re-saving the record drops the mark.)
 722. **The settings change things.** (Restart after each change; put the defaults back after.) `VoiceRaceBySkin` set to
      `Alabaster:White`: an Espresso survivor's `sc voice who` says `race unknown male (...; skin Espresso is not in
      VoiceRaceBySkin: any voice of their sex)`, and the log has `voice: skin tone 'Espresso' is not in VoiceRaceBySkin - ...`
