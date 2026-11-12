@@ -157,6 +157,8 @@ namespace SurvivorCommunity
                     ScRadioTalk.Reset();                     // R2: no runner's line left playing or queued into the menu
                     ScRunnerCall.Reset();                    // round 29b: no runner's call for help (or its marker) into the next world
 #endif
+                    // round 30 review M2: streamer names on bodies the save will not keep go back to the list, before the last save
+                    ScStreamerNames.OnWorldShuttingDown();
                     ScPortraits.Reset(); ScHomeLink.Reset(); ScHomeHold.Reset(); ScWeaponWarm.Reset(); ScRegistry.FlushAndReset();
                 });
                 ModEvents.GameShutdown.RegisterHandler((ref ModEvents.SGameShutdownData _d) => { ScPortraits.Reset(); ScRegistry.FlushAndReset(); });

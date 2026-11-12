@@ -41,6 +41,17 @@ namespace SurvivorCommunity
     /// the registry ([community] streamname=, saved within a second by Tick) and never comes again in that save, even after
     /// the NPC died; sc names reset clears the list.
     ///
+    /// Review M2 (the user's decision): a name goes back to the list when its body leaves the world alive and unsaved - an
+    /// unmet wild survivor or raider whose chunk unloads (SCore's IsSavedToFile is false for a Biome or Dynamic body with no
+    /// Leader or Persist cvar, and SC writes Persist only once a body is met), one that despawns, an outpost raid's raider
+    /// that is taken away. World.EntityUnloadedDelegates (World.unloadEntity, before OnEntityUnload: the body intact, with the
+    /// reason) sees every removal; a chunk's unload is reason Unloaded for every body in it, saved or not, and the chunk is
+    /// then written with the bodies whose IsSavedToFile is true - so the same call decides here. The name stays used when
+    /// the body died, was saved with the world (IsSavedToFile: met, hired, a console spawn or a radio contact - Persist),
+    /// has a record of SC's (member, prospect, an enclave's or a band's person - their records hold the name), or was
+    /// removed for any other reason. The world's own end (WorldShuttingDown, before the registry's last save) returns the
+    /// names of the bodies still in the world that the save will not keep.
+    ///
     /// The file is read again when its time stamp or size changed, checked whenever a name is needed (and by sc names), so
     /// names added mid-stream go to the next body. With the switch on and no file, the file is made with a commented header.
     /// Host only, main thread. Both games.
@@ -70,6 +81,14 @@ namespace SurvivorCommunity
             public bool Done;
         }
 
+        /// <summary>A body that took a list name this session: the body itself, the name and the kind it was given for.</summary>
+        private sealed class Given
+        {
+            public Entity Body;
+            public string Name;
+            public string Kind;
+        }
+
         // ---- the list, as last read
         private static readonly List<Entry> entries = new List<Entry>();
         private static string loadedPath;
@@ -79,14 +98,20 @@ namespace SurvivorCommunity
         private static bool everRead;
         private static string readNote = "not read yet";
         private static int skippedNoName, skippedDuplicate, cutLong, wholeLine;
+        /// <summary>The path a missing file could not be made at (review L5): not tried again until the path or the file changes.</summary>
+        private static string createFailedPath;
 
         // ---- the bodies
         private static ConditionalWeakTable<Entity, Mark> marks = new ConditionalWeakTable<Entity, Mark>();
-        /// <summary>Entity ids given a list name this session (X17 keeps them).</summary>
-        private static readonly HashSet<int> given = new HashSet<int>();
-        /// <summary>The last names given this session, for sc names.</summary>
+        /// <summary>The bodies given a list name this session, by entity id (X17 keeps their names; review M2 returns some).</summary>
+        private static readonly Dictionary<int, Given> given = new Dictionary<int, Given>();
+        /// <summary>The last names given (and returned) this session, for sc names.</summary>
         private static readonly List<string> recent = new List<string>();
         private static bool saveDue;
+        /// <summary>The world whose EntityUnloadedDelegates this listens to (review M2).</summary>
+        private static World hooked;
+        /// <summary>Review L2: 0 not checked yet, 1 Read's prefix is really applied, -1 it is not (no names then).</summary>
+        private static int readPatchState;
 
         // ---- the used list as a set, rebuilt when the registry's list changes
         private static HashSet<string> usedSet;
@@ -100,7 +125,7 @@ namespace SurvivorCommunity
         private static bool warnedEmpty, warnedFemale, warnedMale;
 
         // ---- counters (this world)
-        private static int countGiven, countKept, countPlaced, countNotFor, countNoName, countNoRegistry;
+        private static int countGiven, countKept, countPlaced, countNotFor, countNoName, countNoRegistry, countReturned;
 
         /// <summary>Per world (ScConfig.ResetNames, at GameStarting).</summary>
         public static void Reset()
@@ -113,16 +138,19 @@ namespace SurvivorCommunity
             everRead = false;
             readNote = "not read yet";
             skippedNoName = skippedDuplicate = cutLong = wholeLine = 0;
+            createFailedPath = null;
             marks = new ConditionalWeakTable<Entity, Mark>();
             given.Clear();
             recent.Clear();
             saveDue = false;
+            Unhook();
+            readPatchState = 0;
             usedSet = null;
             usedFrom = null;
             usedCount = -1;
             textKeys.Clear();
             warnedEmpty = warnedFemale = warnedMale = false;
-            countGiven = countKept = countPlaced = countNotFor = countNoName = countNoRegistry = 0;
+            countGiven = countKept = countPlaced = countNotFor = countNoName = countNoRegistry = countReturned = 0;
         }
 
         // ------------------------------------------------------------------ marks (before the spawn) ----
@@ -159,10 +187,26 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Did this body take a list name this session? (X17: a creator face then leaves the name alone.)</summary>
+        /// <summary>Did this body take a list name this session?</summary>
         public static bool Gave(Entity e)
         {
-            return (object)e != null && given.Contains(e.entityId);
+            Given g;
+            return (object)e != null && given.TryGetValue(e.entityId, out g) && ReferenceEquals(g.Body, e);
+        }
+
+        /// <summary>
+        /// Review M1, X17's question: with the switch on, does this body keep its name against a creator face? True when it
+        /// took a list name this session or was read from a save (Read's Keep mark) - a list name given in an earlier session
+        /// lives in the body's save, and 0-XNPCCore's creator faces also land on loaded bodies (its spawn postfix runs for them,
+        /// and SC's look source of a body with no record of SC's is "roll" again after a restart). Switch off: false, X17 as
+        /// before.
+        /// </summary>
+        public static bool KeepsName(Entity e)
+        {
+            if (!ScConfig.StreamerNames || (object)e == null) return false;
+            if (Gave(e)) return true;
+            Mark m;
+            return marks.TryGetValue(e, out m) && m.Kind == null;
         }
 
         // ------------------------------------------------------------------ the spawn ----
@@ -188,6 +232,9 @@ namespace SurvivorCommunity
             if (!marked) { m = new Mark { Kind = WildKind }; marks.Add(e, m); }
             m.Done = true;
             if (m.Kind == null) { countKept++; return; }
+            // review L1, a backstop for a body SC knows that came in without a Keep mark: a member's or prospect's id, or SC's
+            // marks on it (sc_member, sc_favour; an enclave's or a band's cvar)
+            if (Recorded(e)) { m.Kind = null; countKept++; return; }
             if (!marked && e.GetSpawnerSource() == EnumSpawnerSource.StaticSpawner)
             {
                 // SCore's NPC placed back from its item: its own name comes back from the item right after the spawn
@@ -197,7 +244,45 @@ namespace SurvivorCommunity
             }
             if (!Wants(e)) { countNotFor++; return; }
             if (!ScRegistry.Loaded) { countNoRegistry++; return; }
+            if (!ReadPatchApplied()) return;
             Give(e, m.Kind);
+        }
+
+        /// <summary>
+        /// A body with a record of SC's, or SC's marks on it: a member's or a prospect's entity id, sc_member / sc_favour
+        /// (ScCommunity.CarriesOurMarks), an enclave's or a band's cvar.
+        /// </summary>
+        private static bool Recorded(EntityAlive e)
+        {
+            if (e == null) return false;
+            if (ScRegistry.GetMember(e.entityId) != null || ScRegistry.GetProspect(e.entityId) != null) return true;
+            return ScCommunity.CarriesOurMarks(e) || ScEnclavePeople.IsEnclaveNpc(e) || ScBands.IsBandNpc(e);
+        }
+
+        /// <summary>
+        /// Review L2: is SC's prefix really on EntityAliveSDXV4.Read? Patch_ReadKeepsName.Bound says only that the method was
+        /// found; Harmony's patch info says whether the prefix is applied. Checked once, on the first name needed; without it
+        /// a body loaded from a save could not be told from a new one, so no name is given (warned once).
+        /// </summary>
+        private static bool ReadPatchApplied()
+        {
+            if (readPatchState != 0) return readPatchState > 0;
+            readPatchState = -1;
+            try
+            {
+                MethodBase target = Patches_Xnpc.ReadTarget();
+                HarmonyLib.Patches info = target != null ? HarmonyLib.Harmony.GetPatchInfo(target) : null;
+                if (info != null && info.Prefixes != null)
+                    foreach (Patch p in info.Prefixes)
+                        if (p != null && p.PatchMethod != null && p.PatchMethod.DeclaringType == typeof(Patch_ReadKeepsName)) { readPatchState = 1; break; }
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("streamer-names-patchinfo", ex);
+            }
+            if (readPatchState < 0)
+                ScLog.Err("streamer names: SC's prefix on EntityAliveSDXV4.Read is not applied - no streamer names are given (a body loaded from a save could not be told from a new one)");
+            return readPatchState > 0;
         }
 
         /// <summary>Is this body's class one the For setting names: survivors (never a raider class), raiders, or both?</summary>
@@ -245,7 +330,8 @@ namespace SurvivorCommunity
             }
             if (!ScNpc.SetFirstName(e, en.Name)) return;
             ScRegistry.Community.StreamerNamesUsed.Add(en.Name);
-            given.Add(e.entityId);
+            given[e.entityId] = new Given { Body = e, Name = en.Name, Kind = kind };
+            Hook(ScCommunity.World);                    // review M2: its leaving the world is watched
             countGiven++;
             saveDue = true;
             string line = en.Name + " -> " + cls + "/" + kind + " " + e.entityId;
@@ -255,7 +341,7 @@ namespace SurvivorCommunity
             ScLog.Out("streamer names: " + line);
         }
 
-        /// <summary>ScTicker, once a second: the names given since the last second go into the save.</summary>
+        /// <summary>ScTicker, once a second: the names given (or returned) since the last second go into the save.</summary>
         public static void Tick()
         {
             if (!saveDue) return;
@@ -269,6 +355,116 @@ namespace SurvivorCommunity
             {
                 ScLog.Once("streamer-names-save", ex);
             }
+        }
+
+        // ------------------------------------------------------------------ a body leaving the world (review M2) ----
+
+        private static void Hook(World w)
+        {
+            if (w == null || ReferenceEquals(hooked, w)) return;
+            Unhook();
+            w.EntityUnloadedDelegates += OnEntityUnloaded;             // World.unloadEntity, before OnEntityUnload: the body intact
+            hooked = w;
+        }
+
+        private static void Unhook()
+        {
+            if (hooked != null) { try { hooked.EntityUnloadedDelegates -= OnEntityUnloaded; } catch (Exception) { } }
+            hooked = null;
+        }
+
+        /// <summary>
+        /// Every body leaving the world (World.unloadEntity): one that took a list name this session gives it back when it
+        /// leaves alive and unsaved (KeptOnLeaving); its entry goes either way (a later copy from the save is read, so marked
+        /// Keep).
+        /// </summary>
+        private static void OnEntityUnloaded(Entity e, EnumRemoveEntityReason reason)
+        {
+            try
+            {
+                Given g;
+                if ((object)e == null || given.Count == 0 || !given.TryGetValue(e.entityId, out g) || !ReferenceEquals(g.Body, e)) return;
+                given.Remove(e.entityId);
+                if (!ScCommunity.IsHost || !ScRegistry.Loaded || ScRegistry.IsShuttingDown) return;
+                string why = KeptOnLeaving(e, g, reason);
+                if (why != null)
+                {
+                    ScLog.Verbose("streamer names: " + g.Name + " stays given (" + e.entityId + " left the world: " + reason + ", " + why + ")");
+                    return;
+                }
+                Return(g, e.entityId, "left the world unsaved");
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("streamer-names-unloaded", ex);
+            }
+        }
+
+        /// <summary>
+        /// Why a body that took a list name keeps it as it leaves the world (null: the name goes back). It stays given when the
+        /// body died; when it leaves for any reason but Unloaded (its chunk) or Despawned (the game's despawn, SC taking an
+        /// unmet raider away); when an enclave or a band made it, or it has a record or SC's marks (the records hold the name);
+        /// or when it is saved with the world (IsSavedToFile - SCore's rule with SC's veto, the one Chunk.write applies to every
+        /// body of an unloading chunk).
+        /// </summary>
+        private static string KeptOnLeaving(Entity e, Given g, EnumRemoveEntityReason reason)
+        {
+            EntityAlive a = e as EntityAlive;
+            if (a == null) return "not a living body";
+            if (a.IsDead() || a.Health <= 0) return "died";
+            if (reason != EnumRemoveEntityReason.Unloaded && reason != EnumRemoveEntityReason.Despawned) return "removed (" + reason + ")";
+            string k = g.Kind ?? "";
+            if (k.IndexOf("enclave", StringComparison.Ordinal) >= 0 || k.IndexOf("band", StringComparison.Ordinal) >= 0) return "an enclave's or a band's record holds it";
+            if (Recorded(a)) return "a record of SC's or SC's marks";
+            if (e.IsSavedToFile()) return "saved with the world";
+            return null;
+        }
+
+        /// <summary>A name back to the list: out of the save's used list (its last entry of that name), saved within a second.</summary>
+        private static void Return(Given g, int id, string why)
+        {
+            List<string> used = ScRegistry.Community.StreamerNamesUsed;
+            for (int i = used.Count - 1; i >= 0; i--)
+            {
+                if (!string.Equals(used[i], g.Name, StringComparison.OrdinalIgnoreCase)) continue;
+                used.RemoveAt(i);
+                break;
+            }
+            warnedFemale = warnedMale = false;          // a name is free again: a later run-out warns again
+            saveDue = true;
+            countReturned++;
+            recent.Add(g.Name + " returned (" + id + " " + why + ")");
+            while (recent.Count > 8) recent.RemoveAt(0);
+            ScLog.Out("streamer names: " + g.Name + " returned (" + id + " " + why + ")");
+        }
+
+        /// <summary>
+        /// ModEvents.WorldShuttingDown, before the registry's last save (the world is saved after the event): the bodies that
+        /// took a list name this session and are still in the world, alive, but will not be saved give their names back, as
+        /// they would leaving with their chunk. Then the listener goes.
+        /// </summary>
+        public static void OnWorldShuttingDown()
+        {
+            try
+            {
+                if (given.Count > 0 && ScCommunity.IsHost && ScRegistry.Loaded && !ScRegistry.IsShuttingDown)
+                {
+                    foreach (KeyValuePair<int, Given> kv in new List<KeyValuePair<int, Given>>(given))
+                    {
+                        Entity e = kv.Value.Body;
+                        if (e == null) continue;                     // destroyed (Unity's test): it left already
+                        if (KeptOnLeaving(e, kv.Value, EnumRemoveEntityReason.Unloaded) != null) continue;
+                        Return(kv.Value, kv.Key, "not saved with the world");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("streamer-names-shutdown", ex);
+            }
+            given.Clear();
+            saveDue = false;                                         // the registry's own last save follows
+            Unhook();
         }
 
         /// <summary>GameStartDone (host): with the switch on, the list is read - and made, with its header, when missing.</summary>
@@ -373,11 +569,13 @@ namespace SurvivorCommunity
                    + "#" + nl
                    + "# One name per line. With StreamerNames set to true in the mod's Config/blocks.xml, Survivor Community gives" + nl
                    + "# these names, in this order, to the new survivors it makes (StreamerNamesFor: survivors, raiders or all)." + nl
-                   + "# Each name is given once per save. The file is read again when it changes, so you can add names while you play." + nl
+                   + "# Each name is given once per save; the name of an NPC that disappears without being met goes back on the list." + nl
+                   + "# The file is read again when it changes, so you can add names while you play." + nl
                    + "#" + nl
                    + "# Optional sex after a comma: \"Sarah, female\" or \"Mike, male\" (f and m work too). A name without one fits anyone." + nl
                    + "# Lines starting with # are notes; blank lines are skipped. A name keeps letters, digits, spaces and _ - . '" + nl
                    + "# (anything else is dropped) and is cut at " + MaxNameLength + " characters. The same name twice counts once." + nl
+                   + "# Save this file as UTF-8 (Notepad: Save as, Encoding UTF-8): saved as ANSI, \"Zo" + "ë" + "\" would become \"Zo\"." + nl
                    + "#" + nl
                    + "# Examples (remove the # to use them):" + nl
                    + "# Sarah, female" + nl
@@ -409,7 +607,9 @@ namespace SurvivorCommunity
             try
             {
                 fi = new FileInfo(path);
-                if (!fi.Exists && create)
+                if (fi.Exists) createFailedPath = null;
+                // review L5: a make that failed is not tried again for every name needed, only once the path or the file changes
+                else if (create && !string.Equals(createFailedPath, path, StringComparison.OrdinalIgnoreCase))
                 {
                     Directory.CreateDirectory(fi.DirectoryName);
                     File.WriteAllText(path, Header(), new UTF8Encoding(false));
@@ -419,6 +619,7 @@ namespace SurvivorCommunity
             }
             catch (Exception ex)
             {
+                createFailedPath = path;
                 ScLog.Once("streamer-names-create", "streamer names: could not make " + path + " (" + ex.Message + ")");
                 try { fi = new FileInfo(path); }
                 catch (Exception) { return; }
@@ -620,6 +821,7 @@ namespace SurvivorCommunity
                         List<string> used = ScRegistry.Community.StreamerNamesUsed;
                         int n = used.Count;
                         used.Clear();
+                        given.Clear();                  // the names on NPCs now are not tracked any more: nothing comes back twice
                         warnedEmpty = warnedFemale = warnedMale = false;
                         saveDue = false;
                         ScRegistry.SaveAtomic();
@@ -655,9 +857,11 @@ namespace SurvivorCommunity
                          : "not there" + (ScConfig.StreamerNames ? " (it could not be made)" : " - it is made when StreamerNames is true and a world starts");
             output("[SC]   file: " + (file ?? "-") + " - " + state);
             output("[SC]   list: " + Summary());
-            output("[SC]   this session: " + countGiven + " given; kept their own name: " + countKept + " read from a save or re-made from a record, "
+            output("[SC]   this session: " + countGiven + " given, " + countReturned + " returned (their NPC left the world unsaved), "
+                   + given.Count + " on NPCs in the world now; kept their own name: " + countKept + " read from a save or known to SC, "
                    + countPlaced + " placed back from an item; not for this setting: " + countNotFor + "; no fitting name left: " + countNoName
-                   + (countNoRegistry > 0 ? "; before the save's records loaded: " + countNoRegistry : ""));
+                   + (countNoRegistry > 0 ? "; before the save's records loaded: " + countNoRegistry : "")
+                   + (readPatchState < 0 ? "; NO NAMES: SC's prefix on EntityAliveSDXV4.Read is not applied" : ""));
             if (recent.Count > 0)
             {
                 output("[SC]   last given:");

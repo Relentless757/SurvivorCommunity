@@ -4262,7 +4262,7 @@ user's `DebugLogging` true set again. Checked in the install: `Resources/Voices`
 `RunnerCallsWhenAttacked` present. Untested in game: TESTING J29 (600-622) and M29 (650-673), and still X3 (570-586), P2
 (500-511) and R2 (520-562). The separate Wreck Path Fix modlet (installed 2026-11-11) covers the vanilla path grid under wrecks.
 
-### Round 30: streamer names (S30) (2026-11-11, built, not reviewed, not installed)
+### Round 30: streamer names (S30) (2026-11-11, built, reviewed (Fable: deployable), fixes in, not installed)
 
 Branch `ms/r30` from port-3.4 `0f33193` (the installed 3.4 state plus docs), worktree `Port33\wt\sc-r30`. **The user's spec
 (approved 2026-11-11):** a streamer pastes viewers' names into a text file and SC gives them to the survivors it makes, so
@@ -4282,17 +4282,18 @@ entity data - every chunk or save load, SC's runner snapshots) -> `PostInit`; ch
 every SC path then call `World.SpawnEntityInWorld`. 0-XNPCCore 3.4.04 renames only through `SdcsCustomLook.ApplyCharacter` (its
 creator faces, from a `SpawnEntityInWorld` postfix; for our bodies SC's X17 prefix does it), `SdcsEnsureName` (only an empty
 name) and `NetPackageSdcsName` (client side). SCore 3.4.14's PostInit (`ApplySpawnerSourceOnPostInit`) sets Biome on every body
-that has no source yet, so the spawner source cannot tell SC's bodies from wild ones; SCore's NPC-from-item paths
+that has no source yet and no Leader or Owner cvar (`SetSpawnerSource((EnumSpawnerSource)1)`; 3.4's enum is Unknown 0, Biome 1,
+StaticSpawner 2, Dynamic 3, Delete 4), so the spawner source cannot tell SC's bodies from wild ones; SCore's NPC-from-item paths
 (`ItemActionDeployNPCSDX`, `NetPackageDeployNPCSDX`, `NetPackagePlaceNPCSDX`) create a fresh body, set StaticSpawner before the
 spawn and put the item's `NPCName` back with `SetNPCItemValue`.
 
-**The hook: one choke point, `World.SpawnEntityInWorld`'s prefix (`ScStreamerNames.cs:755` `Patch_SpawnGivesName`,
-`OnSpawn` :181; both games).** Every body of SC's classes comes into the world through it, and a prefix runs before the name is
+**The hook: one choke point, `World.SpawnEntityInWorld`'s prefix (`ScStreamerNames.cs:959` `Patch_SpawnGivesName`,
+`OnSpawn` :225; both games).** Every body of SC's classes comes into the world through it, and a prefix runs before the name is
 shown, captured in a record (every SC caller builds its record after its spawn call), put in the client's spawn package
 (`NetEntityDistribution.Add` later in the same call) or met by 0-XNPCCore's creator face (a postfix). Only an
 `EntityAliveSDXV4` passes the first type test; then host, `ScXnpc.IsBody`, the switch. What is new is decided by marks set
 before the spawn (a `ConditionalWeakTable<Entity, Mark>`, decided once per body):
-- **Read from a save: Keep.** `Patch_ReadKeepsName` (:720), a prefix on `Patches_Xnpc.ReadTarget()` (`EntityAliveSDXV4.Read`,
+- **Read from a save: Keep.** `Patch_ReadKeepsName` (:924), a prefix on `Patches_Xnpc.ReadTarget()` (`EntityAliveSDXV4.Read`,
   the method X13's postfix is on; ModApi lists it once): a prefix, so a body whose read fails part way keeps its name too.
   Without it the spawn prefix gives nothing (`Bound`).
 - **A known survivor SC re-makes: Keep.** `ScSpawn.Create` (`ScSpawn.cs:69-74`) marks the body when it has a record (`known`):
@@ -4305,8 +4306,8 @@ before the spawn (a `ConditionalWeakTable<Entity, Mark>`, decided once per body)
 - **Unmarked: wild.** The biome spawner's bodies (SC's and 0-XNPCCore's spawn entries for the classes SC owns, W2's pass on 3.4),
   sleepers, 0-XNPCCore's bandit mates, another mod's spawn - except one that comes in as **StaticSpawner** (SCore's NPC placed
   back from its item): it keeps its name (counted, a Verbose line).
-Then `StreamerNamesFor` by class (`Wants` :204: `ScXnpc.IsSurvivorClass` for survivors, `IsRaiderClass` for raiders) and the
-registry loaded; `Give` (:217) takes the next fitting name and sets the **first name only** (`ScNpc.SetFirstName`,
+Then `StreamerNamesFor` by class (`Wants` :289: `ScXnpc.IsSurvivorClass` for survivors, `IsRaiderClass` for raiders) and the
+registry loaded; `Give` (:302) takes the next fitting name and sets the **first name only** (`ScNpc.SetFirstName`,
 `ScNpc.cs:160`): the title stays as the class rolls it, so a raider is "Sarah the Raider" before and after a reload (the record
 of a raider enclave or band person captures "Sarah the Raider" like "Rook the Raider" today).
 
@@ -4318,43 +4319,49 @@ record's name - there is no "new body for a missing survivor" path to hook. `ScR
 should one ever make one of SC's classes.
 
 **How the name persists, per kind.**
-- Wild survivors and raiders, radio contacts, `sc spawn`: vanilla-saved entities. SCore writes `_strMyName` with the body and reads
-  it back; the read marks them Keep, so a chunk reload or a game load never renames them. A hired one placed back from its item
-  gets the item's `NPCName` back (SCore) and is not renamed (StaticSpawner).
+- Radio contacts and `sc spawn` bodies (Persist 1 and StaticSpawner right after their spawn), and wild survivors and raiders
+  once they are met (SC writes Persist when a body is talked to, trusted, a prospect or a member) or hired (Leader): saved with
+  the world. SCore writes `_strMyName` with the body and reads it back; the read marks them Keep, so a chunk reload or a game
+  load never renames them. A hired one placed back from its item gets the item's `NPCName` back (SCore) and is not renamed
+  (StaticSpawner). (Corrected by the review's M2: an **unmet** wild survivor or raider is NOT saved - SCore's
+  `EntityAliveSDXV4.IsSavedToFile` is false for a Biome or Dynamic body with no Leader or Persist cvar - so it is gone once its
+  chunk unloads; its name goes back to the list, see Review fixes.)
 - Enclave and band people: their records (`EncPerson.Who` / `BandPerson.Who`) capture `DisplayName` right after the spawn
   (`Capture` -> `ScCommunity.MemberFromBody`); every later body is `ScSpawn.Body` -> `Identify` -> the record's name (Keep).
 - Members: `MemberFromBody` at the join takes the body's name into the record; every re-made body takes the record's name
   (`Identify`), a saved body has it in its save. Nothing renames a member (checked by grep: the only writers of a registry
   `Member.Name` are the record parser and `MemberFromBody` - `ScQuestGiverApi` fills a throwaway card record of its own; of a
   body's name `ScSpawn.Identify`, X17 and now `Give`).
-- X17 (`Patches_Xnpc.cs:1704-1707`, 3.4): a fresh survivor that took a list name keeps it when 0-XNPCCore's creator face lands on it
-  (the face is taken, the creator's name is not; counter `x17-creator-name-kept-streamer-name`).
+- X17 (`Patches_Xnpc.cs:1705-1709`, 3.4): a fresh survivor that took a list name keeps it when 0-XNPCCore's creator face lands on it
+  (the face is taken, the creator's name is not; counter `x17-creator-name-kept-streamer-name`); since the review's M1 also a
+  body read from a save, with the switch on (`KeepsName`).
 
-**The list** (`ScStreamerNames.cs`). `FilePath` (:352): `StreamerNamesFile` with `%VARIABLES%` expanded; relative =
+**The list** (`ScStreamerNames.cs`). `FilePath` (:548): `StreamerNamesFile` with `%VARIABLES%` expanded; relative =
 `GameIO.GetUserGameDataDir()` (the game's own API, 3.2 and 3.4: `%APPDATA%\7DaysToDie`) + `SurvivorCommunity\`; absolute as it
-is. `Refresh` (:393): read again when the path, the last-write time or the size changed (one `FileInfo` per name needed and per
-`sc names`); with the switch on a missing file is made with the header (`Header` :369, American English); a file that cannot be
-read (an editor saving it) keeps the old list and is tried next time. `ParseLine` (:489): trimmed, `#` and blank lines skipped,
+is. `Refresh` (:591): read again when the path, the last-write time or the size changed (one `FileInfo` per name needed and per
+`sc names`); with the switch on a missing file is made with the header (`Header` :565, American English); a file that cannot be
+read (an editor saving it) keeps the old list and is tried next time. `ParseLine` (:690): trimmed, `#` and blank lines skipped,
 a sex word after the **last** comma (`female`/`f`, `male`/`m`, any case; nothing after it = anyone; another word = the whole line
-is the name, counted), then `CleanName` (:525): letters and digits (any script), `_ - . '` and single spaces kept, everything else
+is the name, counted), then `CleanName` (:726): letters and digits (any script), `_ - . '` and single spaces kept, everything else
 dropped - the registry's separators (`=` `;` `:` `,` `|`), the UI's color-code brackets `[` `]`, quotes, braces, control
 characters and anything outside the basic plane (emoji); no letter or digit left = skipped; cut at 32. Duplicates count once
-(case-insensitive, the first line's sex wins). `NextFor` (:306): the file's order, the first name not in the save's used list
-(case-insensitive) that fits the body's sex (`ScLooks.ClassIsMale`, as its look). `ShowsAsOther` (:326): SCore shows a first
+(case-insensitive, the first line's sex wins). `NextFor` (:502): the file's order, the first name not in the save's used list
+(case-insensitive) that fits the body's sex (`ScLooks.ClassIsMale`, as its look). `ShowsAsOther` (:522): SCore shows a first
 name through a case-sensitive `Localization.Get`, so a name that is also one of the game's text keys would show that text - such
 a name is passed over, warned once per read.
 
 **Once per save.** `Community.StreamerNamesUsed` (`ScModels.cs:420-423`), written as `streamname=<name>` lines in `[community]`
 (`ScRegistry.cs:1391-1397`, parsed at :1028-1030; a key an older build ignores and drops at its next save; the format comment at
-:84-85). A name given is added there at once and the registry is saved within a second (`Tick` :259 from `ScTicker.cs:126`; a
-burst of spawns makes one save). `sc names reset` clears it.
+:84-85). A name given is added there at once and the registry is saved within a second (`Tick` from `ScTicker.cs:126`; a
+burst of spawns makes one save). `sc names reset` clears it. Since the review's M2 a name whose body leaves the world alive and
+unsaved goes back (Review fixes below).
 
 **Logging.** `streamer names: <name> -> <class>/<kind> <entity id>` (`ScLog.Out`) for every name given; one warning when the list
 is empty and one per sex when it has no fitting name left (again after the file changes or `sc names reset`); `streamer names:
 read <path>: <summary>` on every read, `made <path>` when the file is made; at GameStartDone with the switch on (`ModApi.cs:141`)
 `streamer names: on, for <setting>, the list <path>`; and `config: streamer names on, for ..., file ...` / `off`.
 
-**Console (`ConsoleCmdSc.cs:135`, `ScStreamerNames.ConsoleCmd` :599).** `sc names` (on/off and For, the file's full path with
+**Console (`ConsoleCmdSc.cs:135`, `ScStreamerNames.ConsoleCmd` :800).** `sc names` (on/off and For, the file's full path with
 size and time, the counts by sex and what was skipped or cut, given in this save and left for a woman and a man, this
 session's counts - given, kept, placed back, not for this setting, no name left - and the last five given), `sc names reload`,
 `sc names reset` (host, the save loaded), `sc names test [n] [male|female]` (the next n, default 5, at most 100, nothing used;
@@ -4365,7 +4372,7 @@ adds `streamerNames=<for>|off` (:2733). `sc enclave names` is untouched.
 `ScConfig.Reset` :1235, `EnsureParsed` :2334, the line `config: streamer names ...` :2612; `Config/blocks.xml` after
 `TraitsPerRecruit`, each commented): `StreamerNames` false, `StreamerNamesFile` `StreamerNames.txt`, `StreamerNamesFor`
 `survivors` (`raiders`, `all`; `survivor`, `raider`, `both` read too; anything else warns and keeps survivors).
-`ModApi.cs:466-468` lists `World::SpawnEntityInWorld` (both games). New files in the csproj's shared ItemGroup.
+`ModApi.cs:468-470` lists `World::SpawnEntityInWorld` (both games). New files in the csproj's shared ItemGroup.
 
 Where the brief left a choice (decided here):
 1. One choke point, `World.SpawnEntityInWorld`'s prefix, rather than a hook at each creation path: it sees every SC-made body
@@ -4406,11 +4413,77 @@ Where the brief left a choice (decided here):
   2279/2279), no aborts; the three keys land in the merged block.
 - Every file touched LF, no BOM; no new localization key (console and log text only).
 
-**Not checked (in game only, TESTING S30 680-699):** that the spawn prefix sees the wild, radio, enclave, band and console bodies as
+**Not checked (in game only, TESTING S30 680-700):** that the spawn prefix sees the wild, radio, enclave, band and console bodies as
 read here (and nothing else renames them after it); that a chunk's saved body always comes through `Read` before its spawn (it
 does in the 3.4 decompile; an unmarked saved body would take a name); the name over the head and in the talk/snapshot after a
 reload; the creator-face case; SCore's item pick-up and placing (that it really comes in as StaticSpawner); the file made under
 `%APPDATA%` (`GetUserGameDataDir` on this machine); a multiplayer client seeing the name (the spawn package is built after the
 prefix; not tested, the mod is single player).
 
-Builds: SC 3.4 `1d63d71637a12beac7ff645b5931aa79` (`build\sc34_r30`), 0 errors. Not installed.
+**Review fixes** (Fable reviewed `90d4472`: DEPLOYABLE, two MEDIUM and six LOW; all fixed here, except L6's second half, see
+there):
+- **M1 (X17, `Patches_Xnpc.cs:1705-1709`; `ScStreamerNames.KeepsName` :204).** A viewer's name was replaced by a creator
+  character's after a restart: X17 asked `Gave`, a per-session set, and a list-named body with no record of SC's (an `sc spawn`
+  body, a stranger hired the 0-XNPCCore or SCore way) is a "roll" look again in the next session, so 0-XNPCCore's spawn postfix,
+  which runs on loaded bodies too, could give it a creator face and X17 its name. With the switch on, X17 now keeps the name of
+  a body that took a list name this session or was read from a save (Read's Keep mark); switch off: X17 as before. TESTING 697
+  gained the reload case.
+- **M2 (the user's decision: the name goes back).** SCore's `EntityAliveSDXV4.IsSavedToFile` (decompile :1158-1181) is true with a
+  Leader or Persist cvar, false for a Biome (1) or Dynamic (3) body, true otherwise, and SC writes Persist only once a body is
+  met - so an unmet wild survivor (and with raiders/all a wild or outpost-raid raider) took a name, vanished with its chunk and
+  used the name up for the save. Now a body that took a list name this session and leaves the world alive and unsaved gives it
+  back: out of the used list, saved within a second, `streamer names: <name> returned (<id> left the world unsaved)`.
+  - **The hook:** `World.EntityUnloadedDelegates` (`ScStreamerNames.Hook` :362, hooked when a name is given, unhooked at
+    GameStarting and at the world's end; `OnEntityUnloaded` :381), the event SC's enclaves and bands already use - no Harmony
+    target. 3.4 decompile: `World.unloadEntity` fires it (World.cs:2736-2738) before `OnEntityUnload` (:2751), with the reason, for
+    every removal. A chunk unloading calls `World.UnloadEntities` (Chunk.cs:3329) -> `unloadEntity(e, Unloaded)` for every body in
+    it (World.cs:2704-2714), saved or not; the bodies stay in the chunk's lists (only a body marked for unload is taken out,
+    :2763-2765) and `Chunk.write` then counts and writes only those whose `IsSavedToFile()` is true (Chunk.cs:1138, :1151; the
+    cached chunk's stubs the same, :3256). So `IsSavedToFile()` asked in the event (`KeptOnLeaving` :410: the virtual call, SCore's
+    rule and SC's runner/enclave/band veto) is the verdict the chunk save applies. A despawn (`EntityAlive.CheckDespawn` ->
+    `Despawn`, EntityAlive.cs:5846-5891, :5947-5950: `IsDespawned`, marked) arrives as `Despawned` from the world tick
+    (World.cs:2610-2612) and is taken out of its chunk, never written; a death's removal arrives as `Killed`.
+  - **Stays given:** the body is dead (`IsDead` or health 0); the reason is not `Unloaded` or `Despawned`; an enclave or a band
+    made it (its record holds the name); it has a member or prospect record or SC's marks (`Recorded`); or `IsSavedToFile()` is
+    true (met, hired, `sc spawn`, a radio contact: saved with the world). Verbose `... stays given (... left the world: <reason>,
+    <why>)`. Otherwise `Return` (:424): the last used-list entry of that name goes, the run-out warnings may come again.
+  - **The world's end:** `OnWorldShuttingDown` (:446, from `ModApi.cs:161`, after the runners', enclaves' and bands' shutdowns and
+    before `ScRegistry.FlushAndReset` - the world is saved after the event) returns the names of the bodies still in the world that
+    the save will not keep, then unhooks (the world's own `UnloadEntities(Entities.list, force)`, World.cs:649, comes later).
+  - `sc names` adds `returned` and `on NPCs in the world now`; `sc names reset` also forgets the bodies (nothing comes back twice).
+    README section 3, the file's header and the blocks.xml comment say so; the persistence paragraph above is corrected (unmet wild
+    NPCs are not saved); TESTING 691 (a survivor talked to first) and the new 700.
+- **L1 (`Recorded` :255, from `OnSpawn` :225; `ScRunners.cs:1018-1019`).** A backstop at the spawn: a body with a member or
+  prospect record by its id, `sc_member` / `sc_favour`, or an enclave's or a band's cvar keeps its name; and the runner's snapshot
+  body is marked Keep explicitly after `CreateEntity(ecd)`, not only through its saved data.
+- **L2 (`ReadPatchApplied` :267).** `Patch_ReadKeepsName.Bound` only says the target was found: on the first name needed,
+  `Harmony.GetPatchInfo(ReadTarget())` must list SC's prefix (`Patch_ReadKeepsName`), else no names at all and one error line
+  (`sc names` then says `NO NAMES ...`).
+- **L3 (TESTING S30's header).** F6 with "from static" (`XUiC_SpawnMenu.toggleFromStatic`: StaticSpawner), SCore's spawn cubes
+  (`BlockSpawnCube2SDX`: StaticSpawner before the spawn) and quest spawners give no list name, by design.
+- **L4 (`Header` :565).** A line: save the file as UTF-8 (saved as ANSI, "Zoë" becomes "Zo": the byte reads as U+FFFD, dropped).
+- **L5 (`Refresh` :591).** A file that could not be made is not tried again for every name needed: `createFailedPath` until the
+  path changes or the file exists.
+- **L6.** `CONSOLE_COMMANDS.md`'s `sc names` lists the "placed back from an item" count (and the new ones). The second half -
+  "SCore's PostInit sets Dynamic (1), not Biome" - was checked and is not so: 3.4's `EnumSpawnerSource` is Unknown 0, Biome 1,
+  StaticSpawner 2, Dynamic 3, Delete 4 (its decompile), `ApplySpawnerSourceOnPostInit` writes `(EnumSpawnerSource)1` = Biome,
+  and SCore's `IsSavedToFile` tests 3 (Dynamic) and 1 (Biome) separately. The line keeps Biome and now names the enum.
+
+**Checks after the fixes.**
+- Builds: 3.4 (`build\sc34_r30`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a `--no-incremental`
+  build to a scratch folder); 3.2 (`build\sc32_r30_scratch`) 0 errors; the tracked 3.2 DLL untouched (`c4ad303a...`).
+- `cctor_order.py`: 3.4 142 static constructors, 3.2 127, 0 reads before store.
+- IL, both builds: `KeepsName` from X17's prefix (3.4 only); `Keep` from `ScSpawn.Create`, `ScRunners.Materialize` and Read's
+  prefix; `OnWorldShuttingDown` from the WorldShuttingDown handler, before `ScRegistry.FlushAndReset`; `callvirt
+  Entity::IsSavedToFile()` from `KeptOnLeaving`; `Harmony.GetPatchInfo` from `ReadPatchApplied`; `ScStreamerNames.Hook` adds to
+  `World.EntityUnloadedDelegates` beside SC's enclaves, bands and runners. No new Harmony target.
+- The parser by reflection (scratch `r30\parse_test.ps1`): 20 cases, 0 failed; the new header written out by reflection
+  (`r30\header_test.ps1`) reads as intended.
+- XML replay (`x3\r30_checks.py`): SC 201/201 on 3.4 alone, 200/200 with AshfallUI (2279/2279), no aborts.
+
+**Not checked after the fixes (in game, TESTING 691, 697, 700):** a name coming back when an unmet survivor's chunk unloads, when
+one despawns and at a save-and-quit; that a met survivor, a dead one and an enclave's or a band's person keep theirs; the
+creator face on a reload. Known, not covered: a named NPC that is not hired (no Leader, no Persist) but is taken out of the world
+alive into an item by some other mod's path would give its name back while it lives on in the item.
+
+Builds: SC 3.4 `2e45337268b9e0b27b67a9281ad1c65d` (`build\sc34_r30`), 0 errors. Not installed.

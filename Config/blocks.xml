@@ -109,7 +109,9 @@
 			<!-- STREAMER NAMES (round 30). A streamer's viewers in the game: SC gives the names in a text file to the new
 			     survivors it makes, so they turn up as people you can recruit. Each name is given once per save (recorded in
 			     the save, never given again there even after that NPC dies; sc names reset clears the record), in the file's
-			     order, to a body of the right sex. NPCs that already exist never change name, and members keep theirs for life.
+			     order, to a body of the right sex. Only the name of an NPC that leaves the world without being met (an unmet
+			     wild survivor whose area unloads, the game saves only NPCs you met) goes back on the list. NPCs that already
+			     exist never change name, and members keep theirs for life.
 			     StreamerNames: the switch (false: every NPC keeps its normal name). -->
 			<property name="StreamerNames" value="false" />
 			<!-- StreamerNamesFile: the list. A relative path is read from the SurvivorCommunity folder in the game's user data

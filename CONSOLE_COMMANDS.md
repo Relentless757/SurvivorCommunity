@@ -164,8 +164,10 @@ See `sc recruit`, `sc trust`, `sc spawn` (strangers to recruit) and `sc look`, a
 Streamer names (README section 3: your viewers' names from a text file for the new survivors SC makes). Prints whether
 the feature is on (`StreamerNames`) and for whom (`StreamerNamesFor`), the names file's full path, how many names it holds
 (for a woman, for a man, for anyone, and the lines skipped or cut), how many were given in this save and how many are
-left, this session's counts (given, kept their own name, not for this setting, no fitting name left) and the last names
-given with the NPC's class, kind and entity id. Not to be confused with `sc enclave names` (sample enclave group names).
+left, this session's counts (given; returned to the list because their NPC left the world without being met; on NPCs in
+the world now; kept their own name because they were loaded from the save or known to SC; placed back from an item; not
+for this setting; no fitting name left) and the last names given or returned, with the NPC's class, kind and entity id.
+Not to be confused with `sc enclave names` (sample enclave group names).
 
 ### `sc names reload` [READ]
 
@@ -180,7 +182,8 @@ The next `n` names (default 5, at most 100) a woman and a man would get, in orde
 ### `sc names reset` [HOST] [CHEAT]
 
 Clears the save's record of the names given out, so every name on the list can be given again in this save (for
-testing). NPCs that already have a name from the list keep it.
+testing). NPCs that already have a name from the list keep it, and their names no longer go back on the list when they
+leave the world.
 
 ## 4. Runs and runners
 

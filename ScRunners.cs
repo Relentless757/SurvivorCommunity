@@ -1015,6 +1015,8 @@ namespace SurvivorCommunity
                     Restoring = true;                                                           // its PostInit leaves the bag to AfterRunnerRestore
                     try { e = ScNpc.As(EntityFactory.CreateEntity(ecd)); }
                     finally { Restoring = false; }
+                    // round 30 review L1: a member's body keeps its name - not only through the snapshot's saved data (Read's mark)
+                    if (e != null) ScStreamerNames.Keep(e);
                 }
                 if (e == null) { s.CreateFailures++; ScLog.Warn(m.Name + ": re-create returned no entity (" + s.CreateFailures + ")"); return false; }
                 w.SpawnEntityInWorld(e);

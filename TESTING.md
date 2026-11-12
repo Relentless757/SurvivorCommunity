@@ -2563,14 +2563,18 @@ put it back. Test on a new world or a copy; `dm` for F6 and the creative menu.
 
 **S30. Round 30: streamer names (both games; test on 3.4)**
 
-Built 2026-11-11 on branch `ms/r30` (SC 3.4 DLL `1d63d71637a12beac7ff645b5931aa79`, `Port33\build\sc34_r30`), **not reviewed,
-not installed**: these steps wait for the install. Your spec (2026-11-11): a streamer pastes viewers' names into a text file
-and SC gives them to the new survivors it makes, in the file's order and matched to the body's sex, each name once per save;
+Built 2026-11-11 on branch `ms/r30` (SC 3.4 DLL `2e45337268b9e0b27b67a9281ad1c65d`, `Port33\build\sc34_r30`, with the Fable
+review's fixes), **not installed**: these steps wait for the install. Your spec (2026-11-11): a streamer pastes viewers' names
+into a text file and SC gives them to the new survivors it makes, in the file's order and matched to the body's sex, each name
+once per save, except that the name of an NPC that leaves the world without being met goes back on the list (700);
 NPCs that already exist never change name. The file: `%APPDATA%\7DaysToDie\SurvivorCommunity\StreamerNames.txt`. Also in this
 round, nothing to test: `OutpostAttacks`' fallback in the code is now true, as `Config/blocks.xml` already said. Helpers:
 `sc names`, `sc names test [n] [male|female]`, `sc names reload`, `sc names reset`, `sc spawn [hostile] [male|female]`,
 `sc enclave list` / `spawn <id>` / `people <id>`, `sc band spawn [drifters|raiders]` / `info <id>`, `sc recruit <name>`. Set
-`DebugLogging` to true for the "placed back from its item" line (696). Test on a new world or a copy; `dm` for F6.
+`DebugLogging` to true for the "placed back from its item" line (696) and the "stays given" lines (700). Test on a new world
+or a copy; `dm` for F6. By design, a body that comes into the world as a StaticSpawner one gets no list name: F6's spawn menu
+with its "from static" (StaticSpawner) option, SCore's spawn cubes and SCore's quest spawners. Use `sc spawn`, or F6 without
+that option, to make test survivors.
 
 680. **Off by default.** As installed (`StreamerNames` false): the log has `config: streamer names off` and no other `streamer
      names:` line all session; nothing is made in `%APPDATA%\7DaysToDie\SurvivorCommunity`; survivors have their usual names.
@@ -2613,9 +2617,11 @@ round, nothing to test: `OutpostAttacks`' fallback in the code is now true, as `
 690. **Once per save.** Kill `Sarah` (from 684). `sc names test female`: Sarah is not offered. Save, quit to the menu, load:
      `sc names` still counts her in `given in this save`, and `sc names test` still skips her (the save's `survivor_community.txt`
      has a `streamname=Sarah` line).
-691. **Names survive a save, a reload and an unloaded area.** A wild survivor and an `sc spawn` survivor with list names: save,
-     quit to the menu, load: the same names, and no new `streamer names:` line for them. Walk 300 m or more away (their chunks
-     unload) and come back: the same names; `sc names`' `kept their own name` count went up.
+691. **Names survive a save, a reload and an unloaded area.** A wild survivor you have talked to (as in 685: talking makes the
+     game keep her - the game saves only the NPCs you met) and an `sc spawn` survivor, both with list names: save, quit to the
+     menu, load: the same names, and no new `streamer names:` line for them. Walk 300 m or more away (their chunks unload) and
+     come back: the same names; `sc names`' `kept their own name` count went up. A wild survivor you never talked to is not
+     kept by the game: see 700.
 692. **Enclave and band people come back with their names.** Leave an enclave's range and come back (its people are made again
      from their records): the same names, no new `streamer names:` line. The same for a band you leave and meet again.
 693. **A recruited viewer.** Recruit one of them (`sc recruit <name>`, or through their favor): `sc members` and the community
@@ -2632,11 +2638,22 @@ round, nothing to test: `OutpostAttacks`' fallback in the code is now true, as `
      StaticSpawner (an NPC placed back from its item?) - keeps its name`).
 697. **A creator face keeps the viewer's name (optional).** With 0-XNPCCore's character-creator characters about (its
      `SdcsCustomCharacterChance`), a fresh survivor that takes a creator's face keeps the list name; `sc xnpc`'s counters show
-     `x17-creator-name-kept-streamer-name`.
+     `x17-creator-name-kept-streamer-name`. Then the reload case (round 30 review M1): an `sc spawn` survivor with a list name
+     (several, so one is picked by the creator-face chance), save, quit to the menu and load: each keeps the list name, even one
+     that now shows a creator's face (the counter goes up again).
 698. **Another file.** `StreamerNamesFile` set to a full path (for example `C:\Temp\viewers.txt`), restart: `sc names` shows that
      path, and with no file there it is made there.
 699. **Off again.** `StreamerNames` false (restart): NPCs that already have list names keep them (they are in the save), new
      survivors get usual names, `sc names` says OFF, and the log has no `streamer names:` line.
+700. **An unmet NPC's name goes back (round 30 review M2).** (`StreamerNames` true again.) A wild survivor spawns with a list name
+     (685) and you do NOT talk to or hit her: walk 300 m or more away so her chunk unloads. The log: `streamer names: <name>
+     returned (<id> left the world unsaved)`; `sc names`: `returned` counts 1, `given in this save` is one less, and `sc names
+     test` offers that name again (in its place in the file's order). The same for a raider with `StreamerNamesFor` all (and
+     an outpost raid's raiders taken away after the raid). Not returned (DebugLogging: `... stays given (... left the world:
+     ..., <why>)`): a survivor you talked to (`saved with the world`), a dead one (`died`), an enclave's or a band's person
+     whose body goes (`an enclave's or a band's record holds it`), `sc spawn` and radio contacts (`saved with the world`).
+     Save and quit with an unmet named survivor nearby: the log has `<name> returned (<id> not saved with the world)`, and
+     after loading, `sc names test` offers the name again.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

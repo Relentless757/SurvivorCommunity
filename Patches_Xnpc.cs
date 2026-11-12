@@ -1666,7 +1666,8 @@ namespace SurvivorCommunity
         ///  - a fresh body (ScLooks.CustomFaceRefusal: a survivor whose look was just rolled, with no record of SC's, not the
         ///    community's, not an enclave's) takes the character's face through ScLooks.AdoptFace - SC's clothes kept, the
         ///    face its look from now on, so a later recruit stores and restores the face it was seen with - and the
-        ///    character's name, as XNPC would give it (round 30: not when it took a streamer name - it keeps that one);
+        ///    character's name, as XNPC would give it (round 30: with streamer names on, not when it took a list name or was
+        ///    read from a save - it keeps its own);
         ///  - every other body - a member, a prospect, a recruit or stand-in spawned wearing a stored look, an enclave person,
         ///    a raider - is refused outright: no face, no name, no cvars.
         /// XNPC's applier never runs on one of ours and none of its custom cvars is written (XNPC's own classes keep the whole
@@ -1701,9 +1702,10 @@ namespace SurvivorCommunity
                         return false;
                     }
                     EntityAliveSDXV4 v4 = npc as EntityAliveSDXV4;
-                    // round 30: a body that took a streamer name (ScStreamerNames, given in World.SpawnEntityInWorld's prefix,
-                    // before 0-XNPCCore's postfix calls this) keeps it - the creator's face, the viewer's name
-                    if (ScStreamerNames.Gave(npc)) Count("x17-creator-name-kept-streamer-name");
+                    // round 30: with streamer names on, a body that took a list name (ScStreamerNames, given in
+                    // World.SpawnEntityInWorld's prefix, before 0-XNPCCore's postfix calls this) or was read from a save (a list
+                    // name of an earlier session lives in its save; review M1) keeps its name - the creator's face, its own name
+                    if (ScStreamerNames.KeepsName(npc)) Count("x17-creator-name-kept-streamer-name");
                     else if (v4 != null && !string.IsNullOrEmpty(c.Name)) v4.FirstName = c.Name;
                     Count("x17-creator-face-taken");
                     ScLog.Verbose("creator face '" + c.Name + "' taken by stranger id " + npc.entityId + " (SC's clothes kept)");

@@ -171,7 +171,9 @@ turn up in the game as people you can meet and recruit. It is off by default.
   `StreamerNamesFor` you choose `survivors` (the default), `raiders` (SC's wild raiders, raider enclaves and bands, and
   outpost raids; they show as "Name the Raider") or `all`.
 - **Once per save:** a name given out is recorded in your save and never given again there, even after that survivor
-  dies. When no fitting name is left, new survivors get their normal names.
+  dies. The exception: the game keeps only the NPCs you have met, so when an NPC you never met disappears (you leave its
+  area, or it despawns), its name goes back on the list for a later survivor. When no fitting name is left, new
+  survivors get their normal names.
 - **Nobody is renamed:** people already in your world keep their names, and a viewer you recruit keeps the name for life,
   through saves, reloads and the area unloading.
 - **Mid-stream edits:** SC reads the file again when it changes, so names you add while you play go to the next new
