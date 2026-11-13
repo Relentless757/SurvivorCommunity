@@ -63,7 +63,15 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (look != null) { ScLooks.Pending = look.Clone(); ScLooks.PendingName = known != null ? known.Name : null; }   // round 31: the name for a hair color fix's log line
+                if (look != null)
+                {
+                    // round 32c (round 31 review L2): the record's own look is validated before the copy is taken, so an
+                    // enclave's or a band's person (whose records were only ever corrected on the copy, again at every body)
+                    // is fixed once, in the record the registry saves; the copy then carries Validated and is not fixed again
+                    ScLooks.Validate(look, null, known != null ? known.Name : null);
+                    ScLooks.Pending = look.Clone();
+                    ScLooks.PendingName = known != null ? known.Name : null;   // round 31: the name for a hair color fix's log line
+                }
                 if (loadout != null) ScLoadout.Pending = loadout.Clone();
                 if (known != null) { ScAmmo.PendingKnown = true; ScAmmo.PendingRecord = ScAmmo.Copy(known.Ammo); ScAmmo.PendingMags = known.Mags; }
                 EntityAlive e = ScNpc.As(EntityFactory.CreateEntity(classId, at, rotation));

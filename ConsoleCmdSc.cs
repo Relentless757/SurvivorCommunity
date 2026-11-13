@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         /// <summary>
@@ -1012,13 +1012,22 @@ namespace SurvivorCommunity
             return null;
         }
 
-        /// <summary>sc look <id|name> - a new face (same sex, same clothes) for a loaded survivor wearing the player's body.</summary>
+        /// <summary>
+        /// sc look <id|name> - a new face (same sex, same clothes) for a loaded survivor wearing the player's body.
+        /// sc look <id|name> tone (round 32c) - keeps the face and gives a Vanity Vault survivor a tone that suits it (LookTone).
+        /// </summary>
         private static void LookCmd(List<string> p)
         {
-            if (p.Count < 2) { Output("[SC] look <id|name>"); return; }
+            if (p.Count < 2) { Output("[SC] look <id|name> [tone]"); return; }
             EntityAlive npc = FindSurvivor(p[1]);
             if (npc == null) { Output("[SC] no loaded NPC '" + p[1] + "'"); return; }
             if (!ScLooks.IsSurvivor(npc)) { Output("[SC] " + ScCommunity.DisplayName(npc) + " does not wear the player's body"); return; }
+            if (p.Count > 2)
+            {
+                if (p[2].Equals("tone", StringComparison.OrdinalIgnoreCase)) LookTone(npc);
+                else Output("[SC] look <id|name> [tone]");
+                return;
+            }
             Look old = ScLooks.Get(npc);
             Look look = ScLooks.Roll(old != null ? old.Male : npc.IsMale, ScCommunity.World.GetGameRandom(), false,
                                      ScXnpc.IsRaiderClass(ScCommunity.ClassName(npc)));   // a raider's paints from the raider lists
@@ -1030,6 +1039,49 @@ namespace SurvivorCommunity
             ScLooks.Apply(npc, look);
             ScRegistry.SaveAtomic();
             Output("[SC] " + ScCommunity.DisplayName(npc) + ": " + ScLooks.Describe(look));
+        }
+
+        /// <summary>
+        /// Round 32c, sc look <id|name> tone: the opt-in aid for one already-met Vanity Vault survivor whose tone does not suit
+        /// their face (a Black face with light skin, a White or Asian face with dark skin). The face stays; the tone becomes one
+        /// of the face race's SurvivorTonesByFace set (ScLooks.SuitedTone: kept when it already is one, else a stable pick by
+        /// the look), the natural hair color follows it (Validate's fix, its looks: line), and the look goes into whichever
+        /// record holds this survivor - a member, a prospect, an enclave's or a band's person - and is saved; the body is
+        /// rebuilt as sc look does (the portrait follows the look's new key). Refused for a creator face, a vanilla race, a
+        /// variant outside 1-16, or without Vanity Vault's tones. Never run by itself.
+        /// </summary>
+        private static void LookTone(EntityAlive npc)
+        {
+            string name = ScCommunity.DisplayName(npc);
+            Look old = ScLooks.Get(npc);
+            if (old == null) { Output("[SC] " + name + " has no look of SC's"); return; }
+            List<string> tones = null;
+            try { tones = SDCSDataUtils.GetRaceList(old.Male); }
+            catch (Exception e) { ScLog.Once("look-tone-list", e); }
+            if (!ScLooks.HasTone(tones)) { Output("[SC] the game's skins are not Vanity Vault's tones (is Vanity Vault installed?) - nothing to do"); return; }
+            string why;
+            string tone = ScLooks.SuitedTone(old, tones, out why);
+            string before = ScLooks.Describe(old);
+            if (tone == null) { Output("[SC] " + name + ": " + why + " - not re-toned (" + before + ")"); return; }
+            if (string.Equals(tone, (old.Race ?? "").Trim(), StringComparison.OrdinalIgnoreCase)) { Output("[SC] " + name + ": skin " + old.Race + " " + why + " (face " + old.Variant + " " + ScLooks.FaceRace(old.Variant) + ") - unchanged"); return; }
+            Look look = old.Clone();
+            look.Race = tone;
+            look.Validated = false;     // Apply validates it again: the natural hair color for the new tone (and face)
+            int records = 0;
+            Member m = ScRegistry.GetMember(npc.entityId);
+            if (m != null) { m.Look = look; records++; }
+            Prospect pr = ScRegistry.GetProspect(npc.entityId);
+            if (pr != null) { pr.Look = look; records++; }
+            EncPerson ep = ScEnclavePeople.PersonOf(npc);
+            if (ep != null && ep.Who != null) { ep.Who.Look = look; records++; }
+            BandPerson bp = ScBands.PersonOf(npc);
+            if (bp != null && bp.Who != null) { bp.Who.Look = look; records++; }
+            ScLooks.Apply(npc, look);
+            ScRegistry.SaveAtomic();
+            ScLog.Out("looks: " + name + " (" + npc.entityId + ") re-toned by sc look tone: " + old.Race + " -> " + look.Race + " (face " + look.Variant + " "
+                      + ScLooks.FaceRace(look.Variant) + ")" + (records == 0 ? ", no record (a stranger: this session only)" : ""));
+            Output("[SC] " + name + " before: " + before);
+            Output("[SC] " + name + " after:  " + ScLooks.Describe(look) + (records == 0 ? " (a stranger with no record: kept this session only)" : " (saved)"));
         }
 
         /// <summary>

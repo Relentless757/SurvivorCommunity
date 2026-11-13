@@ -1143,16 +1143,24 @@ Weapons**. They keep it in place of their weapon of that kind.
   outfit from a supported armor pack, if installed.
 - **With Vanity Vault:** a few survivors have a body paint (1%), a face paint (2%) or a tattoo (15%); raiders far more often,
   from wilder designs.
-- **Hair color follows skin tone.** Survivors and raiders with a medium skin tone (Honey, Golden Peach, Sand, Taupe, Caramel,
-  Bronze; without Vanity Vault, Asian and Native) never get natural blond or red hair; darker tones (Chestnut, Umber,
-  Espresso; without Vanity Vault, Black) also never get light brown. Lighter tones can have any natural color. Gray and white
-  hair stay as common as before on every skin, about 1 in 5. Dyed colors (pink, blue, green and so on) still turn up now and
-  then on anyone.
-- **People you already know are fixed too.** A survivor whose natural hair color does not fit their skin gets a fitting one
-  the next time they load (always the same one for that person, and never gray or white in place of a young-looking color);
-  the rest of their look stays. Dyed hair is left alone, and so is a face that came from 0-XNPCCore's character creator
-  (one taken on with this version or later: a creator face a survivor took on before it is not recognized, and its hair
-  color can be changed like anyone else's).
+- **With Vanity Vault, the face comes first and the skin tone suits it.** Vanity Vault splits a look in two: the skin tone
+  (Alabaster to Espresso) sets how light or dark the skin is, and the face (16 faces: 4 each with White, Native, Black and
+  Asian features) sets the features. A new survivor or raider gets their face first, then a tone that fits it: a Black face
+  never comes with very light skin, and a White or Asian face never with very dark skin. The tones each face can get are the
+  setting `SurvivorTonesByFace` (section 20). Without Vanity Vault nothing changes.
+- **Hair color follows the skin tone and the face.** Medium skin tones never get natural blond or red hair; dark tones also
+  never get light brown; light tones can have any natural color. Which tones count as medium or dark differs a little
+  between men and women (the same tone looks lighter on one than on the other). With Vanity Vault the face counts too: an
+  Asian or Native face is treated as at least medium and a Black face as dark, so a Black face with light skin gets dark
+  hair. Without Vanity Vault: Asian and Native as medium, Black as dark, White any color. Gray and white hair stay as common
+  as before on every skin, about 1 in 5. Dyed colors (pink, blue, green and so on) still turn up now and then on anyone.
+- **People you already know are fixed too.** A survivor whose natural hair color does not fit their skin and face gets a
+  fitting one the next time they load (always the same one for that person, and never gray or white in place of a
+  young-looking color); the rest of their look stays: **their face and skin tone are never changed by themselves.** If an
+  older survivor's skin tone does not suit their face, `sc look <name> tone` gives that one survivor a tone that does (only
+  when you ask; CONSOLE_COMMANDS.md). Dyed hair is left alone, and so is a face that came from 0-XNPCCore's character
+  creator (one taken on with this version or later: a creator face a survivor took on before it is not recognized, and its
+  hair color can be changed like anyone else's).
 
 ---
 
@@ -1167,10 +1175,13 @@ When you talk to a survivor, **their line shows in a panel above your responses*
 - Survivors speak their talk lines in **recorded voices** (generated with ElevenLabs). There are **16 voices**, two for each
   race (White, Black, Asian, Native) and sex. Each survivor keeps one voice of their race and sex.
 - **All 16 voices are recorded.**
-- **With Vanity Vault,** skin tones replace the four races, so each tone speaks with the voices of one race: the light tones
-  (Alabaster to Warm Beige) White; Honey and Golden Peach Asian; Sand, Taupe, Caramel and Bronze Native; Chestnut, Umber and
-  Espresso Black. Survivors you have already met switch to a voice that fits their skin the next time they load. The
-  setting is `VoiceRaceBySkin` (section 20); a tone can be given two races, and each person then keeps one of them.
+- **With Vanity Vault, voices follow the face.** Vanity Vault replaces the four races with skin tones, and the features a
+  player reads as White, Native, Black or Asian come from the face (section 15). So each survivor speaks with the voices
+  of their face's race, with one exception: a White or Asian face with a dark skin tone (for men Bronze, Umber and
+  Espresso; for women Chestnut, Umber and Espresso) speaks with Black voices. Survivors you have already met switch to a
+  voice that fits their face the next time they load. The settings are `VoiceRaceByFace` and `VoiceDarkTonesMale` /
+  `VoiceDarkTonesFemale` (section 20); with `VoiceRaceByFace` off, the skin tone alone decides (`VoiceRaceBySkin`), as in
+  the previous version.
 - Lines with a name or a number in them say only the part without it; the panel shows the whole line.
 - A few of the newest lines (for example the training line after reading a magazine, and refusals about the work kit,
   field jobs and trading) are text only for now.
@@ -1377,9 +1388,14 @@ These are the ones you are most likely to change. The file has many more.
 | `ScGreetings` / `ScChatter` | true / true | Greetings and residents' chatter |
 | `RaiderTaunts` | true | Raider taunts |
 | `MuteVcInTalk` | true | Voice Control stays quiet during SC's talks |
-| `VoiceRaceBySkin` | Vanity Vault's 15 natural tones | Which race's voices each skin tone speaks in, as `Tone:Race` (`Honey:Asian`); a tone may name two races |
-| `SurvivorMidSkins` / `SurvivorMidSkinHairColors` | Honey ... Bronze, Asian, Native / 03 LightBrown to 08 White | Medium skin tones and the natural hair colors they can have |
-| `SurvivorDarkSkins` / `SurvivorDarkSkinHairColors` | Chestnut, Umber, Espresso, Black / 04 Brown to 08 White | Dark skin tones and the natural hair colors they can have |
+| `VoiceRaceByFace` | true | With Vanity Vault, survivors speak with the voices of their face's race; false: the skin tone decides (`VoiceRaceBySkin`) |
+| `VoiceDarkTonesMale` / `VoiceDarkTonesFemale` | Bronze, Umber, Espresso / Chestnut, Umber, Espresso | Skin tones that make a White or Asian face speak with Black voices |
+| `VoiceRaceBySkin` | Vanity Vault's 15 natural tones | Which race's voices each skin tone speaks in, as `Tone:Race` (`Honey:Asian`); a tone may name two races. Used only when the face gives no race, or with `VoiceRaceByFace` false |
+| `SurvivorTonesByFace` | the tones that suit each face (section 15) | With Vanity Vault, the skin tones a new face of each race can get, one list per race (the comment in blocks.xml shows the format); empty: face and tone rolled apart |
+| `HairGroupByFace` | true | With Vanity Vault, the face narrows the natural hair colors too (Asian and Native faces medium, Black faces dark); false: the skin tone alone |
+| `SurvivorMidSkinsMale` / `SurvivorMidSkinsFemale` | Warm Ivory ... Chestnut, Asian, Native / Cool Beige ... Bronze, Asian, Native | Medium skin tones for men and for women |
+| `SurvivorDarkSkinsMale` / `SurvivorDarkSkinsFemale` | Bronze, Umber, Espresso, Black / Chestnut, Umber, Espresso, Black | Dark skin tones for men and for women |
+| `SurvivorMidSkinHairColors` / `SurvivorDarkSkinHairColors` | 03 LightBrown to 08 White / 04 Brown to 08 White | The natural hair colors medium and dark skins can have |
 | `SurvivorGrayHairColors` | 07 Gray, 08 White | Hair colors that read as age: they stay at their usual share (1 in 5) on every skin |
 
 ### Raiders, outposts and the world

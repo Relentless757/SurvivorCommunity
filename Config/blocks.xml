@@ -393,23 +393,41 @@
 			<property name="SurvivorDyedHairColors" value="11 Yellow,12 Orange,13 Redder,14 Redder1,15 Pink,16 Pink 1,17 Blue,18 Blue 1,19 Blue 2,20 Purple,21 Purple1,22 Purple 2,23 Green,24 Green 1" />
 			<property name="SurvivorDyedHairChanceFemale" value="0.06" />
 			<property name="SurvivorDyedHairChanceMale" value="0.005" />
-			<!-- Round 31: natural hair colors follow the skin. A skin on SurvivorMidSkins only gets the natural colors in
-			     SurvivorMidSkinHairColors, a skin on SurvivorDarkSkins (asked first) only those in SurvivorDarkSkinHairColors;
-			     every other skin (the light tones, vanilla's White) keeps all natural colors. Skins are Vanity Vault's tone names
-			     or vanilla's races (Asian, Native, Black), case-insensitive, a trailing * matches a prefix; colors are the game's
-			     names. Dyed colors (SurvivorDyedHairColors) stay open to every skin at the same rare chance. A survivor already
-			     met whose natural color their skin no longer allows gets an allowed one when they next load (the log says
-			     "looks: <name> (<id>) hair color <old> -> <new>"); a dyed color and a 0-XNPCCore creator character's face are
-			     left as they are. A color list that leaves no color: that group gets every natural color (logged once).
+			<!-- Natural hair colors follow the skin (round 31) and, with Vanity Vault, the face (round 32c). A skin on the mid
+			     list for its sex (SurvivorMidSkinsMale / SurvivorMidSkinsFemale) only gets the natural colors in
+			     SurvivorMidSkinHairColors, a skin on the dark list (SurvivorDarkSkinsMale / SurvivorDarkSkinsFemale, asked first)
+			     only those in SurvivorDarkSkinHairColors; every other skin (the light tones, vanilla's White) keeps all natural
+			     colors. The lists are per sex because the same tone looks lighter or darker on a man than on a woman. Skins are
+			     Vanity Vault's tone names or vanilla's races (Asian, Native, Black), case-insensitive, a trailing * matches a
+			     prefix; colors are the game's names.
+			     HairGroupByFace: with Vanity Vault the face (its variant 1-16: 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian)
+			     counts too - the group is the darker of the face's (White any, Asian and Native mid, Black dark) and the skin's.
+			     false: the skin alone.
+			     Dyed colors (SurvivorDyedHairColors) stay open to every skin at the same rare chance. A survivor already met whose
+			     natural color no longer fits gets a fitting one when they next load (the log says "looks: <name> (<id>) hair
+			     color <old> -> <new> (skin <tone>, face <n> <race>: <group>)"); a dyed color and a 0-XNPCCore creator
+			     character's face are left as they are. A color list that leaves no color: that group gets every natural color
+			     (logged once).
 			     SurvivorGrayHairColors: the natural colors that read as age. On every skin a new survivor or raider gets one of
 			     them as often as they make up all the natural colors (2 of 10 = 1 in 5, as before), the rest of the time one of
 			     the other colors the skin allows; and a survivor already met is never moved from a young-looking color to one of
 			     these. Empty = no split by age. -->
-			<property name="SurvivorMidSkins" value="Honey,Golden Peach,Sand,Taupe,Caramel,Bronze,Asian,Native" />
+			<property name="HairGroupByFace" value="true" />
+			<property name="SurvivorMidSkinsMale" value="Warm Ivory,Cool Beige,Warm Beige,Honey,Golden Peach,Taupe,Caramel,Chestnut,Asian,Native" />
+			<property name="SurvivorDarkSkinsMale" value="Bronze,Umber,Espresso,Black" />
+			<property name="SurvivorMidSkinsFemale" value="Cool Beige,Warm Beige,Honey,Golden Peach,Sand,Taupe,Caramel,Bronze,Asian,Native" />
+			<property name="SurvivorDarkSkinsFemale" value="Chestnut,Umber,Espresso,Black" />
 			<property name="SurvivorMidSkinHairColors" value="03 LightBrown,04 Brown,05 DarkBrown,06 Black,07 Gray,08 White" />
-			<property name="SurvivorDarkSkins" value="Chestnut,Umber,Espresso,Black" />
 			<property name="SurvivorDarkSkinHairColors" value="04 Brown,05 DarkBrown,06 Black,07 Gray,08 White" />
 			<property name="SurvivorGrayHairColors" value="07 Gray,08 White" />
+			<!-- Round 32c, SurvivorTonesByFace: with Vanity Vault a new survivor or raider gets their face first (the variant,
+			     1-16) and then a skin tone from that face race's list here, so a Black face never comes with very light skin
+			     and a White or Asian face never with very dark skin. A comma list of Race:Tone|Tone|... (races White, Black,
+			     Asian, Native; tones are Vanity Vault's names, case-insensitive); SurvivorExcludeSkins still applies. A face
+			     race with no tone left: its tone comes from every skin, as before (logged once). Empty = face and tone are
+			     rolled apart, as before round 32c. Survivors already met keep their face and tone ("sc look <name> tone" gives
+			     one survivor a tone that suits their face, only when you ask). Without Vanity Vault nothing changes. -->
+			<property name="SurvivorTonesByFace" value="White:Porcelain|Alabaster|Cool Beige|Ivory|Warm Ivory,Native:Caramel|Honey|Chestnut|Taupe|Golden Peach|Warm Beige,Black:Espresso|Umber|Bronze|Warm Beige|Chestnut|Caramel,Asian:Ivory|Sand|Golden Peach|Warm Ivory|Porcelain|Alabaster" />
 			<!-- Vanity Vault paints and tattoos on new survivors and raiders (only with Vanity Vault installed; a survivor
 			     already met keeps their look). Chances per new survivor / raider: a body paint set, else a face paint alone,
 			     and a tattoo (one at most). Lists are Vanity Vault's names, comma separated, empty = none of that kind:
@@ -651,12 +669,20 @@
 			     "sc voice who" shows how the nearest survivor's or raider's voice is chosen. -->
 			<property name="VoiceByRace" value="true" />
 			<property name="Voices" value="male_White_Vane,male_White_David,female_White_Jessica,female_White_Beth,male_Black_Nate,male_Black_Desmond,female_Black_Tiffany,female_Black_Rene,male_Asian_Jasper,male_Asian_Julian,female_Asian_Layla,female_Asian_Jess,male_Native_NativeM1,male_Native_NativeM2,female_Native_NativeF1,female_Native_NativeF2" />
-			<!-- Round 31, VoiceRaceBySkin: with Vanity Vault a body's race is one of its skin tones, not White/Black/Asian/
-			     Native, so each tone is mapped to the race whose voices it speaks in: a comma list of Tone:Race (tone names
-			     case-insensitive). A tone may list several races, Honey:Asian|White - each NPC of that tone then keeps one,
-			     picked by their name (a raider's name and id). A tone not listed (or an empty value) speaks in any voice of its sex, logged once per
-			     tone. The four vanilla races are never remapped. NPCs already met switch to a matching voice when they next
-			     load; "sc voice who" shows the tone and the race it maps to. -->
+			<!-- Round 32c, VoiceRaceByFace: with Vanity Vault a body's race is one of its skin tones, not White/Black/Asian/
+			     Native, and its FACE (the variant, 1-16: 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian) carries the features
+			     you read as ethnicity. true: everyone speaks with the voices of their face's race - except a White or Asian face
+			     with a dark tone (VoiceDarkTonesMale for men, VoiceDarkTonesFemale for women), who speaks with Black voices.
+			     false: the tone alone decides (VoiceRaceBySkin), as round 31. The four vanilla races are never remapped. NPCs
+			     already met switch to a matching voice when they next load; "sc voice who" shows the tone, the face and the rule. -->
+			<property name="VoiceRaceByFace" value="true" />
+			<property name="VoiceDarkTonesMale" value="Bronze,Umber,Espresso" />
+			<property name="VoiceDarkTonesFemale" value="Chestnut,Umber,Espresso" />
+			<!-- Round 31, VoiceRaceBySkin: each skin tone mapped to the race whose voices it speaks in, a comma list of Tone:Race
+			     (tone names case-insensitive). Since round 32c only used when the face gives no race (a variant outside 1-16)
+			     or VoiceRaceByFace is false. A tone may list several races, Honey:Asian|White - each NPC of that tone then keeps
+			     one, picked by their name (a raider's name and id). A tone not listed (or an empty value) speaks in any voice
+			     of its sex, logged once per tone. -->
 			<property name="VoiceRaceBySkin" value="Alabaster:White,Porcelain:White,Ivory:White,Warm Ivory:White,Cool Beige:White,Warm Beige:White,Honey:Asian,Golden Peach:Asian,Sand:Native,Taupe:Native,Caramel:Native,Bronze:Native,Chestnut:Black,Umber:Black,Espresso:Black" />
 			<!-- V2, SC's greetings. ScGreetings: the community's survivors greet you in their own recorded voice - the first
 			     time each in-game day you see one within ScGreetMeetRange metres ("meet"), and when you walk up within

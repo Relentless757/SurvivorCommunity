@@ -2811,6 +2811,107 @@ enclave info <id>`, `sc enclave reveal <id>`, `sc status`. Set `DebugLogging` to
      and its doors stay unlocked. A group that moves (`sc enclave move <id> now`) gets a line for its new building when you
      go there.
 
+**F32. Round 32c: voices and hair follow the face; new survivors get a tone that suits their face (both games; test on 3.4)**
+
+Built 2026-11-12 on branch `ms/r32c` (SC 3.4 DLL `6336704f6cbeffceef8a7905ad2a003c`, `Port33\build\sc34_r32c`), **not installed**: these
+steps wait for the install. From the investigation of 2026-11-12 (your Jack: light skin with Black features): with Vanity
+Vault a look has two parts - the skin **tone** (Alabaster ... Espresso) sets how light or dark the face, body and hands are,
+and the **face** (variant 1-16: 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian) sets the features you read as ethnicity.
+Round 31 rolled the two apart (most rolls put one race's tone on another race's face; about 1 in 7 was a visible clash) and
+chose voices and hair by the tone alone. Now: a new survivor or raider gets the face first and then a tone from that face's
+list (`SurvivorTonesByFace`); everyone speaks with the voices of their face's race, a White or Asian face with a dark tone
+(men Bronze, Umber, Espresso; women Chestnut, Umber, Espresso) with Black voices (`VoiceRaceByFace`); the natural hair colors
+follow the darker of the face (Asian and Native medium, Black dark) and the tone, whose medium and dark lists are now per sex
+(`HairGroupByFace`, `SurvivorMidSkinsMale` ... `SurvivorDarkSkinsFemale`). People you already know keep their face and tone;
+only their voice and, where needed, their natural hair color change; `sc look <name> tone` re-tones one of them when you ask.
+Helpers: `sc spawn [hostile] [male|female]`, `sc voice who [id|name]`, `sc xnpc <id|name>` (its look line: `<sex>
+<tone>/<face>`), `sc look <id|name> [tone]`. Set `DebugLogging` to true: every body built logs `xnpc body for <class> id <id>:
+<sex> <tone>/<face> hair <style> (<color>) ...`, the easiest way to read a batch. With this build, V31's 711-714 (voices by
+tone) hold only with `VoiceRaceByFace` false (813); V31 716 holds with the per-sex lists below; V31 718/725's expected colors
+are replaced by 808's.
+
+800. **The settings load.** The log at load has `config: skins voice race by face (a dark tone on a White or Asian face Black:
+     men 3, women 3 tone(s)), else by skin for 15 tone(s); natural hair colors by face and skin: men mid 10 / dark 4 skin(s),
+     women mid 10 / dark 4 skin(s) -> mid 6 color(s), dark 5 color(s), every other skin all of them; gray 2 color(s) at their
+     share; new faces: tones by face for 4 face race(s)`, no `config SurvivorTonesByFace:` warning and no `is replaced by`
+     warning. The install's `Config/blocks.xml` has `HairGroupByFace`, the four `Survivor...Skins{Male,Female}` keys and
+     `SurvivorTonesByFace` under `SurvivorDyedHairChanceMale`, and `VoiceRaceByFace`, `VoiceDarkTonesMale` and
+     `VoiceDarkTonesFemale` above `VoiceRaceBySkin`, each with its comment; `SurvivorMidSkins` and `SurvivorDarkSkins` are gone.
+801. **New survivors: the tone suits the face (the screenshot test).** On a new world (or near home), spawn a batch of 20 men
+     and 20 women (`sc spawn male` / `sc spawn female`; raiders too: `sc spawn hostile`) and look at each face up close (or
+     screenshot them side by side). No one has Black features (faces 9-12) with very light skin, and no one has White or
+     Asian features (faces 1-4, 13-16) with very dark skin. In the DebugLogging lines: faces 1-4 only Porcelain, Alabaster,
+     Cool Beige, Ivory or Warm Ivory; 5-8 only Caramel, Honey, Chestnut, Taupe, Golden Peach or Warm Beige; 9-12 only
+     Espresso, Umber, Bronze, Warm Beige, Chestnut or Caramel; 13-16 only Ivory, Sand, Golden Peach, Warm Ivory, Porcelain or
+     Alabaster; never a tinted tone (Obsidian ... Ember). Wild survivors, enclave people (`sc enclave spawn <id>` near a group
+     never made) and band people the same.
+802. **Faces are still spread evenly.** In that batch every face race turns up (about a quarter each), and dark tones turn up
+     on Black faces (for women also Chestnut on Native faces).
+803. **Voices follow the face.** For a few of the batch: `sc voice who <id>`. A face 9-12 survivor: `Black male (from the
+     body's archetype; skin <tone>, face <n> Black -> Black (VoiceRaceByFace))`, chain starting with `male_Black_Nate` or
+     `male_Black_Desmond` (women `female_Black_Tiffany` / `female_Black_Rene`); a face 5-8 survivor Native voices
+     (`NativeM1/M2`, `NativeF1/F2`); 1-4 White (`Vane` / `David`, `Jessica` / `Beth`); 13-16 Asian (`Jasper` / `Julian`, `Layla`
+     / `Jess`). Talk to one: the lines play in that voice.
+804. **The dark-tone exception.** New faces never get it (the lists keep dark tones off White and Asian faces), so use one
+     already met or a hand-made one: a man with Umber, Bronze or Espresso on face 1-4 or 13-16 (the user's saves:
+     `Napiho Mountains\Playtest34RW`'s Val, Chestnut on face 3, a woman) says `skin Chestnut, face 3 White, a dark tone for a
+     woman -> Black (VoiceRaceByFace, VoiceDarkTonesFemale)` and speaks with a Black voice. A man with Chestnut on a White
+     face is not dark (`... face 3 White -> White (VoiceRaceByFace)`).
+805. **Raiders too.** `sc spawn hostile` until one has face 9-12: `sc voice who <id>` says `raider: Black ...`, `dealt by name
+     and id`, and its taunts play in a Black voice.
+806. **People you already met switch voice on load.** Load a save made with the installed build (round 31) and `sc voice
+     who` a few known people. From the user's saves: `Napiho Mountains\Playtest34SC`'s Walt (Alabaster, face 16) was White,
+     now `face 16 Asian -> Asian`; Leo (Warm Beige, face 5) White, now Native; Dana of an enclave there (Alabaster, face 12)
+     White, now Black. Their face and tone stay exactly as before (`sc xnpc <name>`'s look line unchanged).
+807. **Hair fixed on load, with the face in the line.** In the same saves, a light-skinned person with a Black face and
+     blond or red hair gets a dark color when their body is made: the log has `looks: <name> (<id>) hair color 09 Red -> 05
+     DarkBrown (skin Porcelain, face 10 Black: dark)` (the color is one of `04 Brown`, `05 DarkBrown`, `06 Black`, never gray or
+     white), and the body shows it. The case that started this: Jack (a man, Porcelain on face 10, `09 Red`) loses the red.
+     A member's or prospect's portrait shows the new color, and the next load has no `looks:` line for them.
+808. **The expected fixes from the user's saves** (computed offline from the saves as they were before round 31 was
+     installed; a member or prospect already fixed and saved by round 31 may show no line, or round 31's color):
+     `Napiho Mountains\Playtest34SC`: Walt `01 Blond -> 04 Brown` (Alabaster, face 16 Asian: mid), Nora `01 Blond -> 06 Black`
+     (Umber, face 9: dark), Ned `03 LightBrown -> 06 Black` (Bronze, face 7: dark for a man), Wren `01 Blond -> 05 DarkBrown`
+     (Warm Beige, face 15: mid), Holly `09 Red -> 05 DarkBrown` (Alabaster, face 13: mid); `NavezganePlus\Playtest12`: Jack
+     `09 Red -> 05 DarkBrown` (Bronze, face 1: dark for a man), Opal `09 Red -> 03 LightBrown` (Warm Ivory, face 13: mid), Rob
+     `02 Dark Blond -> 05 DarkBrown` (Porcelain, face 6 Native: mid); `Pregen06k01\sCMigrationTest2`: Carl `01 Blond -> 06
+     Black` (Ivory, face 16: mid), Nate `09 Red -> 04 Brown` (Sand, face 11: dark); `Pregen08k01\Testing18OCT`: Dana `03
+     LightBrown -> 05 DarkBrown` (Porcelain, face 9: dark); `Test24OCT\Playtest1`: Alex `09 Red -> 04 Brown`. Dyed colors and
+     every gray or white are left alone.
+809. **Enclave and band people are fixed once (round 31 review L2).** A person of an enclave or a band whose color is fixed
+     (Nora, Ned, Jack, Opal, Rob, Dana above) gets the `looks:` line once; walk away until their body despawns and come back
+     (or `sc enclave despawn <id>` / `sc enclave spawn <id>`): no second line in that session, and after a save and reload
+     none at all (the record saved the fixed color).
+810. **`sc look <name> tone`.** Near a known survivor whose tone does not suit their face (a light tone on face 9-12, or
+     Umber / Espresso on face 1-4 or 13-16 - for example `Pregen06k01\sCMigrationTest2`'s Kyle, Porcelain on face 10):
+     `sc look Kyle tone` prints `before:` and `after:` look lines, the tone becomes one of the Black face's tones (Espresso,
+     Umber, Bronze, Warm Beige, Chestnut, Caramel), the face number stays, the body is rebuilt with the darker skin, and the
+     log has `looks: Kyle (<id>) re-toned by sc look tone: Porcelain -> <tone> (face 10 Black)` (and a `hair color` line if
+     their hair had to change). Run it again: `... already suits its face (face 10 Black) - unchanged`. Save, quit, load:
+     the new tone stays; the portrait shows it.
+811. **`sc look ... tone` refuses what it should.** On a survivor whose tone already suits the face: `unchanged`. On one
+     with a 0-XNPCCore creator face (`sc xnpc` ends `(creator face)`): `a creator face is the character's own - left as it
+     is - not re-toned`. On a game without Vanity Vault: `the game's skins are not Vanity Vault's tones ...`. Nothing
+     re-tones anyone without the command (no `re-toned` line in a normal session).
+812. **`sc look <name>` (a new face) follows the rule.** `sc look <id>` a few times on one survivor: each new face comes with
+     a tone from its face's list (801), and its natural hair color fits both.
+813. **The settings off give round 31 back.** (Restart after each change; put the defaults back after.) `VoiceRaceByFace`
+     false: `sc voice who` shows `skin <tone>, face <n> <race> -> <race> (VoiceRaceBySkin; VoiceRaceByFace off)` with the
+     tone's round 31 race (Walt of 806 White again). `HairGroupByFace` false: new survivors with a light tone on an Asian or
+     Native face may have natural blond or red again, and no one is fixed for the face alone (Walt of 808 keeps `01 Blond`). `SurvivorTonesByFace` set to empty: new faces and tones
+     are rolled apart again (a batch shows the old clashes), and the config line ends `new faces: tone and face apart`. With
+     all three off and round 31's lists put into the per-sex keys (`SurvivorMidSkinsMale` and `SurvivorMidSkinsFemale` =
+     `Honey,Golden Peach,Sand,Taupe,Caramel,Bronze,Asian,Native`, both dark keys = `Chestnut,Umber,Espresso,Black`) everything
+     is round 31's behavior.
+814. **A face set left empty is logged.** `SurvivorTonesByFace` set to `White:Porcelain,Native:Caramel,Black:Espresso` (no
+     Asian entry): spawning survivors until one has face 13-16 logs once `looks: SurvivorTonesByFace leaves no tone of the
+     game's for Asian faces - its tone is picked from every skin, as before round 32c`, and that survivor's tone is any.
+     An entry `Martian:Sand` gives the warning `config SurvivorTonesByFace: entry 'Martian:Sand' is not Race:Tone|Tone ...`.
+815. **Without Vanity Vault nothing changes (optional).** A copy of the game without `LittleRedSonja_VanityVault`, a new
+     world: survivors are White, Black, Asian and Native with faces 1-4 as before; `sc voice who` shows no `skin` note and
+     their race's voices; Asian and Native survivors never have natural blond or red hair, Black ones never light brown,
+     White ones any; `sc look <name> tone` says the skins are not Vanity Vault's tones.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

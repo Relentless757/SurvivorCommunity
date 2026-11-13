@@ -4572,7 +4572,9 @@ first), `SurvivorMidSkinHairColors` for one on `SurvivorMidSkins`, null (every n
 game's order, or all of them when the group allows any or its list leaves none (`fellBack`; `NaturalFor` :750 logs that once
 per group). `Roll` (:455, :470): a dyed roll as before; otherwise `NaturalFor(look.Race, natural)`, and the fallback when the
 game's list is unreadable is `FallbackHairColors`' natural ones filtered the same way (`NaturalFallback`); the number of random
-draws is unchanged.
+draws is unchanged. (Superseded, noted in round 32c: the refinement below renamed `NaturalFor` to `NaturalPick`, the line
+numbers in this entry are the first build's, and round 32c reworks these functions and replaces `SurvivorMidSkins` /
+`SurvivorDarkSkins` with per-sex keys - see its entry.)
 
 **Existing NPCs (`ScLooks.cs`).** `Validate` (:698) runs `FixHairColor` (:823) after P2's `FixMaleHair` and after the White/01
 fallback, so the skin it judges is the final one; `Validate` takes an optional entity and name for the log line (`ForEntity`
@@ -4852,3 +4854,154 @@ line), that they open after the pass and offer no Lock or Keypad; a chunk passed
 homes and enclaves; the `AutoHomeFirstClaim` true path; a multiplayer client (SC is single player).
 
 Builds: SC 3.4 `220612ab0a04dedcb7efdd786ad3f63e` (`build\sc34_r32a`), 0 errors. Not installed.
+
+### Round 32c: voices and hair follow the face (F32) (2026-11-12, built, not reviewed, not installed)
+
+Branch `ms/r32c` from `ms/r32a` `e9b0092` (installed round 31 + round 32a), worktree `Port33\wt\sc-r32c`. Round 32b (UI) runs
+in parallel in `wt\sc-r32b`; this round touches no `Config/XUi_InGame` file, no `XUiC_*` controller and no UI atlas. **The
+spec:** the coordinator's `r32vv\DECISIONS.md` (approved), from the investigation of the user's Jack - a man with light
+skin and Black features.
+
+**What the investigation found (verified, r32vv: Vanity Vault's decompile, the skin shaders, the measured face tables).**
+- With Vanity Vault `Archetype.Race` is a TONE and `Archetype.Variant` 1-16. Its mesh and hair-shape patches use the variant
+  (`SonjaFaceDecoupler.GetTrueRaceAndVariant`: faces 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian); its material getters use
+  the tone (`GetTrueTone`), and `SDCSUtils.Stitch` copies only that material's `_Tint` into the face's own material. Its
+  `GetVariantList` postfix returns 1-16 for any tone, its `GetRaceList` postfix the 24 tones.
+- The skin shaders (vanilla, Torch, Vanity Vault) are `lerp(albedo, albedo * _Tint, albedo.a)` and all 32 vanilla face albedos
+  are a similar light-medium skin: the TONE sets how light the face, body and hands are; the FACE sets the features a player
+  reads as ethnicity (4 cached in-game portraits agree within 3.3 L*). Jack is Porcelain on face 10 (Black 02).
+- `ScLooks.Roll` picked tone and variant apart: 75% of rolls put one race's tone on another race's face, and 8 of 43 sampled
+  Vanity Vault looks were visible conflicts (a Black face with light skin, a White or Asian face with dark skin). The
+  apparent lightness of every tone x face x sex (`apparent.json`, cuts at thirds of the vanilla range) puts several tones at
+  another level for each sex (a man's Sand is light, a woman's mid; a man's Bronze dark, a woman's mid; Chestnut the reverse).
+
+**(a) Voices (`ScVoice.cs`).** `RaceFor` (:307, pure) takes the variant and the sex and returns a rule: a vanilla race as it
+is (`race`); with `VoiceRaceByFace` a tone speaks in its face's race (`ScLooks.FaceRace`; `face`), a White or Asian face with
+one of its sex's dark tones (`VoiceDarkTonesMale` / `VoiceDarkTonesFemale`) in Black (`dark tone`); `VoiceRaceBySkin` only for
+a variant outside 1-16 or with the setting off (`skin`; null: unmapped, any voice of the sex, as before). `RaceAndSex` (:339)
+passes the archetype's (else the look's) variant and sex and gives out the variant and the rule. **The chain cache:**
+`Chain`'s signature (:430) is still sex|race|seed|VoiceByRace, and that is enough - `RaceAndSex` runs on every `Chain` call and
+`race` is its outcome, decided by the face, the tone, the sex and the settings, so anything that changes the race changes the
+signature; `ChainFor` reads nothing else (commented there). An NPC met before switches at its next line after loading.
+`sc voice who` (`Who` :1320, `SkinNote` :1350) shows the tone, the face and the rule: `skin Porcelain, face 10 Black -> Black
+(VoiceRaceByFace)`, `skin Umber, face 3 White, a dark tone for a man -> Black (VoiceRaceByFace, VoiceDarkTonesMale)`, `skin
+Espresso, face 20 (no face race) -> Black (VoiceRaceBySkin)`, `...; VoiceRaceByFace off`.
+
+**(b) Hair (`ScLooks.cs`).** `SkinLevel` (:845): the tone's level for the sex from the per-sex lists (dark asked first).
+`FaceLevel` (:859): with `HairGroupByFace`, a tone look's face - Black 2, Asian or Native 1, White 0; 0 for a vanilla race (the
+lists hold Asian / Native in mid and Black in dark for both sexes: no Vanity Vault, unchanged) and for a variant outside 1-16.
+`AllowedHairColors` (:871) takes the variant and the sex and returns the darker group. `NaturalIn` / `NaturalPool` /
+`NaturalPick` / `NaturalFallback` (:896-:971) pass them on; `FixedHairColor` (:1013) reads them from the look - the same hash
+(sex, tone, variant, hair, color, eyes, beard), the same rule (non-gray only to non-gray), gray share and dyed colors
+unchanged. The fix's log line (:1055) now names the face and the group: `looks: <name> (<id>) hair color 09 Red -> 05
+DarkBrown (skin Porcelain, face 10 Black: dark)` (`GroupNote` :882; a vanilla race `(skin Black: dark)`).
+
+**(c) New survivors (`ScLooks.Roll`, :459).** The detection is the one SC always had: the race list it rolls from is
+`SDCSDataUtils.GetRaceList`, which Vanity Vault's postfix replaces with its tones; when that list (less `SurvivorExcludeSkins`)
+holds a name that is not one of the four races (`HasTone` :782) and `SurvivorTonesByFace` is not empty, the variant is picked
+first from `GetVariantList` (`PickVariant` :391; Vanity Vault's 1-16), then the tone from `TonesForFace` (:795: its face race's
+set, less `SurvivorExcludeSkins`, only tones the game lists, in the game's spelling); no set for that face (a variant outside
+1-16, or a set left empty) takes the old independent pick, logged once per face race (`looks-facetones-*`). Otherwise (the four
+races, or the setting emptied) the race and then its variant, as before. Race and variant are now picked before the hair color
+(it needs both); the number of random draws is unchanged per path.
+
+**(d) Existing NPCs.** Race and variant of a stored look are never changed by itself: only the voice (above) and the natural hair
+color (Validate's fix with the new group). **`sc look <id|name> tone`** (`ConsoleCmdSc.LookTone` :1053, from `LookCmd` :1027):
+for one loaded survivor; refused without Vanity Vault's tones (`HasTone` on the game's list), for a creator face, a vanilla
+race or a variant outside 1-16 (`ScLooks.SuitedTone` :822, pure: the look's own tone when it is already in its face's set -
+"already suits its face", unchanged - else one of the set by FNV-1a of sex, variant, hair, eyes and beard, so the pick is
+stable and ignores the hair color the re-tone may fix). The new look (a clone with the tone, `Validated` cleared) goes into
+the member, prospect, enclave-person (`ScEnclavePeople.PersonOf`) or band-person (`ScBands.PersonOf`) record that holds the
+body, `ScLooks.Apply` validates it (the hair color follows, with its `looks:` line) and rebuilds the body, the registry is
+saved, and the portrait follows the look's new key. Before/after look lines in the console and one log line `looks: <name>
+(<id>) re-toned by sc look tone: <old> -> <new> (face <n> <race>)`.
+
+**Round 31 review, folded in.** L2: `ScSpawn.Create` (:71) validates the record's look before `Clone()`, so an enclave's or a
+band's person (whose records were only corrected on the copy, again at every body) is fixed once, in the record the
+registry saves, and the copy carries `Validated`. L4: `Chain` and `Who` seed a multi-race `VoiceRaceBySkin` pick with
+`RaceSeed` (:401: a member's record name, else the voice seed), as `MemberClip` (:526) does with `m.Name`; the voice pick
+itself keeps its seed (no member's voice moves). `ScLooks.cs`'s "colour" comments (Roll's dyed-color comment, AdoptFace) are
+"color". This entry's stale references in round 31's (`NaturalFor`, its line numbers) are noted superseded there.
+
+**Config** (`ScConfigSkins.cs`; `Config/blocks.xml`, each commented): `VoiceRaceByFace` true, `VoiceDarkTonesMale`
+`Bronze,Umber,Espresso`, `VoiceDarkTonesFemale` `Chestnut,Umber,Espresso` (blocks.xml :672-680, above `VoiceRaceBySkin`, whose
+comment now says it is the fallback); `HairGroupByFace` true, `SurvivorMidSkinsMale` `Warm Ivory,Cool Beige,Warm Beige,Honey,
+Golden Peach,Taupe,Caramel,Chestnut,Asian,Native`, `SurvivorDarkSkinsMale` `Bronze,Umber,Espresso,Black`,
+`SurvivorMidSkinsFemale` `Cool Beige,Warm Beige,Honey,Golden Peach,Sand,Taupe,Caramel,Bronze,Asian,Native`,
+`SurvivorDarkSkinsFemale` `Chestnut,Umber,Espresso,Black`, `SurvivorTonesByFace` `White:Porcelain|Alabaster|Cool Beige|Ivory|
+Warm Ivory,Native:Caramel|Honey|Chestnut|Taupe|Golden Peach|Warm Beige,Black:Espresso|Umber|Bronze|Warm Beige|Chestnut|Caramel,
+Asian:Ivory|Sand|Golden Peach|Warm Ivory|Porcelain|Alabaster` (blocks.xml :396-430). Round 31's `SurvivorMidSkins` /
+`SurvivorDarkSkins` are gone (never in a public release); a config that still has them gets `config SurvivorMidSkins is
+replaced by SurvivorMidSkinsMale and SurvivorMidSkinsFemale (round 32c) - ignored`. `ParseFaceTones` (:247, pure, also the
+field initializer's): `Race:Tone|Tone`, a race of the four (canonical key), a tone once per entry; no colon, an unknown race or
+no tone skipped with a warning; no readable entry keeps the defaults; an empty value empties the map (face and tone apart).
+The `config: skins` line (`SkinsLine` :281) now reads `voice race by face (a dark tone on a White or Asian face Black: men 3,
+women 3 tone(s)), else by skin for 15 tone(s); natural hair colors by face and skin: men mid 10 / dark 4 skin(s), women mid 10
+/ dark 4 skin(s) -> mid 6 color(s), dark 5 color(s), every other skin all of them; gray 2 color(s) at their share; new faces:
+tones by face for 4 face race(s)`.
+
+Where the brief left a choice (decided here):
+1. The face rule applies only to tones; a look with one of the four vanilla races keeps that race for its voice and hair
+   whatever its variant (as round 31; Vanity Vault itself maps a vanilla race with a variant 1-4 to that race).
+2. A tinted tone (Cobalt, Orchid ... from an old save) on a face 1-16 now speaks in its face's race and its hair follows the
+   face (round 31: any voice); outside 1-16 `VoiceRaceBySkin` as before.
+3. `SurvivorTonesByFace` emptied turns the face-first roll off silently (the user's choice); a face race missing from a
+   non-empty map, or a set the exclusions leave empty, falls back with one log line per face race.
+4. `sc look ... tone` keeps a tone already in the face's set, refuses creator faces, and writes enclave and band records too
+   (`sc look` writes only members and prospects); a stranger's re-tone lives for the session.
+5. The re-tone's hash leaves out the tone and the hair color, so a second run (or a hair fix in between) never moves it.
+6. The old shared keys are not read (a warning only): the shipped blocks.xml always carries the per-sex keys.
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_r32c`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build to `build\sc34_r32c_det`); the 3.2 configuration (`build\sc32_r32c_scratch`) 0 errors; the tracked
+  3.2 `SurvivorCommunity.dll` untouched (`c4ad303a...`).
+- `cctor_order.py` on the ilspy IL dumps: 3.4 143 static constructors, 3.2 128 (no new class), 0 reads before store.
+- IL, 3.4 (and 3.2 the same but MemberClip, which is 3.4 only): `RaceSeed` from `Chain` and `Who`; `RaceFor` from
+  `RaceAndSex` and `MemberClip` (after a `Member::Name` load); `HasTone` / `TonesForFace` / `PickVariant` in `Roll` before
+  `GetHairNames`; `SkinLevel` / `FaceLevel` only from `AllowedHairColors`; `GroupNote` from `FixHairColor`; `SuitedTone` from
+  `LookTone`; `ScSpawn.Create` calls `ScLooks.Validate` before `Look::Clone`.
+- The harness (scratch `r32c\harness`, round 31's extended, the built 3.4 DLL by reflection): 79 checks, 0 failed -
+  `ParseFaceTones` (the defaults: 4 sets as the spec, 0 problems; case, duplicates, an unknown race, no colon, no tone, empty,
+  a race twice), every new key's default, the old shared keys gone; `FaceRace` 1-16 and outside; `RaceFor` on 17 cases (Jack
+  Black, Walt Asian, the dark override per sex - a man's Bronze and a woman's Chestnut dark, the reverse not, a Native face
+  never overridden, a tinted tone by face, outside 1-16 by skin, unmapped null, vanilla races) and a sweep of 24 tones x 16
+  faces x 2 sexes (0 off the rule); `VoiceRaceByFace` false gives round 31's race; an empty dark list drops the override; the
+  hair group on 21 cases (per sex, "darker of", vanilla unchanged) and `HairGroupByFace` false; `TonesForFace` (the set, a
+  tone the game lacks, the exclude list, an emptied set, the game's spelling). **The face-first roll, 100000 per sex**
+  against `apparent.json`'s measured levels: **0 visible conflicts** for men and for women (the round-31 independent pick:
+  14030 in 100000); each face race's tones about evenly spread (men White 0.195-0.204 each of 5, the others 0.163-0.171 each
+  of 6; women the same within 0.16-0.20); gray or white 0.198 (men) / 0.200 (women) of the natural picks, 0 outside the group.
+  The fix sweep (28 skins x variants 1-20 x 2 sexes x every banned young color): 3816 fixes, 0 to gray or white, 0 outside
+  the group, 0 left, 0 unstable; an old gray never fixed (384/384); a creator face and a dyed color left alone. `SuitedTone`:
+  Jack -> Espresso twice (stable), the same with his hair fixed, Umber/10 kept ("already suits its face"), Walt
+  (Alabaster/16) kept, creator face / vanilla race / variant 20 refused, 400 light women on Black faces all re-toned into the
+  Black set (spread 58-81 over its 6), and 0 visible conflicts after any re-tone (15 tones x 16 faces x 2 sexes).
+- **The replay of the user's 68 looks** (round 31's `looks.tsv`; round 31's behavior emulated on this DLL - VoiceRaceByFace
+  and HairGroupByFace off, round 31's two lists in both sexes' keys - reproduces round 31's recorded fixes exactly): 47 Vanity
+  Vault tones, 21 vanilla races. **Voices:** 39 change (White -> Black 8, White -> Asian 6, Native -> Black 5, White -> Native
+  4, Asian -> Native 3, Black -> Native 3, Native -> Asian 3, Asian -> White 2, Black -> White 1, and the 4 tinted tones from
+  any voice to their face's race), 29 unchanged, every vanilla race unchanged. **Hair:** 13 fixed (round 31: 5), none to gray
+  or white: Walt (Playtest34SC, Alabaster/16 Asian) `01 Blond -> 04 Brown`; Ned (Bronze/7) `03 LightBrown -> 06 Black`; Wren
+  (Warm Beige/15) `01 Blond -> 05 DarkBrown`; Holly (Alabaster/13) `09 Red -> 05 DarkBrown`; Opal (NavezganePlus, Warm
+  Ivory/13) `09 Red -> 03 LightBrown`; Rob (Porcelain/6 Native) `02 Dark Blond -> 05 DarkBrown`; Carl (sCMigrationTest2,
+  Ivory/16) `01 Blond -> 06 Black`; Dana (Testing18OCT, Porcelain/9) `03 LightBrown -> 05 DarkBrown` (the 8 new); Jack
+  (NavezganePlus, Bronze/1, a man's Bronze now dark) `09 Red -> 05 DarkBrown` (round 31 `06 Black`); Nate (Sand/11 Black face)
+  `09 Red -> 04 Brown` (round 31 `05 DarkBrown`); the wild Espresso man (log id 245) `09 Red -> 05 DarkBrown`, Nora (Umber/9)
+  `01 Blond -> 06 Black` and Alex (Golden Peach/6) `09 Red -> 04 Brown` as round 31. The 17 extra looks of the investigation
+  (today's `Player.log` / `Player-prev.log`, `Playtest34RW2`): 9 voice changes; 2 hair fixes - **Jack (log id 481, M
+  Porcelain/10, `09 Red`) loses the red** (`-> 05 DarkBrown` with the log's fields; the log line lacks his eyes and facial
+  hair, which the hash reads, so in game one of `04 Brown` / `05 DarkBrown` / `06 Black`) and a raider (id 472, M Warm Ivory/3)
+  `10 Red 1 -> 03 LightBrown`.
+- XML replay (scratch `x3\r32c_checks.py`, round 32a's pointed at this worktree; AshfallUI from `Version Control\
+  zzzzz_AshfallUI` through the replay's `DIR_` option): SC 201/201 alone, 200/200 with AshfallUI (its own 2279/2279), no
+  aborts; in both merged documents the eight new keys carry their defaults and the two old keys are gone.
+- Every file touched LF, no BOM; no localization key (log, console and docs only). README.txt and CONSOLE_COMMANDS.txt not
+  regenerated (the release step does that).
+
+**Not checked (in game only, TESTING F32 800-815):** the look of a batch of new faces (the screenshot test) and the voices
+heard; the `looks:` lines and colors on real bodies (members or prospects already fixed and saved by round 31 may show no
+line); an enclave person fixed once across a despawn; `sc look ... tone` on a real body (the rebuild, the record saved, the
+portrait); the settings switched off; a game without Vanity Vault.
+
+Builds: SC 3.4 `6336704f6cbeffceef8a7905ad2a003c` (`build\sc34_r32c`), 0 errors. Not installed.

@@ -149,10 +149,14 @@ namespace SurvivorCommunity
     /// ScXnpc.IsRaider) and are built the same way, their clothes rolled from RaiderGearSets (M10-D7). The old
     /// per-weapon raider classes, their class scans and the branches for SC's own player body (an exact EModelSDCS)
     /// went with the model shim in M10 round 2.
-    /// Round 31: natural hair colors follow the skin - a mid or a dark skin (ScConfig.SurvivorMidSkins / SurvivorDarkSkins)
-    /// rolls only its group's natural colors (NaturalPick), gray and white at their share of all natural colors on every skin,
-    /// and a stored look with a natural color its skin no longer allows is given an allowed one of the same age as it is
-    /// validated (FixHairColor, as P2's FixMaleHair); dyed colors and creator faces are left be.
+    /// Round 31: natural hair colors follow the skin - a mid or a dark skin (round 32c: per sex, ScConfig.SurvivorMidSkinsMale
+    /// ... SurvivorDarkSkinsFemale) rolls only its group's natural colors (NaturalPick), gray and white at their share of all
+    /// natural colors on every skin, and a stored look with a natural color its skin no longer allows is given an allowed one
+    /// of the same age as it is validated (FixHairColor, as P2's FixMaleHair); dyed colors and creator faces are left be.
+    /// Round 32c (F32): with Vanity Vault the face variant's race (FaceRace: 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian)
+    /// narrows the hair group too (the darker of face and tone: AllowedHairColors), a new survivor gets its face first and a
+    /// tone that suits it (Roll, TonesForFace), and sc look &lt;x&gt; tone re-tones one survivor on request (SuitedTone). A
+    /// stored look's race and variant are never changed by itself.
     /// </summary>
     public static class ScLooks
     {
@@ -324,7 +328,7 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// A fresh body takes a character-creator face (X17): the archetype 0-XNPCCore built from the character's picks
-        /// replaces the face of its look - race, variant, hair and colour, facial hair, eyes - and keeps SC's clothes. It is
+        /// replaces the face of its look - race, variant, hair and color, facial hair, eyes - and keeps SC's clothes. It is
         /// this body's look from now on (the session look, so a recruit's record stores the face it is seen with), and the
         /// body is rebuilt on its controller's next frame (ApplyPendingFace), as 0-XNPCCore defers its own.
         /// </summary>
@@ -383,6 +387,14 @@ namespace SurvivorCommunity
             return list[rnd != null ? rnd.RandomRange(0, list.Count) : 0];
         }
 
+        /// <summary>A face variant from the game's list (1-4 when it cannot be read), at least 1.</summary>
+        private static int PickVariant(GameRandom rnd, List<string> variants)
+        {
+            int v;
+            string vs = Pick(rnd, variants, new[] { "1", "2", "3", "4" });
+            return int.TryParse(vs, out v) ? Math.Max(1, v) : 1;
+        }
+
         /// <summary>P2: FallbackHairs without the styles men are not given (SurvivorExcludeHairsMale, SurvivorExcludeHairs).</summary>
         private static string[] MaleFallbackHairs()
         {
@@ -425,7 +437,10 @@ namespace SurvivorCommunity
         /// <summary>
         /// A random face and hair (and a set of clothes when asked - a raider's from RaiderGearSets) for the given sex. band
         /// is the NPC's effective tier (ScLoadout.TierCap, as for its weapons): it weights the armor and sets its quality;
-        /// -1 when unknown.
+        /// -1 when unknown. Round 32c: with Vanity Vault's tones (the game's race list holds names that are not the four
+        /// races) the face variant is picked first and the tone from its face race's SurvivorTonesByFace set (less
+        /// SurvivorExcludeSkins, only tones the game has); no set for the face: the tone from every skin, logged once. Without
+        /// them (or with SurvivorTonesByFace empty) the race and then its variant, as before.
         /// </summary>
         public static Look Roll(bool male, GameRandom rnd, bool withGear, bool raider = false, int band = -1)
         {
@@ -436,25 +451,52 @@ namespace SurvivorCommunity
                 EnsureCatalogue();
                 List<string> races = null, variants = null, hairs = null, eyes = null, must = null, chops = null, beards = null;
                 List<string> colors = null;
+                bool variantSet = false;
                 try
                 {
                     // the exclude lists (SurvivorExclude*) filter copies: GetEyeColorNames hands out the live static list
                     races = Allowed(SDCSDataUtils.GetRaceList(male), ScConfig.SurvivorExcludeSkins);
-                    look.Race = Pick(rnd, races, FallbackRaces);
-                    variants = SDCSDataUtils.GetVariantList(male, look.Race);
+                    if (HasTone(races) && ScConfig.SurvivorTonesByFace.Count > 0)
+                    {
+                        // round 32c: Vanity Vault's tones (its GetRaceList postfix replaces the four races with them - the
+                        // list SC has always rolled from, so its tones are how SC tells Vanity Vault is there). The face
+                        // first (its GetVariantList postfix: 1-16 whatever the tone), then a tone that suits the face's race
+                        variants = SDCSDataUtils.GetVariantList(male, races[0]);
+                        look.Variant = PickVariant(rnd, variants);
+                        variantSet = true;
+                        List<string> tones = TonesForFace(look.Variant, races);
+                        if (tones != null && tones.Count > 0) look.Race = Pick(rnd, tones, null);
+                        else
+                        {
+                            // no set for this face (a variant outside 1-16, or the set left empty): the old independent pick
+                            string face = FaceRace(look.Variant);
+                            ScLog.Once("looks-facetones-" + (face ?? "none"), "looks: " + (face == null ? "face variant " + look.Variant + " has no face race (1-16)"
+                                       : "SurvivorTonesByFace leaves no tone of the game's for " + face + " faces")
+                                       + " - its tone is picked from every skin, as before round 32c");
+                            look.Race = Pick(rnd, races, FallbackRaces);
+                        }
+                    }
+                    else
+                    {
+                        // vanilla's four races (no Vanity Vault), or SurvivorTonesByFace empty: the race, then its variants
+                        look.Race = Pick(rnd, races, FallbackRaces);
+                        variants = SDCSDataUtils.GetVariantList(male, look.Race);
+                        look.Variant = PickVariant(rnd, variants);
+                        variantSet = true;
+                    }
                     hairs = Allowed(SDCSDataUtils.GetHairNames(male, SDCSDataUtils.HairTypes.Hair), ScConfig.SurvivorExcludeHairs);
                     if (male) hairs = Allowed(hairs, ScConfig.SurvivorExcludeHairsMale);   // P2: no clearly female styles on men
                     eyes = Allowed(SDCSDataUtils.GetEyeColorNames(), ScConfig.SurvivorExcludeEyes);
                     colors = new List<string>();
                     foreach (var hc in SDCSDataUtils.GetHairColorNames()) if (!string.IsNullOrEmpty(hc.PrefabName)) colors.Add(hc.PrefabName);
-                    // dyed colours are rare, rarer still on men: pick from the dyed or the natural ones (the natural
-                    // ones also when no dyed colour is left to pick). Round 31: the natural ones the rolled skin allows
+                    // dyed colors are rare, rarer still on men: pick from the dyed or the natural ones (the natural
+                    // ones also when no dyed color is left to pick). Round 31: the natural ones the rolled skin allows
                     // (NaturalPick: a mid or a dark skin's group list), gray and white at today's share; a dyed color is
-                    // open to every skin
+                    // open to every skin. Round 32c: the group is the darker of the face's and the tone's (for this sex)
                     bool dyed = Chance(rnd) < (male ? ScConfig.SurvivorDyedHairChanceMale : ScConfig.SurvivorDyedHairChanceFemale);
                     List<string> all = colors;
                     colors = dyed ? all.FindAll(c => ScConfig.Listed(ScConfig.SurvivorDyedHairColors, c)) : null;
-                    if (colors == null || colors.Count == 0) colors = NaturalPick(look.Race, Allowed(all, ScConfig.SurvivorDyedHairColors), rnd);
+                    if (colors == null || colors.Count == 0) colors = NaturalPick(look.Race, look.Variant, male, Allowed(all, ScConfig.SurvivorDyedHairColors), rnd);
                     if (male)
                     {
                         must = SDCSDataUtils.GetHairNames(true, SDCSDataUtils.HairTypes.Mustache);
@@ -464,12 +506,10 @@ namespace SurvivorCommunity
                 }
                 catch (Exception e) { ScLog.Once("looks-sdcsdata", e); }
                 if (string.IsNullOrEmpty(look.Race)) look.Race = Pick(rnd, null, FallbackRaces);
-                int v;
-                string vs = Pick(rnd, variants, new[] { "1", "2", "3", "4" });
-                look.Variant = int.TryParse(vs, out v) ? Math.Max(1, v) : 1;
+                if (!variantSet) look.Variant = PickVariant(rnd, variants);     // the game's lists unreadable: 1-4
                 look.Hair = Chance(rnd) < ScConfig.SurvivorBaldChance ? "" : Pick(rnd, hairs, male ? MaleFallbackHairs() : FallbackHairs);
-                // the game's list unreadable: the fallback's natural colors, filtered for the skin as well (round 31)
-                look.HairColor = colors != null && colors.Count > 0 ? Pick(rnd, colors, null) : Pick(rnd, null, NaturalFallback(look.Race, rnd));
+                // the game's list unreadable: the fallback's natural colors, filtered for the skin (and face) as well (round 31)
+                look.HairColor = colors != null && colors.Count > 0 ? Pick(rnd, colors, null) : Pick(rnd, null, NaturalFallback(look.Race, look.Variant, male, rnd));
                 look.Eyes = Pick(rnd, eyes, FallbackEyes);
                 if (male)
                 {
@@ -694,8 +734,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// The base body and head assets must exist or the body builder silently produces nothing. Also corrects a stored
         /// look to today's rules, in place, once per look per session: P2's men's hair (FixMaleHair) and round 31's natural
-        /// hair color for the skin (FixHairColor, after the race is final). e / name only name the NPC in the hair color fix's
-        /// log line (name: whose look it is; null = the body's own name; without e, name is used as it is).
+        /// hair color for the skin (FixHairColor, after the race is final; round 32c: for the face too). e / name only name
+        /// the NPC in the hair color fix's log line (name: whose look it is; null = the body's own name; without e, name is
+        /// used as it is). Never changes a look's race (tone) or variant beyond the missing-assets fallback.
         /// </summary>
         public static void Validate(Look look, Entity e = null, string name = null)
         {
@@ -716,30 +757,146 @@ namespace SurvivorCommunity
             catch (Exception ex) { ScLog.Once("looks-validate", ex); }
         }
 
-        // ---- round 31: natural hair colors by skin ----
+        // ---- round 32c: Vanity Vault's faces and tones ----
+
+        /// <summary>The face races of Vanity Vault's variants in fours: 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian.</summary>
+        private static readonly string[] FaceRaces = { "White", "Native", "Black", "Asian" };
 
         /// <summary>
-        /// Round 31: the natural hair colors a skin's group allows - SurvivorDarkSkinHairColors for a skin on SurvivorDarkSkins
-        /// (asked first), SurvivorMidSkinHairColors for one on SurvivorMidSkins; null for every other skin (all natural
-        /// colors: the light tones, vanilla's White, a skin in neither list). group: "dark", "mid" or null.
+        /// Round 32c, pure: the race of a Vanity Vault face variant - 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian
+        /// (SonjaFaceDecoupler.GetTrueRaceAndVariant: the mesh, brows, lips and nose a player reads as ethnicity); null outside
+        /// 1-16.
         /// </summary>
-        internal static List<string> AllowedHairColors(string race, out string group)
+        internal static string FaceRace(int variant)
+        {
+            return variant >= 1 && variant <= 16 ? FaceRaces[(variant - 1) / 4] : null;
+        }
+
+        /// <summary>Round 32c, pure: a race that is a Vanity Vault tone - not empty and not one of the four races.</summary>
+        internal static bool IsTone(string race)
+        {
+            return !string.IsNullOrEmpty(race) && race.Trim().Length > 0 && ScVoice.CanonRace(race) == null;
+        }
+
+        /// <summary>Round 32c, pure: the game's race list holds Vanity Vault's tones (any name that is not one of the four races).</summary>
+        internal static bool HasTone(List<string> races)
+        {
+            if (races == null) return false;
+            foreach (string r in races) if (IsTone(r)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Round 32c, pure: the tones a new face of this variant may get - its face race's SurvivorTonesByFace set, less
+        /// SurvivorExcludeSkins, in the set's order and in the game's own spelling, only tones in available (the game's race
+        /// list; null: no such filter). Null when the variant has no face race (outside 1-16) or its race has no set; empty
+        /// when the set leaves none.
+        /// </summary>
+        internal static List<string> TonesForFace(int variant, List<string> available)
+        {
+            string face = FaceRace(variant);
+            string[] set;
+            if (face == null || !ScConfig.SurvivorTonesByFace.TryGetValue(face, out set) || set == null) return null;
+            var keep = new List<string>(set.Length);
+            foreach (string t in set)
+            {
+                if (string.IsNullOrEmpty(t) || ScConfig.Listed(ScConfig.SurvivorExcludeSkins, t)) continue;
+                string have = t;
+                if (available != null)
+                {
+                    have = null;
+                    foreach (string a in available) if (string.Equals(a, t, StringComparison.OrdinalIgnoreCase)) { have = a; break; }
+                }
+                if (have != null && !keep.Contains(have)) keep.Add(have);
+            }
+            return keep;
+        }
+
+        /// <summary>
+        /// Round 32c, pure (sc look &lt;x&gt; tone): the tone this look's face suits - its own tone when it is in TonesForFace
+        /// already (why "already suits its face"), else one of them by a stable hash of the look's sex, variant, hair, eyes and
+        /// beard (not its tone or hair color), so the same person gets the same tone every time. Null with why when there is
+        /// none: no look, a creator face (the character's own), a vanilla race (no Vanity Vault tone), a variant outside 1-16,
+        /// or no tone left for that face.
+        /// </summary>
+        internal static string SuitedTone(Look look, List<string> available, out string why)
+        {
+            why = null;
+            if (look == null) { why = "no look of SC's"; return null; }
+            if (look.CreatorFace) { why = "a creator face is the character's own - left as it is"; return null; }
+            if (!IsTone(look.Race)) { why = "skin " + (look.Race ?? "") + " is one of the four races, not a Vanity Vault tone"; return null; }
+            string face = FaceRace(look.Variant);
+            if (face == null) { why = "face variant " + look.Variant + " has no face race (1-16 only)"; return null; }
+            List<string> tones = TonesForFace(look.Variant, available);
+            if (tones == null || tones.Count == 0) { why = "SurvivorTonesByFace leaves no tone for " + face + " faces"; return null; }
+            foreach (string t in tones)
+                if (string.Equals(t, look.Race.Trim(), StringComparison.OrdinalIgnoreCase)) { why = "already suits its face"; return t; }
+            string seed = "tone|" + (look.Male ? "M" : "F") + "|" + look.Variant + "|" + (look.Hair ?? "") + "|" + (look.Eyes ?? "") + "|" + (look.Beard ?? "");
+            return tones[(int)(ScVoice.Fnv(seed) % (uint)tones.Count)];
+        }
+
+        // ---- round 31: natural hair colors by skin (round 32c: and by face) ----
+
+        /// <summary>
+        /// Round 32c, pure: a skin's level for this sex - 2 dark (SurvivorDarkSkinsMale / Female, asked first), 1 mid
+        /// (SurvivorMidSkinsMale / Female), 0 any other (every natural color: the light tones, vanilla's White, a skin in
+        /// neither list).
+        /// </summary>
+        internal static int SkinLevel(string race, bool male)
+        {
+            if (string.IsNullOrEmpty(race)) return 0;
+            string r = race.Trim();
+            if (ScConfig.Listed(male ? ScConfig.SurvivorDarkSkinsMale : ScConfig.SurvivorDarkSkinsFemale, r)) return 2;
+            if (ScConfig.Listed(male ? ScConfig.SurvivorMidSkinsMale : ScConfig.SurvivorMidSkinsFemale, r)) return 1;
+            return 0;
+        }
+
+        /// <summary>
+        /// Round 32c, pure: a Vanity Vault face's level for hair (HairGroupByFace) - 2 a Black face, 1 Asian or Native, 0 White;
+        /// 0 too with the setting off, for one of the four vanilla races (the skin lists hold them: no Vanity Vault, unchanged)
+        /// and for a variant outside 1-16.
+        /// </summary>
+        internal static int FaceLevel(string race, int variant)
+        {
+            if (!ScConfig.HairGroupByFace || !IsTone(race)) return 0;
+            string face = FaceRace(variant);
+            return face == "Black" ? 2 : face == "Asian" || face == "Native" ? 1 : 0;
+        }
+
+        /// <summary>
+        /// Round 31: the natural hair colors a skin's group allows - SurvivorDarkSkinHairColors for a dark one,
+        /// SurvivorMidSkinHairColors for a mid one; null for every other (all natural colors). group: "dark", "mid" or null.
+        /// Round 32c: the group is the darker of the tone's level for this sex (SkinLevel) and the face's (FaceLevel).
+        /// </summary>
+        internal static List<string> AllowedHairColors(string race, int variant, bool male, out string group)
         {
             group = null;
             if (string.IsNullOrEmpty(race)) return null;
-            if (ScConfig.Listed(ScConfig.SurvivorDarkSkins, race.Trim())) { group = "dark"; return ScConfig.SurvivorDarkSkinHairColors; }
-            if (ScConfig.Listed(ScConfig.SurvivorMidSkins, race.Trim())) { group = "mid"; return ScConfig.SurvivorMidSkinHairColors; }
+            int level = Math.Max(SkinLevel(race, male), FaceLevel(race, variant));
+            if (level >= 2) { group = "dark"; return ScConfig.SurvivorDarkSkinHairColors; }
+            if (level == 1) { group = "mid"; return ScConfig.SurvivorMidSkinHairColors; }
             return null;
+        }
+
+        /// <summary>Round 32c, for the hair color fix's log line: "skin Porcelain, face 10 Black: dark" ("skin Black: dark" for a vanilla race).</summary>
+        internal static string GroupNote(Look look)
+        {
+            if (look == null) return "";
+            string group;
+            AllowedHairColors(look.Race, look.Variant, look.Male, out group);
+            string face = IsTone(look.Race) ? FaceRace(look.Variant) : null;
+            return "skin " + (look.Race ?? "") + (face != null ? ", face " + look.Variant + " " + face : "") + ": " + (group ?? "any");
         }
 
         /// <summary>
         /// Round 31, pure: of these natural colors (no dyed one), the ones this skin may have (AllowedHairColors), in their own
         /// order. All of them when the skin's group allows any color, or when the group's list leaves none of them (fellBack).
+        /// Round 32c: the face variant and the sex count too.
         /// </summary>
-        internal static List<string> NaturalIn(string race, List<string> natural, out string group, out bool fellBack)
+        internal static List<string> NaturalIn(string race, int variant, bool male, List<string> natural, out string group, out bool fellBack)
         {
             fellBack = false;
-            List<string> allow = AllowedHairColors(race, out group);
+            List<string> allow = AllowedHairColors(race, variant, male, out group);
             if (natural == null || natural.Count == 0 || allow == null) return natural;
             var keep = new List<string>(natural.Count);
             foreach (string c in natural) if (ScConfig.Listed(allow, c)) keep.Add(c);
@@ -783,22 +940,23 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round 31 refinement, pure: the colors a natural roll picks from, given its random number r (0..1): the skin's allowed
         /// natural colors (NaturalIn), their gray half when r is below GrayShare of all the natural colors, else the rest
-        /// (AgePool). Every skin, light ones too: for them it changes nothing (each natural color stays 1 in 10).
+        /// (AgePool). Every skin, light ones too: for them it changes nothing (each natural color stays 1 in 10). Round 32c:
+        /// the face variant and the sex count too (NaturalIn).
         /// </summary>
-        internal static List<string> NaturalPool(string race, List<string> natural, float r, out string group, out bool fellBack)
+        internal static List<string> NaturalPool(string race, int variant, bool male, List<string> natural, float r, out string group, out bool fellBack)
         {
-            List<string> pool = NaturalIn(race, natural, out group, out fellBack);
+            List<string> pool = NaturalIn(race, variant, male, natural, out group, out fellBack);
             if (pool == null || pool.Count == 0) return pool;
             return AgePool(pool, r < GrayShare(natural));
         }
 
         /// <summary>NaturalPool for a roll (one random draw when there is a natural color), with the log line (once per group) when a group's list leaves no color.</summary>
-        private static List<string> NaturalPick(string race, List<string> natural, GameRandom rnd)
+        private static List<string> NaturalPick(string race, int variant, bool male, List<string> natural, GameRandom rnd)
         {
             if (natural == null || natural.Count == 0) return natural;
             string group;
             bool fellBack;
-            List<string> pool = NaturalPool(race, natural, Chance(rnd), out group, out fellBack);
+            List<string> pool = NaturalPool(race, variant, male, natural, Chance(rnd), out group, out fellBack);
             if (fellBack) WarnEmptyGroup(group);
             return pool;
         }
@@ -809,10 +967,10 @@ namespace SurvivorCommunity
             ScLog.Once("looks-haircolor-empty-" + group, "looks: " + key + " leaves none of the game's natural hair colors - skins of that group get any natural color");
         }
 
-        /// <summary>Roll's fallback when the game's color list cannot be read: FallbackHairColors' natural ones, for this skin.</summary>
-        private static string[] NaturalFallback(string race, GameRandom rnd)
+        /// <summary>Roll's fallback when the game's color list cannot be read: FallbackHairColors' natural ones, for this skin (and face).</summary>
+        private static string[] NaturalFallback(string race, int variant, bool male, GameRandom rnd)
         {
-            List<string> l = NaturalPick(race, Allowed(new List<string>(FallbackHairColors), ScConfig.SurvivorDyedHairColors), rnd);
+            List<string> l = NaturalPick(race, variant, male, Allowed(new List<string>(FallbackHairColors), ScConfig.SurvivorDyedHairColors), rnd);
             return l != null && l.Count > 0 ? l.ToArray() : FallbackHairColors;
         }
 
@@ -849,7 +1007,8 @@ namespace SurvivorCommunity
         /// its sex, skin, variant, hair, color, eyes and beard), so the same person gets the same color on every load until the
         /// corrected look is saved. Refinement: from the colors of the same age - a young-looking color (not
         /// SurvivorGrayHairColors) only ever becomes another young-looking one, never gray or white (none allowed: kept); a gray
-        /// one (fixed only when a custom list drops it) a gray one the group allows, else any it allows.
+        /// one (fixed only when a custom list drops it) a gray one the group allows, else any it allows. Round 32c: the group is
+        /// the darker of the tone's level for the look's sex and its face's (AllowedHairColors); the hash is unchanged.
         /// </summary>
         internal static string FixedHairColor(Look look, List<string> natural)
         {
@@ -857,7 +1016,7 @@ namespace SurvivorCommunity
             if (ScConfig.Listed(ScConfig.SurvivorDyedHairColors, look.HairColor) || !HasColor(natural, look.HairColor)) return null;
             string group;
             bool fellBack;
-            List<string> pool = NaturalIn(look.Race, natural, out group, out fellBack);
+            List<string> pool = NaturalIn(look.Race, look.Variant, look.Male, natural, out group, out fellBack);
             if (group == null || fellBack || pool == null || pool.Count == 0 || HasColor(pool, look.HairColor)) return null;
             bool wasGray = IsGrayHair(look.HairColor);
             List<string> same = pool.FindAll(c => IsGrayHair(c) == wasGray);
@@ -874,23 +1033,26 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round 31 (mirrors P2's FixMaleHair, from Validate): a stored look whose natural hair color its skin no longer allows
         /// (a mid or a dark skin: AllowedHairColors) is given an allowed one (FixedHairColor), in place - the body is built from
-        /// it (ForEntity, X1) and a member's or prospect's record saves it. One log line per swap.
+        /// it (ForEntity, X1) and a member's or prospect's record saves it. One log line per swap. Round 32c: a Vanity Vault
+        /// face narrows the group too (AllowedHairColors); an enclave's or a band's person's record is validated in
+        /// ScSpawn.Create before its copy is taken, so it is fixed once and saved like a member's (round 31 review L2).
         /// </summary>
         private static void FixHairColor(Look look, Entity e, string name)
         {
             string group;
             if (look == null || look.CreatorFace || string.IsNullOrEmpty(look.HairColor)) return;
             ScConfig.EnsureParsed();    // as Roll does: the groups are the config's before a stored look is changed for good
-            if (AllowedHairColors(look.Race, out group) == null) return;
+            if (AllowedHairColors(look.Race, look.Variant, look.Male, out group) == null) return;
             List<string> natural = NaturalColors();
             bool fellBack;
-            NaturalIn(look.Race, natural, out group, out fellBack);
+            NaturalIn(look.Race, look.Variant, look.Male, natural, out group, out fellBack);
             if (fellBack) { WarnEmptyGroup(group); return; }
             string to = FixedHairColor(look, natural);
             if (to == null) return;
             string was = look.HairColor;
             look.HairColor = to;
-            ScLog.Out("looks: " + Label(e, name) + " hair color " + was + " -> " + to + " (skin " + look.Race + ")");
+            // round 32c: "(skin Porcelain, face 10 Black: dark)" - the face and the group that decided it ("(skin Black: dark)" for a vanilla race)
+            ScLog.Out("looks: " + Label(e, name) + " hair color " + was + " -> " + to + " (" + GroupNote(look) + ")");
         }
 
         /// <summary>"Name (id)" for a log line: name, else the body's own name; without a body, name as it is.</summary>

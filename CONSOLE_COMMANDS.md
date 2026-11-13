@@ -476,7 +476,11 @@ Shows the NPC's weapons; with the word, puts that one in its hand.
 Starting-skill statistics for `n` new survivors per tier.
 
 ### `sc look <id|name>` [CHEAT]
-Re-rolls the face of a loaded survivor (same sex and clothes). Saved. The hair color fits the new skin tone (README section 15).
+Re-rolls the face of a loaded survivor (same sex and clothes). Saved. The hair color fits the new skin tone (README section 15); with Vanity Vault the new face comes first and its skin tone suits it.
+
+### `sc look <id|name> tone` [CHEAT]
+With Vanity Vault: keeps the survivor's face and gives them a skin tone that suits it (one of the face race's tones in `SurvivorTonesByFace`), for an older survivor whose tone does not fit their face (a Black face with very light skin, a White or Asian face with very dark skin). A tone that already suits the face is kept (`... already suits its face ... - unchanged`); otherwise the pick is always the same for that survivor. The natural hair color follows the new tone (the log's `looks: ... hair color ...` line), the body is rebuilt, and the look is saved to their record (member, prospect, enclave or band person; a stranger keeps it only for this session). Prints the look before and after, and logs `looks: <name> (<id>) re-toned by sc look tone: <old> -> <new> (face <n> <race>)`. Refused for a face from 0-XNPCCore's character creator, a look with one of the four vanilla races, a face number outside 1-16, or without Vanity Vault. Never happens by itself.
+Example: `sc look Jack tone`
 
 ### `sc paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll]`
 Name alone: shows their paints and what the lists offer [READ]. Otherwise sets, clears (`none`) or re-rolls (`roll`) the paints and rebuilds the body [CHEAT]. Paint names may contain spaces; the tattoo ink follows a `/`. Needs Sonja's Vanity Vault 3.3 (the paints come from it); without it, it says Vanity Vault is not loaded.
@@ -506,7 +510,7 @@ Other voice subcommands:
 - `sc voice stop`, `sc voice rescan` (re-reads the voice folder without a restart), `sc voice gate` [READ].
 - `sc voice sayline [line] [seconds]`: the nearest survivor is given a say-line through Voice Control after a delay (default `ammo.dry`, 5 s).
 - `sc voice context [id|name]` [READ]: the paragraph Voice Control's chat is given for an enclave person.
-- `sc voice who [id|name]` [READ]: race, sex, origin, voice chain and which lines the NPC can say. With Vanity Vault it also shows the skin tone and the voice race it maps to (`skin Espresso -> Black (VoiceRaceBySkin)`), or that the tone is not in `VoiceRaceBySkin` (any voice of their sex).
+- `sc voice who [id|name]` [READ]: race, sex, origin, voice chain and which lines the NPC can say. With Vanity Vault it also shows the skin tone, the face and the rule that chose the voice race: `skin Porcelain, face 10 Black -> Black (VoiceRaceByFace)`; `skin Umber, face 3 White, a dark tone for a man -> Black (VoiceRaceByFace, VoiceDarkTonesMale)`; for a face number outside 1-16 (or with `VoiceRaceByFace` false, which adds `; VoiceRaceByFace off`) the tone's race from `VoiceRaceBySkin` (`skin Espresso, face 20 (no face race) -> Black (VoiceRaceBySkin)`), or that the tone is not in it (any voice of their sex).
 - `sc voice greet [id|name]`, `sc voice chatter [id|name]`: make a greeting or chatter line play now.
 - `sc voice taunt <spot|search|lost|hit|killed|idle|dying|retreat> [id|name]`: the nearest raider (40 m) taunts now.
 - `sc voice barks` [READ]: bark switches and counters.
