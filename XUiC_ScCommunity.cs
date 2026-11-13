@@ -120,6 +120,10 @@ namespace SurvivorCommunity
                 // round 33c (M33): Mine and Dig clay beside the resources (optional: an older windows.xml has neither)
                 HookOptional("btnRunMine", () => OnRunJob(RunJob.Mine));
                 HookOptional("btnRunClay", () => OnRunJob(RunJob.Clay));
+#else
+                // round 33 review L4: the shared windows.xml has the two buttons; the 3.2 build has no mining runs - they say so
+                HookOptional("btnRunMine", OnRunJobOff);
+                HookOptional("btnRunClay", OnRunJobOff);
 #endif
                 // the newer layout's controls: optional, the original window has none of them
                 HookOptional("btnRun", OnRunToggle);
@@ -1208,6 +1212,16 @@ namespace SurvivorCommunity
             runPicking = false;
             if (ScMining.Send(m, npc, job, p, out err)) message = string.Format(Localization.Get("scRunSent"), m.Name, ScRuns.What(m), m.RunEndDay);
             else { message = Localization.Get(err ?? "scInternal"); p.PlayOneShot("ui_denied"); }
+            Refresh();
+        }
+#else
+        /// <summary>Round 33 review L4: the 3.2 build has no mining runs (ScMining is 3.4 only).</summary>
+        private void OnRunJobOff()
+        {
+            EntityPlayerLocal p = Player;
+            runPicking = false;
+            message = Localization.Get("scMineOff");
+            if (p != null) p.PlayOneShot("ui_denied");
             Refresh();
         }
 #endif

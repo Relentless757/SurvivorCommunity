@@ -410,6 +410,7 @@ namespace SurvivorCommunity
                     DropMarker(npc);                                // SCore drew a hire marker for the owner link: it goes with it
                 }
                 else DropHireMark(m.Id);
+                GiveUpPending(m, s, "her shift ended first");        // round 33 review L3: counted, not dropped unseen
                 ScCraft.FlushXp(true);                              // the shift's XP is saved with its end (review #6)
                 if (talk)
                 {
@@ -848,12 +849,20 @@ namespace SurvivorCommunity
             float now = Time.time;
             if (SdcsCraftJob.Get(m.Id) != null) { s.PendingSeen = now; return; }
             if (now - s.PendingSeen < PendingKeepSeconds) return;
+            GiveUpPending(m, s, PendingKeepSeconds.ToString("0") + " s after her craft order");
+        }
+
+        /// <summary>Round 33a: what is still expected from a station is no longer expected for the crates (counted, a verbose line).
+        /// Round 33 review L3: End calls it too - with the default WorkIdleSeconds (90) the shift ends before PendingKeepSeconds.</summary>
+        private static void GiveUpPending(Member m, Shift s, string why)
+        {
+            if (s == null || s.Pending.Count == 0) return;
             int n = 0;
             foreach (var kv in s.Pending) n += kv.Value;
             s.Pending.Clear();
             pendingExpired += n;
-            ScLog.Verbose(m.Name + ": " + n + " item(s) she made at a station never reached her inventory window (" + PendingKeepSeconds.ToString("0")
-                          + " s after her craft order) - no longer expected for the crates");
+            ScLog.Verbose(m.Name + ": " + n + " item(s) she made at a station never reached her inventory window (" + why
+                          + ") - no longer expected for the crates");
         }
 
         /// <summary>

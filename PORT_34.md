@@ -5644,3 +5644,28 @@ The two leftovers 33c named, now that mining runs exist:
 Checks: SC 3.4 `5ae797c5f584bebd3eb77043042f1b19` (`build\sc34_r33`) and the 3.2 config (scratch, not committed), 0 errors;
 `cctor_order.py` 147 static constructors, 0 reads before store; XML replay (`x3\r33m_checks.py`) SC 212/212 alone, 200/200
 with AshfallUI (2279/2279), no aborts; Localization.csv 7 columns on every row, no duplicate keys. Next: the review.
+
+### Round 33 review (2026-11-13)
+
+Fable over its usage limit -> Opus review of `80b2b48..54d2101`: NOT DEPLOYABLE on one MED (rare, one line), five LOW, no
+HIGH. All six verified against the code and fixed:
+- **M1** `ScRegistry` `haul=`: on load a waiting mining haul set `RunCarry` for any OnRun member. Only mining sends refuse
+  while a haul waits, so a member out on a supply run with a waiting haul came back after a load with the haul's item count
+  (about 270) as stockpile units. Now only `ScMining.IsDig(m)` (runjob= is written before haul=). README: only Mine and Dig
+  clay are held up by a waiting haul. TESTING 882 (b).
+- **L2** `ScMining.HomeLoaded`: a zone wider than the loaded area (LandClaimUpgrade near its largest, an L-shaped zone's
+  bounding box) never had every chunk loaded, so the haul waited forever and later mining sends were refused. Now also true
+  while the player stands inside the zone.
+- **L3** `ScWork`: with the default `WorkIdleSeconds` 90 the shift ended before `PendingKeepSeconds` 120 and the station
+  output still expected was dropped unseen (`given up` stayed 0). `GiveUpPending` now runs from `End` too ("her shift
+  ended first"); TESTING 825 reworded.
+- **L4** the 3.2 build's MINE / DIG CLAY buttons (shared windows.xml) did nothing: hooked under `#else` to say `scMineOff`.
+- **L5** an open inventory window at the gate said "once you are home": its own `Landed.WaitWindow` and
+  `scMineTailWaitWindow` ("It goes into the home crates once you close their inventory."). TESTING 882 (a).
+- **L6** TESTING 864 sent the same member twice: now three residents.
+
+Checked correct by the review: the bundle override against vanilla `ItemActionOpenBundle.ExecuteInstantAction` (no double
+open, only the remainder dropped, refusals give the bundle back), 0-XNPCCore's reflected gate fields, the station ledger's
+order, the spot pick off loaded chunks on the main thread, deposits, the run dice halving hauls, runjob/haul round trips.
+Builds after the fixes: SC 3.4 `76fba37708a524d335e2c32fa6293851` (`build\sc34_r33`), 3.2 config (scratch) 0 errors;
+cctor 0/147; replay 212/212, 200/200 + AshfallUI 2279/2279; Localization 7 columns, no duplicates.

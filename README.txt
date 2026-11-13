@@ -717,7 +717,8 @@ but the haul is real items in your home crates, not stockpile units.
   when they get back, the haul waits until you are home and then goes in.
 - With no spot in range (or "PhysicalRuns" off) they go on a hidden run and come back at the next rollover with the home
   biome's stone and ore (or clay).
-- They will not go again while the last haul is still waiting to be put away. Make room in the crates first.
+- They will not go mining or digging again while their last haul is still waiting to be put away. Make room in the
+  crates first. (Supply runs are not held up by it.)
 
 Runners with a handheld radio
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

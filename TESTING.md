@@ -3036,9 +3036,10 @@ loadout <name>`. Test on a new world or a copy; `dm` for the creative menu, F6 t
 825. **Station output that did not fit at first (b).** Fill her inventory with junk to one free slot, then order 3 of a
      single-slot item (a weapon or a tool) at a station. After the first is made, take the junk out (Show me your inventory)
      and close it. Every one she made that reaches her inventory goes on to the crates within about 5 s; nothing she made stays
-     in her inventory. Whatever 0-XNPCCore put elsewhere instead (its base materials) counts as `given up` about 2 minutes
-     after her order is done (DebugLogging: `<name>: N item(s) she made at a station never reached her inventory window (120
-     s after her craft order) - no longer expected for the crates`).
+     in her inventory. Whatever 0-XNPCCore put elsewhere instead (its base materials) counts as `given up` when her shift
+     ends (with the default `WorkIdleSeconds` 90 that comes first: DebugLogging `<name>: N item(s) she made at a station never
+     reached her inventory window (her shift ended first) - no longer expected for the crates`), or 2 minutes after her
+     order is done if the shift goes on (`(120 s after her craft order)`).
 826. **Backpack crafts and gathering as before.** A backpack shift (389) and a Wood job (604): the seeds and the wood still go
      to the crates; `output-noted` grows for the wood; `station output noted ahead` does not grow for either.
 827. **The kit check backs off (round 29 glance LOW 3).** Recruit a stranger while they bandage themselves (622): `sc craft`
@@ -3133,10 +3134,11 @@ shows every mining runner's job, tool, spot and haul, the hauls waiting to be pu
      (Show me your inventory). **Mine stone and ore**: "They have nothing to mine with - hand them a pickaxe (a stone axe will
      do) first." **Dig clay**: "They have nothing to dig with - hand them a shovel first." The same in the window, with the
      denied sound. The log says `... carries no mining tool (tags miningTool) - refused`. Put `MemberWorkKit` back after.
-864. **The tool they take.** With the kit only: `sc run <name> mine` says `with meleeToolRepairT0StoneAxe (T0, work kit)`; `sc
-     run <name> clay` says `meleeToolShovelT0StoneShovel (T0, work kit)`. Hand them an iron pickaxe through Show me your
-     inventory (recall them first, or use a second resident): `meleeToolPickT1IronPickaxe (T1, inventory)`, and the printed
-     whole-run haul is about 1.7 times the stone axe's.
+864. **The tool they take.** Each command below sends that member, so use a different resident for each (or wait until the
+     last one is back). With the kit only: `sc run <first> mine` says `with meleeToolRepairT0StoneAxe (T0, work kit)`; `sc run
+     <second> clay` says `meleeToolShovelT0StoneShovel (T0, work kit)`. Hand a third an iron pickaxe through Show me your
+     inventory, then `sc run <third> mine`: `meleeToolPickT1IronPickaxe (T1, inventory)`, and the printed whole-run haul is
+     about 1.7 times the first one's.
 865. **A spot is found.** Send **Mine stone and ore** from the talk: "<name> sets off on foot for an outcrop of <ore> (<biome>)
      (N m) to look for stone and ore - back around day D." (or "rocky ground (<biome>)" when no vein is in reach). The log has
      `mining: mine spot ...` (`on a vein` when it is one) and `<name> takes their <tool> ... to ...`. The community window says
@@ -3188,6 +3190,12 @@ shows every mining runner's job, tool, spot and haul, the hauls waiting to be pu
      shake their head with "Not here at home. Send me on a mining run, and I'll bring it back to the crates." Loot here still
      gets "Take me along, and I'll do it." With `MiningRuns` false (879), Mine and Dig clay get the "Take me along" line
      again.
+882. **A waiting haul.** With the home crates full (871), a miner comes back and their haul waits. (a) Open their
+     inventory (Show me your inventory) as they reach the gate: "It goes into the home crates once you close their
+     inventory." and, after you close it and make room, it goes in within a few seconds. (b) Send them on a **Food** run while
+     the haul still waits (allowed; Mine and Dig clay are refused with "They still have the last haul to put away - make room
+     in the home crates first."), save and quit while they are out, load: `sc runners` shows the food run's own carry (a few
+     units), not the haul's item count; back home, the food stockpile goes up by those few units only.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

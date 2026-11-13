@@ -1143,9 +1143,11 @@ namespace SurvivorCommunity
                 case "runtalk": m.RunTalk = Math.Max(0, I(val)); break;                 // R2 (ScRadioTalk)
                 case "runjob": ScMining.DecodeJob(m, val); break;                       // round 33c (M33): a mining run
                 case "haul":
-                    // round 33c (M33): a mining run's haul, carried or waiting to be put away; while OnRun its total is the carry
+                    // round 33c (M33): a mining run's haul, carried or waiting to be put away; while OnRun ON A MINING RUN its
+                    // total is the carry (runjob= is written before haul=). Round 33 review M1: a member whose last haul still
+                    // waits can be out on a supply run - that run's carry= stands, or the haul's item count became stockpile units.
                     m.RunHaul = ScMining.Encode(ScMining.Decode(val));
-                    if (m.Status == MemberStatus.OnRun) m.RunCarry = ScMining.Total(m.RunHaul);
+                    if (m.Status == MemberStatus.OnRun && ScMining.IsDig(m)) m.RunCarry = ScMining.Total(m.RunHaul);
                     break;
 #endif
                 case "arrive":

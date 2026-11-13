@@ -787,7 +787,8 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ delivery ----
 
-        private enum Landed { Nothing, All, Some, NoRoom, Wait }
+        /// <summary>Wait: the home's crates are not loaded; WaitWindow (round 33 review L5): their inventory window is open.</summary>
+        private enum Landed { Nothing, All, Some, NoRoom, Wait, WaitWindow }
 
         /// <summary>
         /// ScRunners.EnterBack, a mining runner at the gate: Wits XP, the haul into the home crates now (their chunks loaded) or
@@ -821,6 +822,7 @@ namespace SurvivorCommunity
                 case Landed.Some:
                 case Landed.NoRoom: return Rest(kept, left);
                 case Landed.Wait: return Localization.Get("scMineTailWait");
+                case Landed.WaitWindow: return Localization.Get("scMineTailWaitWindow");
                 default: return "";
             }
         }
@@ -835,6 +837,7 @@ namespace SurvivorCommunity
 
         private static string LogResult(Landed r, string put, string kept, string left)
         {
+            if (r == Landed.WaitWindow) return "their inventory window is open: it waits on the record until it is closed";
             return r == Landed.Wait ? "the home crates are not loaded: it waits on the record until they are"
                  : "into the home crates: " + (put.Length > 0 ? put : "nothing") + (kept.Length > 0 ? "; into their inventory window: " + kept : "")
                    + (left.Length > 0 ? "; no room anywhere for " + left + " (it waits, tried again in 2 min)" : "");
@@ -850,7 +853,8 @@ namespace SurvivorCommunity
             put = kept = left = "";
             List<KeyValuePair<string, int>> haul = Decode(m.RunHaul);
             if (haul.Count == 0) { m.RunHaul = ""; return Landed.Nothing; }
-            if (!HomeLoaded() || WindowOpen(m.Id)) return Landed.Wait;
+            if (!HomeLoaded()) return Landed.Wait;
+            if (WindowOpen(m.Id)) return Landed.WaitWindow;
             var putL = new List<KeyValuePair<string, int>>();
             var keptL = new List<KeyValuePair<string, int>>();
             var leftL = new List<KeyValuePair<string, int>>();
@@ -897,17 +901,25 @@ namespace SurvivorCommunity
             return keptL.Count > 0 || leftL.Count > 0 ? Landed.Some : Landed.All;
         }
 
-        /// <summary>Every chunk of the home zone is loaded (the crates DepositInZone walks are all there to see).</summary>
+        /// <summary>
+        /// Every chunk of the home zone is loaded (the crates DepositInZone walks are all there to see) - or the player stands
+        /// inside the zone. Round 33 review L2: a zone wider than the player's loaded area (a LandClaimUpgrade claim near its
+        /// largest, an L-shaped zone's bounding box) never has every chunk loaded, so the haul waited forever and every later
+        /// Mine or Dig clay was refused; with the player at home, the loaded crates are the ones there are.
+        /// </summary>
         private static bool HomeLoaded()
         {
             World w = ScCommunity.World;
             if (w == null || !ScZone.HasHome) return false;
             int xMin, xMax, zMin, zMax;
             ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
-            for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
+            bool all = true;
+            for (int cx = World.toChunkXZ(xMin); all && cx <= World.toChunkXZ(xMax); cx++)
                 for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
-                    if (w.GetChunkSync(cx, cz) == null) return false;
-            return true;
+                    if (w.GetChunkSync(cx, cz) == null) { all = false; break; }
+            if (all) return true;
+            EntityPlayerLocal p = ScCommunity.LocalPlayer;
+            return p != null && !p.IsDead() && ScZone.Contains(p.position);
         }
 
         private static bool WindowOpen(int id)
@@ -943,7 +955,7 @@ namespace SurvivorCommunity
                     if (nextTry.TryGetValue(m.Id, out at) && t < at) continue;
                     string before = Describe(m.RunHaul), put, kept, left;
                     Landed r = Deliver(m, out put, out kept, out left);
-                    if (r == Landed.Wait || r == Landed.Nothing) continue;
+                    if (r == Landed.Wait || r == Landed.WaitWindow || r == Landed.Nothing) continue;
                     if (r == Landed.NoRoom && kept.Length == 0) continue;   // still no room anywhere: said when it first waited
                     string rest = left.Length > 0 ? " " + string.Format(Localization.Get("scMineTailWaits"), left) : "";
                     string text = r == Landed.NoRoom ? string.Format(Localization.Get("scMineWindowOnly"), m.Name, kept) + rest
