@@ -25,7 +25,7 @@ namespace SurvivorCommunity
         /// <summary>Armor item names by equipment slot (Head, Chest, Hands, Feet); "" = nothing worn there.</summary>
         public readonly string[] Gear = { "", "", "", "" };
         public readonly int[] Quality = { 1, 1, 1, 1 };
-        /// <summary>Session flag: the base body/head assets were confirmed to exist.</summary>
+        /// <summary>Session flag: today's hair rules were applied to this look (ScLooks.Validate); says nothing about assets.</summary>
         public bool Validated;
         /// <summary>
         /// Vanity Vault ids (ScVanity): a body paint ("Sonja_Broken_Full_M"), a face paint ("Sonja_Broken") and one tattoo
@@ -189,6 +189,8 @@ namespace SurvivorCommunity
             session.Clear();
             sessionClass.Clear();
             sessionSource.Clear();
+            partsExist.Clear();
+            warnedNoDefault = false;
             catalogueReady = false;
 #if SC_V34
             pendingFaces.Clear();
@@ -759,8 +761,26 @@ namespace SurvivorCommunity
         public static bool AssetsMissing(Look look)
         {
             if (look == null) return false;
-            try { return !SDCSUtils.BasePartsExist(look.ToArchetype()); }
+            try { return !PartsExist(look.ToArchetype()); }
             catch (Exception ex) { ScLog.Once("looks-assets", ex); return false; }
+        }
+
+        /// <summary>
+        /// Round 32 glance L1: SDCSUtils.BasePartsExist answered once per world for each sex|race|variant (cleared in Reset,
+        /// at GameStarting): a look whose assets are missing no longer repeats vanilla's "base head not found" error line on
+        /// every body build and portrait retry, and a normal look's four synchronous asset loads happen once.
+        /// </summary>
+        private static readonly Dictionary<string, bool> partsExist = new Dictionary<string, bool>();
+        private static bool warnedNoDefault;
+
+        private static bool PartsExist(Archetype a)
+        {
+            string k = (a.IsMale ? "M" : "F") + "|" + (a.Race ?? "") + "|" + a.Variant.ToString(CultureInfo.InvariantCulture);
+            bool ok;
+            if (partsExist.TryGetValue(k, out ok)) return ok;
+            ok = SDCSUtils.BasePartsExist(a);
+            partsExist[k] = ok;
+            return ok;
         }
 
         /// <summary>
@@ -770,16 +790,21 @@ namespace SurvivorCommunity
         /// </summary>
         public static Archetype BuildArchetype(Look look)
         {
+            if (look == null) return null;
             Archetype a = look.ToArchetype();
             try
             {
-                if (!SDCSUtils.BasePartsExist(a))
+                if (!PartsExist(a))
                 {
                     ScLog.Once("look-noassets-" + look.Race + "/" + look.Variant, "look " + look.Race + "/" + look.Variant + " has no body"
                                + " assets this session - built with the default face (White/01); the stored look keeps " + look.Race + "/" + look.Variant);
                     a.Race = "White";
                     a.Variant = 1;
-                    if (!SDCSUtils.BasePartsExist(a)) ScLog.Once("look-noassets-default", "the default player body (White/01) is missing too - player-body survivors will be invisible");
+                    if (!PartsExist(a) && !warnedNoDefault)
+                    {
+                        warnedNoDefault = true;
+                        ScLog.Err("the default player body (White/01) is missing too - player-body survivors will be invisible");
+                    }
                 }
             }
             catch (Exception ex) { ScLog.Once("looks-build-archetype", ex); }

@@ -5145,4 +5145,11 @@ the dialog rows on all three Hire dialogs, the XUi bindings and the AshfallUI br
 Checks after the fixes: 3.4 and 3.2 builds 0 errors; cctor 143, 0 reads before store; IL: `BuildArchetype` called from
 X1, `Apply` and `Sync`, `AssetsMissing` from the portrait; XML replay SC 212/212, 200/200 with AshfallUI (2279/2279).
 
-Builds: SC 3.4 `c65387f91e10b52877be62470032d50c` (`build\sc34_r32`), 0 errors. Not installed.
+**Opus glance at 616e17b:** DEPLOYABLE, four LOW. Fixed here: L1 `SDCSUtils.BasePartsExist` is now asked once per world
+per sex|race|variant (`ScLooks.PartsExist`, cleared in `Reset`): no repeated vanilla "base head not found" lines while assets
+are missing, no repeated synchronous loads for normal looks; L3 the stale `Validated` and `KeyFor` comments and TESTING 778's
+wording; L4 `BuildArchetype(null)` guarded, the White/01-missing message back at error level (once per world). Left: L2's
+design note (a member without a cached portrait shows the silhouette while assets are missing; L3's future fix must only
+repair a face missing from a race the game HAS). Checks: builds 0 errors, cctor 0, IL as expected.
+
+Builds: SC 3.4 `97a431862ca15dbe3f96e35b92f1d950` (`build\sc34_r32`), 0 errors. Not installed.

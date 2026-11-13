@@ -2917,7 +2917,9 @@ are replaced by 808's.
 778. **A session without Vanity Vault keeps everyone's looks (review L2).** Back up the save. With members, a prospect and a
      met enclave, quit, move `LittleRedSonja_VanityVault` out of Mods, load: survivors whose tone needs Vanity Vault build with
      the default face (the log has `look <tone>/<face> has no body assets this session - built with the default face
-     (White/01); the stored look keeps <tone>/<face>` once per look), their portraits are not re-shot. Save, quit, put Vanity
+     (White/01); the stored look keeps <tone>/<face>` once per tone and face per world, and vanilla's `base head not found`
+     line once for each), their portraits are not re-shot (members without a cached portrait show the silhouette that
+     session). Save, quit, put Vanity
      Vault back, load: every member, prospect and enclave person has their own face and tone again (`sc members`, `sc xnpc`
      look lines), and the portraits are theirs.
 779. **The no-home answer with the home's claim gone (review L1).** With a community, pick up the home's land claim block and

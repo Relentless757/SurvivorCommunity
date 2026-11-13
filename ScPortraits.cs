@@ -225,8 +225,8 @@ namespace SurvivorCommunity
             sb.Append('v').Append(PortraitVersion).Append('|');
             if (m.Look != null)
             {
-                // no ScLooks.Validate here: it loads assets synchronously and this runs from binding code. The render
-                // validates first and re-keys (a look with missing assets is rewritten to White/01 once, then stable).
+                // no ScLooks.Validate here: this runs from binding code. The render validates first and re-keys (hair
+                // fixes only; round 32 review L2: a look whose assets are missing is not shot, and keeps its key).
                 sb.Append("L|").Append(m.Look.Encode()).Append('|');
                 for (int i = 0; i < 4; i++) sb.Append(m.Look.Gear[i] ?? "").Append(',');   // names only: quality does not show
             }
