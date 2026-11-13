@@ -5166,3 +5166,159 @@ built `97a431862ca15dbe3f96e35b92f1d950`. The old install is in `Port33\_backups
 `VoiceRaceByFace` / `HairGroupByFace` true, `StreamerNames` false, 16 voices. Untested in game: TESTING H32 (730-748), F32
 (800-815), U32 (760-777), R32 (778-780), and still V31, S30, J29, M29, X3, P2, R2. Next round: review L3 (another race mod's
 face counts), the `scNoHomeReply` voice line (16 clips), L2's portrait-silhouette design note.
+
+### Round 33c: mining runs (M33) (2026-11-13, built, not reviewed, not installed)
+
+Branch `ms/r33c` from port-3.4 `80b2b48` (installed round 32), worktree `Port33\wt\sc-r33c`, built beside round 33a (`wt\sc-r33a`:
+ScJobs / ScWork / ScLoadout / ScLooks fixes) and round 33b (`wt\sc-r33b`: openable bundles, packing code), whose areas this round
+stays out of. **3.4 only**: two new files, `ScMining.cs` and `ScConfigMining.cs` (their own `ItemGroup`), and every hook in a shared
+file under `SC_V34`; the 3.2 configuration compiles with its paths as they were (the ScRuns split below is neutral for it); the
+tracked 3.2 `SurvivorCommunity.dll` is untouched.
+
+**The user's decision (2026-11-13), as given:** residents can't do 0-XNPCCore's Mine / Dig clay at home (round 29a: home jobs only).
+"Pick 'Mine' (or 'Dig clay') like any supply run: the runner walks to a real spot away from home (rocky ground / ore area), works it
+for a few game hours, walks back, and the ore, stone, coal, nitrate, lead or clay goes into the home crates as real items. Needs a
+pickaxe or shovel in their inventory (the work kit's stone shovel/axe counts). Same risks, escorting and radio as supply runs."
+
+**Two run kinds (`ScMining.cs:9-19` RunJob; `Member.RunJob/RunTool/RunToolTier/RunBiome/RunSub/RunHaul`, `ScModels.cs`).** Mine and
+Dig clay are not stockpile resources: the record keeps `RunKind = Materials` (an older build reads a mining run as a materials run)
+and a new `RunJob`; the haul is real items, `RunHaul` ("item:count,..."), `RunCarry` its total while out.
+- **Offered:** the talk's `scRunPick` (`Config/dialogs.xml`: `scRunMine` "Mine stone and ore", `scRunClay` "Dig clay" after Fuel,
+  action `ScRun` value `mine` / `clay`, hidden by `DialogRequirementScMiningRuns` while `MiningRuns` is off - the 3.2 build always
+  hides them); the community window's picker (`Tools/generate_community_ui.py`: RUNS gained `btnRunMine` / `btnRunClay` and a width
+  weight each, `run_cells` shares the 512 px row by label length, 4 px apart - both looks regenerated; `XUiC_ScCommunity.OnRunJob`);
+  `sc run <member> mine|clay` (`ConsoleCmdSc.Run`). All three call `ScMining.Send` (`ScMining.cs:702`).
+- **`Send`:** the supply run's `ScRuns.CanSend` (home, healthy, willing, not on watch, MaxRunners - miners count), no earlier haul
+  still waiting (`scMineHaulPending`), a tool, `ScWork.EndFor`, then a physical run to a natural spot (`ScRuns.SendPhysicalTo`) or
+  a hidden run (`ScRuns.SendHidden`) with the home biome. `ScRuns.Send` (supply) was split for it, unchanged in effect:
+  `SendPhysical` -> `SendPhysicalTo(destKey, destName, arrive, dist)` (`ScRuns.cs:112-132`), the legacy body -> `SendHidden` (`:77`);
+  their lines say `ScRuns.What(m)` ("stone and ore", "clay", else the resource as before).
+
+**The tool (`ScMining.cs:140-205`).** `BestTool` looks in the toolbelt (where the work kit lives), the bag and the inventory window
+(HarvestManager, by entity id) for an item with any `MiningToolTags` tag (default `miningTool`: vanilla's stone axe, iron and steel
+pickaxes, auger) or `DigToolTags` (`shovel`: the three shovels) - checked on the replayed 3.4 items: the kit's stone axe carries
+`miningTool`, the stone shovel `shovel`. The best = the highest tier (its T0..T6 tag, else the T<n> in its name, else 1), then
+quality; its tier and name go on the record at the send (taking the tool away mid-run changes nothing). None: refused with
+`scMineNoTool` / `scClayNoTool` and a log line. The tier factor: `MiningToolTierMults` `0.6,1,1.4,1.8` (T0 kit, T1 iron, T2 steel,
+T3 auger; past the list the last).
+
+**The spot (`ScMining.cs:459-544`), read with no chunk loaded.** 72 random points 150-700 m from home (RunMinDist..RunMaxDist);
+refused: within 64 m of the world's edge, `World.GetWaterAt` (RWG's water map), no biome / underwater / water / cave biome, any
+prefab within 16 m (`DynamicPrefabDecorator.HasPrefabsAtXZ`: POIs, street tiles, wilderness POIs - so never inside an
+infestation or a trader), `GameUtils.CheckForAnyPlayerHome` within 12 m (land claims, bedrolls, and through SC's own postfix
+outposts and enclave footprints), `ScEnclaves.NearEnclave` 60 m, another physical runner's destination or site within 48 m, terrain
+height < 2 (`World.GetHeightAt`, the terrain generator). For each kept point the biome (`World.GetBiomeInWorld`, the biome map)
+and its sub-biome (`IBiomeProvider.GetSubBiomeIdxAt`: the game's own noise test) - so whether it lies in one of biomes.xml's ore
+veins. Mine: vein points first (score 2, else 1); Dig clay: the first `DigClayItems` item's share of the ground (within 0.15 of the
+best). Of the best, the nearest three, one at random. Named for the lines: "an outcrop of <the vein's ore block> (<biome>)",
+"rocky ground (<biome>)", "a clay bank (<biome>)" / "sandy ground (<biome>)" (less than half clay). The runner walks straight to
+it (the spot is `LegTo`; `ScRunners.Dest` is null for a mining run, `ScRunners.cs:294`); at the site `SiteWanderGoal` keeps them
+moving within 6 m of where they stopped (`:394`) for `ScMining.SiteHours()` (`MiningRunSiteHours`, 0 = RunSiteHours, 6; BeginLeg
+and EtaTicks through `ScRunners.SiteHours(m)`, `:209`). No digging animation: the work is the clock, as a supply run's search is.
+
+**The mix, data-driven (`ScMining.cs:215-430`).** Per biome, once per world: every rock (stone or metal damage category) resource
+block of each sub-biome's layers x its prob x what blocks.xml says it harvests (Harvest drops with prob >= 0.5 and no perk tag -
+`oreWoodHarvest` or none, not the brass / lucky strike / coal-perk extras; the stone item left out), weighted by the sub-biome's
+noise window (max - min), the main layers by what the sub-biomes leave; each vein sub-biome's own ores; the ground's clay: the
+earth layers from the top (a thin rock cover - the wasteland's rubble - dug through; the first rock under earth or a bottomless one
+ends it) by depth (at most 4) x their `DigClayItems` harvest. A spot on a vein: its ores x `MiningVeinWeight` (3) + the biome's
+mix; off a vein the biome's mix. `MiningOreMix` (item:weight,...) replaces it all; a biome with no ore data falls back to
+scrap iron 2, coal, lead, nitrate 1. Read from the replayed 3.4 XML (`scratchpad\r33c\sim_hauls.py`): pine forest iron 0.41, coal
+/ lead / nitrate 0.20 each; desert iron 0.38, oil shale 0.26, nitrate 0.19, lead 0.17 (the only shale); snow iron 0.34, coal 0.31;
+wasteland iron 0.37, lead 0.30; burnt forest iron 0.34, nitrate 0.31; four vein sub-biomes in each. Clay: every biome all clay
+but the desert, half sand (its ground harvests 9 sand and 9 clay). Iron comes out ahead because an iron ore block harvests 105
+scrap iron to the others' 50.
+
+**The haul (`ScMining.cs:557-640`).** Per site hour at 1 Wits star with a tier 1 tool: Mine `MiningStonePerHour` 30 of
+`MiningStoneItem` (resourceRockSmall) and `MiningOrePerHour` 15 ore items (x `MiningNoVeinOreShare` 0.4 off a vein); Dig clay
+`DigClayPerHour` 40. Times the tool's tier factor x (1 + RunYieldPerWitsStar per Wits star above 1) x the traits' run yield
+(Tinkerer, Hoarder) x 1.25 above HighMoraleThreshold; no specialty term. Worked out at `ScRunners.LeaveSite` (`ScRunners.cs:704`,
+`TakeHaul`: a recall's share of the hours; a rescue x RescueBonus); the dice halve it (`RollRisk :838`, `DistressTimedOut :852`,
+`Halve`: mining runs only). A whole run (6 h), from the simulation:
+
+| tool, stars | Mine on a vein (pine forest, iron vein) | Mine off a vein | Dig clay |
+|---|---|---|---|
+| T0 kit (stone axe / shovel), 1 star | 108 stone, 46 iron, 3 coal, 3 lead, 3 nitrate (163) | 108 stone, 9 iron, 4+4+4 (129) | 144 clay |
+| T1 iron pickaxe / shovel, 1 star | 180 stone, 77 iron, 4+4+4 (269) | 180 stone, 15 iron, 7+7+7 (216) | 240 clay |
+| T2 steel, 4 stars | 365 stone, 156 iron, 9+9+9 (548) | 365 stone, 30 iron, 14+14+14 (437) | 487 clay |
+| T3 auger, 7 stars, high morale | 770 stone, 328 iron, 19+19+19 (1155) | 770 stone, 63 iron, 30+30+30 (923) | 1026 clay |
+
+The desert's lead vein at T1: 180 stone, 57 lead... (252); Dig clay there 120 clay + 120 sand. A player digging nonstop for the
+same 6 game hours (a 60-minute day: 900 s, quality 1, no perks, 60% of the time swinging; blocks.xml / materials.xml / the tools'
+DamageModifier): stone axe 1528 stone, iron pickaxe 2681, steel pickaxe 6806; on iron ore 1804 (stone axe) / 4094 (iron pickaxe)
+scrap iron; stone shovel 1650 clay, iron shovel 2475. So a miner brings about 5-10% of that (stone 7%, ore 2-5% of a solid vein,
+clay 9-10%) - "a helper, not a farm"; the settings scale it.
+
+**Delivery (`ScMining.cs:780-960`).** At the gate (`ScRunners.EnterBack :730` -> `AtGate`): Wits XP (RunWitsXp), then
+`Deliver`: while every chunk of the home zone is loaded (`HomeLoaded`) and their inventory window is not open, each item onto the
+home crates' stacks of the same item (`ScStorage.TopUpInZone`), then into empty slots a stack at a time (`DepositInZone`) - round
+29a's home-job path - and the rest into their inventory window (`HarvestManager.AddItem` by entity id; it goes with them on a re-key,
+round 29a's `CarryWindow`); what fits nowhere stays on the record, tried again every 2 min. One line says it: "<name> is back from
+<spot> with <items>." + "It's in the home crates." / "The home crates are full: <items> stay in their inventory." / "No room
+anywhere for <items> - it waits until you make room in the home crates." / "It goes into the home crates once you are home." (the
+zone unloaded: you are away). `ScMining.Tick` (ScTicker, every 2 s) puts away any haul that waited - a resident's, or a runner's at
+the gate - and says "<name> put <items> into the home crates." A new Mine waits until the last haul is gone. The registry: `haul=`
+in any status while it holds something, `runjob=mine:tier:tool:biome:sub` while OnRun on a mining run, and `carry=0` for a mining
+run, so an older build reading it as a materials run adds nothing (`ScRegistry.cs`).
+
+**Hidden runs (`ScRuns.Resolve`, `ScRuns.cs:338`).** No spot in reach, `PhysicalRuns` off, no player: `SendHidden` with the home's
+biome, off a vein; at the rollover `ResolveHidden` puts the whole run's haul (a rescue x RescueBonus, a bad roll half) on the record,
+the summary says "- <name> brought <items>", the message "<name> is back with <items>.", and Tick puts it away.
+
+**The rest of the supply-run machinery, reused.** Legs, offline walk, snapshot, escort (no dice while you are near), the stuck
+watchdog, `sc run <m> recall|home|skip|offline`, Recall ("Head home now." / the radio's Call home) with a share of the haul, the
+deadline fallback (`ForceHome`), the runner's call when attacked (round 29b) - all unchanged; the window and roster say "Mining at" /
+"Digging at" at the site (`scWinMineSite`, `scWinClaySite`, `scStMineSite`, `scStClaySite`). A **distress call** at a natural spot
+has no POI for the rescue quest: `ScQuests.StartRescueAt` (new, 3.4) marks a 16 x 16 square round the spot (`ScRadio.ForceDistress`);
+the event itself already worked by position. **Radio** (`ScRadioTalk.cs`): three caption-only lines where the supply runs' did not
+fit - arriving (`scRadioRunMineArrived_1` "Found good rock out here. Starting to dig.", `scRadioRunClayArrived_1` "Found a decent
+clay bank. Getting to work.") and a poor haul (`scRadioRunDigEmpty_1` "Hard ground, slow going. Not much to carry back."); the good
+haul, trouble, heading back and almost home are the voiced supply-run lines. Good or poor: at least 60% of a T1, 1-star whole run
+on a vein (`GoodHaul`).
+
+**Where the brief left a choice (decided here):**
+1. The ore mix is read from the game's parsed biomes (no table), the vein found by the game's own sub-biome noise; `MiningOreMix`
+   overrides it. Iron leads because blocks.xml makes iron ore richer.
+2. Tool tiers by the T tags (vanilla tags every tool T0-T3); quality only breaks ties.
+3. Defaults sit at about 5-10% of a player's nonstop rate (table above); ore 15/h, stone 30/h, clay 40/h.
+4. "A little sand": only where the ground gives it (the desert, half); elsewhere none.
+5. Delivery also waits for an unloaded home (the gate counts the haul while you are away) and for an open window; a haul that fits
+   nowhere waits on the record and blocks the next mining run.
+6. No specialty bonus for mining (none of the six fits); Wits XP as a supply run.
+7. 3.4 only: the work kit, the crates' top-up and the radio are 3.4 features.
+
+**Config** (`ScConfigMining.cs`; `Config/blocks.xml` after RunWitsXp, commented): `MiningRuns` true, `MiningRunSiteHours` 0,
+`MiningStonePerHour` 30, `MiningOrePerHour` 15, `MiningNoVeinOreShare` 0.4, `MiningVeinWeight` 3, `DigClayPerHour` 40,
+`MiningToolTags` miningTool, `DigToolTags` shovel, `MiningToolTierMults` 0.6,1,1.4,1.8, `MiningStoneItem` resourceRockSmall,
+`MiningOreMix` empty, `DigClayItems` resourceClayLump,resourceCrushedSand. Log: `config: mining runs on siteHours=6 stone=30/h ...`.
+
+**Console.** `sc run <member> mine|clay` (the tool taken, the spot or "on a hidden run", the whole run's haul by item; refused:
+the key, its line and the tool found); `sc runners` adds each miner's job, tool, tier factor, biome, sub-biome and haul, every haul
+waiting to be put away, and the counters (`mine-sent-physical|hidden`, `...-refused-no-tool`, `...-at-gate`, `...-hidden-back`,
+`items-to-crates`, `items-to-window`, `haul-no-room-anywhere`). Logging like the supply runs': the spot pick (point counts), the
+send, leaving the site with the haul, the gate and where each item went; `DebugLogging`: each biome's mix.
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_r33c`) 0 errors (the two known CS0108); the 3.2 configuration
+  (`build\sc32_r33c_scratch`) 0 errors; the tracked 3.2 `SurvivorCommunity.dll` untouched (`c4ad303a...`).
+- `cctor_order.py` on the ilspy IL of the 3.4 DLL: 145 static constructors, 0 reads before store.
+- IL (`scratchpad\r33c\il_where.py`): `TakeHaul` from LeaveSite, `AtGate` from EnterBack, `Halve` from RollRisk and DistressTimedOut,
+  `ClearJob` from ClearRun and ScRuns.Send, `SiteHours` from BeginLeg and EtaTicks, `ResolveHidden` from Resolve, `SendPhysicalTo` /
+  `SendHidden` from both senders, `TopUpInZone` / `DepositInZone` / `HarvestManager.AddItem` from Deliver, `ScMining.Tick` from
+  `ScTicker.OnGameUpdate`, `ResetMining` from `ScConfig.Reset`, the 13 keys in `ParseMining`, `StartRescueAt` from ForceDistress,
+  `GoodHaul` / `MineKeys` in ScRadioTalk, `ScMining.Send` from the dialog action and the console, `DecodeJob` / `EncodeJob` in the
+  registry.
+- XML replay (`x3\r33c_checks.py`, round 32's pointed at this worktree): every SC op matches, no aborts - 212/212 alone, 200/200 with
+  AshfallUI (2279/2279). Dialogs (`x3\r33c_dialogs_names.py`): the three dialogs with the supply-run row each list `scRunMine` and
+  `scRunClay` once, right after Fuel, with their requirement and action, nowhere else; every item and block name used exists in the
+  replayed 3.4 XML (the ores, stone, clay, sand, the tools, the terrain blocks); the window has both buttons once per look.
+- Offline simulation (`scratchpad\r33c\sim_hauls.py`, output `sim_hauls.txt`): the mixes and the table above, from the replayed XML.
+- Localization: 1562 rows of 7 cells, no duplicate key (35 new rows); every file touched LF, no BOM; the community generator is
+  idempotent (a second run leaves windows.xml byte-identical).
+
+**Not checked (in game only, TESTING M33 860-880):** the spot pick in a real world (water, cliffs, how often a vein is in reach),
+the walk to a spot with no road, what working the spot looks like, the crates' top-up and the inventory window with real hauls, the
+haul waiting while you are away, the hidden run, the radio captions, the distress quest's marker on a natural spot, a save/load
+mid-run, IGP or other mods that retag tools or change the ores (the replay covers SCore, 0-XNPCCore and SC only).
+
+Builds: SC 3.4 `eb2e337a3259679c053481a6a4dc3a8a` (`build\sc34_r33c`), 0 errors. Not installed.

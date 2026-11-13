@@ -615,6 +615,36 @@ walk back.
 - A runner who dies out of sight loses what was in their inventory, and you are told what was lost.
 - Runs earn Wits XP, and specialty XP for the matching job.
 
+### Mining runs
+
+Residents don't do the Mine or Dig clay jobs at home. Instead, **Mine** and **Dig clay** sit beside the resources in the
+same list ("I need you to go find supplies." and **Send on supply run** in the community window). They work like a supply
+run, but the haul is **real items in your home crates**, not stockpile units.
+
+- **A tool.** For Mine they need a mining tool (any pickaxe, an auger, or the work kit's stone axe); for Dig clay a shovel
+  (the kit's stone shovel counts). It can be in their toolbelt, bag or inventory. Without one they refuse and say why. The
+  best tool they carry sets the haul: a stone axe or stone shovel brings 60%, an iron pickaxe or shovel 100%, steel 140%,
+  an auger 180%.
+- **Where they go.** A natural spot **150 to 700 m** from home: away from buildings, water, land claims, bedrolls,
+  outposts and enclaves. For Mine they look for one of the biome's ore veins first; for Dig clay, ground with clay in it.
+  The community window and the messages name it: "an outcrop of Iron Ore (Pine Forest)", "rocky ground (Desert)", "a clay
+  bank (Forest)".
+- **The trip** is a supply run's: they walk there, work the spot for **6 game hours**, and walk back. The same risk,
+  escort, distress calls and radio apply. A mining runner with a radio has a few lines of their own (text only, no voice).
+- **What they bring** for a whole run with an iron tool and 1 Wits star:
+  - **Mine on a vein:** about 180 stone and 90 ore, mostly the vein's own ore (iron, coal, lead, nitrate, or oil shale in
+    the desert), a little of the biome's others.
+  - **Mine off a vein:** the same stone, and less than half the ore.
+  - **Dig clay:** about 240 clay. In the desert the ground gives half sand.
+  - **+15% per Wits star** above the first, trait bonuses, and **x1.25** when morale is above 75. A bad roll halves it.
+  - That is a small share of what you would dig yourself in the same hours: a helper, not a mining machine.
+- **Delivery.** At the edge of the base the items go **into the home crates**, onto stacks of the same item first. If the
+  crates are full, the rest stays in **their inventory** (Show me your inventory), and they tell you. If you are away from
+  home when they get back, the haul waits until you are home and then goes in.
+- With no spot in range (or `PhysicalRuns` off) they go on a **hidden run** and come back at the next rollover with the
+  home biome's stone and ore (or clay).
+- They will not go again while the last haul is still waiting to be put away. Make room in the crates first.
+
 ### Runners with a handheld radio
 
 Put a **Handheld Radio** (section 10) in a member's inventory before a run, and:
@@ -1350,6 +1380,22 @@ These are the ones you are most likely to change. The file has many more.
 | `DistressNeedsRadio` | true | Only runners with a radio can get pinned down and call for help |
 | `WindowRecallNeedsRadio` | true | The community window's Recall home needs the runner's radio |
 | `RunnerCallsWhenAttacked` | true | Runners with a radio call when attacked |
+
+### Mining runs
+
+| Setting | Default | What it does |
+|---|---|---|
+| `MiningRuns` | true | Offer Mine and Dig clay as runs (false: not offered) |
+| `MiningRunSiteHours` | 0 | Game hours they work the spot (0: the same as `RunSiteHours`) |
+| `MiningStonePerHour` / `MiningOrePerHour` | 30 / 15 | Stone and ore a Mine run brings per site hour (iron tool, 1 Wits star, on a vein) |
+| `MiningNoVeinOreShare` | 0.4 | The share of the ore a spot off any vein gives |
+| `MiningVeinWeight` | 3 | How much the vein's own ore outweighs the biome's other ores |
+| `DigClayPerHour` | 40 | Clay a Dig clay run brings per site hour (iron shovel, 1 Wits star) |
+| `MiningToolTags` / `DigToolTags` | miningTool / shovel | Item tags that make a mining tool and a digging tool |
+| `MiningToolTierMults` | 0.6,1,1.4,1.8 | The haul by the tool's tier (T0, T1, T2, T3) |
+| `MiningStoneItem` | resourceRockSmall | The stone they bring |
+| `MiningOreMix` | (empty) | Empty: the ores come from each biome's veins in biomes.xml. Or a fixed list like `resourceScrapIron:2,resourceCoal:1` |
+| `DigClayItems` | resourceClayLump, resourceCrushedSand | What Dig clay can bring, as the ground's layers give it |
 
 ### Crafting and work
 

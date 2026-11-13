@@ -199,10 +199,19 @@ namespace SurvivorCommunity
             if (leg == RunLeg.Outbound || leg == RunLeg.Inbound)
                 m.LegEnd = now + (ulong)Mathf.CeilToInt(XZ(from, to) / MetresPerTick);
             else if (leg == RunLeg.AtSite)
-                m.LegEnd = now + (ulong)Mathf.RoundToInt((m.RunDistress && !m.RunSafe ? ScConfig.RunDistressHours : ScConfig.RunSiteHours) * TicksPerHour);
+                m.LegEnd = now + (ulong)Mathf.RoundToInt((m.RunDistress && !m.RunSafe ? ScConfig.RunDistressHours : SiteHours(m)) * TicksPerHour);
             else m.LegEnd = now;
             m.RunEndDay = GameUtils.WorldTimeToDays(now + EtaTicks(m));   // shown in the window; physical runs do not resolve at the rollover
             RebuildRunnerSet();
+        }
+
+        /// <summary>The hours a runner spends at the site: RunSiteHours, or (round 33c, M33) a mining run's ScMining.SiteHours.</summary>
+        public static float SiteHours(Member m)
+        {
+#if SC_V34
+            if (ScMining.IsDig(m)) return ScMining.SiteHours();
+#endif
+            return ScConfig.RunSiteHours;
         }
 
         /// <summary>ScRuns.SendPhysical: the runner is in the world, walking out of the base.</summary>
@@ -234,7 +243,7 @@ namespace SurvivorCommunity
             ulong leg = m.LegEnd > m.LegStart ? m.LegEnd - m.LegStart : 0UL;
             switch (m.RunLeg)
             {
-                case RunLeg.Outbound: return leg + (ulong)(ScConfig.RunSiteHours * TicksPerHour) + home;
+                case RunLeg.Outbound: return leg + (ulong)(SiteHours(m) * TicksPerHour) + home;
                 case RunLeg.AtSite: return leg + home;
                 default: return leg;
             }
@@ -281,6 +290,9 @@ namespace SurvivorCommunity
 
         public static PrefabInstance Dest(Member m)
         {
+#if SC_V34
+            if (ScMining.IsDig(m)) return null;                                                // round 33c: a natural spot, no POI
+#endif
             Session s = S(m.Id);
             if (s.Poi == null || s.PoiKey != m.RunDest) { s.Poi = ScSecurity.PoiByKey(m.RunDest); s.PoiKey = m.RunDest; }
             return s.Poi;
@@ -378,6 +390,15 @@ namespace SurvivorCommunity
         /// <summary>A spot to wander to inside the destination POI (ground floor only), else just outside it.</summary>
         public static Vector3 SiteWanderGoal(World w, EntityAlive self, Member m)
         {
+#if SC_V34
+            if (ScMining.IsDig(m))
+            {
+                // round 33c (M33): working the spot - moving about within 6 m of where they reached it
+                Vector3 dig;
+                Vector3i c = m.RunSite != Vector3i.zero ? m.RunSite : m.LegTo;
+                return WanderSpot(w, self.rand ?? w.GetGameRandom(), new Vector3i(c.x - 6, c.y, c.z - 6), new Vector3i(12, 1, 12), out dig) ? dig : C(c);
+            }
+#endif
             PrefabInstance pi = Dest(m);
             if (pi == null) return C(m.RunSite);
             Vector3 spot;
@@ -679,8 +700,14 @@ namespace SurvivorCommunity
         /// <summary>The site search is over: bank the find (prorated for a recall) and head for the gate.</summary>
         public static void LeaveSite(EntityPlayerLocal player, Member m, Vector3 at, ulong now, bool rescued, float share)
         {
-            int y = Mathf.RoundToInt(ScRuns.Yield(m, m.RunKind) * Mathf.Clamp01(share));
-            m.RunCarry = rescued ? Mathf.RoundToInt(y * ScConfig.RescueBonus) : y;
+#if SC_V34
+            if (ScMining.IsDig(m)) m.RunCarry = ScMining.TakeHaul(m, share, rescued);           // round 33c (M33): real items, onto RunHaul
+            else
+#endif
+            {
+                int y = Mathf.RoundToInt(ScRuns.Yield(m, m.RunKind) * Mathf.Clamp01(share));
+                m.RunCarry = rescued ? Mathf.RoundToInt(y * ScConfig.RescueBonus) : y;
+            }
             m.RollPending = !rescued;
             BeginLeg(m, RunLeg.Inbound, at, GatePoint(m, at, player), now);
 #if SC_V34
@@ -688,7 +715,7 @@ namespace SurvivorCommunity
             // a recall marked both as said already
             if (!rescued && !m.Injured) ScRadioTalk.OnLeftSite(m, player);
 #endif
-            ScLog.Out(m.Name + " leaves " + m.RunDestName + " with " + m.RunCarry + " " + m.RunKind + (rescued ? " (rescued)" : ""));
+            ScLog.Out(m.Name + " leaves " + m.RunDestName + " with " + m.RunCarry + " " + Carried(m) + (rescued ? " (rescued)" : ""));
             ScRegistry.SaveAtomic();
         }
 
@@ -699,6 +726,10 @@ namespace SurvivorCommunity
             ScRadioTalk.Say(m, RadioTalk.Near, player, false);                                  // R2: "Almost home."
 #endif
             bool visited = m.RunSite != Vector3i.zero;                                          // recalled before reaching the site: nothing found, nothing learnt
+#if SC_V34
+            if (visited && ScMining.IsDig(m)) ScMining.AtGate(player, m);                       // round 33c (M33): the haul into the home crates
+            else
+#endif
             if (visited)
             {
                 ScRegistry.Community.Add(m.RunKind, m.RunCarry);
@@ -708,7 +739,7 @@ namespace SurvivorCommunity
                 if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get(m.Injured ? "scRunHurt" : "scRunBack"), m.Name, m.RunCarry, res), m.Injured ? "ui_denied" : "");
             }
             else if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRunBackEmpty"), m.Name, m.RunDestName), "");
-            ScLog.Out(m.Name + " is back from " + m.RunDestName + (visited ? " with " + m.RunCarry + " " + m.RunKind : " empty-handed (turned back early)") + (m.Injured ? " (injured)" : ""));
+            ScLog.Out(m.Name + " is back from " + m.RunDestName + (visited ? " with " + m.RunCarry + " " + Carried(m) : " empty-handed (turned back early)") + (m.Injured ? " (injured)" : ""));
             m.RunCarry = 0;
             m.RollPending = false;                                                              // an escorted runner reaching home was never rolled
             Vector3 gate = C(m.LegTo);
@@ -748,8 +779,18 @@ namespace SurvivorCommunity
 #if SC_V34
             m.RunRadio = false;                                                                 // R2: the run's radio state ends with it
             m.RunTalk = 0;
+            ScMining.ClearJob(m);                                                               // round 33c: a haul still to put away stays (RunHaul)
 #endif
             sessions.Remove(m.Id);
+        }
+
+        /// <summary>The log's word for a runner's carry: the resource, or (round 33c) a mining run's items.</summary>
+        private static string Carried(Member m)
+        {
+#if SC_V34
+            if (ScMining.IsDig(m)) return "item(s) [" + m.RunHaul + "]";
+#endif
+            return m.RunKind.ToString();
         }
 
         private static void AdvanceOffline(World w, EntityPlayerLocal player, Member m, ulong now)
@@ -793,6 +834,9 @@ namespace SurvivorCommunity
             }
             m.Injured = true;
             m.RunCarry = Math.Max(0, m.RunCarry / 2);
+#if SC_V34
+            ScMining.Halve(m);                                                                  // round 33c: half the items too
+#endif
             ScLog.Out(m.Name + " was hurt on the way home (risk " + risk.ToString("0.00") + ")");
             ScRegistry.SaveAtomic();
         }
@@ -804,6 +848,9 @@ namespace SurvivorCommunity
             m.Injured = true;
             LeaveSite(player, m, C(m.RunSite), now, false, 1f);
             m.RunCarry = Math.Max(0, m.RunCarry / 2);
+#if SC_V34
+            ScMining.Halve(m);                                                                  // round 33c: half the items too
+#endif
             m.RollPending = false;
             ScRegistry.SaveAtomic();
         }
@@ -1438,6 +1485,9 @@ namespace SurvivorCommunity
                    + " at " + World.worldToBlockPos(at) + " (" + dist.ToString("0") + " m, ring " + Ring(player, at) + "/D " + ViewDim(player) + ")"
                    + " leg left " + (left / (float)TicksPerHour).ToString("0.0") + " h, ETA day " + m.RunEndDay
                    + ", carry " + m.RunCarry + (m.RollPending ? " (dice pending)" : "")
+#if SC_V34
+                   + ScMining.DescribeRun(m)
+#endif
                    + ", snapshot " + SnapBytes(m) + " b"
                    + (s.MeasuredMps > 0f ? ", moves at " + s.MeasuredMps.ToString("0.00") + " m/s (offline pace " + ScConfig.RunWalkMps.ToString("0.00") + ")" : "")
                    + (s.LastCreateMs >= 0 ? ", last build " + s.LastCreateMs + " ms" : "");

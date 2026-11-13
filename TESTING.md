@@ -2996,6 +2996,80 @@ look steps twice where they say so: once without `zzzzz_AshfallUI` in `Mods`, on
 777. **Nothing else moved.** Without Ashfall UI: the NPC's line above the responses, the talk page's pager, the Radio /
      Community tabs left of the tab bar and the ESC menu's Community entry look as before.
 
+**M33. Round 33c: mining runs - Mine and Dig clay as runs (3.4)**
+
+Built 2026-11-13 on branch `ms/r33c` (SC 3.4 DLL `eb2e337a3259679c053481a6a4dc3a8a`, `Port33\build\sc34_r33c`), **not installed**: these steps
+wait for the install. Your decision (2026-11-13): residents don't do 0-XNPCCore's Mine / Dig clay at home; pick them like a
+supply run instead - the runner walks to a real spot away from home, works it for a few game hours, walks back, and what they
+dig goes into the home crates as real items. They need a mining tool or a shovel (the work kit's stone axe and stone shovel
+count). Same risks, escort and radio as supply runs. Set `DebugLogging` true for the `mining mix for ...` lines. `sc runners`
+shows every mining runner's job, tool, spot and haul, the hauls waiting to be put away, and the counters.
+
+860. **Start-up.** Load the world. The log has `config: mining runs on siteHours=6 stone=30/h ore=15/h (off a vein x0.4, vein
+     weight 3) clay=40/h tools=miningTool/shovel tiers=0.6,1,1.4,1.8 stoneItem=resourceRockSmall oreMix=biomes.xml
+     clayItems=resourceClayLump+resourceCrushedSand`, and no XML `did not apply` line for SurvivorCommunity.
+861. **The talk's rows.** Talk to a resident at home: **I need you to go find supplies.** lists Food, Water, Medical, Ammo,
+     Materials, Fuel, then **Mine stone and ore** and **Dig clay**, then Nevermind (a second page if it is long). Not on a
+     follower (no supply-run row there at all).
+862. **The community window's picker.** Select a resident, **Send on supply run**: one row of eight buttons, FOOD WATER MEDICAL
+     AMMO MATERIALS FUEL MINE DIG CLAY, every label inside its button, the row inside the panel. Both looks: once without
+     `zzzzz_AshfallUI`, once with it.
+863. **No tool, no run.** Set `MemberWorkKit` to `none` (restart), and make sure the resident carries no pickaxe, axe or shovel
+     (Show me your inventory). **Mine stone and ore**: "They have nothing to mine with - hand them a pickaxe (a stone axe will
+     do) first." **Dig clay**: "They have nothing to dig with - hand them a shovel first." The same in the window, with the
+     denied sound. The log says `... carries no mining tool (tags miningTool) - refused`. Put `MemberWorkKit` back after.
+864. **The tool they take.** With the kit only: `sc run <name> mine` says `with meleeToolRepairT0StoneAxe (T0, work kit)`; `sc
+     run <name> clay` says `meleeToolShovelT0StoneShovel (T0, work kit)`. Hand them an iron pickaxe through Show me your
+     inventory (recall them first, or use a second resident): `meleeToolPickT1IronPickaxe (T1, inventory)`, and the printed
+     whole-run haul is about 1.7 times the stone axe's.
+865. **A spot is found.** Send **Mine stone and ore** from the talk: "<name> sets off on foot for an outcrop of <ore> (<biome>)
+     (N m) to look for stone and ore - back around day D." (or "rocky ground (<biome>)" when no vein is in reach). The log has
+     `mining: mine spot ...` (`on a vein` when it is one) and `<name> takes their <tool> ... to ...`. The community window says
+     "Walking to an outcrop of ... for stone and ore". Follow them or fly to the spot `sc runners` names: open ground, no
+     building within about 16 m, no water, no land claim, outpost or enclave nearby, 150-700 m from home.
+866. **Working the spot.** There they move about within a few meters of where they stopped for 6 game hours. The window says
+     "Mining at ...", the roster "Run: mining at ...". (They do not swing their tool: the work is the clock, as a supply run's
+     search is.)
+867. **Dig clay.** The same with **Dig clay**: "a clay bank (<biome>)"; "Digging at ..." in the window. A base in the desert
+     with only desert in reach: "sandy ground (Desert)", and the haul is about half sand.
+868. **Escort.** Walk with a miner all the way: nothing is rolled while you are with them (no `hurt on the way home` in the
+     log); zombies that come at them are real.
+869. **The haul in the crates.** Stand at home when they reach the edge of the base: one message, "<name> is back from <spot>
+     with 180 Small Stone, 77 Scrap Iron, 4 Coal, 4 Lead and 4 Potassium Nitrate. It's in the home crates." (the numbers
+     depend on the tool, stars, morale and spot). Open the crates: the items are there, added onto stacks of the same item
+     first. The log line lists what went where.
+870. **Crates full.** Fill every home crate, send a miner, wait for them at home: "... The home crates are full: <items> stay
+     in their inventory." Show me your inventory: the items are in their inventory.
+871. **No room anywhere.** Fill the crates and the miner's inventory too, send them again (with room for nothing): back at the
+     edge, "... No room anywhere for <items> - it waits until you make room in the home crates." The haul waits (`sc
+     runners`: `has a haul to put away`), and a new **Mine** is refused: "They still have the last haul to put away - make room in the home crates first." Make
+     room in a crate: within about 2 minutes "<name> put ... into the home crates."
+872. **Back while you are away.** Send a miner, then go far away (beyond your view distance) until `sc runners` says they are
+     at the gate (Back). The log: `the home crates are not loaded: it waits on the record until they are`; their haul shows
+     under `has a haul to put away`. Come home: within a few seconds "<name> put ... into the home crates."
+873. **Hidden run.** Set `PhysicalRuns` to false (restart) and send **Mine**: "<name> has left to look for stone and ore. Back on
+     day D." At the rollover the day's summary has "- <name> brought 108 Small Stone, ..." and a message "<name> is back with
+     ..."; a moment later "<name> put ... into the home crates." (off a vein: little ore, the home biome's). Put `PhysicalRuns`
+     back.
+874. **The radio.** Give a miner a handheld radio and carry one yourself; stay more than 30 m away. On arrival: "<name> on the
+     radio: "Found good rock out here. Starting to dig."" (Dig clay: "Found a decent clay bank. Getting to work.") - the words
+     only, no voice. Leaving the spot: with a good haul the supply runs' voiced "Good haul over here..."; with the stone axe at
+     1 star off a vein: "Hard ground, slow going. Not much to carry back." (no voice). The way home and "Almost home" as on
+     supply runs.
+875. **Distress at a spot.** `sc distress <name>` while a miner works the spot: the radio call, and a journal quest whose marker
+     is a square around the spot (no building). Go within 70 m: zombies close in on them; clear them: they come home with 25%
+     more.
+876. **Recall.** Talk to a miner at the spot (or Recall home with their radio): **Head home now.** They bring a share of the haul
+     by the time they worked ("... with 60 Small Stone, ..."). Recalled on the way out: home empty-handed.
+877. **A bad roll.** `sc run <name> home` while they are out of your sight (it forces the way home and its dice; repeat with
+     other runs if the roll is good): "<name> came back injured from <spot> with ..." with about half the items.
+878. **Save and load mid-run.** Quit while a miner is out (offline), load again: `sc runners` shows the same job, tool, spot and
+     sub-biome, and after they leave the spot the same haul; they still come home and put it away.
+879. **Switched off.** `MiningRuns` false (restart): the two rows are gone from the talk; the window's MINE / DIG CLAY say "Mining
+     runs are switched off."; `sc run <name> mine` is refused with `scMineOff`.
+880. **A fixed ore mix.** `MiningOreMix` to `resourceScrapIron:1` (restart): a Mine run's ore is all scrap iron, on a vein or off.
+     Put it back to empty.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

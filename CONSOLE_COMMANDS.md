@@ -54,6 +54,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc defense [horde]` | Defense rating against a horde, term by term. [READ] |
 | `sc watch` | Watch posts, guards, hours left. |
 | `sc run <member> <res>` / `sc runners` | Send a supply run; list who is out. |
+| `sc run <member> mine` / `clay` | Send a mining run (Mine, Dig clay). [CHEAT] |
 | `sc radio` | Radio stations, power, handheld radio state, runner talk. [READ] |
 | `sc radio give <member>` | Put a handheld radio in a member's inventory. [CHEAT] |
 | `sc outpost list` / `yield` | Outposts and tonight's yield. [READ] |
@@ -194,12 +195,21 @@ leave the world.
 Sends a member on a supply run for that resource. Prints the destination and expected yield, or why it was refused.
 Example: `sc run Dana ammo`
 
+### `sc run <id|name> mine|clay` [CHEAT]
+Sends a member on a **mining run** (round 33c, 3.4): `mine` for stone and ore, `clay` to dig clay (aliases: `mining`, `ore`,
+`dig`). They need a mining tool (a pickaxe, the stone axe, an auger) or a shovel. Prints the tool they take (item, tier,
+and where it is: toolbelt, bag, inventory or work kit), the natural spot and its distance (or "on a hidden run"), and what
+a whole run would bring, item by item. Refused: the reason key and its line, and the tool it found, if any.
+Example: `sc run Dana mine`
+
 ### `sc run <id|name> recall|home|skip|offline` [CHEAT]
 Drives a **physical** run (tests): `recall` turns them home; `home` forces them to the gate now (the run's dice may kill them); `skip` ends the current leg now; `offline` takes the body offline.
 Example: `sc run Dana skip`
 
 ### `sc runners` [READ]
-Lists who is out, their leg and distance, and the physical-run settings.
+Lists who is out, their leg and distance, and the physical-run settings. A mining runner's line adds the job, the tool and
+its tier factor, the spot's biome and sub-biome, and the haul they carry. Then: every haul still waiting to be put away
+(whose, and what), and the mining runs' counters (sent, refused for no tool, hauls to the crates and to inventories).
 
 ### `sc distress <id|name>` [CHEAT]
 Forces a radio distress call from a member on a run (a physical run must be at the site). Refuses if there is no POI in range or no radio online.

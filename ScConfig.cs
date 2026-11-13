@@ -1246,6 +1246,7 @@ namespace SurvivorCommunity
 #if SC_V34
             ResetCraft();                          // C1 (ScConfigCraft.cs)
             ResetRadio();                          // R2 (ScConfigRadio.cs)
+            ResetMining();                         // round 33c (ScConfigMining.cs): mining runs
 #endif
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
@@ -2352,6 +2353,7 @@ namespace SurvivorCommunity
 #if SC_V34
                 ParseCraft(p);                     // C1 (ScConfigCraft.cs)
                 ParseRadio(p);                     // R2 (ScConfigRadio.cs)
+                ParseMining(p);                    // round 33c (ScConfigMining.cs): mining runs
 #endif
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
@@ -2631,6 +2633,7 @@ namespace SurvivorCommunity
 #if SC_V34
                 ScLog.Out("config: crafting " + CraftLine());   // C1 (ScConfigCraft.cs)
                 ScLog.Out("config: handheld radio " + RadioLine());   // R2 (ScConfigRadio.cs)
+                ScLog.Out("config: mining runs " + MiningLine());     // round 33c (ScConfigMining.cs)
 #endif
             }
             catch (Exception e)

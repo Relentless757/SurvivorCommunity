@@ -1141,6 +1141,12 @@ namespace SurvivorCommunity
                 }
                 case "runradio": m.RunRadio = val == "1"; break;                       // R2 (ScHandheld)
                 case "runtalk": m.RunTalk = Math.Max(0, I(val)); break;                 // R2 (ScRadioTalk)
+                case "runjob": ScMining.DecodeJob(m, val); break;                       // round 33c (M33): a mining run
+                case "haul":
+                    // round 33c (M33): a mining run's haul, carried or waiting to be put away; while OnRun its total is the carry
+                    m.RunHaul = ScMining.Encode(ScMining.Decode(val));
+                    if (m.Status == MemberStatus.OnRun) m.RunCarry = ScMining.Total(m.RunHaul);
+                    break;
 #endif
                 case "arrive":
                 {
@@ -1716,7 +1722,13 @@ namespace SurvivorCommunity
                 sb.AppendLine("legto=" + Vec(m.LegTo));
                 sb.AppendLine("legt=" + m.LegStart.ToString(CultureInfo.InvariantCulture) + ":" + m.LegEnd.ToString(CultureInfo.InvariantCulture));
                 sb.AppendLine("offline=" + (m.Offline ? 1 : 0));
+#if SC_V34
+                // round 33c (M33): a mining run's carry is its haul (haul= below) - 0 here, so an older build that reads it as a
+                // materials run adds nothing to the stockpile
+                sb.AppendLine("carry=" + (ScMining.IsDig(m) ? 0 : m.RunCarry));
+#else
                 sb.AppendLine("carry=" + m.RunCarry);
+#endif
                 sb.AppendLine("rollpending=" + (m.RollPending ? 1 : 0));
                 if (!string.IsNullOrEmpty(m.Snap)) sb.AppendLine("snap=" + m.Snap);   // base64url: never Clean()ed (it has no '=' or ';')
             }
@@ -1742,6 +1754,8 @@ namespace SurvivorCommunity
             if (m.CraftXpCarry > 0f) sb.AppendLine("craftxp=" + m.CraftXpCarry.ToString("0.###", CultureInfo.InvariantCulture));
             if (m.Status == MemberStatus.OnRun && m.RunRadio) sb.AppendLine("runradio=1");                         // R2 (ScHandheld)
             if (m.Status == MemberStatus.OnRun && m.RunTalk != 0) sb.AppendLine("runtalk=" + m.RunTalk);            // R2 (ScRadioTalk)
+            if (m.Status == MemberStatus.OnRun && ScMining.IsDig(m)) sb.AppendLine("runjob=" + Clean(ScMining.EncodeJob(m)));   // round 33c (M33)
+            if (!string.IsNullOrEmpty(m.RunHaul)) sb.AppendLine("haul=" + Clean(m.RunHaul));                          // round 33c: after carry=
 #endif
             if (m.Status == MemberStatus.Arriving)
                 sb.AppendLine("arrive=" + Math.Max(1UL, m.ArriveAt).ToString(CultureInfo.InvariantCulture) + ":" + m.ArriveEnclave.ToString(CultureInfo.InvariantCulture) + ":"

@@ -116,6 +116,11 @@ namespace SurvivorCommunity
                 Hook("btnRunAmmo", () => OnRun(Resource.Ammo));
                 Hook("btnRunMaterials", () => OnRun(Resource.Materials));
                 Hook("btnRunFuel", () => OnRun(Resource.Fuel));
+#if SC_V34
+                // round 33c (M33): Mine and Dig clay beside the resources (optional: an older windows.xml has neither)
+                HookOptional("btnRunMine", () => OnRunJob(RunJob.Mine));
+                HookOptional("btnRunClay", () => OnRunJob(RunJob.Clay));
+#endif
                 // the newer layout's controls: optional, the original window has none of them
                 HookOptional("btnRun", OnRunToggle);
                 HookOptional("btnFilter", OnFilterCycle);
@@ -1190,6 +1195,22 @@ namespace SurvivorCommunity
             else { message = Localization.Get(err ?? "scInternal"); p.PlayOneShot("ui_denied"); }
             Refresh();
         }
+
+#if SC_V34
+        /// <summary>Round 33c (M33): a mining run from the run picker (ScMining.Send: a tool for the job, a natural spot or a hidden run).</summary>
+        private void OnRunJob(RunJob job)
+        {
+            Member m = Selected;
+            EntityPlayerLocal p = Player;
+            if (m == null || p == null) return;
+            EntityAlive npc = ScCommunity.FindNpc(m.Id);
+            string err;
+            runPicking = false;
+            if (ScMining.Send(m, npc, job, p, out err)) message = string.Format(Localization.Get("scRunSent"), m.Name, ScRuns.What(m), m.RunEndDay);
+            else { message = Localization.Get(err ?? "scInternal"); p.PlayOneShot("ui_denied"); }
+            Refresh();
+        }
+#endif
 
         // ---- morale parts ----
 

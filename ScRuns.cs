@@ -47,6 +47,7 @@ namespace SurvivorCommunity
             if (!CanSend(m, npc, out error)) return false;
 #if SC_V34
             ScWork.EndFor(m, "sent on a supply run");   // C1: off the work shift first
+            ScMining.ClearJob(m);                       // round 33c (M33): a supply run, not a mining one
 #endif
             if (ScConfig.PhysicalRuns && player != null && player.ChunkObserver != null)
             {
@@ -55,6 +56,27 @@ namespace SurvivorCommunity
                 if (dest != null) return SendPhysical(m, npc, kind, player, dest, out error);
                 ScLog.Out("no POI " + ScConfig.RunMinDist + "-" + ScConfig.RunMaxDist + " m from home for a " + kind + " run - " + m.Name + " goes on a hidden run instead");
             }
+            return SendHidden(m, npc, kind, player, out error);
+        }
+
+        /// <summary>
+        /// What the run is for, in its lines: the resource ("food"), or (round 33c, M33) a mining run's "stone and ore" / "clay".
+        /// </summary>
+        public static string What(Member m)
+        {
+#if SC_V34
+            if (ScMining.IsDig(m)) return ScMining.What(m.RunJob);
+#endif
+            return Localization.Get(ScNames.LocKey(m.RunKind));
+        }
+
+        /// <summary>
+        /// A hidden ("legacy") run: parked at home, invisible, resolved at the day rollover (Resolve). Also a mining run with no
+        /// natural spot in reach (ScMining.Send, round 33c), whose job fields are set before the call.
+        /// </summary>
+        internal static bool SendHidden(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, out string error)
+        {
+            error = null;
             try
             {
                 m.Status = MemberStatus.OnRun;
@@ -74,8 +96,8 @@ namespace SurvivorCommunity
                 World rw = ScCommunity.World;
                 bool distress = ScRadio.RollDistress(m, player, rw != null ? rw.GetGameRandom() : null);
                 ScRegistry.SaveAtomic();
-                if (player != null && !distress) ScCommunity.Tell(player, string.Format(Localization.Get("scRunSent"), m.Name, Localization.Get(ScNames.LocKey(kind)), m.RunEndDay), "");
-                ScLog.Out(m.Name + " left on a supply run for " + kind + ", back on day " + m.RunEndDay);
+                if (player != null && !distress) ScCommunity.Tell(player, string.Format(Localization.Get("scRunSent"), m.Name, What(m), m.RunEndDay), "");
+                ScLog.Out(m.Name + " left on a supply run for " + WhatLog(m) + ", back on day " + m.RunEndDay);
                 return true;
             }
             catch (Exception e)
@@ -89,6 +111,26 @@ namespace SurvivorCommunity
         /// <summary>A physical run: the runner walks out of the base toward the destination POI right now.</summary>
         private static bool SendPhysical(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, PrefabInstance dest, out string error)
         {
+            Vector3 arrive = ScRunners.EdgeNearest(ScCommunity.World, dest, npc.position);
+            int dist = Mathf.RoundToInt(ScOutposts.DistanceToHome(dest.boundingBoxPosition, dest.boundingBoxSize));
+            return SendPhysicalTo(m, npc, kind, player, dest.boundingBoxPosition, ScSecurity.DisplayName(dest), arrive, dist, out error);
+        }
+
+        /// <summary>The log's name for what the run is for: the resource, or (round 33c) mine / clay.</summary>
+        private static string WhatLog(Member m)
+        {
+#if SC_V34
+            if (ScMining.IsDig(m)) return ScMining.Key(m.RunJob);
+#endif
+            return m.RunKind.ToString();
+        }
+
+        /// <summary>
+        /// A physical run to a destination: destKey (a POI's boundingBoxPosition, or round 33c's natural spot), its name, the point
+        /// the runner walks to and the distance the lines name. A mining run's job fields are set before the call.
+        /// </summary>
+        internal static bool SendPhysicalTo(Member m, EntityAlive npc, Resource kind, EntityPlayerLocal player, Vector3i destKey, string destName, Vector3 arrive, int dist, out string error)
+        {
             error = null;
             World w = ScCommunity.World;
             // the snapshot first: without one the registry could not carry them once they are out of sight, and a
@@ -101,8 +143,8 @@ namespace SurvivorCommunity
                 m.Status = MemberStatus.OnRun;
                 ScStuck.ResetGain(m);   // round 29 review L5
                 m.RunKind = kind;
-                m.RunDest = dest.boundingBoxPosition;
-                m.RunDestName = ScSecurity.DisplayName(dest);
+                m.RunDest = destKey;
+                m.RunDestName = destName ?? "";
                 m.RunSite = Vector3i.zero;
                 m.RunCarry = 0;
                 m.RollPending = false;
@@ -122,13 +164,12 @@ namespace SurvivorCommunity
                 ScNpc.RestoreSpeed(npc);
                 if (npc.getNavigator() != null) npc.getNavigator().clearPath();
                 if (npc.moveHelper != null) npc.moveHelper.Stop();
-                ScRunners.BeginLeg(m, RunLeg.Outbound, npc.position, ScRunners.EdgeNearest(w, dest, npc.position), now);
+                ScRunners.BeginLeg(m, RunLeg.Outbound, npc.position, arrive, now);
                 m.Snap = snap;
                 ScRunners.OnSent(m, npc);
                 ScRegistry.SaveAtomic();
-                int dist = Mathf.RoundToInt(ScOutposts.DistanceToHome(dest.boundingBoxPosition, dest.boundingBoxSize));
-                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRunDeparts"), m.Name, m.RunDestName, dist, Localization.Get(ScNames.LocKey(kind)), m.RunEndDay), "");
-                ScLog.Out(m.Name + " set off on foot for " + m.RunDestName + " " + m.RunDest + " (" + dist + " m) to look for " + kind + ", back around day " + m.RunEndDay);
+                if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scRunDeparts"), m.Name, m.RunDestName, dist, What(m), m.RunEndDay), "");
+                ScLog.Out(m.Name + " set off on foot for " + m.RunDestName + " " + m.RunDest + " (" + dist + " m) to look for " + WhatLog(m) + ", back around day " + m.RunEndDay);
                 return true;
             }
             catch (Exception e)
@@ -274,6 +315,7 @@ namespace SurvivorCommunity
                     int yield = Yield(m, kind);
                     bool bad = roll < risk;
                     bool dead = bad && roll2 < ScConfig.RunDeathShare;
+                    bool rescued = m.RunDistress && m.RunSafe;      // EndDistress below clears the flags (round 33c's haul reads it)
                     if (m.RunDistress)
                     {
                         // a radio distress run: the player's answer decides it, not the dice
@@ -290,14 +332,23 @@ namespace SurvivorCommunity
                         continue;
                     }
                     if (bad) { m.Injured = true; yield = Math.Max(0, yield / 2); }
-                    c.Add(kind, yield);
-                    ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
-                    if (SpecialtyFor(kind) == m.Specialty) ScSkills.AddSpecialtyXp(m, 3f);
+                    string got = null;
+#if SC_V34
+                    // round 33c (M33): a hidden mining run brings real items - onto the record, put away by ScMining.Tick
+                    if (ScMining.IsDig(m)) got = ScMining.ResolveHidden(m, bad, rescued);
+                    else
+#endif
+                    {
+                        c.Add(kind, yield);
+                        ScSkills.AddXp(m, Skill.Wits, ScConfig.RunWitsXp);
+                        if (SpecialtyFor(kind) == m.Specialty) ScSkills.AddSpecialtyXp(m, 3f);
+                    }
                     m.Status = MemberStatus.Resident;
                     m.RunEndDay = -1;
 #if SC_V34
                     m.RunRadio = false;     // R2: the run's radio state ends with it
                     m.RunTalk = 0;
+                    ScMining.ClearJob(m);
 #endif
                     // the entity: un-hide and re-station now when loaded; the relink does it when it next loads
                     EntityAlive npc = ScCommunity.FindNpc(m.Id);
@@ -306,9 +357,19 @@ namespace SurvivorCommunity
                         ScNpc.SendOnMission(npc, false);
                         ScCommunity.Station(m, npc);
                     }
-                    summary.Append(' ').Append(string.Format(Localization.Get(bad ? "scDailyRunHurt" : "scDailyRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))));
-                    if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get(bad ? "scRunHurt" : "scRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))), bad ? "ui_denied" : "");
-                    ScLog.Out(m.Name + " is back from the supply run: " + yield + " " + kind + (bad ? " (injured)" : "") + " (risk " + risk.ToString("0.00") + ")");
+                    if (got != null)
+                    {
+                        // round 33c: the haul by name; the crates line follows from ScMining.Tick
+                        summary.Append(' ').Append(string.Format(Localization.Get(bad ? "scDailyMineHurt" : "scDailyMineBack"), m.Name, got));
+                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get(bad ? "scMineHurt" : "scMineBack"), m.Name, got), bad ? "ui_denied" : "");
+                        ScLog.Out(m.Name + " is back from the hidden mining run (risk " + risk.ToString("0.00") + ")");
+                    }
+                    else
+                    {
+                        summary.Append(' ').Append(string.Format(Localization.Get(bad ? "scDailyRunHurt" : "scDailyRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))));
+                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get(bad ? "scRunHurt" : "scRunBack"), m.Name, yield, Localization.Get(ScNames.LocKey(kind))), bad ? "ui_denied" : "");
+                        ScLog.Out(m.Name + " is back from the supply run: " + yield + " " + kind + (bad ? " (injured)" : "") + " (risk " + risk.ToString("0.00") + ")");
+                    }
                 }
                 catch (Exception e)
                 {
@@ -318,6 +379,7 @@ namespace SurvivorCommunity
 #if SC_V34
                     m.RunRadio = false;
                     m.RunTalk = 0;
+                    ScMining.ClearJob(m);
 #endif
                 }
             }
@@ -384,13 +446,17 @@ namespace SurvivorCommunity
         public static string StatusLine(Member m)
         {
             if (m == null || m.Status != MemberStatus.OnRun) return "";
-            string res = Localization.Get(ScNames.LocKey(m.RunKind));
+            string res = What(m);
             if (!ScRunners.IsPhysical(m)) return string.Format(Localization.Get("scWinOnRun"), res, m.RunEndDay);
             int far = Mathf.RoundToInt(ScRunners.XZ(ScRunners.Where(m), ScCommunity.PostCenter(m)));
+            string site = "scWinRunSite";
+#if SC_V34
+            if (ScMining.IsDig(m)) site = m.RunJob == RunJob.Clay ? "scWinClaySite" : "scWinMineSite";   // round 33c: digging, not searching
+#endif
             switch (m.RunLeg)
             {
                 case RunLeg.Outbound: return string.Format(Localization.Get("scWinRunOut"), res, m.RunDestName, far, m.RunEndDay);
-                case RunLeg.AtSite: return string.Format(Localization.Get(ScRunners.Pinned(m) ? "scWinRunPinned" : "scWinRunSite"), res, m.RunDestName, far, m.RunEndDay);
+                case RunLeg.AtSite: return string.Format(Localization.Get(ScRunners.Pinned(m) ? "scWinRunPinned" : site), res, m.RunDestName, far, m.RunEndDay);
                 case RunLeg.Inbound: return string.Format(Localization.Get("scWinRunHome"), res, m.RunDestName, far, m.RunEndDay);
                 default: return string.Format(Localization.Get("scWinRunBack"), res, m.RunDestName, far, m.RunEndDay);
             }
@@ -404,7 +470,12 @@ namespace SurvivorCommunity
             switch (m.RunLeg)
             {
                 case RunLeg.Outbound: key = "scStRunOut"; break;
-                case RunLeg.AtSite: key = ScRunners.Pinned(m) ? "scStRunPinned" : "scStRunSite"; break;
+                case RunLeg.AtSite:
+                    key = ScRunners.Pinned(m) ? "scStRunPinned" : "scStRunSite";
+#if SC_V34
+                    if (!ScRunners.Pinned(m) && ScMining.IsDig(m)) key = m.RunJob == RunJob.Clay ? "scStClaySite" : "scStMineSite";   // round 33c
+#endif
+                    break;
                 case RunLeg.Inbound: key = "scStRunHome"; break;
                 default: key = "scStRunBack"; break;
             }

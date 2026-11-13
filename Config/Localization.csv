@@ -636,6 +636,38 @@ scRunNotOut,UI,Tooltip,,,,They are not out on a run.
 scDailyRunLate,UI,Tooltip,,,,- {0} finally made it back to the gate
 scRunHeadHome,UI,Menu,,,,Head home now.
 scRunBackEmpty,UI,Tooltip,,,,{0} turned back before reaching {1} and is home empty-handed.
+scRunMine,Dialog,Response,,,,Mine stone and ore
+scRunClay,Dialog,Response,,,,Dig clay
+scUiRunMine,UI,Menu,,,,Mine
+scUiRunClay,UI,Menu,,,,Dig clay
+scRunWhatMine,UI,Tooltip,,,,stone and ore
+scRunWhatClay,UI,Tooltip,,,,clay
+scMineOff,UI,Tooltip,,,,Mining runs are switched off.
+scMineNoTool,UI,Tooltip,,,,They have nothing to mine with - hand them a pickaxe (a stone axe will do) first.
+scClayNoTool,UI,Tooltip,,,,They have nothing to dig with - hand them a shovel first.
+scMineHaulPending,UI,Tooltip,,,,They still have the last haul to put away - make room in the home crates first.
+scMineSiteVein,UI,Menu,,,,an outcrop of {0} ({1})
+scMineSiteRock,UI,Menu,,,,rocky ground ({0})
+scClaySiteBank,UI,Menu,,,,a clay bank ({0})
+scClaySiteSand,UI,Menu,,,,sandy ground ({0})
+scWinMineSite,UI,Menu,,,,"Mining at {1} - {2} m out, back around day {3}"
+scWinClaySite,UI,Menu,,,,"Digging at {1} - {2} m out, back around day {3}"
+scStMineSite,UI,Menu,,,,Run: mining at {0}
+scStClaySite,UI,Menu,,,,Run: digging at {0}
+scMineBackFrom,UI,Tooltip,,,,{0} is back from {1} with {2}.
+scMineHurtFrom,UI,Tooltip,,,,{0} came back injured from {1} with {2}.
+scMineNothing,UI,Tooltip,,,,nothing worth carrying
+scMineAnd,UI,Tooltip,,,,and
+scMineTailCrates,UI,Tooltip,,,,It's in the home crates.
+scMineTailSome,UI,Tooltip,,,,The home crates are full: {0} stay in their inventory.
+scMineTailWaits,UI,Tooltip,,,,"No room anywhere for {0} - it waits until you make room in the home crates."
+scMineTailWait,UI,Tooltip,,,,It goes into the home crates once you are home.
+scMineDelivered,UI,Tooltip,,,,{0} put {1} into the home crates.
+scMineWindowOnly,UI,Tooltip,,,,No room in the home crates: {0} keeps {1} in their inventory.
+scMineBack,UI,Tooltip,,,,{0} is back with {1}.
+scMineHurt,UI,Tooltip,,,,{0} came back injured with {1}.
+scDailyMineBack,UI,Tooltip,,,,- {0} brought {1}
+scDailyMineHurt,UI,Tooltip,,,,- {0} came back hurt with {1}
 scRaiderMaleT1,entityclasses,Entity,,,,Raider
 scRaiderMaleT2,entityclasses,Entity,,,,Raider
 scRaiderMaleT3,entityclasses,Entity,,,,Raider
@@ -1504,6 +1536,9 @@ scRadioRunHome_1Said,UI,Tooltip,,,,Done here. Heading back home.
 scRadioRunHome_2Said,UI,Tooltip,,,,Starting back now. Save me some dinner.
 scRadioRunNear_1Said,UI,Tooltip,,,,"Almost home. Don't shoot, it's me."
 scRadioRecallAck_1Said,UI,Tooltip,,,,Copy that. Cutting it short and heading home.
+scRadioRunMineArrived_1Said,UI,Tooltip,,,,Found good rock out here. Starting to dig.
+scRadioRunClayArrived_1Said,UI,Tooltip,,,,Found a decent clay bank. Getting to work.
+scRadioRunDigEmpty_1Said,UI,Tooltip,,,,"Hard ground, slow going. Not much to carry back."
 scDialogPage,UI,Menu,,,,{0}/{1}
 scVoiceNoTradeMember,Dialog,Statement,,,,"*smiles* We don't trade - we're one community. If you need something of mine, just ask to see my inventory."
 scVoiceNoPackNow,Dialog,Statement,,,,*shakes head* Not now. Ask me again back home.

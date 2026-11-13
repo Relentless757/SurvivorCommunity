@@ -404,6 +404,41 @@ namespace SurvivorCommunity
             }
         }
 
+#if SC_V34
+        /// <summary>
+        /// Round 33c (M33): the rescue quest for a runner pinned at a natural spot (a mining run: no POI) - the same quest, its
+        /// marker on the box at corner a, size s (16 x 16 around the spot).
+        /// </summary>
+        public static bool StartRescueAt(EntityPlayerLocal player, Member m, Vector3i a, Vector3i s, out string error)
+        {
+            error = null;
+            try
+            {
+                if (player == null || m == null) { error = "scInternal"; return false; }
+                if (QuestClass.s_Quests == null || !QuestClass.s_Quests.ContainsKey(RescueQuestId)) { error = "scQuestUnavailable"; return false; }
+                if (FindRescue(player, m.Id) != null) return true;
+                Quest q = QuestClass.CreateQuest(RescueQuestId);
+                if (q == null) { error = "scQuestUnavailable"; return false; }
+                q.SetPositionData(Quest.PositionDataTypes.POIPosition, new Vector3(a.x, a.y, a.z));
+                q.SetPositionData(Quest.PositionDataTypes.POISize, new Vector3(s.x, 1f, s.z));
+                q.DataVariables[PoiNameVar] = SafeName(m.RunPoiName ?? "");
+                q.DataVariables[ObjectiveScTalkToSurvivor.NameVar] = SafeName(m.Name ?? "");
+                q.DataVariables[TitleVar] = string.Format(Localization.Get("scQuestRescueNameFmt"), SafeName(m.Name ?? ""));
+                q.DataVariables[MemberVar] = m.Id.ToString();
+                QuestJournal j = Journal(player);
+                if (j == null) { error = "scQuestFailed"; return false; }
+                j.AddQuest(q, Quest.QuestSource.QuestSystem);
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-startrescue-at", e);
+                error = "scQuestFailed";
+                return false;
+            }
+        }
+#endif
+
         /// <summary>A runner came back under a new entity id: their rescue quest follows them.</summary>
         public static void RekeyRescue(EntityPlayer player, int oldId, int newId)
         {

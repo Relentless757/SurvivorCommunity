@@ -537,7 +537,10 @@ public class DialogActionScRecall : BaseDialogAction
     }
 }
 
-/// <summary>Member order: a supply run for the resource named in the action's value (food|meds|ammo|mats|fuel).</summary>
+/// <summary>
+/// Member order: a supply run for the resource named in the action's value (food|meds|ammo|mats|fuel), or (round 33c, M33, 3.4)
+/// a mining run - mine | clay (ScMining.Send).
+/// </summary>
 public class DialogActionScRun : BaseDialogAction
 {
     public override void PerformAction(EntityPlayer player)
@@ -548,12 +551,36 @@ public class DialogActionScRun : BaseDialogAction
             EntityAlive npc = ScFavours.CurrentNpc(player);
             Member m = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
             if (lp == null || npc == null || m == null) return;
+            string error;
+#if SC_V34
+            RunJob job;
+            if (ScMining.TryJob(Value, out job))
+            {
+                if (!ScMining.Send(m, npc, job, lp, out error)) ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                return;
+            }
+#endif
             Resource kind;
             if (!ScNames.TryResource(Value, out kind)) { ScLog.Err("dialog action ScRun: unknown resource '" + Value + "'"); return; }
-            string error;
             if (!ScRuns.Send(m, npc, kind, lp, out error)) ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-run", e); }
+    }
+}
+
+/// <summary>
+/// Round 33c (M33): the talk's Mine and Dig clay rows show while MiningRuns is on (3.4; the 3.2 build has no mining runs and
+/// always hides them). Reads the config only (any machine).
+/// </summary>
+public class DialogRequirementScMiningRuns : BaseDialogRequirement
+{
+    public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
+    {
+#if SC_V34
+        return ScConfig.MiningRuns;
+#else
+        return false;
+#endif
     }
 }
 

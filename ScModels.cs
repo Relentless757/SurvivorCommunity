@@ -248,6 +248,23 @@ namespace SurvivorCommunity
         /// </summary>
         public bool RunRadio;
         public int RunTalk;
+        /// <summary>
+        /// Round 33c (M33, ScMining), while OnRun: what the run is for - a supply run, Mine or Dig clay - and for a mining run the
+        /// best tool they set out with (its item name and tier), the spot's biome (biomes.xml name) and its sub-biome index (-1:
+        /// none; an ore vein when its layers hold ore). Saved as runjob=mine:tier:tool:biome:sub while OnRun on a mining run (a key
+        /// older builds ignore: to them a mining run is a materials run that carries nothing, carry=0).
+        /// </summary>
+        public RunJob RunJob = RunJob.Supply;
+        public string RunTool = "";
+        public int RunToolTier;
+        public string RunBiome = "";
+        public int RunSub = -1;
+        /// <summary>
+        /// Round 33c (M33): a mining run's haul of real items, "item:count,item:count" - carried from the site, then waiting to be
+        /// put away while the home crates are not loaded (or have no room and the inventory window is full). Saved as haul= in any
+        /// status while it holds something; RunCarry is its total while OnRun.
+        /// </summary>
+        public string RunHaul = "";
 #endif
 
         public SkillState Skill(Skill s) { return Skills[(int)s]; }
