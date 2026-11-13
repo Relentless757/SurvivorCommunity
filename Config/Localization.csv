@@ -1572,6 +1572,7 @@ scVoiceNoTradeMember,Dialog,Statement,,,,"*smiles* We don't trade - we're one co
 scVoiceNoPackNow,Dialog,Statement,,,,*shakes head* Not now. Ask me again back home.
 scJobResidentFollowLoot,Dialog,Statement,,,,"*shakes head* I look after the base. Take me along, and I'll loot for you out there."
 scJobResidentField,Dialog,Statement,,,,"*shakes head* That's work for out there, not at home. Take me along, and I'll do it."
+scJobResidentMine,Dialog,Statement,,,,"*shakes head* Not here at home. Send me on a mining run, and I'll bring it back to the crates."
 scKitToolNotWeapon,Dialog,Statement,,,,"*shakes head* That {0} is for work, not for fighting. I'll stick with my own weapon."
 scWorkPackFull,UI,Tooltip,,,,"{0}'s pack is full, and the home crates can't take enough of it - {0} stops that job. Make room in the crates or in their inventory."
 scDutyNoTool,UI,Tooltip,,,,"{0} has no repair tool for the repair duty - give them a stone axe, claw hammer or nail gun through Show me your inventory."

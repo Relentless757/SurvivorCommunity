@@ -172,10 +172,15 @@ namespace SurvivorCommunity
             return m != null && m.Status == MemberStatus.Resident ? m : null;
         }
 
-        /// <summary>Her line for a field job: Follow + loot has its own.</summary>
+        /// <summary>Her line for a field job: Follow + loot has its own; on 3.4 with mining runs offered, Mine and Dig clay
+        /// point to the run (round 33c) instead of "take me along".</summary>
         private static string FieldJobLine(int mode)
         {
-            return Localization.Get(mode == 1 ? "scJobResidentFollowLoot" : "scJobResidentField");
+            if (mode == 1) return Localization.Get("scJobResidentFollowLoot");
+#if SC_V34
+            if ((mode == 4 || mode == 5) && ScConfig.MiningRuns) return Localization.Get("scJobResidentMine");
+#endif
+            return Localization.Get("scJobResidentField");
         }
 
         /// <summary>The refusal as a tooltip in her words (the order wheel and the Jobs page; ScWork's take-back).</summary>

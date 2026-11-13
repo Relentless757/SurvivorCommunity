@@ -398,7 +398,7 @@ Bundles
 ~~~~~~~
 
 - Every resource comes in Small, Medium and Large bundles, worth 1, 2 and 3 stockpile units.
-- Bundles stack to 10 and weigh nothing. They cannot be opened, sold or scrapped back into goods.
+- Bundles stack to 10 and weigh nothing. They cannot be sold or scrapped. You can open one to get goods back (below).
 - You deposit bundles at a packing station. You can also carry them to hand to enclaves (section 12).
 
 The packing station
@@ -431,6 +431,41 @@ What goes into each resource:
 Points are the items' trade value. Craftsmen in the community lower the points needed (section 4).
 
 Luxuries are never used up by the day; they pay for Activities. Stews and canned soups hydrate but count as food.
+
+Opening a bundle
+~~~~~~~~~~~~~~~~
+
+Hold a bundle and click, or pick Open on it in your backpack, toolbelt or a box, and one bundle of the stack becomes an
+assortment of its resource's goods, the way the game's own bundles open: the goods go into your inventory (the game's
+list of collected items shows them) and anything that does not fit lands at your feet.
+
+- What comes out is random, but it is worth about three quarters of what packing the bundle took: "BundleOpenValueShare"
+  (0.75) of its units times the points per unit in the table below, by the same trade value the station counts. Never
+  more than 10% above that, and at least one item. Packing goods and opening the bundle again always loses some.
+- A bundle you Take from the stockpile at the packing station opens the same way: that is how you get supplies back out
+  of the stockpile.
+- Each kind opens into everyday supplies of its own resource, each item as one stack at most:
+
+- Food: Canned food (chili most often, beef, chicken, pasta, soup, peas, pears, tuna, sham and more) and cooked meals
+  (grilled and boiled meat, stews, corn bread, baked potatoes, boiled eggs, bacon and eggs)
+- Water: Boiled water most often, red and goldenrod tea, coffee, yucca juice, mineral water, Mega Crush
+- Medical: Bandages and first aid bandages most often, aloe cream, splints, painkillers, vitamins, herbal and regular
+  antibiotics, first aid kits
+- Ammo: 9 mm most often, 7.62 mm, shotgun shells, .44 rounds, stone and iron arrows and crossbow bolts
+- Materials: Wood and forged iron most often, scrap iron, cloth, duct tape, mechanical and electrical parts, glue,
+  springs, leather, metal pipes
+- Fuel: Gas cans (15 in a Small bundle)
+- Luxuries: Beer most often, Grandpa's Awesome Sauce, Learning Elixir and Moonshine
+
+- For scale: a Small ammo bundle holds about 150 rounds (often of two or three calibers), a Small food bundle about as
+  much as five cans of chili, a Small water bundle about four boiled waters.
+- The drinks in a luxury bundle are worth a lot each, so a Small one holds two (two thirds of its packing value, not
+  three quarters); Grandpa's Learning Elixir only fits in a Medium or Large one, the Moonshine only in a Large one.
+- The lists are settings ("BundleOpenFood" and the rest, section 20). An item there that does not pack into that
+  resource, or that your game does not have, is left out with a line in the log.
+- Craftsmen make packing cheaper (section 4). From three craftsman stars in the community (counted home or away), opened
+  bundles hold a little less too, so opening never gives back what packing took.
+- "BundleOpen" false (section 20) turns opening off: the bundles are then only for the stockpile, as before.
 
 Where else bundles come from
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -585,7 +620,8 @@ Residents also do 0-XNPCCore's home jobs, picked from Jobs and gear (the Jobs pa
 
 - Allowed for residents: harvesting wood, picking plants and crops, Butcher, Base Repair, Combat Repair, and Craft.
 - Followers only: Mine (and clay), Loot here, and Follow + loot. A resident asked to do one of these says to take them
-  along instead.
+  along instead. For Mine and Dig clay, a resident points you to a mining run (see Mining runs), which brings real ore,
+  stone or clay into the home crates.
 
 How home jobs work:
 
@@ -651,6 +687,37 @@ Risk
   any other.
 - A runner who dies out of sight loses what was in their inventory, and you are told what was lost.
 - Runs earn Wits XP, and specialty XP for the matching job.
+
+Mining runs
+~~~~~~~~~~~
+
+Residents don't do the Mine or Dig clay jobs at home. Instead, Mine and Dig clay sit beside the resources in the same
+list ("I need you to go find supplies." and Send on supply run in the community window). They work like a supply run,
+but the haul is real items in your home crates, not stockpile units.
+
+- A tool. For Mine they need a mining tool (any pickaxe, an auger, or the work kit's stone axe); for Dig clay a shovel
+  (the kit's stone shovel counts). It can be in their toolbelt, bag or inventory. Without one they refuse and say why.
+  The best tool they carry sets the haul: a stone axe or stone shovel brings 60%, an iron pickaxe or shovel 100%, steel
+  140%, an auger 180%.
+- Where they go. A natural spot 150 to 700 m from home: away from buildings, water, land claims, bedrolls, outposts and
+  enclaves. For Mine they look for one of the biome's ore veins first; for Dig clay, ground with clay in it. The
+  community window and the messages name it: "an outcrop of Iron Ore (Pine Forest)", "rocky ground (Desert)", "a clay
+  bank (Forest)".
+- The trip is a supply run's: they walk there, work the spot for 6 game hours, and walk back. The same risk, escort,
+  distress calls and radio apply. A mining runner with a radio has a few lines of their own (text only, no voice).
+- What they bring for a whole run with an iron tool and 1 Wits star:
+  - Mine on a vein: about 180 stone and 90 ore, mostly the vein's own ore (iron, coal, lead, nitrate, or oil shale in
+    the desert), a little of the biome's others.
+  - Mine off a vein: the same stone, and less than half the ore.
+  - Dig clay: about 240 clay. In the desert the ground gives half sand.
+  - +15% per Wits star above the first, trait bonuses, and x1.25 when morale is above 75. A bad roll halves it.
+  - That is a small share of what you would dig yourself in the same hours: a helper, not a mining machine.
+- Delivery. At the edge of the base the items go into the home crates, onto stacks of the same item first. If the crates
+  are full, the rest stays in their inventory (Show me your inventory), and they tell you. If you are away from home
+  when they get back, the haul waits until you are home and then goes in.
+- With no spot in range (or "PhysicalRuns" off) they go on a hidden run and come back at the next rollover with the home
+  biome's stone and ore (or clay).
+- They will not go again while the last haul is still waiting to be put away. Make room in the crates first.
 
 Runners with a handheld radio
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1338,7 +1405,8 @@ The round of drinks (section 4): its cost, effect and status, and Pour a round.
 - Outpost Flag - What it is: A land claim that becomes an outpost when placed in a cleared building away from home; How
   to get it: Backpack: 5 small stones, 5 cloth, 5 scrap iron
 - Small / Medium / Large bundles (food, water, medical, ammo, materials, fuel, luxury) - What it is: 1 / 2 / 3 stockpile
-  units; How to get it: Packing station, loot, air drops, trader quest rewards, allied supply drops
+  units; open one for an assortment of goods; How to get it: Packing station, loot, air drops, trader quest rewards,
+  allied supply drops
 - Allied Supply Crate - What it is: Supply drop from an allied enclave; How to get it: Radio: an ally's Supply drop
 - Remains - What it is: A missing survivor's body (Search the body); How to get it: Placed by an enclave's
   missing-survivor request
@@ -1409,6 +1477,10 @@ Needs and morale
 - PointsPerBundleFood (and ...Water, ...Meds, ...Ammo, ...Materials, ...Fuel, ...Luxury) = 400 (200, 300, 2000, 1000,
   600, 300): Trade value that makes one bundle unit
 - LuxuryItems = beer, Grandpa's drinks: Items that pack as luxuries
+- BundleOpen = true: Bundles can be opened into goods (false: they cannot, as before)
+- BundleOpenValueShare = 0.75: What an opened bundle is worth, as a share of what packing it took (at most 0.85)
+- BundleOpenFood (and ...Water, ...Meds, ...Ammo, ...Materials, ...Fuel, ...Luxury) = everyday supplies: What each kind
+  opens into: "item:weight" lists, only items that pack into that resource (empty: those bundles cannot be opened)
 - DeathPenalty / DeathDecayPerDay = 15 / 5: Morale lost per death, and how fast it fades
 - RefuseOrdersBelowMood = 0: Members refuse orders below this mood (0: never)
 - LowMoraleThreshold / LowMoraleDays = 25 / 2: Below this morale for this many days, someone threatens to leave
@@ -1432,6 +1504,23 @@ Supply runs and radio
 - DistressNeedsRadio = true: Only runners with a radio can get pinned down and call for help
 - WindowRecallNeedsRadio = true: The community window's Recall home needs the runner's radio
 - RunnerCallsWhenAttacked = true: Runners with a radio call when attacked
+
+Mining runs
+~~~~~~~~~~~
+
+- MiningRuns = true: Offer Mine and Dig clay as runs (false: not offered)
+- MiningRunSiteHours = 0: Game hours they work the spot (0: the same as "RunSiteHours")
+- MiningStonePerHour / MiningOrePerHour = 30 / 15: Stone and ore a Mine run brings per site hour (iron tool, 1 Wits
+  star, on a vein)
+- MiningNoVeinOreShare = 0.4: The share of the ore a spot off any vein gives
+- MiningVeinWeight = 3: How much the vein's own ore outweighs the biome's other ores
+- DigClayPerHour = 40: Clay a Dig clay run brings per site hour (iron shovel, 1 Wits star)
+- MiningToolTags / DigToolTags = miningTool / shovel: Item tags that make a mining tool and a digging tool
+- MiningToolTierMults = 0.6,1,1.4,1.8: The haul by the tool's tier (T0, T1, T2, T3)
+- MiningStoneItem = resourceRockSmall: The stone they bring
+- MiningOreMix = (empty): Empty: the ores come from each biome's veins in biomes.xml. Or a fixed list like
+  "resourceScrapIron:2,resourceCoal:1"
+- DigClayItems = resourceClayLump, resourceCrushedSand: What Dig clay can bring, as the ground's layers give it
 
 Crafting and work
 ~~~~~~~~~~~~~~~~~
@@ -1523,8 +1612,8 @@ For console commands (testing and fixing), see CONSOLE_COMMANDS.txt.
 - Do not remove the mod from a save that used it. Loading that save without SC can damage the chunks its blocks are in.
 - The two Native women's voices are not recorded yet. They speak with another woman's voice until then. A few of the
   newest lines are text only.
-- Mining and digging clay are not resident jobs. Residents do home jobs only; take a member along for Mine, Loot here or
-  Follow + loot.
+- Mining and digging clay are not resident jobs. Residents do home jobs only; send them on a mining run instead, or take
+  a member along for Mine, Loot here or Follow + loot.
 - Breaking an enclave's containers open is not stopped, only opening them.
 - "Damaged" and "overrun" base results do not damage blocks. A fight without you is a simulation: residents in sight
   just stand about.

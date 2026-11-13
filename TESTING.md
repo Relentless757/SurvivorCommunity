@@ -3184,6 +3184,10 @@ shows every mining runner's job, tool, spot and haul, the hauls waiting to be pu
      runs are switched off."; `sc run <name> mine` is refused with `scMineOff`.
 880. **A fixed ore mix.** `MiningOreMix` to `resourceScrapIron:1` (restart): a Mine run's ore is all scrap iron, on a vein or off.
      Put it back to empty.
+881. **The home job refusal points to the run.** Ask a resident for 0-XNPCCore's Mine job, then Dig clay (Jobs and gear): they
+     shake their head with "Not here at home. Send me on a mining run, and I'll bring it back to the crates." Loot here still
+     gets "Take me along, and I'll do it." With `MiningRuns` false (879), Mine and Dig clay get the "Take me along" line
+     again.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

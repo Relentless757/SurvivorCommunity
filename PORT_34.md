@@ -5625,3 +5625,22 @@ haul waiting while you are away, the hidden run, the radio captions, the distres
 mid-run, IGP or other mods that retag tools or change the ores (the replay covers SCore, 0-XNPCCore and SC only).
 
 Builds: SC 3.4 `eb2e337a3259679c053481a6a4dc3a8a` (`build\sc34_r33c`), 0 errors. Not installed.
+
+### Round 33 merged (2026-11-13, built, not reviewed, not installed)
+
+`ms/r33b` (openable bundles) and then `ms/r33c` (mining runs) merged into `ms/r33a` (queued fixes), worktree
+`Port33\wt\sc-r33a`. Both merges conflicted only in PORT_34.md and TESTING.md, where each side had appended its own section;
+both sections kept, in the order 33a, 33b, 33c (scratch `r33m\resolve_merge.py`). Every other file merged on its own.
+
+The two leftovers 33c named, now that mining runs exist:
+- `ScJobs.FieldJobLine`: a resident asked for 0-XNPCCore's Mine (mode 4) or Dig clay (mode 5) home job gets the new
+  `scJobResidentMine` ("Not here at home. Send me on a mining run, and I'll bring it back to the crates.") when
+  `ScConfig.MiningRuns` is on (3.4 build only, under `SC_V34`); Loot here, the 3.2 build and `MiningRuns` false keep
+  `scJobResidentField` ("Take me along, and I'll do it."). Text only, as the line it sits beside (not a voice line).
+  TESTING M33 881.
+- README: the home jobs' "Followers only" bullet and the limits list now point to mining runs. README.txt and
+  CONSOLE_COMMANDS.txt regenerated (md2txt).
+
+Checks: SC 3.4 `5ae797c5f584bebd3eb77043042f1b19` (`build\sc34_r33`) and the 3.2 config (scratch, not committed), 0 errors;
+`cctor_order.py` 147 static constructors, 0 reads before store; XML replay (`x3\r33m_checks.py`) SC 212/212 alone, 200/200
+with AshfallUI (2279/2279), no aborts; Localization.csv 7 columns on every row, no duplicate keys. Next: the review.

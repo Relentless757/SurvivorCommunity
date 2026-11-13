@@ -585,7 +585,8 @@ Residents also do 0-XNPCCore's **home jobs**, picked from **Jobs and gear** (the
 
 - **Allowed for residents:** harvesting wood, picking plants and crops, Butcher, Base Repair, Combat Repair, and Craft.
 - **Followers only:** Mine (and clay), Loot here, and Follow + loot. A resident asked to do one of these says to take
-  them along instead.
+  them along instead. For Mine and Dig clay, a resident points you to a **mining run** (see [Mining runs](#mining-runs)),
+  which brings real ore, stone or clay into the home crates.
 
 How home jobs work:
 
@@ -1518,8 +1519,8 @@ For console commands (testing and fixing), see [CONSOLE_COMMANDS.md](CONSOLE_COM
 - **Do not remove the mod from a save that used it.** Loading that save without SC can damage the chunks its blocks are in.
 - **The two Native women's voices are not recorded yet.** They speak with another woman's voice until then. A few of the
   newest lines are text only.
-- **Mining and digging clay are not resident jobs.** Residents do home jobs only; take a member along for Mine, Loot here
-  or Follow + loot.
+- **Mining and digging clay are not resident jobs.** Residents do home jobs only; send them on a mining run instead, or
+  take a member along for Mine, Loot here or Follow + loot.
 - **Breaking an enclave's containers open is not stopped,** only opening them.
 - **"Damaged" and "overrun" base results do not damage blocks.** A fight without you is a simulation: residents in sight
   just stand about.
