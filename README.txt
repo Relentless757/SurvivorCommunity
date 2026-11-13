@@ -1231,7 +1231,7 @@ Looks
   fitting one the next time they load (always the same one for that person, and never gray or white in place of a
   young-looking color); the rest of their look stays: their face and skin tone are never changed by themselves. If an
   older survivor's skin tone does not suit their face, "sc look <name> tone" gives that one survivor a tone that does
-  (only when you ask; CONSOLE_COMMANDS.md). Dyed hair is left alone, and so is a face that came from 0-XNPCCore's
+  (only when you ask; CONSOLE_COMMANDS.txt). Dyed hair is left alone, and so is a face that came from 0-XNPCCore's
   character creator (one taken on with this version or later: a creator face a survivor took on before it is not
   recognized, and its hair color can be changed like anyone else's).
 
