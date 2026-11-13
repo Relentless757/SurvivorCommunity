@@ -5688,3 +5688,25 @@ Opus re-check of the review fixes (`54d2101..cece438`): DEPLOYABLE, all six fixe
 
 Final build: SC 3.4 `0d75c7374d6870d076ee1bfcb467f897` (`build\sc34_r33`), 3.2 config 0 errors; cctor 0/147; replay
 212/212, 200/200 + AshfallUI 2279/2279; Localization well formed. Ready to install with the user's go-ahead.
+
+### Voices vo3 day 10: scNoHomeReply in all 16 voices (2026-11-13)
+
+Round 32's new line had no clips: every one of the 16 recordings failed on 2026-11-12 with connector errors. The user
+checked their ElevenLabs generation history - nothing had been generated, so nothing was charged - and asked for another
+try. The connector answered this time (a read-only `creative_list_voices` first, then one generate, then the rest).
+
+Recorded by this session rather than by 16 recorder agents: one line per voice is 16 calls. flow `ysos1qM0J935D2PdUKKP`,
+`eleven_v4`, `generations_count` 1, all 16 completed, 0 failures, about 86 credits each (Layla 192). The status run came
+back inline, so it was saved by hand as `vo3\status_day10.json` (scratch `r33m\write_day10_status.py` builds the
+signed URLs from session id + generation id + signature instead of retyping them); sessions files written by
+`r33m\write_day10_sessions.py`.
+
+Levels: only the 16 new clips were measured, not all 7200 - `r33m\day10_levels.py stage` copies them into a temp tree of
+the same `<voice>\<key>.mp3` shape, Blender `migo2\measure.py` measures that, `merge` rewrites the paths back to
+el_mp3 and appends them to `levels.jsonl`. Then `plan_ogg3.py` (16 jobs, gain -4.8 to +7.9 dB) and `migo2	o_ogg2.py`
+(16 converted, 2 end blips cut). `place_clips3.py` added 16 clips + sidecars; `Tools/voice_lines.py check` now reports
+**488 of 488 for every one of the 16 voices**.
+
+README: the limits list still said the two Native women were not recorded - day 9 (a3d28b5) finished them. Replaced with
+what is actually still text only (a mining runner's radio lines, the magazine training line, some work-kit/field-job/
+trading refusals).
