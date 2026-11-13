@@ -5153,3 +5153,16 @@ design note (a member without a cached portrait shows the silhouette while asset
 repair a face missing from a race the game HAS). Checks: builds 0 errors, cctor 0, IL as expected.
 
 Builds: SC 3.4 `97a431862ca15dbe3f96e35b92f1d950` (`build\sc34_r32`), 0 errors. Not installed.
+
+### Round 32 installed (2026-11-13 07:29)
+
+With the user's go-ahead (3.4 game closed): round 32 = 32a (opt-in community home, enclave doors unlocked) + 32c (voices and
+hair follow the Vanity Vault face; face-first tones; `sc look <x> tone`) + 32b (packing/linked strips fit the loot grid, the
+card's name box, a vanilla look without AshfallUI, morale colors), with the review fixes (stored looks never rewritten to
+White/01, the no-home reply, the per-world asset check). Opus review DEPLOYABLE (Fable over its usage limit) -> fixes ->
+Opus glance DEPLOYABLE -> fixes. port-3.4 fast-forwarded to `ms/r32c` ea327bf; `deploy_sc34.py`: 15795 files, installed =
+built `97a431862ca15dbe3f96e35b92f1d950`. The old install is in `Port33\_backups\sc34_2026-11-13_072940`; the user's
+`DebugLogging` true set again. Checked in the install: `AutoHomeFirstClaim` false, `EnclaveDoorsUnlocked` true,
+`VoiceRaceByFace` / `HairGroupByFace` true, `StreamerNames` false, 16 voices. Untested in game: TESTING H32 (730-748), F32
+(800-815), U32 (760-777), R32 (778-780), and still V31, S30, J29, M29, X3, P2, R2. Next round: review L3 (another race mod's
+face counts), the `scNoHomeReply` voice line (16 clips), L2's portrait-silhouette design note.
