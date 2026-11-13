@@ -98,17 +98,31 @@ scBundleMaterials,Item,Item,,,,Materials Bundle
 scBundleMaterialsDesc,Item,Item,,,,"An older bundle of building materials, worth one unit (a Small bundle). Deposit it at a packing station."
 scBundleFuel,Item,Item,,,,Fuel Bundle
 scBundleFuelDesc,Item,Item,,,,"An older bundle of fuel, worth one unit (a Small bundle). Deposit it at a packing station."
-scPackFood,UI,Packing,,,,Pack food
-scPackMeds,UI,Packing,,,,Pack medical
-scPackAmmo,UI,Packing,,,,Pack ammo
-scPackMaterials,UI,Packing,,,,Pack materials
-scPackFuel,UI,Packing,,,,Pack fuel
-scTakeFood,UI,Packing,,,,Take food
-scTakeMeds,UI,Packing,,,,Take medical
-scTakeAmmo,UI,Packing,,,,Take ammo
-scTakeMaterials,UI,Packing,,,,Take materials
-scTakeFuel,UI,Packing,,,,Take fuel
+scPackFood,UI,Packing,,,,Pack the food in the box into bundles
+scPackMeds,UI,Packing,,,,Pack the medical supplies in the box into bundles
+scPackAmmo,UI,Packing,,,,Pack the ammo in the box into bundles
+scPackMaterials,UI,Packing,,,,Pack the building materials in the box into bundles
+scPackFuel,UI,Packing,,,,Pack the fuel in the box into bundles
+scTakeFood,UI,Packing,,,,Take one small food bundle from the stockpile
+scTakeMeds,UI,Packing,,,,Take one small medical bundle from the stockpile
+scTakeAmmo,UI,Packing,,,,Take one small ammo bundle from the stockpile
+scTakeMaterials,UI,Packing,,,,Take one small materials bundle from the stockpile
+scTakeFuel,UI,Packing,,,,Take one small fuel bundle from the stockpile
 scDeposit,UI,Packing,,,,Deposit bundles
+scPackWater,UI,Packing,,,,Pack the water and other drinks in the box into bundles
+scPackLuxury,UI,Packing,,,,Pack the alcohol in the box into luxury bundles
+scTakeWater,UI,Packing,,,,Take one small water bundle from the stockpile
+scTakeLuxury,UI,Packing,,,,Take one small luxury bundle from the stockpile
+scDepositTip,UI,Packing,,,,Add every bundle in the box to the community's stockpile
+scStripPack,UI,Packing,,,,Pack
+scStripTake,UI,Packing,,,,Take
+scStripFood,UI,Packing,,,,Food
+scStripWater,UI,Packing,,,,Water
+scStripMeds,UI,Packing,,,,Meds
+scStripAmmo,UI,Packing,,,,Ammo
+scStripMats,UI,Packing,,,,Mats
+scStripFuel,UI,Packing,,,,Fuel
+scStripLux,UI,Packing,,,,Lux
 scStockText,UI,Packing,,,,"Stock: food {0}, water {5}, meds {1}, ammo {2}, mats {3}, fuel {4}, lux {6}"
 scPacked,UI,Packing,,,,"Packed {0} {1} bundle(s)."
 scPackShort,UI,Packing,,,,"Not enough {0} in the box for a bundle ({1} of {2} points)."

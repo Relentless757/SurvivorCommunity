@@ -1353,6 +1353,9 @@ namespace SurvivorCommunity
                 case "selmoodvalue": _value = sel != null ? Num(sel.Mood) : ""; return true;
                 case "selmoodfill": _value = sel != null ? Fill(sel.Mood / 100f) : "0"; return true;
                 case "selmoodword": _value = sel != null ? BandWord(sel.Mood) : ""; return true;
+                // R32b (U32): the mood bar's fill by the band of the word under it (AshfallUI's art / vanilla's tint)
+                case "selmoodfillsprite": _value = BandFillSprite(sel != null ? sel.Mood : 100); return true;
+                case "selmoodcolor": _value = BandColor(sel != null ? sel.Mood : 100); return true;
                 case "skcardio": _value = SkillText(sel, Skill.Cardio); return true;
                 case "skwits": _value = SkillText(sel, Skill.Wits); return true;
                 case "skfighting": _value = SkillText(sel, Skill.Fighting); return true;
@@ -1441,6 +1444,7 @@ namespace SurvivorCommunity
                 case "moralefill": _value = Fill(c.Morale / 100f); return true;
                 case "moraleword": _value = BandWord(c.Morale).ToUpper(CultureInfo.CurrentCulture); return true;
                 case "moralewordcolor": _value = BandColor(c.Morale); return true;
+                case "moralefillsprite": _value = BandFillSprite(c.Morale); return true;   // R32b: the bar's fill by band
                 case "bedscallvisible":
                     _value = (BedsShort() > 0).ToString();
                     return true;
@@ -1651,6 +1655,19 @@ namespace SurvivorCommunity
             if (v >= 50) return "120,180,90,255";
             if (v >= ScConfig.LowMoraleThreshold) return "220,170,70,255";
             return "210,80,70,255";
+        }
+
+        /// <summary>
+        /// R32b (U32, the user: "the morale bar should change from green to yellow/red"): a morale bar's fill in AshfallUI's
+        /// look, on BandColor's bands so it agrees with the word beside it - green from 50 (Steady, Thriving), amber from
+        /// LowMoraleThreshold (Uneasy), red below it (Breaking). The three are SC's own scui_fill_* names, which AshfallUI
+        /// ships its art under; the vanilla look tints a flat fill with BandColor instead ({moralewordcolor} / {selmoodcolor}).
+        /// </summary>
+        public static string BandFillSprite(int v)
+        {
+            if (v >= 50) return "scui_fill_good";
+            if (v >= ScConfig.LowMoraleThreshold) return "scui_fill_skill";
+            return "scui_fill_health";
         }
 
         private static string SkillLines(Member m)

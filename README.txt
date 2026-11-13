@@ -83,17 +83,25 @@ Two rules for your save
 Your community lives inside your land claim. That area is the home zone: the claim's normal square, or the whole grown
 claim if you use the included Upgradable Land Claim Block (section 19).
 
-- Your first land claim becomes home automatically. You can move home later: hold E on another land claim block you own
-  and pick Set as community home.
+- Starting a community is up to you. No land claim becomes home by itself: hold E on a land claim block you own and pick
+  Start a community here. That claim is the home from then on. You can move home later: hold E on another land claim
+  block you own and pick Set as community home. (The old way, where your first land claim became home on its own, is the
+  setting "AutoHomeFirstClaim", section 20.)
 - The land claim's radial menu (hold E on the block) gets these entries:
-  - Community: opens the community window.
-  - Set as community home: makes this claim the home.
-  - Linked storage: one window showing every storage box in the base (section 5).
-- Nobody will agree to join until you have a home. Without one, survivors tell you to place a land claim block first.
+  - Community: opens the community window. It does not start a community.
+  - Start a community here: only while you have no home yet. Makes this claim the home.
+  - Set as community home: on your other claims once you have a home (never on the home's own claim). Moves the home
+    here.
+  - Linked storage: one window showing every storage box in the base (section 5). Only once you have a home.
+- Nobody will agree to join until you have a home. Until then, a survivor you ask says you need a home for your people
+  first, and a message tells you to start a community from a land claim's radial. The radio's survivor calls, outposts,
+  watch posts and the Guard Tower wait for a home too.
+- If you pick up the home's land claim block, the community keeps its home there but nobody new joins until you pick Set
+  as community home on another claim of yours (or put a claim back on the same spot).
 
 A good first hour:
 
-1. Place a land claim where you want to live.
+1. Place a land claim where you want to live, hold E on it and pick Start a community here.
 2. Craft a Packing Station (from your backpack) and put it inside the claim.
 3. Put a few beds (bedrolls count) inside the claim, one per future member.
 4. Find a survivor, ask them to join, and do their favor.
@@ -263,7 +271,9 @@ Morale and mood
 ~~~~~~~~~~~~~~~
 
 Morale (0 to 100) is the community's shared spirit. A morale icon with the number sits in your buff bar while you have
-members, and the community window lists everything helping and hurting it. It starts at 50 and adds:
+members, and the community window lists everything helping and hurting it. The icon, the morale bars in the community
+window and the Home Status dot are green from 50, amber below 50 and red below 25 (the window's bars: below
+"LowMoraleThreshold", 25 by default), the same steps as the words beside them. It starts at 50 and adds:
 
 - Food: From -10 to +20 by days of food in the stockpile (about +4 per day beyond two days); -20 while hungry
 - Water: -20 while thirsty
@@ -395,7 +405,9 @@ The packing station
 ~~~~~~~~~~~~~~~~~~~
 
 Craft a Packing Station from your backpack (30 wood, 5 forged iron, 2 duct tape). It is a lockable crate with an 8x4
-box. Open it and a strip appears under the grid:
+box. Open it and a strip appears under the grid, as wide as the grid. Its buttons carry short names (Food, Water, Meds,
+Ammo, Mats, Fuel, Lux); hold the pointer over one to see what it does. Under them, the stockpile's stock and the last
+action's message.
 
 - Pack (food, water, medical, ammo, materials, fuel, luxuries) turns what is in the box into bundles. Large bundles are
   made first, then one Medium or Small for the rest. The most valuable stacks go first, and anything short of a whole
@@ -670,7 +682,8 @@ The Home Status panel
 
 While you stand inside the home zone, a Home Status panel shows at the top of the screen, right of the compass:
 
-- morale as a colored dot and a word (happy, content, uneasy, miserable);
+- morale as a colored dot and a word (happy, content, uneasy, miserable): green while content or happy, amber while
+  uneasy, red while miserable;
 - food, water, medical, ammo, materials and fuel in the stockpile, each red when it is below what the next day's
   rollover needs;
 - the member count;
@@ -925,6 +938,10 @@ Finding them
   m), a red skull for raiders and hostile groups (on the compass within 300 m).
 - Their building is theirs: no zombies, no land claims, no outposts, no trader quests there. Its loot containers belong
   to them ("That belongs to <name>.").
+- Their doors are open to visitors: every locked door of their building (doors, double doors, gates, hatches, garage and
+  vault doors) is unlocked when you come near, raiders' too, so you can walk in and find them. The doors are not opened
+  and do not become yours (you cannot lock them), and they stay unlocked if the group falls or moves. Their containers
+  stay theirs. "EnclaveDoorsUnlocked" (section 20) turns this off.
 - SC's own picks (radio contacts, favors, supply runs, scouting) never send anyone there.
 
 Their people
@@ -1198,16 +1215,25 @@ Looks
   outfit from a supported armor pack, if installed.
 - With Vanity Vault: a few survivors have a body paint (1%), a face paint (2%) or a tattoo (15%); raiders far more
   often, from wilder designs.
-- Hair color follows skin tone. Survivors and raiders with a medium skin tone (Honey, Golden Peach, Sand, Taupe,
-  Caramel, Bronze; without Vanity Vault, Asian and Native) never get natural blond or red hair; darker tones (Chestnut,
-  Umber, Espresso; without Vanity Vault, Black) also never get light brown. Lighter tones can have any natural color.
-  Gray and white hair stay as common as before on every skin, about 1 in 5. Dyed colors (pink, blue, green and so on)
-  still turn up now and then on anyone.
-- People you already know are fixed too. A survivor whose natural hair color does not fit their skin gets a fitting one
-  the next time they load (always the same one for that person, and never gray or white in place of a young-looking
-  color); the rest of their look stays. Dyed hair is left alone, and so is a face that came from 0-XNPCCore's character
-  creator (one taken on with this version or later: a creator face a survivor took on before it is not recognized, and
-  its hair color can be changed like anyone else's).
+- With Vanity Vault, the face comes first and the skin tone suits it. Vanity Vault splits a look in two: the skin tone
+  (Alabaster to Espresso) sets how light or dark the skin is, and the face (16 faces: 4 each with White, Native, Black
+  and Asian features) sets the features. A new survivor or raider gets their face first, then a tone that fits it: a
+  Black face never comes with very light skin, and a White or Asian face never with very dark skin. The tones each face
+  can get are the setting "SurvivorTonesByFace" (section 20). Without Vanity Vault nothing changes.
+- Hair color follows the skin tone and the face. Medium skin tones never get natural blond or red hair; dark tones also
+  never get light brown; light tones can have any natural color. Which tones count as medium or dark differs a little
+  between men and women (the same tone looks lighter on one than on the other). With Vanity Vault the face counts too:
+  an Asian or Native face is treated as at least medium and a Black face as dark, so a Black face with light skin gets
+  dark hair. Without Vanity Vault: Asian and Native as medium, Black as dark, White any color. Gray and white hair stay
+  as common as before on every skin, about 1 in 5. Dyed colors (pink, blue, green and so on) still turn up now and then
+  on anyone.
+- People you already know are fixed too. A survivor whose natural hair color does not fit their skin and face gets a
+  fitting one the next time they load (always the same one for that person, and never gray or white in place of a
+  young-looking color); the rest of their look stays: their face and skin tone are never changed by themselves. If an
+  older survivor's skin tone does not suit their face, "sc look <name> tone" gives that one survivor a tone that does
+  (only when you ask; CONSOLE_COMMANDS.md). Dyed hair is left alone, and so is a face that came from 0-XNPCCore's
+  character creator (one taken on with this version or later: a creator face a survivor took on before it is not
+  recognized, and its hair color can be changed like anyone else's).
 
 
 16. Voices and subtitles
@@ -1224,10 +1250,13 @@ Recorded voices
 - Survivors speak their talk lines in recorded voices (generated with ElevenLabs). There are 16 voices, two for each
   race (White, Black, Asian, Native) and sex. Each survivor keeps one voice of their race and sex.
 - All 16 voices are recorded.
-- With Vanity Vault, skin tones replace the four races, so each tone speaks with the voices of one race: the light tones
-  (Alabaster to Warm Beige) White; Honey and Golden Peach Asian; Sand, Taupe, Caramel and Bronze Native; Chestnut, Umber
-  and Espresso Black. Survivors you have already met switch to a voice that fits their skin the next time they load. The
-  setting is "VoiceRaceBySkin" (section 20); a tone can be given two races, and each person then keeps one of them.
+- With Vanity Vault, voices follow the face. Vanity Vault replaces the four races with skin tones, and the features a
+  player reads as White, Native, Black or Asian come from the face (section 15). So each survivor speaks with the voices
+  of their face's race, with one exception: a White or Asian face with a dark skin tone (for men Bronze, Umber and
+  Espresso; for women Chestnut, Umber and Espresso) speaks with Black voices. Survivors you have already met switch to a
+  voice that fits their face the next time they load. The settings are "VoiceRaceByFace" and "VoiceDarkTonesMale" /
+  "VoiceDarkTonesFemale" (section 20); with "VoiceRaceByFace" off, the skin tone alone decides ("VoiceRaceBySkin"), as
+  in the previous version.
 - Lines with a name or a number in them say only the part without it; the panel shows the whole line.
 - A few of the newest lines (for example the training line after reading a magazine, and refusals about the work kit,
   field jobs and trading) are text only for now.
@@ -1360,6 +1389,8 @@ Community
 - PostRadius = 8: Residents' posts are within this many blocks of the land claim block
 - ResidentRoamZone = true: Residents walk about the whole base by day (false: they stay near their post)
 - HomeKeepLoaded / HomeKeepLoadedRange = true / 250: Keep the home zone loaded while you are within this many meters
+- AutoHomeFirstClaim = false: true: your first land claim becomes the home by itself, as before (false: you start a
+  community from a claim's radial)
 - CommunityFriendlyFire = false: true lets your shots hurt your own members
 - DefendBaseRadius = 22: Residents attack enemies inside the base within this many meters of their post (0: only what
   they see)
@@ -1441,12 +1472,22 @@ NPCs and voices
 - ScGreetings / ScChatter = true / true: Greetings and residents' chatter
 - RaiderTaunts = true: Raider taunts
 - MuteVcInTalk = true: Voice Control stays quiet during SC's talks
+- VoiceRaceByFace = true: With Vanity Vault, survivors speak with the voices of their face's race; false: the skin tone
+  decides ("VoiceRaceBySkin")
+- VoiceDarkTonesMale / VoiceDarkTonesFemale = Bronze, Umber, Espresso / Chestnut, Umber, Espresso: Skin tones that make
+  a White or Asian face speak with Black voices
 - VoiceRaceBySkin = Vanity Vault's 15 natural tones: Which race's voices each skin tone speaks in, as "Tone:Race"
-  ("Honey:Asian"); a tone may name two races
-- SurvivorMidSkins / SurvivorMidSkinHairColors = Honey ... Bronze, Asian, Native / 03 LightBrown to 08 White: Medium
-  skin tones and the natural hair colors they can have
-- SurvivorDarkSkins / SurvivorDarkSkinHairColors = Chestnut, Umber, Espresso, Black / 04 Brown to 08 White: Dark skin
-  tones and the natural hair colors they can have
+  ("Honey:Asian"); a tone may name two races. Used only when the face gives no race, or with "VoiceRaceByFace" false
+- SurvivorTonesByFace = the tones that suit each face (section 15): With Vanity Vault, the skin tones a new face of each
+  race can get, one list per race (the comment in blocks.xml shows the format); empty: face and tone rolled apart
+- HairGroupByFace = true: With Vanity Vault, the face narrows the natural hair colors too (Asian and Native faces
+  medium, Black faces dark); false: the skin tone alone
+- SurvivorMidSkinsMale / SurvivorMidSkinsFemale = Warm Ivory ... Chestnut, Asian, Native / Cool Beige ... Bronze, Asian,
+  Native: Medium skin tones for men and for women
+- SurvivorDarkSkinsMale / SurvivorDarkSkinsFemale = Bronze, Umber, Espresso, Black / Chestnut, Umber, Espresso, Black:
+  Dark skin tones for men and for women
+- SurvivorMidSkinHairColors / SurvivorDarkSkinHairColors = 03 LightBrown to 08 White / 04 Brown to 08 White: The natural
+  hair colors medium and dark skins can have
 - SurvivorGrayHairColors = 07 Gray, 08 White: Hair colors that read as age: they stay at their usual share (1 in 5) on
   every skin
 
@@ -1461,6 +1502,7 @@ Raiders, outposts and the world
 - OutpostGoodNews = true: Outposts sometimes find caches
 - Enclaves = true: Enclaves on the map
 - EnclavesPerKm2 = 0.3: How many enclaves
+- EnclaveDoorsUnlocked = true: Enclaves' locked doors are unlocked when you come near (false: they stay as they are)
 - EnclaveRequestMaxOpen / EnclaveRequestMaxPerDay = 3 / 3: Open requests, and new calls for help a day
 - EnclaveRaids / EnclaveMoves / EnclaveJoin = true / true / true: Raider enclaves raid outposts; enclaves move; whole
   enclaves join

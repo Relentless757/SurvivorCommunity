@@ -256,7 +256,9 @@ Each survivor has **2 traits**. Their effects show on the NPC as buffs with a de
 ### Morale and mood
 
 **Morale** (0 to 100) is the community's shared spirit. A morale icon with the number sits in your buff bar while you
-have members, and the community window lists everything helping and hurting it. It starts at **50** and adds:
+have members, and the community window lists everything helping and hurting it. The icon, the morale bars in the
+community window and the Home Status dot are **green** from 50, **amber** below 50 and **red** below 25 (the window's
+bars: below `LowMoraleThreshold`, 25 by default), the same steps as the words beside them. It starts at **50** and adds:
 
 | Part | Value |
 |---|---|
@@ -383,7 +385,9 @@ luxuries**. You fill it with **bundles**.
 ### The packing station
 
 Craft a **Packing Station** from your backpack (30 wood, 5 forged iron, 2 duct tape). It is a lockable crate with an
-8x4 box. Open it and a strip appears under the grid:
+8x4 box. Open it and a strip appears under the grid, as wide as the grid. Its buttons carry short names (Food, Water,
+Meds, Ammo, Mats, Fuel, Lux); hold the pointer over one to see what it does. Under them, the stockpile's stock and the
+last action's message.
 
 - **Pack** (food, water, medical, ammo, materials, fuel, luxuries) turns what is in the box into bundles. Large bundles
   are made first, then one Medium or Small for the rest. The most valuable stacks go first, and anything short of a whole
@@ -639,7 +643,8 @@ Put a **Handheld Radio** (section 10) in a member's inventory before a run, and:
 
 While you stand inside the home zone, a **Home Status** panel shows at the top of the screen, right of the compass:
 
-- morale as a colored dot and a word (happy, content, uneasy, miserable);
+- morale as a colored dot and a word (happy, content, uneasy, miserable): green while content or happy, amber while
+  uneasy, red while miserable;
 - food, water, medical, ammo, materials and fuel in the stockpile, each **red when it is below what the next day's rollover
   needs**;
 - the member count;
