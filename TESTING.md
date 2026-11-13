@@ -2996,6 +2996,69 @@ look steps twice where they say so: once without `zzzzz_AshfallUI` in `Mods`, on
 777. **Nothing else moved.** Without Ashfall UI: the NPC's line above the responses, the talk page's pager, the Radio /
      Community tabs left of the tab bar and the ESC menu's Community entry look as before.
 
+**Q33. Round 33a: queued fixes from the reviews (3.4; 828-829 both games, test on 3.4)**
+
+Built 2026-11-13 on branch `ms/r33a` (SC 3.4 DLL `6da573954a53402df30ea915f0928b51`, `Port33\build\sc34_r33a`), **not
+reviewed, not installed**: these steps wait for the install. Four small fixes: a member chopping wood no longer swaps axe and
+weapon at every tree while a zombie lingers out of reach; what a resident makes at a station reaches the home crates even when
+you open the station meanwhile or her inventory was full; a member whose work kit cannot be checked yet is asked less and
+less often (a counter no longer races up); with another race mod, a survivor never gets a face their race lacks. Set
+`DebugLogging` true (SC) for the Verbose lines. Helpers: `sc craft` and `sc craft <name>` before and after each test, `sc
+loadout <name>`. Test on a new world or a copy; `dm` for the creative menu, F6 to spawn zombies.
+
+820. **The job gate is read once.** The first time a member holding a work-kit tool is between two job targets, the log has
+     once `jobs: a work-kit tool goes back for a fight when 0-XNPCCore's job gate shuts - SdcsEnemyNotNear 15 m (scan v4) on
+     7 harvest/butcher action(s), or a foe her action targets`. Never the warnings `no SdcsEnemyNotNear found on 0-XNPCCore's
+     harvest or butcher actions` or `SdcsEnemyNearScan.HasNearEnemy ... not found`.
+821. **A zombie out of reach no longer swaps her tools at every tree (round 29 glance LOW 1).** A resident with only a melee
+     weapon (or any member) chopping wood with the kit's stone axe, nothing handed over. Put a zombie about 20 m from her where
+     it cannot reach her (behind a wall or a fence, or in a pit) and let it notice her. She goes on chopping tree after tree
+     with the axe: no weapon drawn between two trees, `sc craft`'s `kit-tool-put-away-for-a-fight` does not grow with each
+     tree, and the log has no `held the work kit's ... with a foe near` line for each tree. (Before: her weapon came back after
+     every tree and the axe at the next, with an ordinary log line each time.)
+822. **A zombie that comes close still gets her weapon (round 29 review M2, unchanged).** In 821, open the wall (or F6 a zombie
+     next to her while she walks to the next tree): within about a second she holds her own weapon and fights with it;
+     `kit-tool-put-away-for-a-fight` goes up by one; with DebugLogging the line `<name> held the work kit's
+     meleeToolRepairT0StoneAxe with a foe near (<zombie> at N m, 0-XNPCCore's job gate (15 m) shut) - ...` (or `..., her
+     action's target)`); without DebugLogging no line (the counter still counts). Once the zombie is dead she chops on and takes
+     the axe again at the next tree. `kit-tool-in-a-fight-not-re-armed` stays at 0. The same with Butcher and the bone knife.
+823. **A gunner's target at range (optional).** A member with a gun chopping wood; a zombie comes at her in the open from 25 m:
+     if she turns to shoot it, she shoots with her gun, not the axe in hand (`..., her action's target)` with DebugLogging).
+824. **Station output with the station opened meanwhile (round 29 glance LOW 2, a).** A resident on a work shift at the
+     workbench (or forge): order 10 of something quick. Once the first ones are made, open the workbench yourself, wait 30 s,
+     close it and at once open it again (before she takes out what was made meanwhile; if she is quicker, try again): the log
+     has `a station's list held N x <recipe> made by <name> - paid to her now`; `sc craft <name>` now has `still owed to the
+     crates [...], on its way from a station [<item> xN]`. Keep it open 10 s or more, then close it: within a few
+     seconds of her taking them out those N items are in the home crates, not in her inventory (Show me your inventory), and
+     `sc craft <name>` has no `on its way` part and `in the crates` up by N. `sc craft`: `station output noted ahead N
+     (reached her window N, given up 0)` and `jobs: ... station-output-arrived=...`. (Before: the 5 s trim dropped them while
+     the station was open, and they stayed in her inventory.)
+825. **Station output that did not fit at first (b).** Fill her inventory with junk to one free slot, then order 3 of a
+     single-slot item (a weapon or a tool) at a station. After the first is made, take the junk out (Show me your inventory)
+     and close it. Every one she made that reaches her inventory goes on to the crates within about 5 s; nothing she made stays
+     in her inventory. Whatever 0-XNPCCore put elsewhere instead (its base materials) counts as `given up` about 2 minutes
+     after her order is done (DebugLogging: `<name>: N item(s) she made at a station never reached her inventory window (120
+     s after her craft order) - no longer expected for the crates`).
+826. **Backpack crafts and gathering as before.** A backpack shift (389) and a Wood job (604): the seeds and the wood still go
+     to the crates; `output-noted` grows for the wood; `station output noted ahead` does not grow for either.
+827. **The kit check backs off (round 29 glance LOW 3).** Recruit a stranger while they bandage themselves (622): `sc craft`
+     shows `kit-check-deferred=1` and `kit checks deferred now 1` (it no longer grows every 5 s), then after the bandage
+     `kit-check-resolved-late=1` and no `deferred now` part; `sc loadout <name>` has the kit. DebugLogging: once `<name>'s work
+     kit check is deferred (her body not set up yet, bandaging, or her weapon pair not resolved) - asked again in 5 s, then less
+     often (at most every 120 s)`, then `<name>'s work kit check went through after N s deferred`. Optional, on a backed-up
+     copy: a member whose melee weapon comes from a mod you then remove stays at `kit-check-deferred=1` for good, asked at 5,
+     10, 20, 40, 80 s, then every 120 s.
+828. **Faces with Vanity Vault, and without it, as before (round 32 review L3).** With Vanity Vault: spawn 20 survivors (`sc
+     spawn`): faces 1-16, tones that suit them (801); the log has no `has no face` and no `looks: ... face N -> M` line. Then
+     778 again with this build (Vanity Vault moved out, load, save, put it back, load): every tone look keeps its tone and face
+     (no `face N -> M` line in either session).
+829. **Another race mod (optional, only if you use one).** With a mod that adds races with fewer faces than others: new
+     survivors of those races build with a face of their own (never the default face, no `has no body assets this session`
+     line for them); the log once per race and sex `looks: race <race> (men) has no face N (its faces: 1-3) - a new survivor of
+     that race gets one of its own`. A saved survivor of such a race whose face the race no longer has (the mod updated with
+     fewer faces) gets one of its own once at load: `looks: <name> (<id>) face 7 -> 2 (race <race> has faces 1-3 this session;
+     face 7 is not one of them)`, kept after a save; one whose race the game does not list that session is left alone.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

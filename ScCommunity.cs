@@ -596,6 +596,20 @@ namespace SurvivorCommunity
                    && (!mustBeEnemy || EntityTargetingUtilities.IsEnemy(npc, t));
         }
 
+#if SC_V34
+        /// <summary>
+        /// Round 33a (ScJobs.KitFightOne): the live enemy her current UAI action targets, at any range - LiveFoe's third test
+        /// without its range. Null for none, a target that is no enemy, or the Cowardly flee's (the enemy she runs from).
+        /// </summary>
+        public static EntityAlive ActionFoe(EntityAlive npc)
+        {
+            UAI.Context ctx = npc != null ? npc.utilityAIContext : null;
+            if (ctx == null || (ctx.ActionData.Action != null && ctx.ActionData.Action.Name == FleeAction)) return null;
+            EntityAlive t = ctx.ActionData.Target as EntityAlive;
+            return IsLiveFoe(npc, t, float.MaxValue, true) ? t : null;
+        }
+#endif
+
         /// <summary>
         /// Moves a stuck resident back to its post. "fighting" (a live enemy within FightRange when the watchdog fired, the
         /// review's M3): the base defence then pauses DefendRestSeconds, so an intruder it could not reach does not pull it

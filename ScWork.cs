@@ -74,6 +74,14 @@ namespace SurvivorCommunity
             public bool SaidFull;
             /// <summary>Item type -> how many of what she made on this shift are still to go to the crates.</summary>
             public readonly Dictionary<int, int> Made = new Dictionary<int, int>();
+            /// <summary>
+            /// Round 33a (round 29 glance LOW 2): item type -> how many she made at a station that were still in its output when
+            /// they were noted (Patches_Craft C1d / C1e, NoteMadeAtStation). Not owed yet: they move onto Made as they reach her
+            /// window (ScJobs' WindowAdd hook, NoteArrived), so TrimLedger never drops them and an item is owed only once it is
+            /// there. PendingSeen: the last note, or the last Deposit with her craft order still alive (AgePending).
+            /// </summary>
+            public readonly Dictionary<int, int> Pending = new Dictionary<int, int>();
+            public float PendingSeen;
             /// <summary>Round 29a (J29): what she gathered on home jobs (ledgered with Made), pack-full resumes, the full pack said.</summary>
             public int Gathered, Resumes;
             public bool SaidPackFull;
@@ -93,6 +101,10 @@ namespace SurvivorCommunity
         private static int gatheredTotal, packResumes, packEnds, fieldJobsTaken, dutiesStarted, dutyIdleEnds;
         /// <summary>Round 29 review L4: ledger items no longer in her window (TrimLedger), and its scratch tables.</summary>
         private static int ledgerTrimmed;
+        /// <summary>Round 33a (round 29 glance LOW 2): station output noted ahead of its items, those that reached her window, those given up on.</summary>
+        private static int pendingNoted, pendingArrived, pendingExpired;
+        /// <summary>Round 33a: station output still expected this long after her craft order is gone (it moves the output to her window).</summary>
+        private const float PendingKeepSeconds = 120f;
         private static readonly Dictionary<int, int> inWindow = new Dictionary<int, int>();
         private static readonly List<int> ledgerKeys = new List<int>();
         private static bool talkGroupsLogged;
@@ -105,6 +117,7 @@ namespace SurvivorCommunity
             talkStarts = talkPromoted = talkEnds = talkSkipped = 0;
             gatheredTotal = packResumes = packEnds = fieldJobsTaken = dutiesStarted = dutyIdleEnds = 0;
             ledgerTrimmed = 0;
+            pendingNoted = pendingArrived = pendingExpired = 0;
             talkGroupsLogged = false;
             endReasons.Clear();
             ScJobs.Reset();
@@ -757,7 +770,11 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ what she made ----
 
-        /// <summary>Patches_Craft's XP hooks: an item made on a shift (type and count) is owed to the home crates.</summary>
+        /// <summary>
+        /// Patches_Craft's backpack hook (C1c): an item made on a shift (type and count) is owed to the home crates. Only for
+        /// items already in her window (0-XNPCCore's backpack craft puts them there before it pays): station output goes
+        /// through NoteMadeAtStation.
+        /// </summary>
         public static void NoteMade(int memberId, int itemType, int count)
         {
             Shift s;
@@ -766,6 +783,77 @@ namespace SurvivorCommunity
             s.Made.TryGetValue(itemType, out n);
             s.Made[itemType] = n + count;
             s.Crafts += count;
+        }
+
+        /// <summary>
+        /// Round 33a (round 29 glance LOW 2): Patches_Craft's station hooks (C1d, the prefix of 0-XNPCCore's station PayXp; C1e,
+        /// the player opening a station): items she made on a shift that are still in the station's output - her order moves
+        /// them to her window afterwards (0-XNPCCore's MoveOut, as many as fit, through SdcsStores.WindowAdd), or the player
+        /// opened the station first. They are expected (Pending), not owed: NoteArrived makes them owed as they arrive, so
+        /// TrimLedger's clamp to the window no longer drops them before they get there. Never owed twice: an arrival moves at
+        /// most what arrived and what is expected.
+        /// </summary>
+        public static void NoteMadeAtStation(int memberId, int itemType, int count)
+        {
+            Shift s;
+            if (itemType <= 0 || count <= 0 || !shifts.TryGetValue(memberId, out s)) return;
+            int n;
+            s.Pending.TryGetValue(itemType, out n);
+            s.Pending[itemType] = n + count;
+            s.PendingSeen = Time.time;
+            s.Crafts += count;
+            pendingNoted += count;
+        }
+
+        /// <summary>Round 33a: station output of this item is expected in her window (ScJobs' WindowAdd prefix asks before it records the add).</summary>
+        public static bool Expects(int memberId, int itemType)
+        {
+            Shift s;
+            int n;
+            return shifts.TryGetValue(memberId, out s) && s.Pending.TryGetValue(itemType, out n) && n > 0;
+        }
+
+        /// <summary>
+        /// Round 33a: ScJobs' WindowAdd hook - added items of this type went into her window on a shift. What is expected from a
+        /// station (Pending) becomes owed first, up to what arrived; the rest is a home job's harvest when gathering (job mode
+        /// 2-7, NoteGathered as before). Returns how many were station output.
+        /// </summary>
+        public static int NoteArrived(int memberId, int itemType, int added, bool gathering)
+        {
+            Shift s;
+            if (itemType <= 0 || added <= 0 || !shifts.TryGetValue(memberId, out s)) return 0;
+            int expected, promoted = 0;
+            if (s.Pending.TryGetValue(itemType, out expected) && expected > 0)
+            {
+                promoted = Math.Min(expected, added);
+                if (expected > promoted) s.Pending[itemType] = expected - promoted;
+                else s.Pending.Remove(itemType);
+                int n;
+                s.Made.TryGetValue(itemType, out n);
+                s.Made[itemType] = n + promoted;
+                pendingArrived += promoted;
+            }
+            if (gathering && added > promoted) NoteGathered(memberId, itemType, added - promoted);
+            return promoted;
+        }
+
+        /// <summary>
+        /// Round 33a: what is still expected from a station is given up PendingKeepSeconds after her craft order is gone (the
+        /// order is what moves the output; what never fit went to 0-XNPCCore's base materials, or stays for the player). From
+        /// Deposit, every DepositSeconds; the shift's end drops it with the shift.
+        /// </summary>
+        private static void AgePending(Member m, Shift s)
+        {
+            if (s.Pending.Count == 0) return;
+            float now = Time.time;
+            if (SdcsCraftJob.Get(m.Id) != null) { s.PendingSeen = now; return; }
+            if (now - s.PendingSeen < PendingKeepSeconds) return;
+            int n = 0;
+            foreach (var kv in s.Pending) n += kv.Value;
+            s.Pending.Clear();
+            pendingExpired += n;
+            ScLog.Verbose(m.Name + ": " + n + " item(s) she made at a station never reached her inventory window (" + PendingKeepSeconds.ToString("0")
+                          + " s after her craft order) - no longer expected for the crates");
         }
 
         /// <summary>
@@ -800,11 +888,13 @@ namespace SurvivorCommunity
         /// trade); what does not fit stays in the window. Round 29a: what she gathered on a home job too (NoteGathered), and onto
         /// the crates' stacks of the same item first (ScStorage.TopUpInZone), so a job that brings a few logs at a time does not
         /// take a new slot every DepositSeconds. Round 29 review L4: the ledger is trimmed to what the window holds first
-        /// (TrimLedger).
+        /// (TrimLedger). Round 33a: station output still on its way (Pending) is aged here (AgePending), never deposited.
         /// </summary>
         private static void Deposit(Member m, EntityAlive npc, Shift s, bool final)
         {
-            if (!ScConfig.WorkDepositOutput || s.Made.Count == 0 || !HarvestManager.Has(npc.entityId)) return;
+            if (!ScConfig.WorkDepositOutput) return;
+            AgePending(m, s);
+            if (s.Made.Count == 0 || !HarvestManager.Has(npc.entityId)) return;
             SCoreLootContainer window = HarvestManager.GetOrCreate(npc.entityId);
             if (window == null || window.IsUserAccessing() || ScAmmo.IsRemoteOpen(npc.entityId) || ScAmmo.XnpcTradeOpen(npc.entityId)) return;
             ItemStack[] items = window.items;
@@ -853,7 +943,9 @@ namespace SurvivorCommunity
         /// is no longer owed, so items of that kind handed over later (repair materials for a duty) are not swept to the crates.
         /// Deposit runs it whenever the window is closed, so the first Deposit after the player closes it (at most DepositSeconds
         /// later) trims what they took. Entries at 0 go. Not covered: taking her gathered items out and handing over as many of
-        /// the same item in one visit to her window (PORT_34, round 29 review).
+        /// the same item in one visit to her window (PORT_34, round 29 review). Round 33a (round 29 glance LOW 2): only items
+        /// already in her window are on Made - station output noted while it is still in the station (C1d, C1e) waits on
+        /// Pending until it arrives (NoteArrived), so the clamp no longer drops it on the way.
         /// </summary>
         private static void TrimLedger(Member m, Shift s, ItemStack[] items)
         {
@@ -990,11 +1082,18 @@ namespace SurvivorCommunity
                 ItemClass ic = ItemClass.GetForId(kv.Key);
                 made.Append(made.Length > 0 ? ", " : "").Append(ic != null ? ic.GetItemName() : kv.Key.ToString()).Append(" x").Append(kv.Value);
             }
+            var coming = new StringBuilder();       // round 33a: station output on its way to her window
+            foreach (var kv in s.Pending)
+            {
+                ItemClass ic = ItemClass.GetForId(kv.Key);
+                coming.Append(coming.Length > 0 ? ", " : "").Append(ic != null ? ic.GetItemName() : kv.Key.ToString()).Append(" x").Append(kv.Value);
+            }
             if (s.Phase == Phase.Talk)
                 return "Talk (round 28's talk hold) for " + (int)(Time.unscaledTime - s.TalkSince) + " s, a talk window last seen open " + (int)(Time.unscaledTime - s.TalkSeen)
                        + " s ago" + cvar;
             return s.Phase + " for " + (int)(now - s.PhaseSince) + " s (shift " + (int)(now - s.Started) + " s, " + (s.Called ? "called" : "talked to") + "), jobs " + s.Jobs
                    + ", made " + s.Crafts + ", gathered " + s.Gathered + ", in the crates " + s.Deposited + ", still owed to the crates [" + made + "]"
+                   + (coming.Length > 0 ? ", on its way from a station [" + coming + "]" : "")
                    + (s.Resumes > 0 ? ", pack emptied and back to work " + s.Resumes + "x" : "")
                    + (s.Duty ? "; " + (s.DutyMode == 9 ? "Combat" : "Base") + " repair duty for " + (int)(now - s.DutyStart) + " s, nothing to repair for "
                                + (int)(now - s.DutyIdleSince) + " s of " + ScConfig.RepairDutyIdleMinutes * 60 + " (" + s.DutyState + ")" : "") + cvar
@@ -1011,7 +1110,8 @@ namespace SurvivorCommunity
                    + talkEnds + " ended, " + talkSkipped + " not started (a resident who could not be held)"
                    + "; home jobs (round 29a): gathered " + gatheredTotal + ", pack emptied and back to work " + packResumes + ", pack full and ended " + packEnds
                    + ", field jobs taken back " + fieldJobsTaken + ", repair duties " + dutiesStarted + " started, " + dutyIdleEnds + " ended with nothing to repair"
-                   + ", ledger items no longer in a window " + ledgerTrimmed + "; "
+                   + ", ledger items no longer in a window " + ledgerTrimmed
+                   + ", station output noted ahead " + pendingNoted + " (reached her window " + pendingArrived + ", given up " + pendingExpired + "); "
                    + ScJobs.Report();
         }
     }

@@ -357,7 +357,8 @@ namespace SurvivorCommunity
                         int crafts = CraftsOf(d, out items);
                         Count("c1d-station-entry");
                         ScCraft.OnCrafted(m, npc, d.RecipeName, crafts, "station");
-                        if (d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null) ScWork.NoteMade(m.Id, d.CraftedItemStack.itemValue.type, items);
+                        // round 33a (round 29 glance LOW 2): still in the station's output here - expected, owed once MoveOut puts them in her window
+                        if (d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null) ScWork.NoteMadeAtStation(m.Id, d.CraftedItemStack.itemValue.type, items);
                     }
                 }
                 catch (Exception e)
@@ -397,8 +398,9 @@ namespace SurvivorCommunity
                         int items;
                         int crafts = CraftsOf(d, out items);
                         ScCraft.OnCrafted(m, ScCommunity.FindNpc(m.Id), d.RecipeName, crafts, "sweep");
-                        // on a shift her order still moves the station's output into her window: owed to the crates then
-                        if (d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null) ScWork.NoteMade(m.Id, d.CraftedItemStack.itemValue.type, items);
+                        // on a shift her order still moves the station's output into her window (once the player closes it):
+                        // owed to the crates then (round 33a: expected until it arrives, ScWork.NoteMadeAtStation)
+                        if (d.CraftedItemStack != null && d.CraftedItemStack.itemValue != null) ScWork.NoteMadeAtStation(m.Id, d.CraftedItemStack.itemValue.type, items);
                         list.RemoveAt(i);
                         changed = true;
                         Count("c1e-station-list-swept");

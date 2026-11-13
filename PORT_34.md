@@ -5166,3 +5166,123 @@ built `97a431862ca15dbe3f96e35b92f1d950`. The old install is in `Port33\_backups
 `VoiceRaceByFace` / `HairGroupByFace` true, `StreamerNames` false, 16 voices. Untested in game: TESTING H32 (730-748), F32
 (800-815), U32 (760-777), R32 (778-780), and still V31, S30, J29, M29, X3, P2, R2. Next round: review L3 (another race mod's
 face counts), the `scNoHomeReply` voice line (16 clips), L2's portrait-silhouette design note.
+
+### Round 33a: queued fixes (Q33) (2026-11-13, built, not reviewed, not installed)
+
+Branch `ms/r33a` from port-3.4 `80b2b48` (installed round 32), worktree `Port33\wt\sc-r33a`. Round 33b (openable bundles)
+runs in parallel in `wt\sc-r33b`; this round touches no `Config` file, no item action and no packing or stockpile code. The
+four LOWs queued from the reviews: the Fable glance at eef76a0's LOW 1-3 (round 29) and the round 32 review's L3.
+
+- **Round 29 glance LOW 1 (`ScJobs.FightKeepsJobOff` :1030, from `KitFightOne` :1086; `ReadJobGate` :947, `GateShut` :1016;
+  `ScCommunity.ActionFoe` :604, 3.4 only):** the work kit's fight switch no longer acts on any live foe within `FightRange`
+  (30 m) or any live attack or revenge target, but on a fight that keeps the jobs off: the live enemy her current UAI action
+  targets (any range; not the Cowardly flee's), or 0-XNPCCore's job gate shut - its own test, the public
+  `SdcsEnemyNearScan.HasNearEnemy(npc, distance, v4, sightBlock)` that `SdcsEnemyNotNear` scores (an awake enemy she can see
+  in the gate's box, a revenge target it counts - any range without loot mode, within the distance with it - and her
+  leader's target on Follow + loot). The gate's settings are read once per world from the parsed UAI packages
+  (`UAIBase.AIPackages`): every action whose task is `UAITaskHarvestSdcs` or `UAITaskButcherSdcs` (the tasks that keep the
+  tool in her hand), its `UAIConsiderationSdcsEnemyNotNear`'s private `_distance` / `_v4` / `_sightBlock` (set by its Init
+  from the XML); the smallest distance wins, with its scan; none found keeps 15 m v4 with a warning; no packages loaded yet
+  asks again at the next use; logged once (`jobs: a work-kit tool goes back for a fight when 0-XNPCCore's job gate shuts -
+  SdcsEnemyNotNear 15 m (scan v4) on 7 harvest/butcher action(s), or a foe her action targets`). So while the gate is open (a
+  zombie 20 m off behind a wall) the job goes on with the axe; once it shuts no harvest or butcher job can start, so the
+  weapon put back stays in her hand until the fight is over. A `MissingMethodException` / `TypeLoadException` from the call
+  (a 0-XNPCCore update) falls back to `LiveFoe` within the gate's distance, warned once. The success line is Verbose now and
+  says why (`(<zombie> at N m, 0-XNPCCore's job gate (15 m) shut)`, `(..., her action's target)`, or `(0-XNPCCore's job gate
+  (15 m) shut)` when the foe is none of hers); the not-re-armed line stays at Out-level (a fault: its counter
+  `kit-tool-in-a-fight-not-re-armed` should stay 0). `IsKitOnly` is now asked before the gate test (the cheaper check
+  first). Read against the installed 3.4.04 `NPCSdcsCharacters.dll` (md5 `4807dce3...`, the x3 decompile): the
+  consideration's three fields, `HasNearEnemy` (its box is `new Bounds(position, distance)`, so +-7.5 m for a visible enemy
+  at distance 15), and all 7 harvest/butcher actions of `SdcsNpcLoot` at `distance="15" scan="v4"`. TESTING Q33 820-823.
+- **Round 29 glance LOW 2 (`ScWork.NoteMadeAtStation` :796, `Expects` :809, `NoteArrived` :821, `AgePending` :845 from
+  `Deposit` :893; `Patches_Craft.cs:361`, :403; `ScJobs.Patch_JobOutput` :291-340, 3.4 only):** station output is no longer
+  put on the owed ledger (`Made`) while it is still in the station. C1d (the prefix of 0-XNPCCore's station PayXp, which its
+  Tick calls before MoveOut) and C1e (the player opening a station) note it on the shift's new `Pending` table: expected, not
+  owed. The existing `SdcsStores.WindowAdd` hook - the call 0-XNPCCore's `SdcsStationCraft.MoveOut` puts station output in her
+  window with (checked; the backpack craft adds through `HarvestManager.AddItem`, not hooked, and keeps `NoteMade`) - now also
+  records an add of a type the shift expects, in any job mode (`Expects` in the prefix; `__state` holds the type in its high
+  word, the count in 31 bits and a gather bit for job modes 2-7), and `NoteArrived` moves min(arrived, expected) from Pending
+  onto Made; the rest of a mode 2-7 add is gathered as before (`NoteGathered`), so one arrival is never counted twice.
+  TrimLedger is unchanged: it clamps Made, which now only holds what arrived. Pending is aged in Deposit (every 5 s): kept
+  while her craft order lives (`SdcsCraftJob.Get`), given up `PendingKeepSeconds` (120 s) after it is gone (what never fit went
+  to 0-XNPCCore's base materials or stays in the station for the player), and it goes with the shift. Owed never exceeds
+  what arrived or what was made, and Deposit moves at most min(owed, the window's count). Console: `sc craft <name>` `...,
+  still owed to the crates [...], on its way from a station [<item> xN]`; `sc craft` `station output noted ahead N (reached
+  her window N, given up N)` and `jobs: ... station-output-arrived=N`. TESTING 824-826.
+- **Round 29 glance LOW 3 (`ScJobs.KitTick` :825, `KitDefer`, `PruneDeferred` :808, 3.4 only):** a member whose kit check is
+  deferred (`ScLoadout.EnsureWorkKit`'s `done` false) is asked again after a wait that doubles from `KitCheckSeconds` (5 s) to
+  `KitDeferCapSeconds` (120 s) - 5, 10, 20, 40, 80, 120, 120 ... on the 5 s tick; `kit-check-deferred` counts each member once
+  and `kit-check-resolved-late` when one goes through later (a Verbose line each); `sc craft`'s jobs line ends `kit checks
+  deferred now N` while any wait; a deferred entry of someone no longer a member is dropped; `Reset` clears them. The fix is in
+  the loop (ScJobs); `EnsureWorkKit`'s comment points to it. TESTING 827.
+- **Round 32 review L3 (`ScLooks.Roll` :486; `FixVariant` :786 from `Validate` :768; pure `ListedRace` :811, `Faces` :824,
+  `HasVariant` :838, `VariantsText` :845, `RepairedVariant` :863; shared, both games):** (a) In the face-first roll (the
+  `HasTone` branch), once the tone or race is picked (either path), the face must be in that race's own
+  `SDCSDataUtils.GetVariantList(male, race)`; if not, it is re-picked from that list, logged once per race and sex (`looks:
+  race <race> (men) has no face N (its faces: 1-3) - a new survivor of that race gets one of its own`). With Vanity Vault
+  every tone's list is 1-16 (its postfix), so the face picked first always stays: round 32c's roll is unchanged, with no
+  extra draw. (b) `Validate` repairs a stored look's face, in place (the record saves it), only when its race is in the
+  game's race list for its sex (`ListedRace`), its variant is not in that race's list, its own face's base assets are missing
+  (`PartsExist`, the per-world cache) and the new face's are there; the new face is a stable FNV-1a pick of the race's faces
+  (sorted) by sex, race, old face, hair, eyes and beard (not the hair color, which `FixHairColor` may change right after). A
+  race the game does not list this session (Vanity Vault's tones without Vanity Vault) is NEVER touched: `BuildArchetype`
+  still builds that body with the default face on the copy only (round 32 review L2; its glance's L2 note). A creator face is
+  left as it is. One line per repair: `looks: <name> (<id>) face 7 -> 2 (race Elf has faces 1-3 this session; face 7 is not
+  one of them)`. It runs before the hair color fix (which reads the face), in its own try so a fault never skips the hair
+  rules, after `EnsureCatalogue` (vanilla's lists load lazily). The class and Validate comments say when a variant may
+  change now. TESTING 828-829.
+
+Where the brief left a choice (decided here):
+1. Fix 1 asks 0-XNPCCore's own gate test (`HasNearEnemy`) at the distance read from its config, not a plain distance: the gate
+   is a box (+-7.5 m for a visible enemy at 15) plus revenge rules, so a 15 m sphere would still swap tools for a foe 7.5-15 m
+   off. "Her current UAI action target" is `ActionData.Target` (an enemy, any range, not a flee).
+2. Fix 1's not-re-armed line stays Out-level (a fault, retried every 3 s only while the fight lasts).
+3. Fix 2's timeout runs from the end of her craft order (120 s), not from the note: a station the player keeps open for long
+   still delivers.
+4. Fix 3's cap is 120 s.
+5. Fix 4 (b) also needs the look's own face to have no assets (a face that builds is left, whatever a mod's list says) and
+   the new one's to exist; creator faces are left; the hash leaves out the hair color.
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_r33a`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build to `build\sc34_r33a_det`); the 3.2 configuration (`build\sc32_r33a_scratch`, `c3eb87d8...`) 0
+  errors; the tracked 3.2 `SurvivorCommunity.dll` untouched (`c4ad303a...`).
+- `cctor_order.py` on the ilspy IL dumps: 3.4 143 static constructors, 3.2 128 (no new static class), 0 reads before store.
+- IL, 3.4: `GateShut` calls `[NPCSdcsCharacters]UAI.SdcsEnemyNearScan::HasNearEnemy(EntityAlive, float32, bool, bool)`;
+  `FightKeepsJobOff` calls `ScCommunity::ActionFoe` and `ReadJobGate` (which holds `UAIConsiderationSdcsEnemyNotNear` and
+  `_distance`); `KitFightOne` calls `FightKeepsJobOff`, its success line `ScLog::Verbose`, the failure `ScLog::Out`;
+  `NoteMadeAtStation` from `Patch_StationCraft::Prefix` and `Patch_StationSweep::Postfix`, `NoteMade` only from
+  `Patch_BackpackCraft::Postfix`; `Expects` from `Patch_JobOutput::Prefix`, `NoteArrived` from its Postfix; `AgePending`
+  from `Deposit`; `PruneDeferred` from `KitTick`; `FixVariant` from `Validate`, `HasVariant` from `Roll`. 3.2: the ScLooks
+  calls the same, none of the 3.4-only ones.
+- Harmony: no new target (`HasNearEnemy` is called, not patched), `ModApi.cs ExpectedTargets()` unchanged.
+- The harness (scratch `r33a\harness`, round 32c's pattern, the built 3.4 DLL by reflection; scratch `r33a\logstub`, a
+  stand-in LogLibrary, lets the real `Roll` run): 57 checks, 0 failed. A the pure helpers. B `RepairedVariant`: a race the
+  list lacks never touched (Porcelain/10 with only the four races), a face the race has kept, a creator face kept, stable
+  twice and across a hair color change, case and spaces, a 3060-look sweep all inside Elf's 1-3 (1035 / 1006 / 1019). C the
+  game's own `GetRaceList` / `GetVariantList` over `VariantData` filled from vanilla's `sdcs.xml` (read from the 3.4
+  `data.unity3d` with UnityPy: 32 variants, the four races with faces 1-4 per sex). D the user's 85 looks (round 31's 68 and
+  round 32c's 17; 64 tones, 21 vanilla races): 0 repairs with Vanity Vault's lists, 0 with vanilla's. E the face-first roll
+  emulated, 100000 per sex, with a race mod beside vanilla (Zeta 1-8 sorts first, Elf 1-3): 43713 (men) / 43503 (women) faces
+  the chosen race lacks without the rule, 0 with it; with Vanity Vault's lists 0 re-picks. F the DLL's real `Roll`, 3000 per
+  sex over that table: 0 faces outside their race's list, the re-pick line once per race and sex (10); over a Vanity Vault
+  table (24 tones x 1-16): 0 faces outside 1-16, 0 tones outside their face's set, no re-pick line (the one error logged is
+  the harness's own: `ScLooks.Chance`'s `UnityEngine.Random` fallback cannot be compiled outside Unity, after the face is
+  set). G the station ledger through the real `Patch_JobOutput.Postfix`: owed only as items arrive (3 of 5, then 2 of 4),
+  never owed twice, a gathering add splits into expected and gathered, nothing fit nothing owed, no shift nothing. H
+  `ReadJobGate` over the merged `utilityai.xml` (the replay's), parsed by the game's `UAIFromXml` one action at a time (3
+  loot actions whose task constructor needs Unity skipped): 15 m, v4, no sight block, on the 7 harvest/butcher actions; one
+  edited to 12 m v3 gives 12 m v3; no packages: not marked read, 15 m meanwhile. The 3.2 DLL: A-F the same (G and H are
+  3.4-only code).
+- XML replay (scratch `x3\r33a_checks.py`, round 32m's pointed at this worktree; AshfallUI from `Version Control\
+  zzzzz_AshfallUI` through the replay's `DIR_` option): SC 212/212 alone, 200/200 with AshfallUI (its own 2279/2279), no
+  aborts (no XML changed).
+- Every file touched LF, no BOM; no localization key (log, console and docs only). README and CONSOLE_COMMANDS unchanged:
+  nothing they describe changed (the README already says a resident's crafts go to the crates and her weapon comes back when
+  a zombie reaches her).
+
+**Not checked (in game only, TESTING Q33 820-829):** the switch's feel with a zombie 15-30 m off and one closing in; a
+gunner turning to a far target; the station paths (the player opening the station mid-order, a full inventory) end to end
+with 0-XNPCCore's real MoveOut and base materials; the back-off on a real deferred recruit; a real race mod.
+
+Builds: SC 3.4 `6da573954a53402df30ea915f0928b51` (`build\sc34_r33a`), 0 errors. Not installed.

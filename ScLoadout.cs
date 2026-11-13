@@ -818,7 +818,8 @@ namespace SurvivorCommunity
         /// became a member after its PostInit, or one re-created under a new id, gets the kit now; one that is no member any
         /// more loses it), the toolbelt refilled as SCore's PostInit fills it. True when it changed. done (round 29 review L2):
         /// false while the body cannot be checked yet - not set up, bandaging (ScMedic), its pair not resolved - so ScJobs asks
-        /// again later; true once it was checked, or it never takes a kit (no V4 body, not a body class, a bandit raider).
+        /// again later (round 33a: less and less often, ScJobs.KitTick's back-off); true once it was checked, or it never takes
+        /// a kit (no V4 body, not a body class, a bandit raider).
         /// </summary>
         public static bool EnsureWorkKit(EntityAlive e, out bool done)
         {

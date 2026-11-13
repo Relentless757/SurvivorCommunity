@@ -59,8 +59,12 @@ namespace SurvivorCommunity
             replants.Clear();
             seedOf.Clear();
             kitChecked.Clear();
+            kitDeferred.Clear();
             nextKitCheck = 0f;
             kitFightNext.Clear();
+            gateRead = gateScanMissing = gateSightBlock = false;     // round 33a: the job gate is read again in the next world
+            gateV4 = true;
+            gateDistance = DefaultGateDistance;
             rosterLastLeftOut = -1;
         }
 
@@ -71,7 +75,8 @@ namespace SurvivorCommunity
             keys.Sort(StringComparer.Ordinal);
             var parts = new List<string>();
             foreach (string k in keys) parts.Add(k + "=" + hits[k]);
-            return "jobs: " + (parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "nothing yet") + (replants.Count > 0 ? ", replants waiting " + replants.Count : "");
+            return "jobs: " + (parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "nothing yet") + (replants.Count > 0 ? ", replants waiting " + replants.Count : "")
+                   + (kitDeferred.Count > 0 ? ", kit checks deferred now " + kitDeferred.Count : "");
         }
 
         /// <summary>The 0-XNPCCore assembly (NPCSdcsCharacters.dll): its internal types are looked up here.</summary>
@@ -277,7 +282,10 @@ namespace SurvivorCommunity
         /// J29 (decision 3): whatever 0-XNPCCore puts in a member's inventory window on a home job (harvest and butcher payouts,
         /// HarvestPayout; loot) while she is on a work shift in job mode 2-7 is noted on the shift's ledger (ScWork.NoteGathered),
         /// so ScWork.Deposit moves it to the crates. A talk hold counts too: the job's first payouts can come before ScWork's
-        /// once-a-second tick has made the hold a shift. Craft output (mode 10) has its own ledger hooks.
+        /// once-a-second tick has made the hold a shift. Craft output (mode 10) has its own ledger hooks. Round 33a (round 29
+        /// glance LOW 2): it is also where a station's output reaches her window (0-XNPCCore's station MoveOut adds through
+        /// WindowAdd): an item the shift expects from a station (ScWork.Expects) becomes owed as it arrives (ScWork.NoteArrived),
+        /// in any job mode; what a home job adds beyond that is gathered as before.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_JobOutput
@@ -288,19 +296,27 @@ namespace SurvivorCommunity
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return WindowAddTarget(); }
 
-            /// <summary>The item and count before the call (WindowAdd lowers a stack's count to what did not fit).</summary>
+            /// <summary>High bit of __state's low word: the add came in job mode 2-7 (a home job's harvest).</summary>
+            private const uint GatherBit = 0x80000000u;
+
+            /// <summary>
+            /// The item and count before the call (WindowAdd lowers a stack's count to what did not fit): type in the high word,
+            /// count in the low word's 31 bits, GatherBit for job modes 2-7; 0 = not ours.
+            /// </summary>
             [HarmonyPrefix]
             public static void Prefix(int __0, ItemStack __1, out long __state)
             {
                 __state = 0;
                 try
                 {
-                    if (__1 == null || __1.IsEmpty() || __1.itemValue == null || !ScWork.OnShift(__0)) return;
+                    if (__1 == null || __1.IsEmpty() || __1.itemValue == null || __1.count <= 0 || !ScWork.OnShift(__0)) return;
                     World w = ScCommunity.World;
                     EntityAlive npc = w != null ? w.GetEntity(__0) as EntityAlive : null;
                     int mode = SdcsLootMode.Mode(npc);
-                    if (mode < 2 || mode > 7) return;
-                    __state = ((long)__1.itemValue.type << 32) | (uint)__1.count;
+                    bool gathering = mode >= 2 && mode <= 7;
+                    if (!gathering && !ScWork.Expects(__0, __1.itemValue.type)) return;
+                    uint low = (uint)(__1.count & 0x7FFFFFFF) | (gathering ? GatherBit : 0u);
+                    __state = ((long)__1.itemValue.type << 32) | low;
                 }
                 catch (Exception e) { ScLog.Once("jobs-output-pre", e); }
             }
@@ -311,10 +327,13 @@ namespace SurvivorCommunity
                 if (__state == 0) return;
                 try
                 {
-                    int type = (int)(__state >> 32), count = (int)(__state & 0xFFFFFFFFL), added = count - Math.Max(0, __result);
+                    uint low = (uint)(__state & 0xFFFFFFFFL);
+                    int type = (int)(__state >> 32), count = (int)(low & 0x7FFFFFFFu), added = count - Math.Max(0, __result);
                     if (added <= 0) return;
-                    ScWork.NoteGathered(__0, type, added);
-                    Count("output-noted");
+                    bool gathering = (low & GatherBit) != 0;
+                    int fromStation = ScWork.NoteArrived(__0, type, added, gathering);
+                    if (fromStation > 0) Count("station-output-arrived");
+                    if (gathering && added > fromStation) Count("output-noted");
                 }
                 catch (Exception e) { ScLog.Once("jobs-output", e); }
             }
@@ -774,29 +793,75 @@ namespace SurvivorCommunity
         private static float nextKitCheck;
         private const float KitCheckSeconds = 5f;
 
+        /// <summary>Round 33a (round 29 glance LOW 3): a member whose kit check was deferred - since when, the wait now, the next ask (Time.time).</summary>
+        private sealed class KitDefer
+        {
+            public float Since, Wait, Next;
+        }
+
+        /// <summary>Member id -> her deferred kit check (KitTick's back-off); gone once checked, or once she is no member.</summary>
+        private static readonly Dictionary<int, KitDefer> kitDeferred = new Dictionary<int, KitDefer>();
+        private const float KitDeferCapSeconds = 120f;
+        private static readonly List<int> deferScratch = new List<int>();
+
+        /// <summary>A deferred check of someone who is no member any more is dropped (she would never be asked again).</summary>
+        private static void PruneDeferred()
+        {
+            if (kitDeferred.Count == 0) return;
+            deferScratch.Clear();
+            foreach (int id in kitDeferred.Keys) if (ScRegistry.GetMember(id) == null) deferScratch.Add(id);
+            foreach (int id in deferScratch) kitDeferred.Remove(id);
+        }
+
         /// <summary>
         /// Every KitCheckSeconds: each member's loaded body not checked yet gets the pair + work kit item list
         /// (ScLoadout.EnsureWorkKit) - a recruit who joined after their PostInit, a body re-created under a new id. A body's
         /// own PostInit (a load, a re-create under the member's id) writes it anyway. Round 29 review L2: a body counts as
         /// checked only once EnsureWorkKit got past its guards (done) - one bandaging or with its pair not resolved yet at
-        /// that tick is asked again at the next.
+        /// that tick is asked again at the next. Round 33a (round 29 glance LOW 3): one that stays deferred (a pair that never
+        /// resolves - a weapon item gone from the game) is asked again after a wait that doubles from KitCheckSeconds up to
+        /// KitDeferCapSeconds, and kit-check-deferred counts each member once (kit-check-resolved-late when it resolves later).
         /// </summary>
         private static void KitTick()
         {
             float now = Time.time;
             if (now < nextKitCheck || !ScRegistry.Loaded) return;
             nextKitCheck = now + KitCheckSeconds;
+            PruneDeferred();
             foreach (Member m in ScRegistry.Members.Values)
             {
                 if (m == null || kitChecked.Contains(m.Id)) continue;
+                KitDefer d;
+                bool deferred = kitDeferred.TryGetValue(m.Id, out d);
+                if (deferred && now < d.Next) continue;
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
                 if (npc == null || npc.IsDead()) continue;
                 try
                 {
                     bool done;
                     if (ScLoadout.EnsureWorkKit(npc, out done)) Count("kit-given-late");
-                    if (done) kitChecked.Add(m.Id);
-                    else Count("kit-check-deferred");
+                    if (done)
+                    {
+                        kitChecked.Add(m.Id);
+                        if (deferred)
+                        {
+                            kitDeferred.Remove(m.Id);
+                            Count("kit-check-resolved-late");
+                            ScLog.Verbose(m.Name + "'s work kit check went through after " + (now - d.Since).ToString("0") + " s deferred");
+                        }
+                    }
+                    else if (!deferred)
+                    {
+                        kitDeferred[m.Id] = new KitDefer { Since = now, Wait = KitCheckSeconds, Next = now + KitCheckSeconds };
+                        Count("kit-check-deferred");
+                        ScLog.Verbose(m.Name + "'s work kit check is deferred (her body not set up yet, bandaging, or her weapon pair not resolved) - asked again in "
+                                      + KitCheckSeconds.ToString("0") + " s, then less often (at most every " + KitDeferCapSeconds.ToString("0") + " s)");
+                    }
+                    else
+                    {
+                        d.Wait = Math.Min(d.Wait * 2f, KitDeferCapSeconds);
+                        d.Next = now + d.Wait;
+                    }
                 }
                 catch (Exception e)
                 {
@@ -865,15 +930,134 @@ namespace SurvivorCommunity
             return t is UAITaskHarvestSdcs || t is UAITaskButcherSdcs || t is UAITaskBaseKeepSdcs;
         }
 
-        /// <summary>A live foe she is busy with: LiveFoe within FightRange, else a live attack or revenge target at any range.</summary>
-        private static EntityAlive KitFoe(EntityAlive npc)
+        // ---- round 33a (round 29 glance LOW 1): a foe the job gate sees, not any foe within 30 m ----
+
+        /// <summary>0-XNPCCore's job gate when its config cannot be read: SdcsEnemyNotNear distance="15" scan="v4" (3.4.04).</summary>
+        private const float DefaultGateDistance = 15f;
+        private static float gateDistance = DefaultGateDistance;
+        private static bool gateV4 = true, gateSightBlock, gateRead, gateScanMissing;
+
+        /// <summary>
+        /// Round 33a: the job gate 0-XNPCCore's harvest and butcher actions carry (the actions whose task keeps a tool in her
+        /// hand: UAITaskHarvestSdcs, UAITaskButcherSdcs), read once per world from the parsed UAI packages (UAIBase.AIPackages):
+        /// its SdcsEnemyNotNear's distance, scan and sight (the consideration's private _distance / _v4 / _sightBlock, set by
+        /// its Init from the XML). The smallest distance found wins: below it every such job is shut. None found (0-XNPCCore
+        /// update?) leaves DefaultGateDistance, logged; packages not loaded yet are asked again on the next use.
+        /// </summary>
+        private static void ReadJobGate()
         {
-            EntityAlive t = ScCommunity.LiveFoe(npc, ScCommunity.FightRange);
-            if (t != null) return t;
-            t = npc.GetAttackTarget();
-            if (t != null && t != npc && !t.IsDead()) return t;
-            t = npc.GetRevengeTarget();
-            return t != null && t != npc && !t.IsDead() ? t : null;
+            if (gateRead) return;
+            if (UAIBase.AIPackages == null || UAIBase.AIPackages.Count == 0) return;
+            gateRead = true;
+            int found = 0;
+            try
+            {
+                Type ct = typeof(UAIConsiderationSdcsEnemyNotNear);
+                FieldInfo fd = AccessTools.Field(ct, "_distance"), fv = AccessTools.Field(ct, "_v4"), fs = AccessTools.Field(ct, "_sightBlock");
+                if (fd != null && fd.FieldType == typeof(float))
+                {
+                    if (fv != null && fv.FieldType != typeof(bool)) fv = null;
+                    if (fs != null && fs.FieldType != typeof(bool)) fs = null;
+                    float best = float.MaxValue;
+                    bool v4 = true, sight = false;
+                    foreach (UAIPackage p in UAIBase.AIPackages.Values)
+                    {
+                        List<UAIAction> actions = p != null ? p.GetActions() : null;
+                        if (actions == null) continue;
+                        foreach (UAIAction a in actions)
+                        {
+                            if (a == null || !KeepsTool(a) || a.GetConsiderations() == null) continue;
+                            foreach (UAIConsiderationBase c in a.GetConsiderations())
+                            {
+                                if (!(c is UAIConsiderationSdcsEnemyNotNear)) continue;
+                                float d = (float)fd.GetValue(c);
+                                if (d <= 0f) continue;
+                                found++;
+                                if (d < best)
+                                {
+                                    best = d;
+                                    v4 = fv == null || (bool)fv.GetValue(c);
+                                    sight = fs != null && (bool)fs.GetValue(c);
+                                }
+                            }
+                        }
+                    }
+                    if (found > 0) { gateDistance = best; gateV4 = v4; gateSightBlock = sight; }
+                }
+            }
+            catch (Exception e)
+            {
+                found = 0;                          // part read: the defaults stay
+                gateDistance = DefaultGateDistance; gateV4 = true; gateSightBlock = false;
+                ScLog.Once("jobs-gate-read", e);
+            }
+            if (found > 0)
+                ScLog.Out("jobs: a work-kit tool goes back for a fight when 0-XNPCCore's job gate shuts - SdcsEnemyNotNear " + gateDistance.ToString("0.#")
+                          + " m (scan " + (gateV4 ? "v4" : "v3") + (gateSightBlock ? ", sight block" : "") + ") on " + found + " harvest/butcher action(s), or a foe her action targets");
+            else
+                ScLog.Warn("jobs: no SdcsEnemyNotNear found on 0-XNPCCore's harvest or butcher actions (0-XNPCCore update?) - a work-kit tool goes back for a fight with a foe within "
+                           + DefaultGateDistance.ToString("0") + " m (scan v4) or one her action targets");
+        }
+
+        private static bool KeepsTool(UAIAction a)
+        {
+            List<UAITaskBase> tasks = a.GetTasks();
+            if (tasks == null) return false;
+            foreach (UAITaskBase t in tasks) if (t is UAITaskHarvestSdcs || t is UAITaskButcherSdcs) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Round 33a: 0-XNPCCore's job gate is shut for her now - its own test (SdcsEnemyNearScan.HasNearEnemy, the one its
+        /// SdcsEnemyNotNear scores) at the gate's distance, scan and sight: an awake enemy she can see within it, a revenge
+        /// target it counts, her leader's target on Follow + loot. While it is shut no harvest or butcher job starts, so the
+        /// weapon put back stays in her hand.
+        /// </summary>
+        private static bool GateShut(EntityAlive npc)
+        {
+            return SdcsEnemyNearScan.HasNearEnemy(npc, gateDistance, gateV4, gateSightBlock);
+        }
+
+        /// <summary>
+        /// Round 29 review M2, narrowed in round 33a (round 29 glance LOW 1): a fight she is in that keeps a job from taking
+        /// its tool again - the live enemy her current UAI action targets (at any range: she is acting on it; not the one a
+        /// Cowardly flee runs from), or 0-XNPCCore's job gate shut (GateShut). It used to be any live foe within FightRange (30
+        /// m) or any live attack or revenge target, so with a foe lingering beyond the gate (a zombie stuck behind a wall 20 m
+        /// off as her target) the job went on, and her weapon came back after each tree and the axe again at the next. foe:
+        /// the foe to name in the log (null when the gate is shut by one that is not hers: "a foe near"). Without 0-XNPCCore's
+        /// scan (an update) the foe test is LiveFoe within the gate's distance, warned once.
+        /// </summary>
+        private static bool FightKeepsJobOff(EntityAlive npc, out EntityAlive foe, out string why)
+        {
+            foe = ScCommunity.ActionFoe(npc);
+            if (foe != null) { why = "her action's target"; return true; }
+            why = null;
+            try { ReadJobGate(); }
+            catch (Exception e) { gateRead = true; ScLog.Once("jobs-gate-bind", e); }     // the defaults stay
+            bool shut;
+            if (!gateScanMissing)
+            {
+                try { shut = GateShut(npc); }
+                catch (Exception e) when (e is MissingMethodException || e is TypeLoadException)
+                {
+                    gateScanMissing = true;
+                    ScLog.Warn("0-XNPCCore's SdcsEnemyNearScan.HasNearEnemy(EntityAlive, float, bool, bool) not found (0-XNPCCore update?) - a work-kit tool goes back"
+                               + " for a fight with a foe within " + gateDistance.ToString("0.#") + " m instead");
+                    shut = false;
+                }
+            }
+            else shut = false;
+            if (gateScanMissing)
+            {
+                foe = ScCommunity.LiveFoe(npc, gateDistance);
+                if (foe == null) return false;
+                why = "within " + gateDistance.ToString("0.#") + " m";
+                return true;
+            }
+            if (!shut) return false;
+            foe = ScCommunity.LiveFoe(npc, ScCommunity.FightRange);
+            why = "0-XNPCCore's job gate (" + gateDistance.ToString("0.#") + " m) shut";
+            return true;
         }
 
         /// <summary>
@@ -881,10 +1065,11 @@ namespace SurvivorCommunity
         /// KeepTool) and its close-range swap only starts from a ranged weapon, so a zombie that reached her between two trees
         /// was fought with the stone axe. Once a second (Tick): a member whose held item is a kit-only tool
         /// (ScLoadout.IsKitOnly), with no run of 0-XNPCCore's harvest or butcher task going on and none of its job tasks as her
-        /// current UAI task (then she is working, not fighting), while she has a live foe (KitFoe), gets her weapon back -
-        /// 0-XNPCCore's own RestoreWeapon when a job set it aside (the weapon she held before the tool), else the pair's melee
-        /// weapon (ArmPairMelee). The job takes its tool again when its next run starts (UAITaskHarvestSdcs.EquipTool). At most
-        /// every KitFightRetrySeconds per member; logged and counted.
+        /// current UAI task (then she is working, not fighting), while a fight keeps the jobs off (FightKeepsJobOff, round 33a:
+        /// a foe her action targets, or 0-XNPCCore's job gate shut), gets her weapon back - 0-XNPCCore's own RestoreWeapon when a
+        /// job set it aside (the weapon she held before the tool), else the pair's melee weapon (ArmPairMelee). The job takes
+        /// its tool again when its next run starts (UAITaskHarvestSdcs.EquipTool), which the gate allows only once the fight is
+        /// over. At most every KitFightRetrySeconds per member; counted, and logged (round 33a: Verbose when it worked).
         /// </summary>
         private static void KitFightTick()
         {
@@ -908,8 +1093,10 @@ namespace SurvivorCommunity
             if (kitFightNext.TryGetValue(m.Id, out next) && now < next) return;
             int id = npc.entityId;
             if (UAITaskHarvestSdcs.HasActiveRun(id) || UAITaskButcherSdcs.HasActiveRun(id) || JobTaskRunning(npc)) return;
-            EntityAlive foe = KitFoe(npc);
-            if (foe == null || !ScLoadout.IsKitOnly(npc, tool)) return;
+            if (!ScLoadout.IsKitOnly(npc, tool)) return;
+            EntityAlive foe;
+            string foeWhy;
+            if (!FightKeepsJobOff(npc, out foe, out foeWhy)) return;
             kitFightNext[m.Id] = now + KitFightRetrySeconds;
             string how, why = null;
             MethodInfo restore = UAITaskHarvestSdcs.HoldsJobTool(id) ? RestoreWeaponMethod() : null;
@@ -922,8 +1109,9 @@ namespace SurvivorCommunity
             string inHand = HeldName(npc);
             bool ok = how != null && (inHand == null || !ScLoadout.IsKitOnly(npc, inHand));
             Count(ok ? "kit-tool-put-away-for-a-fight" : "kit-tool-in-a-fight-not-re-armed");
-            string foeText = ScCommunity.DisplayName(foe) + " at " + Vector3.Distance(npc.position, foe.position).ToString("0") + " m";
-            if (ok) ScLog.Out(m.Name + " held the work kit's " + tool + " with a foe near (" + foeText + ") - " + how + ": " + (inHand ?? "empty hands") + " in hand");
+            string foeText = (foe != null ? ScCommunity.DisplayName(foe) + " at " + Vector3.Distance(npc.position, foe.position).ToString("0") + " m, " : "") + foeWhy;
+            // round 33a (round 29 glance LOW 1): Verbose - one line per fight, not per tree, but a fight can still come and go
+            if (ok) ScLog.Verbose(m.Name + " held the work kit's " + tool + " with a foe near (" + foeText + ") - " + how + ": " + (inHand ?? "empty hands") + " in hand");
             else ScLog.Out(m.Name + " holds the work kit's " + tool + " with a foe near (" + foeText + ") and could not be re-armed ("
                            + (why ?? "still holds " + (inHand ?? "nothing")) + ") - tried again in " + KitFightRetrySeconds.ToString("0") + " s");
         }

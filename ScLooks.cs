@@ -156,7 +156,8 @@ namespace SurvivorCommunity
     /// Round 32c (F32): with Vanity Vault the face variant's race (FaceRace: 1-4 White, 5-8 Native, 9-12 Black, 13-16 Asian)
     /// narrows the hair group too (the darker of face and tone: AllowedHairColors), a new survivor gets its face first and a
     /// tone that suits it (Roll, TonesForFace), and sc look &lt;x&gt; tone re-tones one survivor on request (SuitedTone). A
-    /// stored look's race and variant are never changed by itself.
+    /// stored look's race is never changed by itself, nor its variant but in one case (round 33a, FixVariant: a race the game
+    /// lists this session without that face, its assets missing - never a race the game does not list).
     /// </summary>
     public static class ScLooks
     {
@@ -442,7 +443,9 @@ namespace SurvivorCommunity
         /// -1 when unknown. Round 32c: with Vanity Vault's tones (the game's race list holds names that are not the four
         /// races) the face variant is picked first and the tone from its face race's SurvivorTonesByFace set (less
         /// SurvivorExcludeSkins, only tones the game has); no set for the face: the tone from every skin, logged once. Without
-        /// them (or with SurvivorTonesByFace empty) the race and then its variant, as before.
+        /// them (or with SurvivorTonesByFace empty) the race and then its variant, as before. Round 33a (round 32 review L3):
+        /// whichever way, the face is one the chosen race has (GetVariantList for that race and sex) - with Vanity Vault always
+        /// (1-16 for every tone, nothing changes); another race mod's race with fewer faces gets one of its own.
         /// </summary>
         public static Look Roll(bool male, GameRandom rnd, bool withGear, bool raider = false, int band = -1)
         {
@@ -476,6 +479,17 @@ namespace SurvivorCommunity
                                        : "SurvivorTonesByFace leaves no tone of the game's for " + face + " faces")
                                        + " - its tone is picked from every skin, as before round 32c");
                             look.Race = Pick(rnd, races, FallbackRaces);
+                        }
+                        // round 33a (round 32 review L3): the face must be one the chosen race has. Vanity Vault gives every tone
+                        // 1-16, so the face picked first stays; another race mod's races (also "tones" to HasTone) may have
+                        // fewer faces than races[0], whose list the face came from: then one of the chosen race's own
+                        List<string> own = SDCSDataUtils.GetVariantList(male, look.Race);
+                        if (!HasVariant(own, look.Variant))
+                        {
+                            ScLog.OnceOut("looks-face-not-in-race-" + (male ? "M-" : "F-") + look.Race, "looks: race " + look.Race + " (" + (male ? "men" : "women")
+                                          + ") has no face " + look.Variant + " (its faces: " + VariantsText(own) + ") - a new survivor of that race gets one of its own");
+                            look.Variant = PickVariant(rnd, own);
+                            variants = own;
                         }
                     }
                     else
@@ -737,10 +751,11 @@ namespace SurvivorCommunity
         /// Corrects a stored look to today's rules, in place, once per look per session: P2's men's hair (FixMaleHair) and
         /// round 31's natural hair color for the skin (FixHairColor; round 32c: for the face too). e / name only name the NPC
         /// in the hair color fix's log line (name: whose look it is; null = the body's own name; without e, name is used as
-        /// it is). Never changes a look's race (tone) or variant: round 32 review L2 - the missing-assets fallback used to
-        /// rewrite the look here, and the look is often a member's, prospect's, enclave or band person's own record, so one
-        /// session without Vanity Vault turned every such record into White/01 for good. The fallback now lives in
-        /// BuildArchetype, on the copy a body is built from.
+        /// it is). Never changes a look's race (tone): round 32 review L2 - the missing-assets fallback used to rewrite the look
+        /// here, and the look is often a member's, prospect's, enclave or band person's own record, so one session without
+        /// Vanity Vault turned every such record into White/01 for good. The fallback now lives in BuildArchetype, on the copy
+        /// a body is built from. Its variant only in one case (round 33a, FixVariant): a race the game lists this session that
+        /// has no such face, while that face has no assets.
         /// </summary>
         public static void Validate(Look look, Entity e = null, string name = null)
         {
@@ -748,10 +763,111 @@ namespace SurvivorCommunity
             try
             {
                 FixMaleHair(look);      // P2
+                // round 33a (round 32 review L3), before the hair color (it reads the face): its own try, so a fault there
+                // never keeps the hair rules from running
+                try { FixVariant(look, e, name); }
+                catch (Exception ex) { ScLog.Once("looks-fix-variant", ex); }
                 FixHairColor(look, e, name);    // round 31
                 look.Validated = true;      // a thrown check is retried on the next use
             }
             catch (Exception ex) { ScLog.Once("looks-validate", ex); }
+        }
+
+        /// <summary>
+        /// Round 33a (round 32 review L3): a stored look whose race the game lists this session (GetRaceList for its sex) but
+        /// whose face (variant) that race does not have (GetVariantList) - another race mod's race with fewer faces, a race mod
+        /// updated since - gets one of the race's own faces, picked by a stable hash of the look (RepairedVariant), in place,
+        /// so the record saves it. Only while its own face's base assets are missing (PartsExist: a face that builds is left as
+        /// it is, whatever the list says) and the new face's are there. A race the game does not list this session (Vanity
+        /// Vault's tones without Vanity Vault: round 32 review L2) is NEVER touched - BuildArchetype builds that body with the
+        /// default face, on the copy only. A creator face is the character's own and is left as it is (built as BuildArchetype
+        /// does). One log line per repair.
+        /// </summary>
+        private static void FixVariant(Look look, Entity e, string name)
+        {
+            if (look == null || look.CreatorFace || string.IsNullOrEmpty(look.Race)) return;
+            EnsureCatalogue();
+            List<string> races = SDCSDataUtils.GetRaceList(look.Male);
+            if (ListedRace(races, look.Race) == null) return;       // not this session's race: hands off
+            List<string> variants = SDCSDataUtils.GetVariantList(look.Male, look.Race);
+            int to = RepairedVariant(look, races, variants);
+            if (to <= 0 || to == look.Variant) return;
+            if (PartsExist(look.ToArchetype())) return;                // the face builds as it is
+            Archetype a = look.ToArchetype();
+            a.Variant = to;
+            if (!PartsExist(a))
+            {
+                ScLog.Once("looks-fix-variant-noassets-" + look.Race + "/" + to, "looks: race " + look.Race + " lists face " + to + " but has no body assets for it"
+                           + " - a stored " + look.Race + "/" + look.Variant + " is left as it is (built with the default face)");
+                return;
+            }
+            int was = look.Variant;
+            look.Variant = to;
+            ScLog.Out("looks: " + Label(e, name) + " face " + was + " -> " + to + " (race " + look.Race + " has faces " + VariantsText(variants)
+                      + " this session; face " + was + " is not one of them)");
+        }
+
+        /// <summary>Round 33a, pure: the game's spelling of race in its race list (trimmed, any case), or null when it is not listed.</summary>
+        internal static string ListedRace(List<string> races, string race)
+        {
+            if (races == null || string.IsNullOrEmpty(race)) return null;
+            string r = race.Trim();
+            if (r.Length == 0) return null;
+            foreach (string x in races) if (x != null && string.Equals(x.Trim(), r, StringComparison.OrdinalIgnoreCase)) return x;
+            return null;
+        }
+
+        /// <summary>
+        /// Round 33a, pure: the faces of a race's variant list (SDCSDataUtils.GetVariantList's strings), each once, at least 1,
+        /// in ascending order (so a pick by index never depends on the game's load order).
+        /// </summary>
+        internal static List<int> Faces(List<string> variants)
+        {
+            var faces = new List<int>();
+            if (variants == null) return faces;
+            foreach (string v in variants)
+            {
+                int n;
+                if (v != null && int.TryParse(v.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out n) && n >= 1 && !faces.Contains(n)) faces.Add(n);
+            }
+            faces.Sort();
+            return faces;
+        }
+
+        /// <summary>Round 33a, pure: this face is in the race's variant list - true when the list holds no face at all (the game could not tell).</summary>
+        internal static bool HasVariant(List<string> variants, int variant)
+        {
+            List<int> faces = Faces(variants);
+            return faces.Count == 0 || faces.Contains(variant);
+        }
+
+        /// <summary>Round 33a, pure: "1-4" for a run, "1, 3, 5" otherwise, "none" for none (log lines).</summary>
+        internal static string VariantsText(List<string> variants)
+        {
+            List<int> faces = Faces(variants);
+            if (faces.Count == 0) return "none";
+            bool run = faces[faces.Count - 1] - faces[0] == faces.Count - 1;
+            if (run && faces.Count > 2) return faces[0].ToString(CultureInfo.InvariantCulture) + "-" + faces[faces.Count - 1].ToString(CultureInfo.InvariantCulture);
+            var parts = new List<string>(faces.Count);
+            foreach (int f in faces) parts.Add(f.ToString(CultureInfo.InvariantCulture));
+            return string.Join(", ", parts.ToArray());
+        }
+
+        /// <summary>
+        /// Round 33a, pure (FixVariant): the face a stored look gets when its race is in races (the game's list for its sex)
+        /// and its variant is not in that race's variants - one of them by FNV-1a of the look's sex, race, old face, hair, eyes
+        /// and beard (not its hair color, which the hair fix may change after this), so the same person gets the same face on
+        /// every load until it is saved. 0 = leave it: no look, a creator face, a race not listed (never touched), a face the
+        /// race has, or a list with no face.
+        /// </summary>
+        internal static int RepairedVariant(Look look, List<string> races, List<string> variants)
+        {
+            if (look == null || look.CreatorFace || ListedRace(races, look.Race) == null) return 0;
+            List<int> faces = Faces(variants);
+            if (faces.Count == 0 || faces.Contains(look.Variant)) return 0;
+            string seed = "face|" + (look.Male ? "M" : "F") + "|" + (look.Race ?? "").Trim().ToLowerInvariant() + "|" + look.Variant.ToString(CultureInfo.InvariantCulture)
+                          + "|" + (look.Hair ?? "") + "|" + (look.Eyes ?? "") + "|" + (look.Beard ?? "");
+            return faces[(int)(ScVoice.Fnv(seed) % (uint)faces.Count)];
         }
 
         /// <summary>
