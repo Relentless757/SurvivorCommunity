@@ -162,7 +162,7 @@ namespace SurvivorCommunity
                 if (npc == null || player == null) { error = "scInternal"; return false; }
                 string why;
                 if (!CanRecruit(npc, player, out why)) { error = why; return false; }
-                if (!ScZone.EnsureHome(player)) { error = "scNeedHome"; return false; }
+                if (!ScZone.EnsureHome(player)) { error = ScZone.NeedHomeKey(); return false; }
                 ScConfig.EnsureParsed();
                 return Admit(MemberFromBody(npc, ScRegistry.Community.Morale), npc, player, out error);
             }

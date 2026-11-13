@@ -4721,3 +4721,134 @@ fast-forwarded to `ms/r31` 9ecc34f; `deploy_sc34.py`: 15792 files, installed = b
 The old install is in `Port33\_backups\sc34_2026-11-12_190159`; the user's `DebugLogging` true set again. Checked in the
 install: `VoiceRaceBySkin`, `SurvivorMidSkins`, `SurvivorDarkSkins`, `SurvivorGrayHairColors` with their defaults, 16 voices,
 `StreamerNames` false. Untested in game: TESTING V31 (710-725), and still S30 (680-701), J29, M29, X3, P2, R2.
+
+### Round 32a: opt-in home, enclave doors (H32) (2026-11-12, built, not reviewed, not installed)
+
+Branch `ms/r32a` from port-3.4 `5adddde` (the installed state: round 31), worktree `Port33\wt\sc-r32a`. Round 32b (UI) runs
+in parallel in `wt\sc-r32b`; this round touches no `Config/XUi_InGame` file, no `XUiC_*` controller and no UI atlas. **The
+user's reports (2026-11-12):** (1) "Although the first Land Claim placed automatically becomes a community, the option to
+start a community is still present (I thought it was opt-in only, not automatic)" - make it opt-in; (2) "For enclaves, all
+the doors in the POI should be unlocked so it's easier to navigate and meet the people."
+
+**What was found (verified).**
+- **The auto-home.** `ScZone.EnsureHome` adopted the owner's first live claim that is not an outpost's whenever there was no
+  home or the home's claim was gone. Its callers: `DialogRequirementScHasHome` - the Hide requirement on every recruit row,
+  so merely talking to a survivor with a claim placed made that claim the home -, the supplies hand-over
+  (`DialogActionScTakeFavourItems`), `ScCommunity.Join`, the enclave recruit gate (`ScEnclaveDeals.RecruitBlocked`), the
+  whole-enclave join gate (`ScEncJoin`), the bands' "Come to our place." (`ScBands.HiddenWhy`) and `sc home`. The claim
+  radial's **Community** and **Linked storage** also made the claim they were on the home, and **Set as community home**
+  showed on every claim but the home - on the first claim too, before anything had adopted it: the "option to start a
+  community" the user saw.
+- **Nothing else adopts.** No tick calls `EnsureHome`; every other reader checks `ScZone.HasHome` (radio contacts
+  `ScRadio.CanCall`, scouting, `ScOutposts.CanEstablish` and the radial's Establish gate, `ScHomeLink`, `ScStorage`,
+  activities, facility upgrades, watch posts, the Guard Tower, base attacks and sieges, `ScHomeHold`, the Home Status
+  panel, the enclave and infestation distances "from home, else from you", the claim limit's protection) and already
+  handles "no home". Air drops need no home (`ScRadio.Online` counts any powered radio without one). With the adoption off
+  these wait for the player to start a community; their refusals are `scNeedHome`, `scWatchNoHome` and `scTowerNoHome`.
+- **No refusal line existed.** The recruit rows (`scJoinPoi` / `scJoinSupplies` and the join rows) are Hide-gated on
+  ScHasHome, so with no home a wild survivor showed no recruit row at all; README section 2's "survivors tell you to place
+  a land claim block first" had nothing behind it in a talk.
+- **The community window has no empty-state line today.** `scWinNoMembers` is read only by the `pagetext` binding, which
+  no label in `Config/XUi_InGame/windows.xml` uses since the window's restyle (the list shows `scWinShowing`, "Showing 0 of
+  0"). A line there is the controller's (round 32b's files); the key's text is updated here for whoever wires it.
+- **Doors in 3.4** (`r32a\doors_census.py` on 3.4's `blocks.xml`, Extends resolved): 620 blocks carry `TEFeatureDoor`; 540
+  are `CompositeTileEntity` with exactly `TEFeatureDoor` + `TEFeatureLockable` (doors, double doors, gates, hatches, garage,
+  vault and cellar doors, drawbridges - the old `TileEntitySecureDoor`'s role), 80 are `PoweredDoor` (`BlockPoweredDoor`: a
+  `TileEntityPowered`, no lock). No door has `TEFeatureLockPickable` or `TEFeatureStorage`; the 6 lockables without a door
+  are signs. Safes and hero chests are the `TEFeatureLockPickable` ones (unlocking those swaps the block). A POI door's lock
+  is `TEFeatureLockable.locked` from the prefab with no owner: `TileEntityComposite`'s write stores no owner in edit mode
+  (:636), and `PlayerPlaced` is `Owner != null`. `TEFeatureDoor.OnBlockActivated` refuses a locked door unless
+  `IsUserAllowed`; `SetLocked` marks the tile entity modified (the chunk saves it; `NetPackageTileEntity` to clients once
+  the chunk is lit). The lock's own Lock / Unlock / Keypad entries need the owner (or the owner's ally), so an unowned
+  unlocked door offers the player none. BIOMETIER LOCKPICK SYSTEM (installed in 3.4) changes safes, chests and its own dev
+  doors only. A new chunk gets the prefab's blocks and tile entities in its decoration (`ChunkProviderGenerateWorld.decorate`,
+  then `NeedsDecoration` false); a chunk read from disk loads with `NeedsDecoration` false.
+
+**Fix 1: the home is opt-in.**
+- **Setting** `AutoHomeFirstClaim` (default false; `ScConfig.cs:149`, reset :1152, parsed :1595, in the `config:` line
+  :2495 as `AutoHomeFirstClaim=`; `blocks.xml:40` under `HomeKeepLoadedRange`, commented): true restores the old adoption.
+- **`ScZone.EnsureHome`** (`ScZone.cs:152`): true only when the home's claim stands; it adopts only with
+  `AutoHomeFirstClaim` (:161) through `FirstOwnClaim` (:178, the old pick, shared with `sc home set`), logging `community
+  home set to the land claim at <pos> (AutoHomeFirstClaim)`. A saved home is never dropped, also when its claim is gone.
+  `OwnClaimAt` (:197): your live non-outpost claim whose rectangles (`ClaimRects`, LandClaimUpgrade-aware) hold a position.
+  `NeedHomeKey` (:227): `scNeedHome` with no home, `scOpHomeGone` with a home whose claim is gone.
+- **The radial** (`TEFeatureSCCommunity.cs`): a new command `starthome` (:26, registered :84; key
+  `blockcommand_TEFeatureSCCommunity:starthome` "Start a community here", sethome's `block_upgrade` icon), allowed only
+  while there is no home (:149); `sethome` only while a home exists and this claim is not it (:150); `storage` only at an
+  outpost, with a home, or with `AutoHomeFirstClaim` (:146). One activation for both (:171): the first home gets "Your
+  community starts here: this land claim is its home." (`scHomeStarted`) and `community started: home set to <pos> by
+  radial (Start a community here)`, a move the old tooltip and line. **Community** (:184) and **Linked storage** (:191)
+  adopt only with `AutoHomeFirstClaim`.
+- **The refusal in a talk.** `DialogRequirementScHasHome` (`DialogOps.cs:190`) takes `value="not"`. A new response
+  `scJoinNoHome` (`dialogs.xml`: entry :28 after `scJoinSupplies`, response :90) with the ask's own text ("I could use
+  someone like you in my community."), shown only with no usable home (`ScCanRecruit`, then `ScHasHome` not), leads to the
+  statement `scNoHomeReply` (:96; "Join what, exactly? I don't see a community - your people need a home first. Ask me again
+  when you have one.", unvoiced, then Nevermind) and runs `DialogActionScNeedHomeTip` (`DialogOps.cs:438`): the tooltip by
+  `NeedHomeKey`. No favor is rolled (`ScFavour` never runs before it). The supplies hand-over (`DialogOps.cs:389`),
+  `ScCommunity.Join` (`ScCommunity.cs:165`) and the enclave recruit gate (`ScEnclaveDeals.cs:752`) use `NeedHomeKey` too.
+- **Texts** (`Localization.csv`): `scNeedHome` "Start a community first: hold E on one of your land claim blocks and pick
+  Start a community here." (was "Place a land claim block first - ..."); `scOpHomeGone` now says to pick Set as community
+  home on another claim (it said to open Community on a claim at home, which adopted only when there was no home at all);
+  `scWatchNoHome` / `scTowerNoHome` "... start a community at one of your land claims first."; `scWinNoMembers` adds the
+  how (not shown by the current window, above).
+- **`sc home`** (`ConsoleCmdSc.cs:2727`): read-only now - `home <pos>`, `home <pos> - its land claim is gone: ...` or `home
+  <none> - start a community from a land claim's radial (Start a community here), or sc home set`. **`sc home set`** (or
+  `start`), the test aid: the claim of yours you stand in, else your first claim that is not an outpost's, made the home
+  (started or moved), saved and logged (`... by sc home set`); refused with no claim; "already the home" on the home
+  itself. The help line and `CONSOLE_COMMANDS.md` say so.
+
+**Fix 2: enclave doors** (`ScEncDoors.cs`, new, both games; csproj :190).
+- `Tick` (:55) from `ScTicker.cs:115`, right after `ScEnclavePeople.Tick`; `Reset` from `ModApi.cs:66`. Host, with
+  `EnclaveDoorsUnlocked` and `Enclaves` on: for each living enclave (not Lost) with a player within EnclaveSpawnRange +
+  EnclaveDespawnMargin (200 m) of its footprint, `Pass` (:115) walks the chunks the footprint covers; a chunk that is
+  loaded, not unloading, decorated, not being decorated and not new this update is passed once per session. `PassChunk`
+  (:148) reads the chunk's own `tileEntities` list (no block scan): a `TileEntityComposite` with `TEFeatureDoor` and no
+  `TEFeatureStorage`, at a position inside the footprint box (x and z as `Enclave.Box`, y from `Poi.y` to
+  `Poi.y + Size.y - 1`), locked, not a player's (`PlayerPlaced`), and with no lock pick still needed, gets
+  `SetLocked(false)` (:178) - the owner stays nobody, the door stays shut. When every chunk of the footprint is passed, one Out line (:142): `enclave <id>
+  '<name>': unlocked N door(s) (M door(s) in <POI>[, K locked one(s) kept as they were: a player's, or needing a lock
+  pick])`; each door at Verbose (`unlocked the <block> at <pos>` / `... is kept locked (<why>)`).
+- Session state per enclave id, started over when its footprint changes (a move). Nothing re-locks: a fall, a move or a
+  whole group joining leaves the old building's doors unlocked; an existing save's enclaves get the same pass on the first
+  visit with this build.
+- **Setting** `EnclaveDoorsUnlocked` (default true; `ScConfig.cs:556`, reset :1347, parsed :2000, in the `enclavePeople=`
+  config text as `doors unlocked` / `doors as they are` :2566; `blocks.xml:1256` under `EnclaveContainerLock`, commented).
+
+Where the brief left a choice (decided here):
+1. With `AutoHomeFirstClaim` false a home whose claim is gone stays the home on record and nothing moves it by itself;
+   **Set as community home** on another claim (or a claim on the same spot) does. True also brings back the re-adoption.
+2. With no home the claim radial keeps **Community** (it opens the window and starts nothing) and hides **Linked storage**
+   (nothing to link: `ScStorage.OpenWindow` refused it with `scNeedHome` anyway).
+3. A visible refusal for wild survivors and hired companions (a row with the ask's own text, an unvoiced answer and the
+   tooltip) instead of the row simply missing.
+4. `sc home` is read-only; the adoption moved to `sc home set` (alias `start`), which takes the claim you stand in first.
+5. Doors: from the 1 Hz tick, once per chunk per session (no Harmony hook, no chunk event); only unowned doors; a door
+   with storage and a lock-pickable door are left; never opened; the whole footprint box, its height included.
+6. `Enclaves` false stops the passes too (there are no people to meet).
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_r32a`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from
+  a `--no-incremental` build to a scratch folder); the 3.2 configuration (`build\sc32_r32a_scratch`) 0 errors; the tracked
+  3.2 `SurvivorCommunity.dll` untouched (`c4ad303a...`).
+- `cctor_order.py` on the ilspy IL dumps: 3.4 143 static constructors (round 31's 142 + `ScEncDoors`), 3.2 128, 0 reads
+  before store.
+- IL, both builds: `ScEncDoors::Tick` called from the ticker right after `ScEnclavePeople::Tick`, `::Reset` right after
+  `ScEnclavePeople::Reset`; `NeedHomeKey` from the supplies hand-over, `DialogActionScNeedHomeTip`, `ScCommunity.Join` and
+  `ScEnclaveDeals.RecruitBlocked` (4); `AutoHomeFirstClaim` read by `EnsureHome` and the radial (allow, Community, Linked
+  storage); `TEFeatureLockable::SetLocked` only in `ScEncDoors.PassChunk`; `DialogActionScNeedHomeTip` a global class (it
+  resolves as `ScNeedHomeTip, SurvivorCommunity`); the `"starthome"` command present.
+- XML replay (`x3\r32a_checks.py`: round 31's pointed at this worktree; AshfallUI is no longer in `3.4\Mods`, so the "with
+  AshfallUI" run reads its moved copy `Version Control\zzzzz_AshfallUI` 1.1.0 through the replay's `DIR_` hook): SC 201/201
+  alone, 200/200 with AshfallUI (its own 2279/2279), no aborts. On the merged documents (`r32a\verify_merged.py`): both keys
+  in `ConfigSurvivorCommunity` with their defaults; all 3 Hire dialogs have `scJoinNoHome` right after `scJoinSupplies` in
+  every statement that lists Hire, with its `not` requirement and its action, and `scNoHomeReply` -> `done`.
+- Localization (`r32a\check_loc.py`): 1512 rows of 7 columns, no duplicate key, every literal key in the touched files
+  present.
+- Every file touched LF, no BOM.
+
+**Not checked (in game only, TESTING H32 730-748):** the radial's entries and labels in each state; the no-home answer and
+tooltip in a real talk; that a POI's locked doors are `TEFeatureLockable` locked with no owner in play (the counts in the
+line), that they open after the pass and offer no Lock or Keypad; a chunk passed piecemeal as it loads; existing saves'
+homes and enclaves; the `AutoHomeFirstClaim` true path; a multiplayer client (SC is single player).
+
+Builds: SC 3.4 `220612ab0a04dedcb7efdd786ad3f63e` (`build\sc34_r32a`), 0 errors. Not installed.

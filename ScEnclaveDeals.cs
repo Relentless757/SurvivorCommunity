@@ -749,7 +749,7 @@ namespace SurvivorCommunity
             if (e == null || npc == null) return Loc("scEncStays");
             string why;
             if (!ScCommunity.CanRecruit(npc, player, out why, true)) return Loc(why ?? "scNotHireable");
-            if (!ScZone.EnsureHome(player)) return Loc("scNeedHome");
+            if (!ScZone.EnsureHome(player)) return Loc(ScZone.NeedHomeKey());
             if (!e.PeopleRolled) return Loc("scEncRecruitSettling");
             if (ScEnclavePeople.Living(e).Count - 1 < Math.Max(1, ScConfig.EnclaveRecruitMinLeft)) return Loc("scEncRecruitFew");
             int wait = CooldownLeft(e);

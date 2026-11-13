@@ -1,10 +1,12 @@
 Key,File,Type,UsedInMainMenu,NoTranslate,KeepLoaded,english
 blockcommand_TEFeatureSCCommunity:community,UI,Radial blockcommand,,,,Community
 blockcommand_TEFeatureSCCommunity:sethome,UI,Radial blockcommand,,,,Set as community home
+blockcommand_TEFeatureSCCommunity:starthome,UI,Radial blockcommand,,,,Start a community here
 xuiScCommunity,UI,Menu,,,,Community
 scJoinPoi,Dialog,Response,,,,I could use someone like you in my community.
 scJoinSupplies,Dialog,Response,,,,I could use someone like you in my community.
 scFavourPoi_text,Dialog,Statement,,,,"Maybe. There's a place near here crawling with them - clear it out and I'll know you can keep people safe. Say the word and I'll mark it on your map."
+scNoHomeReply_text,Dialog,Statement,,,,"Join what, exactly? I don't see a community - your people need a home first. Ask me again when you have one."
 scFavourSupplies_text,Dialog,Statement,,,,"Maybe. I'm not walking into a place that can't feed me. Bring me some supplies first and I'll come."
 scStartPoi,Dialog,Response,,,,Mark it. I'll take care of it.
 scPoiDone,Dialog,Response,,,,That place is clear now. Come join my community.
@@ -21,7 +23,7 @@ scNotHireable,UI,Tooltip,,,,They are not interested in joining.
 scAlreadyMember,UI,Tooltip,,,,They are already part of your community.
 scAlreadyHired,UI,Tooltip,,,,They already have a leader.
 scRosterFull,UI,Tooltip,,,,Your community is full.
-scNeedHome,UI,Tooltip,,,,Place a land claim block first - that is where your community lives.
+scNeedHome,UI,Tooltip,,,,Start a community first: hold E on one of your land claim blocks and pick Start a community here.
 scInternal,UI,Tooltip,,,,Something went wrong - see the log.
 scJoined,UI,Tooltip,,,,"{0} joined your community and is settling in."
 scJoinedFollow,UI,Tooltip,,,,"{0} joined your community and will follow you home."
@@ -40,6 +42,7 @@ scLeftMorale,UI,Tooltip,,,,"{0} has had enough and left your community."
 scDied,UI,Tooltip,,,,"{0} of your community has died."
 scNoWindow,UI,Tooltip,,,,The community window is not available (UI not loaded).
 scHomeSet,UI,Tooltip,,,,This land claim is now your community's home.
+scHomeStarted,UI,Tooltip,,,,Your community starts here: this land claim is its home.
 scQuestUnavailable,UI,Tooltip,,,,The secure quest is not available (quests.xml did not load).
 scQuestAlready,UI,Tooltip,,,,You already have that quest.
 scQuestFailed,UI,Tooltip,,,,Could not start the quest - see the log.
@@ -163,7 +166,7 @@ scWinListHeader,UI,Menu,,,,"Survivors ({0})"
 scWinPage,UI,Menu,,,,"Page {0} of {1}"
 scWinPrev,UI,Menu,,,,Previous
 scWinNext,UI,Menu,,,,Next
-scWinNoMembers,UI,Menu,,,,Nobody has joined yet. Talk to the survivors you meet.
+scWinNoMembers,UI,Menu,,,,Nobody has joined yet. Talk to the survivors you meet. No community yet? Hold E on one of your land claim blocks and pick Start a community here.
 scWinNoSelection,UI,Menu,,,,Select a survivor
 scWinSelectHint,UI,Menu,,,,"Click a survivor on the left to see their skills, traits and mood, and to give them orders."
 scWinFollow,UI,Menu,,,,Follow me
@@ -526,7 +529,7 @@ scRadioScoutHeader,UI,Menu,,,,Scout for outposts (once a day)
 scRadioScoutDesc,UI,Menu,,,,Listen for chatter about a kind of site: the nearest few within range are marked on your map for a few days.
 scUiPerks,UI,Menu,,,,Perks in force
 scUiPerksNone,UI,Menu,,,,"None yet - each kind of producing outpost adds a perk (food, meds, ammo, materials, fuel, water)."
-scOpHomeGone,UI,Tooltip,,,,"Your community's home claim is gone - open Community on a claim at home, or pick Set as community home, first."
+scOpHomeGone,UI,Tooltip,,,,Your community's home claim is gone - hold E on another land claim block of yours and pick Set as community home.
 scOpDoorCancelled,UI,Tooltip,,,,The line home dropped - use the claim again when you are standing at it.
 scOpModeNormal,UI,Menu,,,,normal
 scOpModeQuiet,UI,Menu,,,,quiet
@@ -661,7 +664,7 @@ scWatchGathering,UI,Tooltip,,,,{0} on watch: a horde is gathering to the {1}!
 scWatchSpotted,UI,Tooltip,,,,{0} on watch: the horde is coming from the {1}!
 scWatchMarker,UI,Map,,,,Horde
 scWatchOff,UI,Tooltip,,,,Watch posts are switched off (WatchPosts in the config).
-scWatchNoHome,UI,Tooltip,,,,A watch post only works inside your community's land - set a home first.
+scWatchNoHome,UI,Tooltip,,,,A watch post only works inside your community's land - start a community at one of your land claims first.
 scWatchOutside,UI,Tooltip,,,,A watch post must stand inside your community's land.
 scWatchTooMany,UI,Tooltip,,,,Your community already has {1} watch posts.
 scWatchErrNotPost,UI,Tooltip,,,,This is not a working watch post.
@@ -728,7 +731,7 @@ scGuardTowerDesc,Block,Block,,,,"A wooden watch tower with a Watch Post on its d
 scTowerNoPrefab,UI,Tooltip,,,,The Guard Tower's plan is missing from the mod (Prefabs/scGuardTower).
 scTowerHeight,UI,Tooltip,,,,The Guard Tower doesn't fit here - too high or too deep.
 scTowerUnloaded,UI,Tooltip,,,,Part of that spot isn't loaded yet - move a little closer.
-scTowerNoHome,UI,Tooltip,,,,A Guard Tower only goes inside your community's land - set a home first.
+scTowerNoHome,UI,Tooltip,,,,A Guard Tower only goes inside your community's land - start a community at one of your land claims first.
 scTowerOutside,UI,Tooltip,,,,The Guard Tower must stand wholly inside your community's land.
 scTowerClaim,UI,Tooltip,,,,Part of the Guard Tower would stand on someone else's land claim.
 scTowerTrader,UI,Tooltip,,,,Too close to a trader.

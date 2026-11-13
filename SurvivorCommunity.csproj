@@ -186,6 +186,8 @@
     <Compile Include="ScConfigNames.cs" />
     <!-- round 31 (V31): skin-matched voices and hair colors - Vanity Vault's skin tones mapped to voice races (both games) -->
     <Compile Include="ScConfigSkins.cs" />
+    <!-- round 32a (H32): every locked door of an enclave's building unlocked as its chunks load (both games) -->
+    <Compile Include="ScEncDoors.cs" />
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />

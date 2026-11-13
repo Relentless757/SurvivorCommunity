@@ -183,12 +183,20 @@ public class DialogRequirementScFavourDone : BaseDialogRequirement
     }
 }
 
-/// <summary>The player has a land claim for the community to live in (adopting the first one when needed).</summary>
+/// <summary>
+/// The player's community has a home whose land claim stands (ScZone.EnsureHome: since round 32a it adopts no claim by itself
+/// unless AutoHomeFirstClaim). value="not": there is none (round 32a's "start a community first" answer); on a client, neither.
+/// </summary>
 public class DialogRequirementScHasHome : BaseDialogRequirement
 {
     public override bool CheckRequirement(EntityPlayer player, EntityNPC talkingTo)
     {
-        try { return ScCommunity.IsHost && ScZone.EnsureHome(player); }
+        try
+        {
+            if (!ScCommunity.IsHost) return false;
+            bool has = ScZone.EnsureHome(player);
+            return (Value ?? "").Trim().Equals("not", StringComparison.OrdinalIgnoreCase) ? !has : has;
+        }
         catch (Exception e) { ScLog.Once("req-hashome", e); return false; }
     }
 }
@@ -378,7 +386,7 @@ public class DialogActionScTakeFavourItems : BaseDialogAction
             // value="any": handed over in the talk that named them, before taking the favour on (ScHasFavourItems "any")
             if (!p.Started && !(Value ?? "").Trim().Equals("any", StringComparison.OrdinalIgnoreCase)) return;
             // never take the goods when the join that follows would be refused
-            if (!ScZone.EnsureHome(player)) { ScCommunity.Tell(player, Localization.Get("scNeedHome"), "ui_denied"); return; }
+            if (!ScZone.EnsureHome(player)) { ScCommunity.Tell(player, Localization.Get(ScZone.NeedHomeKey()), "ui_denied"); return; }
             if (ScRegistry.Members.Count >= ScConfig.MaxMembers) { ScCommunity.Tell(player, Localization.Get("scRosterFull"), "ui_denied"); return; }
             if (ScCategories.CountInPlayer(player, p.ItemCategory) < p.ItemCount)
             {
@@ -420,6 +428,22 @@ public class DialogActionScJoin : BaseDialogAction
             if (!ScCommunity.Join(npc, lp, out error)) ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
         }
         catch (Exception e) { ScLog.Once("act-join", e); }
+    }
+}
+
+/// <summary>
+/// Round 32a: "I could use someone like you in my community." with no usable home (scJoinNoHome) - the tooltip says how to
+/// get one: no home yet, Start a community here on a land claim's radial; the home's claim gone, Set as community home.
+/// </summary>
+public class DialogActionScNeedHomeTip : BaseDialogAction
+{
+    public override void PerformAction(EntityPlayer player)
+    {
+        try
+        {
+            if (player is EntityPlayerLocal && ScCommunity.IsHost) ScCommunity.Tell(player, Localization.Get(ScZone.NeedHomeKey()), "ui_denied");
+        }
+        catch (Exception e) { ScLog.Once("act-needhometip", e); }
     }
 }
 

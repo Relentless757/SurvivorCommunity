@@ -6,7 +6,8 @@
 	  packs join the pool without being listed here. The custom operators live in SurvivorCommunity.dll:
 	  type="ScFavour, SurvivorCommunity" resolves to the global class DialogRequirementScFavour.
 
-	  Flow (only once the player has a community home):
+	  Flow (only once the player has a community home; before that, round 32a, the same question is answered
+	  "start a community first" - scJoinNoHome):
 	         start -> "I could use someone like you in my community"   (scJoinPoi | scJoinSupplies)
 	         -> favour statement (secure the nearest POI / bring N items)
 	         POI:      "Mark it" (journal quest; ends the talk) ... scPoiDone (join)
@@ -24,6 +25,7 @@
 	<insertAfter xpath="/dialogs/dialog[response[@id='Hire']]/statement/response_entry[@id='Hire']">
 		<response_entry id="scJoinPoi" />
 		<response_entry id="scJoinSupplies" />
+		<response_entry id="scJoinNoHome" />
 		<response_entry id="scPoiDone" />
 		<response_entry id="scGiveSupplies" />
 		<response_entry id="scSuppliesDone" />
@@ -66,7 +68,8 @@
 		<!-- ask to join: one of the two shows, depending on the favour rolled for this NPC. Who may be asked is
 		     ScCanRecruit's call: since migration M2 (decision D9) that includes a companion YOU hired the vanilla way -
 		     joining ends the paid hire - but never somebody else's hire. Nothing is offered (or rolled: requirements stop
-		     at the first that fails) before the player has a community home. -->
+		     at the first that fails) before the player has a community home (round 32a: started from a land claim's radial,
+		     never by itself; scJoinNoHome answers in their place until then). -->
 		<response id="scJoinPoi" text="scJoinPoi" nextstatementid="scFavourPoi">
 			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
 			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" />
@@ -81,6 +84,18 @@
 			<requirement type="ScFavourDone, SurvivorCommunity" requirementtype="Hide" value="not" />
 			<action type="ScFavourBrief, SurvivorCommunity" />
 		</response>
+
+		<!-- Round 32a: the home is opt-in (no land claim becomes it by itself), so with no community yet the same question gets
+		     a "start one first" answer instead of a favor - shown in place of the two above, never with them. -->
+		<response id="scJoinNoHome" text="scJoinPoi" nextstatementid="scNoHomeReply">
+			<requirement type="ScCanRecruit, SurvivorCommunity" requirementtype="Hide" />
+			<requirement type="ScHasHome, SurvivorCommunity" requirementtype="Hide" value="not" />
+			<!-- the tooltip says how: Start a community here on a claim's radial, or Set as community home when its claim is gone -->
+			<action type="ScNeedHomeTip, SurvivorCommunity" />
+		</response>
+		<statement id="scNoHomeReply" text="scNoHomeReply_text">
+			<response_entry id="done" />
+		</statement>
 
 		<statement id="scFavourPoi" text="scFavourPoi_text">
 			<response_entry id="scStartPoi" />

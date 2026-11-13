@@ -141,6 +141,12 @@ namespace SurvivorCommunity
         public static bool HomeKeepLoaded = true;
         /// <summary>Held while any player is within this many metres of the zone (let go 50 m further out).</summary>
         public static float HomeKeepLoadedRange = 250f;
+        /// <summary>
+        /// Round 32a: false (the default) - the community home is opt-in, started only from a land claim's radial ("Start a
+        /// community here") or `sc home set`. True - the old behavior: ScZone.EnsureHome adopts the owner's first land claim
+        /// (also when the home's claim is gone), and the claim radial's Community / Linked storage adopt the claim they are on.
+        /// </summary>
+        public static bool AutoHomeFirstClaim = false;
         public static int LowMoraleDays = 2;
         public static int MissingDaysToPurge = 30;
         public static float RunRiskBase = 0.15f;
@@ -546,6 +552,8 @@ namespace SurvivorCommunity
         public static float EnclaveThreatGrace = 10f;
         /// <summary>Their POI's loot containers are refused while they live; no wild NPC spawns within EnclaveWildSpawnMargin m of a footprint.</summary>
         public static bool EnclaveContainerLock = true;
+        /// <summary>Round 32a: every locked door of a living enclave's building is unlocked (not opened, not the player's) as its chunks load (ScEncDoors).</summary>
+        public static bool EnclaveDoorsUnlocked = true;
         public static int EnclaveWildSpawnMargin = 40;
         /// <summary>EnclaveKindRows "row:kind,...": an enclave's kind by its POI's ScPoiTypes row (a row not named: general).</summary>
         public static readonly Dictionary<string, string> EnclaveKindRows = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1141,6 +1149,7 @@ namespace SurvivorCommunity
             ResidentRoamZoneMargin = 8f;
             HomeKeepLoaded = true;
             HomeKeepLoadedRange = 250f;
+            AutoHomeFirstClaim = false;
             DefendBaseRadius = 22;
             LowMoraleDays = 2;
             MissingDaysToPurge = 30;
@@ -1335,7 +1344,7 @@ namespace SurvivorCommunity
             EnclaveGroupMin = 3; EnclaveGroupMax = 5; EnclaveRaiderGroupMin = 3; EnclaveRaiderGroupMax = 6; EnclaveSpawnRange = 150; EnclaveDespawnMargin = 50;
             EnclaveNoPopRange = 50; EnclaveSpawnPerTick = 1; EnclaveHoldChunks = true; EnclaveDailyRestock = true; EnclaveLeashMargin = 8; EnclaveDefendRadius = 22;
             EnclaveStandingMin = -30; EnclaveWarnPenalty = 10; EnclaveWarnWindow = 120f; EnclaveHitDebounce = 1.5f; EnclaveThreatBundlesMin = 2; EnclaveThreatBundlesMax = 4;
-            EnclaveThreatGrace = 10f; EnclaveContainerLock = true; EnclaveWildSpawnMargin = 40; EnclaveKindRows.Clear();
+            EnclaveThreatGrace = 10f; EnclaveContainerLock = true; EnclaveDoorsUnlocked = true; EnclaveWildSpawnMargin = 40; EnclaveKindRows.Clear();
             EnclaveTraderIdBase = 200; EnclaveBuyNeutral = 1f; EnclaveBuyFriendly = 1f; EnclaveBuyAllied = 0.8f; EnclaveSellNeutral = 1f; EnclaveSellFriendly = 1.2f;
             EnclaveSellAllied = 1.35f; EnclaveEnlistCostNeutral = 500; EnclaveEnlistCostFriendly = 250; EnclaveEnlistCostAllied = 0; EnclaveEnlistDays = 2;
             EnclaveEnlistDeathPenalty = 5; EnclaveRecruitMinLeft = 2; EnclaveRecruitCooldownDays = 7; EnclaveRecruitStanding = 10;
@@ -1583,6 +1592,9 @@ namespace SurvivorCommunity
                 if (p.Values.ContainsKey("HomeKeepLoaded")) p.ParseBool("HomeKeepLoaded", ref keepLoaded);
                 HomeKeepLoaded = keepLoaded;
                 ParseFloat(p, "HomeKeepLoadedRange", ref HomeKeepLoadedRange, 0f, 2000f);
+                bool autoHome = AutoHomeFirstClaim;
+                if (p.Values.ContainsKey("AutoHomeFirstClaim")) p.ParseBool("AutoHomeFirstClaim", ref autoHome);
+                AutoHomeFirstClaim = autoHome;
                 ParseInt(p, "LowMoraleDays", ref LowMoraleDays, 1, 30);
                 ParseInt(p, "MissingDaysToPurge", ref MissingDaysToPurge, 1, 1000);
                 ParseFloat(p, "RunRiskBase", ref RunRiskBase, 0f, 1f);
@@ -1985,6 +1997,9 @@ namespace SurvivorCommunity
                 bool containerLock = EnclaveContainerLock;
                 if (p.Values.ContainsKey("EnclaveContainerLock")) p.ParseBool("EnclaveContainerLock", ref containerLock);
                 EnclaveContainerLock = containerLock;
+                bool doorsUnlocked = EnclaveDoorsUnlocked;
+                if (p.Values.ContainsKey("EnclaveDoorsUnlocked")) p.ParseBool("EnclaveDoorsUnlocked", ref doorsUnlocked);
+                EnclaveDoorsUnlocked = doorsUnlocked;
                 ParseInt(p, "EnclaveWildSpawnMargin", ref EnclaveWildSpawnMargin, 0, 1000);
                 {
                     string kr;
@@ -2477,7 +2492,7 @@ namespace SurvivorCommunity
                 parsed = true;
                 ScLog.Out("config: MaxMembers=" + MaxMembers + " MaxFollowers=" + MaxFollowers + " FoodPerMemberDay=" + FoodPerMemberDay
                           + " AmmoPerRangedDay=" + AmmoPerRangedDay + " PointsPerBundle=[" + string.Join(",", Array.ConvertAll(PointsPerBundle, x => x.ToString())) + "]"
-                          + " PostRadius=" + PostRadius + " DefendBaseRadius=" + DefendBaseRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
+                          + " PostRadius=" + PostRadius + " AutoHomeFirstClaim=" + AutoHomeFirstClaim + " DefendBaseRadius=" + DefendBaseRadius + " LowMoraleDays=" + LowMoraleDays + " traits=" + Traits.Count
                           + " beds=" + BedBlocks.Count + " facilities=" + FacilityBlocks.Count + " favours=" + SuppliesFavours.Count
                           + " WaterPerMemberDay=" + WaterPerMemberDay + " luxuryItems=" + LuxuryItems.Count
                           + " wells=" + WellBlocks.Count + "x" + WellWaterPerLevel + " dew=" + DewCollectorBlocks.Count + "x" + DewWaterPerLevel
@@ -2548,7 +2563,7 @@ namespace SurvivorCommunity
                                                  + ", warning -" + EnclaveWarnPenalty + " (" + EnclaveWarnWindow.ToString("0.#", CultureInfo.InvariantCulture) + "s, hits "
                                                  + EnclaveHitDebounce.ToString("0.##", CultureInfo.InvariantCulture) + "s apart), threat " + EnclaveThreatBundlesMin + "-"
                                                  + EnclaveThreatBundlesMax + " bundles (grace " + EnclaveThreatGrace.ToString("0.#", CultureInfo.InvariantCulture) + "s), containers "
-                                                 + (EnclaveContainerLock ? "locked" : "open") + ", wild spawns off " + EnclaveWildSpawnMargin + "m, " + EnclaveKindRows.Count + " kind rows" : "off")
+                                                 + (EnclaveContainerLock ? "locked" : "open") + ", doors " + (EnclaveDoorsUnlocked ? "unlocked" : "as they are") + ", wild spawns off " + EnclaveWildSpawnMargin + "m, " + EnclaveKindRows.Count + " kind rows" : "off")
                           + " enclaveDeals=" + (Enclaves ? "traders " + EnclaveTraderIdBase + "-" + (EnclaveTraderIdBase + 5) + ", buy x" + F2(EnclaveBuyNeutral) + "/" + F2(EnclaveBuyFriendly) + "/"
                                                 + F2(EnclaveBuyAllied) + ", sell x" + F2(EnclaveSellNeutral) + "/" + F2(EnclaveSellFriendly) + "/" + F2(EnclaveSellAllied) + ", enlist "
                                                 + EnclaveEnlistCostNeutral + "/" + EnclaveEnlistCostFriendly + "/" + EnclaveEnlistCostAllied + " dukes for " + EnclaveEnlistDays + "d (death -"

@@ -7,8 +7,9 @@ namespace SurvivorCommunity
     /// <summary>
     /// The home zone: the land claim the community lives in. When LandClaimUpgrade is loaded its zone
     /// (LcbuRegistry.Covers / GetZone) is used through reflection; otherwise the vanilla square of half-extent
-    /// (LandClaimSize-1)/2 around the home block. The home block is the registry's, else the owner's first
-    /// land claim that still exists.
+    /// (LandClaimSize-1)/2 around the home block. The home block is the registry's: since round 32a it is set only
+    /// when the player starts the community from a claim's radial (or moves it there), unless AutoHomeFirstClaim
+    /// brings back the old adoption of the owner's first land claim that still exists.
     /// </summary>
     public static class ScZone
     {
@@ -140,7 +141,14 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Resolves (and, if needed, adopts) the home block. False when the owner has no land claim at all.</summary>
+        /// <summary>
+        /// True when the community has a home whose land claim still stands. Round 32a: the home is opt-in - it is started
+        /// only from a land claim's radial ("Start a community here", SetHome) or by `sc home set`, so this no longer adopts a
+        /// claim by itself and a save without a home stays without one. AutoHomeFirstClaim true brings back the old adoption:
+        /// the owner's first live claim that is not an outpost's, also when the home's own claim is gone. A home the save
+        /// already has is never dropped: with its claim gone this answers false and the record keeps it (NeedHomeKey tells
+        /// the player to pick Set as community home on another claim).
+        /// </summary>
         public static bool EnsureHome(EntityPlayer owner)
         {
             try
@@ -149,21 +157,15 @@ namespace SurvivorCommunity
                 var pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
                 if (pp == null) return c.HasHome;
                 if (c.HasHome && pp.m_lpBlockMap != null && pp.m_lpBlockMap.ContainsKey(c.Home)) return true;
-                if (owner == null) return false;
-                PersistentPlayerData ppd = pp.GetPlayerDataFromEntityID(owner.entityId);
-                if (ppd == null || ppd.LPBlocks == null) return false;
-                for (int i = 0; i < ppd.LPBlocks.Count; i++)
-                {
-                    Vector3i lp = ppd.LPBlocks[i];
-                    if (pp.m_lpBlockMap != null && !pp.m_lpBlockMap.ContainsKey(lp)) continue;
-                    if (ScOutposts.IsOutpostClaim(lp)) continue;       // an outpost is never the home
-                    c.Home = lp;
-                    c.HasHome = true;
-                    c.Owner = owner.PlayerDisplayName ?? "";
-                    ScLog.Out("community home set to the land claim at " + lp);
-                    return true;
-                }
-                return false;
+                ScConfig.EnsureParsed();
+                if (!ScConfig.AutoHomeFirstClaim) return false;     // opt-in: no claim becomes the home by itself
+                Vector3i lp;
+                if (!FirstOwnClaim(owner, out lp)) return false;
+                c.Home = lp;
+                c.HasHome = true;
+                c.Owner = owner.PlayerDisplayName ?? "";
+                ScLog.Out("community home set to the land claim at " + lp + " (AutoHomeFirstClaim)");
+                return true;
             }
             catch (Exception e)
             {
@@ -172,7 +174,62 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>Makes a specific claim the home (the land claim radial "sethome").</summary>
+        /// <summary>The owner's first land claim that still stands and is not an outpost's (EnsureHome's old pick; `sc home set`'s fallback).</summary>
+        public static bool FirstOwnClaim(EntityPlayer owner, out Vector3i claim)
+        {
+            claim = Vector3i.zero;
+            var pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
+            if (pp == null || owner == null) return false;
+            PersistentPlayerData ppd = pp.GetPlayerDataFromEntityID(owner.entityId);
+            if (ppd == null || ppd.LPBlocks == null) return false;
+            for (int i = 0; i < ppd.LPBlocks.Count; i++)
+            {
+                Vector3i lp = ppd.LPBlocks[i];
+                if (pp.m_lpBlockMap != null && !pp.m_lpBlockMap.ContainsKey(lp)) continue;
+                if (ScOutposts.IsOutpostClaim(lp)) continue;       // an outpost is never the home
+                claim = lp;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>The owner's live land claim (not an outpost's) whose zone holds the position: `sc home set` on the spot.</summary>
+        public static bool OwnClaimAt(EntityPlayer owner, Vector3i pos, out Vector3i claim)
+        {
+            claim = Vector3i.zero;
+            var pp = GameManager.Instance != null ? GameManager.Instance.persistentPlayers : null;
+            if (pp == null || owner == null) return false;
+            PersistentPlayerData ppd = pp.GetPlayerDataFromEntityID(owner.entityId);
+            if (ppd == null || ppd.LPBlocks == null) return false;
+            var rects = new List<int[]>();
+            for (int i = 0; i < ppd.LPBlocks.Count; i++)
+            {
+                Vector3i lp = ppd.LPBlocks[i];
+                if (pp.m_lpBlockMap != null && !pp.m_lpBlockMap.ContainsKey(lp)) continue;
+                if (ScOutposts.IsOutpostClaim(lp)) continue;
+                rects.Clear();
+                ClaimRects(lp, rects);
+                foreach (int[] r in rects)
+                {
+                    if (pos.x < r[0] || pos.x > r[1] || pos.z < r[2] || pos.z > r[3]) continue;
+                    claim = lp;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Why there is no usable home, as a Localization key, for the callers of EnsureHome that refuse: no home yet
+        /// ("scNeedHome": start a community from a claim's radial), or a home whose land claim is gone ("scOpHomeGone": pick
+        /// Set as community home on another claim).
+        /// </summary>
+        public static string NeedHomeKey()
+        {
+            return HasHome ? "scOpHomeGone" : "scNeedHome";
+        }
+
+        /// <summary>Makes a specific claim the home (the land claim radial's "starthome" / "sethome", `sc home set`).</summary>
         public static void SetHome(Vector3i claim, EntityPlayer owner)
         {
             Community c = ScRegistry.Community;

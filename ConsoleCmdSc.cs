@@ -5,11 +5,11 @@ using System.Text;
 
 namespace SurvivorCommunity
 {
-    /// <summary>"sc" console command: status | members | day | morale N | give res N | relink | home | dump | save.</summary>
+    /// <summary>"sc" console command: status | members | day | morale N | give res N | relink | home [set] | dump | save.</summary>
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home, dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name>, paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         /// <summary>
@@ -133,7 +133,7 @@ namespace SurvivorCommunity
 #endif
                     case "trust": TrustCmd(_params); break;
                     case "names": ScStreamerNames.ConsoleCmd(_params, Output); break;   // round 30: names [reload | reset | test [n] [male|female]]
-                    case "home": Home(); break;
+                    case "home": Home(_params); break;
                     case "dump": Dump(); break;
                     case "save": ScRegistry.SaveAtomic(); Output("[SC] saved"); break;
                     default: Output("[SC] " + getDescription()); break;
@@ -2718,11 +2718,36 @@ namespace SurvivorCommunity
             Output("[SC] " + m.Name + (moved ? ": post " + old + " -> " + m.Post + " (" + ScCommunity.PostLine(m, npc) + ")" : " keeps the post " + old + ": no other spot with a real floor within PostRadius"));
         }
 
-        private static void Home()
+        /// <summary>
+        /// sc home - the community home and whether its land claim still stands (round 32a: read-only; it adopts no claim,
+        /// as nothing does unless AutoHomeFirstClaim). sc home set (or start) - a test aid: makes the land claim of yours you
+        /// are standing in the home, else your first land claim that is not an outpost's, as the radial's "Start a community
+        /// here" / "Set as community home" would.
+        /// </summary>
+        private static void Home(List<string> p)
         {
-            EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            bool ok = ScZone.EnsureHome(p);
-            Output("[SC] home " + (ok ? ScZone.Home.ToString() : "<none - place a land claim>"));
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            string sub = p.Count > 1 ? p[1].ToLowerInvariant() : "";
+            if (sub == "set" || sub == "start")
+            {
+                if (!ScCommunity.IsHost || pl == null) { Output("[SC] host only, in a game"); return; }
+                Vector3i claim;
+                bool here = ScZone.OwnClaimAt(pl, pl.GetBlockPosition(), out claim);
+                if (!here && !ScZone.FirstOwnClaim(pl, out claim)) { Output("[SC] refused: you have no land claim that could be the home (an outpost's never is) - place one first"); return; }
+                bool started = !ScZone.HasHome;
+                Vector3i old = ScZone.Home;
+                if (!started && old == claim) { Output("[SC] the land claim at " + claim + " is already the home"); return; }
+                ScZone.SetHome(claim, pl);
+                ScRegistry.SaveAtomic();
+                ScLog.Out((started ? "community started: home set to " : "community home set to ") + claim + " by sc home set");
+                Output("[SC] " + (started ? "community started: home " : "home moved from " + old + " to ") + claim
+                       + (here ? " (the claim you stand in)" : " (your first land claim - you stand in none of yours)"));
+                return;
+            }
+            if (sub != "") { Output("[SC] usage: sc home [set] - shows the home; set makes the claim you stand in (else your first) the home"); return; }
+            bool live = ScZone.EnsureHome(pl);
+            if (!ScZone.HasHome) Output("[SC] home <none> - start a community from a land claim's radial (Start a community here), or sc home set");
+            else Output("[SC] home " + ScZone.Home + (live ? "" : " - its land claim is gone: pick Set as community home on another claim, or sc home set"));
         }
 
         private static void Dump()

@@ -63,6 +63,7 @@ namespace SurvivorCommunity
                 ScOutposts.Reset();
                 ScEnclaves.Reset();
                 ScEnclavePeople.Reset();
+                ScEncDoors.Reset();                    // round 32a: the doors passed this session
                 ScEnclaveDeals.Reset();
                 ScEncRequests.Reset();
                 ScEncSearch.Reset();

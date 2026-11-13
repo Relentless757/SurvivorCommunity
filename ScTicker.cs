@@ -112,6 +112,7 @@ namespace SurvivorCommunity
                 ScScouting.Tick(player);              // radio scouting marks: fade, restore after a load
                 ScEnclaves.Tick(w, player);           // enclaves found within reach, their markers restored after a load (E1)
                 ScEnclavePeople.Tick(w, player);      // their people: made, spawned near a player, gone when none is, the watchdog (E2)
+                ScEncDoors.Tick(w);                   // their building's locked doors unlocked, chunk by chunk as they load (round 32a)
                 ScBands.Tick(w, player);              // bands on the road: bodies near a player, their walk, camp, trouble, markers (E13a)
                 ScEncRequests.Tick(w, player);        // their requests: the journal squared with the records once a session (E4)
                 ScEncCalls.Tick(w, player);           // allies' radio calls: a fighter's arrival and return after a load, a supply drop (E9)

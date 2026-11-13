@@ -2735,6 +2735,82 @@ logs `xnpc body for <class> id <id>: <sex> <skin>/<variant> hair <style> (<color
      06 Black`, Jack (Bronze, NavezganePlus `Playtest12`) `09 Red -> 06 Black`, and a wild Espresso man with `09 Red` gets one of
      `04 Brown`, `05 DarkBrown`, `06 Black`. The log line `config: skins ...` ends `gray 2 color(s) at their share`.
 
+**H32. Round 32a: the community home is opt-in; enclaves' doors unlocked (both games; test on 3.4)**
+
+Built 2026-11-12 on branch `ms/r32a` (SC 3.4 DLL `220612ab0a04dedcb7efdd786ad3f63e`, `Port33\build\sc34_r32a`), **not
+installed**: these steps wait for the install. Your reports (2026-11-12): "Although the first Land Claim placed
+automatically becomes a community, the option to start a community is still present (I thought it was opt-in only, not
+automatic)" and "For enclaves, all the doors in the POI should be unlocked so it's easier to navigate and meet the people."
+Now no land claim becomes the home by itself (`AutoHomeFirstClaim` false): you start a community from a claim's radial
+(**Start a community here**), and **Set as community home** shows only on your other claims once there is a home. Every
+locked door of an enclave's building is unlocked (not opened, not yours) once its chunks load near you
+(`EnclaveDoorsUnlocked` true); their containers stay theirs. Helpers: `sc home`, `sc home set`, `sc enclave list`, `sc
+enclave info <id>`, `sc enclave reveal <id>`, `sc status`. Set `DebugLogging` to true for the per-door lines (744).
+
+730. **The settings load.** The log's `config: MaxMembers=...` line has `AutoHomeFirstClaim=False`, and its `enclavePeople=`
+     part has `containers locked, doors unlocked`. The install's `Config/blocks.xml` has `AutoHomeFirstClaim` (false) under
+     `HomeKeepLoadedRange` and `EnclaveDoorsUnlocked` (true) under `EnclaveContainerLock`, each with its comment.
+731. **A new save: the first claim is not the home.** Start a new world and place a land claim. Nothing in the log says
+     `community home set` or `community started`; `sc home` says `home <none> - start a community from a land claim's radial
+     (Start a community here), or sc home set`; no Home Status panel shows.
+732. **Survivors refuse until then.** Talk to a wild survivor: "I could use someone like you in my community." is there,
+     and picking it gets "Join what, exactly? I don't see a community - your people need a home first. Ask me again when
+     you have one." with the tooltip "Start a community first: hold E on one of your land claim blocks and
+     pick Start a community here." No favor is offered and `sc status` lists no new prospect for them. A companion you
+     hired the vanilla way the same. Elsewhere: the radio window's survivor call says "Start a community first: ...", an
+     Outpost Flag stays a plain claim with the same reason, a Watch Post or a Guard Tower is refused with "... start a
+     community at one of your land claims first.", and no claim offers **Establish outpost**.
+733. **The claim's radial with no home.** Hold E on your claim: **Community** and **Start a community here**; no **Set as
+     community home**, no **Linked storage**. **Community** opens the window and starts nothing (`sc home` still `<none>`).
+734. **Starting one.** Pick **Start a community here**: the tooltip "Your community starts here: this land claim is its
+     home.", the log `community started: home set to <x, y, z> by radial (Start a community here)`, and `sc home` prints
+     that position. The Home Status panel shows. Talk to the survivor from 732 again: their favor is offered as before
+     (no "Join what" answer), and recruiting works to the end.
+735. **The home's claim no longer offers it.** Hold E on the home claim: **Community** and **Linked storage**, but neither
+     **Start a community here** nor **Set as community home**.
+736. **Moving home.** Place a second land claim away from the first (not in a POI). Its radial shows **Set as community
+     home** (not Start a community here). Pick it: "This land claim is now your community's home.", the log `community home
+     set to <x, y, z> by radial`, `sc home` the new position; the first claim's radial now shows **Set as community home**.
+737. **The home's claim picked up.** Pick up the home's land claim block (keep your other claim). `sc home` says `home <x,
+     y, z> - its land claim is gone: pick Set as community home on another claim, or sc home set`; no other claim became
+     the home by itself (no log line). Ask a survivor to join: the "Join what" answer with the tooltip "Your community's
+     home claim is gone - hold E on another land claim block of yours and pick Set as community home." Pick **Set as
+     community home** on the other claim: survivors join again.
+738. **An old save keeps its home.** Load a save made with the installed build that has a community: `sc home` prints the
+     same home as before, the members are where they were, and its claim's radial shows **Community** and **Linked
+     storage**, no **Start a community here**. (A save with a claim but no home yet - you never talked to a survivor there -
+     has no home until you start one.)
+739. **`sc home set` (test aid).** On a new save, standing inside your claim: `sc home set` answers `community started: home
+     <x, y, z> (the claim you stand in)`; standing outside every claim of yours, `... (your first land claim - you stand in
+     none of yours)`; with no claim at all, `refused: you have no land claim that could be the home ...`; on the home
+     itself, `the land claim at <x, y, z> is already the home`. Each start or move logs `community started: ...` /
+     `community home set to ... by sc home set`.
+740. **`AutoHomeFirstClaim` true (optional; restart, then put it back).** New world, place a claim: the radial shows
+     **Community**, **Start a community here** and **Linked storage**; picking **Community** (or **Linked storage**) makes
+     it the home (`community home set to <x, y, z> by the radial's Community (AutoHomeFirstClaim)`). Or, without the
+     radial, talking to a survivor makes it the home (`community home set to the land claim at <x, y, z>
+     (AutoHomeFirstClaim)`) and the favor shows at once: the old behavior.
+741. **A survivor enclave's doors.** Go to a survivor enclave you have not visited this session (`sc enclave list`; `sc
+     enclave reveal <id>` marks it). Within about 200 m the log has, once, `enclave <id> '<name>': unlocked N door(s) (M
+     door(s) in <POI name>)`. Walk in: doors that showed **(Locked)** or **(Jammed)** before this build now show
+     **(Unlocked)** and open with E; no door was opened by itself; holding E on one shows no **Lock** or **Keypad** entry
+     (the door is not yours).
+742. **A raider enclave's doors.** The same at a raider enclave (its line names its id; mind the raiders).
+743. **Containers stay theirs.** In either building, a loot container still answers "That belongs to <name>." (with
+     `EnclaveContainerLock` on).
+744. **Per-door lines (DebugLogging true).** Before the 741 line, one `enclave <id> '<name>': unlocked the <block> at <x, y,
+     z>` per door; a locked door that is a player's (or, with another mod, needs a lock pick) has `... is kept locked (...)`
+     and is counted in the line's `kept as they were`.
+745. **Once a session.** Walk away and come back: no second line for that enclave. Save, quit, load and go back: one line
+     again, now `unlocked 0 door(s)` (they stayed unlocked: the chunk saved it).
+746. **Existing saves.** On a save from the installed build, an enclave you visited before (its doors were locked then)
+     gets its line on the first visit with this build, and its doors are unlocked.
+747. **`EnclaveDoorsUnlocked` false (restart, then put it back).** On a new world (or an enclave not yet visited with this
+     build): no `unlocked` line, and the enclave's locked doors stay locked. Doors unlocked earlier stay unlocked.
+748. **A fallen enclave.** `sc enclave kill <id> all` on a group whose doors were unlocked: the building is free again
+     and its doors stay unlocked. A group that moves (`sc enclave move <id> now`) gets a line for its new building when you
+     go there.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.
@@ -3783,8 +3859,10 @@ What changed:
   asked before don't need asking again.
 
 Steps:
-- [ ] **No community yet:** in a game where you have no land claim, talk to a survivor: no "I could use someone like
-  you..." line, and `sc status` lists no new prospect. Place a land claim, talk again: the line is there.
+- [ ] **No community yet:** in a game where you have no community home, talk to a survivor: no favor is offered and
+  `sc status` lists no new prospect. (Since round 32a the "I could use someone like you..." line is there but answered
+  "Join what, exactly? ..." until you pick Start a community here on a land claim, H32 732; placing a claim alone no
+  longer makes the home.) Start a community, talk again: the favor is offered.
 - [ ] **POI not clear:** "I could use someone like you..." -> "Mark it. I'll take care of it." ends the talk, the quest is
   in the journal. Log: `<POI> for <name> is not clear yet: ...`.
 - [ ] **POI already clear (t4.2 again):** ask a survivor (don't mark it), clear their POI, come back, "Mark it": the

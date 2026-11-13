@@ -11,12 +11,19 @@ namespace SurvivorCommunity
     /// "Community" or "Set as community home", so an outpost cannot become the home. No stored data - the
     /// registry holds the home and the outposts. AllowBlockActivationCommand / OnBlockActivated take ReadOnlySpan
     /// and are unpatchable, hence a subclass; APPEND only in XML so TEFeatureLandClaim keeps CustomOrder 0.
+    ///
+    /// Round 32a, the home is opt-in: with no home yet, a claim of yours offers "Start a community here" (the same
+    /// action as "Set as community home", under its own label) and no "Linked storage"; "Community" opens the window
+    /// without adopting the claim. "Set as community home" shows only while a home exists elsewhere (moving it), and
+    /// the home's own claim offers neither. AutoHomeFirstClaim true restores the old adoption by Community / Linked storage.
     /// </summary>
     [Preserve]
     public class TEFeatureSCCommunity : TEFeatureAbs
     {
         public const string CmdCommunity = "community";
         public const string CmdSetHome = "sethome";
+        /// <summary>Round 32a: "Start a community here" - sethome's action while there is no home yet (blockcommand_TEFeatureSCCommunity:starthome).</summary>
+        public const string CmdStartHome = "starthome";
         public const string CmdStorage = "storage";
         public const string CmdEstablish = "establish";
         public const string CmdOutpost = "outpost";
@@ -74,6 +81,7 @@ namespace SurvivorCommunity
             base.InitBlockActivationCommands(_addCallback);
             _addCallback(new BlockActivationCommand(CmdCommunity, "frames", _enabled: false), TileEntityComposite.EBlockCommandOrder.Normal, base.FeatureData);
             _addCallback(new BlockActivationCommand(CmdSetHome, "block_upgrade", _enabled: false), TileEntityComposite.EBlockCommandOrder.Normal, base.FeatureData);
+            _addCallback(new BlockActivationCommand(CmdStartHome, "block_upgrade", _enabled: false), TileEntityComposite.EBlockCommandOrder.Normal, base.FeatureData);
             _addCallback(new BlockActivationCommand(CmdStorage, "search", _enabled: false), TileEntityComposite.EBlockCommandOrder.Normal, base.FeatureData);
             _addCallback(new BlockActivationCommand(CmdEstablish, "map_town", _enabled: false), TileEntityComposite.EBlockCommandOrder.Normal, base.FeatureData);
             _addCallback(new BlockActivationCommand(CmdOutpost, "map_cabin", _enabled: false), TileEntityComposite.EBlockCommandOrder.Normal, base.FeatureData);
@@ -120,22 +128,26 @@ namespace SurvivorCommunity
                 if (!Equals(_module)) return true;      // never veto another feature's command
                 bool community = CommandIs(_commandName, CmdCommunity);
                 bool setHome = CommandIs(_commandName, CmdSetHome);
+                bool startHome = CommandIs(_commandName, CmdStartHome);
                 bool storage = CommandIs(_commandName, CmdStorage);
                 bool establish = CommandIs(_commandName, CmdEstablish);
                 bool outpost = CommandIs(_commandName, CmdOutpost);
                 bool disband = CommandIs(_commandName, CmdDisband);
                 bool opStorage = CommandIs(_commandName, CmdOutpostStorage);
-                if (!community && !setHome && !storage && !establish && !outpost && !disband && !opStorage) return true;
+                if (!community && !setHome && !startHome && !storage && !establish && !outpost && !disband && !opStorage) return true;
                 if (!ScCommunity.IsHost) return false;
                 if (base.Parent == null || !base.Parent.LocalPlayerIsOwner) return false;
                 TEFeatureLandClaim lc = base.Parent.GetFeature<TEFeatureLandClaim>();
                 if (lc == null || !lc.IsPrimary()) return false;
                 bool isOutpost = ScOutposts.AtClaim(_blockPos) != null;
                 if (outpost || disband || opStorage) return isOutpost;
-                if (storage) return true;                     // at an outpost it opens the HOME storage over the radio
+                // at an outpost it opens the HOME storage over the radio; with no home yet there is nothing to link (round
+                // 32a), unless AutoHomeFirstClaim makes this claim the home on the spot as before
+                if (storage) return isOutpost || ScZone.HasHome || ScConfig.AutoHomeFirstClaim;
                 if (isOutpost) return false;                  // an outpost's claim never offers the home entries
                 bool isHome = ScZone.HasHome && ScZone.Home == _blockPos;
-                if (setHome) return !isHome;
+                if (startHome) return !ScZone.HasHome;        // round 32a: opt-in - the first home is started here
+                if (setHome) return ScZone.HasHome && !isHome; // moving an existing home here
                 if (establish)
                 {
                     // a claim inside a real POI away from home (the gates and their reasons come on activation)
@@ -156,24 +168,27 @@ namespace SurvivorCommunity
         {
             try
             {
-                if (CommandIs(_commandName, CmdSetHome))
+                if (CommandIs(_commandName, CmdSetHome) || CommandIs(_commandName, CmdStartHome))
                 {
+                    bool started = !ScZone.HasHome;
                     ScZone.SetHome(_blockPos, _player);
                     ScRegistry.SaveAtomic();
-                    ScCommunity.Tell(_player, Localization.Get("scHomeSet"), "");
-                    ScLog.Out("community home set to " + _blockPos + " by radial");
+                    ScCommunity.Tell(_player, Localization.Get(started ? "scHomeStarted" : "scHomeSet"), "");
+                    ScLog.Out(started ? "community started: home set to " + _blockPos + " by radial (Start a community here)"
+                                      : "community home set to " + _blockPos + " by radial");
                     return true;
                 }
                 if (CommandIs(_commandName, CmdCommunity))
                 {
-                    if (!ScZone.HasHome) { ScZone.SetHome(_blockPos, _player); ScRegistry.SaveAtomic(); }
+                    // round 32a: opening the window starts nothing (the home is opt-in), unless AutoHomeFirstClaim
+                    if (!ScZone.HasHome && ScConfig.AutoHomeFirstClaim) { ScZone.SetHome(_blockPos, _player); ScRegistry.SaveAtomic(); ScLog.Out("community home set to " + _blockPos + " by the radial's Community (AutoHomeFirstClaim)"); }
                     ScCommunity.OpenWindow(_player);
                     return true;
                 }
                 if (CommandIs(_commandName, CmdStorage))
                 {
                     if (ScOutposts.AtClaim(_blockPos) != null) { ScHomeLink.Request(_player, _blockPos); return true; }
-                    if (!ScZone.HasHome) { ScZone.SetHome(_blockPos, _player); ScRegistry.SaveAtomic(); }
+                    if (!ScZone.HasHome && ScConfig.AutoHomeFirstClaim) { ScZone.SetHome(_blockPos, _player); ScRegistry.SaveAtomic(); ScLog.Out("community home set to " + _blockPos + " by the radial's Linked storage (AutoHomeFirstClaim)"); }
                     ScStorage.OpenWindow(_player);
                     return true;
                 }

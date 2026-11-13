@@ -79,17 +79,25 @@ This is a test build. Expect bugs, and please play it on a new save made for tes
 Your community lives inside your land claim. That area is the **home zone**: the claim's normal square, or the whole
 grown claim if you use the included Upgradable Land Claim Block (section 19).
 
-- **Your first land claim becomes home automatically.** You can move home later: hold **E** on another land claim block
-  you own and pick **Set as community home**.
+- **Starting a community is up to you.** No land claim becomes home by itself: hold **E** on a land claim block you own
+  and pick **Start a community here**. That claim is the home from then on. You can move home later: hold **E** on
+  another land claim block you own and pick **Set as community home**. (The old way, where your first land claim
+  became home on its own, is the setting `AutoHomeFirstClaim`, section 20.)
 - The land claim's radial menu (hold **E** on the block) gets these entries:
-  - **Community:** opens the community window.
-  - **Set as community home:** makes this claim the home.
-  - **Linked storage:** one window showing every storage box in the base (section 5).
-- Nobody will agree to join until you have a home. Without one, survivors tell you to place a land claim block first.
+  - **Community:** opens the community window. It does not start a community.
+  - **Start a community here:** only while you have no home yet. Makes this claim the home.
+  - **Set as community home:** on your other claims once you have a home (never on the home's own claim). Moves the
+    home here.
+  - **Linked storage:** one window showing every storage box in the base (section 5). Only once you have a home.
+- Nobody will agree to join until you have a home. Until then, a survivor you ask says you need a home for your people
+  first, and a message tells you to start a community from a land claim's radial. The radio's survivor calls, outposts,
+  watch posts and the Guard Tower wait for a home too.
+- If you pick up the home's land claim block, the community keeps its home there but nobody new joins until you pick
+  **Set as community home** on another claim of yours (or put a claim back on the same spot).
 
 **A good first hour:**
 
-1. Place a land claim where you want to live.
+1. Place a land claim where you want to live, hold **E** on it and pick **Start a community here**.
 2. Craft a **Packing Station** (from your backpack) and put it inside the claim.
 3. Put a few beds (bedrolls count) inside the claim, one per future member.
 4. Find a survivor, ask them to join, and do their favor.
@@ -875,6 +883,10 @@ raiders. Each group is an **enclave** with a name and a building of its own.
   m), a red skull for raiders and hostile groups (on the compass within 300 m).
 - **Their building is theirs:** no zombies, no land claims, no outposts, no trader quests there. Its loot containers
   belong to them ("That belongs to <name>.").
+- **Their doors are open to visitors:** every locked door of their building (doors, double doors, gates, hatches, garage
+  and vault doors) is unlocked when you come near, raiders' too, so you can walk in and find them. The doors are not
+  opened and do not become yours (you cannot lock them), and they stay unlocked if the group falls or moves. Their
+  containers stay theirs. `EnclaveDoorsUnlocked` (section 20) turns this off.
 - SC's own picks (radio contacts, favors, supply runs, scouting) never send anyone there.
 
 ### Their people
@@ -1281,6 +1293,7 @@ These are the ones you are most likely to change. The file has many more.
 | `PostRadius` | 8 | Residents' posts are within this many blocks of the land claim block |
 | `ResidentRoamZone` | true | Residents walk about the whole base by day (false: they stay near their post) |
 | `HomeKeepLoaded` / `HomeKeepLoadedRange` | true / 250 | Keep the home zone loaded while you are within this many meters |
+| `AutoHomeFirstClaim` | false | true: your first land claim becomes the home by itself, as before (false: you start a community from a claim's radial) |
 | `CommunityFriendlyFire` | false | true lets your shots hurt your own members |
 | `DefendBaseRadius` | 22 | Residents attack enemies inside the base within this many meters of their post (0: only what they see) |
 | `MembersOpenOwnerLockedDoors` | true | Members open your locked doors |
@@ -1381,6 +1394,7 @@ These are the ones you are most likely to change. The file has many more.
 | `OutpostGoodNews` | true | Outposts sometimes find caches |
 | `Enclaves` | true | Enclaves on the map |
 | `EnclavesPerKm2` | 0.3 | How many enclaves |
+| `EnclaveDoorsUnlocked` | true | Enclaves' locked doors are unlocked when you come near (false: they stay as they are) |
 | `EnclaveRequestMaxOpen` / `EnclaveRequestMaxPerDay` | 3 / 3 | Open requests, and new calls for help a day |
 | `EnclaveRaids` / `EnclaveMoves` / `EnclaveJoin` | true / true / true | Raider enclaves raid outposts; enclaves move; whole enclaves join |
 | `EnclaveGifts` / `EnclaveBarter` / `EnclaveCalls` | true / true / true | Gifts, ally barter, ally radio calls |

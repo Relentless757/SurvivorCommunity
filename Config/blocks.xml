@@ -32,6 +32,12 @@
 			     out), so survivors at the edge of your view distance are not unloaded and rebuilt as you move (round hz) -->
 			<property name="HomeKeepLoaded" value="true" />
 			<property name="HomeKeepLoadedRange" value="250" />
+			<!-- the community home is opt-in (round 32a): no land claim becomes it by itself - hold E on a claim of yours and
+			     pick "Start a community here" (later "Set as community home" on another claim moves it). Until then nobody
+			     joins. true: the old way - your first land claim becomes the home the first time it is needed (talking to a
+			     survivor, the claim's Community or Linked storage), and again when the home's claim is gone. A home a save
+			     already has is kept either way. -->
+			<property name="AutoHomeFirstClaim" value="false" />
 
 			<!-- daily use, in bundles. AmmoPerRangedDay is NOT charged any more: ammo is only spent when a survivor is
 			     resupplied (XnpcResupply* below); it is only the estimate the outposts use to judge which resource runs
@@ -1242,6 +1248,12 @@
 			<property name="EnclaveThreatBundlesMax" value="4" />
 			<property name="EnclaveThreatGrace" value="10" />
 			<property name="EnclaveContainerLock" value="true" />
+			<!-- round 32a: every locked door of a living enclave's building (doors, double doors, gates, hatches, garage and
+			     vault doors) is unlocked - not opened, and not made yours - as its chunks load near you, once a session, so
+			     you can walk in and meet them. Their loot containers stay theirs (EnclaveContainerLock). A door a player owns
+			     is left alone. The log has "enclave <id> '<name>': unlocked N door(s)" once per enclave a session. false:
+			     their doors stay as they are (doors already unlocked stay unlocked). -->
+			<property name="EnclaveDoorsUnlocked" value="true" />
 			<property name="EnclaveWildSpawnMargin" value="40" />
 			<property name="EnclaveKindRows" value="farm:growers,clinic:medics,military:militia,police:militia,gunstore:militia,industry:builders,hardware:builders,gasstation:roadcrew,refinery:roadcrew" />
 

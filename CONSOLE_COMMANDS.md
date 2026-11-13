@@ -86,9 +86,12 @@ Example: `sc members`
 ### `sc dump` [READ]
 Runs `status`, then `members`, then prints a config summary line.
 
-### `sc home`
-Finds or re-establishes the community home from your land claim. Prints the home position, or "place a land claim".
-Example: `sc home`
+### `sc home [set]` [`set`: CHEAT]
+`sc home` prints the community home and whether its land claim still stands, or `<none>` when no community has been
+started (it starts none: the home is opt-in). `sc home set` (or `start`) makes the land claim of yours you are standing in
+the home, or your first land claim that is not an outpost's when you stand in none: what the claim's radial **Start a
+community here** / **Set as community home** does.
+Example: `sc home`, then `sc home set`
 
 ### `sc day` [HOST] [CHEAT]
 Advances the community by one simulated day (runs the whole daily routine, outposts included), then prints status. Cannot be undone; it does not move the world clock. Do not run it repeatedly unless you mean to.
