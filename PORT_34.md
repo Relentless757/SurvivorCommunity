@@ -4711,3 +4711,13 @@ decompiled: **DEPLOYABLE**, no HIGH or MEDIUM, four LOW:
 The doc changes above touch no source; the reviewed DLL is the one to install.
 
 Builds: SC 3.4 `a15146a3717d64e5fa2558fc87caee65` (`build\sc34_r31`), 0 errors. Not installed.
+
+### Round 31 installed (2026-11-12 19:01)
+
+With the user's go-ahead (3.4 game closed): round 31 (V31: voices and natural hair colors matched to Vanity Vault's skin
+tones, with the refinement that keeps gray and white at today's share; already-met NPCs fixed on load). Review by Opus
+(Fable over its usage limit): DEPLOYABLE, four LOW (L1 documented; L2, L4 and the source nits for the next round). port-3.4
+fast-forwarded to `ms/r31` 9ecc34f; `deploy_sc34.py`: 15792 files, installed = built `a15146a3717d64e5fa2558fc87caee65`.
+The old install is in `Port33\_backups\sc34_2026-11-12_190159`; the user's `DebugLogging` true set again. Checked in the
+install: `VoiceRaceBySkin`, `SurvivorMidSkins`, `SurvivorDarkSkins`, `SurvivorGrayHairColors` with their defaults, 16 voices,
+`StreamerNames` false. Untested in game: TESTING V31 (710-725), and still S30 (680-701), J29, M29, X3, P2, R2.
