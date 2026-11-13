@@ -1928,3 +1928,45 @@ A full game restart is needed after editing `Config/Localization.csv`.
   `REInvMags.NpcMagazines`' `Arm`, `Refill`, `Rounds`, `Record`, `Restore` and `Carries`, bound with their exact
   signatures once per game); there is no reference to its DLL. Missing or throwing, it is switched off for the game
   with one log line, and SC's NPCs use loose rounds.
+
+## The land claim block's model (`Resources/SCLandClaim.unity3d`)
+
+SC replaces vanilla `keystoneBlock`'s `Model` with its own: a desk carrying a lit lamp and the claim ledger, standing
+beside a tall steel locker. The geometry is four of the game's own block models — `cntLockersTallMixClosed`,
+`officeDesk`, `deskLampLight02Black` and `cntBookPile08` — extracted from the 3.4 bundles and baked into one mesh.
+
+**Nothing of that art is in this repo.** It is The Fun Pimps' geometry and this repo is public, so `.gitignore` keeps
+out `Resources/SCLandClaim.unity3d`, `UIAtlases/ItemIconAtlas/scLandClaim.png` and `art/landclaim/preview_*.png`. A
+fresh clone therefore has a claim block with no model until the bundle is built. What IS here is everything needed to
+rebuild it: `art/landclaim/BuildScLandClaim.cs` (the Unity editor script) and `Tools/build_landclaim_bundle.py` (the
+driver — copies the inputs into the shared Unity project, checks the tag list, runs Unity in batch mode, verifies the
+result with UnityPy, renders the icon, and copies the bundle into `Resources/`).
+
+Its inputs — the FBX and the textures — live outside the repo, by default in
+`F:\Game Related Programs\Creation Stuff\SC_LandClaim_assets\unity_in` (`--inputs` overrides it). The folder above it
+holds the extraction and the working files, with a README giving the derivation of the placement; `make_maps.py` there
+rebuilds `unity_in` from them.
+
+    python -I Tools/build_landclaim_bundle.py           # build, check, copy into Resources/
+    python -I Tools/build_landclaim_bundle.py --no-copy  # build and check only
+
+Block-side facts worth keeping:
+
+- **3 x 2 x 1 cells.** The mesh stands on the cell floor and is centred on its parent cell, which is the middle of the
+  bottom row, so the block needs `ModelOffset 0,0,0` — the game's default is `0,0.5,0` and its own models are sunk half
+  a block to match it. Placement works out as `world = P + (0.5, 0, 0.5)`; `BlockShapeModelEntity.GetRotatedOffset` and
+  its `Chunk.cs` caller are the authority.
+- **No collider on the prefab root.** The game takes a box or capsule there as the block's own bounds, and on a block of
+  many cells every cell gets that one box. The colliders sit on a tagged `Collision` child carrying
+  `RootTransformRefParent`, as vanilla's own 2-wide `deskOfficePrefab` does.
+- **DMG0 and DMG1 must both exist.** `keystoneBlock` carries `MeshDamage "DMG0,7000,DMG1,1,"` and
+  `BlockShapeModelEntity.UpdateDamageState` calls `transform.Find(name).gameObject` with no null check, so a prefab
+  missing either throws the moment the block is damaged. `Transform.Find` only looks at direct children. There is no
+  broken version of this model, so both groups hold the same meshes.
+- **Winding, not just normals.** Every step that negates an axis mirrors the mesh and reverses what triangle winding
+  means. Unity culls by winding, so a mirror without a winding reversal renders the whole model inside-out — you see
+  through the locker doors and into the lamp shade. Blender does not cull backfaces, so it looks perfect there right up
+  until it reaches the game. The driver measures it (`winding_agrees`) and refuses to copy a bundle below 90%.
+- The vanilla `_rmom` maps are repacked by `make_maps.py` into one Standard-shader mask each (R metallic, G occlusion,
+  A smoothness). The `_rmom` channel meaning is **inferred** from materials whose physics are known, not read off the
+  game's shader; if it is wrong, metallic reads ~0 and the model just looks a little flat.

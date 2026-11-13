@@ -3204,6 +3204,44 @@ shows every mining runner's job, tool, spot and haul, the hauls waiting to be pu
      units carried, save and quit, load: `sc runners` shows the same few units, not the haul's item count; back home, the
      food stockpile goes up by those units only.
 
+**LC. The land claim block's new model (3.4)**
+
+Built 2026-11-13. The claim block is now a desk with a lit lamp and the claim ledger standing beside a tall steel locker:
+four of the game's own block models baked into one mesh, shipped in `Resources/SCLandClaim.unity3d` (built by
+`Tools/build_landclaim_bundle.py`; not in the repo). The block goes from **1 cell to 3 x 2 x 1**, which is the part worth
+testing hardest — the footprint is the thing that can bite. `scOutpostFlag` extends `keystoneBlock` and gets all of it.
+
+**About existing saves.** The child cells of a multi-block are worked out from the block's static size, not stored in
+the save, so a claim placed **before** this change has none recorded. That is cosmetic, not destructive:
+`Block.MultiBlockArray.RemoveChilds` clears a neighbouring cell only when it holds the **same block type**, so picking an
+old claim up cannot take a wall, chest or frame with it (another `keystoneBlock` in those cells could go, which claim
+spacing makes unlikely; `scOutpostFlag` is a different type and is safe). What an old claim will do is clip its new
+3-wide model through whatever stands beside and above it until it is picked up and placed again. Step 888 confirms that.
+
+883. **It looks right.** Place a claim on flat ground: the desk, lamp and ledger stand beside the locker, nothing is
+     inside-out (you cannot see through the locker doors or into the lamp shade), the lamp's shade glows faintly, and the
+     model stands **on** the ground rather than sunk or floating.
+884. **It faces you, and only turns.** Place it standing north, then south, east and west: the desk front and locker
+     doors face you each time. Cycle every rotation with `r` (and on the radial): you get **four** of them, all upright.
+     The desk and locker never lie on their side or upside down — that is `AllowedRotations` narrowed from vanilla's
+     `No45` to `Basic90`, and it is the whole point of the change, so cycle right through rather than stopping at two.
+885. **The footprint.** It takes three cells across, two high, one deep, with the claim block itself in the **middle** of
+     the bottom row. Place it against a wall: it refuses where the three cells do not fit, rather than clipping through.
+     Nothing of the model pokes outside those six cells.
+886. **It is still a claim.** The protection area, the keystone's own storage (open it), **Area Repair**, the SC community
+     features and `LandClaimUpgrade`'s upgrade all behave as before. `sc outpost list` and the claim's map marker are
+     unchanged.
+887. **Damage and pickup.** Shoot or hit it down to low health: it keeps its model and does **not** throw a
+     NullReferenceException in the log (it has the DMG0/DMG1 groups the vanilla block's `MeshDamage` names). Pick it up
+     with E held: it comes back as an item and all six cells clear.
+888. **An existing save (on a COPY first).** Load a save that already had a claim placed before this update. It renders
+     with the new model, clipping through whatever stands beside or above it. Build a wall or put a chest in one of the
+     five cells it now wants, then pick the old claim up: the wall or chest is **still there** (only another claim block
+     in those cells would go). Place the claim again and it takes its proper six cells.
+889. **The icon.** The claim and the Outpost Flag show the new icon in the crafting list, in your inventory and on the
+     toolbelt (the Outpost Flag's is the same picture with its orange tint).
+890. **The Outpost Flag.** Place one: same model, same footprint, and it still establishes an outpost in an eligible POI.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

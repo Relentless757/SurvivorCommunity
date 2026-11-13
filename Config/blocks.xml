@@ -7,6 +7,41 @@
 		<property class="TEFeatureSCCommunity" />
 	</append>
 
+	<!-- The claim's look: a desk with a lamp and the claim ledger standing beside a tall steel locker.
+	     It is four of the game's own block models (cntLockersTallMixClosed, officeDesk,
+	     deskLampLight02Black, cntBookPile08) baked into one mesh - see art/landclaim and
+	     Tools/build_landclaim_bundle.py. THE BUNDLE AND THE ICON ARE NOT IN THIS REPO: they are The Fun
+	     Pimps' geometry and this repo is public, so .gitignore keeps them out and a fresh clone has to
+	     run that script before the block has a model. DEVELOPER.md says where the inputs live.
+
+	     3 x 2 x 1 cells. The mesh stands on the cell floor and is centred on its parent cell, so this
+	     needs ModelOffset 0,0,0 rather than the default 0,0.5,0 (the game's own models are sunk half a
+	     block to match that default; this one is not). Placement works out as world = P + (0.5, 0, 0.5);
+	     the derivation is in the SC_LandClaim working folder's README.
+
+	     Place is what vanilla's own 3 x 2 x 1 player-placed stations use (chemistryStation, cntApiary):
+	     without a Place helper the default is BlockPlacement.None, which would leave a three-wide
+	     asymmetric block facing the same way whichever way you stand.
+
+	     AllowedRotations goes from vanilla's No45 to Basic90 so the claim can only be turned, not tipped.
+	     It has to be done THIS way round: Block.Init applies OnlySimpleRotations first and then, if the
+	     block declares an AllowedRotations property at all, throws that result away and reparses the
+	     string (Block.cs ~1433-1450). keystoneBlock does declare one, so OnlySimpleRotations would be
+	     inert here - and No45 is Basic90|Headfirst|Sideways, which still allows the desk and locker on
+	     their side or upside down, with the footprint turning 3x2x1 into 3x1x2 with them. Narrowing is
+	     safe for saves: a stored rotation is only read back, never re-validated.
+
+	     scOutpostFlag extends keystoneBlock and so gets all of this; that is intended, the two are meant
+	     to look alike and differ by the icon's tint. -->
+	<set xpath="/blocks/block[@name='keystoneBlock']/property[@name='Model']/@value">#@modfolder:Resources/SCLandClaim.unity3d?SC_LandClaim</set>
+	<set xpath="/blocks/block[@name='keystoneBlock']/property[@name='AllowedRotations']/@value">Basic90</set>
+	<append xpath="/blocks/block[@name='keystoneBlock']">
+		<property name="ModelOffset" value="0,0,0" />
+		<property name="MultiBlockDim" value="3,2,1" />
+		<property name="Place" value="TowardsPlacerInverted" />
+		<property name="CustomIcon" value="scLandClaim" />
+	</append>
+
 	<append xpath="/blocks">
 		<!-- All tunables. Same shape as SCore's ConfigFeatureBlock: a block nobody can place, read by
 		     ScConfig once per world. Edit values here, not in code. -->
@@ -1973,7 +2008,7 @@
 	<append xpath="/blocks">
 		<block name="scOutpostFlag">
 			<property name="Extends" value="keystoneBlock" />
-			<property name="CustomIcon" value="keystoneBlock" />
+			<property name="CustomIcon" value="scLandClaim" />
 			<property name="CustomIconTint" value="FFBE5A" />
 			<property name="DescriptionKey" value="scOutpostFlagDesc" />
 			<property name="SortOrder2" value="0001" />

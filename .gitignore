@@ -6,3 +6,10 @@ __pycache__/
 *.bak*
 *.tmp
 ModInfo.xml.off
+
+# The land claim block's model: four of the game's own block models baked into one mesh, so the
+# bundle, the icon and the renders are TFP geometry and this repo is public. Built by
+# Tools/build_landclaim_bundle.py from inputs that live outside the repo (see DEVELOPER.md).
+Resources/SCLandClaim.unity3d
+UIAtlases/ItemIconAtlas/scLandClaim.png
+art/landclaim/preview_*.png
