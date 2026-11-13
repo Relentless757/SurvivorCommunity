@@ -90,14 +90,19 @@ scPackingStation,Block,Block,,,,Packing Station
 scPackingStationDesc,Block,Block,,,,"Drop food, water and other drinks, medical supplies, ammo, building materials, fuel or alcohol in the box and pack them into bundles for your community - the biggest first: a Large bundle holds three units, a Medium two, a Small one. Deposit bundles into the stockpile here; take Small ones out to carry."
 scBundleFood,Item,Item,,,,Food Bundle
 scBundleFoodDesc,Item,Item,,,,"An older bundle of food, worth one unit (a Small bundle). Deposit it at a packing station."
+scBundleFoodDescOpen,Item,Item,,,,"An older bundle of food, worth one unit (a Small bundle). Deposit it at a packing station, or open it for canned food and cooked meals: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleMeds,Item,Item,,,,Medical Bundle
 scBundleMedsDesc,Item,Item,,,,"An older bundle of medical supplies, worth one unit (a Small bundle). Deposit it at a packing station."
+scBundleMedsDescOpen,Item,Item,,,,"An older bundle of medical supplies, worth one unit (a Small bundle). Deposit it at a packing station, or open it for bandages, painkillers, antibiotics and the like: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleAmmo,Item,Item,,,,Ammo Bundle
 scBundleAmmoDesc,Item,Item,,,,"An older bundle of ammunition, worth one unit (a Small bundle). Deposit it at a packing station."
+scBundleAmmoDescOpen,Item,Item,,,,"An older bundle of ammunition, worth one unit (a Small bundle). Deposit it at a packing station, or open it for common rounds, shotgun shells, arrows and bolts: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleMaterials,Item,Item,,,,Materials Bundle
 scBundleMaterialsDesc,Item,Item,,,,"An older bundle of building materials, worth one unit (a Small bundle). Deposit it at a packing station."
+scBundleMaterialsDescOpen,Item,Item,,,,"An older bundle of building materials, worth one unit (a Small bundle). Deposit it at a packing station, or open it for wood, iron, cloth, duct tape, parts and glue: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleFuel,Item,Item,,,,Fuel Bundle
 scBundleFuelDesc,Item,Item,,,,"An older bundle of fuel, worth one unit (a Small bundle). Deposit it at a packing station."
+scBundleFuelDescOpen,Item,Item,,,,"An older bundle of fuel, worth one unit (a Small bundle). Deposit it at a packing station, or open it for gas cans: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scPackFood,UI,Packing,,,,Pack the food in the box into bundles
 scPackMeds,UI,Packing,,,,Pack the medical supplies in the box into bundles
 scPackAmmo,UI,Packing,,,,Pack the ammo in the box into bundles
@@ -783,49 +788,72 @@ scRunWater,UI,Menu,,,,Water
 scRunLuxury,UI,Menu,,,,Luxuries
 scBundleFoodSmall,Item,Item,,,,Small Food Bundle
 scBundleFoodSmallDesc,Item,Item,,,,One unit of food for the community stockpile. Deposit it at a packing station.
+scBundleFoodSmallDescOpen,Item,Item,,,,"One unit of food for the community stockpile. Deposit it at a packing station, or open it for canned food and cooked meals: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleFoodMedium,Item,Item,,,,Medium Food Bundle
 scBundleFoodMediumDesc,Item,Item,,,,Two units of food for the community stockpile. Deposit it at a packing station.
+scBundleFoodMediumDescOpen,Item,Item,,,,"Two units of food for the community stockpile. Deposit it at a packing station, or open it for canned food and cooked meals: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleFoodLarge,Item,Item,,,,Large Food Bundle
 scBundleFoodLargeDesc,Item,Item,,,,Three units of food for the community stockpile. Deposit it at a packing station.
+scBundleFoodLargeDescOpen,Item,Item,,,,"Three units of food for the community stockpile. Deposit it at a packing station, or open it for canned food and cooked meals: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleWaterSmall,Item,Item,,,,Small Water Bundle
 scBundleWaterSmallDesc,Item,Item,,,,One unit of water for the community stockpile. Deposit it at a packing station.
+scBundleWaterSmallDescOpen,Item,Item,,,,"One unit of water for the community stockpile. Deposit it at a packing station, or open it for boiled water, tea, coffee and juice: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleWaterMedium,Item,Item,,,,Medium Water Bundle
 scBundleWaterMediumDesc,Item,Item,,,,Two units of water for the community stockpile. Deposit it at a packing station.
+scBundleWaterMediumDescOpen,Item,Item,,,,"Two units of water for the community stockpile. Deposit it at a packing station, or open it for boiled water, tea, coffee and juice: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleWaterLarge,Item,Item,,,,Large Water Bundle
 scBundleWaterLargeDesc,Item,Item,,,,Three units of water for the community stockpile. Deposit it at a packing station.
+scBundleWaterLargeDescOpen,Item,Item,,,,"Three units of water for the community stockpile. Deposit it at a packing station, or open it for boiled water, tea, coffee and juice: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleMedsSmall,Item,Item,,,,Small Medical Bundle
 scBundleMedsSmallDesc,Item,Item,,,,One unit of medical supplies for the community stockpile. Deposit it at a packing station.
+scBundleMedsSmallDescOpen,Item,Item,,,,"One unit of medical supplies for the community stockpile. Deposit it at a packing station, or open it for bandages, painkillers, antibiotics and the like: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleMedsMedium,Item,Item,,,,Medium Medical Bundle
 scBundleMedsMediumDesc,Item,Item,,,,Two units of medical supplies for the community stockpile. Deposit it at a packing station.
+scBundleMedsMediumDescOpen,Item,Item,,,,"Two units of medical supplies for the community stockpile. Deposit it at a packing station, or open it for bandages, painkillers, antibiotics and the like: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleMedsLarge,Item,Item,,,,Large Medical Bundle
 scBundleMedsLargeDesc,Item,Item,,,,Three units of medical supplies for the community stockpile. Deposit it at a packing station.
+scBundleMedsLargeDescOpen,Item,Item,,,,"Three units of medical supplies for the community stockpile. Deposit it at a packing station, or open it for bandages, painkillers, antibiotics and the like: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleAmmoSmall,Item,Item,,,,Small Ammo Bundle
 scBundleAmmoSmallDesc,Item,Item,,,,One unit of ammunition for the community stockpile. Deposit it at a packing station.
+scBundleAmmoSmallDescOpen,Item,Item,,,,"One unit of ammunition for the community stockpile. Deposit it at a packing station, or open it for common rounds, shotgun shells, arrows and bolts: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleAmmoMedium,Item,Item,,,,Medium Ammo Bundle
 scBundleAmmoMediumDesc,Item,Item,,,,Two units of ammunition for the community stockpile. Deposit it at a packing station.
+scBundleAmmoMediumDescOpen,Item,Item,,,,"Two units of ammunition for the community stockpile. Deposit it at a packing station, or open it for common rounds, shotgun shells, arrows and bolts: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleAmmoLarge,Item,Item,,,,Large Ammo Bundle
 scBundleAmmoLargeDesc,Item,Item,,,,Three units of ammunition for the community stockpile. Deposit it at a packing station.
+scBundleAmmoLargeDescOpen,Item,Item,,,,"Three units of ammunition for the community stockpile. Deposit it at a packing station, or open it for common rounds, shotgun shells, arrows and bolts: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleMaterialsSmall,Item,Item,,,,Small Materials Bundle
 scBundleMaterialsSmallDesc,Item,Item,,,,One unit of building materials for the community stockpile. Deposit it at a packing station.
+scBundleMaterialsSmallDescOpen,Item,Item,,,,"One unit of building materials for the community stockpile. Deposit it at a packing station, or open it for wood, iron, cloth, duct tape, parts and glue: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleMaterialsMedium,Item,Item,,,,Medium Materials Bundle
 scBundleMaterialsMediumDesc,Item,Item,,,,Two units of building materials for the community stockpile. Deposit it at a packing station.
+scBundleMaterialsMediumDescOpen,Item,Item,,,,"Two units of building materials for the community stockpile. Deposit it at a packing station, or open it for wood, iron, cloth, duct tape, parts and glue: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleMaterialsLarge,Item,Item,,,,Large Materials Bundle
 scBundleMaterialsLargeDesc,Item,Item,,,,Three units of building materials for the community stockpile. Deposit it at a packing station.
+scBundleMaterialsLargeDescOpen,Item,Item,,,,"Three units of building materials for the community stockpile. Deposit it at a packing station, or open it for wood, iron, cloth, duct tape, parts and glue: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleFuelSmall,Item,Item,,,,Small Fuel Bundle
 scBundleFuelSmallDesc,Item,Item,,,,One unit of fuel for the community stockpile. Deposit it at a packing station.
+scBundleFuelSmallDescOpen,Item,Item,,,,"One unit of fuel for the community stockpile. Deposit it at a packing station, or open it for gas cans: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleFuelMedium,Item,Item,,,,Medium Fuel Bundle
 scBundleFuelMediumDesc,Item,Item,,,,Two units of fuel for the community stockpile. Deposit it at a packing station.
+scBundleFuelMediumDescOpen,Item,Item,,,,"Two units of fuel for the community stockpile. Deposit it at a packing station, or open it for gas cans: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleFuelLarge,Item,Item,,,,Large Fuel Bundle
 scBundleFuelLargeDesc,Item,Item,,,,Three units of fuel for the community stockpile. Deposit it at a packing station.
+scBundleFuelLargeDescOpen,Item,Item,,,,"Three units of fuel for the community stockpile. Deposit it at a packing station, or open it for gas cans: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleLuxurySmall,Item,Item,,,,Small Luxury Bundle
 scBundleLuxurySmallDesc,Item,Item,,,,One unit of luxuries (alcohol) for the community stockpile. Deposit it at a packing station.
+scBundleLuxurySmallDescOpen,Item,Item,,,,"One unit of luxuries (alcohol) for the community stockpile. Deposit it at a packing station, or open it for beer and Grandpa's drinks: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleLuxuryMedium,Item,Item,,,,Medium Luxury Bundle
 scBundleLuxuryMediumDesc,Item,Item,,,,Two units of luxuries (alcohol) for the community stockpile. Deposit it at a packing station.
+scBundleLuxuryMediumDescOpen,Item,Item,,,,"Two units of luxuries (alcohol) for the community stockpile. Deposit it at a packing station, or open it for beer and Grandpa's drinks: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleLuxuryLarge,Item,Item,,,,Large Luxury Bundle
 scBundleLuxuryLargeDesc,Item,Item,,,,Three units of luxuries (alcohol) for the community stockpile. Deposit it at a packing station.
+scBundleLuxuryLargeDescOpen,Item,Item,,,,"Three units of luxuries (alcohol) for the community stockpile. Deposit it at a packing station, or open it for beer and Grandpa's drinks: hold it and click, or pick Open in your backpack. Opening gives back less than packing took."
 scBundleSizeSmall,UI,Packing,,,,small
 scBundleSizeMedium,UI,Packing,,,,medium
 scBundleSizeLarge,UI,Packing,,,,large
+scBundleOpenOff,UI,Tooltip,,,,Opening bundles is turned off (BundleOpen in the Survivor Community settings).
+scBundleOpenEmpty,UI,Tooltip,,,,There is nothing to open this {0} bundle into: its list in the settings names no item this game has.
 scAnd,UI,Packing,,,,and
 scPackedInto,UI,Packing,,,,Packed {0} {1} into {2} bundle(s).
 scDepositedUnits,UI,Packing,,,,{0} bundle(s) added to the stockpile: {1}.

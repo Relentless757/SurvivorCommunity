@@ -1125,6 +1125,7 @@ namespace SurvivorCommunity
             AmmoPerRangedDay = 0.25f;
             PointsPerBundle[0] = 400; PointsPerBundle[1] = 300; PointsPerBundle[2] = 2000; PointsPerBundle[3] = 1000; PointsPerBundle[4] = 600;
             PointsPerBundle[5] = 200; PointsPerBundle[6] = 300;
+            ResetBundles();                        // round 33b (ScConfigBundles.cs): opening bundles
             WaterPerMemberDay = 1f;
             LuxuryItems.Clear();
             WellBlocks.Clear();
@@ -1569,6 +1570,7 @@ namespace SurvivorCommunity
                     ParseInt(p, "PointsPerBundle" + (Resource)i, ref v, 1, 1000000);
                     PointsPerBundle[i] = v;
                 }
+                ParseBundles(p);                   // round 33b (ScConfigBundles.cs): opening bundles
                 ParseFloat(p, "WaterPerMemberDay", ref WaterPerMemberDay, 0f, 10f);
                 ParseInt(p, "WellWaterPerLevel", ref WellWaterPerLevel, 0, 100);
                 ParseInt(p, "DewWaterPerLevel", ref DewWaterPerLevel, 0, 100);

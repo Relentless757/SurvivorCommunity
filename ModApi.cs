@@ -126,6 +126,8 @@ namespace SurvivorCommunity
                     ScWatch.DescribeHelper();
                     // the well kit places Level 1 only; levels 2-5 are upgrades (round wl). Every machine: placement is local.
                     ScFacilities.RestrictWellKit();
+                    // round 33b: the bundles' Open action kept (with a usable pool) or taken off (BundleOpen false), once per world
+                    ScBundleOpen.Apply();
                     // Locked & Loaded's NPC magazines (M11): bound once per game, its state logged every game
                     try { ScMags.Resolve(); }
                     catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }

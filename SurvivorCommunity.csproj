@@ -188,6 +188,9 @@
     <Compile Include="ScConfigSkins.cs" />
     <!-- round 32a (H32): every locked door of an enclave's building unlocked as its chunks load (both games) -->
     <Compile Include="ScEncDoors.cs" />
+    <!-- round 33b (B33): openable bundles - the Open action and the assortment (both games) -->
+    <Compile Include="ScConfigBundles.cs" />
+    <Compile Include="ScBundleOpen.cs" />
     <Compile Include="BlockScGuardTower.cs" />
     <Compile Include="XUiC_ScHomeStatus.cs" />
     <Compile Include="XUiC_ScCommunity.cs" />
