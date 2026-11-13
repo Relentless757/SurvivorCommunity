@@ -6,7 +6,7 @@ xuiScCommunity,UI,Menu,,,,Community
 scJoinPoi,Dialog,Response,,,,I could use someone like you in my community.
 scJoinSupplies,Dialog,Response,,,,I could use someone like you in my community.
 scFavourPoi_text,Dialog,Statement,,,,"Maybe. There's a place near here crawling with them - clear it out and I'll know you can keep people safe. Say the word and I'll mark it on your map."
-scNoHomeReply_text,Dialog,Statement,,,,"Join what, exactly? I don't see a community - your people need a home first. Ask me again when you have one."
+scNoHomeReply_text,Dialog,Statement,,,,"Join what, exactly? Your people don't have a home right now. Ask me again once you do."
 scFavourSupplies_text,Dialog,Statement,,,,"Maybe. I'm not walking into a place that can't feed me. Bring me some supplies first and I'll come."
 scStartPoi,Dialog,Response,,,,Mark it. I'll take care of it.
 scPoiDone,Dialog,Response,,,,That place is clear now. Come join my community.

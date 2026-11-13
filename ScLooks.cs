@@ -732,11 +732,13 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The base body and head assets must exist or the body builder silently produces nothing. Also corrects a stored
-        /// look to today's rules, in place, once per look per session: P2's men's hair (FixMaleHair) and round 31's natural
-        /// hair color for the skin (FixHairColor, after the race is final; round 32c: for the face too). e / name only name
-        /// the NPC in the hair color fix's log line (name: whose look it is; null = the body's own name; without e, name is
-        /// used as it is). Never changes a look's race (tone) or variant beyond the missing-assets fallback.
+        /// Corrects a stored look to today's rules, in place, once per look per session: P2's men's hair (FixMaleHair) and
+        /// round 31's natural hair color for the skin (FixHairColor; round 32c: for the face too). e / name only name the NPC
+        /// in the hair color fix's log line (name: whose look it is; null = the body's own name; without e, name is used as
+        /// it is). Never changes a look's race (tone) or variant: round 32 review L2 - the missing-assets fallback used to
+        /// rewrite the look here, and the look is often a member's, prospect's, enclave or band person's own record, so one
+        /// session without Vanity Vault turned every such record into White/01 for good. The fallback now lives in
+        /// BuildArchetype, on the copy a body is built from.
         /// </summary>
         public static void Validate(Look look, Entity e = null, string name = null)
         {
@@ -744,17 +746,44 @@ namespace SurvivorCommunity
             try
             {
                 FixMaleHair(look);      // P2
-                if (!SDCSUtils.BasePartsExist(look.ToArchetype()))
-                {
-                    ScLog.Warn("look " + look.Encode() + " has no body assets - using the default face");
-                    look.Race = "White";
-                    look.Variant = 1;
-                    if (!SDCSUtils.BasePartsExist(look.ToArchetype())) ScLog.Err("the default player body (White/01) is missing too - player-body survivors will be invisible");
-                }
                 FixHairColor(look, e, name);    // round 31
                 look.Validated = true;      // a thrown check is retried on the next use
             }
             catch (Exception ex) { ScLog.Once("looks-validate", ex); }
+        }
+
+        /// <summary>
+        /// Round 32 review L2: are this look's base body/head assets missing this session (its race or face not loaded,
+        /// e.g. Vanity Vault's tones without Vanity Vault)? The body builder silently produces nothing for such a look.
+        /// </summary>
+        public static bool AssetsMissing(Look look)
+        {
+            if (look == null) return false;
+            try { return !SDCSUtils.BasePartsExist(look.ToArchetype()); }
+            catch (Exception ex) { ScLog.Once("looks-assets", ex); return false; }
+        }
+
+        /// <summary>
+        /// Round 32 review L2: the archetype a body is built from - look.ToArchetype(), with the default face (White/01)
+        /// put on the COPY when the look's own base assets are missing this session (one warning per race/face), so the
+        /// body still builds and the stored look keeps its race and face for a session where they load again.
+        /// </summary>
+        public static Archetype BuildArchetype(Look look)
+        {
+            Archetype a = look.ToArchetype();
+            try
+            {
+                if (!SDCSUtils.BasePartsExist(a))
+                {
+                    ScLog.Once("look-noassets-" + look.Race + "/" + look.Variant, "look " + look.Race + "/" + look.Variant + " has no body"
+                               + " assets this session - built with the default face (White/01); the stored look keeps " + look.Race + "/" + look.Variant);
+                    a.Race = "White";
+                    a.Variant = 1;
+                    if (!SDCSUtils.BasePartsExist(a)) ScLog.Once("look-noassets-default", "the default player body (White/01) is missing too - player-body survivors will be invisible");
+                }
+            }
+            catch (Exception ex) { ScLog.Once("looks-build-archetype", ex); }
+            return a;
         }
 
         // ---- round 32c: Vanity Vault's faces and tones ----
@@ -1215,7 +1244,7 @@ namespace SurvivorCommunity
             {
                 look.Male = m.isMale;               // the rig and animator are per sex: never flip it on a live entity
                 Validate(look, npc);
-                m.archetype = look.ToArchetype();
+                m.archetype = BuildArchetype(look);
                 session[npc.entityId] = look;
                 if (!SyncGear(npc, look)) Rebuild(npc);
             }
@@ -1242,7 +1271,7 @@ namespace SurvivorCommunity
                 {
                     m.Look.Male = em.isMale;
                     Validate(m.Look, npc, m.Name);
-                    em.archetype = m.Look.ToArchetype();
+                    em.archetype = BuildArchetype(m.Look);
                     if (!SyncGear(npc, m.Look)) Rebuild(npc);
                 }
                 return;

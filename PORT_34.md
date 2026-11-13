@@ -5125,4 +5125,24 @@ Checks on the merged tree: 3.4 and 3.2 builds 0 errors (two known CS0108); `ccto
 3.2 128, 0 reads before store; XML replay (`x3\r32m_checks.py`, AshfallUI read from `Version Control\zzzzz_AshfallUI`): SC
 212/212 alone, 200/200 with AshfallUI (2279/2279), no aborts. The tracked 3.2 DLL untouched.
 
-Builds: SC 3.4 `42f3f14597142cec16cdfd9ebf6e5698` (`build\sc34_r32`), 0 errors. Not installed.
+**Review of round 32 (Opus: Fable over its usage limit, twice; the user's rule).** `git diff 5adddde 4abef23`, the built DLL
+decompiled: **DEPLOYABLE**, no HIGH or MEDIUM; verified among others that no path drops or moves a saved home, that the door
+pass only touches unowned door composites without storage inside enclave footprints (never traders', never player-placed),
+the dialog rows on all three Hire dialogs, the XUi bindings and the AshfallUI branches. Three LOW:
+- **L1 (fixed):** the no-home answer also shows when the home's claim is gone; `scNoHomeReply` now reads "Join what, exactly?
+  Your people don't have a home right now. Ask me again once you do." (fits both; the tooltip names the case). TESTING 779.
+- **L2 (fixed):** `ScLooks.Validate` rewrote a look missing its base assets to White/01 IN PLACE, and the look is often a
+  record (members, prospects through `ForEntity`/`Sync`/the portrait; since 32c also enclave/band records via `ScSpawn.Create`),
+  so one session without Vanity Vault made every such record White/01 for good. `Validate` no longer touches race or face;
+  `ScLooks.BuildArchetype(look)` puts the default face on the COPY a body is built from (X1 `Patches_Xnpc.cs`, `Apply`,
+  `Sync`; one warning per race/face), and `ScPortraits` skips shooting a look whose assets are missing (`AssetsMissing`),
+  so no stand-in portrait is cached under the look's key. TESTING 778.
+- **L3 (next round):** with a race mod other than Vanity Vault whose races have different face counts, the face-first
+  roll's fallback branch can pick a face its race lacks (Validate used to turn it into White/01; now the build copy does).
+  Fix: re-pick the face from the chosen race's own list in that branch.
+- Review note, in game only: the packing strip is taller (154 / 166 against 118) and bottom-aligned with the loot panel;
+  check it clears the toolbelt (TESTING 780).
+Checks after the fixes: 3.4 and 3.2 builds 0 errors; cctor 143, 0 reads before store; IL: `BuildArchetype` called from
+X1, `Apply` and `Sync`, `AssetsMissing` from the portrait; XML replay SC 212/212, 200/200 with AshfallUI (2279/2279).
+
+Builds: SC 3.4 `c65387f91e10b52877be62470032d50c` (`build\sc34_r32`), 0 errors. Not installed.

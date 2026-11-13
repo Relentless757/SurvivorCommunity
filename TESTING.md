@@ -2754,8 +2754,8 @@ enclave info <id>`, `sc enclave reveal <id>`, `sc status`. Set `DebugLogging` to
      `community home set` or `community started`; `sc home` says `home <none> - start a community from a land claim's radial
      (Start a community here), or sc home set`; no Home Status panel shows.
 732. **Survivors refuse until then.** Talk to a wild survivor: "I could use someone like you in my community." is there,
-     and picking it gets "Join what, exactly? I don't see a community - your people need a home first. Ask me again when
-     you have one." with the tooltip "Start a community first: hold E on one of your land claim blocks and
+     and picking it gets "Join what, exactly? Your people don't have a home right now. Ask me again once you do." with
+     the tooltip "Start a community first: hold E on one of your land claim blocks and
      pick Start a community here." No favor is offered and `sc status` lists no new prospect for them. A companion you
      hired the vanilla way the same. Elsewhere: the radio window's survivor call says "Start a community first: ...", an
      Outpost Flag stays a plain claim with the same reason, a Watch Post or a Guard Tower is refused with "... start a
@@ -2911,6 +2911,20 @@ are replaced by 808's.
      world: survivors are White, Black, Asian and Native with faces 1-4 as before; `sc voice who` shows no `skin` note and
      their race's voices; Asian and Native survivors never have natural blond or red hair, Black ones never light brown,
      White ones any; `sc look <name> tone` says the skins are not Vanity Vault's tones.
+
+**R32. Round 32 review fixes (3.4)**
+
+778. **A session without Vanity Vault keeps everyone's looks (review L2).** Back up the save. With members, a prospect and a
+     met enclave, quit, move `LittleRedSonja_VanityVault` out of Mods, load: survivors whose tone needs Vanity Vault build with
+     the default face (the log has `look <tone>/<face> has no body assets this session - built with the default face
+     (White/01); the stored look keeps <tone>/<face>` once per look), their portraits are not re-shot. Save, quit, put Vanity
+     Vault back, load: every member, prospect and enclave person has their own face and tone again (`sc members`, `sc xnpc`
+     look lines), and the portraits are theirs.
+779. **The no-home answer with the home's claim gone (review L1).** With a community, pick up the home's land claim block and
+     ask a survivor to join: "Join what, exactly? Your people don't have a home right now. Ask me again once you do.", the
+     tooltip says the home's claim is gone. Put a claim back and start/set the home again.
+780. **The packing strip clears the toolbelt (review note).** At 16:9 (and your usual resolution), open a packing station
+     with and without AshfallUI: the strip's last line (the message under Deposit) is above the toolbelt, not behind it.
 
 **U32. Round 32b: window fixes and vanilla look (both games; test on 3.4)**
 

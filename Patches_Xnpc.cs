@@ -378,7 +378,7 @@ namespace SurvivorCommunity
                         look.Validated = false;
                         ScLooks.Validate(look);
                     }
-                    __instance.archetype = look.ToArchetype();
+                    __instance.archetype = ScLooks.BuildArchetype(look);     // round 32 review L2: the fallback on the copy only
                     ScLooks.StageGear(e as EntityAlive, look);
                     // Feet on the ground. These classes use the player's entity prefab (Prefab "Player"), whose Model
                     // transform sits at y -0.08 to cancel the player's CharacterController skin; an NPC moves with block
