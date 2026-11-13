@@ -4721,3 +4721,113 @@ fast-forwarded to `ms/r31` 9ecc34f; `deploy_sc34.py`: 15792 files, installed = b
 The old install is in `Port33\_backups\sc34_2026-11-12_190159`; the user's `DebugLogging` true set again. Checked in the
 install: `VoiceRaceBySkin`, `SurvivorMidSkins`, `SurvivorDarkSkins`, `SurvivorGrayHairColors` with their defaults, 16 voices,
 `StreamerNames` false. Untested in game: TESTING V31 (710-725), and still S30 (680-701), J29, M29, X3, P2, R2.
+
+### Round 32b: window fixes and vanilla look (U32) (2026-11-12, built, not reviewed, not installed)
+
+Branch `ms/r32b` from port-3.4 `5adddde` (the installed round 31), worktree `Port33\wt\sc-r32b`; round 32a (gameplay) is on
+`ms/r32a` beside it and touches none of these files' code. **The user's reports (2026-11-12, two screenshots):** "the packing
+station window needs a touch up, at least with Ashfall UI installed" (the strip under the loot grid ran past the window onto
+INSPECT, its background did not match, the stock line ran off); "for the NPC info panel, the box at the top should be narrower
+so it isn't behind the NPC's face preview. With Ashfall UI not installed, the windows should look more vanilla"; "the morale
+bar should change from green to yellow/red depending on morale".
+
+**What was found (verified).**
+- **The screenshots.** The packing station shot was taken with Ashfall UI and RE Inventory loaded, not without: its loot window
+  has Ashfall UI's filter tabs, plates and brass icons and RE Inventory's cells of 55, and 3.4's `Player-prev.log` (the 19:03
+  run) lists `zzzzz_AshfallUI` and `zzzz_1_REInventory`; both were moved out of `Mods` (to `Version Control\`) at 19:52, and
+  the card shot (SC's own `scui_*` art) is from the run after. Measured in the shot: the strip's children at 1.39 px a unit
+  against 76 px a cell, i.e. a 55-unit grid of 440: the strip (anchored to the grid, 443 wide) held 14 buttons at fixed x up to
+  588, so the last two ran 145 past it.
+- **How Ashfall UI dresses SC (read from its 3.4 copy, hands-off).** (1) Its UIAtlas ships its own art under 15 of SC's `scui_*`
+  names (every one but `scui_divider` and the `scui_mood_*` faces), plus aspect variants of `scui_window` that its
+  `PlateAspect` swaps in; (2) its windows.xml restyles `windowScHomeStatus` by element name (`plate`, `strip`, `stripIcon`,
+  `title`, `mood`, `members`) under `mod_loaded('SurvivorCommunity')`; (3) MenuMetal's brass icons; (4) SC's own conditionals
+  give the Radio / Community tabs its plates. So its look of SC is SC's XML as it was plus its atlas: kept by keeping the
+  `scui_*` names and the Home Status element names whenever it is loaded.
+- **The loot window's widths.** Vanilla 3.4: cells of 75, the packing station's box 603 (8 x 75 + 3). RE Inventory: cells of 55,
+  at least 8 columns (`minCols`), 443. Ashfall UI 3.3+ keeps 75 without RE Inventory and sizes the window's height to the grid
+  (`{% Min(rows*75+3, 528) + 97 }`); its `ashfallPlate` stands 8 outside the window (`AshfallPlate.Fit`), the window is 6 left
+  and 10 right of the grid ("queue"), and the plate ends 17 under the grid without RE Inventory, about 8 with it (the shot).
+- **Anchors (decompiled 3.4 and 3.2).** `XUiView.parseAnchors` takes `<target>,<relative>,<absolute>` with a float relative
+  (vanilla uses `#parent,0.5,...`); NGUI re-anchors every frame (`UIRect.updateAnchors` defaults to `OnUpdate`, XUi never
+  changes it), so a child anchored to an anchored rect follows it; an anchored widget's collider resizes itself
+  (`XUiView_WidgetBased.refreshBoxCollider`: `widget.isAnchored` -> `autoResizeBoxCollider`); a grid target re-anchors on its
+  size change. Anchored buttons are already in use (Ashfall UI anchors SCore's `btnBroadcast`).
+- **Vanilla's look** (3.4 `XUi_Common/templates.xml`: `boxbg`, `headerbg`, `simplebutton`, `labeledbutton`, the message box;
+  `XUi_InGame`: `windowLooting`'s content box, `recipe_entry`, `skill_entry`, the HUD stat bars, `windowCompass`), and the sprite
+  list of 3.4's and 3.2's UIAtlas (`data.unity3d` through UnityPy, read only: 608 sprites each).
+- **Morale.** Two band sets: `ScMorale.MoodWord` (75 / 50 / 25: happy, content, uneasy, miserable) for the Home Status panel, the
+  card and the window title, and `XUiC_ScCommunity.BandWord` (HighMoraleThreshold / 50 / LowMoraleThreshold: Thriving, Steady,
+  Uneasy, Breaking) for the community window, whose `BandColor` already colored the word green from 50, amber from Low, red
+  below. The bars: the community morale bar and the selected member's mood bar, both always `scui_fill_good`. The indicators:
+  the Home Status dot and the card's mood word (content was light, 205,205,190), and the HUD buff `buffSCMorale` (a fixed
+  `icon_color`). The buff popout reads `BuffClass.IconColor` every update (`XUiC_BuffPopoutList`, 3.2 and 3.4), and Ashfall
+  UI's HUD tiles take vanilla's icon color.
+
+**Changes.**
+- **The strips** (`Tools/generate_strips_ui.py`, new: the GENERATED block `scstrips` at the top of windows.xml, replacing the
+  two hand-written strips). Both stay anchored to the grid; the packing strip's seven category buttons share its width by
+  relative anchors (button i: `#parent,i/7` plus `round(x0 + i*(GAP - pad - x0)/7)`), so they fit 443 and 603 alike. Short
+  labels (Food, Water, Meds, Ammo, Mats, Fuel, Lux: the stock line's words), the full action in each button's tooltip (the
+  unused `scPack*` / `scTake*` keys reworded, Water and Luxury added, `scDepositTip`); the stock line in a row of its own beside
+  Deposit, wrapping to a second line; the message two lines under it. The linked strip: its header wraps to two lines, Refresh
+  at the right. Two looks in one conditional: with Ashfall UI a plate in its art (`scui_window`) as wide as its loot-window
+  plate (-14 / +18 on the grid) starting 21 under the grid (clear of that plate both ways), `scui_btn` buttons, its text
+  colors, 166 / 64 tall; without it vanilla's content box (`menu_empty` [darkGrey], `menu_empty3px` [black]) 3 under the grid
+  box at its width, simplebutton's buttons (`menu_empty` [mediumGrey], `ui_game_select_row` under the pointer, a
+  `menu_empty2px` [black] rim), white outlined labels, 154 / 52 tall. Button names and the controllers are unchanged.
+- **The vanilla look** (`Tools/vanilla_look.py`, new; the community, radio and snapshot generators). Each generator writes its
+  window twice in one conditional: as before when Ashfall UI is loaded, and through `vanilla()` otherwise - the same lines,
+  positions, depths, names and bindings, sprites and colors swapped and border sprites added: the window plate vanilla's
+  message box (`menu_empty` 16,16,16 at depth -1 under the panels, a `menu_empty2px` [darkGrey] rim) with vanilla's header bar
+  (`ui_game_panel_header` [lightGrey]) under the title; panels `menu_empty` [darkGrey] with `menu_empty3px` [black] rims; buttons
+  simplebutton's (a control that cannot act keeps its rest color under the pointer); rows recipe_entry's ([darkGrey], [mediumGrey]
+  under the pointer, `ui_game_select_row` selected, black rims); thin rows [darkestGrey]; portraits on black; bars a black
+  groove, a flat fill and a black rim; danger buttons and callouts dark red with vanilla's red (228,18,21) rim; text white, the
+  gold accents [selectedColor] (222,206,163), captions light gray. Semantic colors (GOOD, BAD, danger text) keep their hue.
+- **The card's name box** ends 6 short of the portrait in both looks (`NAME_W` = 222, was 336 under the 104 portrait); its label
+  198 wide. Without Ashfall UI the name sits on vanilla's header bar.
+- **The Home Status panel without Ashfall UI** (a `not mod_loaded('zzzzz_AshfallUI')` conditional after its window, which is
+  unchanged): the compass's look - a `ui_game_header_fill` rim at 150,150,150,150 (depth -1) round a fill of the same sprite at
+  50,50,50,220 (`scPlateFill`, new), the strip a darker inset (28,28,28,220) instead of SC's teal.
+- **Morale colors.** `XUiC_ScCommunity`: `{moralefillsprite}` / `{selmoodfillsprite}` (`BandFillSprite`: `scui_fill_good` /
+  `_skill` / `_health` on BandColor's bands, Ashfall UI's art) and `{selmoodcolor}` (BandColor of the member's mood); without
+  Ashfall UI the bars' flat fill takes `{moralewordcolor}` / `{selmoodcolor}`, the word's own color. `ScMorale.MoodColor` /
+  `MoodColor32` (MoodWord's bands: green from 50, amber from 25, red below; content green now) for the Home Status dot, the
+  card's word (both now call it) and the HUD buff: `SyncHud` sets `buffSCMorale`'s `IconColor` by band every 5 seconds.
+- Docs: README (the packing strip's labels and tooltips, the morale colors, the Home Status dot), TESTING U32 760-777.
+
+**Inventory of SC's windows and what each got.** Packing strip, linked storage strip, snapshot card, community window, radio
+window, Home Status panel: as above. Unchanged (already vanilla's sprites): the NPC's line (`ui_game_text_body_back`, white),
+the talk page's pager, the Radio / Community tabs (their vanilla branch is vanilla's tab strip), the ESC menu entry (a vanilla
+`simplebutton`).
+
+**Checks.**
+- Builds: 3.4 and 3.2 (`build\sc32_r32b_scratch`), 0 errors, the two known CS0108 warnings; the tracked 3.2
+  `SurvivorCommunity.dll` untouched (c4ad303a). ilspycmd IL of the 3.4 DLL: `cctor_order.py` 142 static constructors, 0 reads
+  before store; the new bindings, `BandFillSprite` and the `IconColor` store (through `Color32::op_Implicit`) are in it.
+- XML replay (`x3\r32b_checks.py`, from round 31's; Ashfall UI from its 3.4 copy at `Version Control\zzzzz_AshfallUI`, since
+  it is out of the install): SC 212/212 alone, 200/200 with Ashfall UI (2279/2279, its Home Status ops included), no aborts.
+- The post-patch windows compared with round 31's (`r32b\py\compare_post.py`): **with Ashfall UI** only the intended changes -
+  the community window's two fill sprites (to the bindings), the card's name box and label widths, the two strips; the radio,
+  the Home Status panel, the NPC's line, the responses, the tab bar and the ESC menu identical. Without Ashfall UI the SC windows
+  changed and the others identical.
+- Every XUi file well-formed; every literal sprite name exists (`r32b\py\sprite_check.py`): vanilla 3.4 and 3.2 for the
+  vanilla branches (new: `menu_empty2px`, `menu_empty3px`, `ui_game_panel_header`), SC's or Ashfall UI's atlas for its branches.
+  None unconfirmed. The bound names come from the C# (`scui_fill_*`, `scui_mood_*`: SC's atlas, the fills Ashfall UI's too).
+- The four generators are idempotent (a second run leaves windows.xml byte-identical); every file touched LF, no BOM.
+- Rough offline renders (`r32b\py\preview.py`, no game: sliced sprites stretched, Arial Narrow for the game's font) of the
+  packing strip at 443 and 603 in both looks, the linked strip, the card (round 31 / now with Ashfall UI / vanilla), the vanilla
+  community and radio windows and the Home Status panel: nothing overlaps, the labels fit, the stock line wraps at 443.
+
+**Not checked (in game, TESTING U32 760-777):** how the anchored strip and its buttons really draw and take clicks; the strip's
+gap under Ashfall UI's plate (RE Inventory's window height is measured from the shot, not read); the vanilla look against the
+game's own windows; the colors at each band; the buff icon's color under Ashfall UI's HUD tiles.
+
+**For the Ashfall UI session (hands-off; nothing has to change there).** (1) SC's strips line up with Ashfall UI's
+loot-window plate by numbers (`LOOKS["ash"]` in `Tools/generate_strips_ui.py`: the plate 8 outside the window, the window 6
+left and 10 right of the grid, the plate ending 8 to 17 under it): if Ashfall UI moves those, SC's numbers follow. (2) SC's
+morale bars now also draw `scui_fill_skill` (uneasy) and `scui_fill_health` (miserable), so Ashfall UI's art under those names
+now means morale too; its skill fill is a dark orange, which reads as the amber step.
+
+Builds: SC 3.4 `4927b115d7b742e99dd5d9692a8a3f46` (`build\sc34_r32b`), 0 errors. Not installed.

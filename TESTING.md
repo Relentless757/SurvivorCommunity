@@ -2735,6 +2735,74 @@ logs `xnpc body for <class> id <id>: <sex> <skin>/<variant> hair <style> (<color
      06 Black`, Jack (Bronze, NavezganePlus `Playtest12`) `09 Red -> 06 Black`, and a wild Espresso man with `09 Red` gets one of
      `04 Brown`, `05 DarkBrown`, `06 Black`. The log line `config: skins ...` ends `gray 2 color(s) at their share`.
 
+**U32. Round 32b: window fixes and vanilla look (both games; test on 3.4)**
+
+Built 2026-11-12 on branch `ms/r32b` (SC 3.4 DLL `4927b115d7b742e99dd5d9692a8a3f46`, `Port33\build\sc34_r32b`), **not
+installed**: these steps wait for the install. Your reports (2026-11-12): the packing station's strip ran past the loot
+window (with Ashfall UI and RE Inventory: 55-unit cells, so the grid is 443 wide and the strip's 14 buttons needed 600), its
+background did not match and the stock line ran off; the snapshot card's name box ran under the portrait; without Ashfall UI
+SC's windows should look like the game's; the morale bar should go from green to yellow/red. Now the strips take the grid's
+width whatever it is, the name box ends before the portrait, SC's windows have two looks (Ashfall UI's when it is loaded,
+exactly as before; the game's own otherwise), and every morale bar and indicator is green / amber / red by band. Run the
+look steps twice where they say so: once without `zzzzz_AshfallUI` in `Mods`, once with it. At every load, the log has no
+`Invalid anchor string`, no `Can not parse` and no `[XUi]` error naming an `sc...` element or `windowSc...`.
+
+760. **The packing strip fits, without Ashfall UI (vanilla loot window).** No Ashfall UI, no RE Inventory. Open a packing
+     station: under the grid a gray box with a black rim, the grid box's own look, exactly as wide as the grid's box and 3
+     under it. Rows **Pack** and **Take**, seven buttons each (Food, Water, Meds, Ammo, Mats, Fuel, Lux), all inside the box,
+     white outlined labels; the pointer over a button lights it like the game's buttons (the light gold row) and after a
+     moment shows a tooltip ("Pack the food in the box into bundles", "Take one small fuel bundle from the stockpile", ...).
+     **Deposit bundles** below them, the stock line beside it on one line, the message under it.
+761. **With Packwisely.** The same with Packwisely in (its category tabs on the loot window): the strip still sits under the
+     grid at the grid's width, over nothing of Packwisely's (its pouch border, its tabs).
+762. **The narrowest grid, without Ashfall UI.** With RE Inventory in and Ashfall UI out (cells of 55, the grid 443 wide):
+     every button inside the strip, none over INSPECT; the labels still readable at their size; the stock line wraps to a
+     second line instead of running off ("Stock: food ..., mats ..." / "fuel ..., lux ...").
+763. **With Ashfall UI (your screenshot's setup: Ashfall UI and RE Inventory).** The strip is a plate in Ashfall UI's art (the
+     window's own plate art), as wide as the loot window's plate and just below it - no overlap with the window's plate,
+     a small gap. Ashfall UI's buttons with upper-case labels (FOOD, WATER, MEDS, AMMO, MATS, FUEL, LUX), nothing past the
+     plate's right edge, the stock line wrapping to two lines beside DEPOSIT BUNDLES, the message under it.
+764. **With Ashfall UI, without RE Inventory** (cells of 75): the same plate, wider, again starting below the loot window's
+     plate (that plate ends further under the grid here: the strip still clears it).
+765. **Every strip button works, over its whole face.** In 760 and 763: click each of the 15 buttons near its left edge, its
+     center and its right edge (the right-most Lux buttons too): each packs, takes or deposits and says so in the message line.
+     A click between two buttons does nothing.
+766. **Linked storage.** Open linked storage (land claim radial) both ways: under the grid the box count line (it wraps to a
+     second line when long, as with many boxes and some not shown) and **Refresh** at the right, in the same look as the
+     packing strip; Refresh still reopens the view.
+767. **The card's name box (both looks).** Talk to a survivor: the name box (gold-framed with Ashfall UI, the game's dark header
+     bar without) ends a little left of the portrait, not under it. A long name shrinks inside the box.
+768. **The card without Ashfall UI.** A gray panel with a black rim (no gold-rimmed charcoal frame), the name in white on the
+     header bar, the portrait in a black square, the role in beige, the skill rows flat dark gray strips (no green-bordered
+     rows), white text, the stars as before.
+769. **The community window without Ashfall UI.** Open it (ESC menu or the Community tab): a near-black window with a gray rim,
+     the title on the game's dark header bar, gray panels with black rims, gray buttons with black rims that light up under
+     the pointer, member rows gray with black rims (lighter under the pointer, the light gold row when selected), the tabs'
+     selected one light gold, the Leave / Disband buttons and the beds callout dark red with a red rim. Every control still
+     works: the three tabs, search, filter, the pagers, Follow / Run / Leave and the run picker, Work and the roles, an
+     outpost's Track / Assign / Upgrade / Disband, an activity's button, Open storage and the X.
+770. **The radio window without Ashfall UI.** The same look; a control that cannot act right now (an air drop on cooldown, a
+     barter used today) keeps its gray with no light under the pointer and a gray label; Pay / Refuse and the siege buttons
+     as before. Every control still works.
+771. **The Home Status panel without Ashfall UI.** Inside the home zone: the compass's look (a rounded gray rim round a dark
+     gray fill, rounded corners), a darker rounded strip at the left with the people icon (no teal strip), white text.
+772. **Ashfall UI's look is unchanged.** With Ashfall UI: the community window, the radio, the card (but for its name box),
+     the Home Status panel and the Radio / Community tabs look exactly as before this build (compare with a screenshot from
+     round 31 if you have one).
+773. **The community morale bar's color (both looks).** Open the community window. `sc morale 80`: the bar green, the word
+     THRIVING green. `sc morale 50`: green, STEADY. `sc morale 40`: amber (Ashfall UI: its orange fill), UNEASY. `sc morale 20`:
+     red, BREAKING. (The window refreshes itself every 2 seconds; `sc morale -1` clears the override.)
+774. **A member's mood bar.** Select a member at each of those steps: their MOOD bar takes the color of the word under it
+     (Thriving / Steady green, Uneasy amber, Breaking red; their mood is the morale plus their traits, so it can sit a step
+     away from the community's).
+775. **The Home Status dot and the card's word.** `sc morale 80`, 50, 40, 20 in the home zone: the dot is green at 80 (Happy)
+     and at 50 (Content - it was light gray before), amber at 40 (Uneasy), red at 20 (Miserable). Talk to a member at each: the
+     card's mood word takes the same color (its face stays the art's own: green, light, amber, red).
+776. **The morale icon in the buff bar.** At each step of 775, within about 5 seconds the morale icon (the people icon with the
+     number) is green at 80 and 50, amber at 40, red at 20. With Ashfall UI too (its HUD tiles take the icon's color).
+777. **Nothing else moved.** Without Ashfall UI: the NPC's line above the responses, the talk page's pager, the Radio /
+     Community tabs left of the tab bar and the ESC menu's Community entry look as before.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

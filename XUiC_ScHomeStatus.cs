@@ -112,13 +112,11 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>The mood bands of ScMorale.MoodWord: happy green, content light, uneasy amber, miserable red.</summary>
+        /// <summary>The mood bands of ScMorale.MoodWord: green while content or happy (content was light before round 32b),
+        /// amber while uneasy, red while miserable - ScMorale.MoodColor, shared with the snapshot and the HUD buff.</summary>
         private static string MoodColor(int morale)
         {
-            if (morale >= 75) return "96,200,96,255";
-            if (morale >= 50) return "205,205,190,255";
-            if (morale >= 25) return "232,170,60,255";
-            return Red;
+            return ScMorale.MoodColor(morale);
         }
 
         private static string NoiseColor(ScNoise.Level level)

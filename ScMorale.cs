@@ -265,9 +265,12 @@ namespace SurvivorCommunity
                 if (now < nextHud) return;
                 nextHud = now + 5f;
                 int morale = Recompute();
-                bool want = ScRegistry.Members.Count > 0 && BuffManager.GetBuff(HudBuff) != null;
+                BuffClass hud = BuffManager.GetBuff(HudBuff);
+                bool want = ScRegistry.Members.Count > 0 && hud != null;
                 if (want)
                 {
+                    // R32b (U32): the icon takes the morale's band color; the HUD reads BuffClass.IconColor every frame
+                    hud.IconColor = MoodColor32(morale);
                     if (player.Buffs.GetCustomVar(HudCvar) != morale) player.Buffs.SetCustomVar(HudCvar, morale);
                     if (!player.Buffs.HasBuff(HudBuff)) player.Buffs.AddBuff(HudBuff);
                 }
@@ -303,6 +306,27 @@ namespace SurvivorCommunity
             if (mood >= 50) return Localization.Get("scMoodContent");
             if (mood >= 25) return Localization.Get("scMoodUneasy");
             return Localization.Get("scMoodMiserable");
+        }
+
+        /// <summary>
+        /// R32b (U32): MoodWord's bands as a color, for the morale indicators outside the community window - the Home
+        /// Status dot, the snapshot's mood word and the HUD buff's icon: green while content or happy, amber while uneasy,
+        /// red while miserable. (The community window's bars follow its own words, XUiC_ScCommunity.BandColor: the same
+        /// bands at the default LowMoraleThreshold of 25.)
+        /// </summary>
+        public static string MoodColor(int mood)
+        {
+            if (mood >= 50) return "96,200,96,255";
+            if (mood >= 25) return "232,170,60,255";
+            return "235,72,60,255";
+        }
+
+        /// <summary>MoodColor as a Color32 (the buff icon's tint).</summary>
+        public static Color32 MoodColor32(int mood)
+        {
+            if (mood >= 50) return new Color32(96, 200, 96, 255);
+            if (mood >= 25) return new Color32(232, 170, 60, 255);
+            return new Color32(235, 72, 60, 255);
         }
     }
 }

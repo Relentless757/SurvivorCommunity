@@ -206,13 +206,11 @@ namespace SurvivorCommunity
             return "scui_mood_miserable";
         }
 
-        /// <summary>ScMorale.MoodWord's bands, coloured as the Home Status panel colours them.</summary>
+        /// <summary>ScMorale.MoodWord's bands, colored as the Home Status panel colors them (ScMorale.MoodColor: green while
+        /// content or happy, amber while uneasy, red while miserable).</summary>
         private static string MoodColor(int mood)
         {
-            if (mood >= 75) return "96,200,96,255";
-            if (mood >= 50) return "205,205,190,255";
-            if (mood >= 25) return "232,170,60,255";
-            return "235,72,60,255";
+            return ScMorale.MoodColor(mood);
         }
 
         private static string Capital(string s)
