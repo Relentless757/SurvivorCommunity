@@ -45,6 +45,15 @@ DEPLOYED = os.path.join(REPO, "Resources", "SCLandClaim.unity3d")
 ASSET_SUB = "Assets/SurvivorCommunity/LandClaim"
 
 MATERIALS = ["locker", "deskOffice", "lampDesk", "Books"]
+
+# What the game itself ships these at, read off its bundles. The albedo and normal maps must match
+# or the baked block reads softer than the props standing beside it; the packed masks are ours.
+VANILLA_SIZE = {
+    "locker_d": 1024, "locker_n": 2048,
+    "deskOffice_d": 2048, "deskOffice_n": 2048,
+    "lampDesk_d": 1024, "lampDesk_n": 1024, "lampDesk_e": 1024,
+    "Books_d": 1024, "Books_n": 512,
+}
 PARTS = ["locker_ver4_loot", "deskOffice", "lampDesk", "bookScarletJournals"]
 
 # 7 Days to Die 3.4's tag list, in order (TagManager in the game's data.unity3d). T_Block is 20004.
@@ -251,8 +260,14 @@ def check_bundle(path):
             say("  texture %s %dx%d %s, %d mip level(s)" % (tex.m_Name, tex.m_Width, tex.m_Height,
                                                             getattr(tex.m_TextureFormat, "name", tex.m_TextureFormat),
                                                             tex.m_MipCount))
-            if max(tex.m_Width, tex.m_Height) > 1024 or img is None or tex.m_MipCount < 8:
-                problems.append("texture %s is bigger than 1024 or has no mip chain" % tex.m_Name)
+            # The point is parity with the props this was baked from: the game ships deskOffice's
+            # maps and locker_n at 2048, and anything smaller reads soft beside the real thing.
+            if max(tex.m_Width, tex.m_Height) > 2048 or img is None or tex.m_MipCount < 8:
+                problems.append("texture %s is bigger than 2048 or has no mip chain" % tex.m_Name)
+            if tex.m_Name in VANILLA_SIZE and max(tex.m_Width, tex.m_Height) != VANILLA_SIZE[tex.m_Name]:
+                problems.append("texture %s is %dx%d; the game ships it at %d and the block sits next to "
+                                "props that use it" % (tex.m_Name, tex.m_Width, tex.m_Height,
+                                                       VANILLA_SIZE[tex.m_Name]))
         elif obj.type.name == "Mesh":
             tree = obj.read_typetree()
             channels = tree["m_VertexData"]["m_Channels"]

@@ -212,13 +212,16 @@ public static class BuildScLandClaim
         ti.alphaSource = TextureImporterAlphaSource.FromInput;
         ti.alphaIsTransparency = false;
         ti.mipmapEnabled = true;
-        // The model is furniture seen from a metre or two; 2048 would quadruple the bundle for nothing.
-        ti.maxTextureSize = 1024;
+        // 2048 is a cap, not a size: every map here is already at the resolution the game ships it
+        // at, so nothing is resampled and the block matches the props it was made from. An earlier
+        // 1024 cap halved deskOffice_d, deskOffice_n and locker_n, and it showed in game - the desk
+        // and locker read visibly softer than the vanilla ones standing beside them.
+        ti.maxTextureSize = 2048;
         ti.textureCompression = TextureImporterCompression.Compressed;
         ti.anisoLevel = 16;
         ti.filterMode = FilterMode.Trilinear;
         ti.mipmapFilter = TextureImporterMipFilter.KaiserFilter;
-        ti.wrapMode = TextureWrapMode.Clamp;
+        ti.wrapMode = TextureWrapMode.Repeat;       // as the game imports them; Clamp was a needless difference
         ti.SaveAndReimport();
     }
 
