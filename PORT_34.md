@@ -5710,3 +5710,17 @@ el_mp3 and appends them to `levels.jsonl`. Then `plan_ogg3.py` (16 jobs, gain -4
 README: the limits list still said the two Native women were not recorded - day 9 (a3d28b5) finished them. Replaced with
 what is actually still text only (a mining runner's radio lines, the magazine training line, some work-kit/field-job/
 trading refusals).
+
+### Round 33 installed (2026-11-13 12:04)
+
+With the user's go-ahead (3.4 game closed, no 7DaysToDie process): round 33 = 33a (queued fixes Q33) + 33b (openable
+bundles B33) + 33c (mining runs M33, 3.4 only), with the review fixes and the glance fixes, plus voices day 10
+(`scNoHomeReply` in all 16 voices). Opus review (Fable over its usage limit) NOT DEPLOYABLE -> 1 MED + 5 LOW fixed
+(cece438) -> Opus glance DEPLOYABLE -> its 5 LOW fixed (eb2c710) -> voices (d7742c5). port-3.4 fast-forwarded to
+`ms/r33a` d7742c5; `deploy_sc34.py`: 15831 files, installed = built `0d75c7374d6870d076ee1bfcb467f897`. The old install
+is in `Port33\_backups\sc34_2026-11-13_120421`; the user's `DebugLogging` true set again. Checked in the install:
+`MiningRuns` true, `BundleOpen` true, 16 voice folders, `scNoHomeReply.ogg` present in each.
+
+Untested in game: TESTING Q33 (820-829), B33 (840-853), M33 (860-882), and still H32, F32, U32, R32, V31, S30, J29, M29,
+X3, P2, R2. Next: the user's new land claim block model (concept B middle with B left's storage locker, replacing SC's
+own land claim block model; concepts A and C kept for later customization options).
