@@ -3137,8 +3137,10 @@ shows every mining runner's job, tool, spot and haul, the hauls waiting to be pu
 864. **The tool they take.** Each command below sends that member, so use a different resident for each (or wait until the
      last one is back). With the kit only: `sc run <first> mine` says `with meleeToolRepairT0StoneAxe (T0, work kit)`; `sc run
      <second> clay` says `meleeToolShovelT0StoneShovel (T0, work kit)`. Hand a third an iron pickaxe through Show me your
-     inventory, then `sc run <third> mine`: `meleeToolPickT1IronPickaxe (T1, inventory)`, and the printed whole-run haul is
-     about 1.7 times the first one's.
+     inventory, then `sc run <third> mine`: `meleeToolPickT1IronPickaxe (T1, inventory)`. `sc runners` shows the tool
+     multiplier, `x0.6` for the stone axe and `x1` for the iron pickaxe. (The printed hauls also depend on each member's Wits
+     stars and traits and on whether the spot is a vein, so compare them only between members with the same Wits stars:
+     their small stone counts are then about 1 to 1.7.)
 865. **A spot is found.** Send **Mine stone and ore** from the talk: "<name> sets off on foot for an outcrop of <ore> (<biome>)
      (N m) to look for stone and ore - back around day D." (or "rocky ground (<biome>)" when no vein is in reach). The log has
      `mining: mine spot ...` (`on a vein` when it is one) and `<name> takes their <tool> ... to ...`. The community window says
@@ -3190,12 +3192,17 @@ shows every mining runner's job, tool, spot and haul, the hauls waiting to be pu
      shake their head with "Not here at home. Send me on a mining run, and I'll bring it back to the crates." Loot here still
      gets "Take me along, and I'll do it." With `MiningRuns` false (879), Mine and Dig clay get the "Take me along" line
      again.
-882. **A waiting haul.** With the home crates full (871), a miner comes back and their haul waits. (a) Open their
-     inventory (Show me your inventory) as they reach the gate: "It goes into the home crates once you close their
-     inventory." and, after you close it and make room, it goes in within a few seconds. (b) Send them on a **Food** run while
-     the haul still waits (allowed; Mine and Dig clay are refused with "They still have the last haul to put away - make room
-     in the home crates first."), save and quit while they are out, load: `sc runners` shows the food run's own carry (a few
-     units), not the haul's item count; back home, the food stockpile goes up by those few units only.
+882. **A waiting haul.** Fill the home crates and the miner's inventory (871) before they come back, so their haul waits.
+     (a) **An open window holds it.** Once they are home, make room in a crate and at once open their inventory (Show me
+     your inventory); keep it open for more than 2 minutes: nothing is put away while it is open. Close it: within a few
+     seconds "<name> put ... into the home crates." (b) **Said once.** Repeat with you far enough from home that it is not
+     loaded when they arrive (the gate line ends "It goes into the home crates once you are home."). Come home without making
+     room: once, "<name> has ... to put away, but there is no room in the home crates or their inventory. Make room and it
+     goes in." (not again every 2 minutes); make room: it goes in within about 2 minutes. (c) **Not a supply run's carry.**
+     Send them on a **Food** run while the haul still waits (allowed; Mine and Dig clay are refused with "They still have the
+     last haul to put away - make room in the home crates first."). Once `sc runners` shows them on the way back with a few
+     units carried, save and quit, load: `sc runners` shows the same few units, not the haul's item count; back home, the
+     food stockpile goes up by those units only.
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

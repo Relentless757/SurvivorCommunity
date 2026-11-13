@@ -841,7 +841,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round 33a: what is still expected from a station is given up PendingKeepSeconds after her craft order is gone (the
         /// order is what moves the output; what never fit went to 0-XNPCCore's base materials, or stays for the player). From
-        /// Deposit, every DepositSeconds; the shift's end drops it with the shift.
+        /// Deposit, every DepositSeconds; the shift's end gives up the rest too (End -> GiveUpPending, counted).
         /// </summary>
         private static void AgePending(Member m, Shift s)
         {

@@ -54,6 +54,8 @@ namespace SurvivorCommunity
 
         private static readonly Dictionary<string, Mix> mixes = new Dictionary<string, Mix>();
         private static readonly Dictionary<int, float> nextTry = new Dictionary<int, float>();
+        /// <summary>Round 33 glance L5: members already told their haul has no room anywhere (said once until it moves).</summary>
+        private static readonly HashSet<int> noRoomTold = new HashSet<int>();
         private static readonly Dictionary<string, int> counters = new Dictionary<string, int>();
         private static readonly List<Member> scratch = new List<Member>();
         private static FastTags<TagGroup.Global> mineTags, digTags;
@@ -66,6 +68,7 @@ namespace SurvivorCommunity
         {
             ClearCaches();
             nextTry.Clear();
+            noRoomTold.Clear();
             counters.Clear();
             nextTick = 0f;
         }
@@ -809,9 +812,18 @@ namespace SurvivorCommunity
             }
             string put, kept, left;
             Landed r = Deliver(m, out put, out kept, out left);
+            NoteNoRoom(m, r, left);
             string tail = Tail(r, kept, left);
             if (player != null) ScCommunity.Tell(player, tail.Length > 0 ? head + " " + tail : head, m.Injured ? "ui_denied" : "");
             ScLog.Out(m.Name + " is back from " + m.RunDestName + " with " + haul + (m.Injured ? " (injured)" : "") + " - " + LogResult(r, put, kept, left));
+        }
+
+        /// <summary>Round 33 glance L5: a line that named what has no room anywhere marks it said; a haul that moved clears it.</summary>
+        private static void NoteNoRoom(Member m, Landed r, string left)
+        {
+            if (r == Landed.Wait || r == Landed.WaitWindow) return;
+            if (left.Length > 0) noRoomTold.Add(m.Id);
+            else noRoomTold.Remove(m.Id);
         }
 
         private static string Tail(Landed r, string kept, string left)
@@ -918,8 +930,18 @@ namespace SurvivorCommunity
                 for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
                     if (w.GetChunkSync(cx, cz) == null) { all = false; break; }
             if (all) return true;
+            // round 33 glance L3: only the zone's chunks beyond the player's view may be missing - right after a load, a
+            // respawn or a teleport into the zone the near ones are still streaming in, and the haul would have gone into
+            // their inventory as "no room" while the crates had room
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            return p != null && !p.IsDead() && ScZone.Contains(p.position);
+            if (p == null || p.IsDead() || p.ChunkObserver == null || !ScZone.Contains(p.position)) return false;
+            Vector3i cp = p.ChunkObserver.curChunkPos;
+            if (cp.x == int.MaxValue || cp.z == int.MaxValue) return false;
+            int view = p.ChunkObserver.viewDim > 0 ? p.ChunkObserver.viewDim : 6;
+            for (int cx = World.toChunkXZ(xMin); cx <= World.toChunkXZ(xMax); cx++)
+                for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
+                    if (Math.Max(Math.Abs(cx - cp.x), Math.Abs(cz - cp.z)) < view && w.GetChunkSync(cx, cz) == null) return false;
+            return true;
         }
 
         private static bool WindowOpen(int id)
@@ -956,7 +978,16 @@ namespace SurvivorCommunity
                     string before = Describe(m.RunHaul), put, kept, left;
                     Landed r = Deliver(m, out put, out kept, out left);
                     if (r == Landed.Wait || r == Landed.WaitWindow || r == Landed.Nothing) continue;
-                    if (r == Landed.NoRoom && kept.Length == 0) continue;   // still no room anywhere: said when it first waited
+                    if (r == Landed.NoRoom && kept.Length == 0)
+                    {
+                        // still no room anywhere: said once (round 33 glance L5: the gate line said nothing about room when
+                        // that attempt only waited for the home's chunks or a closed window)
+                        if (!noRoomTold.Add(m.Id)) continue;
+                        if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scMineNoRoomYet"), m.Name, left), "");
+                        ScLog.Out(m.Name + "'s haul that waited (" + before + ") has no room in the home crates or their inventory window - tried again in 2 min");
+                        continue;
+                    }
+                    NoteNoRoom(m, r, left);
                     string rest = left.Length > 0 ? " " + string.Format(Localization.Get("scMineTailWaits"), left) : "";
                     string text = r == Landed.NoRoom ? string.Format(Localization.Get("scMineWindowOnly"), m.Name, kept) + rest
                                                      : string.Format(Localization.Get("scMineDelivered"), m.Name, put) + (r == Landed.Some ? " " + Rest(kept, left) : "");

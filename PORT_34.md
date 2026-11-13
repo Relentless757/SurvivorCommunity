@@ -5669,3 +5669,22 @@ open, only the remainder dropped, refusals give the bundle back), 0-XNPCCore's r
 order, the spot pick off loaded chunks on the main thread, deposits, the run dice halving hauls, runjob/haul round trips.
 Builds after the fixes: SC 3.4 `76fba37708a524d335e2c32fa6293851` (`build\sc34_r33`), 3.2 config (scratch) 0 errors;
 cctor 0/147; replay 212/212, 200/200 + AshfallUI 2279/2279; Localization 7 columns, no duplicates.
+
+### Round 33 glance (2026-11-13)
+
+Opus re-check of the review fixes (`54d2101..cece438`): DEPLOYABLE, all six fixes right, five LOW, all handled:
+- L1/L2 TESTING 882 rewritten: a runner's inventory can't be opened at the gate (`scShowMe` is hidden while `sc_onrun`),
+  so (a) tests the open-window hold on a resident at home; (c) saves once the food runner is on the way back (a supply
+  run's carry is 0 until it leaves the site, so only an Inbound save showed the old bug).
+- L3 `HomeLoaded`'s player-in-zone fallback now also needs every zone chunk inside the player's view loaded (observer
+  `curChunkPos` + `viewDim`), so a haul right after a load, respawn or teleport waits for the streaming chunks instead of
+  going into their inventory as "no room".
+- L4 TESTING 864: compare the `sc runners` tool multiplier (`x0.6` / `x1`), and hauls only at equal Wits stars.
+- L5 (older than this round): "no room anywhere" is now said once per waiting haul (`noRoomTold`, cleared per world and
+  when the haul moves); a gate attempt that only waited said nothing about room, and Tick then stayed silent. New key
+  `scMineNoRoomYet`. TESTING 882 (b).
+- Nits: AgePending's comment. Left as is: 3.2's "switched off" wording (SC ships for 3.4 only); with `WorkDepositOutput`
+  false End now counts what was expected (harmless).
+
+Final build: SC 3.4 `0d75c7374d6870d076ee1bfcb467f897` (`build\sc34_r33`), 3.2 config 0 errors; cctor 0/147; replay
+212/212, 200/200 + AshfallUI 2279/2279; Localization well formed. Ready to install with the user's go-ahead.

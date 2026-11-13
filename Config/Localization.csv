@@ -668,6 +668,7 @@ scMineTailSome,UI,Tooltip,,,,The home crates are full: {0} stay in their invento
 scMineTailWaits,UI,Tooltip,,,,"No room anywhere for {0} - it waits until you make room in the home crates."
 scMineTailWait,UI,Tooltip,,,,It goes into the home crates once you are home.
 scMineTailWaitWindow,UI,Tooltip,,,,It goes into the home crates once you close their inventory.
+scMineNoRoomYet,UI,Tooltip,,,,"{0} has {1} to put away, but there is no room in the home crates or their inventory. Make room and it goes in."
 scMineDelivered,UI,Tooltip,,,,{0} put {1} into the home crates.
 scMineWindowOnly,UI,Tooltip,,,,No room in the home crates: {0} keeps {1} in their inventory.
 scMineBack,UI,Tooltip,,,,{0} is back with {1}.
