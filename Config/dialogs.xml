@@ -219,6 +219,8 @@
 			<response_entry id="scRunAmmo" />
 			<response_entry id="scRunMaterials" />
 			<response_entry id="scRunFuel" />
+			<response_entry id="scRunMine" />
+			<response_entry id="scRunClay" />
 			<response_entry id="done" />
 		</statement>
 		<response id="scRunFood" text="scRunFood"><action type="ScRun, SurvivorCommunity" value="food" /></response>
@@ -227,6 +229,17 @@
 		<response id="scRunAmmo" text="scRunAmmo"><action type="ScRun, SurvivorCommunity" value="ammo" /></response>
 		<response id="scRunMaterials" text="scRunMaterials"><action type="ScRun, SurvivorCommunity" value="mats" /></response>
 		<response id="scRunFuel" text="scRunFuel"><action type="ScRun, SurvivorCommunity" value="fuel" /></response>
+		<!-- round 33c (M33): mining runs - Mine and Dig clay, sent like a supply run (ScMining): a mining tool (a pickaxe, the
+		     work kit's stone axe) or a digging tool (a shovel) in their inventory, a natural spot away from home, real items into
+		     the home crates. Hidden while MiningRuns is off (ScMiningRuns). -->
+		<response id="scRunMine" text="scRunMine">
+			<requirement type="ScMiningRuns, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScRun, SurvivorCommunity" value="mine" />
+		</response>
+		<response id="scRunClay" text="scRunClay">
+			<requirement type="ScMiningRuns, SurvivorCommunity" requirementtype="Hide" />
+			<action type="ScRun, SurvivorCommunity" value="clay" />
+		</response>
 		<response id="scLeave" text="scLeave" nextstatementid="scLeaveConfirm">
 			<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" value="1" />
 		</response>

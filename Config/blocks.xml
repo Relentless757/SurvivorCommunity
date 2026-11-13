@@ -282,6 +282,36 @@
 			<property name="RunRiskPerCombatStar" value="0.02" />
 			<property name="RunDeathShare" value="0.25" />
 			<property name="RunWitsXp" value="8" />
+			<!-- mining runs (round 33c, 3.4): "Mine" and "Dig clay" beside the resources in the talk's run list, the community
+			     window and `sc run <member> mine|clay` (MiningRuns false: not offered). They need a mining tool (an item tagged
+			     MiningToolTags: the pickaxes, the work kit's stone axe, the auger) or a digging tool (DigToolTags: the shovels) in
+			     their toolbelt, bag or inventory; the best one they carry sets the yield by its tier (T0, T1, ...:
+			     MiningToolTierMults; tiers past the list take its last). Like a supply run they walk out RunMinDist..RunMaxDist,
+			     but to a natural spot - no POI within 16 m, no water, no claim, bedroll, outpost or enclave near - work it for
+			     MiningRunSiteHours game hours (0 = RunSiteHours) and walk home, with the same dice, escort, distress call and
+			     radio. Mine prefers a spot on one of the biome's ore veins (read from biomes.xml), Dig clay the ground whose
+			     layers give the most clay. The haul is real items, per site hour at 1 Wits star with a tier 1 tool: Mine
+			     MiningStonePerHour of MiningStoneItem plus MiningOrePerHour ore items (MiningNoVeinOreShare of it off a vein),
+			     mixed as the biome's veins harvest them (blocks.xml) with the spot's own vein weighed MiningVeinWeight times -
+			     MiningOreMix (item:weight,...) replaces that mix everywhere; Dig clay DigClayPerHour of what the spot's ground
+			     layers give a shovel, limited to DigClayItems (clay; sand in the desert). Times (1 + RunYieldPerWitsStar per Wits
+			     star above 1) x traits x 1.25 at high morale; a bad roll halves it. At the edge of the base the items go into
+			     the home crates; what does not fit stays in their inventory (Show me your inventory). With you away from home
+			     the haul waits until the base is loaded. A hidden run (no spot, PhysicalRuns false) brings the home biome's mix
+			     at the day rollover. Defaults: a few hundred items a day's run - a small share of what you would dig yourself. -->
+			<property name="MiningRuns" value="true" />
+			<property name="MiningRunSiteHours" value="0" />
+			<property name="MiningStonePerHour" value="30" />
+			<property name="MiningOrePerHour" value="15" />
+			<property name="MiningNoVeinOreShare" value="0.4" />
+			<property name="MiningVeinWeight" value="3" />
+			<property name="DigClayPerHour" value="40" />
+			<property name="MiningToolTags" value="miningTool" />
+			<property name="DigToolTags" value="shovel" />
+			<property name="MiningToolTierMults" value="0.6,1,1.4,1.8" />
+			<property name="MiningStoneItem" value="resourceRockSmall" />
+			<property name="MiningOreMix" value="" />
+			<property name="DigClayItems" value="resourceClayLump,resourceCrushedSand" />
 			<!-- most rows the linked storage grid shows: 0 = automatic (up to 1000 when Grid Inventory scrolls it,
 			     10 on vanilla's loot grid, which cannot scroll) -->
 			<property name="LinkedStorageRows" value="0" />

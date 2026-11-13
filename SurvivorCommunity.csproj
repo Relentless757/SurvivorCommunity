@@ -314,4 +314,10 @@
     <Compile Include="XUiC_ScRadioTab.cs" />
   </ItemGroup>
 
+  <!-- M33 (round 33c): mining runs - Mine and Dig clay sent like a supply run, real items into the home crates - 3.4 only -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScConfigMining.cs" />
+    <Compile Include="ScMining.cs" />
+  </ItemGroup>
+
 </Project>

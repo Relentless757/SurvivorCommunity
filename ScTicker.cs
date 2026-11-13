@@ -104,6 +104,7 @@ namespace SurvivorCommunity
 #if SC_V34
                 ScRadioTalk.Tick(w, player);          // R2: runners with a handheld radio - leaving home, leaving the site, the next line on the radio
                 ScRunnerCall.Tick(w, player);         // round 29b: a runner's call for help when attacked - the marker follows them, the call ends with the fight
+                ScMining.Tick(w, player);             // round 33c: a mining run's haul that waited for the home's chunks (or room) is put away
 #endif
                 ScOutposts.Tick(w, player);           // radio report-in stamp, claim check, markers (every 10 s)
                 ScHomeLink.Tick(player);              // an outpost's door into the home storage: load, open, release

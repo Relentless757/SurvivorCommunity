@@ -574,18 +574,22 @@
 								<label depth="4" pos="370,-617" width="165" height="24" font_size="18" text="{leavelabel}" color="240,150,130,255" justify="center" upper_case="true"/>
 								<button depth="2" name="btnHome" pos="24,-606" width="165" height="40" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" visible="false"/>
 								<rect depth="1" visible="{runpicking}">
-									<button depth="2" name="btnRunFood" pos="24,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<label depth="4" pos="24,-664" width="80" height="19" font_size="13" text_key="scRunFood" color="226,220,208,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunWater" pos="110,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<label depth="4" pos="110,-664" width="80" height="19" font_size="13" text_key="scRunWater" color="226,220,208,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunMeds" pos="196,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<label depth="4" pos="196,-664" width="80" height="19" font_size="13" text_key="scRunMeds" color="226,220,208,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunAmmo" pos="282,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<label depth="4" pos="282,-664" width="80" height="19" font_size="13" text_key="scRunAmmo" color="226,220,208,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunMaterials" pos="368,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<label depth="4" pos="368,-664" width="80" height="19" font_size="13" text_key="scRunMaterials" color="226,220,208,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunFuel" pos="454,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<label depth="4" pos="454,-664" width="80" height="19" font_size="13" text_key="scRunFuel" color="226,220,208,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunFood" pos="24,-654" width="48" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<label depth="4" pos="24,-664" width="48" height="19" font_size="13" text_key="scRunFood" color="226,220,208,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunWater" pos="76,-654" width="56" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<label depth="4" pos="76,-664" width="56" height="19" font_size="13" text_key="scRunWater" color="226,220,208,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunMeds" pos="136,-654" width="71" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<label depth="4" pos="136,-664" width="71" height="19" font_size="13" text_key="scRunMeds" color="226,220,208,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunAmmo" pos="211,-654" width="48" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<label depth="4" pos="211,-664" width="48" height="19" font_size="13" text_key="scRunAmmo" color="226,220,208,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunMaterials" pos="263,-654" width="87" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<label depth="4" pos="263,-664" width="87" height="19" font_size="13" text_key="scRunMaterials" color="226,220,208,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunFuel" pos="354,-654" width="48" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<label depth="4" pos="354,-664" width="48" height="19" font_size="13" text_key="scRunFuel" color="226,220,208,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunMine" pos="406,-654" width="48" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<label depth="4" pos="406,-664" width="48" height="19" font_size="13" text_key="scUiRunMine" color="226,220,208,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunClay" pos="458,-654" width="78" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<label depth="4" pos="458,-664" width="78" height="19" font_size="13" text_key="scUiRunClay" color="226,220,208,255" justify="center" upper_case="true"/>
 								</rect>
 								<rect depth="1" visible="{workpicking}">
 									<button depth="2" name="btnRoleCook" pos="24,-654" width="80" height="34" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
@@ -1161,24 +1165,30 @@
 								<button depth="2" name="btnHome" pos="24,-606" width="165" height="40" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]" visible="false"/>
 								<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="24,-606" width="165" height="40" visible="false"/>
 								<rect depth="1" visible="{runpicking}">
-									<button depth="2" name="btnRunFood" pos="24,-654" width="80" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="24,-654" width="80" height="34"/>
-									<label depth="4" pos="24,-664" width="80" height="19" font_size="13" text_key="scRunFood" color="255,255,255,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunWater" pos="110,-654" width="80" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="110,-654" width="80" height="34"/>
-									<label depth="4" pos="110,-664" width="80" height="19" font_size="13" text_key="scRunWater" color="255,255,255,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunMeds" pos="196,-654" width="80" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="196,-654" width="80" height="34"/>
-									<label depth="4" pos="196,-664" width="80" height="19" font_size="13" text_key="scRunMeds" color="255,255,255,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunAmmo" pos="282,-654" width="80" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="282,-654" width="80" height="34"/>
-									<label depth="4" pos="282,-664" width="80" height="19" font_size="13" text_key="scRunAmmo" color="255,255,255,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunMaterials" pos="368,-654" width="80" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="368,-654" width="80" height="34"/>
-									<label depth="4" pos="368,-664" width="80" height="19" font_size="13" text_key="scRunMaterials" color="255,255,255,255" justify="center" upper_case="true"/>
-									<button depth="2" name="btnRunFuel" pos="454,-654" width="80" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
-									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="454,-654" width="80" height="34"/>
-									<label depth="4" pos="454,-664" width="80" height="19" font_size="13" text_key="scRunFuel" color="255,255,255,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunFood" pos="24,-654" width="48" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="24,-654" width="48" height="34"/>
+									<label depth="4" pos="24,-664" width="48" height="19" font_size="13" text_key="scRunFood" color="255,255,255,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunWater" pos="76,-654" width="56" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="76,-654" width="56" height="34"/>
+									<label depth="4" pos="76,-664" width="56" height="19" font_size="13" text_key="scRunWater" color="255,255,255,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunMeds" pos="136,-654" width="71" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="136,-654" width="71" height="34"/>
+									<label depth="4" pos="136,-664" width="71" height="19" font_size="13" text_key="scRunMeds" color="255,255,255,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunAmmo" pos="211,-654" width="48" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="211,-654" width="48" height="34"/>
+									<label depth="4" pos="211,-664" width="48" height="19" font_size="13" text_key="scRunAmmo" color="255,255,255,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunMaterials" pos="263,-654" width="87" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="263,-654" width="87" height="34"/>
+									<label depth="4" pos="263,-664" width="87" height="19" font_size="13" text_key="scRunMaterials" color="255,255,255,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunFuel" pos="354,-654" width="48" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="354,-654" width="48" height="34"/>
+									<label depth="4" pos="354,-664" width="48" height="19" font_size="13" text_key="scRunFuel" color="255,255,255,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunMine" pos="406,-654" width="48" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="406,-654" width="48" height="34"/>
+									<label depth="4" pos="406,-664" width="48" height="19" font_size="13" text_key="scUiRunMine" color="255,255,255,255" justify="center" upper_case="true"/>
+									<button depth="2" name="btnRunClay" pos="458,-654" width="78" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>
+									<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="458,-654" width="78" height="34"/>
+									<label depth="4" pos="458,-664" width="78" height="19" font_size="13" text_key="scUiRunClay" color="255,255,255,255" justify="center" upper_case="true"/>
 								</rect>
 								<rect depth="1" visible="{workpicking}">
 									<button depth="2" name="btnRoleCook" pos="24,-654" width="80" height="34" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]"/>

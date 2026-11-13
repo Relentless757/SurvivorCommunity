@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         /// <summary>
@@ -1313,10 +1313,20 @@ namespace SurvivorCommunity
                 if (m.Status != MemberStatus.OnRun) continue;
                 n++;
                 if (ScRunners.IsPhysical(m)) Output("[SC] " + ScRunners.Describe(m, player));
+#if SC_V34
+                else if (ScMining.IsDig(m)) Output("[SC] " + m.Name + " [" + m.Id + "] hidden " + ScMining.Key(m.RunJob) + " run, resolves on day " + m.RunEndDay + ScMining.DescribeRun(m));
+#endif
                 else Output("[SC] " + m.Name + " [" + m.Id + "] hidden (legacy) run for " + m.RunKind + ", resolves on day " + m.RunEndDay);
             }
             Output("[SC] " + n + " runner(s) out; physical runs " + (ScConfig.PhysicalRuns ? "on" : "OFF") + ", offline pace " + ScConfig.RunWalkMps + " m/s, "
                    + ScConfig.RunMinDist + "-" + ScConfig.RunMaxDist + " m, " + ScConfig.RunSiteHours + " h at the site");
+#if SC_V34
+            // round 33c (M33): hauls still to be put away, and the mining counters
+            foreach (var m in ScRegistry.Members.Values)
+                if (!string.IsNullOrEmpty(m.RunHaul) && !(m.Status == MemberStatus.OnRun && m.RunLeg != RunLeg.Back))
+                    Output("[SC] " + m.Name + " [" + m.Id + "] has a haul to put away (" + m.Status + "): " + m.RunHaul);
+            Output("[SC] mining runs " + (ScConfig.MiningRuns ? "on" : "OFF") + ", " + ScMining.SiteHours() + " h at the spot; counters: " + ScMining.Counters());
+#endif
         }
 
         /// <summary>sc run &lt;member&gt; recall | home | skip | offline - drive a physical run (tests).</summary>
@@ -1367,8 +1377,27 @@ namespace SurvivorCommunity
                     return;
                 }
             }
+#if SC_V34
+            RunJob job;
+            if (p.Count >= 3 && ScMining.TryJob(p[2], out job))
+            {
+                // round 33c (M33): a mining run - the tool they would take, then the send
+                Member dm = FindMember(p[1]);
+                if (dm == null) { Output("[SC] no member '" + p[1] + "'"); return; }
+                EntityAlive dnpc = ScCommunity.FindNpc(dm.Id);
+                string tool, where, derr;
+                int tier;
+                bool has = ScMining.BestTool(dnpc, job, out tool, out tier, out where);
+                bool sent = ScMining.Send(dm, dnpc, job, ScCommunity.LocalPlayer, out derr);
+                Output("[SC] " + (sent ? dm.Name + " sent to " + ScMining.Key(job) + " with " + tool + " (T" + tier + ", " + where + ")"
+                                         + (ScRunners.IsPhysical(dm) ? " on foot to " + dm.RunDestName + " " + dm.RunDest : " on a hidden run") + ", back around day " + dm.RunEndDay
+                                         + " (a whole run would bring " + ScMining.Expected(dm) + ")"
+                                       : "refused: " + derr + " - " + Localization.Get(derr ?? "scInternal") + (has ? " (tool " + tool + " T" + tier + ", " + where + ")" : " (no " + ScMining.Key(job) + " tool)")));
+                return;
+            }
+#endif
             Resource r;
-            if (p.Count < 3 || !ScNames.TryResource(p[2], out r)) { Output("[SC] run <id|name> <food|water|meds|ammo|mats|fuel>"); return; }
+            if (p.Count < 3 || !ScNames.TryResource(p[2], out r)) { Output("[SC] run <id|name> <food|water|meds|ammo|mats|fuel|mine|clay>"); return; }
             Member m = FindMember(p[1]);
             if (m == null) { Output("[SC] no member '" + p[1] + "'"); return; }
             string err;

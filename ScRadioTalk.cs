@@ -70,6 +70,21 @@ namespace SurvivorCommunity
             { RadioTalk.RecallAck, new[] { "scRadioRecallAck_1" } },
         };
 
+        /// <summary>
+        /// Round 33c (M33): a mining run's own lines where the supply run's do not fit (no recording: the caption alone) - reaching
+        /// the spot and a poor haul; the good-haul line and the rest are the supply run's.
+        /// </summary>
+        private static readonly Dictionary<RadioTalk, string[]> MineKeys = new Dictionary<RadioTalk, string[]>
+        {
+            { RadioTalk.Arrived, new[] { "scRadioRunMineArrived_1" } },
+            { RadioTalk.Empty, new[] { "scRadioRunDigEmpty_1" } },
+        };
+        private static readonly Dictionary<RadioTalk, string[]> ClayKeys = new Dictionary<RadioTalk, string[]>
+        {
+            { RadioTalk.Arrived, new[] { "scRadioRunClayArrived_1" } },
+            { RadioTalk.Empty, new[] { "scRadioRunDigEmpty_1" } },
+        };
+
         private sealed class Line
         {
             public int MemberId;
@@ -132,7 +147,8 @@ namespace SurvivorCommunity
         public static void OnLeftSite(Member m, EntityPlayerLocal player)
         {
             if (m == null) return;
-            bool good = m.RunCarry >= Math.Max(1, ScConfig.RunYieldBase);
+            // round 33c: a mining run's yardstick is the haul a tier 1 tool brings at 1 star (ScMining.GoodHaul)
+            bool good = ScMining.IsDig(m) ? ScMining.GoodHaul(m) : m.RunCarry >= Math.Max(1, ScConfig.RunYieldBase);
             Mark(m, good ? RadioTalk.Empty : RadioTalk.Found);       // one line of the two
             Say(m, good ? RadioTalk.Found : RadioTalk.Empty, player, false);
         }
@@ -170,7 +186,9 @@ namespace SurvivorCommunity
                     if (InPerson(m, player)) { ScHandheld.Count("talk unsaid: in person"); return m.Name + " is right here"; }
                 }
                 string[] keys;
-                if (!Keys.TryGetValue(ev, out keys) || keys.Length == 0) return "no line for " + ev;
+                Dictionary<RadioTalk, string[]> own = !ScMining.IsDig(m) ? null : m.RunJob == RunJob.Clay ? ClayKeys : MineKeys;   // round 33c
+                if ((own == null || !own.TryGetValue(ev, out keys)) && !Keys.TryGetValue(ev, out keys)) return "no line for " + ev;
+                if (keys == null || keys.Length == 0) return "no line for " + ev;
                 string key = keys[keys.Length == 1 ? 0 : rnd.Next(keys.Length)];
                 string voice;
                 string path = ScVoice.MemberClip(m, key, out voice);

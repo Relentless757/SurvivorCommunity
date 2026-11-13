@@ -557,6 +557,10 @@ namespace SurvivorCommunity
                     m.RunSpawn = m.RunSite;
                     string perr = null;
                     if (dpi != null) ScQuests.StartRescue(player, m, dpi, out perr);
+#if SC_V34
+                    // round 33c (M33): a mining runner calls from a natural spot - the rescue quest marks the ground around it
+                    else if (ScMining.IsDig(m)) ScQuests.StartRescueAt(player, m, new Vector3i(m.RunSite.x - 8, m.RunSite.y, m.RunSite.z - 8), new Vector3i(16, 1, 16), out perr);
+#endif
                     ScCommunity.Tell(player, string.Format(Localization.Get("scRadioDistress"), m.Name, m.RunPoiName, Dist(ScRunners.C(m.RunSite))), "ui_denied");
                     ScLog.Out(m.Name + " radios for help from " + m.RunPoiName + " " + m.RunSite + " (on a physical run)" + (perr != null ? " (quest: " + perr + ")" : ""));
 #if SC_V34

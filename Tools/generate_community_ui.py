@@ -115,8 +115,12 @@ SKILLS = (("ui_game_symbol_cardio", "scSkillCardio", "skcardio"),
           ("ui_game_symbol_intellect", "scSkillWits", "skwits"),
           ("ui_game_symbol_melee", "scSkillFighting", "skfighting"),
           ("ui_game_symbol_rifle", "scSkillShooting", "skshooting"))
-RUNS = (("btnRunFood", "scRunFood"), ("btnRunWater", "scRunWater"), ("btnRunMeds", "scRunMeds"), ("btnRunAmmo", "scRunAmmo"),
-        ("btnRunMaterials", "scRunMaterials"), ("btnRunFuel", "scRunFuel"))
+# (button, label key, width weight: about the English label's letters + 2 - round 33c's eight kinds share the row by it)
+RUNS = (("btnRunFood", "scRunFood", 6), ("btnRunWater", "scRunWater", 7), ("btnRunMeds", "scRunMeds", 9), ("btnRunAmmo", "scRunAmmo", 6),
+        ("btnRunMaterials", "scRunMaterials", 11), ("btnRunFuel", "scRunFuel", 6),
+        # round 33c (M33, 3.4): mining runs - Mine and Dig clay (XUiC_ScCommunity.OnRunJob)
+        ("btnRunMine", "scUiRunMine", 6), ("btnRunClay", "scUiRunClay", 10))
+RUN_GAP = 4
 # the outposts network summary: icon, label key, value binding, colour binding (None = body text)
 NETS = (("ui_game_symbol_map_town", "scUiNetSlots", "netslots", None),
         ("ui_game_symbol_talk", "scUiNetRadio", "netradio", "netradiocolor"),
@@ -416,11 +420,10 @@ def member_detail():
                            extra='justify="center" upper_case="true"'),
           # btnHome is still hooked by the controller; "Follow me" already turns into "Go home".
           "\t\t" + button("btnHome", 24, -ORDER_Y, bw, ORDER_H, extra='visible="false"')]
-    # six run kinds since round wl (water): 80 wide, so 13 px labels ("MATERIALS" fits)
-    rw = (tw - (len(RUNS) - 1) * 6) // len(RUNS)
+    # six run kinds since round wl (water), eight since round 33c (Mine, Dig clay): each as wide as its label needs (RUNS'
+    # weights), 13 px labels ("MATERIALS" gets 87)
     o.append('\t\t<rect depth="1" visible="{runpicking}">')
-    for k, (name, key) in enumerate(RUNS):
-        x = 24 + k * (rw + 6)
+    for name, key, x, rw in run_cells(tw):
         o += ["\t\t\t" + button(name, x, -RUN_Y, rw, RUN_H),
               "\t\t\t" + centred(x, -RUN_Y, rw, RUN_H, 13, BODY, key=key, extra='justify="center" upper_case="true"')]
     o.append("\t\t</rect>")
@@ -438,6 +441,18 @@ def member_detail():
           "\t\t" + label(24, -(RUN_Y + 2), tw, 32, 15, BODY, text="{message}", extra='visible="{msgvisible}"'),
           "\t</rect>"]
     return o
+
+
+def run_cells(tw):
+    """The run picker's buttons across tw: (name, key, x, width) by RUNS' weights, RUN_GAP apart, the last one to the edge."""
+    avail = tw - (len(RUNS) - 1) * RUN_GAP
+    total = sum(wt for _n, _k, wt in RUNS)
+    cells, x = [], 24
+    for k, (name, key, wt) in enumerate(RUNS):
+        w = (24 + tw - x) if k == len(RUNS) - 1 else int(round(avail * wt / float(total)))
+        cells.append((name, key, x, w))
+        x += w + RUN_GAP
+    return cells
 
 
 def outpost_detail():
@@ -647,6 +662,9 @@ def main():
     assert WORK_MENU_Y + WORK_MENU_H <= ORDER_Y - 2, "the work button runs into the order buttons"
     assert TRAIT_TOP + 3 * (TRAIT_H + TRAIT_GAP) <= WORK_MENU_Y, "the traits run into the work button"
     assert len(ROLE_BUTTONS) * (ROLE_W + 6) + 120 <= DET_W - 48, "no room left for the work button"
+    cells = run_cells(DET_W - 48)
+    assert cells[-1][2] + cells[-1][3] == 24 + DET_W - 48, "the run picker does not end at the panel's text edge"
+    assert min(c[3] for c in cells) >= 44, "a run button is too narrow for a 4-letter label at 13 px"
     assert FOOT_Y + 28 <= WIN_H, "the footer runs past the window"
     assert 3 + HEADER_H <= RES_Y - 4, "the vanilla header bar runs into the resources"
 
