@@ -65,6 +65,27 @@
 			<property name="ValueOverrides" value="" />
 			<!-- Fuel bundles: items tagged gasoline plus this list. FuelValue is NOT used (wood, coal, cloth burn but are materials). -->
 			<property name="FuelItems" value="ammoGasCan" />
+			<!-- opening bundles (round 33b): hold a bundle and click, or pick Open on it in the backpack, and ONE bundle becomes a
+			     random assortment of its resource's items, worth about BundleOpenValueShare x its packing value (its units x
+			     PointsPerBundle above, by the same trade value the station counts) - never more than 10% above that, at least
+			     one item. The share is cut to 0.85 at most, and lower once the community's craftsmen pack so cheaply that
+			     opening would pay (0.85 x their packing multiplier, every craftsman counted), so packing and opening again
+			     always loses. A bundle Taken from the stockpile opens the same way: that is how you withdraw supplies.
+			     BundleOpen false: no Open action at all (bundles as before). -->
+			<property name="BundleOpen" value="true" />
+			<property name="BundleOpenValueShare" value="0.75" />
+			<!-- what each resource's bundles open into: item:weight lists (a weight left out is 1, 0 leaves an item out). Only
+			     items the station packs into that resource count, and no dev, quest or quality item: any other is skipped with
+			     one warning in the log (modded games differ). Each item comes as one stack at most; the counts follow the
+			     items' value (about 15-45% of the bundle each). An empty value: that resource's bundles cannot be opened.
+			     Nails are not in materials: they are tagged ammo (the nail gun's), so they pack as ammo. -->
+			<property name="BundleOpenFood" value="foodCanChili:3,foodCanBeef:2,foodCanChicken:2,foodCanPasta:2,foodCanSoup:2,foodCanPeas:2,foodCanPears:2,foodCanTuna:2,foodCanSham:2,foodCanSalmon,foodCanLamb,foodCanMiso,foodCanStock,foodCanDogfood,foodCanCatfood,foodGrilledMeat:2,foodBoiledMeat:2,foodBakedPotato,foodCornBread,foodEggBoiled,foodBaconAndEggs,foodVegetableStew,foodMeatStew,foodHoboStew" />
+			<property name="BundleOpenWater" value="drinkJarBoiledWater:6,drinkJarRedTea:2,drinkJarGoldenRodTea:2,drinkJarCoffee:2,drinkJarYuccaJuice:2,drinkJarPureMineralWater,drinkCanMegaCrush" />
+			<property name="BundleOpenMeds" value="medicalBandage:4,medicalFirstAidBandage:3,medicalAloeCream:2,medicalSplint,drugPainkillers:2,drugVitamins,drugHerbalAntibiotics:2,drugAntibiotics,medicalFirstAidKit" />
+			<property name="BundleOpenAmmo" value="ammo9mmBulletBall:6,ammo762mmBulletBall:4,ammoShotgunShell:4,ammo44MagnumBulletBall:2,ammoArrowStone:2,ammoArrowIron,ammoCrossbowBoltStone,ammoCrossbowBoltIron" />
+			<property name="BundleOpenMaterials" value="resourceWood:3,resourceForgedIron:3,resourceScrapIron:2,resourceCloth:2,resourceDuctTape:2,resourceMechanicalParts:2,resourceGlue,resourceElectricParts,resourceSpring,resourceLeather,resourceMetalPipe" />
+			<property name="BundleOpenFuel" value="ammoGasCan" />
+			<property name="BundleOpenLuxury" value="drinkJarBeer:4,drinkJarGrandpasAwesomeSauce,drinkJarGrandpasMoonshine,drinkJarGrandpasLearningElixir" />
 
 			<!-- blocks counted as beds / facilities inside the zone (morale). Counted from every loaded chunk of the
 			     whole claim every few seconds; a chunk that is not loaded keeps its last count.

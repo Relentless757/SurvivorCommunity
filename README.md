@@ -379,7 +379,8 @@ luxuries**. You fill it with **bundles**.
 ### Bundles
 
 - Every resource comes in **Small, Medium and Large** bundles, worth **1, 2 and 3** stockpile units.
-- Bundles stack to 10 and weigh nothing. They cannot be opened, sold or scrapped back into goods.
+- Bundles stack to 10 and weigh nothing. They cannot be sold or scrapped. You can **open** one to get goods back
+  (below).
 - You deposit bundles at a **packing station**. You can also carry them to hand to enclaves (section 12).
 
 ### The packing station
@@ -410,6 +411,39 @@ What goes into each resource:
 Points are the items' trade value. Craftsmen in the community lower the points needed (section 4).
 
 **Luxuries** are never used up by the day; they pay for **Activities**. Stews and canned soups hydrate but count as food.
+
+### Opening a bundle
+
+Hold a bundle and click, or pick **Open** on it in your backpack, toolbelt or a box, and **one** bundle of the stack becomes
+an assortment of its resource's goods, the way the game's own bundles open: the goods go into your inventory (the game's
+list of collected items shows them) and anything that does not fit lands at your feet.
+
+- What comes out is random, but it is worth about **three quarters** of what packing the bundle took: `BundleOpenValueShare`
+  (0.75) of its units times the points per unit in the table below, by the same trade value the station counts. Never more
+  than 10% above that, and at least one item. Packing goods and opening the bundle again always loses some.
+- A bundle you **Take** from the stockpile at the packing station opens the same way: that is how you get supplies back
+  out of the stockpile.
+- Each kind opens into everyday supplies of its own resource, each item as one stack at most:
+
+| Bundle | Opens into |
+|---|---|
+| Food | Canned food (chili most often, beef, chicken, pasta, soup, peas, pears, tuna, sham and more) and cooked meals (grilled and boiled meat, stews, corn bread, baked potatoes, boiled eggs, bacon and eggs) |
+| Water | Boiled water most often, red and goldenrod tea, coffee, yucca juice, mineral water, Mega Crush |
+| Medical | Bandages and first aid bandages most often, aloe cream, splints, painkillers, vitamins, herbal and regular antibiotics, first aid kits |
+| Ammo | 9 mm most often, 7.62 mm, shotgun shells, .44 rounds, stone and iron arrows and crossbow bolts |
+| Materials | Wood and forged iron most often, scrap iron, cloth, duct tape, mechanical and electrical parts, glue, springs, leather, metal pipes |
+| Fuel | Gas cans (15 in a Small bundle) |
+| Luxuries | Beer most often, Grandpa's Awesome Sauce, Learning Elixir and Moonshine |
+
+- For scale: a Small ammo bundle holds about 150 rounds (often of two or three calibers), a Small food bundle about as
+  much as five cans of chili, a Small water bundle about four boiled waters.
+- The drinks in a luxury bundle are worth a lot each, so a Small one holds two (two thirds of its packing value, not
+  three quarters); Grandpa's Learning Elixir only fits in a Medium or Large one, the Moonshine only in a Large one.
+- The lists are settings (`BundleOpenFood` and the rest, section 20). An item there that does not pack into that resource,
+  or that your game does not have, is left out with a line in the log.
+- Craftsmen make packing cheaper (section 4). From three craftsman stars in the community (counted home or away),
+  opened bundles hold a little less too, so opening never gives back what packing took.
+- `BundleOpen` false (section 20) turns opening off: the bundles are then only for the stockpile, as before.
 
 ### Where else bundles come from
 
@@ -1259,7 +1293,7 @@ The round of drinks (section 4): its cost, effect and status, and **Pour a round
 | **Watch Post** (any shape) | A post for a guard on watch | Backpack: 10 wood, 4 nails |
 | **Guard Tower** | Kit that puts up a watch tower with a Watch Post | Backpack: 782 wood, 4 nails |
 | **Outpost Flag** | A land claim that becomes an outpost when placed in a cleared building away from home | Backpack: 5 small stones, 5 cloth, 5 scrap iron |
-| **Small / Medium / Large bundles** (food, water, medical, ammo, materials, fuel, luxury) | 1 / 2 / 3 stockpile units | Packing station, loot, air drops, trader quest rewards, allied supply drops |
+| **Small / Medium / Large bundles** (food, water, medical, ammo, materials, fuel, luxury) | 1 / 2 / 3 stockpile units; open one for an assortment of goods | Packing station, loot, air drops, trader quest rewards, allied supply drops |
 | **Allied Supply Crate** | Supply drop from an allied enclave | Radio: an ally's Supply drop |
 | **Remains** | A missing survivor's body (Search the body) | Placed by an enclave's missing-survivor request |
 | **Watch Post (old cube)** | The older cube post; still works where it stands, no longer crafted | Older saves only |
@@ -1327,6 +1361,9 @@ These are the ones you are most likely to change. The file has many more.
 | `WaterPerMemberDay` | 1 | Water units each member drinks a day |
 | `PointsPerBundleFood` (and `...Water`, `...Meds`, `...Ammo`, `...Materials`, `...Fuel`, `...Luxury`) | 400 (200, 300, 2000, 1000, 600, 300) | Trade value that makes one bundle unit |
 | `LuxuryItems` | beer, Grandpa's drinks | Items that pack as luxuries |
+| `BundleOpen` | true | Bundles can be opened into goods (false: they cannot, as before) |
+| `BundleOpenValueShare` | 0.75 | What an opened bundle is worth, as a share of what packing it took (at most 0.85) |
+| `BundleOpenFood` (and `...Water`, `...Meds`, `...Ammo`, `...Materials`, `...Fuel`, `...Luxury`) | everyday supplies | What each kind opens into: `item:weight` lists, only items that pack into that resource (empty: those bundles cannot be opened) |
 | `DeathPenalty` / `DeathDecayPerDay` | 15 / 5 | Morale lost per death, and how fast it fades |
 | `RefuseOrdersBelowMood` | 0 | Members refuse orders below this mood (0: never) |
 | `LowMoraleThreshold` / `LowMoraleDays` | 25 / 2 | Below this morale for this many days, someone threatens to leave |

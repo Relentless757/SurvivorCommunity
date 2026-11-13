@@ -3059,6 +3059,58 @@ loadout <name>`. Test on a new world or a copy; `dm` for the creative menu, F6 t
      fewer faces) gets one of its own once at load: `looks: <name> (<id>) face 7 -> 2 (race <race> has faces 1-3 this session;
      face 7 is not one of them)`, kept after a save; one whose race the game does not list that session is left alone.
 
+**B33. Round 33b: openable bundles (both games; test on 3.4)**
+
+Built 2026-11-13 on branch `ms/r33b` (SC 3.4 DLL `8b4146d0832c2e257fa22c48e001421a`, `Port33\build\sc34_r33b`), **not installed**: these steps wait for
+the install. Your request: players can open bundles for an assortment of the bundle's goods. Every SC bundle now has the
+game's own Open action: hold it and click, or pick Open on it, and ONE bundle becomes goods of its resource worth about 0.75
+of what packing it took (`BundleOpenValueShare`), never more than 10% above that. Each open writes one log line: `opened
+<bundle>: <count> <item>, ... = <value> points (target <t> = <share> of <packing value>)`. Bundles are in the creative menu
+(search "bundle"), and the packing station's Take gives a Small one from the stockpile.
+
+840. **The start-up line.** Load the world: the log has `bundle opening: on, 0.75 of the packing value (now 0.75), pool items:
+     food 24, meds 9, ammo 8, mats 11, fuel 1, water 7, luxury 4` (the "now" share is lower with strong craftsmen, 850) and
+     no `config BundleOpen... is skipped` warning (with other item mods installed: note any skipped entries and why).
+841. **Each kind opens, held.** One Small bundle of each of the seven kinds in the toolbelt. Hold one and click: a bag sound,
+     the stack loses one bundle, the game's collected-items list on the left shows the goods, they are in your bag, all of
+     that resource (food: cans and cooked meals; water: boiled water, teas, coffee, juice; medical: bandages, painkillers and
+     the like; ammo: 9 mm, 7.62, shells, .44, arrows, bolts; materials: wood, iron, cloth, tape, parts, glue; fuel: gas cans;
+     luxuries: beer and Grandpa's drinks). The log line's value is the target or up to 10% above it.
+842. **Each size.** The same with a Medium and a Large of each kind: more goods (about two and three times as much), each item
+     as one stack at most; the log's value between the target and 10% above. A Small luxury bundle gives two drinks (200 of
+     225: the one kind that comes out under its target); the Learning Elixir shows up only in Medium and Large luxury bundles,
+     the Moonshine only in Large ones. Fuel is always 15 / 30 / 45 gas cans (a few more when the last pick rounds up).
+843. **From the backpack, one at a time.** A stack of 3 bundles in the backpack: select it and pick **Open** in its item menu
+     (the game's treasure icon). The stack shows 2, the goods arrive. Again until the stack is gone; never two used at once.
+     Do it from the toolbelt's item menu too.
+844. **A held stack, one per click.** Hold a stack of 10 and click ten times quickly: ten log lines, the stack empties one by
+     one, never a click with no bundle used and goods given (or the reverse).
+845. **From a box.** Put a bundle in the packing station's box (or any crate), select it there and pick Open: the box's stack
+     loses one and the goods go into your inventory.
+846. **A Taken bundle withdraws supplies.** At the station, **Take** one Small food bundle (the stock line's food goes down by
+     one) and open it: food goods; the stockpile does not change when you open it.
+847. **Packing and opening again loses.** Put about 400 points of canned food in the station (seven cans of chili), Pack (one
+     Small food bundle), open it: the log's value is 300-330, fewer goods than went in.
+848. **A full inventory.** Fill bag and toolbelt, open a Large materials bundle: what does not fit lands at your feet and the
+     log line ends `, N item(s) on the ground (inventory full)`.
+849. **The descriptions.** Hover each size of a bundle: "... Deposit it at a packing station, or open it for <goods>: hold it
+     and click, or pick Open in your backpack. Opening gives back less than packing took."
+850. **Craftsmen cut the share (optional).** Make three members craftsmen (`sc craft <name> spec Craftsmanship`) and raise them
+     to 3 stars each (`sc xp <name> spec <n>`, 9 stars in all): an opened Small food bundle's log line says `target 218 =
+     0.544 of 400` (0.85 x the craftsmen's 0.64) and its value is 218-239, while the station, with all three at home, packs one from
+     256 points (its message says so when the box is short). Sent on a run they still count for opening, not for packing. After a reload the start-up line's "now" share is 0.544 too.
+851. **`BundleOpen` false.** In the 3.4 install's SC `Config/blocks.xml` set `BundleOpen` to false, restart, load: the log has
+     `bundle opening: off (BundleOpen false) - 26 bundle item(s) without the Open action`; bundles have no Open in their item
+     menu, a click while holding one does nothing, and their description is the old one ("... Deposit it at a packing
+     station."). Packing, Take and Deposit work as before. Set it back to true.
+852. **A pool entry that does not belong (optional).** Set `BundleOpenAmmo` to `ammo9mmBulletBall,resourceWood,notAnItem` and
+     `BundleOpenFuel` to an empty value, restart: the log warns once `config BundleOpenAmmo: 'resourceWood' is skipped - it packs
+     as Materials, not Ammo` and `... 'notAnItem' is skipped - no such item`, and `bundle opening: BundleOpenFuel names no item
+     that packs as Fuel - Fuel bundles cannot be opened`; ammo bundles open into 9 mm only, fuel bundles have no Open and the
+     old description. Put the defaults back.
+853. **With RE Inventory and Ashfall UI.** With both loaded, 843 and 845 again (RE Inventory's backpack and loot grids): Open is
+     in the item menu, one bundle goes, the goods land in the grid.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

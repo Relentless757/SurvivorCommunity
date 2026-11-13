@@ -4,9 +4,13 @@
 	     stockpile there, and found in loot / trader quest rewards (Config/loot.xml; never water). Round wl: three sizes,
 	     Small / Medium / Large = 1 / 2 / 3 stockpile units (ScNames.TryBundle reads the size from the name), for food,
 	     water, medical, ammo, materials, fuel and luxuries; the old one-size scBundle<Res> items stay valid (one unit)
-	     but nothing makes or drops them. Deliberately NO OpenBundle action (a bundle that unpacked into goods would
-	     make the station a free item converter) and not sellable. Icons are the matching vanilla loot piles and barrels
-	     (Data/ItemIcons). -->
+	     but nothing makes or drops them. Not sellable. Icons are the matching vanilla loot piles and barrels
+	     (Data/ItemIcons). Round 33b: every bundle can be OPENED (scBundleMaster's Action0, vanilla's bundle action with
+	     SC's contents: ItemActionScOpenBundle in ScBundleOpen.cs) - hold it and click, or pick Open on it in the backpack,
+	     and ONE bundle becomes a random assortment of its resource's items (the BundleOpen<Resource> pools in blocks.xml)
+	     worth about BundleOpenValueShare (0.75) of what packing it took, so packing and opening again always loses (the
+	     station is no free item converter). BundleOpen false takes the action off at world start (ScBundleOpen.Apply) and
+	     the description goes back to the <name>Desc text; the DescriptionKeys here are the "can be opened" ones. -->
 	<append xpath="/items">
 		<item name="scBundleMaster">
 			<property name="CreativeMode" value="None"/>
@@ -22,182 +26,193 @@
 			<property name="Group" value="Special Items"/>
 			<property name="SoundPickup" value="ammobox_grab"/>
 			<property name="SoundPlace" value="ammobox_place"/>
+			<!-- round 33b: Open, as vanilla's bundles (ammoBundleMaster: Delay 0, Sound_start close_garbage) -->
+			<property class="Action0">
+				<property name="Class" value="ScOpenBundle, SurvivorCommunity"/>
+				<property name="Delay" value="0"/>
+				<property name="Sound_start" value="close_garbage"/>
+			</property>
 		</item>
 		<item name="scBundleFood">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cntFoodPileMedium"/>
+			<property name="DescriptionKey" value="scBundleFoodDescOpen"/>
 			<property name="Tags" value="scbundle,scfood"/>
 		</item>
 		<item name="scBundleMeds">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cntMedicLootPileB"/>
+			<property name="DescriptionKey" value="scBundleMedsDescOpen"/>
 			<property name="Tags" value="scbundle,scmeds"/>
 		</item>
 		<item name="scBundleAmmo">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cntAmmoPileMedium"/>
+			<property name="DescriptionKey" value="scBundleAmmoDescOpen"/>
 			<property name="Tags" value="scbundle,scammo"/>
 		</item>
 		<item name="scBundleMaterials">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cinderBlocks02"/>
+			<property name="DescriptionKey" value="scBundleMaterialsDescOpen"/>
 			<property name="Tags" value="scbundle,scmaterials"/>
 		</item>
 		<item name="scBundleFuel">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="None"/>
 			<property name="CustomIcon" value="cntBarrelGasSingle00"/>
+			<property name="DescriptionKey" value="scBundleFuelDescOpen"/>
 			<property name="Tags" value="scbundle,scfuel"/>
 		</item>
 		<item name="scBundleFoodSmall">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntFoodPileSmall"/>
-			<property name="DescriptionKey" value="scBundleFoodSmallDesc"/>
+			<property name="DescriptionKey" value="scBundleFoodSmallDescOpen"/>
 			<property name="Tags" value="scbundle,scfood,scbundlesmall"/>
 		</item>
 		<item name="scBundleFoodMedium">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntFoodPileMedium"/>
-			<property name="DescriptionKey" value="scBundleFoodMediumDesc"/>
+			<property name="DescriptionKey" value="scBundleFoodMediumDescOpen"/>
 			<property name="Tags" value="scbundle,scfood,scbundlemedium"/>
 		</item>
 		<item name="scBundleFoodLarge">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntFoodPileLarge"/>
-			<property name="DescriptionKey" value="scBundleFoodLargeDesc"/>
+			<property name="DescriptionKey" value="scBundleFoodLargeDescOpen"/>
 			<property name="Tags" value="scbundle,scfood,scbundlelarge"/>
 		</item>
 		<item name="scBundleWaterSmall">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntBarrelPlasticSingle00"/>
-			<property name="DescriptionKey" value="scBundleWaterSmallDesc"/>
+			<property name="DescriptionKey" value="scBundleWaterSmallDescOpen"/>
 			<property name="Tags" value="scbundle,scwater,scbundlesmall"/>
 		</item>
 		<item name="scBundleWaterMedium">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntBarrelPlasticQuadB"/>
-			<property name="DescriptionKey" value="scBundleWaterMediumDesc"/>
+			<property name="DescriptionKey" value="scBundleWaterMediumDescOpen"/>
 			<property name="Tags" value="scbundle,scwater,scbundlemedium"/>
 		</item>
 		<item name="scBundleWaterLarge">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntBarrelPlasticQuadB"/>
-			<property name="DescriptionKey" value="scBundleWaterLargeDesc"/>
+			<property name="DescriptionKey" value="scBundleWaterLargeDescOpen"/>
 			<property name="Tags" value="scbundle,scwater,scbundlelarge"/>
 		</item>
 		<item name="scBundleMedsSmall">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntMedicLootPileA"/>
-			<property name="DescriptionKey" value="scBundleMedsSmallDesc"/>
+			<property name="DescriptionKey" value="scBundleMedsSmallDescOpen"/>
 			<property name="Tags" value="scbundle,scmeds,scbundlesmall"/>
 		</item>
 		<item name="scBundleMedsMedium">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntMedicLootPileB"/>
-			<property name="DescriptionKey" value="scBundleMedsMediumDesc"/>
+			<property name="DescriptionKey" value="scBundleMedsMediumDescOpen"/>
 			<property name="Tags" value="scbundle,scmeds,scbundlemedium"/>
 		</item>
 		<item name="scBundleMedsLarge">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntMedicLootPileB"/>
-			<property name="DescriptionKey" value="scBundleMedsLargeDesc"/>
+			<property name="DescriptionKey" value="scBundleMedsLargeDescOpen"/>
 			<property name="Tags" value="scbundle,scmeds,scbundlelarge"/>
 		</item>
 		<item name="scBundleAmmoSmall">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntAmmoPileSmall"/>
-			<property name="DescriptionKey" value="scBundleAmmoSmallDesc"/>
+			<property name="DescriptionKey" value="scBundleAmmoSmallDescOpen"/>
 			<property name="Tags" value="scbundle,scammo,scbundlesmall"/>
 		</item>
 		<item name="scBundleAmmoMedium">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntAmmoPileMedium"/>
-			<property name="DescriptionKey" value="scBundleAmmoMediumDesc"/>
+			<property name="DescriptionKey" value="scBundleAmmoMediumDescOpen"/>
 			<property name="Tags" value="scbundle,scammo,scbundlemedium"/>
 		</item>
 		<item name="scBundleAmmoLarge">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntAmmoPileLarge"/>
-			<property name="DescriptionKey" value="scBundleAmmoLargeDesc"/>
+			<property name="DescriptionKey" value="scBundleAmmoLargeDescOpen"/>
 			<property name="Tags" value="scbundle,scammo,scbundlelarge"/>
 		</item>
 		<item name="scBundleMaterialsSmall">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cinderBlocks03"/>
-			<property name="DescriptionKey" value="scBundleMaterialsSmallDesc"/>
+			<property name="DescriptionKey" value="scBundleMaterialsSmallDescOpen"/>
 			<property name="Tags" value="scbundle,scmaterials,scbundlesmall"/>
 		</item>
 		<item name="scBundleMaterialsMedium">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cinderBlocks01"/>
-			<property name="DescriptionKey" value="scBundleMaterialsMediumDesc"/>
+			<property name="DescriptionKey" value="scBundleMaterialsMediumDescOpen"/>
 			<property name="Tags" value="scbundle,scmaterials,scbundlemedium"/>
 		</item>
 		<item name="scBundleMaterialsLarge">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cinderBlocks02"/>
-			<property name="DescriptionKey" value="scBundleMaterialsLargeDesc"/>
+			<property name="DescriptionKey" value="scBundleMaterialsLargeDescOpen"/>
 			<property name="Tags" value="scbundle,scmaterials,scbundlelarge"/>
 		</item>
 		<item name="scBundleFuelSmall">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntBarrelGasSingle00"/>
-			<property name="DescriptionKey" value="scBundleFuelSmallDesc"/>
+			<property name="DescriptionKey" value="scBundleFuelSmallDescOpen"/>
 			<property name="Tags" value="scbundle,scfuel,scbundlesmall"/>
 		</item>
 		<item name="scBundleFuelMedium">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntBarrelGasQuadB"/>
-			<property name="DescriptionKey" value="scBundleFuelMediumDesc"/>
+			<property name="DescriptionKey" value="scBundleFuelMediumDescOpen"/>
 			<property name="Tags" value="scbundle,scfuel,scbundlemedium"/>
 		</item>
 		<item name="scBundleFuelLarge">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntBarrelGasQuadB"/>
-			<property name="DescriptionKey" value="scBundleFuelLargeDesc"/>
+			<property name="DescriptionKey" value="scBundleFuelLargeDescOpen"/>
 			<property name="Tags" value="scbundle,scfuel,scbundlelarge"/>
 		</item>
 		<item name="scBundleLuxurySmall">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntLiquorPileSmall"/>
-			<property name="DescriptionKey" value="scBundleLuxurySmallDesc"/>
+			<property name="DescriptionKey" value="scBundleLuxurySmallDescOpen"/>
 			<property name="Tags" value="scbundle,scluxury,scbundlesmall"/>
 		</item>
 		<item name="scBundleLuxuryMedium">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntLiquorPileMedium"/>
-			<property name="DescriptionKey" value="scBundleLuxuryMediumDesc"/>
+			<property name="DescriptionKey" value="scBundleLuxuryMediumDescOpen"/>
 			<property name="Tags" value="scbundle,scluxury,scbundlemedium"/>
 		</item>
 		<item name="scBundleLuxuryLarge">
 			<property name="Extends" value="scBundleMaster"/>
 			<property name="CreativeMode" value="Player"/>
 			<property name="CustomIcon" value="cntLiquorPileLarge"/>
-			<property name="DescriptionKey" value="scBundleLuxuryLargeDesc"/>
+			<property name="DescriptionKey" value="scBundleLuxuryLargeDescOpen"/>
 			<property name="Tags" value="scbundle,scluxury,scbundlelarge"/>
 		</item>
 	</append>

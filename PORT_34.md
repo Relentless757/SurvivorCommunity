@@ -5286,3 +5286,186 @@ gunner turning to a far target; the station paths (the player opening the statio
 with 0-XNPCCore's real MoveOut and base materials; the back-off on a real deferred recruit; a real race mod.
 
 Builds: SC 3.4 `6da573954a53402df30ea915f0928b51` (`build\sc34_r33a`), 0 errors. Not installed.
+
+### Round 33b: openable bundles (B33) (2026-11-13, built, not reviewed, not installed)
+
+Branch `ms/r33b` from port-3.4 `80b2b48` (the installed state: round 32), worktree `Port33\wt\sc-r33b`. Round 33a (small fixes in
+ScJobs, ScWork, ScLoadout, ScLooks) runs in parallel in `wt\sc-r33a`; this round touches none of those files. **The user's
+request (2026-11-13):** "Players should also be able to open bundles to receive an assortment of items tied to the bundle
+(ammo, food, etc)." **The design** (the coordinator's, built as given, with settings): every SC bundle gets an Open action like
+vanilla's bundles, one bundle at a time; it opens into a random assortment of its resource's items from a curated pool,
+worth about `BundleOpenValueShare` (0.75) x its packing value (units x `PointsPerBundle<Res>`) by the station's own measure,
+never more than about 10% over, at least one item; only items the packing classifier puts in that resource; `BundleOpen`
+false = bundles as before; a Taken bundle opens too (that is how supplies come back out of the stockpile).
+
+**What was found (verified).**
+- **Vanilla's bundles in 3.4** (`Data/Config/items.xml` `ammoBundleMaster`, the decompile): `Action0` `Class OpenBundle`
+  (`ItemActionOpenBundle`), `Delay 0`, `Sound_start close_garbage`; its `ReadFrom` sets `UseAnimation` false. Two ways in, both
+  ending in `ExecuteInstantAction(ent, stack, isHeldItem, stackController)`: held, `ExecuteAction` on the click's release; from an
+  item menu, `XUiC_ItemActionList.AddActionActions` offers `ItemActionEntryUse` `ConsumeType.Open` (the treasure icon) for any
+  `ItemActionOpenBundle` subclass in any stack location (backpack, toolbelt, a box), and `ItemActionEntryUse.OnActivated` takes
+  ONE item off the slot before it hands a one-item copy (`isHeldItem` false); a false return sends that copy down the held-item
+  animation path (`UseItemWithAnimation`). The goods go in through `LocalPlayerUI.GetUIForPlayer(...).xui.PlayerInventory
+  .AddItem`, which shows the collected-items list (`xui.CollectedItemList.AddItemStack`) and plays `item_pickup`, and what does
+  not fit through `ent.world.gameManager.ItemDropServer` at the player: on the client that opens it, as vanilla. 3.2 has the
+  same classes and the same paths.
+- **Item action classes resolve** as `ReflectionHelpers.GetTypeWithPrefix("ItemAction", Class)` (`ItemClassesFromXml`), so
+  `ScOpenBundle, SurvivorCommunity` is the global `ItemActionScOpenBundle`; the loader sets `itemAction.item` to the class. A
+  class that cannot be made throws and the items fail to load: this Config needs this DLL (as every SC class it names already
+  does). `Extends` merges `Action0` key by key, so `scBundleMaster`'s reaches all 26 bundles; it never inherits `CreativeMode`
+  or effect groups.
+- **The packing classifier** is `ScCategories.Classify` (first match: `LuxuryItems`; a `drinks` item that hydrates; food/drinks;
+  medical; ammo; gasoline or `FuelItems`; the Resources group or a `resource*` name) and the measure `ScCategories.PointsEach`
+  (`ValueOverrides`, else max(1, EconomicValue)). `resourceNail` is tagged `ammo` (the nail gun's), so nails pack as ammo, not
+  materials; `resourceSewingKit` is medical; `ammoGasCanBundle` is materials (no gasoline tag). `ItemClass.HasQuality` is true for
+  an item with an own effect group lacking `tiered="false"` (`MinEffectGroup.OwnerTiered` defaults to true): no default pool item
+  has one.
+- **A loop the flat share would have had.** The station packs a unit from `PointsPerBundle x max(0.6, 1 - PackBonusPerStar x
+  the stars of the craftsmen at home)`: from 7 craftsman stars (0.04 a star) packing costs less than an opened bundle can hold
+  (0.75 x 1.1), so opening would pay. The share is capped for that (below).
+
+**The change** (`ScBundleOpen.cs`, `ScConfigBundles.cs`, new, both games; csproj :191-193).
+- `ItemActionScOpenBundle` (`ScBundleOpen.cs:18`, global): vanilla's `ItemActionOpenBundle` with only `ExecuteInstantAction`
+  (:20) SC's, handing to `ScBundleOpen.Open`; reading `Delay` / `Sound_start`, the click on release and the item-menu entry are
+  vanilla's. `Config/items.xml:30` gives `scBundleMaster` the `Action0` (`ScOpenBundle, SurvivorCommunity`, Delay 0, Sound_start
+  close_garbage), the 21 sized bundles' `DescriptionKey` is `<name>DescOpen` and the 5 old one-size ones get one; the header
+  comment says why the old "no OpenBundle" rule is gone.
+- **`Open`** (:354) in vanilla's order: `onSelfPrimaryActionStart` (item value and entity), the sound, ONE bundle used (held:
+  `inventory.DecHoldingItem(1)`; item menu: the copy it handed), `onSelfPrimaryActionEnd`; then the goods, each item in stacks of
+  its `Stacknumber`, through `XUiM_PlayerInventory.AddItem`, the rest `ItemDropServer` at the player. One Out line an open:
+  `opened <bundle>: <n> <item>, ... = <v> points (target <t> = <share> of <pack>)` (+ `, N item(s) on the ground (inventory
+  full)`). A refusal (`Refuse` :437: opening off, an empty pool, not a bundle, or a throw before the bundle was used) uses
+  nothing - the item menu's bundle goes back on its slot (else into the inventory) - and says why with `ui_denied`
+  (`scBundleOpenOff`, `scBundleOpenEmpty`, `scInternal`). Always returns true.
+- **The target** (`TargetPoints` :83) = units x `PointsPerBundle<Res>` x `ShareNow()` (:257) = `ShareCap(BundleOpenValueShare,
+  the stars of EVERY Craftsmanship member, home or not, PackBonusPerStar)` (:76) = min(share, 0.85 x max(0.6, 1 - per star x
+  stars)). An open is then worth at most 1.1 x 0.85 = 0.935 of the cheapest packing the community could do, so opening never
+  gives back what packing took, also with the craftsmen sent on a run between the two (they count here, not at the station).
+  At the defaults the share stays 0.75 up to 2 craftsman stars (3: 0.748, 9: 0.544, 10 or more: 0.51).
+- **`Assemble`** (:95, pure; the harness runs it): up to 24 tries (`Attempts`) of at most 40 weighted picks among the entries
+  that still fit under target x 1.1 (`OverTarget`) and are not a full stack yet; each pick is 15-45% of the target in that item
+  (`ChunkMin` / `ChunkMax`), rounded down to fives from 10 and tens from 20 (`NiceDown` :170), the finishing pick only what
+  reaches the target, rounded up the same way when that still fits (`NiceUp` :178). The first try in [target, 1.1 x target]
+  wins, else the closest under it; when no entry fits at all, one of the cheapest.
+- **The pools** (`PoolFor` :193, per world, `ScBundleOpen.Reset` from `ScConfig.ResetBundles`): `BundleOpen<Res>` read by
+  `ScConfig.ParseBundlePool` (`ScConfigBundles.cs:104`: `item[:weight]`, 1 when left out, 0 drops it, a bad entry is a
+  problem line); an entry is kept only if it exists (`GetItemClass`, any case), classifies into that resource, is not a Dev /
+  Test / None CreativeMode item, a quest item (tag or name) or a quality item, and is worth points; else one warning `config
+  BundleOpen<Res>: '<item>' is skipped - <why>`. A name twice adds its weights.
+- **`Apply`** (:277) at GameStartDone (`ModApi.cs:130`, after `RestrictWellKit`): resolves the pools and, per bundle item (21
+  sized + 5 old), keeps the Open action and the `<name>DescOpen` text, or - `BundleOpen` false, or a resource whose pool has no
+  usable item (warned: `bundle opening: BundleOpen<Res> names no item that packs as <Res> - <Res> bundles cannot be opened`) -
+  takes the action off (`Actions[0] = null`: no Open entry, a click does nothing, as before 33b) and puts `<name>Desc` (the old
+  text) back (`SetOpenable` :317; what it took is kept, so a later world with opening on would put it back should item classes
+  ever outlive a world). One line: `bundle opening: on, 0.75 of the packing value (now 0.75), pool items: food 24, meds 9, ammo
+  8, mats 11, fuel 1, water 7, luxury 4`, or `bundle opening: off (BundleOpen false) - 26 bundle item(s) without the Open
+  action`.
+- **Settings** (`ScConfigBundles.cs`, a partial of ScConfig like ScConfigNames; `ResetBundles` from `ScConfig.cs:1128`,
+  `ParseBundles` from :1573, next to `PointsPerBundle`; `Config/blocks.xml:68-88` after `FuelItems`, commented): `BundleOpen`
+  (true), `BundleOpenValueShare` (0.75; 0.05-1, cut to `BundleOpenShareMax` 0.85 and by the craftsmen), `BundleOpenFood`,
+  `BundleOpenWater`, `BundleOpenMeds`, `BundleOpenAmmo`, `BundleOpenMaterials`, `BundleOpenFuel`, `BundleOpenLuxury` (present =
+  replaces the default; empty = that resource's bundles cannot be opened). The C# defaults are the shipped values (harness).
+- **The default pools** (item:weight, 3.4 points and stack in brackets): Food - canned chili 3 (60), beef / chicken / pasta 2
+  (60), soup 2 (55), peas / pears 2 (50), tuna 2 (20), sham 2 (60), salmon / lamb 1 (60), miso 1 (55), stock 1 (30), dog / cat
+  food 1 (40), grilled meat 2 (24), boiled meat 2 (52), baked potato / corn bread 1 (16), boiled egg 1 (25), bacon and eggs 1
+  (72), vegetable stew 1 (102), meat / hobo stew 1 (134), all stacks of 10. Water - boiled water 6 (40), red / goldenrod tea 2
+  (48), coffee 2 (96), yucca juice 2 (68), mineral water 1 (100), Mega Crush 1 (240). Medical - bandage 4 (5, stack 10), first aid
+  bandage 3 (15, 5), aloe cream 2 (10, 15), splint 1 (10, 5), painkillers 2 (80), vitamins 1 (80), herbal antibiotics 2 (120),
+  antibiotics 1 (240), first aid kit 1 (200, 5). Ammo - 9 mm 6 (9, 300), 7.62 mm 4 (11, 150), shotgun shell 4 (11, 150), .44 2
+  (10, 300), stone arrow 2 (12, 150), iron arrow 1 (25), stone bolt 1 (12), iron bolt 1 (25). Materials - wood 3 (25), forged iron
+  3 (12), scrap iron 2 (10), cloth 2 (10), duct tape 2 (25), mechanical parts 2 (32), glue / electrical parts / spring / leather
+  / metal pipe 1 (20 / 32 / 22 / 22 / 12). Fuel - gas can (30). Luxury - beer 4 (100), Awesome Sauce 1 (100), Moonshine 1 (500),
+  Learning Elixir 1 (250).
+- **Texts** (`Localization.csv`): the 26 `<name>DescOpen` ("... Deposit it at a packing station, or open it for <goods>: hold it
+  and click, or pick Open in your backpack. Opening gives back less than packing took."), the old `<name>Desc` kept for the
+  closed state, `scBundleOpenOff`, `scBundleOpenEmpty`. README section 5 (the bundle line and a new "Opening a bundle" with what
+  each kind opens into), section 18's bundle row, section 20 (three rows); DEVELOPER.md's bundle bullet, an opening bullet and
+  the configuration list.
+
+Where the brief left a choice (decided here):
+1. The craftsmen cap above: the brief's "always loses" needed it; it changes nothing below 3 craftsman stars.
+2. Each item comes as one stack at most (no 70 bandages); the counts follow the item's value, rounded to fives and tens.
+3. The coarse luxury values: a Small luxury bundle gives two drinks (200 of its 225 target, the one kind that comes out under:
+   three would be a third over); the Learning Elixir fits only Medium and Large ones, the Moonshine only Large ones.
+4. Opening works from every item menu the game offers it in (backpack, toolbelt, a box such as the station's), as vanilla's
+   bundles; the goods always go to the player.
+5. `BundleOpen` false takes the action off at world start and swaps the description (no refusal on a click); an empty pool
+   closes that resource only.
+6. Nails stay out of the materials pool (they pack as ammo); the defaults name no item a plain 3.4 lacks.
+7. Both games (the vanilla classes are the same in 3.2). No console command: the creative menu and Take give bundles, and each
+   open logs.
+
+**Checks.**
+- Builds: 3.4 (`-p:ScGame=34`, `build\sc34_r33b`) 0 errors (the two old CS0108 warnings), deterministic (the same md5 from a
+  `--no-incremental` build); the 3.2 configuration (`build\sc32_r33b_scratch`) 0 errors; the tracked 3.2 `SurvivorCommunity.dll`
+  untouched (`c4ad303a...`).
+- `cctor_order.py` on the ilspy IL dumps: 3.4 145 static constructors (round 32's 143 + `ScBundleOpen` and its `Tags` holder,
+  which keeps every game type out of `ScBundleOpen`'s own), 3.2 130, 0 reads before store.
+- IL, both builds (`r33b\il_check.py`, 25 checks): `ItemActionScOpenBundle` global and extends `ItemActionOpenBundle`, `Open` only
+  from its `ExecuteInstantAction`; `Open` calls `DecHoldingItem`, `XUiM_PlayerInventory.AddItem`, `IGameManager.ItemDropServer`,
+  `PlayOneShot`, both `FireEvent` pairs, `IsBundle`, `ShareNow`, `TargetPoints`, `Assemble`, `Refuse`; `Apply` once, from
+  InitMod's GameStartDone handler right after `RestrictWellKit`; `ResetBundles` from `Reset`, `ParseBundles` from
+  `EnsureParsed`, `ScBundleOpen.Reset` from `ResetBundles`; `PoolFor` uses `ScCategories.Classify` and `PointsEach`; only
+  `SetOpenable` (and the Watch Post helper, as before) writes `ItemClass.DescriptionKey`.
+- XML replay (`x3\r33b_checks.py`: round 32m's pointed at this worktree; AshfallUI from `Version Control\zzzzz_AshfallUI`
+  through the replay's `DIR_` option): SC 212/212 alone, 200/200 with AshfallUI (its own 2279/2279), no aborts.
+- The pools on the replayed 3.4 config (`r33b\pools_check.py`, SC's classifier rules mirrored in `items_lib.py`, LuxuryItems /
+  FuelItems / ValueOverrides from the merged block, CreativeMode never inherited, quality = an own non-`tiered="false"` effect
+  group): all 64 default entries exist, classify into their resource, are no dev / test / hidden / quest / quality item, worth
+  points; the same with AshfallUI. All 26 bundle items carry the `Action0` (class, Delay 0, close_garbage) through Extends, the
+  `scbundle` tag and a `<name>DescOpen` key, and every name, `Desc` and `DescOpen` key is in Localization.csv.
+- The harness (`r33b\harness`, the built 3.4 DLL by reflection, pools valued from the replayed items.xml): 53 checks, 0 failed -
+  the defaults (switch, share, cap 0.85, the seven pools = the shipped blocks.xml values, `PointsPerBundle`), `ParseBundlePool`
+  (weights, 1 when left out, 0 dropped, `e:x` / `:3` / `f:-1` problems, empty), `ShareCap` (0.75 kept, 1 -> 0.85, 3 stars ->
+  0.748, 15 stars -> 0.51, and a sweep of shares 0.05-1 x 0-40 stars x 0-0.4 a star: share x 1.1 always under the packing
+  multiplier), `NiceDown` / `NiceUp`, `TargetPoints`, `Assemble`'s edge cases (nothing fits: one of the cheapest; empty; one
+  entry: exactly 15 gas cans; the stack caps; a pool that cannot reach the target; a weight-0 entry never picked).
+- **The simulation** (the harness, 10000 opens of each, the default pools, vanilla 3.4 values, share 0.75, no craftsmen; value /
+  packing value and value / target: mean, min, max; % under the target; % over the 10% ceiling; items per open):
+
+| Bundle | Pack | Target | Value/pack mean (min-max) | Value/target mean (min-max) | Under | Over | Items mean (min-max) |
+|---|---|---|---|---|---|---|---|
+| Food Small | 400 | 300 | 0.783 (0.750-0.825) | 1.044 (1.000-1.100) | 0% | 0% | 3.65 (1-6) |
+| Food Medium | 800 | 600 | 0.777 (0.750-0.825) | 1.037 (1.000-1.100) | 0% | 0% | 3.68 (1-6) |
+| Food Large | 1200 | 900 | 0.770 (0.750-0.825) | 1.026 (1.000-1.100) | 0% | 0% | 3.85 (1-6) |
+| Meds Small | 300 | 225 | 0.766 (0.750-0.817) | 1.021 (1.000-1.089) | 0% | 0% | 3.14 (1-5) |
+| Meds Medium | 600 | 450 | 0.773 (0.750-0.825) | 1.031 (1.000-1.100) | 0% | 0% | 4.20 (1-6) |
+| Meds Large | 900 | 675 | 0.776 (0.750-0.822) | 1.035 (1.000-1.096) | 0% | 0% | 4.63 (1-7) |
+| Ammo Small | 2000 | 1500 | 0.768 (0.750-0.825) | 1.025 (1.000-1.100) | 0% | 0% | 3.13 (1-6) |
+| Ammo Medium | 4000 | 3000 | 0.761 (0.750-0.810) | 1.015 (1.000-1.080) | 0% | 0% | 3.16 (1-6) |
+| Ammo Large | 6000 | 4500 | 0.758 (0.750-0.790) | 1.010 (1.000-1.053) | 0% | 0% | 3.41 (2-6) |
+| Materials Small | 1000 | 750 | 0.765 (0.750-0.825) | 1.020 (1.000-1.100) | 0% | 0% | 3.46 (1-6) |
+| Materials Medium | 2000 | 1500 | 0.769 (0.750-0.825) | 1.025 (1.000-1.100) | 0% | 0% | 3.50 (1-6) |
+| Materials Large | 3000 | 2250 | 0.769 (0.750-0.825) | 1.025 (1.000-1.100) | 0% | 0% | 3.49 (1-6) |
+| Fuel Small | 600 | 450 | 0.750 (0.750-0.750) | 1.000 (1.000-1.000) | 0% | 0% | 1.00 (1-1) |
+| Fuel Medium | 1200 | 900 | 0.753 (0.750-0.825) | 1.004 (1.000-1.100) | 0% | 0% | 1.00 (1-1) |
+| Fuel Large | 1800 | 1350 | 0.759 (0.750-0.817) | 1.012 (1.000-1.089) | 0% | 0% | 1.00 (1-1) |
+| Water Small | 200 | 150 | 0.798 (0.780-0.820) | 1.064 (1.040-1.093) | 0% | 0% | 2.06 (1-3) |
+| Water Medium | 400 | 300 | 0.791 (0.750-0.820) | 1.055 (1.000-1.093) | 0% | 0% | 2.70 (1-5) |
+| Water Large | 600 | 450 | 0.788 (0.753-0.820) | 1.050 (1.004-1.093) | 0% | 0% | 2.84 (1-5) |
+| Luxury Small | 300 | 225 | 0.667 (0.667-0.667) | 0.889 (0.889-0.889) | 100% | 0% | 1.32 (1-2) |
+| Luxury Medium | 600 | 450 | 0.750 (0.750-0.750) | 1.000 (1.000-1.000) | 0% | 0% | 2.21 (2-3) |
+| Luxury Large | 900 | 675 | 0.778 (0.778-0.778) | 1.037 (1.037-1.037) | 0% | 0% | 1.76 (1-3) |
+
+  No open of the 210000 is worth more than its packing value or above the 10% ceiling, and no item comes as more than one
+  stack. Samples (the first open of each run, value/target): Food Small 310/300 1 canned pasta, 1 peas, 6 tuna, 2 dog food;
+  Food Medium 620/600 2 beef, 4 chicken, 5 boiled meat; Food Large 930/900 10 soup, 3 lamb, 8 boiled eggs. Medical Small
+  225/225 10 bandages, 5 first aid bandages, 2 splints, 1 painkillers; Medium 455/450 10 bandages, 5 first aid bandages, 1
+  splint, 1 vitamins, 1 antibiotics; Large 675/675 10 bandages, 5 first aid bandages, 15 aloe cream, 2 vitamins, 2 herbal
+  antibiotics. Ammo Small 1510/1500 70 9 mm, 50 7.62 mm, 30 shells; Medium 3090/3000 190 9 mm, 60 shells, 60 stone bolts; Large
+  4600/4500 150 9 mm, 80 7.62 mm, 150 shells, 60 stone arrows. Materials Small 760/750 6 wood, 5 forged iron, 55 cloth; Medium
+  1580/1500 35 wood, 9 duct tape, 40 metal pipes; Large 2390/2250 40 wood, 30 duct tape, 20 electrical parts. Fuel 15 / 30 / 45
+  gas cans. Water Small 156/150 1 boiled water, 1 goldenrod tea, 1 yucca juice; Medium 316/300 3 boiled water, 2 goldenrod tea,
+  1 mineral water; Large 468/450 1 boiled water, 4 red tea, 2 yucca juice, 1 mineral water. Luxury Small 200/225 1 beer, 1
+  Awesome Sauce; Medium 450/450 2 beers, 1 Learning Elixir; Large 700/675 2 beers, 1 Moonshine.
+- Localization (`r33b\check_loc.py`): 1555 rows of 7 columns, no duplicate key, the 88 keys the round uses present. Every file
+  touched LF, no BOM. README.txt and CONSOLE_COMMANDS.txt not regenerated (the release step does that).
+
+**Not checked (in game only, TESTING B33 840-853):** the Open entry in the item menus (vanilla's, RE Inventory's) and the click
+while holding one; the sound and the collected-items list; one bundle per click and per Open, a stack emptied one by one; goods
+landing at the feet with a full inventory; the description swap and the stripped action with `BundleOpen` false; the warnings
+for a bad pool entry and an empty pool in the real log; that a session's item classes really are fresh each world (the strip is
+written to survive either way); the craftsmen cap on a real community; a multiplayer client (SC is single player: the goods are
+made on the opening client, as vanilla's).
+
+Builds: SC 3.4 `8b4146d0832c2e257fa22c48e001421a` (`build\sc34_r33b`), 0 errors. Not installed.

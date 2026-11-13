@@ -119,8 +119,8 @@ NPCs but cannot manage a community (v2).
   short of a whole unit stays in the box), handed out biggest first (see *Water, luxuries and bundle sizes*),
   **Deposit bundles** moves every bundle in the box into the community **stockpile** at its size, and **Take**
   puts one Small bundle back in the box. The strip only shows on a station.
-- **Bundles** (`scBundle<Res>Small/Medium/Large`) are plain items: they cannot be opened, sold or
-  scrapped back into goods. Luxury = the `LuxuryItems` list (alcohol), water = a `drinks` item that hydrates,
+- **Bundles** (`scBundle<Res>Small/Medium/Large`) cannot be sold or scrapped; since round 33b they can be
+  **opened** (below). Luxury = the `LuxuryItems` list (alcohol), water = a `drinks` item that hydrates,
   food = anything else tagged `food`/`drinks`, medical = `medical`, ammo = `ammo`, fuel = gasoline (the
   `gasoline` tag or the `FuelItems` list), materials = the `Resources` group or `resource*` items (wood and coal
   are materials even though they burn; empty jars too).
@@ -139,6 +139,19 @@ NPCs but cannot manage a community (v2).
   below), and the day's report counts the ammo bundles that took. A tooltip and the ledger (`sc status`) report
   what was used, whether anyone went hungry, and whether a survivor ran low while the stockpile had no ammo; the
   hungry flag feeds morale in milestone 4.
+
+- **Opening a bundle** (round 33b, `ScBundleOpen.cs`, both games): `scBundleMaster`'s `Action0` is
+  `ScOpenBundle, SurvivorCommunity` = `ItemActionScOpenBundle`, a subclass of vanilla's `ItemActionOpenBundle`, so the
+  game offers it like its own bundles (Open in the item menu takes ONE off the stack; a click while holding it) and only
+  `ExecuteInstantAction` is SC's: one bundle becomes weighted picks from its resource's pool (`BundleOpen<Res>`,
+  `item[:weight]`; entries that do not classify into that resource, are dev/test/hidden/quest items or have a quality
+  are warned about once and skipped) worth `BundleOpenValueShare` (0.75) x units x `PointsPerBundle<Res>` points
+  (`ScCategories.PointsEach`, the packing measure), at most 10% over, each item one stack at most, at least one item;
+  the share is cut to 0.85 x the packing multiplier of every craftsman member (`ShareCap`), so an open never pays
+  back what packing took. Items go in through `XUiM_PlayerInventory.AddItem` (the collected-items list), the rest is
+  dropped, on the opening client, as vanilla. `BundleOpen` false (or an empty pool): `ScBundleOpen.Apply` at
+  GameStartDone takes the action off (`Actions[0] = null`) and puts the `<name>Desc` text back (the XML's keys are
+  `<name>DescOpen`).
 
 ## Water, luxuries and bundle sizes (round wl)
 
@@ -1812,7 +1825,7 @@ The two mods talk only through CVars on the local player; without SurvivorOrigin
 `MaxMembers`, `MaxFollowers`, `PostRadius`, `ResidentRoamZone`, `ResidentRoamPauseMin`, `ResidentRoamPauseMax`,
 `ResidentRoamZoneMargin`, `HomeKeepLoaded`, `HomeKeepLoadedRange`, `XnpcWarmWeapons`, `StuckSeconds`, `DefendBaseRadius`, `FoodPerMemberDay`, `AmmoPerRangedDay`, `WaterPerMemberDay`, `PointsPerBundle*`
 (Food, Meds, Ammo, Materials, Fuel, Water, Luxury), `LuxuryItems`, `WellBlocks`, `WellWaterPerLevel`, `WellsPlaceLevelOne`, `DewCollectorBlocks`,
-`DewWaterPerLevel`, `FacilityUpgradeCost`, `DrinksLuxury`, `DrinksFood`, `DrinksMorale`, `DrinksMinutes`, `ValueOverrides`, `FuelItems`, `BedsBySleepingBag`, `BedBlocks`, `BedBlocksExclude`, `FacilityBlocks`, `LowMoraleDays`, `MissingDaysToPurge`, `RunRiskBase`,
+`DewWaterPerLevel`, `FacilityUpgradeCost`, `DrinksLuxury`, `DrinksFood`, `DrinksMorale`, `DrinksMinutes`, `ValueOverrides`, `FuelItems`, `BundleOpen`, `BundleOpenValueShare`, `BundleOpen<Res>` (the seven pools), `BedsBySleepingBag`, `BedBlocks`, `BedBlocksExclude`, `FacilityBlocks`, `LowMoraleDays`, `MissingDaysToPurge`, `RunRiskBase`,
 `RunYieldBase`, `SuppliesFavours`, `PoiFavourRange`, `TraitsPerRecruit`, `DebugLogging`, and the
 `Traits` table (weight, food-use multiplier, morale/mood offsets, starting skill bonus, preferred
 specialty, XP / run-yield multipliers, timid), plus the milestone-3 numbers `MeleePerStar`, `RangedPerStar`,
