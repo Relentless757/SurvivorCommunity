@@ -262,6 +262,17 @@ namespace SurvivorCommunity
 
         /// <summary>Makes the member a resident at their post (the FarmHere shape). The entity must be loaded. teleport false
         /// (round 28 review L6, a talk hold's end in front of the player): she walks back however far the post is.</summary>
+        /// <summary>Is any player this close to the body? Works on a dedicated server, where there is no primary player.</summary>
+        private static bool NearAnyPlayer(World w, EntityAlive npc, float metres)
+        {
+            List<EntityPlayer> list = w != null && w.Players != null ? w.Players.list : null;
+            if (list == null) return false;
+            float sq = metres * metres;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i] != null && list[i].GetDistanceSq(npc) <= sq) return true;
+            return false;
+        }
+
         public static void Station(Member m, EntityAlive npc, bool teleport = true)
         {
             if (m == null || npc == null) return;
@@ -300,10 +311,25 @@ namespace SurvivorCommunity
                 }
                 if (ScZone.IsLoaded(m.Post)) m.PostChecked = true;      // validated just now (CheckPostOnce)
                 Vector3 post = PostCenter(m);
-                if (teleport && Vector3.Distance(npc.position, post) > 40f && ScZone.IsLoaded(m.Post))
+                // She walked in with a player: let her WALK rather than be moved. The teleport below is for a member
+                // stationed from somewhere nobody can see - from the roster, or one held far out - and firing it on
+                // someone standing beside the player makes her vanish in front of them. It bites most with an enlarged
+                // land claim, where the zone's edge is easily more than 40 m from the post, so simply entering the zone
+                // teleported the escort away.
+                // ANY player, not the primary one: on a listen server the primary is the host, so a remote player's
+                // escort would be measured against the wrong body, and on a dedicated server there is no primary at all
+                // and the whole thing would silently never apply.
+                bool escorted = ScConfig.StationWalkIn && !npc.IsDead() && NearAnyPlayer(w, npc, ScConfig.StationWalkInMetres);
+                if (teleport && !escorted && Vector3.Distance(npc.position, post) > 40f && ScZone.IsLoaded(m.Post))
                 {
                     npc.SetPosition(post, true);
                 }
+                else if (escorted && teleport)
+                    // She is left standing where she was. By day ScRoam (3.4) wins inside the zone - ScReturn scores 0
+                    // there while ResidentRoamZone is on - so she roams from here rather than marching to the post; at
+                    // night Guard and the routine take her to it. That is the intended "settles in" look, not a walk to
+                    // a spot: if the post itself ever has to be reached by day, that needs a zone-aware pull, not this.
+                    ScLog.Verbose(m.Name + " was escorted in - left to settle in rather than moved to the post " + m.Post);
 
                 // The Guard order WITHOUT buffOrderGuard: that buff's onSelfBuffStart runs one tick later and
                 // its GuardHere would overwrite the post with wherever the NPC happens to stand (no leader).

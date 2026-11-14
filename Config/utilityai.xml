@@ -163,6 +163,26 @@
 				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
 				<consideration class="SelfVisible" />
 			</action>
+			<!-- Round n07: badly hurt with nothing to heal with - she RUNS. Until now ScFlee was the only flight SC had
+			     and it gates on "$Timid = 1", so a member who was not born a coward fought on at any health at all;
+			     ScMedic.TryHeal simply returns when she has no bandage, with no fallback. That was killing people.
+			     It is a SIBLING action, not a consideration added to ScFlee: considerations inside one action are
+			     multiplied, so adding it there would AND it with $Timid and only ever move the cowards, who already run.
+			     Weight 8.5 is load-bearing. It has to clear 0-XNPCCore's BackupKeepDistance (8), which inside 4 m
+			     outranks the shot (6) and would otherwise keep a hurt gun-holder doing a paced back-off instead of
+			     leaving; it also clears the medic (7, so she saves herself before treating anyone else) and SC's own
+			     ScReturn leash (5.5), which would otherwise drag her back into the fight mid-flight. It stays under
+			     LeaveAreaSdcs (9), 0-XNPCCore's own Flee (9), JumpDownOrder (10) and SdcsAnimBusy (12).
+			     ScNotOnWatch is kept deliberately: a guard holds her post, as every other SC action on watch does. -->
+			<action name="ScFleeHurt" weight="8.5" entity_filter="IsEnemy">
+				<task class="FleeFromTarget" max_distance="30" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
+				<consideration class="ScHurtNoMeds, SurvivorCommunity" />
+				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
+				<consideration class="SelfVisible" />
+			</action>
 		</ai_package>
 
 		<!-- Raiders (M10, DESIGN_M10_RAIDERS.md 2.7): SurvivorCommunity's hostile classes on 0-XNPCCore's player body run
@@ -264,6 +284,15 @@
 				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
 				<consideration class="SelfVisible" />
 			</action>
+			<!-- Round n07: ScFleeHurt's twin for an enclave's own people (see the note in SCResident above). -->
+			<action name="ScEncFleeHurt" weight="8.5" entity_filter="IsEnemy">
+				<task class="FleeFromTarget" max_distance="30" />
+				<consideration class="ScEncHome, SurvivorCommunity" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="ScHurtNoMeds, SurvivorCommunity" />
+				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
+				<consideration class="SelfVisible" />
+			</action>
 			<!-- only for an enclave turned hostile (ScEncHostile: its grace over, not raiders - they carry SCRaider): SCRaider's
 			     ranged approach and noise investigation, so a survivor with a gun closes in; still leashed by ScEncReturn -->
 			<action name="ScEncApproach" weight="4" entity_filter="IsEnemy">
@@ -351,6 +380,16 @@
 			</append>
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='MeleeApproach' or @name='BackupRanged']">
 				<consideration class="ScNotTravelling, SurvivorCommunity" />
+			</append>
+			<!-- Round n07: inside 4 m, BackupKeepDistance (weight 8) outranks 0-XNPCCore's own shot (RangedMeleeAttack, 6)
+			     and its task holds no shot at all, while the melee actions are gated off by CurrentWeaponClass. So a body
+			     SC has deliberately kept on the gun at close range (the overwhelmed rule) can neither fire nor swing - it
+			     walks backwards and never attacks. Scoring the back-off to 0 for exactly those bodies lets her SHOOT.
+			     She then STANDS AND FIRES point-blank rather than backing off - UAI runs one action at a time, so with
+			     the back-off gone the shot (6) simply beats BackupRanged (5). That is the deliberate trade: a member who
+			     can shoot beats one who can do neither. Every other NPC keeps the back-off untouched. -->
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
+				<consideration class="ScNotHoldingGunUpClose, SurvivorCommunity" />
 			</append>
 			<!-- the user, 2026-10-29: enclave people hold their ground inside their home when attacked - XNPC's leave-area
 			     (9, over every fight) never walks one of them out of their own building -->

@@ -117,6 +117,21 @@ namespace SurvivorCommunity
         /// <summary>A medical use is in progress (ScRunners skips its periodic snapshot - a Write(false) would finish the use).</summary>
         public static bool IsUsing(int id) { return uses.ContainsKey(id); }
 
+        /// <summary>
+        /// Has she any way to heal herself - a use already running, an item still working on her, or a heal item on her
+        /// body? TryHeal simply returns when the pick is null, so without this a member with nothing keeps fighting at
+        /// any health at all, which is what was killing them. Used by the hurt-flee consideration (UaiOps).
+        /// It asks only what she CARRIES: a stocked crate at home does not count, because she cannot reach it mid-fight.
+        /// </summary>
+        public static bool CanTreatSelf(EntityAlive e)
+        {
+            if (e == null || e.Buffs == null) return false;
+            if (uses.ContainsKey(e.entityId)) return true;
+            try { if (e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f) return true; }
+            catch (Exception) { }
+            return FirstCarried(e, HealItems) != null;
+        }
+
         /// <summary>The weapon a use in progress took out of this body's hand, and the item it holds instead (any thread).</summary>
         internal static bool TryDisplaced(int id, out Displaced d) { return displaced.TryGetValue(id, out d); }
 

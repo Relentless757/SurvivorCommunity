@@ -416,6 +416,39 @@ namespace UAI
     }
 
     /// <summary>
+    /// Round n07: 0 for one of SC's bodies that SC is deliberately holding on the gun at close range, 1 for everyone
+    /// else. Appended to 0-XNPCCore's BackupKeepDistance (weight 8), which inside 4 m outranks its own shot (6) and
+    /// contains no shot of its own - so without this a member SC put on the gun walks backwards forever and never
+    /// attacks with either weapon. Every other NPC keeps the back-off exactly as 0-XNPCCore intends it.
+    /// </summary>
+    public class UAIConsiderationScNotHoldingGunUpClose : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            return ScArms.HoldingGunUpClose(_context.Self) ? 0f : 1f;
+        }
+    }
+
+    /// <summary>
+    /// Round n07: 1 for one of SC's people who is badly hurt and has NOTHING to heal with, 0 for everyone else.
+    /// It drives the ScFleeHurt action rather than being appended to ScFlee, because considerations inside an action are
+    /// multiplied: appending it to ScFlee would AND it with that action's "$Timid = 1", so it would only ever make the
+    /// cowards run - and they already run unconditionally. A sibling action leaves ScFlee's proven gating alone and lets
+    /// the hurt-flee carry its own weight.
+    /// </summary>
+    public class UAIConsiderationScHurtNoMeds : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            EntityAlive self = _context.Self;
+            if (self == null || !ScXnpc.IsBody(self) || ScConfig.FleeBelowHealth <= 0f) return 0f;
+            int max = self.GetMaxHealth();
+            if (max <= 0 || self.Health > max * ScConfig.FleeBelowHealth) return 0f;
+            return ScMedic.CanTreatSelf(self) ? 0f : 1f;
+        }
+    }
+
+    /// <summary>
     /// 1 when none of the entity's AI packages has 0-XNPCCore's DynamicFollow (ScXnpc.HasDynamicFollow). SC's own two
     /// follow actions are the fallback for such a member only: wherever DynamicFollow exists - every 0-XNPCCore NPC,
     /// through NPCModNPCHired - its follow and formations replace SC's (decision D6), and SC's actions, at 4 and 4.2,
@@ -880,6 +913,12 @@ namespace UAI
                 // the reach the pack's MeleeAttack now judges by (ScMelee, the M11 fix 2), else SCore's own reading
                 float weapon;
                 float reach = ScMelee.Reach(self, 0, out weapon);
+                // Round n07: the ENGAGE verdict uses the weapon's full reach, not SC's swing margin. ScMelee.Reach
+                // subtracts MeleeReachMargin (0.4 m) because SC's own swing ray wants it, but 0-XNPCCore's MeleeAttack
+                // asks only the raw MaxRange - so in the 0.4 m band between the two numbers SC said "cannot engage"
+                // while 0-XNPCCore said "in reach, swing", and ScDefendBase (5.2) walked her at the zombie instead of
+                // letting MeleeAttack (5) land the hit. The margin still applies to the swing itself.
+                if (reach >= 0f && weapon > reach) reach = weapon;
                 if (reach < 0f) reach = a0.Range != 0f ? a0.Range : ScMelee.SCoreFallbackReach;
                 why = dist <= reach ? "in reach" : "beyond reach";
                 return dist <= reach ? Verdict.Engage : Verdict.Approach;

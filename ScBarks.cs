@@ -215,6 +215,12 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool Say(EntityAlive npc, string family, string why, bool lipSync, bool allowDead, Entity faceTo)
         {
+#if SC_V34
+            // Round n06: no talking in her sleep. Every family that reaches here is speech - chatter, a greeting, a
+            // taunt - and none of them belongs in a bed. 0-XNPCCore wakes her for a real reason (an enemy inside
+            // RoutineWakeEnemyMetres, or the player starting a talk), and once awake she is no longer gated here.
+            if (ScSleep.IsAsleep(npc)) { Count("asleep " + family); return false; }
+#endif
             Pick p = Resolve(npc, KeysOf(family));
             if (p == null) return false;
             string who = ScCommunity.DisplayName(npc) + " (" + npc.entityId + ")";

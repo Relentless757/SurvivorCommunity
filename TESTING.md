@@ -37,6 +37,50 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round n07 (2026-11-14): magazine duplication, fleeing when hurt, close-range combat
+
+All six came out of the first real play test of n05 + n06. New settings in `Config/blocks.xml`:
+`FleeBelowHealth`, `StationWalkIn`, `StationWalkInMetres`. See also [COMMANDS.md](COMMANDS.md).
+
+**Magazine duplication — the important one**
+
+A T1 survivor was carrying **eight** `magPistol9mm` where his tier gives two. Every gun → anything → gun
+weapon change minted one more, including **every world load**.
+
+- [ ] Note the magazine count: `sc xnpc <name>` shows "K magazine(s) holding R". Save, reload, run it again —
+      **K must be unchanged**. (Before this round it went up by one per load.)
+- [ ] Swap her weapon a few times (stand her by a zombie so she goes to melee and back). K still unchanged.
+- [ ] **Her loaded rounds are not lost.** Watch R across a stow/draw and a swap — she must not end up with an
+      empty gun. This is the risk the fix carries, so it is the one to watch hardest.
+- [ ] A member with a bow or crossbow is unaffected (0-XNPCCore still owns those).
+- [ ] Existing survivors **keep** their already-duplicated magazines — the fix stops new ones, it does not trim.
+      Ask for `sc mags <name> trim` if you want a cleanup.
+
+**Fleeing when hurt**
+
+- [ ] A member below 35% health with **no bandage or kit on her** runs from zombies instead of fighting on.
+- [ ] A member below 35% who **is** carrying a bandage still bandages rather than running.
+- [ ] A guard **on watch** does not run — she holds her post. (Say if you would rather she ran.)
+- [ ] **A follower with you also runs.** She breaks formation and sprints. Tell me if you would rather this were
+      residents only — it is a one-line change.
+- [ ] **Horde night:** a hurt member flees rather than defending. The flight stops past 15 m and the leash walks
+      her back, so expect a flee → return → flee rhythm. **This is the behavior I am least sure about** — watch
+      whether it looks right or whether she should hold the line during an attack.
+
+**Close-range combat**
+
+- [ ] A member with a gun, with zombies right on her, **actually fires** instead of walking backwards.
+      She now stands and fires point-blank rather than retreating while shooting — that is deliberate.
+- [ ] She does not flip between gun and melee without attacking (the old symptom).
+- [ ] A member in melee range **swings** instead of being walked at the zombie.
+- [ ] 0-XNPCCore's own NPCs (its bandits, its hires) back off at close range exactly as before.
+
+**Escort and sleep**
+
+- [ ] Escort a new member home: she **does not vanish**. She stays where you brought her and settles in
+      (by day she roams the zone; at night she goes to her post).
+- [ ] No talking while asleep — and she still greets you on the way to bed and after waking.
+
 ## Round n06 (2026-11-14): sleeping at night
 
 Off-duty people now use 0-XNPCCore's resident routine to **sleep in a bed at night**. The **day is unchanged** — no

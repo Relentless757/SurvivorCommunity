@@ -32,10 +32,11 @@ namespace SurvivorCommunity
         public const string ModName = "LockedAndLoaded";
         private const string ApiTypeName = "REInvMags.NpcMagazines";
         private const string RegistryTypeName = "REInvMags.MagazineRegistry";
+        private const string MagazinesTypeName = "REInvMags.Magazines";
 
         private static bool resolved, active, threw;
         private static string state = "not checked yet";
-        private static MethodInfo arm, refill, rounds, record, restore, carries, allForGun, tierOf;
+        private static MethodInfo arm, refill, rounds, record, restore, carries, allForGun, tierOf, seated;
         private static FieldInfo defName, defTwin, tierMagazines;
 
         public static void Reset()
@@ -44,7 +45,7 @@ namespace SurvivorCommunity
             active = false;
             threw = false;
             state = "not checked yet";
-            arm = refill = rounds = record = restore = carries = allForGun = tierOf = null;
+            arm = refill = rounds = record = restore = carries = allForGun = tierOf = seated = null;
             defName = defTwin = tierMagazines = null;
         }
 
@@ -126,6 +127,10 @@ namespace SurvivorCommunity
             defName = def != null ? Field(def, "Name", typeof(string)) : null;
             defTwin = def != null ? Field(def, "Twin", typeof(bool)) : null;
             tierOf = Bind(t, "TierOf", null, new[] { typeof(int) }, optional);
+            // X18 needs to tell a gun Locked & Loaded will bank on a swap (its seated flag set) from one whose rounds are
+            // a bare Meta it will NOT bank. Carries cannot: it is also true when she merely has a magazine in her bag.
+            Type mag = ScTypes.Find(MagazinesTypeName);
+            seated = mag != null ? Bind(mag, "HasMagazineSeated", typeof(bool), new[] { typeof(ItemValue) }, optional) : null;
             tierMagazines = tierOf != null ? Field(tierOf.ReturnType, "Magazines", typeof(int)) : null;
             why = "";
             return true;
@@ -181,6 +186,18 @@ namespace SurvivorCommunity
         {
             if (e == null || gun == null || gun.IsEmpty()) return false;
             object r = Call(carries, e, gun);
+            return r is bool && (bool)r;
+        }
+
+        /// <summary>
+        /// Does this gun carry a magazine Locked &amp; Loaded has actually SEATED? Its weapon-swap patch banks the rounds
+        /// only for a seated gun; a bare Meta it leaves alone. Unknown (the method could not be bound) answers false,
+        /// which keeps X18 on the safe side - 0-XNPCCore does the banking, as it did before.
+        /// </summary>
+        public static bool Seated(ItemValue gun)
+        {
+            if (gun == null || gun.IsEmpty() || seated == null) return false;
+            object r = Call(seated, gun);
             return r is bool && (bool)r;
         }
 

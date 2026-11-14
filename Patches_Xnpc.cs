@@ -1631,6 +1631,110 @@ namespace SurvivorCommunity
             }
         }
 
+        // ------------------------------------------------------------------ X18: one owner for a magazine gun's rounds ----
+
+        /// <summary>X18: 0-XNPCCore's bank of the held gun's rounds (AvatarSdcsNpcController.SdcsMagSaveHeld, private instance).</summary>
+        public static MethodBase MagSaveHeldTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsMagSaveHeld",
+                                              new[] { typeof(EntityAlive), typeof(ItemStack[]) });
+        }
+
+        /// <summary>
+        /// X18: the magazine duplication. Measured in a real save - a T1 survivor carrying EIGHT magPistol9mm
+        /// (15, 2, 0, 10, 10, 6, 4, 2) where her tier gives her two.
+        ///
+        /// Three pieces of code claim the same rounds, and two of them run inside the SAME call:
+        ///  1. 0-XNPCCore banks the held gun's Meta as a NUMBER (SdcsMagSaveHeld -> the per-NPC magazine table
+        ///     SdcsMagRounds_&lt;type&gt;, because SC's survivors keep no gun copy in their window). It does not clear the
+        ///     gun's Meta and does not touch Locked &amp; Loaded's seated flag.
+        ///  2. Immediately after, still inside SdcsEquipByName, SCore's UpdateWeapon writes the hand slot, and Locked &amp;
+        ///     Loaded's Inventory.SetItem patch takes the very same rounds as an OBJECT - ReturnSeated gives a real
+        ///     magazine back to the bag and zeroes the gun.
+        ///     The rounds now exist twice: a magazine in the bag, and a number in the table.
+        ///  3. On the next equip of that gun 0-XNPCCore re-injects the number into a fresh gun (Meta &gt; 0, no seated
+        ///     flag), and Locked &amp; Loaded's EnsureMagazineSeated then stamps that phantom as a genuine magazine.
+        /// Net: ONE EXTRA MAGAZINE per gun-to-anything-to-gun change - which includes every world load, because the
+        /// world-entry re-arm goes through the same equip with force=true.
+        ///
+        /// SC is not one of the three writers (X12 already stands aside inside an 0-XNPCCore equip, X16), but SC is what
+        /// makes it permanent: ScMags.Record treats Meta &gt; 0 as a seated magazine, so each phantom is written into the
+        /// member's record and materialized again on her next body.
+        ///
+        /// The fix is to give the rounds ONE owner. When Locked &amp; Loaded manages this gun for this NPC it owns them
+        /// end to end - its ReturnSeated banks the real magazine on the way out and its reload takes one from the bag on
+        /// the way in - so 0-XNPCCore's own bank is skipped and any entry already in the table is dropped, which is what
+        /// stops a stale number being re-injected later. Without L&amp;L (ScMags inactive) nothing changes: 0-XNPCCore keeps
+        /// owning the rounds exactly as before.
+        ///
+        /// Not a 3.4.05 regression - the save that proves it is from 3.4.04 - but 3.4.05 made it worse twice over: its new
+        /// "keep table ... the hand's 0 never loaded them" branch removed the accidental self-heal that used to wipe a
+        /// stale entry, and MagazineOnEquip caps at the VANILLA magazine size, so an extended magazine leaves a residue in
+        /// the table that now never clears.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_XnpcMagSaveHeld
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(MagSaveHeldTarget, "AvatarSdcsNpcController.SdcsMagSaveHeld(EntityAlive, ItemStack[])",
+                                 "a magazine gun's rounds are banked twice and a magazine is minted on every weapon change");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return MagSaveHeldTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(EntityAlive entity)
+            {
+                try
+                {
+                    if (entity == null || entity.Buffs == null || !ScCommunity.IsHost || !ScXnpc.IsBody(entity)) return true;
+                    if (!ScMags.Active) return true;                       // no Locked & Loaded: 0-XNPCCore owns the rounds
+                    ItemValue held = entity.inventory != null ? entity.inventory.holdingItemItemValue : null;
+                    if (held == null || held.IsEmpty() || !ScMags.Carries(entity, held)) return true;
+
+                    // Carries is not enough to stand aside on. It is also true when she merely has a magazine in her BAG,
+                    // while Locked & Loaded's own swap patch banks the rounds only for a gun whose magazine it has
+                    // SEATED. For a gun holding a bare unflagged Meta - which is exactly what a legacy phantom from
+                    // 0-XNPCCore's table looks like after it is re-injected - nobody would bank: 0-XNPCCore is skipped
+                    // here, L&L declines, and X12 is already standing aside inside this equip (X16). SCore then writes
+                    // the slot and those rounds are gone. So let 0-XNPCCore keep them.
+                    if (held.Meta > 0 && !ScMags.Seated(held)) { Count("x18-unseated-keep-xnpc"); return true; }
+
+                    // Locked & Loaded owns these rounds. Drop anything already banked for this gun so it can never be
+                    // re-injected as a phantom, and let its own ReturnSeated do the banking.
+                    ClearMagTable(entity, held.type);
+                    Count("x18-skip-xnpc-magbank");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-magbank", ex);
+                    return true;                                           // never cost 0-XNPCCore its own bank on a fault
+                }
+            }
+        }
+
+        /// <summary>
+        /// Drops 0-XNPCCore's banked rounds for one weapon type. Also used once per body at load (ScLoadout.AfterPostInit):
+        /// a survivor saved before X18 still carries a primed table entry, which would leak one more magazine on her next
+        /// weapon change.
+        /// </summary>
+        public static void ClearMagTable(EntityAlive entity, int weaponType)
+        {
+            if (entity == null || entity.Buffs == null) return;
+            try
+            {
+                string rounds = NPCSdcsCharacters.Pure.GivenWeaponRules.TableRoundsCVar(weaponType);
+                string ammo = NPCSdcsCharacters.Pure.GivenWeaponRules.TableAmmoCVar(weaponType);
+                if (entity.Buffs.HasCustomVar(rounds)) entity.Buffs.RemoveCustomVar(rounds);
+                if (entity.Buffs.HasCustomVar(ammo)) entity.Buffs.RemoveCustomVar(ammo);
+            }
+            catch (Exception ex) { ScLog.Once("xnpc-magtable-clear", ex); }
+        }
+
         // ------------------------------------------------------------------ X17: creator faces only on fresh bodies (3.4) ----
 
         /// <summary>X17: 0-XNPCCore 3.4's custom-character apply (SdcsCustomLook, internal static; one overload).</summary>

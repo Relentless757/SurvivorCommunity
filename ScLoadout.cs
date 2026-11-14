@@ -896,6 +896,13 @@ namespace SurvivorCommunity
                 // the gun it held when it was saved (review F1, X13): before the window move and the arming, so their
                 // guards see the real gun (each unloads a loose-loaded gun before magazines arrive)
                 ScAmmo.RestoreHeldGun(e, runnerRestore);
+                // X18: a survivor saved before the magazine fix still carries 0-XNPCCore's banked rounds for her gun, and
+                // that entry would be re-injected as a phantom magazine on her next weapon change. Drop it once per body
+                // while Locked & Loaded owns her magazines.
+                // BOTH weapons of the pair, not just the one in her hand: the table is keyed per weapon type, and a body
+                // very often loads holding its MELEE weapon (KitOutOfHand, ScMedic.FixLoadedHand, the overwhelmed rule),
+                // which would leave the gun's stale entry in place - the one case that matters.
+                if (ScMags.Active) ClearStaleMagTables(e);
                 ApplyWeaponMods(e);                      // round n05: attachments on the pair, after SCore's toolbelt fill
                 bool raider = ScXnpc.IsRaider(e);
                 if (raider) SetRaiderXp(e);              // every PostInit, before the seeded raider returns below
@@ -1229,6 +1236,31 @@ namespace SurvivorCommunity
             for (int j = 0; j < n; j++)
                 to.modifications[j] = from.modifications[j] != null ? from.modifications[j].Clone() : ItemValue.None.Clone();
             for (int j = n; j < to.modifications.Length; j++) to.modifications[j] = ItemValue.None.Clone();
+        }
+
+        /// <summary>
+        /// X18's one-shot cleanup: drops 0-XNPCCore's banked rounds for BOTH of the pair's weapons, so a survivor saved
+        /// before the fix cannot leak one more magazine from a stale table entry on her next weapon change.
+        /// Only the ones Locked &amp; Loaded manages are touched; for anything else 0-XNPCCore's table is still the record
+        /// of her rounds and dropping it would destroy them.
+        /// </summary>
+        private static void ClearStaleMagTables(EntityAlive e)
+        {
+            try
+            {
+                Loadout l = Current(e);
+                if (l == null) return;
+                for (int k = 0; k < 2; k++)
+                {
+                    Weapon w = Find(l.Of(k == 1));
+                    if (w == null) continue;
+                    ItemClass ic = ItemClass.GetItemClass(StackName(w.Item), true);
+                    if (ic == null) continue;
+                    var iv = new ItemValue { type = ic.Id };
+                    if (ScMags.Carries(e, iv)) Patches_Xnpc.ClearMagTable(e, ic.Id);
+                }
+            }
+            catch (Exception ex) { ScLog.Once("mag-table-cleanup", ex); }
         }
 
         /// <summary>Is this item one of the pair's two weapons? Keeps the mod roll off the work kit's tools and medical stock.</summary>

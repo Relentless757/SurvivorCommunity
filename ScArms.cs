@@ -328,9 +328,45 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round n07: is SC deliberately keeping a gun in this body's hand at close range right now? True while the
+        /// overwhelmed rule holds her on the gun (the 6 s GunUntil window, or the live overwhelmed state).
+        ///
+        /// It exists because of a weight inversion in 0-XNPCCore 3.4: inside 4 m, BackupKeepDistance (8) outranks
+        /// RangedMeleeAttack (6), and BackupFromTargetPaced contains no shot - so a gun holder at close range RETREATS
+        /// and never fires, while the melee actions are gated off by CurrentWeaponClass. SC's overwhelmed rule was
+        /// written against the older build where that action merely backed her off; today it means a member SC has
+        /// deliberately put on the gun can neither shoot nor swing, which is the "runs around switching weapons and
+        /// never attacks" the user saw. Config/utilityai.xml uses this to score BackupKeepDistance to 0 for exactly
+        /// those bodies, so she fires instead. Note she then STANDS AND FIRES point-blank rather than backing off -
+        /// UAI runs one action at a time, so with the back-off scored to 0 the shot (6) simply beats BackupRanged (5).
+        /// That is the intended trade: a member who can shoot is better off than one who can do neither.
+        /// </summary>
+        public static bool HoldingGunUpClose(EntityAlive e)
+        {
+            try
+            {
+                if (e == null || !ScConfig.Overwhelmed || !ScXnpc.IsBody(e)) return false;
+                ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+                if (held == null || held.IsEmpty() || ScAmmo.RangedAction(held.ItemClass) == null) return false;
+                // A PURE READ of the state X5's own tick already maintains. It must not call IsOverwhelmed: that mutates
+                // the watch entry (it advances LastCount, OverSince and OverUntil and runs a 12 m entity sweep), and a
+                // consideration runs for every candidate target several times a second - UAI does not short-circuit a
+                // zero, so it would run even when the distance and sight gates above it have already scored 0. Driving
+                // IsOverwhelmed from here would keep LastCount permanently fresh, which makes the swarm look sustained
+                // on the first melee tick and defeats the 1.5 s anti-flap window that stops the weapon flipping.
+                Watch gw;
+                if (!watch.TryGetValue(e.entityId, out gw)) return false;
+                float now = Time.time;
+                return now < gw.GunUntil || now < gw.OverUntil;
+            }
+            catch (Exception ex) { ScLog.Once("arms-gun-upclose", ex); return false; }
+        }
+
+        /// <summary>
         /// Are enough enemies on this survivor (recounted every half second; the state outlasts the count by
         /// OverwhelmedHoldSeconds, so a zombie stepping in and out of the radius does not flip the weapon twice a second)?
         /// Each recount also keeps F3's sustain clocks (since when the count has been at the threshold, and at it + 1).
+        /// MUTATES the watch entry, so it must only be called from the X5 tick - never from a UAI consideration.
         /// </summary>
         public static bool IsOverwhelmed(EntityAlive e, out int count, out int need)
         {

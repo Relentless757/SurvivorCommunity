@@ -127,6 +127,21 @@ namespace SurvivorCommunity
         public static readonly List<string> FuelItems = new List<string>();
         public static readonly List<string> FacilityBlocks = new List<string>();
         public static int PostRadius = 8;
+        /// <summary>
+        /// Round n07: a member below this share of her max health who has NOTHING to heal with RUNS instead of fighting on
+        /// (the ScFleeHurt action). It sits below ScMedic's HealBelow (0.6) on purpose - she tries to bandage first, and
+        /// only runs when the bandage never came. 0 turns the hurt-flee off entirely.
+        /// </summary>
+        public static float FleeBelowHealth = 0.35f;
+        /// <summary>
+        /// A member the player escorted into the home zone WALKS to her post instead of being moved there. Without it she
+        /// is teleported the moment the player steps inside the zone, which reads as her vanishing from beside them - and
+        /// an enlarged land claim makes that the normal case, because the zone's edge is easily more than 40 m from the
+        /// post. A member stationed from somewhere the player cannot see is still moved, as before.
+        /// </summary>
+        public static bool StationWalkIn = true;
+        /// <summary>How close to the player she has to be to count as escorted in (m).</summary>
+        public static float StationWalkInMetres = 30f;
         // ---- residents about the base (round hz) ----
         /// <summary>
         /// By day residents walk anywhere in the home zone and stand ResidentRoamPauseMin..Max real seconds at each stop
@@ -1198,6 +1213,9 @@ namespace SurvivorCommunity
             FuelItems.Clear();
             FacilityBlocks.Clear();
             PostRadius = 8;
+            FleeBelowHealth = 0.35f;
+            StationWalkIn = true;
+            StationWalkInMetres = 30f;
             ResidentRoamZone = true;
             ResidentRoamPauseMin = 10f; ResidentRoamPauseMax = 20f;
             ResidentRoamZoneMargin = 8f;
@@ -1645,6 +1663,9 @@ namespace SurvivorCommunity
                 ParseFloat(p, "DrinksMinutes", ref DrinksMinutes, 0.1f, 1440f);
                 ParseInt(p, "OutpostCisternFloor", ref OutpostCisternFloor, -100, 0);
                 ParseInt(p, "PostRadius", ref PostRadius, 2, 40);
+                ParseFloat(p, "FleeBelowHealth", ref FleeBelowHealth, 0f, 0.9f);
+                p.ParseBool("StationWalkIn", ref StationWalkIn);
+                ParseFloat(p, "StationWalkInMetres", ref StationWalkInMetres, 2f, 200f);
                 bool roamZone = ResidentRoamZone;
                 if (p.Values.ContainsKey("ResidentRoamZone")) p.ParseBool("ResidentRoamZone", ref roamZone);
                 ResidentRoamZone = roamZone;

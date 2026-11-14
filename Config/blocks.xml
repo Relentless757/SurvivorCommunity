@@ -55,6 +55,16 @@
 			<property name="MaxFollowers" value="2" />
 			<!-- where residents idle: within this many blocks of the home land claim block -->
 			<property name="PostRadius" value="8" />
+			<!-- StationWalkIn: a member the player escorted home WALKS to her post instead of being moved there the
+			     moment the player steps inside the zone (which reads as her vanishing from beside them, and is the
+			     normal case with an enlarged land claim). A member stationed from out of sight is still moved.
+			     StationWalkInMetres is how close to the player she has to be to count as escorted in. -->
+			<!-- FleeBelowHealth (round n07): a member below this share of her max health who has NOTHING to heal with
+			     runs instead of fighting on. It sits below the 0.6 at which she tries to bandage, so she bandages first
+			     and only runs when the bandage never came. A guard on watch still holds her post. 0 turns it off. -->
+			<property name="FleeBelowHealth" value="0.35" />
+			<property name="StationWalkIn" value="true" />
+			<property name="StationWalkInMetres" value="30" />
 			<!-- residents about the base (round hz). ResidentRoamZone: by day they walk anywhere in the home zone and stand
 			     ResidentRoamPauseMin..Max seconds at each stop; at night, or with an enemy within 30 m, they go back to their
 			     spot. Inside the zone, or within ResidentRoamZoneMargin metres of it, the 25 m leash and the stuck watchdog's

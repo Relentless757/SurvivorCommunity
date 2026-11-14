@@ -56,6 +56,23 @@ namespace SurvivorCommunity
 
         public static void Forget(int entityId) { leased.Remove(entityId); }
 
+        /// <summary>
+        /// Is she actually lying down asleep right now? 0-XNPCCore writes these two cvars for exactly that - SdcsSleepBed
+        /// while she is on a bed and SdcsSleepLoop while the sleep animation runs - and it tests them itself, so no
+        /// reflection and no proxy is needed.
+        /// Deliberately NOT the routine phase: the phases are 1 work, 2 home, 3 sleep, 4 WAKE, so a "&gt;= 3" style test
+        /// stays true right through the post-dawn wake window and would keep her silent all morning, and it is also true
+        /// while she is still walking to bed, so she would not greet the player on the way.
+        /// Used to keep her quiet - without it she chatters, greets and taunts from her bed.
+        /// Host-side state only: on a client the lease set is empty, so a sleeping member can still bark there.
+        /// </summary>
+        public static bool IsAsleep(EntityAlive npc)
+        {
+            if (npc == null || npc.Buffs == null) return false;
+            try { return npc.GetCVar("SdcsSleepBed") >= 0.5f || npc.GetCVar("SdcsSleepLoop") >= 0.5f; }
+            catch (Exception) { return false; }
+        }
+
         /// <summary>Records why a lease was refused, for "sc sleep". Not called from the console command itself.</summary>
         private static void Note(string why) { Refused++; LastRefusal = why; }
 
