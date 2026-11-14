@@ -54,19 +54,26 @@ rules), which makes you her leader, and Voice Control's follow goes on as for an
       now." and the message says why (the same text the talk menu gives). No leaderless line.
 - [ ] "Stay", "guard here" and the other orders to her once she follows work as they always did.
 
-*Weapons from mods.* "Use the weapons I gave you" (her weapon menu) only knew SC's spawn list - about 50 hand-picked
-IZY guns out of IGP Classic's 226, and nothing from other mods. Now any gun, bow or melee weapon an NPC body can wield
-counts. Still refused: launchers and anything of the Demolitions perk (rockets and grenades by the base), IZY's dual
+*Weapons from mods.* "Use the weapons I gave you" (her weapon menu) only knew SC's spawn list, and on 3.4 it was not
+even in her weapon menu - it had been removed in favor of 0-XNPCCore's "Carried Weapons", which only lists a gun that
+has rounds in it or ammo for it in her inventory. So an unloaded gun handed over was offered nowhere. *(Changed after
+your second test:)* the row is back on 3.4, and it takes any gun, bow or melee weapon an NPC body can wield, loaded or
+not. Still refused: launchers and anything of the Demolitions perk (rockets and grenades by the base), IZY's dual
 pistols (an NPC has no aim or reload pose for them), a gun without the `ranged` tag (IZY's Broken AR-15: 0-XNPCCore
-would never treat it as a gun), and tools. Newly allowed from IGP Classic, for example: the MP5K, SG552, MAS rifle,
-M16A1, MP34, AA-12, M1014, Colt SMG, the lever-action .44 carbine, the flintlock pistol and blunderbuss, the Van Helsing
-crossbow - and the M134, the flamethrower and the nailgun, which the spawn list left out; watch those three.
+would never treat it as a gun), tools, and anything a mod marks as not ready - Combat Sandbox's dev-only IZY guns (the
+MP5K, SG552, MAS rifle, M16A1, MP34, AA-12, M1014, Colt SMG, the lever-action .44, the blunderbuss and the flintlock
+pistol, among others). Newly allowed from IGP Classic: the Van Helsing crossbow, the M134, the flamethrower and the
+nailgun (the spawn list left those out; watch them).
 
-- [ ] Put an IZY gun that was **not** on the old list in a member's inventory (e.g. the MP5K or the SG552), open
-      her weapon menu: "Use the weapons I gave you" is there. Pick it: she holds it, it shows in `sc loadout <name>`,
-      and her old gun comes back to you or the base storage.
-- [ ] She **fires** it (ammo for it in her bag), reloads, and keeps it after a save and reload.
-- [ ] The same with a gun from another weapon mod (Weapons of the Apocalypse).
+- [ ] Put an **unloaded** Makarov (no magazines for it) in a member's inventory, open her weapon menu: "Use the
+      weapons I gave you" is there (on the first page). Pick it: she holds it, it shows in `sc loadout <name>`, and her
+      old gun comes back to you or the base storage.
+- [ ] Give her magazines for it (or let the home resupply issue them): she **fires** it, reloads, and keeps it after
+      a save and reload.
+- [ ] The same with the Van Helsing crossbow (not on the old list) and with a gun from another weapon mod (Weapons
+      of the Apocalypse).
+- [ ] A dev-only IZY gun (the MP5K or the SG552, spawned with `giveself`) alone in her inventory: no "Use the weapons
+      I gave you" for it. A member who already took one in n08 keeps it.
 - [ ] An IZY rocket or grenade launcher (RPG-7, China Lake, XM25), or IZY's dual pistols (the Glock 18C, the M9s):
       no "Use the weapons I gave you" for those.
 - [ ] A pickaxe or shovel in her inventory stays there - it never replaces her melee weapon.

@@ -821,11 +821,11 @@ namespace SurvivorCommunity
                     ScLog.Warn(m.Name + ": could not keep the handed " + token + " (someone has their inventory window open - try again once it is closed)");
                     return;
                 }
-                if (!ScLoadout.Knows(token))
+                if (!ScLoadout.TakesHanded(token))
                 {
                     swapsUnknown++;
                     ScLog.Out(m.Name + " holds " + token + " from the inventory window - not a weapon a survivor can carry in a pair (a launcher, dual pistols,"
-                              + " a tool or no weapon at all), so it is not kept in their pair");
+                              + " a tool, an item a mod marks not ready, or no weapon at all), so it is not kept in their pair");
                     return;
                 }
                 Keep(npc, m.Name, token, slot, player, route);
@@ -878,10 +878,10 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The weapon of this kind the player handed the NPC through its inventory window that it could carry in its pair:
-        /// any weapon ScLoadout.Knows - the roll list (XnpcWeapons) and, since round n08, any other gun, bow or melee weapon
-        /// a survivor can wield (ScLoadout.WieldableFamily: IZY Classic's whole pack, other weapon mods) - not the one it
-        /// carries already; the highest tier, on a tie an unmodded copy before a modded one, else the first. Null when there
-        /// is none (a launcher, dual pistols or a tool cannot join a pair).
+        /// any weapon ScLoadout.TakesHanded - the roll list (XnpcWeapons) and, since round n08, any other gun, bow or melee
+        /// weapon a survivor can wield (ScLoadout.WieldableFamily: IZY Classic's pack, other weapon mods), never one a mod
+        /// marks not ready - not the one it carries already; the highest tier, on a tie an unmodded copy before a modded one,
+        /// else the first. Null when there is none (a launcher, dual pistols, a tool or a dev-only gun cannot join a pair).
         /// </summary>
         public static string HandedWeapon(EntityAlive npc, bool ranged, out int slot)
         {
@@ -897,7 +897,7 @@ namespace SurvivorCommunity
                 ItemStack s = items[i];
                 if (s == null || s.IsEmpty() || s.itemValue == null || s.itemValue.ItemClass == null) continue;
                 string token = s.itemValue.ItemClass.GetItemName();
-                if (!ScLoadout.Knows(token) || ScLoadout.IsRangedToken(token) != ranged) continue;
+                if (!ScLoadout.TakesHanded(token) || ScLoadout.IsRangedToken(token) != ranged) continue;
                 if (string.Equals(token, cur.Of(ranged), StringComparison.OrdinalIgnoreCase)) continue;
                 int level = ScLoadout.HandLevelOf(token);
                 if (level > bestLevel || (level == bestLevel && !s.itemValue.HasMods() && items[slot].itemValue.HasMods()))
@@ -914,8 +914,10 @@ namespace SurvivorCommunity
         /// The weapon menu's "Use the weapons I gave you" (Config/dialogs.xml): the handed weapon of each kind
         /// (HandedWeapon: a gun or bow, a melee weapon) joins the pair, and the ranged one, else the melee one, goes into
         /// the hand. 0-XNPCCore's own menu lists only vanilla weapons, so this is how IZY Classic's guns, and every other
-        /// weapon the survivors carry, are handed over. One line for both kinds: that menu shows ten lines at most and
-        /// 0-XNPCCore's has nine. It shows for the NPC's leader only (a follower, a hired companion), so no other check.
+        /// weapon the survivors carry, are handed over. One line for both kinds, first: 0-XNPCCore 3.4.04+'s menu has eleven
+        /// rows of its own, and ScDialogPager pages it. Round n09: back on 3.4 too, since 0-XNPCCore's Carried Weapons lists
+        /// only a gun with rounds - an unloaded one handed over was offered nowhere. It shows when 0-XNPCCore's weapon menu is
+        /// shown at all (the NPC's leader, or a resident through the talk link), so no other check.
         /// </summary>
         /// <summary>
         /// Tell 0-XNPCCore that this weapon was ORDERED, right after SC put it in her hand.

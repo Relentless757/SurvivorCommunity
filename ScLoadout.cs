@@ -356,7 +356,9 @@ namespace SurvivorCommunity
         /// a gun without it (IZY's Broken AR-15) would be held but never treated as a gun. Two more refusals of SC's own:
         /// launchers and anything of the Demolitions perk (rockets and grenades fired next to the base and the player), and
         /// the dual pistols' hold type (no aim or reload pose on a body - the IZY research behind the roll list). And no
-        /// tool: a melee item tagged "tool" (pickaxe, shovel, wrench...) is a job's, not a pair's.
+        /// tool: a melee item tagged "tool" (pickaxe, shovel, wrench...) is a job's, not a pair's. Items a mod marks as not
+        /// ready are refused where a weapon is TAKEN (TakesHanded), not here: this also resolves saved records, and a member
+        /// who already carries one must keep it rather than have her pair re-rolled on the next load.
         /// </summary>
         internal static string WieldableFamily(ItemClass ic)
         {
@@ -377,6 +379,19 @@ namespace SurvivorCommunity
 
         /// <summary>Does the catalogue carry the weapon (so it can be one of a pair)?</summary>
         public static bool Knows(string token) { return Find(token) != null; }
+
+        /// <summary>
+        /// Round n09: may a handed weapon JOIN a pair? Knows, and not an item a mod marks as not ready - CreativeMode Dev or
+        /// Test: Combat Sandbox (zzzCombatSandboxFLTR, with Izayo_WeaponFixes) marks IZY Classic's unfinished guns Dev (the
+        /// MP5K, the SG552, the AA-12 and more). Only at intake (ScArms.HandedWeapon, OnSwap): a record that already names
+        /// one still resolves (Knows), so nobody loses a gun she was given before this round.
+        /// </summary>
+        public static bool TakesHanded(string token)
+        {
+            if (!Knows(token)) return false;
+            ItemClass ic = ItemClass.GetItemClass(token, true);
+            return ic == null || (ic.CreativeMode != EnumCreativeMode.Dev && ic.CreativeMode != EnumCreativeMode.Test);
+        }
 
         /// <summary>
         /// The catalogue's weapons an NPC can be given at this gamestage tier: a weight above 0 at some band up to it (an NPC's

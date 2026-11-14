@@ -257,9 +257,9 @@
 	     gun or bow and the best melee weapon from the window that a survivor can carry into the pair and the hand - since
 	     round n08 any gun, bow or melee weapon an NPC body can wield, from any weapon mod, not only the roll list
 	     (XnpcWeapons); never a launcher, dual pistols or a tool - the replaced ones coming back to you (ScArms.UseHanded).
-	     Hidden when there is none. ONE line: the
-	     dialog window shows ten responses (round 28: a longer page splits into pages, ScDialogPager) and 0-XNPCCore's
-	     weapon menu has nine. -->
+	     Hidden when there is none. ONE line, first: 0-XNPCCore 3.4.04+'s SdcsNPC weapon menu has eleven rows of its own, more
+	     than the ten the dialog window shows, so ScDialogPager (round 28) pages it with "done" on every page - this row
+	     stays on page one. -->
 	<insertBefore xpath="/dialogs/dialog/statement[@id='Weapon Classes']/response_entry[1]">
 		<response_entry id="scUseHanded" />
 	</insertBefore>
@@ -269,17 +269,13 @@
 			<action type="ScUseHanded, SurvivorCommunity" />
 		</response>
 	</append>
-	<!-- 0-XNPCCore 3.4 (game 3.4 only: its "Carried Weapons" menu exists nowhere else). Its weapon menu gained a "Carried" row
-	     first, so with ours SdcsNPC's "Weapon Classes" lists eleven rows on a ten-row reply list and "done" fell off (round 28:
-	     the pager now pages it - 3.4.04's menu reaches eleven rows of its own, Ammo moved in). Its
-	     "Carried Weapons" submenu equips any weapon in the NPC's inventory window, which is what this row did (decision D6);
-	     the swap reaches ScArms through Voice Control's MutateSwapWeapon, so a member still keeps the weapon in their pair.
-	     GenericNPC's menu (seven rows, no Carried) keeps ours. -->
-	<conditional>
-		<if cond="xpath('/dialogs/dialog[@id=&quot;SdcsNPC&quot;]/statement[@id=&quot;Carried Weapons&quot;]') != null">
-			<remove xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='Weapon Classes']/response_entry[@id='scUseHanded']" />
-		</if>
-	</conditional>
+	<!-- 0-XNPCCore 3.4's weapon menu has its own "Carried Weapons" submenu, and from decision D6 until round n09 this row was
+	     removed from SdcsNPC's menu in its favor. It is back (play test 2026-11-14: "putting a Makarov into a member's
+	     inventory still doesn't give the option"): Carried Weapons lists a gun only while 0-XNPCCore counts it usable right
+	     now - rounds in it, or ammo for it in her stores (AnyWeaponListUsable -> SdcsAnyWeaponIsUsable) - so an unloaded gun
+	     handed over with no magazines was offered nowhere. This row takes it regardless; the home resupply then gives a
+	     member rounds or magazines for it. Carried Weapons stays as it is. The menu then has more than ten rows on 3.4.04+;
+	     the dialog pager (round 28) pages it. -->
 
 	<!-- C1 (round 22; game 3.4 with 0-XNPCCore 3.4.02 and later only: its "Craft Categories" statement exists nowhere else). A
 	     resident's work shift (ScWork): the Owner link 0-XNPCCore's craft order needs. Round 28 (X3; the user's decisions 1 and
