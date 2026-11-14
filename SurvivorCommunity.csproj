@@ -48,8 +48,11 @@
       <_ScOutDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(OutputPath)').Replace('/', '\').ToLowerInvariant())</_ScOutDir>
       <_ScProjectDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)').Replace('/', '\').ToLowerInvariant())</_ScProjectDir>
     </PropertyGroup>
-    <Error Condition="'$(ScGame)'!='' AND '$(ScGame)'!='34'"
-           Text="ScGame is empty (game 3.2, the default) or 34 (game 3.4), not '$(ScGame)'." />
+    <!-- 2026-11-14, the user's decision: SurvivorCommunity is 3.4-ONLY. The old in-place 3.2 build is retired and no
+         longer compiles - round n05 uses 3.4-only game API (ItemValue.modifications, Inventory.SlotCount) and 3.4-only
+         0-XNPCCore types. Refuse it here with a reason, rather than letting it fail later as a wall of CS errors. -->
+    <Error Condition="'$(ScGame)'!='34'"
+           Text="SurvivorCommunity is 3.4-only since 2026-11-14: build with -p:ScGame=34 -p:OutputPath=&lt;folder outside Mods&gt;. The old 3.2 build (no ScGame) is retired and no longer compiles." />
     <Error Condition="'$(ScGame)'=='34' AND $(_ScOutDir.Contains(`\mods\`))"
            Text="A 3.4 build (ScGame=34) never lands in a Mods folder: '$(_ScOutDir)'. Build to a folder outside Mods with -p:OutputPath=... and deploy by hand." />
     <Error Condition="'$(ScGame)'=='34' AND '$(_ScOutDir)'=='$(_ScProjectDir)'"
@@ -168,6 +171,8 @@
     <Compile Include="ScVanity.cs" />
     <!-- round n05: the Wardrobe (0-XNPCCore 3.4.05) honored through SC's own look -->
     <Compile Include="ScWardrobe.cs" Condition="'$(ScGame)'=='34'" />
+    <!-- round n06: the night lease - sleeping through 0-XNPCCore's resident routine -->
+    <Compile Include="ScSleep.cs" Condition="'$(ScGame)'=='34'" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="ScVoiceLines.cs" />

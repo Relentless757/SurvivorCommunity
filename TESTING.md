@@ -37,6 +37,33 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round n06 (2026-11-14): sleeping at night
+
+Off-duty people now use 0-XNPCCore's resident routine to **sleep in a bed at night**. The **day is unchanged** — no
+station work, no strolling, no door routine. Settings in `Config/blocks.xml`: `SleepAtNight`, `SleepZoneHeight`.
+
+**`sc sleep`** is the diagnostic: it lists every member, whether SC is holding the night lease on her, the exact
+reason when it is not, and her `SdcsResident` / `.SdcsRoutineWalk` cvars. Use it first whenever someone will not
+go to bed.
+
+- [ ] Put a bed in the home zone. At dusk, an off-duty resident walks to it and **lies down**; `sc sleep` shows her
+      as leased.
+- [ ] At dawn she **gets up** and goes back to her post — no one is left lying down in daylight.
+- [ ] **No bed in the zone → nobody is leased** and everyone keeps SC's own night routine. `sc sleep` says
+      "no bed in the home zone". (This is the important one: without it she would bed down where she stands.)
+- [ ] Someone **on watch** never sleeps; `sc sleep` says "on watch".
+- [ ] Someone **on a work shift** never sleeps, and talking to a sleeping survivor wakes her for the conversation
+      (`sc sleep` says "busy with the player" while the dialog is open).
+- [ ] A **follower** never sleeps; `sc sleep` says "hired (following)".
+- [ ] **A fight outranks sleeping:** zombies at the base at night get her up and fighting, and she goes back to bed
+      afterwards. Nobody keeps sleeping through a base attack.
+- [ ] **Enclave NPCs** sleep the same way inside their own building. A **hostile** enclave's people never do.
+- [ ] A **wild SC survivor in an NPC-pack POI** becomes one of 0-XNPCCore's own residents and sleeps there
+      (this one is 0-XNPCCore's doing, not SC's — nothing to configure).
+- [ ] Set `SleepAtNight` to `false`: nobody is leased and the nights look exactly as they did before this round.
+- [ ] 0-XNPCCore's **own** NPCs (its bandits, its hired survivors) behave as before — the `RoutineWalk` weight raise
+      must not change anyone the routine is not already driving.
+
 ## Round n05 (2026-11-14): 0-XNPCCore / Voice Control 3.4.05
 
 Needs **0-XNPCCore and Voice Control 3.4.05**. SurvivorCommunity is 3.4-only from this round on.

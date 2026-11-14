@@ -357,6 +357,20 @@
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcLeave']/action[@name='LeaveAreaSdcs']">
 				<consideration class="ScNotEncHome, SurvivorCommunity" />
 			</append>
+
+			<!-- Round n06 (sleeping, the user's decision 2026-11-14): 0-XNPCCore ships RoutineWalk at weight 1.5, the
+			     LOWEST action in a survivor's whole package set - under Guard and Stay (3.0), Chat and DynamicFollow
+			     (2.0) and all three of SC's night actions above. Its routine can only put her to bed while RoutineWalk
+			     is the RUNNING action (SleepRules.MayBegin returns holdingAtBed), so at 1.5 one of SC's people could be
+			     marked a resident, claim a bed, and then simply never sleep in it.
+			     3.8 puts it over ScNightIdle (3.6), ScRoam (3.4), ScAtPost (3.2) and their enclave twins, and under
+			     ScDefendBase / ScDefendHold (5.2), ScTravel (4.5), ScReturn (5.5) and ScFlee (6.0) - so a fight, a
+			     flee and the walk home all still outrank sleeping, and she gets up for them.
+			     This is safe for every NPC that is NOT one of SC's: RoutineWalk already carries
+			     SelfHasCVar .SdcsRoutineWalk value=1, and only SdcsRoutine.Update ever writes that cvar, so the action
+			     scores 0 for anyone its routine is not already driving, whatever the weight says. 0-XNPCCore's own POI
+			     residents simply get the same raise, which is the behavior its changelog describes anyway. -->
+			<set xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcVillager']/action[@name='RoutineWalk']/@weight">3.8</set>
 		</if>
 	</conditional>
 

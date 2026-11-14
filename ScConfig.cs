@@ -919,6 +919,24 @@ namespace SurvivorCommunity
         public static string WeaponModTags =
             "sideAttachment,scope,barrelAttachment,barrelTipAttachment,trigger,magazine,grips,stocks,accuracy,durability,damage,stun,knockback,velocity,shaft";
         private static string[] weaponModTagList;
+        /// <summary>
+        /// Round n06: off-duty people sleep at night through 0-XNPCCore's resident routine (ScSleep). Night only - the day
+        /// stays SC's. Turning this off leaves everyone on SC's own night routine, as before the round.
+        /// </summary>
+        public static bool SleepAtNight = true;
+        /// <summary>
+        /// How far above and below the home block the sleeping zone reaches (m). The home zone is a column in XZ, but
+        /// 0-XNPCCore wants a box, and this is also the band the bed scan sweeps - so a basement or an upper floor further
+        /// out than this holds no bed SC will find.
+        /// </summary>
+        public static int SleepZoneHeight = 15;
+        /// <summary>
+        /// How long after dusk the night lease opens (game hours). It mirrors 0-XNPCCore's own Routine/SleepAfterDuskHours
+        /// (default 1): before that its routine is in the STROLL phase, not the sleep phase, so opening the lease at dusk
+        /// would make her wander the zone for an hour - and displace SC's own night behavior while she did. Change this to
+        /// match if that setting is changed in 0-XNPCCore.
+        /// </summary>
+        public static float SleepAfterDuskHours = 1f;
         /// <summary>WeaponModTags split and cached; empty when the setting is blank (the roll then does nothing).</summary>
         public static string[] WeaponModTagList
         {
@@ -1242,6 +1260,9 @@ namespace SurvivorCommunity
             WeaponModTags =
                 "sideAttachment,scope,barrelAttachment,barrelTipAttachment,trigger,magazine,grips,stocks,accuracy,durability,damage,stun,knockback,velocity,shaft";
             weaponModTagList = null;
+            SleepAtNight = true;
+            SleepZoneHeight = 15;
+            SleepAfterDuskHours = 1f;
             XnpcClassByGamestage = true;
             SurvivorRangedMainChance = 0.4f;
             XnpcWeapons.Clear();
@@ -2326,6 +2347,9 @@ namespace SurvivorCommunity
                 ParseFloat(p, "SurvivorWeaponModChance", ref SurvivorWeaponModChance, 0f, 1f);
                 ParseFloat(p, "RaiderWeaponModChance", ref RaiderWeaponModChance, 0f, 1f);
                 if (p.Values.TryGetValue("WeaponModTags", out string wmt)) { WeaponModTags = wmt ?? ""; weaponModTagList = null; }
+                p.ParseBool("SleepAtNight", ref SleepAtNight);
+                ParseInt(p, "SleepZoneHeight", ref SleepZoneHeight, 2, 128);
+                ParseFloat(p, "SleepAfterDuskHours", ref SleepAfterDuskHours, 0f, 12f);
                 bool byGs = XnpcClassByGamestage;
                 if (p.Values.ContainsKey("XnpcClassByGamestage")) p.ParseBool("XnpcClassByGamestage", ref byGs);
                 XnpcClassByGamestage = byGs;

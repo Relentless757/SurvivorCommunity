@@ -583,6 +583,23 @@
 			<property name="SurvivorWeaponModChance" value="0.5" />
 			<property name="RaiderWeaponModChance" value="0.5" />
 			<property name="WeaponModTags" value="sideAttachment,scope,barrelAttachment,barrelTipAttachment,trigger,magazine,grips,stocks,accuracy,durability,damage,stun,knockback,velocity,shaft" />
+			<!-- Sleeping (round n06). SleepAtNight lets off-duty people use 0-XNPCCore 3.4.05's resident routine to sleep
+			     in a bed at night; the DAY stays SurvivorCommunity's, so there is no station work or strolling. A member
+			     is leased out only while she is a resident at home, off watch, not on a work shift and not being talked
+			     to, and only when the home zone really holds a bed - without one 0-XNPCCore would bed her down wherever
+			     she happens to be standing. Only as many people are put to bed as there are beds, oldest member first.
+			     Enclave people sleep the same way inside their own building; a hostile enclave's never do.
+			     Nobody is leased on a blood moon night (0-XNPCCore never sleeps through one), and not until
+			     SleepAfterDuskHours after dusk - before that its routine is strolling, not sleeping. That value mirrors
+			     0-XNPCCore's own Routine/SleepAfterDuskHours; change it here if you change it there.
+			     The beds counted are SC's own (the BedBlocks list further down, as the roster counts them). 0-XNPCCore
+			     claims beds by its OWN Routine/BedBlocks name list, so a modded bed only SC recognizes is the first
+			     thing to check if someone lies down on the floor.
+			     SleepZoneHeight is how far above and below the home block the zone reaches (m); a basement deeper than
+			     this holds no bed she will find. Set SleepAtNight to false to keep everyone on SC's own night routine. -->
+			<property name="SleepAtNight" value="true" />
+			<property name="SleepZoneHeight" value="15" />
+			<property name="SleepAfterDuskHours" value="1" />
 			<property name="XnpcClassByGamestage" value="true" />
 			<property name="SurvivorRangedMainChance" value="0.4" />
 			<property name="XnpcSpawnAmmo" value="30" />

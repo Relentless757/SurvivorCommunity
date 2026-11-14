@@ -129,6 +129,7 @@ namespace SurvivorCommunity
                     case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
 #if SC_V34
+                    case "sleep": ScSleep.ConsoleCmd(Output); break;            // round n06: who is leased out for the night, and why not
                     case "craft": ScCraft.ConsoleCmd(_params, Output); break;   // C1: craft [table | <id|name> [spec <Specialty> | end]]
 #endif
                     case "trust": TrustCmd(_params); break;

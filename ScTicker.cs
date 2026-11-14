@@ -91,6 +91,9 @@ namespace SurvivorCommunity
                 ScWork.Sweep(player);                 // C1: work shifts whose member left, moved on or unloaded are dropped
 #endif
                 ScDoors.Tick(w, player);              // shut the doors members opened once they are through
+#if SC_V34
+                ScSleep.Tick(w, player);              // round n06: the night lease - off-duty people sleep through 0-XNPCCore's routine
+#endif
                 ScRunners.Tick(w, player);            // physical supply runs: walk, capture out of range, re-create near the player
                 TrackProspects(w);
                 ScQuests.SyncCompleted(player);

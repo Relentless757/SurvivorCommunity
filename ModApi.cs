@@ -56,6 +56,9 @@ namespace SurvivorCommunity
                     ScConfig.Reset();
                     ScLog.ResetForNewWorld();
                     ScTicker.Reset();
+#if SC_V34
+                    ScSleep.Reset();                 // round n06: no night lease carries into a new world
+#endif
                     ScZone.Reset();
                     ScTraits.Reset();
                 ScSkills.Reset();
