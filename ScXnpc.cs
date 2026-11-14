@@ -242,6 +242,19 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// A light tool - a torch or a flashlight - rather than a weapon. The same test 0-XNPCCore
+        /// makes (its SdcsItemIsLightTool / LightToolRules.IsLightTool), written out in game API so
+        /// SC needs no reference to it and the answer is the same on an 0-XNPCCore that has neither.
+        /// 3.4.05 holds a torch in a survivor's hand at night, so every SC test of "is she holding a
+        /// weapon?" has to say no to one.
+        /// </summary>
+        public static bool IsLightTool(ItemClass ic)
+        {
+            if (ic == null) return false;
+            return (ic.AlwaysActive != null && ic.AlwaysActive.Value) || ic.HasTrigger(MinEventTypes.onSelfItemActivate);
+        }
+
+        /// <summary>
         /// A model that belongs to one of our XNPC bodies. Usable from inside the model's own Init (createModel, the first
         /// GenerateMeshes): Entity.InitEModel assigns emodel before it calls emodel.Init, so the entity already points at
         /// this model there. Plain reference tests for the same reason as IsBody.

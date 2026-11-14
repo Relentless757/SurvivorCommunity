@@ -675,12 +675,6 @@ scMineBack,UI,Tooltip,,,,{0} is back with {1}.
 scMineHurt,UI,Tooltip,,,,{0} came back injured with {1}.
 scDailyMineBack,UI,Tooltip,,,,- {0} brought {1}
 scDailyMineHurt,UI,Tooltip,,,,- {0} came back hurt with {1}
-scRaiderMaleT1,entityclasses,Entity,,,,Raider
-scRaiderMaleT2,entityclasses,Entity,,,,Raider
-scRaiderMaleT3,entityclasses,Entity,,,,Raider
-scRaiderFemaleT1,entityclasses,Entity,,,,Raider
-scRaiderFemaleT2,entityclasses,Entity,,,,Raider
-scRaiderFemaleT3,entityclasses,Entity,,,,Raider
 scHomeStatusTitle,UI,HUD,,,,Home Status
 scNoiseQuiet,UI,HUD,,,,Quiet
 scNoiseNoticeable,UI,HUD,,,,Noticeable
@@ -1591,3 +1585,9 @@ scRunnerAttackedSite,UI,Tooltip,,,,at {0}
 scRunnerAttackedHome,UI,Tooltip,,,,on the way home from {0}
 scRunnerAttackedBack,UI,Tooltip,,,,near the base
 scRunnerAttackedMarker,UI,Menu,,,,{0} - under attack
+scRaiderMaleT1,entityclasses,Entity,,,,Raider
+scRaiderMaleT2,entityclasses,Entity,,,,Raider
+scRaiderMaleT3,entityclasses,Entity,,,,Raider
+scRaiderFemaleT1,entityclasses,Entity,,,,Raider
+scRaiderFemaleT2,entityclasses,Entity,,,,Raider
+scRaiderFemaleT3,entityclasses,Entity,,,,Raider

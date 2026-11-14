@@ -168,8 +168,11 @@ XNPC_SURVIVOR_OPS = """
 \t<set xpath="/entity_classes/entity_class[%(sel)s]/property[@name='BagItems']/@value">none</set>
 
 \t<!-- No preset medical stock: what they carry is SurvivorCommunity's roll (ScMedic: a few first aid bandages, now and
-\t     then a kit), which they use with the bandage animation. -->
-\t<set xpath="/entity_classes/entity_class[%(sel)s]/property[@name='HarvestItems']/@value">none</set>
+\t     then a kit), which they use with the bandage animation. The starter torch stays, though: 0-XNPCCore 3.4.05 lights
+\t     a torch in the dark from the harvest window (SdcsTorchFindTool reads the window, then the bag), and with a
+\t     one-handed weapon it holds the torch in the left hand. "none" here switched both features off for the whole
+\t     community - so the one item we keep is meleeToolTorch. -->
+\t<set xpath="/entity_classes/entity_class[%(sel)s]/property[@name='HarvestItems']/@value">meleeToolTorch=1</set>
 
 \t<!-- SurvivorCommunity's survivor name pools (gen_arsenal.py NAMES), one per sex. EntityAliveSDXV4 picks a
 \t     random one when the entity is made; a known survivor's body then gets the registry name (ScSpawn). -->

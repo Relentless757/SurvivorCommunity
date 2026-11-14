@@ -705,6 +705,10 @@ namespace SurvivorCommunity
                 ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
                 ItemClass ic = held != null && !held.IsEmpty() ? held.ItemClass : null;
                 if (ic == null || ic.HoldType == null || ic.HoldType.Value == 0 || e.Buffs == null) return;
+                // Never a torch: 0-XNPCCore 3.4.05 added the same guard to its own stamper. Stamping
+                // one makes its world-entry step treat the torch as her weapon, stand aside, and then
+                // re-arm the hand SC had just rebuilt - which is exactly what X5 exists to prevent.
+                if (ScXnpc.IsLightTool(ic)) return;
                 if ((int)e.Buffs.GetCustomVar("SdcsLastHeld") == ic.Id) return;
                 e.Buffs.SetCustomVar("SdcsLastHeld", ic.Id);
                 Count("x5-lastheld-synced");

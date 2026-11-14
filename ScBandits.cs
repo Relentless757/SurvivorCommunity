@@ -664,6 +664,27 @@ namespace SurvivorCommunity
                 int before = 0;
                 try
                 {
+                    // One of SC's own people, not a raider: never 0-XNPCCore's applier. It would roll
+                    // her an archetype, an armor set, a name and a weapon, because SC writes none of
+                    // the cvars it reads. SC's gear comes back within a second (ScLooks.Sync) but her
+                    // FACE does not - UpdateEquipment never re-runs createModel - so she keeps a
+                    // stranger's face until the world reloads.
+                    //
+                    // Until 3.4.05 the two ways in were both blocked upstream (X1b on
+                    // MinEventActionSdcsApplyLook.Execute, X17 on SdcsCustomLook.ApplyCharacter). The
+                    // new Wardrobe added two more that bypass both - SdcsWardrobe.Redress and
+                    // NetPackageSdcsWardrobe.ProcessPackage, each calling EnqueueLookApply directly -
+                    // so the refusal belongs HERE, at the one chokepoint every route has to pass.
+                    // Nothing in SC calls the applier, so skipping it costs SC nothing.
+                    if (alive != null && !ScXnpc.IsBanditRaider(alive) && ScXnpc.IsBody(alive))
+                    {
+                        Patches_Xnpc.Count("x1c-sc-body-skipped");
+                        // Round n05: the applier is still refused, but the Wardrobe's pick is not lost with it. The
+                        // only thing in Apply that SC wants is WearOverrides - the four SdcsWear* cvars - so SC reads
+                        // them here and dresses her through its own look instead (ScWardrobe.Honor).
+                        ScWardrobe.Honor(alive);
+                        return false;
+                    }
                     if (alive == null || !ScXnpc.IsBanditRaider(alive)) return true;
                     before = Index(alive);
                     gearOnly.Invoke(null, new object[] { __0, alive });

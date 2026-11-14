@@ -207,6 +207,7 @@ namespace SurvivorCommunity
             ScVanity.Forget(entityId);                 // a paint still waiting for the body to show
 #if SC_V34
             pendingFaces.Remove(entityId);             // a creator face still waiting for the body's next frame (X17)
+            ScWardrobe.Forget(entityId);               // her pre-wardrobe gear snapshot (round n05)
 #endif
         }
 

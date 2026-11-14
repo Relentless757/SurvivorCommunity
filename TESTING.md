@@ -37,6 +37,46 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round n05 (2026-11-14): 0-XNPCCore / Voice Control 3.4.05
+
+Needs **0-XNPCCore and Voice Control 3.4.05**. SurvivorCommunity is 3.4-only from this round on.
+Settings for the new weapon mods are in `Config/blocks.xml` (`SurvivorWeaponModChance`, `RaiderWeaponModChance`,
+`WeaponModTags`); `sc loadout <name>` shows what a survivor rolled.
+
+**Compatibility (it broke, now it should not)**
+
+- [ ] Start-up is clean: no patch-target errors, no "Failed initializing ModAPI instance" for SurvivorCommunity.
+- [ ] Subtitles still appear for SC's own barks and voice lines (Voice Control changed `ShowSubtitle`'s signature).
+- [ ] A timid survivor still flees (the guard moved to 0-XNPCCore's `SdcsNpcVillager` package).
+- [ ] 0-XNPCCore's **own** bandits and pickpockets still carry their torch — SC was stripping it from them.
+
+**The starter torch (new in 3.4.05, switched on for SC)**
+
+- [ ] After dark, an unlit survivor lights a torch on her own.
+- [ ] Holding a **one-handed** weapon, the torch is in her **left** hand and she still gestures while talking.
+- [ ] Ordering her a weapon or talking to her does not leave the torch stuck in her hand afterwards.
+- [ ] She puts it away in daylight, and `sc relax` does not fight it.
+
+**Weapon attachment mods (new)**
+
+- [ ] Some survivors' rolled guns now carry attachments; `sc loadout <name>` lists them.
+- [ ] A survivor whose gun rolled **modGunFlashlight** turns its light on in the dark (this is 0-XNPCCore's gun-light
+      feature — it only works when the held gun has a mod with an `onSelfItemActivate` trigger, so it depends on this roll).
+- [ ] Re-create her body (leave the area and come back, or reload) — her gun keeps the **same** attachments, not a new roll.
+- [ ] Her work-kit tools and medical stock carry **no** attachments.
+- [ ] Killing a raider drops its weapon with the attachments it was carrying.
+- [ ] Set `SurvivorWeaponModChance` to `0`: new survivors roll plain weapons again.
+
+**Wardrobe — "Dress your hires" (new, made to work on SC's people)**
+
+- [ ] Talk to a follower → **Wardrobe**, pick an armor piece from her pack: her appearance **actually changes**.
+      (Before this round the menu opened, she said the success line, and nothing happened.)
+- [ ] The piece sticks after a reload.
+- [ ] **"Back to my own ‹slot›"** puts her original piece back in the same session.
+- [ ] It works on an enclave NPC and on a band member too.
+- [ ] A **raider** is still never dressed by the player and keeps its own gear.
+- [ ] Her face is still hers afterwards — no stranger's face, no re-rolled name or weapon.
+
 ## Game 3.4 port (stages 1-2 and the review fixes, 2026-10-29)
 
 The 3.4 build only: the install in `F:\7 Days to Die Version Control\3.4` with 0-SCore 3.4.3.826, 0-XNPCCore 3.4.01 and

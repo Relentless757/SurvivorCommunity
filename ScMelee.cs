@@ -28,7 +28,9 @@ namespace SurvivorCommunity
     /// Nothing can double-fire: one swing per weapon cycle is vanilla's own gate, the same canStartAttack the player's
     /// swing passes. The animation keeps up by design: AnimatorMeleeAttackState plays the clip at the weapon's
     /// AttacksPerMinute, and the hit is its timed Raycast, unchanged. Stamina is not a factor: vanilla drains it only from
-    /// a player (Raycast and GrazeCast test EntityPlayerLocal), and the NPCs' attack is action 0, never the power attack.
+    /// a player (Raycast and GrazeCast test EntityPlayerLocal). The task asks for action 0, but 0-XNPCCore 3.4.05
+    /// turns roughly one swing in three to six into the weapon's power attack by rewriting the index to 1 on its way
+    /// into UseHoldingItem, so a swing can land on either action and AfterUpdate watches both clocks.
     /// A try the weapon still refuses (a hit stun, a broken or disabled weapon, no stamina) is retried after RetryGap, not
     /// on every AI update: a refused try plays the entity's attack sound on its release.
     /// Guns keep SCore's own pace: their path is the task's IsActionRunning gate plus the 1 s countdown (a T1 pistol shoots
@@ -60,18 +62,25 @@ namespace SurvivorCommunity
         {
             public float RetryAfter;
             public float Seen;
+            /// <summary>
+            /// The OTHER action's lastUseTime when this update was cleared. 0-XNPCCore 3.4.05's
+            /// SdcsPowerAttackPatch prefixes EntityAlive.UseHoldingItem and rewrites the action index
+            /// from 0 to 1 every few swings, so a swing can land on action 1 while the task asked for
+            /// action 0. Without this, that swing reads as a refusal.
+            /// </summary>
+            public float AltBefore;
         }
 
         private static readonly Dictionary<int, PaceState> paces = new Dictionary<int, PaceState>();
         private static float nextPrune;
         /// <summary>Counters for sc xnpc: updates cleared to try, swings, refused tries, reach verdicts and how many SC turned to "in reach".</summary>
-        private static int cleared, swings, refused, reachCalls, reachLonger;
+        private static int cleared, swings, refused, reachCalls, reachLonger, powerSwings;
 
         public static void Reset()
         {
             paces.Clear();
             nextPrune = 0f;
-            cleared = swings = refused = reachCalls = reachLonger = 0;
+            cleared = swings = refused = reachCalls = reachLonger = powerSwings = 0;
             reachMemo.Clear();
             Patch_InWeaponRange.Reset();
         }
@@ -86,9 +95,20 @@ namespace SurvivorCommunity
         /// <summary>The held item's melee action data at this index (0 or 1: SCore's attack task fires those through UseHoldingItem), or null.</summary>
         private static ItemActionDynamicMelee.ItemActionDynamicMeleeData MeleeData(EntityAlive e, int index)
         {
+            return ActionData(e, index) as ItemActionDynamicMelee.ItemActionDynamicMeleeData;
+        }
+
+        /// <summary>
+        /// The held item's action data at this index, whatever kind it is. The swing clock (lastUseTime) is declared once,
+        /// on the base ItemActionData, and 0-XNPCCore's own power-attack gate accepts a plain ItemActionMelee as well as an
+        /// ItemActionDynamicMelee - whose data is InventoryDataMelee, NOT an ItemActionDynamicMeleeData. Reading the clock
+        /// through the base type therefore counts a power swing on a weapon no vanilla item uses but a weapon pack may.
+        /// </summary>
+        private static ItemActionData ActionData(EntityAlive e, int index)
+        {
             ItemInventoryData hd = e.inventory != null ? e.inventory.holdingItemData : null;
             if (hd == null || hd.actionData == null || index < 0 || index > 1 || index >= hd.actionData.Count) return null;
-            return hd.actionData[index] as ItemActionDynamicMelee.ItemActionDynamicMeleeData;
+            return hd.actionData[index];
         }
 
         /// <summary>Seconds from one swing to the next as canStartAttack computes them (its tags, its entity), plus ReadySlack.</summary>
@@ -132,6 +152,9 @@ namespace SurvivorCommunity
             {
                 if (attack.attackTimeout > 1) attack.attackTimeout = 1;     // the countdown reaches 0 on this update
                 cleared++;
+                // Remember the other action's clock too: a power attack lands on action 1 (see PaceState.AltBefore).
+                ItemActionData alt = ActionData(self, index == 0 ? 1 : 0);
+                st.AltBefore = alt != null ? alt.lastUseTime : float.NegativeInfinity;
                 return Mathf.Max(0f, md.lastUseTime);
             }
             // not ready yet: SCore's own countdown would spend its try on a refusal and re-arm a full second
@@ -150,10 +173,21 @@ namespace SurvivorCommunity
             ItemActionDynamicMelee.ItemActionDynamicMeleeData md = MeleeData(self, index);
             if (md == null) return;
             if (md.lastUseTime != useBefore) { swings++; return; }
+            PaceState st;
+            paces.TryGetValue(self.entityId, out st);
+            // A power attack swung action 1 while the task asked for action 0, so action 0's clock did
+            // not move. 0-XNPCCore 3.4.05 does this every 3 to 6 swings (SdcsPowerAttackPatch, on by
+            // default). It is a swing, not a refusal: counting it as one re-armed a 0.25 s retry gap
+            // after every power swing. Checked by clock, with no reference to NPCCore, so this is
+            // right whether or not that mod is installed.
+            if (st != null)
+            {
+                ItemActionData alt = ActionData(self, index == 0 ? 1 : 0);
+                if (alt != null && alt.lastUseTime != st.AltBefore) { swings++; powerSwings++; return; }
+            }
             if (attack.attackTimeout != self.GetAttackTimeoutTicks()) return;
             refused++;
-            PaceState st;
-            if (paces.TryGetValue(self.entityId, out st)) st.RetryAfter = Time.time + RetryGap;
+            if (st != null) st.RetryAfter = Time.time + RetryGap;
         }
 
         // ------------------------------------------------------------------ reach (F4) ----
@@ -304,7 +338,9 @@ namespace SurvivorCommunity
         public static string Report()
         {
             return "pacing " + (ScConfig.MeleePacing ? (ScConfig.MeleePacingRaiders ? "on (raiders too)" : "on (not raiders)") : "off")
-                   + ": " + cleared + " update(s) cleared to swing, " + swings + " swing(s), " + refused + " refused by the weapon"
+                   + ": " + cleared + " update(s) cleared to swing, " + swings + " swing(s)"
+                   + (powerSwings > 0 ? " (" + powerSwings + " of them the weapon's power attack, 0-XNPCCore's)" : "")
+                   + ", " + refused + " refused by the weapon"
                    + "; reach " + (ScConfig.MeleeReach ? "weapon - " + ScConfig.MeleeReachMargin.ToString("0.0#") + " m" : "off (SCore's 1.5 m)")
                    + ": " + reachCalls + " verdict(s), " + reachLonger + " in reach only by the weapon's real reach";
         }

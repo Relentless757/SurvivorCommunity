@@ -755,6 +755,37 @@ namespace SurvivorCommunity
         /// weapon the survivors carry, are handed over. One line for both kinds: that menu shows ten lines at most and
         /// 0-XNPCCore's has nine. It shows for the NPC's leader only (a follower, a hired companion), so no other check.
         /// </summary>
+        /// <summary>
+        /// Tell 0-XNPCCore that this weapon was ORDERED, right after SC put it in her hand.
+        ///
+        /// 3.4.05 gives a survivor a torch at night and takes her weapon out of her hand for it, once
+        /// a second. Its own weapon menu calls AnyWeaponNoteEquipped, which sets SdcsTorchSuppressed
+        /// for the rest of the night; without it the torch tick sees the weapon, decides it still
+        /// wants the torch, and swaps SC's order straight back out about a second later. ScJobs does
+        /// this already for a work pair; an order from the player deserves the same.
+        ///
+        /// Deliberately NOT done on a medic re-arm or an overwhelmed swap: those are not orders, and
+        /// they happen in a fight, where 0-XNPCCore has already put the torch away itself.
+        /// </summary>
+        private static void NoteOrdered(EntityAlive npc)
+        {
+            try
+            {
+                // What is actually IN her hand after Arm, not the pair's melee weapon: UseHanded arms the RANGED one when
+                // the player handed over a firearm, and 0-XNPCCore restores whatever it is told here (its close-range melee
+                // exit, its dry-gun failover and its world-entry re-arm all read sdcsHeldWeaponRemembered). Naming the club
+                // while she holds the handed AK would make it put the club back at the next one of those.
+                ItemValue iv = npc != null && npc.inventory != null ? npc.inventory.holdingItemItemValue : null;
+                string held = iv != null && !iv.IsEmpty() && iv.ItemClass != null ? iv.ItemClass.GetItemName() : null;
+                if (!string.IsNullOrEmpty(held) && !ScLoadout.IsKitOnly(npc, held) && !ScXnpc.IsLightTool(iv.ItemClass))
+                    AnyWeaponBridge.AnyWeaponNoteEquipped(npc, held);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("arms-note-ordered", e);
+            }
+        }
+
         public static void UseHanded(EntityAlive npc, EntityPlayer player)
         {
             try
@@ -789,6 +820,7 @@ namespace SurvivorCommunity
                 if (kept.Count == 0) return;
                 string why;
                 if (!ScLoadout.Arm(npc, rangedKept, out why)) ScLog.Warn(name + ": kept the handed weapon(s) but could not take one in hand (" + why + ")");
+                else NoteOrdered(npc);
                 ScCommunity.Tell(player, kept.Count > 1 ? string.Format(Localization.Get("scUseHandedNowBoth"), name, kept[0], kept[1])
                                                         : string.Format(Localization.Get("scUseHandedNow"), name, kept[0]), "");
             }

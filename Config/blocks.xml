@@ -571,6 +571,18 @@
 			     split the rest between melee-only and a bow or crossbow); T1 and T2 roll by the two chances above alone.
 			     sc loadout sim T3 shows the result. -->
 			<property name="SurvivorFirearmChanceT3" value="0.85" />
+			<!-- Attachments on a rolled weapon (round n05). SurvivorWeaponModChance / RaiderWeaponModChance are the odds of
+			     the FIRST mod; each further one is half as likely, as vanilla loot does it, and the weapon's quality decides
+			     how many slots there are. 0 turns the roll off.
+			     WeaponModTags is the pool, written as item_modifiers.xml's modifier_tags (the singular form -
+			     "sideAttachment", not the installable "sideAttachments"). The game filters every tag by the weapon's own
+			     installable_tags and blocked_tags, so one pool covers guns, bows and melee and a weapon from a gun pack picks
+			     up whatever its own tags allow. Keep sideAttachment in the list to let a survivor's gun carry
+			     modGunFlashlight: 0-XNPCCore 3.4.05 only turns her gun light on in the dark when the held gun has a mod with
+			     an onSelfItemActivate trigger, so that one tag is what makes the feature reachable at all. -->
+			<property name="SurvivorWeaponModChance" value="0.5" />
+			<property name="RaiderWeaponModChance" value="0.5" />
+			<property name="WeaponModTags" value="sideAttachment,scope,barrelAttachment,barrelTipAttachment,trigger,magazine,grips,stocks,accuracy,durability,damage,stun,knockback,velocity,shaft" />
 			<property name="XnpcClassByGamestage" value="true" />
 			<property name="SurvivorRangedMainChance" value="0.4" />
 			<property name="XnpcSpawnAmmo" value="30" />
@@ -850,11 +862,6 @@
 			<!-- XnpcModelY: how high an 0-XNPCCore survivor's body sits on its entity (m). 0 = feet on the ground; their
 			     player prefab ships -0.08, made for the player's character controller, which sank NPCs 8 cm. -->
 			<property name="XnpcModelY" value="0" />
-			<!-- XnpcWarmWeapons (round wp): the held models of the weapons below that an NPC can carry at the current
-			     gamestage are loaded in the background, one at a time, from 20 s after the world is up, so a stranger's first
-			     spawn does not load its gun in that frame (an Izayo gun took about 0.3 s). The log says how many and how much
-			     memory they took ("weapon warm: ..."). -->
-			<property name="XnpcWarmWeapons" value="true" />
 			<!-- BEGIN GENERATED: XnpcWeapons (Tools/gen_arsenal.py) -->
 			<!-- The vanilla weapons the community's 0-XNPCCore survivors and SurvivorCommunity's raiders carry, one melee
 			     and one ranged each (a raider leads with one of them; some carry only the melee one, SurvivorMeleeOnlyChance /
@@ -907,6 +914,11 @@
 				<property name="gunBowT3CompoundCrossbow" value="bow,2,CompoundCrossbow,bands=0/0/1,group=T3" />
 			</property>
 			<!-- END GENERATED: XnpcWeapons -->
+			<!-- XnpcWarmWeapons (round wp): the held models of the weapons below that an NPC can carry at the current
+			     gamestage are loaded in the background, one at a time, from 20 s after the world is up, so a stranger's first
+			     spawn does not load its gun in that frame (an Izayo gun took about 0.3 s). The log says how many and how much
+			     memory they took ("weapon warm: ..."). -->
+			<property name="XnpcWarmWeapons" value="true" />
 			<!-- Raiders (M10): SurvivorCommunity's hostile classes on 0-XNPCCore's player body, the same body as the
 			     survivors (Config/entityclasses.xml, written by Tools/gen_arsenal.py, which names the same six: change both
 			     together). They get SurvivorCommunity's looks, a pair of vanilla weapons from XnpcWeapons, items-only

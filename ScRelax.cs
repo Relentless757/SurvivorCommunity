@@ -206,6 +206,11 @@ namespace SurvivorCommunity
             ItemAction[] acts = held.Actions;
             bool weapon = acts != null && ((acts.Length > 0 && IsAttack(acts[0])) || (acts.Length > 1 && IsAttack(acts[1])));
             if (!weapon) return "not holding a weapon";
+            // A torch passes the weapon test above (its Action0 is a dynamic melee and it has a hold
+            // type), but 0-XNPCCore 3.4.05 puts one in her hand at night to light the way. Relaxing
+            // would drop the arms and, with XnpcRelaxHideWeapon on, switch off the renderers - the
+            // torch and its flame would vanish while 0-XNPCCore believed she was carrying a light.
+            if (ScXnpc.IsLightTool(held)) return "holding a light";
             if (ScMedic.IsUsingItem(e)) return "using an item";
             return Reloading(e, held, acts);
         }

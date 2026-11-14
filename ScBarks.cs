@@ -388,7 +388,28 @@ namespace SurvivorCommunity
                 mShowsText = tChat.GetMethod("ShowsGenericTextFor", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(int) }, null);
                 mFace = tChat.GetMethod("FaceEntity", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(Entity), typeof(float) }, null);
                 pSubInstance = tSub != null ? tSub.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static) : null;
-                mShowSubtitle = tSub != null ? tSub.GetMethod("ShowSubtitle", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(string), typeof(string), typeof(float) }, null) : null;
+                // 3.4.05 ("subtitles stay until she stops speaking") widened this to
+                // ShowSubtitle(string, string, float?, NPCAudioPlayer). An exact-type lookup for the
+                // old (string, string, float) returns null against it, which switched SC's captions
+                // off. Bound by name and arity instead, so both shapes work and a further trailing
+                // parameter would too; the extras are passed as Type.Missing (they are optional).
+                mShowSubtitle = null;
+                if (tSub != null)
+                {
+                    foreach (MethodInfo mi in tSub.GetMethods(BindingFlags.Public | BindingFlags.Instance))
+                    {
+                        if (mi.Name != "ShowSubtitle") continue;
+                        ParameterInfo[] ps = mi.GetParameters();
+                        if (ps.Length < 3 || ps[0].ParameterType != typeof(string) || ps[1].ParameterType != typeof(string)) continue;
+                        Type dur = Nullable.GetUnderlyingType(ps[2].ParameterType) ?? ps[2].ParameterType;
+                        if (dur != typeof(float)) continue;
+                        bool rest = true;
+                        for (int i = 3; i < ps.Length; i++) if (!ps[i].IsOptional) { rest = false; break; }
+                        if (!rest) continue;
+                        mShowSubtitle = mi;
+                        break;
+                    }
+                }
                 pHandlerInstance = tHandler != null ? tHandler.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static) : null;
                 pLastTrigger = tHandler != null ? tHandler.GetProperty("LastMatchedTriggerName", BindingFlags.Public | BindingFlags.Instance) : null;
                 pActionType = tTrigger != null ? tTrigger.GetProperty("ActionType", BindingFlags.Public | BindingFlags.Instance) : null;
@@ -398,7 +419,7 @@ namespace SurvivorCommunity
                 var missing = new List<string>();
                 if (mShowsText == null) missing.Add("NPCChatComponent.ShowsGenericTextFor(int)");
                 if (mFace == null) missing.Add("NPCChatComponent.FaceEntity(Entity, float)");
-                if (pSubInstance == null || mShowSubtitle == null) missing.Add("SubtitleManager.Instance.ShowSubtitle(string, string, float)");
+                if (pSubInstance == null || mShowSubtitle == null) missing.Add("SubtitleManager.Instance.ShowSubtitle(string, string, float[?], ...)");
                 if (pHandlerInstance == null || pLastTrigger == null) missing.Add("PhraseTriggerHandler.Instance.LastMatchedTriggerName");
                 if (pActionType == null || pActionParam == null) missing.Add("PhraseTrigger.ActionType / ActionParam");
                 if (pResponses == null || mLastMatched == null) missing.Add("PhraseTriggerHandler.GetLastMatchedTrigger() / PhraseTrigger.Responses");
@@ -491,7 +512,23 @@ namespace SurvivorCommunity
             try
             {
                 object mgr = pSubInstance.GetValue(null, null);
-                if (mgr != null) mShowSubtitle.Invoke(mgr, new object[] { name ?? "", text, Mathf.Clamp(seconds, 2f, 25f) });
+                if (mgr != null)
+                {
+                    // Fill whatever optional parameters this build added (3.4.05's speaker) with the parameter's OWN
+                    // default rather than Type.Missing: Mono's reflection has been less reliable than CoreCLR about
+                    // Type.Missing through the two-arg Invoke, and a throw here lands in the catch below - which is
+                    // exactly the silent caption loss this binding exists to fix. Likewise the duration is boxed as the
+                    // float? the 3.4.05 signature declares instead of a bare float.
+                    ParameterInfo[] ps = mShowSubtitle.GetParameters();
+                    object[] args = new object[ps.Length];
+                    args[0] = name ?? "";
+                    args[1] = text;
+                    float secs = Mathf.Clamp(seconds, 2f, 25f);
+                    args[2] = Nullable.GetUnderlyingType(ps[2].ParameterType) != null ? (float?)secs : (object)secs;
+                    for (int i = 3; i < ps.Length; i++)
+                        args[i] = ps[i].HasDefaultValue ? ps[i].DefaultValue : null;
+                    mShowSubtitle.Invoke(mgr, args);
+                }
             }
             catch (Exception e)
             {

@@ -153,8 +153,11 @@
 	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/property[@name='BagItems']/@value">none</set>
 
 	<!-- No preset medical stock: what they carry is SurvivorCommunity's roll (ScMedic: a few first aid bandages, now and
-	     then a kit), which they use with the bandage animation. -->
-	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/property[@name='HarvestItems']/@value">none</set>
+	     then a kit), which they use with the bandage animation. The starter torch stays, though: 0-XNPCCore 3.4.05 lights
+	     a torch in the dark from the harvest window (SdcsTorchFindTool reads the window, then the bag), and with a
+	     one-handed weapon it holds the torch in the left hand. "none" here switched both features off for the whole
+	     community - so the one item we keep is meleeToolTorch. -->
+	<set xpath="/entity_classes/entity_class[@name='npcSdcsSurvivorMaleT1' or @name='npcSdcsSurvivorMaleT2' or @name='npcSdcsSurvivorMaleT3' or @name='npcSdcsSurvivorFemaleT1' or @name='npcSdcsSurvivorFemaleT2' or @name='npcSdcsSurvivorFemaleT3']/property[@name='HarvestItems']/@value">meleeToolTorch=1</set>
 
 	<!-- SurvivorCommunity's survivor name pools (gen_arsenal.py NAMES), one per sex. EntityAliveSDXV4 picks a
 	     random one when the entity is made; a known survivor's body then gets the registry name (ScSpawn). -->
@@ -186,7 +189,7 @@
 	</if></conditional>
 	<conditional><if cond="xpath('/entity_classes/entity_class[(@extends=&quot;npcSdcsSurvivorMaleT1&quot; or @extends=&quot;npcSdcsSurvivorMaleT2&quot; or @extends=&quot;npcSdcsSurvivorMaleT3&quot; or @extends=&quot;npcSdcsSurvivorFemaleT1&quot; or @extends=&quot;npcSdcsSurvivorFemaleT2&quot; or @extends=&quot;npcSdcsSurvivorFemaleT3&quot;) and not(property[@name=&quot;HarvestItems&quot;])]') != null">
 		<append xpath="/entity_classes/entity_class[(@extends='npcSdcsSurvivorMaleT1' or @extends='npcSdcsSurvivorMaleT2' or @extends='npcSdcsSurvivorMaleT3' or @extends='npcSdcsSurvivorFemaleT1' or @extends='npcSdcsSurvivorFemaleT2' or @extends='npcSdcsSurvivorFemaleT3') and not(property[@name='HarvestItems'])]">
-			<property name="HarvestItems" value="medicalFirstAidBandage=5"/>
+			<property name="HarvestItems" value="medicalFirstAidBandage=5,meleeToolTorch=1"/>
 		</append>
 	</if></conditional>
 	<conditional><if cond="xpath('/entity_classes/entity_class[(@extends=&quot;npcSdcsSurvivorMaleT1&quot;) and not(property[@name=&quot;Names&quot;])]') != null">

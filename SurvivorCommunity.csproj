@@ -166,6 +166,8 @@
     <Compile Include="Patches_Trust.cs" />
     <Compile Include="ScProfile.cs" />
     <Compile Include="ScVanity.cs" />
+    <!-- round n05: the Wardrobe (0-XNPCCore 3.4.05) honored through SC's own look -->
+    <Compile Include="ScWardrobe.cs" Condition="'$(ScGame)'=='34'" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="ScVoiceLines.cs" />

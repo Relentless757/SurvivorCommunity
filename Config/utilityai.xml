@@ -435,6 +435,20 @@
 			</append>
 		</if>
 	</conditional>
+	<!--
+	  3.4.05 MOVED Flee out of SdcsNpcCore into a new SdcsNpcVillager package (still weight 9, still
+	  ungated), which npcSdcsBase carries - so SC's six survivor classes get it. The conditional above
+	  then matches nothing and no-ops SILENTLY, which put the coward-off-the-watch-tower regression
+	  straight back. Both blocks are guarded, so whichever package holds Flee in the installed build
+	  gets the consideration and the other does nothing; keep both while older builds are supported.
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcVillager&quot;]/action[@name=&quot;Flee&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcVillager']/action[@name='Flee']">
+				<consideration class="ScNotScTimid, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsCover&quot;]/action[@name=&quot;TakeCover&quot;]/@name') != null">
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsCover']/action[@name='TakeCover']">

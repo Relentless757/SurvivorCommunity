@@ -896,6 +896,7 @@ namespace SurvivorCommunity
                 // the gun it held when it was saved (review F1, X13): before the window move and the arming, so their
                 // guards see the real gun (each unloads a loose-loaded gun before magazines arrive)
                 ScAmmo.RestoreHeldGun(e, runnerRestore);
+                ApplyWeaponMods(e);                      // round n05: attachments on the pair, after SCore's toolbelt fill
                 bool raider = ScXnpc.IsRaider(e);
                 if (raider) SetRaiderXp(e);              // every PostInit, before the seeded raider returns below
                 if (runnerRestore) return;               // the rest: AfterRunnerRestore, on the bag the runner keeps
@@ -1166,6 +1167,128 @@ namespace SurvivorCommunity
             Prospect p = ScRegistry.GetProspect(e.entityId);
             if (p != null) { p.Loadout = l.Clone(); changed = true; }
             if (changed && ScRegistry.Loaded) ScRegistry.SaveAtomic();
+        }
+
+        /// <summary>
+        /// Round n05: the pair's weapons given their attachment mods, once per body, from AfterPostInit - AFTER SCore's own
+        /// PostInit fill, because that fill rebuilds every toolbelt slot as new ItemValue(type, 1, 6, ...) from the type
+        /// alone and would throw away anything put on earlier.
+        ///
+        /// itemsOnEnterGame is the source of truth: Arm clones its entry into her hand, and CarriedPair reads it for the
+        /// death drop. The matching toolbelt slot is then given the SAME mods rather than its own roll - the two copies have
+        /// independently rolled qualities, so a second roll would diverge (different slot counts stop the random stream at
+        /// different points) and the gun the player loots could carry different attachments from the gun in her hand.
+        ///
+        /// Idempotent: a weapon that already carries a mod is left alone, so a reload - where the toolbelt comes back from
+        /// the save with its mods - never re-rolls or stacks.
+        /// </summary>
+        public static void ApplyWeaponMods(EntityAlive e)
+        {
+            try
+            {
+                if (e == null || e.inventory == null || e.itemsOnEnterGame == null) return;
+                Loadout pair = Current(e);
+                if (pair == null) return;
+                bool raider = ScXnpc.IsRaider(e);
+                List<ItemStack> list = e.itemsOnEnterGame;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    ItemStack src = list[i];
+                    if (src == null || src.itemValue == null || src.itemValue.IsEmpty()) continue;
+                    ItemClass ic = ItemClass.GetForId(src.itemValue.type);
+                    if (ic == null || !IsPairWeapon(pair, ic)) continue;      // never the work kit's tools or medical stock
+                    if (!RollMods(e, src.itemValue, raider)) continue;
+                    Mirror(e, src.itemValue);
+                }
+            }
+            catch (Exception ex) { ScLog.Once("weapon-mods-apply", ex); }
+        }
+
+        /// <summary>Gives every toolbelt copy of this weapon (the hand included) the mods the itemsOnEnterGame entry just rolled.</summary>
+        private static void Mirror(EntityAlive e, ItemValue src)
+        {
+            for (int s = 0; s < e.inventory.SlotCount; s++)
+            {
+                ItemStack slot = e.inventory.GetItem(s);
+                if (slot == null || slot.itemValue == null || slot.itemValue.type != src.type) continue;
+                CopyMods(src, slot.itemValue);
+            }
+            // and the hand, in case it is already holding this weapon and is not one of the indexed slots
+            ItemValue hand = e.inventory.holdingItemItemValue;
+            if (hand != null && hand.type == src.type) CopyMods(src, hand);
+        }
+
+        /// <summary>
+        /// Copies the installed mods across to another copy of the same weapon, trimmed to what that copy's own quality
+        /// gives it room for (CalcModSlotCount is quality-driven, and the two copies' qualities are rolled separately).
+        /// </summary>
+        private static void CopyMods(ItemValue from, ItemValue to)
+        {
+            if (from?.modifications == null || to?.modifications == null) return;
+            int n = Math.Min(from.modifications.Length, to.modifications.Length);
+            for (int j = 0; j < n; j++)
+                to.modifications[j] = from.modifications[j] != null ? from.modifications[j].Clone() : ItemValue.None.Clone();
+            for (int j = n; j < to.modifications.Length; j++) to.modifications[j] = ItemValue.None.Clone();
+        }
+
+        /// <summary>Is this item one of the pair's two weapons? Keeps the mod roll off the work kit's tools and medical stock.</summary>
+        private static bool IsPairWeapon(Loadout pair, ItemClass ic)
+        {
+            if (pair == null || ic == null) return false;
+            string name = ic.GetItemName();
+            for (int k = 0; k < 2; k++)
+            {
+                Weapon w = Find(pair.Of(k == 1));
+                if (w != null && string.Equals(StackName(w.Item), name, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Rolls vanilla attachment mods onto one of the pair's weapons, the way loot does it: the same
+        /// ItemValue.createDefaultModItems that LootContainer calls at its mod_chance, so the first mod lands at the
+        /// configured chance and each further one at half of it, capped by the weapon's own mod slots.
+        /// The tags are item_modifiers.xml's modifier_tags (ScConfig.WeaponModTags); the game then filters each one by the
+        /// weapon's installable_tags and blocked_tags, so a weapon only gets a mod that actually fits it and a gun from a
+        /// weapon pack picks up whatever its own tags allow - no per-weapon table to keep.
+        /// The GameRandom is seeded from her RECORD's id and the weapon's type rather than the clock (the ItemValue
+        /// constructor seeds from DateTime), so a survivor's gun comes back with the same attachments every time her body
+        /// is re-created from that record. It deliberately does not use WorldTimeBorn: a body SC re-creates goes through
+        /// EntityFactory.CreateEntity and gets a brand-new one, so that would re-roll on exactly the case it was meant to
+        /// hold steady. A stranger with no record falls back to the entity id - stable for that body's life, which is all
+        /// a stranger has.
+        /// Returns true when the weapon now carries the roll (false = nothing to do, or it already had mods).
+        /// </summary>
+        private static bool RollMods(EntityAlive e, ItemValue iv, bool raider)
+        {
+            if (e == null || iv == null || iv.IsEmpty()) return false;
+            float chance = raider ? ScConfig.RaiderWeaponModChance : ScConfig.SurvivorWeaponModChance;
+            string[] tags = ScConfig.WeaponModTagList;
+            if (chance <= 0f || tags.Length == 0) return false;
+            ItemClass ic = iv.ItemClass;
+            if (ic == null || ic is ItemClassModifier || ic.MaxCount > 1) return false;
+            if (iv.modifications == null || iv.ModificationCount <= 0) return false;   // no slots: nothing to install
+            for (int j = 0; j < iv.modifications.Length; j++)                          // already rolled (a reload): leave it
+                if (iv.modifications[j] != null && !iv.modifications[j].IsEmpty()) return false;
+            GameRandom rnd = null;
+            try
+            {
+                rnd = GameRandomManager.Instance.CreateGameRandom(ModSeed(e, iv.type));
+                iv.createDefaultModItems(ic, rnd, tags, chance);
+                return true;
+            }
+            catch (Exception ex) { ScLog.Once("weapon-mods", "weapon mods: " + ex.GetType().Name + ": " + ex.Message); return false; }
+            finally { if (rnd != null) GameRandomManager.Instance.FreeGameRandom(rnd); }
+        }
+
+        /// <summary>A seed that survives re-creation: her record's id where there is one, else this body's entity id.</summary>
+        private static int ModSeed(EntityAlive e, int type)
+        {
+            int who = e.entityId;
+            Member m = ScRegistry.GetMember(e.entityId);
+            if (m != null) who = m.Id;
+            else { Prospect p = ScRegistry.GetProspect(e.entityId); if (p != null) who = p.Id; }
+            unchecked { return who * 31 + type; }
         }
 
         /// <summary>SCore's EntityAlive.PostInit fill again (slots = itemsOnEnterGame), and empties the slots the old list used beyond it.</summary>

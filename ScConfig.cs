@@ -900,6 +900,41 @@ namespace SurvivorCommunity
         /// </summary>
         public static float SurvivorFirearmChanceT3 = 0.85f;
         /// <summary>
+        /// The odds a survivor's rolled weapon comes with its first attachment mod (round n05, the user's ask). Each further
+        /// mod is half as likely, exactly as vanilla loot does it (ItemValue.createDefaultModItems halves the chance per
+        /// slot), and the weapon's own quality decides how many slots there are to fill. 0 turns the roll off.
+        /// </summary>
+        public static float SurvivorWeaponModChance = 0.5f;
+        /// <summary>A raider's twin of SurvivorWeaponModChance.</summary>
+        public static float RaiderWeaponModChance = 0.5f;
+        /// <summary>
+        /// The mods a rolled weapon may come with, as item_modifiers.xml's modifier_tags - the vocabulary
+        /// ItemClassModifier.GetDesiredItemModWithAnyTags matches (its HasAnyTags override tests ModifierTags, so these are
+        /// the singular tags: "sideAttachment", not the installable "sideAttachments"). One pool serves guns, bows and melee
+        /// because the game filters each tag by the weapon's own installable_tags and blocked_tags, so a weapon only ever
+        /// gets a mod that fits it - including a gun from a weapon pack, which picks up whatever its own tags allow.
+        /// sideAttachment is the one that matters most: it is where modGunFlashlight lives, and 0-XNPCCore 3.4.05 only turns
+        /// a survivor's gun light on when the held gun carries a mod with an onSelfItemActivate trigger.
+        /// </summary>
+        public static string WeaponModTags =
+            "sideAttachment,scope,barrelAttachment,barrelTipAttachment,trigger,magazine,grips,stocks,accuracy,durability,damage,stun,knockback,velocity,shaft";
+        private static string[] weaponModTagList;
+        /// <summary>WeaponModTags split and cached; empty when the setting is blank (the roll then does nothing).</summary>
+        public static string[] WeaponModTagList
+        {
+            get
+            {
+                if (weaponModTagList != null) return weaponModTagList;
+                var list = new List<string>();
+                foreach (string s in (WeaponModTags ?? "").Split(','))
+                {
+                    string t = s.Trim();
+                    if (t.Length > 0) list.Add(t);
+                }
+                return weaponModTagList = list.ToArray();
+            }
+        }
+        /// <summary>
         /// Decision D4 (tiers by gamestage), kept at spawn time since 2026-10-09: a spawn group's pick of one of our tiered
         /// classes above the gamestage tier comes in as the same side and sex at that tier (ScLoadout.Patch_ClassByGamestage),
         /// and a body's weapons and clothes follow its class tier alone - so a T2 NPC never carries T0 gear.
@@ -1202,6 +1237,11 @@ namespace SurvivorCommunity
             SurvivorFirearmChance = 0.12f;
             SurvivorMeleeOnlyChance = 0.15f;
             SurvivorFirearmChanceT3 = 0.85f;
+            SurvivorWeaponModChance = 0.5f;
+            RaiderWeaponModChance = 0.5f;
+            WeaponModTags =
+                "sideAttachment,scope,barrelAttachment,barrelTipAttachment,trigger,magazine,grips,stocks,accuracy,durability,damage,stun,knockback,velocity,shaft";
+            weaponModTagList = null;
             XnpcClassByGamestage = true;
             SurvivorRangedMainChance = 0.4f;
             XnpcWeapons.Clear();
@@ -2283,6 +2323,9 @@ namespace SurvivorCommunity
                 ParseFloat(p, "SurvivorFirearmChance", ref SurvivorFirearmChance, 0f, 1f);
                 ParseFloat(p, "SurvivorMeleeOnlyChance", ref SurvivorMeleeOnlyChance, 0f, 1f);
                 ParseFloat(p, "SurvivorFirearmChanceT3", ref SurvivorFirearmChanceT3, 0f, 1f);
+                ParseFloat(p, "SurvivorWeaponModChance", ref SurvivorWeaponModChance, 0f, 1f);
+                ParseFloat(p, "RaiderWeaponModChance", ref RaiderWeaponModChance, 0f, 1f);
+                if (p.Values.TryGetValue("WeaponModTags", out string wmt)) { WeaponModTags = wmt ?? ""; weaponModTagList = null; }
                 bool byGs = XnpcClassByGamestage;
                 if (p.Values.ContainsKey("XnpcClassByGamestage")) p.ParseBool("XnpcClassByGamestage", ref byGs);
                 XnpcClassByGamestage = byGs;
