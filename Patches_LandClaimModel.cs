@@ -14,15 +14,21 @@ namespace SurvivorCommunity
     /// component that every vanilla block prefab carries. Standard has no _MacroAO, so that write goes
     /// nowhere and the block sits at one brightness while the props beside it change with the light.
     ///
-    /// Both halves are needed: the game's shader so the property exists, and the component so something
-    /// drives it. The shader cannot be referenced when the bundle is built - it lives in the game's own
-    /// CAB archives (shaders_assets_all.bundle) and no Shader.Find in the game names it - so it is
-    /// swapped in the first time the prefab comes out of the bundle. Materials are shared assets, so
-    /// doing it once covers every claim in the world.
+    /// Both halves are needed: a material on the game's shader so the property exists, and the
+    /// component so something drives it.
     ///
-    /// If the shader cannot be found the block keeps Standard, but the _rmom map is taken back off it:
-    /// that map is roughness/metallic/occlusion, and Standard would read its red channel as metallic and
-    /// draw a shiny metal desk. Flat and matte is the better way to be wrong.
+    /// Rather than move the bundle's own materials onto that shader and set its values by hand, each
+    /// part BORROWS the material off the vanilla block its mesh came from. Same meshes, same UVs, same
+    /// maps, so the vanilla material is simply the right answer, and everything on it comes along -
+    /// shader, tint, keywords, GI flags, instancing, render queue - with nothing to get wrong.
+    ///
+    /// Setting the values by hand failed twice, and the reason is in PartDonor: the four materials do
+    /// not agree with each other, so there is no single set of values that is correct for all of them.
+    /// Vanilla materials come out of the game's bundles with positive instance IDs, so
+    /// Utils.CleanupMaterials (which destroys only runtime-created ones) leaves them alone.
+    ///
+    /// If a vanilla prefab cannot be loaded, that part keeps the bundle's own Standard material: it
+    /// carries the same maps, so the part still looks like itself and only misses the world's light.
     /// </summary>
     public static class Patches_LandClaimModel
     {
@@ -31,10 +37,31 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The shader every vanilla block material uses (pathID 9077681516710986715 in
-        /// Data/Addressables/Standalone/shaders_assets_all.bundle). The only one in the game with
-        /// _MacroAO or _RMOM.
+        /// Data/Addressables/Standalone/shaders_assets_all.bundle), and the only one in the game with
+        /// _MacroAO or _RMOM. Nothing here names it any more - borrowing a vanilla material brings it
+        /// along - but it is the thing to grep for if this ever needs picking apart again.
         /// </summary>
         public const string GameShaderName = "Game/Entity Tint Mask";
+
+        /// <summary>
+        /// Each part of the baked model, and the vanilla block prefab its mesh and textures were
+        /// taken from. The whole material is borrowed from there rather than rebuilt here: these are
+        /// the same meshes with the same UVs and the same maps, so the vanilla material IS the right
+        /// answer, and every value on it comes along - shader, tint, keywords, GI flags, instancing.
+        ///
+        /// Setting those by hand is how this went wrong twice. The four materials do NOT agree: the
+        /// desk and the book pile run _Tint 0 with a white _Color, while the locker runs _Tint 1 with
+        /// (0.80, 0.80, 0.77) and the lamp _Tint 1 with (0.19, 0.19, 0.19) - the lamp body is MEANT to
+        /// be dark. There is no single set of values to apply.
+        /// </summary>
+        private static readonly System.Collections.Generic.Dictionary<string, string> PartDonor =
+            new System.Collections.Generic.Dictionary<string, string>
+            {
+                { "locker_ver4_loot", "@:Entities/LootContainers/locker_ver4_lootPrefab.prefab" },
+                { "deskOffice", "@:Entities/Furniture/deskOfficePrefab.prefab" },
+                { "lampDesk", "@:Entities/Lighting/lampDeskPrefab.prefab" },
+                { "bookScarletJournals", "@:Entities/Commercial/bookScarletJournalsPrefab.prefab" },
+            };
 
         [HarmonyPatch(typeof(BlockShapeModelEntity), "PoolLoadCallback")]
         public static class Patch_PoolLoadCallback
@@ -55,89 +82,26 @@ namespace SurvivorCommunity
             }
         }
 
-        private static Shader cached;
+        private static readonly System.Collections.Generic.Dictionary<string, Material> donorCache =
+            new System.Collections.Generic.Dictionary<string, Material>();
 
-        private static Shader FindGameShader()
+        private static Material DonorMaterial(string assetPath)
         {
-            // The game's own route: GlobalAssets.FindShader looks the name up in its addressables
-            // shader map and falls back to Shader.Find. GameObjectPool.Init calls it with this exact
-            // name at app start and holds the result in tintMaskShader, so the shader is resident
-            // long before any block's Init runs. (The != null goes through Unity's overloaded check,
-            // so a shader destroyed by a bundle reload is correctly looked up again.)
-            if (cached != null) return cached;
-            cached = GlobalAssets.FindShader(GameShaderName);
-            return cached;
+            Material cached;
+            if (donorCache.TryGetValue(assetPath, out cached) && cached != null) return cached;
+            GameObject prefab = DataLoader.LoadAsset<GameObject>(assetPath);
+            if (prefab == null) return null;
+            Renderer r = prefab.GetComponentInChildren<Renderer>(true);
+            Material m = r != null ? r.sharedMaterial : null;
+            if (m != null) donorCache[assetPath] = m;
+            return m;
         }
 
         private static void Apply(Transform prefab)
         {
-            Shader game = FindGameShader();
-            int swapped = 0, cleared = 0, already = 0;
-
-            // One pass per MATERIAL, not per renderer. DMG1 is a copy of DMG0, so the eight
-            // renderers share these same four materials and walking renderers would "swap" four and
-            // then find four "already done", which reads like something half-worked in the log.
-            // includeInactive: DMG1, the damaged state's group, is inactive in the prefab.
-            var seen = new System.Collections.Generic.HashSet<Material>();
-            foreach (Renderer r in prefab.GetComponentsInChildren<Renderer>(true))
-            {
-                if (r == null) continue;
-                foreach (Material m in r.sharedMaterials)
-                {
-                    if (m == null || m.shader == null) continue;
-                    if (!seen.Add(m)) continue;
-                    if (m.shader.name == GameShaderName) { already++; continue; }
-
-                    // Read the maps off the Standard slots they were built into BEFORE the shader
-                    // changes, or the properties are gone with it.
-                    Texture albedo = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : null;
-                    Texture normal = m.HasProperty("_BumpMap") ? m.GetTexture("_BumpMap") : null;
-                    Texture rmom = m.HasProperty("_MetallicGlossMap") ? m.GetTexture("_MetallicGlossMap") : null;
-                    Texture emissive = m.HasProperty("_EmissionMap") ? m.GetTexture("_EmissionMap") : null;
-
-                    if (game == null)
-                    {
-                        if (rmom != null)
-                        {
-                            m.SetTexture("_MetallicGlossMap", null);
-                            m.DisableKeyword("_METALLICGLOSSMAP");
-                            m.SetFloat("_Metallic", 0f);
-                            m.SetFloat("_Glossiness", 0.15f);
-                            cleared++;
-                        }
-                        continue;
-                    }
-
-                    m.shader = game;
-                    if (albedo != null) m.SetTexture("_MainTex", albedo);      // same name in both
-                    if (normal != null) m.SetTexture("_Normal", normal);
-                    if (rmom != null) m.SetTexture("_RMOM", rmom);
-                    if (emissive != null) m.SetTexture("_Emissive", emissive);
-
-                    // Floats the game's shader has and Standard does not, so without setting them
-                    // the material takes the SHADER's defaults rather than a block's.
-                    //
-                    // _Tint is the one that matters: this is the Tint Mask shader, its default is
-                    // 1 (tinting ON) and every vanilla block material sets it to 0. Left at 1 the
-                    // block is painted flat _Color and renders pure white with no texture at all -
-                    // which is exactly what the first build of this did.
-                    m.SetFloat("_Tint", 0f);
-                    m.SetColor("_Color", Color.white);
-                    // Starting value only: UpdateLight overrides it per renderer through a
-                    // MaterialPropertyBlock. 1 = fully lit, so a stuck block is bright, never black.
-                    m.SetFloat("_MacroAO", 1f);
-                    // Standard's _Cutoff default of 0.5 is serialized into these materials and the
-                    // name exists on the game's shader too, so it carries over. Vanilla blocks run
-                    // 0.5 happily, but only because their albedos are DXT1 and alpha reads 1.0; 0
-                    // takes the dependency away for the day one of these gains an alpha channel.
-                    m.SetFloat("_Cutoff", 0f);
-                    swapped++;
-                }
-            }
-
-            // What actually drives _MacroAO. Vanilla block prefabs carry this; ours cannot, because the
-            // class is the game's. IsDynamicObject stays false and appliedLit -1, as the vanilla land
-            // claim prefab has them.
+            // Added BEFORE the loop on purpose. If a donor load throws, the loop unwinds to the
+            // postfix's catch, and with this below it the prefab would be left half-borrowed AND with
+            // nothing driving _MacroAO - the worst of both. The component is harmless on its own.
             bool addedLight = false;
             if (prefab.GetComponent<UpdateLightOnAllMaterials>() == null)
             {
@@ -145,19 +109,54 @@ namespace SurvivorCommunity
                 addedLight = true;
             }
 
-            if (game == null)
+            int borrowed = 0;
+            var missing = new System.Collections.Generic.List<string>();
+
+            // includeInactive: DMG1, the damaged state's group, is inactive in the prefab. Its four
+            // renderers are copies of DMG0's and want the same materials, so both groups are walked.
+            foreach (Renderer r in prefab.GetComponentsInChildren<Renderer>(true))
             {
-                ScLog.Warn("land claim model: shader \"" + GameShaderName + "\" not found, so the block keeps "
-                           + "Unity's Standard and will not light with the world. Cleared the _rmom map off "
-                           + cleared + " material(s) so it does not read as metal.");
-                return;
+                if (r == null) continue;
+                string part = r.gameObject.name;
+                string assetPath;
+                if (!PartDonor.TryGetValue(part, out assetPath)) continue;
+                try
+                {
+                    Material donor = DonorMaterial(assetPath);
+                    if (donor == null)
+                    {
+                        // Leave the bundle's own Standard material alone: it carries the same maps, so
+                        // the part still looks like itself, it just will not light with the world.
+                        if (!missing.Contains(part)) missing.Add(part);
+                        continue;
+                    }
+                    if (r.sharedMaterial == donor) continue;
+                    r.sharedMaterials = new[] { donor };
+                    borrowed++;
+                }
+                catch (Exception e)
+                {
+                    // One bad part must not cost the others theirs.
+                    if (!missing.Contains(part)) missing.Add(part);
+                    ScLog.Once("land claim donor " + part, e);
+                }
             }
-            if (swapped > 0 || addedLight)
+
+            if (missing.Count > 0)
             {
-                ScLog.Out("land claim model: " + swapped + " material(s) moved to \"" + GameShaderName + "\""
-                          + (already > 0 ? " (" + already + " already on it)" : "")
+                ScLog.Warn("land claim model: could not load the vanilla prefab for " + string.Join(", ", missing.ToArray())
+                           + ", so " + missing.Count + " part(s) keep the bundle's own material and will not light with "
+                           + "the world.");
+            }
+            // Gated on borrowed, not on addedLight: adding the component while every part still sits on
+            // Unity's Standard achieves nothing (Standard has no _MacroAO), and saying "it lights with
+            // the world now" there would make a total failure read as a pass.
+            if (borrowed > 0)
+            {
+                ScLog.Out("land claim model: " + borrowed + " renderer(s) now use the vanilla block materials"
                           + (addedLight ? ", UpdateLightOnAllMaterials added" : "") + " - it lights with the world now.");
             }
         }
+
     }
 }

@@ -3245,23 +3245,28 @@ spacing makes unlikely; `scOutpostFlag` is a different type and is safe). What a
 **LC2. The block lights with the world (needs the DLL from this round)**
 
 The model ships on Unity's `Standard` shader, the only one a mod Unity project has, and the game lights its blocks by
-pushing `_MacroAO` into its own `Game/Entity Tint Mask` shader through an `UpdateLightOnAllMaterials` component. Standard
-has neither, which is why the block sat at one brightness. SC now moves the materials onto the game's shader the first
-time the model comes out of the bundle, and adds the component.
+pushing `_MacroAO` into its own `Game/Entity Tint Mask` shader through an `UpdateLightOnAllMaterials` component.
+Standard has neither, which is why the block sat at one brightness. Each part now **borrows the material off the
+vanilla block its mesh came from** (same meshes, same UVs, same maps), and SC adds the component. Setting those
+material values by hand failed twice: the four vanilla materials do not agree with each other, so there is no one
+set of values that is right for all of them.
 
 891. **The log says it happened.** At **world load** (it runs while block config is read, before any claim exists), once:
-     `land claim model: 4 material(s) moved to "Game/Entity Tint Mask", UpdateLightOnAllMaterials added - it lights with
-     the world now.` **Not** `shader "Game/Entity Tint Mask" not found` — that is the fallback and means the swap failed.
-     `scOutpostFlag` extends `keystoneBlock`, so the hook runs a second time; that pass is a silent no-op with no line.
+     `land claim model: 8 renderer(s) now use the vanilla block materials, UpdateLightOnAllMaterials added - it lights
+     with the world now.` Eight because DMG0 and DMG1 each hold the four parts. **Not** `could not load the vanilla
+     prefab for ...` — that is the fallback and means a part kept the bundle's own material. `scOutpostFlag` extends
+     `keystoneBlock`, so the hook runs a second time; that pass is a silent no-op with no line.
 892. **It responds to light.** Stand a claim outdoors and watch it from dusk into night: it darkens with the ground and
      the props around it, and brightens again at dawn. Carry a torch up to it at night: it lights up as you approach.
 893. **It matches the real thing.** Put a vanilla `officeDesk` and a tall locker beside the claim (creative menu) in the
      same light: the wood tone, the sheen and how dark they go in shade read the same on both. Indoors, out of the sun,
      the claim should be as dark as its neighbours rather than glowing.
-894. **The lamp still glows** and the ledger, locker and desk still carry their own detail (the `_rmom` map now goes to
-     the shader written for it rather than being repacked).
-895. **The damaged state too.** Hit the claim down to low health: the swapped shader applies to the DMG1 group as well,
-     so it does not suddenly flip to a flat or shiny look when the damaged mesh appears.
+894. **Each part looks like the block it came from.** The parts now use the vanilla materials outright, so this should
+     be exact rather than close. In particular the **lamp body is meant to be dark** (its vanilla material tints it to
+     about 19% grey) and the **locker is very slightly warm-tinted**, not pure white — if the lamp looks pale grey or
+     the locker looks bleached, something is overriding the tint. The lamp's shade still glows.
+895. **The damaged state too.** Hit the claim down to low health: the DMG1 group borrows the same vanilla materials,
+     so it does not suddenly flip to a flat or shiny look when the damaged mesh appears (both groups are walked).
 
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 

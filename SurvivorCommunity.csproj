@@ -251,6 +251,12 @@
       <HintPath>$(GameDir)\7DaysToDie_Data\Managed\Unity.Animation.Rigging.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Not used directly: DataLoader.LoadAsset has an overload taking an Addressables
+         AssetReference, and the compiler needs that type to resolve the string overload. -->
+    <Reference Include="Unity.Addressables">
+      <HintPath>$(GameDir)\7DaysToDie_Data\Managed\Unity.Addressables.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.AnimationModule">
       <HintPath>$(GameDir)\7DaysToDie_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
       <Private>false</Private>
