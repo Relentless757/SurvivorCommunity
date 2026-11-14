@@ -512,6 +512,9 @@ namespace SurvivorCommunity
             Add(t, "Block::GetBlockActivationCommands", AccessTools.DeclaredMethod(typeof(Block), "GetBlockActivationCommands", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
             Add(t, "Block::OnBlockActivated(string)", AccessTools.DeclaredMethod(typeof(Block), "OnBlockActivated", new[] { typeof(string), typeof(WorldBase), typeof(Vector3i), typeof(BlockValue), typeof(EntityPlayerLocal) }));
             Add(t, "Block::GetActivationText", AccessTools.DeclaredMethod(typeof(Block), "GetActivationText", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
+            // The land claim model's shader swap (Patches_LandClaimModel). Listed so it joins the
+            // MISSING PATCH net and does not report itself as an unlisted patch every startup.
+            Add(t, "BlockShapeModelEntity::PoolLoadCallback", AccessTools.DeclaredMethod(typeof(BlockShapeModelEntity), "PoolLoadCallback", new Type[0]));
             Add(t, "BlockCollector::GetBlockActivationCommands", AccessTools.DeclaredMethod(typeof(BlockCollector), "GetBlockActivationCommands", new[] { typeof(WorldBase), typeof(BlockValue), typeof(Vector3i), typeof(EntityAlive) }));
             Add(t, "Block::OnBlockPlaceBefore", AccessTools.DeclaredMethod(typeof(Block), "OnBlockPlaceBefore", new[] { typeof(WorldBase), typeof(BlockPlacement.Result).MakeByRefType(), typeof(EntityAlive), typeof(GameRandom) }));
             Add(t, "BlockCollector::OnBlockActivated(string)", AccessTools.DeclaredMethod(typeof(BlockCollector), "OnBlockActivated", new[] { typeof(string), typeof(WorldBase), typeof(Vector3i), typeof(BlockValue), typeof(EntityPlayerLocal) }));

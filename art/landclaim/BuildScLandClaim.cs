@@ -160,28 +160,30 @@ public static class BuildScLandClaim
     {
         string albedo = SrcDir + "/" + name + "_d.png";
         string normal = SrcDir + "/" + name + "_n.png";
-        string mask = SrcDir + "/" + name + "_mask.png";
+        string rmom = SrcDir + "/" + name + "_rmom.png";
         string emissive = SrcDir + "/" + name + "_e.png";
-        foreach (string p in new[] { albedo, normal, mask })
+        foreach (string p in new[] { albedo, normal, rmom })
             if (!File.Exists(p)) { Log("ERROR: missing " + p); return null; }
 
         SetTexture(albedo, false, true);
         SetTexture(normal, true, false);
-        SetTexture(mask, false, false);
+        SetTexture(rmom, false, false);
 
+        // Standard is the only shader a mod Unity project has. SC moves these materials onto the
+        // game's own "Game/Entity Tint Mask" at load (Patches_LandClaimModel.cs) so they light with
+        // the world through _MacroAO; until then the slots below are what the game's shader is given.
+        // _MainTex has the same name in both. _MetallicGlossMap carries the game's _rmom map purely
+        // so the swap can read it back out and bind it to _RMOM - Standard misreads it (its red is
+        // roughness, not metallic), which is why the swap clears it if the shader is ever missing.
         var mat = new Material(Shader.Find("Standard")) { name = name };
         mat.color = Color.white;
         mat.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(albedo));
         mat.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>(normal));
         mat.EnableKeyword("_NORMALMAP");
-        // make_maps.py packs one texture to serve as both: R metallic, G occlusion, A smoothness.
-        var maskTex = AssetDatabase.LoadAssetAtPath<Texture2D>(mask);
-        mat.SetTexture("_MetallicGlossMap", maskTex);
+        mat.SetTexture("_MetallicGlossMap", AssetDatabase.LoadAssetAtPath<Texture2D>(rmom));
         mat.EnableKeyword("_METALLICGLOSSMAP");
         mat.SetFloat("_GlossMapScale", 1f);
-        mat.SetFloat("_SmoothnessTextureChannel", 0f);      // smoothness from the metallic map's alpha
-        mat.SetTexture("_OcclusionMap", maskTex);
-        mat.SetFloat("_OcclusionStrength", 1f);
+        mat.SetFloat("_SmoothnessTextureChannel", 0f);
 
         if (File.Exists(emissive))
         {

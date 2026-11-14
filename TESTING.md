@@ -3242,6 +3242,27 @@ spacing makes unlikely; `scOutpostFlag` is a different type and is safe). What a
      toolbelt (the Outpost Flag's is the same picture with its orange tint).
 890. **The Outpost Flag.** Place one: same model, same footprint, and it still establishes an outpost in an eligible POI.
 
+**LC2. The block lights with the world (needs the DLL from this round)**
+
+The model ships on Unity's `Standard` shader, the only one a mod Unity project has, and the game lights its blocks by
+pushing `_MacroAO` into its own `Game/Entity Tint Mask` shader through an `UpdateLightOnAllMaterials` component. Standard
+has neither, which is why the block sat at one brightness. SC now moves the materials onto the game's shader the first
+time the model comes out of the bundle, and adds the component.
+
+891. **The log says it happened.** At **world load** (it runs while block config is read, before any claim exists), once:
+     `land claim model: 4 material(s) moved to "Game/Entity Tint Mask", UpdateLightOnAllMaterials added - it lights with
+     the world now.` **Not** `shader "Game/Entity Tint Mask" not found` — that is the fallback and means the swap failed.
+     `scOutpostFlag` extends `keystoneBlock`, so the hook runs a second time; that pass is a silent no-op with no line.
+892. **It responds to light.** Stand a claim outdoors and watch it from dusk into night: it darkens with the ground and
+     the props around it, and brightens again at dawn. Carry a torch up to it at night: it lights up as you approach.
+893. **It matches the real thing.** Put a vanilla `officeDesk` and a tall locker beside the claim (creative menu) in the
+     same light: the wood tone, the sheen and how dark they go in shade read the same on both. Indoors, out of the sun,
+     the claim should be as dark as its neighbours rather than glowing.
+894. **The lamp still glows** and the ledger, locker and desk still carry their own detail (the `_rmom` map now goes to
+     the shader written for it rather than being repacked).
+895. **The damaged state too.** Hit the claim down to low health: the swapped shader applies to the DMG1 group as well,
+     so it does not suddenly flip to a flat or shiny look when the damaged mesh appears.
+
 ## Quest giver card for AshfallUI's Quests page (2026-10-26)
 
 `ScQuestGiverApi.cs`: `Describe(Quest)` (name, role, bio) and `Portrait(Quest)`, found by AshfallUI through reflection.

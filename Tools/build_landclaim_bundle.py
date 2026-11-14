@@ -7,7 +7,7 @@ The model is four of the game's own block models (a tall locker, an office desk,
 book pile) baked into one mesh, so ITS INPUTS ARE NOT IN THIS REPO - they are The Fun Pimps' assets
 and this repo is public. They live in a working folder outside it, --inputs, which by default is
     F:\\Game Related Programs\\Creation Stuff\\SC_LandClaim_assets\\unity_in
-and holds SC_LandClaim.fbx plus <material>_d/_n/_mask(/_e).png, written by make_maps.py beside it.
+and holds SC_LandClaim.fbx plus <material>_d/_n/_rmom(/_e).png, written by make_maps.py beside it.
 The built bundle and the rendered icon are TFP geometry too, so .gitignore keeps both out.
 
 What it does, in order:
@@ -53,6 +53,7 @@ VANILLA_SIZE = {
     "deskOffice_d": 2048, "deskOffice_n": 2048,
     "lampDesk_d": 1024, "lampDesk_n": 1024, "lampDesk_e": 1024,
     "Books_d": 1024, "Books_n": 512,
+    "locker_rmom": 2048, "deskOffice_rmom": 2048, "lampDesk_rmom": 1024, "Books_rmom": 512,
 }
 PARTS = ["locker_ver4_loot", "deskOffice", "lampDesk", "bookScarletJournals"]
 
@@ -77,7 +78,7 @@ def copy_inputs(project, inputs):
         sys.exit("no input folder %s - run make_maps.py in the working folder first" % inputs)
     wanted = ["SC_LandClaim.fbx"]
     for mat in MATERIALS:
-        wanted += [mat + "_d.png", mat + "_n.png", mat + "_mask.png"]
+        wanted += [mat + "_d.png", mat + "_n.png", mat + "_rmom.png"]
     optional = [mat + "_e.png" for mat in MATERIALS]
 
     dst_dir = os.path.join(project, *ASSET_SUB.split("/"))

@@ -99,6 +99,7 @@
     <Compile Include="BlockScRadio.cs" />
     <Compile Include="XUiC_ScRadio.cs" />
     <Compile Include="Patches_Radio.cs" />
+    <Compile Include="Patches_LandClaimModel.cs" />
     <Compile Include="ScLooks.cs" />
     <Compile Include="Patches_Sdcs.cs" />
     <Compile Include="ScAim.cs" />
