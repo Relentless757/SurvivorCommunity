@@ -38,7 +38,7 @@
 			<ingredient name="resourceNail" count="4" />
 		</recipe>
 	</append>
-	<!-- The Outpost Flag: a land claim plus cloth and iron for the flag. -->
+	<!-- The Outpost Claim Block: a land claim plus cloth and scrap iron. -->
 	<append xpath="/recipes">
 		<recipe name="scOutpostFlag" count="1" craft_time="10" tags="packMuleCrafting">
 			<ingredient name="resourceRockSmall" count="5" />

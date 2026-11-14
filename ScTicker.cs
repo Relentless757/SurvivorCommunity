@@ -118,7 +118,7 @@ namespace SurvivorCommunity
                 ScEncRequests.Tick(w, player);        // their requests: the journal squared with the records once a session (E4)
                 ScEncCalls.Tick(w, player);           // allies' radio calls: a fighter's arrival and return after a load, a supply drop (E9)
                 ScInfestations.Tick(w, player);       // infestations found within reach, their markers restored after a load (I1)
-                ScOutposts.TickFlags(player);         // Outpost Flags placed since the last second establish themselves
+                ScOutposts.TickFlags(player);         // Outpost Claim Blocks placed since the last second establish themselves
                 ScOutpostRisk.Tick(w, player);        // attack fights and deadlines, blood-moon sieges
                 ScBaseAttack.Tick(w, player);         // the home's horde: the call at full attention, the arrival, the fight (with or without the player)
                 ScSiege.Tick(w, player);              // a blood moon passed with the player away besieges the base

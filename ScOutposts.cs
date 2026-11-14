@@ -142,12 +142,12 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, Vector3> markers = new Dictionary<int, Vector3>();
         private static bool markersRestored;
         private static float nextTick;
-        /// <summary>The Outpost Flag block: a claim that establishes itself when placed.</summary>
+        /// <summary>The Outpost Claim Block block: a claim that establishes itself when placed.</summary>
         public const string FlagBlock = "scOutpostFlag";
         private static readonly List<Vector3i> flagQueue = new List<Vector3i>();
         private static readonly Dictionary<Vector3i, int> flagTries = new Dictionary<Vector3i, int>();
 
-        /// <summary>TEFeatureSCCommunity.OnAdded: an Outpost Flag went down; established on the next ticker second.</summary>
+        /// <summary>TEFeatureSCCommunity.OnAdded: an Outpost Claim Block went down; established on the next ticker second.</summary>
         public static void QueueFlag(Vector3i claim)
         {
             if (!flagQueue.Contains(claim)) flagQueue.Add(claim);

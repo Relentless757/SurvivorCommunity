@@ -389,11 +389,35 @@ public static class BuildScLandClaim
         try
         {
             var inst = (GameObject)Object.Instantiate(prefab);
+
+            // The shipped materials carry the game's raw _rmom in Standard's _MetallicGlossMap, purely
+            // as a carrier for the runtime swap to read back out (Patches_LandClaimModel). Standard
+            // reads that map's RED as metallic, and red is roughness - 0.64 to 0.88 on these - so left
+            // alone it draws dark shiny metal, which is what made the icon look like a black slab.
+            // The game never sees this; only the icon and previews are rendered here. Touching
+            // r.materials (not sharedMaterials) works on instance copies, so the assets about to be
+            // bundled are not modified.
+            foreach (var r in inst.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = r.materials;
+                foreach (var m in mats)
+                {
+                    m.SetTexture("_MetallicGlossMap", null);
+                    m.DisableKeyword("_METALLICGLOSSMAP");
+                    m.SetFloat("_Metallic", 0f);        // wood and painted steel are both dielectric
+                    m.SetFloat("_Glossiness", 0.25f);
+                }
+                r.materials = mats;
+            }
+
             var sun = new GameObject("Sun").AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.intensity = 1.25f;
             sun.shadows = LightShadows.Soft;
-            sun.transform.rotation = Quaternion.LookRotation(new Vector3(-0.45f, -0.5f, 0.75f));
+            // Light travels ALONG this vector, and every camera below sits on +Z looking back at the
+            // model. Pointing it at +Z lit the far side and left the face the camera sees in shadow,
+            // which is what made the icon read dark.
+            sun.transform.rotation = Quaternion.LookRotation(new Vector3(0.45f, -0.55f, -0.70f));
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.42f, 0.44f, 0.48f);
             var cam = new GameObject("Camera").AddComponent<Camera>();
@@ -405,10 +429,13 @@ public static class BuildScLandClaim
             // The block fronts onto +Z, so the viewer stands at +Z looking back.
             Shot(cam, new Vector3(-2.2f, 1.9f, 3.6f), new Vector3(0f, 0.85f, 0f), "preview_front");
             Shot(cam, new Vector3(2.6f, 1.6f, 2.8f), new Vector3(0.3f, 0.9f, 0f), "preview_locker");
-            // The block's icon, square, on a flat magenta the tool takes out again.
+            // The block's icon, square, on a flat magenta the tool takes out again. An item icon is
+            // read at about 40 px against a dark inventory slot, so it is lit harder than the previews
+            // and leans bright: the wood and the locker's enamel both go muddy otherwise.
             cam.backgroundColor = new Color(1f, 0f, 1f);
             cam.fieldOfView = 28f;
-            RenderSettings.ambientLight = new Color(0.62f, 0.64f, 0.68f);
+            sun.intensity = 1.7f;
+            RenderSettings.ambientLight = new Color(0.86f, 0.87f, 0.90f);
             Shot(cam, new Vector3(-3.3f, 2.8f, 5.4f), new Vector3(0f, 0.9f, 0f), "icon", 512, 512);
             Object.DestroyImmediate(inst);
         }

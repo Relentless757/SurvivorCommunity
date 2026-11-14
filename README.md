@@ -862,7 +862,7 @@ both the outpost and your home are unloaded.
 ### Establishing an outpost
 
 1. Clear a building at least **150 m** from home.
-2. Place a land claim inside it and pick **Establish outpost** on the claim's radial, or place an **Outpost Flag**, which
+2. Place a land claim inside it and pick **Establish outpost** on the claim's radial, or place an **Outpost Claim Block**, which
    establishes itself when placed.
 3. It needs the **home radio station powered** and a fee of **2 materials and 1 fuel** from the stockpile.
 
@@ -1324,7 +1324,7 @@ The round of drinks (section 4): its cost, effect and status, and **Pour a round
 | **Handheld Radio** | Opens the radio window from anywhere (with home power); lets runners talk to you | Workbench: 3 electrical parts, 2 mechanical parts, 5 polymer scrap, 2 duct tape; rare electrical loot; traders now and then; rare raider drop |
 | **Watch Post** (any shape) | A post for a guard on watch | Backpack: 10 wood, 4 nails |
 | **Guard Tower** | Kit that puts up a watch tower with a Watch Post | Backpack: 782 wood, 4 nails |
-| **Outpost Flag** | A land claim that becomes an outpost when placed in a cleared building away from home | Backpack: 5 small stones, 5 cloth, 5 scrap iron |
+| **Outpost Claim Block** | A land claim that becomes an outpost when placed in a cleared building away from home | Backpack: 5 small stones, 5 cloth, 5 scrap iron |
 | **Small / Medium / Large bundles** (food, water, medical, ammo, materials, fuel, luxury) | 1 / 2 / 3 stockpile units; open one for an assortment of goods | Packing station, loot, air drops, trader quest rewards, allied supply drops |
 | **Allied Supply Crate** | Supply drop from an allied enclave | Radio: an ally's Supply drop |
 | **Remains** | A missing survivor's body (Search the body) | Placed by an enclave's missing-survivor request |

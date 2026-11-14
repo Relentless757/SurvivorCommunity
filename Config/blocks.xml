@@ -2002,7 +2002,7 @@
 			<property name="FilterTags" value="MC_playerBlocks,SC_decor" />
 		</block>
 	</append>
-	<!-- The Outpost Flag: a land claim that establishes an outpost where it stands (inside a cleared building away
+	<!-- The Outpost Claim Block: a land claim that establishes an outpost where it stands (inside a cleared building away
 	     from home, radio on, fee paid - the same gates as the claim's "Establish outpost"); anywhere else it is an
 	     ordinary claim. Same model and claim rules as the keystone (IndexName lpblock); TEFeatureSCCommunity.OnAdded. -->
 	<append xpath="/blocks">

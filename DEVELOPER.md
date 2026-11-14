@@ -375,7 +375,7 @@ working with the outpost and the home both unloaded. The in-game checklist is `T
 
 **Establishing and daily production**
 - **Establish.** Clear a building at least `OutpostMinDistance` (150 m) from home and place an ordinary land claim in
-  it (or craft an **Outpost Flag**, which establishes itself when placed). Then pick **Establish outpost** on the
+  it (or craft an **Outpost Claim Block**, which establishes itself when placed). Then pick **Establish outpost** on the
   claim. It needs the home radio powered and the fee (`OutpostFeeMats` + `OutpostFeeFuel` from the stockpile).
 - **What it makes** depends on what the building is (`sc poi`, and the `OutpostRows` / `OutpostPrefabs` tables):
   groceries, diners and farms make food; clinics make medical; army sites, gun stores and police make ammo;

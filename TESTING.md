@@ -2758,7 +2758,7 @@ enclave info <id>`, `sc enclave reveal <id>`, `sc status`. Set `DebugLogging` to
      the tooltip "Start a community first: hold E on one of your land claim blocks and
      pick Start a community here." No favor is offered and `sc status` lists no new prospect for them. A companion you
      hired the vanilla way the same. Elsewhere: the radio window's survivor call says "Start a community first: ...", an
-     Outpost Flag stays a plain claim with the same reason, a Watch Post or a Guard Tower is refused with "... start a
+     Outpost Claim Block stays a plain claim with the same reason, a Watch Post or a Guard Tower is refused with "... start a
      community at one of your land claims first.", and no claim offers **Establish outpost**.
 733. **The claim's radial with no home.** Hold E on your claim: **Community** and **Start a community here**; no **Set as
      community home**, no **Linked storage**. **Community** opens the window and starts nothing (`sc home` still `<none>`).
@@ -3238,9 +3238,9 @@ spacing makes unlikely; `scOutpostFlag` is a different type and is safe). What a
      with the new model, clipping through whatever stands beside or above it. Build a wall or put a chest in one of the
      five cells it now wants, then pick the old claim up: the wall or chest is **still there** (only another claim block
      in those cells would go). Place the claim again and it takes its proper six cells.
-889. **The icon.** The claim and the Outpost Flag show the new icon in the crafting list, in your inventory and on the
-     toolbelt (the Outpost Flag's is the same picture with its orange tint).
-890. **The Outpost Flag.** Place one: same model, same footprint, and it still establishes an outpost in an eligible POI.
+889. **The icon.** The claim and the Outpost Claim Block show the new icon in the crafting list, in your inventory and on the
+     toolbelt (the Outpost Claim Block's is the same picture with its orange tint).
+890. **The Outpost Claim Block.** Place one: same model, same footprint, and it still establishes an outpost in an eligible POI.
 
 **LC2. The block lights with the world (needs the DLL from this round)**
 
@@ -3777,7 +3777,7 @@ kept free of zombies, quests, claims and outposts. There are no people in them y
 5. Walk through every room of its building, doors and trigger rooms too. No zombie spawns. `sc enclave info <id>` then
    says all the generated sleeper areas are cleared and never respawn. `sc poi` inside it adds an "enclave" line.
 6. Try to place a land claim inside it, or close enough that the claim's square reaches it. It is refused, and the
-   tooltip names the enclave. An Outpost Flag is refused the same way.
+   tooltip names the enclave. An Outpost Claim Block is refused the same way.
 7. `sc enclave reveal all`: every enclave shows on the map, grey fortresses and red skulls, each labelled "Name
    (Neutral)" or "Name (Hostile)". `sc enclave hide all` takes them all off again.
 8. Save, quit and load. The log says `enclaves: 11 loaded, 0 moved, 0 dropped, 0 added`. The same enclaves are listed,
@@ -6345,7 +6345,7 @@ controls: `sc run <name> skip` (end the current leg now), `sc run <name> offline
 - [ ] **Distress calls** sometimes pin a runner's rescue at one of your outposts (30 %).
 - [ ] **Built inside an outpost:** beds, workbench/campfire, and crops for food outposts raise its yield. The detail shows "(+n% built)", and `sc outpost list` shows the counts.
 - [ ] **Outpost storage** on an outpost claim: one view over that POI's player boxes.
-- [ ] **Outpost Flag** (craftable: 5 small rocks, 5 cloth, 5 scrap iron) placed in a cleared, eligible POI establishes itself. Anywhere else it is a plain claim, with a tooltip saying why.
+- [ ] **Outpost Claim Block** (craftable: 5 small rocks, 5 cloth, 5 scrap iron) placed in a cleared, eligible POI establishes itself. Anywhere else it is a plain claim, with a tooltip saying why.
 - [ ] Off by default, test only if switched on in `Config/blocks.xml`:
   - [ ] `OutpostStashAndHaul`
   - [ ] `OutpostCheckInDays`

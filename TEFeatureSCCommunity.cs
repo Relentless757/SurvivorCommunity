@@ -89,7 +89,7 @@ namespace SurvivorCommunity
             _addCallback(new BlockActivationCommand(CmdOutpostStorage, "loot_sack", _enabled: false), TileEntityComposite.EBlockCommandOrder.Normal, base.FeatureData);
         }
 
-        /// <summary>An Outpost Flag went down: it tries to establish itself on the next ticker second.</summary>
+        /// <summary>An Outpost Claim Block went down: it tries to establish itself on the next ticker second.</summary>
         public override void OnAdded(Vector3i _blockPos, BlockValue _blockValue)
         {
             base.OnAdded(_blockPos, _blockValue);

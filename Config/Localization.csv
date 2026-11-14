@@ -1,4 +1,4 @@
-Key,File,Type,UsedInMainMenu,NoTranslate,KeepLoaded,english
+﻿Key,File,Type,UsedInMainMenu,NoTranslate,KeepLoaded,english
 blockcommand_TEFeatureSCCommunity:community,UI,Radial blockcommand,,,,Community
 blockcommand_TEFeatureSCCommunity:sethome,UI,Radial blockcommand,,,,Set as community home
 blockcommand_TEFeatureSCCommunity:starthome,UI,Radial blockcommand,,,,Start a community here
@@ -573,10 +573,10 @@ scOpUnstashed,UI,Tooltip,,,,Your people left {0} bundle(s) in the claim's box at
 scUiOpBuiltBonus,UI,Menu,,,,(+{0}% built)
 scUiOpStashed,UI,Menu,,,,({0} stashed)
 scUiOpInvest,UI,Menu,,,,"{0} beds, {1} facilities, {2} crops, {3} defenses: +{4}%"
-scFlagNotActive,UI,Tooltip,,,,The flag is not an active land claim here - it cannot hold an outpost.
-scFlagPlain,UI,Tooltip,,,,The flag stands as a plain land claim: {0}
-scOutpostFlag,UI,Block,,,,Outpost Flag
-scOutpostFlagDesc,UI,Block,,,,"A land claim that plants your community's flag. Place it inside a cleared building away from home and it becomes an outpost at once, if the radio at home has power and the stockpile can pay the fee. Anywhere else it is an ordinary land claim."
+scFlagNotActive,UI,Tooltip,,,,The claim block is not an active land claim here - it cannot hold an outpost.
+scFlagPlain,UI,Tooltip,,,,The claim block stands as a plain land claim: {0}
+scOutpostFlag,UI,Block,,,,Outpost Claim Block
+scOutpostFlagDesc,UI,Block,,,,"A land claim that claims an outpost where it stands. Place it inside a cleared building away from home and it becomes an outpost at once, if the radio at home has power and the stockpile can pay the fee. Anywhere else it is an ordinary land claim."
 scRiskAlertAttack,UI,Menu,,,,UNDER ATTACK - {0} h to get there
 scRiskAlertRaid,UI,Menu,,,,RAIDERS ATTACKING - {0} h to get there
 scRiskAlertDemand,UI,Menu,,,,Raiders demand {0} ammo + {1} food (answer on the radio)
