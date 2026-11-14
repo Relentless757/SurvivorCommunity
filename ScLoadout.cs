@@ -299,14 +299,80 @@ namespace SurvivorCommunity
         {
             if (string.IsNullOrEmpty(token)) return null;
             foreach (Weapon w in Catalogue()) if (string.Equals(w.Token, token, StringComparison.OrdinalIgnoreCase)) return w;
-            return null;
+            return Extra(token);
         }
 
         private static Weapon FromHash(float hash)
         {
             if (hash <= 0f) return null;
             foreach (Weapon w in Catalogue()) if (w.Hash == hash) return w;
-            return null;
+            foreach (Weapon w in extras.Values) if (w.Hash == hash) return w;
+            // a body's cvars naming a weapon outside the roll list that nothing has looked up by name yet this session
+            if (extraByHash == null)
+            {
+                extraByHash = new Dictionary<float, string>();
+                foreach (ItemClass ic in ItemClass.list)
+                    if (ic != null && WieldableFamily(ic) != null) extraByHash[Hash(ic.GetItemName())] = ic.GetItemName();
+            }
+            string name;
+            return extraByHash.TryGetValue(hash, out name) ? Extra(name) : null;
+        }
+
+        /// <summary>
+        /// Round n08 (play test 2026-11-14: "IZY weapons aren't being recognized as usable weapons, possibly any mod added
+        /// weapons"): weapons OUTSIDE the roll list that a survivor can still carry in her pair - what a player hands over.
+        /// The roll list (XnpcWeapons) stays what NPCs SPAWN with (tiers, bands, the curated IZY Classic set); a weapon the
+        /// player chooses only has to be one an NPC body can wield (WieldableFamily). Built on first use from the item itself,
+        /// so a record naming one (registry loadout=) resolves on every load; never part of a roll (Catalogue).
+        /// </summary>
+        private static readonly Dictionary<string, Weapon> extras = new Dictionary<string, Weapon>(StringComparer.OrdinalIgnoreCase);
+        private static Dictionary<float, string> extraByHash;
+
+        private static Weapon Extra(string token)
+        {
+            Weapon w;
+            if (extras.TryGetValue(token, out w)) return w;
+            ItemClass ic = ItemClass.GetItemClass(token, true);
+            string family = WieldableFamily(ic);
+            if (family == null) return null;
+            string name = ic.GetItemName();
+            w = new Weapon { Token = name, Family = family, Ranged = family != "melee", Tier = Math.Max(0, NameTier(name)), Hash = Hash(name) };
+            extras[name] = w;
+            return w;
+        }
+
+        private static readonly FastTags<TagGroup.Global> BowTags = FastTags<TagGroup.Global>.Parse("bow,crossbow");
+        private static readonly FastTags<TagGroup.Global> RangedTag = FastTags<TagGroup.Global>.Parse("ranged");
+        private static readonly FastTags<TagGroup.Global> ToolTag = FastTags<TagGroup.Global>.Parse("tool");
+        private static readonly FastTags<TagGroup.Global> ExplosiveTags = FastTags<TagGroup.Global>.Parse("launcher,perkDemolitionsExpert");
+        /// <summary>Dual pistols (IZY's duals): an NPC body has no aim or reload pose for this hold type.</summary>
+        private const int DualHoldType = 67;
+
+        /// <summary>
+        /// melee, bow or firearm when an NPC body can wield this item, else null. 0-XNPCCore's own rule for "any weapon"
+        /// (AnyWeaponRules.Classify via SdcsWeaponKind): not a light tool, a hold type 0..99, and the first action either
+        /// ranged with finite ammo and at least one ammo type, or a melee swing. A gun or bow must also carry the "ranged"
+        /// tag: 0-XNPCCore's own gun handling (its re-arm, its last-held step, SdcsWeaponKind.HasRangedTag) keys on it, so
+        /// a gun without it (IZY's Broken AR-15) would be held but never treated as a gun. Two more refusals of SC's own:
+        /// launchers and anything of the Demolitions perk (rockets and grenades fired next to the base and the player), and
+        /// the dual pistols' hold type (no aim or reload pose on a body - the IZY research behind the roll list). And no
+        /// tool: a melee item tagged "tool" (pickaxe, shovel, wrench...) is a job's, not a pair's.
+        /// </summary>
+        internal static string WieldableFamily(ItemClass ic)
+        {
+            if (ic == null || ic.Actions == null || ic.Actions.Length == 0 || ic.Actions[0] == null || ic.HoldType == null) return null;
+            int hold = ic.HoldType.Value;
+            if (hold < 0 || hold >= 100 || hold == DualHoldType || ScXnpc.IsLightTool(ic)) return null;
+            ItemActionRanged r = ic.Actions[0] as ItemActionRanged;
+            if (r != null)
+            {
+                if (r.InfiniteAmmo || r.MagazineItemNames == null || r.MagazineItemNames.Length == 0) return null;
+                if (!ic.HasAnyTags(RangedTag) || ic.HasAnyTags(ExplosiveTags)) return null;
+                return ic.HasAnyTags(BowTags) ? "bow" : "firearm";
+            }
+            // a tool (pickaxe, shovel, wrench, claw hammer, stone axe: every vanilla melee item tagged "tool") is for jobs:
+            // handed over it stays in her window, as before. The roll list's own tools (the fire axe) are on Catalogue.
+            return ic.Actions[0] is ItemActionDynamicMelee && !ic.HasAnyTags(ToolTag) ? "melee" : null;
         }
 
         /// <summary>Does the catalogue carry the weapon (so it can be one of a pair)?</summary>
@@ -329,8 +395,21 @@ namespace SurvivorCommunity
             return list;
         }
 
-        /// <summary>A weapon's strength band (Weapon.Level: the band it is likeliest at), or -1 when it is not carried.</summary>
+        /// <summary>
+        /// A weapon's strength band (Weapon.Level: the band it is likeliest at), or -1 when it is not on the roll list. The
+        /// roll list ONLY: an enclave values a gun by this (ScEncRequests.TierOf) and falls back to the item's economic value
+        /// for -1 - a weapon outside the list (round n08's extras) must keep that fallback, not read as tier 0.
+        /// </summary>
         public static int LevelOf(string token)
+        {
+            if (string.IsNullOrEmpty(token)) return -1;
+            foreach (Weapon w in Catalogue()) if (string.Equals(w.Token, token, StringComparison.OrdinalIgnoreCase)) return w.Level;
+            return -1;
+        }
+
+        /// <summary>How strong a handed weapon counts when choosing between several (ScArms.HandedWeapon): the roll list's
+        /// band, else the tier in its name for a weapon outside the list; -1 for no weapon a survivor can carry.</summary>
+        public static int HandLevelOf(string token)
         {
             Weapon w = Find(token);
             return w != null ? w.Level : -1;
@@ -902,8 +981,15 @@ namespace SurvivorCommunity
                 // BOTH weapons of the pair, not just the one in her hand: the table is keyed per weapon type, and a body
                 // very often loads holding its MELEE weapon (KitOutOfHand, ScMedic.FixLoadedHand, the overwhelmed rule),
                 // which would leave the gun's stale entry in place - the one case that matters.
-                if (ScMags.Active) ClearStaleMagTables(e);
-                ApplyWeaponMods(e);                      // round n05: attachments on the pair, after SCore's toolbelt fill
+                if (ScMags.Active && e.Buffs != null && e.Buffs.GetCustomVar(X18CleanedCvar) < 0.5f)
+                {
+                    // ONCE per body, marked by a saved cvar. Running it on every load wiped the very entries X18 now
+                    // deliberately leaves with 0-XNPCCore (a gun's rounds that Locked & Loaded has not seated, which
+                    // nobody else would bank) - turning the ammo-loss fix back into a slower ammo loss.
+                    ClearStaleMagTables(e);
+                    e.Buffs.SetCustomVar(X18CleanedCvar, 1f);
+                }
+                ApplyWeaponMods(e);                      // rounds n05/n08: attachments on the pair, after SCore's toolbelt fill
                 bool raider = ScXnpc.IsRaider(e);
                 if (raider) SetRaiderXp(e);              // every PostInit, before the seeded raider returns below
                 if (runnerRestore) return;               // the rest: AfterRunnerRestore, on the bag the runner keeps
@@ -1176,67 +1262,175 @@ namespace SurvivorCommunity
             if (changed && ScRegistry.Loaded) ScRegistry.SaveAtomic();
         }
 
+        /// <summary>X18's one-shot cleanup marker: set once the stale-table sweep has run for this body (a saved cvar).</summary>
+        public const string X18CleanedCvar = "sc_x18_cleaned";
+
         /// <summary>
-        /// Round n05: the pair's weapons given their attachment mods, once per body, from AfterPostInit - AFTER SCore's own
-        /// PostInit fill, because that fill rebuilds every toolbelt slot as new ItemValue(type, 1, 6, ...) from the type
-        /// alone and would throw away anything put on earlier.
+        /// Round n05/n08: the pair's weapons carry their attachment mods.
         ///
-        /// itemsOnEnterGame is the source of truth: Arm clones its entry into her hand, and CarriedPair reads it for the
-        /// death drop. The matching toolbelt slot is then given the SAME mods rather than its own roll - the two copies have
-        /// independently rolled qualities, so a second roll would diverge (different slot counts stop the random stream at
-        /// different points) and the gun the player loots could carry different attachments from the gun in her hand.
+        /// WHY THIS IS NOT A ONE-TIME ROLL AT LOAD (round n08). Two engine facts defeat that:
+        ///  - The weapon she holds is rebuilt from its NAME far more often than it is loaded. 0-XNPCCore's equip
+        ///    (SdcsEquipByName) finds no gun copy in an SC survivor's window and calls SCore's UpdateWeapon(string),
+        ///    which is literally ItemClass.GetItem(name) - a FRESH gun with no mods. Every close-range melee exit back
+        ///    to the gun, every dry failover and the world-entry re-arm at each load does this. So mods put on at load
+        ///    were gone on her first weapon swap, usually seconds into a fight.
+        ///  - Every such fresh gun (and every itemsOnEnterGame entry) gets a random quality from the clock, and the
+        ///    number of mod slots is Quality - 1. A roll made on one copy therefore did not fit the next.
         ///
-        /// Idempotent: a weapon that already carries a mod is left alone, so a reload - where the toolbelt comes back from
-        /// the save with its mods - never re-rolls or stacks.
+        /// So the mods are a CANONICAL ordered list per (her record, the weapon type): rolled once onto a scratch copy
+        /// at the highest quality, with the seed below, and cached. Any copy is then given as much of the front of that
+        /// list as its own slots hold - here at load, and again after every 0-XNPCCore equip (Patches_Xnpc X16). The
+        /// game fills slots front to back, and sideAttachment (the flashlight) is first in WeaponModTags, so whenever
+        /// she rolled a flashlight it is in the first slot and survives on every copy with at least one slot.
+        ///
+        /// It only ever FILLS a copy that carries no mods. A copy that already has mods - the gun she was saved holding,
+        /// or one the player modded and handed her - is left exactly as it is. (The round-n05 version copied a fresh,
+        /// randomly-sized roll over every copy and could strip mods off the gun in her hand.)
+        /// A quality-1 copy has no slots at all and stays bare; that is the engine, not this code.
         /// </summary>
-        public static void ApplyWeaponMods(EntityAlive e)
+        /// <param name="reconcile">Rebuild the held model when the hand changed - for a body already in the world (a loadout
+        /// change, Refill). Not from PostInit: the body is still being set up there, and Arm puts the hand item in after.</param>
+        public static void ApplyWeaponMods(EntityAlive e, bool reconcile = false)
         {
             try
             {
                 if (e == null || e.inventory == null || e.itemsOnEnterGame == null) return;
                 Loadout pair = Current(e);
                 if (pair == null) return;
-                bool raider = ScXnpc.IsRaider(e);
                 List<ItemStack> list = e.itemsOnEnterGame;
                 for (int i = 0; i < list.Count; i++)
                 {
                     ItemStack src = list[i];
-                    if (src == null || src.itemValue == null || src.itemValue.IsEmpty()) continue;
-                    ItemClass ic = ItemClass.GetForId(src.itemValue.type);
-                    if (ic == null || !IsPairWeapon(pair, ic)) continue;      // never the work kit's tools or medical stock
-                    if (!RollMods(e, src.itemValue, raider)) continue;
-                    Mirror(e, src.itemValue);
+                    if (src != null) FillMods(e, pair, src.itemValue);      // what Arm clones into her hand
                 }
+                bool hand = false;
+                ItemValue held = e.inventory.holdingItemItemValue;
+                for (int s = 0; s < e.inventory.SlotCount; s++)
+                {
+                    ItemStack slot = e.inventory.GetItem(s);
+                    // the toolbelt copies (the death drop); the hand is one of them when she holds a toolbelt item
+                    if (slot != null && FillMods(e, pair, slot.itemValue) && ReferenceEquals(slot.itemValue, held)) hand = true;
+                }
+                if (FillMods(e, pair, held)) hand = true;                    // and the hand, if it is not a toolbelt slot
+                if (hand && reconcile) ShowHand(e);
             }
             catch (Exception ex) { ScLog.Once("weapon-mods-apply", ex); }
         }
 
-        /// <summary>Gives every toolbelt copy of this weapon (the hand included) the mods the itemsOnEnterGame entry just rolled.</summary>
-        private static void Mirror(EntityAlive e, ItemValue src)
+        /// <summary>
+        /// The hand's mods were changed in place: rebuild the held model (3.4 does so once the item value no longer matches
+        /// the one it was built from, ItemInventoryData.NeedsRebuild - mid-switch Reconcile returns at once and the switch's
+        /// own rebuild picks them up), then send the held item to clients, which built a bare gun from SCore's by-name
+        /// broadcast. ForceHoldingWeaponUpdate is a no-op unless this is a server with a connection - the same pair of
+        /// calls 0-XNPCCore makes after changing a held gun's mods.
+        /// </summary>
+        private static void ShowHand(EntityAlive e)
         {
-            for (int s = 0; s < e.inventory.SlotCount; s++)
-            {
-                ItemStack slot = e.inventory.GetItem(s);
-                if (slot == null || slot.itemValue == null || slot.itemValue.type != src.type) continue;
-                CopyMods(src, slot.itemValue);
-            }
-            // and the hand, in case it is already holding this weapon and is not one of the indexed slots
-            ItemValue hand = e.inventory.holdingItemItemValue;
-            if (hand != null && hand.type == src.type) CopyMods(src, hand);
+            e.inventory.ReconcileHeldItem();
+            e.ForceHoldingWeaponUpdate();
         }
 
         /// <summary>
-        /// Copies the installed mods across to another copy of the same weapon, trimmed to what that copy's own quality
-        /// gives it room for (CalcModSlotCount is quality-driven, and the two copies' qualities are rolled separately).
+        /// After 0-XNPCCore put a weapon in her hand (Patches_Xnpc X16's finalizer): that gun was rebuilt from its name
+        /// with no mods, so give it its canonical ones again. A no-op for anything that is not one of her pair.
         /// </summary>
-        private static void CopyMods(ItemValue from, ItemValue to)
+        public static void ModsAfterEquip(EntityAlive e)
         {
-            if (from?.modifications == null || to?.modifications == null) return;
-            int n = Math.Min(from.modifications.Length, to.modifications.Length);
-            for (int j = 0; j < n; j++)
-                to.modifications[j] = from.modifications[j] != null ? from.modifications[j].Clone() : ItemValue.None.Clone();
-            for (int j = n; j < to.modifications.Length; j++) to.modifications[j] = ItemValue.None.Clone();
+            try
+            {
+                if (e == null || e.inventory == null || !ScXnpc.IsBody(e)) return;
+                Loadout pair = Current(e);
+                if (pair != null && FillMods(e, pair, e.inventory.holdingItemItemValue)) ShowHand(e);
+            }
+            catch (Exception ex) { ScLog.Once("weapon-mods-equip", ex); }
         }
+
+        /// <summary>
+        /// Gives one copy the front of the canonical list, if it is a pair weapon with free slots and no mods yet.
+        /// True when it installed something.
+        /// </summary>
+        private static bool FillMods(EntityAlive e, Loadout pair, ItemValue iv)
+        {
+            if (iv == null || iv.IsEmpty() || iv.modifications == null || iv.ModificationCount <= 0) return false;
+            ItemClass ic = iv.ItemClass;
+            if (ic == null || ic is ItemClassModifier || ic.MaxCount > 1 || !IsPairWeapon(pair, ic)) return false;
+            if (WindowHolds(e, iv.type)) return false;
+            for (int j = 0; j < iv.modifications.Length; j++)                          // already carries mods: leave it be
+                if (iv.modifications[j] != null && !iv.modifications[j].IsEmpty()) return false;
+            ItemValue[] canon = Canonical(e, iv.type, ic);
+            if (canon == null || canon.Length == 0) return false;
+            int n = Math.Min(canon.Length, iv.modifications.Length);
+            for (int j = 0; j < n; j++) iv.modifications[j] = canon[j].Clone();
+            return n > 0;
+        }
+
+        /// <summary>
+        /// Does her inventory window hold a copy of this weapon? Then the weapon is the player's, as handed, and is left
+        /// alone - modded or bare. It also has to be: with a copy in the window, 0-XNPCCore equips by cloning THAT copy,
+        /// and its SdcsGivenModsTick compares the hand's mods with the window copy's and re-equips on a mismatch - so
+        /// filling the hand would cost a second equip on every draw and still never let the player keep it bare.
+        /// (A MEMBER never keeps a handed gun in her window: ScArms.Keep moves it into her pair and gives its mods back.)
+        /// </summary>
+        private static bool WindowHolds(EntityAlive e, int type)
+        {
+            // HarvestManager's container directly, as Handed reads it: it is the one 0-XNPCCore's SdcsStores.WindowContainer
+            // returns, whereas ScNpc.Items answers the BAG for a body that does not use the window (SC's raiders).
+            if (!HarvestManager.Has(e.entityId)) return false;
+            ItemStack[] items = HarvestManager.GetOrCreate(e.entityId).items;
+            if (items == null) return false;
+            foreach (ItemStack s in items)
+                if (s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.type == type) return true;
+            return false;
+        }
+
+        /// <summary>The canonical mods per (person, weapon), cached for the session. An empty array is a valid answer: she rolled none.</summary>
+        private static readonly Dictionary<long, ItemValue[]> canonical = new Dictionary<long, ItemValue[]>();
+
+        /// <summary>
+        /// The ordered mods this body's copy of this weapon carries: rolled once onto a scratch copy at the HIGHEST
+        /// quality (so the list is as long as any copy could use), with vanilla's own ItemValue.createDefaultModItems as
+        /// LootContainer does it, seeded from her record so it is the same list every session.
+        /// The tags are item_modifiers.xml's modifier_tags (ScConfig.WeaponModTags); the game filters each by the
+        /// weapon's own installable_tags and blocked_tags, so a gun from a weapon pack picks up whatever fits it.
+        /// The seed is her RECORD's id, not WorldTimeBorn: a body SC re-creates gets a brand-new WorldTimeBorn.
+        /// </summary>
+        private static ItemValue[] Canonical(EntityAlive e, int type, ItemClass ic)
+        {
+            bool raider = ScXnpc.IsRaider(e);
+            float chance = raider ? ScConfig.RaiderWeaponModChance : ScConfig.SurvivorWeaponModChance;
+            string[] tags = ScConfig.WeaponModTagList;
+            if (chance <= 0f || tags.Length == 0) return null;
+            int who = ModWho(e);
+            int seed = ModSeed(e, type);
+            // Keyed on the person and the weapon separately, never on the seed: who * 31 + type collides (member 5 with
+            // type T and member 6 with type T - 31), and a shared entry would put one weapon's mods on another - a
+            // pistol's scope on a club - since FillMods installs the cached list without re-checking the tags.
+            long key = ((long)who << 32) | ((long)(type & 0x7FFFFFFF) << 1) | (raider ? 1L : 0L);
+            ItemValue[] hit;
+            if (canonical.TryGetValue(key, out hit)) return hit;
+            GameRandom rnd = null;
+            ItemValue[] result = new ItemValue[0];
+            try
+            {
+                var scratch = new ItemValue(type, 6, 6, false, null, 1f);          // the most slots this weapon can have
+                if (scratch.modifications != null && scratch.ModificationCount > 0)
+                {
+                    rnd = GameRandomManager.Instance.CreateGameRandom(seed);
+                    scratch.createDefaultModItems(ic, rnd, tags, chance);
+                    var got = new List<ItemValue>();
+                    foreach (ItemValue m in scratch.modifications)
+                        if (m != null && !m.IsEmpty()) got.Add(m.Clone());
+                    result = got.ToArray();
+                }
+            }
+            catch (Exception ex) { ScLog.Once("weapon-mods", "weapon mods: " + ex.GetType().Name + ": " + ex.Message); result = null; }
+            finally { if (rnd != null) GameRandomManager.Instance.FreeGameRandom(rnd); }
+            if (result != null) canonical[key] = result;
+            return result;
+        }
+
+        /// <summary>Drops the cached canonical lists (a new world, or the mod settings changed).</summary>
+        public static void ResetModCache() { canonical.Clear(); }
 
         /// <summary>
         /// X18's one-shot cleanup: drops 0-XNPCCore's banked rounds for BOTH of the pair's weapons, so a survivor saved
@@ -1276,51 +1470,20 @@ namespace SurvivorCommunity
             return false;
         }
 
-        /// <summary>
-        /// Rolls vanilla attachment mods onto one of the pair's weapons, the way loot does it: the same
-        /// ItemValue.createDefaultModItems that LootContainer calls at its mod_chance, so the first mod lands at the
-        /// configured chance and each further one at half of it, capped by the weapon's own mod slots.
-        /// The tags are item_modifiers.xml's modifier_tags (ScConfig.WeaponModTags); the game then filters each one by the
-        /// weapon's installable_tags and blocked_tags, so a weapon only gets a mod that actually fits it and a gun from a
-        /// weapon pack picks up whatever its own tags allow - no per-weapon table to keep.
-        /// The GameRandom is seeded from her RECORD's id and the weapon's type rather than the clock (the ItemValue
-        /// constructor seeds from DateTime), so a survivor's gun comes back with the same attachments every time her body
-        /// is re-created from that record. It deliberately does not use WorldTimeBorn: a body SC re-creates goes through
-        /// EntityFactory.CreateEntity and gets a brand-new one, so that would re-roll on exactly the case it was meant to
-        /// hold steady. A stranger with no record falls back to the entity id - stable for that body's life, which is all
-        /// a stranger has.
-        /// Returns true when the weapon now carries the roll (false = nothing to do, or it already had mods).
-        /// </summary>
-        private static bool RollMods(EntityAlive e, ItemValue iv, bool raider)
-        {
-            if (e == null || iv == null || iv.IsEmpty()) return false;
-            float chance = raider ? ScConfig.RaiderWeaponModChance : ScConfig.SurvivorWeaponModChance;
-            string[] tags = ScConfig.WeaponModTagList;
-            if (chance <= 0f || tags.Length == 0) return false;
-            ItemClass ic = iv.ItemClass;
-            if (ic == null || ic is ItemClassModifier || ic.MaxCount > 1) return false;
-            if (iv.modifications == null || iv.ModificationCount <= 0) return false;   // no slots: nothing to install
-            for (int j = 0; j < iv.modifications.Length; j++)                          // already rolled (a reload): leave it
-                if (iv.modifications[j] != null && !iv.modifications[j].IsEmpty()) return false;
-            GameRandom rnd = null;
-            try
-            {
-                rnd = GameRandomManager.Instance.CreateGameRandom(ModSeed(e, iv.type));
-                iv.createDefaultModItems(ic, rnd, tags, chance);
-                return true;
-            }
-            catch (Exception ex) { ScLog.Once("weapon-mods", "weapon mods: " + ex.GetType().Name + ": " + ex.Message); return false; }
-            finally { if (rnd != null) GameRandomManager.Instance.FreeGameRandom(rnd); }
-        }
-
         /// <summary>A seed that survives re-creation: her record's id where there is one, else this body's entity id.</summary>
         private static int ModSeed(EntityAlive e, int type)
         {
-            int who = e.entityId;
-            Member m = ScRegistry.GetMember(e.entityId);
-            if (m != null) who = m.Id;
-            else { Prospect p = ScRegistry.GetProspect(e.entityId); if (p != null) who = p.Id; }
+            int who = ModWho(e);
             unchecked { return who * 31 + type; }
+        }
+
+        /// <summary>Who the mods belong to: her record's id where there is one, else this body's entity id.</summary>
+        private static int ModWho(EntityAlive e)
+        {
+            Member m = ScRegistry.GetMember(e.entityId);
+            if (m != null) return m.Id;
+            Prospect p = ScRegistry.GetProspect(e.entityId);
+            return p != null ? p.Id : e.entityId;
         }
 
         /// <summary>SCore's EntityAlive.PostInit fill again (slots = itemsOnEnterGame), and empties the slots the old list used beyond it.</summary>
@@ -1339,6 +1502,7 @@ namespace SurvivorCommunity
             }
             for (int i = list.Count; i < oldCount; i++)
                 if (i != e.inventory.holdingItemIdx) e.inventory.SetItem(i, ItemStack.Empty.Clone());
+            ApplyWeaponMods(e, true);                  // round n08: the refilled copies are bare - a loadout change, the work kit
         }
 
         /// <summary>
@@ -1489,10 +1653,41 @@ namespace SurvivorCommunity
               .Append(" (slot ").Append(e.inventory != null ? e.inventory.holdingItemIdx : -1).Append(") CurrentWeaponClass=")
               .Append(e.Buffs != null ? e.Buffs.GetCustomVar("CurrentWeaponClass").ToString() : "?");
             if (ScNpc.IsFramework(e)) sb.Append(" saved weapon '").Append(ScNpc.CurrentWeapon(e)).Append("'");
+            if (held != null && !held.IsEmpty() && held.ItemClass != null && !(held.ItemClass is ItemClassModifier) && held.ItemClass.MaxCount <= 1)
+                sb.Append("\n[SC]    in hand: quality ").Append(held.Quality).Append(", attachments: ").Append(ModNames(held.modifications));
+            if (l != null) sb.Append("\n[SC]    rolled attachments (a copy carries as many as its quality gives slots, quality - 1): ")
+                             .Append(RolledText(e, l));
             sb.Append("\n[SC]    item list:");
             foreach (ItemStack st in e.itemsOnEnterGame)
                 sb.Append(' ').Append(st != null && st.itemValue != null && st.itemValue.ItemClass != null ? st.itemValue.ItemClass.GetItemName() : "?");
             return sb.ToString();
+        }
+
+        /// <summary>The installed mods' names, "none" for empty slots only, "no slots" when the copy has none.</summary>
+        private static string ModNames(ItemValue[] mods)
+        {
+            if (mods == null || mods.Length == 0) return "no slots";
+            var names = new List<string>();
+            foreach (ItemValue m in mods)
+                if (m != null && !m.IsEmpty() && m.ItemClass != null) names.Add(m.ItemClass.GetItemName());
+            return names.Count == 0 ? "none (" + mods.Length + " slot(s))" : string.Join(", ", names.ToArray());
+        }
+
+        /// <summary>Each pair weapon's canonical attachment list (round n08), for sc loadout.</summary>
+        private static string RolledText(EntityAlive e, Loadout l)
+        {
+            var parts = new List<string>();
+            for (int k = 0; k < 2; k++)
+            {
+                Weapon w = Find(l.Of(k == 1));
+                if (w == null) continue;
+                ItemClass ic = ItemClass.GetItemClass(StackName(w.Item), true);
+                if (ic == null || ic is ItemClassModifier || ic.MaxCount > 1) continue;
+                ItemValue[] canon = Canonical(e, ic.Id, ic);
+                parts.Add(ic.GetItemName() + ": " + (canon == null ? "off (chance 0 or no tags)" : canon.Length == 0 ? "none"
+                          : ModNames(canon)));
+            }
+            return parts.Count == 0 ? "-" : string.Join("; ", parts.ToArray());
         }
 
         private static string Label(string token)

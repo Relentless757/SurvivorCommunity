@@ -37,6 +37,125 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round n08 (2026-11-14): the melee-unreachable diagnostic, attachments that stay on, sleep fixes
+
+A diagnostic first, plus the fixes from the Opus review of n05-n07, plus five things from your play test of
+2026-11-14 (below, first). One new setting in `Config/blocks.xml`: `SurvivorGunFirst`.
+
+**From your play test**
+
+*"Follow me" by voice.* Voice Control 3.4 only takes orders from an NPC's leader, and a resident at home has none,
+so every order got "You'll need to earn my trust...". Now SC's own Follow runs first (the talk menu's, with its
+rules), which makes you her leader, and Voice Control's follow goes on as for any follower.
+
+- [ ] Push-to-talk "follow me" to a resident at home: she follows, with "<name> is following you." on screen,
+      Voice Control's own reply and a nod (not a head shake). `sc members` shows her as Following.
+- [ ] To a member **on watch**, away on a run, or with your followers already at the cap: she says "I can't right
+      now." and the message says why (the same text the talk menu gives). No leaderless line.
+- [ ] "Stay", "guard here" and the other orders to her once she follows work as they always did.
+
+*Weapons from mods.* "Use the weapons I gave you" (her weapon menu) only knew SC's spawn list - about 50 hand-picked
+IZY guns out of IGP Classic's 226, and nothing from other mods. Now any gun, bow or melee weapon an NPC body can wield
+counts. Still refused: launchers and anything of the Demolitions perk (rockets and grenades by the base), IZY's dual
+pistols (an NPC has no aim or reload pose for them), a gun without the `ranged` tag (IZY's Broken AR-15: 0-XNPCCore
+would never treat it as a gun), and tools. Newly allowed from IGP Classic, for example: the MP5K, SG552, MAS rifle,
+M16A1, MP34, AA-12, M1014, Colt SMG, the lever-action .44 carbine, the flintlock pistol and blunderbuss, the Van Helsing
+crossbow - and the M134, the flamethrower and the nailgun, which the spawn list left out; watch those three.
+
+- [ ] Put an IZY gun that was **not** on the old list in a member's inventory (e.g. the MP5K or the SG552), open
+      her weapon menu: "Use the weapons I gave you" is there. Pick it: she holds it, it shows in `sc loadout <name>`,
+      and her old gun comes back to you or the base storage.
+- [ ] She **fires** it (ammo for it in her bag), reloads, and keeps it after a save and reload.
+- [ ] The same with a gun from another weapon mod (Weapons of the Apocalypse).
+- [ ] An IZY rocket or grenade launcher (RPG-7, China Lake, XM25), or IZY's dual pistols (the Glock 18C, the M9s):
+      no "Use the weapons I gave you" for those.
+- [ ] A pickaxe or shovel in her inventory stays there - it never replaces her melee weapon.
+
+*Gun first.* Nothing ever drew a survivor's gun once she was on her melee weapon (a stow, a talk, a load), so
+Paul's pistol and the iron crossbow were never used. Now she takes her gun or bow when her target stays farther than
+5 m for a second, or when she is overwhelmed - as long as it has rounds - and 0-XNPCCore's own swap still takes her to
+melee up close and back to the gun after.
+
+- [ ] A member with a gun and ammo, a zombie coming from 15 m: she draws the gun and shoots, goes to her melee weapon
+      when it is within about 3 m, and back to the gun once it is past 5 m.
+- [ ] Rob (iron crossbow, 20 bolts): he shoots bolts at range.
+- [ ] Overwhelmed (2+ zombies on a 2-star fighter): she fights with the gun, even if she was on melee first.
+- [ ] Tell her by voice "use your <melee weapon>" (or pick it in the weapon menu): she stays on it at any range -
+      `sc arms <name>` says gun first "stands aside". "Use your <gun>" turns it back on.
+- [ ] A melee-only member and raiders behave as before.
+
+*Wandering zombies at home.* At home a member now fights only a zombie that is after somebody - a member or you.
+SC's own base attacks (the horde sent at your home) are still fought anywhere in the base, and a guard on watch
+still shoots whatever comes at the base from his post.
+
+- [ ] A zombie wandering through the base that has not noticed anyone: residents leave it alone (no running at it).
+- [ ] The moment it goes for a member, or for you, they fight it.
+- [ ] During an SC base attack (`sc attack now`): residents defend the whole base as before.
+- [ ] A guard on watch still shoots zombies coming at the base.
+- [ ] Followers, and members away from home, fight as before.
+
+**Review fixes and the diagnostic**
+
+**Melee-unreachable diagnostic (measurement only — changes nothing)**
+
+0-XNPCCore marks a zombie "melee unreachable" for 20 s when a melee approach stalls, and while the mark lasts she
+cannot go to melee on it. This round only counts how often that happens to SC's people.
+
+- [ ] Fight with members around for a while (a horde night is ideal), then run bare `sc xnpc`. Send me the
+      **"melee-unreachable (0-XNPCCore)"** line. If marks turn out to be rare, nothing more will be done about them;
+      if they are common, the next round deals with them.
+- [ ] The log has a line for each mark: `reach: 0-XNPCCore marked <name>'s target <zombie> unreachable at N m
+      (holding <weapon>)` and later `... cleared after about N s`. Send a few of those along with the totals.
+- [ ] `sc xnpc <name>` has an "unreachable marks:" line for her.
+- [ ] Startup has **no** warning `reach: 0-XNPCCore's SdcsMeleeUnreachable.IsMarked ... was not found`.
+
+**Attachments stay on the gun**
+
+In n05 the attachments were lost the first time she switched weapons — 0-XNPCCore rebuilds the gun from its name
+on every swap, with no attachments.
+
+- [ ] Pick a member whose gun has attachments (`sc loadout <name>`: "in hand: ... attachments: ..."). Get her to
+      switch to melee and back (a zombie up close does it). Run `sc loadout <name>` again — the attachments are
+      still there.
+- [ ] They show on the model too: a scope is visible on the gun in her hands after the swap.
+- [ ] A gun you hand a **stranger or prospect** (it stays in her inventory window) keeps exactly what you gave it —
+      modded or bare. SC never touches a gun whose twin is in her window.
+- [ ] A gun you hand a **member** joins her pair: you get its attachments back (as before), and she then carries
+      her own rolled attachments on it.
+- [ ] Startup has **no** warning `mags: Locked & Loaded's ... HasMagazineSeated ... was not found`.
+
+**Loaded rounds survive reloads (magazine fix, follow-up)**
+
+- [ ] `sc xnpc <name>`: note "K magazine(s) holding R". Save and reload **twice**. K and R are unchanged both times.
+      (n07 cleared 0-XNPCCore's round table on every load, which could take the rounds of a gun Locked & Loaded had
+      not seated. It now runs once per survivor — so the very first load after this update may still drop a few.)
+
+**Sleeping**
+
+- [ ] **At dawn, everyone is up within a minute** and back on SC's routine. Nobody stands next to their bed for an
+      hour after waking (that was n06's dawn guard).
+- [ ] `sc sleep` now says "N in the zone, M within 15 m of the home block's height in loaded chunks". Put a bed far
+      below the home block (a deep basement) or high up a tower: it counts in N but **not** M, and with M = 0 nobody
+      is leased — nobody sleeps on the floor.
+- [ ] **Reload at night** with people asleep: they stay asleep (no one gets up and lies down again).
+- [ ] **More residents than beds:** only as many sleep as there are beds, and a member who is away (on a run, on
+      watch, not loaded) no longer holds one of them.
+- [ ] **A bed placed at night** is used one to two minutes later, not at once. `sc sleep` first still says "not
+      enough beds (N) - someone else has them" (SC re-counts beds once a minute), then "not enough beds yet" for
+      about another minute. That wait is deliberate: 0-XNPCCore only re-reads the beds once a minute, and anyone sent
+      to bed before then would lie down on the floor.
+- [ ] A member coming off watch in the middle of the night does **not** wake someone already in bed — if the beds
+      are taken she keeps SC's night routine.
+- [ ] An **enclave** with fewer beds than people: only as many of them sleep as there are beds.
+- [ ] `sc sleep` lists `SdcsRoutinePhase` for each member.
+
+**Wardrobe**
+
+- [ ] Give a follower a helmet through the **Wardrobe**. Then change her outfit with `sc gear <name> <Set>`, then
+      pick another Wardrobe piece (say gloves). Her `sc gear` pieces stay on — before this round the second pick put
+      back the body armor she wore at the first one.
+- [ ] "Back to my own ‹slot›" still restores the piece she wore before the Wardrobe changed that slot.
+
 ## Round n07 (2026-11-14): magazine duplication, fleeing when hurt, close-range combat
 
 All six came out of the first real play test of n05 + n06. New settings in `Config/blocks.xml`:
@@ -130,10 +249,13 @@ Settings for the new weapon mods are in `Config/blocks.xml` (`SurvivorWeaponModC
 
 **Weapon attachment mods (new)**
 
-- [ ] Some survivors' rolled guns now carry attachments; `sc loadout <name>` lists them.
+- [ ] Some survivors' rolled guns now carry attachments; `sc loadout <name>` lists them (since round n08).
 - [ ] A survivor whose gun rolled **modGunFlashlight** turns its light on in the dark (this is 0-XNPCCore's gun-light
       feature — it only works when the held gun has a mod with an `onSelfItemActivate` trigger, so it depends on this roll).
-- [ ] Re-create her body (leave the area and come back, or reload) — her gun keeps the **same** attachments, not a new roll.
+- [ ] Re-create her body (leave the area and come back, or reload) — her gun gets the **same** attachments, not a new
+      roll. *(Changed in n08:)* each copy of the gun has its own quality, and a copy carries as many of her rolled
+      attachments as its quality gives slots (quality − 1), in the same order — so a lower-quality copy can show
+      fewer, and a quality-1 copy none. `sc loadout <name>` shows the full rolled list next to what is in her hand.
 - [ ] Her work-kit tools and medical stock carry **no** attachments.
 - [ ] Killing a raider drops its weapon with the attachments it was carrying.
 - [ ] Set `SurvivorWeaponModChance` to `0`: new survivors roll plain weapons again.

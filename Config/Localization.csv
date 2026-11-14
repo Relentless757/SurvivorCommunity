@@ -194,6 +194,7 @@ scWinLeave,UI,Menu,,,,Ask to leave
 scWinLeaveConfirm,UI,Menu,,,,Press again to confirm
 scWinLeaveConfirmHint,UI,Menu,,,,"They will leave the community for good. Press the button again within five seconds to confirm."
 scWinNowFollowing,UI,Menu,,,,"{0} is following you."
+scVoiceCantFollow,Dialog,Statement,,,,"I can't right now."
 scWinLedger,UI,Menu,,,,Recent days
 scWinMood,UI,Menu,,,,"Mood {0} ({1})"
 scWinSpec,UI,Menu,,,,"Specialty: {0} {1} / 7"

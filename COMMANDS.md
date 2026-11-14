@@ -17,7 +17,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 | `sc status` | The community at a glance: stockpile, morale, home, counts |
 | `sc members` | Every member, their id, status, post, skills |
 | `sc dump` | Everything, for when you want to read it in the log afterwards |
-| `sc xnpc [id\|name]` | The 0-XNPCCore side of one body. Bare, it prints the global patch/counter diagnostic |
+| `sc xnpc [id\|name]` | The 0-XNPCCore side of one body, including whether 0-XNPCCore has marked her target "melee unreachable" (round n08). Bare, it prints the global patch/counter diagnostic and the session's unreachable-mark totals |
 | `sc scan` | Re-scan the home zone now (beds, facilities, crops, defenses) |
 | `sc day` | Simulate one day rollover, outposts included |
 | `sc save` | Force a registry save |
@@ -39,8 +39,10 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 
 - `sc relink` - re-link the registry to the loaded world
 - `sc members` · `sc trust <id|name> [forgive]` · `sc recruit <id|name>` · `sc restore <member>` · `sc repost <member>`
-- `sc arms <id|name> [melee|ranged]` — what she is holding and why; force a hand
-- `sc loadout <id|name> [weapon] [weapon] [meleeonly] [ranged-lead|melee-lead]` — her weapon pair
+- `sc arms <id|name> [melee|ranged]` — what she is holding and why (overwhelmed count, gun first on / standing aside
+  for a melee order, 0-XNPCCore's close-melee state); force a hand
+- `sc loadout <id|name> [weapon] [weapon] [meleeonly] [ranged-lead|melee-lead]` — her weapon pair, the quality and
+  attachments of what is in her hand, and the attachments rolled for each of her two weapons
 - `sc loadout near [r]` · `sc loadout sim [n] [hostile] [T1|T2|T3] [any]` — roll statistics without spawning
 - `sc skills sim [T1|T2|T3] [n]` · `sc aim [id|name]` · `sc anim <id|name>`
 - `sc names [reload | reset | test [n] [male|female]]` — the streamer name pool
@@ -54,8 +56,9 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 ## Sleeping *(round n06)*
 
 - **`sc sleep`** — every member: whether SC holds the night lease on her, the **exact reason** when it does not,
-  and her `SdcsResident` / `.SdcsRoutineWalk` cvars. This is the first thing to run if someone will not go to bed.
-  It is read-only.
+  and her `SdcsResident` / `.SdcsRoutineWalk` / `SdcsRoutinePhase` cvars (phase 3 = asleep, 4 = waking). It also
+  shows how many of the zone's beds are inside the box 0-XNPCCore searches (within `SleepZoneHeight` of the home
+  block's height) — only those count. This is the first thing to run if someone will not go to bed. It is read-only.
 
 ## Work, runs and mining
 

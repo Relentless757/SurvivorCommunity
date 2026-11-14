@@ -643,6 +643,14 @@
 			     OverwhelmedGunSeconds (0-XNPCCore's swap to melee waits). Overwhelmed=false leaves 0-XNPCCore's swap as it
 			     is. -->
 			<property name="Overwhelmed" value="true" />
+			<!-- SurvivorGunFirst (round n08): a survivor holding her melee weapon takes her gun or bow - while it has rounds
+			     or arrows - when her target stays farther than 5 m for a second, or when she is overwhelmed (above). Then
+			     0-XNPCCore's own swap does melee up close and puts the gun back as the fight moves off. Without it nothing
+			     ever drew the gun for someone who had ended up on melee (a stow, a talk, a load), so a ranged weapon could go
+			     unused for good. A weapon order from you naming her melee weapon (the weapon menu, or "use your ..." by
+			     voice) turns it off for her until you order the gun again. Raiders keep their lead weapon rule instead.
+			     false: the gun is drawn only by 0-XNPCCore, as before. -->
+			<property name="SurvivorGunFirst" value="true" />
 			<property name="OverwhelmedRadius" value="12" />
 			<property name="OverwhelmedMin" value="2" />
 			<property name="OverwhelmedMax" value="5" />

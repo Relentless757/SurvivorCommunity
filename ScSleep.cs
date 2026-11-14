@@ -54,7 +54,12 @@ namespace SurvivorCommunity
         public static int Opened, Closed, Refused;
         public static string LastRefusal = "";
 
-        public static void Forget(int entityId) { leased.Remove(entityId); }
+        public static void Forget(int entityId) { leased.Remove(entityId); dawnSince.Remove(entityId); }
+
+        /// <summary>When each leased body was first seen still in 0-XNPCCore's sleep phase after daybreak (see Apply).</summary>
+        private static readonly Dictionary<int, float> dawnSince = new Dictionary<int, float>();
+        /// <summary>The longest SC waits at daybreak for 0-XNPCCore to wake her itself before it closes the lease anyway (s).</summary>
+        private const float DawnHoldSeconds = 30f;
 
         /// <summary>
         /// Is she actually lying down asleep right now? 0-XNPCCore writes these two cvars for exactly that - SdcsSleepBed
@@ -63,8 +68,8 @@ namespace SurvivorCommunity
         /// Deliberately NOT the routine phase: the phases are 1 work, 2 home, 3 sleep, 4 WAKE, so a "&gt;= 3" style test
         /// stays true right through the post-dawn wake window and would keep her silent all morning, and it is also true
         /// while she is still walking to bed, so she would not greet the player on the way.
-        /// Used to keep her quiet - without it she chatters, greets and taunts from her bed.
-        /// Host-side state only: on a client the lease set is empty, so a sleeping member can still bark there.
+        /// Used to keep her quiet - without it she chatters, greets and taunts from her bed. It reads 0-XNPCCore's own
+        /// cvars, not SC's lease set, so it also holds for a survivor 0-XNPCCore put to bed itself (a POI sleeper).
         /// </summary>
         public static bool IsAsleep(EntityAlive npc)
         {
@@ -101,7 +106,7 @@ namespace SurvivorCommunity
             return since >= Math.Max(0f, ScConfig.SleepAfterDuskHours) ? null : "too soon after dusk (0-XNPCCore is still strolling)";
         }
 
-        public static void Reset() { leased.Clear(); encBeds.Clear(); Opened = Closed = Refused = 0; LastRefusal = ""; }
+        public static void Reset() { leased.Clear(); dawnSince.Clear(); bedCache.Clear(); grants.Clear(); Opened = Closed = Refused = 0; LastRefusal = ""; }
 
         /// <summary>1 Hz from ScTicker: opens the night lease for everyone eligible and takes it back from everyone who is not.</summary>
         public static void Tick(World w, EntityPlayer player)
@@ -112,15 +117,8 @@ namespace SurvivorCommunity
                 // SleepAtNight off (or no wake path) still has to CLOSE what is already open - just not opening would
                 // leave whoever is asleep stranded in 0-XNPCCore's routine for good.
                 string nightWhy = CannotWake() ? "0-XNPCCore cannot wake her (SdcsResident.Clear missing)" : SleepWhy(w);
-                foreach (Member m in ScRegistry.Members.Values)
-                {
-                    EntityAlive npc = ScCommunity.FindNpc(m.Id);
-                    if (npc == null) { continue; }
-                    Vector3i min, size;
-                    string why = MemberRefusal(w, m, npc, nightWhy, out min, out size);
-                    Apply(npc, why, min, size, m.Name);
-                }
-                if (ScConfig.Enclaves) TickEnclaves(w, nightWhy);
+                List<Verdict> all = Plan(w, nightWhy, ScConfig.Enclaves);
+                for (int i = 0; i < all.Count; i++) Apply(all[i].Npc, all[i].Why, all[i].Min, all[i].Size, all[i].Name);
             }
             catch (Exception ex) { ScLog.Once("sleep-tick", ex); }
         }
@@ -129,28 +127,25 @@ namespace SurvivorCommunity
         /// The enclaves' own people, in their own building: the POI footprint 0-XNPCCore wants is exactly what the
         /// enclave already stores (Enclave.Poi is the PrefabInstance's boundingBoxPosition, Enclave.Size its rotated
         /// size). A hostile enclave is left alone - its people are not the community's to put to bed.
+        /// One pass over every enclave person rather than Living(en) per enclave - that allocates a fresh list and
+        /// rescans all of EncPeople for each enclave, once a second.
         /// </summary>
-        private static void TickEnclaves(World w, string nightWhy)
+        private static void CollectEnclaves(List<Verdict> into, string nightWhy)
         {
-            // One pass over every enclave person rather than Living(en) per enclave - that allocates a fresh list and
-            // rescans all of EncPeople for each enclave, once a second.
             foreach (EncPerson p in ScRegistry.EncPeople)
             {
                 if (p == null) continue;
                 Enclave en = ScEnclavePeople.EnclaveOf(p);
-                if (en != null)
-                {
-                    // OwnBody, not BodyOf: it also checks the body is still the one that person was given, so a
-                    // recycled entity id can never be marked a resident on SC's say-so.
-                    EntityAlive npc = ScEnclavePeople.OwnBody(p);
-                    if (npc == null) continue;
-                    Vector3i min = en.Poi, size = en.Size;
-                    string why = en.IsHostile ? "a hostile enclave"
-                               : p.State != EncPerson.StateHome ? "not at home"
-                               : Common(npc, nightWhy);
-                    if (why == null && !EnclaveHasBed(en)) { why = "no bed in the enclave"; Note(why); }
-                    Apply(npc, why, min, size, npc.EntityName);
-                }
+                if (en == null) continue;
+                // OwnBody, not BodyOf: it also checks the body is still the one that person was given, so a
+                // recycled entity id can never be marked a resident on SC's say-so.
+                EntityAlive npc = ScEnclavePeople.OwnBody(p);
+                if (npc == null) continue;
+                string why = en.IsHostile ? "a hostile enclave"
+                           : p.State != EncPerson.StateHome ? "not at home"
+                           : Common(npc, nightWhy);
+                into.Add(new Verdict { Npc = npc, Name = npc.EntityName, Why = why, Min = en.Poi, Size = en.Size,
+                                       Key = p.Id, Group = en, Place = "the enclave" });
             }
         }
 
@@ -167,22 +162,11 @@ namespace SurvivorCommunity
             // claim gives 0-XNPCCore the whole zone. Building it from VanillaRadius instead would hand it a smaller box
             // than the one SC counts beds in, and a bed in the enlarged part would pass SC's gate while being invisible
             // to 0-XNPCCore's own bed scan - which is the floor-sleep case this round exists to prevent.
-            int xMin, xMax, zMin, zMax;
-            ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
-            Vector3i home = ScZone.Home;
-            int band = Math.Max(2, ScConfig.SleepZoneHeight);
-            min = new Vector3i(xMin, home.y - band, zMin);
-            size = new Vector3i(xMax - xMin + 1, band * 2 + 1, zMax - zMin + 1);
+            HomeBox(out min, out size);
             if (!ScZone.Contains(npc.GetBlockPosition())) return "not inside the home zone";
-            string why = Common(npc, nightWhy);
-            if (why != null) return why;
-            // One bed is not N beds: 0-XNPCCore claims one bed per resident (SdcsClaimTable), and anyone who gets no
-            // claim lies down where she stands. So the number leased is capped at the number of beds, oldest member id
-            // first so the same people get them each night rather than a nightly reshuffle.
-            int beds = ScRegistry.Community.Beds;
-            if (beds <= 0) { Note("no bed in the home zone"); return "no bed in the home zone"; }
-            if (!WithinBedCount(m, beds)) { Note("not enough beds (" + beds + ")"); return "not enough beds (" + beds + ") - someone else has them"; }
-            return null;
+            // The bed count is not tested here: it caps the people who pass everything else, so it needs all of them
+            // at once (CapByBeds).
+            return Common(npc, nightWhy);
         }
 
         /// <summary>The tests both sides share.</summary>
@@ -210,9 +194,22 @@ namespace SurvivorCommunity
                 // she was leased, comes back still marked a resident with SC's set empty. Left alone she would run
                 // 0-XNPCCore's whole DAY routine - station work and strolling - which is exactly what was ruled out.
                 if (!held && npc.GetCVar(ResidentCvar) < 0.5f) return;
-                // Let 0-XNPCCore leave the sleep phase on its own where it can: closing mid-phase-3 is the stranding
-                // case, and at dawn its own tick unwinds her a moment later anyway.
-                if (held && why == WhyDaytime && npc.GetCVar("SdcsRoutinePhase") >= 2.5f) return;
+                // At daybreak, give 0-XNPCCore a moment to wake her itself: its dawn tick moves her from phase 3 (asleep)
+                // to phase 4 (wake) and gets her up off the bed, and closing first would cut that short. Only phase 3,
+                // though - phase 4 then holds her at her bed anchor for its WorkStartHours (an hour of standing by the
+                // bed every morning), and that hour is SC's day, so the lease closes as soon as phase 3 is over. And
+                // only for DawnHoldSeconds: if its idea of dawn is later than the world's, SdcsResident.Clear wakes her
+                // anyway (it runs SdcsSleep.Stop itself, so closing mid-sleep does not strand her).
+                if (held && why == WhyDaytime)
+                {
+                    float phase = npc.GetCVar("SdcsRoutinePhase");
+                    if (phase >= 2.5f && phase < 3.5f)
+                    {
+                        float since;
+                        if (!dawnSince.TryGetValue(npc.entityId, out since)) dawnSince[npc.entityId] = since = Time.time;
+                        if (Time.time - since < DawnHoldSeconds) return;
+                    }
+                }
                 Close(npc, name, why);
                 return;
             }
@@ -248,6 +245,7 @@ namespace SurvivorCommunity
         private static MethodInfo mClear;
         private static PropertyInfo pRoutineEnabled;
         private static MethodInfo mIsBandit;
+        private static PropertyInfo pScanCache;
         private static bool clearBound, clearFailed;
 
         private static void BindClear()
@@ -267,6 +265,8 @@ namespace SurvivorCommunity
                 // report people as asleep; and its own bandit refusal is mirrored for completeness.
                 pRoutineEnabled = typeof(AvatarSdcsNpcController).GetProperty("RoutineEnabled", S);
                 mIsBandit = typeof(AvatarSdcsNpcController).GetMethod("IsBanditClass", S, null, new[] { typeof(int) }, null);
+                // How long its POI bed scan is cached - a rise in SC's bed count waits this out (Grant).
+                pScanCache = typeof(AvatarSdcsNpcController).GetProperty("RoutineScanCacheSeconds", S);
             }
             catch (Exception ex) { ScLog.Once("sleep-bind-clear", ex); mClear = null; }
             if (mClear == null)
@@ -277,6 +277,7 @@ namespace SurvivorCommunity
         private static void Close(EntityAlive npc, string name, string why)
         {
             leased.Remove(npc.entityId);
+            dawnSince.Remove(npc.entityId);
             Closed++;
             BindClear();
             try
@@ -345,71 +346,225 @@ namespace SurvivorCommunity
             output("[SC] sleep: " + (ScConfig.SleepAtNight ? "on" : "OFF (SleepAtNight)") + ", " + (nightWhy == null ? "sleeping hours" : "not sleeping hours: " + nightWhy)
                    + " - leases opened " + Opened + ", closed " + Closed + ", refused " + Refused
                    + (string.IsNullOrEmpty(LastRefusal) ? "" : " (last: " + LastRefusal + ")"));
-            output("[SC] home zone beds: " + ScRegistry.Community.Beds + (ScRegistry.Community.Beds > 0 ? "" : "  <- no bed: nobody at home will be leased out"));
-            foreach (Member m in ScRegistry.Members.Values)
+            string bedLine = "[SC] home zone beds: " + ScRegistry.Community.Beds + " in the zone";
+            if (ScZone.HasHome)
             {
-                EntityAlive npc = ScCommunity.FindNpc(m.Id);
-                if (npc == null) { output("  " + m.Name + ": not loaded"); continue; }
-                Vector3i min, size;
-                string why = MemberRefusal(w, m, npc, nightWhy, out min, out size);
-                bool held = leased.Contains(npc.entityId);
-                output("  " + m.Name + " (" + npc.entityId + "): " + (held ? "ASLEEP/leased" : "SC's own routine")
-                       + (why == null ? "" : " - " + why)
-                       + "  [SdcsResident=" + npc.GetCVar(ResidentCvar).ToString("0.#")
-                       + " .SdcsRoutineWalk=" + npc.GetCVar(".SdcsRoutineWalk").ToString("0.#") + "]");
+                Vector3i bmin, bsize;
+                HomeBox(out bmin, out bsize);
+                bool whole;
+                int inBox = BedsIn(HomeGroup, bmin, bsize, out whole);
+                bedLine += ", " + (inBox < 0 ? "? (cannot count yet)" : inBox.ToString()) + " within " + Math.Max(2, ScConfig.SleepZoneHeight)
+                           + " m of the home block's height in loaded chunks (the box 0-XNPCCore searches - only these count)"
+                           + (inBox >= 0 && !whole ? " - part of the zone is not loaded" : "");
+                if (inBox == 0) bedLine += "  <- no bed: nobody at home will be leased out";
             }
+            output(bedLine);
+            var shown = new HashSet<int>();
+            foreach (Verdict v in Plan(w, nightWhy, false))
+            {
+                shown.Add(v.Key);
+                bool held = leased.Contains(v.Npc.entityId);
+                output("  " + v.Name + " (" + v.Npc.entityId + "): " + (held ? "ASLEEP/leased" : "SC's own routine")
+                       + (v.Why == null ? "" : " - " + v.Why)
+                       + "  [SdcsResident=" + v.Npc.GetCVar(ResidentCvar).ToString("0.#")
+                       + " .SdcsRoutineWalk=" + v.Npc.GetCVar(".SdcsRoutineWalk").ToString("0.#")
+                       + " SdcsRoutinePhase=" + v.Npc.GetCVar("SdcsRoutinePhase").ToString("0.#") + "]");
+            }
+            foreach (Member m in ScRegistry.Members.Values)
+                if (!shown.Contains(m.Id)) output("  " + m.Name + ": not loaded");
             Refused = keepRefused; LastRefusal = keepLast;
         }
 
-        // ---- beds ----
+        // ---- the plan, and beds ----
 
-        private sealed class BedAnswer { public bool Has; public float Until; }
-        private static readonly Dictionary<int, BedAnswer> encBeds = new Dictionary<int, BedAnswer>();
-        private static readonly int[] areaCounts = new int[4];
-        /// <summary>An enclave's answer is kept this long: beds rarely move, and the count sweeps whole chunks.</summary>
-        private const float BedCacheSeconds = 60f;
+        /// <summary>One body's verdict for this pass. Why is null when she may be leased.</summary>
+        private sealed class Verdict
+        {
+            public EntityAlive Npc;
+            public string Name;
+            public string Why;
+            public Vector3i Min, Size;      // the box 0-XNPCCore is given, and the box beds are counted in
+            public int Key;                 // her record's id: who keeps a bed first, after whoever is already asleep
+            public object Group;            // HomeGroup, or her Enclave - beds are shared within one group
+            public string Place;            // for the refusal text
+        }
+        private static readonly object HomeGroup = new object();
 
         /// <summary>
-        /// Is this member within the first `beds` of those who could be leased tonight? Ordered by member id, so the
-        /// same people keep the same beds night after night instead of the set changing every evening.
-        /// Note the two sides do not define a bed identically - SC's count is ScScan's (which also accepts any
-        /// BlockSleepingBag when BedsBySleepingBag is on), while 0-XNPCCore claims against its own Routine/BedBlocks
-        /// name list. For vanilla beds the two agree; a modded bed only SC recognizes would still leave her without a
-        /// claim, so BedBlocks is the setting to check first if someone sleeps on the floor.
+        /// Everyone's verdict for this pass, the bed cap included - the one place both Tick and "sc sleep" get it from,
+        /// so the console shows exactly what is applied.
         /// </summary>
-        private static bool WithinBedCount(Member who, int beds)
+        private static List<Verdict> Plan(World w, string nightWhy, bool enclaves)
         {
-            int ahead = 0;
+            var all = new List<Verdict>();
             foreach (Member m in ScRegistry.Members.Values)
             {
-                if (m.Id == who.Id) continue;
-                if (m.Status != MemberStatus.Resident || ScWatch.OnWatch(m) || ScWork.OnShift(m.Id)) continue;
-                if (m.Id < who.Id && ++ahead >= beds) return false;
+                EntityAlive npc = ScCommunity.FindNpc(m.Id);
+                if (npc == null) continue;
+                Vector3i min, size;
+                string why = MemberRefusal(w, m, npc, nightWhy, out min, out size);
+                all.Add(new Verdict { Npc = npc, Name = m.Name, Why = why, Min = min, Size = size, Key = m.Id,
+                                      Group = HomeGroup, Place = "the home zone" });
             }
-            return true;
+            if (enclaves) CollectEnclaves(all, nightWhy);
+            CapByBeds(all);
+            return all;
         }
 
         /// <summary>
-        /// Is there a bed inside this enclave's POI? Counted through ScScan's own area sweep - the same block table and
-        /// the same IsBed test the home zone uses, so a bed mod recognized at home is recognized here. Cached per
-        /// enclave, and only ever asked once every other test has passed, so it never runs by day. The caveat under
-        /// WithinBedCount applies here too: ScScan's idea of a bed is not byte-for-byte 0-XNPCCore's. CountArea answers
-        /// false while any chunk of the box is still loading; that is treated as "no bed for now", and the lease simply
-        /// opens a moment later once the building is in.
+        /// One bed is not N beds: 0-XNPCCore claims one bed per resident (SdcsClaimTable), and anyone who gets no claim
+        /// lies down wherever she is standing. So within each building the number leased is capped at its bed count.
+        /// Ranked among the people who passed every OTHER test tonight - someone away, on a shift or not loaded no
+        /// longer holds a bed she cannot use - with whoever is already asleep first, so a member coming off watch at
+        /// 2 am never wakes one who is in bed, and then by record id, so the same people get the beds night after night.
         /// </summary>
-        private static bool EnclaveHasBed(Enclave en)
+        private static void CapByBeds(List<Verdict> all)
+        {
+            var groups = new Dictionary<object, List<Verdict>>();
+            foreach (Verdict v in all)
+            {
+                if (v.Why != null) continue;
+                List<Verdict> g;
+                if (!groups.TryGetValue(v.Group, out g)) groups[v.Group] = g = new List<Verdict>();
+                g.Add(v);
+            }
+            foreach (KeyValuePair<object, List<Verdict>> kv in groups)
+            {
+                List<Verdict> g = kv.Value;
+                bool complete;
+                int counted = BedsIn(kv.Key, g[0].Min, g[0].Size, out complete);
+                if (counted < 0)
+                {
+                    // Cannot count at all (no world or no block table yet). Nobody new is leased, nobody asleep is woken.
+                    foreach (Verdict v in g)
+                        if (!InBed(v.Npc)) v.Why = "beds not counted yet";
+                    continue;
+                }
+                int granted = Grant(kv.Key, counted);
+                g.Sort((a, b) =>
+                {
+                    bool la = InBed(a.Npc), lb = InBed(b.Npc);
+                    if (la != lb) return la ? -1 : 1;
+                    return a.Key.CompareTo(b.Key);
+                });
+                string place = g[0].Place;
+                string none = complete ? "no bed in " + place : "no bed found yet in " + place + " (part of it is not loaded)";
+                string full = "not enough beds (" + counted + ") - someone else has them";
+                string waiting = "not enough beds yet (" + granted + " of " + counted + " - a new bed is used once 0-XNPCCore rescans)";
+                bool noted = false;
+                for (int i = 0; i < g.Count; i++)
+                {
+                    // Someone already in bed holds 0-XNPCCore's claim: only a COMPLETE count with no bed left for her place
+                    // takes her out (a bed was removed). A partial count - a neighboring chunk still loading after a
+                    // reload - never wakes her. Anyone new is held to the granted count, which waits out a rise.
+                    bool refuse = InBed(g[i].Npc) ? complete && i >= counted : i >= granted;
+                    if (!refuse) continue;
+                    // per person: past the real count it is a shortage; between granted and counted it is the wait
+                    g[i].Why = counted == 0 ? none : i >= counted ? full : waiting;
+                    if (!noted) { Note(counted == 0 ? "no bed in " + place : "not enough beds (" + granted + ")"); noted = true; }
+                }
+            }
+        }
+
+        /// <summary>The bed count SC lets new sleepers use, per building, and when a higher count was first seen.</summary>
+        private sealed class BedGrant { public int Count; public float RiseSince = -1f; }
+        private static readonly Dictionary<object, BedGrant> grants = new Dictionary<object, BedGrant>();
+
+        /// <summary>
+        /// The number of beds new sleepers may be leased against. A FALL applies at once (fewer beds is always safe). A
+        /// RISE - a bed placed, or a chunk of the box finishing loading - only once it has held for longer than
+        /// 0-XNPCCore's own POI scan cache: it caches its bed list per box for Routine/ScanCacheSeconds (60 s by
+        /// default) whether that scan was complete or not, so a survivor leased on SC's newer count would find "no free
+        /// bed" in its older list and lie down wherever she stood (SleepRules.MayBegin with no bed).
+        /// sc sleep goes through here too; it can only start the clock the tick would have started anyway.
+        /// </summary>
+        private static int Grant(object group, int counted)
+        {
+            float now = Time.time;                             // 0-XNPCCore's scan clock is Time.time as well
+            BedGrant g;
+            if (!grants.TryGetValue(group, out g)) { grants[group] = new BedGrant { Count = counted }; return counted; }
+            if (counted <= g.Count) { g.Count = counted; g.RiseSince = -1f; return counted; }
+            if (g.RiseSince < 0f) g.RiseSince = now;
+            if (now - g.RiseSince >= ScanCacheSeconds() + 5f) { g.Count = counted; g.RiseSince = -1f; }
+            return g.Count;
+        }
+
+        /// <summary>0-XNPCCore's Routine/ScanCacheSeconds (internal, so reflection), else its default of 60.</summary>
+        private static float ScanCacheSeconds()
+        {
+            BindClear();
+            try
+            {
+                if (pScanCache != null)
+                {
+                    object v = pScanCache.GetValue(null, null);
+                    if (v is float && (float)v > 0f) return (float)v;
+                }
+            }
+            catch (Exception ex) { ScLog.Once("sleep-scan-cache", ex); }
+            return 60f;
+        }
+
+        /// <summary>
+        /// Is she in 0-XNPCCore's routine tonight already - SC's lease, or the saved cvar? After a world load the lease set
+        /// is empty while SdcsResident (saved with the entity) is still 1, so testing the set alone would rank everyone
+        /// asleep as a newcomer and could hand her bed to someone else.
+        /// </summary>
+        private static bool InBed(EntityAlive npc)
+        {
+            return leased.Contains(npc.entityId) || npc.GetCVar(ResidentCvar) >= 0.5f;
+        }
+
+        /// <summary>The home zone's box as 0-XNPCCore is given it: the zone's XZ extent (ScZone.Bounds, the same one
+        /// ScZone.Contains tests, so a LandClaimUpgrade-enlarged claim is covered) within SleepZoneHeight of the home block.</summary>
+        private static void HomeBox(out Vector3i min, out Vector3i size)
+        {
+            int xMin, xMax, zMin, zMax;
+            ScZone.Bounds(out xMin, out xMax, out zMin, out zMax);
+            Vector3i home = ScZone.Home;
+            int band = Math.Max(2, ScConfig.SleepZoneHeight);
+            min = new Vector3i(xMin, home.y - band, zMin);
+            size = new Vector3i(xMax - xMin + 1, band * 2 + 1, zMax - zMin + 1);
+        }
+
+        private sealed class BedAnswer { public int Count; public bool Complete; public float Until; public Vector3i Min, Size; }
+        private static readonly Dictionary<object, BedAnswer> bedCache = new Dictionary<object, BedAnswer>();
+        private static readonly int[] areaCounts = new int[4];
+        /// <summary>A box's answer is kept this long: beds rarely move, and the count sweeps whole chunks.</summary>
+        private const float BedCacheSeconds = 60f;
+        /// <summary>...and this long while part of the box is not loaded, so the count grows as the chunks come in.</summary>
+        private const float BedPartialSeconds = 5f;
+
+        /// <summary>
+        /// How many beds stand inside this box, Y included. Counted in the SAME box 0-XNPCCore is given (HomeBox, or the
+        /// enclave's POI), not ScRegistry's zone-wide count: that one is XZ only, so a bed in a deep basement or high up
+        /// a tower passed SC's gate while lying outside the box 0-XNPCCore searches for a claim - and she slept on the
+        /// floor.
+        /// Through ScScan's own area sweep - the same block table and IsBed test the home zone uses, so a bed mod
+        /// recognized at home is recognized here. The two sides still do not define a bed identically: ScScan also
+        /// accepts any BlockSleepingBag when BedsBySleepingBag is on, while 0-XNPCCore claims against its own
+        /// Routine/BedBlocks name list. For vanilla beds they agree; for a modded bed only SC recognizes, BedBlocks is
+        /// the setting to check first if someone sleeps on the floor.
+        /// The box is 0-XNPCCore's own test, RoutineRules.InsideBox: min to min + size INCLUSIVE on every axis (one block
+        /// more than size on each), so SC's count covers exactly the cells its bed search does.
+        /// Only LOADED chunks are counted. 0-XNPCCore can only claim a bed it can read, so a bed in a chunk that is not
+        /// loaded is no use tonight anyway - and waiting for the whole box would lease nobody at all while a corner of
+        /// a large (LandClaimUpgrade-enlarged) zone is out of range. A partial answer is kept only briefly, so the count
+        /// grows as the chunks come in.
+        /// Cached per box, and only asked once every other test has passed, so it never runs by day. -1 only when it
+        /// cannot count at all (no world or no block table yet).
+        /// </summary>
+        private static int BedsIn(object group, Vector3i min, Vector3i size, out bool complete)
         {
             BedAnswer a;
             float now = Time.unscaledTime;
-            if (encBeds.TryGetValue(en.Id, out a) && now < a.Until) return a.Has;
-            bool has = false;
-            if (ScScan.CountArea(en.Poi.x, en.Poi.x + Math.Max(0, en.Size.x - 1),
-                                 en.Poi.z, en.Poi.z + Math.Max(0, en.Size.z - 1), areaCounts))
-                has = areaCounts[0] > 0;
-            else
-                return false;                                  // still loading: no answer yet, and nothing cached
-            encBeds[en.Id] = new BedAnswer { Has = has, Until = now + BedCacheSeconds };
-            return has;
+            if (bedCache.TryGetValue(group, out a) && a.Min == min && a.Size == size && now < a.Until) { complete = a.Complete; return a.Count; }
+            if (!ScScan.CountAreaLoaded(min.x, min.x + Math.Max(0, size.x), min.y, min.y + Math.Max(0, size.y),
+                                        min.z, min.z + Math.Max(0, size.z), areaCounts, out complete))
+                return -1;
+            bedCache[group] = new BedAnswer { Count = areaCounts[0], Complete = complete, Min = min, Size = size,
+                                              Until = now + (complete ? BedCacheSeconds : BedPartialSeconds) };
+            return areaCounts[0];
         }
     }
 }

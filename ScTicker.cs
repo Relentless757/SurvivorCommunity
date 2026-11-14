@@ -93,6 +93,7 @@ namespace SurvivorCommunity
                 ScDoors.Tick(w, player);              // shut the doors members opened once they are through
 #if SC_V34
                 ScSleep.Tick(w, player);              // round n06: the night lease - off-duty people sleep through 0-XNPCCore's routine
+                ScReach.Tick(w, player);              // round n08: watches 0-XNPCCore's melee-unreachable marks (measurement only)
 #endif
                 ScRunners.Tick(w, player);            // physical supply runs: walk, capture out of range, re-create near the player
                 TrackProspects(w);

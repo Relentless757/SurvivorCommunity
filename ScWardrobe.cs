@@ -18,17 +18,21 @@ namespace SurvivorCommunity
     /// SC owns its people's looks, so SC honors the pick itself. Both sides already agree on the shape: 0-XNPCCore's
     /// four cvars are in slot order Head, Chest, Hands, Feet, and so is SC's Look.Gear - a 1:1 match by index.
     ///
-    /// "Back to my own &lt;slot&gt;" clears a cvar. Her own piece is whatever she wore before the first wardrobe pick, so
-    /// that is snapshotted per body the first time a slot is overridden (ownGear) and put back when the cvar clears.
+    /// "Back to my own &lt;slot&gt;" clears a cvar. Her own piece is whatever she wore in that slot before the wardrobe
+    /// first overrode it, so that is snapshotted PER SLOT the first time the slot is overridden (ownGear) and put back
+    /// when its cvar clears - and then forgotten, so from there on SC's own changes to the slot stand. A slot the
+    /// wardrobe never overrode is never touched. (Round n05 snapshotted all four slots at the first pick and restored
+    /// every un-overridden slot from it on each later pick, so armor SC gave her afterwards was quietly taken back off.)
     /// The snapshot is this session's: after a world reload the piece she is wearing has become her own, and clearing
     /// the slot then leaves it as it is rather than undoing an older roll. The pick itself survives a reload, because
     /// it is written into her record like any other look change.
     /// </summary>
     public static class ScWardrobe
     {
-        /// <summary>Her gear before the Wardrobe first touched it, by entity id - what "Back to my own" restores.</summary>
+        /// <summary>Her piece in each slot before the Wardrobe overrode that slot, by entity id - what "Back to my own" restores.</summary>
         private sealed class Own
         {
+            public readonly bool[] Taken = new bool[4];        // this slot is overridden and Gear/Quality hold her own piece
             public readonly string[] Gear = { "", "", "", "" };
             public readonly int[] Quality = { 1, 1, 1, 1 };
         }
@@ -99,23 +103,34 @@ namespace SurvivorCommunity
                 Look look = ScLooks.Get(npc);
                 if (look == null) return false;
 
-                if (!ownGear.TryGetValue(npc.entityId, out Own own))
-                {
-                    own = new Own();
-                    for (int i = 0; i < 4; i++) { own.Gear[i] = look.Gear[i] ?? ""; own.Quality[i] = look.Quality[i]; }
-                    ownGear[npc.entityId] = own;
-                }
+                if (!ownGear.TryGetValue(npc.entityId, out Own own)) ownGear[npc.entityId] = own = new Own();
 
                 Look next = look.Clone();
                 bool changed = false;
                 for (int i = 0; i < 4; i++)
                 {
                     string want = Override(npc, i);
-                    // The quality has to travel with the name: ScLooks.SyncGear builds the piece with MakeItem(name,
-                    // Quality[slot]), so leaving Quality behind would dress her in a Q1 copy of the Q6 helmet she was
-                    // handed. Her real one is in her window or bag, the same place 0-XNPCCore's PackValueFor looks.
-                    int quality = want != null ? QualityOf(npc, want, next.Quality[i]) : own.Quality[i];
-                    if (want == null) want = own.Gear[i];           // no override: back to the piece she had
+                    int quality;
+                    if (want != null)
+                    {
+                        if (!own.Taken[i])                          // first override of this slot: remember her own piece
+                        {
+                            own.Taken[i] = true;
+                            own.Gear[i] = next.Gear[i] ?? "";
+                            own.Quality[i] = next.Quality[i];
+                        }
+                        // The quality has to travel with the name: ScLooks.SyncGear builds the piece with MakeItem(name,
+                        // Quality[slot]), so leaving Quality behind would dress her in a Q1 copy of the Q6 helmet she was
+                        // handed. Her real one is in her window or bag, the same place 0-XNPCCore's PackValueFor looks.
+                        quality = QualityOf(npc, want, next.Quality[i]);
+                    }
+                    else
+                    {
+                        if (!own.Taken[i]) continue;                // never overridden: SC's own piece stands as it is
+                        want = own.Gear[i];                         // override cleared: back to the piece she had
+                        quality = own.Quality[i];
+                        own.Taken[i] = false;
+                    }
                     if (string.Equals(next.Gear[i] ?? "", want ?? "", StringComparison.Ordinal) && next.Quality[i] == quality) continue;
                     next.Gear[i] = want ?? "";
                     next.Quality[i] = quality;

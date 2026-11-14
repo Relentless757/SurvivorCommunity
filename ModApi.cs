@@ -58,6 +58,9 @@ namespace SurvivorCommunity
                     ScTicker.Reset();
 #if SC_V34
                     ScSleep.Reset();                 // round n06: no night lease carries into a new world
+                    ScReach.Reset();                 // round n08: mark counts are per session
+                    ScLoadout.ResetModCache();       // round n08: canonical weapon mods are rolled per world
+                    UAI.UAIConsiderationScIntruder.ResetHunts();   // round n08: the home rule's "after somebody" latches
 #endif
                     ScZone.Reset();
                     ScTraits.Reset();
@@ -536,6 +539,10 @@ namespace SurvivorCommunity
                 Add(t, "PhraseTriggerHandler::Dismiss", Patches_VoiceControl.DismissTarget());
                 Add(t, "PhraseTriggerHandler::Pickup", Patches_VoiceControl.PickupTarget());
                 Add(t, "PhraseTriggerHandler::Hire", Patches_VoiceControl.HireTarget());
+#if SC_V34
+                // round n08: "follow me" by voice to a member who is not following yet (Voice Control 3.4 answers only her leader)
+                Add(t, "PhraseTriggerHandler::ExecuteMatch", Patches_VoiceControl.ExecuteMatchTarget());
+#endif
                 // ScDoors.cs - doors Voice Control's follow opens for a member are shut behind them too
                 Add(t, "EntityMovementActuator::TryOpenBlockingDoor", ScDoors.VcDoorTarget());
                 // ScArms.cs - Voice Control's "use X" keeps a handed weapon the same way

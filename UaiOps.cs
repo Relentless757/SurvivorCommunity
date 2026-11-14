@@ -711,6 +711,66 @@ namespace UAI
             return m == null || m.Post == Vector3i.zero ? -1f : Vector3.Distance(self.position, ScCommunity.PostCenter(m));
         }
 
+        /// <summary>
+        /// Round n08 (the user's rule, 2026-11-14: "while they're at home, they shouldn't go after zombies that are wandering,
+        /// only zombies that are actively targeting a member"; the player counts too, by the user's choice). Is this enemy
+        /// after somebody - its attack target or its revenge target a living member, stand-in or player?
+        /// </summary>
+        public static bool HuntsSomeone(EntityAlive t)
+        {
+            if (t == null) return false;
+            float now = Time.time;
+            if (Hunted(t.GetAttackTarget()) || Hunted(t.GetRevengeTarget()))
+            {
+                huntUntil[t.entityId] = now + HuntLatchSeconds;
+                if (huntUntil.Count > 256 && now >= nextHuntPrune) PruneHunts(now);
+                return true;
+            }
+            float until;
+            return huntUntil.TryGetValue(t.entityId, out until) && now < until;
+        }
+
+        /// <summary>
+        /// How long an enemy stays "after somebody" once it was seen to be. Vanilla's zombie AI drops its attack target
+        /// whenever it loses sight of it (EAISetNearestEntityAsTarget.Continue: SetAttackTarget(null) and an investigate of
+        /// the last-seen spot), so a zombie chasing a member round a corner or through a door read as wandering for a moment:
+        /// the engage gate and the defense flickered off, Guard walked her home, and she walked out again when it re-acquired.
+        /// The latch rides through those gaps; a zombie that really gave up is let go after it.
+        /// </summary>
+        private const float HuntLatchSeconds = 10f;
+        private static readonly Dictionary<int, float> huntUntil = new Dictionary<int, float>();
+        private static float nextHuntPrune;
+
+        private static void PruneHunts(float now)
+        {
+            nextHuntPrune = now + 30f;
+            var gone = new List<int>();
+            foreach (KeyValuePair<int, float> kv in huntUntil) if (now >= kv.Value) gone.Add(kv.Key);
+            foreach (int id in gone) huntUntil.Remove(id);
+        }
+
+        /// <summary>A new world: no latches carried over (entity ids are reused).</summary>
+        public static void ResetHunts() { huntUntil.Clear(); nextHuntPrune = 0f; }
+
+        private static bool Hunted(EntityAlive v)
+        {
+            return v != null && !v.IsDead() && (v is EntityPlayer || SurvivorCommunity.Patches_VoiceControl.IsCommunityNpc(v));
+        }
+
+        /// <summary>
+        /// Round n08: must this body leave t alone - a member at home (a resident, not on watch), no home attack live, and t
+        /// after nobody? Used by the MayEngage postfix, which gates every attack and approach of 0-XNPCCore's ranged package.
+        /// A guard on watch shoots from his post at whatever comes, and during a home attack (ScBaseAttack.WideDefence) the
+        /// whole base is defended - both as before. Cheap tests first: it runs for every candidate target of every NPC.
+        /// </summary>
+        public static bool LeavesAlone(EntityAlive self, EntityAlive t)
+        {
+            if (self == null || t == null || t.IsDead() || ScBaseAttack.WideDefence) return false;
+            Member m = ScRegistry.GetMember(self.entityId);
+            if (m == null || m.Status != MemberStatus.Resident || ScWatch.OnWatch(m)) return false;
+            return !HuntsSomeone(t);
+        }
+
         /// <summary>Null for an intruder, else why not (constant strings: no allocation on the AI's path; sc xnpc shows it).</summary>
         public static string Why(EntityAlive self, EntityAlive t)
         {
@@ -809,6 +869,12 @@ namespace UAI
                 }
                 else if ((t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)radius * radius) return "beyond DefendBaseRadius of the post";
                 if (!ScZone.Contains(t.GetBlockPosition())) return "outside the home zone";
+#if SC_V34
+                // round n08 (the user's rule, 2026-11-14): outside a home attack a resident goes only after an enemy that is
+                // after somebody - a member, a stand-in or a player. A zombie wandering through is left alone. A guard on
+                // watch (hold: H1's turn-to-face) still faces whatever comes at the base: his post is the defense.
+                if (!(hold && ScWatch.OnWatch(m)) && !HuntsSomeone(t)) return "after nobody (wandering)";
+#endif
             }
             if (!EntityTargetingUtilities.IsEnemy(self, t)) return "not an enemy";
             if (global::Harmony.ZombieFeatures.InertEntity.IsInert(t)) return "inert";   // CanSeeTarget's own exclusion

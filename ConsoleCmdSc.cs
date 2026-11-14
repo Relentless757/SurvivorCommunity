@@ -2299,6 +2299,9 @@ namespace SurvivorCommunity
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] melee: " + ScMelee.Report());
+#if SC_V34
+            Output("[SC] melee-unreachable (0-XNPCCore): " + ScReach.Report());
+#endif
             Output("[SC] shooting skill: " + ScShooting.Report());
             Output("[SC] get-ups: " + Patches_Sdcs.GetUp.Report());
             Output("[SC] relaxed (arms down, weapon hidden): " + ScRelax.Report());
@@ -2387,6 +2390,9 @@ namespace SurvivorCommunity
             sb.Append("\n  ammo: ").Append(XnpcAmmo(e, held));
             if (ScRegistry.Loaded) sb.Append("\n  resupply: ").Append(ScAmmo.Describe(e));
             sb.Append("\n  overwhelmed: ").Append(ScArms.Describe(e));
+#if SC_V34
+            sb.Append("\n  ").Append(ScReach.Describe(e));
+#endif
             sb.Append("\n  ").Append(ScRelax.Describe(e));
             // XNPC kill levels and buffs
             if (e.Buffs != null)

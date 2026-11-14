@@ -86,6 +86,10 @@ namespace SurvivorCommunity
                 }
                 active = true;
                 state = "on";
+                if (seated == null)
+                    ScLog.Warn("mags: Locked & Loaded's " + MagazinesTypeName + ".HasMagazineSeated(ItemValue) was not found - "
+                               + "the magazine duplication fix (X18) is OFF for a loaded gun: 0-XNPCCore keeps banking its rounds "
+                               + "on a weapon swap, as it did before round n07. Check the Locked & Loaded version.");
                 ScLog.Out("NPC magazines: Locked & Loaded's NPC API bound - a survivor's or raider's gun that takes magazines gets its tier's"
                           + " loaded magazines instead of loose rounds" + (allForGun == null || defName == null || defTwin == null
                               ? " (MagazineRegistry.AllForGun not bound: a member without magazines is not issued any)" : ""));

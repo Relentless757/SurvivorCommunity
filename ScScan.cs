@@ -365,6 +365,23 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool CountArea(int xMin, int xMax, int zMin, int zMax, int[] into)
         {
+            bool complete;
+            return Sweep(xMin, xMax, int.MinValue, int.MaxValue, zMin, zMax, into, false, out complete);
+        }
+
+        /// <summary>
+        /// The same counts within a Y band too (all bounds inclusive), over the chunks that ARE loaded and settled; the
+        /// rest are skipped and complete says whether any were. False only when it cannot count at all. ScSleep's beds:
+        /// 0-XNPCCore can only claim a bed in a loaded chunk, so a partial count is the true answer for tonight.
+        /// </summary>
+        public static bool CountAreaLoaded(int xMin, int xMax, int yMin, int yMax, int zMin, int zMax, int[] into, out bool complete)
+        {
+            return Sweep(xMin, xMax, yMin, yMax, zMin, zMax, into, true, out complete);
+        }
+
+        private static bool Sweep(int xMin, int xMax, int yMin, int yMax, int zMin, int zMax, int[] into, bool skipUnready, out bool complete)
+        {
+            complete = true;
             World w = ScCommunity.World;
             if (w == null || !EnsureTable()) return false;
             areaPending.Clear();
@@ -377,7 +394,12 @@ namespace SurvivorCommunity
                 for (int cz = World.toChunkXZ(zMin); cz <= World.toChunkXZ(zMax); cz++)
                 {
                     Chunk ch = w.GetChunkSync(cx, cz) as Chunk;
-                    if (ch == null || ch.NeedsDecoration || ch.InProgressUnloading || areaPending.Contains(WorldChunkCache.MakeChunkKey(cx, cz))) return false;
+                    if (ch == null || ch.NeedsDecoration || ch.InProgressUnloading || areaPending.Contains(WorldChunkCache.MakeChunkKey(cx, cz)))
+                    {
+                        if (!skipUnready) return false;
+                        complete = false;
+                        continue;
+                    }
                     var stubs = ch.blockEntityStubs;
                     if (stubs == null) continue;
                     List<BlockEntityData> list = stubs.list;
@@ -390,7 +412,7 @@ namespace SurvivorCommunity
                         int t = bv.type;
                         if (t <= 0 || t >= k.Length || k[t] == KNone) continue;
                         Vector3i p = d.pos;
-                        if (p.x < xMin || p.x > xMax || p.z < zMin || p.z > zMax) continue;
+                        if (p.x < xMin || p.x > xMax || p.z < zMin || p.z > zMax || p.y < yMin || p.y > yMax) continue;
                         switch (k[t])
                         {
                             case KBed: beds++; break;

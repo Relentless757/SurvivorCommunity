@@ -88,6 +88,8 @@ namespace SurvivorCommunity
             public float GunUntil;
             /// <summary>F2: since when 0-XNPCCore has wanted to leave close melee (0 = it does not), in the bout that began at ExitBout.</summary>
             public float ExitWantSince, ExitBout;
+            /// <summary>Round n08 (GunFirst): since when she has been on her melee weapon with a reason to take the gun (0 = not now).</summary>
+            public float FirstSince;
         }
 
         private static readonly Dictionary<int, Watch> watch = new Dictionary<int, Watch>();
@@ -117,6 +119,7 @@ namespace SurvivorCommunity
             near.Clear();
             nextPrune = 0f;
             leadSwitches = leadBacks = leadRearmsHeld = 0;
+            gunFirstDraws = 0;
             swapsKept = swapsUnknown = returnedStorage = returnedInventory = returnedGround = 0;
 #if SC_V34
             swapsLeftToVc = 0;
@@ -237,7 +240,19 @@ namespace SurvivorCommunity
         {
             name = Remembered(c);
             ItemClass rem = string.IsNullOrEmpty(name) ? null : ItemClass.GetItemClass(name, true);
-            return ScAmmo.RangedAction(rem) != null && ScAmmo.Rounds(e, rem) > 0;
+            if (ScAmmo.RangedAction(rem) != null) return ScAmmo.Rounds(e, rem) > 0;
+            // Round n08: 0-XNPCCore remembers nothing, or a melee weapon. Its close-range swap only remembers what it takes
+            // out of the hand while nothing is remembered yet, so a stale melee name (an order, an earlier swap) survives a
+            // swap FROM the gun - and the overwhelmed rule had nothing to go back to: "never switched to the pistol when
+            // overwhelmed". A survivor's pair gun is the answer then (RestoreGun writes it in before the restore runs). Not
+            // for a raider (its lead rule owns that), nor when the player ordered her melee weapon.
+            if (ScXnpc.IsRaider(e) || OrderedMelee(e)) return false;
+            Loadout l = ScLoadout.Current(e);
+            if (l == null || !l.HasRanged) return false;
+            ItemClass gun = ItemClass.GetItemClass(l.Ranged, true);
+            if (ScAmmo.RangedAction(gun) == null || ScAmmo.Rounds(e, gun) <= 0) return false;
+            name = l.Ranged;
+            return true;
         }
 
         /// <summary>
@@ -250,6 +265,7 @@ namespace SurvivorCommunity
             int count, need;
             bool pointBlank;
             if (!SwarmHeld(e, now, out count, out need, out pointBlank)) return false;
+            if (!string.Equals(Remembered(c), name, StringComparison.OrdinalIgnoreCase)) rememberedField.SetValue(c, name);   // n08: the pair's gun
             restoreHeld.Invoke(c, null);
             closeMeleeField.SetValue(c, false);
             closeSinceField.SetValue(c, 0f);
@@ -454,6 +470,110 @@ namespace SurvivorCommunity
             gone.Clear();
             foreach (var kv in leads) if (now - kv.Value.Seen > 60f) gone.Add(kv.Key);
             foreach (int id in gone) leads.Remove(id);
+        }
+
+        // ------------------------------------------------------------------ gun first (round n08) ----
+
+        /// <summary>
+        /// Saved cvar: 1 while the player's last weapon order for this body (the weapon menu, or "use your ..." by voice)
+        /// named a MELEE weapon. Gun first, and the overwhelmed rule's way back to the pair's gun, stand aside for it; an
+        /// order of the gun clears it.
+        /// </summary>
+        public const string OrderedMeleeCvar = "sc_order_melee";
+        /// <summary>How long the reason to take the gun must hold before she does (a zombie stepping in and out of 5 m).</summary>
+        private const float GunFirstSeconds = 1f;
+        private static int gunFirstDraws;
+
+        public static bool OrderedMelee(EntityAlive e)
+        {
+            return e != null && e.Buffs != null && e.Buffs.GetCustomVar(OrderedMeleeCvar) >= 0.5f;
+        }
+
+        /// <summary>
+        /// A weapon order from the player (route "dialog" or "voice"; never "any-weapon", 0-XNPCCore's own pick-up of a newly
+        /// handed weapon): a melee weapon sets OrderedMeleeCvar, a gun or bow clears it.
+        /// </summary>
+        private static void NoteOrder(EntityAlive npc, string itemName, string route)
+        {
+            if (npc == null || npc.Buffs == null || route == "any-weapon") return;
+            string family = ScLoadout.FamilyOf(itemName);
+            if (family == "melee") npc.Buffs.SetCustomVar(OrderedMeleeCvar, 1f);
+            else if (family != null && npc.Buffs.HasCustomVar(OrderedMeleeCvar)) npc.Buffs.RemoveCustomVar(OrderedMeleeCvar);
+        }
+
+        /// <summary>
+        /// Round n08, "gun first" (SurvivorGunFirst; play test 2026-11-14: a member given a pistol never drew it, and an iron
+        /// crossbow was never used). The design has always been "the gun when it has ammo, melee up close and when it runs
+        /// dry", but nothing actually DRAWS the gun for a survivor who is on her melee weapon outside 0-XNPCCore's close-range
+        /// swap: that swap only goes gun -> melee -> back; its world-entry step first re-equips the last-held weapon (and SC's
+        /// own hand at load is the pair's melee weapon, XnpcOrder); and the overwhelmed rule only keeps a gun or returns from
+        /// close melee. Once she was on melee for any reason - a stow, a talk, a medic use, a load - she stayed there.
+        /// So, for an SC survivor (never a raider: its lead rule decides) on her pair's melee weapon, outside close melee, not
+        /// holding a job's tool, with no melee order from the player: when her target (attack, else revenge) has stayed
+        /// beyond 0-XNPCCore's close-melee exit distance (5 m) or she is overwhelmed, for GunFirstSeconds, and the pair's gun
+        /// has rounds in her stores, she takes it. 0-XNPCCore's close-range swap then does melee up close and back to this
+        /// gun as designed: what it remembers is cleared first, since it only remembers the gun it takes out of the hand
+        /// while nothing is remembered. When overwhelmed the gun is held for OverwhelmedGunSeconds (CloseRange keeps it up
+        /// close). True when it swapped: 0-XNPCCore's close-range tick is skipped for this round.
+        /// </summary>
+        public static bool GunFirst(AvatarSDCSController ctrl, EntityAlive e)
+        {
+            try
+            {
+                if (!ScConfig.SurvivorGunFirst || e == null || e.isEntityRemote || e.inventory == null || e.Buffs == null) return false;
+                if (!ScXnpc.IsBody(e) || ScXnpc.IsRaider(e)) return false;
+                AvatarSdcsNpcController c = ctrl as AvatarSdcsNpcController;
+                if (c == null || !Bind() || CloseMelee(c)) return false;
+                float now = Time.time;
+                if (now >= nextPrune) Prune(now);
+                Watch st = WatchOf(e, now);
+                Loadout l = ScLoadout.Current(e);
+                ItemValue hv = e.inventory.holdingItemItemValue;
+                string held = hv != null && !hv.IsEmpty() && hv.ItemClass != null ? hv.ItemClass.GetItemName() : null;
+                if (l == null || !l.HasRanged || l.Melee == null || !string.Equals(held, l.Melee, StringComparison.OrdinalIgnoreCase)
+                    || OrderedMelee(e) || UAI.UAITaskHarvestSdcs.HoldsJobTool(e.entityId))
+                {
+                    st.FirstSince = 0f;
+                    return false;
+                }
+                EntityAlive t = e.GetAttackTarget();
+                if (t == null || t.IsDead()) t = e.GetRevengeTarget();
+                if (t == null || t.IsDead()) { st.FirstSince = 0f; return false; }
+                int count, need;
+                bool over = ScConfig.Overwhelmed && IsOverwhelmed(e, out count, out need);
+                bool far = (t.position - e.position).sqrMagnitude > XnpcCloseExitDist * XnpcCloseExitDist;
+                if (!far && !over) { st.FirstSince = 0f; return false; }
+                if (st.FirstSince <= 0f) { st.FirstSince = now; return false; }
+                if (now - st.FirstSince < GunFirstSeconds) return false;
+                ItemClass gun = ItemClass.GetItemClass(l.Ranged, true);
+                if (ScAmmo.RangedAction(gun) == null || ScAmmo.Rounds(e, gun) <= 0) return false;   // nothing to shoot: melee it is
+                st.FirstSince = 0f;
+                rememberedField.SetValue(c, null);
+                // 0-XNPCCore's own equip, as its re-arm does it: its magazine table, its chat draw, and X16's finalizer puts
+                // the attachments back. SCore's UpdateWeapon by hand only when that cannot be bound.
+                MethodBase equip = Patches_Xnpc.EquipByNameTarget();
+                if (equip != null)
+                {
+                    object ok = equip.Invoke(c, new object[] { l.Ranged, "sc-gun-first" });
+                    if (!(ok is bool) || !(bool)ok) return false;
+                }
+                else
+                {
+                    if (!ScNpc.UpdateWeapon(e, l.Ranged)) return false;
+                    ScLoadout.ModsAfterEquip(e);                 // a gun SCore builds from its name has no attachments
+                }
+                if (over) st.GunUntil = now + ScConfig.OverwhelmedGunSeconds;
+                gunFirstDraws++;
+                Patches_Xnpc.Count(over ? "x5-gunfirst-overwhelmed" : "x5-gunfirst-range");
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") takes the " + l.Ranged + " (gun first: "
+                              + (over ? "overwhelmed" : "target at " + (t.position - e.position).magnitude.ToString("0.#") + " m") + ")");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("arms-gunfirst", ex);
+                return false;
+            }
         }
 
         // ------------------------------------------------------------------ raiders' lead weapon (M10-D1) ----
@@ -676,6 +796,7 @@ namespace SurvivorCommunity
             try
             {
                 if (!ScCommunity.IsHost || npc == null || string.IsNullOrEmpty(itemName) || !ScRegistry.Loaded || !ScXnpc.IsBody(npc)) return;
+                NoteOrder(npc, itemName, route);             // round n08: a melee order stops gun first
                 Member m = ScRegistry.GetMember(npc.entityId);
                 if (m == null) return;                       // a stranger's or a prospect's hand stays 0-XNPCCore's business
                 ItemClass ic = ItemClass.GetItemClass(itemName, true);
@@ -703,7 +824,8 @@ namespace SurvivorCommunity
                 if (!ScLoadout.Knows(token))
                 {
                     swapsUnknown++;
-                    ScLog.Out(m.Name + " holds " + token + " from the inventory window - not one of the weapons the survivors carry (XnpcWeapons), so it is not kept in their pair");
+                    ScLog.Out(m.Name + " holds " + token + " from the inventory window - not a weapon a survivor can carry in a pair (a launcher, dual pistols,"
+                              + " a tool or no weapon at all), so it is not kept in their pair");
                     return;
                 }
                 Keep(npc, m.Name, token, slot, player, route);
@@ -739,6 +861,9 @@ namespace SurvivorCommunity
             RetargetRemembered(npc, old, token);
             var back = new List<ItemStack>();
             TakeFromWindow(npc, slot, back);              // the handed item lives in the pair now; any mods on it come back
+            // Round n08: Set's own fill skipped this weapon while the handed copy was still in her window (FillMods leaves
+            // a gun with a window twin alone), so fill the pair's copies - the hand included - now that it is gone.
+            ScLoadout.ApplyWeaponMods(npc, true);
             if (oldIv != null) back.Insert(0, new ItemStack(oldIv, 1));
             string where = back.Count > 0 ? Return(back, player, npc) : null;
             swapsKept++;
@@ -753,9 +878,10 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The weapon of this kind the player handed the NPC through its inventory window that it could carry in its pair:
-        /// one of XnpcWeapons, not the one it carries already - the highest tier; on a tie an unmodded copy before a modded
-        /// one, else the first. Null when there is none (a weapon the survivors never carry, such as IZY's dual pistols,
-        /// cannot join a pair).
+        /// any weapon ScLoadout.Knows - the roll list (XnpcWeapons) and, since round n08, any other gun, bow or melee weapon
+        /// a survivor can wield (ScLoadout.WieldableFamily: IZY Classic's whole pack, other weapon mods) - not the one it
+        /// carries already; the highest tier, on a tie an unmodded copy before a modded one, else the first. Null when there
+        /// is none (a launcher, dual pistols or a tool cannot join a pair).
         /// </summary>
         public static string HandedWeapon(EntityAlive npc, bool ranged, out int slot)
         {
@@ -773,7 +899,7 @@ namespace SurvivorCommunity
                 string token = s.itemValue.ItemClass.GetItemName();
                 if (!ScLoadout.Knows(token) || ScLoadout.IsRangedToken(token) != ranged) continue;
                 if (string.Equals(token, cur.Of(ranged), StringComparison.OrdinalIgnoreCase)) continue;
-                int level = ScLoadout.LevelOf(token);
+                int level = ScLoadout.HandLevelOf(token);
                 if (level > bestLevel || (level == bestLevel && !s.itemValue.HasMods() && items[slot].itemValue.HasMods()))
                 {
                     best = token;
@@ -1122,6 +1248,9 @@ namespace SurvivorCommunity
                 if (st.ExitWantSince > 0f) sb.Append("; 0-XNPCCore wants to leave melee for ").Append((now - st.ExitWantSince).ToString("0.0")).Append(" s")
                                              .Append(EnemyWithin(e, XnpcCloseEnterDist) ? " (held: an enemy within 3 m)" : "");
             }
+            sb.Append("; gun first ").Append(!ScConfig.SurvivorGunFirst ? "off (SurvivorGunFirst)" : ScXnpc.IsRaider(e) ? "- (a raider: its lead)"
+                      : OrderedMelee(e) ? "stands aside (the player ordered her melee weapon - order the gun to undo)" : "on")
+              .Append(" (").Append(gunFirstDraws).Append(" draw(s) this session)");
             AvatarSdcsNpcController c = e.emodel != null ? e.emodel.avatarController as AvatarSdcsNpcController : null;
             if (c != null && Bind())
                 sb.Append("; 0-XNPCCore close melee=").Append(CloseMelee(c)).Append(CloseMelee(c) ? " for " + (now - CloseSince(c)).ToString("0.0") + " s" : "")

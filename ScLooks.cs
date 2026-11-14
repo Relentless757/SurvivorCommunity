@@ -209,6 +209,7 @@ namespace SurvivorCommunity
             pendingFaces.Remove(entityId);             // a creator face still waiting for the body's next frame (X17)
             ScWardrobe.Forget(entityId);               // her pre-wardrobe gear snapshot (round n05)
             ScSleep.Forget(entityId);                  // the night lease SC holds on that body (round n06)
+            ScReach.Forget(entityId);                  // its melee-unreachable mark history (round n08)
 #endif
         }
 

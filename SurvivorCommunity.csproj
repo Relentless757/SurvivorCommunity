@@ -173,6 +173,8 @@
     <Compile Include="ScWardrobe.cs" Condition="'$(ScGame)'=='34'" />
     <!-- round n06: the night lease - sleeping through 0-XNPCCore's resident routine -->
     <Compile Include="ScSleep.cs" Condition="'$(ScGame)'=='34'" />
+    <!-- round n08: the melee-unreachable readout (measurement only) -->
+    <Compile Include="ScReach.cs" Condition="'$(ScGame)'=='34'" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="ScVoiceLines.cs" />

@@ -1007,6 +1007,11 @@ namespace SurvivorCommunity
         // ---- overwhelmed (ScArms, migration M7.5, the weapons task's W4/W6 decision) ----
         /// <summary>An overwhelmed survivor keeps the gun instead of 0-XNPCCore's melee swap at 3 m (while it has ammo).</summary>
         public static bool Overwhelmed = true;
+        /// <summary>
+        /// Round n08: a survivor on her melee weapon takes her gun (it has rounds) for a target beyond 5 m or when
+        /// overwhelmed - unless the player ordered her melee weapon (ScArms.GunFirst).
+        /// </summary>
+        public static bool SurvivorGunFirst = true;
         /// <summary>Enemies targeting the survivor within this many metres are counted.</summary>
         public static float OverwhelmedRadius = 12f;
         /// <summary>
@@ -1293,6 +1298,7 @@ namespace SurvivorCommunity
             XnpcResupplyCooldown = 60f;
             XnpcResupplyPointsMult = 1f;
             Overwhelmed = true;
+            SurvivorGunFirst = true;
             OverwhelmedRadius = 12f;
             OverwhelmedMin = 2;
             OverwhelmedMax = 5;
@@ -2368,6 +2374,7 @@ namespace SurvivorCommunity
                 ParseFloat(p, "SurvivorWeaponModChance", ref SurvivorWeaponModChance, 0f, 1f);
                 ParseFloat(p, "RaiderWeaponModChance", ref RaiderWeaponModChance, 0f, 1f);
                 if (p.Values.TryGetValue("WeaponModTags", out string wmt)) { WeaponModTags = wmt ?? ""; weaponModTagList = null; }
+                ScLoadout.ResetModCache();           // the canonical lists were rolled from the old values
                 p.ParseBool("SleepAtNight", ref SleepAtNight);
                 ParseInt(p, "SleepZoneHeight", ref SleepZoneHeight, 2, 128);
                 ParseFloat(p, "SleepAfterDuskHours", ref SleepAfterDuskHours, 0f, 12f);
@@ -2388,6 +2395,7 @@ namespace SurvivorCommunity
                 bool overwhelmed = Overwhelmed;
                 if (p.Values.ContainsKey("Overwhelmed")) p.ParseBool("Overwhelmed", ref overwhelmed);
                 Overwhelmed = overwhelmed;
+                p.ParseBool("SurvivorGunFirst", ref SurvivorGunFirst);
                 ParseFloat(p, "OverwhelmedRadius", ref OverwhelmedRadius, 2f, 40f);
                 ParseInt(p, "OverwhelmedMin", ref OverwhelmedMin, 1, 20);
                 ParseInt(p, "OverwhelmedMax", ref OverwhelmedMax, 1, 20);

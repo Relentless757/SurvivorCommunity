@@ -677,6 +677,8 @@ namespace SurvivorCommunity
                     {
                         // a melee-lead raider takes its gun for a target out of reach (then this round is done)
                         if (ScArms.RaiderLead(__instance, e)) return false;
+                        // round n08: a survivor on her melee weapon takes her gun for a target beyond 5 m, or when overwhelmed
+                        if (ScArms.GunFirst(__instance, e)) return false;
                         // overwhelmed: keep (or go back to) the gun instead of the melee swap up close
                         return ScArms.CloseRange(__instance, e);
                     }
@@ -1616,11 +1618,15 @@ namespace SurvivorCommunity
             public static void Finalizer(bool __state, Exception __exception, AvatarSDCSController __instance, string itemName, string site, bool __result)
             {
                 if (__state && xnpcEquipDepth > 0) xnpcEquipDepth--;
-                if (__exception != null || !__result || site != AnyWeaponSite || string.IsNullOrEmpty(itemName)) return;
+                if (__exception != null || !__result || string.IsNullOrEmpty(itemName)) return;
                 try
                 {
                     EntityAlive e = __instance != null ? __instance.entity : null;
                     if (e == null || !ScXnpc.IsBody(e) || !ScCommunity.IsHost) return;
+                    // Round n08: every 0-XNPCCore equip rebuilds an SC survivor's gun from its NAME (SCore's
+                    // UpdateWeapon = ItemClass.GetItem), with no mods - put her canonical attachments back on it.
+                    ScLoadout.ModsAfterEquip(e);
+                    if (site != AnyWeaponSite) return;
                     Count("x16-anyweapon-equip");
                     ScArms.OnSwap(e, itemName, EntityUtilities.GetLeaderOrOwner(e.entityId) as EntityPlayer, "any-weapon");
                 }

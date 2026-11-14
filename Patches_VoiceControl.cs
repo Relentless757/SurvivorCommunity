@@ -589,6 +589,191 @@ namespace SurvivorCommunity
         }
 #if SC_V34
 
+        // ------------------------------------------------------------------ n08: "follow me" by voice to a member ----
+
+        /// <summary>
+        /// PhraseTriggerHandler.ExecuteMatch(PhraseTrigger, EntityAlive, EntityPlayer, string, bool, string, string, out string,
+        /// out string, bool, string), private bool: where every spoken order is answered.
+        /// </summary>
+        public static MethodBase ExecuteMatchTarget()
+        {
+            Type t = TriggerType, pt = PhraseTriggerType;
+            if (t == null || pt == null) return null;
+            Type so = typeof(string).MakeByRefType();
+            MethodInfo m = AccessTools.DeclaredMethod(t, "ExecuteMatch", new[] { pt, typeof(EntityAlive), typeof(EntityPlayer), typeof(string),
+                typeof(bool), typeof(string), typeof(string), so, so, typeof(bool), typeof(string) });
+            return m != null && m.ReturnType == typeof(bool) && !m.IsStatic ? m : null;
+        }
+
+        private static MemberInfo actionTypeMember;
+        private static MethodInfo tryHandlePhrase, readLeader;
+        private static PropertyInfo handlerInstance, lastMatchedTrigger;
+        private static bool followBound;
+
+        /// <summary>
+        /// Will Voice Control answer this player message with its FollowPlayer order? Asked of its REAL matcher,
+        /// PhraseTriggerHandler.TryHandlePhrase, with no NPC, no player and executeAction false - exactly how Voice Control's
+        /// own self-test calls it (no side effects; SC's ExecuteMatch prefix returns at once for a null NPC) - then its
+        /// LastMatchedTriggerName, which the real call right after resets. Not IsActionCommand: that probe is a plain
+        /// substring test that takes the first trigger whose phrase or alias appears anywhere, so "how many followers can I
+        /// have", "is anything following us" and "stop following me" all read as FollowPlayer (alias "follow") where the
+        /// real matcher answers with chat, or StopFollow - and a resident would have been made a follower by small talk.
+        /// </summary>
+        private static bool IsFollowOrder(string message)
+        {
+            if (string.IsNullOrEmpty(message)) return false;
+            if (!followBound)
+            {
+                followBound = true;
+                Type t = TriggerType;
+                handlerInstance = t != null ? AccessTools.Property(t, "Instance") : null;
+                lastMatchedTrigger = t != null ? AccessTools.Property(t, "LastMatchedTriggerName") : null;
+                tryHandlePhrase = t != null ? AccessTools.DeclaredMethod(t, "TryHandlePhrase", new[] { typeof(string), typeof(EntityAlive), typeof(EntityPlayer),
+                    typeof(string), typeof(string).MakeByRefType(), typeof(bool), typeof(bool), typeof(string), typeof(string) }) : null;
+                if (tryHandlePhrase != null && tryHandlePhrase.ReturnType != typeof(bool)) tryHandlePhrase = null;
+                Type chat = ChatType;
+                readLeader = chat != null ? AccessTools.DeclaredMethod(chat, "TryReadLeaderFromSCore", Type.EmptyTypes) : null;
+                if (handlerInstance == null || lastMatchedTrigger == null || tryHandlePhrase == null)
+                    ScLog.Warn("voice follow: Voice Control's PhraseTriggerHandler.TryHandlePhrase / LastMatchedTriggerName not found - "
+                               + "a spoken \"follow me\" to a member is still taken, but Voice Control may shake her head while she agrees");
+            }
+            if (handlerInstance == null || lastMatchedTrigger == null || tryHandlePhrase == null) return false;
+            object h = handlerInstance.GetValue(null, null);
+            if (h == null) return false;
+            object[] args = { message, null, null, "probe", null, false, false, "en", "en" };
+            object r = tryHandlePhrase.Invoke(h, args);
+            return r is bool && (bool)r
+                   && string.Equals(lastMatchedTrigger.GetValue(h, null) as string, "followplayer", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The member side of a spoken "follow me": 0 not SC's business (not a member, already following someone - Voice
+        /// Control's own rules then answer -, already his, a remote player), 1 she follows him now (SC's Follow ran), 2 SC
+        /// refused (error says why).
+        /// </summary>
+        private static int MemberFollow(EntityAlive npc, EntityPlayer player, out string error, out Member m)
+        {
+            error = null;
+            m = null;
+            if (npc == null || player == null || !ScCommunity.IsHost || !ScRegistry.Loaded) return 0;
+            m = ScRegistry.GetMember(npc.entityId);
+            if (m == null || m.Status == MemberStatus.Following) return 0;
+            Entity leader = EntityUtilities.GetLeaderOrOwner(npc.entityId);
+            if (leader != null && leader.entityId == player.entityId) return 0;
+            EntityPlayerLocal lp = player as EntityPlayerLocal;
+            if (lp == null) return 0;
+            if (!ScCommunity.Follow(m, npc, lp, out error)) return 2;
+            Count("voice-follow-member");
+            ScCommunity.Tell(player, string.Format(Localization.Get("scWinNowFollowing"), m.Name), "");
+            return 1;
+        }
+
+        /// <summary>
+        /// Round n08: the spoken "follow me" to a member, BEFORE Voice Control decides whether the speaker may give orders.
+        /// NPCChatComponent.ProcessPlayerMessage reads CanExecuteActions from its cached _leaderEntityId before it matches the
+        /// phrase and passes that as executeAction - so SC's Follow inside ExecuteMatch (below) came too late: Voice Control
+        /// skipped its own follow and shook her head while she agreed. Here SC's Follow runs first and the component re-reads
+        /// her leader from SCore (TryReadLeaderFromSCore), so the order runs as for any follower, nod and all. A refusal is
+        /// left to the ExecuteMatch prefix, which answers it.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_VoiceFollowEarly
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return HasNpcField() && PlayerMessageTarget() != null && ExecuteMatchTarget() != null; }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return PlayerMessageTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(object __instance, EntityAlive ____npcEntity, string playerMessage, EntityPlayer player)
+            {
+                try
+                {
+                    if (____npcEntity == null || player == null || ScRegistry.GetMember(____npcEntity.entityId) == null) return;
+                    if (!IsFollowOrder(playerMessage)) return;
+                    string error;
+                    Member m;
+                    if (MemberFollow(____npcEntity, player, out error, out m) != 1) return;
+                    if (readLeader != null) readLeader.Invoke(__instance, null);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-follow-early", e);
+                }
+            }
+        }
+
+        /// <summary>The trigger's ActionType as its enum name ("FollowPlayer"), or null.</summary>
+        private static string ActionName(object trigger)
+        {
+            if (trigger == null) return null;
+            if (actionTypeMember == null)
+                actionTypeMember = (MemberInfo)AccessTools.Field(trigger.GetType(), "ActionType") ?? AccessTools.Property(trigger.GetType(), "ActionType");
+            object v = actionTypeMember is FieldInfo ? ((FieldInfo)actionTypeMember).GetValue(trigger)
+                     : actionTypeMember is PropertyInfo ? ((PropertyInfo)actionTypeMember).GetValue(trigger, null) : null;
+            return v != null ? v.ToString() : null;
+        }
+
+        /// <summary>
+        /// Round n08 (play test 2026-11-14: "I asked a member to follow me, and they declined"). Voice Control 3.4 answers an
+        /// order only from the NPC's leader: ExecuteMatch refuses everything but a hire, a trade and a custom dialog with one of
+        /// its LeaderlessRefusals while NpcRelation.LeaderEntity (SCore's GetLeaderOrOwner) is not the speaker - and a resident
+        /// at home has no leader. On 3.2 "follow me" hired her (and SC refused the bill); on 3.4 it simply bounced.
+        /// So for a community MEMBER told to follow by a player, while she is not following anyone, SC runs its own Follow
+        /// first - the talk menu's "Follow me", with all of its rules (not on watch, not away on a run or at an outpost, the
+        /// follower cap, morale) - which makes the speaker her leader. Normally that happens a step earlier, in
+        /// Patch_VoiceFollowEarly, so Voice Control's own leader check passes too; this prefix covers any other route and
+        /// answers a refusal. When SC refuses, she says she can't and the player is told why (the talk menu's message),
+        /// instead of the leaderless line. Strangers, prospects, enclave people and a member already following someone keep
+        /// Voice Control's rules.
+        /// Local players only: SC's Follow takes the local player (a remote player's order still gets Voice Control's
+        /// answer, as before).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_VoiceFollowMember
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return ExecuteMatchTarget() != null; }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return ExecuteMatchTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(object __instance, object trigger, EntityAlive npc, EntityPlayer player, ref bool executeAction,
+                                      ref string audioResponse, ref string subtitleResponse, ref bool __result)
+            {
+                try
+                {
+                    if (npc == null || player == null || ActionName(trigger) != "FollowPlayer") return true;
+                    string error;
+                    Member m;
+                    int r = MemberFollow(npc, player, out error, out m);
+                    if (r == 0) return true;
+                    if (r == 1)
+                    {
+                        // a route the early prefix did not see (typed chat, another caller): she is his now, so let Voice
+                        // Control run its follow as its own gate would have had it known
+                        executeAction = true;
+                        return true;
+                    }
+                    Count("voice-follow-refused");
+                    ScCommunity.Tell(player, Localization.Get(error ?? "scInternal"), "ui_denied");
+                    audioResponse = Localization.Get("scVoiceCantFollow");
+                    subtitleResponse = audioResponse;
+                    // no stale trigger name for SC's reply swap (ScBarks reads it): this order did not run
+                    try { Traverse.Create(__instance).Property("LastMatchedTriggerName").SetValue(null); } catch (Exception) { }
+                    __result = true;
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("vc-follow-member", e);
+                    return true;
+                }
+            }
+        }
+
         // ------------------------------------------------------------------ B1 (round 28): no "Pick me up" on SC's people ----
         //
         // 0-XNPCCore / Voice Control 3.4.04 put "Pick me up" (vcpickup) on the hold-E ring and on her "Jobs and gear" page, both
@@ -908,6 +1093,9 @@ namespace SurvivorCommunity
         /// NPC sticks to the one it is fighting - turning that into 1 made it switch targets). Everyone else - a follower, a
         /// stranger, 0-XNPCCore's own NPCs - keeps 3.4's rules, the original still runs first (its commitment and log
         /// bookkeeping), and nothing else of XNPC's package changes.
+        /// Round n08 (the user's rule): a member at home (a resident, not on watch) leaves alone an enemy that is after nobody
+        /// - its attack and revenge targets are neither a member nor a player - outside a home attack, whatever Voice Control
+        /// said (its wild rule passes any enemy within 5 m). UAIConsiderationScIntruder.LeavesAlone.
         ///
         /// A postfix rather than an SC copy of SdcsNpcRangedAdvanced without MayEngage: residents and enclave people carry
         /// XNPC's packages through npcSdcsBase (decision D1), so a copy would mean a second package list per body and an
@@ -934,12 +1122,20 @@ namespace SurvivorCommunity
             public static MethodBase TargetMethod() { return MayEngageTarget(); }
 
             [HarmonyPostfix]
-            public static void Postfix(UAI.Context _context, ref float __result)
+            public static void Postfix(UAI.Context _context, object target, ref float __result)
             {
                 try
                 {
-                    if (__result > 0f) return;                   // Voice Control let it fight: its stick score stands
                     EntityAlive self = _context != null ? _context.Self : null;
+                    // round n08 (the user's rule): at home a resident fights only an enemy that is after somebody - Voice
+                    // Control's own wild pass (an enemy within 5 m, a 10 s commitment) included
+                    if (UAI.UAIConsiderationScIntruder.LeavesAlone(self, target as EntityAlive))
+                    {
+                        if (__result > 0f) Count("mayengage-home-wanderer");
+                        __result = 0f;
+                        return;
+                    }
+                    if (__result > 0f) return;                   // Voice Control let it fight: its stick score stands
                     if (!EngagesAtWill(self)) return;
                     __result = 1f;
                     Count("mayengage-pass");

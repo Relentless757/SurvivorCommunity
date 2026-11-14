@@ -398,7 +398,7 @@ namespace SurvivorCommunity
                 // ShowSubtitle(string, string, float?, NPCAudioPlayer). An exact-type lookup for the
                 // old (string, string, float) returns null against it, which switched SC's captions
                 // off. Bound by name and arity instead, so both shapes work and a further trailing
-                // parameter would too; the extras are passed as Type.Missing (they are optional).
+                // parameter would too, as long as it is optional (Subtitle passes its default).
                 mShowSubtitle = null;
                 if (tSub != null)
                 {
@@ -523,14 +523,14 @@ namespace SurvivorCommunity
                     // Fill whatever optional parameters this build added (3.4.05's speaker) with the parameter's OWN
                     // default rather than Type.Missing: Mono's reflection has been less reliable than CoreCLR about
                     // Type.Missing through the two-arg Invoke, and a throw here lands in the catch below - which is
-                    // exactly the silent caption loss this binding exists to fix. Likewise the duration is boxed as the
-                    // float? the 3.4.05 signature declares instead of a bare float.
+                    // exactly the silent caption loss this binding exists to fix. The duration needs no special case:
+                    // a non-null float? boxes to a plain float, so the one boxed value suits both signatures.
                     ParameterInfo[] ps = mShowSubtitle.GetParameters();
                     object[] args = new object[ps.Length];
                     args[0] = name ?? "";
                     args[1] = text;
                     float secs = Mathf.Clamp(seconds, 2f, 25f);
-                    args[2] = Nullable.GetUnderlyingType(ps[2].ParameterType) != null ? (float?)secs : (object)secs;
+                    args[2] = secs;
                     for (int i = 3; i < ps.Length; i++)
                         args[i] = ps[i].HasDefaultValue ? ps[i].DefaultValue : null;
                     mShowSubtitle.Invoke(mgr, args);
