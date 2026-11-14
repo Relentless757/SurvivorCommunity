@@ -358,9 +358,10 @@
 				<consideration class="ScNotEncHome, SurvivorCommunity" />
 			</append>
 
-			<!-- Round n06 (sleeping, the user's decision 2026-11-14): 0-XNPCCore ships RoutineWalk at weight 1.5, the
-			     LOWEST action in a survivor's whole package set - under Guard and Stay (3.0), Chat and DynamicFollow
-			     (2.0) and all three of SC's night actions above. Its routine can only put her to bed while RoutineWalk
+			<!-- Round n06 (sleeping, the user's decision 2026-11-14): 0-XNPCCore ships RoutineWalk at weight 1.5 -
+			     under Guard and Stay (3.0), Chat and DynamicFollow (2.0) and all three of SC's night actions above, so
+			     it never runs for one of SC's people. (1.5 is deliberate on its side: above its own Wander and wild
+			     loot at 1, below Chat.) Its routine can only put her to bed while RoutineWalk
 			     is the RUNNING action (SleepRules.MayBegin returns holdingAtBed), so at 1.5 one of SC's people could be
 			     marked a resident, claim a bed, and then simply never sleep in it.
 			     3.8 puts it over ScNightIdle (3.6), ScRoam (3.4), ScAtPost (3.2) and their enclave twins, and under
