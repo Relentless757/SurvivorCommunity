@@ -113,11 +113,23 @@ namespace SurvivorCommunity
                     if (normal != null) m.SetTexture("_Normal", normal);
                     if (rmom != null) m.SetTexture("_RMOM", rmom);
                     if (emissive != null) m.SetTexture("_Emissive", emissive);
-                    m.SetColor("_Color", Color.white);                          // the tint UpdateLight writes
+
+                    // Floats the game's shader has and Standard does not, so without setting them
+                    // the material takes the SHADER's defaults rather than a block's.
+                    //
+                    // _Tint is the one that matters: this is the Tint Mask shader, its default is
+                    // 1 (tinting ON) and every vanilla block material sets it to 0. Left at 1 the
+                    // block is painted flat _Color and renders pure white with no texture at all -
+                    // which is exactly what the first build of this did.
+                    m.SetFloat("_Tint", 0f);
+                    m.SetColor("_Color", Color.white);
+                    // Starting value only: UpdateLight overrides it per renderer through a
+                    // MaterialPropertyBlock. 1 = fully lit, so a stuck block is bright, never black.
+                    m.SetFloat("_MacroAO", 1f);
                     // Standard's _Cutoff default of 0.5 is serialized into these materials and the
-                    // name exists on the game's shader too, so it would carry over. Harmless while
-                    // every albedo here is DXT1 (alpha reads 1.0), but the moment one gained an alpha
-                    // channel the shader would clip half the block away, shadows included.
+                    // name exists on the game's shader too, so it carries over. Vanilla blocks run
+                    // 0.5 happily, but only because their albedos are DXT1 and alpha reads 1.0; 0
+                    // takes the dependency away for the day one of these gains an alpha channel.
                     m.SetFloat("_Cutoff", 0f);
                     swapped++;
                 }
