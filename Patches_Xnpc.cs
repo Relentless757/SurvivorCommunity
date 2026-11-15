@@ -684,6 +684,8 @@ namespace SurvivorCommunity
                         // round tm1: a member's team verdict (F against T), recounted once a second, staggered - the only writer;
                         // everything after it and the UAI considerations only read it
                         ScTeam.Recount(e);
+                        // round tm2: a kept swing-block finding is dropped the moment its target attacks her up close
+                        ScArms.ReachTick(e);
                         // round tm1 (I2): a melee-led member holding her gun takes her melee weapon for a target in reach
                         if (ScArms.MeleeFirst(__instance, e)) return false;
                         // round n08: a survivor on her melee weapon takes her gun for a target beyond 5 m, or when overwhelmed

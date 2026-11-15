@@ -710,7 +710,9 @@
 			     with a TeamGunTags tag (zombieCop) or a cop or demolition zombie always gets the gun, and so does one a resident
 			     could only reach past her leash (the 25 m from her post, or ResidentRoamZoneMargin outside the zone), and one she
 			     cannot reach (above her, a wall or bars in her swing, or found out of reach - kept TeamUnreachableSeconds) -
-			     that one even inside 5 m. A swap SC makes holds the opposite swap
+			     that one even inside 5 m. An enemy attacking her up close is in her reach whatever her swing check says
+			     (bars right between them aside) - unless it loses no health for TeamMutualProofSeconds of that while she
+			     holds her melee weapon (0 = never give up on it). A swap SC makes holds the opposite swap
 			     TeamSwapHoldSeconds (each costs a reload). An outmatched fight, strangers and enclave people keep the rules
 			     above. TeamMelee=false: everything as before this round. Examples: Gina (2 stars) alone against one walker
 			     1.15 / 1 - her sledgehammer; five 3-star members and you against five walkers 8.5 / 5 - all melee; the same
@@ -739,6 +741,7 @@
 			<property name="TeamMeleeFirstSeconds" value="1" />
 			<property name="TeamOverwhelmedExtra" value="1" />
 			<property name="TeamUnreachableSeconds" value="45" />
+			<property name="TeamMutualProofSeconds" value="4" />
 			<property name="TeamThreatTags" value="walker:1,feral:2,radiated:3,charged:3.5,infernal:4.5,dog:1.2,wolf:1.2,coyote:1.2,mountainlion:2,bear:5,bear+zombie:6,vulture:0.6,spider:1.5" />
 			<property name="TeamThreatTagMult" value="special:1.5,strong:1.3" />
 			<property name="TeamThreatMult" value="crawler:0.6" />

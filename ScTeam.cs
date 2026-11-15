@@ -443,8 +443,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// I5 (ScNotTeamMelee on 0-XNPCCore's BackupKeepDistance and BackupRanged): she holds her ground against this enemy -
         /// melee-led, the enemy safe to melee and unarmed, not above her (ReachWhy's live test, the Fable review), not one
-        /// she found out of reach, not past her leash, and the overwhelmed rule not holding her on the gun (then its back-off
-        /// is today's). A pure read.
+        /// she found out of reach (round tm2: a kept block in her swing does not count against one that attacks her up
+        /// close), not past her leash, and the overwhelmed rule not holding her on the gun (then its back-off is today's).
+        /// A pure read.
         /// </summary>
         public static bool HoldsGround(EntityAlive self, EntityAlive t)
         {

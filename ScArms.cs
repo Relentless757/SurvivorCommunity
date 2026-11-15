@@ -111,6 +111,29 @@ namespace SurvivorCommunity
             public float UnreachUntil;
             public string UnreachWhy;
             /// <summary>
+            /// Round tm2: the kept finding is a block in her swing (0-XNPCCore's swing check), so symmetric reach can drop it.
+            /// </summary>
+            public bool UnreachSwing;
+            /// <summary>
+            /// Round tm2: a block in her swing counts only once two reads in a row agree (Agrees) - the target, the block kind,
+            /// the evidence stamp (the episode's At, or the read's own time when the episode cannot be read), when it was last
+            /// read, and whether a second agreeing read has confirmed it (SwingPendSure).
+            /// </summary>
+            public int SwingPendId = -1;
+            public string SwingPendKind;
+            public float SwingPendAt, SwingPendSeen;
+            public bool SwingPendSure;
+            /// <summary>Round tm2: per target, the reasons a swing-block finding was dropped or ignored that are logged already (Note* bits, FirstNote).</summary>
+            public readonly Dictionary<int, int> ReachNoted = new Dictionary<int, int>();
+            /// <summary>
+            /// Round tm2, the proof by outcome (ProofTick): symmetric reach set aside a block in her swing for target ProofId -
+            /// its health at the last tick (ProofHp), the seconds it has attacked her up close since it last lost health while
+            /// she held a melee weapon (ProofSum), the last tick (ProofLast). ProofFailedId / ProofFailedUntil: no hit came -
+            /// for that target symmetric reach sets nothing aside until then (TeamUnreachableSeconds).
+            /// </summary>
+            public int ProofId = -1, ProofHp, ProofFailedId = -1;
+            public float ProofSum, ProofLast, ProofFailedUntil;
+            /// <summary>
             /// The Fable review of round tm1 (finding 7): an equip that left the hand as it was backs MeleeFirst / GunFirst off
             /// this body until then (EquipBackoffSeconds), so a refused equip is not retried at 5 Hz.
             /// </summary>
@@ -145,6 +168,17 @@ namespace SurvivorCommunity
         /// its own swing check last found between the two (the reason its close-melee bout exits for a wall). Optional.
         /// </summary>
         private static MethodInfo blockKind;
+        /// <summary>
+        /// Round tm2: the episode table behind BlockKind - SdcsMeleeReach.s_episodes (a static Dictionary&lt;long, Episode&gt;),
+        /// its key (Key(selfId, targetId)) and the episode's Kind, Choice (0-XNPCCore's decision: AttackGateRules.ReachChoice),
+        /// At (when Evaluate made it) and ArcRays (more than 0: found by a side ray of the swing arc, the straight line to
+        /// the target's chest clear). Optional: unbound, a swing block counts on two BlockKind reads 0.2 s apart instead.
+        /// episodesField is set last and is the "bound" flag.
+        /// </summary>
+        private static FieldInfo episodesField, episodeKindField, episodeChoiceField, episodeAtField, episodeArcField;
+        private static MethodInfo episodeKey;
+        /// <summary>Round tm2: 0-XNPCCore's AttackGateRules.SwingAllowed(ReachChoice) - its melee attack's own swing gate. Optional (by name when unbound).</summary>
+        private static MethodInfo swingAllowed;
 
         // swap-return counters for sc xnpc
         private static int swapsKept, swapsUnknown, returnedStorage, returnedInventory, returnedGround;
@@ -228,6 +262,49 @@ namespace SurvivorCommunity
                 if (blockKind == null) ScLog.Warn("0-XNPCCore's SdcsMeleeReach.BlockKind(EntityAlive, EntityAlive) not found - the team rule cannot see a wall or bars in a member's swing (0-XNPCCore update?)");
             }
             catch (Exception e) { blockKind = null; ScLog.Once("arms-bind-blockkind", e); }
+            // round tm2: its age and 0-XNPCCore's choice - apart, so a failure here leaves the BlockKind fallback bound
+            try { BindEpisodes(typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsMeleeReach", false)); }
+            catch (Exception e) { episodesField = null; ScLog.Once("arms-bind-episodes", e); }
+        }
+
+        /// <summary>
+        /// Round tm2: binds SdcsMeleeReach's episode table (see episodesField) and AttackGateRules.SwingAllowed. Missing
+        /// pieces are logged once; the table unbound, the swing block falls back to BlockKind reads.
+        /// </summary>
+        private static void BindEpisodes(Type reach)
+        {
+            episodesField = null;
+            const BindingFlags S = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            const BindingFlags I = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            FieldInfo table = reach != null ? reach.GetField("s_episodes", S) : null;
+            Type ft = table != null ? table.FieldType : null;
+            Type ep = ft != null && ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(Dictionary<,>) && ft.GetGenericArguments()[0] == typeof(long)
+                      ? ft.GetGenericArguments()[1] : null;
+            MethodInfo key = reach != null ? reach.GetMethod("Key", S, null, new[] { typeof(int), typeof(int) }, null) : null;
+            FieldInfo kind = ep != null ? ep.GetField("Kind", I) : null;
+            FieldInfo choice = ep != null ? ep.GetField("Choice", I) : null;
+            FieldInfo at = ep != null ? ep.GetField("At", I) : null;
+            FieldInfo arc = ep != null ? ep.GetField("ArcRays", I) : null;
+            if (ep == null || key == null || key.ReturnType != typeof(long) || kind == null || !kind.FieldType.IsEnum
+                || choice == null || !choice.FieldType.IsEnum || at == null || at.FieldType != typeof(float))
+            {
+                ScLog.Warn("0-XNPCCore's SdcsMeleeReach episode table (s_episodes: Kind, Choice, At) could not be read - a block in a member's swing counts "
+                           + "on two BlockKind reads 0.2 s apart, blind to its age and to 0-XNPCCore's own choice (0-XNPCCore update?)");
+                return;
+            }
+            episodeKey = key;
+            episodeKindField = kind;
+            episodeChoiceField = choice;
+            episodeAtField = at;
+            episodeArcField = arc != null && arc.FieldType == typeof(int) ? arc : null;
+            if (episodeArcField == null)
+                ScLog.Warn("0-XNPCCore's SdcsMeleeReach episode has no ArcRays - symmetric reach cannot tell a block right between them (bars) from one beside her swing, and sets both aside (0-XNPCCore update?)");
+            Type rules = reach.Assembly.GetType("NPCSdcsCharacters.Pure.AttackGateRules", false);
+            MethodInfo sa = rules != null ? rules.GetMethod("SwingAllowed", BindingFlags.Static | BindingFlags.Public, null, new[] { choice.FieldType }, null) : null;
+            swingAllowed = sa != null && sa.ReturnType == typeof(bool) ? sa : null;
+            if (swingAllowed == null)
+                ScLog.Warn("0-XNPCCore's AttackGateRules.SwingAllowed(ReachChoice) not found - SC reads its choices NoSwing and Shoot as 'no swing' by name (0-XNPCCore update?)");
+            episodesField = table;
         }
 
         /// <summary>Round tm1: 0-XNPCCore's capture holds her hands (its hand managers stand aside; so do SC's swap rules).</summary>
@@ -686,7 +763,9 @@ namespace SurvivorCommunity
                 // were what handed the gun back - so inside 5 m nothing else would: a walker behind bars at 3 m left her idle
                 // on melee. Only for out of reach: a melee-unsafe, armed or past-the-leash target keeps today's 5 m gate, or
                 // 0-XNPCCore's 3 m swap would take her straight back to melee. No loop: MeleeFirst refuses this target while
-                // the finding is kept (TeamUnreachableSeconds), and the draw starts the shared swap hold.
+                // the finding is kept (TeamUnreachableSeconds), and the draw starts the shared swap hold. Round tm2: a swing
+                // block draws only when SwingBlockWhy trusts it; one dropped for a target attacking her up close is no Reach
+                // here (NeedsGun returns null), and MeleeFirst takes her back to melee once the swap hold allows.
                 bool reachDraw = led && kind == ScTeam.GunNeed.Reach;
                 if (!far && !over && !reachDraw) { st.FirstSince = 0f; return false; }
                 if (st.FirstSince <= 0f) { st.FirstSince = now; return false; }
@@ -883,23 +962,37 @@ namespace SurvivorCommunity
         /// who would walk there) no path and none planned while really blocked. A path that leads elsewhere (a back-off) says
         /// nothing, and plain "no path" is never enough for a gun holder: she plans none. remember (X5 only) keeps a finding
         /// (not "above": that is checked live) for TeamUnreachableSeconds, so a target behind a wall is not tried again at once.
+        /// Round tm2: a block in her swing counts only as SwingBlockWhy trusts it (fresh, 0-XNPCCore's own choice refuses the
+        /// swing, two reads in a row), and never against a target that attacks her up close (symmetric reach,
+        /// AttacksHerUpClose: if it can hit her, she can hit it) - a kept one for it is dropped (X5) or looked past (a read).
         /// </summary>
         internal static string ReachWhy(EntityAlive e, EntityAlive t, bool onMelee, bool remember)
         {
             float now = Time.time;
             Watch st;
-            if (watch.TryGetValue(e.entityId, out st) && st.UnreachId == t.entityId && now < st.UnreachUntil)
-                return st.UnreachWhy + " (kept " + (st.UnreachUntil - now).ToString("0") + " s more)";
+            watch.TryGetValue(e.entityId, out st);
+            float xz;
+            // round tm2: symmetric reach, unless its proof by outcome failed for this pair (ProofTick)
+            bool mutual = AttacksHerUpClose(e, t, out xz) && !ProofFailed(st, t.entityId, now);
+            if (st != null && st.UnreachId == t.entityId && now < st.UnreachUntil)
+            {
+                // round tm2 (symmetric reach): a kept block in her swing does not hold against a target attacking her up close
+                // - unless a fresh read still finds a block right between them (bars, a wall: then it cannot hit her either)
+                if (!(mutual && st.UnreachSwing && !BlockedBetween(e, t, now)))
+                    return st.UnreachWhy + " (kept " + (st.UnreachUntil - now).ToString("0") + " s more)";
+                if (remember) DropKept(e, t, st, xz, now);   // X5: dropped; a read (the console) only looks past it
+            }
             Vector3 d = t.position - e.position;
             if (d.y > ReachAbove) return "above her (" + d.y.ToString("0.#") + " m)";
             string why = null;
+            bool swing = false;
 #if SC_V34
             if (ScReach.Marked(e, t)) why = "0-XNPCCore marked it melee-unreachable";
 #endif
             // the Fable review (finding 1): the block 0-XNPCCore's own swing check found between the two - solid (its bout's
             // "wall" exit) or see-through (bars, a fence, glass: no swing passes). Read only where that check runs every tick,
             // so the read is fresh: for a gun holder within its close-range distance (3 m), for a melee holder within her
-            // weapon's reach (2 m when it cannot be read)
+            // weapon's reach (2 m when it cannot be read). Round tm2: and only as SwingBlockWhy trusts it.
             if (why == null)
             {
                 float trust = XnpcCloseEnterDist;
@@ -911,9 +1004,10 @@ namespace SurvivorCommunity
                 }
                 if (d.magnitude <= trust)
                 {
-                    string block = SwingBlock(e, t);
-                    if (block != null) why = "out of reach (a " + block + " block in her swing)";
+                    why = SwingBlockWhy(e, t, mutual, xz, remember, now);
+                    swing = why != null;
                 }
+                else if (remember) ClearPend(st);       // round tm2: no read this time - the run of agreeing reads is broken
             }
             if (why == null && d.magnitude > MeleeReach)
             {
@@ -938,6 +1032,8 @@ namespace SurvivorCommunity
                 st.UnreachId = t.entityId;
                 st.UnreachUntil = now + ScConfig.TeamUnreachableSeconds;
                 st.UnreachWhy = why;
+                st.UnreachSwing = swing;                 // round tm2: symmetric reach may drop this one
+                if (swing) st.ReachNoted.Remove(t.entityId);   // a new finding: its drop is logged afresh
             }
             return why;
         }
@@ -945,22 +1041,372 @@ namespace SurvivorCommunity
         /// <summary>A path whose goal is this close (XZ) to the target leads to it (a moving target drifts off the goal).</summary>
         private const float PathOnTarget = 3f;
 
+        // ------------------------------------------------------------------ the swing block (round tm2) ----
+
         /// <summary>
-        /// Round tm1 (the Fable review): "solid" or "see-through" when 0-XNPCCore's swing check (SdcsMeleeReach) last found
-        /// such a block between her and this target, else null (none, a door - she opens it - or the read is not bound).
-        /// A read of its episode table; it never runs the check itself.
+        /// Round tm2: a swing-check read is trusted this long after 0-XNPCCore made it. Its Evaluate restamps an episode at
+        /// most once per UAIBase.ActionChoiceDelay (0.2 s: inside that it answers from the episode), and its close-range tick
+        /// - which re-evaluates every 0.2 s while she holds a gun within 3 m or a swing weapon within its reach, and runs right
+        /// AFTER SC's X5 prefix - leaves a live finding at most ActionChoiceDelay + one tick old (0.4 s) when the prefix reads
+        /// it; + 0.1 s for frame jitter = 0.5 s. Anything older is a leftover nobody has evaluated since: SdcsMeleeReach
+        /// keeps an episode until a later Evaluate finds the line clear (the tm1 bug: one read of such an episode was kept 45 s).
         /// </summary>
-        private static string SwingBlock(EntityAlive e, EntityAlive t)
+        private static float SwingFreshSeconds { get { return Mathf.Clamp(UAI.UAIBase.ActionChoiceDelay, 0.05f, 1f) + CloseTickSeconds + 0.1f; } }
+        /// <summary>0-XNPCCore's close-range tick (and so SC's X5 prefix) runs every 0.2 s.</summary>
+        private const float CloseTickSeconds = 0.2f;
+        /// <summary>Round tm2: with the episode table unbound, a second BlockKind read must come at least this much later.</summary>
+        private const float FallbackReadGap = 0.2f;
+        /// <summary>Round tm2: two agreeing reads further apart than this are not "in a row" (the X5 tick runs at 5 Hz).</summary>
+        private const float PendMaxGap = 1f;
+        /// <summary>Round tm2 (symmetric reach): her attacker this close on the ground plane, and at most this far above or below her.</summary>
+        private const float MutualReachXZ = 2.2f, MutualReachDy = 1f;
+        /// <summary>Round tm2: the reasons FirstNote logs once per pair - a stale read, a choice that lets her swing, symmetric reach, its failed proof.</summary>
+        private const int NoteStale = 1, NoteSwings = 2, NoteMutual = 4, NoteProofFailed = 8;
+
+        /// <summary>Round tm2: one read of 0-XNPCCore's swing check for her and a target (ReadSwing).</summary>
+        private struct SwingRead
         {
-            if (blockKind == null) return null;
+            /// <summary>"solid" or "see-through".</summary>
+            public string Kind;
+            /// <summary>0-XNPCCore's choice for it ("NoSwing", "Break", ...); null from BlockKind alone.</summary>
+            public string Choice;
+            /// <summary>The choice lets her swing (Swing, Break) or open the door (OpenDoor): in reach.</summary>
+            public bool Swings;
+            /// <summary>When Evaluate made it (Time.time), and how long ago.</summary>
+            public float At, Age;
+            /// <summary>The block lay on the straight line to its chest (ArcRays 0), not on a side ray of her swing arc.</summary>
+            public bool Between;
+            /// <summary>Read from the episode table (else from BlockKind: no age, no choice).</summary>
+            public bool FromEpisode;
+        }
+
+        /// <summary>
+        /// Round tm2: "out of reach (a solid|see-through block in her swing; 0-XNPCCore: NoSwing|Shoot)" when 0-XNPCCore's
+        /// swing check (SdcsMeleeReach) has a block between her and this target she cannot swing past, else null. Trusted only:
+        ///   fresh - the episode made within SwingFreshSeconds (cause 1: a leftover episode, read once, was kept 45 s);
+        ///   by 0-XNPCCore's own decision, not the kind (cause 2) - its choice refuses the swing (AttackGateRules.SwingAllowed
+        ///     false: NoSwing or Shoot); Break (she swings, at the block if need be), Swing and OpenDoor are in reach;
+        ///   not against a target that attacks her up close (cause 3, symmetric reach) - unless the block lies right between
+        ///     them (the episode's ArcRays 0: bars, a wall), where it cannot hit her either;
+        ///   two reads in a row (X5): a second agreeing read of a NEWER evaluation (its At), or with the table unbound a second
+        ///     BlockKind read FallbackReadGap later. A stale read in between says nothing either way.
+        /// remember (X5): a finding set aside is counted and logged once per pair (FirstNote, Noted). A read (the console) writes nothing.
+        /// </summary>
+        private static string SwingBlockWhy(EntityAlive e, EntityAlive t, bool mutual, float xz, bool remember, float now)
+        {
+            Watch st;
+            if (remember) st = WatchOf(e, now);
+            else watch.TryGetValue(e.entityId, out st);
+            SwingRead r;
+            if (!ReadSwing(e, t, now, out r))
+            {
+                if (remember) ClearPend(st);            // no block (the line is clear, or a door): a read that does not agree
+                return null;
+            }
+            if (r.FromEpisode && r.Age > SwingFreshSeconds)
+            {
+                // a stale read says nothing either way: the run of agreeing reads is left as it is (PendMaxGap still ends it)
+                if (remember && FirstNote(st, t, NoteStale))
+                    Noted("x5-team-reach-stale", Name(e) + ": 0-XNPCCore's swing check last found a " + r.Kind + " block between her and " + Who(t) + " "
+                          + r.Age.ToString("0.0") + " s ago - too old to trust (under " + SwingFreshSeconds.ToString("0.0") + " s), not out of reach");
+                return null;
+            }
+            if (r.FromEpisode && r.Swings)
+            {
+                if (remember)
+                {
+                    ClearPend(st);
+                    if (FirstNote(st, t, NoteSwings))
+                        Noted("x5-team-reach-swing-allowed", Name(e) + ": a " + r.Kind + " block in her swing at " + Who(t)
+                              + ", but 0-XNPCCore still lets her swing (" + r.Choice + ") - not out of reach");
+                }
+                return null;
+            }
+            if (mutual && !r.Between)
+            {
+                if (remember)
+                {
+                    ClearPend(st);
+                    StartProof(st, e, t, now);               // the proof by outcome: does she hurt it?
+                    if (FirstNote(st, t, NoteMutual))
+                        Noted("x5-team-reach-symmetric", Name(e) + ": " + Who(t) + " attacks her from " + xz.ToString("0.0") + " m - a " + r.Kind
+                              + " block in her swing does not put it out of reach (if it can hit her, she can hit it)");
+                }
+                return null;
+            }
+            string why = "out of reach (a " + r.Kind + " block in her swing" + (r.Choice != null ? "; 0-XNPCCore: " + r.Choice : "") + ")";
+            if (!remember)
+                return st != null && st.SwingPendSure && st.SwingPendId == t.entityId ? why : why + " - seen once, a second read in a row counts it";
+            return Agrees(st, t, r, now) ? why : null;
+        }
+
+        /// <summary>
+        /// Round tm2: the second read in a row. True once a read agrees with the run (same target and kind, within PendMaxGap
+        /// of the last) on newer evidence than the first: a newer evaluation of 0-XNPCCore's (its At) - the same episode read
+        /// twice is one read - or, with the table unbound, FallbackReadGap later. A confirmed run stays so while reads agree.
+        /// </summary>
+        private static bool Agrees(Watch st, EntityAlive t, SwingRead r, float now)
+        {
+            float stamp = r.FromEpisode ? r.At : now;
+            if (st.SwingPendId != t.entityId || st.SwingPendKind != r.Kind || now - st.SwingPendSeen > PendMaxGap)
+            {
+                st.SwingPendId = t.entityId;
+                st.SwingPendKind = r.Kind;
+                st.SwingPendAt = stamp;
+                st.SwingPendSeen = now;
+                st.SwingPendSure = false;
+                return false;
+            }
+            st.SwingPendSeen = now;
+            if (!st.SwingPendSure)
+            {
+                bool newer = r.FromEpisode ? stamp > st.SwingPendAt : now - st.SwingPendAt >= FallbackReadGap;
+                if (!newer) return false;               // the same evaluation again, or too soon: still one read
+                st.SwingPendSure = true;
+            }
+            st.SwingPendAt = stamp;
+            return true;
+        }
+
+        private static void ClearPend(Watch st)
+        {
+            if (st == null) return;
+            st.SwingPendId = -1;
+            st.SwingPendKind = null;
+            st.SwingPendSure = false;
+        }
+
+        /// <summary>
+        /// Round tm2: reads 0-XNPCCore's swing-check episode for her and this target - false when there is none or it is no
+        /// solid or see-through block (a door: she opens it). Never runs the check, and writes nothing (it serves the pure
+        /// reads too): with the table unbound, or when a read of it throws (logged, Once), it falls back to BlockKind - a kind
+        /// with no age and no choice.
+        /// </summary>
+        private static bool ReadSwing(EntityAlive e, EntityAlive t, float now, out SwingRead r)
+        {
+            r = new SwingRead();
+            if (episodesField != null)
+            {
+                try
+                {
+                    var table = episodesField.GetValue(null) as System.Collections.IDictionary;
+                    object ep = table != null ? table[episodeKey.Invoke(null, new object[] { e.entityId, t.entityId })] : null;
+                    if (ep == null) return false;
+                    r.Kind = KindName(episodeKindField.GetValue(ep));
+                    if (r.Kind == null) return false;
+                    object choice = episodeChoiceField.GetValue(ep);
+                    r.Choice = choice != null ? choice.ToString() : null;
+                    r.Swings = ChoiceSwings(choice);
+                    r.At = (float)episodeAtField.GetValue(ep);
+                    r.Age = now - r.At;
+                    r.Between = episodeArcField != null && (int)episodeArcField.GetValue(ep) <= 0;
+                    r.FromEpisode = true;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("arms-swing-episodes", ex);
+                    r = new SwingRead();
+                }
+            }
+            if (blockKind == null) return false;
             try
             {
-                object r = blockKind.Invoke(null, new object[] { e, t });
-                string k = r != null ? r.ToString() : null;
-                return k == "Solid" ? "solid" : k == "SeeThrough" ? "see-through" : null;
+                r.Kind = KindName(blockKind.Invoke(null, new object[] { e, t }));
+                return r.Kind != null;
             }
-            catch (Exception ex) { ScLog.Once("arms-blockkind", ex); return null; }
+            catch (Exception ex) { ScLog.Once("arms-blockkind", ex); return false; }
         }
+
+        /// <summary>"solid" or "see-through" for 0-XNPCCore's ReachBlock, else null (none, a door).</summary>
+        private static string KindName(object kind)
+        {
+            string k = kind != null ? kind.ToString() : null;
+            return k == "Solid" ? "solid" : k == "SeeThrough" ? "see-through" : null;
+        }
+
+        /// <summary>
+        /// Round tm2: does 0-XNPCCore's choice let her swing? Its melee attack's own gate, AttackGateRules.SwingAllowed: Swing
+        /// and Break yes, Shoot and NoSwing no. OpenDoor, which SwingAllowed refuses, is in reach all the same: she opens the
+        /// door (OpenChosenDoor). A choice that cannot be read finds nothing.
+        /// </summary>
+        private static bool ChoiceSwings(object choice)
+        {
+            string name = choice != null ? choice.ToString() : null;
+            if (name == null || name == "OpenDoor") return true;
+            if (swingAllowed != null)
+            {
+                try { return (bool)swingAllowed.Invoke(null, new[] { choice }); }
+                catch (Exception ex) { ScLog.Once("arms-swingallowed", ex); }
+            }
+            return name != "NoSwing" && name != "Shoot";
+        }
+
+        /// <summary>
+        /// Round tm2 (symmetric reach): this target's attack target is her, within MutualReachXZ on the ground plane and
+        /// MutualReachDy up or down - if it can hit her, she can hit it. A pure read; xz: its distance on the ground plane.
+        /// </summary>
+        internal static bool AttacksHerUpClose(EntityAlive e, EntityAlive t, out float xz)
+        {
+            xz = 0f;
+            if (e == null || t == null || t.IsDead() || t.GetAttackTarget() != e) return false;
+            Vector3 d = t.position - e.position;
+            xz = Mathf.Sqrt(d.x * d.x + d.z * d.z);
+            return xz <= MutualReachXZ && Mathf.Abs(d.y) <= MutualReachDy;
+        }
+
+        /// <summary>
+        /// Round tm2 (symmetric reach's one exception): a fresh read of 0-XNPCCore's swing check finds a block right between
+        /// her and this target - on the straight line to its chest (ArcRays 0: bars, a fence, a wall), not a side ray of her
+        /// arc - that she cannot swing past. Then it cannot hit her either, and its attack does not put it in her reach. Once
+        /// the bars are gone (0-XNPCCore re-evaluates every 0.2 s while she holds a gun within 3 m), this turns false and a
+        /// kept finding for it is dropped. False with the table or ArcRays unbound (no straight-line read). A pure read.
+        /// </summary>
+        private static bool BlockedBetween(EntityAlive e, EntityAlive t, float now)
+        {
+            SwingRead r;
+            return ReadSwing(e, t, now, out r) && r.FromEpisode && r.Age <= SwingFreshSeconds && r.Between && !r.Swings;
+        }
+
+        /// <summary>Round tm2 (X5): symmetric reach drops a kept swing-block finding - counted and logged once per pair (FirstNote, Noted).</summary>
+        private static void DropKept(EntityAlive e, EntityAlive t, Watch st, float xz, float now)
+        {
+            string was = st.UnreachWhy;
+            st.UnreachId = -1;
+            st.UnreachUntil = 0f;
+            st.UnreachWhy = null;
+            st.UnreachSwing = false;
+            ClearPend(st);
+            StartProof(st, e, t, now);
+            if (FirstNote(st, t, NoteMutual))
+                Noted("x5-team-reach-symmetric", Name(e) + " drops the kept '" + was + "' for " + Who(t) + ": it attacks her from "
+                      + xz.ToString("0.0") + " m (if it can hit her, she can hit it)");
+        }
+
+        /// <summary>
+        /// Round tm2 (the X5 prefix, after the team recount): runs the proof by outcome (ProofTick), then drops a kept
+        /// swing-block finding the moment its target attacks her up close (symmetric reach, BlockedBetween aside, not for a
+        /// pair whose proof failed), not only when a swap rule next asks about it. Nothing with TeamMelee off.
+        /// </summary>
+        public static void ReachTick(EntityAlive e)
+        {
+            try
+            {
+                if (!ScConfig.TeamMelee || e == null || e.world == null) return;
+                Watch st;
+                if (!watch.TryGetValue(e.entityId, out st)) return;
+                float now = Time.time;
+                ProofTick(e, st, now);
+                if (st.UnreachId < 0 || !st.UnreachSwing || now >= st.UnreachUntil || ProofFailed(st, st.UnreachId, now)) return;
+                EntityAlive t = e.world.GetEntity(st.UnreachId) as EntityAlive;
+                float xz;
+                if (t != null && AttacksHerUpClose(e, t, out xz) && !BlockedBetween(e, t, now)) DropKept(e, t, st, xz, now);
+            }
+            catch (Exception ex) { ScLog.Once("arms-reachtick", ex); }
+        }
+
+        /// <summary>
+        /// Round tm2, the proof by outcome (the coordinator's addition): symmetric reach assumes that what can hit her, she
+        /// can hit - but 0-XNPCCore's own swing gate can still refuse the swing (its MeleeSwingHitsBlocks is off by default,
+        /// so a wall or the floor on a side ray of her arc is "no swing"), and she would stand on her melee weapon while it
+        /// hits her. So each time the rule sets a block aside, a watch starts on that target (StartProof). Here, every X5
+        /// tick: if the target has lost no health for TeamMutualProofSeconds of it attacking her up close while she held a
+        /// melee weapon, the proof failed - for that pair symmetric reach sets nothing aside for TeamUnreachableSeconds, so a
+        /// fresh, confirmed finding counts as in tm1 and GunFirst can draw (logged once per pair, x5-team-reach-symmetric-
+        /// failed). Any loss of health restarts the clock - whoever caused it (another member, the player): the fight goes
+        /// on, and that needs no damage bookkeeping (the simpler option). The clock only runs while the target attacks her
+        /// up close. Another living target of hers, its death, or a hand that is no melee weapon clears the watch.
+        /// </summary>
+        private static void ProofTick(EntityAlive e, Watch st, float now)
+        {
+            if (st.ProofId < 0) return;
+            EntityAlive t = e.world.GetEntity(st.ProofId) as EntityAlive;
+            if (t == null || t.IsDead() || ScConfig.TeamMutualProofSeconds <= 0f) { ClearProof(st); return; }
+            EntityAlive own = e.GetAttackTarget();
+            if (own == null || own.IsDead()) own = e.GetRevengeTarget();
+            if ((own != null && !own.IsDead() && own != t) || !HoldsMeleeWeapon(e)) { ClearProof(st); return; }
+            float xz;
+            bool attacking = AttacksHerUpClose(e, t, out xz);
+            if (!ProofClock(st, t.Health, attacking, now)) return;
+            if (FirstNote(st, t, NoteProofFailed))
+                Noted("x5-team-reach-symmetric-failed", Name(e) + ": " + Who(t) + " attacked her from " + xz.ToString("0.0") + " m for "
+                      + ScConfig.TeamMutualProofSeconds.ToString("0.#") + " s and lost no health while she held a melee weapon - a block in her swing "
+                      + "counts against it again for " + ScConfig.TeamUnreachableSeconds.ToString("0") + " s (0-XNPCCore does not swing there)");
+        }
+
+        /// <summary>
+        /// Round tm2: ProofTick's clock for the watched target - hp its health now, attacking: it attacks her up close. Any
+        /// loss of health restarts it; it runs only while attacking (a gap between X5 ticks counts as at most 0.5 s). True
+        /// when it reached TeamMutualProofSeconds: the proof failed (ProofFailedId / Until set, the watch cleared).
+        /// </summary>
+        private static bool ProofClock(Watch st, int hp, bool attacking, float now)
+        {
+            float dt = Mathf.Clamp(now - st.ProofLast, 0f, 0.5f);
+            st.ProofLast = now;
+            bool hit = hp < st.ProofHp;
+            st.ProofHp = hp;
+            if (hit) { st.ProofSum = 0f; return false; }     // it lost health: the fight goes on, the clock starts again
+            if (!attacking) return false;                    // the clock runs only while it attacks her up close
+            st.ProofSum += dt;
+            if (st.ProofSum < ScConfig.TeamMutualProofSeconds) return false;
+            st.ProofFailedId = st.ProofId;
+            st.ProofFailedUntil = now + ScConfig.TeamUnreachableSeconds;
+            ClearProof(st);
+            return true;
+        }
+
+        /// <summary>Round tm2 (X5): symmetric reach set a block aside for this target - start the proof watch (one per member; a running one goes on).</summary>
+        private static void StartProof(Watch st, EntityAlive e, EntityAlive t, float now)
+        {
+            if (ScConfig.TeamMutualProofSeconds <= 0f || st.ProofId == t.entityId || !HoldsMeleeWeapon(e)) return;
+            st.ProofId = t.entityId;
+            st.ProofHp = t.Health;
+            st.ProofSum = 0f;
+            st.ProofLast = now;
+        }
+
+        private static void ClearProof(Watch st)
+        {
+            st.ProofId = -1;
+            st.ProofSum = 0f;
+        }
+
+        /// <summary>Round tm2: the proof by outcome failed for her and this target, and still holds. A pure read.</summary>
+        private static bool ProofFailed(Watch st, int targetId, float now)
+        {
+            return st != null && st.ProofFailedId == targetId && now < st.ProofFailedUntil;
+        }
+
+        /// <summary>Round tm2: a melee weapon in her hand (anything that is not a ranged weapon; a thrust weapon 0-XNPCCore swapped in counts).</summary>
+        private static bool HoldsMeleeWeapon(EntityAlive e)
+        {
+            ItemValue hv = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            return hv != null && !hv.IsEmpty() && hv.ItemClass != null && ScAmmo.RangedAction(hv.ItemClass) == null;
+        }
+
+        /// <summary>
+        /// Round tm2 (X5): true the first time this reason sets aside a swing-block finding for this pair (Noted then counts
+        /// and logs it) - so the message is only built once. A newly kept finding for the target starts the pair afresh.
+        /// </summary>
+        private static bool FirstNote(Watch st, EntityAlive t, int reason)
+        {
+            int had;
+            st.ReachNoted.TryGetValue(t.entityId, out had);
+            if ((had & reason) != 0) return false;
+            if (had == 0 && st.ReachNoted.Count >= 64) st.ReachNoted.Clear();   // a long fight's dead targets
+            st.ReachNoted[t.entityId] = had | reason;
+            return true;
+        }
+
+        /// <summary>Round tm2 (X5): a swing-block finding set aside - its x5-team-reach-* counter and a verbose line.</summary>
+        private static void Noted(string counter, string msg)
+        {
+            Patches_Xnpc.Count(counter);
+            ScLog.Verbose(msg + " (logged once per pair)");
+        }
+
+        private static string Name(EntityAlive e) { return ScCommunity.DisplayName(e) + " (id " + e.entityId + ")"; }
+        private static string Who(EntityAlive t) { return t.EntityName + " (id " + t.entityId + ")"; }
 
         /// <summary>Round tm1 (the Fable review, finding 5): ReachWhy's live "above her" test, as a pure read.</summary>
         public static bool IsAbove(EntityAlive e, EntityAlive t)
@@ -968,11 +1414,19 @@ namespace SurvivorCommunity
             return e != null && t != null && t.position.y - e.position.y > ReachAbove;
         }
 
-        /// <summary>Round tm1: a pure read of ReachWhy's memory - this target was found out of her reach and still is kept so.</summary>
+        /// <summary>
+        /// Round tm1: a pure read of ReachWhy's memory - this target was found out of her reach and still is kept so. Round
+        /// tm2: a kept block in her swing does not count against a target that attacks her up close unless a fresh read still
+        /// finds a block right between them, or its proof by outcome failed (symmetric reach; the X5 path drops it at its
+        /// next tick).
+        /// </summary>
         public static bool RememberedOutOfReach(EntityAlive e, EntityAlive t)
         {
             Watch st;
-            return e != null && t != null && watch.TryGetValue(e.entityId, out st) && st.UnreachId == t.entityId && Time.time < st.UnreachUntil;
+            float now = Time.time;
+            if (e == null || t == null || !watch.TryGetValue(e.entityId, out st) || st.UnreachId != t.entityId || now >= st.UnreachUntil) return false;
+            float xz;
+            return !(st.UnreachSwing && !ProofFailed(st, t.entityId, now) && AttacksHerUpClose(e, t, out xz) && !BlockedBetween(e, t, now));
         }
 
         /// <summary>Round tm1: her swap state for sc team / sc xnpc - the melee-first clock, the shared hold, the gun hold, a target kept out of reach.</summary>
@@ -994,7 +1448,23 @@ namespace SurvivorCommunity
                 if (now < st.HoldUntil && st.HoldDir != HoldNone)
                     sb.Append(", ").Append(st.HoldDir == HoldToGun ? "gun first" : "melee first").Append(" held ").Append((st.HoldUntil - now).ToString("0.0")).Append(" s more (swap hold)");
                 if (now < st.GunUntil) sb.Append(", overwhelmed gun hold ").Append((st.GunUntil - now).ToString("0.0")).Append(" s more");
-                if (st.UnreachId >= 0 && now < st.UnreachUntil) sb.Append(", target #").Append(st.UnreachId).Append(" kept out of reach ").Append((st.UnreachUntil - now).ToString("0")).Append(" s more (").Append(st.UnreachWhy).Append(')');
+                if (st.UnreachId >= 0 && now < st.UnreachUntil)
+                {
+                    sb.Append(", target #").Append(st.UnreachId).Append(" kept out of reach ").Append((st.UnreachUntil - now).ToString("0")).Append(" s more (").Append(st.UnreachWhy).Append(')');
+                    // round tm2: symmetric reach looks past it (the X5 tick drops it)
+                    EntityAlive ut = st.UnreachSwing && !ProofFailed(st, st.UnreachId, now) && e.world != null ? e.world.GetEntity(st.UnreachId) as EntityAlive : null;
+                    float uxz;
+                    if (ut != null && AttacksHerUpClose(e, ut, out uxz) && !BlockedBetween(e, ut, now))
+                        sb.Append(" - SET ASIDE: it attacks her from ").Append(uxz.ToString("0.0")).Append(" m");
+                }
+                if (st.ProofId >= 0)
+                    sb.Append(", up-close proof on #").Append(st.ProofId).Append(": ").Append(st.ProofSum.ToString("0.0")).Append(" of ")
+                      .Append(ScConfig.TeamMutualProofSeconds.ToString("0.#")).Append(" s without a hit");
+                if (st.ProofFailedId >= 0 && now < st.ProofFailedUntil)
+                    sb.Append(", UP-CLOSE PROOF FAILED for #").Append(st.ProofFailedId).Append(": a block in her swing counts against it ")
+                      .Append((st.ProofFailedUntil - now).ToString("0")).Append(" s more");
+                if (st.SwingPendId >= 0 && !st.SwingPendSure && now - st.SwingPendSeen <= PendMaxGap)
+                    sb.Append(", a ").Append(st.SwingPendKind).Append(" block in her swing at #").Append(st.SwingPendId).Append(" seen once (a second read in a row counts it)");
                 if (now < st.MeleeBackoffUntil) sb.Append(", MELEE FIRST BACKED OFF ").Append((st.MeleeBackoffUntil - now).ToString("0")).Append(" s more (an equip did not take)");
                 if (now < st.GunBackoffUntil) sb.Append(", GUN FIRST BACKED OFF ").Append((st.GunBackoffUntil - now).ToString("0")).Append(" s more (an equip did not take)");
             }
