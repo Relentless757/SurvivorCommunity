@@ -37,6 +37,28 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round s1c (2026-11-15): the linked strip under the grid with AshfallUI
+
+With AshfallUI and without RE Inventory, linked storage's strip (the "boxes / stacks / free slots" text and Refresh) now
+sits under the grid instead of in the band under the header, and the window is 44 taller for it. The band is left to
+AshfallUI's loot filter tabs, which AshfallUI now adds to this window. Before, SC's strip lay on top of the tabs and
+Refresh took the clicks meant for the Other and Mods tabs. Without AshfallUI nothing changes.
+
+- [ ] With AshfallUI, without RE Inventory: open linked storage. The strip's text and Refresh sit just under the grid
+      (under its last row in view), on the window's plate, and the plate reaches down around them.
+- [ ] The band between the header and the grid holds only AshfallUI's nine filter tabs (with an AshfallUI that has no
+      tabs there, it is empty plate). No SC text or button lies over them. Click every tab, the last ones (Other, Mods)
+      too: each one works. AshfallUI's own steps for the tabs are LSF-1 to LSF-7 in AshfallUI's TESTING.md, "Filter
+      tabs on SurvivorCommunity's linked storage".
+- [ ] Press Refresh under the grid: the window closes and reopens on the same view, and the strip's counts are current.
+      Do it once with a filter tab chosen too (LSF-4).
+- [ ] A small base (one or two rows of stacks and free slots): the strip follows the grid and sits right under its last
+      row, with no gap or overlap; the window is short.
+- [ ] A big base (more than 7 rows, so the grid scrolls): the whole window, its plate and the strip under the grid are on
+      screen, top and bottom. INSPECT and your inventory sit beside it as when you open a steel crate, nothing cut off at
+      either edge.
+- [ ] Without AshfallUI: linked storage looks as before (the strip in its gray box under the grid).
+
 ## Round hl1 (2026-11-15): members at home hold their ground (no LeaveAreaSdcs)
 
 The report: Gina (Fighting 2, over 100 HP) swung at one zombie at the base, then walked off with the action
@@ -235,7 +257,7 @@ you loot one. Without AshfallUI nothing changes (9 wide).
       sit. Close it and open linked storage: 8 slots per row, the window as wide as the steel crate's, INSPECT and the
       inventory in the same places, and nothing cut off at the left or right edge of the screen (the inventory's money
       and scroll bar fully visible). The search icon, sort, fill and take all are at the right end of the header, the
-      strip's text and Refresh in the band under it, and the grid scrolls to its last row. The F1 log says
+      strip's text and Refresh under the grid (round s1c), and the grid scrolls to its last row. The F1 log says
       `linked storage opened: ... grid 8x... (cap 45 rows, SC's window) ...`.
 - [ ] With AshfallUI, the last cell: four full steel crates and a fifth empty one in the base (320 stacks, 80 free
       slots). Open linked storage: the log says `grid 8x45 (cap 45 rows, SC's window), 0 stack(s) and 40 free cell(s)
@@ -451,8 +473,8 @@ stacks, 118 free slots). Keep the F1 console handy for the log lines.
 **Without RE Inventory, AshfallUI look**
 
 - [ ] Open linked storage: the same window in AshfallUI's style, laid out like AshfallUI's own loot window: its plate
-      around it, the search icon, sort, fill and take all at the top right of the header, the strip's text and Refresh in
-      a band under the header, 7 rows in view, scrolling for the rest. INSPECT and the inventory columns sit beside it as
+      around it, the search icon, sort, fill and take all at the top right of the header, the strip's text and Refresh
+      under the grid (round s1c; it was in a band under the header), 7 rows in view, scrolling for the rest. INSPECT and the inventory columns sit beside it as
       for any crate, with no overlap.
 - [ ] Repeat the far-cell store and take, a shift-click each way and take all: same results as above.
 

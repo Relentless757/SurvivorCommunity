@@ -5798,3 +5798,19 @@ Verified: all six `Tools/generate_*_ui.py` twice, `windows.xml` stable (`37777dc
 the rest of `windows.xml` byte-identical to `004a952`. Build clean (the 3 known warnings). Fable review: deployable;
 its three small items applied after it (the columns read once, TESTING's last-cell / over-cap / vanilla / log steps,
 the `LinkedStorageRows` comment). Untested in game: TESTING "Round s1b".
+
+**Round s1c (2026-11-15, branch `ms/strip` from `1f91568`, built, not installed): the strip under the grid.** In the
+AshfallUI look, `scLinkedStrip` moved from the band (3,-47) to 4 under the content box,
+`{% v2i(3, -95 - Min( v2i_y(gridDimensions) * 75 + 3, 528 )) }` (623..663 at 7 rows), still 618 x 40 on the window's
+plate, same controller, bindings, ids and sibling order; the window grew by the strip and its gap, `+ 97` to `+ 141`
+(669 at its tallest), and `scLinkedPlate` with it, `+ 113` to `+ 157`. Content stays at 3,-91 with its bound height.
+The band (y 47..87) now holds nothing of SC's but the plate behind it: it is free for AshfallUI's filter tab row,
+`ashScLinkedFilters` (0,-47, 36 tall, depth 3, appended last to this window; shipped in AshfallUI's 3.3 and 3.4 copies),
+which SC's strip (depth 14) drew over, Refresh taking the clicks of the Other and Mods tabs. Fits: AshfallUI's INSPECT
+(`itemInfoPanel` / `emptyInfoPanel`, Center) is 787 tall and `sclinkedstorage` aligns its left panel to the bottom of the
+tallest, so the looting row is no taller than before (the generator asserts 669 <= 787). No C# reads the strip's place
+or sizes the window: `XUiC_ScLinkedStrip` finds Refresh by id, `OwnWindowFor` / `LootCols` / `LootWidgets` read the
+grid only. The vanilla look is byte-identical. Verified: all six generators twice, `windows.xml` stable (`b59eb892…`),
+parses, only the 3 lines of the AshfallUI-look window differ from `1f91568`; a layout replay found nothing of SC's but
+the plate in y 47..87 for 1 to 45 rows. Build: the 3 known warnings; the DLL is byte-identical to the installed one
+(`d2acecc0…`, no C# change), so installing is `windows.xml` only. Untested in game: TESTING "Round s1c".

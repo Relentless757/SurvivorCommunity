@@ -26,10 +26,15 @@ touched: every other container keeps its window, and nothing is added to it.
     AshfallUI's look: AshfallUI's own looting window without RE Inventory (its make_filters.py): the window as tall as
         its view plus 97, the view up to 7 rows (528) and scrolling past them, the actions in the header (the search
         icon and its box over the title, sort, fill, take all), no gray box and frame, the narrow inset scroll bar, the
-        scrollview at depth 8 over a plate 8 outside the window - and SC's linked strip in the 40-unit band under the
-        header where AshfallUI's loot window has its filter tabs (the content at -91, as there). 8 columns, not 9 (round
-        s1b): the size of AshfallUI's loot window for the widest vanilla crate, so INSPECT and the inventory lay out
-        beside it exactly as for looting - see below.
+        scrollview at depth 8 over a plate 8 outside the window, and the content at -91 under a 40-unit band below the
+        header, as there. 8 columns, not 9 (round s1b): the size of AshfallUI's loot window for the widest vanilla
+        crate, so INSPECT and the inventory lay out beside it exactly as for looting - see below. SC's linked strip
+        hangs 4 under the content box on the window's plate, the window and the plate taller by it (round s1c; it sat
+        in the band before). The band holds nothing of SC's: AshfallUI appends its loot filter tab row to this window
+        there (its ashScLinkedFilters, 0,-47, 36 tall, depth 3), which SC's strip (depth 14) covered and whose Other
+        and Mods tabs its Refresh took the clicks of. At its tallest (7 rows) the window is 669, under AshfallUI's
+        INSPECT (787), and the left panel is aligned to the bottom of the tallest one, so the looting row is no taller
+        than for a crate.
 
 Why 8 columns with AshfallUI (round s1b; the user, 2026-11-15: "with Ashfall UI, the window is a bit too wide so the
 storage/inventory get cut off a little bit"). At the same column count this window and AshfallUI's windowLooting were
@@ -80,10 +85,15 @@ BAR_W = 16                                # the defaultscrollbar template's widt
 LEFT = 3                                  # the grid's left edge less 3 (the grid stands 3 into its box at x 3)
 VIEW_ROWS = {"van": 10, "ash": 7}         # rows in view: vanilla's 9 x 10 crate / AshfallUI's loot window
 CONTENT_Y = {"van": 83, "ash": 91}        # the content box's top
-STRIP_GAP = 3                             # vanilla's look: the strip under the box (generate_strips_ui: 6 under the grid)
-BAND_Y, BAND_H = 47, 40                   # AshfallUI's look: the strip's band under the header (its filter row: 47, 36)
+STRIP_GAP = {"van": 3, "ash": 4}          # the strip under the content box (generate_strips_ui: 6 under the grid);
+                                          # AshfallUI's 4: the band stands 4 under the header, the content 4 under it
+ASH_STRIP_H = 40                          # AshfallUI's look: the strip (two 14-point lines, Refresh 28), the band's height
+ASH_FOOT = 6                              # AshfallUI's loot window: 6 under its last box (the view + 91 + 6)
+BAND_Y, BAND_H = 47, 40                   # AshfallUI's look: the band under the header, left to AshfallUI's filter
+                                          # row (ashScLinkedFilters, appended by its make_filters.py: 0,-47, 36 tall)
 REF_W, REF_H = strips.REF_W, strips.REF_H
 ASH_LOOT_W = 8 * CELL + 16                # 616: AshfallUI's windowLooting for an 8-wide crate (v2i_x(gridDimensions) * 75 + 16)
+ASH_INSPECT_H = 787                       # AshfallUI's INSPECT (itemInfoPanel / emptyInfoPanel): the row's tallest
 
 
 def grid_w(look):
@@ -113,6 +123,11 @@ def strip_w(look):
 
 def view_max(look):
     return VIEW_ROWS[look] * CELL + 3     # 753 / 528
+
+
+def ash_below():
+    """AshfallUI's look: the window's height less the content box's - its top, the strip and its gap, the foot: 141."""
+    return CONTENT_Y["ash"] + STRIP_GAP["ash"] + ASH_STRIP_H + ASH_FOOT
 
 
 def box_h(look, plus=0):
@@ -229,25 +244,31 @@ def content(look):
 
 
 # ---------------------------------------------------------------- the linked strip (XUiC_ScLinkedStrip)
+def under_box(look):
+    """The strip's pos: STRIP_GAP under the content box, which grows with the view's rows (vanilla's own binding)."""
+    return ("{%% v2i(%d, -%d - Min( v2i_y(gridDimensions) * %d + 3, %d )) }"
+            % (LEFT, CONTENT_Y[look] + STRIP_GAP[look], CELL, view_max(look)))
+
+
 def strip_vanilla():
     """generate_strips_ui's vanilla strip, 3 under the content box instead of 6 under the grid (which scrolls here)."""
     look = "van"
     lines, h = strips.linked(strips.LOOKS["van"])
-    y = "{%% v2i(%d, -%d - Min( v2i_y(gridDimensions) * %d + 3, %d )) }" % (LEFT, CONTENT_Y[look] + STRIP_GAP, CELL, view_max(look))
     head = ('<rect name="scLinkedStrip" depth="14" controller="%s" visible="{sclvisible}" pos="%s" width="%d" height="%d">'
-            % (strips.LINK_CONTROLLER, y, grid_w(look), h))
+            % (strips.LINK_CONTROLLER, under_box(look), grid_w(look), h))
     return [head] + lines[1:]
 
 
 def strip_ashfall():
-    """The strip's text and Refresh in the band under the header, on the window's plate (no plate of its own)."""
+    """The strip's text and Refresh 4 under the content box, on the window's plate (no plate of its own), as wide as the
+    header. Round s1c: it sat in the band under the header before, which is AshfallUI's filter tab row's now."""
     look = strips.LOOKS["ash"]
     pad = 8
-    head = ('<rect name="scLinkedStrip" depth="14" controller="%s" visible="{sclvisible}" pos="%d,-%d" width="%d" height="%d">'
-            % (strips.LINK_CONTROLLER, LEFT, BAND_Y, strip_w("ash"), BAND_H))
+    head = ('<rect name="scLinkedStrip" depth="14" controller="%s" visible="{sclvisible}" pos="%s" width="%d" height="%d">'
+            % (strips.LINK_CONTROLLER, under_box("ash"), strip_w("ash"), ASH_STRIP_H))
     body = ['<label depth="4" font_size="14" pivot="left" justify="left" text="{sclheader}" color="%s" %s/>'
-            % (look["text"], strips.anchors("0", pad, "1", -(pad + REF_W + 8), 2, BAND_H - 2))]
-    ry = (BAND_H - REF_H) // 2
+            % (look["text"], strips.anchors("0", pad, "1", -(pad + REF_W + 8), 2, ASH_STRIP_H - 2))]
+    ry = (ASH_STRIP_H - REF_H) // 2
     body += strips.button(look, "btnLinkedRefresh", strips.anchors("1", -(pad + REF_W), "1", -pad, ry, ry + REF_H),
                           "scStorageRefresh", font=look["font"])
     return nest(head, body)
@@ -261,9 +282,9 @@ def window(look):
         body = header(look) + actions_vanilla() + content(look) + strip_vanilla()
     else:
         win = ('<window name="%s" width="%d" height="%s" controller="LootWindow" panel="Left" cursor_area="true">'
-               % (WINDOW, win_w(look), box_h(look, CONTENT_Y["ash"] + 6)))
+               % (WINDOW, win_w(look), box_h(look, ash_below())))
         plate = ('<sprite name="scLinkedPlate" depth="-2" sprite="scui_window" type="sliced" color="[white]" pos="-8,8" '
-                 'width="%d" height="%s"/>' % (win_w(look) + 16, box_h(look, CONTENT_Y["ash"] + 6 + 16)))
+                 'width="%d" height="%s"/>' % (win_w(look) + 16, box_h(look, ash_below() + 16)))
         body = [plate] + header(look) + actions_ashfall() + strip_ashfall() + content(look)
     return ['\t<append xpath="/windows">'] + ["\t\t" + line for line in nest(win, body, "</window>")] + ["\t</append>"]
 
@@ -300,7 +321,7 @@ def main():
              COLS["ash"], ROWS["ash"], VIEW_ROWS["van"], VIEW_ROWS["ash"]))
     # every fixed size a template could halve even (a template's ${x/2} of an odd one is a half-unit position); the
     # AshfallUI look's grid box and header are vanilla's own 603 and 619 for 8 columns, as on every 8-wide crate
-    for v in (grid_w("van"), head_w("van"), strip_w("ash"), BAND_H, REF_W, REF_H):
+    for v in (grid_w("van"), head_w("van"), strip_w("ash"), ASH_STRIP_H, REF_W, REF_H):
         assert v % 2 == 0, "odd size %d" % v
     for look in COLS:
         assert ROWS[look] * COLS[look] >= 300, "fewer cells than the sane cap the user asked for (300+)"
@@ -308,7 +329,11 @@ def main():
     assert view_max("van") == 753, "vanilla's look must not outgrow vanilla's 9 x 10 crate (753)"
     assert win_w("ash") == ASH_LOOT_W, "AshfallUI's look must be exactly AshfallUI's loot window for an 8-wide crate (616)"
     assert head_w("ash") <= strip_w("ash") + 1, "the strip must span the header"
-    assert BAND_Y + BAND_H <= CONTENT_Y["ash"] - 4, "the strip's band runs into the grid"
+    assert BAND_Y + BAND_H <= CONTENT_Y["ash"] - 4, "AshfallUI's band runs into the grid"
+    assert CONTENT_Y["ash"] + CELL + 3 + STRIP_GAP["ash"] >= BAND_Y + BAND_H, "the strip reaches into AshfallUI's band"
+    assert REF_H + 4 <= ASH_STRIP_H, "Refresh does not fit the strip"
+    assert view_max("ash") + ash_below() <= ASH_INSPECT_H, \
+        "the window at its tallest outgrows INSPECT, so the looting row would grow (left panel aligned to the bottom)"
     for look in COLS:
         assert 8 + REF_W + 8 + 300 <= head_w(look), "no room for the strip's text beside Refresh"
 

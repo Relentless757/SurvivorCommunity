@@ -8,7 +8,7 @@ namespace SurvivorCommunity
     /// The linked storage strip under vanilla's loot grid (Config/XUi_InGame/windows.xml), shown only while
     /// the open container is the linked storage: boxes / stacks / free room, what did not fit, and Refresh.
     /// Round s1: SC's own linked storage window (Tools/generate_linked_storage_ui.py) has one too, under its grid or
-    /// (AshfallUI's look) under its header; its group has vanilla's XUiC_LootWindowGroup, so Container() finds it alike.
+    /// (AshfallUI's look, s1c) under its grid too; its group has vanilla's XUiC_LootWindowGroup, so Container() finds it.
     /// Refresh closes and reopens the container through the normal path (a re-bind of the slots under
     /// GridInventory's takeover broke its scrolling). Same shape as the packing strip; every binding is
     /// non-null before Init.
