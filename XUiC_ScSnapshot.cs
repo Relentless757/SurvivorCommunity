@@ -39,6 +39,8 @@ namespace SurvivorCommunity
         private readonly string[] traits = new string[TraitRows];
         private readonly bool[] traitVisible = new bool[TraitRows];
         private readonly int[] stars = new int[SkillRows];
+        private ScWindowMover mover;           // round n11 (t40): its name bar drags the card; null on the member panel's card
+        private Vector2i home;                 // where windows.xml puts the card (its default place)
 
         public XUiC_ScSnapshot()
         {
@@ -51,6 +53,16 @@ namespace SurvivorCommunity
             XUiController c = GetChildById("snapPortrait");
             portrait = c != null ? c.ViewComponent as XUiV_Texture : null;
             if (portrait != null) ScPortraits.Wanted = true;
+            // round n11 (t40): the talk card's own window moves (other UI mods lay the dialog out differently, and the card
+            // could cover the responses). The member inventory panel's card is a rect inside that panel's window: it never
+            // moves alone (the panel has its own bar).
+            XUiV_Window w = ViewComponent as XUiV_Window;
+            if (w != null)
+            {
+                home = w.Position;
+                mover = new ScWindowMover(this, ScUiLayout.TalkCard, Home);
+                if (!mover.Attach("dragBar")) ScLog.Err("talk card: no dragBar in windowScSnapshot - the card cannot be moved");
+            }
         }
 
         public override void OnOpen()
@@ -58,6 +70,37 @@ namespace SurvivorCommunity
             base.OnOpen();
             shownId = -1;
             nextRefresh = 0f;
+            if (mover != null)
+            {
+                mover.EndDrag();
+                mover.Place();
+            }
+        }
+
+        /// <summary>The talk card's default place: where windows.xml puts it (left of the spoken line, above the XP bar).</summary>
+        private bool Home(XUiV_Window w, out Vector2i p)
+        {
+            p = home;
+            return true;
+        }
+
+        /// <summary>Right-click on its name bar, or sc ui reset: back to the default place (and forgotten).</summary>
+        internal void ResetPosition()
+        {
+            if (mover != null) mover.Reset();
+            else ScUiLayout.Clear(ScUiLayout.TalkCard);
+        }
+
+        /// <summary>For sc ui: where the talk card sits.</summary>
+        internal string Where() { return mover != null ? mover.Where() : "-"; }
+
+        /// <summary>The talk card on the local player's screen (in vanilla's "dialog" group), or null (a dedicated server).</summary>
+        internal static XUiC_ScSnapshot TalkCard()
+        {
+            if (GameManager.IsDedicatedServer) return null;
+            LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
+            XUiController g = ui != null && ui.xui != null ? ui.xui.FindWindowGroupByName("dialog") : null;
+            return g != null ? g.GetChildByType<XUiC_ScSnapshot>() : null;
         }
 
         public override void OnClose()

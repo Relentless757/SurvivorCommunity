@@ -282,7 +282,7 @@
       <HintPath>$(GameDir)\7DaysToDie_Data\Managed\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- round i1: the member inventory panel reads vanilla's input actions (InControl's PlayerAction: E closes it, R takes
+    <!-- round n10: the member inventory panel reads vanilla's input actions (InControl's PlayerAction: E closes it, R takes
          all, as on the looting screen) and NGUI's mouse buttons (a drop refused on an equipment slot) -->
     <Reference Include="InControl">
       <HintPath>$(GameDir)\7DaysToDie_Data\Managed\InControl.dll</HintPath>
@@ -346,13 +346,15 @@
     <Compile Include="ScMining.cs" />
   </ItemGroup>
 
-  <!-- round i1: the member inventory panel - a member's card, equipment, pack and bag in one window instead of the looting
+  <!-- round n10: the member inventory panel - a member's card, equipment, pack and bag in one window instead of the looting
        screen (the window group, its window and parts, the equipment logic, the two SCore hooks) - 3.4 only -->
   <ItemGroup Condition="'$(ScGame)'=='34'">
     <Compile Include="XUiC_ScMemberInv.cs" />
     <Compile Include="XUiC_ScMemberInvParts.cs" />
     <Compile Include="ScMemberGear.cs" />
     <Compile Include="Patches_MemberInv.cs" />
+    <!-- round n11 (t40): SC's movable windows (the talk card, the member inventory panel) and where they were put -->
+    <Compile Include="ScWindowMover.cs" />
   </ItemGroup>
 
 </Project>

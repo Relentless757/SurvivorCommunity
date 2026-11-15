@@ -698,11 +698,12 @@ camera framing for this session.
 
 sc ui [READ] and sc ui reset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Where the member inventory panel ("Show me your inventory" on a member) opens: its saved place or the default one,
-whether it is switched on (MemberInventoryPanel) and, while it is open, whose inventory it shows and how full her pack
-and bag are. "sc ui reset" forgets the saved place, so the panel opens left of your backpack again (and jumps there if
-it is open). Right-clicking the panel's title bar does the same. The place is kept in
-%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt.
+Where SC's two movable windows sit: the talk card (the survivor card shown while you talk) and the member inventory
+panel ("Show me your inventory" on a member). It shows their saved places, where the talk card is, whether the panel is
+switched on (MemberInventoryPanel) and, while the panel is open, whose inventory it shows and how full her pack and bag
+are. "sc ui reset" forgets both saved places, so the talk card opens left of the spoken line again and the panel left
+of your backpack (each jumps there if it is open). Right-clicking a window's title bar (the talk card's name bar) does
+the same for that window. The places are kept in %APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt.
 
 sc voice [READ]
 ~~~~~~~~~~~~~~~

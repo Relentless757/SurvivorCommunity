@@ -149,9 +149,9 @@ def nest(open_tag, body, close_tag="</rect>"):
 
 # ---------------------------------------------------------------- the title bar
 DRAG_BAR = plate("scui_row_selected", M, -TITLE_Y, W - 2 * M, TITLE_H, depth=1,
-                 extra='name="dragBar" on_press="true" on_drag="true" tooltip_key="scInvDragTip"')
+                 extra='name="dragBar" on_press="true" on_drag="true" gamepad_selectable="false" snap="false" tooltip_key="scInvDragTip"')
 DRAG_BAR_VANILLA = ('<sprite depth="1" sprite="ui_game_panel_header" type="sliced" color="%s" pos="%d,%d" width="%d" height="%d" '
-                    'globalopacitymod="0" name="dragBar" on_press="true" on_drag="true" tooltip_key="scInvDragTip"/>'
+                    'globalopacitymod="0" name="dragBar" on_press="true" on_drag="true" gamepad_selectable="false" snap="false" tooltip_key="scInvDragTip"/>'
                     % (vanilla_look.LIGHT, M, -TITLE_Y, W - 2 * M, TITLE_H))
 CLOSE_X = W - M - 6 - 30
 

@@ -37,6 +37,26 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round n11 (2026-11-14): the talk card moves (t40)
+
+The card that shows while you talk to a survivor (name, role, portrait, health, stamina, mood, traits, skills) can now
+be dragged by its **name bar**, so another UI mod's dialog layout can't leave it covering the responses. Where you
+leave it is remembered (the same `ui_layout.txt` as the member inventory panel, line `talkcard=`). The member inventory
+panel keeps its own title-bar drag; the two are moved and remembered separately.
+
+- [ ] Talk to a member (or any survivor who shows the card). Hover the card's name bar: the tooltip "Drag to move this
+      window. Right-click to put it back." Drag the name bar: the whole card follows the mouse and stops at the screen's
+      edges (never off screen, top, bottom, left or right). The responses still work afterwards.
+- [ ] End the talk and talk again, to the same survivor and to another one: the card opens where you left it.
+- [ ] Quit to the menu and load the world again (and another world): still there.
+- [ ] Right-click the name bar: the card jumps back to its default place (left of the spoken line, above the XP bar).
+      Drag it away again, end the talk and type `sc ui reset` in the F1 console: next talk it is back in its default
+      place. `sc ui` shows "talk card at ..." and, after a reset, "no window moved".
+- [ ] Move the talk card, then open a member's inventory: the panel opens where **it** was left (not where the card is),
+      and the card inside the panel does not drag on its own (only the panel's title bar moves the panel).
+- [ ] With AshfallUI and without (vanilla look): both cards drag the same way.
+- [ ] Change the UI scale or the resolution with the card moved to a corner: it is still fully on screen next talk.
+
 ## Round n10 (2026-11-14): the member inventory panel
 
 "Show me your inventory" on one of your community's members no longer opens the game's looting screen. It opens SC's
@@ -63,7 +83,7 @@ in, 64 slots, three rows in view) and her BAG (where she keeps ammo and magazine
 - [ ] Close with Escape, with the X at the top right, and by pressing E (press and release; it does not close while
       you still hold the E you opened it with). Each closes the panel and your backpack.
 
-**Dragging, the remembered place, reset (t40)**
+**Dragging, the remembered place, reset**
 
 - [ ] Drag the title bar: the whole window follows the mouse and stops at the screen's edges (it never goes off
       screen, top, bottom, left or right).

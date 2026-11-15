@@ -53,14 +53,15 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 - `sc gear <id|name> <Set|Outfit|none>` · `sc gear sim [n] [hostile] [T1|T2|T3] [any] [male|female]`
 - `sc portrait <id|name|all>` · `sc portrait frame [fov dist yaw eyelift aimlift]`
 
-## The member inventory panel *(round n10)*
+## Movable windows: the talk card and the member inventory panel *(rounds n10, n11)*
 
-- **`sc ui`** — where the member inventory panel ("Show me your inventory" on a member) opens: its saved place, or
-  "default" (left of your backpack, where the looting window would be), the file the place is kept in
-  (`%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`), and, while it is open, whose inventory it shows and how
-  full her pack and bag are. Read-only.
-- **`sc ui reset`** — forgets the saved place: the panel opens in its default place again (and jumps there if it is
-  open). Right-clicking its title bar does the same.
+- **`sc ui`** — where SC's two movable windows sit: the talk card (the survivor card while you talk) and the member
+  inventory panel ("Show me your inventory" on a member). Shows their saved places ("no window moved" when both are in
+  their default places), the file the places are kept in (`%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`),
+  where the talk card is, and, while the panel is open, whose inventory it shows and how full her pack and bag are.
+  Read-only.
+- **`sc ui reset`** — forgets both saved places: each window opens in its default place again (and jumps there if it is
+  open). Right-clicking a window's title bar (the talk card's name bar) does the same for that window.
 
 ## Sleeping *(round n06)*
 

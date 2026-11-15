@@ -131,7 +131,7 @@ namespace SurvivorCommunity
 #if SC_V34
                     case "sleep": ScSleep.ConsoleCmd(Output); break;            // round n06: who is leased out for the night, and why not
                     case "craft": ScCraft.ConsoleCmd(_params, Output); break;   // C1: craft [table | <id|name> [spec <Specialty> | end]]
-                    case "ui": UiCmd(_params); break;                            // round n10: ui [reset] - the member inventory panel's place
+                    case "ui": UiCmd(_params); break;                            // round n10/n11: ui [reset] - where the talk card and the member inventory panel sit
 #endif
                     case "trust": TrustCmd(_params); break;
                     case "names": ScStreamerNames.ConsoleCmd(_params, Output); break;   // round 30: names [reload | reset | test [n] [male|female]]
@@ -150,24 +150,29 @@ namespace SurvivorCommunity
 
 #if SC_V34
         /// <summary>
-        /// Round n10: "sc ui" - where the member inventory panel sits (its saved place, or the default one beside the backpack)
-        /// and, while it is open, whose inventory it shows; "sc ui reset" forgets the saved place, so the panel opens (and, if
-        /// open, jumps back) where the looting window would be. Right-click on its title bar does the same.
+        /// Round n10, n11: "sc ui" - where SC's movable windows sit: the talk card (its saved place, or the default one left of the
+        /// spoken line) and the member inventory panel (its saved place, or the default one beside the backpack, and while it is
+        /// open whose inventory it shows). "sc ui reset" forgets both saved places, so each opens (and, if open, jumps back)
+        /// where it started. Right-click on a window's title bar does the same for that window.
         /// </summary>
         private static void UiCmd(List<string> p)
         {
             bool reset = p.Count > 1 && p[1].Equals("reset", StringComparison.OrdinalIgnoreCase);
             if (p.Count > 1 && !reset) { Output("[SC] usage: sc ui [reset]"); return; }
             XUiC_ScMemberInv open = XUiC_ScMemberInvGroup.OpenPanel();
+            XUiC_ScSnapshot talk = XUiC_ScSnapshot.TalkCard();
             if (reset)
             {
+                if (talk != null) talk.ResetPosition();
+                else ScUiLayout.Clear(ScUiLayout.TalkCard);
                 if (open != null) open.ResetPosition();
                 else ScUiLayout.Clear(ScUiLayout.MemberInventory);
-                Output("[SC] member inventory panel: back to its default place (left of the backpack)");
+                Output("[SC] the talk card and the member inventory panel: back to their default places");
             }
+            Output("[SC] places: " + ScUiLayout.Describe());
+            Output("[SC] talk card at " + (talk != null ? talk.Where() : "? (no dialog window)"));
             Output("[SC] member inventory panel " + (ScConfig.MemberInventoryPanel ? "on" : "OFF (MemberInventoryPanel false: members get the looting screen)")
-                   + "; places: " + ScUiLayout.Describe());
-            Output("[SC] open: " + (open != null ? open.Describe() : "no"));
+                   + "; open: " + (open != null ? open.Describe() : "no"));
         }
 #endif
 

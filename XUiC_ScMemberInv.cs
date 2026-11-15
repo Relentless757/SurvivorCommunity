@@ -281,7 +281,8 @@ namespace SurvivorCommunity
     /// The window is anchored at the screen's top-left (not a stack panel), so the layout never moves it: by default it sits
     /// where windowScMemberInvSpace was laid out (the looting window's place, left of the backpack), and once dragged where
     /// the player left it - remembered in ScUiLayout (%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt) across closing,
-    /// reopening and worlds. Right-click on the title bar or `sc ui reset` puts it back.
+    /// reopening and worlds (ScWindowMover, shared with the talk card since round n11). Right-click on the title bar or
+    /// `sc ui reset` puts it back.
     /// </summary>
     [Preserve]
     public class XUiC_ScMemberInv : XUiController
@@ -303,8 +304,7 @@ namespace SurvivorCommunity
         private EntityAlive npc;
         private float nextRefresh;
         private string armorKey;
-        private bool dragging;
-        private Vector2 dragPos;
+        private ScWindowMover mover;     // the title bar drags the window (ScWindowMover.cs)
         private bool wasReleased, activeKeyDown;
 
         // bound values: every one set from the constructor on (bindings are read while the XML is parsed)
@@ -329,13 +329,8 @@ namespace SurvivorCommunity
             Hook("btnClose", (s, b) => { if (b == -1) xui.playerUI.windowManager.Close(windowGroup); });
             Hook("btnPackTakeAll", (s, b) => { if (b == -1) TakeAll(Pack); });
             Hook("btnBagTakeAll", (s, b) => { if (b == -1) TakeAll(bag); });
-            XUiController bar = GetChildById("dragBar");
-            if (bar != null)
-            {
-                bar.OnDrag += OnBarDrag;
-                bar.OnRightPress += (s, b) => ResetPosition();
-            }
-            else ScLog.Err("member inventory: no dragBar in windowScMemberInv - the window cannot be moved");
+            mover = new ScWindowMover(this, ScUiLayout.MemberInventory, DefaultPlace);
+            if (!mover.Attach("dragBar")) ScLog.Err("member inventory: no dragBar in windowScMemberInv - the window cannot be moved");
             if (Pack == null) ScLog.Err("member inventory: no LootContainer grid in windowScMemberInv");
             if (bag == null) ScLog.Err("member inventory: no ScBagGrid in windowScMemberInv");
             if (weaponSlots.Length < 2 || armorSlots.Length < 4 || toolSlots.Length < ScMemberGear.JobCount)
@@ -382,7 +377,7 @@ namespace SurvivorCommunity
             base.OnOpen();
             wasReleased = false;
             activeKeyDown = false;
-            dragging = false;
+            if (mover != null) mover.EndDrag();
             nextRefresh = 0f;
         }
 
@@ -391,7 +386,7 @@ namespace SurvivorCommunity
             base.OnClose();
             if (bag != null) bag.Unbind();
             if (card != null) card.Target = null;
-            dragging = false;
+            if (mover != null) mover.EndDrag();
             te = null;
             npc = null;
         }
@@ -416,7 +411,7 @@ namespace SurvivorCommunity
                     }
                     if (input.PermanentActions.Reload.WasPressed || input.GUIActions.LeftStick.WasPressed) TakeAll(Pack);
                 }
-                if (!dragging) Place();
+                if (mover != null && !mover.Dragging) mover.Place();
                 float now = Time.unscaledTime;
                 if (now < nextRefresh) return;
                 nextRefresh = now + RefreshSeconds;
@@ -494,23 +489,12 @@ namespace SurvivorCommunity
             if (any && npc != null) Manager.BroadcastPlayByLocalPlayer(npc.position, "UseActions/takeall1");
         }
 
-        // ------------------------------------------------------------------ the window's place (t40) ----
+        // ------------------------------------------------------------------ the window's place ----
 
         private XUiV_Window Win { get { return ViewComponent as XUiV_Window; } }
 
         /// <summary>Right after the group's layout: the saved place, else the place the layout gave the spacer.</summary>
-        internal void PlaceNow() { Place(); }
-
-        /// <summary>Puts the window where it belongs: the player's saved place (kept on screen), else over the spacer window.</summary>
-        private void Place()
-        {
-            XUiV_Window w = Win;
-            if (w == null || w.UiTransform == null) return;
-            Vector2i p;
-            if (ScUiLayout.TryGet(ScUiLayout.MemberInventory, out p)) p = Clamp(p);
-            else if (!DefaultPlace(w, out p)) return;
-            if (!p.Equals(w.Position)) w.Position = p;
-        }
+        internal void PlaceNow() { if (mover != null) mover.Place(); }
 
         /// <summary>Where the layout put the spacer (the looting window's place), in the panel's anchor space.</summary>
         private bool DefaultPlace(XUiV_Window w, out Vector2i p)
@@ -518,66 +502,15 @@ namespace SurvivorCommunity
             p = default(Vector2i);
             if (Space == null || Space.UiTransform == null || w.UiTransform.parent == null) return false;
             Vector3 local = w.UiTransform.parent.InverseTransformPoint(Space.UiTransform.position);
-            p = Clamp(new Vector2i(Mathf.RoundToInt(local.x), Mathf.RoundToInt(local.y)));
+            p = new Vector2i(Mathf.RoundToInt(local.x), Mathf.RoundToInt(local.y));
             return true;
-        }
-
-        /// <summary>
-        /// The window kept on screen: its top-left corner (its position, in its anchor's space) limited so the whole window
-        /// shows - or its top, when the screen is shorter than the window. The screen's corners come from the UI camera, as
-        /// vanilla's sign editor maps the mouse (ScreenToWorldPoint), so the anchor's place, the screen bounds option and
-        /// the UI scale need no arithmetic here.
-        /// </summary>
-        private Vector2i Clamp(Vector2i p)
-        {
-            XUiV_Window w = Win;
-            Camera cam = xui.playerUI != null ? xui.playerUI.camera : null;
-            Transform parent = w != null && w.UiTransform != null ? w.UiTransform.parent : null;
-            if (cam == null || parent == null) return p;
-            Vector3 a = parent.InverseTransformPoint(cam.ScreenToWorldPoint(Vector3.zero));
-            Vector3 b = parent.InverseTransformPoint(cam.ScreenToWorldPoint(new Vector3(cam.pixelWidth, cam.pixelHeight, 0f)));
-            float minX = Mathf.Min(a.x, b.x), maxX = Mathf.Max(a.x, b.x), minY = Mathf.Min(a.y, b.y), maxY = Mathf.Max(a.y, b.y);
-            float x = Mathf.Clamp(p.x, minX, Mathf.Max(minX, maxX - w.Size.x));
-            float y = Mathf.Clamp(p.y, Mathf.Min(maxY, minY + w.Size.y), maxY);
-            return new Vector2i(Mathf.RoundToInt(x), Mathf.RoundToInt(y));
-        }
-
-        private void OnBarDrag(XUiController _sender, EDragType _type, Vector2 _delta)
-        {
-            try
-            {
-                XUiV_Window w = Win;
-                if (w == null) return;
-                if (_type == EDragType.DragEnd)
-                {
-                    if (!dragging) return;
-                    dragging = false;
-                    ScUiLayout.Set(ScUiLayout.MemberInventory, w.Position);
-                    return;
-                }
-                if (!dragging)
-                {
-                    dragging = true;
-                    dragPos = new Vector2(w.Position.x, w.Position.y);
-                }
-                // NGUI hands over screen pixels: XUi units are pixels times the pixel ratio factor; screen y grows upward, as XUi's
-                dragPos += _delta * xui.GetPixelRatioFactor();
-                Vector2i p = Clamp(new Vector2i(Mathf.RoundToInt(dragPos.x), Mathf.RoundToInt(dragPos.y)));
-                dragPos = new Vector2(Mathf.Clamp(dragPos.x, p.x - 0.5f, p.x + 0.5f), Mathf.Clamp(dragPos.y, p.y - 0.5f, p.y + 0.5f));
-                if (!p.Equals(w.Position)) w.Position = p;
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("memberinv-drag", e);
-            }
         }
 
         /// <summary>Right-click on the title bar, or sc ui reset: back to the default place (and forgotten).</summary>
         internal void ResetPosition()
         {
-            dragging = false;
-            ScUiLayout.Clear(ScUiLayout.MemberInventory);
-            Place();
+            if (mover != null) mover.Reset();
+            else ScUiLayout.Clear(ScUiLayout.MemberInventory);
         }
 
         // ------------------------------------------------------------------ bindings ----
@@ -621,105 +554,6 @@ namespace SurvivorCommunity
             XUiV_Window w = Win;
             return (npc != null ? ScCommunity.DisplayName(npc) + " (id " + npc.entityId + ")" : "-") + " at " + (w != null ? w.Position.ToString() : "?")
                    + ", pack " + packCount + (bag != null && bag.Bound ? ", bag " + bagCount : ", bag hidden (not the host)");
-        }
-    }
-
-    /// <summary>
-    /// Round n10: where the player put SC's movable windows, by key - for now only the member inventory panel's top-left corner
-    /// (XUi units from its anchor, the screen's top-left). One small text file in SC's user data folder
-    /// (%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt, beside the streamer names), so it is the player's own and holds
-    /// across worlds and saves; read once, written on every drag's end and reset. A missing or unreadable file is no place.
-    /// </summary>
-    public static class ScUiLayout
-    {
-        public const string MemberInventory = "memberinv";
-        private const string FileName = "ui_layout.txt";
-
-        private static Dictionary<string, Vector2i> places;
-
-        private static string FilePath()
-        {
-            return Path.Combine(Path.Combine(GameIO.GetUserGameDataDir(), ScStreamerNames.FolderName), FileName);
-        }
-
-        private static void Load()
-        {
-            if (places != null) return;
-            places = new Dictionary<string, Vector2i>(StringComparer.OrdinalIgnoreCase);
-            try
-            {
-                string path = FilePath();
-                if (!File.Exists(path)) return;
-                foreach (string raw in File.ReadAllLines(path))
-                {
-                    string line = raw.Trim();
-                    if (line.Length == 0 || line[0] == '#') continue;
-                    int eq = line.IndexOf('=');
-                    if (eq <= 0) continue;
-                    string[] xy = line.Substring(eq + 1).Split(',');
-                    int x, y;
-                    if (xy.Length != 2 || !int.TryParse(xy[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out x)
-                        || !int.TryParse(xy[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out y)) continue;
-                    places[line.Substring(0, eq).Trim()] = new Vector2i(x, y);
-                }
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("ui-layout-read", "ui layout: could not read " + FileName + " (" + e.Message + ") - windows open in their default places");
-            }
-        }
-
-        private static void Save()
-        {
-            try
-            {
-                string path = FilePath();
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                var lines = new List<string> { "# Survivor Community: where you moved its windows (XUi units from the screen's top-left). Delete a line,",
-                                               "# or type sc ui reset in the F1 console, to put a window back." };
-                foreach (var kv in places)
-                    lines.Add(kv.Key + "=" + kv.Value.x.ToString(CultureInfo.InvariantCulture) + "," + kv.Value.y.ToString(CultureInfo.InvariantCulture));
-                File.WriteAllLines(path, lines.ToArray());
-            }
-            catch (Exception e)
-            {
-                ScLog.Once("ui-layout-write", "ui layout: could not write " + FileName + " (" + e.Message + ") - the window's place is kept for this session only");
-            }
-        }
-
-        public static bool TryGet(string key, out Vector2i p)
-        {
-            Load();
-            return places.TryGetValue(key, out p);
-        }
-
-        public static void Set(string key, Vector2i p)
-        {
-            Load();
-            Vector2i old;
-            if (places.TryGetValue(key, out old) && old.Equals(p)) return;
-            places[key] = p;
-            Save();
-        }
-
-        /// <summary>Forgets a window's place; true when it had one.</summary>
-        public static bool Clear(string key)
-        {
-            Load();
-            if (!places.Remove(key)) return false;
-            Save();
-            return true;
-        }
-
-        /// <summary>For sc ui: the file and its places.</summary>
-        public static string Describe()
-        {
-            Load();
-            var parts = new List<string>();
-            foreach (var kv in places) parts.Add(kv.Key + "=" + kv.Value.x + "," + kv.Value.y);
-            string path;
-            try { path = FilePath(); } catch (Exception) { path = "?"; }
-            return (parts.Count > 0 ? string.Join(" ", parts.ToArray()) : "no window moved (default places)") + " - " + path;
         }
     }
 }
