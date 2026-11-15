@@ -65,8 +65,14 @@ What it does now:
   through the 1.2 s like any other.
 - When the 1.2 s run out, that zombie is held out of reach: 45 s (`TeamUnreachableSeconds`), 90 s the next time for the
   same zombie, at most 180 s, and in any case as long as her gun is on it. Each zombie has its own hold.
-- Drawn for an attacker up close, she stands and shoots it: BackupKeepDistance and BackupRanged score 0, and neither
-  0-XNPCCore's 3 m swap nor melee first takes her back to melee while it is after her within 4 m (+ 1.5 s).
+- With her gun out against such a zombie (held, or kept out of reach for a block in her swing) and it attacking her up
+  close, she stands and shoots it: BackupKeepDistance and BackupRanged score 0, and neither 0-XNPCCore's 3 m swap nor
+  melee first takes her back to melee while it is after her within 4 m (+ 1.5 s). This starts again whenever it comes
+  back at her, not only at the draw. With no shot and no clear aim point (0-XNPCCore's own) for 2 s - a reload counts as
+  a shot - it stands aside 3 s, so one back-off can give her an angle.
+- A draw for a held zombie does not wait for the 5 s swap hold (she cannot fight with the melee weapon there). For 15 s
+  after a zombie was held, while she stays within 6 m of where she stood, neither melee first nor 0-XNPCCore's 3 m swap
+  puts the melee weapon back in her hand: a stream of zombies down a corridor is shot, not met with a swap each time.
 - A kept "out of reach" gives way only on positive evidence: no block any more, or a fresh read she may swing past. A
   stale read keeps it.
 
@@ -87,13 +93,23 @@ lines. The crawler is `zombieSteveCrawler` (F6 or `spawnentity`).
       it)", at once "Gina (id N) takes the gunBowT1WoodenBow (gun first: target at 0.8 m, out of reach (0-XNPCCore has
       not let her swing at it for 1.2 s: a solid block in her swing; 0-XNPCCore: NoSwing))" and "Gina (id N) stands and
       shoots zombieSteveCrawler (id M) (it attacks her from 0.8 m, and she cannot swing at it): no back-off, no swap to
-      melee while it is after her within 4 m". (If melee first had put the sledgehammer in her hand under 5 s before, the
-      draw waits out that swap hold.)
+      melee while it is after her within 4 m". The draw does not wait for the 5 s swap hold, even if melee first had just
+      put the sledgehammer in her hand.
 - [ ] She stands and shoots it with the bow until it is dead: no BackupKeepDistance or BackupRanged in the overlay, no
       back-off loop, no swap back to the sledgehammer. `sc team Gina`: "#M HELD OUT OF REACH N s more (0-XNPCCore would
       not let her swing at it; time 1)" and "STANDS AND SHOOTS #M (reach gun hold, ...)". `sc xnpc`:
       `x5-team-reach-symmetric`, `x5-team-reach-noswing`, `x5-team-reach-gun-hold` and `x5-team-gun-needed-close` each +1.
-- [ ] After it, the next walker in reach gets the sledgehammer again (melee first, once the 5 s swap hold is over).
+- [ ] The crawler turns to someone else for a few seconds (or you pull it away), then comes back at her: "Gina (id N)
+      stands and shoots zombieSteveCrawler (id M) ..." again and `x5-team-reach-gun-hold` +1 - no back-off loop on its
+      return.
+- [ ] More zombies down the same corridor within 15 s: she keeps the bow and shoots them where she stands (`sc team Gina`:
+      "no-swing spot: melee waits N s more within 6 m"), no sledgehammer swap for each. After 15 s, or once she is 6 m
+      from that spot, melee first gives her the sledgehammer again for the next walker in reach.
+- [ ] No line of fire: the crawler a step or a floor below her, so 0-XNPCCore finds no clear body point to shoot. About
+      2 s after the draw without a shot: "Gina (id N): no shot and no clear aim point at zombieSteveCrawler (id M) for 2 s -
+      she may back off for an angle (3 s)", `x5-team-reach-gun-aside` +1, `sc team Gina` "stand-and-shoot stood aside N s
+      more (no shot, no clear aim)". She backs off once (BackupKeepDistance) and shoots from there; when it comes up close
+      again she stands and shoots it. Not a loop of back-offs: at most one every 5 s.
 - [ ] The same zombie at her again after she went back to melee (hard to set up; note it if you see it): "held 90 s
       (... time 2 for it)", and 180 s the time after.
 
@@ -132,13 +148,15 @@ lines. The crawler is `zombieSteveCrawler` (F6 or `spawnentity`).
 
 - [ ] `sc xnpc` after the steps, among the other `x5-team-*` counters: `x5-team-reach-stale`, `x5-team-reach-swing-allowed`
       and `x5-team-reach-symmetric` (each once per member and zombie, and again after a new kept finding or hold for it),
-      `x5-team-reach-noswing` (each time a zombie is held out of reach), `x5-team-reach-gun-hold` (each stand-and-shoot).
+      `x5-team-reach-noswing` (each time a zombie is held out of reach), `x5-team-reach-gun-hold` (each stand-and-shoot,
+      also on a restart), `x5-team-reach-gun-aside` (each time it stood aside for want of a shot).
 - [ ] `sc team <name>` while it runs: "no-swing clock on #M 0.6 of 1.2 s"; while a block has been seen only once: "a solid
       block in her swing at #M seen once (a second read in a row counts it)". Both last a moment, so you may not catch them.
 - [ ] The log at load: the config line ends "..., unreachable kept 45 s, no swing up close counts after 1.2 s"; no
-      "0-XNPCCore's SdcsMeleeReach episode table ... could not be read", "... episode has no ArcRays" or
-      "0-XNPCCore's AttackGateRules.SwingAllowed(ReachChoice) not found" warning; no `arms-swing-episodes`,
-      `arms-swingallowed`, `arms-reachtick`, `arms-bind-episodes`, `arms-pair-gun` or `arms-gun-overwhelmed` error.
+      "0-XNPCCore's SdcsMeleeReach episode table ... could not be read", "... episode has no ArcRays",
+      "0-XNPCCore's AttackGateRules.SwingAllowed(ReachChoice) not found" or "0-XNPCCore's SdcsAimPoint answers ... could
+      not be read" warning; no `arms-swing-episodes`, `arms-swingallowed`, `arms-reachtick`, `arms-bind-episodes`,
+      `arms-pair-gun`, `arms-gun-overwhelmed`, `arms-bind-aimpoint` or `arms-aimpoint` error.
 - [ ] `TeamNoSwingConfirmSeconds` 0 in `Config/blocks.xml` (restart): a "no swing" at an attacker up close counts at once
       - the crawler step's gun comes as soon as 0-XNPCCore refuses the swing twice in a row. Set it back to 1.2.
 - [ ] `TeamMelee` false (`Config/blocks.xml`, restart): no `x5-team-reach-*` counters, and the round tm1 "TeamMelee false"

@@ -136,6 +136,19 @@ namespace SurvivorCommunity
             public int ReachGunId = -1;
             public float ReachGunUntil;
             /// <summary>
+            /// Round tm2 (the Fable re-review, gap 2): the hold's last sign that she can shoot (a shot - her magazine went down -
+            /// or a fresh clear aim point of 0-XNPCCore's: ReachGunOkAt), the magazine at the last tick (ReachGunMeta), and
+            /// after 2 s with neither the hold stands aside until ReachGunAsideUntil, so one back-off gives her an angle.
+            /// </summary>
+            public float ReachGunOkAt, ReachGunAsideUntil;
+            public int ReachGunMeta;
+            /// <summary>
+            /// Round tm2 (the Fable re-review, gap 3): when and where (her feet) the last no-swing hold began - MeleeFirst and
+            /// 0-XNPCCore's 3 m swap leave her on the gun NoSwingSpotSeconds there (NoSwingSpotHolds).
+            /// </summary>
+            public float NoSwingAt;
+            public Vector3 NoSwingPos;
+            /// <summary>
             /// The Fable review of round tm1 (finding 7): an equip that left the hand as it was backs MeleeFirst / GunFirst off
             /// this body until then (EquipBackoffSeconds), so a refused equip is not retried at 5 Hz.
             /// </summary>
@@ -181,6 +194,14 @@ namespace SurvivorCommunity
         private static MethodInfo episodeKey;
         /// <summary>Round tm2: 0-XNPCCore's AttackGateRules.SwingAllowed(ReachChoice) - its melee attack's own swing gate. Optional (by name when unbound).</summary>
         private static MethodInfo swingAllowed;
+        /// <summary>
+        /// Round tm2 (the Fable re-review, gap 2): 0-XNPCCore's aim-point cache - SdcsAimPoint.s_answers (a static
+        /// Dictionary&lt;long, Answer&gt;, refreshed by its SdcsLineOfFire consideration and the shot itself), its Key and the
+        /// answer's Point (ClearPointRules.BodyPoint; None: no body point clear) and At. Optional: unbound, only her shots
+        /// count as a sign that she can shoot. aimAnswersField is set last and is the "bound" flag.
+        /// </summary>
+        private static FieldInfo aimAnswersField, aimPointField, aimAtField;
+        private static MethodInfo aimKey;
 
         // swap-return counters for sc xnpc
         private static int swapsKept, swapsUnknown, returnedStorage, returnedInventory, returnedGround;
@@ -267,6 +288,8 @@ namespace SurvivorCommunity
             // round tm2: its age and 0-XNPCCore's choice - apart, so a failure here leaves the BlockKind fallback bound
             try { BindEpisodes(typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsMeleeReach", false)); }
             catch (Exception e) { episodesField = null; ScLog.Once("arms-bind-episodes", e); }
+            try { BindAimPoint(typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsAimPoint", false)); }
+            catch (Exception e) { aimAnswersField = null; ScLog.Once("arms-bind-aimpoint", e); }
         }
 
         /// <summary>
@@ -309,6 +332,31 @@ namespace SurvivorCommunity
             episodesField = table;
         }
 
+        /// <summary>Round tm2: binds SdcsAimPoint's answer cache (see aimAnswersField). A miss is logged once.</summary>
+        private static void BindAimPoint(Type aim)
+        {
+            aimAnswersField = null;
+            const BindingFlags S = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            const BindingFlags I = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            FieldInfo table = aim != null ? aim.GetField("s_answers", S) : null;
+            Type ft = table != null ? table.FieldType : null;
+            Type an = ft != null && ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(Dictionary<,>) && ft.GetGenericArguments()[0] == typeof(long)
+                      ? ft.GetGenericArguments()[1] : null;
+            MethodInfo key = aim != null ? aim.GetMethod("Key", S, null, new[] { typeof(int), typeof(int) }, null) : null;
+            FieldInfo point = an != null ? an.GetField("Point", I) : null;
+            FieldInfo at = an != null ? an.GetField("At", I) : null;
+            if (key == null || key.ReturnType != typeof(long) || point == null || !point.FieldType.IsEnum || at == null || at.FieldType != typeof(float))
+            {
+                ScLog.Warn("0-XNPCCore's SdcsAimPoint answers (s_answers: Point, At) could not be read - a member standing to shoot an attacker up close "
+                           + "counts only her shots as a sign she can hit it (0-XNPCCore update?)");
+                return;
+            }
+            aimKey = key;
+            aimPointField = point;
+            aimAtField = at;
+            aimAnswersField = table;
+        }
+
         /// <summary>Round tm1: 0-XNPCCore's capture holds her hands (its hand managers stand aside; so do SC's swap rules).</summary>
         private static bool HandsCaptured(AvatarSdcsNpcController c)
         {
@@ -345,9 +393,10 @@ namespace SurvivorCommunity
                     // a guard on watch (base defence D3) keeps the gun up close: on a tower the melee swap only leads to a
                     // walk off the edge, and the gun still hits what climbs up
                     bool onWatch = ScWatch.Guarding(e.entityId);
-                    // round tm2: the close reach draw's gun hold keeps the gun up close, as the overwhelmed gun hold does
+                    // round tm2: the close reach draw's gun hold keeps the gun up close, as the overwhelmed gun hold does - and
+                    // so does the spot where 0-XNPCCore just would not let her swing (the Fable re-review, gap 3)
                     Watch rw;
-                    bool reachHold = watch.TryGetValue(e.entityId, out rw) && ReachGunHolds(rw, e, now);
+                    bool reachHold = watch.TryGetValue(e.entityId, out rw) && (ReachGunHolds(rw, e, now) || NoSwingSpotHolds(rw, e, now));
                     if (!ScConfig.Overwhelmed && !onWatch && !reachHold) return true;
                     if (!TargetWithin(e, XnpcCloseEnterDist)) return true;                               // 0-XNPCCore would not swap yet
                     ItemValue held = e.inventory.holdingItemItemValue;
@@ -825,7 +874,9 @@ namespace SurvivorCommunity
                     if (now - st.FirstSince < GunFirstSeconds) return false;
                 }
                 // round tm1: the swap-hold clock MeleeFirst shares - her melee weapon came out less than TeamSwapHoldSeconds ago
-                if (HeldBack(st, HoldToGun, now)) return false;
+                // round tm2 (the Fable re-review, gap 3): not for a proven draw - she cannot fight with the melee weapon, so it
+                // is no flip; the draw still starts the hold for the next swap below
+                if (!proven && HeldBack(st, HoldToGun, now)) return false;
                 ItemClass gun = ItemClass.GetItemClass(l.Ranged, true);
                 if (ScAmmo.RangedAction(gun) == null || ScAmmo.Rounds(e, gun) <= 0) return false;   // nothing to shoot: melee it is
                 st.FirstSince = 0f;
@@ -912,7 +963,7 @@ namespace SurvivorCommunity
                 // a target the count weighed (inside its area) that does not need the gun; not in the overwhelmed gun hold
                 EntityAlive t = ScTeam.Target(e);
                 if (t == null || !ScTeam.InArea(e, t) || ScTeam.NeedsGun(e, t, false, true) != null || now < st.GunUntil
-                    || ReachGunHolds(st, e, now)) { st.MeleeSince = 0f; return false; }   // round tm2: the reach gun hold
+                    || ReachGunHolds(st, e, now) || NoSwingSpotHolds(st, e, now)) { st.MeleeSince = 0f; return false; }   // round tm2
                 int count, need;
                 if (ScConfig.Overwhelmed && IsOverwhelmed(e, out count, out need)) { st.MeleeSince = 0f; return false; }
                 if (st.MeleeSince <= 0f) { st.MeleeSince = now; return false; }
@@ -1133,6 +1184,22 @@ namespace SurvivorCommunity
         private const float NoSwingHoldMax = 180f;
         /// <summary>Round tm2: the reach gun hold lasts while its target is after her within ReachGunDist, plus ReachGunGrace.</summary>
         private const float ReachGunDist = 4f, ReachGunGrace = 1.5f;
+        /// <summary>
+        /// Round tm2 (the Fable re-review, gap 2): the reach gun hold stands aside after this long with no shot and no fresh
+        /// clear aim point (a crawler below her, the floor or a step on the line), for ReachGunAsideSeconds - one back-off.
+        /// AimFreshSeconds: an aim-point answer counts this long (0-XNPCCore re-decides every 0.6 s).
+        /// </summary>
+        private const float ReachGunNoShotSeconds = 2f, ReachGunAsideSeconds = 3f, AimFreshSeconds = 1f;
+        /// <summary>0-XNPCCore publishes its vanilla reload as this cvar (its RangedMeleeAttack is off meanwhile).</summary>
+        private const string XnpcReloadingCvar = "SdcsReloading";
+        /// <summary>
+        /// Round tm2 (the Fable re-review, gap 3): after a no-swing hold began, MeleeFirst and 0-XNPCCore's 3 m swap leave
+        /// her on the gun this long while she is within NoSwingSpotDist of where it began - a corridor stream does not
+        /// repeat "no swing, 1.2 s, gun" every kill.
+        /// </summary>
+        private const float NoSwingSpotSeconds = 15f, NoSwingSpotDist = 6f;
+        /// <summary>Round tm2 (the Fable re-review, gap 4): a no-swing clock not looked at for this long starts from 0.</summary>
+        private const float NoSwingGap = 1f;
         /// <summary>Round tm2: at most this many targets in a member's Pairs (pruned: unseen 10 s and not held first, then the oldest).</summary>
         private const int PairsMax = 16;
         /// <summary>Round tm2: the reasons FirstNote logs once per pair - a stale read, a choice that lets her swing, symmetric reach.</summary>
@@ -1258,6 +1325,8 @@ namespace SurvivorCommunity
         private static void TickNoSwing(Pair p, bool found, SwingRead r, float now)
         {
             if (p == null) return;
+            // the Fable re-review, gap 4: no run across a gap - the clock starts again from this tick
+            if (now - p.NoSwingLast > NoSwingGap) { p.NoSwingSum = 0f; p.NoSwingLast = now; }
             float dt = Mathf.Clamp(now - p.NoSwingLast, 0f, NoSwingTickMax);
             p.NoSwingLast = now;
             if (!found || r.Swings) { p.NoSwingSum = 0f; return; }
@@ -1280,6 +1349,8 @@ namespace SurvivorCommunity
             p.HeldWhy = why;
             p.Noted = 0;                                // its later set-asides are logged afresh
             ClearPend(st);
+            st.NoSwingAt = now;                         // the Fable re-review, gap 3: the spot keeps melee off a while
+            st.NoSwingPos = e.position;
             Patches_Xnpc.Count("x5-team-reach-noswing");
             ScLog.Verbose(Name(e) + ": " + Who(t) + " attacks her from " + xz.ToString("0.0") + " m, and 0-XNPCCore has not let her swing at it for "
                           + p.NoSwingSum.ToString("0.0") + " s - out of reach, held " + span.ToString("0") + " s (and while her gun is on it; time " + p.Fails + " for it)");
@@ -1498,8 +1569,10 @@ namespace SurvivorCommunity
         /// Round tm2 (the X5 prefix, after the team recount; nothing with TeamMelee off). For her own target within 3 m: the
         /// no-swing clock ticks, and a pair held by it stays held while her gun is on it (the Fable review, finding 8). The
         /// reach gun hold stays on while its target is after her within ReachGunDist and she holds her gun (else it lapses
-        /// after ReachGunGrace). A kept swing-block finding is dropped the moment its target attacks her up close with
-        /// positive evidence (DropEvidence) - not only when a swap rule next asks about it.
+        /// after ReachGunGrace), stands aside after ReachGunNoShotSeconds with no shot and no clear aim (ReachGunShotCheck),
+        /// and (re)starts whenever her gun is out against her own target that is held or kept out of reach for a block in
+        /// her swing and attacks her up close (the Fable re-review, gaps 1-2). A kept swing-block finding is dropped the moment
+        /// its target attacks her up close with positive evidence (DropEvidence) - not only when a swap rule next asks.
         /// </summary>
         public static void ReachTick(EntityAlive e)
         {
@@ -1530,7 +1603,24 @@ namespace SurvivorCommunity
                         && (g.position - e.position).sqrMagnitude <= ReachGunDist * ReachGunDist)
                         st.ReachGunUntil = now + ReachGunGrace;
                     else if (now >= st.ReachGunUntil) st.ReachGunId = -1;
+                    // the Fable re-review, gap 2: standing is only worth it while she shoots or has a clear aim point. A reload
+                    // (0-XNPCCore's SdcsReloading cvar; its shot is off meanwhile, so no aim point is asked for) counts as a
+                    // sign too - standing through a reload stays as it was (finding 5)
+                    bool reloading = e.Buffs != null && e.Buffs.GetCustomVar(XnpcReloadingCvar) >= 0.5f;
+                    if (st.ReachGunId >= 0 && ReachGunShotCheck(st, HeldMeta(e), reloading || (g != null && AimClear(e, g, now)), now))
+                    {
+                        Patches_Xnpc.Count("x5-team-reach-gun-aside");
+                        ScLog.Verbose(Name(e) + ": no shot and no clear aim point at " + (g != null ? Who(g) : "#?") + " for " + ReachGunNoShotSeconds.ToString("0")
+                                      + " s - she may back off for an angle (" + ReachGunAsideSeconds.ToString("0") + " s)");
+                    }
                 }
+                // the Fable re-review, gap 1: (re)start the hold whenever her gun is out against her own target that is held or
+                // kept out of reach for a block in her swing and attacks her up close - not only at the draw
+                float oxz;
+                if (own != null && now >= st.ReachGunAsideUntil && HoldsRangedWeapon(e) && ScTeam.MeleeLed(e)
+                    && (PairHeld(st, own.entityId, now) || (st.UnreachId == own.entityId && st.UnreachSwing && now < st.UnreachUntil))
+                    && AttacksHerUpClose(e, own, out oxz))
+                    StartReachGun(st, e, own, oxz, now);
                 if (st.UnreachId < 0 || !st.UnreachSwing || now >= st.UnreachUntil) return;
                 EntityAlive t = e.world.GetEntity(st.UnreachId) as EntityAlive;
                 float xz;
@@ -1550,9 +1640,70 @@ namespace SurvivorCommunity
             st.ReachGunId = t.entityId;
             st.ReachGunUntil = now + ReachGunGrace;
             if (!fresh) return;
+            st.ReachGunOkAt = now;                      // ReachGunNoShotSeconds to get a shot off
+            st.ReachGunMeta = HeldMeta(e);
             Patches_Xnpc.Count("x5-team-reach-gun-hold");
             ScLog.Verbose(Name(e) + " stands and shoots " + Who(t) + " (it attacks her from " + xz.ToString("0.0") + " m, and she cannot swing at it): no back-off, "
                           + "no swap to melee while it is after her within " + ReachGunDist.ToString("0") + " m");
+        }
+
+        /// <summary>
+        /// Round tm2 (X5, the Fable re-review, gap 2): one tick of the hold's shot clock - meta: the rounds in her gun now (a
+        /// drop is a shot), aimClear: a fresh clear aim point of 0-XNPCCore's at the target. Either is a sign she can shoot
+        /// (ReachGunOkAt). True when ReachGunNoShotSeconds passed without one: the hold ends and stands aside for
+        /// ReachGunAsideSeconds (no restart), so BackupKeepDistance / BackupRanged may give her an angle.
+        /// </summary>
+        private static bool ReachGunShotCheck(Watch st, int meta, bool aimClear, float now)
+        {
+            if (meta < st.ReachGunMeta || aimClear) st.ReachGunOkAt = now;
+            st.ReachGunMeta = meta;
+            if (now - st.ReachGunOkAt <= ReachGunNoShotSeconds) return false;
+            st.ReachGunId = -1;
+            st.ReachGunUntil = 0f;
+            st.ReachGunAsideUntil = now + ReachGunAsideSeconds;
+            return true;
+        }
+
+        /// <summary>Round tm2: the rounds in the gun in her hand (its ItemValue.Meta), 0 for none.</summary>
+        private static int HeldMeta(EntityAlive e)
+        {
+            ItemValue hv = e != null && e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            return hv != null && !hv.IsEmpty() ? hv.Meta : 0;
+        }
+
+        /// <summary>
+        /// Round tm2 (the Fable re-review, gap 2): 0-XNPCCore's aim-point cache (SdcsAimPoint) has a clear body point of this
+        /// target for her, made within AimFreshSeconds - what its shot (RangedMeleeAttack: SdcsLineOfFire) needs. A pure read,
+        /// false when unbound or unknown.
+        /// </summary>
+        private static bool AimClear(EntityAlive e, EntityAlive t, float now)
+        {
+            if (aimAnswersField == null || e == null || t == null) return false;
+            try
+            {
+                var table = aimAnswersField.GetValue(null) as System.Collections.IDictionary;
+                object a = table != null ? table[aimKey.Invoke(null, new object[] { e.entityId, t.entityId })] : null;
+                if (a == null) return false;
+                object point = aimPointField.GetValue(a);
+                return now - (float)aimAtField.GetValue(a) <= AimFreshSeconds && point != null && point.ToString() != "None";
+            }
+            catch (Exception ex) { ScLog.Once("arms-aimpoint", ex); return false; }
+        }
+
+        /// <summary>
+        /// Round tm2 (the Fable re-review, gap 3): a no-swing hold began here within NoSwingSpotSeconds (she stands within
+        /// NoSwingSpotDist of where it did) and she is melee-led - MeleeFirst and 0-XNPCCore's 3 m swap leave her on the gun.
+        /// A pure read.
+        /// </summary>
+        private static bool NoSwingSpotHolds(Watch st, EntityAlive e, float now)
+        {
+            return st != null && e != null && NoSwingSpot(st, e.position, now) && ScConfig.TeamMelee && ScTeam.MeleeLed(e);
+        }
+
+        /// <summary>Round tm2: NoSwingSpotHolds' time and place part. A pure read.</summary>
+        private static bool NoSwingSpot(Watch st, Vector3 pos, float now)
+        {
+            return st.NoSwingAt > 0f && now - st.NoSwingAt < NoSwingSpotSeconds && (pos - st.NoSwingPos).sqrMagnitude <= NoSwingSpotDist * NoSwingSpotDist;
         }
 
         /// <summary>
@@ -1638,6 +1789,9 @@ namespace SurvivorCommunity
                           .Append(ScConfig.TeamNoSwingConfirmSeconds.ToString("0.0#")).Append(" s");
                 }
                 if (ReachGunHolds(st, e, now)) sb.Append(", STANDS AND SHOOTS #").Append(st.ReachGunId).Append(" (reach gun hold, ").Append((st.ReachGunUntil - now).ToString("0.0")).Append(" s grace)");
+                if (now < st.ReachGunAsideUntil) sb.Append(", stand-and-shoot stood aside ").Append((st.ReachGunAsideUntil - now).ToString("0.0")).Append(" s more (no shot, no clear aim)");
+                if (NoSwingSpot(st, e.position, now))
+                    sb.Append(", no-swing spot: melee waits ").Append((NoSwingSpotSeconds - (now - st.NoSwingAt)).ToString("0")).Append(" s more within ").Append(NoSwingSpotDist.ToString("0")).Append(" m");
                 if (st.SwingPendId >= 0 && !st.SwingPendSure && now - st.SwingPendSeen <= PendMaxGap)
                     sb.Append(", a ").Append(st.SwingPendKind).Append(" block in her swing at #").Append(st.SwingPendId).Append(" seen once (a second read in a row counts it)");
                 if (now < st.MeleeBackoffUntil) sb.Append(", MELEE FIRST BACKED OFF ").Append((st.MeleeBackoffUntil - now).ToString("0")).Append(" s more (an equip did not take)");
