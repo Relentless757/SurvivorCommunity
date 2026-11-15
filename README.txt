@@ -1259,11 +1259,12 @@ Weapons
   for it, does not shoot while the zombie comes in, does not back away from it, and stays on melee after the swap up
   close; it takes one more enemy on her to count as "several". She uses the gun as before below half health (melee again
   from 60%), against more than her side can take, when raiders or anyone armed are in the fight, against a cop or a
-  demolition zombie, and against anything she cannot reach. A guard on watch keeps the gun; a Cowardly member hangs back
-  with hers and runs only from a fight going badly. Ordering her gun (the weapon menu, or "use your ..." by voice) makes
-  her keep it until you order her melee weapon. Followers count too, away from home; strangers and enclave people fight
-  as before. "TeamMelee" and the other "Team..." settings (section 20) tune or turn it off; "sc team <name>" shows the
-  count.
+  demolition zombie, against anything she cannot reach (even up close), and against a zombie a resident could only reach
+  past her leash. A member on a Stay order gives supporting fire, and one asleep in bed does not count. A guard on watch
+  keeps the gun; a Cowardly member hangs back with hers and runs only from a fight going badly (with no gun she runs, as
+  before). Ordering her gun (the weapon menu, or "use your ..." by voice) makes her keep it until you order her melee
+  weapon. Followers count too, away from home; strangers and enclave people fight as before. "TeamMelee" and the other
+  "Team..." settings (section 20) tune or turn it off; "sc team <name>" shows the count.
 - Shooting skill aims the gun: they hit nearly every shot within 5 m per Shooting star (5 m at 1 star, 35 m at 7), fewer
   beyond, and aim at the chest.
 - They swing melee weapons as fast as the weapon allows, at the weapon's real reach.

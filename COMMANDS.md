@@ -88,8 +88,10 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   60%. `hurt 1` puts her back to full health.
 - `sc xnpc` counts the rule's work as `x5-team-*`: `recount`, `melee-first` (gun put away for the melee weapon),
   `bout-kept` (stayed on melee after 0-XNPCCore's close-range swap), `gun-held` (gun first held back for a target beyond
-  5 m), `gun-needed` (gun first for a target that needs it), `swap-held` (a swap waited for the 5 s hold),
-  `unreachable`, `outmatched`, `matched-again`, `low-health`; `sc xnpc <name>` has a one-line `team strength:` summary.
+  5 m), `gun-needed` (gun first for a target that needs it), `gun-needed-close` (the same inside 5 m: one out of her
+  reach), `swap-held` (a swap waited for the 5 s hold), `equip-refused` (a swap's equip did not take: that rule waits
+  10 s for her), `unreachable`, `outmatched`, `matched-again`, `low-health`; `sc xnpc <name>` has a one-line
+  `team strength:` summary. Neither command recounts the attackers (the overwhelmed line is the last count, with its age).
 
 ## Work, runs and mining
 

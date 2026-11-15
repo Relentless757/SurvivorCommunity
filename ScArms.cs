@@ -110,7 +110,15 @@ namespace SurvivorCommunity
             public int UnreachId = -1;
             public float UnreachUntil;
             public string UnreachWhy;
+            /// <summary>
+            /// The Fable review of round tm1 (finding 7): an equip that left the hand as it was backs MeleeFirst / GunFirst off
+            /// this body until then (EquipBackoffSeconds), so a refused equip is not retried at 5 Hz.
+            /// </summary>
+            public float MeleeBackoffUntil, GunBackoffUntil;
         }
+
+        /// <summary>The Fable review of round tm1 (finding 7): how long a member's swap rule waits after an equip that did not take.</summary>
+        private const float EquipBackoffSeconds = 10f;
 
         /// <summary>Round tm1: Watch.HoldDir - the swap that waits.</summary>
         private const int HoldNone = 0, HoldToGun = 1, HoldToMelee = 2;
@@ -127,6 +135,16 @@ namespace SurvivorCommunity
         private static MethodInfo restoreHeld;
         /// <summary>0-XNPCCore's own swap (it remembers what it puts away); optional - null falls back to the same steps by hand.</summary>
         private static MethodInfo swapToHand;
+        /// <summary>
+        /// Round tm1 (the Fable review, finding 8): 0-XNPCCore's sdcsHandsOwnedByCapture - its own hand managers stand aside
+        /// while a capture holds her hands, and SC's swap rules do too. Optional: null reads as "not held".
+        /// </summary>
+        private static FieldInfo captureField;
+        /// <summary>
+        /// Round tm1 (the Fable review, finding 1): 0-XNPCCore's SdcsMeleeReach.BlockKind(self, target) - a read of the block
+        /// its own swing check last found between the two (the reason its close-melee bout exits for a wall). Optional.
+        /// </summary>
+        private static MethodInfo blockKind;
 
         // swap-return counters for sc xnpc
         private static int swapsKept, swapsUnknown, returnedStorage, returnedInventory, returnedGround;
@@ -169,6 +187,7 @@ namespace SurvivorCommunity
                 swapToHand = AccessTools.DeclaredMethod(typeof(AvatarSdcsNpcController), "SdcsSwapToHand", new[] { typeof(string) });
                 if (swapToHand != null && swapToHand.ReturnType != typeof(bool)) swapToHand = null;
                 if (swapToHand == null) ScLog.Warn("0-XNPCCore's SdcsSwapToHand(string) not found - a melee-lead raider takes its gun through SCore's UpdateWeapon instead (0-XNPCCore update?)");
+                BindTeamReads();
                 bound = true;
                 return true;
             }
@@ -186,6 +205,35 @@ namespace SurvivorCommunity
             FieldInfo f = AccessTools.DeclaredField(typeof(AvatarSdcsNpcController), name);
             if (f == null || f.IsStatic || f.FieldType != type) throw new MissingFieldException("AvatarSdcsNpcController", name);
             return f;
+        }
+
+        /// <summary>
+        /// Round tm1 (the Fable review): the two optional reads the team rule uses - the capture flag and 0-XNPCCore's swing
+        /// block. Either missing is logged once and reads as nothing found (the rule works without it, a little blinder).
+        /// </summary>
+        private static void BindTeamReads()
+        {
+            try
+            {
+                captureField = AccessTools.DeclaredField(typeof(AvatarSdcsNpcController), "sdcsHandsOwnedByCapture");
+                if (captureField != null && (captureField.IsStatic || captureField.FieldType != typeof(bool))) captureField = null;
+                if (captureField == null) ScLog.Warn("0-XNPCCore's sdcsHandsOwnedByCapture not found - SC's melee-first and gun-first swaps cannot see a hand capture (0-XNPCCore update?)");
+            }
+            catch (Exception e) { captureField = null; ScLog.Once("arms-bind-capture", e); }
+            try
+            {
+                Type t = typeof(AvatarSdcsNpcController).Assembly.GetType("SdcsMeleeReach", false);
+                blockKind = t != null ? t.GetMethod("BlockKind", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null,
+                                                    new[] { typeof(EntityAlive), typeof(EntityAlive) }, null) : null;
+                if (blockKind == null) ScLog.Warn("0-XNPCCore's SdcsMeleeReach.BlockKind(EntityAlive, EntityAlive) not found - the team rule cannot see a wall or bars in a member's swing (0-XNPCCore update?)");
+            }
+            catch (Exception e) { blockKind = null; ScLog.Once("arms-bind-blockkind", e); }
+        }
+
+        /// <summary>Round tm1: 0-XNPCCore's capture holds her hands (its hand managers stand aside; so do SC's swap rules).</summary>
+        private static bool HandsCaptured(AvatarSdcsNpcController c)
+        {
+            return captureField != null && (bool)captureField.GetValue(c);
         }
 
         private static bool CloseMelee(AvatarSdcsNpcController c) { return (bool)closeMeleeField.GetValue(c); }
@@ -442,6 +490,24 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round tm1 (the Fable review, finding 8): IsOverwhelmed as a pure read for the console (sc team, sc xnpc &lt;id&gt;) -
+        /// the last recount and the state's hold, with no recount and no clock touched; ago is the recount's age in seconds
+        /// (-1: never counted).
+        /// </summary>
+        public static bool PeekOverwhelmed(EntityAlive e, out int count, out int need, out float ago)
+        {
+            need = Threshold(e) + (ScTeam.MeleeLed(e) ? ScConfig.TeamOverwhelmedExtra : 0);
+            count = 0;
+            ago = -1f;
+            Watch st;
+            if (e == null || !watch.TryGetValue(e.entityId, out st)) return false;
+            float now = Time.time;
+            count = st.Count;
+            if (st.LastCount > 0f) ago = now - st.LastCount;
+            return st.Count >= need || now < st.OverUntil;
+        }
+
+        /// <summary>
         /// Living entities within OverwhelmedRadius whose target is this survivor: the attack target, else the revenge
         /// target - the same "who is it fighting" 0-XNPCCore's close-range tick reads (SdcsCurrentTargetDist).
         /// </summary>
@@ -577,13 +643,14 @@ namespace SurvivorCommunity
                 if (!ScConfig.SurvivorGunFirst || e == null || e.isEntityRemote || e.inventory == null || e.Buffs == null) return false;
                 if (!ScXnpc.IsBody(e) || ScXnpc.IsRaider(e)) return false;
                 AvatarSdcsNpcController c = ctrl as AvatarSdcsNpcController;
-                if (c == null || !Bind() || CloseMelee(c)) return false;
+                // round tm1 (the Fable review): never while 0-XNPCCore's capture holds her hands
+                if (c == null || !Bind() || CloseMelee(c) || HandsCaptured(c)) return false;
                 float now = Time.time;
                 if (now >= nextPrune) Prune(now);
                 Watch st = WatchOf(e, now);
+                if (now < st.GunBackoffUntil) return false;          // round tm1: her last draw did not take (finding 7)
                 Loadout l = ScLoadout.Current(e);
-                ItemValue hv = e.inventory.holdingItemItemValue;
-                string held = hv != null && !hv.IsEmpty() && hv.ItemClass != null ? hv.ItemClass.GetItemName() : null;
+                string held = HeldItemName(e);
                 if (l == null || !l.HasRanged || l.Melee == null || !string.Equals(held, l.Melee, StringComparison.OrdinalIgnoreCase)
                     || OrderedMelee(e) || UAI.UAITaskHarvestSdcs.HoldsJobTool(e.entityId))
                 {
@@ -598,13 +665,14 @@ namespace SurvivorCommunity
                 bool over = ScConfig.Overwhelmed && IsOverwhelmed(e, out count, out need);
                 bool far = (t.position - e.position).sqrMagnitude > XnpcCloseExitDist * XnpcCloseExitDist;
                 // Round tm1 (I1): a melee-led member keeps her melee weapon for a target beyond 5 m - unless the target needs
-                // the gun (melee-unsafe, armed, out of reach: decision 10, then today's rule) or she is overwhelmed (with the
-                // matched fight's extra attacker, decision 7)
+                // the gun (melee-unsafe, armed, out of reach, past her leash: decision 10, then today's rule) or she is
+                // overwhelmed (with the matched fight's extra attacker, decision 7)
                 string needs = null;
+                ScTeam.GunNeed kind = ScTeam.GunNeed.None;
                 bool led = !over && ScTeam.MeleeLed(e);
                 if (led)
                 {
-                    needs = ScTeam.NeedsGun(e, t, true, true);
+                    needs = ScTeam.NeedsGun(e, t, true, true, out kind);
                     if (needs == null)
                     {
                         if (far && !st.GunHeldNoted) { st.GunHeldNoted = true; Patches_Xnpc.Count("x5-team-gun-held"); }
@@ -613,7 +681,14 @@ namespace SurvivorCommunity
                     }
                 }
                 st.GunHeldNoted = false;
-                if (!far && !over) { st.FirstSince = 0f; return false; }
+                // The Fable review of round tm1 (finding 1): a target out of her reach gets the gun at any distance. Her
+                // adopted bout (CloseRange, I3) has no 0-XNPCCore exit any more - its wall, shoot-through and unreachable exits
+                // were what handed the gun back - so inside 5 m nothing else would: a walker behind bars at 3 m left her idle
+                // on melee. Only for out of reach: a melee-unsafe, armed or past-the-leash target keeps today's 5 m gate, or
+                // 0-XNPCCore's 3 m swap would take her straight back to melee. No loop: MeleeFirst refuses this target while
+                // the finding is kept (TeamUnreachableSeconds), and the draw starts the shared swap hold.
+                bool reachDraw = led && kind == ScTeam.GunNeed.Reach;
+                if (!far && !over && !reachDraw) { st.FirstSince = 0f; return false; }
                 if (st.FirstSince <= 0f) { st.FirstSince = now; return false; }
                 if (now - st.FirstSince < GunFirstSeconds) return false;
                 // round tm1: the swap-hold clock MeleeFirst shares - her melee weapon came out less than TeamSwapHoldSeconds ago
@@ -635,11 +710,13 @@ namespace SurvivorCommunity
                     if (!ScNpc.UpdateWeapon(e, l.Ranged)) return false;
                     ScLoadout.ModsAfterEquip(e);                 // a gun SCore builds from its name has no attachments
                 }
+                // round tm1 (the Fable review, finding 7): the gun really is in her hand, or nothing is counted or held
+                if (!EquipTook(e, l.Ranged, "gun first", ref st.GunBackoffUntil, now)) return false;
                 if (over) st.GunUntil = now + ScConfig.OverwhelmedGunSeconds;
                 Hold(st, HoldToMelee, now);                     // round tm1: MeleeFirst waits as long
                 gunFirstDraws++;
                 Patches_Xnpc.Count(over ? "x5-gunfirst-overwhelmed" : "x5-gunfirst-range");
-                if (needs != null) Patches_Xnpc.Count("x5-team-gun-needed");
+                if (needs != null) Patches_Xnpc.Count(reachDraw && !far ? "x5-team-gun-needed-close" : "x5-team-gun-needed");
                 ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") takes the " + l.Ranged + " (gun first: "
                               + (over ? "overwhelmed" : "target at " + (t.position - e.position).magnitude.ToString("0.#") + " m") + (needs != null ? ", " + needs : "") + ")");
                 return true;
@@ -681,13 +758,14 @@ namespace SurvivorCommunity
                     return false;
                 }
                 AvatarSdcsNpcController c = ctrl as AvatarSdcsNpcController;
-                if (c == null || !Bind() || CloseMelee(c)) return false;
+                // the Fable review: never while 0-XNPCCore's capture holds her hands
+                if (c == null || !Bind() || CloseMelee(c) || HandsCaptured(c)) return false;
                 float now = Time.time;
                 if (now >= nextPrune) Prune(now);
                 st = WatchOf(e, now);
+                if (now < st.MeleeBackoffUntil) { st.MeleeSince = 0f; return false; }   // her last swap did not take (finding 7)
                 Loadout l = ScLoadout.Current(e);
-                ItemValue hv = e.inventory.holdingItemItemValue;
-                string held = hv != null && !hv.IsEmpty() && hv.ItemClass != null ? hv.ItemClass.GetItemName() : null;
+                string held = HeldItemName(e);
                 if (l == null || !l.HasRanged || string.IsNullOrEmpty(l.Melee) || !string.Equals(held, l.Ranged, StringComparison.OrdinalIgnoreCase)
                     || UAI.UAITaskHarvestSdcs.HoldsJobTool(e.entityId) || !ScTeam.Steady(e))
                 {
@@ -712,6 +790,8 @@ namespace SurvivorCommunity
                     if (!(ok is bool) || !(bool)ok) return false;
                 }
                 else if (!ScNpc.UpdateWeapon(e, l.Melee)) return false;
+                // the Fable review (finding 7): the melee weapon really is in her hand, or nothing is counted or held
+                if (!EquipTook(e, l.Melee, "melee first", ref st.MeleeBackoffUntil, now)) return false;
                 Hold(st, HoldToGun, now);
                 meleeFirstSwaps++;
                 Patches_Xnpc.Count("x5-team-melee-first");
@@ -724,6 +804,30 @@ namespace SurvivorCommunity
                 ScLog.Once("arms-meleefirst", ex);
                 return false;
             }
+        }
+
+        /// <summary>Round tm1: the name of the item in her hand, or null.</summary>
+        private static string HeldItemName(EntityAlive e)
+        {
+            ItemValue hv = e != null && e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            return hv != null && !hv.IsEmpty() && hv.ItemClass != null ? hv.ItemClass.GetItemName() : null;
+        }
+
+        /// <summary>
+        /// Round tm1 (the Fable review, finding 7): after an equip that reported success, is the item really in her hand?
+        /// SdcsEquipByName returns true whatever SCore's UpdateWeapon then did (FindWeapon can refuse an item she no longer
+        /// carries). If not: a warning once per body and rule, the "x5-team-equip-refused" counter, and the rule backs off
+        /// this body for EquipBackoffSeconds - no swap counted, no hold started.
+        /// </summary>
+        private static bool EquipTook(EntityAlive e, string item, string rule, ref float backoffUntil, float now)
+        {
+            string held = HeldItemName(e);
+            if (string.Equals(held, item, StringComparison.OrdinalIgnoreCase)) return true;
+            backoffUntil = now + EquipBackoffSeconds;
+            Patches_Xnpc.Count("x5-team-equip-refused");
+            ScLog.Once("arms-equip-" + rule + "-" + e.entityId, ScCommunity.DisplayName(e) + " (id " + e.entityId + "): " + rule + " equipped the " + item
+                       + " but she holds " + (held ?? "nothing") + " - " + rule + " waits " + EquipBackoffSeconds.ToString("0") + " s for her (logged once)");
+            return false;
         }
 
         /// <summary>Round tm1: starts the shared swap-hold clock - the swap in direction dir waits TeamSwapHoldSeconds.</summary>
@@ -746,10 +850,14 @@ namespace SurvivorCommunity
         /// Round tm1 (I3): 0-XNPCCore's close-range swap put a melee-led member on her melee weapon - adopt its bout as
         /// RestoreGun's steps do (the close-melee flag, its start time and the weapon it would restore cleared), so its exit
         /// never brings the gun back. Not for a target that needs the gun: then its bout runs as today (its exit at 5 m
-        /// restores the gun). True when adopted.
+        /// restores the gun). The Fable review (finding 6): only with her pair's melee weapon in hand - a thrust weapon its
+        /// swing check reached for, or a tool, stays 0-XNPCCore's bout (GunFirst only ever draws from the pair's melee
+        /// weapon, so an adopted bout on anything else would never end). True when adopted.
         /// </summary>
         private static bool AdoptBout(AvatarSdcsNpcController c, EntityAlive e, float now)
         {
+            Loadout l = ScLoadout.Current(e);
+            if (l == null || string.IsNullOrEmpty(l.Melee) || !string.Equals(HeldItemName(e), l.Melee, StringComparison.OrdinalIgnoreCase)) return false;
             EntityAlive t = e.GetAttackTarget();
             if (t == null || t.IsDead()) t = e.GetRevengeTarget();
             if (t != null && !t.IsDead() && ScTeam.NeedsGun(e, t, true, true) != null) return false;
@@ -788,6 +896,25 @@ namespace SurvivorCommunity
 #if SC_V34
             if (ScReach.Marked(e, t)) why = "0-XNPCCore marked it melee-unreachable";
 #endif
+            // the Fable review (finding 1): the block 0-XNPCCore's own swing check found between the two - solid (its bout's
+            // "wall" exit) or see-through (bars, a fence, glass: no swing passes). Read only where that check runs every tick,
+            // so the read is fresh: for a gun holder within its close-range distance (3 m), for a melee holder within her
+            // weapon's reach (2 m when it cannot be read)
+            if (why == null)
+            {
+                float trust = XnpcCloseEnterDist;
+                if (onMelee)
+                {
+                    float weapon;
+                    ScMelee.Reach(e, 0, out weapon);
+                    trust = weapon > 0f ? Math.Min(weapon, XnpcCloseEnterDist) : 2f;
+                }
+                if (d.magnitude <= trust)
+                {
+                    string block = SwingBlock(e, t);
+                    if (block != null) why = "out of reach (a " + block + " block in her swing)";
+                }
+            }
             if (why == null && d.magnitude > MeleeReach)
             {
                 GamePath.PathNavigate nav = e.navigator;
@@ -818,6 +945,29 @@ namespace SurvivorCommunity
         /// <summary>A path whose goal is this close (XZ) to the target leads to it (a moving target drifts off the goal).</summary>
         private const float PathOnTarget = 3f;
 
+        /// <summary>
+        /// Round tm1 (the Fable review): "solid" or "see-through" when 0-XNPCCore's swing check (SdcsMeleeReach) last found
+        /// such a block between her and this target, else null (none, a door - she opens it - or the read is not bound).
+        /// A read of its episode table; it never runs the check itself.
+        /// </summary>
+        private static string SwingBlock(EntityAlive e, EntityAlive t)
+        {
+            if (blockKind == null) return null;
+            try
+            {
+                object r = blockKind.Invoke(null, new object[] { e, t });
+                string k = r != null ? r.ToString() : null;
+                return k == "Solid" ? "solid" : k == "SeeThrough" ? "see-through" : null;
+            }
+            catch (Exception ex) { ScLog.Once("arms-blockkind", ex); return null; }
+        }
+
+        /// <summary>Round tm1 (the Fable review, finding 5): ReachWhy's live "above her" test, as a pure read.</summary>
+        public static bool IsAbove(EntityAlive e, EntityAlive t)
+        {
+            return e != null && t != null && t.position.y - e.position.y > ReachAbove;
+        }
+
         /// <summary>Round tm1: a pure read of ReachWhy's memory - this target was found out of her reach and still is kept so.</summary>
         public static bool RememberedOutOfReach(EntityAlive e, EntityAlive t)
         {
@@ -845,9 +995,20 @@ namespace SurvivorCommunity
                     sb.Append(", ").Append(st.HoldDir == HoldToGun ? "gun first" : "melee first").Append(" held ").Append((st.HoldUntil - now).ToString("0.0")).Append(" s more (swap hold)");
                 if (now < st.GunUntil) sb.Append(", overwhelmed gun hold ").Append((st.GunUntil - now).ToString("0.0")).Append(" s more");
                 if (st.UnreachId >= 0 && now < st.UnreachUntil) sb.Append(", target #").Append(st.UnreachId).Append(" kept out of reach ").Append((st.UnreachUntil - now).ToString("0")).Append(" s more (").Append(st.UnreachWhy).Append(')');
+                if (now < st.MeleeBackoffUntil) sb.Append(", MELEE FIRST BACKED OFF ").Append((st.MeleeBackoffUntil - now).ToString("0")).Append(" s more (an equip did not take)");
+                if (now < st.GunBackoffUntil) sb.Append(", GUN FIRST BACKED OFF ").Append((st.GunBackoffUntil - now).ToString("0")).Append(" s more (an equip did not take)");
             }
+            AvatarSdcsNpcController c = e.emodel != null ? e.emodel.avatarController as AvatarSdcsNpcController : null;
+            if (c != null && bound && HandsCaptured(c)) sb.Append(", HANDS CAPTURED (0-XNPCCore: no swap rule acts)");
+            // the Fable review: a read - the console never recounts the attackers, so it never moves the sustain clocks
             int count, need;
-            if (ScXnpc.IsBody(e)) { bool over = IsOverwhelmed(e, out count, out need); sb.Append("; overwhelmed ").Append(count).Append('/').Append(need).Append(over ? " YES" : " no"); }
+            float ago;
+            if (ScXnpc.IsBody(e))
+            {
+                bool over = PeekOverwhelmed(e, out count, out need, out ago);
+                sb.Append("; overwhelmed ").Append(count).Append('/').Append(need).Append(over ? " YES" : " no")
+                  .Append(ago >= 0f ? " (counted " + ago.ToString("0.0") + " s ago)" : " (not counted yet)");
+            }
             return sb.ToString();
         }
 
@@ -1714,8 +1875,11 @@ namespace SurvivorCommunity
             if (e == null || !ScXnpc.IsBody(e)) return "not one of the community's 0-XNPCCore survivors";
             var sb = new StringBuilder();
             int count, need;
-            bool over = IsOverwhelmed(e, out count, out need);
-            sb.Append(count).Append(" enemy(ies) on them within ").Append(ScConfig.OverwhelmedRadius.ToString("0.#")).Append(" m, overwhelmed at ").Append(need)
+            float ago;
+            // round tm1 (the Fable review): a read - the console never recounts, so it never moves the sustain clocks
+            bool over = PeekOverwhelmed(e, out count, out need, out ago);
+            sb.Append(count).Append(" enemy(ies) on them within ").Append(ScConfig.OverwhelmedRadius.ToString("0.#")).Append(" m")
+              .Append(ago >= 0f ? " (counted " + ago.ToString("0.0") + " s ago)" : " (not counted yet)").Append(", overwhelmed at ").Append(need)
               .Append(MemberOf(e) != null ? " (Fighting stars)" : " (stranger)").Append(": ").Append(over ? "OVERWHELMED" : "no");
             float now = Time.time;
             Watch st;

@@ -49,8 +49,13 @@ namespace SurvivorCommunity
         public static float TeamWeaponMelee = 1f;
         public static float TeamWeaponRanged = 0.8f;
         public static float TeamWeaponBare = 0.5f;
-        /// <summary>HpF = TeamHealthFloor + (1 - TeamHealthFloor) x the health share (0.5 + 0.5 x share by default).</summary>
+        /// <summary>
+        /// HpF = TeamHealthFloor + (1 - TeamHealthFloor) x min(1, health share / TeamHealthFullAt): 0.5 at no health, 1 from 90%
+        /// of it. TeamHealthFullAt (the Fable review of round tm1): a scratch does not count, so a healthy 1-star member alone
+        /// still melees one walker (decision 2: at 99% her F was 0.995 against T 1).
+        /// </summary>
         public static float TeamHealthFloor = 0.5f;
+        public static float TeamHealthFullAt = 0.9f;
         /// <summary>Below this health share a member is no longer melee-led; she is again from TeamLowHealthBack.</summary>
         public static float TeamLowHealth = 0.5f;
         public static float TeamLowHealthBack = 0.6f;
@@ -60,8 +65,12 @@ namespace SurvivorCommunity
         public static float TeamMeleeFirstSeconds = 1f;
         /// <summary>A melee-led member is overwhelmed by this many attackers more than her usual threshold (decision 7).</summary>
         public static int TeamOverwhelmedExtra = 1;
-        /// <summary>A target found out of melee reach stays "needs the gun" this long (0-XNPCCore forgets its own unreachable mark after 20 s).</summary>
-        public static float TeamUnreachableSeconds = 20f;
+        /// <summary>
+        /// A target found out of melee reach stays "needs the gun" this long. 45 (the Fable review; 20 at first, as 0-XNPCCore's
+        /// own mark): a gun holder cannot find out whether it has come in reach, so each lapse is a probe - a swap to melee, the
+        /// finding again, and a swap back - which costs two reloads.
+        /// </summary>
+        public static float TeamUnreachableSeconds = 45f;
         /// <summary>T: the threat table as the config spells it (parsed into TeamThreats on first use).</summary>
         public static string TeamThreatTags = DefaultTeamThreatTags;
         public static string TeamThreatTagMult = DefaultTeamThreatTagMult;
@@ -72,7 +81,8 @@ namespace SurvivorCommunity
         /// The health term: clamp((MaxHealth / TeamThreatHpBase) ^ TeamThreatHpPower, TeamThreatHpMin, TeamThreatHpMax). The
         /// report's base was 200 (a normal zombie); 230 because vanilla rolls every zombie's HealthMax up to 15% higher
         /// (RANDOM_ZOMBIE_HEALTH), and at 200 half the plain walkers would weigh more than 1 - a 1-star member alone would no
-        /// longer melee one (decision 2).
+        /// longer melee one (decision 2). At 230 that holds for the healthSlim and healthNormal zombies only: at the top of
+        /// the roll a utility worker weighs 1.09, a fit zombie 1.17 and a strong one 1.76.
         /// </summary>
         public static float TeamThreatHpBase = 230f;
         public static float TeamThreatHpPower = 0.7f;
@@ -142,12 +152,13 @@ namespace SurvivorCommunity
             TeamWeaponRanged = 0.8f;
             TeamWeaponBare = 0.5f;
             TeamHealthFloor = 0.5f;
+            TeamHealthFullAt = 0.9f;
             TeamLowHealth = 0.5f;
             TeamLowHealthBack = 0.6f;
             TeamSwapHoldSeconds = 5f;
             TeamMeleeFirstSeconds = 1f;
             TeamOverwhelmedExtra = 1;
-            TeamUnreachableSeconds = 20f;
+            TeamUnreachableSeconds = 45f;
             TeamThreatTags = DefaultTeamThreatTags;
             TeamThreatTagMult = DefaultTeamThreatTagMult;
             TeamThreatMult = DefaultTeamThreatMult;
@@ -192,6 +203,7 @@ namespace SurvivorCommunity
             ParseFloat(p, "TeamWeaponRanged", ref TeamWeaponRanged, 0f, 5f);
             ParseFloat(p, "TeamWeaponBare", ref TeamWeaponBare, 0f, 5f);
             ParseFloat(p, "TeamHealthFloor", ref TeamHealthFloor, 0f, 1f);
+            ParseFloat(p, "TeamHealthFullAt", ref TeamHealthFullAt, 0.1f, 1f);
             ParseFloat(p, "TeamLowHealth", ref TeamLowHealth, 0f, 1f);
             ParseFloat(p, "TeamLowHealthBack", ref TeamLowHealthBack, 0f, 1f);
             if (TeamLowHealthBack < TeamLowHealth)
@@ -202,7 +214,7 @@ namespace SurvivorCommunity
             ParseFloat(p, "TeamSwapHoldSeconds", ref TeamSwapHoldSeconds, 0f, 60f);
             ParseFloat(p, "TeamMeleeFirstSeconds", ref TeamMeleeFirstSeconds, 0f, 10f);
             ParseInt(p, "TeamOverwhelmedExtra", ref TeamOverwhelmedExtra, 0, 10);
-            ParseFloat(p, "TeamUnreachableSeconds", ref TeamUnreachableSeconds, 0f, 120f);
+            ParseFloat(p, "TeamUnreachableSeconds", ref TeamUnreachableSeconds, 0f, 300f);
             string s;
             if (p.Values.TryGetValue("TeamThreatTags", out s)) { TeamThreatTags = s ?? ""; teamThreats = null; }
             if (p.Values.TryGetValue("TeamThreatTagMult", out s)) { TeamThreatTagMult = s ?? ""; teamTagMults = null; }
@@ -275,7 +287,7 @@ namespace SurvivorCommunity
                    + TeamLeaveRecounts + " recounts below " + f(TeamLeaveMargin) + " T, recount " + f(TeamRecountSeconds) + " s (fresh " + f(TeamFreshSeconds) + " s)"
                    + "; F: member (" + f(TeamStarBase) + " + " + f(TeamStarStep) + "/star) x HpF x weapon " + f(TeamWeaponMelee) + "/" + f(TeamWeaponRanged) + "/" + f(TeamWeaponBare)
                    + ", player " + f(TeamPlayerWeight) + ", ally " + f(TeamAllyWeight) + ", guard " + f(TeamGuardWeight) + ", medical x" + f(TeamMedicalMult)
-                   + ", HpF " + f(TeamHealthFloor) + "+" + f(1f - TeamHealthFloor) + "xhp"
+                   + ", HpF " + f(TeamHealthFloor) + "+" + f(1f - TeamHealthFloor) + "xmin(1,hp/" + f(TeamHealthFullAt) + ")"
                    + "; T: tags " + TeamTableText(TeamThreats()) + " (else " + f(TeamThreatDefault) + ") x " + TeamTableText(TeamTagMults())
                    + ", hp (max/" + f(TeamThreatHpBase) + ")^" + f(TeamThreatHpPower) + " in " + f(TeamThreatHpMin) + ".." + f(TeamThreatHpMax)
                    + ", then x " + TeamTableText(TeamMults()) + "; gun on " + (string.IsNullOrEmpty(TeamGunTags) ? "-" : TeamGunTags) + " + EntityZombieCop"

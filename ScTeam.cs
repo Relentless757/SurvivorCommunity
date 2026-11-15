@@ -20,7 +20,8 @@ namespace SurvivorCommunity
     ///     (TeamStarBase + TeamStarStep x Fighting stars) x HpF x her weapon factor (a melee weapon in her pair 1, ranged
     ///     only 0.8, nothing 0.5) - she counts herself; a member on watch TeamGuardWeight x HpF; any member in the middle of
     ///     a medical use x TeamMedicalMult; one asleep in bed 0; the player TeamPlayerWeight x HpF (decision 1); another
-    ///     ally (a hire, a friendly NPC) TeamAllyWeight x HpF. HpF = 0.5 + 0.5 x health share.
+    ///     ally (a hire, a friendly NPC) TeamAllyWeight x HpF. HpF = 0.5 + 0.5 x min(1, health share / 0.9): a scratch
+    ///     does not count (TeamHealthFullAt, the Fable review).
     ///   T (threat): every awake enemy in the same area, whether or not it is after the team (decision 14):
     ///     max(tag weight, health weight) x the final multipliers (crawler 0.6). The tag weight is the highest entry of the
     ///     threat table it matches (walker 1, feral 2, radiated 3, charged 3.5, infernal 4.5, the animals) times the tag
@@ -29,13 +30,15 @@ namespace SurvivorCommunity
     ///     row with F &lt; TeamLeaveMargin x T (0.8); no enemies = matched. A new fight (the first count with enemies) is
     ///     judged by F >= T alone - the leave margin is hysteresis inside a fight (the report's worked examples).
     ///   RaiderFight: an enemy NPC (a raider, a bandit, a hostile player) or an armed enemy in the area - today's rules.
-    ///   Melee-led: TeamMelee on; a member's body, not a raider; not a runner on the move, not on watch, not Cowardly
-    ///     (decision 8), no gun order from the player (sc_order_ranged, decision 9); a melee weapon in her pair; health at
+    ///   Melee-led: TeamMelee on; a member's body, not a raider; not a runner on the move, not on a Stay order (she gives
+    ///     supporting fire), not asleep in bed, not on watch, not Cowardly (decision 8), no gun order from the player
+    ///     (sc_order_ranged, decision 9); a melee weapon in her pair; health at
     ///     least TeamLowHealth (50%; back from TeamLowHealthBack, 60%: decision 5); matched; no RaiderFight. Followers away
     ///     from home too (decision 11); enclave people and strangers have no verdict (decision 12).
     ///   NeedsGun(target): the target is melee-unsafe (a zombie cop or the demolition zombie: EntityZombieCop, or a
-    ///     TeamGunTags tag - decision 10), armed, or out of melee reach (ScArms.ReachWhy). The team rule stands aside for
-    ///     such a target: today's rules.
+    ///     TeamGunTags tag - decision 10), armed, past a resident's leash (ScReturn's own rule), or out of melee reach
+    ///     (ScArms.ReachWhy). The team rule stands aside for such a target: today's rules - and for one out of reach
+    ///     GunFirst draws inside 5 m too (the Fable review, finding 1).
     /// </summary>
     public static class ScTeam
     {
@@ -54,6 +57,8 @@ namespace SurvivorCommunity
             /// <summary>Recounts in a row with F below TeamLeaveMargin x T.</summary>
             public int Below;
             public bool LowHp, RaiderFight, Wide, MeleeLed;
+            /// <summary>The Fable review: her pair has a ranged weapon with rounds - a Cowardly member can hang back with it.</summary>
+            public bool Gun;
             public int Enemies, Friends, Unsafe;
             /// <summary>The nearest counted enemy (MeleeFirst's target while she has none of her own), -1 none.</summary>
             public int Nearest = -1;
@@ -70,6 +75,12 @@ namespace SurvivorCommunity
             public EntityAlive Nearest;
             public float NearestD2;
         }
+
+        /// <summary>
+        /// Why a target needs the gun (NeedsGun). GunFirst draws for Reach at any distance (the Fable review, finding 1); for
+        /// the others it keeps today's 5 m gate, or 0-XNPCCore's 3 m swap would take her straight back to melee.
+        /// </summary>
+        public enum GunNeed { None, Unsafe, Armed, Leash, Reach }
 
         private static readonly Dictionary<int, Verdict> verdicts = new Dictionary<int, Verdict>();
         private static readonly List<Entity> near = new List<Entity>();
@@ -142,6 +153,9 @@ namespace SurvivorCommunity
                 bool wasLow = v.LowHp;
                 if (hp < ScConfig.TeamLowHealth) v.LowHp = true;
                 else if (hp >= ScConfig.TeamLowHealthBack) v.LowHp = false;
+                Loadout pair = ScLoadout.Current(e);
+                ItemClass gun = pair != null && pair.HasRanged ? ItemClass.GetItemClass(pair.Ranged, true) : null;
+                v.Gun = ScAmmo.RangedAction(gun) != null && ScAmmo.Rounds(e, gun) > 0;
                 string why = WhyNotLed(e, m, v);
                 v.MeleeLed = why == null;
                 v.Why = why ?? "";
@@ -171,6 +185,12 @@ namespace SurvivorCommunity
         private static string WhyNotLed(EntityAlive e, Member m, Verdict v)
         {
             if (ScRunners.IsPhysical(m) && !m.Offline) return "on a run (her walk decides)";
+            // the Fable review: a Stay order (CurrentOrder 2, the cvar 0-XNPCCore's MeleeApproach is gated on) - she does not
+            // walk to a fight, so she gives supporting fire
+            if (e.Buffs != null && Mathf.RoundToInt(e.Buffs.GetCustomVar("CurrentOrder")) == 2) return "ordered to stay (she gives supporting fire)";
+#if SC_V34
+            if (ScSleep.IsAsleep(e)) return "asleep in bed";
+#endif
             if (ScWatch.OnWatch(m)) return "on watch (a guard keeps her gun)";
             if (ScTraits.IsTimid(m)) return "Cowardly (hangs back with her gun; runs only when outmatched)";
             if (ScArms.OrderedRanged(e)) return "you ordered her gun (order her melee weapon, or sc team " + e.entityId + " auto, to undo)";
@@ -261,7 +281,7 @@ namespace SurvivorCommunity
         {
             how = null;
             float hp = HealthShare(a);
-            float hpF = ScConfig.TeamHealthFloor + (1f - ScConfig.TeamHealthFloor) * hp;
+            float hpF = HpF(hp);
             if (a is EntityPlayer)
             {
                 how = detail ? "the player " + F2(ScConfig.TeamPlayerWeight) + " x HpF " + F2(hpF) + " (hp " + Pct(hp) + ")" : "";
@@ -360,16 +380,28 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Why this target needs the gun, or null: melee-unsafe, armed, or out of melee reach (ScArms.ReachWhy; onMelee: she
-        /// holds her melee weapon, so a missing path means something). remember (X5 only) keeps an out-of-reach finding for
-        /// TeamUnreachableSeconds; the console passes false.
+        /// Why this target needs the gun, or null: melee-unsafe, armed, past her leash (a resident: the Fable review, finding
+        /// 3), or out of melee reach (ScArms.ReachWhy; onMelee: she holds her melee weapon, so a missing path means
+        /// something). remember (X5 only) keeps an out-of-reach finding for TeamUnreachableSeconds; the console passes false.
         /// </summary>
         public static string NeedsGun(EntityAlive self, EntityAlive t, bool onMelee, bool remember)
         {
+            GunNeed kind;
+            return NeedsGun(self, t, onMelee, remember, out kind);
+        }
+
+        public static string NeedsGun(EntityAlive self, EntityAlive t, bool onMelee, bool remember, out GunNeed kind)
+        {
+            kind = GunNeed.None;
             if (self == null || t == null) return null;
-            if (MeleeUnsafe(t)) return "melee-unsafe (" + t.EntityName + ")";
-            if (Armed(t)) return "armed (" + t.EntityName + ")";
-            return ScArms.ReachWhy(self, t, onMelee, remember);
+            if (MeleeUnsafe(t)) { kind = GunNeed.Unsafe; return "melee-unsafe (" + t.EntityName + ")"; }
+            if (Armed(t)) { kind = GunNeed.Armed; return "armed (" + t.EntityName + ")"; }
+            // the Fable review (finding 3): a resident melee-led against a zombie she could only reach by crossing ScReturn's
+            // leash walked out, was pulled back (5.5 over MeleeApproach's 5), and walked out again - the gun for it instead
+            if (UAI.UAIConsiderationScFarFromPost.PastLeash(self, t.position)) { kind = GunNeed.Leash; return "past her leash (ScReturn would walk her back)"; }
+            string why = ScArms.ReachWhy(self, t, onMelee, remember);
+            if (why != null) kind = GunNeed.Reach;
+            return why;
         }
 
         // ------------------------------------------------------------------ pure reads ----
@@ -398,25 +430,29 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// A matched fight with no raiders in it (a fresh verdict): a Cowardly member hangs back with her gun instead of running
-        /// (decision 8; ScNotTeamMatched on ScFlee / ScEncFlee). False with the rule off, no verdict (enclave people, strangers).
+        /// A matched fight with no raiders in it (a fresh verdict) and a gun with rounds in her pair: a Cowardly member hangs
+        /// back with her gun instead of running (decision 8; ScNotTeamMatched on ScFlee / ScEncFlee). False with the rule off,
+        /// no verdict (enclave people, strangers), or no gun to hang back with (the Fable review: then she runs, as before).
         /// </summary>
-        public static bool MatchedFight(EntityAlive e)
+        public static bool HangsBack(EntityAlive e)
         {
             Verdict v = Fresh(e);
-            return v != null && v.Matched && !v.RaiderFight;
+            return v != null && v.Matched && !v.RaiderFight && v.Gun;
         }
 
         /// <summary>
         /// I5 (ScNotTeamMelee on 0-XNPCCore's BackupKeepDistance and BackupRanged): she holds her ground against this enemy -
-        /// melee-led, the enemy safe to melee and unarmed, not one she found out of reach, and the overwhelmed rule not holding
-        /// her on the gun (then its back-off is today's). A pure read.
+        /// melee-led, the enemy safe to melee and unarmed, not above her (ReachWhy's live test, the Fable review), not one
+        /// she found out of reach, not past her leash, and the overwhelmed rule not holding her on the gun (then its back-off
+        /// is today's). A pure read.
         /// </summary>
         public static bool HoldsGround(EntityAlive self, EntityAlive t)
         {
             if (self == null || t == null || !MeleeLed(self)) return false;
             if (MeleeUnsafe(t) || Armed(t)) return false;
-            if (ScArms.RememberedOutOfReach(self, t)) return false;
+            // the Fable review (finding 5): ReachWhy's live test - a zombie on a ledge above her keeps today's back-off
+            if (ScArms.IsAbove(self, t) || ScArms.RememberedOutOfReach(self, t)) return false;
+            if (UAI.UAIConsiderationScFarFromPost.PastLeash(self, t.position)) return false;   // a target she gets the gun for
             return !ScArms.HoldingGunUpClose(self);
         }
 
@@ -428,16 +464,17 @@ namespace SurvivorCommunity
         public static EntityAlive Target(EntityAlive e)
         {
             if (e == null) return null;
-            EntityAlive t = e.GetAttackTarget();
-            if (t != null && !t.IsDead()) return t;
-            t = e.GetRevengeTarget();
-            if (t != null && !t.IsDead()) return t;
+            EntityAlive own = e.GetAttackTarget();
+            if (own == null || own.IsDead()) own = e.GetRevengeTarget();
+            if (own != null && own.IsDead()) own = null;
+            // the Fable review: her own target outside the counted area (one she shoots from afar) gives way to the nearest
+            // counted enemy she sees - else MeleeFirst would wait on the far one while a walker comes in next to her
+            if (own != null && InArea(e, own)) return own;
             Verdict v = Fresh(e);
-            if (v == null || v.Nearest < 0 || e.world == null) return null;
-            t = e.world.GetEntity(v.Nearest) as EntityAlive;
-            if (t == null || t.IsDead() || t.IsSleeping) return null;
-            if (!v.Wide && (t.position - e.position).sqrMagnitude > ScConfig.TeamRadius * ScConfig.TeamRadius) return null;
-            return UAI.SCoreUtils.CanSee(e, t) ? t : null;
+            if (v == null || v.Nearest < 0 || e.world == null) return own;
+            EntityAlive t = e.world.GetEntity(v.Nearest) as EntityAlive;
+            if (t == null || t.IsDead() || t.IsSleeping || t == own || !InArea(e, t)) return own;
+            return UAI.SCoreUtils.CanSee(e, t) ? t : own;
         }
 
         /// <summary>
@@ -462,6 +499,16 @@ namespace SurvivorCommunity
             Member m = ScRegistry.GetMember(e.entityId);
             if (m == null && e.Buffs != null && e.Buffs.HasCustomVar(ScRadio.StandInCvar)) m = ScRegistry.GetMember((int)e.Buffs.GetCustomVar(ScRadio.StandInCvar));
             return m;
+        }
+
+        /// <summary>
+        /// HpF = TeamHealthFloor + (1 - TeamHealthFloor) x min(1, share / TeamHealthFullAt): 0.5 at no health, 1 from 90% of
+        /// it (the Fable review: a scratch does not count - decision 2 for a healthy 1-star member).
+        /// </summary>
+        private static float HpF(float share)
+        {
+            float full = Mathf.Max(0.01f, ScConfig.TeamHealthFullAt);
+            return ScConfig.TeamHealthFloor + (1f - ScConfig.TeamHealthFloor) * Mathf.Min(1f, share / full);
         }
 
         private static float HealthShare(EntityAlive a)

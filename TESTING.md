@@ -50,7 +50,8 @@ a live base attack, the whole defended area):
 
 - F: each member (0.85 + 0.15 x Fighting stars) x HpF x her weapon (1 with a melee weapon in her pair, 0.8 ranged only,
   0.5 nothing); a member on watch 0.8 x HpF; one in the middle of a medical use x 0.5; one asleep in bed 0; you 2 x HpF;
-  another ally (a hire, a friendly NPC) 1 x HpF. HpF = 0.5 + 0.5 x health share.
+  another ally (a hire, a friendly NPC) 1 x HpF. HpF = 0.5 + 0.5 x min(1, health share / 0.9): from 90% health on it is
+  1, so a scratch does not count (`TeamHealthFullAt`).
 - T: every awake enemy, after the team or not: the larger of its tag weight (walker 1, feral 2, radiated 3, charged 3.5,
   infernal 4.5, x1.5 special, x1.3 strong; the animals are in the table) and its health weight ((max health / 230) ^
   0.7), then x0.6 for a crawler.
@@ -63,10 +64,13 @@ a live base attack, the whole defended area):
   0-XNPCCore's close-range swap (log: "keeps the <melee> after 0-XNPCCore's close-range swap"); and it takes one
   attacker more to overwhelm her.
 - Today's rules (not melee-led): below 50% health (melee again from 60%), outmatched, raiders or anyone armed in the
-  fight, on a run, on watch, Cowardly, no melee weapon, or after you ordered her gun. A cop or a demolition zombie, and
-  a target she cannot reach (above her, or found out of reach: kept 20 s), always get the gun. An enemy farther than 15
-  m was not weighed: she keeps whatever she holds until it comes in.
-- A Cowardly member hangs back with her gun in a matched fight and runs only from an outmatched one.
+  fight, on a run, on a Stay order (she gives supporting fire), asleep in bed, on watch, Cowardly, no melee weapon, or
+  after you ordered her gun. A cop or a demolition zombie, a resident's target past her leash (25 m from her post, or 8
+  m outside the zone: ScReturn would walk her back), and a target she cannot reach (above her, a wall or bars in her
+  swing, or found out of reach: kept 45 s) always get the gun - one she cannot reach even inside 5 m. An enemy farther
+  than 15 m was not weighed: she keeps whatever she holds until it comes in.
+- A Cowardly member with a gun (and rounds) hangs back with it in a matched fight and runs only from an outmatched one;
+  one with no gun runs as before.
 - Every swap SC makes holds the opposite swap 5 s (each costs a reload).
 - `TeamMelee` false in `Config/blocks.xml`: everything as before this round. Strangers and enclave people are not in
   this round.
@@ -90,10 +94,20 @@ reading take them out of her pack and bag in her inventory panel first.
 - [ ] Same with her bow in hand (`sc arms Gina ranged` before the spawn): about a second after she sees the walker,
       "Gina (id N) takes the <sledgehammer> (melee first: a matched fight, zombieBoe at X m)"; one arrow at most before
       that; `x5-team-melee-first` +1. Right after it `sc team Gina` shows "gun first held N s more (swap hold)".
-- [ ] Gina at 58%: `sc team Gina hurt 0.58`, wait two seconds, then spawn a walker. `sc team Gina`: `F 0.91 / T 1`
-      OUTMATCHED, "not melee-led: outmatched"; she takes her bow as before ("gun first: target at N m"). Then stand
-      within 15 m of her and spawn another: with you counted (`F` about 2.9) she is MELEE-LED and takes the sledgehammer
-      to it. `sc team Gina hurt 1` puts her back to full health.
+- [ ] Gina at 58%: `sc team Gina hurt 0.58`, wait two seconds, then spawn a walker. `sc team Gina`: `F 0.95 / T 1` (1.15
+      x HpF 0.82) OUTMATCHED, "not melee-led: outmatched"; she takes her bow as before ("gun first: target at N m").
+      Then stand within 15 m of her and spawn another: with you counted (`F` about 2.9) she is MELEE-LED and takes the
+      sledgehammer to it. `sc team Gina hurt 1` puts her back to full health.
+
+**A scratch does not count: a 1-star member alone vs one walker**
+
+- [ ] A 1-star member (`sc members`) alone, nobody else within 15 m: `sc team <name> hurt 0.95`, wait two seconds, spawn
+      one zombieBoe 10 m off. `sc team <name>`: `F 1 / T 1` MATCHED, MELEE-LED (the count: "x HpF 1 (hp 95%)"); she
+      fights it with her melee weapon. At `hurt 0.85` HpF is 0.97 and a new fight is OUTMATCHED (`F 0.97 / T 1`): her
+      gun, as before.
+- [ ] The note on zombies in the count: a plain (slim or normal) walker always weighs 1, whatever its rolled health; a
+      utility worker can weigh up to 1.09, a fit zombie 1.17 and a strong one 1.76 (the "hp" part of the count). Against
+      one of those a lone 1-star member uses the gun.
 
 **Rob loaded with his crossbow vs one walker**
 
@@ -115,6 +129,35 @@ reading take them out of her pack and bag in her inventory panel first.
       does not walk away from the walker (no BackupRanged or BackupKeepDistance in the overlay).
 - [ ] Same with the .44 in hand (`sc arms Paul ranged`): "Paul ... takes the <mace> (melee first: ...)" within about a
       second; while he still holds the .44 he does not back off.
+
+**Out of reach up close (the Fable review, finding 1)**
+
+- [ ] A melee-led member on her melee weapon (Paul with the mace), a walker on the far side of bars, a fence or a window
+      2-4 m from her (it sees her and stays there). Within a few seconds she takes her gun: "Paul (id N) takes the
+      gunHandgunT2Magnum44 (gun first: target at 2.8 m, out of reach (a see-through block in her swing))" - or "her path
+      to it ends short" / "0-XNPCCore marked it melee-unreachable" - and `sc xnpc` shows `x5-team-gun-needed-close` and
+      `x5-team-unreachable` +1. `sc team Paul`: the target line says "out of reach ...", the hand line "target #N kept
+      out of reach 45 s more". She shoots it and does not go back to the mace for it while it is kept (no "melee first"
+      line for it). Before this fix she stood idle on the mace.
+- [ ] The same walker within her weapon's reach behind see-through bars: 0-XNPCCore's own 3 m swap may still put her on
+      the mace (its rule, as before this round): she then waits there until it moves. Not SC's loop: at most one SC draw
+      per 45 s for that walker.
+
+**The leash (the Fable review, finding 3)**
+
+- [ ] A resident at home, melee-led (her melee weapon in hand), and a walker outside the base that she sees, more than 8
+      m past the zone's edge and more than 25 m from her post (`sc team <name>`: the target line "past her leash
+      (ScReturn would walk her back)"). She takes her gun once it is beyond 5 m ("gun first: ..., past her leash") and
+      shoots it from inside; she does not walk out to it and back again (no MeleeApproach / ScReturn turns in the
+      overlay). A walker inside the zone, or within 8 m of it, still gets the mace.
+
+**A Stay order and a bed**
+
+- [ ] Order a follower to stay (the Stay order, by voice or her talk menu). `sc team <name>`: "not melee-led: ordered to
+      stay (she gives supporting fire)"; against a walker she shoots from where she stands as before this round, and a
+      gun in her hand stays there.
+- [ ] At night, a member asleep in bed (`sc sleep` shows her asleep): `sc team <name>`: "not melee-led: asleep in bed",
+      and in the others' counts she is "member asleep in bed = 0".
 
 **Five members and you vs five walkers**
 
@@ -164,6 +207,9 @@ reading take them out of her pack and bag in her inventory panel first.
       she hangs back with her gun and shoots.
 - [ ] Then make it outmatched (spawn ferals until `sc team <name>` says OUTMATCHED, or face her alone, nobody near, with
       two ferals): she runs (ScFlee), as before.
+- [ ] A Cowardly member with no gun (`sc loadout <name> meleeonly`, or a gun with no rounds left) in the same matched
+      fight: she runs (ScFlee) as before - "hang back with the gun" needs a gun. `sc loadout <name>` with a gun again
+      undoes it.
 
 **A follower away from home**
 

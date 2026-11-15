@@ -456,10 +456,11 @@ namespace UAI
 
     /// <summary>
     /// Round tm1 (I7, decision 8): 0 while one of the community's members is in a matched fight (ScTeam: F >= T, no raiders
-    /// in it), else 1 - an outmatched fight, no verdict (enclave people and strangers: decision 12), TeamMelee off. On SC's
-    /// Cowardly flee, ScFlee and ScEncFlee (Config/utilityai.xml): a Cowardly member hangs back with her gun in a matched
-    /// fight (she is never melee-led) and runs only when it is outmatched. A pure read; a throw is logged once and means 1
-    /// (she runs, as before).
+    /// in it) and has a gun with rounds in her pair (the Fable review: "hang back with the gun" needs one), else 1 - an
+    /// outmatched fight, no gun, no verdict (enclave people and strangers: decision 12), TeamMelee off. On SC's Cowardly
+    /// flee, ScFlee and ScEncFlee (Config/utilityai.xml): a Cowardly member hangs back with her gun in a matched fight (she
+    /// is never melee-led) and runs only when it is outmatched. A pure read of ScTeam.HangsBack; a throw is logged once and
+    /// means 1 (she runs, as before).
     /// </summary>
     public class UAIConsiderationScNotTeamMatched : UAIConsiderationBase
     {
@@ -467,7 +468,7 @@ namespace UAI
         {
             try
             {
-                return ScTeam.MatchedFight(_context.Self) ? 0f : 1f;
+                return ScTeam.HangsBack(_context.Self) ? 0f : 1f;
             }
             catch (System.Exception e)
             {
@@ -539,10 +540,20 @@ namespace UAI
     {
         private float distance = 25f;
 
+        /// <summary>
+        /// Round tm1 (the Fable review, finding 3): the shortest distance="..." any ScFarFromPost was given (ScReturn's 25 in
+        /// Config/utilityai.xml; ScEncReturn's is not used for a resident). Written at Init only - config load, never a score.
+        /// </summary>
+        private static float residentLeash = float.MaxValue;
+
+        /// <summary>The resident leash distance for PastLeash (25 until a ScFarFromPost has been read).</summary>
+        public static float ResidentLeash { get { return residentLeash < float.MaxValue ? residentLeash : 25f; } }
+
         public override void Init(Dictionary<string, string> parameters)
         {
             base.Init(parameters);
             if (parameters.ContainsKey("distance")) distance = StringParsers.ParseFloat(parameters["distance"]);
+            if (distance < residentLeash) residentLeash = distance;
         }
 
         public override float GetScore(Context _context, object target)
@@ -551,15 +562,42 @@ namespace UAI
             if (!ScHome.Of(_context.Self, out h)) return 0f;
             // an enclave's people (E2): their whole POI and EnclaveLeashMargin round it is home - from anywhere on it
             if (h.IsEnclave) return h.Area.DistanceOutside(_context.Self.position) > ScConfig.EnclaveLeashMargin ? 1f : 0f;
-            Member m = h.Member;
+            return OutsideLeash(h.Member, h.Post, _context.Self.position, distance) ? 1f : 0f;
+        }
+
+        /// <summary>A resident standing at pos would be past her leash (the rule this consideration scores, one place for both).</summary>
+        private static bool OutsideLeash(Member m, Vector3 post, Vector3 pos, float distance)
+        {
             // a live home attack (base defence D2): the leash is the defended area + LeashExtra, not the distance from the post -
             // except for a guard on watch (D3), who is leashed to the Watch post as always
-            if (ScBaseAttack.WideDefence && !ScWatch.OnWatch(m)) return ScBaseAttack.InDefenceArea(_context.Self.position, ScBaseAttack.LeashExtra) ? 0f : 1f;
+            if (ScBaseAttack.WideDefence && !ScWatch.OnWatch(m)) return !ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra);
             // zone roaming (round hz): the home zone, and ResidentRoamZoneMargin round it, is home - a walk there is the
             // roam, not a chase; outside it the post leash applies as before. Not for a guard on watch.
             if (ScConfig.ResidentRoamZone && !ScWatch.OnWatch(m)
-                && ScZone.DistanceOutside(_context.Self.position) <= ScConfig.ResidentRoamZoneMargin) return 0f;
-            return Vector3.Distance(_context.Self.position, h.Post) > distance ? 1f : 0f;
+                && ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin) return false;
+            return Vector3.Distance(pos, post) > distance;
+        }
+
+        /// <summary>
+        /// Round tm1 (the Fable review, finding 3): would SCResident's ScReturn (5.5) walk this member back from where the
+        /// target stands? Only for one ScReturn leashes - a resident (ScIsResident) with a post, on the Guard order, not on a
+        /// work shift (ScNotOnShift) - and by the very rule above, at ResidentLeash. A melee-led resident's target past it
+        /// needs the gun (ScTeam.NeedsGun): a chase there outranked by the leash (MeleeApproach is 5) only yo-yos. A read.
+        /// </summary>
+        public static bool PastLeash(EntityAlive self, Vector3 at)
+        {
+            ScHome h;
+            if (self == null || !ScHome.Of(self, out h) || h.IsEnclave) return false;
+            Member m = h.Member;
+            if (m == null || m.Status != MemberStatus.Resident) return false;
+            // HasOrder Guard, read off the cvar itself: SCore's GetCurrentOrder builds a log string on every call, and this
+            // runs inside ScNotTeamMelee for every candidate
+            if (self.Buffs == null || !self.Buffs.HasCustomVar("CurrentOrder")
+                || Mathf.RoundToInt(self.Buffs.GetCustomVar("CurrentOrder")) != (int)EntityUtilities.Orders.Guard) return false;
+#if SC_V34
+            if (ScWork.OnShift(self.entityId)) return false;
+#endif
+            return OutsideLeash(m, h.Post, at, ResidentLeash);
         }
     }
 
