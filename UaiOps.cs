@@ -1210,7 +1210,7 @@ namespace UAI
     {
         /// <summary>0-XNPCCore's armed leave (45 s; its LeaveAreaSdcs needs it, SelfHasBuffV4).</summary>
         public const string LeavingBuff = "SdcsLeavingArea";
-        /// <summary>Leaves disarmed at home since the world loaded (sc xnpc).</summary>
+        /// <summary>Leaves disarmed at home since the game started (sc xnpc; not reset per world).</summary>
         public static int Disarmed;
 
         public override float GetScore(Context _context, object target)
