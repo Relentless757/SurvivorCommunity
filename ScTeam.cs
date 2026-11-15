@@ -293,6 +293,10 @@ namespace SurvivorCommunity
 #if SC_V34
                 if (ScSleep.IsAsleep(a)) { how = detail ? "member asleep in bed" : ""; return 0f; }
 #endif
+                // round rt1 (I11, decision 11): another member sheltering (and not fighting back) is not in the fight - the ones
+                // still fighting are not told it is matched on her strength. She counts herself as before in her own verdict:
+                // a Cowardly member's "hangs back" (her way out of the shelter) is not made harder by her hiding.
+                if (a != self && ScRetreat.Hiding(a)) { how = detail ? "member sheltering (round rt1)" : ""; return 0f; }
                 float wgt;
                 if (ScWatch.OnWatch(m))
                 {

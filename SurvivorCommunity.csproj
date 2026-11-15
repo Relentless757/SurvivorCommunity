@@ -178,6 +178,11 @@
     <!-- round tm1: team strength decides melee - the verdict (F against T) and its config keys -->
     <Compile Include="ScTeam.cs" />
     <Compile Include="ScConfigTeam.cs" />
+    <!-- round rt1: hurt members retreat inside / stand off with a gun - the state, the shelter cache, the UAI classes, the keys -->
+    <Compile Include="ScRetreat.cs" />
+    <Compile Include="ScShelter.cs" />
+    <Compile Include="UaiRetreat.cs" />
+    <Compile Include="ScConfigRetreat.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="ScVoiceLines.cs" />

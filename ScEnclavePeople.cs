@@ -1441,11 +1441,10 @@ namespace SurvivorCommunity
             return best;
         }
 
-        /// <summary>Anything solid within ten cells over the spot's head: under a roof.</summary>
+        /// <summary>Anything solid within ten cells over the spot's head: under a roof (round rt1, I5: the shared rule, ScShelter.Roofed).</summary>
         private static bool Roofed(World w, Vector3i p)
         {
-            for (int k = 2; k <= 12; k++) if (!w.GetBlock(new Vector3i(p.x, p.y + k, p.z)).isair) return true;
-            return false;
+            return ScShelter.Roofed(w, p);
         }
 
         /// <summary>The yaw that faces the footprint's centre from a spot (a column scan's spot has no authored rotation).</summary>

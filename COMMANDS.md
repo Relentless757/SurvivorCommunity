@@ -112,6 +112,32 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   outcome is counted once per episode, when it changes, not at every 5 s check. `sc xnpc <name>`'s `medic:` line shows
   her last and next restock (`restock (md1): ...`).
 
+## Retreat *(round rt1)*
+
+- **`sc retreat`** — the setting and its keys (`RetreatHome`, `Shelter...`, `StandOff...`), how many members are retreating
+  now (sheltering, standing off) and this session's totals, the `retreat-*` counters and the weapon counters
+  (`x5-retreat-*`), the shelter cache in one line (candidates, how many are roofed rooms, the last scan's seeds, milliseconds
+  and frames, the next scan), and one line per loaded member: SHELTER or STAND-OFF with why, the threat, the clear clock,
+  FIGHTING BACK, the spot and the fallback, or the gap, BACKING OFF and CORNERED; or "none" with why she may not retreat.
+  Read-only.
+- **`sc retreat <id|name>`** — one member in full: whether she may retreat here (at home, away with you, or why not), her
+  health, heal items and whether she is hurt with nothing to heal with, Cowardly and hanging back, her pair's gun; the
+  state (mode, region, why, age), the last threat scan (the threat, armed enemies, the clear clock), the shelter spot (its
+  source, kind, walls, roof, distance), the spots she could not reach and the doors handed to ScDoors, or the stand-off's
+  gap, back-off point and cornered clock; the five gates as the AI reads them right now (`ScRetreating`, `ScStandOff`,
+  `ScNotRetreatHome` hurt / coward, `ScNotRetreating`, `ScNotHurtNoMeds`); and at home the spot she would pick now. A read:
+  nothing is written.
+- **`sc retreat shelters [n]`** — the shelter cache's best n candidates (20 by default): position, roofed or not, walls of
+  8, what seeded it (a bed, a work station, a post, the claim block, a random zone floor), meters from you, and NOT
+  STANDABLE NOW when a block changed since the scan. **`sc retreat shelters rescan`** starts a new scan on the next frame.
+- The counters: `retreat-shelter`, `retreat-standoff` (`retreat-standoff-away`: away from home with you),
+  `retreat-to-shelter` / `retreat-to-standoff` (the mode changed mid-retreat), `retreat-arrived`, `retreat-fightback`,
+  `retreat-backoff`, `retreat-backoff-done`, `retreat-cornered`, `retreat-no-shelter` (a fallback, once per retreat),
+  `retreat-fallback-upgraded`, `retreat-spot-unreachable`, `retreat-door-tracked`, and `retreat-ended-<why>`: `healed`,
+  `hangs-back`, `threat-gone`, `ineligible`, `no-gun-away`, `off`. Weapons: `x5-retreat-keep-gun` (her loaded gun kept up
+  close while standing off), `x5-retreat-gun-first` (her gun drawn for a stand-off). `sc xnpc <name>` has a one-line
+  `retreat:` summary.
+
 ## Work, runs and mining
 
 - `sc run <id|name> <res|mine|clay>` · `sc run <id|name> <recall|home|skip|offline>` · `sc runners`

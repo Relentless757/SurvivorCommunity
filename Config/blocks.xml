@@ -61,8 +61,43 @@
 			     StationWalkInMetres is how close to the player she has to be to count as escorted in. -->
 			<!-- FleeBelowHealth (round n07): a member below this share of her max health who has NOTHING to heal with
 			     runs instead of fighting on. It sits below the 0.6 at which she tries to bandage, so she bandages first
-			     and only runs when the bandage never came. A guard on watch still holds her post. 0 turns it off. -->
+			     and only runs when the bandage never came. A guard on watch still holds her post. 0 turns it off.
+			     At home she retreats inside (or stands off with her gun) instead of running (round rt1, RetreatHome below). -->
 			<property name="FleeBelowHealth" value="0.35" />
+			<!-- Retreat (round rt1): at home a hurt member does not run off - she retreats inside, or stands off with her gun.
+			     RetreatHome: a member at home (a resident, a follower walking through the base, one on the way to her post,
+			     a runner back inside the zone; never a guard on watch or one ordered to stay) who is below FleeBelowHealth
+			     with nothing to heal with, and has an enemy within 15 m that is after her or sees her:
+			       - with a gun or bow with rounds, and no armed enemy (raiders, bandits) about, she STANDS OFF: an enemy
+			         inside StandOffMin meters backs her off to about StandOffMax from it (never past her Shooting engage
+			         range minus 1 m), inside the base, preferring a spot near the others who are fighting, and she keeps
+			         shooting; cornered, she shoots point-blank;
+			       - otherwise she SHELTERS: she runs to a roofed spot inside the home zone with a wall or door within 6
+			         blocks in at least ShelterWalls of the 8 directions, ShelterMinThreatDist from the threat, shuts the
+			         ordinary doors she passed behind her (never a drawbridge or hatch she did not open, never within 2.5 m of
+			         you), and holds there, fighting back only at an enemy within RetreatFightBackRange that is after her.
+			         With no roofed room: a walled spot, else the zone floor farthest from the threat near another member or
+			         you, else she holds where she stands (one log line).
+			     It ends once she is healed to RetreatHealedAt of her health, after RetreatClearSeconds with no threat, or
+			     when she leaves home. A member hurt like that is never walked to a fight anywhere (the base defense and the
+			     melee chase leave her be). RetreatCowards: a Cowardly member at home who is not hanging back with her gun
+			     shelters the same way instead of running from the base.
+			     StandOffFollowerLeash: away from home a follower with a gun stands off within this many meters of you
+			     instead of fleeing (0: she flees as before); without a gun she flees as before, and runners keep their
+			     flight and turn home. ShelterRescanSeconds: how often the base is searched for shelter spots (also when the
+			     claim changes; a few blocks a frame, loaded chunks only).
+			     RetreatHome=false: everything as before this round. "sc retreat" shows all of it. -->
+			<property name="RetreatHome" value="true" />
+			<property name="RetreatCowards" value="true" />
+			<property name="RetreatHealedAt" value="0.45" />
+			<property name="RetreatClearSeconds" value="20" />
+			<property name="RetreatFightBackRange" value="2.5" />
+			<property name="ShelterWalls" value="6" />
+			<property name="ShelterMinThreatDist" value="12" />
+			<property name="ShelterRescanSeconds" value="300" />
+			<property name="StandOffMin" value="8" />
+			<property name="StandOffMax" value="15" />
+			<property name="StandOffFollowerLeash" value="20" />
 			<property name="StationWalkIn" value="true" />
 			<property name="StationWalkInMetres" value="30" />
 			<!-- residents about the base (round hz). ResidentRoamZone: by day they walk anywhere in the home zone and stand

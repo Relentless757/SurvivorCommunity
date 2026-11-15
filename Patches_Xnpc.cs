@@ -645,6 +645,8 @@ namespace SurvivorCommunity
         /// the order of the rules never depends on how Harmony chains prefixes.
         /// Round tm1: the close-range tick runs RaiderLead -> the team recount (ScTeam.Recount, no swap) -> MeleeFirst ->
         /// GunFirst -> CloseRange. MeleeFirst and GunFirst share one swap-hold clock (ScArms, TeamSwapHoldSeconds).
+        /// Round rt1: the retreat (ScRetreat.Update, no swap) right after the team recount; GunFirst draws for a stand-off and
+        /// CloseRange keeps her loaded gun up close, reading it.
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoSwapWhileUsing
@@ -696,6 +698,9 @@ namespace SurvivorCommunity
                         // round tm1: a member's team verdict (F against T), recounted once a second, staggered - the only writer;
                         // everything after it and the UAI considerations only read it
                         ScTeam.Recount(e);
+                        // round rt1: a hurt member's (or a coward's) retreat - shelter inside or stand off with the gun; the only
+                        // writer of the retreat states (the UAI considerations, CloseRange and GunFirst below only read them)
+                        ScRetreat.Update(e);
                         // round tm2: a kept swing-block finding is dropped the moment its target attacks her up close
                         ScArms.ReachTick(e);
                         // round tm1 (I2): a melee-led member holding her gun takes her melee weapon for a target in reach

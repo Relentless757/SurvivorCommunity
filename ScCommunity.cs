@@ -407,8 +407,20 @@ namespace SurvivorCommunity
         /// intruder it could not reach. A plain wedge or the far rule with no enemy about leaves the defence as it was.
         /// </summary>
         public const float DefendRestSeconds = 60f;
-        /// <summary>SCResident's Cowardly flee: its target is the enemy it runs FROM, not a fight (LiveFoe).</summary>
-        private const string FleeAction = "ScFlee";
+        /// <summary>
+        /// SCResident's flights: their target is the enemy she runs FROM, not a fight (LiveFoe, ActionFoe). Round rt1 (I13): the
+        /// set names ScFleeHurt too - before it only the Cowardly ScFlee was named, so a hurt member running read as fighting
+        /// and the watchdog gave her three times StuckSeconds - and ScRetreat (an IsSelf action, so its target is herself and
+        /// never a foe anyway; named so the rule says it). The enclave twins (ScEncFlee, ScEncFleeHurt) are left as they were:
+        /// enclave people are not in this round (decision 12).
+        /// </summary>
+        private static readonly HashSet<string> FleeActions = new HashSet<string> { "ScFlee", "ScFleeHurt", "ScRetreat" };
+
+        /// <summary>Round rt1: the UAI action is one of SC's flights (FleeActions).</summary>
+        private static bool Fleeing(UAI.Context ctx)
+        {
+            return ctx.ActionData.Action != null && ctx.ActionData.Action.Name != null && FleeActions.Contains(ctx.ActionData.Action.Name);
+        }
 
         /// <summary>
         /// Once a second for a stationed resident: POI furniture, gaps and doorways trap NPC pathing. Stuck =
@@ -462,7 +474,8 @@ namespace SurvivorCommunity
                 float away = Vector3.Distance(pos, PostCenter(m));
                 // zone roaming (round hz): anywhere in the home zone (+ ResidentRoamZoneMargin) is near enough - the far rule
                 // only counts outside it, so a resident walking the base is never teleported back to the post
-                bool homeGround = ScConfig.ResidentRoamZone && ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin;
+                // round rt1: so is a member the retreat owns (a shelter spot or a stand-off point can be far from the post)
+                bool homeGround = (ScConfig.ResidentRoamZone || ScRetreat.Owns(npc)) && ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin;
                 if (away > farLimit && !(wide && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra)) && !homeGround && !onShift) m.AwaySeconds++; else m.AwaySeconds = 0;
                 int noGain = ScConfig.StuckNoGain ? ScStuck.GainSeconds(m) : 0;
                 if (m.StillSeconds >= stuckLimit) Stuck(m, npc, "no progress for " + m.StillSeconds + " s" + (fighting ? ", fighting" : ""), fighting, now, onShift);
@@ -598,9 +611,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// The live enemy an NPC is busy with within "range" metres, or null: its attack target, its revenge target, or
         /// the target of the UAI action it runs when that is an enemy - SCResident's ScDefendBase walks to an intruder
-        /// before anything sets the attack target (MoveToAttackTargetSDX sets it only when it stops). Not ScFlee's target
-        /// (the review's M6): a Cowardly member running from an enemy is not fighting it, and one that flees into a corner
-        /// is cured in StuckSeconds like any wedge. Main thread.
+        /// before anything sets the attack target (MoveToAttackTargetSDX sets it only when it stops). Not a flight's target
+        /// (the review's M6; round rt1: every action in FleeActions, ScFleeHurt included): a member running from an enemy is
+        /// not fighting it, and one that flees into a corner is cured in StuckSeconds like any wedge. Main thread.
         /// </summary>
         public static EntityAlive LiveFoe(EntityAlive npc, float range)
         {
@@ -611,7 +624,7 @@ namespace SurvivorCommunity
             t = npc.GetRevengeTarget();
             if (IsLiveFoe(npc, t, r2, false)) return t;
             UAI.Context ctx = npc.utilityAIContext;
-            if (ctx == null || (ctx.ActionData.Action != null && ctx.ActionData.Action.Name == FleeAction)) return null;
+            if (ctx == null || Fleeing(ctx)) return null;
             t = ctx.ActionData.Target as EntityAlive;
             return IsLiveFoe(npc, t, r2, true) ? t : null;
         }
@@ -630,7 +643,7 @@ namespace SurvivorCommunity
         public static EntityAlive ActionFoe(EntityAlive npc)
         {
             UAI.Context ctx = npc != null ? npc.utilityAIContext : null;
-            if (ctx == null || (ctx.ActionData.Action != null && ctx.ActionData.Action.Name == FleeAction)) return null;
+            if (ctx == null || Fleeing(ctx)) return null;
             EntityAlive t = ctx.ActionData.Target as EntityAlive;
             return IsLiveFoe(npc, t, float.MaxValue, true) ? t : null;
         }

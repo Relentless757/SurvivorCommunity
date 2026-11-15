@@ -282,6 +282,48 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round rt1 (I12, decision 7): the shelter task, every half second of a retreat's walk - each door on her path between
+        /// lastIndex and the point she is at now that STANDS OPEN (one you or someone else left open) is remembered as hers, so
+        /// Tick shuts it behind her by its own rules (2 s, she is past it, nobody in or beside the doorway - a zombie following
+        /// her keeps it open - no other member's path through it, never within 2.5 m of you). Never a drawbridge or a hatch: one
+        /// she opened herself is already remembered, and raising a bridge you lowered could shut you out. Nor a door with you
+        /// within 2.5 m of it now. A door she opened herself (TryOpen) is already remembered and left as it is. pathRef and
+        /// lastIndex are the caller's (a new path starts from where she is); lastDoor: the last door cell she passed, open or
+        /// not (she faces the way she came in). Returns how many doors it remembered.
+        /// </summary>
+        public static int TrackPassed(EntityAlive npc, ref PathEntity pathRef, ref int lastIndex, ref Vector3 lastDoor, ref bool hasDoor)
+        {
+            if (npc == null || npc.world == null) return 0;
+            PathEntity path = LivePath(npc);
+            if (path == null) return 0;
+            int cur = path.getCurrentPathIndex();
+            if (!ReferenceEquals(path, pathRef)) { pathRef = path; lastIndex = Math.Max(0, cur - 1); }
+            int n = 0;
+            World w = npc.world;
+            EntityPlayerLocal player = ScCommunity.LocalPlayer;
+            for (int i = Math.Max(0, lastIndex); i < cur; i++)
+            {
+                PathPoint pt = path.getPathPointFromIndex(i);
+                if (pt == null) break;
+                TileEntityComposite te;
+                TEFeatureDoor door;
+                Vector3i at;
+                if (!FindDoor(w, pt.GetBlockPos(), out te, out door, out at)) continue;
+                Vector3 dc = new Vector3(at.x + 0.5f, at.y, at.z + 0.5f);
+                lastDoor = dc;
+                hasDoor = true;
+                if (!door.IsOpen() || opened.ContainsKey(at) || Defence(w, at, door)) continue;
+                if (player != null && !player.IsDead() && ScRunners.XZ(player.position, dc) < PlayerHold && Mathf.Abs(player.position.y - dc.y) < 3f) continue;
+                opened[at] = new Opened { By = npc.entityId, Since = Time.time };
+                n++;
+                Patches_Xnpc.Count("retreat-door-tracked");
+                ScLog.Verbose(npc.EntityName + " (" + npc.entityId + ") passed the open door at " + at + " on " + ScRetreat.Her(npc) + " retreat - shut behind " + ScRetreat.HerObj(npc) + " (round rt1)");
+            }
+            lastIndex = Math.Max(lastIndex, cur);
+            return n;
+        }
+
+        /// <summary>
         /// EntityMoveHelper.CheckForDoorAndOpen runs from the move helper's obstacle check while CanOpenDoors is set.
         /// Community NPCs (UsesOurOpener) get ScDoors.TryOpen; everyone else keeps the vanilla body.
         /// </summary>

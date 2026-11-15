@@ -43,6 +43,21 @@ namespace SurvivorCommunity
         private static Dictionary<long, KeyValuePair<Chunk, float>> seen = new Dictionary<long, KeyValuePair<Chunk, float>>();
         private static Dictionary<long, KeyValuePair<Chunk, float>> seenNext = new Dictionary<long, KeyValuePair<Chunk, float>>();
         private const float SettleSeconds = 1f;
+        /// <summary>
+        /// Round rt1 (I6): the cells of the beds and the facility blocks (work stations) each counted chunk held at its last
+        /// count, zone positions only - the shelter cache's best seeds (ScShelter: beds are nearly always indoors). Written
+        /// beside the counts, which do not change; a chunk that is not loaded keeps its last list, as its counts do. Per
+        /// session (not saved): the first scan after a load fills it.
+        /// </summary>
+        private static readonly Dictionary<long, List<Vector3i>> bedCells = new Dictionary<long, List<Vector3i>>();
+        private static readonly Dictionary<long, List<Vector3i>> stationCells = new Dictionary<long, List<Vector3i>>();
+
+        /// <summary>Round rt1: every bed cell (beds) and facility block cell (stations) the scans have seen in the zone.</summary>
+        internal static void SeedCells(List<Vector3i> beds, List<Vector3i> stations)
+        {
+            foreach (List<Vector3i> l in bedCells.Values) beds.AddRange(l);
+            foreach (List<Vector3i> l in stationCells.Values) stations.AddRange(l);
+        }
 
         /// <summary>Last run: zone chunks in range, loaded now, never counted, milliseconds.</summary>
         public static int LastChunks, LastLoaded, LastMissing;
@@ -57,6 +72,8 @@ namespace SurvivorCommunity
             lastRun = -1000f;
             seen.Clear();
             seenNext.Clear();
+            bedCells.Clear();                      // round rt1
+            stationCells.Clear();
             LastChunks = LastLoaded = LastMissing = 0;
             LastMs = 0;
             BedTypes = FacilityTypes = CropTypes = 0;
@@ -89,6 +106,8 @@ namespace SurvivorCommunity
                     c.HomeDefences = 0;
                     c.ScanWater.Clear();
                     c.HomeWater = 0;
+                    bedCells.Clear();                  // round rt1: the shelter seeds belong to the old home too
+                    stationCells.Clear();
                     c.ScanHome = c.Home;
                     c.HasScanHome = true;
                 }
@@ -248,6 +267,8 @@ namespace SurvivorCommunity
             List<BlockEntityData> list = stubs.list;
             byte[] k = kinds;
             List<Vector3i> dews = null;
+            List<Vector3i> beds = null, stations = null;   // round rt1 (I6): positions only, the counts are unchanged
+            long key = WorldChunkCache.MakeChunkKey(cx, cz);
             for (int i = 0; i < list.Count; i++)
             {
                 BlockEntityData d = list[i];
@@ -266,13 +287,16 @@ namespace SurvivorCommunity
                 if (fac) water += ScFacilities.WaterAt(p, bv);
                 switch (kind)
                 {
-                    case KBed: n[2]++; break;
-                    case KFacility: n[3]++; break;
+                    case KBed: n[2]++; (beds ?? (beds = new List<Vector3i>())).Add(p); break;
+                    case KFacility: n[3]++; (stations ?? (stations = new List<Vector3i>())).Add(p); break;
                     case KCrop: n[4]++; break;
                     case KRadio: ScRadio.NoteRadio(p); break;
                     case KDefense: defences++; break;
                 }
             }
+            // round rt1 (I6): this chunk's bed and station cells for the shelter cache (a chunk with none drops its list)
+            if (beds != null) bedCells[key] = beds; else bedCells.Remove(key);
+            if (stations != null) stationCells[key] = stations; else stationCells.Remove(key);
             // a dew collector picked up or broken: its level goes with it (this chunk's entries only - it is loaded and settled)
             Dictionary<Vector3i, int> levels = ScRegistry.Community.DewLevels;
             if (levels.Count > 0)

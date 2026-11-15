@@ -39,6 +39,7 @@ namespace SurvivorCommunity
             try
             {
                 float now = Time.unscaledTime;
+                ScShelter.Step();                     // round rt1: the shelter cache's scan, a few seeds a frame (nothing when idle)
                 if (now < nextTick) return;
                 nextTick = now + Interval;
 

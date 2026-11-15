@@ -142,6 +142,8 @@ namespace SurvivorCommunity
             /// </summary>
             public float ReachGunOkAt, ReachGunAsideUntil;
             public int ReachGunMeta;
+            /// <summary>The tm2 follow-up: her last shot or reload in this hold (a clear aim point alone extends it ReachGunAimOnlySeconds).</summary>
+            public float ReachGunShotAt;
             /// <summary>
             /// Round tm2 (the Fable re-review, gap 3): when and where (her feet) the last no-swing hold began - MeleeFirst and
             /// 0-XNPCCore's 3 m swap leave her on the gun NoSwingSpotSeconds there (NoSwingSpotHolds).
@@ -374,6 +376,8 @@ namespace SurvivorCommunity
         /// melee past 0-XNPCCore's own minimum hold: a swarm that has held (SwarmHeld) - restore the gun, as its exit would,
         /// and skip; else 0-XNPCCore's exit while an enemy is still within reach, or just after the target was lost - skip
         /// (HoldMelee). Anything else is 0-XNPCCore's own logic.
+        /// Round rt1 (I10): a hurt member standing off (ScRetreat.StandsOff) keeps her gun up close while it has rounds loaded -
+        /// as a guard on watch does - so a cornered stand-off shoots point-blank; through a reload the swap to melee is allowed.
         /// </summary>
         public static bool CloseRange(AvatarSDCSController ctrl, EntityAlive e)
         {
@@ -397,7 +401,9 @@ namespace SurvivorCommunity
                     // so does the spot where 0-XNPCCore just would not let her swing (the Fable re-review, gap 3)
                     Watch rw;
                     bool reachHold = watch.TryGetValue(e.entityId, out rw) && (ReachGunHolds(rw, e, now) || NoSwingSpotHolds(rw, e, now));
-                    if (!ScConfig.Overwhelmed && !onWatch && !reachHold) return true;
+                    // round rt1 (I10): a hurt member standing off (ScRetreat) shoots what corners her - her gun stays up close
+                    bool standOff = ScRetreat.StandsOff(e);
+                    if (!ScConfig.Overwhelmed && !onWatch && !reachHold && !standOff) return true;
                     if (!TargetWithin(e, XnpcCloseEnterDist)) return true;                               // 0-XNPCCore would not swap yet
                     ItemValue held = e.inventory.holdingItemItemValue;
                     ItemClass gun = held != null && !held.IsEmpty() ? held.ItemClass : null;
@@ -408,6 +414,13 @@ namespace SurvivorCommunity
                         return false;
                     }
                     if (reachHold) return false;                  // round tm2: her 3 m swap waits while she stands and shoots
+                    // round rt1: only while the gun has rounds LOADED - through a reload 0-XNPCCore's swap to melee is allowed, so
+                    // she swings rather than stands empty-handed (then the overwhelmed rule below as before)
+                    if (standOff && held.Meta > 0 && (e.Buffs == null || e.Buffs.GetCustomVar(XnpcReloadingCvar) < 0.5f))
+                    {
+                        Patches_Xnpc.Count("x5-retreat-keep-gun");
+                        return false;
+                    }
                     if (!ScConfig.Overwhelmed) return true;
                     Watch gw;
                     if (watch.TryGetValue(e.entityId, out gw) && now < gw.GunUntil)
@@ -809,6 +822,7 @@ namespace SurvivorCommunity
         /// Round tm1 (I1): while she is melee-led (ScTeam) a target beyond 5 m is no reason - only one that needs the gun
         /// (ScTeam.NeedsGun: then today's rule) or being overwhelmed is. A draw holds MeleeFirst for TeamSwapHoldSeconds, and
         /// waits out MeleeFirst's own hold (the one swap-hold clock).
+        /// Round rt1 (I10): while she stands off (ScRetreat) a target beyond 0-XNPCCore's 3 m enter distance is reason enough.
         /// </summary>
         public static bool GunFirst(AvatarSDCSController ctrl, EntityAlive e)
         {
@@ -864,7 +878,13 @@ namespace SurvivorCommunity
                 // block draws only when SwingBlockWhy trusts it; one dropped for a target attacking her up close is no Reach
                 // here (NeedsGun returns null), and MeleeFirst takes her back to melee once the swap hold allows.
                 bool reachDraw = led && kind == ScTeam.GunNeed.Reach;
-                if (!far && !over && !reachDraw) { st.FirstSince = 0f; return false; }
+                // round rt1 (I10): a hurt member standing off (ScRetreat; never melee-led - she is below TeamLowHealth) draws her
+                // gun at any distance outside 0-XNPCCore's own 3 m enter distance - inside it, during the reload that put her on
+                // melee, its swap would only take the gun straight back (CloseRange keeps it only while loaded). Not a proven
+                // draw: it waits GunFirstSeconds and the shared swap hold like the 5 m rule
+                bool standDraw = !far && !over && !reachDraw && ScRetreat.StandsOff(e)
+                                 && (t.position - e.position).sqrMagnitude > XnpcCloseEnterDist * XnpcCloseEnterDist;
+                if (!far && !over && !reachDraw && !standDraw) { st.FirstSince = 0f; return false; }
                 // round tm2: a target held out of reach by the no-swing clock has already been TeamNoSwingConfirmSeconds in
                 // the making - no second wait (GunFirstSeconds) on top of it
                 bool proven = reachDraw && !far && PairHeld(st, t.entityId, now);
@@ -903,10 +923,11 @@ namespace SurvivorCommunity
                 float rxz;
                 if (reachDraw && !far && AttacksHerUpClose(e, t, out rxz)) StartReachGun(st, e, t, rxz, now);
                 gunFirstDraws++;
-                Patches_Xnpc.Count(over ? "x5-gunfirst-overwhelmed" : "x5-gunfirst-range");
+                Patches_Xnpc.Count(over ? "x5-gunfirst-overwhelmed" : standDraw ? "x5-retreat-gun-first" : "x5-gunfirst-range");
                 if (needs != null) Patches_Xnpc.Count(reachDraw && !far ? "x5-team-gun-needed-close" : "x5-team-gun-needed");
                 ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") takes the " + l.Ranged + " (gun first: "
-                              + (over ? "overwhelmed" : "target at " + (t.position - e.position).magnitude.ToString("0.#") + " m") + (needs != null ? ", " + needs : "") + ")");
+                              + (over ? "overwhelmed" : "target at " + (t.position - e.position).magnitude.ToString("0.#") + " m") + (standDraw ? ", standing off (round rt1)" : "")
+                              + (needs != null ? ", " + needs : "") + ")");
                 return true;
             }
             catch (Exception ex)
@@ -1190,6 +1211,13 @@ namespace SurvivorCommunity
         /// AimFreshSeconds: an aim-point answer counts this long (0-XNPCCore re-decides every 0.6 s).
         /// </summary>
         private const float ReachGunNoShotSeconds = 2f, ReachGunAsideSeconds = 3f, AimFreshSeconds = 1f;
+        /// <summary>
+        /// The tm2 follow-up (the final Fable check, low): a clear aim point extends the hold only this long after her last
+        /// shot or reload. 0-XNPCCore's RangedMeleeAttack also needs SdcsSeesShot, which the aim-point cache does not mirror,
+        /// so with a clear body point and no SeesShot she stood without ever shooting; past this the hold stands aside anyway
+        /// (ReachGunAsideSeconds, as before).
+        /// </summary>
+        private const float ReachGunAimOnlySeconds = 4f;
         /// <summary>0-XNPCCore publishes its vanilla reload as this cvar (its RangedMeleeAttack is off meanwhile).</summary>
         private const string XnpcReloadingCvar = "SdcsReloading";
         /// <summary>
@@ -1607,11 +1635,11 @@ namespace SurvivorCommunity
                     // (0-XNPCCore's SdcsReloading cvar; its shot is off meanwhile, so no aim point is asked for) counts as a
                     // sign too - standing through a reload stays as it was (finding 5)
                     bool reloading = e.Buffs != null && e.Buffs.GetCustomVar(XnpcReloadingCvar) >= 0.5f;
-                    if (st.ReachGunId >= 0 && ReachGunShotCheck(st, HeldMeta(e), reloading || (g != null && AimClear(e, g, now)), now))
+                    string aside;
+                    if (st.ReachGunId >= 0 && ReachGunShotCheck(st, HeldMeta(e), reloading, g != null && AimClear(e, g, now), now, out aside))
                     {
                         Patches_Xnpc.Count("x5-team-reach-gun-aside");
-                        ScLog.Verbose(Name(e) + ": no shot and no clear aim point at " + (g != null ? Who(g) : "#?") + " for " + ReachGunNoShotSeconds.ToString("0")
-                                      + " s - she may back off for an angle (" + ReachGunAsideSeconds.ToString("0") + " s)");
+                        ScLog.Verbose(Name(e) + ": " + aside + " at " + (g != null ? Who(g) : "#?") + " - she may back off for an angle (" + ReachGunAsideSeconds.ToString("0") + " s)");
                     }
                 }
                 // the Fable re-review, gap 1: (re)start the hold whenever her gun is out against her own target that is held or
@@ -1641,6 +1669,7 @@ namespace SurvivorCommunity
             st.ReachGunUntil = now + ReachGunGrace;
             if (!fresh) return;
             st.ReachGunOkAt = now;                      // ReachGunNoShotSeconds to get a shot off
+            st.ReachGunShotAt = now;                    // the tm2 follow-up: and ReachGunAimOnlySeconds on a clear aim alone
             st.ReachGunMeta = HeldMeta(e);
             Patches_Xnpc.Count("x5-team-reach-gun-hold");
             ScLog.Verbose(Name(e) + " stands and shoots " + Who(t) + " (it attacks her from " + xz.ToString("0.0") + " m, and she cannot swing at it): no back-off, "
@@ -1649,15 +1678,22 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round tm2 (X5, the Fable re-review, gap 2): one tick of the hold's shot clock - meta: the rounds in her gun now (a
-        /// drop is a shot), aimClear: a fresh clear aim point of 0-XNPCCore's at the target. Either is a sign she can shoot
-        /// (ReachGunOkAt). True when ReachGunNoShotSeconds passed without one: the hold ends and stands aside for
-        /// ReachGunAsideSeconds (no restart), so BackupKeepDistance / BackupRanged may give her an angle.
+        /// drop is a shot), reloading: 0-XNPCCore's reload cvar, aimClear: a fresh clear aim point of 0-XNPCCore's at the
+        /// target. Each is a sign she can shoot (ReachGunOkAt). True when ReachGunNoShotSeconds passed without one: the hold
+        /// ends and stands aside for ReachGunAsideSeconds (no restart), so BackupKeepDistance / BackupRanged may give her an
+        /// angle. The tm2 follow-up: a shot or a reload also stamps ReachGunShotAt, and a clear aim point alone extends the
+        /// hold only ReachGunAimOnlySeconds past it - after that it stands aside as well (why says which).
         /// </summary>
-        private static bool ReachGunShotCheck(Watch st, int meta, bool aimClear, float now)
+        private static bool ReachGunShotCheck(Watch st, int meta, bool reloading, bool aimClear, float now, out string why)
         {
-            if (meta < st.ReachGunMeta || aimClear) st.ReachGunOkAt = now;
+            why = null;
+            if (meta < st.ReachGunMeta || reloading) { st.ReachGunOkAt = now; st.ReachGunShotAt = now; }
+            else if (aimClear) st.ReachGunOkAt = now;
             st.ReachGunMeta = meta;
-            if (now - st.ReachGunOkAt <= ReachGunNoShotSeconds) return false;
+            bool aimOnly = now - st.ReachGunShotAt > ReachGunAimOnlySeconds;
+            if (now - st.ReachGunOkAt <= ReachGunNoShotSeconds && !aimOnly) return false;
+            why = aimOnly ? "a clear aim point but no shot or reload for " + ReachGunAimOnlySeconds.ToString("0") + " s (0-XNPCCore's shot also wants SdcsSeesShot)"
+                          : "no shot and no clear aim point for " + ReachGunNoShotSeconds.ToString("0") + " s";
             st.ReachGunId = -1;
             st.ReachGunUntil = 0f;
             st.ReachGunAsideUntil = now + ReachGunAsideSeconds;

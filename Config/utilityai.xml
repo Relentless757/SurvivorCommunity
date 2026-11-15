@@ -45,11 +45,15 @@
 			     This outscores the chase (but not point-blank self defence at weight 6) once they are further
 			     from their post than ScConfig-independent "distance", walking them home with SCore's Guard task. With
 			     ResidentRoamZone the home zone (and ResidentRoamZoneMargin round it) counts as home too. -->
+			<!-- Round rt1: ScNotRetreating is 0 while a hurt member (or a coward) shelters or stands off (ScRetreat) - the leash
+			     must not walk her to her post mid-retreat (a shelter spot or a back-off point can be past 25 m without zone
+			     roaming); the retreat itself never leaves the zone + ResidentRoamZoneMargin. 1 otherwise and with RetreatHome off. -->
 			<action name="ScReturn" weight="5.5" entity_filter="IsSelf">
 				<task class="Guard, SCore" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="ScFarFromPost, SurvivorCommunity" distance="25" />
+				<consideration class="ScNotRetreating, SurvivorCommunity" />
 			</action>
 			<!-- Defend the base (M11 fix). Every combat action of the packs needs CanSeeTarget, and with a gun 0-XNPCCore's
 			     SdcsNpcRangedAdvanced has no approach at all (its MeleeApproach is for CurrentWeaponClass 0), so a resident
@@ -68,7 +72,10 @@
 			     ScNightIdle (3) and BackupRanged (3); loses to every attack (5-7), the leash (5.5) and the Cowardly flee
 			     (6), so the pack's own attack takes over the moment a shot or a swing is possible, and Guard walks him home
 			     after. Ties MeleeApproach (4) with the same task; SCResident is the last package, so it wins the tie. A
-			     Cowardly member ($Timid) does not go looking for a fight. Followers, runners and stand-ins: ScIsResident. -->
+			     Cowardly member ($Timid) does not go looking for a fight. Followers, runners and stand-ins: ScIsResident.
+			     Round rt1 (decision 10, the other half of the flee/return loop): ScNotHurtNoMeds is 0 for a member hurt below
+			     FleeBelowHealth with nothing to heal with - the defense never walks her back to the fight she retreated from -
+			     and ScNotRetreating 0 while she shelters or stands off (one owner of her distance). Both 1 with RetreatHome off. -->
 			<action name="ScDefendBase" weight="4" entity_filter="IsEnemy">
 				<task class="MoveToAttackTargetSDX, SCore" run="true" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
@@ -76,6 +83,8 @@
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
 				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="ScNotHurtNoMeds, SurvivorCommunity" />
+				<consideration class="ScNotRetreating, SurvivorCommunity" />
 				<consideration class="ScIntruder, SurvivorCommunity" />
 				<consideration class="ScCannotEngage, SurvivorCommunity" />
 			</action>
@@ -94,6 +103,8 @@
 				<consideration class="HasOrder, SCore" order="Guard" />
 				<consideration class="SelfNotHasCVar, SCore" cvar="$Timid" value="1" />
 				<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing,buffHitStun" />
+				<consideration class="ScNotHurtNoMeds, SurvivorCommunity" />
+				<consideration class="ScNotRetreating, SurvivorCommunity" />
 				<consideration class="ScIntruder, SurvivorCommunity" />
 				<consideration class="ScHoldFire, SurvivorCommunity" />
 			</action>
@@ -164,13 +175,18 @@
 			     run at the same weight, which is harmless.
 			     Round tm1 (decision 8): ScNotTeamMatched is 0 while her team verdict (ScTeam) says the fight is matched -
 			     F >= T within 15 m, no raiders in it - so a Cowardly member hangs back with her gun (she is never
-			     melee-led) and runs only from an outmatched fight. 1 with TeamMelee off or no verdict: she runs as before. -->
+			     melee-led) and runs only from an outmatched fight. 1 with TeamMelee off or no verdict: she runs as before.
+			     Round rt1 (decision 6): ScNotRetreatHome for="coward" is 0 for a member at home (live: the home zone + margin, or
+			     the defended area in a base attack) or one the retreat owns - at home she shelters inside (ScRetreat below)
+			     instead of running up to 30 m, possibly out of the gate. Away from home, and with RetreatHome or RetreatCowards
+			     off, it is 1: she runs as before. -->
 			<action name="ScFlee" weight="6" entity_filter="IsEnemy">
 				<task class="FleeFromTarget" max_distance="30" />
 				<consideration class="SelfHasCVar, SCore" cvar="$Timid" value="1" />
 				<consideration class="NotHasOrder, SCore" order="Stay" />
 				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="ScNotTeamMatched, SurvivorCommunity" />
+				<consideration class="ScNotRetreatHome, SurvivorCommunity" for="coward" />
 				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
 				<consideration class="SelfVisible" />
 			</action>
@@ -186,15 +202,59 @@
 			     LeaveAreaSdcs (9), 0-XNPCCore's own Flee (9), JumpDownOrder (10) and SdcsAnimBusy (12).
 			     ScNotOnWatch is kept deliberately: a guard holds her post, as every other SC action on watch does.
 			     Round r2: ScRunners.FleeRadius (15) and FleeClear (30) mirror this action's and ScFlee's TargetDistance max and
-			     max_distance - change them together. -->
+			     max_distance - change them together.
+			     Round rt1 (the user, 2026-11-15: "They shouldn't flee away from home, they should retreat inside"):
+			     ScNotRetreatHome (for="hurt") is 0 for a member at home - checked live, whatever the retreat's state, so this
+			     flight can never take her out of the base through a stale state (trap 9) - and for a follower away from home
+			     whose last scan found a gun and no armed enemy (she stands off with it, decision 4). Away from home otherwise
+			     (runners keep round r2's flight; melee-only followers flee as before, decision 5), and with RetreatHome off, 1. -->
 			<action name="ScFleeHurt" weight="8.5" entity_filter="IsEnemy">
 				<task class="FleeFromTarget" max_distance="30" />
 				<consideration class="ScIsMember, SurvivorCommunity" />
 				<consideration class="NotHasOrder, SCore" order="Stay" />
 				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="ScHurtNoMeds, SurvivorCommunity" />
+				<consideration class="ScNotRetreatHome, SurvivorCommunity" for="hurt" />
 				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
 				<consideration class="SelfVisible" />
+			</action>
+			<!-- Round rt1 (research/flee_meds/DESIGN.md Part A, decisions 1-13): a member at home who is hurt with nothing to heal
+			     with - or Cowardly and not hanging back (tm1) - and has an enemy within 15 m that is after her or sees her
+			     SHELTERS: she runs to a roofed, walled spot inside the home zone away from the threat (ScShelter's cache: beside
+			     the beds and work stations, the posts, the claim block, the zone's floors), the open doors she passes are shut
+			     behind her by ScDoors' own rules, and she holds there facing the way she came in. ScRetreating is 1 for exactly
+			     that (the state ScRetreat keeps in the X5 tick: hurt with no usable gun, or against armed enemies, or a coward)
+			     and 0 while she FIGHTS BACK (an enemy within RetreatFightBackRange after her, or one that just hit her): then the
+			     pack's attacks take over - MeleeAttack (5) in reach, the shot (6) - and MeleeApproach is gated off (no chase out
+			     of her room). It ends at RetreatHealedAt health, 20 s with no threat, or once she is no longer at home.
+			     Siblings, not considerations on ScFleeHurt (trap 2: considerations multiply). 8.5 ties ScFleeHurt and the two are
+			     never 1 for the same body (ScNotRetreatHome is 0 wherever this can be 1); it clears BackupKeepDistance (8, gated
+			     off by ScNotRetreating anyway), the medic (7), the shot (6) and the leash (5.5), and stays under LeaveAreaSdcs
+			     and 0-XNPCCore's Flee (9: both gated off at home for SC's people), JumpDownOrder (10) and SdcsAnimBusy (12).
+			     All binary: the effective weight is the full 8.5. RetreatHome=false: ScRetreating is always 0. -->
+			<action name="ScRetreat" weight="8.5" entity_filter="IsSelf">
+				<task class="RetreatSC, SurvivorCommunity" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
+				<consideration class="ScRetreating, SurvivorCommunity" />
+			</action>
+			<!-- Round rt1 (decision 2): hurt with nothing to heal with but a gun with rounds (and no armed enemy about: decision 3)
+			     she STANDS OFF instead: an enemy inside StandOffMin (8 m) backs her off to a point inside the base (or, away
+			     from home, within StandOffFollowerLeash of you: decision 4) that puts her about StandOffMax (15 m) from it,
+			     never past her engage range minus 1 m, preferring a point near the others who are fighting; then the task stops
+			     and the shot (6) turns her and fires - she keeps engaging instead of leaving the others to it. ScStandOff stays
+			     1 while the back-off runs and the gap is still short of her target, and is 0 for 3 s when she is cornered (no
+			     point to go to, or a feral gaining on her): she stands and shoots point-blank (BackupKeepDistance is gated off
+			     for her and SC keeps her loaded gun up close). 8.2: over BackupKeepDistance (8) on its own should that gate ever
+			     no-op after an 0-XNPCCore update (trap 4), under ScFleeHurt / ScRetreat (8.5; never 1 together: a stand-off is
+			     never a shelter). RetreatHome=false: ScStandOff is always 0. -->
+			<action name="ScStandOffHurt" weight="8.2" entity_filter="IsEnemy">
+				<task class="StandOffSC, SurvivorCommunity" />
+				<consideration class="ScIsMember, SurvivorCommunity" />
+				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="ScNotOnWatch, SurvivorCommunity" />
+				<consideration class="ScStandOff, SurvivorCommunity" />
 			</action>
 		</ai_package>
 
@@ -440,6 +500,40 @@
 			     scores 0 for anyone its routine is not already driving, whatever the weight says. 0-XNPCCore's own POI
 			     residents simply get the same raise, which is the behavior its changelog describes anyway. -->
 			<set xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcVillager']/action[@name='RoutineWalk']/@weight">3.8</set>
+		</if>
+	</conditional>
+
+	<!--
+	  Round rt1 (research/flee_meds/DESIGN.md I8, I9; 0-XNPCCore 3.4, only where each action exists - trap 4: 3.4.05 moved an
+	  action between packages and an unguarded append no-oped silently). ScNotRetreating is 0 while one of the community's
+	  members shelters or stands off (ScRetreat), else 1: one owner of her distance. BackupKeepDistance (8, inside 4 m) would
+	  back her off with Voice Control's own task - no zone bound, up to 10 m, no shot (round n07) - and BackupRanged (5, 1-10 m)
+	  would drag her back through every reload; MeleeApproach (5) would chase out of her shelter while she fights back.
+	  ScNotHurtNoMeds (decision 10, everywhere - the other half of the flee/return loop, trap 7) is 0 for a member hurt below
+	  FleeBelowHealth with nothing to heal with: MeleeApproach never walks her to a fight; her swing at what reaches her
+	  (MeleeAttack) and her shot still run. Both are 1 for everyone else - raiders, strangers, enclave people - and with
+	  RetreatHome off.
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;MeleeApproach&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='MeleeApproach']">
+				<consideration class="ScNotHurtNoMeds, SurvivorCommunity" />
+				<consideration class="ScNotRetreating, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupKeepDistance&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
+				<consideration class="ScNotRetreating, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupRanged&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupRanged']">
+				<consideration class="ScNotRetreating, SurvivorCommunity" />
+			</append>
 		</if>
 	</conditional>
 

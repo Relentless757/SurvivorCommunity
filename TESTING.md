@@ -37,6 +37,190 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round rt1 (2026-11-15): hurt members retreat inside / stand off with a gun
+
+The request: "They shouldn't flee away from home, they should retreat inside, closing doors etc. If they have a ranged
+weapon, they should create distance and continue engaging so they aren't just leaving others to fend for themselves."
+The design you approved: `research/flee_meds/DESIGN.md` Part A, decisions 1-13.
+
+What it does now:
+
+- **At home** (the home zone, 8 m round it, or the defended area in a base attack), a member - a resident, a follower
+  walking through the base, one on the way to her post, a runner back inside the zone - who is below `FleeBelowHealth`
+  (35%) with nothing to heal with, and has an enemy within 15 m that is after her or sees her, no longer runs up to 30 m
+  (possibly out of the gate). Instead:
+  - **Stand-off** (a gun or bow with rounds in her pair, no armed enemy about): an enemy inside `StandOffMin` (8 m) backs
+    her off to a point inside the base about `StandOffMax` (15 m) from it - never past her Shooting engage range minus
+    1 m - preferring one near the others who are fighting; then she turns and shoots. Cornered (no point, or a feral
+    gaining on her) she stands and shoots point-blank, and keeps her loaded gun up close.
+  - **Shelter** (no gun with rounds, or raiders / bandits about): she runs to a roofed spot inside the zone with walls or
+    doors round it (`ShelterWalls`, 6 of 8 directions), at least 12 m from the threat; the open doors she passes are shut
+    behind her; she holds there facing the way she came in, and fights back only at an enemy within 2.5 m that is after
+    her (or one that just hit her). No roofed room: a walled spot, else the zone floor farthest from the threat near
+    another member or you, else she holds where she stands - one log line.
+- **It ends** at 45% health (`RetreatHealedAt`), after 20 s with no threat (`RetreatClearSeconds`), or the moment she is
+  no longer at home (sent on a run, hired away, put on watch, told to stay).
+- **Cowards** at home who are not hanging back (tm1) shelter the same way instead of running from the base.
+- **Never walked to a fight** while hurt with nothing to heal with, anywhere: the base defense and the melee chase leave
+  her be. That was the other half of the flee / return loop.
+- **Away from home:** a follower with a gun stands off within 20 m of you (`StandOffFollowerLeash`); without one she
+  flees as before; runners keep round r2's flight and turn home.
+- A sheltering member counts 0 in the others' team verdict (tm1).
+- Guards on watch, members on a Stay order, stand-ins, enclave people and strangers: unchanged.
+- `RetreatHome` false: everything as before this round.
+
+Setup: the new DLL with its `Config/utilityai.xml` (the new `ScRetreat` and `ScStandOffHurt` actions and the gates) and
+`Config/blocks.xml` (the eleven `Retreat...`, `Shelter...` and `StandOff...` keys). `DebugLogging` true for the verbose lines
+quoted below, and `dm` for the AI overlay's Active Action. Zombies: F6 or `spawnentity` (`zombieBoe` walks, `zombieBoeFeral`
+sprints). **Hurt with nothing to heal with** = `MedsResupply` false in `Config/blocks.xml` (restart) - or `sc give meds -999`
+- so md1 does not restock her; take every First Aid Bandage and First Aid Kit out of her PACK and her BAG (inventory
+panel); then `sc team <name> hurt 0.3`. `sc retreat <name>` must then say "hurt with nothing to heal with ...: YES". For a
+gun with no rounds also set `XnpcResupply` false (or `sc give ammo -999`), or the base refills her. `sc retreat` lists
+everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads them. Entry and end lines are `ScLog.Out`.
+
+**At load, and the shelter cache**
+
+- [ ] The log at load: "config: retreat on: at home a member hurt below 0.35 with nothing to heal with, or Cowardly and not
+      hanging back, shelters inside (a roof, 6 of 8 walls, 12 m from the threat) or, hurt with a gun, stands off 8-15 m;
+      ends at 0.45 health or 20 s without a threat; fights back within 2.5 m; followers away stand off within 20 m of
+      you; shelter scan every 300 s".
+- [ ] Within about 20 s at home, `sc retreat`: "shelter cache: N shelter candidate(s): R roofed with 6+ walls, ... last
+      scan X s ago (S seeds, Y ms over F frames)". `sc retreat shelters` lists the best ones; a bedroom shows "roofed, 7
+      of 8 walls, beside a bed" (or 6-8); the yard is not near the top. With DebugLogging: "shelter scan: ...". Note Y
+      and F on your base (the cost; design section 8).
+- [ ] `sc retreat shelters rescan`: a new scan; build a wall or tear one down near a listed spot and rescan: its walls
+      change. Enlarge or move the claim: the cache rescans by itself within a few seconds.
+
+**Scenario 1: the restock comes first (md1)**
+
+- [ ] `MedsResupply` true, `sc give meds 3`. Paul at home uses his last First Aid Bandage at about 55%: within 5 s "Paul
+      (id N) restocked his medical supplies at home ...". No "retreats" line, ever; `sc retreat Paul`: "hurt with nothing
+      to heal with ...: no".
+
+**Scenario 2: Paul shelters (melee only)**
+
+- [ ] Paul with no gun (`sc loadout Paul <melee token> meleeonly`; `sc weapons` lists the tokens), in the yard, hurt to
+      0.3 with nothing to heal with. Spawn a zombieBoe about 10 m from him where it can see him. Within a second: "Paul
+      (id N) retreats - SHELTER inside: hurt (30%), nothing to heal with, no gun with rounds; threat zombieBoe (M) at 10 m,
+      sees him" (or "after him"). `dm`: Active Action `ScRetreat`, never `ScFleeHurt`. He RUNS (not walks) to a room;
+      `sc retreat Paul` names the spot ("spot x y z - beside a bed (Room, 7 of 8 walls, roofed), N m off"; the verbose line
+      "Paul (id N) shelters at x y z: a room beside a bed (7 of 8 walls, roofed, 22 m from the threat)"). He never leaves the zone.
+- [ ] The doors: a closed door on his way opens ("Paul opened the door at ...") and about 2 s after he is through, with
+      the doorway clear, "shut the door at ... behind Paul". A door YOU left open on his way: "Paul (N) passed the open
+      door at ... on his retreat - shut behind him (round rt1)", then it shuts; `retreat-door-tracked` +1 in `sc
+      retreat`. Stand within 2.5 m of such a door: it stays open while you are there. An open hatch or a lowered
+      drawbridge you left on his way is never shut by this.
+- [ ] At the spot he stands still, facing the door he came through (else the zombie's last place). `retreat-arrived` +1.
+      The zombie follows him in and gets within 2.5 m: (verbose) "Paul (id N) fights back from his shelter: an enemy
+      within 2.5 m is after him", `retreat-fightback` +1, `dm` shows `MeleeAttack`; he never chases it out of the room
+      (no `MeleeApproach`). After the kill, about 3 s later, he walks back onto his spot if he was pushed off it.
+- [ ] 20 s with no threat: "Paul (id N) ends his retreat (shelter, X s): no threat for 20 s", `retreat-ended-threat-gone`.
+      Still at 30% with nothing, he is not walked to the next fight: spawn a walker 15 m off, in the zone, not after
+      him - he does not go for it (`dm`: no `ScDefendBase`, no `MeleeApproach`); one that comes at him starts a new
+      retreat.
+- [ ] Healing ends it: during a shelter hand him a First Aid Bandage (panel): he bandages there; once over 45%: "... ends
+      his retreat (shelter, X s): healed to 46% (RetreatHealedAt 45%)".
+- [ ] Asleep in a bedroom (night, `sc sleep`): hurt him with nothing, spawn a zombie outside the room where it cannot see
+      him: no retreat until it is after him or sees him; then, if his own spot passes, `sc retreat Paul` says "holds where
+      she stands (roofed, N of 8 walls, the threat cannot see her)" and he does not move.
+
+**Scenario 3: Gina stands off with her bow**
+
+- [ ] Gina with a bow and arrows (`sc loadout Gina`), hurt to 0.3 with nothing, two zombieBoe in the yard 12-14 m off.
+      When one is after her or sees her: "Gina (id N) retreats - STAND-OFF with her gun (gap 11 m): hurt (30%), nothing to
+      heal with; threat ...". (The gap: 15 m, or her engage range minus 1 - 11 m at 1 Shooting star with the default
+      `ShootingEngageMin` 12.) She shoots while they are farther than 8 m.
+- [ ] A walker comes to 7.5 m: `dm` shows `ScStandOffHurt`; she runs to a point inside the base (`sc retreat Gina`:
+      "BACKING OFF to x y z"), toward another member who is fighting when there is one, never out of the zone + 8 m.
+      At about the gap she stops (`retreat-backoff-done`), turns and shoots. The walker closes again: she backs off again.
+- [ ] A zombieBoeFeral sprints at her: within about 3 s (verbose) "Gina (id N) is cornered (zombieBoeFeral (M) gains on
+      her: ...) - stands and shoots for 3 s", `retreat-cornered` +1. She stands and shoots point-blank: `dm` never shows
+      `BackupKeepDistance` or `BackupRanged`; with arrows loaded she keeps the bow inside 3 m (`x5-retreat-keep-gun` in
+      `sc retreat`'s weapons counters); during a reload she may swap to her melee weapon and swing.
+- [ ] Gun first: `sc arms Gina melee` with a walker 4-5 m off: within about 1 s "Gina (id N) takes the ... (gun first:
+      target at 4.x m, standing off (round rt1))", `x5-retreat-gun-first` +1. Inside 3 m it waits (0-XNPCCore's own swap
+      would take the bow straight back).
+- [ ] A cornered stand-off by a wall with no way back (`sc retreat Gina`: "CORNERED ... (no point to back off to: none of
+      7 directions works (last: ...))"): she shoots, then tries again 3 s later.
+
+**Scenario 4: no rounds, and armed enemies (decision 3)**
+
+- [ ] Rob with a crossbow and no bolts (take them from his pack and bag; `XnpcResupply` false): "Rob (id N) retreats -
+      SHELTER inside: hurt (30%), nothing to heal with, no gun with rounds". Hand him bolts mid-retreat: "Rob (id N) switches his
+      retreat from shelter to stand-off: a gun with rounds again, no armed enemies".
+- [ ] Gina (bow, arrows) hurt with nothing, and a raider within 30 m (`sc spawn hostile`): "SHELTER inside: ..., armed
+      enemies". The raider dies or leaves: "switches her retreat from shelter to stand-off".
+
+**Scenario 5: Sam, Cowardly (decision 6)**
+
+- [ ] A Cowardly member (`sc members` shows the trait) at full health with no gun, two ferals at home: "Sam (id N)
+      retreats - SHELTER inside: Cowardly (not hanging back)"; `dm`: never `ScFlee`; she stays in the zone. Ferals dead or
+      gone 20 s: "ends her retreat ...: no threat for 20 s".
+- [ ] The same Cowardly member with a gun in a matched fight (`sc team Sam`: MATCHED, not a raider fight): no retreat -
+      she hangs back and shoots (tm1). A sheltering coward whose fight turns matched: "ends her retreat ...: a matched
+      fight: she hangs back with her gun (tm1)".
+- [ ] `RetreatCowards` false (restart): the coward flees with `ScFlee` as before; a hurt coward with nothing still
+      shelters (that is the hurt rule).
+
+**Scenario 6: a runner**
+
+- [ ] On a physical run, `sc run <name> hurt 0.3` with nothing to heal with: round r2 as before - she gives the job up and
+      turns home, and out in the world she flees with `ScFleeHurt` (`sc retreat <name>`: "not eligible (on a run ...)").
+- [ ] On the Back leg, inside the zone, with a zombie that followed her in: she shelters ("retreats - SHELTER inside"),
+      and walks on to her post after it ends (`ScTravel`).
+
+**Scenario 7: away from home (decisions 4 and 5)**
+
+- [ ] Gina following you away from home, with her bow, hurt to 0.3 with nothing; a walker comes at her: "Gina (id N)
+      retreats - STAND-OFF with her gun ... (away from home: within 20 m of you)", `retreat-standoff-away` +1. Her back-off
+      points stay within 20 m of you (`sc retreat Gina`); she never runs 30 m away (`dm`: no `ScFleeHurt`).
+- [ ] The same with no gun (`meleeonly`): no retreat line - `ScFleeHurt` runs her off as before and DynamicFollow brings
+      her back. `StandOffFollowerLeash` 0 (restart): a follower with a gun flees as before too.
+- [ ] Gina standing off away from home walks back into the base with you: "ends her retreat (stand-off, ...): no longer
+      with you away from home (now at home)" and, with the threat still there, a new one at home.
+
+**Scenario 8: no roofed room (decision 9)**
+
+- [ ] A base of fences and tents (or `ShelterWalls` 8, restart): the first shelter writes once "Paul (id N): no roofed
+      room in the base to shelter in - fell back to ..." (a walled spot, the zone floor farthest from the threat beside
+      another member or you, or holding where he stands), with the cache summary; `retreat-no-shelter` +1. Never out of
+      the zone. Build a room while he holds a fallback spot: within about 10 s he moves there
+      (`retreat-fallback-upgraded`).
+
+**Scenario 9: a base attack (decision 11)**
+
+- [ ] During a horde at the base, two members hurt with nothing while the stockpile has no Meds: both shelter. `sc team
+      <one still fighting>`: the count lists each of them as "member sheltering (round rt1) = 0". One fighting back counts
+      as before.
+
+**Who does not retreat**
+
+- [ ] A guard on watch hurt with nothing: holds the post as before (`sc retreat <name>`: "not eligible (on watch ...)").
+- [ ] A member on a Stay order: unchanged ("on a Stay order").
+- [ ] Paul sheltering, then you send him on a run or he is put on watch: "ends his retreat ...: no longer at home (...)"
+      at once; he never acts on the old spot later.
+
+**The setting off, and the old rules kept**
+
+- [ ] `RetreatHome` false (restart): "config: retreat off (RetreatHome false: hurt members flee as before round rt1)". A
+      hurt member with nothing flees with `ScFleeHurt` at home as before; `sc retreat shelters` says "off (RetreatHome false: no
+      shelter scan)";
+      `sc retreat <name>` shows every gate at 1 and `ScRetreating 0`.
+- [ ] With `RetreatHome` false, a hurt resident who flees from a zombie that never hit her (no revenge target) into a
+      corner at home is moved back by the watchdog as a wedge (12 s, "no progress for 12 s" without ", fighting"): the
+      target of `ScFleeHurt` no longer counts as a fight (`LiveFoe`; before this round only `ScFlee`'s did).
+- [ ] The log has no `retreat-update`, `retreat-task-start`, `retreat-task-update`, `standoff-task-start`,
+      `standoff-task-update`, `shelter-step`, `uai-retreating`, `uai-standoff`, `uai-not-retreat-home`,
+      `uai-not-retreating` or `uai-not-hurt-no-meds` error line.
+
+**tm2 follow-up (the final Fable check): stand and shoot with a clear aim but no shot**
+
+- [ ] Paul melee-led, his gun drawn for an attacker up close he cannot swing at (tm2's stand-and-shoot), where
+      0-XNPCCore's aim point is clear but it will not take the shot (a crawler just below the sight line): within about
+      4 s of his last shot or reload, (verbose) "Paul (id N): a clear aim point but no shot or reload for 4 s (0-XNPCCore's
+      shot also wants SdcsSeesShot) at zombie... - she may back off for an angle (3 s)", `x5-team-reach-gun-aside` +1.
+      Before this round he could stand there without shooting for as long as the aim point stayed clear.
+
 ## Round md1 (2026-11-15): members restock medical supplies from the stockpile
 
 The request: members who run out of medical supplies should restock at the base for 1 medical resource, and before a supply

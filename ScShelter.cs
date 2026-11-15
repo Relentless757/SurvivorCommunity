@@ -1,0 +1,642 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using UnityEngine;
+
+namespace SurvivorCommunity
+{
+    /// <summary>
+    /// Round rt1 (I5, design 2.2 and 2.3): where a hurt member shelters and where she backs off to.
+    ///
+    /// The cache. A list of candidate floor cells inside the home zone, each with its roof (any non-air block 2 to 12 cells
+    /// over it, the rule ScEnclavePeople used for an enclave leader, now shared here) and its walls (of the 8 horizontal
+    /// directions at head height, how many meet a block that stops movement, or a door, within WallReach cells). Seeds: the
+    /// cells round every bed and work station ScScan counted (I6; beds are nearly always indoors), every member's post, the
+    /// ring round the claim block, and RandomSeeds random zone floors (so a base with no beds still gets rooms). Built on the
+    /// host when the home is loaded, every ShelterRescanSeconds and when the zone changes, PerFrame seeds a frame (ScTicker's
+    /// per-frame hook: about 70 block reads a seed), loaded chunks only - a candidate in a chunk that is not loaded keeps its
+    /// last result. Picks read the last finished scan; a scan in progress never disturbs them.
+    ///
+    /// The pick (the shelter task's Start, C# - never from a consideration): her own cell when it passes and the threat
+    /// cannot see her; else the best valid candidate - roofed, at least ShelterWalls walls, inside the zone, no enemy (awake or
+    /// asleep) within SpotEnemyClear, at least ShelterMinThreatDist from the threat and a walk there that keeps PassClear from
+    /// it, not one she failed to reach, not another's spot - scored 3 x (8 - walls) + walk - 0.5 x min(threat distance, 30)
+    /// - 2 for company within 6 m; then the fallback chain of decision 9: (a) a walled spot with ShelterWalls - 1 walls (+20
+    /// with no roof), (b) the zone floor farthest from the threat within FallbackRadius of her, near another member or you,
+    /// (c) hold where she stands and fight back on reach.
+    /// </summary>
+    public static class ScShelter
+    {
+        public const byte SrcBed = 1, SrcStation = 2, SrcPost = 3, SrcClaim = 4, SrcRandom = 5;
+        private static readonly string[] SrcNames = { "-", "beside a bed", "beside a work station", "a member's post", "by the claim block", "a zone floor" };
+
+        public enum PickKind { None, Here, Room, Walled, Yard, Hold }
+
+        public struct PickResult
+        {
+            public PickKind Kind;
+            public Vector3 Spot;
+            public string Source;
+            public int Walls;
+            public bool Roofed;
+            public string Note;
+        }
+
+        private struct Cand
+        {
+            public Vector3i Cell;
+            public bool Roofed;
+            public byte Walls;
+            public byte Source;
+        }
+
+        private struct Seed
+        {
+            public int X, Y, Z;
+            public byte Source;
+        }
+
+        /// <summary>Seeds evaluated a frame (about 70 block reads each).</summary>
+        private const int PerFrame = 4;
+        private const int RandomSeeds = 200;
+        private const int MaxSeeds = 2000;
+        private const int MaxCands = 800;
+        /// <summary>A wall counts within this many cells in its direction.</summary>
+        private const int WallReach = 6;
+        /// <summary>A seed's floor is looked for within this many cells of its level.</summary>
+        private const int SeedDy = 3;
+        /// <summary>No enemy (awake or asleep) this close to a spot.</summary>
+        public const float SpotEnemyClear = 8f;
+        /// <summary>The straight walk to a spot keeps this far from the threat (ScRunners.PassDistance).</summary>
+        public const float PassClear = 4f;
+        /// <summary>A candidate farther than this walk (XZ) is not considered: she is hurt.</summary>
+        public const float MaxWalk = 40f;
+        /// <summary>Fallback (b): zone floors within this of her.</summary>
+        public const float FallbackRadius = 25f;
+        private const float CompanyRadius = 6f, ReserveRadius = 1.5f, AllyRadius = 8f;
+        /// <summary>After this many spots she could not reach in one retreat, the cache is skipped (fallback b, then c).</summary>
+        public const int MaxFails = 3;
+
+        private static List<Cand> cands = new List<Cand>();
+        private static List<Cand> next = new List<Cand>();
+        private static readonly HashSet<Vector3i> nextCells = new HashSet<Vector3i>();
+        private static readonly Queue<Seed> queue = new Queue<Seed>();
+        private static readonly HashSet<Vector3i> queued = new HashSet<Vector3i>();
+        private static readonly List<int[]> rects = new List<int[]>();
+        private static readonly List<Entity> near = new List<Entity>();
+        private static readonly List<Vector3> enemies = new List<Vector3>();
+        private static readonly List<Vector3> others = new List<Vector3>();
+        private static readonly List<Vector3> allies = new List<Vector3>();
+        private static readonly Stopwatch sw = new Stopwatch();
+        private static bool scanning, wanted, force;
+        private static float nextScan, nextCheck, lastDone = -1f, started, homeSeenAt = -1f;
+        /// <summary>The first scan of a session waits at most this long (real seconds) for ScScan's first count with the home loaded.</summary>
+        private const float FirstWait = 20f;
+        private static string zoneSig;
+        private static int seedsTotal, lastSeeds, frames, lastFrames, scans;
+        private static double scanMs, lastMs;
+        private static readonly int[] bySource = new int[6];
+
+        public static void Reset()
+        {
+            cands = new List<Cand>();
+            next = new List<Cand>();
+            nextCells.Clear();
+            queue.Clear();
+            queued.Clear();
+            scanning = wanted = force = false;
+            nextScan = nextCheck = 0f;
+            lastDone = -1f;
+            homeSeenAt = -1f;
+            zoneSig = null;
+            seedsTotal = lastSeeds = frames = lastFrames = scans = 0;
+            scanMs = lastMs = 0;
+            Array.Clear(bySource, 0, bySource.Length);
+        }
+
+        /// <summary>A retreat began: scan now if the cache has nothing.</summary>
+        public static void Want() { wanted = true; }
+
+        /// <summary>sc retreat shelters rescan.</summary>
+        public static void Rescan() { force = true; nextCheck = 0f; }
+
+        // ------------------------------------------------------------------ the scan (every frame, host) ----
+
+        /// <summary>
+        /// ScTicker.OnGameUpdate, every frame before its 1 s gate: starts a scan when one is due (the zone changed, the
+        /// rescan time, a retreat with an empty cache, or sc retreat shelters rescan) and the home is loaded, and evaluates
+        /// PerFrame seeds of a running one. Nothing at all with RetreatHome off. Never throws.
+        /// </summary>
+        public static void Step()
+        {
+            try
+            {
+                if (!ScConfig.RetreatHome || !ScRegistry.Loaded || !ScCommunity.IsHost) return;
+                World w = ScCommunity.World;
+                if (w == null || !ScZone.HasHome) return;
+                float now = Time.unscaledTime;
+                if (!scanning)
+                {
+                    if (now < nextCheck) return;
+                    nextCheck = now + 1f;                 // the zone's signature at most once a second
+                    string sig = ZoneSig();
+                    bool due = force || sig != zoneSig || now >= nextScan || (wanted && cands.Count == 0 && now - lastDone > 30f);
+                    if (!due || !ScZone.HomeLoaded) { if (!ScZone.HomeLoaded) homeSeenAt = -1f; return; }
+                    // the first scan of a session waits for ScScan's first count of loaded chunks (the beds), at most FirstWait
+                    if (homeSeenAt < 0f) homeSeenAt = now;
+                    if (scans == 0 && !force && !wanted && ScScan.LastLoaded == 0 && now - homeSeenAt < FirstWait) return;
+                    wanted = false;
+                    Begin(w, sig, now);
+                    return;
+                }
+                sw.Reset();
+                sw.Start();
+                for (int i = 0; i < PerFrame && queue.Count > 0; i++) Evaluate(w, queue.Dequeue());
+                sw.Stop();
+                scanMs += sw.Elapsed.TotalMilliseconds;
+                frames++;
+                if (queue.Count == 0) Finish(w, now);
+            }
+            catch (Exception e)
+            {
+                scanning = false;
+                queue.Clear();
+                nextScan = Time.unscaledTime + 60f;
+                ScLog.Once("shelter-step", e);
+            }
+        }
+
+        private static string ZoneSig()
+        {
+            ScZone.Rects(rects);
+            var sb = new System.Text.StringBuilder();
+            sb.Append(ScZone.Home.ToString());
+            for (int i = 0; i < rects.Count; i++) sb.Append('|').Append(rects[i][0]).Append(',').Append(rects[i][1]).Append(',').Append(rects[i][2]).Append(',').Append(rects[i][3]);
+            return sb.ToString();
+        }
+
+        private static void Begin(World w, string sig, float now)
+        {
+            zoneSig = sig;
+            force = false;
+            scanning = true;
+            started = now;
+            next = new List<Cand>();
+            nextCells.Clear();
+            queue.Clear();
+            queued.Clear();
+            seedsTotal = 0;
+            frames = 0;
+            scanMs = 0;
+            // 1. beds and work stations (ScScan's last counts): the 8 columns round each, at its level
+            var beds = new List<Vector3i>();
+            var stations = new List<Vector3i>();
+            ScScan.SeedCells(beds, stations);
+            for (int i = 0; i < beds.Count; i++) Ring(beds[i], 1, SrcBed);
+            for (int i = 0; i < stations.Count; i++) Ring(stations[i], 1, SrcStation);
+            // 2. every member's post, and the ring round the claim block
+            foreach (Member m in ScRegistry.Members.Values)
+                if (m.Post != Vector3i.zero) Enqueue(m.Post.x, m.Post.y, m.Post.z, SrcPost);
+            Ring(ScZone.Home, 2, SrcClaim);
+            // 3. random zone floors at the claim's level (a yard a step or two off it is found by the floor search)
+            int y0 = ScZone.Home.y;
+            for (int i = 0; i < RandomSeeds; i++)
+            {
+                Vector3 p;
+                if (!ScZone.RandomPoint(out p)) break;
+                Enqueue(Mathf.FloorToInt(p.x), y0, Mathf.FloorToInt(p.z), SrcRandom);
+            }
+        }
+
+        private static void Ring(Vector3i c, int r, byte src)
+        {
+            for (int dx = -r; dx <= r; dx++)
+                for (int dz = -r; dz <= r; dz++)
+                    if (dx != 0 || dz != 0) Enqueue(c.x + dx, c.y, c.z + dz, src);
+        }
+
+        private static void Enqueue(int x, int y, int z, byte src)
+        {
+            if (seedsTotal >= MaxSeeds || !queued.Add(new Vector3i(x, y, z))) return;
+            queue.Enqueue(new Seed { X = x, Y = y, Z = z, Source = src });
+            seedsTotal++;
+        }
+
+        private static void Evaluate(World w, Seed s)
+        {
+            if (w.GetChunkSync(World.toChunkXZ(s.X), World.toChunkXZ(s.Z)) == null) return;   // not loaded: its old result is kept (Finish)
+            int y;
+            if (!ScCommunity.FindStandable(w, s.X, s.Z, s.Y, out y) || Math.Abs(y - s.Y) > SeedDy) return;
+            Vector3i cell = new Vector3i(s.X, y, s.Z);
+            if (nextCells.Contains(cell) || !ScZone.Contains(cell)) return;
+            nextCells.Add(cell);
+            string why;
+            if (!ScCommunity.GoodPost(w, cell, false, out why)) return;
+            int walls = Walls(w, cell);
+            if (walls < Math.Max(1, ScConfig.ShelterWalls - 1) || next.Count >= MaxCands) return;   // too open even for the fallback
+            next.Add(new Cand { Cell = cell, Roofed = Roofed(w, cell), Walls = (byte)walls, Source = s.Source });
+        }
+
+        private static void Finish(World w, float now)
+        {
+            // a candidate whose chunk is not loaded now keeps its last result
+            for (int i = 0; i < cands.Count && next.Count < MaxCands; i++)
+            {
+                Cand c = cands[i];
+                if (!nextCells.Contains(c.Cell) && w.GetChunkSync(World.toChunkXZ(c.Cell.x), World.toChunkXZ(c.Cell.z)) == null) next.Add(c);
+            }
+            cands = next;
+            next = new List<Cand>();
+            nextCells.Clear();
+            queued.Clear();
+            scanning = false;
+            lastDone = now;
+            nextScan = now + ScConfig.ShelterRescanSeconds;
+            lastMs = scanMs;
+            lastSeeds = seedsTotal;
+            lastFrames = frames;
+            scans++;
+            Array.Clear(bySource, 0, bySource.Length);
+            int rooms = 0;
+            for (int i = 0; i < cands.Count; i++)
+            {
+                bySource[cands[i].Source]++;
+                if (cands[i].Roofed && cands[i].Walls >= ScConfig.ShelterWalls) rooms++;
+            }
+            ScLog.Verbose("shelter scan: " + cands.Count + " candidate(s), " + rooms + " roofed with " + ScConfig.ShelterWalls + "+ walls, from " + lastSeeds + " seeds in "
+                          + lastMs.ToString("0.0", CultureInfo.InvariantCulture) + " ms over " + lastFrames + " frames (" + (now - started).ToString("0.0", CultureInfo.InvariantCulture) + " s)");
+        }
+
+        /// <summary>Anything solid 2 to 12 cells over the spot: under a roof (the rule ScEnclavePeople's leader spot uses).</summary>
+        public static bool Roofed(World w, Vector3i p)
+        {
+            for (int k = 2; k <= 12; k++) if (!w.GetBlock(new Vector3i(p.x, p.y + k, p.z)).isair) return true;
+            return false;
+        }
+
+        private static readonly int[] DirX = { 1, 1, 0, -1, -1, -1, 0, 1 };
+        private static readonly int[] DirZ = { 0, 1, 1, 1, 0, -1, -1, -1 };
+
+        /// <summary>Of the 8 horizontal directions at head height (y + 1), how many meet a movement-stopping block or a door within WallReach cells.</summary>
+        public static int Walls(World w, Vector3i p)
+        {
+            int n = 0;
+            for (int d = 0; d < 8; d++)
+            {
+                for (int k = 1; k <= WallReach; k++)
+                {
+                    BlockValue bv = w.GetBlock(new Vector3i(p.x + DirX[d] * k, p.y + 1, p.z + DirZ[d] * k));
+                    if (bv.isair) continue;
+                    Block b = bv.Block;
+                    if (b != null && (b.IsCollideMovement || b.HasTag(BlockTags.Door))) { n++; break; }
+                }
+            }
+            return n;
+        }
+
+        // ------------------------------------------------------------------ the pick (the shelter task, C#) ----
+
+        /// <summary>
+        /// The spot for this body's shelter now: her own cell, a room, or the fallback chain (see the class summary). bad and
+        /// fails: the spots she could not reach this retreat. readOnly (the console): the same answer, nothing counted. Never
+        /// None for a body at home: (c) holds where she stands.
+        /// </summary>
+        public static PickResult Pick(EntityAlive self, List<Vector3i> bad, int fails, bool readOnly)
+        {
+            var r = new PickResult { Kind = PickKind.None };
+            World w = self != null ? self.world : null;
+            if (w == null) return r;
+            Vector3 me = self.position;
+            Vector3 threat;
+            EntityAlive t;
+            bool hasThreat = ScRetreat.ThreatPlace(self, out threat, out t);
+            Gather(self, me, MaxWalk + SpotEnemyClear);
+            // 1. her own cell, when it passes and the threat cannot see her (asleep in a bedroom when the zombie comes)
+            Vector3i own = World.worldToBlockPos(me);
+            if (ScZone.Contains(own) && Roofed(w, own) && Walls(w, own) >= ScConfig.ShelterWalls && !EnemyNear(me, SpotEnemyClear)
+                && (!hasThreat || ScRunners.XZ(me, threat) >= ScConfig.ShelterMinThreatDist) && (t == null || !t.CanEntityBeSeen(self)))
+            {
+                r.Kind = PickKind.Here;
+                r.Spot = me;
+                r.Walls = Walls(w, own);
+                r.Roofed = true;
+                r.Source = "where she stood";
+                r.Note = "holds where she stands (roofed, " + r.Walls + " of 8 walls, the threat cannot see her)";
+                return r;
+            }
+            // 2. a room; (a) a walled spot
+            if (fails < MaxFails)
+            {
+                if (BestCand(self, w, me, threat, hasThreat, bad, true, ScConfig.ShelterWalls, ref r)) { r.Kind = PickKind.Room; return r; }
+                if (BestCand(self, w, me, threat, hasThreat, bad, false, ScConfig.ShelterWalls - 1, ref r))
+                {
+                    r.Kind = PickKind.Walled;
+                    r.Note = "fell back to a walled spot " + (r.Roofed ? "" : "without a roof ") + "(" + r.Walls + " of 8 walls, " + r.Source + ")";
+                    return r;
+                }
+            }
+            // (b) the zone floor farthest from the threat within FallbackRadius of her, near another member or you (not once
+            // the yard has failed her as often as the rooms did: then she holds)
+            if (fails < 2 * MaxFails && Yard(self, w, me, threat, hasThreat, bad, ref r)) return r;
+            // (c) hold where she stands and fight back on reach
+            r.Kind = PickKind.Hold;
+            r.Spot = me;
+            r.Source = "where she stood";
+            r.Note = "fell back to holding where she stands (no floor of the zone to go to" + (fails >= MaxFails ? ", " + fails + " spots she could not reach" : "") + ") - she fights back on reach";
+            return r;
+        }
+
+        /// <summary>One sweep: the enemies (awake or asleep) round her, the others' spots, and the members and you (allies).</summary>
+        private static void Gather(EntityAlive self, Vector3 me, float radius)
+        {
+            enemies.Clear();
+            others.Clear();
+            allies.Clear();
+            World w = self.world;
+            near.Clear();
+            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(me, new Vector3(2f * radius, 2f * radius, 2f * radius)), near);
+            for (int i = 0; i < near.Count; i++)
+            {
+                EntityAlive a = near[i] as EntityAlive;
+                if (a == null || a == self || a.IsDead()) continue;
+                if (EntityTargetingUtilities.IsEnemy(self, a)) { if (!global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) enemies.Add(a.position); continue; }
+                if (a is EntityPlayer || ScRegistry.GetMember(a.entityId) != null) allies.Add(a.position);
+            }
+            near.Clear();
+            ScRetreat.OtherSpots(self.entityId, others);
+        }
+
+        private static bool EnemyNear(Vector3 p, float r)
+        {
+            for (int i = 0; i < enemies.Count; i++) if ((enemies[i] - p).sqrMagnitude < r * r) return true;
+            return false;
+        }
+
+        private static bool Near(List<Vector3> list, Vector3 p, float r)
+        {
+            for (int i = 0; i < list.Count; i++) if (ScRunners.XZ(list[i], p) < r && Mathf.Abs(list[i].y - p.y) < 3f) return true;
+            return false;
+        }
+
+        private static bool BestCand(EntityAlive self, World w, Vector3 me, Vector3 threat, bool hasThreat, List<Vector3i> bad, bool needRoof, int minWalls, ref PickResult r)
+        {
+            var scored = new List<KeyValuePair<float, Cand>>();
+            for (int i = 0; i < cands.Count; i++)
+            {
+                Cand c = cands[i];
+                if (c.Walls < minWalls || (needRoof && !c.Roofed)) continue;
+                Vector3 p = new Vector3(c.Cell.x + 0.5f, c.Cell.y, c.Cell.z + 0.5f);
+                float walk = ScRunners.XZ(me, p);
+                if (walk > MaxWalk || !ScZone.Contains(c.Cell)) continue;
+                if (bad != null && bad.Contains(c.Cell)) continue;
+                if (hasThreat && (ScRunners.XZ(threat, p) < ScConfig.ShelterMinThreatDist || ScRunners.PassDistance(me, p, threat) < PassClear)) continue;
+                if (EnemyNear(p, SpotEnemyClear) || Near(others, p, ReserveRadius)) continue;
+                float score = 3f * (8 - c.Walls) + (c.Roofed ? 0f : 20f) + walk - (hasThreat ? 0.5f * Mathf.Min(ScRunners.XZ(threat, p), 30f) : 0f)
+                              - (Near(others, p, CompanyRadius) ? 2f : 0f);
+                scored.Add(new KeyValuePair<float, Cand>(score, c));
+            }
+            if (scored.Count == 0) return false;
+            scored.Sort((a, b) => a.Key.CompareTo(b.Key));
+            // block reads only for the best few: the floor still there, not on her unreachable list (ScStuck, the roam's)
+            for (int i = 0; i < scored.Count && i < 8; i++)
+            {
+                Cand c = scored[i].Value;
+                string why;
+                if (ScStuck.Unreachable(self.entityId, c.Cell) || !ScCommunity.GoodPost(w, c.Cell, false, out why)) continue;
+                r.Spot = new Vector3(c.Cell.x + 0.5f, c.Cell.y, c.Cell.z + 0.5f);
+                r.Walls = c.Walls;
+                r.Roofed = c.Roofed;
+                r.Source = SrcNames[c.Source];
+                r.Note = (c.Roofed ? "a room" : "a walled spot") + " " + SrcNames[c.Source] + " (" + c.Walls + " of 8 walls" + (c.Roofed ? ", roofed" : ", no roof")
+                         + (hasThreat ? ", " + ScRunners.XZ(threat, r.Spot).ToString("0", CultureInfo.InvariantCulture) + " m from the threat" : "") + ")";
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Fallback (b): 24 tries for a zone floor within FallbackRadius of her, the farthest from the threat, near an ally.</summary>
+        private static bool Yard(EntityAlive self, World w, Vector3 me, Vector3 threat, bool hasThreat, List<Vector3i> bad, ref PickResult r)
+        {
+            int yRef = Mathf.FloorToInt(me.y + 0.05f);
+            float best = float.MaxValue;
+            Vector3 bestP = Vector3.zero;
+            bool bestAlly = false;
+            float meFromThreat = hasThreat ? ScRunners.XZ(me, threat) : 0f;
+            for (int i = 0; i < 24; i++)
+            {
+                float a = UnityEngine.Random.Range(0f, Mathf.PI * 2f), d = UnityEngine.Random.Range(4f, FallbackRadius);
+                int x = Mathf.FloorToInt(me.x + Mathf.Cos(a) * d), z = Mathf.FloorToInt(me.z + Mathf.Sin(a) * d);
+                int y;
+                if (!ScCommunity.FindStandable(w, x, z, yRef, out y) || Math.Abs(y - yRef) > SeedDy) continue;
+                Vector3i cell = new Vector3i(x, y, z);
+                if (!ScZone.Contains(cell) || (bad != null && bad.Contains(cell)) || ScStuck.Unreachable(self.entityId, cell)) continue;
+                Vector3 p = new Vector3(x + 0.5f, y, z + 0.5f);
+                if (hasThreat && (ScRunners.XZ(threat, p) <= meFromThreat || ScRunners.PassDistance(me, p, threat) < 2f)) continue;
+                if (EnemyNear(p, 4f) || Near(others, p, ReserveRadius)) continue;
+                string why;
+                if (!ScCommunity.GoodPost(w, cell, false, out why)) continue;
+                bool ally = Near(allies, p, AllyRadius);
+                float score = (hasThreat ? -ScRunners.XZ(threat, p) : 0f) - (ally ? 8f : 0f) + 0.2f * ScRunners.XZ(me, p);
+                if (score < best) { best = score; bestP = p; bestAlly = ally; }
+            }
+            if (best == float.MaxValue) return false;
+            r.Kind = PickKind.Yard;
+            r.Spot = bestP;
+            r.Source = "a zone floor";
+            r.Note = "fell back to the zone floor farthest from the threat within " + FallbackRadius.ToString("0", CultureInfo.InvariantCulture) + " m"
+                     + (bestAlly ? ", beside another member or you" : "") + (hasThreat ? " (" + ScRunners.XZ(threat, bestP).ToString("0", CultureInfo.InvariantCulture) + " m from it)" : "");
+            return true;
+        }
+
+        /// <summary>
+        /// The held spot still holds (every 2 s while she holds it): its floor; for a room or a walled spot its roof and walls;
+        /// and no enemy within SpotEnemyClear that can see her (a sleeper woken in the room, one that followed her in - not
+        /// one banging on the shut door). Yard and Hold only need their floor.
+        /// </summary>
+        public static bool StillGood(EntityAlive self, Vector3 spot, PickKind kind, int walls, bool roofed, out string why)
+        {
+            why = null;
+            World w = self.world;
+            if (w == null) return true;
+            Vector3i cell = World.worldToBlockPos(spot);
+            if (kind != PickKind.Hold && kind != PickKind.Here && !ScCommunity.GoodPost(w, cell, false, out why)) { why = "no longer a floor (" + why + ")"; return false; }
+            if (kind == PickKind.Room || kind == PickKind.Walled || kind == PickKind.Here)
+            {
+                if (roofed && !Roofed(w, cell)) { why = "lost its roof"; return false; }
+                int now = Walls(w, cell);
+                if (now < Mathf.Min(walls, ScConfig.ShelterWalls - 1)) { why = "lost walls (" + now + " of 8 now)"; return false; }
+                near.Clear();
+                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(spot, new Vector3(2f * SpotEnemyClear, 2f * SpotEnemyClear, 2f * SpotEnemyClear)), near);
+                try
+                {
+                    for (int i = 0; i < near.Count; i++)
+                    {
+                        EntityAlive a = near[i] as EntityAlive;
+                        if (a == null || a == self || a.IsDead() || (a.position - spot).sqrMagnitude > SpotEnemyClear * SpotEnemyClear) continue;
+                        if (!EntityTargetingUtilities.IsEnemy(self, a) || !a.CanEntityBeSeen(self)) continue;
+                        why = a.EntityName + " (" + a.entityId + ") is within " + SpotEnemyClear.ToString("0", CultureInfo.InvariantCulture) + " m and sees her";
+                        return false;
+                    }
+                }
+                finally { near.Clear(); }
+            }
+            return true;
+        }
+
+        // ------------------------------------------------------------------ the back-off point (the stand-off task, C#) ----
+
+        private static readonly float[] Angles = { 0f, 25f, -25f, 50f, -50f, 75f, -75f };
+        private const float MinStep = 3f, MaxStep = 20f, FightNear = 15f, LineOfFire = 1.5f;
+
+        /// <summary>
+        /// Design 2.3: the point she backs off to from threat - on seven directions from it through her (0, +-25, +-50, +-75
+        /// degrees), the point that makes the gap about gap (at least MinStep of walk), on a floor near her level. Valid: at home
+        /// (region Home: the zone + margin, round hl1's AtHome) or within StandOffFollowerLeash of you (Leader); standable; not
+        /// on her unreachable list; at least StandOffMin from every enemy within FleeRadius of her; a clear line (blocks) from
+        /// her head there to the threat's head. Scored by walk, minus a bonus within 15 m of another member in a fight or you
+        /// (decision 2), plus a penalty in another member's line of fire. False when none: she is cornered.
+        /// </summary>
+        public static bool BackOff(EntityAlive self, EntityAlive threat, float gap, ScRetreat.Region region, out Vector3 point, out string why)
+        {
+            point = Vector3.zero;
+            why = null;
+            World w = self.world;
+            if (w == null || threat == null) { why = "no threat"; return false; }
+            Vector3 me = self.position, from = threat.position;
+            Vector3 rel = me - from;
+            rel.y = 0f;
+            Vector3 dir = rel.sqrMagnitude > 0.01f ? rel.normalized : -self.GetForwardVector();
+            dir.y = 0f;
+            dir.Normalize();
+            EntityPlayer leader = region == ScRetreat.Region.Leader ? ScRetreat.LeaderOf(self) : null;
+            if (region == ScRetreat.Region.Leader && leader == null) { why = "no leader"; return false; }
+            // the threats she must keep StandOffMin from, the fighting allies and the shooters' lines
+            var threats = new List<Vector3>();
+            var fighting = new List<Vector3>();
+            var lines = new List<KeyValuePair<Vector3, Vector3>>();
+            near.Clear();
+            float r = ScRunners.FleeRadius + MaxStep;
+            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(me, new Vector3(2f * r, 2f * r, 2f * r)), near);
+            try
+            {
+                for (int i = 0; i < near.Count; i++)
+                {
+                    EntityAlive a = near[i] as EntityAlive;
+                    if (a == null || a == self || a.IsDead()) continue;
+                    if (EntityTargetingUtilities.IsEnemy(self, a))
+                    {
+                        if (!a.IsSleeping && (a.position - me).sqrMagnitude <= ScRunners.FleeRadius * ScRunners.FleeRadius) threats.Add(a.position);
+                        continue;
+                    }
+                    if (a is EntityPlayer) { fighting.Add(a.position); continue; }
+                    if (ScRegistry.GetMember(a.entityId) == null) continue;
+                    EntityAlive foe = ScCommunity.LiveFoe(a, ScCommunity.FightRange);
+                    if (foe == null) continue;
+                    fighting.Add(a.position);
+                    ItemValue hv = a.inventory != null ? a.inventory.holdingItemItemValue : null;
+                    if (hv != null && !hv.IsEmpty() && ScAmmo.RangedAction(hv.ItemClass) != null) lines.Add(new KeyValuePair<Vector3, Vector3>(a.position, foe.position));
+                }
+            }
+            finally { near.Clear(); }
+            int yRef = Mathf.FloorToInt(me.y + 0.05f);
+            float best = float.MaxValue;
+            int tried = 0;
+            string last = "no floor within reach";
+            for (int k = 0; k < Angles.Length; k++)
+            {
+                Vector3 d = Quaternion.Euler(0f, Angles[k], 0f) * dir;
+                // the walk s along d that makes |me + d s - threat| = gap (XZ)
+                float b = Vector3.Dot(d, rel), c = rel.sqrMagnitude - gap * gap, disc = b * b - c;
+                float s = disc >= 0f ? -b + Mathf.Sqrt(disc) : MinStep;
+                s = Mathf.Clamp(s, MinStep, MaxStep);
+                Vector3 p = me + d * s;
+                int x = Mathf.FloorToInt(p.x), z = Mathf.FloorToInt(p.z), y;
+                tried++;
+                if (!ScCommunity.FindStandable(w, x, z, yRef, out y) || Math.Abs(y - yRef) > SeedDy) { last = "no floor"; continue; }
+                Vector3i cell = new Vector3i(x, y, z);
+                Vector3 pc = new Vector3(x + 0.5f, y, z + 0.5f);
+                if (region == ScRetreat.Region.Home ? !UAI.UAIConsiderationScNotHomeMember.AtHome(pc) : ScRunners.XZ(pc, leader.position) > ScConfig.StandOffFollowerLeash)
+                {
+                    last = region == ScRetreat.Region.Home ? "outside the home zone + margin" : "farther than " + ScConfig.StandOffFollowerLeash.ToString("0", CultureInfo.InvariantCulture) + " m from you";
+                    continue;
+                }
+                string gw;
+                if (ScStuck.Unreachable(self.entityId, cell) || !ScCommunity.GoodPost(w, cell, false, out gw)) { last = "not standable"; continue; }
+                bool close = false;
+                for (int i = 0; i < threats.Count && !close; i++) close = ScRunners.XZ(threats[i], pc) < ScConfig.StandOffMin;
+                if (close) { last = "another enemy within " + ScConfig.StandOffMin.ToString("0", CultureInfo.InvariantCulture) + " m of it"; continue; }
+                if (!ClearLine(w, pc + new Vector3(0f, 1.6f, 0f), threat.getHeadPosition())) { last = "no line to the threat from it"; continue; }
+                bool ally = false;
+                for (int i = 0; i < fighting.Count && !ally; i++) ally = ScRunners.XZ(fighting[i], pc) <= FightNear;
+                bool inLine = false;
+                for (int i = 0; i < lines.Count && !inLine; i++) inLine = ScRunners.PassDistance(lines[i].Key, lines[i].Value, pc) < LineOfFire;
+                float score = s - (ally ? 4f : 0f) + (inLine ? 6f : 0f) + Mathf.Abs(Angles[k]) * 0.02f;
+                if (score < best) { best = score; point = pc; }
+            }
+            if (best == float.MaxValue) { why = "none of " + tried + " directions works (last: " + last + ")"; return false; }
+            return true;
+        }
+
+        /// <summary>No block between the two points (entities do not count).</summary>
+        private static bool ClearLine(World w, Vector3 from, Vector3 to)
+        {
+            Vector3 d = to - from;
+            float len = d.magnitude;
+            if (len < 1f) return true;
+            d /= len;
+            var ray = new Ray(from + d * 0.3f, d);
+            if (!Voxel.Raycast(w, ray, len - 0.6f, false, false)) return true;
+            WorldRayHitInfo info = Voxel.voxelRayHitInfo;
+            return info == null || !GameUtils.IsBlockOrTerrain(info.tag);
+        }
+
+        // ------------------------------------------------------------------ console ----
+
+        /// <summary>The cache in one line (sc retreat, the fallback log line).</summary>
+        public static string Summary()
+        {
+            int rooms = 0, walled = 0;
+            for (int i = 0; i < cands.Count; i++)
+            {
+                if (cands[i].Roofed && cands[i].Walls >= ScConfig.ShelterWalls) rooms++;
+                else walled++;
+            }
+            float now = Time.unscaledTime;
+            if (!ScConfig.RetreatHome) return "off (RetreatHome false: no shelter scan)";
+            string s = cands.Count + " shelter candidate(s): " + rooms + " roofed with " + ScConfig.ShelterWalls + "+ walls, " + walled + " walled or open-topped";
+            if (scans == 0) s += scanning ? ", the first scan is running" : ", not scanned yet (the home must be loaded)";
+            else s += ", last scan " + (now - lastDone).ToString("0", CultureInfo.InvariantCulture) + " s ago (" + lastSeeds + " seeds, " + lastMs.ToString("0.0", CultureInfo.InvariantCulture) + " ms over "
+                      + lastFrames + " frames)" + (scanning ? ", a scan is running (" + queue.Count + " seeds left)" : ", next in " + Mathf.Max(0f, nextScan - now).ToString("0", CultureInfo.InvariantCulture) + " s");
+            return s;
+        }
+
+        /// <summary>sc retreat shelters [n]: the best n candidates by walls and roof, nearest you first among equals.</summary>
+        public static void ListLines(List<string> lines, int n)
+        {
+            lines.Add("[SC] " + Summary());
+            int[] counts = new int[6];
+            for (int i = 0; i < cands.Count; i++) counts[cands[i].Source]++;
+            lines.Add("[SC] by seed: beds " + counts[SrcBed] + ", work stations " + counts[SrcStation] + ", posts " + counts[SrcPost] + ", claim block " + counts[SrcClaim] + ", random floors " + counts[SrcRandom]);
+            EntityPlayerLocal lp = ScCommunity.LocalPlayer;
+            Vector3 at = lp != null ? lp.position : Vector3.zero;
+            var sorted = new List<Cand>(cands);
+            sorted.Sort((a, b) =>
+            {
+                int ka = (a.Roofed ? 10 : 0) + a.Walls, kb = (b.Roofed ? 10 : 0) + b.Walls;
+                if (ka != kb) return kb.CompareTo(ka);
+                return ScRunners.XZ(at, a.Cell).CompareTo(ScRunners.XZ(at, b.Cell));
+            });
+            World w = ScCommunity.World;
+            for (int i = 0; i < sorted.Count && i < n; i++)
+            {
+                Cand c = sorted[i];
+                string why = null;
+                bool ok = w == null || ScCommunity.GoodPost(w, c.Cell, false, out why);
+                lines.Add("[SC]   " + c.Cell.x + " " + c.Cell.y + " " + c.Cell.z + ": " + (c.Roofed ? "roofed" : "NO ROOF") + ", " + c.Walls + " of 8 walls, " + SrcNames[c.Source]
+                          + (lp != null ? ", " + ScRunners.XZ(at, c.Cell).ToString("0", CultureInfo.InvariantCulture) + " m from you" : "") + (ok ? "" : " - NOT STANDABLE NOW (" + why + ")"));
+            }
+            if (sorted.Count > n) lines.Add("[SC]   ... " + (sorted.Count - n) + " more (sc retreat shelters <n>)");
+        }
+    }
+}

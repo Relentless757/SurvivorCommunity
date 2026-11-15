@@ -1370,6 +1370,7 @@ namespace SurvivorCommunity
             ResetVoices();                         // V2 (ScConfigVoices.cs)
             ResetStuck();                          // round 29b (ScConfigStuck.cs)
             ResetTeam();                           // round tm1 (ScConfigTeam.cs): team strength decides melee
+            ResetRetreat();                        // round rt1 (ScConfigRetreat.cs): hurt members retreat inside / stand off
             ResetNames();                          // round 30 (ScConfigNames.cs): streamer names
             ResetSkins();                          // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
@@ -2501,6 +2502,7 @@ namespace SurvivorCommunity
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
                 ParseStuck(p);                     // round 29b (ScConfigStuck.cs)
                 ParseTeam(p);                      // round tm1 (ScConfigTeam.cs): team strength decides melee
+                ParseRetreat(p);                   // round rt1 (ScConfigRetreat.cs): hurt members retreat inside / stand off
                 ParseNames(p);                     // round 30 (ScConfigNames.cs): streamer names
                 ParseSkins(p);                     // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
@@ -2782,6 +2784,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
                 ScLog.Out("config: stuck rescue " + StuckLine());   // round 29b (ScConfigStuck.cs)
                 ScLog.Out("config: team strength " + TeamLine());   // round tm1 (ScConfigTeam.cs)
+                ScLog.Out("config: retreat " + RetreatLine());   // round rt1 (ScConfigRetreat.cs)
                 ScLog.Out("config: medical restock " + MedsLine());   // round md1 (ScMedic.Restock)
                 ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)
                 ScLog.Out("config: skins " + SkinsLine());   // round 31 (ScConfigSkins.cs)

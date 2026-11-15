@@ -244,7 +244,7 @@ Each survivor has **2 traits**. Their effects show on the NPC as buffs with a de
 | Sharpshooter | Starts with 2 extra Shooting stars |
 | Marathon Runner | Starts with 2 extra Cardio stars |
 | Quick Study | Earns XP half again as fast |
-| Cowardly | Runs from enemies instead of fighting (in a fight your side can win, hangs back with the gun instead); own mood -5 |
+| Cowardly | Runs from enemies instead of fighting (at home: retreats inside; in a fight your side can win, hangs back with the gun instead); own mood -5 |
 | Hardy | Own mood +3 |
 | Medic Training | Specialty is Medicine |
 | Homesteader | Specialty is Gardening |
@@ -350,6 +350,29 @@ The community window's **Activities** tab has one activity, **Prepare a round of
   you look away (at most 60 seconds). A resident who keeps getting stuck is given a new post. Posts and roaming spots are
   always on a real floor, and never in or right beside a wreck.
 
+### When they are badly hurt
+
+- A member below 35% health who has **nothing to heal with** (no first aid bandage or kit in her pack or bag) stops
+  fighting. Away from home she runs from the enemy. **At home she does not leave the base:**
+  - **With a gun or bow that has ammo** she **stands off**: when an enemy comes within 8 m she backs away inside the base
+    to about 15 m from it (never farther than she can shoot), near the others who are fighting, and keeps shooting.
+    Cornered, or caught by a fast zombie, she stands and shoots it point-blank.
+  - **Without one** (or against raiders and bandits, who shoot back) she **retreats inside**: she runs to a room with a
+    roof and walls - beside a bed, a work station, a post - away from the enemy, shuts the doors she passed behind her, and
+    holds there, fighting only what reaches her. A base with no roofed room: a walled corner, else the far side of the
+    yard beside another member or you.
+  - It ends once she is back above 45% health or no enemy has been about for 20 seconds. Hand her a bandage and she uses
+    it there.
+- While she is that hurt she is never walked to a fight, at home or away: the base defense and the melee chase leave her
+  be. That stops the old run off / walk back / run off again.
+- **Cowardly** members at home retreat inside the same way instead of running from the base (in a fight your side can win, one with a
+  gun still hangs back and shoots). **Followers** away from home with a gun stand off within 20 m of you instead of
+  running; without one they run as before. Runners on a job still give it up and come home (section 8). Guards on watch
+  hold their post.
+- With medical bundles in the stockpile this rarely happens at home: she restocks the moment she runs out (section 15).
+  `RetreatHome` and the other `Retreat...`, `Shelter...` and `StandOff...` settings (section 20) tune or turn it off;
+  `sc retreat <name>` shows why she is or is not retreating.
+
 ### Doors
 
 - Members open closed doors on their way (roaming, following, going home, supply runs) and shut them again behind them.
@@ -358,6 +381,8 @@ The community window's **Activities** tab has one activity, **Prepare a round of
   anyone else's, stay shut.
 - **Drawbridges and hatches** are opened and shut again too, so a base whose only way out is a hatch or a bridge does not
   trap its people.
+- **A member retreating inside** also shuts the ordinary doors she ran through that you had left open - never a drawbridge
+  or a hatch she did not open herself, and never one right beside you.
 
 ### Missing members, leaving and death
 
