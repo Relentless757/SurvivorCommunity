@@ -669,9 +669,9 @@ namespace SurvivorCommunity
 
         /// <summary>World ticks in one in-game hour (a day is 24000).</summary>
         private const ulong TicksPerHour = 1000UL;
-        /// <summary>A member's refusal at home (cooldown, no Meds to spare, a full pack) is logged at most this often (real seconds).</summary>
+        /// <summary>A member's refusal at home (cooldown, no Meds to spare, a full pack) for the same reason is logged at most this often (real seconds); a new reason at once.</summary>
         private const float RestockLogSeconds = 300f;
-        /// <summary>Member id -> the Time.unscaledTime from which her next refusal line at home may be written.</summary>
+        /// <summary>Member id -> the Time.unscaledTime from which her next refusal line at home for the same reason may be written.</summary>
         private static readonly Dictionary<int, float> restockLogAt = new Dictionary<int, float>();
         /// <summary>Member id -> the meds-* counter her last home check ended at: each outcome is counted once per episode, not every 5 s.</summary>
         private static readonly Dictionary<int, string> restockLast = new Dictionary<int, string>();
@@ -682,7 +682,11 @@ namespace SurvivorCommunity
             public string Name;
             public ItemValue Item;
             public int Target;
-            public int StackMax;
+            /// <summary>
+            /// A stack's limit in her window (SCore's HarvestManager.AddItem: Stacknumber) and in her bag (vanilla's
+            /// ItemStack.CanStack: ItemClass.MaxCount, Stacknumber x the sandbox MaxStackSizeModifier).
+            /// </summary>
+            public int WindowMax, BagMax;
         }
         /// <summary>MedsResupplyMix for this world (null: not resolved yet - ResolveMix at GameStartDone, else the first use).</summary>
         private static List<MixItem> mix;
@@ -699,7 +703,7 @@ namespace SurvivorCommunity
             public string Why;
             /// <summary>The meds-* counter the outcome counts under (null: nothing to count - she has enough, she is away ...).</summary>
             public string Counter;
-            /// <summary>A refusal worth a log line (at home rate-limited, once per member per 5 minutes).</summary>
+            /// <summary>A refusal worth a log line (at home: at once for a new reason, the same reason at most once per member per 5 minutes).</summary>
             public bool Refusal;
             /// <summary>Heal items she has: first aid kits plus first aid bandages, window and bag, and one in her hand mid-use.</summary>
             public int Heal;
@@ -768,7 +772,8 @@ namespace SurvivorCommunity
                     Name = ic.Name,
                     Item = new ItemValue(ic.Id),
                     Target = Math.Min(100, n),
-                    StackMax = Math.Max(1, ic.Stacknumber != null ? ic.Stacknumber.Value : 1)
+                    WindowMax = ic.CanStack() ? Math.Max(1, ic.Stacknumber != null ? ic.Stacknumber.Value : 1) : 1,
+                    BagMax = Math.Max(1, ic.MaxCount)
                 });
             }
             mix = list;
@@ -842,11 +847,32 @@ namespace SurvivorCommunity
         private static string Who(Member m, EntityAlive e) { return m.Name + " (id " + e.entityId + ")"; }
 
         /// <summary>
+        /// At home as the stockpile's resupply counts it - ScAmmo.Where's "home": inside the home zone, or in the defended area of
+        /// a live base attack - tested on its own terms rather than by Where's text, which is an outpost's name elsewhere: an
+        /// outpost someone named "home" never passes.
+        /// </summary>
+        private static bool AtHome(EntityAlive e)
+        {
+            Vector3i p = e.GetBlockPosition();
+            if (ScZone.Contains(p)) return true;
+            return ScBaseAttack.WideDefence && ScBaseAttack.InDefenceArea(new Vector3(p.x + 0.5f, p.y, p.z + 0.5f));
+        }
+
+        /// <summary>Where she is, for the log and sc meds: at home, at an outpost (its name), or away from home.</summary>
+        private static string WhereText(EntityAlive e)
+        {
+            if (AtHome(e)) return "at home";
+            string at = ScAmmo.Where(e.GetBlockPosition());
+            return at == null ? "away from home" : "at the outpost '" + at + "'";
+        }
+
+        /// <summary>
         /// Where a restock stands for her right now - a pure read (UAI never calls it; HomeTick, BeforeRun and sc meds do).
-        /// Home: decisions 14 (fewer than MedsResupplyBelow heal items), 16 (the cooldown), 18 (her status, at home: ScAmmo.Where),
-        /// not mid-use. Run: fewer than MedsResupplyRunBelow, the cooldown ignored (decision 16). Console (sc meds give): neither
-        /// threshold nor cooldown, not mid-use. All three: her window closed (the window copy, design trap 16), a mix item she
-        /// lacks, a Meds above the reserve for tonight's injured (decision 19), and room for the whole top-up (design 3.7).
+        /// Home: decisions 14 (fewer than MedsResupplyBelow heal items), 16 (the cooldown), 18 (her status, AtHome), not mid-use.
+        /// Run: fewer than MedsResupplyRunBelow, the cooldown ignored (decision 16), not mid-use (the run goes all the same).
+        /// Console (sc meds give): neither threshold nor cooldown, not mid-use. All three: her window closed (the window copy,
+        /// design trap 16), a mix item she lacks, a Meds above the reserve for tonight's injured (decision 19), and room for the
+        /// whole top-up (design 3.7).
         /// </summary>
         private static Check Evaluate(Member m, EntityAlive e, RestockMode mode, ulong now)
         {
@@ -859,8 +885,12 @@ namespace SurvivorCommunity
             if (mode != RestockMode.Console && !Stocked(e)) { c.Why = Her(m) + " first stock is not given yet"; return c; }
             if (mode == RestockMode.Home)
             {
-                string at = ScAmmo.Where(e.GetBlockPosition());
-                if (at != "home") { c.Why = at == null ? She(m) + " is away from home" : She(m) + " is at " + at + " (no restock at an outpost this round)"; return c; }
+                if (!AtHome(e))
+                {
+                    string at = ScAmmo.Where(e.GetBlockPosition());
+                    c.Why = at == null ? She(m) + " is away from home" : She(m) + " is at the outpost '" + at + "' (no restock at an outpost this round)";
+                    return c;
+                }
                 if (ScConfig.MedsResupplyBelow <= 0) { c.Why = "MedsResupplyBelow is 0 (never at home)"; return c; }
                 if (c.Heal >= ScConfig.MedsResupplyBelow)
                 {
@@ -885,6 +915,9 @@ namespace SurvivorCommunity
                     c.Why = She(m) + " carries " + c.Heal + " heal item" + (c.Heal == 1 ? "" : "s") + ", enough for the trip (restocked below " + ScConfig.MedsResupplyRunBelow + ")";
                     return c;
                 }
+                // a use in progress holds an item in her hand that an interrupted use puts back: as at home, no restock
+                // meanwhile - but a run does not wait, so this one is simply missed (logged)
+                if (IsUsing(e.entityId)) { c.Why = She(m) + " was using a medical item when sent"; c.Counter = "meds-held-use"; c.Refusal = true; return c; }
             }
             else if (IsUsing(e.entityId)) { c.Why = She(m) + " is using a medical item - try again in a moment"; return c; }
             // the window copy: anything written while her inventory window (or 0-XNPCCore's stock trade) is open is undone or
@@ -947,7 +980,7 @@ namespace SurvivorCommunity
             {
                 int type = g.Key.Item.type;
                 for (int k = 0; k < g.Value; k++)
-                    if (!FitOne(wt, wc, type, g.Key.StackMax) && !FitOne(bt, bc, type, g.Key.StackMax)) return false;
+                    if (!FitOne(wt, wc, type, g.Key.WindowMax) && !FitOne(bt, bc, type, g.Key.BagMax)) return false;
             }
             return true;
         }
@@ -977,42 +1010,56 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The top-up's items into her inventory window, else her bag, one at a time as Fits simulated it. Returns how many went
-        /// in. Never drops anything (ScNpc.AddItem would, at the body, for what neither takes).
+        /// in - also when a store throws part-way (error: the exception, null otherwise), so what went in is still paid for.
+        /// Never drops anything (ScNpc.AddItem would, at the body, for what neither takes).
         /// </summary>
-        private static int Place(EntityAlive e, ItemValue item, int count)
+        private static int Place(EntityAlive e, ItemValue item, int count, out Exception error)
         {
+            error = null;
             bool window = ScNpc.UsesWindow(e);
             int placed = 0;
-            for (int k = 0; k < count; k++)
+            try
             {
-                if (window && HarvestManager.AddItem(e.entityId, new ItemStack(item.Clone(), 1))) { placed++; continue; }
-                if (e.bag != null && e.bag.AddItem(new ItemStack(item.Clone(), 1))) { placed++; continue; }
-                break;
+                for (int k = 0; k < count; k++)
+                {
+                    if (window && HarvestManager.AddItem(e.entityId, new ItemStack(item.Clone(), 1))) { placed++; continue; }
+                    if (e.bag != null && e.bag.AddItem(new ItemStack(item.Clone(), 1))) { placed++; continue; }
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex;
             }
             return placed;
         }
 
         /// <summary>
         /// The restock itself, once Evaluate found it due: the top-up placed, 1 Meds taken, today's ledger (decision 23), her
-        /// cooldown set (decision 16: a restock before a run sets it too), the counter, the log line and a registry save.
+        /// cooldown set (decision 16: a restock before a run sets it too), the counter, the log line and a registry save. Returns
+        /// null when she was restocked, else why nothing went in (then nothing is taken; the caller counts meds-place-failed
+        /// and logs it as a refusal). A store that throws part-way stops the placing; what went in before it is charged as a
+        /// restock all the same.
         /// </summary>
-        private static bool Restock(Member m, EntityAlive e, Check c, RestockMode mode, string how, ulong now)
+        private static string Restock(Member m, EntityAlive e, Check c, RestockMode mode, string how, ulong now)
         {
             var given = new List<string>();
             int placed = 0, missed = 0;
+            Exception error = null;
             foreach (var g in c.Gives)
             {
-                int put = Place(e, g.Key.Item, g.Value);
+                if (error != null) { missed += g.Value; continue; }
+                int put = Place(e, g.Key.Item, g.Value, out error);
                 placed += put;
                 missed += g.Value - put;
                 if (put > 0) given.Add(put + " " + g.Key.Name);
             }
+            if (error != null) ScLog.Once("meds-place", error);
             if (placed <= 0)
             {
-                // Fits said yes: a store that refused what it had room for. Nothing given, nothing taken
-                Patches_Xnpc.Count("meds-place-failed");
-                ScLog.Warn(Who(m, e) + ": a medical restock fitted " + Her(m) + " pack but nothing went in - no Meds taken");
-                return false;
+                // Fits said yes: a store that refused (or failed on) what it had room for. Nothing given, nothing taken
+                return error != null ? "putting the items into " + Her(m) + " pack failed (the error is in the log) - no Meds taken"
+                                     : "nothing went into " + Her(m) + " pack although it fitted - no Meds taken";
             }
             Community cm = ScRegistry.Community;
             cm.Add(Resource.Meds, -1);
@@ -1028,14 +1075,15 @@ namespace SurvivorCommunity
                 ScLog.Warn(Who(m, e) + ": " + missed + " item(s) of the medical restock did not go into " + Her(m) + " pack although it fitted - not dropped");
             }
             ScRegistry.SaveAtomic();
-            return true;
+            return null;
         }
 
         /// <summary>
         /// ScAmmo.Tick, every 5 s, for each member's own loaded body (never a stand-in): a member at home who is out of heal items
         /// (decision 14) is restocked for 1 Meds, instantly and mid-fight too (decisions 17, 20), once her cooldown has run
-        /// (16), with a Meds to spare (19) and room in her pack. Refusals are logged at most once per member per 5 minutes;
-        /// each outcome is counted once per episode (meds-*), not at every check. Host only (ScTicker); SC is single-player.
+        /// (16), with a Meds to spare (19) and room in her pack. Each outcome is counted once per episode (meds-*), not at every
+        /// check; a refusal is logged at once when its reason changes (a new episode), and the same reason again at most once
+        /// per member per 5 minutes. Host only (ScTicker); SC is single-player.
         /// </summary>
         internal static void HomeTick(Member m, EntityAlive e)
         {
@@ -1053,7 +1101,16 @@ namespace SurvivorCommunity
                     ScRegistry.SaveAtomic();
                 }
                 Check c = Evaluate(m, e, RestockMode.Home, now);
-                if (c.Due) { Restock(m, e, c, RestockMode.Home, Her(m) + " medical supplies at home", now); return; }
+                if (c.Due)
+                {
+                    string failed = Restock(m, e, c, RestockMode.Home, Her(m) + " medical supplies at home", now);
+                    if (failed == null) return;
+                    // nothing went in: a refusal like the others, counted once per episode and paced below
+                    c.Due = false;
+                    c.Why = failed;
+                    c.Counter = "meds-place-failed";
+                    c.Refusal = true;
+                }
                 string last;
                 restockLast.TryGetValue(m.Id, out last);
                 if (c.Counter == null)
@@ -1061,15 +1118,17 @@ namespace SurvivorCommunity
                     if (last != null) restockLast.Remove(m.Id);
                     return;
                 }
-                if (c.Counter != last)
+                bool changed = c.Counter != last;
+                if (changed)
                 {
                     restockLast[m.Id] = c.Counter;
                     Patches_Xnpc.Count(c.Counter);
                     if (!c.Refusal) ScLog.Verbose(Who(m, e) + " needs medical supplies at home, held: " + c.Why);
                 }
                 if (!c.Refusal) return;
+                // a new reason is logged at once; the same reason again at most every RestockLogSeconds
                 float t = Time.unscaledTime, due;
-                if (restockLogAt.TryGetValue(m.Id, out due) && t < due) return;
+                if (!changed && restockLogAt.TryGetValue(m.Id, out due) && t < due) return;
                 restockLogAt[m.Id] = t + RestockLogSeconds;
                 ScLog.Out(Who(m, e) + " needs medical supplies at home but " + c.Why);
             }
@@ -1093,7 +1152,14 @@ namespace SurvivorCommunity
                 if (m == null || npc == null || npc.world == null || !ScConfig.MedsResupply) return;
                 string run = string.IsNullOrEmpty(what) ? "run" : what;
                 Check c = Evaluate(m, npc, RestockMode.Run, npc.world.worldTime);
-                if (c.Due) { Restock(m, npc, c, RestockMode.Run, "before " + Her(m) + " " + run, npc.world.worldTime); return; }
+                if (c.Due)
+                {
+                    string failed = Restock(m, npc, c, RestockMode.Run, "before " + Her(m) + " " + run, npc.world.worldTime);
+                    if (failed == null) return;
+                    c.Why = failed;
+                    c.Counter = "meds-place-failed";
+                    c.Refusal = true;
+                }
                 if (c.Counter != null) Patches_Xnpc.Count(c.Counter);
                 // a send is a single event, not the 5 s check: its refusal is always logged
                 if (c.Refusal) ScLog.Out(Who(m, npc) + " leaves for " + Her(m) + " " + run + " without a medical restock: " + c.Why);
@@ -1163,7 +1229,7 @@ namespace SurvivorCommunity
                     if (e == null || standIn) { away++; continue; }
                     shown++;
                     Check c = Evaluate(m, e, RestockMode.Home, now);
-                    output("[SC]   " + Who(m, e) + " " + m.Status + ", " + (ScAmmo.Where(e.GetBlockPosition()) ?? "away from home") + ": "
+                    output("[SC]   " + Who(m, e) + " " + m.Status + ", " + WhereText(e) + ": "
                            + c.Heal + " heal item(s) (" + Have(e, "medicalFirstAidKit") + " kits, " + Have(e, "medicalFirstAidBandage") + " first aid bandages), "
                            + Have(e, "medicalBandage") + " cloth; " + RestockTimes(m, now) + "; at home: " + (c.Due ? "DUE (next check)" : "not now - " + c.Why));
                 }
@@ -1185,17 +1251,18 @@ namespace SurvivorCommunity
                     output("[SC] no restock: " + g.Why);
                     return;
                 }
-                bool ok = Restock(mm, body, g, RestockMode.Console, Her(mm) + " medical supplies (sc meds give)", now);
-                output("[SC] " + (ok ? Who(mm, body) + " restocked (the log has the line): " + HealItemCount(body) + " heal item(s) now, "
-                                       + cm.Get(Resource.Meds) + " Meds left, " + RestockTimes(mm, now)
-                                     : "the restock failed - see the log"));
+                string failed = Restock(mm, body, g, RestockMode.Console, Her(mm) + " medical supplies (sc meds give)", now);
+                if (failed != null) Patches_Xnpc.Count("meds-place-failed");
+                output("[SC] " + (failed == null ? Who(mm, body) + " restocked (the log has the line): " + HealItemCount(body) + " heal item(s) now, "
+                                                   + cm.Get(Resource.Meds) + " Meds left, " + RestockTimes(mm, now)
+                                                 : "no restock: " + failed));
                 return;
             }
             if (p.Count >= 3) { output("[SC] sc meds [id|name [give]]"); return; }
             Check home = Evaluate(mm, body, RestockMode.Home, now);
             Check run = Evaluate(mm, body, RestockMode.Run, now);
             int res = ScConfig.MedsResupplyKeepForInjured ? ScStockpile.MedsForRollover() : 0;
-            output("[SC] " + Who(mm, body) + ", " + mm.Status + ", " + (ScAmmo.Where(body.GetBlockPosition()) ?? "away from home")
+            output("[SC] " + Who(mm, body) + ", " + mm.Status + ", " + WhereText(body)
                    + (ScConfig.MedsResupply ? "" : " - MedsResupply is OFF"));
             output("[SC]   carries: " + home.Heal + " heal item(s) - " + Have(body, "medicalFirstAidKit") + " medicalFirstAidKit, "
                    + Have(body, "medicalFirstAidBandage") + " medicalFirstAidBandage; " + Have(body, "medicalBandage") + " medicalBandage"

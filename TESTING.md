@@ -102,14 +102,16 @@ lists every member; `sc meds Gina` shows one in full. The log lines below are `S
 **Using up her bandages (mid-fight)**
 
 - [ ] Leave Gina exactly one First Aid Bandage and no kit (pack and bag). `sc team Gina hurt 0.5`: she bandages
-      herself (the animation). Within about 5 s of the bandage leaving her pack: the "restocked her medical supplies at
-      home" line, if her cooldown is over. With a zombie at the base fighting her it happens the same way, mid-fight.
+      herself (the animation). Within about 5 s of the use finishing (the animation over): the "restocked her medical
+      supplies at home" line, if her cooldown is over. While the use runs the bandage in her hand still counts. With a
+      zombie at the base fighting her it happens the same way, mid-fight.
 
 **The cooldown**
 
 - [ ] Right after a restock, take her heal items again: "Gina (id N) needs medical supplies at home but she restocked 0.1 h
-      ago - next in 23.9 h" (or near it), once; not again for 5 real minutes (then once more, with the hours updated). `meds-cooldown=1`
-      in `sc meds` (once per episode, not every 5 s). No Meds taken.
+      ago - next in 23.9 h" (or near it), once; the same reason not again for 5 real minutes (then once more, with the
+      hours updated), while a new reason is logged at once. `meds-cooldown=1` in `sc meds` (once per episode, not every
+      5 s). No Meds taken.
 - [ ] To see it run out: `MedsResupplyCooldownHours` 1 in `Config/blocks.xml` (restart), restock, take her items: "next
       in 0.9 h"; about one in-game hour later (2.5 real minutes at a 60-minute day) she is restocked without anything
       else. Set it back to 24.
@@ -131,8 +133,15 @@ lists every member; `sc meds Gina` shows one in full. The log lines below are `S
       first; her parked body keeps the items.
 - [ ] Empty stockpile (`sc give meds -999`): "Gina (id N) leaves for her food run without a medical restock: the
       stockpile has no Meds (pack some at the packing station)" and she leaves anyway. `meds-refused-empty` +1.
+- [ ] Sent in the middle of a bandage (1 heal item, `sc team Gina hurt 0.5`, then `sc run Gina food` during the
+      animation): "Gina (id N) leaves for her food run without a medical restock: she was using a medical item when
+      sent", `meds-held-use` +1, and she leaves anyway. (The pre-run restock skips a use in progress, as at home.)
 
 **The empty stockpile and the reserve for the injured**
+
+These refusals (and the full pack below) are checked after the cooldown, so use a member who was never restocked
+(`sc meds` says "never restocked") or set `MedsResupplyCooldownHours` to 0 in `Config/blocks.xml` (restart) for them;
+otherwise you only see the cooldown line. Set it back to 24 afterwards.
 
 - [ ] `sc give meds -999`, take Gina's heal items: "Gina (id N) needs medical supplies at home but the stockpile has no
       Meds (pack some at the packing station)", `meds-refused-empty=1`. `sc give meds 1`: within 5 s she is restocked
@@ -145,15 +154,16 @@ lists every member; `sc meds Gina` shows one in full. The log lines below are `S
 
 **A full pack**
 
-- [ ] Take Gina's heal items and cloth bandages, then fill every slot of her PACK and her BAG with anything (one item per
-      slot is enough; the panel shows how full each is). Close: "Gina (id N) needs medical supplies at home but there is no
+- [ ] (Never restocked, or `MedsResupplyCooldownHours` 0: see above.) Take Gina's heal items and cloth bandages, then
+      fill every slot of her PACK and her BAG with anything (one item per slot is enough; the panel shows how full each
+      is). Close: "Gina (id N) needs medical supplies at home but there is no
       room in her pack for a medical restock", `meds-refused-full=1`; the stockpile unchanged, nothing on the ground at her
       feet. Empty one slot: one slot is not enough for three kinds (still refused); empty three: restocked.
 
 **Who is restocked**
 
 - [ ] A follower (hired, Following) walking through the base with no heal items is restocked; out in the world `sc meds`
-      says "she is away from home". At an outpost: "she is at <outpost> (no restock at an outpost this round)".
+      says "she is away from home". At an outpost: "she is at the outpost '<name>' (no restock at an outpost this round)".
 - [ ] A guard on watch at a Watch post inside the zone is restocked at the post.
 - [ ] A posted member's stand-in at an outpost is never restocked (`sc meds <name>`: "a stand-in is never restocked").
 
