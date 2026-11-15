@@ -74,7 +74,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 ## Work, runs and mining
 
 - `sc run <id|name> <res|mine|clay>` · `sc run <id|name> <recall|home|skip|offline>` · `sc runners`
-- `sc distress <id|name>` · `sc craft [table | <id|name> [spec <Specialty> | end]]`
+- `sc distress <id|name>` · `sc craft [table | station [radius] | <id|name> [spec <Specialty> | end]]`
 - `sc facility [list]` · `sc facility level <x y z> <1-5>` · `sc drinks [on|off]`
 
 ## Home, defense and the watch

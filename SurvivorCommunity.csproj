@@ -323,6 +323,8 @@
     <!-- J29 (round 29a): 0-XNPCCore's jobs on members - home jobs only for residents, output into the crates, replanting,
          the work kit never a fighting weapon, no squad orders on residents, a runner's inventory window -->
     <Compile Include="ScJobs.cs" />
+    <!-- round c2: a member's station crafts never become the player's (her item in his open window, a station's list) -->
+    <Compile Include="ScCraftStation.cs" />
   </ItemGroup>
 
   <!-- W2 (round 23): SC's wild raiders when another mod turns the game's enemy biome spawns off - 3.4 only -->

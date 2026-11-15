@@ -45,6 +45,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc names` / `sc names test` | Streamer names: the list file, names given and left; the next names in line. [READ] |
 | `sc xnpc [id\|name]` | Counters for all NPC hooks, or one NPC in full detail (AI, weapons, orders). Main bug-report probe. [READ] |
 | `sc craft [<name>]` | Crafting/work-shift status for the community or one member. [READ] |
+| `sc craft station` | The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft counters. [READ] |
 | `sc enclave list` / `reveal all` | List enclaves (settlements of other survivors); reveal them on the map. |
 | `sc enclave standing <id> <points>` | Set an enclave's standing (75 or more is Allied). [CHEAT] |
 | `sc enclave info <id>` | One enclave in detail. [READ] |
@@ -225,6 +226,10 @@ Crafting on/off, work shifts on/off, hook counters, XP saves, work and book summ
 
 ### `sc craft table` [READ]
 Crafting levels by star count for every specialty.
+
+### `sc craft station [radius]` [READ]
+The nearest workstation within 8 m (or the radius): its queue (whose craft each is, and whether the next one has room in the output), its output, the finished crafts not yet paid (whose, and who pays them), what a member has waiting in your open window for a full output, and your own craft counters (vanilla's items crafted and `_craftCount_`, Survivor Origins' `$q_` and craft XP waiting), which a member's crafts never move.
+Example: `sc craft station`
 
 ### `sc craft <id|name>` [READ]
 One member: specialty, stars, XP, which progression skills they have against what their stars want, which recipes they can make, their roles, their work shift and this session's craft counts.

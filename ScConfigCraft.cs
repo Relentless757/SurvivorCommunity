@@ -102,6 +102,7 @@ namespace SurvivorCommunity
             ScCraft.Reset();
             ScWork.Reset();
             ScBooks.Reset();
+            ScCraftStation.Reset();
             Patches_Craft.Reset();
         }
 

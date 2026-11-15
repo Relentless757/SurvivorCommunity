@@ -51,6 +51,18 @@ namespace SurvivorCommunity
     ///                                                                              player while it lasts (ScWork.StartTalk: the talk
     ///                                                                              hold, the user's decision 1)
     ///
+    /// C2 (round c2, 2026-11-14; vanilla's station window and list): a member's station crafts never become the player's (ScCraftStation).
+    ///   C2a XUiC_RecipeStack.outputStack()                                prefix (last) her queue item made in the player's open
+    ///                                                                              window: into the output only, listed under her id once
+    ///                                                                              there, no CraftedItem (Survivor Origins' XP) for him;
+    ///                                                                              no room: its item kept until it fits
+    ///   C2b XUiC_RecipeStack.Update(float)                                prefix   her craft reaches outputStack once, with room; a kept
+    ///                                                                              item placed when it fits; vanilla's stale "no room"
+    ///                                                                              retry (the player's inventory) cleared on her item
+    ///   C2c TileEntityWorkstation.AddCraftComplete(int, ItemValue, string, string, int, int)  prefix  a station's finished crafts
+    ///                                                                              listed crafter by crafter when a member is on either
+    ///                                                                              side (vanilla merges by item: one paid for the other's)
+    ///
     /// As Patches_Xnpc: every target DECLARED on the named type and bound by name (SdcsStationCraft is internal: found through
     /// SdcsCraft's assembly), a Prepare that turns the patch off with one warning when it is gone, ModApi's ExpectedTargets lists
     /// them, and each counts its hits (sc craft) - a renamed PayXp would otherwise stop station XP silently. Non-members are never
@@ -199,6 +211,25 @@ namespace SurvivorCommunity
         public static MethodBase TalkOpenTarget()
         {
             return AccessTools.DeclaredMethod(typeof(XUiC_DialogWindowGroup), "OnOpen", new Type[0]);
+        }
+
+        /// <summary>C2a: vanilla's XUiC_RecipeStack.outputStack() (private, publicized in the shipped assembly), returning bool.</summary>
+        public static MethodBase RecipeOutputTarget()
+        {
+            return Returning(AccessTools.DeclaredMethod(typeof(XUiC_RecipeStack), "outputStack", new Type[0]), typeof(bool));
+        }
+
+        /// <summary>C2b: vanilla's XUiC_RecipeStack.Update(float) (its override of XUiController.Update).</summary>
+        public static MethodBase RecipeUpdateTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(XUiC_RecipeStack), "Update", new[] { typeof(float) });
+        }
+
+        /// <summary>C2c: vanilla's TileEntityWorkstation.AddCraftComplete(crafter id, item, recipe name, scrapped item, craft XP, count).</summary>
+        public static MethodBase CraftCompleteAddTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(TileEntityWorkstation), "AddCraftComplete",
+                                              new[] { typeof(int), typeof(ItemValue), typeof(string), typeof(string), typeof(int), typeof(int) });
         }
 
         /// <summary>C1g runs every frame per body (the any-weapon tick): plain counters, read by Report.</summary>
@@ -411,6 +442,114 @@ namespace SurvivorCommunity
                 catch (Exception e)
                 {
                     ScLog.Once("craft-sweep", e);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ C2a-C2c (round c2): her station crafts stay hers ----
+
+        /// <summary>
+        /// C2a. The player's open station window makes the queue (the station's own loop stops while he has it open), and
+        /// vanilla's outputStack gives him a member's item when the output is full and his quest signal (Survivor Origins' craft
+        /// XP) for every one of them. ScCraftStation.OutputStack makes her item instead: into the output or, with no room, kept
+        /// until it fits (C2b places it; outputStack is not called again for that craft). Runs last among the prefixes, so
+        /// another mod's swap (Survivor Origins' burnt meat, a quality roll) is already on the recipe and SCore's extras are
+        /// placed. A call another prefix has skipped keeps that answer (Harmony ANDs them); only SCore's "an extra found no
+        /// room" skip (isInventoryFull, false) on her craft is turned into her kept item (ScCraftStation.AfterSkipped).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_MemberCraftOutput
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(RecipeOutputTarget, "XUiC_RecipeStack.outputStack()"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return RecipeOutputTarget(); }
+
+            [HarmonyPrefix]
+            [HarmonyPriority(Priority.Last)]
+            public static bool Prefix(XUiC_RecipeStack __instance, ref bool __result, bool __runOriginal)
+            {
+                if (!__runOriginal)
+                {
+                    // an earlier prefix answered: SCore's additional output with no room for an extra becomes her kept item
+                    try { ScCraftStation.AfterSkipped(__instance, __result); }
+                    catch (Exception e) { ScLog.Once("craft-c2-skipped", e); }
+                    return true;
+                }
+                try
+                {
+                    bool made;
+                    if (!ScCraftStation.OutputStack(__instance, out made)) return true;
+                    __result = made;
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-c2-output", e);      // only the member test can get here: not known to be hers, vanilla's
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// C2b. Before the window's Update (ScCraftStation.BeforeUpdate): vanilla's Update retries a "no room" item
+        /// (isInventoryFull) into the player's inventory and SetRecipe / CopyTo never clear that flag within an open window, so
+        /// a member's queue item in such a slot is cleared first; her craft reaches outputStack only with room for its item; a
+        /// made item kept for room is placed here when it fits. A few field reads per frame for everyone else (the flag, any
+        /// hold on record, whether the slot's craft is due).
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_MemberCraftStaleFull
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(RecipeUpdateTarget, "XUiC_RecipeStack.Update(float)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return RecipeUpdateTarget(); }
+
+            [HarmonyPrefix]
+            public static void Prefix(XUiC_RecipeStack __instance)
+            {
+                if (__instance == null) return;
+                if (!__instance.isInventoryFull && !ScCraftStation.Holding
+                    && !(__instance.isCrafting && __instance.craftingTimeLeft <= 0f && __instance.recipe != null)) return;
+                try
+                {
+                    ScCraftStation.BeforeUpdate(__instance);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-c2-stale", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// C2c. A station's finished crafts (CraftCompleteList, paid to the player by vanilla when he opens it, to a member by
+        /// C1d / C1e) are merged by item alone: listed crafter by crafter when a member is on either side
+        /// (ScCraftStation.KeepApart). Positional arguments: vanilla's parameter names are not part of the contract.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_CraftCompleteApart
+        {
+            [HarmonyPrepare]
+            public static bool Prepare() { return Bound(CraftCompleteAddTarget, "TileEntityWorkstation.AddCraftComplete(int, ItemValue, string, string, int, int)"); }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return CraftCompleteAddTarget(); }
+
+            [HarmonyPrefix]
+            public static bool Prefix(TileEntityWorkstation __instance, int __0, ItemValue __1, string __2, string __3, int __4, int __5)
+            {
+                try
+                {
+                    return !ScCraftStation.KeepApart(__instance, __0, __1, __2, __3, __4, __5);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("craft-c2-apart", e);
+                    return true;
                 }
             }
         }

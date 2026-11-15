@@ -37,6 +37,145 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round c2 (2026-11-14): a member's crafting never spills into your inventory
+
+The bug: a member cooked 500+ grilled corn at the campfire. While you had the campfire open, the game's own window was
+making their queue, and the window treats every item as yours: when the output was full the rest went into your
+inventory, and every corn it made (in the output too) counted as your craft, so Survivor Origins gave you cooking XP.
+The member was paid for the same corn as well when you next opened the campfire. Now:
+
+- **With the window open**, a member's queued crafts go into the station's **output only**. When the output is full
+  they **wait** in the queue and carry on as soon as there is room, exactly as when the window is closed. Nothing goes
+  to your inventory. A tooltip says "Rob's crafts wait: the station's output is full. Take some out and they carry
+  on." and the F1 log has "a station's output is full: Rob's N x ... wait in its queue while your window is open".
+- **Your craft counters never move for a member's crafts**: no vanilla crafting XP, no Survivor Origins craft XP or
+  completion counts, no quest or challenge progress.
+- **The member is paid once per item** that actually lands in the output, as before: by 0-XNPCCore when they are at
+  the station, or when you next open it (F1: "a station's list held N x ... made by Rob - paid to her now").
+- **A station's list of finished crafts is kept crafter by crafter** when a member is involved. Before, the game merged
+  your finished corn and the member's into one entry, so one of you was paid for the other's.
+- Your own crafting is unchanged, XP included.
+
+Expected, not a bug: when the member's craft is at the front of the queue and the output is full, **your own crafts
+queued behind it wait too** (the station makes its queue in order, window open or closed). Take some of the output out
+and both carry on. Cancelling one of the member's queued crafts in the window yourself still gives you its
+ingredients (the game's own Cancel; a deliberate act).
+
+Limits (known, not bugs):
+- **Host and single player only.** A multiplayer client's own window still makes a member's queue as vanilla does
+  (into that player's inventory when the output is full, with their craft XP): SC is single player, and the community
+  lives on the host.
+- **Each craft is made once.** Other mods act on every craft the window makes (SCore puts a recipe's extra outputs in
+  the output, Survivor Origins rolls burnt meat, REMS rolls a quality), so a member's craft reaches the window's
+  "make it" step only when there is room for it. If its item still does not fit (the extras took the last slot, or the
+  roll made something that does not stack), that exact item is kept and goes in as soon as there is room: nothing is
+  rolled or added twice. If you close the window before it fits, that one craft goes back to the station's queue and
+  the station makes it again (a recipe's SCore extras included), as the game does with its own "no room" item.
+- **Survivor Origins' burnt meat** (SO's code, not SC's): when the closed station burns grilled meat it takes the
+  count from the first grilled-meat entry in the station's list. Now that your entry and the member's are kept apart,
+  it can take it from the other crafter's entry, so the grilled/charred split between you two can be off by the burnt
+  ones (the total stays right).
+
+New read-only verb: **`sc craft station [radius]`** (nearest workstation within 8 m). It lists the queue (whose craft
+each is, and whether the next one has room in the output), the output's slots, the finished crafts not yet paid (whose,
+and who pays them), what is waiting in your open window, and **your own craft counters**: "items crafted N",
+`_craftCount_<recipe>` (vanilla) and `$q_<item>` (Survivor Origins' completions), plus Survivor Origins' craft XP
+waiting for its tick. `sc craft` (no name) adds the round's counters: `c2a-member-craft-to-output`,
+`c2a-member-craft-held`, `c2a-member-craft-item-kept` / `c2a-member-kept-item-placed` /
+`c2a-member-kept-item-requeued` (a made item that waited for room), `c2a-member-craft-extra-no-room`,
+`c2b-stale-full-cleared`, `c2c-craft-complete-kept-apart`.
+
+Setup: a Cooking member at home (Rob below), a campfire with fuel, a grill and a cooking pot, and plenty of corn in
+their inventory or the home crates (a few hundred is best: the report was 500+). Stand at the campfire, talk to them,
+**Craft...**, Grilled Corn, a large count (100+). Run `sc craft station` once before you start and note your counters
+(items crafted, `_craftCount_foodCornOnTheCob`, `$q_foodCornOnTheCob`), and `sc craft Rob` ("this session: N craft(s)").
+
+While Rob's order is alive they move the corn out of the output into their inventory, and the work shift moves it on to
+the crates, so the output rarely fills. To let it fill (as in the report, a queue left from an earlier session), leave
+nothing to move it: once the order is queued, **save and reload** (the order is gone, the campfire keeps the queue), or
+open the campfire and run `sc craft Rob end` while it is open (0-XNPCCore leaves the queued crafts to finish there).
+
+**Window closed, the output fills**
+
+- [ ] Leave the campfire closed until its output is full. `sc craft station`: the queue line ends "NO room in the output
+      for the next one: the queue waits until some is taken out", and the queue count stops going down. Nothing
+      appears in your inventory.
+- [ ] Open the campfire: the F1 log has "a station's list held N x foodCornOnTheCob made by Rob - paid to her now"
+      once, and `sc craft Rob` shows N more crafts "from a station's list". Open and close it again at once: no
+      second line for the same corn.
+
+**Window open, the output fills (the reported case)**
+
+- [ ] Open the campfire and keep it open while the queue runs. The corn goes into the output only. When the output is
+      full: the tooltip "Rob's crafts wait: the station's output is full. ..." once, the F1 log line "a station's output
+      is full: Rob's N x foodCornOnTheCob wait in its queue while your window is open ...", the queue's timer stops,
+      and **no corn appears in your inventory**, however long you wait.
+- [ ] Take one stack out of the output: crafting carries on into the freed slot, then waits again with one new
+      tooltip and log line (one per wait, never one per frame).
+- [ ] Close the window while it is waiting and reopen it a few seconds later: still waiting, still nothing in your
+      inventory, the queue count unchanged by the round trip.
+- [ ] Open and close the window several times mid-job (output partly full, then full). The queue count plus the corn
+      made (output + what you took + what reached Rob's inventory and the crates) always equals the count you ordered:
+      no corn lost, none made twice.
+- [ ] `sc craft` (no name): `c2a-member-craft-to-output` counts the crafts the open window made for Rob,
+      `c2a-member-craft-held` the times it waited; the summary line says the same in words.
+- [ ] **Grilled Meat** (Survivor Origins' burnt meat): order Grilled Meat, keep the window open until the output is
+      full and leave it waiting for a minute. Survivor Origins' F1 line "Cooking: grilled meat (queue) at Cooking N,
+      ...% burn -> grilled/charred" appears once per meat actually made, **not once per frame** while it waits, also
+      when a roll came out charred and that meat has to wait for room (the log then has "... is made but its item has no
+      room in the output - it is kept", with DebugLogging on). Charred meat Rob makes goes into the output like the rest.
+- [ ] **A REMS Culinary Hearth dish** (it hooks the same window code for its quality roll): order one of its meals,
+      window open, output full. It waits like the corn (nothing in your inventory, your counters unchanged), and the
+      dishes come out with rolled qualities, not always Simple.
+
+**Your XP and counters do not move**
+
+- [ ] After all of the above, `sc craft station`: "items crafted", `_craftCount_foodCornOnTheCob` and
+      `$q_foodCornOnTheCob` are exactly the numbers you noted at the start, and its "Survivor Origins XP waiting" shows
+      nothing new for cooking. Survivor Origins' skills page shows no Cooking gain (and no level-up) from the member's
+      corn.
+
+**The member's XP: once per item**
+
+- [ ] With the whole order done and the campfire opened once more (and Rob back at their post), `sc craft Rob`'s
+      "this session" crafts went up by exactly the count you ordered (station + "from a station's list"), and the
+      specialty XP paid is 0.5 per craft (Grilled Corn is a Cooking recipe).
+- [ ] `sc craft station` lists no finished corn still unpaid for Rob after that opening.
+
+**Your own crafting at the same campfire**
+
+- [ ] With the member's queue finished and the output emptied, queue 5 Grilled Corn yourself with the window open:
+      they go to the output; `sc craft station` shows "items crafted" +5, `_craftCount_foodCornOnTheCob` +5 and
+      `$q_foodCornOnTheCob` +5 (and Survivor Origins' Cooking XP goes up), as before this round.
+- [ ] Fill the output, queue your own: when the output is full **your** corn goes into your inventory as the game has
+      always done (only the member's waits).
+- [ ] Queue 5 of your own, close the window and wait until they are made; reopen: you are paid for them when you open
+      it (your counters +5), as before.
+- [ ] **Both at once.** Give Rob a new Grilled Corn order and queue some yourself, then close the window and let the
+      station make both. `sc craft station`: two separate "finished, not yet paid" entries, one "by you" and one "by Rob
+      [id]" (before this round they merged into one). Open the campfire: your counters go up by exactly your own
+      count, and the F1 sweep line pays Rob exactly theirs. `sc craft` counts `c2c-craft-complete-kept-apart`.
+
+**The member leaves the station, save and reload**
+
+- [ ] Window closed: `sc craft Rob end` mid-job. The F1 log has 0-XNPCCore's "took N crafts not yet made out of the
+      campfire and gave their ingredients back"; the corn already made stays in the output; nothing reaches your
+      inventory.
+- [ ] Window open: `sc craft Rob end` mid-job (0-XNPCCore leaves their crafts to finish there). They keep going into
+      the output only and wait when it is full; at your next opening the sweep line pays Rob for exactly those.
+- [ ] Mid-job, with the output full: save and quit, reload. `sc craft station` shows the same queue count and the
+      same unpaid entries. Open the campfire: the sweep pays Rob once for the entries made before the save, and the
+      rest waits in the output-full hold again; nothing goes to your inventory.
+- [ ] (Optional, a rare old game quirk; it only happens within one open window) Have one of **your own** crafts at the
+      front of the queue and Rob's behind it. Fill the output and your inventory, so the game halts your craft with "No
+      room in workstation output, crafting has been halted". Without closing the window, click your craft to cancel it:
+      Rob's craft moves to the front. The F1 log has "... had vanilla's "no room" retry left over from an earlier queue
+      item - cleared" (at most once a minute), Rob's craft waits for room like the rest, and nothing goes to your
+      inventory.
+- [ ] (Optional, with a recipe that has SCore extra outputs) Rob's craft at the front, the output with room for its item
+      but not for its extras: the extras that fit go in once, the item is kept and goes in when there is room, and `sc
+      craft` counts `c2a-member-craft-extra-no-room`; no extras are added again while it waits.
+
 ## Round s1 (2026-11-14): linked storage past 90 slots without RE Inventory
 
 The user's report: "Linked storage without RE Inventory is not expanding beyond 90 slots. Currently have 90 stacks with

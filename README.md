@@ -579,6 +579,9 @@ A resident can craft at home on a **work shift**:
 - The shift ends **90 seconds** after their last job (at once at night), **3 minutes** after a call with no order, when
   you say **"That's all for now."**, or when you press **End work**. They walk back to their post.
 - The craft window's Cancel cancels the job, not the whole shift.
+- **A full station output.** What they still have queued waits at the station until there is room, also while you
+  have the station open; take some out and they carry on. Their crafts never go into your inventory and never count
+  as yours (no crafting XP, no Survivor Origins XP); they are paid to the member once per item.
 - On a shift a resident still counts as at home: they keep their daily specialty bonuses and still defend the base.
 
 ### Home jobs and the work kit

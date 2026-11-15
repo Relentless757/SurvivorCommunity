@@ -426,6 +426,12 @@ namespace SurvivorCommunity
             Add(t, "SdcsCraft::PayXp", Patches_Craft.BackpackPayTarget());
             Add(t, "SdcsStationCraft::PayXp", Patches_Craft.StationPayTarget());
             Add(t, "TileEntityWorkstation::CheckForCraftComplete", Patches_Craft.CraftCompleteTarget());
+            // round c2: a member's station crafts never become the player's - C2a her item in his open window (the output only, it
+            // waits when that is full, no quest signal), C2b vanilla's stale "no room" retry off her item, C2c a station's list of
+            // finished crafts kept crafter by crafter
+            Add(t, "XUiC_RecipeStack::outputStack", Patches_Craft.RecipeOutputTarget());
+            Add(t, "XUiC_RecipeStack::Update", Patches_Craft.RecipeUpdateTarget());
+            Add(t, "TileEntityWorkstation::AddCraftComplete", Patches_Craft.CraftCompleteAddTarget());
             Add(t, "SdcsLootHere::Finish", Patches_Craft.LootFinishTarget());
             // C1g (review #3): 0-XNPCCore's owner-gated weapon picks skip a resident on a work shift
             Add(t, "AvatarSdcsNpcController::SdcsAnyWeaponTick", Patches_Craft.AnyWeaponTickTarget());

@@ -604,7 +604,7 @@ namespace SurvivorCommunity
             return null;
         }
 
-        /// <summary>sc craft [table | &lt;id|name&gt; [spec &lt;Specialty&gt; | end]].</summary>
+        /// <summary>sc craft [table | station [radius] | &lt;id|name&gt; [spec &lt;Specialty&gt; | end]].</summary>
         public static void ConsoleCmd(List<string> p, Action<string> output)
         {
             try
@@ -612,10 +612,10 @@ namespace SurvivorCommunity
                 ScConfig.EnsureParsed();
                 if (p.Count < 2)
                 {
-                    output("[SC] craft table | craft <id|name> [spec <Specialty> | end] - " + ScConfig_Line());
+                    output("[SC] craft table | craft station [radius] | craft <id|name> [spec <Specialty> | end] - " + ScConfig_Line());
                     output("[SC] crafting hooks: " + Patches_Craft.Report() + "; levels written " + levelWrites + ", Progressions made " + progressionsMade
                            + ", role stamps " + roleStamps + ", role changes kept " + roleMirrors + ", XP saves " + xpSaves + "; " + ScWork.Summary()
-                           + "; " + ScBooks.Summary());
+                           + "; " + ScBooks.Summary() + "; " + ScCraftStation.Summary());
                     return;
                 }
                 if (p[1].Equals("table", StringComparison.OrdinalIgnoreCase))
@@ -623,6 +623,12 @@ namespace SurvivorCommunity
                     if (!Resolve()) { output("[SC] the progression is not loaded yet"); return; }
                     output("[SC] crafting levels by stars (ScCraftMath.Level, max levels as loaded, curve " + ScConfig.CraftLevelCurve.ToString("0.##", CultureInfo.InvariantCulture) + "):");
                     foreach (string line in Table(true).Split('\n')) output("[SC]   " + line);
+                    return;
+                }
+                // round c2 (read-only): the nearest workstation's queue, output and unpaid crafts, whose each is, and your counters
+                if (p[1].Equals("station", StringComparison.OrdinalIgnoreCase))
+                {
+                    ScCraftStation.ConsoleStation(p, output);
                     return;
                 }
                 Member m = Find(p[1]);
