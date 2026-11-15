@@ -614,9 +614,17 @@ namespace SurvivorCommunity
                 }
                 // a code of our own for every request quest (SetupQuestCode keeps a non-zero one): vanilla's hashes the frame time,
                 // the quest id and a giver of -1, so two requests added in one frame would share it (the E4 review's L1)
-                int code = ("scEncRequest_" + r.Id + "_" + r.Kind + "_" + player.entityId + "_"
-                            + Time.unscaledTime.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).GetHashCode();
+                string uid = "scEncRequest_" + r.Id + "_" + r.Kind + "_" + player.entityId + "_"
+                             + DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture) + "_"
+                             + Time.unscaledTime.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+                int code = uid.GetHashCode();
                 q.QuestCode = code != 0 ? code : 1;
+#if SC_V34
+                // Round n11b: and its unique id with it. 3.4's SetupQuestCode fills QuestUniqueId only for a quest whose code is
+                // still 0, and the player file writes that id for every quest in progress (Quest.Write) - a null one throws, and
+                // the WHOLE player save failed at every autosave while a request quest was in the journal (the 2026-11-14 siege).
+                q.QuestUniqueId = uid;
+#endif
 #if SC_V34
                 j.AddQuest(q, Quest.QuestSource.QuestSystem);
 #else

@@ -490,6 +490,8 @@ namespace SurvivorCommunity
             Add(t, "StorageLockUtils::IsOpenInLocalLootWindow", Patches_MemberInv.LocalLootWindowTarget());
             // no Use/Read/Open on a BAG cell: vanilla would run it on the pack's slot of the same number
             Add(t, "XUiC_ItemActionList::SetCraftingActionList", Patches_MemberInv.ActionListTarget());
+            // Patches_QuestTitle.cs (round n11b) - a quest with no unique id or a null data value never breaks the player save
+            Add(t, "Quest::Write", Patches_ScQuestSave.WriteTarget());
 #endif
             // ScAim.cs - the aim pose (visual only)
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));

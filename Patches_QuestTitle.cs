@@ -133,4 +133,52 @@ namespace SurvivorCommunity
             return (c != null && c.Name != null) ? c.Name : "";
         }
     }
+
+#if SC_V34
+    /// <summary>
+    /// Round n11b: the player file must always save. 3.4's Quest.Write writes QuestUniqueId for every quest in progress and
+    /// each data variable's value; a null one throws in PooledBinaryWriter.Write(string), PlayerDataFile.Save then fails as a
+    /// whole ("ERR Save PlayerData file: Value cannot be null"), at every autosave, for as long as that quest is in the
+    /// journal - nothing of the player is saved. Vanilla fills the id only in SetupQuestCode, and only for a quest whose
+    /// QuestCode is still 0: SC's enclave request quests set their own code first (fixed in ScQuests.StartRequest), and any
+    /// other mod could do the same. So right before a quest is written (PlayerDataFile writes a clone of the journal), a missing id gets the value vanilla itself gives an
+    /// older save's quest when it reads one (Quest.Read: QuestCode.ToString()), and a null data value an empty string.
+    /// Its own class: a failure here never takes the title patches above with it.
+    /// </summary>
+    [HarmonyPatch]
+    public static class Patches_ScQuestSave
+    {
+        public static System.Reflection.MethodBase WriteTarget()
+        {
+            return AccessTools.Method(typeof(Quest), nameof(Quest.Write), new Type[] { typeof(PooledBinaryWriter) });
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Quest), nameof(Quest.Write), new Type[] { typeof(PooledBinaryWriter) })]
+        public static void Prefix_Write(Quest __instance)
+        {
+            try
+            {
+                if (__instance == null) return;
+                // only a quest in progress writes the id (Quest.Write); Quest.Read leaves a finished one's null - nothing to fix there
+                if (__instance.CurrentState == Quest.QuestState.InProgress && __instance.QuestUniqueId == null)
+                {
+                    __instance.QuestUniqueId = __instance.QuestCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    ScLog.Once("quest-uid-" + __instance.ID, "quest " + __instance.ID + " had no unique id (code " + __instance.QuestCode
+                               + ") - given one, so the player file can save");
+                }
+                Dictionary<string, string> vars = __instance.DataVariables;
+                if (vars != null && vars.ContainsValue(null))
+                {
+                    foreach (string k in vars.Where(kv => kv.Value == null).Select(kv => kv.Key).ToList()) vars[k] = "";
+                    ScLog.Once("quest-var-" + __instance.ID, "quest " + __instance.ID + " had an empty data value - saved as \"\"");
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("quest-write-guard", e);
+            }
+        }
+    }
+#endif
 }
