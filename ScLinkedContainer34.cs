@@ -40,7 +40,14 @@ namespace SurvivorCommunity
     /// </summary>
     public class ScLinkedContainer : SCoreLootContainer
     {
+        /// <summary>The view's columns in vanilla's looting window and on RE Inventory's grid (and SC's own window's vanilla look).</summary>
         public const int Cols = 9;
+        /// <summary>Round s1b: the columns this view is laid out in - Cols, or in SC's own window the columns its grid declares
+        /// (read once by ScStorage.OwnWindowFor, set by OpenWindow, kept by SizeFor; Tools/generate_linked_storage_ui.py: 9,
+        /// and 8 in AshfallUI's look, the width of AshfallUI's loot
+        /// window for the widest vanilla crate). The container is built this wide, and XUiC_LootContainer.SetSlots gives the
+        /// grid the container's width, so this is what the window draws.</summary>
+        public int ViewCols = Cols;
         /// <summary>A loot container defined in Config/loot.xml: vanilla looks lootListName up on open and close (and SCore
         /// closes a loot window whose container has no loot list name).</summary>
         public const string LootListKey = "scLinkedStorage";
@@ -79,9 +86,10 @@ namespace SurvivorCommunity
 
         // ---- layout ----
 
-        /// <summary>Cells the grid may hold: Cols x RowsCap (up to 1000 rows under Grid Inventory, 10 on vanilla's looting grid,
-        /// 40 in SC's own window - on 3.4 never more than the window has widgets, ScStorage.SizeFor).</summary>
-        private int MaxCells { get { return Cols * Math.Max(1, RowsCap); } }
+        /// <summary>Cells the grid may hold: ViewCols x RowsCap (up to 1000 rows under Grid Inventory, 10 on vanilla's looting grid,
+        /// 40 of 9 in SC's own window, 45 of 8 in its AshfallUI look - on 3.4 never more than the window has widgets,
+        /// ScStorage.SizeFor).</summary>
+        private int MaxCells { get { return ViewCols * Math.Max(1, RowsCap); } }
 
         /// <summary>Stacks that did not fit the grid on the last Rebuild (shown in the strip).</summary>
         public int Hidden { get; private set; }
@@ -119,8 +127,9 @@ namespace SurvivorCommunity
             int shown = ShownFree(usedArea, free);
             HiddenCells = free - shown;
             int cells = Mathf.Clamp(usedArea + shown, 1, cap);
-            int rows = Mathf.Clamp((cells + Cols - 1) / Cols, 1, Math.Max(1, RowsCap));
-            int total = Cols * rows;
+            int cols = Math.Max(1, ViewCols);
+            int rows = Mathf.Clamp((cells + cols - 1) / cols, 1, Math.Max(1, RowsCap));
+            int total = cols * rows;
             var stacks = new ItemStack[total];
             map = new ScStorage.Slot[total];
             for (int i = 0; i < total; i++)
@@ -131,7 +140,7 @@ namespace SurvivorCommunity
             quiet = true;
             try
             {
-                SetContainerSize(new Vector2i(Cols, rows), false);
+                SetContainerSize(new Vector2i(cols, rows), false);
                 ItemGrid.SetItems(stacks, false);
                 ItemGrid.SetSlotLocks(null);
             }
@@ -145,7 +154,7 @@ namespace SurvivorCommunity
         private int ShownFree(int _usedArea, int _free)
         {
             int shown = Math.Min(_free, MaxCells - _usedArea);
-            if (GridDrawn) shown = Math.Min(shown, HeadroomRows * Cols);
+            if (GridDrawn) shown = Math.Min(shown, HeadroomRows * ViewCols);
             return Math.Max(0, shown);
         }
 

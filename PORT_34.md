@@ -5724,3 +5724,77 @@ is in `Port33\_backups\sc34_2026-11-13_120421`; the user's `DebugLogging` true s
 Untested in game: TESTING Q33 (820-829), B33 (840-853), M33 (860-882), and still H32, F32, U32, R32, V31, S30, J29, M29,
 X3, P2, R2. Next: the user's new land claim block model (concept B middle with B left's storage locker, replacing SC's
 own land claim block model; concepts A and C kept for later customization options).
+
+### Round s1b: linked storage as wide as AshfallUI's loot window (2026-11-15, built, not reviewed, not installed)
+
+The user, on round s1's window with AshfallUI: "with Ashfall UI, the window is a bit too wide so the storage/inventory
+get cut off a little bit" (both outer columns past the screen's edges; the inventory's money and scroll bar clipped).
+Branch `ms/s1b` from `004a952`.
+
+- **What was compared.** At the same column count SC's AshfallUI-look window and AshfallUI's `windowLooting` (3.4, no
+  RE Inventory: vanilla's `{% v2i_x(gridDimensions) * 75 + ... }` widths, AshfallUI's `make_filters.py` and plate
+  patches) were already equal to the unit: window 691, content 678 at 3,-91, the 16-wide scroll bar strip at 678
+  (`ash_narrow` / `ash_inset` move its art, not the strip the header anchors to), cell 75, plate 707 at -8,8, header
+  3..697, lootName 45..492, filters 495, buttons 535..697. The window group too: `sclinkedstorage` has `looting`'s
+  `left_panel_valign_top="false"`, `XUiC_LootWindowGroup`, `close_compass_on_open`, `windowNonPagingHeader` and the
+  default padding 9 / y offset 457; `XUi.layoutWindowsInPanel` takes a panel's width from its windows' `Size.x`.
+- **The mismatch is the column count.** SC's view is 9 wide (`ScLinkedContainer.Cols`, from vanilla's 9 x 10 widget
+  grid); no crate a player stores in is wider than 8 (loot.xml: wood / iron / steel writable storage 8 x 6 / 8 x 8 /
+  8 x 10, drawer, safes, gun safe; no mod in the 3.4 install patches a size). So AshfallUI's loot window is at most
+  8 x 75 + 16 = **616** (plate 632) while SC's was **691** (plate 707): the looting row (left + 9 + INSPECT 534 + 9 +
+  inventory) 75 units wider. AshfallUI's `AshfallCentre` centers INSPECT and slides the row to keep both ends on the
+  screen, but when the row plus its rims (12 a side) is wider than the screen it centers the row, so both outer columns
+  hung off. On 3.4 a 16:9 screen is about 1841 stack units across (the 3.4 Player-prev.log: "a row of 1640 stack units
+  spans 123..2437 of 2560 screen px"), so the ~755 px the user's 2000-wide screenshot shows for SC's window is its 691
+  units - no hidden extra width; with INSPECT 534 and the inventory 574 a 691 row is 1817 + 24 = the whole screen with
+  nothing to spare, where an 8-wide crate's leaves 75. The same overflow existed before round s1 whenever linked
+  storage opened in `windowLooting` under AshfallUI (also 9 x 75).
+- **Fix: 8 columns in the AshfallUI look.** `Tools/generate_linked_storage_ui.py`: columns and rows per look - vanilla
+  9 x 40 (unchanged, byte for byte), AshfallUI 8 x 45 (still 360 cells). Window 616, content 603 at 3,-91, scroll bar
+  603,0, scrollview 603, plate 632 at -8,8, header 3..622, lootName 45..417, filters 420, buttons 460..622, the strip
+  618 wide in the band: every horizontal number equal to AshfallUI's `windowLooting` for an 8-wide crate (the generator
+  asserts the window). XML alone cannot do it: `XUiC_LootContainer.SetSlots` sets the grid's `cols` to the container's
+  width on every open. So `ScLinkedContainer.ViewCols` (new; default `Cols` = 9) is the view's width, and
+  for SC's own window only it is the columns its grid declares (`LootCols`: the bound `XUiV_Grid.Columns`; only SC's
+  view ever opens there, so it stays the XML's), read ONCE per open by `OwnWindowFor` (which also wants at least one
+  row of them) and handed to `SizeFor` through `ViewCols` by `OpenWindow` (Fable review: a second read that failed
+  would have fallen back to 9 in the 616 window, and `SetSlots` would then have written 9 into its grid for every
+  later open). Vanilla's looting window and RE Inventory's grid keep 9.
+- **Vanilla look:** left at 9 columns, as asked - not reported. It has the same 75 over vanilla's widest crate (691 vs
+  616); if it is ever reported, `COLS["van"] = 8` (and `ROWS["van"] = 45`) in the generator is the whole change now.
+- **Not here - AshfallUI's own session (AshfallUI is edited by its own session only):** AshfallUI's loot filter tabs
+  are missing from SC's linked storage window, and its filter does nothing there. Cause: the `ashLootFilters` row
+  (`tools/make_filters.py` `_loot_row()`, emitted into `Config/XUi_InGame/windows.xml` under "Loot filter tabs",
+  around line 1415 of the 3.4 install's copy) is appended to `windowLooting` only; and `InventoryFilter.ScopeOf`
+  (`src/InventoryFilter.cs:109`) returns `LootScope` only for the groups `looting` and `bagStorage`, so a grid in SC's
+  group `sclinkedstorage` gets no scope - `GridFilter.Update` and `InventoryFilter.Dimmed` both return early. Likely
+  fix on that side:
+  1. `src/InventoryFilter.cs`: treat group id `sclinkedstorage` as `LootScope` in `ScopeOf` (a third constant beside
+     `LootGroup` / `BagGroup`), and have `Select` dirty it with them (line 94 dirties only `looting` and `bagStorage`, so
+     the stacks would not refresh on a tab change). `GridFilter` keeps every slot's `SlotNumber` and only redraws the
+     order, which is safe for SC's view (its write-through goes by container slot).
+  2. `windows.xml` (make_filters.py): also append `_loot_row()` to `/windows/window[@name='windowScLinkedStorage']`,
+     guarded by an `xpath(...) != null` conditional so it is inert without SC. AshfallUI loads after SC (folder
+     `zzzzz_`), so the xpath reaches SC's window. **No content / height shift**: SC's AshfallUI-look window is already
+     laid out the way `windowLooting` is after AshfallUI's shift - content at 3,-91 and the window
+     `{% Min( v2i_y(gridDimensions) * 75 + 3, 528 ) + 97 }` tall - so the 40-unit band under the header (y 47..87) is
+     already there; AshfallUI's `3,-91` / `height 420` setattributes must not be copied over (the 420 would replace the
+     bound height).
+
+  SC's window as they would target it (AshfallUI look, `Tools/generate_linked_storage_ui.py`, inside SC's
+  `mod_loaded('zzzzz_AshfallUI')` branch): `window[@name='windowScLinkedStorage']` (616 wide, controller `LootWindow`)
+  holding, in order, `sprite[@name='scLinkedPlate']` (SC's plate, -8,8; not `ashfallPlate`), `rect[@name='header']`
+  (3,0, 619 x 43), `rect[@name='actions']` (0,-2, 43 tall, `ContainerStandardControls`: the search box, sort, fill and
+  take all already moved into the header as AshfallUI does to `windowLooting`, the category filter hidden),
+  `rect[@name='scLinkedStrip']` (3,-47, 618 x 40) and `rect[@name='content']` (3,-91, 603 wide, `LootContainer`: the
+  scroll bar, the scrollview and grid `queue`, 8 x 45). **The band is taken today: SC's linked strip sits in it** (its
+  text on the left, Refresh 100 x 28 on the right) - where `windowLooting` has the tabs. The tab row (0,-47, 36 tall,
+  laid across the window by `XUiC_InventoryFilterRow`) would cover it completely. So when AshfallUI adds the row, SC
+  moves its strip out of the band and under the content box, as its vanilla look hangs it (generate_strips_ui's AshfallUI
+  strip under the grid, the window and plate growing by the strip and its gap) - a generator change on SC's side, to
+  land together with AshfallUI's.
+
+Verified: all six `Tools/generate_*_ui.py` twice, `windows.xml` stable (`37777dc5…`) and parses; the vanilla branch and
+the rest of `windows.xml` byte-identical to `004a952`. Build clean (the 3 known warnings). Fable review: deployable;
+its three small items applied after it (the columns read once, TESTING's last-cell / over-cap / vanilla / log steps,
+the `LinkedStorageRows` comment). Untested in game: TESTING "Round s1b".

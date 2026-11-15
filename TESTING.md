@@ -37,6 +37,33 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round s1b (2026-11-15): linked storage fits the screen with AshfallUI
+
+The user's report on round s1: "with Ashfall UI, the window is a bit too wide so the storage/inventory get cut off a
+little bit." With AshfallUI, linked storage's window is now 8 slots wide instead of 9 (45 rows of 8, still up to 360
+slots): exactly the size of AshfallUI's window for a steel crate, so INSPECT and your inventory sit where they do when
+you loot one. Without AshfallUI nothing changes (9 wide).
+
+- [ ] Without RE Inventory, with AshfallUI: open a steel crate and note where its window, INSPECT and your inventory
+      sit. Close it and open linked storage: 8 slots per row, the window as wide as the steel crate's, INSPECT and the
+      inventory in the same places, and nothing cut off at the left or right edge of the screen (the inventory's money
+      and scroll bar fully visible). The search icon, sort, fill and take all are at the right end of the header, the
+      strip's text and Refresh in the band under it, and the grid scrolls to its last row. The F1 log says
+      `linked storage opened: ... grid 8x... (cap 45 rows, SC's window) ...`.
+- [ ] With AshfallUI, the last cell: four full steel crates and a fifth empty one in the base (320 stacks, 80 free
+      slots). Open linked storage: the log says `grid 8x45 (cap 45 rows, SC's window), 0 stack(s) and 40 free cell(s)
+      not shown`. Scroll to the bottom (row 45): its 8 cells are empty. Drag an item from your backpack onto the last
+      cell of row 45 (bottom right): it stays there, the fifth crate on the wall has it, and the strip's free count drops
+      by 1.
+- [ ] With AshfallUI, over the cap: six steel crates, five full and the sixth with 80 free slots (400 stacks). The log
+      says `grid 8x45 (cap 45 rows, SC's window), 40 stack(s) and 80 free cell(s) not shown`, the window shows 360 stacks
+      (45 full rows of 8), and the strip ends "40 stack(s) more than the grid can show".
+- [ ] Without AshfallUI (vanilla look): open linked storage: 9 slots per row as before, and the log says
+      `grid 9x... (cap 40 rows, SC's window)`.
+- [ ] After the above, the log has no `IndexOutOfRangeException`, no `linked-slotchanged`, and no `storage-ownwindow threw`
+      line and no "linked storage: window group 'sclinkedstorage' or its grid not found" (the window's column count is
+      read there, once per open).
+
 ## Round c2 (2026-11-14): a member's crafting never spills into your inventory
 
 The bug: a member cooked 500+ grilled corn at the campfire. While you had the campfire open, the game's own window was

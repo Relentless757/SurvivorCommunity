@@ -601,7 +601,8 @@ namespace SurvivorCommunity
         /// widget pool, less two rows kept free for what gets dropped in while the window is open (slot i needs
         /// widget i, so nothing may enter the view at or past the pool: ShowLimit). Vanilla's grid has a widget
         /// per slot and no scrolling: 10 rows, as before - and on 3.4, without Grid Inventory, SC's own window
-        /// (OwnWindowGroup) scrolls over its 360 widgets: 40 rows, every stack and free slot up to 360. Without
+        /// (OwnWindowGroup) scrolls over its 360 widgets: 40 rows of 9 (45 of 8 in its AshfallUI look, round s1b: the view
+        /// takes the columns the window's grid declares, ViewCols), every stack and free slot up to 360. Without
         /// the bridge's GridDraws (an older bridge) the previous 28 rows. LinkedStorageRows only lowers these.
         /// </summary>
         public static void SizeFor(ScLinkedContainer c)
@@ -615,6 +616,13 @@ namespace SurvivorCommunity
 #endif
             int rows = !gi ? (own ? GridRowsMax : VanillaRows) : (known ? GridRowsMax : LegacyGridRows);
 #if SC_V34
+            // round s1b: in SC's own window the view takes the columns its grid declares (9; 8 in AshfallUI's look, as wide as
+            // AshfallUI's loot window for the widest vanilla crate, so INSPECT and the inventory fit beside it), read ONCE by
+            // OwnWindowFor and handed over in c.ViewCols by OpenWindow - a second read that failed would fall back to 9 in a
+            // window 8 wide, and SetSlots would then write 9 into its grid for every later open. Vanilla's looting window and
+            // RE Inventory's grid keep Cols: the looting grid's cols change with every crate opened there.
+            int cols = own ? Math.Max(1, c.ViewCols) : ScLinkedContainer.Cols;
+            c.ViewCols = cols;
             // 3.4: vanilla's loot refresh (XUiC_LootContainer.OnTileEntityChanged) walks the CONTAINER's grid and indexes the
             // window's widgets with the same counter, unguarded (3.2 walked the widgets) - a view with more cells than the
             // window has widgets throws on every write, after the write reached a box but before the cell took the drop. And
@@ -630,7 +638,7 @@ namespace SurvivorCommunity
                     int pool34 = WidgetPool();
                     widgets = widgets > 0 ? Math.Min(widgets, pool34) : pool34;
                 }
-                if (widgets > 0) rows = Math.Min(rows, Math.Max(1, widgets / ScLinkedContainer.Cols));
+                if (widgets > 0) rows = Math.Min(rows, Math.Max(1, widgets / cols));
                 else if (gi || own) rows = Math.Min(rows, VanillaRows);    // unknown: never past vanilla's grid
             }
 #endif
@@ -668,6 +676,16 @@ namespace SurvivorCommunity
             return w != null ? w.Length : 0;
         }
 
+        /// <summary>Round s1b: the columns of a loot window group's grid, 0 without one. Asked of SC's own window only, once per
+        /// open (OwnWindowFor): vanilla's XUiC_LootContainer.SetSlots gives the grid each opened container's width, and only
+        /// SC's view opens there, laid out in these columns - so they stay the ones the window's XML declares.</summary>
+        private static int LootCols(XUiC_LootWindowGroup _group)
+        {
+            XUiC_LootWindow lw = _group != null ? _group.lootWindow : null;
+            XUiV_Grid g = lw != null && lw.lootContainer != null ? lw.lootContainer.grid : null;
+            return g != null ? g.Columns : 0;
+        }
+
         /// <summary>
         /// Round s1: SC's own linked storage window (OwnWindowGroup) for a view drawn on vanilla's loot grid, i.e. without RE
         /// Inventory. Vanilla's looting window has 90 item widgets, and SizeFor never gives the view more slots than its window
@@ -676,16 +694,23 @@ namespace SurvivorCommunity
         /// vanilla's looting window - its controllers, so every move is the game's own - with 360 cells in a scrolling view
         /// (Tools/generate_linked_storage_ui.py). Null with RE Inventory loaded (its grid draws the view in the looting window,
         /// as before), and when the window is missing or smaller than one row (the looting window and its 90 slots, as before,
-        /// with a warning once).
+        /// with a warning once). Round s1b: _cols is the window grid's columns (> 0 whenever a group is returned), read here
+        /// once and handed to SizeFor through ScLinkedContainer.ViewCols; 0 with null.
         /// </summary>
-        private static XUiC_LootWindowGroup OwnWindowFor(EntityPlayerLocal player)
+        private static XUiC_LootWindowGroup OwnWindowFor(EntityPlayerLocal player, out int _cols)
         {
+            _cols = 0;
             if (GridInventoryLoaded()) return null;
             try
             {
                 XUi xui = player != null && player.PlayerUI != null ? player.PlayerUI.xui : null;
                 XUiC_LootWindowGroup g = xui != null ? xui.FindWindowGroupByName(OwnWindowGroup) as XUiC_LootWindowGroup : null;
-                if (g != null && LootWidgets(g) >= ScLinkedContainer.Cols) return g;
+                int cols = LootCols(g);
+                if (g != null && cols > 0 && LootWidgets(g) >= cols)
+                {
+                    _cols = cols;
+                    return g;
+                }
                 ScLog.Once("storage-ownwindow-missing", "linked storage: window group '" + OwnWindowGroup + "' or its grid not found (xui.xml, windows.xml)"
                            + " - linked storage opens in the looting window, 90 slots at most");
             }
@@ -807,8 +832,9 @@ namespace SurvivorCommunity
 #if SC_V34
                 // round s1: without RE Inventory, SC's own window (360 cells, scrolling); the view is sized for the window
                 // it opens in
-                XUiC_LootWindowGroup own = OwnWindowFor(player);
+                XUiC_LootWindowGroup own = OwnWindowFor(player, out int ownCols);
                 c.OwnWindow = own != null;
+                if (own != null) c.ViewCols = ownCols;                // round s1b: its grid's columns, read once (SizeFor)
 #endif
                 SizeFor(c);
                 c.Rebuild();

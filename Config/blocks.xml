@@ -358,7 +358,8 @@
 			<property name="MiningOreMix" value="" />
 			<property name="DigClayItems" value="resourceClayLump,resourceCrushedSand" />
 			<!-- most rows the linked storage grid shows: 0 = automatic (up to 1000 when Grid Inventory scrolls it;
-			     without it, up to 40 in SC's own scrolling linked storage window, its 360 cells) -->
+			     without it, up to 40 in SC's own scrolling linked storage window, its 360 cells; 45 with AshfallUI, whose
+			     rows are 8 wide, so there N rows means N x 8 cells, N x 9 without it) -->
 			<property name="LinkedStorageRows" value="0" />
 			<!-- radio station. RadioOnlyAirdrops: vanilla's scheduled air drops are refused; the sandbox "air drop
 			     frequency" (hours) is the radio's cooldown instead. Calls find a hireable survivor at a real POI
