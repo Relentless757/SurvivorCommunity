@@ -103,11 +103,12 @@ namespace SurvivorCommunity
             public float RouteReplanAt = -1f;
             /// <summary>
             /// Round r2 review (fix 2b): the hold's own clock (HoldClock) - real seconds held in all on this leg (HeldLeg), and the
-            /// one threat she no longer waits for after HoldMaxSeconds in your sight (-1: none). Flight and fighting still apply to it.
+            /// threats she no longer waits for after HoldMaxSeconds in your sight. A set for the whole leg (re-review R1): with one id,
+            /// two threats took turns holding her, each release freeing the other. Flight and fighting still apply to them.
             /// </summary>
             public float HeldTotal;
             public RunLeg HeldLeg = RunLeg.None;
-            public int HeldReleased = -1;
+            public readonly HashSet<int> HeldReleased = new HashSet<int>();
         }
 
         public static Session S(int id)
@@ -653,7 +654,7 @@ namespace SurvivorCommunity
                 return;
             }
             // round r2 review (fix 2b): a new leg starts the hold's clock afresh, and waits for every threat again
-            if (s.HeldLeg != m.RunLeg) { s.HeldLeg = m.RunLeg; s.HeldTotal = 0f; s.HeldReleased = -1; }
+            if (s.HeldLeg != m.RunLeg) { s.HeldLeg = m.RunLeg; s.HeldTotal = 0f; s.HeldReleased.Clear(); }
             if (m.RunLeg == RunLeg.AtSite)
             {
                 // looking around the site: a wander spot not reached in 40 s is dropped for another
@@ -1139,8 +1140,8 @@ namespace SurvivorCommunity
             {
                 // on the way home now (whatever came after the turn): never asked again, and injured at the gate
                 if (m.RunLeg != was && m.RunLeg != RunLeg.Outbound && m.RunLeg != RunLeg.AtSite) m.RunHurt = true;
+                s.HasWaypoint = false;                                                          // re-review R3: never the old site waypoint first
             }
-            s.HasWaypoint = false;
             if (!capturing && npc != null && npc.getNavigator() != null) npc.getNavigator().clearPath();
             if (was == RunLeg.Outbound) ScLog.Out(m.Name + " turned back before reaching " + m.RunDestName + " (nothing found yet)");   // LeaveSite logs the haul at the site
             SayHurtHome(m, player);
@@ -1208,7 +1209,7 @@ namespace SurvivorCommunity
             for (int i = 0; i < threatScratch.Count; i++)
             {
                 EntityAlive a = threatScratch[i] as EntityAlive;
-                if (a == null || a == self || a.IsDead() || a.IsSleeping || a.entityId == s.HeldReleased) continue;
+                if (a == null || a == self || a.IsDead() || a.IsSleeping || s.HeldReleased.Contains(a.entityId)) continue;
                 float d2 = (a.position - self.position).sqrMagnitude;
                 if (d2 > bestD2 || !EntityTargetingUtilities.IsEnemy(self, a)) continue;
                 bool after = a.GetAttackTarget() == self || a.GetRevengeTarget() == self;
@@ -1254,7 +1255,7 @@ namespace SurvivorCommunity
                 ScLog.Out(m.Name + ": held " + HoldMaxSeconds.ToString("0") + " s in all by " + what + " with no way round, out of your sight - the walk goes on offline");
                 if (GoOffline(w, m, npc, "held by a threat", false)) return true;
             }
-            s.HeldReleased = s.RouteThreat;
+            s.HeldReleased.Add(s.RouteThreat);                                                   // for the rest of this leg (R1)
             s.RouteUntil = -1f;                                                                 // the memo again, without it
             ScLog.Out(m.Name + ": held " + HoldMaxSeconds.ToString("0") + " s in all by " + what + " in your sight - stops waiting for it and moves on (still runs from it or fights it)");
             return false;

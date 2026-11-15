@@ -37,6 +37,25 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round hl1 (2026-11-15): members at home hold their ground (no LeaveAreaSdcs)
+
+The report: Gina (Fighting 2, over 100 HP) swung at one zombie at the base, then walked off with the action
+`LeaveAreaSdcs` and came back with her bow. 0-XNPCCore sends any unhired NPC that a zombie within 20 m targets out of a
+POI's sleeper area (padded 8 m) and 30 m past it; the base sits inside farm_15's footprint, so every fight at home did
+this. Now no community member takes it while at home: inside the home zone or within 8 m of it
+(`ResidentRoamZoneMargin`), or anywhere in the defended area while a base attack is on. Away from home, 0-XNPCCore's rule
+is unchanged. This round only stops the walk-off; which weapon they use is the team-strength round, still to come.
+
+- [ ] At the base, spawn one zombie near a resident (F6 or `spawnentity`). They fight it where they are; the action
+      shown never becomes `LeaveAreaSdcs`, and they don't walk 30 m away.
+- [ ] Same with two or three residents and a few zombies: nobody leaves the base to escape the fight.
+- [ ] A resident standing just outside the zone (a few meters past its edge) when a zombie targets them: still no
+      leave-area (the 8 m margin).
+- [ ] During a horde at the base (a base attack): residents fighting at the edge of the defended area don't run off.
+- [ ] Away from home (a follower is unaffected: they have a leader), and at a POI with an unhired stranger NPC: nothing
+      changed - a stranger targeted inside a POI's sleeper area may still leave it.
+- [ ] The log has no `uai-not-home-member` line.
+
 ## Round r2 (2026-11-15): a hurt runner with no way to heal comes home
 
 The report: "I was helping a member I sent out to mine ore who was in danger, and I noticed that they got caught in a

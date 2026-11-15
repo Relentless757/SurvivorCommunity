@@ -1193,6 +1193,37 @@ namespace UAI
     }
 
     /// <summary>
+    /// 3.4, round hl1 (the user, 2026-11-15: Gina swung at a lone zombie at home, then ran off with LeaveAreaSdcs and came
+    /// back with her bow; decision 6 "always"): 0 for one of the community's members whose body is at home - inside the home
+    /// zone or within ResidentRoamZoneMargin of it, or anywhere in the defended area (+ LeashExtra) while a base attack is
+    /// on (ScBaseAttack.WideDefence) - else 1: members away from home, hired followers (0-XNPCCore never sends a body with
+    /// a leader anyway), raiders, strangers. 0-XNPCCore 3.4's sleeper detection sends any unhired body an enemy within 20 m
+    /// targets out of a POI sleeper volume (padded 8 m) and 30 m past it (LeaveAreaSdcs, weight 9, over every fight); a base
+    /// built on or beside a POI's footprint is inside one (the user's sits in farm_15's), so every fight at home walked
+    /// residents out of it. Same gate as ScNotEncHome, for SC's own people. A pure read; a throw is logged once and means 1
+    /// (0-XNPCCore's rule as before).
+    /// </summary>
+    public class UAIConsiderationScNotHomeMember : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            try
+            {
+                EntityAlive self = _context.Self;
+                if (self == null || ScRegistry.GetMember(self.entityId) == null) return 1f;
+                Vector3 pos = self.position;
+                if (ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin) return 0f;
+                return ScBaseAttack.WideDefence && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra) ? 0f : 1f;
+            }
+            catch (System.Exception e)
+            {
+                ScLog.Once("uai-not-home-member", e);
+                return 1f;
+            }
+        }
+    }
+
+    /// <summary>
     /// 3.4, round R1 (Q10): 0 for one of a band's bodies (ScBands.PersonOf) while its band has not engaged the player
     /// (Band.Engaged), else 1 - everyone else, a band that is attacking, raiders in a den or the wild, 0-XNPCCore's own
     /// bandits. On 0-XNPCCore 3.4.02's SdcsBanditCombat HoldEngaged (Config/utilityai.xml, only where that action exists):
@@ -1356,7 +1387,13 @@ namespace UAI
                 if (!ScRunners.PlanStep(w, self, m, goal, wander, out wp, out blocked))
                 {
                     s.HasWaypoint = false;
-                    if (blocked && self.getNavigator() != null) self.getNavigator().clearPath();
+                    if (blocked)
+                    {
+                        if (self.getNavigator() != null) self.getNavigator().clearPath();
+                        // re-review R2: no step keeps her clear - she waits a second before asking again (at the site the hold
+                        // may say "not held" for a threat 15-30 m off while every wander spot is refused: not a plan every frame)
+                        pauseUntil[self.entityId] = Time.time + 1f;
+                    }
                     return;
                 }
                 s.Waypoint = wp;
