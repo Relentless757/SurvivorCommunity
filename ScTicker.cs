@@ -252,6 +252,9 @@ namespace SurvivorCommunity
                 Patches_VoiceControl.StripContract(npc);   // members are never billed (0-XNPCCore 3.2's Voice Control)
                 ScCommunity.ApplyAiPackage(npc);
                 ScCommunity.StampFollowing(m, npc);   // keeps the dialog's order options in step with the status
+#if SC_V34
+                UAI.UAIConsiderationScNotHomeMember.DisarmLeave(m, npc);   // round hl1: a leave 0-XNPCCore armed at home never fires later
+#endif
                 ScSkills.StampCvars(m, npc);          // levels and derived bonuses (daily XP changes them while loaded)
                 ScTraits.ApplyBuffs(m, npc);
                 ScLooks.Sync(m, npc);                 // player-body survivors: equipment is never saved for NPCs

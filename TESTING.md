@@ -54,7 +54,10 @@ is unchanged. This round only stops the walk-off; which weapon they use is the t
 - [ ] During a horde at the base (a base attack): residents fighting at the edge of the defended area don't run off.
 - [ ] Away from home (a follower is unaffected: they have a leader), and at a POI with an unhired stranger NPC: nothing
       changed - a stranger targeted inside a POI's sleeper area may still leave it.
-- [ ] The log has no `uai-not-home-member` line.
+- [ ] Right after a fight at home (within 45 s), send the member who fought on a supply or mining run: they walk
+      straight out on the run, with no `LeaveAreaSdcs` detour once they pass the zone. With DebugLogging on, the log
+      shows "<name>: 0-XNPCCore's leave-area was armed at home - disarmed (round hl1)" during the fight.
+- [ ] The log has no `uai-not-home-member` or `hl1-disarm-leave` line.
 
 ## Round r2 (2026-11-15): a hurt runner with no way to heal comes home
 

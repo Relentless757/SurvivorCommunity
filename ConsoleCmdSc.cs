@@ -2405,6 +2405,7 @@ namespace SurvivorCommunity
             Output("[SC] melee: " + ScMelee.Report());
 #if SC_V34
             Output("[SC] melee-unreachable (0-XNPCCore): " + ScReach.Report());
+            Output("[SC] leave-area armed at home and disarmed (round hl1): " + UAI.UAIConsiderationScNotHomeMember.Disarmed + " time(s)");
 #endif
             Output("[SC] shooting skill: " + ScShooting.Report());
             Output("[SC] get-ups: " + Patches_Sdcs.GetUp.Report());

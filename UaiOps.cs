@@ -1180,8 +1180,10 @@ namespace UAI
     /// enclave's people who is at home (ScEnclavePeople.PersonOf, StateHome), else 1. 0-XNPCCore 3.4's sleeper detection
     /// sends any unhired body an enemy targets inside a sleeper volume out of it (LeaveAreaSdcs, weight 9, over every
     /// fight); an enclave's building is one, so its people left home in every zombie fight. This gate on LeaveAreaSdcs
-    /// (Config/utilityai.xml, 3.4 only) keeps them in and fighting; the flags XNPC sets meanwhile (SdcsLeavingArea,
-    /// SdcsSleeperDetected) have no effects and run out, and its building-avoid list only steers looting.
+    /// (Config/utilityai.xml, 3.4 only) keeps them in and fighting. The flags XNPC sets meanwhile (SdcsLeavingArea,
+    /// SdcsSleeperDetected) have no effect groups and its building-avoid list only steers looting, but the blocked leave
+    /// stays armed (SdcsLeavingArea, 45 s, with the exit point it computed): it fires the moment this gate turns to 1
+    /// (round hl1 review F1). For members, ScNotHomeMember.DisarmLeave drops it at home; enclave people are not covered.
     /// </summary>
     public class UAIConsiderationScNotEncHome : UAIConsiderationBase
     {
@@ -1200,25 +1202,58 @@ namespace UAI
     /// a leader anyway), raiders, strangers. 0-XNPCCore 3.4's sleeper detection sends any unhired body an enemy within 20 m
     /// targets out of a POI sleeper volume (padded 8 m) and 30 m past it (LeaveAreaSdcs, weight 9, over every fight); a base
     /// built on or beside a POI's footprint is inside one (the user's sits in farm_15's), so every fight at home walked
-    /// residents out of it. Same gate as ScNotEncHome, for SC's own people. A pure read; a throw is logged once and means 1
-    /// (0-XNPCCore's rule as before).
+    /// residents out of it. Same gate as ScNotEncHome, for SC's own people. "At home" holds whatever ResidentRoamZone says:
+    /// the zone is home whether or not residents roam it. A pure read; a throw is logged once and means 1 (0-XNPCCore's
+    /// rule as before).
     /// </summary>
     public class UAIConsiderationScNotHomeMember : UAIConsiderationBase
     {
+        /// <summary>0-XNPCCore's armed leave (45 s; its LeaveAreaSdcs needs it, SelfHasBuffV4).</summary>
+        public const string LeavingBuff = "SdcsLeavingArea";
+        /// <summary>Leaves disarmed at home since the world loaded (sc xnpc).</summary>
+        public static int Disarmed;
+
         public override float GetScore(Context _context, object target)
         {
             try
             {
                 EntityAlive self = _context.Self;
                 if (self == null || ScRegistry.GetMember(self.entityId) == null) return 1f;
-                Vector3 pos = self.position;
-                if (ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin) return 0f;
-                return ScBaseAttack.WideDefence && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra) ? 0f : 1f;
+                return AtHome(self.position) ? 0f : 1f;
             }
             catch (System.Exception e)
             {
                 ScLog.Once("uai-not-home-member", e);
                 return 1f;
+            }
+        }
+
+        /// <summary>Round hl1: inside the home zone or within ResidentRoamZoneMargin of it, or in the defended area (+ LeashExtra) during a base attack.</summary>
+        public static bool AtHome(Vector3 pos)
+        {
+            if (ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin) return true;
+            return ScBaseAttack.WideDefence && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra);
+        }
+
+        /// <summary>
+        /// Round hl1 review F1, once a second for every loaded member (ScTicker.Relink): 0-XNPCCore's detection arms a leave in
+        /// C# whatever the action scores - SdcsLeavingArea (45 s) and an exit point - and only its task's Stop takes it off,
+        /// which the gate above keeps from ever running. Left on, the leave fired the moment she was no longer at home (sent on
+        /// a run, hired, a base attack ending) toward a point from where she stood before. At home it is taken off here; its
+        /// SdcsSleeperDetected (20 s) keeps 0-XNPCCore from arming it again at once. Away from home nothing is touched.
+        /// </summary>
+        public static void DisarmLeave(Member m, EntityAlive npc)
+        {
+            try
+            {
+                if (npc == null || npc.Buffs == null || !npc.Buffs.HasBuff(LeavingBuff) || !AtHome(npc.position)) return;
+                npc.Buffs.RemoveBuff(LeavingBuff);
+                Disarmed++;
+                ScLog.Verbose((m != null ? m.Name : "a member") + ": 0-XNPCCore's leave-area was armed at home - disarmed (round hl1)");
+            }
+            catch (System.Exception e)
+            {
+                ScLog.Once("hl1-disarm-leave", e);
             }
         }
     }
