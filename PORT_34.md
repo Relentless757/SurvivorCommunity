@@ -5725,7 +5725,7 @@ Untested in game: TESTING Q33 (820-829), B33 (840-853), M33 (860-882), and still
 X3, P2, R2. Next: the user's new land claim block model (concept B middle with B left's storage locker, replacing SC's
 own land claim block model; concepts A and C kept for later customization options).
 
-### Round s1b: linked storage as wide as AshfallUI's loot window (2026-11-15, built, not reviewed, not installed)
+### Round s1b: linked storage as wide as AshfallUI's loot window (2026-11-15, installed with r2 + hl1 at 93f1b36, untested)
 
 The user, on round s1's window with AshfallUI: "with Ashfall UI, the window is a bit too wide so the storage/inventory
 get cut off a little bit" (both outer columns past the screen's edges; the inventory's money and scroll bar clipped).
