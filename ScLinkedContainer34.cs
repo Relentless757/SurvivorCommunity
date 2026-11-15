@@ -33,7 +33,9 @@ namespace SurvivorCommunity
     ///  - no slot locks (3.2's HasSlotLocksSupport false): a lock on a cell of a view rebuilt on every open means nothing.
     ///
     /// Layout as on 3.2 (Rebuild): ONE grid, live stacks first, then a band of empty cells for the boxes' free room; capped
-    /// by Grid Inventory's widget pool (StackCap, ShowLimit) when it draws the view (ScStorage.SizeFor).
+    /// by Grid Inventory's widget pool (StackCap, ShowLimit) when it draws the view (ScStorage.SizeFor). Without Grid
+    /// Inventory it opens in SC's own window (round s1, OwnWindow): vanilla's looting window with 360 cells in a scrolling
+    /// view, where vanilla's has 90.
     /// Host only (ScStorage.OpenWindow refuses elsewhere).
     /// </summary>
     public class ScLinkedContainer : SCoreLootContainer
@@ -48,6 +50,10 @@ namespace SurvivorCommunity
         public int StackCap;
         /// <summary>Whether Grid Inventory draws this view (set by ScStorage.SizeFor).</summary>
         public bool GridDrawn;
+        /// <summary>Round s1: the view opens in SC's own linked storage window (ScStorage.OwnWindowGroup: vanilla's looting
+        /// window with 360 cells, scrolling) rather than vanilla's looting window - without RE Inventory. Set by
+        /// ScStorage.OpenWindow before SizeFor, which then sizes the view to that window's widgets.</summary>
+        public bool OwnWindow;
         /// <summary>Slots that can be drawn: Grid Inventory's item widgets (slot i needs widget i). A stack may
         /// only enter the view below it; past it a drop is refused rather than stored out of sight.</summary>
         public int ShowLimit = int.MaxValue;
@@ -73,7 +79,8 @@ namespace SurvivorCommunity
 
         // ---- layout ----
 
-        /// <summary>Cells the grid may hold: Cols x RowsCap (up to 1000 rows under Grid Inventory, 10 on vanilla's grid).</summary>
+        /// <summary>Cells the grid may hold: Cols x RowsCap (up to 1000 rows under Grid Inventory, 10 on vanilla's looting grid,
+        /// 40 in SC's own window - on 3.4 never more than the window has widgets, ScStorage.SizeFor).</summary>
         private int MaxCells { get { return Cols * Math.Max(1, RowsCap); } }
 
         /// <summary>Stacks that did not fit the grid on the last Rebuild (shown in the strip).</summary>

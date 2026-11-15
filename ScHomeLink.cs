@@ -184,20 +184,26 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>Is the loot window open on the linked storage?</summary>
+        /// <summary>Is the loot window open on the linked storage - vanilla's looting window, or (round s1, without RE
+        /// Inventory) SC's own linked storage window? Missing the second would let the home zone go while its boxes show.</summary>
         public static bool ViewOpen(EntityPlayerLocal player)
         {
             try
             {
                 if (player == null || player.PlayerUI == null || player.PlayerUI.windowManager == null) return false;
-                if (!player.PlayerUI.windowManager.IsWindowOpen("looting")) return false;
-                XUiC_LootWindowGroup lg = player.PlayerUI.xui != null ? player.PlayerUI.xui.FindWindowGroupByName("looting") as XUiC_LootWindowGroup : null;
-                return lg == null || lg.te is ScLinkedContainer;
+                return ViewOpenIn(player, "looting") || ViewOpenIn(player, ScStorage.OwnWindowGroup);
             }
             catch (Exception)
             {
                 return false;
             }
+        }
+
+        private static bool ViewOpenIn(EntityPlayerLocal player, string group)
+        {
+            if (!player.PlayerUI.windowManager.IsWindowOpen(group)) return false;
+            XUiC_LootWindowGroup lg = player.PlayerUI.xui != null ? player.PlayerUI.xui.FindWindowGroupByName(group) as XUiC_LootWindowGroup : null;
+            return lg == null || lg.te is ScLinkedContainer;
         }
 
         private static void Release()

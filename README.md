@@ -467,6 +467,8 @@ window showing every stack in every storage box you placed inside the home zone,
 - Anything you drop on an empty cell, or shift-click in from your backpack, goes into the **first box with room** for it.
   If no box has room it comes back to you.
 - The strip under the grid shows the box count, stacks and free room, and has a **Refresh** button.
+- Without RE Inventory the window scrolls and holds up to 360 slots (10 rows in view, 7 with AshfallUI), so every stack
+  and every free slot shows. With RE Inventory, its own grid shows linked storage.
 - The packing station and the land claim block's own storage are not part of it. Boxes in chunks that are not loaded are
   out of reach (the strip says how many chunks were skipped).
 

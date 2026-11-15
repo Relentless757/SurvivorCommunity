@@ -42,4 +42,15 @@
 			<window name="windowNonPagingHeader"/>
 		</window_group>
 	</append>
+	<!-- Round s1: SC's own linked storage window (windowScLinkedStorage, Tools/generate_linked_storage_ui.py). Without RE
+	     Inventory, linked storage opens here instead of "looting" (ScStorage.OwnWindowGroup): vanilla's looting window has
+	     90 cells, this one 360 in a scrolling view. Otherwise it is "looting": vanilla's XUiC_LootWindowGroup (OpenLooting
+	     opens the "backpack" group beside it), the non-paging header, its left panel aligned at the bottom, and no
+	     actionset attribute. -->
+	<append xpath="/xui">
+		<window_group name="sclinkedstorage" left_panel_valign_top="false" controller="XUiC_LootWindowGroup" close_compass_on_open="true">
+			<window name="windowScLinkedStorage"/>
+			<window name="windowNonPagingHeader"/>
+		</window_group>
+	</append>
 </configs>

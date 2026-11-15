@@ -37,6 +37,84 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round s1 (2026-11-14): linked storage past 90 slots without RE Inventory
+
+The user's report: "Linked storage without RE Inventory is not expanding beyond 90 slots. Currently have 90 stacks with
+102 free slots." Without RE Inventory, linked storage opened in the game's looting window, which has only 90 cells, so
+the view stopped at 90 slots: 90 stacks filled it and the boxes' free room had no cell to drop into. Now, without RE
+Inventory, linked storage opens in SC's own window: the game's looting window (same buttons, same drag and drop) with
+360 cells (40 rows of 9) in a scrolling view. It shows every stack and every free slot of the linked boxes, up to 360.
+With RE Inventory nothing changes, and every other container still opens in the game's own looting window.
+
+Setup: a base with linked boxes that add up to well over 90 slots and hold more than 90 stacks. Example: two steel crates
+(80 slots each) and one wooden crate (48): fill one steel crate completely and put 10 stacks in the wooden crate (90
+stacks, 118 free slots). Keep the F1 console handy for the log lines.
+
+**Without RE Inventory, vanilla look (AshfallUI not installed)**
+
+- [ ] Open linked storage (land claim radial, or **Open storage** in the community window). The log says
+      `linked storage opened: 3 box(es), 90 stack(s), 118 free cell(s), grid 9x24 (cap 40 rows, SC's window), 0 stack(s)
+      and 0 free cell(s) not shown`. Before this round it said `grid 9x10 (cap 10 rows, vanilla grid)` with all the free
+      cells "not shown".
+- [ ] The window sits where the game's looting window sits for a big crate, at the same size: the header says "Linked
+      storage", the filter / sort / take-all bar under it, 10 rows in view and a scroll bar on the right. Your backpack
+      and the item info column are beside it, not covered. The strip under the grid says "3 boxes in the base - 90 stacks
+      - 118 free slots" and has Refresh.
+- [ ] Scroll with the mouse wheel over the grid, then drag the scroll bar: rows 11 to 24 come into view. After the 90
+      stacks come the empty cells.
+- [ ] **Store into a far cell:** scroll to row 15 or lower, drag an item from your backpack onto an empty cell there. It
+      stays in that cell. Open the boxes on the wall: one of them has it. The strip's free count drops by 1.
+- [ ] **Take from a far cell:** drag that item back into your backpack. The box on the wall no longer has it.
+- [ ] **Shift-click in:** shift-click an item in your backpack: it lands in the first empty cell, and a box has it.
+- [ ] **Shift-click out:** shift-click a stack in a far row: it goes into your backpack and leaves its box.
+- [ ] **Take all**, with the button and with R: everything that fits goes into your backpack and leaves the boxes. With
+      a nearly full backpack, the rest stays in the cells and in the boxes. Nothing is doubled or lost (count a stack of
+      nails before and after).
+- [ ] **Sort:** split a stack of nails across two cells, press Sort: the partial stacks merge. Open each box afterwards:
+      no stack moved from one box to another.
+- [ ] The search button (magnifier) filters the cells as in any crate.
+- [ ] **Refresh** reopens the view with the new layout; E (press and release) closes it, and so does Escape.
+- [ ] A small linked storage (only the wooden crate, with 10 stacks): the window is only as tall as its rows (6 rows),
+      with no scrolling.
+- [ ] From an outpost: "Linked storage" on an outpost claim radios home and opens the home view in this window. The home
+      zone stays loaded while it is open: you can take and store, and the log says `home link: released the home zone`
+      only after you close it.
+- [ ] An outpost's own storage view (its claim's storage entry) opens in this window too, with its title.
+- [ ] Over the cap: with more than 360 stacks and free room left (six steel crates, five full and 80 free slots in the
+      sixth: 400 stacks), 360 show and the strip ends "40 stack(s) more than the grid can show". Shift-click an item from
+      the backpack that cannot merge into a shown stack (a gun, or an item the storage does not hold): it says "Linked
+      storage is showing all the stacks it can - press Refresh, or put it straight into a box." and stays in the backpack.
+      With every box full instead (five full steel crates, no free slot) the same shift-click says "No box has room for
+      that." A stackable item first tops up shown stacks of the same item, as in any crate.
+- [ ] Anchor gone while open: open linked storage at an outpost claim (its own storage view, or the home view radioed
+      from it) and keep it open while the claim goes: a second player picks it up or breaks it, or (single player) a
+      timed charge placed against it goes off. Within half a second the window closes with your backpack, and the log
+      says `linked storage: the claim at ... is gone or the community has no home - its window closes`. The same with the
+      home view opened at the home claim when the home claim goes. Afterwards linked storage opens or refuses as it did
+      before this round (the home record is kept).
+- [ ] After all of the above, the log has no `IndexOutOfRangeException`, no `linked-slotchanged`, `storage-ownwindow`
+      or `storage-lootwidgets` lines.
+
+**Without RE Inventory, AshfallUI look**
+
+- [ ] Open linked storage: the same window in AshfallUI's style, laid out like AshfallUI's own loot window: its plate
+      around it, the search icon, sort, fill and take all at the top right of the header, the strip's text and Refresh in
+      a band under the header, 7 rows in view, scrolling for the rest. INSPECT and the inventory columns sit beside it as
+      for any crate, with no overlap.
+- [ ] Repeat the far-cell store and take, a shift-click each way and take all: same results as above.
+
+**With RE Inventory (if installed)**
+
+- [ ] Linked storage opens in the looting window exactly as before (RE Inventory's grid; the log line ends
+      `..., grid inventory)`), in both looks.
+
+**Every other container is unchanged**
+
+- [ ] A wooden crate and a steel crate open in the game's looting window as before, in both looks. The linked storage
+      strip does not show there.
+- [ ] A packing station still shows its packing strip under the loot grid.
+- [ ] A member's inventory still opens the member inventory panel.
+
 ## Round vo4 (2026-11-14): the horde warnings are voiced
 
 The base's horde warnings are now spoken as well as shown, in the speaker's own SC voice (40 lines in each of the 16

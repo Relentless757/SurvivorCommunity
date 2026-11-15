@@ -357,8 +357,8 @@
 			<property name="MiningStoneItem" value="resourceRockSmall" />
 			<property name="MiningOreMix" value="" />
 			<property name="DigClayItems" value="resourceClayLump,resourceCrushedSand" />
-			<!-- most rows the linked storage grid shows: 0 = automatic (up to 1000 when Grid Inventory scrolls it,
-			     10 on vanilla's loot grid, which cannot scroll) -->
+			<!-- most rows the linked storage grid shows: 0 = automatic (up to 1000 when Grid Inventory scrolls it;
+			     without it, up to 40 in SC's own scrolling linked storage window, its 360 cells) -->
 			<property name="LinkedStorageRows" value="0" />
 			<!-- radio station. RadioOnlyAirdrops: vanilla's scheduled air drops are refused; the sandbox "air drop
 			     frequency" (hours) is the radio's cooldown instead. Calls find a hireable survivor at a real POI

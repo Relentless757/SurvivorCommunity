@@ -60,6 +60,12 @@ namespace SurvivorCommunity
         /// <summary>Rows on vanilla's loot grid, which neither scrolls nor has a widget past its 90th slot.</summary>
         public const int VanillaRows = 10;
         public const int DefaultWidgetPool = 260;
+        /// <summary>
+        /// Round s1: SC's own linked storage window group (Config/XUi_InGame/xui.xml, windowScLinkedStorage from
+        /// Tools/generate_linked_storage_ui.py): vanilla's looting window with 360 cells in a scrolling view, opened instead
+        /// of "looting" when RE Inventory is not loaded (OwnWindowFor).
+        /// </summary>
+        public const string OwnWindowGroup = "sclinkedstorage";
 
         /// <summary>Free cells per box, filled lazily and dropped for a box the view writes to: re-packing every
         /// box on every question (the strip asks twice a second) costs a grid pack per box.</summary>
@@ -594,15 +600,20 @@ namespace SurvivorCommunity
         /// so every free cell can be shown (up to GridRowsMax rows) and only the STACKS are capped - by its
         /// widget pool, less two rows kept free for what gets dropped in while the window is open (slot i needs
         /// widget i, so nothing may enter the view at or past the pool: ShowLimit). Vanilla's grid has a widget
-        /// per slot and no scrolling: 10 rows, as before. Without the bridge's GridDraws (an older bridge) the
-        /// previous 28 rows. LinkedStorageRows only lowers these.
+        /// per slot and no scrolling: 10 rows, as before - and on 3.4, without Grid Inventory, SC's own window
+        /// (OwnWindowGroup) scrolls over its 360 widgets: 40 rows, every stack and free slot up to 360. Without
+        /// the bridge's GridDraws (an older bridge) the previous 28 rows. LinkedStorageRows only lowers these.
         /// </summary>
         public static void SizeFor(ScLinkedContainer c)
         {
             ScConfig.EnsureParsed();
             bool gi = GridDrawsIt(c);
             bool known = GridDraws != null;                // the bridge can tell; without it keep the old fixed size
-            int rows = !gi ? VanillaRows : (known ? GridRowsMax : LegacyGridRows);
+            bool own = false;
+#if SC_V34
+            own = c.OwnWindow;                             // round s1: SC's own window, set by OpenWindow (never with Grid Inventory)
+#endif
+            int rows = !gi ? (own ? GridRowsMax : VanillaRows) : (known ? GridRowsMax : LegacyGridRows);
 #if SC_V34
             // 3.4: vanilla's loot refresh (XUiC_LootContainer.OnTileEntityChanged) walks the CONTAINER's grid and indexes the
             // window's widgets with the same counter, unguarded (3.2 walked the widgets) - a view with more cells than the
@@ -610,16 +621,17 @@ namespace SurvivorCommunity
             // RE Inventory 3.3+ draws one cell per container slot with an item widget per slot (its pool of 260; 3.2's Grid
             // Inventory drew widgets for stacks only and scrolled over empty cells), so its grid cannot draw a cell past its
             // pool either. So on 3.4 the view never has more cells than the window's widgets, with or without the bridge
-            // (90 on vanilla's 10 x 9 grid) - nor, with the bridge, than the grid's own pool.
+            // (90 on vanilla's 10 x 9 grid, 360 in SC's own window) - nor, with the bridge, than the grid's own pool. The
+            // widgets are counted in the window the view opens in (round s1: before, the first loot window found).
             {
-                int widgets = LootWidgets();
+                int widgets = LootWidgets(own ? OwnWindowGroup : XUiC_LootWindowGroup.ID);
                 if (gi && known)
                 {
                     int pool34 = WidgetPool();
                     widgets = widgets > 0 ? Math.Min(widgets, pool34) : pool34;
                 }
                 if (widgets > 0) rows = Math.Min(rows, Math.Max(1, widgets / ScLinkedContainer.Cols));
-                else if (gi) rows = Math.Min(rows, VanillaRows);           // unknown: never past vanilla's grid
+                else if (gi || own) rows = Math.Min(rows, VanillaRows);    // unknown: never past vanilla's grid
             }
 #endif
             if (ScConfig.LinkedStorageRows > 0) rows = Math.Min(rows, ScConfig.LinkedStorageRows);
@@ -631,21 +643,57 @@ namespace SurvivorCommunity
         }
 
 #if SC_V34
-        /// <summary>3.4: the looting window's item widgets (its XUiC_LootContainer's), or 0 when the window is not found.</summary>
-        private static int LootWidgets()
+        /// <summary>3.4: the item widgets of a loot window group's grid - "looting" (vanilla's looting window: 90, or RE
+        /// Inventory's) or OwnWindowGroup (360) - or 0 when the group is not found.</summary>
+        private static int LootWidgets(string _groupId)
         {
             try
             {
                 LocalPlayerUI ui = LocalPlayerUI.GetUIForPrimaryPlayer();
-                XUiC_LootWindow lw = ui != null && ui.xui != null ? ui.xui.GetChildByType<XUiC_LootWindow>() : null;
-                XUiC_ItemStack[] w = lw != null && lw.lootContainer != null ? lw.lootContainer.GetItemStackControllers() : null;
-                return w != null ? w.Length : 0;
+                return LootWidgets(ui != null && ui.xui != null ? ui.xui.FindWindowGroupByName(_groupId) as XUiC_LootWindowGroup : null);
             }
             catch (Exception e)
             {
                 ScLog.Once("storage-lootwidgets", e);
                 return 0;
             }
+        }
+
+        /// <summary>3.4: the item widgets of the group's loot window grid (the XUiC_LootContainer its XUiC_LootWindow binds), 0
+        /// without one.</summary>
+        private static int LootWidgets(XUiC_LootWindowGroup _group)
+        {
+            XUiC_LootWindow lw = _group != null ? _group.lootWindow : null;
+            XUiC_ItemStack[] w = lw != null && lw.lootContainer != null ? lw.lootContainer.GetItemStackControllers() : null;
+            return w != null ? w.Length : 0;
+        }
+
+        /// <summary>
+        /// Round s1: SC's own linked storage window (OwnWindowGroup) for a view drawn on vanilla's loot grid, i.e. without RE
+        /// Inventory. Vanilla's looting window has 90 item widgets, and SizeFor never gives the view more slots than its window
+        /// has widgets, so there the view stopped at 90 slots: with 90 stacks the boxes' free room had no cell at all (the
+        /// user's report, 2026-11-14: "90 stack(s), 102 free cell(s) ... 102 free cell(s) not shown"). This window is
+        /// vanilla's looting window - its controllers, so every move is the game's own - with 360 cells in a scrolling view
+        /// (Tools/generate_linked_storage_ui.py). Null with RE Inventory loaded (its grid draws the view in the looting window,
+        /// as before), and when the window is missing or smaller than one row (the looting window and its 90 slots, as before,
+        /// with a warning once).
+        /// </summary>
+        private static XUiC_LootWindowGroup OwnWindowFor(EntityPlayerLocal player)
+        {
+            if (GridInventoryLoaded()) return null;
+            try
+            {
+                XUi xui = player != null && player.PlayerUI != null ? player.PlayerUI.xui : null;
+                XUiC_LootWindowGroup g = xui != null ? xui.FindWindowGroupByName(OwnWindowGroup) as XUiC_LootWindowGroup : null;
+                if (g != null && LootWidgets(g) >= ScLinkedContainer.Cols) return g;
+                ScLog.Once("storage-ownwindow-missing", "linked storage: window group '" + OwnWindowGroup + "' or its grid not found (xui.xml, windows.xml)"
+                           + " - linked storage opens in the looting window, 90 slots at most");
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("storage-ownwindow", e);
+            }
+            return null;
         }
 
 #endif
@@ -677,12 +725,17 @@ namespace SurvivorCommunity
         /// te.lootListName as the title, so a view with a title of its own would need an unknown loot list key.
         /// </summary>
 #if SC_V34
-        private static void OpenLootWindow(EntityPlayerLocal player, ScLinkedContainer te, string title)
+        /// <param name="own">SC's own window (round s1, OwnWindowFor; the view was sized for it); null = vanilla's looting window.</param>
+        private static void OpenLootWindow(EntityPlayerLocal player, ScLinkedContainer te, string title, XUiC_LootWindowGroup own)
         {
             LocalPlayerUI ui = player.PlayerUI;
             ui.windowManager.CloseAllOpenModalWindows(null, false);
-            GUIWindow window = ui.windowManager.GetWindow("looting");
-            XUiC_LootWindowGroup group = window is XUiWindowGroup ? ((XUiWindowGroup)window).Controller as XUiC_LootWindowGroup : null;
+            XUiC_LootWindowGroup group = own;
+            if (group == null)
+            {
+                GUIWindow window = ui.windowManager.GetWindow("looting");
+                group = window is XUiWindowGroup ? ((XUiWindowGroup)window).Controller as XUiC_LootWindowGroup : null;
+            }
             te.bTouched = true;                         // 3.4: the grid's touched stamp
             // 3.4: straight in - the open timer now runs only for _firstTimeTouched (SCore's OpenContainer passes false too)
             if (group == null) { EntityUtilities.OpenContainer(player, te); return; }
@@ -751,12 +804,24 @@ namespace SurvivorCommunity
                 var c = new ScLinkedContainer(chunk, new Vector3i(World.toBlockXZ(at.x), at.y, World.toBlockXZ(at.z)));
                 CurrentAnchor = at == home ? (Vector3i?)null : at;
                 c.lootListName = ScLinkedContainer.LootListKey;       // a real key: the title goes to the window below
+#if SC_V34
+                // round s1: without RE Inventory, SC's own window (360 cells, scrolling); the view is sized for the window
+                // it opens in
+                XUiC_LootWindowGroup own = OwnWindowFor(player);
+                c.OwnWindow = own != null;
+#endif
                 SizeFor(c);
                 c.Rebuild();
                 Current = c;
+#if SC_V34
+                OpenLootWindow(player, c, title ?? Localization.Get("scStorageTitle"), own);
+                string drawnBy = c.GridDrawn ? ", " + c.StackCap + " stacks, grid inventory" : (c.OwnWindow ? ", SC's window" : ", vanilla grid");
+#else
                 OpenLootWindow(player, c, title ?? Localization.Get("scStorageTitle"));
+                string drawnBy = c.GridDrawn ? ", " + c.StackCap + " stacks, grid inventory" : ", vanilla grid";
+#endif
                 ScLog.Out("linked storage opened: " + Boxes + " box(es), " + LiveStacks() + " stack(s), " + FreeCells() + " free cell(s), grid " + c.GetContainerSize().x + "x" + c.GetContainerSize().y
-                          + " (cap " + c.RowsCap + " rows" + (c.GridDrawn ? ", " + c.StackCap + " stacks, grid inventory" : ", vanilla grid") + "), "
+                          + " (cap " + c.RowsCap + " rows" + drawnBy + "), "
                           + c.Hidden + " stack(s) and " + c.HiddenCells + " free cell(s) not shown");
 #if SC_V34
                 // 3.4 (DebugLogging): what the view links, and the size the window really shows (RE Inventory 3.3+ resizes
