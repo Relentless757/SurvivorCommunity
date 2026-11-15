@@ -430,6 +430,54 @@ namespace UAI
     }
 
     /// <summary>
+    /// Round tm1 (I5): 0 while one of the community's members is melee-led (ScTeam: a matched fight, a melee weapon in her
+    /// pair, healthy enough, no gun order) and the enemy scored is safe to melee, unarmed and not one she found out of reach,
+    /// unless the overwhelmed rule holds her on the gun (then its back-off is today's); 1 for everyone else. Appended to
+    /// 0-XNPCCore's BackupKeepDistance (8) and BackupRanged (5) (Config/utilityai.xml, 3.4 only): a melee-led member who
+    /// still holds her gun for a moment (MeleeFirst's 1 s, the 5 s swap hold) does not walk away from a lone walker -
+    /// MeleeFirst puts her melee weapon in her hand. A pure read of the verdict the X5 tick keeps; a throw is logged once
+    /// and means 1 (0-XNPCCore's rule as before).
+    /// </summary>
+    public class UAIConsiderationScNotTeamMelee : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            try
+            {
+                return ScTeam.HoldsGround(_context.Self, target as EntityAlive) ? 0f : 1f;
+            }
+            catch (System.Exception e)
+            {
+                ScLog.Once("uai-not-team-melee", e);
+                return 1f;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Round tm1 (I7, decision 8): 0 while one of the community's members is in a matched fight (ScTeam: F >= T, no raiders
+    /// in it), else 1 - an outmatched fight, no verdict (enclave people and strangers: decision 12), TeamMelee off. On SC's
+    /// Cowardly flee, ScFlee and ScEncFlee (Config/utilityai.xml): a Cowardly member hangs back with her gun in a matched
+    /// fight (she is never melee-led) and runs only when it is outmatched. A pure read; a throw is logged once and means 1
+    /// (she runs, as before).
+    /// </summary>
+    public class UAIConsiderationScNotTeamMatched : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            try
+            {
+                return ScTeam.MatchedFight(_context.Self) ? 0f : 1f;
+            }
+            catch (System.Exception e)
+            {
+                ScLog.Once("uai-not-team-matched", e);
+                return 1f;
+            }
+        }
+    }
+
+    /// <summary>
     /// Round n07: 1 for one of SC's people who is badly hurt and has NOTHING to heal with, 0 for everyone else.
     /// It drives the ScFleeHurt action rather than being appended to ScFlee, because considerations inside an action are
     /// multiplied: appending it to ScFlee would AND it with that action's "$Timid = 1", so it would only ever make the

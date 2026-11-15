@@ -44,6 +44,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc recruit <id\|name>` | Join a loaded survivor to the community without the favor. [CHEAT] |
 | `sc names` / `sc names test` | Streamer names: the list file, names given and left; the next names in line. [READ] |
 | `sc xnpc [id\|name]` | Counters for all NPC hooks, or one NPC in full detail (AI, weapons, orders). Main bug-report probe. [READ] |
+| `sc team [id\|name]` | Team strength: each member's side against the enemies, matched or not, melee-led or why not; one member with everything counted. [READ] |
 | `sc craft [<name>]` | Crafting/work-shift status for the community or one member. [READ] |
 | `sc craft station` | The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft counters. [READ] |
 | `sc enclave list` / `reveal all` | List enclaves (settlements of other survivors); reveal them on the map. |
@@ -495,6 +496,19 @@ Rolls `n` loadouts (default 1000) without creating anyone.
 ### `sc arms <id|name> [melee|ranged]` [CHEAT when a word is given]
 Shows the NPC's weapons; with the word, puts that one in its hand.
 
+### `sc team` [READ]
+Team strength (round tm1): every loaded member's F (her side: her stars, health and weapon, the members near her, you at double weight) against T (the awake enemies within 15 m; during a horde at the base, the whole defended area), MATCHED or OUTMATCHED, and MELEE-LED or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). A melee-led member fights with her melee weapon.
+
+### `sc team <id|name>` [READ]
+One member in full: the verdict and its age, why she is or is not melee-led, a fresh count listing every friend and enemy with its distance, weight and how the weight was reached (ARMED and melee-unsafe enemies are marked), her target and whether it needs the gun, and her hand (what she holds, your weapon order, the melee-first clock, the 5 s swap hold, the overwhelmed gun hold, a target kept out of reach, the overwhelmed count).
+Example: `sc team Gina`
+
+### `sc team <id|name> auto` [CHEAT]
+Clears your weapon orders on her (the weapon menu's, or "use your ..." by voice), so she picks her weapon by the rules again.
+
+### `sc team <id|name> hurt [share]` [CHEAT]
+A test shortcut, like `sc run hurt`: her body's health down to that share of her max (default 0.45, just under `TeamLowHealth`). She stops being melee-led at the next count and is again from 60%; `hurt 1` puts her back to full health.
+
 ### `sc skills sim [T1|T2|T3] [n]` [READ]
 Starting-skill statistics for `n` new survivors per tier.
 
@@ -545,7 +559,7 @@ Other voice subcommands:
 ## 14. Diagnostics
 
 ### `sc xnpc` [READ]
-Counters for the NPC hooks (voice control, body hooks, stuck rescue, ammo, weapons, melee, shooting skill, get-ups, relaxed pose) and a count of loaded members, hire contracts, raiders and other NPCs.
+Counters for the NPC hooks (voice control, body hooks, stuck rescue, ammo, weapons, team strength, melee, shooting skill, get-ups, relaxed pose) and a count of loaded members, hire contracts, raiders and other NPCs. The team strength rule's counters start `x5-team-` (melee-first swaps, bouts kept on melee, gun first held back, swaps held, fights turned outmatched).
 
 ### `sc xnpc <id|name>` [READ]
 One NPC in full: class, hostility, AI action and the foe's visibility, navigation, post, record, look, worn armor, weapons, ammo, levels, orders, movement, medic state. This is the main probe for "why does this NPC do X".

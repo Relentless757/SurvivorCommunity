@@ -681,6 +681,67 @@
 			<property name="OverwhelmedHoldSeconds" value="5" />
 			<property name="OverwhelmedSustainSeconds" value="1.5" />
 			<property name="OverwhelmedGunSeconds" value="6" />
+			<!-- Team strength (round tm1): in a fight the community can win, your members fight with their melee weapon instead of
+			     shooting or backing away. Every second each member weighs her side (F) against the enemies (T) within
+			     TeamRadius meters of her - during a live base attack, everyone in the whole defended area:
+			       F: a member (TeamStarBase + TeamStarStep x her Fighting stars) x HpF x her weapon (TeamWeaponMelee with a melee
+			          weapon in her pair, TeamWeaponRanged with only a ranged one, TeamWeaponBare with nothing) - she counts
+			          herself; a member on watch TeamGuardWeight x HpF; one in the middle of a medical use x TeamMedicalMult; one
+			          asleep in bed 0; you TeamPlayerWeight x HpF; another ally (a hire, a friendly NPC) TeamAllyWeight x HpF.
+			          HpF = TeamHealthFloor + (1 - TeamHealthFloor) x health share (0.5 at no health, 1 at full).
+			       T: every awake enemy, whether or not it is after you: the larger of its tag weight and its health weight, then
+			          x TeamThreatMult. The tag weight is the highest TeamThreatTags entry whose tags it all has ("a+b" needs both;
+			          TeamThreatDefault when none matches) x every TeamThreatTagMult entry it matches. The health weight is
+			          (max health / TeamThreatHpBase) ^ TeamThreatHpPower, kept within TeamThreatHpMin..TeamThreatHpMax (it covers
+			          tough and modded zombies; 230 because the game rolls every zombie's health up to 15% higher, so a normal
+			          zombie never weighs more than a walker's 1).
+			     The fight is matched when F >= TeamMargin x T, and stays so until TeamLeaveRecounts recounts in a row find
+			     F below TeamLeaveMargin x T; no enemies is matched, and a new fight (the first count with enemies) is judged
+			     by F >= TeamMargin x T alone. In a matched fight a member is "melee-led": she keeps her
+			     melee weapon, takes it out of the gun's place after TeamMeleeFirstSeconds with an enemy in sight or as her
+			     target, does not back away from it, and stays on it after the close-range swap; she needs one attacker more
+			     (TeamOverwhelmedExtra) to count as overwhelmed. Never melee-led: below TeamLowHealth of her health (again from
+			     TeamLowHealthBack), with no melee weapon, on a run, on watch, Cowardly (she hangs back with her gun, and runs
+			     only from an outmatched fight), after you ordered her gun (the weapon menu or "use your ..."; ordering her
+			     melee weapon, or "sc team <name> auto", undoes it), or with raiders or any armed enemy in the fight. A zombie
+			     with a TeamGunTags tag (zombieCop) or a cop or demolition zombie always gets the gun, and so does one she cannot
+			     reach (above her, or found out of reach - kept TeamUnreachableSeconds). A swap SC makes holds the opposite swap
+			     TeamSwapHoldSeconds (each costs a reload). An outmatched fight, strangers and enclave people keep the rules
+			     above. TeamMelee=false: everything as before this round. Examples: Gina (2 stars) alone against one walker
+			     1.15 / 1 - her sledgehammer; five 3-star members and you against five walkers 8.5 / 5 - all melee; the same
+			     against five ferals 8.5 / 10 - the gun, as before. -->
+			<property name="TeamMelee" value="true" />
+			<property name="TeamRadius" value="15" />
+			<property name="TeamMargin" value="1" />
+			<property name="TeamLeaveMargin" value="0.8" />
+			<property name="TeamLeaveRecounts" value="2" />
+			<property name="TeamRecountSeconds" value="1" />
+			<property name="TeamFreshSeconds" value="3" />
+			<property name="TeamPlayerWeight" value="2" />
+			<property name="TeamAllyWeight" value="1" />
+			<property name="TeamGuardWeight" value="0.8" />
+			<property name="TeamMedicalMult" value="0.5" />
+			<property name="TeamStarBase" value="0.85" />
+			<property name="TeamStarStep" value="0.15" />
+			<property name="TeamWeaponMelee" value="1" />
+			<property name="TeamWeaponRanged" value="0.8" />
+			<property name="TeamWeaponBare" value="0.5" />
+			<property name="TeamHealthFloor" value="0.5" />
+			<property name="TeamLowHealth" value="0.5" />
+			<property name="TeamLowHealthBack" value="0.6" />
+			<property name="TeamSwapHoldSeconds" value="5" />
+			<property name="TeamMeleeFirstSeconds" value="1" />
+			<property name="TeamOverwhelmedExtra" value="1" />
+			<property name="TeamUnreachableSeconds" value="20" />
+			<property name="TeamThreatTags" value="walker:1,feral:2,radiated:3,charged:3.5,infernal:4.5,dog:1.2,wolf:1.2,coyote:1.2,mountainlion:2,bear:5,bear+zombie:6,vulture:0.6,spider:1.5" />
+			<property name="TeamThreatTagMult" value="special:1.5,strong:1.3" />
+			<property name="TeamThreatMult" value="crawler:0.6" />
+			<property name="TeamThreatDefault" value="1" />
+			<property name="TeamThreatHpBase" value="230" />
+			<property name="TeamThreatHpPower" value="0.7" />
+			<property name="TeamThreatHpMin" value="0.5" />
+			<property name="TeamThreatHpMax" value="8" />
+			<property name="TeamGunTags" value="zombieCop" />
 			<!-- Melee: survivors (members and strangers) and raiders with the player's body swing their melee weapon as fast
 			     as it allows - the bat about every 1.25 s, as yours - instead of on the NPC framework's 1 s attack ticks,
 			     which gave one swing every 2 s. MeleePacingRaiders=false keeps raiders on the old pace (MeleePacing=false:

@@ -205,6 +205,7 @@ namespace SurvivorCommunity
             sessionClass.Remove(entityId);
             sessionSource.Remove(entityId);
             ScVanity.Forget(entityId);                 // a paint still waiting for the body to show
+            ScTeam.Forget(entityId);                   // its team-strength verdict (round tm1)
 #if SC_V34
             pendingFaces.Remove(entityId);             // a creator face still waiting for the body's next frame (X17)
             ScWardrobe.Forget(entityId);               // her pre-wardrobe gear snapshot (round n05)

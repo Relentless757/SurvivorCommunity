@@ -71,6 +71,26 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   shows how many of the zone's beds are inside the box 0-XNPCCore searches (within `SleepZoneHeight` of the home
   block's height) — only those count. This is the first thing to run if someone will not go to bed. It is read-only.
 
+## Team strength *(round tm1)*
+
+- **`sc team`** — every loaded member's team verdict: F (her side) against T (the awake enemies within 15 m, or the
+  whole defended area during a horde at the base), matched or OUTMATCHED, and whether she is MELEE-LED or why not (on a
+  run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). Read-only.
+- **`sc team <id|name>`** — one member in full: the verdict and its age (STALE after 3 s), why she is or is not
+  melee-led, a fresh count with every friend and enemy counted, its distance and weight and how the weight was reached
+  (stars, health, weapon; tag weight, health weight; ARMED, melee-unsafe), her target and whether it needs the gun, and
+  her hand: what she holds, your weapon order, the melee-first clock, the 5 s swap hold, the overwhelmed gun hold, a
+  target kept out of reach, and the overwhelmed count against its need (one more while melee-led). Read-only.
+- **`sc team <id|name> auto`** — clears your weapon orders on her (the weapon menu's, or "use your ..." by voice), so
+  she picks her weapon by the rules again. The test shortcut after a gun or melee order.
+- **`sc team <id|name> hurt [share]`** *(a test shortcut, like `sc run hurt`)* — her body's health down to that share
+  of her max (default 0.45, just under `TeamLowHealth`): she stops being melee-led at the next count, and is again from
+  60%. `hurt 1` puts her back to full health.
+- `sc xnpc` counts the rule's work as `x5-team-*`: `recount`, `melee-first` (gun put away for the melee weapon),
+  `bout-kept` (stayed on melee after 0-XNPCCore's close-range swap), `gun-held` (gun first held back for a target beyond
+  5 m), `gun-needed` (gun first for a target that needs it), `swap-held` (a swap waited for the 5 s hold),
+  `unreachable`, `outmatched`, `matched-again`, `low-health`; `sc xnpc <name>` has a one-line `team strength:` summary.
+
 ## Work, runs and mining
 
 - `sc run <id|name> <res|mine|clay>` · `sc run <id|name> <recall|home|skip|offline>` · `sc runners`

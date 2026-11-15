@@ -148,6 +148,29 @@ namespace SurvivorCommunity
             return OutsideZone(p) <= ScConfig.BaseAttackDefendMargin + extra;
         }
 
+        /// <summary>
+        /// Round tm1 (ScTeam, decision 4): the box round the defended area (the zone + BaseAttackDefendMargin + extra, from
+        /// the zone as last refreshed), centered at height y and 2 x halfHeight tall, for one entity sweep over the whole
+        /// area. False with no zone known.
+        /// </summary>
+        public static bool DefenceBounds(float y, float halfHeight, float extra, out Bounds b)
+        {
+            b = default(Bounds);
+            if (rects.Count == 0) return false;
+            float m = ScConfig.BaseAttackDefendMargin + extra;
+            float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
+            for (int i = 0; i < rects.Count; i++)
+            {
+                int[] r = rects[i];
+                x0 = Math.Min(x0, r[0]);
+                x1 = Math.Max(x1, r[1] + 1);
+                z0 = Math.Min(z0, r[2]);
+                z1 = Math.Max(z1, r[3] + 1);
+            }
+            b = new Bounds(new Vector3((x0 + x1) * 0.5f, y, (z0 + z1) * 0.5f), new Vector3(x1 - x0 + 2f * m, 2f * halfHeight, z1 - z0 + 2f * m));
+            return true;
+        }
+
         public static bool PlayerHome(EntityPlayer player)
         {
             return player != null && OutsideZone(player.position) <= ScConfig.BaseAttackHomeMargin;

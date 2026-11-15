@@ -22,7 +22,9 @@ namespace SurvivorCommunity
     ///   X5  AvatarSdcsNpcController.SdcsFailoverTick / SdcsCloseRangeTick / SdcsTryWorldEntryRearm
     ///                                                                prefix   XNPC never swaps the hand during a medical use;
     ///                                                                         overwhelmed keeps the gun up close (ScArms);
-    ///                                                                         melee-lead raiders keep melee (M10-D1)
+    ///                                                                         melee-lead raiders keep melee (M10-D1);
+    ///                                                                         (round tm1) team strength: ScTeam's
+    ///                                                                         verdict, MeleeFirst, GunFirst's hold
     ///   X6  AvatarSdcsNpcController.SdcsChooseMeleeFallback          prefix   XNPC's melee choice is the pair's melee weapon
     ///   X7  AvatarSdcsNpcController.Update   postfix  SC's aim pose, written after XNPC's whole frame (and its carry pose kept)
     ///   X8  EntityAliveSDXV4.SetModelLayer   prefix   our bodies' own colliders are lifted out of their own attack ray
@@ -629,6 +631,8 @@ namespace SurvivorCommunity
         /// melee-lead raiders' switch to their gun for a target out of reach (M10-D1, ScArms.RaiderLead); the re-arm is held
         /// off for a melee-lead raider (ScArms.WorldEntryRearm). One prefix, so the medical-use skip always comes first and
         /// the order of the rules never depends on how Harmony chains prefixes.
+        /// Round tm1: the close-range tick runs RaiderLead -> the team recount (ScTeam.Recount, no swap) -> MeleeFirst ->
+        /// GunFirst -> CloseRange. MeleeFirst and GunFirst share one swap-hold clock (ScArms, TeamSwapHoldSeconds).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoSwapWhileUsing
@@ -677,7 +681,13 @@ namespace SurvivorCommunity
                     {
                         // a melee-lead raider takes its gun for a target out of reach (then this round is done)
                         if (ScArms.RaiderLead(__instance, e)) return false;
+                        // round tm1: a member's team verdict (F against T), recounted once a second, staggered - the only writer;
+                        // everything after it and the UAI considerations only read it
+                        ScTeam.Recount(e);
+                        // round tm1 (I2): a melee-led member holding her gun takes her melee weapon for a target in reach
+                        if (ScArms.MeleeFirst(__instance, e)) return false;
                         // round n08: a survivor on her melee weapon takes her gun for a target beyond 5 m, or when overwhelmed
+                        // (round tm1: while melee-led only for a target that needs the gun, or overwhelmed)
                         if (ScArms.GunFirst(__instance, e)) return false;
                         // overwhelmed: keep (or go back to) the gun instead of the melee swap up close
                         return ScArms.CloseRange(__instance, e);

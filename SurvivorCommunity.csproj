@@ -175,6 +175,9 @@
     <Compile Include="ScSleep.cs" Condition="'$(ScGame)'=='34'" />
     <!-- round n08: the melee-unreachable readout (measurement only) -->
     <Compile Include="ScReach.cs" Condition="'$(ScGame)'=='34'" />
+    <!-- round tm1: team strength decides melee - the verdict (F against T) and its config keys -->
+    <Compile Include="ScTeam.cs" />
+    <Compile Include="ScConfigTeam.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="ScVoiceLines.cs" />

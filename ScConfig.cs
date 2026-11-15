@@ -1346,6 +1346,7 @@ namespace SurvivorCommunity
             MemberInventoryPanel = true;
             ResetVoices();                         // V2 (ScConfigVoices.cs)
             ResetStuck();                          // round 29b (ScConfigStuck.cs)
+            ResetTeam();                           // round tm1 (ScConfigTeam.cs): team strength decides melee
             ResetNames();                          // round 30 (ScConfigNames.cs): streamer names
             ResetSkins();                          // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
@@ -2469,6 +2470,7 @@ namespace SurvivorCommunity
                 MemberInventoryPanel = memberInv;
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
                 ParseStuck(p);                     // round 29b (ScConfigStuck.cs)
+                ParseTeam(p);                      // round tm1 (ScConfigTeam.cs): team strength decides melee
                 ParseNames(p);                     // round 30 (ScConfigNames.cs): streamer names
                 ParseSkins(p);                     // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
@@ -2749,6 +2751,7 @@ namespace SurvivorCommunity
                           + ", tattoo " + SurvivorTattooChance + "/" + RaiderTattooChance + " of " + SurvivorTattoos.Count + "/" + RaiderTattoos.Count + " " + TattooMode);
                 ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
                 ScLog.Out("config: stuck rescue " + StuckLine());   // round 29b (ScConfigStuck.cs)
+                ScLog.Out("config: team strength " + TeamLine());   // round tm1 (ScConfigTeam.cs)
                 ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)
                 ScLog.Out("config: skins " + SkinsLine());   // round 31 (ScConfigSkins.cs)
 #if SC_V34

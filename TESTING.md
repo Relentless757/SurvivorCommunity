@@ -37,6 +37,158 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round tm1 (2026-11-15): team strength decides melee
+
+The report (the base test, 12:37-12:45): Gina (Fighting 2, full health) swung at one zombie, then went for her bow; Rob
+used his crossbow on a lone walker at full health; a zombie spawned in front of Paul, he drew his .44 at 8.2 m ("Paul
+(id 2476) takes the gunHandgunT2Magnum44 (gun first: target at 8.2 m)") and backed a long way off instead of using his
+mace. Wanted: "5 members vs 5 zombies should not use ranged unless HP is low". The design you approved:
+`research/combat/TEAM_MELEE_REPORT.md`, every recommendation.
+
+What it does now. Every second each member weighs her side, F, against the awake enemies, T, within 15 m of her (during
+a live base attack, the whole defended area):
+
+- F: each member (0.85 + 0.15 x Fighting stars) x HpF x her weapon (1 with a melee weapon in her pair, 0.8 ranged only,
+  0.5 nothing); a member on watch 0.8 x HpF; one in the middle of a medical use x 0.5; one asleep in bed 0; you 2 x HpF;
+  another ally (a hire, a friendly NPC) 1 x HpF. HpF = 0.5 + 0.5 x health share.
+- T: every awake enemy, after the team or not: the larger of its tag weight (walker 1, feral 2, radiated 3, charged 3.5,
+  infernal 4.5, x1.5 special, x1.3 strong; the animals are in the table) and its health weight ((max health / 230) ^
+  0.7), then x0.6 for a crawler.
+- Matched at F >= T. A matched fight turns outmatched after two counts in a row with F below 0.8 T. A new fight (the
+  first count with enemies in it) is judged by F >= T alone.
+- In a matched fight a member is **melee-led**: about a second after an enemy within the 15 m is in her sight or her
+  target she takes her melee weapon out of her gun's place, so she does not shoot it as it comes in (log: "takes the
+  <melee> (melee first: a matched fight, ...)"); she never draws her gun for a target beyond 5 m (gun first holds off);
+  she does not back away from it (BackupKeepDistance and BackupRanged score 0 for her); she stays on melee after
+  0-XNPCCore's close-range swap (log: "keeps the <melee> after 0-XNPCCore's close-range swap"); and it takes one
+  attacker more to overwhelm her.
+- Today's rules (not melee-led): below 50% health (melee again from 60%), outmatched, raiders or anyone armed in the
+  fight, on a run, on watch, Cowardly, no melee weapon, or after you ordered her gun. A cop or a demolition zombie, and
+  a target she cannot reach (above her, or found out of reach: kept 20 s), always get the gun. An enemy farther than 15
+  m was not weighed: she keeps whatever she holds until it comes in.
+- A Cowardly member hangs back with her gun in a matched fight and runs only from an outmatched one.
+- Every swap SC makes holds the opposite swap 5 s (each costs a reload).
+- `TeamMelee` false in `Config/blocks.xml`: everything as before this round. Strangers and enclave people are not in
+  this round.
+
+Setup: the new DLL together with its `Config` (utilityai.xml and blocks.xml: the two new considerations live in the
+DLL). `DebugLogging` true in blocks.xml for the log lines quoted below, and `dm` for the AI overlay's Active Action.
+Zombies: F6 (the entity spawner) or `spawnentity`; `zombieBoe` is a plain walker (T 1), `zombieBoeFeral` a feral (T 2),
+`zombieFatCop` a cop, `zombieDemolition` the demolition zombie. Members: `sc members` (Fighting stars, traits),
+`sc loadout <name>` (her pair), `sc arms <name> ranged` / `melee` (puts one in her hand). `sc team` before each step
+shows every member's F / T and verdict; `sc team <name>` the whole count, her target and her hand (holds and clocks).
+**Healing:** a member who carries First Aid Bandages heals herself, which moves her health and her F; for a steady
+reading take them out of her pack and bag in her inventory panel first.
+
+**Gina (2 stars) vs one walker**
+
+- [ ] Gina at the base at full health with her sledgehammer in hand, nobody else within 15 m of her (you farther off
+      too). Spawn one zombieBoe about 10 m from her. `sc team Gina`: `F 1.15 / T 1` MATCHED, MELEE-LED; the count lists
+      her ("member 2* (1.15) x HpF 1 ... x melee in pair 1 = 1.15") and the walker ("tags walker ... = 1"). She walks to
+      it and swings. No "Gina ... takes the <bow> (gun first: ...)" line; `sc xnpc` shows `x5-team-gun-held` up by one.
+      No BackupRanged, BackupKeepDistance or LeaveAreaSdcs in the overlay.
+- [ ] Same with her bow in hand (`sc arms Gina ranged` before the spawn): about a second after she sees the walker,
+      "Gina (id N) takes the <sledgehammer> (melee first: a matched fight, zombieBoe at X m)"; one arrow at most before
+      that; `x5-team-melee-first` +1. Right after it `sc team Gina` shows "gun first held N s more (swap hold)".
+- [ ] Gina at 58%: `sc team Gina hurt 0.58`, wait two seconds, then spawn a walker. `sc team Gina`: `F 0.91 / T 1`
+      OUTMATCHED, "not melee-led: outmatched"; she takes her bow as before ("gun first: target at N m"). Then stand
+      within 15 m of her and spawn another: with you counted (`F` about 2.9) she is MELEE-LED and takes the sledgehammer
+      to it. `sc team Gina hurt 1` puts her back to full health.
+
+**Rob loaded with his crossbow vs one walker**
+
+- [ ] Rob (3 stars) with his crossbow in hand: save and reload with it in his hand (the load puts it back), or
+      `sc arms Rob ranged`. Spawn one walker 10-12 m in front of him. `sc team Rob`: `F 1.3 / T 1` MATCHED, MELEE-LED.
+      About a second after he sees it: "Rob (id N) takes the <baton> (melee first: a matched fight, ...)". He does not
+      shoot it while it comes in (one bolt at most, in that first second) and does not back away; he swings when it
+      reaches him.
+- [ ] The close-range swap: Rob with the crossbow in hand again, spawn the walker 2 m behind him. 0-XNPCCore's own swap
+      gives him the baton at 3 m; the log: "Rob (id N) keeps the <baton> after 0-XNPCCore's close-range swap (a matched
+      fight; it would have restored '<crossbow>')", `x5-team-bout-kept` +1. (If the melee-first swap gets there first
+      you see its "melee first" line instead; either way he ends on the baton.) When the walker dies, or the next one
+      stands 6 m off, he keeps the baton (before this round the crossbow came back at 5 m).
+
+**Paul vs a walker at 8 m**
+
+- [ ] Paul (3 stars) with his mace in hand. Spawn a walker about 8 m in front of him. No "Paul (id N) takes the
+      gunHandgunT2Magnum44 (gun first: target at 8.2 m)" line; `x5-team-gun-held` +1 in `sc xnpc`. He keeps the mace and
+      does not walk away from the walker (no BackupRanged or BackupKeepDistance in the overlay).
+- [ ] Same with the .44 in hand (`sc arms Paul ranged`): "Paul ... takes the <mace> (melee first: ...)" within about a
+      second; while he still holds the .44 he does not back off.
+
+**Five members and you vs five walkers**
+
+- [ ] Five members (about 3 stars each) and you, all within 15 m of each other; spawn five zombieBoe 10-12 m away.
+      `sc team`: each about `F 8.5 / T 5` (it depends on who is within 15 m of whom) MATCHED, MELEE-LED. Everyone fights
+      with the melee weapon; anyone holding a gun takes the melee weapon ("melee first" lines, `x5-team-melee-first`);
+      nobody backs away.
+
+**The same group vs five ferals (outmatched: today's rules)**
+
+- [ ] Same group; spawn five zombieBoeFeral together about 20 m off (outside 15 m), so they come in as one fight.
+      `sc team`: about `F 8.5 / T 10` OUTMATCHED, "not melee-led: outmatched"; they fight as before this round: the gun
+      at range ("gun first: target at N m"), melee only up close, backing off.
+- [ ] 8.5 against 10 sits between the margins (matched from F 10, outmatched below 8). Ferals that trickle in one by one
+      start a matched fight that stays matched (`sc team <name>`: "between the margins (a matched fight stays matched, a
+      new one is outmatched)"). That is the hysteresis, not a fault: spawn a sixth (T 12), and within about 2 s every
+      member is OUTMATCHED (`x5-team-outmatched`; the verbose line "the fight is outmatched now (F 8.5 < 0.8 x T 12,
+      ...)").
+
+**A member under 50% health**
+
+- [ ] `sc team Paul hurt` (45%): within a second `sc team Paul` says "not melee-led: hurt (45% - melee again from 60%)",
+      and `sc xnpc` shows `x5-team-low-health` +1. Against a walker beyond 5 m he draws his .44 as before.
+- [ ] `sc team Paul hurt 0.55`: still not melee-led (55% is under 60%). `sc team Paul hurt 0.6`: MELEE-LED again within
+      a second.
+
+**A cop**
+
+- [ ] One member alone with her melee weapon in hand; spawn one zombieFatCop about 10 m off. `sc team <name>` lists it
+      "[melee-unsafe: gun]" and the target line says "melee-unsafe (zombieFatCop)". She takes her gun as before ("...
+      (gun first: target at N m, melee-unsafe (zombieFatCop))", `x5-team-gun-needed` +1) and backs away from it. The
+      same with zombieDemolition.
+- [ ] A cop among two walkers with two members and you: the walkers get the melee weapon when they are her target; the
+      cop never does.
+
+**A gun order**
+
+- [ ] Talk to a member: Jobs and gear, Weapons, pick her gun (or "use your <gun>" with Voice Control). `sc team <name>`:
+      "not melee-led: you ordered her gun (...)" and, on the hand line, "YOU ORDERED HER GUN"; against a lone walker she
+      uses her gun as before. `sc team <name> auto` (or ordering her melee weapon) undoes it: MELEE-LED again within a
+      second (after a melee order, "YOU ORDERED HER MELEE WEAPON": gun first stays off for her, as before).
+
+**A Cowardly member**
+
+- [ ] A Cowardly member (her traits in `sc members`) at the base with another member and you near her; spawn one walker.
+      `sc team <name>`: "not melee-led: Cowardly (...)", the fight MATCHED. She does not run (no ScFlee in the overlay);
+      she hangs back with her gun and shoots.
+- [ ] Then make it outmatched (spawn ferals until `sc team <name>` says OUTMATCHED, or face her alone, nobody near, with
+      two ferals): she runs (ScFlee), as before.
+
+**A follower away from home**
+
+- [ ] Take a member along as a follower, 100 m or more from the base, and meet one walker with her. `sc team <name>`: a
+      verdict (you count 2 within 15 m of her), MATCHED, MELEE-LED; she fights it with her melee weapon, and puts her
+      gun away for it if she held it.
+
+**TeamMelee false**
+
+- [ ] `Config/blocks.xml`: `TeamMelee` false; restart the game. The log's "config: team strength off (TeamMelee=false:
+      ...)" line; `sc team` says OFF. The Gina, Rob and Paul steps behave as before this round: the gun drawn beyond 5 m
+      ("gun first: target at N m"), the crossbow kept, the back-off from a walker up close; no `x5-team-*` counters in
+      `sc xnpc`. Set it back to true.
+
+**Log and console checks**
+
+- [ ] The log at load: "config: team strength on, within 15 m (a live base attack: the defended area), matched at F >= 1
+      T, ...", and no "config TeamThreatTags entry ... skipped" warning.
+- [ ] After a fight, `sc xnpc`: `x5-team-recount` counting up (about one a second per member near you), and
+      `x5-team-melee-first`, `x5-team-bout-kept`, `x5-team-gun-held`, `x5-team-swap-held` where the steps above say; the
+      line "[SC] team strength (round tm1): on; N fresh verdict(s) ...". `sc xnpc <name>` has a "team strength:" line.
+- [ ] During a base attack (`sc attack now`), a resident in the defended area: `sc team <name>` says "counted over the
+      defended area (base attack)", and F and T take in the whole base.
+- [ ] No `team-recount`, `arms-meleefirst`, `uai-not-team-melee` or `uai-not-team-matched` error in the log.
+
 ## Round s1c (2026-11-15): the linked strip under the grid with AshfallUI
 
 With AshfallUI and without RE Inventory, linked storage's strip (the "boxes / stacks / free slots" text and Refresh) now

@@ -244,7 +244,7 @@ Each survivor has **2 traits**. Their effects show on the NPC as buffs with a de
 | Sharpshooter | Starts with 2 extra Shooting stars |
 | Marathon Runner | Starts with 2 extra Cardio stars |
 | Quick Study | Earns XP half again as fast |
-| Cowardly | Runs from enemies instead of fighting; own mood -5 |
+| Cowardly | Runs from enemies instead of fighting (in a fight your side can win, hangs back with the gun instead); own mood -5 |
 | Hardy | Own mood +3 |
 | Medic Training | Specialty is Medicine |
 | Homesteader | Specialty is Gardening |
@@ -747,7 +747,7 @@ When attention reaches **100%** while you are home, a **horde is called**.
 - **Never** within 2 days of the last attack's end, from 10:00 on blood moon day until the blood moon ends at dawn, or
   while an outpost attack is being fought. A full meter waits at 100% until a horde can be called.
 - **Your residents defend the whole base** during an attack: any enemy in the zone or up to 10 m outside it. Cowardly
-  members still run.
+  members hang back with their gun, and run when the fight goes against you.
 - **Held** (every attacker dead): a message with what the fight cost the stockpile, and **+4 morale** ("Defended the base",
   at most +10, fading a point a day).
 - **Leaving mid-fight** (more than 150 m from the zone) hands the rest of the fight to your people (see "Attacks while
@@ -1187,6 +1187,17 @@ catalog, and real armor pieces in their equipment slots.
   follow that tier.
 - They use the gun while it has ammo and switch to melee up close. **When several enemies are on them**, they keep the gun
   and back away as they shoot instead of switching to melee.
+- **Team strength decides melee** (your members): each one weighs her side - her Fighting stars, health and weapon, the
+  other members near her, and you (you count double) - against the awake enemies within 15 m (during a horde at the
+  base, the whole defended area). **In a fight your side can win** she fights with her melee weapon: she puts her gun
+  away for it, does not shoot while the zombie comes in, does not back away from it, and stays on melee after the swap
+  up close; it takes one more enemy on her to count as "several". She uses the gun as before **below half health**
+  (melee again from 60%), against more than her side can take, when raiders or anyone armed are in the fight, against a
+  cop or a demolition zombie, and against anything she cannot reach. A guard on watch keeps the gun; a Cowardly member
+  hangs back with hers and runs only from a fight going badly. **Ordering her gun** (the weapon menu, or "use your ..."
+  by voice) makes her keep it until you order her melee weapon. Followers count too, away from home; strangers and
+  enclave people fight as before. `TeamMelee` and the other `Team...` settings (section 20) tune or turn it off;
+  `sc team <name>` shows the count.
 - **Shooting skill aims the gun:** they hit nearly every shot within 5 m per Shooting star (5 m at 1 star, 35 m at 7),
   fewer beyond, and aim at the chest.
 - They swing melee weapons as fast as the weapon allows, at the weapon's real reach.
@@ -1483,6 +1494,11 @@ These are the ones you are most likely to change. The file has many more.
 | `XnpcResupply` / `XnpcResupplyBelow` | true / 10 | Stockpile refills at home and outposts, below this many rounds |
 | `ShootingSkill` | true | Shooting stars decide NPC accuracy |
 | `Overwhelmed` | true | NPCs keep shooting when several enemies are on them |
+| `TeamMelee` | true | Members fight with their melee weapon in a fight their side can win (section 15); false: as before |
+| `TeamRadius` | 15 | How far around a member her side and the enemies are counted (meters) |
+| `TeamLowHealth` / `TeamLowHealthBack` | 0.5 / 0.6 | Below this share of her health a member uses the gun again; melee again from the second |
+| `TeamPlayerWeight` | 2 | How much you count for your side (a 1-star member counts 1) |
+| `TeamThreatTags` | walker:1, feral:2, radiated:3 ... | How much each kind of enemy counts (the comment in blocks.xml lists all of the `Team...` settings) |
 | `DialogLine` | true | Show the NPC's line above your responses |
 | `DialogPager` | true | Split long talk pages |
 | `VoiceLines` | true | Play recorded voice lines |

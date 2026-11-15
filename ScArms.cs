@@ -52,6 +52,12 @@ namespace SurvivorCommunity
     /// back to melee by itself - through 0-XNPCCore's own restore - when its target is gone (dead, despawned, lost) or
     /// back in reach within 5 m, so a melee-lead raider never stays a gun user. The melee weapon of every swap is the
     /// pair's (X6). Run from the X5 prefixes (Patches_Xnpc), on the private state Bind binds.
+    ///
+    /// Team strength (round tm1, ScTeam; TeamMelee). While a member is melee-led - a matched fight - she fights with her
+    /// melee weapon: MeleeFirst takes it out of the gun's place for a target in reach (I2), GunFirst draws the gun only for
+    /// a target that needs it or when she is overwhelmed (I1), a close-range bout of 0-XNPCCore's is adopted so its exit
+    /// never brings the gun back (I3), and the overwhelmed threshold is one attacker higher (I4). MeleeFirst and GunFirst
+    /// share one swap-hold clock (TeamSwapHoldSeconds). A gun order from the player (OrderedRangedCvar, I8) exempts her.
     /// </summary>
     public static class ScArms
     {
@@ -90,7 +96,24 @@ namespace SurvivorCommunity
             public float ExitWantSince, ExitBout;
             /// <summary>Round n08 (GunFirst): since when she has been on her melee weapon with a reason to take the gun (0 = not now).</summary>
             public float FirstSince;
+            /// <summary>Round tm1 (MeleeFirst): since when she has held her gun with a target in reach while melee-led (0 = not now).</summary>
+            public float MeleeSince;
+            /// <summary>
+            /// Round tm1: the one swap-hold clock MeleeFirst and GunFirst share (TeamSwapHoldSeconds): until HoldUntil the swap
+            /// in direction HoldDir (HoldToGun after a melee-first swap, HoldToMelee after a gun-first draw) waits.
+            /// </summary>
+            public float HoldUntil;
+            public int HoldDir;
+            /// <summary>Round tm1: the counters were told about this hold, this held gun-first draw (once each, not at 5 Hz).</summary>
+            public bool HoldNoted, GunHeldNoted;
+            /// <summary>Round tm1: a target found out of melee reach (ReachWhy), kept until UnreachUntil (TeamUnreachableSeconds).</summary>
+            public int UnreachId = -1;
+            public float UnreachUntil;
+            public string UnreachWhy;
         }
+
+        /// <summary>Round tm1: Watch.HoldDir - the swap that waits.</summary>
+        private const int HoldNone = 0, HoldToGun = 1, HoldToMelee = 2;
 
         private static readonly Dictionary<int, Watch> watch = new Dictionary<int, Watch>();
         private static readonly List<Entity> near = new List<Entity>();
@@ -120,6 +143,7 @@ namespace SurvivorCommunity
             nextPrune = 0f;
             leadSwitches = leadBacks = leadRearmsHeld = 0;
             gunFirstDraws = 0;
+            meleeFirstSwaps = boutsKept = 0;
             swapsKept = swapsUnknown = returnedStorage = returnedInventory = returnedGround = 0;
 #if SC_V34
             swapsLeftToVc = 0;
@@ -215,6 +239,10 @@ namespace SurvivorCommunity
                     Patches_Xnpc.Count("x5-overwhelmed-keep-gun");
                     return false;
                 }
+                // round tm1 (I3): a melee-led member keeps the melee weapon 0-XNPCCore's close-range swap gave her - its bout
+                // is adopted (cleared), so its exit at 5 m never restores the gun; GunFirst still takes her back to it for a
+                // target that needs it or when she is overwhelmed (+1 attacker in a matched fight, decision 7)
+                if (ScTeam.MeleeLed(e) && AdoptBout(c, e, now)) return true;
                 // on melee: with a gun to go back to, the count runs from the swap on, so a swarm that was there at once
                 // can take the gun back as soon as 0-XNPCCore's own minimum hold is over
                 string name = null;
@@ -386,7 +414,9 @@ namespace SurvivorCommunity
         /// </summary>
         public static bool IsOverwhelmed(EntityAlive e, out int count, out int need)
         {
-            need = Threshold(e);
+            // round tm1 (I4, decision 7): in a matched fight - while she is melee-led - it takes TeamOverwhelmedExtra (1)
+            // attacker more; an outmatched fight is unchanged
+            need = Threshold(e) + (ScTeam.MeleeLed(e) ? ScConfig.TeamOverwhelmedExtra : 0);
             float now = Time.time;
             Watch st = WatchOf(e, now);
             if (now >= st.NextCount)
@@ -480,6 +510,12 @@ namespace SurvivorCommunity
         /// order of the gun clears it.
         /// </summary>
         public const string OrderedMeleeCvar = "sc_order_melee";
+        /// <summary>
+        /// Round tm1 (I8, decision 9): saved cvar, 1 while the player's last weapon order for this body named her GUN or bow.
+        /// The team rule stands aside for her (she is never melee-led: ScTeam); an order of her melee weapon clears it, and so
+        /// does "sc team &lt;id&gt; auto".
+        /// </summary>
+        public const string OrderedRangedCvar = "sc_order_ranged";
         /// <summary>How long the reason to take the gun must hold before she does (a zombie stepping in and out of 5 m).</summary>
         private const float GunFirstSeconds = 1f;
         private static int gunFirstDraws;
@@ -489,16 +525,31 @@ namespace SurvivorCommunity
             return e != null && e.Buffs != null && e.Buffs.GetCustomVar(OrderedMeleeCvar) >= 0.5f;
         }
 
+        /// <summary>Round tm1: the player's last weapon order for her named her gun or bow (OrderedRangedCvar).</summary>
+        public static bool OrderedRanged(EntityAlive e)
+        {
+            return e != null && e.Buffs != null && e.Buffs.GetCustomVar(OrderedRangedCvar) >= 0.5f;
+        }
+
         /// <summary>
         /// A weapon order from the player (route "dialog" or "voice"; never "any-weapon", 0-XNPCCore's own pick-up of a newly
-        /// handed weapon): a melee weapon sets OrderedMeleeCvar, a gun or bow clears it.
+        /// handed weapon): a melee weapon sets OrderedMeleeCvar and clears OrderedRangedCvar, a gun or bow the other way round
+        /// (round tm1: before it a gun order only cleared the melee order).
         /// </summary>
         private static void NoteOrder(EntityAlive npc, string itemName, string route)
         {
             if (npc == null || npc.Buffs == null || route == "any-weapon") return;
             string family = ScLoadout.FamilyOf(itemName);
-            if (family == "melee") npc.Buffs.SetCustomVar(OrderedMeleeCvar, 1f);
-            else if (family != null && npc.Buffs.HasCustomVar(OrderedMeleeCvar)) npc.Buffs.RemoveCustomVar(OrderedMeleeCvar);
+            if (family == "melee")
+            {
+                npc.Buffs.SetCustomVar(OrderedMeleeCvar, 1f);
+                if (npc.Buffs.HasCustomVar(OrderedRangedCvar)) npc.Buffs.RemoveCustomVar(OrderedRangedCvar);
+            }
+            else if (family != null)
+            {
+                if (npc.Buffs.HasCustomVar(OrderedMeleeCvar)) npc.Buffs.RemoveCustomVar(OrderedMeleeCvar);
+                npc.Buffs.SetCustomVar(OrderedRangedCvar, 1f);
+            }
         }
 
         /// <summary>
@@ -515,6 +566,9 @@ namespace SurvivorCommunity
         /// gun as designed: what it remembers is cleared first, since it only remembers the gun it takes out of the hand
         /// while nothing is remembered. When overwhelmed the gun is held for OverwhelmedGunSeconds (CloseRange keeps it up
         /// close). True when it swapped: 0-XNPCCore's close-range tick is skipped for this round.
+        /// Round tm1 (I1): while she is melee-led (ScTeam) a target beyond 5 m is no reason - only one that needs the gun
+        /// (ScTeam.NeedsGun: then today's rule) or being overwhelmed is. A draw holds MeleeFirst for TeamSwapHoldSeconds, and
+        /// waits out MeleeFirst's own hold (the one swap-hold clock).
         /// </summary>
         public static bool GunFirst(AvatarSDCSController ctrl, EntityAlive e)
         {
@@ -534,17 +588,36 @@ namespace SurvivorCommunity
                     || OrderedMelee(e) || UAI.UAITaskHarvestSdcs.HoldsJobTool(e.entityId))
                 {
                     st.FirstSince = 0f;
+                    st.GunHeldNoted = false;
                     return false;
                 }
                 EntityAlive t = e.GetAttackTarget();
                 if (t == null || t.IsDead()) t = e.GetRevengeTarget();
-                if (t == null || t.IsDead()) { st.FirstSince = 0f; return false; }
+                if (t == null || t.IsDead()) { st.FirstSince = 0f; st.GunHeldNoted = false; return false; }
                 int count, need;
                 bool over = ScConfig.Overwhelmed && IsOverwhelmed(e, out count, out need);
                 bool far = (t.position - e.position).sqrMagnitude > XnpcCloseExitDist * XnpcCloseExitDist;
+                // Round tm1 (I1): a melee-led member keeps her melee weapon for a target beyond 5 m - unless the target needs
+                // the gun (melee-unsafe, armed, out of reach: decision 10, then today's rule) or she is overwhelmed (with the
+                // matched fight's extra attacker, decision 7)
+                string needs = null;
+                bool led = !over && ScTeam.MeleeLed(e);
+                if (led)
+                {
+                    needs = ScTeam.NeedsGun(e, t, true, true);
+                    if (needs == null)
+                    {
+                        if (far && !st.GunHeldNoted) { st.GunHeldNoted = true; Patches_Xnpc.Count("x5-team-gun-held"); }
+                        st.FirstSince = 0f;
+                        return false;
+                    }
+                }
+                st.GunHeldNoted = false;
                 if (!far && !over) { st.FirstSince = 0f; return false; }
                 if (st.FirstSince <= 0f) { st.FirstSince = now; return false; }
                 if (now - st.FirstSince < GunFirstSeconds) return false;
+                // round tm1: the swap-hold clock MeleeFirst shares - her melee weapon came out less than TeamSwapHoldSeconds ago
+                if (HeldBack(st, HoldToGun, now)) return false;
                 ItemClass gun = ItemClass.GetItemClass(l.Ranged, true);
                 if (ScAmmo.RangedAction(gun) == null || ScAmmo.Rounds(e, gun) <= 0) return false;   // nothing to shoot: melee it is
                 st.FirstSince = 0f;
@@ -563,10 +636,12 @@ namespace SurvivorCommunity
                     ScLoadout.ModsAfterEquip(e);                 // a gun SCore builds from its name has no attachments
                 }
                 if (over) st.GunUntil = now + ScConfig.OverwhelmedGunSeconds;
+                Hold(st, HoldToMelee, now);                     // round tm1: MeleeFirst waits as long
                 gunFirstDraws++;
                 Patches_Xnpc.Count(over ? "x5-gunfirst-overwhelmed" : "x5-gunfirst-range");
+                if (needs != null) Patches_Xnpc.Count("x5-team-gun-needed");
                 ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") takes the " + l.Ranged + " (gun first: "
-                              + (over ? "overwhelmed" : "target at " + (t.position - e.position).magnitude.ToString("0.#") + " m") + ")");
+                              + (over ? "overwhelmed" : "target at " + (t.position - e.position).magnitude.ToString("0.#") + " m") + (needs != null ? ", " + needs : "") + ")");
                 return true;
             }
             catch (Exception ex)
@@ -574,6 +649,212 @@ namespace SurvivorCommunity
                 ScLog.Once("arms-gunfirst", ex);
                 return false;
             }
+        }
+
+        // ------------------------------------------------------------------ melee first (round tm1) ----
+
+        /// <summary>Melee-first swaps and adopted 0-XNPCCore close-melee bouts this session (sc team, sc xnpc).</summary>
+        private static int meleeFirstSwaps, boutsKept;
+
+        /// <summary>
+        /// Round tm1 (I2, the X5 prefix between RaiderLead and GunFirst): a melee-led member (ScTeam: a matched fight, decision
+        /// 13 "pure melee") holding her pair's gun, outside 0-XNPCCore's close melee, not on a job's tool, with a target in
+        /// reach (ScTeam.Target: her attack or revenge target, else the nearest enemy of the count that she sees - so she does
+        /// not shoot it while it comes in) inside the area the count weighed (ScTeam.InArea - farther out she keeps what she
+        /// holds) that does not need the gun, not overwhelmed and not in the overwhelmed rule's gun
+        /// hold, with no pending recount below the leave margin (ScTeam.Steady), for TeamMeleeFirstSeconds: she takes her
+        /// pair's melee weapon. Through 0-XNPCCore's own equip (its magazine table keeps the gun's rounds; X16's finalizer
+        /// treats only "any-weapon-equip" as a hand-over, never this site), with what it remembers cleared first, so none of
+        /// its restores brings the gun back. GunFirst's draw waits TeamSwapHoldSeconds after (the one swap-hold clock); this
+        /// waits as long after a GunFirst draw. True when it swapped: 0-XNPCCore's close-range tick is skipped for this round.
+        /// </summary>
+        public static bool MeleeFirst(AvatarSDCSController ctrl, EntityAlive e)
+        {
+            try
+            {
+                if (!ScConfig.TeamMelee || e == null || e.isEntityRemote || e.inventory == null || e.Buffs == null) return false;
+                if (!ScXnpc.IsBody(e) || ScXnpc.IsRaider(e)) return false;
+                Watch st;
+                if (!ScTeam.MeleeLed(e))
+                {
+                    if (watch.TryGetValue(e.entityId, out st)) st.MeleeSince = 0f;
+                    return false;
+                }
+                AvatarSdcsNpcController c = ctrl as AvatarSdcsNpcController;
+                if (c == null || !Bind() || CloseMelee(c)) return false;
+                float now = Time.time;
+                if (now >= nextPrune) Prune(now);
+                st = WatchOf(e, now);
+                Loadout l = ScLoadout.Current(e);
+                ItemValue hv = e.inventory.holdingItemItemValue;
+                string held = hv != null && !hv.IsEmpty() && hv.ItemClass != null ? hv.ItemClass.GetItemName() : null;
+                if (l == null || !l.HasRanged || string.IsNullOrEmpty(l.Melee) || !string.Equals(held, l.Ranged, StringComparison.OrdinalIgnoreCase)
+                    || UAI.UAITaskHarvestSdcs.HoldsJobTool(e.entityId) || !ScTeam.Steady(e))
+                {
+                    st.MeleeSince = 0f;
+                    return false;
+                }
+                // a target the count weighed (inside its area) that does not need the gun; not in the overwhelmed gun hold
+                EntityAlive t = ScTeam.Target(e);
+                if (t == null || !ScTeam.InArea(e, t) || ScTeam.NeedsGun(e, t, false, true) != null || now < st.GunUntil) { st.MeleeSince = 0f; return false; }
+                int count, need;
+                if (ScConfig.Overwhelmed && IsOverwhelmed(e, out count, out need)) { st.MeleeSince = 0f; return false; }
+                if (st.MeleeSince <= 0f) { st.MeleeSince = now; return false; }
+                if (now - st.MeleeSince < ScConfig.TeamMeleeFirstSeconds) return false;
+                if (HeldBack(st, HoldToMelee, now)) return false;                                // GunFirst drew the gun just now
+                if (ItemClass.GetItemClass(l.Melee, true) == null) return false;
+                st.MeleeSince = 0f;
+                rememberedField.SetValue(c, null);
+                MethodBase equip = Patches_Xnpc.EquipByNameTarget();
+                if (equip != null)
+                {
+                    object ok = equip.Invoke(c, new object[] { l.Melee, "sc-melee-first" });
+                    if (!(ok is bool) || !(bool)ok) return false;
+                }
+                else if (!ScNpc.UpdateWeapon(e, l.Melee)) return false;
+                Hold(st, HoldToGun, now);
+                meleeFirstSwaps++;
+                Patches_Xnpc.Count("x5-team-melee-first");
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") takes the " + l.Melee + " (melee first: a matched fight, "
+                              + t.EntityName + " at " + (t.position - e.position).magnitude.ToString("0.#") + " m)");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("arms-meleefirst", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Round tm1: starts the shared swap-hold clock - the swap in direction dir waits TeamSwapHoldSeconds.</summary>
+        private static void Hold(Watch st, int dir, float now)
+        {
+            st.HoldUntil = now + ScConfig.TeamSwapHoldSeconds;
+            st.HoldDir = dir;
+            st.HoldNoted = false;
+        }
+
+        /// <summary>Round tm1: is a swap in direction dir held by the shared clock right now (counted once per hold)?</summary>
+        private static bool HeldBack(Watch st, int dir, float now)
+        {
+            if (st.HoldDir != dir || now >= st.HoldUntil) return false;
+            if (!st.HoldNoted) { st.HoldNoted = true; Patches_Xnpc.Count("x5-team-swap-held"); }
+            return true;
+        }
+
+        /// <summary>
+        /// Round tm1 (I3): 0-XNPCCore's close-range swap put a melee-led member on her melee weapon - adopt its bout as
+        /// RestoreGun's steps do (the close-melee flag, its start time and the weapon it would restore cleared), so its exit
+        /// never brings the gun back. Not for a target that needs the gun: then its bout runs as today (its exit at 5 m
+        /// restores the gun). True when adopted.
+        /// </summary>
+        private static bool AdoptBout(AvatarSdcsNpcController c, EntityAlive e, float now)
+        {
+            EntityAlive t = e.GetAttackTarget();
+            if (t == null || t.IsDead()) t = e.GetRevengeTarget();
+            if (t != null && !t.IsDead() && ScTeam.NeedsGun(e, t, true, true) != null) return false;
+            string had = Remembered(c);
+            rememberedField.SetValue(c, null);
+            closeMeleeField.SetValue(c, false);
+            closeSinceField.SetValue(c, 0f);
+            Watch st = WatchOf(e, now);
+            st.ExitWantSince = 0f;
+            boutsKept++;
+            Patches_Xnpc.Count("x5-team-bout-kept");
+            ItemValue hv = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            string held = hv != null && !hv.IsEmpty() && hv.ItemClass != null ? hv.ItemClass.GetItemName() : "melee weapon";
+            ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") keeps the " + held + " after 0-XNPCCore's close-range swap (a matched fight; it would have restored '"
+                          + (had ?? "-") + "')");
+            return true;
+        }
+
+        /// <summary>
+        /// Round tm1: why this target is out of her melee weapon's reach, or null - the raiders' OutOfReach without its
+        /// distance clause, made safe for a gun holder: standing above her; marked unreachable by 0-XNPCCore (ScReach);
+        /// beyond melee reach, her path leads to it and ends short; or (onMelee: she holds her melee weapon, so she is the one
+        /// who would walk there) no path and none planned while really blocked. A path that leads elsewhere (a back-off) says
+        /// nothing, and plain "no path" is never enough for a gun holder: she plans none. remember (X5 only) keeps a finding
+        /// (not "above": that is checked live) for TeamUnreachableSeconds, so a target behind a wall is not tried again at once.
+        /// </summary>
+        internal static string ReachWhy(EntityAlive e, EntityAlive t, bool onMelee, bool remember)
+        {
+            float now = Time.time;
+            Watch st;
+            if (watch.TryGetValue(e.entityId, out st) && st.UnreachId == t.entityId && now < st.UnreachUntil)
+                return st.UnreachWhy + " (kept " + (st.UnreachUntil - now).ToString("0") + " s more)";
+            Vector3 d = t.position - e.position;
+            if (d.y > ReachAbove) return "above her (" + d.y.ToString("0.#") + " m)";
+            string why = null;
+#if SC_V34
+            if (ScReach.Marked(e, t)) why = "0-XNPCCore marked it melee-unreachable";
+#endif
+            if (why == null && d.magnitude > MeleeReach)
+            {
+                GamePath.PathNavigate nav = e.navigator;
+                GamePath.PathEntity path = nav != null ? nav.getPath() : null;
+                if (path != null && !path.isFinished())
+                {
+                    float hx = path.toPos.x - t.position.x, hz = path.toPos.z - t.position.z;
+                    if (hx * hx + hz * hz <= PathOnTarget * PathOnTarget)
+                    {
+                        float gx = path.toPos.x - path.rawEndPos.x, gz = path.toPos.z - path.rawEndPos.z;
+                        if (gx * gx + gz * gz > PathShortBy * PathShortBy || path.toPos.y - path.rawEndPos.y > ReachAbove) why = "unreachable (her path to it ends short)";
+                    }
+                }
+                else if (onMelee && nav != null && nav.noPathAndNotPlanningOne() && e.moveHelper != null && e.moveHelper.BlockedTime > BlockedSeconds)
+                    why = "unreachable (blocked, no path)";
+            }
+            if (why != null && remember && ScConfig.TeamUnreachableSeconds > 0f)
+            {
+                st = WatchOf(e, now);
+                if (st.UnreachId != t.entityId || now >= st.UnreachUntil) Patches_Xnpc.Count("x5-team-unreachable");
+                st.UnreachId = t.entityId;
+                st.UnreachUntil = now + ScConfig.TeamUnreachableSeconds;
+                st.UnreachWhy = why;
+            }
+            return why;
+        }
+
+        /// <summary>A path whose goal is this close (XZ) to the target leads to it (a moving target drifts off the goal).</summary>
+        private const float PathOnTarget = 3f;
+
+        /// <summary>Round tm1: a pure read of ReachWhy's memory - this target was found out of her reach and still is kept so.</summary>
+        public static bool RememberedOutOfReach(EntityAlive e, EntityAlive t)
+        {
+            Watch st;
+            return e != null && t != null && watch.TryGetValue(e.entityId, out st) && st.UnreachId == t.entityId && Time.time < st.UnreachUntil;
+        }
+
+        /// <summary>Round tm1: her swap state for sc team / sc xnpc - the melee-first clock, the shared hold, the gun hold, a target kept out of reach.</summary>
+        public static string TeamState(EntityAlive e)
+        {
+            if (e == null) return "-";
+            ItemValue hv = e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            string held = hv != null && !hv.IsEmpty() && hv.ItemClass != null ? hv.ItemClass.GetItemName() : "nothing";
+            var sb = new StringBuilder("holding ").Append(held);
+            Loadout l = ScLoadout.Current(e);
+            if (l != null) sb.Append(" (pair ").Append(l.Ranged ?? "-").Append(" / ").Append(l.Melee ?? "-").Append(')');
+            if (OrderedMelee(e)) sb.Append(", YOU ORDERED HER MELEE WEAPON");
+            if (OrderedRanged(e)) sb.Append(", YOU ORDERED HER GUN");
+            float now = Time.time;
+            Watch st;
+            if (watch.TryGetValue(e.entityId, out st))
+            {
+                if (st.MeleeSince > 0f) sb.Append(", melee first in ").Append(Math.Max(0f, ScConfig.TeamMeleeFirstSeconds - (now - st.MeleeSince)).ToString("0.0")).Append(" s");
+                if (now < st.HoldUntil && st.HoldDir != HoldNone)
+                    sb.Append(", ").Append(st.HoldDir == HoldToGun ? "gun first" : "melee first").Append(" held ").Append((st.HoldUntil - now).ToString("0.0")).Append(" s more (swap hold)");
+                if (now < st.GunUntil) sb.Append(", overwhelmed gun hold ").Append((st.GunUntil - now).ToString("0.0")).Append(" s more");
+                if (st.UnreachId >= 0 && now < st.UnreachUntil) sb.Append(", target #").Append(st.UnreachId).Append(" kept out of reach ").Append((st.UnreachUntil - now).ToString("0")).Append(" s more (").Append(st.UnreachWhy).Append(')');
+            }
+            int count, need;
+            if (ScXnpc.IsBody(e)) { bool over = IsOverwhelmed(e, out count, out need); sb.Append("; overwhelmed ").Append(count).Append('/').Append(need).Append(over ? " YES" : " no"); }
+            return sb.ToString();
+        }
+
+        /// <summary>Round tm1: the swap counters for sc team.</summary>
+        public static string TeamReport()
+        {
+            return meleeFirstSwaps + " melee-first swap(s), " + boutsKept + " close-melee bout(s) kept on melee";
         }
 
         // ------------------------------------------------------------------ raiders' lead weapon (M10-D1) ----
@@ -1450,7 +1731,8 @@ namespace SurvivorCommunity
             }
             sb.Append("; gun first ").Append(!ScConfig.SurvivorGunFirst ? "off (SurvivorGunFirst)" : ScXnpc.IsRaider(e) ? "- (a raider: its lead)"
                       : OrderedMelee(e) ? "stands aside (the player ordered her melee weapon - order the gun to undo)" : "on")
-              .Append(" (").Append(gunFirstDraws).Append(" draw(s) this session)");
+              .Append(" (").Append(gunFirstDraws).Append(" draw(s) this session)")
+              .Append(ScTeam.MeleeLed(e) ? "; MELEE-LED (round tm1): only a target that needs the gun, or being overwhelmed, draws it" : "");
             AvatarSdcsNpcController c = e.emodel != null ? e.emodel.avatarController as AvatarSdcsNpcController : null;
             if (c != null && Bind())
                 sb.Append("; 0-XNPCCore close melee=").Append(CloseMelee(c)).Append(CloseMelee(c) ? " for " + (now - CloseSince(c)).ToString("0.0") + " s" : "")

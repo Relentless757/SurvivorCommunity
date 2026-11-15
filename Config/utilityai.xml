@@ -161,12 +161,16 @@
 			<!-- Cowardly members ($Timid, written by ScTraits) run from enemies within 15 m. Up to 0-XNPCCore 3.1 its
 			     NPCModCore had this very action; 3.2 commented it out ("$Timid has no writer" - this mod is one), so it
 			     lives here now. NotHasOrder Stay keeps a parked, hidden runner or garrison body still. Under 3.1 both
-			     run at the same weight, which is harmless. -->
+			     run at the same weight, which is harmless.
+			     Round tm1 (decision 8): ScNotTeamMatched is 0 while her team verdict (ScTeam) says the fight is matched -
+			     F >= T within 15 m, no raiders in it - so a Cowardly member hangs back with her gun (she is never
+			     melee-led) and runs only from an outmatched fight. 1 with TeamMelee off or no verdict: she runs as before. -->
 			<action name="ScFlee" weight="6" entity_filter="IsEnemy">
 				<task class="FleeFromTarget" max_distance="30" />
 				<consideration class="SelfHasCVar, SCore" cvar="$Timid" value="1" />
 				<consideration class="NotHasOrder, SCore" order="Stay" />
 				<consideration class="ScNotOnWatch, SurvivorCommunity" />
+				<consideration class="ScNotTeamMatched, SurvivorCommunity" />
 				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
 				<consideration class="SelfVisible" />
 			</action>
@@ -284,12 +288,15 @@
 				<consideration class="ScIsNight, SurvivorCommunity" />
 				<consideration class="ScNearPost, SurvivorCommunity" distance="4" />
 			</action>
-			<!-- the Cowardly ($Timid, their traits) run from enemies within 15 m -->
+			<!-- the Cowardly ($Timid, their traits) run from enemies within 15 m. Round tm1: ScNotTeamMatched as on ScFlee -
+			     an enclave's people have no team verdict this round (decision 12), so for them it is always 1 (they run as
+			     before); it is here so a later round that gives them one needs no XML change. -->
 			<action name="ScEncFlee" weight="6" entity_filter="IsEnemy">
 				<task class="FleeFromTarget" max_distance="30" />
 				<consideration class="ScEncHome, SurvivorCommunity" />
 				<consideration class="SelfHasCVar, SCore" cvar="$Timid" value="1" />
 				<consideration class="NotHasOrder, SCore" order="Stay" />
+				<consideration class="ScNotTeamMatched, SurvivorCommunity" />
 				<consideration class="TargetDistance" min="0" max="15" curve="threshold" />
 				<consideration class="SelfVisible" />
 			</action>
@@ -400,6 +407,15 @@
 			     can shoot beats one who can do neither. Every other NPC keeps the back-off untouched. -->
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
 				<consideration class="ScNotHoldingGunUpClose, SurvivorCommunity" />
+			</append>
+			<!-- Round tm1 (I5; the user, 2026-11-15: "5 members vs 5 zombies should not use ranged unless HP is low"): Paul drew
+			     his .44 on a walker 8 m off and BackupKeepDistance (8, inside 4 m) and BackupRanged (5, 1-10 m, and the winner
+			     through every reload) walked him away from it. ScNotTeamMelee is 0 while a member is melee-led (ScTeam: a
+			     matched fight, F >= T) and the enemy is safe to melee, unarmed and in reach, unless the overwhelmed rule holds her
+			     on the gun: she holds her ground while SC's MeleeFirst puts her melee weapon in her hand (1 s; the swap hold 5 s).
+			     1 for everyone else - an outmatched fight, a cop or demolition zombie, raiders, strangers, TeamMelee off. -->
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance' or @name='BackupRanged']">
+				<consideration class="ScNotTeamMelee, SurvivorCommunity" />
 			</append>
 			<!-- the user, 2026-10-29: enclave people hold their ground inside their home when attacked - XNPC's leave-area
 			     (9, over every fight) never walks one of them out of their own building.

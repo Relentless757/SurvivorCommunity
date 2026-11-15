@@ -9,7 +9,7 @@ namespace SurvivorCommunity
     public class ConsoleCmdSc : ConsoleCmdAbstract
     {
         public override string[] getCommands() { return new[] { "sc", "survivorcommunity" }; }
-        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline|hurt [share]>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, sleep, craft [table | station [radius] | <id|name> [spec <Specialty> | end]], ui [reset], xnpc [id|name], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
+        public override string getDescription() { return "SurvivorCommunity: status, members, day, morale <n>, give <food|meds|ammo|mats|fuel|water|luxury> <n>, facility [list] | facility level <x y z> <1-5>, drinks [on|off], xp <id|name> <cardio|wits|fighting|shooting|spec> <n>, injure <id|name>, scan, run <id|name> <res|mine|clay> | run <id|name> <recall|home|skip|offline|hurt [share]>, runners, distress <id|name>, spawn [hostile] [male|female] [T1|T2|T3] [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [Set] (sc weapons lists them; melee|bow|firearm pick one of that family), raiders [r], weapons, loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] | loadout near [r] | loadout sim [n] [hostile] [T1|T2|T3] [any], skills sim [T1|T2|T3] [n], voice [play <line> [id|name] | stop | rescan | gate | sayline [line] [seconds] | context [id|name] | who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | barks | line <words>], arms <id|name> [melee|ranged], look <id|name> [tone], paint <id|name> [body <id> | face <id> | tattoo <shape>[/ink] | none | roll], gear <id|name> <Set|Outfit|none> | gear sim [n] [hostile] [T1|T2|T3] [any] [male|female], anim <id|name>, aim [id|name], portrait <id|name|all> | portrait frame [fov dist yaw eyelift aimlift], poi [near <r> | classify <prefab> | census], outpost [list | add [row] | remove <id> | yield | pending <id> <n> | reclassify <id> | state <id> <state> | post <id> <member> | recall <member> | upgrade <id> | level <id> <1-3> | mode <id> <normal|quiet|push> | security <id> | attack <id> [raid] | demand <id> | pay <id> | refuse <id> | repair <id>], enclave [list | info <id> | people <id> | spawn <id> | despawn <id> | standing <id> <points> | hostile <id> | kill <id> [<person id>|all] | trade <id> | release <id> | requests | request <id> [offer <resource|generator|gun|missing|infestation> [res] [size] [force] | accept | complete [points] | fail | lapse | clear | fate <alive|dead>] | siege <id> [now [force] | win | lose | clear] | refill [now] | gift <id> [give <res> [size] [force]] | barter <id> [<give> [get]] | call <id> [fighter|drop [force] [now] | cancel] | raid <id> [<outpost id> [demand|now]] | move <id> [sim|now] | join <id> [sim|now [force]] | arrivals [now] | reveal <id|all> | hide <id|all> | sim [late] | names [n] [hostile] | reseed confirm], band [list | info <id> | spawn [drifters|raiders] [trouble] | here <id> | advance <id> [hours] | kill <id> [<person id>|all] | clear <id|all> | trust <id> | roll], infest [list | info <id> | add [<x> <z>] | clear <id|all> | spread <id> | roll | reveal <id|all> | hide <id|all>], sleepers [status | scan | repair], scout <res>, barter <give> <get>, radio, restore <member>, repost <member>, relink, home [set], dump, save, sleep, craft [table | station [radius] | <id|name> [spec <Specialty> | end]], ui [reset], xnpc [id|name], team [id|name [auto | hurt [share]]], trust <id|name> [forgive], recruit <id|name>, names [reload | reset | test [n] [male|female]], noise [add <n> | clear], attention <0-100>, attack [now] [size] | attack status | attack end | attack settle [held|damaged|overrun], defence [horde], siege [held|damaged|overrun], watch [list] | watch assign <post> <member> | watch relieve <post|member> | watch end <post|member> | watch rest <member> [clear] | watch place <post|member> | watch scan, tower [info] | tower check [rot] | tower stamp [rot]"; }
         public override string getHelp() { return getDescription(); }
 
         /// <summary>
@@ -128,6 +128,7 @@ namespace SurvivorCommunity
                     case "relink": Relink(); break;
                     case "repost": RepostCmd(_params); break;
                     case "xnpc": XnpcCmd(_params); break;
+                    case "team": TeamCmd(_params); break;                        // round tm1: team [id|name [auto | hurt [share]]] - F, T, the verdict and what was counted
 #if SC_V34
                     case "sleep": ScSleep.ConsoleCmd(Output); break;            // round n06: who is leased out for the night, and why not
                     case "craft": ScCraft.ConsoleCmd(_params, Output); break;   // C1: craft [table | station [radius] | <id|name> [spec <Specialty> | end]]
@@ -2386,6 +2387,45 @@ namespace SurvivorCommunity
                    + ", you can melee " + EntityTargetingUtilities.CanDamage(lp, e) + ", enemy of you " + EntityTargetingUtilities.IsEnemy(e, lp));
         }
 
+        /// <summary>
+        /// Round tm1: sc team - every loaded member's team verdict (F, T, matched, melee-led or why not); sc team &lt;id|name&gt;
+        /// - one member's verdict and its reasons, a fresh count with every entity counted and its weight, her target and
+        /// whether it needs the gun, and her hand (holds, clocks, overwhelmed); sc team &lt;id|name&gt; auto - clears the player's
+        /// weapon orders on her (sc_order_melee, sc_order_ranged), so she picks her weapon by the rules again; sc team
+        /// &lt;id|name&gt; hurt [share] - a test shortcut, as sc run hurt: her body's health to that share of her max (default
+        /// just under TeamLowHealth), so the low-health rule can be watched at home.
+        /// </summary>
+        private static void TeamCmd(List<string> p)
+        {
+            var lines = new List<string>();
+            if (p.Count < 2) ScTeam.ListLines(lines);
+            else
+            {
+                EntityAlive e = FindBodyNpc(p[1]);
+                if (e == null) { Output("[SC] no loaded NPC '" + p[1] + "' - sc team [id|name [auto | hurt [share]]]"); return; }
+                if (p.Count >= 3 && p[2].Equals("auto", StringComparison.OrdinalIgnoreCase)) lines.Add("[SC] " + ScTeam.ClearOrders(e));
+                else if (p.Count >= 3 && p[2].Equals("hurt", StringComparison.OrdinalIgnoreCase))
+                {
+                    // a test shortcut (as sc run hurt): her body's health to a share of her max, default just under TeamLowHealth
+                    float share = Mathf.Max(0.01f, ScConfig.TeamLowHealth - 0.05f);
+                    if (p.Count >= 4 && !float.TryParse(p[3], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out share))
+                    {
+                        Output("[SC] sc team <id|name> hurt [share of max health, 0.01-1]");
+                        return;
+                    }
+                    if (!ScXnpc.IsBody(e) || e.IsDead()) { Output("[SC] " + ScCommunity.DisplayName(e) + " is not a living one of the community's survivors"); return; }
+                    int max = e.GetMaxHealth();
+                    e.Health = Mathf.Max(1, Mathf.RoundToInt(max * Mathf.Clamp(share, 0.01f, 1f)));
+                    lines.Add("[SC] " + ScCommunity.DisplayName(e) + " is at " + e.Health + "/" + max + " hp - "
+                              + ((float)e.Health / max < ScConfig.TeamLowHealth ? "below TeamLowHealth (" + ScConfig.TeamLowHealth + "): not melee-led from the next count, again from " + ScConfig.TeamLowHealthBack
+                                 : "not below TeamLowHealth (" + ScConfig.TeamLowHealth + ")"));
+                }
+                else if (p.Count >= 3) { Output("[SC] sc team [id|name [auto | hurt [share]]]"); return; }
+                ScTeam.Describe(e, lines);
+            }
+            foreach (string s in lines) Output(s);
+        }
+
         private static void XnpcCmd(List<string> p)
         {
             if (p.Count >= 2)
@@ -2402,6 +2442,7 @@ namespace SurvivorCommunity
             Output("[SC] stuck rescue (round 29b): " + ScStuck.Counters());
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
+            Output("[SC] team strength (round tm1): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false)") + "; " + ScTeam.Report());
             Output("[SC] melee: " + ScMelee.Report());
 #if SC_V34
             Output("[SC] melee-unreachable (0-XNPCCore): " + ScReach.Report());
@@ -2495,6 +2536,7 @@ namespace SurvivorCommunity
             sb.Append("\n  ammo: ").Append(XnpcAmmo(e, held));
             if (ScRegistry.Loaded) sb.Append("\n  resupply: ").Append(ScAmmo.Describe(e));
             sb.Append("\n  overwhelmed: ").Append(ScArms.Describe(e));
+            sb.Append("\n  ").Append(ScTeam.Line(e));             // round tm1
 #if SC_V34
             sb.Append("\n  ").Append(ScReach.Describe(e));
 #endif
