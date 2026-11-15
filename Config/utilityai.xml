@@ -536,6 +536,19 @@
 			</append>
 		</if>
 	</conditional>
+	<!-- Round rt1, the Fable review (finding 4): 0-XNPCCore's Guard (SdcsNpcCore, 3: walk to the guard spot - for a resident her
+	     post) ran whenever nothing else scored for a retreating member - through every reload of a stand-off, and in the
+	     moment a shelter's fight back left nothing in reach - and walked her across the yard, or out through the door she had
+	     just shut. ScNotRetreating keeps her where she is until the retreat ends; then Guard walks her home as before.
+	     Followers are not gated: DynamicFollow (2) may draw a follower standing off toward you during a reload, which keeps
+	     her with you (decision 4), and SC's ScFollowLeader (4) never runs for 0-XNPCCore's bodies (ScNoDynamicFollow). -->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcCore&quot;]/action[@name=&quot;Guard&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcCore']/action[@name='Guard']">
+				<consideration class="ScNotRetreating, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
 
 	<!--
 	  Round R1 (0-XNPCCore 3.4.02's bandits; SC's raiders are their children there, Config/entityclasses.xml): a band of

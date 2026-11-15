@@ -67,7 +67,15 @@ What it does now:
   flees as before; runners keep round r2's flight and turn home.
 - A sheltering member counts 0 in the others' team verdict (tm1).
 - Guards on watch, members on a Stay order, stand-ins, enclave people and strangers: unchanged.
-- `RetreatHome` false: everything as before this round.
+- `RetreatHome` false: everything as before this round, except two fixes that stay on either way (on purpose): a hurt
+  member running with `ScFleeHurt` no longer counts as fighting for the stuck watchdog (`LiveFoe`), and tm2's
+  stand-and-shoot gives up a clear aim with no shot after 4 s (the tm2 follow-up at the end of this section).
+- After the Fable review: she fights back only at an enemy she has a clear line to (not one pounding the door she shut);
+  the stand-off backs off only from its own threat, inside 8 m, with nothing in between; 0-XNPCCore's Guard no longer
+  walks a retreating member to her post (a reload, a fight back); a raider has to come within 30 m to make her shelter
+  and leave 35 m before she stands off again, and a mode lasts at least 5 s (a dry gun switches at once); away from home
+  the stand-off works only within 20 m of you and, cornered twice in a row there, she flees as before for 15 s; and a
+  shelter spot beside a door (which she would hold open) is taken only when no other is valid.
 
 Setup: the new DLL with its `Config/utilityai.xml` (the new `ScRetreat` and `ScStandOffHurt` actions and the gates) and
 `Config/blocks.xml` (the eleven `Retreat...`, `Shelter...` and `StandOff...` keys). `DebugLogging` true for the verbose lines
@@ -86,7 +94,8 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
       you; shelter scan every 300 s".
 - [ ] Within about 20 s at home, `sc retreat`: "shelter cache: N shelter candidate(s): R roofed with 6+ walls, ... last
       scan X s ago (S seeds, Y ms over F frames)". `sc retreat shelters` lists the best ones; a bedroom shows "roofed, 7
-      of 8 walls, beside a bed" (or 6-8); the yard is not near the top. With DebugLogging: "shelter scan: ...". Note Y
+      of 8 walls, beside a bed" (or 6-8); the yard is not near the top; a spot within 2.5 m of a door says "beside a door
+      (taken last)". With DebugLogging: "shelter scan: ...". Note Y
       and F on your base (the cost; design section 8).
 - [ ] `sc retreat shelters rescan`: a new scan; build a wall or tear one down near a listed spot and rescan: its walls
       change. Enlarge or move the claim: the cache rescans by itself within a few seconds.
@@ -114,6 +123,12 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
       The zombie follows him in and gets within 2.5 m: (verbose) "Paul (id N) fights back from his shelter: an enemy
       within 2.5 m is after him", `retreat-fightback` +1, `dm` shows `MeleeAttack`; he never chases it out of the room
       (no `MeleeApproach`). After the kill, about 3 s later, he walks back onto his spot if he was pushed off it.
+- [ ] The door he shut holds the zombie out, and it pounds on that door (or the wall) within 2.5 m of him: NO fight back
+      (no "fights back" line, `retreat-fightback` unchanged) - he keeps holding his spot; `dm` stays on `ScRetreat` and
+      never shows `Guard` (he is not walked to his post through that door). Only once it breaks through and comes at him
+      in the open does he fight back.
+- [ ] His spot is not within 2.5 m of a door when the room has any other valid spot (`sc retreat Paul`: the spot line has
+      no "BESIDE A DOOR"), so the door he came through shuts about 2 s after he is through.
 - [ ] 20 s with no threat: "Paul (id N) ends his retreat (shelter, X s): no threat for 20 s", `retreat-ended-threat-gone`.
       Still at 30% with nothing, he is not walked to the next fight: spawn a walker 15 m off, in the zone, not after
       him - he does not go for it (`dm`: no `ScDefendBase`, no `MeleeApproach`); one that comes at him starts a new
@@ -121,8 +136,10 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
 - [ ] Healing ends it: during a shelter hand him a First Aid Bandage (panel): he bandages there; once over 45%: "... ends
       his retreat (shelter, X s): healed to 46% (RetreatHealedAt 45%)".
 - [ ] Asleep in a bedroom (night, `sc sleep`): hurt him with nothing, spawn a zombie outside the room where it cannot see
-      him: no retreat until it is after him or sees him; then, if his own spot passes, `sc retreat Paul` says "holds where
-      she stands (roofed, N of 8 walls, the threat cannot see her)" and he does not move.
+      him. He gets up first (0-XNPCCore's RoutineWalk stands down for an enemy within 30 m). No retreat until it is after
+      him or sees him; then, if the spot where he stands passes (roofed, 6+ walls, not beside a door, the threat 12 m off
+      and unable to see him), `sc retreat Paul` says "holds where he stands (roofed, N of 8 walls, the threat cannot see
+      him)" and he stays where he got up.
 
 **Scenario 3: Gina stands off with her bow**
 
@@ -130,9 +147,14 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
       When one is after her or sees her: "Gina (id N) retreats - STAND-OFF with her gun (gap 11 m): hurt (30%), nothing to
       heal with; threat ...". (The gap: 15 m, or her engage range minus 1 - 11 m at 1 Shooting star with the default
       `ShootingEngageMin` 12.) She shoots while they are farther than 8 m.
-- [ ] A walker comes to 7.5 m: `dm` shows `ScStandOffHurt`; she runs to a point inside the base (`sc retreat Gina`:
-      "BACKING OFF to x y z"), toward another member who is fighting when there is one, never out of the zone + 8 m.
-      At about the gap she stops (`retreat-backoff-done`), turns and shoots. The walker closes again: she backs off again.
+- [ ] A walker comes to 7.5 m (the nearest one after her or seeing her, nothing between their heads): `dm` shows
+      `ScStandOffHurt`; she runs to a point inside the base (`sc retreat Gina`: "BACKING OFF to x y z"), toward another
+      member who is fighting when there is one, never out of the zone + 8 m. At about the gap she stops, turns and shoots:
+      `retreat-backoff` and `retreat-backoff-done` each go up by exactly 1 for that back-off (not climbing while she
+      shoots), and `dm` goes straight to `RangedMeleeAttack` with no run/stop jitter. The walker closes again: she backs
+      off again (+1 each).
+- [ ] A zombie within 8 m of her behind a wall, pounding it: no `ScStandOffHurt`, no back-off, nothing counted; she does
+      not freeze - she shoots what she can see. During her reloads `dm` never shows `Guard` or `BackupRanged`.
 - [ ] A zombieBoeFeral sprints at her: within about 3 s (verbose) "Gina (id N) is cornered (zombieBoeFeral (M) gains on
       her: ...) - stands and shoots for 3 s", `retreat-cornered` +1. She stands and shoots point-blank: `dm` never shows
       `BackupKeepDistance` or `BackupRanged`; with arrows loaded she keeps the bow inside 3 m (`x5-retreat-keep-gun` in
@@ -149,7 +171,9 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
       SHELTER inside: hurt (30%), nothing to heal with, no gun with rounds". Hand him bolts mid-retreat: "Rob (id N) switches his
       retreat from shelter to stand-off: a gun with rounds again, no armed enemies".
 - [ ] Gina (bow, arrows) hurt with nothing, and a raider within 30 m (`sc spawn hostile`): "SHELTER inside: ..., armed
-      enemies". The raider dies or leaves: "switches her retreat from shelter to stand-off".
+      enemies". The raider dies or goes past 35 m: "switches her retreat from shelter to stand-off" - at least 5 s after
+      the shelter began. A raider pacing between 30 and 35 m does not flip her back and forth; two switch lines are never
+      under 5 s apart (except "her gun is dry", which is at once).
 
 **Scenario 5: Sam, Cowardly (decision 6)**
 
@@ -173,7 +197,12 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
 
 - [ ] Gina following you away from home, with her bow, hurt to 0.3 with nothing; a walker comes at her: "Gina (id N)
       retreats - STAND-OFF with her gun ... (away from home: within 20 m of you)", `retreat-standoff-away` +1. Her back-off
-      points stay within 20 m of you (`sc retreat Gina`); she never runs 30 m away (`dm`: no `ScFleeHurt`).
+      points stay within 20 m of you (`sc retreat Gina`); she never runs 30 m away (`dm`: no `ScFleeHurt`). Farther than
+      20 m from you she is not eligible (`sc retreat Gina`: "a follower away from home, farther than 20 m from you") and
+      flees as before.
+- [ ] Away from home with nowhere to back off near you (a narrow corridor, a feral): cornered twice in a row, "Gina (id N)
+      ends her retreat (stand-off, ...): cornered 2 times in a row away from home - she flees as before for 15 s",
+      `retreat-ended-cornered-away` +1; `dm` shows `ScFleeHurt`; after 15 s a new stand-off may start.
 - [ ] The same with no gun (`meleeonly`): no retreat line - `ScFleeHurt` runs her off as before and DynamicFollow brings
       her back. `StandOffFollowerLeash` 0 (restart): a follower with a gun flees as before too.
 - [ ] Gina standing off away from home walks back into the base with you: "ends her retreat (stand-off, ...): no longer
@@ -208,7 +237,8 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
       `sc retreat <name>` shows every gate at 1 and `ScRetreating 0`.
 - [ ] With `RetreatHome` false, a hurt resident who flees from a zombie that never hit her (no revenge target) into a
       corner at home is moved back by the watchdog as a wedge (12 s, "no progress for 12 s" without ", fighting"): the
-      target of `ScFleeHurt` no longer counts as a fight (`LiveFoe`; before this round only `ScFlee`'s did).
+      target of `ScFleeHurt` no longer counts as a fight (`LiveFoe`; before this round only `ScFlee`'s did). This fix and
+      the tm2 follow-up below stay on with `RetreatHome` false - on purpose; nothing else of this round does.
 - [ ] The log has no `retreat-update`, `retreat-task-start`, `retreat-task-update`, `standoff-task-start`,
       `standoff-task-update`, `shelter-step`, `uai-retreating`, `uai-standoff`, `uai-not-retreat-home`,
       `uai-not-retreating` or `uai-not-hurt-no-meds` error line.
@@ -218,7 +248,7 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
 - [ ] Paul melee-led, his gun drawn for an attacker up close he cannot swing at (tm2's stand-and-shoot), where
       0-XNPCCore's aim point is clear but it will not take the shot (a crawler just below the sight line): within about
       4 s of his last shot or reload, (verbose) "Paul (id N): a clear aim point but no shot or reload for 4 s (0-XNPCCore's
-      shot also wants SdcsSeesShot) at zombie... - she may back off for an angle (3 s)", `x5-team-reach-gun-aside` +1.
+      shot also wants SdcsSeesShot) at zombie... - he may back off for an angle (3 s)", `x5-team-reach-gun-aside` +1.
       Before this round he could stand there without shooting for as long as the aim point stayed clear.
 
 ## Round md1 (2026-11-15): members restock medical supplies from the stockpile

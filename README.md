@@ -357,9 +357,9 @@ The community window's **Activities** tab has one activity, **Prepare a round of
   - **With a gun or bow that has ammo** she **stands off**: when an enemy comes within 8 m she backs away inside the base
     to about 15 m from it (never farther than she can shoot), near the others who are fighting, and keeps shooting.
     Cornered, or caught by a fast zombie, she stands and shoots it point-blank.
-  - **Without one** (or against raiders and bandits, who shoot back) she **retreats inside**: she runs to a room with a
-    roof and walls - beside a bed, a work station, a post - away from the enemy, shuts the doors she passed behind her, and
-    holds there, fighting only what reaches her. A base with no roofed room: a walled corner, else the far side of the
+  - **Without one** (or against raiders and bandits within 30 m, who shoot back) she **retreats inside**: she runs to a
+    room with a roof and walls - beside a bed, a work station, a post, not right beside a door - away from the enemy, shuts
+    the doors she passed behind her, and holds there, fighting only what reaches her (not a zombie pounding on the door). A base with no roofed room: a walled corner, else the far side of the
     yard beside another member or you.
   - It ends once she is back above 45% health or no enemy has been about for 20 seconds. Hand her a bandage and she uses
     it there.
@@ -367,11 +367,14 @@ The community window's **Activities** tab has one activity, **Prepare a round of
   be. That stops the old run off / walk back / run off again.
 - **Cowardly** members at home retreat inside the same way instead of running from the base (in a fight your side can win, one with a
   gun still hangs back and shoots). **Followers** away from home with a gun stand off within 20 m of you instead of
-  running; without one they run as before. Runners on a job still give it up and come home (section 8). Guards on watch
+  running (cornered twice in a row with nowhere to go near you, they run as before for a moment); without one they run as
+  before. Runners on a job still give it up and come home (section 8). Guards on watch
   hold their post.
 - With medical bundles in the stockpile this rarely happens at home: she restocks the moment she runs out (section 15).
   `RetreatHome` and the other `Retreat...`, `Shelter...` and `StandOff...` settings (section 20) tune or turn it off;
-  `sc retreat <name>` shows why she is or is not retreating.
+  `sc retreat <name>` shows why she is or is not retreating. Two fixes from the same update stay on even with
+  `RetreatHome` false: a member running from a fight no longer counts as fighting for the "stuck" rescue, and a member
+  standing to shoot an attacker she cannot swing at gives up after 4 seconds with no shot.
 
 ### Doors
 

@@ -49,6 +49,8 @@ namespace SurvivorCommunity
             public bool Roofed;
             public byte Walls;
             public byte Source;
+            /// <summary>The Fable review (finding 7): a door within DoorClear of it (NearDoor).</summary>
+            public bool NearDoor;
         }
 
         private struct Seed
@@ -77,6 +79,12 @@ namespace SurvivorCommunity
         private const float CompanyRadius = 6f, ReserveRadius = 1.5f, AllyRadius = 8f;
         /// <summary>After this many spots she could not reach in one retreat, the cache is skipped (fallback b, then c).</summary>
         public const int MaxFails = 3;
+        /// <summary>
+        /// The Fable review (finding 7): a spot this close (XZ) to a door keeps that door open up to ScDoors' MaxHold (15 s: she
+        /// is "beside it"), so such a room spot is taken only when no room spot without one is valid (DoorPenalty).
+        /// </summary>
+        private const float DoorClear = 2.5f;
+        private const float DoorPenalty = 100f;
 
         private static List<Cand> cands = new List<Cand>();
         private static List<Cand> next = new List<Cand>();
@@ -229,13 +237,13 @@ namespace SurvivorCommunity
             int y;
             if (!ScCommunity.FindStandable(w, s.X, s.Z, s.Y, out y) || Math.Abs(y - s.Y) > SeedDy) return;
             Vector3i cell = new Vector3i(s.X, y, s.Z);
-            if (nextCells.Contains(cell) || !ScZone.Contains(cell)) return;
+            if (nextCells.Contains(cell) || !InZone(cell)) return;
             nextCells.Add(cell);
             string why;
             if (!ScCommunity.GoodPost(w, cell, false, out why)) return;
             int walls = Walls(w, cell);
             if (walls < Math.Max(1, ScConfig.ShelterWalls - 1) || next.Count >= MaxCands) return;   // too open even for the fallback
-            next.Add(new Cand { Cell = cell, Roofed = Roofed(w, cell), Walls = (byte)walls, Source = s.Source });
+            next.Add(new Cand { Cell = cell, Roofed = Roofed(w, cell), Walls = (byte)walls, Source = s.Source, NearDoor = NearDoor(w, cell) });
         }
 
         private static void Finish(World w, float now)
@@ -266,6 +274,35 @@ namespace SurvivorCommunity
             }
             ScLog.Verbose("shelter scan: " + cands.Count + " candidate(s), " + rooms + " roofed with " + ScConfig.ShelterWalls + "+ walls, from " + lastSeeds + " seeds in "
                           + lastMs.ToString("0.0", CultureInfo.InvariantCulture) + " ms over " + lastFrames + " frames (" + (now - started).ToString("0.0", CultureInfo.InvariantCulture) + " s)");
+        }
+
+        /// <summary>
+        /// Inside the home zone, on ScZone's cached rectangles (the Fable review, finding 9: ScZone.Contains asks
+        /// LandClaimUpgrade by reflection on every call). The cache rescans whenever the zone's signature changes.
+        /// </summary>
+        public static bool InZone(Vector3i c)
+        {
+            return ScZone.HasHome && ScZone.DistanceOutside(new Vector3(c.x + 0.5f, c.y, c.z + 0.5f)) <= 0f;
+        }
+
+        /// <summary>A door (a Door-tagged block, any leaf) within DoorClear (XZ) of the cell, at its feet or head.</summary>
+        public static bool NearDoor(World w, Vector3i p)
+        {
+            for (int dx = -2; dx <= 2; dx++)
+            {
+                for (int dz = -2; dz <= 2; dz++)
+                {
+                    if (dx * dx + dz * dz > DoorClear * DoorClear) continue;
+                    for (int dy = 0; dy <= 1; dy++)
+                    {
+                        BlockValue bv = w.GetBlock(new Vector3i(p.x + dx, p.y + dy, p.z + dz));
+                        if (bv.isair) continue;
+                        Block b = bv.Block;
+                        if (b != null && b.HasTag(BlockTags.Door)) return true;
+                    }
+                }
+            }
+            return false;
         }
 
         /// <summary>Anything solid 2 to 12 cells over the spot: under a roof (the rule ScEnclavePeople's leader spot uses).</summary>
@@ -299,10 +336,10 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The spot for this body's shelter now: her own cell, a room, or the fallback chain (see the class summary). bad and
-        /// fails: the spots she could not reach this retreat. readOnly (the console): the same answer, nothing counted. Never
-        /// None for a body at home: (c) holds where she stands.
+        /// fails: the spots she could not reach this retreat. The console asks it too (nothing is written). Never None for a
+        /// body at home: (c) holds where she stands.
         /// </summary>
-        public static PickResult Pick(EntityAlive self, List<Vector3i> bad, int fails, bool readOnly)
+        public static PickResult Pick(EntityAlive self, List<Vector3i> bad, int fails)
         {
             var r = new PickResult { Kind = PickKind.None };
             World w = self != null ? self.world : null;
@@ -314,15 +351,16 @@ namespace SurvivorCommunity
             Gather(self, me, MaxWalk + SpotEnemyClear);
             // 1. her own cell, when it passes and the threat cannot see her (asleep in a bedroom when the zombie comes)
             Vector3i own = World.worldToBlockPos(me);
-            if (ScZone.Contains(own) && Roofed(w, own) && Walls(w, own) >= ScConfig.ShelterWalls && !EnemyNear(me, SpotEnemyClear)
-                && (!hasThreat || ScRunners.XZ(me, threat) >= ScConfig.ShelterMinThreatDist) && (t == null || !t.CanEntityBeSeen(self)))
+            // (finding 7: not beside a door - she would hold it open)
+            if (InZone(own) && Roofed(w, own) && Walls(w, own) >= ScConfig.ShelterWalls && !EnemyNear(me, SpotEnemyClear)
+                && (!hasThreat || ScRunners.XZ(me, threat) >= ScConfig.ShelterMinThreatDist) && (t == null || !t.CanEntityBeSeen(self)) && !NearDoor(w, own))
             {
                 r.Kind = PickKind.Here;
                 r.Spot = me;
                 r.Walls = Walls(w, own);
                 r.Roofed = true;
-                r.Source = "where she stood";
-                r.Note = "holds where she stands (roofed, " + r.Walls + " of 8 walls, the threat cannot see her)";
+                r.Source = "where " + ScRetreat.She(self) + " stood";
+                r.Note = "holds where " + ScRetreat.She(self) + " stands (roofed, " + r.Walls + " of 8 walls, the threat cannot see " + ScRetreat.HerObj(self) + ")";
                 return r;
             }
             // 2. a room; (a) a walled spot
@@ -340,10 +378,12 @@ namespace SurvivorCommunity
             // the yard has failed her as often as the rooms did: then she holds)
             if (fails < 2 * MaxFails && Yard(self, w, me, threat, hasThreat, bad, ref r)) return r;
             // (c) hold where she stands and fight back on reach
+            string she = ScRetreat.She(self);
             r.Kind = PickKind.Hold;
             r.Spot = me;
-            r.Source = "where she stood";
-            r.Note = "fell back to holding where she stands (no floor of the zone to go to" + (fails >= MaxFails ? ", " + fails + " spots she could not reach" : "") + ") - she fights back on reach";
+            r.Source = "where " + she + " stood";
+            r.Note = "fell back to holding where " + she + " stands (no floor of the zone to go to" + (fails >= MaxFails ? ", " + fails + " spots " + she + " could not reach" : "") + ") - "
+                     + she + " fights back on reach";
             return r;
         }
 
@@ -388,12 +428,12 @@ namespace SurvivorCommunity
                 if (c.Walls < minWalls || (needRoof && !c.Roofed)) continue;
                 Vector3 p = new Vector3(c.Cell.x + 0.5f, c.Cell.y, c.Cell.z + 0.5f);
                 float walk = ScRunners.XZ(me, p);
-                if (walk > MaxWalk || !ScZone.Contains(c.Cell)) continue;
+                if (walk > MaxWalk || !InZone(c.Cell)) continue;
                 if (bad != null && bad.Contains(c.Cell)) continue;
                 if (hasThreat && (ScRunners.XZ(threat, p) < ScConfig.ShelterMinThreatDist || ScRunners.PassDistance(me, p, threat) < PassClear)) continue;
                 if (EnemyNear(p, SpotEnemyClear) || Near(others, p, ReserveRadius)) continue;
                 float score = 3f * (8 - c.Walls) + (c.Roofed ? 0f : 20f) + walk - (hasThreat ? 0.5f * Mathf.Min(ScRunners.XZ(threat, p), 30f) : 0f)
-                              - (Near(others, p, CompanyRadius) ? 2f : 0f);
+                              - (Near(others, p, CompanyRadius) ? 2f : 0f) + (c.NearDoor ? DoorPenalty : 0f);
                 scored.Add(new KeyValuePair<float, Cand>(score, c));
             }
             if (scored.Count == 0) return false;
@@ -409,6 +449,7 @@ namespace SurvivorCommunity
                 r.Roofed = c.Roofed;
                 r.Source = SrcNames[c.Source];
                 r.Note = (c.Roofed ? "a room" : "a walled spot") + " " + SrcNames[c.Source] + " (" + c.Walls + " of 8 walls" + (c.Roofed ? ", roofed" : ", no roof")
+                         + (c.NearDoor ? ", BESIDE A DOOR (no other was valid)" : "")
                          + (hasThreat ? ", " + ScRunners.XZ(threat, r.Spot).ToString("0", CultureInfo.InvariantCulture) + " m from the threat" : "") + ")";
                 return true;
             }
@@ -430,7 +471,7 @@ namespace SurvivorCommunity
                 int y;
                 if (!ScCommunity.FindStandable(w, x, z, yRef, out y) || Math.Abs(y - yRef) > SeedDy) continue;
                 Vector3i cell = new Vector3i(x, y, z);
-                if (!ScZone.Contains(cell) || (bad != null && bad.Contains(cell)) || ScStuck.Unreachable(self.entityId, cell)) continue;
+                if (!InZone(cell) || (bad != null && bad.Contains(cell)) || ScStuck.Unreachable(self.entityId, cell)) continue;
                 Vector3 p = new Vector3(x + 0.5f, y, z + 0.5f);
                 if (hasThreat && (ScRunners.XZ(threat, p) <= meFromThreat || ScRunners.PassDistance(me, p, threat) < 2f)) continue;
                 if (EnemyNear(p, 4f) || Near(others, p, ReserveRadius)) continue;
@@ -475,7 +516,7 @@ namespace SurvivorCommunity
                         EntityAlive a = near[i] as EntityAlive;
                         if (a == null || a == self || a.IsDead() || (a.position - spot).sqrMagnitude > SpotEnemyClear * SpotEnemyClear) continue;
                         if (!EntityTargetingUtilities.IsEnemy(self, a) || !a.CanEntityBeSeen(self)) continue;
-                        why = a.EntityName + " (" + a.entityId + ") is within " + SpotEnemyClear.ToString("0", CultureInfo.InvariantCulture) + " m and sees her";
+                        why = a.EntityName + " (" + a.entityId + ") is within " + SpotEnemyClear.ToString("0", CultureInfo.InvariantCulture) + " m and sees " + ScRetreat.HerObj(self);
                         return false;
                     }
                 }
@@ -566,7 +607,7 @@ namespace SurvivorCommunity
                 bool close = false;
                 for (int i = 0; i < threats.Count && !close; i++) close = ScRunners.XZ(threats[i], pc) < ScConfig.StandOffMin;
                 if (close) { last = "another enemy within " + ScConfig.StandOffMin.ToString("0", CultureInfo.InvariantCulture) + " m of it"; continue; }
-                if (!ClearLine(w, pc + new Vector3(0f, 1.6f, 0f), threat.getHeadPosition())) { last = "no line to the threat from it"; continue; }
+                if (!ClearLine(w, pc + new Vector3(0f, 1.6f, 0f), threat.getHeadPosition(), true)) { last = "no line to the threat from it"; continue; }
                 bool ally = false;
                 for (int i = 0; i < fighting.Count && !ally; i++) ally = ScRunners.XZ(fighting[i], pc) <= FightNear;
                 bool inLine = false;
@@ -578,17 +619,31 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>No block between the two points (entities do not count).</summary>
-        private static bool ClearLine(World w, Vector3 from, Vector3 to)
+        /// <summary>
+        /// No block between the two points (round rt1; the Fable review, finding 1), end to end - a zombie pressed against the
+        /// far side of a shut door is still behind it. Vanilla's ray (its layer mask, and its hit mask: bit 1 with transparent,
+        /// so glass and bars stop it, as SCore's CanShoot), and an entity's collider met on the way (either end's own, or
+        /// anyone in between) is stepped past, at most a few times, so only a block or terrain makes the line not clear.
+        /// </summary>
+        internal static bool ClearLine(World w, Vector3 from, Vector3 to, bool transparent)
         {
             Vector3 d = to - from;
-            float len = d.magnitude;
-            if (len < 1f) return true;
-            d /= len;
-            var ray = new Ray(from + d * 0.3f, d);
-            if (!Voxel.Raycast(w, ray, len - 0.6f, false, false)) return true;
-            WorldRayHitInfo info = Voxel.voxelRayHitInfo;
-            return info == null || !GameUtils.IsBlockOrTerrain(info.tag);
+            float left = d.magnitude;
+            if (w == null || left < 0.05f) return true;
+            d /= left;
+            Vector3 o = from;
+            for (int k = 0; k < 4; k++)
+            {
+                if (!Voxel.Raycast(w, new Ray(o, d), left, transparent, false)) return true;
+                WorldRayHitInfo info = Voxel.voxelRayHitInfo;
+                if (info == null) return true;
+                if (GameUtils.IsBlockOrTerrain(info.tag)) return false;
+                float t = Mathf.Max(0.15f, Vector3.Dot(info.hit.pos - o, d) + 0.15f);
+                o += d * t;
+                left -= t;
+                if (left <= 0.05f) return true;
+            }
+            return true;
         }
 
         // ------------------------------------------------------------------ console ----
@@ -634,6 +689,7 @@ namespace SurvivorCommunity
                 string why = null;
                 bool ok = w == null || ScCommunity.GoodPost(w, c.Cell, false, out why);
                 lines.Add("[SC]   " + c.Cell.x + " " + c.Cell.y + " " + c.Cell.z + ": " + (c.Roofed ? "roofed" : "NO ROOF") + ", " + c.Walls + " of 8 walls, " + SrcNames[c.Source]
+                          + (c.NearDoor ? ", beside a door (taken last)" : "")
                           + (lp != null ? ", " + ScRunners.XZ(at, c.Cell).ToString("0", CultureInfo.InvariantCulture) + " m from you" : "") + (ok ? "" : " - NOT STANDABLE NOW (" + why + ")"));
             }
             if (sorted.Count > n) lines.Add("[SC]   ... " + (sorted.Count - n) + " more (sc retreat shelters <n>)");

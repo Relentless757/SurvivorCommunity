@@ -86,7 +86,8 @@ namespace UAI
     /// 0 while the retreat owns her (Shelter or StandOff), else 1 - one owner of her distance. On 0-XNPCCore's
     /// BackupKeepDistance (8: no zone bound, no shot), BackupRanged (5: it drags her back through every reload) and
     /// MeleeApproach (5: no chase out of her room while she fights back), and SCResident's ScDefendBase, ScDefendHold and
-    /// ScReturn (the leash would walk her to her post mid-retreat). A throw is logged once and means 1.
+    /// ScReturn (the leash would walk her to her post mid-retreat), and (the Fable review, finding 4) 0-XNPCCore's Guard (3),
+    /// which walked her to her post through every reload and fight back. A throw is logged once and means 1.
     /// </summary>
     public class UAIConsiderationScNotRetreating : UAIConsiderationBase
     {
@@ -182,8 +183,8 @@ namespace UAI
         {
             int fails;
             List<Vector3i> bad = ScRetreat.BadSpots(self, out fails);
-            ScShelter.PickResult r = ScShelter.Pick(self, bad, fails, false);
-            if (r.Kind == ScShelter.PickKind.None) { r.Kind = ScShelter.PickKind.Hold; r.Spot = self.position; r.Source = "where she stood"; }
+            ScShelter.PickResult r = ScShelter.Pick(self, bad, fails);
+            if (r.Kind == ScShelter.PickKind.None) { r.Kind = ScShelter.PickKind.Hold; r.Spot = self.position; r.Source = "where " + ScRetreat.She(self) + " stood"; }
             ScRetreat.NoteSpot(self, r);
             wk.Spot = r.Spot;
         }
@@ -244,7 +245,7 @@ namespace UAI
                             wk.NextUpgrade = now + UpgradeSeconds;
                             int fails;
                             List<Vector3i> bad = ScRetreat.BadSpots(self, out fails);
-                            ScShelter.PickResult r = ScShelter.Pick(self, bad, fails, false);
+                            ScShelter.PickResult r = ScShelter.Pick(self, bad, fails);
                             if (r.Kind == ScShelter.PickKind.Room || r.Kind == ScShelter.PickKind.Here)
                             {
                                 Patches_Xnpc.Count("retreat-fallback-upgraded");
@@ -354,9 +355,10 @@ namespace UAI
                 Walk wk;
                 if (walks.TryGetValue(self.entityId, out wk) && now < wk.Deadline && now - wk.StoppedAt <= ResumeSeconds)
                 {
-                    // resumed (SCore re-started it, or a higher action was over): the same point, the gain clock afresh
-                    EntityAlive rt = Threat(self, _context.ActionData.Target as EntityAlive, wk.ThreatId);
-                    if (rt != null)
+                    // resumed (a higher action was over within ResumeSeconds): the same point while the same threat is still
+                    // short of her gap, the gain clock afresh
+                    EntityAlive rt = Threat(self, wk.ThreatId);
+                    if (rt != null && rt.entityId == wk.ThreatId && ScRunners.XZ(self.position, rt.position) < ScRetreat.GapOf(self) - 1f)
                     {
                         wk.CheckAt = now + FirstCheck;
                         wk.GapAtCheck = ScRunners.XZ(self.position, rt.position);
@@ -369,7 +371,10 @@ namespace UAI
                     }
                     walks.Remove(self.entityId);
                 }
-                EntityAlive t = Threat(self, _context.ActionData.Target as EntityAlive, -1);
+                // the Fable review (findings 2, 3): a new point only for the scan's threat - the one the action scores - inside
+                // StandOffMin with a clear line. Anything else (SCore re-starting the task in the frames after a finished
+                // back-off, the threat already past StandOffMin) stops at once, with no pick, no path and nothing counted.
+                EntityAlive t = ScRetreat.StandOffThreat(self);
                 if (t == null) { Stop(_context); return; }
                 float gap = ScRetreat.GapOf(self);
                 Vector3 p;
@@ -389,6 +394,7 @@ namespace UAI
                     Deadline = now + 15f
                 };
                 ScRetreat.BackingOff(self, true, p);
+                Patches_Xnpc.Count("retreat-backoff");                   // a new back-off (a resume is not counted again)
                 if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = false;
                 self.FindPath(p, ScRetreat.RunSpeed(self), false, null);
             }
@@ -399,15 +405,17 @@ namespace UAI
             }
         }
 
-        /// <summary>The threat she backs off from: the scan's (ScRetreat), else the one remembered, else the action's target.</summary>
-        private static EntityAlive Threat(EntityAlive self, EntityAlive target, int remembered)
+        /// <summary>
+        /// The threat whose gap she is opening: the scan's (ScRetreat) - the one ScStandOff scores (finding 2) - else, with no
+        /// threat in this scan, the one the walk began from.
+        /// </summary>
+        private static EntityAlive Threat(EntityAlive self, int remembered)
         {
             Vector3 pos;
             EntityAlive t;
             if (ScRetreat.ThreatPlace(self, out pos, out t) && t != null) return t;
             t = remembered >= 0 && self.world != null ? self.world.GetEntity(remembered) as EntityAlive : null;
-            if (t != null && !t.IsDead()) return t;
-            return target != null && !target.IsDead() ? target : null;
+            return t != null && !t.IsDead() ? t : null;
         }
 
         public override void Update(Context _context)
@@ -418,12 +426,20 @@ namespace UAI
                 Walk wk;
                 if (!ScRetreat.StandOffMayRun(self) || !walks.TryGetValue(self.entityId, out wk)) { Stop(_context); return; }
                 float now = Time.time;
-                EntityAlive t = Threat(self, _context.ActionData.Target as EntityAlive, wk.ThreatId);
-                if (t == null) { Stop(_context); return; }
+                EntityAlive t = Threat(self, wk.ThreatId);
+                if (t == null) { walks.Remove(self.entityId); Stop(_context); return; }
+                if (t.entityId != wk.ThreatId)
+                {
+                    // the scan's threat changed: measure (and judge the gain) against the new one from here
+                    wk.ThreatId = t.entityId;
+                    wk.GapAtCheck = ScRunners.XZ(self.position, t.position);
+                    wk.CheckAt = now + GainSeconds;
+                }
                 float gap = ScRunners.XZ(self.position, t.position);
                 if (gap >= ScRetreat.GapOf(self) - 1f || ScRunners.XZ(self.position, wk.Point) <= ArriveXZ)
                 {
                     Patches_Xnpc.Count("retreat-backoff-done");
+                    ScRetreat.BackedOff(self);
                     walks.Remove(self.entityId);
                     Stop(_context);
                     return;

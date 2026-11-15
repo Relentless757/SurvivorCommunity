@@ -1639,7 +1639,8 @@ namespace SurvivorCommunity
                     if (st.ReachGunId >= 0 && ReachGunShotCheck(st, HeldMeta(e), reloading, g != null && AimClear(e, g, now), now, out aside))
                     {
                         Patches_Xnpc.Count("x5-team-reach-gun-aside");
-                        ScLog.Verbose(Name(e) + ": " + aside + " at " + (g != null ? Who(g) : "#?") + " - she may back off for an angle (" + ReachGunAsideSeconds.ToString("0") + " s)");
+                        ScLog.Verbose(Name(e) + ": " + aside + " at " + (g != null ? Who(g) : "#?") + " - " + ScRetreat.She(e) + " may back off for an angle ("
+                                      + ReachGunAsideSeconds.ToString("0") + " s)");
                     }
                 }
                 // the Fable re-review, gap 1: (re)start the hold whenever her gun is out against her own target that is held or

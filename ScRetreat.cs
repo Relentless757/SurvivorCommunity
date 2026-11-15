@@ -22,7 +22,7 @@ namespace SurvivorCommunity
     /// enclave person or a stranger: decision 12), not on watch, not on a Stay order, and either at home (the home zone and
     /// ResidentRoamZoneMargin round it, or the defended area in a base attack: round hl1's AtHome) as a resident, a follower,
     /// one on the way to her post or a runner on the Back leg - region Home - or (decision 4) a follower away from home with
-    /// you within twice StandOffFollowerLeash - region Leader, stand-off only. Runners on the way out, at the site or on the
+    /// you within StandOffFollowerLeash (one radius with the back-off points: the Fable review, finding 8) - region Leader, stand-off only. Runners on the way out, at the site or on the
     /// way in keep round r2's flight. RetreatHome false: nobody, ever.
     ///
     /// Entry: hurt with nothing to heal with (ScMedic.HurtNoMeds at FleeBelowHealth - ScFleeHurt's own rule), or at home
@@ -58,6 +58,25 @@ namespace SurvivorCommunity
         public const float CorneredSeconds = 3f;
         /// <summary>CurrentOrder 2 is SCore's Stay (the cvar 0-XNPCCore's actions are gated on; ScTeam reads it the same way).</summary>
         private const int OrderStay = 2;
+        /// <summary>
+        /// The Fable review of rt1 (finding 5): armed enemies count from FleeClear (30 m) and stop counting only past this,
+        /// so a raider pacing at 30 m does not flip shelter and stand-off at every scan.
+        /// </summary>
+        private const float ArmedLeave = 35f;
+        /// <summary>
+        /// The Fable review (finding 5): a mode lasts at least this long before it switches (shelter to stand-off and back) -
+        /// except to shelter when her gun is dry (a stand-off with nothing to shoot is worse than any flip).
+        /// </summary>
+        private const float ModeDwellSeconds = 5f;
+        /// <summary>
+        /// The Fable review (finding 6): a body whose X5 tick (Update) has not run for this long is not one the retreat can
+        /// own - ScNotRetreatHome lets today's flight run, rather than leaving her with neither.
+        /// </summary>
+        private const float TickedSeconds = 5f;
+        /// <summary>The Fable review (finding 8): away from home, cornered this many times in a row ends the stand-off...</summary>
+        private const int CorneredAwayMax = 2;
+        /// <summary>...and she flees as before (ScFleeHurt) for this long before she may stand off again.</summary>
+        private const float CorneredAwayFleeSeconds = 15f;
 
         internal sealed class State
         {
@@ -73,6 +92,14 @@ namespace SurvivorCommunity
             public Vector3 ThreatPos;
             public float ThreatDist = -1f, ThreatSeenAt;
             public bool ThreatAfter;
+            /// <summary>The Fable review (finding 2): no block between her head and the threat's (it is not pounding a wall).</summary>
+            public bool ThreatClear;
+            /// <summary>The Fable review (finding 5): when the mode last changed (its dwell).</summary>
+            public float ModeSince;
+            /// <summary>The Fable review (finding 8): cornered verdicts in a row (a finished back-off clears it), and away from home after
+            /// CorneredAwayMax of them the stand-off is off until then (she flees as before).</summary>
+            public int CorneredStreak;
+            public float NoStandOffUntil;
             /// <summary>The scan: an armed enemy within FleeClear; her pair's gun has rounds; a threat present (the clear clock).</summary>
             public bool Armed, Gun, Present;
             /// <summary>When "no threat" began (0: a threat is present).</summary>
@@ -103,6 +130,8 @@ namespace SurvivorCommunity
         }
 
         private static readonly Dictionary<int, State> states = new Dictionary<int, State>();
+        /// <summary>The Fable review (finding 6): when Update last ran for each member body (states are only made for the hurt and the cowards).</summary>
+        private static readonly Dictionary<int, float> ticked = new Dictionary<int, float>();
         private static readonly List<Entity> near = new List<Entity>();
         private static float nextPrune;
         private static int entered, ended;
@@ -110,13 +139,14 @@ namespace SurvivorCommunity
         public static void Reset()
         {
             states.Clear();
+            ticked.Clear();
             near.Clear();
             nextPrune = 0f;
             entered = ended = 0;
         }
 
         /// <summary>A despawned body's state (entity ids are recycled).</summary>
-        public static void Forget(int entityId) { states.Remove(entityId); }
+        public static void Forget(int entityId) { states.Remove(entityId); ticked.Remove(entityId); }
 
         // ------------------------------------------------------------------ the writer (X5 only) ----
 
@@ -140,6 +170,7 @@ namespace SurvivorCommunity
                 if (!ScXnpc.IsBody(e) || ScXnpc.IsRaider(e)) return;
                 Member m = ScRegistry.GetMember(e.entityId);
                 float now = Time.time;
+                if (m != null) ticked[e.entityId] = now;                          // the X5 hook is alive for her (FleeAllowed)
                 if (now >= nextPrune) Prune(now);
                 string notWhy = "not a member";
                 Region region = m != null ? Eligible(e, m, out notWhy) : Region.None;
@@ -177,7 +208,7 @@ namespace SurvivorCommunity
                     if (st.ThreatId < 0) return;                                      // nothing within 15 m after her or seeing her
                     st.Hurt = hurtEntry;
                     st.Coward = cowardNow;
-                    Mode first = Want(st, region);
+                    Mode first = Want(st, region, now);
                     if (first == Mode.None) return;                                   // away with no gun: today's flight (decision 5)
                     Begin(e, st, region, first, now);
                     return;
@@ -200,20 +231,33 @@ namespace SurvivorCommunity
                     End(e, st, "threat-gone", "no threat for " + ScConfig.RetreatClearSeconds.ToString("0", CultureInfo.InvariantCulture) + " s");
                     return;
                 }
-                Mode want = Want(st, region);
+                // the Fable review (finding 8): away from home, cornered twice in a row - no way to back off near you - she flees
+                // as before for CorneredAwayFleeSeconds (ScNotRetreatHome lets ScFleeHurt run)
+                if (st.Mode == Mode.StandOff && st.Region == Region.Leader && st.CorneredStreak >= CorneredAwayMax)
+                {
+                    st.NoStandOffUntil = now + CorneredAwayFleeSeconds;
+                    End(e, st, "cornered-away", "cornered " + st.CorneredStreak + " times in a row away from home - " + She(e) + " flees as before for "
+                        + CorneredAwayFleeSeconds.ToString("0", CultureInfo.InvariantCulture) + " s");
+                    return;
+                }
+                Mode want = Want(st, region, now);
                 if (want == Mode.None)
                 {
                     End(e, st, "no-gun-away", "away from home with no gun to stand off with" + (st.Armed ? " (or armed enemies)" : "") + " - " + She(e) + " flees as before");
                     return;
                 }
-                if (want != st.Mode)
+                // the Fable review (finding 5): a mode lasts ModeDwellSeconds before it switches, except to shelter on a dry gun
+                bool dry = want == Mode.Shelter && st.Hurt && !st.Gun;
+                if (want != st.Mode && (dry || now - st.ModeSince >= ModeDwellSeconds))
                 {
                     Patches_Xnpc.Count(want == Mode.Shelter ? "retreat-to-shelter" : "retreat-to-standoff");
                     ScLog.Out(Name(e) + " switches " + Her(e) + " retreat from " + ModeName(st.Mode) + " to " + ModeName(want) + ": "
                               + (want == Mode.Shelter ? (!st.Gun ? Her(e) + " gun is dry" : st.Armed ? "armed enemies" : "no longer hurt (a Cowardly member shelters)") : "a gun with rounds again, no armed enemies"));
                     st.Mode = want;
+                    st.ModeSince = now;
                     st.BackingOff = false;
                     st.CorneredUntil = 0f;
+                    st.CorneredStreak = 0;
                     st.FightBack = false;
                 }
                 st.Why = WhyText(e, st, share);
@@ -226,10 +270,13 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The mode for this scan (decision 3: armed enemies mean shelter); None away from home without a gun.</summary>
-        private static Mode Want(State st, Region region)
+        /// <summary>
+        /// The mode for this scan (decision 3: armed enemies mean shelter); None away from home without a gun, or while a
+        /// stand-off away from home that was cornered twice in a row is off (the Fable review, finding 8).
+        /// </summary>
+        private static Mode Want(State st, Region region, float now)
         {
-            if (st.Hurt && st.Gun && !st.Armed) return Mode.StandOff;
+            if (st.Hurt && st.Gun && !st.Armed && (region != Region.Leader || now >= st.NoStandOffUntil)) return Mode.StandOff;
             return region == Region.Home ? Mode.Shelter : Mode.None;
         }
 
@@ -238,6 +285,8 @@ namespace SurvivorCommunity
             st.Mode = mode;
             st.Region = region;
             st.Since = now;
+            st.ModeSince = now;
+            st.CorneredStreak = 0;
             st.ClearSince = 0f;
             st.FightBack = false;
             st.FightBackUntil = 0f;
@@ -284,8 +333,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// The threat scan (X5, every ScanSeconds): the nearest awake enemy within FleeRadius that is after her or can see her
         /// (the sight ray only for one nearer than the best so far, as ScRunners.NearestThreat), whether any is present for the
-        /// clear clock (after her or seeing her within FleeClear, or awake in the zone within 15 m), an armed enemy within
-        /// FleeClear, and her pair's gun.
+        /// clear clock (after her or seeing her within FleeClear, or awake in the zone within 15 m), an armed enemy (within
+        /// FleeClear to start counting, ArmedLeave to stop: the Fable review, finding 5), whether a block stands between her
+        /// head and the threat's (finding 2), and her pair's gun.
         /// </summary>
         private static void Scan(EntityAlive e, State st, float now)
         {
@@ -294,10 +344,10 @@ namespace SurvivorCommunity
             if (w == null) return;
             float clear = ScRunners.FleeClear, flee = ScRunners.FleeRadius;
             near.Clear();
-            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * clear, 2f * clear, 2f * clear)), near);
+            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * ArmedLeave, 2f * ArmedLeave, 2f * ArmedLeave)), near);
             EntityAlive best = null;
             float bestD2 = flee * flee;
-            bool present = false, armed = false, bestAfter = false;
+            bool present = false, armedNear = false, armedFar = false, bestAfter = false;
             try
             {
                 for (int i = 0; i < near.Count; i++)
@@ -305,9 +355,10 @@ namespace SurvivorCommunity
                     EntityAlive a = near[i] as EntityAlive;
                     if (a == null || a == e || a.IsDead() || a.IsSleeping) continue;
                     float d2 = (a.position - e.position).sqrMagnitude;
-                    if (d2 > clear * clear || !EntityTargetingUtilities.IsEnemy(e, a)) continue;
+                    if (d2 > ArmedLeave * ArmedLeave || !EntityTargetingUtilities.IsEnemy(e, a)) continue;
                     if (global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) continue;
-                    if (ScTeam.Armed(a)) armed = true;
+                    if (ScTeam.Armed(a)) { armedFar = true; if (d2 <= clear * clear) armedNear = true; }
+                    if (d2 > clear * clear) continue;
                     bool after = a.GetAttackTarget() == e || a.GetRevengeTarget() == e;
                     if (d2 <= bestD2 && (after || a.CanEntityBeSeen(e)))
                     {
@@ -318,11 +369,11 @@ namespace SurvivorCommunity
                         continue;
                     }
                     if (present) continue;
-                    if (after || (d2 <= ZoneClearRadius * ZoneClearRadius && ScZone.Contains(a.GetBlockPosition())) || a.CanEntityBeSeen(e)) present = true;
+                    if (after || (d2 <= ZoneClearRadius * ZoneClearRadius && ScShelter.InZone(a.GetBlockPosition())) || a.CanEntityBeSeen(e)) present = true;
                 }
             }
             finally { near.Clear(); }
-            st.Armed = armed;
+            st.Armed = armedNear || (st.Armed && armedFar);
             st.Present = present;
             if (best != null)
             {
@@ -331,17 +382,23 @@ namespace SurvivorCommunity
                 st.ThreatDist = Mathf.Sqrt(bestD2);
                 st.ThreatSeenAt = now;
                 st.ThreatAfter = bestAfter;
+                st.ThreatClear = ScShelter.ClearLine(w, e.getHeadPosition(), best.getHeadPosition(), true);
             }
             else
             {
                 st.ThreatId = -1;
                 st.ThreatDist = -1f;
+                st.ThreatClear = false;
             }
             if (present) st.ClearSince = 0f;
             else if (st.ClearSince <= 0f) st.ClearSince = now;
         }
 
-        /// <summary>FightBack (Shelter, X5): an enemy within RetreatFightBackRange after her, or a hit from her revenge target within 4 m in the last 3 s.</summary>
+        /// <summary>
+        /// FightBack (Shelter, X5): an enemy within RetreatFightBackRange after her with no block between their heads (the Fable
+        /// review, finding 1: one pounding the door she shut, or the wall, must not end her hold - then MeleeAttack could not
+        /// score and Guard walked her out through that door), or a hit from her revenge target within 4 m in the last 3 s.
+        /// </summary>
         private static void FightBackTick(EntityAlive e, State st, float now)
         {
             bool close = AfterHerWithin(e, ScConfig.RetreatFightBackRange);
@@ -365,7 +422,10 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>An awake, living enemy within r that has her as its attack target.</summary>
+        /// <summary>
+        /// An awake, living enemy within r that has her as its attack target and no block between its head and hers (a shut
+        /// door, a wall, glass or bars: ScShelter.ClearLine with transparent blocks).
+        /// </summary>
         private static bool AfterHerWithin(EntityAlive e, float r)
         {
             World w = e.world;
@@ -377,7 +437,8 @@ namespace SurvivorCommunity
             {
                 EntityAlive a = near[i] as EntityAlive;
                 if (a == null || a == e || a.IsDead() || a.IsSleeping || (a.position - e.position).sqrMagnitude > r * r) continue;
-                found = a.GetAttackTarget() == e && EntityTargetingUtilities.IsEnemy(e, a);
+                found = a.GetAttackTarget() == e && EntityTargetingUtilities.IsEnemy(e, a)
+                        && ScShelter.ClearLine(w, a.getHeadPosition(), e.getHeadPosition(), true);
             }
             near.Clear();
             return found;
@@ -389,6 +450,9 @@ namespace SurvivorCommunity
             var gone = new List<int>();
             foreach (var kv in states) if (now - kv.Value.Seen > 60f) gone.Add(kv.Key);
             foreach (int id in gone) states.Remove(id);
+            gone.Clear();
+            foreach (var kv in ticked) if (now - kv.Value > 60f) gone.Add(kv.Key);
+            foreach (int id in gone) ticked.Remove(id);
         }
 
         // ------------------------------------------------------------------ eligibility (pure) ----
@@ -401,7 +465,7 @@ namespace SurvivorCommunity
         {
             why = null;
             if (e == null || m == null) { why = "not a member"; return Region.None; }
-            if (ScWatch.OnWatch(m)) { why = "on watch (she holds her post)"; return Region.None; }
+            if (ScWatch.OnWatch(m)) { why = "on watch (holds the post)"; return Region.None; }
             if (e.Buffs != null && Mathf.RoundToInt(e.Buffs.GetCustomVar("CurrentOrder")) == OrderStay) { why = "on a Stay order"; return Region.None; }
             bool home = UAI.UAIConsiderationScNotHomeMember.AtHome(e.position);
             switch (m.Status)
@@ -413,10 +477,11 @@ namespace SurvivorCommunity
                 case MemberStatus.Following:
                 case MemberStatus.PendingStation:
                     if (home) return Region.Home;
-                    if (ScConfig.StandOffFollowerLeash <= 0f) { why = "a follower away from home (StandOffFollowerLeash 0: she flees as before)"; return Region.None; }
+                    if (ScConfig.StandOffFollowerLeash <= 0f) { why = "a follower away from home (StandOffFollowerLeash 0: flees as before)"; return Region.None; }
                     EntityPlayer leader = LeaderOf(e);
                     if (leader == null) { why = "a follower away from home with no leader in the world"; return Region.None; }
-                    if (ScRunners.XZ(leader.position, e.position) > 2f * ScConfig.StandOffFollowerLeash) { why = "a follower away from home, farther than " + (2f * ScConfig.StandOffFollowerLeash).ToString("0", CultureInfo.InvariantCulture) + " m from you"; return Region.None; }
+                    // the Fable review (finding 8): one radius - the back-off points must be within it of you too
+                    if (ScRunners.XZ(leader.position, e.position) > ScConfig.StandOffFollowerLeash) { why = "a follower away from home, farther than " + ScConfig.StandOffFollowerLeash.ToString("0", CultureInfo.InvariantCulture) + " m from you"; return Region.None; }
                     return Region.Leader;
                 case MemberStatus.OnRun:
                     if (ScRunners.IsPhysical(m) && !m.Offline && m.RunLeg == RunLeg.Back && home) return Region.Home;
@@ -481,16 +546,33 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// ScStandOff (8.2, per enemy): StandOff, not cornered, and the enemy (alive, awake) inside StandOffMin - or the
-        /// back-off is already running and it is still nearer than her target gap (hysteresis). A pure read.
+        /// ScStandOff (8.2, per enemy): StandOff, not cornered, the enemy is the scan's threat (the Fable review, finding 2:
+        /// the task measures the gap to that one, so scoring on any other - one pounding a wall unseen - started a task that
+        /// was done at once, every frame), alive and awake, and inside StandOffMin (XZ, as the task measures) with no block
+        /// between their heads - or the back-off is already running and it is still nearer than her target gap
+        /// (hysteresis). A pure read.
         /// </summary>
         public static bool StandOffScores(EntityAlive e, EntityAlive t)
         {
             State st;
             if (t == null || t.IsDead() || t.IsSleeping || !Active(e, out st) || st.Mode != Mode.StandOff || Time.time < st.CorneredUntil) return false;
-            float d2 = (t.position - e.position).sqrMagnitude;
-            if (d2 < ScConfig.StandOffMin * ScConfig.StandOffMin) return true;
-            return st.BackingOff && d2 < st.Gap * st.Gap;
+            if (t.entityId != st.ThreatId) return false;
+            float d = ScRunners.XZ(t.position, e.position);
+            if (st.BackingOff && d < st.Gap) return true;
+            return st.ThreatClear && d < ScConfig.StandOffMin;
+        }
+
+        /// <summary>
+        /// The stand-off task's Start (finding 2): the scan's threat when it may start a back-off now - alive, awake, inside
+        /// StandOffMin (XZ) with no block between their heads; else null (the task stops without picking a point).
+        /// </summary>
+        internal static EntityAlive StandOffThreat(EntityAlive e)
+        {
+            State st;
+            if (!Active(e, out st) || st.Mode != Mode.StandOff || st.ThreatId < 0 || !st.ThreatClear || e.world == null) return null;
+            EntityAlive t = e.world.GetEntity(st.ThreatId) as EntityAlive;
+            if (t == null || t.IsDead() || t.IsSleeping || ScRunners.XZ(t.position, e.position) >= ScConfig.StandOffMin) return null;
+            return t;
         }
 
         /// <summary>
@@ -502,6 +584,11 @@ namespace SurvivorCommunity
         public static bool FleeAllowed(EntityAlive e, bool coward)
         {
             if (e == null || !ScConfig.RetreatHome) return true;
+            // the Fable review (finding 6): a body the retreat can never own - not one of the community's 0-XNPCCore survivors,
+            // or a raider - and one whose X5 tick has not run lately (a dead hook) keep today's flight
+            if (!ScXnpc.IsBody(e) || ScXnpc.IsRaider(e)) return true;
+            float now = Time.time, tick;
+            if (!ticked.TryGetValue(e.entityId, out tick) || now - tick > TickedSeconds) return true;
             State st;
             if (Active(e, out st)) return false;
             if (coward && !ScConfig.RetreatCowards) return true;
@@ -510,7 +597,8 @@ namespace SurvivorCommunity
             string why;
             Region r = Eligible(e, m, out why);
             if (r == Region.Home) return false;
-            if (r == Region.Leader && !coward && states.TryGetValue(e.entityId, out st) && Time.time - st.At <= StaleSeconds && st.Gun && !st.Armed) return false;
+            if (r == Region.Leader && !coward && states.TryGetValue(e.entityId, out st) && now - st.At <= StaleSeconds && st.Gun && !st.Armed
+                && now >= st.NoStandOffUntil) return false;
             return true;
         }
 
@@ -634,17 +722,25 @@ namespace SurvivorCommunity
             st.CorneredUntil = Time.time + CorneredSeconds;
             st.CorneredWhy = why;
             st.BackingOff = false;
+            st.CorneredStreak++;                                       // the Fable review (finding 8): Update ends it away from home
             Patches_Xnpc.Count("retreat-cornered");
             ScLog.Verbose(Name(e) + " is cornered (" + why + ") - stands and shoots for " + CorneredSeconds.ToString("0", CultureInfo.InvariantCulture) + " s");
         }
 
         /// <summary>The stand-off task started (point) or stopped walking her back.</summary>
+        /// <summary>The stand-off task finished a back-off (the gap or the point reached): the cornered streak starts again.</summary>
+        internal static void BackedOff(EntityAlive e)
+        {
+            State st;
+            if (e != null && states.TryGetValue(e.entityId, out st)) st.CorneredStreak = 0;
+        }
+
         internal static void BackingOff(EntityAlive e, bool on, Vector3 point)
         {
             State st;
             if (e == null || !states.TryGetValue(e.entityId, out st)) return;
             st.BackingOff = on && st.Mode == Mode.StandOff;
-            if (on) { st.BackOffPoint = point; Patches_Xnpc.Count("retreat-backoff"); }
+            if (on) st.BackOffPoint = point;
         }
 
         /// <summary>The shelter task handed doors she passed to ScDoors (counted per retreat for the end line).</summary>
@@ -873,13 +969,13 @@ namespace SurvivorCommunity
             Region r = Eligible(e, m, out why);
             lines.Add("[SC]   eligible: " + (r == Region.Home ? "AT HOME (shelter or stand-off)" : r == Region.Leader ? "AWAY WITH YOU (stand-off only, within " + ScConfig.StandOffFollowerLeash.ToString("0", CultureInfo.InvariantCulture) + " m of you)" : "no - " + why));
             int max = e.GetMaxHealth();
-            lines.Add("[SC]   health " + e.Health + "/" + max + " (" + Pct(Share(e)) + "); heal items " + ScMedic.HealItemCount(e) + ", can treat herself " + (ScMedic.CanTreatSelf(e) ? "yes" : "NO")
+            lines.Add("[SC]   health " + e.Health + "/" + max + " (" + Pct(Share(e)) + "); heal items " + ScMedic.HealItemCount(e) + ", can treat " + (Male(e) ? "himself " : "herself ") + (ScMedic.CanTreatSelf(e) ? "yes" : "NO")
                       + "; hurt with nothing to heal with (at or below FleeBelowHealth " + Pct(ScConfig.FleeBelowHealth) + "): " + (ScMedic.HurtNoMeds(e, ScConfig.FleeBelowHealth) ? "YES" : "no")
-                      + "; Cowardly: " + (Timid(e) ? "yes, " + (ScTeam.HangsBack(e) ? "HANGS BACK with her gun (tm1)" : "not hanging back") + (ScConfig.RetreatCowards ? "" : " (RetreatCowards false)") : "no")
-                      + "; her pair's gun with rounds: " + (GunReady(e) ? "yes" : "no"));
+                      + "; Cowardly: " + (Timid(e) ? "yes, " + (ScTeam.HangsBack(e) ? "HANGS BACK with " + Her(e) + " gun (tm1)" : "not hanging back") + (ScConfig.RetreatCowards ? "" : " (RetreatCowards false)") : "no")
+                      + "; " + Her(e) + " pair's gun with rounds: " + (GunReady(e) ? "yes" : "no"));
             State st;
             bool active = Active(e, out st);
-            if (!states.TryGetValue(e.entityId, out st)) lines.Add("[SC]   state: none yet (made the first time she is hurt with nothing, or a coward, where she may retreat)");
+            if (!states.TryGetValue(e.entityId, out st)) lines.Add("[SC]   state: none yet (made the first time " + She(e) + " is hurt with nothing, or a coward, where " + She(e) + " may retreat)");
             else
             {
                 lines.Add("[SC]   state: " + (st.Mode == Mode.None ? "NONE" : (active ? "" : "STALE ") + ModeName(st.Mode).ToUpperInvariant() + " (" + st.Region + ") for " + (now - st.Since).ToString("0", CultureInfo.InvariantCulture) + " s - " + st.Why)
@@ -905,11 +1001,11 @@ namespace SurvivorCommunity
             {
                 int fails;
                 List<Vector3i> bad = BadSpots(e, out fails);
-                ScShelter.PickResult pr = ScShelter.Pick(e, bad, fails, true);
-                lines.Add("[SC]   she would shelter now at: " + (pr.Kind == ScShelter.PickKind.None ? "-" : Cell(pr.Spot) + " - " + pr.Kind + ", " + (pr.Note ?? pr.Source)
+                ScShelter.PickResult pr = ScShelter.Pick(e, bad, fails);
+                lines.Add("[SC]   " + She(e) + " would shelter now at: " + (pr.Kind == ScShelter.PickKind.None ? "-" : Cell(pr.Spot) + " - " + pr.Kind + ", " + (pr.Note ?? pr.Source)
                           + ", " + ScRunners.XZ(e.position, pr.Spot).ToString("0.#", CultureInfo.InvariantCulture) + " m off") + " (a read; " + ScShelter.Summary() + ")");
             }
-            lines.Add("[SC]   doors: ScDoors shuts the ordinary doors she passed that stood open (never a drawbridge or hatch she did not open, never within 2.5 m of you)");
+            lines.Add("[SC]   doors: ScDoors shuts the ordinary doors " + She(e) + " passed that stood open (never a drawbridge or hatch " + She(e) + " did not open, never within 2.5 m of you)");
         }
     }
 }

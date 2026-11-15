@@ -129,12 +129,13 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   nothing is written.
 - **`sc retreat shelters [n]`** — the shelter cache's best n candidates (20 by default): position, roofed or not, walls of
   8, what seeded it (a bed, a work station, a post, the claim block, a random zone floor), meters from you, and NOT
-  STANDABLE NOW when a block changed since the scan. **`sc retreat shelters rescan`** starts a new scan on the next frame.
+  STANDABLE NOW when a block changed since the scan, and "beside a door (taken last)" for one within 2.5 m of a door. **`sc retreat shelters rescan`** starts a new scan on the next frame.
 - The counters: `retreat-shelter`, `retreat-standoff` (`retreat-standoff-away`: away from home with you),
   `retreat-to-shelter` / `retreat-to-standoff` (the mode changed mid-retreat), `retreat-arrived`, `retreat-fightback`,
   `retreat-backoff`, `retreat-backoff-done`, `retreat-cornered`, `retreat-no-shelter` (a fallback, once per retreat),
   `retreat-fallback-upgraded`, `retreat-spot-unreachable`, `retreat-door-tracked`, and `retreat-ended-<why>`: `healed`,
-  `hangs-back`, `threat-gone`, `ineligible`, `no-gun-away`, `off`. Weapons: `x5-retreat-keep-gun` (her loaded gun kept up
+  `hangs-back`, `threat-gone`, `ineligible`, `no-gun-away`, `cornered-away` (cornered twice in a row away from home: she
+  flees as before for 15 s), `off`. Weapons: `x5-retreat-keep-gun` (her loaded gun kept up
   close while standing off), `x5-retreat-gun-first` (her gun drawn for a stand-off). `sc xnpc <name>` has a one-line
   `retreat:` summary.
 
