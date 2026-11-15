@@ -1268,6 +1268,16 @@ Weapons**. They keep it in place of their weapon of that kind.
   fewer than 2 first aid bandages and kits. The medical units tonight's injured need are never taken, and nothing is given
   if her pack is full. `MedsResupply` (section 20) turns it off: then you manage their supplies by hand. `sc meds` shows
   who was restocked and why not.
+- **In an emergency the daily limit does not apply.** A member at home with no first aid bandage or kit left and under
+  half her health is restocked at once, even if she was restocked an hour ago (`MedsResupplyEmergencyBelow`). The other
+  rules above still hold: a medical unit to spare, room in her pack.
+- **They don't bandage with a zombie on them.** While an enemy that is after her is within 3 m, a member keeps her weapon
+  and fights; she bandages once it is dead, gone or farther off. Only when she has waited 6 s and is under a quarter of
+  her health does she use it anyway (`MedicSafeDistance`, `MedicMaxWait`). Under half her health she uses a first aid
+  kit before a first aid bandage.
+- **They recover slowly out of combat.** With no awake enemy within 30 m a member regains 0.2 health a second, up to 60%
+  of her health; above that only medical items heal (`RegenOutOfCombat` and the `Regen...` settings). Raiders, enclave
+  people and strangers don't.
 - Their armor protects them at half the rating it would give you. It does not break.
 
 ### Looks
@@ -1539,6 +1549,10 @@ These are the ones you are most likely to change. The file has many more.
 | `MedsResupplyMix` | medicalFirstAidKit:1, medicalFirstAidBandage:2, medicalBandage:2 | What 1 medical tops her up to (she gets what she lacks of each) |
 | `MedsResupplyCooldownHours` | 24 | In-game hours between two restocks of one member at home (saved; a restock before a run ignores it) |
 | `MedsResupplyKeepForInjured` | true | Never take the medical units tonight's injured need |
+| `MedsResupplyEmergencyBelow` | 0.5 | At home, a member with no first aid bandage or kit under this share of her health is restocked even inside the cooldown (0: never) |
+| `MedicSafeDistance` / `MedicMaxWait` | 3 / 6 | No bandaging while an enemy after her is within this many meters (0: off); under 25% health she does it anyway after the second, in seconds |
+| `RegenOutOfCombat` | true | Members regain health slowly with no enemy near; false: only items heal |
+| `RegenRatePerSecond` / `RegenCapShare` / `RegenEnemyRadius` | 0.2 / 0.6 / 30 | Health per second, the share of her health it stops at, and how far (meters) an awake enemy holds it |
 | `ShootingSkill` | true | Shooting stars decide NPC accuracy |
 | `Overwhelmed` | true | NPCs keep shooting when several enemies are on them |
 | `TeamMelee` | true | Members fight with their melee weapon in a fight their side can win (section 15); false: as before |

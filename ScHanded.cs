@@ -227,7 +227,7 @@ namespace SurvivorCommunity
             }
             if (m.HandedSpare != null && m.HandedSpare.Count == 0) m.HandedSpare = null;
             if (names.Count == 0) return;
-            ScLog.Out(m.Name + ": " + names.Count + " handed item(s) whose slot had been filled again while their item was missing went into her pack: "
+            ScLog.Out(m.Name + ": " + names.Count + " handed item(s) whose slot had been filled again while their item was missing went into " + ScMedic.Her(m) + " pack: "
                       + string.Join(", ", names.ToArray()));
             if (ScRegistry.Loaded) ScRegistry.SaveAtomic();
         }
@@ -272,7 +272,8 @@ namespace SurvivorCommunity
             m.Handed = null;
             m.HandedSpare = null;
             m.HandedRaw = null;
-            if (names.Count > 0) ScLog.Out(m.Name + " died carrying " + names.Count + " item(s) she was handed - they drop with her backpack: " + string.Join(", ", names.ToArray()));
+            // round k2: the member's own pronouns (ScMedic's rule: her look, else her class) - "Paul died carrying ... she was handed"
+            if (names.Count > 0) ScLog.Out(m.Name + " died carrying " + names.Count + " item(s) " + ScMedic.She(m) + " was handed - they drop with " + ScMedic.Her(m) + " backpack: " + string.Join(", ", names.ToArray()));
             if (raw > 0) ScLog.Warn(m.Name + " died with " + raw + " handed item(s) whose item is missing from the game (a mod not loaded) - they cannot be made and are lost");
             if (names.Count + raw > 0 && ScRegistry.Loaded) ScRegistry.SaveAtomic();
             return names.Count;
@@ -310,10 +311,10 @@ namespace SurvivorCommunity
                 {
                     SCoreLootContainer pack = ScNpc.UsesWindow(body) && !ScAmmo.IsRemoteOpen(body.entityId) ? HarvestManager.GetOrCreate(body.entityId) : null;
                     foreach (ItemValue iv in items) ScMemberEquip.PutInPack(body, pack, new ItemStack(iv.Clone(), 1), "a handed item");
-                    ScLog.Out(m.Name + " (" + why + "): the " + items.Count + " item(s) she was handed went into her pack: " + string.Join("; ", names.ToArray()));
+                    ScLog.Out(m.Name + " (" + why + "): the " + items.Count + " item(s) " + ScMedic.She(m) + " was handed went into " + ScMedic.Her(m) + " pack: " + string.Join("; ", names.ToArray()));
                 }
                 else if (items.Count > 0)
-                    ScLog.Warn(m.Name + " (" + why + ") had " + items.Count + " item(s) she was handed - lost with her, there is no body to leave them on: "
+                    ScLog.Warn(m.Name + " (" + why + ") had " + items.Count + " item(s) " + ScMedic.She(m) + " was handed - lost with " + ScMedic.HerObj(m) + ", there is no body to leave them on: "
                                + string.Join("; ", names.ToArray()));
                 if (raw > 0)
                     ScLog.Warn(m.Name + " (" + why + ") had " + raw + " more handed item(s) whose item is missing from the game (a mod not loaded) - lost");

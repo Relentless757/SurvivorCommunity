@@ -731,6 +731,31 @@
 			<property name="MedsResupplyMix" value="medicalFirstAidKit:1,medicalFirstAidBandage:2,medicalBandage:2" />
 			<property name="MedsResupplyCooldownHours" value="24" />
 			<property name="MedsResupplyKeepForInjured" value="true" />
+			<!-- Healing (round k2): members heal sensibly. sc meds and sc meds <name> show all of it.
+			     MedsResupplyEmergencyBelow: at home, a member with NO heal item left (no first aid bandage, no first aid kit)
+			     whose health is under this share of her max is restocked at the next 5 s check even inside her cooldown, the
+			     way the restock before a run is; it starts her cooldown again. Everything else above still applies: Meds to
+			     spare beyond tonight's injured, room for the whole top-up, her window closed, not in the middle of a use.
+			     The log says "an EMERGENCY restock" (counter meds-restock-emergency). 0: no emergency restock.
+			     MedicSafeDistance: a member (or a stand-in) starts no medical use - a heal, or a bandage for a bleed - while
+			     an enemy that is after her is within this many meters: the item takes her weapon out of her hand for about
+			     2.5 s. She fights on and uses it once the enemy is dead, gone or farther off. 0: she uses it wherever she is.
+			     MedicMaxWait: once she has waited this many seconds and is under 25% health, she uses it anyway with the
+			     enemy still there (a heal now beats none). 0: under 25% she never waits.
+			     Under 50% health a member also takes a first aid kit before a first aid bandage (not a key).
+			     RegenOutOfCombat: members (not raiders, enclave people, strangers or stand-ins) regain RegenRatePerSecond
+			     health per second while no awake enemy is within RegenEnemyRadius meters of them, up to RegenCapShare of
+			     their max health; above that only items heal. It waits while a medical item is being used or is still
+			     healing her, and never runs for a member who is hidden (away on a run, posted) or offline. 0.2 is
+			     0-XNPCCore's own level regeneration (its Settings.xml, Progression/HealthRegenPerSecond), which SC takes off
+			     members. false: no regeneration (as before this round). -->
+			<property name="MedsResupplyEmergencyBelow" value="0.5" />
+			<property name="MedicSafeDistance" value="3" />
+			<property name="MedicMaxWait" value="6" />
+			<property name="RegenOutOfCombat" value="true" />
+			<property name="RegenRatePerSecond" value="0.2" />
+			<property name="RegenCapShare" value="0.6" />
+			<property name="RegenEnemyRadius" value="30" />
 			<!-- Overwhelmed: 0-XNPCCore's survivors swap the gun for their melee weapon when the enemy is within 3 m. With
 			     at least X enemies targeting them within OverwhelmedRadius metres they keep the gun instead (and go back
 			     to it from melee), backing off as they shoot, while it has ammo. X for a member =

@@ -1377,7 +1377,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// ScTicker, every second (works every CheckSeconds): moves every member's window ammo to the bag and on into their
         /// magazines (LoadLoose), records what they carry and resupplies the ones who qualify - and (round md1) restocks the
-        /// medical kit of a member at home who ran out (ScMedic.HomeTick).
+        /// medical kit of a member at home who ran out (ScMedic.HomeTick), and (round k2) regenerates her out of combat
+        /// (ScMedic.RegenTick).
         /// </summary>
         public static void Tick(World w)
         {
@@ -1397,6 +1398,8 @@ namespace SurvivorCommunity
                     if (ScConfig.XnpcResupply) Resupply(m, e, standIn, now);
                     // round md1: her own medical kit from the stockpile at home (MedsResupply; never a stand-in: decision 18)
                     if (!standIn) ScMedic.HomeTick(m, e);
+                    // round k2: her slow regeneration out of combat, up to RegenCapShare (her own body only, like the restock)
+                    if (!standIn) ScMedic.RegenTick(m, e);
                 }
             }
             catch (Exception ex)

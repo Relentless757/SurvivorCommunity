@@ -117,15 +117,18 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   `retreat-backoff-shortened`, and `retreat-backoff-shoot` for the shooting between two steps (`SHOOTING BETWEEN STEPS` in
   `sc retreat <name>`).
 
-## Medical restock *(round md1)*
+## Medical restock and healing *(rounds md1, k2)*
 
-- **`sc meds`** — the setting and its keys (`MedsResupply...`), the mix as this world resolved it, the stockpile's Meds
-  with the reserve kept for tonight's injured and what is left to spare, today's restocks, the `meds-*` counters, and one
-  line per loaded member: her heal items (first aid kits plus first aid bandages, window and bag), cloth bandages, her
-  last restock and the next one allowed at home, and DUE or why not. Read-only.
-- **`sc meds <id|name>`** — one member's every check: what she carries, the thresholds, the cooldown with the world
-  times, whether her window or a trade is open, the top-up she would get, the stockpile and its reserve, and the verdict
-  at home and before a run. Read-only.
+- **`sc meds`** — the setting and its keys (`MedsResupply...`), round k2's healing line (`MedicSafeDistance`,
+  `MedicMaxWait`, `Regen...`, and the health regenerated this session), the mix as this world resolved it, the
+  stockpile's Meds with the reserve kept for tonight's injured and what is left to spare, today's restocks, the `meds-*`
+  counters, and one line per loaded member: her heal items (first aid kits plus first aid bandages, window and bag),
+  cloth bandages, her last restock and the next one allowed at home, DUE (or DUE - an EMERGENCY) or why not, her health
+  and her regeneration (RUNNING, or held and why). Read-only.
+- **`sc meds <id|name>`** — one member's every check: what she carries, the thresholds and whether an emergency
+  restock applies now, the cooldown with the world times, whether her window or a trade is open, the top-up she would
+  get, the stockpile and its reserve, the verdict at home and before a run, her health with any wait to use an item (an
+  enemy after her within `MedicSafeDistance`), and her regeneration with the health it has given her. Read-only.
 - **`sc meds <id|name> give`** *(a test shortcut)* — restocks her now for 1 Meds, ignoring the cooldown and the
   thresholds (and `MedsResupply`); the stockpile, its reserve, her open window and her pack still apply. It starts her
   cooldown like any restock.
@@ -134,7 +137,11 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   mix), `meds-refused-mix` (no usable item in `MedsResupplyMix`), `meds-held-window`, `meds-held-use` (sent on a run in the
   middle of a bandage), `meds-cooldown`, `meds-place-failed` (nothing went into a pack that had room). At home each
   outcome is counted once per episode, when it changes, not at every 5 s check. `sc xnpc <name>`'s `medic:` line shows
-  her last and next restock (`restock (md1): ...`).
+  her last and next restock (`restock (md1): ...`) and round k2's state (`k2: no wait` or `WAITING ...`, `regen ...`).
+- Round k2's counters: `meds-restock-emergency` (a restock at home that ignored the cooldown: no heal item, under
+  `MedsResupplyEmergencyBelow`), `meds-use-held-reach` (a member put off a medical use because an enemy after her was
+  within `MedicSafeDistance`; once per wait), `meds-use-desperate` (she used it anyway after `MedicMaxWait` under 25%),
+  `meds-regen-started` (a regeneration began), `meds-regen-capped` (one stopped at `RegenCapShare`).
 
 ## Retreat *(round rt1)*
 

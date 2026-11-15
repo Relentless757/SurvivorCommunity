@@ -1032,6 +1032,24 @@ namespace SurvivorCommunity
         public static float MedsResupplyCooldownHours = 24f;
         /// <summary>Never take a Meds the next rollover needs for injured members (ScStockpile.MedsForRollover).</summary>
         public static bool MedsResupplyKeepForInjured = true;
+        // ---- round k2 (2026-11-15): members heal sensibly (ScMedic; research/combat/SC_VS_NPCCORE.md 4.4) ----
+        /// <summary>
+        /// At home a member with no heal item at all and health under this share of her max is restocked at the next 5 s check
+        /// with her cooldown ignored (and started), as before a run; every other md1 rule still applies (0: off).
+        /// </summary>
+        public static float MedsResupplyEmergencyBelow = 0.5f;
+        /// <summary>A member starts no medical use (a heal or a bleed) while an enemy that is after her is within this many meters (0: off).</summary>
+        public static float MedicSafeDistance = 3f;
+        /// <summary>...unless she has waited at least this many seconds and is under 25% health: then she uses it anyway.</summary>
+        public static float MedicMaxWait = 6f;
+        /// <summary>Members regain health slowly out of combat (no awake enemy within RegenEnemyRadius), up to RegenCapShare of their max.</summary>
+        public static bool RegenOutOfCombat = true;
+        /// <summary>Health per second (0-XNPCCore's own level regeneration, its Settings.xml Progression/HealthRegenPerSecond).</summary>
+        public static float RegenRatePerSecond = 0.2f;
+        /// <summary>The regeneration stops at this share of her max health; above it only items heal.</summary>
+        public static float RegenCapShare = 0.6f;
+        /// <summary>No regeneration while an awake enemy is within this many meters of her.</summary>
+        public static float RegenEnemyRadius = 30f;
         // ---- overwhelmed (ScArms, migration M7.5, the weapons task's W4/W6 decision) ----
         /// <summary>An overwhelmed survivor keeps the gun instead of 0-XNPCCore's melee swap at 3 m (while it has ammo).</summary>
         public static bool Overwhelmed = true;
@@ -1338,6 +1356,13 @@ namespace SurvivorCommunity
             MedsResupplyMix = DefaultMedsResupplyMix;
             MedsResupplyCooldownHours = 24f;
             MedsResupplyKeepForInjured = true;
+            MedsResupplyEmergencyBelow = 0.5f;
+            MedicSafeDistance = 3f;
+            MedicMaxWait = 6f;
+            RegenOutOfCombat = true;
+            RegenRatePerSecond = 0.2f;
+            RegenCapShare = 0.6f;
+            RegenEnemyRadius = 30f;
             Overwhelmed = true;
             SurvivorGunFirst = true;
             OverwhelmedRadius = 12f;
@@ -2444,6 +2469,14 @@ namespace SurvivorCommunity
                 if (p.Values.TryGetValue("MedsResupplyMix", out string medsMix)) MedsResupplyMix = medsMix ?? "";
                 ParseFloat(p, "MedsResupplyCooldownHours", ref MedsResupplyCooldownHours, 0f, 240f);
                 ParseBoolKey(p, "MedsResupplyKeepForInjured", ref MedsResupplyKeepForInjured);
+                // round k2: the emergency restock, no self-use in melee reach, regeneration out of combat (ScMedic)
+                ParseFloat(p, "MedsResupplyEmergencyBelow", ref MedsResupplyEmergencyBelow, 0f, 1f);
+                ParseFloat(p, "MedicSafeDistance", ref MedicSafeDistance, 0f, 10f);
+                ParseFloat(p, "MedicMaxWait", ref MedicMaxWait, 0f, 120f);
+                ParseBoolKey(p, "RegenOutOfCombat", ref RegenOutOfCombat);
+                ParseFloat(p, "RegenRatePerSecond", ref RegenRatePerSecond, 0f, 5f);
+                ParseFloat(p, "RegenCapShare", ref RegenCapShare, 0f, 1f);
+                ParseFloat(p, "RegenEnemyRadius", ref RegenEnemyRadius, 5f, 120f);
                 bool overwhelmed = Overwhelmed;
                 if (p.Values.ContainsKey("Overwhelmed")) p.ParseBool("Overwhelmed", ref overwhelmed);
                 Overwhelmed = overwhelmed;
@@ -2787,6 +2820,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: retreat " + RetreatLine());   // round rt1 (ScConfigRetreat.cs)
                 ScLog.Out("config: back-offs " + BackOffLine());   // round k1 (ScConfigRetreat.cs, ScBackOff)
                 ScLog.Out("config: medical restock " + MedsLine());   // round md1 (ScMedic.Restock)
+                ScLog.Out("config: healing " + HealLine());   // round k2 (ScMedic)
                 ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)
                 ScLog.Out("config: skins " + SkinsLine());   // round 31 (ScConfigSkins.cs)
 #if SC_V34
@@ -3059,8 +3093,25 @@ namespace SurvivorCommunity
                    + ", before a run below " + MedsResupplyRunBelow + (MedsResupplyRunBelow <= 0 ? " (never before a run)" : "")
                    + ", every " + MedsResupplyCooldownHours.ToString("0.##", CultureInfo.InvariantCulture) + " in-game h a member at home"
                    + ", " + (MedsResupplyKeepForInjured ? "keeps tonight's Meds for the injured" : "may take tonight's Meds for the injured")
-                   + ", mix '" + MedsResupplyMix + "'";
+                   + ", mix '" + MedsResupplyMix + "'"
+                   + (MedsResupplyEmergencyBelow > 0f ? "; an emergency (no heal item, under " + MedsPct(MedsResupplyEmergencyBelow) + " health) ignores the cooldown"
+                                                      : "; no emergency restock (MedsResupplyEmergencyBelow 0)");
         }
+
+        /// <summary>Round k2: the self-use and regeneration keys in one line (the load log, sc meds).</summary>
+        public static string HealLine()
+        {
+            string use = MedicSafeDistance > 0f
+                ? "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m (after " + F2(MedicMaxWait) + " s under 25% health she uses it anyway)"
+                : "medical use wherever she is (MedicSafeDistance 0)";
+            string regen = RegenOutOfCombat && RegenRatePerSecond > 0f && RegenCapShare > 0f
+                ? "regeneration out of combat " + RegenRatePerSecond.ToString("0.###", CultureInfo.InvariantCulture) + " HP/s up to " + MedsPct(RegenCapShare)
+                  + " with no awake enemy within " + F2(RegenEnemyRadius) + " m"
+                : "no regeneration (" + (!RegenOutOfCombat ? "RegenOutOfCombat false" : "RegenRatePerSecond or RegenCapShare 0") + ")";
+            return use + "; a first aid kit before a bandage under 50% health; " + regen;
+        }
+
+        private static string MedsPct(float share) { return (share * 100f).ToString("0", CultureInfo.InvariantCulture) + "%"; }
 
         private static void ParseInt(DynamicProperties p, string key, ref int v, int min, int max)
         {

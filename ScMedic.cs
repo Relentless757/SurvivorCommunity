@@ -54,6 +54,15 @@ namespace SurvivorCommunity
     /// taking the Meds tonight's injured need; before a run (BeforeRun, from ScRuns.Send and ScMining.Send) the same below
     /// MedsResupplyRunBelow, the cooldown ignored. All of the top-up fits her window and bag or nothing is given; nothing is
     /// ever dropped. MedsResupply false: never. sc meds shows it.
+    ///
+    /// Round k2 (2026-11-15, research/combat/SC_VS_NPCCORE.md root causes 2 and 5, section 4.4): members heal sensibly.
+    /// (1) At home a member with no heal item at all and under MedsResupplyEmergencyBelow of her health is restocked with
+    /// her cooldown ignored and started, as before a run (Evaluate's Emergency; meds-restock-emergency). (2) A member - or a
+    /// stand-in - starts no medical use while an enemy that is after her is within MedicSafeDistance (HeldByReach): she
+    /// fights on and uses it once the enemy is gone, dead or farther off; waited MedicMaxWait and under DesperateBelow of her
+    /// health, she uses it anyway. (3) Under KitFirstBelow she takes a first aid kit before a first aid bandage. (4) A member
+    /// regains RegenRatePerSecond health out of combat, up to RegenCapShare of her max (RegenTick, from ScAmmo.Tick's 5 s
+    /// member loop: her own loaded, visible body on the host only). Raiders and strangers heal as before.
     /// </summary>
     public static class ScMedic
     {
@@ -82,9 +91,17 @@ namespace SurvivorCommunity
         /// </summary>
         private const float NpcRegenSpeed = 2f;
         private const string StockedCvar = "sc_medsStocked";
+        /// <summary>Round k2: under this share of her max health a member takes a first aid kit before a first aid bandage, whatever she is missing.</summary>
+        private const float KitFirstBelow = 0.5f;
+        /// <summary>Round k2: the MedicMaxWait exception (she uses it with the enemy still in reach) needs her under this share of her max health.</summary>
+        private const float DesperateBelow = 0.25f;
 
         private static readonly Dictionary<int, float> nextCheck = new Dictionary<int, float>();
         private static readonly Dictionary<int, float> readyAt = new Dictionary<int, float>();
+        /// <summary>Round k2: body id -> the Time.time she first wanted to start a use and was held by an enemy in reach (her wait).</summary>
+        private static readonly Dictionary<int, float> heldSince = new Dictionary<int, float>();
+        /// <summary>Round k2: the enemy scans' scratch list (main thread only).</summary>
+        private static readonly List<Entity> near = new List<Entity>();
 
         /// <summary>An item in use: what it is, how long it takes, and the stack it displaced from the hand.</summary>
         private sealed class Use
@@ -172,6 +189,12 @@ namespace SurvivorCommunity
             restockLast.Clear();
             mix = null;
             mixSkipped = 0;
+            // round k2: the waits for an enemy in reach, and the regeneration's clocks, reasons and totals
+            heldSince.Clear();
+            regenAt.Clear();
+            regenWhy.Clear();
+            regenGained.Clear();
+            regenTotal = 0f;
         }
 
         /// <summary>For sc xnpc: the stock flag, whether a use is in progress, and how often XNPC's own heal was refused.</summary>
@@ -186,6 +209,7 @@ namespace SurvivorCommunity
                    + (e.Buffs.HasBuff(BleedBuff) ? " BLEEDING" : "") + " cloth=" + Count(e, "medicalBandage") + " bandages=" + Count(e, "medicalFirstAidBandage")
                    + " kits=" + Count(e, "medicalFirstAidKit") + " SdcsIsHealing refused (all bodies)=" + Patch_NoFreeHeal.SdcsRefused
                    + "; restock (md1): " + RestockTimes(e)
+                   + "; k2: " + WaitText(e) + ", regen " + RegenText(e)
                    + "; all bodies: bleeds stopped " + bleedsStopped + ", waits for XNPC's hand clips " + xnpcBusyWaits
                    + ", XNPC medic regen fixed " + xnpcHealSpeedFixed + ", XNPC medic held for a use " + xnpcMedicHeld;
 #else
@@ -236,6 +260,9 @@ namespace SurvivorCommunity
             uses.Remove(entityId);
             Displaced gone;
             displaced.TryRemove(entityId, out gone);
+            heldSince.Remove(entityId);
+            regenAt.Remove(entityId);
+            regenWhy.Remove(entityId);
         }
 
         // ---------------------------------------------------------------------------------------------------------
@@ -285,6 +312,9 @@ namespace SurvivorCommunity
         /// (medicalRegHealthAmount) waits as before, but does not keep a bleed from being stopped. Nothing starts while one
         /// of 0-XNPCCore's own hand clips runs (SdcsAnimBusy: its bandage, heal, douse or party-medic sequence holds the
         /// hand slot this would write).
+        /// Round k2, for a member or a stand-in (ScXnpc.IsCommunity; raiders and strangers as before): under KitFirstBelow the
+        /// kit comes before the first aid bandage, and no use - a heal or a bleed - starts while an enemy after her is within
+        /// MedicSafeDistance (HeldByReach).
         /// </summary>
         private static void TryHeal(EntityAlive e, float now)
         {
@@ -292,23 +322,27 @@ namespace SurvivorCommunity
             if (max <= 0) return;
             bool low = e.Health <= max * HealBelow;
             bool bleeding = e.Buffs.HasBuff(BleedBuff);
-            if (!low && !bleeding) return;
+            if (!low && !bleeding) { heldSince.Remove(e.entityId); return; }
             if (e.emodel == null || e.emodel.IsRagdollActive || e.inventory == null) return;
             float ready;
             if (readyAt.TryGetValue(e.entityId, out ready) && now < ready) return;
             if (e.GetCVar("SdcsAnimBusy") >= 0.5f) { xnpcBusyWaits++; return; }
             bool working = e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f;    // an item is already working
+            bool member = ScXnpc.IsCommunity(e);                                    // round k2's rules: members and stand-ins
 
             string pick = null;
             if (low && !working)
             {
                 int missing = max - e.Health;
-                if (missing >= KitWorthMissing && Count(e, "medicalFirstAidKit") > 0) pick = "medicalFirstAidKit";
+                // round k2: low enough, the kit first whatever she is missing (a first aid bandage's 30 is gone in two hits)
+                bool kitFirst = missing >= KitWorthMissing || (member && e.Health < max * KitFirstBelow);
+                if (kitFirst && Count(e, "medicalFirstAidKit") > 0) pick = "medicalFirstAidKit";
                 else if (Count(e, "medicalFirstAidBandage") > 0) pick = "medicalFirstAidBandage";
                 else if (Count(e, "medicalFirstAidKit") > 0) pick = "medicalFirstAidKit";
             }
             if (pick == null && bleeding && (low || !InFight(e))) pick = FirstCarried(e, BleedItems);
-            if (pick == null) return;
+            if (pick == null) { heldSince.Remove(e.entityId); return; }
+            if (member && HeldByReach(e, pick, max, now)) return;
             if (!TakeOne(e, pick)) return;
             Begin(e, pick, now);
             readyAt[e.entityId] = now + Cooldown;
@@ -333,6 +367,57 @@ namespace SurvivorCommunity
         {
             for (int i = 0; i < items.Length; i++) if (Count(e, items[i]) > 0) return items[i];
             return null;
+        }
+
+        /// <summary>
+        /// Round k2 (research/combat/SC_VS_NPCCORE.md root cause 5): TryHeal's last test for a member or a stand-in who has
+        /// picked an item. The item takes her weapon out of her hand for about 2.5 s, and every use in the fight that killed
+        /// Gina and Paul was made with a zombie 0.9-1.3 m away and cost 14-27 health in hits - a first aid bandage gives 30.
+        /// So no use starts while an awake enemy that is after her (its attack or revenge target) is within MedicSafeDistance:
+        /// she keeps her weapon and fights, and TryHeal asks again every second. Her wait starts at the first refusal and ends
+        /// when she no longer needs the item, uses it, or the enemy is gone, dead or farther off. The exception: once she has
+        /// waited MedicMaxWait and is under DesperateBelow of her health, she uses it with the enemy still there - a heal now
+        /// beats none. A bleed follows the same rule. True: held at this check. 0-XNPCCore rolls away before its own bandage
+        /// (its heal sequence); SC's members do not roll (round k2's report: not built).
+        /// </summary>
+        private static bool HeldByReach(EntityAlive e, string pick, int max, float now)
+        {
+            float r = ScConfig.MedicSafeDistance;
+            if (r <= 0f) { heldSince.Remove(e.entityId); return false; }
+            float dist;
+            EntityAlive t = NearestEnemy(e, r, true, out dist);
+            float since;
+            bool waiting = heldSince.TryGetValue(e.entityId, out since);
+            if (t == null)
+            {
+                if (waiting)
+                {
+                    heldSince.Remove(e.entityId);
+                    ScLog.Verbose(BodyName(e) + ": nothing after " + HerObj(e) + " within " + F1(r) + " m any more - uses " + pick
+                                  + " after waiting " + F1(now - since) + " s");
+                }
+                return false;
+            }
+            string who = ScCommunity.ClassName(t) + " (" + t.entityId + ") at " + F1(dist) + " m";
+            if (!waiting)
+            {
+                heldSince[e.entityId] = now;
+                since = now;
+                Patches_Xnpc.Count("meds-use-held-reach");
+                ScLog.Verbose(BodyName(e) + " waits to use " + pick + " at " + e.Health + "/" + max + ": " + who + " is after " + HerObj(e)
+                              + " (MedicSafeDistance " + F1(r) + " m) - " + She(e) + " fights on");
+            }
+            float waited = now - since;
+            if (e.Health < max * DesperateBelow && waited >= ScConfig.MedicMaxWait)
+            {
+                heldSince.Remove(e.entityId);
+                Patches_Xnpc.Count("meds-use-desperate");
+                ScLog.Out(BodyName(e) + " uses " + pick + " with " + who + " after " + HerObj(e) + ": waited " + F1(waited) + " s and down to "
+                          + e.Health + "/" + max + " (under " + (DesperateBelow * 100f).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                          + "% after MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s: a heal now beats none)");
+                return false;
+            }
+            return true;
         }
 #else
         private static void TryHeal(EntityAlive e, float now)
@@ -711,6 +796,10 @@ namespace SurvivorCommunity
             public int Reserve, Spare;
             /// <summary>The top-up: each mix item and how many she lacks of it.</summary>
             public readonly List<KeyValuePair<MixItem, int>> Gives = new List<KeyValuePair<MixItem, int>>();
+            /// <summary>Round k2: at home, an emergency (no heal item, under MedsResupplyEmergencyBelow) that passes her cooldown.</summary>
+            public bool Emergency;
+            /// <summary>Round k2: the cooldown an emergency passed (world ticks left), for the log line.</summary>
+            public ulong CooldownPassed;
         }
 
         /// <summary>
@@ -834,6 +923,21 @@ namespace SurvivorCommunity
             return since >= cd ? 0UL : cd - since;
         }
 
+        /// <summary>
+        /// Round k2 (research/combat/SC_VS_NPCCORE.md root cause 2): no heal item at all (heal: HealItemCount) and under
+        /// MedsResupplyEmergencyBelow of her max health - the case in which md1's 24 h cooldown left Paul fighting 5.5 minutes
+        /// with nothing that heals. False with the key at 0.
+        /// </summary>
+        private static bool Emergency(EntityAlive e, int heal)
+        {
+            float below = ScConfig.MedsResupplyEmergencyBelow;
+            if (below <= 0f || heal > 0 || e == null) return false;
+            int max = e.GetMaxHealth();
+            return max > 0 && e.Health < max * below;
+        }
+
+        private static string Pct(float share) { return (share * 100f).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%"; }
+
         /// <summary>World ticks as in-game hours, "6.5 h" (up: rounded up to the tenth, for a wait).</summary>
         private static string Hours(ulong ticks, bool up)
         {
@@ -841,10 +945,56 @@ namespace SurvivorCommunity
             return (tenths / 10.0).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " h";
         }
 
-        private static bool Male(Member m) { return m.Look != null ? m.Look.Male : ScLooks.ClassIsMale(m.Class); }
-        private static string Her(Member m) { return Male(m) ? "his" : "her"; }
-        private static string She(Member m) { return Male(m) ? "he" : "she"; }
+        /// <summary>A member's pronouns for the log lines: her look, else her class (round k2: ScHanded uses them too).</summary>
+        internal static bool Male(Member m) { return m.Look != null ? m.Look.Male : ScLooks.ClassIsMale(m.Class); }
+        internal static string Her(Member m) { return Male(m) ? "his" : "her"; }
+        internal static string HerObj(Member m) { return Male(m) ? "him" : "her"; }
+        internal static string She(Member m) { return Male(m) ? "he" : "she"; }
         private static string Who(Member m, EntityAlive e) { return m.Name + " (id " + e.entityId + ")"; }
+
+        /// <summary>Round k2: a body's pronouns - a member's by her record (Male(Member)), a stand-in's or anyone else's by the class.</summary>
+        private static bool Male(EntityAlive e)
+        {
+            Member m = e != null && ScRegistry.Loaded ? ScRegistry.GetMember(e.entityId) : null;
+            if (m != null) return Male(m);
+            return e != null && ScLooks.ClassIsMale(ScCommunity.ClassName(e));
+        }
+        private static string HerObj(EntityAlive e) { return Male(e) ? "him" : "her"; }
+        private static string She(EntityAlive e) { return Male(e) ? "he" : "she"; }
+        private static string BodyName(EntityAlive e) { return ScCommunity.DisplayName(e) + " (id " + e.entityId + ")"; }
+        private static string F1(float f) { return f.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture); }
+
+        /// <summary>
+        /// Round k2: the nearest awake, living enemy of hers (SCore's IsEnemy, not an inert one) within r - with afterHer, only
+        /// one whose attack or revenge target she is. Null when none (dist -1). Main thread only (the shared scratch list).
+        /// </summary>
+        private static EntityAlive NearestEnemy(EntityAlive e, float r, bool afterHer, out float dist)
+        {
+            dist = -1f;
+            World w = e != null ? e.world : null;
+            if (w == null || r <= 0f) return null;
+            EntityAlive best = null;
+            float bestD2 = r * r;
+            near.Clear();
+            try
+            {
+                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(e.position, new Vector3(2f * r, 2f * r, 2f * r)), near);
+                for (int i = 0; i < near.Count; i++)
+                {
+                    EntityAlive a = near[i] as EntityAlive;
+                    if (a == null || a == e || a.IsDead() || a.IsSleeping) continue;
+                    float d2 = (a.position - e.position).sqrMagnitude;
+                    if (d2 > bestD2) continue;
+                    if (afterHer && a.GetAttackTarget() != e && a.GetRevengeTarget() != e) continue;
+                    if (!EntityTargetingUtilities.IsEnemy(e, a) || global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) continue;
+                    best = a;
+                    bestD2 = d2;
+                }
+            }
+            finally { near.Clear(); }
+            if (best != null) dist = Mathf.Sqrt(bestD2);
+            return best;
+        }
 
         /// <summary>
         /// At home as the stockpile's resupply counts it - ScAmmo.Where's "home": inside the home zone, or in the defended area of
@@ -901,10 +1051,22 @@ namespace SurvivorCommunity
                 ulong left = CooldownLeft(m, now);
                 if (left > 0UL)
                 {
-                    c.Why = She(m) + " restocked " + Hours(Since(m, now), false) + " ago - next in " + Hours(left, true);
-                    c.Counter = "meds-cooldown";
-                    c.Refusal = true;
-                    return c;
+                    // round k2: an emergency - no heal item at all and under MedsResupplyEmergencyBelow - passes the cooldown, as
+                    // a run does; the reserve, her window, the mix, the stockpile and her pack below still apply
+                    if (Emergency(e, c.Heal))
+                    {
+                        c.Emergency = true;
+                        c.CooldownPassed = left;
+                    }
+                    else
+                    {
+                        c.Why = She(m) + " restocked " + Hours(Since(m, now), false) + " ago - next in " + Hours(left, true)
+                                + (ScConfig.MedsResupplyEmergencyBelow > 0f
+                                   ? " (sooner in an emergency: no heal item and under " + Pct(ScConfig.MedsResupplyEmergencyBelow) + " health)" : "");
+                        c.Counter = "meds-cooldown";
+                        c.Refusal = true;
+                        return c;
+                    }
                 }
             }
             else if (mode == RestockMode.Run)
@@ -1066,7 +1228,8 @@ namespace SurvivorCommunity
             cm.MedsRestocked++;
             m.MedsAt = now;
             restockLast.Remove(m.Id);
-            Patches_Xnpc.Count(mode == RestockMode.Run ? "meds-restock-run" : mode == RestockMode.Console ? "meds-restock-console" : "meds-restock");
+            Patches_Xnpc.Count(mode == RestockMode.Run ? "meds-restock-run" : mode == RestockMode.Console ? "meds-restock-console"
+                               : c.Emergency ? "meds-restock-emergency" : "meds-restock");
             ScLog.Out(Who(m, e) + " restocked " + how + ": " + string.Join(", ", given.ToArray()) + " for 1 Meds (" + cm.Get(Resource.Meds) + " left) - "
                       + She(m) + " had " + c.Heal + " heal item" + (c.Heal == 1 ? "" : "s"));
             if (missed > 0)
@@ -1103,7 +1266,12 @@ namespace SurvivorCommunity
                 Check c = Evaluate(m, e, RestockMode.Home, now);
                 if (c.Due)
                 {
-                    string failed = Restock(m, e, c, RestockMode.Home, Her(m) + " medical supplies at home", now);
+                    // round k2: an emergency restock says so, and what it passed
+                    string how = Her(m) + " medical supplies at home"
+                                 + (c.Emergency ? " - an EMERGENCY restock: no heal item left at " + e.Health + "/" + e.GetMaxHealth() + " health (under "
+                                                  + Pct(ScConfig.MedsResupplyEmergencyBelow) + "), the cooldown (" + Hours(c.CooldownPassed, true) + " left) ignored"
+                                                : "");
+                    string failed = Restock(m, e, c, RestockMode.Home, how, now);
                     if (failed == null) return;
                     // nothing went in: a refusal like the others, counted once per episode and paced below
                     c.Due = false;
@@ -1171,6 +1339,144 @@ namespace SurvivorCommunity
             }
         }
 
+        // ---------------------------------------------------------------------------------------------------------
+        // regeneration out of combat (round k2, the user's decision: "Regen out of combat, up to 60%")
+        // ---------------------------------------------------------------------------------------------------------
+
+        /// <summary>A tick further apart than this (real seconds of game time) from her last one starts her clock again: nothing is paid back for a gap.</summary>
+        private const float RegenMaxStep = 10f;
+        /// <summary>Body id -> the Time.time of her last tick that regenerated (or started to): present while she regenerates.</summary>
+        private static readonly Dictionary<int, float> regenAt = new Dictionary<int, float>();
+        /// <summary>Body id -> why she did not regenerate at her last tick (absent while she regenerates, or before her first tick).</summary>
+        private static readonly Dictionary<int, string> regenWhy = new Dictionary<int, string>();
+        /// <summary>Body id -> health regenerated since the world loaded (sc meds), and the total of all members.</summary>
+        private static readonly Dictionary<int, float> regenGained = new Dictionary<int, float>();
+        private static float regenTotal;
+
+        /// <summary>
+        /// ScAmmo.Tick, every 5 s, for each member's own loaded body (never a stand-in; host only, ScTicker): out of combat she
+        /// regains RegenRatePerSecond health per second of game time, up to RegenCapShare of her max. SC took away all three
+        /// of 0-XNPCCore's free heals (its self-heal, SdcsIsHealing and its level regeneration: Patch_NoFreeHeal, Patches_Xnpc
+        /// X3 and X15) and a member out of heal items stayed where the fight left her - Paul sat at 26% for three minutes.
+        /// This is SC's own, slow and capped: above the cap only items heal. It writes her health stat directly (the way
+        /// vanilla's EntityStats.UpdateNPCStatsOverTime applies a HealthChangeOT), so no buff is added and nothing that
+        /// Patch_NoFreeHeal or X15 refuse is touched. RegenBlock lists everything that holds it; the enemy scan comes last.
+        /// </summary>
+        internal static void RegenTick(Member m, EntityAlive e)
+        {
+            try
+            {
+                if (m == null || e == null) return;
+                int id = e.entityId;
+                float now = Time.time;
+                float cap;
+                string why = RegenBlock(m, e, out cap);
+                float last;
+                bool running = regenAt.TryGetValue(id, out last);
+                if (why != null)
+                {
+                    if (running)
+                    {
+                        regenAt.Remove(id);
+                        bool capped = cap > 0f && e.Stats != null && e.Stats.Health.Value >= cap - 0.01f;
+                        if (capped) Patches_Xnpc.Count("meds-regen-capped");
+                        ScLog.Verbose(Who(m, e) + " stops regenerating at " + e.Health + "/" + e.GetMaxHealth() + ": " + why);
+                    }
+                    regenWhy[id] = why;
+                    return;
+                }
+                regenWhy.Remove(id);
+                regenAt[id] = now;
+                if (!running || now - last > RegenMaxStep)
+                {
+                    // her clock starts now: the first tick of an episode (or one after a gap) regenerates nothing
+                    if (!running)
+                    {
+                        Patches_Xnpc.Count("meds-regen-started");
+                        ScLog.Verbose(Who(m, e) + " regenerates out of combat from " + e.Health + "/" + e.GetMaxHealth() + ", "
+                                      + ScConfig.RegenRatePerSecond.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " health/s up to "
+                                      + Mathf.FloorToInt(cap) + " (" + Pct(ScConfig.RegenCapShare) + ")");
+                    }
+                    return;
+                }
+                float dt = now - last;
+                if (dt <= 0f) return;
+                Stat hp = e.Stats.Health;
+                float before = hp.Value;
+                float after = Mathf.Min(cap, before + ScConfig.RegenRatePerSecond * dt);
+                if (after <= before) return;
+                hp.Value = after;
+                float gained = hp.Value - before;
+                if (gained <= 0f) return;
+                float had;
+                regenGained.TryGetValue(id, out had);
+                regenGained[id] = had + gained;
+                regenTotal += gained;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("meds-regen", ex);
+            }
+        }
+
+        /// <summary>
+        /// Why her regeneration is held now, or null when it runs (cap: RegenCapShare of her max health, 0 when not known).
+        /// A pure read. The double-up guards: a medical use in progress, a heal item still working (medicalRegHealthAmount,
+        /// foodHealthAmount: what vanilla's buffHealHealth drains), 0-XNPCCore's level or leadership regeneration, and any
+        /// other positive HealthChangeOT on her - each of those already heals her, so this stands aside.
+        /// </summary>
+        private static string RegenBlock(Member m, EntityAlive e, out float cap)
+        {
+            cap = 0f;
+            if (!ScConfig.RegenOutOfCombat) return "RegenOutOfCombat is off";
+            if (ScConfig.RegenRatePerSecond <= 0f || ScConfig.RegenCapShare <= 0f) return "RegenRatePerSecond or RegenCapShare is 0";
+            if (!ScCommunity.IsHost || e.world == null || e.world.IsRemote()) return "not the host";
+            if (e.IsDead() || e.Health <= 0 || e.Stats == null || e.Stats.Health == null || e.Buffs == null) return "not alive";
+            if (!ScXnpc.IsSurvivorBody(e) || ScXnpc.IsRaider(e)) return "not a member's survivor body";
+            if (!ScRegistry.Loaded || ScRegistry.GetMember(e.entityId) != m) return "not " + Her(m) + " own body (a stand-in, or an id taken by another)";
+            if (m.Offline || ScNpc.IsOnMission(e)) return She(m) + " is hidden or offline (a run, a posting)";
+            int max = e.GetMaxHealth();
+            if (max <= 0) return "no max health";
+            cap = max * ScConfig.RegenCapShare;
+            if (e.Stats.Health.Value >= cap - 0.01f) return "at the cap (" + Mathf.FloorToInt(cap) + ", " + Pct(ScConfig.RegenCapShare) + "): above it only items heal";
+            if (IsUsing(e.entityId)) return She(m) + " is using a medical item";
+            if (e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f || e.Buffs.GetCustomVar("foodHealthAmount") > 0f) return "a heal item is still working on " + HerObj(m);
+            if (e.Buffs.HasBuff("IsHealing") || e.Buffs.HasBuff("SdcsIsHealing")) return "a framework heal is on " + HerObj(m);
+            if (e.Buffs.HasBuff("SdcsNpcLevelBonus") && e.Buffs.GetCustomVar(ScXnpc.LevelRegenCvar) > 0f) return "0-XNPCCore's level regeneration is on " + HerObj(m);
+            if (e.Buffs.HasBuff("SdcsNpcLeadership") && e.Buffs.GetCustomVar("SdcsLeadRegen") > 0f) return "0-XNPCCore's leadership regeneration (your Charismatic Nature) is on " + HerObj(m);
+            float ot = EffectManager.GetValue(PassiveEffects.HealthChangeOT, null, 0f, e);
+            if (ot > 0f) return "another regeneration runs on " + HerObj(m) + " (+" + ot.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " health/s)";
+            float dist;
+            EntityAlive t = NearestEnemy(e, ScConfig.RegenEnemyRadius, false, out dist);
+            if (t != null) return "in combat: " + ScCommunity.ClassName(t) + " (" + t.entityId + ") at " + F1(dist) + " m (RegenEnemyRadius " + F1(ScConfig.RegenEnemyRadius) + " m)";
+            return null;
+        }
+
+        /// <summary>Round k2: her regeneration as her last tick found it (sc meds, sc xnpc).</summary>
+        private static string RegenText(EntityAlive e)
+        {
+            if (e == null) return "-";
+            if (regenAt.ContainsKey(e.entityId)) return "RUNNING (" + ScConfig.RegenRatePerSecond.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+                                                         + " health/s up to " + Pct(ScConfig.RegenCapShare) + ")";
+            string why;
+            return regenWhy.TryGetValue(e.entityId, out why) ? "held - " + why : "not checked yet (a member's own loaded body, every 5 s; never a stand-in, raider or stranger)";
+        }
+
+        private static string RegenGainedText(EntityAlive e)
+        {
+            float g;
+            return e != null && regenGained.TryGetValue(e.entityId, out g) && g > 0f
+                ? "; " + g.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " health regenerated since the world loaded" : "";
+        }
+
+        /// <summary>Round k2: her wait for an enemy in reach before a medical use (TryHeal's HeldByReach), for sc xnpc and sc meds.</summary>
+        private static string WaitText(EntityAlive e)
+        {
+            float since;
+            if (e == null || !heldSince.TryGetValue(e.entityId, out since)) return "no wait";
+            return "WAITING " + F1(Time.time - since) + " s to use an item: an enemy after " + HerObj(e) + " within " + F1(ScConfig.MedicSafeDistance) + " m";
+        }
+
         /// <summary>Her last restock and the next one at home, for sc xnpc's medic line and sc meds.</summary>
         private static string RestockTimes(Member m, ulong now)
         {
@@ -1215,6 +1521,8 @@ namespace SurvivorCommunity
                 List<MixItem> list = Mix();
                 int reserve = ScConfig.MedsResupplyKeepForInjured ? ScStockpile.MedsForRollover() : 0;
                 output("[SC] medical restock (round md1): " + ScConfig.MedsLine());
+                output("[SC] healing (round k2): " + ScConfig.HealLine() + " - regenerated so far this session: "
+                       + regenTotal.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " health");
                 output("[SC] mix: 1 Meds tops a member up to " + (list.Count > 0 ? MixText(list) : "NOTHING (no usable item)")
                        + (mixSkipped > 0 ? " - " + mixSkipped + " entr" + (mixSkipped == 1 ? "y" : "ies") + " skipped (see the log)" : ""));
                 output("[SC] stockpile: " + cm.Get(Resource.Meds) + " Meds, " + reserve + " kept for tonight's injured"
@@ -1231,7 +1539,9 @@ namespace SurvivorCommunity
                     Check c = Evaluate(m, e, RestockMode.Home, now);
                     output("[SC]   " + Who(m, e) + " " + m.Status + ", " + WhereText(e) + ": "
                            + c.Heal + " heal item(s) (" + Have(e, "medicalFirstAidKit") + " kits, " + Have(e, "medicalFirstAidBandage") + " first aid bandages), "
-                           + Have(e, "medicalBandage") + " cloth; " + RestockTimes(m, now) + "; at home: " + (c.Due ? "DUE (next check)" : "not now - " + c.Why));
+                           + Have(e, "medicalBandage") + " cloth; " + RestockTimes(m, now) + "; at home: "
+                           + (c.Due ? (c.Emergency ? "DUE - an EMERGENCY, the cooldown ignored (next check)" : "DUE (next check)") : "not now - " + c.Why)
+                           + "; health " + e.Health + "/" + e.GetMaxHealth() + ", regen " + RegenText(e));
                 }
                 output("[SC] " + shown + " member(s) loaded" + (away > 0 ? ", " + away + " not loaded, away on a run or posted (a stand-in is never restocked)" : ""));
                 return;
@@ -1267,7 +1577,11 @@ namespace SurvivorCommunity
             output("[SC]   carries: " + home.Heal + " heal item(s) - " + Have(body, "medicalFirstAidKit") + " medicalFirstAidKit, "
                    + Have(body, "medicalFirstAidBandage") + " medicalFirstAidBandage; " + Have(body, "medicalBandage") + " medicalBandage"
                    + (IsUsing(body.entityId) ? " (one in " + Her(mm) + " hand: a use is running)" : "") + (Stocked(body) ? "" : "; FIRST STOCK NOT GIVEN YET"));
-            output("[SC]   thresholds: at home below " + ScConfig.MedsResupplyBelow + ", before a run below " + ScConfig.MedsResupplyRunBelow);
+            output("[SC]   thresholds: at home below " + ScConfig.MedsResupplyBelow + ", before a run below " + ScConfig.MedsResupplyRunBelow
+                   + (ScConfig.MedsResupplyEmergencyBelow > 0f
+                      ? "; an emergency at home (no heal item, under " + Pct(ScConfig.MedsResupplyEmergencyBelow) + " health) ignores the cooldown - "
+                        + (Emergency(body, home.Heal) ? "IT IS ONE NOW" : "not now")
+                      : "; no emergency restock (MedsResupplyEmergencyBelow 0)"));
             output("[SC]   " + RestockTimes(mm, now) + " (cooldown " + ScConfig.MedsResupplyCooldownHours.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
                    + " in-game h at home; a run ignores it)" + (mm.MedsAt > 0UL ? ", world time " + mm.MedsAt + " (now " + now + ")" : ""));
             output("[SC]   window or trade open: " + (ScNpc.UsesWindow(body) && ScAmmo.IsWindowOpen(body.entityId) ? "YES (held until it closes)" : "no"));
@@ -1279,8 +1593,12 @@ namespace SurvivorCommunity
             }
             output("[SC]   top-up now: " + (lack.Count > 0 ? string.Join(", ", lack.ToArray()) : "nothing (" + She(mm) + " has the whole mix)"));
             output("[SC]   stockpile: " + cm.Get(Resource.Meds) + " Meds, " + res + " kept for tonight's injured, " + Math.Max(0, cm.Get(Resource.Meds) - res) + " to spare");
-            output("[SC]   at home now: " + (home.Due ? "DUE - the next 5 s check restocks " + (Male(mm) ? "him" : "her") : "no - " + home.Why));
+            output("[SC]   at home now: " + (home.Due ? "DUE - the next 5 s check restocks " + HerObj(mm) + (home.Emergency ? " (an EMERGENCY: the cooldown ignored)" : "") : "no - " + home.Why));
             output("[SC]   before a run now: " + (run.Due ? "would restock (the cooldown ignored)" : "no - " + run.Why));
+            // round k2: her health, the self-use rule and the regeneration
+            output("[SC]   health " + body.Health + "/" + body.GetMaxHealth() + "; medical use: " + WaitText(body)
+                   + (ScConfig.MedicSafeDistance > 0f ? " (none while an enemy after " + HerObj(mm) + " is within " + F1(ScConfig.MedicSafeDistance) + " m)" : " (MedicSafeDistance 0: no wait)"));
+            output("[SC]   regeneration (k2): " + RegenText(body) + RegenGainedText(body));
         }
 
         // ---------------------------------------------------------------------------------------------------------

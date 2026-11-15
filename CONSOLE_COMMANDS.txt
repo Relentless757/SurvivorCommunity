@@ -66,8 +66,8 @@ Most useful for testing
   [READ]
 - sc team [id|name]: Team strength: each member's side against the enemies, matched or not, melee-led or why not; one
   member with everything counted. [READ]
-- sc meds [id|name]: Medical restock: the setting, the stockpile's spare Meds, the counters and each member's heal items
-  and next restock; one member's every check. [READ]
+- sc meds [id|name]: Medical restock and healing: the setting, the stockpile's spare Meds, the counters and each
+  member's heal items, next restock, health and regeneration; one member's every check. [READ]
 - sc meds <id|name> give: Restock her medical supplies now for 1 Meds (the cooldown ignored). [CHEAT]
 - sc craft [<name>]: Crafting/work-shift status for the community or one member. [READ]
 - sc craft station: The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft counters.
