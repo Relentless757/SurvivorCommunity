@@ -443,18 +443,21 @@ namespace SurvivorCommunity
         /// <summary>
         /// I5 (ScNotTeamMelee on 0-XNPCCore's BackupKeepDistance and BackupRanged): she holds her ground against this enemy -
         /// melee-led, the enemy safe to melee and unarmed, not above her (ReachWhy's live test, the Fable review), not one
-        /// she found out of reach (round tm2: a kept block in her swing does not count against one that attacks her up
-        /// close), not past her leash, and the overwhelmed rule not holding her on the gun (then its back-off is today's).
+        /// she found out of reach (round tm2: a kept block in her swing gives way for one that attacks her up close on
+        /// positive evidence), not past her leash, and the overwhelmed rule not holding her on the gun (then its back-off is
+        /// today's). Round tm2: always for the attacker of the close reach draw's gun hold - she stands and shoots it.
         /// A pure read.
         /// </summary>
         public static bool HoldsGround(EntityAlive self, EntityAlive t)
         {
             if (self == null || t == null || !MeleeLed(self)) return false;
             if (MeleeUnsafe(t) || Armed(t)) return false;
+            // round tm2 (the Fable review, finding 4): after a close reach draw she stands and shoots this attacker
+            if (ScArms.ReachGunHolds(self, t)) return true;
             // the Fable review (finding 5): ReachWhy's live test - a zombie on a ledge above her keeps today's back-off
             if (ScArms.IsAbove(self, t) || ScArms.RememberedOutOfReach(self, t)) return false;
             if (UAI.UAIConsiderationScFarFromPost.PastLeash(self, t.position)) return false;   // a target she gets the gun for
-            return !ScArms.HoldingGunUpClose(self);
+            return !ScArms.OverwhelmedGunHold(self);       // round tm2: the overwhelmed part alone (not the reach gun hold)
         }
 
         /// <summary>

@@ -123,16 +123,18 @@ namespace SurvivorCommunity
             public string SwingPendKind;
             public float SwingPendAt, SwingPendSeen;
             public bool SwingPendSure;
-            /// <summary>Round tm2: per target, the reasons a swing-block finding was dropped or ignored that are logged already (Note* bits, FirstNote).</summary>
-            public readonly Dictionary<int, int> ReachNoted = new Dictionary<int, int>();
             /// <summary>
-            /// Round tm2, the proof by outcome (ProofTick): symmetric reach set aside a block in her swing for target ProofId -
-            /// its health at the last tick (ProofHp), the seconds it has attacked her up close since it last lost health while
-            /// she held a melee weapon (ProofSum), the last tick (ProofLast). ProofFailedId / ProofFailedUntil: no hit came -
-            /// for that target symmetric reach sets nothing aside until then (TeamUnreachableSeconds).
+            /// Round tm2: her state against each target (Pair: the notes, the no-swing clock, the hold after it ran out) - a small
+            /// map, so two attackers at once each keep their own (the Fable review, finding 8); PairOf caps and prunes it.
             /// </summary>
-            public int ProofId = -1, ProofHp, ProofFailedId = -1;
-            public float ProofSum, ProofLast, ProofFailedUntil;
+            public readonly Dictionary<int, Pair> Pairs = new Dictionary<int, Pair>();
+            /// <summary>
+            /// Round tm2: the close reach draw's gun hold (GunFirst, StartReachGun): she stands and shoots ReachGunId until
+            /// ReachGunUntil - ReachTick keeps it on while that target is after her within ReachGunDist and she holds her gun,
+            /// plus ReachGunGrace.
+            /// </summary>
+            public int ReachGunId = -1;
+            public float ReachGunUntil;
             /// <summary>
             /// The Fable review of round tm1 (finding 7): an equip that left the hand as it was backs MeleeFirst / GunFirst off
             /// this body until then (EquipBackoffSeconds), so a refused equip is not retried at 5 Hz.
@@ -343,7 +345,10 @@ namespace SurvivorCommunity
                     // a guard on watch (base defence D3) keeps the gun up close: on a tower the melee swap only leads to a
                     // walk off the edge, and the gun still hits what climbs up
                     bool onWatch = ScWatch.Guarding(e.entityId);
-                    if (!ScConfig.Overwhelmed && !onWatch) return true;
+                    // round tm2: the close reach draw's gun hold keeps the gun up close, as the overwhelmed gun hold does
+                    Watch rw;
+                    bool reachHold = watch.TryGetValue(e.entityId, out rw) && ReachGunHolds(rw, e, now);
+                    if (!ScConfig.Overwhelmed && !onWatch && !reachHold) return true;
                     if (!TargetWithin(e, XnpcCloseEnterDist)) return true;                               // 0-XNPCCore would not swap yet
                     ItemValue held = e.inventory.holdingItemItemValue;
                     ItemClass gun = held != null && !held.IsEmpty() ? held.ItemClass : null;
@@ -353,6 +358,7 @@ namespace SurvivorCommunity
                         Patches_Xnpc.Count("x5-watch-keep-gun");
                         return false;
                     }
+                    if (reachHold) return false;                  // round tm2: her 3 m swap waits while she stands and shoots
                     if (!ScConfig.Overwhelmed) return true;
                     Watch gw;
                     if (watch.TryGetValue(e.entityId, out gw) && now < gw.GunUntil)
@@ -509,14 +515,14 @@ namespace SurvivorCommunity
         /// those bodies, so she fires instead. Note she then STANDS AND FIRES point-blank rather than backing off -
         /// UAI runs one action at a time, so with the back-off scored to 0 the shot (6) simply beats BackupRanged (5).
         /// That is the intended trade: a member who can shoot is better off than one who can do neither.
+        /// Round tm2: also while the close reach draw's gun hold is on (ReachGunHolds): she shoots the attacker she could
+        /// not swing at, rather than backing away from it and coming back.
         /// </summary>
         public static bool HoldingGunUpClose(EntityAlive e)
         {
             try
             {
-                if (e == null || !ScConfig.Overwhelmed || !ScXnpc.IsBody(e)) return false;
-                ItemValue held = e.inventory != null ? e.inventory.holdingItemItemValue : null;
-                if (held == null || held.IsEmpty() || ScAmmo.RangedAction(held.ItemClass) == null) return false;
+                if (e == null || !ScXnpc.IsBody(e) || !HoldsRangedWeapon(e)) return false;
                 // A PURE READ of the state X5's own tick already maintains. It must not call IsOverwhelmed: that mutates
                 // the watch entry (it advances LastCount, OverSince and OverUntil and runs a 12 m entity sweep), and a
                 // consideration runs for every candidate target several times a second - UAI does not short-circuit a
@@ -526,9 +532,51 @@ namespace SurvivorCommunity
                 Watch gw;
                 if (!watch.TryGetValue(e.entityId, out gw)) return false;
                 float now = Time.time;
-                return now < gw.GunUntil || now < gw.OverUntil;
+                if (ScConfig.Overwhelmed && (now < gw.GunUntil || now < gw.OverUntil)) return true;
+                // round tm2 (the Fable review, finding 4): after a close reach draw she stands and shoots the attacker
+                return ReachGunHolds(gw, e, now);
             }
             catch (Exception ex) { ScLog.Once("arms-gun-upclose", ex); return false; }
+        }
+
+        /// <summary>
+        /// Round tm2: HoldingGunUpClose's overwhelmed part alone (ScTeam.HoldsGround: then the back-off is today's). A pure read.
+        /// </summary>
+        public static bool OverwhelmedGunHold(EntityAlive e)
+        {
+            try
+            {
+                if (e == null || !ScConfig.Overwhelmed || !ScXnpc.IsBody(e) || !HoldsRangedWeapon(e)) return false;
+                Watch gw;
+                if (!watch.TryGetValue(e.entityId, out gw)) return false;
+                float now = Time.time;
+                return now < gw.GunUntil || now < gw.OverUntil;
+            }
+            catch (Exception ex) { ScLog.Once("arms-gun-overwhelmed", ex); return false; }
+        }
+
+        /// <summary>
+        /// Round tm2: she stands and shoots this target after a close reach draw (the reach gun hold; t null: any target) -
+        /// ScTeam.HoldsGround scores 0-XNPCCore's BackupKeepDistance and BackupRanged to 0 for it. A pure read.
+        /// </summary>
+        public static bool ReachGunHolds(EntityAlive e, EntityAlive t)
+        {
+            Watch st;
+            return e != null && watch.TryGetValue(e.entityId, out st) && ReachGunHolds(st, e, Time.time)
+                   && (t == null || t.entityId == st.ReachGunId) && HoldsRangedWeapon(e);
+        }
+
+        /// <summary>Round tm2: the reach gun hold is on (TeamMelee, still melee-led: else her back-off and swaps are today's). A pure read.</summary>
+        private static bool ReachGunHolds(Watch st, EntityAlive e, float now)
+        {
+            return st != null && st.ReachGunId >= 0 && now < st.ReachGunUntil && ScConfig.TeamMelee && ScTeam.MeleeLed(e);
+        }
+
+        /// <summary>Round tm2: a ranged weapon in her hand.</summary>
+        private static bool HoldsRangedWeapon(EntityAlive e)
+        {
+            ItemValue hv = e != null && e.inventory != null ? e.inventory.holdingItemItemValue : null;
+            return hv != null && !hv.IsEmpty() && hv.ItemClass != null && ScAmmo.RangedAction(hv.ItemClass) != null;
         }
 
         /// <summary>
@@ -768,8 +816,14 @@ namespace SurvivorCommunity
                 // here (NeedsGun returns null), and MeleeFirst takes her back to melee once the swap hold allows.
                 bool reachDraw = led && kind == ScTeam.GunNeed.Reach;
                 if (!far && !over && !reachDraw) { st.FirstSince = 0f; return false; }
-                if (st.FirstSince <= 0f) { st.FirstSince = now; return false; }
-                if (now - st.FirstSince < GunFirstSeconds) return false;
+                // round tm2: a target held out of reach by the no-swing clock has already been TeamNoSwingConfirmSeconds in
+                // the making - no second wait (GunFirstSeconds) on top of it
+                bool proven = reachDraw && !far && PairHeld(st, t.entityId, now);
+                if (!proven)
+                {
+                    if (st.FirstSince <= 0f) { st.FirstSince = now; return false; }
+                    if (now - st.FirstSince < GunFirstSeconds) return false;
+                }
                 // round tm1: the swap-hold clock MeleeFirst shares - her melee weapon came out less than TeamSwapHoldSeconds ago
                 if (HeldBack(st, HoldToGun, now)) return false;
                 ItemClass gun = ItemClass.GetItemClass(l.Ranged, true);
@@ -793,6 +847,10 @@ namespace SurvivorCommunity
                 if (!EquipTook(e, l.Ranged, "gun first", ref st.GunBackoffUntil, now)) return false;
                 if (over) st.GunUntil = now + ScConfig.OverwhelmedGunSeconds;
                 Hold(st, HoldToMelee, now);                     // round tm1: MeleeFirst waits as long
+                // round tm2 (the Fable review, finding 4): drawn for an attacker up close she could not swing at - she stands
+                // and shoots it (no back-off, no 3 m swap) while it is after her within ReachGunDist
+                float rxz;
+                if (reachDraw && !far && AttacksHerUpClose(e, t, out rxz)) StartReachGun(st, e, t, rxz, now);
                 gunFirstDraws++;
                 Patches_Xnpc.Count(over ? "x5-gunfirst-overwhelmed" : "x5-gunfirst-range");
                 if (needs != null) Patches_Xnpc.Count(reachDraw && !far ? "x5-team-gun-needed-close" : "x5-team-gun-needed");
@@ -853,7 +911,8 @@ namespace SurvivorCommunity
                 }
                 // a target the count weighed (inside its area) that does not need the gun; not in the overwhelmed gun hold
                 EntityAlive t = ScTeam.Target(e);
-                if (t == null || !ScTeam.InArea(e, t) || ScTeam.NeedsGun(e, t, false, true) != null || now < st.GunUntil) { st.MeleeSince = 0f; return false; }
+                if (t == null || !ScTeam.InArea(e, t) || ScTeam.NeedsGun(e, t, false, true) != null || now < st.GunUntil
+                    || ReachGunHolds(st, e, now)) { st.MeleeSince = 0f; return false; }   // round tm2: the reach gun hold
                 int count, need;
                 if (ScConfig.Overwhelmed && IsOverwhelmed(e, out count, out need)) { st.MeleeSince = 0f; return false; }
                 if (st.MeleeSince <= 0f) { st.MeleeSince = now; return false; }
@@ -962,30 +1021,33 @@ namespace SurvivorCommunity
         /// who would walk there) no path and none planned while really blocked. A path that leads elsewhere (a back-off) says
         /// nothing, and plain "no path" is never enough for a gun holder: she plans none. remember (X5 only) keeps a finding
         /// (not "above": that is checked live) for TeamUnreachableSeconds, so a target behind a wall is not tried again at once.
-        /// Round tm2: a block in her swing counts only as SwingBlockWhy trusts it (fresh, 0-XNPCCore's own choice refuses the
-        /// swing, two reads in a row), and never against a target that attacks her up close (symmetric reach,
-        /// AttacksHerUpClose: if it can hit her, she can hit it) - a kept one for it is dropped (X5) or looked past (a read).
+        /// Round tm2: a block in her swing counts only as SwingBlockWhy trusts it. Against a target that attacks her up close
+        /// (symmetric reach) it waits on the no-swing clock; once that ran out the pair is held out of reach (Pair.HeldUntil,
+        /// per target, doubling). A kept finding is dropped (X5) or looked past (a read) only on positive evidence.
         /// </summary>
         internal static string ReachWhy(EntityAlive e, EntityAlive t, bool onMelee, bool remember)
         {
             float now = Time.time;
             Watch st;
             watch.TryGetValue(e.entityId, out st);
+            // round tm2: 0-XNPCCore would not let her swing at this attacker for TeamNoSwingConfirmSeconds - held out of reach
+            Pair hp = PeekPair(st, t.entityId);
+            if (hp != null && now < hp.HeldUntil)
+                return hp.HeldWhy + " (held " + (hp.HeldUntil - now).ToString("0") + " s more)";
             float xz;
-            // round tm2: symmetric reach, unless its proof by outcome failed for this pair (ProofTick)
-            bool mutual = AttacksHerUpClose(e, t, out xz) && !ProofFailed(st, t.entityId, now);
+            bool mutual = AttacksHerUpClose(e, t, out xz);
             if (st != null && st.UnreachId == t.entityId && now < st.UnreachUntil)
             {
-                // round tm2 (symmetric reach): a kept block in her swing does not hold against a target attacking her up close
-                // - unless a fresh read still finds a block right between them (bars, a wall: then it cannot hit her either)
-                if (!(mutual && st.UnreachSwing && !BlockedBetween(e, t, now)))
+                // round tm2 (symmetric reach): a kept block in her swing gives way for a target attacking her up close only on
+                // positive evidence (DropEvidence) - a stale read is "unknown" and keeps it (the Fable review, finding 6)
+                if (!(mutual && st.UnreachSwing && DropEvidence(st, e, t, now)))
                     return st.UnreachWhy + " (kept " + (st.UnreachUntil - now).ToString("0") + " s more)";
                 if (remember) DropKept(e, t, st, xz, now);   // X5: dropped; a read (the console) only looks past it
             }
             Vector3 d = t.position - e.position;
             if (d.y > ReachAbove) return "above her (" + d.y.ToString("0.#") + " m)";
             string why = null;
-            bool swing = false;
+            bool swing = false, held = false;
 #if SC_V34
             if (ScReach.Marked(e, t)) why = "0-XNPCCore marked it melee-unreachable";
 #endif
@@ -1004,7 +1066,7 @@ namespace SurvivorCommunity
                 }
                 if (d.magnitude <= trust)
                 {
-                    why = SwingBlockWhy(e, t, mutual, xz, remember, now);
+                    why = SwingBlockWhy(e, t, mutual, xz, remember, now, out held);
                     swing = why != null;
                 }
                 else if (remember) ClearPend(st);       // round tm2: no read this time - the run of agreeing reads is broken
@@ -1025,7 +1087,9 @@ namespace SurvivorCommunity
                 else if (onMelee && nav != null && nav.noPathAndNotPlanningOne() && e.moveHelper != null && e.moveHelper.BlockedTime > BlockedSeconds)
                     why = "unreachable (blocked, no path)";
             }
-            if (why != null && remember && ScConfig.TeamUnreachableSeconds > 0f)
+            // round tm2: a pair held by the no-swing clock keeps its own memory (Pair.HeldUntil) - not the one slot below,
+            // which a second attacker would take over
+            if (why != null && remember && !held && ScConfig.TeamUnreachableSeconds > 0f)
             {
                 st = WatchOf(e, now);
                 if (st.UnreachId != t.entityId || now >= st.UnreachUntil) Patches_Xnpc.Count("x5-team-unreachable");
@@ -1033,7 +1097,7 @@ namespace SurvivorCommunity
                 st.UnreachUntil = now + ScConfig.TeamUnreachableSeconds;
                 st.UnreachWhy = why;
                 st.UnreachSwing = swing;                 // round tm2: symmetric reach may drop this one
-                if (swing) st.ReachNoted.Remove(t.entityId);   // a new finding: its drop is logged afresh
+                if (swing) PairOf(st, t.entityId, now).Noted = 0;   // a new finding: its drop is logged afresh
             }
             return why;
         }
@@ -1049,19 +1113,45 @@ namespace SurvivorCommunity
         /// - which re-evaluates every 0.2 s while she holds a gun within 3 m or a swing weapon within its reach, and runs right
         /// AFTER SC's X5 prefix - leaves a live finding at most ActionChoiceDelay + one tick old (0.4 s) when the prefix reads
         /// it; + 0.1 s for frame jitter = 0.5 s. Anything older is a leftover nobody has evaluated since: SdcsMeleeReach
-        /// keeps an episode until a later Evaluate finds the line clear (the tm1 bug: one read of such an episode was kept 45 s).
+        /// keeps an episode until a later Evaluate finds the line clear.
         /// </summary>
         private static float SwingFreshSeconds { get { return Mathf.Clamp(UAI.UAIBase.ActionChoiceDelay, 0.05f, 1f) + CloseTickSeconds + 0.1f; } }
         /// <summary>0-XNPCCore's close-range tick (and so SC's X5 prefix) runs every 0.2 s.</summary>
         private const float CloseTickSeconds = 0.2f;
         /// <summary>Round tm2: with the episode table unbound, a second BlockKind read must come at least this much later.</summary>
         private const float FallbackReadGap = 0.2f;
-        /// <summary>Round tm2: two agreeing reads further apart than this are not "in a row" (the X5 tick runs at 5 Hz).</summary>
-        private const float PendMaxGap = 1f;
+        /// <summary>
+        /// Round tm2: two agreeing reads further apart than this are not "in a row" - 2 s (the Fable review, finding 7): a
+        /// thrust weapon's check runs only when 0-XNPCCore's UAI re-decides (UaiDecisionSeconds, 0.6 s), and must still confirm.
+        /// </summary>
+        private const float PendMaxGap = 2f;
         /// <summary>Round tm2 (symmetric reach): her attacker this close on the ground plane, and at most this far above or below her.</summary>
         private const float MutualReachXZ = 2.2f, MutualReachDy = 1f;
-        /// <summary>Round tm2: the reasons FirstNote logs once per pair - a stale read, a choice that lets her swing, symmetric reach, its failed proof.</summary>
-        private const int NoteStale = 1, NoteSwings = 2, NoteMutual = 4, NoteProofFailed = 8;
+        /// <summary>Round tm2: one X5 tick adds at most this much to the no-swing clock (5 Hz; a gap - a capture - is one tick).</summary>
+        private const float NoSwingTickMax = 0.3f;
+        /// <summary>Round tm2: the hold after the no-swing clock ran out doubles per time for the pair, up to this (the Fable review, finding 8).</summary>
+        private const float NoSwingHoldMax = 180f;
+        /// <summary>Round tm2: the reach gun hold lasts while its target is after her within ReachGunDist, plus ReachGunGrace.</summary>
+        private const float ReachGunDist = 4f, ReachGunGrace = 1.5f;
+        /// <summary>Round tm2: at most this many targets in a member's Pairs (pruned: unseen 10 s and not held first, then the oldest).</summary>
+        private const int PairsMax = 16;
+        /// <summary>Round tm2: the reasons FirstNote logs once per pair - a stale read, a choice that lets her swing, symmetric reach.</summary>
+        private const int NoteStale = 1, NoteSwings = 2, NoteMutual = 4;
+        private const string KindSeeThrough = "see-through";
+
+        /// <summary>
+        /// Round tm2: her state against one target (Watch.Pairs). NoSwingSum: the no-swing clock - seconds of X5 ticks in a row
+        /// with a fresh read of 0-XNPCCore's swing check refusing the swing (NoSwingLast: the last tick it looked); a fresh
+        /// read that is clear or lets her swing resets it, a stale one leaves it, a target switch or a hit never touch it.
+        /// HeldUntil / HeldWhy: the clock ran out against an attacker up close - out of reach until then (Fails: how often).
+        /// Noted: the FirstNote bits. Seen: the last X5 tick that used it.
+        /// </summary>
+        private sealed class Pair
+        {
+            public float Seen, NoSwingSum, NoSwingLast, HeldUntil;
+            public int Noted, Fails;
+            public string HeldWhy;
+        }
 
         /// <summary>Round tm2: one read of 0-XNPCCore's swing check for her and a target (ReadSwing).</summary>
         private struct SwingRead
@@ -1070,8 +1160,10 @@ namespace SurvivorCommunity
             public string Kind;
             /// <summary>0-XNPCCore's choice for it ("NoSwing", "Break", ...); null from BlockKind alone.</summary>
             public string Choice;
-            /// <summary>The choice lets her swing (Swing, Break) or open the door (OpenDoor): in reach.</summary>
+            /// <summary>In reach: the choice lets her swing (Swing, Break) or open the door (OpenDoor) - not BarsBreak.</summary>
             public bool Swings;
+            /// <summary>Break through bars (see-through) while her pair has a gun with rounds: out of reach - the gun, not the player's bars.</summary>
+            public bool BarsBreak;
             /// <summary>When Evaluate made it (Time.time), and how long ago.</summary>
             public float At, Age;
             /// <summary>The block lay on the straight line to its chest (ArcRays 0), not on a side ray of her swing arc.</summary>
@@ -1083,61 +1175,114 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round tm2: "out of reach (a solid|see-through block in her swing; 0-XNPCCore: NoSwing|Shoot)" when 0-XNPCCore's
         /// swing check (SdcsMeleeReach) has a block between her and this target she cannot swing past, else null. Trusted only:
-        ///   fresh - the episode made within SwingFreshSeconds (cause 1: a leftover episode, read once, was kept 45 s);
-        ///   by 0-XNPCCore's own decision, not the kind (cause 2) - its choice refuses the swing (AttackGateRules.SwingAllowed
-        ///     false: NoSwing or Shoot); Break (she swings, at the block if need be), Swing and OpenDoor are in reach;
-        ///   not against a target that attacks her up close (cause 3, symmetric reach) - unless the block lies right between
-        ///     them (the episode's ArcRays 0: bars, a wall), where it cannot hit her either;
-        ///   two reads in a row (X5): a second agreeing read of a NEWER evaluation (its At), or with the table unbound a second
-        ///     BlockKind read FallbackReadGap later. A stale read in between says nothing either way.
-        /// remember (X5): a finding set aside is counted and logged once per pair (FirstNote, Noted). A read (the console) writes nothing.
+        ///   fresh - the episode made within SwingFreshSeconds (a leftover episode, read once, was kept 45 s);
+        ///   by 0-XNPCCore's own decision, not the kind - its choice refuses the swing (AttackGateRules.SwingAllowed false:
+        ///     NoSwing or Shoot); Break, Swing and OpenDoor are in reach - except Break through bars while her pair has a gun
+        ///     with rounds (BarsBreak: she shoots instead of smashing the player's bars - the Fable review, finding 5);
+        ///   against a target that attacks her up close (symmetric reach) only once the no-swing clock has run
+        ///     TeamNoSwingConfirmSeconds - so a flicker of her swing arc does not draw the gun, while a lasting "no swing" (her
+        ///     MeleeAttack scores 0 on it: utilityai.xml of 0-XNPCCore) does. Then the pair is held (HoldNoSwing, held = true).
+        ///     Bars right between them (see-through on the straight line) are no case for symmetric reach: it cannot hit her
+        ///     either. A solid block on that line (the floor or a step in front of a crawler) is (the Fable review, finding 3);
+        ///   else two reads in a row (X5): a second agreeing read of a NEWER evaluation (its At), or with the table unbound a
+        ///     second BlockKind read FallbackReadGap later. A stale read in between says nothing either way.
+        /// remember (X5): runs the no-swing clock, and a finding set aside is counted and logged once per pair (FirstNote,
+        /// Noted). A read (the console) writes nothing.
         /// </summary>
-        private static string SwingBlockWhy(EntityAlive e, EntityAlive t, bool mutual, float xz, bool remember, float now)
+        private static string SwingBlockWhy(EntityAlive e, EntityAlive t, bool mutual, float xz, bool remember, float now, out bool held)
         {
+            held = false;
             Watch st;
             if (remember) st = WatchOf(e, now);
             else watch.TryGetValue(e.entityId, out st);
+            Pair p = remember ? PairOf(st, t.entityId, now) : PeekPair(st, t.entityId);
             SwingRead r;
-            if (!ReadSwing(e, t, now, out r))
+            bool found = ReadSwing(e, t, now, out r);
+            if (remember) TickNoSwing(p, found, r, now);
+            if (!found)
             {
                 if (remember) ClearPend(st);            // no block (the line is clear, or a door): a read that does not agree
                 return null;
             }
             if (r.FromEpisode && r.Age > SwingFreshSeconds)
             {
-                // a stale read says nothing either way: the run of agreeing reads is left as it is (PendMaxGap still ends it)
-                if (remember && FirstNote(st, t, NoteStale))
+                // a stale read says nothing either way: the run of agreeing reads and the clock are left as they are
+                if (remember && FirstNote(p, NoteStale))
                     Noted("x5-team-reach-stale", Name(e) + ": 0-XNPCCore's swing check last found a " + r.Kind + " block between her and " + Who(t) + " "
                           + r.Age.ToString("0.0") + " s ago - too old to trust (under " + SwingFreshSeconds.ToString("0.0") + " s), not out of reach");
                 return null;
             }
-            if (r.FromEpisode && r.Swings)
+            if (r.Swings)
             {
                 if (remember)
                 {
                     ClearPend(st);
-                    if (FirstNote(st, t, NoteSwings))
+                    if (FirstNote(p, NoteSwings))
                         Noted("x5-team-reach-swing-allowed", Name(e) + ": a " + r.Kind + " block in her swing at " + Who(t)
                               + ", but 0-XNPCCore still lets her swing (" + r.Choice + ") - not out of reach");
                 }
                 return null;
             }
-            if (mutual && !r.Between)
+            string choice = r.Choice != null ? "; 0-XNPCCore: " + r.Choice + (r.BarsBreak ? " - not through the bars while she has her gun" : "") : "";
+            if (mutual && !(r.Kind == KindSeeThrough && r.Between))
             {
-                if (remember)
+                float sum = p != null ? p.NoSwingSum : 0f;
+                if (sum < ScConfig.TeamNoSwingConfirmSeconds)
                 {
-                    ClearPend(st);
-                    StartProof(st, e, t, now);               // the proof by outcome: does she hurt it?
-                    if (FirstNote(st, t, NoteMutual))
-                        Noted("x5-team-reach-symmetric", Name(e) + ": " + Who(t) + " attacks her from " + xz.ToString("0.0") + " m - a " + r.Kind
-                              + " block in her swing does not put it out of reach (if it can hit her, she can hit it)");
+                    if (remember)
+                    {
+                        ClearPend(st);
+                        if (FirstNote(p, NoteMutual))
+                            Noted("x5-team-reach-symmetric", Name(e) + ": " + Who(t) + " attacks her from " + xz.ToString("0.0") + " m - a " + r.Kind
+                                  + " block in her swing waits " + ScConfig.TeamNoSwingConfirmSeconds.ToString("0.0#") + " s of 'no swing' before it counts (if it can hit her, she can hit it)");
+                    }
+                    return null;
                 }
-                return null;
+                // the no-swing clock ran out: 0-XNPCCore keeps refusing the swing at an attacker up close - out of reach after all
+                string why = "out of reach (0-XNPCCore has not let her swing at it for " + sum.ToString("0.0") + " s: a " + r.Kind + " block in her swing" + choice + ")";
+                if (remember) HoldNoSwing(st, p, e, t, xz, why, now);
+                held = true;
+                return why;
             }
-            string why = "out of reach (a " + r.Kind + " block in her swing" + (r.Choice != null ? "; 0-XNPCCore: " + r.Choice : "") + ")";
+            string whyBlock = "out of reach (a " + r.Kind + " block in her swing" + choice + ")";
             if (!remember)
-                return st != null && st.SwingPendSure && st.SwingPendId == t.entityId ? why : why + " - seen once, a second read in a row counts it";
-            return Agrees(st, t, r, now) ? why : null;
+                return st != null && st.SwingPendSure && st.SwingPendId == t.entityId ? whyBlock : whyBlock + " - seen once, a second read in a row counts it";
+            return Agrees(st, t, r, now) ? whyBlock : null;
+        }
+
+        /// <summary>
+        /// Round tm2 (the Fable review, findings 1-3): one X5 tick of the pair's no-swing clock. found/r: this tick's read.
+        /// Clear (no episode, a door) or a swing she may take resets it; stale leaves it; a fresh refusal adds the time since
+        /// the pair was last looked at (at most NoSwingTickMax). Health and target switches play no part.
+        /// </summary>
+        private static void TickNoSwing(Pair p, bool found, SwingRead r, float now)
+        {
+            if (p == null) return;
+            float dt = Mathf.Clamp(now - p.NoSwingLast, 0f, NoSwingTickMax);
+            p.NoSwingLast = now;
+            if (!found || r.Swings) { p.NoSwingSum = 0f; return; }
+            if (r.FromEpisode && r.Age > SwingFreshSeconds) return;
+            p.NoSwingSum += dt;
+        }
+
+        /// <summary>
+        /// Round tm2 (X5): the no-swing clock ran out against an attacker up close - the pair is held out of reach for
+        /// TeamUnreachableSeconds, doubled each time it happens again for the pair, up to NoSwingHoldMax (the Fable review,
+        /// finding 8); ReachTick keeps the hold on while her gun is on the target. Counted (x5-team-reach-noswing) and logged
+        /// each time. Nothing while a hold is on.
+        /// </summary>
+        private static void HoldNoSwing(Watch st, Pair p, EntityAlive e, EntityAlive t, float xz, string why, float now)
+        {
+            if (now < p.HeldUntil) return;
+            float span = Mathf.Min(ScConfig.TeamUnreachableSeconds * (1 << Math.Min(p.Fails, 8)), NoSwingHoldMax);
+            p.Fails++;
+            p.HeldUntil = now + span;
+            p.HeldWhy = why;
+            p.Noted = 0;                                // its later set-asides are logged afresh
+            ClearPend(st);
+            Patches_Xnpc.Count("x5-team-reach-noswing");
+            ScLog.Verbose(Name(e) + ": " + Who(t) + " attacks her from " + xz.ToString("0.0") + " m, and 0-XNPCCore has not let her swing at it for "
+                          + p.NoSwingSum.ToString("0.0") + " s - out of reach, held " + span.ToString("0") + " s (and while her gun is on it; time " + p.Fails + " for it)");
         }
 
         /// <summary>
@@ -1176,6 +1321,48 @@ namespace SurvivorCommunity
             st.SwingPendSure = false;
         }
 
+        /// <summary>Round tm2: her Pair for this target, made if new (X5 only: it writes). Caps the map at PairsMax.</summary>
+        private static Pair PairOf(Watch st, int id, float now)
+        {
+            Pair p;
+            if (!st.Pairs.TryGetValue(id, out p))
+            {
+                if (st.Pairs.Count >= PairsMax) PrunePairs(st, now);
+                st.Pairs[id] = p = new Pair { NoSwingLast = now };
+            }
+            p.Seen = now;
+            return p;
+        }
+
+        /// <summary>Round tm2: her Pair for this target, or null. A pure read.</summary>
+        private static Pair PeekPair(Watch st, int id)
+        {
+            Pair p;
+            return st != null && st.Pairs.TryGetValue(id, out p) ? p : null;
+        }
+
+        /// <summary>Round tm2: makes room in a full Pairs - first every target unseen 10 s with no hold on, then the oldest.</summary>
+        private static void PrunePairs(Watch st, float now)
+        {
+            var gone = new List<int>();
+            foreach (var kv in st.Pairs) if (now - kv.Value.Seen > 10f && now >= kv.Value.HeldUntil) gone.Add(kv.Key);
+            foreach (int id in gone) st.Pairs.Remove(id);
+            while (st.Pairs.Count >= PairsMax)
+            {
+                int oldest = -1;
+                float seen = float.MaxValue;
+                foreach (var kv in st.Pairs) if (kv.Value.Seen < seen) { seen = kv.Value.Seen; oldest = kv.Key; }
+                st.Pairs.Remove(oldest);
+            }
+        }
+
+        /// <summary>Round tm2: this pair is held out of reach by the no-swing clock right now. A pure read.</summary>
+        private static bool PairHeld(Watch st, int id, float now)
+        {
+            Pair p = PeekPair(st, id);
+            return p != null && now < p.HeldUntil;
+        }
+
         /// <summary>
         /// Round tm2: reads 0-XNPCCore's swing-check episode for her and this target - false when there is none or it is no
         /// solid or see-through block (a door: she opens it). Never runs the check, and writes nothing (it serves the pure
@@ -1197,6 +1384,9 @@ namespace SurvivorCommunity
                     object choice = episodeChoiceField.GetValue(ep);
                     r.Choice = choice != null ? choice.ToString() : null;
                     r.Swings = ChoiceSwings(choice);
+                    // the Fable review (finding 5): 0-XNPCCore's Break through bars would have her smash the player's bars -
+                    // with a gun to shoot through them, that is out of reach. A solid block with Break stays in reach.
+                    if (r.Swings && r.Kind == KindSeeThrough && r.Choice == "Break" && PairGunReady(e)) { r.Swings = false; r.BarsBreak = true; }
                     r.At = (float)episodeAtField.GetValue(ep);
                     r.Age = now - r.At;
                     r.Between = episodeArcField != null && (int)episodeArcField.GetValue(ep) <= 0;
@@ -1218,11 +1408,24 @@ namespace SurvivorCommunity
             catch (Exception ex) { ScLog.Once("arms-blockkind", ex); return false; }
         }
 
+        /// <summary>Round tm2: her pair has a gun with rounds in her stores (BarsBreak). A pure read; false when it cannot be read.</summary>
+        private static bool PairGunReady(EntityAlive e)
+        {
+            try
+            {
+                Loadout l = ScLoadout.Current(e);
+                if (l == null || !l.HasRanged) return false;
+                ItemClass gun = ItemClass.GetItemClass(l.Ranged, true);
+                return ScAmmo.RangedAction(gun) != null && ScAmmo.Rounds(e, gun) > 0;
+            }
+            catch (Exception ex) { ScLog.Once("arms-pair-gun", ex); return false; }
+        }
+
         /// <summary>"solid" or "see-through" for 0-XNPCCore's ReachBlock, else null (none, a door).</summary>
         private static string KindName(object kind)
         {
             string k = kind != null ? kind.ToString() : null;
-            return k == "Solid" ? "solid" : k == "SeeThrough" ? "see-through" : null;
+            return k == "Solid" ? "solid" : k == "SeeThrough" ? KindSeeThrough : null;
         }
 
         /// <summary>
@@ -1256,19 +1459,26 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Round tm2 (symmetric reach's one exception): a fresh read of 0-XNPCCore's swing check finds a block right between
-        /// her and this target - on the straight line to its chest (ArcRays 0: bars, a fence, a wall), not a side ray of her
-        /// arc - that she cannot swing past. Then it cannot hit her either, and its attack does not put it in her reach. Once
-        /// the bars are gone (0-XNPCCore re-evaluates every 0.2 s while she holds a gun within 3 m), this turns false and a
-        /// kept finding for it is dropped. False with the table or ArcRays unbound (no straight-line read). A pure read.
+        /// Round tm2 (the Fable review, finding 6): positive evidence that a kept block in her swing no longer stands between
+        /// her and an attacker up close - no episode (0-XNPCCore's check found the line clear), or a fresh read she may swing
+        /// past, or one symmetric reach still sets aside (not bars right between them, and the no-swing clock short of
+        /// TeamNoSwingConfirmSeconds). A stale read is "unknown": false. A pure read.
         /// </summary>
-        private static bool BlockedBetween(EntityAlive e, EntityAlive t, float now)
+        private static bool DropEvidence(Watch st, EntityAlive e, EntityAlive t, float now)
         {
             SwingRead r;
-            return ReadSwing(e, t, now, out r) && r.FromEpisode && r.Age <= SwingFreshSeconds && r.Between && !r.Swings;
+            if (!ReadSwing(e, t, now, out r)) return true;
+            if (r.FromEpisode && r.Age > SwingFreshSeconds) return false;
+            if (r.Swings) return true;
+            if (r.Kind == KindSeeThrough && r.Between) return false;
+            Pair p = PeekPair(st, t.entityId);
+            return p == null || p.NoSwingSum < ScConfig.TeamNoSwingConfirmSeconds;
         }
 
-        /// <summary>Round tm2 (X5): symmetric reach drops a kept swing-block finding - counted and logged once per pair (FirstNote, Noted).</summary>
+        /// <summary>
+        /// Round tm2 (X5): symmetric reach drops a kept swing-block finding on positive evidence, and ends the reach gun hold
+        /// on that target - counted and logged once per pair (FirstNote, Noted).
+        /// </summary>
         private static void DropKept(EntityAlive e, EntityAlive t, Watch st, float xz, float now)
         {
             string was = st.UnreachWhy;
@@ -1277,16 +1487,19 @@ namespace SurvivorCommunity
             st.UnreachWhy = null;
             st.UnreachSwing = false;
             ClearPend(st);
-            StartProof(st, e, t, now);
-            if (FirstNote(st, t, NoteMutual))
+            // the block gave way (bars broken, a wall no longer in her swing): no reason left to stand and shoot it
+            if (st.ReachGunId == t.entityId) { st.ReachGunId = -1; st.ReachGunUntil = 0f; }
+            if (FirstNote(PairOf(st, t.entityId, now), NoteMutual))
                 Noted("x5-team-reach-symmetric", Name(e) + " drops the kept '" + was + "' for " + Who(t) + ": it attacks her from "
                       + xz.ToString("0.0") + " m (if it can hit her, she can hit it)");
         }
 
         /// <summary>
-        /// Round tm2 (the X5 prefix, after the team recount): runs the proof by outcome (ProofTick), then drops a kept
-        /// swing-block finding the moment its target attacks her up close (symmetric reach, BlockedBetween aside, not for a
-        /// pair whose proof failed), not only when a swap rule next asks about it. Nothing with TeamMelee off.
+        /// Round tm2 (the X5 prefix, after the team recount; nothing with TeamMelee off). For her own target within 3 m: the
+        /// no-swing clock ticks, and a pair held by it stays held while her gun is on it (the Fable review, finding 8). The
+        /// reach gun hold stays on while its target is after her within ReachGunDist and she holds her gun (else it lapses
+        /// after ReachGunGrace). A kept swing-block finding is dropped the moment its target attacks her up close with
+        /// positive evidence (DropEvidence) - not only when a swap rule next asks about it.
         /// </summary>
         public static void ReachTick(EntityAlive e)
         {
@@ -1296,105 +1509,60 @@ namespace SurvivorCommunity
                 Watch st;
                 if (!watch.TryGetValue(e.entityId, out st)) return;
                 float now = Time.time;
-                ProofTick(e, st, now);
-                if (st.UnreachId < 0 || !st.UnreachSwing || now >= st.UnreachUntil || ProofFailed(st, st.UnreachId, now)) return;
+                EntityAlive own = e.GetAttackTarget();
+                if (own == null || own.IsDead()) own = e.GetRevengeTarget();
+                if (own != null && own.IsDead()) own = null;
+                if (own != null)
+                {
+                    if ((own.position - e.position).sqrMagnitude <= XnpcCloseEnterDist * XnpcCloseEnterDist)
+                    {
+                        SwingRead r;
+                        bool found = ReadSwing(e, own, now, out r);
+                        TickNoSwing(PairOf(st, own.entityId, now), found, r, now);
+                    }
+                    Pair hp = PeekPair(st, own.entityId);
+                    if (hp != null && now < hp.HeldUntil && HoldsRangedWeapon(e)) hp.HeldUntil = Mathf.Max(hp.HeldUntil, now + 1f);
+                }
+                if (st.ReachGunId >= 0)
+                {
+                    EntityAlive g = e.world.GetEntity(st.ReachGunId) as EntityAlive;
+                    if (g != null && !g.IsDead() && g.GetAttackTarget() == e && HoldsRangedWeapon(e)
+                        && (g.position - e.position).sqrMagnitude <= ReachGunDist * ReachGunDist)
+                        st.ReachGunUntil = now + ReachGunGrace;
+                    else if (now >= st.ReachGunUntil) st.ReachGunId = -1;
+                }
+                if (st.UnreachId < 0 || !st.UnreachSwing || now >= st.UnreachUntil) return;
                 EntityAlive t = e.world.GetEntity(st.UnreachId) as EntityAlive;
                 float xz;
-                if (t != null && AttacksHerUpClose(e, t, out xz) && !BlockedBetween(e, t, now)) DropKept(e, t, st, xz, now);
+                if (t != null && !PairHeld(st, t.entityId, now) && AttacksHerUpClose(e, t, out xz) && DropEvidence(st, e, t, now)) DropKept(e, t, st, xz, now);
             }
             catch (Exception ex) { ScLog.Once("arms-reachtick", ex); }
         }
 
         /// <summary>
-        /// Round tm2, the proof by outcome (the coordinator's addition): symmetric reach assumes that what can hit her, she
-        /// can hit - but 0-XNPCCore's own swing gate can still refuse the swing (its MeleeSwingHitsBlocks is off by default,
-        /// so a wall or the floor on a side ray of her arc is "no swing"), and she would stand on her melee weapon while it
-        /// hits her. So each time the rule sets a block aside, a watch starts on that target (StartProof). Here, every X5
-        /// tick: if the target has lost no health for TeamMutualProofSeconds of it attacking her up close while she held a
-        /// melee weapon, the proof failed - for that pair symmetric reach sets nothing aside for TeamUnreachableSeconds, so a
-        /// fresh, confirmed finding counts as in tm1 and GunFirst can draw (logged once per pair, x5-team-reach-symmetric-
-        /// failed). Any loss of health restarts the clock - whoever caused it (another member, the player): the fight goes
-        /// on, and that needs no damage bookkeeping (the simpler option). The clock only runs while the target attacks her
-        /// up close. Another living target of hers, its death, or a hand that is no melee weapon clears the watch.
+        /// Round tm2 (X5, GunFirst): the gun was drawn for an attacker up close she could not swing at - the reach gun hold
+        /// starts: BackupKeepDistance and BackupRanged score 0 for it (HoldingGunUpClose, ScTeam.HoldsGround), 0-XNPCCore's 3 m
+        /// swap and MeleeFirst wait (CloseRange, MeleeFirst), so she stands and shoots it. Counted once per hold.
         /// </summary>
-        private static void ProofTick(EntityAlive e, Watch st, float now)
+        private static void StartReachGun(Watch st, EntityAlive e, EntityAlive t, float xz, float now)
         {
-            if (st.ProofId < 0) return;
-            EntityAlive t = e.world.GetEntity(st.ProofId) as EntityAlive;
-            if (t == null || t.IsDead() || ScConfig.TeamMutualProofSeconds <= 0f) { ClearProof(st); return; }
-            EntityAlive own = e.GetAttackTarget();
-            if (own == null || own.IsDead()) own = e.GetRevengeTarget();
-            if ((own != null && !own.IsDead() && own != t) || !HoldsMeleeWeapon(e)) { ClearProof(st); return; }
-            float xz;
-            bool attacking = AttacksHerUpClose(e, t, out xz);
-            if (!ProofClock(st, t.Health, attacking, now)) return;
-            if (FirstNote(st, t, NoteProofFailed))
-                Noted("x5-team-reach-symmetric-failed", Name(e) + ": " + Who(t) + " attacked her from " + xz.ToString("0.0") + " m for "
-                      + ScConfig.TeamMutualProofSeconds.ToString("0.#") + " s and lost no health while she held a melee weapon - a block in her swing "
-                      + "counts against it again for " + ScConfig.TeamUnreachableSeconds.ToString("0") + " s (0-XNPCCore does not swing there)");
-        }
-
-        /// <summary>
-        /// Round tm2: ProofTick's clock for the watched target - hp its health now, attacking: it attacks her up close. Any
-        /// loss of health restarts it; it runs only while attacking (a gap between X5 ticks counts as at most 0.5 s). True
-        /// when it reached TeamMutualProofSeconds: the proof failed (ProofFailedId / Until set, the watch cleared).
-        /// </summary>
-        private static bool ProofClock(Watch st, int hp, bool attacking, float now)
-        {
-            float dt = Mathf.Clamp(now - st.ProofLast, 0f, 0.5f);
-            st.ProofLast = now;
-            bool hit = hp < st.ProofHp;
-            st.ProofHp = hp;
-            if (hit) { st.ProofSum = 0f; return false; }     // it lost health: the fight goes on, the clock starts again
-            if (!attacking) return false;                    // the clock runs only while it attacks her up close
-            st.ProofSum += dt;
-            if (st.ProofSum < ScConfig.TeamMutualProofSeconds) return false;
-            st.ProofFailedId = st.ProofId;
-            st.ProofFailedUntil = now + ScConfig.TeamUnreachableSeconds;
-            ClearProof(st);
-            return true;
-        }
-
-        /// <summary>Round tm2 (X5): symmetric reach set a block aside for this target - start the proof watch (one per member; a running one goes on).</summary>
-        private static void StartProof(Watch st, EntityAlive e, EntityAlive t, float now)
-        {
-            if (ScConfig.TeamMutualProofSeconds <= 0f || st.ProofId == t.entityId || !HoldsMeleeWeapon(e)) return;
-            st.ProofId = t.entityId;
-            st.ProofHp = t.Health;
-            st.ProofSum = 0f;
-            st.ProofLast = now;
-        }
-
-        private static void ClearProof(Watch st)
-        {
-            st.ProofId = -1;
-            st.ProofSum = 0f;
-        }
-
-        /// <summary>Round tm2: the proof by outcome failed for her and this target, and still holds. A pure read.</summary>
-        private static bool ProofFailed(Watch st, int targetId, float now)
-        {
-            return st != null && st.ProofFailedId == targetId && now < st.ProofFailedUntil;
-        }
-
-        /// <summary>Round tm2: a melee weapon in her hand (anything that is not a ranged weapon; a thrust weapon 0-XNPCCore swapped in counts).</summary>
-        private static bool HoldsMeleeWeapon(EntityAlive e)
-        {
-            ItemValue hv = e.inventory != null ? e.inventory.holdingItemItemValue : null;
-            return hv != null && !hv.IsEmpty() && hv.ItemClass != null && ScAmmo.RangedAction(hv.ItemClass) == null;
+            bool fresh = st.ReachGunId != t.entityId || now >= st.ReachGunUntil;
+            st.ReachGunId = t.entityId;
+            st.ReachGunUntil = now + ReachGunGrace;
+            if (!fresh) return;
+            Patches_Xnpc.Count("x5-team-reach-gun-hold");
+            ScLog.Verbose(Name(e) + " stands and shoots " + Who(t) + " (it attacks her from " + xz.ToString("0.0") + " m, and she cannot swing at it): no back-off, "
+                          + "no swap to melee while it is after her within " + ReachGunDist.ToString("0") + " m");
         }
 
         /// <summary>
         /// Round tm2 (X5): true the first time this reason sets aside a swing-block finding for this pair (Noted then counts
-        /// and logs it) - so the message is only built once. A newly kept finding for the target starts the pair afresh.
+        /// and logs it) - so the message is only built once. A newly kept or held finding for the target starts it afresh.
         /// </summary>
-        private static bool FirstNote(Watch st, EntityAlive t, int reason)
+        private static bool FirstNote(Pair p, int reason)
         {
-            int had;
-            st.ReachNoted.TryGetValue(t.entityId, out had);
-            if ((had & reason) != 0) return false;
-            if (had == 0 && st.ReachNoted.Count >= 64) st.ReachNoted.Clear();   // a long fight's dead targets
-            st.ReachNoted[t.entityId] = had | reason;
+            if (p == null || (p.Noted & reason) != 0) return false;
+            p.Noted |= reason;
             return true;
         }
 
@@ -1416,17 +1584,18 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round tm1: a pure read of ReachWhy's memory - this target was found out of her reach and still is kept so. Round
-        /// tm2: a kept block in her swing does not count against a target that attacks her up close unless a fresh read still
-        /// finds a block right between them, or its proof by outcome failed (symmetric reach; the X5 path drops it at its
-        /// next tick).
+        /// tm2: a pair held by the no-swing clock counts; a kept block in her swing does not count against a target that
+        /// attacks her up close when there is positive evidence it gave way (DropEvidence; the X5 path drops it next tick).
         /// </summary>
         public static bool RememberedOutOfReach(EntityAlive e, EntityAlive t)
         {
             Watch st;
+            if (e == null || t == null || !watch.TryGetValue(e.entityId, out st)) return false;
             float now = Time.time;
-            if (e == null || t == null || !watch.TryGetValue(e.entityId, out st) || st.UnreachId != t.entityId || now >= st.UnreachUntil) return false;
+            if (PairHeld(st, t.entityId, now)) return true;
+            if (st.UnreachId != t.entityId || now >= st.UnreachUntil) return false;
             float xz;
-            return !(st.UnreachSwing && !ProofFailed(st, t.entityId, now) && AttacksHerUpClose(e, t, out xz) && !BlockedBetween(e, t, now));
+            return !(st.UnreachSwing && AttacksHerUpClose(e, t, out xz) && DropEvidence(st, e, t, now));
         }
 
         /// <summary>Round tm1: her swap state for sc team / sc xnpc - the melee-first clock, the shared hold, the gun hold, a target kept out of reach.</summary>
@@ -1452,17 +1621,23 @@ namespace SurvivorCommunity
                 {
                     sb.Append(", target #").Append(st.UnreachId).Append(" kept out of reach ").Append((st.UnreachUntil - now).ToString("0")).Append(" s more (").Append(st.UnreachWhy).Append(')');
                     // round tm2: symmetric reach looks past it (the X5 tick drops it)
-                    EntityAlive ut = st.UnreachSwing && !ProofFailed(st, st.UnreachId, now) && e.world != null ? e.world.GetEntity(st.UnreachId) as EntityAlive : null;
+                    EntityAlive ut = st.UnreachSwing && e.world != null ? e.world.GetEntity(st.UnreachId) as EntityAlive : null;
                     float uxz;
-                    if (ut != null && AttacksHerUpClose(e, ut, out uxz) && !BlockedBetween(e, ut, now))
+                    if (ut != null && AttacksHerUpClose(e, ut, out uxz) && DropEvidence(st, e, ut, now))
                         sb.Append(" - SET ASIDE: it attacks her from ").Append(uxz.ToString("0.0")).Append(" m");
                 }
-                if (st.ProofId >= 0)
-                    sb.Append(", up-close proof on #").Append(st.ProofId).Append(": ").Append(st.ProofSum.ToString("0.0")).Append(" of ")
-                      .Append(ScConfig.TeamMutualProofSeconds.ToString("0.#")).Append(" s without a hit");
-                if (st.ProofFailedId >= 0 && now < st.ProofFailedUntil)
-                    sb.Append(", UP-CLOSE PROOF FAILED for #").Append(st.ProofFailedId).Append(": a block in her swing counts against it ")
-                      .Append((st.ProofFailedUntil - now).ToString("0")).Append(" s more");
+                // round tm2: the per-target state - holds after the no-swing clock ran out, and running clocks
+                foreach (var kv in st.Pairs)
+                {
+                    Pair p = kv.Value;
+                    if (now < p.HeldUntil)
+                        sb.Append(", #").Append(kv.Key).Append(" HELD OUT OF REACH ").Append((p.HeldUntil - now).ToString("0")).Append(" s more (0-XNPCCore would not let her swing at it; time ")
+                          .Append(p.Fails).Append(')');
+                    else if (p.NoSwingSum > 0f && now - p.NoSwingLast <= 1f)
+                        sb.Append(", no-swing clock on #").Append(kv.Key).Append(' ').Append(p.NoSwingSum.ToString("0.0")).Append(" of ")
+                          .Append(ScConfig.TeamNoSwingConfirmSeconds.ToString("0.0#")).Append(" s");
+                }
+                if (ReachGunHolds(st, e, now)) sb.Append(", STANDS AND SHOOTS #").Append(st.ReachGunId).Append(" (reach gun hold, ").Append((st.ReachGunUntil - now).ToString("0.0")).Append(" s grace)");
                 if (st.SwingPendId >= 0 && !st.SwingPendSure && now - st.SwingPendSeen <= PendMaxGap)
                     sb.Append(", a ").Append(st.SwingPendKind).Append(" block in her swing at #").Append(st.SwingPendId).Append(" seen once (a second read in a row counts it)");
                 if (now < st.MeleeBackoffUntil) sb.Append(", MELEE FIRST BACKED OFF ").Append((st.MeleeBackoffUntil - now).ToString("0")).Append(" s more (an equip did not take)");

@@ -45,106 +45,102 @@ meleeWpnSledgeT0StoneSledgehammer"), and a second later "Gina (id 3398) takes th
 1.6 m, out of reach (a solid block in her swing) (kept 44 s more))" - again at 14:46:22 and 14:46:31. With the bow in hand
 she went back and forth between BackupKeepDistance and RangedMeleeAttack against a slow crawler.
 
-Why: SC read 0-XNPCCore's swing check (`SdcsMeleeReach`) once and kept what it said for 45 s. The read could be old (the
-check keeps a finding until it next finds the line clear), and SC went by the block's kind alone, so a wall on a side ray
-of her swing arc counted as "out of reach" with the crawler right in front of her.
+Why it looped: 0-XNPCCore's own MeleeAttack scores 0 whenever its swing check says "no swing", and with its default
+`MeleeSwingHitsBlocks` false (`Mods/0-XNPCCore/Config/Settings.xml`) a wall beside her, or the floor in front of a crawler
+under a sledgehammer's downward arc, means "no swing". SC cannot make her swing then, so the gun is right - but she must
+then shoot it, not back away from it and come back. And SC read that check by its block kind alone, sometimes from an
+old leftover, and kept one read for 45 s.
 
-What it does now: a block in her swing puts a target out of her reach only when all of these hold:
+What it does now:
 
-- the read is fresh: 0-XNPCCore made it less than 0.5 s ago;
-- 0-XNPCCore's own decision refuses the swing (its `NoSwing` or `Shoot`). `Break` (she swings, at the block if need be),
-  `Swing` and `OpenDoor` (she opens it) are in reach;
-- two reads in a row agree, each from a newer check;
-- the target is not attacking her from up close. Its attack target is her, within 2.2 m on the ground and 1 m up or down:
-  if it can hit her, she can hit it. The one exception is a block right between them (bars, a fence, a wall on the
-  straight line to its chest): then it cannot hit her either. A kept "out of reach" for such an attacker is dropped at
-  once, so she can go back to melee as soon as the 5 s swap hold is over.
-- and that last rule has not failed its proof for this pair (below).
+- A block in her swing counts only from a fresh read (0-XNPCCore made it under 0.5 s ago), only when 0-XNPCCore's own
+  decision refuses the swing (`NoSwing` or `Shoot`), and only when two reads in a row agree (up to 2 s apart).
+  `Break`, `Swing` and `OpenDoor` are in reach - except `Break` through bars or a fence while her pair has a gun with
+  rounds: that would smash your bars, so it is out of reach and she takes her gun.
+- Against an attacker up close (its attack target is her, within 2.2 m on the ground and 1 m up or down) a "no swing"
+  counts only once it has lasted `TeamNoSwingConfirmSeconds` (1.2 s, new in `Config/blocks.xml`) of fresh reads in a row,
+  so a flicker of her swing arc does not draw the gun. A fresh read that is clear or lets her swing restarts it; a stale
+  read, a look at another target in between, or hits on it do not. Bars or a fence right between them count at once (it
+  cannot hit her through them either); a solid block on that line (the floor or a step in front of a crawler) goes
+  through the 1.2 s like any other.
+- When the 1.2 s run out, that zombie is held out of reach: 45 s (`TeamUnreachableSeconds`), 90 s the next time for the
+  same zombie, at most 180 s, and in any case as long as her gun is on it. Each zombie has its own hold.
+- Drawn for an attacker up close, she stands and shoots it: BackupKeepDistance and BackupRanged score 0, and neither
+  0-XNPCCore's 3 m swap nor melee first takes her back to melee while it is after her within 4 m (+ 1.5 s).
+- A kept "out of reach" gives way only on positive evidence: no block any more, or a fresh read she may swing past. A
+  stale read keeps it.
 
 Everything else of round tm1 is unchanged. With `TeamMelee` false nothing changes.
 
-**The proof by outcome.** 0-XNPCCore decides whether she swings at all, and SC does not change that. With its default
-`MeleeSwingHitsBlocks` false (`Mods/0-XNPCCore/Config/Settings.xml`), a solid block on any ray of her swing arc (a wall
-beside her, or the floor in front of a crawler under a sledgehammer's downward arc) means "no swing", and its
-MeleeAttack is off until the arc clears. So each time the up-close rule sets such a block aside, SC watches the target:
-if it loses no health for `TeamMutualProofSeconds` (4 s; new in `Config/blocks.xml`, 0 = never give up) of it attacking
-her up close while she holds a melee weapon, the rule stops for that pair for `TeamUnreachableSeconds` (45 s). A fresh,
-confirmed finding then counts again and she takes her gun, which is better than standing there while it hits her. Any
-loss of health restarts the 4 s, whoever caused it (another member or you: the fight is going on). The clock only runs
-while it attacks her up close. Another target of hers, its death, or her gun in hand ends the watch.
+Setup: the new DLL with its `Config/blocks.xml` (the new `TeamNoSwingConfirmSeconds`). `DebugLogging` true in SC's
+`Config/blocks.xml` for the lines quoted below, and `dm` for the AI overlay's Active Action. For the swing check itself,
+`<VerboseLogging>true</VerboseLogging>` in `Mods/0-XNPCCore/Config/Settings.xml` logs 0-XNPCCore's own `[SDCS-MELEEREACH]`
+lines. The crawler is `zombieSteveCrawler` (F6 or `spawnentity`).
 
-Setup: the new DLL with its `Config/blocks.xml` (the new `TeamMutualProofSeconds`). `DebugLogging` true in SC's
-`Config/blocks.xml` for the lines quoted below, and `dm` for the AI overlay's Active Action. For the swing check itself, `<VerboseLogging>true</VerboseLogging>` in
-`Mods/0-XNPCCore/Config/Settings.xml` logs 0-XNPCCore's own `[SDCS-MELEEREACH]` lines. The crawler is
-`zombieSteveCrawler` (F6 or `spawnentity`).
-
-**A crawler at her feet indoors (the report)**
+**A crawler 0-XNPCCore won't let her swing at (the report)**
 
 - [ ] Gina indoors, close to a wall, MELEE-LED (`sc team Gina`), her sledgehammer in hand (`sc arms Gina melee`). Spawn a
-      zombieSteveCrawler 4-5 m in front of her. It crawls in and swings at her from under 1 m. She keeps the sledgehammer
-      and kills it: no "Gina (id N) takes the gunBowT1WoodenBow (gun first: ..., out of reach (a solid block in her
-      swing ...))" line, no bow, and no BackupKeepDistance or RangedMeleeAttack in the overlay.
-- [ ] The verbose log, at most once per crawler for each kind: "Gina (id N): zombieSteveCrawler (id M) attacks her from
-      0.8 m - a solid block in her swing does not put it out of reach (if it can hit her, she can hit it) (logged once
-      per pair)"; or "Gina (id N): a solid block in her swing at zombieSteveCrawler (id M), but 0-XNPCCore still lets her
-      swing (Break) - not out of reach (logged once per pair)"; or "Gina (id N): 0-XNPCCore's swing check last found a
-      solid block between her and zombieSteveCrawler (id M) 1.4 s ago - too old to trust (under 0.5 s), not out of reach
-      (logged once per pair)". `sc xnpc`: the matching `x5-team-reach-symmetric`, `x5-team-reach-swing-allowed` or
-      `x5-team-reach-stale` up by one; `x5-team-gun-needed-close` not up.
-- [ ] If she keeps the sledgehammer but does not swing at the crawler: that is 0-XNPCCore's swing gate (the proof by
-      outcome above), not SC. About 4 s of the crawler attacking her without a hit, then: "Gina (id N): zombieSteveCrawler
-      (id M) attacked her from 0.8 m for 4 s and lost no health while she held a melee weapon - a block in her swing
-      counts against it again for 45 s (0-XNPCCore does not swing there) (logged once per pair)", `x5-team-reach-symmetric-
-      failed` +1 in `sc xnpc`; within about 2 s more she takes her bow ("gun first: target at 0.8 m, out of reach (a solid
-      block in her swing; 0-XNPCCore: NoSwing)", `x5-team-gun-needed-close` +1). While it runs, `sc team Gina` shows
-      "up-close proof on #M: 2.4 of 4 s without a hit", and after it "UP-CLOSE PROOF FAILED for #M: a block in her swing
-      counts against it 44 s more". With 0-XNPCCore's VerboseLogging on, look for "[SDCS-MELEEREACH] Gina#N swing arc
-      blocked at X ('meleeWpnSledgeT0StoneSledgehammer', swing, N rays) -> no swing (...)" and note what blocked the arc
-      (a wall, or the floor under the crawler). Cross-check: `<MeleeSwingHitsBlocks>true</MeleeSwingHitsBlocks>` in that
-      file (restart) turns it into Break for a weapon with 30 or more block damage: she swings, SC logs "still lets her
-      swing (Break)", and no proof runs. Set it back to false afterwards.
-- [ ] The proof restarts on a hit: the same crawler, and you hit it once every 3 s (a weak weapon, so it lives) while
-      Gina stands on her sledgehammer. As long as it keeps losing health she stays on the sledgehammer (no
-      `x5-team-reach-symmetric-failed`); stop hitting it, and about 4 s later the failed line and the bow follow, as above.
-- [ ] `TeamMutualProofSeconds` 0 in `Config/blocks.xml` (restart): no proof, no `x5-team-reach-symmetric-failed`; she
-      stays on the melee weapon against the crawler however long it takes. Set it back to 4.
-- [ ] The same with her bow in hand at the start (`sc arms Gina ranged`): 0-XNPCCore's 3 m swap ("keeps the
-      meleeWpnSledgeT0StoneSledgehammer after 0-XNPCCore's close-range swap") or the melee-first swap puts the
-      sledgehammer in her hand, and from there it goes as above. No bow again.
+      zombieSteveCrawler 4-5 m in front of her. It crawls in and swings at her from under 1 m. If she does not swing back
+      (0-XNPCCore: "[SDCS-MELEEREACH] Gina#N swing arc blocked at X ('meleeWpnSledgeT0StoneSledgehammer', swing, N rays)
+      -> no swing (...)"), then within about 1-2 s: "Gina (id N): zombieSteveCrawler (id M) attacks her from 0.8 m, and
+      0-XNPCCore has not let her swing at it for 1.2 s - out of reach, held 45 s (and while her gun is on it; time 1 for
+      it)", at once "Gina (id N) takes the gunBowT1WoodenBow (gun first: target at 0.8 m, out of reach (0-XNPCCore has
+      not let her swing at it for 1.2 s: a solid block in her swing; 0-XNPCCore: NoSwing))" and "Gina (id N) stands and
+      shoots zombieSteveCrawler (id M) (it attacks her from 0.8 m, and she cannot swing at it): no back-off, no swap to
+      melee while it is after her within 4 m". (If melee first had put the sledgehammer in her hand under 5 s before, the
+      draw waits out that swap hold.)
+- [ ] She stands and shoots it with the bow until it is dead: no BackupKeepDistance or BackupRanged in the overlay, no
+      back-off loop, no swap back to the sledgehammer. `sc team Gina`: "#M HELD OUT OF REACH N s more (0-XNPCCore would
+      not let her swing at it; time 1)" and "STANDS AND SHOOTS #M (reach gun hold, ...)". `sc xnpc`:
+      `x5-team-reach-symmetric`, `x5-team-reach-noswing`, `x5-team-reach-gun-hold` and `x5-team-gun-needed-close` each +1.
+- [ ] After it, the next walker in reach gets the sledgehammer again (melee first, once the 5 s swap hold is over).
+- [ ] The same zombie at her again after she went back to melee (hard to set up; note it if you see it): "held 90 s
+      (... time 2 for it)", and 180 s the time after.
 
-**A zombie behind bars or a fence: still the gun**
+**A crawler she can swing at**
 
-- [ ] Paul, melee-led with his mace in hand, behind iron bars or a chain-link fence; a zombieBoe on the far side sees him
-      and presses against the bars 1-2 m from him. Within about 2 s: "Paul (id N) takes the gunHandgunT2Magnum44 (gun
-      first: target at 1.6 m, out of reach (a see-through block in her swing; 0-XNPCCore: NoSwing))" (or `Shoot`), with
-      `x5-team-gun-needed-close` and `x5-team-unreachable` +1. It attacks him from up close, but the bars are right
-      between them, so that does not count. `sc team Paul`: the hand line shows "target #M kept out of reach 45 s more
-      (...)" with no "SET ASIDE". He shoots it and does not go back to the mace for it.
-- [ ] If the verbose log says "... but 0-XNPCCore still lets her swing (Break) ..." instead, 0-XNPCCore chose to break
-      through the bars with his weapon (its BreakThroughDoors rule for an NPC that pursues): he stays on the mace and
-      hits the bars. That is 0-XNPCCore's decision and in reach by this round's rule; note it.
+- [ ] Gina in the open (no wall beside her, flat ground), melee-led with her sledgehammer (also try a club or a bat), a
+      crawler at her feet. She swings and kills it and keeps her melee weapon: no "out of reach" line, no
+      `x5-team-reach-noswing`. A brief "Gina (id N): zombieSteveCrawler (id M) attacks her from 0.8 m - a solid block in her
+      swing waits 1.2 s of 'no swing' before it counts (...)" (`x5-team-reach-symmetric` +1) is a flicker of her arc set
+      aside - fine as long as she keeps swinging. If 0-XNPCCore logs "swing arc blocked ... -> no swing" again and again
+      here too, it goes as the step above; note the weapon and the ground.
 
-**It breaks through: back to melee**
+**Bars: the gun**
 
-- [ ] The bars step, then let the zombie through (break the bars from your side, or let it break them). When it comes at
-      him and attacks from within 2.2 m: "Paul (id N) drops the kept 'out of reach (a see-through block in her swing;
-      0-XNPCCore: NoSwing)' for zombieBoe (id M): it attacks her from 1.4 m (if it can hit her, she can hit it) (logged
-      once per pair)", `x5-team-reach-symmetric` +1. He is back on the mace within about 5 s of the gun draw (the shared
-      swap hold; at once if the draw was longer ago): "Paul (id N) takes the <mace> (melee first: a matched fight,
-      zombieBoe at X m)" or "keeps the <mace> after 0-XNPCCore's close-range swap". `sc team Paul`: no "kept out of
-      reach" for it any more. Before this round he stayed on the .44 for the rest of the 45 s.
+- [ ] Paul, melee-led with his mace in hand, behind iron bars or a chain-link fence; a zombieBoe on the far side presses
+      against the bars 1-2 m from him. Within about 2 s: "Paul (id N) takes the gunHandgunT2Magnum44 (gun first: target at
+      1.6 m, out of reach (a see-through block in her swing; 0-XNPCCore: NoSwing))" (or `Shoot`, or `Break - not through
+      the bars while she has her gun`), `x5-team-gun-needed-close` +1. He stands and shoots it through the bars ("Paul (id
+      N) stands and shoots zombieBoe ...", `x5-team-reach-gun-hold` +1): no back-off, no swings at the bars. `sc team Paul`:
+      "target #M kept out of reach N s more (...)" with no "SET ASIDE".
+- [ ] Let it break through (break the bars from your side, or let it). When it comes at him from within 2.2 m: "Paul (id
+      N) drops the kept 'out of reach (a see-through block in her swing; ...)' for zombieBoe (id M): it attacks her from
+      1.4 m (if it can hit her, she can hit it) (logged once per pair)", `x5-team-reach-symmetric` +1, and the
+      stand-and-shoot ends with it. If 0-XNPCCore lets him swing at it he is back on the mace within about 5 s of the draw
+      (melee first, or its 3 m swap kept by SC); if it does not, the crawler step applies (1.2 s, then the gun again).
+
+**A follower at the base fence does not hammer it**
+
+- [ ] A melee-led member with a gun and rounds in her pair at home, a zombie outside the base fence (bars or chain-link)
+      within 2 m of her. Where 0-XNPCCore would break through (its BreakThroughDoors rule for an NPC that pursues), SC logs
+      "... out of reach (a see-through block in her swing; 0-XNPCCore: Break - not through the bars while she has her
+      gun)", and she takes her gun and shoots through the fence - at most a swing or two at it before the draw. Your
+      fence holds. (A member with no gun, or no rounds, still breaks through as 0-XNPCCore decides.)
 
 **Log and counters**
 
-- [ ] `sc xnpc` after the steps: `x5-team-reach-stale`, `x5-team-reach-swing-allowed`, `x5-team-reach-symmetric` and
-      `x5-team-reach-symmetric-failed` among the other `x5-team-*` counters - each counted once per member and zombie
-      (and once more after a new kept finding for that zombie), not at 5 Hz.
-- [ ] The log at load: the config line ends "..., unreachable kept 45 s, up-close proof 4 s".
-- [ ] `sc team <name>` while a block has been seen only once: the hand line "a solid block in her swing at #M seen once
-      (a second read in a row counts it)". It lasts a fraction of a second, so you may not catch it.
-- [ ] The log at load: no "0-XNPCCore's SdcsMeleeReach episode table ... could not be read", "... episode has no ArcRays"
-      or "0-XNPCCore's AttackGateRules.SwingAllowed(ReachChoice) not found" warning; no `arms-swing-episodes`,
-      `arms-swingallowed`, `arms-reachtick` or `arms-bind-episodes` error.
+- [ ] `sc xnpc` after the steps, among the other `x5-team-*` counters: `x5-team-reach-stale`, `x5-team-reach-swing-allowed`
+      and `x5-team-reach-symmetric` (each once per member and zombie, and again after a new kept finding or hold for it),
+      `x5-team-reach-noswing` (each time a zombie is held out of reach), `x5-team-reach-gun-hold` (each stand-and-shoot).
+- [ ] `sc team <name>` while it runs: "no-swing clock on #M 0.6 of 1.2 s"; while a block has been seen only once: "a solid
+      block in her swing at #M seen once (a second read in a row counts it)". Both last a moment, so you may not catch them.
+- [ ] The log at load: the config line ends "..., unreachable kept 45 s, no swing up close counts after 1.2 s"; no
+      "0-XNPCCore's SdcsMeleeReach episode table ... could not be read", "... episode has no ArcRays" or
+      "0-XNPCCore's AttackGateRules.SwingAllowed(ReachChoice) not found" warning; no `arms-swing-episodes`,
+      `arms-swingallowed`, `arms-reachtick`, `arms-bind-episodes`, `arms-pair-gun` or `arms-gun-overwhelmed` error.
+- [ ] `TeamNoSwingConfirmSeconds` 0 in `Config/blocks.xml` (restart): a "no swing" at an attacker up close counts at once
+      - the crawler step's gun comes as soon as 0-XNPCCore refuses the swing twice in a row. Set it back to 1.2.
 - [ ] `TeamMelee` false (`Config/blocks.xml`, restart): no `x5-team-reach-*` counters, and the round tm1 "TeamMelee false"
       step behaves as before.
 

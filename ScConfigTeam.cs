@@ -72,11 +72,12 @@ namespace SurvivorCommunity
         /// </summary>
         public static float TeamUnreachableSeconds = 45f;
         /// <summary>
-        /// Round tm2, the proof by outcome: when symmetric reach keeps a member on her melee weapon against an attacker up
-        /// close and the target loses no health for this long of it attacking her (0-XNPCCore may still refuse the swing),
-        /// symmetric reach stops for that pair for TeamUnreachableSeconds. 0 = never (symmetric reach always holds).
+        /// Round tm2 (the Fable review, findings 1-3): an attacker up close is in a member's reach whatever her swing check
+        /// says, until 0-XNPCCore has refused her swing at it this long in a row (fresh reads) - its MeleeAttack scores 0 on a
+        /// "no swing". Then it is out of reach after all, held TeamUnreachableSeconds (doubling for the pair, at most 3 min),
+        /// and she takes her gun and stands and shoots it. 1.2: past a flicker of her swing arc. 0 = no grace.
         /// </summary>
-        public static float TeamMutualProofSeconds = 4f;
+        public static float TeamNoSwingConfirmSeconds = 1.2f;
         /// <summary>T: the threat table as the config spells it (parsed into TeamThreats on first use).</summary>
         public static string TeamThreatTags = DefaultTeamThreatTags;
         public static string TeamThreatTagMult = DefaultTeamThreatTagMult;
@@ -165,7 +166,7 @@ namespace SurvivorCommunity
             TeamMeleeFirstSeconds = 1f;
             TeamOverwhelmedExtra = 1;
             TeamUnreachableSeconds = 45f;
-            TeamMutualProofSeconds = 4f;
+            TeamNoSwingConfirmSeconds = 1.2f;
             TeamThreatTags = DefaultTeamThreatTags;
             TeamThreatTagMult = DefaultTeamThreatTagMult;
             TeamThreatMult = DefaultTeamThreatMult;
@@ -222,7 +223,7 @@ namespace SurvivorCommunity
             ParseFloat(p, "TeamMeleeFirstSeconds", ref TeamMeleeFirstSeconds, 0f, 10f);
             ParseInt(p, "TeamOverwhelmedExtra", ref TeamOverwhelmedExtra, 0, 10);
             ParseFloat(p, "TeamUnreachableSeconds", ref TeamUnreachableSeconds, 0f, 300f);
-            ParseFloat(p, "TeamMutualProofSeconds", ref TeamMutualProofSeconds, 0f, 60f);
+            ParseFloat(p, "TeamNoSwingConfirmSeconds", ref TeamNoSwingConfirmSeconds, 0f, 10f);
             string s;
             if (p.Values.TryGetValue("TeamThreatTags", out s)) { TeamThreatTags = s ?? ""; teamThreats = null; }
             if (p.Values.TryGetValue("TeamThreatTagMult", out s)) { TeamThreatTagMult = s ?? ""; teamTagMults = null; }
@@ -300,7 +301,7 @@ namespace SurvivorCommunity
                    + ", hp (max/" + f(TeamThreatHpBase) + ")^" + f(TeamThreatHpPower) + " in " + f(TeamThreatHpMin) + ".." + f(TeamThreatHpMax)
                    + ", then x " + TeamTableText(TeamMults()) + "; gun on " + (string.IsNullOrEmpty(TeamGunTags) ? "-" : TeamGunTags) + " + EntityZombieCop"
                    + "; low health " + f(TeamLowHealth) + " (back " + f(TeamLowHealthBack) + "), swap hold " + f(TeamSwapHoldSeconds) + " s, melee first after "
-                   + f(TeamMeleeFirstSeconds) + " s, overwhelmed +" + TeamOverwhelmedExtra + ", unreachable kept " + f(TeamUnreachableSeconds) + " s, up-close proof " + f(TeamMutualProofSeconds) + " s";
+                   + f(TeamMeleeFirstSeconds) + " s, overwhelmed +" + TeamOverwhelmedExtra + ", unreachable kept " + f(TeamUnreachableSeconds) + " s, no swing up close counts after " + f(TeamNoSwingConfirmSeconds) + " s";
         }
     }
 }
