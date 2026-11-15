@@ -29,4 +29,17 @@
 	<append xpath="/xui/window_group[@name='dialog']">
 		<window name="windowScDialogLine"/>
 	</append>
+	<!-- Round n10: the member inventory panel. "Show me your inventory" on one of the community's members opens this group
+	     instead of vanilla's "looting" (Patches_MemberInv); XUiC_ScMemberInvGroup opens the "backpack" group beside it as
+	     vanilla's looting does. Like "looting" it has the non-paging header and its left panel aligned at the bottom: the
+	     spacer windowScMemberInvSpace takes the looting window's place in the Left stack panel, so the backpack's columns
+	     lay out as for looting; windowScMemberInv itself is anchored and draggable. Deliberately NO actionset attribute: a
+	     group opened on its own with actionset="false" takes no input. -->
+	<append xpath="/xui">
+		<window_group name="scmemberinv" left_panel_valign_top="false" controller="SurvivorCommunity.ScMemberInvGroup, SurvivorCommunity" close_compass_on_open="true">
+			<window name="windowScMemberInv"/>
+			<window name="windowScMemberInvSpace"/>
+			<window name="windowNonPagingHeader"/>
+		</window_group>
+	</append>
 </configs>

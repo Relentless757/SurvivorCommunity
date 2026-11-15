@@ -83,22 +83,31 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>The NPC being talked to: the dialog's respondent (SCore sets it as vanilla does).</summary>
-        private EntityAlive Respondent()
+        /// <summary>
+        /// The NPC on the card: the dialog's respondent (SCore sets it as vanilla does). Round n10: virtual, so the member
+        /// inventory panel's card (XUiC_ScMemberCard) shows the member whose inventory it is, on the same bindings.
+        /// </summary>
+        protected virtual EntityAlive Subject()
         {
             return xui != null && xui.Dialog != null ? xui.Dialog.Respondent : null;
         }
 
+        /// <summary>
+        /// Is this NPC one the card is for: a member, a stranger the trust rules cover, or one of an enclave's or a drifter
+        /// band's people (E2, E13a: their profile is stamped from their record, so the card is the same on every visit;
+        /// ScTrust.Subject leaves them out for their hits only). Round n10: virtual (the panel's card shows whoever it is handed).
+        /// </summary>
+        protected virtual bool Covers(EntityAlive npc, Member member)
+        {
+            return member != null || ScTrust.Subject(npc) || ScEnclavePeople.IsEnclaveNpc(npc) || (ScBands.IsBandNpc(npc) && !ScXnpc.IsRaider(npc));
+        }
+
         private bool Recompute()
         {
-            EntityAlive npc = Respondent();
+            EntityAlive npc = Subject();
             bool changed = false;
             Member member = npc != null ? ScRegistry.GetMember(npc.entityId) : null;
-            // a member, a stranger the trust rules cover, or one of an enclave's or a drifter band's people (E2, E13a: their
-            // profile is stamped from their record, so the card is the same on every visit; ScTrust.Subject leaves them out
-            // for their hits only)
-            bool show = npc != null && !npc.IsDead() && (member != null || ScTrust.Subject(npc) || ScEnclavePeople.IsEnclaveNpc(npc)
-                                                         || (ScBands.IsBandNpc(npc) && !ScXnpc.IsRaider(npc)));
+            bool show = npc != null && !npc.IsDead() && Covers(npc, member);
             if (show && (npc.entityId != shownId || shown == null))
             {
                 if (shownId >= 0 && shownId != npc.entityId) ScPortraits.Forget(shownId);

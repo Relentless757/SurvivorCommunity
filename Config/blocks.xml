@@ -726,6 +726,13 @@
 			     left or right, or click the arrows beside the "1/2" at the window's top right. "Nevermind." stays the last row of
 			     every page. A page that fits is unchanged. false: the game's own list (only the first 10 rows). -->
 			<property name="DialogPager" value="true" />
+			<!-- Round n10. MemberInventoryPanel: "Show me your inventory" on one of your community's members opens SC's member
+			     inventory panel instead of the game's looting screen - one window on the left with her card, her weapons,
+			     armor and best tool per job (shown only, for now), her pack (the inventory you hand things over in) and her
+			     bag (where she keeps ammo and magazines; on the host only). Drag its title bar to move it; it stays where you
+			     put it (right-click the title bar, or "sc ui reset", to put it back). Strangers, prospects, raiders and
+			     enclave people keep the looting screen. false: members get the looting screen too. -->
+			<property name="MemberInventoryPanel" value="true" />
 			<!-- C1 (round 22; game 3.4 with 0-XNPCCore 3.4.02 - the 3.2 build reads none of these). Community members craft through
 			     0-XNPCCore's crafting (E > Craft...), their specialty stars deciding their skills, followers and residents alike.
 			     CraftSkillsEnabled: a member's crafting skills are her specialty's (CraftSkills<Specialty>, progression.xml

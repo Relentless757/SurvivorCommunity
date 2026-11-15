@@ -53,6 +53,15 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 - `sc gear <id|name> <Set|Outfit|none>` · `sc gear sim [n] [hostile] [T1|T2|T3] [any] [male|female]`
 - `sc portrait <id|name|all>` · `sc portrait frame [fov dist yaw eyelift aimlift]`
 
+## The member inventory panel *(round n10)*
+
+- **`sc ui`** — where the member inventory panel ("Show me your inventory" on a member) opens: its saved place, or
+  "default" (left of your backpack, where the looting window would be), the file the place is kept in
+  (`%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`), and, while it is open, whose inventory it shows and how
+  full her pack and bag are. Read-only.
+- **`sc ui reset`** — forgets the saved place: the panel opens in its default place again (and jumps there if it is
+  open). Right-clicking its title bar does the same.
+
 ## Sleeping *(round n06)*
 
 - **`sc sleep`** — every member: whether SC holds the night lease on her, the **exact reason** when it does not,

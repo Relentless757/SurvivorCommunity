@@ -809,6 +809,40 @@ scTrustHostile,UI,Tooltip,,,,{0} won't forget that - they're hostile to you now.
 scTrustRefuses,UI,Tooltip,,,,They want nothing to do with you.
 scTrustNoHire,Dialog,Statement,,,,"*glares* Not for all the dukes in the world."
 scSnapUnknownTrait,UI,Menu,,,,????
+scInvHeader,UI,Menu,,,,Survivor Inventory
+scInvMember,UI,Menu,,,,Member
+scInvTier,UI,Menu,,,,T{0}
+scInvOf,UI,Menu,,,,{0} of {1}
+scInvDragTip,UI,Menu,,,,Drag to move this window. Right-click to put it back.
+scInvCloseTip,UI,Menu,,,,Close
+scInvWeapons,UI,Menu,,,,Weapons
+scInvArmor,UI,Menu,,,,Armor
+scInvJobTools,UI,Menu,,,,Job tools
+scInvRanged,UI,Menu,,,,Ranged
+scInvMelee,UI,Menu,,,,Melee
+scInvHead,UI,Menu,,,,Head
+scInvChest,UI,Menu,,,,Chest
+scInvHands,UI,Menu,,,,Hands
+scInvFeet,UI,Menu,,,,Feet
+scInvJobChop,UI,Menu,,,,Chop
+scInvJobMine,UI,Menu,,,,Mine
+scInvJobDig,UI,Menu,,,,Dig
+scInvJobButcher,UI,Menu,,,,Butcher
+scInvJobRepair,UI,Menu,,,,Repair
+scInvShared,UI,Menu,,,,shared
+scInvBroken,UI,Menu,,,,worn out
+scInvNone,UI,Menu,,,,Nothing
+scInvNoRanged,UI,Menu,,,,None (melee only)
+scInvQuality,UI,Menu,,,,Q{0}
+scInvLoaded,UI,Menu,,,,{0}/{1}
+scInvMags,UI,Menu,,,,{0} mag(s)
+scInvSpare,UI,Menu,,,,{0} spare
+scInvPack,UI,Menu,,,,Pack
+scInvBag,UI,Menu,,,,Bag
+scInvTakeAll,UI,Menu,,,,Take all
+scInvTakeAllTip,UI,Menu,,,,Take everything from here into your inventory.
+scInvBagHost,UI,Menu,,,,Her bag shows only on the host's screen: the game does not send an NPC's bag to other players.
+scInvSlotLater,UI,Menu,,,,These slots only show what she has for now. Put items in her pack.
 scResWater,UI,Resource,,,,water
 scResLuxury,UI,Resource,,,,luxury
 scResShortWater,UI,Menu,,,,water

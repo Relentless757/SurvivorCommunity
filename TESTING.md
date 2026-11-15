@@ -37,6 +37,123 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round n10 (2026-11-14): the member inventory panel
+
+"Show me your inventory" on one of your community's members no longer opens the game's looting screen. It opens SC's
+member inventory panel instead: one window on the left with everything of hers, and your own backpack (with AshfallUI:
+its INSPECT and inventory columns) beside it, exactly where they are when you loot a crate. Phase 1: the equipment
+slots only **show** what she has; her pack and bag are fully usable. One new setting in `Config/blocks.xml`:
+`MemberInventoryPanel` (true; false gives members the looting screen again). One new console verb: `sc ui [reset]`.
+
+Top to bottom the panel has: a title bar (her name, "Member · status · T1/T2/T3", a close button) that you can drag;
+her card (the same as the talk card: portrait, role, health, stamina, mood, traits, five skill rows with stars); her
+equipment (RANGED and MELEE weapons, four armor slots, five job tools); her PACK (the inventory you hand things over
+in, 64 slots, three rows in view) and her BAG (where she keeps ammo and magazines, 45 slots, two rows in view).
+
+**Opens for members only**
+
+- [ ] Talk to a member at home, pick "Show me your inventory": the panel opens on the left, your backpack on the
+      right (with AshfallUI also INSPECT in the middle). The talk window closes, as before.
+- [ ] The same from a follower, and from Voice Control's hold-E ring (Inventory) and the spoken "show me your
+      inventory": always the panel.
+- [ ] A **stranger** (not yet recruited), a **prospect** (doing her favor), an **enclave** person and a **raider**
+      (if you can open one): the game's looting screen, as before.
+- [ ] Set `MemberInventoryPanel` to false in `Config/blocks.xml`, start the world: members get the looting screen
+      again. `sc ui` says "OFF". Set it back.
+- [ ] Close with Escape, with the X at the top right, and by pressing E (press and release; it does not close while
+      you still hold the E you opened it with). Each closes the panel and your backpack.
+
+**Dragging, the remembered place, reset (t40)**
+
+- [ ] Drag the title bar: the whole window follows the mouse and stops at the screen's edges (it never goes off
+      screen, top, bottom, left or right).
+- [ ] Close it and open it again (same member, then another member): it opens where you left it.
+- [ ] Quit to the menu, load the world again (and another world): still where you left it. The place is in
+      `%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`.
+- [ ] Right-click the title bar: it jumps back to its default place (left of your backpack). Drag it away again and
+      type `sc ui reset` in the F1 console: same. `sc ui` shows "no window moved" afterwards.
+- [ ] Change the UI scale or the resolution with it moved to a corner: it is still fully on screen next time.
+
+**Her card**
+
+- [ ] The card matches her talk card: name in the title bar, role, portrait, health and stamina numbers, mood face
+      and word, her traits (all known for a member) and the four skill rows plus her specialty with the right stars.
+- [ ] The subtitle says "Member · At base · T2" (or Following, On a run..., Injured, and her class tier).
+- [ ] Hurt her a little (or let a zombie): the health number drops while the panel is open.
+
+**Equipment (display only)**
+
+- [ ] RANGED shows her gun or bow with its quality bar, its name and "Q4 · 8/8 · 45 spare" (loaded / magazine size,
+      then the rounds she can still fire). With Locked & Loaded and magazines for that gun: "· 3 mag(s)" too. A
+      melee-only member shows "None (melee only)" and an empty slot.
+- [ ] MELEE shows her melee weapon, its quality and how worn it is ("Q3 · 87%").
+- [ ] Hover a slot: its tooltip names the item. Click it: INSPECT (or vanilla's item info) shows the item's stats and
+      **no** action buttons (no Drop, Scrap, Equip).
+- [ ] ARMOR shows Head, Chest, Hands, Feet as SC dresses her, each at its quality; bare slots stay empty. Change her
+      gear (`sc gear <name> <Set>`) while the panel is open: the slots change within a second.
+- [ ] Drag any item from your backpack onto an equipment slot and let go: nothing moves, you hear the "denied"
+      sound and see "These slots only show what she has for now...". The item stays on your cursor.
+
+**Best tool per job (incl. shared)**
+
+How it picks: the tool 0-XNPCCore's own job would use first (an axe before a chainsaw for Chop; a pickaxe before an
+auger for Mine; a shovel before a pickaxe for Dig; for Butcher the knife with the best butchering; for Repair the
+tool that repairs most), then the higher tier, then the higher quality, then the less worn. It looks in her pack,
+her bag and her toolbelt (the work kit: stone axe, stone shovel, bone knife).
+
+- [ ] A member with only the work kit: Chop, Mine and Repair = the stone axe (vanilla tags it an axe, a mining tool
+      and a repair tool), each marked "shared" under the job's name; Dig = stone shovel; Butcher = bone knife (it
+      butchers better than the axe, which also could).
+- [ ] Put an iron pickaxe in her pack: Mine changes to the pickaxe (no longer "shared"), Dig stays the shovel.
+- [ ] Put a steel axe in her pack: Chop shows the steel axe. Add a chainsaw: Chop still shows the steel axe.
+- [ ] Put a hunting knife in her pack: Butcher shows it instead of the bone knife.
+- [ ] Put a claw hammer (or a nail gun) in her pack: Repair shows it.
+- [ ] A fully worn-out tool that is her only one for a job shows with "worn out" under the job.
+
+**Pack and Bag, both ways**
+
+- [ ] PACK shows "n of 64" and her inventory window's items; scroll it with the mouse wheel and the scroll bar.
+- [ ] Drag a stack from your backpack into a pack slot, and back. Drop one between the pack's cells: it lands in the
+      first free slot. Right-click drag (half stack) works too.
+- [ ] Shift-click a stack in your backpack: it goes into her **pack**. Shift-click a stack in her pack: it comes to
+      your backpack.
+- [ ] "Take all" on the pack (or R): everything comes to your backpack (what fits). Your backpack's own "store all"
+      buttons put things into her pack.
+- [ ] BAG shows "n of 45" and her ammo and magazines. Drag a stack from the bag to your backpack and back, from the
+      bag to the pack and back. Shift-click in the bag sends the stack to your backpack. "Take all" on the bag works.
+- [ ] Click a med (or a book, or a bundle) in her **BAG**: INSPECT (or vanilla's item info) offers Take, Drop and the
+      like, but **no** Use, Read or Open: move it to your backpack first. The same item in her **PACK** does offer
+      Use/Read/Open, as on any crate, and using it takes it from the pack slot you clicked.
+- [ ] Put rounds for her gun in her **pack**, close the panel: within about 5 seconds they move into her bag (open
+      the panel again to see them there). While the panel is open they stay in the pack (SC waits).
+- [ ] With the panel open during a fight (follower), her bag's rounds go down as she reloads, live.
+- [ ] Close and reopen: everything you moved is still where you put it, in both grids. Save, quit, load: still there.
+
+**AshfallUI and vanilla layouts**
+
+- [ ] With AshfallUI: brass/charcoal plates, AshfallUI's slots and scroll bars; the panel sits left of INSPECT, the
+      backpack column on the right, nothing overlapping. The layout is the one the looting screen has.
+- [ ] Without AshfallUI (disable it): the vanilla look (dark gray panels with black rims, the gray header bar under
+      her name, vanilla buttons and scroll bars); vanilla's backpack and item info beside it.
+
+**Closing and reopening**
+
+- [ ] Open the panel, walk away (or let her walk off) more than about 30 m: it closes.
+- [ ] Let her die with the panel open (a zombie, or vanilla's `kill`): the panel closes at once and her pack and bag
+      drop in one backpack at her body.
+- [ ] Open the panel on one member, close it, open it on another right away: the second one's card, gear and items,
+      nothing left over from the first.
+- [ ] `sc ui` while it is open shows her name, the panel's position and "pack 12 of 64, bag 7 of 45".
+
+**Multiplayer (host and client)**
+
+- [ ] As the host, a client player opens a member's inventory: the client gets the panel too, its pack works and
+      what they move is there for you afterwards. The client's panel shows "Her bag shows only on the host's
+      screen..." instead of the bag (the game never sends an NPC's bag to other players). Their armor slots may stay
+      empty and the weapon slots may show only what she holds: SC keeps her pair and looks on the host.
+- [ ] While the host has a member's panel open, a client trying to open the same member's inventory is refused
+      (SCore's "can't interact" tooltip), and the other way round.
+
 ## Round n08 (2026-11-14): the melee-unreachable diagnostic, attachments that stay on, sleep fixes
 
 A diagnostic first, plus the fixes from the Opus review of n05-n07, plus five things from your play test of

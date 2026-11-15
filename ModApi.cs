@@ -483,6 +483,14 @@ namespace SurvivorCommunity
             // ScAmmo.cs - a remote player's open NPC inventory window holds off the ammo move and medical use out of it
             Add(t, "NetPackageHarvestInventoryRequest::ProcessPackage", ScAmmo.RemoteOpenTarget());
             Add(t, "NetPackageHarvestInventoryUpdate::ProcessPackage", ScAmmo.RemoteCloseTarget());
+#if SC_V34
+            // Patches_MemberInv.cs (round n10) - a member's inventory on SC's member panel; the panel counts as the host's open
+            // loot window for SCore's one-copy-out rule
+            Add(t, "EntityUtilities::OpenContainer", Patches_MemberInv.OpenContainerTarget());
+            Add(t, "StorageLockUtils::IsOpenInLocalLootWindow", Patches_MemberInv.LocalLootWindowTarget());
+            // no Use/Read/Open on a BAG cell: vanilla would run it on the pack's slot of the same number
+            Add(t, "XUiC_ItemActionList::SetCraftingActionList", Patches_MemberInv.ActionListTarget());
+#endif
             // ScAim.cs - the aim pose (visual only)
             Add(t, "EntityAlive::get_AimingGun", AccessTools.PropertyGetter(typeof(EntityAlive), "AimingGun"));
             Add(t, "UAITaskAttackTargetEntitySDX::Start", AccessTools.DeclaredMethod(typeof(UAI.UAITaskAttackTargetEntitySDX), "Start", new[] { typeof(UAI.Context) }));

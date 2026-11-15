@@ -290,7 +290,8 @@ namespace SurvivorCommunity
         /// Round 28: is a talk with her, or a window opened from it, open on the host's screen? The dialog with her as its
         /// respondent; or, while the player's CurrentNPC cvar is her (SCore sets it at every talk, Voice Control's hold-E ring
         /// too): Voice Control's craft window, the order wheel / her hold-E ring page, or the looting window bound to her SCore
-        /// inventory (HarvestManager's container: "Show me your inventory", the ring's Inventory).
+        /// inventory (HarvestManager's container: "Show me your inventory", the ring's Inventory) - for a member, round n10's
+        /// member inventory panel, which shows that container instead.
         /// </summary>
         private static bool TalkOpen(EntityAlive npc)
         {
@@ -303,6 +304,7 @@ namespace SurvivorCommunity
                 if (DialogWithHer(ui, wm, npc)) return true;
                 if (player.Buffs == null || (int)player.Buffs.GetCustomVar("CurrentNPC") != npc.entityId) return false;
                 if (wm.IsWindowOpen(CraftGroup) || wm.IsWindowOpen(WheelGroup)) return true;
+                if (XUiC_ScMemberInvGroup.ShowsNpc(npc.entityId)) return true;     // round n10: her inventory on SC's member panel
                 return wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc);
             }
             catch (Exception e)
@@ -366,6 +368,7 @@ namespace SurvivorCommunity
                 if (hers && wm.IsWindowOpen(CraftGroup)) wm.Close(CraftGroup);
                 if (hers && wm.IsWindowOpen(WheelGroup)) wm.Close(WheelGroup);
                 if (wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc)) wm.Close(LootGroup);
+                XUiC_ScMemberInvGroup.CloseFor(npc.entityId);                        // round n10: her inventory on SC's member panel
             }
             End(m, npc, "the talk hold's " + (int)TalkCapSeconds + " s cap", true, false);
         }

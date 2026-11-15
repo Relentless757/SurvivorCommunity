@@ -232,6 +232,14 @@ namespace SurvivorCommunity
             {
                 try
                 {
+#if SC_V34
+                    // round n10: a member's inventory shows on SC's member inventory panel, not the looting screen
+                    if (XUiC_ScMemberInvGroup.CloseIfShowing(window))
+                    {
+                        Patches_Xnpc.Count("window-death-host-closed");
+                        return;
+                    }
+#endif
                     EntityPlayerLocal p = ScCommunity.LocalPlayer;
                     LocalPlayerUI ui = p != null ? p.PlayerUI : null;
                     if (ui == null || ui.windowManager == null || ui.xui == null || !ui.windowManager.IsWindowOpen(XUiC_LootWindowGroup.ID)) return;

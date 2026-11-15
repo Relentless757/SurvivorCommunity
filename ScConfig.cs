@@ -1085,6 +1085,12 @@ namespace SurvivorCommunity
         /// Read at every refresh. false: vanilla's list (the rows past the window's last slot are not shown).
         /// </summary>
         public static bool DialogPager = true;
+        /// <summary>
+        /// Round n10: "Show me your inventory" on one of the community's members opens SC's member inventory panel
+        /// (XUiC_ScMemberInv: her card, her equipment, her pack and bag) instead of the game's looting screen. Read at every
+        /// open. false: the looting screen, as for anyone else.
+        /// </summary>
+        public static bool MemberInventoryPanel = true;
         // ---- 0-XNPCCore's survivors (ScXnpc, Patches_Xnpc) ----
         /// <summary>The 0-XNPCCore survivor classes the community owns: SC's looks, names, healing and aim pose on them.</summary>
         public static readonly List<string> XnpcSurvivorClasses = new List<string>(ScXnpc.DefaultClasses);
@@ -1325,6 +1331,7 @@ namespace SurvivorCommunity
             MuteVcInTalk = true;
             VoiceEnclaveContext = true;
             DialogPager = true;
+            MemberInventoryPanel = true;
             ResetVoices();                         // V2 (ScConfigVoices.cs)
             ResetStuck();                          // round 29b (ScConfigStuck.cs)
             ResetNames();                          // round 30 (ScConfigNames.cs): streamer names
@@ -2444,6 +2451,9 @@ namespace SurvivorCommunity
                 bool dialogPager = DialogPager;
                 if (p.Values.ContainsKey("DialogPager")) p.ParseBool("DialogPager", ref dialogPager);
                 DialogPager = dialogPager;
+                bool memberInv = MemberInventoryPanel;
+                if (p.Values.ContainsKey("MemberInventoryPanel")) p.ParseBool("MemberInventoryPanel", ref memberInv);
+                MemberInventoryPanel = memberInv;
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
                 ParseStuck(p);                     // round 29b (ScConfigStuck.cs)
                 ParseNames(p);                     // round 30 (ScConfigNames.cs): streamer names
@@ -2612,7 +2622,7 @@ namespace SurvivorCommunity
                                             + RaiderShootingStars[0, 0] + "-" + RaiderShootingStars[0, 1] + "/" + RaiderShootingStars[1, 0] + "-" + RaiderShootingStars[1, 1]
                                             + "/" + RaiderShootingStars[2, 0] + "-" + RaiderShootingStars[2, 1] : "off")
                           + " xnpcAimSpread=" + XnpcAimSpread
-                          + " dialogLine=" + DialogLine + " voiceLines=" + VoiceLines + " muteVcInTalk=" + MuteVcInTalk + " voiceEnclaveContext=" + VoiceEnclaveContext + " dialogPager=" + DialogPager
+                          + " dialogLine=" + DialogLine + " voiceLines=" + VoiceLines + " muteVcInTalk=" + MuteVcInTalk + " voiceEnclaveContext=" + VoiceEnclaveContext + " dialogPager=" + DialogPager + " memberInventoryPanel=" + MemberInventoryPanel
                           + " getUp=" + (XnpcBodyGetUp ? (XnpcGetUpGuard ? "guarded" : "unguarded") + (XnpcGetUpTrace ? "+trace" : "") : "off")
                           + " relax=" + (XnpcRelax ? "after " + XnpcRelaxCalmSeconds + "s, " + (XnpcRelaxRange > 0f ? XnpcRelaxRange + "m" : "sight range")
                                                      + (XnpcRelaxHideWeapon ? ", weapon hidden" : ", weapon shown") + (XnpcRelaxRaiders ? ", raiders too" : ", not raiders") : "off")

@@ -511,6 +511,9 @@ Aim-pose counters and every NPC in a ranged fight, or one NPC in detail. A numbe
 ### `sc portrait <id|name|all>`
 Re-shoots portraits for the community window. `sc portrait frame [fov dist yaw eyelift aimlift]` shows or sets the camera framing for this session.
 
+### `sc ui` [READ] and `sc ui reset`
+Where the member inventory panel ("Show me your inventory" on a member) opens: its saved place or the default one, whether it is switched on (`MemberInventoryPanel`) and, while it is open, whose inventory it shows and how full her pack and bag are. `sc ui reset` forgets the saved place, so the panel opens left of your backpack again (and jumps there if it is open). Right-clicking the panel's title bar does the same. The place is kept in `%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`.
+
 ### `sc voice` [READ]
 Voice switches, player in use, voices found, and the voice gate.
 
