@@ -93,7 +93,7 @@ BAND_Y, BAND_H = 47, 40                   # AshfallUI's look: the band under the
                                           # row (ashScLinkedFilters, appended by its make_filters.py: 0,-47, 36 tall)
 REF_W, REF_H = strips.REF_W, strips.REF_H
 ASH_LOOT_W = 8 * CELL + 16                # 616: AshfallUI's windowLooting for an 8-wide crate (v2i_x(gridDimensions) * 75 + 16)
-ASH_INSPECT_H = 787                       # AshfallUI's INSPECT (itemInfoPanel / emptyInfoPanel): the row's tallest
+ASH_INSPECT_H = 787                       # mirrors (not read from) AshfallUI's INSPECT (itemInfoPanel / emptyInfoPanel): the row's tallest
 
 
 def grid_w(look):

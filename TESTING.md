@@ -53,11 +53,14 @@ Refresh took the clicks meant for the Other and Mods tabs. Without AshfallUI not
 - [ ] Press Refresh under the grid: the window closes and reopens on the same view, and the strip's counts are current.
       Do it once with a filter tab chosen too (LSF-4).
 - [ ] A small base (one or two rows of stacks and free slots): the strip follows the grid and sits right under its last
-      row, with no gap or overlap; the window is short.
+      row, with no gap or overlap; the window is short. Press Refresh there and hover the strip's text: the button takes
+      the click (nothing invisible from the grid's scroll area lies over it).
 - [ ] A big base (more than 7 rows, so the grid scrolls): the whole window, its plate and the strip under the grid are on
       screen, top and bottom. INSPECT and your inventory sit beside it as when you open a steel crate, nothing cut off at
       either edge.
 - [ ] Without AshfallUI: linked storage looks as before (the strip in its gray box under the grid).
+- [ ] After loading a save, the log has no `[XUi]` error naming `scLinkedStrip` or `windowScLinkedStorage` (a failed
+      position binding would leave the strip where it starts, at the window's top).
 
 ## Round hl1 (2026-11-15): members at home hold their ground (no LeaveAreaSdcs)
 
