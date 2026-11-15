@@ -274,7 +274,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// One day of the community: the wells and dew collectors fill the water store, then food and water for every
         /// member (fractions carry over), meds for injured members (one per injury, healing it), and the day's ammo
-        /// resupplies reported (no ammo upkeep). Appends a summary line.
+        /// resupplies reported (no ammo upkeep), and the Meds the members' own medical restocks took (round md1). Appends a
+        /// summary line.
         /// </summary>
         public static void DailyConsume(int day, StringBuilder summary)
         {
@@ -285,7 +286,7 @@ namespace SurvivorCommunity
             if (drawn > 0) c.Add(Resource.Water, drawn);
             if (members == 0)
             {
-                c.Hungry = false; c.Thirsty = false; c.AmmoOpened = 0; c.AmmoShort = false;
+                c.Hungry = false; c.Thirsty = false; c.AmmoOpened = 0; c.AmmoShort = false; c.MedsRestocked = 0;
                 if (drawn > 0) { if (summary.Length > 0) summary.Append(' '); summary.Append(string.Format(Localization.Get("scDailyWells"), drawn)); }
                 return;
             }
@@ -356,9 +357,14 @@ namespace SurvivorCommunity
             bool dryAmmo = c.AmmoShort;
             c.AmmoOpened = 0;
             c.AmmoShort = false;
+            // round md1 (decision 23): the Meds members' own restocks took since the last rollover (ScMedic.Restock), shown
+            // apart from the injury Meds above
+            int restocked = c.MedsRestocked;
+            c.MedsRestocked = 0;
 
             if (summary.Length > 0) summary.Append(' ');     // runs and outposts report first
             summary.Append(string.Format(Localization.Get("scDailyUse"), foodUsed, medsUsed, ammoUsed, waterUsed));
+            if (restocked > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyMedsRestock"), restocked));
             if (harvested > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyHarvest"), harvested));
             if (drawn > 0) summary.Append(' ').Append(string.Format(Localization.Get("scDailyWells"), drawn));
             if (hungry) summary.Append(' ').Append(Localization.Get("scDailyHungry"));
@@ -398,18 +404,10 @@ namespace SurvivorCommunity
             if (gardenStars > 0 && c.Crops > 0) harvest = (int)Math.Floor(c.HarvestCarry + c.Crops * ScConfig.CropFoodPerStar * gardenStars);
             need[(int)Resource.Food] = Math.Max(0, (int)Math.Floor(food) - harvest);
 
-            Member medic;
-            int medicStars = ScSkills.BestSpecialist(Specialty.Medicine, out medic);
-            int healsPerBundle = 1 + (int)Math.Floor(medicStars * ScConfig.MedicPerStar);
-            int injured = 0;
             bool gunner = false;
             foreach (var m in ScRegistry.Members.Values)
-            {
-                if (m.Injured) injured++;
                 if (m.Ranged && m.Status == MemberStatus.Resident) gunner = true;
-            }
-            if (ScOutpostPerks.PerkActive(Resource.Meds)) injured = Math.Max(0, injured - ScConfig.OutpostClinicHeals);
-            need[(int)Resource.Meds] = (injured + healsPerBundle - 1) / healsPerBundle;
+            need[(int)Resource.Meds] = MedsForRollover();
             need[(int)Resource.Ammo] = gunner ? 1 : 0;
 
             // ScOutposts.Daily settles nothing without outposts (and clears the debts then)
@@ -423,6 +421,25 @@ namespace SurvivorCommunity
                 if (delivered > 0 || c.HaulDebt > 0f) need[(int)Resource.Fuel] = (int)Math.Floor(c.HaulDebt + ScConfig.OutpostHaulage * delivered + 1e-4f);
             }
             return need;
+        }
+
+        /// <summary>
+        /// NeedForRollover's meds term: whole Meds bundles the next rollover will want for injured members - one per
+        /// healsPerBundle (1 + floor(medic stars x MedicPerStar)) injured members the outpost clinic does not cover. Also the
+        /// reserve a member's own medical restock never takes (round md1, ScMedic.Restock, MedsResupplyKeepForInjured). A
+        /// pure read.
+        /// </summary>
+        public static int MedsForRollover()
+        {
+            if (ScRegistry.Members.Count == 0) return 0;
+            Member medic;
+            int medicStars = ScSkills.BestSpecialist(Specialty.Medicine, out medic);
+            int healsPerBundle = 1 + (int)Math.Floor(medicStars * ScConfig.MedicPerStar);
+            int injured = 0;
+            foreach (var m in ScRegistry.Members.Values)
+                if (m.Injured) injured++;
+            if (ScOutpostPerks.PerkActive(Resource.Meds)) injured = Math.Max(0, injured - ScConfig.OutpostClinicHeals);
+            return (injured + healsPerBundle - 1) / healsPerBundle;
         }
     }
 }

@@ -719,6 +719,9 @@ namespace SurvivorCommunity
                           + string.Join("+", (job == RunJob.Clay ? ScConfig.DigToolTags : ScConfig.MiningToolTags).ToArray()) + ") - refused");
                 return false;
             }
+            // round md1: her medical kit topped up from the stockpile once the run is accepted (CanSend, no haul waiting, a tool)
+            // and before the snapshot (ScRuns.SendPhysicalTo's TryCapture); a hidden run's parked body keeps it. Never blocks the run
+            ScMedic.BeforeRun(m, npc, job == RunJob.Clay ? "clay-digging run" : "mining run");
             ScWork.EndFor(m, job == RunJob.Clay ? "sent to dig clay" : "sent on a mining run");   // C1: off the work shift first
             m.RunJob = job;
             m.RunTool = tool;

@@ -1376,7 +1376,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// ScTicker, every second (works every CheckSeconds): moves every member's window ammo to the bag and on into their
-        /// magazines (LoadLoose), records what they carry and resupplies the ones who qualify.
+        /// magazines (LoadLoose), records what they carry and resupplies the ones who qualify - and (round md1) restocks the
+        /// medical kit of a member at home who ran out (ScMedic.HomeTick).
         /// </summary>
         public static void Tick(World w)
         {
@@ -1394,6 +1395,8 @@ namespace SurvivorCommunity
                     LoadLoose(e);
                     Record(m, e);
                     if (ScConfig.XnpcResupply) Resupply(m, e, standIn, now);
+                    // round md1: her own medical kit from the stockpile at home (MedsResupply; never a stand-in: decision 18)
+                    if (!standIn) ScMedic.HomeTick(m, e);
                 }
             }
             catch (Exception ex)
@@ -1407,7 +1410,7 @@ namespace SurvivorCommunity
         /// rescue), else their own entity while it is in the world, visible and theirs - not an offline runner's stale copy
         /// (FindNpc), not a body parked hidden for a run or a posting, not an id a stranger of another class inherited.
         /// </summary>
-        private static EntityAlive BodyOf(World w, Member m, out bool standIn)
+        internal static EntityAlive BodyOf(World w, Member m, out bool standIn)
         {
             standIn = false;
             if (m.StandInId >= 0)

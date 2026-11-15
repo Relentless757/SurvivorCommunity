@@ -1015,6 +1015,23 @@ namespace SurvivorCommunity
         /// 165 stone arrows). Above 1 ammo costs more to hand out than it was worth in the box.
         /// </summary>
         public static float XnpcResupplyPointsMult = 1f;
+        // ---- medical restock (ScMedic.Restock, round md1, research/flee_meds/DESIGN.md Part B) ----
+        /// <summary>
+        /// Members restock their own medical supplies from the stockpile: 1 Meds tops her up to MedsResupplyMix, at home
+        /// when she runs out and before a run (decision 22: on by default). False: never - you manage them by hand.
+        /// </summary>
+        public static bool MedsResupply = true;
+        /// <summary>At home: restocked when she carries fewer heal items (first aid bandages plus kits, window and bag) than this (0: never at home).</summary>
+        public static int MedsResupplyBelow = 1;
+        /// <summary>Before a supply or mining run: the same with this many (0: no restock before a run).</summary>
+        public static int MedsResupplyRunBelow = 2;
+        /// <summary>Decision 15, mix A ("field kit"): what 1 Meds tops her up to, item:count (she gets what she lacks of each).</summary>
+        public const string DefaultMedsResupplyMix = "medicalFirstAidKit:1,medicalFirstAidBandage:2,medicalBandage:2";
+        public static string MedsResupplyMix = DefaultMedsResupplyMix;
+        /// <summary>In-game hours between two restocks of one member at home (saved in her record; a restock before a run ignores it and sets it).</summary>
+        public static float MedsResupplyCooldownHours = 24f;
+        /// <summary>Never take a Meds the next rollover needs for injured members (ScStockpile.MedsForRollover).</summary>
+        public static bool MedsResupplyKeepForInjured = true;
         // ---- overwhelmed (ScArms, migration M7.5, the weapons task's W4/W6 decision) ----
         /// <summary>An overwhelmed survivor keeps the gun instead of 0-XNPCCore's melee swap at 3 m (while it has ammo).</summary>
         public static bool Overwhelmed = true;
@@ -1315,6 +1332,12 @@ namespace SurvivorCommunity
             XnpcResupplyArrows = 20;
             XnpcResupplyCooldown = 60f;
             XnpcResupplyPointsMult = 1f;
+            MedsResupply = true;
+            MedsResupplyBelow = 1;
+            MedsResupplyRunBelow = 2;
+            MedsResupplyMix = DefaultMedsResupplyMix;
+            MedsResupplyCooldownHours = 24f;
+            MedsResupplyKeepForInjured = true;
             Overwhelmed = true;
             SurvivorGunFirst = true;
             OverwhelmedRadius = 12f;
@@ -2413,6 +2436,13 @@ namespace SurvivorCommunity
                 ParseInt(p, "XnpcResupplyArrows", ref XnpcResupplyArrows, 1, 1000);
                 ParseFloat(p, "XnpcResupplyCooldown", ref XnpcResupplyCooldown, 5f, 3600f);
                 ParseFloat(p, "XnpcResupplyPointsMult", ref XnpcResupplyPointsMult, 0.1f, 100f);
+                // round md1: members' own medical restock (ScMedic.Restock); the mix is resolved against the items at world start
+                ParseBoolKey(p, "MedsResupply", ref MedsResupply);
+                ParseInt(p, "MedsResupplyBelow", ref MedsResupplyBelow, 0, 20);
+                ParseInt(p, "MedsResupplyRunBelow", ref MedsResupplyRunBelow, 0, 20);
+                if (p.Values.TryGetValue("MedsResupplyMix", out string medsMix)) MedsResupplyMix = medsMix ?? "";
+                ParseFloat(p, "MedsResupplyCooldownHours", ref MedsResupplyCooldownHours, 0f, 240f);
+                ParseBoolKey(p, "MedsResupplyKeepForInjured", ref MedsResupplyKeepForInjured);
                 bool overwhelmed = Overwhelmed;
                 if (p.Values.ContainsKey("Overwhelmed")) p.ParseBool("Overwhelmed", ref overwhelmed);
                 Overwhelmed = overwhelmed;
@@ -2752,6 +2782,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: voices " + VoicesLine());   // V2 (ScConfigVoices.cs)
                 ScLog.Out("config: stuck rescue " + StuckLine());   // round 29b (ScConfigStuck.cs)
                 ScLog.Out("config: team strength " + TeamLine());   // round tm1 (ScConfigTeam.cs)
+                ScLog.Out("config: medical restock " + MedsLine());   // round md1 (ScMedic.Restock)
                 ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)
                 ScLog.Out("config: skins " + SkinsLine());   // round 31 (ScConfigSkins.cs)
 #if SC_V34
@@ -3014,6 +3045,17 @@ namespace SurvivorCommunity
                 v[i] = x;
             }
             Array.Copy(v, into, into.Length);
+        }
+
+        /// <summary>Round md1: the medical restock keys in one line (the load log, sc meds).</summary>
+        public static string MedsLine()
+        {
+            if (!MedsResupply) return "off (MedsResupply false: members never restock themselves)";
+            return "on: at home below " + MedsResupplyBelow + " heal item(s)" + (MedsResupplyBelow <= 0 ? " (never at home)" : "")
+                   + ", before a run below " + MedsResupplyRunBelow + (MedsResupplyRunBelow <= 0 ? " (never before a run)" : "")
+                   + ", every " + MedsResupplyCooldownHours.ToString("0.##", CultureInfo.InvariantCulture) + " in-game h a member at home"
+                   + ", " + (MedsResupplyKeepForInjured ? "keeps tonight's Meds for the injured" : "may take tonight's Meds for the injured")
+                   + ", mix '" + MedsResupplyMix + "'";
         }
 
         private static void ParseInt(DynamicProperties p, string key, ref int v, int min, int max)

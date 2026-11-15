@@ -45,6 +45,8 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc names` / `sc names test` | Streamer names: the list file, names given and left; the next names in line. [READ] |
 | `sc xnpc [id\|name]` | Counters for all NPC hooks, or one NPC in full detail (AI, weapons, orders). Main bug-report probe. [READ] |
 | `sc team [id\|name]` | Team strength: each member's side against the enemies, matched or not, melee-led or why not; one member with everything counted. [READ] |
+| `sc meds [id\|name]` | Medical restock: the setting, the stockpile's spare Meds, the counters and each member's heal items and next restock; one member's every check. [READ] |
+| `sc meds <id\|name> give` | Restock her medical supplies now for 1 Meds (the cooldown ignored). [CHEAT] |
 | `sc craft [<name>]` | Crafting/work-shift status for the community or one member. [READ] |
 | `sc craft station` | The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft counters. [READ] |
 | `sc enclave list` / `reveal all` | List enclaves (settlements of other survivors); reveal them on the map. |
@@ -159,6 +161,17 @@ Example: `sc barter food ammo`
 ### `sc scout <food|meds|ammo|mats|fuel>` [CHEAT]
 Does the radio scouting once and ignores the once-a-day wait.
 Example: `sc scout meds`
+
+### `sc meds` [READ]
+Members' medical restock (round md1): the setting and its keys (`MedsResupply...`), the mix as this world resolved it, the stockpile's Meds with the reserve kept for tonight's injured and what is left to spare, today's restocks, the `meds-*` counters, and one line per loaded member: her heal items (first aid kits plus first aid bandages, window and bag), cloth bandages, her last restock and the next one allowed at home, and DUE or why not.
+
+### `sc meds <id|name>` [READ]
+One member's every check: what she carries, the thresholds, the cooldown with the world times, whether her window or a trade is open, the top-up she would get, the stockpile and its reserve, and the verdict at home and before a run.
+Example: `sc meds Gina`
+
+### `sc meds <id|name> give` [CHEAT]
+A test shortcut: restocks her now for 1 Meds, ignoring the cooldown, the thresholds and `MedsResupply`. The stockpile, its reserve, her open window and her pack still apply, and it starts her cooldown like any restock. Counters (in `sc meds` and `sc xnpc`): `meds-restock`, `meds-restock-run`, `meds-restock-console`, `meds-refused-empty`, `meds-refused-reserve`, `meds-refused-full`, `meds-refused-nothing`, `meds-refused-mix`, `meds-held-window`, `meds-cooldown`; at home each outcome is counted once per episode, not at every 5 s check.
+Example: `sc meds Gina give`
 
 (`sc morale`, `sc drinks` and `sc day` are in section 1.)
 

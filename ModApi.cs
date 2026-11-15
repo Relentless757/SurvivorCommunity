@@ -134,6 +134,8 @@ namespace SurvivorCommunity
                     ScFacilities.RestrictWellKit();
                     // round 33b: the bundles' Open action kept (with a usable pool) or taken off (BundleOpen false), once per world
                     ScBundleOpen.Apply();
+                    // round md1: MedsResupplyMix validated against this game's items like the pools above (one line, warnings once)
+                    ScMedic.ResolveMix();
                     // Locked & Loaded's NPC magazines (M11): bound once per game, its state logged every game
                     try { ScMags.Resolve(); }
                     catch (Exception e) { ScLog.Once("gamestartdone-mags", e); }

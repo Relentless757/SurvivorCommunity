@@ -93,6 +93,24 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   10 s for her), `unreachable`, `outmatched`, `matched-again`, `low-health`; `sc xnpc <name>` has a one-line
   `team strength:` summary. Neither command recounts the attackers (the overwhelmed line is the last count, with its age).
 
+## Medical restock *(round md1)*
+
+- **`sc meds`** — the setting and its keys (`MedsResupply...`), the mix as this world resolved it, the stockpile's Meds
+  with the reserve kept for tonight's injured and what is left to spare, today's restocks, the `meds-*` counters, and one
+  line per loaded member: her heal items (first aid kits plus first aid bandages, window and bag), cloth bandages, her
+  last restock and the next one allowed at home, and DUE or why not. Read-only.
+- **`sc meds <id|name>`** — one member's every check: what she carries, the thresholds, the cooldown with the world
+  times, whether her window or a trade is open, the top-up she would get, the stockpile and its reserve, and the verdict
+  at home and before a run. Read-only.
+- **`sc meds <id|name> give`** *(a test shortcut)* — restocks her now for 1 Meds, ignoring the cooldown and the
+  thresholds (and `MedsResupply`); the stockpile, its reserve, her open window and her pack still apply. It starts her
+  cooldown like any restock.
+- The counters (`sc meds`, also in `sc xnpc`): `meds-restock` (at home), `meds-restock-run`, `meds-restock-console`,
+  `meds-refused-empty`, `meds-refused-reserve`, `meds-refused-full`, `meds-refused-nothing` (she already had the whole
+  mix), `meds-refused-mix` (no usable item in `MedsResupplyMix`), `meds-held-window`, `meds-cooldown`. At home each
+  outcome is counted once per episode, when it changes, not at every 5 s check. `sc xnpc <name>`'s `medic:` line shows
+  her last and next restock (`restock (md1): ...`).
+
 ## Work, runs and mining
 
 - `sc run <id|name> <res|mine|clay>` · `sc run <id|name> <recall|home|skip|offline>` · `sc runners`

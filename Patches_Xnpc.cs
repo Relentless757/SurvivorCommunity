@@ -121,6 +121,18 @@ namespace SurvivorCommunity
             hits[what] = n + 1;
         }
 
+        /// <summary>Round md1 (sc meds): the counters whose key starts with prefix, "key=n" sorted, or "none yet".</summary>
+        internal static string ReportPrefix(string prefix)
+        {
+            var keys = new List<string>();
+            foreach (string k in hits.Keys) if (k.StartsWith(prefix, StringComparison.Ordinal)) keys.Add(k);
+            if (keys.Count == 0) return "none yet";
+            keys.Sort(StringComparer.Ordinal);
+            var parts = new List<string>();
+            foreach (string k in keys) parts.Add(k + "=" + hits[k]);
+            return string.Join(" ", parts.ToArray());
+        }
+
         public static string Report()
         {
             var keys = new List<string>(hits.Keys);

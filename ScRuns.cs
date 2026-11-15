@@ -45,6 +45,9 @@ namespace SurvivorCommunity
             // luxuries are not fetched (round wl): the dialog and the window never offer it, the console could
             if (kind == Resource.Luxury) { error = "scRunNoLuxury"; return false; }
             if (!CanSend(m, npc, out error)) return false;
+            // round md1: her medical kit topped up from the stockpile before the snapshot (TryCapture) takes it along; a hidden
+            // run's parked body keeps it. Never blocks the run
+            ScMedic.BeforeRun(m, npc, kind.ToString().ToLowerInvariant() + " run");
 #if SC_V34
             ScWork.EndFor(m, "sent on a supply run");   // C1: off the work shift first
             ScMining.ClearJob(m);                       // round 33c (M33): a supply run, not a mining one

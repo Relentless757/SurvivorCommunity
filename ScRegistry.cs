@@ -27,6 +27,8 @@ namespace SurvivorCommunity
     ///                ranged, melee, head, chest, hands, feet, or spare; ItemValue.Write's N bytes; a key an older build ignores;
     ///                a line whose item is missing this session is written back verbatim) and wardrobe=helmetX,,, (the pieces
     ///                0-XNPCCore's Wardrobe dresses her in, by look slot: ScWardrobe)
+    ///                md1: meds=worldtime (her last medical restock, ScMedic.Restock; written when set, a key an older build
+    ///                ignores) and [community] medsrestocked=N (today's restocks, the daily ledger)
     ///   [prospect]   id=1300 class=.. name=.. favour=poi|supplies poi=x,y,z poiname=.. poisize=w,d items=food:15 done=1
     ///                loadout=ranged,melee; E3 encp=12 (an enclave person's favour: id is then their body's, parked at load)
     ///   [contact]    id=3 class=.. label=.. poi=x,y,z poiname=.. spawn=x,y,z day=12 expire=19 loadout=ranged,melee
@@ -844,6 +846,7 @@ namespace SurvivorCommunity
                 case "ammoopen": c.AmmoOpenPoints = Math.Max(0, I(val)); break;
                 case "ammoopened": c.AmmoOpened = Math.Max(0, I(val)); break;
                 case "ammoshort": c.AmmoShort = val == "1"; break;
+                case "medsrestocked": c.MedsRestocked = Math.Max(0, I(val)); break;   // round md1: today's restocks (the ledger)
                 case "beds": c.Beds = I(val); break;
                 case "facilities": c.Facilities = I(val); break;
                 case "crops": c.Crops = I(val); break;
@@ -1051,6 +1054,7 @@ namespace SurvivorCommunity
                 case "join": m.JoinDay = I(val); break;
                 case "mood": m.Mood = Clamp(I(val), 0, 100); break;
                 case "injured": m.Injured = val == "1"; break;
+                case "meds": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) m.MedsAt = u; break; }   // round md1 (ScMedic.Restock)
                 case "ranged": m.Ranged = val == "1"; break;
                 case "missing": m.MissingDays = I(val); break;
                 case "pendingunhide": m.PendingUnhide = val == "1"; break;
@@ -1240,6 +1244,7 @@ namespace SurvivorCommunity
                 sb.AppendLine("ammoopen=" + c.AmmoOpenPoints);
                 sb.AppendLine("ammoopened=" + c.AmmoOpened);
                 sb.AppendLine("ammoshort=" + (c.AmmoShort ? 1 : 0));
+                sb.AppendLine("medsrestocked=" + c.MedsRestocked);
                 sb.AppendLine("beds=" + c.Beds);
                 sb.AppendLine("facilities=" + c.Facilities);
                 sb.AppendLine("crops=" + c.Crops);
@@ -1716,6 +1721,7 @@ namespace SurvivorCommunity
             sb.AppendLine("join=" + m.JoinDay);
             sb.AppendLine("mood=" + m.Mood);
             sb.AppendLine("injured=" + (m.Injured ? 1 : 0));
+            if (m.MedsAt > 0UL) sb.AppendLine("meds=" + m.MedsAt.ToString(CultureInfo.InvariantCulture));   // round md1: her last medical restock (a key older builds ignore)
             sb.AppendLine("ranged=" + (m.Ranged ? 1 : 0));
             sb.AppendLine("missing=" + m.MissingDays);
             var sk = new StringBuilder();

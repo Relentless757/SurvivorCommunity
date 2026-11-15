@@ -115,6 +115,12 @@ namespace SurvivorCommunity
         public readonly List<string> Traits = new List<string>();
         public int Mood = 50;
         public bool Injured;
+        /// <summary>
+        /// Round md1 (ScMedic.Restock): the world time of her last medical restock from the stockpile, 0 = never. At home she is
+        /// restocked at most once per MedsResupplyCooldownHours from it; a restock before a run ignores it and sets it. Saved as
+        /// meds= beside injured= (a key older builds ignore; a save without it loads as never).
+        /// </summary>
+        public ulong MedsAt;
         public bool Ranged;
         /// <summary>Resource being fetched while OnRun; meaningless otherwise.</summary>
         public Resource RunKind = Resource.Food;
@@ -386,6 +392,11 @@ namespace SurvivorCommunity
         public int AmmoOpenPoints;
         public int AmmoOpened;
         public bool AmmoShort;
+        /// <summary>
+        /// Round md1 (ScMedic.Restock): Meds bundles spent on members' own medical restocks since the last day rollover, apart
+        /// from the injury Meds (the daily ledger shows both, decision 23). Saved as medsrestocked=.
+        /// </summary>
+        public int MedsRestocked;
         /// <summary>Fractional garden harvest carried to the next day.</summary>
         public float HarvestCarry;
         /// <summary>Beds / facilities / crops inside the zone (ScScan: recounted every few seconds from the loaded chunks).</summary>

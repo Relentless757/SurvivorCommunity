@@ -1296,6 +1296,12 @@ Healing and armor
 
 - SC's people heal only with items: they carry a couple of bandages and sometimes a first aid kit, and use one at or
   below 60% health, with the bandage animation. Hand them more medical items and they use those.
+- They restock from the stockpile. A member at home who runs out of first aid bandages and kits takes 1 medical unit
+  from the stockpile and is topped up to a first aid kit, 2 first aid bandages and 2 cloth bandages (she gets only what
+  she lacks), at once, even mid-fight, at most once a day. Before a supply or mining run she does the same if she has
+  fewer than 2 first aid bandages and kits. The medical units tonight's injured need are never taken, and nothing is
+  given if her pack is full. "MedsResupply" (section 20) turns it off: then you manage their supplies by hand. "sc meds"
+  shows who was restocked and why not.
 - Their armor protects them at half the rating it would give you. It does not break.
 
 Looks
@@ -1580,6 +1586,15 @@ NPCs and voices
 ~~~~~~~~~~~~~~~
 
 - XnpcResupply / XnpcResupplyBelow = true / 10: Stockpile refills at home and outposts, below this many rounds
+- MedsResupply = true: Members restock their own medical supplies from the stockpile, 1 medical at a time; false: you
+  manage them by hand
+- MedsResupplyBelow / MedsResupplyRunBelow = 1 / 2: Restock at home below this many first aid bandages and kits; before a
+  run, below the second (0: never)
+- MedsResupplyMix = medicalFirstAidKit:1, medicalFirstAidBandage:2, medicalBandage:2: What 1 medical tops her up to (she
+  gets what she lacks of each)
+- MedsResupplyCooldownHours = 24: In-game hours between two restocks of one member at home (saved; a restock before a run
+  ignores it)
+- MedsResupplyKeepForInjured = true: Never take the medical units tonight's injured need
 - ShootingSkill = true: Shooting stars decide NPC accuracy
 - Overwhelmed = true: NPCs keep shooting when several enemies are on them
 - TeamMelee = true: Members fight with their melee weapon in a fight their side can win (section 15); false: as before

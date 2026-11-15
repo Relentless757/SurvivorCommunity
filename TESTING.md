@@ -37,6 +37,146 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round md1 (2026-11-15): members restock medical supplies from the stockpile
+
+The request: members who run out of medical supplies should restock at the base for 1 medical resource, and before a supply
+run if they don't have enough; a setting turns it off. The design you approved: `research/flee_meds/DESIGN.md` Part B,
+decisions 14-23.
+
+What it does now:
+
+- **At home.** A member (a resident, a follower, one on the way to her post, a guard on watch) inside the home zone who
+  carries fewer than `MedsResupplyBelow` (1) heal items - first aid bandages plus first aid kits, her pack and her bag -
+  takes 1 Meds from the stockpile and is topped up to `MedsResupplyMix`: 1 first aid kit, 2 first aid bandages, 2 cloth
+  bandages. A top-up: she gets what she lacks of each, never more. It is instant and happens mid-fight too, within 5 s of
+  her running out.
+- **Once a day.** At most once every `MedsResupplyCooldownHours` (24) in-game hours a member, at home. The time is kept in
+  her record (`meds=` in `survivor_community.txt`), so a reload does not reset it.
+- **Before a run.** Sent on a supply or mining run with fewer than `MedsResupplyRunBelow` (2) heal items, she is topped up
+  the same way before she leaves, whatever her cooldown, and the cooldown starts again. A hidden run counts too. The run
+  never waits: with no Meds she leaves as she is.
+- **The injured come first.** With `MedsResupplyKeepForInjured` (true) a restock never takes the Meds the next rollover
+  needs for injured members (`sc meds` shows the reserve).
+- **All or nothing.** Her whole top-up must fit her pack and bag, or she gets nothing and no Meds is taken. Nothing is ever
+  dropped on the ground. While her inventory panel (or a trade with her) is open it waits, and restocks within 5 s of the
+  close.
+- **Never** a stand-in, a garrison or rescue stand-in, a member at an outpost, a raider, an enclave person, a prospect or a
+  stranger.
+- `MedsResupply` false: members never restock themselves.
+- The day's summary shows the restocks apart from the injury Meds: "used 3 food, 2 water, 1 medical, 0 ammo - 2 more
+  medical went into restocking your survivors' own med kits".
+- No subtitle: SC's barks are recorded clips only (a text-only line shows only with `VoiceBarkDebug`), so the optional
+  "Restocked my med kit." was left out.
+
+Setup: the new DLL with its `Config/blocks.xml` (the six `MedsResupply...` keys) and `Config/Localization.csv` (the new
+`scDailyMedsRestock`). Gina below is any resident at home. **Take her heal items** = open her inventory panel ("Show me
+your inventory") and take every First Aid Bandage and First Aid Kit out of **both** her PACK and her BAG. `sc meds`
+lists every member; `sc meds Gina` shows one in full. The log lines below are `ScLog.Out` (no `DebugLogging` needed).
+
+**At load**
+
+- [ ] The log at load: "config: medical restock on: at home below 1 heal item(s), before a run below 2, every 24 in-game h
+      a member at home, keeps tonight's Meds for the injured, mix 'medicalFirstAidKit:1,medicalFirstAidBandage:2,
+      medicalBandage:2'" and "medical restock: on - 1 Meds tops a member up to 1 medicalFirstAidKit, 2
+      medicalFirstAidBandage, 2 medicalBandage". No "config MedsResupplyMix: ..." warning; no `meds-mix` or `meds-home`
+      error.
+- [ ] `sc give meds 5`, then `sc meds`: the setting line, the mix line, "stockpile: 5 Meds, 0 kept for tonight's injured -
+      5 to spare; restocks since the last rollover: 0", "counters ...: none yet", and one line per loaded member with her
+      heal items, cloth bandages, "never restocked" and "at home: not now - she carries 2 heal items (restocked below 1)"
+      (or DUE).
+
+**Restock at home, and the open panel**
+
+- [ ] Open Gina's inventory panel and take her heal items. Leave the panel open: no restock. `sc meds Gina` (from the F1
+      console with the panel still open, or right after) says "window or trade open: YES (held until it closes)" and
+      "at home now: no - her inventory window (or a trade with her) is open". Close the panel. Within 5 s: "Gina (id N)
+      restocked her medical supplies at home: 1 medicalFirstAidKit, 2 medicalFirstAidBandage, 1 medicalBandage for 1
+      Meds (4 left) - she had 0 heal items" (the cloth count is what she lacked of 2; with 2 already it is not named).
+- [ ] Open the panel again: 1 First Aid Kit, 2 First Aid Bandages and 2 Bandages in all (pack and bag together; nothing
+      on the ground at her feet). `sc meds`: 4 Meds, "restocks since the last rollover: 1", counters `meds-held-window=1
+      meds-restock=1`; her line "last restock 0 h ago, next at home in 24 h".
+- [ ] A top-up, not an addition: give her 5 Bandages (cloth) first, take her heal items, close: the line names 1
+      medicalFirstAidKit and 2 medicalFirstAidBandage only, and she keeps her 7 cloth bandages. (Needs her cooldown
+      over: use the cooldown step's setting, or `sc meds Gina give`.)
+
+**Using up her bandages (mid-fight)**
+
+- [ ] Leave Gina exactly one First Aid Bandage and no kit (pack and bag). `sc team Gina hurt 0.5`: she bandages
+      herself (the animation). Within about 5 s of the bandage leaving her pack: the "restocked her medical supplies at
+      home" line, if her cooldown is over. With a zombie at the base fighting her it happens the same way, mid-fight.
+
+**The cooldown**
+
+- [ ] Right after a restock, take her heal items again: "Gina (id N) needs medical supplies at home but she restocked 0.1 h
+      ago - next in 23.9 h" (or near it), once; not again for 5 real minutes (then once more, with the hours updated). `meds-cooldown=1`
+      in `sc meds` (once per episode, not every 5 s). No Meds taken.
+- [ ] To see it run out: `MedsResupplyCooldownHours` 1 in `Config/blocks.xml` (restart), restock, take her items: "next
+      in 0.9 h"; about one in-game hour later (2.5 real minutes at a 60-minute day) she is restocked without anything
+      else. Set it back to 24.
+- [ ] `sc meds Gina give` during the cooldown restocks her anyway ("restocked her medical supplies (sc meds give)",
+      `meds-restock-console`) and starts the cooldown again.
+
+**Before a run**
+
+- [ ] Gina with one First Aid Bandage and no kit (1 heal item: no restock at home, the threshold there is 1), `sc give
+      meds 2`. `sc run Gina food`: first "Gina (id N) restocked before her food run: 1 medicalFirstAidKit, 1
+      medicalFirstAidBandage, ... for 1 Meds (N left) - she had 1 heal item", then the run's own departure line. Her
+      cooldown did not stop it (restock her at home first to check), and `sc meds Gina` afterwards shows "last restock 0
+      h ago". On her return (or `sc run Gina recall`) she has the items, less what she used.
+- [ ] With 2 or more heal items: no restock line (`DebugLogging` true shows "no medical restock before her food run - she
+      carries 2 heal items, enough for the trip").
+- [ ] A mining run: `sc run Gina mine` with a mining tool: "restocked before her mining run: ...". A run refused for no
+      tool takes no Meds (no restock line).
+- [ ] A hidden run (`PhysicalRuns` false, or when the log says she "goes on a hidden run instead"): the same restock line
+      first; her parked body keeps the items.
+- [ ] Empty stockpile (`sc give meds -999`): "Gina (id N) leaves for her food run without a medical restock: the
+      stockpile has no Meds (pack some at the packing station)" and she leaves anyway. `meds-refused-empty` +1.
+
+**The empty stockpile and the reserve for the injured**
+
+- [ ] `sc give meds -999`, take Gina's heal items: "Gina (id N) needs medical supplies at home but the stockpile has no
+      Meds (pack some at the packing station)", `meds-refused-empty=1`. `sc give meds 1`: within 5 s she is restocked
+      (cooldown permitting).
+- [ ] The reserve: `sc give meds -999`, `sc give meds 1`, `sc injure Rob` (another member). `sc meds`: "1 Meds, 1 kept for
+      tonight's injured - 0 to spare". Take Gina's heal items: "... but the stockpile has no Meds to spare (1 kept for
+      tonight's injured)", `meds-refused-reserve=1`; the stockpile stays at 1. `sc give meds 1`: she is restocked, 1 left.
+      `sc day`: Rob is healed with the last one. `sc injure Rob` again if he is still injured.
+- [ ] `MedsResupplyKeepForInjured` false (restart): the same setup restocks her with the last Meds.
+
+**A full pack**
+
+- [ ] Take Gina's heal items and cloth bandages, then fill every slot of her PACK and her BAG with anything (one item per
+      slot is enough; the panel shows how full each is). Close: "Gina (id N) needs medical supplies at home but there is no
+      room in her pack for a medical restock", `meds-refused-full=1`; the stockpile unchanged, nothing on the ground at her
+      feet. Empty one slot: one slot is not enough for three kinds (still refused); empty three: restocked.
+
+**Who is restocked**
+
+- [ ] A follower (hired, Following) walking through the base with no heal items is restocked; out in the world `sc meds`
+      says "she is away from home". At an outpost: "she is at <outpost> (no restock at an outpost this round)".
+- [ ] A guard on watch at a Watch post inside the zone is restocked at the post.
+- [ ] A posted member's stand-in at an outpost is never restocked (`sc meds <name>`: "a stand-in is never restocked").
+
+**The setting off**
+
+- [ ] `MedsResupply` false in `Config/blocks.xml` (restart). Load line "config: medical restock off (MedsResupply false:
+      members never restock themselves)". Take Gina's heal items: nothing, ever; `sc meds`: "at home: not now -
+      MedsResupply is off". `sc run Gina food` with 0 heal items: no restock line, she leaves as she is. Set it back to true.
+
+**Save and reload keep the cooldown**
+
+- [ ] Restock Gina, note `sc meds Gina`'s "last restock ... ago, next at home in ... h" and its world time. Save and quit to
+      the main menu, load the world again: `sc meds Gina` shows the same last restock (not "never restocked"), and taking
+      her heal items gives the cooldown line, not a restock. `survivor_community.txt` in the save folder has `meds=<world
+      time>` in her `[member]` block and `medsrestocked=N` in `[community]`.
+- [ ] An older registry with no `meds=` loads cleanly: every member "never restocked".
+
+**The day's summary**
+
+- [ ] After a restock or two, `sc day`: the day's message reads "... used X food, Y water, Z medical, W ammo - 2 more
+      medical went into restocking your survivors' own med kits ..." (Z is the injury Meds alone). Then `sc meds`:
+      "restocks since the last rollover: 0". A day with no restock has no such line.
+
 ## Round tm2 (2026-11-15): out of reach only when 0-XNPCCore really can't swing
 
 The report (log `Player_tm1_1453`, 14:42-14:46): Gina (sledgehammer, 2 stars) fought `zombieSteveCrawler#3553` indoors

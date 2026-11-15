@@ -654,6 +654,28 @@
 			<property name="XnpcResupplyArrows" value="20" />
 			<property name="XnpcResupplyCooldown" value="60" />
 			<property name="XnpcResupplyPointsMult" value="1" />
+			<!-- Medical restock (round md1): members restock their own medical supplies from the stockpile. A member at
+			     home (a resident, a follower, one on the way to her post, a guard on watch; never a stand-in, a raider, an
+			     enclave person or a stranger) who carries fewer than MedsResupplyBelow heal items (first aid bandages plus
+			     first aid kits, inventory window and bag) is topped up to MedsResupplyMix for 1 Meds from the stockpile,
+			     instantly and mid-fight too, at most once every MedsResupplyCooldownHours in-game hours (kept in her record,
+			     so a reload does not reset it). Before a supply or mining run she is topped up the same way when she carries
+			     fewer than MedsResupplyRunBelow (0: never before a run); that ignores the cooldown and starts it. A top-up
+			     gives what she lacks of each item, never more. With MedsResupplyKeepForInjured, the Meds the next day's
+			     rollover needs for injured members are never taken. Her whole top-up must fit her window and bag, or she gets
+			     nothing and no Meds is taken; nothing is ever dropped on the ground. It waits while her inventory window or
+			     a trade with her is open. The run never waits for it: with no Meds she leaves as she is.
+			     MedsResupplyMix: item:count pairs (a count left out is 1). An item this game does not have, or one with a
+			     quality, is skipped with a warning in the log. At the default, 1 Meds is worth 240 packing points of
+			     medical items, about what you get by opening a Meds bundle yourself.
+			     MedsResupply=false: members never restock themselves; you manage their supplies by hand (Show me your
+			     inventory). "sc meds" shows all of it. -->
+			<property name="MedsResupply" value="true" />
+			<property name="MedsResupplyBelow" value="1" />
+			<property name="MedsResupplyRunBelow" value="2" />
+			<property name="MedsResupplyMix" value="medicalFirstAidKit:1,medicalFirstAidBandage:2,medicalBandage:2" />
+			<property name="MedsResupplyCooldownHours" value="24" />
+			<property name="MedsResupplyKeepForInjured" value="true" />
 			<!-- Overwhelmed: 0-XNPCCore's survivors swap the gun for their melee weapon when the enemy is within 3 m. With
 			     at least X enemies targeting them within OverwhelmedRadius metres they keep the gun instead (and go back
 			     to it from melee), backing off as they shoot, while it has ammo. X for a member =

@@ -957,6 +957,7 @@ scPackedInto,UI,Packing,,,,Packed {0} {1} into {2} bundle(s).
 scDepositedUnits,UI,Packing,,,,{0} bundle(s) added to the stockpile: {1}.
 scDailyWells,UI,Tooltip,,,,- the wells gave {0} water
 scDailyThirsty,UI,Tooltip,,,,"- NOT ENOUGH WATER, your survivors went thirsty"
+scDailyMedsRestock,UI,Tooltip,,,,- {0} more medical went into restocking your survivors' own med kits
 buffSCThirstyName,Buff,Buff,,,,Thirsty
 buffSCThirstyDesc,Buff,Buff,,,,The community is out of water. Slower and weaker until the stockpile has water again.
 scWinThirsty,UI,Menu,,,,Thirsty
