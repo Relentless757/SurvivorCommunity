@@ -36,5 +36,34 @@ namespace SurvivorCommunity
                 }
             }
         }
+
+        /// <summary>
+        /// Round r2: SC's rescue quest never locks a building, so closing it never unlocks one. Quest.CloseQuest unlocks the
+        /// quest's POIPosition whatever the quest (HandleUnlockPOI -> QuestEventManager.QuestUnlockPOI, which dereferences the
+        /// prefab at that spot unchecked): a mining run's rescue marks a natural spot with no prefab, so the close threw half-way
+        /// (the 2026-11-15 log), and at a real POI it would take the player off a vanilla quest's lock there. ScQuests.CloseRescue
+        /// drops the place before closing; this covers the calls SC does not make - the player removing the quest in the journal
+        /// (quest_scRescue has allow_remove), whose RemoveQuest threw the same way and left the quest in the journal, and
+        /// QuestEventManager.HandlePlayerDisconnect, which unlocks every quest in progress as the player leaves and would throw
+        /// on an open mining rescue, skipping the unlocks and treasure clean-up of every quest after it. Every other quest
+        /// unlocks as before.
+        /// </summary>
+        [HarmonyPatch(typeof(Quest), nameof(Quest.HandleUnlockPOI))]
+        public static class Patch_RescueNoUnlock
+        {
+            [HarmonyPrefix]
+            public static bool Prefix(Quest __instance)
+            {
+                try
+                {
+                    return !ScQuests.IsRescueQuest(__instance);
+                }
+                catch (Exception e)
+                {
+                    ScLog.Once("rescue-no-unlock", e);
+                    return true;
+                }
+            }
+        }
     }
 }

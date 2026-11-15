@@ -698,7 +698,11 @@ namespace SurvivorCommunity
             }
         }
 
-        private static void Rescued(World w, EntityPlayerLocal player, Member m)
+        /// <summary>
+        /// The rescue is over and counts (TickDistress: every spawned zombie down with the player there). Round r2: also a pinned
+        /// runner too hurt to go on who breaks for home while the player fights beside her (ScRunners.TurnHomeHurt).
+        /// </summary>
+        internal static void Rescued(World w, EntityPlayerLocal player, Member m)
         {
             m.RunSafe = true;
             m.EventSpawned = false;                  // the event is over (a live event keeps a physical runner in the world)

@@ -259,10 +259,13 @@ and where it is: toolbelt, bag, inventory or work kit), the natural spot and its
 what a whole run would bring, item by item. Refused: the reason key and its line, and the tool it found, if any.
 Example: "sc run Dana mine"
 
-sc run <id|name> recall|home|skip|offline [CHEAT]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+sc run <id|name> recall|home|skip|offline|hurt [share] [CHEAT]
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Drives a physical run (tests): "recall" turns them home; "home" forces them to the gate now (the run's dice may kill
-them); "skip" ends the current leg now; "offline" takes the body offline. Example: "sc run Dana skip"
+them); "skip" ends the current leg now; "offline" takes the body offline; "hurt [share]" (round r2) sets their body's
+health to that share of its max (0.01-1, default 0.3; their body must be in the world) - with nothing to heal with, at or
+below RunHomeBelowHealth on the way out or at the site, they give the job up and head home about 2 s later.
+Example: "sc run Dana skip", "sc run Dana hurt 0.25"
 
 sc runners [READ]
 ~~~~~~~~~~~~~~~~~

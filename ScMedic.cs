@@ -62,7 +62,7 @@ namespace SurvivorCommunity
         private static int bleedsStopped, xnpcBusyWaits, xnpcHealSpeedFixed, xnpcMedicHeld;
 #endif
 
-        private const float HealBelow = 0.6f;        // use something at or below this share of max health
+        internal const float HealBelow = 0.6f;       // use something at or below this share of max health (round r2: ScRunners reads it too)
         private const float Cooldown = 12f;          // seconds between two uses (counted from the start of one)
         private const float CheckEvery = 1f;         // how often a body looks at its health
         private const int KitWorthMissing = 90;      // below this much missing health a kit would be wasted
@@ -130,6 +130,20 @@ namespace SurvivorCommunity
             try { if (e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f) return true; }
             catch (Exception) { }
             return FirstCarried(e, HealItems) != null;
+        }
+
+        /// <summary>
+        /// Round r2: one of our bodies at or below this share of her max health with no way to heal herself (CanTreatSelf) - the
+        /// hurt-flee's test (UAIConsiderationScHurtNoMeds, at FleeBelowHealth) and a runner's give-up-and-go-home test
+        /// (ScRunners, at RunHomeBelowHealth), one rule for both. False for anything that is not one of ours: everything else
+        /// heals its own way. A pure read.
+        /// </summary>
+        public static bool HurtNoMeds(EntityAlive e, float below)
+        {
+            if (e == null || below <= 0f || !IsBody(e) || e.IsDead()) return false;
+            int max = e.GetMaxHealth();
+            if (max <= 0 || e.Health > max * below) return false;
+            return !CanTreatSelf(e);
         }
 
         /// <summary>The weapon a use in progress took out of this body's hand, and the item it holds instead (any thread).</summary>

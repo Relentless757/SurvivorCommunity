@@ -74,6 +74,9 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 ## Work, runs and mining
 
 - `sc run <id|name> <res|mine|clay>` · `sc run <id|name> <recall|home|skip|offline>` · `sc runners`
+- `sc run <id|name> hurt [share]` *(round r2, a test shortcut)* — a runner's health down to that share of her max
+  (default 0.3); with nothing to heal with she gives the job up and heads home about 2 s later. `sc runners` shows her
+  health, whether she has a way to heal, and a walk held or routed round a threat she would run from
 - `sc distress <id|name>` · `sc craft [table | station [radius] | <id|name> [spec <Specialty> | end]]`
 - `sc facility [list]` · `sc facility level <x y z> <1-5>` · `sc drinks [on|off]`
 

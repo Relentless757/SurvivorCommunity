@@ -37,6 +37,171 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round r2 (2026-11-15): a hurt runner with no way to heal comes home
+
+The report: "I was helping a member I sent out to mine ore who was in danger, and I noticed that they got caught in a
+loop of fleeing and travelling due to their low health. If their health is low and they have no way of healing, they
+should abandon their job and return to base." (Paul, the 2026-11-15 rescue at a Potassium Nitrate outcrop.)
+
+Why it happened: nothing in a run ever reacted to health. Below 35% with nothing to heal with, `ScFleeHurt` ran her
+from any zombie within 15 m; past 15 m it stopped scoring and `ScTravel` won again and walked her straight back to the
+waypoint she had - pinned by the distress call, the very spot the zombies were standing on - which started the flight
+again, for as long as they stood there. The run itself kept her on the job (pinned, "the fight decides"). Now:
+
+- **She gives the job up.** A runner on the way out or at the site (supply, mining or clay run) at or below
+  `RunHomeBelowHealth` (new in `Config/blocks.xml`, 0.35, the same as `FleeBelowHealth`) with **no First Aid Bandage or
+  First Aid Kit in her pack or bag** and no heal already working (cloth bandages only stop bleeding: they do not count)
+  turns home about 2 s later, as a recall turns her: nothing found on the way out, a share of the haul for the time she
+  worked at the site. One log line: "Paul is hurt (hp X/Y) with no way to heal - giving up the mining run and heading
+  home (...)". She never turns back to the site, even if she is healed on the way. She comes home **injured** unless her
+  body is in the world as she reaches the base and is above 60% then; one who reaches the base offline is always marked
+  injured.
+- **With something to heal with, she heals first** (as before) and stays on the job.
+- **Pinned by a distress call:** with you there fighting beside her - the rescue zombies are out **and you are within 70 m
+  (`RescueTriggerRange`) of the spot she radioed from**, where a rescue is judged - the rescue counts: the quest
+  completes, "Paul is safe and will be home with the haul.", and she breaks for home. Otherwise (nobody there yet, or you
+  farther than 70 m from that spot) the call ends unanswered and the quest fails.
+- **She says so:** within 30 m of you, on screen ("Paul is badly hurt with nothing to heal with - giving up the job and
+  heading home."); farther off, on the radio as a caption (no recording) when she carries a radio and so do you.
+- **Not while you have her inventory or a talk with her open** (you may be handing her a bandage): the 2 s count starts
+  after you close it.
+- **Going offline hurt** (out of range, a chunk unload, quitting): she turns home as she leaves the world, so the
+  registry walks her home, never more hours at the site.
+- **The flee/travel loop itself, for anyone who runs** (a hurt runner, or a Cowardly one at any health): her walk is now
+  held while a zombie she could run from - one that **can see her or is after her** (a zombie behind a wall or that has
+  not noticed her never counts) - is within 30 m and no way on keeps her 15 m clear of it: on the road one dead ahead or
+  on her goal; at the site one **within 15 m of her or of the spot she works** (farther off, she keeps working and picks
+  spots away from it). She stands off (shooting if she can) until it dies, leaves or is out of her way, and steps round
+  one that is off to the side. On the road a hold lasts **30 s in all**, fighting or not: then, out of your sight, she
+  goes offline and walks on in the registry; in your sight she stops waiting for that zombie and moves on (she still runs
+  from it or fights it). The stuck watchdog's hop out of your sight never lands her next to such a zombie: with no hop
+  clear of it, she goes offline instead. Runners who would not run are unaffected.
+- **The rescue quest at a mining spot now closes cleanly** (the same log's "quest-closerescue threw
+  NullReferenceException"): the close unlocked a POI that a natural spot does not have and stopped half-way. The quest
+  had already been marked completed, so on the save the user had then it reads as a normal completed "Help Paul"; only
+  its marker stayed on the map until the game was quit. Removing a rescue quest from the journal yourself works too now.
+
+New console (see COMMANDS.md): **`sc run <name> hurt [share]`** - a test shortcut: her body's health to that share of
+her max (default 0.3), and what follows. **`sc runners`** now also shows, for a runner in the world: her hp, "has a way to
+heal" or "NOTHING TO HEAL WITH", "would flee", "too hurt for the job for N s", "GAVE THE JOB UP HURT", and "WALK HELD by
+<zombie> at N m" / "going round <zombie>". **`sc radio talk <name> hurt`** says the new radio caption on demand.
+
+Setup: a member (Paul below) with a mining tool (the work kit's stone axe will do) and a gun; turn on `dm` to see the
+AI overlay's Active Action. **No way to heal** = open her inventory panel at home ("Show me your inventory") and take
+every First Aid Bandage and First Aid Kit out of **both** her pack and her bag (leave cloth bandages). `sc runners`
+should then say "NOTHING TO HEAL WITH" while she is near you.
+
+**Giving up on the way out**
+
+- [ ] `sc run Paul mine`, walk with her. 40-60 m out: `sc run Paul hurt 0.3`. About 2 s later: the F1 line "Paul is hurt
+      (hp N/M) with no way to heal - giving up the mining run and heading home (was Outbound)" **once**, then "Paul
+      turned back before reaching ...", the on-screen line, and she turns round toward the base. `sc runners`: Inbound,
+      "GAVE THE JOB UP HURT". The community window says "Hurt, nothing to heal with - on the way home ...".
+- [ ] She walks in: "Paul turned back before reaching ... and is home empty-handed.", and `sc members` shows her
+      INJURED (`sc injure Paul` heals the flag).
+
+**Giving up at the site, and the haul**
+
+- [ ] Send her again (no meds), let her reach the spot ("Paul reached ..."). After a while at the spot, `sc run Paul hurt
+      0.3`: the decision line says "(was AtSite)", then "Paul leaves <spot> with N item(s) [...]" - N is a share of a
+      whole run (`sc run Paul mine` printed the whole run's haul), as a recall would bring. She heads home and never
+      walks back to the spot.
+- [ ] At the edge of the base: "Paul came back injured from <spot> with ...", the items go into the home crates.
+
+**Healing first, and the line**
+
+- [ ] Put one First Aid Bandage in her pack before sending her. `sc run Paul hurt 0.3`: she bandages (F1 "medic: <id>
+      starts using medicalFirstAidBandage"), **no** "giving up" line, and she carries on with the job.
+- [ ] Once that bandage is used up **and its heal has finished working** (`sc runners` no longer says "has a way to
+      heal"), `sc run Paul hurt 0.3` again: now she gives up (nothing left).
+- [ ] With only cloth bandages on her, she gives up (they do not heal).
+- [ ] `sc run Paul hurt 0.5` with nothing to heal with: she stays on the job (the console says "above
+      RunHomeBelowHealth").
+
+**Handing her something in time, and no turning back**
+
+- [ ] Hurt her to 0.3 with nothing on her and at once talk to her and open her inventory: while it is open she does not
+      give up, and `sc runners` shows no "too hurt for the job" count. Put a First Aid Bandage in her pack and close: she
+      bandages and stays on the job.
+- [ ] The same, but close without giving her anything: about 2 s later she gives up.
+- [ ] Once she has turned home, give her a First Aid Kit (or let her bandage): she keeps going home. `sc run Paul
+      recall` answers "refused: They are already on the way home." Save and reload on the way: still heading home, still
+      "GAVE THE JOB UP HURT".
+- [ ] Healed above 60% before she reaches the base, **with you near enough that her body is in the world as she reaches
+      it**: she is **not** marked injured. (Reaching the base offline, she is always marked injured.)
+
+**The reported case: pinned by a distress call, you there**
+
+- [ ] Give her a handheld radio (`sc radio give Paul`), carry one yourself, nothing to heal with. Send her on a mining
+      run, get her to the spot (`sc run Paul skip` while she is out of sight), then `sc distress Paul`. Go there: the
+      rescue zombies come. **Stay within 70 m of the spot she radioed from.** Let them hurt her (or `sc run Paul hurt
+      0.3`). About 2 s after she is under 35%: "Paul is hurt ... (was AtSite, pinned by a distress call) - you are there
+      fighting beside them, so the rescue counts", "Paul rescued at ...", "Quest completed: Help Paul" (its marker leaves
+      the map and compass), and she runs for home.
+- [ ] The same, but with the zombies out walk more than 70 m from that spot first (she may have fled after you): "...
+      - their distress call ends unanswered", "Quest failed: Help Paul", and she heads home.
+- [ ] **No loop:** she runs from zombies within 15 m but does not walk back to the spot; the overlay does not flip
+      between ScFleeHurt and ScTravel over and over. A zombie between her and home: she stands off ("WALK HELD by" in
+      `sc runners`) or steps round it ("going round"); one behind her: she keeps running home.
+- [ ] No "quest-closerescue threw" in the F1 log.
+
+**Distress call nobody answered**
+
+- [ ] `sc distress Paul` at the spot, and stay away (in view distance, but more than 70 m from her, so no zombies
+      come). `sc run Paul hurt 0.3`: "... - their distress call ends unanswered", "Quest failed: Help Paul", the quest
+      leaves the journal with no error, and she heads home.
+
+**Going offline hurt**
+
+- [ ] Walking with her on the way out, `sc run Paul hurt 0.3` and **at once** (within a second) `sc run Paul offline`:
+      the decision line says "turned as they left the world", then "Paul went offline ... Inbound". `sc runners`:
+      Inbound, offline - she is never at the site again.
+
+**The radio**
+
+- [ ] Her radio and yours, hurt her while she is more than 30 m from you: the caption "Paul on the radio: "I'm hurt bad
+      and I've got nothing left to patch myself up with. I'm coming home."" (F1: "Paul on the radio (HurtHome):
+      scRadioRunHurtHome_1 - no recording, the caption alone"). No "Done here. Heading back home." after it; "Almost home"
+      at the base is still said.
+- [ ] Within 30 m of you: the on-screen line instead, with or without a radio. No radio on her and far off: nothing is
+      said (the log line only).
+
+**Cowards (the loop without the low health)**
+
+- [ ] A Cowardly member (`sc members` shows "timid") at full health on a mining run, with zombies at the spot (bare
+      `se` lists the zombie numbers, `se 0 <number> 2` spawns two around you): she runs from them, then stands off and
+      does **not** walk back in while one that sees her or is after her stands within 15 m of the spot she works
+      ("WALK HELD by" in `sc runners`). Once they are dead or gone she goes back to work.
+- [ ] At the site, a zombie 20-30 m from her and from the spot she works: she is not held - she keeps working and walks
+      to spots away from it (no "WALK HELD").
+- [ ] On the way, a zombie off to one side ahead: she steps round it rather than running at it ("going round").
+- [ ] A runner who is neither hurt nor Cowardly fights and walks exactly as before.
+
+**What holds her, and for how long (review fixes 2 and 3)**
+
+- [ ] Only what can see her or is after her: a zombie ahead of her on the road behind a wall or a fence it cannot see
+      through, or one facing away that has not noticed her, does not hold her (no "WALK HELD" or "going round" for it);
+      she walks on. Once it sees her or comes after her, it holds her or she goes round it.
+- [ ] **30 s, in your sight:** a Cowardly runner on the way home with a zombie dead ahead that cannot reach her (stuck
+      behind a fence with a gap it can see her through, say) and you watching her: after 30 s held in all - her shots at
+      it do not stop the clock - the F1 log has once "Paul: held 30 s in all by <zombie> in your sight - stops waiting for
+      it and moves on (still runs from it or fights it)", and she walks on toward home. If it comes within 15 m and sees
+      her she still runs from it.
+- [ ] **30 s, out of your sight:** the same with you more than 40 m away looking elsewhere: once "Paul: held 30 s in all
+      by <zombie> with no way round, out of your sight - the walk goes on offline", then "Paul went offline (held by a
+      threat)", and `sc runners` shows her offline on the way home.
+- [ ] **The stuck hop:** a runner stuck on the way out of your sight with a zombie she would run from on her way: she is
+      never hopped next to it. If no hop keeps clear of it the F1 log has once "Paul: stuck N s with <zombie> in the way
+      and no hop clear of it - the walk goes on offline" and she goes offline.
+
+**The rescue quest at a mining spot (closing it)**
+
+- [ ] A rescue at a mining spot that you win the normal way (every zombie down): "Quest completed", the marker gone, no
+      error in the F1 log.
+- [ ] A rescue quest you remove yourself in the journal (select "Help <name>", Remove): it leaves the journal, no error.
+- [ ] The 2026-11-15 save: "Help Paul" is in the journal as a completed quest - expected (completed rescues stay
+      there); no marker on the map.
+
 ## Round s1b (2026-11-15): linked storage fits the screen with AshfallUI
 
 The user's report on round s1: "with Ashfall UI, the window is a bit too wide so the storage/inventory get cut off a

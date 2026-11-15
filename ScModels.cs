@@ -238,6 +238,12 @@ namespace SurvivorCommunity
         /// <summary>The run's dice are still to be rolled (only ever while offline).</summary>
         public bool RollPending;
         /// <summary>
+        /// Round r2 (ScRunners.TurnHomeHurt), while OnRun: she gave the job up badly hurt with no way to heal and is on her way
+        /// home. The run never turns back to the site, and she comes home injured unless she was patched up on the way. Saved
+        /// as runhurt=1 while OnRun and set (a key older builds ignore); cleared when the run ends.
+        /// </summary>
+        public bool RunHurt;
+        /// <summary>
         /// Base defence D3 (ScWatch): the Watch post block this resident keeps watch on (Vector3i.zero = not on watch).
         /// While on watch, Post is the cell above it; WatchHome is the post to go back to. WatchStart: world time the
         /// shift began (it lasts WatchShiftHours). WatchPrepaid: packing points left of the ammo the shift paid for at its

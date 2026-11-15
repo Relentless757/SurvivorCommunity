@@ -629,15 +629,18 @@ scWinRunOut,UI,Menu,,,,"Walking to {1} for {0} - {2} m out, back around day {3}"
 scWinRunSite,UI,Menu,,,,"Searching {1} for {0} - {2} m out, back around day {3}"
 scWinRunPinned,UI,Menu,,,,Pinned down at {1} ({2} m out) - they radioed for help
 scWinRunHome,UI,Menu,,,,On the way home from {1} with {0} - {2} m out
+scWinRunHomeHurt,UI,Menu,,,,"Hurt, nothing to heal with - on the way home from {1} with {0}, {2} m out"
 scWinRunBack,UI,Menu,,,,Back at the edge of the base with {0} - walking in
 scStRunOut,UI,Menu,,,,Run: heading to {0}
 scStRunSite,UI,Menu,,,,Run: searching {0}
 scStRunPinned,UI,Menu,,,,Run: PINNED at {0}
 scStRunHome,UI,Menu,,,,Run: on the way home
+scStRunHomeHurt,UI,Menu,,,,Run: coming home hurt
 scStRunBack,UI,Menu,,,,Run: at the gate
 scRunRecalled,UI,Tooltip,,,,{0} turns for home.
 scRunPinned,UI,Tooltip,,,,"They are pinned down - go and help them, or wait it out."
 scRunHeadingHome,UI,Tooltip,,,,They are already on the way home.
+scRunHurtHome,UI,Tooltip,,,,"{0} is badly hurt with nothing to heal with - giving up the job and heading home."
 scRunNotOut,UI,Tooltip,,,,They are not out on a run.
 scDailyRunLate,UI,Tooltip,,,,- {0} finally made it back to the gate
 scRunHeadHome,UI,Menu,,,,Head home now.
@@ -1627,6 +1630,7 @@ scRadioRunHome_1Said,UI,Tooltip,,,,Done here. Heading back home.
 scRadioRunHome_2Said,UI,Tooltip,,,,Starting back now. Save me some dinner.
 scRadioRunNear_1Said,UI,Tooltip,,,,"Almost home. Don't shoot, it's me."
 scRadioRecallAck_1Said,UI,Tooltip,,,,Copy that. Cutting it short and heading home.
+scRadioRunHurtHome_1Said,UI,Tooltip,,,,I'm hurt bad and I've got nothing left to patch myself up with. I'm coming home.
 scRadioRunMineArrived_1Said,UI,Tooltip,,,,Found good rock out here. Starting to dig.
 scRadioRunClayArrived_1Said,UI,Tooltip,,,,Found a decent clay bank. Getting to work.
 scRadioRunDigEmpty_1Said,UI,Tooltip,,,,"Hard ground, slow going. Not much to carry back."

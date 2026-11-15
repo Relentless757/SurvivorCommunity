@@ -1419,6 +1419,7 @@ These are the ones you are most likely to change. The file has many more.
 | `MaxRunners` | 3 | Most runners out at once |
 | `RunMinDist` / `RunMaxDist` | 150 / 700 | How far runners go (meters) |
 | `RunSiteHours` | 6 | Game hours spent searching the site |
+| `RunHomeBelowHealth` | 0.35 | A runner this hurt (share of her max health) with nothing to heal with gives the job up and comes home (0: never) |
 | `RunYieldBase` / `RunRiskBase` | 2 / 0.15 | Base haul in units, and base risk |
 | `RadioOnlyAirdrops` | true | Air drops only come when the radio requests them (false: vanilla's scheduled drops) |
 | `RadioCallDays` | 2 | Days between calls for survivors |

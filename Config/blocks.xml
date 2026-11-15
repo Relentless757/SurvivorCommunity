@@ -327,6 +327,18 @@
 			<property name="RunRiskPerCombatStar" value="0.02" />
 			<property name="RunDeathShare" value="0.25" />
 			<property name="RunWitsXp" value="8" />
+			<!-- RunHomeBelowHealth (round r2): a runner on the way out or at the site (a supply, mining or clay run) whose health
+			     drops to this share of her max, and who has no way to heal - no first aid bandage or first aid kit in her pack or
+			     her bag, and no heal already working on her (cloth bandages only stop bleeding, so they do not count) - gives the
+			     job up and heads home, as if you had recalled her: she brings what she found so far, she says so (in person, or
+			     on the radio when she carries one and you carry one too), and she never turns back. On the way home she still
+			     runs from what she meets, and goes round it rather than back toward the site. Pinned down by a distress call:
+			     with you there fighting beside her (within RescueTriggerRange of where she called from) the rescue counts and she
+			     breaks for home; otherwise the call ends and the rescue quest fails. A runner who carries a heal bandages first
+			     and stays. She comes home injured unless she was patched up on the way (and is in the world as she gets home).
+			     0.35 matches FleeBelowHealth on purpose: below it she no longer fights, so a lower value leaves her running from
+			     the site and walking back into it. 0 turns it off. -->
+			<property name="RunHomeBelowHealth" value="0.35" />
 			<!-- mining runs (round 33c, 3.4): "Mine" and "Dig clay" beside the resources in the talk's run list, the community
 			     window and `sc run <member> mine|clay` (MiningRuns false: not offered). They need a mining tool (an item tagged
 			     MiningToolTags: the pickaxes, the work kit's stone axe, the auger) or a digging tool (DigToolTags: the shovels) in

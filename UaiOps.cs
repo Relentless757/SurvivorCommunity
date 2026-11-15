@@ -440,11 +440,7 @@ namespace UAI
     {
         public override float GetScore(Context _context, object target)
         {
-            EntityAlive self = _context.Self;
-            if (self == null || !ScXnpc.IsBody(self) || ScConfig.FleeBelowHealth <= 0f) return 0f;
-            int max = self.GetMaxHealth();
-            if (max <= 0 || self.Health > max * ScConfig.FleeBelowHealth) return 0f;
-            return ScMedic.CanTreatSelf(self) ? 0f : 1f;
+            return ScMedic.HurtNoMeds(_context.Self, ScConfig.FleeBelowHealth) ? 1f : 0f;   // round r2: the rule moved to ScMedic, unchanged
         }
     }
 
@@ -1129,6 +1125,35 @@ namespace UAI
             return ScRunners.IsPhysical(m) && !m.Offline ? 1f : 0f;
         }
     }
+
+    /// <summary>
+    /// Round r2: ScTravel's gate against the flee/travel loop (the user's 2026-11-15 report: a hurt runner "caught in a loop of
+    /// fleeing and travelling"). 0 while her walk is held (ScRunners.RouteHeld): she would run (a coward, or badly hurt with
+    /// nothing to heal with), a threat is within 30 m, and no way on keeps her out of the 15 m her flight starts at - at the site
+    /// any threat that close, on the way one dead ahead or standing on her goal. Else 1, for everyone else as well.
+    /// ScFlee / ScFleeHurt run her from anything within 15 m and stop scoring at 15 m; ScTravel (4.5) then won at once and walked
+    /// her straight back to the waypoint she had - at the site, in among the zombies - which started the flight again, for as
+    /// long as they stood there. Held, she stands off (her shot, cover and HoldEngaged run instead) until the threat dies, leaves
+    /// or is no longer in her way; TravelSC steps round one that is not dead ahead. A pure read apart from RouteHeld's memo.
+    /// </summary>
+    public class UAIConsiderationScRouteClear : UAIConsiderationBase
+    {
+        public override float GetScore(Context _context, object target)
+        {
+            try
+            {
+                EntityAlive self = _context.Self;
+                if (self == null) return 1f;
+                Member m = ScRegistry.GetMember(self.entityId);
+                return m != null && ScRunners.RouteHeld(self, m) ? 0f : 1f;   // RouteHeld logs and answers "not held" on its own throw
+            }
+            catch (System.Exception e)
+            {
+                ScLog.Once("uai-route-clear", e);
+                return 1f;
+            }
+        }
+    }
 #if SC_V34
 
     /// <summary>
@@ -1310,7 +1335,9 @@ namespace UAI
             Member m = ScRegistry.GetMember(self.entityId);
             if (!ScRunners.IsPhysical(m) || m.Offline) { Stop(_context); return; }
             if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = false;
-            PathTo(self, m, !ScRunners.S(self.entityId).HasWaypoint);
+            // round r2: a fresh step from where she stands. The walk starts again after whatever took her off it - a fight, or a
+            // flight that left her far from (or on the wrong side of) the waypoint she had, which she used to run straight back to
+            PathTo(self, m, true);
         }
 
         private void PathTo(EntityAlive self, Member m, bool newWaypoint)
@@ -1320,9 +1347,18 @@ namespace UAI
             if (newWaypoint || !s.HasWaypoint)
             {
                 Vector3 goal = ScRunners.LegGoal(m);
-                if (m.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(m)) goal = ScRunners.SiteWanderGoal(w, self, m);
+                bool wander = m.RunLeg == RunLeg.AtSite && !ScRunners.Pinned(m);
+                if (wander) goal = ScRunners.SiteWanderGoal(w, self, m);
                 Vector3 wp;
-                if (!ScRunners.NextWaypoint(w, self.position, s.Sidestep, goal, out wp)) { s.HasWaypoint = false; return; }   // the watchdog sidesteps, skips or hands off
+                bool blocked;
+                // round r2: with something near she would run from, a step that keeps clear of it, or none (ScRouteClear holds the
+                // walk while it is close); with no standable step at all the watchdog sidesteps, skips or hands off
+                if (!ScRunners.PlanStep(w, self, m, goal, wander, out wp, out blocked))
+                {
+                    s.HasWaypoint = false;
+                    if (blocked && self.getNavigator() != null) self.getNavigator().clearPath();
+                    return;
+                }
                 s.Waypoint = wp;
                 s.HasWaypoint = true;
                 s.WaypointSince = Time.unscaledTime;
@@ -1364,6 +1400,8 @@ namespace UAI
             float pu;
             if (pauseUntil.TryGetValue(self.entityId, out pu) && Time.time < pu) return;      // looking around at the site
             if (!s.HasWaypoint) { PathTo(self, m, true); return; }
+            // round r2: something she would run from has moved onto the walk to her waypoint - a new step, round it
+            if (ScRunners.ThreatOnWay(self, m)) { repaths[self.entityId] = 0; PathTo(self, m, true); return; }
 
             Vector3 d = s.Waypoint - self.position;
             d.y = 0f;

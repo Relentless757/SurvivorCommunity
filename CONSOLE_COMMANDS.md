@@ -204,13 +204,16 @@ and where it is: toolbelt, bag, inventory or work kit), the natural spot and its
 a whole run would bring, item by item. Refused: the reason key and its line, and the tool it found, if any.
 Example: `sc run Dana mine`
 
-### `sc run <id|name> recall|home|skip|offline` [CHEAT]
-Drives a **physical** run (tests): `recall` turns them home; `home` forces them to the gate now (the run's dice may kill them); `skip` ends the current leg now; `offline` takes the body offline.
-Example: `sc run Dana skip`
+### `sc run <id|name> recall|home|skip|offline|hurt [share]` [CHEAT]
+Drives a **physical** run (tests): `recall` turns them home; `home` forces them to the gate now (the run's dice may kill them); `skip` ends the current leg now; `offline` takes the body offline; `hurt [share]` (round r2) sets their body's health to that share of its max (0.01-1, default 0.3; their body must be in the world) and says what follows - with nothing to heal with, at or below `RunHomeBelowHealth` on the way out or at the site, they give the job up and head home about 2 s later.
+Example: `sc run Dana skip`, `sc run Dana hurt 0.25`
 
 ### `sc runners` [READ]
 Lists who is out, their leg and distance, and the physical-run settings. A mining runner's line adds the job, the tool and
-its tier factor, the spot's biome and sub-biome, and the haul they carry. Then: every haul still waiting to be put away
+its tier factor, the spot's biome and sub-biome, and the haul they carry. Round r2: a runner in the world also shows her
+health, whether she has a way to heal ("NOTHING TO HEAL WITH"), the share she gives the job up at, "would flee" (a coward,
+or badly hurt with nothing to heal with), how long she has been too hurt for the job, a run she gave up hurt ("GAVE THE JOB
+UP HURT"), and a walk held by ("WALK HELD by") or routed round ("going round") a threat she would run from. Then: every haul still waiting to be put away
 (whose, and what), and the mining runs' counters (sent, refused for no tool, hauls to the crates and to inventories).
 
 ### `sc distress <id|name>` [CHEAT]

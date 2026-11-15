@@ -148,6 +148,7 @@ namespace SurvivorCommunity
                 m.RunSite = Vector3i.zero;
                 m.RunCarry = 0;
                 m.RollPending = false;
+                m.RunHurt = false;                                         // round r2: a fresh run is not one given up hurt
                 m.RunDistress = false;
                 m.RunSafe = false;
                 m.EventSpawned = false;
@@ -457,7 +458,7 @@ namespace SurvivorCommunity
             {
                 case RunLeg.Outbound: return string.Format(Localization.Get("scWinRunOut"), res, m.RunDestName, far, m.RunEndDay);
                 case RunLeg.AtSite: return string.Format(Localization.Get(ScRunners.Pinned(m) ? "scWinRunPinned" : site), res, m.RunDestName, far, m.RunEndDay);
-                case RunLeg.Inbound: return string.Format(Localization.Get("scWinRunHome"), res, m.RunDestName, far, m.RunEndDay);
+                case RunLeg.Inbound: return string.Format(Localization.Get(m.RunHurt ? "scWinRunHomeHurt" : "scWinRunHome"), res, m.RunDestName, far, m.RunEndDay);   // round r2
                 default: return string.Format(Localization.Get("scWinRunBack"), res, m.RunDestName, far, m.RunEndDay);
             }
         }
@@ -476,7 +477,7 @@ namespace SurvivorCommunity
                     if (!ScRunners.Pinned(m) && ScMining.IsDig(m)) key = m.RunJob == RunJob.Clay ? "scStClaySite" : "scStMineSite";   // round 33c
 #endif
                     break;
-                case RunLeg.Inbound: key = "scStRunHome"; break;
+                case RunLeg.Inbound: key = m.RunHurt ? "scStRunHomeHurt" : "scStRunHome"; break;   // round r2
                 default: key = "scStRunBack"; break;
             }
             return string.Format(Localization.Get(key), m.RunDestName, m.RunEndDay);

@@ -99,13 +99,20 @@
 			</action>
 			<!-- A physical supply runner (ScRunners) holds the Task order (8), which nothing else in SCore or XNPCCore
 			     uses: every resident action above stands down, the pack's combat still fires (it only gates on NotHasOrder
-			     Stay), and this walks them along their route one waypoint at a time. 4.5 beats the chase (4) and idling,
-			     and loses to in-range attacks (5-6), so a runner fights what reaches them and then walks on. -->
+			     Stay), and this walks them along their route one waypoint at a time. 4.5 beats idling and HoldEngaged (4) and
+			     loses to in-range attacks (5-6), so a runner fights what reaches them and then walks on. 0-XNPCCore 3.4's
+			     chase (MeleeApproach) and back-off (BackupRanged) weigh 5, over this walk: ScNotTravelling (the 3.4 note
+			     further down) takes both off a runner in the world, on every leg, so a runner never chases. -->
+			<!-- Round r2: ScRouteClear is 0 while she would run (a coward, or badly hurt with nothing to heal with) from a threat
+			     that can see her or is after her, within 30 m, and that leaves her no way on outside the 15 m her flight starts
+			     at (at the site: one within 15 m of her or of the spot she works). Without it the flee (15 m) and this walk took
+			     turns for as long as zombies stood at the site: past 15 m the walk won and took her straight back in. -->
 			<action name="ScTravel" weight="4.5" entity_filter="IsSelf">
 				<task class="TravelSC, SurvivorCommunity" />
 				<consideration class="ScIsMember, SurvivorCommunity" />
 				<consideration class="HasOrder, SCore" order="Task" />
 				<consideration class="ScTravelling, SurvivorCommunity" />
+				<consideration class="ScRouteClear, SurvivorCommunity" />
 			</action>
 			<!-- Following belongs to 0-XNPCCore: its DynamicFollow (NPCModNPCHired, weight 2) with Voice Control's
 			     formations, follow distances and stances replaces the community's own follow (decision D6), and the
@@ -173,7 +180,9 @@
 			     leaving; it also clears the medic (7, so she saves herself before treating anyone else) and SC's own
 			     ScReturn leash (5.5), which would otherwise drag her back into the fight mid-flight. It stays under
 			     LeaveAreaSdcs (9), 0-XNPCCore's own Flee (9), JumpDownOrder (10) and SdcsAnimBusy (12).
-			     ScNotOnWatch is kept deliberately: a guard holds her post, as every other SC action on watch does. -->
+			     ScNotOnWatch is kept deliberately: a guard holds her post, as every other SC action on watch does.
+			     Round r2: ScRunners.FleeRadius (15) and FleeClear (30) mirror this action's and ScFlee's TargetDistance max and
+			     max_distance - change them together. -->
 			<action name="ScFleeHurt" weight="8.5" entity_filter="IsEnemy">
 				<task class="FleeFromTarget" max_distance="30" />
 				<consideration class="ScIsMember, SurvivorCommunity" />

@@ -134,6 +134,17 @@ namespace SurvivorCommunity
         /// </summary>
         public static float FleeBelowHealth = 0.35f;
         /// <summary>
+        /// Round r2 (the user, 2026-11-15: "If their health is low and they have no way of healing, they should abandon their
+        /// job and return to base"): a physical runner on the way out or at the site whose health is at or below this share
+        /// of her max and who has no way to heal (ScMedic.CanTreatSelf: no first aid bandage or kit in her pack or bag, no use
+        /// or heal already working) gives the job up and heads home - the run turns Inbound as a recall does, and never turns
+        /// back (ScRunners.TurnHomeHurt). 0.35 is FleeBelowHealth on purpose: that is where ScFleeHurt stops her fighting, so
+        /// a runner who can neither fight nor heal can no longer do the job. A lower value leaves a band where she runs from
+        /// what is at the site but stays on the job; a higher one sends home runners who still fight. It sits below ScMedic's
+        /// HealBelow (0.6), so a runner who has something bandages first and stays. 0 turns it off.
+        /// </summary>
+        public static float RunHomeBelowHealth = 0.35f;
+        /// <summary>
         /// A member the player escorted into the home zone WALKS to her post instead of being moved there. Without it she
         /// is teleported the moment the player steps inside the zone, which reads as her vanishing from beside them - and
         /// an enlarged land claim makes that the normal case, because the zone's edge is easily more than 40 m from the
@@ -1225,6 +1236,7 @@ namespace SurvivorCommunity
             FacilityBlocks.Clear();
             PostRadius = 8;
             FleeBelowHealth = 0.35f;
+            RunHomeBelowHealth = 0.35f;
             StationWalkIn = true;
             StationWalkInMetres = 30f;
             ResidentRoamZone = true;
@@ -1677,6 +1689,7 @@ namespace SurvivorCommunity
                 ParseInt(p, "OutpostCisternFloor", ref OutpostCisternFloor, -100, 0);
                 ParseInt(p, "PostRadius", ref PostRadius, 2, 40);
                 ParseFloat(p, "FleeBelowHealth", ref FleeBelowHealth, 0f, 0.9f);
+                ParseFloat(p, "RunHomeBelowHealth", ref RunHomeBelowHealth, 0f, 0.9f);   // round r2
                 p.ParseBool("StationWalkIn", ref StationWalkIn);
                 ParseFloat(p, "StationWalkInMetres", ref StationWalkInMetres, 2f, 200f);
                 bool roamZone = ResidentRoamZone;

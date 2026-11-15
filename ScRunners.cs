@@ -29,6 +29,19 @@ namespace SurvivorCommunity
         /// <summary>EntityNPC hides its model beyond 90 m: a runner is only captured out of sight (unless forced).</summary>
         private const float NoDrawRange = 90f;
         private const int MaxCreateFailures = 5;
+        /// <summary>Round r2: badly hurt with no way to heal for this long (real seconds) before she gives the job up - not on one reading.</summary>
+        private const float HurtConfirmSeconds = 2f;
+        /// <summary>
+        /// Round r2: how close an enemy has to be for SC's flee actions to run from it - ScFlee's and ScFleeHurt's TargetDistance
+        /// max in Config/utilityai.xml (keep the two in step).
+        /// </summary>
+        public const float FleeRadius = 15f;
+        /// <summary>Round r2: how far those flights take her (their FleeFromTarget max_distance): a threat farther off is not routed round.</summary>
+        public const float FleeClear = 30f;
+        /// <summary>Round r2: the route's memo lives this long (Time.time seconds): UAI asks several times a second.</summary>
+        private const float RouteCacheSeconds = 0.5f;
+        /// <summary>Round r2 review (fix 2b): a walk held this long in all (real seconds) on the way out, home or in is ended (HoldClock).</summary>
+        private const float HoldMaxSeconds = 30f;
 
         /// <summary>Set around our own re-create: the PostInit guard lets exactly this id through.</summary>
         public static int RecreatingId = -1;
@@ -76,6 +89,25 @@ namespace SurvivorCommunity
             /// <summary>R2: when the online body is next looked at for a handheld radio (ScHandheld.NoteCarried).</summary>
             public float NextRadioCheck;
 #endif
+            /// <summary>Round r2: since when (real time) she has been badly hurt with no way to heal on the job (-1: not), for HurtConfirmSeconds.</summary>
+            public float HurtSince = -1f;
+            /// <summary>
+            /// Round r2, the route's memo (RouteHeld): good until RouteUntil (Time.time) - the threat she would run from (-1: none),
+            /// where it stood, and whether the walk is held because nothing keeps her clear of it.
+            /// </summary>
+            public float RouteUntil = -1f;
+            public int RouteThreat = -1;
+            public Vector3 RouteThreatPos;
+            public bool RouteHeldNow;
+            /// <summary>Round r2: TravelSC's last re-plan round a threat that moved onto her way (Time.time), at most every RouteCacheSeconds.</summary>
+            public float RouteReplanAt = -1f;
+            /// <summary>
+            /// Round r2 review (fix 2b): the hold's own clock (HoldClock) - real seconds held in all on this leg (HeldLeg), and the
+            /// one threat she no longer waits for after HoldMaxSeconds in your sight (-1: none). Flight and fighting still apply to it.
+            /// </summary>
+            public float HeldTotal;
+            public RunLeg HeldLeg = RunLeg.None;
+            public int HeldReleased = -1;
         }
 
         public static Session S(int id)
@@ -541,6 +573,7 @@ namespace SurvivorCommunity
                 if (ScHandheld.NoteCarried(m, npc, "seen on the run")) ScRegistry.SaveAtomic();
             }
 #endif
+            HurtCheck(w, player, m, npc, s, now, t);                                            // round r2: too hurt to go on, nothing to heal with
 
             switch (m.RunLeg)
             {
@@ -619,6 +652,8 @@ namespace SurvivorCommunity
                 if (s.WaypointSince > 0f) s.WaypointSince += gap;
                 return;
             }
+            // round r2 review (fix 2b): a new leg starts the hold's clock afresh, and waits for every threat again
+            if (s.HeldLeg != m.RunLeg) { s.HeldLeg = m.RunLeg; s.HeldTotal = 0f; s.HeldReleased = -1; }
             if (m.RunLeg == RunLeg.AtSite)
             {
                 // looking around the site: a wander spot not reached in 40 s is dropped for another
@@ -630,6 +665,8 @@ namespace SurvivorCommunity
                 }
                 return;
             }
+            // round r2 review (fix 2b): the route hold's own clock, before "fighting is not being stuck" below resets the rest
+            if (HoldClock(w, player, m, npc, s, gap)) return;
             Vector3 goal = LegGoal(m);
             if (s.ProgressSince <= 0f || XZ(npc.position, goal) < XZ(s.ProgressPos, goal) - 2f)
             {
@@ -658,7 +695,11 @@ namespace SurvivorCommunity
             bool desperate = still >= ScConfig.RunStuckSkipSeconds * 4f;                         // a minute against a wall, watched or not
             if (!unseen && !desperate) return;
             Vector3 wp;
-            if (NextWaypoint(w, npc.position, s.Sidestep, goal, out wp) && XZ(wp, npc.position) > 4f && (still < ScConfig.RunStuckSkipSeconds * 2f || desperate))
+            // round r2 review (fix 2a): with a threat she would run from on the memo, only a hop that keeps clear of it (never one
+            // toward it); with none, the virtual walk carries on instead
+            bool threat = RouteMemoFresh(s);
+            bool step = threat ? ClearWaypointSafe(w, npc.position, s.Sidestep, goal, s.RouteThreatPos, out wp) : NextWaypoint(w, npc.position, s.Sidestep, goal, out wp);
+            if (step && XZ(wp, npc.position) > 4f && (still < ScConfig.RunStuckSkipSeconds * 2f || desperate))
             {
                 npc.SetPosition(wp, true);                                                      // hop past the obstacle out of sight
                 ScLog.Verbose(m.Name + ": stuck " + still.ToString("0") + " s - skipped ahead to " + World.worldToBlockPos(wp));
@@ -666,6 +707,11 @@ namespace SurvivorCommunity
                 s.ProgressSince = t;
                 s.Sidestep = 0;
                 s.HasWaypoint = false;
+            }
+            else if (threat && !step)
+            {
+                ScLog.Out(m.Name + ": stuck " + still.ToString("0") + " s with " + ThreatName(w, s.RouteThreat) + " in the way and no hop clear of it - the walk goes on offline");
+                GoOffline(w, m, npc, "stuck behind a threat", false);                         // the virtual walk carries on
             }
             else if (still >= ScConfig.RunStuckSkipSeconds * 2f && (unseen || desperate))
             {
@@ -725,6 +771,14 @@ namespace SurvivorCommunity
 #if SC_V34
             ScRadioTalk.Say(m, RadioTalk.Near, player, false);                                  // R2: "Almost home."
 #endif
+            // round r2: she gave the job up hurt - she comes home injured (the community's flag: treated with meds at the rollover),
+            // unless she was patched up on the way (her body here, above the line ScMedic bandages at); with her body not here to
+            // read (offline), injured
+            if (m.RunHurt && !m.Injured)
+            {
+                EntityAlive body = m.Offline ? null : ScCommunity.FindNpc(m.Id);
+                if (body == null || body.IsDead() || body.Health <= body.GetMaxHealth() * ScMedic.HealBelow) m.Injured = true;
+            }
             bool visited = m.RunSite != Vector3i.zero;                                          // recalled before reaching the site: nothing found, nothing learnt
 #if SC_V34
             if (visited && ScMining.IsDig(m)) ScMining.AtGate(player, m);                       // round 33c (M33): the haul into the home crates
@@ -773,6 +827,7 @@ namespace SurvivorCommunity
             m.LegEnd = 0;
             m.RunCarry = 0;
             m.RollPending = false;
+            m.RunHurt = false;                                                                  // round r2
             m.RunDistress = false;
             m.RunSafe = false;
             m.EventSpawned = false;
@@ -972,6 +1027,404 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
             ScLog.Out(m.Name + " was recalled (" + m.RunLeg + ", carrying " + m.RunCarry + ")");
             return true;
+        }
+
+        // ------------------------------------------------------------------ too hurt to go on (round r2) ----
+
+        /// <summary>
+        /// Round r2 (the user, 2026-11-15: "If their health is low and they have no way of healing, they should abandon their job
+        /// and return to base"): is she too hurt for the job - on the way out or at the site, at or below RunHomeBelowHealth
+        /// with no way to heal (ScMedic.HurtNoMeds: no first aid bandage or kit in her pack or bag, no use or heal already
+        /// working)? One on the way home, or who already gave the job up, is past the question. A pure read.
+        /// </summary>
+        public static bool TooHurtForTheJob(Member m, EntityAlive npc)
+        {
+            return m != null && !m.RunHurt && (m.RunLeg == RunLeg.Outbound || m.RunLeg == RunLeg.AtSite)
+                   && ScMedic.HurtNoMeds(npc, ScConfig.RunHomeBelowHealth);
+        }
+
+        /// <summary>
+        /// Round r2, once a second while she is in the world (OnlineTick): too hurt for the job for HurtConfirmSeconds in a row
+        /// and she gives it up - never on one reading. While you have her inventory or a talk with her open (you may be handing
+        /// her the bandage she lacks) the count is dropped, and starts again once you close it. While the game is paused nothing
+        /// is decided, but the count is not dropped: the time it was paused still counts, so she may turn on the first tick after.
+        /// </summary>
+        private static void HurtCheck(World w, EntityPlayerLocal player, Member m, EntityAlive npc, Session s, ulong now, float t)
+        {
+            if (!TooHurtForTheJob(m, npc)) { s.HurtSince = -1f; return; }
+            if (GameManager.Instance != null && GameManager.Instance.IsPaused()) return;
+            if (ScAmmo.IsWindowOpen(m.Id) || (player != null && ScQuests.TalkingTo(player) == m.Id)) { s.HurtSince = -1f; return; }
+            if (s.HurtSince < 0f) { s.HurtSince = t; return; }
+            if (t - s.HurtSince < HurtConfirmSeconds) return;
+            if (!TurnHomeHurt(w, player, m, npc, now, false, true)) s.HurtSince = t;           // not turned (fix 6): asked again in HurtConfirmSeconds
+        }
+
+        /// <summary>
+        /// Round r2 review (fix 4): the capture paths' turn (GoOffline, a chunk unload) - its own try, so a throw in it can never
+        /// cost the capture itself. True when she turned.
+        /// </summary>
+        private static bool TurnHomeHurtAtCapture(World w, Member m, EntityAlive npc, bool despawnNow)
+        {
+            try
+            {
+                return TooHurtForTheJob(m, npc) && TurnHomeHurt(w, ScCommunity.LocalPlayer, m, npc, w != null ? w.worldTime : 0UL, true, despawnNow);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("runner-hurt-capture-" + (m != null ? m.Id : -1), e);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Round r2: she gives the job up and heads home. The run turns Inbound from where she stands, as a recall turns it, and
+        /// stays turned: the legs only go on from Inbound to the gate, and TooHurtForTheJob never asks again (RunHurt). The haul is
+        /// a recall's - nothing on the way out, the share of the site time she worked at the site (LeaveSite, the dice to come
+        /// while she is out of sight). A distress call she is pinned by ends first: with you there fighting beside her - the event
+        /// is live and you are where ScRadio.TickDistress judges a rescue from (within RescueTriggerRange of the call's spot,
+        /// loaded) - the rescue counts: ScRadio.Rescued, which completes the quest and turns her home with the rescue's haul and no
+        /// dice, as every rescue does. Otherwise the call ends unanswered (EndDistress: the quest fails). capturing: her body is
+        /// leaving the world (GoOffline, a chunk unload) - a live event resets as she goes (walking away is never a rescue:
+        /// ScRadio.OnRunnerOffline), so the call ends unanswered then too; despawnNow is false inside an unload callback, where
+        /// other entities must not be removed. With no local player to close the quest (review fix 6) a pinned runner is not
+        /// turned at all: she stays pinned, and no quest is left in progress with nobody to close it. The radio moments the turn
+        /// makes moot are marked said. RunHurt is set once the leg has turned (review fix 4: also when a throw comes after it).
+        /// True when she turned.
+        /// </summary>
+        internal static bool TurnHomeHurt(World w, EntityPlayerLocal player, Member m, EntityAlive npc, ulong now, bool capturing, bool despawnNow)
+        {
+            bool distress = m.RunDistress && !m.RunSafe;
+            if (distress && player == null)
+            {
+                ScLog.Once("runner-hurt-pinned-noplayer-" + m.Id, m.Name + " is too hurt for the job, but their distress call cannot be closed with no local player - they stay pinned");
+                return false;
+            }
+            int hp = npc != null ? npc.Health : 0, max = npc != null ? npc.GetMaxHealth() : 0;
+            Vector3 at = npc != null ? npc.position : Where(m);
+            RunLeg was = m.RunLeg;
+            Session s = S(m.Id);
+            s.HurtSince = -1f;
+            bool youThere = player != null && !player.IsDead() && XZ(player.position, C(m.RunSpawn)) <= ScConfig.RescueTriggerRange && ScZone.IsLoaded(m.RunSpawn);
+            bool rescue = distress && m.EventSpawned && !capturing && w != null && youThere;
+            try
+            {
+                // the decision, once (RunHurt keeps it from coming again); what it leads to logs its own lines after
+                ScLog.Out(m.Name + " is hurt (hp " + hp + "/" + max + ") with no way to heal - giving up the " + JobWords(m) + " and heading home ("
+                          + "was " + was + (Pinned(m) ? ", pinned by a distress call" : "") + (capturing ? ", turned as they left the world" : "") + ")"
+                          + (rescue ? " - you are there fighting beside them, so the rescue counts" : distress ? " - their distress call ends unanswered" : ""));
+#if SC_V34
+                // no haul line and no "heading home" line: the hurt line below says it (and, turned on the way out, no "I'm here")
+                ScRadioTalk.Mark(m, RadioTalk.Found | RadioTalk.Empty | RadioTalk.Home | (was == RunLeg.Outbound ? RadioTalk.Out | RadioTalk.Arrived : RadioTalk.None));
+#endif
+                if (rescue) ScRadio.Rescued(w, player, m);                                      // the quest completes; LeaveSite turns her home
+                else if (distress)
+                {
+                    if (capturing && w != null) ScRadio.OnRunnerOffline(w, m, despawnNow);      // a live event resets as she leaves the world
+                    ScRadio.EndDistress(w, player, m);                                          // the call ends unanswered: its quest fails
+                }
+                if (m.RunLeg == RunLeg.Outbound)
+                {
+                    m.RunCarry = 0;
+                    m.RollPending = false;
+                    BeginLeg(m, RunLeg.Inbound, at, GatePoint(m, at, player), now);
+                }
+                else if (m.RunLeg == RunLeg.AtSite)
+                {
+                    float span = m.LegEnd > m.LegStart ? m.LegEnd - m.LegStart : 1f;
+                    float share = Mathf.Clamp01((float)(now - Math.Min(now, m.LegStart)) / span);
+                    LeaveSite(player, m, at, now, m.RunSafe, share);
+                }
+            }
+            finally
+            {
+                // on the way home now (whatever came after the turn): never asked again, and injured at the gate
+                if (m.RunLeg != was && m.RunLeg != RunLeg.Outbound && m.RunLeg != RunLeg.AtSite) m.RunHurt = true;
+            }
+            s.HasWaypoint = false;
+            if (!capturing && npc != null && npc.getNavigator() != null) npc.getNavigator().clearPath();
+            if (was == RunLeg.Outbound) ScLog.Out(m.Name + " turned back before reaching " + m.RunDestName + " (nothing found yet)");   // LeaveSite logs the haul at the site
+            SayHurtHome(m, player);
+            ScRegistry.SaveAtomic();
+            return m.RunHurt;
+        }
+
+        /// <summary>The log's word for the job she gives up.</summary>
+        private static string JobWords(Member m)
+        {
+#if SC_V34
+            if (ScMining.IsDig(m)) return m.RunJob == RunJob.Clay ? "clay run" : "mining run";
+#endif
+            return "supply run";
+        }
+
+        /// <summary>
+        /// Round r2: she tells you she is coming home hurt - in person when her body is within ScRadioTalk.InPersonRange of you
+        /// (a message, radio or not), else on the radio (RadioTalk.HurtHome: the caption alone, there is no recording; heard only
+        /// when she carries a radio and you carry one too, as every radio line). Spent either way.
+        /// </summary>
+        private static void SayHurtHome(Member m, EntityPlayerLocal player)
+        {
+#if SC_V34
+            if (player != null && ScRadioTalk.InPerson(m, player))
+            {
+                ScRadioTalk.Mark(m, RadioTalk.HurtHome);
+                ScCommunity.Tell(player, string.Format(Localization.Get("scRunHurtHome"), m.Name), "ui_denied");
+                return;
+            }
+            ScRadioTalk.Say(m, RadioTalk.HurtHome, player, false);
+#endif
+        }
+
+        // ------------------------------------------------------------------ the route and what she runs from (round r2) ----
+
+        private static readonly List<Entity> threatScratch = new List<Entity>();
+
+        /// <summary>
+        /// Round r2: would one of SC's flee actions run her from an enemy - ScFlee (a coward: the $Timid ScTraits writes) or
+        /// ScFleeHurt (ScMedic.HurtNoMeds at FleeBelowHealth)? A pure read.
+        /// </summary>
+        public static bool WouldFlee(EntityAlive self)
+        {
+            if (self == null || self.Buffs == null) return false;
+            if (self.Buffs.GetCustomVar("$Timid") >= 1f) return true;
+            return ScMedic.HurtNoMeds(self, ScConfig.FleeBelowHealth);
+        }
+
+        /// <summary>
+        /// The nearest awake, living enemy of hers (SCore's IsEnemy) within FleeClear m that her flight could start on, or null.
+        /// Review fix 3: only one that is after her (her as its attack or revenge target) or that can see her - the test ScFlee
+        /// and ScFleeHurt run on (vanilla's SelfVisible: the enemy's CanEntityBeSeen of her, its see distance, view cone and line
+        /// of sight) - so a zombie behind a wall, or one that has not noticed her, never holds her. Not the one the hold's clock
+        /// let go of (HeldReleased). The sight test (a ray) is only made for one nearer than the best so far. Main thread.
+        /// </summary>
+        private static EntityAlive NearestThreat(EntityAlive self, Session s)
+        {
+            World w = self.world;
+            if (w == null) return null;
+            threatScratch.Clear();
+            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(self.position, new Vector3(2f * FleeClear, 2f * FleeClear, 2f * FleeClear)), threatScratch);
+            EntityAlive best = null;
+            float bestD2 = FleeClear * FleeClear;
+            for (int i = 0; i < threatScratch.Count; i++)
+            {
+                EntityAlive a = threatScratch[i] as EntityAlive;
+                if (a == null || a == self || a.IsDead() || a.IsSleeping || a.entityId == s.HeldReleased) continue;
+                float d2 = (a.position - self.position).sqrMagnitude;
+                if (d2 > bestD2 || !EntityTargetingUtilities.IsEnemy(self, a)) continue;
+                bool after = a.GetAttackTarget() == self || a.GetRevengeTarget() == self;
+                if (!after && !a.CanEntityBeSeen(self)) continue;
+                best = a;
+                bestD2 = d2;
+            }
+            threatScratch.Clear();
+            return best;
+        }
+
+        /// <summary>Round r2 review: the route memo names a threat and is recent (UAI refreshes it every RouteCacheSeconds while it asks).</summary>
+        private static bool RouteMemoFresh(Session s)
+        {
+            return s.RouteThreat >= 0 && Time.time < s.RouteUntil + 1f;
+        }
+
+        /// <summary>For the log: the threat's class and id.</summary>
+        private static string ThreatName(World w, int id)
+        {
+            Entity e = w != null && id >= 0 ? w.GetEntity(id) : null;
+            string cls = ScCommunity.ClassName(e as EntityAlive);
+            return (string.IsNullOrEmpty(cls) ? "an enemy" : cls) + " #" + id;
+        }
+
+        /// <summary>
+        /// Round r2 review (fix 2b), from the stuck watchdog once a second on the way out, home or in: the hold's own clock. Every
+        /// second her walk is held (the memo fresh and held) counts, fighting or not - the watchdog's "fighting is not being stuck"
+        /// reset never touches it - up to HoldMaxSeconds in all on this leg. Then, out of your sight, she goes offline and the
+        /// registry walks her on; in your sight she stops waiting for that threat (HeldReleased): the walk goes on, and she still
+        /// runs from it or fights it as before. Each logs once. True when she went offline (the watchdog stops there).
+        /// </summary>
+        private static bool HoldClock(World w, EntityPlayerLocal player, Member m, EntityAlive npc, Session s, float gap)
+        {
+            if (!s.RouteHeldNow || !RouteMemoFresh(s)) return false;
+            s.HeldTotal += Mathf.Clamp(gap, 0f, 2f);
+            if (s.HeldTotal < HoldMaxSeconds) return false;
+            s.HeldTotal = 0f;
+            string what = ThreatName(w, s.RouteThreat);
+            bool unseen = XZ(npc.position, player.position) > ScConfig.RunSkipMinPlayerDist && !player.IsInViewCone(npc.position);
+            if (unseen)
+            {
+                ScLog.Out(m.Name + ": held " + HoldMaxSeconds.ToString("0") + " s in all by " + what + " with no way round, out of your sight - the walk goes on offline");
+                if (GoOffline(w, m, npc, "held by a threat", false)) return true;
+            }
+            s.HeldReleased = s.RouteThreat;
+            s.RouteUntil = -1f;                                                                 // the memo again, without it
+            ScLog.Out(m.Name + ": held " + HoldMaxSeconds.ToString("0") + " s in all by " + what + " in your sight - stops waiting for it and moves on (still runs from it or fights it)");
+            return false;
+        }
+
+        /// <summary>The closest the straight walk from a to b comes to p, on the ground plane.</summary>
+        internal static float PassDistance(Vector3 a, Vector3 b, Vector3 p)
+        {
+            a.y = 0f;
+            b.y = 0f;
+            p.y = 0f;
+            Vector3 ab = b - a;
+            float len2 = ab.sqrMagnitude;
+            float k = len2 > 0.0001f ? Mathf.Clamp01(Vector3.Dot(p - a, ab) / len2) : 0f;
+            return Vector3.Distance(a + ab * k, p);
+        }
+
+        /// <summary>
+        /// Round r2: the next waypoint for a runner who would run from a threat at threatPos - the one NextWaypoint plans (with
+        /// her sidestep) when the straight walk to it stays out of FleeRadius of the threat, else one RunWaypointSpacing ahead
+        /// and 8 to 24 m to the side away from it. Already inside FleeRadius (a threat that cannot see her does not start the
+        /// flight), a walk that never takes her nearer than she is will do - she is never left standing beside it. False when
+        /// none does, or the goal itself lies within FleeRadius of it: she cannot go on without walking back into what she ran
+        /// from (ScRouteClear holds her then).
+        /// </summary>
+        public static bool ClearWaypoint(World w, Vector3 from, int sidestep, Vector3 goal, Vector3 threatPos, out Vector3 wp)
+        {
+            wp = goal;
+            if (XZ(goal, threatPos) < FleeRadius) return false;
+            float need = Mathf.Min(FleeRadius, XZ(from, threatPos) - 0.5f);
+            if (NextWaypoint(w, from, sidestep, goal, out wp) && PassDistance(from, wp, threatPos) >= need) return true;
+            Vector3 d = goal - from;
+            d.y = 0f;
+            Vector3 dir = d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.forward;
+            Vector3 perp = new Vector3(-dir.z, 0f, dir.x);                                     // NextWaypoint's positive side
+            Vector3 toThreat = threatPos - from;
+            toThreat.y = 0f;
+            int away = Vector3.Dot(toThreat, perp) > 0f ? -1 : 1;
+            for (int k = 1; k <= 3; k++)
+                if (NextWaypoint(w, from, away * k, goal, out wp) && PassDistance(from, wp, threatPos) >= need) return true;
+            return false;
+        }
+
+        /// <summary>ClearWaypoint for the watchdog's hop (review fix 2a): a throw is logged once and means no hop clear of it.</summary>
+        private static bool ClearWaypointSafe(World w, Vector3 from, int sidestep, Vector3 goal, Vector3 threatPos, out Vector3 wp)
+        {
+            wp = goal;
+            try { return ClearWaypoint(w, from, sidestep, goal, threatPos, out wp); }
+            catch (Exception e) { ScLog.Once("runner-route-hop", e); return false; }
+        }
+
+        /// <summary>
+        /// Round r2 review (TravelSC.PathTo): her next step toward goal - NextWaypoint, or with a threat she would run from
+        /// (RouteThreat) a step that keeps clear of it (ClearWaypoint; at the site, wander, up to three other wander spots are
+        /// tried). False with blocked: no step keeps her clear - she waits (ScRouteClear holds the walk while the threat is
+        /// close). False without: no standable step at all (the watchdog sidesteps, skips or hands off). A throw in the threat
+        /// part is logged once and falls back to the plain step.
+        /// </summary>
+        public static bool PlanStep(World w, EntityAlive self, Member m, Vector3 goal, bool wander, out Vector3 wp, out bool blocked)
+        {
+            blocked = false;
+            Session s = S(m.Id);
+            try
+            {
+                Vector3 threat;
+                if (RouteThreat(self, m, out threat))
+                {
+                    bool ok = ClearWaypoint(w, self.position, s.Sidestep, goal, threat, out wp);
+                    for (int i = 0; !ok && wander && i < 3; i++) ok = ClearWaypoint(w, self.position, s.Sidestep, SiteWanderGoal(w, self, m), threat, out wp);
+                    if (ok) return true;
+                    blocked = true;
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("runner-route-step", e);
+                blocked = false;
+            }
+            return NextWaypoint(w, self.position, s.Sidestep, goal, out wp);
+        }
+
+        /// <summary>
+        /// Round r2 (ScTravel's ScRouteClear gate, TravelSC): is her walk held? She would run (WouldFlee), a threat she could run
+        /// from (NearestThreat: after her, or able to see her) is within FleeClear m, and no way on keeps her out of FleeRadius
+        /// of it - on the way ClearWaypoint finds no step round it; at the site (review fix 3) it is within FleeRadius of her or
+        /// of the spot she works (her walks there choose spots clear of anything farther off: PlanStep). This is what ends the
+        /// flee/travel loop: the moment a flight took her past FleeRadius, ScTravel (4.5) used to win again and walk her straight
+        /// back to the same waypoint, in among what she ran from, which started the flight again - for as long as it stood there.
+        /// Memoized for RouteCacheSeconds in her session (UAI asks several times a second, and this sweeps for enemies); only a
+        /// physical runner in the world is ever held, and the memo is the only thing written. A throw (review fix 5) is logged
+        /// once and means not held, with no threat on the memo - the walk as before.
+        /// </summary>
+        public static bool RouteHeld(EntityAlive self, Member m)
+        {
+            if (self == null || !IsPhysical(m) || m.Offline || m.Id != self.entityId) return false;
+            Session s = S(m.Id);
+            float now = Time.time;
+            if (now < s.RouteUntil) return s.RouteHeldNow;
+            s.RouteUntil = now + RouteCacheSeconds;
+            s.RouteHeldNow = false;
+            s.RouteThreat = -1;
+            try
+            {
+                if (!WouldFlee(self)) return false;
+                EntityAlive t = NearestThreat(self, s);
+                if (t == null) return false;
+                s.RouteThreat = t.entityId;
+                s.RouteThreatPos = t.position;
+                if (m.RunLeg == RunLeg.AtSite)
+                {
+                    Vector3 spot = C(m.RunSite != Vector3i.zero ? m.RunSite : m.LegTo);
+                    s.RouteHeldNow = XZ(t.position, self.position) < FleeRadius || XZ(t.position, spot) < FleeRadius;
+                    return s.RouteHeldNow;
+                }
+                Vector3 wp;
+                s.RouteHeldNow = !ClearWaypoint(self.world, self.position, s.Sidestep, LegGoal(m), t.position, out wp);
+                return s.RouteHeldNow;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("runner-route-held", e);
+                s.RouteHeldNow = false;
+                s.RouteThreat = -1;
+                return false;
+            }
+        }
+
+        /// <summary>Round r2 (TravelSC): the threat she would run from, if any (RouteHeld's memo, refreshed when stale). Never throws.</summary>
+        public static bool RouteThreat(EntityAlive self, Member m, out Vector3 threatPos)
+        {
+            threatPos = Vector3.zero;
+            try
+            {
+                RouteHeld(self, m);
+                Session s;
+                if (m == null || !sessions.TryGetValue(m.Id, out s) || s.RouteThreat < 0) return false;
+                threatPos = s.RouteThreatPos;
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("runner-route-threat", e);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Round r2 (TravelSC.Update): a threat she would run from has moved onto the walk to her waypoint - plan the step again
+        /// (round it), at most every RouteCacheSeconds. False while the walk is held (ScRouteClear takes it off her). Never throws.
+        /// </summary>
+        public static bool ThreatOnWay(EntityAlive self, Member m)
+        {
+            try
+            {
+                Session s;
+                if (m == null || m.RunLeg == RunLeg.AtSite || !sessions.TryGetValue(m.Id, out s) || !s.HasWaypoint) return false;
+                float now = Time.time;
+                if (now < s.RouteReplanAt) return false;
+                if (RouteHeld(self, m) || s.RouteThreat < 0) return false;
+                float need = Mathf.Min(FleeRadius, XZ(self.position, s.RouteThreatPos) - 0.5f);       // as ClearWaypoint
+                if (PassDistance(self.position, s.Waypoint, s.RouteThreatPos) >= need) return false;
+                s.RouteReplanAt = now + RouteCacheSeconds;
+                return true;
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("runner-route-onway", e);
+                return false;
+            }
         }
 
         // ------------------------------------------------------------------ offline -> online ----
@@ -1226,6 +1679,9 @@ namespace SurvivorCommunity
         public static bool GoOffline(World w, Member m, EntityAlive npc, string why, bool forced)
         {
             if (w == null || m == null || npc == null || npc.IsDead() || npc.IsMarkedForUnload()) return false;
+            // round r2: too hurt for the job as she leaves the world - she turns home now, with her body here to read; offline her
+            // health cannot change, so the walk the registry carries on is the way home, never more hours at the site
+            TurnHomeHurtAtCapture(w, m, npc, true);
             int id = npc.entityId;
             string snap;
             if (TryCapture(npc, out snap)) m.Snap = snap;
@@ -1292,6 +1748,8 @@ namespace SurvivorCommunity
                 if (!IsPhysical(m) || m.Offline || npc.IsDead()) return;
                 bool fell = npc.position.y < 0f && (reason == EnumRemoveEntityReason.Killed || reason == EnumRemoveEntityReason.Despawned);
                 if (reason != EnumRemoveEntityReason.Unloaded && !fell) return;
+                // round r2: as GoOffline - too hurt for the job, she turns home before the snapshot (no removals in here: despawnNow false)
+                TurnHomeHurtAtCapture(npc.world, m, npc, false);
                 Session s = S(m.Id);
                 string snap;
                 if (TryCapture(npc, out snap)) m.Snap = snap;
@@ -1490,7 +1948,38 @@ namespace SurvivorCommunity
 #endif
                    + ", snapshot " + SnapBytes(m) + " b"
                    + (s.MeasuredMps > 0f ? ", moves at " + s.MeasuredMps.ToString("0.00") + " m/s (offline pace " + ScConfig.RunWalkMps.ToString("0.00") + ")" : "")
-                   + (s.LastCreateMs >= 0 ? ", last build " + s.LastCreateMs + " ms" : "");
+                   + (s.LastCreateMs >= 0 ? ", last build " + s.LastCreateMs + " ms" : "")
+                   + HurtState(m, s);
+        }
+
+        /// <summary>
+        /// Round r2, for sc runners (read only): her health and whether she has a way to heal (her body in the world), the
+        /// give-up count, a run given up hurt, and a walk held or routed round a threat she would run from (the memo as it stands).
+        /// </summary>
+        private static string HurtState(Member m, Session s)
+        {
+            var sb = new System.Text.StringBuilder();
+            if (m.RunHurt) sb.Append(", GAVE THE JOB UP HURT (heading home)");
+            World w = ScCommunity.World;
+            EntityAlive npc = !m.Offline && w != null ? ScNpc.As(w.GetEntity(m.Id)) : null;
+            if (npc != null && !npc.IsDead())
+            {
+                int max = npc.GetMaxHealth();
+                sb.Append(", hp ").Append(npc.Health).Append('/').Append(max)
+                  .Append(max > 0 ? " (" + (100f * npc.Health / max).ToString("0") + "%)" : "")
+                  .Append(ScMedic.CanTreatSelf(npc) ? ", has a way to heal" : ", NOTHING TO HEAL WITH")
+                  .Append(", gives up at ").Append((100f * ScConfig.RunHomeBelowHealth).ToString("0")).Append("%")
+                  .Append(WouldFlee(npc) ? ", would flee" : "");
+                if (s.HurtSince >= 0f) sb.Append(", too hurt for the job for ").Append((Time.unscaledTime - s.HurtSince).ToString("0.0")).Append(" s");
+                if (s.RouteThreat >= 0 && Time.time < s.RouteUntil + 2f)
+                {
+                    Entity t = w.GetEntity(s.RouteThreat);
+                    sb.Append(s.RouteHeldNow ? ", WALK HELD by " : ", going round ")
+                      .Append(t != null ? ScCommunity.ClassName(t as EntityAlive) + " #" + s.RouteThreat : "#" + s.RouteThreat)
+                      .Append(" at ").Append(XZ(s.RouteThreatPos, npc.position).ToString("0")).Append(" m");
+                }
+            }
+            return sb.ToString();
         }
     }
 }

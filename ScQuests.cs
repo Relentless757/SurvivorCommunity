@@ -46,6 +46,12 @@ namespace SurvivorCommunity
             return q != null && (Is(q, QuestId) || Is(q, RescueQuestId) || Is(q, SuppliesQuestId) || IsRequestQuest(q));
         }
 
+        /// <summary>Round r2: a runner's rescue quest (Patches_Quest's no-unlock prefix).</summary>
+        public static bool IsRescueQuest(Quest q)
+        {
+            return q != null && Is(q, RescueQuestId);
+        }
+
         /// <summary>E4: an enclave request's quest (E5: of any kind).</summary>
         public static bool IsRequestQuest(Quest q)
         {
@@ -453,6 +459,17 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>
+        /// The rescue quest closed - completed, or removed as failed. Round r2: its place (POIPosition/POISize) goes first, as in
+        /// CloseRequest. It is only the marker's place (the marker is ours, NavObject, and is removed all the same) and the
+        /// rescue never locks a building, but Quest.CloseQuest unlocks one anyway (HandleUnlockPOI -> QuestEventManager.
+        /// QuestUnlockPOI), which looks up the prefab at that spot and dereferences it unchecked. A mining run's natural spot
+        /// has no prefab (round 33c keeps them 16 blocks from any), so the close threw half-way - the 2026-11-15 log's
+        /// "quest-closerescue threw NullReferenceException" as Paul's rescue ended: the quest was already marked Completed but
+        /// kept its marker, its tracking and its objectives' hooks for the session and never ran QuestJournal.CompleteQuest
+        /// (and RemoveQuest, for a failed one, never took it out of the journal). At a real POI the unlock would take the player
+        /// off a vanilla quest's lock there (RemoveQuester).
+        /// </summary>
         public static void CloseRescue(EntityPlayer player, Member m, bool completed)
         {
             try
@@ -462,6 +479,8 @@ namespace SurvivorCommunity
                 if (q == null) return;
                 QuestJournal j = Journal(player);
                 if (j == null) return;
+                q.RemovePositionData(Quest.PositionDataTypes.POIPosition);
+                q.RemovePositionData(Quest.PositionDataTypes.POISize);
                 if (completed) q.CloseQuest(Quest.QuestState.Completed);
                 else j.RemoveQuest(q);
             }
@@ -1007,8 +1026,8 @@ namespace SurvivorCommunity
 
         private static readonly List<Prospect> doneScratch = new List<Prospect>();
 
-        /// <summary>The entity id of the NPC whose dialog the player has open (SCore's CurrentNPC), or -1.</summary>
-        private static int TalkingTo(EntityPlayerLocal player)
+        /// <summary>The entity id of the NPC whose dialog the player has open (SCore's CurrentNPC), or -1. Round r2: ScRunners asks too.</summary>
+        internal static int TalkingTo(EntityPlayerLocal player)
         {
             try
             {

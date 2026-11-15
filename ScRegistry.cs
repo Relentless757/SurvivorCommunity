@@ -85,6 +85,8 @@ namespace SurvivorCommunity
     ///                our place." is a [member] on the way (E12's arrive=, the enclave part the band's id negated).
     ///   R2 (ScHandheld, ScRadioTalk; 3.4 build, keys an older build ignores): [member] runradio=1 (the runner carries a handheld
     ///                radio) runtalk=N (the RadioTalk moments said on it this run), each written while OnRun and set.
+    ///   Round r2 (ScRunners.TurnHomeHurt; a key an older build ignores): [member] runhurt=1 (a physical runner gave the job up
+    ///                badly hurt with no way to heal and is on her way home), written with the run's leg= keys while set.
     ///   Round 30 (ScStreamerNames; both games, a key an older build ignores and drops at its next save): [community]
     ///                streamname=Sarah, one line for each streamer name given out in this save, in the order given.
     /// Main thread only.
@@ -1114,6 +1116,7 @@ namespace SurvivorCommunity
                 case "offline": m.Offline = val == "1"; break;
                 case "carry": m.RunCarry = Math.Max(0, I(val)); break;
                 case "rollpending": m.RollPending = val == "1"; break;
+                case "runhurt": m.RunHurt = val == "1"; break;                          // round r2 (ScRunners.TurnHomeHurt)
                 case "snap": m.Snap = val; break;
                 case "watch":
                 {
@@ -1740,6 +1743,7 @@ namespace SurvivorCommunity
                 sb.AppendLine("carry=" + m.RunCarry);
 #endif
                 sb.AppendLine("rollpending=" + (m.RollPending ? 1 : 0));
+                if (m.RunHurt) sb.AppendLine("runhurt=1");                              // round r2: turned home hurt (a key older builds ignore)
                 if (!string.IsNullOrEmpty(m.Snap)) sb.AppendLine("snap=" + m.Snap);   // base64url: never Clean()ed (it has no '=' or ';')
             }
             if (m.Status == MemberStatus.OnRun && m.RunDistress)

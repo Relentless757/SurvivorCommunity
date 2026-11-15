@@ -26,7 +26,9 @@ namespace SurvivorCommunity
         /// <summary>Physical run: they reach the gate near home, where the haul counts (ScRunners.EnterBack).</summary>
         Near = 64,
         /// <summary>Told to come home from the radio window (XUiC_ScRadio's Call home).</summary>
-        RecallAck = 128
+        RecallAck = 128,
+        /// <summary>Round r2: badly hurt with no way to heal, they give the job up and head home (ScRunners.TurnHomeHurt). Caption only.</summary>
+        HurtHome = 256
     }
 
     /// <summary>
@@ -73,6 +75,7 @@ namespace SurvivorCommunity
             { RadioTalk.Home, new[] { "scRadioRunHome_1", "scRadioRunHome_2" } },
             { RadioTalk.Near, new[] { "scRadioRunNear_1" } },
             { RadioTalk.RecallAck, new[] { "scRadioRecallAck_1" } },
+            { RadioTalk.HurtHome, new[] { "scRadioRunHurtHome_1" } },                // round r2: no recording - the caption alone
         };
 
         /// <summary>
@@ -518,7 +521,7 @@ namespace SurvivorCommunity
             return queue.Count + " line(s) waiting" + (left > 0f ? ", busy " + left.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s" : "");
         }
 
-        /// <summary>sc radio talk: a moment's name (out, arrived, found, empty, trouble, home, near, recall).</summary>
+        /// <summary>sc radio talk: a moment's name (out, arrived, found, empty, trouble, home, near, recall, hurt).</summary>
         public static bool TryEvent(string s, out RadioTalk ev)
         {
             ev = RadioTalk.None;
@@ -532,6 +535,7 @@ namespace SurvivorCommunity
                 case "home": ev = RadioTalk.Home; return true;
                 case "near": ev = RadioTalk.Near; return true;
                 case "recall": case "recallack": ev = RadioTalk.RecallAck; return true;
+                case "hurt": case "hurthome": ev = RadioTalk.HurtHome; return true;          // round r2
             }
             return false;
         }
