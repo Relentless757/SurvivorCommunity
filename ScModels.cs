@@ -177,6 +177,33 @@ namespace SurvivorCommunity
         /// re-creates for them (ScSpawn) carries the same pair. Null for a member who joined without one.
         /// </summary>
         public Loadout Loadout;
+#if SC_V34
+        /// <summary>
+        /// Round n12: the exact items she was handed, by ScHanded slot (ranged, melee, head, chest, hands, feet) - the weapon of
+        /// each half of her pair and each armor piece as the player gave it (quality, wear, mods), kept so every copy carries it
+        /// and taking it back returns exactly it. Null = nothing handed (every slot rolled). Saved as handed= lines (ScHanded).
+        /// </summary>
+        public ItemValue[] Handed;
+        /// <summary>
+        /// Round n12 review: handed items with no slot of their own - one whose slot was filled again while its item was
+        /// missing from the game (a mod uninstalled for a session) - waiting to be put into her pack the next time her body is
+        /// loaded (ScHanded.KeepCopies). Saved as handed=spare|... lines. Null = none.
+        /// </summary>
+        public List<ItemValue> HandedSpare;
+        /// <summary>
+        /// Round n12 review: handed= lines whose item does not exist in this game (a mod uninstalled): kept verbatim and written
+        /// back unchanged, so the item is there again once the mod is. Never acted on meanwhile. Null = none.
+        /// </summary>
+        public List<string> HandedRaw;
+        /// <summary>
+        /// Round n12 review: per look slot (Head, Chest, Hands, Feet), the piece she wears there because 0-XNPCCore's Wardrobe
+        /// picked it from her pack (ScWardrobe.Honor) - a copy whose real item stays in her pack. Kept in the record, so it
+        /// outlives ScWardrobe's in-memory snapshot (a restart, a re-created body): the member inventory panel never makes a
+        /// second real item of it. In force only while her look still wears that piece; cleared by the panel, sc gear and the
+        /// Wardrobe's "back to my own". Saved as wardrobe= (four names). Null = none.
+        /// </summary>
+        public string[] WardrobeWorn;
+#endif
         /// <summary>
         /// The rounds for their gun they carried when last seen (ScAmmo: ammo item name -> count, the inventory window plus
         /// a loaded magazine), so a body the community re-creates for them (a call-back, a stand-in, a runner's fresh body)

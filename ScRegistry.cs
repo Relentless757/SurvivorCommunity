@@ -23,6 +23,10 @@ namespace SurvivorCommunity
     ///                ranged=1 missing=0 skills=cardio:2:15,wits:1:0,fighting:3:40,shooting:2:5 spec=Medicine:1:0
     ///                traits=Hoarder,Hardy run=food:13 pendingunhide=0 loadout=gunBowT0PrimitiveBow,meleeWpnClubT0WoodenClub
     ///                ammo=ammoArrowStone:14 (or ammo=none: recorded, carrying nothing)
+    ///                n12: handed=ranged|gunPistol9mm|1:N:base64url, one line per item she was handed exactly (ScHanded: slots
+    ///                ranged, melee, head, chest, hands, feet, or spare; ItemValue.Write's N bytes; a key an older build ignores;
+    ///                a line whose item is missing this session is written back verbatim) and wardrobe=helmetX,,, (the pieces
+    ///                0-XNPCCore's Wardrobe dresses her in, by look slot: ScWardrobe)
     ///   [prospect]   id=1300 class=.. name=.. favour=poi|supplies poi=x,y,z poiname=.. poisize=w,d items=food:15 done=1
     ///                loadout=ranged,melee; E3 encp=12 (an enclave person's favour: id is then their body's, parked at load)
     ///   [contact]    id=3 class=.. label=.. poi=x,y,z poiname=.. spawn=x,y,z day=12 expire=19 loadout=ranged,melee
@@ -1087,6 +1091,10 @@ namespace SurvivorCommunity
                 case "look": { Look l = m.Look ?? new Look(); if (l.Decode(val)) m.Look = l; break; }
                 case "gear": { if (m.Look == null) m.Look = new Look(); m.Look.DecodeGear(val); break; }
                 case "loadout": m.Loadout = Loadout.Decode(val); break;
+#if SC_V34
+                case "handed": ScHanded.Read(m, val); break;                           // round n12: one exact handed item per line
+                case "wardrobe": ScWardrobe.ReadWorn(m, val); break;                   // round n12 review: pieces the Wardrobe picked
+#endif
                 case "ammo": m.Ammo = ScAmmo.Decode(val, out m.Mags); break;
                 case "outpost": m.OutpostId = I(val); break;
                 case "leg": { RunLeg l; if (Enum.TryParse(val, true, out l)) m.RunLeg = l; break; }
@@ -1747,6 +1755,12 @@ namespace SurvivorCommunity
                 sb.AppendLine("gear=" + Clean(m.Look.EncodeGear()));
             }
             if (m.Loadout != null) sb.AppendLine("loadout=" + Clean(m.Loadout.Encode()));
+#if SC_V34
+            // round n12: the exact items she was handed, one line each (base64url bytes and an item name: Clean leaves them be)
+            foreach (string line in ScHanded.Lines(m)) sb.AppendLine("handed=" + Clean(line));
+            string worn = ScWardrobe.EncodeWorn(m);                                     // n12 review: the Wardrobe's picks she wears
+            if (worn != null) sb.AppendLine("wardrobe=" + Clean(worn));
+#endif
             if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11)
             if (m.WatchPost != Vector3i.zero)
                 sb.AppendLine("watch=" + Vec(m.WatchPost) + ":" + m.WatchStart.ToString(CultureInfo.InvariantCulture) + ":" + m.WatchPrepaid + ":" + Vec(m.WatchHome));

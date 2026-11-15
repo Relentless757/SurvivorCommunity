@@ -756,6 +756,56 @@ namespace SurvivorCommunity
 
         /// <summary>A dead NPC's held gun gave back its rounds before the death drop (Patches_Npc): counted for sc xnpc.</summary>
         public static void NoteDeathReturn(int n) { deathRounds += n; }
+#if SC_V34
+
+        /// <summary>
+        /// Round n12: how many rounds of this gun's loaded ammo (its selected type, as ReturnLoose gives them back) the body's
+        /// bag has room for - the member inventory panel refuses a loaded gun whose rounds would not all fit, before anything
+        /// moves. 0 for no ranged weapon or an ammo item that does not exist.
+        /// </summary>
+        internal static int RoomForLoaded(EntityAlive e, ItemValue gun)
+        {
+            ItemActionRanged r = gun != null ? RangedAction(gun.ItemClass) : null;
+            if (e == null || r == null) return 0;
+            int idx = gun.SelectedAmmoTypeIndex < r.MagazineItemNames.Length ? gun.SelectedAmmoTypeIndex : 0;
+            ItemValue ammo = ItemClass.GetItem(r.MagazineItemNames[idx], true);
+            if (ammo == null || ammo.IsEmpty() || ammo.ItemClass == null) return 0;
+            return Room(e, ammo);
+        }
+
+        /// <summary>
+        /// Round n12: a gun that has just left her pair (the member inventory panel, the weapon menu) may still have rounds
+        /// banked by 0-XNPCCore - its magazine table, SdcsMagRounds_&lt;type&gt; / SdcsMagAmmo_&lt;type&gt;, which its equip
+        /// writes when it takes that gun out of her hand (SdcsMagSaveHeld, for a gun Locked &amp; Loaded does not own: X18) and
+        /// reads only on the next equip of the same gun. With the gun gone that never comes, so the rounds become loose rounds
+        /// of their ammo in her bag (dropped at her body if it is full) and the entry is cleared: none lost, none counted
+        /// twice. Returns the rounds released.
+        /// </summary>
+        internal static int ReleaseXnpcTable(EntityAlive e, ItemClass gun, string why)
+        {
+            if (e == null || e.Buffs == null || gun == null || !ScCommunity.IsHost) return 0;
+            string rc = NPCSdcsCharacters.Pure.GivenWeaponRules.TableRoundsCVar(gun.Id);
+            if (!e.Buffs.HasCustomVar(rc)) return 0;
+            int n = (int)e.Buffs.GetCustomVar(rc);
+            int ammoId = (int)e.Buffs.GetCustomVar(NPCSdcsCharacters.Pure.GivenWeaponRules.TableAmmoCVar(gun.Id));
+            Patches_Xnpc.ClearMagTable(e, gun.Id);
+            if (n <= 0) return 0;
+            ItemClass ammoClass = ammoId > 0 ? ItemClass.GetForId(ammoId) : null;
+            ItemActionRanged r = RangedAction(gun);
+            if (ammoClass == null && r != null) ammoClass = ItemClass.GetItemClass(r.MagazineItemNames[0], true);
+            ItemValue ammo = ammoClass != null ? ItemClass.GetItem(ammoClass.GetItemName(), true) : null;
+            if (ammo == null || ammo.IsEmpty())
+            {
+                ScLog.Warn(why + ": " + ScCommunity.DisplayName(e) + "'s " + n + " banked round(s) for the " + gun.GetItemName() + " name no ammo item - cleared");
+                return 0;
+            }
+            int added = AddRounds(e, ammo, n);
+            if (added < n) GameManager.Instance.ItemDropServer(new ItemStack(ammo.Clone(), n - added), e.position + Vector3.up, Vector3.zero, -1, 60f);
+            ScLog.Verbose(why + ": " + ScCommunity.DisplayName(e) + " (id " + e.entityId + ")'s " + n + " " + ammo.ItemClass.GetItemName() + " banked by 0-XNPCCore for the "
+                          + gun.GetItemName() + " she no longer carries went into her bag" + (added < n ? " (" + (n - added) + " dropped: the bag is full)" : ""));
+            return n;
+        }
+#endif
 
         /// <summary>
         /// Before a body is given magazines for its gun (armed at spawn, or issued empties): rounds loaded in the gun in its

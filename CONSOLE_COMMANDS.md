@@ -471,7 +471,7 @@ Example: `sc spawn hostile male T2 Rifle`
 Weapon words, the firearm chances, ammo amounts and the magazine state.
 
 ### `sc loadout <id|name>` [READ] and `sc loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead]` [CHEAT]
-Shows an NPC's two weapons, or gives it new ones (one weapon replaces the one of its kind).
+Shows an NPC's two weapons, or gives it new ones (one weapon replaces the one of its kind). For a community member it also lists the items she was handed exactly (the member inventory panel's slots or the weapon menu, round n12): her weapons and armor pieces with their quality, wear and attachments, each marked STALE when her pair or her clothes have since moved on (it then goes into her pack on the next panel change of that slot).
 
 ### `sc loadout near [r]` [READ]
 Pairs of survivors and raiders within `r` m (default 40).

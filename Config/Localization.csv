@@ -842,7 +842,37 @@ scInvBag,UI,Menu,,,,Bag
 scInvTakeAll,UI,Menu,,,,Take all
 scInvTakeAllTip,UI,Menu,,,,Take everything from here into your inventory.
 scInvBagHost,UI,Menu,,,,Her bag shows only on the host's screen: the game does not send an NPC's bag to other players.
-scInvSlotLater,UI,Menu,,,,These slots only show what she has for now. Put items in her pack.
+scInvSlotHostOnly,UI,Menu,,,,Only the host can change her gear.
+scInvRefuseGone,UI,Menu,,,,{0} can't take anything right now.
+scInvRefuseNotMember,UI,Menu,,,,Only a community member's gear can be changed here.
+scInvRefuseRemote,UI,Menu,,,,Someone else has {0}'s inventory open. Try again once they close it.
+scInvRefuseStack,UI,Menu,,,,Hand her one item at a time.
+scInvRefuseHalf,UI,Menu,,,,Equipment slots don't split stacks: use the left mouse button.
+scInvRefuseNoPair,UI,Menu,,,,{0} carries no weapons of her own to swap.
+scInvRefuseNotWeapon,UI,Menu,,,,{0} is not a weapon she can fight with.
+scInvRefuseDev,UI,Menu,,,,{0} isn't finished (a test item): she won't carry it.
+scInvRefuseLauncher,UI,Menu,,,,She won't carry {0}: no launchers or explosives.
+scInvRefuseDual,UI,Menu,,,,She can't use dual pistols.
+scInvRefuseTool,UI,Menu,,,,{0} is a tool: drop it on one of her job slots.
+scInvRefuseWantRanged,UI,Menu,,,,Ranged takes a gun or bow. {0} goes in Melee.
+scInvRefuseWantMelee,UI,Menu,,,,Melee takes a melee weapon. {0} goes in Ranged.
+scInvMeleeKeep,UI,Menu,,,,She keeps a melee weapon - drop another on the slot to swap.
+scInvRefuseBusy,UI,Menu,,,,{0} is busy with a medical item. Try again in a moment.
+scInvRefuseUnloadMag,UI,Menu,,,,Take the magazine out first.
+scInvRefuseNoRoomRounds,UI,Menu,,,,Her bag has no room for its {0} round(s). Unload it first.
+scInvRefuseStaleRoom,UI,Menu,,,,Make room in her pack first: the {0} she no longer uses goes there.
+scInvRefuseFailed,UI,Menu,,,,That didn't work: {0}.
+scInvRefuseBackpackFull,UI,Menu,,,,Your backpack is full.
+scInvRefuseNoLook,UI,Menu,,,,SC doesn't dress {0}: she has no look of SC's.
+scInvRefuseNotArmor,UI,Menu,,,,{0} is not armor she can wear.
+scInvRefuseWrongSlot,UI,Menu,,,,{0} goes in her {1} slot.
+scInvRefuseForWomen,UI,Menu,,,,{0} is made for women only.
+scInvRefuseForMen,UI,Menu,,,,{0} is made for men only.
+scInvRefuseNoModel,UI,Menu,,,,She can't wear {0}: there is no model of it for her body.
+scInvRefuseNotTool,UI,Menu,,,,{0} is no tool for {1}.
+scInvRefusePackFull,UI,Menu,,,,{0}'s pack is full.
+scInvRefuseKit,UI,Menu,,,,Her work kit stays with her.
+scInvRefuseKitPair,UI,Menu,,,,She fights with that: swap it on the Melee slot.
 scResWater,UI,Resource,,,,water
 scResLuxury,UI,Resource,,,,luxury
 scResShortWater,UI,Menu,,,,water

@@ -33,10 +33,12 @@ namespace SurvivorCommunity
         private const string ApiTypeName = "REInvMags.NpcMagazines";
         private const string RegistryTypeName = "REInvMags.MagazineRegistry";
         private const string MagazinesTypeName = "REInvMags.Magazines";
+        /// <summary>L&amp;L's metadata key for a seated magazine (Magazines.SeatedKey; part of its save data, so stable).</summary>
+        internal const string SeatedKey = "reinvMagSeated";
 
         private static bool resolved, active, threw;
         private static string state = "not checked yet";
-        private static MethodInfo arm, refill, rounds, record, restore, carries, allForGun, tierOf, seated;
+        private static MethodInfo arm, refill, rounds, record, restore, carries, allForGun, tierOf, seated, returnSeated;
         private static FieldInfo defName, defTwin, tierMagazines;
 
         public static void Reset()
@@ -45,7 +47,7 @@ namespace SurvivorCommunity
             active = false;
             threw = false;
             state = "not checked yet";
-            arm = refill = rounds = record = restore = carries = allForGun = tierOf = seated = null;
+            arm = refill = rounds = record = restore = carries = allForGun = tierOf = seated = returnSeated = null;
             defName = defTwin = tierMagazines = null;
         }
 
@@ -136,6 +138,11 @@ namespace SurvivorCommunity
             Type mag = ScTypes.Find(MagazinesTypeName);
             seated = mag != null ? Bind(mag, "HasMagazineSeated", typeof(bool), new[] { typeof(ItemValue) }, optional) : null;
             tierMagazines = tierOf != null ? Field(tierOf.ReturnType, "Magazines", typeof(int)) : null;
+            // round n12 (optional): L&L's own "the magazine in this gun back into the NPC's bag, the gun left empty" - INTERNAL
+            // in L&L, so bound by name without the public test. Without it the member inventory panel refuses a gun with a
+            // seated magazine ("take the magazine out first") rather than lose the magazine item.
+            MethodInfo rs = AccessTools.Method(t, "ReturnSeated", new[] { typeof(EntityAlive), typeof(ItemValue), typeof(string) });
+            returnSeated = rs != null && rs.IsStatic && rs.ReturnType == typeof(bool) ? rs : null;
             why = "";
             return true;
         }
@@ -202,6 +209,41 @@ namespace SurvivorCommunity
         {
             if (gun == null || gun.IsEmpty() || seated == null) return false;
             object r = Call(seated, gun);
+            return r is bool && (bool)r;
+        }
+
+        /// <summary>
+        /// Round n12: does this gun carry Locked &amp; Loaded's seated flag, by the flag itself (L&amp;L's Magazines.SeatedKey in
+        /// its metadata) - true even with the adapter off or HasMagazineSeated not bound, where Seated answers false. The
+        /// member inventory panel asks this so a magazine in a handed gun is never taken for loose rounds and lost.
+        /// </summary>
+        public static bool SeatedFlag(ItemValue gun)
+        {
+            if (gun == null || gun.IsEmpty() || gun.Metadata == null) return false;
+            if (Seated(gun)) return true;
+            int v;
+            try { return gun.TryGetMetadata(SeatedKey, out v) && v != 0; }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>
+        /// Round n12 review: is Locked &amp; Loaded loaded at all? Without it a seated flag left on a gun is only metadata - no
+        /// magazine item exists to lose - so the gun's Meta is plain loose rounds and the flag is dropped.
+        /// </summary>
+        public static bool Loaded { get { return ModManager.ModLoaded(ModName); } }
+
+        /// <summary>Round n12: can a seated magazine be put back into an NPC's bag (L&amp;L's NpcMagazines.ReturnSeated bound, the adapter on)?</summary>
+        public static bool CanEject { get { return Active && returnSeated != null; } }
+
+        /// <summary>
+        /// Round n12: L&amp;L's NpcMagazines.ReturnSeated - the magazine seated in this gun goes into the NPC's bag as a real
+        /// magazine item with its rounds (its toolbelt, else dropped at its feet, when the bag is full: never lost) and the gun is
+        /// left empty, in place. False when the gun had no seated magazine, or it could not be asked.
+        /// </summary>
+        public static bool Eject(EntityAlive e, ItemValue gun, string why)
+        {
+            if (returnSeated == null || e == null || gun == null) return false;
+            object r = Call(returnSeated, e, gun, why);
             return r is bool && (bool)r;
         }
 

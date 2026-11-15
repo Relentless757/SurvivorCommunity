@@ -35,11 +35,112 @@ namespace SurvivorCommunity
             public readonly bool[] Taken = new bool[4];        // this slot is overridden and Gear/Quality hold her own piece
             public readonly string[] Gear = { "", "", "", "" };
             public readonly int[] Quality = { 1, 1, 1, 1 };
+            /// <summary>
+            /// Round n12 review (A): the slot's "own piece" is itself a Wardrobe copy her record noted (a pick from before a
+            /// restart or a re-created body, which forgot the snapshot): its name, so "back to my own" notes it again. Null: a
+            /// real own piece.
+            /// </summary>
+            public readonly string[] Copy = new string[4];
         }
         private static readonly Dictionary<int, Own> ownGear = new Dictionary<int, Own>();
 
         /// <summary>Forgets a body's pre-wardrobe snapshot (its entity is gone).</summary>
         public static void Forget(int entityId) { ownGear.Remove(entityId); }
+
+        /// <summary>
+        /// Round n12: the piece the Wardrobe dresses her in on this slot right now - its cvar names a piece and her look wears
+        /// it - or null. That piece is a copy: the real one stays in her pack (0-XNPCCore's Wardrobe only offers what she
+        /// carries), so the member inventory panel takes the real one out of her pack when it takes the slot over.
+        /// </summary>
+        public static string ActiveOverride(EntityAlive npc, Look look, int slot)
+        {
+            if (npc == null || npc.Buffs == null || look == null || slot < 0 || slot > 3) return null;
+            try
+            {
+                string want = Override(npc, slot);
+                return want != null && string.Equals(want, look.Gear[slot] ?? "", StringComparison.OrdinalIgnoreCase) ? want : null;
+            }
+            catch (Exception ex) { ScLog.Once("wardrobe-active", ex); return null; }
+        }
+
+        /// <summary>
+        /// Round n12: the member inventory panel just set this slot (a piece dropped on it, or taken off). Neither a Wardrobe
+        /// pick still in its cvar nor this session's snapshot of "her own piece" may undo that at the next Honor, so both go:
+        /// the cvar is cleared the way 0-XNPCCore clears one (SdcsLookApplier.ForceClearCvar: 0, sent to clients), and the slot's
+        /// snapshot is dropped. Honor then leaves the slot as the panel made it until something changes it again.
+        /// </summary>
+        public static void PanelChanged(EntityAlive npc, int slot)
+        {
+            if (npc == null || npc.Buffs == null || slot < 0 || slot > 3) return;
+            try
+            {
+                string cvar = WardrobeRules.CvarNames[slot];
+                if (npc.Buffs.HasCustomVar(cvar) && npc.Buffs.GetCustomVar(cvar) != 0f)
+                    npc.Buffs.SetCustomVar(cvar, 0f, true, CVarOperation.set, true);
+                Own own;
+                if (ownGear.TryGetValue(npc.entityId, out own)) { own.Taken[slot] = false; own.Gear[slot] = ""; own.Quality[slot] = 1; own.Copy[slot] = null; }
+                SetWorn(ScRegistry.GetMember(npc.entityId), slot, null);      // the review's fix 1: the slot is the panel's now
+            }
+            catch (Exception ex) { ScLog.Once("wardrobe-panel", ex); }
+        }
+
+        // ---- the Wardrobe's picks in her record (round n12 review, fix 1) ----
+        //
+        // A Wardrobe pick dresses her in a COPY of a piece from her pack. The panel must never hand out a second real item for
+        // it. Its cvar says so only while the pick stands, and the snapshot above is this session's only - after a restart or
+        // on a re-created body (ScRunners.Rekey forgets it), with the real piece taken out of her pack (0-XNPCCore then clears
+        // the cvar and Honor, without a snapshot, leaves the look as it is), she still wore the copy and nothing remembered it
+        // was one. Member.WardrobeWorn remembers it, by look slot, in her record.
+
+        /// <summary>The piece her record says the Wardrobe dresses her in on this slot, while her look still wears it; else null.</summary>
+        public static string RecordedPick(Member m, Look look, int slot)
+        {
+            if (m == null || m.WardrobeWorn == null || look == null || slot < 0 || slot > 3) return null;
+            string w = m.WardrobeWorn[slot];
+            return !string.IsNullOrEmpty(w) && string.Equals(w, look.Gear[slot] ?? "", StringComparison.OrdinalIgnoreCase) ? w : null;
+        }
+
+        /// <summary>The piece she wears on this slot as a Wardrobe copy (its cvar standing, or her record), or null.</summary>
+        public static string WardrobePick(EntityAlive npc, Member m, Look look, int slot)
+        {
+            return ActiveOverride(npc, look, slot) ?? RecordedPick(m, look, slot);
+        }
+
+        /// <summary>Notes (item) or forgets (null) the Wardrobe's piece of one slot in her record; true when that changed it.</summary>
+        private static bool SetWorn(Member m, int slot, string item)
+        {
+            if (m == null || slot < 0 || slot > 3) return false;
+            item = string.IsNullOrEmpty(item) ? null : item;
+            string had = m.WardrobeWorn != null ? m.WardrobeWorn[slot] : null;
+            if (string.Equals(had ?? "", item ?? "", StringComparison.Ordinal)) return false;
+            if (m.WardrobeWorn == null) m.WardrobeWorn = new string[4];
+            m.WardrobeWorn[slot] = item;
+            bool any = false;
+            for (int i = 0; i < 4; i++) if (!string.IsNullOrEmpty(m.WardrobeWorn[i])) any = true;
+            if (!any) m.WardrobeWorn = null;
+            return true;
+        }
+
+        /// <summary>sc gear dressed her anew: no slot is the Wardrobe's any more.</summary>
+        public static void ClearWorn(Member m)
+        {
+            if (m != null) m.WardrobeWorn = null;
+        }
+
+        /// <summary>The registry's wardrobe= value back ("helmetX,,glovesY," by look slot).</summary>
+        public static void ReadWorn(Member m, string val)
+        {
+            if (m == null || string.IsNullOrEmpty(val)) return;
+            string[] p = val.Split(',');
+            for (int i = 0; i < 4 && i < p.Length; i++) SetWorn(m, i, p[i].Trim());
+        }
+
+        /// <summary>The registry's wardrobe= value, or null when no slot is the Wardrobe's.</summary>
+        public static string EncodeWorn(Member m)
+        {
+            if (m == null || m.WardrobeWorn == null) return null;
+            return string.Join(",", Array.ConvertAll(m.WardrobeWorn, s => s ?? ""));
+        }
 
         /// <summary>
         /// The armor item this slot's cvar names, or null when the slot carries no override (cvar missing, 0, or naming
@@ -104,9 +205,10 @@ namespace SurvivorCommunity
                 if (look == null) return false;
 
                 if (!ownGear.TryGetValue(npc.entityId, out Own own)) ownGear[npc.entityId] = own = new Own();
+                Member worn = ScRegistry.GetMember(npc.entityId);    // round n12 review: her record notes which slots are copies
 
                 Look next = look.Clone();
-                bool changed = false;
+                bool changed = false, wornChanged = false;
                 for (int i = 0; i < 4; i++)
                 {
                     string want = Override(npc, i);
@@ -118,7 +220,10 @@ namespace SurvivorCommunity
                             own.Taken[i] = true;
                             own.Gear[i] = next.Gear[i] ?? "";
                             own.Quality[i] = next.Quality[i];
+                            // read BEFORE the note is overwritten below (review A): is that "own" piece a copy the record noted?
+                            own.Copy[i] = RecordedPick(worn, next, i);
                         }
+                        wornChanged |= SetWorn(worn, i, want);
                         // The quality has to travel with the name: ScLooks.SyncGear builds the piece with MakeItem(name,
                         // Quality[slot]), so leaving Quality behind would dress her in a Q1 copy of the Q6 helmet she was
                         // handed. Her real one is in her window or bag, the same place 0-XNPCCore's PackValueFor looks.
@@ -130,13 +235,20 @@ namespace SurvivorCommunity
                         want = own.Gear[i];                         // override cleared: back to the piece she had
                         quality = own.Quality[i];
                         own.Taken[i] = false;
+                        // her own piece again - noted as a Wardrobe copy when that is what the snapshot held (review A), else real
+                        wornChanged |= SetWorn(worn, i, own.Copy[i]);
+                        own.Copy[i] = null;
                     }
                     if (string.Equals(next.Gear[i] ?? "", want ?? "", StringComparison.Ordinal) && next.Quality[i] == quality) continue;
                     next.Gear[i] = want ?? "";
                     next.Quality[i] = quality;
                     changed = true;
                 }
-                if (!changed) return false;
+                if (!changed)
+                {
+                    if (wornChanged && ScRegistry.Loaded) ScRegistry.SaveAtomic();
+                    return false;
+                }
 
                 // Her record keeps the pick, so it survives a rebuild and a reload - the same way sc look writes one.
                 int records = 0;

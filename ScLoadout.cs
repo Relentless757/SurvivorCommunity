@@ -394,6 +394,29 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round n12: why this item cannot join a pair (TakesHanded false), as the localization key of the member inventory
+        /// panel's refusal: scInvRefuseDev (a weapon a mod marks not ready), scInvRefuseLauncher (launchers, the Demolitions
+        /// perk's), scInvRefuseDual (dual pistols), scInvRefuseTool (a tool: a job's, not a pair's) or scInvRefuseNotWeapon
+        /// (anything else: no swing or finite-ammo shot, no "ranged" tag on a gun). The same tests as WieldableFamily, in its
+        /// order. Null when it can join one.
+        /// </summary>
+        public static string WieldRefusal(ItemClass ic)
+        {
+            if (ic == null) return "scInvRefuseNotWeapon";
+            string token = ic.GetItemName();
+            if (TakesHanded(token)) return null;
+            if (Knows(token)) return "scInvRefuseDev";
+            if (ic.Actions == null || ic.Actions.Length == 0 || ic.Actions[0] == null || ic.HoldType == null) return "scInvRefuseNotWeapon";
+            int hold = ic.HoldType.Value;
+            if (hold == DualHoldType) return "scInvRefuseDual";
+            if (ScXnpc.IsLightTool(ic)) return "scInvRefuseTool";
+            ItemActionRanged r = ic.Actions[0] as ItemActionRanged;
+            if (r != null) return ic.HasAnyTags(ExplosiveTags) ? "scInvRefuseLauncher" : "scInvRefuseNotWeapon";
+            if (ic.Actions[0] is ItemActionDynamicMelee && ic.HasAnyTags(ToolTag)) return "scInvRefuseTool";
+            return "scInvRefuseNotWeapon";
+        }
+
+        /// <summary>
         /// The catalogue's weapons an NPC can be given at this gamestage tier: a weight above 0 at some band up to it (an NPC's
         /// band is capped at the gamestage tier - TierCap and ClassByGamestage). ScWeaponWarm loads their models ahead.
         /// </summary>
@@ -1302,6 +1325,10 @@ namespace SurvivorCommunity
         /// or one the player modded and handed her - is left exactly as it is. (The round-n05 version copied a fresh,
         /// randomly-sized roll over every copy and could strip mods off the gun in her hand.)
         /// A quality-1 copy has no slots at all and stays bare; that is the engine, not this code.
+        ///
+        /// Round n12: none of this applies to a weapon she was HANDED (ScHanded). The random quality and the canonical roll
+        /// would hand the player back a different item than the one given, so every copy of it - these, and the hand after
+        /// every 0-XNPCCore equip (ModsAfterEquip) - is made that exact item instead (FillMods, ScHanded.Imprint).
         /// </summary>
         /// <param name="reconcile">Rebuild the held model when the hand changed - for a body already in the world (a loadout
         /// change, Refill). Not from PostInit: the body is still being set up there, and Arm puts the hand item in after.</param>
@@ -1363,10 +1390,19 @@ namespace SurvivorCommunity
         /// <summary>
         /// Gives one copy the front of the canonical list, if it is a pair weapon with free slots and no mods yet.
         /// True when it installed something.
+        /// Round n12: a pair weapon she was HANDED (ScHanded: through the member inventory panel or the weapon menu) is not
+        /// rolled at all - every copy is made that exact item (its quality, wear, seed, mods and cosmetic mods; never its Meta,
+        /// the copy's own rounds), whatever it carried before, as long as her window holds no copy of it (WindowHolds, below:
+        /// 0-XNPCCore equips that window copy itself). True when what the model is built from changed.
         /// </summary>
         private static bool FillMods(EntityAlive e, Loadout pair, ItemValue iv)
         {
-            if (iv == null || iv.IsEmpty() || iv.modifications == null || iv.ModificationCount <= 0) return false;
+            if (iv == null || iv.IsEmpty()) return false;
+#if SC_V34
+            ItemValue exact = ScHanded.ForCopy(e, pair, iv.type);
+            if (exact != null) return !WindowHolds(e, iv.type) && ScHanded.Imprint(iv, exact);
+#endif
+            if (iv.modifications == null || iv.ModificationCount <= 0) return false;
             ItemClass ic = iv.ItemClass;
             if (ic == null || ic is ItemClassModifier || ic.MaxCount > 1 || !IsPairWeapon(pair, ic)) return false;
             if (WindowHolds(e, iv.type)) return false;
@@ -1384,7 +1420,8 @@ namespace SurvivorCommunity
         /// alone - modded or bare. It also has to be: with a copy in the window, 0-XNPCCore equips by cloning THAT copy,
         /// and its SdcsGivenModsTick compares the hand's mods with the window copy's and re-equips on a mismatch - so
         /// filling the hand would cost a second equip on every draw and still never let the player keep it bare.
-        /// (A MEMBER never keeps a handed gun in her window: ScArms.Keep moves it into her pair and gives its mods back.)
+        /// (A MEMBER never keeps a handed gun in her window: ScArms.Keep moves it into her pair - since round n12 as the exact
+        /// item, mods and all, ScHanded.)
         /// </summary>
         private static bool WindowHolds(EntityAlive e, int type)
         {
@@ -1672,6 +1709,10 @@ namespace SurvivorCommunity
                 sb.Append("\n[SC]    in hand: quality ").Append(held.Quality).Append(", attachments: ").Append(ModNames(held.modifications));
             if (l != null) sb.Append("\n[SC]    rolled attachments (a copy carries as many as its quality gives slots, quality - 1): ")
                              .Append(RolledText(e, l));
+#if SC_V34
+            // round n12: the exact items she was handed (the member inventory panel, the weapon menu) - in force or stale
+            if (ScXnpc.IsBody(e) && !ScXnpc.IsRaider(e)) sb.Append("\n[SC]    ").Append(ScHanded.Describe(ScHanded.MemberOf(e), e));
+#endif
             sb.Append("\n[SC]    item list:");
             foreach (ItemStack st in e.itemsOnEnterGame)
                 sb.Append(' ').Append(st != null && st.itemValue != null && st.itemValue.ItemClass != null ? st.itemValue.ItemClass.GetItemName() : "?");

@@ -40,8 +40,9 @@ Rules (the snapshot's and the community window's, Tools/generate_snapshot_ui.py)
   232 (the concept's width, the user's choice). Its portrait texture has no texture=/textures=/autounload attribute.
 - Item cells are vanilla's item_stack template, which AshfallUI restyles itself: the PACK's on vanilla's LootContainer
   controller (drag and drop, shift-click, take-all as for any container), the BAG's on XUiC_ScBagGrid, the equipment's on
-  XUiC_ScGearSlot (display only in Phase 1). A cell shows while its index is below container_slots (the template's own
-  rule): the window answers it for the pack, the bag grid for the bag, a gear slot for itself. Every item_stack sits in a
+  XUiC_ScGearSlot (display only in Phase 1; usable since round n12 through its own input handling - nothing in the XML
+  changed). A cell shows while its index is below container_slots (the template's own rule): the window answers it for
+  the pack, the bag grid for the bag, a gear slot for itself. Every item_stack sits in a
   repeat_content grid (the template reads repeat_i).
 - Each scroll view is vanilla's looting one: a controller rect with on_scroll/on_press/on_hover (a drop between the cells
   lands in the grid), a defaultscrollbar beside it (its scroll view finds it as a sibling) and the scrollview over the grid,

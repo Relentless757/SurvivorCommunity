@@ -37,6 +37,169 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round n12 (2026-11-14): equipping members from the inventory panel
+
+Phase 2 of the member inventory panel: its equipment slots now work. Drop a weapon on RANGED or MELEE, a piece of armor
+on Head, Chest, Hands or Feet, or a tool on a job slot, and she takes it; what she had comes onto your cursor, the way two
+vanilla slots swap. **Host and single player only** this round: on a multiplayer client every drop or pickup on an
+equipment slot is refused. Her PACK and BAG work as before.
+
+What she is handed through the panel (or the weapon menu, see below) is kept **exactly**: the same quality, wear and
+attachments (armor mods and dyes too). Every copy of that weapon she uses carries it, and taking it back gives you that
+very item. Weapons and clothes she was never handed keep the old behavior (a random quality on each copy, her rolled
+attachments). `sc loadout <name>` now lists her handed items, and marks one STALE when something else (the console, the
+Wardrobe) has replaced it. Every change writes one log line ending in "(member panel)".
+
+Two things that are meant to be so (do not report them as bugs):
+- **Wear is frozen.** A handed weapon or piece keeps the wear it had when you gave it to her: her copies are made that
+  item again every second, so it never wears down while she uses it, and it comes back with the wear it was handed with.
+- **A second copy in her PACK wins.** If you put another copy of the very weapon she carries as handed into her PACK,
+  0-XNPCCore equips that pack copy, and her other copies stop carrying the handed one until it leaves the pack. The
+  handed one still comes back exactly when you take it off RANGED or MELEE. (SC never causes this itself: a stale copy of
+  the weapon you are handing her goes to you, not into her pack.)
+- **A Wardrobe copy from before this round.** A member already wearing a piece through the Wardrobe in a save from an
+  earlier build carries no note that it is a copy: taking it off in the panel once gives you a real item of it (as for
+  any piece SC dressed her in), even if its real one is still in her pack. Only pieces picked from this build on are
+  known as copies.
+
+How to move things: click an item up and click the slot, or drag it and let go on the slot. To take an item off a slot,
+press on it and drag (a plain click only selects it for INSPECT). Shift-click sends it to your backpack.
+
+**RANGED**
+
+- [ ] Drop a gun from your backpack on RANGED: the slot shows it, and the gun she had is on your cursor. Close and reopen
+      the panel: still hers. The F1 log has "... now carries ... as her ranged weapon in place of the ... (member panel)".
+- [ ] **The exact round trip.** Give her a Q6 gun with a scope (and one more attachment if you have one). `sc loadout
+      <name>` shows "handed items ... ranged: <gun> Q6, ... mods [<scope>, ...]". Take it back off RANGED: it is Q6, with
+      the scope, and the same wear. Do it again with a save, quit and load in between: still Q6 with the scope.
+- [ ] **Every copy carries it.** While she has that gun, let her fight: close-range melee and back to the gun, running
+      dry and drawing it again, and a world reload. Each time she draws it, it is the Q6 with the scope (`sc loadout
+      <name>`: "in hand: quality 6, attachments: <scope>, ..."), never another quality.
+- [ ] **Loaded gun.** Drop a gun with rounds in it (say 10): those 10 rounds appear in her BAG as loose rounds of the
+      ammo it was loaded with. The gun that comes back to you is unloaded, and her old gun's rounds stay with her (in
+      her bag).
+- [ ] With Locked & Loaded: drop a gun with a magazine seated in it: the magazine, with its rounds, appears in her BAG.
+      Take the gun back later: it comes back with no magazine in it (hers stay in her bag).
+- [ ] With Locked & Loaded loaded but its NPC magazines switched off (the log says "NPC magazines: ... could not be bound"
+      or "... threw"), a gun with a magazine seated in it is refused, "Take the magazine out first."; after you take the
+      magazine out, the gun goes in.
+- [ ] Without Locked & Loaded: a gun that still carries a seated-magazine mark from an earlier game with it goes in; its
+      rounds land in her BAG as loose rounds.
+- [ ] **A stale weapon.** Hand her a gun on RANGED, then `sc loadout <name> <another gun>`: `sc loadout <name>` marks the
+      handed one STALE. Take RANGED off (or drop a third gun on it): the stale gun goes into her PACK, and the log names
+      it. Do it again with her PACK full: refused, "Make room in her pack first: ...". If the gun you drop is the same
+      weapon as the stale one, the stale one comes to **you** instead (your backpack, else at your feet; never onto the
+      cursor, which gets the gun she had), and nothing is refused for a full pack.
+- [ ] Fill every slot of her BAG with other things (no part-stack of that gun's ammo left in it), then drop a loaded
+      gun: refused, "Her bag has no room for its 10 round(s). Unload it first."; the gun stays on your cursor and nothing
+      changed.
+- [ ] **The same gun, a better copy.** Drop a Q5 copy of the very gun she carries: it replaces hers (her pair is the
+      same), and her old copy comes to your cursor.
+- [ ] A **melee-only** member (RANGED shows "None (melee only)"): drop a gun: she carries it now, your cursor is empty.
+- [ ] **Take RANGED off** (press on it and drag): the gun is on your cursor, RANGED shows "None (melee only)" and she
+      takes her melee weapon in hand. Log: "... is melee-only now: her ... went to the player (member panel)".
+- [ ] **Shift-click RANGED**: the gun goes to your backpack, she is melee-only. With your backpack full: refused, "Your
+      backpack is full."; she keeps the gun.
+- [ ] Refusals on RANGED, each with the denied sound, the reason as a tooltip, and the item still on your cursor:
+      - a melee weapon: "Ranged takes a gun or bow. <item> goes in Melee."
+      - a rocket launcher: "She won't carry <item>: no launchers or explosives."
+      - IZY Classic's dual pistols: "She can't use dual pistols."
+      - a pickaxe or a wrench: "<item> is a tool: drop it on one of her job slots."
+      - with Combat Sandbox (zzzCombatSandboxFLTR): one of IZY Classic's unfinished guns (MP5K, SG552): "<item> isn't
+        finished (a test item): she won't carry it."
+      - food, a block, a stack of anything: "... is not a weapon she can fight with." / "Hand her one item at a time."
+- [ ] While she is bandaging herself (hurt her, then watch for the bandage), drop a gun: "<name> is busy with a medical
+      item. Try again in a moment."
+
+**MELEE**
+
+- [ ] Drop a melee weapon on MELEE: she carries it, her old one is on your cursor (as she carried it).
+- [ ] Press on MELEE and drag with an empty cursor: refused, "She keeps a melee weapon - drop another on the slot to
+      swap."; shift-click on MELEE: the same refusal. She keeps it.
+- [ ] Drop a gun on MELEE: "Melee takes a melee weapon. <item> goes in Ranged." Drop a stone axe: the tool refusal.
+- [ ] A Q6 melee weapon with a mod goes in and comes back (swap another onto MELEE) Q6 with the mod.
+
+**The weapon menu ("Use the weapons I gave you", 0-XNPCCore's weapon rows)**
+
+- [ ] Put a Q6 gun with attachments in her PACK and pick "Use the weapons I gave you": she keeps it, and its
+      attachments **stay on it** (they no longer come back as separate items). `sc loadout <name>` lists it as handed. Take
+      it off RANGED in the panel: Q6, attachments on. The weapon it replaced comes back as before (base storage, your
+      inventory, or a bag at your feet).
+- [ ] Put a **loaded** gun in her PACK and use "Use the weapons I gave you": its rounds end up in her BAG (they used to
+      vanish). The same while she holds a copy of that very gun already: the pack copy's rounds still reach her BAG.
+
+**ARMOR (Head, Chest, Hands, Feet)**
+
+- [ ] Drop a helmet on Head: she wears it (her body updates within a second), the slot shows it at its quality, and the
+      helmet she wore is on your cursor as an item of that name and quality. Log: "... now wears ... on her head (member
+      panel)".
+- [ ] **The exact round trip.** A Q5 chest piece with an armor mod (and some wear on it) goes on Chest; take it off
+      again: Q5, the same wear, the mod. With a save and load in between: the same. While she wears it, `sc loadout
+      <name>` lists it as handed.
+- [ ] **Take a piece off** (press and drag): it is on your cursor and she goes bare on that slot (the body updates).
+      Shift-click: into your backpack (a full backpack: "Your backpack is full.", she keeps it).
+- [ ] Refusals: boots on Head ("<item> goes in her Feet slot."), a non-armor item ("<item> is not armor she can wear."),
+      a piece made for women on a man ("<item> is made for women only.") and the other way round, a piece with no model
+      for her body ("She can't wear <item>: there is no model of it for her body.").
+- [ ] **The Wardrobe.** In 0-XNPCCore's Wardrobe, dress her in a helmet from her PACK. Then drop another helmet on Head
+      in the panel: the Wardrobe's helmet comes out of her PACK onto your cursor (the PACK has one fewer), and she wears
+      the new one. Talk to her, open the Wardrobe, close it: the panel's helmet stays on (not undone). "Back to my own" on
+      Head changes nothing either.
+- [ ] Hand her a piece through the panel, then dress that slot through the Wardrobe, then pick "Back to my own" there:
+      she wears the handed piece again, exactly (quality, mods).
+- [ ] **The Wardrobe across a restart.** Dress her in helmet A from her PACK through the Wardrobe. Save, quit and load.
+      Take helmet A out of her PACK (into your backpack). Now take Head off in the panel: **nothing** comes onto your
+      cursor (she was wearing a copy of the A you already hold), she goes bare, and the log says "... is no longer in her
+      pack: nothing comes back for it". You hold one helmet A, not two.
+- [ ] The same, but leave helmet A in her PACK: taking Head off brings the real A out of her PACK onto your cursor.
+- [ ] **A second Wardrobe pick after a restart.** Dress her in helmet A through the Wardrobe; save, quit and load; dress her
+      in helmet B (also from her PACK) on the same slot; pick "Back to my own": she wears A again. Take the real A out of
+      her PACK, then take Head off in the panel: nothing comes onto your cursor - still one helmet A in all.
+- [ ] Hand her a piece, dress that slot through the Wardrobe, save, quit and load, then pick "Back to my own": SC cannot
+      know her own piece any more (its snapshot is this session's), so she keeps the Wardrobe's piece; the handed piece
+      stays listed (STALE) in `sc loadout <name>` and goes into her PACK on the next panel change of that slot.
+- [ ] Hand her a piece, then `sc gear <name> <Set>`: the set wins; `sc loadout <name>` marks the handed piece STALE.
+      The next panel change on that slot puts the stale piece into her PACK (refused, "Make room in her pack first...",
+      while the PACK is full).
+
+**JOB TOOLS (Chop, Mine, Dig, Butcher, Repair)**
+
+- [ ] Drop an iron pickaxe on Mine: it goes into her PACK (onto a matching stack, else the first free slot), and Mine
+      shows it once it is her best tool for the job. Drop a steel axe on Chop: the same.
+- [ ] With her PACK full: refused, "<name>'s pack is full."
+- [ ] Drop a hunting knife on Chop: refused, "<item> is no tool for Chop."
+- [ ] Take the tool shown on Mine off (it is in her PACK): it comes to your cursor and leaves her PACK. A tool shown from
+      her BAG comes out of the bag. Shift-click: into your backpack.
+- [ ] With only her work kit (stone axe, stone shovel, bone knife), take Chop: refused, "Her work kit stays with her."
+      A melee weapon of her pair that also serves a job (a fire axe on Chop): "She fights with that: swap it on the Melee
+      slot."
+
+**Everywhere**
+
+- [ ] Right-click on any equipment slot, with or without an item on your cursor: refused, "Equipment slots don't split
+      stacks: use the left mouse button."; nothing moves.
+- [ ] Every refusal plays the denied sound and shows its tooltip once, and the item stays on your cursor.
+- [ ] The slots and the info lines update at once after each change. Hovering a slot shows the item's name; a plain
+      click selects it for INSPECT, which shows its stats and no action buttons.
+- [ ] With a gamepad: Submit takes an item off a slot or drops the held one, the half-stack button is refused, the right
+      stick sends the slot's item to your backpack, Inspect inspects it.
+- [ ] Take a gun off RANGED and close the panel with it still on your cursor (Escape, or walk away): it lands in your
+      inventory (at your feet when that is full). She does not have it any more: nothing was copied.
+- [ ] Let her die (vanilla `kill`, or a zombie) while she carries a handed gun and wears a handed piece: her death
+      backpack holds both, with her pack and bag. The log has "... died carrying 2 item(s) she was handed ...".
+- [ ] **Multiplayer client:** any drop or pickup on an equipment slot is refused, "Only the host can change her gear.";
+      the client's PACK still works. The client's slots show what the client can see: the weapon in her hand as handed,
+      the other weapon possibly as a plain copy, the armor slots possibly empty.
+- [ ] **Leaving.** Hand a member a gun and a piece, then dismiss her (or let her leave): both go into her PACK (at her
+      feet when it is full), and the log says "... (left the community): the 2 item(s) she was handed went into her pack".
+- [ ] **Off-world loss, logged.** A member carrying handed items who dies away from her body (on a supply run, at an
+      outpost, defending it), or is removed as missing for days: the items are lost with her, and the log names them,
+      "... had N item(s) she was handed - lost with her, there is no body to leave them on: ...".
+- [ ] **A mod missing for a session.** Hand her an item from a weapon or armor mod, save, quit, disable that mod and load:
+      the log says it "is not an item in this game now ... kept in the record as it is". Save, quit, enable the mod, load:
+      `sc loadout <name>` lists the item again, as handed.
+- [ ] An older save (from before this round): members load as they were, `sc loadout <name>` says "handed items: none".
+
 ## Round n11 (2026-11-14): the talk card moves (t40)
 
 The card that shows while you talk to a survivor (name, role, portrait, health, stamina, mood, traits, skills) can now
@@ -111,8 +274,8 @@ in, 64 slots, three rows in view) and her BAG (where she keeps ammo and magazine
       **no** action buttons (no Drop, Scrap, Equip).
 - [ ] ARMOR shows Head, Chest, Hands, Feet as SC dresses her, each at its quality; bare slots stay empty. Change her
       gear (`sc gear <name> <Set>`) while the panel is open: the slots change within a second.
-- [ ] Drag any item from your backpack onto an equipment slot and let go: nothing moves, you hear the "denied"
-      sound and see "These slots only show what she has for now...". The item stays on your cursor.
+- [ ] (Replaced by round n12: the slots work now, see there.) ~~Drag any item from your backpack onto an equipment slot
+      and let go: nothing moves, you hear the "denied" sound and see "These slots only show what she has for now...".~~
 
 **Best tool per job (incl. shared)**
 

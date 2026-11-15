@@ -42,7 +42,8 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 - `sc arms <id|name> [melee|ranged]` — what she is holding and why (overwhelmed count, gun first on / standing aside
   for a melee order, 0-XNPCCore's close-melee state); force a hand
 - `sc loadout <id|name> [weapon] [weapon] [meleeonly] [ranged-lead|melee-lead]` — her weapon pair, the quality and
-  attachments of what is in her hand, and the attachments rolled for each of her two weapons
+  attachments of what is in her hand, the attachments rolled for each of her two weapons, and (a member) the items she
+  was handed exactly through the inventory panel or the weapon menu, each marked STALE when it is no longer worn/carried
 - `sc loadout near [r]` · `sc loadout sim [n] [hostile] [T1|T2|T3] [any]` — roll statistics without spawning
 - `sc skills sim [T1|T2|T3] [n]` · `sc aim [id|name]` · `sc anim <id|name>`
 - `sc names [reload | reset | test [n] [male|female]]` — the streamer name pool

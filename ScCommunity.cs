@@ -1246,6 +1246,9 @@ namespace SurvivorCommunity
                     EntityUtilities.CheckForDanglingHires(player.entityId);
                     Tell(player, string.Format(Localization.Get(reasonKey ?? "scLeft"), m.Name), "ui_denied");
                 }
+#if SC_V34
+                ScHanded.OnRecordGone(m, npc, "left the community");   // round n12 review: her handed items into her pack (or logged lost)
+#endif
                 ScRegistry.Members.Remove(m.Id);
                 ScRunners.RebuildRunnerSet();
                 ScLog.Out(m.Name + " left the community (" + (reasonKey ?? "dismissed") + ")");
@@ -1341,6 +1344,10 @@ namespace SurvivorCommunity
                 if (m.RunDistress) ScRadio.EndDistress(World, player, m);     // the rescue quest fails with them
                 m.Snap = null;
             }
+#if SC_V34
+            // round n12 review: a death in the world dropped her handed items already (Patches_Npc); one off-world loses them - logged
+            ScHanded.OnRecordGone(m, null, "died away from her body");
+#endif
             ScRegistry.Members.Remove(m.Id);
             ScRunners.RebuildRunnerSet();
             Community c = ScRegistry.Community;

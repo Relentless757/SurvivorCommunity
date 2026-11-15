@@ -8,7 +8,8 @@ namespace SurvivorCommunity
     /// <summary>
     /// Round n10 (3.4): what the member inventory panel's equipment column shows (XUiC_ScMemberInv) - her pair's two weapons as
     /// she carries them, the four armor pieces SC dresses her in, and the best tool she carries for each of five jobs. Read
-    /// only: Phase 1 shows these, nothing here moves an item.
+    /// only: nothing here moves an item (round n12's changes are ScMemberEquip's; its tool slots use this same classification,
+    /// Rank, and take the tool Tools picks).
     ///
     /// The job tools (the user's decision: the BEST tool she carries for the job, from all her stores; one tool that serves
     /// several jobs shows in each, marked shared). Which tools serve which job is 0-XNPCCore 3.4.05's own rule, read from its
@@ -101,11 +102,18 @@ namespace SurvivorCommunity
             return ic != null && ic.Actions != null && ic.Actions.Length > 0 && ic.Actions[0] is ItemActionRanged;
         }
 
-        /// <summary>Her copy of this weapon: the one in her hand, else the toolbelt's, else a plain quality 1 one (not carried).</summary>
+        /// <summary>
+        /// Her copy of this weapon: the one in her hand, else (round n12) the exact item she was handed for her pair (ScHanded:
+        /// what every copy carries, shown even while the toolbelt has no copy - the melee weapon while she holds the gun), else
+        /// the toolbelt's, else a plain quality 1 one (not carried; a multiplayer client, which has no record, shows this way).
+        /// </summary>
         private static ItemValue CarriedValue(EntityAlive npc, ItemClass ic)
         {
             ItemValue held = npc.inventory != null ? npc.inventory.holdingItemItemValue : null;
             if (held != null && !held.IsEmpty() && held.type == ic.Id) return held.Clone();
+            Loadout pair = ScLoadout.Current(npc);
+            ItemValue handed = pair != null ? ScHanded.ForCopy(npc, pair, ic.Id) : null;
+            if (handed != null) return handed.Clone();
             ItemStack[] belt = npc.inventory != null && npc.inventory.ItemGrid != null ? npc.inventory.ItemGrid.items : null;
             if (belt != null)
                 foreach (ItemStack s in belt)
@@ -154,14 +162,18 @@ namespace SurvivorCommunity
         /// <summary>
         /// The four pieces SC dresses her in (ScLooks.Get: Look.Gear by slot Head, Chest, Hands, Feet, at Look.Quality), as
         /// items of that quality; an empty stack for a bare slot or an item that no longer exists. Null without a look.
+        /// Round n12: a piece she was handed (ScHanded) shows as that exact item - its wear and armor mods - as she wears it.
         /// </summary>
         public static ItemStack[] Armor(EntityAlive npc)
         {
             Look look = npc != null ? ScLooks.Get(npc) : null;
             if (look == null) return null;
+            Member m = ScHanded.MemberOf(npc);
             var a = new ItemStack[4];
             for (int i = 0; i < 4; i++)
             {
+                ItemValue handed = ScHanded.Armor(m, look, i);
+                if (handed != null) { a[i] = new ItemStack(handed.Clone(), 1); continue; }
                 string name = look.Gear[i];
                 ItemClass ic = !string.IsNullOrEmpty(name) ? ItemClass.GetItemClass(name, true) : null;
                 if (ic == null) { a[i] = ItemStack.Empty.Clone(); continue; }
@@ -171,13 +183,19 @@ namespace SurvivorCommunity
             return a;
         }
 
-        /// <summary>The look's gear as one string ("name:q|..."), to tell whether the armor slots need building again.</summary>
+        /// <summary>
+        /// The look's gear as one string ("name:q|..."), to tell whether the armor slots need building again - with each
+        /// handed piece's build (round n12: the same name and quality handed again with other mods changes the slot too).
+        /// </summary>
         public static string ArmorKey(EntityAlive npc)
         {
             Look look = npc != null ? ScLooks.Get(npc) : null;
             if (look == null) return "";
-            return look.Gear[0] + ":" + look.Quality[0] + "|" + look.Gear[1] + ":" + look.Quality[1] + "|"
-                   + look.Gear[2] + ":" + look.Quality[2] + "|" + look.Gear[3] + ":" + look.Quality[3];
+            Member m = ScHanded.MemberOf(npc);
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < 4; i++)
+                sb.Append(look.Gear[i]).Append(':').Append(look.Quality[i]).Append(':').Append(ScHanded.Fingerprint(ScHanded.Armor(m, look, i))).Append('|');
+            return sb.ToString();
         }
 
         // ------------------------------------------------------------------ job tools ----

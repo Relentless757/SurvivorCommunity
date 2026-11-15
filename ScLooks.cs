@@ -1274,12 +1274,58 @@ namespace SurvivorCommunity
             }
         }
 
-        private static ItemValue MakeItem(string name, int quality)
+        /// <summary>A new piece of this name at this quality (what she wears for a look's piece she was never handed); null when the item is gone.</summary>
+        internal static ItemValue MakeItem(string name, int quality)
         {
             ItemClass ic = ItemClass.GetItemClass(name, true);
             if (ic == null) return null;
             int q = Math.Max(1, Math.Min(6, quality));
             return new ItemValue(ic.Id, q, q, false);
+        }
+
+        /// <summary>Round n12: is this armor right for a man (male) or a woman by SC's own outfit table (ScConfig.Outfits' sex)?</summary>
+        internal static bool ArmorSexFits(string item, bool male)
+        {
+            return SexFits(ItemSex(item), male);
+        }
+
+        /// <summary>
+        /// Round n12: the piece she was handed for this equipment slot (ScHanded) when it is the one wanted there - that item,
+        /// with its wear and armor mods, is what she wears, not a new copy of its name. Null otherwise.
+        /// </summary>
+        private static ItemValue HandedPiece(EntityAlive npc, int slot, string name, int quality)
+        {
+#if SC_V34
+            Member m = ScHanded.MemberOf(npc);
+            return m != null ? ScHanded.Piece(m, slot, name, quality) : null;
+#else
+            return null;
+#endif
+        }
+
+        /// <summary>The piece to put on for this slot: the handed one (a copy of it), else a new one of the name and quality.</summary>
+        private static ItemValue WornItem(EntityAlive npc, int slot, string name, int quality)
+        {
+            ItemValue handed = HandedPiece(npc, slot, name, quality);
+            return handed != null ? handed.Clone() : MakeItem(name, quality);
+        }
+
+        /// <summary>
+        /// Round n12: is what she wears in a slot already the wanted piece - the same item name, and either the handed piece's
+        /// build (ScHanded.SameBuild: quality, seed, mods; its wear may differ) or, for a piece she was not handed, its quality
+        /// (a Wardrobe pick that changed only the quality used to be left at the old one). Wear is never compared.
+        /// </summary>
+        private static bool SameWorn(EntityAlive npc, int slot, string name, int quality)
+        {
+            ItemValue have = npc.equipment.GetSlotItem(slot);
+            string haveName = have == null || have.IsEmpty() || have.ItemClass == null ? "" : have.ItemClass.GetItemName() ?? "";
+            if (!string.Equals(haveName, name, StringComparison.OrdinalIgnoreCase)) return false;
+            if (name.Length == 0) return true;
+            ItemValue handed = HandedPiece(npc, slot, name, quality);
+#if SC_V34
+            if (handed != null) return ScHanded.SameBuild(have, handed);
+#endif
+            return !have.ItemClass.HasQuality || have.Quality == Math.Max(1, Math.Min(6, quality));
         }
 
         private static readonly string[] wantNames = new string[4];
@@ -1298,7 +1344,7 @@ namespace SurvivorCommunity
                 for (int slot = 0; slot < 4; slot++)
                 {
                     if (wantNames[slot].Length == 0) continue;
-                    ItemValue iv = MakeItem(wantNames[slot], wantQuality[slot]);
+                    ItemValue iv = WornItem(npc, slot, wantNames[slot], wantQuality[slot]);    // n12: a handed piece as it was handed
 #if SC_V34
                     // 3.4: no SetSlotItemRaw - the equipment grid's slot written directly is the same raw write (Equipment
                     // does not listen to its grid; only SetSlotItem raises OnChanged)
@@ -1310,13 +1356,6 @@ namespace SurvivorCommunity
                 npc.equipment.ResetArmorGroups();
             }
             catch (Exception e) { ScLog.Once("looks-stage", e); }
-        }
-
-        private static string SlotName(EntityAlive npc, int slot)
-        {
-            ItemValue iv = npc.equipment.GetSlotItem(slot);
-            if (iv == null || iv.IsEmpty() || iv.ItemClass == null) return "";
-            return iv.ItemClass.GetItemName() ?? "";
         }
 
         /// <summary>
@@ -1340,9 +1379,9 @@ namespace SurvivorCommunity
                 {
                     for (int slot = 0; slot < 4; slot++)
                     {
-                        string have = SlotName(npc, slot);
-                        if (string.Equals(have, wantNames[slot], StringComparison.OrdinalIgnoreCase)) continue;
-                        npc.equipment.SetSlotItem(slot, wantNames[slot].Length > 0 ? MakeItem(wantNames[slot], wantQuality[slot]) : null);
+                        // round n12: the name, and the handed piece's build or the quality (SameWorn) - not the name alone
+                        if (SameWorn(npc, slot, wantNames[slot], wantQuality[slot])) continue;
+                        npc.equipment.SetSlotItem(slot, wantNames[slot].Length > 0 ? WornItem(npc, slot, wantNames[slot], wantQuality[slot]) : null);
                         changed = true;
                     }
                 }

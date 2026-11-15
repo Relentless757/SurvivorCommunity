@@ -156,6 +156,13 @@ namespace SurvivorCommunity
 #endif
                         e.bag.Clear();
                     }
+#if SC_V34
+                    // round n12: the items a member was handed exactly (the member inventory panel, the weapon menu: ScHanded) -
+                    // her pair's weapons and her armor as the player gave them - drop with her. Her pair's copies and her look
+                    // are not items and never drop for a member, so a handed gun or helmet was lost with her otherwise. Taken
+                    // out of her record as they go in: a repeated SetDead finds none.
+                    if (ScXnpc.IsBody(e)) ScHanded.TakeForDeath(e, drop);
+#endif
                     // once per raider: vanilla's Kill calls SetDead again for every hit on a body that is already dead,
                     // and the weapons, unlike the bag, are still in its toolbelt then
                     if (ScXnpc.IsRaider(e) && ScConfig.RaiderWeaponDropChance > 0f && e.Buffs != null && e.Buffs.GetCustomVar(PairDroppedCvar) <= 0f)

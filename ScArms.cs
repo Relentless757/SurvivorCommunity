@@ -840,6 +840,15 @@ namespace SurvivorCommunity
         /// The handed weapon in this window slot joins the NPC's pair in place of the one of its kind (a melee-only NPC's
         /// first ranged weapon replaces nothing), and the replaced one and any mods on the handed one come back as real
         /// items. Shared by 0-XNPCCore's weapon menu (OnSwap, members) and SC's own "Use the weapons I gave you" (UseHanded).
+        ///
+        /// Round n12 (decided: the same store as the member inventory panel's slots). A MEMBER keeps the handed weapon as the
+        /// exact item (ScHanded: its quality, wear and mods, so every copy of it carries them and it comes back exactly) - its
+        /// mods stay on it instead of coming back separately - and the one it replaces comes back exactly as it was handed when
+        /// it was (else her current copy, as before). The window copy's own rounds go into her bag (its seated Locked &amp; Loaded
+        /// magazine too) unless 0-XNPCCore has already put that copy in her hand, which moves the rounds with it (its equip
+        /// zeroes the window copy's Meta); before n12 they were lost with the window copy. 0-XNPCCore's banked rounds for the
+        /// gun that left the pair become loose rounds (ScAmmo.ReleaseXnpcTable). A stale stored item of that slot comes back
+        /// with the rest. Anyone without a member record (a hired stranger) keeps the old behavior.
         /// </summary>
         private static bool Keep(EntityAlive npc, string name, string token, int slot, EntityPlayer player, string route)
         {
@@ -848,23 +857,51 @@ namespace SurvivorCommunity
             bool ranged = ScLoadout.IsRangedToken(token);
             string old = cur.Of(ranged);
             if (Loadout.IsNoRanged(old)) old = null;                     // a melee-only NPC's first ranged weapon
-            ItemValue oldIv = old != null ? CarriedCopy(npc, old) : null;     // before Set refills the slots
+            Member m = ScRegistry.GetMember(npc.entityId);
+            int hslot = ScHanded.WeaponSlot(ranged);
+            ItemValue keptOld = ScHanded.Weapon(m, cur, ranged);           // n12: the one it replaces, if it was handed exactly
+            ItemValue staleOld = keptOld == null ? ScHanded.Get(m, hslot) : null;
+            // before Set refills the slots; never with Locked & Loaded's seated-magazine flag (its magazine stays with her)
+            ItemValue oldIv = old == null ? null : keptOld != null ? keptOld.Clone() : ScHanded.Clean(CarriedCopy(npc, old), true);
+            ItemStack[] items = ScNpc.Items(npc);
+            ItemValue handed = items != null && slot >= 0 && slot < items.Length && items[slot] != null && !items[slot].IsEmpty() ? items[slot].itemValue.Clone() : null;
+            bool exact = m != null && handed != null;
+            ItemValue held = npc.inventory != null ? npc.inventory.holdingItemItemValue : null;
+            bool inHand = exact && held != null && !held.IsEmpty() && held.type == handed.type;   // 0-XNPCCore moved its magazine into the hand
+            // a seated L&L magazine is a real item only with L&L loaded (the review's fix 8: without it the flag is dropped)
+            bool magazine = exact && ranged && !inHand && ScMags.Loaded && ScMags.SeatedFlag(handed);
+            if (magazine && !ScMags.CanEject)
+            {
+                ScLog.Warn(name + ": could not keep the handed " + token + " - it has a Locked & Loaded magazine in it that SC cannot give back to her bag (take the magazine out first)");
+                return false;
+            }
+            if (exact) ScHanded.Put(m, hslot, ScHanded.Clean(handed, ranged));
             var change = new Loadout();
             change.Set(ranged, token);
             string why;
             // no starting stack for a handed gun: its ammo is what the player hands over, or a resupply at home
-            if (!ScLoadout.Set(npc, change, out why, false))
+            if (!SetGuarded(npc, change, ranged, token, out why))
             {
+                if (exact) ScHanded.Put(m, hslot, keptOld ?? staleOld);   // nothing changed
                 ScLog.Warn(name + ": could not keep the handed " + token + " (" + why + ")");
                 return false;
             }
             RetargetRemembered(npc, old, token);
             var back = new List<ItemStack>();
-            TakeFromWindow(npc, slot, back);              // the handed item lives in the pair now; any mods on it come back
+            // the handed item lives in the pair now; a non-member's mods come back, a member's stay on it (n12). Its own loose
+            // rounds always go to her bag (the review's fix 5: 0-XNPCCore banks into the window copy only when that copy is at
+            // 0, so it can hold rounds of its own); its magazine only when it is not the one 0-XNPCCore put in her hand
+            TakeFromWindow(npc, slot, back, !exact, exact && ranged, magazine);
             // Round n08: Set's own fill skipped this weapon while the handed copy was still in her window (FillMods leaves
             // a gun with a window twin alone), so fill the pair's copies - the hand included - now that it is gone.
             ScLoadout.ApplyWeaponMods(npc, true);
+            if (exact && old != null && !string.Equals(old, token, StringComparison.OrdinalIgnoreCase))
+            {
+                try { ScAmmo.ReleaseXnpcTable(npc, ItemClass.GetItemClass(old, true), "weapon menu"); }
+                catch (Exception e) { ScLog.Once("arms-keep-table", e); }
+            }
             if (oldIv != null) back.Insert(0, new ItemStack(oldIv, 1));
+            if (exact && staleOld != null) back.Add(new ItemStack(staleOld.Clone(), 1));
             string where = back.Count > 0 ? Return(back, player, npc) : null;
             swapsKept++;
             Loadout now = ScLoadout.Current(npc);
@@ -874,6 +911,150 @@ namespace SurvivorCommunity
                 ScCommunity.Tell(player, string.Format(Localization.Get("scSwapKept"), name, ItemLabel(token), ItemLabel(old), Localization.Get(WhereKey(where))), "");
             if (ScRegistry.GetMember(npc.entityId) != null || ScRegistry.GetProspect(npc.entityId) != null) ScRegistry.SaveAtomic();
             return true;
+        }
+
+        // ------------------------------------------------------------------ the member inventory panel's weapon slots (round n12) ----
+
+        /// <summary>
+        /// Round n12: the member inventory panel's RANGED and MELEE slots (ScMemberEquip, host only) - Keep's semantics through
+        /// the panel's own entry point. Keep refuses while the container is in use (ScAmmo.IsWindowOpen), and on the host the
+        /// panel itself holds that flag; this path never touches her window, so the panel's own open is no obstacle, while a
+        /// REMOTE player's open copy (ScAmmo.IsRemoteOpen) or 0-XNPCCore's stock trade still refuse it (ScMemberEquip.Gate).
+        ///
+        /// handed (from the cursor, a copy): it becomes that half of her pair (ScLoadout.Set, no starting stack: its ammo is what
+        /// she carries) and is kept as the exact item (ScHanded; every copy carries it). The same weapon type as now is allowed
+        /// too: the pair stays, the handed item replaces the kept one (a better copy of the same gun). Its own rounds go into her
+        /// bag as loose rounds of its loaded ammo (refused first when the bag has no room for all of them), a seated Locked &amp;
+        /// Loaded magazine as the magazine (refused when it cannot be given back: ScMags.CanEject). handed null: the gun is taken
+        /// out of RANGED - she is melee-only (Loadout.NoRanged) and draws her melee weapon.
+        ///
+        /// back: the weapon the slot held, for the player's cursor - exactly as it was handed when it was, else her current copy
+        /// (CarriedCopy), unloaded and without Locked &amp; Loaded's magazine flag; null for none. Its rounds stay with her: the
+        /// hand's go to her bag as the hand changes (X12, L&amp;L's own swap patch), 0-XNPCCore's banked ones for it become loose
+        /// rounds (ScAmmo.ReleaseXnpcTable). A stale stored item of the slot (her pair had moved on, ScHanded) goes into her
+        /// pack, refused first when the pack is full. The hand: a new weapon of the kind she holds goes in her hand (Set keeps
+        /// the kind) and is noted as ordered (NoteOrdered); taking the gun arms her melee weapon, noted the same way.
+        ///
+        /// Returns null when done, else the refusal for the player ("" for nothing to do). Nothing changes on a refusal; past
+        /// the pair change nothing throws out of here, so the caller can always hand back over.
+        /// </summary>
+        internal static string PanelWeapon(EntityPlayerLocal player, EntityAlive npc, Member m, TEFeatureStorage pack, bool ranged, ItemValue handed, out ItemValue back)
+        {
+            back = null;
+            string name = m.Name;
+            if (ScMedic.IsUsing(npc.entityId)) return ScMemberEquip.Text("scInvRefuseBusy", name);
+            Loadout cur = ScLoadout.Current(npc);
+            if (cur == null || cur.Melee == null || !ScNpc.IsV4(npc)) return ScMemberEquip.Text("scInvRefuseNoPair", name);
+            int hslot = ScHanded.WeaponSlot(ranged);
+            string old = cur.Of(ranged);
+            if (Loadout.IsNoRanged(old)) old = null;
+            if (handed == null && (!ranged || old == null)) return "";
+            string token = handed != null ? handed.ItemClass.GetItemName() : null;
+            bool gun = handed != null && ScAmmo.RangedAction(handed.ItemClass) != null;
+            // a seated L&L magazine is a real item only with L&L loaded (the review's fix 8: without it the flag is dropped, its
+            // Meta is loose rounds)
+            bool seated = gun && ScMags.Loaded && ScMags.SeatedFlag(handed);
+            if (seated && !ScMags.CanEject) return ScMemberEquip.Text("scInvRefuseUnloadMag");
+            if (gun && !seated && handed.Meta > 0 && ScAmmo.RoomForLoaded(npc, handed) < handed.Meta) return ScMemberEquip.Text("scInvRefuseNoRoomRounds", handed.Meta);
+            ItemValue keptOld = ScHanded.Weapon(m, cur, ranged);
+            ItemValue stale = keptOld == null ? ScHanded.Get(m, hslot) : null;
+            // the review's fix 7 (and re-check B): a stale copy of the very weapon joining the pair goes to the PLAYER - not into
+            // her pack (a copy in her window is the one 0-XNPCCore equips, and the handed one's copies would stop carrying it:
+            // FillMods), nor her bag (a fresh body of hers does not get her old bag back) - into the backpack, else at the
+            // player's feet; never onto the cursor, which takes the swap's own result
+            bool staleToPlayer = stale != null && handed != null && stale.type == handed.type;
+            if (stale != null && !staleToPlayer && !ScMemberEquip.PackRoom(pack, new ItemStack(stale, 1)))
+                return ScMemberEquip.Text("scInvRefuseStaleRoom", ScMemberEquip.Label(stale));
+            back = old == null ? null : keptOld != null ? keptOld.Clone() : ScHanded.Clean(CarriedCopy(npc, old), true);
+            ItemValue prev = ScHanded.Get(m, hslot);
+            ScHanded.Put(m, hslot, handed != null ? ScHanded.Clean(handed, gun) : null);
+            bool changed = token == null || !string.Equals(token, old, StringComparison.OrdinalIgnoreCase);
+            if (changed)
+            {
+                var change = new Loadout();
+                change.Set(ranged, token ?? Loadout.NoRanged);
+                string why;
+                if (!SetGuarded(npc, change, ranged, token ?? Loadout.NoRanged, out why))
+                {
+                    ScHanded.Put(m, hslot, prev);                 // nothing changed
+                    back = null;
+                    return ScMemberEquip.Text("scInvRefuseFailed", why ?? "?");
+                }
+            }
+            // committed: every step below on its own, none throws out (the caller hands `back` to the cursor next)
+            if (gun)
+                PanelStep("unload", () =>
+                {
+                    if (seated) ScMags.Eject(npc, handed, "member panel");
+                    // the review's fix 3: what her bag cannot take any more (X12 may have filled it during Set), or the rounds of
+                    // a magazine L&L declined to give back, drop at her body - none vanish with this copy
+                    if (handed.Meta > 0) ScAmmo.ReturnLoose(npc, handed, "member panel", true);
+                });
+            if (stale != null)
+                PanelStep("stale", () =>
+                {
+                    if (staleToPlayer) ScMemberEquip.GiveToPlayer(player, npc, new ItemStack(stale.Clone(), 1), "a weapon she no longer carried");
+                    else ScMemberEquip.PutInPack(npc, pack, new ItemStack(stale.Clone(), 1), "a weapon she no longer carried");
+                });
+            PanelStep("remembered", () => RetargetRemembered(npc, old, token));
+            PanelStep("mods", () => ScLoadout.ApplyWeaponMods(npc, true));
+            if (changed && old != null) PanelStep("table", () => ScAmmo.ReleaseXnpcTable(npc, ItemClass.GetItemClass(old, true), "member panel"));
+            PanelStep("hand", () =>
+            {
+                ItemValue h = npc.inventory != null ? npc.inventory.holdingItemItemValue : null;
+                string heldName = h != null && !h.IsEmpty() && h.ItemClass != null ? h.ItemClass.GetItemName() : null;
+                if (handed == null)
+                {
+                    string w;
+                    if (!string.Equals(heldName, cur.Melee, StringComparison.OrdinalIgnoreCase) && !ScLoadout.Arm(npc, false, out w))
+                        ScLog.Warn(name + ": melee-only now, but could not take the " + cur.Melee + " in hand (" + w + ")");
+                    NoteOrdered(npc);
+                }
+                else if (string.Equals(heldName, token, StringComparison.OrdinalIgnoreCase)) NoteOrdered(npc);
+            });
+            PanelStep("save", ScRegistry.SaveAtomic);
+            swapsKept++;
+            Patches_Xnpc.Count(handed == null ? "n12-panel-ranged-taken" : changed ? "n12-panel-weapon" : "n12-panel-weapon-same");
+            Loadout now = ScLoadout.Current(npc);
+            if (handed == null)
+                ScLog.Out(name + " is melee-only now: her " + ScHanded.ItemText(back) + " went to the player (member panel) - loadout now " + (now != null ? now.ToString() : "-"));
+            else
+                ScLog.Out(name + " now carries " + ScHanded.ItemText(ScHanded.Get(m, hslot)) + " as her " + (ranged ? "ranged" : "melee") + " weapon"
+                          + (old == null ? "" : changed ? " in place of the " + old : " (the same weapon: the one handed now is kept)") + " (member panel)"
+                          + (back != null ? " - " + ScHanded.ItemText(back) + " to the player" : "") + " - loadout now " + (now != null ? now.ToString() : "-"));
+            return null;
+        }
+
+        /// <summary>
+        /// The review's fix 2: ScLoadout.Set, which reaches SCore's UpdateWeapon and every patch on it through Refill and Arm,
+        /// may throw. True when the pair took the change - Set said so, or it threw after her pair already names the new weapon
+        /// (want: the token, or Loadout.NoRanged): the caller then finishes the change rather than leave it half done. False,
+        /// with the reason, when it did not.
+        /// </summary>
+        private static bool SetGuarded(EntityAlive npc, Loadout change, bool ranged, string want, out string why)
+        {
+            try
+            {
+                return ScLoadout.Set(npc, change, out why, false);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("arms-set-throw", e);
+                Loadout now = null;
+                try { now = ScLoadout.Current(npc); }
+                catch (Exception) { }
+                bool took = now != null && string.Equals(now.Of(ranged), want, StringComparison.OrdinalIgnoreCase);
+                why = took ? null : "threw " + e.GetType().Name;
+                if (took) ScLog.Warn(ScCommunity.DisplayName(npc) + ": the weapon change threw part way (" + e.GetType().Name + ") after her pair took the "
+                                     + want + " - finished");
+                return took;
+            }
+        }
+
+        private static void PanelStep(string what, Action step)
+        {
+            try { step(); }
+            catch (Exception e) { ScLog.Once("arms-panel-" + what, e); }
         }
 
         /// <summary>
@@ -1003,6 +1184,7 @@ namespace SurvivorCommunity
         {
             AvatarSdcsNpcController c = npc.emodel != null ? npc.emodel.avatarController as AvatarSdcsNpcController : null;
             if (c == null || old == null || !Bind()) return;
+            // round n12: token null - the gun was taken and she is melee-only: nothing to come back to
             if (string.Equals(Remembered(c), old, StringComparison.OrdinalIgnoreCase)) rememberedField.SetValue(c, token);
         }
 
@@ -1023,24 +1205,40 @@ namespace SurvivorCommunity
             return modded;
         }
 
-        /// <summary>Takes one of the stack in this window slot; its mods (and cosmetic mods) go into back.</summary>
-        private static void TakeFromWindow(EntityAlive npc, int slot, List<ItemStack> back)
+        /// <summary>
+        /// Takes one of the stack in this window slot; with modsBack its mods (and cosmetic mods) go into back (round n12: not
+        /// for a member, who keeps the exact item, mods on). unload (n12, a member's gun): its own rounds go into her bag as
+        /// loose rounds - what does not fit drops at her body - instead of being lost with the window copy; eject first gives
+        /// a seated Locked &amp; Loaded magazine back as the magazine (should L&amp;L decline, its rounds still come back loose).
+        /// </summary>
+        private static void TakeFromWindow(EntityAlive npc, int slot, List<ItemStack> back, bool modsBack, bool unload, bool eject)
         {
             ItemStack[] items = ScNpc.Items(npc);
             ItemStack s = items != null && slot >= 0 && slot < items.Length ? items[slot] : null;
             if (s == null || s.IsEmpty()) return;
             ItemValue iv = s.itemValue;
+            if (modsBack)
+            {
 #if SC_V34
-            // 3.4: the mod arrays are private; counted accessors instead
-            for (int mi = 0; mi < iv.ModificationCount; mi++) { ItemValue mod = iv.GetModification(mi); if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1)); }
-            for (int mi = 0; mi < iv.CosmeticModCount; mi++) { ItemValue mod = iv.GetCosmeticMod(mi); if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1)); }
+                // 3.4: the mod arrays are private; counted accessors instead
+                for (int mi = 0; mi < iv.ModificationCount; mi++) { ItemValue mod = iv.GetModification(mi); if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1)); }
+                for (int mi = 0; mi < iv.CosmeticModCount; mi++) { ItemValue mod = iv.GetCosmeticMod(mi); if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1)); }
 #else
-            if (iv.Modifications != null) foreach (ItemValue mod in iv.Modifications) if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1));
-            if (iv.CosmeticMods != null) foreach (ItemValue mod in iv.CosmeticMods) if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1));
+                if (iv.Modifications != null) foreach (ItemValue mod in iv.Modifications) if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1));
+                if (iv.CosmeticMods != null) foreach (ItemValue mod in iv.CosmeticMods) if (mod != null && !mod.IsEmpty()) back.Add(new ItemStack(mod.Clone(), 1));
 #endif
+            }
+            ItemValue taken = iv.Clone();
             ItemStack rest = s.Clone();
             rest.count--;
             ScNpc.SetItem(npc, slot, rest.count > 0 ? rest : ItemStack.Empty.Clone());
+            if (!unload) return;
+            try
+            {
+                if (eject) ScMags.Eject(npc, taken, "weapon menu");            // Keep refused a seated gun it could not eject
+                if (taken.Meta > 0) ScAmmo.ReturnLoose(npc, taken, "weapon menu", true);
+            }
+            catch (Exception e) { ScLog.Once("arms-keep-unload", e); }
         }
 
         /// <summary>

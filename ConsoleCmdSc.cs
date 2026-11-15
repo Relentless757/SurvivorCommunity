@@ -1218,6 +1218,9 @@ namespace SurvivorCommunity
             Look look = ScLooks.Get(npc);
             if (look == null) { Output("[SC] " + ScCommunity.DisplayName(npc) + " does not wear the player's body"); return; }
             if (!ScLooks.WearSet(look, p[2], ScCommunity.World.GetGameRandom())) { Output("[SC] no armor set or installed outfit '" + p[2] + "' for a " + (look.Male ? "man" : "woman") + " (sc gear lists them)"); return; }
+#if SC_V34
+            ScWardrobe.ClearWorn(ScRegistry.GetMember(npc.entityId));   // round n12 review: no slot is a Wardrobe copy any more
+#endif
             ScLooks.SyncGear(npc, look);
             ScRegistry.SaveAtomic();
             Output("[SC] " + ScCommunity.DisplayName(npc) + " wears [" + look.EncodeGear() + "]");

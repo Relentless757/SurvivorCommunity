@@ -255,6 +255,9 @@ namespace SurvivorCommunity
                 ScSkills.StampCvars(m, npc);          // levels and derived bonuses (daily XP changes them while loaded)
                 ScTraits.ApplyBuffs(m, npc);
                 ScLooks.Sync(m, npc);                 // player-body survivors: equipment is never saved for NPCs
+#if SC_V34
+                ScHanded.KeepCopies(m, npc);          // round n12: her copies of a weapon she was handed carry it exactly
+#endif
                 ScPortraits.OnMemberLoaded(m, npc);   // pack NPCs can only be pictured while loaded (and near)
                 ScSkills.SyncStatusBuffs(m, npc);
 
@@ -372,7 +375,14 @@ namespace SurvivorCommunity
                 if (id <= int.MinValue / 2) ScRegistry.Cleanup.Remove(id - int.MinValue);
                 else if (id <= int.MinValue / 8) ScRegistry.Doomed.Remove(id - int.MinValue / 4);
                 else if (id < 0) ScCommunity.Leave(ScRegistry.GetMember(-id), "scLeft");   // saves itself
-                else { ScRegistry.Members.Remove(id); ScLooks.Forget(id); }
+                else
+                {
+#if SC_V34
+                    ScHanded.OnRecordGone(ScRegistry.GetMember(id), null, "dropped: her entity id was reused");   // n12 review: logged
+#endif
+                    ScRegistry.Members.Remove(id);
+                    ScLooks.Forget(id);
+                }
             }
             if (scratch.Count > 0) ScRegistry.SaveAtomic();
             scratch.Clear();
@@ -410,6 +420,9 @@ namespace SurvivorCommunity
                     // a member of a class that no longer exists was never going to be seen: say why (migration M9)
                     if (ScRegistry.PredatesMigration(m)) ScLog.Warn(ScRegistry.PreMigrationLine + " - " + m.Name + " (" + m.Class + ") is removed");
                     ScLog.Warn("member " + (m != null ? m.Name : gone[i].ToString()) + " has not been seen for " + ScConfig.MissingDaysToPurge + " days while the base was loaded - removed");
+#if SC_V34
+                    ScHanded.OnRecordGone(m, null, "not seen for " + ScConfig.MissingDaysToPurge + " days");   // round n12 review: logged
+#endif
                     ScRegistry.Members.Remove(gone[i]);
                     ScLooks.Forget(gone[i]);
                     ScRegistry.Cleanup.Add(gone[i]);      // strip the mod's cvars/buffs if that entity ever loads again

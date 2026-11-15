@@ -140,19 +140,36 @@ namespace SurvivorCommunity
 
     /// <summary>
     /// Round n10 (3.4): one of the member inventory panel's equipment slots (a weapon, an armor piece, a job's tool) - a vanilla
-    /// item_stack that shows an item with its quality bar, its tooltip and, on a click, the INSPECT panel, and moves nothing in
-    /// Phase 1. A hidden stack lock keeps every pick-up, swap, half-stack and shift-click path of XUiC_ItemStack shut; as a
-    /// required-item stack its INSPECT lists no actions (no Drop or Scrap of an item the slot only shows). A stack dropped on
-    /// it stays on the cursor, with the denied sound and a one-line tooltip.
+    /// item_stack that shows an item with its quality bar, its tooltip and, on a click, the INSPECT panel. As a required-item
+    /// stack its INSPECT lists no actions (no Drop or Scrap acting on the slot behind the panel's back).
     ///
-    /// Phase 2 (not built): a drop on RANGED / MELEE makes the weapon her pair's (ScArms' Keep path), on an armor slot dresses
-    /// her (the Wardrobe / ScLooks path), on a job slot puts the tool in her pack - the slot names its kind through its grid
-    /// (weaponSlots, armorSlots, toolSlots) and its index.
+    /// Round n12 (Phase 2): the slot is usable, through its own input handling - never XUiC_ItemStack's, which would write the
+    /// slot's ItemStack and call that a move. A hidden stack lock keeps every vanilla pick-up, swap, half-stack and shift-click
+    /// path shut (as in Phase 1); vanilla's click with an empty cursor still selects the slot for INSPECT. On top of it, the
+    /// vanilla gestures, each handed to the panel (XUiC_ScMemberInv -&gt; ScMemberEquip), which changes her gear and says what
+    /// the cursor holds afterwards:
+    ///  - a stack on the cursor released over the slot (a click on it, or a drag let go on it): Drop - the cursor gets back what
+    ///    the slot held (a swap, like two vanilla slots), or empties;
+    ///  - pressing on a filled slot with an empty cursor and moving past vanilla's snap distance: Take onto the cursor;
+    ///  - shift-click on a filled slot with an empty cursor: Take into the player's backpack;
+    ///  - the right mouse button (half stacks, drop one): refused - an equipment slot never splits a stack;
+    ///  - a gamepad: Submit takes or drops, the half-stack button is refused, the right stick sends to the backpack, Inspect
+    ///    inspects (the lock shut vanilla's gamepad inspect too).
+    /// A refusal plays the denied sound and shows the reason as a tooltip; the item stays on the cursor. The slot names its
+    /// kind and index (Kind, Index: set by XUiC_ScMemberInv from its grid - weaponSlots, armorSlots, toolSlots).
     /// </summary>
     [Preserve]
     public class XUiC_ScGearSlot : XUiC_RequiredItemStack
     {
+        /// <summary>What the slot is: a weapon (Index 0 RANGED, 1 MELEE), an armor piece (0..3 Head..Feet), a job's tool (ScMemberGear.Job*).</summary>
+        internal ScMemberEquip.GearKind Kind;
+        internal int Index;
+        /// <summary>The panel window it belongs to (XUiC_ScMemberInv.Init).</summary>
+        internal XUiC_ScMemberInv Panel;
+
         private float nextDenied;
+        private bool pressed, handledThisPress;
+        private UnityEngine.Vector2 pressPos;
 
         public override void Init()
         {
@@ -170,24 +187,103 @@ namespace SurvivorCommunity
             stackLockType = StackLockTypes.Hidden;      // the ItemStack setter drops every lock when it is handed an empty stack
         }
 
+        public override void OnClose()
+        {
+            base.OnClose();
+            pressed = handledThisPress = false;
+        }
+
         public override void Update(float _dt)
         {
             stackLockType = StackLockTypes.Hidden;
             base.Update(_dt);
             try
             {
-                if (!isOver || !ViewComponent.UiTransformIsHovered || xui.DragAndDropWindow.CurrentStack.IsEmpty()) return;
-                if (!xui.playerUI.CursorController.GetMouseButtonUp(UICamera.MouseButton.LeftButton)) return;
-                float now = UnityEngine.Time.unscaledTime;
-                if (now < nextDenied) return;
-                nextDenied = now + 1f;
-                Manager.PlayInsidePlayerHead("ui_denied");
-                GameManager.ShowTooltip(xui.playerUI.entityPlayer, Localization.Get("scInvSlotLater"), string.Empty, "ui_denied");
+                if (Panel != null && WindowGroup != null && WindowGroup.isShowing) HandleInput();
             }
             catch (Exception e)
             {
-                ScLog.Once("memberinv-gear-drop", e);
+                ScLog.Once("memberinv-gear-input", e);
             }
+        }
+
+        /// <summary>The gestures in the class summary, after vanilla's own handling of this frame (base.Update).</summary>
+        private void HandleInput()
+        {
+            if (IsLocked || IsDragAndDrop) return;
+            CursorControllerAbs cc = xui.playerUI.CursorController;
+            bool over = isOver && ViewComponent.UiTransformIsHovered && ViewComponent.EventOnPress;
+            if (!over)
+            {
+                pressed = handledThisPress = false;
+                return;
+            }
+            ItemStack cursor = xui.DragAndDropWindow.CurrentStack;
+            PlayerActionsGUI gui = xui.playerUI.playerInput.GUIActions;
+            if (gui.LastInputType == InControl.BindingSourceType.DeviceBindingSource)
+            {
+                bool submit = gui.Submit.WasReleased, half = gui.HalfStack.WasReleased;
+                if (cursor.IsEmpty())
+                {
+                    if (ItemStack.IsEmpty()) return;
+                    if (submit) Panel.SlotTake(this, false);
+                    else if (half) Denied(Localization.Get("scInvRefuseHalf"));
+                    else if (gui.RightStick.WasReleased) Panel.SlotTake(this, true);
+                    else if (gui.Inspect.WasPressed) HandleItemInspect();
+                }
+                else if (submit) Panel.SlotDrop(this, cursor);
+                else if (half) Denied(Localization.Get("scInvRefuseHalf"));
+                return;
+            }
+            bool down = cc.GetMouseButtonDown(UICamera.MouseButton.LeftButton);
+            bool held = cc.GetMouseButton(UICamera.MouseButton.LeftButton);
+            bool up = cc.GetMouseButtonUp(UICamera.MouseButton.LeftButton);
+            if (cc.GetMouseButtonUp(UICamera.MouseButton.RightButton))
+            {
+                if (!cursor.IsEmpty() || !ItemStack.IsEmpty()) Denied(Localization.Get("scInvRefuseHalf"));
+                return;
+            }
+            if (down)
+            {
+                pressed = true;
+                handledThisPress = false;
+                pressPos = cc.GetScreenPosition();
+            }
+            if (InputUtils.ShiftKeyPressed)
+            {
+                if (up)
+                {
+                    bool once = !handledThisPress;
+                    pressed = handledThisPress = false;
+                    if (once && cursor.IsEmpty() && !ItemStack.IsEmpty()) Panel.SlotTake(this, true);
+                }
+                return;
+            }
+            if (held && pressed && !handledThisPress && cursor.IsEmpty() && !ItemStack.IsEmpty()
+                && (cc.GetScreenPosition() - pressPos).magnitude > PickupSnapDistance)
+            {
+                handledThisPress = true;                // a refused take is not asked again until the next press
+                Panel.SlotTake(this, false);
+                return;
+            }
+            if (up)
+            {
+                bool took = handledThisPress;
+                pressed = handledThisPress = false;
+                if (!took && !cursor.IsEmpty()) Panel.SlotDrop(this, cursor);   // a click on the slot, or a drag let go on it
+            }
+        }
+
+        /// <summary>A refusal: the denied sound and the reason as a tooltip (at most every 0.4 s, so one gesture shows one).</summary>
+        internal void Denied(string why)
+        {
+            if (string.IsNullOrEmpty(why)) return;
+            float now = UnityEngine.Time.unscaledTime;
+            if (now < nextDenied) return;
+            nextDenied = now + 0.4f;
+            Manager.PlayInsidePlayerHead("ui_denied");
+            // the tooltip formats its text with its arguments: braces in an item name must not break it
+            GameManager.ShowTooltip(xui.playerUI.entityPlayer, why.Replace("{", "{{").Replace("}", "}}"), string.Empty, "ui_denied");
         }
 
         public override bool GetBindingValueInternal(ref string _value, string _bindingName)
