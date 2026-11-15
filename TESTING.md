@@ -91,7 +91,7 @@ press on it and drag (a plain click only selects it for INSPECT). Shift-click se
       weapon as the stale one, the stale one comes to **you** instead (your backpack, else at your feet; never onto the
       cursor, which gets the gun she had), and nothing is refused for a full pack.
 - [ ] Fill every slot of her BAG with other things (no part-stack of that gun's ammo left in it), then drop a loaded
-      gun: refused, "Her bag has no room for its 10 round(s). Unload it first."; the gun stays on your cursor and nothing
+      gun: refused, "The bag has no room for its 10 round(s). Unload it first."; the gun stays on your cursor and nothing
       changed.
 - [ ] **The same gun, a better copy.** Drop a Q5 copy of the very gun she carries: it replaces hers (her pair is the
       same), and her old copy comes to your cursor.
@@ -103,18 +103,18 @@ press on it and drag (a plain click only selects it for INSPECT). Shift-click se
 - [ ] Refusals on RANGED, each with the denied sound, the reason as a tooltip, and the item still on your cursor:
       - a melee weapon: "Ranged takes a gun or bow. <item> goes in Melee."
       - a rocket launcher: "She won't carry <item>: no launchers or explosives."
-      - IZY Classic's dual pistols: "She can't use dual pistols."
+      - IZY Classic's dual pistols: "Survivors can't use dual pistols."
       - a pickaxe or a wrench: "<item> is a tool: drop it on one of her job slots."
       - with Combat Sandbox (zzzCombatSandboxFLTR): one of IZY Classic's unfinished guns (MP5K, SG552): "<item> isn't
-        finished (a test item): she won't carry it."
-      - food, a block, a stack of anything: "... is not a weapon she can fight with." / "Hand her one item at a time."
+        finished (a test item): survivors won't carry it."
+      - food, a block, a stack of anything: "... is not a weapon a survivor can fight with." / "Hand over one item at a time."
 - [ ] While she is bandaging herself (hurt her, then watch for the bandage), drop a gun: "<name> is busy with a medical
       item. Try again in a moment."
 
 **MELEE**
 
 - [ ] Drop a melee weapon on MELEE: she carries it, her old one is on your cursor (as she carried it).
-- [ ] Press on MELEE and drag with an empty cursor: refused, "She keeps a melee weapon - drop another on the slot to
+- [ ] Press on MELEE and drag with an empty cursor: refused, "A member always keeps a melee weapon - drop another on the slot to
       swap."; shift-click on MELEE: the same refusal. She keeps it.
 - [ ] Drop a gun on MELEE: "Melee takes a melee weapon. <item> goes in Ranged." Drop a stone axe: the tool refusal.
 - [ ] A Q6 melee weapon with a mod goes in and comes back (swap another onto MELEE) Q6 with the mod.
@@ -140,7 +140,7 @@ press on it and drag (a plain click only selects it for INSPECT). Shift-click se
       Shift-click: into your backpack (a full backpack: "Your backpack is full.", she keeps it).
 - [ ] Refusals: boots on Head ("<item> goes in her Feet slot."), a non-armor item ("<item> is not armor she can wear."),
       a piece made for women on a man ("<item> is made for women only.") and the other way round, a piece with no model
-      for her body ("She can't wear <item>: there is no model of it for her body.").
+      for her body ("<item> can't be worn: there is no model of it for this body.").
 - [ ] **The Wardrobe.** In 0-XNPCCore's Wardrobe, dress her in a helmet from her PACK. Then drop another helmet on Head
       in the panel: the Wardrobe's helmet comes out of her PACK onto your cursor (the PACK has one fewer), and she wears
       the new one. Talk to her, open the Wardrobe, close it: the panel's helmet stays on (not undone). "Back to my own" on
@@ -170,8 +170,8 @@ press on it and drag (a plain click only selects it for INSPECT). Shift-click se
 - [ ] Drop a hunting knife on Chop: refused, "<item> is no tool for Chop."
 - [ ] Take the tool shown on Mine off (it is in her PACK): it comes to your cursor and leaves her PACK. A tool shown from
       her BAG comes out of the bag. Shift-click: into your backpack.
-- [ ] With only her work kit (stone axe, stone shovel, bone knife), take Chop: refused, "Her work kit stays with her."
-      A melee weapon of her pair that also serves a job (a fire axe on Chop): "She fights with that: swap it on the Melee
+- [ ] With only her work kit (stone axe, stone shovel, bone knife), take Chop: refused, "The work kit stays with the member."
+      A melee weapon of her pair that also serves a job (a fire axe on Chop): "That's a weapon of the pair: swap it on the Melee
       slot."
 
 **Everywhere**
@@ -187,7 +187,7 @@ press on it and drag (a plain click only selects it for INSPECT). Shift-click se
       inventory (at your feet when that is full). She does not have it any more: nothing was copied.
 - [ ] Let her die (vanilla `kill`, or a zombie) while she carries a handed gun and wears a handed piece: her death
       backpack holds both, with her pack and bag. The log has "... died carrying 2 item(s) she was handed ...".
-- [ ] **Multiplayer client:** any drop or pickup on an equipment slot is refused, "Only the host can change her gear.";
+- [ ] **Multiplayer client:** any drop or pickup on an equipment slot is refused, "Only the host can change a member's gear.";
       the client's PACK still works. The client's slots show what the client can see: the weapon in her hand as handed,
       the other weapon possibly as a plain copy, the armor slots possibly empty.
 - [ ] **Leaving.** Hand a member a gun and a piece, then dismiss her (or let her leave): both go into her PACK (at her
@@ -331,7 +331,7 @@ her bag and her toolbelt (the work kit: stone axe, stone shovel, bone knife).
 **Multiplayer (host and client)**
 
 - [ ] As the host, a client player opens a member's inventory: the client gets the panel too, its pack works and
-      what they move is there for you afterwards. The client's panel shows "Her bag shows only on the host's
+      what they move is there for you afterwards. The client's panel shows "The bag shows only on the host's
       screen..." instead of the bag (the game never sends an NPC's bag to other players). Their armor slots may stay
       empty and the weapon slots may show only what she holds: SC keeps her pair and looks on the host.
 - [ ] While the host has a member's panel open, a client trying to open the same member's inventory is refused
