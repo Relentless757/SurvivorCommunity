@@ -57,6 +57,7 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc run <member> mine` / `clay` | Send a mining run (Mine, Dig clay). [CHEAT] |
 | `sc radio` | Radio stations, power, handheld radio state, runner talk. [READ] |
 | `sc radio give <member>` | Put a handheld radio in a member's inventory. [CHEAT] |
+| `sc radio horde <moment>` | Hear a horde warning now (gather, spotted, clear, call, arrived, held, damaged, overrun). [CHEAT] |
 | `sc outpost list` / `yield` | Outposts and tonight's yield. [READ] |
 | `sc poi` / `sc poi near [r]` | The POI you stand in; outpost candidates nearby. [READ] |
 | `sc band spawn [drifters\|raiders]` | Put a band on the road, walking at you. [CHEAT] |
@@ -295,7 +296,7 @@ Same as `check`, then **builds the tower at once** (no kit used). Overwrites blo
 ## 7. Radio
 
 ### `sc radio` [READ]
-Remembered radio stations and their live power, whether the home station is online, the handheld radio state, each runner's radio talk, queue and counters.
+Remembered radio stations and their live power, whether the home station is online, the handheld radio state, each runner's radio talk, queue and counters, and how the horde warnings would be heard now (who is on watch, in person or on the radio).
 
 ### `sc radio give <member>` [CHEAT]
 Puts a handheld radio in the member's inventory.
@@ -307,6 +308,10 @@ Example: `sc radio talk Dana trouble`
 
 ### `sc radio attacked <member> [force]` [CHEAT]
 The member's call for help as if a zombie had just hurt them. `force` ignores the rules.
+
+### `sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force]` [CHEAT]
+Says a horde warning now, in the speaker's own voice, the way the moment would (no horde needed, and the attack's once-only marks are left alone). `gather`, `spotted` and `clear` are the guard on watch at home: in person within 30 m, else on the radio if you carry a handheld and the guard has one or the home station has power; they also show their message. `call`, `arrived`, `held`, `damaged` and `overrun` are the radio from home: they need the station with power and your handheld, and only speak (their messages carry the attack's numbers). `side` is north, northeast ... northwest (or n, ne ...; default the open attack's side, else a random one). `member` defaults to the one the rules pick: at home the guard on watch, away the guard on watch, else someone at home. `force` ignores HordeVoiceLines, your handheld, the guard's radio and the station.
+Example: `sc radio horde gather northeast`, `sc radio horde held Dana force`
 
 (`sc scout`, `sc barter` and `sc distress` are radio features too; see sections 2 and 4.)
 

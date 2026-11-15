@@ -26,7 +26,8 @@ namespace SurvivorCommunity
     ///   Effects   every manned post cuts attention gain by WatchAttentionCut, at most WatchAttentionCutMax in all (ScNoise).
     ///             While the player is at the base a guard warns of a horde (decision Q6, both times): at the call
     ///             ("gathering", a marker on that side) and when a guard first sees an attacker ("spotted", the marker moves
-    ///             onto the horde until the fight ends). D4's defence rating will read Manned().
+    ///             onto the horde until the fight ends). D4's defence rating will read Manned(). vo4: the guard also says
+    ///             each warning (ScHordeVoice), and says the all clear when the attack is held (CalloutClear).
     /// </summary>
     public static class ScWatch
     {
@@ -143,12 +144,12 @@ namespace SurvivorCommunity
         /// <summary>1-based place in the post list, 0 when the block is no registered post.</summary>
         public static int Number(Vector3i post) { return Posts.IndexOf(post) + 1; }
 
-        /// <summary>The side of the home block a spot is on: "north", "south-west" ... ("centre" on the home column).</summary>
+        /// <summary>The side of the home block a spot is on: "north", "southwest" ... ("center" on the home column).</summary>
         public static string SideOf(Vector3 p)
         {
             Vector3i home = ScRegistry.Community.Home;
             float dx = p.x - (home.x + 0.5f), dz = p.z - (home.z + 0.5f);
-            if (dx * dx + dz * dz < 4f) return "centre";
+            if (dx * dx + dz * dz < 4f) return "center";
             return ScBaseAttack.Side(Mathf.RoundToInt(Mathf.Atan2(dx, dz) * Mathf.Rad2Deg));
         }
 
@@ -158,7 +159,7 @@ namespace SurvivorCommunity
             return ScBaseAttack.Side(Mathf.RoundToInt(Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg));
         }
 
-        /// <summary>"Watch post 2 (north-east)".</summary>
+        /// <summary>"Watch post 2 (northeast)".</summary>
         public static string Label(Vector3i post)
         {
             int n = Number(post);
@@ -824,6 +825,9 @@ namespace SurvivorCommunity
                         saveDue = true;
                         ScCommunity.Tell(player, string.Format(Localization.Get("scWatchGathering"), m.Name, ScBaseAttack.Side(c.AttackBearing)), "ui_denied");
                         ScLog.Out(m.Name + " on watch calls out the horde gathering to the " + ScBaseAttack.Side(c.AttackBearing));
+#if SC_V34
+                        ScHordeVoice.SayAtHome(HordeMoment.Gather, m, GuardBody(m), ScBaseAttack.Side(c.AttackBearing), player, false);   // vo4: and says it
+#endif
                         break;
                     }
                 }
@@ -841,6 +845,9 @@ namespace SurvivorCommunity
                         ScCommunity.Tell(player, string.Format(Localization.Get("scWatchSpotted"), m.Name, side), "ui_denied");
                         ScLog.Out(m.Name + " on watch spotted the horde to the " + side + " (" + z.EntityName + " #" + z.entityId + ", "
                                   + (int)Vector3.Distance(npc.position, z.position) + " m out)");
+#if SC_V34
+                        ScHordeVoice.SayAtHome(HordeMoment.Spotted, m, npc, side, player, false);   // vo4: and says it ("center" has no line)
+#endif
                         break;
                     }
                 }
@@ -852,6 +859,35 @@ namespace SurvivorCommunity
                 ShowMarker(at + new Vector3(0f, 2f, 0f), player);
             }
             else RemoveMarker();
+        }
+
+        /// <summary>
+        /// vo4: the attack was held with the player at the base (ScBaseAttack.Held): the guard on watch with a body in the world
+        /// (the first, as the call-outs pick) says it is over - one tooltip, scWatchClear, and their voice (ScHordeVoice, the
+        /// rules of the call-outs). Nothing with WatchPosts off, the player away from the base, or no guard on watch.
+        /// </summary>
+        public static void CalloutClear(EntityPlayerLocal player)
+        {
+            try
+            {
+                if (!ScConfig.WatchPosts || player == null || !ScBaseAttack.PlayerHome(player)) return;
+                foreach (Member m in ScRegistry.Members.Values)
+                {
+                    if (!OnWatch(m)) continue;
+                    EntityAlive npc = GuardBody(m);
+                    if (npc == null) continue;
+                    ScCommunity.Tell(player, string.Format(Localization.Get("scWatchClear"), m.Name), "");
+                    ScLog.Out(m.Name + " on watch calls the all clear");
+#if SC_V34
+                    ScHordeVoice.SayAtHome(HordeMoment.Clear, m, npc, null, player, false);
+#endif
+                    return;
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("watch-clear", e);
+            }
         }
 
         private static EntityAlive GuardBody(Member m)

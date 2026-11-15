@@ -679,7 +679,7 @@ namespace SurvivorCommunity
             if (pl != null) { what = "you"; return pl.position; }
             SpawnPointList sp = GameManager.Instance.GetSpawnPointList();
             if (sp != null && sp.Count > 0 && sp[0] != null) { what = "the first spawn point"; return sp[0].spawnPosition.position; }
-            what = "the world centre";
+            what = "the world center";
             return new Vector3((min.x + max.x) * 0.5f, 0f, (min.z + max.z) * 0.5f);
         }
 

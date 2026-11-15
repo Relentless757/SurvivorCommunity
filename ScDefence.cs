@@ -25,6 +25,7 @@ namespace SurvivorCommunity
     ///            both fade a point a day, the Defence part is the difference.
     ///   Word     a powered radio tells the player at once; without one the news waits until they are home (one tooltip
     ///            each; the ledger line is written at the time). No Leadership event: only fights the player is at count.
+    ///            vo4: told over the radio, the result is spoken too (ScHordeVoice) - a siege's as a horde's.
     /// </summary>
     public static class ScDefence
     {
@@ -240,7 +241,14 @@ namespace SurvivorCommunity
             ScOutposts.NoteLedger(Text(news));
             bool radio = Radio();
             if (player != null && (radio || ScBaseAttack.PlayerHome(player)))
-                ScCommunity.Tell(player, string.Format(Localization.Get(ScBaseAttack.PlayerHome(player) ? "scDefNow" : "scDefRadio"), Text(news)), result == Held ? "" : "ui_denied");
+            {
+                bool atHome = ScBaseAttack.PlayerHome(player);
+                ScCommunity.Tell(player, string.Format(Localization.Get(atHome ? "scDefNow" : "scDefRadio"), Text(news)), result == Held ? "" : "ui_denied");
+#if SC_V34
+                // vo4: the radio's result spoken too (the guard on watch, else someone at home), while you carry a handheld
+                if (!atHome) ScHordeVoice.SayAway(ScHordeVoice.ResultMoment(result), null, null, player, false);
+#endif
+            }
             else
             {
                 while (c.AwayNews.Count >= 4) c.AwayNews.RemoveAt(0);

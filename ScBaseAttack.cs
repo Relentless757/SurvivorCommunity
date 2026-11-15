@@ -45,6 +45,8 @@ namespace SurvivorCommunity
     ///             watch (D3, ScWatch), who stays at the Watch post and shoots from there.
     ///   Warning   none from here: a guard on watch calls the horde out (ScWatch, decision Q6) with ApproachPoint, SeenBy
     ///             and Centroid; Community.AttackWarned records what was told and is cleared with each call and ending.
+    ///             vo4: the guard's call-outs, the all clear (ScWatch.CalloutClear, at Held) and the radio's words from home
+    ///             (the call, the arrival, ScDefence's result) are spoken too (ScHordeVoice).
     ///   Held      every attacker dead while the player is home: the Defence morale part, sc_ev_defend, a tooltip and a
     ///             ledger line with what the fight cost the stockpile (ScAmmo's resupplies, NoteResupply).
     ///   Left      the player more than BaseAttackLeaveRange m outside the zone: the attackers still standing go, and the
@@ -178,7 +180,11 @@ namespace SurvivorCommunity
             return new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));     // 0 = north (+z), 90 = east (+x)
         }
 
-        private static readonly string[] SideNames = { "north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west" };
+        /// <summary>
+        /// The eight sides, from north clockwise - player text (scWatchGathering, scDefRadioCall ...) and, vo4, the suffix of
+        /// the spoken horde warnings' keys (scHordeGather_northeast: ScHordeVoice.SideKey). American spelling, no hyphen.
+        /// </summary>
+        private static readonly string[] SideNames = { "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest" };
 
         public static string Side(int bearing)
         {
@@ -389,6 +395,9 @@ namespace SurvivorCommunity
                 c.AttackHeard |= 1;
                 ScCommunity.Tell(player, string.Format(Localization.Get("scDefRadioCall"), c.AttackSize, Side(c.AttackBearing),
                                                        Hours(c.AttackArrive > w.worldTime ? c.AttackArrive - w.worldTime : 0UL)), "ui_denied");
+#if SC_V34
+                ScHordeVoice.SayAway(HordeMoment.Call, Side(c.AttackBearing), null, player, false);   // vo4: and spoken, while you carry a handheld
+#endif
             }
             ScLog.Out("base attack called (" + why + "): " + c.AttackSize + " zombie(s) from the " + Side(c.AttackBearing)
                       + " (bearing " + c.AttackBearing + "), arriving " + Clock(c.AttackArrive) + "; mix " + Mix(player)
@@ -454,6 +463,9 @@ namespace SurvivorCommunity
                 radio = true;
                 c.AttackHeard |= 2;
                 if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scDefRadioArrived"), left, Side(c.AttackBearing), Hours(span)), "ui_denied");
+#if SC_V34
+                ScHordeVoice.SayAway(HordeMoment.Arrived, Side(c.AttackBearing), null, player, false);   // vo4: and spoken, while you carry a handheld
+#endif
             }
             ScLog.Out("base attack " + (handoff ? "handed to the defenders (the player left the fight)" : "arrives with the player away") + ": " + left + " zombie(s) from the "
                       + Side(c.AttackBearing) + (c.AttackKilled > 0 ? " (" + c.AttackKilled + " already killed)" : "") + "; the defenders hold until " + Clock(c.AttackAwayEnd)
@@ -916,6 +928,8 @@ namespace SurvivorCommunity
             c.AttackNotBefore = w.worldTime + (ulong)(Math.Max(0f, ScConfig.BaseAttackGapDays) * TicksPerDay);
             ScLeadership.Count(DefendEvent);
             if (player != null) ScCommunity.Tell(player, string.Format(Localization.Get("scBaseHeld"), killed, ammo), "");
+            // vo4: the guard on watch calls the all clear (its own tooltip, and their voice) - not when a timeout let stragglers go
+            if (!(dispersed && left > 0)) ScWatch.CalloutClear(player);
             ScOutposts.NoteLedger(string.Format(Localization.Get("scBaseLedgerHeld"), killed, ammo));
             ScLog.Out("base attack HELD: " + killed + " killed" + (dispersed ? ", " + left + " straggler(s) let go after " + ScConfig.BaseAttackMaxHours + " h" : "")
                       + "; " + c.AttackAmmoRounds + " round(s) resupplied from the stockpile (" + c.AttackAmmoPoints + " point(s)); next call not before " + Clock(c.AttackNotBefore));

@@ -15,6 +15,10 @@ beside it holding the words it says (for whoever records it):
    R2 (round 27): the radio lines (family "radio", RADIO), what a runner who carries a handheld radio says on it during a
    supply run (ScRadioTalk) - keyed scRadioRun<Moment>_<n> / scRadioRecallAck_1, their words (the caption) in
    Localization.csv's <key>Said row. They play through SC's radio source with the radio effect, never in a talk.
+   vo4 (2026-11-14): the horde warnings (family "horde", HORDE), what a guard on watch or a resident says of a horde at the
+   base (ScHordeVoice) - keyed scHorde<Gather|Spotted|Call|Arrived>_<side> (side one of SIDES) and
+   scHorde<Clear|Held|Damaged|Overrun>_<n>, their words in Localization.csv's <key>Said row as the radio lines'. They play
+   in person from the guard's body or on SC's radio source, beside the moment's own on-screen text.
 2. The V2 lines ("new"), grouped in families so a recording round can run one family at a time (NEW, in this order):
    - greet    SC's own greetings, greet.<stranger|recruit|member|follower|enclave>.<n> (ScGreetings);
    - chatter  members at home talking to nobody in particular, chatter.<n> (ScGreetings);
@@ -31,7 +35,7 @@ The voices are Config/blocks.xml's Voices list (two per race and sex), plus any 
 
     python -I Tools/voice_lines.py list [--new] [--family F[,F]] [--voice FOLDER] [--tsv]
         every line's key and the words it says; --new only the V2 lines; --family only those families (dialog, radio,
-        greet, chatter, taunt, xn, ack, vc); --voice only the lines that voice has no clip for yet; --tsv key<TAB>words
+        horde, greet, chatter, taunt, xn, ack, vc); --voice only the lines that voice has no clip for yet; --tsv key<TAB>words
     python -I Tools/voice_lines.py check [--keys]
         the lines (a token with no spoken part, a key used twice), ScVoiceLines.cs, then per voice: the lines with no
         clip yet, family by family, and clips no line uses (--keys also lists the keys of a voice with no folder yet)
@@ -119,6 +123,16 @@ RUNTIME_FIXED = ["scEncReqNothingLine", "scEncReqGone", "scEncReqNotCleared", "s
 RADIO = ["scRadioRunOut_1", "scRadioRunOut_2", "scRadioRunArrived_1", "scRadioRunArrived_2", "scRadioRunFound_1",
          "scRadioRunFound_2", "scRadioRunEmpty_1", "scRadioRunEmpty_2", "scRadioRunTrouble_1", "scRadioRunTrouble_2",
          "scRadioRunHome_1", "scRadioRunHome_2", "scRadioRunNear_1", "scRadioRecallAck_1"]
+
+# vo4 (2026-11-14): the horde warnings (ScHordeVoice). At home a guard on watch: the horde gathering, first sighted, the
+# all clear; away, on the radio from home: the call, the arrival, the result (held, damaged, overrun). The side words
+# are ScBaseAttack.SideNames / ScHordeVoice.Sides, the American spelling with no hyphen. The clip is <key>.ogg; the words
+# are Localization.csv's <key>Said row. Family "horde", recorded in a round of its own (vo4).
+SIDES = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"]
+HORDE = (["scHordeGather_" + s for s in SIDES] + ["scHordeSpotted_" + s for s in SIDES]
+         + ["scHordeClear_1", "scHordeClear_2"]
+         + ["scHordeCall_" + s for s in SIDES] + ["scHordeArrived_" + s for s in SIDES]
+         + ["scHordeHeld_1", "scHordeHeld_2", "scHordeDamaged_1", "scHordeDamaged_2", "scHordeOverrun_1", "scHordeOverrun_2"])
 
 # ---------------------------------------------------------------------------------------------------- the V2 lines ----
 # No names or numbers, so every voice can say them. Drafts: SC_Ideas_and_Voices_Plan.md section 4.4 (2026-11-03).
@@ -460,8 +474,8 @@ VC = [
 ]
 
 NEW = [("greet", GREET), ("chatter", CHATTER), ("taunt", TAUNT), ("xn", XN), ("ack", ACK), ("vc", VC)]
-FAMILIES = ["dialog", "radio"] + [f for f, _ in NEW]
-NOT_V2 = ("dialog", "radio")          # the families --new and cost's "new (V2)" leave out
+FAMILIES = ["dialog", "radio", "horde"] + [f for f, _ in NEW]
+NOT_V2 = ("dialog", "radio", "horde")   # the families --new and cost's "new (V2)" leave out
 
 
 # ------------------------------------------------------------------------------------------------------- the lines ----
@@ -518,14 +532,15 @@ def lines(problems):
     return out
 
 
-def radio_lines(problems):
-    """R2: key -> the words said, for every radio line (RADIO), from Localization.csv's <key>Said rows."""
+def radio_lines(problems, keys=None, what="radio"):
+    """R2: key -> the words said, for every radio line (RADIO), from Localization.csv's <key>Said rows. vo4: the same for
+    the horde warnings (keys=HORDE, what="horde")."""
     words = english()
     out = {}
-    for k in RADIO:
+    for k in (RADIO if keys is None else keys):
         said = words.get(k + "Said")
         if said is None:
-            problems.append("no Localization row %sSaid for the radio line %s" % (k, k))
+            problems.append("no Localization row %sSaid for the %s line %s" % (k, what, k))
         elif "{" in said:
             problems.append("%sSaid has a token: %s" % (k, said))
         elif k in out:
@@ -552,13 +567,18 @@ def new_lines(problems):
 
 
 def every_line(problems):
-    """key -> (family, words): the dialog lines, the radio lines (R2), then the V2 lines."""
+    """key -> (family, words): the dialog lines, the radio lines (R2), the horde warnings (vo4), then the V2 lines."""
     out = {k: ("dialog", v) for k, v in lines(problems).items()}
     for k, v in radio_lines(problems).items():
         if k in out:
             problems.append("%s is both a dialog line and a radio line" % k)
         else:
             out[k] = ("radio", v)
+    for k, v in radio_lines(problems, HORDE, "horde").items():
+        if k in out:
+            problems.append("%s is both a horde warning and a dialog or radio line" % k)
+        else:
+            out[k] = ("horde", v)
     for k, v in new_lines(problems).items():
         if k in out:
             problems.append("%s is both a dialog line and a V2 line" % k)
@@ -814,7 +834,7 @@ def cmd_cost(every, problems):
         dn = sum(1 for _, f, _ in miss if f in NOT_V2)
         dc = sum(len(t) for _, f, t in miss if f in NOT_V2)
         all_c += mc + dc
-        print("  %-26s new %3d lines %6d chars, dialog+radio %3d lines %6d chars, total %6d%s"
+        print("  %-26s new %3d lines %6d chars, dialog+radio+horde %3d lines %6d chars, total %6d%s"
               % (d, mn, mc, dn, dc, mc + dc, "" if clips(d) is not None else "  (no folder yet)"))
     print("All voices together: %d characters" % all_c)
 

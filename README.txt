@@ -811,7 +811,8 @@ A horde can also be called while you are away (one per absence).
   - Morale +2 held, -5 damaged, -12 overrun (fading a point a day), plus any death's penalty.
   - "Damaged" and "overrun" cost ammo, medicine, people and morale only, not blocks.
 - With a powered radio you are told when the horde is called, when it hits and how it ended. Without one, you hear when
-  you get home.
+  you get home. Carry a handheld radio and you also hear it said: the guard on watch, or someone at home, speaks on the
+  radio in their own voice.
 - Blood moon siege: a blood moon that passes while you were never within 100 m of the claim is settled the same way, 15
   below the defense rating.
 
@@ -837,7 +838,10 @@ A Watch Post is a block a guard stands on.
   see 50% farther, and shoot whatever comes into range. If they have not reached the post about 30 seconds after setting
   off, they are placed on it while you are not looking.
 - Call-outs: while you are at the base, a guard on watch calls out a horde when it is called ("a horde is gathering to
-  the north!") and when they first see it, and an orange skull marker shows its side on the compass and map.
+  the north!") and when they first see it, and an orange skull marker shows its side on the compass and map. When the
+  attack is held they call the all clear. They say each of these out loud in their own voice: in person within 30 m,
+  farther away over your handheld radio, when they carry one too or the radio station at home has power
+  (HordeVoiceLines).
 - A guard on watch cannot follow you, go on a supply run or be posted to an outpost until relieved. A guard who is hurt
   with no medicine comes down. Picking up, breaking or building over a manned post ends the watch.
 
@@ -1505,6 +1509,8 @@ Supply runs and radio
 - DistressNeedsRadio = true: Only runners with a radio can get pinned down and call for help
 - WindowRecallNeedsRadio = true: The community window's Recall home needs the runner's radio
 - RunnerCallsWhenAttacked = true: Runners with a radio call when attacked
+- HordeVoiceLines = true: Horde warnings are spoken too: the guard on watch at home, the radio from home while you're
+  away
 
 Mining runs
 ~~~~~~~~~~~

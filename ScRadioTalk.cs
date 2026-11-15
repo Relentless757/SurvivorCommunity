@@ -46,6 +46,11 @@ namespace SurvivorCommunity
     ///
     /// Hidden ("at home") runs have no route, so of these moments only Trouble happens to them (at their send, as before);
     /// the rest are physical runs'. Host only, main thread.
+    ///
+    /// vo4 (2026-11-14): the horde warnings (ScHordeVoice) share the queue (QueueHorde): on the same radio source with the same
+    /// effect and volume, or said in person from the speaker's body (ScVoice.PlayBark, plain and positional, as a greeting
+    /// is). They carry no caption of the queue's own - the moment's own on-screen text is the caption - and they never touch a
+    /// runner's RunTalk marks.
     /// </summary>
     public static class ScRadioTalk
     {
@@ -90,6 +95,10 @@ namespace SurvivorCommunity
             public int MemberId;
             public string Name, Key, Words, Path, Voice;
             public RadioTalk Event;
+            /// <summary>vo4: false for a horde warning - no caption of the queue's own (the moment shows its own text).</summary>
+            public bool Caption = true;
+            /// <summary>vo4: a horde warning said in person, from the speaker's body (ScVoice.PlayBark), not on the radio.</summary>
+            public bool InPerson;
         }
 
         private static readonly Queue<Line> queue = new Queue<Line>();
@@ -216,6 +225,19 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// vo4 (ScHordeVoice): a horde warning into the queue - its clip (path, in voice) on the radio's source, or in person from
+        /// the speaker's body - with no caption of the queue's own and no RunTalk mark. It starts at once when the queue is idle,
+        /// with the moment's own text, rather than at the next tick.
+        /// </summary>
+        internal static void QueueHorde(Member m, string key, string path, string voice, bool inPerson, EntityPlayerLocal player)
+        {
+            if (m == null || string.IsNullOrEmpty(path)) return;
+            if (queue.Count >= 8) queue.Dequeue();                     // never a backlog: the oldest goes
+            queue.Enqueue(new Line { MemberId = m.Id, Name = m.Name, Key = key, Words = key, Path = path, Voice = voice, Caption = false, InPerson = inPerson });
+            PlayNext(player);
+        }
+
+        /// <summary>
         /// ScTicker, once a second (host): the moments that are places on the route - leaving home behind (Out), leaving the
         /// site behind (Home) - then the next line of the queue.
         /// </summary>
@@ -270,8 +292,10 @@ namespace SurvivorCommunity
             float now = Time.unscaledTime;
             if (queue.Count == 0 || now < busyUntil) return;
             Line line = queue.Dequeue();
+            if (line.InPerson) { PlayInPerson(line); return; }        // vo4: a horde warning from the guard's body
             if (line.Path == null)
             {
+                if (!line.Caption) return;                             // vo4: nothing to say (a horde warning always comes with its clip)
                 Caption(player, line);
                 ScHandheld.Count("talk said: caption alone");
                 busyUntil = now + CaptionSeconds;
@@ -285,14 +309,14 @@ namespace SurvivorCommunity
                 {
                     if (my != token) return;
                     EntityPlayerLocal p = ScCommunity.LocalPlayer;
-                    Caption(p, line);
+                    if (line.Caption) Caption(p, line);                // vo4: a horde warning's caption is the moment's own text
                     if (clip == null || GameManager.Instance == null)
                     {
-                        ScHandheld.Count("talk said: caption alone (clip did not load)");
-                        busyUntil = Time.unscaledTime + CaptionSeconds;
+                        ScHandheld.Count(line.Caption ? "talk said: caption alone (clip did not load)" : "horde unsaid: clip did not load");
+                        busyUntil = Time.unscaledTime + (line.Caption ? CaptionSeconds : 0.3f);
                         return;
                     }
-                    ScHandheld.Count("talk said: voiced");
+                    ScHandheld.Count(line.Caption ? "talk said: voiced" : "horde said: on the radio");
                     bool effect = ScConfig.RunnerRadioEffect;
                     busyUntil = Time.unscaledTime + clip.length + (effect ? 0.6f : 0.3f) + 30f;   // the coroutine lowers it when the line ends
                     GameManager.Instance.StartCoroutine(Guarded(PlayLine(clip, Mathf.Clamp01(ScConfig.RunnerRadioVolume), effect, my)));
@@ -303,6 +327,46 @@ namespace SurvivorCommunity
                     busyUntil = Time.unscaledTime + CaptionSeconds;
                 }
             });
+        }
+
+        /// <summary>
+        /// vo4: a horde warning said in person - the plain voice from the speaker's body, positional, as a greeting or chatter
+        /// is (ScVoice.PlayBark: through Voice Control's player for the lip sync, else SC's own source on a child; SC's own
+        /// source while Voice Control is saying something on them, so its queue is never cut). The queue waits for the line.
+        /// </summary>
+        private static void PlayInPerson(Line line)
+        {
+            EntityAlive npc = ScCommunity.FindNpc(line.MemberId);
+            if (npc == null || npc.IsDead() || line.Path == null)
+            {
+                ScHandheld.Count("horde unsaid: body gone");
+                ScLog.Verbose(line.Name + "'s horde warning " + line.Key + " was not said: their body is gone");
+                return;                                                // nothing plays: the next line may go at once
+            }
+            if (ScVoice.Holds(npc))
+            {
+                // the player is talking with this guard (or SC's talk line still plays on them): the text shows, the voice would
+                // cut the conversation's line - every SC bark keeps this gate (ScBarks, ScGreetings)
+                ScHandheld.Count("horde unsaid: in a talk with them");
+                ScLog.Verbose(line.Name + "'s horde warning " + line.Key + " was not said: you are talking with them");
+                return;
+            }
+            busyUntil = Time.unscaledTime + 30f;                       // while the clip loads (set to its length when it plays)
+            int my = token;
+            bool begun = false;
+            ScVoice.PlayBark(npc, line.Path, !ScVoice.VcBusy(npc), false,
+                clip =>
+                {
+                    begun = true;
+                    if (my != token) return;
+                    ScHandheld.Count("horde said: in person");
+                    busyUntil = Time.unscaledTime + clip.length + 0.5f;
+                },
+                () =>
+                {
+                    // the clip did not load or the body went meanwhile: the queue goes on (a line that played set its own wait)
+                    if (my == token && !begun) busyUntil = Time.unscaledTime + 0.3f;
+                });
         }
 
         private static void Caption(EntityPlayerLocal player, Line line)

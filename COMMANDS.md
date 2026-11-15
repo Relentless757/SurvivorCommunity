@@ -112,6 +112,7 @@ names [n] [hostile] | reseed confirm`
 ## Radio and scouting
 
 - `sc radio` · `sc radio give <member>` · `sc radio talk <member> <moment>` · `sc radio attacked <member> [force]`
+- `sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force]`
 - `sc scout <res>` · `sc barter <give> <get>`
 
 ## Voice

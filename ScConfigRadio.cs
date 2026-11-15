@@ -6,7 +6,8 @@ namespace SurvivorCommunity
     /// <summary>
     /// R2 (round 27, 3.4 build only): the config keys of the handheld radio - the Radio tab (XUiC_ScRadioTab), runners who
     /// carry a radio talking to you on it (ScRadioTalk), the distress rule (ScHandheld.DistressAllowed), the raiders' drop
-    /// (ScHandheld.OnRaiderDied) and, since round 29b, a runner's call for help when attacked (ScRunnerCall). Kept apart from ScConfig.cs's long lists, as ScConfigVoices and ScConfigCraft. Config/blocks.xml,
+    /// (ScHandheld.OnRaiderDied), since round 29b, a runner's call for help when attacked (ScRunnerCall), and since vo4 the
+    /// spoken horde warnings (ScHordeVoice, HordeVoiceLines). Kept apart from ScConfig.cs's long lists, as ScConfigVoices and ScConfigCraft. Config/blocks.xml,
     /// block ConfigSurvivorCommunity, after RescueBonus (the radio station's keys); each key is commented there. ResetRadio also
     /// clears ScHandheld's and ScRadioTalk's per-world state (ScConfig.Reset runs at GameStarting).
     /// </summary>
@@ -34,6 +35,12 @@ namespace SurvivorCommunity
         /// raider or a zombie hurts them - their Trouble line, where they are, a map marker while the fight lasts (ScRunnerCall).
         /// </summary>
         public static bool RunnerCallsWhenAttacked = true;
+        /// <summary>
+        /// vo4 (the user, 2026-11-14): the base's horde warnings are spoken too - a guard on watch at home (in person, or on the
+        /// radio while you carry a handheld and they can send), the radio from home while you are away (ScHordeVoice). The
+        /// on-screen texts show either way. false: the texts alone, as before.
+        /// </summary>
+        public static bool HordeVoiceLines = true;
 
         private static void ResetRadio()
         {
@@ -45,6 +52,7 @@ namespace SurvivorCommunity
             RaiderRadioChance = 0.04f;
             WindowRecallNeedsRadio = true;
             RunnerCallsWhenAttacked = true;
+            HordeVoiceLines = true;
             // the per-world state of the feature: a new world starts with none of it
             ScHandheld.Reset();
             ScRadioTalk.Reset();
@@ -61,6 +69,7 @@ namespace SurvivorCommunity
             ParseFloat(p, "RaiderRadioChance", ref RaiderRadioChance, 0f, 1f);
             ParseBoolKey(p, "WindowRecallNeedsRadio", ref WindowRecallNeedsRadio);
             ParseBoolKey(p, "RunnerCallsWhenAttacked", ref RunnerCallsWhenAttacked);
+            ParseBoolKey(p, "HordeVoiceLines", ref HordeVoiceLines);
         }
 
         /// <summary>The config line's handheld radio part.</summary>
@@ -71,7 +80,7 @@ namespace SurvivorCommunity
                    + " runnerTalk=" + (RunnerRadioTalk ? "volume " + f(RunnerRadioVolume) + (RunnerRadioEffect ? ", radio effect" : ", plain") : "off")
                    + " distress=" + (DistressNeedsRadio ? "runner's radio" : "any runner") + " raiderDrop=" + f(RaiderRadioChance)
                    + " windowRecall=" + (WindowRecallNeedsRadio ? "runner's radio or in person" : "any runner")
-                   + " callsWhenAttacked=" + RunnerCallsWhenAttacked;
+                   + " callsWhenAttacked=" + RunnerCallsWhenAttacked + " hordeVoiceLines=" + HordeVoiceLines;
         }
     }
 }

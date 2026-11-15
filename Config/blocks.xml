@@ -410,6 +410,15 @@
 			     always; you can go and help. Not without their radio, not with you within 30 m of them, and only when the call
 			     can be heard: you carry a handheld or a radio station at home has power. false: no such call. -->
 			<property name="RunnerCallsWhenAttacked" value="true" />
+			<!-- HordeVoiceLines (vo4): the base's horde warnings are spoken as well as shown, in the speaker's own voice. At home
+			     the guard on watch says the horde is gathering, first sighted, and that it is over (the all clear, with a
+			     message of its own): in person when you are within 30 m of them, else on the radio while you carry a handheld
+			     and they can send (a handheld radio in their inventory, or a radio station at home with power). Away, the radio
+			     from home (a station with power) speaks the call, the arrival and the result while you carry a handheld: the
+			     guard on watch, else someone at home. Over the radio it sounds as the runners do (RunnerRadioVolume,
+			     RunnerRadioEffect); VoiceLines false silences it too. The messages show as before either way. false: the
+			     messages alone. "sc radio horde" says one now, to test. -->
+			<property name="HordeVoiceLines" value="true" />
 
 			<!-- Survivors and raiders wearing the player's body: the community's survivors are 0-XNPCCore's own
 			     survivor classes (XnpcSurvivorClasses below), the raiders SurvivorCommunity's six scRaider{Male,Female}T1-T3

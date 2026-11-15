@@ -337,6 +337,8 @@
     <Compile Include="ScRadioTalk.cs" />
     <!-- round 29b (M29): a runner carrying a radio calls for help when attacked -->
     <Compile Include="ScRunnerCall.cs" />
+    <!-- vo4: the base's horde warnings spoken (a guard on watch at home, the radio from home away) through ScRadioTalk's queue -->
+    <Compile Include="ScHordeVoice.cs" />
     <Compile Include="XUiC_ScRadioTab.cs" />
   </ItemGroup>
 

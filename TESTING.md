@@ -37,6 +37,104 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round vo4 (2026-11-14): the horde warnings are voiced
+
+The base's horde warnings are now spoken as well as shown, in the speaker's own SC voice (40 lines in each of the 16
+voices: 640 new clips). The messages themselves are unchanged (they keep their numbers), except that the sides are
+spelled the American way now ("northeast", not "north-east"), and there is one new message, the all clear. One new
+setting in `Config/blocks.xml`: `HordeVoiceLines` (true). One new console verb: `sc radio horde`.
+
+Who speaks, and how you hear it:
+
+- **At home, the guard on watch.** "Heads up! There's a horde gathering to the northeast!" with the gathering message,
+  "Here they come! They're coming in from the northeast!" with the first sighting, and (new) when you hold the attack,
+  the message "Dana on watch: all clear." with "That's the last of them. We're clear." or
+  "All quiet now. I think we're done." Within 30 m of the guard you hear them **in person** (their voice from their
+  body, no radio sound). Farther away you hear them **on the radio** only if you carry a handheld radio and the guard
+  can send: a handheld radio in their inventory, or a radio station at home with power. Otherwise the message shows
+  alone.
+- **Away, the radio from home** (only with a radio station at home with power, as before), and only while you carry a
+  handheld radio: the call, the arrival and the result (held, damaged, overrun; a blood-moon siege's result too), spoken
+  by the guard on watch, or by someone at home when nobody is on watch. Nobody at home: no voice.
+
+Setup: a community home with a radio station you can power and unpower, a Watch post with a guard on it
+(`sc watch assign 1 <name>`; "Dana" below), at least one other resident, a handheld radio for you
+(`giveself scHandheldRadio`) and one for the guard (`sc radio give Dana`). `sc radio` now has a "horde voice:" line (who
+is on watch, how far from you, how each kind of moment would be heard right now), and its counters count
+`horde said: in person`, `horde said: on the radio`, `horde unheard: ...` and `horde unsaid: ...`. The log has a line
+for each warning spoken (`Dana on watch says scHordeGather_northeast in <voice>, in person`).
+
+- [ ] **Startup.** The `config: handheld radio ...` line ends with `hordeVoiceLines=True`. `sc voice` lists the 16
+      voices with 528 lines each (40 more than before).
+- [ ] **Sides.** A Watch post's label reads "Watch post 1 (northeast)" (or southeast, southwest, northwest), never
+      "north-east"; so do the gathering, sighting and radio messages below.
+- [ ] **At home, in person.** Stand within 30 m of Dana (take your own handheld out of your inventory to be sure it
+      isn't needed). `sc attack 6`: "Dana on watch: a horde is gathering to the <side>!" and at the same moment Dana
+      says "Heads up! There's a horde gathering to the <side>!" from where she stands: positional (turn your head and it
+      moves), her own voice, no static and no radio filter. With Voice Control running her lips move. When the horde
+      arrives and she first sees one: "the horde is coming from the <side>!" with "Here they come! They're coming in
+      from the <side>!" (the side she saw it on).
+- [ ] **All clear, in person.** Kill a whole horde while at home (a small one: `sc attack now 3`): "The base held! ..."
+      then "Dana on watch: all clear." and she says one of the two all-clear lines. With
+      nobody on watch (`sc watch relieve 1`), the same fight ends with "The base held! ..." alone: no all-clear message,
+      no voice.
+- [ ] **At home on the radio: the guard carries a handheld.** You carry a handheld, Dana carries one, the station is
+      unpowered. Stand more than 30 m from her but still at the base (inside the claim, or within 30 m of its edge).
+      `sc attack end`, `sc attack 6`: the gathering message, and her voice comes over the radio: a squelch of static, a
+      thin band-limited voice, a squelch out, equally loud wherever you stand. The log says
+      `on the radio (their handheld)`.
+- [ ] **At home on the radio: the guard has no handheld, the station has power.** Take the handheld out of Dana's
+      inventory and power the station. More than 30 m from her: `sc attack end`, `sc attack 6`: the same, and the log
+      says `on the radio (the home station)`.
+- [ ] **At home, nothing to send with.** No handheld on Dana, the station unpowered, more than 30 m from her:
+      `sc attack end`, `sc attack 6`: the gathering message alone, no voice; `sc radio` counts
+      `horde unsaid: the guard cannot send`.
+- [ ] **No handheld on you (text only).** Without a handheld yourself, more than 30 m from Dana (her handheld on her,
+      the station powered): `sc attack end`, `sc attack 6`: the message alone, no voice; `sc radio` counts
+      `horde unheard: you carry no radio`. Walk within 30 m of her and `sc radio horde gather`: now you hear her in
+      person.
+- [ ] **Away: the call and the arrival.** The station powered, your handheld with you, walk more than 100 m from the
+      claim. `sc attack now 8`: "Radio from home: a horde of 8 is gathering to the <side> of the base - ..." with "Come
+      in, it's home. A horde's gathering to the <side> of the base." on the radio, then within a few seconds "Radio from
+      home: the horde is at the walls - ..." with "They're hitting us from the <side>! Get back here if you can!" - one
+      after the other, never over each other. The voice is Dana's while she is on watch, else one of the residents at
+      home (`sc radio`'s "horde voice:" line says who).
+- [ ] **Away: the result.** Still away: `sc attack settle held`: "Radio from home: the base held ..." with "We held them
+      off. The base is still standing." or "It's over. We drove them back." Again with `sc attack now 8` then
+      `sc attack settle damaged` ("We made it, but they tore the place up pretty bad." / "They're gone, but we've got a
+      lot of repairs ahead.") and `sc attack settle overrun` ("They got inside. We couldn't hold them back." / "We
+      couldn't stop them... the base is a mess."). (`sc attack settle` at home shows "The fight at the base is over:
+      ..." and says nothing: that one is not on the radio.)
+- [ ] **Away without your handheld.** Drop your handheld, stay away, `sc attack now 8`: the two radio messages as
+      before, no voice. Without the station's power: no messages and no voice; the result waits for your return as
+      before (and is not spoken then).
+- [ ] **Away, nobody at home.** With every member out on a run (or posted away), `sc attack now 8` while away: the radio
+      messages show, no voice; `sc radio` counts `horde unsaid: nobody at home`.
+- [ ] **Once only.** Each warning is said once, with its message. Save and reload right after a call-out (or after the
+      call while away): it is not said again. A reload mid-fight brings the attackers back but no second "Here they
+      come!", unless you left the fight and came back, which gives a fresh sighting message and its line, as before.
+- [ ] **The switch.** `HordeVoiceLines` false in `Config/blocks.xml` (restart): every message above shows as before and
+      nothing is spoken (`sc radio` counts `horde off`); the runners still talk on the radio. `VoiceLines` false
+      silences the warnings too. `RunnerRadioEffect` false makes the radio lines plain (no static); `RunnerRadioVolume`
+      sets their volume.
+- [ ] **Console test.** `sc radio horde gather northeast`: the gathering message with the guard's name and "northeast",
+      and the line, heard the way the rules say (in person within 30 m, else the radio, else nothing); the F1 console
+      says what happened (`queued scHordeGather_northeast in <voice>, in person`). `sc radio horde spotted sw`,
+      `sc radio horde clear`, `sc radio horde call`, `sc radio horde arrived west`, `sc radio horde held`,
+      `... damaged`, `... overrun` each say their line (the away ones only with the station powered and your handheld,
+      and they show no message). `sc radio horde held <name>` makes that member say it; adding `force` says it whatever
+      the rules (no station, no handheld, `HordeVoiceLines` off). `sc radio horde gather` with nobody on watch answers
+      "no guard on watch with a body in the world - name a member". The attack's state is untouched
+      (`sc attack status`).
+- [ ] **Every voice.** `sc radio horde gather north <name> force` for members of different voices (male and female, each
+      race): each says it in their own voice, the words matching the line above.
+
+- [ ] **No all clear after a timeout.** A fight that runs past BaseAttackMaxHours with zombies still out (they are let go
+      as ordinary zombies): the base-held message shows, but no "all clear" text or line from the guard.
+- [ ] **Not over a talk.** Stand next to the guard and keep a talk with him open when the horde is called (`sc attack 6`,
+      as in the steps above): the text shows; he does not say the warning over the conversation
+      (`sc radio` counters: "horde unsaid: in a talk with them").
+
 ## Round n12 (2026-11-14): equipping members from the inventory panel
 
 Phase 2 of the member inventory panel: its equipment slots now work. Drop a weapon on RANGED or MELEE, a piece of armor
@@ -924,7 +1022,7 @@ Vanilla's `sleeper list` (inside a POI) shows each room of it with `clear...` an
     `SleeperCapFix` back to true, restart and load. `sc sleepers scan` lists both rooms: `2 room(s) in 2 POI(s) closed empty
     by the enemy cap and never due again; E room(s) of enclave buildings, kept clear by the enclaves, left alone - sc
     sleepers repair makes them due now` (E: your enclaves' rooms), then a line for each, nearest first, `<POI name>
-    (<prefab>) room at X, Y, Z: rolled N at gamestage G - 120 m north-east`. (An old save can list more: rooms the cap
+    (<prefab>) room at X, Y, Z: rolled N at gamestage G - 120 m northeast`. (An old save can list more: rooms the cap
     closed before you had this build. A room
     whose spawn points are all built over looks the same and is listed too; it rolls once and closes empty again with
     vanilla's `canSpawn True`.)
@@ -1594,7 +1692,7 @@ a Neutral or hostile one drops off the map until you find it again. They never m
 building, while it is loaded or in your view, while anyone of theirs is away, or while a request (accepted), siege, radio
 call or raid of theirs is on. Days are the requests' clock, so `sc day` moves them. In the steps `<name>` is the
 enclave's name, `<id>` its id, `<Old>` and `<New>` the buildings, `R` the request clock's day (each moves line ends
-`(request clock day R)`), `D m <dir>` a distance and direction like `900 m north-east`. "Far away" means at least 500 m
+`(request clock day R)`), `D m <dir>` a distance and direction like `900 m northeast`. "Far away" means at least 500 m
 from both buildings (beyond your view distance); a vehicle or `teleport` helps. The radio words are text only for now.
 Set `DebugLogging` true for the `would move ... but stays` lines. On a save from before E11 the deaths before it start
 no move (the review's L2): a group that had already lost half reads `lost K of N (P%; 50% moves them), all from before
@@ -4217,7 +4315,7 @@ kill or a threat, and their containers are theirs. `sc enclave list` and `sc enc
    blue). The leader's rows are "Tell me about this place.", "Hand over your supplies." and "Nevermind" (with E3, "Let's
    see what you have to trade." first) - no Hire, no order menus, no recruit or favour rows.
 4. Talk to a member: a greeting by standing, "Where's your leader?" names the leader and says where they are from you
-   ("12 m north-east"). Saying "hire", "pick me up" or "dismiss" to them by voice is refused.
+   ("12 m northeast"). Saying "hire", "pick me up" or "dismiss" to them by voice is refused.
 5. Leave past 200 m (the log: `... its people went`) and come back: the same people come back (`sc enclave people`:
    same names; same faces and weapons), no duplicates, with the health they had when they went.
 6. Save and quit next to them, then load: the same people come back from their records (the log has no
@@ -4283,7 +4381,7 @@ all; `sc infest info <id>` shows one, with its rooms.
    log). When you knew the first one, you get "The infestation at ... has spread to ...", and its marker. (On its own
    this needs 3 days, then a 30% roll a day.)
 8. The radio: with a powered radio at home (or any powered radio, without a home), `sc infest roll` until one starts
-   within 2 km: "The radio picks up a warning: ... is infested, 900 m north-east.", a ledger line and its marker. One
+   within 2 km: "The radio picks up a warning: ... is infested, 900 m northeast.", a ledger line and its marker. One
    farther away stays unknown until you come within 150 m of it: "Infested: .... More of them, ferals, and something
    worse."
 9. Never in an enclave's building, your home zone, a claimed building or near a trader: `sc infest add` inside an
@@ -4327,7 +4425,7 @@ kept free of zombies, quests, claims and outposts. There are no people in them y
    non-hostile ones are 400-1500 m from home.
 10. The radio needs an enclave you haven't found (`sc enclave hide all` first if you revealed them) and a powered radio
     at home, or any powered radio when you have no home. Then, with that enclave within 2 km of home (of you, without
-    one), `sc day`: "The radio picks up voices: ..., holed up at ..., 900 m north-east." Its marker appears. Another
+    one), `sc day`: "The radio picks up voices: ..., holed up at ..., 900 m northeast." Its marker appears. Another
     `sc day` reveals nothing: the next one is 3 days later (`sc enclave list` shows the day). With no unfound enclave
     within 2 km, it tries again the next day.
 11. Raise `EnclavesPerKm2` in `Config/blocks.xml` (0.5, say), restart and load. The log says `... added N ... to reach

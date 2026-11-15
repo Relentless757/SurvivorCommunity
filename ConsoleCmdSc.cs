@@ -83,7 +83,7 @@ namespace SurvivorCommunity
                     case "infest": case "infestation": case "infestations": InfestCmd(_params); break;
                     case "sleepers": case "sleeper": SleepersCmd(_params); break;
 #if SC_V34
-                    case "radio": if (!HandheldCmd(_params)) RadioCmd(); break;   // R2: radio [give <member> | talk <member> <moment> | attacked <member> [force] (29b)]
+                    case "radio": if (!HandheldCmd(_params)) RadioCmd(); break;   // R2: radio [give <member> | talk <member> <moment> | attacked <member> [force] (29b) | horde <moment> [side] [member] [force] (vo4)]
 #else
                     case "radio": RadioCmd(); break;
 #endif
@@ -2226,17 +2226,20 @@ namespace SurvivorCommunity
             if (outCount == 0) Output("[SC]   no runner out");
             Output("[SC] radio talk: " + ScRadioTalk.QueueState() + "; counters: " + ScHandheld.Counters());
             Output("[SC] runners' " + ScRunnerCall.Describe());      // round 29b
+            Output("[SC] " + ScHordeVoice.Describe(pl));              // vo4
             Output("[SC] sc radio give <member> (a handheld radio into their inventory) | sc radio talk <member> <out|arrived|found|empty|trouble|home|near|recall> (says it now)"
-                   + " | sc radio attacked <member> [force] (their call for help as if a zombie hurt them now; force: whatever the rules)");
+                   + " | sc radio attacked <member> [force] (their call for help as if a zombie hurt them now; force: whatever the rules)"
+                   + " | sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force] (a horde warning said now; force: whatever the rules)");
 #endif
         }
 #if SC_V34
 
-        /// <summary>R2: sc radio give &lt;member&gt; | sc radio talk &lt;member&gt; &lt;moment&gt; | (round 29b) sc radio attacked &lt;member&gt; [force].
-        /// False: not one of these (the radio status prints).</summary>
+        /// <summary>R2: sc radio give &lt;member&gt; | sc radio talk &lt;member&gt; &lt;moment&gt; | (round 29b) sc radio attacked &lt;member&gt; [force]
+        /// | (vo4) sc radio horde &lt;moment&gt; [side] [member] [force]. False: not one of these (the radio status prints).</summary>
         private static bool HandheldCmd(List<string> p)
         {
             string verb = p.Count >= 2 ? p[1].ToLowerInvariant() : "";
+            if (verb == "horde") { HordeVoiceCmd(p); return true; }      // vo4
             if (verb != "give" && verb != "talk" && verb != "attacked") return false;
             Member m = p.Count >= 3 ? FindMember(p[2]) : null;
             if (m == null) { Output("[SC] sc radio " + verb + " <member id|name>" + (verb == "talk" ? " <out|arrived|found|empty|trouble|home|near|recall>" : verb == "attacked" ? " [force]" : "")); return true; }
@@ -2260,6 +2263,55 @@ namespace SurvivorCommunity
             ScRegistry.SaveAtomic();
             Output("[SC] " + m.Name + " " + ev + ": " + said);
             return true;
+        }
+
+        /// <summary>
+        /// vo4: sc radio horde &lt;gather|spotted|clear|call|arrived|held|damaged|overrun&gt; [side] [member] [force] - a horde warning
+        /// said now, as the moment would say it, without a horde and without touching the attack's once-only marks. side: one of
+        /// the eight (north, northeast ... or n, ne ...; default the open attack's side, else a random one). member: default the
+        /// one the rules pick (at home the guard on watch with a body; away the guard on watch, else a resident at random). The
+        /// at-home moments also show their message (the guard's name, the side); the away ones only speak (their messages
+        /// carry the attack's numbers). force: HordeVoiceLines, your handheld, the guard's radio and the station ignored.
+        /// </summary>
+        private static void HordeVoiceCmd(List<string> p)
+        {
+            const string usage = "[SC] sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force]";
+            HordeMoment mo;
+            if (p.Count < 3 || !ScHordeVoice.TryMoment(p[2], out mo)) { Output(usage); return; }
+            string side = null;
+            Member m = null;
+            bool force = false;
+            for (int i = 3; i < p.Count; i++)
+            {
+                string a = p[i];
+                if (a.Equals("force", StringComparison.OrdinalIgnoreCase)) { force = true; continue; }
+                string sk = side == null ? ScHordeVoice.SideKey(a) : null;
+                if (sk != null) { side = sk; continue; }
+                Member f = FindMember(a);
+                if (f == null) { Output("[SC] no member or side '" + a + "'"); Output(usage); return; }
+                m = f;
+            }
+            if (ScHordeVoice.HasSide(mo) && side == null)
+                side = ScBaseAttack.Open ? ScHordeVoice.SideKey(ScBaseAttack.Side(ScRegistry.Community.AttackBearing))
+                                         : ScHordeVoice.Sides[UnityEngine.Random.Range(0, ScHordeVoice.Sides.Length)];
+            EntityPlayerLocal pl = ScCommunity.LocalPlayer;
+            string what = mo.ToString().ToLowerInvariant() + (ScHordeVoice.HasSide(mo) ? " (" + side + ")" : "") + (force ? ", forced" : "");
+            if (ScHordeVoice.AtHome(mo))
+            {
+                EntityAlive body;
+                if (m == null) m = ScHordeVoice.HomeGuard(out body);
+                else body = ScCommunity.FindNpc(m.Id);
+                if (m == null) { Output("[SC] no guard on watch with a body in the world - name a member (sc radio horde " + mo.ToString().ToLowerInvariant() + " [side] <member>)"); return; }
+                if (body == null || body.IsDead()) { Output("[SC] " + m.Name + "'s body is not in the world: an at-home warning is said from the guard's body"); return; }
+                string text = mo == HordeMoment.Gather ? string.Format(Localization.Get("scWatchGathering"), m.Name, side)
+                            : mo == HordeMoment.Spotted ? string.Format(Localization.Get("scWatchSpotted"), m.Name, side)
+                            : string.Format(Localization.Get("scWatchClear"), m.Name);
+                ScCommunity.Tell(pl, text, mo == HordeMoment.Clear ? "" : "ui_denied");
+                Output("[SC] " + m.Name + " " + what + ": " + ScHordeVoice.SayAtHome(mo, m, body, side, pl, force));
+                return;
+            }
+            Output("[SC] the radio from home, " + what + ": " + ScHordeVoice.SayAway(mo, side, m, pl, force)
+                   + " (the message itself carries the attack's numbers: see it with sc attack while away)");
         }
 #endif
 

@@ -467,13 +467,13 @@ scUiOpIdleHint,UI,Menu,,,,not enough people to hold it
 scUiOpLostHint,UI,Menu,,,,its land claim is gone
 scUiOpDistFmt,UI,Menu,,,,{0} m {1} of home
 scDirN,UI,Menu,,,,north
-scDirNE,UI,Menu,,,,north-east
+scDirNE,UI,Menu,,,,northeast
 scDirE,UI,Menu,,,,east
-scDirSE,UI,Menu,,,,south-east
+scDirSE,UI,Menu,,,,southeast
 scDirS,UI,Menu,,,,south
-scDirSW,UI,Menu,,,,south-west
+scDirSW,UI,Menu,,,,southwest
 scDirW,UI,Menu,,,,west
-scDirNW,UI,Menu,,,,north-west
+scDirNW,UI,Menu,,,,northwest
 scUiOpWaitingFmt,UI,Menu,,,,"{0} bundle(s), for when the radio answers"
 scUiOpWaitingNone,UI,Menu,,,,nothing
 scUiNetSlotsFmt,UI,Menu,,,,{0} of {1} held ({2} at most)
@@ -710,6 +710,7 @@ scWatchPostGone,UI,Tooltip,,,,{3} is gone - {0} goes back to their post.
 scWatchBlockedEnd,UI,Tooltip,,,,There's no room to stand on {3} any more - {0} goes back to their post.
 scWatchGathering,UI,Tooltip,,,,{0} on watch: a horde is gathering to the {1}!
 scWatchSpotted,UI,Tooltip,,,,{0} on watch: the horde is coming from the {1}!
+scWatchClear,UI,Tooltip,,,,{0} on watch: all clear.
 scWatchMarker,UI,Map,,,,Horde
 scWatchOff,UI,Tooltip,,,,Watch posts are switched off (WatchPosts in the config).
 scWatchNoHome,UI,Tooltip,,,,A watch post only works inside your community's land - start a community at one of your land claims first.
@@ -1628,6 +1629,46 @@ scRadioRecallAck_1Said,UI,Tooltip,,,,Copy that. Cutting it short and heading hom
 scRadioRunMineArrived_1Said,UI,Tooltip,,,,Found good rock out here. Starting to dig.
 scRadioRunClayArrived_1Said,UI,Tooltip,,,,Found a decent clay bank. Getting to work.
 scRadioRunDigEmpty_1Said,UI,Tooltip,,,,"Hard ground, slow going. Not much to carry back."
+scHordeGather_northSaid,UI,Tooltip,,,,Heads up! There's a horde gathering to the north!
+scHordeGather_northeastSaid,UI,Tooltip,,,,Heads up! There's a horde gathering to the northeast!
+scHordeGather_eastSaid,UI,Tooltip,,,,Heads up! There's a horde gathering to the east!
+scHordeGather_southeastSaid,UI,Tooltip,,,,Heads up! There's a horde gathering to the southeast!
+scHordeGather_southSaid,UI,Tooltip,,,,Heads up! There's a horde gathering to the south!
+scHordeGather_southwestSaid,UI,Tooltip,,,,Heads up! There's a horde gathering to the southwest!
+scHordeGather_westSaid,UI,Tooltip,,,,Heads up! There's a horde gathering to the west!
+scHordeGather_northwestSaid,UI,Tooltip,,,,Heads up! There's a horde gathering to the northwest!
+scHordeSpotted_northSaid,UI,Tooltip,,,,Here they come! They're coming in from the north!
+scHordeSpotted_northeastSaid,UI,Tooltip,,,,Here they come! They're coming in from the northeast!
+scHordeSpotted_eastSaid,UI,Tooltip,,,,Here they come! They're coming in from the east!
+scHordeSpotted_southeastSaid,UI,Tooltip,,,,Here they come! They're coming in from the southeast!
+scHordeSpotted_southSaid,UI,Tooltip,,,,Here they come! They're coming in from the south!
+scHordeSpotted_southwestSaid,UI,Tooltip,,,,Here they come! They're coming in from the southwest!
+scHordeSpotted_westSaid,UI,Tooltip,,,,Here they come! They're coming in from the west!
+scHordeSpotted_northwestSaid,UI,Tooltip,,,,Here they come! They're coming in from the northwest!
+scHordeClear_1Said,UI,Tooltip,,,,That's the last of them. We're clear.
+scHordeClear_2Said,UI,Tooltip,,,,All quiet now. I think we're done.
+scHordeCall_northSaid,UI,Tooltip,,,,"Come in, it's home. A horde's gathering to the north of the base."
+scHordeCall_northeastSaid,UI,Tooltip,,,,"Come in, it's home. A horde's gathering to the northeast of the base."
+scHordeCall_eastSaid,UI,Tooltip,,,,"Come in, it's home. A horde's gathering to the east of the base."
+scHordeCall_southeastSaid,UI,Tooltip,,,,"Come in, it's home. A horde's gathering to the southeast of the base."
+scHordeCall_southSaid,UI,Tooltip,,,,"Come in, it's home. A horde's gathering to the south of the base."
+scHordeCall_southwestSaid,UI,Tooltip,,,,"Come in, it's home. A horde's gathering to the southwest of the base."
+scHordeCall_westSaid,UI,Tooltip,,,,"Come in, it's home. A horde's gathering to the west of the base."
+scHordeCall_northwestSaid,UI,Tooltip,,,,"Come in, it's home. A horde's gathering to the northwest of the base."
+scHordeArrived_northSaid,UI,Tooltip,,,,They're hitting us from the north! Get back here if you can!
+scHordeArrived_northeastSaid,UI,Tooltip,,,,They're hitting us from the northeast! Get back here if you can!
+scHordeArrived_eastSaid,UI,Tooltip,,,,They're hitting us from the east! Get back here if you can!
+scHordeArrived_southeastSaid,UI,Tooltip,,,,They're hitting us from the southeast! Get back here if you can!
+scHordeArrived_southSaid,UI,Tooltip,,,,They're hitting us from the south! Get back here if you can!
+scHordeArrived_southwestSaid,UI,Tooltip,,,,They're hitting us from the southwest! Get back here if you can!
+scHordeArrived_westSaid,UI,Tooltip,,,,They're hitting us from the west! Get back here if you can!
+scHordeArrived_northwestSaid,UI,Tooltip,,,,They're hitting us from the northwest! Get back here if you can!
+scHordeHeld_1Said,UI,Tooltip,,,,We held them off. The base is still standing.
+scHordeHeld_2Said,UI,Tooltip,,,,It's over. We drove them back.
+scHordeDamaged_1Said,UI,Tooltip,,,,"We made it, but they tore the place up pretty bad."
+scHordeDamaged_2Said,UI,Tooltip,,,,"They're gone, but we've got a lot of repairs ahead."
+scHordeOverrun_1Said,UI,Tooltip,,,,They got inside. We couldn't hold them back.
+scHordeOverrun_2Said,UI,Tooltip,,,,We couldn't stop them... the base is a mess.
 scDialogPage,UI,Menu,,,,{0}/{1}
 scVoiceNoTradeMember,Dialog,Statement,,,,"*smiles* We don't trade - we're one community. If you need something of mine, just ask to see my inventory."
 scVoiceNoPackNow,Dialog,Statement,,,,*shakes head* Not now. Ask me again back home.
