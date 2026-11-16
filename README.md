@@ -1,6 +1,6 @@
 # Survivor Community
 
-**Version 0.1.0-pre.2, for 7 Days to Die 3.4. Single player.** Download it from the
+**Version 0.1.0-pre.3, for 7 Days to Die 3.4. Single player.** Download it from the
 [Releases page](https://github.com/Relentless757/SurvivorCommunity/releases). Console commands for testing are in
 [CONSOLE_COMMANDS.md](CONSOLE_COMMANDS.md).
 
@@ -94,6 +94,11 @@ grown claim if you use the included Upgradable Land Claim Block (section 19).
   watch posts and the Guard Tower wait for a home too.
 - If you pick up the home's land claim block, the community keeps its home there but nobody new joins until you pick
   **Set as community home** on another claim of yours (or put a claim back on the same spot).
+- **The land claim block has a new look:** a desk with a lit lamp and the claim ledger, beside a tall steel locker, made
+  from the game's own furniture and lit like the blocks around it. It takes a space 3 blocks wide, 2 high and 1 deep,
+  turns to face you as you place it (as the game's chemistry station does), and can be turned but not tipped over. The
+  **Outpost Claim Block** (section 11) looks the same. A land claim block placed before this version takes on the new
+  look where it stands, so it may overlap something built right beside it.
 
 **A good first hour:**
 
@@ -161,6 +166,9 @@ While you talk to a survivor, a card on the left of the screen shows who they ar
 stamina, mood (a face and a word), their traits, the four skills and their specialty as stars. A stranger's profile is
 rolled the first time you talk to them and they bring exactly that profile when they join. Their traits read **????**
 until their favor is done.
+
+If a UI mod lays out the talk window so that the card covers your responses, drag the card by its name bar: it stays
+where you put it, also in later talks. Right-click the name bar, or type `sc ui reset` in the console, to put it back.
 
 ### Streamer names
 
@@ -338,7 +346,8 @@ The community window's **Activities** tab has one activity, **Prepare a round of
 ### Staying home, roaming and defending
 
 - Members at home are **residents**. By day they walk about the whole base, stopping 10 to 20 seconds at each spot. At
-  night, or with an enemy within 30 m, they go back to their post.
+  night, or with an enemy within 30 m, they go back to their post; at bedtime, if the base has beds, those off duty go to
+  bed instead (below).
 - Residents **defend the base:** they go after any awake enemy inside the home zone within **22 m** of their post (or of
   themselves while roaming) that is after a member or you, even one they cannot see from there, fight it and walk back.
   Sleepers in a base built in a POI are left asleep, and Cowardly members stay put.
@@ -356,6 +365,25 @@ The community window's **Activities** tab has one activity, **Prepare a round of
   It never happens while you are looking at them or their post: they first try another path, and the move waits until
   you look away (at most 60 seconds). A resident who keeps getting stuck is given a new post. Posts and roaming spots are
   always on a real floor, and never in or right beside a wreck.
+
+### Sleeping at night
+
+With 0-XNPCCore's resident routine, your residents sleep in the base's beds:
+
+- About an hour after dusk, residents at home who are off duty go to bed, and they get up at dawn. The day stays as
+  above: no station work and no strolling.
+- Only as many go to bed as there are beds inside the home zone and within 15 m above or below the land claim block.
+  Anyone already asleep keeps their bed, and the same members get the beds each night; the rest keep to their posts.
+  With no bed in the base, nobody goes to bed.
+- Guards on watch, members on a work shift or following you, and anyone you are talking to stay up. Nobody goes to bed
+  on a blood moon night.
+- A fight or running from danger still comes first. Members asleep in bed don't greet you or chatter, are not sent after
+  intruders and don't count in their side's team strength (section 15).
+- Enclave people sleep the same way in their own building; a hostile enclave's people never do.
+- 0-XNPCCore picks beds from its own list of bed blocks: a bed from a mod that only SC counts can leave a member lying
+  down on the floor.
+- `SleepAtNight` false (section 20) keeps everyone on SC's own night routine, and so does switching 0-XNPCCore's own
+  routine off in its settings. `sc sleep` in the console shows who is in bed, and why not for the rest.
 
 ### When they are badly hurt
 
@@ -532,6 +560,8 @@ are:
 | **Outpost stand-in** | Nevermind. |
 
 - **Jobs and gear** opens 0-XNPCCore's hold-E ring on them, where Weapons, Read, Your progress and Ammo live.
+- **Show me your inventory** opens the member inventory panel, where you also change their weapons, armor and job tools
+  (section 15).
 - A runner has no "Show me your inventory": items put in their inventory on the road could be lost.
 
 ### The talk link
@@ -570,6 +600,9 @@ for every dialog in the game, not only SC's.
 - Followers use 0-XNPCCore's own following, its formations and stances. The **order wheel** and Voice Control's spoken
   orders work on them (stay, guard, guard and return, wander, patrol, crouch, formations, stances). They keep holding
   that order while still counting as your follower, until you call them back. A spoken "dismiss" sends them home.
+- **By voice:** saying "follow me" through Voice Control to a member at home works like **"Come with me."**, with the
+  same rules (not on watch, not away on a run or at an outpost, at most 2 followers). They nod and follow; if they can't,
+  they say so and a message tells you why.
 - **"Go back home."** (or **Go home** in the window) stations them at home. They must be inside the base or near their
   post, or you must be standing inside the base (then they are moved to their post). Otherwise you are told to bring them
   to the base first.
@@ -675,6 +708,10 @@ walk back.
 - **Near you** they are a real NPC: you can follow them, escort them, talk to them (**"Head home now."**) or watch them
   fight. **Far away** they are carried along their route on the game clock, and come back as the same person when you get
   near.
+- **Getting past trouble:** a runner who would run from a fight (Cowardly, or badly hurt with nothing to heal with) does
+  not run from a zombie only to walk straight back into it. While something that is after them or can see them stands in
+  their way, they step around it, or hold back and shoot. After 30 seconds of waiting on one leg of the trip they move
+  on: in your sight they stop waiting for it, out of your sight they carry on along their route.
 - **The haul** counts the moment they reach the edge of the base.
 - With no building in range, a runner goes on an old-style **hidden run**: gone for a day, back at the next rollover.
 
@@ -694,6 +731,15 @@ walk back.
   death like any other.
 - A runner who dies out of sight loses what was in their inventory, and you are told what was lost.
 - Runs earn Wits XP, and specialty XP for the matching job.
+- **A badly hurt runner turns back.** A runner on the way out or at the site whose health drops to 35%
+  (`RunHomeBelowHealth`) with nothing to heal with (no first aid bandage or kit in their pack or bag, and nothing healing
+  them) gives up the job and heads home, as if you had recalled them. A message says so, and they tell you themselves in
+  person, or over the radio when you both carry one. They bring what they found at the site so far (nothing if they had
+  not got there), and come home injured unless they were patched up on the way. A runner who carries a first aid
+  bandage or kit uses it and stays on the job.
+  - Pinned down by a distress call (below), a runner that hurt ends the call first: with you within 70 m of where they
+    called from it counts as a rescue; otherwise the call ends unanswered.
+  - While you have their inventory or a talk with them open, they wait: you may be handing them the bandage they need.
 
 ### Mining runs
 
@@ -787,13 +833,15 @@ When attention reaches **100%** while you are home, a **horde is called**.
 - **Never** within 2 days of the last attack's end, from 10:00 on blood moon day until the blood moon ends at dawn, or
   while an outpost attack is being fought. A full meter waits at 100% until a horde can be called.
 - **Your residents defend the whole base** during an attack: any enemy in the zone or up to 10 m outside it. Cowardly
-  members hang back with their gun, and run when the fight goes against you.
+  members hang back with their gun while the fight is going your way; when it goes against you, against raiders, or
+  without a gun, they retreat inside the base (section 4) instead of running from it.
 - **Held** (every attacker dead): a message with what the fight cost the stockpile, and **+4 morale** ("Defended the base",
   at most +10, fading a point a day).
 - **Leaving mid-fight** (more than 150 m from the zone) hands the rest of the fight to your people (see "Attacks while
   you are away" below). A reload mid-fight brings back only the attackers still standing.
-- A fight that stalls (4 game hours with no kill in the last hour) ends; stragglers become ordinary zombies and it counts
-  as held.
+- A fight that stalls (4 game hours in, with no zombie killed or arriving in the last hour) ends, and the stragglers
+  become ordinary zombies. It counts as held if your side killed at least one; if none was killed it simply ends, with no
+  morale gain.
 - Base attacks do not damage your blocks beyond what the zombies themselves break.
 
 ### Attacks while you are away
@@ -839,7 +887,8 @@ A **Watch Post** is a block a guard stands on.
   setting off, they are placed on it while you are not looking.
 - **Call-outs:** while you are at the base, a guard on watch calls out a horde when it is called ("a horde is gathering to
   the north!") and when they first see it, and an orange skull marker shows its side on the compass and map. When the
-  attack is held they call the all clear. They say each of these out loud in their own voice: in person within 30 m,
+  attack is held they call the all clear, unless it was a stalled fight that ended with zombies still standing (then the
+  base's "held" message comes without it). They say each of these out loud in their own voice: in person within 30 m,
   farther away over your handheld radio, when they carry one too or the radio station at home has power
   (`HordeVoiceLines`).
 - A guard on watch cannot follow you, go on a supply run or be posted to an outpost until relieved. A guard who is hurt
@@ -1225,6 +1274,13 @@ catalog, and real armor pieces in their equipment slots.
   mostly bows and crossbows; firearms are rarer early and common late.
 - **Better gear later:** the time and place a survivor turns up, and your gamestage, decide their tier. Weapons and armor
   follow that tier.
+- **Attachments:** their weapons can come with attachments, as weapons found in loot do: the first with a 50% chance,
+  each further one half as likely, up to the slots the weapon's quality gives (`SurvivorWeaponModChance`,
+  `RaiderWeaponModChance` and `WeaponModTags`, section 20). A survivor keeps the same attachments on that weapon from then
+  on, and the gun you loot from them has them too. A weapon you hand over keeps its own.
+- **Gun lights:** with 0-XNPCCore, a survivor's gun that has a flashlight attachment lights up in the dark.
+- **Torch:** SC's survivors carry a torch. In the dark 0-XNPCCore lights it, and with a one-handed weapon they hold it in
+  their left hand. A torch in their hand is never taken for their weapon.
 - Strangers and enclave people use the gun while it has ammo and switch to melee up close; **when several enemies are on
   them** they keep the gun. Your members follow one **posture** instead (below).
 - **Keeping their distance:** with a gun in hand, your members back away from an enemy within 2.5 m and shoot anything
@@ -1277,10 +1333,48 @@ catalog, and real armor pieces in their equipment slots.
 - **With Locked & Loaded,** survivors and raiders whose gun takes magazines start with loaded magazines for their tier and
   reload like you. Refills go into their magazines.
 
+### The member inventory panel
+
+**Show me your inventory** on a member opens SC's **Survivor Inventory** panel beside your backpack, instead of the
+looting screen (strangers, recruits, raiders and enclave people still show the looting screen). It holds:
+
+- **their card,** as on the talk card;
+- **Weapons:** Ranged and Melee, the two weapons they fight with;
+- **Armor:** Head, Chest, Hands and Feet;
+- **Job tools:** their best tool for Chop, Mine, Dig, Butcher and Repair (a tool that serves several jobs shows as
+  "shared");
+- **Pack:** their inventory, where you hand things over and take them back; and **Bag:** where they keep ammo and
+  magazines.
+
+You change their gear by dropping items on the slots (single player, or the host):
+
+- **Weapons:** drop a gun or bow on Ranged, or a melee weapon on Melee, and it becomes the weapon they fight with; the
+  one it replaces comes back to you. Take the gun off Ranged and they fight with their melee weapon only. Melee only
+  swaps: a member always keeps a melee weapon.
+- **Armor:** drop a piece on its slot and they wear it, and their old piece comes back to you; take one off and they go
+  without there. A piece made for men only or women only is refused for the other.
+- **Job tools:** a tool dropped on a job slot goes into their pack, and they use the best one for each job. You can take
+  back a tool you gave them; the work kit stays with them.
+- **Exactly as you gave it:** a weapon or armor piece you hand over keeps its quality, attachments and wear (it doesn't
+  wear down while they carry it) and comes back exactly so. No loaded round or seated magazine is lost in a swap.
+- If they die, what you handed over drops with their backpack; if they leave the community, it goes into their pack.
+- A refused item stays on your cursor and a message says why: a launcher or explosive, dual pistols, an item a mod marks
+  as unfinished, a tool on a weapon slot, armor for another slot. Slots take one item at a time.
+- Changing an armor slot here replaces a Wardrobe pick in that slot (Looks, below).
+- **Moving it:** drag the title bar and the panel stays where you put it. Right-click the title bar, or type
+  `sc ui reset` in the console, to put it back. `MemberInventoryPanel` false (section 20) brings back the looting screen.
+
 ### Giving a member a better weapon
 
-Put the weapon in their inventory (**Show me your inventory**), then pick it from **Jobs and gear**, Weapons, **Carried
-Weapons**. They keep it in place of their weapon of that kind.
+- **The easy way:** drop it on the Ranged or Melee slot of their inventory panel (above).
+- **Or** put it in their pack, then in **Jobs and gear**, Weapons, pick **"Use the weapons I gave you."** They take the
+  best gun or bow and the best melee weapon you put there, even an unloaded gun, and the ones they replace come back to
+  you. 0-XNPCCore's own **Carried Weapons** works too, but it lists a gun only while it has rounds in it or ammo in
+  their stores.
+- **Weapons from any mod** can be handed over: any gun, bow or melee weapon 0-XNPCCore lets an NPC use. Not launchers or
+  explosives, dual pistols, tools, or items a mod marks as unfinished (such as Combat Sandbox's unfinished IZY Classic
+  guns).
+- They keep it in place of their weapon of that kind, and at home the stockpile refills its ammo (Ammo, above).
 
 ### Healing and armor
 
@@ -1313,6 +1407,9 @@ Weapons**. They keep it in place of their weapon of that kind.
 
 - Clothes come from vanilla's armor sets by tier (light sets likelier early, heavy ones later), or now and then a whole
   outfit from a supported armor pack, if installed.
+- **Wardrobe:** with 0-XNPCCore's Wardrobe ("Dress your hires") you can dress SC's people - members, recruits, enclave
+  and band people, never raiders - in armor they carry. The pick is saved with them. "Back to my own" puts back what
+  they wore before, until you reload the world; after a reload the piece they wear counts as their own.
 - **With Vanity Vault:** a few survivors have a body paint (1%), a face paint (2%) or a tattoo (15%); raiders far more often,
   from wilder designs.
 - **With Vanity Vault, the face comes first and the skin tone suits it.** Vanity Vault splits a look in two: the skin tone
@@ -1425,7 +1522,8 @@ The round of drinks (section 4): its cost, effect and status, and **Pour a round
 | **Handheld Radio** | Opens the radio window from anywhere (with home power); lets runners talk to you | Workbench: 3 electrical parts, 2 mechanical parts, 5 polymer scrap, 2 duct tape; rare electrical loot; traders now and then; rare raider drop |
 | **Watch Post** (any shape) | A post for a guard on watch | Backpack: 10 wood, 4 nails |
 | **Guard Tower** | Kit that puts up a watch tower with a Watch Post | Backpack: 782 wood, 4 nails |
-| **Outpost Claim Block** | A land claim that becomes an outpost when placed in a cleared building away from home | Backpack: 5 small stones, 5 cloth, 5 scrap iron |
+| **Land Claim Block** (the game's own, new look) | Your land claim, now a desk with a lamp and the claim ledger beside a tall steel locker (3 x 2 x 1); it starts and holds your community (section 2) | As in the game |
+| **Outpost Claim Block** | A land claim that becomes an outpost when placed in a cleared building away from home; it looks like the land claim block | Backpack: 5 small stones, 5 cloth, 5 scrap iron |
 | **Small / Medium / Large bundles** (food, water, medical, ammo, materials, fuel, luxury) | 1 / 2 / 3 stockpile units; open one for an assortment of goods | Packing station, loot, air drops, trader quest rewards, allied supply drops |
 | **Allied Supply Crate** | Supply drop from an allied enclave | Radio: an ally's Supply drop |
 | **Remains** | A missing survivor's body (Search the body) | Placed by an enclave's missing-survivor request |
@@ -1481,6 +1579,8 @@ These are the ones you are most likely to change. The file has many more.
 | `DefendBaseRadius` | 22 | Residents attack enemies inside the base within this many meters of their post (0: only what they see) |
 | `MembersOpenOwnerLockedDoors` | true | Members open your locked doors |
 | `MembersOpenHatches` | true | Members open hatches and drawbridges |
+| `SleepAtNight` | true | Residents at home, and friendly enclave people, sleep in beds at night through 0-XNPCCore's routine (section 4); false: SC's own night routine |
+| `SleepAfterDuskHours` / `SleepZoneHeight` | 1 / 15 | Hours after dusk before bedtime (keep it the same as 0-XNPCCore's own setting); how far above and below the land claim block beds count (meters) |
 | `StreamerNames` | false | Give your viewers' names from a text file to the new survivors SC makes (section 3) |
 | `StreamerNamesFile` | StreamerNames.txt | The names file, in `%APPDATA%\7DaysToDie\SurvivorCommunity\` (or a full path) |
 | `StreamerNamesFor` | survivors | Who gets the names: `survivors`, `raiders` or `all` |
@@ -1573,6 +1673,9 @@ These are the ones you are most likely to change. The file has many more.
 | Setting | Default | What it does |
 |---|---|---|
 | `XnpcResupply` / `XnpcResupplyBelow` | true / 10 | Stockpile refills at home and outposts, below this many rounds |
+| `MemberInventoryPanel` | true | "Show me your inventory" on a member opens the member inventory panel (section 15); false: the looting screen |
+| `SurvivorWeaponModChance` / `RaiderWeaponModChance` | 0.5 / 0.5 | The chance of a rolled weapon's first attachment; each further one is half as likely, up to the slots its quality gives (0: none) |
+| `WeaponModTags` | sideAttachment, scope, ... | Which kinds of attachment can roll (keep `sideAttachment` for gun lights) |
 | `MedsResupply` | true | Members restock their own medical supplies from the stockpile, 1 medical at a time; false: you manage them by hand |
 | `MedsResupplyBelow` / `MedsResupplyRunBelow` | 1 / 2 | Restock at home below this many first aid bandages and kits; before a run, below the second (0: never) |
 | `MedsResupplyMix` | medicalFirstAidKit:1, medicalFirstAidBandage:2, medicalBandage:2 | What 1 medical tops her up to (she gets what she lacks of each) |
@@ -1656,7 +1759,7 @@ For console commands (testing and fixing), see [CONSOLE_COMMANDS.md](CONSOLE_COM
   without their clothes.
 - **Game 3.4 only.** This build does not run on 3.2 or 3.3.
 - **Do not remove the mod from a save that used it.** Loading that save without SC can damage the chunks its blocks are in.
-- **A few of the newest lines are text only.** All 16 voices speak the 488 recorded lines, but the newest ones (a
+- **A few of the newest lines are text only.** All 16 voices speak the 528 recorded lines, but the newest ones (a
   mining runner's radio lines, the training line after reading a magazine, and some refusals about the work kit, field
   jobs and trading) have no voice yet and only appear as text.
 - **Mining and digging clay are not resident jobs.** Residents do home jobs only; send them on a mining run instead, or
@@ -1667,11 +1770,9 @@ For console commands (testing and fixing), see [CONSOLE_COMMANDS.md](CONSOLE_COM
 - **A move is a jump:** an enclave that moves is not seen walking.
 - **No holstering yet:** survivors keep a weapon in hand (lowered and hidden when out of danger). No dismemberment for SC's
   survivors and raiders.
-- **Work kit:** a member chopping wood with a zombie stuck out of reach 15 to 30 m away may switch between their weapon
-  and the axe at each tree.
-- **Crafted items left in a resident's inventory:** if you keep a crafting station open while a resident works at it, some
-  of what they make can stay in their inventory instead of going into the crates. Nothing is lost; take it through
-  **Show me your inventory**.
+- **Crafted items left at a station:** what a resident makes at a crafting station on a work shift goes into the home
+  crates once it has moved into their inventory. Anything that never gets there (output still in the station after
+  their craft order is done, for example) is not moved to the crates: take it from the station.
 - **Squad orders:** a spoken squad order's answer can come from a resident, though only followers act on it.
 - **Existing saves and the handheld radio:** with `DistressNeedsRadio` on, runners get no distress calls until you give
   them radios.

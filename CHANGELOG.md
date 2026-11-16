@@ -1,0 +1,195 @@
+# Survivor Community 0.1.0 pre-release 3
+
+Everything that changed since pre-release 2 of this 7 Days to Die 3.4 test build; section numbers refer to the included `README.txt`.
+
+## Highlights
+- **Members fight as a team.** Each member weighs their side against the enemies around them: in a fight their side can win they use their melee weapon, otherwise they keep their distance and shoot. At home, backing off never takes them out of the base.
+- **Hurt members look after themselves.** They restock first aid from the stockpile's Meds, back away before bandaging and slowly regain health out of combat. Badly hurt at home with nothing to heal with, they shelter indoors or kite with their gun.
+- **A real inventory panel for members.** "Show me your inventory" opens a Survivor Inventory panel where you equip a member's gun, melee weapon, armor and job tools by dropping items on slots.
+- **Mining runs.** Send a resident out to mine stone and ore or dig clay; the haul lands in your home crates as real items.
+- **Bundles can be opened** into an assortment of goods, so supplies can come back out of the stockpile.
+- **Members sleep at night** in the base's beds, through 0-XNPCCore 3.4.05's routine.
+- **Starting a community is your choice**, from a land claim's radial, and the land claim block has a new desk-and-locker model.
+- **Fixed a bug that stopped your player data from saving** while an enclave request quest was in your journal.
+
+## Combat
+- **Team strength.** Once a second each member counts their side within 15 m (their Fighting stars, health and weapon, the other members, and you) against the awake enemies there; during a horde at the base, the whole defended area counts. A healthy member alone against one walker is a matched fight; alone against a feral, or two members against four walkers, is not.
+- **You count only while you fight.** You count double, but only for 5 seconds after you hit an enemy near the member; standing by, or only being chased, you count for nothing.
+- **One posture per member** decides their weapon and moves (section 15). They change weapons at most once every 5 seconds, unless they can't swing at the zombie.
+  - **Melee:** a matched fight, at least 60% health (70% to go back to it), not swarmed. They fight with their melee weapon and don't back away; holding a gun, they shoot until the zombie is within 4 m, then switch once. A member whose best skill is Shooting stays on the gun while it has ammo.
+  - **Kite:** any other fight with a gun that has ammo: outmatched, swarmed, hurt, raiders or anyone armed, a cop or a demolition zombie, or your gun order. They shoot, back off from anything within 2.5 m and don't switch to melee up close.
+  - **Hold:** on watch or on a Stay order they keep their post and their gun. **Shelter:** badly hurt (see below).
+- **A swing they can't take means the gun.** When a wall, a fence post or bars block the swing, the gun comes out at once and they kite that zombie for 45 seconds (90, then 180 if it happens again).
+- **Backing off stays inside the base.** A member with a gun backs off from an enemy within 2.5 m and shoots from 2.5 to 4 m. At home each step back (10, 6 or 3 m) ends on a floor inside the home zone, clear of obstacles and out of every zombie's reach.
+- With no such spot, or when a zombie keeps pace, they stop after about 1.5 seconds and shoot. Away from home they back off the way 0-XNPCCore does.
+- **Cornered.** Cornered and reloading, or cornered for 3 seconds without a shot, a member swings their melee weapon until there is room again, never at a cop, an armed enemy or a zombie they can't hit. If no swing lands in 2.5 seconds, the gun comes back.
+- **Your weapon orders stick.** Ordering a member's gun (the weapon menu, or by voice) keeps them on it until you order their melee weapon, and the other way round.
+- **Cowardly members** hang back with their gun and run only from a fight going badly; at home they retreat inside rather than leaving the base.
+- **Intruders.** A zombie inside the base that is after nobody now gets the two nearest free residents sent to fight it. One wandering past outside, or more than 6 m above or below the base's levels, is left alone.
+- **Who residents go after.** At home, residents fight only an enemy that is after a member or you (plus the intruders above). During a base attack they still defend the whole base, and guards on watch keep shooting from their posts.
+- `sc team <name>` shows a member's count, posture and the reason for it.
+
+## Healing and getting hurt
+- **Restock from the stockpile.** A member at home who runs out of first aid bandages and kits takes 1 medical unit from the stockpile and is topped up to 1 first aid kit, 2 first aid bandages and 2 cloth bandages (only what they lack), even mid-fight, at most once a day.
+- **Before a supply or mining run** they restock the same way if they carry fewer than 2 first aid bandages and kits. The medical units tonight's injured need are never taken, and nothing is given when their pack is full.
+- **Emergency restock.** A member at home with no first aid bandage or kit, nothing still healing them and under half health is restocked at once, even if they were restocked earlier that day (at most once an in-game hour).
+- `MedsResupply` false lets you manage their supplies by hand. `sc meds` shows who was restocked and why not, and the day's summary lists restocks separately.
+- **No bandaging with a zombie on them.** While an enemy after them is within 3 m, a member first backs away (10, 6 or 3 m; inside the base at home, near you when following) until nothing is within 4 m, then uses the item.
+- With no room to back off, in a shelter, on watch or told to stay, or when the zombie keeps up, they use it at once, and after 6 seconds anyway. Under half health they use a first aid kit before a bandage.
+- **Slow recovery out of combat.** Members regain 0.2 health a second, up to 60% of their health, while nothing threatens them: no zombie within 30 m that is after them or sees them, and none at all within 12 m.
+- **Badly hurt with nothing to heal with** (below 35% health), a member stops fighting. At home they no longer run out of the base:
+  - with a gun or bow that has ammo they **kite**: they back away from any zombie within 8 m, a step at a time inside the base, out to about 15 m, shooting between steps;
+  - without one, or with raiders or bandits about, they **retreat inside**: they run to a roofed room away from the enemy, shut the doors they passed behind them and hold there, fighting only what reaches them.
+- **Nobody shelters for good.** Sheltering ends at 45% health or after 20 seconds with no enemy about. A member restocked while sheltering comes out to bandage once nothing has been after them for 5 seconds; with no medicine they come out after 2 minutes once it is safe.
+- While that hurt, a member is never walked to a fight, at home or away. (Until now, a member who wasn't Cowardly fought on at any health.)
+- **Away from home** a badly hurt follower with a gun kites within 20 m of you instead of running off; without one they run as before. Guards on watch hold their post.
+
+## Members' gear and the inventory panel
+- **The Survivor Inventory panel.** "Show me your inventory" on a member now opens SC's own panel on the left instead of the looting screen. It shows the member's card, Weapons (Ranged, Melee), Armor (Head, Chest, Hands, Feet), Job tools (their best tool for Chop, Mine, Dig, Butcher and Repair), their Pack and their Bag (ammo and magazines).
+- **Weapons:** drop a gun or bow on Ranged, or a melee weapon on Melee, and they use it; the one it replaces comes back to you. Take the gun out of Ranged and they fight melee only; Melee only swaps, since a member always keeps a melee weapon.
+- **Armor:** drop a piece on its slot and they wear it, and their old piece comes back to you; drag one off and they go without.
+- **Job tools** you drop go into their pack, and they use the best one for each job. You can take back tools you gave them; the work kit stays.
+- **What you hand over comes back exactly.** A weapon or armor piece keeps its quality, mods and wear (it doesn't wear down while they have it), and no loaded round or seated magazine is lost in a swap.
+- Items you handed over drop in their backpack if they die, and go into their pack if they leave the community.
+- When a slot refuses an item, a message says why (a launcher, dual pistols, an unfinished test item, a tool in a weapon slot, armor for another slot).
+- **The panel moves.** Drag its title bar and it stays where you put it; right-click the bar or type `sc ui reset` to put it back. `MemberInventoryPanel` false brings back the looting screen.
+- **Weapons from any mod** can be handed over: anything 0-XNPCCore accepts as a weapon, except launchers, dual pistols and tools. Items a mod marks as unfinished test items (such as Combat Sandbox's unfinished IZY Classic guns) are refused.
+- **"Use the weapons I gave you."** This row is back in 0-XNPCCore's weapon menu, so a member takes a gun you handed over even when it is unloaded.
+- **Wardrobe.** 0-XNPCCore 3.4.05's Wardrobe ("Dress your hires") now really dresses SC's people: members, recruits, enclave and band people. Its picks and the panel's armor slots work together without duplicating items, and raiders are never dressed by you.
+
+## Guns and magazines
+- **Guns come out loaded (Locked & Loaded).** The magazine a member takes out when putting their gun away goes straight back in the next time they draw that gun, so it comes out ready to fire, with no magazine duplicated or lost.
+- **Weapon attachments.** Survivors' and raiders' weapons can now carry attachments, as loot weapons do (`SurvivorWeaponModChance`, `RaiderWeaponModChance`, `WeaponModTags`). They stay on when the member switches weapons or the area reloads, and the gun you loot from a body has the same ones.
+- A survivor's gun with a flashlight lets 0-XNPCCore 3.4.05 turn the light on in the dark.
+
+## Home, land claims and enclaves
+- **The community home is opt-in.** No land claim becomes home by itself any more: hold E on a land claim block you own and pick **Start a community here**. **Set as community home** on another claim moves it later, and **Linked storage** shows on the radial once you have a home.
+- A save that already has a home keeps it, and `AutoHomeFirstClaim` true brings back the old way.
+- Until you have a home, a survivor you ask to join says, in their own voice, that you need a home for your people first, and a message tells you how to start one. If you pick up the home's land claim block, nobody new joins until you set another claim as home or put one back on the same spot.
+- **New land claim block.** It is now a desk with a lit lamp and the claim ledger beside a tall steel locker, built from the game's own furniture and lit like the blocks around it. It takes a 3 x 2 x 1 space, turns to face you as you place it, and can be turned but not tipped over.
+- **Outpost Claim Block.** The Outpost Flag is now called the Outpost Claim Block. It shares the new model and has an icon you can read.
+- **Linked storage past 90 slots.** Without RE Inventory, linked storage opens in its own scrolling window with room for 360 slots, so every stack and free slot shows (9 columns, or 8 with AshfallUI so it fits the screen). With RE Inventory, its grid shows linked storage as before.
+- With AshfallUI, the linked storage strip sits under the grid, so AshfallUI's filter tabs can be clicked.
+- **Enclave doors.** Every locked door of a living enclave's building, raiders' too, is unlocked as you come near, so you can walk in and find them. The doors aren't opened and don't become yours, and their containers stay theirs (`EnclaveDoorsUnlocked`).
+
+## Runs, jobs and crafting
+- **Mining runs.** **Mine** and **Dig clay** now sit beside the resources in the supply-run list (the talk row and the community window). A resident with a mining tool (any pickaxe, an auger or the work kit's stone axe) or a shovel walks to a natural spot 150 to 700 m from home, works it for 6 game hours and walks back.
+- A mining run has a supply run's risk, escort, distress calls and radio. Without a tool, the resident refuses and says why.
+- The haul is real items: for a whole run with an iron tool, about 180 stone and 90 ore from a vein, or about 240 clay. A stone tool brings 60% of that, steel 140%, an auger 180%, and Wits, traits and morale add to it.
+- The haul goes into the home crates, onto matching stacks first. What doesn't fit stays in their inventory, and if you are away it waits until you are home; they won't go again while the last haul is still waiting.
+- Asked to Mine or Dig clay as a home job, a resident now points you to a mining run. `sc run <name> mine` or `clay` sends one for testing.
+- **Hurt runners turn back.** A runner below 35% health with nothing to heal with gives up the job and heads home as if recalled, bringing what they found so far and telling you so. They come home injured unless patched up on the way (`RunHomeBelowHealth`).
+- If a distress call has them pinned down, the rescue still counts when you are within 70 m of where they called from; otherwise the call ends.
+- **Runners go around trouble.** A runner who would run from a fight (Cowardly, or badly hurt with nothing to heal with) no longer runs from a zombie and then walks straight back into it: they step around a threat in their way or hold back and shoot, and after 30 seconds of waiting they move on.
+- **The work kit stays put.** A zombie lingering out of reach no longer makes a member swap between their weapon and the axe at every tree.
+- **Work shifts.** What a resident makes at a crafting station on a work shift now goes into the home crates like the rest, instead of sometimes staying in their inventory.
+
+## Openable bundles
+- Hold a bundle and click, or pick **Open** on it, and one bundle of the stack becomes a random assortment of its resource's everyday goods (section 5). The goods go into your inventory, and anything that doesn't fit drops at your feet.
+- An opened bundle is worth about three quarters of what packing it took (`BundleOpenValueShare` 0.75), never more than 10% over, with at least one item and each item one stack at most. With three or more craftsman stars in the community it holds a little less, so opening never gives back what packing took.
+- A bundle you **Take** at the packing station opens the same way, which is how supplies come back out of the stockpile. The lists are settings (`BundleOpenFood` and the rest), and `BundleOpen` false turns opening off.
+
+## Looks, names and voices
+- **Streamer names** (off by default). List your viewers in `%APPDATA%\7DaysToDie\SurvivorCommunity\StreamerNames.txt`, set `StreamerNames` to true, and the new survivors SC makes take those names in order, matched to their sex (`Sarah, female`). Details in section 3.
+- Each name is given once per save, except that the name of an NPC you never met who leaves the area goes back on the list. Nobody already in your world is renamed, `StreamerNamesFor` can give names to raiders too, SC rereads the file when it changes, and `sc names` shows the list.
+- **With Vanity Vault, the face comes first and the skin tone suits it.** New survivors and raiders get their face first, then a skin tone that fits it.
+- **Voices follow the face.** Each survivor speaks with the voices of their face's race, and a White or Asian face with a dark skin tone speaks with Black voices. Survivors you already know switch to a fitting voice the next time they load.
+- **Hair color suits the skin and face**, with or without Vanity Vault: medium skin tones never get natural blond or red, and dark tones not light brown either. Gray and white hair stay at about 1 in 5 on everyone, and dyed colors still turn up on anyone.
+- **People you already know** get a fitting natural hair color the next time they load (always the same one, and never gray in place of a young color). Their face and skin tone are never changed on their own; `sc look <name> tone` gives one survivor a tone that suits their face, only when you ask.
+- A survivor whose look needs assets your game no longer has is shown with a stand-in look, but their saved look is kept.
+- **All 16 voices are complete.** The two Native women's voices are recorded, so nobody borrows another voice any more.
+- **Horde warnings are voiced.** At home, the guard on watch says the horde is gathering, says when they first see it and calls a new all clear, in person within 30 m or over your handheld radio. While you are away, the radio from home speaks the call, the arrival and the result while you carry a handheld.
+- `HordeVoiceLines` false keeps the messages only, and `sc radio horde` plays one to test. The "you need a home first" reply is voiced too; a mining runner's radio lines and a few of the newest refusals are text only for now.
+
+## Sleep and routine
+- **Members sleep at night.** About an hour after dusk, residents at home go to bed in the base's beds through 0-XNPCCore 3.4.05's resident routine, and they get up at dawn. The day stays SC's: no station work or strolling.
+- Only as many sleep as there are beds, and the same members get them each night; with no bed in the base, everyone keeps SC's own night routine. Guards on watch, members on a work shift and anyone you are talking to stay up, and nobody goes to bed on a blood moon night.
+- A fight or running from danger still comes first, and sleeping members no longer talk in their sleep.
+- Enclave people sleep the same way in their own building; a hostile enclave's never do.
+- `SleepAtNight` false keeps everyone on SC's own night routine; `sc sleep` shows who is in bed and why not.
+
+## 0-XNPCCore and Voice Control 3.4.05
+- SC works with 0-XNPCCore and Voice Control 3.4.05: the subtitles of SC's voice lines show, and members' power attacks work with melee weapons from weapon packs that use the game's plain melee action.
+- **Torches.** Members carry a torch again, so 0-XNPCCore's night torch and left-hand torch pose work for the community. A member holding a torch no longer ends up treating it as their weapon.
+- 0-XNPCCore's own bandits, pickpockets and custom NPCs keep their torch while SC is installed.
+- **"Follow me" by voice.** Saying it through Voice Control to a member at home now works: they nod and follow, or say why they can't.
+- Wardrobe, gun lights and sleeping at night (above) also come with 3.4.05.
+
+## Windows and UI
+- **The game's own look without AshfallUI.** The community window, the radio window, the survivor card and the Home Status panel use the game's own look when AshfallUI isn't installed, and AshfallUI's look when it is.
+- **Packing and linked storage strips** line up with the box's grid and fit both the game's grid and RE Inventory's narrower one. The buttons have short labels (Food, Water, Meds, Ammo, Mats, Fuel, Lux) with the full text on hover, and the stock line wraps.
+- **Morale colors.** The community window's morale bars, the Home Status dot, the survivor card's mood word and the morale buff icon are green from 50, amber below 50 and red below 25.
+- **The talk card moves.** If your UI mod puts the survivor card over the responses, drag it by its name bar; it remembers its place (right-click the bar or `sc ui reset` to put it back).
+- On the survivor card, a long name no longer runs under the portrait.
+
+## Fixes
+- **Player saves.** While an enclave request quest (a siege included) was in your journal, every autosave of your player data failed, so your inventory, XP, position and quests stopped saving. Fixed, and SC now also stops any other mod's quest from breaking the player save this way.
+- A save hit by that bug saves normally again once loaded with this version; what happened after its last good save isn't recovered.
+- **Duplicate magazines (Locked & Loaded).** Members no longer gain an extra magazine every time they change weapons or the world loads. Magazines a member already picked up this way are not taken away.
+- **Station crafting.** A member crafting at a station you have open no longer sends the output into your inventory or counts it as your crafting (no crafting XP for you). Their crafts wait at the station while its output is full, and count for the member once per item.
+- **Members walking out of the base.** In a base built inside a POI, a member at home no longer walks out of the base when a zombie comes for them and wanders back later.
+- **Escorted members** walk to their post instead of vanishing from beside you as you step into the base.
+- **Swinging in reach.** A resident defending the base swings at a zombie already in reach instead of walking into it.
+- Closing a runner's rescue quest no longer throws an error.
+
+## New and changed settings
+All in `Mods\SurvivorCommunity\Config\blocks.xml` (section 20). Restart the game after a change.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `AutoHomeFirstClaim` | false | true: your first land claim becomes the home by itself, as before |
+| `EnclaveDoorsUnlocked` | true | Enclaves' locked doors are unlocked as you come near |
+| `StationWalkIn` / `StationWalkInMetres` | true / 30 | A member you escort home within this many meters walks to their post |
+| `OutpostAttacks` | true | Outpost risk (attacks, blood moon rolls, squatters, raider demands). Already true in pre-release 2's file, though its notes said off; now the notes and the built-in default agree |
+| `StreamerNames` / `StreamerNamesFile` / `StreamerNamesFor` | false / StreamerNames.txt / survivors | Viewers' names for new survivors; the names file; who gets them (`survivors`, `raiders` or `all`) |
+| `BundleOpen` / `BundleOpenValueShare` | true / 0.75 | Bundles can be opened; what an opened bundle is worth, as a share of its packing value (at most 0.85) |
+| `BundleOpenFood` (and `...Water`, `...Meds`, `...Ammo`, `...Materials`, `...Fuel`, `...Luxury`) | everyday supplies | What each kind opens into, as `item:weight` lists |
+| `RunHomeBelowHealth` | 0.35 | A runner this hurt with nothing to heal with heads home (0: never) |
+| `MiningRuns` / `MiningRunSiteHours` | true / 0 | Offer Mine and Dig clay as runs; game hours at the spot (0: same as `RunSiteHours`) |
+| `MiningStonePerHour` / `MiningOrePerHour` / `DigClayPerHour` | 30 / 15 / 40 | Haul per site hour with an iron tool and 1 Wits star |
+| `MiningToolTierMults` | 0.6,1,1.4,1.8 | The haul by the tool's tier |
+| `HordeVoiceLines` | true | Horde warnings are spoken as well as shown |
+| `TeamMelee` / `TeamRadius` | true / 15 | Team strength decides melee or kite; how far around a member it counts (m) |
+| `TeamMargin` / `TeamLeaveMargin` | 1 / 0.8 | A fight is matched at this many times the enemies, and stops being matched below the second |
+| `TeamLowHealth` / `TeamLowHealthBack` | 0.6 / 0.7 | Below this share of health the gun again; melee again from the second |
+| `TeamPlayerWeight` / `TeamPlayerFightingSeconds` | 2 / 5 | How much you count while fighting, and for how long after your hit |
+| `TeamSwapHoldSeconds` / `PostureDwellSeconds` / `PostureMeleeDist` | 5 / 5 / 4 | Time between weapon changes; time before a melee/kite switch; how close a zombie gets before a matched member switches to melee (m) |
+| `TeamThreatTags` | walker:1, feral:2, radiated:3 ... | How much each kind of enemy counts |
+| `InvestigateIntruders` / `InvestigateResponders` / `InvestigateRadius` | true / 2 / 0 | Residents go after idle zombies in the base; how many go; from how far (0: anywhere in the zone) |
+| `InvestigateEnterMargin` / `InvestigateHeight` | 0 / 6 | How far outside the zone, and how far above or below the base's levels, an idle zombie still counts (m) |
+| `BackOffHome` / `BackOffSteps` | true / 10,6,3 | At home, back-offs end inside the base; the steps tried (m) |
+| `BackupKeepDistanceMax` / `BackOffNoPointSeconds` / `StandOffShootSeconds` | 2.5 / 1 / 1.5 | Back off from an enemy this close (m); shoot this long with no spot; shoot this long after a step that gained nothing |
+| `FleeBelowHealth` | 0.35 | Below this share of health with nothing to heal with, a member stops fighting (0: off) |
+| `RetreatHome` / `RetreatCowards` | true / true | Badly hurt members kite or shelter inside instead of running off; Cowardly members at home shelter too |
+| `RetreatHealedAt` / `RetreatClearSeconds` / `RetreatMaxSeconds` | 0.45 / 20 / 120 | A retreat ends at this health share or after this long with no enemy about; a shelter also ends after the third once it is safe (0: never by time) |
+| `RetreatFightBackRange` / `ShelterMinThreatDist` | 2.5 / 12 | A sheltering member fights back only at an enemy this close (m); how far the threat must be before a long shelter ends (m) |
+| `StandOffMin` / `StandOffMax` / `StandOffFollowerLeash` | 8 / 15 / 20 | A badly hurt member kites from a zombie within the first, out to about the second; a hurt follower kites within the third of you (m) |
+| `MedsResupply` | true | Members restock their medical supplies from the stockpile (false: you manage them by hand) |
+| `MedsResupplyBelow` / `MedsResupplyRunBelow` | 1 / 2 | Restock at home below this many first aid bandages and kits; before a run, below the second |
+| `MedsResupplyMix` | medicalFirstAidKit:1, medicalFirstAidBandage:2, medicalBandage:2 | What 1 medical unit tops them up to |
+| `MedsResupplyCooldownHours` / `MedsResupplyKeepForInjured` | 24 / true | In-game hours between restocks at home; never take the units tonight's injured need |
+| `MedsResupplyEmergencyBelow` / `MedsResupplyEmergencyCooldownHours` | 0.5 / 1 | Under this health share with no heal item, restock inside the cooldown; at most once per this many hours |
+| `MedicSafeDistance` / `MedicMaxWait` / `HealBackOff` | 3 / 6 / true | No bandaging with an enemy this close (m); bandage anyway after this many seconds; back off first |
+| `RegenOutOfCombat` / `RegenRatePerSecond` / `RegenCapShare` | true / 0.2 / 0.6 | Slow health regeneration out of combat, per second, up to this share of health |
+| `RegenEnemyRadius` / `RegenNearRadius` | 30 / 12 | A threat within the first that is after them or sees them, or any enemy within the second, holds it (m) |
+| `SleepAtNight` / `SleepAfterDuskHours` / `SleepZoneHeight` | true / 1 / 15 | Sleep in beds at night; hours after dusk before bed; how far above and below the claim block beds count (m) |
+| `MemberInventoryPanel` | true | The Survivor Inventory panel (false: the looting screen) |
+| `SurvivorWeaponModChance` / `RaiderWeaponModChance` | 0.5 / 0.5 | Chance of a weapon's first attachment; each further one is half as likely (0: none) |
+| `WeaponModTags` | sideAttachment, scope, ... | Which kinds of attachment can roll |
+| `VoiceRaceByFace` / `VoiceDarkTonesMale` / `VoiceDarkTonesFemale` | true / Bronze, Umber, Espresso / Chestnut, Umber, Espresso | With Vanity Vault, voices follow the face; tones that give a White or Asian face Black voices |
+| `VoiceRaceBySkin` | Vanity Vault's 15 natural tones | Each skin tone's voice race, used when the face gives none |
+| `SurvivorTonesByFace` / `HairGroupByFace` | the tones that suit each face / true | The skin tones a new face can get; the face narrows natural hair colors too |
+| `SurvivorMidSkinsMale` / `...Female`, `SurvivorDarkSkinsMale` / `...Female` | see blocks.xml | Medium and dark skin tones for men and for women |
+| `SurvivorMidSkinHairColors` / `SurvivorDarkSkinHairColors` / `SurvivorGrayHairColors` | 03 LightBrown to 08 White / 04 Brown to 08 White / 07 Gray, 08 White | Natural hair colors for medium and dark skins; the colors that read as age |
+
+## Known issues and not yet tested
+- The new combat and healing behavior (team strength, postures, back-offs, sheltering, backing off to heal and the magazine re-seat on draw) has had only limited play-testing. If a member stands still, flips weapons or won't heal, `sc team <name>`, `sc retreat <name>` and `sc meds <name>` say why; please add their output to your report.
+- Sleeping at night, mining runs, openable bundles and streamer names have had little play-testing so far.
+- A badly hurt member who still has a melee weapon in hand when a zombie comes gets no step back until their gun comes out.
+- Cornered with no room, no clear shot and a zombie they can't swing at, a member keeps their gun and waits for an opening.
+
+## Updating from pre-release 2
+- Delete the old `Mods\SurvivorCommunity` folder before extracting the new one. A new save made for testing is still best.
+- An existing save keeps its community home.
+- Land claim blocks placed before the update take on the new model where they stand. It is wider than the old block, so it may overlap something built right beside it.
+- Bug reports: [open an issue](https://github.com/Relentless757/SurvivorCommunity/issues) with what happened and your log, `%USERPROFILE%\AppData\LocalLow\The Fun Pimps\7 Days To Die\Player.log`.

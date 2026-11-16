@@ -47,6 +47,8 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc team [id\|name]` | Team strength: each member's side against the enemies, matched or not, melee-led or why not; one member with everything counted. [READ] |
 | `sc meds [id\|name]` | Medical restock and healing: the setting, the stockpile's spare Meds, the counters and each member's heal items, next restock, health and regeneration; one member's every check. [READ] |
 | `sc meds <id\|name> give` | Restock her medical supplies now for 1 Meds (the cooldown ignored). [CHEAT] |
+| `sc retreat [id\|name]` | Badly hurt members: who is sheltering or kiting and why, or why not; one member in full. [READ] |
+| `sc sleep` | Sleeping at night: who is in bed, why not for the rest, and the beds that count. [READ] |
 | `sc craft [<name>]` | Crafting/work-shift status for the community or one member. [READ] |
 | `sc craft station` | The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft counters. [READ] |
 | `sc enclave list` / `reveal all` | List enclaves (settlements of other survivors); reveal them on the map. |
@@ -144,6 +146,10 @@ Example: `sc facility level 812 60 -144 3`
 ### `sc drinks [on|off]`
 Prints the round-of-drinks state (cost, morale, whether you can pour now). `on` pours one free and marks today; `off` ends it and allows another today. [CHEAT for on/off]
 Example: `sc drinks on`
+
+### `sc sleep` [READ]
+Sleeping at night (README section 4): whether `SleepAtNight` is on and whether it is bedtime now, or why not (daytime, too soon after dusk, a blood moon night, 0-XNPCCore's own routine switched off in its settings); this session's counts (put to bed, taken back, refused) with the last refusal; the home zone's beds and how many of them are within `SleepZoneHeight` of the land claim block in loaded chunks (only those count; with none, nobody at home goes to bed); then one line per member: `ASLEEP/leased` (in bed, or on the way to it) or `SC's own routine`, the reason when not (not a resident at home, on watch, on a work shift, following you, busy with you, not inside the home zone, not enough beds), and 0-XNPCCore's three routine values for a bug report. Members who are not loaded are listed as such; enclave people are not listed. Nothing is changed.
+Example: `sc sleep`
 
 ### `sc scan` [READ]
 Re-counts beds, facilities and crops in the home zone now and prints the timing.
@@ -521,6 +527,17 @@ Clears your weapon orders on her (the weapon menu's, or "use your ..." by voice)
 
 ### `sc team <id|name> hurt [share]` [CHEAT]
 A test shortcut, like `sc run hurt`: her body's health down to that share of her max (default 0.55, just under `TeamLowHealth`). She stops being melee-led at the next count and is again from 70%; `hurt 1` puts her back to full health.
+
+### `sc retreat` [READ]
+Badly hurt members (README section 4, "When they are badly hurt"): the setting and its keys (`RetreatHome`, `Retreat...`, `Shelter...`, `StandOff...`), how many members are retreating now (sheltering, kiting hurt) and this session's totals, the `retreat-*` counters and the weapon counters (`x5-retreat-*`), the shelter spots found in the base in one line (how many, how many are roofed rooms, when the base was last searched), and one line per loaded member: `SHELTER` or `KITE` with why, the threat and how long it has been clear; for a shelter, the spot, `FIGHTING BACK` while they fight what reached them, and how long nothing has been after them; for `KITE`, how far they back off; or `none` with why they may not retreat (and, after they came out, how long only an enemy after them sends them back in).
+
+### `sc retreat <id|name>` [READ]
+One member in full: whether they may retreat here (at home, away with you, or why not), their health and heal items and whether they are hurt with nothing to heal with, Cowardly and hanging back, their gun with rounds; the retreat (shelter or kite, why, how long), the threat and the clear clock, the shelter spot (what it is, its walls and roof, how far), the spots they could not reach and the doors they shut, or for kite their last back-off; what ends a shelter (whether an enemy is after them, their heal items and the stockpile restock, and the `RetreatMaxSeconds` rule with what holds it now); and at home the spot they would pick now. Nothing is changed.
+Example: `sc retreat Gina`
+
+### `sc retreat shelters [n]` [READ] and `sc retreat shelters rescan`
+The `n` best shelter spots in the base (20 by default): position, roofed or not, walls out of 8, what the spot was found from (a bed, a work station, a post, the land claim block, a random floor in the zone), meters from you, `NOT STANDABLE NOW` when a block there changed since the search, and "beside a door (taken last)". `rescan` searches the base again on the next frame (nothing in the save changes).
+Example: `sc retreat shelters 10`
 
 ### `sc skills sim [T1|T2|T3] [n]` [READ]
 Starting-skill statistics for `n` new survivors per tier.
