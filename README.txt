@@ -539,13 +539,16 @@ list of collected items shows them) and anything that does not fit lands at your
 Where else bundles come from
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Loot, now and then, in the containers they belong in: food piles and cupboards; medical piles, medicine cabinets,
-  medical coolers and Pop-N-Pills crates; ammo piles, military footlockers, Shotgun Messiah crates and ammo displays;
-  Pass-N-Gas crates (fuel); construction crates and toolboxes (materials); liquor piles and beer coolers (luxuries). A
-  pile drops a bundle of its own size.
-- Shamway crates carry food and water bundles more often than anything else. They are the only place water bundles are
-  found in loot. Pop-N-Pills crates likewise favor medical bundles.
-- Air drops (from the radio) roll a Medium food, medical, ammo, materials and fuel bundle, each about 1 in 4.
+- Store crates always hold one bundle of their store's resource: Shamway food or water (half each; the only place water
+  bundles are found in loot), Pop-N-Pills medical, Shotgun Messiah and Savage Country ammo, Pass-N-Gas fuel, and
+  construction, Working Stiffs and Mo' Power materials (Working Stiffs' and Mo' Power's delivery trucks too). It is a
+  Small one 80% of the time, a Medium 17% and a Large 3%. Like all loot it follows the Loot Abundance setting: exactly
+  one at the default 100%.
+- Other loot, now and then, in the containers they belong in: food piles and cupboards; medical piles, medicine cabinets
+  and medical coolers; ammo piles, military footlockers and ammo displays; toolboxes (materials); liquor piles and beer
+  coolers (luxuries). A pile drops a bundle of its own size.
+- Air drops (from the radio) always hold at least one Medium food, medical, ammo, materials or fuel bundle, and on top
+  of it each of the five rolls a Medium of its own about 1 in 4.
 - Trader quest rewards: food, medical and ammo rewards can be a bundle (Small at tier 1, Medium at tier 2, Large at tier
   3); resource rewards can be a materials or fuel bundle.
 - Supply runs, outposts, allied enclaves and the radio's barter (sections 8, 10, 11, 12).

@@ -13,6 +13,56 @@
 		</lootcontainer>
 	</append>
 
+	<!-- Round lb1 (2026-11-16, the user: "A bundle should be guaranteed" in the store crates): the guaranteed bundle's
+	     pick lists. A count="1" group picks ONE entry weighted by prob (LootContainer.SpawnLootItemsFromList): Small 80,
+	     Medium 17, Large 3 (about 1.2 units a crate, the user's "mostly Small"). Defined at the top of the file, before
+	     any group that references them (groups must be defined before first use). They hold only items. -->
+	<insertBefore xpath="/lootcontainers/lootgroup[1]">
+		<lootgroup name="scGroupBundleFood" count="1">
+			<item name="scBundleFoodSmall" count="1" prob="0.8"/>
+			<item name="scBundleFoodMedium" count="1" prob="0.17"/>
+			<item name="scBundleFoodLarge" count="1" prob="0.03"/>
+		</lootgroup>
+		<lootgroup name="scGroupBundleWater" count="1">
+			<item name="scBundleWaterSmall" count="1" prob="0.8"/>
+			<item name="scBundleWaterMedium" count="1" prob="0.17"/>
+			<item name="scBundleWaterLarge" count="1" prob="0.03"/>
+		</lootgroup>
+		<lootgroup name="scGroupBundleMeds" count="1">
+			<item name="scBundleMedsSmall" count="1" prob="0.8"/>
+			<item name="scBundleMedsMedium" count="1" prob="0.17"/>
+			<item name="scBundleMedsLarge" count="1" prob="0.03"/>
+		</lootgroup>
+		<lootgroup name="scGroupBundleAmmo" count="1">
+			<item name="scBundleAmmoSmall" count="1" prob="0.8"/>
+			<item name="scBundleAmmoMedium" count="1" prob="0.17"/>
+			<item name="scBundleAmmoLarge" count="1" prob="0.03"/>
+		</lootgroup>
+		<lootgroup name="scGroupBundleMaterials" count="1">
+			<item name="scBundleMaterialsSmall" count="1" prob="0.8"/>
+			<item name="scBundleMaterialsMedium" count="1" prob="0.17"/>
+			<item name="scBundleMaterialsLarge" count="1" prob="0.03"/>
+		</lootgroup>
+		<lootgroup name="scGroupBundleFuel" count="1">
+			<item name="scBundleFuelSmall" count="1" prob="0.8"/>
+			<item name="scBundleFuelMedium" count="1" prob="0.17"/>
+			<item name="scBundleFuelLarge" count="1" prob="0.03"/>
+		</lootgroup>
+		<!-- Shamway: food or water, half each (water is found in no other loot, and members drink twice what they eat) -->
+		<lootgroup name="scGroupBundleShamway" count="1">
+			<item group="scGroupBundleFood" count="1" prob="0.5"/>
+			<item group="scGroupBundleWater" count="1" prob="0.5"/>
+		</lootgroup>
+		<!-- air drops: one Medium of the five classic resources, equal odds, on top of their own rolls below -->
+		<lootgroup name="scGroupBundleAirDrop" count="1">
+			<item name="scBundleFoodMedium" count="1" prob="1"/>
+			<item name="scBundleMedsMedium" count="1" prob="1"/>
+			<item name="scBundleAmmoMedium" count="1" prob="1"/>
+			<item name="scBundleMaterialsMedium" count="1" prob="1"/>
+			<item name="scBundleFuelMedium" count="1" prob="1"/>
+		</lootgroup>
+	</insertBefore>
+
 	<!-- Resource bundles in world loot (round wl: three sizes, Small 1 / Medium 2 / Large 3 units). Each goes into the
 	     vanilla groups of the containers it belongs in: food piles and cupboards, medical piles / cabinets / coolers /
 	     Pop-N-Pills, ammo piles / military lockers / Shotgun Messiah / ammo displays, Pass-N-Gas crates, construction
@@ -24,35 +74,36 @@
 	     rolled when force_prob is set (LootContainer.SpawnAllItemsFromList) - without it the bundle would drop
 	     from every container. Only items are appended into existing groups (no new group is referenced), so the
 	     single-pass lootgroup ordering does not apply. The old one-size bundles drop nowhere any more; any still
-	     around deposit as one unit. -->
+	     around deposit as one unit.
+	     Round lb1: every store crate (Shamway, Pop-N-Pills, Shotgun Messiah, Savage Country, Pass-N-Gas, construction,
+	     Working Stiffs, Mo' Power) carries ONE bundle of its store's resource for sure: a group reference with no
+	     force_prob in a count="all" group always spawns (LootContainer.SpawnAllItemsFromList), and the group picks one.
+	     Like all loot it scales with the Loot Abundance setting (exactly one at the default 100%). Working Stiffs'
+	     and Mo' Power's delivery trucks share their crate's group, so they carry one too. -->
 	<append xpath="/lootcontainers/lootgroup[@name='groupFoodPileSmall']"><item name="scBundleFoodSmall" count="1" prob="0.03" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupFoodPileMed']"><item name="scBundleFoodMedium" count="1" prob="0.025" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupFoodPileLarge']"><item name="scBundleFoodLarge" count="1" prob="0.04" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupCupboard']"><item name="scBundleFoodSmall" count="1" prob="0.02" force_prob="true"/></append>
-	<!-- Shamway crates (the grocery's crates): food and water bundles, more often than anywhere else; the only water in loot -->
-	<append xpath="/lootcontainers/lootgroup[@name='groupShamwayCrate']">
-		<item name="scBundleFoodSmall" count="1" prob="0.15" force_prob="true"/>
-		<item name="scBundleFoodMedium" count="1" prob="0.05" force_prob="true"/>
-		<item name="scBundleWaterSmall" count="1" prob="0.12" force_prob="true"/>
-		<item name="scBundleWaterMedium" count="1" prob="0.04" force_prob="true"/>
-	</append>
+	<!-- Shamway crates (the grocery's crates): one food or water bundle for sure; the only water in loot (lb1: was
+	     food 15% Small / 5% Medium and water 12% Small / 4% Medium) -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupShamwayCrate']"><item group="scGroupBundleShamway" count="1"/></append>
 
 	<append xpath="/lootcontainers/lootgroup[@name='groupMedicalPileSmall']"><item name="scBundleMedsSmall" count="1" prob="0.03" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupMedicalPileMed']"><item name="scBundleMedsMedium" count="1" prob="0.025" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupMedicalPileLarge']"><item name="scBundleMedsLarge" count="1" prob="0.04" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupMedicineCabinet']"><item name="scBundleMedsSmall" count="1" prob="0.03" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupCoolerMedical']"><item name="scBundleMedsSmall" count="1" prob="0.05" force_prob="true"/></append>
-	<!-- Pop-N-Pills crates: the medical store's own stock, more often than anywhere else (was a Small at 6%) -->
-	<append xpath="/lootcontainers/lootgroup[@name='groupPopNPillsCrate']">
-		<item name="scBundleMedsSmall" count="1" prob="0.15" force_prob="true"/>
-		<item name="scBundleMedsMedium" count="1" prob="0.05" force_prob="true"/>
-	</append>
+	<!-- Pop-N-Pills crates: one medical bundle for sure (lb1: was 15% Small / 5% Medium) -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupPopNPillsCrate']"><item group="scGroupBundleMeds" count="1"/></append>
 
 	<append xpath="/lootcontainers/lootgroup[@name='groupAmmoPileSmall']"><item name="scBundleAmmoSmall" count="1" prob="0.03" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupAmmoPileMed']"><item name="scBundleAmmoMedium" count="1" prob="0.025" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupAmmoPileLarge']"><item name="scBundleAmmoLarge" count="1" prob="0.04" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupMilitaryFootlocker']"><item name="scBundleAmmoSmall" count="1" prob="0.05" force_prob="true"/></append>
-	<append xpath="/lootcontainers/lootgroup[@name='groupShotgunMessiahCrate']"><item name="scBundleAmmoSmall" count="1" prob="0.06" force_prob="true"/></append>
+	<!-- Shotgun Messiah crates: one ammo bundle for sure (lb1: was 6% Small) -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupShotgunMessiahCrate']"><item group="scGroupBundleAmmo" count="1"/></append>
+	<!-- Savage Country crates (hunting and outdoors): one ammo bundle for sure (lb1: new) -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupSavageCountryCrate']"><item group="scGroupBundleAmmo" count="1"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupAmmoRackDisplay']"><item name="scBundleAmmoSmall" count="1" prob="0.04" force_prob="true"/></append>
 
 	<append xpath="/lootcontainers/lootgroup[@name='groupLiquorPileSmall']"><item name="scBundleLuxurySmall" count="1" prob="0.03" force_prob="true"/></append>
@@ -60,9 +111,16 @@
 	<append xpath="/lootcontainers/lootgroup[@name='groupLiquorPileLarge']"><item name="scBundleLuxuryLarge" count="1" prob="0.04" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupBeerCooler']"><item name="scBundleLuxurySmall" count="1" prob="0.03" force_prob="true"/></append>
 
-	<append xpath="/lootcontainers/lootgroup[@name='groupPassNGas']"><item name="scBundleFuelSmall" count="1" prob="0.08" force_prob="true"/></append>
+	<!-- Pass-N-Gas crates: one fuel bundle for sure (lb1: was 8% Small) -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupPassNGas']"><item group="scGroupBundleFuel" count="1"/></append>
 
-	<append xpath="/lootcontainers/lootgroup[@name='groupConstructionCrate']"><item name="scBundleMaterialsSmall" count="1" prob="0.06" force_prob="true"/></append>
+	<!-- construction crates: one materials bundle for sure (lb1: was 6% Small) -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupConstructionCrate']"><item group="scGroupBundleMaterials" count="1"/></append>
+	<!-- Working Stiffs crates (hardware) and their delivery trucks: one materials bundle for sure (lb1: new) -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupWorkingStiffsCrate']"><item group="scGroupBundleMaterials" count="1"/></append>
+	<!-- Mo' Power crates (electrical; materials bundles hold electrical parts) and their delivery trucks: one materials
+	     bundle for sure (lb1: new) -->
+	<append xpath="/lootcontainers/lootgroup[@name='groupMoPower']"><item group="scGroupBundleMaterials" count="1"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupToolbox']"><item name="scBundleMaterialsSmall" count="1" prob="0.03" force_prob="true"/></append>
 	<append xpath="/lootcontainers/lootgroup[@name='groupRollingToolbox']"><item name="scBundleMaterialsSmall" count="1" prob="0.05" force_prob="true"/></append>
 
@@ -74,8 +132,9 @@
 	<append xpath="/lootcontainers/lootgroup[@name='groupElectricalDevices']"><item name="scHandheldRadio" loot_prob_template="veryLow"/></append>
 
 	<!-- air drops (the radio calls them in): each of the five classic resources rolls on its own, a Medium at 26%
-	     (it was 1-2 bundles at 35%) -->
+	     (it was 1-2 bundles at 35%); lb1: plus one Medium of the five for sure (about 1 in 5 drops had none) -->
 	<append xpath="/lootcontainers/lootgroup[@name='groupAirDrop']">
+		<item group="scGroupBundleAirDrop" count="1"/>
 		<item name="scBundleFoodMedium" count="1" prob="0.26" force_prob="true"/>
 		<item name="scBundleMedsMedium" count="1" prob="0.26" force_prob="true"/>
 		<item name="scBundleAmmoMedium" count="1" prob="0.26" force_prob="true"/>

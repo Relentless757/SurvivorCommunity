@@ -1,3 +1,13 @@
+# Next pre-release (not released yet)
+
+## Loot
+- **Store crates always hold a resource bundle.** Shamway (food or water), Pop-N-Pills (medical), Shotgun Messiah and
+  Savage Country (ammo), Pass-N-Gas (fuel), and construction, Working Stiffs and Mo' Power (materials) crates each
+  hold one bundle of their store's resource: Small 80% of the time, Medium 17%, Large 3%. Savage Country, Working
+  Stiffs and Mo' Power crates had none before; the others had one only 6-32% of the time.
+- **Air drops always hold at least one bundle:** a Medium food, medical, ammo, materials or fuel bundle, on top of the
+  usual chances.
+
 # Survivor Community 0.1.0 pre-release 3
 
 Everything that changed since pre-release 2 of this 7 Days to Die 3.4 test build; section numbers refer to the included `README.txt`.

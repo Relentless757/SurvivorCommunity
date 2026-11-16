@@ -37,6 +37,21 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round lb1 (2026-11-16): a bundle in every store crate
+
+The user: "A bundle should be guaranteed" in the store crates. Loot Abundance at the default 100% for these steps
+(Settings > the world's loot abundance; at 50% each crate's bundle shows half the time).
+
+- [ ] Open 5 Shamway crates in a grocery: every one holds exactly one SC bundle, food or water, mostly Small (now and
+      then a Medium, rarely a Large).
+- [ ] The same in Pop-N-Pills crates (medical), Shotgun Messiah and Savage Country crates (ammo), Pass-N-Gas crates
+      (fuel), construction, Working Stiffs and Mo' Power crates (materials): one bundle each, never two.
+- [ ] A Working Stiffs or Mo' Power delivery truck (the box truck's loot) holds one materials bundle too.
+- [ ] Food piles, medicine cabinets, ammo piles, toolboxes, liquor piles: unchanged - a bundle only now and then.
+- [ ] Call an air drop with the radio: it holds at least one Medium bundle (food, medical, ammo, materials or fuel),
+      sometimes more.
+- [ ] No loot errors in the log at load ("lootgroup" / "scGroupBundle").
+
 ## Round k5+k6 (2026-11-15): hurt members kite with the one back-off; shelters always end; cleanup
 
 Why: the plan (`research/combat/SC_VS_NPCCORE.md` 4.4, rounds 5 and 6; your "Start k3-k6"). rt1's stand-off was a second
