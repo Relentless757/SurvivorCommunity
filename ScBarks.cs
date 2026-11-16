@@ -220,6 +220,8 @@ namespace SurvivorCommunity
             // taunt - and none of them belongs in a bed. 0-XNPCCore wakes her for a real reason (an enemy inside
             // RoutineWakeEnemyMetres, or the player starting a talk), and once awake she is no longer gated here.
             if (ScSleep.IsAsleep(npc)) { Count("asleep " + family); return false; }
+            // round U2: not a word while she is down (0-XNPCCore's own pained line is its own; SC adds none)
+            if (ScDowned.IsDown(npc)) { Count("down " + family); return false; }
 #endif
             Pick p = Resolve(npc, KeysOf(family));
             if (p == null) return false;

@@ -278,6 +278,9 @@ namespace SurvivorCommunity
             if (m == null || npc == null) return;
             try
             {
+#if SC_V34
+                if (ScDowned.DefersStation(m, npc)) return;   // round U2 (risks 1, 2): never on a downed body - her link, her bleed-out, no teleported ragdoll
+#endif
                 EntityPlayerLocal player = LocalPlayer;
                 World w = World;
 
@@ -1155,6 +1158,9 @@ namespace SurvivorCommunity
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
             if (m.Status == MemberStatus.Garrison) { error = "scOpPostedAway"; return false; }
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
+#if SC_V34
+            if (ScDowned.RefuseVerb(m)) { error = "scDownedBusy"; return false; }   // round U2: not while she is down (Follow ends a shift's link)
+#endif
             // E3: an enclave's people enlisted with the player count toward the limit too
             if (ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount() >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
             if (ScConfig.RefusesForMood(m)) { error = "scRefuseMood"; return false; }   // P2: never by default
@@ -1204,6 +1210,9 @@ namespace SurvivorCommunity
             if (!IsHost) { error = "scHostOnly"; return false; }
             if (m == null || npc == null) { error = "scNotLoaded"; return false; }
             if (m.Status == MemberStatus.Resident) return true;
+#if SC_V34
+            if (ScDowned.RefuseVerb(m)) { error = "scDownedBusy"; return false; }   // round U2 (risk 2): a downed follower is not sent home
+#endif
             if (m.Status == MemberStatus.OnRun) { error = "scOnRun"; return false; }
             if (m.Status == MemberStatus.Garrison) { ScGarrison.Recall(m, player, "scOpRecalled"); ScRegistry.SaveAtomic(); return true; }
             if (!ScZone.HasHome) { error = "scNeedHome"; return false; }
@@ -1237,6 +1246,11 @@ namespace SurvivorCommunity
         {
             ScLog.Out("Leave requested for " + (m != null ? m.Name : "?") + " (" + (reasonKey ?? "-") + ") from " + Caller());
             if (m == null) return;
+#if SC_V34
+            // round U2: a downed member does not leave - Leave detaches her, 0-XNPCCore would find no leader and her bleed-out would
+            // stop for good (an invulnerable stranger); asked again once she is up
+            if (ScDowned.RefuseLeave(m, reasonKey)) return;
+#endif
             try
             {
                 ScGarrison.RemoveStandIn(m);          // a posted member leaving takes their stand-in with them
@@ -1339,7 +1353,11 @@ namespace SurvivorCommunity
                 }
                 Member m = ScRegistry.GetMember(npc.entityId);
                 if (m == null) return;
+#if SC_V34
+                RecordDeath(m, LocalPlayer, ScDowned.DeathKey(m));   // round U2 (D6): "bled out" for one who was down
+#else
                 RecordDeath(m, LocalPlayer, "scDied");
+#endif
             }
             catch (Exception e)
             {

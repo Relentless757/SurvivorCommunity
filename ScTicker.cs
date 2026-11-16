@@ -87,6 +87,9 @@ namespace SurvivorCommunity
                 }
 
                 Relink(w, player);
+#if SC_V34
+                ScDowned.Tick(w, player);             // round U2: who is down, back up or bled out; resident medics sent to the downed at home
+#endif
                 ScAmmo.Tick(w);                       // every 5 s: each member's ammo into the record; resupply in the base / at an outpost
 #if SC_V34
                 ScWork.Sweep(player);                 // C1: work shifts whose member left, moved on or unloaded are dropped
@@ -271,9 +274,20 @@ namespace SurvivorCommunity
                     case MemberStatus.Resident:
                         if (npc.Buffs.HasCustomVar("onMission") || !npc.enabled) ScNpc.SendOnMission(npc, false);   // never a hidden resident
 #if SC_V34
+                        // round U2 (risks 1, 2 and the LOW ones): a downed resident is left as she lies until she is up or has bled out -
+                        // no re-station (it drops a shift's or talk's link and may teleport her), no shift tick (D4: ScWork holds the
+                        // link), no post self-heal, watchdog, stuck rescue or watch placing (each can move a ragdoll)
+                        if (ScDowned.IsDown(npc)) break;
+#endif
+#if SC_V34
                         // C1: on a work shift she has an owner and a craft spot on purpose - ScWork ticks her instead of the rules below;
                         // round 29b: the stuck rescue still runs where her job allows it (ScStuck.OnShift)
-                        if (ScWork.Resident(m, npc, player)) { ScStuck.OnShift(m, npc); break; }
+                        if (ScWork.Resident(m, npc, player))
+                        {
+                            // round U2 (the Fable review, F7): no stuck rescue for a medic on her way to a downed member (it can teleport)
+                            if (!ScDowned.IsReviving(npc.entityId)) ScStuck.OnShift(m, npc);
+                            break;
+                        }
 #endif
                         if (EntityUtilities.GetCurrentOrder(m.Id) != EntityUtilities.Orders.Guard
                             || EntityUtilities.GetLeaderOrOwner(m.Id) != null)
@@ -297,6 +311,11 @@ namespace SurvivorCommunity
                             // buffs) may rewrite the guard position with the NPC's own spot
                             Vector3 post = ScCommunity.PostCenter(m);
                             if (ScNpc.GuardPosition(npc) != post) ScCommunity.ApplyPost(npc, post);
+#if SC_V34
+                            // round U2 (the Fable review, F7): no stuck rescue for a medic on her way to a downed member - its 12 s still rule
+                            // matches ReviveNoGainSeconds and a teleport to her post would end the revive; ScDowned's own no-gain clock judges it
+                            if (!ScDowned.IsReviving(npc.entityId))
+#endif
                             ScCommunity.Watchdog(m, npc);
                         }
                         break;
@@ -352,7 +371,11 @@ namespace SurvivorCommunity
                         // stationed - one told to stay 2 km out would otherwise be teleported to their post the moment the
                         // player walks in. They stay "heading home, holding" until called or fetched.
                         if (m.Status == MemberStatus.PendingStation && ScZone.Contains(player.GetBlockPosition()) && ScZone.HomeLoaded
-                            && (ScOrders.WithLeader(order) || ScZone.Contains(npc.GetBlockPosition())))
+                            && (ScOrders.WithLeader(order) || ScZone.Contains(npc.GetBlockPosition()))
+#if SC_V34
+                            && !ScDowned.DefersStation(m, npc)    // round U2 (risk 2): a downed follower is stationed once she is up
+#endif
+                            )
                         {
                             ScCommunity.Station(m, npc);
                             ScCommunity.Tell(player, string.Format(Localization.Get("scStationed"), m.Name), "");

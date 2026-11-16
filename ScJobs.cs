@@ -1092,6 +1092,7 @@ namespace SurvivorCommunity
         {
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
             if (npc == null || npc.IsDead() || npc.isEntityRemote || npc.inventory == null) return;
+            if (ScDowned.IsDown(npc)) return;       // round U2: no weapon swap on a downed body
             string tool = HeldName(npc);
             if (tool == null || !ScLoadout.IsWorkKitItem(tool)) return;
             float next;

@@ -400,6 +400,9 @@ namespace SurvivorCommunity
                     EntityAlive a = near[i] as EntityAlive;
                     // a sleeper (a POI's sleeping zombie) has not joined the fight: neither friend nor foe
                     if (a == null || a == self || a.IsDead() || a.IsSleeping) continue;
+#if SC_V34
+                    if (ScDowned.IsDown(a)) continue;   // round U2 (risk 3): a downed body is out of the fight - neither a friend's strength nor a foe
+#endif
                     Vector3 d = a.position - at;
                     if (!Inside(at, wide, r2, a.position)) continue;
                     if (!EntityTargetingUtilities.IsEnemy(self, a)) { others.Add(a); continue; }

@@ -173,6 +173,10 @@ namespace SurvivorCommunity
         private static string Common(EntityAlive npc, string nightWhy)
         {
             if (npc.IsDead() || npc.isEntityRemote) return "not a live local body";
+            // round U2: a downed member is not leased (a lease she had closes through 0-XNPCCore's own teardown), nor a medic sent to
+            // one (her lease closes, which wakes her)
+            if (ScDowned.IsDown(npc)) return "down";
+            if (ScDowned.IsReviving(npc.entityId)) return "on the way to revive a downed member";
             if (nightWhy != null) return nightWhy;
             // Mirrors 0-XNPCCore's own gate (SdcsNpcRelation.HiredOrOwnedByCvar): it refuses to mark, and clears, anyone
             // who is hired or being talked to. SC writes Owner for a work shift and for the length of a conversation.

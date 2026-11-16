@@ -134,6 +134,9 @@ namespace SurvivorCommunity
                 if (npc == null) continue;
                 float sq = (npc.position - lp.position).sqrMagnitude;
                 if (sq > meet2 || npc.IsDead() || !ScXnpc.IsSurvivorBody(npc)) continue;
+#if SC_V34
+                if (ScDowned.IsDown(npc)) continue;     // round U2: no greeting from a downed member
+#endif
                 // the cheap tests first: a walk-up (close, looked at, not greeted lately) or a meet still due today
                 float at;
                 int d;
@@ -235,6 +238,9 @@ namespace SurvivorCommunity
                 if (m.Status != MemberStatus.Resident) continue;
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
                 if (npc == null || npc.IsDead() || (npc.position - lp.position).sqrMagnitude > r2 || !ScXnpc.IsSurvivorBody(npc)) continue;
+#if SC_V34
+                if (ScDowned.IsDown(npc)) continue;     // round U2: no chatter from a downed member
+#endif
                 if (ScVoice.Holds(npc) || ScVoice.Busy(npc) || ScCommunity.LiveFoe(npc, FightRange) != null) continue;
                 if (!ScConfig.VoiceBarkDebug && !ScBarks.HasClip(npc, "chatter")) continue;
                 pool.Add(npc);

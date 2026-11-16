@@ -780,6 +780,29 @@
 			<property name="RegenCapShare" value="0.6" />
 			<property name="RegenEnemyRadius" value="30" />
 			<property name="RegenNearRadius" value="12" />
+			<!-- Downed and revived (round U2, 0-XNPCCore 3.4.06). A killing hit knocks a member down instead of killing her: she
+			     lies there invulnerable with 0-XNPCCore's red marker and countdown (its Downed/SurviveSeconds, 60 s) and anyone
+			     revives her with E or a first aid bandage or kit used on her (its Downed/ReviveItems). Nobody does and she bleeds
+			     out: only then is it a death (morale, the roster). 0-XNPCCore downs its own followers; with DownedAtHome residents
+			     at home and guards on watch go down too (runners, raiders, bands and enclave people still die at once). sc downed
+			     shows all of it.
+			     DownedAtHome: residents at home and guards on watch go down instead of dying. false: they die at once again, as
+			     before (a follower, and a resident on a work shift or in a talk, still go down: that is 0-XNPCCore's own rule).
+			     ResidentMedicsRevive: a resident with the Medicine specialty goes to a downed member at home and revives her with
+			     a first aid bandage or kit from her own pack - the nearest free one, one medic for each downed member, through a
+			     fight too (she fights back at what is after her on the way). Not a guard on watch, one you are talking to, one
+			     who is herself sheltering or below ReviveMedicMinHealth, nor one farther off than ReviveMedicRange meters. One who
+			     gets no meter closer in ReviveNoGainSeconds (a wall, a closed-off tower) gives up and the next one goes. false, or
+			     no medic who can: you revive her yourself.
+			     DownedTell: SC's messages - "X is down! 60 s to revive them" with who is on the way or why nobody can come
+			     (one line, in place of 0-XNPCCore's own), a medic sent later, "back on their feet", "bled out". false: only 0-XNPCCore's own lines ("is down!" and
+			     its warnings at 30 and 10 s), which come to you for every member, at home too. -->
+			<property name="DownedAtHome" value="true" />
+			<property name="ResidentMedicsRevive" value="true" />
+			<property name="ReviveMedicMinHealth" value="0.35" />
+			<property name="ReviveMedicRange" value="60" />
+			<property name="ReviveNoGainSeconds" value="12" />
+			<property name="DownedTell" value="true" />
 			<!-- Overwhelmed: 0-XNPCCore's survivors swap the gun for their melee weapon when the enemy is within 3 m. With
 			     at least X enemies targeting them within OverwhelmedRadius metres they keep the gun instead (and go back
 			     to it from melee), backing off as they shoot, while it has ammo. X for a member =

@@ -156,6 +156,7 @@ namespace SurvivorCommunity
             if (m.Status != MemberStatus.Resident) { error = "scWorkNotResident"; return false; }
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }
             if (npc == null || npc.IsDead() || npc.Buffs == null) { error = "scNotLoaded"; return false; }
+            if (ScDowned.RefuseVerb(m)) { error = "scDownedBusy"; return false; }   // round U2: no shift starts on a downed member
             if (!ScXnpc.HasXnpcLevels(npc) || !HasWorkPackage(npc)) { error = "scWorkCantCraft"; return false; }
             if (!ScZone.HasHome || !ScZone.Contains(npc.GetBlockPosition()) || !ScZone.Contains(player.GetBlockPosition())) { error = "scWorkNotHome"; return false; }
             return true;
@@ -225,6 +226,7 @@ namespace SurvivorCommunity
             if (!ScCommunity.IsHost) { why = "not the host"; return false; }
             if (ScWatch.OnWatch(m)) { why = "on watch"; return false; }
             if (npc.IsDead() || npc.Buffs == null) { why = "no live body"; return false; }
+            if (ScDowned.IsDown(npc)) { why = "down"; return false; }                // round U2: no talk hold on a downed member
             if (!ScXnpc.HasXnpcLevels(npc)) { why = "not a 0-XNPCCore body"; return false; }   // review L3
             if (!ScZone.HasHome || !ScZone.Contains(npc.GetBlockPosition()) || !ScZone.Contains(player.GetBlockPosition())) { why = "you or she outside the home zone"; return false; }
             return true;
@@ -407,6 +409,8 @@ namespace SurvivorCommunity
         public static void End(Member m, EntityAlive npc, string reason, bool station, bool tell = true)
         {
             if (m == null) return;
+            // round U2 (D4): no shift or talk ends while she is down (Station would drop the Owner link that keeps her bleed-out going)
+            if (npc != null && ScDowned.HoldsShift(m, npc)) { ScLog.Out(m.Name + "'s " + (InTalk(m.Id) ? "talk hold" : "work shift") + " is kept: she is down (" + reason + ")"); return; }
             Shift s;
             shifts.TryGetValue(m.Id, out s);
             shifts.Remove(m.Id);
@@ -500,6 +504,9 @@ namespace SurvivorCommunity
 
         private static void Tick(Member m, EntityAlive npc, Shift s)
         {
+            // round U2 (D4, risk 1): her link is held while she is down - no idle or talk end, no "owner link gone", no deposit; the
+            // shift's own rules take her again once she is up, and Sweep drops it with her death
+            if (ScDowned.HoldsShift(m, npc)) return;
             float now = Time.time;
             if (npc.Buffs.GetCustomVar("Owner") <= 0f) { End(m, npc, "the owner link is gone", true); return; }
             if (ScWatch.OnWatch(m)) { End(m, npc, "posted on watch", true); return; }
@@ -1041,6 +1048,7 @@ namespace SurvivorCommunity
             ok = false;
             message = "";
             if (m == null || player == null) return;
+            if (ScDowned.RefuseVerb(m)) { message = Localization.Get("scDownedBusy"); return; }   // round U2 (D4): no shift starts or ends from the tab while she is down
             if (OnWorkShift(m.Id))
             {
                 End(m, ScCommunity.FindNpc(m.Id), "ended from the Community tab", true, false);

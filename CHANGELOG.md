@@ -1,5 +1,20 @@
 # Next pre-release (not released yet)
 
+## Downed, not dead
+- **A killing hit downs a member instead of killing her** (0-XNPCCore 3.4.06): she lies there unhurt with a 60-second
+  countdown, and you revive her with **E** and a first aid bandage or kit. If nobody does, she bleeds out, and only then
+  is it a death. This now covers **residents at home and guards on watch** too, not only followers; runners on a run
+  still die at once. `DownedAtHome` false turns the home part off.
+- **Medics revive at home.** A resident with the Medicine specialty runs to a downed member at home, even mid-fight, and
+  gets her back up with a first aid bandage or kit from her own pack. The nearest free medic goes, one per downed member;
+  a medic who is badly hurt herself, on watch or talking to you doesn't. `ResidentMedicsRevive` turns it off.
+- **You're told** when a member goes down, which medic is coming or why nobody can, when she's back up and if she bleeds
+  out; the community window shows "Down - 42 s" on her row.
+- **Nothing undoes a downed member:** a work shift or a talk with her stays on while she is down (her countdown never
+  stops), and she can't be sent home, on a run, to an outpost or a watch, or leave until she's up. She doesn't count as a
+  fighter for the others, isn't sent after intruders and says nothing.
+- `sc downed`, `sc down <name>` and `sc revive <name>` in the console.
+
 ## Loot
 - **Store crates always hold a resource bundle.** Shamway (food or water), Pop-N-Pills (medical), Shotgun Messiah and
   Savage Country (ammo), Pass-N-Gas (fuel), and construction, Working Stiffs and Mo' Power (materials) crates each
