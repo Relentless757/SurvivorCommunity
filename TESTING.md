@@ -336,6 +336,93 @@ blocks.xml for the `small talk:` / `campfire:` log lines. `sc chat` explains eve
 - [ ] The log at load has no new MISSING PATCH or "small talk:" / "0-XNPCCore's Routine/SleepAfterDuskHours ... not
       found" warnings.
 
+## Round U4 (2026-11-16): Bond - 0-XNPCCore 3.4.06's relationships owned by SC; gifts
+
+Why: 0-XNPCCore 3.4.06 added relationships (trust, affinity, gifts). Your decisions D7 ("SC owns it"), D8 and D9
+(`research/npc306/FEATURES_306.md` section 7). For SC's people its own trust and affinity writes are skipped; its events
+feed each member's **Bond**, a part of her mood: a gift by its points (0-XNPCCore's count, at most 6 a day), revived +3
+(by anyone), a blood moon survived with you +4, down -2, an enemy on her you kill +1; capped at +-15, fading 1 a day.
+Its Progress line "Trust: x  Feels: y" comes from SC (Feels from her mood, Trust from her Bond). Coins are refused,
+painkillers are a last-resort heal, followers at home are kept at 2 drinks.
+
+- [ ] **Start-up.** In the log: `patched RelationshipState::Apply`, `::ApplyGlobal`, `::TryEffective`,
+      `NPCEventMemoryHooks::OnRevived`, `::OnDowned`, `::OnEntityKilledRelationship`,
+      `NPCChatComponent::TrySettleWeekFromGift`, `ConsoleCmdLLMChat::RunStandingCommand` and `SdcsGiftBag::TryAddGift`;
+      `patch verification: all ... targets patched` counts 9 more than before this round; no `MISSING PATCH`. The config
+      lines include `config: 0-XNPCCore 3.4.06 bond=on cap 15 decay 1/day ...`.
+- [ ] **A gift.** Hold a first aid kit and give it to a follower (hold-E ring > Gift, or talk > Pay / Gift... > Give a
+      gift...): "takes it. Thanks.", and the kit is in her BAG (Show me your inventory). Within a second the log has
+      `<name>'s Bond: a gift (N point(s) by 0-XNPCCore's count) +N`; the talk card shows "Bond +N" under her mood (gold, a
+      small line), the community window "<word> - Bond +N" under her mood bar. `sc bond <name>` lists the gift.
+- [ ] **Your trust does not move.** `sc bond <name>`'s last line shows your global 0-XNPCCore trust and affinity: the
+      same before and after the gift (and after the steps below).
+- [ ] **The daily cap.** Give her 3 more kits the same day: the points stop at 6 for the day (a gift "+0").
+- [ ] **She uses gifted kits.** Take every first aid kit and bandage out of her PACK (leave the gifted one in her BAG)
+      and hurt her below 60% health: she uses the gifted kit (log `medic` lines; `sc xnpc` counter `medic-took-from-bag`).
+      `sc meds <name>` counts the BAG's kit as a heal item, so no medical restock comes while she has it.
+- [ ] **Coins refused.** Hold casino coins and use Gift on her: "<name> can't use that." and she says "I've no use for
+      that."; the coins stay in your hand; the log says `refused N casinoCoin as a gift - members are never paid`.
+- [ ] **Painkillers.** Give her painkillers, empty her kits and bandages out, hurt her below 60%: she takes them (a short
+      use), the log says `took painkillers at x/y - the last thing she had to heal with`, and her health climbs about 40
+      over a few seconds. Do it twice: the second pill heals too. With painkillers on her she does not shelter for lack of
+      medicine (`sc retreat <name>`: can treat herself yes).
+- [ ] **Drinks for a follower.** A follower at home: take every drink out of her pack and bag. Within 5 s she has 2
+      boiled water (log `was given 2 drinkJarBoiledWater for putting out fire`); the first time, Water drops by 1 unit.
+      Take them out again: nothing more for 12 in-game hours. A resident never gets any. Set her on fire (a molotov) away
+      from home: she puts it out and one drink is gone.
+- [ ] **Ammo as a gift.** Give her loose rounds for her gun: they land in her BAG; with Locked & Loaded they are in her
+      magazines within about 5 s (`sc xnpc <name>` rounds go up); the stockpile does not top her up while she is above
+      10 rounds, and nothing removes the gifted rounds.
+- [ ] **Down and revive.** Let a follower go down (or `vc anim downed` next to her): the log has `Bond: went down -2`.
+      Revive her: `revived by <you> +3`. If someone else revives her (a second player, 0-XNPCCore's medic), still +3.
+- [ ] **A kill on her.** A zombie goes for a resident at home and you kill it: `you killed the <zombie> that was on her +1`.
+- [ ] **A blood moon.** Spend a blood moon at home with a follower and residents: at dawn the log has `Bond: the blood
+      moon is over - N of M member(s) survived it with you` and each gets +4. Spend one away from home with a follower:
+      the follower +4, the residents nothing (`sc bond <name>` says "not with you").
+- [ ] **The Progress page.** Hold-E ring > Your progress on a follower: "Trust: steady  Feels: neutral" for a content
+      member with no Bond. `sc bond <name> set 10` -> "Trust: loyal". `sc morale 80` -> "Feels: warm"; `sc morale 10` ->
+      "Feels: cold" (`sc morale -1` clears). While she is the one threatening to leave: "Trust: wary".
+- [ ] **`vc standing`.** Looking at a follower: `[VC-REL]` lines from SC (her Bond, mood, the Progress words, "members
+      never move" your trust), not 0-XNPCCore's numbers. On a companion you hired and pay: 0-XNPCCore's own lines.
+- [ ] **A member's death.** Note your global trust (`sc bond <someone>`), let a follower die: it is unchanged; community
+      morale takes the usual death penalty.
+- [ ] **The fade.** `sc day`: `day N: Bond fades - <name> +4 -> +3`.
+- [ ] **Save and load.** Save, quit, load: her Bond is kept (a `bond=` line in her record in `survivor_community.txt`). A
+      save from before this round loads with every Bond at 0.
+- [ ] **`MemberBond` false:** gifts are still taken, but no Bond and no Bond line ("MemberBond is off" in `sc bond <name>`).
+
+## Round U5 (2026-11-16): weapon perks from Shooting and Fighting stars
+
+Why: 0-XNPCCore 3.4.06's weapon-class perks grow with a hire's level, which SC skips on its bodies, so its perks never
+reached SC's people. Your decision D10: Shooting stars give the gun and bow perks, Fighting stars the melee ones, rank =
+(stars - 1) / 2 up to 3, from 0-XNPCCore's PerkList and within its PerkRankCap, only ever raised. Untrimmed: they add to
+`RangedPerStar` / `MeleePerStar` (a 7-star shooter's pistol 1.9x instead of 1.6x) - measure it.
+
+- [ ] `sc perks`: every member's ranks. A member with Shooting 3 and Fighting 5: ranged rank 1, melee rank 2; on her body
+      perkGunslinger 1, perkDeadEye 1, perkMachineGunner 1, perkBoomstick 1, perkArchery 1 and the melee perks at 2 (plus
+      their attributes). The log has `<name>: weapon perks from her stars - Shooting 3 rank 1, Fighting 5 rank 2 ...` once.
+- [ ] Hold-E ring > Your progress on a follower: "Pistols: Gunslinger 1", "Clubs: Pummel Pete 2" ... lines.
+- [ ] `sc xp <name> shooting 600` until she gains a star into 5: the next second the ranged perks go to 2 (a log line).
+- [ ] A perk book (a Pistol Pete issue) through Your progress > read: it shows as "books 1/n" on the Pistols line; the
+      rank stays the one from her stars.
+- [ ] Save and load: the ranks are still there; no new log line (nothing to raise).
+- [ ] With `CraftSkillsEnabled` false the member still has a Progression: Your progress shows its lines and the perks.
+- [ ] Measure: a 1-star and a 7-star shooter with the same pistol on the same zombie (note how many shots it takes).
+- [ ] `MemberWeaponPerks` false: no raises (ranks already given stay).
+
+## Round U6 (2026-11-16): SC's Follow honors 0-XNPCCore's party cap
+
+Why: 0-XNPCCore 3.4.06's party of 8 counts everyone following you; SC's own Follow never asked it. Your decision D12: SC's
+Follow (talk, voice, window) honors it; `MaxFollowers` (2) stays SC's own, lower cap.
+
+- [ ] For the test set `MaxFollowers` to 8 in blocks.xml (restart). Hire companions the paid way until hires plus your
+      following members make 8 (`sc party` shows "0-XNPCCore's party 8 of PartyMaxMembers 8"). Ask a 9th member "Come
+      with me.": refused, "Your party is full (8/8)."; the log has `was not made a follower: Your party is full (8/8).`.
+      The same by voice ("follow me": she says she can't) and with the community window's Follow me.
+- [ ] Put one of them on Stay with the order wheel: `sc party` shows 7, and the 9th member now follows.
+- [ ] A member who already follows you is never refused (her talk shows "Go back home." anyway; nothing changes).
+- [ ] Back at the default `MaxFollowers` 2: the old "You already have as many followers as you can lead." comes first.
+
 ## Round lb1 (2026-11-16): a bundle in every store crate
 
 The user: "A bundle should be guaranteed" in the store crates. Loot Abundance at the default 100% for these steps

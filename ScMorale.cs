@@ -140,6 +140,9 @@ namespace SurvivorCommunity
                 foreach (var m in ScRegistry.Members.Values)
                 {
                     int mood = c.Morale + ScTraits.MoodOffset(m) - (m.Injured ? 15 : 0) - (c.Hungry ? 10 : 0) - (c.Thirsty ? 10 : 0) + ScGarrison.MoodOffset(m);
+#if SC_V34
+                    mood += ScBond.MoodTerm(m);        // round U4: her Bond (0-XNPCCore's relationship events, SC-owned)
+#endif
                     m.Mood = Mathf.Clamp(mood, 0, 100);
                 }
                 // a threat is withdrawn the moment morale is back above the line (not only at the next rollover)

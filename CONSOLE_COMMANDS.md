@@ -48,6 +48,10 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc meds [id\|name]` | Medical restock and healing: the setting, the stockpile's spare Meds, the counters and each member's heal items, next restock, health and regeneration; one member's every check. [READ] |
 | `sc meds <id\|name> give` | Restock her medical supplies now for 1 Meds (the cooldown ignored). [CHEAT] |
 | `sc retreat [id\|name]` | Badly hurt members: who is sheltering or kiting and why, or why not; one member in full. [READ] |
+| `sc bond [id\|name]` | Members' Bond with you: every member's Bond, mood and Progress words; one member in full, with this session's Bond events. [READ] |
+| `sc bond <id\|name> event <gift\|revive\|bloodmoon\|down\|kill>` | Give her the Bond a real event would. [CHEAT] |
+| `sc perks [id\|name]` | Weapon perks from Shooting and Fighting stars: each member's ranks and the perks on her body. [READ] |
+| `sc party` | Your followers against `MaxFollowers` and 0-XNPCCore's party (paid companions too) against its cap of 8. [READ] |
 | `sc sleep` | Sleeping at night: who is in bed, why not for the rest, and the beds that count. [READ] |
 | `sc downed [id\|name]` | Downed members: who is down, the seconds left, which medic is on the way; for everyone else whether a killing hit downs them, and why each medic can or can't go. [READ] |
 | `sc down <id\|name>` / `sc revive <id\|name>` | Knock a member down now, or revive a downed one (0-XNPCCore's own). [CHEAT] |
@@ -188,6 +192,19 @@ Example: `sc chat gather`
 How many of the small-talk lines each member's voice has recorded (76 lines), and whether a caption can show for them.
 Example: `sc chat lines Amy`
 
+### `sc perks [id|name] [apply]` [READ; `apply`: CHEAT]
+Weapon perks from the stars (README section 4): whether `MemberWeaponPerks` is on, 0-XNPCCore's perk list and rank cap,
+then per member her Shooting and Fighting stars, the rank they give (1 at 3-4 stars, 2 at 5-6, 3 at 7) and the weapon
+perks raised on her body (`not loaded` when she is not near). `apply` raises them again for that member now; ranks only
+ever go up. Open her **Your progress** page (hold-E ring) to see them in game: "Pistols: Gunslinger 2".
+Example: `sc perks Amy`
+
+### `sc party` [READ]
+The party cap (README section 7): your members following you (and enlisted enclave people) against `MaxFollowers`, and
+0-XNPCCore's party - everyone following you, companions you hired and pay as well as members - against its party cap
+(8), with how many times "Come with me." was refused for it this session.
+Example: `sc party`
+
 ### `sc scan` [READ]
 Re-counts beds, facilities and crops in the home zone now and prints the timing.
 
@@ -215,6 +232,25 @@ Example: `sc meds Gina`
 ### `sc meds <id|name> give` [CHEAT]
 A test shortcut: restocks her now for 1 Meds, ignoring the cooldown, the thresholds and `MedsResupply`. The stockpile, its reserve, her open window and her pack still apply, and it starts her cooldown like any restock. Counters (in `sc meds` and `sc xnpc`): `meds-restock`, `meds-restock-run`, `meds-restock-console`, `meds-refused-empty`, `meds-refused-reserve`, `meds-refused-full`, `meds-refused-nothing`, `meds-refused-mix`, `meds-held-window`, `meds-held-use`, `meds-cooldown`, `meds-place-failed`; at home each outcome is counted once per episode, not at every 5 s check. Round k2 adds `meds-restock-emergency`, `meds-emergency-cooldown`, `meds-use-held-reach`, `meds-use-desperate`, `meds-regen-started` and `meds-regen-capped`. Round k2b adds `heal-backoff` (she began backing off to heal), `heal-backoff-clear` (she got clear), `heal-backoff-unreached` (a point she could not reach), `heal-now-cornered` (no room to back off), `heal-now-gained` (the enemy kept up with her), `heal-now-timeout` (held `MedicMaxWait` without getting clear), `heal-now-shelter` and `heal-now-post` (in her shelter room, or on watch or told to stay: at once), and in `sc xnpc` `x5-heal-backoff-no-swap` (a weapon swap held while she backs off).
 Example: `sc meds Gina give`
+
+### `sc bond` [READ]
+Members' Bond (README section 4): the settings, the counters, the followers' drink top-ups, then one line per member: her
+Bond, her mood and the "Trust / Feels" words 0-XNPCCore's Progress page shows for her.
+
+### `sc bond <id|name>` [READ]
+One member in full: her Bond and what it adds to her mood, her mood, whether she threatens to leave, the Progress
+words with the numbers behind them, events still waiting, this session's Bond events (newest first), the gift points
+0-XNPCCore counted for her today (6 at most), and your own 0-XNPCCore trust and affinity, which members never move.
+Voice Control's `vc standing` shows the same lines for a member.
+Example: `sc bond Amy`
+
+### `sc bond <id|name> add <n>`, `set <n>` and `event <gift [points]|revive|bloodmoon|down|kill>` [CHEAT]
+Change her Bond, or give her what a real event would (a gift: 3 points unless you give a number). It is written within a
+second and never goes past +-15.
+Example: `sc bond Amy event revive`
+
+### `sc bond decay` [CHEAT]
+One day's fade now: every member's Bond 1 toward 0.
 
 (`sc morale`, `sc drinks` and `sc day` are in section 1.)
 

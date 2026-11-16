@@ -1797,3 +1797,4 @@ scRaiderMaleT3,entityclasses,Entity,,,,Raider
 scRaiderFemaleT1,entityclasses,Entity,,,,Raider
 scRaiderFemaleT2,entityclasses,Entity,,,,Raider
 scRaiderFemaleT3,entityclasses,Entity,,,,Raider
+scBondTerm,UI,Menu,,,,Bond {0}

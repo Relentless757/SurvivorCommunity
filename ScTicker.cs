@@ -107,6 +107,9 @@ namespace SurvivorCommunity
                 ScScan.RunIfDue(15f);                  // beds / facilities / crops from the loaded chunks, so the HUD morale follows what you build
                 ScNoise.Tick(w, player);               // the base's noise (what was heard in the zone) and the dead's attention
                 ScActivities.Tick(player);             // the round of drinks: its real-time countdown (round wl)
+#if SC_V34
+                ScBond.Tick(w, player);               // round U4: queued Bond events into the records, the blood moon survived together
+#endif
                 ScMorale.SyncHud(player);
                 ScLeadership.Publish(player);          // sc_followers / sc_inzone / sc_morale_high for SurvivorOrigins' Leadership
                 ScRadio.Tick(w, player);
@@ -469,6 +472,9 @@ namespace SurvivorCommunity
                 ScBaseAttack.Daily(day);                 // the Defence morale part fades
                 ScScan.Run(false);                     // beds / facilities / crops (unloaded chunks keep their last count)
                 ScStockpile.DailyConsume(day, summary);
+#if SC_V34
+                ScBond.Daily(day);                       // round U4: every member's Bond fades toward 0 (before the moods are recomputed)
+#endif
                 ScMorale.Daily(day, player, summary);     // fades the death penalty, recomputes, threat / departure
                 string line = "day " + day + ": " + ScRegistry.Members.Count + " member(s)" + (summary.Length > 0 ? " - " + summary : "");
                 c.Ledger.Insert(0, line);

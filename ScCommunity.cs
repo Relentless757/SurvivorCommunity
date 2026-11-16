@@ -1163,6 +1163,10 @@ namespace SurvivorCommunity
 #endif
             // E3: an enclave's people enlisted with the player count toward the limit too
             if (ScRegistry.FollowerCount + ScEnclaveDeals.EnlistedCount() >= ScConfig.MaxFollowers) { error = "scFollowersFull"; return false; }
+#if SC_V34
+            // round U6 (D12): 0-XNPCCore's party cap, shared with paid hires; MaxFollowers above stays SC's own lower cap (ScPartyCap)
+            if (ScPartyCap.Refuses(m, npc, player, out error)) return false;
+#endif
             if (ScConfig.RefusesForMood(m)) { error = "scRefuseMood"; return false; }   // P2: never by default
 #if SC_V34
             ScWork.EndFor(m, "asked to follow");   // C1: off the work shift first (her job dropped, unmade items refunded)

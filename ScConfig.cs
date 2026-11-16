@@ -1431,6 +1431,7 @@ namespace SurvivorCommunity
             ResetMining();                         // round 33c (ScConfigMining.cs): mining runs
             ResetDowned();                         // round U2 (ScConfigDowned.cs): home and watch downs, resident medics revive
             ResetSocial();                         // round U3 (ScConfigSocial.cs): small talk, walking over, the campfire
+            ResetNpc306();                         // rounds U4-U6 (ScConfigNpc306.cs): Bond, gifts, weapon perks, the party cap
 #endif
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
@@ -2575,6 +2576,7 @@ namespace SurvivorCommunity
                 ParseMining(p);                    // round 33c (ScConfigMining.cs): mining runs
                 ParseDowned(p);                    // round U2 (ScConfigDowned.cs): home and watch downs, resident medics revive
                 ParseSocial(p);                    // round U3 (ScConfigSocial.cs): small talk, walking over, the campfire
+                ParseNpc306(p);                    // rounds U4-U6 (ScConfigNpc306.cs): Bond, gifts, weapon perks, the party cap
 #endif
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
@@ -2862,6 +2864,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: handheld radio " + RadioLine());   // R2 (ScConfigRadio.cs)
                 ScLog.Out("config: mining runs " + MiningLine());     // round 33c (ScConfigMining.cs)
                 ScLog.Out("config: downed " + DownedLine());           // round U2 (ScConfigDowned.cs)
+                ScLog.Out("config: 0-XNPCCore 3.4.06 " + Npc306Line());   // rounds U4-U6 (ScConfigNpc306.cs)
 #endif
             }
             catch (Exception e)

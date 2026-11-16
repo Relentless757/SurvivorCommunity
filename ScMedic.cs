@@ -81,7 +81,9 @@ namespace SurvivorCommunity
         /// <summary>3.4 (D2): what stops a bleed, cheapest first (0-XNPCCore's own order for a bleed, MedicRules.CheapestItem).</summary>
         public static readonly string[] BleedItems = { "medicalBandage", "medicalFirstAidBandage", "medicalFirstAidKit" };
         /// <summary>3.4: every item a use here can put in the hand (a load finding one there gives the weapon back).</summary>
-        private static readonly string[] UseItems = { "medicalFirstAidKit", "medicalFirstAidBandage", "medicalBandage" };
+        private static readonly string[] UseItems = { "medicalFirstAidKit", "medicalFirstAidBandage", "medicalBandage", Painkillers };
+        /// <summary>Round U4 (D9): painkillers, a member's last-resort heal (MedicPainkillers; they come as 0-XNPCCore gifts).</summary>
+        internal const string Painkillers = "drugPainkillers";
         /// <summary>The bleed every vanilla carrier starts (buffs.xml: BleedingOne, Two and BarbedWire add it).</summary>
         private const string BleedBuff = "buffInjuryBleeding";
         private const string BandagesStockedCvar = "sc_bandagesStocked";
@@ -213,7 +215,12 @@ namespace SurvivorCommunity
             if (uses.ContainsKey(e.entityId)) return true;
             try { if (e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f) return true; }
             catch (Exception) { }
-            return FirstCarried(e, HealItems) != null;
+            if (FirstCarried(e, HealItems) != null) return true;
+#if SC_V34
+            // round U4 (D9): a member's painkillers are a heal too, her last one
+            if (ScConfig.MedicPainkillers && ScXnpc.IsCommunity(e) && Count(e, Painkillers) > 0) return true;
+#endif
+            return false;
         }
 
         /// <summary>
@@ -404,6 +411,8 @@ namespace SurvivorCommunity
                 if (kitFirst && Count(e, "medicalFirstAidKit") > 0) pick = "medicalFirstAidKit";
                 else if (Count(e, "medicalFirstAidBandage") > 0) pick = "medicalFirstAidBandage";
                 else if (Count(e, "medicalFirstAidKit") > 0) pick = "medicalFirstAidKit";
+                // round U4 (D9): with no first aid kit or bandage left, a member's painkillers - her last resort
+                else if (member && ScConfig.MedicPainkillers && Count(e, Painkillers) > 0) pick = Painkillers;
             }
             if (pick == null && bleeding && (low || !InFight(e))) pick = FirstCarried(e, BleedItems);
             if (pick == null) { ClearWait(e.entityId); return; }
@@ -763,6 +772,9 @@ namespace SurvivorCommunity
 
         private static void ApplyEffects(EntityAlive e, string item)
         {
+#if SC_V34
+            if (item == Painkillers) { ApplyPainkiller(e); return; }   // round U4 (D9)
+#endif
             ItemClass ic = ItemClass.GetItemClass(item, true);
             if (ic == null) return;
             MinEventParams p = e.MinEventContext;
@@ -774,6 +786,25 @@ namespace SurvivorCommunity
             ScLog.Verbose("medic: " + e.entityId + " used " + item + " at " + e.Health + "/" + e.GetMaxHealth()
                           + " (queued " + e.Buffs.GetCustomVar("medicalRegHealthAmount") + ")");
         }
+
+#if SC_V34
+        /// <summary>
+        /// Round U4 (D9): a painkiller used by one of SC's bodies. Vanilla's painkillers heal 40 once through buffDrugPainkillers,
+        /// which counts down by the player's $MetabolismDuration - a cvar an NPC never gets (a perk sets it), so on her the buff
+        /// would never end and a second pill would never heal. Here PainkillerHeal goes into the same queue a bandage fills
+        /// (medicalRegHealthAmount, worked off by buffProcessConsumables at the NPC regen speed) and a concussion is cured, as the
+        /// pill does; no buff stays on her.
+        /// </summary>
+        private static void ApplyPainkiller(EntityAlive e)
+        {
+            if (e.Buffs.HasBuff("buffInjuryConcussion")) e.Buffs.RemoveBuff("buffInjuryConcussion");
+            e.Buffs.SetCustomVar("medicalRegHealthAmount", e.Buffs.GetCustomVar("medicalRegHealthAmount") + Math.Max(0, ScConfig.PainkillerHeal));
+            if (e.Buffs.GetCustomVar("medRegHealthIncSpeed") <= 0f) e.Buffs.SetCustomVar("medRegHealthIncSpeed", NpcRegenSpeed);
+            if (!e.Buffs.HasBuff("buffProcessConsumables")) e.Buffs.AddBuff("buffProcessConsumables");
+            Patches_Xnpc.Count("medic-painkiller-used");
+            ScLog.Out(BodyName(e) + " took painkillers at " + e.Health + "/" + e.GetMaxHealth() + " - the last thing " + She(e) + " had to heal with (round U4)");
+        }
+#endif
 
         // ---------------------------------------------------------------------------------------------------------
         // inventory
@@ -1420,6 +1451,9 @@ namespace SurvivorCommunity
         {
             try
             {
+#if SC_V34
+                ScDrinks.HomeTick(m, e);   // round U4 (D9): a follower's drinks for putting out fire, from the Water stockpile (its own switch)
+#endif
                 if (m == null || e == null || !ScConfig.MedsResupply) return;
                 World w = e.world;
                 if (w == null || w.IsRemote() || !ScCommunity.IsHost) return;

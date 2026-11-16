@@ -121,6 +121,13 @@ namespace SurvivorCommunity
         /// meds= beside injured= (a key older builds ignore; a save without it loads as never).
         /// </summary>
         public ulong MedsAt;
+        /// <summary>
+        /// Round U4 (decision D7, ScBond): her Bond with the community - a term of her mood fed by 0-XNPCCore's relationship events
+        /// (a gift, a revive, a blood moon survived together, going down, an enemy on her killed by you), within +-BondCap, fading
+        /// BondDecayPerDay toward 0 at every rollover. Saved as bond= when not 0 (a key older builds ignore; a save without it
+        /// loads as 0).
+        /// </summary>
+        public int Bond;
         public bool Ranged;
         /// <summary>Resource being fetched while OnRun; meaningless otherwise.</summary>
         public Resource RunKind = Resource.Food;
