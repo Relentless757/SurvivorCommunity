@@ -56,19 +56,20 @@ TRAITS = {"EatsLikeABird", "BottomlessStomach", "Optimist", "Pessimist", "Loner"
 PLAIN_TAGS = {"home", "fire", "up", "down"}
 
 # (number, tags, opener, answer). Life at the base: the stockpile, the weather, a run, the walls, the night, food, jokes,
-# worries, the leader (you: "the boss"). The user's brief, 2026-11-16 (D11): 30-40 pairs.
+# worries, the leader (you: "the boss"). The user's brief, 2026-11-16 (D11): 30-40 pairs. The Fable review: no line ties
+# itself to a time of day (they are said morning, noon and night), and a "home" line about the boss fits the boss being in earshot.
 PAIRS = [
     # anyone, anywhere
     (1, "", "Stockpile's looking better than it did last week.", "Don't say that out loud. You'll jinx it."),
     (2, "", "Smell that? Rain's coming.", "Good. The barrels could use it."),
     (3, "home", "You hear how the last run went?", "Everyone came back. That's a good run."),
-    (4, "", "The walls held up fine last night.", "Walls are only as good as whoever's watching them."),
+    (4, "", "The walls are holding up fine.", "Walls are only as good as whoever's watching them."),
     (5, "", "Nights are getting louder out there.", "Yeah. I sleep with my boots on now."),
-    (6, "", "What's for dinner?", "Same as yesterday. Be grateful."),
+    (6, "", "What's on the menu?", "Same as yesterday. Be grateful."),
     (7, "", "Knock knock.", "If it's a zombie, I'm not opening."),
     (8, "down", "You ever think about leaving?", "Every day. Then I remember what's out there."),
     (9, "home", "The boss seems to know what they're doing.", "Better than the last place I was at."),
-    (10, "home", "Think the boss will be back before dark?", "Always is, somehow."),
+    (10, "home", "Somebody should tell the boss to get some rest.", "Good luck with that. I've tried."),
     (11, "", "We're low on something again.", "We're always low on something."),
     (12, "", "Saw a deer by the fence this morning.", "Next time, wake me. I'll bring the rifle."),
     (13, "", "How's the arm?", "Still attached. I'll call that a win."),
@@ -98,7 +99,7 @@ PAIRS = [
     (34, "Optimist,Cheerful", "I've got a good feeling about tomorrow.", "You say that every day."),
     (35, "Pessimist", "Mark my words, those walls won't hold forever.", "Nothing does. Doesn't mean we stop."),
     # a campfire gathering
-    (36, "fire", "Nothing beats a fire at the end of the day.", "Except a fire and a cold drink."),
+    (36, "fire", "Nothing beats sitting round a fire.", "Except a fire and a cold drink."),
     (37, "fire", "To the ones we lost.", "And to the ones still here."),
     (38, "fire", "Remember telling ghost stories around a fire?", "Now we just keep watching the dark."),
 ]

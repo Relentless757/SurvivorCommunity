@@ -144,8 +144,28 @@ namespace SurvivorCommunity
         private static Exchange live;
         private static Meet meet;
         private static readonly Dictionary<int, Gather> gathers = new Dictionary<int, Gather>();
-        /// <summary>The window each person last gathered in (person key -> window id): once per evening, once per round of drinks.</summary>
-        private static readonly Dictionary<string, string> gatheredIn = new Dictionary<string, string>(StringComparer.Ordinal);
+        /// <summary>
+        /// The windows each person has gathered in (person key -> window ids, the last few): once per evening, once per round of
+        /// drinks. A set, not the last one (the review's finding 4): the id flips evening -> drinks -> evening when drinks are
+        /// poured in the evening, and the last id alone sent everyone back to the fire a third time.
+        /// </summary>
+        private static readonly Dictionary<string, List<string>> gatheredIn = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        private const int WindowsKept = 6;
+
+        private static bool GatheredIn(string key, string window)
+        {
+            List<string> l;
+            return gatheredIn.TryGetValue(key, out l) && l.Contains(window);
+        }
+
+        private static void MarkGathered(string key, string window)
+        {
+            List<string> l;
+            if (!gatheredIn.TryGetValue(key, out l)) gatheredIn[key] = l = new List<string>();
+            if (l.Contains(window)) return;
+            l.Add(window);
+            if (l.Count > WindowsKept) l.RemoveAt(0);
+        }
         /// <summary>When each place's current window was first seen open (real time), and its id.</summary>
         private static readonly Dictionary<object, KeyValuePair<string, float>> windowSeen = new Dictionary<object, KeyValuePair<string, float>>();
         private static readonly Dictionary<object, Fire> fires = new Dictionary<object, Fire>();
@@ -190,25 +210,41 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ the UAI's reads ----
 
+        /// <summary>
+        /// The Fable review's finding 1: every hold the UAI reads also runs out by itself a little after it was due to end, so a
+        /// tick that stopped stepping (an exception every second, say) can never keep two people facing each other or a sitter
+        /// at the fire all day. The live exchange: EndAt + 5 s; a neighbor waiting for a walker: the walk's limit + 5 s; a place
+        /// at the fire: the walk's limit, or the time to leave, + 10 s.
+        /// </summary>
+        private static bool Fresh(Exchange x) { return x != null && Time.time <= x.EndAt + 5f; }
+
+        private static bool Fresh(Meet m) { return m != null && m.Walking && Time.time <= m.Until + 5f; }
+
+        private static bool Fresh(Gather g) { return g != null && Time.time <= (g.ArrivedAt >= 0f ? g.LeaveAt : g.ArriveBy) + 10f; }
+
         /// <summary>ScSmallTalkHeld: in an exchange, or waiting for a neighbor who walks over to her. A pure read.</summary>
         public static bool Holds(EntityAlive self)
         {
             if ((object)self == null) return false;
             int id = self.entityId;
-            if (live != null && (live.A == id || live.B == id)) return true;
-            return meet != null && meet.Walking && meet.Partner == id;
+            Exchange x = live;
+            if (Fresh(x) && (x.A == id || x.B == id)) return true;
+            Meet m = meet;
+            return Fresh(m) && m.Partner == id;
         }
 
         /// <summary>In an exchange right now (ScGreetings keeps its chatter off them). A pure read.</summary>
         public static bool InExchange(EntityAlive npc)
         {
-            return (object)npc != null && live != null && (live.A == npc.entityId || live.B == npc.entityId);
+            Exchange x = live;
+            return (object)npc != null && Fresh(x) && (x.A == npc.entityId || x.B == npc.entityId);
         }
 
         /// <summary>ScGathering: she has a place at a fire (walking to it or sitting there). A pure read.</summary>
         public static bool Gathering(EntityAlive self)
         {
-            return (object)self != null && gathers.Count > 0 && gathers.ContainsKey(self.entityId);
+            Gather g;
+            return (object)self != null && gathers.Count > 0 && gathers.TryGetValue(self.entityId, out g) && Fresh(g);
         }
 
         /// <summary>ChatHoldSC: who she turns to - her partner in the exchange, or the neighbor walking over. A pure read.</summary>
@@ -216,9 +252,11 @@ namespace SurvivorCommunity
         {
             if ((object)self == null) return null;
             int id = self.entityId, other = -1;
-            if (live != null && live.A == id) other = live.B;
-            else if (live != null && live.B == id) other = live.A;
-            else if (meet != null && meet.Walking && meet.Partner == id) other = meet.Walker;
+            Exchange x = live;
+            Meet m = meet;
+            if (Fresh(x) && x.A == id) other = x.B;
+            else if (Fresh(x) && x.B == id) other = x.A;
+            else if (Fresh(m) && m.Partner == id) other = m.Walker;
             if (other < 0) return null;
             World w = ScCommunity.World;
             EntityAlive e = w != null ? w.GetEntity(other) as EntityAlive : null;
@@ -232,7 +270,7 @@ namespace SurvivorCommunity
             fire = Vector3i.zero;
             arrived = false;
             Gather g;
-            if ((object)self == null || !gathers.TryGetValue(self.entityId, out g)) return false;
+            if ((object)self == null || !gathers.TryGetValue(self.entityId, out g) || !Fresh(g)) return false;
             spot = g.Spot;
             fire = g.Fire;
             arrived = g.ArrivedAt >= 0f;
@@ -308,7 +346,30 @@ namespace SurvivorCommunity
             catch (Exception e)
             {
                 ScLog.Once("social-tick", e);
+                LetEveryoneGo();   // the review's finding 1: a tick that throws must not hold anyone (the reads expire as well)
             }
+        }
+
+        /// <summary>After a tick threw: no exchange, no walk-over, nobody at a fire (their flames put out), so nobody is held.</summary>
+        private static void LetEveryoneGo()
+        {
+            live = null;
+            meet = null;
+            if (gathers.Count == 0) return;
+            try
+            {
+                World w = ScCommunity.World;
+                foreach (Gather g in gathers.Values)
+                {
+                    EntityAlive npc = w != null && g.Lit ? w.GetEntity(g.Id) as EntityAlive : null;
+                    if (npc != null) Unlight(npc);
+                }
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("social-let-go", e);
+            }
+            gathers.Clear();
         }
 
         /// <summary>The bodies of this pass: residents at home (and an enclave's people at home), with their verdicts.</summary>
@@ -338,6 +399,8 @@ namespace SurvivorCommunity
                 Body b = new Body { Npc = npc, Key = "enc:" + p.Id.ToString(CultureInfo.InvariantCulture), Name = p.Name, Place = en, Rec = p.Who, Person = p };
                 Fill(w, b);
                 b.Why = en.IsHostile ? "a hostile enclave"
+                      : !p.HasHome ? "no home spot"                                  // the review's finding 5: as ScEncHome reads it
+                      : p.Leaving ? "walking home"
                       : ScEnclaveDeals.IsEnlistedBody(npc) ? "enlisted with you"
                       : !en.Contains(Mathf.FloorToInt(npc.position.x), Mathf.FloorToInt(npc.position.z)) ? "outside their building"
                       : !Needed(w, b, all) ? FarWhy(b)
@@ -463,6 +526,7 @@ namespace SurvivorCommunity
             if (nextExchange < 0f) { nextExchange = now + Jitter(ScConfig.SmallTalkGapSeconds) * 0.5f; return; }   // not right at load
             bool gapOpen = now >= nextExchange, fireOpen = now >= nextFireTalk;
             if (!gapOpen && !fireOpen) return;
+            if (SubtitleBusy(w) != null) return;          // the review's finding 6: a greeting or a chat owns the subtitle bar
             candidates.Clear();
             float r2 = ScConfig.SmallTalkRange * ScConfig.SmallTalkRange;
             for (int i = 0; i < bodies.Count; i++)
@@ -498,6 +562,7 @@ namespace SurvivorCommunity
                 if (!Begin(w, c.A, c.B, c.AtFire, false, false, now, out why))
                 {
                     nextExchange = now + Jitter(ScConfig.SmallTalkGapSeconds);   // not again every second
+                    nextFireTalk = now + Jitter(ScConfig.CampfireTalkGapSeconds); // nor at a fire (the review's finding 2)
                     ScLog.Verbose("small talk: no exchange - " + why);
                 }
                 return;
@@ -508,6 +573,43 @@ namespace SurvivorCommunity
                 if (rnd.NextDouble() < ScConfig.SmallTalkMeetChance) PlanMeet(w, now, null, null, false);
             }
         }
+
+        /// <summary>Her line can be heard or read: a recording of the small talk in her voices, or a caption that can show for her.</summary>
+        private static bool CanSaySomething(EntityAlive npc)
+        {
+            return ScSocialVoice.CanCaption(npc) || ScSocialVoice.HasAnyRecording(npc);
+        }
+
+        /// <summary>
+        /// The review's finding 6: Voice Control's subtitle bar shows one line, so no small-talk line goes over a proactive
+        /// greeting it is playing (NPCChatComponent.ProactiveGreetingPlaying) or a chat a player is having with someone near
+        /// them (0-XNPCCore's SdcsEmoteReactions.Chatting, Voice Control's chat pause, on any living body within
+        /// ChatScanMeters of a player). The reason, or null when the bar is free.
+        /// </summary>
+        private static string SubtitleBusy(World w)
+        {
+            if (VcGreetingPlaying()) return "Voice Control is playing a greeting";
+            if (w == null || w.Players == null) return null;
+            List<EntityPlayer> ps = w.Players.list;
+            for (int i = 0; i < ps.Count; i++)
+            {
+                EntityPlayer p = ps[i];
+                if (p == null || p.IsDead()) continue;
+                chatScan.Clear();
+                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(p.position, Vector3.one * (ChatScanMeters * 2f)), chatScan);
+                for (int k = 0; k < chatScan.Count; k++)
+                {
+                    EntityAlive e = chatScan[k] as EntityAlive;
+                    if (e == null || e is EntityPlayer || e.IsDead()) continue;
+                    if (VcChatting(e)) { chatScan.Clear(); return ScCommunity.DisplayName(e) + " is chatting with you through Voice Control"; }
+                }
+                chatScan.Clear();
+            }
+            return null;
+        }
+
+        private const float ChatScanMeters = 20f;
+        private static readonly List<Entity> chatScan = new List<Entity>();
 
         /// <summary>Both sit at the same fire.</summary>
         private static bool SatTogether(Body a, Body b)
@@ -529,6 +631,8 @@ namespace SurvivorCommunity
             {
                 float wx = ScSocialVoice.OpenerWeight(x.Rec), wy = ScSocialVoice.OpenerWeight(y.Rec);
                 if (rnd.NextDouble() * (wx + wy) >= wx) { a = y; b = x; }
+                // the review's finding 3: the one who can say something opens (a recording, or a caption that can show)
+                if (!forced && !CanSaySomething(a.Npc) && CanSaySomething(b.Npc)) { Body s = a; a = b; b = s; }
             }
             var ex = new Exchange
             {
@@ -597,6 +701,15 @@ namespace SurvivorCommunity
             if (!x.ReplySaid && now >= x.ReplyAt)
             {
                 if (ScVoice.Busy(a) && now < x.ReplyAt + ReplyWaitMax) return;   // her clip still plays
+                string busy = x.Forced ? null : SubtitleBusy(w);
+                if (busy != null)
+                {
+                    // the review's finding 6: the answer waits for Voice Control's greeting or chat, then is dropped
+                    if (now < x.ReplyAt + ReplyWaitMax) return;
+                    nDropped++;
+                    End("the answer was dropped: " + busy);
+                    return;
+                }
                 float secs;
                 string how;
                 if (x.Vc)
@@ -633,7 +746,7 @@ namespace SurvivorCommunity
             if (m != null) return MemberWhy(m, npc);
             EncPerson p = ScEnclavePeople.PersonOf(npc);
             if (p == null) return "no longer one of yours";
-            return p.State != EncPerson.StateHome ? "not at home" : BodyWhy(npc);
+            return p.State != EncPerson.StateHome ? "not at home" : !p.HasHome ? "no home spot" : p.Leaving ? "walking home" : BodyWhy(npc);
         }
 
         /// <summary>sc chat ... force: only what makes talking impossible ends it.</summary>
@@ -672,6 +785,7 @@ namespace SurvivorCommunity
                     if (b.Why != null || b.Moving || (b.Person != null && b.Person.IsLeader) || Gathering(b.Npc)) continue;
                     if (b.Person == null && !ScConfig.ResidentRoamZone) continue;     // a post roam never calls ZoneTarget (MeetSpot)
                     if (!UAI.ScRoamState.Active.Contains(b.Npc.entityId)) continue;   // in a roam pause: her next walk is the roam's
+                    if (!CanSaySomething(b.Npc)) continue;                           // she opens: a walk over to say nothing (review, finding 3)
                     walkers.Add(b);
                 }
                 while (walkers.Count > 0 && partner == null)
@@ -744,6 +858,7 @@ namespace SurvivorCommunity
             }
             if (d <= ScConfig.SmallTalkRange && (!walker.Moving || d <= 2f))
             {
+                if (!m.Forced && SubtitleBusy(w) != null) { if (now > m.Until) DropMeet("the subtitle bar stayed busy"); return; }   // finding 6
                 meet = null;
                 if (!m.Forced && !Hears(Mathf.Min(walker.PlayerDist, partner.PlayerDist)))
                 {
@@ -810,8 +925,7 @@ namespace SurvivorCommunity
                 if (b.Person != null && b.Person.IsLeader) continue;          // the player finds an enclave's leader at their spot
                 string window = WindowFor(w, b.Place);
                 if (window == null) continue;
-                string done;
-                if (gatheredIn.TryGetValue(b.Key, out done) && done == window) continue;
+                if (GatheredIn(b.Key, window)) continue;
                 KeyValuePair<string, float> seen;
                 if (!windowSeen.TryGetValue(b.Place, out seen) || seen.Key != window)
                 {
@@ -827,8 +941,8 @@ namespace SurvivorCommunity
                 foreach (Gather g in gathers.Values) if (g.Place == b.Place && g.Fire == f.Pos) count++;
                 if (count >= ScConfig.CampfireMaxPeople) continue;
                 Vector3 spot;
-                if (!RingSpot(w, b.Place, f.Pos, count, out spot)) { gatheredIn[b.Key] = window; continue; }
-                gatheredIn[b.Key] = window;
+                if (!RingSpot(w, b.Place, f.Pos, count, out spot)) { MarkGathered(b.Key, window); continue; }
+                MarkGathered(b.Key, window);
                 gathers[b.Npc.entityId] = new Gather
                 {
                     Id = b.Npc.entityId, Key = b.Key, Name = b.Name, Window = window, Place = b.Place, Fire = f.Pos, Spot = spot,
@@ -849,7 +963,14 @@ namespace SurvivorCommunity
                 EntityAlive npc = w.GetEntity(id) as EntityAlive;
                 if (npc == null || npc.IsDead()) { Leave(g, null, "gone", false); continue; }
                 string window = WindowFor(w, g.Place);
-                if (window != g.Window) { Leave(g, npc, window == null ? "the gathering is over" : "a new gathering", false); continue; }
+                if (window == null) { Leave(g, npc, "the gathering is over", false); continue; }
+                if (window != g.Window)
+                {
+                    // the review's finding 4: one open window giving way to another (drinks poured in the evening, or over) is
+                    // the same gathering for her - she stays, and counts as having gathered in the new one too
+                    g.Window = window;
+                    MarkGathered(g.Key, window);
+                }
                 string why = StopWhy(npc);
                 if (why != null) { Leave(g, npc, why, false); continue; }
                 if (g.ArrivedAt < 0f)
@@ -1105,6 +1226,29 @@ namespace SurvivorCommunity
             catch (Exception e) { ScLog.Once("social-chatting", e); return false; }
         }
 
+        private static bool greetBound;
+        private static PropertyInfo pGreetPlaying;
+
+        /// <summary>Voice Control's NPCChatComponent.ProactiveGreetingPlaying (internal static: by reflection, bound once; false when absent).</summary>
+        private static bool VcGreetingPlaying()
+        {
+            if (!greetBound)
+            {
+                greetBound = true;
+                try
+                {
+                    Type t = Patches_VoiceControl.ChatType;
+                    pGreetPlaying = t != null ? t.GetProperty("ProactiveGreetingPlaying", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public) : null;
+                    if (t != null && pGreetPlaying == null)
+                        ScLog.Once("social-bind-greeting", "small talk: Voice Control's NPCChatComponent.ProactiveGreetingPlaying not found - small talk may cover one of its greetings in the subtitle bar");
+                }
+                catch (Exception e) { ScLog.Once("social-bind-greeting", e); }
+            }
+            if (pGreetPlaying == null) return false;
+            try { return (bool)pGreetPlaying.GetValue(null, null); }
+            catch (Exception e) { ScLog.Once("social-greeting", e); return false; }
+        }
+
         /// <summary>SCore's IsEnemyNearby (an enemy that can be seen within 30 m, or a fresh revenge target): what EnemyNotNear on ScChat and ScGather asks.</summary>
         private static bool EnemyInSight(EntityAlive npc)
         {
@@ -1256,8 +1400,8 @@ namespace SurvivorCommunity
             if (bodies.Count == 0) { output("[SC] nobody loaded"); return; }
             foreach (Body b in bodies)
             {
-                string done;
-                gatheredIn.TryGetValue(b.Key, out done);
+                List<string> doneList;
+                string done = gatheredIn.TryGetValue(b.Key, out doneList) && doneList.Count > 0 ? string.Join(", ", doneList.ToArray()) : null;
                 output("[SC]   " + b.Name + " (" + b.Npc.entityId + ", " + PlaceName(b.Place) + "): " + (b.Why == null ? "free" : b.Why) + (b.Moving ? ", walking" : "")
                        + ", you " + (b.PlayerDist < 10000f ? b.PlayerDist.ToString("0", CultureInfo.InvariantCulture) + " m" : "-") + (Hears(b.PlayerDist) ? " (in earshot)" : "")
                        + (done != null ? ", gathered in " + done : "") + (UAI.ScRoamState.Active.Contains(b.Npc.entityId) ? ", roaming" : ""));
@@ -1327,11 +1471,25 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>The two values as last read, and when (real time): read again every CacheSeconds (the review's nit).</summary>
+        private static float sleepAfter = -1f, homeBefore = -1f, readAt = -1000f;
+        private const float CacheSeconds = 5f;
+
+        private static void Refresh()
+        {
+            float now = Time.unscaledTime;
+            if (readAt >= 0f && now - readAt < CacheSeconds) return;
+            readAt = now;
+            Bind();
+            sleepAfter = Read(pSleepAfter);
+            homeBefore = Read(pHomeBefore);
+        }
+
         /// <summary>0-XNPCCore's Routine/SleepAfterDuskHours, or -1 when it cannot be read.</summary>
-        public static float NpcSleepAfterDusk() { Bind(); return Read(pSleepAfter); }
+        public static float NpcSleepAfterDusk() { Refresh(); return sleepAfter; }
 
         /// <summary>0-XNPCCore's Routine/HomeBeforeDuskHours, or -1 when it cannot be read.</summary>
-        public static float NpcHomeBeforeDusk() { Bind(); return Read(pHomeBefore); }
+        public static float NpcHomeBeforeDusk() { Refresh(); return homeBefore; }
 
         /// <summary>Hours after dusk before the night lease may open: SC's SleepAfterDuskHours, never less than 0-XNPCCore's own.</summary>
         public static float LeaseAfterDusk()
