@@ -92,6 +92,14 @@ namespace SurvivorCommunity
             public float OverSince, OverPlusSince, LastCount = -1000f;
             /// <summary>F3: after an overwhelmed return to the gun, 0-XNPCCore's melee swap is held off until then.</summary>
             public float GunUntil;
+            /// <summary>
+            /// The re-review's R2 (the user: "Stay on melee until room"): a cornered reload put her on melee (x5-cornered-reload-melee
+            /// at CorneredAt) and she stays on it while CorneredMeleeHolds - CorneredGun is the gun to go back to; RoomSince when her
+            /// target last had room again (0: no room now).
+            /// </summary>
+            public bool CorneredMelee;
+            public string CorneredGun;
+            public float CorneredAt, RoomSince;
             /// <summary>F2: since when 0-XNPCCore has wanted to leave close melee (0 = it does not), in the bout that began at ExitBout.</summary>
             public float ExitWantSince, ExitBout;
             /// <summary>Round n08 (GunFirst): since when she has been on her melee weapon with a reason to take the gun (0 = not now).</summary>
@@ -162,6 +170,11 @@ namespace SurvivorCommunity
 
         /// <summary>Round tm1: Watch.HoldDir - the swap that waits.</summary>
         private const int HoldNone = 0, HoldToGun = 1, HoldToMelee = 2;
+        /// <summary>
+        /// R2: she has room again once ScBackOff.NoPointFor has not held for her target this long (no flapping); a swap to melee
+        /// 0-XNPCCore had not made yet is waited for this long too.
+        /// </summary>
+        private const float CorneredRoomSeconds = 1f, CorneredSwapGrace = 1f;
 
         private static readonly Dictionary<int, Watch> watch = new Dictionary<int, Watch>();
         private static readonly List<Entity> near = new List<Entity>();
@@ -427,7 +440,20 @@ namespace SurvivorCommunity
                     // standing idle through the reload, so 0-XNPCCore's swap to melee runs: she swings rather than waits
                     if (e.Buffs != null && e.Buffs.GetCustomVar(XnpcReloadingCvar) >= 0.5f && CorneredOnTarget(e))
                     {
-                        Patches_Xnpc.Count("x5-cornered-reload-melee");
+                        // R2 (the user: "Stay on melee until room"): she stays on melee while no room holds (CorneredMeleeHolds),
+                        // and the shared swap hold starts as after any swap to melee - GunFirst waits TeamSwapHoldSeconds
+                        Watch cw = WatchOf(e, now);
+                        if (!cw.CorneredMelee)
+                        {
+                            Patches_Xnpc.Count("x5-cornered-reload-melee");
+                            ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is cornered and reloading - melee until " + ScRetreat.She(e)
+                                          + " has room to back off again (the " + gun.GetItemName() + " after; the re-review, R2)");
+                        }
+                        cw.CorneredMelee = true;
+                        cw.CorneredGun = gun.GetItemName();
+                        cw.CorneredAt = now;
+                        cw.RoomSince = 0f;
+                        Hold(cw, HoldToGun, now);
                         return true;
                     }
                     Watch gw;
@@ -444,13 +470,16 @@ namespace SurvivorCommunity
                 // is adopted (cleared), so its exit at 5 m never restores the gun; GunFirst still takes her back to it for a
                 // target that needs it or when she is overwhelmed (+1 attacker in a matched fight, decision 7)
                 if (ScTeam.MeleeLed(e) && AdoptBout(c, e, now)) return true;
+                // R2: cornered on melee - she stays on it (no RestoreGun; 0-XNPCCore's remembered gun is cleared, so its exit and
+                // failover cannot bring the gun back either) until she has room again or her target is dead or gone
+                bool cornered = CorneredMeleeHolds(c, e, now);
                 // on melee: with a gun to go back to, the count runs from the swap on, so a swarm that was there at once
                 // can take the gun back as soon as 0-XNPCCore's own minimum hold is over
                 string name = null;
                 bool gunBack = ScConfig.Overwhelmed && RememberedGun(c, e, out name);
                 if (gunBack) IsOverwhelmed(e, out count, out need);
                 if (now - CloseSince(c) < XnpcCloseMinHold) return true;                                 // 0-XNPCCore holds the first 3 s itself
-                if (gunBack && RestoreGun(c, e, now, name)) return false;
+                if (!cornered && gunBack && RestoreGun(c, e, now, name)) return false;
                 return !HoldMelee(c, e, now);
             }
             catch (Exception ex)
@@ -764,6 +793,63 @@ namespace SurvivorCommunity
             return t != null && !t.IsDead() && ScBackOff.NoPointFor(e, t);
         }
 
+        /// <summary>
+        /// The re-review's R2 (the user: "Stay on melee until room"): after a cornered reload put her on melee, she stays on it -
+        /// CloseRange skips RestoreGun and GunFirst its overwhelmed draw - while this is true, and 0-XNPCCore's remembered gun is
+        /// kept cleared in its bout (its exit and failover would put the gun back behind SC's back). It ends - and the normal
+        /// rules apply again, with the gun written back as 0-XNPCCore's remembered weapon in its bout - when her target is dead
+        /// or gone; when she has had room for CorneredRoomSeconds (ScBackOff.NoPointFor not holding for her target), and not
+        /// before the shared swap hold (TeamSwapHoldSeconds) is over; or when a gun is in her hand again (after
+        /// CorneredSwapGrace: 0-XNPCCore's swap may come a tick late). X5 only (it writes the state).
+        /// </summary>
+        private static bool CorneredMeleeHolds(AvatarSdcsNpcController c, EntityAlive e, float now)
+        {
+            Watch st;
+            if (e == null || !watch.TryGetValue(e.entityId, out st) || !st.CorneredMelee) return false;
+            if (HoldsRangedWeapon(e))
+            {
+                if (now - st.CorneredAt < CorneredSwapGrace) return false;
+                EndCornered(c, st, e, "a gun is in " + ScRetreat.Her(e) + " hand again");
+                return false;
+            }
+            EntityAlive t = e.GetAttackTarget();
+            if (t == null || t.IsDead()) t = e.GetRevengeTarget();
+            if (t == null || t.IsDead()) { EndCornered(c, st, e, ScRetreat.Her(e) + " target is dead or gone"); return false; }
+            if (ScBackOff.NoPointFor(e, t)) st.RoomSince = 0f;
+            else if (st.RoomSince <= 0f) st.RoomSince = now;
+            bool swapHold = st.HoldDir == HoldToGun && now < st.HoldUntil;
+            if (!swapHold && st.RoomSince > 0f && now - st.RoomSince >= CorneredRoomSeconds)
+            {
+                EndCornered(c, st, e, "room to back off from " + t.EntityName + " (" + t.entityId + ") again");
+                return false;
+            }
+            if (CloseMelee(c))
+            {
+                string rem = Remembered(c);
+                if (!string.IsNullOrEmpty(rem))
+                {
+                    if (ScAmmo.RangedAction(ItemClass.GetItemClass(rem, true)) != null) st.CorneredGun = rem;
+                    rememberedField.SetValue(c, null);
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// R2: the cornered melee ends - in 0-XNPCCore's bout her gun goes back in as its remembered weapon (when none is), so its
+        /// exit and RestoreGun bring it back by the normal rules; counted x5-cornered-melee-end.
+        /// </summary>
+        private static void EndCornered(AvatarSdcsNpcController c, Watch st, EntityAlive e, string why)
+        {
+            st.CorneredMelee = false;
+            st.RoomSince = 0f;
+            if (c != null && CloseMelee(c) && string.IsNullOrEmpty(Remembered(c)) && !string.IsNullOrEmpty(st.CorneredGun))
+                rememberedField.SetValue(c, st.CorneredGun);
+            Patches_Xnpc.Count("x5-cornered-melee-end");
+            ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is no longer cornered on melee: " + why + " - the normal rules again (the "
+                          + (st.CorneredGun ?? "gun") + " by them; the re-review, R2)");
+        }
+
         /// <summary>X for this survivor: from the member's Fighting stars (a stand-in fights as the member), else OverwhelmedStrangers.</summary>
         public static int Threshold(EntityAlive e)
         {
@@ -888,6 +974,8 @@ namespace SurvivorCommunity
                 if (t == null || t.IsDead()) { st.FirstSince = 0f; st.GunHeldNoted = false; return false; }
                 int count, need;
                 bool over = ScConfig.Overwhelmed && IsOverwhelmed(e, out count, out need);
+                // R2: cornered on melee (a cornered reload put her there) - no overwhelmed return to the gun until she has room
+                if (over && CorneredMeleeHolds(c, e, now)) over = false;
                 bool far = (t.position - e.position).sqrMagnitude > XnpcCloseExitDist * XnpcCloseExitDist;
                 // Round tm1 (I1): a melee-led member keeps her melee weapon for a target beyond 5 m - unless the target needs
                 // the gun (melee-unsafe, armed, out of reach, past her leash: decision 10, then today's rule) or she is
@@ -1872,6 +1960,10 @@ namespace SurvivorCommunity
                     sb.Append(", a ").Append(st.SwingPendKind).Append(" block in her swing at #").Append(st.SwingPendId).Append(" seen once (a second read in a row counts it)");
                 if (now < st.MeleeBackoffUntil) sb.Append(", MELEE FIRST BACKED OFF ").Append((st.MeleeBackoffUntil - now).ToString("0")).Append(" s more (an equip did not take)");
                 if (now < st.GunBackoffUntil) sb.Append(", GUN FIRST BACKED OFF ").Append((st.GunBackoffUntil - now).ToString("0")).Append(" s more (an equip did not take)");
+                if (st.CorneredMelee)
+                    sb.Append(", CORNERED ON MELEE ").Append((now - st.CorneredAt).ToString("0.0")).Append(" s (until room for ").Append(CorneredRoomSeconds.ToString("0"))
+                      .Append(" s").Append(st.RoomSince > 0f ? ": room " + (now - st.RoomSince).ToString("0.0") + " s" : ": no room").Append("; then the ")
+                      .Append(st.CorneredGun ?? "gun").Append(" by the normal rules - R2)");
             }
             AvatarSdcsNpcController c = e.emodel != null ? e.emodel.avatarController as AvatarSdcsNpcController : null;
             if (c != null && bound && HandsCaptured(c)) sb.Append(", HANDS CAPTURED (0-XNPCCore: no swap rule acts)");

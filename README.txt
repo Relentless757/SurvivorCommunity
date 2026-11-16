@@ -1256,8 +1256,9 @@ Weapons
 - Keeping their distance: with a gun in hand, your members back away from an enemy within 2.5 m and shoot anything
   farther off. At home they never back out of the base: the step back (10, 6 or 3 m) always ends inside the home zone,
   on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. A back-off that does
-  not get them away - the zombie keeps pace - stops after about 1.5 seconds and they shoot instead. Away from home they
-  back off as the NPC framework does. "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
+  not get them away - the zombie keeps pace, or several do - stops after about 1.5 seconds and they shoot instead, at
+  home and away. Cornered and reloading, they swing their melee weapon and stay on it until they have room again. Away
+  from home they back off as the NPC framework does. "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
 - Team strength decides melee (your members): each one weighs her side - her Fighting stars, health and weapon, the
   other members near her, and you (you count double, but only while you are fighting: you hit a zombie near her in the
   last 5 seconds - a kill counts too; a zombie that is only after you does not) - against the awake enemies within 15 m

@@ -108,17 +108,20 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   directions); with none she shoots for `BackOffNoPointSeconds`.
 - **`sc xnpc`** — the line "back-offs (round k1): ..." with the totals: back-offs bounded (kept inside the base),
   shortened (a shorter step than the longest), wider than 25 degrees, with no point (the shot took over), that gained
-  nothing (the Fable review: still within 2.5 m, or the gap not 1 m larger, 1.5 s in or at the end - the shot took over
-  for `StandOffShootSeconds`), the beats handed to the shot in all (stand-off beats included), points not reached and not
-  applied. The same as counters in the hook list: `backoff-bounded`, `backoff-shortened`, `backoff-wide`,
+  nothing (the Fable review: still within 2.5 m, or the gap not 1 m larger, 1.5 s in or at the end - at home or away -
+  the shot took over against every enemy for `StandOffShootSeconds`), the member-wide beats handed to the shot in all
+  (stand-off beats included), points not reached and not applied. The same as counters in the hook list: `backoff-bounded`, `backoff-shortened`, `backoff-wide`,
   `backoff-no-point`, `backoff-no-gain`, `backoff-unreached` (a point the path could not reach - only after a back-off
   that ended on its own - set aside 10 s), `backoff-unapplied` (should stay 0: anything else means 0-XNPCCore changed its
   back-off). `x5-cornered-reload-melee`: reloading with the shot holding her target's beat, 0-XNPCCore's swap to melee
-  was let through (she swings rather than stands idle).
+  was let through (she swings rather than stands idle) - and she stays on melee until she has had room for 1 s, not
+  before the 5 s swap hold, or until her target is dead or gone (`x5-cornered-melee-end`; the user's "Stay on melee until
+  room"; `sc team <name>`'s hand line: "CORNERED ON MELEE ...").
 - **`sc xnpc <id|name>`** — the line "back-off (round k1): at home - kept inside the base" (or "away from home -
-  0-XNPCCore's own, unbounded"), and her last back-off: from whom, the step, the angle and the point, RUNNING / ended on
-  its own / stopped, or NO POINT with why; the points set aside; the enemies against which the shot has the next
-  decision (no point, no gain, or a stand-off's shooting beat).
+  0-XNPCCore's own, unbounded"), and her last back-off: from whom, the step, the angle and the point (or "0-XNPCCore's
+  own point (unbounded)" away from home), RUNNING / ended on its own / stopped, or NO POINT with why; the points set aside;
+  how long the shot has the next decision against every enemy (a back-off that gained nothing, or a stand-off's shooting
+  beat; `BackupRanged` only while she reloads), and the enemies with no point to back off to from.
 - A hurt member's stand-off (round rt1, `sc retreat`) uses the same steps when the full gap does not fit:
   `retreat-backoff-shortened`, and `retreat-backoff-shoot` for the shooting between two steps (`SHOOTING BETWEEN STEPS` in
   `sc retreat <name>`).

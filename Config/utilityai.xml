@@ -569,7 +569,9 @@
 	    (round n07's finding), so from 2.5 to 4 m the shot (6) now wins over that back-off. This replaces n07's
 	    ScNotHoldingGunUpClose (removed above), which made an overwhelmed member stand and fire point-blank.
 	  - ScBackOffRoom on both back-offs: 0 against an enemy for BackOffNoPointSeconds (1 s, one decision) after SC found no point
-	    inside the base to back off to from it. For a member at home the task's point is SC's (ScBackOff: 10, 6 and 3 m steps on
+	    inside the base to back off to from it. The Fable review (F1, R1): also 0 against EVERY enemy for StandOffShootSeconds
+	    after a member's back-off gained nothing, and through rt1's stand-off shooting beats; reload="pass" (R4, on
+	    BackupRanged only) lets that member-wide beat through while she reloads - a walk away beats standing idle. For a member at home the task's point is SC's (ScBackOff: 10, 6 and 3 m steps on
 	    seven directions, inside the home zone + margin or the defended area in a base attack, out of reach of every enemy); with
 	    none the task ends at once with no path, as 0-XNPCCore's own failure does, and the shot takes that decision.
 	  Everyone else - followers away from home, strangers, enclave people, raiders - keeps 0-XNPCCore's back-off as it is.
@@ -585,7 +587,7 @@
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupRanged&quot;]/@name') != null">
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupRanged']">
-				<consideration class="ScBackOffRoom, SurvivorCommunity" />
+				<consideration class="ScBackOffRoom, SurvivorCommunity" reload="pass" />
 			</append>
 		</if>
 	</conditional>

@@ -312,9 +312,12 @@ What it does now:
   nothing in the way (a wall, a shut door, glass), out of reach of every zombie and not past one, and never outside the
   zone + 8 m. No such point: she shoots for 1 s (`BackOffNoPointSeconds`), then tries again. Away from home a follower
   backs off as 0-XNPCCore does.
-- **A back-off that gains nothing hands the beat to the shot** (the Fable review, F1). 1.5 s into a back-off at home, and
-  again when it ends, the zombie still within 2.5 m or the gap not 1 m larger: she stops and shoots for 1.5 s
-  (`StandOffShootSeconds`), then may back off again. Before, against a feral that keeps pace she walked backward forever.
+- **A back-off that gains nothing hands the beat to the shot** (the Fable review, F1, and its re-review). 1.5 s into a
+  back-off, and again when it ends, the zombie still within 2.5 m or the gap not 1 m larger: she stops and shoots for
+  1.5 s (`StandOffShootSeconds`) - against EVERY zombie, not just that one (R1: with two on her the back-offs took turns
+  and the shot never came) - then may back off again. At home and away alike (R3: a follower away from home too). Before,
+  against a feral that keeps pace she walked backward forever. During that beat, while she reloads, 0-XNPCCore's slower
+  `BackupRanged` may still walk her away (R4) - better than standing idle; `BackupKeepDistance` never does.
   Once backing off, the band reaches 3 m (2.5 + 0.5), so the walk is not cut off at its edge. A point counts as not
   reached only when the back-off ended on its own with no path, not when another action took over; and the walk needs a
   floor under it every meter (no pit, drop or ledge on the way).
@@ -363,9 +366,23 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
       zombieBoeFeral (M) gained nothing 1.5 s in (1.x m to 1.x m, still within 2.5 m) - the shot takes over for 1.5 s (the
       Fable review, F1)", `backoff-no-gain` +1, `dm` shows `RangedMeleeAttack` for about 1.5 s, then he may back off
       again. He never walks backward for more than about 2 s at a time against it.
+- [ ] Two or three ferals (or walkers that keep up) on him at once (the re-review, R1): the same - after a back-off that
+      gained nothing `dm` shows `RangedMeleeAttack` for about 1.5 s whichever of them is nearest; no back-off from the
+      second one in that beat (`sc xnpc Paul`'s back-off line: "the shot has the next 1.x s against every enemy"). He never
+      walks backward for more than about 2 s at a time with several on him either, and he fires between the walks.
+- [ ] Reloading in that beat when he is neither overwhelmed nor standing off: `dm` may show `BackupRanged` (it walks him
+      away while he reloads - R4), never `BackupKeepDistance`, and he is not idle through the reload.
 - [ ] Reloading in that corner with the feral on him (overwhelmed, no back-off from it: `sc xnpc Paul`'s back-off line "the
-      shot has the next decision against 1 enemy(ies)"): he takes his melee weapon and swings rather than standing idle
-      (`x5-cornered-reload-melee` +1 in `sc xnpc`); afterwards his gun comes back as before.
+      shot has the next ... s against every enemy" or "no point from 1 enemy(ies)"): he takes his melee weapon and swings
+      rather than standing idle (verbose "Paul (id N) is cornered and reloading - melee until he has room to back off again
+      (the <gun> after; the re-review, R2)", `x5-cornered-reload-melee` +1 in `sc xnpc`). Your decision, "Stay on melee
+      until room": `sc team Paul`'s hand line shows "CORNERED ON MELEE x s (until room for 1 s: no room; then the <gun> by
+      the normal rules - R2)", and he stays on melee - no "back to the <gun>" overwhelmed line - for at least the 5 s swap
+      hold and as long as he has no room. Once the shot no longer holds his target's beat for 1 s (and the swap hold is
+      over): "Paul (id N) is no longer cornered on melee: room to back off from ... again - the normal rules again",
+      `x5-cornered-melee-end` +1, and the gun comes back by the normal rules (still overwhelmed: "... back to the <gun>",
+      or 0-XNPCCore's own exit). Kill the feral while he is cornered on melee: "... no longer cornered on melee: his target
+      is dead or gone ..." at once, and the normal rules apply (he is never left on melee after the fight).
 - [ ] He never leaves the zone + 8 m (watch from the claim's edge). With a wall at his back, (verbose) "Paul (id N) backs
       off from zombieBoe (M) inside the base: 6 m (the longer steps leave the base or meet a wall)" and `backoff-shortened`
       +1. Backed into a corner: "Paul (id N) has no point inside the base to back off to from zombieBoe (M) (none of 21
@@ -375,7 +392,9 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
       degrees, to x y z".
 - [ ] During a reload `dm` may show `BackupRanged`: that walk stays inside the base too, never out through the gate.
 - [ ] Away from home, following you: his back-off is 0-XNPCCore's own (`sc xnpc Paul`: "away from home - 0-XNPCCore's
-      own, unbounded"), and `backoff-bounded` does not move.
+      own, unbounded"; its last one "0-XNPCCore's own point (unbounded)"), and `backoff-bounded` does not move. A feral on
+      him there (the re-review, R3): its back-off is judged too - "Paul (id N)'s back-off from zombieBoeFeral (M) gained
+      nothing ..." and `backoff-no-gain` +1, then he shoots for about 1.5 s; he does not walk backward without firing.
 
 **Scenario 2: a hurt member indoors**
 
@@ -391,8 +410,9 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
       `dm` shows `BackupKeepDistance` (0-XNPCCore's back-off, inside the base).
 - [ ] A `zombieBoeFeral` sprinting at her: "... gains on her ..." (cornered 1 s), then 1.5 s of shooting: through that
       beat `dm` shows `RangedMeleeAttack`, never `BackupKeepDistance` (the Fable review, F1: before, 0-XNPCCore's back-off
-      took the beat, so she ran in circles), and `sc xnpc Gina`'s back-off line says "the shot has the next decision against
-      1 enemy(ies)". The same after a short step's "SHOOTING BETWEEN STEPS".
+      took the beat, so she ran in circles), and `sc xnpc Gina`'s back-off line says "the shot has the next 1.x s against
+      every enemy". The same after a short step's "SHOOTING BETWEEN STEPS" - and with two zombies at the door, against
+      both (R1).
 
 **Scenario 3: you stand by and do not fight**
 
@@ -425,11 +445,12 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
 - [ ] After the scenarios, `sc xnpc`: `backoff-bounded`, `backoff-shortened`, `backoff-no-point`, `backoff-no-gain` (also
       `backoff-wide` for a point more than 25 degrees off straight back, `backoff-unreached` for a point the path could not
       reach - only after a back-off that ended on its own, never when another action cut it short) and the "back-offs
-      (round k1)" line with the same totals ("... N that gained nothing ..., N beat(s) handed to the shot in all"). The
-      patch list also has "patched UAITaskBackupFromTargetPaced::Update"; no "NO GAIN TEST" in the back-offs line.
+      (round k1)" line with the same totals ("... N that gained nothing ..., N member-wide beat(s) handed to the shot in
+      all"). The patch list also has "patched UAITaskBackupFromTargetPaced::Update"; no "NO GAIN TEST" in the back-offs
+      line. `backoff-unapplied` stays 0 (anything else means 0-XNPCCore changed its back-off: report it). `sc retreat`
+      lists `retreat-backoff-shortened` and `retreat-backoff-shoot`.
 - [ ] A ditch, a hole or a drop between him and the only point straight back: that point is not picked (`sc xnpc Paul`:
-      a point to the side, or "no point ... last: no floor under the walk (a pit, a drop or a ledge)"). `backoff-unapplied` stays 0 (anything else means 0-XNPCCore changed
-      its back-off: report it). `sc retreat` lists `retreat-backoff-shortened` and `retreat-backoff-shoot`.
+      a point to the side, or "no point ... last: no floor under the walk (a pit, a drop or a ledge)").
 
 Round rt1's Scenario 3 below is updated for this round: cornered is 1 s, not 3 s, and when the stand-off does not run
 `dm` may show `BackupKeepDistance` or `BackupRanged` (0-XNPCCore's back-off, inside the base).
