@@ -243,6 +243,37 @@ namespace SurvivorCommunity
             handed++;
         }
 
+        private static object wideCheckedPkg, wideCheckedWorld;
+
+        /// <summary>
+        /// The Fable review of k5 (finding 4): Config/utilityai.xml appends ScKiteWide behind an xpath() guard on 0-XNPCCore's
+        /// BackupKeepDistance task, so a 0-XNPCCore update could skip it without a word. Once per parsed package and world
+        /// (ScCommunity.ApplyAiPackage calls it beside its own check that SCResident is registered): a warning when SCResident
+        /// has no ScKiteWide action - a badly hurt member with a gun then falls back to the 2.5 m back-off. Main thread.
+        /// </summary>
+        internal static void CheckWideAction(UAI.UAIPackage pkg)
+        {
+            try
+            {
+                World w = GameManager.Instance != null ? GameManager.Instance.World : null;
+                if (pkg == null || (ReferenceEquals(pkg, wideCheckedPkg) && ReferenceEquals(w, wideCheckedWorld))) return;
+                wideCheckedPkg = pkg;
+                wideCheckedWorld = w;
+                List<UAI.UAIAction> actions = pkg.GetActions();
+                if (actions != null)
+                    for (int i = 0; i < actions.Count; i++)
+                        if (actions[i] != null && actions[i].Name == WideBackOffAction) return;
+                ScLog.Once("no-kite-wide", "ai_package " + ScCommunity.ResidentPackage + " has no " + WideBackOffAction + " action - Config/utilityai.xml's"
+                           + " xpath() guard skipped it (0-XNPCCore's BackupKeepDistance no longer runs Voice Control's BackupFromTargetPaced?): a"
+                           + " badly hurt member with nothing to heal with and a gun falls back to the " + F1(ScConfig.BackupKeepDistanceMax)
+                           + " m back-off (BackupKeepDistance) and the shot - no " + F1(ScConfig.StandOffMin) + " m wide band (round k5)");
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("backoff-wide-check", ex);
+            }
+        }
+
         /// <summary>
         /// Round k5: her "no point" verdicts in a row (BoundStart's; a pick that worked clears it), counted only while the last
         /// is under StreakSeconds old - ScRetreat's cornered-away rule for KITE away from home reads it. A pure read.

@@ -566,6 +566,9 @@
 	  BackupKeepDistance), so every rule of round k1 judges it: at home SC's bounded point (10, 6, 3 m steps inside the base, out
 	  of every enemy's reach), away from home with you within StandOffFollowerLeash of you, the gain test and the shooting beats
 	  (ScBackOffRoom), and a step that leaves the enemy inside StandOffMin is followed by StandOffShootSeconds of shooting.
+	  SdcsMayAct first, as on BackupKeepDistance (the Fable review of k5, finding 2): 0-XNPCCore's stun gate - a stunned or
+	  knocked-down member does not start a path she cannot walk. The DLL warns once at load when SCResident has no ScKiteWide
+	  (finding 4: this guard skipped it) - hurt members then fall back to the 2.5 m back-off.
 	  ScPosture action="wide": 1 against a visible enemy within StandOffMin (8 m), up to the gap StandOffMax (15 m, never past her
 	  engage range) for the run already going against it; 0 for everyone else. 8.2: over BackupKeepDistance (8), the medic (7)
 	  and the shot (6) - she backs off rather than shooting at what comes within 8 m - under ScHealBackOff (8.3), ScRetreat and
@@ -577,6 +580,7 @@
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']">
 				<action name="ScKiteWide" weight="8.2" entity_filter="IsEnemy">
 					<task class="BackupFromTargetPaced, 1-XNPCVoiceControl" max_distance="10" pace="1" max_speed="2.4" spread="25" tries="6" />
+					<consideration class="SdcsMayAct, NPCSdcsCharacters" />
 					<consideration class="ScIsMember, SurvivorCommunity" />
 					<consideration class="NotHasOrder, SCore" order="Stay" />
 					<consideration class="ScNotOnWatch, SurvivorCommunity" />

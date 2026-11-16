@@ -83,7 +83,8 @@
 			     when she leaves home. A shelter also ends once she can heal herself again (the stockpile's medical restock,
 			     MedsResupply, reaches her while she shelters, or you hand her an item) and nothing has been after her for 5 s
 			     - she leaves to heal and goes back to her routine - and after RetreatMaxSeconds once nothing has been after
-			     her for 5 s, healed or not (0: never by time); after either, only an enemy after her shelters her again for
+			     her for 5 s, no armed enemy is about and the threat is gone or at least ShelterMinThreatDist off, healed or
+			     not (0: never by time); after either, only an enemy after her shelters her again for
 			     RetreatClearSeconds. No member shelters forever. A member hurt like that is never walked to a fight anywhere
 			     (the base defense and the melee chase leave her be). RetreatCowards: a Cowardly member at home who is not hanging back with her gun
 			     shelters the same way instead of running from the base.

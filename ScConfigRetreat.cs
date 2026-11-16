@@ -14,7 +14,8 @@ namespace SurvivorCommunity
     /// StandOffShootSeconds) here, after StandOffFollowerLeash; they are not behind RetreatHome. ResetRetreat clears ScBackOff too.
     /// Round k5 keeps every key: StandOffMin / StandOffMax are now KITE's wide band (a hurt member with a gun backs off from what
     /// comes within StandOffMin, the run kept up to StandOffMax), StandOffFollowerLeash its bound away from home, and
-    /// RetreatMaxSeconds (new) ends a shelter that has lasted that long once nothing is after her.
+    /// RetreatMaxSeconds (new) ends a shelter that has lasted that long once nothing is after her, no armed enemy is about and
+    /// the threat is gone or at least ShelterMinThreatDist off (the Fable review of k5, finding 1).
     /// </summary>
     public static partial class ScConfig
     {
@@ -191,7 +192,8 @@ namespace SurvivorCommunity
                    + " shelters inside (a roof, " + ShelterWalls + " of 8 walls, " + F2(ShelterMinThreatDist) + " m from the threat) or, hurt with a gun, KITEs with the wide band ("
                    + F2(StandOffMin) + " m, a run kept up to " + F2(StandOffMax) + " m); ends at " + F2(RetreatHealedAt) + " health or " + F2(RetreatClearSeconds)
                    + " s without a threat; a shelter also ends once she can heal again (the stockpile's restock) and nothing has been after her for 5 s"
-                   + (RetreatMaxSeconds > 0f ? ", or after " + F2(RetreatMaxSeconds) + " s once nothing has been after her for 5 s" : "")
+                   + (RetreatMaxSeconds > 0f ? ", or after " + F2(RetreatMaxSeconds) + " s once nothing has been after her for 5 s, no armed enemy is about and the threat is gone or "
+                      + F2(ShelterMinThreatDist) + "+ m off" : "")
                    + "; fights back within " + F2(RetreatFightBackRange) + " m; "
                    + (StandOffFollowerLeash > 0f ? "followers away kite within " + F2(StandOffFollowerLeash) + " m of you" : "followers away flee as before (StandOffFollowerLeash 0)")
                    + "; shelter scan every " + ShelterRescanSeconds.ToString("0", CultureInfo.InvariantCulture) + " s";

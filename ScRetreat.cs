@@ -42,7 +42,8 @@ namespace SurvivorCommunity
     /// RetreatClearSeconds; no longer eligible. Shelter only (round k5, "no member stays in shelter forever"): she can heal
     /// herself again (md1's or k2's emergency restock from the stockpile while she shelters, or an item you hand her) and
     /// nothing has been after her for RestockExitSeconds - she leaves to heal and goes back to her routine; or she has sheltered
-    /// RetreatMaxSeconds and nothing has been after her for RestockExitSeconds. After those two exits only an enemy after her
+    /// RetreatMaxSeconds, nothing has been after her for RestockExitSeconds, no armed enemy is about and the scan's threat is
+    /// gone or at least ShelterMinThreatDist off (the Fable review of k5, finding 1: LongExitClear). After those two exits only an enemy after her
     /// (not one that merely sees her) starts a shelter again for RetreatClearSeconds. Every exit clears the state at once,
     /// never kept to act on later (the round hl1 lesson).
     /// FightBack (Shelter): an enemy within RetreatFightBackRange that is after her, or one that hit her in the last 3 s within
@@ -258,13 +259,17 @@ namespace SurvivorCommunity
                             + RestockExitSeconds.ToString("0", CultureInfo.InvariantCulture) + " s - " + She(e) + " leaves the shelter to heal (round k5)");
                         return;
                     }
-                    // round k5: no member shelters forever - after RetreatMaxSeconds with nothing after her she goes back to her routine
-                    if (ScConfig.RetreatMaxSeconds > 0f && now - st.Since >= ScConfig.RetreatMaxSeconds)
+                    // round k5: no member shelters forever - after RetreatMaxSeconds with nothing after her she goes back to her
+                    // routine; the Fable review of k5 (finding 1): not out into what kept her in - no armed enemy about and the
+                    // scan's threat gone or at least ShelterMinThreatDist off (her regen is held by any enemy within 12 m, and the
+                    // restock reaches her in the shelter anyway, so leaving sooner gains her nothing)
+                    if (ScConfig.RetreatMaxSeconds > 0f && now - st.Since >= ScConfig.RetreatMaxSeconds && LongExitClear(e, st))
                     {
                         st.AfterOnlyUntil = now + ScConfig.RetreatClearSeconds;
                         End(e, st, "long", "sheltered " + (now - st.Since).ToString("0", CultureInfo.InvariantCulture) + " s (RetreatMaxSeconds "
-                            + ScConfig.RetreatMaxSeconds.ToString("0", CultureInfo.InvariantCulture) + ") and nothing has been after " + HerObj(e) + " for "
-                            + RestockExitSeconds.ToString("0", CultureInfo.InvariantCulture) + " s; restock: " + ScMedic.RestockText(e) + " (round k5)");
+                            + ScConfig.RetreatMaxSeconds.ToString("0", CultureInfo.InvariantCulture) + "), nothing has been after " + HerObj(e) + " for "
+                            + RestockExitSeconds.ToString("0", CultureInfo.InvariantCulture) + " s, " + LongExitText(e, st) + "; restock: " + ScMedic.RestockText(e)
+                            + " (round k5, the Fable review's finding 1)");
                         return;
                     }
                 }
@@ -316,6 +321,27 @@ namespace SurvivorCommunity
                 if (region != Region.Leader || now >= st.NoKiteUntil) return Mode.Kite;
             }
             return region == Region.Home ? Mode.Shelter : Mode.None;
+        }
+
+        /// <summary>
+        /// The Fable review of k5 (finding 1): the long exit's room to leave - no armed enemy about (the scan's Armed: ScTeam.Armed
+        /// within FleeClear, kept until ArmedLeave) and the scan's threat (after her or seeing her) gone or at least
+        /// ShelterMinThreatDist off (XZ). A read of the scan's state.
+        /// </summary>
+        private static bool LongExitClear(EntityAlive e, State st)
+        {
+            return !st.Armed && (st.ThreatId < 0 || ScRunners.XZ(e.position, st.ThreatPos) >= ScConfig.ShelterMinThreatDist);
+        }
+
+        /// <summary>The long exit's room to leave in words (LongExitClear): the exit's log line and sc retreat. A read.</summary>
+        private static string LongExitText(EntityAlive e, State st)
+        {
+            if (st.Armed) return "ARMED enemies about";
+            if (st.ThreatId < 0) return "no armed enemy and no threat after " + HerObj(e) + " or seeing " + HerObj(e);
+            float d = ScRunners.XZ(e.position, st.ThreatPos);
+            return "no armed enemy, the threat " + d.ToString("0.#", CultureInfo.InvariantCulture) + " m off ("
+                   + (d >= ScConfig.ShelterMinThreatDist ? "at least" : "UNDER") + " ShelterMinThreatDist "
+                   + ScConfig.ShelterMinThreatDist.ToString("0.#", CultureInfo.InvariantCulture) + ")";
         }
 
         private static void Begin(EntityAlive e, State st, Region region, Mode mode, float now)
@@ -985,7 +1011,9 @@ namespace SurvivorCommunity
                 lines.Add("[SC]   exits (round k5): " + (st.Targeted ? "an enemy is after " + HerObj(e) : "nothing after " + HerObj(e) + " for "
                           + (st.NotTargetSince > 0f ? (now - st.NotTargetSince).ToString("0", CultureInfo.InvariantCulture) : "0") + " s")
                           + "; heal items " + ScMedic.HealItemCount(e) + "; restock: " + ScMedic.RestockText(e)
-                          + (ScConfig.RetreatMaxSeconds > 0f ? "; a shelter ends after " + ScConfig.RetreatMaxSeconds.ToString("0", CultureInfo.InvariantCulture) + " s once nothing is after " + HerObj(e) : "")
+                          + (ScConfig.RetreatMaxSeconds > 0f ? "; a shelter ends after " + ScConfig.RetreatMaxSeconds.ToString("0", CultureInfo.InvariantCulture) + " s once nothing is after " + HerObj(e)
+                             + ", no armed enemy is about and the threat is gone or " + ScConfig.ShelterMinThreatDist.ToString("0.#", CultureInfo.InvariantCulture) + "+ m off (now: "
+                             + LongExitText(e, st) + ")" : "")
                           + (now < st.AfterOnlyUntil ? "; for " + (st.AfterOnlyUntil - now).ToString("0", CultureInfo.InvariantCulture) + " s more only an enemy after " + HerObj(e) + " shelters " + HerObj(e) + " again" : ""));
             }
             EntityAlive t;

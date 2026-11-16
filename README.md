@@ -373,8 +373,9 @@ The community window's **Activities** tab has one activity, **Prepare a round of
   - It ends once she is back above 45% health or no enemy has been about for 20 seconds. **She never shelters for
     good:** with medical bundles in the stockpile she is restocked while she shelters, and once nothing has been after
     her for 5 seconds she comes out, bandages and goes back to her routine; with none, she comes out after 2 minutes
-    once nothing has been after her for 5 seconds. For 20 seconds after that only a zombie that is after her sends her
-    back in. Hand her a bandage and she uses it there.
+    once nothing has been after her for 5 seconds, no raider or bandit is about and no zombie that sees her is within
+    12 m. For 20 seconds after that only a zombie that is after her sends her back in. Hand her a bandage and she uses it
+    there.
 - While she is that hurt she is never walked to a fight, at home or away: the base defense and the melee chase leave her
   be. That stops the old run off / walk back / run off again.
 - **Cowardly** members at home retreat inside the same way instead of running from the base (in a fight your side can win, one with a
@@ -1605,7 +1606,7 @@ These are the ones you are most likely to change. The file has many more.
 | `BackOffNoPointSeconds` | 1 | With no spot to back off to she shoots this long, then tries again |
 | `StandOffShootSeconds` | 1.5 | A badly hurt member kiting shoots this long between two short steps back; a member whose back-off gained nothing shoots this long too |
 | `RetreatHome` | true | Badly hurt members with nothing to heal with stay in the base: they kite with a gun or shelter inside; false: they run as before |
-| `RetreatHealedAt` / `RetreatClearSeconds` / `RetreatMaxSeconds` | 0.45 / 20 / 120 | A retreat ends at this share of her health, or after this many seconds with no enemy about; a shelter also ends after the third once nothing has been after her for 5 s (0: never by time) |
+| `RetreatHealedAt` / `RetreatClearSeconds` / `RetreatMaxSeconds` | 0.45 / 20 / 120 | A retreat ends at this share of her health, or after this many seconds with no enemy about; a shelter also ends after the third once nothing has been after her for 5 s, no raider or bandit is about and no zombie that sees her is within 12 m (0: never by time) |
 | `StandOffMin` / `StandOffMax` | 8 / 15 | A badly hurt member with a gun backs off from a zombie within the first (meters), and keeps a step going to about the second |
 | `StandOffFollowerLeash` | 20 | Away from home a badly hurt follower with a gun kites within this many meters of you; 0: she runs as before |
 | `TeamThreatTags` | walker:1, feral:2, radiated:3 ... | How much each kind of enemy counts (the comment in blocks.xml lists all of the `Team...` settings) |

@@ -59,6 +59,14 @@ What it does now:
   sheltered `RetreatMaxSeconds` (120 s, new key) and nothing has been after her for 5 s. After either, for 20 s only a
   zombie that is AFTER her starts a shelter again (not one that merely sees her). Doors she passed stay shut behind her
   (ScDoors).
+- **The Fable review of k5 (findings 1, 2, 4):** the long exit (b) also waits for no armed enemy (raider or bandit) about
+  and the threat - the nearest zombie after her or seeing her - gone or at least `ShelterMinThreatDist` (12 m) off, so she
+  does not walk out into what kept her in (1). `ScKiteWide` carries 0-XNPCCore's stun gate `SdcsMayAct` first, as
+  `BackupKeepDistance` does (2). When `ScKiteWide`'s `xpath()` guard skipped it (a 0-XNPCCore update), the DLL warns once
+  per world that hurt members fall back to the 2.5 m back-off (4).
+  Known limit, accepted (finding 3): a hurt member holding her melee weapon gets no wide step (`ScKiteWide` needs a
+  gun in hand). It happens only when a draw did not take (10 s back-off) or nothing is after her yet; the urgent draw
+  fires the moment something is. Note it if a hurt member stands still with a melee weapon while a zombie closes in.
 - **k5, small fixes:** a sheltering member fights back at a hit only with a clear line to the zombie (rt1 follow-up B: a
   bleed tick with the zombie behind her shut door ended the hold); the clear-line test steps past up to 8 zombies (C, was
   4). R2 (cornered melee until room): on melee a room probe about once a second keeps "no room" alive, so a truly pinned
@@ -82,8 +90,14 @@ with ...: YES".
 
 - [ ] The log: "config: retreat ... hurt with a gun, KITEs with the wide band (8 m, a run kept up to 15 m) ...; a shelter
       also ends once she can heal again (the stockpile's restock) and nothing has been after her for 5 s, or after 120 s
-      once nothing has been after her for 5 s; ...; followers away kite within 20 m of you". No warning about an unknown
-      key, no `MISSING PATCH`, no "UAI ... class ... not found" for `ScStandOff` or `StandOffSC` (both gone with their XML).
+      once nothing has been after her for 5 s, no armed enemy is about and the threat is gone or 12+ m off; ...; followers
+      away kite within 20 m of you". No warning about an unknown key, no `MISSING PATCH`, no "UAI ... class ... not found"
+      for `ScStandOff` or `StandOffSC` (both gone with their XML), and no "ai_package SCResident has no ScKiteWide action".
+- [ ] Finding 4's warning: in the installed `Mods/SurvivorCommunity/Config/utilityai.xml` rename `ScKiteWide` to
+      `ScKiteWideX` and start a world with a member at home: once, "ai_package SCResident has no ScKiteWide action -
+      Config/utilityai.xml's xpath() guard skipped it ...: a badly hurt member with nothing to heal with and a gun falls
+      back to the 2.5 m back-off (BackupKeepDistance) and the shot - no 8 m wide band (round k5)" - not again that world.
+      Put the name back.
 - [ ] `sc retreat`: "N retreating now (N sheltering, N kiting hurt) ...".
 
 **1. The plan's test: hurt, no meds, 5 zombies**
@@ -99,6 +113,9 @@ with ...: YES".
       from the nearest one (or, with no room left, shoots: `backoff-no-point`), and keeps shooting.
 - [ ] A `zombieBoeFeral` that keeps pace: "Gina's back-off from zombieBoeFeral (M) gained nothing ..." (`backoff-no-gain`),
       the shot for 1.5 s, then she tries again - never a walk backward without firing for more than about 1.5 s.
+- [ ] Finding 2 (the stun gate): Gina knocked down or stunned (a zombie's knockdown, or your power attack with a club)
+      with a walker within 8 m: while she is down `dm` never shows `ScKiteWide` and she does not slide along a path; once
+      she is up, `ScKiteWide` again.
 - [ ] Kill them (or let the others): 20 s later "Gina (id N) ends her retreat (KITE (hurt), N s): no threat for 20 s".
 - [ ] Her gun runs dry mid-fight (no ammo in her pack and bag, `XnpcResupply` false): "switches her retreat from KITE
       (hurt) to shelter: her gun is dry" at once, and she runs to a shelter spot.
@@ -108,12 +125,21 @@ with ...: YES".
 - [ ] Paul (melee only), hurt to 0.3 with nothing, `MedsResupply` false, five walkers at home: "Paul (id N) retreats -
       SHELTER inside ..."; he runs to a room and the doors he passed shut behind him (`sc retreat Paul`: "doors handed to
       ScDoors N"). He ends behind a door, or at least 8 m from every zombie.
-- [ ] The walkers lose him (they pound another wall, wander off, or you lead them away) but stay within 15 m: after 120 s
-      in the shelter and 5 s with none after him: "Paul (id N) ends his retreat (shelter, 12x s): sheltered 12x s
-      (RetreatMaxSeconds 120) and nothing has been after him for 5 s; restock: not now - MedsResupply is off ... (round
-      k5)", `retreat-ended-long` +1. He walks out (doors still shut behind him once he is through). `sc retreat Paul`:
-      "... for 1x s more only an enemy after him shelters him again". A walker that merely sees him in that time: no new
-      shelter; one that comes after him: "retreats - SHELTER inside" again.
+- [ ] The walkers lose him (they pound another wall, wander off, or you lead them away; none can see him) but stay within
+      15 m: after 120 s in the shelter and 5 s with none after him: "Paul (id N) ends his retreat (shelter, 12x s):
+      sheltered 12x s (RetreatMaxSeconds 120), nothing has been after him for 5 s, no armed enemy and no threat after him
+      or seeing him; restock: not now - MedsResupply is off ... (round k5, the Fable review's finding 1)",
+      `retreat-ended-long` +1. He walks out (doors still shut behind him once he is through). `sc retreat Paul`: "... for
+      1x s more only an enemy after him shelters him again". A walker that merely sees him in that time: no new shelter;
+      one that comes after him: "retreats - SHELTER inside" again.
+- [ ] Finding 1: a walker that sees him through a window or a gap from 6-10 m (it cannot reach him): past 120 s no "long"
+      end while it is within 12 m - `sc retreat Paul`'s exits line says "an enemy is after him" (it chose him) or "(now: no
+      armed enemy, the threat N m off (UNDER ShelterMinThreatDist 12))" (it only sees him). It wanders to 12 m or more and
+      is not after him, or loses him: the long exit within about 5 s, "... the threat 1x m off (at least
+      ShelterMinThreatDist 12) ..." or "... no threat after him or seeing him ...".
+- [ ] Finding 1: a raider or bandit about (within 30 m; it counts until it is past 35 m) while Paul shelters with nothing
+      after him: no "long" end however long - the exits line says "(now: ARMED enemies about)". It dies or goes past 35 m:
+      the long exit follows (with no zombie within 12 m that sees him).
 - [ ] One stays after him, pounding his door: he stays in (no "long" end) - `sc retreat Paul`: "an enemy is after him".
 - [ ] `MedsResupply` true again (restart) and Meds in the stockpile, Paul sheltering with walkers about: within 5 s the
       restock reaches him in the shelter (`sc meds`: `meds-restock-emergency` or `meds-restock` +1); with nothing after

@@ -391,8 +391,9 @@ When they are badly hurt
   - It ends once she is back above 45% health or no enemy has been about for 20 seconds. She never shelters for good:
     with medical bundles in the stockpile she is restocked while she shelters, and once nothing has been after her for
     5 seconds she comes out, bandages and goes back to her routine; with none, she comes out after 2 minutes once
-    nothing has been after her for 5 seconds. For 20 seconds after that only a zombie that is after her sends her back
-    in. Hand her a bandage and she uses it there.
+    nothing has been after her for 5 seconds, no raider or bandit is about and no zombie that sees her is within 12 m.
+    For 20 seconds after that only a zombie that is after her sends her back in. Hand her a bandage and she uses it
+    there.
 - While she is that hurt she is never walked to a fight, at home or away: the base defense and the melee chase leave her
   be.
 - Cowardly members at home retreat inside the same way instead of running from the base (in a fight your side can win,
@@ -1716,7 +1717,7 @@ NPCs and voices
   inside; false: they run as before
 - RetreatHealedAt / RetreatClearSeconds / RetreatMaxSeconds = 0.45 / 20 / 120: A retreat ends at this share of her
   health, or after this many seconds with no enemy about; a shelter also ends after the third once nothing has been
-  after her for 5 s (0: never by time)
+  after her for 5 s, no raider or bandit is about and no zombie that sees her is within 12 m (0: never by time)
 - StandOffMin / StandOffMax = 8 / 15: A badly hurt member with a gun backs off from a zombie within the first (meters),
   and keeps a step going to about the second
 - StandOffFollowerLeash = 20: Away from home a badly hurt follower with a gun kites within this many meters of you; 0:

@@ -1424,6 +1424,7 @@ namespace SurvivorCommunity
                 ScLog.Once("no-resident-package", "ai_package " + ResidentPackage + " is not registered - Config/utilityai.xml did not apply (residents will only guard)");
                 return;
             }
+            ScBackOff.CheckWideAction(UAI.UAIBase.AIPackages[ResidentPackage]);     // the Fable review of k5 (finding 4): its guarded ScKiteWide
             if (!npc.AIPackages.Contains(ResidentPackage)) npc.AIPackages.Add(ResidentPackage);
         }
 

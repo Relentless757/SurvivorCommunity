@@ -211,7 +211,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   source, kind, walls, roof, distance), the spots she could not reach and the doors handed to ScDoors, or KITE's wide band
   with her last back-off (and away from home the "no point" verdicts in a row); the exits (round k5): whether an enemy is
   after her or for how long none has been, her heal items, where her restock from the stockpile stands, and the
-  `RetreatMaxSeconds` rule; the gates as the AI reads them right now (`ScRetreating`, KITE's wide band, `ScNotRetreatHome`
+  `RetreatMaxSeconds` rule with what holds it right now (armed enemies, or the threat under `ShelterMinThreatDist`); the gates as the AI reads them right now (`ScRetreating`, KITE's wide band, `ScNotRetreatHome`
   hurt / coward, `ScNotRetreating`, `ScNotHurtNoMeds`); and at home the spot she would pick now. A read: nothing is
   written.
 - **`sc retreat shelters [n]`** — the shelter cache's best n candidates (20 by default): position, roofed or not, walls of
@@ -221,7 +221,8 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   `retreat-to-kite` (the mode changed mid-retreat), `retreat-arrived`, `retreat-fightback`, `retreat-no-shelter` (a
   fallback, once per retreat), `retreat-fallback-upgraded`, `retreat-spot-unreachable`, `retreat-door-tracked`,
   `retreat-cornered-away`, and `retreat-ended-<why>`: `healed`, `hangs-back`, `threat-gone`, `restocked` (round k5: she can
-  heal again and nothing has been after her for 5 s), `long` (round k5: `RetreatMaxSeconds` and nothing after her for 5 s),
+  heal again and nothing has been after her for 5 s), `long` (round k5: `RetreatMaxSeconds`, nothing after her for 5 s, no
+  armed enemy about and the threat gone or at least `ShelterMinThreatDist` off),
   `ineligible`, `no-gun-away`, `cornered-away` (no point to step back to near you twice in a row away from home: she flees as
   before for 15 s), `off`. Round k5 retired `retreat-standoff*`, `retreat-backoff*` and `retreat-cornered` with rt1's
   stand-off walk. Weapons: KITE hurt is the KITE posture - `x5-kite-keep-gun` (her gun kept up close) and
