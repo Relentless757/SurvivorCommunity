@@ -138,8 +138,9 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   middle of a bandage), `meds-cooldown`, `meds-place-failed` (nothing went into a pack that had room). At home each
   outcome is counted once per episode, when it changes, not at every 5 s check. `sc xnpc <name>`'s `medic:` line shows
   her last and next restock (`restock (md1): ...`) and round k2's state (`k2: no wait` or `WAITING ...`, `regen ...`).
-- Round k2's counters: `meds-restock-emergency` (a restock at home that ignored the cooldown: no heal item, under
-  `MedsResupplyEmergencyBelow`), `meds-use-held-reach` (a member put off a medical use because an enemy after her was
+- Round k2's counters: `meds-restock-emergency` (a restock at home that ignored the cooldown: no heal item, nothing
+  still healing her, under `MedsResupplyEmergencyBelow`), `meds-emergency-cooldown` (such an emergency waited for
+  `MedsResupplyEmergencyCooldownHours`; once per episode), `meds-use-held-reach` (a member put off a medical use because an enemy after her was
   within `MedicSafeDistance`; once per wait), `meds-use-desperate` (she used it anyway after `MedicMaxWait` under 25%),
   `meds-regen-started` (a regeneration began), `meds-regen-capped` (one stopped at `RegenCapShare`).
 

@@ -56,11 +56,12 @@ namespace SurvivorCommunity
     /// ever dropped. MedsResupply false: never. sc meds shows it.
     ///
     /// Round k2 (2026-11-15, research/combat/SC_VS_NPCCORE.md root causes 2 and 5, section 4.4): members heal sensibly.
-    /// (1) At home a member with no heal item at all and under MedsResupplyEmergencyBelow of her health is restocked with
-    /// her cooldown ignored and started, as before a run (Evaluate's Emergency; meds-restock-emergency). (2) A member - or a
-    /// stand-in - starts no medical use while an enemy that is after her is within MedicSafeDistance (HeldByReach): she
+    /// (1) At home a member with no heal item at all, nothing still healing her and under MedsResupplyEmergencyBelow of her
+    /// health is restocked with her cooldown ignored and started, as before a run, at most once per
+    /// MedsResupplyEmergencyCooldownHours (Evaluate's Emergency and EmergencyLeft; meds-restock-emergency). (2) A member - or
+    /// a stand-in - starts no medical use while an enemy that is after her is within MedicSafeDistance (HeldByReach): she
     /// fights on and uses it once the enemy is gone, dead or farther off; waited MedicMaxWait and under DesperateBelow of her
-    /// health, she uses it anyway. (3) Under KitFirstBelow she takes a first aid kit before a first aid bandage. (4) A member
+    /// health, she uses it anyway (WaitingToHeal reads the wait). (3) Under KitFirstBelow she takes a first aid kit before a first aid bandage. (4) A member
     /// regains RegenRatePerSecond health out of combat, up to RegenCapShare of her max (RegenTick, from ScAmmo.Tick's 5 s
     /// member loop: her own loaded, visible body on the host only). Raiders and strangers heal as before.
     /// </summary>
@@ -100,6 +101,13 @@ namespace SurvivorCommunity
         private static readonly Dictionary<int, float> readyAt = new Dictionary<int, float>();
         /// <summary>Round k2: body id -> the Time.time she first wanted to start a use and was held by an enemy in reach (her wait).</summary>
         private static readonly Dictionary<int, float> heldSince = new Dictionary<int, float>();
+        /// <summary>Round k2 (Fable review 5): body id -> the Time.time of her latest refusal in that wait (TryHeal asks every second).</summary>
+        private static readonly Dictionary<int, float> heldLast = new Dictionary<int, float>();
+        /// <summary>
+        /// Round k2 (Fable review 5): a wait whose latest refusal is older than this (seconds) is over - an unload, a knockdown,
+        /// a break in the fight or a use's cooldown came between - and the next refusal starts a fresh MedicMaxWait.
+        /// </summary>
+        private const float WaitStaleSeconds = 3f;
         /// <summary>Round k2: the enemy scans' scratch list (main thread only).</summary>
         private static readonly List<Entity> near = new List<Entity>();
 
@@ -141,6 +149,36 @@ namespace SurvivorCommunity
 
         /// <summary>A medical use is in progress (ScRunners skips its periodic snapshot - a Write(false) would finish the use).</summary>
         public static bool IsUsing(int id) { return uses.ContainsKey(id); }
+
+        /// <summary>
+        /// Round k2 (Fable review 8): is this body's medical use being held right now because an enemy after her is within
+        /// MedicSafeDistance (TryHeal's HeldByReach), and for how long (seconds, 0 when not)? A pure read, main thread. A wait
+        /// whose latest refusal is more than WaitStaleSeconds old counts as over.
+        /// </summary>
+        public static bool WaitingToHeal(EntityAlive e, out float seconds)
+        {
+            seconds = 0f;
+            float since;
+            if (e == null || !heldSince.TryGetValue(e.entityId, out since)) return false;
+            float now = Time.time;
+            if (!Fresh(e.entityId, now)) return false;
+            seconds = Mathf.Max(0f, now - since);
+            return true;
+        }
+
+        /// <summary>Round k2: her wait's latest refusal is at most WaitStaleSeconds old.</summary>
+        private static bool Fresh(int id, float now)
+        {
+            float last;
+            return heldLast.TryGetValue(id, out last) && now - last <= WaitStaleSeconds;
+        }
+
+        /// <summary>Round k2: her wait is over.</summary>
+        private static void ClearWait(int id)
+        {
+            heldSince.Remove(id);
+            heldLast.Remove(id);
+        }
 
         /// <summary>
         /// Has she any way to heal herself - a use already running, an item still working on her, or a heal item on her
@@ -191,6 +229,7 @@ namespace SurvivorCommunity
             mixSkipped = 0;
             // round k2: the waits for an enemy in reach, and the regeneration's clocks, reasons and totals
             heldSince.Clear();
+            heldLast.Clear();
             regenAt.Clear();
             regenWhy.Clear();
             regenGained.Clear();
@@ -253,16 +292,21 @@ namespace SurvivorCommunity
             TryHeal(e, now);
         }
 
+        /// <summary>
+        /// A body id SC lets go of (ScLooks.Forget: a member purged or dead off-world, a runner's old id after a re-key, an
+        /// enclave person's or band member's body leaving the world - entity ids are recycled). Round k2 (Fable review 5) wired
+        /// it in: its check and cooldown clocks, her wait for an enemy in reach and her regeneration state go. A use in
+        /// progress and its displaced weapon are NOT dropped here: their mirror must outlive an unload for the chunk save
+        /// that comes after it (see displaced), and they end with the use, the death, the next load (FixLoadedHand) or the game.
+        /// </summary>
         public static void Forget(int entityId)
         {
             nextCheck.Remove(entityId);
             readyAt.Remove(entityId);
-            uses.Remove(entityId);
-            Displaced gone;
-            displaced.TryRemove(entityId, out gone);
-            heldSince.Remove(entityId);
+            ClearWait(entityId);
             regenAt.Remove(entityId);
             regenWhy.Remove(entityId);
+            regenGained.Remove(entityId);
         }
 
         // ---------------------------------------------------------------------------------------------------------
@@ -322,7 +366,7 @@ namespace SurvivorCommunity
             if (max <= 0) return;
             bool low = e.Health <= max * HealBelow;
             bool bleeding = e.Buffs.HasBuff(BleedBuff);
-            if (!low && !bleeding) { heldSince.Remove(e.entityId); return; }
+            if (!low && !bleeding) { ClearWait(e.entityId); return; }
             if (e.emodel == null || e.emodel.IsRagdollActive || e.inventory == null) return;
             float ready;
             if (readyAt.TryGetValue(e.entityId, out ready) && now < ready) return;
@@ -341,7 +385,7 @@ namespace SurvivorCommunity
                 else if (Count(e, "medicalFirstAidKit") > 0) pick = "medicalFirstAidKit";
             }
             if (pick == null && bleeding && (low || !InFight(e))) pick = FirstCarried(e, BleedItems);
-            if (pick == null) { heldSince.Remove(e.entityId); return; }
+            if (pick == null) { ClearWait(e.entityId); return; }
             if (member && HeldByReach(e, pick, max, now)) return;
             if (!TakeOne(e, pick)) return;
             Begin(e, pick, now);
@@ -379,20 +423,27 @@ namespace SurvivorCommunity
         /// waited MedicMaxWait and is under DesperateBelow of her health, she uses it with the enemy still there - a heal now
         /// beats none. A bleed follows the same rule. True: held at this check. 0-XNPCCore rolls away before its own bandage
         /// (its heal sequence); SC's members do not roll (round k2's report: not built).
+        /// A wait whose latest refusal is more than WaitStaleSeconds old is dropped first (Fable review 5): a reload, a
+        /// knockdown or a break in the fight starts a fresh MedicMaxWait rather than counting the old one.
         /// </summary>
         private static bool HeldByReach(EntityAlive e, string pick, int max, float now)
         {
             float r = ScConfig.MedicSafeDistance;
-            if (r <= 0f) { heldSince.Remove(e.entityId); return false; }
+            if (r <= 0f) { ClearWait(e.entityId); return false; }
             float dist;
             EntityAlive t = NearestEnemy(e, r, true, out dist);
             float since;
             bool waiting = heldSince.TryGetValue(e.entityId, out since);
+            if (waiting && !Fresh(e.entityId, now))
+            {
+                ClearWait(e.entityId);
+                waiting = false;
+            }
             if (t == null)
             {
                 if (waiting)
                 {
-                    heldSince.Remove(e.entityId);
+                    ClearWait(e.entityId);
                     ScLog.Verbose(BodyName(e) + ": nothing after " + HerObj(e) + " within " + F1(r) + " m any more - uses " + pick
                                   + " after waiting " + F1(now - since) + " s");
                 }
@@ -407,10 +458,11 @@ namespace SurvivorCommunity
                 ScLog.Verbose(BodyName(e) + " waits to use " + pick + " at " + e.Health + "/" + max + ": " + who + " is after " + HerObj(e)
                               + " (MedicSafeDistance " + F1(r) + " m) - " + She(e) + " fights on");
             }
+            heldLast[e.entityId] = now;
             float waited = now - since;
             if (e.Health < max * DesperateBelow && waited >= ScConfig.MedicMaxWait)
             {
-                heldSince.Remove(e.entityId);
+                ClearWait(e.entityId);
                 Patches_Xnpc.Count("meds-use-desperate");
                 ScLog.Out(BodyName(e) + " uses " + pick + " with " + who + " after " + HerObj(e) + ": waited " + F1(waited) + " s and down to "
                           + e.Health + "/" + max + " (under " + (DesperateBelow * 100f).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
@@ -926,14 +978,30 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round k2 (research/combat/SC_VS_NPCCORE.md root cause 2): no heal item at all (heal: HealItemCount) and under
         /// MedsResupplyEmergencyBelow of her max health - the case in which md1's 24 h cooldown left Paul fighting 5.5 minutes
-        /// with nothing that heals. False with the key at 0.
+        /// with nothing that heals. Not while an item is still healing her (Fable review 2: a kit queues up to 180 health over
+        /// 90 s - medicalRegHealthAmount, and foodHealthAmount as RegenBlock counts it): she is not out of healing then. False
+        /// with the key at 0. Its own pacing (MedsResupplyEmergencyCooldownHours) is EmergencyLeft's.
         /// </summary>
         private static bool Emergency(EntityAlive e, int heal)
         {
             float below = ScConfig.MedsResupplyEmergencyBelow;
             if (below <= 0f || heal > 0 || e == null) return false;
+            if (e.Buffs != null && (e.Buffs.GetCustomVar("medicalRegHealthAmount") > 0f || e.Buffs.GetCustomVar("foodHealthAmount") > 0f)) return false;
             int max = e.GetMaxHealth();
             return max > 0 && e.Health < max * below;
+        }
+
+        /// <summary>
+        /// Round k2 (Fable review 6): world ticks until an emergency restock may come (0: now) - at least
+        /// MedsResupplyEmergencyCooldownHours since her last restock of any kind (her record's meds=, saved, which every restock
+        /// sets), so emptying a hurt member's pack through the panel gets her at most one emergency top-up per that many hours.
+        /// </summary>
+        private static ulong EmergencyLeft(Member m, ulong now)
+        {
+            if (m.MedsAt == 0UL) return 0UL;
+            ulong cd = (ulong)(Math.Max(0f, ScConfig.MedsResupplyEmergencyCooldownHours) * TicksPerHour);
+            ulong since = Since(m, now);
+            return since >= cd ? 0UL : cd - since;
         }
 
         private static string Pct(float share) { return (share * 100f).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "%"; }
@@ -1051,18 +1119,31 @@ namespace SurvivorCommunity
                 ulong left = CooldownLeft(m, now);
                 if (left > 0UL)
                 {
-                    // round k2: an emergency - no heal item at all and under MedsResupplyEmergencyBelow - passes the cooldown, as
-                    // a run does; the reserve, her window, the mix, the stockpile and her pack below still apply
-                    if (Emergency(e, c.Heal))
+                    // round k2: an emergency - no heal item at all, nothing still healing her, under MedsResupplyEmergencyBelow -
+                    // passes the cooldown, as a run does, at most once per MedsResupplyEmergencyCooldownHours (Fable review 6);
+                    // the reserve, her window, the mix, the stockpile and her pack below still apply
+                    bool emergency = Emergency(e, c.Heal);
+                    ulong emergencyLeft = emergency ? EmergencyLeft(m, now) : 0UL;
+                    if (emergency && emergencyLeft == 0UL)
                     {
                         c.Emergency = true;
                         c.CooldownPassed = left;
+                    }
+                    else if (emergency && emergencyLeft < left)
+                    {
+                        c.Why = She(m) + " restocked " + Hours(Since(m, now), false) + " ago - an emergency restock (no heal item, under "
+                                + Pct(ScConfig.MedsResupplyEmergencyBelow) + " health) comes in " + Hours(emergencyLeft, true)
+                                + " (MedsResupplyEmergencyCooldownHours " + ScConfig.MedsResupplyEmergencyCooldownHours.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + ")";
+                        c.Counter = "meds-emergency-cooldown";
+                        c.Refusal = true;
+                        return c;
                     }
                     else
                     {
                         c.Why = She(m) + " restocked " + Hours(Since(m, now), false) + " ago - next in " + Hours(left, true)
                                 + (ScConfig.MedsResupplyEmergencyBelow > 0f
-                                   ? " (sooner in an emergency: no heal item and under " + Pct(ScConfig.MedsResupplyEmergencyBelow) + " health)" : "");
+                                   ? " (sooner in an emergency: no heal item, nothing still healing " + HerObj(m) + ", under "
+                                     + Pct(ScConfig.MedsResupplyEmergencyBelow) + " health)" : "");
                         c.Counter = "meds-cooldown";
                         c.Refusal = true;
                         return c;
@@ -1472,9 +1553,9 @@ namespace SurvivorCommunity
         /// <summary>Round k2: her wait for an enemy in reach before a medical use (TryHeal's HeldByReach), for sc xnpc and sc meds.</summary>
         private static string WaitText(EntityAlive e)
         {
-            float since;
-            if (e == null || !heldSince.TryGetValue(e.entityId, out since)) return "no wait";
-            return "WAITING " + F1(Time.time - since) + " s to use an item: an enemy after " + HerObj(e) + " within " + F1(ScConfig.MedicSafeDistance) + " m";
+            float waited;
+            if (!WaitingToHeal(e, out waited)) return "no wait";
+            return "WAITING " + F1(waited) + " s to use an item: an enemy after " + HerObj(e) + " within " + F1(ScConfig.MedicSafeDistance) + " m";
         }
 
         /// <summary>Her last restock and the next one at home, for sc xnpc's medic line and sc meds.</summary>
@@ -1579,8 +1660,9 @@ namespace SurvivorCommunity
                    + (IsUsing(body.entityId) ? " (one in " + Her(mm) + " hand: a use is running)" : "") + (Stocked(body) ? "" : "; FIRST STOCK NOT GIVEN YET"));
             output("[SC]   thresholds: at home below " + ScConfig.MedsResupplyBelow + ", before a run below " + ScConfig.MedsResupplyRunBelow
                    + (ScConfig.MedsResupplyEmergencyBelow > 0f
-                      ? "; an emergency at home (no heal item, under " + Pct(ScConfig.MedsResupplyEmergencyBelow) + " health) ignores the cooldown - "
-                        + (Emergency(body, home.Heal) ? "IT IS ONE NOW" : "not now")
+                      ? "; an emergency at home (no heal item, nothing still healing " + HerObj(mm) + ", under " + Pct(ScConfig.MedsResupplyEmergencyBelow)
+                        + " health) ignores the cooldown, at most every " + ScConfig.MedsResupplyEmergencyCooldownHours.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                        + " in-game h - " + (Emergency(body, home.Heal) ? "IT IS ONE NOW" + (EmergencyLeft(mm, now) > 0UL ? " (next allowed in " + Hours(EmergencyLeft(mm, now), true) + ")" : "") : "not now")
                       : "; no emergency restock (MedsResupplyEmergencyBelow 0)"));
             output("[SC]   " + RestockTimes(mm, now) + " (cooldown " + ScConfig.MedsResupplyCooldownHours.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
                    + " in-game h at home; a run ignores it)" + (mm.MedsAt > 0UL ? ", world time " + mm.MedsAt + " (now " + now + ")" : ""));

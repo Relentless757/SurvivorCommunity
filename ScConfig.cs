@@ -1038,6 +1038,11 @@ namespace SurvivorCommunity
         /// with her cooldown ignored (and started), as before a run; every other md1 rule still applies (0: off).
         /// </summary>
         public static float MedsResupplyEmergencyBelow = 0.5f;
+        /// <summary>
+        /// An emergency restock needs at least this many in-game hours since her last restock of any kind (her saved record's
+        /// meds=), so emptying a hurt member's pack does not refill it every 5 s (0: no pacing).
+        /// </summary>
+        public static float MedsResupplyEmergencyCooldownHours = 1f;
         /// <summary>A member starts no medical use (a heal or a bleed) while an enemy that is after her is within this many meters (0: off).</summary>
         public static float MedicSafeDistance = 3f;
         /// <summary>...unless she has waited at least this many seconds and is under 25% health: then she uses it anyway.</summary>
@@ -1357,6 +1362,7 @@ namespace SurvivorCommunity
             MedsResupplyCooldownHours = 24f;
             MedsResupplyKeepForInjured = true;
             MedsResupplyEmergencyBelow = 0.5f;
+            MedsResupplyEmergencyCooldownHours = 1f;
             MedicSafeDistance = 3f;
             MedicMaxWait = 6f;
             RegenOutOfCombat = true;
@@ -2471,6 +2477,7 @@ namespace SurvivorCommunity
                 ParseBoolKey(p, "MedsResupplyKeepForInjured", ref MedsResupplyKeepForInjured);
                 // round k2: the emergency restock, no self-use in melee reach, regeneration out of combat (ScMedic)
                 ParseFloat(p, "MedsResupplyEmergencyBelow", ref MedsResupplyEmergencyBelow, 0f, 1f);
+                ParseFloat(p, "MedsResupplyEmergencyCooldownHours", ref MedsResupplyEmergencyCooldownHours, 0f, 240f);
                 ParseFloat(p, "MedicSafeDistance", ref MedicSafeDistance, 0f, 10f);
                 ParseFloat(p, "MedicMaxWait", ref MedicMaxWait, 0f, 120f);
                 ParseBoolKey(p, "RegenOutOfCombat", ref RegenOutOfCombat);
@@ -3094,7 +3101,8 @@ namespace SurvivorCommunity
                    + ", every " + MedsResupplyCooldownHours.ToString("0.##", CultureInfo.InvariantCulture) + " in-game h a member at home"
                    + ", " + (MedsResupplyKeepForInjured ? "keeps tonight's Meds for the injured" : "may take tonight's Meds for the injured")
                    + ", mix '" + MedsResupplyMix + "'"
-                   + (MedsResupplyEmergencyBelow > 0f ? "; an emergency (no heal item, under " + MedsPct(MedsResupplyEmergencyBelow) + " health) ignores the cooldown"
+                   + (MedsResupplyEmergencyBelow > 0f ? "; an emergency (no heal item, under " + MedsPct(MedsResupplyEmergencyBelow) + " health) ignores the cooldown, at most every "
+                                                        + MedsResupplyEmergencyCooldownHours.ToString("0.##", CultureInfo.InvariantCulture) + " in-game h"
                                                       : "; no emergency restock (MedsResupplyEmergencyBelow 0)");
         }
 

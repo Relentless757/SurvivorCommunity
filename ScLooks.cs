@@ -207,6 +207,7 @@ namespace SurvivorCommunity
             ScVanity.Forget(entityId);                 // a paint still waiting for the body to show
             ScTeam.Forget(entityId);                   // its team-strength verdict (round tm1)
             ScRetreat.Forget(entityId);                // its retreat state (round rt1)
+            ScMedic.Forget(entityId);                  // its medic clocks, wait and regeneration (round k2; not a use in progress)
 #if SC_V34
             pendingFaces.Remove(entityId);             // a creator face still waiting for the body's next frame (X17)
             ScWardrobe.Forget(entityId);               // her pre-wardrobe gear snapshot (round n05)

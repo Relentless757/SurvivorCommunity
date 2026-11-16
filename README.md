@@ -1268,9 +1268,10 @@ Weapons**. They keep it in place of their weapon of that kind.
   fewer than 2 first aid bandages and kits. The medical units tonight's injured need are never taken, and nothing is given
   if her pack is full. `MedsResupply` (section 20) turns it off: then you manage their supplies by hand. `sc meds` shows
   who was restocked and why not.
-- **In an emergency the daily limit does not apply.** A member at home with no first aid bandage or kit left and under
-  half her health is restocked at once, even if she was restocked an hour ago (`MedsResupplyEmergencyBelow`). The other
-  rules above still hold: a medical unit to spare, room in her pack.
+- **In an emergency the daily limit does not apply.** A member at home with no first aid bandage or kit left, nothing
+  still healing her and under half her health is restocked at once, even if she was restocked earlier that day
+  (`MedsResupplyEmergencyBelow`), at most once an in-game hour (`MedsResupplyEmergencyCooldownHours`). The other rules
+  above still hold: a medical unit to spare, room in her pack.
 - **They don't bandage with a zombie on them.** While an enemy that is after her is within 3 m, a member keeps her weapon
   and fights; she bandages once it is dead, gone or farther off. Only when she has waited 6 s and is under a quarter of
   her health does she use it anyway (`MedicSafeDistance`, `MedicMaxWait`). Under half her health she uses a first aid
@@ -1550,6 +1551,7 @@ These are the ones you are most likely to change. The file has many more.
 | `MedsResupplyCooldownHours` | 24 | In-game hours between two restocks of one member at home (saved; a restock before a run ignores it) |
 | `MedsResupplyKeepForInjured` | true | Never take the medical units tonight's injured need |
 | `MedsResupplyEmergencyBelow` | 0.5 | At home, a member with no first aid bandage or kit under this share of her health is restocked even inside the cooldown (0: never) |
+| `MedsResupplyEmergencyCooldownHours` | 1 | An emergency restock needs this many in-game hours since her last restock (0: no limit) |
 | `MedicSafeDistance` / `MedicMaxWait` | 3 / 6 | No bandaging while an enemy after her is within this many meters (0: off); under 25% health she does it anyway after the second, in seconds |
 | `RegenOutOfCombat` | true | Members regain health slowly with no enemy near; false: only items heal |
 | `RegenRatePerSecond` / `RegenCapShare` / `RegenEnemyRadius` | 0.2 / 0.6 / 30 | Health per second, the share of her health it stops at, and how far (meters) an awake enemy holds it |

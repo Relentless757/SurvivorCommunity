@@ -42,16 +42,21 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 Why: in the play session where Gina and Paul died at home (`research/combat/SC_VS_NPCCORE.md`, root causes 2 and 5),
 md1's 24 h restock cooldown left Paul with nothing that heals for 5.5 minutes, every bandage was used with a zombie
 0.9-1.3 m away (14-27 health lost during each 2.5 s use), a first aid bandage was used before the kit, and with no
-regeneration at all Paul sat at 26% for three minutes. The scope you approved (2026-11-15), section 4.4's k2:
+regeneration at all Paul sat at 26% for three minutes. The regeneration below helps AFTER a fight, not during a
+sustained one (any awake enemy within 30 m holds it); during a fight what helps is k1's back-off and the restock. The scope
+you approved (2026-11-15), section 4.4's k2:
 
-- **Emergency restock:** at home, a member with no heal item (no first aid bandage, no first aid kit) and under 50%
-  health (`MedsResupplyEmergencyBelow`) is restocked at the next 5 s check even inside her cooldown, as before a run. It
-  starts her cooldown again. The reserve for tonight's injured, a full pack, an open window, a use in progress and an
-  empty stockpile still stop it.
+- **Emergency restock:** at home, a member with no heal item (no first aid bandage, no first aid kit), nothing still
+  healing her (a kit works for about 90 s, a first aid bandage about 15 s) and under 50% health
+  (`MedsResupplyEmergencyBelow`) is restocked at the next 5 s check even inside her cooldown, as before a run. It starts
+  her cooldown again. At most once per in-game hour since her last restock of any kind
+  (`MedsResupplyEmergencyCooldownHours`, read from her saved record). The reserve for tonight's injured, a full pack, an
+  open window, a use in progress and an empty stockpile still stop it.
 - **No self-use in melee reach:** a member (or a stand-in) starts no medical use - a heal or a bleed - while an enemy that
   is after her is within 3 m (`MedicSafeDistance`). She keeps her weapon and fights. After 6 s of waiting (`MedicMaxWait`)
   and under 25% health she uses it anyway. The test is distance only: a zombie after her behind bars within 3 m holds her
-  too.
+  too. A wait whose last refusal is more than 3 s old (an unload, a knockdown, a break in the fight) is dropped, and the
+  next one starts a fresh 6 s.
 - **Kit first when low:** under 50% health a member takes a first aid kit before a first aid bandage.
 - **Regeneration out of combat:** a member regains 0.2 health/s (`RegenRatePerSecond`, 0-XNPCCore's own level-regen
   rate) while no awake enemy is within 30 m (`RegenEnemyRadius`), up to 60% (`RegenCapShare`). Not during a use, not
@@ -62,32 +67,42 @@ regeneration at all Paul sat at 26% for three minutes. The scope you approved (2
 - Raiders and strangers heal exactly as before. 0-XNPCCore's dodge roll before a bandage is not copied: its roll knows
   nothing of the home zone, so it would need SC's bound first (k1's back-off bound, then a later round).
 
-Setup: the new DLL and `Config/blocks.xml` (the seven new keys after `MedsResupplyKeepForInjured`). `DebugLogging` true
+Setup: the new DLL and `Config/blocks.xml` (the eight new keys after `MedsResupplyKeepForInjured`). `DebugLogging` true
 for the verbose lines quoted below. Zombies: `spawnentity` (`zombieBoe` walks). Health: `sc team <name> hurt <share>`.
 Taking heal items away: the member inventory panel, from her PACK and her BAG (first aid bandages and kits; cloth
-bandages are not heal items). Stockpile: `sc give meds 3` / `sc give meds -999`.
+bandages are not heal items). Stockpile: `sc give meds 3` / `sc give meds -999`. **Timing:** after she uses a first aid
+kit, wait about 90 s before the next step (15 s after a first aid bandage): the item keeps "working" that long
+(`medicalRegHealthAmount`), which holds a new heal, the emergency restock and the regeneration; and two uses are at least
+12 s apart. An in-game hour is about 2.5 real minutes at a 60-minute day.
 
 **At load**
 
 - [ ] The log at load: "config: medical restock on: ... ; an emergency (no heal item, under 50% health) ignores the
-      cooldown" and "config: healing no medical use while an enemy after her is within 3 m (after 6 s under 25% health
-      she uses it anyway); a first aid kit before a bandage under 50% health; regeneration out of combat 0.2 HP/s up to
-      60% with no awake enemy within 30 m".
+      cooldown, at most every 1 in-game h" and "config: healing no medical use while an enemy after her is within 3 m
+      (after 6 s under 25% health she uses it anyway); a first aid kit before a bandage under 50% health; regeneration
+      out of combat 0.2 HP/s up to 60% with no awake enemy within 30 m".
 - [ ] `sc meds`: a "healing (round k2): ..." line, and each member line ends with "health N/M, regen ...".
 
 **1. Emergency restock (a hurt member, no meds, Meds in the stockpile)**
 
 - [ ] `sc give meds 3`. `sc meds Paul give` (this starts his 24 h cooldown), then take every first aid bandage and kit out
       of his pack and bag. `sc team Paul hurt 0.55`: within 5 s "Paul (id N) needs medical supplies at home but he
-      restocked 0 h ago - next in 24 h (sooner in an emergency: no heal item and under 50% health)". No restock.
-- [ ] `sc meds Paul`: "thresholds: ... an emergency at home (no heal item, under 50% health) ignores the cooldown - not
-      now".
-- [ ] `sc team Paul hurt 0.45`: within 5 s "Paul (id N) restocked his medical supplies at home - an EMERGENCY restock: no
-      heal item left at 77/172 health (under 50%), the cooldown (24 h left) ignored: 1 medicalFirstAidKit, 2
-      medicalFirstAidBandage for 1 Meds (N left) - he had 0 heal items" (cloth bandages too if he lacks them). `sc meds`:
-      `meds-restock-emergency=1`. A second later he uses the KIT (step 3).
-- [ ] The same with `sc give meds -999` first: no restock; "... needs medical supplies at home but the stockpile has no
-      Meds (pack some at the packing station)".
+      restocked 0 h ago - next in 24 h (sooner in an emergency: no heal item, nothing still healing him, under 50%
+      health)". No restock.
+- [ ] `sc team Paul hurt 0.45` straight away: "... he restocked 0 h ago - an emergency restock (no heal item, under 50%
+      health) comes in 1 h (MedsResupplyEmergencyCooldownHours 1)", `meds-emergency-cooldown` +1. `sc meds Paul`:
+      "thresholds: ... at most every 1 in-game h - IT IS ONE NOW (next allowed in 1 h)".
+- [ ] Wait one in-game hour, then `sc team Paul hurt 0.45` again (the regeneration lifts him toward 60% meanwhile; still
+      no heal items): within 5 s "Paul (id N) restocked his medical supplies
+      at home - an EMERGENCY restock: no heal item left at 77/172 health (under 50%), the cooldown (23 h left) ignored: 1
+      medicalFirstAidKit, 2 medicalFirstAidBandage for 1 Meds (N left) - he had 0 heal items" (cloth bandages too if he
+      lacks them). `sc meds`: `meds-restock-emergency=1`. A second later he uses the KIT (step 3).
+- [ ] Within the kit's 90 s, take his heal items again and `sc team Paul hurt 0.45`: the plain cooldown line ("... next in
+      23 h (sooner in an emergency: ...)") - the kit is still healing him, so it is no emergency. After the 90 s (hurt
+      him to 0.45 again if the kit lifted him): "... an emergency restock ... comes in 0.x h" - one emergency restock per
+      in-game hour, however often his pack is emptied.
+- [ ] The same with `sc give meds -999` first (and an hour since his last restock): no restock; "... needs medical
+      supplies at home but the stockpile has no Meds (pack some at the packing station)".
 - [ ] `MedsResupplyEmergencyBelow` 0 (restart): at 0.45 he still only gets the cooldown line.
 - [ ] Away from home (following you outside the zone) at 0.45 with no meds: no restock ("he is away from home").
 
@@ -105,6 +120,9 @@ bandages are not heal items). Stockpile: `sc give meds 3` / `sc give meds -999`.
       6.x s and down to 30/150 (under 25% after MedicMaxWait 6 s: a heal now beats none)" (a first aid bandage when she
       has no kit), `meds-use-desperate` +1.
 - [ ] The same at 0.4 (not under 25%): she waits as long as it stays there and never uses it.
+- [ ] A break: mid-wait, kill the zombie and spawn another after her more than 3 s later (or have her knocked down for
+      more than 3 s): a new "waits to use" line and `meds-use-held-reach` +1 - the 6 s start again, the old wait is not
+      counted.
 - [ ] Bleeding: a bleed (a zombie hit that bleeds) at 30% with only a cloth bandage and the zombie after her within 3 m:
       no cloth bandage until it is gone (or the 6 s / 25% exception).
 
@@ -112,12 +130,13 @@ bandages are not heal items). Stockpile: `sc give meds 3` / `sc give meds -999`.
 
 - [ ] Gina with 1 first aid kit and 2 first aid bandages, no enemy near. `sc team Gina hurt 0.45`: verbose "medic: N
       starts using medicalFirstAidKit at 68/150". `sc meds Gina`: 0 kits, 2 bandages.
-- [ ] Hand her a kit again, `sc team Gina hurt 0.55`: she uses a first aid BANDAGE (82/150: 50% or more, and under 90
-      missing).
+- [ ] Hand her a kit again and wait about 90 s (the first kit is still healing her: no new heal starts meanwhile), then
+      `sc team Gina hurt 0.55`: she uses a first aid BANDAGE (82/150: 50% or more, and under 90 missing).
 
 **4. Regeneration after the fight stops at 60%**
 
-- [ ] `MedsResupply` false (restart), or `sc give meds -999`, so nothing restocks her; take every heal item from Paul.
+- [ ] `MedsResupply` false (restart), or `sc give meds -999`, so nothing restocks her; take every heal item from Paul,
+      and wait about 90 s if he used a kit last (15 s after a bandage): a heal still working holds the regeneration.
       No enemy within 30 m. `sc team Paul hurt 0.5`: within 5 s (verbose) "Paul (id N) regenerates out of combat from
       86/172, 0.2 health/s up to 103 (60%)", `meds-regen-started` +1. `sc meds Paul`: "regeneration (k2): RUNNING (0.2
       health/s up to 60%)".
@@ -125,7 +144,7 @@ bandages are not heal items). Stockpile: `sc give meds 3` / `sc give meds -999`.
       (103, 60%): above it only items heal", `meds-regen-capped` +1. His health stays at 103 for minutes.
 - [ ] With a first aid bandage on him, `sc team Paul hurt 0.5`: he uses the bandage within a second (as before), and
       `sc meds Paul` shows the regeneration "held - a heal item is still working on him" until the bandage's heal has run
-      out - never both at once. (At the cap he is still "at or below 60%", so a bandage handed to him there is used at
+      out (about 15 s; about 90 s for a kit) - never both at once. (At the cap he is still "at or below 60%", so a bandage handed to him there is used at
       once, as before this round.)
 - [ ] Esc-menu pause: no health is gained while paused.
 

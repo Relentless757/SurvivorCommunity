@@ -170,7 +170,7 @@ One member's every check: what she carries, the thresholds and whether an emerge
 Example: `sc meds Gina`
 
 ### `sc meds <id|name> give` [CHEAT]
-A test shortcut: restocks her now for 1 Meds, ignoring the cooldown, the thresholds and `MedsResupply`. The stockpile, its reserve, her open window and her pack still apply, and it starts her cooldown like any restock. Counters (in `sc meds` and `sc xnpc`): `meds-restock`, `meds-restock-run`, `meds-restock-console`, `meds-refused-empty`, `meds-refused-reserve`, `meds-refused-full`, `meds-refused-nothing`, `meds-refused-mix`, `meds-held-window`, `meds-held-use`, `meds-cooldown`, `meds-place-failed`; at home each outcome is counted once per episode, not at every 5 s check. Round k2 adds `meds-restock-emergency`, `meds-use-held-reach`, `meds-use-desperate`, `meds-regen-started` and `meds-regen-capped`.
+A test shortcut: restocks her now for 1 Meds, ignoring the cooldown, the thresholds and `MedsResupply`. The stockpile, its reserve, her open window and her pack still apply, and it starts her cooldown like any restock. Counters (in `sc meds` and `sc xnpc`): `meds-restock`, `meds-restock-run`, `meds-restock-console`, `meds-refused-empty`, `meds-refused-reserve`, `meds-refused-full`, `meds-refused-nothing`, `meds-refused-mix`, `meds-held-window`, `meds-held-use`, `meds-cooldown`, `meds-place-failed`; at home each outcome is counted once per episode, not at every 5 s check. Round k2 adds `meds-restock-emergency`, `meds-emergency-cooldown`, `meds-use-held-reach`, `meds-use-desperate`, `meds-regen-started` and `meds-regen-capped`.
 Example: `sc meds Gina give`
 
 (`sc morale`, `sc drinks` and `sc day` are in section 1.)
