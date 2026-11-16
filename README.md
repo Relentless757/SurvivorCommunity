@@ -310,9 +310,9 @@ Each member has a **Bond** with you, from -15 to +15, that adds to their mood. I
 |---|---|
 | You give them a gift (section 6) | +1 per gift point (0-XNPCCore counts a gift's points by its value, at most 6 a day per member) |
 | They are revived when downed, by anyone | +3 |
-| They survive a blood moon with you (following you, or at home while you were home for it) | +4 |
+| They survive a blood moon with you: following you, or at home while you are home, both when it starts and when it ends | +4 |
 | They go down | -2 |
-| You kill an enemy that was on them | +1 |
+| You kill an enemy that was on them | +1, for at most 3 such kills a day |
 
 - Bond fades **1 a day** toward 0.
 - It shows on the talk card under their mood ("Bond +4") and in the community window beside their mood word.
@@ -635,7 +635,7 @@ and raises their Bond (section 4).
   stockpile anyway (section 15).
 - **Ammo for their gun:** lands as loose rounds; with Locked & Loaded they load them into their magazines. It counts
   toward the ammo they carry, so the stockpile refill simply comes later.
-- **Coins:** refused ("I've no use for that."): members are never paid.
+- **Coins:** refused ("I've no use for that."): members are never paid. An enclave person you enlisted refuses them too.
 
 ---
 
@@ -1662,6 +1662,7 @@ These are the ones you are most likely to change. The file has many more.
 | `MemberBond` | true | Members' Bond (section 4) adds to their mood; false: no Bond |
 | `BondCap` / `BondDecayPerDay` | 15 / 1 | Bond's limit either way, and how much it fades a day |
 | `BondGiftPerPoint` / `BondRevive` / `BondBloodMoon` / `BondDowned` / `BondKillOnHer` | 1 / 3 / 4 / -2 / 1 | Bond per gift point and per event |
+| `BondKillPerDay` | 3 | At most this many kills on a member give her Bond in a day (0: kills give none) |
 | `BondLoyalAt` | 8 | The Progress page says "Trust: loyal" from this Bond ("wary" from minus this) |
 | `DrinksLuxury` / `DrinksFood` / `DrinksMorale` / `DrinksMinutes` | 4 / 1 / 15 / 15 | The round of drinks |
 
@@ -1750,7 +1751,7 @@ These are the ones you are most likely to change. The file has many more.
 | `MedicPainkillers` / `PainkillerHeal` | true / 40 | Members use painkillers when nothing else is left, for this much health |
 | `MemberDrinks` / `MemberDrinksBelow` | 2 / 1 | Followers at home are topped up to this many drinks when they carry fewer than the second (0: never) |
 | `MemberDrinkItem` / `MemberDrinksCooldownHours` | drinkJarBoiledWater / 12 | The drink they are given, and the in-game hours between two top-ups of one follower |
-| `MemberRefuseCoins` | true | Members refuse coins as a gift |
+| `MemberRefuseCoins` | true | Members (and enclave people you enlisted) refuse coins as a gift |
 | `MemberWeaponPerks` | true | Shooting and Fighting stars give 0-XNPCCore's weapon perks (section 4) |
 | `RegenOutOfCombat` | true | Members regain health slowly with no enemy near; false: only items heal |
 | `RegenRatePerSecond` / `RegenCapShare` / `RegenEnemyRadius` | 0.2 / 0.6 / 30 | Health per second, the share of her health it stops at, and how far (meters) an awake enemy that is after her or sees her holds it |

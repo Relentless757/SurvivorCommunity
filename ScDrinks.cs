@@ -17,7 +17,8 @@ namespace SurvivorCommunity
     /// than MemberDrinksBelow (1) of 0-XNPCCore's douse drinks (DouseRules.DrinkNames, window and bag) is topped up to
     /// MemberDrinks (2) of MemberDrinkItem (boiled water), paid from the Water stockpile at packing value (a jar's points against
     /// PointsPerBundleWater; whole units are opened, what is left over pays the next jars this session), never from the water
-    /// tonight's rollover needs. At most once per MemberDrinksCooldownHours per member (session only). Into her inventory window
+    /// tonight's rollover needs. At most once per MemberDrinksCooldownHours per member (session only; a refusal - no Water, no
+    /// room - does not start it, so she is topped up as soon as she can be). Into her inventory window
     /// first (0-XNPCCore's gift room for drinks is her bag), then her bag; never dropped; not while her window is open (the
     /// window copy would undo it). Called from ScMedic.HomeTick (ScAmmo.Tick's 5 s member loop: a ticker path). MemberDrinks 0:
     /// never.
@@ -57,7 +58,7 @@ namespace SurvivorCommunity
                 ulong now = w.worldTime, last;
                 ulong cd = (ulong)(Math.Max(0f, ScConfig.MemberDrinksCooldownHours) * TicksPerHour);
                 if (lastAt.TryGetValue(m.Id, out last) && now >= last && now - last < cd) return;
-                lastAt[m.Id] = now;
+                // the Fable review (finding 4): only a top-up that placed something starts the cooldown, set below
                 ItemValue drink = ItemClass.GetItem(ScConfig.MemberDrinkItem, true);
                 if (drink == null || drink.IsEmpty() || drink.ItemClass == null || !DouseRules.IsDrink(drink.ItemClass.GetItemName()))
                 {
@@ -82,6 +83,7 @@ namespace SurvivorCommunity
                 int cost = placed * each, opened = 0;
                 while (openPoints < cost && c.Get(Resource.Water) > 0) { c.Add(Resource.Water, -1); openPoints += perUnit; opened++; }
                 openPoints = Math.Max(0, openPoints - cost);
+                lastAt[m.Id] = now;
                 topUps++;
                 given += placed;
                 lastWhy.Remove(m.Id);
@@ -95,12 +97,13 @@ namespace SurvivorCommunity
             }
         }
 
+        /// <summary>A refusal, logged and counted once per reason in a row (it is checked every 5 s: a refusal starts no cooldown).</summary>
         private static void Refuse(Member m, string why)
         {
-            refused++;
             string last;
             if (lastWhy.TryGetValue(m.Id, out last) && last == why) return;
             lastWhy[m.Id] = why;
+            refused++;
             ScLog.Out(m.Name + " needs a drink for putting out fire but " + why + " (round U4)");
         }
 

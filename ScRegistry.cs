@@ -1056,6 +1056,12 @@ namespace SurvivorCommunity
                 case "injured": m.Injured = val == "1"; break;
                 case "meds": { ulong u; if (ulong.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out u)) m.MedsAt = u; break; }   // round md1 (ScMedic.Restock)
                 case "bond": m.Bond = Clamp(I(val), -100, 100); break;   // round U4 (ScBond); the cap applies where it is used
+                case "bondkills":   // the Fable review of U4 (finding 2): day:count of her kill Bond (BondKillPerDay)
+                    {
+                        string[] dk = val.Split(':');
+                        if (dk.Length == 2) { m.BondKillDay = I(dk[0]); m.BondKills = Math.Max(0, I(dk[1])); }
+                        break;
+                    }
                 case "ranged": m.Ranged = val == "1"; break;
                 case "missing": m.MissingDays = I(val); break;
                 case "pendingunhide": m.PendingUnhide = val == "1"; break;
@@ -1724,6 +1730,7 @@ namespace SurvivorCommunity
             sb.AppendLine("injured=" + (m.Injured ? 1 : 0));
             if (m.MedsAt > 0UL) sb.AppendLine("meds=" + m.MedsAt.ToString(CultureInfo.InvariantCulture));   // round md1: her last medical restock (a key older builds ignore)
             if (m.Bond != 0) sb.AppendLine("bond=" + m.Bond.ToString(CultureInfo.InvariantCulture));       // round U4: her Bond (a key older builds ignore; absent = 0)
+            if (m.BondKills > 0) sb.AppendLine("bondkills=" + m.BondKillDay.ToString(CultureInfo.InvariantCulture) + ":" + m.BondKills.ToString(CultureInfo.InvariantCulture));   // finding 2
             sb.AppendLine("ranged=" + (m.Ranged ? 1 : 0));
             sb.AppendLine("missing=" + m.MissingDays);
             var sk = new StringBuilder();

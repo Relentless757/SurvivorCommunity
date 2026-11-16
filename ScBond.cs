@@ -12,7 +12,8 @@ namespace SurvivorCommunity
     ///
     /// The events and their sizes (the user's, ScConfig.Bond*): a gift, its 0-XNPCCore points 1:1 (log2 of the gift's value, at
     /// most 6 a day per member - 0-XNPCCore's own daily cap); she is revived +3, whoever revives her; a blood moon survived
-    /// together +4; she goes down -2; you kill an enemy that was on her +1. Bond is capped at +-BondCap (15) and fades
+    /// together +4; she goes down -2; you kill an enemy that was on her +1, at most BondKillPerDay (3) such kills a day (the Fable
+    /// review's finding 2: the gift cap's twin, saved in her record as bondkills=). Bond is capped at +-BondCap (15) and fades
     /// BondDecayPerDay (1) toward 0 at every day rollover (Daily). Saved in her record as bond= (ScRegistry; old saves load 0).
     ///
     /// Where each comes from:
@@ -20,8 +21,8 @@ namespace SurvivorCommunity
     ///    took the item - every gift route (the hold-E ring, the voice, the gift window) ends there;
     ///  - a down and a revive: 0-XNPCCore's NPCEventMemoryHooks.OnDowned / OnRevived (Patch_Downed, Patch_Revived), which its downed
     ///    state calls for every body, whoever revives her - 0-XNPCCore's own relationship then asks for her leader as the reviver;
-    ///  - a blood moon: SC's own check here (Tick), for every member with the community at its start who is alive at its end and
-    ///    was with you - following you, or at home while you were home for it at any moment. 0-XNPCCore's own sees only followers;
+    ///  - a blood moon: SC's own check here (Tick), for every member alive at its end who was with you at both its start and its
+    ///    end - following you, or a resident while you were home. 0-XNPCCore's own sees only followers;
     ///  - a kill on her: SC's own (OnEntityKilled, from ModEvents.EntityKilled): you killed an enemy that was after her, or that she
     ///    was fighting or had been hit by. 0-XNPCCore's own sees only the hired roster, which SC's J29 keeps residents out of.
     /// For SC's people every other 0-XNPCCore write is skipped (Patch_Apply): no per-hire trust or affinity, no ripple into your
@@ -52,8 +53,8 @@ namespace SurvivorCommunity
         /// <summary>A Bond change not saved yet: the registry is saved at most every SaveSeconds for them (a fight's kills).</summary>
         private static bool unsaved;
         private const float SaveSeconds = 10f;
-        /// <summary>The blood moon in progress: who was with the community at its start, and whether you were home for it.</summary>
-        private static bool wasBloodMoon, playerHome;
+        /// <summary>The blood moon in progress: the members who were with you at its start (the Fable review's finding 5).</summary>
+        private static bool wasBloodMoon;
         private static readonly HashSet<int> bloodMoonMembers = new HashSet<int>();
         /// <summary>Members whose body was checked for 0-XNPCCore's own per-hire numbers this session (Sweep's log line once each).</summary>
         private static readonly HashSet<int> swept = new HashSet<int>();
@@ -71,7 +72,6 @@ namespace SurvivorCommunity
             nextSave = 0f;
             unsaved = false;
             wasBloodMoon = false;
-            playerHome = false;
             bloodMoonMembers.Clear();
             swept.Clear();
         }
@@ -214,6 +214,7 @@ namespace SurvivorCommunity
                     Remember(m, p.Why + " (MemberBond is off: no Bond)");
                     continue;
                 }
+                if (p.Signal == SigKill && !KillAllowed(m, p)) continue;   // the Fable review (finding 2): BondKillPerDay
                 int before = m.Bond;
                 int after = Mathf.Clamp(before + p.Delta, -cap, cap);
                 m.Bond = after;
@@ -228,6 +229,26 @@ namespace SurvivorCommunity
             return changed;
         }
 
+        /// <summary>
+        /// The Fable review of U4 (finding 2): a kill on her gives Bond at most BondKillPerDay times per in-game day. True: this
+        /// one counts (her count for today goes up); false: today's are given (history and a verbose line say so). Ticker path.
+        /// </summary>
+        private static bool KillAllowed(Member m, Pending p)
+        {
+            int today = ScCommunity.Today;
+            if (m.BondKillDay != today) { m.BondKillDay = today; m.BondKills = 0; }
+            int cap = Math.Max(0, ScConfig.BondKillPerDay);
+            if (m.BondKills < cap)
+            {
+                m.BondKills++;
+                return true;
+            }
+            Count("bond-kill-capped");
+            Remember(m, p.Why + " +0 (today's " + cap + " kill Bond already given)");
+            ScLog.Verbose(m.Name + "'s Bond: " + p.Why + " - today's " + cap + " kill Bond already given (BondKillPerDay)");
+            return false;
+        }
+
         private static void Remember(Member m, string line)
         {
             List<string> h;
@@ -237,51 +258,61 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The blood moon survived together: at its start the members with the community (a resident, a guard on watch, a follower
-        /// - not one away on a run, posted at an outpost or still on the way) are noted; while it lasts, whether you are ever home
-        /// (ScBaseAttack.Near: the distance a base attack is fought from). At its end each of them still a member - alive - who
-        /// is following you, or is a resident while you were home for it, gets +BondBloodMoon. A load in the middle of it notes
-        /// them from then on; a blood moon whose end was not seen here (quit before dawn) gives nothing.
+        /// The blood moon survived together (the Fable review's finding 5: with you at both ends of it). When it starts (or when it
+        /// is first seen here, after a load in the middle of it) the members with you are noted: following you, or a resident
+        /// while you are home (ScBaseAttack.Near: the distance a base attack is fought from) - not one away on a run, posted at an
+        /// outpost or still on the way. At its end each of them still a member - alive - who is with you again the same way
+        /// (following you, or a resident with you home) gets +BondBloodMoon. A blood moon whose end was not seen here (quit before
+        /// dawn) gives nothing.
         /// </summary>
         private static void BloodMoon(World w, EntityPlayerLocal player)
         {
             if (ScSiege.BloodMoonActive(w))
             {
-                if (!wasBloodMoon)
+                if (wasBloodMoon) return;
+                wasBloodMoon = true;
+                bloodMoonMembers.Clear();
+                bool home = PlayerHome(player);
+                foreach (Member m in ScRegistry.Members.Values)
                 {
-                    wasBloodMoon = true;
-                    playerHome = false;
-                    bloodMoonMembers.Clear();
-                    foreach (Member m in ScRegistry.Members.Values)
-                        if (m.Status == MemberStatus.Resident || m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) bloodMoonMembers.Add(m.Id);
-                    ScLog.Out("Bond: a blood moon begins - " + bloodMoonMembers.Count + " member(s) with the community");
+                    if (WithYou(m, home)) bloodMoonMembers.Add(m.Id);
+                    else if (m.Status == MemberStatus.Resident) Remember(m, "a blood moon began with you away from home: no Bond for it");
                 }
-                if (!playerHome && ScZone.HasHome && ScBaseAttack.Near(player))
-                {
-                    playerHome = true;
-                    ScLog.Out("Bond: you are home for the blood moon - the residents who survive it are with you");
-                }
+                ScLog.Out("Bond: a blood moon begins - " + bloodMoonMembers.Count + " member(s) with you (you are " + (home ? "home" : "away from home") + ")");
                 return;
             }
             if (!wasBloodMoon) return;
             wasBloodMoon = false;
+            bool homeAtEnd = PlayerHome(player);
             int given = 0;
             foreach (int id in bloodMoonMembers)
             {
                 Member m = ScRegistry.GetMember(id);
                 if (m == null) continue;                                        // died, or left the community
-                bool follower = m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation;
-                bool home = m.Status == MemberStatus.Resident && playerHome;
-                if (!follower && !home)
+                if (!WithYou(m, homeAtEnd))
                 {
-                    Remember(m, "a blood moon survived, but not with you (" + m.Status + (m.Status == MemberStatus.Resident ? ", you were away from home" : "") + "): no Bond");
+                    Remember(m, "a blood moon survived, but not with you at its end (" + m.Status
+                                + (m.Status == MemberStatus.Resident && !homeAtEnd ? ", you were away from home" : "") + "): no Bond");
                     continue;
                 }
+                bool follower = m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation;
                 Note(id, ScConfig.BondBloodMoon, SigBloodMoon, follower ? "survived the blood moon with you" : "survived the blood moon at home with you");
                 given++;
             }
-            ScLog.Out("Bond: the blood moon is over - " + given + " of " + bloodMoonMembers.Count + " member(s) survived it with you");
+            ScLog.Out("Bond: the blood moon is over - " + given + " of " + bloodMoonMembers.Count + " member(s) with you at its start were with you at its end");
             bloodMoonMembers.Clear();
+        }
+
+        /// <summary>The blood moon's test, at its start and at its end: following you, or a resident while you are home.</summary>
+        private static bool WithYou(Member m, bool playerHome)
+        {
+            if (m.Status == MemberStatus.Following || m.Status == MemberStatus.PendingStation) return true;
+            return m.Status == MemberStatus.Resident && playerHome;
+        }
+
+        private static bool PlayerHome(EntityPlayerLocal player)
+        {
+            return ScZone.HasHome && ScBaseAttack.Near(player);
         }
 
         /// <summary>
@@ -400,6 +431,8 @@ namespace SurvivorCommunity
             o.Add(prefix + m.Name + " (id " + m.Id + ", " + m.Status + "): a community member - Survivor Community owns " + ScMedic.Her(m) + " standing");
             o.Add(prefix + "  Bond " + Signed(m.Bond) + " of +-" + cap + (ScConfig.MemberBond ? ", in " + ScMedic.Her(m) + " mood as " + Signed(MoodTerm(m)) : " (MemberBond is off: not in the mood)")
                   + "; fades " + Math.Max(0, ScConfig.BondDecayPerDay) + " a day toward 0");
+            o.Add(prefix + "  kills on " + ScMedic.HerObj(m) + " that gave Bond today: " + (m.BondKillDay == ScCommunity.Today ? m.BondKills : 0) + " of BondKillPerDay "
+                  + ScConfig.BondKillPerDay);
             o.Add(prefix + "  mood " + m.Mood + " (" + ScMorale.MoodWord(m.Mood) + "), community morale " + ScRegistry.Community.Morale
                   + (Threatens(m) ? "; THREATENS TO LEAVE" : ""));
             o.Add(prefix + "  0-XNPCCore's Progress page shows \"Trust: " + TrustWord(t) + "  Feels: " + FeelWord(a) + "\" (trust "

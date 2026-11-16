@@ -233,12 +233,13 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 ## Bond, weapon perks and the party cap *(rounds U4, U5, U6 - 0-XNPCCore 3.4.06)*
 
 - **`sc bond`** — the Bond settings, the counters (`bond-<event>`, `bond-member-gone`, `bond-off-<event>`,
-  `bond-perhire-cleared`) and the hooks' (`apply-skipped-<signal>`: 0-XNPCCore's own relationship writes skipped for
+  `bond-kill-capped`: a kill on her past `BondKillPerDay`, `bond-perhire-cleared`) and the hooks' (`apply-skipped-<signal>`: 0-XNPCCore's own relationship writes skipped for
   SC's people; `revived`, `downed`; `progress-mirrored`: its Progress line read from SC; `global-hire-died-skipped`;
   `gift-week-refused`, `gift-coins-refused`; `standing-shown-sc`), the followers' drink top-ups, then every member's
   Bond, mood and the Progress page's "Trust / Feels" words.
 - **`sc bond <id|name>`** — one member in full: Bond and what it adds to her mood, her mood, whether she threatens to
-  leave, the Progress words with the numbers behind them, events still waiting, this session's Bond lines (newest
+  leave, the kills on her that gave Bond today (of `BondKillPerDay`), the Progress words with the numbers behind them,
+  events still waiting, this session's Bond lines (newest
   first: a gift's points, a revive and by whom, a blood moon with you or not, a down, a kill on her, a capped change),
   0-XNPCCore's gift points today (its daily cap of 6), its own per-hire numbers on her (none: SC skips its writes and
   clears old ones within 10 s), and your global 0-XNPCCore trust and affinity (members never move them). Read-only.

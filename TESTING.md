@@ -61,8 +61,8 @@ painkillers are a last-resort heal, followers at home are kept at 2 drinks.
 - [ ] **She uses gifted kits.** Take every first aid kit and bandage out of her PACK (leave the gifted one in her BAG)
       and hurt her below 60% health: she uses the gifted kit (log `medic` lines; `sc xnpc` counter `medic-took-from-bag`).
       `sc meds <name>` counts the BAG's kit as a heal item, so no medical restock comes while she has it.
-- [ ] **Coins refused.** Hold casino coins and use Gift on her: "<name> can't use that." and she says "I've no use for
-      that."; the coins stay in your hand; the log says `refused N casinoCoin as a gift - members are never paid`.
+- [ ] **Coins refused** (an enclave person you enlisted refuses them too). Hold casino coins and use Gift on her: "<name> can't use that." and she says "I've no use for
+      that."; the coins stay in your hand; the log says `refused N casinoCoin as a gift - SC's people are never paid that way`.
 - [ ] **Painkillers.** Give her painkillers, empty her kits and bandages out, hurt her below 60%: she takes them (a short
       use), the log says `took painkillers at x/y - the last thing she had to heal with`, and her health climbs about 40
       over a few seconds. Do it twice: the second pill heals too. With painkillers on her she does not shelter for lack of
@@ -77,9 +77,14 @@ painkillers are a last-resort heal, followers at home are kept at 2 drinks.
 - [ ] **Down and revive.** Let a follower go down (or `vc anim downed` next to her): the log has `Bond: went down -2`.
       Revive her: `revived by <you> +3`. If someone else revives her (a second player, 0-XNPCCore's medic), still +3.
 - [ ] **A kill on her.** A zombie goes for a resident at home and you kill it: `you killed the <zombie> that was on her +1`.
-- [ ] **A blood moon.** Spend a blood moon at home with a follower and residents: at dawn the log has `Bond: the blood
-      moon is over - N of M member(s) survived it with you` and each gets +4. Spend one away from home with a follower:
-      the follower +4, the residents nothing (`sc bond <name>` says "not with you").
+      Kill 3 more that were on her the same day: the 4th gives nothing (`sc bond <name>`: "+0 (today's 3 kill Bond already
+      given)", and "kills on her that gave Bond today: 3 of BondKillPerDay 3"); the next day kills count again. Save and
+      load in between: the day's count is kept (`bondkills=` in her record).
+- [ ] **A blood moon.** Spend a blood moon at home with a follower and residents: when it starts the log has `Bond: a
+      blood moon begins - N member(s) with you (you are home)`, at dawn `Bond: the blood moon is over - N of N member(s)
+      with you at its start were with you at its end`, and each gets +4. Spend one away from home with a follower: the
+      follower +4, the residents nothing (`sc bond <name>`: "a blood moon began with you away from home"). Home at its
+      start but away at dawn: the residents get nothing ("not with you at its end").
 - [ ] **The Progress page.** Hold-E ring > Your progress on a follower: "Trust: steady  Feels: neutral" for a content
       member with no Bond. `sc bond <name> set 10` -> "Trust: loyal". `sc morale 80` -> "Feels: warm"; `sc morale 10` ->
       "Feels: cold" (`sc morale -1` clears). While she is the one threatening to leave: "Trust: wary".
@@ -108,6 +113,8 @@ reached SC's people. Your decision D10: Shooting stars give the gun and bow perk
       rank stays the one from her stars.
 - [ ] Save and load: the ranks are still there; no new log line (nothing to raise).
 - [ ] With `CraftSkillsEnabled` false the member still has a Progression: Your progress shows its lines and the perks.
+      With `CraftSkillsEnabled` and `MemberWeaponPerks` both false she has none, as before round U5 (`sc perks <name>`:
+      "NO Progression").
 - [ ] Measure: a 1-star and a 7-star shooter with the same pistol on the same zombie (note how many shots it takes).
 - [ ] `MemberWeaponPerks` false: no raises (ranks already given stay).
 

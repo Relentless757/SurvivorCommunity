@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using UnityEngine;
 
 namespace SurvivorCommunity
 {
@@ -23,10 +24,21 @@ namespace SurvivorCommunity
     {
         private static bool? available;
         private static int refusals;
+        /// <summary>
+        /// The Fable review (finding 9, traced): a spoken "follow me" runs ScCommunity.Follow twice in one call of Voice Control's
+        /// ProcessPlayerMessage - Patches_VoiceControl.Patch_VoiceFollowEarly's prefix first (a refusal there is left unanswered),
+        /// then Patch_VoiceFollowMember's prefix on ExecuteMatch, which answers it. The same body refused again within
+        /// RepeatSeconds is the same refusal: not logged or counted twice.
+        /// </summary>
+        private static int lastRefusedId = -1;
+        private static float lastRefusedAt;
+        private const float RepeatSeconds = 2f;
 
         public static void Reset()
         {
             refusals = 0;
+            lastRefusedId = -1;
+            lastRefusedAt = 0f;
         }
 
         /// <summary>0-XNPCCore 3.4.06's SdcsParty is loaded.</summary>
@@ -51,6 +63,11 @@ namespace SurvivorCommunity
             try
             {
                 if (!Full(npc, player, out error)) return false;
+                float now = Time.unscaledTime;
+                bool repeat = npc.entityId == lastRefusedId && now - lastRefusedAt < RepeatSeconds;
+                lastRefusedId = npc.entityId;
+                lastRefusedAt = now;
+                if (repeat) return true;                // the voice path's second Follow of the same order (finding 9)
                 refusals++;
                 ScLog.Out((m != null ? m.Name : ScCommunity.DisplayName(npc)) + " was not made a follower: " + error + " (0-XNPCCore's party cap, shared with paid hires; round U6)");
                 return true;

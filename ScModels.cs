@@ -128,6 +128,11 @@ namespace SurvivorCommunity
         /// loads as 0).
         /// </summary>
         public int Bond;
+        /// <summary>
+        /// The Fable review of U4 (finding 2): the in-game day of her last kill Bond and how many kills gave her Bond that day
+        /// (at most BondKillPerDay). Saved as bondkills=day:count while the count is not 0 (a key older builds ignore).
+        /// </summary>
+        public int BondKillDay = -1, BondKills;
         public bool Ranged;
         /// <summary>Resource being fetched while OnRun; meaningless otherwise.</summary>
         public Resource RunKind = Resource.Food;
