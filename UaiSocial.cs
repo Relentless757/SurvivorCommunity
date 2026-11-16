@@ -59,7 +59,7 @@ namespace UAI
     }
 
     /// <summary>
-    /// ScGather's task: a walk to her place on the ring round the fire, then standing there turned to it until ScSocial lets
+    /// ScGather's task: a walk to her place on the ring around the fire, then standing there turned to it until ScSocial lets
     /// her go (CampfireMinSeconds..MaxSeconds after she got there). A walk with no path asks again every 2 s; the ticker gives
     /// her GatherWalkSeconds to get there.
     /// </summary>

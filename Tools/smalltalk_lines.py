@@ -14,7 +14,7 @@ Tags (comma separated; none: anyone, anywhere):
   fire    only during a campfire gathering, and much likelier there;
   up      fits a good mood: likelier for an Optimist, Cheerful, People Person or Hardy opener or one in a good mood, rare for
           a Pessimist or one in a low mood;
-  down    fits a low mood: the other way round (Pessimist, Insomniac, Hoarder, Cowardly);
+  down    fits a low mood: the other way around (Pessimist, Insomniac, Hoarder, Cowardly);
   <Trait> a trait name from Config/blocks.xml's Traits (Homesteader, Tinkerer, ...): much likelier when the opener has it,
           rare otherwise.
 No names and no tokens: every voice says every line, and either side of a pair can be anyone.
@@ -99,7 +99,7 @@ PAIRS = [
     (34, "Optimist,Cheerful", "I've got a good feeling about tomorrow.", "You say that every day."),
     (35, "Pessimist", "Mark my words, those walls won't hold forever.", "Nothing does. Doesn't mean we stop."),
     # a campfire gathering
-    (36, "fire", "Nothing beats sitting round a fire.", "Except a fire and a cold drink."),
+    (36, "fire", "Nothing beats sitting around a fire.", "Except a fire and a cold drink."),
     (37, "fire", "To the ones we lost.", "And to the ones still here."),
     (38, "fire", "Remember telling ghost stories around a fire?", "Now we just keep watching the dark."),
 ]

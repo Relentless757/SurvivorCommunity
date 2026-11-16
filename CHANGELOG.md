@@ -9,7 +9,7 @@
   every minute and a half, and the same two at most once every 10 minutes.
 - **Walking over to chat.** Now and then a resident on her walk about the base heads over to a neighbor to talk; the
   neighbor waits for her.
-- **The evening campfire.** With a campfire inside the base, free residents gather round it once each evening (from about
+- **The evening campfire.** With a campfire inside the base, free residents gather around it once each evening (from about
   an hour before dusk until bedtime) and during a round of drinks, for 30 to 60 seconds each, and talk. The fire shows lit
   while they are there (flames only: no fuel, no change to the block).
 - **Enclaves too:** their people talk with each other and gather at a campfire in their own building.

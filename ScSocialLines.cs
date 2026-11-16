@@ -49,7 +49,7 @@ namespace SurvivorCommunity
             "33", "PeoplePerson",   // We should all eat together tonight. / I'll bring the good cans.
             "34", "Optimist,Cheerful",   // I've got a good feeling about tomorrow. / You say that every day.
             "35", "Pessimist",   // Mark my words, those walls won't hold forever. / Nothing does. Doesn't mean we stop.
-            "36", "fire",   // Nothing beats sitting round a fire. / Except a fire and a cold drink.
+            "36", "fire",   // Nothing beats sitting around a fire. / Except a fire and a cold drink.
             "37", "fire",   // To the ones we lost. / And to the ones still here.
             "38", "fire",   // Remember telling ghost stories around a fire? / Now we just keep watching the dark.
         };

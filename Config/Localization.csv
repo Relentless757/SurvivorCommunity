@@ -1745,7 +1745,7 @@ scTalkOpen_34Said,UI,Tooltip,,,,I've got a good feeling about tomorrow.
 scTalkReply_34Said,UI,Tooltip,,,,You say that every day.
 scTalkOpen_35Said,UI,Tooltip,,,,"Mark my words, those walls won't hold forever."
 scTalkReply_35Said,UI,Tooltip,,,,Nothing does. Doesn't mean we stop.
-scTalkOpen_36Said,UI,Tooltip,,,,Nothing beats sitting round a fire.
+scTalkOpen_36Said,UI,Tooltip,,,,Nothing beats sitting around a fire.
 scTalkReply_36Said,UI,Tooltip,,,,Except a fire and a cold drink.
 scTalkOpen_37Said,UI,Tooltip,,,,To the ones we lost.
 scTalkReply_37Said,UI,Tooltip,,,,And to the ones still here.
