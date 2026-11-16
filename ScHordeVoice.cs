@@ -121,6 +121,7 @@ namespace SurvivorCommunity
                 if (!ScWatch.OnWatch(m)) continue;
                 EntityAlive npc = ScCommunity.FindNpc(m.Id);
                 if (npc == null || npc.IsDead()) continue;
+                if (ScDowned.IsDown(npc)) continue;     // round U2: a downed guard calls nothing out
                 body = npc;
                 return m;
             }

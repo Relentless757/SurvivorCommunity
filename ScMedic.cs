@@ -1601,6 +1601,9 @@ namespace SurvivorCommunity
             if (!ScCommunity.IsHost || e.world == null || e.world.IsRemote()) return "not the host";
             if (e.IsDead() || e.Health <= 0 || e.Stats == null || e.Stats.Health == null || e.Buffs == null) return "not alive";
             if (!ScXnpc.IsSurvivorBody(e) || ScXnpc.IsRaider(e)) return "not a member's survivor body";
+#if SC_V34
+            if (ScDowned.IsDown(e)) return She(m) + " is down (0-XNPCCore holds her at its floor health until she is revived)";   // round U2: no regeneration while she is down
+#endif
             if (!ScRegistry.Loaded || ScRegistry.GetMember(e.entityId) != m) return "not " + Her(m) + " own body (a stand-in, or an id taken by another)";
             if (m.Offline || ScNpc.IsOnMission(e)) return She(m) + " is hidden or offline (a run, a posting)";
             int max = e.GetMaxHealth();

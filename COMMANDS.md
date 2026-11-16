@@ -71,6 +71,27 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   shows how many of the zone's beds are inside the box 0-XNPCCore searches (within `SleepZoneHeight` of the home
   block's height) — only those count. This is the first thing to run if someone will not go to bed. It is read-only.
 
+## Downed and revived *(round U2)*
+
+- **`sc downed`** — the patch state (`ON - 5 of 5 calls swapped` or the one reason it is OFF), the settings
+  (`DownedAtHome`, `ResidentMedicsRevive`, `ReviveMedic...`, `DownedTell`), 0-XNPCCore's revive items, the counters, and
+  every member: DOWN with the seconds left (PAUSED when no leader is present for 0-XNPCCore and SC's swap is off), at home
+  or away, the medic on the way or treating, or nobody; up: whether a killing hit downs her and by whose rule
+  (0-XNPCCore's Leader/Owner link, SC's home rule, or why not), her grace and re-down window; a medic: free, or why not.
+- **`sc downed <id|name>`** — one member in full (a medic's own refusal too).
+- **`sc down <id|name>`** *(a test shortcut, host)* — knocks her down now through 0-XNPCCore's own `SdcsDowned.Enter`:
+  its eligibility (with SC's swap), the floor health, the ragdoll, the marker, the timer, the "is down" tell. A member it
+  refuses says why.
+- **`sc revive <id|name>`** *(a test shortcut, host)* — 0-XNPCCore's own `SdcsDowned.Revive`: the get-up, the grace, the
+  bleed cure.
+- The counters (`sc downed`): downs seen, back up (by a resident medic), bled out, unloaded while down; medics sent, let
+  go, treatments, fights on the way, nobody to send; held: stationings, shift/talk ticks, verbs refused, the busy flag put
+  back, 0 health raised; the swaps: home eligible, home bleed ticks, tells (down, warnings to you).
+- The log: `[SC] <name> is DOWN (...)` with the rule that downed her, `<medic> goes to revive <name>`, `<medic> treats
+  <name> with <item>`, `<medic> stops going to <name> - <why>`, `<name> is back up after N s down`, `<name> bled out after
+  N s down`; 0-XNPCCore's own `[SDCS-DOWNED]` and `[SDCS-MEDIC]` lines (verbose). At load: `downed (round U2):
+  0-XNPCCore's downed state patched - ON ...` or ONE error naming what did not match.
+
 ## Team strength and postures *(rounds tm1, k3, k4)*
 
 - **`sc team`** — the rule's numbers (matched at F >= `TeamMargin` x T, 1 - exact parity; left below `TeamLeaveMargin`

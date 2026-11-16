@@ -379,4 +379,13 @@
     <Compile Include="ScWindowMover.cs" />
   </ItemGroup>
 
+  <!-- round U2: 0-XNPCCore 3.4.06's downed state on the community's people - the state and the resident medics (ScDowned), the
+       five re-pointed 0-XNPCCore calls (Patches_Downed), the revive action's UAI classes and the config keys - 3.4 only -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScDowned.cs" />
+    <Compile Include="Patches_Downed.cs" />
+    <Compile Include="UaiDowned.cs" />
+    <Compile Include="ScConfigDowned.cs" />
+  </ItemGroup>
+
 </Project>

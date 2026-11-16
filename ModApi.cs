@@ -34,6 +34,9 @@ namespace SurvivorCommunity
                 PatchClassByClass(h);
                 try { VerifyPatches(h); }
                 catch (Exception e) { ScLog.Err("patch verification failed: " + e.Message); }
+                // round U2: 0-XNPCCore's downed state for SC's people at home - ON only when all five re-pointed calls were found
+                try { Patches_Downed.Settle(); }
+                catch (Exception e) { ScLog.Err("downed (round U2): " + e.Message + " - the feature is OFF"); }
                 // W2: the copy of vanilla's biome spawn step that SC's wild raiders get when another mod turns the game's
                 // enemy biome spawns off (a reverse patch; logs and stays off on any surprise)
                 ScWildRaiders.Build();
@@ -450,6 +453,10 @@ namespace SurvivorCommunity
             // would end the whole verification - caught, warned once, and the rest of the list still checked)
             try { AddBooks(t); }
             catch (Exception e) { ScLog.Warn("patch verification: 0-XNPCCore 3.4.03's books and progress page are not there (" + e.GetType().Name + ") - the X2c crafting patches are off (0-XNPCCore before 3.4.03?)"); }
+            // round U2 (Patches_Downed.cs): 0-XNPCCore 3.4.06's downed calls re-pointed for SC's people at home - listed only when all
+            // five exist (an 0-XNPCCore without them is Patches_Downed.Settle's one error, not five MISSING PATCH lines)
+            try { foreach (var dt in Patches_Downed.Targets()) Add(t, dt.Key, dt.Value); }
+            catch (Exception e) { ScLog.Warn("patch verification: the downed targets could not be listed (" + e.GetType().Name + ")"); }
             // round 28 (X3): X3a the talk hold (a talk links a resident at home); B1's first layer, SCore's Collect refusing SC's
             // people (with or without Voice Control: any caller)
             Add(t, "XUiC_DialogWindowGroup::OnOpen", Patches_Craft.TalkOpenTarget());

@@ -37,6 +37,89 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round U2 (2026-11-16): downed, not dead - home and watch downs, resident medics, the guards
+
+Why: 0-XNPCCore 3.4.06 knocks a hire down instead of killing her (research/npc306/part_downed.md). Your decisions: shift and
+talk residents stay downable with their link held (D4); residents at home and guards on watch go down too, and resident
+medics revive them, "Do it now" (D5); an "X is down" message and a roster status (D6).
+
+Before you start: 0-XNPCCore 3.4.06 installed, `DebugLogging` true. The log at load says `downed (round U2): 0-XNPCCore's
+downed state patched - ON - 5 of 5 calls swapped` (no error line) and `config: downed residents at home and guards on watch
+go down ...`. A community with at least three residents; make one a medic with `sc craft <name> spec Medicine` and check
+`sc meds <name>` shows a first aid bandage or kit (`sc meds <name> give` restocks her). `sc downed` at any time shows the
+state.
+
+**Home downs and the timer (D5)**
+- [ ] `sc down <resident>` (not the medic) at home: she drops, a red marker with a countdown shows above her, and you see
+      "<name> is down! 60 s to revive them - E with a first aid bandage or kit." (SC's line, not 0-XNPCCore's "is down!
+      ... revive her"). The log has `<name> is DOWN (Resident, at home ...) ... SC's home rule (round U2)`. No death line.
+- [ ] Let a zombie at her while she is down: no damage, and zombies turn away from her.
+- [ ] With no medic able to come (set the medic on watch, or take her first aid away), wait: "will bleed out in 30 s" and
+      "in 10 s" warnings come to YOU (0-XNPCCore's own text), then she dies: "<name> of your community bled out and
+      died.", morale drops once (the window's Recent days), her backpack drops. Exactly one death line in the log.
+- [ ] The same with a real fight: let a zombie kill a resident at home. She goes down instead of dying.
+- [ ] A guard on watch (on a Watch post) taking a killing hit goes down on the post; no call-outs from her while down.
+- [ ] Revive a downed resident yourself with E and a first aid bandage in your pack: the bandage is used, she plays the
+      get-up and stands; "<name> is back on their feet."; no death recorded; `sc downed <name>` shows her grace (60 s)
+      and the 10-minute re-down window. Use a first aid kit on her instead (hold it, aim at her, use it on her with the
+      right mouse button): the same.
+- [ ] Revive her with `sc revive <name>`: the same. `sc down <name>` again inside 10 minutes: she dies for real
+      (0-XNPCCore's re-down rule).
+
+**Resident medics (D5)**
+- [ ] `sc down <resident>` at home with the medic free and carrying a revive item: "<medic> is on the way to help
+      <name>."; the medic runs to her, plays 0-XNPCCore's bandage animation beside her, one first aid bandage
+      (or kit) leaves the medic's pack (`sc meds <medic>`), the patient gets up; "<medic> got <name> back on their feet."
+- [ ] The same in the middle of a zombie fight at the base: the medic still goes; a zombie that reaches her makes her
+      fight back for a moment (log, verbose: "fights back at ..."), then she goes on.
+- [ ] Two members down, one medic: the one with less time left gets the medic; the other shows "Nobody can come to help
+      <name>: <medic> is busy (...)" and you revive her.
+- [ ] Two medics: the nearer one goes; the other keeps her routine.
+- [ ] The medic with no first aid bandage or kit: "Nobody can come to help <name>: <medic> has no first aid bandage or
+      kit." Restock her (`sc meds <medic> give`) while the patient is still down: she is sent then.
+- [ ] A medic sheltering (badly hurt with nothing to heal with, `sc retreat`) or under 35% health is not sent ("... is
+      badly hurt"). A medic on watch, or one you are talking to, is not sent ("... is busy").
+- [ ] A patient she can't reach (on a tower with no stairs, behind a locked door): after about 12 s with no meter gained
+      she gives up (log: "stops going to <name> - no meter closer in 12 s"), the next medic is tried, or you are told.
+- [ ] At night with the medic asleep in bed: she gets up and goes (log: "(woken: the night lease closes)").
+- [ ] A downed FOLLOWER inside the base: a resident medic revives her too. Outside the base: no resident medic goes.
+
+**Shift and talk links held (D4, risk 1)**
+- [ ] Put a resident on a work shift (Call to work), then `sc down` her. Wait more than 90 s (`WorkIdleSeconds`): the
+      shift is NOT ended (log: "work shift is kept: she is down" if anything tries), the countdown keeps running (the
+      marker's seconds go down). Revive her: the shift's own rules take over again (it ends when idle, she walks back).
+- [ ] Talk to a resident, close the talk and at once `sc down` her (or have her downed during the talk): the talk link
+      stays until she is up; the countdown never freezes.
+- [ ] Press End work on the Community tab for a downed shift worker: "They're down - revive them first ...".
+
+**Followers and the guards (risks 2-4)**
+- [ ] A follower goes down outside the base: SC's "is down" line; revive with E; "back on their feet". Her own medic
+      follower (0-XNPCCore's medic role) still revives her as before.
+- [ ] A follower down just outside the zone, you walk into the base: she is NOT stationed while down (log once: "is down
+      - not stationed now"), no teleport. Revive her: she is stationed then, as usual.
+- [ ] Go home / Follow me / Ask to leave / Send on supply run / Assign to an outpost / a Watch post / Call to work on a
+      downed member: each refused with "They're down - revive them first ..." (Ask to leave: "... is down and can't
+      leave now ..."). Nothing changes for her.
+- [ ] `sc team <member>` during a fight with another member down near her: the downed one is not in the list (counts 0,
+      neither friend nor foe).
+- [ ] An intruder at the base with the only free residents down or reviving: they are not sent to investigate.
+- [ ] No greeting, chatter or horde call-out from a downed member.
+- [ ] A member asleep in bed taking a killing hit goes down; she does not walk or sleep while down (log may say "busy
+      flag was off ... set again" - that is the safety net); revived at night, she goes back to bed.
+
+**Window and messages (D6)**
+- [ ] The community window's row for a downed member reads "Down - 42 s" (counting down, refreshed every 2 s); selected:
+      "Down - 42 s - <medic> is coming", or "... - nobody can come: revive them yourself".
+- [ ] `DownedTell` false: none of SC's lines; 0-XNPCCore's own "is down! ... revive her" and its warnings, for every member
+      (at home too).
+
+**Settings and fallbacks**
+- [ ] `DownedAtHome` false: a resident at home or a guard on watch dies at once (as before); a follower and a shift or
+      talk resident still go down (0-XNPCCore's rule), with every guard above.
+- [ ] `ResidentMedicsRevive` false: no medic is sent; you are told nothing about medics.
+- [ ] Walk far away from a downed resident until the base unloads, come back: she is standing (0-XNPCCore's reload rule);
+      the log says "unloaded while down", no revive message.
+
 ## Round lb1 (2026-11-16): a bundle in every store crate
 
 The user: "A bundle should be guaranteed" in the store crates. Loot Abundance at the default 100% for these steps

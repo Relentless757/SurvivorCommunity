@@ -1180,6 +1180,9 @@ namespace SurvivorCommunity
                 return;
             }
             confirmLeaveUntil = 0f;
+#if SC_V34
+            if (ScDowned.MemberDown(m)) { message = Localization.Get("scDownedBusy"); if (Player != null) Player.PlayOneShot("ui_denied"); Refresh(); return; }   // round U2: not while she is down (Leave tells her too)
+#endif
             ScCommunity.Leave(m, "scLeft");
             selectedId = -1;
             runPicking = false;
@@ -1657,6 +1660,10 @@ namespace SurvivorCommunity
         public static string StatusText(Member m, bool brief)
         {
             if (m == null) return "";
+#if SC_V34
+            string down = ScDowned.StatusText(m, brief);     // round U2 (D6): "Down - 42 s" while she is down (and who is coming)
+            if (down != null) return down;
+#endif
             string s;
             switch (m.Status)
             {

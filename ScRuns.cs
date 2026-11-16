@@ -34,6 +34,9 @@ namespace SurvivorCommunity
             if (m.Status != MemberStatus.Resident) { error = "scRunNotHome"; return false; }
             if (ScWatch.OnWatch(m)) { error = "scWatchBusy"; return false; }     // relieve them at the Watch post first (D3)
             if (npc == null) { error = "scNotLoaded"; return false; }
+#if SC_V34
+            if (ScDowned.RefuseVerb(m)) { error = "scDownedBusy"; return false; }   // round U2: no run for a downed member (mining too)
+#endif
             if (m.Injured) { error = "scRunInjured"; return false; }
             if (ScConfig.RefusesForMood(m)) { error = "scRefuseMood"; return false; }   // P2: never by default
             if (Runners() >= ScConfig.MaxRunners) { error = "scRunTooMany"; return false; }

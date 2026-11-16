@@ -1429,6 +1429,7 @@ namespace SurvivorCommunity
             ResetCraft();                          // C1 (ScConfigCraft.cs)
             ResetRadio();                          // R2 (ScConfigRadio.cs)
             ResetMining();                         // round 33c (ScConfigMining.cs): mining runs
+            ResetDowned();                         // round U2 (ScConfigDowned.cs): home and watch downs, resident medics revive
 #endif
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
@@ -2571,6 +2572,7 @@ namespace SurvivorCommunity
                 ParseCraft(p);                     // C1 (ScConfigCraft.cs)
                 ParseRadio(p);                     // R2 (ScConfigRadio.cs)
                 ParseMining(p);                    // round 33c (ScConfigMining.cs): mining runs
+                ParseDowned(p);                    // round U2 (ScConfigDowned.cs): home and watch downs, resident medics revive
 #endif
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);
@@ -2857,6 +2859,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: crafting " + CraftLine());   // C1 (ScConfigCraft.cs)
                 ScLog.Out("config: handheld radio " + RadioLine());   // R2 (ScConfigRadio.cs)
                 ScLog.Out("config: mining runs " + MiningLine());     // round 33c (ScConfigMining.cs)
+                ScLog.Out("config: downed " + DownedLine());           // round U2 (ScConfigDowned.cs)
 #endif
             }
             catch (Exception e)

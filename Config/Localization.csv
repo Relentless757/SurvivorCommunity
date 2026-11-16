@@ -40,6 +40,22 @@ scBringThemHome,UI,Tooltip,,,,"Bring them to your base first, or stand inside it
 scLeft,UI,Tooltip,,,,"{0} has left your community."
 scLeftMorale,UI,Tooltip,,,,"{0} has had enough and left your community."
 scDied,UI,Tooltip,,,,"{0} of your community has died."
+scDownedIsDown,UI,Tooltip,,,,"{0} is down! {1} s to revive them - E with a first aid bandage or kit."
+scDownedMedicGoes,UI,Tooltip,,,,"{1} is on the way to help {0}."
+scDownedNoMedic,UI,Tooltip,,,,"Nobody can come to help {0}: {1}. Revive them yourself - E with a first aid bandage or kit."
+scDownedWhyNoMedic,UI,Tooltip,,,,"there is no medic at home"
+scDownedWhyNoItem,UI,Tooltip,,,,"{0} has no first aid bandage or kit"
+scDownedWhyHurt,UI,Tooltip,,,,"{0} is badly hurt"
+scDownedWhyBusy,UI,Tooltip,,,,"{0} is busy (on watch, talking to you, or helping someone else)"
+scDownedWhyUnreachable,UI,Tooltip,,,,"{0} can't get to them"
+scDownedRevived,UI,Tooltip,,,,"{0} is back on their feet."
+scDownedRevivedBy,UI,Tooltip,,,,"{1} got {0} back on their feet."
+scDownedBledOut,UI,Tooltip,,,,"{0} of your community bled out and died."
+scDownedBusy,UI,Tooltip,,,,"They're down - revive them first (E with a first aid bandage or kit)."
+scDownedNoLeave,UI,Tooltip,,,,"{0} is down and can't leave now. Ask again once they're back on their feet."
+scStDown,UI,Menu,,,,"Down - {0} s"
+scStDownMedic,UI,Menu,,,,"{0} is coming"
+scStDownNoMedic,UI,Menu,,,,"nobody can come: revive them yourself"
 scNoWindow,UI,Tooltip,,,,The community window is not available (UI not loaded).
 scHomeSet,UI,Tooltip,,,,This land claim is now your community's home.
 scHomeStarted,UI,Tooltip,,,,Your community starts here: this land claim is its home.

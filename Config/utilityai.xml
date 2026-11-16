@@ -608,6 +608,30 @@
 	</conditional>
 
 	<!--
+	  Round U2 (2026-11-16, the user's decision D5: resident medics revive): SCResident's ScRevive walks a resident medic to a
+	  downed member at home (ScDowned picks her once a second: the nearest free member with the Medicine specialty who carries a
+	  revive item and is not badly hurt herself). ScReviving is 1 only while she is sent, the treatment has not started and she is
+	  not fighting back at what is after her within 2.5 m (the task notes that and stops; the pack's attacks take her for 2.5 s).
+	  In reach ScDowned hands her to 0-XNPCCore's own medic sequence (SdcsMedic.Begin), whose busy action (12) then holds her.
+	  8.25: over BackupKeepDistance (8), ScKiteWide (8.2), 0-XNPCCore's medic (7) and every fight of hers (the shot 6, the melee
+	  5, the defense 5.2) - she reaches the downed member mid-fight - and under ScHealBackOff (8.3: a medic who must bandage
+	  herself does that first), ScRetreat and ScFleeHurt (8.5: a medic who shelters is never sent, and one who starts to is let
+	  go), 0-XNPCCore's leave-area and flee (9, gated off at home and for SC's cowards) and its busy action (12). SdcsMayAct first,
+	  as on ScKiteWide: a stunned or knocked-down medic starts no walk. Only with 0-XNPCCore 3.4's packages (SdcsNpcCore).
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcCore&quot;]') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']">
+				<action name="ScRevive" weight="8.25" entity_filter="IsSelf">
+					<task class="ReviveSC, SurvivorCommunity" />
+					<consideration class="SdcsMayAct, NPCSdcsCharacters" />
+					<consideration class="ScReviving, SurvivorCommunity" />
+				</action>
+			</append>
+		</if>
+	</conditional>
+
+	<!--
 	  Round R1 (0-XNPCCore 3.4.02's bandits; SC's raiders are their children there, Config/entityclasses.xml): a band of
 	  raiders on the road keeps walking. The bandits' HoldEngaged (3.5) stands, faces and targets any enemy within 40 m,
 	  seen or not (SCore's utility AI scores every entity in see range), and beats Guard (3), the order a band walks by

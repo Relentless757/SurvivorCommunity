@@ -401,6 +401,9 @@ namespace SurvivorCommunity
                 EntityAlive a = near[i] as EntityAlive;
                 if (a == null || a == self || a.IsDead()) continue;
                 if (EntityTargetingUtilities.IsEnemy(self, a)) { if (!global::Harmony.ZombieFeatures.InertEntity.IsInert(a)) enemies.Add(a.position); continue; }
+#if SC_V34
+                if (ScDowned.IsDown(a)) continue;       // round U2: a downed member shelters nobody (no "beside another member" spot by her)
+#endif
                 if (a is EntityPlayer || ScRegistry.GetMember(a.entityId) != null) allies.Add(a.position);
             }
             near.Clear();

@@ -49,6 +49,8 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc meds <id\|name> give` | Restock her medical supplies now for 1 Meds (the cooldown ignored). [CHEAT] |
 | `sc retreat [id\|name]` | Badly hurt members: who is sheltering or kiting and why, or why not; one member in full. [READ] |
 | `sc sleep` | Sleeping at night: who is in bed, why not for the rest, and the beds that count. [READ] |
+| `sc downed [id\|name]` | Downed members: who is down, the seconds left, which medic is on the way; for everyone else whether a killing hit downs them, and why each medic can or can't go. [READ] |
+| `sc down <id\|name>` / `sc revive <id\|name>` | Knock a member down now, or revive a downed one (0-XNPCCore's own). [CHEAT] |
 | `sc craft [<name>]` | Crafting/work-shift status for the community or one member. [READ] |
 | `sc craft station` | The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft counters. [READ] |
 | `sc enclave list` / `reveal all` | List enclaves (settlements of other survivors); reveal them on the map. |
@@ -150,6 +152,19 @@ Example: `sc drinks on`
 ### `sc sleep` [READ]
 Sleeping at night (README section 4): whether `SleepAtNight` is on and whether it is bedtime now, or why not (daytime, too soon after dusk, a blood moon night, 0-XNPCCore's own routine switched off in its settings); this session's counts (put to bed, taken back, refused) with the last refusal; the home zone's beds and how many of them are within `SleepZoneHeight` of the land claim block in loaded chunks (only those count; with none, nobody at home goes to bed); then one line per member: `ASLEEP/leased` (in bed, or on the way to it) or `SC's own routine`, the reason when not (not a resident at home, on watch, on a work shift, following you, busy with you, not inside the home zone, not enough beds), and 0-XNPCCore's three routine values for a bug report. Members who are not loaded are listed as such; enclave people are not listed. Nothing is changed.
 Example: `sc sleep`
+
+### `sc downed [id|name]` [READ]
+Downed members (0-XNPCCore 3.4.06's downed state): whether SC's part is on, the settings, the counters, and every member:
+down, with the seconds left and the medic on the way (or nobody), or up, with whether a killing hit downs them and why; for
+a medic, whether she can go. With a name: that member in full.
+
+Example: `sc downed Kim`
+
+### `sc down <id|name>` and `sc revive <id|name>` [HOST] [CHEAT]
+Knocks a member down now, through 0-XNPCCore's own rules (a member it refuses says why), or revives a downed one. For
+testing the timer, the marker, the messages and the medics.
+
+Example: `sc down Kim`
 
 ### `sc scan` [READ]
 Re-counts beds, facilities and crops in the home zone now and prints the timing.

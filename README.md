@@ -416,6 +416,34 @@ With 0-XNPCCore's resident routine, your residents sleep in the base's beds:
   `sc retreat <name>` shows why she is or is not retreating. One fix from the same update stays on even with
   `RetreatHome` false: a member running from a fight no longer counts as fighting for the "stuck" rescue.
 
+### Downed, not dead
+
+A killing hit no longer kills a member outright: she goes **down** (0-XNPCCore 3.4.06's downed state).
+
+- She lies on the ground and nothing can hurt her. A red marker above her counts down **60 seconds**; the community
+  window shows the seconds left too (section 17).
+- **Revive her** before it runs out: look at her and press **E** with a first aid bandage or a first aid kit in your
+  pack, or use one on her. The item is used up. She gets up with little health, and for a minute nothing can hurt her.
+  Going down again within 10 minutes of that is a real death.
+- If nobody revives her, she **bleeds out** and dies for real. Only then does it count as a death (morale, Recent days).
+- **Who goes down:** members at home, guards on watch, residents on a work shift or talking to you, and followers.
+  Members away on a supply or mining run still die at once. Set `DownedAtHome` (section 20) to false and residents at
+  home and guards on watch die at once again, as before.
+- **Medics revive at home.** A resident with the **Medicine** specialty runs to a downed member at home and gets her back
+  on her feet with a first aid bandage or kit from her own pack. She goes even in the middle of a fight, and fights back
+  at anything that reaches her on the way. The nearest free medic goes, one for each downed member. A medic doesn't go if
+  she's badly hurt herself (sheltering, or under 35% health), on watch or talking to you; one who can't get there gives up
+  and the next one goes. With no medic who can come, you're told why, and it's up to you. Medics restock first aid from
+  the stockpile's medical supplies like everyone else (section 15), so keep some there.
+- **Messages:** you're told when a member goes down ("X is down! 60 s to revive them"), which medic is on the way or why
+  nobody can come, when she's back on her feet, and if she bleeds out. 0-XNPCCore also warns you at 30 and 10 seconds.
+- **While she is down** everything waits: a work shift or a talk with her stays on, and she can't be sent home, on a run,
+  to an outpost or onto a watch, or leave the community. Ask again once she's up. She doesn't count as a fighter for the
+  others and says nothing.
+- If her body unloads while she's down (you walked far away), she is standing again when you come back.
+- `sc downed` in the console shows who is down, the seconds left, which medic is on the way and why each medic can or
+  can't go. `sc down <name>` knocks a member down and `sc revive <name>` revives her, for testing.
+
 ### Doors
 
 - Members open closed doors on their way (roaming, following, going home, supply runs) and shut them again behind them.
@@ -1492,7 +1520,8 @@ The window has three tabs.
 - **Left:** one row per member with their status, mood, skills and specialty. Injured rows are red. A **filter** (All
   members, At base, Following, On a run, Injured, At outposts) and a **search** box narrow the list.
 - **The selected member:** their health, mood, skills, specialty, traits and status (at home, following, on a run, on
-  watch, holding an outpost, missing, on the way).
+  watch, holding an outpost, missing, on the way, down). A downed member's row shows "Down - 42 s", the seconds left to
+  revive her; selected, also which medic is coming or that nobody can.
 - **Orders:**
   - **Follow me / Go home** for a member at home or following.
   - **Recall home** for a runner (needs their radio, or you with them) or a member posted at an outpost.
@@ -1691,6 +1720,10 @@ These are the ones you are most likely to change. The file has many more.
 | `RegenOutOfCombat` | true | Members regain health slowly with no enemy near; false: only items heal |
 | `RegenRatePerSecond` / `RegenCapShare` / `RegenEnemyRadius` | 0.2 / 0.6 / 30 | Health per second, the share of her health it stops at, and how far (meters) an awake enemy that is after her or sees her holds it |
 | `RegenNearRadius` | 12 | Any awake enemy this close (meters) holds it too, after her or not; 0: only the ones after her or seeing her |
+| `DownedAtHome` | true | Residents at home and guards on watch go down at a killing hit instead of dying (section 4); false: they die at once, as before |
+| `ResidentMedicsRevive` | true | A resident with the Medicine specialty runs to a downed member at home and revives her from her own pack; false: you revive them yourself |
+| `ReviveMedicMinHealth` / `ReviveMedicRange` / `ReviveNoGainSeconds` | 0.35 / 60 / 12 | A medic under this share of her health doesn't go, nor one farther off than this many meters; one who gets no closer in this many seconds gives up and the next one goes |
+| `DownedTell` | true | Messages when a member goes down, which medic is coming (or why nobody can), when she's back up, and if she bleeds out; false: only 0-XNPCCore's own "is down!" and its warnings |
 | `ShootingSkill` | true | Shooting stars decide NPC accuracy |
 | `Overwhelmed` | true | NPCs keep shooting when several enemies are on them |
 | `TeamMelee` | true | Members fight with their melee weapon in a fight their side can win (section 15); false: never - every fight with a gun is "kite" |

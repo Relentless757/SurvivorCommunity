@@ -346,6 +346,10 @@ namespace SurvivorCommunity
         private static string NotFree(Member m, EntityAlive npc, EntityAlive t, bool fresh)
         {
             if (m == null || npc == null || npc.IsDead()) return "not in the world";
+#if SC_V34
+            if (ScDowned.IsDown(npc)) return "down";                                              // round U2: down, or a medic on her way to one
+            if (ScDowned.IsReviving(npc.entityId)) return "on the way to revive a downed member";
+#endif
             if (m.Status != MemberStatus.Resident || m.Post == Vector3i.zero) return "not a resident at a post";
             if (!UAI.UAIConsiderationScNotHomeMember.AtHome(npc.position)) return "not at home";
             if (ScWatch.OnWatch(m)) return "on watch";

@@ -414,6 +414,9 @@ namespace SurvivorCommunity
             if (OnWatch(m)) { error = "scWatchElsewhere"; return false; }
             if (m.Status != MemberStatus.Resident || ScMissing.IsMissing(m)) { error = "scWatchNotHome"; return false; }
             if (m.Injured) { error = "scWatchInjured"; return false; }
+#if SC_V34
+            if (ScDowned.RefuseVerb(m)) { error = "scDownedBusy"; return false; }   // round U2: no watch for a downed member
+#endif
             if (ScConfig.RefusesForMood(m)) { error = "scRefuseMood"; return false; }   // P2: never by default
             if (m.WatchRestUntil > Now) { error = "scWatchResting"; return false; }
             if (ScRegistry.Community.Get(Resource.Ammo) < Math.Max(0, ScConfig.WatchShiftAmmo)) { error = "scWatchNoAmmo"; return false; }
@@ -893,6 +896,9 @@ namespace SurvivorCommunity
         private static EntityAlive GuardBody(Member m)
         {
             EntityAlive npc = ScCommunity.FindNpc(m.Id);
+#if SC_V34
+            if (npc != null && ScDowned.IsDown(npc)) return null;   // round U2: a downed guard has no body to call out or say anything with
+#endif
             return npc != null && !npc.IsDead() ? npc : null;
         }
 
