@@ -306,20 +306,20 @@ blocks.xml for the `small talk:` / `campfire:` log lines. `sc chat` explains eve
 
 **The evening campfire**
 - [ ] From about an hour before dusk (`sc chat` says "evening NOW"), each free resident walks to the campfire within a
-      minute or so and stands on a ring round it, facing it, for 30-60 seconds; the fire shows flames while anyone is
+      minute or so and stands on a ring around it, facing it, for 30-60 seconds; the fire shows flames while anyone is
       there (no fuel used: check the campfire's fuel slot and the block afterwards). Two at the fire talk now and then.
       Each goes back to the routine once done, and each goes only once that evening.
 - [ ] Guards on watch and members on a work shift stay where they are; nobody gathers on a blood moon night or during a
       base attack.
 - [ ] When bedtime comes the gathering ends and those with a bed go to bed (`sc sleep`: the "sleep clock" line says the
       lease opens at 0-XNPCCore's own bedtime).
-- [ ] Pour a round of drinks (Activities): free residents gather round the fire at once (the window `drinks:<day>`).
+- [ ] Pour a round of drinks (Activities): free residents gather around the fire at once (the window `drinks:<day>`).
 - [ ] `sc chat gather` gathers everyone now, `sc chat gather end` sends them back. Save and quit while they sit at the
       fire, load again: the fire is not left burning (any flame left on a body is put out within 5 seconds).
 - [ ] No campfire in the base: nobody walks anywhere in the evening (`sc chat`: "campfire none found").
 
 **Enclaves and strangers**
-- [ ] At a friendly enclave whose building has a campfire: its people (not the leader) gather round it in the evening,
+- [ ] At a friendly enclave whose building has a campfire: its people (not the leader) gather around it in the evening,
       and two of them standing close talk while you are 10-32 m away.
 - [ ] Walk up to a group of three or more strangers (wild survivors) whose voices have a greeting recorded: one greets
       you, the others do not greet you one after another. Looking at another one up close still gets their own

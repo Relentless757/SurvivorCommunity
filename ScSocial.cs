@@ -65,7 +65,7 @@ namespace SurvivorCommunity
         private const float ReplyGapSeconds = 0.6f, HoldAfterReplySeconds = 3f;
         /// <summary>The answer waits at most this long for the opener's clip to finish.</summary>
         private const float ReplyWaitMax = 6f;
-        /// <summary>The ring round the fire (0-XNPCCore's GatherRingMetres), and a second one farther out.</summary>
+        /// <summary>The ring around the fire (0-XNPCCore's GatherRingMetres), and a second one farther out.</summary>
         private const float RingMeters = 2f, RingOuter = 3.2f;
         /// <summary>A sitter has this long to get to her place at the fire.</summary>
         private const float GatherWalkSeconds = 60f;
@@ -277,7 +277,7 @@ namespace SurvivorCommunity
             return true;
         }
 
-        /// <summary>Turns one body to another: her look at its head, and her body round to it (0-XNPCCore's SdcsResidentChat.Face; no pitch on an SDCS body).</summary>
+        /// <summary>Turns one body to another: her look at its head, and her body around to it (0-XNPCCore's SdcsResidentChat.Face; no pitch on an SDCS body).</summary>
         public static void Face(EntityAlive self, EntityAlive other)
         {
             if (self == null || other == null) return;
@@ -526,7 +526,6 @@ namespace SurvivorCommunity
             if (nextExchange < 0f) { nextExchange = now + Jitter(ScConfig.SmallTalkGapSeconds) * 0.5f; return; }   // not right at load
             bool gapOpen = now >= nextExchange, fireOpen = now >= nextFireTalk;
             if (!gapOpen && !fireOpen) return;
-            if (SubtitleBusy(w) != null) return;          // the review's finding 6: a greeting or a chat owns the subtitle bar
             candidates.Clear();
             float r2 = ScConfig.SmallTalkRange * ScConfig.SmallTalkRange;
             for (int i = 0; i < bodies.Count; i++)
@@ -547,6 +546,9 @@ namespace SurvivorCommunity
             }
             if (candidates.Count > 0)
             {
+                // the review's finding 6: a greeting or a chat owns the subtitle bar. Asked only once a pair is ready (the
+                // re-review: before the scan it ran its entity query every second while the gap was open and nobody stood close)
+                if (SubtitleBusy(w) != null) return;
                 // a pair at a fire first: that is where the talk is
                 int fire = 0;
                 for (int i = 0; i < candidates.Count; i++) if (candidates[i].AtFire) fire++;
@@ -583,8 +585,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// The review's finding 6: Voice Control's subtitle bar shows one line, so no small-talk line goes over a proactive
         /// greeting it is playing (NPCChatComponent.ProactiveGreetingPlaying) or a chat a player is having with someone near
-        /// them (0-XNPCCore's SdcsEmoteReactions.Chatting, Voice Control's chat pause, on any living body within
-        /// ChatScanMeters of a player). The reason, or null when the bar is free.
+        /// them (0-XNPCCore's SdcsEmoteReactions.Chatting, Voice Control's chat pause, on any living NPC - a survivor, a
+        /// trader: never a zombie, an animal or a player - within ChatScanMeters of a player). The reason, or null when the bar
+        /// is free.
         /// </summary>
         private static string SubtitleBusy(World w)
         {
@@ -596,11 +599,11 @@ namespace SurvivorCommunity
                 EntityPlayer p = ps[i];
                 if (p == null || p.IsDead()) continue;
                 chatScan.Clear();
-                w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(p.position, Vector3.one * (ChatScanMeters * 2f)), chatScan);
+                w.GetEntitiesInBounds(typeof(EntityNPC), new Bounds(p.position, Vector3.one * (ChatScanMeters * 2f)), chatScan);
                 for (int k = 0; k < chatScan.Count; k++)
                 {
-                    EntityAlive e = chatScan[k] as EntityAlive;
-                    if (e == null || e is EntityPlayer || e.IsDead()) continue;
+                    EntityNPC e = chatScan[k] as EntityNPC;      // the survivors (SCore's bodies) and traders: who Voice Control chats with
+                    if (e == null || e.IsDead()) continue;
                     if (VcChatting(e)) { chatScan.Clear(); return ScCommunity.DisplayName(e) + " is chatting with you through Voice Control"; }
                 }
                 chatScan.Clear();
@@ -1148,7 +1151,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// A place on the ring round the fire for the next sitter (0-XNPCCore's GatherSpot: 45-degree steps 2 m out, on the
+        /// A place on the ring around the fire for the next sitter (0-XNPCCore's GatherSpot: 45-degree steps 2 m out, on the
         /// fire's level or one off it, a real floor inside the place), not one another sitter has; a second ring farther out
         /// when the first is full or blocked.
         /// </summary>

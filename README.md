@@ -428,9 +428,9 @@ Between their jobs your residents have a life of their own.
 - **Walking over.** Now and then a resident on her walk about the base heads over to a neighbor to talk. The neighbor
   waits for her, turned her way.
 - **The evening campfire.** With a campfire inside the base, each free resident walks over to it once in the evening (from
-  about an hour before dusk until bedtime) and stands round it for 30 to 60 seconds, and two at the fire talk now and
+  about an hour before dusk until bedtime) and stands around it for 30 to 60 seconds, and two at the fire talk now and
   then. The fire shows lit while anyone is there: only the flames, so it uses no fuel and the block does not change. A
-  round of drinks (Activities) gathers them round the fire as well. Then they go back to what they were doing, and at
+  round of drinks (Activities) gathers them around the fire as well. Then they go back to what they were doing, and at
   bedtime to bed.
 - **Voices.** Each line plays in the speaker's own voice once it is recorded. Until then it shows as a caption in Voice
   Control's subtitle bar (where Voice Control shows that survivor's text); without Voice Control there are no captions.
@@ -1180,7 +1180,7 @@ raiders. Each group is an **enclave** with a name and a building of its own.
 - They appear within about 150 m of their building and go when nobody is near. The leader stays at their spot all day, so
   you always know where to find them.
 - They defend their building and its grounds.
-- They talk with each other, and in the evening gather round a campfire in their building if it has one (section 4,
+- They talk with each other, and in the evening gather around a campfire in their building if it has one (section 4,
   "Social life at home").
 - Deaths are real. When the leader dies, the strongest of the rest takes over. When the last of them dies, the enclave is
   gone and its building is free again.
@@ -1726,7 +1726,7 @@ These are the ones you are most likely to change. The file has many more.
 | `SmallTalkMeetChance` / `SmallTalkMeetRange` | 0.3 / 25 | The chance (every 20 seconds) that a resident on her walk heads over to a neighbor within this many meters to talk |
 | `SmallTalkTtsFallback` | false | true: a survivor whose voice has none of the lines recorded says one of Voice Control's own small-talk lines with its text-to-speech |
 | `SmallTalkEnclaves` | true | Enclave people talk and gather in their own building too |
-| `CampfireGathering` | true | In the evening and during a round of drinks, free residents gather round a campfire inside the base |
+| `CampfireGathering` | true | In the evening and during a round of drinks, free residents gather around a campfire inside the base |
 | `CampfireMinSeconds` / `CampfireMaxSeconds` | 30 / 60 | How long each one stays at the fire |
 | `CampfireMaxPeople` / `CampfireTalkGapSeconds` | 8 / 20 | Most people at one fire at a time, and seconds between two conversations there |
 | `CampfireBlocks` / `CampfireLit` | campfire / true | The blocks that count as a campfire (names, or a prefix ending in `*`); the fire shows lit while they sit at it (no fuel used) |

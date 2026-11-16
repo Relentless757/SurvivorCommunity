@@ -1197,7 +1197,7 @@
 			<!-- Round U3, the campfire. In the evening - from HomeBeforeDuskHours before dusk to SleepAfterDuskHours after it,
 			     both read from 0-XNPCCore's Settings.xml, so it ends where bedtime starts - and while a round of drinks lasts,
 			     each free resident walks once to a campfire inside the base (CampfireBlocks: block names, or a prefix ending in
-			     *), stands round it for CampfireMinSeconds to CampfireMaxSeconds, then goes back to their routine. At most
+			     *), stands around it for CampfireMinSeconds to CampfireMaxSeconds, then goes back to their routine. At most
 			     CampfireMaxPeople at a time; two at the fire talk every CampfireTalkGapSeconds or so. Never on a blood moon or
 			     during a base attack. CampfireLit shows the fire burning while anyone sits at it (the flames only: no fuel is
 			     used and the block does not change). An enclave's people gather at a campfire in their building, if it has one.

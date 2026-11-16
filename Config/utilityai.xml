@@ -423,7 +423,7 @@
 	    seconds an exchange lasts. Above ScNightIdle 3.6, ScRoam 3.4, ScAtPost 3.2, Guard and Stay 3.0 (their enclave twins
 	    alike) and ScGather, so a pair at the campfire talks; below RoutineWalk 3.8 (0-XNPCCore's night routine for the leased,
 	    who never talk: the ticker refuses anyone in bed) and every fight, flee, retreat, defense and the leash (4 and up).
-	  - ScGather 3.7: walk to a place round a campfire and stand there facing it for 30 to 60 seconds, once an evening and
+	  - ScGather 3.7: walk to a place around a campfire and stand there facing it for 30 to 60 seconds, once an evening and
 	    once a round of drinks: above the post, the roam and the quiet night, below ScChat, RoutineWalk and the fights. An
 	    enclave's leader stays at their spot (role member).
 	  EnemyNotNear 30 as on the roam (the ticker asks SCore the same question before it starts either one). NoActiveChat
