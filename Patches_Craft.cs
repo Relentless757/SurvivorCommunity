@@ -38,8 +38,8 @@ namespace SurvivorCommunity
     ///                                                                              C1k/C1l act in, one tooltip and a save at its end
     ///   C1k MinEventActionAddProgressionLevel.Execute(MinEventParams)     prefix + postfix  (vanilla) the book's crafting level is
     ///                                                                              put back, specialty XP paid instead
-    ///   C1l SdcsBooks.Learned(EntityAlive, Info, List, List) (private)    prefix   that read's line: SC's training line, not a
-    ///                                                                              level SC resets
+    ///   C1l SdcsBooks.Learned(EntityAlive, Info, List, List[, List])      prefix   that read's line: SC's training line, not a
+    ///       (private; 3.4.06 added the 5th, perkBefore)                            level SC resets
     ///   C1m SdcsSayLine.Say(EntityAlive, string)                          prefix   SC's training line said through Voice Control
     ///   C1n XUiC_NpcCraftWindow.CancelJob() (Voice Control, private)      prefix   Cancel on a resident's work shift drops the job
     ///                                                                              only, the shift goes on (followers: its Stay)
@@ -177,10 +177,19 @@ namespace SurvivorCommunity
             return Returning(AccessTools.DeclaredMethod(typeof(SdcsBooks), "Order", new[] { typeof(EntityAlive), typeof(string) }), typeof(string));
         }
 
+        /// <summary>
+        /// SdcsBooks.Learned (private static, the line id said after a read). 0-XNPCCore 3.4.06 added a 5th parameter, List&lt;int&gt;
+        /// perkBefore: its perk books' own book-perk levels before the read (ApplyPerkBook now sets them itself), only for its own
+        /// "... level N now" line. 3.4.03-3.4.05 take four. The 3.4.06 shape first, then the older one (the U2+U4 integration
+        /// round). C1l reads only __0 and sets __result, and steps aside for every read SC did not pay (a perk book among them), so
+        /// perkBefore needs nothing from SC: ScPerks' class perks are other progression entries than a book's perks.
+        /// </summary>
         public static MethodBase BookLearnedTarget()
         {
             Type info = BookInfoType();
-            return info != null ? Returning(AccessTools.DeclaredMethod(typeof(SdcsBooks), "Learned", new[] { typeof(EntityAlive), info, typeof(List<string>), typeof(List<int>) }), typeof(string)) : null;
+            if (info == null) return null;
+            MethodBase m = Returning(AccessTools.DeclaredMethod(typeof(SdcsBooks), "Learned", new[] { typeof(EntityAlive), info, typeof(List<string>), typeof(List<int>), typeof(List<int>) }), typeof(string));
+            return m ?? Returning(AccessTools.DeclaredMethod(typeof(SdcsBooks), "Learned", new[] { typeof(EntityAlive), info, typeof(List<string>), typeof(List<int>) }), typeof(string));
         }
 
         public static MethodBase SayLineTarget()
@@ -852,11 +861,12 @@ namespace SurvivorCommunity
         public static class Patch_BookLine
         {
             [HarmonyPrepare]
-            public static bool Prepare() { return Bound(BookLearnedTarget, "SdcsBooks.Learned(EntityAlive, Info, List<string>, List<int>)"); }
+            public static bool Prepare() { return Bound(BookLearnedTarget, "SdcsBooks.Learned(EntityAlive, Info, List<string>, List<int>[, List<int>])"); }
 
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return BookLearnedTarget(); }
 
+            /// <summary>__0 the reader; the lists (four parameters on 3.4.03-3.4.05, five on 3.4.06) are 0-XNPCCore's own.</summary>
             [HarmonyPrefix]
             public static bool Prefix(EntityAlive __0, ref string __result)
             {

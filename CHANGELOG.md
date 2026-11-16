@@ -65,6 +65,10 @@
   quietly.
 - **Fixed:** closing the member panel could make 0-XNPCCore's equipment window pop up the next time you closed a chest.
 - **Fixed:** a resident you were talking to could lose the talk link while 0-XNPCCore's equipment or gift window was open.
+- **Fixed:** with 3.4.06 two more of SC's patches were off, each with an error at every load: a member who read a
+  crafting magazine as training shook her head and said "I already know what that one teaches." (her XP was still
+  paid), and a resident given Follow + loot, Loot here, Mine or Dig clay took the job instead of refusing it. Both
+  work again.
 
 ## Members' gear
 - **Fixed: a member's tools and weapons no longer change quality.** Taking or swapping a member's gun or melee weapon,
@@ -76,7 +80,8 @@
 - **Bond.** Each member now has a Bond with you, from -15 to +15, that adds to their mood: a gift raises it by its points
   (0-XNPCCore's count, at most 6 a day), being revived +3 (by anyone), a blood moon survived with you +4 (with you when it
   starts and when it ends), going down -2, an enemy on them that you kill +1 (at most 3 such kills a day). It fades 1 a
-  day. It shows on the talk card under their mood and in the community window beside their mood word.
+  day. A down and its revive count once each, with or without Voice Control. It shows on the talk card under their
+  mood and in the community window beside their mood word.
 - **SC owns their standing.** 0-XNPCCore no longer keeps its own trust and affinity for your members, and their events and
   deaths no longer change your trust with it, so they never change what your paid companions cost. Its **Your progress**
   page reads "Trust: ... Feels: ..." from the member's Bond and mood, and Voice Control's `vc standing` on a member shows

@@ -166,6 +166,26 @@ panel's new ammo line), against 0-XNPCCore 3.4.06. `DebugLogging` true for the v
 - [ ] A member who joined after this build, and one from an older save: the same (the kit's quality is per member, so
       two members can differ).
 
+**6. Two more 3.4.06 signatures: her book reading and a resident's field job (integration fix)**
+
+0-XNPCCore 3.4.06 gave `SdcsBooks.Learned` a fifth parameter and Voice Control 3.4.06 gave `VCCommandRouter.MutateLoot` a
+third, so both of SC's patches on them were off (two `MISSING PATCH` lines at every load). They now bind either shape.
+
+- [ ] At load: "patched SdcsBooks::Learned" and "patched VCCommandRouter::MutateLoot", no `MISSING PATCH` line, no
+      `crafting: SdcsBooks.Learned(...) not found` or `Voice Control method VCCommandRouter.MutateLoot(...) not found`
+      warning, and `patch verification: all 208 targets patched` (with Voice Control and 0-XNPCCore 3.4.06).
+- [ ] **Book reading on a member.** A following Cook below 7 stars with a Home Cooking Weekly in her pack:
+      Jobs and gear > Read, pick it. The tooltip `<name> studies 1 magazine(s): +.. Cooking XP ...`; she says SC's "Good
+      practice. I'm getting better at this." (held while the talk is open), never "I already know what that one
+      teaches." or "My Food is at level .. now.", and the log has no `[SDCS-BOOK] ... changed nothing` warning;
+      `sc craft`: `c1l-training-line` +1. Then a perk book (a Pistol Pete issue) the same way: 0-XNPCCore's own line
+      ("My ... is at level 1 now."), the Pistols line of Your progress shows `books 1/n`, its rank stays the one from
+      her stars (round U5), and `c1l-training-line` does not move.
+- [ ] **A resident refuses a field job.** On a resident at home: Jobs > Follow + loot, Loot here, Mine and Dig clay, each:
+      her refusal tooltip ("... Take me along ...", or the mining-run line for Mine and Dig clay with `MiningRuns` on), no
+      job (`SdcsLootMode=0` in `sc craft <name>`), her job from before goes on, and `sc craft`'s `field-job-refused-1/2/4/5`
+      go up. Pick crops or Chop wood on her still starts. On a follower all four work as before.
+
 ## Round U2 (2026-11-16): downed, not dead - home and watch downs, resident medics, the guards
 
 Why: 0-XNPCCore 3.4.06 knocks a hire down instead of killing her (research/npc306/part_downed.md). Your decisions: shift and
@@ -375,6 +395,14 @@ painkillers are a last-resort heal, followers at home are kept at 2 drinks.
       10 rounds, and nothing removes the gifted rounds.
 - [ ] **Down and revive.** Let a follower go down (or `vc anim downed` next to her): the log has `Bond: went down -2`.
       Revive her: `revived by <you> +3`. If someone else revives her (a second player, 0-XNPCCore's medic), still +3.
+- [ ] **One -2 and one +3 per down, never doubled (the U2+U4 integration fix).** With Voice Control on, let a resident
+      at home go down and revive her (or let a resident medic do it). `sc bond <name>` shows exactly one `went down -2`
+      and one `revived ... +3` for that down, and `sc bond`'s counters `bond-down-deduped` and `bond-revive-deduped`
+      each go up by 1 (SC's own down watch saw the same down and gave nothing more). Do it twice: two of each, never
+      four. Let one bleed out: one -2 and no +3. Without Voice Control (move `1-XNPCVoiceControl-Complete` out of Mods
+      and load), the same down and revive still give one -2 and one +3, now from SC's down watch:
+      `bond-down-from-scdowned` and `bond-revive-from-scdowned` go up, and `revived by <medic>` names a resident medic
+      who began on her in the last 15 s (otherwise just `revived`).
 - [ ] **A kill on her.** A zombie goes for a resident at home and you kill it: `you killed the <zombie> that was on her +1`.
       Kill 3 more that were on her the same day: the 4th gives nothing (`sc bond <name>`: "+0 (today's 3 kill Bond already
       given)", and "kills on her that gave Bond today: 3 of BondKillPerDay 3"); the next day kills count again. Save and

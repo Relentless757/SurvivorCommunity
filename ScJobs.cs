@@ -193,11 +193,18 @@ namespace SurvivorCommunity
 
         public static Type RouterType { get { return ScTypes.Find("XNPCVoiceControl.Net.VCCommandRouter"); } }
 
-        /// <summary>Voice Control's job order: VCCommandRouter.MutateLoot(EntityAlive npc, string arg), internal static void.</summary>
+        /// <summary>
+        /// Voice Control's job order: VCCommandRouter.MutateLoot, internal static void - (EntityAlive npc, string arg, EntityPlayer
+        /// leader) since Voice Control 3.4.06, (EntityAlive npc, string arg) before. The 3.4.06 shape first, then the older one
+        /// (the U2+U4 integration round). Its leader feeds only its party-cap test on Follow + loot (SdcsParty.WouldOverflow,
+        /// ScPartyCap's subject); a resident is refused whoever gives the order, so Patch_FieldJobOrder needs no leader.
+        /// </summary>
         public static MethodBase MutateLootTarget()
         {
             Type t = RouterType;
-            return t != null ? Returning(AccessTools.DeclaredMethod(t, "MutateLoot", new[] { typeof(EntityAlive), typeof(string) }), typeof(void), true) : null;
+            if (t == null) return null;
+            MethodInfo m = Returning(AccessTools.DeclaredMethod(t, "MutateLoot", new[] { typeof(EntityAlive), typeof(string), typeof(EntityPlayer) }), typeof(void), true);
+            return m ?? Returning(AccessTools.DeclaredMethod(t, "MutateLoot", new[] { typeof(EntityAlive), typeof(string) }), typeof(void), true);
         }
 
         /// <summary>Voice Control's spoken "loot": PhraseTriggerHandler.Loot(EntityAlive, EntityPlayer, string npcName, string dialogText), private, returning her answer.</summary>
@@ -216,12 +223,12 @@ namespace SurvivorCommunity
         public static class Patch_FieldJobOrder
         {
             [HarmonyPrepare]
-            public static bool Prepare() { return BoundVc(MutateLootTarget, "VCCommandRouter.MutateLoot(EntityAlive, string)"); }
+            public static bool Prepare() { return BoundVc(MutateLootTarget, "VCCommandRouter.MutateLoot(EntityAlive, string[, EntityPlayer])"); }
 
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return MutateLootTarget(); }
 
-            /// <summary>__0 the NPC, __1 the job's argument ("" = Follow + loot).</summary>
+            /// <summary>__0 the NPC, __1 the job's argument ("" = Follow + loot); Voice Control 3.4.06's third, the leader, is not read.</summary>
             [HarmonyPrefix]
             public static bool Prefix(EntityAlive __0, string __1)
             {

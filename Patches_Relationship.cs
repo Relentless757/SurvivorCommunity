@@ -20,6 +20,8 @@ namespace SurvivorCommunity
     ///  - Patch_Revived / Patch_Downed, NPCEventMemoryHooks.OnRevived (public static, 290) / OnDowned (public static, 95): Bond for
     ///    every revive and down of a member, whoever revives her (0-XNPCCore's downed state calls them through its AppDomain
     ///    bridge for every body; its own relationship then asks for her leader as the reviver).
+    ///    One of each per down, shared with ScDowned's own down and back-up (ScBond.NoteDowned / NoteRevived, the U2+U4
+    ///    integration fix): without Voice Control these hooks never run, and ScDowned gives them.
     ///  - Patch_TryEffective, RelationshipState.TryEffective (public static, 174): the Progress page's "Trust: x  Feels: y" for a
     ///    member (or her stand-in) comes from SC - Feels from her mood, Trust from her Bond (ScBond.Mirror).
     ///  - Patch_SettleWeek, NPCChatComponent.TrySettleWeekFromGift (internal instance, 234): coins handed to one of SC's people never
@@ -266,7 +268,7 @@ namespace SurvivorCommunity
                     Member m = ScBond.MemberOf(npc);
                     if (m == null) return;
                     Count("revived");
-                    ScBond.Note(m.Id, ScConfig.BondRevive, ScBond.SigRevive, string.IsNullOrEmpty(reviverName) ? "revived" : "revived by " + reviverName);
+                    ScBond.NoteRevived(m.Id, string.IsNullOrEmpty(reviverName) ? "revived" : "revived by " + reviverName, true);   // U2+U4: once per down
                 }
                 catch (Exception e) { ScLog.Once("rel-revived", e); }
             }
@@ -290,7 +292,7 @@ namespace SurvivorCommunity
                     Member m = ScBond.MemberOf(npc);
                     if (m == null) return;
                     Count("downed");
-                    ScBond.Note(m.Id, ScConfig.BondDowned, ScBond.SigDown, "went down");
+                    ScBond.NoteDowned(m.Id, "went down", true, Time.time);   // U2+U4: once per down
                 }
                 catch (Exception e) { ScLog.Once("rel-downed", e); }
             }

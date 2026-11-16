@@ -21,6 +21,9 @@ namespace SurvivorCommunity
     ///    took the item - every gift route (the hold-E ring, the voice, the gift window) ends there;
     ///  - a down and a revive: 0-XNPCCore's NPCEventMemoryHooks.OnDowned / OnRevived (Patch_Downed, Patch_Revived), which its downed
     ///    state calls for every body, whoever revives her - 0-XNPCCore's own relationship then asks for her leader as the reviver;
+    ///    those hooks run only through Voice Control's bridges, and 0-XNPCCore's "ragdoll ended while downed" revive skips its
+    ///    own, so ScDowned notes both too - one "down" and at most one "revive" per down, whichever path is first (NoteDowned,
+    ///    NoteRevived: the U2+U4 integration fix);
     ///  - a blood moon: SC's own check here (Tick), for every member alive at its end who was with you at both its start and its
     ///    end - following you, or a resident while you were home. 0-XNPCCore's own sees only followers;
     ///  - a kill on her: SC's own (OnEntityKilled, from ModEvents.EntityKilled): you killed an enemy that was after her, or that she
@@ -64,7 +67,11 @@ namespace SurvivorCommunity
 
         public static void Reset()
         {
-            lock (gate) queue.Clear();
+            lock (gate)
+            {
+                queue.Clear();
+                episodes.Clear();   // the U2+U4 integration fix
+            }
             history.Clear();
             counts.Clear();
             nextTick = 0f;
@@ -122,6 +129,81 @@ namespace SurvivorCommunity
         {
             if (memberId < 0) return;
             lock (gate) queue.Add(new Pending { MemberId = memberId, Delta = delta, Signal = signal ?? "?", Why = why ?? "" });
+        }
+
+        // ---- the U2+U4 integration fix (2026-11-16): one "down" and one "revive" per down, from either path ----
+
+        /// <summary>
+        /// One down of a member, for Bond. 0-XNPCCore calls its Downed and Revived hooks only through Voice Control's bridges
+        /// (DownedBridge, RevivedBridge), and its "ragdoll ended while downed, treating as a revive" path skips the Revived hook,
+        /// so ScDowned notes both too. Since: when the down was first noted (the hook: inside 0-XNPCCore's Enter; ScDowned: the
+        /// tick it first saw her down). Under gate; every caller is on the main thread (the hooks run inside Enter and Revive).
+        /// </summary>
+        private sealed class Episode
+        {
+            public float Since;
+            public bool Down, Revive;
+        }
+
+        private static readonly Dictionary<int, Episode> episodes = new Dictionary<int, Episode>();
+
+        /// <summary>
+        /// "down" (BondDowned) for a member's down. fromHook (0-XNPCCore's Downed hook, Patches_Relationship.Patch_Downed): its Enter
+        /// runs only for a new down, so it always starts a new episode. From ScDowned (downSince: the tick it first saw her down):
+        /// skipped when an episode of this same down already has its "down" - the hook runs inside Enter, before any tick can see
+        /// her down, so an open episode noted at or before downSince with no revive yet is this down.
+        /// </summary>
+        public static void NoteDowned(int memberId, string why, bool fromHook, float downSince)
+        {
+            if (memberId < 0) return;
+            lock (gate)
+            {
+                Episode ep;
+                if (!fromHook && episodes.TryGetValue(memberId, out ep) && ep.Down && !ep.Revive && ep.Since <= downSince)
+                {
+                    Count("bond-down-deduped");
+                    return;
+                }
+                episodes[memberId] = new Episode { Since = fromHook ? Time.time : downSince, Down = true };
+                if (!fromHook) Count("bond-down-from-scdowned");
+                Note(memberId, ScConfig.BondDowned, SigDown, why);
+            }
+        }
+
+        /// <summary>
+        /// "revive" (BondRevive) for a member back up, whoever revived her (an unknown reviver counts too). At most one per down:
+        /// 0-XNPCCore's Revived hook (Patch_Revived) runs inside Revive, before ScDowned's tick sees her up, so ScDowned's back-up
+        /// (fromHook false) is skipped when the hook already gave it. A bleed-out never gets here: ScDowned's rise needs a
+        /// revive's clocks or RiseConfirmSeconds alive, and a death ends the episode (EndEpisode).
+        /// </summary>
+        public static void NoteRevived(int memberId, string why, bool fromHook)
+        {
+            if (memberId < 0) return;
+            lock (gate)
+            {
+                Episode ep;
+                if (episodes.TryGetValue(memberId, out ep))
+                {
+                    if (ep.Revive)
+                    {
+                        Count("bond-revive-deduped");
+                        return;
+                    }
+                    ep.Revive = true;
+                }
+                else episodes[memberId] = new Episode { Since = Time.time, Revive = true };
+                if (!fromHook) Count("bond-revive-from-scdowned");
+                Note(memberId, ScConfig.BondRevive, SigRevive, why);
+            }
+        }
+
+        /// <summary>
+        /// ScDowned: her down is over - back up (after NoteRevived), dead (a bleed-out is no revive), unloaded or loaded again
+        /// (0-XNPCCore stands her up with no revive), or no longer a member. Her next down starts a new episode.
+        /// </summary>
+        public static void EndEpisode(int memberId)
+        {
+            lock (gate) episodes.Remove(memberId);
         }
 
         /// <summary>

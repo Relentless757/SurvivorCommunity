@@ -328,7 +328,7 @@ namespace SurvivorCommunity
             Add(t, "SdcsBooks::Teaches", Patches_Craft.BookTeachesTarget());
             Add(t, "SdcsBooks::Order", Patches_Craft.BookOrderTarget());
             Add(t, "MinEventActionAddProgressionLevel::Execute", Patches_Craft.MagazineLevelTarget());
-            Add(t, "SdcsBooks::Learned", Patches_Craft.BookLearnedTarget());
+            Add(t, "SdcsBooks::Learned", Patches_Craft.BookLearnedTarget());   // 3.4.06's five parameters, or 3.4.03-3.4.05's four
             Add(t, "SdcsSayLine::Say", Patches_Craft.SayLineTarget());
             Add(t, "SdcsProgress::List", Patches_Craft.ProgressListTarget());
             if (Patches_Craft.CraftWindowType != null) Add(t, "XUiC_NpcCraftWindow::CancelJob", Patches_Craft.CraftCancelTarget());
@@ -659,7 +659,7 @@ namespace SurvivorCommunity
                 Add(t, "PhraseTriggerHandler::OpenInventoryRouted", Patches_VoiceControl.InventoryRoutedTarget());
                 // round 29a (J29): field jobs refused for residents (the job order, the spoken "loot"); squad orders and the order
                 // wheel's roster leave residents out
-                Add(t, "VCCommandRouter::MutateLoot", ScJobs.MutateLootTarget());
+                Add(t, "VCCommandRouter::MutateLoot", ScJobs.MutateLootTarget());   // Voice Control 3.4.06's (npc, arg, leader), or (npc, arg)
                 Add(t, "PhraseTriggerHandler::Loot", ScJobs.VoiceLootTarget());
                 Add(t, "XNPCVoiceControlMod::GetHiredRoster", ScJobs.RosterTarget());
                 Add(t, "VCCommandRouter::ExecuteForSquad", ScJobs.SquadTarget());

@@ -300,6 +300,7 @@ namespace SurvivorCommunity
         public static string DeathKey(Member m)
         {
             if (m == null) return "scDied";
+            ScBond.EndEpisode(m.Id);   // the U2+U4 integration fix: a death (a bleed-out too) is no revive
             Down d;
             if (!downs.TryGetValue(m.Id, out d)) return "scDied";
             LetGo(d, "her patient died", false);
@@ -369,7 +370,7 @@ namespace SurvivorCommunity
                 // the records whose member is gone (left, dropped as a reused id; a death was DeathKey's)
                 scratch.Clear();
                 foreach (var kv in downs) if (ScRegistry.GetMember(kv.Key) == null) scratch.Add(kv.Key);
-                for (int i = 0; i < scratch.Count; i++) { LetGo(downs[scratch[i]], "her patient is no longer a member", false); downs.Remove(scratch[i]); }
+                for (int i = 0; i < scratch.Count; i++) { LetGo(downs[scratch[i]], "her patient is no longer a member", false); downs.Remove(scratch[i]); ScBond.EndEpisode(scratch[i]); }
                 scratch.Clear();
 
                 foreach (Member m in ScRegistry.Members.Values)
@@ -386,6 +387,7 @@ namespace SurvivorCommunity
                             unloaded++;
                             LetGo(d, "her patient unloaded", false);
                             scratch.Add(m.Id);
+                            ScBond.EndEpisode(m.Id);   // U2+U4: she loads again standing, with no revive
                             ScLog.Out(m.Name + "'s body unloaded while down - 0-XNPCCore stands her up at its floor health when she loads again");
                         }
                         continue;
@@ -395,6 +397,7 @@ namespace SurvivorCommunity
                         unloaded++;
                         LetGo(d, "her patient's body was loaded again", false);
                         downs.Remove(m.Id);
+                        ScBond.EndEpisode(m.Id);   // U2+U4: stood up by the load, no revive
                         ScLog.Out(m.Name + "'s body was loaded again while down - 0-XNPCCore stood her up at its floor health (no revive message)");
                         d = null;
                     }
@@ -406,6 +409,8 @@ namespace SurvivorCommunity
                             d = new Down { Id = m.Id, Name = m.Name, Body = e, Since = now, TellPending = Patches_Downed.Active && ScConfig.DownedTell };
                             downs[m.Id] = d;
                             seenDowns++;
+                            // the U2+U4 integration fix: Bond's "down", unless 0-XNPCCore's hook (Voice Control's bridge) gave it
+                            ScBond.NoteDowned(m.Id, "went down", false, now);
                             ScLog.Out(m.Name + " is DOWN (" + m.Status + (ScWatch.OnWatch(m) ? ", on watch" : "") + (ScWork.OnShift(m.Id) ? (ScWork.InTalk(m.Id) ? ", talk link held" : ", work shift held") : "")
                                       + ", " + (UAI.UAIConsiderationScNotHomeMember.AtHome(e.position) ? "at home" : "away from home") + " at " + e.GetBlockPosition()
                                       + ") - " + Secs(Api.BleedLeftSafe(e)) + " to revive her; " + Path(e));
@@ -476,6 +481,10 @@ namespace SurvivorCommunity
             ScLog.Out(m.Name + " is back up after " + Secs(Time.time - d.Since) + " down" + (by != null ? " - revived by " + by : " (you, a follower's medic, or 0-XNPCCore)"));
             if (by != null) Tell("scDownedRevivedBy", m.Name, by);
             else Tell("scDownedRevived", m.Name);
+            // the U2+U4 integration fix: Bond's "revive" (any reviver counts), unless 0-XNPCCore's Revived hook gave it - its
+            // "ragdoll ended while downed" revive and a down with no Voice Control never call it. Then the down is over
+            ScBond.NoteRevived(m.Id, by != null ? "revived by " + by : "revived", false);
+            ScBond.EndEpisode(m.Id);
         }
 
         // ------------------------------------------------------------------ resident medics (D5) ----
