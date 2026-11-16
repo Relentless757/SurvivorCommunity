@@ -378,5 +378,15 @@
     <!-- round n11 (t40): SC's movable windows (the talk card, the member inventory panel) and where they were put -->
     <Compile Include="ScWindowMover.cs" />
   </ItemGroup>
+  <!-- rounds U4-U6 (2026-11-16): 0-XNPCCore 3.4.06 on the community - the Bond (its relationships owned by SC), gift coins
+       refused, followers' drinks, weapon perks from the stars, the shared party cap - 3.4 only -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScConfigNpc306.cs" />
+    <Compile Include="ScBond.cs" />
+    <Compile Include="Patches_Relationship.cs" />
+    <Compile Include="ScDrinks.cs" />
+    <Compile Include="ScPerks.cs" />
+    <Compile Include="ScPartyCap.cs" />
+  </ItemGroup>
 
 </Project>

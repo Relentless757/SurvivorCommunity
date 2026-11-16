@@ -227,6 +227,11 @@ Every survivor has four core skills, each 1 to 7 stars:
   ones at 2, late ones at 3, with one random skill a star higher. Traits add on top. Starting skills are capped at 4
   stars, except for a rare standout (4 to 8% of survivors) who has one skill at 5, 6 or 7 stars.
 - When community morale is above 75, everyone earns XP half again as fast.
+- Weapon perks (with 0-XNPCCore 3.4.06). Shooting stars also give a member 0-XNPCCore's gun and bow perks (Gunslinger,
+  Dead Eye, Machine Gunner, Boomstick, Archery) and Fighting stars its melee perks (Deep Cuts, Pummel Pete, Skull
+  Crusher, Brawler, Javelin Master, Electrocutioner): rank 1 at 3-4 stars, rank 2 at 5-6, rank 3 at 7. They add to the
+  +10% per star above (a 7-star shooter with a pistol does 1.9x its damage instead of 1.6x) and show on her Your
+  progress page. Perk books still add their own bonuses on top. Ranks only ever go up. "MemberWeaponPerks" turns it off.
 
 Specialty
 ~~~~~~~~~
@@ -299,7 +304,7 @@ window and the Home Status dot are green from 50, amber below 50 and red below 2
 - Infestations near home: See section 14
 
 Each member's mood is the community's morale plus their own trait offset, -15 while injured, -10 while the community is
-hungry and -10 while it is thirsty. Moods read happy, content, uneasy or miserable.
+hungry and -10 while it is thirsty, plus their Bond with you (below). Moods read happy, content, uneasy or miserable.
 
 What morale does:
 
@@ -307,6 +312,28 @@ What morale does:
 - Below 25 for 2 days in a row: the unhappiest member threatens to leave. Sort out food, beds and medicine: if morale is
   not back above 25 by the next day's rollover, they leave. The threat is withdrawn the moment morale climbs back.
 - Members never refuse an order because of their mood (by default). A death's morale hit fades in about three days.
+
+Bond
+~~~~
+
+Each member has a Bond with you, from -15 to +15, that adds to their mood. It comes from what happens between you (with
+0-XNPCCore 3.4.06):
+
+- You give them a gift (section 6): +1 per gift point (0-XNPCCore counts a gift's points by its value, at most 6 a day
+  per member)
+- They are revived when downed, by anyone: +3
+- They survive a blood moon with you (following you, or at home while you were home for it): +4
+- They go down: -2
+- You kill an enemy that was on them: +1
+
+- Bond fades 1 a day toward 0.
+- It shows on the talk card under their mood ("Bond +4") and in the community window beside their mood word.
+- 0-XNPCCore's Your progress page shows "Trust: ... Feels: ..." from it: Feels follows their mood (warm while happy,
+  cold while miserable, neutral otherwise) and Trust their Bond (loyal from +8, wary from -8 or while they threaten to
+  leave, steady otherwise).
+- Your members don't change 0-XNPCCore's trust and affinity with you, so they never raise or lower the price of the
+  companions you hire and pay. A member's death costs morale (above), not that trust.
+- "MemberBond" and the "Bond..." settings (section 20) change it or turn it off. "sc bond" shows it.
 
 Daily needs
 ~~~~~~~~~~~
@@ -622,7 +649,24 @@ What members will not do
 
 - No trading: members and stand-ins never offer Trade (by talk, radial or voice). Ask to see their inventory instead.
 - No "Pick me up": SC's people cannot be picked up as an item from 0-XNPCCore's hold-E ring.
-- No pay: members are never on a Voice Control contract and are never billed.
+- No pay: members are never on a Voice Control contract and are never billed. They refuse coins as a gift too.
+
+Gifts
+~~~~~
+
+With 0-XNPCCore 3.4.06 you can give a follower, or a resident while you talk to them at home, a gift: Pay / Gift... >
+Give a gift... in the talk (only the gift row shows: members are never billed), or Gift on the hold-E ring while you
+hold the item. A gift goes into their bag, which 0-XNPCCore fills only so far ("I can't carry any more of that."), and
+raises their Bond (section 4).
+
+- First aid kits and first aid bandages: they use them when hurt. They count for the medical restock too, so a member
+  who was given some is not restocked from the stockpile until they run out.
+- Painkillers: used when they have no first aid kit or bandage left, for 40 health (section 15).
+- Drinks: a follower uses one to put out fire on themselves. Followers at home are kept at 2 drinks from the Water
+  stockpile anyway (section 15).
+- Ammo for their gun: lands as loose rounds; with Locked & Loaded they load them into their magazines. It counts toward
+  the ammo they carry, so the stockpile refill simply comes later.
+- Coins: refused ("I've no use for that."): members are never paid.
 
 
 7. Orders: following, home, crafting and jobs
@@ -633,6 +677,9 @@ Follow me and go home
 
 - "Come with me." (or Follow me in the community window) makes a member follow you like a hired companion. At most 2
   members follow you at once (enlisted enclave people count toward that).
+- The party cap (with 0-XNPCCore 3.4.06). "Come with me." (talk, voice or window) is also refused while your party is
+  full: 0-XNPCCore's party of 8 counts everyone following you, companions you hired and pay as well as members. You are
+  told "Your party is full (8/8)." A member already following you is never refused ("SharePartyCap").
 - Followers use 0-XNPCCore's own following, its formations and stances. The order wheel and Voice Control's spoken
   orders work on them (stay, guard, guard and return, wander, patrol, crouch, formations, stances). They keep holding
   that order while still counting as your follower, until you call them back. A spoken "dismiss" sends them home.
@@ -1450,6 +1497,12 @@ Healing and armor
 
 - SC's people heal only with items: they carry a couple of bandages and sometimes a first aid kit, and use one at or
   below 60% health, with the bandage animation. Hand them more medical items and they use those.
+- Painkillers are a last resort. A member with no first aid kit or first aid bandage left takes painkillers (a gift, or
+  ones you put in her pack) at the same point, for 40 health. They count as something to heal with, so a hurt member who
+  has them doesn't shelter for lack of medicine ("MedicPainkillers").
+- Followers carry drinks for putting out fire. 0-XNPCCore's companions put out fire on themselves with a drink. At home
+  a follower with no drink left is given boiled water up to 2, paid from the Water stockpile at its packing value (never
+  the water tonight's needs), at most every 12 in-game hours ("MemberDrinks"). Residents don't need one.
 - They restock from the stockpile. A member at home who runs out of first aid bandages and kits takes 1 medical unit
   from the stockpile and is topped up to a first aid kit, 2 first aid bandages and 2 cloth bandages (she gets only what
   she lacks), at once, even mid-fight, at most once a day. Before a supply or mining run she does the same if she has
@@ -1657,6 +1710,8 @@ Community
 
 - MaxMembers = 12: Most members the community can hold
 - MaxFollowers = 2: Most members following you at once
+- SharePartyCap = true: "Come with me." also respects 0-XNPCCore's party cap (8, paid companions included); false: only
+  "MaxFollowers"
 - PostRadius = 8: Residents' posts are within this many blocks of the land claim block
 - ResidentRoamZone = true: Residents walk about the whole base by day (false: they stay near their post)
 - HomeKeepLoaded / HomeKeepLoadedRange = true / 250: Keep the home zone loaded while you are within this many meters
@@ -1692,6 +1747,11 @@ Needs and morale
 - RefuseOrdersBelowMood = 0: Members refuse orders below this mood (0: never)
 - LowMoraleThreshold / LowMoraleDays = 25 / 2: Below this morale for this many days, someone threatens to leave
 - HighMoraleThreshold = 75: Above this morale, faster XP and bigger runs
+- MemberBond = true: Members' Bond (section 4) adds to their mood; false: no Bond
+- BondCap / BondDecayPerDay = 15 / 1: Bond's limit either way, and how much it fades a day
+- BondGiftPerPoint / BondRevive / BondBloodMoon / BondDowned / BondKillOnHer = 1 / 3 / 4 / -2 / 1: Bond per gift point
+  and per event
+- BondLoyalAt = 8: The Progress page says "Trust: loyal" from this Bond ("wary" from minus this)
 - DrinksLuxury / DrinksFood / DrinksMorale / DrinksMinutes = 4 / 1 / 15 / 15: The round of drinks
 
 Supply runs and radio
@@ -1786,6 +1846,13 @@ NPCs and voices
   she backs off first and, if that does not get her clear in the second (seconds), bandages anyway
 - HealBackOff = true: A member held from bandaging backs off, then bandages; false: she fights on and bandages after the
   wait only under 25% health
+- MedicPainkillers / PainkillerHeal = true / 40: Members use painkillers when nothing else is left, for this much health
+- MemberDrinks / MemberDrinksBelow = 2 / 1: Followers at home are topped up to this many drinks when they carry fewer
+  than the second (0: never)
+- MemberDrinkItem / MemberDrinksCooldownHours = drinkJarBoiledWater / 12: The drink they are given, and the in-game
+  hours between two top-ups of one follower
+- MemberRefuseCoins = true: Members refuse coins as a gift
+- MemberWeaponPerks = true: Shooting and Fighting stars give 0-XNPCCore's weapon perks (section 4)
 - RegenOutOfCombat = true: Members regain health slowly with no enemy near; false: only items heal
 - RegenRatePerSecond / RegenCapShare / RegenEnemyRadius = 0.2 / 0.6 / 30: Health per second, the share of her health it
   stops at, and how far (meters) an awake enemy that is after her or sees her holds it

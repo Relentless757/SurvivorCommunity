@@ -269,12 +269,14 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ levels ----
 
         /// <summary>
-        /// ScXnpc.StripLevels' question: does SC own this body's Progression (a member, crafting on)? Then it is kept - one is made
-        /// when there is none - instead of nulled. Stand-ins, raiders and strangers: false, nulled as before.
+        /// ScXnpc.StripLevels' question: does SC own this body's Progression (a member)? Then it is kept - one is made when there is
+        /// none - instead of nulled. Stand-ins, raiders and strangers: false, nulled as before. Round U5 (D10): every member, crafting
+        /// on or off (it was crafting on only) - her weapon perks from her stars (ScPerks), 0-XNPCCore's perk books and its Progress
+        /// page's lines live in it.
         /// </summary>
         public static bool OwnsProgression(EntityAlive e)
         {
-            if (e == null || !ScConfig.CraftSkillsEnabled || ScRegistry.GetMember(e.entityId) == null) return false;
+            if (e == null || ScRegistry.GetMember(e.entityId) == null) return false;
             if (e.Progression == null)
             {
                 e.Progression = new Progression(e);

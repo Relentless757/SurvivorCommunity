@@ -780,6 +780,49 @@
 			<property name="RegenCapShare" value="0.6" />
 			<property name="RegenEnemyRadius" value="30" />
 			<property name="RegenNearRadius" value="12" />
+			<!-- Rounds U4-U6 (0-XNPCCore 3.4.06; the 3.2 build reads none of these). 0-XNPCCore's relationships, gifts, weapon perks and
+			     party cap on your community's members. "sc bond", "sc perks" and "sc party" show all of it.
+			     MemberBond (round U4): Survivor Community owns its members' standing. 0-XNPCCore's relationship events feed each
+			     member's Bond, a part of her mood: a gift by its points (0-XNPCCore's own count, at most 6 a day, times
+			     BondGiftPerPoint), revived (by anyone) BondRevive, a blood moon survived with you BondBloodMoon (a follower, or a
+			     resident while you were home for it), down BondDowned, an enemy on her that you kill BondKillOnHer. Bond stays within
+			     +-BondCap and fades BondDecayPerDay toward 0 at every day rollover. Whatever this says, 0-XNPCCore never writes its
+			     own trust or affinity for SC's people and a member's death never costs your global trust (that would raise your paid
+			     hires' price); its Progress page reads "Trust: loyal" from BondLoyalAt up (wary from minus that down, or while she
+			     threatens to leave) and "Feels: warm" while she is happy (cold while miserable). false: no Bond in the mood.
+			     MemberRefuseCoins: coins given to a member are refused ("I've no use for that."): members are never paid.
+			     MedicPainkillers: a member uses painkillers when she has no first aid kit or first aid bandage left, for PainkillerHeal
+			     health (they come as gifts; vanilla's painkillers heal 40 once).
+			     MemberDrinks: at home, a follower who carries fewer than MemberDrinksBelow drinks is topped up to MemberDrinks of
+			     MemberDrinkItem from the Water stockpile, at its packing value, never from tonight's water (0-XNPCCore's hired
+			     survivors spend a drink to put out fire on themselves; residents do it for free). At most once every
+			     MemberDrinksCooldownHours in-game hours per member. 0: never.
+			     MemberWeaponPerks (round U5): a member's Shooting stars give 0-XNPCCore's ranged weapon perks (Gunslinger, Dead Eye,
+			     Machine Gunner, Boomstick, Archery) and her Fighting stars the melee ones (Deep Cuts, Pummel Pete, Skull Crusher,
+			     Brawler, Javelin Master, Electrocutioner), rank 1 at 3-4 stars, 2 at 5-6, 3 at 7 - only those in 0-XNPCCore's
+			     Settings.xml Progression/PerkList, never past its PerkRankCap. On top of RangedPerStar / MeleePerStar: a 7-star shooter
+			     does 1.9x pistol damage instead of 1.6x. Perk books still add their own book perks. Ranks are only ever raised.
+			     SharePartyCap (round U6): "Come with me." (talk, voice, the community window) is refused while 0-XNPCCore's party is
+			     full (its Settings.xml PartyMaxMembers, 8: paid hires and your followers together). MaxFollowers stays the community's
+			     own, lower limit. false: only MaxFollowers. -->
+			<property name="MemberBond" value="true" />
+			<property name="BondCap" value="15" />
+			<property name="BondDecayPerDay" value="1" />
+			<property name="BondGiftPerPoint" value="1" />
+			<property name="BondRevive" value="3" />
+			<property name="BondBloodMoon" value="4" />
+			<property name="BondDowned" value="-2" />
+			<property name="BondKillOnHer" value="1" />
+			<property name="BondLoyalAt" value="8" />
+			<property name="MemberRefuseCoins" value="true" />
+			<property name="MedicPainkillers" value="true" />
+			<property name="PainkillerHeal" value="40" />
+			<property name="MemberDrinks" value="2" />
+			<property name="MemberDrinksBelow" value="1" />
+			<property name="MemberDrinkItem" value="drinkJarBoiledWater" />
+			<property name="MemberDrinksCooldownHours" value="12" />
+			<property name="MemberWeaponPerks" value="true" />
+			<property name="SharePartyCap" value="true" />
 			<!-- Overwhelmed: 0-XNPCCore's survivors swap the gun for their melee weapon when the enemy is within 3 m. With
 			     at least X enemies targeting them within OverwhelmedRadius metres they keep the gun instead (and go back
 			     to it from melee), backing off as they shoot, while it has ammo. X for a member =

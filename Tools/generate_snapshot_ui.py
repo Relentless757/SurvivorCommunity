@@ -127,6 +127,8 @@ def card():
             label(52, -138, 128, 26, 22, BODY, text="{snapstamina} / {snapstaminamax}"),
             icon("{snapmoodicon}", 204, -136, 32),
             label(226, -124, W - 240, 26, 22, "{snapmoodcolor}", text="{snapmoodword}"),
+            # round U4: the member's Bond under her mood word ("Bond +4"; empty without one)
+            label(226, -150, W - 240, 20, 16, GOLD, text="{snapbond}"),
             # traits
             label(16, -172, 200, 24, 20, TITLE, key="scUiTraits", extra='upper_case="true"'),
             plate("scui_divider", 16, -196, W - 32, 3, depth=1)]

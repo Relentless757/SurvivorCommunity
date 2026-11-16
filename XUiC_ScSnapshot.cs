@@ -35,6 +35,8 @@ namespace SurvivorCommunity
         private bool visible, hasPortrait, traitsKnown;
         private string name = "", role = "", health = "0", healthMax = "0", stamina = "0", staminaMax = "0";
         private string moodWord = "", moodIcon = "scui_mood_content", moodColor = "255,255,255,255", specName = "", specIcon = "ui_game_symbol_perk";
+        /// <summary>Round U4: "Bond +4" under the mood word for a member with a Bond, else "" (the line then shows nothing).</summary>
+        private string bond = "";
         private bool specVisible;
         private readonly string[] traits = new string[TraitRows];
         private readonly bool[] traitVisible = new bool[TraitRows];
@@ -186,6 +188,9 @@ namespace SurvivorCommunity
             changed |= Set(ref moodWord, Capital(ScMorale.MoodWord(shown.Mood)));
             changed |= Set(ref moodIcon, MoodIcon(shown.Mood));
             changed |= Set(ref moodColor, MoodColor(shown.Mood));
+#if SC_V34
+            changed |= Set(ref bond, member != null ? ScBond.Term(member) : "");   // round U4: members only
+#endif
 
             // traits: a member's are known, and a former member's; anyone else's once their favour is done (Friendly); an
             // enclave person's once their enclave is Friendly or better (E2)
@@ -302,6 +307,7 @@ namespace SurvivorCommunity
                 case "snapmoodword": _value = moodWord; return true;
                 case "snapmoodicon": _value = moodIcon; return true;
                 case "snapmoodcolor": _value = moodColor; return true;
+                case "snapbond": _value = bond; return true;
                 case "snaphasportrait": _value = hasPortrait ? "true" : "false"; return true;
                 case "snapnoportrait": _value = hasPortrait ? "false" : "true"; return true;
                 case "snapspecvisible": _value = specVisible ? "true" : "false"; return true;

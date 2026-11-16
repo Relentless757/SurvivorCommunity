@@ -177,6 +177,10 @@ namespace SurvivorCommunity
                 {
                     if (ScCommunity.IsHost && ScRegistry.Loaded) ScSkills.OnEntityKilled(_d.KilledEntitiy, _d.KillingEntity);
                 });
+#if SC_V34
+                // round U4: an enemy you kill that was on a member is Bond for her (ScBond: queued here, written by the ticker)
+                ModEvents.EntityKilled.RegisterHandler((ref ModEvents.SEntityKilledData _d) => ScBond.OnEntityKilled(_d.KilledEntitiy, _d.KillingEntity));
+#endif
                 // a player who leaves with an NPC's inventory window open never sends its close (ScAmmo's remote-window guard)
                 ModEvents.PlayerDisconnected.RegisterHandler((ref ModEvents.SPlayerDisconnectedData _d) =>
                 {
@@ -324,6 +328,34 @@ namespace SurvivorCommunity
             Add(t, "SdcsSayLine::Say", Patches_Craft.SayLineTarget());
             Add(t, "SdcsProgress::List", Patches_Craft.ProgressListTarget());
             if (Patches_Craft.CraftWindowType != null) Add(t, "XUiC_NpcCraftWindow::CancelJob", Patches_Craft.CraftCancelTarget());
+#endif
+        }
+
+        /// <summary>
+        /// Round U4's targets (Patches_Relationship), each listed when the 0-XNPCCore type it belongs to is loaded - so a renamed
+        /// method there shows as a MISSING PATCH line, while a 0-XNPCCore older than 3.4.06 (no RelationshipState) expects none of
+        /// the Voice Control ones. A separate method, as AddBooks.
+        /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void AddNpc306(List<Target> t)
+        {
+#if SC_V34
+            bool rel = Patches_Relationship.RelType != null;
+            if (rel)
+            {
+                Add(t, "RelationshipState::Apply", Patches_Relationship.ApplyTarget());
+                Add(t, "RelationshipState::ApplyGlobal", Patches_Relationship.ApplyGlobalTarget());
+                Add(t, "RelationshipState::TryEffective", Patches_Relationship.TryEffectiveTarget());
+                if (Patches_Relationship.HooksType != null)
+                {
+                    Add(t, "NPCEventMemoryHooks::OnRevived", Patches_Relationship.RevivedTarget());
+                    Add(t, "NPCEventMemoryHooks::OnDowned", Patches_Relationship.DownedTarget());
+                    Add(t, "NPCEventMemoryHooks::OnEntityKilledRelationship", Patches_Relationship.KilledTarget());
+                }
+                if (Patches_VoiceControl.ChatType != null) Add(t, "NPCChatComponent::TrySettleWeekFromGift", Patches_Relationship.SettleWeekTarget());
+                if (Patches_Relationship.ConsoleType != null) Add(t, "ConsoleCmdLLMChat::RunStandingCommand", Patches_Relationship.StandingTarget());
+            }
+            if (Patches_Relationship.GiftBagType != null) Add(t, "SdcsGiftBag::TryAddGift", Patches_Relationship.GiftAddTarget());
 #endif
         }
 
@@ -618,6 +650,9 @@ namespace SurvivorCommunity
 #endif
             }
             else ScLog.Out("Voice Control (0-XNPCCore 3.2) not loaded - the member billing guard is idle");
+#if SC_V34
+            AddNpc306(t);   // rounds U4-U6: 0-XNPCCore 3.4.06's relationships, gift coins and "vc standing" on SC's people (Patches_Relationship)
+#endif
             // Patches_Voices.cs (V2) - raider taunts: a new target (spot), the player's death (killed), an investigation given up
             // (lost) or started (search); the hit and the death share the ProcessDamageResponseLocal and SetDead entries above
             Add(t, "EntityAlive::SetAttackTarget", Patches_Voices.SetAttackTargetTarget());

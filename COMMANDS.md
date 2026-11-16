@@ -230,6 +230,31 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   `sc xnpc <name>` has a one-line
   `retreat:` summary.
 
+## Bond, weapon perks and the party cap *(rounds U4, U5, U6 - 0-XNPCCore 3.4.06)*
+
+- **`sc bond`** — the Bond settings, the counters (`bond-<event>`, `bond-member-gone`, `bond-off-<event>`,
+  `bond-perhire-cleared`) and the hooks' (`apply-skipped-<signal>`: 0-XNPCCore's own relationship writes skipped for
+  SC's people; `revived`, `downed`; `progress-mirrored`: its Progress line read from SC; `global-hire-died-skipped`;
+  `gift-week-refused`, `gift-coins-refused`; `standing-shown-sc`), the followers' drink top-ups, then every member's
+  Bond, mood and the Progress page's "Trust / Feels" words.
+- **`sc bond <id|name>`** — one member in full: Bond and what it adds to her mood, her mood, whether she threatens to
+  leave, the Progress words with the numbers behind them, events still waiting, this session's Bond lines (newest
+  first: a gift's points, a revive and by whom, a blood moon with you or not, a down, a kill on her, a capped change),
+  0-XNPCCore's gift points today (its daily cap of 6), its own per-hire numbers on her (none: SC skips its writes and
+  clears old ones within 10 s), and your global 0-XNPCCore trust and affinity (members never move them). Read-only.
+- **`sc bond <id|name> add <n>`** / **`set <n>`** — change her Bond (queued like a real event: written within a second,
+  capped at +-`BondCap`). A test shortcut.
+- **`sc bond <id|name> event <gift [points] | revive | bloodmoon | down | kill>`** — queue the Bond a real event would
+  give (a gift: 3 points unless given). A test shortcut.
+- **`sc bond decay`** — one day's fade now (every member's Bond `BondDecayPerDay` toward 0).
+- **`vc standing`** (Voice Control's own command) on a member - the one you look at, else your nearest follower - prints
+  the same lines as `sc bond <name>`, tagged `[VC-REL]`, instead of 0-XNPCCore's numbers. Anyone else keeps its own.
+- **`sc perks [id|name] [apply]`** — weapon perks from the stars (round U5): the switch, 0-XNPCCore's PerkList and rank
+  cap, then per member her Shooting and Fighting stars, the ranged and melee rank they give, and the class perks raised
+  on her body. `apply` forces a fresh raise for that member (it only ever raises).
+- **`sc party`** — the party cap (round U6): SC's followers against `MaxFollowers`, and 0-XNPCCore's party (everyone
+  following you, paid hires too) against its `PartyMaxMembers`, with the refusals this session. Read-only.
+
 ## Work, runs and mining
 
 - `sc run <id|name> <res|mine|clay>` · `sc run <id|name> <recall|home|skip|offline>` · `sc runners`

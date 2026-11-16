@@ -1387,7 +1387,12 @@ namespace SurvivorCommunity
                 case "selstaminavisible": _value = "False"; return true;
                 case "selmoodvalue": _value = sel != null ? Num(sel.Mood) : ""; return true;
                 case "selmoodfill": _value = sel != null ? Fill(sel.Mood / 100f) : "0"; return true;
+#if SC_V34
+                // round U4: her Bond beside the mood word ("Steady - Bond +4"), when she has one
+                case "selmoodword": _value = sel != null ? BandWord(sel.Mood) + BondSuffix(sel) : ""; return true;
+#else
                 case "selmoodword": _value = sel != null ? BandWord(sel.Mood) : ""; return true;
+#endif
                 // R32b (U32): the mood bar's fill by the band of the word under it (AshfallUI's art / vanilla's tint)
                 case "selmoodfillsprite": _value = BandFillSprite(sel != null ? sel.Mood : 100); return true;
                 case "selmoodcolor": _value = BandColor(sel != null ? sel.Mood : 100); return true;
@@ -1413,6 +1418,9 @@ namespace SurvivorCommunity
                     return true;
                 case "selmood":
                     _value = sel != null ? string.Format(Localization.Get("scWinMood"), sel.Mood, ScMorale.MoodWord(sel.Mood)) : "";
+#if SC_V34
+                    if (sel != null) _value += BondSuffix(sel);   // round U4
+#endif
                     return true;
                 case "selskills":
                     _value = sel != null ? SkillLines(sel) : Localization.Get("scWinSelectHint");
@@ -1677,6 +1685,15 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Community morale / a survivor's mood as a word: Thriving, Steady, Uneasy, Breaking.</summary>
+#if SC_V34
+        /// <summary>Round U4: " - Bond +4" after her mood word, "" at 0 (ScBond.Term).</summary>
+        private static string BondSuffix(Member m)
+        {
+            string t = ScBond.Term(m);
+            return t.Length > 0 ? " - " + t : "";
+        }
+#endif
+
         public static string BandWord(int v)
         {
             if (v >= ScConfig.HighMoraleThreshold) return Localization.Get("scBandThriving");

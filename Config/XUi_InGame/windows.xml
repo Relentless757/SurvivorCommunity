@@ -1974,6 +1974,7 @@
 						<label depth="4" pos="52,-138" width="128" height="26" font_size="22" text="{snapstamina} / {snapstaminamax}" color="226,220,208,255"/>
 						<sprite depth="3" sprite="{snapmoodicon}" pos="204,-136" width="32" height="32" pivot="center" color="[white]"/>
 						<label depth="4" pos="226,-124" width="112" height="26" font_size="22" text="{snapmoodword}" color="{snapmoodcolor}"/>
+						<label depth="4" pos="226,-150" width="112" height="20" font_size="16" text="{snapbond}" color="206,178,120,255"/>
 						<label depth="4" pos="16,-172" width="200" height="24" font_size="20" text_key="scUiTraits" color="226,219,203,255" upper_case="true"/>
 						<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="16,-196" width="320" height="3"/>
 						<rect depth="1" visible="{snaptrait1visible}">
@@ -2064,6 +2065,7 @@
 						<label depth="4" pos="52,-138" width="128" height="26" font_size="22" text="{snapstamina} / {snapstaminamax}" color="255,255,255,255"/>
 						<sprite depth="3" sprite="{snapmoodicon}" pos="204,-136" width="32" height="32" pivot="center" color="[white]"/>
 						<label depth="4" pos="226,-124" width="112" height="26" font_size="22" text="{snapmoodword}" color="{snapmoodcolor}"/>
+						<label depth="4" pos="226,-150" width="112" height="20" font_size="16" text="{snapbond}" color="222,206,163,255"/>
 						<label depth="4" pos="16,-172" width="200" height="24" font_size="20" text_key="scUiTraits" color="255,255,255,255" upper_case="true"/>
 						<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="16,-196" width="320" height="3"/>
 						<rect depth="1" visible="{snaptrait1visible}">

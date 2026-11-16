@@ -204,6 +204,7 @@ namespace SurvivorCommunity
             if (BuffManager.GetBuff(BuffName) != null && !npc.Buffs.HasBuff(BuffName)) npc.Buffs.AddBuff(BuffName);
 #if SC_V34
             ScCraft.Apply(m, npc);   // C1: crafting skills from the specialty stars, 0-XNPCCore's roles stamped once
+            ScPerks.Apply(m, npc);   // round U5 (D10): 0-XNPCCore's weapon-class perks from her Shooting / Fighting stars
 #endif
         }
 
