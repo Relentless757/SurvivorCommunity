@@ -285,8 +285,10 @@ who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | 
   back, the draw reloads), `mag-putaway-untracked` (in neither her bag nor her toolbelt), `mag-reseat-on-draw` (put back
   in, no reload), `mag-reseat-missing` (gone from her stores by the draw), `mag-reseat-skip-loaded` (the gun came out
   loaded already), `mag-reseat-skip-table` (0-XNPCCore still banks rounds for that gun), `mag-reseat-skip-saved` (the
-  gun saved with her body goes back in instead), `mag-reseat-empty` (emptied since), `mag-reseat-not-its-gun` and
-  `mag-reseat-failed` (the seat threw: the magazine went back to her bag and the seat is off until the next game).
+  gun saved with her body goes back in instead), `mag-reseat-empty` (emptied since), `mag-reseat-not-its-gun`,
+  `mag-reseat-not-taken` (the magazine's slot could not be emptied: it stays, the gun reloads), `mag-reseat-failed` (the
+  seat threw: the gun is emptied, the magazine goes back to her bag unless it never left, and the seat is off until the next
+  game) and `mag-reseat-off` (a Locked & Loaded call of the seat threw: only the seat is off, X18 and the rest stay on).
 
 ---
 

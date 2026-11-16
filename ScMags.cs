@@ -524,11 +524,12 @@ namespace SurvivorCommunity
         internal static PutAway Snapshot(ItemValue gun)
         {
             if (seating || gun == null || gun.IsEmpty() || gun.Metadata == null || gun.ItemClass == null || !CanReseat) return null;
-            if (!Seated(gun)) return null;
-            object def = Call(seatedDefOf, gun);
+            if (!SeatedForSeat(gun)) return null;
+            object def = CallSeat(seatedDefOf, gun);
             string name = def != null ? defName.GetValue(def) as string : null;
             if (string.IsNullOrEmpty(name)) return null;
-            object other = Call(gunOther, gun);
+            object other = CallSeat(gunOther, gun);
+            if (!CanReseat) return null;          // a call above threw: the seat is off
             return new PutAway
             {
                 Gun = gun,
@@ -551,7 +552,7 @@ namespace SurvivorCommunity
         internal static void AfterPutAway(EntityAlive e, PutAway p)
         {
             if (e == null || p == null || p.Gun == null || !CanReseat) return;
-            if (p.Gun.Meta > 0 || Seated(p.Gun)) return;
+            if (p.Gun.Meta > 0 || SeatedForSeat(p.Gun) || !CanReseat) return;
             long key = NoteKey(e.entityId, p.Gun.type);
             putAwayNotes.Remove(key);
             ClearMarks(e, p.GunName);
@@ -559,6 +560,7 @@ namespace SurvivorCommunity
             bool inBag;
             int at;
             ItemStack[] slots = FindReturned(e, p, out at, out inBag);
+            if (!CanReseat) return;               // a call in the search threw: the seat is off
             if (slots == null)
             {
                 Patches_Xnpc.Count("mag-putaway-untracked");
@@ -599,11 +601,12 @@ namespace SurvivorCommunity
             long key = NoteKey(e.entityId, gun.type);
             int noted;
             bool expected = putAwayNotes.TryGetValue(key, out noted);
-            if (gun.Meta > 0 || Seated(gun) || IntOf(Call(gunOther, gun)) > 0)
+            if (gun.Meta > 0 || SeatedForSeat(gun) || IntOf(CallSeat(gunOther, gun)) > 0)
             {
                 if (expected) { putAwayNotes.Remove(key); Patches_Xnpc.Count("mag-reseat-skip-loaded"); }
                 return false;
             }
+            if (!CanReseat) return false;         // a call above threw: the seat is off
             string gunName = gun.ItemClass.GetItemName();
             bool inBag;
             int at;
@@ -624,8 +627,10 @@ namespace SurvivorCommunity
             if (ScAmmo.SavedHand(e.entityId, out savedGun, out savedUse) && savedGun != null) { Patches_Xnpc.Count("mag-reseat-skip-saved"); return false; }
             ItemStack mag = slots[at];
             string magName = mag.itemValue.ItemClass != null ? mag.itemValue.ItemClass.GetItemName() : null;
-            object def = magName != null ? Call(forMagazine, magName) : null;
-            if (def == null || !GunTakes(gunName, def))
+            object def = magName != null ? CallSeat(forMagazine, magName) : null;
+            bool takes = def != null && GunTakes(gunName, def);
+            if (!CanReseat) return false;         // a call above threw: the seat is off, the mark stays
+            if (!takes)
             {
                 Unmark(mag);
                 Patches_Xnpc.Count("mag-reseat-not-its-gun");
@@ -638,48 +643,62 @@ namespace SurvivorCommunity
                 Patches_Xnpc.Count("mag-reseat-empty");
                 return false;
             }
-            int other = IntOf(Call(otherIn, mag, def));
-            if (!CanReseat) return false;         // a call above threw: the adapter is off
+            int other = IntOf(CallSeat(otherIn, mag, def));
+            if (!CanReseat) return false;         // a call above threw: the seat is off
             return Seat(e, gun, slots, at, inBag, def, magName, rounds, other, route);
         }
 
         /// <summary>
         /// Round lr1: moves the magazine in slots[at] into the gun - out of the store first (3.4: emptying a slot clears its own
-        /// ItemValue in place, so a copy is taken before), then the gun's rounds, ammo, waiting side, which magazine and the
-        /// seated flag, then one toolbelt change event for the silent metadata (as L&amp;L's reload ends). A throw puts the gun
-        /// back to empty and unflagged and the magazine back into her stores - never both, never neither - and turns the seat
-        /// off for the rest of the game (one error line); the rest of the adapter stays on.
+        /// ItemValue in place, so a copy is taken before), and only once the slot no longer holds it: a twin's waiting side,
+        /// which magazine and the seated flag (the silent metadata), then the ammo and the rounds last, then one toolbelt change
+        /// event for the metadata (as L&amp;L's reload ends). A slot the write did not empty leaves everything as it was
+        /// (mag-reseat-not-taken). A throw puts the gun back to empty and unflagged and - when its slot no longer holds it (the
+        /// slot decides, not how far the try got: a change listener can throw after the slot was cleared) - the magazine back
+        /// into her stores: never both, never neither. Then the seat is off for the rest of the game (one error line); the rest
+        /// of the adapter stays on.
         /// </summary>
         private static bool Seat(EntityAlive e, ItemValue gun, ItemStack[] slots, int at, bool inBag, object def, string magName, int rounds, int other, string route)
         {
             ItemStack copy = slots[at].Clone();
             byte ammo = copy.itemValue.SelectedAmmoTypeIndex;
+            string gunName = gun.ItemClass.GetItemName();
             bool taken = false;
             seating = true;
             try
             {
                 if (inBag) e.bag.SetSlot(at, ItemStack.Empty);
                 else e.inventory.SetStackAt(at, ItemStack.Empty);
-                taken = true;
-                gun.Meta = rounds;
-                gun.SelectedAmmoTypeIndex = ammo;
-                InvokeSeat(setGunOther, gun, other);
-                InvokeSeat(setSeatedName, gun, def);
-                InvokeSeat(setSeated, gun, true);
-                e.inventory.CallOnToolbeltChangedInternal();
+                // the Fable review (F1): the slot itself says whether the magazine left - Bag.SetSlot ignores an index past its
+                // slot count, so a write that did nothing must never go on to fill the gun as well (a duplicate)
+                taken = !StillHolds(slots, at, magName, gunName);
+                if (taken)
+                {
+                    // the Fable review (F5): the silent metadata first, the rounds last - a gun stopped half way holds no rounds
+                    InvokeSeat(setGunOther, gun, other);
+                    InvokeSeat(setSeatedName, gun, def);
+                    InvokeSeat(setSeated, gun, true);
+                    gun.SelectedAmmoTypeIndex = ammo;
+                    gun.Meta = rounds;
+                    e.inventory.CallOnToolbeltChangedInternal();
+                }
             }
             catch (Exception ex)
             {
-                try
-                {
-                    gun.Meta = 0;
-                    gun.RemoveMetaData(SeatedKey);
-                    InvokeSeat(setGunOther, gun, 0);
-                }
-                catch (Exception) { }
+                // The Fable review (F5): the gun back to empty and unflagged, the metadata first, each step on its own (one that
+                // throws does not keep the rest from running), by L&L's own keys so none depends on the call that threw
+                try { gun.RemoveMetaData(SeatedKey); } catch (Exception) { }
+                try { gun.RemoveMetaData(SeatedNameKey); } catch (Exception) { }
+                try { gun.RemoveMetaData(GunOtherKey); } catch (Exception) { }
+                try { if (gun.Metadata != null && gun.Metadata.Count == 0) gun.Metadata = null; } catch (Exception) { }
+                try { gun.Meta = 0; } catch (Exception) { }      // the setter writes the field before it notifies: 0 even if a listener throws
+                // The Fable review (F1): decided from the slot, not from how far the try got. The store's change event fires
+                // AFTER the slot is cleared, so a listener that throws there (a bag UI, another mod) leaves the slot empty with
+                // the magazine in no one's hands: it must still go back. A slot that still holds it was never taken.
+                taken = !StillHolds(slots, at, magName, gunName);
                 if (taken)
                 {
-                    copy.itemValue.RemoveMetaData(PutAwayKey);
+                    try { copy.itemValue.RemoveMetaData(PutAwayKey); } catch (Exception) { }
                     GiveBack(e, copy);
                 }
                 reseatWhy = "seating a magazine threw " + ex.GetType().Name + ": " + ex.Message;
@@ -694,6 +713,15 @@ namespace SurvivorCommunity
             {
                 seating = false;
             }
+            if (!taken)
+            {
+                // the write did nothing (an index past the store's slot count): the magazine stays where it is, marked, and the
+                // gun stays empty - it reloads as before this round. Not a fault of the seat; counted, logged once per body
+                Patches_Xnpc.Count("mag-reseat-not-taken");
+                ScLog.Once("mags-reseat-not-taken-" + e.entityId, "mags: " + ScCommunity.DisplayName(e) + " (id " + e.entityId + ")'s " + magName + " in "
+                           + (inBag ? "bag" : "toolbelt") + " slot " + at + " could not be taken out - the " + gunName + " is left empty and reloads (round lr1; logged once)");
+                return false;
+            }
             Patches_Xnpc.Count("mag-reseat-on-draw");
             ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") draws the " + gun.ItemClass.GetItemName() + " with the " + magName
                           + " she put it away with, " + rounds + (other > 0 ? " (+" + other + ")" : "") + " round(s), seated - no reload (round lr1; "
@@ -707,6 +735,47 @@ namespace SurvivorCommunity
             try { return m.Invoke(null, args); }
             catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
         }
+
+        /// <summary>
+        /// Round lr1 (the Fable review, F3): every L&amp;L call the seat on the draw makes outside Seat itself. Unlike Call, a
+        /// throw turns only the SEAT off (reseatWhy, one error line) and returns null: the adapter stays on, so X18 keeps
+        /// 0-XNPCCore from banking a magazine gun's rounds (the n07 duplication stays closed) and every other caller is
+        /// unaffected. Callers test CanReseat after it.
+        /// </summary>
+        private static object CallSeat(MethodInfo m, params object[] args)
+        {
+            if (m == null || !CanReseat) return null;
+            try
+            {
+                return m.Invoke(null, args);
+            }
+            catch (Exception e)
+            {
+                Exception inner = e is TargetInvocationException && e.InnerException != null ? e.InnerException : e;
+                reseatWhy = "Locked & Loaded's " + m.DeclaringType.Name + "." + m.Name + " threw " + inner.GetType().Name + ": " + inner.Message;
+                Patches_Xnpc.Count("mag-reseat-off");
+                ScLog.Err("mags: Locked & Loaded's " + m.DeclaringType.Name + "." + m.Name + " threw - the seat on the draw (round lr1) is off for the rest "
+                          + "of this game (the rest of the magazine adapter, X18 included, stays on)");
+                ScLog.Once("mags-seat-" + m.Name, inner);
+                return null;
+            }
+        }
+
+        /// <summary>Round lr1: L&amp;L's seated flag through CallSeat (false when it threw: the seat is off then).</summary>
+        private static bool SeatedForSeat(ItemValue gun)
+        {
+            if (gun == null || gun.IsEmpty() || seated == null) return false;
+            object r = CallSeat(seated, gun);
+            return r is bool && (bool)r;
+        }
+
+        /// <summary>
+        /// Round lr1: L&amp;L's metadata keys for which magazine is seated and a seated twin's waiting side (Magazines.SeatedNameKey,
+        /// GunOtherKey - part of its save data, so stable like SeatedKey; checked against the installed 3.4 DLL). Seat's rollback
+        /// removes them directly, so putting a gun back to empty never depends on the L&amp;L call that may just have thrown.
+        /// </summary>
+        private const string SeatedNameKey = "REMagsSeatedName";
+        private const string GunOtherKey = "REMagsSeatedOther";
 
         /// <summary>Round lr1: a magazine Seat could not seat, back where L&amp;L's GiveMagazine would put it: her bag, her toolbelt, her feet.</summary>
         private static void GiveBack(EntityAlive e, ItemStack mag)
@@ -725,7 +794,7 @@ namespace SurvivorCommunity
         /// <summary>Round lr1: does the gun take this magazine kind (MagazineRegistry.AllForGun)?</summary>
         private static bool GunTakes(string gunName, object def)
         {
-            IList defs = Call(allForGun, gunName) as IList;
+            IList defs = CallSeat(allForGun, gunName) as IList;
             return defs != null && defs.Contains(def);
         }
 
@@ -747,6 +816,17 @@ namespace SurvivorCommunity
         {
             string v;
             return iv != null && iv.Metadata != null && iv.TryGetMetadata(PutAwayKey, out v) && !string.IsNullOrEmpty(v) ? v : null;
+        }
+
+        /// <summary>
+        /// Round lr1 (the Fable review, F1): does this store slot still hold the magazine Seat is taking - that magazine kind, marked
+        /// for this gun? Reads only (no throw): Seat decides from it whether the magazine left, in the try and in the catch.
+        /// </summary>
+        private static bool StillHolds(ItemStack[] slots, int at, string magName, string gunName)
+        {
+            if (slots == null || at < 0 || at >= slots.Length) return false;
+            ItemStack s = slots[at];
+            return IsItem(s, magName) && string.Equals(MarkOf(s.itemValue), gunName, StringComparison.OrdinalIgnoreCase);
         }
 
         private static void Mark(ItemStack s, string gunName)
@@ -795,7 +875,8 @@ namespace SurvivorCommunity
                 {
                     ItemStack s = slots[i];
                     if (!IsItem(s, p.Magazine) || MarkOf(s.itemValue) != null || s.itemValue.Meta != rounds) continue;
-                    if (IntOf(Call(otherIn, s, p.Def)) != other) continue;
+                    if (IntOf(CallSeat(otherIn, s, p.Def)) != other) continue;
+                    if (!CanReseat) { at = -1; inBag = false; return null; }   // the call threw: the seat is off
                     if (s.itemValue.SelectedAmmoTypeIndex == p.Ammo) { at = i; inBag = k == 0; return slots; }
                     if (anyAmmo == null) { anyAmmo = slots; anyAt = i; anyInBag = k == 0; }
                 }

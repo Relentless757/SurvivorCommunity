@@ -57,6 +57,10 @@ Still a reload (genuine, so R2 still applies when she is cornered): a gun drawn 
 seated (just handed to her, or a new body), a gun put away with an empty magazine, and a magazine moved out of her bag and
 toolbelt before the draw.
 
+Not this bug, and unchanged on purpose: when her gun really runs dry while she is cornered, R2 still swaps her to melee in
+the middle of that reload ("stay on melee until room", your decision in round k1), and the reload starts again from the
+beginning on her next draw - the magazine she was putting in had not gone in yet, so there is nothing to put back.
+
 Setup: the new DLL only (no XML). `DebugLogging` true for the verbose lines. `sc arms <name> melee` / `sc arms <name>
 ranged` swaps her by hand. Counters: `sc xnpc` ("magazines put away and seated again on the draw (round lr1): on - mag-...").
 Her magazines: `sc xnpc <name>`'s `ammo:` line ("magazine N; Locked & Loaded: K magazine(s) holding R with the gun's own")
@@ -108,8 +112,8 @@ and the new `put away (round lr1):` line.
 - [ ] No shooting in between. Before: K magazine(s) holding R in `sc xnpc <name>`, and the magazines in her bag (the member
       inventory panel). Ten times `sc arms <name> melee` / `sc arms <name> ranged` (or ten swaps in a fight where she does not
       fire). After: the same K and R, the same magazines, no new magazine in her bag and none on the ground.
-- [ ] `sc xnpc`: `mag-putaway-marked=10 mag-reseat-on-draw=10`, no `mag-reseat-missing`, no `mag-reseat-failed`. No
-      "[REMags] armed" or "restored" lines for her.
+- [ ] `sc xnpc`: `mag-putaway-marked=10 mag-reseat-on-draw=10`, no `mag-reseat-missing`, `mag-reseat-not-taken`,
+      `mag-reseat-failed` or `mag-reseat-off`. No "[REMags] armed" or "restored" lines for her.
 
 **6. Save and reload**
 
@@ -125,8 +129,29 @@ and the new `put away (round lr1):` line.
       ranged`: verbose "<name> (id N) draws the <gun> empty: the magazine she put it away with (N round(s)) is in neither her
       bag nor her toolbelt any more - Locked & Loaded's reload picks one (round lr1)"; `mag-reseat-missing` +1; she reloads
       from another magazine if she has one. The magazine you took keeps its rounds (its mark is harmless).
+- [ ] **A Packwisely ammo pouch open.** Open one of your Packwisely ammo pouches in the looting window and, with it still
+      open, make her swap (`sc arms <name> melee` in the console, or a fight right beside you). Expected, and NOT SC's to fix:
+      `mag-putaway-untracked` +1 and the verbose "<name> (id N) put the <gun> away: Locked & Loaded gave back its <magazine>
+      holding N, but it is in neither her bag nor her toolbelt ..." - the magazine lands in YOUR open pouch (Locked & Loaded
+      hands any NPC's returned magazine to the open pouch first; tracked separately as an L&L bug). Note its rounds: the
+      magazine in your pouch should hold exactly N. Her draw then reloads from what she still has. Give the magazine back.
 
-**8. Untouched**
+**8. Death**
+
+- [ ] **Dead with a marked magazine in her bag.** Put her gun away (`sc arms <name> melee`; `sc xnpc <name>`: "put away (round
+      lr1): <magazine> N ..."), then let her die (zombies, `sc team <name> hurt 0.05` first). Her dropped backpack holds that
+      magazine with N rounds, plus everything else she carried - the same count as `sc xnpc <name>`'s K before. Picked up and
+      loaded into your own gun it behaves like any magazine (the mark does nothing on a player).
+- [ ] **Dead while her gun is holstered** (a check of a gap that is older than this round). With the gun in her hand, a loaded
+      magazine in it, note `sc xnpc <name>`: magazine N, K magazine(s) holding R. Talk to her so she holsters the gun (round
+      D8's chat holster; `x7-holster-yield-frames` goes up), and kill her before she draws again (`killall` in the console
+      with the talk still open, or zombies on her at `sc team <name> hurt 0.05`). Look for the log line "[REMags] died: <name>
+      (id)'s <gun> gave back its <magazine> holding N" before "<class> (id) has died", then count the magazines in her dropped
+      backpack. **K magazines there: fine. K - 1, and no "died: ... gave back" line: the magazine that was in the gun was
+      lost** - while 0-XNPCCore holds the gun holstered, the hand reads as bare hands, so Locked & Loaded's death patch does
+      not see the gun. Tell me which you get; it is not fixed in this round.
+
+**9. Untouched**
 
 - [ ] A member with a bow or crossbow, or a gun Locked & Loaded has no magazine for: swaps as before (no `mag-*` counters).
 - [ ] Without Locked & Loaded: no `mag-*` counters, the `sc xnpc` line says "off (the magazine adapter is off ...)".
