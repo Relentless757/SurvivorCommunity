@@ -19,6 +19,9 @@ beside it holding the words it says (for whoever records it):
    base (ScHordeVoice) - keyed scHorde<Gather|Spotted|Call|Arrived>_<side> (side one of SIDES) and
    scHorde<Clear|Held|Damaged|Overrun>_<n>, their words in Localization.csv's <key>Said row as the radio lines'. They play
    in person from the guard's body or on SC's radio source, beside the moment's own on-screen text.
+   U3 (2026-11-16): the small talk (family "smalltalk"), the pairs two residents say to each other at home (ScSocial) -
+   keyed scTalkOpen_<nn> / scTalkReply_<nn>, their words in Localization.csv's <key>Said rows. Their one source is
+   Tools/smalltalk_lines.py (its gen writes those rows); this script reads them from Localization, as the horde lines.
 2. The V2 lines ("new"), grouped in families so a recording round can run one family at a time (NEW, in this order):
    - greet    SC's own greetings, greet.<stranger|recruit|member|follower|enclave>.<n> (ScGreetings);
    - chatter  members at home talking to nobody in particular, chatter.<n> (ScGreetings);
@@ -35,7 +38,8 @@ The voices are Config/blocks.xml's Voices list (two per race and sex), plus any 
 
     python -I Tools/voice_lines.py list [--new] [--family F[,F]] [--voice FOLDER] [--tsv]
         every line's key and the words it says; --new only the V2 lines; --family only those families (dialog, radio,
-        horde, greet, chatter, taunt, xn, ack, vc); --voice only the lines that voice has no clip for yet; --tsv key<TAB>words
+        horde, smalltalk, greet, chatter, taunt, xn, ack, vc); --voice only the lines that voice has no clip for yet;
+        --tsv key<TAB>words
     python -I Tools/voice_lines.py check [--keys]
         the lines (a token with no spoken part, a key used twice), ScVoiceLines.cs, then per voice: the lines with no
         clip yet, family by family, and clips no line uses (--keys also lists the keys of a voice with no folder yet)
@@ -133,6 +137,21 @@ HORDE = (["scHordeGather_" + s for s in SIDES] + ["scHordeSpotted_" + s for s in
          + ["scHordeClear_1", "scHordeClear_2"]
          + ["scHordeCall_" + s for s in SIDES] + ["scHordeArrived_" + s for s in SIDES]
          + ["scHordeHeld_1", "scHordeHeld_2", "scHordeDamaged_1", "scHordeDamaged_2", "scHordeOverrun_1", "scHordeOverrun_2"])
+
+# U3 (2026-11-16): the small talk (ScSocial). Tools/smalltalk_lines.py is the pairs' one source and writes their words as
+# Localization.csv's <key>Said rows, opener then answer, pair by pair; the keys are read back from there, in file order.
+SMALLTALK_ROW = re.compile(r"^(scTalk(?:Open|Reply)_\d+)Said$")
+
+
+def smalltalk_keys():
+    """U3: every small-talk line's key (scTalkOpen_<nn>, scTalkReply_<nn>), in Localization.csv's order."""
+    out = []
+    for k in localization():
+        m = SMALLTALK_ROW.match(k)
+        if m:
+            out.append(m.group(1))
+    return out
+
 
 # ---------------------------------------------------------------------------------------------------- the V2 lines ----
 # No names or numbers, so every voice can say them. Drafts: SC_Ideas_and_Voices_Plan.md section 4.4 (2026-11-03).
@@ -474,8 +493,8 @@ VC = [
 ]
 
 NEW = [("greet", GREET), ("chatter", CHATTER), ("taunt", TAUNT), ("xn", XN), ("ack", ACK), ("vc", VC)]
-FAMILIES = ["dialog", "radio", "horde"] + [f for f, _ in NEW]
-NOT_V2 = ("dialog", "radio", "horde")   # the families --new and cost's "new (V2)" leave out
+FAMILIES = ["dialog", "radio", "horde", "smalltalk"] + [f for f, _ in NEW]
+NOT_V2 = ("dialog", "radio", "horde", "smalltalk")   # the families --new and cost's "new (V2)" leave out
 
 
 # ------------------------------------------------------------------------------------------------------- the lines ----
@@ -579,6 +598,11 @@ def every_line(problems):
             problems.append("%s is both a horde warning and a dialog or radio line" % k)
         else:
             out[k] = ("horde", v)
+    for k, v in radio_lines(problems, smalltalk_keys(), "smalltalk").items():   # U3
+        if k in out:
+            problems.append("%s is both a small-talk line and another line" % k)
+        else:
+            out[k] = ("smalltalk", v)
     for k, v in new_lines(problems).items():
         if k in out:
             problems.append("%s is both a dialog line and a V2 line" % k)

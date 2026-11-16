@@ -70,6 +70,30 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   and her `SdcsResident` / `.SdcsRoutineWalk` / `SdcsRoutinePhase` cvars (phase 3 = asleep, 4 = waking). It also
   shows how many of the zone's beds are inside the box 0-XNPCCore searches (within `SleepZoneHeight` of the home
   block's height) — only those count. This is the first thing to run if someone will not go to bed. It is read-only.
+  Its "sleep clock" line (round U3) shows 0-XNPCCore's own evening and bedtime hours and when SC's lease opens: never
+  before 0-XNPCCore's own bedtime, whatever `SleepAfterDuskHours` says.
+
+## Social life: small talk and the campfire *(round U3)*
+
+- **`sc chat`** — the settings in one line; the clock (the hour, dusk, 0-XNPCCore's `HomeBeforeDuskHours` /
+  `SleepAfterDuskHours`, whether it is the evening window now); the home's gathering window (`evening:<day>`,
+  `drinks:<day>`, `console:<n>` or closed) and its campfire; the cooldowns (next exchange, next at a fire, next walk-over
+  roll, the pairs still cooling); this session's counts and the last end; what is going on now (the exchange and its
+  lines, a planned walk-over, everyone at a fire); then every resident and loaded enclave person: free, or exactly why not
+  (on watch, on a work shift, in bed for the night, downed, posture KITE, an enemy in sight, out of earshot ...), walking,
+  your distance and whether you are in earshot (10-32 m), the last window they gathered in, roaming. Read-only.
+- **`sc chat <a> <b>`** — `a` opens a conversation with `b` now: the gap, the pair cooldown, how far apart they are and
+  how far you are are all ignored, but each must be free (else the reason is printed). **`... force`** ignores that too,
+  except dead, downed, asleep or in a talk with you. Prints the pair and how each line is said (`recorded, <voice>`,
+  `caption only (no recording yet)` or Voice Control's).
+- **`sc chat meet <a> <b>`** — `a` walks over to `b` on her next roam walk (she must be roaming by day for that walk to
+  come; the plan lapses after 30 s otherwise). Watch `b` turn to her as she comes.
+- **`sc chat gather`** — a gathering at the home campfire now, for 3 minutes whatever the hour: every free resident walks
+  over at once. **`sc chat gather end`** sends everyone back.
+- **`sc chat lines [id|name]`** — how many of the 76 small-talk lines each voice has recorded, and whether a caption can
+  show for them (`VoiceBarkSubtitles`, Voice Control's subtitle mode).
+- The pairs live in `Tools/smalltalk_lines.py` (`list`, `gen`, `check`); `python -I Tools/voice_lines.py check` counts
+  their clips per voice as the family `smalltalk`, and `Tools/smalltalk_jobs.json` is the recording manifest.
 
 ## Team strength and postures *(rounds tm1, k3, k4)*
 

@@ -359,6 +359,16 @@
     <Compile Include="XUiC_ScRadioTab.cs" />
   </ItemGroup>
 
+  <!-- round U3: the community's social life - small talk between residents (in their own voices, captions until recorded),
+       walking over to chat, the evening campfire, the same in an enclave's building - and its config keys and UAI classes -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="ScConfigSocial.cs" />
+    <Compile Include="ScSocial.cs" />
+    <Compile Include="ScSocialVoice.cs" />
+    <Compile Include="ScSocialLines.cs" />
+    <Compile Include="UaiSocial.cs" />
+  </ItemGroup>
+
   <!-- M33 (round 33c): mining runs - Mine and Dig clay sent like a supply run, real items into the home crates - 3.4 only -->
   <ItemGroup Condition="'$(ScGame)'=='34'">
     <Compile Include="ScConfigMining.cs" />

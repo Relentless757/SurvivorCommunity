@@ -1429,6 +1429,7 @@ namespace SurvivorCommunity
             ResetCraft();                          // C1 (ScConfigCraft.cs)
             ResetRadio();                          // R2 (ScConfigRadio.cs)
             ResetMining();                         // round 33c (ScConfigMining.cs): mining runs
+            ResetSocial();                         // round U3 (ScConfigSocial.cs): small talk, walking over, the campfire
 #endif
             XnpcSurvivorClasses.Clear();
             XnpcSurvivorClasses.AddRange(ScXnpc.DefaultClasses);
@@ -2571,6 +2572,7 @@ namespace SurvivorCommunity
                 ParseCraft(p);                     // C1 (ScConfigCraft.cs)
                 ParseRadio(p);                     // R2 (ScConfigRadio.cs)
                 ParseMining(p);                    // round 33c (ScConfigMining.cs): mining runs
+                ParseSocial(p);                    // round U3 (ScConfigSocial.cs): small talk, walking over, the campfire
 #endif
                 bool xnpcGetUp = XnpcBodyGetUp;
                 if (p.Values.ContainsKey("XnpcBodyGetUp")) p.ParseBool("XnpcBodyGetUp", ref xnpcGetUp);

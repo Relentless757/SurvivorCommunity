@@ -58,6 +58,7 @@ namespace SurvivorCommunity
                     ScTicker.Reset();
 #if SC_V34
                     ScSleep.Reset();                 // round n06: no night lease carries into a new world
+                    ScSocial.Reset();                // round U3: no exchange, walk-over or gathering carries into a new world
                     ScReach.Reset();                 // round n08: mark counts are per session
                     ScLoadout.ResetModCache();       // round n08: canonical weapon mods are rolled per world
                     UAI.UAIConsiderationScIntruder.ResetHunts();   // round n08: the home rule's "after somebody" latches

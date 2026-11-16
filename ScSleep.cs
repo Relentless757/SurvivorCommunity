@@ -103,7 +103,10 @@ namespace SurvivorCommunity
             int dusk = w.DuskHour;                     // World's own, derived from DayLightLength
             float since = hour - dusk;
             if (since < 0f) since += 24f;              // past midnight
-            return since >= Math.Max(0f, ScConfig.SleepAfterDuskHours) ? null : "too soon after dusk (0-XNPCCore is still strolling)";
+            // round U3 (research B7): never before 0-XNPCCore's OWN phase 3. SleepAfterDuskHours used to mirror its setting by
+            // hand; opened inside its phase 2 the lease would now walk every leased member to the base campfire (3.4.06's
+            // GatherChance 1.0) - so the larger of SC's value and 0-XNPCCore's, read from it (ScNpcClock).
+            return since >= ScNpcClock.LeaseAfterDusk() ? null : "too soon after dusk (0-XNPCCore is still in its evening)";
         }
 
         public static void Reset() { leased.Clear(); dawnSince.Clear(); bedCache.Clear(); grants.Clear(); Opened = Closed = Refused = 0; LastRefusal = ""; }
@@ -359,6 +362,7 @@ namespace SurvivorCommunity
                 if (inBox == 0) bedLine += "  <- no bed: nobody at home will be leased out";
             }
             output(bedLine);
+            output("[SC] sleep clock: " + ScNpcClock.Describe(w));   // round U3 (B7): the lease waits for 0-XNPCCore's own phase 3
             var shown = new HashSet<int>();
             foreach (Verdict v in Plan(w, nightWhy, false))
             {

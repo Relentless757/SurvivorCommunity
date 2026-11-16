@@ -279,6 +279,11 @@ namespace UAI
         private static Vector3 ZoneTarget(EntityAlive self, Vector3 post, World w, ScArea area)
         {
             if (w == null) return Vector3.zero;
+#if SC_V34
+            // round U3: now and then this walk goes over to a free neighbor to chat - ScSocial's ticker planned it; this only reads it
+            Vector3 meetSpot;
+            if (ScSocial.MeetSpot(self, w, area, out meetSpot)) return meetSpot;
+#endif
             for (int attempt = 0; attempt < 10; attempt++)
             {
                 Vector3 p;

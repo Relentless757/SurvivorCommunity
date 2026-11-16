@@ -49,6 +49,8 @@ The console commands of Survivor Community (SC) for 7 Days to Die 3.4 and of the
 | `sc meds <id\|name> give` | Restock her medical supplies now for 1 Meds (the cooldown ignored). [CHEAT] |
 | `sc retreat [id\|name]` | Badly hurt members: who is sheltering or kiting and why, or why not; one member in full. [READ] |
 | `sc sleep` | Sleeping at night: who is in bed, why not for the rest, and the beds that count. [READ] |
+| `sc chat` | Small talk and the campfire: the clock, the cooldowns, what is going on, and who could talk now or why not. [READ] |
+| `sc chat <a> <b> [force]` / `sc chat gather` | Start a conversation between two members now; start a gathering at the home campfire. [CHEAT] |
 | `sc craft [<name>]` | Crafting/work-shift status for the community or one member. [READ] |
 | `sc craft station` | The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft counters. [READ] |
 | `sc enclave list` / `reveal all` | List enclaves (settlements of other survivors); reveal them on the map. |
@@ -150,6 +152,26 @@ Example: `sc drinks on`
 ### `sc sleep` [READ]
 Sleeping at night (README section 4): whether `SleepAtNight` is on and whether it is bedtime now, or why not (daytime, too soon after dusk, a blood moon night, 0-XNPCCore's own routine switched off in its settings); this session's counts (put to bed, taken back, refused) with the last refusal; the home zone's beds and how many of them are within `SleepZoneHeight` of the land claim block in loaded chunks (only those count; with none, nobody at home goes to bed); then one line per member: `ASLEEP/leased` (in bed, or on the way to it) or `SC's own routine`, the reason when not (not a resident at home, on watch, on a work shift, following you, busy with you, not inside the home zone, not enough beds), and 0-XNPCCore's three routine values for a bug report. Members who are not loaded are listed as such; enclave people are not listed. Nothing is changed.
 Example: `sc sleep`
+
+### `sc chat` [READ]
+Small talk and the evening campfire (README section 4, "Social life at home"): the settings; the clock (the hour, dusk, 0-XNPCCore's own evening and bedtime hours, and whether it is the evening now); the home's gathering window and its campfire; when the next conversation, the next one at a fire and the next walk-over roll may come, and the pairs who talked lately; this session's counts; what is happening now; then every resident and loaded enclave person: free, or why not, your distance, and whether you are in earshot (they talk only while you are 10 to 32 m away). Nothing is changed.
+Example: `sc chat`
+
+### `sc chat <a> <b> [force]` [CHEAT]
+`<a>` says one of the small-talk lines to `<b>` now and `<b>` answers; both are a member's id or name (or an enclave person's name). The time between conversations, the pair's 10 minutes, how far apart they stand and how far you are are ignored, but both must be free (the reason is printed when one is not). `force` ignores that too, unless one is dead, downed, asleep or in a talk with you. The answer prints how each line is said: recorded, caption only, or Voice Control's.
+Example: `sc chat Amy Dan`
+
+### `sc chat meet <a> <b>` [CHEAT]
+`<a>` walks over to `<b>` on her next walk about the base, and they talk when she gets there. She has to be roaming (by day) for the walk to come; the plan is dropped after 30 seconds otherwise.
+Example: `sc chat meet Amy Dan`
+
+### `sc chat gather [end]` [CHEAT]
+A gathering at the home campfire now, for 3 minutes whatever the hour: every free resident walks to it. Needs a campfire inside the home zone. `end` sends everyone back to their routine.
+Example: `sc chat gather`
+
+### `sc chat lines [id|name]` [READ]
+How many of the small-talk lines each member's voice has recorded (76 lines), and whether a caption can show for them.
+Example: `sc chat lines Amy`
 
 ### `sc scan` [READ]
 Re-counts beds, facilities and crops in the home zone now and prints the timing.

@@ -1,0 +1,4946 @@
+[
+ {
+  "voice": "male_White_Vane",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "male_White_David",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "female_White_Jessica",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "female_White_Beth",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "male_Black_Nate",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "male_Black_Desmond",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "female_Black_Tiffany",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "female_Black_Rene",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "male_Asian_Jasper",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "male_Asian_Julian",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "female_Asian_Layla",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "female_Asian_Jess",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "male_Native_NativeM1",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "male_Native_NativeM2",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "female_Native_NativeF1",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ },
+ {
+  "voice": "female_Native_NativeF2",
+  "lines": [
+   {
+    "key": "scTalkOpen_01",
+    "text": "Stockpile's looking better than it did last week."
+   },
+   {
+    "key": "scTalkReply_01",
+    "text": "Don't say that out loud. You'll jinx it."
+   },
+   {
+    "key": "scTalkOpen_02",
+    "text": "Smell that? Rain's coming."
+   },
+   {
+    "key": "scTalkReply_02",
+    "text": "Good. The barrels could use it."
+   },
+   {
+    "key": "scTalkOpen_03",
+    "text": "You hear how the last run went?"
+   },
+   {
+    "key": "scTalkReply_03",
+    "text": "Everyone came back. That's a good run."
+   },
+   {
+    "key": "scTalkOpen_04",
+    "text": "The walls held up fine last night."
+   },
+   {
+    "key": "scTalkReply_04",
+    "text": "Walls are only as good as whoever's watching them."
+   },
+   {
+    "key": "scTalkOpen_05",
+    "text": "Nights are getting louder out there."
+   },
+   {
+    "key": "scTalkReply_05",
+    "text": "Yeah. I sleep with my boots on now."
+   },
+   {
+    "key": "scTalkOpen_06",
+    "text": "What's for dinner?"
+   },
+   {
+    "key": "scTalkReply_06",
+    "text": "Same as yesterday. Be grateful."
+   },
+   {
+    "key": "scTalkOpen_07",
+    "text": "Knock knock."
+   },
+   {
+    "key": "scTalkReply_07",
+    "text": "If it's a zombie, I'm not opening."
+   },
+   {
+    "key": "scTalkOpen_08",
+    "text": "You ever think about leaving?"
+   },
+   {
+    "key": "scTalkReply_08",
+    "text": "Every day. Then I remember what's out there."
+   },
+   {
+    "key": "scTalkOpen_09",
+    "text": "The boss seems to know what they're doing."
+   },
+   {
+    "key": "scTalkReply_09",
+    "text": "Better than the last place I was at."
+   },
+   {
+    "key": "scTalkOpen_10",
+    "text": "Think the boss will be back before dark?"
+   },
+   {
+    "key": "scTalkReply_10",
+    "text": "Always is, somehow."
+   },
+   {
+    "key": "scTalkOpen_11",
+    "text": "We're low on something again."
+   },
+   {
+    "key": "scTalkReply_11",
+    "text": "We're always low on something."
+   },
+   {
+    "key": "scTalkOpen_12",
+    "text": "Saw a deer by the fence this morning."
+   },
+   {
+    "key": "scTalkReply_12",
+    "text": "Next time, wake me. I'll bring the rifle."
+   },
+   {
+    "key": "scTalkOpen_13",
+    "text": "How's the arm?"
+   },
+   {
+    "key": "scTalkReply_13",
+    "text": "Still attached. I'll call that a win."
+   },
+   {
+    "key": "scTalkOpen_14",
+    "text": "Found a deck of cards in the last crate."
+   },
+   {
+    "key": "scTalkReply_14",
+    "text": "Missing half the hearts, I bet."
+   },
+   {
+    "key": "scTalkOpen_15",
+    "text": "You ever miss your old job?"
+   },
+   {
+    "key": "scTalkReply_15",
+    "text": "I miss getting paid for it."
+   },
+   {
+    "key": "scTalkOpen_16",
+    "text": "Somebody left the gate open again."
+   },
+   {
+    "key": "scTalkReply_16",
+    "text": "Wasn't me. Probably."
+   },
+   {
+    "key": "scTalkOpen_17",
+    "text": "Heard engines out east earlier."
+   },
+   {
+    "key": "scTalkReply_17",
+    "text": "Raiders, maybe. Keep your eyes open."
+   },
+   {
+    "key": "scTalkOpen_18",
+    "text": "This place is starting to feel like home."
+   },
+   {
+    "key": "scTalkReply_18",
+    "text": "Don't get too comfortable."
+   },
+   {
+    "key": "scTalkOpen_19",
+    "text": "We're doing alright, you know that?"
+   },
+   {
+    "key": "scTalkReply_19",
+    "text": "Yeah. Better than alright, some days."
+   },
+   {
+    "key": "scTalkOpen_20",
+    "text": "One more wall and this place is a fortress."
+   },
+   {
+    "key": "scTalkReply_20",
+    "text": "Then we'll want a moat."
+   },
+   {
+    "key": "scTalkOpen_21",
+    "text": "Thanks for covering my watch the other night."
+   },
+   {
+    "key": "scTalkReply_21",
+    "text": "Anytime. You'd do the same for me."
+   },
+   {
+    "key": "scTalkOpen_22",
+    "text": "Sometimes I don't see the point anymore."
+   },
+   {
+    "key": "scTalkReply_22",
+    "text": "Eat something. Everything looks better on a full stomach."
+   },
+   {
+    "key": "scTalkOpen_23",
+    "text": "How long can we really keep this up?"
+   },
+   {
+    "key": "scTalkReply_23",
+    "text": "As long as we have to. One day at a time."
+   },
+   {
+    "key": "scTalkOpen_24",
+    "text": "The garden's coming in nicely."
+   },
+   {
+    "key": "scTalkReply_24",
+    "text": "Good. I'm sick of canned food."
+   },
+   {
+    "key": "scTalkOpen_25",
+    "text": "I almost have that old generator running."
+   },
+   {
+    "key": "scTalkReply_25",
+    "text": "Almost is what you said yesterday."
+   },
+   {
+    "key": "scTalkOpen_26",
+    "text": "Let me look at that cut before it gets infected."
+   },
+   {
+    "key": "scTalkReply_26",
+    "text": "It's fine. It's just a scratch."
+   },
+   {
+    "key": "scTalkOpen_27",
+    "text": "Clean your rifle tonight. It'll save your life."
+   },
+   {
+    "key": "scTalkReply_27",
+    "text": "It's cleaner than your boots, at least."
+   },
+   {
+    "key": "scTalkOpen_28",
+    "text": "Couldn't sleep again. It was too quiet."
+   },
+   {
+    "key": "scTalkReply_28",
+    "text": "Too quiet is the good kind of night."
+   },
+   {
+    "key": "scTalkOpen_29",
+    "text": "Is there any more of that stew?"
+   },
+   {
+    "key": "scTalkReply_29",
+    "text": "You've had three bowls already."
+   },
+   {
+    "key": "scTalkOpen_30",
+    "text": "Don't touch that pile. I have a system."
+   },
+   {
+    "key": "scTalkReply_30",
+    "text": "Your system is a pile."
+   },
+   {
+    "key": "scTalkOpen_31",
+    "text": "I'm going to sit on the wall for a while. Alone."
+   },
+   {
+    "key": "scTalkReply_31",
+    "text": "Suit yourself. Holler if you see anything."
+   },
+   {
+    "key": "scTalkOpen_32",
+    "text": "I don't like how quiet it is out there."
+   },
+   {
+    "key": "scTalkReply_32",
+    "text": "Quiet's good. Quiet means nothing's hungry."
+   },
+   {
+    "key": "scTalkOpen_33",
+    "text": "We should all eat together tonight."
+   },
+   {
+    "key": "scTalkReply_33",
+    "text": "I'll bring the good cans."
+   },
+   {
+    "key": "scTalkOpen_34",
+    "text": "I've got a good feeling about tomorrow."
+   },
+   {
+    "key": "scTalkReply_34",
+    "text": "You say that every day."
+   },
+   {
+    "key": "scTalkOpen_35",
+    "text": "Mark my words, those walls won't hold forever."
+   },
+   {
+    "key": "scTalkReply_35",
+    "text": "Nothing does. Doesn't mean we stop."
+   },
+   {
+    "key": "scTalkOpen_36",
+    "text": "Nothing beats a fire at the end of the day."
+   },
+   {
+    "key": "scTalkReply_36",
+    "text": "Except a fire and a cold drink."
+   },
+   {
+    "key": "scTalkOpen_37",
+    "text": "To the ones we lost."
+   },
+   {
+    "key": "scTalkReply_37",
+    "text": "And to the ones still here."
+   },
+   {
+    "key": "scTalkOpen_38",
+    "text": "Remember telling ghost stories around a fire?"
+   },
+   {
+    "key": "scTalkReply_38",
+    "text": "Now we just keep watching the dark."
+   }
+  ]
+ }
+]
