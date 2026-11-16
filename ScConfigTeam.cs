@@ -110,13 +110,13 @@ namespace SurvivorCommunity
         /// InvestigateResponders of the nearest free residents within InvestigateRadius (0: anywhere in the zone). The Fable review
         /// of k3+k4: InvestigateEnterMargin (F4) - meters outside the zone an intruder may stand (0: inside only, the user's
         /// "inside the base"); InvestigateHeight (F5) - meters below the lowest and above the highest of the home block and the
-        /// residents' posts that count as the base (a cellar, a mine or a roof beyond them does not).
+        /// residents' posts that count as the base (6: one story either way; a cellar, a mine or a roof beyond them does not).
         /// </summary>
         public static bool InvestigateIntruders = true;
         public static int InvestigateResponders = 2;
         public static float InvestigateRadius = 0f;
         public static float InvestigateEnterMargin = 0f;
-        public static float InvestigateHeight = 4f;
+        public static float InvestigateHeight = 6f;
         /// <summary>T: the threat table as the config spells it (parsed into TeamThreats on first use).</summary>
         public static string TeamThreatTags = DefaultTeamThreatTags;
         public static string TeamThreatTagMult = DefaultTeamThreatTagMult;
@@ -217,7 +217,7 @@ namespace SurvivorCommunity
             InvestigateResponders = 2;
             InvestigateRadius = 0f;
             InvestigateEnterMargin = 0f;
-            InvestigateHeight = 4f;
+            InvestigateHeight = 6f;
             TeamThreatTags = DefaultTeamThreatTags;
             TeamThreatTagMult = DefaultTeamThreatTagMult;
             TeamThreatMult = DefaultTeamThreatMult;

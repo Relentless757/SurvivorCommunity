@@ -19,7 +19,7 @@ namespace SurvivorCommunity
     /// (UAIConsiderationScIntruder.HuntsSomeone false, its 10 s latch included) and stands inside the home zone (the Fable review
     /// of k3+k4, F4: the user's "inside the base" - InvestigateEnterMargin, 0, widens it, never past ResidentRoamZoneMargin less
     /// the defense walk's stray band, so a responder never strays chasing it), or anywhere in the defended area during a live
-    /// base attack - and on the base's levels (F5: within InvestigateHeight, 4 m, below the lowest and above the highest of the
+    /// base attack - and on the base's levels (F5: within InvestigateHeight, 6 m, below the lowest and above the highest of the
     /// home block and the residents' posts, so a cellar, a mine or a roof under or over the base is not "inside"). Each gets
     /// InvestigateResponders (2) RESPONDERS: the nearest free
     /// residents within InvestigateRadius (0: the whole zone) - at home, on the Guard order, not on watch, not on a work shift, not

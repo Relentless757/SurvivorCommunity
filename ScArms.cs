@@ -132,6 +132,9 @@ namespace SurvivorCommunity
             public bool CorneredInBout, CorneredSwung;
             public string CorneredHeld;
             public float CorneredHeldAt, CorneredUse;
+            /// <summary>The Fable re-review of k3+k4 (R4): R2's last tick here - a gap over KiteTickGapSeconds (a heal walk, a
+            /// medical use) restarts CorneredHeldAt, so time she could not swing never counts as "no swing".</summary>
+            public float CorneredTickAt;
             public int SkipNoted = -1;
         }
 
@@ -624,9 +627,12 @@ namespace SurvivorCommunity
                 st.CorneredHeld = held;
                 st.CorneredUse = used;
                 st.CorneredSwung = false;
+                st.CorneredTickAt = now;
                 return false;
             }
             if (used != st.CorneredUse) st.CorneredSwung = true;
+            if (now - st.CorneredTickAt > KiteTickGapSeconds) st.CorneredHeldAt = now;   // R4: the clock restarts after a gap
+            st.CorneredTickAt = now;
             return !st.CorneredSwung && now - st.CorneredHeldAt >= CorneredNoSwingSeconds;
         }
 
@@ -668,7 +674,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// F1 (the Fable review of k3+k4): why R2 must not swap her to melee at t, else null - a swing at it refused before
         /// (ScPosture.RefusedWhy: 0-XNPCCore's refusal exits and its unreachable mark, R2's own "no swing"), 0-XNPCCore's last
-        /// refusal of its swap ("wall between", "unreachable", "wall re-enter"), or a melee-unsafe target. A read.
+        /// refusal of its swap ("wall between", "unreachable", "wall re-enter"), a melee-unsafe target, or (R5) an armed one. A read.
         /// </summary>
         private static string R2Skip(AvatarSdcsNpcController c, EntityAlive e, EntityAlive t)
         {
@@ -678,6 +684,7 @@ namespace SurvivorCommunity
             r = SwapRefusal(c);
             if (r != null) return "0-XNPCCore refused " + ScRetreat.Her(e) + " swap to melee (" + r + ")";
             if (ScTeam.MeleeUnsafe(t)) return "melee-unsafe";
+            if (ScTeam.Armed(t)) return "an armed enemy";        // R5: as ScPosture's urgent draw and AllowsApproach
             return null;
         }
 
@@ -719,6 +726,7 @@ namespace SurvivorCommunity
             st.CorneredSwung = false;
             st.CorneredHeld = null;
             st.CorneredHeldAt = 0f;
+            st.CorneredTickAt = 0f;
             st.NoShotSince = Time.time;                 // F1: another "no shot" trigger needs KiteNoShotSeconds again
             if (c != null && CloseMelee(c) && string.IsNullOrEmpty(Remembered(c)) && !string.IsNullOrEmpty(st.CorneredGun))
                 rememberedField.SetValue(c, st.CorneredGun);

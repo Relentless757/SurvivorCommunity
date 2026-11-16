@@ -204,7 +204,7 @@ What it does now:
   back, and that zombie gets KITE for 45 s (`TeamUnreachableSeconds`; 90, then 180 for the same zombie). tm2's no-swing
   clock, "stand and shoot", no-swing spot and per-zombie holds are gone, and with them the back-off ban.
 - **Intruders.** An awake zombie (or hostile animal) inside the home zone (F4: inside only - `InvestigateEnterMargin` 0)
-  and on the base's levels (F5: within 4 m below the lowest and above the highest of the home block and the residents'
+  and on the base's levels (F5: within 6 m below the lowest and above the highest of the home block and the residents'
   posts - `InvestigateHeight`; a cellar, a mine or a roof under or over the base does not count) that is after nobody gets
   **2** responders (`InvestigateResponders`): the nearest residents who are free (not on watch, a work shift or a Stay
   order, not asleep, Cowardly, sheltering or below 60%, not in another fight), from anywhere in the zone
@@ -232,7 +232,7 @@ posture and why, and her hand with its clock.
 - [ ] The log: "config: posture one per member (MELEE, KITE, HOLD, SHELTER, INVESTIGATE): MELEE needs a matched fight (F >=
       1 T), 0.6 health and a target she can swing at; one hand change per 5 s (TeamSwapHoldSeconds), a MELEE / KITE
       switch lasts 5 s (PostureDwellSeconds); a gun holder in a matched fight keeps her gun until her target is within 4 m;
-      investigate idle intruders: 2 responder(s) each, anywhere in the zone, entered inside the zone, 4 m above and below
+      investigate idle intruders: 2 responder(s) each, anywhere in the zone, entered inside the zone, 6 m above and below
       the base's levels". The team strength line says "matched at F >= 1 T, left after 2 recounts below 0.8 T (matched
       again after as many at 1 T)" and "low health 0.6 (back 0.7)".
 - [ ] No warning "0-XNPCCore's sdcsCloseWallExitTime not found" or "... sdcsCloseMeleeRefused not found". (With either one
@@ -333,6 +333,11 @@ posture and why, and her hand with its clock.
       within 2.5 s "... no swing in 2.5 s with her melee weapon (a fence, bars or a block in her swing)"
       (`x5-cornered-noswing-end` +1), then her gun at once. Either way `sc team Gina` lists that zombie as one she "cannot
       swing at" for 45 s, and R2 skips it.
+- [ ] R4 (the Fable re-review): cornered on R2's melee, she uses a bandage or walks off to heal and comes back. No "no
+      swing in 2.5 s" line on the first tick after: the 2.5 s start again when R2's melee resumes.
+- [ ] R5: cornered and reloading with a raider or a hostile survivor as her target (`sc spawn hostile`): "... but no
+      melee at <name> (M): an armed enemy - the <gun> stays (R2 skipped; F1)", `x5-cornered-skipped` +1. She never
+      swaps to melee against an armed enemy.
 - [ ] C2: cornered and reloading where 0-XNPCCore will not swap her to melee (a wall between them): about a second after
       the reload ends, "... is no longer cornered on melee: 0-XNPCCore never swapped her to melee, and R2's trigger is over
       (C2)"; `sc team Gina`'s hand line no longer says CORNERED ON MELEE.
@@ -364,7 +369,7 @@ posture and why, and her hand with its clock.
 - [ ] F4: a zombie just outside the zone (1-5 m past its edge) that hunts nobody: no investigate line, nobody goes - as in
       n08 ("mayengage-home-wanderer" counts if one would have shot at it). With `InvestigateEnterMargin` 3 (restart) one
       2 m out is investigated; set it back to 0.
-- [ ] F5: a zombie in a cellar or a mine more than 4 m below the base's lowest post (or on a roof more than 4 m above the
+- [ ] F5: a zombie in a cellar or a mine more than 6 m below the base's lowest post (or on a roof more than 6 m above the
       highest), inside the zone's outline, after nobody: no investigate line. `sc team`'s intruders line shows the levels
       ("levels y A to B"). One that climbs up into the base is investigated; back down for 5 s: "released - it stayed
       outside the zone + 8 m (or off its levels) for 5 s".
