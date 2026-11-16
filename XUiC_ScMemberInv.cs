@@ -191,6 +191,7 @@ namespace SurvivorCommunity
                 NpcId = -1;
             }
             if (id >= 0) ScLog.Verbose("member inventory: closed for id " + id);
+            ScEquipRedirect.PanelClosed();   // round U1 (B4): Voice Control's equipment window reopen, armed only by its Show backpack
         }
 
         /// <summary>SCore's close hook for its talk NPC: the NPC re-reads its weapons from what it now carries (a client sends it).</summary>
@@ -310,6 +311,9 @@ namespace SurvivorCommunity
 
         // bound values: every one set from the constructor on (bindings are read while the XML is parsed)
         private string name = "", sub = "", packCount = "", bagCount = "", rName = "", rInfo = "", mName = "", mInfo = "";
+        /// <summary>Round U1: the ammo line under RANGED (ScAmmoChoice.Line) and whether it shows.</summary>
+        private string ammoLine = "";
+        private bool ammoVisible;
         private int packSlots;
         private readonly string[] toolNotes = { "", "", "", "", "" };
 
@@ -330,6 +334,9 @@ namespace SurvivorCommunity
             Hook("btnClose", (s, b) => { if (b == -1) xui.playerUI.windowManager.Close(windowGroup); });
             Hook("btnPackTakeAll", (s, b) => { if (b == -1) TakeAll(Pack); });
             Hook("btnBagTakeAll", (s, b) => { if (b == -1) TakeAll(bag); });
+            Hook("btnAmmo", (s, b) => { if (b == -1) Ammo(1); });                // round U1: the gun's next ammo type
+            XUiController ammoButton = GetChildById("btnAmmo");
+            if (ammoButton != null) ammoButton.OnRightPress += (s, b) => Ammo(-1);   // and the one before
             mover = new ScWindowMover(this, ScUiLayout.MemberInventory, DefaultPlace);
             if (!mover.Attach("dragBar")) ScLog.Err("member inventory: no dragBar in windowScMemberInv - the window cannot be moved");
             if (Pack == null) ScLog.Err("member inventory: no LootContainer grid in windowScMemberInv");
@@ -453,6 +460,10 @@ namespace SurvivorCommunity
 
             ScMemberGear.WeaponView r = ScMemberGear.Weapon(npc, true), w = ScMemberGear.Weapon(npc, false);
             changed |= Set(ref rName, r.Name) | Set(ref rInfo, r.Info) | Set(ref mName, w.Name) | Set(ref mInfo, w.Info);
+            string line;
+            bool show = ScAmmoChoice.Line(npc, out line);
+            changed |= Set(ref ammoLine, line) | show != ammoVisible;
+            ammoVisible = show;
             if (weaponSlots.Length > 0) weaponSlots[0].Show(r.Stack);
             if (weaponSlots.Length > 1) weaponSlots[1].Show(w.Stack);
 
@@ -530,6 +541,26 @@ namespace SurvivorCommunity
             Refresh(true);
         }
 
+        /// <summary>
+        /// Round U1: the ammo line clicked - step 1 the next type she has rounds of, -1 the one before (ScAmmoChoice.Cycle); a
+        /// refusal shows as a slot's does.
+        /// </summary>
+        private void Ammo(int step)
+        {
+            if (npc == null || te == null) return;
+            try
+            {
+                string why = ScAmmoChoice.Cycle(xui.playerUI.entityPlayer, npc, step);
+                if (!string.IsNullOrEmpty(why))
+                    GameManager.ShowTooltip(xui.playerUI.entityPlayer, why.Replace("{", "{{").Replace("}", "}}"), string.Empty, "ui_denied");
+                Refresh(true);
+            }
+            catch (Exception e)
+            {
+                ScLog.Once("memberinv-ammo", e);
+            }
+        }
+
         /// <summary>Everything in a grid into the player's inventory: vanilla's take-all (XUiC_ContainerStandardControls.MoveAll).</summary>
         private void TakeAll(XUiC_ItemStackGrid grid)
         {
@@ -586,6 +617,8 @@ namespace SurvivorCommunity
                 case "invrinfo": _value = rInfo; return true;
                 case "invmname": _value = mName; return true;
                 case "invminfo": _value = mInfo; return true;
+                case "invammo": _value = ammoLine; return true;
+                case "invammovisible": _value = ammoVisible ? "true" : "false"; return true;
                 // the pack's item_stack cells show up to the container's length (vanilla's item_stack template reads it)
                 case "container_slots": _value = packSlots.ToString(CultureInfo.InvariantCulture); return true;
             }

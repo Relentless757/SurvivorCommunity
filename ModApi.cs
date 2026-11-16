@@ -598,8 +598,16 @@ namespace SurvivorCommunity
                 Add(t, "UAIConsiderationMayEngage::GetScore", Patches_VoiceControl.MayEngageTarget());
                 // 3.4: ScDoors - the Point formation's doors are shut behind a member too
                 Add(t, "EntityMovementActuator::TryOpenDoorAtBlock", ScDoors.VcPointDoorTarget());
-                // 3.4 (V1): the dialog's "What are you carrying?" row opens the voice gate's answer pass
-                Add(t, "DialogActionSayCarrying::PerformAction", Patches_VoiceControl.SayCarryingTarget());
+                // 3.4 (V1): the dialog's "What are you carrying?" row opens the voice gate's answer pass - only while Voice Control
+                // has that row's type (round U1, B3: 0-XNPCCore 3.4.06 removed it; a later version may bring it back)
+                if (Patches_VoiceControl.SayCarryingType != null)
+                    Add(t, "DialogActionSayCarrying::PerformAction", Patches_VoiceControl.SayCarryingTarget());
+                // round U1: 0-XNPCCore 3.4.06's equipment window opens SC's member panel for members; its debug Remove refuses
+                // SC's people (Patches_EquipWindow.cs) - each only while Voice Control has that type
+                if (ScEquipRedirect.WindowType != null) Add(t, "XUiC_NpcEquipWindow::Open", ScEquipRedirect.OpenTarget());
+                if (ScEquipRedirect.AdminRemoveType != null) Add(t, "DialogActionAdminRemove::PerformAction", ScEquipRedirect.AdminRemoveTarget());
+                // round U1: Voice Control's own ammo pick on a member becomes her ammo choice in SC's record (ScAmmoChoice.Noted)
+                Add(t, "VCCommandRouter::MutateSetAmmo", ScEquipRedirect.SetAmmoTarget());
                 // round 28 (X3): B1 - Voice Control 3.4.04's hold-E ring never picks up SC's people (its pick-up answers Refused, the
                 // ring's entry and "Jobs and gear"'s page drop it); the spoken inventory phrase is told apart from the trade
                 if (Patches_VoiceControl.HasHoldERing)

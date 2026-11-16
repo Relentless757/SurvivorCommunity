@@ -37,6 +37,114 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round U1 (2026-11-16): 0-XNPCCore 3.4.06 - equipment window, ammo type, tool quality
+
+Why: 0-XNPCCore 3.4.06 (installed 2026-11-16; its ModInfo still says 3.4.05) broke five things in SC
+(`research/npc306/FEATURES_306.md` section 1) and brought an equipment window that would have replaced SC's member panel.
+And your report: "Whenever I take/swap a member's ranged weapon or melee weapon, every tool's quality gets re rolled."
+
+What it does now:
+
+- **Equipment... opens SC's panel for members.** 0-XNPCCore's equipment window (its "Equipment..." talk row, the hold-E
+  ring's Equipment, Jobs and gear's Equipment) opens the member inventory panel for a member while `MemberInventoryPanel`
+  is on. A hired stranger, or a member with the panel off, keeps 0-XNPCCore's window. The ring's "Inventory" entry is
+  hidden on those members (both would open the same panel).
+- **B1:** SC's own row for a member you are not linked to (a guard on watch, a resident outside the base) is back, now
+  called "Equipment..." too, and it opens the panel.
+- **B2 (your D3):** "Use the weapons I gave you." is retired with 0-XNPCCore's weapon menu; the panel's Ranged and Melee
+  slots do it.
+- **B3:** no startup error for 0-XNPCCore's removed "What are you carrying?" row.
+- **B4:** closing the panel no longer leaves 0-XNPCCore's "reopen after Show backpack" armed.
+- **B5:** a resident's talk link holds while 0-XNPCCore's equipment or gift window is open.
+- **Ammo type** in the panel (new line beside RANGED), honored by 0-XNPCCore's reload, SC's stockpile refills and
+  Locked & Loaded.
+- **The tool-quality bug:** the work kit keeps one quality per member; every other copy keeps its own across a swap.
+- **The debug Admin page's "Remove (debug)..."** is hidden on members and refused for any of SC's people.
+
+Setup: the new DLL with its `Config/dialogs.xml`, `Config/Localization.csv` and `Config/XUi_InGame/windows.xml` (the
+panel's new ammo line), against 0-XNPCCore 3.4.06. `DebugLogging` true for the verbose lines.
+
+**At load**
+
+- [ ] No "voice gate: DialogActionSayCarrying.PerformAction not found" and no "MISSING PATCH
+      DialogActionSayCarrying::PerformAction". "patched XUiC_NpcEquipWindow::Open" and "patched
+      DialogActionAdminRemove::PerformAction"; "patch verification: all N targets patched".
+- [ ] At the first talk with a resident: "talk hold: a talk links a resident while one of these is open on her: dialog,
+      NpcCraftGroup, VCFormationRadialGroup, looting, NpcEquipGroup, NpcGiftGroup" (no "not in this 0-XNPCCore").
+- [ ] Optional, with the 3.4.05 copy of 0-XNPCCore: no error either; the talk hold line says "NpcEquipGroup (not in this
+      0-XNPCCore), NpcGiftGroup (not in this 0-XNPCCore)", and the start page shows "Show me your inventory".
+
+**1. Equipment... opens the panel**
+
+- [ ] A follower: her start page has ONE "Equipment..." row. Click it: SC's Survivor Inventory panel opens (not
+      0-XNPCCore's equipment window); `sc xnpc` counts `equip-window-to-panel` +1.
+- [ ] Hold E on her: the ring has "Equipment" and no "Inventory" (`ring-entry-hidden-calls` counts). Equipment opens the
+      panel. Jobs and gear: its Equipment opens the panel too.
+- [ ] A guard on watch, and a resident while one of you is outside the base: the start page has "Equipment..." (B1) and
+      it opens the panel.
+- [ ] A hired stranger (0-XNPCCore's own hire, not a member): "Equipment..." and the ring's Equipment open 0-XNPCCore's
+      equipment window; the ring still has "Inventory".
+- [ ] `MemberInventoryPanel` false (restart): on a member, Equipment... opens 0-XNPCCore's window and the ring shows
+      "Inventory" again (it opens the looting screen).
+- [ ] A runner met on the road, and an outpost stand-in: hold E shows them no ring (0-XNPCCore gives it only to your
+      hires). Should any route open the equipment window on one, it opens nothing: `<name>: "*shakes head* Not now. Ask
+      me again back home."` (`equip-window-refused-away` +1).
+
+**2. Retired and refused rows**
+
+- [ ] No talk page anywhere shows "Use the weapons I gave you." (B2). An unloaded gun dropped on the panel's Ranged slot
+      becomes her gun.
+- [ ] 0-XNPCCore's debug Admin page (its VerboseLogging on): on a follower member, Admin Menu has no "Remove (debug)...";
+      on a hired stranger it does. Should it ever show on one of SC's people, Yes refuses: "<name> belongs to the
+      community: the debug Remove is off for SC's people." and `admin-remove-refused` +1; the body stays.
+
+**3. B4 and B5**
+
+- [ ] A hired stranger: open her equipment window, press its Show backpack (the looting screen opens), close it: her
+      equipment window comes back (0-XNPCCore's own behavior, unchanged).
+- [ ] A member: Equipment... (the panel), close it; then open and close a storage chest near her: no equipment window
+      pops up.
+- [ ] A resident at home in a talk hold: open 0-XNPCCore's gift window on her (the ring's gift entry, or Pay / Gift...)
+      and wait 5 s: she stays linked (`sc work <name>`: the talk hold), and a gift goes through.
+
+**4. Ammo type**
+
+- [ ] A member with `gunPistol` and 9 mm ball, HP and AP rounds in her pack: the panel shows "9mm Ammo · N" beside
+      RANGED. Click: "9mm HP Ammo · N"; the log says "<name> (id N) uses ammo9mmBulletHP in the gunPistol (the member
+      panel, round U1)", and with the gun in her hand "... 0-XNPCCore answered switched" - her loaded ball rounds go back
+      to her bag and she reloads HP. Right-click: back to the one before. `ammo-choice` counts.
+- [ ] With rounds of only the type shown: the click says "<name> has no other ammo for the Pistol." A bow with only
+      stone arrows: the same. A gun with one ammo type: no line. On a multiplayer client: no line.
+- [ ] `sc xnpc <name>`: the resupply line ends "ammo type chosen (round U1): ammo9mmBulletHP in the gunPistol". Save, quit
+      and load: the line still shows HP, and she reloads HP.
+- [ ] Stockpile refill: HP chosen, no HP left but 50 ball rounds, at home with ammo in the stockpile: at the next refill
+      (at most once a minute) she is given HP rounds, not ball. Without a choice, nothing changes from before.
+- [ ] Running out: she shoots her HP dry and reloads ball (0-XNPCCore's fallback); hand her HP rounds; out of a fight,
+      within about 5 s her gun goes back to HP (`ammo-choice-again` +1).
+- [ ] Locked & Loaded: a gun with magazines. Choosing a type with a magazine seated in the gun in her hand: "its magazine
+      went back to her bag (Locked & Loaded)" - the magazine is in her bag with its rounds, none lost. The stockpile's
+      refill fills her empty magazines with the chosen type. Put the gun away with a magazine of another type seated
+      while she carries the chosen type: at the draw `mag-reseat-skip-ammo` +1 and she reloads with a magazine of the
+      chosen type.
+- [ ] Swap her gun on the Ranged slot: the line follows the new gun (its own first type); put the old gun back: the
+      old choice comes back.
+- [ ] Voice Control's own pick (the order wheel's ammo page, or "use AP ammo" by voice) on her: "<name> (id N) uses
+      ammo9mmBulletAP in the gunPistol (Voice Control's ammo pick, round U1)", `ammo-choice-voice` +1; the panel's line
+      shows AP, and SC never switches her back to the type picked before.
+- [ ] `MemberInventoryPanel` false (restart): SC leaves her gun's ammo type alone (0-XNPCCore's equipment window picks
+      it); no `ammo-choice-again`.
+
+**5. The tool-quality bug**
+
+- [ ] `sc loadout <name>`: note the "toolbelt:" line's kit qualities (for example `stoneAxe(q3)`). Swap her gun on the
+      panel's Ranged slot, take the gun off Ranged, swap her melee weapon, and `sc loadout <name> <weapon>`: the kit
+      qualities never change, and neither does the quality of her other weapon's toolbelt copy.
+- [ ] Save, quit and load: the kit's qualities are the same as before. The panel's job tool slots show the same.
+- [ ] Give her a home job that uses the axe: while she works, `sc loadout <name>`'s "in hand: quality" is the axe's
+      toolbelt quality.
+- [ ] A member who joined after this build, and one from an older save: the same (the kit's quality is per member, so
+      two members can differ).
+
 ## Round lb1 (2026-11-16): a bundle in every store crate
 
 The user: "A bundle should be guaranteed" in the store crates. Loot Abundance at the default 100% for these steps

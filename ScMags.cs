@@ -626,6 +626,16 @@ namespace SurvivorCommunity
             string savedUse;
             if (ScAmmo.SavedHand(e.entityId, out savedGun, out savedUse) && savedGun != null) { Patches_Xnpc.Count("mag-reseat-skip-saved"); return false; }
             ItemStack mag = slots[at];
+            // round U1: the ammo type the player chose for the gun (ScAmmoChoice) - a put-away magazine of another type stays in
+            // her stores while she has rounds of the chosen one: the draw reloads, and L&L's reload looks for that ammo first
+            if (!ScAmmoChoice.ReseatAllowed(e, gun.ItemClass, mag.itemValue.SelectedAmmoTypeIndex))
+            {
+                Unmark(mag);
+                Patches_Xnpc.Count("mag-reseat-skip-ammo");
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") draws the " + gunName + " empty: the magazine she put it away with"
+                              + " holds another ammo type than the one chosen for it - Locked & Loaded's reload loads the chosen one (round U1)");
+                return false;
+            }
             string magName = mag.itemValue.ItemClass != null ? mag.itemValue.ItemClass.GetItemName() : null;
             object def = magName != null ? CallSeat(forMagazine, magName) : null;
             bool takes = def != null && GunTakes(gunName, def);

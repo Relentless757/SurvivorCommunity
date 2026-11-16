@@ -11,6 +11,35 @@ Loot
 - Air drops always hold at least one bundle: a Medium food, medical, ammo, materials or fuel bundle, on top of the usual
   chances.
 
+
+0-XNPCCore 3.4.06
+-----------------
+- Equipment... opens the member's inventory panel. 0-XNPCCore 3.4.06's new equipment window (the "Equipment..." talk
+  row, the hold-E ring's Equipment and Jobs and gear's Equipment) opens SC's Survivor Inventory panel for members. Hired
+  strangers keep 0-XNPCCore's window. The ring no longer shows a second "Inventory" entry on members.
+- Every member has the Equipment... row again, a guard on watch and a resident you are not linked to included. With
+  3.4.06 SC's "Show me your inventory" row for them had disappeared.
+- Choose your member's ammo type. For a gun that takes more than one kind of ammo, the line beside Ranged in the
+  inventory panel shows the kind they use and their rounds of it; click for the next kind they have, right-click for the
+  one before. They reload with it, the stockpile refills that kind, and with Locked & Loaded their magazines take it.
+  When it runs out they use what they have and switch back once they have it again. Picking it through 0-XNPCCore's
+  order wheel or by voice counts too.
+- "Use the weapons I gave you." is gone. 3.4.06 removed the weapon menu it lived in; drop the weapon on the panel's
+  Ranged or Melee slot instead.
+- No debug Remove on members. 0-XNPCCore's debug Admin page no longer offers "Remove (debug)..." on SC's people: it
+  deleted the body without a death and left a member with no body behind.
+- Fixed: with 3.4.06 every load logged two errors about a missing "What are you carrying?" patch; it is now skipped
+  quietly.
+- Fixed: closing the member panel could make 0-XNPCCore's equipment window pop up the next time you closed a chest.
+- Fixed: a resident you were talking to could lose the talk link while 0-XNPCCore's equipment or gift window was open.
+
+
+Members' gear
+-------------
+- Fixed: a member's tools no longer change quality. Taking or swapping a member's gun or melee weapon, or loading the
+  game, re-rolled the quality of every tool they carry. Their work-kit tools now keep one quality each, and every other
+  item they carry keeps its own when you swap their weapons.
+
 Survivor Community 0.1.0 pre-release 3
 ======================================
 

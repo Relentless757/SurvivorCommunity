@@ -120,7 +120,7 @@ namespace SurvivorCommunity
         // ------------------------------------------------------------------ checks ----
 
         /// <summary>Everything every action needs: the host, a member alive and in the world, nobody else in her inventory.</summary>
-        private static string Gate(EntityPlayerLocal player, EntityAlive npc, out Member m)
+        internal static string Gate(EntityPlayerLocal player, EntityAlive npc, out Member m)
         {
             m = null;
             if (!ScCommunity.IsHost) return Text("scInvSlotHostOnly");

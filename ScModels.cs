@@ -209,6 +209,12 @@ namespace SurvivorCommunity
         /// Wardrobe's "back to my own". Saved as wardrobe= (four names). Null = none.
         /// </summary>
         public string[] WardrobeWorn;
+        /// <summary>
+        /// Round U1: the ammo type the player chose for her gun in the member inventory panel (ScAmmoChoice): the gun it was
+        /// chosen for and the ammo item, both item names. In force only while her pair's gun is that gun. Saved as
+        /// ammopick=gun|ammo (a key older builds ignore). Null = no choice (the gun's own default).
+        /// </summary>
+        public string AmmoGun, AmmoPick;
 #endif
         /// <summary>
         /// The rounds for their gun they carried when last seen (ScAmmo: ammo item name -> count, the inventory window plus

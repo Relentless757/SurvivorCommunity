@@ -252,30 +252,9 @@
 		</response>
 	</append>
 
-	<!-- The weapon menu (0-XNPCCore's "Weapon Classes", shown to the NPC's leader) lists vanilla weapons only, so a gun from
-	     a weapon pack (IZY Classic) handed over through the inventory window had no "Use" line. This one takes the best
-	     gun or bow and the best melee weapon from the window that a survivor can carry into the pair and the hand - since
-	     round n08 any gun, bow or melee weapon an NPC body can wield, from any weapon mod, not only the roll list
-	     (XnpcWeapons); never a launcher, dual pistols or a tool - the replaced ones coming back to you (ScArms.UseHanded).
-	     Hidden when there is none. ONE line, first: 0-XNPCCore 3.4.04+'s SdcsNPC weapon menu has eleven rows of its own, more
-	     than the ten the dialog window shows, so ScDialogPager (round 28) pages it with "done" on every page - this row
-	     stays on page one. -->
-	<insertBefore xpath="/dialogs/dialog/statement[@id='Weapon Classes']/response_entry[1]">
-		<response_entry id="scUseHanded" />
-	</insertBefore>
-	<append xpath="/dialogs/dialog[statement[@id='Weapon Classes']]">
-		<response id="scUseHanded" text="scUseHanded">
-			<requirement type="ScHandedWeapon, SurvivorCommunity" requirementtype="Hide" />
-			<action type="ScUseHanded, SurvivorCommunity" />
-		</response>
-	</append>
-	<!-- 0-XNPCCore 3.4's weapon menu has its own "Carried Weapons" submenu, and from decision D6 until round n09 this row was
-	     removed from SdcsNPC's menu in its favor. It is back (play test 2026-11-14: "putting a Makarov into a member's
-	     inventory still doesn't give the option"): Carried Weapons lists a gun only while 0-XNPCCore counts it usable right
-	     now - rounds in it, or ammo for it in her stores (AnyWeaponListUsable -> SdcsAnyWeaponIsUsable) - so an unloaded gun
-	     handed over with no magazines was offered nowhere. This row takes it regardless; the home resupply then gives a
-	     member rounds or magazines for it. Carried Weapons stays as it is. The menu then has more than ten rows on 3.4.04+;
-	     the dialog pager (round 28) pages it. -->
+	<!-- Round U1 (the user's D3): SC's "Use the weapons I gave you" row is retired. 0-XNPCCore 3.4.06 has no weapon menu
+	     ("Weapon Classes") on its survivors any more, and the member inventory panel's RANGED and MELEE slots take a handed
+	     gun, bow or melee weapon directly - an unloaded one too. -->
 
 	<!-- C1 (round 22; game 3.4 with 0-XNPCCore 3.4.02 and later only: its "Craft Categories" statement exists nowhere else). A
 	     resident's work shift (ScWork): the Owner link 0-XNPCCore's craft order needs. Round 28 (X3; the user's decisions 1 and
@@ -288,16 +267,18 @@
 	     elsewhere she offers what she can make from her pack. On a shift "That's all for now." ends it; the supply run and
 	     "Ask to leave" wait until it is over (sc_shift; a talk hold sets none). The rows each member state shows with 0-XNPCCore
 	     3.4.04: PORT_34.md round 28 (a follower 9, a resident at home 8, on a shift 7); a longer page splits (ScDialogPager).
-	     "Show me your inventory" (SC's scShowMe, 0-XNPCCore's own text) for a member with no link to you - a guard on watch, a
-	     resident while no talk hold could start: SCore's OpenInventory needs no leader, only 0-XNPCCore's row asks for one. Not
-	     for a runner met outside: her SCore inventory is kept by entity id and is not part of a runner's snapshot (a runner
-	     re-created under a new id leaves it behind, ScRunners.Rekey). -->
+	     SC's scShowMe for a member with no link to you - a guard on watch, a resident while no talk hold could start: SCore's
+	     OpenInventory needs no leader, only 0-XNPCCore's row asks for one. It opens her member inventory panel. Round U1 (B1):
+	     anchored on 0-XNPCCore's "Show me your inventory" row up to 3.4.05, or on 3.4.06's "Equipment..." row, which replaced
+	     it - with that row's text too (the conditional below), so every member shows one "Equipment..." row, and both open
+	     the panel (ScEquipRedirect). Not for a runner met outside: her SCore inventory is kept by entity id and is not part of
+	     a runner's snapshot (a runner re-created under a new id leaves it behind, ScRunners.Rekey). -->
 	<conditional>
 		<if cond="xpath('/dialogs/dialog[@id=&quot;SdcsNPC&quot;]/statement[@id=&quot;Craft Categories&quot;]') != null">
 			<insertAfter xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='start']/response_entry[@id='scFollow']">
 				<response_entry id="scWorkEnd" />
 			</insertAfter>
-			<insertAfter xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='start']/response_entry[@id='ShowMe']">
+			<insertAfter xpath="/dialogs/dialog[@id='SdcsNPC']/statement[@id='start']/response_entry[@id='ShowMe' or @id='Equipment Menu']">
 				<response_entry id="scShowMe" />
 			</insertAfter>
 			<append xpath="/dialogs/dialog[@id='SdcsNPC']">
@@ -315,6 +296,23 @@
 			</append>
 			<append xpath="/dialogs/dialog[@id='SdcsNPC']/response[@id='scRun' or @id='scLeave']">
 				<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_shift" operator="not" />
+			</append>
+		</if>
+	</conditional>
+	<!-- Round U1 (B1): with 0-XNPCCore 3.4.06's "Equipment..." row on the start page, SC's row for an unlinked member reads the
+	     same ("Equipment...", 0-XNPCCore's own text): one row for every member, and both open her member inventory panel. -->
+	<conditional>
+		<if cond="xpath('/dialogs/dialog[@id=&quot;SdcsNPC&quot;]/response[@id=&quot;Equipment Menu&quot;]') != null">
+			<set xpath="/dialogs/dialog[@id='SdcsNPC']/response[@id='scShowMe']/@text">SdcsNPC_EquipmentMenu</set>
+		</if>
+	</conditional>
+	<!-- Round U1: 0-XNPCCore 3.4.06's debug Admin page has "Remove (debug)...", which deletes the body through the game's
+	     remove - no death, so SC's record of a member would stay with no body. Hidden on members (SC's ScEquipRedirect also
+	     refuses it for any of SC's people, should it show). -->
+	<conditional>
+		<if cond="xpath('/dialogs/dialog[@id=&quot;SdcsNPC&quot;]/response[@id=&quot;Admin Remove&quot;]') != null">
+			<append xpath="/dialogs/dialog[@id='SdcsNPC']/response[@id='Admin Remove' or @id='AdminRemoveYes']">
+				<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" operator="not" />
 			</append>
 		</if>
 	</conditional>

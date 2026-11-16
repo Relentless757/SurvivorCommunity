@@ -29,6 +29,8 @@ namespace SurvivorCommunity
     ///                0-XNPCCore's Wardrobe dresses her in, by look slot: ScWardrobe)
     ///                md1: meds=worldtime (her last medical restock, ScMedic.Restock; written when set, a key an older build
     ///                ignores) and [community] medsrestocked=N (today's restocks, the daily ledger)
+    ///                U1: ammopick=gunName|ammoName (the ammo type the player chose for her gun in the member panel,
+    ///                ScAmmoChoice; written when set, a key an older build ignores)
     ///   [prospect]   id=1300 class=.. name=.. favour=poi|supplies poi=x,y,z poiname=.. poisize=w,d items=food:15 done=1
     ///                loadout=ranged,melee; E3 encp=12 (an enclave person's favour: id is then their body's, parked at load)
     ///   [contact]    id=3 class=.. label=.. poi=x,y,z poiname=.. spawn=x,y,z day=12 expire=19 loadout=ranged,melee
@@ -1100,6 +1102,12 @@ namespace SurvivorCommunity
 #if SC_V34
                 case "handed": ScHanded.Read(m, val); break;                           // round n12: one exact handed item per line
                 case "wardrobe": ScWardrobe.ReadWorn(m, val); break;                   // round n12 review: pieces the Wardrobe picked
+                case "ammopick":                                                         // round U1: the ammo type chosen for her gun
+                {
+                    int bar = val.IndexOf('|');
+                    if (bar > 0 && bar < val.Length - 1) { m.AmmoGun = val.Substring(0, bar); m.AmmoPick = val.Substring(bar + 1); }
+                    break;
+                }
 #endif
                 case "ammo": m.Ammo = ScAmmo.Decode(val, out m.Mags); break;
                 case "outpost": m.OutpostId = I(val); break;
@@ -1770,6 +1778,8 @@ namespace SurvivorCommunity
             foreach (string line in ScHanded.Lines(m)) sb.AppendLine("handed=" + Clean(line));
             string worn = ScWardrobe.EncodeWorn(m);                                     // n12 review: the Wardrobe's picks she wears
             if (worn != null) sb.AppendLine("wardrobe=" + Clean(worn));
+            if (!string.IsNullOrEmpty(m.AmmoGun) && !string.IsNullOrEmpty(m.AmmoPick))   // round U1: the ammo type chosen for her gun
+                sb.AppendLine("ammopick=" + Clean(m.AmmoGun) + "|" + Clean(m.AmmoPick));
 #endif
             if (m.Ammo != null) sb.AppendLine("ammo=" + Clean(ScAmmo.Encode(m.Ammo, m.Mags)));   // magazines %-escaped inside (M11)
             if (m.WatchPost != Vector3i.zero)

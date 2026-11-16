@@ -57,7 +57,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 ## Movable windows: the talk card and the member inventory panel *(rounds n10, n11)*
 
 - **`sc ui`** — where SC's two movable windows sit: the talk card (the survivor card while you talk) and the member
-  inventory panel ("Show me your inventory" on a member). Shows their saved places ("no window moved" when both are in
+  inventory panel ("Equipment..." on a member). Shows their saved places ("no window moved" when both are in
   their default places), the file the places are kept in (`%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`),
   where the talk card is, and, while the panel is open, whose inventory it shows and how full her pack and bag are.
   Read-only.
@@ -305,6 +305,22 @@ who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | 
   `mag-reseat-not-taken` (the magazine's slot could not be emptied: it stays, the gun reloads), `mag-reseat-failed` (the
   seat threw: the gun is emptied, the magazine goes back to her bag unless it never left, and the seat is off until the next
   game) and `mag-reseat-off` (a Locked & Loaded call of the seat threw: only the seat is off, X18 and the rest stay on).
+  Round U1: `mag-reseat-skip-ammo` (the magazine holds another ammo type than the one chosen for the gun, and she has rounds
+  of the chosen one: the draw reloads with it).
+
+## Equipment window, ammo type and the work kit *(round U1, 0-XNPCCore 3.4.06)*
+
+- **`sc xnpc`** — counters `equip-window-to-panel` (0-XNPCCore's equipment window opened as SC's member inventory panel:
+  the Equipment... row, the hold-E ring's Equipment or Jobs and gear's), `admin-remove-refused` (the debug Admin page's
+  Remove refused for one of SC's people), `equip-window-refused-away` (the equipment window asked for a runner on the road
+  or a stand-in), `ammo-choice` (an ammo type picked in the panel), `ammo-choice-voice` (Voice Control's own ammo pick on a
+  member, taken as her choice), `ammo-choice-again` (her gun switched back to the chosen type once she had it again) and
+  `mag-reseat-skip-ammo` (above). `ring-entry-hidden-calls`
+  (was `ring-pickup-entry-hidden-calls`) counts the hold-E ring updates that hid "Pick me up" or, on a member whose
+  Equipment opens the panel, "Inventory".
+- **`sc xnpc <id|name>`** — the resupply line ends with "ammo type chosen (round U1): ammo9mmBulletHP in the gunPistol" (or
+  "-" for none). The record keeps it as `ammopick=`.
+- The work kit's tools keep one quality per member (1-6, the same every session); `sc loadout` and the panel show it.
 
 ---
 
