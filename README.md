@@ -677,7 +677,8 @@ How home jobs work:
 - **The work kit.** Every member carries a stone axe, a stone shovel and a bone knife beside their weapons, so the jobs
   always find a tool. **They never fight with the kit.** If a zombie reaches them mid-job, their weapon goes back in their
   hand. A better tool you hand over through **Equipment...** is used first. Each kit tool keeps one quality per member:
-  it no longer changes when you swap their weapons or load the game.
+  it no longer changes when you swap their weapons or load the game. The same holds for the weapons SC gave them; a
+  weapon or tool you hand over keeps its own.
 - **Output into the crates.** What a resident gathers (wood, crops, meat and so on) moves into the home crates as they
   work. When their pack fills, it is emptied into the crates and they carry on.
 - **Replanting.** A member who picks a ripe crop on your farm replants the plot with a seed of the same crop, from their
@@ -1317,7 +1318,7 @@ catalog, and real armor pieces in their equipment slots.
     way, a zombie it cannot reach), her gun comes out at once and she kites that zombie for 45 seconds (90, then 180).
   - **Hold** (on watch, or a Stay order): she keeps her post and her gun. **Shelter**: badly hurt (section 4).
   - A Cowardly member hangs back with her gun and runs only from a fight going badly (with no gun she runs, as before).
-    **Ordering her gun** (the weapon menu, or "use your ..." by voice) keeps her on it until you order her melee weapon;
+    **Ordering her gun** ("use your ..." by voice, or 0-XNPCCore 3.4.05's weapon menu) keeps her on it until you order her melee weapon;
     ordering her melee weapon keeps her on that. Followers count too, away from home.
   `TeamMelee` and the other `Team...` and `Posture...` settings (section 20) tune it; `sc team <name>` shows her count,
   her posture and why, and her weapon's clock; `sc xnpc` counts every member's weapon changes.
@@ -1338,9 +1339,11 @@ catalog, and real armor pieces in their equipment slots.
 - **Ammo type.** For a gun that takes more than one kind of ammo (9 mm, HP and AP rounds; shells, slugs and breaching
   slugs; stone, iron and flaming arrows), the line beside **Ranged** in their inventory panel shows the kind they use and
   how many rounds of it they have. Click it for the next kind they have rounds of; right-click for the one before. They
-  reload with that kind first, the stockpile refills that kind (and counts only it as running low), and with Locked &
-  Loaded their magazines are filled with it. When it runs out they load what they have, and switch back once they have
-  it again. The choice belongs to that gun: another gun starts from its own first kind. Picking their ammo through
+  reload with that kind first, and the stockpile refills that kind (and counts only it as running low). When it runs
+  out they load what they have, and switch back once they have it again. **With Locked & Loaded** they load only from
+  magazines: rounds of the chosen kind go into a magazine once one is empty (a refill, or loose rounds you hand them), so
+  until then the line says "loose" and they keep firing what their magazines hold. The choice belongs to that gun:
+  another gun starts from its own first kind. Picking their ammo through
   0-XNPCCore's order wheel or by voice counts as the choice too. With `MemberInventoryPanel` false (section 20) SC
   leaves their ammo kind alone, and 0-XNPCCore's equipment window picks it.
 - Members never take ammo from your chests.

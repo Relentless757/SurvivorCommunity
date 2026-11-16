@@ -307,12 +307,15 @@
 		</if>
 	</conditional>
 	<!-- Round U1: 0-XNPCCore 3.4.06's debug Admin page has "Remove (debug)...", which deletes the body through the game's
-	     remove - no death, so SC's record of a member would stay with no body. Hidden on members (SC's ScEquipRedirect also
-	     refuses it for any of SC's people, should it show). -->
+	     remove - no death, so SC's record of a member would stay with no body. Hidden on members, and (the Fable review,
+	     finding 5) on an enclave's or a band's people, as their ShowMe row is (SC's ScEquipRedirect also refuses it for any
+	     of SC's people, should it show). -->
 	<conditional>
 		<if cond="xpath('/dialogs/dialog[@id=&quot;SdcsNPC&quot;]/response[@id=&quot;Admin Remove&quot;]') != null">
 			<append xpath="/dialogs/dialog[@id='SdcsNPC']/response[@id='Admin Remove' or @id='AdminRemoveYes']">
 				<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="sc_member" operator="not" />
+				<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="%sc_enc" operator="not" />
+				<requirement type="NPCHasCVarSDX, SCore" requirementtype="Hide" id="%sc_band" operator="not" />
 			</append>
 		</if>
 	</conditional>

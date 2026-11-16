@@ -821,9 +821,9 @@ namespace SurvivorCommunity
             if (npc == null || commandId == null) return false;
             if (string.Equals(commandId, RingPickupId, StringComparison.Ordinal)) return PickupRefusal(npc) != null;
 #if SC_V34
-            // only while the ring's Equipment entry is the redirected one (0-XNPCCore 3.4.06+): before it, Inventory is the
-            // ring's only way into her inventory
-            if (string.Equals(commandId, RingInventoryId, StringComparison.Ordinal)) return ScEquipRedirect.WindowType != null && ScEquipRedirect.Redirects(npc);
+            // only while the ring's Equipment entry is the redirected one (0-XNPCCore 3.4.06+ AND the redirect patched - the Fable
+            // review of U1, finding 4): otherwise Inventory is the ring's only way into her inventory
+            if (string.Equals(commandId, RingInventoryId, StringComparison.Ordinal)) return ScEquipRedirect.OpenPatched && ScEquipRedirect.Redirects(npc);
 #endif
             return false;
         }

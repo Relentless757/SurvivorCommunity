@@ -58,7 +58,11 @@ What it does now:
 - **B5:** a resident's talk link holds while 0-XNPCCore's equipment or gift window is open.
 - **Ammo type** in the panel (new line beside RANGED), honored by 0-XNPCCore's reload, SC's stockpile refills and
   Locked & Loaded.
-- **The tool-quality bug:** the work kit keeps one quality per member; every other copy keeps its own across a swap.
+- **The tool-quality bug:** the work kit, and the pair weapons SC rolled for a member, keep one quality per member;
+  every other copy keeps its own across a swap. (Fix-up after the Fable review of 553d777: the ammo type no longer
+  blocks 0-XNPCCore's fallback to a type she has, with Locked & Loaded only magazine rounds count, a tool or weapon you
+  handed her keeps its quality, the ring's Inventory stays when the redirect could not bind, and the debug Remove is
+  hidden on enclave and band people too.)
 - **The debug Admin page's "Remove (debug)..."** is hidden on members and refused for any of SC's people.
 
 Setup: the new DLL with its `Config/dialogs.xml`, `Config/Localization.csv` and `Config/XUi_InGame/windows.xml` (the
@@ -119,13 +123,23 @@ panel's new ammo line), against 0-XNPCCore 3.4.06. `DebugLogging` true for the v
       and load: the line still shows HP, and she reloads HP.
 - [ ] Stockpile refill: HP chosen, no HP left but 50 ball rounds, at home with ammo in the stockpile: at the next refill
       (at most once a minute) she is given HP rounds, not ball. Without a choice, nothing changes from before.
-- [ ] Running out: she shoots her HP dry and reloads ball (0-XNPCCore's fallback); hand her HP rounds; out of a fight,
-      within about 5 s her gun goes back to HP (`ammo-choice-again` +1).
-- [ ] Locked & Loaded: a gun with magazines. Choosing a type with a magazine seated in the gun in her hand: "its magazine
-      went back to her bag (Locked & Loaded)" - the magazine is in her bag with its rounds, none lost. The stockpile's
-      refill fills her empty magazines with the chosen type. Put the gun away with a magazine of another type seated
-      while she carries the chosen type: at the draw `mag-reseat-skip-ammo` +1 and she reloads with a magazine of the
-      chosen type.
+- [ ] Running out (the Fable review, finding 1): she shoots her HP dry and reloads ball (0-XNPCCore's fallback) - and
+      KEEPS firing ball (she does not stand clicking an empty gun, and she fails over to melee when the ball runs out too).
+      The same with a bow: iron arrows chosen, only stone left. Hand her HP rounds; out of a fight, within about 5 s
+      `ammo-choice-again-try` +1 and her gun goes back to HP; 5 s later `ammo-choice-again` +1.
+- [ ] Also for a gun you HANDED her (its copies are checked every second): HP chosen, HP gone, ball left - she fires
+      ball, never the empty-reload loop.
+- [ ] Locked & Loaded: a gun with magazines. Choosing a type she has in a magazine, with a magazine of another type
+      seated in the gun in her hand: "its magazine went back to her bag (Locked & Loaded)" - the magazine is in her bag
+      with its rounds, none lost - and she reloads with a magazine of the chosen type.
+- [ ] Locked & Loaded, the chosen type only LOOSE (finding 2): all her magazines hold ball; hand her 30 AP and click to
+      AP: "<name> has the 9mm AP Ammo only as loose rounds: they go into a magazine once one is empty." The line
+      shows "9mm AP Ammo · 30 loose"; her seated ball magazine stays in, no eject, no reload, and `ammo-choice-again-try`
+      does not count every 5 s. Once a magazine is empty (shoot it dry), the loose AP goes into it (or the stockpile's
+      refill puts AP into it): within about 5 s out of a fight she switches to AP (`ammo-choice-again-try` +1).
+- [ ] Locked & Loaded, the draw: put the gun away with a ball magazine seated while she has an AP magazine: at the draw
+      `mag-reseat-skip-ammo` +1 and she reloads with the AP magazine. With AP only loose: the ball magazine goes back in
+      (no skip).
 - [ ] Swap her gun on the Ranged slot: the line follows the new gun (its own first type); put the old gun back: the
       old choice comes back.
 - [ ] Voice Control's own pick (the order wheel's ammo page, or "use AP ammo" by voice) on her: "<name> (id N) uses
@@ -142,6 +156,13 @@ panel's new ammo line), against 0-XNPCCore 3.4.06. `DebugLogging` true for the v
 - [ ] Save, quit and load: the kit's qualities are the same as before. The panel's job tool slots show the same.
 - [ ] Give her a home job that uses the axe: while she works, `sc loadout <name>`'s "in hand: quality" is the axe's
       toolbelt quality.
+- [ ] Finding 3: hand her a Q6 stone axe (her pack) and give her a chopping job: the axe in her hand stays Q6 with its
+      mods (`sc loadout`'s "in hand"), never the kit's quality.
+- [ ] Finding 7, her rolled weapons: a member with SC's own (rolled, not handed) gun and melee weapon. Note their quality
+      in the panel and on the "item list:" and "toolbelt:" lines. Save, quit and load: the same. Let her switch between
+      gun and melee a few times (a fight, `sc arms <name> melee|ranged`): the one in her hand has the same quality each
+      time, and its attachments are her rolled ones (a quality-1 copy has none). A weapon you handed her keeps its own
+      quality; a raider, a band's drifter and a stranger still get a new quality as before.
 - [ ] A member who joined after this build, and one from an older save: the same (the kit's quality is per member, so
       two members can differ).
 

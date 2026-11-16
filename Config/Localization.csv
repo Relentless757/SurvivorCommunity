@@ -873,8 +873,10 @@ scInvRefusePackFull,UI,Menu,,,,{0}'s pack is full.
 scInvRefuseKit,UI,Menu,,,,The work kit stays with the member.
 scInvRefuseKitPair,UI,Menu,,,,That's a weapon of the pair: swap it on the Melee slot.
 scInvAmmoLine,UI,Menu,,,,{0} · {1}
-scInvAmmoTip,UI,Menu,,,,"Her ammo for this gun, and her rounds of it. Click: the next type she has rounds of. Right-click: the one before."
+scInvAmmoTip,UI,Menu,,,,"The ammo this gun uses, and the rounds of it they have. Click: the next type they have rounds of. Right-click: the one before."
 scInvAmmoNoOther,UI,Menu,,,,{0} has no other ammo for the {1}.
+scInvAmmoLineLoose,UI,Menu,,,,{0} · {1} loose
+scInvAmmoNeedsMag,UI,Menu,,,,"{0} has the {1} only as loose rounds: they go into a magazine once one is empty."
 scAdminRemoveRefused,UI,Tooltip,,,,{0} belongs to the community: the debug Remove is off for SC's people.
 scResWater,UI,Resource,,,,water
 scResLuxury,UI,Resource,,,,luxury

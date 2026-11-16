@@ -550,9 +550,12 @@ namespace SurvivorCommunity
             if (npc == null || te == null) return;
             try
             {
-                string why = ScAmmoChoice.Cycle(xui.playerUI.entityPlayer, npc, step);
+                string note;
+                string why = ScAmmoChoice.Cycle(xui.playerUI.entityPlayer, npc, step, out note);
                 if (!string.IsNullOrEmpty(why))
                     GameManager.ShowTooltip(xui.playerUI.entityPlayer, why.Replace("{", "{{").Replace("}", "}}"), string.Empty, "ui_denied");
+                else if (!string.IsNullOrEmpty(note))     // done, but she can load it only once a magazine is empty (L&L)
+                    GameManager.ShowTooltip(xui.playerUI.entityPlayer, note.Replace("{", "{{").Replace("}", "}}"), string.Empty, "");
                 Refresh(true);
             }
             catch (Exception e)

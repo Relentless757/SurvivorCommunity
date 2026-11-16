@@ -1341,8 +1341,8 @@ namespace SurvivorCommunity
                 {
                     ItemStack src = list[i];
                     if (src == null) continue;
+                    StableQuality(e, pair, src.itemValue, false);             // round U1: her one quality for it, before the mods
                     FillMods(e, pair, src.itemValue);                         // what Arm clones into her hand
-                    StableKit(e, pair, src.itemValue);
                     ScAmmoChoice.Apply(e, pair, src.itemValue);               // round U1: the ammo type the player chose
                 }
                 bool hand = false;
@@ -1352,11 +1352,12 @@ namespace SurvivorCommunity
                     ItemStack slot = e.inventory.GetItem(s);
                     if (slot == null) continue;
                     // the toolbelt copies (the death drop); the hand is one of them when she holds a toolbelt item
-                    bool changed = FillMods(e, pair, slot.itemValue) | StableKit(e, pair, slot.itemValue);
+                    bool isHeld = ReferenceEquals(slot.itemValue, held);
+                    bool changed = StableQuality(e, pair, slot.itemValue, isHeld) | FillMods(e, pair, slot.itemValue);
                     ScAmmoChoice.Apply(e, pair, slot.itemValue);
-                    if (changed && ReferenceEquals(slot.itemValue, held)) hand = true;
+                    if (changed && isHeld) hand = true;
                 }
-                if (FillMods(e, pair, held) | StableKit(e, pair, held)) hand = true;   // and the hand, if it is not a toolbelt slot
+                if (StableQuality(e, pair, held, true) | FillMods(e, pair, held)) hand = true;   // and the hand, if it is not a toolbelt slot
                 ScAmmoChoice.Apply(e, pair, held);
                 if (hand && reconcile) ShowHand(e);
             }
@@ -1379,9 +1380,9 @@ namespace SurvivorCommunity
         /// <summary>
         /// After 0-XNPCCore put a weapon in her hand (Patches_Xnpc X16's finalizer): that gun was rebuilt from its name
         /// with no mods, so give it its canonical ones again. A no-op for anything that is not one of her pair.
-        /// Round U1: a work-kit tool a job put in her hand (rebuilt from its name too, at a random quality) gets the kit's one
-        /// quality (StableKit), so the tool she works with is the one the member panel shows; and her gun the ammo type the
-        /// player chose (ScAmmoChoice), while it is empty.
+        /// Round U1: a work-kit tool a job put in her hand, and a pair weapon SC rolled for her (both rebuilt from their name,
+        /// at a random quality), get her one quality for them (StableQuality, before the mods), so what she holds is what the
+        /// member panel shows; and her gun the ammo type the player chose (ScAmmoChoice), while it is empty.
         /// </summary>
         public static void ModsAfterEquip(EntityAlive e)
         {
@@ -1391,43 +1392,62 @@ namespace SurvivorCommunity
                 Loadout pair = Current(e);
                 if (pair == null) return;
                 ItemValue held = e.inventory.holdingItemItemValue;
-                if (FillMods(e, pair, held) | StableKit(e, pair, held)) ShowHand(e);
+                if (StableQuality(e, pair, held, true) | FillMods(e, pair, held)) ShowHand(e);
                 ScAmmoChoice.Apply(e, pair, held);
             }
             catch (Exception ex) { ScLog.Once("weapon-mods-equip", ex); }
         }
 
-        /// <summary>Round U1: the kit tools' quality per (her record, the tool), rolled once per session (KitQuality).</summary>
-        private static readonly Dictionary<long, int> kitQuality = new Dictionary<long, int>();
+        /// <summary>Round U1: the stable quality per (her record, the item, kit or pair), rolled once per session (StableQualityOf).</summary>
+        private static readonly Dictionary<long, int> stableQuality = new Dictionary<long, int>();
+        /// <summary>Round U1: the seeds' salts - the kit's, and (the Fable review, finding 7) her rolled pair weapons'.</summary>
+        private const int KitSalt = 0x4B17, PairSalt = 0x5041;
 
         /// <summary>
-        /// Round U1 (the tool-quality bug: "every tool's quality gets re-rolled"): one copy of a work-kit tool - one of
-        /// MemberWorkKit that is not one of her pair's weapons (a member whose rolled melee is the bone knife keeps that
-        /// weapon's own quality) - gets the kit's one quality for her, KitQuality: the same every time and every session. SCore
-        /// never saves the toolbelt and rebuilds every copy at a random quality (its PostInit, an equip by name), so without
-        /// this the kit changed whenever her pair did or the game was loaded. Done in place: the quality, then the mod slots
-        /// to the count that quality has (a tool's own mods are kept as far as they fit). True when it changed.
+        /// Round U1 (the tool-quality bug: "whenever I take/swap a member's ranged weapon or melee weapon, every tool's quality
+        /// gets re-rolled"): one copy of a MEMBER's work-kit tool or ROLLED pair weapon gets her one quality for that item,
+        /// StableQualityOf - the same every time and every session. SCore never saves the toolbelt and rebuilds every copy at a
+        /// random quality (its PostInit after every load, an equip by name), so without this the kit changed whenever her pair
+        /// did or the game was loaded, and so did a pair weapon SC rolled for her (the Fable review of U1, finding 7).
+        ///  - The kit: one of MemberWorkKit that is not one of her pair's weapons. The copy in her HAND only while it is the
+        ///    kit's (IsKitOnly: finding 3) - a better tool you handed her, which a job put in her hand, keeps its own quality.
+        ///  - A pair weapon: one SC rolled for her - never one she was handed (ScHanded: FillMods makes every copy that exact
+        ///    item) or one in her inventory window (WindowHolds: the player's, as handed). Its mod slots are then Quality - 1 and
+        ///    hold the front of her canonical list (Canonical, round n08), as FillMods would give a bare copy of that quality.
+        /// Members only: raiders, bands, strangers and recruits roll as before. Runs BEFORE FillMods on every copy (FillMods
+        /// leaves a copy with mods alone, so its slots must be right first). Done in place. True when it changed.
         /// </summary>
-        private static bool StableKit(EntityAlive e, Loadout pair, ItemValue iv)
+        private static bool StableQuality(EntityAlive e, Loadout pair, ItemValue iv, bool held)
         {
 #if SC_V34
-            if (iv == null || iv.IsEmpty()) return false;
+            if (iv == null || iv.IsEmpty() || e == null) return false;
             ItemClass ic = iv.ItemClass;
-            if (ic == null || !ic.HasQuality || !IsWorkKitItem(ic.GetItemName()) || IsPairWeapon(pair, ic)) return false;
-            int q = KitQuality(e, iv.type);
+            if (ic == null || !ic.HasQuality || ic is ItemClassModifier || ic.MaxCount > 1) return false;
+            if (!ScRegistry.Loaded || ScRegistry.GetMember(e.entityId) == null) return false;
+            string name = ic.GetItemName();
+            bool pairWeapon = IsPairWeapon(pair, ic);
+            if (pairWeapon)
+            {
+                if (ScHanded.ForCopy(e, pair, iv.type) != null || WindowHolds(e, iv.type)) return false;
+            }
+            else if (!IsWorkKitItem(name) || (held && !IsKitOnly(e, name))) return false;
+            int q = StableQualityOf(e, iv.type, pairWeapon);
             if (iv.Quality == q) return false;
             iv.Quality = (ushort)q;
-            if (!(ic is ItemClassModifier) && ic.MaxCount <= 1)
+            int n = iv.CalcModSlotCount();
+            ItemValue[] mods = iv.modifications;
+            ItemValue[] to = n > 0 ? new ItemValue[n] : null;
+            if (to != null)
             {
-                int n = iv.CalcModSlotCount();
-                ItemValue[] mods = iv.modifications;
-                if ((mods != null ? mods.Length : 0) != n)
+                ItemValue[] canon = pairWeapon ? Canonical(e, iv.type, ic) : null;
+                if (pairWeapon)
                 {
-                    ItemValue[] to = n > 0 ? new ItemValue[n] : null;
-                    if (to != null && mods != null) Array.Copy(mods, to, Math.Min(n, mods.Length));
-                    iv.modifications = to;
+                    // her canonical attachments, as many as this quality has slots for (none rolled: bare)
+                    for (int j = 0; canon != null && j < n && j < canon.Length; j++) to[j] = canon[j].Clone();
                 }
+                else if (mods != null) Array.Copy(mods, to, Math.Min(n, mods.Length));   // a kit tool's own mods, as far as they fit
             }
+            iv.modifications = to;
             return true;
 #else
             return false;
@@ -1435,26 +1455,26 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Round U1: the kit's quality for her and this tool, 1 to 6: 1 + a RandomRange(0, 6) seeded from ModSeed (her record's
-        /// id and the tool's type, so a body SC re-creates for her gets the same) and a salt of its own (not the weapon mods'
-        /// roll). Cached for the session; ResetModCache drops it with the canonical mods.
+        /// Round U1: her quality for this item, 1 to 6: 1 + a RandomRange(0, 6) seeded from ModSeed (her record's id and the
+        /// item's type, so a body SC re-creates for her gets the same) and a salt of its own - the kit's, or the pair's (neither
+        /// the weapon mods' roll). Cached for the session; ResetModCache drops it with the canonical mods.
         /// </summary>
-        private static int KitQuality(EntityAlive e, int type)
+        private static int StableQualityOf(EntityAlive e, int type, bool pairWeapon)
         {
-            long key = ((long)ModWho(e) << 32) | (uint)type;
+            long key = ((long)ModWho(e) << 32) | (uint)((type & 0x3FFFFFFF) << 1) | (pairWeapon ? 1u : 0u);
             int q;
-            if (kitQuality.TryGetValue(key, out q)) return q;
+            if (stableQuality.TryGetValue(key, out q)) return q;
             GameRandom rnd = null;
             q = 1;
             try
             {
-                unchecked { rnd = GameRandomManager.Instance.CreateGameRandom(ModSeed(e, type) * 7919 + 0x4B17); }
+                unchecked { rnd = GameRandomManager.Instance.CreateGameRandom(ModSeed(e, type) * 7919 + (pairWeapon ? PairSalt : KitSalt)); }
                 q = 1 + rnd.RandomRange(0, 6);
             }
-            catch (Exception ex) { ScLog.Once("kit-quality", ex); }
+            catch (Exception ex) { ScLog.Once("stable-quality", ex); }
             finally { if (rnd != null) GameRandomManager.Instance.FreeGameRandom(rnd); }
             q = Math.Max(1, Math.Min(6, q));
-            kitQuality[key] = q;
+            stableQuality[key] = q;
             return q;
         }
 
@@ -1553,7 +1573,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Drops the cached canonical lists (a new world, or the mod settings changed).</summary>
-        public static void ResetModCache() { canonical.Clear(); kitQuality.Clear(); }
+        public static void ResetModCache() { canonical.Clear(); stableQuality.Clear(); }
 
         /// <summary>
         /// X18's one-shot cleanup: drops 0-XNPCCore's banked rounds for BOTH of the pair's weapons, so a survivor saved

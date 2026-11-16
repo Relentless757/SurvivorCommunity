@@ -44,6 +44,13 @@ namespace SurvivorCommunity
         /// <summary>Set while SC itself calls into Voice Control's window (PanelClosed): the redirect stands aside.</summary>
         private static bool bypass;
 
+        /// <summary>
+        /// The redirect is in place (Patch_EquipWindowOpen bound its target): only then does the ring's Equipment open SC's
+        /// panel, so only then is the ring's Inventory entry hidden on members (Patches_VoiceControl's D2; the Fable review of
+        /// U1, finding 4).
+        /// </summary>
+        public static bool OpenPatched { get; private set; }
+
         private static Type windowType;
         private static bool windowLooked;
 
@@ -152,8 +159,10 @@ namespace SurvivorCommunity
             {
                 try
                 {
-                    return Bindable(OpenTarget(), WindowType, "XUiC_NpcEquipWindow.Open(EntityPlayerLocal, EntityAlive)",
-                                    "the equipment window opens for members instead of SC's member inventory panel");
+                    bool ok = Bindable(OpenTarget(), WindowType, "XUiC_NpcEquipWindow.Open(EntityPlayerLocal, EntityAlive)",
+                                       "the equipment window opens for members instead of SC's member inventory panel (the ring keeps its Inventory entry)");
+                    if (ok) OpenPatched = true;
+                    return ok;
                 }
                 catch (Exception e) { ScLog.Once("equip-open-bind", e); return false; }
             }

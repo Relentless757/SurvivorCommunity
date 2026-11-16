@@ -21,9 +21,9 @@ Loot
   3.4.06 SC's "Show me your inventory" row for them had disappeared.
 - Choose your member's ammo type. For a gun that takes more than one kind of ammo, the line beside Ranged in the
   inventory panel shows the kind they use and their rounds of it; click for the next kind they have, right-click for the
-  one before. They reload with it, the stockpile refills that kind, and with Locked & Loaded their magazines take it.
-  When it runs out they use what they have and switch back once they have it again. Picking it through 0-XNPCCore's
-  order wheel or by voice counts too.
+  one before. They reload with it and the stockpile refills that kind. When it runs out they use what they have and
+  switch back once they have it again. With Locked & Loaded the chosen kind goes into their magazines once one is empty;
+  until then the line shows it as "loose". Picking it through 0-XNPCCore's order wheel or by voice counts too.
 - "Use the weapons I gave you." is gone. 3.4.06 removed the weapon menu it lived in; drop the weapon on the panel's
   Ranged or Melee slot instead.
 - No debug Remove on members. 0-XNPCCore's debug Admin page no longer offers "Remove (debug)..." on SC's people: it
@@ -36,9 +36,10 @@ Loot
 
 Members' gear
 -------------
-- Fixed: a member's tools no longer change quality. Taking or swapping a member's gun or melee weapon, or loading the
-  game, re-rolled the quality of every tool they carry. Their work-kit tools now keep one quality each, and every other
-  item they carry keeps its own when you swap their weapons.
+- Fixed: a member's tools and weapons no longer change quality. Taking or swapping a member's gun or melee weapon, or
+  loading the game, re-rolled the quality of every tool they carry, and of the weapons SC gave them. Their work-kit
+  tools and those weapons now keep one quality each, and every other item they carry keeps its own when you swap their
+  weapons. Weapons and tools you hand over keep exactly the quality they had.
 
 Survivor Community 0.1.0 pre-release 3
 ======================================

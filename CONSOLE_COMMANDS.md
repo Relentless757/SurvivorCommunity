@@ -504,7 +504,7 @@ Example: `sc spawn hostile male T2 Rifle`
 Weapon words, the firearm chances, ammo amounts and the magazine state.
 
 ### `sc loadout <id|name>` [READ] and `sc loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead]` [CHEAT]
-Shows an NPC's two weapons, or gives it new ones (one weapon replaces the one of its kind). For a community member it also lists the items she was handed exactly (the member inventory panel's slots or the weapon menu, round n12): her weapons and armor pieces with their quality, wear and attachments, each marked STALE when her pair or her clothes have since moved on (it then goes into her pack on the next panel change of that slot). Its last two lines list her item list and her toolbelt with each item's quality (`stoneAxe(q3)`): a work-kit tool's quality stays the same for her, through weapon swaps and loads.
+Shows an NPC's two weapons, or gives it new ones (one weapon replaces the one of its kind). For a community member it also lists the items she was handed exactly (the member inventory panel's slots, or 0-XNPCCore 3.4.05's weapon menu, round n12): her weapons and armor pieces with their quality, wear and attachments, each marked STALE when her pair or her clothes have since moved on (it then goes into her pack on the next panel change of that slot). Its last two lines list her item list and her toolbelt with each item's quality (`stoneAxe(q3)`): a work-kit tool's quality, and a weapon's SC gave her, stays the same for her through weapon swaps and loads.
 
 ### `sc loadout near [r]` [READ]
 Pairs of survivors and raiders within `r` m (default 40).
@@ -523,7 +523,7 @@ One member in full: the verdict and its age, why she is or is not melee-led, a f
 Example: `sc team Gina`
 
 ### `sc team <id|name> auto` [CHEAT]
-Clears your weapon orders on her (the weapon menu's, or "use your ..." by voice), so she picks her weapon by the rules again.
+Clears your weapon orders on her ("use your ..." by voice, or 0-XNPCCore 3.4.05's weapon menu), so she picks her weapon by the rules again.
 
 ### `sc team <id|name> hurt [share]` [CHEAT]
 A test shortcut, like `sc run hurt`: her body's health down to that share of her max (default 0.55, just under `TeamLowHealth`). She stops being melee-led at the next count and is again from 70%; `hurt 1` puts her back to full health.
