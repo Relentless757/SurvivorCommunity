@@ -525,120 +525,16 @@ namespace SurvivorCommunity
             return true;
         }
 
-        // ------------------------------------------------------------------ the back-off point (the stand-off task, C#) ----
-
-        private static readonly float[] Angles = { 0f, 25f, -25f, 50f, -50f, 75f, -75f };
-        private const float MinStep = 3f, MaxStep = 20f, FightNear = 15f, LineOfFire = 1.5f;
-
-        /// <summary>
-        /// Design 2.3: the point she backs off to from threat - on seven directions from it through her (0, +-25, +-50, +-75
-        /// degrees), the point that makes the gap about gap (at least MinStep of walk), on a floor near her level. Valid: at home
-        /// (region Home: the zone + margin, round hl1's AtHome) or within StandOffFollowerLeash of you (Leader); standable; not
-        /// on her unreachable list; at least StandOffMin from every enemy within FleeRadius of her; a clear line (blocks) from
-        /// her head there to the threat's head. Scored by walk, minus a bonus within 15 m of another member in a fight or you
-        /// (decision 2), plus a penalty in another member's line of fire.
-        /// Round k1 (research/combat/SC_VS_NPCCORE.md 1.4: "all-or-nothing ... no shorter step is tried"): when no direction
-        /// takes that full step, the BackOffSteps (10, 6, 3 m) the bounded 0-XNPCCore back-off uses (ScBackOff.Pick, step: its
-        /// length) - with no line back to the threat (a step out of reach beats a firing line): in her bound, standable, a
-        /// clear walk, out of reach (BackupKeepDistanceMax) of every enemy. step is 0 for the full step. False only when even the
-        /// shortest step fails: she is cornered (for one decision).
-        /// </summary>
-        public static bool BackOff(EntityAlive self, EntityAlive threat, float gap, ScRetreat.Region region, out Vector3 point, out string why, out float step)
-        {
-            point = Vector3.zero;
-            why = null;
-            step = 0f;
-            World w = self.world;
-            if (w == null || threat == null) { why = "no threat"; return false; }
-            Vector3 me = self.position, from = threat.position;
-            Vector3 rel = me - from;
-            rel.y = 0f;
-            Vector3 dir = rel.sqrMagnitude > 0.01f ? rel.normalized : -self.GetForwardVector();
-            dir.y = 0f;
-            dir.Normalize();
-            EntityPlayer leader = region == ScRetreat.Region.Leader ? ScRetreat.LeaderOf(self) : null;
-            if (region == ScRetreat.Region.Leader && leader == null) { why = "no leader"; return false; }
-            // the threats she must keep StandOffMin from, the fighting allies and the shooters' lines
-            var threats = new List<Vector3>();
-            var fighting = new List<Vector3>();
-            var lines = new List<KeyValuePair<Vector3, Vector3>>();
-            near.Clear();
-            float r = ScRunners.FleeRadius + MaxStep;
-            w.GetEntitiesInBounds(typeof(EntityAlive), new Bounds(me, new Vector3(2f * r, 2f * r, 2f * r)), near);
-            try
-            {
-                for (int i = 0; i < near.Count; i++)
-                {
-                    EntityAlive a = near[i] as EntityAlive;
-                    if (a == null || a == self || a.IsDead()) continue;
-                    if (EntityTargetingUtilities.IsEnemy(self, a))
-                    {
-                        if (!a.IsSleeping && (a.position - me).sqrMagnitude <= ScRunners.FleeRadius * ScRunners.FleeRadius) threats.Add(a.position);
-                        continue;
-                    }
-                    if (a is EntityPlayer) { fighting.Add(a.position); continue; }
-                    if (ScRegistry.GetMember(a.entityId) == null) continue;
-                    EntityAlive foe = ScCommunity.LiveFoe(a, ScCommunity.FightRange);
-                    if (foe == null) continue;
-                    fighting.Add(a.position);
-                    ItemValue hv = a.inventory != null ? a.inventory.holdingItemItemValue : null;
-                    if (hv != null && !hv.IsEmpty() && ScAmmo.RangedAction(hv.ItemClass) != null) lines.Add(new KeyValuePair<Vector3, Vector3>(a.position, foe.position));
-                }
-            }
-            finally { near.Clear(); }
-            int yRef = Mathf.FloorToInt(me.y + 0.05f);
-            float best = float.MaxValue;
-            int tried = 0;
-            string last = "no floor within reach";
-            for (int k = 0; k < Angles.Length; k++)
-            {
-                Vector3 d = Quaternion.Euler(0f, Angles[k], 0f) * dir;
-                // the walk s along d that makes |me + d s - threat| = gap (XZ)
-                float b = Vector3.Dot(d, rel), c = rel.sqrMagnitude - gap * gap, disc = b * b - c;
-                float s = disc >= 0f ? -b + Mathf.Sqrt(disc) : MinStep;
-                s = Mathf.Clamp(s, MinStep, MaxStep);
-                Vector3 p = me + d * s;
-                int x = Mathf.FloorToInt(p.x), z = Mathf.FloorToInt(p.z), y;
-                tried++;
-                if (!ScCommunity.FindStandable(w, x, z, yRef, out y) || Math.Abs(y - yRef) > SeedDy) { last = "no floor"; continue; }
-                Vector3i cell = new Vector3i(x, y, z);
-                Vector3 pc = new Vector3(x + 0.5f, y, z + 0.5f);
-                if (region == ScRetreat.Region.Home ? !UAI.UAIConsiderationScNotHomeMember.AtHome(pc) : ScRunners.XZ(pc, leader.position) > ScConfig.StandOffFollowerLeash)
-                {
-                    last = region == ScRetreat.Region.Home ? "outside the home zone + margin" : "farther than " + ScConfig.StandOffFollowerLeash.ToString("0", CultureInfo.InvariantCulture) + " m from you";
-                    continue;
-                }
-                string gw;
-                if (ScStuck.Unreachable(self.entityId, cell) || !ScCommunity.GoodPost(w, cell, false, out gw)) { last = "not standable"; continue; }
-                bool close = false;
-                for (int i = 0; i < threats.Count && !close; i++) close = ScRunners.XZ(threats[i], pc) < ScConfig.StandOffMin;
-                if (close) { last = "another enemy within " + ScConfig.StandOffMin.ToString("0", CultureInfo.InvariantCulture) + " m of it"; continue; }
-                if (!ClearLine(w, pc + new Vector3(0f, 1.6f, 0f), threat.getHeadPosition(), true)) { last = "no line to the threat from it"; continue; }
-                bool ally = false;
-                for (int i = 0; i < fighting.Count && !ally; i++) ally = ScRunners.XZ(fighting[i], pc) <= FightNear;
-                bool inLine = false;
-                for (int i = 0; i < lines.Count && !inLine; i++) inLine = ScRunners.PassDistance(lines[i].Key, lines[i].Value, pc) < LineOfFire;
-                float score = s - (ally ? 4f : 0f) + (inLine ? 6f : 0f) + Mathf.Abs(Angles[k]) * 0.02f;
-                if (score < best) { best = score; point = pc; }
-            }
-            if (best < float.MaxValue) return true;
-            // round k1: the shorter steps, no line to the threat needed
-            float gs, ga;
-            string gwhy;
-            if (ScBackOff.Pick(self, threat, float.MaxValue, region, leader, null, out point, out gs, out ga, out gwhy))
-            {
-                step = gs;
-                return true;
-            }
-            why = "the full step fits none of " + tried + " directions (last: " + last + "), and no shorter step either: " + gwhy;
-            return false;
-        }
+        /// <summary>ClearLine steps past at most this many entity colliders on the way (round k5: 8, was 4).</summary>
+        private const int EntitySteps = 8;
 
         /// <summary>
         /// No block between the two points (round rt1; the Fable review, finding 1), end to end - a zombie pressed against the
         /// far side of a shut door is still behind it. Vanilla's ray (its layer mask, and its hit mask: bit 1 with transparent,
         /// so glass and bars stop it, as SCore's CanShoot), and an entity's collider met on the way (either end's own, or
-        /// anyone in between) is stepped past, at most a few times, so only a block or terrain makes the line not clear.
+        /// anyone in between) is stepped past, at most EntitySteps times (round k5, rt1 follow-up C: 8, it was 4 - a crowd of
+        /// zombies between them ran out the steps and read as a clear line), so only a block or terrain makes the line not
+        /// clear.
         /// </summary>
         internal static bool ClearLine(World w, Vector3 from, Vector3 to, bool transparent)
         {
@@ -647,7 +543,7 @@ namespace SurvivorCommunity
             if (w == null || left < 0.05f) return true;
             d /= left;
             Vector3 o = from;
-            for (int k = 0; k < 4; k++)
+            for (int k = 0; k < EntitySteps; k++)
             {
                 if (!Voxel.Raycast(w, new Ray(o, d), left, transparent, false)) return true;
                 WorldRayHitInfo info = Voxel.voxelRayHitInfo;

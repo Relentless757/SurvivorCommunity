@@ -62,16 +62,17 @@
 			<!-- FleeBelowHealth (round n07): a member below this share of her max health who has NOTHING to heal with
 			     runs instead of fighting on. It sits below the 0.6 at which she tries to bandage, so she bandages first
 			     and only runs when the bandage never came. A guard on watch still holds her post. 0 turns it off.
-			     At home she retreats inside (or stands off with her gun) instead of running (round rt1, RetreatHome below). -->
+			     At home she retreats inside (or kites with her gun) instead of running (RetreatHome below). -->
 			<property name="FleeBelowHealth" value="0.35" />
-			<!-- Retreat (round rt1): at home a hurt member does not run off - she retreats inside, or stands off with her gun.
+			<!-- Retreat: at home a hurt member does not run off - she retreats inside, or kites with her gun.
 			     RetreatHome: a member at home (a resident, a follower walking through the base, one on the way to her post,
 			     a runner back inside the zone; never a guard on watch or one ordered to stay) who is below FleeBelowHealth
 			     with nothing to heal with, and has an enemy within 15 m that is after her or sees her:
-			       - with a gun or bow with rounds, and no armed enemy (raiders, bandits) about, she STANDS OFF: an enemy
-			         inside StandOffMin meters backs her off to about StandOffMax from it (never past her Shooting engage
-			         range minus 1 m), inside the base, preferring a spot near the others who are fighting, and she keeps
-			         shooting; with no room for that, a shorter step (BackOffSteps below); cornered, she shoots for a moment;
+			       - with a gun or bow with rounds, and no armed enemy (raiders, bandits) about, she KITES with the wide band:
+			         she backs off from any enemy she sees within StandOffMin meters - a step of BackOffSteps (below) at a
+			         time, inside the base and out of every enemy's reach, kept up to about StandOffMax from it (never past
+			         her Shooting engage range minus 1 m) - and shoots StandOffShootSeconds between two steps while it is
+			         still inside StandOffMin; with no room at all she shoots (the back-off rules below);
 			       - otherwise she SHELTERS: she runs to a roofed spot inside the home zone with a wall or door within 6
 			         blocks in at least ShelterWalls of the 8 directions, ShelterMinThreatDist from the threat, shuts the
 			         ordinary doors she passed behind her (never a drawbridge or hatch she did not open, never within 2.5 m of
@@ -79,12 +80,16 @@
 			         With no roofed room: a walled spot, else the zone floor farthest from the threat near another member or
 			         you, else she holds where she stands (one log line).
 			     It ends once she is healed to RetreatHealedAt of her health, after RetreatClearSeconds with no threat, or
-			     when she leaves home. A member hurt like that is never walked to a fight anywhere (the base defense and the
-			     melee chase leave her be). RetreatCowards: a Cowardly member at home who is not hanging back with her gun
+			     when she leaves home. A shelter also ends once she can heal herself again (the stockpile's medical restock,
+			     MedsResupply, reaches her while she shelters, or you hand her an item) and nothing has been after her for 5 s
+			     - she leaves to heal and goes back to her routine - and after RetreatMaxSeconds once nothing has been after
+			     her for 5 s, healed or not (0: never by time); after either, only an enemy after her shelters her again for
+			     RetreatClearSeconds. No member shelters forever. A member hurt like that is never walked to a fight anywhere
+			     (the base defense and the melee chase leave her be). RetreatCowards: a Cowardly member at home who is not hanging back with her gun
 			     shelters the same way instead of running from the base.
-			     StandOffFollowerLeash: away from home a follower with a gun within this many meters of you stands off
-			     instead of fleeing, to points within it of you too (0: she flees as before); cornered twice in a row there
-			     she flees as before for 15 s. Without a gun she flees as before, and runners keep their flight and turn
+			     StandOffFollowerLeash: away from home a follower with a gun within this many meters of you kites instead of
+			     fleeing, her back-offs to points within it of you too (0: she flees as before); with no point there twice in
+			     a row she flees as before for 15 s. Without a gun she flees as before, and runners keep their flight and turn
 			     home. ShelterRescanSeconds: how often the base is searched for shelter spots (also when the
 			     claim changes; a few blocks a frame, loaded chunks only).
 			     RetreatHome=false: everything as before this round. "sc retreat" shows all of it. -->
@@ -92,6 +97,7 @@
 			<property name="RetreatCowards" value="true" />
 			<property name="RetreatHealedAt" value="0.45" />
 			<property name="RetreatClearSeconds" value="20" />
+			<property name="RetreatMaxSeconds" value="120" />
 			<property name="RetreatFightBackRange" value="2.5" />
 			<property name="ShelterWalls" value="6" />
 			<property name="ShelterMinThreatDist" value="12" />
@@ -109,10 +115,9 @@
 			       of every enemy and not past one. With no such point she shoots for BackOffNoPointSeconds, then tries again.
 			       Away from home (a follower with you) the back-off is 0-XNPCCore's own. false: 0-XNPCCore's own at home
 			       too (she may back out of the gate).
-			     A hurt member standing off (RetreatHome above) takes the longest of BackOffSteps that fits when there is no
-			     point at the full StandOffMax, then shoots StandOffShootSeconds before her next step while the enemy is
-			     still inside StandOffMin; cornered (not even the shortest step fits, or a feral gains on her), she shoots
-			     for BackOffNoPointSeconds and the plain back-off above takes over. "sc xnpc" counts it all (backoff-*). -->
+			     A back-off that gains nothing (1.5 s in, or at its end: still within reach, or not 1 m farther) is followed
+			     by StandOffShootSeconds of shooting, and so is a step of a hurt member's wide band (RetreatHome above) that
+			     ends with the enemy still inside StandOffMin. "sc xnpc" counts it all (backoff-*). -->
 			<property name="BackOffHome" value="true" />
 			<property name="BackOffSteps" value="10,6,3" />
 			<property name="BackupKeepDistanceMax" value="2.5" />
@@ -839,11 +844,14 @@
 			         the approach. A gun holder keeps her gun until her target is within PostureMeleeDist meters, then takes her
 			         melee weapon once; a member whose best skill is Shooting stays on her gun while it has rounds (KITE).
 			       KITE: any other fight with a gun that has rounds (outmatched, overwhelmed, hurt, a target she cannot swing at,
-			         a gun order, a hurt stand-off). Her gun, no swap to melee up close (cornered and reloading, or cornered for
+			         a gun order, hurt with nothing to heal with - then the WIDE band: she backs off from what comes within
+			         StandOffMin, RetreatHome above). Her gun, no swap to melee up close (cornered and reloading, or cornered for
 			         3 s straight with her gun in hand and not one shot fired, she swings until there is room - never at a zombie
-			         she cannot swing at or a cop; 0-XNPCCore ending its bout, or no swing in 2.5 s, ends it), the back-offs
+			         she cannot swing at, a cop or an armed enemy; 0-XNPCCore ending its bout, or no swing in 2.5 s, ends it and
+			         rests that rule 10 s; a target lost for a moment with a zombie within 3 m is held 1.5 s), the back-offs
 			         (inside the base at home), no approach with the gun.
-			       HOLD: on watch or a Stay order (no back-off, no approach; a guard keeps the gun up). SHELTER: round rt1.
+			       HOLD: on watch or a Stay order (no back-off, no approach; a guard keeps the gun up). SHELTER: hurt with no
+			         usable gun, armed enemies about, or Cowardly (RetreatHome above).
 			       INVESTIGATE: sent to an intruder (below) - the defense walk, then MELEE's or KITE's weapon.
 			     One hand change per TeamSwapHoldSeconds: after any change of her hand (SC's or 0-XNPCCore's) SC swaps nothing,
 			     and the posture does not switch between MELEE and KITE, for that long; a switch also needs PostureDwellSeconds

@@ -37,6 +37,134 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round k5+k6 (2026-11-15): hurt members kite with the one back-off; shelters always end; cleanup
+
+Why: the plan (`research/combat/SC_VS_NPCCORE.md` 4.4, rounds 5 and 6; your "Start k3-k6"). rt1's stand-off was a second
+back-off system beside 0-XNPCCore's (k1/k4) - its own walk, its own point picker, its own "cornered" clock - and a
+shelter had no exit for a member who could not heal: she stayed in it as long as anything was about.
+
+What it does now:
+
+- **k5, KITE hurt (was rt1's stand-off):** a member below 35% with nothing to heal with and a gun or bow with rounds (no
+  raider or bandit within 30 m) is KITE with the **wide band**: SCResident's new `ScKiteWide` (8.2) runs 0-XNPCCore's own
+  back-off task - the same one as `BackupKeepDistance` - from any zombie she sees within `StandOffMin` (8 m), a run kept up
+  to `StandOffMax` (15 m, never past her engage range). So every rule of round k1 judges it: SC's bounded point (10, 6, 3 m
+  steps inside the base, out of every zombie's reach), the gain test and the shooting beats. New: a step that ends with
+  the zombie still inside 8 m is followed by `StandOffShootSeconds` (1.5 s) of shooting - step, shoot, step. Away from home
+  a follower kites the same way, her steps within `StandOffFollowerLeash` (20 m) of you; no point twice in a row there and
+  she flees as before for 15 s. rt1's `ScStandOffHurt` and its own walk are gone.
+- **k5, shelter exits:** besides 45% health and 20 s with no threat, a shelter now ends when (a) she can heal herself again
+  - md1's restock (k2's emergency one, inside the cooldown) reaches her while she shelters, or you hand her an item - and
+  nothing has been after her for 5 s: she comes out, bandages (k2/k2b) and goes back to her routine; or (b) she has
+  sheltered `RetreatMaxSeconds` (120 s, new key) and nothing has been after her for 5 s. After either, for 20 s only a
+  zombie that is AFTER her starts a shelter again (not one that merely sees her). Doors she passed stay shut behind her
+  (ScDoors).
+- **k5, small fixes:** a sheltering member fights back at a hit only with a clear line to the zombie (rt1 follow-up B: a
+  bleed tick with the zombie behind her shut door ended the hold); the clear-line test steps past up to 8 zombies (C, was
+  4). R2 (cornered melee until room): on melee a room probe about once a second keeps "no room" alive, so a truly pinned
+  member no longer flashes her gun about every 6 s (the final Fable check's C1); after a no-swing end R2 rests 10 s
+  whatever the zombie (the re-review's R2-rotation); a target lost for a moment (SCore's 1 s lease) with a zombie within
+  3 m is held 1.5 s rather than ending R2's bout (R3).
+- **k6, cleanup:** rt1's stand-off code (its consideration, its task, its point picker, its cornered and shooting-beat
+  state, its `ThreatClear` ray) is gone, and so is the marksman's unused `GunLoaded`; counters `retreat-standoff*`,
+  `retreat-backoff*` and `retreat-cornered` are retired. README and README.txt describe the current rules.
+- Moot after k4/k5: rt1 follow-up A (the scan's threat only feeds the shelter pick now, never a back-off) and D (the
+  CloseRange keep-gun is the strangers' rule since k4; members' guns follow the posture).
+
+Setup: the new DLL with its `Config/utilityai.xml` (`ScKiteWide` appended to SCResident behind its own `xpath()` guard;
+`ScStandOffHurt` removed) and `Config/blocks.xml` (new key `RetreatMaxSeconds` after `RetreatClearSeconds`; the
+retreat and back-off comments rewritten). `DebugLogging` true for the verbose lines, `dm` for the AI overlay's Active
+Action. Hurt with nothing to heal with = `MedsResupply` false (restart) or `sc give meds -999`, every First Aid Bandage
+and Kit out of her pack and bag, then `sc team <name> hurt 0.3`; `sc retreat <name>` must say "hurt with nothing to heal
+with ...: YES".
+
+**At load**
+
+- [ ] The log: "config: retreat ... hurt with a gun, KITEs with the wide band (8 m, a run kept up to 15 m) ...; a shelter
+      also ends once she can heal again (the stockpile's restock) and nothing has been after her for 5 s, or after 120 s
+      once nothing has been after her for 5 s; ...; followers away kite within 20 m of you". No warning about an unknown
+      key, no `MISSING PATCH`, no "UAI ... class ... not found" for `ScStandOff` or `StandOffSC` (both gone with their XML).
+- [ ] `sc retreat`: "N retreating now (N sheltering, N kiting hurt) ...".
+
+**1. The plan's test: hurt, no meds, 5 zombies**
+
+- [ ] Gina with a gun and rounds, hurt to 0.3 with nothing, at home in the yard. Spawn five `zombieBoe` 15-20 m off that
+      come for her. "Gina (id N) retreats - KITE with her gun, backing off from what comes within 8 m (round k5): hurt
+      (30%), nothing to heal with, a gun with rounds: KITE; threat ...", `retreat-kite` +1. `sc team Gina`: "posture
+      (round k4): KITE ... hurt with nothing to heal with, a gun with rounds: KITE's wide band (round k5 ...); the WIDE
+      band: ScKiteWide backs her off from what comes within 8 m".
+- [ ] One comes within 8 m: `dm` shows `ScKiteWide`; she steps back (`sc xnpc Gina`'s back-off line: "... m, ... degrees,
+      to x y z (ScKiteWide)"), inside the base, never out of the zone + 8 m. A step that ends with it still inside 8 m:
+      `backoff-wide-shoot` +1 and `dm` shows `RangedMeleeAttack` for about 1.5 s, then the next step. She ends up 8 m or more
+      from the nearest one (or, with no room left, shoots: `backoff-no-point`), and keeps shooting.
+- [ ] A `zombieBoeFeral` that keeps pace: "Gina's back-off from zombieBoeFeral (M) gained nothing ..." (`backoff-no-gain`),
+      the shot for 1.5 s, then she tries again - never a walk backward without firing for more than about 1.5 s.
+- [ ] Kill them (or let the others): 20 s later "Gina (id N) ends her retreat (KITE (hurt), N s): no threat for 20 s".
+- [ ] Her gun runs dry mid-fight (no ammo in her pack and bag, `XnpcResupply` false): "switches her retreat from KITE
+      (hurt) to shelter: her gun is dry" at once, and she runs to a shelter spot.
+
+**2. Without a gun: behind a door, then out again**
+
+- [ ] Paul (melee only), hurt to 0.3 with nothing, `MedsResupply` false, five walkers at home: "Paul (id N) retreats -
+      SHELTER inside ..."; he runs to a room and the doors he passed shut behind him (`sc retreat Paul`: "doors handed to
+      ScDoors N"). He ends behind a door, or at least 8 m from every zombie.
+- [ ] The walkers lose him (they pound another wall, wander off, or you lead them away) but stay within 15 m: after 120 s
+      in the shelter and 5 s with none after him: "Paul (id N) ends his retreat (shelter, 12x s): sheltered 12x s
+      (RetreatMaxSeconds 120) and nothing has been after him for 5 s; restock: not now - MedsResupply is off ... (round
+      k5)", `retreat-ended-long` +1. He walks out (doors still shut behind him once he is through). `sc retreat Paul`:
+      "... for 1x s more only an enemy after him shelters him again". A walker that merely sees him in that time: no new
+      shelter; one that comes after him: "retreats - SHELTER inside" again.
+- [ ] One stays after him, pounding his door: he stays in (no "long" end) - `sc retreat Paul`: "an enemy is after him".
+- [ ] `MedsResupply` true again (restart) and Meds in the stockpile, Paul sheltering with walkers about: within 5 s the
+      restock reaches him in the shelter (`sc meds`: `meds-restock-emergency` or `meds-restock` +1); with nothing after
+      him for 5 s: "Paul (id N) ends his retreat (shelter, ...): he can heal himself again (N heal
+      item(s) ...) and nothing has been after him for 5 s - he leaves the shelter to heal (round k5)",
+      `retreat-ended-restocked` +1. He bandages (with a zombie after him within 3 m he backs off first, k2b) and goes back
+      to his routine.
+- [ ] Hand a sheltering member a bandage while a zombie is after her: she uses it there (k2b: sheltering heals at once),
+      and the shelter ends at 45% ("healed") or by the restock exit once nothing is after her.
+- [ ] `RetreatMaxSeconds` 0 (restart): no "long" end - with no meds she shelters until 20 s with no threat or 45%.
+
+**3. Fight back only with a clear line (rt1 follow-up B)**
+
+- [ ] Paul sheltering behind a shut door with a walker after him pounding it, and bleeding (`buff buffInjuryBleeding` on
+      him, or let a zombie cut him first): his health ticks down, but no "fights back from his shelter: hit by ..." while the
+      walker is behind the door - he holds his spot. The walker breaks in and hits him: "fights back ... hit by ..." at once.
+
+**4. Away from home**
+
+- [ ] Gina following you away from home, gun and arrows, hurt to 0.3 with nothing; a walker comes at her: "retreats - KITE
+      ... (away from home: within 20 m of you)", `retreat-kite-away` +1; `sc xnpc Gina`'s back-off line: "away from home,
+      KITE hurt - within 20 m of you". Her steps stay within 20 m of you (a shortened or turned step logs, verbose, "backs off from ... near you: N m").
+- [ ] In a narrow corridor with no room near you: "has no point near you to back off to ..." twice within 5 s, then "Gina
+      (id N) ends her retreat (KITE (hurt), ...): no point to back off to near you 2 times in a row away from home - she
+      flees as before for 15 s", `retreat-ended-cornered-away` +1, `dm` `ScFleeHurt`; after 15 s she may kite again.
+
+**5. R2 (cornered melee until room)**
+
+- [ ] C1: Paul KITE, pinned in a dead end by two walkers, reloading (R2: "is cornered and reloading - melee until ..."). He
+      stays on melee - `x5-cornered-probe-none` counting about once a second - with no "takes the <gun>" line and no "no
+      longer cornered on melee: room ..." while he is truly pinned (before: the gun came back about every 6 s). Kill one
+      walker so a step back opens: `x5-cornered-probe-room`, and about a second later (and not within 5 s of his swap) "no
+      longer cornered on melee: room to back off ... again".
+- [ ] R2-rotation: a dry gun at a chainlink fence with three or four walkers taking turns behind it. After one "no swing in
+      2.5 s with his melee weapon ..." end, "is cornered and reloading, but no melee at <another walker> (M): R2 rests N s
+      more after a swing that never came (round k5) ..." (`x5-cornered-skipped`) for about 10 s, whichever walker steps up.
+- [ ] R3: on R2's melee with a walker at 1 m, watch `x5-cornered-lapse-held`: it counts a lapse now and then (SCore's
+      target lease), and no "no longer cornered on melee: his target is dead or gone" comes while the walker is alive and
+      within 3 m. Kill it: that line comes within about 1.5 s.
+
+**6. k6: nothing of the stand-off left**
+
+- [ ] `sc retreat <name>` of a hurt member with a gun: "state: KITE (HURT) ...", a "KITE (round k5): the posture's wide band
+      ..." line and an "exits (round k5): ..." line; no "stand-off", "gap", "BACKING OFF", "CORNERED" or "SHOOTING BETWEEN
+      STEPS". The gates line: "ScRetreating 0, KITE's wide band ON ...".
+- [ ] `sc xnpc`'s counters never show `retreat-standoff`, `retreat-backoff`, `retreat-backoff-shoot` or
+      `retreat-cornered` (retired); they show `retreat-kite`, `backoff-wide-shoot` and `retreat-ended-restocked` /
+      `-long` once those happened.
+- [ ] No `retreat-update`, `uai-posture`, `retreat-task-start`, `arms-hand`, `backoff-bind` or `medic-restock-text` error
+      line in the log after the scenarios.
+
 ## Round lr1 (2026-11-15): guns come out loaded
 
 Why: members had to reload their gun every time they brought it out, and it killed Cara. Every swap that puts a gun with a
@@ -184,7 +312,7 @@ What it does now:
     then takes her melee weapon **once**. A member whose best skill is Shooting stays on her gun while it has rounds
     (KITE), whichever weapon is in her hand (F6).
   - **KITE**: any other fight with a gun that has rounds - outmatched, overwhelmed, hurt, a cop, an armed enemy, a target
-    she cannot swing at, your gun order, rt1's stand-off. Her gun; no swap to melee up close; she backs off within 2.5 m
+    she cannot swing at, your gun order, hurt with nothing to heal with (round k5: the wide band). Her gun; no swap to melee up close; she backs off within 2.5 m
     (inside the base at home) and shoots from 2.5 m out; she never walks to a fight with her gun (with her melee weapon
     still in hand, until the gun comes out, she may walk in and swing). Cornered (no room to back off) and reloading - or
     cornered for 3 s straight with her gun in hand and not one round fired - she swings her melee weapon until there is
@@ -273,7 +401,8 @@ posture and why, and her hand with its clock.
       `RangedMeleeAttack`; never `MeleeApproach`, and no swap to melee up close (`x5-kite-keep-gun` counting).
 - [ ] **Hurt:** `sc team Gina hurt 0.5` in a matched fight: within about 5 s (the dwell) "posture KITE ... - hurt (50% -
       melee again from 70%)", her gun. With nothing to heal with below 35% and no gun, or raiders about: "posture
-      SHELTER" (rt1's shelter as before); with a gun: rt1's stand-off, "KITE ... standing off (round rt1 ...)".
+      SHELTER" (rt1's shelter as before); with a gun: KITE with the wide band, "KITE ... hurt with nothing to heal with, a
+      gun with rounds: KITE's wide band (round k5 ...)" (round k5's steps above).
 - [ ] **On watch:** a guard on watch with zombies at the base: "posture HOLD - on watch ...". No `BackupKeepDistance`,
       `BackupRanged` or `MeleeApproach` in `dm`; his gun stays up when one is within 3 m (`x5-watch-keep-gun`).
 - [ ] **Stay order:** a follower told to stay: "HOLD - a Stay order ...". She shoots from where she stands.
@@ -690,7 +819,8 @@ What it does now:
   Once backing off, the band reaches 3 m (2.5 + 0.5), so the walk is not cut off at its edge. A point counts as not
   reached only when the back-off ended on its own with no path, not when another action took over; and the walk needs a
   floor under it every meter (no pit, drop or ledge on the way).
-- **A hurt stand-off (rt1) no longer corners.** With no point at the full 15 m gap she takes the longest of 10, 6 and 3 m
+- **A hurt stand-off (rt1) no longer corners.** (Superseded by round k5: the stand-off is KITE's wide band now - the
+  same steps and beats through 0-XNPCCore's own back-off; see round k5+k6 at the top.) With no point at the full 15 m gap she takes the longest of 10, 6 and 3 m
   that fits (no line back to the zombie needed). A step that leaves the zombie within 8 m is followed by 1.5 s of shooting
   (`StandOffShootSeconds`). Cornered only when even 3 m fails (or a feral gains on her), and then for 1 s, not 3 s.
   Meanwhile, and whenever the stand-off does not run, the plain back-off above and the shot have her - except in the
@@ -714,9 +844,9 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
 **At load**
 
 - [ ] The log: "config: back-offs at home kept inside the base (steps 10, 6, 3 m on 7 directions, out of reach of every
-      enemy); members back off within 2.5 m (0-XNPCCore's band is 4: the shot wins beyond); no point: the shot takes 1 s (a
-      cornered stand-off too); a back-off that gains nothing (1.5 s in, or at its end: still within 2.5 m or the gap not 1 m
-      larger) and a short stand-off step are followed by 1.5 s of shooting". The patch list has "patched
+      enemy); members back off within 2.5 m (0-XNPCCore's band is 4: the shot wins beyond); no point: the shot takes 1 s; a
+      back-off that gains nothing (1.5 s in, or at its end: still within 2.5 m or the gap not 1 m larger) and a wide step
+      that ends inside 8 m are followed by 1.5 s of shooting" (round k5's wording). The patch list has "patched
       UAITaskBackupFromTargetPaced::Start", "patched UAITaskBackupFromTargetPaced::Update", "patched
       SCoreUtils::GetMoveToLocation" and "patched EntityAlive::ProcessDamageResponseLocal"; no MISSING PATCH line, no "NOT
       kept inside the base" error and no "not judged for gain" warning.
@@ -772,23 +902,20 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
       him there (the re-review, R3): its back-off is judged too - "Paul (id N)'s back-off from zombieBoeFeral (M) gained
       nothing ..." and `backoff-no-gain` +1, then he shoots for about 1.5 s; he does not walk backward without firing.
 
-**Scenario 2: a hurt member indoors**
+**Scenario 2: a hurt member indoors** (rewritten for round k5)
 
 - [ ] Gina with a gun and rounds, `MedsResupply` false (or `sc give meds -999`), every First Aid Bandage and Kit out of her
       pack and bag, `sc team Gina hurt 0.3`, in a room of the base. Spawn two `zombieBoe` in the room's doorway. "Gina (id
-      N) retreats - STAND-OFF with her gun (gap ...)". She steps back 3 to 10 m (`sc retreat Gina`: "BACKING OFF to x y
-      z"), not a 15 m run, and `retreat-backoff-shortened` +1 when the full gap does not fit. After the step `sc retreat
-      Gina` shows "SHOOTING BETWEEN STEPS 1.x s more" and `dm` shows `RangedMeleeAttack`; `retreat-backoff-shoot` +1. Then
-      the next step.
-- [ ] No "cornered ... for 3 s" line, ever. In a dead end: "Gina (id N) is cornered (no point to back off to: the full step
-      fits none of 7 directions (...), and no shorter step either: ...) - the shot and 0-XNPCCore's back-off have her for 1
-      s (round k1)", and about a second later she tries again. With the stand-off not running and a zombie on top of her,
-      `dm` shows `BackupKeepDistance` (0-XNPCCore's back-off, inside the base).
-- [ ] A `zombieBoeFeral` sprinting at her: "... gains on her ..." (cornered 1 s), then 1.5 s of shooting: through that
-      beat `dm` shows `RangedMeleeAttack`, never `BackupKeepDistance` (the Fable review, F1: before, 0-XNPCCore's back-off
-      took the beat, so she ran in circles), and `sc xnpc Gina`'s back-off line says "the shot has the next 1.x s against
-      every enemy". The same after a short step's "SHOOTING BETWEEN STEPS" - and with two zombies at the door, against
-      both (R1).
+      N) retreats - KITE with her gun, backing off from what comes within 8 m (round k5) ...". `dm` shows `ScKiteWide`; she
+      steps back 3 to 10 m (`sc xnpc Gina`'s back-off line: "... (ScKiteWide)"), `backoff-shortened` +1 when the longer
+      steps do not fit. A step that ends with a zombie still inside 8 m: `backoff-wide-shoot` +1 and about 1.5 s of
+      `RangedMeleeAttack`, then the next step.
+- [ ] In a dead end: "Gina (id N) has no point inside the base to back off to from zombieBoe (M) (...) - the shot takes over
+      for 1 s (round k1)", `backoff-no-point` +1, and about a second later she tries again.
+- [ ] A `zombieBoeFeral` sprinting at her: "Gina's back-off from zombieBoeFeral (M) gained nothing ..." (`backoff-no-gain`),
+      then 1.5 s of shooting: through that beat `dm` shows `RangedMeleeAttack`, never `ScKiteWide` or `BackupKeepDistance`
+      (the Fable review, F1), and `sc xnpc Gina`'s back-off line says "the shot has the next 1.x s against every enemy" -
+      with two zombies at the door, against both (R1).
 
 **Scenario 3: you stand by and do not fight**
 
@@ -821,15 +948,19 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
       reach - only after a back-off that ended on its own, never when another action cut it short) and the "back-offs
       (round k1)" line with the same totals ("... N that gained nothing ..., N member-wide beat(s) handed to the shot in
       all"). The patch list also has "patched UAITaskBackupFromTargetPaced::Update"; no "NO GAIN TEST" in the back-offs
-      line. `backoff-unapplied` stays 0 (anything else means 0-XNPCCore changed its back-off: report it). `sc retreat`
-      lists `retreat-backoff-shortened` and `retreat-backoff-shoot`.
+      line. `backoff-unapplied` stays 0 (anything else means 0-XNPCCore changed its back-off: report it). (Round k5
+      retired `retreat-backoff-shortened` and `retreat-backoff-shoot`: a hurt member's steps count as `backoff-*` too, and
+      `backoff-wide-shoot`.)
 - [ ] A ditch, a hole or a drop between him and the only point straight back: that point is not picked (`sc xnpc Paul`:
       a point to the side, or "no point ... last: no floor under the walk (a pit, a drop or a ledge)").
 
-Round rt1's Scenario 3 below is updated for this round: cornered is 1 s, not 3 s, and when the stand-off does not run
-`dm` may show `BackupKeepDistance` or `BackupRanged` (0-XNPCCore's back-off, inside the base).
+Round rt1's stand-off scenarios below are superseded by round k5 (KITE's wide band through 0-XNPCCore's own back-off).
 
 ## Round rt1 (2026-11-15): hurt members retreat inside / stand off with a gun
+
+**Partly superseded by round k5 (top of this file):** the stand-off is KITE's wide band now (`ScKiteWide`, 0-XNPCCore's
+own back-off task) - Scenarios 3 and 7 are rewritten for it - and a shelter has two more exits (restocked, `long`). The
+shelter itself, the cowards, the runners and the gates are as below.
 
 The request: "They shouldn't flee away from home, they should retreat inside, closing doors etc. If they have a ranged
 weapon, they should create distance and continue engaging so they aren't just leaving others to fend for themselves."
@@ -869,7 +1000,7 @@ What it does now:
   the stand-off works only within 20 m of you and, cornered twice in a row there, she flees as before for 15 s; and a
   shelter spot beside a door (which she would hold open) is taken only when no other is valid.
 
-Setup: the new DLL with its `Config/utilityai.xml` (the new `ScRetreat` and `ScStandOffHurt` actions and the gates) and
+Setup: the new DLL with its `Config/utilityai.xml` (the `ScRetreat` action, round k5's `ScKiteWide`, and the gates) and
 `Config/blocks.xml` (the eleven `Retreat...`, `Shelter...` and `StandOff...` keys). `DebugLogging` true for the verbose lines
 quoted below, and `dm` for the AI overlay's Active Action. Zombies: F6 or `spawnentity` (`zombieBoe` walks, `zombieBoeFeral`
 sprints). **Hurt with nothing to heal with** = `MedsResupply` false in `Config/blocks.xml` (restart) - or `sc give meds -999`
@@ -880,10 +1011,10 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
 
 **At load, and the shelter cache**
 
-- [ ] The log at load: "config: retreat on: at home a member hurt below 0.35 with nothing to heal with, or Cowardly and not
-      hanging back, shelters inside (a roof, 6 of 8 walls, 12 m from the threat) or, hurt with a gun, stands off 8-15 m;
-      ends at 0.45 health or 20 s without a threat; fights back within 2.5 m; followers away stand off within 20 m of
-      you; shelter scan every 300 s".
+- [ ] The log at load (round k5's wording): "config: retreat on: at home a member hurt below 0.35 with nothing to heal
+      with, or Cowardly and not hanging back, shelters inside (a roof, 6 of 8 walls, 12 m from the threat) or, hurt with a
+      gun, KITEs with the wide band (8 m, a run kept up to 15 m); ends at 0.45 health or 20 s without a threat; a shelter
+      also ends ...; fights back within 2.5 m; followers away kite within 20 m of you; shelter scan every 300 s".
 - [ ] Within about 20 s at home, `sc retreat`: "shelter cache: N shelter candidate(s): R roofed with 6+ walls, ... last
       scan X s ago (S seeds, Y ms over F frames)". `sc retreat shelters` lists the best ones; a bedroom shows "roofed, 7
       of 8 walls, beside a bed" (or 6-8); the yard is not near the top; a spot within 2.5 m of a door says "beside a door
@@ -933,40 +1064,32 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
       and unable to see him), `sc retreat Paul` says "holds where he stands (roofed, N of 8 walls, the threat cannot see
       him)" and he stays where he got up.
 
-**Scenario 3: Gina stands off with her bow**
+**Scenario 3: Gina kites with her bow** (rewritten for round k5)
 
 - [ ] Gina with a bow and arrows (`sc loadout Gina`), hurt to 0.3 with nothing, two zombieBoe in the yard 12-14 m off.
-      When one is after her or sees her: "Gina (id N) retreats - STAND-OFF with her gun (gap 11 m): hurt (30%), nothing to
-      heal with; threat ...". (The gap: 15 m, or her engage range minus 1 - 11 m at 1 Shooting star with the default
-      `ShootingEngageMin` 12.) She shoots while they are farther than 8 m.
-- [ ] A walker comes to 7.5 m (the nearest one after her or seeing her, nothing between their heads): `dm` shows
-      `ScStandOffHurt`; she runs to a point inside the base (`sc retreat Gina`: "BACKING OFF to x y z"), toward another
-      member who is fighting when there is one, never out of the zone + 8 m. At about the gap she stops, turns and shoots:
-      `retreat-backoff` and `retreat-backoff-done` each go up by exactly 1 for that back-off (not climbing while she
-      shoots), and `dm` goes straight to `RangedMeleeAttack` with no run/stop jitter. The walker closes again: she backs
-      off again (+1 each).
-- [ ] A zombie within 8 m of her behind a wall, pounding it: no `ScStandOffHurt`, no back-off, nothing counted; she does
-      not freeze - she shoots what she can see. During her reloads `dm` never shows `Guard` (round k1: `BackupRanged` may
-      show now - 0-XNPCCore's back-off, kept inside the base).
-- [ ] A zombieBoeFeral sprints at her: within about 3 s (verbose) "Gina (id N) is cornered (zombieBoeFeral (M) gains on
-      her: ...) - the shot and 0-XNPCCore's back-off have her for 1 s (round k1)", `retreat-cornered` +1, then 1.5 s of
-      shooting (`retreat-backoff-shoot` +1). Round k1: within 2.5 m `dm` may show `BackupKeepDistance` (inside the base);
-      she keeps the bow inside 3 m (round k4: the KITE posture, `x5-kite-keep-gun`); cornered while reloading an empty
-      magazine she may swap to her melee weapon and swing (R2).
-- [ ] (Rewritten for round k4.) `sc arms Gina melee` with a walker 4-5 m off: `sc team Gina` "posture (round k4): KITE ...
-      standing off (round rt1 ...)", and within 5 s of her last hand change "Gina (id N) takes the <bow> (posture KITE;
-      standing off ...)", `posture-swap-to-gun` +1. Inside 3 m too: KITE holds 0-XNPCCore's swap to melee.
-- [ ] A cornered stand-off by a wall with no way back (`sc retreat Gina`: "CORNERED ... (no point to back off to: the full
-      step fits none of 7 directions (...), and no shorter step either: ...)"): she shoots, then tries again 1 s later
-      (round k1; it was 3 s).
+      When one is after her or sees her: "Gina (id N) retreats - KITE with her gun, backing off from what comes within 8 m
+      (round k5): hurt (30%), nothing to heal with, a gun with rounds: KITE; threat ...". She shoots while they are
+      farther than 8 m.
+- [ ] A walker comes to 7.5 m (one she can see): `dm` shows `ScKiteWide`; she steps back inside the base, never out of the
+      zone + 8 m, and keeps a step going to about 15 m (or her engage range minus 1 m); between short steps she shoots
+      (`backoff-wide-shoot`).
+- [ ] A zombie within 8 m of her behind a wall, pounding it: no `ScKiteWide` against it (she cannot see it); she shoots
+      what she can see. During her reloads `dm` never shows `Guard`; `ScKiteWide` or `BackupRanged` may (a walk away while
+      she reloads).
+- [ ] A zombieBoeFeral sprints at her: "... gained nothing ..." (`backoff-no-gain`), 1.5 s of shooting, then she tries
+      again; within 2.5 m `dm` may show `BackupKeepDistance`; she keeps the bow inside 3 m (the KITE posture,
+      `x5-kite-keep-gun`); cornered while reloading she may swap to her melee weapon and swing (R2).
+- [ ] `sc arms Gina melee` with a walker 4-5 m off: `sc team Gina` "posture (round k4): KITE ... KITE's wide band ...",
+      and at once "Gina (id N) takes the <bow> (posture KITE, at once: her target needs the gun; ...)",
+      `posture-swap-to-gun-at-once` +1. Inside 3 m too: KITE holds 0-XNPCCore's swap to melee.
 
 **Scenario 4: no rounds, and armed enemies (decision 3)**
 
 - [ ] Rob with a crossbow and no bolts (take them from his pack and bag; `XnpcResupply` false): "Rob (id N) retreats -
       SHELTER inside: hurt (30%), nothing to heal with, no gun with rounds". Hand him bolts mid-retreat: "Rob (id N) switches his
-      retreat from shelter to stand-off: a gun with rounds again, no armed enemies".
+      retreat from shelter to KITE (hurt): a gun with rounds again, no armed enemies".
 - [ ] Gina (bow, arrows) hurt with nothing, and a raider within 30 m (`sc spawn hostile`): "SHELTER inside: ..., armed
-      enemies". The raider dies or goes past 35 m: "switches her retreat from shelter to stand-off" - at least 5 s after
+      enemies". The raider dies or goes past 35 m: "switches her retreat from shelter to KITE (hurt)" - at least 5 s after
       the shelter began. A raider pacing between 30 and 35 m does not flip her back and forth; two switch lines are never
       under 5 s apart (except "her gun is dry", which is at once).
 
@@ -988,20 +1111,21 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
 - [ ] On the Back leg, inside the zone, with a zombie that followed her in: she shelters ("retreats - SHELTER inside"),
       and walks on to her post after it ends (`ScTravel`).
 
-**Scenario 7: away from home (decisions 4 and 5)**
+**Scenario 7: away from home (decisions 4 and 5)** (rewritten for round k5)
 
 - [ ] Gina following you away from home, with her bow, hurt to 0.3 with nothing; a walker comes at her: "Gina (id N)
-      retreats - STAND-OFF with her gun ... (away from home: within 20 m of you)", `retreat-standoff-away` +1. Her back-off
-      points stay within 20 m of you (`sc retreat Gina`); she never runs 30 m away (`dm`: no `ScFleeHurt`). Farther than
-      20 m from you she is not eligible (`sc retreat Gina`: "a follower away from home, farther than 20 m from you") and
-      flees as before.
-- [ ] Away from home with nowhere to back off near you (a narrow corridor, a feral): cornered twice in a row, "Gina (id N)
-      ends her retreat (stand-off, ...): cornered 2 times in a row away from home - she flees as before for 15 s",
-      `retreat-ended-cornered-away` +1; `dm` shows `ScFleeHurt`; after 15 s a new stand-off may start.
+      retreats - KITE ... (away from home: within 20 m of you)", `retreat-kite-away` +1. Her back-off steps stay within 20 m
+      of you (`sc xnpc Gina`: "away from home, KITE hurt - within 20 m of you"); she never runs 30 m away (`dm`: no
+      `ScFleeHurt`). Farther than 20 m from you she is not eligible (`sc retreat Gina`: "a follower away from home, farther
+      than 20 m from you") and flees as before.
+- [ ] Away from home with nowhere to step back near you (a narrow corridor): "has no point near you to back off to ..."
+      twice within 5 s, then "Gina (id N) ends her retreat (KITE (hurt), ...): no point to back off to near you 2 times in
+      a row away from home - she flees as before for 15 s", `retreat-ended-cornered-away` +1; `dm` shows `ScFleeHurt`;
+      after 15 s she may kite again.
 - [ ] The same with no gun (`meleeonly`): no retreat line - `ScFleeHurt` runs her off as before and DynamicFollow brings
       her back. `StandOffFollowerLeash` 0 (restart): a follower with a gun flees as before too.
-- [ ] Gina standing off away from home walks back into the base with you: "ends her retreat (stand-off, ...): no longer
-      with you away from home (now at home)" and, with the threat still there, a new one at home.
+- [ ] Gina kiting away from home walks back into the base with you: her KITE goes on at home (no end line; `sc retreat
+      Gina`: "KITE ... (Home)"), her steps now kept inside the base.
 
 **Scenario 8: no roofed room (decision 9)**
 

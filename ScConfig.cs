@@ -1422,7 +1422,7 @@ namespace SurvivorCommunity
             ResetVoices();                         // V2 (ScConfigVoices.cs)
             ResetStuck();                          // round 29b (ScConfigStuck.cs)
             ResetTeam();                           // round tm1 (ScConfigTeam.cs): team strength decides melee
-            ResetRetreat();                        // round rt1 (ScConfigRetreat.cs): hurt members retreat inside / stand off
+            ResetRetreat();                        // round rt1 (ScConfigRetreat.cs): hurt members retreat inside / kite (round k5)
             ResetNames();                          // round 30 (ScConfigNames.cs): streamer names
             ResetSkins();                          // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34
@@ -2564,7 +2564,7 @@ namespace SurvivorCommunity
                 ParseVoices(p);                    // V2 (ScConfigVoices.cs)
                 ParseStuck(p);                     // round 29b (ScConfigStuck.cs)
                 ParseTeam(p);                      // round tm1 (ScConfigTeam.cs): team strength decides melee
-                ParseRetreat(p);                   // round rt1 (ScConfigRetreat.cs): hurt members retreat inside / stand off
+                ParseRetreat(p);                   // round rt1 (ScConfigRetreat.cs): hurt members retreat inside / kite (round k5)
                 ParseNames(p);                     // round 30 (ScConfigNames.cs): streamer names
                 ParseSkins(p);                     // round 31 (ScConfigSkins.cs): skin-matched voices and hair colors
 #if SC_V34

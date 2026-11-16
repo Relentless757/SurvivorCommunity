@@ -130,7 +130,7 @@ namespace SurvivorCommunity
                     case "xnpc": XnpcCmd(_params); break;
                     case "team": TeamCmd(_params); break;                        // round tm1: team [id|name [auto | hurt [share]]] - F, T, the verdict and what was counted
                     case "meds": ScMedic.ConsoleCmd(_params, Output); break;     // round md1: meds [id|name [give]] - members' medical restock from the stockpile
-                    case "retreat": ScRetreat.ConsoleCmd(_params, Output); break;   // round rt1: retreat [id|name | shelters [n | rescan]] - hurt members shelter / stand off
+                    case "retreat": ScRetreat.ConsoleCmd(_params, Output); break;   // round rt1: retreat [id|name | shelters [n | rescan]] - hurt members shelter / kite (k5)
 #if SC_V34
                     case "sleep": ScSleep.ConsoleCmd(Output); break;            // round n06: who is leased out for the night, and why not
                     case "craft": ScCraft.ConsoleCmd(_params, Output); break;   // C1: craft [table | station [radius] | <id|name> [spec <Specialty> | end]]

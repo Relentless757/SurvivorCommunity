@@ -2,12 +2,14 @@ using System.Collections.Generic;
 using SurvivorCommunity;
 using UnityEngine;
 
-// Round rt1 (2026-11-15, research/flee_meds/DESIGN.md Part A): the retreat's UAI classes - five considerations, each a PURE
-// READ of the state ScRetreat.Update keeps in the X5 tick (trap 1: UAI runs every consideration for every candidate several
-// times a second, whatever the gates above it scored), each with a logged-once try/catch that falls back to the behavior
-// before this round; and two tasks, shared singletons with per-entity state (UaiOps.cs's note), whose Start resumes rather
-// than re-picks when SCore re-starts a finished task. Config/utilityai.xml wires them; RetreatHome=false makes every one of
-// them answer as before (the gates 1, the two new actions 0).
+// The retreat's UAI classes (rounds rt1 and k5, research/flee_meds/DESIGN.md Part A): four considerations, each a PURE READ
+// of the state ScRetreat.Update keeps in the X5 tick (trap 1: UAI runs every consideration for every candidate several times
+// a second, whatever the gates above it scored), each with a logged-once try/catch that falls back to the behavior before
+// rt1; and the shelter task, a shared singleton with per-entity state (UaiOps.cs's note), whose Start resumes rather than
+// re-picks when SCore re-starts a finished task. Config/utilityai.xml wires them; RetreatHome=false makes every one of them
+// answer as before (the gates 1, ScRetreat 0). Round k5 removed rt1's stand-off (ScStandOff, StandOffSC): a hurt member with
+// a gun kites with the posture's wide band (ScPosture action="wide" on SCResident's ScKiteWide, 0-XNPCCore's own back-off
+// task) - one back-off machinery, not two.
 namespace UAI
 {
     /// <summary>
@@ -31,30 +33,9 @@ namespace UAI
     }
 
     /// <summary>
-    /// SCResident's ScStandOffHurt (8.2, IsEnemy): 1 for an enemy while ScRetreat has her standing off with her gun, not
-    /// cornered, and the enemy inside StandOffMin - or her back-off already running and the enemy still nearer than her
-    /// target gap - else 0.
-    /// </summary>
-    public class UAIConsiderationScStandOff : UAIConsiderationBase
-    {
-        public override float GetScore(Context _context, object target)
-        {
-            try
-            {
-                return ScRetreat.StandOffScores(_context.Self, target as EntityAlive) ? 1f : 0f;
-            }
-            catch (System.Exception e)
-            {
-                ScLog.Once("uai-standoff", e);
-                return 0f;
-            }
-        }
-    }
-
-    /// <summary>
     /// On ScFleeHurt (for="hurt", the default) and ScFlee (for="coward"): 0 where the retreat owns her or would - a member
     /// at home, checked live (trap 9: never a FleeFromTarget out of the base through a stale state); away from home a
-    /// follower who stands off with her gun - else 1: away from home as before, RetreatHome off, and for the cowards'
+    /// follower who kites with her gun - else 1: away from home as before, RetreatHome off, and for the cowards'
     /// flee RetreatCowards off. A throw is logged once and means 1 (the flight as before).
     /// </summary>
     public class UAIConsiderationScNotRetreatHome : UAIConsiderationBase
@@ -83,14 +64,11 @@ namespace UAI
     }
 
     /// <summary>
-    /// 0 while the retreat owns her (Shelter or StandOff), else 1 - one owner of her distance. On 0-XNPCCore's
-    /// MeleeApproach (5: no chase out of her room while she fights back), and SCResident's ScDefendBase, ScDefendHold and
-    /// ScReturn (the leash would walk her to her post mid-retreat), and (the Fable review, finding 4) 0-XNPCCore's Guard (3),
-    /// which walked her to her post through every reload and fight back. A throw is logged once and means 1.
-    /// Round k1: only="shelter" (on 0-XNPCCore's BackupKeepDistance and BackupRanged) is 0 only while she SHELTERS. A
-    /// stand-off no longer takes the back-offs (they kept her still whenever ScStandOffHurt did not score - "cornered" for 3 s,
-    /// 212 s of it before Paul died): ScStandOffHurt (8.2) wins while it scores, and otherwise 0-XNPCCore's back-off (kept
-    /// inside the base, ScBackOff) and the shot take over - one owner at a time.
+    /// 0 while the retreat owns her (Shelter, or KITE hurt), else 1 - one owner of her distance. On SCResident's ScDefendBase,
+    /// ScDefendHold, ScInvestigateWalk and ScReturn (the leash would walk her to her post mid-retreat), and (the Fable review,
+    /// finding 4) 0-XNPCCore's Guard (3), which walked her to her post through every reload and fight back. A throw is logged
+    /// once and means 1. only="shelter": 0 only while she SHELTERS (kept for a config that still uses it; round k4 folded the
+    /// back-off gates into UAIConsiderationScPosture, which reads ScRetreat.Shelters itself).
     /// </summary>
     public class UAIConsiderationScNotRetreating : UAIConsiderationBase
     {
@@ -326,189 +304,6 @@ namespace UAI
         {
             EntityAlive self = _context.Self;
             walks.Remove(self.entityId);
-            ScCommunity.DropPath(self);
-            if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = true;
-            base.Stop(_context);
-        }
-    }
-
-    /// <summary>
-    /// ScStandOffHurt's task (design 2.3): back her off from the nearest threat to a point that makes the gap about her
-    /// target gap (ScShelter.BackOff), at ScRetreat.RunSpeed, then stop: the stand-off stops scoring and the shot (6) turns
-    /// her and fires. Stops when the gap reaches G - 1 or the point; a threat that gains on her (the gap not 1 m larger after
-    /// 2 s of walking: a feral, a dog), no point at all, or no path: cornered (ScRetreat.Cornered).
-    /// Round k1: no full-gap point - one of the BackOffSteps (10, 6, 3 m) instead (ScShelter.BackOff; counted
-    /// retreat-backoff-shortened); a step that ends with the threat still inside StandOffMin - or a walk a feral gains on - is
-    /// followed by StandOffShootSeconds of shooting (ScRetreat.ShootBetweenSteps); cornered lasts one decision
-    /// (BackOffNoPointSeconds, it was 3 s), and meanwhile 0-XNPCCore's back-off (no longer gated off in a stand-off, kept
-    /// inside the base) and the shot take over. The Fable review (F1): a beat after a threat gained on her, and a shooting beat
-    /// between steps, are the shot's alone - 0-XNPCCore's back-off from that threat waits as long (ScBackOff.HandToShot).
-    /// </summary>
-    public class UAITaskStandOffSC : UAITaskBase
-    {
-        private sealed class Walk
-        {
-            public Vector3 Point;
-            public int ThreatId;
-            public float CheckAt, GapAtCheck, Deadline;
-            /// <summary>When another action stopped it (0: running): a resume only within ResumeSeconds of that.</summary>
-            public float StoppedAt;
-            public bool Retried;
-        }
-
-        private readonly Dictionary<int, Walk> walks = new Dictionary<int, Walk>();
-        private const float GainSeconds = 2f, FirstCheck = 2.5f, GainNeed = 1f, ArriveXZ = 1f;
-        /// <summary>A walk stopped by another action (a busy animation, a jump order) is resumed only this soon after; else a fresh point.</summary>
-        private const float ResumeSeconds = 2f;
-
-        public override void Start(Context _context)
-        {
-            base.Start(_context);
-            EntityAlive self = _context.Self;
-            try
-            {
-                if (!ScRetreat.StandOffMayRun(self)) { Stop(_context); return; }
-                float now = Time.time;
-                Walk wk;
-                if (walks.TryGetValue(self.entityId, out wk) && now < wk.Deadline && now - wk.StoppedAt <= ResumeSeconds)
-                {
-                    // resumed (a higher action was over within ResumeSeconds): the same point while the same threat is still
-                    // short of her gap, the gain clock afresh
-                    EntityAlive rt = Threat(self, wk.ThreatId);
-                    if (rt != null && rt.entityId == wk.ThreatId && ScRunners.XZ(self.position, rt.position) < ScRetreat.GapOf(self) - 1f)
-                    {
-                        wk.CheckAt = now + FirstCheck;
-                        wk.GapAtCheck = ScRunners.XZ(self.position, rt.position);
-                        wk.Retried = false;
-                        wk.StoppedAt = 0f;
-                        ScRetreat.BackingOff(self, true, wk.Point);
-                        if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = false;
-                        self.FindPath(wk.Point, ScRetreat.RunSpeed(self), false, null);
-                        return;
-                    }
-                    walks.Remove(self.entityId);
-                }
-                // the Fable review (findings 2, 3): a new point only for the scan's threat - the one the action scores - inside
-                // StandOffMin with a clear line. Anything else (SCore re-starting the task in the frames after a finished
-                // back-off, the threat already past StandOffMin) stops at once, with no pick, no path and nothing counted.
-                EntityAlive t = ScRetreat.StandOffThreat(self);
-                if (t == null) { Stop(_context); return; }
-                float gap = ScRetreat.GapOf(self);
-                Vector3 p;
-                string why;
-                float step;
-                if (!ScShelter.BackOff(self, t, gap, ScRetreat.RegionOf(self), out p, out why, out step))
-                {
-                    ScRetreat.Cornered(self, "no point to back off to: " + why);
-                    Stop(_context);
-                    return;
-                }
-                if (step > 0f) Patches_Xnpc.Count("retreat-backoff-shortened");   // round k1: a graded step, not the full gap
-                walks[self.entityId] = wk = new Walk
-                {
-                    Point = p,
-                    ThreatId = t.entityId,
-                    CheckAt = now + FirstCheck,
-                    GapAtCheck = ScRunners.XZ(self.position, t.position),
-                    Deadline = now + 15f
-                };
-                ScRetreat.BackingOff(self, true, p);
-                Patches_Xnpc.Count("retreat-backoff");                   // a new back-off (a resume is not counted again)
-                if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = false;
-                self.FindPath(p, ScRetreat.RunSpeed(self), false, null);
-            }
-            catch (System.Exception e)
-            {
-                ScLog.Once("standoff-task-start", e);
-                Stop(_context);
-            }
-        }
-
-        /// <summary>
-        /// The threat whose gap she is opening: the scan's (ScRetreat) - the one ScStandOff scores (finding 2) - else, with no
-        /// threat in this scan, the one the walk began from.
-        /// </summary>
-        private static EntityAlive Threat(EntityAlive self, int remembered)
-        {
-            Vector3 pos;
-            EntityAlive t;
-            if (ScRetreat.ThreatPlace(self, out pos, out t) && t != null) return t;
-            t = remembered >= 0 && self.world != null ? self.world.GetEntity(remembered) as EntityAlive : null;
-            return t != null && !t.IsDead() ? t : null;
-        }
-
-        public override void Update(Context _context)
-        {
-            EntityAlive self = _context.Self;
-            try
-            {
-                Walk wk;
-                if (!ScRetreat.StandOffMayRun(self) || !walks.TryGetValue(self.entityId, out wk)) { Stop(_context); return; }
-                float now = Time.time;
-                EntityAlive t = Threat(self, wk.ThreatId);
-                if (t == null) { walks.Remove(self.entityId); Stop(_context); return; }
-                if (t.entityId != wk.ThreatId)
-                {
-                    // the scan's threat changed: measure (and judge the gain) against the new one from here
-                    wk.ThreatId = t.entityId;
-                    wk.GapAtCheck = ScRunners.XZ(self.position, t.position);
-                    wk.CheckAt = now + GainSeconds;
-                }
-                float gap = ScRunners.XZ(self.position, t.position);
-                if (gap >= ScRetreat.GapOf(self) - 1f || ScRunners.XZ(self.position, wk.Point) <= ArriveXZ)
-                {
-                    Patches_Xnpc.Count("retreat-backoff-done");
-                    ScRetreat.BackedOff(self, gap, t);
-                    walks.Remove(self.entityId);
-                    Stop(_context);
-                    return;
-                }
-                if (now >= wk.CheckAt)
-                {
-                    if (gap < wk.GapAtCheck + GainNeed)
-                    {
-                        ScRetreat.Cornered(self, t.EntityName + " (" + t.entityId + ") gains on " + ScRetreat.HerObj(self) + ": the gap " + gap.ToString("0.#") + " m did not grow 1 m in " + GainSeconds.ToString("0") + " s", t);
-                        ScRetreat.ShootBetweenSteps(self, gap, t);            // round k1: running from a feral is lost time - she shoots
-                        walks.Remove(self.entityId);
-                        Stop(_context);
-                        return;
-                    }
-                    wk.GapAtCheck = gap;
-                    wk.CheckAt = now + GainSeconds;
-                }
-                if (self.getNavigator() != null && self.getNavigator().noPathAndNotPlanningOne())
-                {
-                    if (!wk.Retried && now < wk.Deadline)
-                    {
-                        wk.Retried = true;
-                        self.FindPath(wk.Point, ScRetreat.RunSpeed(self), false, null);
-                        return;
-                    }
-                    ScRetreat.Cornered(self, "no path to the back-off point");
-                    walks.Remove(self.entityId);
-                    Stop(_context);
-                    return;
-                }
-                if (now > wk.Deadline) { walks.Remove(self.entityId); Stop(_context); }
-            }
-            catch (System.Exception e)
-            {
-                ScLog.Once("standoff-task-update", e);
-                Stop(_context);
-            }
-        }
-
-        public override void Stop(Context _context)
-        {
-            EntityAlive self = _context.Self;
-            Walk wk;
-            // kept on a stop by another action (resume within its deadline); dropped when it is done, cornered or out of time
-            if (walks.TryGetValue(self.entityId, out wk))
-            {
-                if (Time.time >= wk.Deadline) walks.Remove(self.entityId);
-                else wk.StoppedAt = Time.time;
-            }
-            ScRetreat.BackingOff(self, false, Vector3.zero);
             ScCommunity.DropPath(self);
             if (self.moveHelper != null) self.moveHelper.CanBreakBlocks = true;
             base.Stop(_context);

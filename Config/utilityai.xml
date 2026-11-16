@@ -18,7 +18,8 @@
 
 	  A guard on watch (base defence D3, ScWatch: a resident whose post is a Watch post) stays put: ScNotOnWatch keeps
 	  them out of the roam, the defence walk and hold, the quiet night (it would idle facing anywhere) and the Cowardly
-	  flee, and - at the end of this file - out of 0-XNPCCore's two back-off actions and its melee approach. What is
+	  flee, and - at the end of this file - the posture consideration (ScPosture: HOLD) keeps them out of 0-XNPCCore's two
+	  back-off actions and its melee approach. What is
 	  left is Guard / ScAtPost (walk to the post, stand facing the post's way), the leash (measured from the Watch post,
 	  never widened by a live attack) and the pack's attacks, which shoot or swing at whatever comes into range. These
 	  gates and the DLL ship together: the consideration class lives in the DLL.
@@ -45,7 +46,7 @@
 			     This outscores the chase (but not point-blank self defence at weight 6) once they are further
 			     from their post than ScConfig-independent "distance", walking them home with SCore's Guard task. With
 			     ResidentRoamZone the home zone (and ResidentRoamZoneMargin round it) counts as home too. -->
-			<!-- Round rt1: ScNotRetreating is 0 while a hurt member (or a coward) shelters or stands off (ScRetreat) - the leash
+			<!-- Round rt1: ScNotRetreating is 0 while a hurt member (or a coward) shelters or kites hurt (ScRetreat) - the leash
 			     must not walk her to her post mid-retreat (a shelter spot or a back-off point can be past 25 m without zone
 			     roaming); the retreat itself never leaves the zone + ResidentRoamZoneMargin. 1 otherwise and with RetreatHome off. -->
 			<action name="ScReturn" weight="5.5" entity_filter="IsSelf">
@@ -75,7 +76,7 @@
 			     Cowardly member ($Timid) does not go looking for a fight. Followers, runners and stand-ins: ScIsResident.
 			     Round rt1 (decision 10, the other half of the flee/return loop): ScNotHurtNoMeds is 0 for a member hurt below
 			     FleeBelowHealth with nothing to heal with - the defense never walks her back to the fight she retreated from -
-			     and ScNotRetreating 0 while she shelters or stands off (one owner of her distance). Both 1 with RetreatHome off. -->
+			     and ScNotRetreating 0 while she shelters or kites hurt (one owner of her distance). Both 1 with RetreatHome off. -->
 			<action name="ScDefendBase" weight="4" entity_filter="IsEnemy">
 				<task class="MoveToAttackTargetSDX, SCore" run="true" />
 				<consideration class="ScIsResident, SurvivorCommunity" />
@@ -223,7 +224,7 @@
 			     Round rt1 (the user, 2026-11-15: "They shouldn't flee away from home, they should retreat inside"):
 			     ScNotRetreatHome (for="hurt") is 0 for a member at home - checked live, whatever the retreat's state, so this
 			     flight can never take her out of the base through a stale state (trap 9) - and for a follower away from home
-			     whose last scan found a gun and no armed enemy (she stands off with it, decision 4). Away from home otherwise
+			     whose last scan found a gun and no armed enemy (she kites with it, decision 4; round k5). Away from home otherwise
 			     (runners keep round r2's flight; melee-only followers flee as before, decision 5), and with RetreatHome off, 1. -->
 			<action name="ScFleeHurt" weight="8.5" entity_filter="IsEnemy">
 				<task class="FleeFromTarget" max_distance="30" />
@@ -243,7 +244,10 @@
 			     that (the state ScRetreat keeps in the X5 tick: hurt with no usable gun, or against armed enemies, or a coward)
 			     and 0 while she FIGHTS BACK (an enemy within RetreatFightBackRange after her, or one that just hit her): then the
 			     pack's attacks take over - MeleeAttack (5) in reach, the shot (6) - and MeleeApproach is gated off (no chase out
-			     of her room). It ends at RetreatHealedAt health, 20 s with no threat, or once she is no longer at home.
+			     of her room). It ends at RetreatHealedAt health, 20 s with no threat, or once she is no longer at home; round k5:
+			     also once she can heal herself again (the stockpile's restock reaches her while she shelters) and nothing has been
+			     after her for 5 s, or after RetreatMaxSeconds (120) once nothing has been after her for 5 s - no member shelters
+			     forever. The open doors she passed are still shut behind her (ScDoors) when she walks out.
 			     Siblings, not considerations on ScFleeHurt (trap 2: considerations multiply). 8.5 ties ScFleeHurt and the two are
 			     never 1 for the same body (ScNotRetreatHome is 0 wherever this can be 1); it clears BackupKeepDistance (8, gated
 			     off by ScNotRetreating anyway), the medic (7), the shot (6) and the leash (5.5), and stays under LeaveAreaSdcs
@@ -256,29 +260,9 @@
 				<consideration class="ScNotOnWatch, SurvivorCommunity" />
 				<consideration class="ScRetreating, SurvivorCommunity" />
 			</action>
-			<!-- Round rt1 (decision 2): hurt with nothing to heal with but a gun with rounds (and no armed enemy about: decision 3)
-			     she STANDS OFF instead: an enemy inside StandOffMin (8 m) backs her off to a point inside the base (or, away
-			     from home, within StandOffFollowerLeash of you: decision 4) that puts her about StandOffMax (15 m) from it,
-			     never past her engage range minus 1 m, preferring a point near the others who are fighting; then the task stops
-			     and the shot (6) turns her and fires - she keeps engaging instead of leaving the others to it. ScStandOff stays
-			     1 while the back-off runs and the gap is still short of her target, and is 0 for 3 s when she is cornered (no
-			     point to go to, or a feral gaining on her): she stands and shoots point-blank (BackupKeepDistance is gated off
-			     for her and SC keeps her loaded gun up close). 8.2: over BackupKeepDistance (8) on its own should that gate ever
-			     no-op after an 0-XNPCCore update (trap 4), under ScFleeHurt / ScRetreat (8.5; never 1 together: a stand-off is
-			     never a shelter). RetreatHome=false: ScStandOff is always 0.
-			     Round k1: with no point at the full gap she takes the longest of the BackOffSteps that fits (10, 6, 3 m, no line
-			     back to the threat needed: a step out of reach beats a firing line), and a step that leaves the threat inside
-			     StandOffMin is followed by StandOffShootSeconds (1.5 s) of shooting. Cornered only when even the 3 m step fails,
-			     and then for one decision (BackOffNoPointSeconds, 1 s), not 3 s. BackupKeepDistance and BackupRanged are no
-			     longer gated off in a stand-off (ScNotRetreating only="shelter"): whenever this does not score, 0-XNPCCore's
-			     back-off (kept inside the base) and the shot have her - one owner at a time; 8.2 wins while this scores. -->
-			<action name="ScStandOffHurt" weight="8.2" entity_filter="IsEnemy">
-				<task class="StandOffSC, SurvivorCommunity" />
-				<consideration class="ScIsMember, SurvivorCommunity" />
-				<consideration class="NotHasOrder, SCore" order="Stay" />
-				<consideration class="ScNotOnWatch, SurvivorCommunity" />
-				<consideration class="ScStandOff, SurvivorCommunity" />
-			</action>
+			<!-- Round rt1's ScStandOffHurt (8.2) and its own walk are gone (round k5): a hurt member with a gun KITEs - the posture's
+			     wide band on SCResident's ScKiteWide, 0-XNPCCore's own back-off task (below, at the end of this file, behind its
+			     xpath() guard) - one back-off machinery, not two. -->
 			<!-- Round k2b (the user, 2026-11-15: "They should back off and heal if they can for any situation"): round k2 holds a
 			     member's medical use while an enemy after her is within MedicSafeDistance (3 m), and nothing moved her out of
 			     reach - a melee member between 60% and 25% never healed. ScHealBackOff is 1 while that hold is on and she may back
@@ -288,7 +272,7 @@
 			     elsewhere (a runner's travel resumes after). Clear (nothing after her within MedicSafeDistance + 1 m), it stops
 			     and the item goes into her hand; no room at all, or the enemy keeps up (the gap not 1 m larger in 2 s: the Fable
 			     review, F4), she heals now; still not clear after MedicMaxWait, she heals anyway. Melee and gun holders alike.
-			     8.3: over BackupKeepDistance (8), ScStandOffHurt (8.2), the medic (7), the shot (6), MeleeAttack (5); under ScRetreat
+			     8.3: over BackupKeepDistance (8), ScKiteWide (8.2), the medic (7), the shot (6), MeleeAttack (5); under ScRetreat
 			     and ScFleeHurt (8.5: never 1 together - a sheltering member heals at once, and ScFleeHurt needs her with nothing to
 			     heal with), LeaveAreaSdcs (9), JumpDownOrder (10), SdcsAnimBusy (12). HealBackOff=false: always 0. -->
 			<action name="ScHealBackOff" weight="8.3" entity_filter="IsSelf">
@@ -541,14 +525,14 @@
 	    (never to a melee-unsafe or armed enemy while she has a gun with rounds); in KITE only while her melee weapon is still in
 	    her hand (the hand clock holding the draw, R2's cornered melee, a runner's bout: the back-offs need a gun in hand, so she
 	    would stand still); 0 in HOLD and SHELTER. Live: 0 for a guard on
-	    watch, while the retreat owns her - shelter or stand-off (was rt1's ScNotRetreating) - and while she is hurt with nothing to
+	    watch, while the retreat owns her - shelter or KITE hurt (was rt1's ScNotRetreating) - and while she is hurt with nothing to
 	    heal with (decision 10, trap 7: was ScNotHurtNoMeds; her swing at what reaches her and her shot still run).
 	  This replaces round tm1's ScNotTeamMelee and the gates named above. 1 for everyone who is not one of the community's members
 	  (raiders, strangers, enclave people): 0-XNPCCore's rule as it is.
 	  Kept beside it, unchanged: round k1's ScBackOffRoom on both back-offs - a mechanical gate: 0 against an enemy for
 	  BackOffNoPointSeconds (1 s) after SC found no point inside the base to back off to from it, and against EVERY enemy for
-	  StandOffShootSeconds after a member's back-off gained nothing and through rt1's stand-off shooting beats (the Fable review,
-	  F1, R1); reload="pass" (R4, BackupRanged only) lets that member-wide beat through while she reloads. For a member at home the
+	  StandOffShootSeconds after a member's back-off gained nothing and after a wide step (round k5) (the Fable review, F1, R1);
+	  reload="pass" (R4: BackupRanged and ScKiteWide) lets that member-wide beat through while she reloads. For a member at home the
 	  task's point is SC's (ScBackOff: 10, 6 and 3 m steps on seven directions, inside the home zone + margin or the defended area,
 	  out of reach of every enemy). And ScNotTravelling (runners, above) on MeleeApproach and BackupRanged.
 	-->
@@ -575,11 +559,41 @@
 			</append>
 		</if>
 	</conditional>
+	<!--
+	  Round k5 (research/combat/SC_VS_NPCCORE.md 4.4: "stand-off folded into KITE, graded steps"): a hurt member with nothing to
+	  heal with and a gun that has rounds (no armed enemy about) is KITE with the WIDE band (ScRetreat's Kite mode). SCResident's
+	  ScKiteWide runs 0-XNPCCore's own back-off task (Voice Control's BackupFromTargetPaced, the same parameters as
+	  BackupKeepDistance), so every rule of round k1 judges it: at home SC's bounded point (10, 6, 3 m steps inside the base, out
+	  of every enemy's reach), away from home with you within StandOffFollowerLeash of you, the gain test and the shooting beats
+	  (ScBackOffRoom), and a step that leaves the enemy inside StandOffMin is followed by StandOffShootSeconds of shooting.
+	  ScPosture action="wide": 1 against a visible enemy within StandOffMin (8 m), up to the gap StandOffMax (15 m, never past her
+	  engage range) for the run already going against it; 0 for everyone else. 8.2: over BackupKeepDistance (8), the medic (7)
+	  and the shot (6) - she backs off rather than shooting at what comes within 8 m - under ScHealBackOff (8.3), ScRetreat and
+	  ScFleeHurt (8.5). It replaced rt1's ScStandOffHurt and its own walk (StandOffSC). Appended only where 0-XNPCCore's
+	  BackupKeepDistance runs that task (trap 4), so the task class exists.
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupKeepDistance&quot;]/task[@class=&quot;BackupFromTargetPaced, 1-XNPCVoiceControl&quot;]/@class') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']">
+				<action name="ScKiteWide" weight="8.2" entity_filter="IsEnemy">
+					<task class="BackupFromTargetPaced, 1-XNPCVoiceControl" max_distance="10" pace="1" max_speed="2.4" spread="25" tries="6" />
+					<consideration class="ScIsMember, SurvivorCommunity" />
+					<consideration class="NotHasOrder, SCore" order="Stay" />
+					<consideration class="ScNotOnWatch, SurvivorCommunity" />
+					<consideration class="SelfNotHasCVar, SCore" cvar="CurrentWeaponClass" value="0" />
+					<consideration class="SelfNotHasBuff, SCore" buffs="SdcsIsHealing" />
+					<consideration class="CanSeeTarget, SCore" />
+					<consideration class="ScPosture, SurvivorCommunity" action="wide" />
+					<consideration class="ScBackOffRoom, SurvivorCommunity" reload="pass" />
+				</action>
+			</append>
+		</if>
+	</conditional>
 	<!-- Round rt1, the Fable review (finding 4): 0-XNPCCore's Guard (SdcsNpcCore, 3: walk to the guard spot - for a resident her
-	     post) ran whenever nothing else scored for a retreating member - through every reload of a stand-off, and in the
+	     post) ran whenever nothing else scored for a retreating member - through every reload of KITE hurt, and in the
 	     moment a shelter's fight back left nothing in reach - and walked her across the yard, or out through the door she had
 	     just shut. ScNotRetreating keeps her where she is until the retreat ends; then Guard walks her home as before.
-	     Followers are not gated: DynamicFollow (2) may draw a follower standing off toward you during a reload, which keeps
+	     Followers are not gated: DynamicFollow (2) may draw a follower kiting hurt toward you during a reload, which keeps
 	     her with you (decision 4), and SC's ScFollowLeader (4) never runs for 0-XNPCCore's bodies (ScNoDynamicFollow). -->
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcCore&quot;]/action[@name=&quot;Guard&quot;]/@name') != null">

@@ -134,7 +134,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   shortened (a shorter step than the longest), wider than 25 degrees, with no point (the shot took over), that gained
   nothing (the Fable review: still within 2.5 m, or the gap not 1 m larger, 1.5 s in or at the end - at home or away -
   the shot took over against every enemy for `StandOffShootSeconds`), the member-wide beats handed to the shot in all
-  (stand-off beats included), points not reached and not applied. The same as counters in the hook list: `backoff-bounded`, `backoff-shortened`, `backoff-wide`,
+  (the wide band's beats between steps included), points not reached and not applied. The same as counters in the hook list: `backoff-bounded`, `backoff-shortened`, `backoff-wide`,
   `backoff-no-point`, `backoff-no-gain`, `backoff-unreached` (a point the path could not reach - only after a back-off
   that ended on its own - set aside 10 s), `backoff-unapplied` (should stay 0: anything else means 0-XNPCCore changed its
   back-off). `x5-cornered-reload-melee`: reloading with the shot
@@ -144,15 +144,20 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   Round k4 adds `x5-cornered-noshot-melee` (the same after 3 s cornered the whole time, the gun in hand and not one round
   fired). The Fable review of k3+k4 (F1): never at a cop or a zombie she cannot swing at (`x5-cornered-skipped`), and it
   also ends when 0-XNPCCore ends its bout itself (`x5-cornered-bout-ended`) or with no swing in 2.5 s
-  (`x5-cornered-noswing-end`) - that zombie then counts as one she cannot swing at.
+  (`x5-cornered-noswing-end`) - that zombie then counts as one she cannot swing at, and R2 rests 10 s whatever the target.
+  On melee, "no room" is renewed by a probe about once a second (`x5-cornered-probe-none` / `x5-cornered-probe-room`: the
+  same bounded pick); a target lost for a moment (SCore's 1 s lease) with a zombie within 3 m is held 1.5 s
+  (`x5-cornered-lapse-held`, once per lapse).
 - **`sc xnpc <id|name>`** — the line "back-off (round k1): at home - kept inside the base" (or "away from home -
   0-XNPCCore's own, unbounded"), and her last back-off: from whom, the step, the angle and the point (or "0-XNPCCore's
   own point (unbounded)" away from home), RUNNING / ended on its own / stopped, or NO POINT with why; the points set aside;
-  how long the shot has the next decision against every enemy (a back-off that gained nothing, or a stand-off's shooting
-  beat; `BackupRanged` only while she reloads), and the enemies with no point to back off to from.
-- A hurt member's stand-off (round rt1, `sc retreat`) uses the same steps when the full gap does not fit:
-  `retreat-backoff-shortened`, and `retreat-backoff-shoot` for the shooting between two steps (`SHOOTING BETWEEN STEPS` in
-  `sc retreat <name>`).
+  how long the shot has the next decision against every enemy (a back-off that gained nothing, or a beat between two wide
+  steps; `BackupRanged` and `ScKiteWide` only while she reloads), and the enemies with no point to back off to from. A
+  member kiting hurt shows "(KITE's wide band: ScKiteWide within 8 m)" and her last run "(ScKiteWide)"; away from home with
+  you "away from home, KITE hurt - within 20 m of you".
+- A hurt member's KITE (round k5, `sc retreat`): SCResident's `ScKiteWide` runs this same back-off from any zombie she sees
+  within `StandOffMin` (8 m), a run kept up to `StandOffMax`; `backoff-wide-shoot` counts the shooting between two steps
+  (a step that ends with the zombie still inside 8 m).
 
 ## Medical restock and healing *(rounds md1, k2)*
 
@@ -191,32 +196,36 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   stay: at once); and in `sc xnpc` only, `x5-heal-backoff-no-swap` (a weapon swap held while she backs off). `sc xnpc` also
   prints the back-off totals.
 
-## Retreat *(round rt1)*
+## Retreat *(rounds rt1, k5)*
 
-- **`sc retreat`** — the setting and its keys (`RetreatHome`, `Shelter...`, `StandOff...`), how many members are retreating
-  now (sheltering, standing off) and this session's totals, the `retreat-*` counters and the weapon counters
+- **`sc retreat`** — the setting and its keys (`RetreatHome`, `Retreat...`, `Shelter...`, `StandOff...`), how many members
+  are retreating now (sheltering, kiting hurt) and this session's totals, the `retreat-*` counters and the weapon counters
   (`x5-retreat-*`), the shelter cache in one line (candidates, how many are roofed rooms, the last scan's seeds, milliseconds
-  and frames, the next scan), and one line per loaded member: SHELTER or STAND-OFF with why, the threat, the clear clock,
-  FIGHTING BACK, the spot and the fallback, or the gap, BACKING OFF and CORNERED; or "none" with why she may not retreat.
-  Read-only.
+  and frames, the next scan), and one line per loaded member: SHELTER or KITE with why, the threat, the clear clock, and for
+  a shelter FIGHTING BACK, the spot and the fallback and how long nothing has been after her; for KITE the wide band; or
+  "none" with why she may not retreat (and, after a restock or long exit, how long only an enemy after her shelters her
+  again). Read-only.
 - **`sc retreat <id|name>`** — one member in full: whether she may retreat here (at home, away with you, or why not), her
   health, heal items and whether she is hurt with nothing to heal with, Cowardly and hanging back, her pair's gun; the
   state (mode, region, why, age), the last threat scan (the threat, armed enemies, the clear clock), the shelter spot (its
-  source, kind, walls, roof, distance), the spots she could not reach and the doors handed to ScDoors, or the stand-off's
-  gap, back-off point and cornered clock; the five gates as the AI reads them right now (`ScRetreating`, `ScStandOff`,
-  `ScNotRetreatHome` hurt / coward, `ScNotRetreating`, `ScNotHurtNoMeds`); and at home the spot she would pick now. A read:
-  nothing is written.
+  source, kind, walls, roof, distance), the spots she could not reach and the doors handed to ScDoors, or KITE's wide band
+  with her last back-off (and away from home the "no point" verdicts in a row); the exits (round k5): whether an enemy is
+  after her or for how long none has been, her heal items, where her restock from the stockpile stands, and the
+  `RetreatMaxSeconds` rule; the gates as the AI reads them right now (`ScRetreating`, KITE's wide band, `ScNotRetreatHome`
+  hurt / coward, `ScNotRetreating`, `ScNotHurtNoMeds`); and at home the spot she would pick now. A read: nothing is
+  written.
 - **`sc retreat shelters [n]`** — the shelter cache's best n candidates (20 by default): position, roofed or not, walls of
   8, what seeded it (a bed, a work station, a post, the claim block, a random zone floor), meters from you, and NOT
   STANDABLE NOW when a block changed since the scan, and "beside a door (taken last)" for one within 2.5 m of a door. **`sc retreat shelters rescan`** starts a new scan on the next frame.
-- The counters: `retreat-shelter`, `retreat-standoff` (`retreat-standoff-away`: away from home with you),
-  `retreat-to-shelter` / `retreat-to-standoff` (the mode changed mid-retreat), `retreat-arrived`, `retreat-fightback`,
-  `retreat-backoff`, `retreat-backoff-done`, `retreat-backoff-shortened` and `retreat-backoff-shoot` (round k1),
-  `retreat-cornered` (round k1: for 1 s, not 3), `retreat-no-shelter` (a fallback, once per retreat),
-  `retreat-fallback-upgraded`, `retreat-spot-unreachable`, `retreat-door-tracked`, and `retreat-ended-<why>`: `healed`,
-  `hangs-back`, `threat-gone`, `ineligible`, `no-gun-away`, `cornered-away` (cornered twice in a row away from home: she
-  flees as before for 15 s), `off`. Weapons (round k4): a stand-off is the KITE posture - `x5-kite-keep-gun` (her gun
-  kept up close) and `posture-swap-to-gun` (her gun drawn) replace `x5-retreat-keep-gun` and `x5-retreat-gun-first`.
+- The counters: `retreat-shelter`, `retreat-kite` (`retreat-kite-away`: away from home with you), `retreat-to-shelter` /
+  `retreat-to-kite` (the mode changed mid-retreat), `retreat-arrived`, `retreat-fightback`, `retreat-no-shelter` (a
+  fallback, once per retreat), `retreat-fallback-upgraded`, `retreat-spot-unreachable`, `retreat-door-tracked`,
+  `retreat-cornered-away`, and `retreat-ended-<why>`: `healed`, `hangs-back`, `threat-gone`, `restocked` (round k5: she can
+  heal again and nothing has been after her for 5 s), `long` (round k5: `RetreatMaxSeconds` and nothing after her for 5 s),
+  `ineligible`, `no-gun-away`, `cornered-away` (no point to step back to near you twice in a row away from home: she flees as
+  before for 15 s), `off`. Round k5 retired `retreat-standoff*`, `retreat-backoff*` and `retreat-cornered` with rt1's
+  stand-off walk. Weapons: KITE hurt is the KITE posture - `x5-kite-keep-gun` (her gun kept up close) and
+  `posture-swap-to-gun` (her gun drawn).
   `sc xnpc <name>` has a one-line
   `retreat:` summary.
 

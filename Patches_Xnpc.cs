@@ -706,7 +706,7 @@ namespace SurvivorCommunity
                         // round tm1: a member's team verdict (F against T), recounted once a second, staggered - the only writer;
                         // everything after it and the UAI considerations only read it
                         ScTeam.Recount(e);
-                        // round rt1: a hurt member's (or a coward's) retreat - shelter inside or stand off with the gun; the only
+                        // round rt1: a hurt member's (or a coward's) retreat - shelter inside or KITE with the gun (k5); the only
                         // writer of the retreat states (the posture, the UAI considerations and the hand rule below only read them)
                         ScRetreat.Update(e);
                         // round k4: her one posture (MELEE, KITE, HOLD, SHELTER, INVESTIGATE) from the verdict, the retreat, her

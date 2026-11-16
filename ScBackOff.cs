@@ -37,8 +37,8 @@ namespace SurvivorCommunity
     ///     forever. Patch_BoundUpdate (the task's Update) tests the gain GainSeconds (1.5 s) into a bounded back-off and when it
     ///     ends: the enemy still inside the band, or the gap not GainNeed (1 m) larger than at its start - ScBackOffRoom scores
     ///     0 for StandOffShootSeconds (HandToShot; backoff-no-gain) and the walk stops: she shoots, then the back-off is asked
-    ///     again. rt1's stand-off stamps the same beat (ScRetreat.Cornered when a threat gains on her, ShootBetweenSteps), so
-    ///     0-XNPCCore's back-off does not take those beats either. The re-review (R1): the beat is the MEMBER's, against every
+    ///     again. A wide step (round k5, below) that ends with the enemy still inside StandOffMin stamps the same beat. The
+    ///     re-review (R1): the beat is the MEMBER's, against every
     ///     enemy (key target AnyTarget) - per target, two pursuers in the band took turns (back off from A, A stamped; from B,
     ///     B stamped; A's expired) and the shot never had a beat. Only the true "no point from T" verdict stays per target.
     ///     R3: the gain test judges every member's back-off, bounded or not (a follower away from home with a feral on her
@@ -49,12 +49,21 @@ namespace SurvivorCommunity
     ///     (a restart within 1 s) also counted; that test is kept only when the Update is not bound.
     ///   - F6: the walk needs a floor under it, sampled every FloorStep (1 m), each within 1 cell of the last (a pit, a drop or
     ///     a ledge between her and the point fails it).
-    /// Followers away from home, strangers, enclave people, raiders and every other NPC keep 0-XNPCCore's back-off as it is.
+    /// Round k5 (rt1's stand-off folded into KITE): SCResident's ScKiteWide (8.2) runs this same task for a hurt member who
+    /// kites (ScRetreat Kite: hurt with nothing to heal with, a gun with rounds) from any visible enemy within StandOffMin, so
+    /// every rule above judges it too. Its own extras here: a run of it that ends on its own with the enemy still inside
+    /// StandOffMin is followed by StandOffShootSeconds of shooting (counted backoff-wide-shoot: step, shoot, step); its
+    /// member-wide beats let it through while she reloads, as BackupRanged's; and away from home, KITE with you (a follower)
+    /// bounds both of her back-offs to within StandOffFollowerLeash of you (Region Leader) - "no point" there counts toward
+    /// ScRetreat's cornered-away rule (NoPointStreak). HasRoom (round k5, the final Fable check's C1) lets R2 ask whether a
+    /// step back exists while she holds her melee weapon (on melee neither back-off scores, so nothing renewed "no room").
+    /// Followers away from home (but a hurt one who kites), strangers, enclave people, raiders and every other NPC keep
+    /// 0-XNPCCore's back-off as it is.
     /// The Start and GetMoveToLocation patches are bound by name (no reference to Voice Control's DLL), resolved in Prepare and
     /// off together, with one log line, when either is missing; the Update patch (F1, F5) is off on its own, with one warning.
     /// BackOffHome=false: no bound (0-XNPCCore's own back-off at home too) - the gain test still judges it (R3).
-    /// The task's Start and Update (and HandToShot, from the stand-off) are the only writers of this class's state (the UAI
-    /// considerations at the end of this file only read it). Main thread only.
+    /// The task's Start and Update are the only writers of this class's state (the UAI considerations at the end of this file
+    /// only read it; HasRoom only uses the shared scratch lists). Main thread only.
     /// </summary>
     public static class ScBackOff
     {
@@ -101,6 +110,10 @@ namespace SurvivorCommunity
         private const string ReloadingCvar = "SdcsReloading";
         /// <summary>R4: the action let through a member-wide beat while she reloads (0-XNPCCore's own name for it).</summary>
         private const string RangedBackOffAction = "BackupRanged";
+        /// <summary>Round k5: SCResident's action that runs this task for KITE's wide band (Config/utilityai.xml).</summary>
+        internal const string WideBackOffAction = "ScKiteWide";
+        /// <summary>Round k5: a "no point" verdict older than this no longer counts toward NoPointStreak.</summary>
+        private const float StreakSeconds = 5f;
 
         /// <summary>Her last bounded back-off (Start), the points she did not reach, and when she was last logged.</summary>
         internal sealed class Last
@@ -119,6 +132,10 @@ namespace SurvivorCommunity
             public bool Running, GainChecked, EndedOwn;
             /// <summary>R3: the last run took SC's point (Point, Step, Angle are its); false: 0-XNPCCore's own point, unbounded.</summary>
             public bool Bounded;
+            /// <summary>Round k5: the last run was ScKiteWide's (KITE's wide band); "no point" verdicts in a row (a pick that worked clears it), the last one's time.</summary>
+            public bool Wide;
+            public int NoPointStreak;
+            public float NoPointAt;
             public readonly List<Vector3> Bad = new List<Vector3>();
             public readonly List<float> BadUntil = new List<float>();
         }
@@ -172,7 +189,7 @@ namespace SurvivorCommunity
         /// <summary>
         /// The shot has this enemy's beat: SC found no point inside the base to back off to from it less than
         /// BackOffNoPointSeconds ago (per target), or the member is in a beat against every enemy (the re-review, R1: her last
-        /// back-off gained nothing - F1 - or rt1's stand-off is in a shooting beat; HandToShot). ScArms reads it too (F7).
+        /// back-off gained nothing - F1 - or a wide step's shooting beat, round k5; HandToShot). ScArms reads it too (F7).
         /// </summary>
         public static bool NoPointFor(EntityAlive self, EntityAlive target)
         {
@@ -213,8 +230,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// The Fable review (F1), member-wide since the re-review (R1): the shot has the next seconds against EVERY enemy -
         /// ScBackOffRoom scores both of 0-XNPCCore's back-offs 0 for her until then (never shortening a window already set;
-        /// R4: BackupRanged is let through while she reloads). The gain test, and rt1's stand-off (ScRetreat.Cornered when the
-        /// threat gains on her, ScRetreat.ShootBetweenSteps) for its shooting beats. target: only that the beat has one.
+        /// R4: BackupRanged and ScKiteWide are let through while she reloads). The gain test, and a wide step that ends inside
+        /// StandOffMin (round k5: step, shoot, step). target: only that the beat has one.
         /// </summary>
         internal static void HandToShot(EntityAlive self, EntityAlive target, float seconds)
         {
@@ -224,6 +241,38 @@ namespace SurvivorCommunity
             if (noPointUntil.TryGetValue(k, out had) && had >= until) return;
             noPointUntil[k] = until;
             handed++;
+        }
+
+        /// <summary>
+        /// Round k5: her "no point" verdicts in a row (BoundStart's; a pick that worked clears it), counted only while the last
+        /// is under StreakSeconds old - ScRetreat's cornered-away rule for KITE away from home reads it. A pure read.
+        /// </summary>
+        internal static int NoPointStreak(EntityAlive self)
+        {
+            Last l;
+            if (self == null || !lasts.TryGetValue(self.entityId, out l)) return 0;
+            return Time.time - l.NoPointAt <= StreakSeconds ? l.NoPointStreak : 0;
+        }
+
+        /// <summary>
+        /// Round k5 (the final Fable check's C1): would a step back from t exist now - the same pick BoundStart makes (inside the
+        /// base at home with BackOffHome, within StandOffFollowerLeash of you for KITE away from home, else k2b's short free
+        /// steps), up to 10 m? R2 asks it about once a second while she holds her melee weapon: on melee neither back-off scores,
+        /// so nothing else renews "no room". Nothing is written but the shared scratch lists (main thread, X5 only).
+        /// </summary>
+        internal static bool HasRoom(EntityAlive self, EntityAlive t, out string why)
+        {
+            why = null;
+            if (self == null || t == null) { why = "no target"; return false; }
+            EntityPlayer leader = null;
+            ScRetreat.Region region = ScRetreat.Region.Free;
+            if (UAI.UAIConsiderationScNotHomeMember.AtHome(self.position)) region = ScConfig.BackOffHome ? ScRetreat.Region.Home : ScRetreat.Region.Free;
+            else if (ScRetreat.KitesAway(self, out leader)) region = ScRetreat.Region.Leader;
+            Last l;
+            lasts.TryGetValue(self.entityId, out l);
+            Vector3 p;
+            float step, angle;
+            return Pick(self, t, 10f, region, leader, l, out p, out step, out angle, out why);
         }
 
         // ------------------------------------------------------------------ the pick ----
@@ -344,7 +393,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The bounded point for her back-off from threat (C#: the task's Start, or rt1's stand-off): the BackOffSteps up to
+        /// The bounded point for her back-off from threat (C#: the task's Start, k2b's heal back-off, R2's room probe): the BackOffSteps up to
         /// maxStep, longest first; on each the seven directions; the valid point (Candidate) with the lowest score - its angle
         /// (25 degrees count 1) plus each other enemy within CrowdRadius of it - on the first step that has one. last (the bound
         /// task's per-member memory, else null) sets aside the points she just failed to reach. False with why: none at all.
@@ -535,11 +584,19 @@ namespace SurvivorCommunity
             // the shot still has this beat: SCore starts a finished task again every other frame until the next decision
             // (ScBackOffRoom 0) moves on - end it again, with no new search
             UAI.UAIAction act = ctx.ActionData.Action;
-            if (Blocked(self, t, act != null && act.Name == RangedBackOffAction)) { EndAtOnce(ctx); return false; }
+            bool wideRun = act != null && act.Name == WideBackOffAction;
+            if (Blocked(self, t, act != null && (act.Name == RangedBackOffAction || wideRun))) { EndAtOnce(ctx); return false; }
             float max = MaxStep(task);
             if (max < 5f) return true;                                        // its 3 m "steer" branch (max_distance under 5): as it is
             Last l = LastOf(self.entityId);
-            if (!ScConfig.BackOffHome || !UAI.UAIConsiderationScNotHomeMember.AtHome(self.position))
+            l.Wide = wideRun;
+            // round k5: KITE away from home with you - both back-offs stay within StandOffFollowerLeash of you (the old stand-off's bound)
+            EntityPlayer leader;
+            bool atHome = UAI.UAIConsiderationScNotHomeMember.AtHome(self.position);
+            ScRetreat.Region region = ScRetreat.Region.Home;
+            if (!atHome && ScRetreat.KitesAway(self, out leader)) region = ScRetreat.Region.Leader;
+            else leader = null;
+            if (region == ScRetreat.Region.Home && (!ScConfig.BackOffHome || !atHome))
             {
                 // R3: away from home (or BackOffHome false) 0-XNPCCore picks the point, unbounded - the gain test still judges the run
                 l.From = self.position;
@@ -562,8 +619,9 @@ namespace SurvivorCommunity
             Vector3 p;
             float step, angle;
             string why;
-            if (Pick(self, t, max, ScRetreat.Region.Home, null, l, out p, out step, out angle, out why))
+            if (Pick(self, t, max, region, leader, l, out p, out step, out angle, out why))
             {
+                l.NoPointStreak = 0;
                 scopeId = self.entityId;
                 scopePoint = p;
                 l.Point = p;
@@ -587,7 +645,7 @@ namespace SurvivorCommunity
                 if ((shorter || Mathf.Abs(angle) > 25.5f) && now >= l.NextLog)
                 {
                     l.NextLog = now + LogSeconds;
-                    ScLog.Verbose(ScRetreat.Name(self) + " backs off from " + Who(t) + " inside the base: " + step.ToString("0.#", CultureInfo.InvariantCulture) + " m"
+                    ScLog.Verbose(ScRetreat.Name(self) + " backs off from " + Who(t) + (region == ScRetreat.Region.Leader ? " near you: " : " inside the base: ") + step.ToString("0.#", CultureInfo.InvariantCulture) + " m"
                                   + (shorter ? " (the longer steps leave the base or meet a wall)" : "") + (Mathf.Abs(angle) > 0.5f ? ", " + angle.ToString("0", CultureInfo.InvariantCulture) + " degrees off straight back" : "")
                                   + " (round k1)");
                 }
@@ -604,6 +662,8 @@ namespace SurvivorCommunity
             noPointUntil[Key(self.entityId, t.entityId)] = now + ScConfig.BackOffNoPointSeconds;
             noPoint++;
             Patches_Xnpc.Count("backoff-no-point");
+            l.NoPointStreak = now - l.NoPointAt <= StreakSeconds ? l.NoPointStreak + 1 : 1;
+            l.NoPointAt = now;
             l.At = now;
             l.From = self.position;
             l.Target = t.entityId;
@@ -614,7 +674,7 @@ namespace SurvivorCommunity
             l.Why = why ?? "";
             if (now < l.NextLog) return;
             l.NextLog = now + LogSeconds;
-            ScLog.Verbose(ScRetreat.Name(self) + " has no point inside the base to back off to from " + Who(t) + " (" + why + ") - the shot takes over for "
+            ScLog.Verbose(ScRetreat.Name(self) + " has no point " + (UAI.UAIConsiderationScNotHomeMember.AtHome(self.position) ? "inside the base" : "near you") + " to back off to from " + Who(t) + " (" + why + ") - the shot takes over for "
                           + ScConfig.BackOffNoPointSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s (round k1)");
         }
 
@@ -649,7 +709,14 @@ namespace SurvivorCommunity
                 l.EndedAt = now;
                 // F5: ended on its own with her not StallMove on and not at the point - that point had no path: set aside
                 if (l.Bounded && ScRunners.XZ(self.position, l.From) < StallMove && ScRunners.XZ(self.position, l.Point) > 1f) SetAside(l, now);
-                GainTest(self, t, l, now, "at its end");
+                // round k5 (rt1's "shoot between steps"): a wide run that gained but left the enemy inside StandOffMin - she shoots
+                // StandOffShootSeconds before the next step
+                if (GainTest(self, t, l, now, "at its end") && l.Wide && ScConfig.StandOffShootSeconds > 0f
+                    && ScRunners.XZ(self.position, t.position) < ScConfig.StandOffMin)
+                {
+                    HandToShot(self, t, ScConfig.StandOffShootSeconds);
+                    Patches_Xnpc.Count("backoff-wide-shoot");
+                }
                 return true;                                                  // its own Update stops it
             }
             if (l.GainChecked || now - l.At < GainSeconds) return true;
@@ -826,8 +893,12 @@ namespace SurvivorCommunity
             if (e == null) return "back-off: -";
             var sb = new StringBuilder("back-off (round k1): ");
             if (ScRegistry.GetMember(e.entityId) == null) return sb.Append("not a member - 0-XNPCCore's own").ToString();
-            sb.Append(!ScConfig.BackOffHome ? "unbounded (BackOffHome=false)" : AppliesTo(e) ? "at home - kept inside the base" : "away from home - 0-XNPCCore's own, unbounded");
+            EntityPlayer leader;
+            bool away = ScRetreat.KitesAway(e, out leader);
+            sb.Append(away ? "away from home, KITE hurt - within " + F1(ScConfig.StandOffFollowerLeash) + " m of you"
+                      : !ScConfig.BackOffHome ? "unbounded (BackOffHome=false)" : AppliesTo(e) ? "at home - kept inside the base" : "away from home - 0-XNPCCore's own, unbounded");
             sb.Append(", within ").Append(F1(ScConfig.BackupKeepDistanceMax)).Append(" m");
+            if (ScRetreat.Kites(e)) sb.Append(" (KITE's wide band: ScKiteWide within ").Append(F1(ScConfig.StandOffMin)).Append(" m)");
             Last l;
             float now = Time.time;
             if (lasts.TryGetValue(e.entityId, out l) && l.At > 0f)
@@ -836,6 +907,7 @@ namespace SurvivorCommunity
                 if (l.NoPoint) sb.Append("NO POINT (").Append(l.Why).Append(')');
                 else if (!l.Bounded) sb.Append("0-XNPCCore's own point (unbounded)");
                 else sb.Append(F1(l.Step)).Append(" m, ").Append(l.Angle.ToString("0", CultureInfo.InvariantCulture)).Append(" degrees, to ").Append(ScRetreat.Cell(l.Point));
+                if (l.Wide) sb.Append(" (ScKiteWide)");
                 if (!l.NoPoint) sb.Append(l.Running ? ", RUNNING (from " + F1(l.GapAtStart) + " m)" : l.EndedOwn ? ", ended on its own" : ", stopped");
                 if (l.Bad.Count > 0) sb.Append("; ").Append(l.Bad.Count).Append(" point(s) set aside (not reached)");
             }
@@ -847,7 +919,7 @@ namespace SurvivorCommunity
                 if ((int)(kv.Key & 0xFFFFFFFFL) == AnyTarget) beat = kv.Value - now;
                 else waiting++;
             }
-            if (beat > 0f) sb.Append("; the shot has the next ").Append(F1(beat)).Append(" s against every enemy (no gain, or a stand-off's shooting beat; BackupRanged only while reloading)");
+            if (beat > 0f) sb.Append("; the shot has the next ").Append(F1(beat)).Append(" s against every enemy (no gain, or a shooting beat between wide steps; BackupRanged and ScKiteWide only while reloading)");
             if (waiting > 0) sb.Append("; no point from ").Append(waiting).Append(" enemy(ies): the shot has those");
             return sb.ToString();
         }
@@ -864,9 +936,10 @@ namespace UAI
     /// Round k1: 0 against an enemy for BackOffNoPointSeconds after SC found no point inside the base to back off to from it
     /// (ScBackOff, on 0-XNPCCore's task's Start), else 1 - everyone but the community's members is always 1. On both of
     /// 0-XNPCCore's back-offs: the shot (6) takes that decision instead of a back-off that cannot go anywhere, then the back-off
-    /// is asked again. The Fable review (F1): also for StandOffShootSeconds after a back-off gained nothing, and through rt1's
-    /// stand-off shooting beats - member-wide since the re-review (R1: against every enemy, or two pursuers took turns).
-    /// reload="pass" (R4, BackupRanged's): that member-wide beat lets it through while she reloads (ScBackOff.Blocked).
+    /// is asked again. The Fable review (F1): also for StandOffShootSeconds after a back-off gained nothing, and after a wide
+    /// step (round k5) - member-wide since the re-review (R1: against every enemy, or two pursuers took turns).
+    /// reload="pass" (R4: BackupRanged's and ScKiteWide's): that member-wide beat lets it through while she reloads
+    /// (ScBackOff.Blocked). Also on SCResident's ScKiteWide (round k5).
     /// A pure read; a throw is logged once and means 1.
     /// </summary>
     public class UAIConsiderationScBackOffRoom : UAIConsiderationBase

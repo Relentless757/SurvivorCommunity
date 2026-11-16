@@ -474,7 +474,7 @@ namespace SurvivorCommunity
                 float away = Vector3.Distance(pos, PostCenter(m));
                 // zone roaming (round hz): anywhere in the home zone (+ ResidentRoamZoneMargin) is near enough - the far rule
                 // only counts outside it, so a resident walking the base is never teleported back to the post
-                // round rt1: so is a member the retreat owns (a shelter spot or a stand-off point can be far from the post)
+                // round rt1: so is a member the retreat owns (a shelter spot or KITE's back-off point can be far from the post)
                 bool homeGround = (ScConfig.ResidentRoamZone || ScRetreat.Owns(npc)) && ScZone.DistanceOutside(pos) <= ScConfig.ResidentRoamZoneMargin;
                 if (away > farLimit && !(wide && ScBaseAttack.InDefenceArea(pos, ScBaseAttack.LeashExtra)) && !homeGround && !onShift) m.AwaySeconds++; else m.AwaySeconds = 0;
                 int noGain = ScConfig.StuckNoGain ? ScStuck.GainSeconds(m) : 0;

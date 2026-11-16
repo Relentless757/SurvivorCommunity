@@ -374,6 +374,34 @@ Staying home, roaming and defending
   look away (at most 60 seconds). A resident who keeps getting stuck is given a new post. Posts and roaming spots are
   always on a real floor, and never in or right beside a wreck.
 
+When they are badly hurt
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- A member below 35% health who has nothing to heal with (no first aid bandage or kit in her pack or bag) stops
+  fighting. Away from home she runs from the enemy. At home she does not leave the base:
+  - With a gun or bow that has ammo she kites: she keeps her gun and backs away from any zombie she sees within 8 m - a
+    step of 10, 6 or 3 m at a time, inside the base and out of every zombie's reach - and keeps going to about 15 m from
+    it (never farther than she can shoot). Between two short steps she shoots for 1.5 seconds; a step that does not get
+    her away (a fast zombie keeps pace) gives way to the shot too. With no room at all she stands and shoots, and tries
+    again a second later.
+  - Without one (or against raiders and bandits within 30 m, who shoot back) she retreats inside: she runs to a room with
+    a roof and walls - beside a bed, a work station, a post, not right beside a door - away from the enemy, shuts the
+    doors she passed behind her, and holds there, fighting only what reaches her (not a zombie pounding on the door). A
+    base with no roofed room: a walled corner, else the far side of the yard beside another member or you.
+  - It ends once she is back above 45% health or no enemy has been about for 20 seconds. She never shelters for good:
+    with medical bundles in the stockpile she is restocked while she shelters, and once nothing has been after her for
+    5 seconds she comes out, bandages and goes back to her routine; with none, she comes out after 2 minutes once
+    nothing has been after her for 5 seconds. For 20 seconds after that only a zombie that is after her sends her back
+    in. Hand her a bandage and she uses it there.
+- While she is that hurt she is never walked to a fight, at home or away: the base defense and the melee chase leave her
+  be.
+- Cowardly members at home retreat inside the same way instead of running from the base (in a fight your side can win,
+  one with a gun still hangs back and shoots). Followers away from home with a gun kite within 20 m of you instead of
+  running (with nowhere to step back to near you twice in a row, they run as before for a moment); without one they
+  run as before. Runners on a job still give it up and come home (section 8). Guards on watch hold their post.
+- "RetreatHome" and the other "Retreat...", "Shelter..." and "StandOff..." settings (section 20) tune or turn it off;
+  "sc retreat <name>" shows why she is or is not retreating.
+
 Doors
 ~~~~~
 
@@ -383,6 +411,8 @@ Doors
   anyone else's, stay shut.
 - Drawbridges and hatches are opened and shut again too, so a base whose only way out is a hatch or a bridge does not
   trap its people.
+- A member retreating inside also shuts the ordinary doors she ran through that you had left open - never a drawbridge
+  or a hatch she did not open herself, and never one right beside you.
 
 Missing members, leaving and death
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1265,8 +1295,9 @@ Weapons
   on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. A back-off that does
   not get them away - the zombie keeps pace, or several do - stops after about 1.5 seconds and they shoot instead, at
   home and away. Cornered and reloading (or cornered for 3 seconds straight without one shot at the zombie), they
-  swing their melee weapon and stay on it until they have room again - never at a cop or a zombie they cannot swing at,
-  and if no swing lands in 2.5 seconds (a fence or bars in the way) the gun comes back. Away from home they back off as the NPC framework does.
+  swing their melee weapon and stay on it until they have room again - never at a cop, an armed enemy or a zombie they
+  cannot swing at; if no swing lands in 2.5 seconds (a fence or bars in the way) the gun comes back and they leave that
+  rule alone for 10 seconds. A badly hurt member with nothing to heal with keeps her distance from 8 m. Away from home they back off as the NPC framework does.
   "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
 - Team strength (your members): each one weighs her side - her Fighting stars, health and weapon, the other members near
   her, and you (you count double, but only while you are fighting: you hit a zombie near her in the last 5 seconds - a
@@ -1678,10 +1709,18 @@ NPCs and voices
 - BackOffSteps = 10, 6, 3: The steps back tried (meters), longest first
 - BackupKeepDistanceMax = 2.5: A member with a gun backs off from an enemy this close; farther off she shoots (the
   framework's own is 4)
-- BackOffNoPointSeconds = 1: With no spot to back off to (or cornered while standing off) she shoots this long, then
-  tries again
-- StandOffShootSeconds = 1.5: A hurt member standing off shoots this long between two short steps back; a member whose
+- BackOffNoPointSeconds = 1: With no spot to back off to she shoots this long, then tries again
+- StandOffShootSeconds = 1.5: A badly hurt member kiting shoots this long between two short steps back; a member whose
   back-off gained nothing shoots this long too
+- RetreatHome = true: Badly hurt members with nothing to heal with stay in the base: they kite with a gun or shelter
+  inside; false: they run as before
+- RetreatHealedAt / RetreatClearSeconds / RetreatMaxSeconds = 0.45 / 20 / 120: A retreat ends at this share of her
+  health, or after this many seconds with no enemy about; a shelter also ends after the third once nothing has been
+  after her for 5 s (0: never by time)
+- StandOffMin / StandOffMax = 8 / 15: A badly hurt member with a gun backs off from a zombie within the first (meters),
+  and keeps a step going to about the second
+- StandOffFollowerLeash = 20: Away from home a badly hurt follower with a gun kites within this many meters of you; 0:
+  she runs as before
 - TeamThreatTags = walker:1, feral:2, radiated:3 ...: How much each kind of enemy counts (the comment in blocks.xml
   lists all of the "Team..." settings)
 - DialogLine = true: Show the NPC's line above your responses

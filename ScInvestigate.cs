@@ -23,7 +23,7 @@ namespace SurvivorCommunity
     /// home block and the residents' posts, so a cellar, a mine or a roof under or over the base is not "inside"). Each gets
     /// InvestigateResponders (2) RESPONDERS: the nearest free
     /// residents within InvestigateRadius (0: the whole zone) - at home, on the Guard order, not on watch, not on a work shift, not
-    /// Cowardly, not sheltering or standing off (rt1), at TeamLowHealth health or more (the MELEE line), not asleep, not in another
+    /// Cowardly, not sheltering or kiting hurt (rt1, k5), at TeamLowHealth health or more (the MELEE line), not asleep, not in another
     /// fight, not resting after a stray, and (a resident who does not roam the zone) within DefendBaseRadius of her post - that
     /// one also while she answers (F7: past it ScReturn's leash would walk her back, and she would pace). One intruder per
     /// responder. A responder stays one while she stays free (no flip to a nearer member); only one who is not is replaced.
@@ -356,7 +356,7 @@ namespace SurvivorCommunity
             if (npc.Buffs == null || !npc.Buffs.HasCustomVar("CurrentOrder")
                 || Mathf.RoundToInt(npc.Buffs.GetCustomVar("CurrentOrder")) != (int)EntityUtilities.Orders.Guard) return "not on the Guard order";
             if (ScTraits.IsTimid(m)) return "Cowardly";
-            if (ScRetreat.Owns(npc)) return "sheltering or standing off";
+            if (ScRetreat.Owns(npc)) return "sheltering or kiting hurt";
             int max = npc.GetMaxHealth();
             if (max > 0 && (float)npc.Health / max < ScConfig.TeamLowHealth) return "hurt below " + F0(ScConfig.TeamLowHealth * 100f) + "%";
             EntityAlive own = npc.GetAttackTarget();

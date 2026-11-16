@@ -12,10 +12,13 @@ namespace SurvivorCommunity
     /// RetreatHome=false is exactly the behavior before this round (every new gate answers 1, nothing new runs).
     /// Round k1 adds the back-off keys (ScBackOff: BackOffHome, BackOffSteps, BackupKeepDistanceMax, BackOffNoPointSeconds,
     /// StandOffShootSeconds) here, after StandOffFollowerLeash; they are not behind RetreatHome. ResetRetreat clears ScBackOff too.
+    /// Round k5 keeps every key: StandOffMin / StandOffMax are now KITE's wide band (a hurt member with a gun backs off from what
+    /// comes within StandOffMin, the run kept up to StandOffMax), StandOffFollowerLeash its bound away from home, and
+    /// RetreatMaxSeconds (new) ends a shelter that has lasted that long once nothing is after her.
     /// </summary>
     public static partial class ScConfig
     {
-        /// <summary>Decision 13: hurt members (and cowards) at home retreat inside or stand off with a gun; false: as before round rt1.</summary>
+        /// <summary>Decision 13: hurt members (and cowards) at home retreat inside, or kite with a gun (round k5); false: as before round rt1.</summary>
         public static bool RetreatHome = true;
         /// <summary>Decision 6: a Cowardly member at home who is not hanging back (tm1) shelters instead of running from the base.</summary>
         public static bool RetreatCowards = true;
@@ -23,6 +26,12 @@ namespace SurvivorCommunity
         public static float RetreatHealedAt = 0.45f;
         /// <summary>Decision 8: a retreat ends once no threat has been about for this many seconds.</summary>
         public static float RetreatClearSeconds = 20f;
+        /// <summary>
+        /// Round k5 ("no member stays in shelter forever"): a shelter that has lasted this many seconds ends once nothing has been
+        /// after her for 5 s, healed or not (0: never by time). Its restock exit (she can heal again, nothing after her for 5 s)
+        /// needs no time at all.
+        /// </summary>
+        public static float RetreatMaxSeconds = 120f;
         /// <summary>Decision 8: a sheltering member fights back at an enemy within this many meters that is after her.</summary>
         public static float RetreatFightBackRange = 2.5f;
         /// <summary>A shelter spot has a wall (or a door) within 6 cells in at least this many of the 8 directions at head height.</summary>
@@ -31,11 +40,11 @@ namespace SurvivorCommunity
         public static float ShelterMinThreatDist = 12f;
         /// <summary>Real seconds between two scans of the home zone for shelter spots (also rescanned when the zone changes).</summary>
         public static float ShelterRescanSeconds = 300f;
-        /// <summary>Decision 2: a hurt member with a gun backs off from an enemy inside this many meters...</summary>
+        /// <summary>Decision 2, round k5: KITE's wide band - a hurt member with a gun backs off from an enemy inside this many meters...</summary>
         public static float StandOffMin = 8f;
-        /// <summary>...to about this far from it, never past her engage range minus 1 m.</summary>
+        /// <summary>...a run kept up until about this far from it, never past her engage range minus 1 m.</summary>
         public static float StandOffMax = 15f;
-        /// <summary>Decision 4: away from home a follower with a gun stands off within this many meters of you (0: she flees as before).</summary>
+        /// <summary>Decision 4: away from home a follower with a gun kites within this many meters of you (0: she flees as before).</summary>
         public static float StandOffFollowerLeash = 20f;
 
         // ---- round k1 (2026-11-15, ScBackOff): 0-XNPCCore's back-offs work again for members, kept inside the base. Not behind
@@ -45,7 +54,7 @@ namespace SurvivorCommunity
         public const string DefaultBackOffSteps = "10,6,3";
         /// <summary>Round k1: at home 0-XNPCCore's back-off goes to a point SC picks inside the base (ScBackOff); false: its own, unbounded.</summary>
         public static bool BackOffHome = true;
-        /// <summary>Round k1: the steps (meters) tried for a back-off at home and for a stand-off's shorter steps, longest first.</summary>
+        /// <summary>Round k1: the steps (meters) tried for a back-off at home (and KITE's wide band, round k5), longest first.</summary>
         public static string BackOffSteps = DefaultBackOffSteps;
         /// <summary>
         /// Round k1: a member backs off (0-XNPCCore's BackupKeepDistance, weight 8) only from an enemy this close - its own band is
@@ -54,11 +63,10 @@ namespace SurvivorCommunity
         /// </summary>
         public static float BackupKeepDistanceMax = 2.5f;
         /// <summary>
-        /// Round k1: when no step fits, the back-off waits this long against that enemy - one decision: the shot takes it - and a
-        /// cornered stand-off stands and shoots this long (it was 3 s).
+        /// Round k1: when no step fits, the back-off waits this long against that enemy - one decision: the shot takes it.
         /// </summary>
         public static float BackOffNoPointSeconds = 1f;
-        /// <summary>Round k1: a stand-off step that leaves the enemy inside StandOffMin is followed by this long of shooting before the next step.</summary>
+        /// <summary>Round k1: a back-off that gained nothing - and round k5: a wide step that leaves the enemy inside StandOffMin - is followed by this long of shooting.</summary>
         public static float StandOffShootSeconds = 1.5f;
         private static List<float> backOffStepList;
 
@@ -106,6 +114,7 @@ namespace SurvivorCommunity
             RetreatCowards = true;
             RetreatHealedAt = 0.45f;
             RetreatClearSeconds = 20f;
+            RetreatMaxSeconds = 120f;
             RetreatFightBackRange = 2.5f;
             ShelterWalls = 6;
             ShelterMinThreatDist = 12f;
@@ -139,6 +148,7 @@ namespace SurvivorCommunity
                 RetreatHealedAt = to;
             }
             ParseFloat(p, "RetreatClearSeconds", ref RetreatClearSeconds, 0f, 600f);
+            ParseFloat(p, "RetreatMaxSeconds", ref RetreatMaxSeconds, 0f, 3600f);
             ParseFloat(p, "RetreatFightBackRange", ref RetreatFightBackRange, 0.5f, 10f);
             ParseInt(p, "ShelterWalls", ref ShelterWalls, 1, 8);
             ParseFloat(p, "ShelterMinThreatDist", ref ShelterMinThreatDist, 0f, 60f);
@@ -167,9 +177,9 @@ namespace SurvivorCommunity
             return (BackOffHome ? "at home kept inside the base (steps " + BackOffStepsText() + " m on 7 directions, out of reach of every enemy)"
                                 : "NOT bounded at home (BackOffHome false: 0-XNPCCore's own back-off)")
                    + "; members back off within " + F2(BackupKeepDistanceMax) + " m (0-XNPCCore's band is 4: the shot wins beyond)"
-                   + "; no point: the shot takes " + F2(BackOffNoPointSeconds) + " s (a cornered stand-off too)"
+                   + "; no point: the shot takes " + F2(BackOffNoPointSeconds) + " s"
                    + "; a back-off that gains nothing (1.5 s in, or at its end: still within " + F2(BackupKeepDistanceMax) + " m or the gap not 1 m larger)"
-                   + " and a short stand-off step are followed by " + F2(StandOffShootSeconds) + " s of shooting";
+                   + " and a wide step that ends inside " + F2(StandOffMin) + " m are followed by " + F2(StandOffShootSeconds) + " s of shooting";
         }
 
         /// <summary>Round rt1: the retreat keys in one line (the load log, sc retreat).</summary>
@@ -178,10 +188,12 @@ namespace SurvivorCommunity
             if (!RetreatHome) return "off (RetreatHome false: hurt members flee as before round rt1)";
             return "on: at home a member hurt below " + F2(FleeBelowHealth) + " with nothing to heal with"
                    + (RetreatCowards ? ", or Cowardly and not hanging back," : " (cowards flee as before: RetreatCowards false)")
-                   + " shelters inside (a roof, " + ShelterWalls + " of 8 walls, " + F2(ShelterMinThreatDist) + " m from the threat) or, hurt with a gun, stands off "
-                   + F2(StandOffMin) + "-" + F2(StandOffMax) + " m; ends at " + F2(RetreatHealedAt) + " health or " + F2(RetreatClearSeconds)
-                   + " s without a threat; fights back within " + F2(RetreatFightBackRange) + " m; "
-                   + (StandOffFollowerLeash > 0f ? "followers away stand off within " + F2(StandOffFollowerLeash) + " m of you" : "followers away flee as before (StandOffFollowerLeash 0)")
+                   + " shelters inside (a roof, " + ShelterWalls + " of 8 walls, " + F2(ShelterMinThreatDist) + " m from the threat) or, hurt with a gun, KITEs with the wide band ("
+                   + F2(StandOffMin) + " m, a run kept up to " + F2(StandOffMax) + " m); ends at " + F2(RetreatHealedAt) + " health or " + F2(RetreatClearSeconds)
+                   + " s without a threat; a shelter also ends once she can heal again (the stockpile's restock) and nothing has been after her for 5 s"
+                   + (RetreatMaxSeconds > 0f ? ", or after " + F2(RetreatMaxSeconds) + " s once nothing has been after her for 5 s" : "")
+                   + "; fights back within " + F2(RetreatFightBackRange) + " m; "
+                   + (StandOffFollowerLeash > 0f ? "followers away kite within " + F2(StandOffFollowerLeash) + " m of you" : "followers away flee as before (StandOffFollowerLeash 0)")
                    + "; shelter scan every " + ShelterRescanSeconds.ToString("0", CultureInfo.InvariantCulture) + " s";
         }
     }

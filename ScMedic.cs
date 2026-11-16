@@ -1152,6 +1152,26 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
+        /// Round k5: where a restock at home stands for her right now, in a few words - sc retreat and ScRetreat's exit lines (the
+        /// shelter's restock exit waits for HomeTick's restock). A pure read.
+        /// </summary>
+        internal static string RestockText(EntityAlive e)
+        {
+            try
+            {
+                Member m = e != null ? ScRegistry.GetMember(e.entityId) : null;
+                if (m == null || e.world == null) return "-";
+                Check c = Evaluate(m, e, RestockMode.Home, e.world.worldTime);
+                return c.Due ? (c.Emergency ? "due at the next 5 s check (an emergency: the cooldown ignored)" : "due at the next 5 s check") : "not now - " + c.Why;
+            }
+            catch (Exception ex)
+            {
+                ScLog.Once("medic-restock-text", ex);
+                return "?";
+            }
+        }
+
+        /// <summary>
         /// Where a restock stands for her right now - a pure read (UAI never calls it; HomeTick, BeforeRun and sc meds do).
         /// Home: decisions 14 (fewer than MedsResupplyBelow heal items), 16 (the cooldown), 18 (her status, AtHome), not mid-use.
         /// Run: fewer than MedsResupplyRunBelow, the cooldown ignored (decision 16), not mid-use (the run goes all the same).

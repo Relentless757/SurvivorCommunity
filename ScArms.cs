@@ -136,6 +136,21 @@ namespace SurvivorCommunity
             /// medical use) restarts CorneredHeldAt, so time she could not swing never counts as "no swing".</summary>
             public float CorneredTickAt;
             public int SkipNoted = -1;
+            /// <summary>
+            /// Round k5 (the final Fable check's C1): R2's room probe (ScBackOff.HasRoom) - when it runs next, and whether the last
+            /// found no step back. On melee neither back-off scores, so nothing else renews "no room": without it the gun came back
+            /// for a moment about every 6 s while she stayed truly pinned.
+            /// </summary>
+            public float RoomProbeAt;
+            public bool RoomProbeNone;
+            /// <summary>Round k5 (the Fable re-review's R2-rotation): after a no-swing end R2 rests until then, whatever the target.</summary>
+            public float R2RestUntil;
+            /// <summary>
+            /// Round k5 (the Fable re-review's R3): since when R2's target has been lost (SCore's 1 s attack-target lease; 0: it is
+            /// there), and whether that lapse is held this tick (0-XNPCCore's own tick is skipped, so its "target gone" exit waits).
+            /// </summary>
+            public float CorneredLostAt;
+            public bool CorneredLapse;
         }
 
         /// <summary>The Fable review of round tm1 (finding 7): how long the hand rule waits after an equip that did not take.</summary>
@@ -162,6 +177,10 @@ namespace SurvivorCommunity
         /// since the melee weapon came into her hand: a fence, bars or a block 0-XNPCCore's own checks let through.
         /// </summary>
         private const float CorneredNoSwingSeconds = 2.5f;
+        /// <summary>Round k5 (C1): R2's room probe runs at most this often.</summary>
+        private const float RoomProbeSeconds = 1f;
+        /// <summary>Round k5 (R2-rotation): after a no-swing end R2 rests this long, whatever the target (3 or 4 zombies at a fence take turns).</summary>
+        private const float R2RestSeconds = 10f;
 
         private static readonly Dictionary<int, Watch> watch = new Dictionary<int, Watch>();
         private static readonly List<Entity> near = new List<Entity>();
@@ -296,7 +315,7 @@ namespace SurvivorCommunity
         /// overwhelmed - skip (no swap to melee). On melee past 0-XNPCCore's own minimum hold: a swarm that has held (SwarmHeld)
         /// - restore the gun, as its exit would, and skip; else 0-XNPCCore's exit while an enemy is still within reach, or just
         /// after the target was lost - skip (HoldMelee). Anything else is 0-XNPCCore's own logic. Round k4: the members' parts
-        /// (a guard's gun up close, tm2's holds, rt1's stand-off, R2) moved into Hand.
+        /// (a guard's gun up close, the hurt member's gun, R2) moved into Hand.
         /// </summary>
         public static bool CloseRange(AvatarSDCSController ctrl, EntityAlive e)
         {
@@ -551,7 +570,7 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The Fable review (F7): the shot has her target's beat - no back-off from it now (ScBackOff.NoPointFor: no point inside
-        /// the base, a back-off that gained nothing, a stand-off's shooting beat). Her attack target, else her revenge target.
+        /// the base, a back-off that gained nothing, a shooting beat between wide steps). Her attack target, else her revenge target.
         /// </summary>
         private static bool CorneredOnTarget(EntityAlive e)
         {
@@ -570,7 +589,11 @@ namespace SurvivorCommunity
         /// or when she has not swung for CorneredNoSwingSeconds since the melee weapon came into her hand (NoSwing: a fence or
         /// bars 0-XNPCCore let her into its bout through; the swing then counts as refused - KITE against that target, R2 skips
         /// it). F1 also stopped clearing 0-XNPCCore's remembered gun in its bout (round k1 did): its exits within 5 m are its
-        /// verdicts that she cannot swing there (shoot-through, a wall, unreachable), and they must bring the gun back. X5 only.
+        /// verdicts that she cannot swing there (shoot-through, a wall, unreachable), and they must bring the gun back.
+        /// Round k5: "no room" is renewed on melee by ScBackOff.HasRoom at most every RoomProbeSeconds (C1: nothing else renews
+        /// it there, and the gun came back for a moment about every 6 s while she stayed pinned); a no-swing end rests R2 for
+        /// R2RestSeconds whatever the target (R2-rotation); and a target lost for a moment (SCore's 1 s attack-target lease)
+        /// with an enemy within 3 m is held MeleeExitGraceSeconds, 0-XNPCCore's tick skipped meanwhile (R3). X5 only.
         /// </summary>
         private static bool CorneredMeleeHolds(AvatarSdcsNpcController c, EntityAlive e, float now)
         {
@@ -584,7 +607,24 @@ namespace SurvivorCommunity
             }
             EntityAlive t = e.GetAttackTarget();
             if (t == null || t.IsDead()) t = e.GetRevengeTarget();
-            if (t == null || t.IsDead()) { EndCornered(c, st, e, ScRetreat.Her(e) + " target is dead or gone"); return false; }
+            st.CorneredLapse = false;
+            if (t == null || t.IsDead())
+            {
+                // round k5 (the Fable re-review's R3): SCore leases the attack target for 1 s, so with the zombie at 1 m it can
+                // read as gone for a moment - held MeleeExitGraceSeconds while an enemy is within 3 m (HoldMelee's rule for
+                // strangers), with 0-XNPCCore's own tick skipped meanwhile (KiteHand), whose "target gone" exit would end R2
+                bool firstLapse = st.CorneredLostAt <= 0f;
+                if (firstLapse) st.CorneredLostAt = now;
+                if (now - st.CorneredLostAt < MeleeExitGraceSeconds && EnemyWithin(e, XnpcCloseEnterDist))
+                {
+                    st.CorneredLapse = true;
+                    if (firstLapse) Patches_Xnpc.Count("x5-cornered-lapse-held");          // once per lapse
+                    return true;
+                }
+                EndCornered(c, st, e, ScRetreat.Her(e) + " target is dead or gone");
+                return false;
+            }
+            st.CorneredLostAt = 0f;
             if (NoSwing(st, e, now))
             {
                 string why = "no swing in " + CorneredNoSwingSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s with " + ScRetreat.Her(e)
@@ -592,9 +632,24 @@ namespace SurvivorCommunity
                 Patches_Xnpc.Count("x5-cornered-noswing-end");
                 EndCornered(c, st, e, why);
                 ScPosture.NoteRefused(e, t, why + " - R2's melee ended");
+                st.R2RestUntil = now + R2RestSeconds;                     // round k5 (R2-rotation): no R2 for a while, whatever the target
                 return false;
             }
-            if (ScBackOff.NoPointFor(e, t)) st.RoomSince = 0f;
+            // round k5 (C1): "no room" is renewed by the back-offs' own verdicts (NoPointFor) or, on melee - where neither
+            // back-off scores - by a probe at most once a second (ScBackOff.HasRoom: the same bounded pick)
+            bool noRoom = ScBackOff.NoPointFor(e, t);
+            if (!noRoom)
+            {
+                if (now >= st.RoomProbeAt)
+                {
+                    st.RoomProbeAt = now + RoomProbeSeconds;
+                    string probeWhy;
+                    st.RoomProbeNone = !ScBackOff.HasRoom(e, t, out probeWhy);
+                    Patches_Xnpc.Count(st.RoomProbeNone ? "x5-cornered-probe-none" : "x5-cornered-probe-room");
+                }
+                noRoom = st.RoomProbeNone;
+            }
+            if (noRoom) st.RoomSince = 0f;
             else if (st.RoomSince <= 0f) st.RoomSince = now;
             bool swapHold = !ScPosture.HandClockAllows(e, now);       // round k4: the one hand clock (was the shared swap hold)
             if (!swapHold && st.RoomSince > 0f && now - st.RoomSince >= CorneredRoomSeconds)
@@ -674,11 +729,17 @@ namespace SurvivorCommunity
         /// <summary>
         /// F1 (the Fable review of k3+k4): why R2 must not swap her to melee at t, else null - a swing at it refused before
         /// (ScPosture.RefusedWhy: 0-XNPCCore's refusal exits and its unreachable mark, R2's own "no swing"), 0-XNPCCore's last
-        /// refusal of its swap ("wall between", "unreachable", "wall re-enter"), a melee-unsafe target, or (R5) an armed one. A read.
+        /// refusal of its swap ("wall between", "unreachable", "wall re-enter"), a melee-unsafe target, or (R5) an armed one -
+        /// and round k5 (R2-rotation): R2RestSeconds after a no-swing end, any target (a dry gun at a fence with three or four
+        /// zombies taking turns started R2 again on each). A read.
         /// </summary>
         private static string R2Skip(AvatarSdcsNpcController c, EntityAlive e, EntityAlive t)
         {
             if (t == null) return "no target";
+            Watch rw;
+            float now = Time.time;
+            if (watch.TryGetValue(e.entityId, out rw) && now < rw.R2RestUntil)
+                return "R2 rests " + (rw.R2RestUntil - now).ToString("0", System.Globalization.CultureInfo.InvariantCulture) + " s more after a swing that never came (round k5)";
             string r = ScPosture.RefusedWhy(e, t);
             if (r != null) return r;
             r = SwapRefusal(c);
@@ -727,6 +788,10 @@ namespace SurvivorCommunity
             st.CorneredHeld = null;
             st.CorneredHeldAt = 0f;
             st.CorneredTickAt = 0f;
+            st.RoomProbeAt = 0f;
+            st.RoomProbeNone = false;
+            st.CorneredLostAt = 0f;
+            st.CorneredLapse = false;
             st.NoShotSince = Time.time;                 // F1: another "no shot" trigger needs KiteNoShotSeconds again
             if (c != null && CloseMelee(c) && string.IsNullOrEmpty(Remembered(c)) && !string.IsNullOrEmpty(st.CorneredGun))
                 rememberedField.SetValue(c, st.CorneredGun);
@@ -918,7 +983,7 @@ namespace SurvivorCommunity
             bool clock = ScPosture.HandClockAllows(e, now) || pv.UrgentGun;
             if (bout)
             {
-                if (CorneredMeleeHolds(c, e, now)) return true;                      // R2: melee until room (or its own exit, or no swing)
+                if (CorneredMeleeHolds(c, e, now)) return !st.CorneredLapse;          // R2: melee until room (or its own exit, or no swing); R3: a lapse held
                 if (pv.NativeClose) return true;                                     // a runner: 0-XNPCCore's own bout and exit
                 if (pv.Waiting) return true;
                 if (!clock) { ScPosture.NoteHeld(e); return true; }                  // its own exit at 5 m agrees with KITE

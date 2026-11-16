@@ -26,8 +26,10 @@ namespace SurvivorCommunity
     ///            approach. A gun holder stays KITE until her target is within PostureMeleeDist (4 m), then takes her melee
     ///            weapon once; a member whose best skill is Shooting keeps a loaded gun (KITE). A player's melee order is MELEE.
     ///   KITE     any other fight with a gun that has rounds: outmatched, overwhelmed, hurt, a target she cannot swing at, a gun
-    ///            order, rt1's stand-off. Her gun, 0-XNPCCore's 3 m swap held (R2: reloading or no shot for 3 s with no room, melee until room);
-    ///            the back-offs (inside the base at home); no approach with the gun (with the melee weapon still in hand - the
+    ///            order, hurt with nothing to heal with (ScRetreat's Kite mode: then the WIDE band - SCResident's ScKiteWide backs
+    ///            her off from what comes within StandOffMin; round k5, was rt1's stand-off). Her gun, 0-XNPCCore's 3 m swap held
+    ///            (R2: reloading or no shot for 3 s with no room, melee until room); the back-offs (inside the base at home); no
+    ///            approach with the gun (with the melee weapon still in hand - the
     ///            draw held, R2, a runner's bout - the approach, as the back-offs need a gun). With no gun that has rounds she
     ///            can only swing: MELEE.
     ///   INVESTIGATE  a resident sent to an intruder that is after nobody (ScInvestigate) while she has no other fight: the
@@ -36,8 +38,8 @@ namespace SurvivorCommunity
     ///
     /// Hysteresis (the user: ten swaps in 2 min 45 s were the problem): a switch between the MELEE and KITE stances waits
     /// PostureDwellSeconds after the last switch AND TeamSwapHoldSeconds after the last change of her hand (anyone's) - except
-    /// when her target needs the gun (a cop, an armed enemy, past her leash, out of reach - and rt1's stand-off: the switch and
-    /// the draw at once), when the gun runs dry (at once) and for the gun holder's one swap at PostureMeleeDist. So the hand
+    /// when her target needs the gun (a cop, an armed enemy, past her leash, out of reach - and KITE hurt: the switch and the
+    /// draw at once), when the gun runs dry (at once) and for the gun holder's one swap at PostureMeleeDist. So the hand
     /// changes at most once per dwell, a target that needs the gun excepted.
     /// Runners on a run (KITE) keep 0-XNPCCore's 3 m swap and round n08's 5 m draw (NativeClose): their walk decides.
     /// Strangers, enclave people and raiders have no posture (the overwhelmed rule as before, ScArms.CloseRange).
@@ -212,8 +214,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// The posture this tick wants (see the class summary), with why, the stance (kiting: the gun), soft (KITE only for the
-        /// gun holder's distance), native (a runner), urgent (no dwell: her target needs the gun, the gun is dry, a stand-off),
-        /// urgentGun (her target needs the gun - melee-unsafe, armed, past her leash, out of reach - or rt1's stand-off: the draw
+        /// gun holder's distance), native (a runner), urgent (no dwell: her target needs the gun, the gun is dry, KITE hurt),
+        /// urgentGun (her target needs the gun - melee-unsafe, armed, past her leash, out of reach - or KITE hurt: the draw
         /// does not wait for the hand clock, since with her melee weapon in KITE she could not back off) and her target.
         /// </summary>
         private static Posture Want(EntityAlive e, Member m, State st, out string why, out bool kiting, out bool soft, out bool native, out bool urgent,
@@ -242,7 +244,7 @@ namespace SurvivorCommunity
             int count = 0, need = 0;
             bool over = ScConfig.Overwhelmed && ScArms.IsOverwhelmed(e, out count, out need);   // X5 only: it recounts
             bool melee;
-            if (ScRetreat.StandsOff(e)) { melee = false; urgent = urgentGun = true; why = "standing off (round rt1: hurt, nothing to heal with, a gun with rounds)"; }
+            if (ScRetreat.Kites(e)) { melee = false; urgent = urgentGun = true; why = "hurt with nothing to heal with, a gun with rounds: KITE's wide band (round k5, was rt1's stand-off)"; }
             else if (ScArms.OrderedMelee(e)) { melee = true; why = "you ordered " + ScRetreat.Her(e) + " melee weapon"; }
             else if (ScArms.OrderedRanged(e) && gunRounds) { melee = false; why = "you ordered " + ScRetreat.Her(e) + " gun"; }
             else
@@ -474,6 +476,19 @@ namespace SurvivorCommunity
             return true;
         }
 
+        /// <summary>
+        /// Round k5: KITE's wide band is hers - ScRetreat's Kite mode (hurt with nothing to heal with, a gun with rounds, no armed
+        /// enemy), unless a fresh posture holds the melee stance (MELEE, INVESTIGATE with the melee weapon - not possible while
+        /// she kites hurt, but read so) - KITE, INVESTIGATE with the gun, none (no counted target yet: a zombie that merely sees
+        /// her) and no fresh posture all keep it. UAIConsiderationScPosture action="wide" on SCResident's ScKiteWide. A pure read.
+        /// </summary>
+        internal static bool KitesWide(EntityAlive e)
+        {
+            if (!ScRetreat.Kites(e)) return false;
+            View v;
+            return !Of(e, out v) || v.P == Posture.None || GunStance(v.P, v.Kiting);
+        }
+
         /// <summary>F1: when her hand last changed (SC's swap or 0-XNPCCore's), -1000 with no posture. A pure read.</summary>
         internal static float HandChangedAt(EntityAlive e)
         {
@@ -614,7 +629,8 @@ namespace SurvivorCommunity
             bool stale = now - st.At > FreshSeconds;
             lines.Add("[SC]   posture (round k4): " + Name(st.P, st.Kiting) + " for " + (now - st.Since).ToString("0.0", CultureInfo.InvariantCulture) + " s" + (stale ? " (STALE - reads as none)" : "")
                       + " - " + st.Why + (st.TargetId >= 0 ? "; target #" + st.TargetId + " at " + F1(st.TargetDist) + " m" : "")
-                      + (st.NativeClose ? "; 0-XNPCCore's 3 m swap kept (a runner)" : "") + (st.UrgentGun ? "; the gun at once (" + ScRetreat.Her(e) + " target needs it)" : ""));
+                      + (st.NativeClose ? "; 0-XNPCCore's 3 m swap kept (a runner)" : "") + (st.UrgentGun ? "; the gun at once (" + ScRetreat.Her(e) + " target needs it)" : "")
+                      + (KitesWide(e) ? "; the WIDE band: ScKiteWide backs " + ScRetreat.HerObj(e) + " off from what comes within " + F1(ScConfig.StandOffMin) + " m (round k5)" : ""));
             if (st.Waiting)
                 lines.Add("[SC]   waits to switch to " + Name(st.Pending, st.PendingKiting) + " (" + st.PendingWhy + ") for " + (now - st.PendingSince).ToString("0.0", CultureInfo.InvariantCulture)
                           + " s: a switch needs " + F1(ScConfig.PostureDwellSeconds) + " s in the stance (" + F1(now - st.StanceSince) + " s so far) and "
@@ -686,10 +702,14 @@ namespace UAI
     /// replaces those and round tm1's ScNotTeamMelee. k1's ScBackOffRoom (no point / the shot's beat) stays beside it as a
     /// mechanical gate. 1 for everyone who is not one of the community's members on 0-XNPCCore's body (0-XNPCCore's rule), and
     /// for a member with no fresh posture (the live facts still apply). A throw is logged once and means 1.
+    /// Round k5: action="wide" on SCResident's ScKiteWide (8.2, 0-XNPCCore's own back-off task): 1 against an enemy within
+    /// StandOffMin (3D) while KITE's wide band is hers (ScPosture.KitesWide: hurt with nothing to heal with, a gun with
+    /// rounds), up to ScRetreat.WideGap for the run already going against it; 0 for everyone else and in every other
+    /// posture. It replaced rt1's stand-off (ScStandOffHurt and its own walk). A throw is logged once and means 0.
     /// </summary>
     public class UAIConsiderationScPosture : UAIConsiderationBase
     {
-        private const int Approach = 0, Keep = 1, Ranged = 2;
+        private const int Approach = 0, Keep = 1, Ranged = 2, Wide = 3;
         private int what = Approach;
 
         public override void Init(System.Collections.Generic.Dictionary<string, string> parameters)
@@ -698,7 +718,7 @@ namespace UAI
             string v;
             if (parameters == null || !parameters.TryGetValue("action", out v) || v == null) return;
             v = v.Trim().ToLowerInvariant();
-            what = v == "keep" ? Keep : v == "ranged" ? Ranged : Approach;
+            what = v == "keep" ? Keep : v == "ranged" ? Ranged : v == "wide" ? Wide : Approach;
         }
 
         public override float GetScore(Context _context, object target)
@@ -706,7 +726,7 @@ namespace UAI
             try
             {
                 EntityAlive self = _context.Self;
-                if (self == null || !ScXnpc.IsBody(self) || ScXnpc.IsRaider(self)) return 1f;
+                if (self == null || !ScXnpc.IsBody(self) || ScXnpc.IsRaider(self)) return what == Wide ? 0f : 1f;
                 // the live facts are the community's members' own (each is false for anyone else); the posture is read for
                 // whoever has one (a member, or a stand-in fighting as one); everyone else scores 1
                 if (ScWatch.Guarding(self.entityId)) return 0f;                    // a guard holds her post (any posture, any tick)
@@ -717,6 +737,15 @@ namespace UAI
                     return ScPosture.AllowsApproach(self, t) ? 1f : 0f;
                 }
                 if (ScRetreat.Shelters(self)) return 0f;                            // rt1: sheltering (k1: only="shelter")
+                if (what == Wide)
+                {
+                    // round k5: KITE's wide band - within StandOffMin, kept up to WideGap for the run already going against t
+                    if (t == null || !ScPosture.KitesWide(self)) return 0f;
+                    float wide = ScConfig.StandOffMin;
+                    ActionData wd = _context.ActionData;
+                    if (wd.Executing && wd.Action != null && wd.Action.Name == ScBackOff.WideBackOffAction && ReferenceEquals(wd.Target, target)) wide = ScRetreat.WideGap(self);
+                    return UAIUtils.DistanceSqr(self.position, t.position) <= wide * wide ? 1f : 0f;
+                }
                 if (what == Keep && t != null && ScBackOff.IsMember(self))
                 {
                     // k1's band: within BackupKeepDistanceMax (3D, as TargetDistance), 0.5 m more for the back-off already running on t
@@ -730,7 +759,7 @@ namespace UAI
             catch (System.Exception e)
             {
                 ScLog.Once("uai-posture", e);
-                return 1f;
+                return what == Wide ? 0f : 1f;
             }
         }
     }
