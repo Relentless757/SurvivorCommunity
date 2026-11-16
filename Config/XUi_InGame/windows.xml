@@ -2248,12 +2248,16 @@
 						<grid name="weaponSlots" depth="2" pos="10,-28" rows="2" cols="1" cell_width="50" cell_height="54" repeat_content="true">
 							<item_stack name="0" controller="SurvivorCommunity.ScGearSlot, SurvivorCommunity" cell_size="50"/>
 						</grid>
-						<label depth="4" pos="68,-28" width="222" height="16" font_size="14" text_key="scInvRanged" color="206,178,120,255" upper_case="true"/>
+						<label depth="4" pos="68,-28" width="68" height="16" font_size="14" text_key="scInvRanged" color="206,178,120,255" upper_case="true"/>
 						<label depth="4" pos="68,-44" width="222" height="20" font_size="16" text="{invrname}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
 						<label depth="4" pos="68,-62" width="222" height="16" font_size="14" text="{invrinfo}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
 						<label depth="4" pos="68,-82" width="222" height="16" font_size="14" text_key="scInvMelee" color="206,178,120,255" upper_case="true"/>
 						<label depth="4" pos="68,-98" width="222" height="20" font_size="16" text="{invmname}" color="226,220,208,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
 						<label depth="4" pos="68,-116" width="222" height="16" font_size="14" text="{invminfo}" color="190,182,166,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						<rect name="ammoLine" depth="2" pos="140,-28" width="150" height="16" visible="{invammovisible}">
+							<button depth="2" name="btnAmmo" pos="0,0" width="150" height="16" sprite="scui_btn" hoversprite="scui_btn_hover" defaultcolor="[white]" hovercolor="[white]" type="sliced" hoverscale="1.0" sound="[paging_click]" tooltip_key="scInvAmmoTip"/>
+							<label depth="4" pos="4,0" width="142" height="16" font_size="13" text="{invammo}" color="226,220,208,255" justify="center" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						</rect>
 						<label depth="4" pos="10,-138" width="280" height="18" font_size="15" text_key="scInvArmor" color="226,219,203,255" upper_case="true"/>
 						<sprite depth="1" sprite="scui_divider" type="sliced" color="[white]" pos="10,-156" width="280" height="2"/>
 						<grid name="armorSlots" depth="2" pos="15,-160" rows="1" cols="4" cell_width="72" cell_height="50" repeat_content="true">
@@ -2418,12 +2422,17 @@
 						<grid name="weaponSlots" depth="2" pos="10,-28" rows="2" cols="1" cell_width="50" cell_height="54" repeat_content="true">
 							<item_stack name="0" controller="SurvivorCommunity.ScGearSlot, SurvivorCommunity" cell_size="50"/>
 						</grid>
-						<label depth="4" pos="68,-28" width="222" height="16" font_size="14" text_key="scInvRanged" color="222,206,163,255" upper_case="true"/>
+						<label depth="4" pos="68,-28" width="68" height="16" font_size="14" text_key="scInvRanged" color="222,206,163,255" upper_case="true"/>
 						<label depth="4" pos="68,-44" width="222" height="20" font_size="16" text="{invrname}" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
 						<label depth="4" pos="68,-62" width="222" height="16" font_size="14" text="{invrinfo}" color="180,180,180,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
 						<label depth="4" pos="68,-82" width="222" height="16" font_size="14" text_key="scInvMelee" color="222,206,163,255" upper_case="true"/>
 						<label depth="4" pos="68,-98" width="222" height="20" font_size="16" text="{invmname}" color="255,255,255,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
 						<label depth="4" pos="68,-116" width="222" height="16" font_size="14" text="{invminfo}" color="180,180,180,255" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						<rect name="ammoLine" depth="2" pos="140,-28" width="150" height="16" visible="{invammovisible}">
+							<button depth="2" name="btnAmmo" pos="0,0" width="150" height="16" sprite="menu_empty" hoversprite="ui_game_select_row" defaultcolor="96,96,96,255" hovercolor="255,255,255,255" type="sliced" hoverscale="1.0" sound="[paging_click]" tooltip_key="scInvAmmoTip"/>
+							<sprite depth="3" sprite="menu_empty2px" type="sliced" fillcenter="false" color="0,0,0,255" pos="0,0" width="150" height="16"/>
+							<label depth="4" pos="4,0" width="142" height="16" font_size="13" text="{invammo}" color="255,255,255,255" justify="center" overflow="ClampContent" overflow_ellipsis="true" max_line_count="1"/>
+						</rect>
 						<label depth="4" pos="10,-138" width="280" height="18" font_size="15" text_key="scInvArmor" color="255,255,255,255" upper_case="true"/>
 						<sprite depth="1" sprite="menu_empty" type="sliced" color="128,128,128,255" pos="10,-156" width="280" height="2"/>
 						<grid name="armorSlots" depth="2" pos="15,-160" rows="1" cols="4" cell_width="72" cell_height="50" repeat_content="true">

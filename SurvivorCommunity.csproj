@@ -379,4 +379,11 @@
     <Compile Include="ScWindowMover.cs" />
   </ItemGroup>
 
+  <!-- round U1 (0-XNPCCore 3.4.06): its equipment window opens the member panel, its debug Remove refused for SC's people;
+       the ammo type chosen for a member's gun in the panel - 3.4 only -->
+  <ItemGroup Condition="'$(ScGame)'=='34'">
+    <Compile Include="Patches_EquipWindow.cs" />
+    <Compile Include="ScAmmoChoice.cs" />
+  </ItemGroup>
+
 </Project>

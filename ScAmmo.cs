@@ -150,7 +150,7 @@ namespace SurvivorCommunity
         }
 
         /// <summary>Rounds of one ammo item in every store SCore reloads an NPC from (toolbelt, bag, inventory window).</summary>
-        private static int InStores(EntityAlive e, int type)
+        internal static int InStores(EntityAlive e, int type)
         {
             int n = 0;
             foreach (EntityUtilities.EntityItemStore store in EntityUtilities.GetItemStores(e))
@@ -1396,6 +1396,7 @@ namespace SurvivorCommunity
                     LoadLoose(e);
                     Record(m, e);
                     if (ScConfig.XnpcResupply) Resupply(m, e, standIn, now);
+                    ScAmmoChoice.Tick(m, e);             // round U1: back to the chosen ammo type once she has it again
                     // round md1: her own medical kit from the stockpile at home (MedsResupply; never a stand-in: decision 18)
                     if (!standIn) ScMedic.HomeTick(m, e);
                     // round k2: her slow regeneration out of combat, up to RegenCapShare (her own body only, like the restock)
@@ -1463,7 +1464,11 @@ namespace SurvivorCommunity
                 string at = Where(e.GetBlockPosition());
                 if (at != null) mags = Issue(m, e, gun, standIn, at);
             }
-            if (Rounds(e, gun) >= ScConfig.XnpcResupplyBelow) { waitingOutside.Remove(e.entityId); return; }
+            // round U1: the ammo type the player chose for her gun in the member panel (ScAmmoChoice) is the one handed out, and
+            // its rounds are what count as low; with no choice the gun's basic ammo and all her rounds, as before
+            int chosenHave;
+            ItemValue ammo = ScAmmoChoice.ResupplyAmmo(m, e, gun, r, out chosenHave);
+            if ((chosenHave >= 0 ? chosenHave : Rounds(e, gun)) >= ScConfig.XnpcResupplyBelow) { waitingOutside.Remove(e.entityId); return; }
             float due;
             if (nextResupply.TryGetValue(e.entityId, out due) && now < due) return;
             string where = Where(e.GetBlockPosition());
@@ -1478,7 +1483,6 @@ namespace SurvivorCommunity
                 return;
             }
             waitingOutside.Remove(e.entityId);
-            ItemValue ammo = ItemClass.GetItem(r.MagazineItemNames[0], true);
             if (ammo == null || ammo.IsEmpty() || ammo.ItemClass == null) return;
             if (mags) { ResupplyMagazines(m, e, gun, ammo, standIn, where, now); return; }
             bool bow = !ScLoadout.IsFirearm(gun.GetItemName());
@@ -1707,7 +1711,8 @@ namespace SurvivorCommunity
             if (nextResupply.TryGetValue(e.entityId, out due) && due > Time.unscaledTime) sb.Append(", next resupply in ").Append((due - Time.unscaledTime).ToString("0")).Append(" s");
             if (m != null)
                 sb.Append("; record ammo=").Append(m.Ammo != null ? Encode(m.Ammo) : "never recorded")
-                  .Append(" magazines=").Append(string.IsNullOrEmpty(m.Mags) ? "none" : m.Mags + " (" + ScMags.RoundsIn(m.Mags) + " round(s))");
+                  .Append(" magazines=").Append(string.IsNullOrEmpty(m.Mags) ? "none" : m.Mags + " (" + ScMags.RoundsIn(m.Mags) + " round(s))")
+                  .Append("; ammo type chosen (round U1): ").Append(ScAmmoChoice.Describe(m));
             sb.Append("; window open remotely: ").Append(RemoteOpenState(e.entityId));
             return sb.ToString();
         }

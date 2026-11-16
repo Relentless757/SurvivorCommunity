@@ -58,8 +58,12 @@ namespace SurvivorCommunity
         private const float TalkGraceSeconds = 2f;
         /// <summary>Round 28: whatever TalkOpen says, a talk hold ends after this many real seconds (a window group another mod renamed).</summary>
         private const float TalkCapSeconds = 600f;
-        /// <summary>Round 28: the window groups a talk with her can open (vanilla's dialog and looting, Voice Control's craft window and wheel).</summary>
-        private const string DialogGroup = "dialog", CraftGroup = "NpcCraftGroup", WheelGroup = "VCFormationRadialGroup", LootGroup = "looting";
+        /// <summary>
+        /// Round 28: the window groups a talk with her can open (vanilla's dialog and looting, Voice Control's craft window and
+        /// wheel); round U1 (B5): 0-XNPCCore 3.4.06's equipment and gift windows.
+        /// </summary>
+        private const string DialogGroup = "dialog", CraftGroup = "NpcCraftGroup", WheelGroup = "VCFormationRadialGroup", LootGroup = "looting",
+                             EquipGroup = "NpcEquipGroup", GiftGroup = "NpcGiftGroup";
 
         private sealed class Shift
         {
@@ -276,7 +280,11 @@ namespace SurvivorCommunity
                 var missing = new List<string>();
                 foreach (string g in new[] { DialogGroup, CraftGroup, WheelGroup, LootGroup })
                     if (wm.GetWindow(g) == null) missing.Add(g);
-                string line = "talk hold: a talk links a resident while one of these is open on her: " + DialogGroup + ", " + CraftGroup + ", " + WheelGroup + ", " + LootGroup;
+                // round U1 (B5): 0-XNPCCore 3.4.06's windows - absent before it, which is no fault
+                var newer = new List<string>();
+                foreach (string g in new[] { EquipGroup, GiftGroup }) newer.Add(g + (wm.GetWindow(g) == null ? " (not in this 0-XNPCCore)" : ""));
+                string line = "talk hold: a talk links a resident while one of these is open on her: " + DialogGroup + ", " + CraftGroup + ", " + WheelGroup + ", " + LootGroup
+                              + ", " + string.Join(", ", newer.ToArray());
                 if (missing.Count == 0) ScLog.Out(line);
                 else ScLog.Warn(line + " - NOT FOUND: " + string.Join(", ", missing.ToArray()) + " (Voice Control not loaded, or renamed: those windows do not hold the link)");
             }
@@ -289,7 +297,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round 28: is a talk with her, or a window opened from it, open on the host's screen? The dialog with her as its
         /// respondent; or, while the player's CurrentNPC cvar is her (SCore sets it at every talk, Voice Control's hold-E ring
-        /// too): Voice Control's craft window, the order wheel / her hold-E ring page, or the looting window bound to her SCore
+        /// too): Voice Control's craft window, the order wheel / her hold-E ring page, 0-XNPCCore 3.4.06's equipment and gift
+        /// windows (round U1, B5), or the looting window bound to her SCore
         /// inventory (HarvestManager's container: "Show me your inventory", the ring's Inventory) - for a member, round n10's
         /// member inventory panel, which shows that container instead.
         /// </summary>
@@ -303,7 +312,7 @@ namespace SurvivorCommunity
                 if (wm == null || npc == null) return false;
                 if (DialogWithHer(ui, wm, npc)) return true;
                 if (player.Buffs == null || (int)player.Buffs.GetCustomVar("CurrentNPC") != npc.entityId) return false;
-                if (wm.IsWindowOpen(CraftGroup) || wm.IsWindowOpen(WheelGroup)) return true;
+                if (wm.IsWindowOpen(CraftGroup) || wm.IsWindowOpen(WheelGroup) || wm.IsWindowOpen(EquipGroup) || wm.IsWindowOpen(GiftGroup)) return true;
                 if (XUiC_ScMemberInvGroup.ShowsNpc(npc.entityId)) return true;     // round n10: her inventory on SC's member panel
                 return wm.IsWindowOpen(LootGroup) && LootBoundTo(wm, npc);
             }

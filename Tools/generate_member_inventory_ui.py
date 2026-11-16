@@ -14,7 +14,8 @@ inventory columns:
     | NAME (drag bar)              Member . At base . T2  [x]|
     | +- card (232) ----------+ +- equipment (300) ---------+|
     | | [pic] Medic           | | WEAPONS ------------------||
-    | |       + 100 / 130     | | [slot] RANGED name / info ||
+    | |       + 100 / 130     | | [slot] RANGED   [ammo]    ||
+    | |                       | |        name / info        ||
     | |       > 120 / 120     | | [slot] MELEE  name / info ||
     | |       (face) Happy    | | ARMOR ---------------------||
     | | TRAITS -------------- | | [head][chest][hands][feet]||
@@ -97,6 +98,7 @@ BAG_VIEW_H = BAG_VIEW * CELL + LIP
 TAKE_W, TAKE_H = 100, 22
 
 WEAPON_CELL, WEAPON_STEP = 50, 54
+AMMO_W = 150                              # round U1: the ammo line's button, right of the RANGED heading
 ARMOR_CELL, ARMOR_STEP = 50, 72
 TOOL_CELL, TOOL_STEP = 46, 58
 
@@ -227,9 +229,16 @@ def equipment():
     tx = 10 + WEAPON_CELL + 8
     for i, (key, nb, ib) in enumerate((("scInvRanged", "invrname", "invrinfo"), ("scInvMelee", "invmname", "invminfo"))):
         y0 = 28 + i * WEAPON_STEP
-        body += [label(tx, -y0, EQ_W - 10 - tx, 16, 14, GOLD, key=key, extra='upper_case="true"'),
+        head_w = (EQ_W - 10 - AMMO_W - 4 - tx) if i == 0 else (EQ_W - 10 - tx)
+        body += [label(tx, -y0, head_w, 16, 14, GOLD, key=key, extra='upper_case="true"'),
                  label(tx, -(y0 + 16), EQ_W - 10 - tx, 20, 16, BODY, text="{%s}" % nb, extra=CLAMP),
                  label(tx, -(y0 + 34), EQ_W - 10 - tx, 16, 14, DIM, text="{%s}" % ib, extra=CLAMP)]
+    # round U1: the gun's ammo type (ScAmmoChoice) - the type and her rounds of it; a click takes the next type she has, a
+    # right click the one before; shown on the host for a gun with more than one ammo type ({invammovisible})
+    ammo = [button("btnAmmo", 0, 0, AMMO_W, 16, extra='tooltip_key="scInvAmmoTip"'),
+            label(4, 0, AMMO_W - 8, 16, 13, BODY, text="{invammo}", extra='justify="center" ' + CLAMP)]
+    body += nest('<rect name="ammoLine" depth="2" pos="%d,%d" width="%d" height="16" visible="{invammovisible}">'
+                 % (EQ_W - 10 - AMMO_W, -28, AMMO_W), ammo)
     body += heading(10, ARMOR_Y, EQ_W - 20, "scInvArmor")
     body += slot_grid("armorSlots", ARMOR_X, ARMOR_Y + 22, 1, 4, ARMOR_STEP, ARMOR_CELL, ARMOR_CELL)
     for i, key in enumerate(ARMOR):
@@ -362,6 +371,7 @@ def main():
     assert 114 + TRAIT_ROWS * 18 <= 172, "the traits run into the skills heading"
     assert TOOLS_Y + 22 + TOOL_CELL + 2 + 32 <= ROW_H - 2, "the job tool labels run past the equipment"
     assert ARMOR_X + 3 * ARMOR_STEP + ARMOR_CELL <= EQ_W - 10, "the armor slots run past the equipment"
+    assert EQ_W - 10 - AMMO_W - 4 - (10 + WEAPON_CELL + 8) >= 60, "the RANGED heading has no room beside the ammo line"
     assert TOOL_X + (len(JOBS) - 1) * TOOL_STEP + TOOL_CELL <= EQ_W - 10, "the tool slots run past the equipment"
     assert 10 + BAR_X + BAR_W <= STORE_W - 10, "the grids run past the storage"
     assert BAG_Y + 4 + 24 + BAG_VIEW_H <= STORE_H - 2, "the bag runs past the storage"

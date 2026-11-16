@@ -554,24 +554,25 @@ are:
 
 | Member | Rows |
 |---|---|
-| **Resident at home** (you both inside the base) | Let's talk about the community. / Come with me. / I need you to go find supplies. / Show me your inventory / Craft... / Jobs and gear / It is time for you to leave the community. / Nevermind. |
-| **Resident, but you or they are outside the base** | Let's talk about the community. / Come with me. / I need you to go find supplies. / Show me your inventory / It is time for you to leave the community. / Nevermind. |
-| **Resident on a work shift** | Let's talk about the community. / Come with me. / That's all for now. / Show me your inventory / Craft... / Jobs and gear / Nevermind. |
+| **Resident at home** (you both inside the base) | Let's talk about the community. / Come with me. / I need you to go find supplies. / Equipment... / Craft... / Jobs and gear / It is time for you to leave the community. / Nevermind. |
+| **Resident, but you or they are outside the base** | Let's talk about the community. / Come with me. / I need you to go find supplies. / Equipment... / It is time for you to leave the community. / Nevermind. |
+| **Resident on a work shift** | Let's talk about the community. / Come with me. / That's all for now. / Equipment... / Craft... / Jobs and gear / Nevermind. |
 | **Guard on watch** | As a resident outside the base (orders are refused until you relieve them at their post) |
-| **Follower** | Let's talk about the community. / Go back home. / Come here / Show me your inventory / Craft... / Order wheel / Jobs and gear / It is time for you to leave the community. / Nevermind. |
+| **Follower** | Let's talk about the community. / Go back home. / Come here / Equipment... / Craft... / Order wheel / Jobs and gear / It is time for you to leave the community. / Nevermind. |
 | **Runner met on the road** | Let's talk about the community. / Head home now. / It is time for you to leave the community. / Nevermind. |
 | **Outpost stand-in** | Nevermind. |
 
-- **Jobs and gear** opens 0-XNPCCore's hold-E ring on them, where Weapons, Read, Your progress and Ammo live.
-- **Show me your inventory** opens the member inventory panel, where you also change their weapons, armor and job tools
-  (section 15).
-- A runner has no "Show me your inventory": items put in their inventory on the road could be lost.
+- **Jobs and gear** opens 0-XNPCCore's hold-E ring on them: Jobs, Equipment, Read and Your progress.
+- **Equipment...** opens the member inventory panel, where you also change their weapons, armor, job tools and the ammo
+  type of their gun (section 15). The hold-E ring's **Equipment** opens the same panel, so the ring shows no separate
+  **Inventory** on members. With 0-XNPCCore 3.4.05 the row is called "Show me your inventory".
+- A runner has no "Equipment..." row: items put in their inventory on the road could be lost.
 
 ### The talk link
 
 When you talk to a **resident at home** (both of you inside the base, and they are not on watch), they are linked to you
 while the talk or anything you open from it is open: the craft window, their inventory, the order wheel or their hold-E
-ring. That is what lets 0-XNPCCore's **Craft...**, **Jobs and gear** and **Show me your inventory** work for a resident.
+ring. That is what lets 0-XNPCCore's **Craft...**, **Jobs and gear** and **Equipment...** work for a resident.
 
 - Give them a craft order or a job, and the link becomes a **work shift** (section 7).
 - Otherwise the link ends quietly **2 seconds** after the last of those windows closes, and they walk back to their post.
@@ -590,6 +591,8 @@ for every dialog in the game, not only SC's.
 
 - **No trading:** members and stand-ins never offer Trade (by talk, radial or voice). Ask to see their inventory instead.
 - **No "Pick me up":** SC's people cannot be picked up as an item from 0-XNPCCore's hold-E ring.
+- **No debug Remove:** 0-XNPCCore's debug Admin page shows no "Remove (debug)..." on members. It deletes the body without
+  a death, which would leave the community's record of them with no body.
 - **No pay:** members are never on a Voice Control contract and are never billed.
 
 ---
@@ -673,7 +676,9 @@ How home jobs work:
 
 - **The work kit.** Every member carries a stone axe, a stone shovel and a bone knife beside their weapons, so the jobs
   always find a tool. **They never fight with the kit.** If a zombie reaches them mid-job, their weapon goes back in their
-  hand. A better tool you hand over through **Show me your inventory** is used first.
+  hand. A better tool you hand over through **Equipment...** is used first. Each kit tool keeps one quality per member:
+  it no longer changes when you swap their weapons or load the game. The same holds for the weapons SC gave them; a
+  weapon or tool you hand over keeps its own.
 - **Output into the crates.** What a resident gathers (wood, crops, meat and so on) moves into the home crates as they
   work. When their pack fills, it is emptied into the crates and they carry on.
 - **Replanting.** A member who picks a ripe crop on your farm replants the plot with a seed of the same crop, from their
@@ -768,7 +773,7 @@ run, but the haul is **real items in your home crates**, not stockpile units.
   - **+15% per Wits star** above the first, trait bonuses, and **x1.25** when morale is above 75. A bad roll halves it.
   - That is a small share of what you would dig yourself in the same hours: a helper, not a mining machine.
 - **Delivery.** At the edge of the base the items go **into the home crates**, onto stacks of the same item first. If the
-  crates are full, the rest stays in **their inventory** (Show me your inventory), and they tell you. If you are away from
+  crates are full, the rest stays in **their inventory** (Equipment...), and they tell you. If you are away from
   home when they get back, the haul waits until you are home and then goes in.
 - With no spot in range (or `PhysicalRuns` off) they go on a **hidden run** and come back at the next rollover with the
   home biome's stone and ore (or clay).
@@ -1313,7 +1318,7 @@ catalog, and real armor pieces in their equipment slots.
     way, a zombie it cannot reach), her gun comes out at once and she kites that zombie for 45 seconds (90, then 180).
   - **Hold** (on watch, or a Stay order): she keeps her post and her gun. **Shelter**: badly hurt (section 4).
   - A Cowardly member hangs back with her gun and runs only from a fight going badly (with no gun she runs, as before).
-    **Ordering her gun** (the weapon menu, or "use your ..." by voice) keeps her on it until you order her melee weapon;
+    **Ordering her gun** ("use your ..." by voice, or 0-XNPCCore 3.4.05's weapon menu) keeps her on it until you order her melee weapon;
     ordering her melee weapon keeps her on that. Followers count too, away from home.
   `TeamMelee` and the other `Team...` and `Posture...` settings (section 20) tune it; `sc team <name>` shows her count,
   her posture and why, and her weapon's clock; `sc xnpc` counts every member's weapon changes.
@@ -1330,7 +1335,17 @@ catalog, and real armor pieces in their equipment slots.
   rounds** while inside the base or at one of your outposts gets **30 rounds** (or 20 arrows), at most once a minute. The
   stockpile pays in packing points (one ammo bundle is about 220 9 mm rounds or 165 stone arrows).
 - Out in the world nobody refills them: once dry they fight with their melee weapon until you bring them home or hand them
-  ammo through **Show me your inventory**.
+  ammo through **Equipment...**.
+- **Ammo type.** For a gun that takes more than one kind of ammo (9 mm, HP and AP rounds; shells, slugs and breaching
+  slugs; stone, iron and flaming arrows), the line beside **Ranged** in their inventory panel shows the kind they use and
+  how many rounds of it they have. Click it for the next kind they have rounds of; right-click for the one before. They
+  reload with that kind first, and the stockpile refills that kind (and counts only it as running low). When it runs
+  out they load what they have, and switch back once they have it again. **With Locked & Loaded** they load only from
+  magazines: rounds of the chosen kind go into a magazine once one is empty (a refill, or loose rounds you hand them), so
+  until then the line says "loose" and they keep firing what their magazines hold. The choice belongs to that gun:
+  another gun starts from its own first kind. Picking their ammo through
+  0-XNPCCore's order wheel or by voice counts as the choice too. With `MemberInventoryPanel` false (section 20) SC
+  leaves their ammo kind alone, and 0-XNPCCore's equipment window picks it.
 - Members never take ammo from your chests.
 - A gun put away for melee keeps its rounds, and a gun in hand is saved loaded.
 - **With Locked & Loaded,** survivors and raiders whose gun takes magazines start with loaded magazines for their tier and
@@ -1338,11 +1353,12 @@ catalog, and real armor pieces in their equipment slots.
 
 ### The member inventory panel
 
-**Show me your inventory** on a member opens SC's **Survivor Inventory** panel beside your backpack, instead of the
-looting screen (strangers, recruits, raiders and enclave people still show the looting screen). It holds:
+**Equipment...** on a member (the talk row, the hold-E ring's Equipment, or Jobs and gear's Equipment) opens SC's
+**Survivor Inventory** panel beside your backpack, instead of 0-XNPCCore's equipment window or the looting screen
+(strangers, recruits, raiders and enclave people still get those). It holds:
 
 - **their card,** as on the talk card;
-- **Weapons:** Ranged and Melee, the two weapons they fight with;
+- **Weapons:** Ranged and Melee, the two weapons they fight with, and the ammo type of their gun (Ammo, above);
 - **Armor:** Head, Chest, Hands and Feet;
 - **Job tools:** their best tool for Chop, Mine, Dig, Butcher and Repair (a tool that serves several jobs shows as
   "shared");
@@ -1357,7 +1373,7 @@ You change their gear by dropping items on the slots (single player, or the host
 - **Armor:** drop a piece on its slot and they wear it, and their old piece comes back to you; take one off and they go
   without there. A piece made for men only or women only is refused for the other.
 - **Job tools:** a tool dropped on a job slot goes into their pack, and they use the best one for each job. You can take
-  back a tool you gave them; the work kit stays with them.
+  back a tool you gave them; the work kit stays with them, each tool at its own fixed quality.
 - **Exactly as you gave it:** a weapon or armor piece you hand over keeps its quality, attachments and wear (it doesn't
   wear down while they carry it) and comes back exactly so. No loaded round or seated magazine is lost in a swap.
 - If they die, what you handed over drops with their backpack; if they leave the community, it goes into their pack.
@@ -1365,15 +1381,14 @@ You change their gear by dropping items on the slots (single player, or the host
   as unfinished, a tool on a weapon slot, armor for another slot. Slots take one item at a time.
 - Changing an armor slot here replaces a Wardrobe pick in that slot (Looks, below).
 - **Moving it:** drag the title bar and the panel stays where you put it. Right-click the title bar, or type
-  `sc ui reset` in the console, to put it back. `MemberInventoryPanel` false (section 20) brings back the looting screen.
+  `sc ui reset` in the console, to put it back. `MemberInventoryPanel` false (section 20) brings back 0-XNPCCore's
+  equipment window and the looting screen.
 
 ### Giving a member a better weapon
 
-- **The easy way:** drop it on the Ranged or Melee slot of their inventory panel (above).
-- **Or** put it in their pack, then in **Jobs and gear**, Weapons, pick **"Use the weapons I gave you."** They take the
-  best gun or bow and the best melee weapon you put there, even an unloaded gun, and the ones they replace come back to
-  you. 0-XNPCCore's own **Carried Weapons** works too, but it lists a gun only while it has rounds in it or ammo in
-  their stores.
+- **Drop it on the Ranged or Melee slot** of their inventory panel (above), even an unloaded gun. The one it replaces
+  comes back to you. (0-XNPCCore 3.4.06 has no weapon menu on survivors, so SC's old "Use the weapons I gave you." row is
+  gone.)
 - **Weapons from any mod** can be handed over: any gun, bow or melee weapon 0-XNPCCore lets an NPC use. Not launchers or
   explosives, dual pistols, tools, or items a mod marks as unfinished (such as Combat Sandbox's unfinished IZY Classic
   guns).
@@ -1676,7 +1691,7 @@ These are the ones you are most likely to change. The file has many more.
 | Setting | Default | What it does |
 |---|---|---|
 | `XnpcResupply` / `XnpcResupplyBelow` | true / 10 | Stockpile refills at home and outposts, below this many rounds |
-| `MemberInventoryPanel` | true | "Show me your inventory" on a member opens the member inventory panel (section 15); false: the looting screen |
+| `MemberInventoryPanel` | true | "Equipment..." on a member opens the member inventory panel (section 15); false: 0-XNPCCore's equipment window, and the looting screen for their inventory |
 | `SurvivorWeaponModChance` / `RaiderWeaponModChance` | 0.5 / 0.5 | The chance of a rolled weapon's first attachment; each further one is half as likely, up to the slots its quality gives (0: none) |
 | `WeaponModTags` | sideAttachment, scope, ... | Which kinds of attachment can roll (keep `sideAttachment` for gun lights) |
 | `MedsResupply` | true | Members restock their own medical supplies from the stockpile, 1 medical at a time; false: you manage them by hand |

@@ -504,7 +504,7 @@ Example: `sc spawn hostile male T2 Rifle`
 Weapon words, the firearm chances, ammo amounts and the magazine state.
 
 ### `sc loadout <id|name>` [READ] and `sc loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead]` [CHEAT]
-Shows an NPC's two weapons, or gives it new ones (one weapon replaces the one of its kind). For a community member it also lists the items she was handed exactly (the member inventory panel's slots or the weapon menu, round n12): her weapons and armor pieces with their quality, wear and attachments, each marked STALE when her pair or her clothes have since moved on (it then goes into her pack on the next panel change of that slot).
+Shows an NPC's two weapons, or gives it new ones (one weapon replaces the one of its kind). For a community member it also lists the items she was handed exactly (the member inventory panel's slots, or 0-XNPCCore 3.4.05's weapon menu, round n12): her weapons and armor pieces with their quality, wear and attachments, each marked STALE when her pair or her clothes have since moved on (it then goes into her pack on the next panel change of that slot). Its last two lines list her item list and her toolbelt with each item's quality (`stoneAxe(q3)`): a work-kit tool's quality, and a weapon's SC gave her, stays the same for her through weapon swaps and loads.
 
 ### `sc loadout near [r]` [READ]
 Pairs of survivors and raiders within `r` m (default 40).
@@ -523,7 +523,7 @@ One member in full: the verdict and its age, why she is or is not melee-led, a f
 Example: `sc team Gina`
 
 ### `sc team <id|name> auto` [CHEAT]
-Clears your weapon orders on her (the weapon menu's, or "use your ..." by voice), so she picks her weapon by the rules again.
+Clears your weapon orders on her ("use your ..." by voice, or 0-XNPCCore 3.4.05's weapon menu), so she picks her weapon by the rules again.
 
 ### `sc team <id|name> hurt [share]` [CHEAT]
 A test shortcut, like `sc run hurt`: her body's health down to that share of her max (default 0.55, just under `TeamLowHealth`). She stops being melee-led at the next count and is again from 70%; `hurt 1` puts her back to full health.
@@ -569,7 +569,7 @@ Aim-pose counters and every NPC in a ranged fight, or one NPC in detail. A numbe
 Re-shoots portraits for the community window. `sc portrait frame [fov dist yaw eyelift aimlift]` shows or sets the camera framing for this session.
 
 ### `sc ui` [READ] and `sc ui reset`
-Where SC's two movable windows sit: the talk card (the survivor card shown while you talk) and the member inventory panel ("Show me your inventory" on a member). It shows their saved places, where the talk card is, whether the panel is switched on (`MemberInventoryPanel`) and, while the panel is open, whose inventory it shows and how full her pack and bag are. `sc ui reset` forgets both saved places, so the talk card opens left of the spoken line again and the panel left of your backpack (each jumps there if it is open). Right-clicking a window's title bar (the talk card's name bar) does the same for that window. The places are kept in `%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`.
+Where SC's two movable windows sit: the talk card (the survivor card shown while you talk) and the member inventory panel ("Equipment..." on a member). It shows their saved places, where the talk card is, whether the panel is switched on (`MemberInventoryPanel`) and, while the panel is open, whose inventory it shows and how full her pack and bag are. `sc ui reset` forgets both saved places, so the talk card opens left of the spoken line again and the panel left of your backpack (each jumps there if it is open). Right-clicking a window's title bar (the talk card's name bar) does the same for that window. The places are kept in `%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt`.
 
 ### `sc voice` [READ]
 Voice switches, player in use, voices found, and the voice gate.

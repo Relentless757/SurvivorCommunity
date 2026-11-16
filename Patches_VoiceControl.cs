@@ -165,7 +165,7 @@ namespace SurvivorCommunity
             var parts = new List<string>();
             foreach (string k in keys) parts.Add(k + "=" + counts[k]);
 #if SC_V34
-            if (ringEntryHidden > 0) parts.Add("ring-pickup-entry-hidden-calls=" + ringEntryHidden);   // B1: per UpdateActivationCommands call
+            if (ringEntryHidden > 0) parts.Add("ring-entry-hidden-calls=" + ringEntryHidden);   // B1 + U1's D2: per UpdateActivationCommands call
 #endif
             return string.Join(", ", parts.ToArray());
         }
@@ -804,7 +804,29 @@ namespace SurvivorCommunity
 
         /// <summary>The hold-E ring's pick-up entry (HoldERingTable.Entries: "vcpickup", gate Pack).</summary>
         private const string RingPickupId = "vcpickup";
+        /// <summary>
+        /// Round U1 (D2): the ring's old "Inventory" entry (HoldERingTable.Entries: "vcinventory", gate Pack, SCore's
+        /// OpenInventory). On a member whose "Equipment" entry opens SC's member panel (ScEquipRedirect.Redirects) both entries
+        /// would open the same panel, so this one goes.
+        /// </summary>
+        private const string RingInventoryId = "vcinventory";
         private static int ringEntryHidden;
+
+        /// <summary>
+        /// Which hold-E ring entry this NPC does not get: "Pick me up" for SC's people (PickupRefusal), and round U1's D2
+        /// "Inventory" for a member whose Equipment entry opens SC's panel. A read.
+        /// </summary>
+        private static bool HiddenRingEntry(EntityAlive npc, string commandId)
+        {
+            if (npc == null || commandId == null) return false;
+            if (string.Equals(commandId, RingPickupId, StringComparison.Ordinal)) return PickupRefusal(npc) != null;
+#if SC_V34
+            // only while the ring's Equipment entry is the redirected one (0-XNPCCore 3.4.06+ AND the redirect patched - the Fable
+            // review of U1, finding 4): otherwise Inventory is the ring's only way into her inventory
+            if (string.Equals(commandId, RingInventoryId, StringComparison.Ordinal)) return ScEquipRedirect.OpenPatched && ScEquipRedirect.Redirects(npc);
+#endif
+            return false;
+        }
 
         public static Type NpcPickupType { get { return ScTypes.Find("XNPCVoiceControl.Core.NpcPickup"); } }
         public static Type HerRingType { get { return ScTypes.Find("XNPCVoiceControl.Harmony.HerRingPage"); } }
@@ -939,7 +961,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// B1, third layer: the hold-E ring (vanilla's activation radial; Voice Control enables its entries in its own postfix on
         /// UpdateActivationCommands) shows no "Pick me up" on SC's people - this postfix runs after Voice Control's (Priority.Last)
-        /// and disables that one entry, the call's answer (any entry enabled) recomputed.
+        /// and disables that one entry, the call's answer (any entry enabled) recomputed. Round U1 (D2): and no "Inventory" on a
+        /// member whose "Equipment" opens SC's member panel (HiddenRingEntry).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_RingNoPickupEntry
@@ -967,13 +990,13 @@ namespace SurvivorCommunity
                 try
                 {
                     EntityTrader npc = __instance as EntityTrader;
-                    if (npc == null || PickupRefusal(npc) == null) return;
+                    if (npc == null) return;
                     EntityActivationCommand[] cmds = __instance.GetActivationCommands();
                     if (cmds == null) return;
                     bool changed = false, any = false;
                     for (int i = 0; i < cmds.Length; i++)
                     {
-                        if (cmds[i].enabled && string.Equals(cmds[i].commandId, RingPickupId, StringComparison.Ordinal))
+                        if (cmds[i].enabled && HiddenRingEntry(npc, cmds[i].commandId))
                         {
                             EntityActivationCommand c = cmds[i];
                             c.enabled = false;
@@ -993,7 +1016,10 @@ namespace SurvivorCommunity
             }
         }
 
-        /// <summary>B1: "Jobs and gear"'s page (HerRingPage, the order wheel locked on her) lists no "Pick me up" for SC's people.</summary>
+        /// <summary>
+        /// B1: "Jobs and gear"'s page (HerRingPage, the order wheel locked on her) lists no "Pick me up" for SC's people; round
+        /// U1 (D2): and no "Inventory" for a member whose "Equipment" opens SC's member panel (HiddenRingEntry).
+        /// </summary>
         [HarmonyPatch]
         public static class Patch_HerRingNoPickup
         {
@@ -1032,12 +1058,12 @@ namespace SurvivorCommunity
                 {
                     World w = ScCommunity.World;
                     EntityAlive npc = w != null ? w.GetEntity(__1) as EntityAlive : null;
-                    if (__instance == null || PickupRefusal(npc) == null) return;
+                    if (__instance == null || npc == null) return;
                     Array entries = fEntries.GetValue(__instance) as Array, sockets = fSockets.GetValue(__instance) as Array;
                     if (entries == null || sockets == null || entries.Length != sockets.Length) return;
                     var keep = new List<int>(entries.Length);
                     for (int i = 0; i < entries.Length; i++)
-                        if (!string.Equals(fCommandId.GetValue(entries.GetValue(i)) as string, RingPickupId, StringComparison.Ordinal)) keep.Add(i);
+                        if (!HiddenRingEntry(npc, fCommandId.GetValue(entries.GetValue(i)) as string)) keep.Add(i);
                     if (keep.Count == entries.Length) return;
                     Array e2 = Array.CreateInstance(entries.GetType().GetElementType(), keep.Count);
                     Array s2 = Array.CreateInstance(sockets.GetType().GetElementType(), keep.Count);
@@ -1490,22 +1516,42 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// 3.4: DialogActionSayCarrying.PerformAction(EntityPlayer player) - 0-XNPCCore's "What are you carrying?" row (action
-        /// type SayCarrying, 1-XNPCVoiceControl; Voice Control 3.4 only), answered with a say-line through AcknowledgeCommand.
-        /// Global namespace; only Voice Control's own type counts.
+        /// type SayCarrying, 1-XNPCVoiceControl; Voice Control 3.4.01 to 3.4.05), answered with a say-line through
+        /// AcknowledgeCommand. Global namespace; only Voice Control's own type counts.
         /// </summary>
         public static MethodBase SayCarryingTarget()
         {
-            Type chat = ChatType, t = ScTypes.Find("DialogActionSayCarrying");
-            if (chat == null || t == null || t.Assembly != chat.Assembly) return null;
+            Type chat = ChatType, t = SayCarryingType;
+            if (chat == null || t == null) return null;
             return Returning(AccessTools.DeclaredMethod(t, "PerformAction", new[] { typeof(EntityPlayer) }), typeof(void), false);
         }
 
-        /// <summary>The answer pass, 3.4: the player picked "What are you carrying?" in the open talk.</summary>
+        /// <summary>
+        /// Round U1 (B3): Voice Control's DialogActionSayCarrying, or null - 0-XNPCCore 3.4.06 removed it with its "What are you
+        /// carrying?" row. The gate below is then simply not wanted: no error, and ModApi does not expect it.
+        /// </summary>
+        public static Type SayCarryingType
+        {
+            get
+            {
+                Type chat = ChatType, t = ScTypes.Find("DialogActionSayCarrying");
+                return chat != null && t != null && t.Assembly == chat.Assembly ? t : null;
+            }
+        }
+
+        /// <summary>
+        /// The answer pass, 3.4: the player picked "What are you carrying?" in the open talk. Round U1 (B3): optional - with no
+        /// such type (0-XNPCCore 3.4.06) it is skipped without a word; a later version that brings the type back binds it again.
+        /// </summary>
         [HarmonyPatch]
         public static class Patch_GateSayCarrying
         {
             [HarmonyPrepare]
-            public static bool Prepare() { return Bindable(SayCarryingTarget(), "DialogActionSayCarrying.PerformAction", null); }
+            public static bool Prepare()
+            {
+                if (SayCarryingType == null) return false;
+                return Bindable(SayCarryingTarget(), "DialogActionSayCarrying.PerformAction", null);
+            }
 
             [HarmonyTargetMethod]
             public static MethodBase TargetMethod() { return SayCarryingTarget(); }
