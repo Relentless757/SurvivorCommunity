@@ -17,7 +17,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 | `sc status` | The community at a glance: stockpile, morale, home, counts |
 | `sc members` | Every member, their id, status, post, skills |
 | `sc dump` | Everything, for when you want to read it in the log afterwards |
-| `sc xnpc [id\|name]` | The 0-XNPCCore side of one body, including whether 0-XNPCCore has marked her target "melee unreachable" (round n08). Bare, it prints the global patch/counter diagnostic and the session's unreachable-mark totals |
+| `sc xnpc [id\|name]` | The 0-XNPCCore side of one body, including whether 0-XNPCCore has marked her target "melee unreachable" (round n08) and her last back-off (round k1). Bare, it prints the global patch/counter diagnostic, the session's unreachable-mark totals and the back-off totals |
 | `sc scan` | Re-scan the home zone now (beds, facilities, crops, defenses) |
 | `sc day` | Simulate one day rollover, outposts included |
 | `sc save` | Force a registry save |
@@ -74,11 +74,15 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 ## Team strength *(round tm1)*
 
 - **`sc team`** — every loaded member's team verdict: F (her side) against T (the awake enemies within 15 m, or the
-  whole defended area during a horde at the base), matched or OUTMATCHED, and whether she is MELEE-LED or why not (on a
-  run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). Read-only.
+  whole defended area during a horde at the base), matched or OUTMATCHED, what you counted in it (round k1: "you count 2
+  x HpF (fighting)" or "you count 0 (not fighting)"; nothing when you are not in her area), and whether she is MELEE-LED
+  or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). Its
+  second line states the rule: you count `TeamPlayerWeight` only while an enemy in her area is after you or you hit one
+  in the last `TeamPlayerFightingSeconds`. Read-only.
 - **`sc team <id|name>`** — one member in full: the verdict and its age (STALE after 3 s), why she is or is not
   melee-led, a fresh count with every friend and enemy counted, its distance and weight and how the weight was reached
-  (stars, health, weapon; tag weight, health weight; ARMED, melee-unsafe), her target and whether it needs the gun, and
+  (stars, health, weapon; tag weight, health weight; ARMED, melee-unsafe; for you "fighting (you hit zombieX 0.4 s ago)",
+  "fighting (zombieX is after you)" or "NOT fighting ... = 0"), her target and whether it needs the gun, and
   her hand: what she holds, your weapon order, the melee-first clock, the 5 s swap hold, the overwhelmed gun hold, a
   target kept out of reach, and the overwhelmed count against its need (one more while melee-led). Read-only.
 - **`sc team <id|name> auto`** — clears your weapon orders on her (the weapon menu's, or "use your ..." by voice), so
@@ -92,6 +96,26 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   reach), `swap-held` (a swap waited for the 5 s hold), `equip-refused` (a swap's equip did not take: that rule waits
   10 s for her), `unreachable`, `outmatched`, `matched-again`, `low-health`; `sc xnpc <name>` has a one-line
   `team strength:` summary. Neither command recounts the attackers (the overwhelmed line is the last count, with its age).
+  `sc xnpc`'s team strength line also counts the players' hits noted for the rule above (round k1).
+- The hand line's "KEEPS HER GUN ON #N (reach gun hold ...)" (round tm2's stand and shoot) no longer means "no back-off"
+  (round k1): the hold only keeps her 3 m swap to melee and MeleeFirst off; within 2.5 m she backs off.
+
+## Back-offs *(round k1)*
+
+- With a gun, a member backs off (0-XNPCCore's `BackupKeepDistance`) only from an enemy within `BackupKeepDistanceMax`
+  (2.5 m); farther out she shoots. At home the back-off's point is SC's, inside the base (`BackOffSteps` 10, 6, 3 m on 7
+  directions); with none she shoots for `BackOffNoPointSeconds`.
+- **`sc xnpc`** — the line "back-offs (round k1): ..." with the totals: back-offs bounded (kept inside the base),
+  shortened (a shorter step than the longest), wider than 25 degrees, with no point (the shot took over), points not
+  reached and not applied. The same as counters in the hook list: `backoff-bounded`, `backoff-shortened`, `backoff-wide`,
+  `backoff-no-point`, `backoff-unreached` (a point the path could not reach, set aside 10 s), `backoff-unapplied` (should
+  stay 0: anything else means 0-XNPCCore changed its back-off).
+- **`sc xnpc <id|name>`** — the line "back-off (round k1): at home - kept inside the base" (or "away from home -
+  0-XNPCCore's own, unbounded"), and her last back-off: from whom, the step, the angle and the point, or NO POINT with why;
+  the points set aside; the enemies against which the shot has the next decision.
+- A hurt member's stand-off (round rt1, `sc retreat`) uses the same steps when the full gap does not fit:
+  `retreat-backoff-shortened`, and `retreat-backoff-shoot` for the shooting between two steps (`SHOOTING BETWEEN STEPS` in
+  `sc retreat <name>`).
 
 ## Medical restock *(round md1)*
 
@@ -132,7 +156,8 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   STANDABLE NOW when a block changed since the scan, and "beside a door (taken last)" for one within 2.5 m of a door. **`sc retreat shelters rescan`** starts a new scan on the next frame.
 - The counters: `retreat-shelter`, `retreat-standoff` (`retreat-standoff-away`: away from home with you),
   `retreat-to-shelter` / `retreat-to-standoff` (the mode changed mid-retreat), `retreat-arrived`, `retreat-fightback`,
-  `retreat-backoff`, `retreat-backoff-done`, `retreat-cornered`, `retreat-no-shelter` (a fallback, once per retreat),
+  `retreat-backoff`, `retreat-backoff-done`, `retreat-backoff-shortened` and `retreat-backoff-shoot` (round k1),
+  `retreat-cornered` (round k1: for 1 s, not 3), `retreat-no-shelter` (a fallback, once per retreat),
   `retreat-fallback-upgraded`, `retreat-spot-unreachable`, `retreat-door-tracked`, and `retreat-ended-<why>`: `healed`,
   `hangs-back`, `threat-gone`, `ineligible`, `no-gun-away`, `cornered-away` (cornered twice in a row away from home: she
   flees as before for 15 s), `off`. Weapons: `x5-retreat-keep-gun` (her loaded gun kept up
@@ -221,7 +246,9 @@ who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | 
 - `ScReturn` / `ScTravel` / `ScFlee` — walking home, traveling, fleeing
 - `RoutineWalk` — **0-XNPCCore's resident routine**, which is what sleeping runs on
 - `HarvestSdcsHere` / `LootSdcs*` / `BaseKeepSdcs*` — 0-XNPCCore's work actions
-- `MeleeAttack` / `RangedMeleeAttack` / `ClearShot` / `BackupRanged` / `BackupKeepDistance` — 0-XNPCCore's combat
+- `MeleeAttack` / `RangedMeleeAttack` / `ClearShot` / `BackupRanged` / `BackupKeepDistance` — 0-XNPCCore's combat (round
+  k1: for a member at home the two back-offs walk to a point SC picks inside the base; `BackupKeepDistance` only within
+  2.5 m of the enemy)
 - `ScFleeHurt` / `ScEncFleeHurt` — badly hurt with nothing to heal with, running
 
 If someone is doing the wrong thing, the overlay's action name plus `sc xnpc <name>` is usually enough to say which

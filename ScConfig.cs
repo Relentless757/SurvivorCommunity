@@ -2785,6 +2785,7 @@ namespace SurvivorCommunity
                 ScLog.Out("config: stuck rescue " + StuckLine());   // round 29b (ScConfigStuck.cs)
                 ScLog.Out("config: team strength " + TeamLine());   // round tm1 (ScConfigTeam.cs)
                 ScLog.Out("config: retreat " + RetreatLine());   // round rt1 (ScConfigRetreat.cs)
+                ScLog.Out("config: back-offs " + BackOffLine());   // round k1 (ScConfigRetreat.cs, ScBackOff)
                 ScLog.Out("config: medical restock " + MedsLine());   // round md1 (ScMedic.Restock)
                 ScLog.Out("config: streamer names " + NamesLine());   // round 30 (ScConfigNames.cs)
                 ScLog.Out("config: skins " + SkinsLine());   // round 31 (ScConfigSkins.cs)

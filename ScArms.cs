@@ -579,6 +579,10 @@ namespace SurvivorCommunity
         /// That is the intended trade: a member who can shoot is better off than one who can do neither.
         /// Round tm2: also while the close reach draw's gun hold is on (ReachGunHolds): she shoots the attacker she could
         /// not swing at, rather than backing away from it and coming back.
+        /// Round k1: NO LONGER WIRED (Config/utilityai.xml): "stands and fires point-blank" was one of the three gates that kept
+        /// every gun holder inside 4 m still (research/combat/SC_VS_NPCCORE.md 1.4). Its reason is solved the other way: a
+        /// member's BackupKeepDistance band is 0-2.5 m (ScBackupKeepBand), so from 2.5 to 4 m the shot wins and closer in she
+        /// backs off (inside the base at home, ScBackOff). Kept, with its consideration class, until round k6's cleanup.
         /// </summary>
         public static bool HoldingGunUpClose(EntityAlive e)
         {
@@ -618,14 +622,28 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// Round tm2: she stands and shoots this target after a close reach draw (the reach gun hold; t null: any target) -
-        /// ScTeam.HoldsGround scores 0-XNPCCore's BackupKeepDistance and BackupRanged to 0 for it. A pure read.
+        /// Round tm2: she stands and shoots this target after a close reach draw (the reach gun hold; t null: any target). Round
+        /// k1: no longer read by ScTeam.HoldsGround - the hold keeps 0-XNPCCore's 3 m swap and MeleeFirst off her, never her
+        /// back-offs (Tm2GunHold). A pure read.
         /// </summary>
         public static bool ReachGunHolds(EntityAlive e, EntityAlive t)
         {
             Watch st;
             return e != null && watch.TryGetValue(e.entityId, out st) && ReachGunHolds(st, e, Time.time)
                    && (t == null || t.entityId == st.ReachGunId) && HoldsRangedWeapon(e);
+        }
+
+        /// <summary>
+        /// Round k1: one of tm2's holds keeps her on the gun in her hand - the close reach draw's stand and shoot (any target) or
+        /// the no-swing spot - so MeleeFirst and 0-XNPCCore's 3 m swap wait (MeleeFirst, CloseRange). ScTeam.HoldsGround then
+        /// leaves 0-XNPCCore's back-offs live: tm2's "no back-off" was the bug (research/combat/SC_VS_NPCCORE.md 1.4). A pure read.
+        /// </summary>
+        public static bool Tm2GunHold(EntityAlive e)
+        {
+            Watch st;
+            if (e == null || !watch.TryGetValue(e.entityId, out st) || !HoldsRangedWeapon(e)) return false;
+            float now = Time.time;
+            return ReachGunHolds(st, e, now) || NoSwingSpotHolds(st, e, now);
         }
 
         /// <summary>Round tm2: the reach gun hold is on (TeamMelee, still melee-led: else her back-off and swaps are today's). A pure read.</summary>
@@ -918,8 +936,8 @@ namespace SurvivorCommunity
                 if (!EquipTook(e, l.Ranged, "gun first", ref st.GunBackoffUntil, now)) return false;
                 if (over) st.GunUntil = now + ScConfig.OverwhelmedGunSeconds;
                 Hold(st, HoldToMelee, now);                     // round tm1: MeleeFirst waits as long
-                // round tm2 (the Fable review, finding 4): drawn for an attacker up close she could not swing at - she stands
-                // and shoots it (no back-off, no 3 m swap) while it is after her within ReachGunDist
+                // round tm2 (the Fable review, finding 4): drawn for an attacker up close she could not swing at - she keeps her
+                // gun on it (no 3 m swap; round k1: her back-offs stay live) while it is after her within ReachGunDist
                 float rxz;
                 if (reachDraw && !far && AttacksHerUpClose(e, t, out rxz)) StartReachGun(st, e, t, rxz, now);
                 gunFirstDraws++;
@@ -1660,8 +1678,9 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Round tm2 (X5, GunFirst): the gun was drawn for an attacker up close she could not swing at - the reach gun hold
-        /// starts: BackupKeepDistance and BackupRanged score 0 for it (HoldingGunUpClose, ScTeam.HoldsGround), 0-XNPCCore's 3 m
-        /// swap and MeleeFirst wait (CloseRange, MeleeFirst), so she stands and shoots it. Counted once per hold.
+        /// starts: 0-XNPCCore's 3 m swap and MeleeFirst wait (CloseRange, MeleeFirst), so she keeps her gun on it. Round k1: her
+        /// back-offs are no longer scored 0 for it (they were: "no back-off" was the bug) - inside BackupKeepDistanceMax she backs
+        /// off (inside the base at home), farther out she shoots. Counted once per hold.
         /// </summary>
         private static void StartReachGun(Watch st, EntityAlive e, EntityAlive t, float xz, float now)
         {
@@ -1673,8 +1692,9 @@ namespace SurvivorCommunity
             st.ReachGunShotAt = now;                    // the tm2 follow-up: and ReachGunAimOnlySeconds on a clear aim alone
             st.ReachGunMeta = HeldMeta(e);
             Patches_Xnpc.Count("x5-team-reach-gun-hold");
-            ScLog.Verbose(Name(e) + " stands and shoots " + Who(t) + " (it attacks her from " + xz.ToString("0.0") + " m, and she cannot swing at it): no back-off, "
-                          + "no swap to melee while it is after her within " + ReachGunDist.ToString("0") + " m");
+            ScLog.Verbose(Name(e) + " keeps " + ScRetreat.Her(e) + " gun on " + Who(t) + " (it attacks " + ScRetreat.HerObj(e) + " from " + xz.ToString("0.0") + " m, and "
+                          + ScRetreat.She(e) + " cannot swing at it): no swap to melee while it is after " + ScRetreat.HerObj(e) + " within " + ReachGunDist.ToString("0")
+                          + " m - " + ScRetreat.She(e) + " backs off and shoots (round k1)");
         }
 
         /// <summary>
@@ -1825,7 +1845,7 @@ namespace SurvivorCommunity
                         sb.Append(", no-swing clock on #").Append(kv.Key).Append(' ').Append(p.NoSwingSum.ToString("0.0")).Append(" of ")
                           .Append(ScConfig.TeamNoSwingConfirmSeconds.ToString("0.0#")).Append(" s");
                 }
-                if (ReachGunHolds(st, e, now)) sb.Append(", STANDS AND SHOOTS #").Append(st.ReachGunId).Append(" (reach gun hold, ").Append((st.ReachGunUntil - now).ToString("0.0")).Append(" s grace)");
+                if (ReachGunHolds(st, e, now)) sb.Append(", KEEPS HER GUN ON #").Append(st.ReachGunId).Append(" (reach gun hold: no swap to melee, back-offs live - round k1; ").Append((st.ReachGunUntil - now).ToString("0.0")).Append(" s grace)");
                 if (now < st.ReachGunAsideUntil) sb.Append(", stand-and-shoot stood aside ").Append((st.ReachGunAsideUntil - now).ToString("0.0")).Append(" s more (no shot, no clear aim)");
                 if (NoSwingSpot(st, e.position, now))
                     sb.Append(", no-swing spot: melee waits ").Append((NoSwingSpotSeconds - (now - st.NoSwingAt)).ToString("0")).Append(" s more within ").Append(NoSwingSpotDist.ToString("0")).Append(" m");

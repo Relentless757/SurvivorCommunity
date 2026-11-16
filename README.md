@@ -356,7 +356,8 @@ The community window's **Activities** tab has one activity, **Prepare a round of
   fighting. Away from home she runs from the enemy. **At home she does not leave the base:**
   - **With a gun or bow that has ammo** she **stands off**: when an enemy comes within 8 m she backs away inside the base
     to about 15 m from it (never farther than she can shoot), near the others who are fighting, and keeps shooting.
-    Cornered, or caught by a fast zombie, she stands and shoots it point-blank.
+    With no room for that she takes a shorter step back (10, 6 or 3 m) and shoots before the next one. Only when not even
+    3 m is free (or a fast zombie catches her) does she stand and shoot - for a moment, then she tries again.
   - **Without one** (or against raiders and bandits within 30 m, who shoot back) she **retreats inside**: she runs to a
     room with a roof and walls - beside a bed, a work station, a post, not right beside a door - away from the enemy, shuts
     the doors she passed behind her, and holds there, fighting only what reaches her (not a zombie pounding on the door). A base with no roofed room: a walled corner, else the far side of the
@@ -1215,13 +1216,19 @@ catalog, and real armor pieces in their equipment slots.
   follow that tier.
 - They use the gun while it has ammo and switch to melee up close. **When several enemies are on them**, they keep the gun
   and back away as they shoot instead of switching to melee.
+- **Keeping their distance:** with a gun in hand, your members back away from an enemy within 2.5 m and shoot anything
+  farther off. **At home they never back out of the base:** the step back (10, 6 or 3 m) always ends inside the home zone,
+  on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. Away from home they
+  back off as the NPC framework does. `BackOffHome` and the other `BackOff...` settings (section 20) tune it.
 - **Team strength decides melee** (your members): each one weighs her side - her Fighting stars, health and weapon, the
-  other members near her, and you (you count double) - against the awake enemies within 15 m (during a horde at the
+  other members near her, and you (you count double, but only while you are fighting: a zombie near her is after you, or
+  you hit one in the last 5 seconds) - against the awake enemies within 15 m (during a horde at the
   base, the whole defended area). **In a fight your side can win** she fights with her melee weapon: she puts her gun
   away for it, does not shoot while the zombie comes in, does not back away from it, and stays on melee after the swap
   up close; it takes one more enemy on her to count as "several". She uses the gun as before **below half health**
   (melee again from 60%), against more than her side can take, when raiders or anyone armed are in the fight, against a
-  cop or a demolition zombie, against anything she cannot reach (even up close), and against a zombie a resident could
+  cop or a demolition zombie, against anything she cannot reach (even up close: she keeps the gun on it, backing off when
+  it is on top of her), and against a zombie a resident could
   only reach past her leash. A member on a Stay order gives supporting fire, and one asleep in bed does not count. A
   guard on watch keeps the gun; a Cowardly member hangs back with hers and runs only from a fight going badly (with no
   gun she runs, as before). **Ordering her gun** (the weapon menu, or "use your ..." by voice) makes her keep it until
@@ -1537,7 +1544,13 @@ These are the ones you are most likely to change. The file has many more.
 | `TeamMelee` | true | Members fight with their melee weapon in a fight their side can win (section 15); false: as before |
 | `TeamRadius` | 15 | How far around a member her side and the enemies are counted (meters) |
 | `TeamLowHealth` / `TeamLowHealthBack` | 0.5 / 0.6 | Below this share of her health a member uses the gun again; melee again from the second |
-| `TeamPlayerWeight` | 2 | How much you count for your side (a 1-star member counts 1) |
+| `TeamPlayerWeight` | 2 | How much you count for your side while you fight (a 1-star member counts 1) |
+| `TeamPlayerFightingSeconds` | 5 | You count only while a zombie near the member is after you or you hit one in this many seconds; standing by you count 0 |
+| `BackOffHome` | true | At home a member with a gun backs off only to a spot inside the base; false: as the NPC framework does |
+| `BackOffSteps` | 10, 6, 3 | The steps back tried (meters), longest first |
+| `BackupKeepDistanceMax` | 2.5 | A member with a gun backs off from an enemy this close; farther off she shoots (the framework's own is 4) |
+| `BackOffNoPointSeconds` | 1 | With no spot to back off to (or cornered while standing off) she shoots this long, then tries again |
+| `StandOffShootSeconds` | 1.5 | A hurt member standing off shoots this long between two short steps back |
 | `TeamThreatTags` | walker:1, feral:2, radiated:3 ... | How much each kind of enemy counts (the comment in blocks.xml lists all of the `Team...` settings) |
 | `DialogLine` | true | Show the NPC's line above your responses |
 | `DialogPager` | true | Split long talk pages |

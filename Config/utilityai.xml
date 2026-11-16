@@ -248,7 +248,13 @@
 			     point to go to, or a feral gaining on her): she stands and shoots point-blank (BackupKeepDistance is gated off
 			     for her and SC keeps her loaded gun up close). 8.2: over BackupKeepDistance (8) on its own should that gate ever
 			     no-op after an 0-XNPCCore update (trap 4), under ScFleeHurt / ScRetreat (8.5; never 1 together: a stand-off is
-			     never a shelter). RetreatHome=false: ScStandOff is always 0. -->
+			     never a shelter). RetreatHome=false: ScStandOff is always 0.
+			     Round k1: with no point at the full gap she takes the longest of the BackOffSteps that fits (10, 6, 3 m, no line
+			     back to the threat needed: a step out of reach beats a firing line), and a step that leaves the threat inside
+			     StandOffMin is followed by StandOffShootSeconds (1.5 s) of shooting. Cornered only when even the 3 m step fails,
+			     and then for one decision (BackOffNoPointSeconds, 1 s), not 3 s. BackupKeepDistance and BackupRanged are no
+			     longer gated off in a stand-off (ScNotRetreating only="shelter"): whenever this does not score, 0-XNPCCore's
+			     back-off (kept inside the base) and the shot have her - one owner at a time; 8.2 wins while this scores. -->
 			<action name="ScStandOffHurt" weight="8.2" entity_filter="IsEnemy">
 				<task class="StandOffSC, SurvivorCommunity" />
 				<consideration class="ScIsMember, SurvivorCommunity" />
@@ -458,22 +464,20 @@
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='MeleeApproach' or @name='BackupRanged']">
 				<consideration class="ScNotTravelling, SurvivorCommunity" />
 			</append>
-			<!-- Round n07: inside 4 m, BackupKeepDistance (weight 8) outranks 0-XNPCCore's own shot (RangedMeleeAttack, 6)
-			     and its task holds no shot at all, while the melee actions are gated off by CurrentWeaponClass. So a body
-			     SC has deliberately kept on the gun at close range (the overwhelmed rule) can neither fire nor swing - it
-			     walks backwards and never attacks. Scoring the back-off to 0 for exactly those bodies lets her SHOOT.
-			     She then STANDS AND FIRES point-blank rather than backing off - UAI runs one action at a time, so with
-			     the back-off gone the shot (6) simply beats BackupRanged (5). That is the deliberate trade: a member who
-			     can shoot beats one who can do neither. Every other NPC keeps the back-off untouched. -->
-			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
-				<consideration class="ScNotHoldingGunUpClose, SurvivorCommunity" />
-			</append>
+			<!-- Round n07 appended ScNotHoldingGunUpClose here: inside 4 m BackupKeepDistance (8) outranks 0-XNPCCore's own shot
+			     (6) and its task holds no shot, so a member SC kept on the gun up close (the overwhelmed rule) could neither fire
+			     nor swing; scoring the back-off 0 for her made her STAND AND FIRE point-blank. Round k1 (2026-11-15) removed it:
+			     that was one of the three gates that kept every gun holder inside 4 m still (research/combat/SC_VS_NPCCORE.md
+			     1.4). Its reason is solved the other way, further down: a member's BackupKeepDistance band is 0-2.5 m
+			     (ScBackupKeepBand), so from 2.5 to 4 m the shot wins and closer in she backs off - inside the base at home. -->
 			<!-- Round tm1 (I5; the user, 2026-11-15: "5 members vs 5 zombies should not use ranged unless HP is low"): Paul drew
 			     his .44 on a walker 8 m off and BackupKeepDistance (8, inside 4 m) and BackupRanged (5, 1-10 m, and the winner
 			     through every reload) walked him away from it. ScNotTeamMelee is 0 while a member is melee-led (ScTeam: a
 			     matched fight, F >= T) and the enemy is safe to melee, unarmed and in reach, unless the overwhelmed rule holds her
 			     on the gun: she holds her ground while SC's MeleeFirst puts her melee weapon in her hand (1 s; the swap hold 5 s).
-			     1 for everyone else - an outmatched fight, a cop or demolition zombie, raiders, strangers, TeamMelee off. -->
+			     1 for everyone else - an outmatched fight, a cop or demolition zombie, raiders, strangers, TeamMelee off.
+			     Round k1: also 1 while one of round tm2's holds keeps her on the gun (the close reach draw's "stand and shoot", the
+			     no-swing spot): those still hold off 0-XNPCCore's 3 m swap and MeleeFirst, but no longer her back-offs. -->
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance' or @name='BackupRanged']">
 				<consideration class="ScNotTeamMelee, SurvivorCommunity" />
 			</append>
@@ -506,9 +510,13 @@
 	<!--
 	  Round rt1 (research/flee_meds/DESIGN.md I8, I9; 0-XNPCCore 3.4, only where each action exists - trap 4: 3.4.05 moved an
 	  action between packages and an unguarded append no-oped silently). ScNotRetreating is 0 while one of the community's
-	  members shelters or stands off (ScRetreat), else 1: one owner of her distance. BackupKeepDistance (8, inside 4 m) would
-	  back her off with Voice Control's own task - no zone bound, up to 10 m, no shot (round n07) - and BackupRanged (5, 1-10 m)
-	  would drag her back through every reload; MeleeApproach (5) would chase out of her shelter while she fights back.
+	  members shelters or stands off (ScRetreat), else 1: one owner of her distance. MeleeApproach (5) would chase out of her
+	  shelter while she fights back.
+	  Round k1: on BackupKeepDistance (8) and BackupRanged (5) it is only="shelter" - 0 while she SHELTERS, no longer while she
+	  stands off. rt1 gated them in a stand-off too (they had no zone bound then), and whenever ScStandOffHurt did not score -
+	  cornered for 3 s, through every reload - nothing moved her: Paul stood still for 212 s of it. Now one owner at a time:
+	  ScStandOffHurt (8.2) wins while it scores; otherwise 0-XNPCCore's back-off - kept inside the base for members at home
+	  (ScBackOff) - and the shot take over.
 	  ScNotHurtNoMeds (decision 10, everywhere - the other half of the flee/return loop, trap 7) is 0 for a member hurt below
 	  FleeBelowHealth with nothing to heal with: MeleeApproach never walks her to a fight; her swing at what reaches her
 	  (MeleeAttack) and her shot still run. Both are 1 for everyone else - raiders, strangers, enclave people - and with
@@ -525,14 +533,42 @@
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupKeepDistance&quot;]/@name') != null">
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
-				<consideration class="ScNotRetreating, SurvivorCommunity" />
+				<consideration class="ScNotRetreating, SurvivorCommunity" only="shelter" />
 			</append>
 		</if>
 	</conditional>
 	<conditional>
 		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupRanged&quot;]/@name') != null">
 			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupRanged']">
-				<consideration class="ScNotRetreating, SurvivorCommunity" />
+				<consideration class="ScNotRetreating, SurvivorCommunity" only="shelter" />
+			</append>
+		</if>
+	</conditional>
+	<!--
+	  Round k1 (2026-11-15, research/combat/SC_VS_NPCCORE.md 1.4, 4.2 and 4.4; the user approved the scope): 0-XNPCCore's
+	  back-offs work again for the community's members - inside the base. Only where each action exists (trap 4).
+	  - ScBackupKeepBand on BackupKeepDistance (8): for a member it is 1 only within BackupKeepDistanceMax (2.5 m) of the enemy.
+	    0-XNPCCore's own band is 0-4 m (its TargetDistance max 4, left as it is for every other NPC) and its task holds no shot
+	    (round n07's finding), so from 2.5 to 4 m the shot (6) now wins over that back-off. This replaces n07's
+	    ScNotHoldingGunUpClose (removed above), which made an overwhelmed member stand and fire point-blank.
+	  - ScBackOffRoom on both back-offs: 0 against an enemy for BackOffNoPointSeconds (1 s, one decision) after SC found no point
+	    inside the base to back off to from it. For a member at home the task's point is SC's (ScBackOff: 10, 6 and 3 m steps on
+	    seven directions, inside the home zone + margin or the defended area in a base attack, out of reach of every enemy); with
+	    none the task ends at once with no path, as 0-XNPCCore's own failure does, and the shot takes that decision.
+	  Everyone else - followers away from home, strangers, enclave people, raiders - keeps 0-XNPCCore's back-off as it is.
+	-->
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupKeepDistance&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupKeepDistance']">
+				<consideration class="ScBackupKeepBand, SurvivorCommunity" />
+				<consideration class="ScBackOffRoom, SurvivorCommunity" />
+			</append>
+		</if>
+	</conditional>
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcRangedAdvanced&quot;]/action[@name=&quot;BackupRanged&quot;]/@name') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SdcsNpcRangedAdvanced']/action[@name='BackupRanged']">
+				<consideration class="ScBackOffRoom, SurvivorCommunity" />
 			</append>
 		</if>
 	</conditional>

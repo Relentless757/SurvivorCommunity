@@ -54,8 +54,11 @@ namespace SurvivorCommunity
         private const float FightBackLinger = 3f;
         /// <summary>"Threat gone": no awake enemy in the home zone within this of her either.</summary>
         private const float ZoneClearRadius = 15f;
-        /// <summary>Cornered: the stand-off scores 0 this long (the shot fires point-blank).</summary>
-        public const float CorneredSeconds = 3f;
+        /// <summary>
+        /// Cornered: the stand-off scores 0 this long - round k1: one decision (BackOffNoPointSeconds, 1 s; it was 3 s), while
+        /// 0-XNPCCore's back-off (kept inside the base) and the shot take over.
+        /// </summary>
+        public static float CorneredSeconds { get { return ScConfig.BackOffNoPointSeconds; } }
         /// <summary>CurrentOrder 2 is SCore's Stay (the cvar 0-XNPCCore's actions are gated on; ScTeam reads it the same way).</summary>
         private const int OrderStay = 2;
         /// <summary>
@@ -110,6 +113,11 @@ namespace SurvivorCommunity
             /// <summary>Written by the stand-off task: the stand-off scores 0 until then.</summary>
             public float CorneredUntil;
             public string CorneredWhy;
+            /// <summary>
+            /// Round k1, written by the stand-off task (BackedOff): a step that left the threat inside StandOffMin is followed by
+            /// StandOffShootSeconds of shooting - the stand-off scores 0 until then (0-XNPCCore's back-off and the shot own her).
+            /// </summary>
+            public float ShootUntil;
             /// <summary>The stand-off's target gap (StandOffMin + 2 .. min(StandOffMax, engage range - 1)).</summary>
             public float Gap;
             /// <summary>The stand-off task is walking her back (the consideration's hysteresis), and to where.</summary>
@@ -257,6 +265,7 @@ namespace SurvivorCommunity
                     st.ModeSince = now;
                     st.BackingOff = false;
                     st.CorneredUntil = 0f;
+                    st.ShootUntil = 0f;
                     st.CorneredStreak = 0;
                     st.FightBack = false;
                 }
@@ -292,6 +301,7 @@ namespace SurvivorCommunity
             st.FightBackUntil = 0f;
             st.CorneredUntil = 0f;
             st.CorneredWhy = null;
+            st.ShootUntil = 0f;
             st.BackingOff = false;
             st.HasSpot = false;
             st.SpotSource = "";
@@ -322,6 +332,7 @@ namespace SurvivorCommunity
             st.Hurt = st.Coward = false;
             st.FightBack = false;
             st.CorneredUntil = 0f;
+            st.ShootUntil = 0f;
             st.BackingOff = false;
             st.HasSpot = false;
             st.Fallback = null;
@@ -521,6 +532,16 @@ namespace SurvivorCommunity
             return Active(e, out st);
         }
 
+        /// <summary>
+        /// Round k1, ScNotRetreating only="shelter" (0-XNPCCore's back-offs): the retreat owns her in Shelter mode (fighting back
+        /// or not). A stand-off no longer takes the back-offs. A pure read.
+        /// </summary>
+        public static bool Shelters(EntityAlive e)
+        {
+            State st;
+            return Active(e, out st) && st.Mode == Mode.Shelter;
+        }
+
         /// <summary>ScRetreat (8.5): Shelter, not fighting back. A pure read.</summary>
         public static bool ShelterScores(EntityAlive e)
         {
@@ -538,11 +559,15 @@ namespace SurvivorCommunity
             return Active(e, out st) && st.Mode == Mode.StandOff;
         }
 
-        /// <summary>The stand-off task may run (StandOff, not cornered). A pure read.</summary>
+        /// <summary>
+        /// The stand-off task may run (StandOff, not cornered; round k1: not in the shooting beat after a short step - SCore starts
+        /// a finished task again before the next decision, so its Start must see the beat too). A pure read.
+        /// </summary>
         public static bool StandOffMayRun(EntityAlive e)
         {
             State st;
-            return Active(e, out st) && st.Mode == Mode.StandOff && Time.time >= st.CorneredUntil;
+            float now = Time.time;
+            return Active(e, out st) && st.Mode == Mode.StandOff && now >= st.CorneredUntil && (st.BackingOff || now >= st.ShootUntil);
         }
 
         /// <summary>
@@ -550,15 +575,19 @@ namespace SurvivorCommunity
         /// the task measures the gap to that one, so scoring on any other - one pounding a wall unseen - started a task that
         /// was done at once, every frame), alive and awake, and inside StandOffMin (XZ, as the task measures) with no block
         /// between their heads - or the back-off is already running and it is still nearer than her target gap
-        /// (hysteresis). A pure read.
+        /// (hysteresis). Round k1: 0 in the shooting beat after a step that left the threat inside StandOffMin
+        /// (StandOffShootSeconds) - then 0-XNPCCore's back-off (inside BackupKeepDistanceMax, kept inside the base) and the shot
+        /// own her, one owner at a time. A pure read.
         /// </summary>
         public static bool StandOffScores(EntityAlive e, EntityAlive t)
         {
             State st;
-            if (t == null || t.IsDead() || t.IsSleeping || !Active(e, out st) || st.Mode != Mode.StandOff || Time.time < st.CorneredUntil) return false;
+            float now = Time.time;
+            if (t == null || t.IsDead() || t.IsSleeping || !Active(e, out st) || st.Mode != Mode.StandOff || now < st.CorneredUntil) return false;
             if (t.entityId != st.ThreatId) return false;
             float d = ScRunners.XZ(t.position, e.position);
             if (st.BackingOff && d < st.Gap) return true;
+            if (now < st.ShootUntil) return false;
             return st.ThreatClear && d < ScConfig.StandOffMin;
         }
 
@@ -714,7 +743,11 @@ namespace SurvivorCommunity
             ScLog.Verbose(Name(e) + ": " + Her(e) + " shelter spot " + Cell(spot) + " " + why + (unreachable ? " - marked, " + st.Fails + " so far this retreat" : "") + "; picking another");
         }
 
-        /// <summary>The stand-off task: no way to back off, or the threat gains on her - she stands and shoots for CorneredSeconds.</summary>
+        /// <summary>
+        /// The stand-off task: no way to back off (round k1: not even the shortest BackOffSteps step), or the threat gains on her -
+        /// cornered for one decision (CorneredSeconds = BackOffNoPointSeconds; it was 3 s): the shot and 0-XNPCCore's back-off
+        /// (kept inside the base) have her meanwhile.
+        /// </summary>
         internal static void Cornered(EntityAlive e, string why)
         {
             State st;
@@ -724,15 +757,34 @@ namespace SurvivorCommunity
             st.BackingOff = false;
             st.CorneredStreak++;                                       // the Fable review (finding 8): Update ends it away from home
             Patches_Xnpc.Count("retreat-cornered");
-            ScLog.Verbose(Name(e) + " is cornered (" + why + ") - stands and shoots for " + CorneredSeconds.ToString("0", CultureInfo.InvariantCulture) + " s");
+            ScLog.Verbose(Name(e) + " is cornered (" + why + ") - the shot and 0-XNPCCore's back-off have " + HerObj(e) + " for "
+                          + CorneredSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s (round k1)");
         }
 
-        /// <summary>The stand-off task started (point) or stopped walking her back.</summary>
-        /// <summary>The stand-off task finished a back-off (the gap or the point reached): the cornered streak starts again.</summary>
-        internal static void BackedOff(EntityAlive e)
+        /// <summary>
+        /// The stand-off task finished a back-off (the gap or the point reached), with the threat gap m away: the cornered streak
+        /// starts again. Round k1: a step that left it inside StandOffMin (a short one) is followed by StandOffShootSeconds of
+        /// shooting before the next step (counted retreat-backoff-shoot).
+        /// </summary>
+        internal static void BackedOff(EntityAlive e, float gap)
         {
             State st;
-            if (e != null && states.TryGetValue(e.entityId, out st)) st.CorneredStreak = 0;
+            if (e == null || !states.TryGetValue(e.entityId, out st)) return;
+            st.CorneredStreak = 0;
+            ShootBetweenSteps(e, gap);
+        }
+
+        /// <summary>
+        /// Round k1: a stand-off walk ended (done, or a feral gained on her) with the threat gap m away, inside StandOffMin: she
+        /// shoots StandOffShootSeconds before the next step (StandOffScores and StandOffMayRun read ShootUntil).
+        /// </summary>
+        internal static void ShootBetweenSteps(EntityAlive e, float gap)
+        {
+            State st;
+            if (e == null || !states.TryGetValue(e.entityId, out st) || st.Mode != Mode.StandOff) return;
+            if (gap >= ScConfig.StandOffMin || ScConfig.StandOffShootSeconds <= 0f) return;
+            st.ShootUntil = Time.time + ScConfig.StandOffShootSeconds;
+            Patches_Xnpc.Count("retreat-backoff-shoot");
         }
 
         internal static void BackingOff(EntityAlive e, bool on, Vector3 point)
@@ -885,6 +937,7 @@ namespace SurvivorCommunity
                 sb.Append("; gap ").Append(st.Gap.ToString("0.#", CultureInfo.InvariantCulture)).Append(" m");
                 if (st.BackingOff) sb.Append(", BACKING OFF to ").Append(Cell(st.BackOffPoint));
                 if (now < st.CorneredUntil) sb.Append(", CORNERED ").Append((st.CorneredUntil - now).ToString("0.0", CultureInfo.InvariantCulture)).Append(" s more (").Append(st.CorneredWhy).Append(')');
+                if (now < st.ShootUntil) sb.Append(", SHOOTING BETWEEN STEPS ").Append((st.ShootUntil - now).ToString("0.0", CultureInfo.InvariantCulture)).Append(" s more");
             }
             return sb.ToString();
         }
@@ -989,14 +1042,16 @@ namespace SurvivorCommunity
                               + (st.Fallback != null ? "; fallback: " + st.Fallback : "") + "; unreachable this retreat " + st.Fails + "; doors handed to ScDoors " + st.Doors);
                 if (st.Mode == Mode.StandOff)
                     lines.Add("[SC]   stand-off: gap " + st.Gap.ToString("0.#", CultureInfo.InvariantCulture) + " m" + (st.BackingOff ? ", BACKING OFF to " + Cell(st.BackOffPoint) : ", not backing off")
-                              + (now < st.CorneredUntil ? ", CORNERED " + (st.CorneredUntil - now).ToString("0.0", CultureInfo.InvariantCulture) + " s more (" + st.CorneredWhy + ")" : ""));
+                              + (now < st.CorneredUntil ? ", CORNERED " + (st.CorneredUntil - now).ToString("0.0", CultureInfo.InvariantCulture) + " s more (" + st.CorneredWhy + ")" : "")
+                              + (now < st.ShootUntil ? ", SHOOTING BETWEEN STEPS " + (st.ShootUntil - now).ToString("0.0", CultureInfo.InvariantCulture) + " s more" : ""));
             }
             EntityAlive t;
             Vector3 tp;
             ThreatPlace(e, out tp, out t);
             lines.Add("[SC]   gates now: ScRetreating " + (ShelterScores(e) ? 1 : 0) + ", ScStandOff on " + (t != null ? t.EntityName + " " + (StandOffScores(e, t) ? 1 : 0) : "- (no live threat)")
                       + ", ScNotRetreatHome hurt " + (FleeAllowed(e, false) ? 1 : 0) + " / coward " + (FleeAllowed(e, true) ? 1 : 0)
-                      + ", ScNotRetreating " + (Owns(e) ? 0 : 1) + ", ScNotHurtNoMeds " + (HurtNoMedsMember(e) ? 0 : 1));
+                      + ", ScNotRetreating " + (Owns(e) ? 0 : 1) + " (on 0-XNPCCore's back-offs, shelter only: " + (Shelters(e) ? 0 : 1) + ")"
+                      + ", ScNotHurtNoMeds " + (HurtNoMedsMember(e) ? 0 : 1));
             if (r == Region.Home)
             {
                 int fails;

@@ -2445,6 +2445,7 @@ namespace SurvivorCommunity
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] team strength (round tm1): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false)") + "; " + ScTeam.Report());
+            Output("[SC] back-offs (round k1): " + ScBackOff.Report());
             Output("[SC] melee: " + ScMelee.Report());
 #if SC_V34
             Output("[SC] melee-unreachable (0-XNPCCore): " + ScReach.Report());
@@ -2540,6 +2541,7 @@ namespace SurvivorCommunity
             sb.Append("\n  overwhelmed: ").Append(ScArms.Describe(e));
             sb.Append("\n  ").Append(ScTeam.Line(e));             // round tm1
             sb.Append("\n  ").Append(ScRetreat.Line(e));         // round rt1
+            sb.Append("\n  ").Append(ScBackOff.Line(e));         // round k1
 #if SC_V34
             sb.Append("\n  ").Append(ScReach.Describe(e));
 #endif

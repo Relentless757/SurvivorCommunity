@@ -369,6 +369,8 @@ namespace SurvivorCommunity
             Add(t, "EntityTargetingUtilities::CanDamage", AccessTools.Method(typeof(EntityTargetingUtilities), "CanDamage", new[] { typeof(EntityAlive), typeof(Entity) }));
             Add(t, "EntityUtilities::GetFactionRelationship", AccessTools.Method(typeof(EntityUtilities), "GetFactionRelationship", new[] { typeof(EntityAlive), typeof(EntityAlive) }));
             Add(t, "EntityAliveSDXV4::ProcessDamageResponseLocal", AccessTools.DeclaredMethod(typeof(EntityAliveSDXV4), "ProcessDamageResponseLocal", new[] { typeof(DamageResponse) }));
+            // ScTeam.cs (round k1) - a player's landed hit on an enemy: you count in the team verdict only while you fight
+            Add(t, "EntityAlive::ProcessDamageResponseLocal", AccessTools.DeclaredMethod(typeof(EntityAlive), "ProcessDamageResponseLocal", new[] { typeof(DamageResponse) }));
             Add(t, "Entity::PhysicsSetHeight", AccessTools.Method(typeof(Entity), "PhysicsSetHeight", new[] { typeof(float) }));
             Add(t, "EModelBase::StartRagdoll", AccessTools.Method(typeof(EModelBase), "StartRagdoll", new[] { typeof(float) }));
             Add(t, "EModelBase::FrameUpdateRagdoll", AccessTools.Method(typeof(EModelBase), "FrameUpdateRagdoll", new Type[0]));
@@ -584,6 +586,10 @@ namespace SurvivorCommunity
 #if SC_V34
                 // 3.4: ScAim - the gun stays up while Voice Control's paced back-off walks the NPC away (M11 fix 2)
                 Add(t, "UAITaskBackupFromTargetPaced::Update", ScAim.BackoffTarget());
+                // round k1: ScBackOff - for members at home that back-off goes to a point inside the base (its Start picks it,
+                // SCore's GetMoveToLocation takes it in)
+                Add(t, "UAITaskBackupFromTargetPaced::Start", ScBackOff.StartTarget());
+                Add(t, "SCoreUtils::GetMoveToLocation", ScBackOff.PointTarget());
                 // 3.4: SC's leaderless raiders, residents and enclave people fight at range (3.2's MayEngage answer)
                 Add(t, "UAIConsiderationMayEngage::GetScore", Patches_VoiceControl.MayEngageTarget());
                 // 3.4: ScDoors - the Point formation's doors are shut behind a member too

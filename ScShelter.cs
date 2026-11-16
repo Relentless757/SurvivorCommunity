@@ -536,12 +536,18 @@ namespace SurvivorCommunity
         /// (region Home: the zone + margin, round hl1's AtHome) or within StandOffFollowerLeash of you (Leader); standable; not
         /// on her unreachable list; at least StandOffMin from every enemy within FleeRadius of her; a clear line (blocks) from
         /// her head there to the threat's head. Scored by walk, minus a bonus within 15 m of another member in a fight or you
-        /// (decision 2), plus a penalty in another member's line of fire. False when none: she is cornered.
+        /// (decision 2), plus a penalty in another member's line of fire.
+        /// Round k1 (research/combat/SC_VS_NPCCORE.md 1.4: "all-or-nothing ... no shorter step is tried"): when no direction
+        /// takes that full step, the BackOffSteps (10, 6, 3 m) the bounded 0-XNPCCore back-off uses (ScBackOff.Pick, step: its
+        /// length) - with no line back to the threat (a step out of reach beats a firing line): in her bound, standable, a
+        /// clear walk, out of reach (BackupKeepDistanceMax) of every enemy. step is 0 for the full step. False only when even the
+        /// shortest step fails: she is cornered (for one decision).
         /// </summary>
-        public static bool BackOff(EntityAlive self, EntityAlive threat, float gap, ScRetreat.Region region, out Vector3 point, out string why)
+        public static bool BackOff(EntityAlive self, EntityAlive threat, float gap, ScRetreat.Region region, out Vector3 point, out string why, out float step)
         {
             point = Vector3.zero;
             why = null;
+            step = 0f;
             World w = self.world;
             if (w == null || threat == null) { why = "no threat"; return false; }
             Vector3 me = self.position, from = threat.position;
@@ -615,8 +621,17 @@ namespace SurvivorCommunity
                 float score = s - (ally ? 4f : 0f) + (inLine ? 6f : 0f) + Mathf.Abs(Angles[k]) * 0.02f;
                 if (score < best) { best = score; point = pc; }
             }
-            if (best == float.MaxValue) { why = "none of " + tried + " directions works (last: " + last + ")"; return false; }
-            return true;
+            if (best < float.MaxValue) return true;
+            // round k1: the shorter steps, no line to the threat needed
+            float gs, ga;
+            string gwhy;
+            if (ScBackOff.Pick(self, threat, float.MaxValue, region, leader, null, out point, out gs, out ga, out gwhy))
+            {
+                step = gs;
+                return true;
+            }
+            why = "the full step fits none of " + tried + " directions (last: " + last + "), and no shorter step either: " + gwhy;
+            return false;
         }
 
         /// <summary>

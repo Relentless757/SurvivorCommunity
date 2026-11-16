@@ -420,6 +420,9 @@ namespace UAI
     /// else. Appended to 0-XNPCCore's BackupKeepDistance (weight 8), which inside 4 m outranks its own shot (6) and
     /// contains no shot of its own - so without this a member SC put on the gun walks backwards forever and never
     /// attacks with either weapon. Every other NPC keeps the back-off exactly as 0-XNPCCore intends it.
+    /// Round k1: NO LONGER IN Config/utilityai.xml - it left an overwhelmed member standing at point-blank. A member's
+    /// BackupKeepDistance band is 0-2.5 m instead (ScBackupKeepBand, ScBackOff.cs): the shot wins from 2.5 to 4 m, and closer
+    /// in she backs off. Kept until round k6's cleanup.
     /// </summary>
     public class UAIConsiderationScNotHoldingGunUpClose : UAIConsiderationBase
     {
@@ -436,7 +439,8 @@ namespace UAI
     /// 0-XNPCCore's BackupKeepDistance (8) and BackupRanged (5) (Config/utilityai.xml, 3.4 only): a melee-led member who
     /// still holds her gun for a moment (MeleeFirst's 1 s, the 5 s swap hold) does not walk away from a lone walker -
     /// MeleeFirst puts her melee weapon in her hand. A pure read of the verdict the X5 tick keeps; a throw is logged once
-    /// and means 1 (0-XNPCCore's rule as before).
+    /// and means 1 (0-XNPCCore's rule as before). Round k1: 1 while one of tm2's holds keeps her on the gun (the close reach
+    /// draw's stand and shoot, the no-swing spot) - those holds no longer take her back-offs (ScTeam.HoldsGround).
     /// </summary>
     public class UAIConsiderationScNotTeamMelee : UAIConsiderationBase
     {

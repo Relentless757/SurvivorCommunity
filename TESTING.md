@@ -37,6 +37,116 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round k1 (2026-11-15): back-offs work again, inside the base
+
+Why: in the session where Gina and Paul died, some SC rule switched 0-XNPCCore's two back-offs (`BackupKeepDistance`,
+`BackupRanged`) off in every state Paul held his gun in, so a gun holder inside 4 m never moved; and rt1's stand-off only
+took a perfect point 15 m off, so it called him "cornered" five times. The analysis is `research/combat/SC_VS_NPCCORE.md`
+(sections 1.4, 1.6, 4.1, 4.2, 4.4); the scope is the one you approved.
+
+What it does now:
+
+- **Back-offs are live again with a gun.** tm2's "stand and shoot" (after 0-XNPCCore refused her swing) no longer stops
+  her backing off; it still keeps her gun up (no swap to melee) while that zombie is after her. n07's overwhelmed "stands
+  and fires point-blank" is gone. Instead a member backs off (`BackupKeepDistance`) only from an enemy within **2.5 m**
+  (`BackupKeepDistanceMax`; 0-XNPCCore's own is 4 m): from 2.5 to 4 m she shoots.
+- **Inside the base.** At home (the zone, 8 m round it, or the defended area in a base attack) the back-off goes to a point
+  SC picks: 10, 6 or 3 m (`BackOffSteps`), straight back or up to 75 degrees to either side, on a floor near her level,
+  nothing in the way (a wall, a shut door, glass), out of reach of every zombie and not past one, and never outside the
+  zone + 8 m. No such point: she shoots for 1 s (`BackOffNoPointSeconds`), then tries again. Away from home a follower
+  backs off as 0-XNPCCore does.
+- **A hurt stand-off (rt1) no longer corners.** With no point at the full 15 m gap she takes the longest of 10, 6 and 3 m
+  that fits (no line back to the zombie needed). A step that leaves the zombie within 8 m is followed by 1.5 s of shooting
+  (`StandOffShootSeconds`). Cornered only when even 3 m fails (or a feral gains on her), and then for 1 s, not 3 s.
+  Meanwhile, and whenever the stand-off does not run, the plain back-off above and the shot have her.
+- **You count only while you fight.** In the team verdict (tm1) you count 2 only while an enemy within the member's 15 m
+  is after you or you hit one in the last 5 s (`TeamPlayerFightingSeconds`); standing by, you count 0.
+- Unchanged: the shelter, hl1, md1, runners (r2), guards on watch, members on Stay, and tm2's other parts (the no-swing
+  clock, its draws, the no-swing spot, the per-zombie holds - their removal is k4). With `TeamMelee` false or `RetreatHome`
+  false everything is as before, except the back-off fixes, which apply either way.
+
+Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's back-offs) and `Config/blocks.xml` (new keys
+`BackOffHome`, `BackOffSteps`, `BackupKeepDistanceMax`, `BackOffNoPointSeconds`, `StandOffShootSeconds` after
+`StandOffFollowerLeash`; `TeamPlayerFightingSeconds` after `TeamPlayerWeight`). `DebugLogging` true for the verbose lines,
+`dm` for the AI overlay's Active Action, and `sc xnpc` once before each scenario (the counters' zero point).
+
+**At load**
+
+- [ ] The log: "config: back-offs at home kept inside the base (steps 10, 6, 3 m on 7 directions, out of reach of every
+      enemy); members back off within 2.5 m (0-XNPCCore's band is 4: the shot wins beyond); no point: the shot takes 1 s (a
+      cornered stand-off too); a short stand-off step is followed by 1.5 s of shooting". The patch list has "patched
+      UAITaskBackupFromTargetPaced::Start", "patched SCoreUtils::GetMoveToLocation" and "patched
+      EntityAlive::ProcessDamageResponseLocal"; no MISSING PATCH line, no "NOT kept inside the base" error.
+- [ ] `sc xnpc`: "back-offs (round k1): on - members at home back off inside the base, steps 10, 6, 3 m on 7 directions; 0
+      bounded ...".
+
+**Scenario 1: one member with a gun against 3 walkers at the gate**
+
+- [ ] Paul with a gun and rounds (`sc loadout Paul`), healthy, at home near the gate, inside the zone; you nearby, not
+      fighting (so the fight is outmatched and he keeps the gun - `sc team Paul` says "OUTMATCHED; you count 0"). Spawn
+      three `zombieBoe` outside the gate, 10 m off. He shoots from range. When one is within 2.5 m, `dm` shows
+      `BackupKeepDistance`: he walks a few meters back into the base, turns and shoots again. Between 2.5 and 4 m `dm`
+      shows `RangedMeleeAttack`, never `BackupKeepDistance`. `backoff-bounded` goes up with each back-off.
+- [ ] He never leaves the zone + 8 m (watch from the claim's edge). With a wall at his back, (verbose) "Paul (id N) backs
+      off from zombieBoe (M) inside the base: 6 m (the longer steps leave the base or meet a wall)" and `backoff-shortened`
+      +1. Backed into a corner: "Paul (id N) has no point inside the base to back off to from zombieBoe (M) (none of 21
+      points works ...) - the shot takes over for 1 s (round k1)", `backoff-no-point` +1; `dm` shows `RangedMeleeAttack`
+      for about a second, then he tries again.
+- [ ] `sc xnpc Paul`: "back-off (round k1): at home - kept inside the base, within 2.5 m; last N s ago from #M: 6 m, 25
+      degrees, to x y z".
+- [ ] During a reload `dm` may show `BackupRanged`: that walk stays inside the base too, never out through the gate.
+- [ ] Away from home, following you: his back-off is 0-XNPCCore's own (`sc xnpc Paul`: "away from home - 0-XNPCCore's
+      own, unbounded"), and `backoff-bounded` does not move.
+
+**Scenario 2: a hurt member indoors**
+
+- [ ] Gina with a gun and rounds, `MedsResupply` false (or `sc give meds -999`), every First Aid Bandage and Kit out of her
+      pack and bag, `sc team Gina hurt 0.3`, in a room of the base. Spawn two `zombieBoe` in the room's doorway. "Gina (id
+      N) retreats - STAND-OFF with her gun (gap ...)". She steps back 3 to 10 m (`sc retreat Gina`: "BACKING OFF to x y
+      z"), not a 15 m run, and `retreat-backoff-shortened` +1 when the full gap does not fit. After the step `sc retreat
+      Gina` shows "SHOOTING BETWEEN STEPS 1.x s more" and `dm` shows `RangedMeleeAttack`; `retreat-backoff-shoot` +1. Then
+      the next step.
+- [ ] No "cornered ... for 3 s" line, ever. In a dead end: "Gina (id N) is cornered (no point to back off to: the full step
+      fits none of 7 directions (...), and no shorter step either: ...) - the shot and 0-XNPCCore's back-off have her for 1
+      s (round k1)", and about a second later she tries again. With the stand-off not running and a zombie on top of her,
+      `dm` shows `BackupKeepDistance` (0-XNPCCore's back-off, inside the base).
+- [ ] A `zombieBoeFeral` sprinting at her: "... gains on her ..." (cornered 1 s), then 1.5 s of shooting; she does not
+      run in circles.
+
+**Scenario 3: you stand by and do not fight**
+
+- [ ] Two members (1 or 2 stars, healthy) and you within 5 m of them, not shooting. Spawn four `zombieBoe` 10 m off that go
+      for the members, not you. `sc team`: the line "you count 2 only while you are fighting (round k1) ..." and for each
+      member "F x / T 4 OUTMATCHED; you count 0 (not fighting) - not melee-led: outmatched ...". `sc team <name>`: "+ you
+      at N m: the player, NOT fighting (no enemy in the area after you, none you hit in the last 5 s) = 0". They keep
+      their guns.
+- [ ] Hit one zombie once: within a second `sc team <name>`: "+ you at N m: the player, fighting (you hit zombieBoe (M) 0.4
+      s ago): 2 x HpF 1 (hp 100%) = 2", and `sc team`: "you count 2 x HpF (fighting)". 5 s after your last hit, with no
+      zombie after you: 0 again.
+- [ ] A zombie that goes for you: "the player, fighting (zombieBoe (M) is after you)".
+- [ ] `sc xnpc`'s team strength line: "N player hit(s) noted (round k1; K kept)".
+
+**Scenario 4: an overwhelmed member**
+
+- [ ] Paul with a gun at home and four or more walkers on him (`sc team Paul`: "overwhelmed N/M YES"). He keeps his gun as
+      before, but no longer stands at point-blank: within 2.5 m `dm` shows `BackupKeepDistance` and he backs off inside
+      the base; from 2.5 m out he shoots. With nowhere to go: the shot for 1 s, then he tries again.
+- [ ] A melee-led member after a no-swing draw (round tm2: a zombie behind the chainlink fence): (verbose) "Paul (id N) keeps
+      his gun on zombieBoe (id M) (it attacks him from x m, and he cannot swing at it): no swap to melee while it is after
+      him within 4 m - he backs off and shoots (round k1)"; `sc team Paul`'s hand line "KEEPS HER GUN ON #M (reach gun hold:
+      no swap to melee, back-offs live - round k1; ...)". Within 2.5 m he backs off; no swap to melee while it is after
+      him (as before).
+
+**Counters**
+
+- [ ] After the scenarios, `sc xnpc`: `backoff-bounded`, `backoff-shortened`, `backoff-no-point` (also `backoff-wide` for a
+      point more than 25 degrees off straight back, `backoff-unreached` for a point the path could not reach) and the
+      "back-offs (round k1)" line with the same totals. `backoff-unapplied` stays 0 (anything else means 0-XNPCCore changed
+      its back-off: report it). `sc retreat` lists `retreat-backoff-shortened` and `retreat-backoff-shoot`.
+
+Round rt1's Scenario 3 below is updated for this round: cornered is 1 s, not 3 s, and when the stand-off does not run
+`dm` may show `BackupKeepDistance` or `BackupRanged` (0-XNPCCore's back-off, inside the base).
+
 ## Round rt1 (2026-11-15): hurt members retreat inside / stand off with a gun
 
 The request: "They shouldn't flee away from home, they should retreat inside, closing doors etc. If they have a ranged
@@ -154,16 +264,19 @@ everyone; `sc retreat <name>` shows one in full, with the gates as the AI reads 
       shoots), and `dm` goes straight to `RangedMeleeAttack` with no run/stop jitter. The walker closes again: she backs
       off again (+1 each).
 - [ ] A zombie within 8 m of her behind a wall, pounding it: no `ScStandOffHurt`, no back-off, nothing counted; she does
-      not freeze - she shoots what she can see. During her reloads `dm` never shows `Guard` or `BackupRanged`.
+      not freeze - she shoots what she can see. During her reloads `dm` never shows `Guard` (round k1: `BackupRanged` may
+      show now - 0-XNPCCore's back-off, kept inside the base).
 - [ ] A zombieBoeFeral sprints at her: within about 3 s (verbose) "Gina (id N) is cornered (zombieBoeFeral (M) gains on
-      her: ...) - stands and shoots for 3 s", `retreat-cornered` +1. She stands and shoots point-blank: `dm` never shows
-      `BackupKeepDistance` or `BackupRanged`; with arrows loaded she keeps the bow inside 3 m (`x5-retreat-keep-gun` in
-      `sc retreat`'s weapons counters); during a reload she may swap to her melee weapon and swing.
+      her: ...) - the shot and 0-XNPCCore's back-off have her for 1 s (round k1)", `retreat-cornered` +1, then 1.5 s of
+      shooting (`retreat-backoff-shoot` +1). Round k1: within 2.5 m `dm` may show `BackupKeepDistance` (inside the base);
+      with arrows loaded she keeps the bow inside 3 m (`x5-retreat-keep-gun` in `sc retreat`'s weapons counters); during a
+      reload she may swap to her melee weapon and swing.
 - [ ] Gun first: `sc arms Gina melee` with a walker 4-5 m off: within about 1 s "Gina (id N) takes the ... (gun first:
       target at 4.x m, standing off (round rt1))", `x5-retreat-gun-first` +1. Inside 3 m it waits (0-XNPCCore's own swap
       would take the bow straight back).
-- [ ] A cornered stand-off by a wall with no way back (`sc retreat Gina`: "CORNERED ... (no point to back off to: none of
-      7 directions works (last: ...))"): she shoots, then tries again 3 s later.
+- [ ] A cornered stand-off by a wall with no way back (`sc retreat Gina`: "CORNERED ... (no point to back off to: the full
+      step fits none of 7 directions (...), and no shorter step either: ...)"): she shoots, then tries again 1 s later
+      (round k1; it was 3 s).
 
 **Scenario 4: no rounds, and armed enemies (decision 3)**
 

@@ -183,6 +183,8 @@
     <Compile Include="ScShelter.cs" />
     <Compile Include="UaiRetreat.cs" />
     <Compile Include="ScConfigRetreat.cs" />
+    <!-- round k1: 0-XNPCCore's back-offs work again for members, kept inside the base (its keys are in ScConfigRetreat.cs) -->
+    <Compile Include="ScBackOff.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="ScVoiceLines.cs" />

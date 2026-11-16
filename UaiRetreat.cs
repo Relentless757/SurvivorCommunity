@@ -84,18 +84,30 @@ namespace UAI
 
     /// <summary>
     /// 0 while the retreat owns her (Shelter or StandOff), else 1 - one owner of her distance. On 0-XNPCCore's
-    /// BackupKeepDistance (8: no zone bound, no shot), BackupRanged (5: it drags her back through every reload) and
     /// MeleeApproach (5: no chase out of her room while she fights back), and SCResident's ScDefendBase, ScDefendHold and
     /// ScReturn (the leash would walk her to her post mid-retreat), and (the Fable review, finding 4) 0-XNPCCore's Guard (3),
     /// which walked her to her post through every reload and fight back. A throw is logged once and means 1.
+    /// Round k1: only="shelter" (on 0-XNPCCore's BackupKeepDistance and BackupRanged) is 0 only while she SHELTERS. A
+    /// stand-off no longer takes the back-offs (they kept her still whenever ScStandOffHurt did not score - "cornered" for 3 s,
+    /// 212 s of it before Paul died): ScStandOffHurt (8.2) wins while it scores, and otherwise 0-XNPCCore's back-off (kept
+    /// inside the base, ScBackOff) and the shot take over - one owner at a time.
     /// </summary>
     public class UAIConsiderationScNotRetreating : UAIConsiderationBase
     {
+        private bool shelterOnly;
+
+        public override void Init(Dictionary<string, string> parameters)
+        {
+            base.Init(parameters);
+            string v;
+            if (parameters.TryGetValue("only", out v) && v != null) shelterOnly = v.Trim().ToLowerInvariant() == "shelter";
+        }
+
         public override float GetScore(Context _context, object target)
         {
             try
             {
-                return ScRetreat.Owns(_context.Self) ? 0f : 1f;
+                return (shelterOnly ? ScRetreat.Shelters(_context.Self) : ScRetreat.Owns(_context.Self)) ? 0f : 1f;
             }
             catch (System.Exception e)
             {
@@ -324,8 +336,12 @@ namespace UAI
     /// ScStandOffHurt's task (design 2.3): back her off from the nearest threat to a point that makes the gap about her
     /// target gap (ScShelter.BackOff), at ScRetreat.RunSpeed, then stop: the stand-off stops scoring and the shot (6) turns
     /// her and fires. Stops when the gap reaches G - 1 or the point; a threat that gains on her (the gap not 1 m larger after
-    /// 2 s of walking: a feral, a dog), no point at all, or no path: cornered (ScRetreat.Cornered, 3 s) - she stands and
-    /// shoots point-blank (BackupKeepDistance is gated off for her, CloseRange keeps her loaded gun up close).
+    /// 2 s of walking: a feral, a dog), no point at all, or no path: cornered (ScRetreat.Cornered).
+    /// Round k1: no full-gap point - one of the BackOffSteps (10, 6, 3 m) instead (ScShelter.BackOff; counted
+    /// retreat-backoff-shortened); a step that ends with the threat still inside StandOffMin - or a walk a feral gains on - is
+    /// followed by StandOffShootSeconds of shooting (ScRetreat.ShootBetweenSteps); cornered lasts one decision
+    /// (BackOffNoPointSeconds, it was 3 s), and meanwhile 0-XNPCCore's back-off (no longer gated off in a stand-off, kept
+    /// inside the base) and the shot take over.
     /// </summary>
     public class UAITaskStandOffSC : UAITaskBase
     {
@@ -379,12 +395,14 @@ namespace UAI
                 float gap = ScRetreat.GapOf(self);
                 Vector3 p;
                 string why;
-                if (!ScShelter.BackOff(self, t, gap, ScRetreat.RegionOf(self), out p, out why))
+                float step;
+                if (!ScShelter.BackOff(self, t, gap, ScRetreat.RegionOf(self), out p, out why, out step))
                 {
                     ScRetreat.Cornered(self, "no point to back off to: " + why);
                     Stop(_context);
                     return;
                 }
+                if (step > 0f) Patches_Xnpc.Count("retreat-backoff-shortened");   // round k1: a graded step, not the full gap
                 walks[self.entityId] = wk = new Walk
                 {
                     Point = p,
@@ -439,7 +457,7 @@ namespace UAI
                 if (gap >= ScRetreat.GapOf(self) - 1f || ScRunners.XZ(self.position, wk.Point) <= ArriveXZ)
                 {
                     Patches_Xnpc.Count("retreat-backoff-done");
-                    ScRetreat.BackedOff(self);
+                    ScRetreat.BackedOff(self, gap);
                     walks.Remove(self.entityId);
                     Stop(_context);
                     return;
@@ -449,6 +467,7 @@ namespace UAI
                     if (gap < wk.GapAtCheck + GainNeed)
                     {
                         ScRetreat.Cornered(self, t.EntityName + " (" + t.entityId + ") gains on " + ScRetreat.HerObj(self) + ": the gap " + gap.ToString("0.#") + " m did not grow 1 m in " + GainSeconds.ToString("0") + " s");
+                        ScRetreat.ShootBetweenSteps(self, gap);               // round k1: running from a feral is lost time - she shoots
                         walks.Remove(self.entityId);
                         Stop(_context);
                         return;

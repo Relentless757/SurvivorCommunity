@@ -38,6 +38,11 @@ namespace SurvivorCommunity
         public static float TeamFreshSeconds = 3f;
         /// <summary>F: the player, another ally (a hire, a friendly NPC) and a member on watch, each times HpF.</summary>
         public static float TeamPlayerWeight = 2f;
+        /// <summary>
+        /// Round k1 (the user's decision): the player counts TeamPlayerWeight only while he is fighting - an enemy in the counted
+        /// area has him as its attack target, or he landed a hit on one in the last TeamPlayerFightingSeconds - else 0.
+        /// </summary>
+        public static float TeamPlayerFightingSeconds = 5f;
         public static float TeamAllyWeight = 1f;
         public static float TeamGuardWeight = 0.8f;
         /// <summary>F: a member in the middle of a medical use counts this share.</summary>
@@ -150,6 +155,7 @@ namespace SurvivorCommunity
             TeamRecountSeconds = 1f;
             TeamFreshSeconds = 3f;
             TeamPlayerWeight = 2f;
+            TeamPlayerFightingSeconds = 5f;
             TeamAllyWeight = 1f;
             TeamGuardWeight = 0.8f;
             TeamMedicalMult = 0.5f;
@@ -202,6 +208,7 @@ namespace SurvivorCommunity
                 TeamFreshSeconds = 2f * TeamRecountSeconds;
             }
             ParseFloat(p, "TeamPlayerWeight", ref TeamPlayerWeight, 0f, 20f);
+            ParseFloat(p, "TeamPlayerFightingSeconds", ref TeamPlayerFightingSeconds, 0f, 60f);
             ParseFloat(p, "TeamAllyWeight", ref TeamAllyWeight, 0f, 20f);
             ParseFloat(p, "TeamGuardWeight", ref TeamGuardWeight, 0f, 20f);
             ParseFloat(p, "TeamMedicalMult", ref TeamMedicalMult, 0f, 1f);
@@ -295,7 +302,7 @@ namespace SurvivorCommunity
             return "on, within " + f(TeamRadius) + " m (a live base attack: the defended area), matched at F >= " + f(TeamMargin) + " T, left after "
                    + TeamLeaveRecounts + " recounts below " + f(TeamLeaveMargin) + " T, recount " + f(TeamRecountSeconds) + " s (fresh " + f(TeamFreshSeconds) + " s)"
                    + "; F: member (" + f(TeamStarBase) + " + " + f(TeamStarStep) + "/star) x HpF x weapon " + f(TeamWeaponMelee) + "/" + f(TeamWeaponRanged) + "/" + f(TeamWeaponBare)
-                   + ", player " + f(TeamPlayerWeight) + ", ally " + f(TeamAllyWeight) + ", guard " + f(TeamGuardWeight) + ", medical x" + f(TeamMedicalMult)
+                   + ", player " + f(TeamPlayerWeight) + " while fighting (after him, or his hit in the last " + f(TeamPlayerFightingSeconds) + " s; else 0), ally " + f(TeamAllyWeight) + ", guard " + f(TeamGuardWeight) + ", medical x" + f(TeamMedicalMult)
                    + ", HpF " + f(TeamHealthFloor) + "+" + f(1f - TeamHealthFloor) + "xmin(1,hp/" + f(TeamHealthFullAt) + ")"
                    + "; T: tags " + TeamTableText(TeamThreats()) + " (else " + f(TeamThreatDefault) + ") x " + TeamTableText(TeamTagMults())
                    + ", hp (max/" + f(TeamThreatHpBase) + ")^" + f(TeamThreatHpPower) + " in " + f(TeamThreatHpMin) + ".." + f(TeamThreatHpMax)

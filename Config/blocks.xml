@@ -71,7 +71,7 @@
 			       - with a gun or bow with rounds, and no armed enemy (raiders, bandits) about, she STANDS OFF: an enemy
 			         inside StandOffMin meters backs her off to about StandOffMax from it (never past her Shooting engage
 			         range minus 1 m), inside the base, preferring a spot near the others who are fighting, and she keeps
-			         shooting; cornered, she shoots point-blank;
+			         shooting; with no room for that, a shorter step (BackOffSteps below); cornered, she shoots for a moment;
 			       - otherwise she SHELTERS: she runs to a roofed spot inside the home zone with a wall or door within 6
 			         blocks in at least ShelterWalls of the 8 directions, ShelterMinThreatDist from the threat, shuts the
 			         ordinary doors she passed behind her (never a drawbridge or hatch she did not open, never within 2.5 m of
@@ -99,6 +99,25 @@
 			<property name="StandOffMin" value="8" />
 			<property name="StandOffMax" value="15" />
 			<property name="StandOffFollowerLeash" value="20" />
+			<!-- Back-offs (round k1): a member with a gun creates distance again, and at home never out of the base.
+			     BackupKeepDistanceMax: she backs away from an enemy within this many meters (0.5 to 4); from there out to
+			       4 m she shoots instead (0-XNPCCore backs its NPCs off from 4 m, and does not shoot while it does). Every
+			       member, at home or away; other NPCs keep 0-XNPCCore's 4 m.
+			     BackOffHome: at home (the home zone and ResidentRoamZoneMargin round it, or the defended area during a base
+			       attack) the back-off goes to a point inside the base: one of BackOffSteps meters, longest first, straight
+			       back or up to 75 degrees to either side, on a floor near her level, with nothing in the way, out of reach
+			       of every enemy and not past one. With no such point she shoots for BackOffNoPointSeconds, then tries again.
+			       Away from home (a follower with you) the back-off is 0-XNPCCore's own. false: 0-XNPCCore's own at home
+			       too (she may back out of the gate).
+			     A hurt member standing off (RetreatHome above) takes the longest of BackOffSteps that fits when there is no
+			     point at the full StandOffMax, then shoots StandOffShootSeconds before her next step while the enemy is
+			     still inside StandOffMin; cornered (not even the shortest step fits, or a feral gains on her), she shoots
+			     for BackOffNoPointSeconds and the plain back-off above takes over. "sc xnpc" counts it all (backoff-*). -->
+			<property name="BackOffHome" value="true" />
+			<property name="BackOffSteps" value="10,6,3" />
+			<property name="BackupKeepDistanceMax" value="2.5" />
+			<property name="BackOffNoPointSeconds" value="1" />
+			<property name="StandOffShootSeconds" value="1.5" />
 			<property name="StationWalkIn" value="true" />
 			<property name="StationWalkInMetres" value="30" />
 			<!-- residents about the base (round hz). ResidentRoamZone: by day they walk anywhere in the home zone and stand
@@ -745,7 +764,9 @@
 			       F: a member (TeamStarBase + TeamStarStep x her Fighting stars) x HpF x her weapon (TeamWeaponMelee with a melee
 			          weapon in her pair, TeamWeaponRanged with only a ranged one, TeamWeaponBare with nothing) - she counts
 			          herself; a member on watch TeamGuardWeight x HpF; one in the middle of a medical use x TeamMedicalMult; one
-			          asleep in bed 0; you TeamPlayerWeight x HpF; another ally (a hire, a friendly NPC) TeamAllyWeight x HpF.
+			          asleep in bed 0; you TeamPlayerWeight x HpF, but only while you are fighting - an enemy within her
+			          count is after you, or you hit one in the last TeamPlayerFightingSeconds (standing by, you count 0);
+			          another ally (a hire, a friendly NPC) TeamAllyWeight x HpF.
 			          HpF = TeamHealthFloor + (1 - TeamHealthFloor) x min(1, health share / TeamHealthFullAt) (0.5 at no health,
 			          1 from 90% of it: a scratch does not count, so a healthy 1-star member alone still melees one walker).
 			       T: every awake enemy, whether or not it is after you: the larger of its tag weight and its health weight, then
@@ -770,8 +791,8 @@
 			     cannot reach (above her, a wall or bars in her swing, or found out of reach - kept TeamUnreachableSeconds) -
 			     that one even inside 5 m. An enemy attacking her up close is in her reach whatever her swing check says
 			     (bars right between them aside) - until 0-XNPCCore has refused her swing at it TeamNoSwingConfirmSeconds in
-			     a row: then it is out of reach (held TeamUnreachableSeconds, doubling, at most 3 min), and she stands and
-			     shoots it. A swap SC makes holds the opposite swap
+			     a row: then it is out of reach (held TeamUnreachableSeconds, doubling, at most 3 min), and she keeps her gun
+			     on it - backing off when it is on top of her (round k1), shooting otherwise. A swap SC makes holds the opposite swap
 			     TeamSwapHoldSeconds (each costs a reload). An outmatched fight, strangers and enclave people keep the rules
 			     above. TeamMelee=false: everything as before this round. Examples: Gina (2 stars) alone against one walker
 			     1.15 / 1 - her sledgehammer; five 3-star members and you against five walkers 8.5 / 5 - all melee; the same
@@ -784,6 +805,7 @@
 			<property name="TeamRecountSeconds" value="1" />
 			<property name="TeamFreshSeconds" value="3" />
 			<property name="TeamPlayerWeight" value="2" />
+			<property name="TeamPlayerFightingSeconds" value="5" />
 			<property name="TeamAllyWeight" value="1" />
 			<property name="TeamGuardWeight" value="0.8" />
 			<property name="TeamMedicalMult" value="0.5" />

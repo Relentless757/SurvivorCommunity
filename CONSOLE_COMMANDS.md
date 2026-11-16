@@ -510,10 +510,10 @@ Rolls `n` loadouts (default 1000) without creating anyone.
 Shows the NPC's weapons; with the word, puts that one in its hand.
 
 ### `sc team` [READ]
-Team strength (round tm1): every loaded member's F (her side: her stars, health and weapon, the members near her, you at double weight) against T (the awake enemies within 15 m; during a horde at the base, the whole defended area), MATCHED or OUTMATCHED, and MELEE-LED or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). A melee-led member fights with her melee weapon.
+Team strength (round tm1): every loaded member's F (her side: her stars, health and weapon, the members near her, you at double weight while you fight) against T (the awake enemies within 15 m; during a horde at the base, the whole defended area), MATCHED or OUTMATCHED, what you counted ("you count 0 (not fighting)" or "you count 2 x HpF (fighting)"), and MELEE-LED or why not (on a run, on watch, Cowardly, your gun order, no melee weapon, hurt, raiders in the fight, outmatched). A melee-led member fights with her melee weapon. Round k1: you count only while an enemy in her area is after you or you hit one in the last `TeamPlayerFightingSeconds` (5 s); standing by, you count 0.
 
 ### `sc team <id|name>` [READ]
-One member in full: the verdict and its age, why she is or is not melee-led, a fresh count listing every friend and enemy with its distance, weight and how the weight was reached (ARMED and melee-unsafe enemies are marked), her target and whether it needs the gun, and her hand (what she holds, your weapon order, the melee-first clock, the 5 s swap hold, the overwhelmed gun hold, a target kept out of reach, the overwhelmed count).
+One member in full: the verdict and its age, why she is or is not melee-led, a fresh count listing every friend and enemy with its distance, weight and how the weight was reached (ARMED and melee-unsafe enemies are marked; you as "fighting (...)" or "NOT fighting ... = 0"), her target and whether it needs the gun, and her hand (what she holds, your weapon order, the melee-first clock, the 5 s swap hold, the overwhelmed gun hold, a target kept out of reach, the overwhelmed count).
 Example: `sc team Gina`
 
 ### `sc team <id|name> auto` [CHEAT]
@@ -572,10 +572,10 @@ Other voice subcommands:
 ## 14. Diagnostics
 
 ### `sc xnpc` [READ]
-Counters for the NPC hooks (voice control, body hooks, stuck rescue, ammo, weapons, team strength, melee, shooting skill, get-ups, relaxed pose) and a count of loaded members, hire contracts, raiders and other NPCs. The team strength rule's counters start `x5-team-` (melee-first swaps, bouts kept on melee, gun first held back, swaps held, fights turned outmatched).
+Counters for the NPC hooks (voice control, body hooks, stuck rescue, ammo, weapons, team strength, back-offs, melee, shooting skill, get-ups, relaxed pose) and a count of loaded members, hire contracts, raiders and other NPCs. The team strength rule's counters start `x5-team-` (melee-first swaps, bouts kept on melee, gun first held back, swaps held, fights turned outmatched). The back-off counters (round k1) start `backoff-`: `bounded` (a member at home backed off to a point inside the base), `shortened` (a shorter step than the longest), `wide` (more than 25 degrees off straight back), `no-point` (no point: she shot instead), `unreached` (a point the path could not reach), `unapplied` (should stay 0).
 
 ### `sc xnpc <id|name>` [READ]
-One NPC in full: class, hostility, AI action and the foe's visibility, navigation, post, record, look, worn armor, weapons, ammo, levels, orders, movement, medic state. This is the main probe for "why does this NPC do X".
+One NPC in full: class, hostility, AI action and the foe's visibility, navigation, post, record, look, worn armor, weapons, ammo, levels, orders, movement, medic state, and (round k1) her back-off: kept inside the base at home or not, and the last one (step, angle, point, or NO POINT with why). This is the main probe for "why does this NPC do X".
 Example: `sc xnpc Dana`
 
 ### `sc dump`, `sc status`, `sc members`, `sc scan`
