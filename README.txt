@@ -403,6 +403,37 @@ With 0-XNPCCore's resident routine, your residents sleep in the base's beds:
 - "SleepAtNight" false (section 20) keeps everyone on SC's own night routine, and so does switching 0-XNPCCore's own
   routine off in its settings. "sc sleep" in the console shows who is in bed, and why not for the rest.
 
+Social life at home
+~~~~~~~~~~~~~~~~~~~
+
+Between their jobs your residents have a life of their own.
+
+- Small talk. Two residents standing near each other now and then stop for a quick exchange: one says something about
+  life at the base (the stockpile, the weather, the walls, last night, dinner, you) and the other answers. They turn to
+  each other and gesture as they talk. What they say fits who they are: a Pessimist worries, an Optimist or a Cheerful
+  one looks on the bright side, a Homesteader talks about the garden, a Tinkerer about the generator.
+- You overhear them. They talk only while you are between 10 and 32 m away. Walk up closer and they stop - the answer
+  never comes; they would rather talk to you. One conversation at a time in the whole base, about every minute and a
+  half, and the same two people at most once every 10 minutes.
+- Walking over. Now and then a resident on her walk about the base heads over to a neighbor to talk. The neighbor waits
+  for her, turned her way.
+- The evening campfire. With a campfire inside the base, each free resident walks over to it once in the evening (from
+  about an hour before dusk until bedtime) and stands round it for 30 to 60 seconds, and two at the fire talk now and
+  then. The fire shows lit while anyone is there: only the flames, so it uses no fuel and the block does not change. A
+  round of drinks (Activities) gathers them round the fire as well. Then they go back to what they were doing, and at
+  bedtime to bed.
+- Voices. Each line plays in the speaker's own voice once it is recorded. Until then it shows as a caption in Voice
+  Control's subtitle bar (where Voice Control shows that survivor's text); without Voice Control there are no captions.
+  With "SmallTalkTtsFallback" on (section 20), a survivor whose voice has none of the lines yet says one of Voice
+  Control's own small-talk lines with its text-to-speech instead.
+- Who never joins in: anyone asleep or on the way to bed, on watch, on a work shift, following you, away on a run,
+  downed, badly hurt and sheltering, fighting or with an enemy in sight, or in a talk with you; nobody during a base
+  attack, and nobody gathers on a blood moon night.
+- Enclave people do the same in their own building, at a campfire there if it has one; their leader stays at their spot.
+- "ResidentSmallTalk", "CampfireGathering" and the other settings in section 20 tune it or turn it off. "sc chat" in the
+  console shows who could talk now and why not; "sc chat <name> <name>" starts a conversation and "sc chat gather" a
+  gathering at the fire.
+
 When they are badly hurt
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1155,6 +1186,8 @@ Their people
 - They appear within about 150 m of their building and go when nobody is near. The leader stays at their spot all day,
   so you always know where to find them.
 - They defend their building and its grounds.
+- They talk with each other, and in the evening gather round a campfire in their building if it has one (section 4,
+  "Social life at home").
 - Deaths are real. When the leader dies, the strongest of the rest takes over. When the last of them dies, the enclave
   is gone and its building is free again.
 - Each group has a kind from its building: growers (farms), medics (clinics), militia (military, police, gun stores),
@@ -1580,6 +1613,10 @@ Greetings, chatter and taunts
 
 - Greetings: survivors greet you in a line that fits who they are to you (a stranger, a recruit, a member at home, a
   follower, one of an enclave's people), the first time each day you see them within 12 m, and when you walk up to them.
+  Strangers in a group greet you once: when one of them greets you, the others around them do not greet you one after
+  another (walking up to one and looking at them still gets you their greeting).
+- Small talk: residents and enclave people talk with each other where you can overhear them (section 4). Until its lines
+  are recorded, it shows as captions.
 - Chatter: every minute and a half or so, a resident at home near you says something to nobody in particular.
 - 0-XNPCCore's lines: where Voice Control would speak one of 0-XNPCCore's job lines or order replies ("I'm out of
   ammo.", "Right behind you."), SC plays its recording in the survivor's own voice.
@@ -1715,8 +1752,26 @@ Community
 - MembersOpenHatches = true: Members open hatches and drawbridges
 - SleepAtNight = true: Residents at home, and friendly enclave people, sleep in beds at night through 0-XNPCCore's
   routine (section 4); false: SC's own night routine
-- SleepAfterDuskHours / SleepZoneHeight = 1 / 15: Hours after dusk before bedtime (keep it the same as 0-XNPCCore's own
-  setting); how far above and below the land claim block beds count (meters)
+- SleepAfterDuskHours / SleepZoneHeight = 1 / 15: Hours after dusk before bedtime (SC waits for the later of this and
+  0-XNPCCore's own setting, which it reads); how far above and below the land claim block beds count (meters)
+- ResidentSmallTalk = true: Residents (and enclave people in their building) talk with each other now and then (section
+  4); false: never
+- SmallTalkGapSeconds / SmallTalkPairMinutes = 90 / 10: Seconds between two conversations anywhere (a quarter either
+  way), and minutes before the same two people talk again
+- SmallTalkRange / SmallTalkHearMin / SmallTalkHearMax = 4 / 10 / 32: Two people talk within this many meters of each
+  other, only while you are farther from them than the second and within the third
+- SmallTalkMeetChance / SmallTalkMeetRange = 0.3 / 25: The chance (every 20 seconds) that a resident on her walk heads
+  over to a neighbor within this many meters to talk
+- SmallTalkTtsFallback = false: true: a survivor whose voice has none of the lines recorded says one of Voice Control's
+  own small-talk lines with its text-to-speech
+- SmallTalkEnclaves = true: Enclave people talk and gather in their own building too
+- CampfireGathering = true: In the evening and during a round of drinks, free residents gather round a campfire inside
+  the base
+- CampfireMinSeconds / CampfireMaxSeconds = 30 / 60: How long each one stays at the fire
+- CampfireMaxPeople / CampfireTalkGapSeconds = 8 / 20: Most people at one fire at a time, and seconds between two
+  conversations there
+- CampfireBlocks / CampfireLit = campfire / true: The blocks that count as a campfire (names, or a prefix ending in "");
+  the fire shows lit while they sit at it (no fuel used)
 - StreamerNames = false: Give your viewers' names from a text file to the new survivors SC makes (section 3)
 - StreamerNamesFile = StreamerNames.txt: The names file, in "%APPDATA%\7DaysToDie\SurvivorCommunity\" (or a full path)
 - StreamerNamesFor = survivors: Who gets the names: "survivors", "raiders" or "all"
@@ -1894,6 +1949,8 @@ NPCs and voices
 - DialogPager = true: Split long talk pages
 - VoiceLines = true: Play recorded voice lines
 - ScGreetings / ScChatter = true / true: Greetings and residents' chatter
+- ScGreetOnePerGroup / ScGreetGroupRange = true / 30: One stranger greets you for the group around them (within this
+  many meters)
 - RaiderTaunts = true: Raider taunts
 - MuteVcInTalk = true: Voice Control stays quiet during SC's talks
 - VoiceRaceByFace = true: With Vanity Vault, survivors speak with the voices of their face's race; false: the skin tone
@@ -1948,6 +2005,8 @@ For console commands (testing and fixing), see CONSOLE_COMMANDS.txt.
 - A few of the newest lines are text only. All 16 voices speak the 528 recorded lines, but the newest ones (a mining
   runner's radio lines, the training line after reading a magazine, and some refusals about the work kit, field jobs and
   trading) have no voice yet and only appear as text.
+- Small talk is captions only for now. Its 76 lines are written but not recorded yet; each one plays in the speaker's
+  voice as soon as it is.
 - Mining and digging clay are not resident jobs. Residents do home jobs only; send them on a mining run instead, or take
   a member along for Mine, Loot here or Follow + loot.
 - Breaking an enclave's containers open is not stopped, only opening them.

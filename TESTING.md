@@ -272,6 +272,70 @@ state.
 - [ ] Walk far away from a downed resident until the base unloads, come back: she is standing (0-XNPCCore's reload rule);
       the log says "unloaded while down", no revive message.
 
+## Round U3 (2026-11-16): small talk, walking over, the evening campfire
+
+Why: 0-XNPCCore 3.4.06 gave its own POI residents small talk and an evening campfire, but none of it ever reached SC's
+people (your decision D11: an SC layer in SC's voices). Before you start: a base with at least three residents (not on
+watch, no work shift), a campfire inside the home zone, Voice Control installed, and `DebugLogging` true in SC's
+blocks.xml for the `small talk:` / `campfire:` log lines. `sc chat` explains every "why not".
+
+**Small talk**
+- [ ] Stand 15-25 m from two residents who are standing within 4 m of each other (a roam pause, or their posts at night).
+      Within about 90 seconds one says a line to the other and the other answers: they turn to face each other, one
+      gestures as she speaks, and each line shows in Voice Control's subtitle bar under the speaker's name (captions only:
+      no voice yet). `sc chat` lists the exchange under "now" while it runs.
+- [ ] Walk up to them (closer than 10 m) right after the first line: the answer never comes, and `sc chat` shows the
+      last end "you walked up (the answer is dropped)". Walk away to 40 m or more: no new conversation starts there.
+- [ ] The same two do not talk again for 10 minutes (`sc chat` lists them under "pairs cooling"); another pair can.
+- [ ] `sc chat <a> <b>` with two free residents: the exchange starts at once, whatever the distance (stand 15 m away to
+      see the captions). On a resident on watch it is refused with "on watch"; `force` then lets it through.
+- [ ] Lines fit the opener: give it a few exchanges and a Pessimist opens with a worry, a Homesteader about the garden,
+      a Cheerful one on the bright side more often than not (`sc chat` names the pair; `Tools/smalltalk_lines.py list`
+      shows the tags).
+- [ ] Nobody talks while: on watch, on a work shift, following you, in a talk with you (open one: a running exchange
+      ends), after bedtime (in bed), fighting or with a zombie in sight within 30 m (spawn one 20 m off: the exchange
+      ends at once). `sc chat` shows each one's reason.
+- [ ] With a member downed (0-XNPCCore's downed state, when round U2 is in): `sc chat` shows "downed", and she is never
+      picked.
+- [ ] Chatter (a resident saying a line to nobody) never comes from someone in the middle of an exchange.
+
+**Walking over**
+- [ ] By day, with residents roaming and none standing close together, within a few minutes one walks over to a
+      neighbor (`sc chat` shows "walk-over: A -> B walking"); B turns to watch her come and stays put; they talk on
+      arrival. `sc chat meet <a> <b>` plans one directly for a roaming resident.
+
+**The evening campfire**
+- [ ] From about an hour before dusk (`sc chat` says "evening NOW"), each free resident walks to the campfire within a
+      minute or so and stands on a ring round it, facing it, for 30-60 seconds; the fire shows flames while anyone is
+      there (no fuel used: check the campfire's fuel slot and the block afterwards). Two at the fire talk now and then.
+      Each goes back to the routine once done, and each goes only once that evening.
+- [ ] Guards on watch and members on a work shift stay where they are; nobody gathers on a blood moon night or during a
+      base attack.
+- [ ] When bedtime comes the gathering ends and those with a bed go to bed (`sc sleep`: the "sleep clock" line says the
+      lease opens at 0-XNPCCore's own bedtime).
+- [ ] Pour a round of drinks (Activities): free residents gather round the fire at once (the window `drinks:<day>`).
+- [ ] `sc chat gather` gathers everyone now, `sc chat gather end` sends them back. Save and quit while they sit at the
+      fire, load again: the fire is not left burning (any flame left on a body is put out within 5 seconds).
+- [ ] No campfire in the base: nobody walks anywhere in the evening (`sc chat`: "campfire none found").
+
+**Enclaves and strangers**
+- [ ] At a friendly enclave whose building has a campfire: its people (not the leader) gather round it in the evening,
+      and two of them standing close talk while you are 10-32 m away.
+- [ ] Walk up to a group of three or more strangers (wild survivors) whose voices have a greeting recorded: one greets
+      you, the others do not greet you one after another. Looking at another one up close still gets their own
+      greeting.
+
+**Settings and the night lease (B7)**
+- [ ] `ResidentSmallTalk` false: no conversations; `CampfireGathering` false: no gatherings; `CampfireLit` false: they
+      gather but the fire shows no flames.
+- [ ] `SmallTalkTtsFallback` true: a conversation's opener speaks one of Voice Control's own lines aloud
+      (text-to-speech) and the partner answers in kind; false (the default) keeps everyone on captions.
+- [ ] Set 0-XNPCCore's `Routine/SleepAfterDuskHours` to 2 (its Settings.xml) and leave SC's at 1: nobody is put to bed
+      until 2 hours after dusk (`sc sleep` shows "too soon after dusk" and the sleep clock "opens 2 h after dusk"), and no
+      leased member walks to the campfire. Put it back afterwards.
+- [ ] The log at load has no new MISSING PATCH or "small talk:" / "0-XNPCCore's Routine/SleepAfterDuskHours ... not
+      found" warnings.
+
 ## Round lb1 (2026-11-16): a bundle in every store crate
 
 The user: "A bundle should be guaranteed" in the store crates. Loot Abundance at the default 100% for these steps

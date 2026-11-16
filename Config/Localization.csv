@@ -1693,6 +1693,82 @@ scHordeDamaged_1Said,UI,Tooltip,,,,"We made it, but they tore the place up prett
 scHordeDamaged_2Said,UI,Tooltip,,,,"They're gone, but we've got a lot of repairs ahead."
 scHordeOverrun_1Said,UI,Tooltip,,,,They got inside. We couldn't hold them back.
 scHordeOverrun_2Said,UI,Tooltip,,,,We couldn't stop them... the base is a mess.
+scTalkOpen_01Said,UI,Tooltip,,,,Stockpile's looking better than it did last week.
+scTalkReply_01Said,UI,Tooltip,,,,Don't say that out loud. You'll jinx it.
+scTalkOpen_02Said,UI,Tooltip,,,,Smell that? Rain's coming.
+scTalkReply_02Said,UI,Tooltip,,,,Good. The barrels could use it.
+scTalkOpen_03Said,UI,Tooltip,,,,You hear how the last run went?
+scTalkReply_03Said,UI,Tooltip,,,,Everyone came back. That's a good run.
+scTalkOpen_04Said,UI,Tooltip,,,,The walls held up fine last night.
+scTalkReply_04Said,UI,Tooltip,,,,Walls are only as good as whoever's watching them.
+scTalkOpen_05Said,UI,Tooltip,,,,Nights are getting louder out there.
+scTalkReply_05Said,UI,Tooltip,,,,Yeah. I sleep with my boots on now.
+scTalkOpen_06Said,UI,Tooltip,,,,What's for dinner?
+scTalkReply_06Said,UI,Tooltip,,,,Same as yesterday. Be grateful.
+scTalkOpen_07Said,UI,Tooltip,,,,Knock knock.
+scTalkReply_07Said,UI,Tooltip,,,,"If it's a zombie, I'm not opening."
+scTalkOpen_08Said,UI,Tooltip,,,,You ever think about leaving?
+scTalkReply_08Said,UI,Tooltip,,,,Every day. Then I remember what's out there.
+scTalkOpen_09Said,UI,Tooltip,,,,The boss seems to know what they're doing.
+scTalkReply_09Said,UI,Tooltip,,,,Better than the last place I was at.
+scTalkOpen_10Said,UI,Tooltip,,,,Think the boss will be back before dark?
+scTalkReply_10Said,UI,Tooltip,,,,"Always is, somehow."
+scTalkOpen_11Said,UI,Tooltip,,,,We're low on something again.
+scTalkReply_11Said,UI,Tooltip,,,,We're always low on something.
+scTalkOpen_12Said,UI,Tooltip,,,,Saw a deer by the fence this morning.
+scTalkReply_12Said,UI,Tooltip,,,,"Next time, wake me. I'll bring the rifle."
+scTalkOpen_13Said,UI,Tooltip,,,,How's the arm?
+scTalkReply_13Said,UI,Tooltip,,,,Still attached. I'll call that a win.
+scTalkOpen_14Said,UI,Tooltip,,,,Found a deck of cards in the last crate.
+scTalkReply_14Said,UI,Tooltip,,,,"Missing half the hearts, I bet."
+scTalkOpen_15Said,UI,Tooltip,,,,You ever miss your old job?
+scTalkReply_15Said,UI,Tooltip,,,,I miss getting paid for it.
+scTalkOpen_16Said,UI,Tooltip,,,,Somebody left the gate open again.
+scTalkReply_16Said,UI,Tooltip,,,,Wasn't me. Probably.
+scTalkOpen_17Said,UI,Tooltip,,,,Heard engines out east earlier.
+scTalkReply_17Said,UI,Tooltip,,,,"Raiders, maybe. Keep your eyes open."
+scTalkOpen_18Said,UI,Tooltip,,,,This place is starting to feel like home.
+scTalkReply_18Said,UI,Tooltip,,,,Don't get too comfortable.
+scTalkOpen_19Said,UI,Tooltip,,,,"We're doing alright, you know that?"
+scTalkReply_19Said,UI,Tooltip,,,,"Yeah. Better than alright, some days."
+scTalkOpen_20Said,UI,Tooltip,,,,One more wall and this place is a fortress.
+scTalkReply_20Said,UI,Tooltip,,,,Then we'll want a moat.
+scTalkOpen_21Said,UI,Tooltip,,,,Thanks for covering my watch the other night.
+scTalkReply_21Said,UI,Tooltip,,,,Anytime. You'd do the same for me.
+scTalkOpen_22Said,UI,Tooltip,,,,Sometimes I don't see the point anymore.
+scTalkReply_22Said,UI,Tooltip,,,,Eat something. Everything looks better on a full stomach.
+scTalkOpen_23Said,UI,Tooltip,,,,How long can we really keep this up?
+scTalkReply_23Said,UI,Tooltip,,,,As long as we have to. One day at a time.
+scTalkOpen_24Said,UI,Tooltip,,,,The garden's coming in nicely.
+scTalkReply_24Said,UI,Tooltip,,,,Good. I'm sick of canned food.
+scTalkOpen_25Said,UI,Tooltip,,,,I almost have that old generator running.
+scTalkReply_25Said,UI,Tooltip,,,,Almost is what you said yesterday.
+scTalkOpen_26Said,UI,Tooltip,,,,Let me look at that cut before it gets infected.
+scTalkReply_26Said,UI,Tooltip,,,,It's fine. It's just a scratch.
+scTalkOpen_27Said,UI,Tooltip,,,,Clean your rifle tonight. It'll save your life.
+scTalkReply_27Said,UI,Tooltip,,,,"It's cleaner than your boots, at least."
+scTalkOpen_28Said,UI,Tooltip,,,,Couldn't sleep again. It was too quiet.
+scTalkReply_28Said,UI,Tooltip,,,,Too quiet is the good kind of night.
+scTalkOpen_29Said,UI,Tooltip,,,,Is there any more of that stew?
+scTalkReply_29Said,UI,Tooltip,,,,You've had three bowls already.
+scTalkOpen_30Said,UI,Tooltip,,,,Don't touch that pile. I have a system.
+scTalkReply_30Said,UI,Tooltip,,,,Your system is a pile.
+scTalkOpen_31Said,UI,Tooltip,,,,I'm going to sit on the wall for a while. Alone.
+scTalkReply_31Said,UI,Tooltip,,,,Suit yourself. Holler if you see anything.
+scTalkOpen_32Said,UI,Tooltip,,,,I don't like how quiet it is out there.
+scTalkReply_32Said,UI,Tooltip,,,,Quiet's good. Quiet means nothing's hungry.
+scTalkOpen_33Said,UI,Tooltip,,,,We should all eat together tonight.
+scTalkReply_33Said,UI,Tooltip,,,,I'll bring the good cans.
+scTalkOpen_34Said,UI,Tooltip,,,,I've got a good feeling about tomorrow.
+scTalkReply_34Said,UI,Tooltip,,,,You say that every day.
+scTalkOpen_35Said,UI,Tooltip,,,,"Mark my words, those walls won't hold forever."
+scTalkReply_35Said,UI,Tooltip,,,,Nothing does. Doesn't mean we stop.
+scTalkOpen_36Said,UI,Tooltip,,,,Nothing beats a fire at the end of the day.
+scTalkReply_36Said,UI,Tooltip,,,,Except a fire and a cold drink.
+scTalkOpen_37Said,UI,Tooltip,,,,To the ones we lost.
+scTalkReply_37Said,UI,Tooltip,,,,And to the ones still here.
+scTalkOpen_38Said,UI,Tooltip,,,,Remember telling ghost stories around a fire?
+scTalkReply_38Said,UI,Tooltip,,,,Now we just keep watching the dark.
 scDialogPage,UI,Menu,,,,{0}/{1}
 scVoiceNoTradeMember,Dialog,Statement,,,,"*smiles* We don't trade - we're one community. If you need something of mine, just ask to see my inventory."
 scVoiceNoPackNow,Dialog,Statement,,,,*shakes head* Not now. Ask me again back home.

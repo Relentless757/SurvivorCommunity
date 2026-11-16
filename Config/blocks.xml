@@ -683,8 +683,9 @@
 			     she happens to be standing. Only as many people are put to bed as there are beds, oldest member first.
 			     Enclave people sleep the same way inside their own building; a hostile enclave's never do.
 			     Nobody is leased on a blood moon night (0-XNPCCore never sleeps through one), and not until
-			     SleepAfterDuskHours after dusk - before that its routine is strolling, not sleeping. That value mirrors
-			     0-XNPCCore's own Routine/SleepAfterDuskHours; change it here if you change it there.
+			     SleepAfterDuskHours after dusk - before that its routine is in its evening, not sleeping. Since round U3 SC
+			     also reads 0-XNPCCore's own Routine/SleepAfterDuskHours and waits for the larger of the two, so a value here
+			     can only make bedtime later.
 			     The beds counted are SC's own (the BedBlocks list further down, as the roster counts them). 0-XNPCCore
 			     claims beds by its OWN Routine/BedBlocks name list, so a modded bed only SC recognizes is the first
 			     thing to check if someone lies down on the floor.
@@ -1126,6 +1127,50 @@
 			<property name="ScChatterSeconds" value="90" />
 			<property name="ScChatterChance" value="0.5" />
 			<property name="ScChatterRange" value="15" />
+			<!-- Round U3, the community's social life (the user's decision D11). Two free residents standing within
+			     SmallTalkRange meters of each other now and then exchange a line and an answer: they turn to each other,
+			     gesture, and each line plays in the speaker's own recorded voice, or shows as a caption until that line is
+			     recorded. Only while you are farther than SmallTalkHearMin and within SmallTalkHearMax meters of them (you
+			     overhear them; walking closer ends it), one exchange at a time, SmallTalkGapSeconds apart (a quarter either
+			     way), the same two people once in SmallTalkPairMinutes. Never for anyone asleep or in bed for the night, on
+			     watch, on a work shift, following you, away, downed, hurt and retreating, in a fight or with an enemy in sight,
+			     in a talk with you, nor during a base attack.
+			     When nobody stands close, every 20 seconds SmallTalkMeetChance is the chance a resident pausing in her day roam
+			     walks over to a free neighbor within SmallTalkMeetRange meters, who waits for her, and they talk.
+			     SmallTalkTtsFallback: an opener with no recording of these lines says one of Voice Control's own pairs, spoken by
+			     its text-to-speech (as 0-XNPCCore's own residents); false (the default) keeps everyone on SC's lines and voices.
+			     SmallTalkEnclaves: an enclave's people do all of this (and the campfire) in their own building.
+			     The lines: Tools/smalltalk_lines.py, their words in Localization.csv (scTalkOpen_NNSaid, scTalkReply_NNSaid). -->
+			<property name="ResidentSmallTalk" value="true" />
+			<property name="SmallTalkGapSeconds" value="90" />
+			<property name="SmallTalkPairMinutes" value="10" />
+			<property name="SmallTalkRange" value="4" />
+			<property name="SmallTalkHearMin" value="10" />
+			<property name="SmallTalkHearMax" value="32" />
+			<property name="SmallTalkMeetChance" value="0.3" />
+			<property name="SmallTalkMeetRange" value="25" />
+			<property name="SmallTalkTtsFallback" value="false" />
+			<property name="SmallTalkEnclaves" value="true" />
+			<!-- Round U3, the campfire. In the evening - from HomeBeforeDuskHours before dusk to SleepAfterDuskHours after it,
+			     both read from 0-XNPCCore's Settings.xml, so it ends where bedtime starts - and while a round of drinks lasts,
+			     each free resident walks once to a campfire inside the base (CampfireBlocks: block names, or a prefix ending in
+			     *), stands round it for CampfireMinSeconds to CampfireMaxSeconds, then goes back to their routine. At most
+			     CampfireMaxPeople at a time; two at the fire talk every CampfireTalkGapSeconds or so. Never on a blood moon or
+			     during a base attack. CampfireLit shows the fire burning while anyone sits at it (the flames only: no fuel is
+			     used and the block does not change). An enclave's people gather at a campfire in their building, if it has one.
+			     "sc chat" shows it all; "sc chat gather" starts a gathering now. -->
+			<property name="CampfireGathering" value="true" />
+			<property name="CampfireMinSeconds" value="30" />
+			<property name="CampfireMaxSeconds" value="60" />
+			<property name="CampfireMaxPeople" value="8" />
+			<property name="CampfireTalkGapSeconds" value="20" />
+			<property name="CampfireBlocks" value="campfire" />
+			<property name="CampfireLit" value="true" />
+			<!-- Round U3: strangers (survivors you have not recruited) greet a group once - when one greets you, the others
+			     within ScGreetGroupRange meters count as greeted for the day, and another stranger nearby waits two minutes.
+			     Walking up to one and looking at them still gets their own greeting. -->
+			<property name="ScGreetOnePerGroup" value="true" />
+			<property name="ScGreetGroupRange" value="30" />
 			<!-- V2, 0-XNPCCore's lines in SC's voices. ScBarks: where Voice Control is about to speak one of 0-XNPCCore's job
 			     lines ("I'm out of ammo."), an order reply ("Right behind you.", one generic reply for every weapon swap and
 			     every formation) or one of its own fixed lines, and SC has that line recorded in the survivor's voice, SC's

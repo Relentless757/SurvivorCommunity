@@ -52,6 +52,9 @@ namespace SurvivorCommunity
             lastSpoke = -999f;
             metDay.Clear();
             greetedAt.Clear();
+#if SC_V34
+            strangerGreets.Clear();                                    // round U3
+#endif
             greetings = 0;
             chatters = 0;
         }
@@ -149,6 +152,9 @@ namespace SurvivorCommunity
                 if (best != null && (bestHow == "walk-up") == walkUp && sq >= bestSq) continue;
                 string rel = Relation(npc, lp);
                 if (rel == null || ScVoice.Holds(npc) || ScVoice.Busy(npc) || ScCommunity.LiveFoe(npc, FightRange) != null) continue;
+#if SC_V34
+                if (!walkUp && rel == "stranger" && StrangerGroupQuiet(npc, now)) continue;   // round U3: one stranger greets a group
+#endif
                 if (!ScConfig.VoiceBarkDebug && !ScBarks.HasClip(npc, "greet." + rel)) continue;
                 if (!Sees(w, lp, npc)) continue;                      // the raycast last (a walk-up too: N4, not through a wall)
                 string how = walkUp ? "walk-up" : "meet";
@@ -158,8 +164,61 @@ namespace SurvivorCommunity
                 bestSq = sq;
             }
             if (best == null) return;
-            if (Greet(best, lp, bestRel, bestHow)) metDay[PersonKey(best)] = day;
+            if (Greet(best, lp, bestRel, bestHow))
+            {
+                metDay[PersonKey(best)] = day;
+#if SC_V34
+                if (bestRel == "stranger" && bestHow == "meet") MetWithGroup(w, best, lp, day, now);   // round U3
+#endif
+            }
         }
+
+#if SC_V34
+        // ---- round U3: one stranger greets a group (Voice Control 3.4.06's "one greeting per group", for SC's own greetings) ----
+
+        /// <summary>Where and when a stranger last greeted you on a "meet" (real time): the group's quiet window.</summary>
+        private static readonly List<KeyValuePair<Vector3, float>> strangerGreets = new List<KeyValuePair<Vector3, float>>();
+        /// <summary>Voice Control's GreetGroupQuietSeconds: a stranger who comes along later greets once this has passed.</summary>
+        private const float GroupQuietSeconds = 120f;
+
+        /// <summary>
+        /// A stranger's "meet" greeting is held while another stranger greeted you within ScGreetGroupRange of them in the last
+        /// GroupQuietSeconds (ScGreetOnePerGroup). A walk-up greeting (you look at them up close) is never held.
+        /// </summary>
+        private static bool StrangerGroupQuiet(EntityAlive npc, float now)
+        {
+            if (!ScConfig.ScGreetOnePerGroup || strangerGreets.Count == 0) return false;
+            float r2 = ScConfig.ScGreetGroupRange * ScConfig.ScGreetGroupRange;
+            for (int i = strangerGreets.Count - 1; i >= 0; i--)
+            {
+                if (now - strangerGreets[i].Value >= GroupQuietSeconds) { strangerGreets.RemoveAt(i); continue; }
+                if ((strangerGreets[i].Key - npc.position).sqrMagnitude <= r2) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// A stranger greeted you on a "meet": every other stranger of the group (a survivor body within ScGreetGroupRange of
+        /// them, a stranger to you) counts as met today too, so they do not greet you one after another.
+        /// </summary>
+        private static void MetWithGroup(World w, EntityAlive greeter, EntityPlayerLocal lp, int day, float now)
+        {
+            if (!ScConfig.ScGreetOnePerGroup) return;
+            strangerGreets.Add(new KeyValuePair<Vector3, float>(greeter.position, now));
+            float r2 = ScConfig.ScGreetGroupRange * ScConfig.ScGreetGroupRange;
+            List<Entity> list = w.Entities.list;
+            int n = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                EntityAlive e = list[i] as EntityAliveSDXV4;
+                if (e == null || e == greeter || e.IsDead() || (e.position - greeter.position).sqrMagnitude > r2 || !ScXnpc.IsSurvivorBody(e)) continue;
+                if (Relation(e, lp) != "stranger") continue;
+                metDay[PersonKey(e)] = day;
+                n++;
+            }
+            if (n > 0) ScLog.Verbose("greetings: " + ScCommunity.DisplayName(greeter) + " greeted you for a group of " + (n + 1) + " strangers");
+        }
+#endif
 
         /// <summary>
         /// Who the greeting memory is about (the V2 review's N1): a member by name (a re-created member's body has a new
@@ -242,6 +301,9 @@ namespace SurvivorCommunity
                 if (ScDowned.IsDown(npc)) continue;     // round U2: no chatter from a downed member
 #endif
                 if (ScVoice.Holds(npc) || ScVoice.Busy(npc) || ScCommunity.LiveFoe(npc, FightRange) != null) continue;
+#if SC_V34
+                if (ScSocial.InExchange(npc)) continue;                 // round U3: talking with a neighbor, not to nobody
+#endif
                 if (!ScConfig.VoiceBarkDebug && !ScBarks.HasClip(npc, "chatter")) continue;
                 pool.Add(npc);
             }

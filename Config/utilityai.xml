@@ -415,6 +415,57 @@
 		</ai_package>
 	</append>
 
+	<!--
+	  Round U3 (2026-11-16, the user's decision D11): the community's social life (ScSocial in the DLL). Two actions in each
+	  package: SC's residents at home (SCResident) and an enclave's people in their own building (SCEnclave). The 1 Hz ticker
+	  decides who talks and who gathers; the two considerations only read it, and the tasks hold the body or walk it.
+	  - ScChat 3.75: stand still, turned to the one she talks with (or to a neighbor walking over to talk to her), for the few
+	    seconds an exchange lasts. Above ScNightIdle 3.6, ScRoam 3.4, ScAtPost 3.2, Guard and Stay 3.0 (their enclave twins
+	    alike) and ScGather, so a pair at the campfire talks; below RoutineWalk 3.8 (0-XNPCCore's night routine for the leased,
+	    who never talk: the ticker refuses anyone in bed) and every fight, flee, retreat, defense and the leash (4 and up).
+	  - ScGather 3.7: walk to a place round a campfire and stand there facing it for 30 to 60 seconds, once an evening and
+	    once a round of drinks: above the post, the roam and the quiet night, below ScChat, RoutineWalk and the fights. An
+	    enclave's leader stays at their spot (role member).
+	  EnemyNotNear 30 as on the roam (the ticker asks SCore the same question before it starts either one). NoActiveChat
+	  (Voice Control: a talk or a chat with you) where 0-XNPCCore is present, as on the post, the roam and the quiet night.
+	-->
+	<append xpath="/utility_ai/ai_packages/ai_package[@name='SCResident']">
+		<action name="ScChat" weight="3.75" entity_filter="IsSelf">
+			<task class="ChatHoldSC, SurvivorCommunity" />
+			<consideration class="ScIsResident, SurvivorCommunity" />
+			<consideration class="ScSmallTalkHeld, SurvivorCommunity" />
+			<consideration class="EnemyNotNear, SCore" distance="30" />
+		</action>
+		<action name="ScGather" weight="3.7" entity_filter="IsSelf">
+			<task class="GatherSC, SurvivorCommunity" />
+			<consideration class="ScIsResident, SurvivorCommunity" />
+			<consideration class="ScGathering, SurvivorCommunity" />
+			<consideration class="EnemyNotNear, SCore" distance="30" />
+		</action>
+	</append>
+	<append xpath="/utility_ai/ai_packages/ai_package[@name='SCEnclave']">
+		<action name="ScEncChat" weight="3.75" entity_filter="IsSelf">
+			<task class="ChatHoldSC, SurvivorCommunity" />
+			<consideration class="ScEncHome, SurvivorCommunity" />
+			<consideration class="ScSmallTalkHeld, SurvivorCommunity" />
+			<consideration class="EnemyNotNear, SCore" distance="30" />
+		</action>
+		<action name="ScEncGather" weight="3.7" entity_filter="IsSelf">
+			<task class="GatherSC, SurvivorCommunity" />
+			<consideration class="ScEncHome, SurvivorCommunity" role="member" />
+			<consideration class="ScGathering, SurvivorCommunity" />
+			<consideration class="EnemyNotNear, SCore" distance="30" />
+		</action>
+	</append>
+	<conditional>
+		<if cond="xpath('/utility_ai/ai_packages/ai_package[@name=&quot;SdcsNpcCore&quot;]') != null">
+			<append xpath="/utility_ai/ai_packages/ai_package[@name='SCResident' or @name='SCEnclave']/action[@name='ScChat' or @name='ScGather' or @name='ScEncChat' or @name='ScEncGather']">
+				<consideration class="NoActiveChat, 1-XNPCVoiceControl" />
+			</append>
+		</if>
+	</conditional>
+	<!-- (end of round U3) -->
+
 	<!-- A guard on watch (D3) never backs off or walks to a melee target: on a tower either one walks them off the edge.
 	     Round k4: 0-XNPCCore's BackupKeepDistance, BackupRanged and MeleeApproach no longer carry ScNotOnWatch (these three
 	     appends had no xpath() guard); the same live test sits inside the one posture consideration appended further down,

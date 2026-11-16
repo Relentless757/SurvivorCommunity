@@ -19,6 +19,31 @@ Downed, not dead
 - "sc downed", "sc down <name>" and "sc revive <name>" in the console.
 
 
+Social life
+-----------
+- Small talk. Two residents standing near each other now and then stop for a quick exchange about life at the base - the
+  stockpile, the weather, the walls, the night, dinner, you - and turn to each other and gesture as they talk. What they
+  say fits their traits and mood. 38 written pairs; until they are recorded in SC's voices they show as captions in
+  Voice Control's subtitle bar.
+- You overhear them only from 10 to 32 m away; walk up and they stop. One conversation at a time in the base, about
+  every minute and a half, and the same two at most once every 10 minutes.
+- Walking over to chat. Now and then a resident on her walk about the base heads over to a neighbor to talk; the
+  neighbor waits for her.
+- The evening campfire. With a campfire inside the base, free residents gather round it once each evening (from about an
+  hour before dusk until bedtime) and during a round of drinks, for 30 to 60 seconds each, and talk. The fire shows lit
+  while they are there (flames only: no fuel, no change to the block).
+- Enclaves too: their people talk with each other and gather at a campfire in their own building.
+- Never for anyone asleep, on watch, on a work shift, following you, away, downed, hurt and sheltering, fighting or with
+  an enemy in sight, or in a talk with you; nothing during a base attack or on a blood moon night.
+- Strangers greet a group once: when one wild survivor greets you, the others around them no longer greet you one after
+  another.
+- Bedtime follows 0-XNPCCore. SC now reads 0-XNPCCore's own "SleepAfterDuskHours" and never puts anyone to bed before
+  it, so raising it there can no longer send leased members to the campfire.
+- New settings "ResidentSmallTalk", "SmallTalk...", "CampfireGathering", "Campfire..." and "ScGreetOnePerGroup" (README
+  section 20); "SmallTalkTtsFallback" (off) lets a survivor without recordings use Voice Control's own small talk with
+  its text-to-speech. "sc chat" shows and tests it all.
+
+
 Loot
 ----
 - Store crates always hold a resource bundle. Shamway (food or water), Pop-N-Pills (medical), Shotgun Messiah and Savage
