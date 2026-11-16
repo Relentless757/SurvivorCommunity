@@ -383,6 +383,10 @@ Setup: the new DLL with its `Config/utilityai.xml` (the gates on 0-XNPCCore's ba
       `x5-cornered-melee-end` +1, and the gun comes back by the normal rules (still overwhelmed: "... back to the <gun>",
       or 0-XNPCCore's own exit). Kill the feral while he is cornered on melee: "... no longer cornered on melee: his target
       is dead or gone ..." at once, and the normal rules apply (he is never left on melee after the fight).
+      Known limit (final Fable check, C1): on melee neither back-off scores, so nothing renews the "no room" verdict. While
+      he stays truly pinned the gun therefore comes back for a moment about every 6 s, his reload starts, finds no room,
+      and he is back on melee within a tick. That is expected - note how often it happens; a later round can add a room
+      probe if it looks bad.
 - [ ] He never leaves the zone + 8 m (watch from the claim's edge). With a wall at his back, (verbose) "Paul (id N) backs
       off from zombieBoe (M) inside the base: 6 m (the longer steps leave the base or meet a wall)" and `backoff-shortened`
       +1. Backed into a corner: "Paul (id N) has no point inside the base to back off to from zombieBoe (M) (none of 21
