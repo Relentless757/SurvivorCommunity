@@ -73,15 +73,16 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 
 ## Team strength and postures *(rounds tm1, k3, k4)*
 
-- **`sc team`** — the rule's numbers (matched at F >= `TeamMargin` x T, 1.25 since round k3; left below `TeamLeaveMargin`;
-  melee-led from `TeamLowHealth` health) and the posture totals, then every loaded member's team verdict: F (her side)
+- **`sc team`** — the rule's numbers (matched at F >= `TeamMargin` x T, 1 - exact parity; left below `TeamLeaveMargin`
+  x T, 0.8, after 2 recounts, and matched again only after 2 recounts at `TeamMargin`; melee-led from `TeamLowHealth`
+  health) and the posture totals, then every loaded member's team verdict: F (her side)
   against T (the awake enemies within 15 m, or the whole defended area during a horde at the base), matched or
   OUTMATCHED, what you counted in it (round k1: "you count 2 x HpF (fighting)" or "you count 0 (not fighting)"; nothing
   when you are not in her area), and whether she is MELEE-LED or why not (on a run, on watch, Cowardly, your gun order,
   no melee weapon, hurt, raiders in the fight, outmatched) - and under it her **posture** (round k4: MELEE, KITE, HOLD,
-  SHELTER, INVESTIGATE or none, how long, why, and her hand changes). Last, the **intruders** (round k4): each zombie
-  inside the base that is after nobody, where it is, and its responders with their distance - or "nobody free" with why
-  for the first few residents. A line states the player rule: you count `TeamPlayerWeight` only for
+  SHELTER, INVESTIGATE or none, how long, why, and her hand changes). Last, the **intruders** (round k4): the base's
+  levels ("levels y A to B") and whether outside the zone counts, then each zombie inside the base that is after nobody,
+  where it is, and its responders with their distance - or "nobody free" with why for the first few residents. A line states the player rule: you count `TeamPlayerWeight` only for
   `TeamPlayerFightingSeconds` after you hit an enemy in her area (a kill counts too; an enemy that is only after you does
   not). Read-only.
 - **`sc team <id|name>`** — one member in full: the verdict and its age (STALE after 3 s), why she is or is not
@@ -89,7 +90,7 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   (stars, health, weapon; tag weight, health weight; ARMED, melee-unsafe; for you "fighting (you hit zombieX 0.4 s ago)"
   or "NOT fighting (no hit of yours on an enemy in the area in the last 5 s) = 0"), her target and whether it needs the
   gun; then **her posture** and why ("posture (round k4): KITE for 4.2 s - outmatched (...); target #N at 6 m"), a switch
-  the dwell holds ("waits to switch to MELEE (...): a switch needs 5 s in the posture ... and 5 s since her hand last
+  the dwell holds ("waits to switch to MELEE (...): a switch needs 5 s in the stance ... and 5 s since her hand last
   changed ..."), **her hand** (what she holds, her pair, your weapon order, R2's CORNERED ON MELEE, an equip that did not
   take, 0-XNPCCore's bout, the overwhelmed count against its need - one more while melee-led) with "hand changes N (M in
   the last 3 min), SC's swaps K (J at once), MELEE/KITE switches F; next swap allowed now / in x s", every zombie she
@@ -116,7 +117,9 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   hold), `posture-refused` (0-XNPCCore ended her bout or refused its swap: KITE against that zombie), `posture-bout-joined`
   (her melee weapon put in 0-XNPCCore's bout), `posture-bout-exit-held` (its exit for a far or gone target held in MELEE),
   `posture-bout-closed` (the fight over: the bout closed, her melee weapon kept), `x5-kite-keep-gun` (KITE held its 3 m
-  swap), `x5-cornered-noshot-melee` (R2's "no shot for 3 s"), `investigate-seen`, `-assigned`, `-unanswered`, `-far-walk`
+  swap), `x5-cornered-noshot-melee` (R2's "no shot": 3 s cornered with the gun in hand and no round fired),
+  `x5-cornered-skipped` (R2 skipped: a cop, or a zombie she cannot swing at), `x5-cornered-bout-ended` (0-XNPCCore
+  ended R2's bout itself), `x5-cornered-noswing-end` (R2's melee with no swing in 2.5 s: the gun back), `investigate-seen`, `-assigned`, `-unanswered`, `-far-walk`
   (a responder run toward an intruder more than 22 m off),
   `-responder-added`, `-responder-dropped`, `-released-dead` / `-asleep` / `-left` / `-engaged` / `-off`.
 - **`sc xnpc <id|name>`** — adds "posture (round k4): ...", "hand: ..." and "investigate: RESPONDER - sent to zombieX (N)
@@ -138,7 +141,10 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
   holding her target's beat, 0-XNPCCore's swap to melee was let through (she swings rather than stands idle) - and she
   stays on melee until she has had room for 1 s, not before the 5 s hand clock, or until her target is dead or gone
   (`x5-cornered-melee-end`; the user's "Stay on melee until room"; `sc team <name>`'s hand line: "CORNERED ON MELEE ...").
-  Round k4 adds `x5-cornered-noshot-melee` (the same with a loaded gun that has not fired for 3 s up close).
+  Round k4 adds `x5-cornered-noshot-melee` (the same after 3 s cornered the whole time, the gun in hand and not one round
+  fired). The Fable review of k3+k4 (F1): never at a cop or a zombie she cannot swing at (`x5-cornered-skipped`), and it
+  also ends when 0-XNPCCore ends its bout itself (`x5-cornered-bout-ended`) or with no swing in 2.5 s
+  (`x5-cornered-noswing-end`) - that zombie then counts as one she cannot swing at.
 - **`sc xnpc <id|name>`** — the line "back-off (round k1): at home - kept inside the base" (or "away from home -
   0-XNPCCore's own, unbounded"), and her last back-off: from whom, the step, the angle and the point (or "0-XNPCCore's
   own point (unbounded)" away from home), RUNNING / ended on its own / stopped, or NO POINT with why; the points set aside;

@@ -16,14 +16,18 @@ namespace SurvivorCommunity
     /// Once a second (ScTicker, host only) this scans the home zone for INTRUDERS: an awake enemy of the community's members
     /// (SCore's IsEnemy, not inert; a dormant POI sleeper is left alone - the sweeps of ScTeam, ScIntruder and the census skip
     /// sleepers too, and a base built in a POI's sleeper volume would otherwise send members to wake them) that is after nobody
-    /// (UAIConsiderationScIntruder.HuntsSomeone false, its 10 s latch included) and stands inside the home zone or within
-    /// EnterMargin of it (ResidentRoamZoneMargin less the defense walk's stray band, so a responder never strays chasing it), or
-    /// anywhere in the defended area during a live base attack. Each gets InvestigateResponders (2) RESPONDERS: the nearest free
+    /// (UAIConsiderationScIntruder.HuntsSomeone false, its 10 s latch included) and stands inside the home zone (the Fable review
+    /// of k3+k4, F4: the user's "inside the base" - InvestigateEnterMargin, 0, widens it, never past ResidentRoamZoneMargin less
+    /// the defense walk's stray band, so a responder never strays chasing it), or anywhere in the defended area during a live
+    /// base attack - and on the base's levels (F5: within InvestigateHeight, 4 m, below the lowest and above the highest of the
+    /// home block and the residents' posts, so a cellar, a mine or a roof under or over the base is not "inside"). Each gets
+    /// InvestigateResponders (2) RESPONDERS: the nearest free
     /// residents within InvestigateRadius (0: the whole zone) - at home, on the Guard order, not on watch, not on a work shift, not
     /// Cowardly, not sheltering or standing off (rt1), at TeamLowHealth health or more (the MELEE line), not asleep, not in another
-    /// fight, not resting after a stray, and (a resident who does not roam the zone) within DefendBaseRadius of her post. One
-    /// intruder per responder. A responder stays one while she stays free (no flip to a nearer member); only one who is not is
-    /// replaced. Everyone else keeps her routine.
+    /// fight, not resting after a stray, and (a resident who does not roam the zone) within DefendBaseRadius of her post - that
+    /// one also while she answers (F7: past it ScReturn's leash would walk her back, and she would pace). One intruder per
+    /// responder. A responder stays one while she stays free (no flip to a nearer member); only one who is not is replaced.
+    /// Everyone else keeps her routine.
     ///
     /// For its responders only: LeavesAlone no longer applies to that intruder (the MayEngage postfix lets the pack's attacks at
     /// it), and ScIntruder accepts it (no "after nobody", no DefendBaseRadius, the zone test this file's own), so ScDefendBase walks
@@ -32,8 +36,8 @@ namespace SurvivorCommunity
     /// HoldEngaged may face it. She fights it under her posture (ScPosture: INVESTIGATE with the melee or the gun stance); a gun
     /// holder shoots from range once she sees it. Outside the zone nothing changes: a wanderer there is still left alone.
     ///
-    /// Release: the intruder dies or goes; it falls asleep; it stays outside the zone + ResidentRoamZoneMargin for LeaveSeconds
-    /// (5 s); or someone is fighting it (it is after a member or you): then the base defense has it, as for any intruder that
+    /// Release: the intruder dies or goes; it falls asleep; it stays outside the zone + ResidentRoamZoneMargin (or off the base's
+    /// levels) for LeaveSeconds (5 s); or someone is fighting it (it is after a member or you): then the base defense has it, as for any intruder that
     /// hunts somebody. A released intruder that goes idle again within RememberSeconds gets its old responders back first.
     /// InvestigateIntruders false: nothing is tracked - round n08's rule as before.
     /// </summary>
@@ -46,7 +50,7 @@ namespace SurvivorCommunity
         private const float RememberSeconds = 30f;
         /// <summary>At most this many intruders are tracked at once (the scan's cost is bounded).</summary>
         private const int MaxTracked = 12;
-        /// <summary>The scan reaches this far above and below the home's claim block (the zone is flat on the map).</summary>
+        /// <summary>A live base attack's defended area is scanned this far above and below the home's claim block.</summary>
         private const float HalfHeight = 40f;
         /// <summary>
         /// SCore's UAI scores only entities in the NPC's bounds grown by its see distance - about 30 m each way - so ScDefendBase
@@ -79,6 +83,8 @@ namespace SurvivorCommunity
         private static readonly List<Candidate> cands = new List<Candidate>();
         private static readonly List<int> scratch = new List<int>();
         private static float nextScan;
+        /// <summary>F5: the lowest and highest of the home block and the residents' posts (Levels, each scan).</summary>
+        private static float levelMin, levelMax;
         private static int seen, assigned, unanswered, replaced, released;
 
         public static void Reset()
@@ -100,16 +106,42 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The enter area: inside the home zone, or within ResidentRoamZoneMargin less the defense walk's stray band (and 1 m of
-        /// slack) of it; during a live base attack the defended area. A pure read.
+        /// The enter area, on the base's levels (InLevels): inside the home zone (F4; InvestigateEnterMargin meters outside it
+        /// too, at most ResidentRoamZoneMargin less the defense walk's stray band and 1 m of slack); during a live base attack the
+        /// defended area. A pure read.
         /// </summary>
         public static bool InArea(Vector3 p)
         {
+            if (!InLevels(p.y)) return false;
             if (ScBaseAttack.WideDefence) return ScBaseAttack.InDefenceArea(p);
-            return ScZone.DistanceOutside(p) <= EnterMargin;
+            float m = EnterMargin;
+            return m <= 0f ? ScZone.Contains(p) : ScZone.DistanceOutside(p) <= m;
         }
 
-        private static float EnterMargin { get { return Mathf.Max(0f, ScConfig.ResidentRoamZoneMargin - UAI.UAIConsiderationScIntruder.StrayMarginInside - 1f); } }
+        private static float EnterMargin
+        {
+            get { return Mathf.Min(ScConfig.InvestigateEnterMargin, Mathf.Max(0f, ScConfig.ResidentRoamZoneMargin - UAI.UAIConsiderationScIntruder.StrayMarginInside - 1f)); }
+        }
+
+        /// <summary>F5: feet at this height are on the base's levels - InvestigateHeight below the lowest and above the highest of
+        /// the home block and the residents' posts. A pure read (the levels are taken at each scan).</summary>
+        public static bool InLevels(float y)
+        {
+            return y >= levelMin - ScConfig.InvestigateHeight && y <= levelMax + ScConfig.InvestigateHeight;
+        }
+
+        /// <summary>F5: the base's levels - the home block and every resident's post at home.</summary>
+        private static void Levels()
+        {
+            levelMin = levelMax = ScZone.Home.y;
+            foreach (Member m in ScRegistry.Members.Values)
+            {
+                if (m.Status != MemberStatus.Resident || m.Post == Vector3i.zero) continue;
+                if (!UAI.UAIConsiderationScNotHomeMember.AtHome(m.Post.ToVector3())) continue;
+                levelMin = Mathf.Min(levelMin, m.Post.y);
+                levelMax = Mathf.Max(levelMax, m.Post.y);
+            }
+        }
 
         // ------------------------------------------------------------------ the scan (ScTicker, every second) ----
 
@@ -132,6 +164,7 @@ namespace SurvivorCommunity
                     if (tracked.Count > 0) ReleaseAll("no-residents", "no resident's body in the world");
                     return;
                 }
+                Levels();
                 Scan(w, cands[0].Npc, now);
                 Assign(now);
             }
@@ -161,7 +194,8 @@ namespace SurvivorCommunity
             float pad = ScConfig.ResidentRoamZoneMargin + 1f;
             Vector3 home = ScZone.Home.ToVector3();
             var box = new Bounds();
-            box.SetMinMax(new Vector3(xMin - pad, home.y - HalfHeight, zMin - pad), new Vector3(xMax + 1 + pad, home.y + HalfHeight, zMax + 1 + pad));
+            box.SetMinMax(new Vector3(xMin - pad, levelMin - ScConfig.InvestigateHeight - 1f, zMin - pad),
+                          new Vector3(xMax + 1 + pad, levelMax + ScConfig.InvestigateHeight + 2f, zMax + 1 + pad));
             Bounds wide;
             if (ScBaseAttack.WideDefence && ScBaseAttack.DefenceBounds(home.y, HalfHeight, 0f, out wide)) box.Encapsulate(wide);
             near.Clear();
@@ -176,9 +210,9 @@ namespace SurvivorCommunity
                     Intruder it;
                     tracked.TryGetValue(a.entityId, out it);
                     bool live = it != null && it.Live;
-                    if (!UAI.UAIConsiderationScNotHomeMember.AtHome(a.position))
+                    if (!UAI.UAIConsiderationScNotHomeMember.AtHome(a.position) || !InLevels(a.position.y))
                     {
-                        if (live && it.OutsideSince <= 0f) it.OutsideSince = now;      // past the zone + margin: the leave clock
+                        if (live && it.OutsideSince <= 0f) it.OutsideSince = now;      // past the zone + margin, or off its levels: the leave clock
                         continue;
                     }
                     if (UAI.UAIConsiderationScIntruder.HuntsSomeone(a))
@@ -225,7 +259,7 @@ namespace SurvivorCommunity
                 if (a.IsSleeping) { Release(it, "asleep", "it went to sleep", now); continue; }
                 if (it.SeenAt < now - 0.5f && it.OutsideSince <= 0f) it.OutsideSince = now;   // left the scan's box
                 if (it.OutsideSince > 0f && now - it.OutsideSince >= LeaveSeconds)
-                    Release(it, "left", "it stayed outside the zone + " + F0(ScConfig.ResidentRoamZoneMargin) + " m for " + F0(LeaveSeconds) + " s", now);
+                    Release(it, "left", "it stayed outside the zone + " + F0(ScConfig.ResidentRoamZoneMargin) + " m (or off its levels) for " + F0(LeaveSeconds) + " s", now);
             }
         }
 
@@ -306,8 +340,8 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// Why this resident is not free to answer t, or null. fresh: a new pick (also not mid medical use, not resting after a stray,
-        /// within InvestigateRadius and, not roaming the zone, within DefendBaseRadius of her post); a responder already answering keeps
-        /// it through those short states, so she is not swapped for another (no flip).
+        /// within InvestigateRadius); a responder already answering keeps it through those short states, so she is not swapped for
+        /// another (no flip). Not roaming the zone: within DefendBaseRadius of her post, fresh or not (F7).
         /// </summary>
         private static string NotFree(Member m, EntityAlive npc, EntityAlive t, bool fresh)
         {
@@ -328,14 +362,16 @@ namespace SurvivorCommunity
             EntityAlive own = npc.GetAttackTarget();
             if (own == null || own.IsDead()) own = npc.GetRevengeTarget();
             if (own != null && !own.IsDead() && own != t && EntityTargetingUtilities.IsEnemy(npc, own)) return "in another fight";
+            // the Fable review of k3+k4 (F7): a resident who does not roam the zone answers only within DefendBaseRadius of her
+            // post, also while she answers - past it ScReturn's leash walks her back and the defense walk out again (pacing)
+            if (!ScBaseAttack.WideDefence && !UAI.UAIConsiderationScIntruder.Roams(m)
+                && (t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)ScConfig.DefendBaseRadius * ScConfig.DefendBaseRadius)
+                return "beyond DefendBaseRadius of her post";
             if (!fresh) return null;
             if (ScMedic.IsUsing(npc.entityId)) return "using a medical item";
             if (UAI.ScDefendState.RestLeft(npc.entityId) > 0f) return "resting after a stray";
             if (ScConfig.InvestigateRadius > 0f && (t.position - npc.position).sqrMagnitude > ScConfig.InvestigateRadius * ScConfig.InvestigateRadius)
                 return "farther than InvestigateRadius";
-            if (!ScBaseAttack.WideDefence && !UAI.UAIConsiderationScIntruder.Roams(m)
-                && (t.position - ScCommunity.PostCenter(m)).sqrMagnitude > (float)ScConfig.DefendBaseRadius * ScConfig.DefendBaseRadius)
-                return "beyond DefendBaseRadius of her post";
             return null;
         }
 
@@ -427,7 +463,9 @@ namespace SurvivorCommunity
             if (!ScConfig.InvestigateIntruders) { lines.Add("[SC] intruders (round k4): off (InvestigateIntruders false: n08's rule - a wanderer at home is left alone)"); return; }
             int live = CountLive();
             lines.Add("[SC] intruders (round k4): " + live + " inside the base and after nobody, " + ScConfig.InvestigateResponders + " responder(s) each "
-                      + (ScConfig.InvestigateRadius > 0f ? "within " + F0(ScConfig.InvestigateRadius) + " m" : "from anywhere in the zone") + "; " + Report());
+                      + (ScConfig.InvestigateRadius > 0f ? "within " + F0(ScConfig.InvestigateRadius) + " m" : "from anywhere in the zone") + "; levels y "
+                      + F0(levelMin - ScConfig.InvestigateHeight) + " to " + F0(levelMax + ScConfig.InvestigateHeight) + ", "
+                      + (EnterMargin > 0f ? "up to " + F0(EnterMargin) + " m outside the zone" : "inside the zone only") + "; " + Report());
             World w = GameManager.Instance != null ? GameManager.Instance.World : null;
             float now = Time.time;
             foreach (var kv in tracked)
@@ -437,7 +475,7 @@ namespace SurvivorCommunity
                 EntityAlive t = w != null ? w.GetEntity(it.Id) as EntityAlive : null;
                 var sb = new StringBuilder("[SC]   ").Append(it.Name).Append(" (").Append(it.Id).Append(") at ").Append(ScRetreat.Cell(it.Pos))
                     .Append(", tracked ").Append((now - it.FirstAt).ToString("0", CultureInfo.InvariantCulture)).Append(" s")
-                    .Append(it.OutsideSince > 0f ? ", OUTSIDE the zone for " + (now - it.OutsideSince).ToString("0.0", CultureInfo.InvariantCulture) + " s" : "")
+                    .Append(it.OutsideSince > 0f ? ", OUTSIDE the zone or its levels for " + (now - it.OutsideSince).ToString("0.0", CultureInfo.InvariantCulture) + " s" : "")
                     .Append(" - responders: ").Append(it.Responders.Count > 0 ? Names(it.Responders) : "nobody free (" + (t != null ? FirstRefusal(t) : "-") + ")");
                 foreach (int rid in it.Responders)
                 {

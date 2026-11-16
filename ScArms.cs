@@ -55,7 +55,8 @@ namespace SurvivorCommunity
     ///
     /// The one posture's hand (round k4, ScPosture; research/combat/SC_VS_NPCCORE.md 4.1). A member's hand follows her posture
     /// through one rule (Hand) with one clock: MELEE takes her melee weapon (a gun holder's one swap), KITE draws her gun and
-    /// holds 0-XNPCCore's 3 m swap (her back-offs and the shot instead; cornered and reloading, R2's melee until room), HOLD
+    /// holds 0-XNPCCore's 3 m swap (her back-offs and the shot instead; cornered and reloading or with no shot, R2's melee until
+    /// room - never at a target she cannot swing at or a melee-unsafe one, and ended by 0-XNPCCore's own bout exit), HOLD
     /// keeps the gun up on watch, SHELTER and no fight leave the hand as it is. After any change of her hand - SC's or
     /// 0-XNPCCore's - SC swaps nothing for TeamSwapHoldSeconds; only a target that needs the gun draws it at once. A melee
     /// weapon in the MELEE posture rides in 0-XNPCCore's own close-melee bout, so its own exits judge the swing (a wall, bars,
@@ -113,11 +114,25 @@ namespace SurvivorCommunity
             /// </summary>
             public float MeleeBackoffUntil, GunBackoffUntil;
             /// <summary>
-            /// Round k4 (KITE, the gun up close): her magazine at the last tick and the last sign she can shoot (a round fired, a
-            /// reload, or her target farther than 3 m) - R2's "no shot" trigger reads them.
+            /// Round k4, the Fable review of k3+k4 (F1): R2's "no shot" clocks, kept only over KITE's gun-in-hand ticks that follow
+            /// one another (KiteTickAt: at most KiteTickGapSeconds apart, the same gun KiteGun, no hand change between). NoShotSince
+            /// restarts on any such gap, on any change of her magazine (KiteMeta: a round fired or loaded), during a reload and
+            /// while her target is farther than 3 m; CorneredSince is the start of her continuous cornered time (ScBackOff.NoPointFor
+            /// for her target - a break of up to CorneredBreakSeconds since UncorneredAt is bridged), 0 when she is not cornered.
             /// </summary>
             public int KiteMeta = -1;
-            public float KiteShotAt;
+            public string KiteGun;
+            public float KiteTickAt, NoShotSince, CorneredSince, UncorneredAt;
+            /// <summary>
+            /// F1: R2's melee - she was in 0-XNPCCore's bout during it (CorneredInBout: its own end of that bout ends R2), and the
+            /// melee weapon CorneredHeld in her hand since CorneredHeldAt, with its last swing's time then (CorneredUse) and whether
+            /// she has swung since (CorneredSwung: no swing for CorneredNoSwingSeconds ends R2). SkipNoted: the target R2 last
+            /// skipped (logged once).
+            /// </summary>
+            public bool CorneredInBout, CorneredSwung;
+            public string CorneredHeld;
+            public float CorneredHeldAt, CorneredUse;
+            public int SkipNoted = -1;
         }
 
         /// <summary>The Fable review of round tm1 (finding 7): how long the hand rule waits after an equip that did not take.</summary>
@@ -135,6 +150,15 @@ namespace SurvivorCommunity
         /// below her, a step in the way) gets R2's melee until room too. 3 s: past a bow's draw and a bolt action.
         /// </summary>
         private const float KiteNoShotSeconds = 3f;
+        /// <summary>F1: KITE's gun-in-hand ticks further apart than this (0-XNPCCore's close-range tick runs every 0.2 s) restart R2's clocks.</summary>
+        private const float KiteTickGapSeconds = 0.5f;
+        /// <summary>F1: a break in her cornered time (ScBackOff.NoPointFor false) up to this long is bridged.</summary>
+        private const float CorneredBreakSeconds = 0.5f;
+        /// <summary>
+        /// F1: R2's melee ends - and the swing counts as refused (KITE against that target) - when she has not swung for this long
+        /// since the melee weapon came into her hand: a fence, bars or a block 0-XNPCCore's own checks let through.
+        /// </summary>
+        private const float CorneredNoSwingSeconds = 2.5f;
 
         private static readonly Dictionary<int, Watch> watch = new Dictionary<int, Watch>();
         private static readonly List<Entity> near = new List<Entity>();
@@ -534,13 +558,16 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// The re-review's R2 (the user: "Stay on melee until room"), round k4 a sub-rule of KITE: after a cornered reload put her
-        /// on melee, she stays on it - the hand rule draws no gun - while this is true, and 0-XNPCCore's remembered gun is kept
-        /// cleared in its bout (its exit and failover would put the gun back behind SC's back). It ends - and the hand rule
-        /// applies again, with the gun written back as 0-XNPCCore's remembered weapon in its bout - when her target is dead or
-        /// gone; when she has had room for CorneredRoomSeconds (ScBackOff.NoPointFor not holding for her target), and not before
-        /// the hand clock (TeamSwapHoldSeconds since her hand last changed) is over; when a gun is in her hand again (after
-        /// CorneredSwapGrace: 0-XNPCCore's swap may come a tick late); or when her posture is no longer KITE (Hand). X5 only.
+        /// The re-review's R2 (the user: "Stay on melee until room"), round k4 a sub-rule of KITE: after R2's trigger put her on
+        /// melee (KiteHand), she stays on it - the hand rule draws no gun - while this is true. It ends - and the hand rule
+        /// applies again - when her target is dead or gone; when she has had room for CorneredRoomSeconds (ScBackOff.NoPointFor
+        /// not holding for her target), and not before the hand clock (TeamSwapHoldSeconds since her hand last changed) is over;
+        /// when a gun is in her hand again (after CorneredSwapGrace: 0-XNPCCore's swap may come a tick late); when her posture is
+        /// no longer KITE (Hand); and - the Fable review of k3+k4, F1 - when 0-XNPCCore ends its bout itself (CorneredBoutEnded),
+        /// or when she has not swung for CorneredNoSwingSeconds since the melee weapon came into her hand (NoSwing: a fence or
+        /// bars 0-XNPCCore let her into its bout through; the swing then counts as refused - KITE against that target, R2 skips
+        /// it). F1 also stopped clearing 0-XNPCCore's remembered gun in its bout (round k1 did): its exits within 5 m are its
+        /// verdicts that she cannot swing there (shoot-through, a wall, unreachable), and they must bring the gun back. X5 only.
         /// </summary>
         private static bool CorneredMeleeHolds(AvatarSdcsNpcController c, EntityAlive e, float now)
         {
@@ -555,6 +582,15 @@ namespace SurvivorCommunity
             EntityAlive t = e.GetAttackTarget();
             if (t == null || t.IsDead()) t = e.GetRevengeTarget();
             if (t == null || t.IsDead()) { EndCornered(c, st, e, ScRetreat.Her(e) + " target is dead or gone"); return false; }
+            if (NoSwing(st, e, now))
+            {
+                string why = "no swing in " + CorneredNoSwingSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " s with " + ScRetreat.Her(e)
+                             + " melee weapon (a fence, bars or a block in " + ScRetreat.Her(e) + " swing)";
+                Patches_Xnpc.Count("x5-cornered-noswing-end");
+                EndCornered(c, st, e, why);
+                ScPosture.NoteRefused(e, t, why + " - R2's melee ended");
+                return false;
+            }
             if (ScBackOff.NoPointFor(e, t)) st.RoomSince = 0f;
             else if (st.RoomSince <= 0f) st.RoomSince = now;
             bool swapHold = !ScPosture.HandClockAllows(e, now);       // round k4: the one hand clock (was the shared swap hold)
@@ -565,14 +601,110 @@ namespace SurvivorCommunity
             }
             if (CloseMelee(c))
             {
+                // F1: 0-XNPCCore's remembered gun stays (its exits are its verdicts) - only noted as the gun to go back to
                 string rem = Remembered(c);
-                if (!string.IsNullOrEmpty(rem))
-                {
-                    if (ScAmmo.RangedAction(ItemClass.GetItemClass(rem, true)) != null) st.CorneredGun = rem;
-                    rememberedField.SetValue(c, null);
-                }
+                if (!string.IsNullOrEmpty(rem) && ScAmmo.RangedAction(ItemClass.GetItemClass(rem, true)) != null) st.CorneredGun = rem;
             }
             return true;
+        }
+
+        /// <summary>
+        /// F1: R2's melee weapon has not swung since it came into her hand, for CorneredNoSwingSeconds. A swing is a new
+        /// lastUseTime on the held item's primary or power action (0-XNPCCore's power-swing patch reads the same marker);
+        /// unreadable: never true. Keeps the clock in st. X5 only.
+        /// </summary>
+        private static bool NoSwing(Watch st, EntityAlive e, float now)
+        {
+            float used;
+            if (!LastSwing(e, out used)) return false;
+            string held = HeldItemName(e);
+            if (st.CorneredHeldAt <= 0f || !string.Equals(held, st.CorneredHeld, StringComparison.OrdinalIgnoreCase))
+            {
+                st.CorneredHeldAt = now;
+                st.CorneredHeld = held;
+                st.CorneredUse = used;
+                st.CorneredSwung = false;
+                return false;
+            }
+            if (used != st.CorneredUse) st.CorneredSwung = true;
+            return !st.CorneredSwung && now - st.CorneredHeldAt >= CorneredNoSwingSeconds;
+        }
+
+        /// <summary>The latest lastUseTime of the held item's first two actions (the swing and the power swing). False when unreadable. A read.</summary>
+        private static bool LastSwing(EntityAlive e, out float last)
+        {
+            last = 0f;
+            ItemInventoryData d = e != null && e.inventory != null ? e.inventory.holdingItemData : null;
+            if (d == null || d.actionData == null) return false;
+            bool any = false;
+            for (int i = 0; i < d.actionData.Count && i < 2; i++)
+            {
+                ItemActionData a = d.actionData[i];
+                if (a == null) continue;
+                if (!any || a.lastUseTime > last) last = a.lastUseTime;
+                any = true;
+            }
+            return any;
+        }
+
+        /// <summary>
+        /// F1: R2's melee in 0-XNPCCore's bout ends when 0-XNPCCore ends that bout itself - its own verdict (shoot-through, a
+        /// wall, unreachable: the gun back; a target gone or beyond its exit distance). With her target alive within that
+        /// distance it is a refusal of her swing: KITE against it (ScPosture), and R2 skips it. Before TidyCornered. X5 only.
+        /// </summary>
+        private static void CorneredBoutEnded(AvatarSdcsNpcController c, Watch st, EntityAlive e, bool bout)
+        {
+            if (!st.CorneredMelee) return;
+            if (bout) { st.CorneredInBout = true; return; }
+            if (!st.CorneredInBout) return;
+            EntityAlive t = CurrentTarget(e);
+            bool near = t != null && (t.position - e.position).sqrMagnitude <= XnpcCloseExitDist * XnpcCloseExitDist;
+            string why = near ? BoutExitWhy(c, e, t) : t == null ? "the target is dead or gone" : "the target is beyond " + XnpcCloseExitDist.ToString("0") + " m";
+            Patches_Xnpc.Count("x5-cornered-bout-ended");
+            EndCornered(c, st, e, "0-XNPCCore ended " + ScRetreat.Her(e) + " bout itself - " + why);
+            if (near) ScPosture.NoteRefused(e, t, why + " - R2's melee ended");
+        }
+
+        /// <summary>
+        /// F1 (the Fable review of k3+k4): why R2 must not swap her to melee at t, else null - a swing at it refused before
+        /// (ScPosture.RefusedWhy: 0-XNPCCore's refusal exits and its unreachable mark, R2's own "no swing"), 0-XNPCCore's last
+        /// refusal of its swap ("wall between", "unreachable", "wall re-enter"), or a melee-unsafe target. A read.
+        /// </summary>
+        private static string R2Skip(AvatarSdcsNpcController c, EntityAlive e, EntityAlive t)
+        {
+            if (t == null) return "no target";
+            string r = ScPosture.RefusedWhy(e, t);
+            if (r != null) return r;
+            r = SwapRefusal(c);
+            if (r != null) return "0-XNPCCore refused " + ScRetreat.Her(e) + " swap to melee (" + r + ")";
+            if (ScTeam.MeleeUnsafe(t)) return "melee-unsafe";
+            return null;
+        }
+
+        /// <summary>F1: R2's two clocks - her continuous cornered time and no shot - over KITE's gun-in-hand ticks only (see Watch). X5 only.</summary>
+        private static void KiteClocks(Watch st, EntityAlive e, ItemValue held, ItemClass hg, bool close, bool reloading, bool cornered, float now)
+        {
+            string gun = hg != null ? hg.GetItemName() : null;
+            int meta = held != null ? held.Meta : -1;
+            // a gap: the last gun-in-hand tick of KITE too long ago (MELEE, the heal walk, a medical use, a bout, another posture,
+            // a fresh draw), another gun, or a change of her hand since (SC's or 0-XNPCCore's)
+            bool gap = st.KiteTickAt <= 0f || now - st.KiteTickAt > KiteTickGapSeconds || !string.Equals(gun, st.KiteGun, StringComparison.OrdinalIgnoreCase)
+                       || ScPosture.HandChangedAt(e) > st.KiteTickAt;
+            if (gap) { st.CorneredSince = 0f; st.UncorneredAt = 0f; }
+            if (cornered)
+            {
+                if (st.CorneredSince <= 0f) st.CorneredSince = now;
+                st.UncorneredAt = 0f;
+            }
+            else if (st.CorneredSince > 0f)
+            {
+                if (st.UncorneredAt <= 0f) st.UncorneredAt = now;
+                else if (now - st.UncorneredAt > CorneredBreakSeconds) { st.CorneredSince = 0f; st.UncorneredAt = 0f; }
+            }
+            if (gap || meta != st.KiteMeta || reloading || !close) st.NoShotSince = now;
+            st.KiteTickAt = now;
+            st.KiteGun = gun;
+            st.KiteMeta = meta;
         }
 
         /// <summary>
@@ -583,6 +715,11 @@ namespace SurvivorCommunity
         {
             st.CorneredMelee = false;
             st.RoomSince = 0f;
+            st.CorneredInBout = false;
+            st.CorneredSwung = false;
+            st.CorneredHeld = null;
+            st.CorneredHeldAt = 0f;
+            st.NoShotSince = Time.time;                 // F1: another "no shot" trigger needs KiteNoShotSeconds again
             if (c != null && CloseMelee(c) && string.IsNullOrEmpty(Remembered(c)) && !string.IsNullOrEmpty(st.CorneredGun))
                 rememberedField.SetValue(c, st.CorneredGun);
             Patches_Xnpc.Count("x5-cornered-melee-end");
@@ -681,7 +818,9 @@ namespace SurvivorCommunity
         ///     (was round tm1's AdoptBout and the M11 fix 2's HoldMelee).
         ///   KITE (INVESTIGATE with the gun stance): a melee weapon in hand - her gun (at once for a target that needs it);
         ///     0-XNPCCore's 3 m swap is held while her gun has rounds - her back-offs and the shot instead - except R2: no room to
-        ///     back off while reloading, or no shot for KiteNoShotSeconds - its swap to melee runs and she stays on melee until there is room (CorneredMeleeHolds).
+        ///     back off while reloading, or KiteNoShotSeconds of continuous cornered time with no shot (the hand clock allowing) -
+        ///     its swap to melee runs and she stays on melee until there is room (CorneredMeleeHolds); not at a target she cannot
+        ///     swing at or a melee-unsafe one (R2Skip), and 0-XNPCCore's own bout exit or no swing ends it (F1).
         ///     A runner on a run (NativeClose) keeps 0-XNPCCore's 3 m swap and draws only for a target beyond 5 m (round n08).
         ///   HOLD: on watch the gun stays up close (no 3 m swap); a melee weapon goes for the gun for a target beyond 5 m.
         ///   SHELTER: the hand as it is. No fight: the hand as it is - a bout whose fight is over is closed, the melee weapon kept.
@@ -702,6 +841,7 @@ namespace SurvivorCommunity
                 if (now >= nextPrune) Prune(now);
                 Watch st = WatchOf(e, now);
                 bool bout = CloseMelee(c);
+                CorneredBoutEnded(c, st, e, bout);                                   // F1: 0-XNPCCore's own end of its bout ends R2
                 if (!bout) TidyCornered(c, st, e, now);
                 // R2 is a KITE sub-rule: another posture ends a cornered melee (MELEE wants that weapon anyway; the others leave the hand)
                 if (st.CorneredMelee && pv.P != Posture.Kite && !(pv.P == Posture.Investigate && pv.Kiting))
@@ -770,7 +910,7 @@ namespace SurvivorCommunity
             bool clock = ScPosture.HandClockAllows(e, now) || pv.UrgentGun;
             if (bout)
             {
-                if (CorneredMeleeHolds(c, e, now)) return true;                      // R2: melee until room (its gun kept cleared)
+                if (CorneredMeleeHolds(c, e, now)) return true;                      // R2: melee until room (or its own exit, or no swing)
                 if (pv.NativeClose) return true;                                     // a runner: 0-XNPCCore's own bout and exit
                 if (pv.Waiting) return true;
                 if (!clock) { ScPosture.NoteHeld(e); return true; }                  // its own exit at 5 m agrees with KITE
@@ -803,19 +943,31 @@ namespace SurvivorCommunity
             ItemValue held = e.inventory.holdingItemItemValue;
             ItemClass hg = held != null && !held.IsEmpty() ? held.ItemClass : null;
             bool close = TargetWithin(e, XnpcCloseEnterDist);
-            // the shot clock for R2's "no shot": a round fired, a reload, or nothing within 3 m restarts it
-            if (held != null && (!close || held.Meta < st.KiteMeta || Reloading(e))) st.KiteShotAt = now;
-            st.KiteMeta = held != null ? held.Meta : -1;
+            bool reloading = Reloading(e);
+            bool cornered = CorneredOnTarget(e);
+            KiteClocks(st, e, held, hg, close, reloading, cornered, now);
             if (pv.NativeClose || !close) return true;
             if (ScAmmo.RangedAction(hg) == null || ScAmmo.Rounds(e, hg) <= 0) return true;        // no rounds: its failover and swap
             // R2 (the Fable review's F7, the re-review): reloading with no back-off from her target - 0-XNPCCore's swap to melee
             // runs, so she swings rather than stands idle through the reload, and she stays on melee while no room holds.
-            // Round k4: likewise with no room and no shot for KiteNoShotSeconds (a loaded gun with no line of fire up close)
-            bool cornered = CorneredOnTarget(e);
-            bool reloading = Reloading(e);
-            bool noShot = !reloading && now - st.KiteShotAt >= KiteNoShotSeconds;
-            if (cornered && (reloading || noShot))
+            // Round k4: likewise after KiteNoShotSeconds of no shot (a loaded gun with no line of fire up close) - the Fable review
+            // of k3+k4 (F1): only KiteNoShotSeconds of CONTINUOUS cornered time with this gun in hand and not one round fired,
+            // and only once the hand clock allows. Neither trigger at a target she cannot swing at or a melee-unsafe one (R2Skip).
+            bool noShot = !reloading && cornered && st.CorneredSince > 0f && now - Mathf.Max(st.CorneredSince, st.NoShotSince) >= KiteNoShotSeconds
+                          && ScPosture.HandClockAllows(e, now);
+            bool trigger = cornered && (reloading || noShot);
+            string skip = trigger ? R2Skip(c, e, ct) : null;
+            if (trigger && skip != null && ct != null && st.SkipNoted != ct.entityId)
             {
+                st.SkipNoted = ct.entityId;
+                Patches_Xnpc.Count("x5-cornered-skipped");
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") is cornered and " + (reloading ? "reloading" : "has had no shot")
+                              + ", but no melee at " + ct.EntityName + " (" + ct.entityId + "): " + skip + " - the " + hg.GetItemName() + " stays (R2 skipped; F1)");
+            }
+            if (trigger && skip == null)
+            {
+                st.SkipNoted = -1;
+                if (ct != null) ScPosture.NoteSwapWatch(e, ct.entityId);           // 0-XNPCCore's refusal of the swap is read next tick
                 if (!st.CorneredMelee)
                 {
                     Patches_Xnpc.Count(reloading ? "x5-cornered-reload-melee" : "x5-cornered-noshot-melee");
@@ -941,8 +1093,8 @@ namespace SurvivorCommunity
         private static void TidyCornered(AvatarSdcsNpcController c, Watch st, EntityAlive e, float now)
         {
             if (st == null || !st.CorneredMelee || !HoldsRangedWeapon(e) || now - st.CorneredAt < CorneredSwapGrace) return;
-            if (Reloading(e) && CorneredOnTarget(e)) return;                       // R2's own trigger still holds
-            EndCornered(c, st, e, "0-XNPCCore never swapped " + ScRetreat.HerObj(e) + " to melee, and the cornered reload is over (C2)");
+            if (Reloading(e) && CorneredOnTarget(e) && R2Skip(c, e, CurrentTarget(e)) == null) return;   // R2's reload trigger still holds
+            EndCornered(c, st, e, "0-XNPCCore never swapped " + ScRetreat.HerObj(e) + " to melee, and R2's trigger is over (C2)");
         }
 
         /// <summary>0-XNPCCore says she is reloading (its SdcsReloading cvar). A read.</summary>
@@ -971,14 +1123,6 @@ namespace SurvivorCommunity
 
         /// <summary>Round k4: the item in her hand, or null (ScPosture's hand clock). A read.</summary>
         internal static string HeldName(EntityAlive e) { return HeldItemName(e); }
-
-        /// <summary>Round k4: her gun in hand has rounds in its magazine, or is reloading (the marksman's "loaded gun"). A read.</summary>
-        internal static bool GunLoaded(EntityAlive e)
-        {
-            ItemValue hv = e != null && e.inventory != null ? e.inventory.holdingItemItemValue : null;
-            if (hv == null || hv.IsEmpty() || ScAmmo.RangedAction(hv.ItemClass) == null) return false;
-            return hv.Meta > 0 || (e.Buffs != null && e.Buffs.GetCustomVar(XnpcReloadingCvar) >= 0.5f);
-        }
 
         /// <summary>Round k4: her pair has a gun with rounds. A read.</summary>
         internal static bool HasPairGun(EntityAlive e)

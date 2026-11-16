@@ -30,10 +30,11 @@ namespace SurvivorCommunity
     ///     max(tag weight, health weight) x the final multipliers (crawler 0.6). The tag weight is the highest entry of the
     ///     threat table it matches (walker 1, feral 2, radiated 3, charged 3.5, infernal 4.5, the animals) times the tag
     ///     multipliers (special 1.5, strong 1.3); the health weight covers tough and modded zombies.
-    ///   Matched: F >= TeamMargin x T (round k3: 1.25, a real margin; it was 1.0, decision 3); it stops being matched after
-    ///     TeamLeaveRecounts (2) recounts in a row with F &lt; TeamLeaveMargin x T (k3: 1.0, was 0.8); no enemies = matched. A
-    ///     new fight (the first count with enemies) is judged by the entry margin alone - the leave margin is hysteresis inside
-    ///     a fight (the report's worked examples).
+    ///   Matched: F >= TeamMargin x T (1.0, decision 3 - round k3 tried 1.25; the user's decision after the Fable review of
+    ///     k3+k4: "Exact parity, lone member melees"); it stops being matched after TeamLeaveRecounts (2) recounts in a row with
+    ///     F &lt; TeamLeaveMargin x T (0.8), and inside a fight it is matched again only after as many recounts in a row with
+    ///     F >= TeamMargin x T (F3); no enemies = matched. A new fight (the first count with enemies) is judged by the entry
+    ///     margin alone, at once - the leave margin and the recounts are hysteresis inside a fight (the report's worked examples).
     ///   RaiderFight: an enemy NPC (a raider, a bandit, a hostile player) or an armed enemy in the area - today's rules.
     ///   Melee-led: TeamMelee on; a member's body, not a raider; not a runner on the move, not on a Stay order (she gives
     ///     supporting fire), not asleep in bed, not on watch, not Cowardly (decision 8), no gun order from the player
@@ -59,8 +60,8 @@ namespace SurvivorCommunity
             public float F, T;
             /// <summary>No enemies = matched, so a fight starts matched and leaves it on the leave margin.</summary>
             public bool Matched = true;
-            /// <summary>Recounts in a row with F below TeamLeaveMargin x T.</summary>
-            public int Below;
+            /// <summary>Recounts in a row with F below TeamLeaveMargin x T (matched), or at least TeamMargin x T (outmatched, F3).</summary>
+            public int Below, Above;
             public bool LowHp, RaiderFight, Wide, MeleeLed;
             /// <summary>The Fable review: her pair has a ranged weapon with rounds - a Cowardly member can hang back with it.</summary>
             public bool Gun;
@@ -179,14 +180,31 @@ namespace SurvivorCommunity
                 v.PlayersIn = t.PlayersIn;
                 v.PlayersFighting = t.PlayersFighting;
                 v.Nearest = t.Nearest != null ? t.Nearest.entityId : -1;
-                if (t.T <= 0f || t.F + Eps >= ScConfig.TeamMargin * t.T) { v.Matched = true; v.Below = 0; }
-                else if (newFight) { v.Matched = false; v.Below = 0; }                      // starts below F >= T: outmatched at once
-                else if (t.F + Eps < ScConfig.TeamLeaveMargin * t.T)
+                bool atMargin = t.F + Eps >= ScConfig.TeamMargin * t.T;
+                if (t.T <= 0f) { v.Matched = true; v.Below = v.Above = 0; }                   // no enemies: matched
+                else if (newFight) { v.Matched = atMargin; v.Below = v.Above = 0; }           // a new fight: the entry rule alone, at once
+                else if (v.Matched)
                 {
-                    v.Below++;
-                    if (v.Below >= ScConfig.TeamLeaveRecounts) v.Matched = false;
+                    v.Above = 0;
+                    if (t.F + Eps < ScConfig.TeamLeaveMargin * t.T)
+                    {
+                        v.Below++;
+                        if (v.Below >= ScConfig.TeamLeaveRecounts) v.Matched = false;
+                    }
+                    else v.Below = 0;                                                       // between the margins: as it was
                 }
-                else v.Below = 0;                                                           // between the margins: as it was
+                else
+                {
+                    // the Fable review of k3+k4 (F3): matched again inside a fight only after TeamLeaveRecounts recounts in a row at
+                    // the entry margin, as leaving takes - your 5 s hit window (TeamPlayerFightingSeconds) cannot flip it by itself
+                    v.Below = 0;
+                    if (atMargin)
+                    {
+                        v.Above++;
+                        if (v.Above >= ScConfig.TeamLeaveRecounts) { v.Matched = true; v.Above = 0; }
+                    }
+                    else v.Above = 0;
+                }
                 float hp = HealthShare(e);
                 bool wasLow = v.LowHp;
                 if (hp < ScConfig.TeamLowHealth) v.LowHp = true;
@@ -209,7 +227,8 @@ namespace SurvivorCommunity
                 {
                     matchedAgain++;
                     Patches_Xnpc.Count("x5-team-matched-again");
-                    ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): the fight is matched again (F " + F2(t.F) + " >= T " + F2(t.T) + ")");
+                    ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + "): the fight is matched again (F " + F2(t.F) + " >= " + F2(ScConfig.TeamMargin) + " x T " + F2(t.T) + ", "
+                                  + ScConfig.TeamLeaveRecounts + " recounts in a row)");
                 }
                 if (!wasLow && v.LowHp) Patches_Xnpc.Count("x5-team-low-health");
             }
@@ -236,7 +255,8 @@ namespace SurvivorCommunity
             if (l == null || string.IsNullOrEmpty(l.Melee)) return "no melee weapon in her pair";
             if (v.LowHp) return "hurt (" + Pct(HealthShare(e)) + " - melee again from " + Pct(ScConfig.TeamLowHealthBack) + ")";
             if (v.RaiderFight) return "armed enemies in the fight (raiders, bandits: today's rules)";
-            if (!v.Matched) return "outmatched (F " + F2(v.F) + " vs T " + F2(v.T) + ": matched again at F >= " + F2(ScConfig.TeamMargin) + " T)";
+            if (!v.Matched) return "outmatched (F " + F2(v.F) + " vs T " + F2(v.T) + ": matched again after " + ScConfig.TeamLeaveRecounts + " recounts at F >= "
+                                   + F2(ScConfig.TeamMargin) + " T)";
             return null;
         }
 
@@ -738,6 +758,7 @@ namespace SurvivorCommunity
                 lines.Add("[SC]   verdict (" + (now - v.At).ToString("0.0", CultureInfo.InvariantCulture) + " s ago" + (now - v.At > ScConfig.TeamFreshSeconds ? ", STALE - counts as none" : "")
                           + "): F " + F2(v.F) + " / T " + F2(v.T) + " - " + (v.Matched ? "MATCHED" : "OUTMATCHED")
                           + (v.Below > 0 ? " (" + v.Below + " of " + ScConfig.TeamLeaveRecounts + " recounts below " + F2(ScConfig.TeamLeaveMargin) + " T)" : "")
+                          + (v.Above > 0 ? " (" + v.Above + " of " + ScConfig.TeamLeaveRecounts + " recounts at " + F2(ScConfig.TeamMargin) + " T to match again)" : "")
                           + "; " + v.Friends + " friend(s), " + v.Enemies + " enemy(ies)" + (v.Unsafe > 0 ? ", " + v.Unsafe + " melee-unsafe" : "")
                           + (v.RaiderFight ? ", RAIDER FIGHT" : "") + (v.Wide ? "; counted over the defended area (base attack)" : "; within " + F2(ScConfig.TeamRadius) + " m")
                           + (v.LowHp ? "; LOW HEALTH" : "") + PlayerNote(v));

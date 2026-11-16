@@ -29,15 +29,17 @@ namespace SurvivorCommunity
         /// <summary>Friends and enemies within this many meters of a member are counted (a live base attack: the whole defended area).</summary>
         public static float TeamRadius = 15f;
         /// <summary>
-        /// Matched when F >= TeamMargin x T. Round k3 (research/combat/SC_VS_NPCCORE.md 4.2): 1.25, a real margin - at 1 a fight
-        /// the community only just matched sent gun holders into melee.
+        /// Matched when F >= TeamMargin x T. Round k3 tried 1.25 (research/combat/SC_VS_NPCCORE.md 4.2); the user's decision
+        /// after the Fable review of k3+k4: "Exact parity, lone member melees" - 1.0, so a healthy member alone matches one walker.
         /// </summary>
-        public static float TeamMargin = 1.25f;
+        public static float TeamMargin = 1f;
         /// <summary>
-        /// A matched fight stops being matched after TeamLeaveRecounts recounts in a row with F &lt; TeamLeaveMargin x T. Round k3:
-        /// 1 (was 0.8 under a margin of 1): the same 0.8 of TeamMargin, so a fight that slips below F = T leaves melee.
+        /// A matched fight stops being matched after TeamLeaveRecounts recounts in a row with F &lt; TeamLeaveMargin x T, and an
+        /// outmatched one is matched again after as many recounts in a row with F >= TeamMargin x T (the Fable review of k3+k4,
+        /// F3: the player's 5 s hit window no longer flips the verdict). 0.8 (F2; k3's 1.0 under a margin of 1 had a lone 1-star
+        /// member leave "matched" at about 89% health): with TeamHealthFullAt that leaves TeamLowHealth (60%) as her only exit.
         /// </summary>
-        public static float TeamLeaveMargin = 1f;
+        public static float TeamLeaveMargin = 0.8f;
         public static int TeamLeaveRecounts = 2;
         /// <summary>Seconds between two recounts of one member (staggered by entity id).</summary>
         public static float TeamRecountSeconds = 1f;
@@ -65,8 +67,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// HpF = TeamHealthFloor + (1 - TeamHealthFloor) x min(1, health share / TeamHealthFullAt): 0.5 at no health, 1 from 90%
         /// of it. TeamHealthFullAt (the Fable review of round tm1): a scratch does not count, so a healthy 1-star member alone
-        /// meleed one walker (decision 2: at 99% her F was 0.995 against T 1) - until round k3's margin (1.25) made that fight
-        /// outmatched for a member below 3 stars.
+        /// meleed one walker (decision 2: at 99% her F was 0.995 against T 1). Round k3's margin of 1.25 made that fight
+        /// outmatched for a member below 3 stars; the user's decision after the Fable review of k3+k4 put it back to 1.0.
         /// </summary>
         public static float TeamHealthFloor = 0.5f;
         public static float TeamHealthFullAt = 0.9f;
@@ -105,11 +107,16 @@ namespace SurvivorCommunity
         /// <summary>
         /// Round k4 (ScInvestigate; the user, 2026-11-15: "If a zombie not engaged with any member or the player is inside the
         /// base, members should investigate"): an awake enemy inside the home zone that is after nobody gets
-        /// InvestigateResponders of the nearest free residents within InvestigateRadius (0: anywhere in the zone).
+        /// InvestigateResponders of the nearest free residents within InvestigateRadius (0: anywhere in the zone). The Fable review
+        /// of k3+k4: InvestigateEnterMargin (F4) - meters outside the zone an intruder may stand (0: inside only, the user's
+        /// "inside the base"); InvestigateHeight (F5) - meters below the lowest and above the highest of the home block and the
+        /// residents' posts that count as the base (a cellar, a mine or a roof beyond them does not).
         /// </summary>
         public static bool InvestigateIntruders = true;
         public static int InvestigateResponders = 2;
         public static float InvestigateRadius = 0f;
+        public static float InvestigateEnterMargin = 0f;
+        public static float InvestigateHeight = 4f;
         /// <summary>T: the threat table as the config spells it (parsed into TeamThreats on first use).</summary>
         public static string TeamThreatTags = DefaultTeamThreatTags;
         public static string TeamThreatTagMult = DefaultTeamThreatTagMult;
@@ -182,8 +189,8 @@ namespace SurvivorCommunity
         {
             TeamMelee = true;
             TeamRadius = 15f;
-            TeamMargin = 1.25f;
-            TeamLeaveMargin = 1f;
+            TeamMargin = 1f;
+            TeamLeaveMargin = 0.8f;
             TeamLeaveRecounts = 2;
             TeamRecountSeconds = 1f;
             TeamFreshSeconds = 3f;
@@ -209,6 +216,8 @@ namespace SurvivorCommunity
             InvestigateIntruders = true;
             InvestigateResponders = 2;
             InvestigateRadius = 0f;
+            InvestigateEnterMargin = 0f;
+            InvestigateHeight = 4f;
             TeamThreatTags = DefaultTeamThreatTags;
             TeamThreatTagMult = DefaultTeamThreatTagMult;
             TeamThreatMult = DefaultTeamThreatMult;
@@ -273,6 +282,8 @@ namespace SurvivorCommunity
             ParseBoolKey(p, "InvestigateIntruders", ref InvestigateIntruders);
             ParseInt(p, "InvestigateResponders", ref InvestigateResponders, 1, 10);
             ParseFloat(p, "InvestigateRadius", ref InvestigateRadius, 0f, 500f);
+            ParseFloat(p, "InvestigateEnterMargin", ref InvestigateEnterMargin, 0f, 20f);
+            ParseFloat(p, "InvestigateHeight", ref InvestigateHeight, 1f, 64f);
             // round k4 retired three keys (the posture replaced them); a config that still sets one is told so once
             foreach (string gone in RetiredTeamKeys)
                 if (p.Values.ContainsKey(gone)) ScLog.Warn("config " + gone + " is no longer used (round k4: one posture per member replaced it) - ignored");
@@ -345,7 +356,7 @@ namespace SurvivorCommunity
             Func<float, string> f = x => x.ToString("0.##", CultureInfo.InvariantCulture);
             if (!TeamMelee) return "off (TeamMelee=false: no team verdict - never the MELEE posture, every fight with a gun is KITE)";
             return "on, within " + f(TeamRadius) + " m (a live base attack: the defended area), matched at F >= " + f(TeamMargin) + " T, left after "
-                   + TeamLeaveRecounts + " recounts below " + f(TeamLeaveMargin) + " T, recount " + f(TeamRecountSeconds) + " s (fresh " + f(TeamFreshSeconds) + " s)"
+                   + TeamLeaveRecounts + " recounts below " + f(TeamLeaveMargin) + " T (matched again after as many at " + f(TeamMargin) + " T), recount " + f(TeamRecountSeconds) + " s (fresh " + f(TeamFreshSeconds) + " s)"
                    + "; F: member (" + f(TeamStarBase) + " + " + f(TeamStarStep) + "/star) x HpF x weapon " + f(TeamWeaponMelee) + "/" + f(TeamWeaponRanged) + "/" + f(TeamWeaponBare)
                    + ", player " + f(TeamPlayerWeight) + " while fighting (his hit on an enemy in the area in the last " + f(TeamPlayerFightingSeconds) + " s, a kill too; else 0), ally " + f(TeamAllyWeight) + ", guard " + f(TeamGuardWeight) + ", medical x" + f(TeamMedicalMult)
                    + ", HpF " + f(TeamHealthFloor) + "+" + f(1f - TeamHealthFloor) + "xmin(1,hp/" + f(TeamHealthFullAt) + ")"
@@ -365,7 +376,9 @@ namespace SurvivorCommunity
                    + "; one hand change per " + f(TeamSwapHoldSeconds) + " s (TeamSwapHoldSeconds), a MELEE / KITE switch lasts " + f(PostureDwellSeconds)
                    + " s (PostureDwellSeconds); a gun holder in a matched fight keeps her gun until her target is within " + f(PostureMeleeDist)
                    + " m; investigate idle intruders: " + (InvestigateIntruders ? InvestigateResponders + " responder(s) each, "
-                   + (InvestigateRadius > 0f ? "within " + f(InvestigateRadius) + " m" : "anywhere in the zone") : "off (InvestigateIntruders false: n08's rule, wanderers left alone)");
+                   + (InvestigateRadius > 0f ? "within " + f(InvestigateRadius) + " m" : "anywhere in the zone") + ", entered "
+                   + (InvestigateEnterMargin > 0f ? "within " + f(InvestigateEnterMargin) + " m of the zone" : "inside the zone") + ", " + f(InvestigateHeight)
+                   + " m above and below the base's levels" : "off (InvestigateIntruders false: n08's rule, wanderers left alone)");
         }
     }
 }

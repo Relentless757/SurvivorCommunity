@@ -73,8 +73,10 @@ namespace SurvivorCommunity
             /// <summary>Her target is out of her melee reach: the draw does not wait for the hand clock.</summary>
             public bool UrgentGun;
             public string Why = "";
-            /// <summary>When the posture last changed; the last Update; the stance's last switch.</summary>
-            public float Since, At, LastTick;
+            /// <summary>When the posture last changed; the last Update. StanceSince (the Fable review of k3+k4, F8): when the
+            /// stance last switched (MELEE / KITE) or a fight posture was entered from a non-fight one - the dwell's clock, so a
+            /// change that keeps the stance (KITE to INVESTIGATE with the gun, say) does not restart it.</summary>
+            public float Since, At, LastTick, StanceSince;
             public int TargetId = -1;
             public float TargetDist = -1f;
             /// <summary>A switch the dwell holds (Pending), why, and since when.</summary>
@@ -144,7 +146,7 @@ namespace SurvivorCommunity
                 float now = Time.time;
                 if (now >= nextPrune) Prune(now);
                 State st;
-                if (!states.TryGetValue(e.entityId, out st)) states[e.entityId] = st = new State { Since = now };
+                if (!states.TryGetValue(e.entityId, out st)) states[e.entityId] = st = new State { Since = now, StanceSince = now };
                 if (st.LastTick > 0f && now - st.LastTick < 1f) st.Seconds[(int)st.P] += now - st.LastTick;
                 st.LastTick = now;
                 // 1. the hand clock: a change of her hand since the last tick - 0-XNPCCore's own swaps included (SC's are
@@ -246,13 +248,17 @@ namespace SurvivorCommunity
             else
             {
                 ScTeam.GunNeed kind;
-                string mw = MeleeWhy(e, m, st, t, holdsGun, over, count, need, out kind, out soft);
+                string mw = MeleeWhy(e, m, st, t, holdsGun, gunRounds, over, count, need, out kind, out soft);
                 if (mw == null) { melee = true; why = ScTeam.MatchedText(e) + ", " + Pct(Share(e)) + " health, " + Who(t) + " in " + ScRetreat.Her(e) + " reach"; }
                 else if (gunRounds)
                 {
                     melee = false;
                     why = mw;
                     urgent = urgentGun = kind != ScTeam.GunNeed.None;
+                    // F1: a target she cannot swing at (a refusal R2's melee ended with, too) or should not (melee-unsafe, armed)
+                    // draws the gun at once even when the posture is KITE for another reason (outmatched, hurt): with the melee
+                    // weapon in KITE she could neither back off nor land a swing
+                    if (!urgentGun && (RefusedWhy(e, t) != null || ScTeam.MeleeUnsafe(t) || ScTeam.Armed(t))) urgentGun = true;
                 }
                 else
                 {
@@ -280,7 +286,7 @@ namespace SurvivorCommunity
         /// Why she is not MELEE against t (null: MELEE). kind: the target needs the gun (ScTeam.NeedsGun: melee-unsafe, armed,
         /// past her leash, out of reach). soft: only the gun holder's distance (PostureMeleeDist; 1 m more while already MELEE).
         /// </summary>
-        private static string MeleeWhy(EntityAlive e, Member m, State st, EntityAlive t, bool holdsGun, bool over, int count, int need,
+        private static string MeleeWhy(EntityAlive e, Member m, State st, EntityAlive t, bool holdsGun, bool gunRounds, bool over, int count, int need,
                                        out ScTeam.GunNeed kind, out bool soft)
         {
             kind = ScTeam.GunNeed.None;
@@ -291,7 +297,8 @@ namespace SurvivorCommunity
             string gunNeed = ScTeam.NeedsGun(e, t, !holdsGun, true, out kind);
             if (gunNeed != null) return gunNeed;
             if (over) return "overwhelmed (" + count + " after " + ScRetreat.HerObj(e) + ", " + need + " in a matched fight)";
-            if (holdsGun && Marksman(m) && ScArms.GunLoaded(e)) return "a marksman: Shooting is " + ScRetreat.Her(e) + " best skill and " + ScRetreat.Her(e) + " gun is loaded";
+            // the Fable review of k3+k4 (F6): from her pair's gun, not her hand - the same verdict with either weapon in it
+            if (gunRounds && Marksman(m)) return "a marksman: Shooting is " + ScRetreat.Her(e) + " best skill and " + ScRetreat.Her(e) + " gun has rounds";
             if (holdsGun)
             {
                 float lim = ScConfig.PostureMeleeDist + (GunStance(st.P, st.Kiting) ? 0f : 1f);
@@ -321,6 +328,7 @@ namespace SurvivorCommunity
             float had = now - st.Since;
             st.P = want;
             st.Since = now;
+            if (stanceFlip || (!IsFight(was) && IsFight(want))) st.StanceSince = now;   // F8: only a new stance restarts the dwell
             st.Waiting = false;
             st.PendingSince = 0f;
             entered[(int)want]++;
@@ -346,13 +354,13 @@ namespace SurvivorCommunity
         }
 
         /// <summary>
-        /// A switch of stance may happen: PostureDwellSeconds in the posture (not for the gun holder's one swap at PostureMeleeDist:
-        /// soft) and, always, TeamSwapHoldSeconds since her hand last changed - so the posture never turns to a hand she may not
-        /// take yet (the hand rule would leave her with the wrong weapon for the stance's gates).
+        /// A switch of stance may happen: PostureDwellSeconds in the stance (StanceSince; not for the gun holder's one swap at
+        /// PostureMeleeDist: soft) and, always, TeamSwapHoldSeconds since her hand last changed - so the posture never turns to a
+        /// hand she may not take yet (the hand rule would leave her with the wrong weapon for the stance's gates).
         /// </summary>
         private static bool DwellOver(State st, float now, bool soft)
         {
-            return (soft || now - st.Since >= ScConfig.PostureDwellSeconds) && now - st.HandAt >= ScConfig.TeamSwapHoldSeconds;
+            return (soft || now - st.StanceSince >= ScConfig.PostureDwellSeconds) && now - st.HandAt >= ScConfig.TeamSwapHoldSeconds;
         }
 
         private static void Refuse(EntityAlive e, State st, EntityAlive t, string why, float now, bool log)
@@ -464,6 +472,13 @@ namespace SurvivorCommunity
             v.Waiting = st.Waiting;
             v.TargetId = st.TargetId;
             return true;
+        }
+
+        /// <summary>F1: when her hand last changed (SC's swap or 0-XNPCCore's), -1000 with no posture. A pure read.</summary>
+        internal static float HandChangedAt(EntityAlive e)
+        {
+            State st;
+            return e != null && states.TryGetValue(e.entityId, out st) ? st.HandAt : -1000f;
         }
 
         /// <summary>The hand clock allows a swap: TeamSwapHoldSeconds since her hand last changed (true with no posture). A pure read.</summary>
@@ -602,7 +617,7 @@ namespace SurvivorCommunity
                       + (st.NativeClose ? "; 0-XNPCCore's 3 m swap kept (a runner)" : "") + (st.UrgentGun ? "; the gun at once (" + ScRetreat.Her(e) + " target needs it)" : ""));
             if (st.Waiting)
                 lines.Add("[SC]   waits to switch to " + Name(st.Pending, st.PendingKiting) + " (" + st.PendingWhy + ") for " + (now - st.PendingSince).ToString("0.0", CultureInfo.InvariantCulture)
-                          + " s: a switch needs " + F1(ScConfig.PostureDwellSeconds) + " s in the posture (" + F1(now - st.Since) + " s so far) and "
+                          + " s: a switch needs " + F1(ScConfig.PostureDwellSeconds) + " s in the stance (" + F1(now - st.StanceSince) + " s so far) and "
                           + F1(ScConfig.TeamSwapHoldSeconds) + " s since her hand last changed (" + F1(Math.Max(0f, now - st.HandAt)) + " s)");
             lines.Add("[SC]   hand: " + ScArms.HandState(e) + "; hand changes " + st.HandChanges + " (" + Recent(st, now) + " in the last 3 min), SC's swaps " + st.Swaps
                       + " (" + st.UrgentSwaps + " at once), MELEE/KITE switches " + st.Flips + "; next swap "

@@ -361,9 +361,11 @@ Staying home, roaming and defending
   Sleepers in a base built in a POI are left asleep, and Cowardly members stay put.
 - Intruders: a zombie inside the base that is after nobody - lurking in a corner, wandering the yard - gets two residents
   sent to it: the nearest who are free (not on watch, on a work shift, asleep, hurt below 60%, Cowardly or in another
-  fight). They walk to it, seen or not, and fight it; everyone else keeps their routine. A zombie wandering past outside
-  the base is still left alone. "InvestigateIntruders", "InvestigateResponders" and "InvestigateRadius" (section 20) tune
-  it; "sc team" lists the intruders and who goes.
+  fight; a resident who stays near her post only within 22 m of it). They walk to it, seen or not, and fight it;
+  everyone else keeps their routine. "Inside" means inside the home zone and on the base's levels: a zombie wandering
+  past outside the base, or down in a cellar or mine (or up on a roof) more than 4 m below or above the base's posts, is
+  still left alone. "InvestigateIntruders", "InvestigateResponders", "InvestigateRadius", "InvestigateEnterMargin" and
+  "InvestigateHeight" (section 20) tune it; "sc team" lists the intruders and who goes.
 - Residents keep a leash: they will not chase an enemy far outside the base.
 - While you are within 250 m of the base, the whole home zone stays loaded, so your people are not unloaded and rebuilt
   as you walk around the edge of your view distance.
@@ -1262,18 +1264,21 @@ Weapons
   farther off. At home they never back out of the base: the step back (10, 6 or 3 m) always ends inside the home zone,
   on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. A back-off that does
   not get them away - the zombie keeps pace, or several do - stops after about 1.5 seconds and they shoot instead, at
-  home and away. Cornered and reloading (or with no shot at the zombie for 3 seconds), they swing their
-  melee weapon and stay on it until they have room again. Away from home they back off as the NPC framework does.
+  home and away. Cornered and reloading (or cornered for 3 seconds straight without one shot at the zombie), they
+  swing their melee weapon and stay on it until they have room again - never at a cop or a zombie they cannot swing at,
+  and if no swing lands in 2.5 seconds (a fence or bars in the way) the gun comes back. Away from home they back off as the NPC framework does.
   "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
 - Team strength (your members): each one weighs her side - her Fighting stars, health and weapon, the other members near
   her, and you (you count double, but only while you are fighting: you hit a zombie near her in the last 5 seconds - a
   kill counts too; a zombie that is only after you does not) - against the awake enemies within 15 m (during a horde at
-  the base, the whole defended area). The fight is matched when her side is at least 1.25 times the enemies (one walker
-  against a lone 1- or 2-star member is not; against two members it is).
+  the base, the whole defended area). The fight is matched when her side is at least as strong as the enemies (a healthy
+  member alone against one walker is; alone against a feral, or two members against four walkers, is not). Once matched
+  it stays matched until her side drops below 80% of the enemies; once outmatched it takes two counts in a row (about
+  2 seconds) to be matched again.
 - One posture per member decides her weapon and her moves, and her weapon changes at most once every 5 seconds:
   - Melee: a matched fight, at least 60% health (melee again from 70%), a zombie she can swing at, not swarmed. She
     fights with her melee weapon and never backs away; holding her gun she shoots until the zombie is within 4 m, then
-    switches once. A member whose best skill is Shooting keeps her loaded gun.
+    switches once. A member whose best skill is Shooting stays on her gun while it has ammo.
   - Kite: any other fight with a gun that has ammo - more than her side can take, swarmed, hurt, raiders or anyone
     armed, a cop or a demolition zombie, a zombie past a resident's leash, your gun order. She shoots, backs off within
     2.5 m and never switches to melee up close (but see "cornered" above).
@@ -1648,19 +1653,23 @@ NPCs and voices
 - TeamMelee = true: Members fight with their melee weapon in a fight their side can win (section 15); false: never -
   every fight with a gun is "kite"
 - TeamRadius = 15: How far around a member her side and the enemies are counted (meters)
-- TeamMargin / TeamLeaveMargin = 1.25 / 1: A fight is matched when her side is this many times the enemies; it stops
+- TeamMargin / TeamLeaveMargin = 1 / 0.8: A fight is matched when her side is this many times the enemies; it stops
   being matched below the second
 - TeamLowHealth / TeamLowHealthBack = 0.6 / 0.7: Below this share of her health a member uses the gun again; melee again
   from the second
 - TeamSwapHoldSeconds = 5: After any change of weapon, no other change for this many seconds (unless she cannot swing at
   the zombie)
-- PostureDwellSeconds = 5: A switch between melee and kite waits this long in the posture (a cop or a zombie she cannot
-  reach: at once)
+- PostureDwellSeconds = 5: A switch between melee and kite waits this long (a cop or a zombie she cannot reach: at
+  once)
 - PostureMeleeDist = 4: In a matched fight a member holding her gun shoots until the zombie is this close (meters), then
   switches to melee once
 - InvestigateIntruders = true: A zombie inside the base that is after nobody gets residents sent to it; false: left alone
 - InvestigateResponders / InvestigateRadius = 2 / 0: How many residents go to each one, and from how far (meters; 0:
   anywhere in the home zone)
+- InvestigateEnterMargin = 0: How far outside the home zone (meters) an idle zombie still counts as inside; 0: inside
+  only
+- InvestigateHeight = 4: An idle zombie counts only within this many meters below the lowest and above the highest of the
+  claim block and the residents' posts
 - TeamPlayerWeight = 2: How much you count for your side while you fight (a 1-star member counts 1)
 - TeamPlayerFightingSeconds = 5: You count only for this many seconds after you hit a zombie near the member (a kill
   too); standing by, or only targeted, you count 0

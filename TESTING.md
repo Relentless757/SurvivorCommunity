@@ -50,8 +50,9 @@ What it does now: the magazine L&L gives back when a gun is put away is marked w
 again empty, that very magazine goes back in, seated, with no reload animation - so no R2 either. The rounds move from the
 bag into the gun; nothing is copied or lost. Its partial count comes with it. An empty magazine is not marked: the draw
 reloads as before. Not touched: a gun that comes out holding rounds already, and one 0-XNPCCore still banks rounds for.
-Every SC body (members, prospects, stand-ins, raiders), every swap: SC's own (gun first, melee first, R2, overwhelmed, `sc
-arms`), 0-XNPCCore's (its 3 m swap and restore, the dry failover, the world-entry re-arm) and the medic's hand.
+Every SC body (members, prospects, stand-ins, raiders), every swap: SC's own (the round k4 posture's hand - "takes the X
+(posture KITE; ...)" - R2, the overwhelmed rule for strangers, `sc arms`), 0-XNPCCore's (its 3 m swap and restore, the dry
+failover, the world-entry re-arm) and the medic's hand.
 
 Still a reload (genuine, so R2 still applies when she is cornered): a gun drawn for the first time with no magazine ever
 seated (just handed to her, or a new body), a gun put away with an empty magazine, and a magazine moved out of her bag and
@@ -85,15 +86,17 @@ and the new `put away (round lr1):` line.
 
 **2. In a fight: the draw does not trip R2**
 
-- [ ] A melee-led member (a matched fight) with a loaded gun: melee first puts the gun away; spawn more zombies until she is
-      overwhelmed. "<name> (id N) takes the <gun> (gun first: overwhelmed)" is followed by the verbose seat "(round lr1;
-      0-XNPCCore's equip, sc-gun-first)" and she fires. No "is cornered and reloading" in the next seconds.
+- [ ] A melee-led member (a matched fight) with a loaded gun: the MELEE posture puts the gun away ("<name> takes the <melee
+      weapon> (posture MELEE; ...)"); spawn more zombies until she is overwhelmed. After the 5 s dwell "<name> takes the
+      <gun> (posture KITE; overwhelmed (...))" is followed by the verbose seat "(round lr1; 0-XNPCCore's equip,
+      sc-gun-first)" and she fires. No "is cornered and reloading" in the next seconds.
 - [ ] 0-XNPCCore's own 3 m swap to melee and its return to the gun: the same seat line, with "restore-held" (or another
       0-XNPCCore site) as the route. No reload on the return.
 - [ ] A bandage in a fight (round k2b): "weapon swap: ... gave back ..." as the bandage goes into her hand, then the seat line
       ("a swap") as the gun comes back - no reload, no R2. (Cara's death was exactly this.)
-- [ ] The overwhelmed gun hold / R2 as such are unchanged: when her magazine really runs out while she is cornered, she
-      still swaps to melee until she has room ("is cornered and reloading ...").
+- [ ] R2 as such (round k4 with the Fable review's F1 fix, below): when her magazine really runs out while she is cornered,
+      she still swaps to melee until she has room ("is cornered and reloading ...") - unless that zombie is a cop or one
+      she cannot swing at ("R2 skipped").
 
 **3. A part-used magazine keeps its count**
 
@@ -163,50 +166,63 @@ tm1's melee first and kept bout) - Gina changed weapons 10 times in 2 min 45 s -
 with you counted while you stood by) put a 7-star shooter on his mace. The plan is `research/combat/SC_VS_NPCCORE.md`
 (4.1, 4.2, 4.4 k3-k4). Your report the same day: "Several times zombies have been lurking inside and members don't do
 anything about it. If a zombie not engaged with any member or the player is inside the base, members should investigate."
+Then the Fable review of k3+k4 (F1-F9) and your decision on the margin: "Exact parity, lone member melees".
 
 What it does now:
 
-- **k3, the verdict:** a fight is matched at F >= **1.25** x T (`TeamMargin`; it was 1) and stops being matched below
-  **1** x T (`TeamLeaveMargin`; it was 0.8). A member is melee-led only from **60%** health, and again from **70%**
-  (`TeamLowHealth` / `TeamLowHealthBack`; they were 50% / 60%). You count only for 5 s after your own hit (round k1).
-  Examples: Gina (2 stars) alone against one walker is 1.15 / 1 - outmatched now; two 2-star members against one walker
-  2.3 / 1 - matched; two members against four walkers - outmatched.
+- **k3, the verdict:** a fight is matched at F >= **1** x T (`TeamMargin`: exact parity, your decision - k3 had tried
+  1.25) and stops being matched below **0.8** x T (`TeamLeaveMargin`), as before k3. New (F3): inside a fight an
+  outmatched verdict is matched again only after **2 recounts in a row** at 1 x T (`TeamLeaveRecounts`, as leaving takes),
+  so your 5 s hit window alone cannot flip it; a new fight is judged at once. A member is melee-led only from **60%**
+  health, and again from **70%** (`TeamLowHealth` / `TeamLowHealthBack`; they were 50% / 60%) - for a member alone that
+  is her only way out of a matched fight (F2). You count only for 5 s after your own hit (round k1). Examples: a healthy
+  1-star member alone against one walker is 1 / 1 - matched (parity); Gina (2 stars) alone against one walker 1.15 / 1 -
+  matched; Gina against one feral 1.15 / 2 - outmatched; two members against four walkers - outmatched.
 - **k4, one posture per member,** worked out five times a second and the only thing her hand and 0-XNPCCore's moves follow:
   - **MELEE**: a matched fight, melee-led, a target she can swing at, not overwhelmed. Her melee weapon; no back-off; she
     walks to it. A member holding her gun keeps it (and shoots) until the target is within **4 m** (`PostureMeleeDist`),
-    then takes her melee weapon **once**. A member whose best skill is Shooting keeps a loaded gun (KITE).
+    then takes her melee weapon **once**. A member whose best skill is Shooting stays on her gun while it has rounds
+    (KITE), whichever weapon is in her hand (F6).
   - **KITE**: any other fight with a gun that has rounds - outmatched, overwhelmed, hurt, a cop, an armed enemy, a target
     she cannot swing at, your gun order, rt1's stand-off. Her gun; no swap to melee up close; she backs off within 2.5 m
     (inside the base at home) and shoots from 2.5 m out; she never walks to a fight with her gun (with her melee weapon
-    still in hand, until the gun comes out, she may walk in and swing). Cornered (no room to back off) and
-    reloading - or with no shot for 3 s - she swings her melee weapon until there is room (R2).
+    still in hand, until the gun comes out, she may walk in and swing). Cornered (no room to back off) and reloading - or
+    cornered for 3 s straight with her gun in hand and not one round fired - she swings her melee weapon until there is
+    room (R2). F1: never at a cop or a zombie she cannot swing at; 0-XNPCCore ending its bout itself, or no swing in
+    2.5 s, ends it (the zombie then counts as one she cannot swing at, and her gun comes back at once).
   - **HOLD**: on watch (gun up, no back-off, no walking off the post), or a Stay order.
   - **SHELTER**: rt1's shelter, unchanged.
   - **INVESTIGATE**: sent to an intruder (below) - she walks to it and fights it with MELEE's or KITE's weapon.
   - With no gun that has rounds she can only swing: MELEE. No fight: nothing changes.
 - **One hand change per 5 s.** After any change of what she holds - SC's swap or 0-XNPCCore's - SC swaps nothing for
   `TeamSwapHoldSeconds` (5 s), and a switch between MELEE and KITE waits for it and for `PostureDwellSeconds` (5 s) in the
-  posture. Not delayed: a target that needs the gun (a cop, an armed enemy, past her leash, out of reach) switches her to
-  KITE and draws her gun at once.
+  stance (F8: a change that keeps her weapon - KITE to INVESTIGATE with the gun - does not restart it). Not delayed: a
+  target that needs the gun (a cop, an armed enemy, past her leash, out of reach, a swing refused) switches her to KITE and
+  draws her gun at once.
 - **A swing 0-XNPCCore refuses means KITE.** Her melee weapon rides in 0-XNPCCore's own close-melee bout, so its own check
   judges the swing: a wall, a fence post or bars in her swing, or a zombie it marks unreachable, end the bout with her gun
   back, and that zombie gets KITE for 45 s (`TeamUnreachableSeconds`; 90, then 180 for the same zombie). tm2's no-swing
   clock, "stand and shoot", no-swing spot and per-zombie holds are gone, and with them the back-off ban.
-- **Intruders.** An awake zombie (or hostile animal) inside the home zone - or up to 5 m outside it - that is after
-  nobody gets **2** responders (`InvestigateResponders`): the nearest residents who are free (not on watch, a work shift
-  or a Stay order, not asleep, Cowardly, sheltering or below 60%, not in another fight), from anywhere in the zone
-  (`InvestigateRadius` 0). They walk to it - seen or not - and fight it; a gun holder shoots once she sees it. Everyone
-  else keeps her routine. A zombie outside the zone that hunts nobody is still left alone (round n08). It ends when the
-  zombie dies, stays outside the zone + 8 m for 5 s, or goes after a member or you (then the base defense has it, as
-  always). A sleeping POI zombie is left asleep (a base in a POI's sleeper volume would otherwise send people to wake it).
+- **Intruders.** An awake zombie (or hostile animal) inside the home zone (F4: inside only - `InvestigateEnterMargin` 0)
+  and on the base's levels (F5: within 4 m below the lowest and above the highest of the home block and the residents'
+  posts - `InvestigateHeight`; a cellar, a mine or a roof under or over the base does not count) that is after nobody gets
+  **2** responders (`InvestigateResponders`): the nearest residents who are free (not on watch, a work shift or a Stay
+  order, not asleep, Cowardly, sheltering or below 60%, not in another fight), from anywhere in the zone
+  (`InvestigateRadius` 0); a resident who does not roam the zone only within `DefendBaseRadius` of her post, and she stops
+  answering once it is past that (F7: no pacing). They walk to it - seen or not - and fight it; a gun holder shoots once
+  she sees it. Everyone else keeps her routine. A zombie outside the zone that hunts nobody is still left alone (round
+  n08). It ends when the zombie dies, stays outside the zone + 8 m (or off its levels) for 5 s, or goes after a member or
+  you (then the base defense has it, as always). A sleeping POI zombie is left asleep (a base in a POI's sleeper volume
+  would otherwise send people to wake it).
 - Unchanged: base defense, the leash, roam, watch, runners (r2; a runner keeps 0-XNPCCore's 3 m swap), followers, the
   MayEngage rule, hl1, rt1's shelter, k1's back-off and its shot beats, k2/k2b healing. Strangers and enclave people keep
   the old overwhelmed rule.
 
 Setup: the new DLL with its `Config/utilityai.xml` (the posture consideration on 0-XNPCCore's `BackupKeepDistance`,
 `BackupRanged` and `MeleeApproach`; SC's new `ScInvestigateWalk`) and `Config/blocks.xml` (new keys `PostureDwellSeconds`, `PostureMeleeDist`,
-`InvestigateIntruders`, `InvestigateResponders`, `InvestigateRadius` after `TeamUnreachableSeconds`; changed values
-`TeamMargin` 1.25, `TeamLeaveMargin` 1, `TeamLowHealth` 0.6, `TeamLowHealthBack` 0.7; gone `TeamMeleeFirstSeconds`,
+`InvestigateIntruders`, `InvestigateResponders`, `InvestigateRadius`, `InvestigateEnterMargin`, `InvestigateHeight` after
+`TeamUnreachableSeconds`; changed values `TeamLowHealth` 0.6, `TeamLowHealthBack` 0.7 - `TeamMargin` 1 and
+`TeamLeaveMargin` 0.8 are as before k3; gone `TeamMeleeFirstSeconds`,
 `TeamNoSwingConfirmSeconds`, `SurvivorGunFirst`). `DebugLogging` true for the verbose lines, `dm` for the AI overlay's
 Active Action. Before each scenario `sc xnpc` once (the counters' zero point). `sc team <name>` shows her verdict, her
 posture and why, and her hand with its clock.
@@ -214,10 +230,11 @@ posture and why, and her hand with its clock.
 **At load**
 
 - [ ] The log: "config: posture one per member (MELEE, KITE, HOLD, SHELTER, INVESTIGATE): MELEE needs a matched fight (F >=
-      1.25 T), 0.6 health and a target she can swing at; one hand change per 5 s (TeamSwapHoldSeconds), a MELEE / KITE
+      1 T), 0.6 health and a target she can swing at; one hand change per 5 s (TeamSwapHoldSeconds), a MELEE / KITE
       switch lasts 5 s (PostureDwellSeconds); a gun holder in a matched fight keeps her gun until her target is within 4 m;
-      investigate idle intruders: 2 responder(s) each, anywhere in the zone". The team strength line says "matched at F >=
-      1.25 T, left after 2 recounts below 1 T" and "low health 0.6 (back 0.7)".
+      investigate idle intruders: 2 responder(s) each, anywhere in the zone, entered inside the zone, 4 m above and below
+      the base's levels". The team strength line says "matched at F >= 1 T, left after 2 recounts below 0.8 T (matched
+      again after as many at 1 T)" and "low health 0.6 (back 0.7)".
 - [ ] No warning "0-XNPCCore's sdcsCloseWallExitTime not found" or "... sdcsCloseMeleeRefused not found". (With either one
       the posture still works, a little blinder: report it.) No "config ... is no longer used" warning unless your own
       blocks.xml still sets one of the three retired keys.
@@ -227,12 +244,18 @@ posture and why, and her hand with its clock.
 **k3: verdict hygiene**
 
 - [ ] Stand beside two members (1-2 stars, healthy), do nothing, and spawn four `zombieBoe` 10 m off that go for them.
-      `sc team`: each "F 2.x / T 4 OUTMATCHED; you count 0 (not fighting) - not melee-led: outmatched (... matched again at
-      F >= 1.25 T)", and "posture (round k4): KITE ...". They use their guns.
-- [ ] Gina (2 stars) alone, healthy, one walker: `sc team Gina` "F 1.15 / T 1 OUTMATCHED"; KITE, her bow. Add a second
-      healthy member within 15 m of her: "F 2.3 / T 1 matched", MELEE-LED.
-- [ ] `sc team Gina hurt 0.55` (two members, one walker): "not melee-led: hurt (55% - melee again from 70%)", KITE.
+      `sc team`: each "F 2.x / T 4 OUTMATCHED; you count 0 (not fighting) - not melee-led: outmatched (... matched again
+      after 2 recounts at F >= 1 T)", and "posture (round k4): KITE ...". They use their guns.
+- [ ] Gina (2 stars) alone, healthy, one walker: `sc team Gina` "F 1.15 / T 1 matched", MELEE-LED; MELEE, her
+      sledgehammer (your decision: a lone member melees one walker). A healthy 1-star member alone against one walker:
+      "F 1 / T 1 matched" (exact parity). Gina alone against one `zombieBoeFeral`: "F 1.15 / T 2 OUTMATCHED"; KITE, her bow.
+- [ ] F2 - the 60% line is her only exit: Gina alone, one walker, `sc team Gina hurt 0.65`: still "matched" (F about 0.99:
+      above 0.8 T) and MELEE-LED. `sc team Gina hurt 0.55`: "not melee-led: hurt (55% - melee again from 70%)", KITE.
       `sc team Gina hurt 0.65`: still not melee-led. `sc team Gina hurt 0.7`: MELEE-LED again within a second.
+- [ ] F3 - matched again only after 2 recounts in a row: Gina alone against two walkers (1.15 / 2, outmatched), you
+      standing by. Kill one walker (your kill makes you count for 5 s, so F is higher than 1.15 for a moment): `sc team
+      Gina` first shows "OUTMATCHED (1 of 2 recounts at 1 T to match again)", then a second later "matched" and the verbose
+      "the fight is matched again (F ... >= 1 x T 1, 2 recounts in a row)".
 
 **k4: posture per situation**
 
@@ -258,9 +281,10 @@ posture and why, and her hand with its clock.
       at once (no 5 s dwell) and "takes the ... (posture KITE, at once: her target needs the gun ...)" - her gun at once,
       then she backs away from the cop. The other
       member, on the walker, stays MELEE.
-- [ ] **A marksman:** a member whose best skill is Shooting (more Shooting stars than Fighting: `sc members`), gun in
-      hand, matched fight: "KITE ... a marksman: Shooting is her best skill and her gun is loaded" - she keeps shooting
-      even when it reaches her (2.5 m: she backs off).
+- [ ] **A marksman:** a member whose best skill is Shooting (more Shooting stars than Fighting: `sc members`), a matched
+      fight: "KITE ... a marksman: Shooting is her best skill and her gun has rounds" - she keeps shooting even when it
+      reaches her (2.5 m: she backs off). F6: the same with her melee weapon in hand (`sc arms <name> melee` first) - KITE,
+      and she draws her gun once (no MELEE in between).
 - [ ] **A swing 0-XNPCCore refuses:** Gina melee-led with her sledgehammer indoors by a wall, or by the chainlink fence,
       a crawler or walker up close where her swing hits the wall or a post. (verbose) "Gina (id N) cannot swing at
       zombieSteveCrawler (M): a wall in her swing (0-XNPCCore's bout ended: wall) - KITE against it for 45 s (time 1 for
@@ -277,8 +301,10 @@ posture and why, and her hand with its clock.
       more) for about 3 minutes. Then `sc xnpc`: her line "hand changes N (M in the last 3 min), SC swaps K ..." - M is a
       handful, not 10, and in the log no two of her "takes the ..." lines are less than 5 s apart (an "at once" draw for a
       target that needs the gun is the one exception). `sc team Gina` during it may show "waits to switch to KITE (...) for
-      1.x s: a switch needs 5 s in the posture ... and 5 s since her hand last changed ..." and `posture-swap-held`
+      1.x s: a switch needs 5 s in the stance ... and 5 s since her hand last changed ..." and `posture-swap-held`
       counts the swaps the clock held.
+- [ ] F8: a KITE member sent to an intruder (INVESTIGATE with the gun) and back to KITE does not wait another 5 s for a
+      switch to MELEE: "... in the stance (N s so far)" keeps counting through it.
 - [ ] `sc xnpc`'s posture totals: "N swap(s) by SC (M at once ...), K held by the hand clock, F MELEE/KITE switch(es)" and
       the per-member "time in MELEE / KITE / HOLD / SHELTER / INVESTIGATE: ... s".
 - [ ] Never idle while the clock holds: Gina melee-led on a walker, kill it, and within 5 s of her swap to the
@@ -286,17 +312,30 @@ posture and why, and her hand with its clock.
       in x s") she walks in and swings at the nearest - she never stands still with the sledgehammer - then draws once
       and backs off.
 
-**R2 (cornered melee until room) and the stale flag (C2)**
+**R2 (cornered melee until room), the Fable review's F1, and the stale flag (C2)**
 
 - [ ] KITE in a dead end with a feral on her, reloading, no room to back off: "Gina (id N) is
       cornered and reloading - melee until she has room to back off again (the <gun> after; the re-review, R2)",
       `x5-cornered-reload-melee` +1; she swings until there is room, then "... is no longer cornered on melee: room to
       back off ... - the hand rule again", and her gun comes back (not within 5 s of the swap).
-- [ ] Cornered with a loaded gun that cannot fire at it (a crawler below the sight line in a corner): after about 3 s
-      "Gina (id N) is cornered and has had no shot for 3 s - melee until ...", `x5-cornered-noshot-melee` +1.
+- [ ] No shot: cornered with a loaded gun that cannot fire at it (a crawler below the sight line in a corner). Only after
+      3 s of being cornered the whole time, with that gun in her hand and not one round fired (and 5 s after her last hand
+      change): "Gina (id N) is cornered and has had no shot for 3 s - melee until ...", `x5-cornered-noshot-melee` +1.
+- [ ] F1, the Cara replay: four walkers on a member at about 55% with a full drum, backing off between shot beats. She
+      keeps shooting through the beats - no "has had no shot" line, no swap to melee with rounds she is firing. Right after a
+      bandage, a melee spell or a fresh draw the 3 s start again.
+- [ ] F1, not at a cop or a zombie she cannot swing at: the same corner with a `zombieFatCop`, or a zombie she had a refused
+      swing at in the last 45 s: "Gina (id N) is cornered and reloading, but no melee at zombieFatCop (M): melee-unsafe -
+      the <gun> stays (R2 skipped; F1)", `x5-cornered-skipped` +1. She keeps her gun.
+- [ ] F1, a fence: cornered and reloading with the walker on the other side of a chainlink fence or bars. If 0-XNPCCore
+      swaps her to melee and then ends its bout (shoot-through): "... is no longer cornered on melee: 0-XNPCCore ended her
+      bout itself - ..." (`x5-cornered-bout-ended` +1), her gun back at once. If it neither lets her swing nor ends the bout:
+      within 2.5 s "... no swing in 2.5 s with her melee weapon (a fence, bars or a block in her swing)"
+      (`x5-cornered-noswing-end` +1), then her gun at once. Either way `sc team Gina` lists that zombie as one she "cannot
+      swing at" for 45 s, and R2 skips it.
 - [ ] C2: cornered and reloading where 0-XNPCCore will not swap her to melee (a wall between them): about a second after
-      the reload ends, "... is no longer cornered on melee: 0-XNPCCore never swapped her to melee, and the cornered reload
-      is over (C2)"; `sc team Gina`'s hand line no longer says CORNERED ON MELEE.
+      the reload ends, "... is no longer cornered on melee: 0-XNPCCore never swapped her to melee, and R2's trigger is over
+      (C2)"; `sc team Gina`'s hand line no longer says CORNERED ON MELEE.
 
 **Intruders**
 
@@ -322,8 +361,16 @@ posture and why, and her hand with its clock.
       tricks): the responders stay the same two (no "stops going to" line). Put one responder on watch (or order her to
       stay): "investigate: Gina stops going to zombieBoe (M): on watch" and the next nearest free resident takes her place
       ("investigate: Rob also goes to ...").
-- [ ] A zombie outside the zone (more than 5 m past its edge) that hunts nobody: no investigate line, nobody goes - as in
-      n08 ("mayengage-home-wanderer" counts if one would have shot at it).
+- [ ] F4: a zombie just outside the zone (1-5 m past its edge) that hunts nobody: no investigate line, nobody goes - as in
+      n08 ("mayengage-home-wanderer" counts if one would have shot at it). With `InvestigateEnterMargin` 3 (restart) one
+      2 m out is investigated; set it back to 0.
+- [ ] F5: a zombie in a cellar or a mine more than 4 m below the base's lowest post (or on a roof more than 4 m above the
+      highest), inside the zone's outline, after nobody: no investigate line. `sc team`'s intruders line shows the levels
+      ("levels y A to B"). One that climbs up into the base is investigated; back down for 5 s: "released - it stayed
+      outside the zone + 8 m (or off its levels) for 5 s".
+- [ ] F7: a resident who does not roam the zone, answering an intruder that walks off past `DefendBaseRadius` of her post:
+      "investigate: <name> stops going to zombieBoe (M): beyond DefendBaseRadius of her post", and the next free resident
+      takes over - she does not walk out and back again and again.
 - [ ] It walks out of the base and stays more than 8 m past the zone's edge for 5 s: "released - it stayed outside the
       zone + 8 m for 5 s", `investigate-released-left` +1.
 - [ ] Nobody free (everyone on watch, asleep or on a work shift): (verbose) "investigate: ... but no resident is free to go
@@ -348,7 +395,9 @@ posture and why, and her hand with its clock.
 - [ ] `sc xnpc` counters seen above: `posture-melee`, `posture-kite`, `posture-hold`, `posture-shelter`,
       `posture-investigate-melee` / `-gun`, `posture-none`, `posture-flip`, `posture-swap-to-gun`, `posture-swap-to-gun-at-once`,
       `posture-swap-to-melee`, `posture-swap-held`, `posture-refused`, `posture-bout-joined`, `posture-bout-exit-held`,
-      `posture-bout-closed`, `x5-kite-keep-gun`, `x5-cornered-noshot-melee`, `investigate-*` (with `investigate-far-walk`). Gone for good: `x5-team-melee-first`, `x5-team-bout-kept`,
+      `posture-bout-closed`, `x5-kite-keep-gun`, `x5-cornered-reload-melee`, `x5-cornered-noshot-melee`,
+      `x5-cornered-skipped`, `x5-cornered-bout-ended`, `x5-cornered-noswing-end`, `investigate-*` (with
+      `investigate-far-walk`). Gone for good: `x5-team-melee-first`, `x5-team-bout-kept`,
       `x5-team-gun-held`, `x5-team-swap-held`, `x5-team-reach-*`, `x5-gunfirst-*`, `x5-retreat-gun-first`,
       `x5-retreat-keep-gun`, and for members `x5-overwhelmed-keep-gun` (strangers still count it).
 
@@ -1161,8 +1210,11 @@ spot", "HELD OUT OF REACH" no longer exist.
       round k4)", her bow in her hand at once (0-XNPCCore's own restore), and "posture KITE (was MELEE ..., at once)".
 - [ ] She shoots it, or backs off from it within 2.5 m and shoots between steps (round k1) - no swap back to the
       sledgehammer for it while `sc team Gina` shows "cannot swing at #M: ... KITE against it N s more".
-- [ ] No line of fire (the crawler a step below her) and nowhere to back off: after 3 s with no shot she swings her
-      sledgehammer instead (R2's "no shot", round k4: "... is cornered and has had no shot for 3 s - melee until ...").
+- [ ] No line of fire (the crawler a step below her) and nowhere to back off: R2 does not put the sledgehammer back in
+      her hand for a crawler she cannot swing at (the Fable review of k3+k4, F1): "... is cornered and has had no shot, but
+      no melee at zombieSteveCrawler (M): ... - the <bow> stays (R2 skipped; F1)", `x5-cornered-skipped` +1. She shoots as
+      soon as she has a line and backs off as soon as there is room. (A crawler she CAN swing at, after 3 s cornered with no
+      shot: "... is cornered and has had no shot for 3 s - melee until ...".)
 - [ ] The same zombie again after the 45 s: "time 2 for it", 90 s.
 
 **A crawler she can swing at**
@@ -1206,8 +1258,9 @@ a live base attack, the whole defended area):
 - T: every awake enemy, after the team or not: the larger of its tag weight (walker 1, feral 2, radiated 3, charged 3.5,
   infernal 4.5, x1.5 special, x1.3 strong; the animals are in the table) and its health weight ((max health / 230) ^
   0.7), then x0.6 for a crawler.
-- Matched at F >= 1.25 T (round k3). A matched fight turns outmatched after two counts in a row with F below 1 T. A new
-  fight (the first count with enemies) is judged by F >= 1.25 T alone.
+- Matched at F >= 1 T (exact parity - round k3 tried 1.25; your decision after the Fable review). A matched fight turns
+  outmatched after two counts in a row with F below 0.8 T, and an outmatched one is matched again after two counts in a
+  row at F >= 1 T. A new fight (the first count with enemies) is judged by F >= 1 T alone, at once.
 - In a matched fight a member is **melee-led**, which the MELEE posture needs (round k4: her melee weapon, no back-off;
   a gun holder keeps her gun until her target is within 4 m, then one swap; it takes one attacker more to overwhelm her).
 - Not melee-led: below 60% health (melee again from 70%, round k3), outmatched, raiders or anyone armed in the fight, on a
@@ -1228,10 +1281,11 @@ her F; for a steady reading take them out of her pack and bag in her inventory p
 **Gina (2 stars) vs one walker**
 
 - [ ] Gina at the base at full health with her sledgehammer in hand, nobody else within 15 m of her. Spawn one zombieBoe
-      about 10 m from her. `sc team Gina`: `F 1.15 / T 1` OUTMATCHED (round k3: it needs 1.25), KITE: she takes her bow
-      (within 5 s of her last hand change) and shoots; within 2.5 m she backs off.
-- [ ] Now with a second healthy member within 15 m of her: `F 2.3 / T 1` matched, MELEE-LED, "posture MELEE"; she walks to
-      the walker and swings. No `BackupRanged` or `BackupKeepDistance` in the overlay.
+      about 10 m from her. `sc team Gina`: `F 1.15 / T 1` matched, MELEE-LED, "posture MELEE"; she walks to the walker and
+      swings. No `BackupRanged` or `BackupKeepDistance` in the overlay.
+- [ ] A `zombieBoeFeral` instead (T 2): `F 1.15 / T 2` OUTMATCHED, KITE: she takes her bow (within 5 s of her last hand
+      change) and shoots; within 2.5 m she backs off. With a second healthy member within 15 m: `F 2.3 / T 2` matched,
+      MELEE-LED (two recounts after the second member arrives).
 - [ ] The same with her bow in hand (`sc arms Gina ranged` before the spawn): she keeps the bow and shoots until the walker
       is within 4 m, then "Gina (id N) takes the <sledgehammer> (posture MELEE; ...)" - one swap, `posture-swap-to-melee`.
 - [ ] `sc team Gina hurt 0.58` (with the second member there), wait two seconds: "not melee-led: hurt (58% - melee again
@@ -1240,9 +1294,9 @@ her F; for a steady reading take them out of her pack and bag in her inventory p
 **Rob loaded with his crossbow vs one walker**
 
 - [ ] Rob (3 stars) with his crossbow in hand (`sc arms Rob ranged`), alone. Spawn one walker 10-12 m in front of him.
-      `sc team Rob`: `F 1.3 / T 1` matched (1.3 >= 1.25), MELEE-LED; posture "KITE ... keeps his gun until zombieBoe (M) is
-      within 4 m". He shoots it as it comes, then takes his baton once within about 4 m. (If Shooting is his best skill
-      he is a marksman and keeps the loaded crossbow - "a marksman: ...".)
+      `sc team Rob`: `F 1.3 / T 1` matched, MELEE-LED; posture "KITE ... keeps his gun until zombieBoe (M) is within 4 m".
+      He shoots it as it comes, then takes his baton once within about 4 m. (If Shooting is his best skill he is a
+      marksman and keeps the crossbow while it has bolts - "a marksman: ...".)
 - [ ] The walker 2 m behind him with the crossbow in hand: 0-XNPCCore's own swap gives him the baton (MELEE agrees); when
       the walker dies he keeps the baton (`posture-bout-closed`; before tm1 the crossbow came back at 5 m).
 
@@ -1322,8 +1376,8 @@ her F; for a steady reading take them out of her pack and bag in her inventory p
 **A follower away from home**
 
 - [ ] Take a member along as a follower, 100 m or more from the base, with a second follower; meet one walker. `sc team
-      <name>`: a verdict, matched, MELEE; she fights it with her melee weapon. Alone with you not fighting: outmatched,
-      KITE (her gun, 0-XNPCCore's own back-off away from home).
+      <name>`: a verdict, matched, MELEE; she fights it with her melee weapon. Alone against a feral (or two walkers) with
+      you not fighting: outmatched, KITE (her gun, 0-XNPCCore's own back-off away from home).
 
 **TeamMelee false**
 
@@ -1335,7 +1389,8 @@ her F; for a steady reading take them out of her pack and bag in her inventory p
 **Log and console checks**
 
 - [ ] The log at load: "config: team strength on, within 15 m (a live base attack: the defended area), matched at F >=
-      1.25 T, left after 2 recounts below 1 T, ...", and no "config TeamThreatTags entry ... skipped" warning.
+      1 T, left after 2 recounts below 0.8 T (matched again after as many at 1 T), ...", and no "config TeamThreatTags
+      entry ... skipped" warning.
 - [ ] After a fight, `sc xnpc`: `x5-team-recount` counting up (about one a second per member near you); the line "[SC]
       team strength (round tm1): on; N fresh verdict(s) ...". `sc xnpc <name>` has "team strength:" and "posture (round
       k4):" lines.
@@ -2245,7 +2300,7 @@ posture is KITE (an outmatched fight, overwhelmed, hurt, a target she cannot swi
 5 s, and stays up close; in a matched fight (MELEE) a gun holder shoots until her target is within 4 m, then takes her
 melee weapon once.
 
-- [ ] A member alone with a gun and ammo, a zombie coming from 15 m (outmatched below 3 stars): she draws the gun and
+- [ ] A member alone with a gun and ammo, a feral coming from 15 m (outmatched alone): she draws the gun and
       shoots, backs off within 2.5 m and shoots from 2.5 m out - no swap to melee up close.
 - [ ] Rob (iron crossbow, 20 bolts), alone: he shoots bolts at range; in a matched fight he swaps to his melee weapon once
       the zombie is within 4 m.
