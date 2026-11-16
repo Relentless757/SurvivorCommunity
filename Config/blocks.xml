@@ -794,8 +794,8 @@
 			     who is herself sheltering or below ReviveMedicMinHealth, nor one farther off than ReviveMedicRange meters. One who
 			     gets no meter closer in ReviveNoGainSeconds (a wall, a closed-off tower) gives up and the next one goes. false, or
 			     no medic who can: you revive her yourself.
-			     DownedTell: SC's messages - "X is down! 60 s to revive them" (in place of 0-XNPCCore's own line), who is on the
-			     way or why nobody can come, "back on their feet", "bled out". false: only 0-XNPCCore's own lines ("is down!" and
+			     DownedTell: SC's messages - "X is down! 60 s to revive them" with who is on the way or why nobody can come
+			     (one line, in place of 0-XNPCCore's own), a medic sent later, "back on their feet", "bled out". false: only 0-XNPCCore's own lines ("is down!" and
 			     its warnings at 30 and 10 s), which come to you for every member, at home too. -->
 			<property name="DownedAtHome" value="true" />
 			<property name="ResidentMedicsRevive" value="true" />

@@ -282,7 +282,12 @@ namespace SurvivorCommunity
 #if SC_V34
                         // C1: on a work shift she has an owner and a craft spot on purpose - ScWork ticks her instead of the rules below;
                         // round 29b: the stuck rescue still runs where her job allows it (ScStuck.OnShift)
-                        if (ScWork.Resident(m, npc, player)) { ScStuck.OnShift(m, npc); break; }
+                        if (ScWork.Resident(m, npc, player))
+                        {
+                            // round U2 (the Fable review, F7): no stuck rescue for a medic on her way to a downed member (it can teleport)
+                            if (!ScDowned.IsReviving(npc.entityId)) ScStuck.OnShift(m, npc);
+                            break;
+                        }
 #endif
                         if (EntityUtilities.GetCurrentOrder(m.Id) != EntityUtilities.Orders.Guard
                             || EntityUtilities.GetLeaderOrOwner(m.Id) != null)
@@ -306,6 +311,11 @@ namespace SurvivorCommunity
                             // buffs) may rewrite the guard position with the NPC's own spot
                             Vector3 post = ScCommunity.PostCenter(m);
                             if (ScNpc.GuardPosition(npc) != post) ScCommunity.ApplyPost(npc, post);
+#if SC_V34
+                            // round U2 (the Fable review, F7): no stuck rescue for a medic on her way to a downed member - its 12 s still rule
+                            // matches ReviveNoGainSeconds and a teleport to her post would end the revive; ScDowned's own no-gain clock judges it
+                            if (!ScDowned.IsReviving(npc.entityId))
+#endif
                             ScCommunity.Watchdog(m, npc);
                         }
                         break;

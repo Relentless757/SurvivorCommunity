@@ -52,6 +52,18 @@ namespace SurvivorCommunity
         private const float JobMaxSeconds = 120f;
         /// <summary>A revive this soon after her medic's treatment started is credited to the medic (D6's "got her back on her feet").</summary>
         private const float CreditSeconds = 15f;
+        /// <summary>
+        /// The Fable review (F1): a medic held by 0-XNPCCore's busy flag or asleep in bed counts this many meters farther off when the
+        /// nearest is picked - a free one slightly farther goes first.
+        /// </summary>
+        private const float HeldPenaltyMeters = 15f;
+        /// <summary>The Fable review (F3): a medic already on her way is let go only under this share of ReviveMedicMinHealth (no flapping).</summary>
+        private const float GoingHealthMargin = 0.8f;
+        /// <summary>
+        /// The Fable review (F4): a revive sets 0-XNPCCore's grace and re-down clocks, a bleed-out zeroes both and its death can wait
+        /// 30-60 frames on the invulnerable buff. Without either clock she counts as up only after this long (both set to 0 in its settings).
+        /// </summary>
+        private const float RiseConfirmSeconds = 5f;
 
         private enum Why { None = 0, NoMedic, NoItem, Hurt, Busy, Unreachable }
 
@@ -62,6 +74,13 @@ namespace SurvivorCommunity
             public EntityAlive Body;
             public float Since, Seen, Bleed;
             public bool Home, Rising, StationLogged, ToldNoMedic, BusyLogged, LeaveTold;
+            /// <summary>The Fable review (F2): SC's "is down" line goes out after this second's medic pick, with who is coming folded in.</summary>
+            public bool TellPending;
+            public float RisingSince;
+            /// <summary>Why nobody could be sent (the nearest refused medic's reason), null with no medic at home at all.</summary>
+            public string NoMedicReason;
+            /// <summary>The Fable review (F3): the medics the player was told are on the way (once per down and medic).</summary>
+            public readonly HashSet<int> ToldMedics = new HashSet<int>();
             public int MedicId = -1;
             public string MedicName = "";
             public float MedicSince, GainAt, Best, InReachSince, BeganAt;
@@ -285,6 +304,13 @@ namespace SurvivorCommunity
             if (!downs.TryGetValue(m.Id, out d)) return "scDied";
             LetGo(d, "her patient died", false);
             downs.Remove(m.Id);
+            // the Fable review (F5): "bled out" only when her countdown had run out - the last read is at most one 1 Hz tick (of
+            // SC's and of 0-XNPCCore's, each with its frame gap) before 0-XNPCCore's own bleed-out, so 2 s; any other death: "has died"
+            if (d.Bleed > 2f)
+            {
+                ScLog.Out(m.Name + " died while down with " + Secs(d.Bleed) + " still to go - recorded as a plain death");
+                return "scDied";
+            }
             bledOut++;
             ScLog.Out(m.Name + " bled out after " + Secs(Time.time - d.Since) + " down - the death is recorded now (not at the knockdown)");
             return ScConfig.DownedTell ? "scDownedBledOut" : "scDied";
@@ -292,12 +318,28 @@ namespace SurvivorCommunity
 
         // ------------------------------------------------------------------ tells (D6) ----
 
-        /// <summary>The "is down" line, at the knockdown (Patches_Downed's TellLeader swap in Enter): SC's in place of 0-XNPCCore's.</summary>
-        internal static void TellDown(Member m, EntityAlive npc, int seconds)
+        /// <summary>
+        /// The "is down" line (D6), SC's in place of 0-XNPCCore's (Patches_Downed's TellLeader swap keeps that one back): sent by the
+        /// tick that first sees her down, after its medic pick, so one tooltip says it all (the Fable review, F2) - who is on the way,
+        /// or why nobody can come, or (away, or no medic at home at all) only how to revive her.
+        /// </summary>
+        private static void TellDown(Down d)
         {
+            d.TellPending = false;
+            if (!ScConfig.DownedTell) return;
             EntityPlayerLocal p = ScCommunity.LocalPlayer;
-            if (p == null || m == null) return;
-            ScCommunity.Tell(p, string.Format(Localization.Get("scDownedIsDown"), m.Name, seconds), "ui_denied");
+            if (p == null) return;
+            int s = Mathf.Max(1, Mathf.CeilToInt(d.Bleed));
+            string text;
+            if (d.MedicId >= 0)
+            {
+                text = string.Format(Localization.Get("scDownedIsDownMedic"), d.Name, s, d.MedicName);
+                d.ToldMedics.Add(d.MedicId);
+            }
+            else if (d.Home && ScConfig.ResidentMedicsRevive && d.NoMedicReason != null)
+                text = string.Format(Localization.Get("scDownedIsDownNoMedic"), d.Name, s, d.NoMedicReason);
+            else text = string.Format(Localization.Get("scDownedIsDown"), d.Name, s);
+            ScCommunity.Tell(p, text, "ui_denied");
         }
 
         /// <summary>0-XNPCCore's own warning text ("will bleed out in 30 s") to the player, for one with no leader to tell (at home).</summary>
@@ -360,7 +402,8 @@ namespace SurvivorCommunity
                     {
                         if (d == null)
                         {
-                            d = new Down { Id = m.Id, Name = m.Name, Body = e, Since = now };
+                            // 0-XNPCCore's own "is down" was kept back for her only through the swap (Active) with DownedTell on
+                            d = new Down { Id = m.Id, Name = m.Name, Body = e, Since = now, TellPending = Patches_Downed.Active && ScConfig.DownedTell };
                             downs[m.Id] = d;
                             seenDowns++;
                             ScLog.Out(m.Name + " is DOWN (" + m.Status + (ScWatch.OnWatch(m) ? ", on watch" : "") + (ScWork.OnShift(m.Id) ? (ScWork.InTalk(m.Id) ? ", talk link held" : ", work shift held") : "")
@@ -392,8 +435,12 @@ namespace SurvivorCommunity
                     }
                     else if (d != null)
                     {
-                        // 0-XNPCCore's bleed-out clears the cvar a frame before her marked kill: confirmed one second later
-                        if (!d.Rising) { d.Rising = true; continue; }
+                        // 0-XNPCCore's bleed-out clears the cvar before her marked kill, which can wait 30-60 frames on the invulnerable
+                        // buff (the Fable review, F4): she is up when a revive's grace or re-down clock is running (a bleed-out zeroes
+                        // both), and without either only after RiseConfirmSeconds (both set to 0 in 0-XNPCCore's settings)
+                        if (!d.Rising) { d.Rising = true; d.RisingSince = now; continue; }
+                        bool revivedClocks = e.GetCVar("SdcsDownedGrace") > 0f || e.GetCVar("SdcsDownedRedown") > 0f;
+                        if (!revivedClocks && now - d.RisingSince < RiseConfirmSeconds) continue;
                         Up(d, m);
                         downs.Remove(m.Id);
                     }
@@ -401,6 +448,7 @@ namespace SurvivorCommunity
                 for (int i = 0; i < scratch.Count; i++) downs.Remove(scratch[i]);
                 scratch.Clear();
                 Medics(now);
+                foreach (Down d in downs.Values) if (d.TellPending && !d.Rising) TellDown(d);
             }
             catch (Exception ex)
             {
@@ -508,6 +556,9 @@ namespace SurvivorCommunity
             }
             d.InReachSince = 0f;
             if (fighting) { d.GainAt = now; return; }     // the fight on the way is no lack of progress
+            // the Fable review (F1): nor is 0-XNPCCore's busy flag (getting up from bed, a clip, her own bandage) or her sleep before
+            // the lease closes - JobMaxSeconds above still bounds the whole try
+            if (Held(me)) { d.GainAt = now; return; }
             if (dist < d.Best - 1f) { d.Best = dist; d.GainAt = now; return; }
             if (now - d.GainAt > ScConfig.ReviveNoGainSeconds)
                 LetGo(d, "no meter closer in " + Secs(ScConfig.ReviveNoGainSeconds) + " (" + dist.ToString("0.0", CultureInfo.InvariantCulture) + " m off)", true);
@@ -517,7 +568,7 @@ namespace SurvivorCommunity
         {
             Member best = null;
             EntityAlive bestBody = null;
-            float bestD2 = float.MaxValue, refusedD2 = float.MaxValue;
+            float bestD2 = float.MaxValue, bestEff = float.MaxValue, refusedD2 = float.MaxValue;
             Why firstWhy = Why.NoMedic;
             string firstName = null;
             foreach (Member mm in ScRegistry.Members.Values)
@@ -535,8 +586,10 @@ namespace SurvivorCommunity
                     }
                     continue;
                 }
+                // the Fable review (F1): one held by 0-XNPCCore's busy flag or asleep counts HeldPenaltyMeters farther
                 float d2 = (me.position - d.Body.position).sqrMagnitude;
-                if (d2 < bestD2 || best == null) { bestD2 = d2; best = mm; bestBody = me; }
+                float eff = Mathf.Sqrt(d2) + (Held(me) ? HeldPenaltyMeters : 0f);
+                if (best == null || eff < bestEff) { bestEff = eff; bestD2 = d2; best = mm; bestBody = me; }
             }
             if (best == null)
             {
@@ -545,7 +598,10 @@ namespace SurvivorCommunity
                 noMedic++;
                 string reason = firstName == null ? Localization.Get("scDownedWhyNoMedic") : string.Format(Localization.Get(WhyKey(firstWhy)), firstName);
                 ScLog.Out("nobody revives " + d.Name + ": " + reason + " - the player must (E with a revive item)");
-                Tell("scDownedNoMedic", d.Name, reason);
+                // the Fable review (F2): folded into the "is down" line while that is pending; never a tooltip of its own when there
+                // is no medic at home at all (the roster says "nobody can come")
+                d.NoMedicReason = firstName == null ? null : reason;
+                if (!d.TellPending && firstName != null) Tell("scDownedNoMedic", d.Name, reason);
                 return;
             }
             medicOf[bestBody.entityId] = d.Id;
@@ -560,9 +616,11 @@ namespace SurvivorCommunity
             d.Begins = 0;
             medicsSent++;
             ScLog.Out(best.Name + " (Medicine " + best.SpecLevel + ") goes to revive " + d.Name + ", " + d.Best.ToString("0", CultureInfo.InvariantCulture) + " m off"
-                      + (ScSleep.IsAsleep(bestBody) ? " (woken: the night lease closes)" : ""));
-            Tell("scDownedMedicGoes", d.Name, best.Name);
+                      + (ScSleep.IsAsleep(bestBody) ? " (woken: the night lease closes)" : Busy(bestBody) ? " (busy for now)" : ""));
+            // the Fable review (F2, F3): folded into the "is down" line while that is pending; otherwise once per down and medic
+            if (!d.TellPending && d.ToldMedics.Add(bestBody.entityId)) Tell("scDownedMedicGoes", d.Name, best.Name);
             d.ToldNoMedic = false;
+            d.NoMedicReason = null;
         }
 
         /// <summary>The medic is let go (the action stops, her routine comes back). failed: she is not sent to this patient again.</summary>
@@ -574,6 +632,9 @@ namespace SurvivorCommunity
             fightUntil.Remove(id);
             if (failed) d.Failed.Add(id);
             medicsLetGo++;
+            // the Fable review (F7): the stuck watchdog skipped her while she went (ScTicker); its counts start again from nothing
+            Member med = ScRegistry.GetMember(id);
+            if (med != null) { ScCommunity.ResetStill(med); ScStuck.ResetGain(med); med.AwaySeconds = 0; }
             ScLog.Out(d.MedicName + " stops going to " + d.Name + " - " + why + (failed ? " (not sent to her again)" : ""));
             d.MedicId = -1;
             d.MedicName = "";
@@ -592,20 +653,24 @@ namespace SurvivorCommunity
             if (mm.Status != MemberStatus.Resident) { why = Why.NoMedic; return "not living at home (" + mm.Status + ")"; }
             if (me == null || me.IsDead()) { why = Why.NoMedic; return "not in the world"; }
             if (IsDown(me)) { why = Why.Hurt; return "down herself"; }
-            if (!UAI.UAIConsiderationScNotHomeMember.AtHome(me.position)) { why = Why.NoMedic; return "not at home"; }
+            // the Fable review (F3): one already on her way is not let go for a path that runs past the zone's edge (no flapping)
+            if (!current && !UAI.UAIConsiderationScNotHomeMember.AtHome(me.position)) { why = Why.NoMedic; return "not at home"; }
             if (ScWatch.OnWatch(mm)) return "on watch";
             if (ScWork.InTalk(mm.Id)) return "talking to you";
             if (ScAmmo.IsWindowOpen(me.entityId)) return "her inventory window is open";
             if (ScRetreat.Owns(me)) { why = Why.Hurt; return "sheltering or kiting hurt"; }
             if (ScRetreat.HurtNoMedsMember(me)) { why = Why.Hurt; return "badly hurt with nothing to heal with"; }
             int max = me.GetMaxHealth();
-            if (max > 0 && (float)me.Health / max < ScConfig.ReviveMedicMinHealth) { why = Why.Hurt; return "under " + (ScConfig.ReviveMedicMinHealth * 100f).ToString("0", CultureInfo.InvariantCulture) + "% health"; }
+            // the Fable review (F3): one already on her way stops only under GoingHealthMargin of it (a scratch does not flap her)
+            float floor = ScConfig.ReviveMedicMinHealth * (current ? GoingHealthMargin : 1f);
+            if (max > 0 && (float)me.Health / max < floor) { why = Why.Hurt; return "under " + (floor * 100f).ToString("0", CultureInfo.InvariantCulture) + "% health"; }
             if (!Api.HoldsReviveItem(me)) { why = Why.NoItem; return "no revive item (" + Api.ReviveItemsText() + ") in her pack"; }
             if (!current && medicOf.ContainsKey(me.entityId)) return "helping someone else";
             if (d != null && d.Body != null)
             {
                 if (!current && d.Failed.Contains(me.entityId)) { why = Why.Unreachable; return "could not get to her before"; }
-                if ((me.position - d.Body.position).sqrMagnitude > ScConfig.ReviveMedicRange * ScConfig.ReviveMedicRange) { why = Why.Unreachable; return "farther than ReviveMedicRange"; }
+                // the Fable review (F3): the range is for picking her; on her way her no-gain clock judges the walk
+                if (!current && (me.position - d.Body.position).sqrMagnitude > ScConfig.ReviveMedicRange * ScConfig.ReviveMedicRange) { why = Why.Unreachable; return "farther than ReviveMedicRange"; }
             }
             why = Why.None;
             return null;
@@ -629,6 +694,9 @@ namespace SurvivorCommunity
             float dx = a.x - b.x, dz = a.z - b.z;
             return dx * dx + dz * dz <= TreatXZ * TreatXZ && Mathf.Abs(a.y - b.y) <= TreatDy;
         }
+
+        /// <summary>The Fable review (F1): held where she is - busy (below) or asleep in bed until her night lease closes (ScSleep).</summary>
+        private static bool Held(EntityAlive me) { return Busy(me) || ScSleep.IsAsleep(me); }
 
         /// <summary>A hand sequence of 0-XNPCCore's (its medic, heal, any busy clip) or a medical use of SC's own holds her.</summary>
         private static bool Busy(EntityAlive me)

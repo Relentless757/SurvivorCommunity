@@ -24,6 +24,9 @@ namespace SurvivorCommunity
     ///   SdcsDowned.Enter                 (536 bytes)  HasPlayerLeader x1, TellLeader x1
     ///   SdcsDowned.Tick                  (777 bytes)  LeaderPresent x1, TellLeader x1
     /// All five are far above Mono's inlining limit (20 bytes), so the detour on each is the method every caller reaches.
+    /// The five are the game's paths, not every caller (the Fable review, F6): a sixth call of HasPlayerLeader, in
+    /// SdcsAnimBridgeHandlers.AnyWeaponSdcsAnimDowned (IL_0029, 0-XNPCCore's own console "downed" for a body seated in a vehicle),
+    /// is left as it is - a seated home member is refused there; no gameplay path reaches it.
     ///
     /// SC's methods call 0-XNPCCore's own first (bound once as delegates): 0-XNPCCore decides exactly as before for everyone,
     /// and SC only adds its own people where 0-XNPCCore said no (ScDowned: HomeDownable, BleedsWithoutLeader, the tells).
@@ -293,8 +296,9 @@ namespace SurvivorCommunity
 
         /// <summary>
         /// In place of SdcsDowned.TellLeader (Enter: "is down"; Tick: the bleed-out warnings). One of the community's people: the
-        /// "is down" line is SC's own (D6, ScDowned.TellDown: the same seconds, and how to revive her); a warning goes to the
-        /// player when she has no leader to tell (at home). Everyone else, and the follower's warnings: 0-XNPCCore's own call.
+        /// "is down" line is SC's own (D6), kept back here and sent by ScDowned's tick within the second, after its medic pick,
+        /// with who is coming folded in (the Fable review, F2: one tooltip, not three); a warning goes to the player when she has
+        /// no leader to tell (at home). Everyone else, and the follower's warnings: 0-XNPCCore's own call.
         /// </summary>
         public static void TellLeaderOrPlayer(EntityAlive npc, string key, int seconds)
         {
@@ -305,7 +309,7 @@ namespace SurvivorCommunity
                     Member m = ScDowned.MemberOfBody(npc);
                     if (m != null)
                     {
-                        if (key == "vcDownedIsDown" && ScConfig.DownedTell) { ScDowned.TellDown(m, npc, seconds); TellsDown++; return; }
+                        if (key == "vcDownedIsDown" && ScConfig.DownedTell) { TellsDown++; return; }   // ScDowned.Tick says it
                         if (!(SdcsNpcRelation.LeaderEntity(npc.entityId) is EntityPlayer)) { ScDowned.TellPlayerNpcCore(npc, key, seconds); TellsHome++; return; }
                     }
                 }

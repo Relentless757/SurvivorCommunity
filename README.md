@@ -435,8 +435,9 @@ A killing hit no longer kills a member outright: she goes **down** (0-XNPCCore 3
   she's badly hurt herself (sheltering, or under 35% health), on watch or talking to you; one who can't get there gives up
   and the next one goes. With no medic who can come, you're told why, and it's up to you. Medics restock first aid from
   the stockpile's medical supplies like everyone else (section 15), so keep some there.
-- **Messages:** you're told when a member goes down ("X is down! 60 s to revive them"), which medic is on the way or why
-  nobody can come, when she's back on her feet, and if she bleeds out. 0-XNPCCore also warns you at 30 and 10 seconds.
+- **Messages:** one line when a member goes down ("X is down! 60 s to revive them - Dana is on the way", or why nobody
+  can come), a line if a medic is sent later or the one sent gives up with nobody else to come, one when she's back on
+  her feet, and one if she bleeds out. 0-XNPCCore also warns you at 30 and 10 seconds.
 - **While she is down** everything waits: a work shift or a talk with her stays on, and she can't be sent home, on a run,
   to an outpost or onto a watch, or leave the community. Ask again once she's up. She doesn't count as a fighter for the
   others and says nothing.
