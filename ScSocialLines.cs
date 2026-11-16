@@ -17,13 +17,13 @@ namespace SurvivorCommunity
             "01", "",   // Stockpile's looking better than it did last week. / Don't say that out loud. You'll jinx it.
             "02", "",   // Smell that? Rain's coming. / Good. The barrels could use it.
             "03", "home",   // You hear how the last run went? / Everyone came back. That's a good run.
-            "04", "",   // The walls held up fine last night. / Walls are only as good as whoever's watching them.
+            "04", "",   // The walls are holding up fine. / Walls are only as good as whoever's watching them.
             "05", "",   // Nights are getting louder out there. / Yeah. I sleep with my boots on now.
-            "06", "",   // What's for dinner? / Same as yesterday. Be grateful.
+            "06", "",   // What's on the menu? / Same as yesterday. Be grateful.
             "07", "",   // Knock knock. / If it's a zombie, I'm not opening.
             "08", "down",   // You ever think about leaving? / Every day. Then I remember what's out there.
             "09", "home",   // The boss seems to know what they're doing. / Better than the last place I was at.
-            "10", "home",   // Think the boss will be back before dark? / Always is, somehow.
+            "10", "home",   // Somebody should tell the boss to get some rest. / Good luck with that. I've tried.
             "11", "",   // We're low on something again. / We're always low on something.
             "12", "",   // Saw a deer by the fence this morning. / Next time, wake me. I'll bring the rifle.
             "13", "",   // How's the arm? / Still attached. I'll call that a win.
@@ -49,7 +49,7 @@ namespace SurvivorCommunity
             "33", "PeoplePerson",   // We should all eat together tonight. / I'll bring the good cans.
             "34", "Optimist,Cheerful",   // I've got a good feeling about tomorrow. / You say that every day.
             "35", "Pessimist",   // Mark my words, those walls won't hold forever. / Nothing does. Doesn't mean we stop.
-            "36", "fire",   // Nothing beats a fire at the end of the day. / Except a fire and a cold drink.
+            "36", "fire",   // Nothing beats sitting round a fire. / Except a fire and a cold drink.
             "37", "fire",   // To the ones we lost. / And to the ones still here.
             "38", "fire",   // Remember telling ghost stories around a fire? / Now we just keep watching the dark.
         };

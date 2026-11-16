@@ -22,7 +22,7 @@ Downed, not dead
 Social life
 -----------
 - Small talk. Two residents standing near each other now and then stop for a quick exchange about life at the base - the
-  stockpile, the weather, the walls, the night, dinner, you - and turn to each other and gesture as they talk. What they
+  stockpile, the weather, the walls, the nights, food, you - and turn to each other and gesture as they talk. What they
   say fits their traits and mood. 38 written pairs; until they are recorded in SC's voices they show as captions in
   Voice Control's subtitle bar.
 - You overhear them only from 10 to 32 m away; walk up and they stop. One conversation at a time in the base, about

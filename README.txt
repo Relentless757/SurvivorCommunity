@@ -436,7 +436,7 @@ Social life at home
 Between their jobs your residents have a life of their own.
 
 - Small talk. Two residents standing near each other now and then stop for a quick exchange: one says something about
-  life at the base (the stockpile, the weather, the walls, last night, dinner, you) and the other answers. They turn to
+  life at the base (the stockpile, the weather, the walls, the nights, food, you) and the other answers. They turn to
   each other and gesture as they talk. What they say fits who they are: a Pessimist worries, an Optimist or a Cheerful
   one looks on the bright side, a Homesteader talks about the garden, a Tinkerer about the generator.
 - You overhear them. They talk only while you are between 10 and 32 m away. Walk up closer and they stop - the answer

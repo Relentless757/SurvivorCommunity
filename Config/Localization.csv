@@ -1699,11 +1699,11 @@ scTalkOpen_02Said,UI,Tooltip,,,,Smell that? Rain's coming.
 scTalkReply_02Said,UI,Tooltip,,,,Good. The barrels could use it.
 scTalkOpen_03Said,UI,Tooltip,,,,You hear how the last run went?
 scTalkReply_03Said,UI,Tooltip,,,,Everyone came back. That's a good run.
-scTalkOpen_04Said,UI,Tooltip,,,,The walls held up fine last night.
+scTalkOpen_04Said,UI,Tooltip,,,,The walls are holding up fine.
 scTalkReply_04Said,UI,Tooltip,,,,Walls are only as good as whoever's watching them.
 scTalkOpen_05Said,UI,Tooltip,,,,Nights are getting louder out there.
 scTalkReply_05Said,UI,Tooltip,,,,Yeah. I sleep with my boots on now.
-scTalkOpen_06Said,UI,Tooltip,,,,What's for dinner?
+scTalkOpen_06Said,UI,Tooltip,,,,What's on the menu?
 scTalkReply_06Said,UI,Tooltip,,,,Same as yesterday. Be grateful.
 scTalkOpen_07Said,UI,Tooltip,,,,Knock knock.
 scTalkReply_07Said,UI,Tooltip,,,,"If it's a zombie, I'm not opening."
@@ -1711,8 +1711,8 @@ scTalkOpen_08Said,UI,Tooltip,,,,You ever think about leaving?
 scTalkReply_08Said,UI,Tooltip,,,,Every day. Then I remember what's out there.
 scTalkOpen_09Said,UI,Tooltip,,,,The boss seems to know what they're doing.
 scTalkReply_09Said,UI,Tooltip,,,,Better than the last place I was at.
-scTalkOpen_10Said,UI,Tooltip,,,,Think the boss will be back before dark?
-scTalkReply_10Said,UI,Tooltip,,,,"Always is, somehow."
+scTalkOpen_10Said,UI,Tooltip,,,,Somebody should tell the boss to get some rest.
+scTalkReply_10Said,UI,Tooltip,,,,Good luck with that. I've tried.
 scTalkOpen_11Said,UI,Tooltip,,,,We're low on something again.
 scTalkReply_11Said,UI,Tooltip,,,,We're always low on something.
 scTalkOpen_12Said,UI,Tooltip,,,,Saw a deer by the fence this morning.
@@ -1763,7 +1763,7 @@ scTalkOpen_34Said,UI,Tooltip,,,,I've got a good feeling about tomorrow.
 scTalkReply_34Said,UI,Tooltip,,,,You say that every day.
 scTalkOpen_35Said,UI,Tooltip,,,,"Mark my words, those walls won't hold forever."
 scTalkReply_35Said,UI,Tooltip,,,,Nothing does. Doesn't mean we stop.
-scTalkOpen_36Said,UI,Tooltip,,,,Nothing beats a fire at the end of the day.
+scTalkOpen_36Said,UI,Tooltip,,,,Nothing beats sitting round a fire.
 scTalkReply_36Said,UI,Tooltip,,,,Except a fire and a cold drink.
 scTalkOpen_37Said,UI,Tooltip,,,,To the ones we lost.
 scTalkReply_37Said,UI,Tooltip,,,,And to the ones still here.
