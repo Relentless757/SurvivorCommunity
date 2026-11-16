@@ -47,7 +47,7 @@ This is a test build. Expect bugs, and please play it on a new save made for tes
 
 - 7 Days to Die **3.4** (this build is for 3.4 only).
 - **0-SCore** 3.4.14 or newer.
-- **0-XNPCCore** 3.4.04 with its **Voice Control** 3.4.04 (the Voice Control DLL is included in the 0-XNPCCore folder).
+- **0-XNPCCore** 3.4.05 with its **Voice Control** 3.4.05 (the Voice Control DLL is included in the 0-XNPCCore folder).
 - **Easy Anti-Cheat off** (SC is a Harmony mod).
 - **Single player** only for now.
 
@@ -518,8 +518,8 @@ window showing every stack in every storage box you placed inside the home zone,
 
 ### The talk rows
 
-What you see when you talk to a member depends on where they are and what they are doing. With 0-XNPCCore 3.4.04 the
-rows are:
+What you see when you talk to a member depends on where they are and what they are doing. With 0-XNPCCore the rows
+are:
 
 | Member | Rows |
 |---|---|
@@ -621,7 +621,7 @@ A resident can craft at home on a **work shift**:
 - The craft window's Cancel cancels the job, not the whole shift.
 - **A full station output.** What they still have queued waits at the station until there is room, also while you
   have the station open; take some out and they carry on. Their crafts never go into your inventory and never count
-  as yours (no crafting XP, no Survivor Origins XP); they are paid to the member once per item.
+  as yours (no crafting XP); they are paid to the member once per item.
 - On a shift a resident still counts as at home: they keep their daily specialty bonuses and still defend the base.
 
 ### Home jobs and the work kit

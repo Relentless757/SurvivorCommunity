@@ -245,7 +245,7 @@ Crafting on/off, work shifts on/off, hook counters, XP saves, work and book summ
 Crafting levels by star count for every specialty.
 
 ### `sc craft station [radius]` [READ]
-The nearest workstation within 8 m (or the radius): its queue (whose craft each is, and whether the next one has room in the output), its output, the finished crafts not yet paid (whose, and who pays them), what a member has waiting in your open window for a full output, and your own craft counters (vanilla's items crafted and `_craftCount_`, Survivor Origins' `$q_` and craft XP waiting), which a member's crafts never move.
+The nearest workstation within 8 m (or the radius): its queue (whose craft each is, and whether the next one has room in the output), its output, the finished crafts not yet paid (whose, and who pays them), what a member has waiting in your open window for a full output, and your own craft counters (vanilla's items crafted and `_craftCount_`, and any craft counters or craft XP another mod keeps), which a member's crafts never move.
 Example: `sc craft station`
 
 ### `sc craft <id|name>` [READ]

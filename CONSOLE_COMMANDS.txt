@@ -70,8 +70,8 @@ Most useful for testing
   member's heal items, next restock, health and regeneration; one member's every check. [READ]
 - sc meds <id|name> give: Restock her medical supplies now for 1 Meds (the cooldown ignored). [CHEAT]
 - sc craft [<name>]: Crafting/work-shift status for the community or one member. [READ]
-- sc craft station: The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft counters.
-  [READ]
+- sc craft station: The nearest workstation: its queue (whose crafts), output, unpaid crafts and your own craft
+  counters. [READ]
 - sc enclave list / reveal all: List enclaves (settlements of other survivors); reveal them on the map.
 - sc enclave standing <id> <points>: Set an enclave's standing (75 or more is Allied). [CHEAT]
 - sc enclave info <id>: One enclave in detail. [READ]
@@ -84,8 +84,8 @@ Most useful for testing
 - sc run <member> mine / clay: Send a mining run (Mine, Dig clay). [CHEAT]
 - sc radio: Radio stations, power, handheld radio state, runner talk. [READ]
 - sc radio give <member>: Put a handheld radio in a member's inventory. [CHEAT]
-- sc radio horde <moment>: Hear a horde warning now (gather, spotted, clear, call, arrived, held, damaged,
-  overrun). [CHEAT]
+- sc radio horde <moment>: Hear a horde warning now (gather, spotted, clear, call, arrived, held, damaged, overrun).
+  [CHEAT]
 - sc outpost list / yield: Outposts and tonight's yield. [READ]
 - sc poi / sc poi near [r]: The POI you stand in; outpost candidates nearby. [READ]
 - sc band spawn [drifters|raiders]: Put a band on the road, walking at you. [CHEAT]
@@ -211,31 +211,35 @@ Does the radio scouting once and ignores the once-a-day wait. Example: "sc scout
 
 sc meds [READ]
 ~~~~~~~~~~~~~~
-Members' medical restock (round md1): the setting and its keys ("MedsResupply..."), the mix as this world resolved it,
-the stockpile's Meds with the reserve kept for tonight's injured and what is left to spare, today's restocks, the
-"meds-*" counters, and one line per loaded member: her heal items (first aid kits plus first aid bandages, window and
-bag), cloth bandages, her last restock and the next one allowed at home, and DUE or why not. Rounds k2 and k2b add the
-healing line ("MedicSafeDistance", "MedicMaxWait", "HealBackOff", "Regen..."), each member's health and regeneration,
-and the back-off-to-heal totals with the "heal-*" counters.
+Members' medical restock (round md1) and healing (rounds k2, k2b): the setting and its keys ("MedsResupply..."), the
+healing line ("MedicSafeDistance", "MedicMaxWait", "HealBackOff", "Regen...", the health regenerated this session), the
+mix as this world resolved it, the stockpile's Meds with the reserve kept for tonight's injured and what is left to
+spare, today's restocks, the "meds-" counters, and one line per loaded member: her heal items (first aid kits plus first
+aid bandages, window and bag), cloth bandages, her last restock and the next one allowed at home, DUE (or DUE - an
+EMERGENCY) or why not, her health and her regeneration; then round k2b's back-off-to-heal totals and its "heal-"
+counters.
 
 sc meds <id|name> [READ]
 ~~~~~~~~~~~~~~~~~~~~~~~~
-One member's every check: what she carries, the thresholds, the cooldown with the world times, whether her window or a
-trade is open, the top-up she would get, the stockpile and its reserve, the verdict at home and before a run, her
-health with any wait to use an item, round k2b's back-off to heal (whether she may back off, BACKING OFF TO HEAL to a
-point, HEALS NOW and why, CLEAR, her last one), and her regeneration.
-Example: "sc meds Gina"
+One member's every check: what she carries, the thresholds and whether an emergency restock applies now, the cooldown
+with the world times, whether her window or a trade is open, the top-up she would get, the stockpile and its reserve,
+the verdict at home and before a run, her health with any wait to use an item, round k2b's back-off to heal (whether she
+may back off, BACKING OFF TO HEAL to a point, HEALS NOW and why, CLEAR, her last one), and her regeneration. Example:
+"sc meds Gina"
 
 sc meds <id|name> give [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 A test shortcut: restocks her now for 1 Meds, ignoring the cooldown, the thresholds and "MedsResupply". The stockpile,
-its reserve, her open window and her pack still apply, and it starts her cooldown like any restock. Counters (in "sc
-meds" and "sc xnpc"): "meds-restock", "meds-restock-run", "meds-restock-console", "meds-refused-empty",
+its reserve, her open window and her pack still apply, and it starts her cooldown like any restock. Counters (in
+"sc meds" and "sc xnpc"): "meds-restock", "meds-restock-run", "meds-restock-console", "meds-refused-empty",
 "meds-refused-reserve", "meds-refused-full", "meds-refused-nothing", "meds-refused-mix", "meds-held-window",
-"meds-held-use", "meds-cooldown", "meds-place-failed"; at home each outcome is counted once per episode, not at every
-5 s check. Round k2b adds "heal-backoff", "heal-backoff-clear", "heal-backoff-unreached", "heal-now-cornered",
-"heal-now-gained", "heal-now-timeout", "heal-now-shelter", "heal-now-post" and "x5-heal-backoff-no-swap". Example: "sc
-meds Gina give"
+"meds-held-use", "meds-cooldown", "meds-place-failed"; at home each outcome is counted once per episode, not at every 5
+s check. Round k2 adds "meds-restock-emergency", "meds-emergency-cooldown", "meds-use-held-reach", "meds-use-desperate",
+"meds-regen-started" and "meds-regen-capped". Round k2b adds "heal-backoff" (she began backing off to heal),
+"heal-backoff-clear" (she got clear), "heal-backoff-unreached" (a point she could not reach), "heal-now-cornered" (no
+room to back off), "heal-now-gained" (the enemy kept up with her), "heal-now-timeout" (held "MedicMaxWait" without
+getting clear), "heal-now-shelter" and "heal-now-post" (in her shelter room, or on watch or told to stay: at once), and
+in "sc xnpc" "x5-heal-backoff-no-swap" (a weapon swap held while she backs off). Example: "sc meds Gina give"
 
 ("sc morale", "sc drinks" and "sc day" are in section 1.)
 
@@ -296,16 +300,19 @@ sc run <id|name> recall|home|skip|offline|hurt [share] [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Drives a physical run (tests): "recall" turns them home; "home" forces them to the gate now (the run's dice may kill
 them); "skip" ends the current leg now; "offline" takes the body offline; "hurt [share]" (round r2) sets their body's
-health to that share of its max (0.01-1, default 0.3; their body must be in the world) - with nothing to heal with, at or
-below RunHomeBelowHealth on the way out or at the site, they give the job up and head home about 2 s later.
-Example: "sc run Dana skip", "sc run Dana hurt 0.25"
+health to that share of its max (0.01-1, default 0.3; their body must be in the world) and says what follows - with
+nothing to heal with, at or below "RunHomeBelowHealth" on the way out or at the site, they give the job up and head home
+about 2 s later. Example: "sc run Dana skip", "sc run Dana hurt 0.25"
 
 sc runners [READ]
 ~~~~~~~~~~~~~~~~~
 Lists who is out, their leg and distance, and the physical-run settings. A mining runner's line adds the job, the tool
-and its tier factor, the spot's biome and sub-biome, and the haul they carry. Then: every haul still waiting to be put
-away (whose, and what), and the mining runs' counters (sent, refused for no tool, hauls to the crates and to
-inventories).
+and its tier factor, the spot's biome and sub-biome, and the haul they carry. Round r2: a runner in the world also shows
+her health, whether she has a way to heal ("NOTHING TO HEAL WITH"), the share she gives the job up at, "would flee" (a
+coward, or badly hurt with nothing to heal with), how long she has been too hurt for the job, a run she gave up hurt
+("GAVE THE JOB UP HURT"), and a walk held by ("WALK HELD by") or routed round ("going round") a threat she would run
+from. Then: every haul still waiting to be put away (whose, and what), and the mining runs' counters (sent, refused for
+no tool, hauls to the crates and to inventories).
 
 sc distress <id|name> [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -331,8 +338,8 @@ sc craft station [radius] [READ]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The nearest workstation within 8 m (or the radius): its queue (whose craft each is, and whether the next one has room in
 the output), its output, the finished crafts not yet paid (whose, and who pays them), what a member has waiting in your
-open window for a full output, and your own craft counters (vanilla's items crafted and _craftCount_, Survivor Origins'
-$q_ and craft XP waiting), which a member's crafts never move. Example: "sc craft station"
+open window for a full output, and your own craft counters (vanilla's items crafted and "_craftCount_", and any craft
+counters or craft XP another mod keeps), which a member's crafts never move. Example: "sc craft station"
 
 sc craft <id|name> [READ]
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -432,8 +439,8 @@ Same as "check", then builds the tower at once (no kit used). Overwrites blocks 
 sc radio [READ]
 ~~~~~~~~~~~~~~~
 Remembered radio stations and their live power, whether the home station is online, the handheld radio state, each
-runner's radio talk, queue and counters, and how the horde warnings would be heard now (who is on watch, in person
-or on the radio).
+runner's radio talk, queue and counters, and how the horde warnings would be heard now (who is on watch, in person or on
+the radio).
 
 sc radio give <member> [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -450,14 +457,13 @@ The member's call for help as if a zombie had just hurt them. "force" ignores th
 sc radio horde <gather|spotted|clear|call|arrived|held|damaged|overrun> [side] [member] [force] [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Says a horde warning now, in the speaker's own voice, the way the moment would (no horde needed, and the attack's
-once-only marks are left alone). "gather", "spotted" and "clear" are the guard on watch at home: in person within
-30 m, else on the radio if you carry a handheld and the guard has one or the home station has power; they also show
-their message. "call", "arrived", "held", "damaged" and "overrun" are the radio from home: they need the station
-with power and your handheld, and only speak (their messages carry the attack's numbers). "side" is north,
-northeast ... northwest (or n, ne ...; default the open attack's side, else a random one). "member" defaults to the
-one the rules pick: at home the guard on watch, away the guard on watch, else someone at home. "force" ignores
-HordeVoiceLines, your handheld, the guard's radio and the station. Examples: "sc radio horde gather northeast",
-"sc radio horde held Dana force"
+once-only marks are left alone). "gather", "spotted" and "clear" are the guard on watch at home: in person within 30 m,
+else on the radio if you carry a handheld and the guard has one or the home station has power; they also show their
+message. "call", "arrived", "held", "damaged" and "overrun" are the radio from home: they need the station with power
+and your handheld, and only speak (their messages carry the attack's numbers). "side" is north, northeast ... northwest
+(or n, ne ...; default the open attack's side, else a random one). "member" defaults to the one the rules pick: at home
+the guard on watch, away the guard on watch, else someone at home. "force" ignores HordeVoiceLines, your handheld, the
+guard's radio and the station. Example: "sc radio horde gather northeast", "sc radio horde held Dana force"
 
 ("sc scout", "sc barter" and "sc distress" are radio features too; see sections 2 and 4.)
 
@@ -692,11 +698,10 @@ Weapon words, the firearm chances, ammo amounts and the magazine state.
 
 sc loadout <id|name> [READ] and sc loadout <id|name> [weapon] [weapon|meleeonly] [ranged-lead|melee-lead] [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Shows an NPC's two weapons, or gives it new ones (one weapon replaces the one of its kind). For a
-community member it also lists the items she was handed exactly (the member inventory panel's slots
-or the weapon menu, round n12): her weapons and armor pieces with their quality, wear and attachments,
-each marked STALE when her pair or her clothes have since moved on (it then goes into her pack on the
-next panel change of that slot).
+Shows an NPC's two weapons, or gives it new ones (one weapon replaces the one of its kind). For a community member it
+also lists the items she was handed exactly (the member inventory panel's slots or the weapon menu, round n12): her
+weapons and armor pieces with their quality, wear and attachments, each marked STALE when her pair or her clothes have
+since moved on (it then goes into her pack on the next panel change of that slot).
 
 sc loadout near [r] [READ]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -726,10 +731,10 @@ sc team <id|name> [READ]
 ~~~~~~~~~~~~~~~~~~~~~~~~
 One member in full: the verdict and its age, why she is or is not melee-led, a fresh count listing every friend and
 enemy with its distance, weight and how the weight was reached (ARMED and melee-unsafe enemies are marked; you as
-"fighting (...)" or "NOT fighting ... = 0"), her target and whether it needs the gun, her posture and why (and a MELEE/KITE switch the dwell holds), and her hand
-(what she holds, your weapon order, R2's cornered melee, 0-XNPCCore's bout, the overwhelmed count; hand changes in all
-and in the last 3 minutes, SC's swaps, and when the next swap is allowed), the zombies she cannot swing at, and the
-intruder she is sent to. Example: "sc team Gina"
+"fighting (...)" or "NOT fighting ... = 0"), her target and whether it needs the gun, her posture and why (and a
+MELEE/KITE switch the dwell holds), and her hand (what she holds, your weapon order, R2's cornered melee, 0-XNPCCore's
+bout, the overwhelmed count; hand changes in all and in the last 3 minutes, SC's swaps, and when the next swap is
+allowed), the zombies she cannot swing at, and the intruder she is sent to. Example: "sc team Gina"
 
 sc team <id|name> auto [CHEAT]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -796,10 +801,10 @@ sc ui [READ] and sc ui reset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Where SC's two movable windows sit: the talk card (the survivor card shown while you talk) and the member inventory
 panel ("Show me your inventory" on a member). It shows their saved places, where the talk card is, whether the panel is
-switched on (MemberInventoryPanel) and, while the panel is open, whose inventory it shows and how full her pack and bag
-are. "sc ui reset" forgets both saved places, so the talk card opens left of the spoken line again and the panel left
-of your backpack (each jumps there if it is open). Right-clicking a window's title bar (the talk card's name bar) does
-the same for that window. The places are kept in %APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt.
+switched on ("MemberInventoryPanel") and, while the panel is open, whose inventory it shows and how full her pack and
+bag are. "sc ui reset" forgets both saved places, so the talk card opens left of the spoken line again and the panel
+left of your backpack (each jumps there if it is open). Right-clicking a window's title bar (the talk card's name bar)
+does the same for that window. The places are kept in "%APPDATA%\7DaysToDie\SurvivorCommunity\ui_layout.txt".
 
 sc voice [READ]
 ~~~~~~~~~~~~~~~

@@ -48,7 +48,7 @@ Requirements
 
 - 7 Days to Die 3.4 (this build is for 3.4 only).
 - 0-SCore 3.4.14 or newer.
-- 0-XNPCCore 3.4.04 with its Voice Control 3.4.04 (the Voice Control DLL is included in the 0-XNPCCore folder).
+- 0-XNPCCore 3.4.05 with its Voice Control 3.4.05 (the Voice Control DLL is included in the 0-XNPCCore folder).
 - Easy Anti-Cheat off (SC is a Harmony mod).
 - Single player only for now.
 
@@ -258,8 +258,8 @@ Each survivor has 2 traits. Their effects show on the NPC as buffs with a descri
 - Sharpshooter: Starts with 2 extra Shooting stars
 - Marathon Runner: Starts with 2 extra Cardio stars
 - Quick Study: Earns XP half again as fast
-- Cowardly: Runs from enemies instead of fighting (in a fight your side can win, hangs back with the gun instead); own
-  mood -5
+- Cowardly: Runs from enemies instead of fighting (at home: retreats inside; in a fight your side can win, hangs back
+  with the gun instead); own mood -5
 - Hardy: Own mood +3
 - Medic Training: Specialty is Medicine
 - Homesteader: Specialty is Gardening
@@ -359,9 +359,9 @@ Staying home, roaming and defending
 - Residents defend the base: they go after any awake enemy inside the home zone within 22 m of their post (or of
   themselves while roaming) that is after a member or you, even one they cannot see from there, fight it and walk back.
   Sleepers in a base built in a POI are left asleep, and Cowardly members stay put.
-- Intruders: a zombie inside the base that is after nobody - lurking in a corner, wandering the yard - gets two residents
-  sent to it: the nearest who are free (not on watch, on a work shift, asleep, hurt below 60%, Cowardly or in another
-  fight; a resident who stays near her post only within 22 m of it). They walk to it, seen or not, and fight it;
+- Intruders: a zombie inside the base that is after nobody - lurking in a corner, wandering the yard - gets two
+  residents sent to it: the nearest who are free (not on watch, on a work shift, asleep, hurt below 60%, Cowardly or in
+  another fight; a resident who stays near her post only within 22 m of it). They walk to it, seen or not, and fight it;
   everyone else keeps their routine. "Inside" means inside the home zone and on the base's levels: a zombie wandering
   past outside the base, or down in a cellar or mine (or up on a roof) more than 6 m below or above the base's posts, is
   still left alone. "InvestigateIntruders", "InvestigateResponders", "InvestigateRadius", "InvestigateEnterMargin" and
@@ -384,24 +384,25 @@ When they are badly hurt
     it (never farther than she can shoot). Between two short steps she shoots for 1.5 seconds; a step that does not get
     her away (a fast zombie keeps pace) gives way to the shot too. With no room at all she stands and shoots, and tries
     again a second later.
-  - Without one (or against raiders and bandits within 30 m, who shoot back) she retreats inside: she runs to a room with
-    a roof and walls - beside a bed, a work station, a post, not right beside a door - away from the enemy, shuts the
-    doors she passed behind her, and holds there, fighting only what reaches her (not a zombie pounding on the door). A
-    base with no roofed room: a walled corner, else the far side of the yard beside another member or you.
+  - Without one (or against raiders and bandits within 30 m, who shoot back) she retreats inside: she runs to a room
+    with a roof and walls - beside a bed, a work station, a post, not right beside a door - away from the enemy, shuts
+    the doors she passed behind her, and holds there, fighting only what reaches her (not a zombie pounding on the
+    door). A base with no roofed room: a walled corner, else the far side of the yard beside another member or you.
   - It ends once she is back above 45% health or no enemy has been about for 20 seconds. She never shelters for good:
-    with medical bundles in the stockpile she is restocked while she shelters, and once nothing has been after her for
-    5 seconds she comes out, bandages and goes back to her routine; with none, she comes out after 2 minutes once
-    nothing has been after her for 5 seconds, no raider or bandit is about and no zombie that sees her is within 12 m.
-    For 20 seconds after that only a zombie that is after her sends her back in. Hand her a bandage and she uses it
-    there.
+    with medical bundles in the stockpile she is restocked while she shelters, and once nothing has been after her for 5
+    seconds she comes out, bandages and goes back to her routine; with none, she comes out after 2 minutes once nothing
+    has been after her for 5 seconds, no raider or bandit is about and no zombie that sees her is within 12 m. For 20
+    seconds after that only a zombie that is after her sends her back in. Hand her a bandage and she uses it there.
 - While she is that hurt she is never walked to a fight, at home or away: the base defense and the melee chase leave her
-  be.
+  be. That stops the old run off / walk back / run off again.
 - Cowardly members at home retreat inside the same way instead of running from the base (in a fight your side can win,
   one with a gun still hangs back and shoots). Followers away from home with a gun kite within 20 m of you instead of
-  running (with nowhere to step back to near you twice in a row, they run as before for a moment); without one they
-  run as before. Runners on a job still give it up and come home (section 8). Guards on watch hold their post.
-- "RetreatHome" and the other "Retreat...", "Shelter..." and "StandOff..." settings (section 20) tune or turn it off;
-  "sc retreat <name>" shows why she is or is not retreating.
+  running (with nowhere to step back to near you twice in a row, they run as before for a moment); without one they run
+  as before. Runners on a job still give it up and come home (section 8). Guards on watch hold their post.
+- With medical bundles in the stockpile this rarely happens at home: she restocks the moment she runs out (section 15).
+  "RetreatHome" and the other "Retreat...", "Shelter..." and "StandOff..." settings (section 20) tune or turn it off;
+  "sc retreat <name>" shows why she is or is not retreating. One fix from the same update stays on even with
+  "RetreatHome" false: a member running from a fight no longer counts as fighting for the "stuck" rescue.
 
 Doors
 ~~~~~
@@ -542,8 +543,7 @@ showing every stack in every storage box you placed inside the home zone, as one
 The talk rows
 ~~~~~~~~~~~~~
 
-What you see when you talk to a member depends on where they are and what they are doing. With 0-XNPCCore 3.4.04 the
-rows are:
+What you see when you talk to a member depends on where they are and what they are doing. With 0-XNPCCore the rows are:
 
 - Resident at home (you both inside the base): Let's talk about the community. / Come with me. / I need you to go find
   supplies. / Show me your inventory / Craft... / Jobs and gear / It is time for you to leave the community. /
@@ -652,9 +652,9 @@ A resident can craft at home on a work shift:
 - The shift ends 90 seconds after their last job (at once at night), 3 minutes after a call with no order, when you say
   "That's all for now.", or when you press End work. They walk back to their post.
 - The craft window's Cancel cancels the job, not the whole shift.
-- A full station output: what they still have queued waits at the station until there is room, also while you have
-  the station open; take some out and they carry on. Their crafts never go into your inventory and never count as
-  yours (no crafting XP, no Survivor Origins XP); they are paid to the member once per item.
+- A full station output. What they still have queued waits at the station until there is room, also while you have the
+  station open; take some out and they carry on. Their crafts never go into your inventory and never count as yours (no
+  crafting XP); they are paid to the member once per item.
 - On a shift a resident still counts as at home: they keep their daily specialty bonuses and still defend the base.
 
 Home jobs and the work kit
@@ -885,7 +885,7 @@ A Watch Post is a block a guard stands on.
   the north!") and when they first see it, and an orange skull marker shows its side on the compass and map. When the
   attack is held they call the all clear. They say each of these out loud in their own voice: in person within 30 m,
   farther away over your handheld radio, when they carry one too or the radio station at home has power
-  (HordeVoiceLines).
+  ("HordeVoiceLines").
 - A guard on watch cannot follow you, go on a supply run or be posted to an outpost until relieved. A guard who is hurt
   with no medicine comes down. Picking up, breaking or building over a manned post ends the watch.
 
@@ -958,7 +958,7 @@ Establishing an outpost
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 1. Clear a building at least 150 m from home.
-2. Place a land claim inside it and pick Establish outpost on the claim's radial, or place an Outpost Flag, which
+2. Place a land claim inside it and pick Establish outpost on the claim's radial, or place an Outpost Claim Block, which
    establishes itself when placed.
 3. It needs the home radio station powered and a fee of 2 materials and 1 fuel from the stockpile.
 
@@ -1295,18 +1295,18 @@ Weapons
   farther off. At home they never back out of the base: the step back (10, 6 or 3 m) always ends inside the home zone,
   on a floor with nothing in the way and out of every zombie's reach; with no such spot they shoot. A back-off that does
   not get them away - the zombie keeps pace, or several do - stops after about 1.5 seconds and they shoot instead, at
-  home and away. Cornered and reloading (or cornered for 3 seconds straight without one shot at the zombie), they
-  swing their melee weapon and stay on it until they have room again - never at a cop, an armed enemy or a zombie they
-  cannot swing at; if no swing lands in 2.5 seconds (a fence or bars in the way) the gun comes back and they leave that
-  rule alone for 10 seconds. A badly hurt member with nothing to heal with keeps her distance from 8 m. Away from home they back off as the NPC framework does.
-  "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
+  home and away. Cornered and reloading (or cornered for 3 seconds straight without one shot at the zombie), they swing
+  their melee weapon and stay on it until they have room again - never at a cop, an armed enemy or a zombie they cannot
+  swing at; if no swing lands in 2.5 seconds (a fence or bars in the way) the gun comes back and they leave that rule
+  alone for 10 seconds. A badly hurt member with nothing to heal with keeps her distance from 8 m (section 4). Away from
+  home they back off as the NPC framework does. "BackOffHome" and the other "BackOff..." settings (section 20) tune it.
 - Team strength (your members): each one weighs her side - her Fighting stars, health and weapon, the other members near
   her, and you (you count double, but only while you are fighting: you hit a zombie near her in the last 5 seconds - a
   kill counts too; a zombie that is only after you does not) - against the awake enemies within 15 m (during a horde at
   the base, the whole defended area). The fight is matched when her side is at least as strong as the enemies (a healthy
   member alone against one walker is; alone against a feral, or two members against four walkers, is not). Once matched
-  it stays matched until her side drops below 80% of the enemies; once outmatched it takes two counts in a row (about
-  2 seconds) to be matched again.
+  it stays matched until her side drops below 80% of the enemies; once outmatched it takes two counts in a row (about 2
+  seconds) to be matched again.
 - One posture per member decides her weapon and her moves, and her weapon changes at most once every 5 seconds:
   - Melee: a matched fight, at least 60% health (melee again from 70%), a zombie she can swing at, not swarmed. She
     fights with her melee weapon and never backs away; holding her gun she shoots until the zombie is within 4 m, then
@@ -1319,9 +1319,9 @@ Weapons
   - Hold (on watch, or a Stay order): she keeps her post and her gun. Shelter: badly hurt (section 4).
   - A Cowardly member hangs back with her gun and runs only from a fight going badly (with no gun she runs, as before).
     Ordering her gun (the weapon menu, or "use your ..." by voice) keeps her on it until you order her melee weapon;
-    ordering her melee weapon keeps her on that. Followers count too, away from home.
-  "TeamMelee" and the other "Team..." and "Posture..." settings (section 20) tune it; "sc team <name>" shows her count,
-  her posture and why, and her weapon's clock; "sc xnpc" counts every member's weapon changes.
+    ordering her melee weapon keeps her on that. Followers count too, away from home. "TeamMelee" and the other
+    "Team..." and "Posture..." settings (section 20) tune it; "sc team <name>" shows her count, her posture and why, and
+    her weapon's clock; "sc xnpc" counts every member's weapon changes.
 - Shooting skill aims the gun: they hit nearly every shot within 5 m per Shooting star (5 m at 1 star, 35 m at 7), fewer
   beyond, and aim at the chest.
 - They swing melee weapons as fast as the weapon allows, at the weapon's real reach.
@@ -1367,13 +1367,13 @@ Healing and armor
   member backs away from it (10, 6 or 3 m, inside the base at home, near you when she follows you) until nothing after
   her is within 4 m, then uses the item. With no room to back off, in her shelter room, on watch or told to stay, she
   uses it at once; as soon as the zombie keeps up with her (2 s without gaining 1 m) she uses it too, and after 6 s held
-  without getting clear, anyway ("HealBackOff", "MedicSafeDistance", "MedicMaxWait"). With "HealBackOff" false she keeps her weapon and fights instead, and uses it
-  only once the zombie is dead, gone or farther off - or after 6 s under a quarter of her health. Under half her health
-  she uses a first aid kit before a first aid bandage.
+  without getting clear, anyway ("HealBackOff", "MedicSafeDistance", "MedicMaxWait"). With "HealBackOff" false she keeps
+  her weapon and fights instead, and uses it only once the zombie is dead, gone or farther off - or after 6 s under a
+  quarter of her health. Under half her health she uses a first aid kit before a first aid bandage.
 - They recover slowly out of combat. While nothing threatens her a member regains 0.2 health a second, up to 60% of her
   health; above that only medical items heal ("RegenOutOfCombat" and the "Regen..." settings). Only a threat to her
-  holds it: a zombie within 30 m that is after her or can see her, or any zombie within 12 m - so it also helps in a lull,
-  with zombies behind walls or chasing someone else farther off. Raiders, enclave people and strangers don't.
+  holds it: a zombie within 30 m that is after her or can see her, or any zombie within 12 m - so it also helps in a
+  lull, with zombies behind walls or chasing someone else farther off. Raiders, enclave people and strangers don't.
 - Their armor protects them at half the rating it would give you. It does not break.
 
 Looks
@@ -1503,8 +1503,8 @@ The round of drinks (section 4): its cost, effect and status, and Pour a round.
   now and then; rare raider drop
 - Watch Post (any shape) - What it is: A post for a guard on watch; How to get it: Backpack: 10 wood, 4 nails
 - Guard Tower - What it is: Kit that puts up a watch tower with a Watch Post; How to get it: Backpack: 782 wood, 4 nails
-- Outpost Flag - What it is: A land claim that becomes an outpost when placed in a cleared building away from home; How
-  to get it: Backpack: 5 small stones, 5 cloth, 5 scrap iron
+- Outpost Claim Block - What it is: A land claim that becomes an outpost when placed in a cleared building away from
+  home; How to get it: Backpack: 5 small stones, 5 cloth, 5 scrap iron
 - Small / Medium / Large bundles (food, water, medical, ammo, materials, fuel, luxury) - What it is: 1 / 2 / 3 stockpile
   units; open one for an assortment of goods; How to get it: Packing station, loot, air drops, trader quest rewards,
   allied supply drops
@@ -1595,8 +1595,8 @@ Supply runs and radio
 - MaxRunners = 3: Most runners out at once
 - RunMinDist / RunMaxDist = 150 / 700: How far runners go (meters)
 - RunSiteHours = 6: Game hours spent searching the site
-- RunHomeBelowHealth = 0.35: A runner this hurt (share of her max health) with nothing to heal with gives the job up
-  and comes home (0: never)
+- RunHomeBelowHealth = 0.35: A runner this hurt (share of her max health) with nothing to heal with gives the job up and
+  comes home (0: never)
 - RunYieldBase / RunRiskBase = 2 / 0.15: Base haul in units, and base risk
 - RadioOnlyAirdrops = true: Air drops only come when the radio requests them (false: vanilla's scheduled drops)
 - RadioCallDays = 2: Days between calls for survivors
@@ -1660,17 +1660,17 @@ NPCs and voices
 - XnpcResupply / XnpcResupplyBelow = true / 10: Stockpile refills at home and outposts, below this many rounds
 - MedsResupply = true: Members restock their own medical supplies from the stockpile, 1 medical at a time; false: you
   manage them by hand
-- MedsResupplyBelow / MedsResupplyRunBelow = 1 / 2: Restock at home below this many first aid bandages and kits; before a
-  run, below the second (0: never)
+- MedsResupplyBelow / MedsResupplyRunBelow = 1 / 2: Restock at home below this many first aid bandages and kits; before
+  a run, below the second (0: never)
 - MedsResupplyMix = medicalFirstAidKit:1, medicalFirstAidBandage:2, medicalBandage:2: What 1 medical tops her up to (she
   gets what she lacks of each)
-- MedsResupplyCooldownHours = 24: In-game hours between two restocks of one member at home (saved; a restock before a run
-  ignores it)
+- MedsResupplyCooldownHours = 24: In-game hours between two restocks of one member at home (saved; a restock before a
+  run ignores it)
 - MedsResupplyKeepForInjured = true: Never take the medical units tonight's injured need
 - MedsResupplyEmergencyBelow = 0.5: At home, a member with no first aid bandage or kit under this share of her health is
   restocked even inside the cooldown (0: never)
-- MedsResupplyEmergencyCooldownHours = 1: An emergency restock needs this many in-game hours since her last restock (0: no
-  limit)
+- MedsResupplyEmergencyCooldownHours = 1: An emergency restock needs this many in-game hours since her last restock (0:
+  no limit)
 - MedicSafeDistance / MedicMaxWait = 3 / 6: No bandaging while an enemy after her is within this many meters (0: off);
   she backs off first and, if that does not get her clear in the second (seconds), bandages anyway
 - HealBackOff = true: A member held from bandaging backs off, then bandages; false: she fights on and bandages after the
@@ -1678,8 +1678,8 @@ NPCs and voices
 - RegenOutOfCombat = true: Members regain health slowly with no enemy near; false: only items heal
 - RegenRatePerSecond / RegenCapShare / RegenEnemyRadius = 0.2 / 0.6 / 30: Health per second, the share of her health it
   stops at, and how far (meters) an awake enemy that is after her or sees her holds it
-- RegenNearRadius = 12: Any awake enemy this close (meters) holds it too, after her or not; 0: only the ones after her or
-  seeing her
+- RegenNearRadius = 12: Any awake enemy this close (meters) holds it too, after her or not; 0: only the ones after her
+  or seeing her
 - ShootingSkill = true: Shooting stars decide NPC accuracy
 - Overwhelmed = true: NPCs keep shooting when several enemies are on them
 - TeamMelee = true: Members fight with their melee weapon in a fight their side can win (section 15); false: never -
@@ -1691,17 +1691,17 @@ NPCs and voices
   from the second
 - TeamSwapHoldSeconds = 5: After any change of weapon, no other change for this many seconds (unless she cannot swing at
   the zombie)
-- PostureDwellSeconds = 5: A switch between melee and kite waits this long (a cop or a zombie she cannot reach: at
-  once)
+- PostureDwellSeconds = 5: A switch between melee and kite waits this long (a cop or a zombie she cannot reach: at once)
 - PostureMeleeDist = 4: In a matched fight a member holding her gun shoots until the zombie is this close (meters), then
   switches to melee once
-- InvestigateIntruders = true: A zombie inside the base that is after nobody gets residents sent to it; false: left alone
+- InvestigateIntruders = true: A zombie inside the base that is after nobody gets residents sent to it; false: left
+  alone
 - InvestigateResponders / InvestigateRadius = 2 / 0: How many residents go to each one, and from how far (meters; 0:
   anywhere in the home zone)
 - InvestigateEnterMargin = 0: How far outside the home zone (meters) an idle zombie still counts as inside; 0: inside
   only
-- InvestigateHeight = 6: An idle zombie counts only within this many meters below the lowest and above the highest of the
-  claim block and the residents' posts
+- InvestigateHeight = 6: An idle zombie counts only within this many meters below the lowest and above the highest of
+  the claim block and the residents' posts
 - TeamPlayerWeight = 2: How much you count for your side while you fight (a 1-star member counts 1)
 - TeamPlayerFightingSeconds = 5: You count only for this many seconds after you hit a zombie near the member (a kill
   too); standing by, or only targeted, you count 0
