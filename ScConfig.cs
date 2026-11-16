@@ -1045,8 +1045,19 @@ namespace SurvivorCommunity
         public static float MedsResupplyEmergencyCooldownHours = 1f;
         /// <summary>A member starts no medical use (a heal or a bleed) while an enemy that is after her is within this many meters (0: off).</summary>
         public static float MedicSafeDistance = 3f;
-        /// <summary>...unless she has waited at least this many seconds and is under 25% health: then she uses it anyway.</summary>
+        /// <summary>
+        /// ...unless she has waited at least this many seconds and is under 25% health: then she uses it anyway. Round k2b, with
+        /// HealBackOff: once she has backed off this long without getting clear (a fast zombie keeps up), she uses it anyway, at
+        /// any health.
+        /// </summary>
         public static float MedicMaxWait = 6f;
+        /// <summary>
+        /// Round k2b (ScHealBackOff; the user, 2026-11-15: "They should back off and heal if they can for any situation"): a
+        /// member held from a medical use backs off until the enemy after her is beyond MedicSafeDistance + 1 m, then uses it;
+        /// with no room to back off, sheltering in her room, on watch or on a Stay order she uses it at once. false: round k2's
+        /// hold with its MedicMaxWait / 25% exception.
+        /// </summary>
+        public static bool HealBackOff = true;
         /// <summary>Members regain health slowly out of combat (no awake enemy within RegenEnemyRadius), up to RegenCapShare of their max.</summary>
         public static bool RegenOutOfCombat = true;
         /// <summary>Health per second (0-XNPCCore's own level regeneration, its Settings.xml Progression/HealthRegenPerSecond).</summary>
@@ -1365,6 +1376,8 @@ namespace SurvivorCommunity
             MedsResupplyEmergencyCooldownHours = 1f;
             MedicSafeDistance = 3f;
             MedicMaxWait = 6f;
+            HealBackOff = true;
+            ScHealBackOff.Reset();                 // round k2b: the per-world back-off-to-heal state
             RegenOutOfCombat = true;
             RegenRatePerSecond = 0.2f;
             RegenCapShare = 0.6f;
@@ -2480,6 +2493,7 @@ namespace SurvivorCommunity
                 ParseFloat(p, "MedsResupplyEmergencyCooldownHours", ref MedsResupplyEmergencyCooldownHours, 0f, 240f);
                 ParseFloat(p, "MedicSafeDistance", ref MedicSafeDistance, 0f, 10f);
                 ParseFloat(p, "MedicMaxWait", ref MedicMaxWait, 0f, 120f);
+                ParseBoolKey(p, "HealBackOff", ref HealBackOff);   // round k2b (ScHealBackOff)
                 ParseBoolKey(p, "RegenOutOfCombat", ref RegenOutOfCombat);
                 ParseFloat(p, "RegenRatePerSecond", ref RegenRatePerSecond, 0f, 5f);
                 ParseFloat(p, "RegenCapShare", ref RegenCapShare, 0f, 1f);
@@ -3109,9 +3123,13 @@ namespace SurvivorCommunity
         /// <summary>Round k2: the self-use and regeneration keys in one line (the load log, sc meds).</summary>
         public static string HealLine()
         {
-            string use = MedicSafeDistance > 0f
-                ? "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m (after " + F2(MedicMaxWait) + " s under 25% health she uses it anyway)"
-                : "medical use wherever she is (MedicSafeDistance 0)";
+            string use = MedicSafeDistance <= 0f
+                ? "medical use wherever she is (MedicSafeDistance 0)"
+                : HealBackOff
+                    ? "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m: she backs off until it is beyond "
+                      + F2(MedicSafeDistance + ScHealBackOff.ClearMargin) + " m, then uses it; with no room to back off, sheltering, on watch or told to stay, at once;"
+                      + " after " + F2(MedicMaxWait) + " s of backing off without getting clear, anyway (HealBackOff, round k2b)"
+                    : "no medical use while an enemy after her is within " + F2(MedicSafeDistance) + " m (after " + F2(MedicMaxWait) + " s under 25% health she uses it anyway)";
             string regen = RegenOutOfCombat && RegenRatePerSecond > 0f && RegenCapShare > 0f
                 ? "regeneration out of combat " + RegenRatePerSecond.ToString("0.###", CultureInfo.InvariantCulture) + " HP/s up to " + MedsPct(RegenCapShare)
                   + " with no awake enemy within " + F2(RegenEnemyRadius) + " m"

@@ -37,6 +37,106 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round k2b (2026-11-15): back off, then heal
+
+Why: the Fable review of round k2 found that its hold (no medical use while an enemy after her is within 3 m) left a
+melee member with no way to heal between 60% and 25%, and nothing moved her out of reach. Your decision: "They should
+back off and heal if they can for any situation."
+
+What it does now (members only; `HealBackOff`, default true):
+
+- **Back off, then heal.** While round k2 holds her from a medical use (a heal at or below 60%, or a bleed), she backs off
+  from the enemy that is after her - k1's steps (10, 6, 3 m, straight back or up to 75 degrees to either side, out of
+  every zombie's reach, nothing in the way) at a run: inside the base at home, within 20 m of you
+  (`StandOffFollowerLeash`) as a follower away from home, short steps elsewhere (a runner walks on after). Once nothing
+  after her is within 4 m (`MedicSafeDistance` + 1 m; the hold starts at 3 m and, once on, lets go at 4 m) she stops and
+  uses the item at once. Melee and gun holders alike;
+  her weapon is not swapped while she backs off.
+- **Heal at once** when she cannot back off: no room at all (cornered), sheltering in her room (round rt1), on watch, or
+  told to stay. And when 6 s (`MedicMaxWait`) of backing off did not get her clear (a fast zombie keeps up). At any
+  health: the old "under 25%" rule is gone for members.
+- **No flip:** a use starts the 12 s item cooldown (and a kit or bandage keeps "working" 15-90 s after), so she cannot
+  back off to heal again before that.
+- **`HealBackOff` false:** round k2 exactly - she fights on in reach, and after 6 s under 25% uses it anyway. A stand-in at
+  an outpost keeps round k2's rule either way.
+
+Setup: the new DLL with its `Config/utilityai.xml` (the new `ScHealBackOff` action, weight 8.3) and `Config/blocks.xml`
+(`HealBackOff` after `MedicMaxWait`). `DebugLogging` true for the verbose lines, `dm` for the AI overlay's Active Action.
+Health: `sc team <name> hurt <share>`. The counters: `sc meds` ("back off, then heal (round k2b): ... - counters: heal-*")
+and `sc xnpc`. Wait 15 s between steps after a first aid bandage (about 90 s after a kit): the item keeps working.
+
+**At load**
+
+- [ ] The log: "config: healing no medical use while an enemy after her is within 3 m: she backs off until it is beyond 4
+      m, then uses it; with no room to back off, sheltering, on watch or told to stay, at once; after 6 s of backing off
+      without getting clear, anyway (HealBackOff, round k2b); a first aid kit before a bandage under 50% health; ...".
+- [ ] `sc meds`: "back off, then heal (round k2b): on - 0 back-off(s) to heal, 0 got clear, 0 cornered (healed at once)
+      this session - counters: none yet".
+
+**1. A melee member against 2 walkers**
+
+- [ ] Gina with only a melee weapon (`sc loadout Gina <melee token> meleeonly`; `sc weapons` lists the tokens) and 2 first
+      aid bandages, at home in the yard. Spawn two `zombieBoe` beside her; once they are after her, `sc team Gina hurt
+      0.5`. Verbose: "Gina (id N) waits to use medicalFirstAidBandage at 75/150: zombieBoe (M) at 1.2 m is after her
+      (MedicSafeDistance 3 m) - she backs off to use it (round k2b)", then "Gina (id N) backs off from zombieBoe (M) at 1.2
+      m to heal: 6 m inside the base (round k2b)". `dm` shows `ScHealBackOff`; she runs. `heal-backoff` +1.
+- [ ] Once neither walker is within 4 m: "Gina (id N) is clear: nothing after her within 4 m - she uses her item now (round
+      k2b)", `heal-backoff-clear` +1, and within a second the bandage clip. Then she fights again. She never leaves the
+      zone + 8 m. No bandage while a walker is still between 3 and 4 m: once held, the hold lets go only at 4 m.
+- [ ] `sc meds Gina` during the back-off: "medical use: WAITING x s to use an item ...; BACKING OFF TO HEAL to x y z (6 m,
+      0 degrees, inside the base)" and "back off, then heal (round k2b): may back off now; held x s - ...". Afterwards:
+      "no wait; last back-off to heal N s ago: got clear, the item next".
+- [ ] No flip: for at least 12 s after the bandage (15 s while it still heals her) she does not back off to heal again,
+      whatever comes at her; `heal-backoff` goes up once per heal, not once a second.
+
+**2. A member with a gun**
+
+- [ ] Paul with a gun and 2 first aid bandages, the same setup at 0.5: the same lines with "he"/"his"/"him". While he backs
+      off his hand does not change (no "takes the ..." swap line; `x5-heal-backoff-no-swap` climbs in `sc xnpc`). After the
+      bandage he shoots again.
+
+**3. Cornered, and a zombie that keeps up**
+
+- [ ] Gina in the corner of a small room (walls behind her and to both sides), a walker in front of her and after her,
+      `sc team Gina hurt 0.5`: "Gina (id N) has no room to back off from zombieBoe (M) inside the base - she heals now (round
+      k2b)", `heal-now-cornered` +1, then "Gina (id N) uses medicalFirstAidBandage now with zombieBoe (M) at x m after her: no
+      room to back off inside the base (...) (round k2b)", and the bandage clip within a second. No 6 s wait, at any health.
+- [ ] A `zombieBoeFeral` after her in the open (it keeps up with her): after about 6 s "... uses ... now with ...: backing
+      off 6.x s did not get her clear (MedicMaxWait 6 s) (round k2b)", `heal-now-timeout` +1.
+
+**4. A sheltering member, a guard, a Stay order**
+
+- [ ] Gina sheltering (round rt1: her heal items out of pack and bag, `MedsResupply` false, `sc team Gina hurt 0.3`, a
+      zombie after her: "retreats - SHELTER inside"), in her room. A zombie follows her in and is after her within 3 m;
+      hand her a first aid bandage (panel): "Gina (id N) uses medicalFirstAidBandage at once with zombieBoe (M) at x m after
+      her: sheltering in her room (round rt1: that is where she should be) (round k2b)", `heal-now-shelter` +1. `dm` never
+      shows `ScHealBackOff`.
+- [ ] A guard on watch, or a member told to stay, held the same way: "... at once ...: on watch (a guard holds her post)" /
+      "...: told to stay", `heal-now-post` +1, and she stays where she is.
+
+**5. Away from home**
+
+- [ ] Gina following you away from home, held: "... to heal: 6 m within 20 m of you"; she never ends farther than 20 m from
+      you. On a physical run (`sc run`): "... on her run, short steps", then she walks on along her route.
+
+**6. `HealBackOff` false**
+
+- [ ] `HealBackOff` false (restart): round k2's hold. "... - she fights on"; `dm` never shows `ScHealBackOff`; under 25%
+      after 6 s she uses it anyway ("... (under 25% after MedicMaxWait 6 s: a heal now beats none)",
+      `meds-use-desperate`); above 25% she never uses it while a zombie after her is within 3 m. `sc meds`: "back off, then
+      heal (round k2b): OFF (...)"; the load log's healing line says "(after 6 s under 25% health she uses it anyway)".
+- [ ] A stand-in at an outpost keeps that rule even with `HealBackOff` true.
+
+**Counters**
+
+- [ ] `heal-backoff`, `heal-backoff-clear`, `heal-now-cornered`, `heal-now-timeout`, `heal-now-shelter`, `heal-now-post`
+      (also `heal-backoff-unreached` for a point she had no path to) in `sc meds` and in `sc xnpc`'s hook list;
+      `x5-heal-backoff-no-swap` in `sc xnpc`'s only. `sc xnpc` also prints "back off, then heal (round k2b): ...". `sc xnpc
+      <name>`'s medic line shows her back-off to heal during a wait.
+
+Round k2's section below is updated for this round: its step 2 ("No bandaging with a zombie within 3 m") now describes
+`HealBackOff` false.
+
 ## Round k2 (2026-11-15): members heal sensibly
 
 Why: in the play session where Gina and Paul died at home (`research/combat/SC_VS_NPCCORE.md`, root causes 2 and 5),
@@ -54,7 +154,8 @@ you approved (2026-11-15), section 4.4's k2:
   open window, a use in progress and an empty stockpile still stop it.
 - **No self-use in melee reach:** a member (or a stand-in) starts no medical use - a heal or a bleed - while an enemy that
   is after her is within 3 m (`MedicSafeDistance`). She keeps her weapon and fights. After 6 s of waiting (`MedicMaxWait`)
-  and under 25% health she uses it anyway. The test is distance only: a zombie after her behind bars within 3 m holds her
+  and under 25% health she uses it anyway. (Round k2b: a member now backs off and heals instead - see above; this 6 s /
+  25% rule is left for `HealBackOff` false and for a stand-in.) The test is distance only: a zombie after her behind bars within 3 m holds her
   too. A wait whose last refusal is more than 3 s old (an unload, a knockdown, a break in the fight) is dropped, and the
   next one starts a fresh 6 s.
 - **Kit first when low:** under 50% health a member takes a first aid kit before a first aid bandage.
@@ -80,7 +181,8 @@ kit, wait about 90 s before the next step (15 s after a first aid bandage): the 
 - [ ] The log at load: "config: medical restock on: ... ; an emergency (no heal item, under 50% health) ignores the
       cooldown, at most every 1 in-game h" and "config: healing no medical use while an enemy after her is within 3 m
       (after 6 s under 25% health she uses it anyway); a first aid kit before a bandage under 50% health; regeneration
-      out of combat 0.2 HP/s up to 60% with no awake enemy within 30 m".
+      out of combat 0.2 HP/s up to 60% with no awake enemy within 30 m" (round k2b: with `HealBackOff` true the first part
+      reads as in the Round k2b section above).
 - [ ] `sc meds`: a "healing (round k2): ..." line, and each member line ends with "health N/M, regen ...".
 
 **1. Emergency restock (a hurt member, no meds, Meds in the stockpile)**
@@ -107,6 +209,10 @@ kit, wait about 90 s before the next step (15 s after a first aid bandage): the 
 - [ ] Away from home (following you outside the zone) at 0.45 with no meds: no restock ("he is away from home").
 
 **2. No bandaging with a zombie within 3 m**
+
+Round k2b: these steps are round k2's hold, which a member now has only with `HealBackOff` false (restart) - with the
+default true she backs off and heals (the Round k2b section above). The verbose "waits to use" line then ends "- she
+backs off to use it (round k2b)".
 
 - [ ] Gina with first aid bandages, at home. Spawn a `zombieBoe` beside her and let it go for her; then `sc team Gina hurt
       0.55`. Verbose: "Gina (id N) waits to use medicalFirstAidBandage at 82/150: zombieBoe (M) at 1.4 m is after her

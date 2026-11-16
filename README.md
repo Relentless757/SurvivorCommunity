@@ -1272,10 +1272,13 @@ Weapons**. They keep it in place of their weapon of that kind.
   still healing her and under half her health is restocked at once, even if she was restocked earlier that day
   (`MedsResupplyEmergencyBelow`), at most once an in-game hour (`MedsResupplyEmergencyCooldownHours`). The other rules
   above still hold: a medical unit to spare, room in her pack.
-- **They don't bandage with a zombie on them.** While an enemy that is after her is within 3 m, a member keeps her weapon
-  and fights; she bandages once it is dead, gone or farther off. Only when she has waited 6 s and is under a quarter of
-  her health does she use it anyway (`MedicSafeDistance`, `MedicMaxWait`). Under half her health she uses a first aid
-  kit before a first aid bandage.
+- **They don't bandage with a zombie on them - they back off first.** While an enemy that is after her is within 3 m, a
+  member backs away from it (10, 6 or 3 m, inside the base at home, near you when she follows you) until nothing after
+  her is within 4 m, then uses the item. With no room to back off, in her shelter room, on watch or told to stay, she
+  uses it at once; and if backing off for 6 s does not shake the zombie off, she uses it anyway (`HealBackOff`,
+  `MedicSafeDistance`, `MedicMaxWait`). With `HealBackOff` false she keeps her weapon and fights instead, and uses it
+  only once the zombie is dead, gone or farther off - or after 6 s under a quarter of her health. Under half her health
+  she uses a first aid kit before a first aid bandage.
 - **They recover slowly out of combat.** With no awake enemy within 30 m a member regains 0.2 health a second, up to 60%
   of her health; above that only medical items heal (`RegenOutOfCombat` and the `Regen...` settings). Raiders, enclave
   people and strangers don't.
@@ -1552,7 +1555,8 @@ These are the ones you are most likely to change. The file has many more.
 | `MedsResupplyKeepForInjured` | true | Never take the medical units tonight's injured need |
 | `MedsResupplyEmergencyBelow` | 0.5 | At home, a member with no first aid bandage or kit under this share of her health is restocked even inside the cooldown (0: never) |
 | `MedsResupplyEmergencyCooldownHours` | 1 | An emergency restock needs this many in-game hours since her last restock (0: no limit) |
-| `MedicSafeDistance` / `MedicMaxWait` | 3 / 6 | No bandaging while an enemy after her is within this many meters (0: off); under 25% health she does it anyway after the second, in seconds |
+| `MedicSafeDistance` / `MedicMaxWait` | 3 / 6 | No bandaging while an enemy after her is within this many meters (0: off); she backs off first and, if that does not get her clear in the second (seconds), bandages anyway |
+| `HealBackOff` | true | A member held from bandaging backs off, then bandages; false: she fights on and bandages after the wait only under 25% health |
 | `RegenOutOfCombat` | true | Members regain health slowly with no enemy near; false: only items heal |
 | `RegenRatePerSecond` / `RegenCapShare` / `RegenEnemyRadius` | 0.2 / 0.6 / 30 | Health per second, the share of her health it stops at, and how far (meters) an awake enemy holds it |
 | `ShootingSkill` | true | Shooting stars decide NPC accuracy |

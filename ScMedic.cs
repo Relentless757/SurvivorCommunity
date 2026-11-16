@@ -64,6 +64,12 @@ namespace SurvivorCommunity
     /// health, she uses it anyway (WaitingToHeal reads the wait). (3) Under KitFirstBelow she takes a first aid kit before a first aid bandage. (4) A member
     /// regains RegenRatePerSecond health out of combat, up to RegenCapShare of her max (RegenTick, from ScAmmo.Tick's 5 s
     /// member loop: her own loaded, visible body on the host only). Raiders and strangers heal as before.
+    ///
+    /// Round k2b (2026-11-15; the user: "They should back off and heal if they can for any situation"): a member held by (2)
+    /// backs off until the enemy after her is beyond MedicSafeDistance + 1 m and then uses the item (ScHealBackOff); with no
+    /// room to back off, sheltering in her room, on watch or on a Stay order she uses it at once, and after MedicMaxWait of
+    /// backing off without getting clear as well. This replaces (2)'s MedicMaxWait / DesperateBelow exception for members;
+    /// a stand-in, and every member with HealBackOff false, keep it.
     /// </summary>
     public static class ScMedic
     {
@@ -94,7 +100,11 @@ namespace SurvivorCommunity
         private const string StockedCvar = "sc_medsStocked";
         /// <summary>Round k2: under this share of her max health a member takes a first aid kit before a first aid bandage, whatever she is missing.</summary>
         private const float KitFirstBelow = 0.5f;
-        /// <summary>Round k2: the MedicMaxWait exception (she uses it with the enemy still in reach) needs her under this share of her max health.</summary>
+        /// <summary>
+        /// Round k2: the MedicMaxWait exception (she uses it with the enemy still in reach) needs her under this share of her max
+        /// health. Round k2b: only for a stand-in and with HealBackOff false - a member backs off instead (ScHealBackOff), and her
+        /// own MedicMaxWait exception has no health floor.
+        /// </summary>
         private const float DesperateBelow = 0.25f;
 
         private static readonly Dictionary<int, float> nextCheck = new Dictionary<int, float>();
@@ -178,6 +188,15 @@ namespace SurvivorCommunity
         {
             heldSince.Remove(id);
             heldLast.Remove(id);
+        }
+
+        /// <summary>
+        /// Round k2b (ScHealBackOff's task, when she got clear or has no room to back off): her next medical check runs on the next
+        /// frame instead of up to CheckEvery later, so the item goes into her hand before the enemy closes in again.
+        /// </summary>
+        internal static void CheckSoon(int id)
+        {
+            nextCheck.Remove(id);
         }
 
         /// <summary>
@@ -425,13 +444,19 @@ namespace SurvivorCommunity
         /// (its heal sequence); SC's members do not roll (round k2's report: not built).
         /// A wait whose latest refusal is more than WaitStaleSeconds old is dropped first (Fable review 5): a reload, a
         /// knockdown or a break in the fight starts a fresh MedicMaxWait rather than counting the old one.
+        /// Round k2b (HealBackOff; the user: "They should back off and heal if they can for any situation"), for a member - a
+        /// stand-in keeps the rule above: held, she backs off (ScHealBackOff's action, 8.3, reads her wait) until nothing after
+        /// her is within MedicSafeDistance + 1 m, and the next check (ScHealBackOff asks for it at once) finds nothing in reach
+        /// and uses the item. While she is held the hold's own reach is that MedicSafeDistance + 1 m as well (hysteresis: it
+        /// starts at 3 m and lets go at 4 m, so the use never starts a step outside the hold). She uses it NOW, at any health: when she cannot back off (sheltering in her room, on watch, on a
+        /// Stay order: heal-now-shelter / heal-now-post), when the back-off found no room for this wait (its heal-now verdict;
+        /// heal-now-cornered, counted by the task), or once the wait has run MedicMaxWait without her getting clear
+        /// (heal-now-timeout). DesperateBelow plays no part for her.
         /// </summary>
         private static bool HeldByReach(EntityAlive e, string pick, int max, float now)
         {
             float r = ScConfig.MedicSafeDistance;
             if (r <= 0f) { ClearWait(e.entityId); return false; }
-            float dist;
-            EntityAlive t = NearestEnemy(e, r, true, out dist);
             float since;
             bool waiting = heldSince.TryGetValue(e.entityId, out since);
             if (waiting && !Fresh(e.entityId, now))
@@ -439,27 +464,61 @@ namespace SurvivorCommunity
                 ClearWait(e.entityId);
                 waiting = false;
             }
+            // round k2b (HealBackOff): a member - not a stand-in - backs off and then heals (ScHealBackOff). Once held she stays
+            // held until nothing after her is within MedicSafeDistance + ClearMargin (the back-off's own clear test): the use
+            // never starts with the zombie a step outside the hold, and the hold cannot flip at its edge
+            Member bm = ScConfig.HealBackOff && ScRegistry.Loaded ? ScRegistry.GetMember(e.entityId) : null;
+            float reach = bm != null && waiting ? r + ScHealBackOff.ClearMargin : r;
+            float dist;
+            EntityAlive t = NearestEnemy(e, reach, true, out dist);
             if (t == null)
             {
                 if (waiting)
                 {
                     ClearWait(e.entityId);
-                    ScLog.Verbose(BodyName(e) + ": nothing after " + HerObj(e) + " within " + F1(r) + " m any more - uses " + pick
+                    ScLog.Verbose(BodyName(e) + ": nothing after " + HerObj(e) + " within " + F1(reach) + " m any more - uses " + pick
                                   + " after waiting " + F1(now - since) + " s");
                 }
                 return false;
             }
             string who = ScCommunity.ClassName(t) + " (" + t.entityId + ") at " + F1(dist) + " m";
+            // round k2b: where she cannot back off (sheltering in her room, on watch, on a Stay order) she uses it at once
+            string why;
+            bool shelter;
+            if (bm != null && !ScHealBackOff.MayBackOff(e, bm, out why, out shelter))
+            {
+                ClearWait(e.entityId);
+                Patches_Xnpc.Count(shelter ? "heal-now-shelter" : "heal-now-post");
+                ScLog.Out(BodyName(e) + " uses " + pick + " at once with " + who + " after " + HerObj(e) + ": " + why + " (round k2b)");
+                return false;
+            }
             if (!waiting)
             {
                 heldSince[e.entityId] = now;
                 since = now;
                 Patches_Xnpc.Count("meds-use-held-reach");
                 ScLog.Verbose(BodyName(e) + " waits to use " + pick + " at " + e.Health + "/" + max + ": " + who + " is after " + HerObj(e)
-                              + " (MedicSafeDistance " + F1(r) + " m) - " + She(e) + " fights on");
+                              + " (MedicSafeDistance " + F1(r) + " m) - " + (bm != null ? She(e) + " backs off to use it (round k2b)" : She(e) + " fights on"));
             }
             heldLast[e.entityId] = now;
             float waited = now - since;
+            if (bm != null)
+            {
+                // round k2b: the back-off found no room (its task's heal-now verdict for this very wait), or it has run
+                // MedicMaxWait without getting her clear (a fast zombie keeps up): she uses it now, at any health
+                bool timeout = false;
+                if (!ScHealBackOff.HealNowFor(e, since, out why))
+                {
+                    if (waited < ScConfig.MedicMaxWait) return true;    // held: ScHealBackOff (8.3) walks her clear
+                    timeout = true;
+                    why = "backing off " + F1(waited) + " s did not get " + HerObj(e) + " clear (MedicMaxWait " + F1(ScConfig.MedicMaxWait) + " s)";
+                }
+                ClearWait(e.entityId);
+                if (timeout) Patches_Xnpc.Count("heal-now-timeout");
+                ScLog.Out(BodyName(e) + " uses " + pick + " now with " + who + " after " + HerObj(e) + ": " + why + " (round k2b)");
+                return false;
+            }
+            // round k2's rule, kept for a stand-in and with HealBackOff false
             if (e.Health < max * DesperateBelow && waited >= ScConfig.MedicMaxWait)
             {
                 ClearWait(e.entityId);
@@ -1027,16 +1086,18 @@ namespace SurvivorCommunity
             if (m != null) return Male(m);
             return e != null && ScLooks.ClassIsMale(ScCommunity.ClassName(e));
         }
-        private static string HerObj(EntityAlive e) { return Male(e) ? "him" : "her"; }
-        private static string She(EntityAlive e) { return Male(e) ? "he" : "she"; }
-        private static string BodyName(EntityAlive e) { return ScCommunity.DisplayName(e) + " (id " + e.entityId + ")"; }
+        internal static string HerObj(EntityAlive e) { return Male(e) ? "him" : "her"; }
+        internal static string She(EntityAlive e) { return Male(e) ? "he" : "she"; }
+        /// <summary>Round k2b: the possessive, for ScHealBackOff's lines.</summary>
+        internal static string Her(EntityAlive e) { return Male(e) ? "his" : "her"; }
+        internal static string BodyName(EntityAlive e) { return ScCommunity.DisplayName(e) + " (id " + e.entityId + ")"; }
         private static string F1(float f) { return f.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture); }
 
         /// <summary>
         /// Round k2: the nearest awake, living enemy of hers (SCore's IsEnemy, not an inert one) within r - with afterHer, only
         /// one whose attack or revenge target she is. Null when none (dist -1). Main thread only (the shared scratch list).
         /// </summary>
-        private static EntityAlive NearestEnemy(EntityAlive e, float r, bool afterHer, out float dist)
+        internal static EntityAlive NearestEnemy(EntityAlive e, float r, bool afterHer, out float dist)
         {
             dist = -1f;
             World w = e != null ? e.world : null;
@@ -1554,8 +1615,9 @@ namespace SurvivorCommunity
         private static string WaitText(EntityAlive e)
         {
             float waited;
-            if (!WaitingToHeal(e, out waited)) return "no wait";
-            return "WAITING " + F1(waited) + " s to use an item: an enemy after " + HerObj(e) + " within " + F1(ScConfig.MedicSafeDistance) + " m";
+            if (!WaitingToHeal(e, out waited)) return "no wait" + ScHealBackOff.LastText(e);
+            return "WAITING " + F1(waited) + " s to use an item: an enemy after " + HerObj(e) + " within " + F1(ScConfig.MedicSafeDistance) + " m"
+                   + "; " + ScHealBackOff.Text(e);
         }
 
         /// <summary>Her last restock and the next one at home, for sc xnpc's medic line and sc meds.</summary>
@@ -1610,6 +1672,7 @@ namespace SurvivorCommunity
                        + (ScConfig.MedsResupplyKeepForInjured ? "" : " (MedsResupplyKeepForInjured false: none kept)")
                        + " - " + Math.Max(0, cm.Get(Resource.Meds) - reserve) + " to spare; restocks since the last rollover: " + cm.MedsRestocked);
                 output("[SC] counters (since the world loaded; at home each outcome once per episode): " + Patches_Xnpc.ReportPrefix("meds-"));
+                output("[SC] back off, then heal (round k2b): " + ScHealBackOff.Report() + " - counters: " + Patches_Xnpc.ReportPrefix("heal-"));
                 int shown = 0, away = 0;
                 foreach (Member m in ScRegistry.Members.Values)
                 {
@@ -1680,6 +1743,7 @@ namespace SurvivorCommunity
             // round k2: her health, the self-use rule and the regeneration
             output("[SC]   health " + body.Health + "/" + body.GetMaxHealth() + "; medical use: " + WaitText(body)
                    + (ScConfig.MedicSafeDistance > 0f ? " (none while an enemy after " + HerObj(mm) + " is within " + F1(ScConfig.MedicSafeDistance) + " m)" : " (MedicSafeDistance 0: no wait)"));
+            output("[SC]   back off, then heal (round k2b): " + ScHealBackOff.Describe(body, mm));
             output("[SC]   regeneration (k2): " + RegenText(body) + RegenGainedText(body));
         }
 

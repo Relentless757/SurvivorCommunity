@@ -214,12 +214,16 @@ sc meds [READ]
 Members' medical restock (round md1): the setting and its keys ("MedsResupply..."), the mix as this world resolved it,
 the stockpile's Meds with the reserve kept for tonight's injured and what is left to spare, today's restocks, the
 "meds-*" counters, and one line per loaded member: her heal items (first aid kits plus first aid bandages, window and
-bag), cloth bandages, her last restock and the next one allowed at home, and DUE or why not.
+bag), cloth bandages, her last restock and the next one allowed at home, and DUE or why not. Rounds k2 and k2b add the
+healing line ("MedicSafeDistance", "MedicMaxWait", "HealBackOff", "Regen..."), each member's health and regeneration,
+and the back-off-to-heal totals with the "heal-*" counters.
 
 sc meds <id|name> [READ]
 ~~~~~~~~~~~~~~~~~~~~~~~~
 One member's every check: what she carries, the thresholds, the cooldown with the world times, whether her window or a
-trade is open, the top-up she would get, the stockpile and its reserve, and the verdict at home and before a run.
+trade is open, the top-up she would get, the stockpile and its reserve, the verdict at home and before a run, her
+health with any wait to use an item, round k2b's back-off to heal (whether she may back off, BACKING OFF TO HEAL to a
+point, HEALS NOW and why, CLEAR, her last one), and her regeneration.
 Example: "sc meds Gina"
 
 sc meds <id|name> give [CHEAT]
@@ -229,7 +233,8 @@ its reserve, her open window and her pack still apply, and it starts her cooldow
 meds" and "sc xnpc"): "meds-restock", "meds-restock-run", "meds-restock-console", "meds-refused-empty",
 "meds-refused-reserve", "meds-refused-full", "meds-refused-nothing", "meds-refused-mix", "meds-held-window",
 "meds-held-use", "meds-cooldown", "meds-place-failed"; at home each outcome is counted once per episode, not at every
-5 s check. Example: "sc meds Gina give"
+5 s check. Round k2b adds "heal-backoff", "heal-backoff-clear", "heal-backoff-unreached", "heal-now-cornered",
+"heal-now-timeout", "heal-now-shelter", "heal-now-post" and "x5-heal-backoff-no-swap". Example: "sc meds Gina give"
 
 ("sc morale", "sc drinks" and "sc day" are in section 1.)
 

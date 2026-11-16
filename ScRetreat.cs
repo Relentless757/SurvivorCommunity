@@ -39,7 +39,11 @@ namespace SurvivorCommunity
     public static class ScRetreat
     {
         public enum Mode { None = 0, Shelter = 1, StandOff = 2 }
-        public enum Region { None = 0, Home = 1, Leader = 2 }
+        /// <summary>
+        /// Where a retreat may act: at home, or away with her leader. Free (round k2b) is never a retreat's region: it only tells
+        /// ScBackOff.Pick that a back-off to heal away from home and her leader has no bound but its own short steps.
+        /// </summary>
+        public enum Region { None = 0, Home = 1, Leader = 2, Free = 3 }
 
         /// <summary>The threat scan, per body (staggered by id).</summary>
         private const float ScanSeconds = 0.5f;

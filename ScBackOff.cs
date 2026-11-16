@@ -160,7 +160,8 @@ namespace SurvivorCommunity
         /// <summary>
         /// One step: walk s along d from me. Valid (round k1): a floor within MaxDy of her level (yRef); inside her bound - at home
         /// (round hl1's AtHome) for region Home, within StandOffFollowerLeash of leader for region Leader (rt1's follower away
-        /// from home); standable and not on her unreachable list; out of reach (BackupKeepDistanceMax, XZ) of every enemy
+        /// from home), no bound for region Free (round k2b: a back-off to heal away from home, its steps short); standable and not
+        /// on her unreachable list; out of reach (BackupKeepDistanceMax, XZ) of every enemy
         /// gathered, the threat included; the straight walk passing no other enemy ahead of her within PassClear; and no block in that walk
         /// chest high (ScShelter.ClearLine with glass and bars: she backs into the room she is in, never through a shut door).
         /// The enemies are Gather's list (index 0 the threat). why: the first rule it fails.
@@ -182,7 +183,7 @@ namespace SurvivorCommunity
                     return false;
                 }
             }
-            else if (!UAI.UAIConsiderationScNotHomeMember.AtHome(pc)) { why = "outside the home zone + margin"; return false; }
+            else if (region != ScRetreat.Region.Free && !UAI.UAIConsiderationScNotHomeMember.AtHome(pc)) { why = "outside the home zone + margin"; return false; }
             Vector3i cell = new Vector3i(x, y, z);
             string gw;
             if (ScStuck.Unreachable(self.entityId, cell) || !ScCommunity.GoodPost(w, cell, false, out gw)) { why = "not standable"; return false; }

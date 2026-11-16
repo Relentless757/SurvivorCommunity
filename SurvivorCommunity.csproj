@@ -185,6 +185,8 @@
     <Compile Include="ScConfigRetreat.cs" />
     <!-- round k1: 0-XNPCCore's back-offs work again for members, kept inside the base (its keys are in ScConfigRetreat.cs) -->
     <Compile Include="ScBackOff.cs" />
+    <!-- round k2b: back off, then heal - a member held from a medical use walks clear first (its key is in ScConfig.cs, with k2's) -->
+    <Compile Include="ScHealBackOff.cs" />
     <Compile Include="XUiC_ScSnapshot.cs" />
     <Compile Include="ScVoice.cs" />
     <Compile Include="ScVoiceLines.cs" />

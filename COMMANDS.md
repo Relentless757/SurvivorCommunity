@@ -128,7 +128,9 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 - **`sc meds <id|name>`** — one member's every check: what she carries, the thresholds and whether an emergency
   restock applies now, the cooldown with the world times, whether her window or a trade is open, the top-up she would
   get, the stockpile and its reserve, the verdict at home and before a run, her health with any wait to use an item (an
-  enemy after her within `MedicSafeDistance`), and her regeneration with the health it has given her. Read-only.
+  enemy after her within `MedicSafeDistance`), round k2b's back-off to heal (whether she may back off now, BACKING OFF TO
+  HEAL to a point, HEALS NOW and why, CLEAR, her last one), and her regeneration with the health it has given her.
+  Read-only.
 - **`sc meds <id|name> give`** *(a test shortcut)* — restocks her now for 1 Meds, ignoring the cooldown and the
   thresholds (and `MedsResupply`); the stockpile, its reserve, her open window and her pack still apply. It starts her
   cooldown like any restock.
@@ -141,8 +143,15 @@ Most commands take `<id|name>` — a member's entity id **or** their name (`sc a
 - Round k2's counters: `meds-restock-emergency` (a restock at home that ignored the cooldown: no heal item, nothing
   still healing her, under `MedsResupplyEmergencyBelow`), `meds-emergency-cooldown` (such an emergency waited for
   `MedsResupplyEmergencyCooldownHours`; once per episode), `meds-use-held-reach` (a member put off a medical use because an enemy after her was
-  within `MedicSafeDistance`; once per wait), `meds-use-desperate` (she used it anyway after `MedicMaxWait` under 25%),
+  within `MedicSafeDistance`; once per wait), `meds-use-desperate` (she used it anyway after `MedicMaxWait` under 25%:
+  `HealBackOff` false, or a stand-in),
   `meds-regen-started` (a regeneration began), `meds-regen-capped` (one stopped at `RegenCapShare`).
+- Round k2b's counters (`sc meds`, also in `sc xnpc`): `heal-backoff` (she began backing off to heal; once per wait),
+  `heal-backoff-clear` (she got clear; then the item), `heal-backoff-unreached` (a point she could not reach, set aside
+  10 s), `heal-now-cornered` (no room to back off: at once), `heal-now-timeout` (`MedicMaxWait` of backing off did not
+  get her clear: anyway), `heal-now-shelter` (in her shelter room: at once), `heal-now-post` (on watch or told to stay:
+  at once); and in `sc xnpc` only, `x5-heal-backoff-no-swap` (a weapon swap held while she backs off). `sc xnpc` also
+  prints the back-off totals.
 
 ## Retreat *(round rt1)*
 

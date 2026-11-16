@@ -2446,6 +2446,7 @@ namespace SurvivorCommunity
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] team strength (round tm1): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false)") + "; " + ScTeam.Report());
             Output("[SC] back-offs (round k1): " + ScBackOff.Report());
+            Output("[SC] back off, then heal (round k2b): " + ScHealBackOff.Report() + " - counters heal-* in the hook list above");
             Output("[SC] melee: " + ScMelee.Report());
 #if SC_V34
             Output("[SC] melee-unreachable (0-XNPCCore): " + ScReach.Report());

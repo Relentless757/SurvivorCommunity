@@ -647,6 +647,8 @@ namespace SurvivorCommunity
         /// GunFirst -> CloseRange. MeleeFirst and GunFirst share one swap-hold clock (ScArms, TeamSwapHoldSeconds).
         /// Round rt1: the retreat (ScRetreat.Update, no swap) right after the team recount; GunFirst draws for a stand-off and
         /// CloseRange keeps her loaded gun up close, reading it.
+        /// Round k2b: while she backs off to heal (ScHealBackOff.Walking) the close-range tick stops after ReachTick - no
+        /// MeleeFirst, GunFirst or 0-XNPCCore swap (x5-heal-backoff-no-swap).
         /// </summary>
         [HarmonyPatch]
         public static class Patch_NoSwapWhileUsing
@@ -703,6 +705,13 @@ namespace SurvivorCommunity
                         ScRetreat.Update(e);
                         // round tm2: a kept swing-block finding is dropped the moment its target attacks her up close
                         ScArms.ReachTick(e);
+                        // round k2b: while she backs off to heal (ScHealBackOff) no weapon swap - not SC's MeleeFirst / GunFirst,
+                        // not 0-XNPCCore's 3 m swap: the medical item takes her hand next, and a swap would only cost time
+                        if (ScHealBackOff.Walking(e))
+                        {
+                            Count("x5-heal-backoff-no-swap");
+                            return false;
+                        }
                         // round tm1 (I2): a melee-led member holding her gun takes her melee weapon for a target in reach
                         if (ScArms.MeleeFirst(__instance, e)) return false;
                         // round n08: a survivor on her melee weapon takes her gun for a target beyond 5 m, or when overwhelmed
