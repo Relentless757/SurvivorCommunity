@@ -275,6 +275,19 @@ who [id|name] | greet [id|name] | chatter [id|name] | taunt <event> [id|name] | 
 
 - `sc raiders [r]` · `sc weapons` · `sc spawn hostile …` (see above)
 
+## Magazines on the draw *(round lr1)*
+
+- **`sc xnpc <id|name>`** — the line "put away (round lr1): magIGPSCARHDrum 60 for the IZYgunT4BattleRifleSCARH (bag)":
+  the magazine Locked & Loaded gave back when that gun was put away, marked to go back in, seated, when the gun comes out
+  again ("none" when nothing waits). `sc arms <id|name> melee|ranged` swaps her by hand.
+- **`sc xnpc`** — the line "magazines put away and seated again on the draw (round lr1): on - ..." with the counters
+  `mag-putaway-marked` (a magazine given back on a swap was marked), `mag-putaway-empty` (it was empty: nothing to put
+  back, the draw reloads), `mag-putaway-untracked` (in neither her bag nor her toolbelt), `mag-reseat-on-draw` (put back
+  in, no reload), `mag-reseat-missing` (gone from her stores by the draw), `mag-reseat-skip-loaded` (the gun came out
+  loaded already), `mag-reseat-skip-table` (0-XNPCCore still banks rounds for that gun), `mag-reseat-skip-saved` (the
+  gun saved with her body goes back in instead), `mag-reseat-empty` (emptied since), `mag-reseat-not-its-gun` and
+  `mag-reseat-failed` (the seat threw: the magazine went back to her bag and the seat is off until the next game).
+
 ---
 
 ## Not SC, but useful alongside it

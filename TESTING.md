@@ -37,6 +37,100 @@ Steps not yet tested in game. Tick a step, or remove it, once it has been confir
 - `sc give mats 10` / `sc give fuel 5` fill the stockpile for fees and upkeep.
 - `settime` also works, but bare `settime day` resets the world to day 1.
 
+## Round lr1 (2026-11-15): guns come out loaded
+
+Why: members had to reload their gun every time they brought it out, and it killed Cara. Every swap that puts a gun with a
+seated magazine away (to melee, to a bandage, 0-XNPCCore's 3 m swap) makes Locked & Loaded give that magazine back to her
+bag and empty the gun ("[REMags] weapon swap: Cara (4118)'s IZYgunT4BattleRifleSCARH gave back its magIGPSCARHDrum holding
+60"), and every draw built the gun fresh from its name, empty. So 0-XNPCCore asked for a full reload on every draw - and
+cornered, that reload is round k1's R2 "is cornered and reloading - melee until she has room", which cancels it. Cara went
+gun, reload, melee, gun, reload, melee until she died.
+
+What it does now: the magazine L&L gives back when a gun is put away is marked with that gun, and when the gun comes out
+again empty, that very magazine goes back in, seated, with no reload animation - so no R2 either. The rounds move from the
+bag into the gun; nothing is copied or lost. Its partial count comes with it. An empty magazine is not marked: the draw
+reloads as before. Not touched: a gun that comes out holding rounds already, and one 0-XNPCCore still banks rounds for.
+Every SC body (members, prospects, stand-ins, raiders), every swap: SC's own (gun first, melee first, R2, overwhelmed, `sc
+arms`), 0-XNPCCore's (its 3 m swap and restore, the dry failover, the world-entry re-arm) and the medic's hand.
+
+Still a reload (genuine, so R2 still applies when she is cornered): a gun drawn for the first time with no magazine ever
+seated (just handed to her, or a new body), a gun put away with an empty magazine, and a magazine moved out of her bag and
+toolbelt before the draw.
+
+Setup: the new DLL only (no XML). `DebugLogging` true for the verbose lines. `sc arms <name> melee` / `sc arms <name>
+ranged` swaps her by hand. Counters: `sc xnpc` ("magazines put away and seated again on the draw (round lr1): on - mag-...").
+Her magazines: `sc xnpc <name>`'s `ammo:` line ("magazine N; Locked & Loaded: K magazine(s) holding R with the gun's own")
+and the new `put away (round lr1):` line.
+
+**At load**
+
+- [ ] No warning "mags: the seat on the draw (round lr1) is OFF", no "Inventory.SetStackAt(int, ItemStack) not found" and
+      no MISSING PATCH for `Inventory::SetStackAt`.
+- [ ] `sc xnpc`: "magazines put away and seated again on the draw (round lr1): on - none yet".
+
+**1. Melee and back: no reload, the round count kept**
+
+- [ ] A member holding a loaded magazine gun (Locked & Loaded magazines), no enemy near. Note `sc xnpc <name>`'s `ammo:`
+      line: magazine N, K magazine(s) holding R.
+- [ ] `sc arms <name> melee`: "[REMags] weapon swap: <name> (id)'s <gun> gave back its <magazine> holding N". `sc xnpc
+      <name>`: "put away (round lr1): <magazine> N for the <gun> (bag)". `mag-putaway-marked` +1.
+- [ ] `sc arms <name> ranged`: verbose "<name> (id N) draws the <gun> with the <magazine> she put it away with, N round(s),
+      seated - no reload (round lr1; a swap)". No reload animation, no "[REMags] <gun>: loaded ..." line. `sc xnpc <name>`:
+      magazine N, still K magazine(s) holding R, "put away (round lr1): none". `mag-reseat-on-draw` +1.
+- [ ] The magazine shows on the gun (the drum on the SCAR) in third person.
+
+**2. In a fight: the draw does not trip R2**
+
+- [ ] A melee-led member (a matched fight) with a loaded gun: melee first puts the gun away; spawn more zombies until she is
+      overwhelmed. "<name> (id N) takes the <gun> (gun first: overwhelmed)" is followed by the verbose seat "(round lr1;
+      0-XNPCCore's equip, sc-gun-first)" and she fires. No "is cornered and reloading" in the next seconds.
+- [ ] 0-XNPCCore's own 3 m swap to melee and its return to the gun: the same seat line, with "restore-held" (or another
+      0-XNPCCore site) as the route. No reload on the return.
+- [ ] A bandage in a fight (round k2b): "weapon swap: ... gave back ..." as the bandage goes into her hand, then the seat line
+      ("a swap") as the gun comes back - no reload, no R2. (Cara's death was exactly this.)
+- [ ] The overwhelmed gun hold / R2 as such are unchanged: when her magazine really runs out while she is cornered, she
+      still swaps to melee until she has room ("is cornered and reloading ...").
+
+**3. A part-used magazine keeps its count**
+
+- [ ] Let her shoot part of a magazine (for example 30 down to 17; `sc xnpc <name>`: magazine 17). `sc arms <name> melee`,
+      then `ranged`: magazine 17 - not 30, not 0, and no reload.
+- [ ] Twin magazines (a taped pair): both halves come back (`(+N)` in the seat line).
+
+**4. An empty magazine still reloads**
+
+- [ ] Let her fire the gun dry with spare magazines in her bag (she reloads on her own), or swap her when magazine 0:
+      `mag-putaway-empty` +1 on the swap, nothing in "put away"; on the draw she reloads as before ("[REMags] <gun>:
+      loaded <magazine> with ...").
+
+**5. Ten swaps: no duplication, no loss**
+
+- [ ] No shooting in between. Before: K magazine(s) holding R in `sc xnpc <name>`, and the magazines in her bag (the member
+      inventory panel). Ten times `sc arms <name> melee` / `sc arms <name> ranged` (or ten swaps in a fight where she does not
+      fire). After: the same K and R, the same magazines, no new magazine in her bag and none on the ground.
+- [ ] `sc xnpc`: `mag-putaway-marked=10 mag-reseat-on-draw=10`, no `mag-reseat-missing`, no `mag-reseat-failed`. No
+      "[REMags] armed" or "restored" lines for her.
+
+**6. Save and reload**
+
+- [ ] Put the gun away (`sc arms <name> melee`), save, quit to the menu and load. `sc xnpc <name>` still shows "put away
+      (round lr1): <magazine> N for the <gun> (bag)"; `sc arms <name> ranged`: the seat line, no reload. K and R unchanged.
+- [ ] Save with the gun in her hand: after the load, magazine N (round n07's X13 keeps it), K and R unchanged, no reload at
+      spawn. If 0-XNPCCore's world-entry re-arm swapped her hand, a `mag-putaway-marked` / `mag-reseat-on-draw` pair shows
+      it; never a second magazine in her bag.
+
+**7. A magazine taken away**
+
+- [ ] `sc arms <name> melee`, then take the marked magazine out of her bag with the member inventory panel. `sc arms <name>
+      ranged`: verbose "<name> (id N) draws the <gun> empty: the magazine she put it away with (N round(s)) is in neither her
+      bag nor her toolbelt any more - Locked & Loaded's reload picks one (round lr1)"; `mag-reseat-missing` +1; she reloads
+      from another magazine if she has one. The magazine you took keeps its rounds (its mark is harmless).
+
+**8. Untouched**
+
+- [ ] A member with a bow or crossbow, or a gun Locked & Loaded has no magazine for: swaps as before (no `mag-*` counters).
+- [ ] Without Locked & Loaded: no `mag-*` counters, the `sc xnpc` line says "off (the magazine adapter is off ...)".
+
 ## Round k3+k4 (2026-11-15): one posture per member; members investigate intruders
 
 Why: in the session where Gina and Paul died, three rules owned the hand at once (tm2's gun first, 0-XNPCCore's 3 m swap,

@@ -20,7 +20,9 @@ namespace SurvivorCommunity
     /// NPC uses magazines for this gun", the same test its reload asks). Optional: MagazineRegistry.AllForGun with
     /// MagazineDef.Name / Twin, and NpcMagazines.TierOf with Tier.Magazines - only the issue of empty magazines to a member
     /// who has none and the move of handed-over magazines from the window to the bag (ScAmmo) need them, and both stay
-    /// off without them. Bound once per game (Reset on GameStarting),
+    /// off without them. Round lr1 (optional, all or nothing): MagazineRegistry.ForMagazine, MagazineDef.Capacity and
+    /// Magazines.SeatedDefOf / GunOtherRounds / SetGunOtherRounds / SetMagazineSeated / SetSeatedMagazine / OtherRoundsIn -
+    /// the seat on the draw (ReseatOnDraw, X25), off with a warning without them. Bound once per game (Reset on GameStarting),
     /// lazily or from GameStartDone, with one log line either way. Anything missing, or any call that throws, turns the
     /// adapter off for the rest of the game with one error line, and every caller falls back to loose rounds: an NPC
     /// with magazines then keeps them (L&amp;L still reloads it from them), it just stops getting more. Host only, like L&amp;L's
@@ -40,6 +42,11 @@ namespace SurvivorCommunity
         private static string state = "not checked yet";
         private static MethodInfo arm, refill, rounds, record, restore, carries, allForGun, tierOf, seated, returnSeated;
         private static FieldInfo defName, defTwin, tierMagazines;
+        /// <summary>Round lr1 (optional): L&amp;L's public Magazines / MagazineRegistry methods the seat on the draw is made of.</summary>
+        private static MethodInfo forMagazine, seatedDefOf, gunOther, setGunOther, setSeated, setSeatedName, otherIn;
+        private static FieldInfo defCapacity;
+        /// <summary>Round lr1: why the seat on the draw is off ("" while it is on); set when it threw this game.</summary>
+        private static string reseatWhy = "not checked yet";
 
         public static void Reset()
         {
@@ -49,6 +56,11 @@ namespace SurvivorCommunity
             state = "not checked yet";
             arm = refill = rounds = record = restore = carries = allForGun = tierOf = seated = returnSeated = null;
             defName = defTwin = tierMagazines = null;
+            forMagazine = seatedDefOf = gunOther = setGunOther = setSeated = setSeatedName = otherIn = null;
+            defCapacity = null;
+            reseatWhy = "not checked yet";
+            putAwayNotes.Clear();
+            seating = false;
         }
 
         /// <summary>Is L&amp;L loaded and its NPC API bound (and has nothing thrown this game)?</summary>
@@ -92,6 +104,9 @@ namespace SurvivorCommunity
                     ScLog.Warn("mags: Locked & Loaded's " + MagazinesTypeName + ".HasMagazineSeated(ItemValue) was not found - "
                                + "the magazine duplication fix (X18) is OFF for a loaded gun: 0-XNPCCore keeps banking its rounds "
                                + "on a weapon swap, as it did before round n07. Check the Locked & Loaded version.");
+                if (reseatWhy.Length > 0)
+                    ScLog.Warn("mags: the seat on the draw (round lr1) is OFF - " + reseatWhy + ": a gun put away with a loaded magazine "
+                               + "comes out empty again and reloads on every draw. Check the Locked & Loaded version.");
                 ScLog.Out("NPC magazines: Locked & Loaded's NPC API bound - a survivor's or raider's gun that takes magazines gets its tier's"
                           + " loaded magazines instead of loose rounds" + (allForGun == null || defName == null || defTwin == null
                               ? " (MagazineRegistry.AllForGun not bound: a member without magazines is not issued any)" : ""));
@@ -143,6 +158,28 @@ namespace SurvivorCommunity
             // seated magazine ("take the magazine out first") rather than lose the magazine item.
             MethodInfo rs = AccessTools.Method(t, "ReturnSeated", new[] { typeof(EntityAlive), typeof(ItemValue), typeof(string) });
             returnSeated = rs != null && rs.IsStatic && rs.ReturnType == typeof(bool) ? rs : null;
+            // round lr1 (optional, all or nothing): the seat on the draw. L&L's NPC API has no "seat this magazine now" call, so
+            // it is made of the public methods its own reload and ReturnSeated use - see ReseatOnDraw
+            var seat = new List<string>();
+            if (def == null || defName == null) seat.Add("MagazineRegistry.AllForGun / MagazineDef.Name");
+            else
+            {
+                forMagazine = Bind(reg, "ForMagazine", def, new[] { typeof(string) }, seat);
+                defCapacity = Field(def, "Capacity", typeof(int));
+                if (defCapacity == null) seat.Add("MagazineDef.Capacity");
+                if (mag == null) seat.Add(MagazinesTypeName);
+                else
+                {
+                    seatedDefOf = Bind(mag, "SeatedDefOf", def, new[] { typeof(ItemValue) }, seat);
+                    gunOther = Bind(mag, "GunOtherRounds", typeof(int), new[] { typeof(ItemValue) }, seat);
+                    setGunOther = Bind(mag, "SetGunOtherRounds", typeof(void), new[] { typeof(ItemValue), typeof(int) }, seat);
+                    setSeated = Bind(mag, "SetMagazineSeated", typeof(void), new[] { typeof(ItemValue), typeof(bool) }, seat);
+                    setSeatedName = Bind(mag, "SetSeatedMagazine", typeof(void), new[] { typeof(ItemValue), def }, seat);
+                    otherIn = Bind(mag, "OtherRoundsIn", typeof(int), new[] { typeof(ItemStack), def }, seat);
+                }
+            }
+            if (seated == null) seat.Add("Magazines.HasMagazineSeated");
+            reseatWhy = seat.Count > 0 ? "missing or changed: " + string.Join(", ", seat.ToArray()) : "";
             why = "";
             return true;
         }
@@ -412,6 +449,403 @@ namespace SurvivorCommunity
             var sb = new StringBuilder();
             sb.Append(Entries(rec).Count).Append(" magazine(s) holding ").Append(n);
             return sb.ToString();
+        }
+
+        // ------------------------------------------------------------------ the magazine put away, seated again on the draw (round lr1) ----
+        //
+        // The user (2026-11-15): "members have to reload their gun every time they bring it out. It killed a member called
+        // Cara." Every swap that writes over a gun with a seated magazine - SCore's UpdateWeapon (0-XNPCCore's equips, ScArms'
+        // GunFirst / MeleeFirst / R2 / overwhelmed swaps, ScLoadout.Arm), ScMedic's hand - goes through Inventory.SetStackAt,
+        // where Locked & Loaded's NpcGunPatches gives the magazine back to the bag (NpcMagazines.ReturnSeated) and empties the
+        // gun; with X18 0-XNPCCore banks nothing for it, and every draw builds the gun fresh from its name. So the gun came out
+        // empty and 0-XNPCCore's preload asked for a full reload on every draw - several seconds, and with a target within 3 m
+        // and no room that is ScArms' R2 "cornered and reloading", a swap to melee that cancels the reload, round after round.
+        //
+        // X25 (Patches_Xnpc) marks the magazine L&L gave back with the gun's name, and on the draw ReseatOnDraw puts exactly that
+        // magazine back in. L&L's NPC API has no "seat this magazine now" call (LnL_NPC_Magazines_API.md: Arm, Refill, Rounds,
+        // Record, Restore), so the seat is made of the public Magazines / MagazineRegistry methods its own reload uses.
+
+        /// <summary>Locked &amp; Loaded's Harmony id (its MagazinesModApi): X25 reads the gun before L&amp;L's swap patch empties it.</summary>
+        public const string HarmonyId = "lockedandloaded";
+
+        /// <summary>
+        /// Round lr1: the mark on a magazine Locked &amp; Loaded gave back when its gun was put away - the gun's item name, as
+        /// ItemValue metadata. It travels with the magazine (moved within her stores, topped up by ScAmmo's Refill, saved with
+        /// the bag) until that gun is drawn again and ReseatOnDraw puts the magazine back in. L&amp;L's magazines are
+        /// Stacknumber 1, so the mark never splits or blocks a stack; a magazine L&amp;L's own reload seats stops being an
+        /// item and comes back from GiveMagazine as a new, unmarked one.
+        /// </summary>
+        public const string PutAwayKey = "scMagPutAwayFrom";
+
+        /// <summary>
+        /// Round lr1 (X25's prefix): a gun with a seated magazine about to be written over, read before Locked &amp; Loaded's
+        /// swap patch gives the magazine back and empties this very ItemValue.
+        /// </summary>
+        public sealed class PutAway
+        {
+            public ItemValue Gun;
+            public string GunName;
+            public object Def;
+            public string Magazine;
+            public int Rounds, Other, Ammo;
+        }
+
+        /// <summary>
+        /// Round lr1: (entity, gun type) -&gt; the rounds of the magazine marked when the gun was put away this session - what
+        /// tells "the magazine is missing" from "nothing was put away" on the draw. Main thread; cleared per game.
+        /// </summary>
+        private static readonly Dictionary<long, int> putAwayNotes = new Dictionary<long, int>();
+
+        /// <summary>Round lr1: SC's own slot writes while it seats a magazine (X25 stands aside). Main thread.</summary>
+        private static bool seating;
+
+        internal static bool Seating { get { return seating; } }
+
+        private static long NoteKey(int entityId, int gunType) { return ((long)entityId << 32) | (uint)gunType; }
+
+        /// <summary>Round lr1: can a gun drawn empty get its put-away magazine back (the adapter on, the seat bound, nothing thrown)?</summary>
+        public static bool CanReseat { get { return Active && reseatWhy.Length == 0; } }
+
+        /// <summary>Round lr1, for sc xnpc: "on", or why the seat on the draw is off.</summary>
+        public static string ReseatState
+        {
+            get
+            {
+                if (!Active) return "off (the magazine adapter is " + State + ")";
+                return reseatWhy.Length == 0 ? "on" : "OFF - " + reseatWhy;
+            }
+        }
+
+        /// <summary>
+        /// Round lr1 (X25's prefix, ahead of Locked &amp; Loaded's swap patch): the seated magazine of a gun about to be written
+        /// over - its kind, rounds, a twin's waiting side and ammo - or null when it has none. Only a SEATED gun's magazine is
+        /// given back by L&amp;L; bare rounds are 0-XNPCCore's or X12's (the n07 rule), and nothing here touches them.
+        /// </summary>
+        internal static PutAway Snapshot(ItemValue gun)
+        {
+            if (seating || gun == null || gun.IsEmpty() || gun.Metadata == null || gun.ItemClass == null || !CanReseat) return null;
+            if (!Seated(gun)) return null;
+            object def = Call(seatedDefOf, gun);
+            string name = def != null ? defName.GetValue(def) as string : null;
+            if (string.IsNullOrEmpty(name)) return null;
+            object other = Call(gunOther, gun);
+            return new PutAway
+            {
+                Gun = gun,
+                GunName = gun.ItemClass.GetItemName(),
+                Def = def,
+                Magazine = name,
+                Rounds = Math.Max(0, gun.Meta),
+                Other = other is int ? Math.Max(0, (int)other) : 0,
+                Ammo = gun.SelectedAmmoTypeIndex,
+            };
+        }
+
+        /// <summary>
+        /// Round lr1 (X25's postfix): did Locked &amp; Loaded give the snapshot's magazine back? Its ReturnSeated empties the gun
+        /// it puts away in place (Meta 0, no seated flag); a gun it kept - the same gun written back loaded - still has both.
+        /// Then that magazine, found where L&amp;L's GiveMagazine puts it (her bag, else her toolbelt), is marked with the gun's
+        /// name - and only that one: an older mark for the same gun comes off first. An empty magazine is not marked (the draw
+        /// reloads, as it should).
+        /// </summary>
+        internal static void AfterPutAway(EntityAlive e, PutAway p)
+        {
+            if (e == null || p == null || p.Gun == null || !CanReseat) return;
+            if (p.Gun.Meta > 0 || Seated(p.Gun)) return;
+            long key = NoteKey(e.entityId, p.Gun.type);
+            putAwayNotes.Remove(key);
+            ClearMarks(e, p.GunName);
+            if (p.Rounds <= 0) { Patches_Xnpc.Count("mag-putaway-empty"); return; }
+            bool inBag;
+            int at;
+            ItemStack[] slots = FindReturned(e, p, out at, out inBag);
+            if (slots == null)
+            {
+                Patches_Xnpc.Count("mag-putaway-untracked");
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") put the " + p.GunName + " away: Locked & Loaded gave back its "
+                              + p.Magazine + " holding " + p.Rounds + ", but it is in neither her bag nor her toolbelt (dropped at her feet?) - "
+                              + "the draw reloads (round lr1)");
+                return;
+            }
+            Mark(slots[at], p.GunName);
+            putAwayNotes[key] = p.Rounds;
+            Patches_Xnpc.Count("mag-putaway-marked");
+        }
+
+        /// <summary>
+        /// Round lr1: the gun in her hand slot was just drawn EMPTY - no rounds, no seated magazine - and the magazine it was put
+        /// away with is marked in her stores: that magazine goes back in, seated, now. 0-XNPCCore's preload asks for a reload
+        /// only for a gun with Meta 0, so there is no reload animation - and no "cornered and reloading" (ScArms' R2) either.
+        ///
+        /// The magazine is TAKEN out of her stores and its rounds go into the gun with Locked &amp; Loaded's own bookkeeping (the
+        /// seated flag, which magazine, a twin's waiting side), as L&amp;L's reload writes them: the mirror image of its
+        /// ReturnSeated. One magazine, one owner - the gun is flagged seated, so X18 keeps 0-XNPCCore from banking its rounds
+        /// and L&amp;L gives the magazine back again on the next swap - and no round made or lost.
+        ///
+        /// Stands aside, and counts why, for a gun that came out holding rounds or a magazine already (0-XNPCCore's table load,
+        /// a saved gun, the same gun written back), while 0-XNPCCore still banks rounds for that gun (its magazine table: the
+        /// stale-table rule of n07/n08 - those rounds are 0-XNPCCore's to load), and while the gun saved with this body is about
+        /// to be put back (X13, ScAmmo.RestoreHeldGun: a magazine seated here would turn the saved one into loose rounds).
+        /// route: who drew it, for the log (null: a swap outside 0-XNPCCore's equip). True when it seated one. Host, main thread.
+        /// </summary>
+        internal static bool ReseatOnDraw(EntityAlive e, string route)
+        {
+            if (seating || e == null || e.inventory == null || e.IsDead() || !CanReseat) return false;
+            int idx = e.inventory.holdingItemIdx;
+            if (idx < 0 || idx >= e.inventory.Length) return false;
+            ItemStack held = e.inventory.GetItem(idx);
+            ItemValue gun = held != null ? held.itemValue : null;
+            if (gun == null || gun.IsEmpty() || gun.ItemClass == null || ScAmmo.RangedAction(gun.ItemClass) == null) return false;
+            long key = NoteKey(e.entityId, gun.type);
+            int noted;
+            bool expected = putAwayNotes.TryGetValue(key, out noted);
+            if (gun.Meta > 0 || Seated(gun) || IntOf(Call(gunOther, gun)) > 0)
+            {
+                if (expected) { putAwayNotes.Remove(key); Patches_Xnpc.Count("mag-reseat-skip-loaded"); }
+                return false;
+            }
+            string gunName = gun.ItemClass.GetItemName();
+            bool inBag;
+            int at;
+            ItemStack[] slots = FindMarked(e, gunName, out at, out inBag);
+            if (slots == null)
+            {
+                if (!expected) return false;
+                putAwayNotes.Remove(key);
+                Patches_Xnpc.Count("mag-reseat-missing");
+                ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") draws the " + gunName + " empty: the magazine she put it away with ("
+                              + noted + " round(s)) is in neither her bag nor her toolbelt any more - Locked & Loaded's reload picks one (round lr1)");
+                return false;
+            }
+            putAwayNotes.Remove(key);
+            if (Patches_Xnpc.HasMagTable(e, gun.type)) { Patches_Xnpc.Count("mag-reseat-skip-table"); return false; }
+            ItemValue savedGun;
+            string savedUse;
+            if (ScAmmo.SavedHand(e.entityId, out savedGun, out savedUse) && savedGun != null) { Patches_Xnpc.Count("mag-reseat-skip-saved"); return false; }
+            ItemStack mag = slots[at];
+            string magName = mag.itemValue.ItemClass != null ? mag.itemValue.ItemClass.GetItemName() : null;
+            object def = magName != null ? Call(forMagazine, magName) : null;
+            if (def == null || !GunTakes(gunName, def))
+            {
+                Unmark(mag);
+                Patches_Xnpc.Count("mag-reseat-not-its-gun");
+                return false;
+            }
+            int rounds = Math.Max(0, mag.itemValue.Meta);
+            if (rounds <= 0)
+            {
+                Unmark(mag);                      // emptied since (unloaded by hand): the draw reloads, as for any empty magazine
+                Patches_Xnpc.Count("mag-reseat-empty");
+                return false;
+            }
+            int other = IntOf(Call(otherIn, mag, def));
+            if (!CanReseat) return false;         // a call above threw: the adapter is off
+            return Seat(e, gun, slots, at, inBag, def, magName, rounds, other, route);
+        }
+
+        /// <summary>
+        /// Round lr1: moves the magazine in slots[at] into the gun - out of the store first (3.4: emptying a slot clears its own
+        /// ItemValue in place, so a copy is taken before), then the gun's rounds, ammo, waiting side, which magazine and the
+        /// seated flag, then one toolbelt change event for the silent metadata (as L&amp;L's reload ends). A throw puts the gun
+        /// back to empty and unflagged and the magazine back into her stores - never both, never neither - and turns the seat
+        /// off for the rest of the game (one error line); the rest of the adapter stays on.
+        /// </summary>
+        private static bool Seat(EntityAlive e, ItemValue gun, ItemStack[] slots, int at, bool inBag, object def, string magName, int rounds, int other, string route)
+        {
+            ItemStack copy = slots[at].Clone();
+            byte ammo = copy.itemValue.SelectedAmmoTypeIndex;
+            bool taken = false;
+            seating = true;
+            try
+            {
+                if (inBag) e.bag.SetSlot(at, ItemStack.Empty);
+                else e.inventory.SetStackAt(at, ItemStack.Empty);
+                taken = true;
+                gun.Meta = rounds;
+                gun.SelectedAmmoTypeIndex = ammo;
+                InvokeSeat(setGunOther, gun, other);
+                InvokeSeat(setSeatedName, gun, def);
+                InvokeSeat(setSeated, gun, true);
+                e.inventory.CallOnToolbeltChangedInternal();
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    gun.Meta = 0;
+                    gun.RemoveMetaData(SeatedKey);
+                    InvokeSeat(setGunOther, gun, 0);
+                }
+                catch (Exception) { }
+                if (taken)
+                {
+                    copy.itemValue.RemoveMetaData(PutAwayKey);
+                    GiveBack(e, copy);
+                }
+                reseatWhy = "seating a magazine threw " + ex.GetType().Name + ": " + ex.Message;
+                Patches_Xnpc.Count("mag-reseat-failed");
+                ScLog.Err("mags: seating " + ScCommunity.DisplayName(e) + "'s " + magName + " in her " + gun.ItemClass.GetItemName() + " threw - "
+                          + (taken ? "the magazine went back to her bag (or toolbelt, or her feet)" : "the magazine never left her stores")
+                          + "; the seat on the draw is off for the rest of this game");
+                ScLog.Once("mags-reseat", ex);
+                return false;
+            }
+            finally
+            {
+                seating = false;
+            }
+            Patches_Xnpc.Count("mag-reseat-on-draw");
+            ScLog.Verbose(ScCommunity.DisplayName(e) + " (id " + e.entityId + ") draws the " + gun.ItemClass.GetItemName() + " with the " + magName
+                          + " she put it away with, " + rounds + (other > 0 ? " (+" + other + ")" : "") + " round(s), seated - no reload (round lr1; "
+                          + (route ?? "a swap") + ")");
+            return true;
+        }
+
+        /// <summary>Round lr1: a bound seat method; its own exception is thrown on, so Seat can put everything back.</summary>
+        private static object InvokeSeat(MethodInfo m, params object[] args)
+        {
+            try { return m.Invoke(null, args); }
+            catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
+        }
+
+        /// <summary>Round lr1: a magazine Seat could not seat, back where L&amp;L's GiveMagazine would put it: her bag, her toolbelt, her feet.</summary>
+        private static void GiveBack(EntityAlive e, ItemStack mag)
+        {
+            try
+            {
+                if (e.bag != null && e.bag.AddItem(mag)) return;
+                if (e.inventory != null && e.inventory.AddItem(mag)) return;
+                GameManager.Instance.ItemDropServer(mag, e.GetPosition(), UnityEngine.Vector3.zero, -1, 60f);
+            }
+            catch (Exception ex) { ScLog.Once("mags-reseat-giveback", ex); }
+        }
+
+        private static int IntOf(object o) { return o is int ? Math.Max(0, (int)o) : 0; }
+
+        /// <summary>Round lr1: does the gun take this magazine kind (MagazineRegistry.AllForGun)?</summary>
+        private static bool GunTakes(string gunName, object def)
+        {
+            IList defs = Call(allForGun, gunName) as IList;
+            return defs != null && defs.Contains(def);
+        }
+
+        /// <summary>Round lr1: the store slots SC searches, as L&amp;L's GiveMagazine fills them - her bag, then her toolbelt (3.4 grids).</summary>
+        private static ItemStack[] Store(EntityAlive e, bool bag)
+        {
+            if (bag) return e.bag != null && e.bag.ItemGrid != null ? e.bag.ItemGrid.items : null;
+            return e.inventory != null && e.inventory.ItemGrid != null ? e.inventory.ItemGrid.items : null;
+        }
+
+        private static bool IsItem(ItemStack s, string name)
+        {
+            return s != null && !s.IsEmpty() && s.itemValue != null && s.itemValue.ItemClass != null
+                   && string.Equals(s.itemValue.ItemClass.GetItemName(), name, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Round lr1: the gun name a magazine is marked with (PutAwayKey), or null.</summary>
+        private static string MarkOf(ItemValue iv)
+        {
+            string v;
+            return iv != null && iv.Metadata != null && iv.TryGetMetadata(PutAwayKey, out v) && !string.IsNullOrEmpty(v) ? v : null;
+        }
+
+        private static void Mark(ItemStack s, string gunName)
+        {
+            s.itemValue.SetMetadata(PutAwayKey, gunName);
+            s.OnValueChanged();                   // 3.4: SetMetadata is silent; the store's change event carries it to its save and sync
+        }
+
+        private static void Unmark(ItemStack s)
+        {
+            if (s == null || s.itemValue == null || !s.itemValue.RemoveMetaData(PutAwayKey)) return;
+            if (s.itemValue.Metadata != null && s.itemValue.Metadata.Count == 0) s.itemValue.Metadata = null;   // compares as unmarked again
+            s.OnValueChanged();
+        }
+
+        /// <summary>Round lr1: takes the mark for this gun off every magazine in her stores (only the newest put-away one carries it).</summary>
+        private static void ClearMarks(EntityAlive e, string gunName)
+        {
+            for (int k = 0; k < 2; k++)
+            {
+                ItemStack[] slots = Store(e, k == 0);
+                if (slots == null) continue;
+                for (int i = 0; i < slots.Length; i++)
+                    if (slots[i] != null && string.Equals(MarkOf(slots[i].itemValue), gunName, StringComparison.OrdinalIgnoreCase)) Unmark(slots[i]);
+            }
+        }
+
+        /// <summary>
+        /// Round lr1: the magazine L&amp;L's GiveMagazine has just put in her bag (else her toolbelt) for the snapshot: that kind,
+        /// unmarked, holding exactly what the gun held (clamped to its capacity as GiveMagazine clamps it) with the same waiting
+        /// side, the same ammo first. Identical magazines are interchangeable, so any of them is the one put away.
+        /// </summary>
+        private static ItemStack[] FindReturned(EntityAlive e, PutAway p, out int at, out bool inBag)
+        {
+            int cap = defCapacity != null && p.Def != null ? (int)defCapacity.GetValue(p.Def) : 0;
+            int rounds = cap > 0 ? Math.Min(p.Rounds, cap) : p.Rounds;
+            int other = cap > 0 ? Math.Min(p.Other, cap) : p.Other;
+            ItemStack[] anyAmmo = null;
+            int anyAt = -1;
+            bool anyInBag = false;
+            for (int k = 0; k < 2; k++)
+            {
+                ItemStack[] slots = Store(e, k == 0);
+                if (slots == null) continue;
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    ItemStack s = slots[i];
+                    if (!IsItem(s, p.Magazine) || MarkOf(s.itemValue) != null || s.itemValue.Meta != rounds) continue;
+                    if (IntOf(Call(otherIn, s, p.Def)) != other) continue;
+                    if (s.itemValue.SelectedAmmoTypeIndex == p.Ammo) { at = i; inBag = k == 0; return slots; }
+                    if (anyAmmo == null) { anyAmmo = slots; anyAt = i; anyInBag = k == 0; }
+                }
+            }
+            at = anyAt;
+            inBag = anyInBag;
+            return anyAmmo;
+        }
+
+        /// <summary>Round lr1: the magazine in her bag (else her toolbelt) marked as put away from this gun, or null.</summary>
+        private static ItemStack[] FindMarked(EntityAlive e, string gunName, out int at, out bool inBag)
+        {
+            for (int k = 0; k < 2; k++)
+            {
+                ItemStack[] slots = Store(e, k == 0);
+                if (slots == null) continue;
+                for (int i = 0; i < slots.Length; i++)
+                    if (slots[i] != null && !slots[i].IsEmpty() && string.Equals(MarkOf(slots[i].itemValue), gunName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        at = i;
+                        inBag = k == 0;
+                        return slots;
+                    }
+            }
+            at = -1;
+            inBag = false;
+            return null;
+        }
+
+        /// <summary>
+        /// Round lr1, for sc xnpc &lt;name&gt;: the magazines in her stores marked as put away ("magIGPSCARHDrum 60 for the
+        /// IZYgunT4BattleRifleSCARH (bag)"), or "none".
+        /// </summary>
+        public static string DescribePutAway(EntityAlive e)
+        {
+            if (e == null) return "none";
+            var parts = new List<string>();
+            for (int k = 0; k < 2; k++)
+            {
+                ItemStack[] slots = Store(e, k == 0);
+                if (slots == null) continue;
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    ItemStack s = slots[i];
+                    string gun = s != null && !s.IsEmpty() ? MarkOf(s.itemValue) : null;
+                    if (gun == null || s.itemValue.ItemClass == null) continue;
+                    parts.Add(s.itemValue.ItemClass.GetItemName() + " " + Math.Max(0, s.itemValue.Meta) + " for the " + gun + (k == 0 ? " (bag)" : " (toolbelt)"));
+                }
+            }
+            return parts.Count > 0 ? string.Join(", ", parts.ToArray()) : "none";
         }
     }
 }

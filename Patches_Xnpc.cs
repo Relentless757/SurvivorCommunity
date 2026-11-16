@@ -63,6 +63,10 @@ namespace SurvivorCommunity
     ///                                                                  a "posted" bandit (its Guard is a walk point)
     ///   X24 UAI.UAIConsiderationSdcsLineOfFire.GetScore       postfix  (3.4 build, 0-XNPCCore 3.4.03) the Shooting-star engage
     ///                                                                  cap on 0-XNPCCore's new shot gate (round sh)
+    ///   X25 Inventory.SetStackAt                              prefix + postfix  (3.4 build, round lr1) the magazine Locked &amp;
+    ///                                                                  Loaded gives back when a gun is put away is marked, and
+    ///                                                                  goes back in, seated, when the gun is drawn (ScMags; X16's
+    ///                                                                  finalizer does it after an 0-XNPCCore equip)
     ///   (3.4 build) X7 also builds an adopted creator face and stands aside while the hand is holstered (D8)
     ///
     /// Every target is DECLARED on the type named (CLAUDE.md pattern #4: a base-class match would patch every player body),
@@ -1656,6 +1660,18 @@ namespace SurvivorCommunity
             public static void Finalizer(bool __state, Exception __exception, AvatarSDCSController __instance, string itemName, string site, bool __result)
             {
                 if (__state && xnpcEquipDepth > 0) xnpcEquipDepth--;
+                // round lr1 (X25): the gun this equip drew gets back the magazine it was put away with - here, after 0-XNPCCore's
+                // own load from its table (SdcsMagBareLoad), which X25 waited for; the outermost equip only, after a throw too
+                // (the hand slot may have been written)
+                if (__state && xnpcEquipDepth == 0)
+                {
+                    try
+                    {
+                        EntityAlive de = __instance != null ? __instance.entity : null;
+                        if (de != null && ScXnpc.IsBody(de) && ScCommunity.IsHost) ScMags.ReseatOnDraw(de, "0-XNPCCore's equip, " + site);
+                    }
+                    catch (Exception ex) { ScLog.Once("xnpc-reseat-equip", ex); }
+                }
                 if (__exception != null || !__result || string.IsNullOrEmpty(itemName)) return;
                 try
                 {
@@ -1777,6 +1793,104 @@ namespace SurvivorCommunity
                 if (entity.Buffs.HasCustomVar(ammo)) entity.Buffs.RemoveCustomVar(ammo);
             }
             catch (Exception ex) { ScLog.Once("xnpc-magtable-clear", ex); }
+        }
+
+        /// <summary>
+        /// Round lr1: does 0-XNPCCore hold banked rounds for this weapon type (its magazine table, SdcsMagRounds_&lt;type&gt; -
+        /// an entry of 0 counts: its next equip or hand draw writes it into the gun)? Unknown answers true, so the seat on the
+        /// draw stands aside rather than seat a magazine that table could then be written over.
+        /// </summary>
+        public static bool HasMagTable(EntityAlive entity, int weaponType)
+        {
+            if (entity == null || entity.Buffs == null) return false;
+            try { return entity.Buffs.HasCustomVar(NPCSdcsCharacters.Pure.GivenWeaponRules.TableRoundsCVar(weaponType)); }
+            catch (Exception ex)
+            {
+                ScLog.Once("xnpc-magtable-has", ex);
+                return true;
+            }
+        }
+
+        // ------------------------------------------------------------------ X25: a gun put away keeps its magazine (round lr1) ----
+
+        /// <summary>X25: vanilla 3.4's toolbelt write - SetItem in both forms, the indexer and a slot being cleared all end in it.</summary>
+        public static MethodBase SetStackAtTarget()
+        {
+            return AccessTools.DeclaredMethod(typeof(Inventory), "SetStackAt", new[] { typeof(int), typeof(ItemStack) });
+        }
+
+        /// <summary>
+        /// X25 (round lr1; the user, 2026-11-15: "members have to reload their gun every time they bring it out. It killed a
+        /// member called Cara"). Every weapon swap of SC's bodies writes the new item over the hand slot through this method:
+        /// SCore's UpdateWeapon (0-XNPCCore's own equips, ScArms' GunFirst / MeleeFirst / R2 / overwhelmed swaps, ScLoadout.Arm,
+        /// SCore's load re-equip) and ScMedic's hand. Locked &amp; Loaded's NpcGunPatches prefixes it too: for a gun with a
+        /// SEATED magazine it gives that magazine back to the bag and empties the gun in place (NpcMagazines.ReturnSeated), and
+        /// since X18 0-XNPCCore banks nothing for that gun - so every draw built the gun fresh from its name, EMPTY, and
+        /// 0-XNPCCore's preload asked for a full reload. Cara's log, 2026-11-15 20:51: "weapon swap: ... IZYgunT4BattleRifleSCARH
+        /// gave back its magIGPSCARHDrum holding 60" for a bandage, then on the draw "is cornered and reloading" (R2), melee,
+        /// the gun again, reloading again - she died 16 s later.
+        ///
+        /// The prefix runs AHEAD of Locked &amp; Loaded's (Priority.First, HarmonyBefore its id) and reads the gun's seated
+        /// magazine (ScMags.Snapshot); the postfix, if L&amp;L gave it back, marks that very magazine in her stores with the
+        /// gun's name (ScMags.AfterPutAway) - and when this write put a gun into her hand slot, empty, the magazine marked for it
+        /// goes back in, seated (ScMags.ReseatOnDraw). Inside one of 0-XNPCCore's equips the draw waits for X16's finalizer, after
+        /// 0-XNPCCore's own load from its magazine table. A slot being cleared is no swap (L&amp;L leaves it too). SC's bodies on
+        /// the host only; every other inventory (players, zombies, vehicles, XNPC's own NPCs) costs a type test.
+        /// </summary>
+        [HarmonyPatch]
+        public static class Patch_PutAwayMagazine
+        {
+            [HarmonyPrepare]
+            public static bool Prepare()
+            {
+                return BoundLoud(SetStackAtTarget, "Inventory.SetStackAt(int, ItemStack)",
+                                 "a member's gun comes out empty after every weapon swap and reloads (round lr1)");
+            }
+
+            [HarmonyTargetMethod]
+            public static MethodBase TargetMethod() { return SetStackAtTarget(); }
+
+            [HarmonyPrefix]
+            [HarmonyPriority(Priority.First)]
+            [HarmonyBefore(ScMags.HarmonyId)]
+            public static void Prefix(Inventory __instance, int _idx, ItemStack _stack, out ScMags.PutAway __state)
+            {
+                __state = null;
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (!(e is EntityAliveSDXV4) || e.isEntityRemote || ScMags.Seating) return;
+                    // a slot being cleared, or nothing new: L&L gives nothing back either
+                    if (_stack == null || _stack.count <= 0 || _stack.itemValue == null || _stack.itemValue.IsEmpty()) return;
+                    if (_idx < 0 || _idx >= __instance.Length || !ThreadManager.IsMainThread() || !ScXnpc.IsBody(e) || !ScCommunity.IsHost) return;
+                    ItemStack old = __instance.GetItem(_idx);
+                    ItemValue gun = old != null ? old.itemValue : null;
+                    if (gun == null || gun.IsEmpty() || ReferenceEquals(gun, _stack.itemValue)) return;
+                    __state = ScMags.Snapshot(gun);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-putaway-pre", ex);
+                }
+            }
+
+            [HarmonyPostfix]
+            public static void Postfix(Inventory __instance, int _idx, ScMags.PutAway __state)
+            {
+                try
+                {
+                    EntityAlive e = __instance != null ? __instance.entity : null;
+                    if (!(e is EntityAliveSDXV4) || e.isEntityRemote || ScMags.Seating) return;
+                    if (__state != null) ScMags.AfterPutAway(e, __state);
+                    // the draw: a write into her hand slot, outside 0-XNPCCore's equip (X16's finalizer does those)
+                    if (_idx != __instance.holdingItemIdx || InXnpcEquip || !ThreadManager.IsMainThread() || !ScXnpc.IsBody(e) || !ScCommunity.IsHost) return;
+                    ScMags.ReseatOnDraw(e, null);
+                }
+                catch (Exception ex)
+                {
+                    ScLog.Once("xnpc-putaway", ex);
+                }
+            }
         }
 
         // ------------------------------------------------------------------ X17: creator faces only on fresh bodies (3.4) ----

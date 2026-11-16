@@ -400,6 +400,8 @@ namespace SurvivorCommunity
             // 3.4 (0-XNPCCore 3.4): X15 no XNPC self-heal on our bodies, X16 X12 steps aside inside XNPC's own swaps
             Add(t, "AvatarSdcsNpcController::SdcsSelfHealScan", Patches_Xnpc.SelfHealScanTarget());
             Add(t, "AvatarSdcsNpcController::SdcsEquipByName", Patches_Xnpc.EquipByNameTarget());
+            // round lr1: X25 the magazine a gun is put away with goes back in, seated, when the gun is drawn
+            Add(t, "Inventory::SetStackAt", Patches_Xnpc.SetStackAtTarget());
             // 3.4 Stage 2: X17 creator faces only on fresh bodies, SC's way (D4); ScMedic and 0-XNPCCore's party medic (D2);
             // no sleeper touch in an enclave's POI (D4); SCore's companion-window Dismiss is a member's Go Home (D5)
             Add(t, "SdcsCustomLook::ApplyCharacter", Patches_Xnpc.ApplyCharacterTarget());

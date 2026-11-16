@@ -2443,6 +2443,9 @@ namespace SurvivorCommunity
             Output("[SC] " + ScDialogPager.Report());           // round 28 (X3): the talk page's pager
             Output("[SC] stuck rescue (round 29b): " + ScStuck.Counters());
             if (ScRegistry.Loaded) Output("[SC] ammo (D3): " + ScAmmo.Report());
+#if SC_V34
+            Output("[SC] magazines put away and seated again on the draw (round lr1): " + ScMags.ReseatState + " - " + Patches_Xnpc.ReportPrefix("mag-"));
+#endif
             Output("[SC] weapons: " + ScArms.Report());
             Output("[SC] team strength (round tm1): " + (ScConfig.TeamMelee ? "on" : "OFF (TeamMelee=false)") + "; " + ScTeam.Report());
             // round k4: the postures now and this session, and per member body her posture, hand changes and SC's swaps
@@ -2544,6 +2547,10 @@ namespace SurvivorCommunity
 #endif
             }
             sb.Append("\n  ammo: ").Append(XnpcAmmo(e, held));
+#if SC_V34
+            // round lr1: the magazine a gun was put away with, waiting in her stores to go back in on the draw
+            if (ScMags.Active) sb.Append("\n  put away (round lr1): ").Append(ScMags.DescribePutAway(e));
+#endif
             if (ScRegistry.Loaded) sb.Append("\n  resupply: ").Append(ScAmmo.Describe(e));
             sb.Append("\n  overwhelmed: ").Append(ScArms.Describe(e));
             sb.Append("\n  ").Append(ScTeam.Line(e));             // round tm1
